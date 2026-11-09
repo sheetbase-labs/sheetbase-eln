@@ -12,6 +12,7 @@ const meta = {
 } satisfies Meta<typeof Chip>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Set: Story = {

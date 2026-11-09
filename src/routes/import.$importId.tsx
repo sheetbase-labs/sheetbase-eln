@@ -17,9 +17,11 @@ export const Route = createFileRoute('/import/$importId')({
     parseImportSearch(search),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: ImportMapCheckPage,
@@ -29,6 +31,7 @@ function ImportMapCheckPage() {
   const { importId } = Route.useParams()
   const search = Route.useSearch()
   const navigate = useNavigate()
+
   return (
     <ImportMapCheckFlow
       key={importId}

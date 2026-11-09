@@ -24,6 +24,7 @@ const DESIGN_USER_IDS = {
 const PROCESS = '00000000-0000-4000-8000-000000000300'
 const PR01 = '00000000-0000-4000-8000-0000000003e0'
 const AMBR = '00000000-0000-4000-8000-0000000003e1'
+
 const INS = (n: number) =>
   `00000000-0000-4000-8000-0000000003${(0xa0 + n).toString(16)}`
 
@@ -244,16 +245,19 @@ export async function seedDesignInstruments(db: Db) {
       displayId: spec.displayId,
       position,
     }
+
     // TB-02 was first registered as "Turbidimeter 2" in another room; the
     // rename and the move below are the identity history the record page shows.
     const earlier =
       spec.id === INS(7)
         ? { name: 'Turbidimeter 2', location: 'Lab 1, bench 2' }
         : {}
+
     const existing = await db
       .select({ id: schema.instruments.id })
       .from(schema.instruments)
       .where(eq(schema.instruments.id, spec.id))
+
     if (existing.length) {
       await db
         .update(schema.instruments)
@@ -274,6 +278,7 @@ export async function seedDesignInstruments(db: Db) {
     await db
       .delete(schema.instrumentCalibrations)
       .where(eq(schema.instrumentCalibrations.instrumentId, spec.id))
+
     if (spec.due) {
       const dueAt = day(spec.due)
       await db.insert(schema.instrumentCalibrations).values({
@@ -285,6 +290,7 @@ export async function seedDesignInstruments(db: Db) {
         createdByUserId: DESIGN_USER_IDS.gareth,
       })
     }
+
     for (const userId of [
       DESIGN_USER_IDS.gareth,
       DESIGN_USER_IDS.priya,
@@ -311,6 +317,7 @@ export async function seedDesignInstruments(db: Db) {
       .from(schema.instruments)
       .where(eq(schema.instruments.id, INS(7)))
   ).at(0)
+
   if (tb?.name === 'Turbidimeter 2')
     await withDesignClaims(db, DESIGN_USER_IDS.tom, PROCESS, async (client) => {
       await client.query(

@@ -17,16 +17,20 @@ function client(captured: Array<{ name: string; args: unknown }>): DataClient {
   return {
     rpc: async (name, args) => {
       captured.push({ name, args })
+
       if (name === 'create_dataset_schema_definition') {
         return {
           schema_definition_id: 'def-1',
           schema_version_id: 'ver-1',
         }
       }
+
       if (name === 'create_next_dataset_schema_version') {
         return { schema_version_id: 'ver-2', version: 2 }
       }
+
       if (name === 'list_capabilities') return ['schema.edit']
+
       if (name === 'replace_dataset_schema_version_fields') {
         return {
           id: 'ver-1',
@@ -37,6 +41,7 @@ function client(captured: Array<{ name: string; args: unknown }>): DataClient {
           published_at: null,
         }
       }
+
       return undefined
     },
   } as DataClient
@@ -78,11 +83,13 @@ describe('canonical Dataset Schema Definition RPCs', () => {
   it('sends the revision it read and returns the saved version', async () => {
     const captured: Array<{ name: string; args: unknown }> = []
     const c = client(captured)
+
     const version = await replaceDatasetSchemaVersionFields(c, {
       schemaVersionId: 'ver-1',
       expectedRevision: 8,
       fields: [{ key: 'titre', label: 'Titre', logicalType: 'decimal' }],
     })
+
     expect(captured[0]?.args).toMatchObject({ p_expected_revision: 8 })
     expect(version.revision).toBe(9)
     captured.length = 0
@@ -97,12 +104,15 @@ describe('canonical Dataset Schema Definition RPCs', () => {
 
   it('lists canonical Dataset Schema identities through PostgREST', async () => {
     const listed: string[] = []
+
     const c = {
       list: async (resource: string) => {
         listed.push(resource)
+
         return []
       },
     } as unknown as DataClient
+
     await listCanonicalDatasetSchemaDefinitions(c)
     await listCanonicalDatasetSchemaVersions(c, 'def-1')
     await listCanonicalDatasetSchemaVersionFields(c, 'ver-1')

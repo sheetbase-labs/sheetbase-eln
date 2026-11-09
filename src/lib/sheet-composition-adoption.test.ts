@@ -33,6 +33,7 @@ const preview = {
 describe('sheet composition adoption client', () => {
   it('previews H2 adoption through the existing RPC', async () => {
     const rpc = vi.fn().mockResolvedValue(preview)
+
     const result = await previewSheetInstanceCompositionAdoption(
       {
         instanceId: INSTANCE,
@@ -41,6 +42,7 @@ describe('sheet composition adoption client', () => {
       },
       { rpc } as never,
     )
+
     expect(rpc).toHaveBeenCalledWith(
       'preview_sheet_instance_composition_adoption',
       expect.objectContaining({
@@ -54,6 +56,7 @@ describe('sheet composition adoption client', () => {
 
   it('does not apply when the preview is incompatible', async () => {
     const rpc = vi.fn().mockResolvedValue({ ...preview, compatible: false })
+
     const result = await applySheetInstanceCompositionAdoption(
       {
         instanceId: INSTANCE,
@@ -63,6 +66,7 @@ describe('sheet composition adoption client', () => {
       },
       { rpc } as never,
     )
+
     expect(result.status).toBe('incompatible')
     expect(rpc).toHaveBeenCalledTimes(1)
   })

@@ -23,6 +23,7 @@ vi.mock('#/env.server', () => ({
 
 function pem() {
   const { privateKey } = generateKeyPairSync('ed25519')
+
   return privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
 }
 
@@ -77,6 +78,7 @@ describe('canonical form', () => {
       { id: 2, v: '4.0' },
       { id: 3, v: '8.0' },
     ]
+
     expect(digestRows([...rows].reverse())).toBe(digestRows(rows))
     expect(digestRows(rows)).not.toBe(digestRows(rows.slice(1)))
     expect(digestRows([{ id: 1, v: '2.0' }])).not.toBe(
@@ -106,17 +108,21 @@ describe('signing and verification', () => {
 
   it('verifies an untouched manifest and fails each kind of tampering', () => {
     const key = loadSigningKey(pem())!
+
     const publicKey = key.publicKey
       .export({ type: 'spki', format: 'pem' })
       .toString()
+
     const m = manifest()
     const manifestDigest = digestManifest(m)
+
     const stored = {
       manifest: m,
       manifestDigest,
       previousDigest: null,
       signature: signDigest(manifestDigest, key),
     }
+
     expect(verifyRunManifest(stored, publicKey, null)).toEqual({
       digestMatches: true,
       signatureValid: true,
@@ -127,13 +133,16 @@ describe('signing and verification', () => {
       ...stored,
       manifest: { ...m, parameters: { factor: 3 } },
     }
+
     expect(verifyRunManifest(altered, publicKey).digestMatches).toBe(false)
     expect(verifyRunManifest(altered, publicKey).signatureValid).toBe(false)
 
     const other = loadSigningKey(pem())!
+
     const wrongKey = other.publicKey
       .export({ type: 'spki', format: 'pem' })
       .toString()
+
     expect(verifyRunManifest(stored, wrongKey).signatureValid).toBe(false)
     expect(verifyRunManifest(stored, null).signatureValid).toBe(false)
 
@@ -144,6 +153,7 @@ describe('signing and verification', () => {
 
   it('reports an unsigned manifest as unsigned, not as invalid', () => {
     const m = manifest()
+
     const result = verifyRunManifest(
       {
         manifest: m,
@@ -153,6 +163,7 @@ describe('signing and verification', () => {
       },
       null,
     )
+
     expect(result.signatureValid).toBeNull()
     expect(result.digestMatches).toBe(true)
   })

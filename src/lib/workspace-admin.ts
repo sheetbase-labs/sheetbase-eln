@@ -29,9 +29,13 @@ export type WorkspaceRole =
   | 'viewer'
   /** ADR-0049: an external client viewer, scoped to one client's portal. */
   | 'client_viewer'
+
 export type InvitationStatus = 'pending' | 'accepted' | 'revoked' | 'expired'
+
 export type RegistrationMode = 'open' | 'invitation_only'
+
 export type ProjectAccessLevel = 'owner' | 'editor' | 'viewer'
+
 /** What an invitation can grant on a project: the levels a member can hold. */
 export type InvitedProjectLevel = 'owner' | 'editor' | 'reviewer' | 'viewer'
 
@@ -280,6 +284,7 @@ export async function fetchWorkspaceMembers(
     'workspace_memberships',
     `${filter('workspace_id', workspaceId, 'created_at.asc')}&select=id,workspace_id,user_id,role,client_id,suspended_at,username,role_source,created_at,updated_at`,
   )
+
   return rows.map(toWorkspaceMember)
 }
 
@@ -297,6 +302,7 @@ export async function fetchClients(
     'clients',
     `${filter('workspace_id', workspaceId, 'code.asc')}&select=id,code,name`,
   )
+
   return rows
 }
 
@@ -308,6 +314,7 @@ export async function fetchInvitations(
     'workspace_invitations',
     filter('workspace_id', workspaceId, 'created_at.desc'),
   )
+
   return rows.map(toWorkspaceInvitation)
 }
 
@@ -319,6 +326,7 @@ export async function fetchWorkspaceSettings(
     'workspace_settings',
     `?workspace_id=eq.${encodeURIComponent(workspaceId)}`,
   )
+
   return rows[0] ? toWorkspaceSettings(rows[0]) : null
 }
 
@@ -330,6 +338,7 @@ export async function fetchProjectAccess(
     'project_access',
     filter('workspace_id', workspaceId, 'created_at.asc'),
   )
+
   return rows.map(toProjectAccess)
 }
 
@@ -340,6 +349,7 @@ export async function fetchWorkspaceSessions(
   const rows = await c.rpc<WorkspaceSessionWire[]>('list_workspace_sessions', {
     p_workspace_id: workspaceId,
   })
+
   return rows.map(toWorkspaceSession)
 }
 
@@ -366,6 +376,7 @@ export async function createInvitation(
       p_project_grants: input.projectGrants ?? [],
     },
   )
+
   return { invitation: toWorkspaceInvitation(result), token: result.token }
 }
 
@@ -390,6 +401,7 @@ export async function reissueInvitation(
       p_expires_after_days: input.expiresAfterDays ?? 7,
     },
   )
+
   return { invitation: toWorkspaceInvitation(result), token: result.token }
 }
 
@@ -657,9 +669,11 @@ export function formatRelativeTime(
 ): string {
   if (!timestamp) return 'Never'
   const elapsed = appNow().getTime() - new Date(timestamp).getTime()
+
   if (!Number.isFinite(elapsed)) return 'Never'
   const future = elapsed < 0
   const seconds = Math.round(Math.abs(elapsed) / 1000)
+
   const units: Array<[number, string]> = [
     [31_536_000, 'year'],
     [2_592_000, 'month'],
@@ -669,9 +683,12 @@ export function formatRelativeTime(
     [60, 'minute'],
     [1, 'second'],
   ]
+
   const [size, name] =
     units.find(([unitSize]) => seconds >= unitSize) ?? units[6]
+
   const value = Math.max(1, Math.floor(seconds / size))
+
   return future
     ? `in ${value} ${name}${value === 1 ? '' : 's'}`
     : `${value} ${name}${value === 1 ? '' : 's'} ago`
@@ -684,6 +701,7 @@ export function formatDate(timestamp: string | null | undefined): string {
 export function describeAdminError(error: unknown): string {
   if (!(error instanceof DataClientError))
     return 'Could not complete the administration operation. Try again.'
+
   const messages: Record<string, string> = {
     SB050: 'You cannot perform this action on your own account.',
     SB051: 'This action would remove the last workspace owner.',
@@ -701,5 +719,6 @@ export function describeAdminError(error: unknown): string {
     SB033: 'This action belongs to a different workspace.',
     '42501': 'You do not have owner access to perform this action.',
   }
+
   return messages[error.code] ?? error.message
 }

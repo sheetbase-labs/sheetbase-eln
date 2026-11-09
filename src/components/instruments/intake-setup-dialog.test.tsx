@@ -27,6 +27,7 @@ vi.mock('#/lib/data-client', () => ({
         : [],
   }),
 }))
+
 vi.mock('#/components/projects/use-writable-projects', () => ({
   useWritableProjects: () => ({
     usable: [{ id: PROJECT, title: 'Assay development' }],
@@ -35,11 +36,13 @@ vi.mock('#/components/projects/use-writable-projects', () => ({
     refetch: () => {},
   }),
 }))
+
 vi.mock('#/lib/dataset-product', () => ({
   listPublishedDatasetSchemas: async () => [
     { schemaVersionId: SCHEMA, name: 'qPCR results', version: 2 },
   ],
 }))
+
 vi.mock('#/lib/parser-settings', () => ({
   parserSettingsQueryKeys: { list: (id: string) => ['parsers', id] },
   fetchParserSettings: async () => [
@@ -59,6 +62,7 @@ vi.mock('#/lib/parser-settings', () => ({
     },
   ],
 }))
+
 vi.mock('#/lib/connectors/agent-client', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   downloadAgent: mocks.download,
@@ -68,6 +72,7 @@ vi.mock('#/lib/connectors/agent-client', async (importOriginal) => ({
     running: false,
   }),
 }))
+
 vi.mock('#/components/instruments/instruments-data', () => ({
   setInstrumentIntakeMethod: mocks.setMethod,
 }))
@@ -78,6 +83,7 @@ function renderDialog(
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <IntakeSetupDialog
@@ -131,9 +137,11 @@ describe('IntakeSetupDialog', () => {
         expect.anything(),
       ),
     )
+
     const args = mocks.rpc.mock.calls.find(
       ([name]) => name === 'register_connector',
     )![1]
+
     expect(args).toMatchObject({
       p_key: 'qpcr-bench-ins-3',
       p_connector_type: 'instrument',

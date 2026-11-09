@@ -55,23 +55,28 @@ export function ChartConfigurator({
   const columns = source.columns
   const numericColumns = columns.filter(isMeasuredColumn)
   const categoryColumns = columns.filter(isCategoryColumn)
+
   const errorColumns = numericColumns.filter(
     (column) =>
       column.id !== spec.fields.x?.fieldId &&
       column.id !== spec.fields.y.fieldId &&
       /\b(sd|se|sem|error|ci|confidence|deviation)\b/i.test(column.label),
   )
+
   const aggregateTransform = spec.transformations.find(
     (transformation) => transformation.kind === 'aggregate',
   )
+
   const normaliseTransform = spec.transformations.find(
     (transformation) => transformation.kind === 'normalise',
   )
+
   // ASSIST-02: deterministic chart-config proposal from the current
   // dataset/fields. Previewed in DraftProposalPanel; Accept loads the spec
   // through the ordinary onSpecChange; Discard leaves zero state.
   const [chartProposal, setChartProposal] =
     useState<AssistChartProposal | null>(null)
+
   const [proposalStatus, setProposalStatus] = useState('')
 
   const ai = usePageAi()
@@ -83,20 +88,25 @@ export function ChartConfigurator({
       label: column.label,
       logicalType: column.logicalType,
     }))
+
     let proposal: AssistChartProposal | null = null
+
     if (ai.live) {
       // The workspace's model picks the chart; anything it gets wrong (an
       // unknown field, a type the validator refuses) falls back to the rules.
       setProposing(true)
+
       try {
         const result = await ai.run({
           task: 'suggest_chart',
           instruction: chartSuggestionInstruction(fields, CHART_TYPES),
         })
+
         const choice =
           result.status === 'ok'
             ? parseChartChoice(result.text, fields, CHART_TYPES)
             : null
+
         if (choice)
           proposal = proposeChartSpecFromChoice({
             datasetId: source.datasetId,
@@ -110,6 +120,7 @@ export function ChartConfigurator({
         setProposing(false)
       }
     }
+
     proposal ??= proposeChartSpec({ datasetId: source.datasetId, fields })
     setChartProposal(proposal)
     setProposalStatus(
@@ -149,6 +160,7 @@ export function ChartConfigurator({
     const fields = { ...spec.fields }
     let overlays = spec.overlays
     let typeParams: ChartSpec['typeParams'] = {}
+
     if (
       next === 'histogram' ||
       next === 'box' ||
@@ -156,6 +168,7 @@ export function ChartConfigurator({
       next === 'strip'
     ) {
       fields.x = next === 'strip' || next === 'violin' ? spec.fields.x : null
+
       if (next === 'box') typeParams = { box: { showOutliers: true } }
       else if (next === 'histogram') typeParams = { histogram: { bins: 10 } }
       else if (next === 'strip') typeParams = { strip: { jitter: 0.18 } }
@@ -176,9 +189,11 @@ export function ChartConfigurator({
         heatmap: { aggregate: 'count', valueField: null, xBins: 10, yBins: 10 },
       }
     }
+
     const display = CARTESIAN_CHART_TYPES.includes(next)
       ? spec.display
       : { ...spec.display, annotations: [] }
+
     update({
       type: next,
       fields,
@@ -226,6 +241,7 @@ export function ChartConfigurator({
     const column = columns.find((candidate) => candidate.id === fieldId)
     const binding: FieldBinding | null = column ? { fieldId: column.id } : null
     const fields = { ...spec.fields, [key]: binding }
+
     const transformations = spec.transformations.map((transformation) => {
       if (transformation.kind === 'aggregate') {
         return {
@@ -238,6 +254,7 @@ export function ChartConfigurator({
           },
         }
       }
+
       if (transformation.kind === 'normalise') {
         return {
           ...transformation,
@@ -248,9 +265,12 @@ export function ChartConfigurator({
           },
         }
       }
+
       return transformation
     })
+
     const display = { ...spec.display }
+
     if (key === 'x') {
       display.axes = {
         ...display.axes,
@@ -261,18 +281,21 @@ export function ChartConfigurator({
         },
       }
     }
+
     if (key === 'y' && column) {
       display.axes = {
         ...display.axes,
         y: { ...display.axes.y, label: column.label },
       }
     }
+
     const overlays =
       spec.overlays.errorBars &&
       (spec.overlays.errorBars.fieldId === fields.x?.fieldId ||
         spec.overlays.errorBars.fieldId === fields.y.fieldId)
         ? { ...spec.overlays, errorBars: null }
         : spec.overlays
+
     onSpecChange({ ...spec, fields, transformations, display, overlays })
   }
 
@@ -285,6 +308,7 @@ export function ChartConfigurator({
     const others = spec.transformations.filter(
       (transformation) => transformation.kind !== kind,
     )
+
     if (!value) return update({ transformations: others })
     update({
       transformations: [
@@ -315,7 +339,9 @@ export function ChartConfigurator({
     if (!fieldId) {
       return update({ overlays: { ...spec.overlays, errorBars: null } })
     }
+
     const column = errorColumns.find((candidate) => candidate.id === fieldId)
+
     if (!column) return
     update({
       overlays: {
@@ -333,12 +359,14 @@ export function ChartConfigurator({
   // heatmaps use x/y as grid dimensions and never group by series.
   const showXField = spec.type !== 'histogram' && spec.type !== 'box'
   const showSeriesField = spec.type !== 'heatmap'
+
   const yLabel =
     spec.type === 'heatmap'
       ? t('data.chartConfigurator.yDimension')
       : spec.type === 'histogram' || spec.type === 'box'
         ? t('data.chartConfigurator.measuredValue')
         : 'Y-axis'
+
   const fields = [
     ...(showXField
       ? [
@@ -623,10 +651,12 @@ export function ChartConfigurator({
             }
             onChange={(event) => {
               const value = event.target.value
+
               if (!value)
                 return update({
                   overlays: { ...spec.overlays, errorBars: null },
                 })
+
               if (value === 'field') {
                 // Explicit field: keep the column already named, otherwise
                 // take the first column that reads as an error interval, so
@@ -634,9 +664,12 @@ export function ChartConfigurator({
                 // snapping back to the previous choice.
                 const fieldId =
                   spec.overlays.errorBars?.fieldId ?? errorColumns[0]?.id
+
                 if (fieldId) setErrorBarColumn(fieldId)
+
                 return
               }
+
               update({
                 overlays: {
                   ...spec.overlays,
@@ -688,12 +721,15 @@ export function ChartConfigurator({
               const existing = (spec.overlays.references ?? []).filter(
                 (item) => item.kind !== 'hline',
               )
+
               if (event.target.value === '') {
                 update({
                   overlays: { ...spec.overlays, references: existing },
                 })
+
                 return
               }
+
               update({
                 overlays: {
                   ...spec.overlays,
@@ -788,6 +824,7 @@ export function ChartConfigurator({
                 const aggregate = event.target.value as NonNullable<
                   ChartSpec['typeParams']['heatmap']
                 >['aggregate']
+
                 updateHeatmapParams(
                   aggregate === 'count'
                     ? { aggregate, valueField: null }
@@ -825,6 +862,7 @@ export function ChartConfigurator({
                   const column = source.columns.find(
                     (candidate) => candidate.id === event.target.value,
                   )
+
                   updateHeatmapParams({
                     valueField: column ? { fieldId: column.id } : null,
                   })

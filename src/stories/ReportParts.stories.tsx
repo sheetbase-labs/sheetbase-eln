@@ -50,7 +50,9 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function inside(queryClient: QueryClient, width = 860) {
@@ -62,6 +64,7 @@ function inside(queryClient: QueryClient, width = 860) {
     </QueryClientProvider>
   )
 }
+
 const seeded = (data: ReadSeed[]) => screenQueryClient({ data })
 
 const textSection: ReportSection = {
@@ -159,6 +162,7 @@ function RegistryHarness({
 }) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [selection, setSelection] = useState<RowSelectionState>({})
+
   return (
     <ReportsRegistryGrid
       rows={rows}

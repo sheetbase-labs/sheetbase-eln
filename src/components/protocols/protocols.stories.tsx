@@ -9,7 +9,9 @@ const meta = {
   title: 'Lab/Protocol preparation',
   parameters: { layout: 'fullscreen' },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Synthetic component fixtures, not seeded approval or training evidence. */

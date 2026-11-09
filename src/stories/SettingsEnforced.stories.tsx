@@ -29,6 +29,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function gateProvider(instrumentGateMode: 'off' | 'warn' | 'block') {
@@ -40,6 +41,7 @@ function gateProvider(instrumentGateMode: 'off' | 'warn' | 'block') {
       },
     ],
   })
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <Story />
@@ -81,6 +83,7 @@ function OpenOnMount() {
   useEffect(() => {
     void askForChangeReason()
   }, [])
+
   return <ChangeReasonDialog />
 }
 

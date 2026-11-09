@@ -45,6 +45,7 @@ export function ConfirmDialogTrigger({
       />
     )
   }
+
   return (
     <DialogPrimitive.Trigger {...props}>{children}</DialogPrimitive.Trigger>
   )

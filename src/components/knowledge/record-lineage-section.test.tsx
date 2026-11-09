@@ -70,12 +70,14 @@ function makeGraph() {
     makeRecord(SEED_ID, 'experiment', 'EXP-SEED-1'),
     makeRecord('down-id', 'experiment', 'EXP-DOWN-1'),
   ]
+
   const links = [
     makeLink('l-up', 'up-id', SEED_ID, 'EXP-SEED-1'),
     makeLink('l-down', SEED_ID, 'down-id', 'EXP-DOWN-1'),
     // Hard-purged target: honest missing row, never a link.
     makeLink('l-gone', SEED_ID, null, 'GONE-1'),
   ]
+
   const reviews: ReviewSubmissionWire[] = [
     {
       id: 'sub-9',
@@ -92,6 +94,7 @@ function makeGraph() {
       updated_at: '2025-07-15T09:12:00Z',
     },
   ]
+
   return buildLineageGraph(records, links, reviews, [], [], [], SEED_ID, 2)
 }
 
@@ -126,9 +129,11 @@ describe('RecordLineageList', () => {
       makeRecord(SEED_ID, 'dataset', 'DS-0311'),
       makeRecord('exp-id', 'experiment', 'EXP-0142'),
     ]
+
     const links = Array.from({ length: 20 }, (_, i) =>
       makeLink(`l-${i}`, 'exp-id', SEED_ID, 'DS-0311'),
     )
+
     const graph = buildLineageGraph(records, links, [], [], [], [], SEED_ID, 2)
     render(<RecordLineageList graph={graph} seedRecordId={SEED_ID} />)
 
@@ -169,6 +174,7 @@ describe('RecordLineageList', () => {
       SEED_ID,
       2,
     )
+
     render(<RecordLineageList graph={solo} seedRecordId={SEED_ID} />)
 
     expect(screen.getByText('No lineage links yet')).toBeTruthy()

@@ -14,6 +14,7 @@ describe('redact', () => {
       password: 'secret',
       unrelated: 'keep',
     })
+
     expect(out).toEqual({
       token: '[redacted]',
       password: '[redacted]',
@@ -26,6 +27,7 @@ describe('redact', () => {
       user: { id: 'u1', accessToken: 'leak' },
       list: [{ cookie: 'c1' }, { name: 'keep' }],
     })
+
     expect(out).toEqual({
       user: { id: 'u1', accessToken: '[redacted]' },
       list: [{ cookie: '[redacted]' }, { name: 'keep' }],
@@ -62,6 +64,7 @@ describe('logger', () => {
     stdoutSpy.mockRestore()
     warnSpy.mockRestore()
     errorSpy.mockRestore()
+
     if (originalLevel !== undefined) process.env.LOG_LEVEL = originalLevel
   })
 

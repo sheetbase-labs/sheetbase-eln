@@ -36,6 +36,7 @@ const SCHEDULE_COLUMN =
  */
 export function designShiftDays(clock: Date, now: Date = new Date()): number {
   const days = Math.floor((now.getTime() - clock.getTime()) / 86_400_000)
+
   return Math.max(0, days)
 }
 
@@ -49,9 +50,11 @@ export async function seedDesignClockSweep(
   await db.execute(
     sql`create table if not exists internal.demo_clock_shift (shifted_days integer not null)`,
   )
+
   const applied = await db.execute(
     sql`select shifted_days from internal.demo_clock_shift limit 1`,
   )
+
   if (shift === 0 || applied.rows.length > 0) return
 
   await db.execute(sql`

@@ -6,6 +6,7 @@ import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 
 type Rpc = Pick<DataClient, 'rpc'>
+
 type Lister = Pick<DataClient, 'list'>
 
 export interface LakeSettings {
@@ -168,6 +169,7 @@ export async function createLakeLogin(
       p_expires_at: input.expiresAt,
     },
   )
+
   return Array.isArray(rows) ? rows[0] : rows
 }
 
@@ -227,12 +229,15 @@ export async function searchOntology(
     `/api/ontology/search?q=${encodeURIComponent(query)}`,
     { signal },
   )
+
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as {
       message?: string
     } | null
+
     throw new Error(body?.message ?? 'Ontology search is not available.')
   }
+
   return ((await res.json()) as { terms: OntologyTermHit[] }).terms
 }
 
@@ -298,8 +303,10 @@ export const requestPublication = (
 
 export const publishPublication = (c: Rpc, id: string) =>
   c.rpc<Publication>('publish_publication', { p_id: id })
+
 export const discardPublication = (c: Rpc, id: string) =>
   c.rpc<Publication>('discard_publication', { p_id: id })
+
 export const retryPublication = (c: Rpc, id: string) =>
   c.rpc<Publication>('retry_publication', { p_id: id })
 
@@ -316,6 +323,7 @@ export function lakeSnippets(input: {
   const hex = input.workspaceId.replace(/-/g, '')
   const filesUrl = `${input.appUrl.replace(/\/$/, '')}/api/lake/files/${input.workspaceId}/`
   const catalogue = `ducklake:postgres:dbname=${input.database} host=${input.host} port=${input.port} user=${input.username} password=${input.secret}`
+
   const duckdb = `INSTALL ducklake; INSTALL postgres; INSTALL httpfs;
 CREATE SECRET lab_files (TYPE http, BEARER_TOKEN '${input.secret}');
 ATTACH '${catalogue}' AS lab (
@@ -325,6 +333,7 @@ ATTACH '${catalogue}' AS lab (
   READ_ONLY
 );
 SELECT * FROM lab.main.<table> LIMIT 10;`
+
   const polars = `import duckdb
 
 con = duckdb.connect()
@@ -332,6 +341,7 @@ con.sql("""
 ${duckdb.replace('SELECT * FROM lab.main.<table> LIMIT 10;', '')}
 """)
 df = con.sql("SELECT * FROM lab.main.<table>").pl()  # a Polars DataFrame`
+
   const spark = `# Spark reads the Parquet files DuckDB lists for a table. Fetch them with the
 # same login (an Authorization: Bearer header) or let DuckDB hand Spark a copy:
 import duckdb
@@ -341,6 +351,7 @@ con.sql("""
 ${duckdb.replace('SELECT * FROM lab.main.<table> LIMIT 10;', "COPY (SELECT * FROM lab.main.<table>) TO '/tmp/<table>.parquet';")}
 """)
 df = spark.read.parquet("/tmp/<table>.parquet")`
+
   return { duckdb, polars, spark, filesUrl }
 }
 
@@ -355,11 +366,14 @@ export function describeOpenDataError(error: unknown): string {
       ? error.message
       : 'That didn’t work. Try again.'
   }
+
   if (/duplicate key/i.test(error.message)) {
     return 'A repository with that name already exists.'
   }
+
   if (error.code === '42501' && error.message.trim() === '') {
     return 'You don’t have access to do that.'
   }
+
   return error.message
 }

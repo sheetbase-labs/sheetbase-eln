@@ -26,15 +26,18 @@ export function isCurrencyCode(value: string): boolean {
 export function lastCurrency(): string {
   try {
     const stored = globalThis.localStorage.getItem(STORAGE_KEY)
+
     if (stored && isCurrencyCode(stored)) return stored
   } catch {
     // Storage can be blocked; the default is fine.
   }
+
   return 'GBP'
 }
 
 export function rememberCurrency(code: string): void {
   if (!isCurrencyCode(code)) return
+
   try {
     globalThis.localStorage.setItem(STORAGE_KEY, code)
   } catch {

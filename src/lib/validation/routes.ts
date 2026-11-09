@@ -14,17 +14,21 @@ import type { ValidationRunRecord } from './types'
 
 async function authorise(request: Request, deps: SessionAuthDeps) {
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok) {
     return {
       error: requestErrorResponse(auth.status, auth.code, auth.message),
     }
   }
+
   const { context } = auth
+
   const allowed = await postgrestRpc<boolean>(
     'can_run_validation',
     { p_workspace_id: context.workspaceId },
     context.token,
   )
+
   if (allowed.status >= 400 || allowed.body !== true) {
     return {
       error: requestErrorResponse(
@@ -34,6 +38,7 @@ async function authorise(request: Request, deps: SessionAuthDeps) {
       ),
     }
   }
+
   return { context }
 }
 
@@ -42,12 +47,15 @@ export async function handleValidationRun(
   deps: SessionAuthDeps,
 ): Promise<Response> {
   const checked = await authorise(request, deps)
+
   if (checked.error) return checked.error
   const { runAndRecordValidation } = await import('./run.server')
+
   const run = await runAndRecordValidation({
     workspaceId: checked.context.workspaceId,
     userId: checked.context.userId,
   })
+
   return new Response(JSON.stringify(run), {
     status: 201,
     headers: { 'content-type': 'application/json' },
@@ -59,21 +67,26 @@ export async function handleValidationPack(
   deps: SessionAuthDeps,
 ): Promise<Response> {
   const checked = await authorise(request, deps)
+
   if (checked.error) return checked.error
   const { context } = checked
+
   const runs = await postgrestSelect<ValidationRunRecord[]>(
     'validation_runs',
     'select=*&order=finished_at.desc&limit=5',
     context.token,
   )
+
   if (runs.status >= 400 || !Array.isArray(runs.body)) {
     return requestErrorResponse(502, 'upstream_error', 'Could not read runs.')
   }
+
   const workspace = await postgrestSelect<Array<{ name: string }>>(
     'workspaces',
     'select=name&limit=1',
     context.token,
   )
+
   const { buildValidationPack } = await import('./pack')
   const { ensureWorkspaceKey } = await import('../export/bundle-key.server')
   const { signWithKey } = await import('../export/bundle-key')
@@ -81,6 +94,7 @@ export async function handleValidationPack(
   const { recordDataExportReceipt } = await import('../request-auth')
   const key = await ensureWorkspaceKey(context.workspaceId)
   const latest = runs.body[0]
+
   const bytes = await buildValidationPack({
     workspaceName:
       Array.isArray(workspace.body) && workspace.body[0]
@@ -95,6 +109,7 @@ export async function handleValidationPack(
     fingerprint: key.fingerprint,
     sign: (manifest) => signWithKey(key.privateKeyPem, manifest),
   })
+
   await recordDataExportReceipt({
     workspaceId: context.workspaceId,
     actorUserId: context.userId,
@@ -103,6 +118,7 @@ export async function handleValidationPack(
     format: 'validation-pack-zip',
     byteSize: bytes.byteLength,
   })
+
   return new Response(bytes as unknown as BodyInit, {
     status: 200,
     headers: {

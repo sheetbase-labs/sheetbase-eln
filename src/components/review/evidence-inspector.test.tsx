@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   list: vi.fn(),
   rpc: vi.fn(),
 }))
+
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   notebookDataClient: { list: mocks.list, rpc: mocks.rpc },
@@ -67,6 +68,7 @@ describe('driftSummary', () => {
         ],
       }),
     )
+
     expect(lines).toEqual([
       'Record renamed: Old name → New name',
       'Instrument renamed: A → B',

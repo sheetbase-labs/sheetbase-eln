@@ -78,8 +78,10 @@ describe('MCP initialize and discovery', () => {
 
   it('lists only tools the credential can use', async () => {
     const readOnly = await request('tools/list', {}, context(['datasets:read']))
+
     const readTools = (readOnly?.result as { tools: Array<{ name: string }> })
       .tools
+
     expect(readTools.map((tool) => tool.name)).toContain(
       'sheetbase.dataset_rows.query',
     )
@@ -93,8 +95,10 @@ describe('MCP initialize and discovery', () => {
       {},
       context(['agent_operations:write', 'pipelines:write']),
     )
+
     const writeTools = (writer?.result as { tools: Array<{ name: string }> })
       .tools
+
     expect(writeTools.map((tool) => tool.name)).toContain(
       'sheetbase.pipeline_definition.draft',
     )
@@ -105,9 +109,11 @@ describe('MCP initialize and discovery', () => {
       {},
       context(['agent_operations:write']),
     )
+
     const underScopedTools = (
       underScoped?.result as { tools: Array<{ name: string }> }
     ).tools
+
     expect(underScopedTools.map((tool) => tool.name)).not.toContain(
       'sheetbase.pipeline_definition.draft',
     )
@@ -119,11 +125,13 @@ describe('MCP initialize and discovery', () => {
       {},
       context(['datasets:read', 'agent_operations:write', 'pipelines:write']),
     )
+
     const tools = (
       response?.result as {
         tools: Array<{ inputSchema: Record<string, unknown> }>
       }
     ).tools
+
     for (const tool of tools) {
       expect(tool.inputSchema.type).toBe('object')
     }
@@ -136,7 +144,9 @@ describe('MCP read tools', () => {
       rows: [],
       total: 0,
     })) as unknown as DataClient['rpc']
+
     const client = fakeClient({ rpc })
+
     const response = await request(
       'tools/call',
       {
@@ -145,6 +155,7 @@ describe('MCP read tools', () => {
       },
       context(['datasets:read'], client),
     )
+
     expect(rpc).toHaveBeenCalledWith('query_dataset_rows', {
       p_dataset_id: DATASET_ID,
       p_limit: 10,
@@ -158,6 +169,7 @@ describe('MCP read tools', () => {
 
   it('refuses a tool the credential has no scope for', async () => {
     const client = fakeClient()
+
     const response = await request(
       'tools/call',
       {
@@ -166,12 +178,14 @@ describe('MCP read tools', () => {
       },
       context(['projects:read'], client),
     )
+
     expect(client.rpc).not.toHaveBeenCalled()
     expect(response?.result).toMatchObject({ isError: true })
   })
 
   it('rejects arguments that do not match the schema', async () => {
     const client = fakeClient()
+
     const response = await request(
       'tools/call',
       {
@@ -180,6 +194,7 @@ describe('MCP read tools', () => {
       },
       context(['datasets:read'], client),
     )
+
     expect(client.rpc).not.toHaveBeenCalled()
     expect(response?.result).toMatchObject({ isError: true })
   })
@@ -190,6 +205,7 @@ describe('MCP draft tools', () => {
     const proposal = { id: 'proposal-1', status: 'pending' }
     const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
     const client = fakeClient({ rpc })
+
     const response = await request(
       'tools/call',
       {
@@ -235,6 +251,7 @@ describe('MCP draft tools', () => {
 
   it('refuses a draft when the token lacks the operation write scope', async () => {
     const client = fakeClient()
+
     const response = await request(
       'tools/call',
       {
@@ -248,6 +265,7 @@ describe('MCP draft tools', () => {
       },
       context(['agent_operations:write'], client),
     )
+
     expect(client.rpc).not.toHaveBeenCalled()
     expect(response?.result).toMatchObject({ isError: true })
   })
@@ -258,6 +276,7 @@ describe('MCP draft tools', () => {
       {},
       context(['agent_operations:write', 'projects:write']),
     )
+
     expect(
       (scoped?.result as { tools: Array<{ name: string }> }).tools.map(
         (tool) => tool.name,
@@ -269,6 +288,7 @@ describe('MCP draft tools', () => {
       {},
       context(['agent_operations:write']),
     )
+
     expect(
       (underScoped?.result as { tools: Array<{ name: string }> }).tools.map(
         (tool) => tool.name,
@@ -280,6 +300,7 @@ describe('MCP draft tools', () => {
     const proposal = { id: 'proposal-notebook', status: 'pending' }
     const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
     const client = fakeClient({ rpc })
+
     const response = await request(
       'tools/call',
       {
@@ -327,6 +348,7 @@ describe('MCP draft tools', () => {
     const proposal = { id: 'proposal-record', status: 'pending' }
     const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
     const client = fakeClient({ rpc })
+
     const response = await request(
       'tools/call',
       {
@@ -342,6 +364,7 @@ describe('MCP draft tools', () => {
       },
       context(['agent_operations:write', 'projects:write'], client),
     )
+
     expect(rpc).toHaveBeenCalledWith(
       'propose_agent_operation',
       expect.objectContaining({
@@ -382,6 +405,7 @@ describe('MCP draft tools', () => {
         {},
         context(['agent_operations:write']),
       )
+
       expect(
         (unscoped?.result as { tools: Array<{ name: string }> }).tools.map(
           (tool) => tool.name,
@@ -394,6 +418,7 @@ describe('MCP draft tools', () => {
         {},
         context(['agent_operations:write', entry.scope]),
       )
+
       expect(
         (scoped?.result as { tools: Array<{ name: string }> }).tools.map(
           (tool) => tool.name,
@@ -405,6 +430,7 @@ describe('MCP draft tools', () => {
 
   it('refuses a notebook block proposal without projects:write', async () => {
     const client = fakeClient()
+
     const response = await request(
       'tools/call',
       {
@@ -418,12 +444,14 @@ describe('MCP draft tools', () => {
       },
       context(['agent_operations:write'], client),
     )
+
     expect(client.rpc).not.toHaveBeenCalled()
     expect(response?.result).toMatchObject({ isError: true })
   })
 
   it('refuses an operation that targets another workspace', async () => {
     const client = fakeClient()
+
     const response = await request(
       'tools/call',
       {
@@ -437,6 +465,7 @@ describe('MCP draft tools', () => {
       },
       context(['agent_operations:write'], client),
     )
+
     expect(client.rpc).not.toHaveBeenCalled()
     expect(response?.result).toMatchObject({ isError: true })
   })
@@ -452,6 +481,7 @@ describe('MCP agent lifecycle tools', () => {
 
   it('gates the embedded operation of agent.propose by its write scope', async () => {
     const client = fakeClient()
+
     const response = await request(
       'tools/call',
       {
@@ -472,6 +502,7 @@ describe('MCP agent lifecycle tools', () => {
       },
       context(['agent_operations:write'], client),
     )
+
     expect(client.rpc).not.toHaveBeenCalled()
     expect(response?.result).toMatchObject({ isError: true })
   })
@@ -480,6 +511,7 @@ describe('MCP agent lifecycle tools', () => {
     const proposal = { id: 'proposal-1', status: 'pending' }
     const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
     const client = fakeClient({ rpc })
+
     const response = await request(
       'tools/call',
       {
@@ -500,6 +532,7 @@ describe('MCP agent lifecycle tools', () => {
       },
       context(['agent_operations:write', 'datasets:write'], client),
     )
+
     expect(rpc).toHaveBeenCalledWith(
       'propose_agent_operation',
       expect.objectContaining({
@@ -519,6 +552,7 @@ describe('MCP agent lifecycle tools', () => {
     const rpcMock = vi.fn(async () => ({ id: 'workflow-1' }))
     const rpc = rpcMock as unknown as DataClient['rpc']
     const client = fakeClient({ rpc })
+
     const workflowContext = context(
       [
         'agent_operations:write',
@@ -618,14 +652,17 @@ describe('MCP workspace AI access flags', () => {
   it('hides and refuses read tools when mcp_read is off', async () => {
     const client = fakeClient()
     const flags = withFlags({ mcp_read: false })
+
     const list = await request(
       'tools/list',
       {},
       context(['datasets:read'], client, undefined, flags),
     )
+
     const names = (
       list?.result as { tools: Array<{ name: string }> }
     ).tools.map((tool) => tool.name)
+
     expect(names).not.toContain(CONTEXT_TOOL_NAME)
     expect(names).not.toContain('sheetbase.dataset_rows.query')
 
@@ -637,6 +674,7 @@ describe('MCP workspace AI access flags', () => {
       },
       context(['datasets:read'], client, undefined, flags),
     )
+
     expect(client.rpc).not.toHaveBeenCalled()
     expect(call?.result).toMatchObject({ isError: true })
   })
@@ -645,14 +683,17 @@ describe('MCP workspace AI access flags', () => {
     const client = fakeClient()
     const flags = withFlags({ mcp_draft: false })
     const scopes = ['agent_operations:write', 'pipelines:write'] as const
+
     const list = await request(
       'tools/list',
       {},
       context([...scopes], client, undefined, flags),
     )
+
     const names = (
       list?.result as { tools: Array<{ name: string }> }
     ).tools.map((tool) => tool.name)
+
     expect(names).not.toContain('sheetbase.pipeline_definition.draft')
 
     const call = await request(
@@ -668,6 +709,7 @@ describe('MCP workspace AI access flags', () => {
       },
       context([...scopes], client, undefined, flags),
     )
+
     expect(client.rpc).not.toHaveBeenCalledWith(
       'propose_agent_operation',
       expect.anything(),
@@ -682,11 +724,13 @@ describe('MCP workspace AI access flags', () => {
       'pipelines:write',
       'datasets:write',
     ] as const
+
     const enabled = await request(
       'tools/list',
       {},
       context([...scopes], fakeClient(), undefined, allFeatureFlags),
     )
+
     expect(
       (enabled?.result as { tools: Array<{ name: string }> }).tools.map(
         (tool) => tool.name,
@@ -703,6 +747,7 @@ describe('MCP workspace AI access flags', () => {
         withFlags({ mcp_workflow: false }),
       ),
     )
+
     expect(
       (disabled?.result as { tools: Array<{ name: string }> }).tools.map(
         (tool) => tool.name,
@@ -713,11 +758,13 @@ describe('MCP workspace AI access flags', () => {
   it('hides and refuses admin reads when mcp_admin_read is off', async () => {
     const client = fakeClient()
     const flags = withFlags({ mcp_admin_read: false })
+
     const list = await request(
       'tools/list',
       {},
       context(['admin:read'], client, undefined, flags),
     )
+
     expect(
       (list?.result as { tools: Array<{ name: string }> }).tools.map(
         (tool) => tool.name,
@@ -732,6 +779,7 @@ describe('MCP workspace AI access flags', () => {
       },
       context(['admin:read'], client, undefined, flags),
     )
+
     expect(client.rpc).not.toHaveBeenCalled()
     expect(call?.result).toMatchObject({ isError: true })
   })
@@ -740,11 +788,13 @@ describe('MCP workspace AI access flags', () => {
     const client = fakeClient()
     const scopes = ['agent_operations:write', 'admin:write'] as const
     const flags = withFlags({ mcp_admin_propose: false })
+
     const list = await request(
       'tools/list',
       {},
       context([...scopes], client, undefined, flags),
     )
+
     expect(
       (list?.result as { tools: Array<{ name: string }> }).tools.map(
         (tool) => tool.name,
@@ -768,6 +818,7 @@ describe('MCP workspace AI access flags', () => {
       },
       context([...scopes], client, undefined, flags),
     )
+
     expect(client.rpc).not.toHaveBeenCalledWith(
       'propose_agent_operation',
       expect.anything(),
@@ -781,6 +832,7 @@ describe('MCP workspace AI access flags', () => {
       {},
       context(['datasets:read'], fakeClient(), undefined, allFeatureFlags),
     )
+
     expect(
       (list?.result as { tools: Array<{ name: string }> }).tools.map(
         (tool) => tool.name,
@@ -794,12 +846,15 @@ describe('MCP canonical read', () => {
     const list = vi.fn(async () => [
       { id: 'ds-1', name: 'Growth' },
     ]) as unknown as DataClient['list']
+
     const client = fakeClient({ list })
+
     const tools = await request(
       'tools/list',
       {},
       context(['datasets:read'], client),
     )
+
     expect(
       (tools?.result as { tools: Array<{ name: string }> }).tools.map(
         (tool) => tool.name,
@@ -814,6 +869,7 @@ describe('MCP canonical read', () => {
       },
       context(['datasets:read'], client),
     )
+
     expect(list).toHaveBeenCalledWith(
       'datasets',
       expect.stringContaining('select='),
@@ -825,6 +881,7 @@ describe('MCP canonical read', () => {
 
   it('refuses a resource the credential has no read scope for', async () => {
     const client = fakeClient()
+
     const response = await request(
       'tools/call',
       {
@@ -833,12 +890,14 @@ describe('MCP canonical read', () => {
       },
       context(['datasets:read'], client),
     )
+
     expect(client.list).not.toHaveBeenCalled()
     expect(response?.result).toMatchObject({ isError: true })
   })
 
   it('refuses an unpublished filter column before querying', async () => {
     const client = fakeClient()
+
     const response = await request(
       'tools/call',
       {
@@ -850,6 +909,7 @@ describe('MCP canonical read', () => {
       },
       context(['datasets:read'], client),
     )
+
     expect(client.list).not.toHaveBeenCalled()
     expect(response?.result).toMatchObject({ isError: true })
   })
@@ -857,11 +917,13 @@ describe('MCP canonical read', () => {
   it('refuses canonical reads when mcp_read is off', async () => {
     const client = fakeClient()
     const flags = withFlags({ mcp_read: false })
+
     const tools = await request(
       'tools/list',
       {},
       context(['datasets:read'], client, undefined, flags),
     )
+
     expect(
       (tools?.result as { tools: Array<{ name: string }> }).tools.map(
         (tool) => tool.name,
@@ -876,6 +938,7 @@ describe('MCP canonical read', () => {
       },
       context(['datasets:read'], client, undefined, flags),
     )
+
     expect(response?.result).toMatchObject({ isError: true })
   })
 
@@ -887,7 +950,9 @@ describe('MCP canonical read', () => {
         detail: { password: 'hunter2' },
       },
     ]) as unknown as DataClient['list']
+
     const client = fakeClient({ list })
+
     const response = await request(
       'tools/call',
       {
@@ -901,6 +966,7 @@ describe('MCP canonical read', () => {
       },
       context(['pipelines:read'], client),
     )
+
     expect(response?.result).toMatchObject({
       structuredContent: { resource: 'pipeline_run_logs', untrusted: true },
     })
@@ -913,7 +979,9 @@ describe('MCP canonical read', () => {
     const list = vi.fn(async () => [
       { id: 'ds-1' },
     ]) as unknown as DataClient['list']
+
     const client = fakeClient({ list })
+
     const tools = await request(
       'tools/list',
       {},
@@ -922,11 +990,13 @@ describe('MCP canonical read', () => {
         id: 'credential-1',
       }),
     )
+
     expect(
       (tools?.result as { tools: Array<{ name: string }> }).tools.map(
         (tool) => tool.name,
       ),
     ).toContain('sheetbase.canonical.read')
+
     const response = await request(
       'tools/call',
       {
@@ -938,6 +1008,7 @@ describe('MCP canonical read', () => {
         id: 'credential-1',
       }),
     )
+
     expect(response?.result).not.toMatchObject({ isError: true })
   })
 })
@@ -954,6 +1025,7 @@ describe('MCP administration tools', () => {
   function adminClient(role = 'owner'): DataClient {
     const rpc = vi.fn(async (name: string) => {
       if (name === 'workspace_members_list') return [memberRow(role)]
+
       if (name === 'agent_admin_credentials') {
         return [
           {
@@ -964,14 +1036,17 @@ describe('MCP administration tools', () => {
           },
         ]
       }
+
       return {}
     }) as unknown as DataClient['rpc']
+
     return fakeClient({
       rpc,
       list: vi.fn(async (resource: string) => {
         if (resource === 'workspace_settings') {
           return [{ workspace_id: WORKSPACE_ID, ai_enabled: true }]
         }
+
         return []
       }) as unknown as DataClient['list'],
       count: vi.fn(async () => 2),
@@ -984,9 +1059,11 @@ describe('MCP administration tools', () => {
       {},
       context(['admin:read'], adminClient()),
     )
+
     const personalTools = (
       personal?.result as { tools: Array<{ name: string }> }
     ).tools
+
     expect(personalTools.map((tool) => tool.name)).toContain(
       'sheetbase.admin.read',
     )
@@ -999,8 +1076,10 @@ describe('MCP administration tools', () => {
         id: 'credential-1',
       }),
     )
+
     const serviceTools = (service?.result as { tools: Array<{ name: string }> })
       .tools
+
     expect(serviceTools.map((tool) => tool.name)).not.toContain(
       'sheetbase.admin.read',
     )
@@ -1008,11 +1087,13 @@ describe('MCP administration tools', () => {
 
   it('reads workspace settings and counts after the member role check', async () => {
     const client = adminClient('admin')
+
     const response = await request(
       'tools/call',
       { name: 'sheetbase.admin.read', arguments: { resource: 'workspace' } },
       context(['admin:read'], client),
     )
+
     expect(client.rpc).toHaveBeenCalledWith('workspace_members_list', {})
     expect(response?.result).toMatchObject({
       structuredContent: {
@@ -1031,11 +1112,13 @@ describe('MCP administration tools', () => {
       'analysis_definitions',
     ] as const) {
       const client = adminClient('steward')
+
       const response = await request(
         'tools/call',
         { name: 'sheetbase.admin.read', arguments: { resource } },
         context(['admin:read'], client),
       )
+
       expect(response?.result).toMatchObject({
         structuredContent: { resource, items: [] },
       })
@@ -1044,6 +1127,7 @@ describe('MCP administration tools', () => {
       expect(columns).not.toBe('')
 
       if (resource === 'instruments') expect(columns).not.toContain('config')
+
       if (resource === 'analysis_definitions')
         expect(columns).not.toContain('definition')
     }
@@ -1051,33 +1135,39 @@ describe('MCP administration tools', () => {
 
   it('refuses an admin read for a member without an administration role', async () => {
     const client = adminClient('member')
+
     const response = await request(
       'tools/call',
       { name: 'sheetbase.admin.read', arguments: { resource: 'workspace' } },
       context(['admin:read'], client),
     )
+
     expect(client.list).not.toHaveBeenCalled()
     expect(response?.result).toMatchObject({ isError: true })
   })
 
   it('refuses credential metadata for an admin who is not an owner', async () => {
     const client = adminClient('admin')
+
     const response = await request(
       'tools/call',
       { name: 'sheetbase.admin.read', arguments: { resource: 'credentials' } },
       context(['admin:read'], client),
     )
+
     expect(client.rpc).not.toHaveBeenCalledWith('agent_admin_credentials', {})
     expect(response?.result).toMatchObject({ isError: true })
   })
 
   it('returns owner credential metadata without secrets', async () => {
     const client = adminClient('owner')
+
     const response = await request(
       'tools/call',
       { name: 'sheetbase.admin.read', arguments: { resource: 'credentials' } },
       context(['admin:read'], client),
     )
+
     expect(response?.result).toMatchObject({
       structuredContent: {
         items: [
@@ -1097,6 +1187,7 @@ describe('MCP administration tools', () => {
 
   it('refuses an administration proposal without admin:write', async () => {
     const client = adminClient()
+
     const response = await request(
       'tools/call',
       {
@@ -1114,6 +1205,7 @@ describe('MCP administration tools', () => {
       },
       context(['agent_operations:write'], client),
     )
+
     expect(client.rpc).not.toHaveBeenCalledWith(
       'propose_agent_operation',
       expect.anything(),
@@ -1125,6 +1217,7 @@ describe('MCP administration tools', () => {
     const proposal = { id: 'proposal-1', approval_policy: 'human_required' }
     const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
     const client = fakeClient({ rpc })
+
     const response = await request(
       'tools/call',
       {
@@ -1142,6 +1235,7 @@ describe('MCP administration tools', () => {
       },
       context(['agent_operations:write', 'admin:write'], client),
     )
+
     expect(rpc).toHaveBeenCalledWith(
       'propose_agent_operation',
       expect.objectContaining({
@@ -1158,18 +1252,23 @@ describe('MCP administration tools', () => {
 describe('MCP resources and prompts', () => {
   it('serves the shared domain resource text', async () => {
     const list = await request('resources/list', {}, context([]))
+
     const resources = (list?.result as { resources: Array<{ uri: string }> })
       .resources
+
     expect(resources.map((resource) => resource.uri)).toContain(
       'sheetbase://domain/core-model',
     )
+
     const read = await request(
       'resources/read',
       { uri: 'sheetbase://domain/core-model' },
       context([]),
     )
+
     const contents = (read?.result as { contents: Array<{ text: string }> })
       .contents
+
     expect(contents[0]?.text).toContain('Sheetbase core model')
   })
 
@@ -1182,9 +1281,11 @@ describe('MCP resources and prompts', () => {
       },
       context([]),
     )
+
     const messages = (
       good?.result as { messages: Array<{ content: { text: string } }> }
     ).messages
+
     expect(messages[0]?.content.text).toContain(DATASET_ID)
     expect(messages[0]?.content.text).toContain('stable id')
 
@@ -1193,6 +1294,7 @@ describe('MCP resources and prompts', () => {
       { name: 'sheetbase.explain_object', arguments: {} },
       context([]),
     )
+
     expect(bad).toMatchObject({
       error: { code: JSON_RPC_ERRORS.invalidParams },
     })
@@ -1212,6 +1314,7 @@ describe('MCP protocol errors', () => {
       { jsonrpc: '2.0', method: 'notifications/initialized' },
       context([]),
     )
+
     expect(response).toBeNull()
   })
 
@@ -1221,6 +1324,7 @@ describe('MCP protocol errors', () => {
       { name: 'sheetbase.nope', arguments: {} },
       context(['datasets:read']),
     )
+
     expect(response?.result).toMatchObject({ isError: true })
   })
 })
@@ -1228,16 +1332,20 @@ describe('MCP protocol errors', () => {
 describe('MCP spend and usage reports', () => {
   it('offers the reports only with the facility read scope, and calls the report RPCs', async () => {
     const without = await request('tools/list', {}, context(['datasets:read']))
+
     const names = (
       without?.result as { tools: Array<{ name: string }> }
     ).tools.map((tool) => tool.name)
+
     expect(names).not.toContain('sheetbase.spend.report')
 
     const rpc = vi.fn(async () => [{ order_id: 'o1' }] as unknown)
+
     const ctx = context(
       ['facility:read'],
       fakeClient({ rpc: rpc as unknown as DataClient['rpc'] }),
     )
+
     const listed = await request('tools/list', {}, ctx)
     const tools = (listed?.result as { tools: Array<{ name: string }> }).tools
     expect(tools.map((tool) => tool.name)).toEqual(
@@ -1246,6 +1354,7 @@ describe('MCP spend and usage reports', () => {
         'sheetbase.usage.report',
       ]),
     )
+
     const called = await request(
       'tools/call',
       {
@@ -1258,6 +1367,7 @@ describe('MCP spend and usage reports', () => {
       },
       ctx,
     )
+
     expect(called?.result).toMatchObject({
       structuredContent: expect.anything(),
     })
@@ -1280,6 +1390,7 @@ describe('MCP money proposals', () => {
           tools: Array<{ name: string }>
         }
       ).tools.map((tool) => tool.name)
+
     expect(await names(['agent_operations:write'])).not.toContain(
       'sheetbase.reagent_order.mark_ordered',
     )
@@ -1294,6 +1405,7 @@ describe('MCP money proposals', () => {
 
   it('refuses a money proposal without the facility write scope', async () => {
     const rpc = vi.fn(async () => ({})) as unknown as DataClient['rpc']
+
     const response = await request(
       'tools/call',
       {
@@ -1306,6 +1418,7 @@ describe('MCP money proposals', () => {
       },
       context(['agent_operations:write'], fakeClient({ rpc })),
     )
+
     expect(rpc).not.toHaveBeenCalled()
     expect(response?.result).toMatchObject({ isError: true })
   })
@@ -1313,10 +1426,12 @@ describe('MCP money proposals', () => {
   it('wraps a price and a rate in a proposal that a person approves', async () => {
     const proposal = { id: 'proposal-money', approval_policy: 'human_required' }
     const rpc = vi.fn(async () => proposal) as unknown as DataClient['rpc']
+
     const ctx = context(
       ['agent_operations:write', 'facility:write'],
       fakeClient({ rpc }),
     )
+
     const priced = await request(
       'tools/call',
       {
@@ -1330,7 +1445,9 @@ describe('MCP money proposals', () => {
       },
       ctx,
     )
+
     expect(priced?.result).toMatchObject({ structuredContent: proposal })
+
     const rated = await request(
       'tools/call',
       {
@@ -1343,6 +1460,7 @@ describe('MCP money proposals', () => {
       },
       ctx,
     )
+
     expect(rated?.result).toMatchObject({ structuredContent: proposal })
     expect(rpc).toHaveBeenCalledWith(
       'propose_agent_operation',
@@ -1366,10 +1484,12 @@ describe('MCP directory sync status', () => {
     ).not.toContain('sheetbase.directory_sync.status')
 
     const rpc = vi.fn(async () => ({ active_tokens: 1 }))
+
     const ctx = context(
       ['people:read'],
       fakeClient({ rpc: rpc as unknown as DataClient['rpc'] }),
     )
+
     const listed = await request('tools/list', {}, ctx)
     expect(
       (listed?.result as { tools: Array<{ name: string }> }).tools.map(

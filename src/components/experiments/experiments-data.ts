@@ -161,6 +161,7 @@ export function experimentStatus(status: string): {
   label: string
 } {
   const known = STATUS[status]
+
   return known
     ? { tone: known.tone, label: known.label }
     : {
@@ -223,9 +224,11 @@ function statusesForTab(tab: ExperimentStatusTab): string[] {
  * of `api.experiment_tab_counts`, so a list and its count cannot disagree. */
 export function experimentListFilters(filter: ExperimentListFilter): string[] {
   const clauses = [EXPERIMENT_FILTER]
+
   if (filter.tab === 'archived') clauses.push('archived_at=not.is.null')
   else {
     clauses.push('archived_at=is.null')
+
     if (filter.tab === 'mine')
       clauses.push(
         `created_by_user_id=eq.${encodeURIComponent(filter.userId ?? '')}`,
@@ -233,25 +236,32 @@ export function experimentListFilters(filter: ExperimentListFilter): string[] {
     else if (filter.tab !== 'all')
       clauses.push(`status=in.(${statusesForTab(filter.tab).join(',')})`)
   }
+
   if (filter.projectId)
     clauses.push(`project_id=eq.${encodeURIComponent(filter.projectId)}`)
+
   if (filter.since)
     clauses.push(`updated_at=gte.${encodeURIComponent(filter.since)}`)
   const term = (filter.query ?? '').trim()
+
   if (term) {
     const pattern = encodeURIComponent(containsPattern(term))
+
     const alternatives = [
       `identifier.ilike.${pattern}`,
       `title.ilike.${pattern}`,
     ]
+
     if (filter.matchProjectIds?.length)
       alternatives.push(`project_id.in.(${filter.matchProjectIds.join(',')})`)
+
     if (filter.matchOwnerIds?.length)
       alternatives.push(
         `created_by_user_id.in.(${filter.matchOwnerIds.map(encodeURIComponent).join(',')})`,
       )
     clauses.push(`or=(${alternatives.join(',')})`)
   }
+
   return clauses
 }
 
@@ -261,6 +271,7 @@ export function toExperimentListRow(
   ownerNames: Map<string, string>,
 ): ExperimentListRow {
   const updated = Date.parse(row.updated_at)
+
   return {
     uuid: row.id,
     id: row.identifier,
@@ -293,6 +304,7 @@ export const RECENT_WINDOW_MS = 30 * 86_400_000
  * the list and its counts share one cache entry for the whole hour. */
 export function recentSince(): string {
   const hour = 3_600_000
+
   return new Date(
     Math.floor((now().getTime() - RECENT_WINDOW_MS) / hour) * hour,
   ).toISOString()
@@ -366,38 +378,50 @@ export function useExperimentTabCounts(
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<ExperimentTabCounts> => {
       const params = [`p_user_id=${encodeURIComponent(userId ?? '')}`]
+
       if (scope.projectId)
         params.push(`p_project_id=${encodeURIComponent(scope.projectId)}`)
+
       if (scope.since) params.push(`p_since=${encodeURIComponent(scope.since)}`)
+
       if (scope.query?.trim()) {
         params.push(`p_query=${encodeURIComponent(scope.query.trim())}`)
+
         if (scope.matchProjectIds?.length)
           params.push(
             `p_match_project_ids=${encodeURIComponent(`{${scope.matchProjectIds.join(',')}}`)}`,
           )
+
         if (scope.matchOwnerIds?.length)
           params.push(
             `p_match_owner_ids=${encodeURIComponent(`{${scope.matchOwnerIds.map((id) => `"${id}"`).join(',')}}`)}`,
           )
       }
+
       const rows = await client.list<TabCountWire>(
         'rpc/experiment_tab_counts',
         `?${params.join('&')}&select=status,archived,total,mine`,
       )
+
       const counts = Object.fromEntries(
         EXPERIMENT_TAB_KEYS.map((tab) => [tab, 0]),
       ) as ExperimentTabCounts
+
       for (const row of rows) {
         const total = Number(row.total)
+
         if (row.archived) {
           counts.archived += total
           continue
         }
+
         counts.all += total
         counts.mine += Number(row.mine)
         const tab = STATUS[row.status]?.tab
+
         if (tab) counts[tab] += total
       }
+
       return counts
     },
     staleTime: 15_000,
@@ -424,6 +448,7 @@ export function useExperimentOpenIssues(
         'rpc/experiment_open_issue_counts',
         '?select=record_id,open_issues',
       )
+
       return new Map(rows.map((r) => [r.record_id, Number(r.open_issues)]))
     },
     staleTime: 15_000,
@@ -451,6 +476,7 @@ export function useProjectNameMap(client: DataClient = notebookDataClient) {
         'projects',
         '?select=id,title',
       )
+
       return new Map(rows.map((r) => [r.id, r.title]))
     },
     staleTime: 60_000,
@@ -477,11 +503,13 @@ export function useExperimentProtocols(
   client: DataClient = notebookDataClient,
 ) {
   const key = experimentIds.join(',')
+
   return useQuery({
     queryKey: ['ui-port', 'experiments', 'protocols', key],
     enabled: experimentIds.length > 0,
     queryFn: async () => {
       const map = new Map<string, ExperimentProtocol>()
+
       // One request per group of ids, all at once: the groups used to be read
       // one after another, which put a dozen round trips between the list and
       // its Protocol column.
@@ -491,6 +519,7 @@ export function useExperimentProtocols(
           `?source_record_id=in.(${inList})&link_type=eq.protocol&select=source_record_id,target_record_id,target_identifier,link_metadata`,
         ),
       )
+
       for (const row of rows) {
         if (!row.target_identifier) continue
         map.set(row.source_record_id, {
@@ -502,6 +531,7 @@ export function useExperimentProtocols(
               : null,
         })
       }
+
       return map
     },
     staleTime: 30_000,

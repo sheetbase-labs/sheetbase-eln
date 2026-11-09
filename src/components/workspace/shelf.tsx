@@ -34,6 +34,7 @@ export function Shelf({
       }}
       onDrop={(event) => {
         const href = event.dataTransfer.getData('application/x-sheetbase-link')
+
         if (!href) return
         event.preventDefault()
         onDropLink(href)
@@ -57,6 +58,7 @@ export function Shelf({
       <div className="mx-shelf-l">
         {items.map((item) => {
           const kind = paneKind(item.href)
+
           return (
             <div key={item.id} className="mx-card" data-shelf-card>
               <div className="mx-card-h">

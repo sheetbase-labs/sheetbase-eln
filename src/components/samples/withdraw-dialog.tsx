@@ -49,8 +49,10 @@ export function formatQuantityAmount(value: number): string {
 /** Parse a quantity field that may carry thousands separators. Null when empty. */
 export function parseQuantityInput(raw: string): number | null {
   const cleaned = raw.replace(/,/g, '').trim()
+
   if (cleaned === '') return null
   const n = Number(cleaned)
+
   return Number.isFinite(n) ? n : null
 }
 
@@ -73,10 +75,13 @@ export function validateQuantity(
   freeWord: 'left' | 'free' = 'left',
 ): QuantityValidation {
   const quantity = parseQuantityInput(rawQuantity)
+
   if (quantity == null || quantity <= 0) {
     return { error: null, remainingAfter: null, valid: false }
   }
+
   const unitLabel = unit ? ` ${unit}` : ''
+
   if (quantity > free) {
     return {
       error: t(
@@ -89,6 +94,7 @@ export function validateQuantity(
       valid: false,
     }
   }
+
   return { error: null, remainingAfter: free - quantity, valid: true }
 }
 
@@ -107,28 +113,38 @@ export function describeWithdrawError(
       const match =
         /available ([\d.]+)/i.exec(error.message) ??
         /have ([\d.]+)/i.exec(error.message)
+
       const amount = match ? Number(match[1]) : null
+
       if (amount != null && Number.isFinite(amount)) {
         const label = unit ? ` ${unit}` : ''
+
         return t('library.samples.withdrawDialog.onlyAvailableEnterOrLess', {
           amount: formatQuantityAmount(amount),
           label,
         })
       }
+
       return t('library.samples.withdrawDialog.notEnoughFreeVolumeFor')
     }
+
     if (error.code === 'SB001') {
       return t('library.samples.withdrawDialog.thisSampleWasEditedBy')
     }
+
     if (error.code === 'SB004') {
       return t('library.samples.withdrawDialog.thisSampleCannotBeWithdrawn')
     }
+
     if (error.code === '42501') {
       return t('library.samples.withdrawDialog.youDoNotHavePermission')
     }
+
     return error.message
   }
+
   if (error instanceof Error) return error.message
+
   return t('library.samples.withdrawDialog.couldNotCompleteTheSample')
 }
 
@@ -156,6 +172,7 @@ export function useExperimentOptions(
         'records',
         '?kind=eq.experiment&deleted_at=is.null&archived_at=is.null&order=updated_at.desc&limit=100&select=id,identifier,title',
       )
+
       return rows.map((row) => ({
         id: row.id,
         identifier: row.identifier,
@@ -321,6 +338,7 @@ export function WithdrawDialog({
     notebookDataClient,
     balancesProp === undefined,
   )
+
   const balances =
     balancesProp !== undefined ? balancesProp : (queriedBalances.data ?? null)
 
@@ -339,6 +357,7 @@ export function WithdrawDialog({
   // does not carry one of its own.
   useEffect(() => {
     if (sample.quantityUnit) return
+
     if (balanceUnit) setUnit(balanceUnit)
   }, [sample.quantityUnit, balanceUnit])
 
@@ -347,22 +366,28 @@ export function WithdrawDialog({
   const validation = validateQuantity(quantity, free, unitLabel)
   const unitSuffix = unitLabel ? ` ${unitLabel}` : ''
   const blocked = busy || !validation.valid || purpose === ''
+
   const unitOptions = useMemo(() => {
     if (sample.quantityUnit) return [sample.quantityUnit]
+
     if (balanceUnit) return [balanceUnit]
+
     return COMMON_UNITS
   }, [sample.quantityUnit, balanceUnit])
 
   const onKey = (key: string) => {
     setQuantity((current) => {
       if (key === 'backspace') return current.slice(0, -1)
+
       if (key === '.' && current.includes('.')) return current
+
       return current + key
     })
   }
 
   const submit = () => {
     const value = parseQuantityInput(quantity)
+
     if (value == null || value <= 0 || purpose === '' || blocked) return
     onSubmit({
       quantity: value,
@@ -561,6 +586,7 @@ export function ReserveDialog({
     notebookDataClient,
     balancesProp === undefined,
   )
+
   const balances =
     balancesProp !== undefined ? balancesProp : (queriedBalances.data ?? null)
 
@@ -578,6 +604,7 @@ export function ReserveDialog({
   // does not carry one of its own.
   useEffect(() => {
     if (sample.quantityUnit) return
+
     if (balanceUnit) setUnit(balanceUnit)
   }, [sample.quantityUnit, balanceUnit])
 
@@ -586,22 +613,28 @@ export function ReserveDialog({
   const validation = validateQuantity(quantity, free, unitLabel, 'free')
   const unitSuffix = unitLabel ? ` ${unitLabel}` : ''
   const blocked = busy || !validation.valid || experiment === ''
+
   const unitOptions = useMemo(() => {
     if (sample.quantityUnit) return [sample.quantityUnit]
+
     if (balanceUnit) return [balanceUnit]
+
     return COMMON_UNITS
   }, [sample.quantityUnit, balanceUnit])
 
   const onKey = (key: string) => {
     setQuantity((current) => {
       if (key === 'backspace') return current.slice(0, -1)
+
       if (key === '.' && current.includes('.')) return current
+
       return current + key
     })
   }
 
   const submit = () => {
     const value = parseQuantityInput(quantity)
+
     if (value == null || value <= 0 || experiment === '' || blocked) return
     onSubmit({
       experimentId: experiment,

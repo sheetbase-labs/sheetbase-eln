@@ -13,6 +13,7 @@ describe('categorisePostgrestError', () => {
       code: '23505',
       message: 'dup',
     })
+
     expect(out).toEqual({ category: 'conflict', status: 409, message: 'dup' })
   })
 
@@ -21,6 +22,7 @@ describe('categorisePostgrestError', () => {
       code: '42501',
       message: 'no',
     })
+
     expect(out.category).toBe('permission_denied')
   })
 
@@ -50,6 +52,7 @@ describe('categorisePostgrestError', () => {
       code: 'SB001',
       message: 'stale',
     })
+
     expect(out).toEqual({
       category: 'stale_version',
       status: 409,
@@ -62,6 +65,7 @@ describe('categorisePostgrestError', () => {
       code: 'SB002',
       message: 'no target',
     })
+
     expect(out).toMatchObject({ category: 'missing_link', status: 422 })
   })
 
@@ -70,6 +74,7 @@ describe('categorisePostgrestError', () => {
       code: 'SB003',
       message: 'bad payload',
     })
+
     expect(out.category).toBe('validation_error')
   })
 
@@ -78,6 +83,7 @@ describe('categorisePostgrestError', () => {
       code: 'SB006',
       message: 'cannot instantiate from a draft template',
     })
+
     expect(out).toMatchObject({
       category: 'template_not_instantiable',
       status: 422,
@@ -108,6 +114,7 @@ describe('errorEnvelope', () => {
       message: 'dup',
       requestId: 'req-1',
     })
+
     expect(response.status).toBe(409)
     expect(response.headers.get('content-type')).toContain('application/json')
   })
@@ -118,6 +125,7 @@ describe('errorEnvelope', () => {
       status: 400,
       message: 'bad',
     })
+
     const body = await response.json()
     expect(body.error.request_id).toBeUndefined()
   })

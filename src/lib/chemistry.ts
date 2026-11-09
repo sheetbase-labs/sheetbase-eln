@@ -18,6 +18,7 @@ export const REACTION_ROLES = [
   'solvent',
   'product',
 ] as const
+
 export type ReactionRole = (typeof REACTION_ROLES)[number]
 
 /** A reaction table row. Amounts are in mg, mL and mmol. */
@@ -87,7 +88,9 @@ export const MAX_REACTION_ROWS = 60
 
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
+
 const isString = (v: unknown): v is string => typeof v === 'string'
+
 const isNumberOrNull = (v: unknown): boolean =>
   v === null || v === undefined || (typeof v === 'number' && Number.isFinite(v))
 
@@ -95,6 +98,7 @@ export function structureIssues(payload: unknown): ChemistryIssue[] {
   if (!isObject(payload))
     return [{ field: '', message: 'payload must be an object' }]
   const issues: ChemistryIssue[] = []
+
   if (
     !isString(payload.molfile) ||
     payload.molfile.length > MAX_DRAWING_CHARS
@@ -104,14 +108,17 @@ export function structureIssues(payload: unknown): ChemistryIssue[] {
       message: 'molfile must be text of a reasonable size',
     })
   }
+
   for (const field of ['title', 'caption', 'name', 'formula', 'smiles']) {
     if (payload[field] !== undefined && !isString(payload[field])) {
       issues.push({ field, message: `${field} must be a string when present` })
     }
   }
+
   if (!isNumberOrNull(payload.mw)) {
     issues.push({ field: 'mw', message: 'mw must be a number when present' })
   }
+
   return issues
 }
 
@@ -119,6 +126,7 @@ export function reactionIssues(payload: unknown): ChemistryIssue[] {
   if (!isObject(payload))
     return [{ field: '', message: 'payload must be an object' }]
   const issues: ChemistryIssue[] = []
+
   if (
     !isString(payload.drawing) ||
     payload.drawing.length > MAX_DRAWING_CHARS
@@ -128,43 +136,54 @@ export function reactionIssues(payload: unknown): ChemistryIssue[] {
       message: 'drawing must be text of a reasonable size',
     })
   }
+
   for (const field of ['title', 'caption', 'smiles']) {
     if (payload[field] !== undefined && !isString(payload[field])) {
       issues.push({ field, message: `${field} must be a string when present` })
     }
   }
+
   const rows = payload.rows
+
   if (!Array.isArray(rows) || rows.length > MAX_REACTION_ROWS) {
     issues.push({
       field: 'rows',
       message: `rows must be a list of up to ${MAX_REACTION_ROWS} rows`,
     })
+
     return issues
   }
+
   const seen = new Set<string>()
   rows.forEach((row, index) => {
     const at = `rows[${index}]`
+
     if (!isObject(row)) {
       issues.push({ field: at, message: 'each row must be an object' })
+
       return
     }
+
     if (!isString(row.id) || row.id === '' || seen.has(row.id)) {
       issues.push({ field: `${at}.id`, message: 'each row needs its own id' })
     } else {
       seen.add(row.id)
     }
+
     if (!REACTION_ROLES.includes(row.role as ReactionRole)) {
       issues.push({
         field: `${at}.role`,
         message: `role must be one of ${REACTION_ROLES.join(', ')}`,
       })
     }
+
     if (!isString(row.name) || row.name.length > 200) {
       issues.push({
         field: `${at}.name`,
         message: 'name must be text up to 200 characters',
       })
     }
+
     for (const field of [
       'mw',
       'equiv',
@@ -180,6 +199,7 @@ export function reactionIssues(payload: unknown): ChemistryIssue[] {
         })
       }
     }
+
     for (const field of ['formula', 'structureCode', 'note']) {
       if (row[field] !== undefined && !isString(row[field])) {
         issues.push({
@@ -189,6 +209,7 @@ export function reactionIssues(payload: unknown): ChemistryIssue[] {
       }
     }
   })
+
   if (
     payload.limitingId !== undefined &&
     payload.limitingId !== null &&
@@ -199,6 +220,7 @@ export function reactionIssues(payload: unknown): ChemistryIssue[] {
       message: 'limitingId must be the id of one of the rows',
     })
   }
+
   return issues
 }
 
@@ -228,6 +250,7 @@ const positive = (v: number | null | undefined): v is number =>
  */
 export function limitingRow(payload: ReactionPayload): ReactionRow | null {
   const reactants = payload.rows.filter((r) => r.role === 'reactant')
+
   return (
     reactants.find((r) => r.id === payload.limitingId) ??
     reactants.find((r) => ownMmol(r) !== null) ??
@@ -239,13 +262,17 @@ export function limitingRow(payload: ReactionPayload): ReactionRow | null {
 /** The moles a row stands for from what was typed for it alone, in mmol. */
 function ownMmol(row: ReactionRow): number | null {
   if (!positive(row.mw)) return null
+
   if (positive(row.massMg)) return row.massMg / row.mw
+
   if (positive(row.volumeMl) && positive(row.density)) {
     return (row.volumeMl * row.density * 1000) / row.mw
   }
+
   if (positive(row.volumeMl) && positive(row.concentration)) {
     return row.volumeMl * row.concentration
   }
+
   return null
 }
 
@@ -272,15 +299,21 @@ export function computeReactionTable(
       theoreticalMg: null,
       yieldPercent: null,
     }
+
     const mw = positive(row.mw) ? row.mw : null
+
     if (row.role === 'product') {
       const coefficient = positive(row.equiv) ? row.equiv : 1
+
       if (limitingMmol !== null) {
         computed.mmol = limitingMmol * coefficient
         computed.equiv = coefficient
+
         if (mw !== null) computed.theoreticalMg = computed.mmol * mw
       }
+
       computed.massMg = positive(row.massMg) ? row.massMg : null
+
       if (computed.massMg !== null && mw !== null) {
         const isolatedMmol = computed.massMg / mw
         computed.yieldPercent =
@@ -302,15 +335,19 @@ export function computeReactionTable(
       computed.volumeMl = volumeFor(row, computed.mmol, computed.massMg)
     } else {
       let mmol: number | null = null
+
       if (positive(row.equiv) && limitingMmol !== null) {
         mmol = row.equiv * limitingMmol
       } else {
         mmol = ownMmol(row)
+
         if (mmol !== null && limitingMmol !== null) {
           computed.equiv = mmol / limitingMmol
         }
       }
+
       computed.mmol = mmol
+
       if (positive(row.equiv)) computed.equiv = row.equiv
       computed.massMg = positive(row.massMg)
         ? row.massMg
@@ -319,8 +356,10 @@ export function computeReactionTable(
           : null
       computed.volumeMl = volumeFor(row, mmol, computed.massMg)
     }
+
     out.set(row.id, computed)
   }
+
   return out
 }
 
@@ -330,10 +369,13 @@ function volumeFor(
   massMg: number | null,
 ): number | null {
   if (positive(row.volumeMl)) return row.volumeMl
+
   if (mmol !== null && positive(row.concentration))
     return mmol / row.concentration
+
   if (massMg !== null && positive(row.density))
     return massMg / 1000 / row.density
+
   return null
 }
 
@@ -352,6 +394,7 @@ export function amountPatch(
 ): Partial<ReactionRow> {
   const patch: Partial<ReactionRow> = { [field]: value }
   const follows = row.role === 'reactant' || row.role === 'reagent'
+
   if (follows && value !== null) {
     if (field === 'equiv') {
       patch.massMg = null
@@ -360,6 +403,7 @@ export function amountPatch(
       patch.equiv = null
     }
   }
+
   return patch
 }
 
@@ -376,9 +420,11 @@ export interface DrawnComponent {
 }
 
 let counter = 0
+
 /** A row id that is unique within a notebook block. */
 export function newRowId(): string {
   counter += 1
+
   return `r${Date.now().toString(36)}${counter.toString(36)}`
 }
 
@@ -394,6 +440,7 @@ export function syncRowsWithDrawing(
   drawn: readonly DrawnComponent[],
 ): ReactionRow[] {
   const byCode = new Map<string, ReactionRow[]>()
+
   for (const row of rows) {
     if (!row.structureCode) continue
     byCode.set(row.structureCode, [
@@ -401,13 +448,17 @@ export function syncRowsWithDrawing(
       row,
     ])
   }
+
   const used = new Set<string>()
+
   const fromDrawing: ReactionRow[] = drawn.map((component) => {
     const existing = (byCode.get(component.structureCode) ?? []).find(
       (row) => !used.has(row.id),
     )
+
     if (existing) {
       used.add(existing.id)
+
       return {
         ...existing,
         role: component.role,
@@ -415,6 +466,7 @@ export function syncRowsWithDrawing(
         mw: component.mw,
       }
     }
+
     return {
       id: newRowId(),
       role: component.role,
@@ -424,8 +476,10 @@ export function syncRowsWithDrawing(
       structureCode: component.structureCode,
     }
   })
+
   const byHand = rows.filter((row) => !row.structureCode)
   const order = (role: ReactionRole) => REACTION_ROLES.indexOf(role)
+
   return [...fromDrawing, ...byHand].sort(
     (a, b) => order(a.role) - order(b.role),
   )
@@ -441,6 +495,7 @@ export function formatAmount(value: number | null | undefined): string {
     return '—'
   const abs = Math.abs(value)
   const digits = abs >= 1000 ? 0 : abs >= 100 ? 1 : abs >= 10 ? 2 : 3
+
   return Number(value.toFixed(digits)).toLocaleString('en-GB', {
     maximumFractionDigits: digits,
   })

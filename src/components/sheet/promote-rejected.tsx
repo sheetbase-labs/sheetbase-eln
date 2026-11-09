@@ -36,10 +36,12 @@ export function PromoteRejected({
     queryKey: ['column-promotions', instanceId, fieldId],
     queryFn: () => listInstanceColumnPromotions(client, instanceId),
   })
+
   const returned = (promotions.data ?? []).find(
     (promotion) =>
       promotion.field_id === fieldId && promotion.state === 'returned',
   )
+
   if (!returned) return null
 
   return (

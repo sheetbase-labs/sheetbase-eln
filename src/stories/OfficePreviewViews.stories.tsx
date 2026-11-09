@@ -67,6 +67,7 @@ function tinyPdf(): Uint8Array {
     '<< /Length 56 >>\nstream\nBT /F1 20 Tf 30 80 Td (Growth assay report) Tj ET\nendstream',
     '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
   ]
+
   let out = '%PDF-1.4\n'
   const offsets: number[] = []
   objects.forEach((body, i) => {
@@ -75,10 +76,13 @@ function tinyPdf(): Uint8Array {
   })
   const xref = out.length
   out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
+
   for (const offset of offsets) {
     out += `${String(offset).padStart(10, '0')} 00000 n \n`
   }
+
   out += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`
+
   return new TextEncoder().encode(out)
 }
 
@@ -93,7 +97,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A workbook with two worksheets, one tab each. */

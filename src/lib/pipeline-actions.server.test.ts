@@ -8,11 +8,13 @@ import { validatePipelineActions } from './pipelines/actions'
 
 const workspaceId = '00000000-0000-4000-8000-000000000001'
 const runId = '00000000-0000-4000-8000-000000000002'
+
 const context = {
   parameters: { title: "Hello'); DROP TABLE api.records;--" },
   previous: [],
   output: {},
 }
+
 function connection(
   results: unknown[] = [{ id: workspaceId }],
   workspace = workspaceId,
@@ -20,12 +22,16 @@ function connection(
   const query = vi.fn(async (sql: string, _values?: unknown[]) => {
     if (sql.startsWith('SELECT api.current_workspace'))
       return { rows: [{ workspace_id: workspace, user_id: 'actor' }] }
+
     if (sql.startsWith('SELECT to_jsonb'))
       return { rows: [{ result: results.shift() }] }
+
     return { rows: [] }
   })
+
   return { conn: { query } as unknown as ExecConnection, query }
 }
+
 describe('ELN pipeline actions', () => {
   it('rejects arbitrary SQL/RPC identifiers and server-owned arguments', () => {
     expect(
@@ -75,6 +81,7 @@ describe('ELN pipeline actions', () => {
   })
   it('resolves earlier action results and records without substituting strings', async () => {
     const { conn, query } = connection([{ id: workspaceId }, { id: runId }])
+
     const result = await executePipelineActions(
       conn,
       { workspaceId, runId },
@@ -96,6 +103,7 @@ describe('ELN pipeline actions', () => {
       ],
       context,
     )
+
     expect(result.record).toEqual({ id: runId })
     expect(
       query.mock.calls.find(([sql]) =>
@@ -131,6 +139,7 @@ describe('ELN pipeline actions', () => {
     const { conn, query } = connection([
       { ok: false, errors: ['revision conflict'] },
     ])
+
     await expect(
       executePipelineActions(
         conn,
@@ -252,9 +261,11 @@ describe('ELN pipeline actions', () => {
       ],
       context,
     )
+
     const calls = query.mock.calls.filter(([sql]) =>
       sql.startsWith('SELECT to_jsonb'),
     )
+
     expect(calls[0][0]).toContain('p_expected_on => $2::date')
     expect(calls[0][1]).toEqual([order, '2026-12-01', 120.5, 'GBP'])
     expect(calls[1][1]).toEqual([instrument, null, null])
@@ -275,11 +286,13 @@ describe('ELN pipeline actions', () => {
   })
   describe('bulk import (one action for each row)', () => {
     const order = (n: number) => `00000000-0000-4000-8000-0000000001${n}0`
+
     const rows = [
       { order_id: order(1), price: 10.5, ccy: 'GBP' },
       { order_id: order(2), price: 20, ccy: 'GBP' },
       { order_id: order(3), price: null, ccy: 'GBP' },
     ]
+
     const loop = {
       name: 'prices',
       operation: 'set_reagent_order_price',
@@ -293,15 +306,18 @@ describe('ELN pipeline actions', () => {
 
     it("runs the action for every row with that row's values, in order", async () => {
       const { conn, query } = connection([{ a: 1 }, { a: 2 }, { a: 3 }])
+
       const results = await executePipelineActions(
         conn,
         { workspaceId, runId },
         [loop],
         { ...context, previous: rows },
       )
+
       const calls = query.mock.calls.filter(([sql]) =>
         sql.startsWith('SELECT to_jsonb'),
       )
+
       expect(calls.map(([, values]) => values)).toEqual([
         [order(1), 10.5, 'GBP'],
         [order(2), 20, 'GBP'],
@@ -336,9 +352,11 @@ describe('ELN pipeline actions', () => {
 
     it('gives each row its own idempotency key and proposal', async () => {
       const proposed = [{ id: 'p1' }, { id: 'p2' }]
+
       const query = vi.fn(async (sql: string, _values?: unknown[]) => {
         if (sql.startsWith('SELECT api.current_workspace'))
           return { rows: [{ workspace_id: workspaceId, user_id: 'actor' }] }
+
         if (sql.includes('FROM api.pipeline_runs'))
           return {
             rows: [
@@ -349,10 +367,13 @@ describe('ELN pipeline actions', () => {
               },
             ],
           }
+
         if (sql.includes('propose_agent_operation'))
           return { rows: [{ result: proposed.shift() }] }
+
         return { rows: [] }
       })
+
       const conn = { query } as unknown as ExecConnection
       await executePipelineActions(
         conn,
@@ -380,9 +401,11 @@ describe('ELN pipeline actions', () => {
           },
         },
       )
+
       const proposals = query.mock.calls.filter(([sql]) =>
         sql.includes('propose_agent_operation'),
       )
+
       expect(proposals.map(([, values]) => (values as unknown[])[5])).toEqual([
         `pipeline:${runId}:rates:0`,
         `pipeline:${runId}:rates:1`,
@@ -422,9 +445,11 @@ describe('ELN pipeline actions', () => {
       ],
       context,
     )
+
     const calls = query.mock.calls.filter(([sql]) =>
       sql.startsWith('SELECT to_jsonb'),
     )
+
     expect(calls[0][1]).toEqual([part, true])
   })
   it('asks someone to sign off a part with typed, bound values', async () => {
@@ -446,9 +471,11 @@ describe('ELN pipeline actions', () => {
       ],
       context,
     )
+
     const calls = query.mock.calls.filter(([sql]) =>
       sql.startsWith('SELECT to_jsonb'),
     )
+
     expect(calls[0][1]).toEqual([part, 'u-1', 'Over to you'])
   })
   it('finishes a step and records a result with typed, bound values', async () => {
@@ -476,9 +503,11 @@ describe('ELN pipeline actions', () => {
       ],
       context,
     )
+
     const calls = query.mock.calls.filter(([sql]) =>
       sql.startsWith('SELECT to_jsonb'),
     )
+
     expect(calls[0][0]).toContain('p_done => $2::boolean')
     expect(calls[0][1]).toEqual([step, true, 'plate 4 read'])
     expect(calls[1][1]).toEqual([step, 'Titre', '1.2e12', 'vg/mL'])
@@ -516,9 +545,11 @@ describe('ELN pipeline actions', () => {
         ],
         context,
       )
+
       const calls = query.mock.calls.filter(([sql]) =>
         sql.startsWith('SELECT to_jsonb'),
       )
+
       expect(calls[0][0]).toContain('p_workspace_id => $1::uuid')
       expect(calls[0][0]).toContain('p_due_at => $3::timestamptz')
       expect(calls[0][1]).toEqual([

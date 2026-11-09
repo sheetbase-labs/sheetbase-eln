@@ -66,6 +66,7 @@ describe('inferImportColumns', () => {
       ['Signal (A)', 'Signal (B)', '2nd read'],
       [{ 'Signal (A)': '1', 'Signal (B)': '2', '2nd read': '3' }],
     )
+
     expect(dup.map((item) => item.key)).toEqual([
       'signal',
       'signal_2',

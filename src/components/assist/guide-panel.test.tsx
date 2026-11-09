@@ -27,6 +27,7 @@ describe('GuidePanel', () => {
       chartSpecReady: false,
       embeddedBlockId: null,
     })
+
     render(<GuidePanel workflow={workflow} onAccept={() => {}} />)
     expect(screen.getByLabelText('Guide: Analysis to figure')).toBeTruthy()
     expect(
@@ -47,11 +48,14 @@ describe('GuidePanel', () => {
       chartSpecReady: false,
       embeddedBlockId: null,
     })
+
     const onAccept = vi.fn()
     render(<GuidePanel workflow={workflow} onAccept={onAccept} />)
+
     const propose = screen.getByRole('button', {
       name: 'Propose chart from compare config',
     })
+
     fireEvent.click(propose)
     expect(onAccept).toHaveBeenCalledTimes(1)
     expect(onAccept).toHaveBeenCalledWith('promoteToChartSpec')
@@ -77,6 +81,7 @@ describe('GuidePanel', () => {
         },
       ],
     })
+
     render(<GuidePanel workflow={workflow} onAccept={() => {}} />)
     expect(screen.getByText(/Why this chart block cannot save/)).toBeTruthy()
   })
@@ -96,6 +101,7 @@ describe('GuidePanel', () => {
       revisionId: 'rev-1',
       decision: null,
     })
+
     const onAccept = vi.fn()
     render(<GuidePanel workflow={workflow} onAccept={onAccept} />)
     expect(
@@ -119,6 +125,7 @@ describe('GuidePanel', () => {
       chartSpecReady: true,
       embeddedBlockId: 'b1',
     })
+
     render(<GuidePanel workflow={workflow} onAccept={() => {}} />)
     expect(screen.getByText(/Workflow complete/)).toBeTruthy()
   })

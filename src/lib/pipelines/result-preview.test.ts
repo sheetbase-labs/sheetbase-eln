@@ -18,6 +18,7 @@ describe('buildResultPreview', () => {
       },
       { sample: 'B', od: null, when: null, ok: false },
     ])
+
     expect(preview.columns).toEqual(['sample', 'od', 'when', 'ok'])
     expect(preview.rows).toEqual([
       ['A', 0.4, '2026-01-02T03:04:05.000Z', true],
@@ -31,6 +32,7 @@ describe('buildResultPreview', () => {
       n: i,
       text: 'x'.repeat(PREVIEW_MAX_CELL_CHARS + 10),
     }))
+
     const preview = buildResultPreview(rows)
     expect(preview.rows).toHaveLength(PREVIEW_MAX_ROWS)
     expect(preview.rowCount).toBe(PREVIEW_MAX_ROWS + 5)

@@ -19,7 +19,9 @@ describe('workspace destinations', () => {
   it('keeps exact scientific context and refuses non-page destinations', () => {
     const pinned =
       '/datasets/DS-0311/rows?snapshot=version-7&row=row-2&field=field-3#evidence'
+
     expect(workspaceHref(`${origin}${pinned}`, origin)).toBe(pinned)
+
     for (const href of [
       'https://other.test/datasets',
       '//other.test/',
@@ -37,6 +39,7 @@ describe('restoring a workspace', () => {
   function twoPaneState() {
     const state = initialWorkspace('/records/EXP-17/notebook')
     const tab = state.tabs[0]
+
     return {
       ...state,
       tabs: [
@@ -62,11 +65,13 @@ describe('restoring a workspace', () => {
 
   it('restores arrangement and other pinned pages but honours the address bar for the focused page', () => {
     const state = twoPaneState()
+
     const restored = restoreWorkspace(
       JSON.stringify(state),
       '/inbox?tab=following',
       origin,
     )
+
     const tab = restored.tabs[0]
     expect(tab.tree).toEqual(state.tabs[0].tree)
     expect(tab.panes.map((pane) => pane.href)).toEqual([
@@ -132,6 +137,7 @@ describe('pane kinds and modes', () => {
         'models',
       ].map((name) => [name, paneKind(`/${name}`).icon]),
     )
+
     expect(icons).toEqual({
       protocols: 'protocol',
       templates: 'template',
@@ -188,6 +194,7 @@ describe('pane kinds and modes', () => {
 describe('saved layouts', () => {
   it('round-trips arrangement and destinations without history', () => {
     const state = initialWorkspace('/datasets')
+
     const tab = {
       ...state.tabs[0],
       panes: [
@@ -202,6 +209,7 @@ describe('saved layouts', () => {
       ],
       tree: applyPreset('columns-2', ['initial', 'b'], 'initial'),
     }
+
     const saved = layoutFromTab(tab, 'layout-1', 'Bench · Today')
     const restored = restoreSavedLayouts(JSON.stringify([saved]), origin)
     expect(restored).toHaveLength(1)
@@ -226,6 +234,7 @@ describe('saved layouts', () => {
         savedAt: '2026-10-25T00:00:00Z',
       },
     ]
+
     expect(restoreSavedLayouts(JSON.stringify(bad), origin)).toEqual([])
   })
 })

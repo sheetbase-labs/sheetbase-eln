@@ -30,7 +30,9 @@ import { t } from '#/copy'
 export const Route = createFileRoute('/r/$identifier')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) throw redirect(signInRedirect(location))
+
     return { context }
   },
   component: ResolveIdentifierRoute,
@@ -39,6 +41,7 @@ export const Route = createFileRoute('/r/$identifier')({
 function ResolveIdentifierRoute() {
   const { identifier } = Route.useParams()
   const navigate = useNavigate()
+
   const lookup = useQuery({
     queryKey: ['ui-port', 'object-by-identifier', identifier],
     queryFn: () => resolveObjectByIdentifier(notebookDataClient, identifier),
@@ -67,6 +70,7 @@ function ResolveIdentifierRoute() {
       />
     )
   }
+
   if (lookup.isPending || destination) {
     return (
       <p className="p-6 text-sm text-fg-muted" role="status">
@@ -74,6 +78,7 @@ function ResolveIdentifierRoute() {
       </p>
     )
   }
+
   return (
     <EmptyState
       title={t('projects.resolveCode.none.title')}

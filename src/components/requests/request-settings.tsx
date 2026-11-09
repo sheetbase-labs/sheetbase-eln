@@ -41,16 +41,19 @@ export function RequestSettingsDialog({
   model: WorkspaceRecordModel
 }) {
   const queryClient = useQueryClient()
+
   const forms = useQuery({
     queryKey: requestKeys.forms,
     queryFn: () => fetchRequestForms(notebookDataClient),
     staleTime: 10_000,
   })
+
   const members = useQuery({
     queryKey: workspaceMemberQueryKeys.identities,
     queryFn: fetchWorkspaceMemberIdentities,
     staleTime: 60_000,
   })
+
   const form = (forms.data ?? []).find((f) => f.model_key === model.key)
   const [accepts, setAccepts] = useState(false)
   const [intro, setIntro] = useState('')

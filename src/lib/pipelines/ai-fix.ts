@@ -44,11 +44,13 @@ const MAX_STATEMENT_CHARS = 6_000
 function stepStatements(config: Partial<PipelineConfig>): string[] {
   const out: string[] = []
   const transform = config.transform
+
   if (transform && transform.language !== 'none' && transform.statement) {
     out.push(
       `Step "${TRANSFORM_TARGET}" (${transform.language}):\n${transform.statement.slice(0, MAX_STATEMENT_CHARS)}`,
     )
   }
+
   for (const step of config.steps ?? []) {
     // A plugin step has no code to fix.
     if (step.language === 'plugin') continue
@@ -56,6 +58,7 @@ function stepStatements(config: Partial<PipelineConfig>): string[] {
       `Step "${step.name}" (${step.language}):\n${step.statement.slice(0, MAX_STATEMENT_CHARS)}`,
     )
   }
+
   return out
 }
 
@@ -66,10 +69,14 @@ export function statementOf(
 ): { language: 'sql' | 'python'; statement: string } | null {
   if (target === TRANSFORM_TARGET) {
     const transform = config.transform
+
     if (!transform || transform.language === 'none') return null
+
     return { language: transform.language, statement: transform.statement }
   }
+
   const step = config.steps?.find((candidate) => candidate.name === target)
+
   return step && step.language !== 'plugin'
     ? { language: step.language, statement: step.statement }
     : null
@@ -91,16 +98,22 @@ export function buildFixText(facts: RunFailureFacts): string {
     `Error code: ${facts.errorCode ?? 'none'}`,
     `Error message: ${facts.errorMessage ?? 'none recorded'}`,
   ]
+
   if (facts.failedStep) parts.push(`Stopped on: ${facts.failedStep}`)
   const lines = facts.logLines.slice(-MAX_LOG_LINES)
+
   if (lines.length) parts.push(`Error log:\n${lines.join('\n')}`)
   const inputs = (facts.config.inputs ?? []).map((input) => input.name)
+
   if (inputs.length) parts.push(`Inputs: ${inputs.join(', ')}`)
+
   const parameters = (facts.config.parameters ?? []).map(
     (parameter) => `${parameter.name} (${parameter.type})`,
   )
+
   if (parameters.length) parts.push(`Parameters: ${parameters.join(', ')}`)
   parts.push(...stepStatements(facts.config))
+
   return parts.join('\n\n')
 }
 
@@ -114,21 +127,28 @@ export function parseFailureReply(
   config: Partial<PipelineConfig>,
 ): FailureExplanation | null {
   const raw = text.trim()
+
   if (!raw) return null
   const value = extractJsonObject(raw)
+
   if (typeof value !== 'object' || value === null) {
     return { explanation: raw, fix: null }
   }
+
   const record = value as Record<string, unknown>
+
   const explanation =
     typeof record.explanation === 'string' ? record.explanation.trim() : ''
+
   if (!explanation) return null
   const fix = record.fix
+
   if (typeof fix !== 'object' || fix === null) return { explanation, fix: null }
   const f = fix as Record<string, unknown>
   const target = typeof f.target === 'string' ? f.target : ''
   const statement = typeof f.statement === 'string' ? f.statement.trim() : ''
   const current = statementOf(config, target)
+
   if (
     !current ||
     !statement ||
@@ -140,6 +160,7 @@ export function parseFailureReply(
   ) {
     return { explanation, fix: null }
   }
+
   return {
     explanation,
     fix: { explanation, target, language: current.language, statement },
@@ -160,26 +181,33 @@ export function applyStepFix(
   const lists = config as Partial<PipelineConfig>
   lists.parameters ??= []
   lists.inputs ??= []
+
   if (fix.target === TRANSFORM_TARGET) {
     if (config.transform.language === 'none') {
       return { ok: false, reason: 'The draft has no transform to correct.' }
     }
+
     config.transform = { ...config.transform, statement: fix.statement }
   } else {
     const step = config.steps?.find(
       (candidate) => candidate.name === fix.target,
     )
+
     if (!step) {
       return {
         ok: false,
         reason: `The draft has no step called ${fix.target}.`,
       }
     }
+
     step.statement = fix.statement
   }
+
   const errors = validatePipelineConfig(config)
+
   if (errors.length) {
     return { ok: false, reason: errors[0]?.message ?? 'Not a valid pipeline.' }
   }
+
   return { ok: true, config }
 }

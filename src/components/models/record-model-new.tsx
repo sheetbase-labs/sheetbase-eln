@@ -74,9 +74,11 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
   const types = useModelTypes()
   const parentKey = model.data?.parent_key ?? null
   const rootKey = parentKey && types.data ? typeRoot(types.data, modelKey) : ''
+
   const chainFields = useTypeFields(types.data, rootKey, modelKey, null, {
     enabled: Boolean(parentKey),
   })
+
   const fieldsQuery = parentKey ? chainFields : ownFields
 
   const fields = useMemo(
@@ -86,14 +88,17 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
         : (ownFields.data ?? []),
     [parentKey, chainFields.data, ownFields.data],
   )
+
   const rootFieldKeys = new Set(
     (chainFields.data ?? [])
       .filter((group) => group.modelKey === rootKey)
       .flatMap((group) => group.fields.map((field) => field.fieldName)),
   )
+
   const names: Record<string, true> = Object.fromEntries(
     fields.map((field) => [field.fieldName, true as const]),
   )
+
   const rules = rulesQuery.data ?? []
   const projects = projectsQuery.data ?? []
   const records = recordsQuery.data ?? []
@@ -113,10 +118,13 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
   const selectedProject = projectId || projects[0]?.id || ''
 
   const isRegistry = Boolean(model.data?.is_registry)
+
   const sequenceField = isRegistry
     ? (model.data?.registry_sequence_field ?? null)
     : null
+
   const lotKind = model.data?.registry_lot_kind ?? null
+
   // The sequence file fills the sequence field, so it is not typed in too.
   const shownFields = useMemo(
     () =>
@@ -131,6 +139,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
       ),
     [fields, sequenceField],
   )
+
   const customFields = useMemo(
     () => buildRecordModelCustomFields(fields, values),
     [fields, values],
@@ -144,8 +153,10 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
       () => setSettled({ title, custom: customJson }),
       300,
     )
+
     return () => window.clearTimeout(timer)
   }, [title, customJson])
+
   const duplicates = useQuery({
     queryKey: [
       ...registryKeys.all,
@@ -164,22 +175,26 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
       isRegistry && (settled.title.trim() !== '' || settled.custom !== '{}'),
     staleTime: 5_000,
   })
+
   const nameMatches = isRegistry ? (duplicates.data ?? []) : []
 
   // A same-thing rule from a plugin, when the model has one: the plugin works
   // out a key from the fields and entries with the same key are matches too.
   const pluginPoints = useExtensionPoints()
+
   const ruleName = useQuery({
     queryKey: samenessKeys.rule(modelKey),
     queryFn: () => getSamenessRule(notebookDataClient, modelKey),
     enabled: isRegistry,
     staleTime: 30_000,
   })
+
   const rule = isRegistry
     ? pluginPoints.data['sameness-keys'].find(
         (item) => item.name === ruleName.data,
       )
     : undefined
+
   const ruleInputs =
     rule && settled.custom !== ''
       ? samenessInputs(
@@ -188,6 +203,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
           JSON.parse(settled.custom) as Record<string, unknown>,
         )
       : null
+
   const ruleKey = useQuery({
     queryKey: [
       'registry',
@@ -205,6 +221,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
     staleTime: 60_000,
     retry: false,
   })
+
   const ruleMatches = useQuery({
     queryKey: samenessKeys.matches([modelKey, ruleKey.data ?? '']),
     queryFn: () =>
@@ -215,12 +232,14 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
     enabled: Boolean(ruleKey.data),
     staleTime: 5_000,
   })
+
   const matches = [
     ...nameMatches,
     ...(ruleMatches.data ?? []).filter(
       (match) => !nameMatches.some((other) => other.id === match.id),
     ),
   ]
+
   const ruleBusy =
     Boolean(rule) &&
     (settled.title !== title ||
@@ -230,14 +249,17 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
   const pluginErrors = usePluginFieldTypeErrors(modelKey, fields, values)
   const pluginPlaceholders = usePluginFieldPlaceholders(modelKey)
   const pluginInputs = usePluginFieldInputs(modelKey)
+
   const fieldErrors = useMemo(
     () => ({ ...modelFieldInputErrors(fields, values), ...pluginErrors }),
     [fields, values, pluginErrors],
   )
+
   const validation = useMemo(
     () => evaluateModelRules(rules, customFields),
     [rules, customFields],
   )
+
   const titleError = title.trim()
     ? null
     : t('library.models.recordModelNew.nameIsRequired')
@@ -258,9 +280,11 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
+
     if (!canSubmit || !model.data) return
     setSubmitting(true)
     setSubmitError(null)
+
     try {
       const created = isRegistry
         ? await createRegistryEntry<RecordModelRecord>(notebookDataClient, {
@@ -289,6 +313,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
                 : customFields,
             },
           )
+
       if (parentKey)
         await setModelType(
           notebookDataClient,
@@ -309,8 +334,10 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
         void duplicates.refetch()
         setSubmitError(t('registry.duplicate.refused'))
         setSubmitting(false)
+
         return
       }
+
       setSubmitError(
         caught instanceof Error
           ? caught.message
@@ -323,6 +350,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
   async function addAsLot(match: { id: string; identifier: string }) {
     setAddingLot(true)
     setSubmitError(null)
+
     try {
       const lot = await addRegistryLot<RecordModelRecord>(notebookDataClient, {
         entryId: match.id,
@@ -330,6 +358,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
         title: title.trim(),
         customFields: {},
       })
+
       toast.success(
         t('registry.chemistry.duplicate.lotAdded', {
           number: match.identifier,
@@ -439,13 +468,18 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
                   setAcknowledged(false)
                   setValues((current) => {
                     const out = { ...current }
+
                     if (next) out[sequenceField] = next.fingerprint
                     else delete out[sequenceField]
+
                     if (next && 'sequence_length' in names)
                       out.sequence_length = String(next.length)
+
                     if (next && 'shape' in names) out.shape = next.shape
+
                     return out
                   })
+
                   if (next && !title.trim()) setTitle(next.name)
                 }}
               />

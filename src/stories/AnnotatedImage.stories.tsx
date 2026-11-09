@@ -43,7 +43,9 @@ const meta = {
   tags: ['autodocs'],
   args: { src: GEL, alt: 'Agarose gel', annotations },
 } satisfies Meta<typeof AnnotatedImage>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Arrows, a label and three lane names over the image. */

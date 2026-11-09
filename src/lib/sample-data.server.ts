@@ -44,6 +44,7 @@ export async function sampleDataStatus(
       ),
     )
     .limit(1)
+
   return {
     loaded: rows.length > 0,
     projectKey: DEMO_VIRUS_STABILITY_PROJECT_KEY,
@@ -55,6 +56,7 @@ export async function addSampleData(input: {
   userId: string
 }): Promise<AddSampleDataResult> {
   const { workspaceId, userId } = input
+
   const elsewhere = await db
     .select({ workspaceId: projects.workspaceId })
     .from(projects)
@@ -65,6 +67,7 @@ export async function addSampleData(input: {
       ),
     )
     .limit(1)
+
   if (elsewhere.length > 0) return { ok: false, reason: 'loaded_elsewhere' }
 
   // A project the lab made itself with the same key must never be taken over.
@@ -79,11 +82,13 @@ export async function addSampleData(input: {
       ),
     )
     .limit(1)
+
   if (sameKey.length > 0) return { ok: false, reason: 'project_key_in_use' }
 
   for (const step of buildDemoSteps({ workspaceId, userId })) {
     if (SKIPPED_STEP.test(step.name)) continue
     await step.run(db)
   }
+
   return { ok: true }
 }

@@ -42,9 +42,11 @@ function actorLabel(
   nameOf?: (userId: string) => string | undefined,
 ): string {
   if (!actorUserId) return t('projects.recordHistory.system')
+
   if (currentUserId && actorUserId === currentUserId && currentUserName) {
     return currentUserName
   }
+
   return nameOf?.(actorUserId) ?? actorUserId.slice(0, 8)
 }
 
@@ -72,6 +74,7 @@ function words(value: string): string {
 
 function sentence(value: string): string {
   const text = words(value)
+
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
@@ -85,10 +88,13 @@ function friendlyTitle(event: TimelineEventWire): string {
       typeof event.eventType === 'string'
         ? event.eventType
         : (event.title.split(' ')[0] ?? '')
+
     const operation = String(event.operation ?? '')
     const done = PAST_TENSE[operation] ?? words(operation)
+
     return sentence(`${words(entity)} ${done}`.trim()) || sentence(event.title)
   }
+
   return sentence(event.title)
 }
 
@@ -120,6 +126,7 @@ function detailPhrase(event: TimelineEventWire): string {
       // step text) name themselves, so the row says what changed rather than
       // repeating the operation.
       const payload = event.payload
+
       const captured =
         typeof payload === 'object' &&
         payload !== null &&
@@ -128,8 +135,10 @@ function detailPhrase(event: TimelineEventWire): string {
         payload.changes !== null
           ? payload.changes
           : null
+
       if (captured !== null) {
         const labels: string[] = []
+
         for (const change of Object.values(captured)) {
           if (
             typeof change === 'object' &&
@@ -140,11 +149,14 @@ function detailPhrase(event: TimelineEventWire): string {
             labels.push(change.label)
           }
         }
+
         if (labels.length > 0) return labels.join(', ')
       }
+
       // The title already says what happened.
       return ''
     }
+
     case 'revision':
       return String(event.reason ?? '')
     case 'submission':
@@ -174,8 +186,10 @@ function withoutGenericCreate(
     event.type === 'change_event' &&
     event.operation === 'create' &&
     (event.eventType === 'record') === generic
+
   // Every event here already belongs to the one record.
   if (!events.some((event) => isCreate(event, false))) return events
+
   return events.filter((event) => !isCreate(event, true))
 }
 
@@ -221,12 +235,14 @@ export function RecordHistoryTimeline({
       events.flatMap((event) => (event.actorUserId ? [event.actorUserId] : [])),
     [events],
   )
+
   const { names } = useUserNames(
     actorIds,
     currentUserId && currentUserName
       ? { id: currentUserId, name: currentUserName }
       : undefined,
   )
+
   const mapped = mapTimelineEvents(
     events,
     currentUserId,

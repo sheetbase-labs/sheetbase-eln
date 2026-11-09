@@ -144,14 +144,17 @@ export function blockLabel(block: CanonicalRevisionEntity): string {
   const payload: Record<string, unknown> = isEntity(block.payload)
     ? block.payload
     : {}
+
   const own =
     asString(payload.title) ??
     asString(payload.text) ??
     asString(payload.label) ??
     asString(payload.displayName) ??
     asString(payload.protocolTitle)
+
   if (own) return own.length > 80 ? `${own.slice(0, 79)}…` : own
   const type = asString(block.type) ?? 'block'
+
   return (
     BLOCK_TYPE_LABELS[type] ??
     t('projects.revisionDocument.blockId', { id: String(block.id) })
@@ -166,12 +169,16 @@ function blockId(value: unknown): string | null {
 /** A scalar change reads as an inline insertion or deletion; an object does not. */
 function isScalarChange(change: RevisionChange): boolean {
   if (change.kind === 'moved') return false
+
   const scalar = (value: unknown) =>
     typeof value === 'string' ||
     typeof value === 'number' ||
     typeof value === 'boolean'
+
   if (change.before !== undefined && !scalar(change.before)) return false
+
   if (change.after !== undefined && !scalar(change.after)) return false
+
   return true
 }
 
@@ -183,21 +190,28 @@ function isScalarChange(change: RevisionChange): boolean {
  */
 function isInlineTextChange(change: RevisionChange): boolean {
   if (!isScalarChange(change)) return false
+
   if (change.area === 'text') return true
+
   if (change.area === 'checklists' && change.path.at(-1) === 'text') return true
+
   return false
 }
 
 /** Which block a change belongs to, using the identities the diff engine emits. */
 function changeBlockId(change: RevisionChange): string | null {
   if (change.area === 'tables') return change.tableId ?? null
+
   if (change.area === 'formulas') {
     // Sheet formula identities are `${blockId}:${calculationId}`.
     const separator = change.identity.indexOf(':')
+
     return separator > 0 ? change.identity.slice(0, separator) : null
   }
+
   if (change.area === 'files') return null
   const separator = change.identity.indexOf(':')
+
   return separator > 0 ? change.identity.slice(0, separator) : change.identity
 }
 
@@ -205,9 +219,11 @@ function sheetEvidenceByBlock(
   revision: CanonicalRevisionEnvelope,
 ): Map<string, FrozenSheetEvidence> {
   const map = new Map<string, FrozenSheetEvidence>()
+
   for (const evidence of revision.sheetEvidence ?? []) {
     map.set(evidence.blockId, evidence)
   }
+
   return map
 }
 
@@ -224,20 +240,26 @@ export function buildRevisionDocument(
   const diff = diffRevisionEnvelopes(before ?? after, after)
   const evidenceByBlock = sheetEvidenceByBlock(after)
   const beforeBlocks = new Map<string, CanonicalRevisionEntity>()
+
   for (const block of before?.blocks ?? []) {
     const id = blockId(block)
+
     if (id) beforeBlocks.set(id, block)
   }
 
   const blocks: DocumentBlockEntry[] = []
   const attributed = new Set<string>()
   const blockIds = new Set<string>()
+
   for (const block of after.blocks) {
     const id = blockId(block)
+
     if (id) blockIds.add(id)
   }
+
   for (const block of before?.blocks ?? []) {
     const id = blockId(block)
+
     if (id && !blockIds.has(id)) blockIds.add(id)
   }
 
@@ -245,13 +267,17 @@ export function buildRevisionDocument(
     const leftBlock =
       after.blocks.find((block) => blockId(block) === left) ??
       beforeBlocks.get(left)
+
     const rightBlock =
       after.blocks.find((block) => blockId(block) === right) ??
       beforeBlocks.get(right)
+
     if (!leftBlock || !rightBlock) return left.localeCompare(right)
     const leftOrder = typeof leftBlock.order === 'number' ? leftBlock.order : 0
+
     const rightOrder =
       typeof rightBlock.order === 'number' ? rightBlock.order : 0
+
     return leftOrder - rightOrder || left.localeCompare(right)
   })
 
@@ -259,17 +285,22 @@ export function buildRevisionDocument(
     const successor = after.blocks.find((block) => blockId(block) === id)
     const predecessor = beforeBlocks.get(id)
     const block = successor ?? predecessor
+
     if (!block) continue
+
     const changes = diff.changes.filter(
       (change) => changeBlockId(change) === id,
     )
+
     for (const change of changes) attributed.add(change.id)
     const inline = changes.filter(isInlineTextChange)
+
     const presence: DocumentBlockPresence = !predecessor
       ? 'added'
       : !successor
         ? 'removed'
         : 'retained'
+
     blocks.push({
       id,
       type: asString(block.type) ?? 'unknown',
@@ -285,6 +316,7 @@ export function buildRevisionDocument(
   }
 
   const tables: DocumentTableEntry[] = []
+
   for (const summary of diff.tableSummaries) {
     tables.push({
       tableId: summary.tableId,
@@ -302,12 +334,15 @@ export function buildRevisionDocument(
   })).filter((section) => section.changes.length > 0)
 
   const placed = new Set(attributed)
+
   for (const table of tables) {
     for (const change of table.changes) placed.add(change.id)
   }
+
   for (const area of areas) {
     for (const change of area.changes) placed.add(change.id)
   }
+
   const unattributed = diff.changes.filter((change) => !placed.has(change.id))
 
   return {
@@ -386,6 +421,7 @@ export function placeDocumentComments({
 }: PlaceDocumentCommentsInput): DocumentCommentAnchor[] {
   const roots = comments.filter((comment) => comment.parent_id === null)
   const repliesByRoot = new Map<string, CommentWire[]>()
+
   for (const comment of comments) {
     if (comment.parent_id === null) continue
     const list = repliesByRoot.get(comment.root_id) ?? []
@@ -394,26 +430,33 @@ export function placeDocumentComments({
   }
 
   const blockIds = new Set(document.blocks.map((block) => block.id))
+
   const tableIdsInRevision = new Set(
     document.revision.scientificTables.map((table) => String(table.id)),
   )
+
   const evidenceByInstance = new Map<string, string>()
+
   for (const evidence of document.revision.sheetEvidence ?? []) {
     evidenceByInstance.set(evidence.instanceId, evidence.blockId)
   }
+
   const changeIds = new Set(document.diff.changes.map((change) => change.id))
 
   const anchors: DocumentCommentAnchor[] = []
+
   for (const comment of roots) {
     const replies = (repliesByRoot.get(comment.root_id) ?? []).sort((a, b) =>
       a.created_at.localeCompare(b.created_at),
     )
+
     const anchor: DocumentCommentAnchor = {
       comment,
       replies,
       resolved: comment.state === 'resolved',
       anchoredRevisionId: comment.revision_id,
     }
+
     const target = comment.target
     let location: DocumentLocation | undefined
     let orphanReason: CommentOrphanReason | undefined
@@ -424,10 +467,12 @@ export function placeDocumentComments({
       location = { kind: 'revision' }
     } else if (comment.target_kind === 'block') {
       const id = asString(target.blockId)
+
       if (id && blockIds.has(id)) location = { kind: 'block', blockId: id }
       else orphanReason = 'block-not-in-revision'
     } else if (comment.target_kind === 'table_region') {
       const id = asString(target.tableId)
+
       if (id && tableIdsInRevision.has(id))
         location = { kind: 'table', tableId: id }
       else orphanReason = 'table-not-in-revision'
@@ -437,9 +482,11 @@ export function placeDocumentComments({
       comment.target_kind === 'sheet_range'
     ) {
       const instanceId = asString(target.instanceId)
+
       const blockIdForSheet = instanceId
         ? evidenceByInstance.get(instanceId)
         : undefined
+
       if (instanceId && blockIdForSheet) {
         location = { kind: 'sheet', blockId: blockIdForSheet, instanceId }
       } else {
@@ -450,6 +497,7 @@ export function placeDocumentComments({
       // deterministic change id. Both must still hold.
       const comparison = asString(target.comparisonRevisionId)
       const changeId = asString(target.changeId)
+
       if (comparison === null || comparison !== comparisonRevisionId) {
         orphanReason = 'comparison-changed'
       } else if (!changeId || !changeIds.has(changeId)) {
@@ -460,6 +508,7 @@ export function placeDocumentComments({
     }
 
     if (location) anchor.location = location
+
     if (orphanReason) anchor.orphanReason = orphanReason
     anchors.push(anchor)
   }

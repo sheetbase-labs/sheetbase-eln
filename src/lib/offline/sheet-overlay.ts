@@ -21,14 +21,17 @@ export function overlayOfflineSheetEdits(
       (edit.kind === 'cell' || edit.kind === 'row') &&
       edit.sheetInstanceId === sheetInstanceId,
   )
+
   if (mine.length === 0) return matrix
 
   const columnIndex = new Map(
     matrix.columns.map((column, index) => [column.id, index] as const),
   )
+
   const rowIndex = new Map(
     matrix.rowKeys.map((key, index) => [key, index] as const),
   )
+
   const rowKeys = [...matrix.rowKeys]
   const rowKinds = [...matrix.rowKinds]
   const data = matrix.data.map((row) => [...row])
@@ -39,10 +42,13 @@ export function overlayOfflineSheetEdits(
       // the store) is shown once, from the server.
       if (edit.rowKey && rowIndex.has(edit.rowKey)) continue
       const row: unknown[] = matrix.columns.map(() => null)
+
       for (const [columnId, value] of Object.entries(edit.values)) {
         const index = columnIndex.get(columnId)
+
         if (index !== undefined) row[index] = value
       }
+
       if (edit.rowKey) rowIndex.set(edit.rowKey, rowKeys.length)
       rowKeys.push(edit.rowKey ?? `offline-row:${edit.id}`)
       rowKinds.push('local')
@@ -50,9 +56,11 @@ export function overlayOfflineSheetEdits(
     } else if (edit.kind === 'cell') {
       const row = rowIndex.get(edit.rowId)
       const column = columnIndex.get(edit.columnId)
+
       if (row === undefined || column === undefined) continue
       data[row][column] = edit.value
     }
   }
+
   return { ...matrix, rowKeys, rowKinds, data }
 }

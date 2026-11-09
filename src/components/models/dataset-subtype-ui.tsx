@@ -47,6 +47,7 @@ export async function fetchMeasurementTables(
     name: string
     parent_id: string | null
   }>('dataset_schema_definitions', '?select=id,name,parent_id&order=name.asc')
+
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
@@ -71,13 +72,16 @@ export function tableAncestors(
   const out: MeasurementTable[] = []
   const seen = new Set([id])
   let parent = byId.get(id)?.parentId ?? null
+
   while (parent && !seen.has(parent)) {
     seen.add(parent)
     const table = byId.get(parent)
+
     if (!table) break
     out.push(table)
     parent = table.parentId
   }
+
   return out
 }
 
@@ -127,10 +131,13 @@ export function columnTypeLabel(
     quantity && typeof quantity === 'object'
       ? (quantity as { symbol?: unknown; unit?: unknown })
       : {}
+
   const unit = [q.symbol, q.unit].find(
     (value): value is string => typeof value === 'string' && value !== '',
   )
+
   const type = COLUMN_TYPES[logicalType] ?? logicalType
+
   return unit ? `${type} · ${unit}` : type
 }
 
@@ -141,6 +148,7 @@ export async function fetchInheritedColumns(
   id: string,
 ): Promise<InheritedColumns[]> {
   const chain = tableAncestors(tables, id).reverse()
+
   return Promise.all(
     chain.map(async (table) => {
       const published = (
@@ -149,6 +157,7 @@ export async function fetchInheritedColumns(
           `?schema_id=eq.${table.id}&lifecycle=eq.active&order=version.desc&limit=1&select=id`,
         )
       ).at(0)
+
       const fields = published
         ? await client.list<{
             key: string
@@ -161,6 +170,7 @@ export async function fetchInheritedColumns(
             `?schema_version_id=eq.${published.id}&lifecycle=eq.active&order=display_order.asc&select=key,label,logical_type,nullable,quantity`,
           )
         : []
+
       return {
         tableId: table.id,
         tableName: table.name,
@@ -180,7 +190,9 @@ export async function fetchInheritedColumns(
 export function TableSubtypeOf({ id }: { id: string }) {
   const tables = useMeasurementTables().data ?? []
   const parent = tableAncestors(tables, id).at(0)
+
   if (!parent) return null
+
   return (
     <span>
       {rich('library.models.datasetSubtypeUi.subtypeOf', {
@@ -202,7 +214,9 @@ export function TableSubtypeOf({ id }: { id: string }) {
 export function TableSubtypesList({ id }: { id: string }) {
   const tables = useMeasurementTables().data ?? []
   const direct = tables.filter((table) => table.parentId === id)
+
   if (!direct.length) return null
+
   return (
     <span>
       {t('library.models.datasetSubtypeUi.subtypes')}{' '}
@@ -225,6 +239,7 @@ export function TableSubtypesList({ id }: { id: string }) {
 function useInheritedColumns(id: string) {
   const tables = useMeasurementTables()
   const parent = tables.data ? tableAncestors(tables.data, id).at(0) : null
+
   const inherited = useQuery({
     queryKey: measurementTableKeys.inherited(id),
     queryFn: () =>
@@ -232,6 +247,7 @@ function useInheritedColumns(id: string) {
     enabled: Boolean(parent),
     staleTime: 15_000,
   })
+
   return { parent, inherited }
 }
 
@@ -241,6 +257,7 @@ export function useInheritedColumnGroups(id: string): {
   keys: ReadonlySet<string>
 } {
   const { data } = useInheritedColumns(id).inherited
+
   return useMemo(() => {
     const groups = (data ?? []).map((group) => ({
       modelId: group.tableId,
@@ -256,6 +273,7 @@ export function useInheritedColumnGroups(id: string): {
           : t('library.models.datasetSubtypeUi.yes'),
       })),
     }))
+
     return {
       groups,
       keys: new Set(groups.flatMap((g) => g.rows.map((r) => r.key))),
@@ -277,9 +295,11 @@ export function NewTableSubtypeDialog({
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [submitted, setSubmitted] = useState(false)
+
   const nameError = name.trim()
     ? undefined
     : t('library.models.datasetSubtypeUi.nameIsRequired')
+
   const create = useMutation({
     mutationFn: () =>
       notebookDataClient.rpc<{ schema_definition_id: string }>(
@@ -306,17 +326,20 @@ export function NewTableSubtypeDialog({
       })
     },
   })
+
   function reset() {
     setName('')
     setDescription('')
     setSubmitted(false)
     create.reset()
   }
+
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next)
+
         if (!next) reset()
       }}
     >
@@ -337,6 +360,7 @@ export function NewTableSubtypeDialog({
             onSubmit={(event) => {
               event.preventDefault()
               setSubmitted(true)
+
               if (nameError) return
               create.mutate()
             }}
@@ -409,6 +433,7 @@ export function TableBasedOnDialog({
   const tables = useMeasurementTables().data ?? []
   const current = tables.find((item) => item.id === table.id)?.parentId ?? null
   const [choice, setChoice] = useState(current ?? '')
+
   const save = useMutation({
     mutationFn: () =>
       notebookDataClient.rpc('reparent_dataset_schema', {
@@ -431,6 +456,7 @@ export function TableBasedOnDialog({
       )
     },
   })
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">

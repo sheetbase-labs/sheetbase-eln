@@ -21,6 +21,7 @@ describe('requirements', () => {
     expect(
       requirementErrors(['scipy==1.15.3', 'python-dateutil==2.9.0.post0']),
     ).toEqual([])
+
     for (const line of [
       'scipy',
       'scipy>=1.0',
@@ -94,6 +95,7 @@ describe('contractErrors', () => {
       },
       extra: true,
     })
+
     expect(errors.join('\n')).toContain('“Bad” isn’t a valid input name')
     expect(errors.join('\n')).toContain('needs a type')
     expect(errors.join('\n')).toContain('lists column “a” twice')
@@ -122,6 +124,7 @@ describe('pythonSkeleton', () => {
         },
       },
     })
+
     expect(code).toContain('def transform(inputs, parameters):')
     expect(code).toContain('readings = pd.DataFrame(inputs["readings"])')
     expect(code).toContain('# readings columns: value (decimal)')
@@ -181,6 +184,7 @@ describe('analysePython', () => {
       'def transform(inputs, parameters):',
       '    return []',
     ].join('\n')
+
     const diagnostics = analysePython(code, { installed: { numpy: '2.2.6' } })
     expect(diagnostics).toHaveLength(1)
     expect(diagnostics[0]).toMatchObject({ level: 'warning', line: 2 })
@@ -197,9 +201,11 @@ describe('editing a contract', () => {
       normaliseContract({ inputs: { a: [] }, output: { columns: [] } }),
     ).toBeUndefined()
     expect(normaliseContract(undefined)).toBeUndefined()
+
     const contract = setContractInput(undefined, 'readings', [
       { name: 'value', type: 'decimal' },
     ])
+
     expect(contract).toEqual({
       inputs: { readings: [{ name: 'value', type: 'decimal' }] },
     })

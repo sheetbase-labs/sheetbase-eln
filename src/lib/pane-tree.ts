@@ -47,8 +47,10 @@ function even(count: number) {
 }
 
 let splitCounter = 0
+
 function splitId() {
   splitCounter += 1
+
   return `split-${splitCounter}-${Math.random().toString(36).slice(2, 7)}`
 }
 
@@ -68,6 +70,7 @@ export function split(
 
 export function listPaneIds(tree: PaneTree): string[] {
   if (tree.type === 'pane') return [tree.id]
+
   return tree.children.flatMap(listPaneIds)
 }
 
@@ -78,11 +81,14 @@ export function hasPane(tree: PaneTree, id: string): boolean {
 /** A leaf or split directly above `id`, or null when `id` is the root. */
 function parentOf(tree: PaneTree, id: string): PaneSplit | null {
   if (tree.type === 'pane') return null
+
   for (const child of tree.children) {
     if (child.type === 'pane' && child.id === id) return tree
     const found = parentOf(child, id)
+
     if (found) return found
   }
+
   return null
 }
 
@@ -99,26 +105,33 @@ export function splitPane(
   before = false,
 ): PaneTree {
   const parent = parentOf(tree, targetId)
+
   if (tree.type === 'pane') {
     if (tree.id !== targetId) return tree
     const pair = before ? [leaf(newId), tree] : [tree, leaf(newId)]
+
     return split(direction, pair)
   }
+
   if (parent && parent.direction === direction) {
     return mapTree(tree, (node) => {
       if (node.id !== parent.id || node.type !== 'split') return node
+
       const index = node.children.findIndex(
         (child) => child.type === 'pane' && child.id === targetId,
       )
+
       const share = node.sizes[index] / 2
       const children = [...node.children]
       const sizes = [...node.sizes]
       sizes[index] = share
       children.splice(before ? index : index + 1, 0, leaf(newId))
       sizes.splice(before ? index : index + 1, 0, share)
+
       return { ...node, children, sizes }
     })
   }
+
   return mapTree(tree, (node) =>
     node.type === 'pane' && node.id === targetId
       ? split(direction, before ? [leaf(newId), node] : [node, leaf(newId)])
@@ -128,8 +141,11 @@ export function splitPane(
 
 function mapTree(tree: PaneTree, fn: (node: PaneTree) => PaneTree): PaneTree {
   const next = fn(tree)
+
   if (next.type === 'pane') return next
+
   if (next !== tree) return next
+
   return {
     ...tree,
     children: tree.children.map((child) => mapTree(child, fn)),
@@ -147,6 +163,7 @@ export function removePane(tree: PaneTree, id: string): PaneTree | null {
   let freed = 0
   tree.children.forEach((child, index) => {
     const next = removePane(child, id)
+
     if (next) {
       children.push(next)
       sizes.push(tree.sizes[index])
@@ -154,7 +171,9 @@ export function removePane(tree: PaneTree, id: string): PaneTree | null {
       freed += tree.sizes[index]
     }
   })
+
   if (children.length === 0) return null
+
   if (children.length === 1) return children[0]
   const total = sizes.reduce((sum, size) => sum + size, 0) + freed
   const scale = total / (total - freed)
@@ -173,6 +192,7 @@ export function removePane(tree: PaneTree, id: string): PaneTree | null {
       flatSizes.push(scaled[index])
     }
   })
+
   return { ...tree, children: flatChildren, sizes: flatSizes }
 }
 
@@ -189,6 +209,7 @@ export function resizeSplit(
 ): PaneTree {
   return mapTree(tree, (node) => {
     if (node.type !== 'split' || node.id !== splitIdValue) return node
+
     if (index < 0 || index + 1 >= node.sizes.length) return node
     const a = node.sizes[index]
     const b = node.sizes[index + 1]
@@ -197,6 +218,7 @@ export function resizeSplit(
     const sizes = [...node.sizes]
     sizes[index] = nextA
     sizes[index + 1] = pair - nextA
+
     return { ...node, sizes }
   })
 }
@@ -223,7 +245,9 @@ export function applyPreset(
   primaryId: string,
 ): PaneTree {
   if (ids.length === 0) throw new Error('A layout needs at least one pane')
+
   if (ids.length === 1) return leaf(ids[0])
+
   switch (preset) {
     case 'single':
     case 'columns-2':
@@ -233,8 +257,10 @@ export function applyPreset(
       return split('column', ids.map(leaf))
     case 'primary-context': {
       const rest = ids.filter((id) => id !== primaryId)
+
       const context =
         rest.length === 1 ? leaf(rest[0]) : split('column', rest.map(leaf))
+
       return split('row', [leaf(primaryId), context], [0.6, 0.4])
     }
   }
@@ -244,13 +270,17 @@ export function applyPreset(
 export function detectPreset(tree: PaneTree): LayoutPreset | null {
   if (tree.type === 'pane') return 'single'
   const flat = tree.children.every((child) => child.type === 'pane')
+
   const evenly = tree.sizes.every(
     (size) => Math.abs(size - 1 / tree.sizes.length) < 0.02,
   )
+
   if (flat && evenly && tree.direction === 'row') {
     if (tree.children.length === 2) return 'columns-2'
+
     if (tree.children.length === 3) return 'columns-3'
   }
+
   if (
     flat &&
     evenly &&
@@ -258,6 +288,7 @@ export function detectPreset(tree: PaneTree): LayoutPreset | null {
     tree.children.length === 2
   )
     return 'rows-2'
+
   if (
     tree.direction === 'row' &&
     tree.children.length === 2 &&
@@ -265,6 +296,7 @@ export function detectPreset(tree: PaneTree): LayoutPreset | null {
     Math.abs(tree.sizes[0] - 0.6) < 0.02
   )
     return 'primary-context'
+
   return null
 }
 
@@ -272,23 +304,33 @@ export function detectPreset(tree: PaneTree): LayoutPreset | null {
 export function isPaneTree(value: unknown): value is PaneTree {
   if (!value || typeof value !== 'object') return false
   const node = value as Record<string, unknown>
+
   if (node.type === 'pane') return typeof node.id === 'string' && node.id !== ''
+
   if (node.type !== 'split') return false
+
   if (typeof node.id !== 'string') return false
+
   if (node.direction !== 'row' && node.direction !== 'column') return false
+
   if (!Array.isArray(node.children) || node.children.length < 2) return false
+
   if (!Array.isArray(node.sizes) || node.sizes.length !== node.children.length)
     return false
+
   if (!node.sizes.every((size) => typeof size === 'number' && size > 0))
     return false
+
   return node.children.every(isPaneTree)
 }
 
 /** The pane after `id` in reading order, wrapping to the first. */
 export function nextPaneId(tree: PaneTree, id: string): string | null {
   const ids = listPaneIds(tree)
+
   if (ids.length < 2) return null
   const index = ids.indexOf(id)
+
   return ids[(index + 1) % ids.length]
 }
 
@@ -296,6 +338,8 @@ export function nextPaneId(tree: PaneTree, id: string): string | null {
 export function neighbourOf(tree: PaneTree, id: string): string | null {
   const ids = listPaneIds(tree)
   const index = ids.indexOf(id)
+
   if (index < 0 || ids.length < 2) return null
+
   return index + 1 < ids.length ? ids[index + 1] : ids[index - 1]
 }

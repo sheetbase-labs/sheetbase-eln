@@ -73,6 +73,7 @@ describe('computeReactionTable', () => {
         row({ id: 'measured', role: 'reactant', mw: 50, massMg: 25 }),
       ],
     }
+
     expect(limitingRow(payload)!.id).toBe('measured')
     expect(computeReactionTable(payload).get('first')!.mmol).toBeCloseTo(1, 6)
   })
@@ -101,6 +102,7 @@ describe('computeReactionTable', () => {
         }),
       ],
     }
+
     const table = computeReactionTable(payload)
     expect(table.get('a')!.mmol).toBeCloseTo(10, 6)
     expect(table.get('b')!.mmol).toBeCloseTo(20, 6)
@@ -116,6 +118,7 @@ describe('computeReactionTable', () => {
         row({ id: 'p', role: 'product', mw: 50, massMg: 10 }),
       ],
     }
+
     const table = computeReactionTable(payload)
     expect(table.get('a')).toMatchObject({ mmol: null, massMg: null })
     expect(table.get('b')).toMatchObject({ mmol: null, massMg: null })
@@ -130,6 +133,7 @@ describe('computeReactionTable', () => {
       drawing: '',
       rows: [row({ id: 'a', role: 'reactant', mw: 0, massMg: 10 })],
     }
+
     expect(computeReactionTable(payload).get('a')!.mmol).toBeNull()
   })
 })
@@ -146,6 +150,7 @@ describe('syncRowsWithDrawing', () => {
         ...sal,
       }),
     ]
+
     const rows = syncRowsWithDrawing(existing, [
       { role: 'reactant', ...sal },
       {
@@ -155,6 +160,7 @@ describe('syncRowsWithDrawing', () => {
         mw: 180.16,
       },
     ])
+
     expect(rows.map((r) => [r.role, r.name, r.massMg])).toEqual([
       ['reactant', 'Salicylic acid', 1000],
       ['product', '', undefined],
@@ -168,6 +174,7 @@ describe('syncRowsWithDrawing', () => {
       row({ id: 'gone', role: 'reactant', ...sal }),
       row({ id: 'thf', role: 'solvent', name: 'THF', volumeMl: 5 }),
     ]
+
     const rows = syncRowsWithDrawing(existing, [])
     expect(rows.map((r) => r.id)).toEqual(['thf'])
   })
@@ -180,6 +187,7 @@ describe('syncRowsWithDrawing', () => {
         { role: 'reactant', ...sal },
       ],
     )
+
     expect(rows).toHaveLength(2)
     expect(new Set(rows.map((r) => r.id)).size).toBe(2)
   })
@@ -193,6 +201,7 @@ describe('syncRowsWithDrawing', () => {
         { role: 'reactant', structureCode: 'r', formula: 'Z', mw: 1 },
       ],
     )
+
     expect(rows.map((r) => r.role)).toEqual([
       'reactant',
       'reagent',
@@ -216,10 +225,12 @@ describe('payload checks', () => {
   it('names the row and field that are wrong in a reaction', () => {
     const fields = (payload: unknown) =>
       reactionIssues(payload).map((i) => i.field)
+
     const base = {
       drawing: '',
       rows: [{ id: 'a', role: 'reactant', name: 'A' }],
     }
+
     expect(fields(base)).toEqual([])
     expect(
       fields({ ...base, rows: [{ ...base.rows[0], role: 'catalyst' }] }),

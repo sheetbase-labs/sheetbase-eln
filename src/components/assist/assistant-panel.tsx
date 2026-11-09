@@ -38,34 +38,43 @@ export function AssistantPanel({
   const [open, setOpen] = useState(false)
   // A question the opener asked for, sent once the chat is ready.
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
+
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+
   const searchStr = useRouterState({
     select: (state) => state.location.searchStr,
   })
+
   const context = useMemo(() => contextFromPathname(pathname), [pathname])
+
   const page = useMemo(
     () => pageFromPathname(pathname, searchStr),
     [pathname, searchStr],
   )
+
   useKeyboardInset(open)
 
   useEffect(() => {
     const onOpen = (event: Event) => {
       const detail = (event as CustomEvent<OpenAssistantDetail | undefined>)
         .detail
+
       if (detail?.prompt) setPendingPrompt(detail.prompt)
       setOpen(true)
     }
+
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'j') {
         event.preventDefault()
         setOpen((current) => !current)
       }
     }
+
     window.addEventListener(OPEN_ASSISTANT_EVENT, onOpen)
     window.addEventListener('keydown', onKeyDown)
+
     return () => {
       window.removeEventListener(OPEN_ASSISTANT_EVENT, onOpen)
       window.removeEventListener('keydown', onKeyDown)

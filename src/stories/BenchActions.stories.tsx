@@ -38,7 +38,9 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function inside(queryClient: QueryClient, width = 420) {
@@ -50,6 +52,7 @@ function inside(queryClient: QueryClient, width = 420) {
     </QueryClientProvider>
   )
 }
+
 const seeded = (data: ReadSeed[]) => screenQueryClient({ data })
 
 function sample(overrides: Partial<SampleRecord> = {}): SampleRecord {
@@ -221,6 +224,7 @@ function RepeatHarness({
   allowNone?: boolean
 }) {
   const [value, setValue] = useState(initial)
+
   return (
     <RepeatFields
       value={value}

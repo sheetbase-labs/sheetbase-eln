@@ -8,6 +8,7 @@ import {
 
 function makeStorage(): Storage {
   const map = new Map<string, string>()
+
   return {
     getItem: (k: string) => map.get(k) ?? null,
     setItem: (k: string, v: string) => {

@@ -42,6 +42,7 @@ export function AiPipelineBox({
   const ai = usePageAi()
   const [text, setText] = useState('')
   const [state, setState] = useState<BoxState>({ phase: 'idle' })
+
   if (!ai.live) return null
 
   const hasWork =
@@ -54,19 +55,24 @@ export function AiPipelineBox({
 
   async function draft() {
     setState({ phase: 'running' })
+
     try {
       const context = await fetchPipelineDraftContext(notebookDataClient)
+
       const result = await ai.run({
         task: 'draft_pipeline',
         instruction: pipelineDraftInstruction(text, context, current),
       })
+
       if (result.status !== 'ok') {
         setState({
           phase: 'failed',
           text: t('data.pipelineAi.failed', { message: result.message }),
         })
+
         return
       }
+
       const proposal = parsePipelineDraftAnswer(result.text, context)
       setState(
         proposal
@@ -85,6 +91,7 @@ export function AiPipelineBox({
 
   async function apply(proposal: PipelineDraftProposal) {
     setState({ phase: 'applying', proposal })
+
     try {
       await onApply(proposal)
       setState({ phase: 'applied' })

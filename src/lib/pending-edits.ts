@@ -35,9 +35,11 @@ export function isCheckingLeave() {
 
 export function runLeaveCheck(): boolean {
   checkingLeave = true
+
   try {
     const event = new Event('beforeunload', { cancelable: true })
     window.dispatchEvent(event)
+
     return !event.defaultPrevented
   } finally {
     checkingLeave = false
@@ -61,19 +63,24 @@ export function usePendingEdit(options: {
   const { dirty, paneId, label } = options
   useEffect(() => {
     if (!dirty) return
+
     const edit: PendingEdit = {
       label,
       paneId,
       save: () => latest.current.save(),
       discard: () => latest.current.discard(),
     }
+
     edits.add(edit)
+
     const guard = (event: BeforeUnloadEvent) => {
       if (checkingLeave) return
       event.preventDefault()
       event.returnValue = ''
     }
+
     window.addEventListener('beforeunload', guard)
+
     return () => {
       edits.delete(edit)
       window.removeEventListener('beforeunload', guard)
@@ -84,6 +91,7 @@ export function usePendingEdit(options: {
 /** Register edits without a page, for tests of the prompt. */
 export function registerPendingEditForTest(edit: PendingEdit) {
   edits.add(edit)
+
   return () => {
     edits.delete(edit)
   }

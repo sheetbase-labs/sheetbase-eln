@@ -22,7 +22,9 @@ const meta = {
     onRetry: () => {},
   },
 } satisfies Meta<typeof OfflineBanner>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Offline: Story = {}

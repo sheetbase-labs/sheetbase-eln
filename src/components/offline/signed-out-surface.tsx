@@ -27,6 +27,7 @@ export function SignedOutSurface({
       </Notice>
     )
   }
+
   return (
     <Notice icon="signOut" className={className}>
       {t('notebook.signedOutSurface.youSignedOutOf')}
@@ -48,7 +49,9 @@ export function useRetainedDrafts(storage?: SignOutRetentionStorage): number {
       (typeof window === 'undefined'
         ? null
         : webSignOutRetentionStorage(window.localStorage))
+
     setRetained(source?.read()?.retained ?? 0)
   }, [storage])
+
   return retained
 }

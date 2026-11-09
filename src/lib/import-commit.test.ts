@@ -28,6 +28,7 @@ describe('import validate-before-commit', () => {
   it('validates then commits Dataset rows through canonical RPCs only', async () => {
     const rpc = vi.fn(async (name: string) => {
       if (name === 'validate_dataset_row_batch') return { ok: true }
+
       if (name === 'commit_dataset_import') {
         return {
           ok: true,
@@ -35,8 +36,10 @@ describe('import validate-before-commit', () => {
           rows: [{ rowId: mapped.rows[0]?.rowId }],
         }
       }
+
       throw new Error(name)
     })
+
     const result = await validateAndCommitImport(
       { rpc, list: async () => [] } as unknown as DataClient,
       {
@@ -49,6 +52,7 @@ describe('import validate-before-commit', () => {
       mapped,
       'import-1',
     )
+
     expect(rpc.mock.calls.map((call) => call[0])).toEqual([
       'validate_dataset_row_batch',
       'commit_dataset_import',
@@ -62,6 +66,7 @@ describe('import validate-before-commit', () => {
 
   it('does not commit when client-side coercion failed', async () => {
     const rpc = vi.fn()
+
     const result = await validateAndCommitImport(
       { rpc, list: async () => [] } as unknown as DataClient,
       {
@@ -84,6 +89,7 @@ describe('import validate-before-commit', () => {
       },
       'import-1',
     )
+
     expect(rpc).not.toHaveBeenCalled()
     expect(result.ok).toBe(false)
     expect(result.committed).toBe(0)
@@ -97,8 +103,10 @@ describe('import validate-before-commit', () => {
           errors: [{ rowIndex: 1, code: 'unknown_field' }],
         }
       }
+
       throw new Error(name)
     })
+
     const result = await validateAndCommitImport(
       { rpc, list: async () => [] } as unknown as DataClient,
       {
@@ -111,6 +119,7 @@ describe('import validate-before-commit', () => {
       mapped,
       'import-1',
     )
+
     expect(rpc).toHaveBeenCalledTimes(1)
     expect(result.ok).toBe(false)
     expect(result.errors[0]?.code).toBe('unknown_field')
@@ -121,9 +130,11 @@ describe('import validate-before-commit', () => {
       if (name === 'validate_sheet_record_batch') {
         return { ok: true, rows: [{ classification: 'create' }] }
       }
+
       if (name === 'create_model_record') return { id: 'rec-1' }
       throw new Error(name)
     })
+
     const result = await validateAndCommitImport(
       { rpc, list: async () => [] } as unknown as DataClient,
       {
@@ -145,6 +156,7 @@ describe('import validate-before-commit', () => {
       },
       'unused',
     )
+
     expect(rpc.mock.calls.map((call) => call[0])).toEqual([
       'validate_sheet_record_batch',
       'create_model_record',

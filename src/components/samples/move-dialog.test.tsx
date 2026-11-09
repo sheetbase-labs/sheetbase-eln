@@ -71,6 +71,7 @@ beforeEach(() => {
   mocks.positions.mockResolvedValue(cells)
   mocks.current.mockResolvedValue(null)
 })
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
@@ -90,6 +91,7 @@ function mount(storageLocation: string | null = 'Lab / Bench 1') {
       />
     </QueryClientProvider>,
   )
+
   return onSubmit
 }
 
@@ -119,9 +121,11 @@ describe('MoveSampleDialog', () => {
 
   it('does not let a taken position be chosen', async () => {
     mount()
+
     const taken = await screen.findByRole('gridcell', {
       name: /A1: Holds SMP-9/,
     })
+
     fireEvent.click(taken)
     expect(
       screen.getByRole<HTMLButtonElement>('button', { name: 'Move' }).disabled,

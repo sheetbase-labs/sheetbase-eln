@@ -53,15 +53,18 @@ export function ProtocolInspector({
     notebookDataClient,
     PROTOCOL_REVISION_KIND,
   )
+
   const request = version
     ? approvals.data?.byVersion.get(version.id)?.at(0)
     : undefined
+
   const trail = request
     ? buildApprovalTrail(
         request,
         approvals.data?.byRequest.get(request.id) ?? [],
       )
     : []
+
   const previous = version
     ? versions
         .filter((v) => v.version < version.version)
@@ -77,6 +80,7 @@ export function ProtocolInspector({
         `?protocol_record_id=eq.${protocolId}&select=user_id,status`,
       ),
   })
+
   const usedBy = useQuery({
     queryKey: ['ui-port', 'protocol-inspector', 'used-by', protocolId],
     enabled: versions.length > 0,
@@ -86,6 +90,7 @@ export function ProtocolInspector({
         `?protocol_version_id=in.(${versions.map((v) => v.id).join(',')})&select=id,identifier,title,status,protocol_version_id&order=identifier.desc`,
       ),
   })
+
   const names = useUserNames([
     ...trail.flatMap((item) => (item.actorUserId ? [item.actorUserId] : [])),
     ...(training.data ?? []).map((item) => item.user_id),
@@ -94,16 +99,20 @@ export function ProtocolInspector({
   const trained = (training.data ?? []).filter(
     (item) => item.status === 'trained',
   )
+
   // Out of date counts as waiting: they trained on a version that is no longer current.
   const waiting = (training.data ?? []).filter(
     (item) => item.status !== 'trained',
   )
+
   const onVersion = (usedBy.data ?? []).filter(
     (r) => r.protocol_version_id === version?.id,
   )
+
   const onOthers = (usedBy.data ?? []).filter(
     (r) => r.protocol_version_id !== version?.id,
   )
+
   const otherVersion = onOthers.length
     ? versions.find((v) => v.id === onOthers[0].protocol_version_id)
     : undefined

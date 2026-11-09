@@ -105,8 +105,10 @@ export const COMMON_SAMPLE_FIELDS = [
 ] as const
 
 let draftCounter = 0
+
 export function newStageKey(): string {
   draftCounter += 1
+
   return `new-${Date.now().toString(36)}-${draftCounter}`
 }
 
@@ -129,6 +131,7 @@ export function blankWorkflow(): WorkflowDraft {
   const last = blankStage(t('settings.sampleWorkflows.lastStepName'))
   last.final = true
   first.next = [last.key]
+
   return {
     id: null,
     name: '',
@@ -157,6 +160,7 @@ function asAction(raw: unknown): WorkflowAction | null {
   if (!raw || typeof raw !== 'object') return null
   const r = raw as Record<string, unknown>
   const text = (key: string) => (typeof r[key] === 'string' ? r[key] : '')
+
   switch (r.kind) {
     case 'notify':
       return {
@@ -191,6 +195,7 @@ interface WorkflowRow {
   auto_enrol: boolean
   status: 'active' | 'archived'
 }
+
 interface StageRow {
   id: string
   workflow_id: string
@@ -202,6 +207,7 @@ interface StageRow {
   required_fields: string[]
   actions: unknown
 }
+
 interface TransitionRow {
   workflow_id: string
   from_stage_id: string
@@ -222,8 +228,10 @@ export async function fetchWorkflowSummaries(
       '?select=workflow_id&completed_at=is.null&limit=20000',
     ),
   ])
+
   const count = (rows: { workflow_id: string }[], id: string) =>
     rows.filter((row) => row.workflow_id === id).length
+
   return workflows.map((w) => ({
     id: w.id,
     name: w.name,
@@ -241,6 +249,7 @@ export async function fetchWorkflowDraft(
   workflowId: string,
 ): Promise<WorkflowDraft> {
   const id = encodeURIComponent(workflowId)
+
   const [workflows, stages, transitions] = await Promise.all([
     client.list<WorkflowRow>('sample_workflows', `?id=eq.${id}&select=*`),
     client.list<StageRow>(
@@ -252,9 +261,11 @@ export async function fetchWorkflowDraft(
       `?workflow_id=eq.${id}&select=*`,
     ),
   ])
+
   if (workflows.length === 0)
     throw new Error(t('settings.sampleWorkflows.notFound'))
   const w = workflows[0]
+
   return {
     id: w.id,
     name: w.name,
@@ -350,31 +361,42 @@ export async function setWorkflowStatus(
 /** The first thing wrong with a workflow, in words a scientist would use. */
 export function validateWorkflow(draft: WorkflowDraft): string | null {
   if (!draft.name.trim()) return t('settings.sampleWorkflows.needName')
+
   if (draft.stages.length < 2) return t('settings.sampleWorkflows.needTwoSteps')
   const names = new Set<string>()
+
   for (const stage of draft.stages) {
     const name = stage.name.trim()
+
     if (!name) return t('settings.sampleWorkflows.needStepName')
+
     if (names.has(name.toLowerCase()))
       return t('settings.sampleWorkflows.duplicateStep', { name })
     names.add(name.toLowerCase())
+
     if (stage.turnaroundDays.trim()) {
       const days = Number(stage.turnaroundDays)
+
       if (!Number.isInteger(days) || days < 1)
         return t('settings.sampleWorkflows.turnaroundWhole', { name })
     }
+
     for (const action of stage.actions) {
       const problem = validateAction(action)
+
       if (problem) return `${name}: ${problem}`
     }
   }
+
   if (!draft.stages.some((s) => s.final))
     return t('settings.sampleWorkflows.needFinalStep')
   const reachable = new Set<string>([draft.stages[0].key])
   const queue = [draft.stages[0].key]
+
   while (queue.length) {
     const key = queue.pop()
     const stage = draft.stages.find((s) => s.key === key)
+
     for (const next of stage && !stage.final ? stage.next : []) {
       if (!reachable.has(next)) {
         reachable.add(next)
@@ -382,19 +404,25 @@ export function validateWorkflow(draft: WorkflowDraft): string | null {
       }
     }
   }
+
   const stranded = draft.stages.find((s) => !reachable.has(s.key))
+
   if (stranded)
     return t('settings.sampleWorkflows.unreachable', { name: stranded.name })
   const stuck = draft.stages.find((s) => !s.final && s.next.length === 0)
+
   if (stuck) return t('settings.sampleWorkflows.deadEnd', { name: stuck.name })
+
   return null
 }
 
 export function validateAction(action: WorkflowAction): string | null {
   if (action.kind === 'set_field' && !action.key.trim())
     return t('settings.sampleWorkflows.needFieldName')
+
   if (action.kind === 'start_experiment' && !action.templateId)
     return t('settings.sampleWorkflows.needTemplate')
+
   return null
 }
 
@@ -445,8 +473,10 @@ export async function fetchSampleRuns(
     'sample_workflow_runs',
     `?record_id=eq.${encodeURIComponent(sampleId)}&select=id,workflow_id,stage_id,entered_at,due_at,completed_at,workflow:sample_workflows(name),stage:sample_workflow_stages(name)&order=entered_at.desc`,
   )
+
   const open = rows.filter((row) => !row.completed_at)
   const stageIds = open.map((row) => row.stage_id)
+
   const moves = stageIds.length
     ? await client.list<{
         from_stage_id: string
@@ -456,6 +486,7 @@ export async function fetchSampleRuns(
         `?from_stage_id=in.(${stageIds.join(',')})&select=from_stage_id,to:sample_workflow_stages!sample_workflow_transitions_to_fk(id,name,required_fields)&order=to_stage_id`,
       )
     : []
+
   return rows.map((row) => ({
     id: row.id,
     workflowId: row.workflow_id,
@@ -491,6 +522,7 @@ export async function fetchSampleWorkflowEvents(
     'sample_workflow_events',
     `?record_id=eq.${encodeURIComponent(sampleId)}&select=*&order=created_at.desc&limit=50`,
   )
+
   return rows.map((row) => ({
     id: row.id,
     from: row.from_stage_name,
@@ -511,6 +543,7 @@ export async function fetchStartableWorkflows(
     'sample_workflows',
     '?status=eq.active&select=*&order=name',
   )
+
   return rows
     .filter((row) => !row.sample_type || row.sample_type === sampleType)
     .map((row) => ({ id: row.id, name: row.name }))
@@ -550,5 +583,6 @@ export async function leaveRun(
 /** Whole days until a due date; negative once overdue. */
 export function daysUntil(due: string | null, now = Date.now()): number | null {
   if (!due) return null
+
   return Math.ceil((new Date(due).getTime() - now) / 86_400_000)
 }

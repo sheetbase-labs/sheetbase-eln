@@ -89,6 +89,7 @@ export function definitionStatus(
   versions: readonly Pick<PipelineDefinitionVersionWire, 'lifecycle'>[],
 ): { tone: Tone; label: string } {
   if (lifecycle !== 'active') return { tone: 'stored', label: 'Retired' }
+
   return versions.some((v) => v.lifecycle === 'published')
     ? { tone: 'ok', label: 'Published' }
     : { tone: 'draft', label: 'Draft' }
@@ -96,10 +97,14 @@ export function definitionStatus(
 
 export function runDuration(run: PipelineRunWire): string {
   if (!run.finished_at) return '—'
+
   const ms =
     new Date(run.finished_at).getTime() - new Date(run.started_at).getTime()
+
   if (ms < 1000) return `${ms} ms`
+
   if (ms < 60_000) return `${(ms / 1000).toFixed(1)} s`
+
   return `${Math.round(ms / 60_000)} min`
 }
 
@@ -134,26 +139,32 @@ export function buildPipelineRows(
   runs: PipelineRunWire[],
 ): PipelineListRow[] {
   const byDefinition = new Map<string, PipelineDefinitionVersionWire[]>()
+
   for (const v of versions) {
     const list = byDefinition.get(v.definition_id) ?? []
     list.push(v)
     byDefinition.set(v.definition_id, list)
   }
+
   const runsByVersion = new Map<string, PipelineRunWire[]>()
+
   for (const r of runs) {
     const list = runsByVersion.get(r.definition_version_id) ?? []
     list.push(r)
     runsByVersion.set(r.definition_version_id, list)
   }
+
   return definitions.map((d) => {
     const list = (byDefinition.get(d.id) ?? []).sort(
       (a, b) => b.version - a.version,
     )
+
     const allRuns = list.flatMap((v) => runsByVersion.get(v.id) ?? [])
     allRuns.sort(
       (a, b) =>
         new Date(b.started_at).getTime() - new Date(a.started_at).getTime(),
     )
+
     return {
       ...d,
       versions: list,
@@ -198,7 +209,9 @@ export function usePipelineRows(client: DataClient = notebookDataClient) {
     queryKey: pipelineDataQueryKeys.list,
     queryFn: async (): Promise<PipelineListRow[]> => {
       const definitions = await listPipelineDefinitions(client)
+
       if (definitions.length === 0) return []
+
       const [versions, runs] = await Promise.all([
         client.list<PipelineDefinitionVersionWire>(
           'pipeline_definition_versions',
@@ -209,6 +222,7 @@ export function usePipelineRows(client: DataClient = notebookDataClient) {
           '?select=id,workspace_id,definition_version_id,trigger_kind,status,attempt,retry_of_run_id,trigger_occurrence_id,schedule_id,input_digest,parameters,input_versions,result,error_code,error_message,started_at,finished_at,actor_user_id,actor_credential_id,created_at&order=started_at.desc&limit=200',
         ),
       ])
+
       return buildPipelineRows(definitions, versions, runs)
     },
     staleTime: 15_000,
@@ -224,6 +238,7 @@ export function declaredRunInputs(version: PipelineDefinitionVersionWire): {
     inputs?: PipelineInput[]
     parameters?: PipelineParameter[]
   }
+
   return {
     inputs: Array.isArray(config.inputs) ? config.inputs : [],
     parameters: Array.isArray(config.parameters) ? config.parameters : [],
@@ -235,6 +250,7 @@ export function runNeedsDetails(
   version: PipelineDefinitionVersionWire,
 ): boolean {
   const { inputs, parameters } = declaredRunInputs(version)
+
   return inputs.length > 0 || parameters.length > 0
 }
 
@@ -258,6 +274,7 @@ export async function startAndExecuteRun(
         error: error instanceof Error ? error : new Error('Execution failed.'),
       }),
   )
+
   return started
 }
 
@@ -275,20 +292,27 @@ export async function resolveRunForWorkItem(
       'pipeline_run_prompts',
       `?id=eq.${encodeURIComponent(item.sourceId)}&select=run_id`,
     )
+
     return prompts.at(0)?.run_id ?? null
   }
+
   if (item.kind === 'run_failed' && item.identifier) {
     const definitions = await client.list<{ id: string }>(
       'pipeline_definitions',
       `?key=eq.${encodeURIComponent(item.identifier)}&select=id`,
     )
+
     const definitionId = definitions.at(0)?.id
+
     if (!definitionId) return null
+
     const versions = await client.list<{ id: string }>(
       'pipeline_definition_versions',
       `?definition_id=eq.${encodeURIComponent(definitionId)}&select=id`,
     )
+
     if (versions.length === 0) return null
+
     const runs = await listByIds(
       versions.map((v) => v.id),
       (ids) =>
@@ -297,12 +321,15 @@ export async function resolveRunForWorkItem(
           `?definition_version_id=in.(${ids})&status=eq.failed&order=finished_at.desc&limit=1&select=id,finished_at`,
         ),
     )
+
     // Each group returned its own latest failure; the newest of those wins.
     runs.sort((a, b) =>
       (b.finished_at ?? '').localeCompare(a.finished_at ?? ''),
     )
+
     return runs.at(0)?.id ?? null
   }
+
   return null
 }
 
@@ -312,6 +339,7 @@ export function useDatasetNames(
   client: DataClient = notebookDataClient,
 ) {
   const ids = [...new Set(datasetIds)].sort()
+
   return useQuery({
     queryKey: ['ui-port', 'pipelines', 'dataset-names', ids] as const,
     queryFn: async (): Promise<Record<string, string>> => {
@@ -321,6 +349,7 @@ export function useDatasetNames(
           `?select=id,name,display_id&id=in.(${inList})`,
         ),
       )
+
       return Object.fromEntries(
         rows.map((d) => [
           d.id,
@@ -347,6 +376,7 @@ export function useRunInputs(
   client: DataClient = notebookDataClient,
 ) {
   const ids = [...new Set(versionIds)].sort()
+
   return useQuery({
     queryKey: ['ui-port', 'pipelines', 'run-inputs', ids] as const,
     queryFn: async (): Promise<Record<string, RunInputInfo>> => {
@@ -356,6 +386,7 @@ export function useRunInputs(
           `?select=id,dataset_id,label&id=in.(${inList})`,
         ),
       )
+
       const datasets = await listByIds(
         [...new Set(versions.map((v) => v.dataset_id))],
         (inList) =>
@@ -364,12 +395,14 @@ export function useRunInputs(
             `?select=id,name,display_id&id=in.(${inList})`,
           ),
       )
+
       const nameOf = new Map(
         datasets.map((d) => [
           d.id,
           d.display_id ? `${d.display_id} · ${d.name}` : d.name,
         ]),
       )
+
       return Object.fromEntries(
         versions.map((v) => [
           v.id,
@@ -400,8 +433,10 @@ export function schemasOf(
   choices: DatasetVersionChoice[],
 ): Array<{ id: string; name: string }> {
   const seen = new Map<string, string>()
+
   for (const choice of choices)
     if (choice.schemaId) seen.set(choice.schemaId, choice.schemaName)
+
   return [...seen]
     .map(([id, name]) => ({ id, name }))
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -440,20 +475,27 @@ export function useDatasetVersionChoices(
             '?select=id,name&order=name.asc',
           ),
         ])
+
       const byId = new Map(datasets.map((d) => [d.id, d]))
+
       const schemaOfVersion = new Map(
         schemaVersions.map((v) => [v.id, v.schema_id]),
       )
+
       const schemaNames = new Map(schemaDefinitions.map((d) => [d.id, d.name]))
+
       return versions
         .map((v) => {
           const dataset = byId.get(v.dataset_id)
+
           const name = dataset
             ? dataset.display_id
               ? `${dataset.display_id} · ${dataset.name}`
               : dataset.name
             : 'Dataset'
+
           const schemaId = schemaOfVersion.get(v.schema_version_id ?? '') ?? ''
+
           return {
             id: v.id,
             label: `${name} — ${v.label} (${formatDate(v.created_at)})`,
@@ -506,7 +548,9 @@ export async function fetchPipelineOutputTargets(
       '?select=id,name&order=name.asc',
     ),
   ])
+
   const nameById = new Map(definitions.map((d) => [d.id, d.name]))
+
   return {
     datasets: datasets.map((d) => ({
       id: d.id,
@@ -534,12 +578,16 @@ export async function fetchPipelineDraftContext(
       '?select=id,schema_id,version&lifecycle=eq.active&order=version.desc',
     ),
   ])
+
   const newestPerSchema = new Map<string, { id: string; schema_id: string }>()
+
   for (const v of versions)
     if (!newestPerSchema.has(v.schema_id)) newestPerSchema.set(v.schema_id, v)
+
   const schemaNames = new Map(
     targets.schemaVersions.map((v) => [v.id, v.label.replace(/ v\d+$/, '')]),
   )
+
   const schemas = await Promise.all(
     [...newestPerSchema.values()].slice(0, 40).map(async (v) => ({
       definitionId: v.schema_id,
@@ -551,6 +599,7 @@ export async function fetchPipelineDraftContext(
       })),
     })),
   )
+
   return {
     schemas,
     datasets: targets.datasets.map((d) => ({
@@ -593,6 +642,7 @@ export async function fetchSchemaVersionFields(
     'dataset_schema_version_fields',
     `?select=key,label,logical_type,nullable&schema_version_id=eq.${encodeURIComponent(schemaVersionId)}&lifecycle=eq.active&order=display_order.asc`,
   )
+
   return rows.map((r) => ({
     key: r.key,
     label: r.label,
@@ -614,7 +664,9 @@ export function useDatasetVersionFields(
         'dataset_versions',
         `?select=schema_version_id&id=eq.${encodeURIComponent(datasetVersionId)}`,
       )
+
       const schemaVersionId = versions[0]?.schema_version_id
+
       return schemaVersionId
         ? fetchSchemaVersionFields(client, schemaVersionId)
         : []
@@ -668,6 +720,7 @@ export function useDefinitionRuns(
   client: DataClient = notebookDataClient,
 ) {
   const versionIds = versions.map((v) => v.id)
+
   return useQuery({
     queryKey: [...pipelineDataQueryKeys.runs(versionIds.join(',')), versionIds],
     queryFn: async () => {
@@ -677,6 +730,7 @@ export function useDefinitionRuns(
           `?select=id,workspace_id,definition_version_id,trigger_kind,status,attempt,retry_of_run_id,trigger_occurrence_id,schedule_id,input_digest,parameters,input_versions,result,error_code,error_message,started_at,finished_at,actor_user_id,actor_credential_id,created_at&definition_version_id=in.(${ids})&order=started_at.desc&limit=100`,
         ),
       )
+
       // Each group returned its newest 100; keep the newest 100 overall.
       return runs
         .sort((a, b) => b.started_at.localeCompare(a.started_at))
@@ -693,6 +747,7 @@ export function useRunNumbers(
   client: DataClient = notebookDataClient,
 ) {
   const versionIds = versions.map((v) => v.id)
+
   return useQuery({
     queryKey: ['ui-port', 'pipelines', 'run-numbers', versionIds],
     queryFn: async () => {
@@ -702,6 +757,7 @@ export function useRunNumbers(
           `?select=id,started_at&definition_version_id=in.(${ids})&order=started_at.asc&limit=5000`,
         ),
       )
+
       return runNumbers(runs)
     },
     enabled: versionIds.length > 0,
@@ -739,12 +795,16 @@ export function usePipelineIdForRun(
         'pipeline_runs',
         `?select=id,definition_version_id&id=eq.${encodeURIComponent(runId)}`,
       )
+
       const versionId = run[0]?.definition_version_id
+
       if (!versionId) return null
+
       const versions = await client.list<{ definition_id: string }>(
         'pipeline_definition_versions',
         `?select=definition_id&id=eq.${encodeURIComponent(versionId)}`,
       )
+
       return versions[0]?.definition_id ?? null
     },
   })
@@ -840,7 +900,9 @@ export interface PipelineRunDeliveryWire {
 /** The delivery ids a run recorded in `result.notificationDeliveryIds`. */
 export function readDeliveryIds(result: Record<string, unknown>): string[] {
   const raw = result.notificationDeliveryIds
+
   if (!Array.isArray(raw)) return []
+
   return raw.filter((v): v is string => typeof v === 'string' && v.length > 0)
 }
 
@@ -861,8 +923,10 @@ export function useRunDeliveries(
           ),
         )
       ).sort((a, b) => a.created_at.localeCompare(b.created_at))
+
       if (rows.length === 0) return []
       const subscriptionIds = [...new Set(rows.map((r) => r.subscription_id))]
+
       const subscriptions = await listByIds(subscriptionIds, (inList) =>
         client.list<{
           id: string
@@ -873,7 +937,9 @@ export function useRunDeliveries(
           `?select=id,key,description&id=in.(${inList})`,
         ),
       )
+
       const byId = new Map(subscriptions.map((s) => [s.id, s]))
+
       return rows.map((row) => ({
         ...row,
         destination: byId.get(row.subscription_id) ?? null,
@@ -894,6 +960,7 @@ export function useWorkspaceMemberNames(
         'workspace_members_list',
         {},
       )
+
       return Object.fromEntries(members.map((m) => [m.user_id, m.name]))
     },
     staleTime: 60_000,
@@ -925,8 +992,10 @@ export function usePythonRuntime() {
       const response = await fetch('/api/pipelines/runtime', {
         credentials: 'same-origin',
       })
+
       if (!response.ok)
         return { available: false, message: 'Python could not be checked.' }
+
       return (await response.json()) as PythonRuntimeInfo
     },
     staleTime: 60_000,
@@ -950,6 +1019,7 @@ export function useLatestScheduleRuns(
   client: DataClient = notebookDataClient,
 ) {
   const key = scheduleIds.join(',')
+
   return useQuery({
     queryKey: pipelineDataQueryKeys.latestScheduleRuns(key),
     queryFn: () => listLatestScheduleRuns(client, scheduleIds),

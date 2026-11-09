@@ -10,8 +10,10 @@ import { dateTimeFormat } from '#/lib/intl-cache'
 
 export type PolicyMode =
   'never' | 'allowed' | 'needs_approval' | 'needs_signature'
+
 export type PolicyKey =
   'read' | 'notebook_blocks' | 'dataset_flags' | 'create_records' | 'messages'
+
 export type AgentPolicy = Record<PolicyKey, PolicyMode>
 
 export const POLICY_COLUMNS: ReadonlyArray<{ key: PolicyKey; label: string }> =
@@ -190,6 +192,7 @@ export function signAgentOperation(
 /** "25 Sep 10:12", the short stamp the board uses. */
 export function shortStamp(iso: string | null | undefined): string {
   if (!iso) return '—'
+
   const parts = new Map(
     dateTimeFormat('en-GB', {
       timeZone: undefined,
@@ -202,6 +205,7 @@ export function shortStamp(iso: string | null | undefined): string {
       .formatToParts(new Date(iso))
       .map((p) => [p.type, p.value] as const),
   )
+
   const stamp = formatInstant(iso, {
     day: 'numeric',
     month: 'long',
@@ -209,8 +213,10 @@ export function shortStamp(iso: string | null | undefined): string {
     minute: '2-digit',
     hour12: false,
   })
+
   const month = (parts.get('month') ?? '').slice(0, 3)
   const match = /^(\d+)\s+\S+,?\s+(?:at\s+)?(\d{2}:\d{2})$/.exec(stamp)
+
   return match ? `${match[1]} ${month} ${match[2]}` : stamp
 }
 
@@ -218,7 +224,9 @@ export function shortStamp(iso: string | null | undefined): string {
 export function shortDay(iso: string, now: Date): string {
   const day = new Date(iso)
   const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+
   if (day.toDateString() === yesterday.toDateString()) return 'Yesterday'
+
   return formatInstant(iso, { day: 'numeric', month: 'short' }).replace(
     'Sept',
     'Sep',
@@ -241,15 +249,21 @@ export function runsThisWeek(
 
 export function actionLabel(kind: string): string {
   if (kind.startsWith('notebook_block.')) return 'Propose notebook blocks'
+
   if (kind === 'record.create') return 'Create records'
+
   if (kind === 'record.comment.create') return 'Post a message'
+
   if (kind === 'dataset_rows.commit') return 'Change dataset values'
+
   if (kind.startsWith('pipeline_definition.')) return 'Change a pipeline'
+
   if (
     kind.startsWith('dataset_schema.') ||
     kind.startsWith('sheet_definition.')
   )
     return 'Draft a schema'
+
   return kind.replace(/[._]/g, ' ')
 }
 
@@ -257,8 +271,10 @@ export type Risk = 'high' | 'medium' | 'low'
 
 export function proposalRisk(proposal: AgentOperationProposal): Risk {
   const stated = (proposal.policy_evidence as { risk?: unknown }).risk
+
   if (stated === 'high' || stated === 'medium' || stated === 'low')
     return stated
+
   return proposal.risk_class === 'safe_draft' ? 'low' : 'medium'
 }
 
@@ -271,12 +287,14 @@ export function proposalStage(
   me: { userId: string | null; canApprove: boolean },
 ): ProposalStage {
   if (proposal.status !== 'pending') return 'decided'
+
   if (proposal.approver_user_id)
     return proposal.approver_user_id === me.userId || me.canApprove
       ? proposal.approver_user_id === me.userId
         ? 'needs'
         : 'waiting'
       : 'waiting'
+
   return me.canApprove ? 'needs' : 'waiting'
 }
 
@@ -291,6 +309,7 @@ export function proposalStatusLabel(
         return proposal.signature_required
           ? 'Needs your signature'
           : 'Needs your approval'
+
       return `Waiting on ${nameOf(proposal.approver_user_id) ?? 'an approver'}`
     case 'approved':
       return 'Approved'
@@ -328,6 +347,7 @@ export function proposalEvidence(
     confidence: ProposalEvidence['confidence']
     approverRole: string
   }>
+
   return {
     evidence: Array.isArray(raw.evidence) ? raw.evidence : [],
     confidence: raw.confidence ?? null,
@@ -353,6 +373,7 @@ export function proposalRendered(
   const rendered = (
     proposal.preview as unknown as { rendered?: RenderedChange }
   ).rendered
+
   return rendered && Array.isArray(rendered.sections) ? rendered : null
 }
 
@@ -370,6 +391,7 @@ export function proposalSubject(
     context: string
     label: string
   }>
+
   return {
     identifier: target.identifier ?? null,
     context: target.context ?? null,
@@ -383,6 +405,7 @@ export function revisionTitle(
   nameOf: (userId: string | null) => string | null,
 ): string {
   const who = nameOf(revision.changed_by_user_id)
+
   return who
     ? `Revision ${revision.revision} · ${who}`
     : `Revision ${revision.revision}`
@@ -409,6 +432,7 @@ export function runStatus(
         return { label: 'Cancelled', tone: 'stored' }
     }
   }
+
   switch (run.outcome) {
     case 'no_change':
       return { label: 'No change', tone: 'stored' }
@@ -436,6 +460,7 @@ export function runLine(
         ? 'waiting for you'
         : `waiting on ${nameOf(proposal.approver_user_id) ?? 'an approver'}`
       : null
+
   return [`#${run.run_number}`, proposal?.display_id, waiting ?? run.detail]
     .filter(Boolean)
     .join(' · ')
@@ -450,7 +475,9 @@ export function lastRunLabel(
   nameOf: (userId: string | null) => string | null,
 ): { label: string; tone: 'review' | 'ok' | 'bad' | 'stored' | 'warn' } | null {
   if (!definition.enabled) return { label: 'Paused', tone: 'warn' }
+
   if (!last) return null
+
   if (proposal?.status === 'pending') {
     return proposalStage(proposal, me) === 'needs'
       ? { label: last.summary || '1 proposal', tone: 'review' }
@@ -459,19 +486,23 @@ export function lastRunLabel(
           tone: 'review',
         }
   }
+
   const status = runStatus(last, proposal)
+
   return { label: last.summary || status.label, tone: status.tone }
 }
 
 /** "10:12" today, "Yesterday", or "22 Sep". */
 export function lastRunTime(iso: string, now: Date): string {
   const at = new Date(iso)
+
   if (at.toDateString() === now.toDateString())
     return formatInstant(iso, {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
     })
+
   return shortDay(iso, now)
 }
 
@@ -483,6 +514,7 @@ export function policySummary(policy: AgentPolicy): string {
     ['Records', policy.create_records],
     ['Messages', policy.messages],
   ]
+
   const phrases = writes.flatMap(([name, mode]) =>
     mode === 'needs_approval'
       ? [`${name.toLowerCase()} need approval`]
@@ -490,10 +522,12 @@ export function policySummary(policy: AgentPolicy): string {
         ? [`${name.toLowerCase()} need e-signature`]
         : [],
   )
+
   if (phrases.length === 0)
     return writes.some(([, mode]) => mode === 'allowed')
       ? 'Runs without asking'
       : 'Read-only'
   const text = phrases.join(', ')
+
   return text.charAt(0).toUpperCase() + text.slice(1)
 }

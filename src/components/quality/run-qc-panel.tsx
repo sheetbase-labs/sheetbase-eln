@@ -68,6 +68,7 @@ const client = notebookDataClient
 
 function number(text: string): number | null {
   const value = Number(text.trim().replace(',', '.'))
+
   return text.trim() !== '' && Number.isFinite(value) ? value : null
 }
 
@@ -81,8 +82,10 @@ function seriesStatus(series: QcSeriesRow): {
 } {
   if (!series.enabled)
     return { tone: 'none', label: t('quality.runQc.status.off') }
+
   if (series.mean === null || series.sd === null)
     return { tone: 'warn', label: t('quality.runQc.status.noLimits') }
+
   return series.state === 'out_of_control'
     ? { tone: 'bad', label: t('quality.runQc.status.outOfControl') }
     : { tone: 'ok', label: t('quality.runQc.status.inControl') }
@@ -103,11 +106,13 @@ export function RunQcPanel({
 }) {
   const queryClient = useQueryClient()
   const key = scopeKey(scope)
+
   const list = useQuery({
     queryKey: qcKeys.series(key),
     queryFn: () => fetchQcSeries(client, scope),
     staleTime: 10_000,
   })
+
   const series = useMemo(() => list.data ?? [], [list.data])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [dialog, setDialog] = useState<'value' | 'assay' | null>(null)
@@ -115,8 +120,10 @@ export function RunQcPanel({
   useEffect(() => {
     if (series.length === 0) {
       setSelectedId(null)
+
       return
     }
+
     if (!selectedId || !series.some((s) => s.id === selectedId))
       setSelectedId(
         (series.find((s) => s.state === 'out_of_control') ?? series[0]).id,
@@ -156,6 +163,7 @@ export function RunQcPanel({
         size: 150,
         cell: ({ row }) => {
           const status = seriesStatus(row.original)
+
           return <Status tone={status.tone}>{status.label}</Status>
         },
       },
@@ -263,18 +271,23 @@ function SeriesDetail({
     queryFn: () => fetchQcPoints(client, series.id),
     staleTime: 5_000,
   })
+
   const rows = useMemo(() => points.data ?? [], [points.data])
+
   const [dialog, setDialog] = useState<
     'limits' | 'rules' | 'value' | 'stop' | null
   >(null)
+
   const [acknowledging, setAcknowledging] = useState<QcPointRow | null>(null)
   const queryClient = useQueryClient()
+
   const toggle = useMutation({
     mutationFn: () =>
       updateQcSeries(client, series.id, { enabled: !series.enabled }),
     onSuccess: () => onChanged(),
     onError: (error) => toast.error(qcMessage(error)),
   })
+
   const breaks = rows.filter((p) => p.violations.length > 0).reverse()
   const open = openBreaches(rows)
 
@@ -282,6 +295,7 @@ function SeriesDetail({
     series.source_kind === 'plate_metric'
       ? t('quality.runQc.detail.sourcePlateNoName')
       : t('quality.runQc.detail.sourceManual')
+
   const limits =
     series.mean === null || series.sd === null
       ? t('quality.runQc.detail.noLimitsYet')
@@ -350,6 +364,7 @@ function SeriesDetail({
         header: t('quality.runQc.breaks.columns.note'),
         cell: ({ row }) => {
           const point = row.original
+
           if (point.acknowledged_at)
             return (
               <span className="truncate text-fg-muted" title={point.note ?? ''}>
@@ -359,6 +374,7 @@ function SeriesDetail({
                 {point.note ?? t('quality.runQc.breaks.acknowledged')}
               </span>
             )
+
           return canWrite ? (
             <Button size="sm" onClick={() => setAcknowledging(point)}>
               {t('quality.runQc.breaks.acknowledge')}
@@ -522,13 +538,16 @@ function TrackValueDialog({
   const meanValue = number(mean)
   const sdValue = number(sd)
   const limitsGiven = mean.trim() !== '' || sd.trim() !== ''
+
   const nameError = name.trim()
     ? null
     : t('quality.runQc.trackDialog.nameRequired')
+
   const sdError =
     limitsGiven && (sdValue === null || sdValue <= 0)
       ? t('quality.runQc.trackDialog.sdRequired')
       : null
+
   const save = useMutation({
     mutationFn: () =>
       createQcSeries(client, {
@@ -549,6 +568,7 @@ function TrackValueDialog({
         `${t('quality.runQc.trackDialog.couldNotSave')} ${qcMessage(error)}`,
       ),
   })
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
@@ -605,6 +625,7 @@ function TrackValueDialog({
             disabled={save.isPending}
             onClick={() => {
               setTouched(true)
+
               if (nameError || sdError) return
               save.mutate()
             }}
@@ -633,8 +654,10 @@ function TrackAssayDialog({
     queryFn: () => fetchPlateDesignOptions(client),
     staleTime: 30_000,
   })
+
   const [designId, setDesignId] = useState('')
   const options = designs.data ?? []
+
   const save = useMutation({
     mutationFn: () => trackPlateAssayQc(client, designId, instrumentId),
     onSuccess: (created) => {
@@ -651,6 +674,7 @@ function TrackAssayDialog({
         `${t('quality.runQc.assayDialog.couldNotSave')} ${qcMessage(error)}`,
       ),
   })
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
@@ -713,27 +737,35 @@ function LimitsDialog({
   const [mode, setMode] = useState<'enter' | 'first'>(
     pointCount >= 5 && series.mean === null ? 'first' : 'enter',
   )
+
   const [mean, setMean] = useState(
     series.mean === null ? '' : short(series.mean),
   )
+
   const [sd, setSd] = useState(series.sd === null ? '' : short(series.sd))
+
   const [count, setCount] = useState(
     String(Math.min(Math.max(pointCount, 5), 20)),
   )
+
   const [touched, setTouched] = useState(false)
   const meanValue = number(mean)
   const sdValue = number(sd)
   const countValue = number(count)
+
   const meanError =
     meanValue === null ? t('quality.runQc.limitsDialog.meanRequired') : null
+
   const sdError =
     sdValue === null || sdValue <= 0
       ? t('quality.runQc.limitsDialog.sdRequired')
       : null
+
   const countError =
     countValue === null || countValue < 5 || countValue > 1000
       ? t('quality.runQc.limitsDialog.countRequired')
       : null
+
   const save = useMutation({
     mutationFn: () =>
       setQcBaseline(
@@ -753,6 +785,7 @@ function LimitsDialog({
         `${t('quality.runQc.limitsDialog.couldNotSave')} ${qcMessage(error)}`,
       ),
   })
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
@@ -820,6 +853,7 @@ function LimitsDialog({
             disabled={save.isPending}
             onClick={() => {
               setTouched(true)
+
               if (mode === 'enter' ? meanError || sdError : countError) return
               save.mutate()
             }}
@@ -844,6 +878,7 @@ function RulesDialog({
   onDone: () => void
 }) {
   const [rules, setRules] = useState<QcRule[]>(series.rules)
+
   const save = useMutation({
     mutationFn: () => updateQcSeries(client, series.id, { rules }),
     onSuccess: () => {
@@ -856,6 +891,7 @@ function RulesDialog({
         `${t('quality.runQc.rulesDialog.couldNotSave')} ${qcMessage(error)}`,
       ),
   })
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
@@ -913,8 +949,10 @@ function ValueDialog({
   const [label, setLabel] = useState('')
   const [touched, setTouched] = useState(false)
   const parsed = number(value)
+
   const error =
     parsed === null ? t('quality.runQc.valueDialog.valueRequired') : null
+
   const save = useMutation({
     mutationFn: () =>
       recordQcPoint(client, { seriesId: series.id, value: parsed!, label }),
@@ -932,6 +970,7 @@ function ValueDialog({
         `${t('quality.runQc.valueDialog.couldNotSave')} ${qcMessage(err)}`,
       ),
   })
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
@@ -971,6 +1010,7 @@ function ValueDialog({
             disabled={save.isPending}
             onClick={() => {
               setTouched(true)
+
               if (error) return
               save.mutate()
             }}
@@ -996,6 +1036,7 @@ function AcknowledgeDialog({
 }) {
   const [note, setNote] = useState('')
   const [exclude, setExclude] = useState(false)
+
   const save = useMutation({
     mutationFn: () =>
       acknowledgeQcPoint(client, { pointId: point.id, note, exclude }),
@@ -1009,6 +1050,7 @@ function AcknowledgeDialog({
         `${t('quality.runQc.acknowledgeDialog.couldNotSave')} ${qcMessage(error)}`,
       ),
   })
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent>
@@ -1076,6 +1118,7 @@ function StopDialog({
         `${t('quality.runQc.stopDialog.couldNotStop')} ${qcMessage(error)}`,
       ),
   })
+
   return (
     <ConfirmDialog open onOpenChange={(open) => !open && onClose()}>
       <ConfirmDialogContent>

@@ -42,12 +42,14 @@ function setup(
       onFile={onFile}
     />,
   )
+
   return { onFile }
 }
 
 describe('FileDrop', () => {
   it('hands a dropped file to the caller and holds the row open while it runs', async () => {
     const settle: Array<() => void> = []
+
     const { onFile } = setup(
       () => new Promise<void>((resolve) => settle.push(resolve)),
     )
@@ -70,8 +72,10 @@ describe('FileDrop', () => {
 
   it('reports the transport’s failure on the row and retries it from there', async () => {
     const attempts: number[] = []
+
     const { onFile } = setup(() => {
       attempts.push(1)
+
       return attempts.length === 1
         ? Promise.reject(new Error('The file store refused this file.'))
         : Promise.resolve()

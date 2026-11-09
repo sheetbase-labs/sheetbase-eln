@@ -36,13 +36,16 @@ export function useSuppliers() {
     queryFn: () => fetchSupplierModelKeys(client),
     staleTime: 30_000,
   })
+
   const keys = models.data ?? []
+
   const suppliers = useQuery({
     queryKey: supplierKeys.list(keys),
     queryFn: () => fetchSuppliers(client, keys),
     enabled: models.isSuccess && keys.length > 0,
     staleTime: 30_000,
   })
+
   return {
     modelKeys: keys,
     suppliers: suppliers.data ?? [],
@@ -52,6 +55,7 @@ export function useSuppliers() {
 
 function useRefreshSuppliers() {
   const queryClient = useQueryClient()
+
   return () => {
     void queryClient.invalidateQueries({ queryKey: supplierKeys.all })
     void queryClient.invalidateQueries({
@@ -63,6 +67,7 @@ function useRefreshSuppliers() {
 /** Offered where a supplier is chosen and the lab has no supplier list yet. */
 export function SetUpSuppliers({ canSetUp }: { canSetUp: boolean }) {
   const refresh = useRefreshSuppliers()
+
   const create = useMutation({
     mutationFn: () => createSupplierModel(client),
     onSuccess: () => {
@@ -76,7 +81,9 @@ export function SetUpSuppliers({ canSetUp }: { canSetUp: boolean }) {
           : t('spend.suppliers.couldNotSetUp'),
       ),
   })
+
   if (!canSetUp) return null
+
   return (
     <div className="flex flex-col items-start gap-1.5 rounded-md border border-border px-3 py-2">
       <span className="text-label font-medium">
@@ -107,10 +114,12 @@ export function SupplierListDialog({
   modelKey: string
 }) {
   const refresh = useRefreshSuppliers()
+
   const keys = useQuery({
     queryKey: supplierKeys.models,
     queryFn: () => fetchSupplierModelKeys(client),
   })
+
   const [choice, setChoice] = useState<boolean | null>(null)
   const checked = choice ?? keys.data?.includes(modelKey) ?? false
 

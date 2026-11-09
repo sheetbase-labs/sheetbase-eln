@@ -45,13 +45,16 @@ export function usePluginLabel(args: {
   heightMm: number
 }): PluginLabel {
   const { points, ready } = useExtensionPointsState()
+
   const layoutName =
     args.layout && isPluginItem(args.layout) ? args.layout : null
+
   const codeName = isPluginItem(args.barcodeType) ? args.barcodeType : null
 
   const layoutItem = layoutName
     ? points.data['label-formats'].find((item) => item.name === layoutName)
     : undefined
+
   const codeItem = codeName
     ? points.data['barcode-formats'].find((item) => item.name === codeName)
     : undefined
@@ -77,6 +80,7 @@ export function usePluginLabel(args: {
     staleTime: 30_000,
     retry: false,
   })
+
   const code = useQuery({
     enabled: Boolean(codeItem),
     queryKey: ['plugin-label-code', codeName, args.identifier],
@@ -92,8 +96,10 @@ export function usePluginLabel(args: {
 
   const gone = (name: string) => {
     const parsed = parsePluginName(name)
+
     return t('plugins.labels.gone', { title: parsed?.id ?? name })
   }
+
   return {
     lines: !layoutName
       ? idle

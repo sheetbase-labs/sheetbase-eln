@@ -26,7 +26,9 @@ export const Route = createFileRoute('/accept-invitation')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) throw redirect(signInRedirect(location))
+
     return { context }
   },
   component: AcceptInvitation,
@@ -52,6 +54,7 @@ export function AcceptInvitationSurface({
     if (!token) return
     setBusy(true)
     setError(null)
+
     try {
       await accept(token, userId)
       onDone()
@@ -119,6 +122,7 @@ function AcceptInvitation() {
   const { token } = Route.useSearch()
   const { context } = Route.useRouteContext()
   const router = useRouter()
+
   return (
     <AcceptInvitationSurface
       token={token}
@@ -126,10 +130,12 @@ function AcceptInvitation() {
       userEmail={context.user.email}
       accept={async (inviteToken, userId) => {
         const client = createDataClient()
+
         const invitation = await acceptInvitation(client, {
           token: inviteToken,
           userId,
         })
+
         await setActiveWorkspace(client, invitation.workspace_id)
       }}
       onDone={() => {

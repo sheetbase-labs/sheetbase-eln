@@ -57,7 +57,9 @@ function seededClient(items: NotificationItem[]) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+
   client.setQueryData(notificationsQueryKeys.list(), items)
+
   return client
 }
 
@@ -75,7 +77,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof NotificationsBell>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Two unread items, so the unread dot shows on the trigger. */

@@ -18,12 +18,16 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('#/lib/use-page-ai', () => ({ usePageAi: mocks.usePageAi }))
+
 vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
+
 vi.mock('#/lib/pipelines/data', () => ({
   createPipelineDefinitionVersion: mocks.create,
   updatePipelineDefinitionVersionDraft: mocks.update,
 }))
+
 vi.mock('#/components/ui/sonner', () => ({ toast: vi.fn() }))
+
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: React.ReactNode }) => (
     <a href="#">{children}</a>
@@ -63,6 +67,7 @@ function view(draft?: {
   configuration: Record<string, unknown>
 }) {
   const client = new QueryClient()
+
   return render(
     <QueryClientProvider client={client}>
       <RunAiFix

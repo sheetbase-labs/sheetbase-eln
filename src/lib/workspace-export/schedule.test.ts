@@ -27,6 +27,7 @@ describe('backupIsDue', () => {
       lastSucceededAt: hoursAgo(h),
       lastFailedAt: null,
     })
+
     expect(backupIsDue(BACKUP_DEFAULTS, last(10), now)).toBe(false)
     expect(backupIsDue(BACKUP_DEFAULTS, last(24), now)).toBe(true)
     const weekly = { ...BACKUP_DEFAULTS, frequency: 'weekly' as const }
@@ -39,6 +40,7 @@ describe('backupIsDue', () => {
       lastSucceededAt: hoursAgo(48),
       lastFailedAt: hoursAgo(h),
     })
+
     expect(backupIsDue(BACKUP_DEFAULTS, failedAgo(1), now)).toBe(false)
     expect(
       backupIsDue(

@@ -54,12 +54,15 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function Demo() {
   const [sorting, setSorting] = useState<SortingState>([])
   const [hidden, setHidden] = useState<string[]>([])
+
   const view: ListView = {
     sorting,
     hidden,
@@ -71,6 +74,7 @@ function Demo() {
       setHidden([])
     },
   }
+
   return (
     <RegistryGrid
       label="Samples"

@@ -38,6 +38,7 @@ export class ImportRequestError extends Error {
 async function readJson<T>(response: Response): Promise<T> {
   const body = (await response.json().catch(() => null)) as
     (T & { error?: { code?: string; message?: string } }) | null
+
   if (!response.ok) {
     throw new ImportRequestError(
       response.status,
@@ -45,7 +46,9 @@ async function readJson<T>(response: Response): Promise<T> {
       body?.error?.message ?? `Import request failed (${response.status}).`,
     )
   }
+
   if (!body) throw new Error('Import request returned no body.')
+
   return body
 }
 
@@ -57,6 +60,7 @@ export async function uploadImportFile(input: {
   const query = input.datasetId
     ? `?datasetId=${encodeURIComponent(input.datasetId)}`
     : ''
+
   const response = await fetch(`/api/import/files${query}`, {
     method: 'POST',
     headers: {
@@ -65,6 +69,7 @@ export async function uploadImportFile(input: {
     },
     body: input.file,
   })
+
   return readJson<ImportFileUploadResponse>(response)
 }
 
@@ -80,9 +85,12 @@ export async function fetchImportFile(input: {
   sheetName?: string
 }): Promise<ImportFileUploadResponse> {
   const query = new URLSearchParams({ fileId: input.fileId })
+
   if (input.datasetId) query.set('datasetId', input.datasetId)
+
   if (input.sheetName) query.set('sheetName', input.sheetName)
   const response = await fetch(`/api/import/files?${query.toString()}`)
+
   return readJson<ImportFileUploadResponse>(response)
 }
 
@@ -112,13 +120,18 @@ export async function resolveImportTarget(
 ): Promise<{ datasetId: string; created: boolean }> {
   if (choice.mode === 'append') {
     if (!choice.datasetId) throw new Error('Choose a Dataset to import into.')
+
     return { datasetId: choice.datasetId, created: false }
   }
+
   const name = choice.name.trim()
+
   if (!name) throw new Error('Name the new Dataset.')
+
   if (!choice.schemaVersionId) {
     throw new Error('Choose the Model the new Dataset is built on.')
   }
+
   const created = await createDataset(client, {
     workspaceId: choice.workspaceId,
     schemaVersionId: choice.schemaVersionId,
@@ -126,6 +139,7 @@ export async function resolveImportTarget(
     createdByUserId: choice.createdByUserId ?? null,
     primaryProjectId: choice.primaryProjectId ?? null,
   })
+
   return { datasetId: created.id, created: true }
 }
 
@@ -168,6 +182,7 @@ export async function createStructureFromFile(
       display_order: index + 1,
     })),
   })
+
   return { schemaVersionId: created.schema_version_id }
 }
 
@@ -185,6 +200,7 @@ export async function reviewImport(input: {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
   })
+
   return readJson<ImportReviewResponse>(response)
 }
 
@@ -206,6 +222,7 @@ export async function commitImport(input: {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
   })
+
   return readJson<ImportCommitResponse>(response)
 }
 

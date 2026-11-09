@@ -35,19 +35,26 @@ export function formatDataGridValue(
   format: DataGridValueFormat = { kind: 'text' },
 ): string {
   if (value === null || value === undefined || value === '') return '—'
+
   if (format.kind === 'scientific') {
     const numeric = typeof value === 'number' ? value : Number(value)
+
     const rendered = Number.isFinite(numeric)
       ? formatCount(numeric)
       : String(value)
+
     return format.unit ? `${rendered} ${format.unit}` : rendered
   }
+
   if (format.kind === 'date') {
     const date = value instanceof Date ? value : new Date(String(value))
+
     if (Number.isNaN(date.getTime())) return String(value)
+
     return dateTimeFormat('en-GB', {
       dateStyle: format.dateStyle ?? 'medium',
     }).format(date)
   }
+
   return String(value)
 }

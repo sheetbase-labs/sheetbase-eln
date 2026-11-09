@@ -7,8 +7,10 @@ import { getRouter } from './router'
 // router's own behaviour, so a bare root route stands in for it.
 vi.mock('./routeTree.gen', async () => {
   const { createRootRoute } = await import('@tanstack/react-router')
+
   return { routeTree: createRootRoute() }
 })
+
 vi.mock('#/components/shell/not-found', () => ({ NotFound: () => null }))
 
 describe('getRouter', () => {

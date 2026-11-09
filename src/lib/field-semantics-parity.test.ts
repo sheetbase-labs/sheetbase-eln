@@ -106,10 +106,12 @@ describe('field semantics parity', () => {
       allowedInputUnits: ['mg/mL', 'µg/mL'],
       preferredDisplayUnit: 'mg/mL',
     }
+
     const sheet = sheetField('decimal', {
       quantity,
       validation: { min: 0, max: 10 },
     })
+
     const record = recordField('decimal', { quantity, validation: {} })
 
     // Same coercion: unit suffixes strip to the canonical number.
@@ -159,7 +161,9 @@ describe('field semantics parity', () => {
         },
       ],
     }
+
     const sheet = sheetField('category', { category })
+
     const record = recordField('category', {
       options: category.options,
     })
@@ -197,6 +201,7 @@ describe('field semantics parity', () => {
         cardinality: 'one',
       },
     })
+
     const record = recordField('reference', {
       nullable: false,
       validation: { targetModelKey: 'sample' },
@@ -217,12 +222,14 @@ describe('field semantics parity', () => {
       'invalid_value',
     )
     let code: string | null = null
+
     try {
       parsePersistedRecordReference('SMP-2026-0001', { nullable: false })
     } catch (caught) {
       code =
         caught instanceof RecordReferenceCellError ? caught.code : 'unknown'
     }
+
     expect(code).toBe('label-identity')
 
     // Resolution states stay honest: present, archived, wrong-model, gone.
@@ -235,6 +242,7 @@ describe('field semantics parity', () => {
       archived: false,
       deleted: false,
     }
+
     expect(
       resolveRecordReferenceState({
         persistedId: RECORD_UUID,
@@ -277,11 +285,13 @@ describe('field semantics parity', () => {
       maxLength: 13,
       pattern: '^SMP-[0-9]{4}-[0-9]{4}$',
     }
+
     const sheet = sheetField('text', { validation })
     const record = recordField('text', { validation })
 
     expect(validateCanonicalCell(sheet, 'SMP-2026-0042')).toBeNull()
     expect(validateModelFieldValue(record, 'SMP-2026-0042')).toBeNull()
+
     for (const bad of ['SMP-1', 'nope', 'SMP-2026-00422']) {
       expect(validateCanonicalCell(sheet, bad)).toBe('text_validation')
       expect(validateModelFieldValue(record, bad)).toBe('text_validation')

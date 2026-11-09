@@ -44,6 +44,7 @@ describe('groupCommentsIntoThreads', () => {
         created_at: '2026-01-01T00:30:00Z',
       }),
     ]
+
     const threads = groupCommentsIntoThreads(rows)
     expect(threads.map((t) => t.root.id)).toEqual(['r1', 'r2'])
     expect(threads[0].replies.map((r) => r.id)).toEqual(['a2', 'a1'])
@@ -53,6 +54,7 @@ describe('groupCommentsIntoThreads', () => {
     const open = groupCommentsIntoThreads([
       wire({ id: 'r1', root_id: 'r1', state: 'open' }),
     ])
+
     const resolved = groupCommentsIntoThreads([
       wire({
         id: 'r1',
@@ -61,6 +63,7 @@ describe('groupCommentsIntoThreads', () => {
         resolved_at: '2026-01-01T00:00:00Z',
       }),
     ])
+
     expect(threadState(open[0])).toBe('open')
     expect(threadState(resolved[0])).toBe('resolved')
   })
@@ -73,6 +76,7 @@ describe('groupCommentsIntoThreads', () => {
         target: undefined,
       }),
     ]
+
     const threads = groupCommentsIntoThreads(rows)
     expect(threads[0].root.target).toEqual({})
   })

@@ -24,12 +24,14 @@ export const Route = createFileRoute('/sheets/$sheetId')({
   }),
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
+
     if (!context) throw redirect(signInRedirect(location))
     await resolveIdentifierParam({
       entity: 'sheet',
       ref: params.sheetId,
       href: location.href,
     })
+
     return { context }
   },
   component: lazyRouteComponent(

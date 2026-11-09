@@ -50,6 +50,7 @@ function paragraphs(text: string): unknown {
         ? { type: 'paragraph', content: [{ type: 'text', text: line }] }
         : { type: 'paragraph' },
     )
+
   return {
     doc: {
       type: 'doc',
@@ -68,6 +69,7 @@ function decodeJson(bytes: Uint8Array, name: string): unknown {
 
 function ref(value: unknown): string | null {
   if (isObject(value) && typeof value['@id'] === 'string') return value['@id']
+
   return typeof value === 'string' ? value : null
 }
 
@@ -77,6 +79,7 @@ function asList(value: unknown): unknown[] {
 
 function clampTitle(title: unknown, fallback: string): string {
   const text = typeof title === 'string' ? title.trim() : ''
+
   return (text || fallback).slice(0, MAX_TITLE)
 }
 
@@ -84,6 +87,7 @@ function splitKeywords(value: unknown): string[] {
   const raw = Array.isArray(value)
     ? value.map(String)
     : String(value ?? '').split(',')
+
   return [...new Set(raw.map((t) => t.trim()).filter(Boolean))].slice(
     0,
     MAX_TAGS,
@@ -92,6 +96,7 @@ function splitKeywords(value: unknown): string[] {
 
 export function parseElnArchive(bytes: Uint8Array): ElnImportPlan {
   let entries: Map<string, Uint8Array>
+
   try {
     entries = readZip(bytes)
   } catch (error) {
@@ -104,26 +109,34 @@ export function parseElnArchive(bytes: Uint8Array): ElnImportPlan {
       name === 'ro-crate-metadata.json' ||
       /^[^/]+\/ro-crate-metadata\.json$/.test(name),
   )
+
   if (!metadataPath) {
     throw new ElnImportError(
       'This is not a .eln archive: ro-crate-metadata.json is missing.',
     )
   }
+
   const prefix = metadataPath.slice(
     0,
     metadataPath.length - 'ro-crate-metadata.json'.length,
   )
+
   const crate = decodeJson(entries.get(metadataPath)!, 'ro-crate-metadata.json')
+
   const graph =
     isObject(crate) && Array.isArray(crate['@graph']) ? crate['@graph'] : null
+
   if (!graph) throw new ElnImportError('ro-crate-metadata.json has no @graph.')
 
   const byId = new Map<string, Json>()
+
   for (const entity of graph) {
     if (isObject(entity) && typeof entity['@id'] === 'string')
       byId.set(entity['@id'], entity)
   }
+
   const rootEntity = byId.get('./')
+
   if (!rootEntity) throw new ElnImportError('The crate has no root dataset.')
 
   const warnings: string[] = []
@@ -132,8 +145,10 @@ export function parseElnArchive(bytes: Uint8Array): ElnImportPlan {
   for (const partRef of asList(rootEntity.hasPart)) {
     const id = ref(partRef)
     const entity = id ? byId.get(id) : undefined
+
     if (!id || !entity) continue
     const types = asList(entity['@type'])
+
     if (!types.includes('Dataset')) continue
 
     const nativePath = `${prefix}${id.replace(/^\.\//, '')}experiment.json`
@@ -150,14 +165,18 @@ export function parseElnArchive(bytes: Uint8Array): ElnImportPlan {
         (p) =>
           byId.get(p)?.['@type'] === 'File' && !p.endsWith('/experiment.json'),
       )
+
     const isSidecar = (p: string) =>
       p.endsWith('/signatures.json') || p.endsWith('/audit.csv')
+
     const skippedFiles = fileParts.filter((p) => !isSidecar(p))
+
     if (skippedFiles.length > 0) {
       warnings.push(
         `${label}: ${skippedFiles.length} attached file(s) were not imported.`,
       )
     }
+
     if (fileParts.some(isSidecar)) {
       warnings.push(
         `${label}: signatures and audit history stay with the source; they were not imported.`,
@@ -167,8 +186,10 @@ export function parseElnArchive(bytes: Uint8Array): ElnImportPlan {
     if (nativeBytes) {
       const doc = decodeJson(nativeBytes, nativePath)
       const record = isObject(doc) && isObject(doc.record) ? doc.record : null
+
       const blocks =
         isObject(doc) && Array.isArray(doc.blocks) ? doc.blocks : []
+
       const kept = blocks
         .filter(
           (b): b is Json =>
@@ -177,12 +198,15 @@ export function parseElnArchive(bytes: Uint8Array): ElnImportPlan {
             isRichTextPayload(b.payload),
         )
         .sort((a, b) => Number(a.order) - Number(b.order))
+
       const dropped = blocks.length - kept.length
+
       if (dropped > 0) {
         warnings.push(
           `${label}: ${dropped} non-text block(s) were not imported.`,
         )
       }
+
       experiments.push({
         title: clampTitle(record?.title, label),
         tags: splitKeywords(record?.tags),
@@ -208,6 +232,7 @@ export function parseElnArchive(bytes: Uint8Array): ElnImportPlan {
         : typeof entity.description === 'string'
           ? entity.description
           : plainTextOf(entity.text)
+
     experiments.push({
       title: label,
       tags: splitKeywords(entity.keywords),
@@ -228,5 +253,6 @@ export function parseElnArchive(bytes: Uint8Array): ElnImportPlan {
   if (experiments.length === 0) {
     throw new ElnImportError('The archive contains no experiments.')
   }
+
   return { experiments, warnings }
 }

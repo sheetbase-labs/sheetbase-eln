@@ -28,6 +28,7 @@ describe('workspace publication policy data boundary', () => {
             { status: 200 },
           ),
       )
+
       const client = createDataClient(fetcher)
       const general = await fetchWorkspaceGeneral(client)
       expect(general?.publicationApprovalRequired).toBe(required)
@@ -53,6 +54,7 @@ describe('workspace publication policy data boundary', () => {
       const fetcher = vi.fn<typeof fetch>(
         async () => new Response(null, { status: 204 }),
       )
+
       const client = createDataClient(fetcher)
 
       await updateWorkspaceOfflineEditing('ws-1', allowed, client)

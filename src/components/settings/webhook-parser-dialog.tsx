@@ -52,6 +52,7 @@ export function WebhookParserDialog({
 
   const validUrl = /^https?:\/\/\S+$/.test(url.trim())
   const ready = validUrl && name.trim().length > 0
+
   const create = useMutation({
     mutationFn: () =>
       createWebhookParser({

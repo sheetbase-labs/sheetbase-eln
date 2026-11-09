@@ -126,10 +126,12 @@ export function composeSections(
   const sectioned = assignSections(visible)
 
   const sections: OverviewSection[] = []
+
   for (const sectionId of SECTION_ORDER) {
     const sectionBlocks = sectioned
       .filter((s) => s.section === sectionId)
       .map((s) => s.block)
+
     if (sectionBlocks.length > 0 || includeEmpty) {
       sections.push({
         id: sectionId,
@@ -138,6 +140,7 @@ export function composeSections(
       })
     }
   }
+
   return sections
 }
 
@@ -156,16 +159,19 @@ export function getOverviewConfig(
   properties: Record<string, unknown>,
 ): OverviewConfig {
   const overview = properties.overview
+
   if (
     typeof overview === 'object' &&
     overview !== null &&
     !Array.isArray(overview)
   ) {
     const raw = (overview as Record<string, unknown>).excludedBlockIds
+
     if (Array.isArray(raw) && raw.every((id) => typeof id === 'string')) {
       return { excludedBlockIds: raw }
     }
   }
+
   return { excludedBlockIds: [] }
 }
 
@@ -181,10 +187,13 @@ export function normaliseOverviewConfig(
   if (!Array.isArray(excludedBlockIds)) {
     return { excludedBlockIds: [] }
   }
+
   const known = new Set(knownBlockIds)
+
   const valid = excludedBlockIds.filter(
     (id): id is string => typeof id === 'string' && known.has(id),
   )
+
   return { excludedBlockIds: Array.from(new Set(valid)) }
 }
 
@@ -212,11 +221,13 @@ export function toggleBlockExclusion(
   exclude: boolean,
 ): OverviewConfig {
   const set = new Set(config.excludedBlockIds)
+
   if (exclude) {
     set.add(blockId)
   } else {
     set.delete(blockId)
   }
+
   return { excludedBlockIds: Array.from(set) }
 }
 
@@ -251,8 +262,11 @@ export function detectOverviewMode(
   viewingRevision: boolean,
 ): OverviewMode {
   if (viewingRevision) return 'historical'
+
   if (record.archivedAt !== null) return 'archived'
+
   if (record.lockedAt !== null || record.status === 'locked') return 'locked'
+
   return 'active'
 }
 

@@ -53,9 +53,11 @@ export function NewReportDialog({
   const [subtitle, setSubtitle] = useState('')
   const [touched, setTouched] = useState(false)
   const projects = useWritableProjects(open)
+
   const effectiveProjectId = projects.usable.some((p) => p.id === projectId)
     ? projectId
     : (projects.usable.at(0)?.id ?? '')
+
   const titleError =
     touched && title.trim().length < 3
       ? t('projects.reports.new.titleError')
@@ -93,6 +95,7 @@ export function NewReportDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
+
         if (!next) {
           setTitle('')
           setSubtitle('')
@@ -181,6 +184,7 @@ export function NewReportDialog({
             disabled={create.isPending}
             onClick={() => {
               setTouched(true)
+
               if (title.trim().length < 3 || !effectiveProjectId) return
               create.mutate()
             }}

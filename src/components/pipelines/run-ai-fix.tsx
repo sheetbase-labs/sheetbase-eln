@@ -64,11 +64,14 @@ export function RunAiFix({
   const [phase, setPhase] = useState<Phase>({ name: 'idle' })
 
   const workspaceId = ai.workspaceId ?? ''
+
   const apply = useMutation({
     mutationFn: async (fix: NonNullable<FailureExplanation['fix']>) => {
       const base = (draft?.configuration ?? runConfig) as PipelineConfig
       const next = applyStepFix(base, fix)
+
       if (!next.ok) throw new Error(next.reason)
+
       if (draft) {
         await updatePipelineDefinitionVersionDraft(notebookDataClient, {
           workspaceId,
@@ -76,13 +79,16 @@ export function RunAiFix({
           expectedRevision: Number(draft.revision),
           configuration: next.config as unknown as Record<string, unknown>,
         })
+
         return false
       }
+
       await createPipelineDefinitionVersion(notebookDataClient, {
         workspaceId,
         definitionId: pipelineId,
         configuration: next.config as unknown as Record<string, unknown>,
       })
+
       return true
     },
     onSuccess: (created) => {
@@ -110,6 +116,7 @@ export function RunAiFix({
 
   async function ask() {
     setPhase({ name: 'asking' })
+
     try {
       const result = await ai.run({
         task: 'freeform',
@@ -122,6 +129,7 @@ export function RunAiFix({
           config: runConfig,
         }),
       })
+
       if (result.status !== 'ok') {
         setPhase({
           name: 'error',
@@ -129,8 +137,10 @@ export function RunAiFix({
             reason: result.message,
           }),
         })
+
         return
       }
+
       const answer = parseFailureReply(result.text, runConfig)
       setPhase(
         answer

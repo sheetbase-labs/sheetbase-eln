@@ -32,9 +32,11 @@ export const Route = createFileRoute('/scan')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: ScanPage,
@@ -51,12 +53,15 @@ function ScanPage() {
 
   const resolve = async (raw: string) => {
     const trimmed = raw.trim()
+
     if (!trimmed) return
     setBusy(true)
     setError(null)
+
     try {
       const r = await resolveScanCode(trimmed)
       setResult(r)
+
       if (r.found && r.hit) {
         const hit = r.hit
         setRecent((xs) =>

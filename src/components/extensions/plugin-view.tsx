@@ -32,11 +32,13 @@ import { TONE_CLASSES } from './tone'
 export type PluginValues = Record<string, string | number | boolean>
 
 const GAP = { sm: 'gap-1.5', md: 'gap-3', lg: 'gap-5' } as const
+
 const TEXT_TONE = {
   muted: 'text-fg-muted',
   success: 'text-success-text',
   danger: 'text-danger-text',
 } as const
+
 const PROGRESS_TONE = {
   neutral: 'neutral',
   success: 'success',
@@ -48,6 +50,7 @@ const PROGRESS_TONE = {
 /** Starting values of every input in a view, so a button sends what is on screen. */
 export function initialValues(node: ScreenNode): PluginValues {
   const out: PluginValues = {}
+
   const visit = (n: ScreenNode) => {
     if (n.type === 'input')
       out[n.name] =
@@ -57,9 +60,12 @@ export function initialValues(node: ScreenNode): PluginValues {
           : n.kind === 'select'
             ? (n.options?.[0]?.value ?? '')
             : '')
+
     if (n.type === 'stack' || n.type === 'form') n.children.forEach(visit)
   }
+
   visit(node)
+
   return out
 }
 
@@ -75,16 +81,20 @@ export function PluginView({
   const [values, setValues] = React.useState<PluginValues>(() =>
     initialValues(view),
   )
+
   // A new view keeps what the person typed for inputs that are still there.
   React.useEffect(() => {
     setValues((previous) => {
       const next = initialValues(view)
+
       for (const key of Object.keys(next))
         if (key in previous) next[key] = previous[key]
+
       return next
     })
   }, [view])
   const send = (action: string) => onEvent?.(action, values)
+
   return (
     <div data-slot="plugin-view" className="flex min-w-0 flex-col gap-3">
       <Node
@@ -178,6 +188,7 @@ function Node({ node, ...ctx }: { node: ScreenNode } & NodeContext) {
       )
     case 'bar': {
       const max = node.max ?? 100
+
       return (
         <div className="flex flex-col gap-1">
           {node.label ? (
@@ -192,6 +203,7 @@ function Node({ node, ...ctx }: { node: ScreenNode } & NodeContext) {
         </div>
       )
     }
+
     case 'sparkline':
       return (
         <CellDisplayView
@@ -236,6 +248,7 @@ function Node({ node, ...ctx }: { node: ScreenNode } & NodeContext) {
       )
     case 'svg': {
       const clean = sanitizeSvg(node.svg)
+
       return clean ? (
         <div
           role="img"
@@ -245,6 +258,7 @@ function Node({ node, ...ctx }: { node: ScreenNode } & NodeContext) {
         />
       ) : null
     }
+
     case 'input':
       return <InputNode node={node} {...ctx} />
     case 'button':
@@ -296,6 +310,7 @@ function InternalLink({
   children: React.ReactNode
 }) {
   const router = useRouter()
+
   return (
     <a
       href={to}
@@ -317,6 +332,7 @@ function InputNode({
   setValue,
 }: { node: Extract<ScreenNode, { type: 'input' }> } & NodeContext) {
   const value: unknown = (values as Record<string, unknown>)[node.name]
+
   if (node.kind === 'checkbox')
     return (
       <label className="flex items-center gap-2 text-body text-fg">
@@ -327,6 +343,7 @@ function InputNode({
         {node.label}
       </label>
     )
+
   return (
     <Field label={node.label} hint={node.help} required={node.required}>
       {node.kind === 'select' ? (

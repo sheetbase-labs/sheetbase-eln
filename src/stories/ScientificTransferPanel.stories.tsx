@@ -70,7 +70,9 @@ const meta = {
   ],
   args: { table, rows },
 } satisfies Meta<typeof ScientificTransferPanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

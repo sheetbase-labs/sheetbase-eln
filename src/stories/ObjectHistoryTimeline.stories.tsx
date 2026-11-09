@@ -99,7 +99,9 @@ const meta = {
   ],
   args: { events, onLoadMore: () => {} },
 } satisfies Meta<typeof ObjectHistoryTimeline>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A rename, a block edit, a file and a signature, grouped by day. */

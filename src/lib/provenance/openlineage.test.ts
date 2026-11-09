@@ -14,6 +14,7 @@ describe('openlineage', () => {
     versionId: 'v1',
     columns: ['batch', 'titre'],
   }
+
   const output = {
     datasetId: 'out',
     name: 'Out',
@@ -35,13 +36,16 @@ describe('openlineage', () => {
       'lab',
       '1.0',
     )
+
     expect(event.run.runId).toBe('run-1')
     expect(event.inputs[0].facets.version).toMatchObject({
       datasetVersion: 'v1',
     })
+
     const lineage = event.outputs[0].facets.columnLineage as {
       fields: Record<string, unknown>
     }
+
     expect(Object.keys(lineage.fields)).toEqual(['batch'])
     expect(event.schemaURL).toContain('RunEvent')
   })

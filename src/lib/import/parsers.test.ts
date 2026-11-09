@@ -12,6 +12,7 @@ describe('recogniseImportParser', () => {
       format: 'xlsx',
       headers: ['Sample', 'Well', 'Dilution'],
     })
+
     expect(match?.key).toBe('sheetbase.plate-map')
     expect(match?.format).toBe('xlsx')
     expect(match?.version).toBe(1)
@@ -26,6 +27,7 @@ describe('recogniseImportParser', () => {
       format: 'xlsx',
       headers: ['Sample', 'Well', 'OD450 (AU)'],
     })
+
     expect(match?.matchedHeaders).toContain('od450')
   })
 
@@ -34,6 +36,7 @@ describe('recogniseImportParser', () => {
       format: 'csv',
       headers: ['Sample', 'Well', 'OD450'],
     })
+
     expect(withoutMetadata).toBeNull()
 
     const withMetadata = recogniseImportParser({
@@ -41,6 +44,7 @@ describe('recogniseImportParser', () => {
       headers: ['Sample', 'Well', 'OD450'],
       rawTextHint: '# Instrument: PR-01\nSample,Well,OD450\n',
     })
+
     expect(withMetadata?.key).toBe('sheetbase.plate-reader-csv')
   })
 
@@ -49,6 +53,7 @@ describe('recogniseImportParser', () => {
       format: 'csv',
       headers: ['Sample', 'NTU', 'Dil', 'Timestamp'],
     })
+
     expect(match).toBeNull()
     // it is still offered as an experiment on the failure page
     expect(IMPORT_PARSERS.some((parser) => parser.status === 'draft')).toBe(
@@ -71,6 +76,7 @@ describe('recogniseImportParser', () => {
       headers: ['Sample', 'Well', 'OD', 'Conc', 'Dilution', 'Raw'],
       rawTextHint: '# Instrument: PR-01\n',
     })
+
     expect(match?.key).toBe('sheetbase.plate-reader-csv')
     // 2 required + 4 of 5 optional, rounded to 2dp
     expect(match?.confidence).toBe(0.86)
@@ -87,6 +93,7 @@ describe('previewHeaderSample', () => {
         { name: 'Controls', headers: ['Sample', 'Well'], rows: [{}] },
       ],
     })
+
     expect(sample.headers).toEqual(['Sample', 'Well'])
     expect(sample.rowCount).toBe(3)
     expect(sample.sheetNames).toEqual(['Reads', 'Controls'])

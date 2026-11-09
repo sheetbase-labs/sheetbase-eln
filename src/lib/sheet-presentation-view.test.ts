@@ -28,6 +28,7 @@ function fullPresentation() {
 describe('sheet presentation saved views (GRID-04)', () => {
   it('saves and loads the presentation snapshot per instance', () => {
     const storage = memoryStorage()
+
     const presentation = {
       ...fullPresentation(),
       frozenColumnCount: 2,
@@ -38,6 +39,7 @@ describe('sheet presentation saved views (GRID-04)', () => {
         },
       ],
     }
+
     saveSheetView('instance-1', presentation, storage)
     expect(hasSavedSheetView('instance-1', storage)).toBe(true)
     expect(hasSavedSheetView('instance-2', storage)).toBe(false)
@@ -69,6 +71,7 @@ describe('sheet presentation saved views (GRID-04)', () => {
         throw new Error('blocked')
       },
     } as Storage
+
     expect(() =>
       saveSheetView('instance-1', fullPresentation(), throwing),
     ).not.toThrow()
@@ -78,6 +81,7 @@ describe('sheet presentation saved views (GRID-04)', () => {
 
 function memoryStorage(): Storage {
   const map = new Map<string, string>()
+
   return {
     get length() {
       return map.size
@@ -99,6 +103,7 @@ describe('sanitizeSheetPresentation (GRID-04)', () => {
 
   it('drops persisted state that references unknown columns', () => {
     const unknown = '99999999-0000-4000-8000-000000000009'
+
     const sanitized = sanitizeSheetPresentation(
       {
         columnOrder: [
@@ -129,6 +134,7 @@ describe('sanitizeSheetPresentation (GRID-04)', () => {
       },
       columnIds,
     )
+
     expect(sanitized).toEqual({
       columnOrder: [
         '10000000-0000-4000-8000-000000000005',
@@ -160,6 +166,7 @@ describe('sanitizeSheetPresentation (GRID-04)', () => {
       },
       columnIds,
     )
+
     expect(sanitized?.columnWidths).toEqual({
       '10000000-0000-4000-8000-000000000004': 2_000,
       '10000000-0000-4000-8000-000000000005': 40,
@@ -169,6 +176,7 @@ describe('sanitizeSheetPresentation (GRID-04)', () => {
 
   it('drops malformed filters and sorts and deduplicates sorts', () => {
     const kept = '10000000-0000-4000-8000-000000000004'
+
     const sanitized = sanitizeSheetPresentation(
       {
         filters: [
@@ -184,6 +192,7 @@ describe('sanitizeSheetPresentation (GRID-04)', () => {
       },
       columnIds,
     )
+
     expect(sanitized?.filters).toEqual([
       { columnId: kept, operator: 'is-empty' },
       { columnId: kept, operator: 'not-equals', value: 'x' },
@@ -202,6 +211,7 @@ describe('sanitizeSheetPresentation (GRID-04)', () => {
       },
       columnIds,
     )
+
     expect(sanitized).toEqual({
       columnOrder: [],
       hiddenColumnIds: [],

@@ -53,6 +53,7 @@ describe('parsing the agent’s request', () => {
     expect(() => parseJobsBody({ ...base, status: 'complete' })).toThrow(
       /entries or runLog/,
     )
+
     const ok = parseJobsBody({
       ...base,
       status: 'complete',
@@ -60,6 +61,7 @@ describe('parsing the agent’s request', () => {
         { sourceWell: 'a1', destWell: 'b2', actualUl: 15, status: 'ok' },
       ],
     })
+
     expect(ok.entries?.[0]).toEqual({
       sourceWell: 'A1',
       destWell: 'B2',
@@ -100,16 +102,20 @@ describe('matching the robot’s log to the worklist', () => {
       sampleId: null,
     },
   ]
+
   it('reads entries and text logs alike', () => {
     const fromEntries = reconcileJobLog(planned, {
       entries: [
         { sourceWell: 'A1', destWell: 'B2', actualUl: 15, status: 'ok' },
       ],
     })
+
     expect(fromEntries.map((t) => t.status)).toEqual(['done', 'missing'])
+
     const fromText = reconcileJobLog(planned, {
       runLog: 'source_well,dest_well,volume\nA1,B2,15\nA2,B3,5\n',
     })
+
     expect(fromText.map((t) => t.status)).toEqual(['done', 'short'])
   })
   it('refuses a log with nothing in it', () => {
@@ -125,6 +131,7 @@ describe('the endpoint', () => {
     scopes: ['datasets:write'],
     workspace_id: 'w',
   }
+
   function request(body: unknown) {
     return new Request('http://eln.test/api/connectors/jobs', {
       method: 'POST',
@@ -132,6 +139,7 @@ describe('the endpoint', () => {
       body: JSON.stringify(body),
     })
   }
+
   const deps = (rpc: DataClient['rpc'], list?: DataClient['list']) => ({
     verifyCredential: async () => claims as never,
     createClient: () =>
@@ -143,9 +151,11 @@ describe('the endpoint', () => {
       request({ action: 'list', instrumentId: INSTRUMENT }),
       deps((async () => [rpcJob]) as never),
     )
+
     const body = (await response.json()) as {
       jobs: Array<{ id: string; file?: unknown }>
     }
+
     expect(response.status).toBe(200)
     expect(body.jobs[0].id).toBe(JOB)
     expect(body.jobs[0].file).toBeTruthy()
@@ -153,6 +163,7 @@ describe('the endpoint', () => {
 
   it('completes a job with the worklist matched to the log', async () => {
     const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+
     const list = (async (resource: string) =>
       resource === 'instrument_jobs'
         ? [{ worklist_id: 'w' }]
@@ -163,10 +174,13 @@ describe('the endpoint', () => {
               dest_plate: 'D',
             },
           ]) as never
+
     const rpc = (async (name: string, args: Record<string, unknown>) => {
       calls.push({ name, args })
+
       return { id: JOB, number: 4, status: 'complete' }
     }) as never
+
     const response = await handleJobs(
       request({
         action: 'report',
@@ -179,6 +193,7 @@ describe('the endpoint', () => {
       }),
       deps(rpc, list),
     )
+
     expect(response.status).toBe(200)
     expect(calls[0].name).toBe('agent_report_instrument_job')
     expect(calls[0].args.p_reconciled).toMatchObject([
@@ -198,6 +213,7 @@ describe('the endpoint', () => {
         throw new Error('this job is cancelled')
       }),
     )
+
     expect(response.status).toBe(422)
   })
 
@@ -210,6 +226,7 @@ describe('the endpoint', () => {
         createClient: () => ({}) as DataClient,
       },
     )
+
     expect(response.status).toBe(403)
   })
 })

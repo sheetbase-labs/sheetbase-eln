@@ -32,12 +32,14 @@ export function DuplicateNotice({
 }) {
   const exact = matches.filter((m) => m.match === 'exact')
   const listed = exact.length > 0 ? exact : matches
+
   const entries = listed
     .map(
       (m) =>
         `${m.identifier} ${m.title}${m.archived ? t('registry.duplicate.retiredNote') : ''}`,
     )
     .join(', ')
+
   return (
     <Notice
       tone="warn"
@@ -122,8 +124,10 @@ export function SequenceReader({
     if (!file) return
     setReading(true)
     setError(null)
+
     try {
       const parsed = parseSequenceFile(await file.text())
+
       if (parsed.length === 0) throw new Error('')
       const first = parsed[0]
       const info = await readSequence(first)
@@ -134,6 +138,7 @@ export function SequenceReader({
         shape: info.topology === 'circular' ? 'circular' : 'linear',
         molecule: info.molecule,
       })
+
       if (parsed.length > 1) {
         setError(t('registry.form.sequenceOnlyFirst', { count: parsed.length }))
       }
@@ -142,6 +147,7 @@ export function SequenceReader({
       setError(t('registry.form.sequenceError', { message: messageOf(e, '') }))
     } finally {
       setReading(false)
+
       if (fileInput.current) fileInput.current.value = ''
     }
   }

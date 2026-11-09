@@ -54,6 +54,7 @@ export function handoverLabel(key: string): string {
       kind: recordKindLabel(key.slice('record:'.length)),
     })
   }
+
   switch (key as HandoverCategory) {
     case 'record_reviewer':
       return t('people.handover.work.recordReviewer')
@@ -86,6 +87,7 @@ export async function fetchHandoverPreview(
     p_workspace_id: input.workspaceId,
     p_user_id: input.userId,
   })
+
   return toHandoverItems(rows)
 }
 

@@ -97,6 +97,7 @@ export async function fetchPartPlans(
 ): Promise<{ plans: PartPlanWire[]; needs: PartNeedWire[] }> {
   if (partIds.length === 0) return { plans: [], needs: [] }
   const list = partIds.map((id) => encodeURIComponent(id)).join(',')
+
   const [plans, needs] = await Promise.all([
     client.list<PartPlanWire>(
       'part_plans',
@@ -107,6 +108,7 @@ export async function fetchPartPlans(
       `?select=*&part_id=in.(${list})&order=position.asc`,
     ),
   ])
+
   return { plans, needs }
 }
 
@@ -203,13 +205,16 @@ export function slipPart(
 export function minuteToTime(minute: number): string {
   const h = Math.floor(minute / 60)
   const m = minute % 60
+
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
 /** "09:00" as minutes after midnight, or null. */
 export function timeToMinute(text: string): number | null {
   const match = /^(\d{1,2}):(\d{2})$/.exec(text.trim())
+
   if (!match) return null
   const minutes = Number(match[1]) * 60 + Number(match[2])
+
   return minutes >= 0 && minutes <= 1440 ? minutes : null
 }

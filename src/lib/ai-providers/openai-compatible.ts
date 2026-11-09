@@ -75,9 +75,11 @@ export function conversationMessages(
       { role: 'user', content: request.prompt },
     ]
   }
+
   const system = [PROVIDER_SYSTEM_PROMPT, request.instructions, request.prompt]
     .filter(Boolean)
     .join('\n\n')
+
   return [
     { role: 'system', content: system },
     ...request.messages.map((turn): OpenAiMessage => {
@@ -88,6 +90,7 @@ export function conversationMessages(
           content: turn.content,
         }
       }
+
       if (turn.role === 'assistant' && 'toolCalls' in turn) {
         return {
           role: 'assistant',
@@ -99,6 +102,7 @@ export function conversationMessages(
           })),
         }
       }
+
       return { role: turn.role, content: turn.content }
     }),
   ]
@@ -127,12 +131,15 @@ export function buildOpenAiCompatibleRequest(
   options: { stream?: boolean } = {},
 ): OpenAiCompatibleRequest {
   const estimatedInputTokens = Math.max(1, Math.ceil(promptChars(request) / 4))
+
   const availableOutputTokens = Math.max(
     1,
     request.maxTokens - estimatedInputTokens,
   )
+
   const ceiling = profile.maxOutputTokens ?? availableOutputTokens
   const maxTokens = Math.min(availableOutputTokens, ceiling)
+
   if (!Number.isFinite(maxTokens) || maxTokens < 1) {
     throw new AiProviderError(
       'config_invalid',
@@ -140,6 +147,7 @@ export function buildOpenAiCompatibleRequest(
       { providerId: profile.id },
     )
   }
+
   return {
     model: profile.model,
     messages: conversationMessages(request),
@@ -168,18 +176,23 @@ export function buildOpenAiCompatibleRequest(
 
 function readMessageText(message: Record<string, unknown> | null): string {
   const content = message?.content
+
   if (typeof content === 'string') return content
+
   if (Array.isArray(content)) {
     const parts = content
       .map((part) => {
         const record = asRecord(part)
+
         return record?.type === 'text' && typeof record.text === 'string'
           ? record.text
           : null
       })
       .filter((part): part is string => part !== null)
+
     if (parts.length > 0) return parts.join('\n')
   }
+
   return ''
 }
 
@@ -190,6 +203,7 @@ export function parseOpenAiCompatibleResponse(
 ): ProviderResponse {
   const root = asRecord(json)
   const choices = root?.choices
+
   if (!Array.isArray(choices) || choices.length === 0) {
     throw new AiProviderError(
       'response_invalid',
@@ -197,9 +211,11 @@ export function parseOpenAiCompatibleResponse(
       { providerId: profile.id },
     )
   }
+
   const first = asRecord(choices[0])
   const message = readNested(first, 'message')
   const text = readMessageText(message)
+
   if (text.trim() === '') {
     throw new AiProviderError(
       'response_invalid',
@@ -209,10 +225,12 @@ export function parseOpenAiCompatibleResponse(
   }
 
   const usage = readNested(root, 'usage')
+
   const promptTokens =
     readNumber(usage, 'prompt_tokens') ??
     readNumber(usage, 'input_tokens') ??
     estimateTokens(prompt)
+
   const completionTokens =
     readNumber(usage, 'completion_tokens') ??
     readNumber(usage, 'output_tokens') ??
@@ -222,6 +240,7 @@ export function parseOpenAiCompatibleResponse(
   // Use it when present; otherwise price the reported tokens at the profile's
   // published rates.
   const reportedUsd = readNumber(usage, 'cost')
+
   const costMicrousd =
     reportedUsd !== null
       ? Math.max(0, Math.ceil(reportedUsd * 1_000_000))
@@ -244,11 +263,14 @@ function requestHeaders(
   apiKey: string | undefined,
 ): Record<string, string> {
   const headers: Record<string, string> = {}
+
   if (apiKey) headers.authorization = `Bearer ${apiKey}`
+
   if (profile.kind === 'openrouter') {
     headers['http-referer'] = 'https://sheetbase.co.uk'
     headers['x-title'] = 'Sheetbase ELN'
   }
+
   return headers
 }
 
@@ -265,6 +287,7 @@ export class OpenAiCompatibleProvider implements ModelProvider {
 
   async complete(request: ProviderRequest): Promise<ProviderResponse> {
     const body = buildOpenAiCompatibleRequest(this.config, request)
+
     const json = await postProviderJson(
       this.config.id,
       {
@@ -274,6 +297,7 @@ export class OpenAiCompatibleProvider implements ModelProvider {
       },
       this.deps,
     )
+
     return parseOpenAiCompatibleResponse(this.config, request.prompt, json)
   }
 
@@ -283,13 +307,16 @@ export class OpenAiCompatibleProvider implements ModelProvider {
     const body = buildOpenAiCompatibleRequest(this.config, request, {
       stream: true,
     })
+
     let produced = ''
     let reported: ProviderStreamChunk | null = null
+
     // Tool calls arrive as fragments keyed by index; emit them whole at the end.
     const calls = new Map<
       number,
       { id: string; name: string; arguments: string }
     >()
+
     for await (const data of postProviderSse(
       this.config.id,
       {
@@ -302,17 +329,22 @@ export class OpenAiCompatibleProvider implements ModelProvider {
     )) {
       if (data === '[DONE]') break
       let json: unknown
+
       try {
         json = JSON.parse(data) as unknown
       } catch {
         // Keep-alive comments and partial frames are not answers.
         continue
       }
+
       const root = asRecord(json)
+
       const choice = Array.isArray(root?.choices)
         ? asRecord(root.choices[0])
         : null
+
       const delta = readNested(choice, 'delta')
+
       if (Array.isArray(delta?.tool_calls)) {
         for (const raw of delta.tool_calls) {
           const fragment = asRecord(raw)
@@ -325,17 +357,23 @@ export class OpenAiCompatibleProvider implements ModelProvider {
           calls.set(index, call)
         }
       }
+
       const piece = typeof delta?.content === 'string' ? delta.content : ''
+
       if (piece !== '') {
         produced += piece
         yield { type: 'text', delta: piece }
       }
+
       const usage = readNested(root, 'usage')
+
       if (usage) {
         const promptTokens =
           readNumber(usage, 'prompt_tokens') ?? estimateTokens(request.prompt)
+
         const completionTokens =
           readNumber(usage, 'completion_tokens') ?? estimateTokens(produced)
+
         const reportedUsd = readNumber(usage, 'cost')
         reported = {
           type: 'usage',
@@ -354,6 +392,7 @@ export class OpenAiCompatibleProvider implements ModelProvider {
         }
       }
     }
+
     for (const [index, call] of [...calls.entries()].sort(
       (a, b) => a[0] - b[0],
     )) {
@@ -365,6 +404,7 @@ export class OpenAiCompatibleProvider implements ModelProvider {
         arguments: call.arguments === '' ? '{}' : call.arguments,
       }
     }
+
     if (produced.trim() === '' && calls.size === 0) {
       throw new AiProviderError(
         'response_invalid',
@@ -372,6 +412,7 @@ export class OpenAiCompatibleProvider implements ModelProvider {
         { providerId: this.config.id },
       )
     }
+
     yield reported ?? {
       type: 'usage',
       tokensUsed: estimateTokens(request.prompt) + estimateTokens(produced),

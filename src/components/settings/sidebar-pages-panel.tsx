@@ -41,14 +41,17 @@ export function SidebarPagesPanel({
 }) {
   const queryClient = useQueryClient()
   const router = useRouter()
+
   const query = useQuery({
     queryKey: sidebarPagesQueryKey(workspaceId),
     queryFn: () => fetchHiddenNavPages(workspaceId, client),
     enabled: workspaceId !== '',
   })
+
   // What was just ticked shows straight away, before the save comes back.
   const [draft, setDraft] = useState<string[] | null>(null)
   const hidden = draft ?? query.data ?? []
+
   const save = useMutation({
     mutationFn: (pages: string[]) =>
       setHiddenNavPages(workspaceId, pages, client),
@@ -66,12 +69,14 @@ export function SidebarPagesPanel({
       toast.error(t('settings.sidebarPages.saveFailed'))
     },
   })
+
   const busy = !canManage || query.isPending || save.isPending
 
   function toggle(page: string, shown: boolean) {
     const next = shown
       ? hidden.filter((p) => p !== page)
       : [...new Set([...hidden, page])]
+
     setDraft(next)
     save.mutate(next)
   }
@@ -94,6 +99,7 @@ export function SidebarPagesPanel({
               group.items.map((item) => {
                 const fixed = !canHideNavPage(item.key)
                 const shown = fixed || !hidden.includes(item.key)
+
                 return (
                   <TableRow key={item.key}>
                     <TableCell>

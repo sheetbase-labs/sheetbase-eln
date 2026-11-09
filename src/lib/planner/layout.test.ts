@@ -27,6 +27,7 @@ describe('layoutRound', () => {
       },
       7,
     )
+
     expect(plate?.format).toBe('96_well')
     const samples = plate!.wells.filter((w) => w.role === 'sample')
     expect(samples).toHaveLength(12)
@@ -62,17 +63,20 @@ describe('layoutRound', () => {
       { plateFormat: '96_well', worklistFormat: 'csv', volumeUl: 50 },
       1,
     )
+
     expect(plate!.transfers).toHaveLength(6)
     expect(
       plate!.transfers.every(
         (t) => t.sourceWell === t.destWell && t.volumeUl === 50,
       ),
     ).toBe(true)
+
     const none = layoutRound(
       trials,
       { plateFormat: '96_well', worklistFormat: 'csv' },
       1,
     )
+
     expect(none.plate!.transfers).toHaveLength(0)
   })
 
@@ -81,6 +85,7 @@ describe('layoutRound', () => {
       trial: i + 1,
       factors: {},
     }))
+
     expect(wellsNeeded({ replicates: 3 }, 30)).toBe(90)
     expect(() =>
       layoutRound(many, { plateFormat: '24_well', replicates: 1 }, 1),

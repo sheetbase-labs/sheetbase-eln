@@ -78,6 +78,7 @@ export async function fetchSpendLines(
     p_from: range.from.toISOString(),
     p_to: range.to.toISOString(),
   })
+
   return rows.map(toSpendLine)
 }
 
@@ -105,15 +106,19 @@ export function spendKey(
       label: line.projectTitle ?? '',
     }
   }
+
   if (by === 'supplier') {
     const name = line.supplier?.trim() ?? ''
+
     return {
       key:
         line.supplierRecordId ?? (name ? `name:${name.toLowerCase()}` : NONE),
       label: name,
     }
   }
+
   const month = monthKey(line.orderedAt, timeZone)
+
   return { key: month, label: month }
 }
 
@@ -124,21 +129,29 @@ export function groupSpend(
   timeZone: string,
 ): SpendGroup[] {
   const groups = new Map<string, SpendGroup>()
+
   for (const line of lines) {
     const { key, label } = spendKey(line, by, timeZone)
     let group = groups.get(key)
+
     if (!group) {
       group = { key, label, orders: 0, unpriced: 0, totals: {} }
       groups.set(key, group)
     }
+
     group.orders += 1
+
     if (line.totalPrice === null || !line.currency) group.unpriced += 1
     else addMoney(group.totals, line.totalPrice, line.currency)
   }
+
   const rows = [...groups.values()]
+
   if (by === 'month') return rows.sort((a, b) => a.key.localeCompare(b.key))
+
   const sum = (g: SpendGroup) =>
     Object.values(g.totals).reduce((total, value) => total + value, 0)
+
   return rows.sort((a, b) => sum(b) - sum(a) || b.orders - a.orders)
 }
 
@@ -150,10 +163,12 @@ export function totalSpend(lines: readonly SpendLine[]): {
 } {
   const totals: MoneyTotals = {}
   let unpriced = 0
+
   for (const line of lines) {
     if (line.totalPrice === null || !line.currency) unpriced += 1
     else addMoney(totals, line.totalPrice, line.currency)
   }
+
   return { orders: lines.length, unpriced, totals }
 }
 

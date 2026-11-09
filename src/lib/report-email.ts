@@ -69,18 +69,23 @@ function usageSection(
   zone: string,
 ): { text: string[]; files: EmailAttachment[] } {
   const { lines, labels, openHours } = data
+
   if (lines.length === 0) {
     return { text: [t('spend.schedule.email.noData')], files: [] }
   }
+
   const hours = lines.reduce((sum, l) => sum + l.hours, 0)
   const instruments = utilisationByInstrument(lines, range, openHours, zone)
   const charge: Record<string, number> = {}
+
   for (const line of lines) {
     const amount = lineCharge(line)
+
     if (amount !== null && line.currency) {
       charge[line.currency] = (charge[line.currency] ?? 0) + amount
     }
   }
+
   const text = [
     t('spend.schedule.email.usage.heading'),
     t('spend.schedule.email.usage.booked', {
@@ -95,8 +100,11 @@ function usageSection(
       }),
     ),
   ]
+
   const owed = formatTotals(charge)
+
   if (owed) text.push(t('spend.schedule.email.usage.charge', { amount: owed }))
+
   return {
     text,
     files: [
@@ -121,10 +129,13 @@ function spendSection(
   zone: string,
 ): { text: string[]; files: EmailAttachment[] } {
   const { lines } = data
+
   if (lines.length === 0) {
     return { text: [t('spend.schedule.email.noData')], files: [] }
   }
+
   const total = totalSpend(lines)
+
   const text = [
     t('spend.schedule.email.spend.heading'),
     t('spend.schedule.email.spend.spent', {
@@ -132,13 +143,16 @@ function spendSection(
     }),
     t('spend.schedule.email.spend.orders', { count: total.orders }),
   ]
+
   if (total.unpriced > 0) {
     text.push(
       t('spend.schedule.email.spend.unpriced', { count: total.unpriced }),
     )
   }
+
   for (const group of groupSpend(lines, 'project', zone).slice(0, LIST_LIMIT)) {
     const amount = formatTotals(group.totals)
+
     if (!amount) continue
     text.push(
       t('spend.schedule.email.spend.project', {
@@ -147,6 +161,7 @@ function spendSection(
       }),
     )
   }
+
   return {
     text,
     files: [
@@ -169,6 +184,7 @@ function statusSection(
   if (data.rows.length === 0) {
     return { text: [t('spend.schedule.email.noData')], files: [] }
   }
+
   const text = [
     t('spend.schedule.email.status.heading'),
     ...data.rows.map((r) => {
@@ -181,11 +197,13 @@ function statusSection(
         done: r.finished,
         started: r.started,
       })
+
       return r.openOrders > 0
         ? `${line}; ${t('spend.schedule.email.status.openOrders', { count: r.openOrders })}`
         : line
     }),
   ]
+
   return {
     text,
     files: [csvFile('project-status', projectStatusCsv(data.rows), range)],
@@ -195,7 +213,9 @@ function statusSection(
 /** Where in the app the report lives, to link from the email. */
 export function reportPath(kind: ReportData['kind']): string {
   if (kind === 'instrument_usage') return '/instruments?tab=usage'
+
   if (kind === 'spend') return '/materials?tab=spend'
+
   return '/projects'
 }
 
@@ -209,12 +229,14 @@ export function buildReportEmail(input: {
 }): ReportEmail {
   const { name, range, zone, data, baseUrl, sender } = input
   const rangeLabel = formatRange(range, zone)
+
   const section =
     data.kind === 'instrument_usage'
       ? usageSection(data, range, zone)
       : data.kind === 'spend'
         ? spendSection(data, range, zone)
         : statusSection(data, range)
+
   const body = [
     t('spend.schedule.email.intro', { name, range: rangeLabel }),
     '',
@@ -227,6 +249,7 @@ export function buildReportEmail(input: {
     '',
     t('spend.schedule.email.footer', { sender }),
   ].join('\n')
+
   return {
     subject: t('spend.schedule.email.subject', { name, range: rangeLabel }),
     body,

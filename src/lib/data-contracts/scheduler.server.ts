@@ -33,11 +33,13 @@ export async function sweepContractChecks(
   limit: number = CONTRACT_SWEEP_BATCH_LIMIT,
 ): Promise<number> {
   const conn = await deps.connect()
+
   try {
     const { rows } = await conn.query(
       `SELECT internal.sweep_contract_checks($1) AS result`,
       [limit],
     )
+
     return rows.at(0)?.result.checked ?? 0
   } finally {
     await conn.end()
@@ -50,8 +52,10 @@ const startedGlobalKey = '__sheetbaseContractSweepStarted'
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
@@ -59,16 +63,21 @@ export function startContractScheduler(
   options: { deps?: ContractSweepDeps; intervalMs?: number } = {},
 ): void {
   if (typeof window !== 'undefined') return
+
   if (schedulerDisabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
 
   const deps = options.deps ?? { connect: defaultConnect }
+
   const tick = async () => {
     const startedAt = Date.now()
+
     try {
       const checked = await sweepContractChecks(deps)
+
       if (checked > 0) {
         logger.info('contract sweep complete', {
           checked,
@@ -82,6 +91,7 @@ export function startContractScheduler(
       })
     }
   }
+
   bootTimer = setTimeout(() => void tick(), 10_000)
   bootTimer.unref()
   timer = setInterval(
@@ -93,6 +103,7 @@ export function startContractScheduler(
 
 export function stopContractScheduler(): void {
   if (bootTimer) clearTimeout(bootTimer)
+
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null
@@ -102,6 +113,7 @@ export function stopContractScheduler(): void {
 async function defaultConnect(): Promise<ContractSweepConnection> {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   return {
     query: async (text, values = []) => client.query(text, values),
     end: () => client.end(),

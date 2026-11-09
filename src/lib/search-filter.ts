@@ -22,6 +22,7 @@ import {
  */
 
 export const SEARCH_SORTS = ['relevance', 'updated', 'created'] as const
+
 export type SearchSort = (typeof SEARCH_SORTS)[number]
 
 export function parseSearchSort(value: unknown): SearchSort | undefined {
@@ -40,6 +41,7 @@ export function emptyFilterRoot(): GroupNode {
 
 export function countConditions(node: FilterNode): number {
   if (node.type === 'condition') return 1
+
   return node.children.reduce((sum, child) => sum + countConditions(child), 0)
 }
 
@@ -53,8 +55,11 @@ const VALUELESS_OPERATORS: ReadonlySet<string> = new Set(['isNull', 'notNull'])
 
 function hasValue(value: unknown): boolean {
   if (value === undefined || value === null) return false
+
   if (typeof value === 'string') return value.trim() !== ''
+
   if (Array.isArray(value)) return value.some(hasValue)
+
   return true
 }
 
@@ -67,17 +72,21 @@ export function completeFilter(node: GroupNode): GroupNode | undefined {
   const children = node.children
     .map((child): FilterNode | undefined => {
       if (child.type === 'group') return completeFilter(child)
+
       return VALUELESS_OPERATORS.has(child.operator) || hasValue(child.value)
         ? child
         : undefined
     })
     .filter((child): child is FilterNode => child !== undefined)
+
   const next = { ...node, children }
+
   return countConditions(next) === 0 ? undefined : next
 }
 
 export type FilterParam =
   { f: string; o: string; v?: unknown } | { g: string; k: FilterParam[] }
+
 type Compact = FilterParam
 
 function compact(node: FilterNode): Compact | null {
@@ -86,9 +95,11 @@ function compact(node: FilterNode): Compact | null {
       ? { f: node.field, o: node.operator }
       : { f: node.field, o: node.operator, v: node.value }
   }
+
   const k = node.children
     .map(compact)
     .filter((child): child is Compact => child !== null)
+
   return k.length ? { g: node.combinator, k } : null
 }
 
@@ -100,6 +111,7 @@ export function encodeFilter(
   node: FilterNode | null | undefined,
 ): FilterParam | undefined {
   if (isEmptyFilter(node)) return undefined
+
   return compact(node) ?? undefined
 }
 
@@ -112,15 +124,21 @@ function expand(
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw))
     return undefined
   const body = raw as Record<string, unknown>
+
   if (typeof body.g === 'string') {
     if (depth >= FILTER_MAX_DEPTH) return undefined
+
     if (!COMBINATORS.includes(body.g as Combinator)) return undefined
+
     if (!Array.isArray(body.k)) return undefined
     const children: FilterNode[] = []
+
     for (const [index, child] of body.k.entries()) {
       const node = expand(child, `${path}.${index}`, depth + 1, budget)
+
       if (node) children.push(node)
     }
+
     return {
       type: 'group',
       id: `n${path}`,
@@ -128,10 +146,13 @@ function expand(
       children,
     }
   }
+
   if (typeof body.f !== 'string' || typeof body.o !== 'string') return undefined
   const operator = normaliseOperator(body.o)
+
   if (!body.f || !operator || budget.left <= 0) return undefined
   budget.left -= 1
+
   const condition: ConditionNode = {
     type: 'condition',
     id: `n${path}`,
@@ -139,6 +160,7 @@ function expand(
     operator,
     ...(body.v === undefined ? {} : { value: body.v }),
   }
+
   return condition
 }
 
@@ -148,6 +170,7 @@ function expand(
  */
 export function decodeFilter(raw: unknown): GroupNode | undefined {
   let parsed: unknown = raw
+
   if (typeof raw === 'string') {
     try {
       parsed = JSON.parse(raw)
@@ -155,8 +178,11 @@ export function decodeFilter(raw: unknown): GroupNode | undefined {
       return undefined
     }
   }
+
   const node = expand(parsed, '', 0, { left: FILTER_MAX_CONDITIONS })
+
   if (!node || countConditions(node) === 0) return undefined
+
   // A bare condition is a one-row AND.
   return node.type === 'group'
     ? node
@@ -174,9 +200,12 @@ export function andFilters(
   b: GroupNode | null | undefined,
 ): GroupNode | undefined {
   if (isEmptyFilter(a)) return isEmptyFilter(b) ? undefined : b
+
   if (isEmptyFilter(b)) return a
+
   const flatten = (node: GroupNode): readonly FilterNode[] =>
     node.combinator === 'AND' ? node.children : [node]
+
   return {
     type: 'group',
     id: 'n',
@@ -213,13 +242,17 @@ function routeType(condition: ConditionNode): FilterNode {
     : condition.value === undefined
       ? []
       : [condition.value]
+
   const isKind = (v: unknown) => typeof v === 'string' && RECORD_KINDS.has(v)
   const kinds = values.filter(isKind)
   const objects = values.filter((v) => !isKind(v))
+
   if (condition.operator !== 'eq' && condition.operator !== 'neq')
     if (condition.operator !== 'in') return condition
+
   if (!kinds.length) return condition
   const negate = condition.operator === 'neq'
+
   const parts: ConditionNode[] = [
     {
       type: 'condition',
@@ -229,6 +262,7 @@ function routeType(condition: ConditionNode): FilterNode {
       value: kinds.length === 1 ? kinds[0] : kinds,
     },
   ]
+
   if (objects.length)
     parts.push({
       type: 'condition',
@@ -237,6 +271,7 @@ function routeType(condition: ConditionNode): FilterNode {
       operator: objects.length === 1 ? 'eq' : 'in',
       value: objects.length === 1 ? objects[0] : objects,
     })
+
   const matched: FilterNode =
     parts.length === 1
       ? parts[0]
@@ -246,6 +281,7 @@ function routeType(condition: ConditionNode): FilterNode {
           combinator: 'OR',
           children: parts,
         }
+
   return negate
     ? {
         type: 'group',
@@ -277,17 +313,22 @@ const ORDERING_OPERATORS = new Set<FilterOperator>([
  */
 function numericValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(numericValue)
+
   if (typeof value !== 'string' || value.trim() === '') return value
   const n = Number(value)
+
   return Number.isFinite(n) ? n : value
 }
 
 function routeModelField(condition: ConditionNode): FilterNode {
   const model = parseModelFieldId(condition.field)
+
   if (!model) return condition
+
   const value = ORDERING_OPERATORS.has(condition.operator)
     ? numericValue(condition.value)
     : condition.value
+
   return {
     type: 'group',
     id: `${condition.id}m`,
@@ -312,6 +353,7 @@ function routeNode(node: FilterNode): FilterNode {
       : node.field.startsWith(MODEL_FIELD_PREFIX)
         ? routeModelField(node)
         : node
+
   return { ...node, children: node.children.map(routeNode) }
 }
 
@@ -332,6 +374,7 @@ function toWire(node: FilterNode): WireNode {
       operator: node.operator,
       ...(node.value === undefined ? {} : { value: node.value }),
     }
+
   return {
     type: 'group',
     combinator: node.combinator,
@@ -344,6 +387,7 @@ export function filterToRpc(
   node: FilterNode | null | undefined,
 ): WireNode | undefined {
   if (isEmptyFilter(node)) return undefined
+
   return toWire(routeNode(node))
 }
 
@@ -358,6 +402,8 @@ export function withoutNode(
       child.type === 'group' ? (withoutNode(child, id) ?? null) : child,
     )
     .filter((child): child is FilterNode => child !== null)
+
   const next = { ...node, children }
+
   return countConditions(next) === 0 ? undefined : next
 }

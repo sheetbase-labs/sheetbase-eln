@@ -41,12 +41,15 @@ const scientificTablesSchema = z.array(
 /** Flatten a ProseMirror-style node to its text, inline children joined. */
 function nodeText(node: unknown): string {
   if (Array.isArray(node)) return node.map(nodeText).join('')
+
   if (!node || typeof node !== 'object') return ''
   const record = node as Record<string, unknown>
   const own = typeof record.text === 'string' ? record.text : ''
+
   const children = Array.isArray(record.content)
     ? (record.content as unknown[]).map(nodeText).join('')
     : ''
+
   return own + children
 }
 
@@ -58,25 +61,34 @@ function nodeText(node: unknown): string {
 export function blockSnapshotLines(snapshot: unknown): string[] {
   if (!Array.isArray(snapshot)) return []
   const lines: string[] = []
+
   for (const block of snapshot) {
     if (!block || typeof block !== 'object') continue
+
     const payload = (block as Record<string, unknown>).payload as
       Record<string, unknown> | undefined
+
     const doc = payload?.doc as Record<string, unknown> | undefined
+
     if (!Array.isArray(doc?.content)) continue
+
     for (const node of doc.content as unknown[]) {
       const text = nodeText(node).replace(/\s+/g, ' ').trim()
+
       if (text) lines.push(text)
     }
   }
+
   return lines
 }
 
 /** Section payloads of a report are JSON blobs; render their text compactly. */
 function reportSectionLines(payload: unknown): string[] {
   if (payload === null || payload === undefined) return []
+
   if (typeof payload === 'string') return payload.trim() ? [payload] : []
   const text = nodeText(payload).replace(/\s+/g, ' ').trim()
+
   return text ? [text] : [JSON.stringify(payload)]
 }
 
@@ -85,6 +97,7 @@ function wrap(text: string, maxChars: number): string[] {
   const words = text.split(/\s+/)
   const lines: string[] = []
   let current = ''
+
   for (const word of words) {
     if (!current) {
       current = word
@@ -95,7 +108,9 @@ function wrap(text: string, maxChars: number): string[] {
       current = word
     }
   }
+
   if (current) lines.push(current)
+
   return lines.length ? lines : ['']
 }
 
@@ -120,8 +135,10 @@ const MONTHS_SHORT = [
 function asDate(value: string | null): string {
   if (!value) return '—'
   const parsed = Date.parse(value)
+
   if (Number.isNaN(parsed)) return '—'
   const date = new Date(parsed)
+
   return `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]} ${date.getFullYear()}`
 }
 
@@ -160,14 +177,18 @@ const WIN_ANSI_FALLBACK: Record<string, string> = {
 
 function safeText(value: string): string {
   let out = ''
+
   for (const char of value) {
     const code = char.codePointAt(0) ?? 0
+
     if (code <= 0xff) {
       out += char
       continue
     }
+
     out += WIN_ANSI_FALLBACK[char] ?? ''
   }
+
   return out
 }
 
@@ -205,6 +226,7 @@ export async function renderClientPortalRecordPdf(
   ): void => {
     const font = options.font ?? regular
     const size = options.size ?? 10.5
+
     for (const line of wrap(safeText(value), BODY_CHARS)) {
       ensureSpace(size + 4)
       page.drawText(line, {
@@ -239,16 +261,19 @@ export async function renderClientPortalRecordPdf(
           : pdf.embedJpg(render.logo.bytes)
       ).catch(() => null)
     : null
+
   if (logoImage) {
     const scale = Math.min(
       LOGO_MAX_HEIGHT / logoImage.height,
       LOGO_MAX_WIDTH / logoImage.width,
     )
+
     const width = logoImage.width * scale
     const height = logoImage.height * scale
     page.drawImage(logoImage, { x: MARGIN, y: y - height + 9, width, height })
     y -= height + 8
   }
+
   page.drawText('Sheetbase · approved record', {
     x: MARGIN,
     y,
@@ -263,6 +288,7 @@ export async function renderClientPortalRecordPdf(
     doc.approvedAt ? `Approved ${asDate(doc.approvedAt)}` : 'Approved record',
     { color: muted, size: 10 },
   )
+
   if (doc.verificationCode) {
     text(`Verification code: ${doc.verificationCode}`, { font: mono, size: 11 })
   }
@@ -278,23 +304,30 @@ export async function renderClientPortalRecordPdf(
 
   if (doc.kind === 'report' && doc.reportSections.length) {
     heading('Report sections')
+
     for (const section of doc.reportSections) {
       text(section.title, { font: bold, size: 10.5 })
+
       if (section.description) text(section.description, { size: 10 })
+
       for (const line of reportSectionLines(section.payload)) {
         text(line, { size: 10, color: muted })
       }
+
       y -= 6
     }
   } else {
     heading('Content')
     const lines = blockSnapshotLines(doc.blockSnapshot)
+
     if (lines.length) {
       for (const line of lines) text(line)
     } else {
       text('No frozen content is attached to this document.', { color: muted })
     }
+
     const tables = scientificTablesSchema.safeParse(doc.scientificTables ?? [])
+
     if (!tables.success) {
       text('Frozen scientific table evidence could not be read.', {
         color: muted,
@@ -305,6 +338,7 @@ export async function renderClientPortalRecordPdf(
         text(table.columns.map((column) => column.label).join(' | '), {
           font: bold,
         })
+
         for (const row of table.rows) {
           text(
             table.columns
@@ -317,6 +351,7 @@ export async function renderClientPortalRecordPdf(
         }
       }
     }
+
     for (const evidence of sheetEvidenceFromEnvelope({
       sheetEvidence: doc.sheetEvidence,
     }).values()) {
@@ -329,6 +364,7 @@ export async function renderClientPortalRecordPdf(
       text(grid.columns.map((column) => column.label).join(' | '), {
         font: bold,
       })
+
       for (const row of grid.rows) {
         text(
           grid.columns
@@ -342,6 +378,7 @@ export async function renderClientPortalRecordPdf(
   page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
   y = PAGE_HEIGHT - MARGIN
   heading('Signature page')
+
   if (doc.signatures?.length) {
     for (const signature of doc.signatures) {
       heading(signature.signerName ?? 'Signer name not recorded')
@@ -349,6 +386,7 @@ export async function renderClientPortalRecordPdf(
       text(`Revision ID: ${signature.revisionId}`, { font: mono, size: 9 })
       text(`Signed at: ${signature.signedAt}`, { size: 10 })
       text(`Meaning: ${signature.signatureMeaning}`, { size: 10 })
+
       if (signature.authMethod === 'demo')
         text('Demo signature: made in the demo, not a real signature.', {
           font: bold,
@@ -366,10 +404,12 @@ export async function renderClientPortalRecordPdf(
       color: muted,
     })
   }
+
   if (doc.integrityDigest) {
     text('Revision integrity digest (SHA-256):', { size: 10, color: muted })
     text(doc.integrityDigest, { font: mono, size: 9 })
   }
+
   if (doc.verificationCode) {
     text(
       `Verification code ${doc.verificationCode} is a short form of the integrity digest above. ` +
@@ -384,5 +424,6 @@ export async function renderClientPortalRecordPdf(
   }
 
   pdf.setModificationDate(new Date(0))
+
   return await pdf.save()
 }

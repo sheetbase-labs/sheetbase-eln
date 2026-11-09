@@ -17,8 +17,10 @@ export function createBackupTick(
 ): () => Promise<void> {
   return async () => {
     const startedAt = Date.now()
+
     try {
       const { checked, ran, failed } = await sweepBackups(makeDeps())
+
       if (ran > 0 || failed > 0) {
         logger.info('workspace backups complete', {
           checked,
@@ -42,8 +44,10 @@ const startedGlobalKey = '__sheetbaseBackupSchedulerStarted'
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
@@ -57,8 +61,10 @@ export function startBackupScheduler(
   options: StartBackupSchedulerOptions = {},
 ): void {
   if (typeof window !== 'undefined') return
+
   if (schedulerDisabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
 
@@ -79,10 +85,12 @@ export function stopBackupScheduler(): void {
     clearTimeout(backupBootTimer)
     backupBootTimer = null
   }
+
   if (backupTimer) {
     clearInterval(backupTimer)
     backupTimer = null
   }
+
   const g = globalThis as unknown as Record<string, unknown>
   delete g[startedGlobalKey]
 }

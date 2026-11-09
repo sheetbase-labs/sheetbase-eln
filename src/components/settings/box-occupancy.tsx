@@ -36,10 +36,13 @@ export function BoxOccupancy({
     queryKey: [...positionKeys.box(boxId), 'settings'],
     queryFn: () => fetchBoxPositions(client, boxId),
   })
+
   if (positions.isPending) return <Skeleton className="h-32 w-full" />
+
   if (positions.isError) return null
   const cells = positions.data
   const held = cells.filter((cell) => cell.status === 'occupied').length
+
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-label font-medium text-fg">
@@ -93,9 +96,12 @@ function Row({
       </span>
       {Array.from({ length: cols }, (_, col) => {
         const cell = cells.find((c) => c.rowIndex === row && c.colIndex === col)
+
         if (!cell) return <span key={col} />
+
         const base =
           'flex size-[22px] items-center justify-center rounded-sm border'
+
         if (cell.occupant) {
           return (
             <Tooltip
@@ -118,6 +124,7 @@ function Row({
             </Tooltip>
           )
         }
+
         return (
           <Tooltip
             key={col}

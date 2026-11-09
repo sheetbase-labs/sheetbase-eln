@@ -16,10 +16,12 @@ describe('resolveRecordByIdentifier', () => {
         title: 'Serum pool A',
       },
     ])
+
     const record = await resolveRecordByIdentifier(
       { list } as unknown as DataClient,
       'SMP-0007',
     )
+
     expect(record).toEqual({
       id: 'rec-1',
       identifier: 'SMP-0007',

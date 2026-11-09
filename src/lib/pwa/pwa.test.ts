@@ -33,10 +33,12 @@ describe('install offer', () => {
 
   it('stays quiet for a month after Not now', () => {
     const store = new Map<string, string>()
+
     const storage = {
       getItem: (key: string) => store.get(key) ?? null,
       setItem: (key: string, value: string) => void store.set(key, value),
     }
+
     expect(installSnoozed(storage, 1000)).toBe(false)
     snoozeInstall(storage, 1000)
     expect(store.get(INSTALL_SNOOZE_KEY)).toBe(String(1000 + INSTALL_SNOOZE_MS))
@@ -53,6 +55,7 @@ describe('install offer', () => {
         throw new Error('blocked')
       },
     }
+
     expect(installSnoozed(broken, 1)).toBe(false)
     expect(() => snoozeInstall(broken, 1)).not.toThrow()
   })
@@ -107,6 +110,7 @@ describe('share', () => {
     const nav = {
       share: vi.fn().mockRejectedValue(new DOMException('x', 'AbortError')),
     } as unknown as Navigator
+
     await expect(shareLink({ title: 'A', url: 'u' }, nav)).resolves.toBe(
       'cancelled',
     )
@@ -119,9 +123,11 @@ describe('share', () => {
       'copied',
     )
     expect(writeText).toHaveBeenCalledWith('u')
+
     const none = {
       clipboard: { writeText: vi.fn().mockRejectedValue(new Error('no')) },
     } as unknown as Navigator
+
     await expect(shareLink({ title: 'A', url: 'u' }, none)).resolves.toBe(
       'failed',
     )
@@ -141,6 +147,7 @@ describe('splash screens', () => {
   it('lists one dark image per size, each of which exists', () => {
     const links = splashLinks()
     expect(links).toHaveLength(SPLASH_SIZES.length)
+
     for (const link of links) {
       expect(() => readFileSync(`public${link.href}`)).not.toThrow()
       expect(link.media).not.toMatch(/prefers-color-scheme/)

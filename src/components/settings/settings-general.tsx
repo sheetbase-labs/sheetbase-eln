@@ -68,6 +68,7 @@ function sameIdPrefixes(
 ): boolean {
   const aSet = Object.entries(a).filter(([, value]) => value !== '')
   const bSet = Object.entries(b).filter(([, value]) => value !== '')
+
   return (
     aSet.length === bSet.length &&
     aSet.every(([key, value]) => b[key] === value)
@@ -115,16 +116,19 @@ export function SettingsGeneral({
   workspaceName?: string
 }) {
   const queryClient = useQueryClient()
+
   const query = useQuery({
     queryKey: workspaceGeneralQueryKey,
     queryFn: () => fetchWorkspaceGeneral(),
     enabled: Boolean(workspaceId),
   })
+
   const counters = useQuery({
     queryKey: ['record-id-counters', workspaceId],
     queryFn: () => fetchRecordIdCounters(workspaceId),
     enabled: Boolean(workspaceId),
   })
+
   // A workspace's settings row is written by its first save, so a workspace
   // that skipped setup has none: the read succeeds with `null`. It still has
   // a name and the database defaults (which DEFAULTS mirrors), so that is
@@ -136,6 +140,7 @@ export function SettingsGeneral({
         : undefined,
     [query.isSuccess, query.data, workspaceName],
   )
+
   const [form, setForm] = useState<WorkspaceGeneral>(DEFAULTS)
 
   useEffect(() => {
@@ -147,9 +152,11 @@ export function SettingsGeneral({
   // surface that formats a date in it would fall back silently. Validate here
   // against the same IANA check the scheduler uses.
   const timezone = form.timezone.trim()
+
   const timezoneError = isIanaTimeZone(timezone)
     ? null
     : t('settings.general.invalidTimeZone')
+
   // `update_workspace_name` refuses anything outside 1–120 characters, so an
   // empty name is not a saveable value: it is required here rather than
   // skipped silently while the rest of the form is written.
@@ -176,12 +183,15 @@ export function SettingsGeneral({
         requireChangeReason: form.requireChangeReason,
         lockOnSign: form.lockOnSign,
       })
+
       if (form.regulatedLab !== saved?.regulatedLab) {
         await setRegulatedLab(workspaceId, form.regulatedLab)
       }
+
       if (form.specLimitsEnabled !== saved?.specLimitsEnabled) {
         await setSpecLimitsEnabled(workspaceId, form.specLimitsEnabled)
       }
+
       if (form.retentionEnabled !== saved?.retentionEnabled) {
         await setRetentionEnabled(workspaceId, form.retentionEnabled)
       }
@@ -339,6 +349,7 @@ export function SettingsGeneral({
                 <TableBody>
                   {ID_PREFIX_KINDS.map((kind) => {
                     const prefix = form.idPrefixes[kind] ?? ''
+
                     return (
                       <TableRow key={kind}>
                         <TableCell>{ID_KIND_LABELS[kind]}</TableCell>

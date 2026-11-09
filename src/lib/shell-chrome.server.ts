@@ -119,13 +119,17 @@ export async function getShellPinned(
       order by f.created_at desc, f.object_kind, f.object_id`,
     [workspaceId, userId],
   )
+
   const perPage = new Map<string, number>()
   const pins: ShellPinned[] = []
+
   for (const row of result.rows) {
     if (!row.page || !row.name) continue
     const seen = perPage.get(row.page) ?? 0
+
     if (seen >= PINS_PER_PAGE) continue
     const to = pinPath(row)
+
     if (!to) continue
     perPage.set(row.page, seen + 1)
     pins.push({
@@ -136,6 +140,7 @@ export async function getShellPinned(
       to,
     })
   }
+
   return pins
 }
 
@@ -154,10 +159,15 @@ function pinPath(row: PinnedRow): string | null {
 
 function notificationTarget(row: NotificationRow): NotificationTarget {
   const id = row.record_id ?? row.project_id ?? row.id
+
   if (row.event_type.includes('pipeline')) return { kind: 'pipeline-run', id }
+
   if (row.event_type.includes('dataset')) return { kind: 'dataset', id }
+
   if (row.event_type.includes('sample')) return { kind: 'sample', id }
+
   if (row.event_type.includes('sheet')) return { kind: 'sheet', id }
+
   return { kind: 'review', id }
 }
 
@@ -166,12 +176,16 @@ function relativeWhen(createdAt: Date, now: Date): string {
     0,
     Math.round((now.getTime() - createdAt.getTime()) / 1000),
   )
+
   if (seconds < 60) return 'now'
   const minutes = Math.round(seconds / 60)
+
   if (minutes < 60) return `${minutes}m`
   const hours = Math.round(minutes / 60)
+
   if (hours < 24) return `${hours}h`
   const days = Math.round(hours / 24)
+
   return `${days}d`
 }
 
@@ -189,7 +203,9 @@ export async function getShellNotifications(
       limit 12`,
     [workspaceId, userId],
   )
+
   const now = new Date()
+
   return result.rows.map((row) => ({
     id: row.id,
     to: notificationTarget(row),
@@ -209,6 +225,7 @@ export async function getShellHiddenPages(
       `select hidden_nav_pages from api.workspace_settings where workspace_id = $1`,
       [workspaceId],
     )
+
     return result.rows[0]?.hidden_nav_pages ?? []
   } catch {
     return []

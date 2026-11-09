@@ -8,5 +8,6 @@ export function specSourceDatasetId(
   spec: AnalysisViewWire['charts'][number],
 ): string | undefined {
   const datasets = (spec as { datasets?: { datasetId?: string }[] }).datasets
+
   return datasets?.[0]?.datasetId
 }

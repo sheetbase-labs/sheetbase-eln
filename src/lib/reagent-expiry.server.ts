@@ -20,6 +20,7 @@ import { logger } from './logger'
 
 /** Lots are checked day-scale; a few hours of latency is irrelevant. */
 export const REAGENT_EXPIRY_INTERVAL_MS = 6 * 60 * 60 * 1000
+
 /** The design's window: "Material lot expiring in 7 days". */
 export const REAGENT_EXPIRY_WINDOW_DAYS = 7
 
@@ -59,11 +60,13 @@ export async function sweepReagentExpiry(
   windowDays: number = REAGENT_EXPIRY_WINDOW_DAYS,
 ): Promise<number> {
   const conn = await deps.connect()
+
   try {
     const { rows } = await conn.query<{ result: number }>(
       'SELECT internal.emit_reagent_expiry_events($1) AS result',
       [windowDays],
     )
+
     return rows.at(0)?.result ?? 0
   } finally {
     await conn.end()
@@ -78,6 +81,7 @@ export function createReagentExpiryTick(
 ): () => Promise<void> {
   return async () => {
     const startedAt = Date.now()
+
     try {
       const emitted = await sweepReagentExpiry(deps, windowDays)
       log.info('reagent expiry sweep complete', {
@@ -103,8 +107,10 @@ const startedGlobalKey = '__sheetbaseReagentExpirySchedulerStarted'
  */
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
@@ -118,13 +124,16 @@ export function startReagentExpiryScheduler(
   options: StartReagentExpiryOptions = {},
 ): void {
   if (typeof window !== 'undefined') return
+
   if (schedulerDisabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
 
   const deps = options.deps ?? { connect: defaultConnect }
   const intervalMs = options.intervalMs ?? REAGENT_EXPIRY_INTERVAL_MS
+
   const tick = createReagentExpiryTick(
     deps,
     REAGENT_EXPIRY_WINDOW_DAYS,
@@ -144,10 +153,12 @@ export function stopReagentExpiryScheduler(): void {
     clearTimeout(expiryBootTimer)
     expiryBootTimer = null
   }
+
   if (expiryTimer) {
     clearInterval(expiryTimer)
     expiryTimer = null
   }
+
   const g = globalThis as unknown as Record<string, unknown>
   delete g[startedGlobalKey]
 }
@@ -155,5 +166,6 @@ export function stopReagentExpiryScheduler(): void {
 async function defaultConnect(): Promise<ExpiryConnection> {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   return client
 }

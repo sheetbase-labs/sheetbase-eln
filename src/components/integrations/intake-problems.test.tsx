@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('#/lib/data-client', () => ({
   createDataClient: () => ({ rpc: mocks.rpc }),
 }))
+
 vi.mock('#/lib/parser-settings', () => ({
   parserSettingsQueryKeys: { list: (id: string) => ['parsers', id] },
   fetchParserSettings: async () => [
@@ -36,6 +37,7 @@ vi.mock('#/lib/parser-settings', () => ({
     },
   ],
 }))
+
 vi.mock('#/lib/connectors/intake-client', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   fetchIntakeProblems: async () => mocks.problems,
@@ -63,6 +65,7 @@ function renderList() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <IntakeProblems workspaceId="w1" instrumentId="i1" canManage />

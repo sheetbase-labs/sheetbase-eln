@@ -29,18 +29,22 @@ async function handle({
   params: { recordId: string }
 }): Promise<Response> {
   const auth = await resolveSessionAuth(request.headers, realSessionAuthDeps)
+
   if (!auth.ok) {
     return requestErrorResponse(auth.status, auth.code, auth.message)
   }
+
   if (!UUID.test(params.recordId)) {
     return requestErrorResponse(404, 'not_found', 'Record not found.')
   }
+
   const { status, body } =
     await postgrestRpc<ClientPortalRecordDocument | null>(
       'client_portal_record_document',
       { p_record_id: params.recordId },
       auth.context.token,
     )
+
   if (
     status !== 200 ||
     !body ||
@@ -53,12 +57,16 @@ async function handle({
       'This document is not shared with your portal.',
     )
   }
+
   const document = body as ClientPortalRecordDocument
   const { readWorkspaceLogoBytes } = await import('#/lib/workspace-logo-routes')
+
   const logo = await readWorkspaceLogoBytes(auth.context.workspaceId).catch(
     () => null,
   )
+
   const bytes = await renderClientPortalRecordPdf(document, { logo })
+
   return new Response(new Uint8Array(bytes), {
     status: 200,
     headers: {

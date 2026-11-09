@@ -58,9 +58,11 @@ describe('securityHeaderEntries', () => {
   it('emits the required headers for a representative app response', () => {
     const headers = new Headers()
     applySecurityHeaders(headers, 'production')
+
     for (const name of REQUIRED_HEADER_NAMES) {
       expect(headers.get(name)).toBeTruthy()
     }
+
     expect(headers.get(X_CONTENT_TYPE_OPTIONS)).toBe('nosniff')
     expect(headers.get(REFERRER_POLICY)).toBe('strict-origin-when-cross-origin')
     expect(headers.get(X_FRAME_OPTIONS)).toBe('SAMEORIGIN')
@@ -87,6 +89,7 @@ describe('stampSecurityHeaders', () => {
       livenessResponse(new Request('http://localhost/api/health/live')),
       'production',
     )
+
     expect(response.status).toBe(200)
     expect(response.headers.get(X_CONTENT_TYPE_OPTIONS)).toBe('nosniff')
     expect(response.headers.get(CONTENT_SECURITY_POLICY)).toBe(
@@ -109,6 +112,7 @@ describe('production static-server helper stays in sync', () => {
   it('embeds the same production CSP string used by the app', () => {
     const source = readFileSync('scripts/lib/security-headers.mjs', 'utf8')
     expect(source).toContain(buildContentSecurityPolicy('production'))
+
     for (const [name] of securityHeaderEntries('production')) {
       expect(source).toContain(name)
     }
@@ -140,6 +144,7 @@ describe('PLAT-03 nonce CSP', () => {
       '<script class="$tsr" id="$tsr-stream-barrier">barrier()</script>',
       '</head></html>',
     ].join('')
+
     const out = injectNonceIntoHtml(html, 'n0nce-xyz')
     expect(out).toContain('<script nonce="n0nce-xyz">(function(){theme()})();')
     expect(out).toContain('<style nonce="n0nce-xyz">.x{color:red}</style>')
@@ -183,6 +188,7 @@ describe('browser editor origin', () => {
     expect(buildContentSecurityPolicy('production')).not.toContain('o.example')
     const before = process.env.OFFICE_EDITOR_URL
     process.env.OFFICE_EDITOR_URL = 'https://o.example'
+
     try {
       const csp = buildContentSecurityPolicy('production')
       expect(csp).toContain("frame-src 'self' https://o.example")

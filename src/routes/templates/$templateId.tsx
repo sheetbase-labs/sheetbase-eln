@@ -31,9 +31,11 @@ import { t } from '#/copy'
 export const Route = createFileRoute('/templates/$templateId')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: TemplateLayout,
@@ -42,22 +44,28 @@ export const Route = createFileRoute('/templates/$templateId')({
 function TemplateLayout() {
   const { templateId } = Route.useParams()
   const matchRoute = useMatchRoute()
+
   const onVersions = Boolean(
     matchRoute({ to: '/templates/$templateId/versions', fuzzy: true }),
   )
+
   const onUpdate = Boolean(
     matchRoute({ to: '/templates/$templateId/update', fuzzy: true }),
   )
+
   const template = useTemplate(templateId)
   const versions = useTemplateVersions(templateId)
   const versionList = versions.data ?? []
   const inUse = useTemplateUsers(versionList.map((v) => v.id))
+
   const owner = useUserNames(
     template.data?.createdByUserId ? [template.data.createdByUserId] : [],
   )
 
   const item = template.data
+
   if (onUpdate) return <Outlet />
+
   if (template.isError) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
@@ -86,6 +94,7 @@ function TemplateLayout() {
       </div>
     )
   }
+
   if (!item) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
@@ -113,6 +122,7 @@ function TemplateLayout() {
       </div>
     )
   }
+
   const params = { templateId: item.id }
   const lifecycle = templateLifecycle(item.lifecycle)
   const list = versions.data ?? []
@@ -122,6 +132,7 @@ function TemplateLayout() {
   const shown = latest
   const published = publishedTemplateVersion(list)
   const openDraft = latest?.lifecycle === 'draft' ? latest : null
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader

@@ -8,19 +8,24 @@ function connection(
   materialise: (id: string) => unknown,
 ) {
   const calls: { text: string; values?: unknown[] }[] = []
+
   const conn: RecurringConnection = {
     query: ((text: string, values?: unknown[]) => {
       calls.push({ text, values })
+
       if (text.includes('FROM api.recurring_schedules'))
         return Promise.resolve({ rows: schedules })
+
       if (text.includes('materialise_recurring_schedule'))
         return Promise.resolve({
           rows: [{ r: materialise(values?.[0] as string) }],
         })
+
       return Promise.resolve({ rows: [] })
     }) as RecurringConnection['query'],
     end: vi.fn().mockResolvedValue(undefined),
   }
+
   return { conn, calls }
 }
 
@@ -36,6 +41,7 @@ describe('sweepRecurringWork', () => {
           ? { created: 3, skipped: 1, failed: 0 }
           : { created: 2, skipped: 0, failed: 1 },
     )
+
     const result = await sweepRecurringWork({ connect: async () => conn })
     expect(result).toEqual({
       schedules: 2,
@@ -44,9 +50,11 @@ describe('sweepRecurringWork', () => {
       failed: 1,
       errors: 0,
     })
+
     const claims = calls
       .filter((c) => c.text.includes('set_config'))
       .map((c) => JSON.parse(c.values![0] as string))
+
     expect(claims).toEqual([
       { role: 'authenticated', sub: 'u1', workspace_id: 'w1' },
       { role: 'authenticated', sub: 'u2', workspace_id: 'w2' },
@@ -64,14 +72,18 @@ describe('sweepRecurringWork', () => {
       ],
       (id) => {
         if (id === 's1') throw new Error('boom')
+
         return { created: 1, skipped: 0, failed: 0 }
       },
     )
+
     const warn = vi.fn()
+
     const result = await sweepRecurringWork(
       { connect: async () => conn },
       { warn },
     )
+
     expect(result).toMatchObject({ schedules: 2, created: 1, errors: 1 })
     expect(calls.some((c) => c.text === 'ROLLBACK')).toBe(true)
     expect(warn).toHaveBeenCalledWith(

@@ -8,6 +8,7 @@ let loaded = false
 function load() {
   if (loaded || typeof window === 'undefined') return
   loaded = true
+
   try {
     const stored = localStorage.getItem(SWITCH_KEY)
     switched = stored === '1' || stored === '0' ? stored : null
@@ -19,6 +20,7 @@ function load() {
 function subscribe(cb: () => void) {
   load()
   listeners.add(cb)
+
   return () => {
     listeners.delete(cb)
   }
@@ -30,6 +32,7 @@ export function useDevSwitch(): '1' | '0' | null {
     subscribe,
     () => {
       load()
+
       return switched
     },
     () => null,
@@ -39,10 +42,12 @@ export function useDevSwitch(): '1' | '0' | null {
 export function setDevSwitch(on: boolean) {
   load()
   switched = on ? '1' : '0'
+
   try {
     localStorage.setItem(SWITCH_KEY, switched)
   } catch {
     /* lasts for this page */
   }
+
   listeners.forEach((l) => l())
 }

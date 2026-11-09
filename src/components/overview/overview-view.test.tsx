@@ -37,12 +37,15 @@ vi.mock('@tanstack/react-router', () => ({
   } & Record<string, unknown>) => {
     linkCalls.calls.push({ to, params, hash })
     let href = typeof to === 'string' ? to : '#'
+
     if (params) {
       for (const [key, value] of Object.entries(params)) {
         href = href.replace(`$${key}`, encodeURIComponent(value))
       }
     }
+
     if (hash) href += `#${hash}`
+
     return (
       <a href={href} {...props}>
         {children}

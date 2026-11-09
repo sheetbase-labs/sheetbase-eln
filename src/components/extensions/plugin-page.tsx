@@ -27,6 +27,7 @@ export function PluginPage({
   const list = kind === 'pages' ? points.pages : points.settingsPages
   const item = list.find((p) => p.extensionKey === extensionKey && p.id === id)
   const Header = kind === 'pages' ? PageHeader : SettingsHeader
+
   if (points.isLoading)
     return (
       <div className="flex flex-col gap-3 p-6">
@@ -34,8 +35,10 @@ export function PluginPage({
         <Skeleton className="h-40 w-full" />
       </div>
     )
+
   if (!item) {
     const known = points.installed.get(extensionKey)
+
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         <Header title={known?.name ?? extensionKey} />
@@ -53,6 +56,7 @@ export function PluginPage({
       </div>
     )
   }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {kind === 'pages' ? (

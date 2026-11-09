@@ -27,7 +27,9 @@ const meta = {
   ],
   parameters: { layout: 'centered' },
 } satisfies Meta<typeof ProfilePhoto>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** No photo yet: initials and Upload photo. */

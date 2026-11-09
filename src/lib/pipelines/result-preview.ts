@@ -22,14 +22,18 @@ export interface ResultPreview {
 
 function previewCell(value: unknown): PreviewCell {
   if (value === null || value === undefined) return null
+
   if (typeof value === 'number') return Number.isFinite(value) ? value : null
+
   if (typeof value === 'boolean') return value
+
   const text =
     value instanceof Date
       ? value.toISOString()
       : typeof value === 'string'
         ? value
         : JSON.stringify(value)
+
   return text.length > PREVIEW_MAX_CELL_CHARS
     ? `${text.slice(0, PREVIEW_MAX_CELL_CHARS)}…`
     : text
@@ -41,6 +45,7 @@ export function buildResultPreview(
   const allColumns = rows[0] ? Object.keys(rows[0]) : []
   const columns = allColumns.slice(0, PREVIEW_MAX_COLUMNS)
   const shown = rows.slice(0, PREVIEW_MAX_ROWS)
+
   return {
     columns,
     rows: shown.map((row) => columns.map((column) => previewCell(row[column]))),
@@ -55,11 +60,16 @@ export function readResultPreview(
   result: Record<string, unknown>,
 ): ResultPreview | null {
   const raw = result.resultPreview
+
   if (typeof raw !== 'object' || raw === null) return null
   const { columns, rows, rowCount, truncated } = raw as Record<string, unknown>
+
   if (!Array.isArray(columns) || !Array.isArray(rows)) return null
+
   if (!columns.every((c) => typeof c === 'string')) return null
+
   if (!rows.every((r) => Array.isArray(r))) return null
+
   return {
     columns,
     rows: rows as PreviewCell[][],

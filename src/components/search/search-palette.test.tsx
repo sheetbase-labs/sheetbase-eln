@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => {
     { id: 'project-a', title: 'Process Development' },
     { id: 'project-b', title: 'Analytics' },
   ]
+
   return {
     rpc: vi.fn(async (_name: string, _args?: unknown): Promise<unknown> => []),
     list: vi.fn(
@@ -39,6 +40,7 @@ const mocks = vi.hoisted(() => {
                 query.toLowerCase().includes(`*${p.title.toLowerCase()}*`),
               )
             : projects
+
         return []
       },
     ),
@@ -73,6 +75,7 @@ function client() {
 /** The palette plus a trigger, mirroring how the shell opens it. */
 function Harness({ onPalette }: { onPalette?: () => void }) {
   const [open, setOpen] = React.useState(false)
+
   return (
     <QueryClientProvider client={client()}>
       <ShortcutProvider
@@ -102,9 +105,11 @@ describe('SearchPalette frame (SHELL-03.4)', () => {
     render(<Harness />)
     const trigger = screen.getByRole('button', { name: 'Open search' })
     await user.click(trigger)
+
     const input = await screen.findByPlaceholderText(
       'Search experiments, samples, datasets',
     )
+
     await waitFor(() => expect(document.activeElement).toBe(input))
     await user.keyboard('{Escape}')
     await waitFor(() => expect(document.activeElement).toBe(trigger))
@@ -127,9 +132,11 @@ describe('SearchPalette frame (SHELL-03.4)', () => {
     const user = userEvent.setup()
     render(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Open search' }))
+
     const input = await screen.findByPlaceholderText(
       'Search experiments, samples, datasets',
     )
+
     await user.click(input)
     await user.keyboard('g')
     await user.keyboard('h')
@@ -150,9 +157,11 @@ describe('SearchPalette scope and suggestion (R5-SHELL-04)', () => {
     const user = userEvent.setup()
     render(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Open search' }))
+
     const input = await screen.findByPlaceholderText(
       'Search experiments, samples, datasets',
     )
+
     return { user, input }
   }
 
@@ -206,6 +215,7 @@ describe('SearchPalette scope and suggestion (R5-SHELL-04)', () => {
             similarity: 0.8,
           },
         ]
+
       return []
     })
     const { user, input } = await openPalette()
@@ -300,9 +310,11 @@ describe('SearchPalette result labels and ranking (SRCH-02)', () => {
     const user = userEvent.setup()
     render(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Open search' }))
+
     const input = await screen.findByPlaceholderText(
       'Search experiments, samples, datasets',
     )
+
     return { user, input }
   }
 
@@ -311,6 +323,7 @@ describe('SearchPalette result labels and ranking (SRCH-02)', () => {
       name === 'search' ? [RECORD_ROW] : [],
     )
     const open = vi.spyOn(window, 'open').mockReturnValue(null)
+
     try {
       const { user, input } = await openPalette()
       await user.type(input, 'plate')
@@ -390,10 +403,12 @@ describe('SearchPalette result labels and ranking (SRCH-02)', () => {
     const options = results.getAllByRole('option')
     expect(options[0].textContent).toContain('EXP-0142')
     expect(options[1].textContent).toContain('Clarification working sheet')
+
     // Both rows are still grouped: the section order followed relevance.
     const headers = results
       .getAllByRole('presentation')
       .map((h) => h.textContent)
+
     expect(headers[0]).toContain('Records')
   })
 })
@@ -408,15 +423,18 @@ describe('SearchPalette failure, progress and scope (R5-SHELL-04)', () => {
     const user = userEvent.setup()
     render(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Open search' }))
+
     const input = await screen.findByPlaceholderText(
       'Search experiments, samples, datasets',
     )
+
     return { user, input }
   }
 
   it('says a search is running instead of showing an empty list', async () => {
     mocks.rpc.mockImplementationOnce(async () => {
       await new Promise((resolve) => setTimeout(resolve, 50))
+
       return []
     })
     const { user, input } = await openPalette()
@@ -437,6 +455,7 @@ describe('SearchPalette failure, progress and scope (R5-SHELL-04)', () => {
 
     mocks.rpc.mockImplementation(async (name: string) => {
       if (name === 'search') return [RECORD_ROW]
+
       return []
     })
     await user.click(screen.getByRole('button', { name: 'Try again' }))
@@ -446,6 +465,7 @@ describe('SearchPalette failure, progress and scope (R5-SHELL-04)', () => {
   it('names the project scope as the reason for no matches', async () => {
     mocks.rpc.mockImplementation(async (name: string) => {
       if (name === 'search') return [WORKSPACE_TEMPLATE_ROW]
+
       return []
     })
     const { user, input } = await openPalette()
@@ -479,6 +499,7 @@ describe('SearchPalette combobox wiring (QA3-palette-2)', () => {
     const user = userEvent.setup()
     render(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Open search' }))
+
     const input = await screen.findByPlaceholderText(
       'Search experiments, samples, datasets',
     )
@@ -519,9 +540,11 @@ describe('SearchPalette commands (Go to and New)', () => {
     const user = userEvent.setup()
     render(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Open search' }))
+
     const input = await screen.findByPlaceholderText(
       'Search experiments, samples, datasets',
     )
+
     await user.type(input, 'pipelines')
     expect(
       await screen.findByRole('option', { name: /^Pipelines/ }),

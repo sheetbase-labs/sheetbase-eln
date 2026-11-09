@@ -53,23 +53,28 @@ export function ShortcutProvider({
 }) {
   const [scopes, setScopes] = React.useState<Record<string, ShortcutScope>>({})
   const scope = Object.values(scopes).at(-1) ?? 'global'
+
   const registerScope = React.useCallback(
     (id: string, registeredScope: ShortcutScope) => {
       setScopes((current) => ({ ...current, [id]: registeredScope }))
+
       return () =>
         setScopes((current) => {
           const next = { ...current }
           delete next[id]
+
           return next
         })
     },
     [],
   )
+
   // Route-scoped definitions (SHELL-03.3): screens register their list,
   // notebook and review shortcuts while they are mounted.
   const [scoped, setScoped] = React.useState<
     Record<string, ShortcutDefinition[]>
   >({})
+
   const register = React.useCallback(
     (id: string, registrations: ShortcutDefinition[]) => {
       setScoped((current) =>
@@ -77,22 +82,26 @@ export function ShortcutProvider({
           ? current
           : { ...current, [id]: registrations },
       )
+
       return () => {
         setScoped((current) => {
           if (!(id in current)) return current
           const next = { ...current }
           delete next[id]
+
           return next
         })
       }
     },
     [],
   )
+
   // A nested provider (a workspace pane) listens only for its own keys, but
   // still lists the enclosing app's shortcuts so help pages and the shortcuts
   // dialog read the same inside a pane.
   const parent = React.useContext(ShortcutContext)
   const inherited = parent?.registry.definitions
+
   const allDefinitions = React.useMemo(() => {
     const entries = new Map(
       [
@@ -104,19 +113,24 @@ export function ShortcutProvider({
         ),
       ].map((definition) => [definition.id, definition]),
     )
+
     for (const definition of Object.values(scoped).flat()) {
       entries.set(definition.id, definition)
     }
+
     return [...entries.values()]
   }, [definitions, scoped, inherited])
+
   const registry = React.useMemo(
     () => createShortcutRegistry(allDefinitions),
     [allDefinitions],
   )
+
   const pending = React.useRef<{ steps: string[]; index: number }>({
     steps: [],
     index: 0,
   })
+
   const timer = React.useRef<number | null>(null)
 
   React.useEffect(() => {
@@ -125,6 +139,7 @@ export function ShortcutProvider({
 
     function clearPending() {
       pending.current = { steps: [], index: 0 }
+
       if (timer.current !== null) {
         window.clearTimeout(timer.current)
         timer.current = null
@@ -143,9 +158,12 @@ export function ShortcutProvider({
         )
       ) {
         clearPending()
+
         return
       }
+
       const editable = isEditableTarget(event.target)
+
       const active = [...definitions, ...Object.values(scoped).flat()].filter(
         (definition) =>
           definition.handler &&
@@ -154,17 +172,21 @@ export function ShortcutProvider({
           (!editable || definition.allowInInput) &&
           (!definition.when || definition.when(event)),
       )
+
       if (active.length === 0) {
         clearPending()
+
         return
       }
 
       // Continue a sequence in progress.
       if (pending.current.steps.length > 0) {
         const next = pending.current.index
+
         const candidates = active.filter((definition) =>
           definition.keys.some((key) => {
             const steps = sequenceSteps(key)
+
             return (
               steps.length > pending.current.steps.length &&
               steps
@@ -178,15 +200,18 @@ export function ShortcutProvider({
             )
           }),
         )
+
         if (candidates.length > 0) {
           event.preventDefault()
           event.stopPropagation()
+
           const completed = candidates.find((definition) =>
             definition.keys.some(
               (key) =>
                 sequenceSteps(key).length === pending.current.steps.length + 1,
             ),
           )
+
           if (completed) {
             clearPending()
             completed.handler?.(event)
@@ -195,8 +220,10 @@ export function ShortcutProvider({
             pending.current.index += 1
             timer.current = window.setTimeout(clearPending, SEQUENCE_TIMEOUT_MS)
           }
+
           return
         }
+
         clearPending()
       }
 
@@ -206,10 +233,12 @@ export function ShortcutProvider({
           (key) => !key.includes(' ') && stepMatches(event, key, platform),
         ),
       )
+
       if (match) {
         event.preventDefault()
         event.stopPropagation()
         match.handler?.(event)
+
         return
       }
 
@@ -217,9 +246,11 @@ export function ShortcutProvider({
       const starts = active.filter((definition) =>
         definition.keys.some((key) => {
           const steps = sequenceSteps(key)
+
           return steps.length > 1 && stepMatches(event, steps[0], platform)
         }),
       )
+
       if (starts.length > 0) {
         event.preventDefault()
         event.stopPropagation()
@@ -229,6 +260,7 @@ export function ShortcutProvider({
     }
 
     window.addEventListener('keydown', onKeyDown, true)
+
     return () => {
       window.removeEventListener('keydown', onKeyDown, true)
       clearPending()
@@ -239,6 +271,7 @@ export function ShortcutProvider({
     () => ({ scope, registerScope, registry, register }),
     [scope, registerScope, registry, register],
   )
+
   return (
     <ShortcutContext.Provider value={value}>
       {children}
@@ -252,6 +285,7 @@ export function useShortcutScope(scope: ShortcutScope) {
   const id = React.useId()
   React.useEffect(() => {
     if (!registerScope) return
+
     return registerScope(id, scope)
   }, [registerScope, id, scope])
 }
@@ -267,13 +301,16 @@ export function useRegisterShortcuts(definitions: ShortcutDefinition[]) {
   const id = React.useId()
   React.useEffect(() => {
     if (!register) return
+
     return register(id, definitions)
   }, [register, id, definitions])
 }
 
 export function useShortcuts() {
   const context = React.useContext(ShortcutContext)
+
   if (!context)
     throw new Error('useShortcuts must be used within ShortcutProvider')
+
   return context
 }

@@ -7,7 +7,9 @@ import type {
 import { decodeScientificValue } from './scientific-sheet-data'
 
 export const CSV_LIMITS = { bytes: 10 * 1024 * 1024, rows: 5000 } as const
+
 export type CsvEncoding = 'utf-8' | 'utf-16le' | 'windows-1252'
+
 export type CsvDelimiter = ',' | ';' | '\t'
 
 export interface CsvPreview {
@@ -23,27 +25,36 @@ export function parseScientificCsv(
 ): CsvPreview {
   if (bytes.byteLength > CSV_LIMITS.bytes) throw new Error('CSV exceeds 10 MB.')
   let text: string
+
   try {
     text = new TextDecoder(options.encoding, { fatal: true }).decode(bytes)
   } catch {
     throw new Error(`CSV is not valid ${options.encoding} text.`)
   }
+
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1)
   const matrix = parseDelimited(text, options.delimiter)
+
   if (!matrix.length || !matrix.some((row) => row.some((cell) => cell !== '')))
     throw new Error('CSV contains no data.')
   const width = Math.max(...matrix.map((row) => row.length))
+
   if (!width) throw new Error('CSV contains no columns.')
+
   const rawHeaders = options.header
     ? matrix.shift()!
     : Array.from({ length: width }, (_, index) => `Column ${index + 1}`)
+
   const headers = rawHeaders.map(
     (value, index) => value.trim() || `Column ${index + 1}`,
   )
+
   if (new Set(headers).size !== headers.length)
     throw new Error('CSV headers must be unique.')
+
   if (matrix.length > CSV_LIMITS.rows)
     throw new Error(`CSV exceeds ${CSV_LIMITS.rows.toLocaleString()} rows.`)
+
   const rows = matrix
     .filter((row) => row.some((cell) => cell !== ''))
     .map((row) =>
@@ -51,13 +62,17 @@ export function parseScientificCsv(
         headers.map((header, index) => [header, row[index] ?? '']),
       ),
     )
+
   const seen = new Map<string, number>()
   const duplicateRows: number[] = []
+
   for (const [index, row] of rows.entries()) {
     const key = JSON.stringify(headers.map((header) => row[header]))
+
     if (seen.has(key)) duplicateRows.push(index + 1)
     else seen.set(key, index)
   }
+
   return {
     headers,
     rows,
@@ -73,8 +88,10 @@ function parseDelimited(text: string, delimiter: CsvDelimiter) {
   let row: string[] = []
   let cell = ''
   let quoted = false
+
   for (let index = 0; index < text.length; index++) {
     const character = text[index]
+
     if (quoted) {
       if (character === '"') {
         if (text[index + 1] === '"') {
@@ -84,6 +101,7 @@ function parseDelimited(text: string, delimiter: CsvDelimiter) {
       } else cell += character
       continue
     }
+
     if (character === '"') {
       if (cell) throw new Error(`Malformed CSV near character ${index + 1}.`)
       quoted = true
@@ -98,20 +116,27 @@ function parseDelimited(text: string, delimiter: CsvDelimiter) {
       cell = ''
     } else cell += character
   }
+
   if (quoted) throw new Error('Malformed CSV: quoted field is not closed.')
+
   if (cell || row.length) {
     row.push(cell)
     rows.push(row)
   }
+
   return rows
 }
 
 function detectType(values: string[]): ScientificLogicalType {
   if (!values.length) return 'text'
+
   if (values.every((value) => /^[+-]?\d+$/.test(value))) return 'integer'
+
   if (values.every((value) => Number.isFinite(Number(value)))) return 'decimal'
+
   if (values.every((value) => /^(true|false|0|1)$/i.test(value)))
     return 'boolean'
+
   if (
     values.every(
       (value) =>
@@ -120,6 +145,7 @@ function detectType(values: string[]): ScientificLogicalType {
     )
   )
     return 'date'
+
   if (
     values.every(
       (value) =>
@@ -127,6 +153,7 @@ function detectType(values: string[]): ScientificLogicalType {
     )
   )
     return 'timestamp'
+
   return 'text'
 }
 
@@ -145,11 +172,14 @@ export function prepareScientificImport(
   mappings: CsvMapping[],
 ) {
   const errors: Array<{ row: number; source: string; message: string }> = []
+
   const rows = preview.rows.map((sourceRow, rowIndex) => {
     const output: Record<string, unknown> = {}
+
     for (const mapping of mappings) {
       if (mapping.kind === 'ignore') continue
       const input = sourceRow[mapping.source]
+
       const column =
         mapping.kind === 'existing'
           ? mapping.column
@@ -165,6 +195,7 @@ export function prepareScientificImport(
               width: null,
               options: [],
             } satisfies ScientificColumnWire)
+
       try {
         output[mapping.source] = decodeScientificValue(column, input)
       } catch (error) {
@@ -175,14 +206,17 @@ export function prepareScientificImport(
         })
       }
     }
+
     return output
   })
+
   return { rows, errors }
 }
 
 function csvCell(value: unknown) {
   if (value === null || value === undefined) return ''
   let text: string
+
   if (typeof value === 'number') {
     const magnitude = Math.abs(value)
     text =
@@ -190,6 +224,7 @@ function csvCell(value: unknown) {
         ? value.toExponential(15).replace(/\.?(0+)(e)/, '$2')
         : Number(value.toPrecision(15)).toString()
   } else text = String(value)
+
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
 }
 
@@ -202,6 +237,7 @@ export function exportScientificCsv(
     'version',
     ...table.columns.map((column) => column.field_name),
   ]
+
   return [
     headers.join(','),
     ...rows.map((row) =>

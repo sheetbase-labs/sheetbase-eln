@@ -31,6 +31,7 @@ function setup(
       {...overrides}
     />,
   )
+
   return { onConfirm, onOpenChange }
 }
 

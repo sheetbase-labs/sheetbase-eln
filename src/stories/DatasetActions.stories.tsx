@@ -55,7 +55,9 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const clean: DatasetListRow = {
@@ -137,12 +139,14 @@ const column = {
   label: 'Viable cell density',
   logical_type: 'decimal',
 }
+
 const otherColumn = {
   ...column,
   field_id: 'f-glc',
   key: 'glc',
   label: 'Glucose',
 }
+
 const missingUnitFlag = (fieldId: string): DatasetValueFlag => ({
   id: `flag-${fieldId}`,
   datasetId: DATASET_ID,

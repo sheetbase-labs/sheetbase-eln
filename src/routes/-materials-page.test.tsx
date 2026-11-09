@@ -24,13 +24,17 @@ import type { Reagent } from '#/lib/reagent-data'
 import { MaterialsRoute } from './-materials-page'
 
 const fixtures = vi.hoisted(() => ({ reagents: [] as unknown[] }))
+
 const search = vi.hoisted(() => {
   const state: { value: Record<string, unknown> } = { value: {} }
+
   return state
 })
+
 const navigate = vi.hoisted(() => ({ fn: (_options: unknown) => {} }))
 
 vi.mock('#/lib/use-capability', () => ({ useHasCapability: () => true }))
+
 vi.mock('@tanstack/react-router', () => ({
   getRouteApi: () => ({
     useSearch: () => search.value,
@@ -71,6 +75,7 @@ vi.mock('#/lib/notebook-data', () => ({
 // those, so the tests observe what the screen asks the boundary to do.
 vi.mock('#/lib/reagent-data', async (importOriginal) => {
   const actual = await importOriginal<typeof ReagentData>()
+
   return {
     ...actual,
     fetchReagentsPage: vi.fn(async () => fixtures.reagents),
@@ -162,6 +167,7 @@ function makeReagent(overrides: Partial<Reagent> = {}): Reagent {
 
 function renderRoute() {
   const Component = MaterialsRoute
+
   return render(
     <QueryClientProvider
       client={
@@ -174,6 +180,7 @@ function renderRoute() {
 }
 
 afterEach(cleanup)
+
 beforeEach(() => {
   vi.resetAllMocks()
   search.value = {}
@@ -219,10 +226,12 @@ describe('materials toolbar', () => {
 
     expect(await screen.findAllByText('MAT-0002')).not.toHaveLength(0)
     const table = screen.getByRole('table', { name: 'Material lots' })
+
     const ids = () =>
       within(table)
         .getAllByText(/^MAT-\d+$/)
         .map((cell) => cell.textContent)
+
     // Default ordering is soonest expiry first, not the order the page arrived in.
     expect(ids()).toEqual(['MAT-0002', 'MAT-0001'])
 
@@ -421,9 +430,11 @@ describe('?selected= across tabs', () => {
     renderRoute()
 
     await waitFor(() => expect(calls).toHaveLength(1))
+
     const options = calls[0] as {
       search: (s: Record<string, unknown>) => Record<string, unknown>
     }
+
     expect(options.search({ selected: 'mat-2' })).toMatchObject({
       tab: 'quarantine',
       selected: 'mat-2',

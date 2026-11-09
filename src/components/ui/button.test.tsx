@@ -23,6 +23,7 @@ describe('Button', () => {
       'danger',
       'danger-fill',
     ] as const
+
     variants.forEach((variant, i) => {
       render(<Button variant={variant}>v{i}</Button>)
       expect(screen.getByRole('button', { name: `v${i}` })).toBeTruthy()

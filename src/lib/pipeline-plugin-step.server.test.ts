@@ -6,6 +6,7 @@ import type { PipelineStep } from './pipelines/config'
 
 const invoke = vi.fn()
 const open = vi.fn()
+
 vi.mock('./extensions/runtime.server', () => ({
   ExtensionRunError: class ExtensionRunError extends Error {},
   defaultDeps: () => ({}),
@@ -19,7 +20,9 @@ const step = (args: Record<string, unknown>): PipelineStep => ({
   statement: '',
   plugin: { operation: 'plugin.plate-tools.join', arguments: args },
 })
+
 const rows = (n: number) => Array.from({ length: n }, (_, i) => ({ i }))
+
 const scope = (over: Partial<PluginStepScope> = {}): PluginStepScope => ({
   parameters: { key: 'well' },
   previous: rows(2),
@@ -27,6 +30,7 @@ const scope = (over: Partial<PluginStepScope> = {}): PluginStepScope => ({
   steps: { first: rows(4) },
   ...over,
 })
+
 const run = (s: PipelineStep, sc: PluginStepScope) =>
   runPluginStep({ workspaceId: 'w', actorUserId: 'u', step: s }, sc)
 
@@ -48,6 +52,7 @@ describe('runPluginStep', () => {
       }),
       scope(),
     )
+
     expect(result.rows).toEqual([{ ok: 1 }])
     const call = invoke.mock.calls[0][0]
     expect(call).toMatchObject({

@@ -69,6 +69,7 @@ export function projectDatasetFilter(projectId: string): string {
 /** 1-based page from a route search value; anything unusable is page 1. */
 export function parseProjectPage(value: unknown): number {
   const n = typeof value === 'number' ? value : Number(value)
+
   return Number.isSafeInteger(n) && n > 1 ? n : 1
 }
 
@@ -79,6 +80,7 @@ export function projectPageOffset(page: number): number {
 /** Paging arithmetic the tabs render: the 1-based rows shown and the page count. */
 export function projectPageSummary(page: number, total: number) {
   const offset = projectPageOffset(page)
+
   return {
     pageCount: Math.max(1, Math.ceil(total / PROJECT_LIST_PAGE_SIZE)),
     start: total === 0 ? 0 : offset + 1,
@@ -136,6 +138,7 @@ export async function fetchProjectExperimentsPage(
 ): Promise<ProjectPage<ProjectExperiment>> {
   const filter = projectRecordFilter(projectId, 'experiment')
   const offset = projectPageOffset(page)
+
   const [rows, total] = await Promise.all([
     client.list<ProjectExperiment>(
       'records',
@@ -143,6 +146,7 @@ export async function fetchProjectExperimentsPage(
     ),
     client.count('records', `?${filter}`),
   ])
+
   return { rows, total, page }
 }
 
@@ -153,6 +157,7 @@ export async function fetchProjectSamplesPage(
 ): Promise<ProjectPage<SampleRecord>> {
   const filter = projectRecordFilter(projectId, 'sample')
   const offset = projectPageOffset(page)
+
   const [rows, total] = await Promise.all([
     client
       .list<RecordWire>(
@@ -162,6 +167,7 @@ export async function fetchProjectSamplesPage(
       .then((rs) => rs.map(toSampleRecord)),
     client.count('records', `?${filter}`),
   ])
+
   return { rows, total, page }
 }
 
@@ -171,6 +177,7 @@ export async function fetchProjectDatasetsPage(
   page: number,
 ): Promise<ProjectPage<DatasetListRow>> {
   const offset = projectPageOffset(page)
+
   const [rows, total] = await Promise.all([
     client.rpc<DatasetSummaryWire[]>('dataset_list_summary', {
       p_project_id: projectId,
@@ -180,6 +187,7 @@ export async function fetchProjectDatasetsPage(
     }),
     client.count('datasets', `?${projectDatasetFilter(projectId)}`),
   ])
+
   return { rows: rows.map(toDatasetListRow), total, page }
 }
 

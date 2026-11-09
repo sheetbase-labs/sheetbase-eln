@@ -18,6 +18,8 @@ export function signatureMethodLabel(
   labels: { demo: string; password: string; session: string },
 ): string {
   if (method === 'demo') return labels.demo
+
   if (method === 'password') return labels.password
+
   return labels.session
 }

@@ -6,9 +6,11 @@ describe('sweepLabWatchers', () => {
   it('runs the due watchers and reports how many findings were new', async () => {
     const query = vi.fn().mockResolvedValue({ rows: [{ found: 4 }] })
     const end = vi.fn().mockResolvedValue(undefined)
+
     const found = await sweepLabWatchers({
       connect: async () => ({ query, end }),
     })
+
     expect(found).toBe(4)
     expect(query).toHaveBeenCalledWith(
       'SELECT internal.run_due_lab_watchers() AS found',

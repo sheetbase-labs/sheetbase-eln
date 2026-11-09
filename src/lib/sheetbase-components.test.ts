@@ -14,20 +14,24 @@ const MAPPING_MARKER = 'Sheetbase components host mapping (COMP-05).'
 
 function mappingBlock(): string {
   const start = styles.indexOf(MAPPING_MARKER)
+
   if (start === -1) {
     throw new Error(
       'the sheetbase components host mapping is missing from src/styles.css',
     )
   }
+
   const end = styles.indexOf('@theme inline', start)
   // The marker sits inside the mapping's own comment, so slice from the
   // comment's opening. Comments are prose, not declarations: `--border:
   // var(--border)` appears in the explanation of why that binding is invalid.
   const commentStart = styles.lastIndexOf('/*', start)
+
   const block = styles.slice(
     commentStart === -1 ? start : commentStart,
     end === -1 ? undefined : end,
   )
+
   return block.replace(/\/\*[\s\S]*?\*\//g, '')
 }
 
@@ -78,9 +82,11 @@ describe('sheetbase components stylesheet consumption (COMP-05)', () => {
     const tableStyles = styles.indexOf(
       "@import '@sheetbase-labs/sheetbase-table/styles.css'",
     )
+
     const filterStyles = styles.indexOf(
       "@import '@sheetbase-labs/sheetbase-advanced-search/styles.css' layer(sheetbase)",
     )
+
     const v3Preset = styles.indexOf(
       "@import '@sheetbase-labs/sheetbase-shared/themes/v3.css'",
     )
@@ -120,11 +126,13 @@ describe('sheetbase components stylesheet consumption (COMP-05)', () => {
 
   it('only references tokens declared in this stylesheet', () => {
     const block = mappingBlock()
+
     const referenced = new Set(
       [...block.matchAll(/var\((--[a-z0-9-]+)\)/g)].map(([, token]) => token),
     )
 
     expect(referenced.size).toBeGreaterThan(0)
+
     for (const token of referenced) {
       expect(styles).toContain(`${token}:`)
     }

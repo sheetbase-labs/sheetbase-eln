@@ -6,9 +6,11 @@ describe('sweepStepTimers', () => {
   it('runs the database sweep and returns how many it notified', async () => {
     const query = vi.fn().mockResolvedValue({ rows: [{ n: 2 }] })
     const end = vi.fn().mockResolvedValue(undefined)
+
     const notified = await sweepStepTimers({
       connect: async () => ({ query, end }),
     })
+
     expect(notified).toBe(2)
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('internal.sweep_step_timers()'),

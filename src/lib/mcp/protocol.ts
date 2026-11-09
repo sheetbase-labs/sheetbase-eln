@@ -68,6 +68,7 @@ export class JsonRpcError extends Error {
 export function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
   if (value === null || typeof value !== 'object') return false
   const record = value as Record<string, unknown>
+
   return (
     record.jsonrpc === '2.0' &&
     typeof record.method === 'string' &&
@@ -80,6 +81,7 @@ export function isJsonRpcNotification(
 ): value is JsonRpcNotification {
   if (value === null || typeof value !== 'object') return false
   const record = value as Record<string, unknown>
+
   return (
     record.jsonrpc === '2.0' &&
     typeof record.method === 'string' &&

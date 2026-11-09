@@ -27,6 +27,7 @@ export const PARAMETER_TYPES = [
   'date',
   'timestamp',
 ] as const
+
 export type ParameterType = (typeof PARAMETER_TYPES)[number]
 
 export const INPUT_NAME_RE = /^[a-z][a-z0-9_]{0,47}$/
@@ -78,10 +79,12 @@ export interface PipelineOutput {
  * answers before the prompt expires.
  */
 export const CONFIRM_NO_ANSWER_OUTCOMES = ['reask', 'apply', 'fail'] as const
+
 export type ConfirmNoAnswerOutcome = (typeof CONFIRM_NO_ANSWER_OUTCOMES)[number]
 
 /** The three decisions a person can record against a prompt. */
 export const CONFIRM_DECISIONS = ['confirm', 'skip', 'stop'] as const
+
 export type ConfirmDecision = (typeof CONFIRM_DECISIONS)[number]
 
 /** Default and maximum prompt lifetime; temporary data is bounded by this. */
@@ -219,6 +222,7 @@ function validatePluginStep(
 ): void {
   const field = `steps[${index}].plugin`
   const plugin = step.plugin
+
   if (
     !isObject(plugin) ||
     typeof plugin.operation !== 'string' ||
@@ -230,12 +234,15 @@ function validatePluginStep(
       field,
       t('data.pipelineConfig.pluginStepNeedsPlugin'),
     )
+
     return
   }
+
   // A plugin step may pause for a person like any other: the pause comes once
   // the plugin's table is ready, and that table is what the person is shown.
   if (step.confirm !== undefined)
     validateConfirmStep(errors, step.confirm, index)
+
   if (step.contract !== undefined)
     push(
       errors,
@@ -243,6 +250,7 @@ function validatePluginStep(
       `steps[${index}].contract`,
       t('data.pipelineConfig.dataContractAppliesPython'),
     )
+
   if (!isObject(plugin.arguments)) {
     push(
       errors,
@@ -250,8 +258,10 @@ function validatePluginStep(
       `${field}.arguments`,
       t('data.pipelineConfig.pluginStepArguments'),
     )
+
     return
   }
+
   for (const [key, value] of Object.entries(plugin.arguments)) {
     if (['__proto__', 'constructor', 'prototype'].includes(key)) {
       push(
@@ -262,9 +272,11 @@ function validatePluginStep(
       )
       continue
     }
+
     if (!isObject(value) || !Object.hasOwn(value, '$ref')) continue
     const ref = value.$ref
     const parts = typeof ref === 'string' ? ref.split('.') : []
+
     if (
       Object.keys(value).length !== 1 ||
       !PLUGIN_STEP_REF_ROOTS.includes(parts[0] ?? '') ||
@@ -284,6 +296,7 @@ function validatePluginStep(
 /** Validate a raw configuration value. Returns every violation found. */
 export function validatePipelineConfig(v: unknown): ConfigError[] {
   const errors: ConfigError[] = []
+
   if (!isObject(v)) {
     push(
       errors,
@@ -291,8 +304,10 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       'configuration',
       t('data.pipelineConfig.configurationMustObject'),
     )
+
     return errors
   }
+
   if (v.configVersion !== PIPELINE_CONFIG_VERSION) {
     push(
       errors,
@@ -333,9 +348,11 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         `at most ${MAX_PARAMETERS} parameters are allowed`,
       )
     }
+
     const names = new Set<string>()
     v.parameters.forEach((raw, index) => {
       const field = `parameters[${index}]`
+
       if (!isObject(raw)) {
         push(
           errors,
@@ -343,9 +360,12 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           field,
           t('data.pipelineConfig.eachParameterMustObject'),
         )
+
         return
       }
+
       const name = raw.name
+
       if (
         typeof name !== 'string' ||
         !INPUT_NAME_RE.test(name) ||
@@ -357,8 +377,10 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           `${field}.name`,
           t('data.pipelineConfig.parameterNameMustLowercase'),
         )
+
         return
       }
+
       if (names.has(name)) {
         push(
           errors,
@@ -366,9 +388,12 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           `${field}.name`,
           `parameter name is duplicated: ${name}`,
         )
+
         return
       }
+
       names.add(name)
+
       if (
         typeof raw.type !== 'string' ||
         !(PARAMETER_TYPES as readonly string[]).includes(raw.type)
@@ -380,6 +405,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           `parameter ${name} has an unsupported type`,
         )
       }
+
       if (
         raw.required !== undefined &&
         raw.required !== null &&
@@ -392,7 +418,9 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           `parameter ${name} required must be a boolean`,
         )
       }
+
       const required = raw.required === true
+
       if (raw.default !== undefined && raw.default !== null && required) {
         push(
           errors,
@@ -401,6 +429,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           `required parameter ${name} cannot declare a default`,
         )
       }
+
       if (
         raw.default !== undefined &&
         raw.default !== null &&
@@ -413,6 +442,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           `parameter ${name} default does not match its type`,
         )
       }
+
       if (
         raw.description !== undefined &&
         raw.description !== null &&
@@ -445,9 +475,11 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         `inputs must contain between 0 and ${MAX_INPUTS} entries`,
       )
     }
+
     const names = new Set<string>()
     v.inputs.forEach((raw, index) => {
       const field = `inputs[${index}]`
+
       if (!isObject(raw)) {
         push(
           errors,
@@ -455,9 +487,12 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           field,
           t('data.pipelineConfig.eachInputMustObject'),
         )
+
         return
       }
+
       const name = raw.name
+
       if (
         typeof name !== 'string' ||
         !INPUT_NAME_RE.test(name) ||
@@ -469,8 +504,10 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           `${field}.name`,
           t('data.pipelineConfig.inputNameMustLowercase'),
         )
+
         return
       }
+
       if (names.has(name)) {
         push(
           errors,
@@ -478,9 +515,12 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           `${field}.name`,
           `input name is duplicated: ${name}`,
         )
+
         return
       }
+
       names.add(name)
+
       if (
         raw.required !== undefined &&
         raw.required !== null &&
@@ -517,6 +557,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         'transform language must be SQL or Python',
       )
     }
+
     if (
       v.transform.language !== 'none' &&
       (typeof v.transform.statement !== 'string' ||
@@ -530,6 +571,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         'transform statement must be between 1 and 20000 characters',
       )
     }
+
     if (v.transform.contract !== undefined) {
       if (v.transform.language !== 'python')
         push(
@@ -554,6 +596,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       )
     } else {
       const names = new Set<string>()
+
       for (const [index, step] of v.steps.entries()) {
         if (
           !isObject(step) ||
@@ -569,6 +612,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           )
           continue
         }
+
         if (names.has(step.name))
           push(
             errors,
@@ -577,6 +621,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
             t('data.pipelineConfig.stepNamesMustUnique'),
           )
         names.add(step.name)
+
         if (
           step.language !== 'sql' &&
           step.language !== 'python' &&
@@ -588,10 +633,12 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
             `steps[${index}].language`,
             t('data.pipelineConfig.chooseSqlPython'),
           )
+
         if (step.language === 'plugin') {
           validatePluginStep(errors, step, index)
           continue
         }
+
         if (step.plugin !== undefined)
           push(
             errors,
@@ -599,6 +646,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
             `steps[${index}].plugin`,
             t('data.pipelineConfig.pluginOnlyPluginStep'),
           )
+
         if (
           typeof step.statement !== 'string' ||
           !step.statement.trim() ||
@@ -610,6 +658,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
             `steps[${index}].statement`,
             t('data.pipelineConfig.stepCodeMustContain'),
           )
+
         if (step.contract !== undefined) {
           if (step.language !== 'python')
             push(
@@ -622,16 +671,21 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
             for (const message of contractErrors(step.contract))
               push(errors, 'invalid_value', `steps[${index}].contract`, message)
         }
+
         if (step.confirm !== undefined)
           validateConfirmStep(errors, step.confirm, index)
       }
+
       // skipSteps must reference a declared step other than the confirm step.
       for (const [index, step] of v.steps.entries()) {
         if (!isObject(step) || !isObject(step.confirm)) continue
         const skips = step.confirm.skipSteps
+
         if (!Array.isArray(skips)) continue
+
         for (const name of skips) {
           if (typeof name !== 'string') continue
+
           if (!names.has(name) || name === step.name)
             push(
               errors,
@@ -643,6 +697,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       }
     }
   }
+
   if (v.notifications !== undefined) {
     if (!Array.isArray(v.notifications) || v.notifications.length > 10) {
       push(
@@ -653,6 +708,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       )
     } else {
       const ids = new Set<string>()
+
       for (const item of v.notifications) {
         if (!isObject(item) || !isUuid(item.subscriptionId))
           push(
@@ -670,6 +726,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           )
         else {
           ids.add(item.subscriptionId)
+
           if (item.payload !== undefined && !isObject(item.payload))
             push(
               errors,
@@ -686,6 +743,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
     (isObject(v.transform) && v.transform.language === 'python') ||
     (Array.isArray(v.steps) &&
       v.steps.some((step) => isObject(step) && step.language === 'python'))
+
   if (
     usesPython &&
     (typeof v.pythonRuntime !== 'string' ||
@@ -698,6 +756,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
       t('data.pipelineConfig.chooseAvailablePythonRuntime'),
     )
   }
+
   if (v.pythonRequirements !== undefined) {
     if (!usesPython)
       push(
@@ -706,9 +765,11 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         'pythonRequirements',
         t('data.pipelineConfig.packageRequirementsApplyOnly'),
       )
+
     for (const message of requirementErrors(v.pythonRequirements))
       push(errors, 'invalid_value', 'pythonRequirements', message)
   }
+
   if (v.actions !== undefined) {
     for (const message of validatePipelineActions(v.actions))
       push(errors, 'invalid_value', 'actions', message)
@@ -735,6 +796,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         t('data.pipelineConfig.outputModeMustCreate'),
       )
     }
+
     if (v.output.mode === 'create') {
       if (!isUuid(v.output.schemaVersionId)) {
         push(
@@ -744,6 +806,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
           t('data.pipelineConfig.createOutputRequiresValid'),
         )
       }
+
       if (
         typeof v.output.datasetName !== 'string' ||
         v.output.datasetName.trim().length < 1 ||
@@ -757,6 +820,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         )
       }
     }
+
     if (v.output.mode === 'append') {
       if (!isUuid(v.output.datasetId)) {
         push(
@@ -767,6 +831,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         )
       }
     }
+
     if (
       v.output.mode !== 'none' &&
       (typeof v.output.datasetLabel !== 'string' ||
@@ -780,6 +845,7 @@ export function validatePipelineConfig(v: unknown): ConfigError[] {
         t('data.pipelineConfig.outputRequiresDatasetVersion'),
       )
     }
+
     if (
       v.output.fieldMapping !== undefined &&
       v.output.fieldMapping !== null &&
@@ -803,6 +869,7 @@ function validateConfirmStep(
   index: number,
 ): void {
   const field = `steps[${index}].confirm`
+
   if (!isObject(raw)) {
     push(
       errors,
@@ -810,8 +877,10 @@ function validateConfirmStep(
       field,
       t('data.pipelineConfig.confirmStepNeedsForm'),
     )
+
     return
   }
+
   if (
     !Array.isArray(raw.fields) ||
     raw.fields.length < 1 ||
@@ -827,6 +896,7 @@ function validateConfirmStep(
     const keys = new Set<string>()
     raw.fields.forEach((rawField, fieldIndex) => {
       const path = `${field}.fields[${fieldIndex}]`
+
       if (
         !isObject(rawField) ||
         typeof rawField.key !== 'string' ||
@@ -838,8 +908,10 @@ function validateConfirmStep(
           `${path}.key`,
           t('data.pipelineConfig.eachFormFieldNeeds'),
         )
+
         return
       }
+
       if (keys.has(rawField.key))
         push(
           errors,
@@ -848,6 +920,7 @@ function validateConfirmStep(
           `form field key is duplicated: ${rawField.key}`,
         )
       keys.add(rawField.key)
+
       if (
         typeof rawField.label !== 'string' ||
         rawField.label.trim().length < 1 ||
@@ -859,6 +932,7 @@ function validateConfirmStep(
           `${path}.label`,
           t('data.pipelineConfig.eachFormFieldNeeds2'),
         )
+
       if (
         typeof rawField.type !== 'string' ||
         !(PARAMETER_TYPES as readonly string[]).includes(rawField.type)
@@ -869,6 +943,7 @@ function validateConfirmStep(
           `${path}.type`,
           t('data.pipelineConfig.chooseSupportedFieldType'),
         )
+
       if (
         rawField.required !== undefined &&
         typeof rawField.required !== 'boolean'
@@ -879,6 +954,7 @@ function validateConfirmStep(
           `${path}.required`,
           t('data.pipelineConfig.requiredMustBoolean'),
         )
+
       if (
         rawField.options !== undefined &&
         (!Array.isArray(rawField.options) ||
@@ -899,6 +975,7 @@ function validateConfirmStep(
         )
     })
   }
+
   if (
     !Array.isArray(raw.askedUserIds) ||
     raw.askedUserIds.length < 1 ||
@@ -914,6 +991,7 @@ function validateConfirmStep(
       t('data.pipelineConfig.askBetween1People', { MAX_CONFIRM_ASKED_USERS }),
     )
   }
+
   if (
     raw.noAnswer !== undefined &&
     !(CONFIRM_NO_ANSWER_OUTCOMES as readonly string[]).includes(
@@ -927,6 +1005,7 @@ function validateConfirmStep(
       t('data.pipelineConfig.chooseStopReAsk'),
     )
   }
+
   if (
     raw.expiresHours !== undefined &&
     (typeof raw.expiresHours !== 'number' ||
@@ -941,6 +1020,7 @@ function validateConfirmStep(
       `expiresHours must be a whole number between 1 and ${MAX_CONFIRM_EXPIRY_HOURS}.`,
     )
   }
+
   if (
     raw.skipSteps !== undefined &&
     (!Array.isArray(raw.skipSteps) ||
@@ -978,6 +1058,7 @@ function defaultMatchesType(value: unknown, type: unknown): boolean {
 
 export function configErrorsToMessage(errors: ConfigError[]): string | null {
   if (errors.length === 0) return null
+
   return errors[0].message
 }
 
@@ -991,6 +1072,7 @@ export function findPipelineConfirmStep(
   stepName: string,
 ): PipelineStep | null {
   const step = (config.steps ?? []).find((entry) => entry.name === stepName)
+
   return step && step.confirm ? step : null
 }
 
@@ -1017,25 +1099,32 @@ export function validateConfirmAnswer(
 ): string | null {
   if (!isObject(answer))
     return t('data.pipelineConfig.answerMustObjectDecision')
+
   if (
     typeof answer.decision !== 'string' ||
     !(CONFIRM_DECISIONS as readonly string[]).includes(answer.decision)
   )
     return t('data.pipelineConfig.decisionMustConfirmSkip')
   const values = answer.values
+
   if (values !== undefined && !isObject(values))
     return t('data.pipelineConfig.valuesMustObject')
+
   if (answer.decision !== 'confirm') return null
   const supplied = values ?? {}
+
   for (const field of confirm.fields) {
     const present = field.key in supplied
+
     if (!present) {
       if (field.required) return `missing required field: ${field.key}`
       continue
     }
+
     if (!valueMatchesType(supplied[field.key], field.type))
       return `field ${field.key} does not match its declared type`
   }
+
   return null
 }
 
@@ -1064,8 +1153,10 @@ export function validatePipelineRunRequest(
       'parameters',
       t('data.pipelineConfig.parametersMustObject'),
     )
+
     return errors
   }
+
   if (!isObject(inputVersions)) {
     push(
       errors,
@@ -1073,12 +1164,15 @@ export function validatePipelineRunRequest(
       'input_versions',
       'input_versions must be an object',
     )
+
     return errors
   }
 
   const declared = new Map(config.parameters.map((p) => [p.name, p]))
+
   for (const [key, value] of Object.entries(parameters)) {
     const param = declared.get(key)
+
     if (!param) {
       push(
         errors,
@@ -1095,6 +1189,7 @@ export function validatePipelineRunRequest(
       )
     }
   }
+
   for (const param of config.parameters) {
     if (param.required && !(param.name in parameters)) {
       push(
@@ -1107,6 +1202,7 @@ export function validatePipelineRunRequest(
   }
 
   const inputNames = new Set(config.inputs.map((i) => i.name))
+
   for (const [key, value] of Object.entries(inputVersions)) {
     if (!inputNames.has(key)) {
       push(
@@ -1124,6 +1220,7 @@ export function validatePipelineRunRequest(
       )
     }
   }
+
   for (const input of config.inputs) {
     if (!(input.name in inputVersions)) {
       push(

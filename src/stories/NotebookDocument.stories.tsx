@@ -119,7 +119,9 @@ const meta = {
     onDeleteBlock: async () => {},
   },
 } satisfies Meta<typeof NotebookDocument>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A short document: prose, a metric and a callout. */

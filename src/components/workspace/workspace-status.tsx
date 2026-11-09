@@ -23,6 +23,7 @@ export function statusHints({
   paneCount: number
 }): Hint[] {
   const hints: Hint[] = []
+
   if (paneCount > 1)
     hints.push({
       keys: [k('mod+1')],
@@ -32,16 +33,19 @@ export function statusHints({
     keys: [k('mod+\\')],
     label: t('projects.workspaceStatus.hints.splitRight'),
   })
+
   if (!primary)
     hints.push({
       keys: [k('mod+shift+p')],
       label: t('projects.workspaceStatus.hints.makePrimary'),
     })
+
   if (hasTrail)
     hints.push({
       keys: [k('mod+['), k('mod+]')],
       label: t('projects.workspaceStatus.hints.trail'),
     })
+
   if (linked)
     hints.push({
       keys: [k('mod+l')],
@@ -55,16 +59,19 @@ export function statusHints({
     keys: [platform() === 'mac' ? '⌥↵' : 'Alt+↵'],
     label: t('projects.workspaceStatus.hints.openBeside'),
   })
+
   if (hints.length < 5)
     hints.push({
       keys: ['P'],
       label: t('projects.workspaceStatus.hints.pin'),
     })
+
   if (hints.length < 5)
     hints.push({
       keys: [k('mod+w')],
       label: t('projects.workspaceStatus.hints.close'),
     })
+
   return hints.slice(0, 5)
 }
 

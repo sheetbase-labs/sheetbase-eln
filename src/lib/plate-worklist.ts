@@ -19,9 +19,11 @@ export const WORKLIST_FORMATS = [
   'hamilton',
   'opentrons',
 ] as const
+
 export type WorklistFormat = (typeof WORKLIST_FORMATS)[number]
 
 export const WORKLIST_MODES = ['stamp', 'cherry_pick'] as const
+
 export type WorklistMode = (typeof WORKLIST_MODES)[number]
 
 /** One destination well to be filled. */
@@ -90,6 +92,7 @@ export interface BuildOptions {
 
 function columnMajorIndex(code: string, rows: number): number {
   const p = parseWellCode(code)
+
   return p ? p.col * rows + p.row : Number.MAX_SAFE_INTEGER
 }
 
@@ -104,6 +107,7 @@ export function buildWorklist(
   const sourceByKey = new Map<string, string>()
   let nextSource = 0
   const transfers: Transfer[] = []
+
   const sourceInfo = new Map<
     string,
     {
@@ -116,6 +120,7 @@ export function buildWorklist(
 
   const destRows =
     FORMAT_DIMENSIONS[options.destFormat ?? options.sourceFormat].rows
+
   const ordered = [...destinations].sort(
     (a, b) =>
       columnMajorIndex(a.wellCode, destRows) -
@@ -131,7 +136,9 @@ export function buildWorklist(
       })
       continue
     }
+
     const volume = d.volumeUl ?? options.defaultVolumeUl ?? null
+
     if (volume === null || !(volume > 0)) {
       issues.push({
         code: 'no_volume',
@@ -140,12 +147,14 @@ export function buildWorklist(
       })
       continue
     }
+
     if (options.minVolumeUl !== undefined && volume < options.minVolumeUl)
       issues.push({
         code: 'volume_too_small',
         wellCode: d.wellCode,
         message: d.wellCode,
       })
+
     if (options.maxVolumeUl !== undefined && volume > options.maxVolumeUl)
       issues.push({
         code: 'volume_too_large',
@@ -154,9 +163,11 @@ export function buildWorklist(
       })
 
     let source: string
+
     if (options.mode === 'stamp') {
       source = d.wellCode
       const p = parseWellCode(source)
+
       if (!p || p.row >= rows || p.col >= cols) {
         issues.push({
           code: 'bad_well',
@@ -168,6 +179,7 @@ export function buildWorklist(
     } else {
       const key = d.sampleId ?? `label:${d.label}`
       const existing = sourceByKey.get(key)
+
       if (existing) source = existing
       else {
         if (nextSource >= capacity) {
@@ -178,6 +190,7 @@ export function buildWorklist(
           })
           continue
         }
+
         const row = nextSource % rows
         const col = Math.floor(nextSource / rows)
         source = wellCode(row, col)
@@ -195,12 +208,14 @@ export function buildWorklist(
       label: d.label,
       sampleId: d.sampleId ?? null,
     })
+
     const info = sourceInfo.get(source) ?? {
       label: d.label,
       sampleId: d.sampleId ?? null,
       totalUl: 0,
       transfers: 0,
     }
+
     info.totalUl += volume
     info.transfers += 1
     sourceInfo.set(source, info)
@@ -226,6 +241,7 @@ export function buildWorklist(
     .sort(
       (a, b) => columnMajorIndex(a.well, rows) - columnMajorIndex(b.well, rows),
     )
+
   if (options.sourceWellVolumeUl !== undefined) {
     for (const s of sources)
       if (s.totalUl > options.sourceWellVolumeUl)
@@ -235,17 +251,20 @@ export function buildWorklist(
           message: `${s.well}: ${round(s.totalUl)} µL asked, ${options.sourceWellVolumeUl} µL held`,
         })
   }
+
   return { transfers, sources, issues }
 }
 
 function round(v: number, places = 3): number {
   const f = 10 ** places
+
   return Math.round(v * f) / f
 }
 
 /** Well position counted down columns (Tecan, Hamilton), starting at 1. */
 export function wellPosition(code: string, rows: number): number {
   const p = parseWellCode(code)
+
   return p ? p.col * rows + p.row + 1 : 0
 }
 
@@ -272,6 +291,7 @@ export interface WriteOptions {
 
 function csvCell(value: string | number): string {
   const s = String(value)
+
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
 }
 
@@ -308,6 +328,7 @@ export function toEchoCsv(
   options: WriteOptions,
 ): string {
   const type = options.echoSourceType ?? '384PP_AQ_BP'
+
   return [
     csvLine([
       'Source Plate Name',
@@ -348,6 +369,7 @@ export function toTecanGwl(
   const sType = options.tecanSourceType ?? ''
   const dType = options.tecanDestType ?? ''
   const lines: string[] = []
+
   for (const t of transfers) {
     const v = round(t.volumeUl, 2)
     lines.push(
@@ -358,6 +380,7 @@ export function toTecanGwl(
     )
     lines.push('W;')
   }
+
   return lines.join('\n')
 }
 
@@ -368,6 +391,7 @@ export function toHamiltonCsv(
 ): string {
   const sRows = FORMAT_DIMENSIONS[options.sourceFormat].rows
   const dRows = FORMAT_DIMENSIONS[options.destFormat].rows
+
   return [
     csvLine([
       'SourceLabware',
@@ -402,13 +426,16 @@ export function toOpentronsProtocol(
   const pipette = options.opentronsPipette ?? 'p300_single_gen2'
   const tips = options.opentronsTiprack ?? 'opentrons_96_tiprack_300ul'
   const mount = options.opentronsMount ?? 'left'
+
   const rows = transfers
     .map(
       (t) =>
         `    (${JSON.stringify(t.sourceWell)}, ${JSON.stringify(t.destWell)}, ${round(t.volumeUl, 2)}),`,
     )
     .join('\n')
+
   const title = (options.title ?? 'Sheetbase worklist').replace(/["\\\n]/g, ' ')
+
   return `from opentrons import protocol_api
 
 metadata = {"protocolName": "${title}", "apiLevel": "2.15"}
@@ -481,8 +508,10 @@ function cells(line: string, delimiter: string): string[] {
   const out: string[] = []
   let cur = ''
   let quoted = false
+
   for (let i = 0; i < line.length; i++) {
     const ch = line[i]
+
     if (ch === '"') {
       if (quoted && line[i + 1] === '"') {
         cur += '"'
@@ -493,13 +522,16 @@ function cells(line: string, delimiter: string): string[] {
       cur = ''
     } else cur += ch
   }
+
   out.push(cur.trim())
+
   return out
 }
 
 function wellOf(cell: string | undefined): string | null {
   if (!cell) return null
   const m = /^([A-Za-z]+)\s*0*([1-9][0-9]*)$/.exec(cell.trim())
+
   return m ? `${m[1].toUpperCase()}${m[2]}` : null
 }
 
@@ -521,13 +553,17 @@ export function parseRunLog(
 ): ParsedRunLog {
   const warnings: string[] = []
   const lines = text.split(/\r?\n/).filter((l) => l.trim() !== '')
+
   if (lines.length === 0) return { entries: [], warnings: ['empty'] }
   const delimiter = lines[0].includes('\t') ? '\t' : ','
+
   const head = cells(lines[0], delimiter).map((h) =>
     h.toLowerCase().replace(/[\s_-]+/g, ''),
   )
+
   const find = (...names: string[]) => head.findIndex((h) => names.includes(h))
   const srcCol = find('sourcewell', 'source', 'srcwell', 'from')
+
   const dstCol = find(
     'destinationwell',
     'destwell',
@@ -536,6 +572,7 @@ export function parseRunLog(
     'dstwell',
     'to',
   )
+
   const volCol = find(
     'actualvolume',
     'transferredvolume',
@@ -545,6 +582,7 @@ export function parseRunLog(
     'transfervolume',
     'volumeul',
   )
+
   const statCol = find(
     'status',
     'transferstatus',
@@ -552,22 +590,29 @@ export function parseRunLog(
     'exception',
     'outcome',
   )
+
   if (srcCol < 0 || dstCol < 0)
     return { entries: [], warnings: ['no_well_columns'] }
+
   const factor =
     options.volumeUnit === 'nl' ? 0.001 : options.volumeUnit === 'ml' ? 1000 : 1
+
   const entries: LogEntry[] = []
+
   for (const line of lines.slice(1)) {
     const c = cells(line, delimiter)
     const sourceWell = wellOf(c[srcCol])
     const destWell = wellOf(c[dstCol])
+
     if (!sourceWell || !destWell) {
       warnings.push(`bad_row:${line.slice(0, 40)}`)
       continue
     }
+
     const raw = volCol >= 0 ? Number(c[volCol]) : Number.NaN
     const status = statCol >= 0 ? (c[statCol] ?? '').toLowerCase() : ''
     let s: LogEntry['status'] = 'ok'
+
     if (/fail|error|abort|miss|not\s*transferred|^x$/.test(status)) s = 'failed'
     else if (/skip|omit|cancel/.test(status)) s = 'skipped'
     entries.push({
@@ -577,6 +622,7 @@ export function parseRunLog(
       status: s,
     })
   }
+
   return { entries, warnings }
 }
 
@@ -590,19 +636,25 @@ export function reconcileRunLog(
   entries: LogEntry[],
 ): ReconciledTransfer[] {
   const pool = new Map<string, LogEntry[]>()
+
   for (const e of entries) {
     const key = `${e.sourceWell}>${e.destWell}`
     pool.set(key, [...(pool.get(key) ?? []), e])
   }
+
   return planned.map((t) => {
     const list = pool.get(`${t.sourceWell}>${t.destWell}`)
     const entry = list?.shift()
+
     if (!entry) return { ...t, status: 'missing' as const, movedUl: 0 }
+
     if (entry.status === 'failed')
       return { ...t, status: 'failed' as const, movedUl: 0 }
+
     if (entry.status === 'skipped')
       return { ...t, status: 'skipped' as const, movedUl: 0 }
     const moved = entry.actualUl ?? t.volumeUl
+
     return {
       ...t,
       status:
@@ -617,12 +669,14 @@ export function withdrawalsFrom(
   reconciled: ReconciledTransfer[],
 ): Array<{ sampleId: string; label: string; totalUl: number }> {
   const totals = new Map<string, { label: string; totalUl: number }>()
+
   for (const t of reconciled) {
     if (!t.sampleId || t.movedUl <= 0) continue
     const cur = totals.get(t.sampleId) ?? { label: t.label, totalUl: 0 }
     cur.totalUl += t.movedUl
     totals.set(t.sampleId, cur)
   }
+
   return [...totals.entries()].map(([sampleId, v]) => ({
     sampleId,
     label: v.label,

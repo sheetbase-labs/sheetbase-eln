@@ -96,7 +96,9 @@ const meta = {
     timeZone: 'Europe/London',
   },
 } satisfies Meta<typeof ExperimentHistoryView>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Category counts, the actor filter and the export link. */

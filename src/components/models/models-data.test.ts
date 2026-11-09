@@ -184,6 +184,7 @@ describe('recordFieldValue', () => {
       custom_fields: { passage: 12 },
       properties: { passage: 4, cell_line: 'hek293' },
     })
+
     expect(recordFieldValue(row, 'passage')).toBe(12)
     expect(recordFieldValue(row, 'cell_line')).toBe('hek293')
     expect(recordFieldValue(row, 'missing')).toBeUndefined()
@@ -207,12 +208,14 @@ describe('filterRecordModelRecords', () => {
       custom_fields: { cell_line: 'cho_k1', passage: 6 },
     }),
   ]
+
   const fields = [modelField(), cellLine]
 
   it('filters by status', () => {
     const visible = filterRecordModelRecords(records, fields, {
       status: 'Quarantine',
     })
+
     expect(visible.map((r) => r.id)).toEqual(['r-2'])
   })
 
@@ -221,6 +224,7 @@ describe('filterRecordModelRecords', () => {
       fieldName: 'cell_line',
       fieldValue: 'HEK293',
     })
+
     expect(visible.map((r) => r.id)).toEqual(['r-1'])
   })
 
@@ -250,6 +254,7 @@ describe('filterRecordModelRecords', () => {
       fieldName: 'passage',
       fieldValue: '8',
     })
+
     expect(visible.map((r) => r.id)).toEqual(['r-1'])
     expect(
       filterRecordModelRecords(records, fields, {
@@ -289,6 +294,7 @@ describe('recordModelCsv', () => {
       ],
       fields,
     )
+
     const [header, row] = csv.split('\n')
     expect(header).toBe('ID,Name,Status,Passage,Cell line')
     // The comma in the title is quoted; the category shows its label.
@@ -350,6 +356,7 @@ describe('buildRecordModelCustomFields', () => {
       logicalType: 'text',
       nullable: true,
     })
+
     expect(
       buildRecordModelCustomFields([modelField(), optionalText], {
         passage: '12',
@@ -364,6 +371,7 @@ describe('laterAddedModelFields', () => {
     fieldName: 'passage',
     createdAt: '2026-01-01T00:00:00Z',
   })
+
   const added = modelField({
     fieldName: 'mycoplasma',
     logicalType: 'category',
@@ -375,6 +383,7 @@ describe('laterAddedModelFields', () => {
       created_at: '2026-08-01T00:00:00Z',
       custom_fields: { passage: 12 },
     })
+
     expect(
       laterAddedModelFields([base, added], row).map((f) => f.fieldName),
     ).toEqual(['mycoplasma'])
@@ -385,6 +394,7 @@ describe('laterAddedModelFields', () => {
       created_at: '2026-08-01T00:00:00Z',
       custom_fields: { passage: 12, mycoplasma: 'negative' },
     })
+
     expect(laterAddedModelFields([base, added], row)).toEqual([])
   })
 })

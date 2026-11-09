@@ -26,10 +26,12 @@ export function AuditCheckLine({ note }: { note?: string }) {
     queryFn: () => fetchAuditVerificationStatus(dataClient),
     staleTime: 60_000,
   })
+
   const checked = status.isPending || status.isError ? undefined : status.data
   const settled = !status.isPending && !status.isError
   const time = checked ? formatDate(checked.checkedAt, { time: true }) : ''
   const failed = Boolean(checked && !checked.ok)
+
   const checkText = !settled
     ? null
     : !checked
@@ -37,7 +39,9 @@ export function AuditCheckLine({ note }: { note?: string }) {
       : checked.ok
         ? t('projects.signatures.checkVerified', { time })
         : null
+
   const tip = [note, checkText].filter(Boolean)
+
   return (
     <>
       {failed ? (

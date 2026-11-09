@@ -23,7 +23,9 @@ export function SampleStateBanner({
   action?: ReactNode
 }) {
   const state = describeSampleState(sample, { events, userName })
+
   if (!state) return null
+
   return (
     <Banner tone={state.tone} title={state.title} action={action}>
       {state.body}

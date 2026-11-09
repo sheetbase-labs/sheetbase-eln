@@ -50,6 +50,7 @@ const itemCls =
   'flex h-[30px] w-full cursor-pointer select-none items-center gap-2 rounded-sm px-2 text-body text-fg no-underline outline-none hover:no-underline data-highlighted:bg-surface-hover data-highlighted:text-fg data-disabled:cursor-default data-disabled:text-fg-faint [&_svg]:text-fg-muted'
 
 type ItemExtras = { icon?: IconName; hint?: React.ReactNode; danger?: boolean }
+
 function ItemInner({
   icon,
   hint,
@@ -139,4 +140,5 @@ export function DropdownMenuLabel({
     />
   )
 }
+
 export const DropdownMenuGroup = MenuPrimitive.Group

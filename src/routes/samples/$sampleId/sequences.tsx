@@ -16,7 +16,9 @@ function SampleSequences() {
   const { sampleId } = Route.useParams()
   const { context } = Route.useRouteContext()
   const sample = useSampleRecord(sampleId)
+
   if (!sample.data) return null
+
   return (
     <SequencePanel
       recordId={sample.data.id}

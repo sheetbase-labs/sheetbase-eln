@@ -49,6 +49,7 @@ export function DataAccessPanel({ handle }: { handle: DataAccessHandle }) {
   const snippets = dataAccessSnippets(handle, origin)
   const active = snippets.find((snippet) => snippet.id === tab) ?? snippets[0]
   const route = apiRoute(handle)
+
   return (
     <div className="flex w-[34rem] max-w-[calc(100vw-2rem)] flex-col gap-3 p-4">
       <PopoverTitle className="m-0 text-body font-semibold">
@@ -137,5 +138,6 @@ export function DataAccessButton({ handle }: { handle: DataAccessHandle }) {
 export function PaneDataAccess({ href }: { href: string }) {
   const names = useReportingNames()
   const handle = resolveDataAccessHandle(href, names)
+
   return handle ? <DataAccessButton handle={handle} /> : null
 }

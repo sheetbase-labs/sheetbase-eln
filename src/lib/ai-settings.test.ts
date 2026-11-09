@@ -120,6 +120,7 @@ describe('AI readiness', () => {
       ai_updated_by_user_id: null,
       updated_at: '2026-10-24T00:00:00.000Z',
     })
+
     expect(settings.model).toBe('sheetbase-assist-1')
   })
 })

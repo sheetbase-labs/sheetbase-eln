@@ -63,8 +63,10 @@ export function configFormValues(
   config: Record<string, unknown>,
 ): ConnectorConfigValues {
   const values: ConnectorConfigValues = {}
+
   for (const field of CONNECTOR_CONFIG_FIELDS[adapter]) {
     const raw = config[field.name]
+
     if (field.kind === 'boolean') values[field.name] = Boolean(raw)
     else if (field.kind === 'select')
       values[field.name] = typeof raw === 'string' ? raw : 'disable'
@@ -72,6 +74,7 @@ export function configFormValues(
       values[field.name] =
         typeof raw === 'string' || typeof raw === 'number' ? String(raw) : ''
   }
+
   return values
 }
 
@@ -80,18 +83,23 @@ function validateField(
   value: string | boolean | undefined,
 ): string | null {
   const text = typeof value === 'string' ? value.trim() : ''
+
   if (field.required && !text) return `${field.label} is required.`
+
   if (field.kind === 'port') {
     const port = Number(text)
+
     if (!Number.isInteger(port) || port < 1 || port > 65535)
       return 'Enter a port between 1 and 65535.'
   }
+
   if (
     field.name === 'bucket' &&
     text &&
     !/^[a-z0-9][a-z0-9._-]{1,251}$/i.test(text)
   )
     return 'Use a valid bucket name (letters, numbers, dots, hyphens).'
+
   return null
 }
 
@@ -101,6 +109,7 @@ export function missingConfigLabels(
   config: Record<string, unknown>,
 ): string[] {
   const values = configFormValues(adapter, config)
+
   return CONNECTOR_CONFIG_FIELDS[adapter]
     .filter(
       (field) =>
@@ -121,19 +130,24 @@ export function buildConnectorConfig(
 ): BuiltConnectorConfig {
   const errors: Record<string, string> = {}
   const config: Record<string, unknown> = { ...existing }
+
   for (const field of CONNECTOR_CONFIG_FIELDS[adapter]) {
     const value = values[field.name]
     const error = validateField(field, value)
+
     if (error) {
       errors[field.name] = error
       continue
     }
+
     const text = typeof value === 'string' ? value.trim() : ''
+
     if (field.kind === 'boolean') config[field.name] = Boolean(value)
     else if (field.kind === 'port') config[field.name] = Number(text)
     else if (text) config[field.name] = text
     else delete config[field.name]
   }
+
   return Object.keys(errors).length > 0
     ? { ok: false, errors }
     : { ok: true, config }

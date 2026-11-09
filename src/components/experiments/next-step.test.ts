@@ -11,6 +11,7 @@ const base: NextStepInput = {
   regulated: true,
   isReviewer: false,
 }
+
 const step = (over: Partial<NextStepInput>) =>
   experimentNextStep({ ...base, ...over })
 

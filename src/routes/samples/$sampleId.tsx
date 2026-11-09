@@ -119,9 +119,11 @@ import { rich, t } from '#/copy'
 export const Route = createFileRoute('/samples/$sampleId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     // "New sample" is a dialog on the list, not a sample called "new".
     if (params.sampleId === 'new')
       throw redirect({ to: '/samples', search: { new: true } })
@@ -130,6 +132,7 @@ export const Route = createFileRoute('/samples/$sampleId')({
       ref: params.sampleId,
       href: location.href,
     })
+
     return { context }
   },
   validateSearch: (search: Record<string, unknown>): { withdraw?: boolean } =>
@@ -169,16 +172,19 @@ export function downloadLineageCsv(
   }[],
 ): boolean {
   if (rows.length === 0) return false
+
   const lines = rows.map((row) =>
     [row.identifier, row.title, row.relation, row.status]
       .map((value) => `"${String(value ?? '').replace(/"/g, '""')}"`)
       .join(','),
   )
+
   downloadTextFile(
     `${identifier}-lineage.csv`,
     ['sample,title,relation,status', ...lines].join('\n'),
     'text/csv',
   )
+
   return true
 }
 
@@ -223,26 +229,33 @@ function SampleLayout() {
     queryKey: sampleEventsQueryKey(sampleId),
     queryFn: () => fetchSampleEvents(notebookDataClient, sampleId),
   })
+
   const names = useUserNames(
     (events.data ?? []).map((event) => event.actorUserId ?? '').filter(Boolean),
   )
+
   const derivedSamples = useQuery({
     queryKey: sampleDerivedQueryKey(sampleId),
     queryFn: () => fetchSampleDerivedSamples(notebookDataClient, sampleId),
   })
+
   const parentCount = useQuery({
     queryKey: sampleParentsQueryKey(sampleId),
     queryFn: () => fetchSampleParentCount(notebookDataClient, sampleId),
   })
+
   const reservations = useQuery({
     queryKey: sampleQueryKeys.reservations(sampleId),
     queryFn: () => fetchSampleReservations(notebookDataClient, sampleId),
   })
+
   const measurements = useQuery({
     queryKey: ['ui-port', 'sample-measurements', sampleId],
     queryFn: () => fetchSampleMeasurements(notebookDataClient, sampleId),
   })
+
   const projectId = sample?.projectId ?? null
+
   const project = useQuery({
     queryKey: ['ui-port', 'sample-project', projectId],
     enabled: Boolean(projectId),
@@ -251,6 +264,7 @@ function SampleLayout() {
         'projects',
         `?id=eq.${projectId}&select=id,title`,
       )
+
       return rows[0] ?? null
     },
   })
@@ -270,6 +284,7 @@ function SampleLayout() {
       queryKey: sampleQueryKeys.releaseChecks(sampleId),
     })
   }
+
   const onError = (error: unknown) => {
     toast.error(describeSampleError(error))
   }
@@ -297,6 +312,7 @@ function SampleLayout() {
     onError: (error) =>
       toast.error(describeWithdrawError(error, sample?.quantityUnit ?? null)),
   })
+
   const aliquot = useMutation({
     mutationFn: async (input: AliquotDialogInput) => {
       const result = await aliquotSample(notebookDataClient, {
@@ -308,6 +324,7 @@ function SampleLayout() {
         newContainer: input.newContainer,
         expectedMetadataVersion: sample!.metadataVersion,
       })
+
       // The tubes are real samples: file them in free positions, starting where
       // the person chose, else beside the source when it sits in a box.
       const start = input.place
@@ -320,9 +337,11 @@ function SampleLayout() {
           : await fetchSamplePosition(notebookDataClient, sampleId).then(
               (held) => (held ? { boxId: held.boxId } : null),
             )
+
       if (start) {
         await placeInSequence(notebookDataClient, result.derivedSamples, start)
       }
+
       return result
     },
     onSuccess: (result) => {
@@ -341,6 +360,7 @@ function SampleLayout() {
       )
     },
   })
+
   const pool = useMutation({
     mutationFn: async (input: PoolDialogInput) => {
       const result = await poolSamples(notebookDataClient, {
@@ -349,16 +369,19 @@ function SampleLayout() {
         unit: input.unit,
         newContainer: input.newContainer,
       })
+
       if (input.place) {
         await placeInSequence(notebookDataClient, [result.pool], {
           boxId: input.place.box.id,
           startPositionId: input.place.position.id,
         })
       }
+
       return result
     },
     onSuccess: (result) => {
       invalidate()
+
       for (const source of result.sources) {
         void queryClient.invalidateQueries({
           queryKey: sampleQueryKey(source.id),
@@ -367,6 +390,7 @@ function SampleLayout() {
           queryKey: sampleEventsQueryKey(source.id),
         })
       }
+
       void queryClient.invalidateQueries({
         queryKey: sampleDerivedQueryKey(sampleId),
       })
@@ -382,6 +406,7 @@ function SampleLayout() {
       )
     },
   })
+
   const reserve = useMutation({
     mutationFn: (input: ReserveDialogInput) =>
       createSampleReservation(notebookDataClient, {
@@ -400,6 +425,7 @@ function SampleLayout() {
     onError: (error) =>
       toast.error(describeWithdrawError(error, sample?.quantityUnit ?? null)),
   })
+
   const move = useMutation({
     mutationFn: (input: { choice: PlaceChoice; notes?: string }) =>
       placeSample(notebookDataClient, {
@@ -416,6 +442,7 @@ function SampleLayout() {
     },
     onError,
   })
+
   const release = useMutation({
     mutationFn: (input: { notes?: string }) =>
       releaseSample(notebookDataClient, {
@@ -431,10 +458,12 @@ function SampleLayout() {
     },
     onError: (error) => {
       const failed = releaseFailedChecks(error)
+
       if (failed) setReleaseFailure(failed)
       else onError(error)
     },
   })
+
   const edit = useMutation({
     mutationFn: (input: {
       title?: string
@@ -457,6 +486,7 @@ function SampleLayout() {
     },
     onError,
   })
+
   const receive = useMutation({
     mutationFn: async (input: {
       quantity: number
@@ -472,6 +502,7 @@ function SampleLayout() {
         notes: input.notes,
         expectedMetadataVersion: sample!.metadataVersion,
       })
+
       if (input.place?.kind === 'position') {
         await placeSample(notebookDataClient, {
           recordId: sampleId,
@@ -489,6 +520,7 @@ function SampleLayout() {
     },
     onError,
   })
+
   const archive = useMutation({
     mutationFn: (input: { notes?: string }) =>
       archiveSample(notebookDataClient, {
@@ -511,6 +543,7 @@ function SampleLayout() {
     },
     onError,
   })
+
   const restore = useMutation({
     mutationFn: (input: { notes?: string }) =>
       restoreSample(notebookDataClient, {
@@ -525,6 +558,7 @@ function SampleLayout() {
     },
     onError,
   })
+
   const quarantine = useMutation({
     mutationFn: (input: { reason: string; notes?: string }) =>
       quarantineSample(notebookDataClient, {
@@ -540,6 +574,7 @@ function SampleLayout() {
     },
     onError,
   })
+
   const dispose = useMutation({
     mutationFn: (input: { reason: string; notes?: string }) =>
       disposeSample(notebookDataClient, {
@@ -598,6 +633,7 @@ function SampleLayout() {
   const allowDispose = canDisposeSample(role)
   const allowEdit = canEditSample(role)
   const archived = Boolean(sample.archivedAt)
+
   // Release is the quarantine exit. A past-hold or expired sample exits through
   // disposal, or through release as a re-qualification once the hold has been
   // extended (the server evaluates the same release checks).
@@ -606,8 +642,10 @@ function SampleLayout() {
       state === 'hold_exceeded' ||
       state === 'expired') &&
     allowRelease
+
   const showDispose =
     (state === 'hold_exceeded' || state === 'expired') && allowDispose
+
   // QA-121: the tab badge counts live usage — consumptions plus reservations
   // that still hold volume — so a cancelled reservation cannot inflate it.
   const usageCount =
@@ -626,6 +664,7 @@ function SampleLayout() {
           status: row.status ? sampleStatus(row.status).label : null,
         })),
       )
+
       if (!wrote) toast(t('library.samples.record.nothingToExportThisSample'))
     } catch (error) {
       toast(t('library.samples.record.couldNotExportLineage'), {
@@ -954,6 +993,7 @@ function SampleLayout() {
           open
           onOpenChange={(open) => {
             setDialog(open ? 'aliquot' : null)
+
             if (!open) aliquot.reset()
           }}
           sample={sample}
@@ -973,6 +1013,7 @@ function SampleLayout() {
           open
           onOpenChange={(open) => {
             setDialog(open ? 'pool' : null)
+
             if (!open) pool.reset()
           }}
           sample={sample}
@@ -1066,6 +1107,7 @@ function SampleLayout() {
         open={dialog === 'release'}
         onOpenChange={(o) => {
           setDialog(o ? 'release' : null)
+
           if (!o) setReleaseFailure(null)
         }}
         title={`${state === 'quarantined' ? t('library.samples.record.release2') : 'Re-qualify'} ${sample.identifier}`}
@@ -1155,6 +1197,7 @@ function ReasonDialog({
 }) {
   const [value, setValue] = useState('')
   const blocked = busy || (required && !value.trim())
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(420px,calc(100vw-32px))]">

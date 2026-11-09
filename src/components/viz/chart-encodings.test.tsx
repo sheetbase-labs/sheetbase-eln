@@ -88,6 +88,7 @@ function Harness({
   emitted: ChartSpec[]
 }) {
   const [spec, setSpec] = useState(initial)
+
   return (
     <ChartConfigurator
       source={SOURCE}
@@ -103,6 +104,7 @@ function Harness({
 /** The `DataTransfer` surface a drop handler reads; jsdom builds none itself. */
 function transfer(fieldId: string) {
   const store: Record<string, string> = { [FIELD_DRAG_TYPE]: fieldId }
+
   return {
     types: [FIELD_DRAG_TYPE],
     effectAllowed: 'copy',
@@ -118,11 +120,15 @@ function renderConfigurator(initial = baseSpec()) {
   const emitted: ChartSpec[] = []
   const { container } = render(<Harness initial={initial} emitted={emitted} />)
   const view = within(container)
+
   const slotOf = (role: string) => {
     const slot = container.querySelector(`[data-drop-role="${role}"]`)
+
     if (!slot) throw new Error(`role slot ${role} is not rendered`)
+
     return slot
   }
+
   return {
     emitted,
     view,
@@ -131,6 +137,7 @@ function renderConfigurator(initial = baseSpec()) {
       const row = view
         .getByRole('button', { name: `Assign ${label} to a role` })
         .closest('li')
+
       if (!row) throw new Error(`no field row for ${label}`)
       const id = COLUMNS.find((column) => column.label === label)?.id ?? ''
       fireEvent.dragStart(row, { dataTransfer: transfer(id) })
@@ -199,6 +206,7 @@ describe('chart encoding authoring paths', () => {
     expect(spec?.fields.color?.fieldId).toBe(BUFFER_ID)
     expect(spec?.fields.size?.fieldId).toBe(TIME_ID)
     expect(spec?.fields.facet?.fieldId).toBe(BUFFER_ID)
+
     // Every role the shelf offers is bound: none is reachable only by drop.
     for (const role of CHART_ROLES)
       expect(columnsForRole(role, COLUMNS, 'scatter').length > 0).toBe(true)

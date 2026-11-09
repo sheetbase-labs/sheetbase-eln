@@ -63,6 +63,7 @@ describe('CORE-05 capability mapping', () => {
     for (const role of ['owner', 'admin', 'steward']) {
       expect(hasCapability(role, 'instrument.manage')).toBe(true)
     }
+
     for (const role of [
       'scientist',
       'member',
@@ -72,9 +73,11 @@ describe('CORE-05 capability mapping', () => {
     ]) {
       expect(hasCapability(role, 'instrument.manage')).toBe(false)
     }
+
     for (const role of ['owner', 'admin', 'steward', 'scientist', 'member']) {
       expect(hasCapability(role, 'calibration.record')).toBe(true)
     }
+
     for (const role of ['analyst', 'reviewer', 'viewer']) {
       expect(hasCapability(role, 'calibration.record')).toBe(false)
     }

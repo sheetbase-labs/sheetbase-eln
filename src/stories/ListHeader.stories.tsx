@@ -28,7 +28,9 @@ const meta = {
     ),
   },
 } satisfies Meta<typeof ListHeader>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The registry header: count and actions on the title line. */

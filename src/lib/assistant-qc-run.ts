@@ -10,6 +10,7 @@ export async function runQcAction(
   switch (action.kind) {
     case 'qc.set_baseline':
       await setQcBaseline(client, action.seriesId, action.limits)
+
       return { openHref: '/plates' }
     case 'qc.acknowledge':
       for (const pointId of action.pointIds) {
@@ -19,6 +20,7 @@ export async function runQcAction(
           exclude: action.exclude,
         })
       }
+
       return { openHref: '/plates' }
   }
 }

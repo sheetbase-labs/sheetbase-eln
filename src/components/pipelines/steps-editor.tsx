@@ -78,10 +78,12 @@ export function StepsEditor({
 }) {
   const memberIds = Object.keys(members)
   const points = useExtensionPoints()
+
   // Only a plugin step that turns tables into a table can run between steps.
   const pluginSteps = points.descriptors.filter(
     (d) => points.callables.get(d.name)?.point === 'pipeline-steps',
   )
+
   return (
     <div className="flex flex-col gap-3">
       {steps.length === 0 ? (
@@ -93,6 +95,7 @@ export function StepsEditor({
         {steps.map((step, index) => {
           const n = index + 1
           const confirm = step.confirm
+
           return (
             <li
               key={index}
@@ -360,6 +363,7 @@ function PluginStepBody({
   const descriptor = descriptors.get(operation)
   const args = step.plugin?.arguments ?? {}
   const known = pluginSteps.some((entry) => entry.name === operation)
+
   return (
     <div className="flex flex-col gap-3">
       <Field label={t('data.stepsEditor.pluginStepWhich')}>
@@ -368,6 +372,7 @@ function PluginStepBody({
           value={operation}
           onChange={(event) => {
             const next = event.target.value
+
             if (!next) return onChange(undefined)
             // A table the plugin reads starts as the result so far, or the
             // first input when nothing has run yet.
@@ -419,6 +424,7 @@ function PluginStepBody({
             tableSources={sources}
             onChange={(value) => {
               const next = { ...args }
+
               if (value === undefined) delete next[input.name]
               else next[input.name] = value
               onChange({ operation, arguments: next })

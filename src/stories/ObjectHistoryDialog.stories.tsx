@@ -68,12 +68,14 @@ function client(seed: boolean) {
       },
     },
   })
+
   if (seed) {
     instance.setQueryData(['audit-events', 'object', OBJECT_ID], {
       pages: [firstPage],
       pageParams: [undefined],
     })
   }
+
   return instance
 }
 
@@ -92,7 +94,9 @@ const meta = {
   ],
   args: { objectId: OBJECT_ID, objectLabel: 'Sheet' },
 } satisfies Meta<typeof ObjectHistoryDialog>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The trigger as the catalogue row renders it; click to open the stream. */

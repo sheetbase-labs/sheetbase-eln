@@ -125,8 +125,10 @@ const SLOT_STEP = 5
 // ---------------------------------------------------------------------------
 
 const formatters = new Map<string, Intl.DateTimeFormat>()
+
 function formatter(timezone: string): Intl.DateTimeFormat {
   let f = formatters.get(timezone)
+
   if (!f) {
     f = new Intl.DateTimeFormat('en-GB', {
       timeZone: timezone,
@@ -141,6 +143,7 @@ function formatter(timezone: string): Intl.DateTimeFormat {
     })
     formatters.set(timezone, f)
   }
+
   return f
 }
 
@@ -163,11 +166,13 @@ const WEEKDAYS: Record<string, number> = {
 
 function localParts(epochMinutes: number, timezone: string): LocalParts {
   const parts: Record<string, string> = {}
+
   for (const p of formatter(timezone).formatToParts(
     new Date(epochMinutes * 60_000),
   )) {
     parts[p.type] = p.value
   }
+
   const asUtcMs = Date.UTC(
     Number(parts.year),
     Number(parts.month) - 1,
@@ -176,6 +181,7 @@ function localParts(epochMinutes: number, timezone: string): LocalParts {
     Number(parts.minute),
     Number(parts.second),
   )
+
   return {
     date: `${parts.year}-${parts.month}-${parts.day}`,
     isoWeekday: WEEKDAYS[parts.weekday] ?? 1,
@@ -203,11 +209,13 @@ export function localToEpoch(
   let guess = naive - offsetMinutes(naive, timezone)
   // Across a clock change the offset at the guess can differ; settle on it.
   guess = naive - offsetMinutes(guess, timezone)
+
   return guess
 }
 
 export function addDays(date: string, days: number): string {
   const [y, m, d] = date.split('-').map(Number)
+
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10)
 }
 
@@ -218,6 +226,7 @@ export function dayOfEpoch(epochMinutes: number, timezone: string): string {
 function isoWeekdayOf(date: string): number {
   const [y, m, d] = date.split('-').map(Number)
   const day = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
+
   return day === 0 ? 7 : day
 }
 
@@ -238,6 +247,7 @@ function isAway(
   date: string,
 ): boolean {
   if (!userId) return false
+
   return (absences.get(userId) ?? []).some(
     ([from, to]) => date >= from && date <= to,
   )
@@ -253,13 +263,18 @@ function freeSlot(
 ): number | null {
   let start = roundUp(from)
   const sorted = [...busy].sort((a, b) => a.start - b.start)
+
   for (let guard = 0; guard < sorted.length + 2; guard++) {
     const clash = sorted.find((b) => b.start < start + minutes && b.end > start)
+
     if (!clash) break
     start = roundUp(clash.end)
   }
+
   if (!longNeed && start + minutes > dayEnd) return null
+
   if (start >= dayEnd) return null
+
   return start
 }
 
@@ -267,10 +282,12 @@ export function planSchedule(input: PlanInput): PlanResult {
   const { hours } = input
   const dayLength = hours.endMinute - hours.startMinute
   const placed = new Map<string, Busy[]>()
+
   const busyFor = (resourceId: string): Busy[] => [
     ...(input.busy.get(resourceId) ?? []),
     ...(placed.get(resourceId) ?? []),
   ]
+
   const items: PlanItem[] = []
   let conflictCount = 0
   let cursor = input.notBefore
@@ -279,10 +296,12 @@ export function planSchedule(input: PlanInput): PlanResult {
     const plannedDay = addDays(input.anchorOn, part.dayOffset)
     const who = part.assigneeUserId ?? input.requesterId
     const partItems: PlanItem[] = []
+
     const earliestOfPart = Math.max(
       cursor,
       localToEpoch(plannedDay, hours.startMinute, hours.timezone),
     )
+
     let day = dayOfEpoch(earliestOfPart, hours.timezone)
     let found = false
 
@@ -292,18 +311,22 @@ export function planSchedule(input: PlanInput): PlanResult {
       tries++, day = addDays(day, 1)
     ) {
       if (!hours.days.includes(isoWeekdayOf(day))) continue
+
       if (isAway(input.absences, part.assigneeUserId, day)) continue
       const dayStart = localToEpoch(day, hours.startMinute, hours.timezone)
       const dayEnd = localToEpoch(day, hours.endMinute, hours.timezone)
       const t = Math.max(earliestOfPart, dayStart)
+
       if (t >= dayEnd) continue
 
       // Try to fit every instrument the part needs, one after another, on this day.
       const trial: Array<{ need: PlanNeed; start: number }> = []
       let ok = true
       let at = t
+
       for (const need of part.needs) {
         const long = need.minutes > dayLength
+
         const slot = freeSlot(
           busyFor(need.resourceId),
           at,
@@ -311,22 +334,27 @@ export function planSchedule(input: PlanInput): PlanResult {
           need.minutes,
           long,
         )
+
         if (slot === null) {
           ok = false
           break
         }
+
         trial.push({ need, start: slot })
         at = slot + need.minutes
       }
+
       if (!ok) continue
       // The person's own time has to fit too.
       const first = trial.length > 0 ? trial[0].start : t
+
       if (
         part.handsOnMinutes <= dayLength &&
         first + part.handsOnMinutes > dayEnd
       ) {
         continue
       }
+
       found = true
 
       for (const { need, start } of trial) {
@@ -337,12 +365,14 @@ export function planSchedule(input: PlanInput): PlanResult {
         ])
         const rules = input.rules.get(need.resourceId)
         const conflicts: Conflict[] = []
+
         if (rules?.outOfService) {
           conflicts.push({
             code: 'out_of_service',
             message: `${need.resourceName} is out of service.`,
           })
         }
+
         if (
           rules?.maxBookingMinutes != null &&
           need.minutes > rules.maxBookingMinutes
@@ -352,6 +382,7 @@ export function planSchedule(input: PlanInput): PlanResult {
             message: `${need.resourceName} can be booked for at most ${rules.maxBookingMinutes} minutes at a time.`,
           })
         }
+
         if (
           rules?.maxAdvanceDays != null &&
           start > input.notBefore + rules.maxAdvanceDays * 1440
@@ -361,7 +392,9 @@ export function planSchedule(input: PlanInput): PlanResult {
             message: `${need.resourceName} can only be booked ${rules.maxAdvanceDays} days ahead.`,
           })
         }
+
         const gap = input.gaps.get(`${need.resourceId}:${who}`)
+
         if (gap) conflicts.push({ code: 'not_qualified', message: gap })
         partItems.push({
           partId: part.partId,
@@ -379,8 +412,10 @@ export function planSchedule(input: PlanInput): PlanResult {
           conflicts,
         })
       }
+
       const handsStart = first
       const handsEnd = handsStart + part.handsOnMinutes
+
       if (part.handsOnMinutes > 0 || partItems.length === 0) {
         partItems.push({
           partId: part.partId,
@@ -398,16 +433,20 @@ export function planSchedule(input: PlanInput): PlanResult {
           conflicts: [],
         })
       }
+
       const lastEnd = Math.max(
         handsEnd,
         ...trial.map((x) => x.start + x.need.minutes),
       )
+
       cursor = lastEnd + part.waitAfterMinutes
+
       if (day > plannedDay) {
         const note: Conflict = {
           code: 'later_than_planned',
           message: `Planned for ${plannedDay}; the first time it can happen is ${day}.`,
         }
+
         for (const item of partItems) item.conflicts.push(note)
       }
     }
@@ -422,6 +461,7 @@ export function planSchedule(input: PlanInput): PlanResult {
             code: 'no_working_day',
             message: `No working day in the next ${MAX_DAYS_SEARCHED} days when ${part.assigneeUserId ? 'its owner is' : 'the lab is'} in.`,
           }
+
       partItems.push({
         partId: part.partId,
         partNumber: part.number,
@@ -438,12 +478,15 @@ export function planSchedule(input: PlanInput): PlanResult {
         conflicts: [none],
       })
     }
+
     for (const item of partItems) {
       conflictCount += item.conflicts.filter(
         (c) => c.code !== 'later_than_planned',
       ).length
     }
+
     items.push(...partItems)
   }
+
   return { items, conflictCount }
 }

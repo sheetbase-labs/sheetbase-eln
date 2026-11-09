@@ -17,11 +17,15 @@ export const Route = createFileRoute('/models/$modelId/contract')({
 function ModelContract() {
   const { modelId } = Route.useParams()
   const { context } = Route.useRouteContext()
+
   const target: ContractTarget = isUuid(modelId)
     ? { kind: 'dataset_schema', id: modelId }
     : { kind: 'record_model', key: modelId }
+
   const contract = useContractForTarget(target)
+
   if (contract.isLoading) return null
+
   return (
     <ContractPanel
       target={target}

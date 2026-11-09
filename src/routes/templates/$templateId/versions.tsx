@@ -94,6 +94,7 @@ const TAG_TONE: Record<TemplateChangeSetEntry['tag'], Tone> = {
  * screen must show that refusal as a reload, not as a generic failure. */
 function isStaleRevisionError(error: unknown): boolean {
   if (error instanceof DataClientError && error.code === 'SB001') return true
+
   return error instanceof Error && /stale .*revision/i.test(error.message)
 }
 
@@ -110,6 +111,7 @@ function ChangeValue({ value }: { value: string | undefined }) {
   if (value === undefined || value === '') {
     return <span className="text-fg-muted">—</span>
   }
+
   return (
     <span className="mono block max-w-[180px] truncate" title={value}>
       {value}
@@ -162,6 +164,7 @@ function ChangeSetTable({
       </Muted>
     )
   }
+
   return (
     <TableBox>
       <RegistryGrid
@@ -192,16 +195,19 @@ function versionColumns(
         tone: 'draft' as const,
         label: t('library.templates.versions.draft'),
       }
+
     if (version.lifecycle === 'retired')
       return {
         tone: 'stored' as const,
         label: t('library.templates.versions.retired'),
       }
+
     if (version.id === currentId)
       return {
         tone: 'progress' as const,
         label: t('library.templates.versions.current'),
       }
+
     return (records.get(version.id) ?? 0) > 0
       ? {
           tone: 'ok' as const,
@@ -212,6 +218,7 @@ function versionColumns(
           label: t('library.templates.versions.published'),
         }
   }
+
   return [
     {
       id: 'version',
@@ -224,6 +231,7 @@ function versionColumns(
       header: t('library.templates.versions.status'),
       cell: ({ row }) => {
         const state = stateOf(row.original)
+
         return <Status tone={state.tone}>{state.label}</Status>
       },
     },
@@ -247,6 +255,7 @@ function versionColumns(
       cell: ({ row }) => {
         const id =
           row.original.publishedByUserId ?? row.original.updatedByUserId
+
         return id ? ownerLabel(id) : '—'
       },
     },
@@ -258,8 +267,11 @@ function versionColumns(
         const approved = (approvals.get(row.original.id) ?? []).find(
           (r) => r.state === 'approved',
         )
+
         const ids = approved?.approved_by_user_ids ?? []
+
         if (!ids.length) return '—'
+
         return (
           <span className="inline-flex items-center gap-1">
             <Icon name="lock" size={12} />
@@ -304,6 +316,7 @@ function TemplateVersions() {
   const users = useTemplateUsers(rows.map((v) => v.id))
   const approvals = useTemplateApprovals(rows.map((v) => v.id))
   const sheets = useSheetDefinitions(rows)
+
   const names = useUserNames(
     [
       ...rows.flatMap((v) => [
@@ -316,34 +329,44 @@ function TemplateVersions() {
       ),
     ].filter((id): id is string => Boolean(id)),
   )
+
   const [dialog, setDialog] = useState<{
     kind: 'publish' | 'retire'
     version: NotebookTemplateVersion
   } | null>(null)
+
   const [stalePublish, setStalePublish] = useState<StalePublish | null>(null)
 
   const selected = rows.find((v) => v.id === search.v) ?? rows.at(0)
   const compareVersion = rows.find((v) => v.id === search.compare)
+
   const recordsByVersion = useMemo(() => {
     const map = new Map<string, number>()
+
     for (const r of users.data ?? []) {
       const key = r.source_notebook_template_version_id ?? ''
       map.set(key, (map.get(key) ?? 0) + 1)
     }
+
     return map
   }, [users.data])
 
   const changeGroups = useMemo(() => {
     const ordered = [...rows].sort((a, b) => a.version - b.version)
+
     const previousOf = (version: NotebookTemplateVersion) =>
       ordered.filter((row) => row.version < version.version).at(-1)
+
     if (!selected) return []
+
     const low = compareVersion
       ? Math.min(compareVersion.version, selected.version)
       : (previousOf(selected)?.version ?? 0)
+
     const high = compareVersion
       ? Math.max(compareVersion.version, selected.version)
       : selected.version
+
     return ordered
       .filter((row) => row.version > low && row.version <= high)
       .map((row) => ({
@@ -380,6 +403,7 @@ function TemplateVersions() {
         ),
       )
     })
+
     return map
   }, [rows, sheets.versionsById])
 
@@ -769,9 +793,11 @@ function GovernanceDialog({
   onStale: (version: NotebookTemplateVersion, error: unknown) => void
 }) {
   const [reason, setReason] = useState('')
+
   const [meaning, setMeaning] = useState(
     t('library.templates.versions.retiredNoLongerForNew'),
   )
+
   const [error, setError] = useState<string | null>(null)
 
   const publish = useMutation({
@@ -795,11 +821,14 @@ function GovernanceDialog({
     onError: (e) => {
       if (isStaleRevisionError(e)) {
         onStale(version, e)
+
         return
       }
+
       setError(errorMessage(e))
     },
   })
+
   const retire = useMutation({
     mutationFn: () =>
       retireNotebookTemplateVersion(
@@ -817,11 +846,14 @@ function GovernanceDialog({
     onError: (e) => {
       if (isStaleRevisionError(e)) {
         onStale(version, e)
+
         return
       }
+
       setError(errorMessage(e))
     },
   })
+
   const busy = publish.isPending || retire.isPending
 
   return (
@@ -884,10 +916,13 @@ function GovernanceDialog({
             disabled={busy || reason.trim().length < 1}
             onClick={() => {
               setError(null)
+
               if (reason.trim().length < 1) {
                 setError(t('library.templates.versions.giveAReasonForThe'))
+
                 return
               }
+
               if (kind === 'publish') publish.mutate()
               else retire.mutate()
             }}
@@ -910,13 +945,17 @@ function GovernanceDialog({
 
 function errorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error)
+
   if (message.includes('certification')) {
     return t('library.templates.versions.youHaventCertifiedYourElectronic')
   }
+
   if (message.includes('unsigned records')) {
     return t('library.templates.versions.unsignedRecordsAreStillOn')
   }
+
   if (message.includes('reason'))
     return t('library.templates.versions.giveAReasonForThe')
+
   return message
 }

@@ -17,18 +17,23 @@ export function formatListDate(
 ): string {
   if (!iso) return '—'
   const at = new Date(iso)
+
   if (Number.isNaN(at.getTime())) return '—'
+
   if (dayOf(at) === dayOf(now))
     return formatInstant(iso, {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
     })
+
   if (dayOf(at) === dayOf(new Date(now.getTime() - 24 * 60 * 60 * 1000)))
     return 'Yesterday'
+
   const sameYear =
     formatInstant(iso, { year: 'numeric' }) ===
     formatInstant(now.toISOString(), { year: 'numeric' })
+
   return formatInstant(iso, {
     day: 'numeric',
     month: 'short',

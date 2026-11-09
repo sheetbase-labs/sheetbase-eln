@@ -37,7 +37,9 @@ function client(rows: ColumnPromotion[]) {
   const instance = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+
   instance.setQueryData(['column-promotions', INSTANCE_ID, FIELD_ID], rows)
+
   return instance
 }
 
@@ -64,7 +66,9 @@ const meta = {
     onKeepLocal: () => {},
   },
 } satisfies Meta<typeof PromoteRejected>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Returned: the banner names the decision and offers both next steps. */

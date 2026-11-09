@@ -8,6 +8,7 @@ describe('plainTextToRichText', () => {
     const payload = plainTextToRichText(
       '## Aim\nTest the buffer.\nSecond line.\n\n- one\n- two\n\n1. first\n2. second',
     )
+
     expect(isRichTextPayload(payload)).toBe(true)
     expect(payload.doc.content.map((node) => node.type)).toEqual([
       'heading',

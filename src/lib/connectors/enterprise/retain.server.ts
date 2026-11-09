@@ -43,6 +43,7 @@ export function postgrestFileObjectReader(
 ): RetentionFileObjectReader {
   return async (_workspaceId, recordId) => {
     const { postgrestSelect } = await import('#/lib/request-auth')
+
     const { status, body } = await postgrestSelect<
       Array<{
         id: string
@@ -55,7 +56,9 @@ export function postgrestFileObjectReader(
       `record_id=eq.${encodeURIComponent(recordId)}&select=id,storage_key,status,version&limit=1`,
       token,
     )
+
     if (status >= 400) return null
+
     return (
       ((
         body as Array<
@@ -101,7 +104,9 @@ export async function retainExternalBytes(input: {
     p_storage_backend: env.FILE_STORAGE_BACKEND,
     p_file_object_id: fileObjectId,
   })) as unknown as { record_id?: string } | Array<{ record_id?: string }>
+
   const created = (Array.isArray(response) ? response.at(0) : response) ?? {}
+
   if (!created.record_id) {
     throw new Error('File retention was rejected by the file platform.')
   }
@@ -111,6 +116,7 @@ export async function retainExternalBytes(input: {
     input.workspaceId,
     created.record_id,
   )
+
   if (!fileObject) {
     throw new Error('File object could not be resolved after creation.')
   }
@@ -119,6 +125,7 @@ export async function retainExternalBytes(input: {
   const storage = getObjectStorage()
   const stream = new Blob([input.bytes as BlobPart]).stream()
   let result
+
   try {
     result = await storage.putStream(candidateKey, stream, FILE_MAX_BYTES)
   } catch (error) {
@@ -127,6 +134,7 @@ export async function retainExternalBytes(input: {
         `Source object exceeds the ${FILE_MAX_BYTES}-byte retention cap.`,
       )
     }
+
     throw error
   }
 
@@ -138,6 +146,7 @@ export async function retainExternalBytes(input: {
     p_byte_size: result.byteSize.toString(),
     p_checksum: result.checksum,
   })
+
   if ('error' in finalize) {
     await storage.delete(candidateKey)
     throw new Error('File retention failed during finalization.')

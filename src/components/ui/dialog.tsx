@@ -50,6 +50,7 @@ export function DialogHeader({
     </div>
   )
 }
+
 export function DialogBody({
   className,
   ...props
@@ -64,6 +65,7 @@ export function DialogBody({
     />
   )
 }
+
 export function DialogFooter({
   className,
   ...props

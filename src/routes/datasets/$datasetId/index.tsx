@@ -40,6 +40,7 @@ function DatasetOverview() {
   const { context } = Route.useRouteContext()
   const summaries = useDatasetSummaries()
   const dataset = summaries.data?.find((d) => d.uuid === datasetId)
+
   if (!dataset) {
     return (
       <div className="px-4 py-4 md:px-6">
@@ -51,6 +52,7 @@ function DatasetOverview() {
       </div>
     )
   }
+
   return (
     <DatasetOverviewPanel
       dataset={dataset}
@@ -72,9 +74,11 @@ function DatasetOverviewPanel({
   workspaceId: string
 }) {
   const versions = useDatasetVersions(dataset.uuid)
+
   const { userLabel } = useUserNames(
     dataset.createdByUserId ? [dataset.createdByUserId] : [],
   )
+
   const project = useQuery({
     queryKey: ['ui-port', 'dataset-project', dataset.projectId],
     enabled: Boolean(dataset.projectId),
@@ -193,9 +197,11 @@ function DatasetOverviewPanel({
 function LinkToExperiment({ dataset }: { dataset: DatasetListRow }) {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
+
   const link = useMutation({
     mutationFn: async (items: { id: string; identifier: string }[]) => {
       const experiment = items.at(0)
+
       if (!experiment) return
       await notebookDataClient.rpc('create_record_link', {
         p_source_record_id: experiment.id,
@@ -217,6 +223,7 @@ function LinkToExperiment({ dataset }: { dataset: DatasetListRow }) {
             : t('data.datasetOverview.linkRefused'),
       }),
   })
+
   return (
     <span className="flex items-center gap-2">
       <span className="text-fg-muted">

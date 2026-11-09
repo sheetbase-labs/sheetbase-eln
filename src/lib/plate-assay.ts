@@ -34,12 +34,15 @@ export const NORMALISATIONS = [
   'robust_z',
   'none',
 ] as const
+
 export type Normalisation = (typeof NORMALISATIONS)[number]
 
 export const HIT_RULE_KINDS = ['threshold', 'sd', 'mad'] as const
+
 export type HitRuleKind = (typeof HIT_RULE_KINDS)[number]
 
 export const HIT_DIRECTIONS = ['above', 'below', 'either'] as const
+
 export type HitDirection = (typeof HIT_DIRECTIONS)[number]
 
 export interface HitRule {
@@ -109,18 +112,23 @@ function isRecord(v: unknown): v is Record<string, unknown> {
  */
 export function normaliseAssayConfig(raw: unknown): PlateAssayConfig {
   const base = defaultAssayConfig()
+
   if (!isRecord(raw)) return base
   const hitRaw = isRecord(raw.hit) ? raw.hit : {}
   const qcRaw = isRecord(raw.qc) ? raw.qc : {}
+
   const num = (v: unknown, fallback: number) =>
     typeof v === 'number' && Number.isFinite(v) ? v : fallback
+
   const numOrNull = (v: unknown, fallback: number | null) =>
     v === null
       ? null
       : typeof v === 'number' && Number.isFinite(v)
         ? v
         : fallback
+
   const minRep = hitRaw.minReplicates
+
   return {
     version: PLATE_ASSAY_METHOD_VERSION,
     normalisation: (NORMALISATIONS as readonly unknown[]).includes(
@@ -296,7 +304,9 @@ export interface PlateAnalysis {
 
 function controlStats(values: number[]): ControlStats {
   const s = summaryStats(values)
+
   if (!s) return { n: 0, mean: null, sd: null, cv: null }
+
   return {
     n: s.n,
     mean: s.mean,
@@ -309,14 +319,17 @@ function median(values: number[]): number | null {
   if (values.length === 0) return null
   const s = [...values].sort((a, b) => a - b)
   const mid = Math.floor(s.length / 2)
+
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2
 }
 
 /** Median absolute deviation, scaled to match a standard deviation. */
 export function madScaled(values: number[]): number | null {
   const m = median(values)
+
   if (m === null) return null
   const dev = median(values.map((v) => Math.abs(v - m)))
+
   return dev === null ? null : dev * 1.4826
 }
 
@@ -333,12 +346,15 @@ const MOLAR_FACTORS: Record<string, number> = {
 /** Factor to mol/L for a molar unit, or null for anything else. */
 export function molarFactor(unit: string | null | undefined): number | null {
   if (!unit) return null
+
   return MOLAR_FACTORS[unit.trim().toLowerCase()] ?? null
 }
 
 function isEdge(code: string, rows: number, cols: number): boolean {
   const p = parseWellCode(code)
+
   if (!p) return false
+
   return p.row === 0 || p.col === 0 || p.row === rows - 1 || p.col === cols - 1
 }
 
@@ -346,13 +362,17 @@ function isEdge(code: string, rows: number, cols: number): boolean {
 export function inferPlateFormat(codes: string[]): PlateFormat | null {
   let maxRow = -1
   let maxCol = -1
+
   for (const code of codes) {
     const p = parseWellCode(code)
+
     if (!p) continue
     maxRow = Math.max(maxRow, p.row)
     maxCol = Math.max(maxCol, p.col)
   }
+
   if (maxRow < 0) return null
+
   return (
     PLATE_FORMATS.find(
       (f) =>
@@ -373,11 +393,13 @@ function judgeQc(
   blank: ControlStats,
 ): PlateQc {
   const checks: PlateQc['checks'] = []
+
   const haveControls =
     positive.n >= 2 &&
     negative.n >= 2 &&
     positive.mean !== null &&
     negative.mean !== null
+
   checks.push({
     id: 'controls_present',
     status: haveControls ? 'pass' : 'not_checked',
@@ -389,21 +411,26 @@ function judgeQc(
   let ssmd: number | null = null
   let sb: number | null = null
   let sn: number | null = null
+
   if (haveControls) {
     const mp = positive.mean as number
     const mn = negative.mean as number
     const sp = positive.sd ?? 0
     const sn_ = negative.sd ?? 0
     const separation = Math.abs(mp - mn)
+
     if (separation > 0) zPrime = 1 - (3 * (sp + sn_)) / separation
     const pooled = Math.sqrt(sp * sp + sn_ * sn_)
+
     if (pooled > 0) ssmd = (mp - mn) / pooled
     // Signal-to-background is the higher control over the lower one, after any
     // blank is removed, so it reads the same whichever way the assay runs.
     const b = config.subtractBlank && blank.mean !== null ? blank.mean : 0
     const high = Math.max(mp, mn) - b
     const low = Math.min(mp, mn) - b
+
     if (low > 0) sb = high / low
+
     if (sn_ > 0) sn = separation / sn_
   }
 
@@ -415,6 +442,7 @@ function judgeQc(
         : zPrime >= config.qc.zPrimeFail
           ? 'warn'
           : 'fail'
+
   checks.push({
     id: 'z_prime',
     status: zStatus,
@@ -435,6 +463,7 @@ function judgeQc(
       limit: config.qc.signalToBackgroundMin,
     })
   }
+
   if (config.qc.controlCvMax !== null) {
     const worst = Math.max(positive.cv ?? 0, negative.cv ?? 0)
     checks.push({
@@ -451,8 +480,10 @@ function judgeQc(
   }
 
   const order: QcStatus[] = ['fail', 'warn', 'not_checked', 'pass']
+
   const status =
     order.find((s) => checks.some((c) => c.status === s)) ?? 'not_checked'
+
   return {
     positive,
     negative,
@@ -473,16 +504,24 @@ function meetsRule(
   scale: number | null,
 ): boolean {
   let signed: number
+
   if (rule.kind === 'threshold') {
     signed = value
+
     if (rule.direction === 'above') return signed >= rule.threshold
+
     if (rule.direction === 'below') return signed <= rule.threshold
+
     return Math.abs(signed) >= Math.abs(rule.threshold)
   }
+
   if (scale === null || !(scale > 0)) return false
   signed = (value - centre) / scale
+
   if (rule.direction === 'above') return signed >= rule.threshold
+
   if (rule.direction === 'below') return signed <= -rule.threshold
+
   return Math.abs(signed) >= rule.threshold
 }
 
@@ -498,18 +537,23 @@ export function analysePlate(
 
   const rawOf = (code: string) => {
     const v = readout[code]
+
     return typeof v === 'number' && Number.isFinite(v) ? v : null
   }
+
   const byRole = (role: AssignmentRole) => wells.filter((w) => w.role === role)
 
   // Blank correction.
   const blankValues = byRole('blank')
     .map((w) => rawOf(w.wellCode))
     .filter((v): v is number => v !== null)
+
   const blankMean = summaryStats(blankValues)?.mean ?? null
   const offset = config.subtractBlank && blankMean !== null ? blankMean : 0
+
   const corrected = (code: string) => {
     const v = rawOf(code)
+
     return v === null ? null : v - offset
   }
 
@@ -520,35 +564,43 @@ export function analysePlate(
 
   const positive = controlStats(valuesFor('positive_control'))
   const negative = controlStats(valuesFor('negative_control'))
+
   const blank = controlStats(
     byRole('blank')
       .map((w) => rawOf(w.wellCode))
       .filter((v): v is number => v !== null),
   )
+
   const qc = judgeQc(config, positive, negative, blank)
 
   // Normalisation.
   const sampleCorrected = byRole('sample')
     .map((w) => corrected(w.wellCode))
     .filter((v): v is number => v !== null)
+
   const sampleStats = summaryStats(sampleCorrected)
   const sampleMedian = median(sampleCorrected)
   const sampleMad = madScaled(sampleCorrected)
 
   const normalise = (x: number | null): number | null => {
     if (x === null) return null
+
     switch (config.normalisation) {
       case 'none':
         return x
       case 'percent_effect': {
         if (positive.mean === null || negative.mean === null) return null
         const span = positive.mean - negative.mean
+
         return span === 0 ? null : (100 * (x - negative.mean)) / span
       }
+
       case 'percent_of_negative': {
         if (negative.mean === null || negative.mean === 0) return null
+
         return (100 * x) / negative.mean
       }
+
       case 'z_score':
         return sampleStats && sampleStats.sd !== null && sampleStats.sd > 0
           ? (x - sampleStats.mean) / sampleStats.sd
@@ -563,6 +615,7 @@ export function analysePlate(
   const results: WellResult[] = wells.map((w) => {
     const raw = rawOf(w.wellCode)
     const corr = corrected(w.wellCode)
+
     return {
       wellCode: w.wellCode,
       role: w.role,
@@ -573,18 +626,22 @@ export function analysePlate(
       edge: dims.rows > 0 && isEdge(w.wellCode, dims.rows, dims.cols),
     }
   })
+
   const resultByCode = new Map(results.map((r) => [r.wellCode, r]))
 
   // Reference for sd / mad hit rules, in normalised units.
   const normalisedNegatives = results
     .filter((r) => r.role === 'negative_control' && r.normalised !== null)
     .map((r) => r.normalised as number)
+
   const normalisedSamples = results
     .filter((r) => r.role === 'sample' && r.normalised !== null)
     .map((r) => r.normalised as number)
+
   const negStats = summaryStats(normalisedNegatives)
   let centre = 0
   let scale: number | null = null
+
   if (config.hit.kind === 'sd') {
     centre = negStats?.mean ?? 0
     scale = negStats?.sd ?? null
@@ -595,16 +652,20 @@ export function analysePlate(
 
   // Group sample wells by sample and dose.
   const groups = new Map<string, SampleGroupResult>()
+
   for (const w of wells) {
     if (w.role !== 'sample') continue
     const label = w.sampleLabel ?? w.sampleId ?? w.wellCode
     const id = w.sampleId ?? null
+
     const conc =
       typeof w.concentration === 'number' && Number.isFinite(w.concentration)
         ? w.concentration
         : null
+
     const key = `${id ?? label}|${conc ?? ''}|${w.concentrationUnit ?? ''}`
     let g = groups.get(key)
+
     if (!g) {
       g = {
         key,
@@ -621,18 +682,23 @@ export function analysePlate(
       }
       groups.set(key, g)
     }
+
     g.wells.push(w.wellCode)
   }
 
   for (const g of groups.values()) {
     const values: number[] = []
     const passing: string[] = []
+
     for (const code of g.wells) {
       const r = resultByCode.get(code)
+
       if (!r || r.normalised === null) continue
       values.push(r.normalised)
+
       if (meetsRule(r.normalised, config.hit, centre, scale)) passing.push(code)
     }
+
     const s = summaryStats(values)
     g.n = values.length
     g.mean = s?.mean ?? null
@@ -641,25 +707,32 @@ export function analysePlate(
       s && s.sd !== null && s.mean !== 0
         ? (s.sd / Math.abs(s.mean)) * 100
         : null
+
     const need =
       config.hit.minReplicates === 'all'
         ? values.length
         : Math.min(config.hit.minReplicates, values.length)
+
     g.hit = values.length > 0 && passing.length >= need
+
     if (g.hit) for (const code of passing) resultByCode.get(code)!.hit = true
   }
+
   const samples = [...groups.values()]
 
   // Edge effect on sample wells (normalised).
   const edgeVals = results
     .filter((r) => r.role === 'sample' && r.edge && r.normalised !== null)
     .map((r) => r.normalised as number)
+
   const innerVals = results
     .filter((r) => r.role === 'sample' && !r.edge && r.normalised !== null)
     .map((r) => r.normalised as number)
+
   const edgeMean = summaryStats(edgeVals)?.mean ?? null
   const innerMean = summaryStats(innerVals)?.mean ?? null
   const innerSd = summaryStats(innerVals)?.sd ?? null
+
   const edge: EdgeEffect = {
     edgeMean,
     innerMean,
@@ -680,9 +753,11 @@ export function analysePlate(
 
   const sampleWells = results.filter((r) => r.role === 'sample')
   const testedKeys = new Set(samples.map((s) => s.sampleId ?? s.label))
+
   const hitKeys = new Set(
     samples.filter((s) => s.hit).map((s) => s.sampleId ?? s.label),
   )
+
   return {
     methodVersion: PLATE_ASSAY_METHOD_VERSION,
     config,
@@ -715,6 +790,7 @@ function fitSampleCurves(
   config: PlateAssayConfig,
 ): { curves: SampleCurve[]; unfitted: PlateAnalysis['unfitted'] } {
   const byCode = new Map(results.map((r) => [r.wellCode, r]))
+
   const bySample = new Map<
     string,
     {
@@ -724,14 +800,18 @@ function fitSampleCurves(
       points: Array<{ x: number; y: number }>
     }
   >()
+
   for (const w of wells) {
     if (w.role !== 'sample') continue
+
     if (!(typeof w.concentration === 'number' && w.concentration > 0)) continue
     const r = byCode.get(w.wellCode)
+
     if (!r || r.normalised === null) continue
     const label = w.sampleLabel ?? w.sampleId ?? w.wellCode
     const key = `${w.sampleId ?? label}|${w.concentrationUnit ?? ''}`
     let entry = bySample.get(key)
+
     if (!entry) {
       entry = {
         sampleId: w.sampleId ?? null,
@@ -741,28 +821,35 @@ function fitSampleCurves(
       }
       bySample.set(key, entry)
     }
+
     entry.points.push({ x: w.concentration, y: r.normalised })
   }
 
   const curves: SampleCurve[] = []
   const unfitted: PlateAnalysis['unfitted'] = []
+
   for (const [key, entry] of bySample) {
     const doses = new Set(entry.points.map((p) => p.x))
+
     if (doses.size < MIN_DOSES[config.curveModel]) {
       unfitted.push({ key, label: entry.label, reason: 'too_few_doses' })
       continue
     }
+
     const fit = fitCurve(
       entry.points.map((p) => p.x),
       entry.points.map((p) => p.y),
       config.curveModel,
     )
+
     if (!fit) {
       unfitted.push({ key, label: entry.label, reason: 'fit_failed' })
       continue
     }
+
     curves.push(curveFromFit(key, entry, fit, config.curveModel))
   }
+
   return { curves, unfitted }
 }
 
@@ -781,15 +868,20 @@ function curveFromFit(
   const lo = Math.min(...xs)
   const hi = Math.max(...xs)
   const flags: SampleCurve['flags'] = []
+
   if (fit.ec50 < lo || fit.ec50 > hi) flags.push('ec50_outside_range')
   const ys = entry.points.map((p) => p.y)
   const span = Math.abs(fit.params.A - fit.params.D)
   const yRange = Math.max(...ys) - Math.min(...ys)
+
   if (yRange > 0 && span > 1.5 * yRange) flags.push('no_plateau')
+
   if (!fit.converged) flags.push('not_converged')
+
   if (fit.ec50Ci95 && fit.ec50Ci95.hi / fit.ec50Ci95.lo > 100)
     flags.push('wide_interval')
   const factor = molarFactor(entry.unit)
+
   return {
     key,
     sampleId: entry.sampleId,
@@ -872,13 +964,16 @@ export function summarisePotency(
       values: PotencyPlateValue[]
     }
   >()
+
   for (const input of inputs) {
     if (input.qcStatus === 'fail' && !options.includeFailed) continue
+
     for (const c of input.curves) {
       if (options.excludeUnreliable && c.flags.length > 0) continue
       const molar = c.ec50Molar !== null
       const key = `${c.sampleId ?? c.label}|${molar ? 'M' : (c.concentrationUnit ?? '')}`
       let g = groups.get(key)
+
       if (!g) {
         g = {
           sampleId: c.sampleId,
@@ -889,6 +984,7 @@ export function summarisePotency(
         }
         groups.set(key, g)
       }
+
       g.values.push({
         runId: input.runId,
         runName: input.runName,
@@ -901,16 +997,20 @@ export function summarisePotency(
   }
 
   const out: PotencySummary[] = []
+
   for (const [key, g] of groups) {
     const logs = g.values.map((v) =>
       Math.log10(g.molar ? (v.ec50Molar as number) : v.ec50),
     )
+
     const n = logs.length
     const mean = logs.reduce((s, v) => s + v, 0) / n
+
     const sd =
       n > 1
         ? Math.sqrt(logs.reduce((s, v) => s + (v - mean) ** 2, 0) / (n - 1))
         : null
+
     const half = sd !== null ? (tCritical95(n - 1) * sd) / Math.sqrt(n) : null
     const linear = logs.map((l) => 10 ** l)
     out.push({
@@ -931,6 +1031,7 @@ export function summarisePotency(
       values: g.values,
     })
   }
+
   return out.sort((a, b) => a.label.localeCompare(b.label))
 }
 
@@ -940,7 +1041,9 @@ export function relativePotency(
   referenceKey: string,
 ): Array<{ key: string; label: string; ratio: number }> | null {
   const ref = summaries.find((s) => s.key === referenceKey)
+
   if (!ref) return null
+
   return summaries
     .filter((s) => s.key !== referenceKey && s.unit === ref.unit)
     .map((s) => ({
@@ -989,8 +1092,10 @@ function splitLine(line: string, delimiter: string): string[] {
   const cells: string[] = []
   let current = ''
   let quoted = false
+
   for (let i = 0; i < line.length; i++) {
     const ch = line[i]
+
     if (ch === '"') {
       if (quoted && line[i + 1] === '"') {
         current += '"'
@@ -1001,21 +1106,27 @@ function splitLine(line: string, delimiter: string): string[] {
       current = ''
     } else current += ch
   }
+
   cells.push(current.trim())
+
   return cells
 }
 
 function toNumber(cell: string | undefined): number | null {
   if (cell === undefined) return null
   const c = cell.trim().replace(/,/g, cell.includes('.') ? '' : '.')
+
   if (c === '') return null
   const n = Number(c)
+
   return Number.isFinite(n) ? n : null
 }
 
 function normalWell(cell: string): string | null {
   const m = /^([A-Za-z]+)\s*0*([1-9][0-9]*)$/.exec(cell.trim())
+
   if (!m) return null
+
   return `${m[1].toUpperCase()}${m[2]}`
 }
 
@@ -1028,30 +1139,37 @@ function normalWell(cell: string): string | null {
  */
 export function parsePlateTable(text: string): ParsedPlateTable {
   const warnings: string[] = []
+
   const lines = text
     .split(/\r?\n/)
     .map((l) => l.trimEnd())
     .filter((l) => l.trim() !== '')
+
   const empty: ParsedPlateTable = {
     wells: [],
     readout: {},
     format: null,
     warnings,
   }
+
   if (lines.length === 0) return empty
+
   const delimiter = lines[0].includes('\t')
     ? '\t'
     : lines[0].includes(';') && !lines[0].includes(',')
       ? ';'
       : ','
+
   const rows = lines.map((l) => splitLine(l, delimiter))
 
   // Grid: first row is column numbers (first cell may be blank).
   const header = rows[0].slice(1).map((c) => Number(c))
+
   const looksLikeGrid =
     header.length >= 3 &&
     header.every((n, i) => Number.isInteger(n) && n === i + 1) &&
     rows.slice(1).every((r) => /^[A-Za-z]{1,2}$/.test(r[0] ?? ''))
+
   if (looksLikeGrid) {
     const readout: PlateReadout = {}
     const wells: AssayWell[] = []
@@ -1065,6 +1183,7 @@ export function parsePlateTable(text: string): ParsedPlateTable {
         wells.push({ wellCode: code, role: 'sample' })
       })
     })
+
     return {
       wells,
       readout,
@@ -1077,10 +1196,13 @@ export function parsePlateTable(text: string): ParsedPlateTable {
   const head = rows[0].map((h) => h.toLowerCase().replace(/[\s_-]+/g, ''))
   const col = (...names: string[]) => head.findIndex((h) => names.includes(h))
   const wellCol = col('well', 'wellcode', 'position', 'wellposition')
+
   if (wellCol < 0) {
     warnings.push('no_well_column')
+
     return empty
   }
+
   const valueCol = col(
     'value',
     'readout',
@@ -1091,7 +1213,9 @@ export function parsePlateTable(text: string): ParsedPlateTable {
     'raw',
     'result',
   )
+
   const roleCol = col('role', 'type', 'welltype', 'control')
+
   const sampleCol = col(
     'sample',
     'compound',
@@ -1100,29 +1224,37 @@ export function parsePlateTable(text: string): ParsedPlateTable {
     'name',
     'id',
   )
+
   const concCol = col('concentration', 'conc', 'dose')
   const unitCol = col('unit', 'concentrationunit', 'concunit', 'units')
   const wells: AssayWell[] = []
   const readout: PlateReadout = {}
   const seen = new Set<string>()
+
   for (const r of rows.slice(1)) {
     const code = normalWell(r[wellCol] ?? '')
+
     if (!code || !parseWellCode(code)) {
       warnings.push(`bad_well:${r[wellCol] ?? ''}`)
       continue
     }
+
     if (seen.has(code)) {
       warnings.push(`duplicate_well:${code}`)
       continue
     }
+
     seen.add(code)
     let role: AssignmentRole = 'sample'
+
     if (roleCol >= 0) {
       const alias = ROLE_ALIASES[(r[roleCol] ?? '').trim().toLowerCase()]
+
       if (alias) role = alias
       else if ((r[roleCol] ?? '').trim() !== '')
         warnings.push(`bad_role:${r[roleCol]}`)
     }
+
     const label = sampleCol >= 0 ? (r[sampleCol] ?? '').trim() : ''
     wells.push({
       wellCode: code,
@@ -1134,8 +1266,10 @@ export function parsePlateTable(text: string): ParsedPlateTable {
           ? r[unitCol].trim()
           : null,
     })
+
     if (valueCol >= 0) readout[code] = toNumber(r[valueCol])
   }
+
   return {
     wells,
     readout,
@@ -1148,8 +1282,10 @@ export function parsePlateTable(text: string): ParsedPlateTable {
 export function allWellCodes(format: PlateFormat): string[] {
   const { rows, cols } = FORMAT_DIMENSIONS[format]
   const out: string[] = []
+
   for (let r = 0; r < rows; r++)
     for (let c = 0; c < cols; c++) out.push(wellCode(r, c))
+
   return out
 }
 

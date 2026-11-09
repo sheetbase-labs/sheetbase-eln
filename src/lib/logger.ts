@@ -27,6 +27,7 @@ const LEVEL_PRIORITY: Record<LogLevel, number> = {
 
 function resolveMinLevel(): LogLevel {
   const raw = process.env.LOG_LEVEL?.toLowerCase()
+
   return raw && raw in LEVEL_PRIORITY ? (raw as LogLevel) : 'info'
 }
 
@@ -57,17 +58,21 @@ const REDACTED_VALUE = '[redacted]'
 /** Recursively redacts sensitive keys from an arbitrary value. */
 export function redact<T>(value: T): T {
   if (value === null || typeof value !== 'object') return value
+
   if (Array.isArray(value)) return value.map(redact) as unknown as T
 
   const out: Record<string, unknown> = {}
+
   for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
     const lower = key.toLowerCase()
+
     if (REDACTED_KEYS.has(lower)) {
       out[key] = REDACTED_VALUE
     } else {
       out[key] = redact(val)
     }
   }
+
   return out as T
 }
 

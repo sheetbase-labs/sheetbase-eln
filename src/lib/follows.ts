@@ -18,18 +18,22 @@ const TABLE: Record<FollowKind, string> = {
   record: 'work_item_follows',
   project: 'project_follows',
 }
+
 const COLUMN: Record<FollowKind, string> = {
   record: 'record_id',
   project: 'project_id',
 }
+
 const FOLLOW_RPC: Record<FollowKind, string> = {
   record: 'follow_record',
   project: 'follow_project',
 }
+
 const UNFOLLOW_RPC: Record<FollowKind, string> = {
   record: 'unfollow_record',
   project: 'unfollow_project',
 }
+
 const ARGUMENT: Record<FollowKind, string> = {
   record: 'p_record_id',
   project: 'p_project_id',
@@ -70,11 +74,13 @@ export function useFollowState(
 ) {
   const queryClient = useQueryClient()
   const key = followQueryKey(kind, id ?? '')
+
   const query = useQuery({
     queryKey: key,
     queryFn: () => fetchIsFollowing(client, kind, id ?? ''),
     enabled: Boolean(id),
   })
+
   const mutation = useMutation({
     mutationFn: (following: boolean) =>
       setFollowing(client, kind, id ?? '', following),
@@ -83,6 +89,7 @@ export function useFollowState(
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData<boolean>(key)
       queryClient.setQueryData(key, following)
+
       return { previous }
     },
     onError: (_error, _following, context) => {
@@ -95,6 +102,7 @@ export function useFollowState(
       void queryClient.invalidateQueries({ queryKey: ['work-items'] })
     },
   })
+
   return {
     following: query.data ?? false,
     ready: query.isSuccess,

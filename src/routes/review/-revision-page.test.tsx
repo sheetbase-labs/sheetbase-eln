@@ -89,11 +89,14 @@ vi.mock('@tanstack/react-router', () => ({
     children: React.ReactNode
   } & Record<string, unknown>) => {
     let href = to
+
     for (const [key, value] of Object.entries(params ?? {}))
       href = href.replace(`$${key}`, encodeURIComponent(value))
+
     if (search && 'revision' in search) {
       href += `?revision=${encodeURIComponent(String(search.revision))}`
     }
+
     return (
       <a href={href} {...props}>
         {children}
@@ -109,6 +112,7 @@ vi.mock('@tanstack/react-start', () => {
   chain.middleware = () => chain
   chain.validator = () => chain
   chain.handler = () => vi.fn()
+
   return { createServerFn: () => chain }
 })
 
@@ -285,9 +289,11 @@ describe('buildStepperState', () => {
     expect(state.submission.actor?.name).toBe(
       `Name of ${submission().submitted_by_user_id}`,
     )
+
     const activeKey = Object.keys(state).find(
       (k) => k !== 'submission' && k !== 'approved',
     )
+
     expect(activeKey).toBeDefined()
     expect(state[activeKey!].state).toBe('active')
   })
@@ -298,15 +304,18 @@ describe('buildStepperState', () => {
       [],
       nameOf,
     )
+
     expect(state.approved.state).toBe('completed')
   })
 
   it('keeps signed & locked waiting until someone has signed', () => {
     const approved = submission({ state: 'approved' })
     expect(buildStepperState(approved, [], nameOf).signed.state).toBe('active')
+
     const signed = buildStepperState(approved, [], nameOf, {
       signers: ['reviewer-a'],
     })
+
     expect(signed.signed.state).toBe('completed')
     expect(signed.signed.actor?.name).toBe('Name of reviewer-a')
   })
@@ -317,6 +326,7 @@ describe('buildStepperState', () => {
       [],
       nameOf,
     )
+
     expect(state.approved.state).toBe('unavailable')
   })
 
@@ -326,9 +336,11 @@ describe('buildStepperState', () => {
       [],
       nameOf,
     )
+
     const unavailable = Object.values(state).find(
       (s) => s.state === 'unavailable',
     )
+
     expect(unavailable).toBeDefined()
   })
 
@@ -349,10 +361,13 @@ describe('buildStepperState', () => {
         created_at: new Date().toISOString(),
       },
     ]
+
     const state = buildStepperState(submission(), decisions, nameOf)
+
     const activeKey = Object.keys(state).find(
       (k) => k !== 'submission' && k !== 'approved',
     )
+
     expect(state[activeKey!].state).toBe('completed')
     expect(state[activeKey!].actor?.name).toBe('Name of reviewer-a')
   })
@@ -590,11 +605,13 @@ describe('ActionButtons — confirmation consequence text', () => {
         onAfterDecision={vi.fn().mockResolvedValue(undefined)}
       />,
     )
+
     const cases: Array<[ReviewDecisionKind, string, RegExp]> = [
       ['approve', 'Approve', /Approved/],
       ['request_changes', 'Request changes', /Changes requested/],
       ['reject', 'Reject', /Rejected/],
     ]
+
     for (const [, label, nextStateRe] of cases) {
       fireEvent.click(screen.getByRole('button', { name: label }))
       const dialog = await screen.findByRole('alertdialog')
@@ -649,6 +666,7 @@ describe('ActionButtons — stale and permission-loss error surfacing', () => {
       .mockRejectedValue(
         new DataClientError('SB005', 'review state changed', 409),
       )
+
     renderActionButtons({
       permission: makePermission({ canReview: true, canWithdraw: false }),
       onAfterDecision,
@@ -666,6 +684,7 @@ describe('ActionButtons — stale and permission-loss error surfacing', () => {
       .mockRejectedValue(
         new DataClientError('SB006', 'revision is superseded', 409),
       )
+
     renderActionButtons({
       permission: makePermission({ canReview: true, canWithdraw: false }),
       onAfterDecision,
@@ -680,6 +699,7 @@ describe('ActionButtons — stale and permission-loss error surfacing', () => {
     const onAfterDecision = vi
       .fn()
       .mockRejectedValue(new DataClientError('42501', 'permission denied', 403))
+
     renderActionButtons({
       permission: makePermission({ canReview: true, canWithdraw: false }),
       onAfterDecision,
@@ -702,6 +722,7 @@ describe('deriveReviewActionPermission integration', () => {
       submittedByUserId: 'owner-a',
       currentUserId: 'outsider',
     })
+
     expect(p.canReview).toBe(false)
     expect(p.canWithdraw).toBe(false)
   })
@@ -787,10 +808,13 @@ describe('witness picker effective project authority', () => {
           can_read_record: false,
         },
       ])
+
     const list = vi.spyOn(reviewsDataClient, 'list').mockResolvedValue([])
+
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+
     try {
       render(
         <QueryClientProvider client={queryClient}>
@@ -819,9 +843,11 @@ describe('witness picker effective project authority', () => {
         </QueryClientProvider>,
       )
       const user = userEvent.setup()
+
       const picker = await screen.findByLabelText(
         'Request a witness for this frozen revision',
       )
+
       await waitFor(() =>
         expect((picker as HTMLButtonElement).disabled).toBe(false),
       )
@@ -876,10 +902,13 @@ describe('witness picker effective project authority', () => {
         },
       ])
       .mockResolvedValueOnce([])
+
     const list = vi.spyOn(reviewsDataClient, 'list').mockResolvedValue([])
+
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+
     try {
       render(
         <QueryClientProvider client={queryClient}>
@@ -908,9 +937,11 @@ describe('witness picker effective project authority', () => {
         </QueryClientProvider>,
       )
       const user = userEvent.setup()
+
       const picker = await screen.findByLabelText(
         'Request a witness for this frozen revision',
       )
+
       await waitFor(() =>
         expect((picker as HTMLButtonElement).disabled).toBe(false),
       )
@@ -1032,6 +1063,7 @@ describe('REV-01.3 — private draft tray', () => {
         body: 'second draft',
       }),
     ]
+
     const onEdit = vi.fn()
     const onDelete = vi.fn()
     render(
@@ -1065,6 +1097,7 @@ describe('REV-01.3 — private draft tray', () => {
     const { container } = render(
       <DraftCommentsTray drafts={[]} onEdit={vi.fn()} onDelete={vi.fn()} />,
     )
+
     expect(container.querySelector('[aria-label="Draft comments"]')).toBeNull()
   })
 })
@@ -1145,15 +1178,19 @@ describe('REV-01.3 — author resolve and reply path', () => {
     const client = new QueryClient({
       defaultOptions: { queries: { staleTime: Infinity, retry: false } },
     })
+
     client.setQueryData(commentsQueryKeys.forRevision('rev-1'), [
       commentWire('root-1'),
     ])
+
     const rpc = vi
       .spyOn(reviewsDataClient, 'rpc')
       .mockResolvedValue({ id: 'root-1', state: 'resolved' })
+
     const list = vi
       .spyOn(reviewsDataClient, 'list')
       .mockResolvedValue([commentWire('root-1')])
+
     try {
       render(
         <QueryClientProvider client={client}>
@@ -1223,18 +1260,22 @@ describe('R5-SHELL-05 — signing session expiry and lockout', () => {
     requestSignatureStepUpMock.mockReset()
     signRevisionMock.mockReset()
     const rpc = vi.spyOn(reviewsDataClient, 'rpc').mockResolvedValue(true)
+
     const list = vi
       .spyOn(reviewsDataClient, 'list')
       .mockImplementation(async (resource: string) =>
         resource === 'review_check_results' ? [passingCheckResult()] : [],
       )
+
     const onOpenChange = vi.fn()
+
     const queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
         mutations: { retry: false },
       },
     })
+
     fetchWorkspaceCertificationsMock.mockResolvedValueOnce([
       certifiedReviewer('reviewer-a'),
     ])
@@ -1272,6 +1313,7 @@ describe('R5-SHELL-05 — signing session expiry and lockout', () => {
     fireEvent.change(screen.getByLabelText('Type your name to confirm'), {
       target: { value: 'Reviewer A' },
     })
+
     return { rpc, list, queryClient, onOpenChange }
   }
 
@@ -1280,6 +1322,7 @@ describe('R5-SHELL-05 — signing session expiry and lockout', () => {
     requestSignatureStepUpMock.mockRejectedValueOnce(
       new SignatureStepUpError(401, 'Sign in again.', 'session_expired'),
     )
+
     try {
       fireEvent.click(screen.getByRole('button', { name: 'Sign' }))
       await waitFor(() =>
@@ -1309,6 +1352,7 @@ describe('R5-SHELL-05 — signing session expiry and lockout', () => {
         'Signing is locked for 15 minutes after three failed attempts.',
       ),
     )
+
     try {
       fireEvent.click(screen.getByRole('button', { name: 'Sign' }))
       const alert = await screen.findByRole('alert')
@@ -1353,6 +1397,7 @@ function renderSignaturePanel(
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   render(
     <QueryClientProvider client={queryClient}>
       <SignaturePanel
@@ -1368,18 +1413,21 @@ function renderSignaturePanel(
       />
     </QueryClientProvider>,
   )
+
   return queryClient
 }
 
 describe('QA-182 — the decision dialog owns its pending state', () => {
   it('stays open and blocks a second submit until the decision lands', async () => {
     let land: () => void = () => {}
+
     const onAfterDecision = vi.fn(
       () =>
         new Promise<void>((resolve) => {
           land = resolve
         }),
     )
+
     renderActionButtons({
       permission: makePermission({ canReview: true, canWithdraw: false }),
       onAfterDecision,
@@ -1393,6 +1441,7 @@ describe('QA-182 — the decision dialog owns its pending state', () => {
     const pending = await within(dialog).findByRole('button', {
       name: 'Submitting…',
     })
+
     expect(pending.hasAttribute('disabled')).toBe(true)
     fireEvent.click(pending)
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancel' }))
@@ -1462,8 +1511,10 @@ describe('QA-183 — an unusable witness picker states why', () => {
       .spyOn(reviewsDataClient, 'rpc')
       .mockResolvedValueOnce(true)
       .mockRejectedValueOnce(new Error('nope'))
+
     const list = vi.spyOn(reviewsDataClient, 'list').mockResolvedValue([])
     const queryClient = renderSignaturePanel()
+
     try {
       await waitFor(() =>
         expect(
@@ -1489,6 +1540,7 @@ describe('QA-184 — signing always states why it is unavailable', () => {
     const rpc = vi.spyOn(reviewsDataClient, 'rpc').mockResolvedValue(true)
     const list = vi.spyOn(reviewsDataClient, 'list').mockResolvedValue([])
     const queryClient = renderSignaturePanel()
+
     try {
       expect(await screen.findByText(/couldn’t be checked/i)).toBeTruthy()
       expect(screen.queryByRole('dialog')).toBeNull()

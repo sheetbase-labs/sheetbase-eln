@@ -25,6 +25,7 @@ describe('instantiateNotebookTemplateVersion', () => {
       templateVersionId: 'v1',
       idempotent: false,
     }))
+
     const result = await instantiateNotebookTemplateVersion(
       {
         versionId: 'v1',
@@ -34,6 +35,7 @@ describe('instantiateNotebookTemplateVersion', () => {
       },
       client,
     )
+
     expect(client.rpc).toHaveBeenCalledWith(
       'instantiate_notebook_template_version',
       {

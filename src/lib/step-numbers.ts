@@ -17,5 +17,6 @@ export function useStepNumber(
 ): number | null {
   const numbers = React.useContext(StepNumbersContext)
   const shown = blockId ? numbers.get(blockId) : undefined
+
   return shown ?? written ?? null
 }

@@ -19,6 +19,7 @@ function render(ui: ReactElement) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return plainRender(
     <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
   )
@@ -40,6 +41,7 @@ const mocks = vi.hoisted(() => {
     model_version_id: 'version-1',
     model_version: { version: 1 },
   }
+
   return { record, timeline: [] as unknown[], fields: [] as unknown[] }
 })
 
@@ -55,8 +57,10 @@ vi.mock('@tanstack/react-router', () => ({
     children: React.ReactNode
   } & Record<string, unknown>) => {
     let href = to
+
     for (const [key, value] of Object.entries(params ?? {}))
       href = href.replace(`$${key}`, encodeURIComponent(String(value)))
+
     return (
       <a href={href} {...props}>
         {children}
@@ -169,6 +173,7 @@ describe('RecordModelRecord — integrations note', () => {
     const empty = render(
       <RecordModelRecord modelKey="cell_bank" recordId="rec-1" />,
     )
+
     const noteWithNoHistory = integrationsNote()
     empty.unmount()
 

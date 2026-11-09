@@ -37,6 +37,7 @@ export function useLinkedSequences(recordId: string | null) {
         'record_links',
         `?source_record_id=eq.${recordId}&target_kind=eq.file&select=target_record_id`,
       )
+
       const ids = [
         ...new Set(
           links
@@ -44,14 +45,19 @@ export function useLinkedSequences(recordId: string | null) {
             .filter((id): id is string => Boolean(id)),
         ),
       ]
+
       if (ids.length === 0) return []
+
       const files = await notebookDataClient.list<FileWire>(
         'file_objects',
         `?record_id=in.(${ids.map(encodeURIComponent).join(',')})&select=record_id,display_name,created_at,version,sequence_summary&order=version.asc`,
       )
+
       // The latest version of each file is the one that counts.
       const latest = new Map<string, FileWire>()
+
       for (const f of files) latest.set(f.record_id, f)
+
       return [...latest.values()]
         .filter((f) => f.sequence_summary || isSequenceFileName(f.display_name))
         .map((f) => ({

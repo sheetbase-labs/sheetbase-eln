@@ -48,6 +48,7 @@ vi.mock('#/lib/user-names', () => ({
 
 vi.mock('#/lib/templates', async (importOriginal) => {
   const actual = await importOriginal<typeof Templates>()
+
   return {
     ...actual,
     fetchTemplates: vi.fn(async () => fixtures.protocols),
@@ -105,7 +106,9 @@ function makeProtocol(overrides: Partial<NotebookRecord> = {}): NotebookRecord {
 
 function renderRoute() {
   const Component = Route.options.component
+
   if (!Component) throw new Error('Protocols list component required')
+
   return render(
     <QueryClientProvider
       client={
@@ -118,6 +121,7 @@ function renderRoute() {
 }
 
 afterEach(cleanup)
+
 beforeEach(() => {
   vi.resetAllMocks()
   search.value = {}
@@ -144,10 +148,12 @@ describe('protocols toolbar', () => {
 
     expect(await screen.findAllByText('PRT-0002')).not.toHaveLength(0)
     const table = screen.getByRole('table', { name: 'Protocols' })
+
     const ids = () =>
       within(table)
         .getAllByText(/^PRT-\d+$/)
         .map((cell) => cell.textContent)
+
     // Most recently updated first, not the identifier order the page arrived in.
     expect(ids()).toEqual(['PRT-0002', 'PRT-0001'])
 

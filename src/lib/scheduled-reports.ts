@@ -18,9 +18,11 @@ export const REPORT_KINDS = [
   'spend',
   'project_status',
 ] as const
+
 export type ReportKind = (typeof REPORT_KINDS)[number]
 
 export const FREQUENCIES = ['daily', 'weekly', 'monthly'] as const
+
 export type Frequency = (typeof FREQUENCIES)[number]
 
 export const scheduledReportKeys = {
@@ -120,6 +122,7 @@ export async function fetchScheduledReports(
     'scheduled_reports',
     '?order=name.asc&limit=500',
   )
+
   return rows.map(toScheduledReport)
 }
 
@@ -197,9 +200,11 @@ export function describeSchedule(report: {
   sendHour: number
 }): string {
   const time = clock(report.sendHour)
+
   if (report.frequency === 'daily') {
     return t('spend.schedule.sendsDaily', { time })
   }
+
   if (report.frequency === 'weekly') {
     return t('spend.schedule.sendsWeekly', {
       weekday: t(
@@ -208,6 +213,7 @@ export function describeSchedule(report: {
       time,
     })
   }
+
   return t('spend.schedule.sendsMonthly', { day: report.monthDay, time })
 }
 

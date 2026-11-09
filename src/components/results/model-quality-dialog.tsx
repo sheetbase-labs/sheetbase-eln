@@ -57,6 +57,7 @@ const BLANK: Draft = { lower: '', upper: '', alertLower: '', alertUpper: '' }
 
 function toDraft(limits: SpecLimits): Draft {
   const text = (n: number | null) => (n === null ? '' : String(n))
+
   return {
     lower: text(limits.lowerLimit),
     upper: text(limits.upperLimit),
@@ -94,6 +95,7 @@ export function ModelQualityDialog({
 }) {
   const queryClient = useQueryClient()
   const fieldsQuery = useRecordModelFields(model.key)
+
   const numberFields = useMemo(
     () =>
       (fieldsQuery.data ?? []).filter(
@@ -103,16 +105,19 @@ export function ModelQualityDialog({
       ),
     [fieldsQuery.data],
   )
+
   const limits = useQuery({
     queryKey: qualityKeys.limits(model.key),
     queryFn: () => fetchFieldLimits(client, model.key),
     enabled: open && specLimitsOn,
   })
+
   const incidentModels = useQuery({
     queryKey: qualityKeys.incidentModels,
     queryFn: () => fetchIncidentModels(client),
     enabled: open,
   })
+
   const isLog = Boolean(incidentModels.data?.some((m) => m.key === model.key))
 
   const [log, setLog] = useState(false)
@@ -130,26 +135,33 @@ export function ModelQualityDialog({
 
   const problems = numberFields.map((field) => {
     const draft = drafts[field.fieldName] ?? BLANK
+
     if (hasBadNumber(draft)) return 'needsLimit' as const
+
     return limitsProblem(fromDraft(draft))
   })
+
   const blocked = problems.some(Boolean)
 
   const save = useMutation({
     mutationFn: async () => {
       if (log !== isLog) await setModelIncidentLog(client, model.key, log)
+
       if (specLimitsOn) {
         const saved = new Map(
           (limits.data ?? []).map((l) => [l.fieldName, l] as const),
         )
+
         for (const field of numberFields) {
           const next = fromDraft(drafts[field.fieldName] ?? BLANK)
           const was = saved.get(field.fieldName) ?? NO_LIMITS
+
           const same =
             was.lowerLimit === next.lowerLimit &&
             was.upperLimit === next.upperLimit &&
             was.alertLower === next.alertLower &&
             was.alertUpper === next.alertUpper
+
           if (!same) {
             await saveFieldLimits(client, model.key, field.fieldName, next)
           }
@@ -235,6 +247,7 @@ export function ModelQualityDialog({
                         {numberFields.map((field, index) => {
                           const draft = drafts[field.fieldName] ?? BLANK
                           const problem = problemText(problems[index])
+
                           const box = (key: keyof Draft, label: string) => (
                             <TableCell>
                               <Input
@@ -249,6 +262,7 @@ export function ModelQualityDialog({
                               />
                             </TableCell>
                           )
+
                           return (
                             <TableRow key={field.fieldName}>
                               <TableCell>

@@ -59,6 +59,7 @@ export const states = [
   'password',
   'sso-only',
 ] as const
+
 export type SignInState = (typeof states)[number]
 
 const getSignInState = createServerFn({ method: 'GET' }).handler(async () => {
@@ -66,6 +67,7 @@ const getSignInState = createServerFn({ method: 'GET' }).handler(async () => {
   // would pull it into the browser bundle, so it is loaded inside the handler.
   const { isDevAuthFreeEnabled, getAuthMethods } = await import('#/lib/auth')
   const methods = getAuthMethods()
+
   return {
     devAuthFree: isDevAuthFreeEnabled(),
     githubEnabled: methods.github,
@@ -137,13 +139,16 @@ export function SignInSurface({
   const [redirecting, setRedirecting] = useState<
     'github' | 'oidc' | 'saml' | null
   >(null)
+
   const [ssoError, setSsoError] = useState<string | null>(null)
   const [passkeyBusy, setPasskeyBusy] = useState(false)
   const passkeysSupported = usePasskeysSupported()
   const [email, setEmail] = useState('')
+
   const [linkState, setLinkState] = useState<'idle' | 'sending' | 'sent'>(
     'idle',
   )
+
   const message = describeSignInError(error)
 
   const title =
@@ -158,12 +163,15 @@ export function SignInSurface({
       method === 'github'
         ? 'GitHub'
         : ((method === 'saml' ? samlName : oidcName) ?? 'your company')
+
     setRedirecting(method)
     setSsoError(null)
+
     try {
       // The router already validated `?next=`; the surface validates again
       // so a callback URL can never reach the provider unvalidated.
       const callbackURL = safeNextPath(next) ?? '/'
+
       const res =
         method === 'saml'
           ? await fetch('/api/auth/sign-in/sso', {
@@ -182,15 +190,20 @@ export function SignInSurface({
               credentials: 'same-origin',
               body: JSON.stringify({ provider: method, callbackURL }),
             })
+
       const data = (await res.json()) as { url?: string }
+
       if (data.url) {
         window.location.href = data.url
+
         return
       }
+
       setSsoError(t('settings.signIn.didntStart', { provider }))
     } catch {
       setSsoError(t('settings.signIn.couldReachStart', { provider }))
     }
+
     setRedirecting(null)
   }
 
@@ -198,11 +211,14 @@ export function SignInSurface({
     setPasskeyBusy(true)
     setSsoError(null)
     const { error: failure } = await authClient.signIn.passkey()
+
     if (failure) {
       setSsoError(t('people.passkeys.signInFailed'))
       setPasskeyBusy(false)
+
       return
     }
+
     window.location.href = safeNextPath(next) ?? '/'
   }
 
@@ -210,6 +226,7 @@ export function SignInSurface({
     event.preventDefault()
     setLinkState('sending')
     setSsoError(null)
+
     try {
       const res = await fetch('/api/auth/sign-in/magic-link', {
         method: 'POST',
@@ -221,6 +238,7 @@ export function SignInSurface({
           errorCallbackURL: '/sign-in',
         }),
       })
+
       if (!res.ok) throw new Error(String(res.status))
       setLinkState('sent')
     } catch {
@@ -470,6 +488,7 @@ export function SignInSurface({
 function SignIn() {
   const { devAuthFree, githubEnabled, oidcName, samlName, emailLinkEnabled } =
     Route.useLoaderData()
+
   const { state, next, error } = Route.useSearch()
   const help = useHelp()
   // EXP-05.5: the drafts this device kept when its last user signed out.

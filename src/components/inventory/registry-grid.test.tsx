@@ -22,10 +22,12 @@ interface Row {
   id: string
   name: string
 }
+
 const rows: Row[] = [
   { id: 'a', name: 'Alpha' },
   { id: 'b', name: 'Beta' },
 ]
+
 const columns: RegistryColumn<Row>[] = [
   { id: 'name', header: 'Name', cell: ({ row }) => row.original.name },
 ]
@@ -91,11 +93,13 @@ describe('RegistryGrid pinned edges', () => {
         getRowId={(row) => row.id}
       />,
     )
+
     return [...container.querySelectorAll('thead th')].map((th) => [
       th.textContent,
       th.getAttribute('data-pinned'),
     ])
   }
+
   const cell = (id: string, header: string): RegistryColumn<Row> => ({
     id,
     header,
@@ -139,6 +143,7 @@ describe('RegistryGrid tick boxes', () => {
   }) {
     const bulk = useBulkSelection()
     onTicked?.(bulk.ids)
+
     return (
       <PaneContext.Provider
         value={{
@@ -163,9 +168,11 @@ describe('RegistryGrid tick boxes', () => {
 
   it('ticks one row, then every row from the header', async () => {
     const seen: (readonly string[])[] = []
+
     const { getByLabelText } = render(
       <BulkHarness onTicked={(ids) => seen.push(ids)} />,
     )
+
     await userEvent.click(getByLabelText('Select a'))
     expect(seen.at(-1)).toEqual(['a'])
     await userEvent.click(getByLabelText('Select all rows'))
@@ -176,6 +183,7 @@ describe('RegistryGrid tick boxes', () => {
 
   it('does not open the row when a box is ticked', async () => {
     const onRowClick = vi.fn()
+
     const { getByLabelText } = render(
       <PaneContext.Provider
         value={{
@@ -190,6 +198,7 @@ describe('RegistryGrid tick boxes', () => {
         <TickOnly onRowClick={onRowClick} />
       </PaneContext.Provider>,
     )
+
     await userEvent.click(getByLabelText('Select b'))
     expect(onRowClick).not.toHaveBeenCalled()
   })
@@ -197,6 +206,7 @@ describe('RegistryGrid tick boxes', () => {
 
 function TickOnly({ onRowClick }: { onRowClick: () => void }) {
   const bulk = useBulkSelection()
+
   return (
     <RegistryGrid
       label="Rows"

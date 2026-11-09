@@ -15,17 +15,21 @@ import { FORM_READ_TIMEOUT_MS, Route } from './new'
 const NewExperimentRoute = Route.options.component as React.ComponentType
 
 const dataClient = vi.hoisted(() => ({ list: vi.fn(), rpc: vi.fn() }))
+
 const notebookCreate = vi.hoisted(() => ({
   createBlankExperiment: vi.fn(),
   applyExperimentSetup: vi.fn(),
   insertPinnedProtocol: vi.fn(),
 }))
+
 const navigate = vi.hoisted(() => vi.fn())
 const order = vi.hoisted(() => [] as string[])
 const acknowledgeProtocolVersion = vi.hoisted(() => vi.fn())
+
 const search = vi.hoisted((): { current: Record<string, string> } => ({
   current: {},
 }))
+
 const sonner = vi.hoisted(() => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
@@ -48,6 +52,7 @@ vi.mock('#/lib/notebook-data', async (importOriginal) => ({
 }))
 
 vi.mock('#/lib/notebook-create', () => notebookCreate)
+
 vi.mock('#/lib/controlled-protocols', () => ({ acknowledgeProtocolVersion }))
 
 vi.mock('#/components/ui/sonner', () => ({
@@ -95,6 +100,7 @@ function renderForm() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       {React.createElement(NewExperimentRoute)}
@@ -128,16 +134,19 @@ async function submitForm(
   )
   await user.click(screen.getByRole('button', { name: 'A protocol' }))
   await choose(user, /^Protocol version to follow/, /Protocol A/)
+
   if (start) {
     await user.click(
       screen.getByRole('checkbox', { name: /Start the experiment now/ }),
     )
+
     if (acknowledge ?? true) {
       await user.click(
         screen.getByRole('checkbox', { name: /I have read this protocol/ }),
       )
     }
   }
+
   await user.click(
     screen.getByRole('button', {
       name: start ? 'Create and start' : 'Create draft',
@@ -162,18 +171,25 @@ beforeEach(() => {
   dataClient.list.mockImplementation(async (resource: string, query = '') => {
     if (resource === 'projects')
       return [project(WRITABLE_PROJECT_ID, 'Project A')]
+
     if (resource === 'protocol_versions') return [PROTOCOL_VERSION]
+
     if (resource === 'records') {
       if (query.includes('protocol_template')) return [PROTOCOL]
+
       if (query.includes('metadata_version')) return [{ metadata_version: 1 }]
+
       return []
     }
+
     return []
   })
   dataClient.rpc.mockImplementation(async (name: string) => {
     if (name === 'workspace_members_list') return []
+
     if (name === 'my_project_permissions')
       return [assignment(WRITABLE_PROJECT_ID, true)]
+
     return undefined
   })
 })
@@ -242,6 +258,7 @@ describe('new experiment', () => {
     })
     notebookCreate.createBlankExperiment.mockImplementation(async () => {
       order.push('create')
+
       return { id: 'rec-1', identifier: 'EXP-0001' }
     })
     const user = userEvent.setup()
@@ -273,6 +290,7 @@ describe('new experiment', () => {
           project(READ_ONLY_PROJECT_ID, 'A view-only project'),
           project(WRITABLE_PROJECT_ID, 'B edit project'),
         ]
+
       return []
     })
     dataClient.rpc.mockImplementation(async (name: string) => {
@@ -281,6 +299,7 @@ describe('new experiment', () => {
           assignment(READ_ONLY_PROJECT_ID, false),
           assignment(WRITABLE_PROJECT_ID, true),
         ]
+
       return undefined
     })
     renderForm()
@@ -289,9 +308,11 @@ describe('new experiment', () => {
     await waitFor(() => expect(field.textContent).toContain('B edit project'))
 
     await userEvent.setup().click(field)
+
     const viewOnly = await screen.findByRole('option', {
       name: /A view-only project/,
     })
+
     expect(viewOnly.getAttribute('aria-disabled')).toBe('true')
     expect(viewOnly.textContent).toContain('Read-only')
   })
@@ -303,6 +324,7 @@ describe('new experiment', () => {
           project(READ_ONLY_PROJECT_ID, 'A archived project', true),
           project(WRITABLE_PROJECT_ID, 'B edit project'),
         ]
+
       return []
     })
     dataClient.rpc.mockImplementation(async (name: string) => {
@@ -311,6 +333,7 @@ describe('new experiment', () => {
           assignment(READ_ONLY_PROJECT_ID, true),
           assignment(WRITABLE_PROJECT_ID, true),
         ]
+
       return undefined
     })
     renderForm()
@@ -319,15 +342,18 @@ describe('new experiment', () => {
     await waitFor(() => expect(field.textContent).toContain('B edit project'))
 
     await userEvent.setup().click(field)
+
     const archived = await screen.findByRole('option', {
       name: /A archived project/,
     })
+
     expect(archived.getAttribute('aria-disabled')).toBe('true')
     expect(archived.textContent).toContain('Archived')
   })
 
   it('states the access failure instead of hanging when the permission read never settles', async () => {
     vi.useFakeTimers()
+
     try {
       dataClient.rpc.mockImplementation((name: string) =>
         name === 'my_project_permissions'
@@ -364,6 +390,7 @@ describe('new experiment', () => {
 
   it('states the project-list failure instead of hanging when that read never settles', async () => {
     vi.useFakeTimers()
+
     try {
       dataClient.list.mockImplementation(() => new Promise(() => {}))
       renderForm()

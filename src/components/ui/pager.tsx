@@ -42,6 +42,7 @@ export function Pager({
   // router (a story, a harness column) still has to show which end it is at.
   const linkClass = (disabled: boolean) =>
     cn('text-link', disabled && 'text-fg-faint')
+
   return (
     <nav
       aria-label={t('settings.uiKit.pager.paginationAria')}

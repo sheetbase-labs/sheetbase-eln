@@ -20,8 +20,10 @@ const client = createDataClient()
 function leaveMessage(error: unknown): string {
   if (error instanceof DataClientError) {
     if (error.code === 'SB051') return t('account.leave.lastOwner')
+
     if (error.code === 'SB400') return t('account.leave.onlyWorkspace')
   }
+
   return t('account.leave.couldNotLeave')
 }
 
@@ -40,6 +42,7 @@ export function LeaveWorkspace({
   otherWorkspaces: number
 }) {
   const [confirming, setConfirming] = useState(false)
+
   const leave = useMutation({
     mutationFn: () =>
       client.rpc('leave_workspace', { p_workspace_id: workspaceId }),
@@ -48,6 +51,7 @@ export function LeaveWorkspace({
       window.location.assign('/')
     },
   })
+
   const blocked = otherWorkspaces === 0
 
   return (

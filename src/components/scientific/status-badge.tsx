@@ -335,10 +335,13 @@ export function statusLabel(
   status: string,
 ): string {
   const hyphenated = status.replace(/_/g, '-')
+
   if (Object.hasOwn(vocabulary, status)) return vocabulary[status].label
+
   if (Object.hasOwn(vocabulary, hyphenated)) return vocabulary[hyphenated].label
   // A status the vocabulary does not know still reads as words, not as a key.
   const words = status.replace(/[_-]+/g, ' ').trim()
+
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : status
 }
 

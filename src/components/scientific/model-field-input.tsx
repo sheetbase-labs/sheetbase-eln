@@ -78,6 +78,7 @@ export function ModelFieldInput({
       />
     )
   const field = definitionOfModelField(definition)
+
   const presentation = fieldEditorPresentation(field.logicalType, {
     relationshipTarget: field.relationship?.target.kind,
   })
@@ -129,6 +130,7 @@ export function ModelFieldInput({
             definition.validation.targetModelKey.trim()
           ? definition.validation.targetModelKey.trim()
           : ''
+
     return (
       <ModelReferencePicker
         label={definition.label}
@@ -184,20 +186,25 @@ async function defaultResolveSnapshot(
     'records',
     `?id=eq.${encodeURIComponent(recordId)}&select=id,kind,identifier,title,archived_at,deleted_at`,
   )
+
   const row = rows.at(0)
+
   if (!row || row.id !== recordId) return null
   // Model key is authoritative metadata, not the storage kind: resolve it
   // through the registry, falling back to the kind when it is not visible.
   let modelKey = row.kind
+
   try {
     const kinds = await client.list<{ key: string }>(
       'model_kinds',
       `?record_kind=eq.${encodeURIComponent(row.kind)}&select=key`,
     )
+
     if (kinds.at(0)?.key) modelKey = kinds.at(0)?.key as string
   } catch {
     // RLS or an unmapped kind: keep the honest fallback below.
   }
+
   return {
     recordId: row.id,
     modelKey,
@@ -244,15 +251,18 @@ function ModelReferencePicker({
 }) {
   const [client] = useState(() => createDataClient())
   const [pickerOpen, setPickerOpen] = useState(false)
+
   const [snapshot, setSnapshot] = useState<
     RecordReferenceSnapshot | null | undefined
   >(undefined)
+
   const [identityError, setIdentityError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
     setSnapshot(undefined)
     let persisted: string | null = null
+
     try {
       persisted = parsePersistedRecordReference(value, { nullable })
       setIdentityError(null)
@@ -262,12 +272,16 @@ function ModelReferencePicker({
           ? caught.message
           : t('notebook.modelFieldInput.recordReferenceMustBe'),
       )
+
       return
     }
+
     if (persisted === null) return
+
     const resolve =
       resolveReferenceSnapshot ??
       ((id: string) => defaultResolveSnapshot(client, id))
+
     resolve(persisted)
       .then((resolved) => {
         if (!cancelled) setSnapshot(resolved)
@@ -276,6 +290,7 @@ function ModelReferencePicker({
         // Restricted rows fail closed as missing, never as present.
         if (!cancelled) setSnapshot(null)
       })
+
     return () => {
       cancelled = true
     }
@@ -288,6 +303,7 @@ function ModelReferencePicker({
       searchReferenceRecords
         ? async (next: string): Promise<PickerSearchResult> => {
             const hits = await searchReferenceRecords(next)
+
             return {
               options: hits.map((h) => ({
                 id: h.id,
@@ -316,6 +332,7 @@ function ModelReferencePicker({
       </label>
     )
   }
+
   // MODEL-03: the source Model's declared relationships disallow this
   // target — offer nothing, say so honestly, and keep the stored value
   // untouched for a Steward to resolve.
@@ -323,6 +340,7 @@ function ModelReferencePicker({
     !relationshipRules ||
     !sourceModelKey ||
     isReferenceTargetAllowed(relationshipRules, sourceModelKey, targetModelKey)
+
   if (!targetAllowed) {
     return (
       <label className="text-xs text-fg-muted">
@@ -370,6 +388,7 @@ function ModelReferencePicker({
           deleted: false,
         },
       })
+
       onChange(persisted)
     } catch (caught) {
       setIdentityError(

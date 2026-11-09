@@ -33,12 +33,15 @@ const PRESENTATION_DENSITIES = new Set(['compact', 'standard', 'comfortable'])
 function boundedIds(value: unknown, columnIds: ReadonlySet<string>): string[] {
   if (!Array.isArray(value)) return []
   const seen = new Set<string>()
+
   for (const item of value) {
     if (typeof item !== 'string' || !columnIds.has(item) || seen.has(item))
       continue
     seen.add(item)
+
     if (seen.size >= 512) break
   }
+
   return [...seen]
 }
 
@@ -57,28 +60,37 @@ export function sanitizeSheetPresentation(
   const hiddenColumnIds = boundedIds(value.hiddenColumnIds, columnIds)
   const hidden = new Set(hiddenColumnIds)
   const columnWidths: Record<string, number> = {}
+
   if (isRecord(value.columnWidths)) {
     for (const [id, width] of Object.entries(value.columnWidths)) {
       if (!columnIds.has(id) || hidden.has(id)) continue
+
       if (typeof width !== 'number' || !Number.isFinite(width)) continue
       columnWidths[id] = Math.min(2_000, Math.max(40, Math.round(width)))
     }
   }
+
   const frozenRaw = value.frozenColumnCount
+
   const frozenColumnCount =
     typeof frozenRaw === 'number' &&
     Number.isInteger(frozenRaw) &&
     frozenRaw > 0
       ? Math.min(512, frozenRaw)
       : 0
+
   const filters: SheetPresentation['filters'] = []
+
   if (Array.isArray(value.filters)) {
     for (const item of value.filters) {
       if (filters.length >= 32) break
+
       if (!isRecord(item)) continue
       const columnId = item.columnId
       const operator = item.operator
+
       if (typeof columnId !== 'string' || !columnIds.has(columnId)) continue
+
       if (
         operator !== 'equals' &&
         operator !== 'not-equals' &&
@@ -87,8 +99,10 @@ export function sanitizeSheetPresentation(
       )
         continue
       const needsValue = operator === 'equals' || operator === 'not-equals'
+
       if (needsValue) {
         const filterValue = item.value
+
         if (
           filterValue !== null &&
           typeof filterValue !== 'string' &&
@@ -102,21 +116,29 @@ export function sanitizeSheetPresentation(
       }
     }
   }
+
   const sorts: SheetPresentation['sorts'] = []
+
   if (Array.isArray(value.sorts)) {
     const seen = new Set<string>()
+
     for (const item of value.sorts) {
       if (sorts.length >= 8) break
+
       if (!isRecord(item)) continue
       const columnId = item.columnId
       const direction = item.direction
+
       if (typeof columnId !== 'string' || !columnIds.has(columnId)) continue
+
       if (direction !== 'asc' && direction !== 'desc') continue
+
       if (seen.has(columnId)) continue
       seen.add(columnId)
       sorts.push({ columnId, direction })
     }
   }
+
   return {
     columnOrder,
     hiddenColumnIds,
@@ -134,7 +156,9 @@ export function sanitizeSheetPresentation(
 
 function resolveStorage(storage?: Storage): Storage | null {
   if (storage) return storage
+
   if (typeof window === 'undefined') return null
+
   try {
     return window.localStorage
   } catch {
@@ -148,11 +172,14 @@ export function saveSheetView(
   storage?: Storage,
 ): void {
   const resolved = resolveStorage(storage)
+
   if (!resolved) return
+
   const stored: StoredSheetView = {
     savedAt: new Date().toISOString(),
     presentation,
   }
+
   try {
     resolved.setItem(sheetViewStorageKey(instanceId), JSON.stringify(stored))
   } catch {
@@ -164,11 +191,15 @@ export function saveSheetView(
 /** Raw persisted view (untrusted); sanitise before use. */
 export function loadSheetView(instanceId: string, storage?: Storage): unknown {
   const resolved = resolveStorage(storage)
+
   if (!resolved) return null
+
   try {
     const raw = resolved.getItem(sheetViewStorageKey(instanceId))
+
     if (raw === null) return null
     const parsed: unknown = JSON.parse(raw)
+
     return isRecord(parsed) ? (parsed.presentation ?? null) : null
   } catch {
     return null

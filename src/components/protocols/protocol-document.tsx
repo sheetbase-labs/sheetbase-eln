@@ -14,6 +14,7 @@ export function ProtocolDocument({
   const document = blocks.filter(
     (block) => block.type === 'rich_text' || block.type === 'procedure_step',
   )
+
   if (document.length === 0) {
     return (
       <Muted>
@@ -21,6 +22,7 @@ export function ProtocolDocument({
       </Muted>
     )
   }
+
   return (
     <article
       aria-label={t('library.protocols.protocolDocument.protocolDocument')}
@@ -42,8 +44,10 @@ export function ProtocolDocument({
             </p>
           )
         }
+
         const { text, stepNumber } = block.payload
         const durationSeconds = stepDurationSeconds(block.payload)
+
         if (typeof text !== 'string' || typeof stepNumber !== 'number') {
           return (
             <p key={block.id} role="alert">
@@ -53,6 +57,7 @@ export function ProtocolDocument({
             </p>
           )
         }
+
         return (
           <div
             key={block.id}

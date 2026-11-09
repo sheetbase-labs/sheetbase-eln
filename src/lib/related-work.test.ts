@@ -62,9 +62,12 @@ function fakeClient(
 ): DataClient {
   const list = async <T>(resource: string, query = ''): Promise<T[]> => {
     const route = routes.find((r) => r.match(resource, query))
+
     if (!route) throw new Error(`unexpected query: ${resource} ${query}`)
+
     return route.rows as T[]
   }
+
   return {
     list,
     count: async () => 0,
@@ -185,6 +188,7 @@ describe('assembleRelatedWork', () => {
       candidate({ id: 'r-1', reason: 'Same project', rank: 2 }),
       candidate({ id: 'r-1', reason: 'Linked by EXP-9', rank: 0 }),
     ])
+
     expect(items).toHaveLength(1)
     expect(items[0]?.reason).toBe('Linked by EXP-9')
   })
@@ -194,6 +198,7 @@ describe('assembleRelatedWork', () => {
       candidate({ kind: 'record', id: 'x', label: 'Record X' }),
       candidate({ kind: 'dataset', id: 'x', label: 'Dataset X' }),
     ])
+
     expect(items.map((i) => i.kind)).toEqual(['dataset', 'record'])
   })
 
@@ -203,6 +208,7 @@ describe('assembleRelatedWork', () => {
       candidate({ id: 'r-1', label: '' }),
       candidate({ id: 'r-2', label: 'Kept' }),
     ])
+
     expect(items.map((i) => i.id)).toEqual(['r-2'])
   })
 
@@ -214,14 +220,17 @@ describe('assembleRelatedWork', () => {
       candidate({ kind: 'dataset', id: 'd-1', label: 'Alpha', rank: 1 }),
       candidate({ kind: 'record', id: 'r-3', label: 'Apex', rank: 0 }),
     ]
+
     const forward = assembleRelatedWork('record', 'seed', input).map(
       (i) => i.id,
     )
+
     const reversed = assembleRelatedWork(
       'record',
       'seed',
       [...input].reverse(),
     ).map((i) => i.id)
+
     expect(forward).toEqual(reversed)
     expect(forward).toEqual(['r-3', 'r-1', 'r-2', 'd-1', 's-b'])
   })
@@ -230,6 +239,7 @@ describe('assembleRelatedWork', () => {
     const input = Array.from({ length: RELATED_WORK_LIMIT + 5 }, (_, i) =>
       candidate({ id: `r-${i}`, label: `Title ${i}` }),
     )
+
     expect(assembleRelatedWork('record', 'seed', input)).toHaveLength(
       RELATED_WORK_LIMIT,
     )
@@ -246,6 +256,7 @@ function recordSeedClient(): DataClient {
     identifier: 'EXP-1',
     title: 'Seed experiment',
   })
+
   const outgoing = [
     {
       id: 'link-out-1',
@@ -266,6 +277,7 @@ function recordSeedClient(): DataClient {
       created_at: '2026-08-04T00:00:00Z',
     },
   ]
+
   const incoming = [
     {
       id: 'link-in-1',
@@ -294,6 +306,7 @@ function recordSeedClient(): DataClient {
       created_at: '2026-08-07T00:00:00Z',
     },
   ]
+
   return fakeClient([
     on('records', 'id=eq.rec-1', [seed]),
     on('record_links', 'source_record_id=eq.rec-1', outgoing),
@@ -363,6 +376,7 @@ describe('fetchRelatedWork for records', () => {
         rows: [],
       },
     ])
+
     await expect(fetchRelatedWork('record', 'nope', missing)).resolves.toEqual(
       [],
     )
@@ -381,6 +395,7 @@ describe('fetchRelatedWork for records', () => {
       patch: async () => [],
       remove: async () => [],
     }
+
     await expect(fetchRelatedWork('record', 'rec-1', failing)).resolves.toEqual(
       [],
     )

@@ -33,7 +33,9 @@ const meta = {
   ],
   args: { max: 4 },
 } satisfies Meta<typeof PresenceStack>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** No room: the stack renders nothing and the header stays intact. */

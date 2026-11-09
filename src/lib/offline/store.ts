@@ -173,6 +173,7 @@ const DEFAULT_STORE_NAME = 'edits'
 
 function cloneJsonValue<T>(value: T): T {
   if (value === null || value === undefined) return value
+
   return JSON.parse(JSON.stringify(value)) as T
 }
 
@@ -181,11 +182,13 @@ export function createInMemoryStorage(
   initial?: Record<string, unknown>,
 ): OfflineStorage {
   const entries = new Map<string, unknown>()
+
   if (initial) {
     for (const [key, value] of Object.entries(initial)) {
       entries.set(key, cloneJsonValue(value))
     }
   }
+
   return {
     async get(key) {
       return entries.has(key) ? cloneJsonValue(entries.get(key)) : undefined
@@ -224,17 +227,22 @@ export function createIndexedDbStorage(
     if (databasePromise) return databasePromise
     databasePromise = new Promise<IDBDatabase>((resolve, reject) => {
       const factory = indexedDbGlobal.indexedDB
+
       if (!factory) {
         reject(new Error('IndexedDB is not available in this environment.'))
+
         return
       }
+
       const request = factory.open(databaseName, 1)
       request.onupgradeneeded = () => {
         const database = request.result
+
         if (!database.objectStoreNames.contains(storeName)) {
           database.createObjectStore(storeName)
         }
       }
+
       request.onsuccess = () => resolve(request.result)
       request.onerror = () =>
         reject(
@@ -243,6 +251,7 @@ export function createIndexedDbStorage(
       request.onblocked = () =>
         reject(new Error('Opening the offline database was blocked.'))
     })
+
     return databasePromise
   }
 
@@ -251,9 +260,11 @@ export function createIndexedDbStorage(
     operation: (store: IDBObjectStore) => IDBRequest,
   ): Promise<T> {
     const database = await openDatabase()
+
     return new Promise<T>((resolve, reject) => {
       let result: T | undefined
       let settled = false
+
       const fail = (error: unknown) => {
         if (settled) return
         settled = true
@@ -263,17 +274,20 @@ export function createIndexedDbStorage(
             : new Error(String(error ?? 'Offline database request failed.')),
         )
       }
+
       const transaction = database.transaction(storeName, mode)
       const request = operation(transaction.objectStore(storeName))
       request.onsuccess = () => {
         result = request.result as T
       }
+
       request.onerror = () => fail(request.error)
       transaction.oncomplete = () => {
         if (settled) return
         settled = true
         resolve(result as T)
       }
+
       transaction.onerror = () => fail(transaction.error)
       transaction.onabort = () => fail(transaction.error)
     })
@@ -315,6 +329,7 @@ function assertScope(scope: OfflineEditScope): void {
   if (!scope.userId) {
     throw new TypeError('An offline edit scope requires a user id.')
   }
+
   if (!scope.recordId) {
     throw new TypeError('An offline edit scope requires a record id.')
   }
@@ -331,7 +346,9 @@ function makeEditId(): string {
 /** The record id a scope key carries for `userId`, or null if it is not theirs. */
 function recordIdFromKey(userId: string, key: string): string | null {
   const prefix = `${OFFLINE_EDITS_KEY_PREFIX}:${encodeURIComponent(userId)}:`
+
   if (!key.startsWith(prefix)) return null
+
   try {
     return decodeURIComponent(key.slice(prefix.length))
   } catch {
@@ -343,7 +360,9 @@ function recordIdFromKey(userId: string, key: string): string | null {
 function compareEdits(a: OfflineEdit, b: OfflineEdit): number {
   if (a.sequence !== b.sequence) return a.sequence - b.sequence
   const byTime = a.createdAt.localeCompare(b.createdAt)
+
   if (byTime !== 0) return byTime
+
   return a.id.localeCompare(b.id)
 }
 
@@ -358,12 +377,16 @@ async function readValidEdits(
   scope: OfflineEditScope,
 ): Promise<OfflineEdit[]> {
   const raw = await storage.get(offlineEditsKey(scope))
+
   if (!Array.isArray(raw)) return []
   const edits: OfflineEdit[] = []
+
   for (const entry of raw) {
     const parsed = offlineEditSchema.safeParse(entry)
+
     if (parsed.success) edits.push(parsed.data)
   }
+
   return edits.sort(compareEdits)
 }
 
@@ -373,40 +396,49 @@ export function createOfflineEditStore(
   return {
     async listEdits(scope) {
       assertScope(scope)
+
       return readValidEdits(storage, scope)
     },
 
     async putEdit(scope, draft) {
       assertScope(scope)
       const existing = await readValidEdits(storage, scope)
+
       const sequence =
         existing.reduce(
           (highest, edit) => Math.max(highest, edit.sequence),
           0,
         ) + 1
+
       const edit = offlineEditSchema.parse({
         ...draft,
         id: draft.id ?? makeEditId(),
         sequence,
         createdAt: draft.createdAt ?? new Date().toISOString(),
       })
+
       await storage.set(offlineEditsKey(scope), [...existing, edit])
+
       return edit
     },
 
     async removeEdits(scope, ids) {
       assertScope(scope)
       const wanted = new Set(ids)
+
       if (wanted.size === 0) return 0
       const existing = await readValidEdits(storage, scope)
       const remaining = existing.filter((edit) => !wanted.has(edit.id))
       const removed = existing.length - remaining.length
+
       if (removed === 0) return 0
+
       if (remaining.length === 0) {
         await storage.delete(offlineEditsKey(scope))
       } else {
         await storage.set(offlineEditsKey(scope), remaining)
       }
+
       return removed
     },
 
@@ -419,19 +451,27 @@ export function createOfflineEditStore(
       if (!userId) {
         throw new TypeError('Listing offline edit scopes requires a user id.')
       }
+
       const enumerate = storage.keys
+
       if (!enumerate) return []
       const recordIds = new Set<string>()
+
       for (const key of await enumerate()) {
         const recordId = recordIdFromKey(userId, key)
+
         if (recordId === null) continue
         recordIds.add(recordId)
       }
+
       const scopes: string[] = []
+
       for (const recordId of recordIds) {
         const edits = await readValidEdits(storage, { userId, recordId })
+
         if (edits.length > 0) scopes.push(recordId)
       }
+
       return scopes.sort()
     },
   }

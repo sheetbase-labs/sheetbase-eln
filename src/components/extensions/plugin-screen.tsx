@@ -59,6 +59,7 @@ export function PluginScreen(props: PluginScreenProps) {
         className={props.className}
       />
     )
+
   return <PythonScreen {...props} />
 }
 
@@ -85,6 +86,7 @@ function PythonScreen({
     async (event: { action: string; values: PluginValues } | null) => {
       setBusy(true)
       setError(null)
+
       try {
         const answer = await runPluginHook<
           Extract<PluginHookAnswer, { kind: 'screen' }>
@@ -97,8 +99,10 @@ function PythonScreen({
           state: kept.current,
           event,
         })
+
         setResult(answer)
         setNotice(answer.notice ?? null)
+
         // Drawing the screen for the first time is not a change; only what a
         // person did is kept with the block.
         if (
@@ -133,6 +137,7 @@ function PythonScreen({
         </Button>
       </div>
     )
+
   if (!result)
     return (
       <div className={cn('flex items-center gap-2 text-fg-muted', className)}>
@@ -140,6 +145,7 @@ function PythonScreen({
         <span className="text-body">{t('plugins.screen.loading')}</span>
       </div>
     )
+
   return (
     <div className={cn('flex flex-col gap-3', className)}>
       {notice ? (

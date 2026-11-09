@@ -27,7 +27,9 @@ export function FollowToggle({
     objectId,
     client,
   )
+
   if (!objectId) return null
+
   return (
     <Button
       type="button"

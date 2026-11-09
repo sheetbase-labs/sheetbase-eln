@@ -15,6 +15,7 @@ const meta = {
   args: { label: 'From', value: '', onChange: () => {} },
   render: (args) => {
     const [value, setValue] = useState(args.value)
+
     return (
       <div className="w-56">
         <DateField {...args} value={value} onChange={setValue} />
@@ -24,6 +25,7 @@ const meta = {
 } satisfies Meta<typeof DateField>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Empty: Story = {}

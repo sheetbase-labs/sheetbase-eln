@@ -9,6 +9,7 @@ export const Route = createFileRoute('/experiments/$expId/review/history')({
 function History() {
   const { expId } = Route.useParams()
   const record = useExperimentRecord(expId)
+
   return (
     <ExperimentHistory
       recordId={expId}

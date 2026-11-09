@@ -30,15 +30,18 @@ export async function mintPostgrestToken(
   input: PostgrestClaimsInput,
 ): Promise<string> {
   const ttl = input.ttlSeconds ?? 120
+
   const claims: Record<string, unknown> = {
     sub: input.userId,
     workspace_id: input.workspaceId,
     session_id: input.sessionId,
     role: 'authenticated',
   }
+
   if (input.clientId) {
     claims.client_id = input.clientId
   }
+
   return await new SignJWT(claims)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()

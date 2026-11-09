@@ -16,8 +16,11 @@ const DOC_PATHS: Record<string, string> = {
 export const Route = createFileRoute('/docs/$name')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) throw redirect(signInRedirect(location))
+
     if (!context.workspace) throw redirect({ to: '/' })
+
     return { context }
   },
   loader: async ({ params }) => {
@@ -25,17 +28,21 @@ export const Route = createFileRoute('/docs/$name')({
     // An unknown name is a missing document, not a server error: report it in
     // the page so the route's error boundary stays for real failures.
     const relativePath = DOC_PATHS[name]
+
     if (!relativePath) {
       return { name, html: null, known: false }
     }
+
     const { readFileSync } = await import('node:fs')
     const { resolve } = await import('node:path')
     const filePath = resolve(process.cwd(), relativePath)
+
     try {
       const content = readFileSync(filePath, 'utf-8')
       // Loaded here so the markdown parser stays out of the app's first load.
       const { marked } = await import('marked')
       const html = marked.parse(content, { async: false })
+
       return { name, html, known: true }
     } catch {
       return { name, html: null, known: true }

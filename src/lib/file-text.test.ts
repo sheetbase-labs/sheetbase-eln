@@ -61,7 +61,9 @@ describe('extractTextFromStream', () => {
 
 const DOCX =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
 const PPTX =
   'application/vnd.openxmlformats-officedocument.presentationml.presentation'
 
@@ -71,6 +73,7 @@ describe('document media types', () => {
       expect(isDocumentExtractableMediaType(type)).toBe(true)
       expect(isSearchableMediaType(type)).toBe(true)
     }
+
     expect(isSearchableMediaType('text/csv')).toBe(true)
     expect(isSearchableMediaType('image/png')).toBe(false)
     expect(isSearchableMediaType('application/octet-stream')).toBe(false)
@@ -88,6 +91,7 @@ describe('extractOfficeText', () => {
       ),
       'word/styles.xml': strToU8('<w:t>ignored</w:t>'),
     })
+
     expect(extractOfficeText(bytes, DOCX)).toBe(
       'Buffer prep\nTris & NaCl pH 7.4',
     )
@@ -102,6 +106,7 @@ describe('extractOfficeText', () => {
         '<worksheet><sheetData><row><c t="s"><v>0</v></c><c t="inlineStr"><is><t>inline note</t></is></c></row></sheetData></worksheet>',
       ),
     })
+
     const text = extractOfficeText(bytes, XLSX)
     expect(text).toContain('Capsid titre')
     expect(text).toContain('Plate 4')
@@ -118,6 +123,7 @@ describe('extractOfficeText', () => {
         '<worksheet><sheetData><row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1"><v>1.25E-3</v></c><c r="C1" t="n"><v>42</v></c><c r="D1" t="str"><v>formula text</v></c></row><row r="2"><c r="A2" t="b"><v>1</v></c><c r="B2"/></row></sheetData></worksheet>',
       ),
     })
+
     const lines = extractOfficeText(bytes, XLSX).split('\n')
     expect(lines.slice(0, 2)).toEqual(['Titre & yield', 'QC'])
     expect(lines).toContain('1.25E-3 42 formula text')
@@ -127,11 +133,13 @@ describe('extractOfficeText', () => {
   it('reads slides in numeric order plus speaker notes from a pptx', () => {
     const slide = (text: string) =>
       strToU8(`<p:sld><a:p><a:r><a:t>${text}</a:t></a:r></a:p></p:sld>`)
+
     const bytes = zipSync({
       'ppt/slides/slide10.xml': slide('tenth'),
       'ppt/slides/slide2.xml': slide('second'),
       'ppt/notesSlides/notesSlide2.xml': slide('note two'),
     })
+
     expect(extractOfficeText(bytes, PPTX).split('\n')).toEqual([
       'second',
       'note two',
@@ -171,6 +179,7 @@ describe('OpenDocument files', () => {
       ),
       'styles.xml': strToU8('<text:p>ignored</text:p>'),
     })
+
     expect(extractOfficeText(bytes, ODT)).toBe('Assay plan\nTris & NaCl pH 7.4')
   })
 
@@ -183,6 +192,7 @@ describe('OpenDocument files', () => {
           '</table:table></office:spreadsheet>',
       ),
     })
+
     expect(extractOfficeText(bytes, ODS).split('\n')).toEqual([
       'Plate 4',
       'A1 0.5',
@@ -197,10 +207,12 @@ describe('extractDocumentText', () => {
     const page = pdf.addPage()
     page.drawText('Western blot protocol', { x: 50, y: 700, font, size: 12 })
     page.drawText('Incubate overnight at 4C', { x: 50, y: 680, font, size: 12 })
+
     const text = await extractDocumentText(
       streamOf(await pdf.save()),
       'application/pdf',
     )
+
     expect(text).toContain('Western blot protocol')
     expect(text).toContain('Incubate overnight at 4C')
   })
@@ -208,10 +220,12 @@ describe('extractDocumentText', () => {
   it('returns nothing for a PDF with no text layer', async () => {
     const pdf = await PDFDocument.create()
     pdf.addPage()
+
     const text = await extractDocumentText(
       streamOf(await pdf.save()),
       'application/pdf',
     )
+
     expect(text.trim()).toBe('')
   })
 
@@ -236,6 +250,7 @@ describe('extractDocumentText', () => {
         '<w:p><w:r><w:t>hello docx</w:t></w:r></w:p>',
       ),
     })
+
     await expect(extractDocumentText(streamOf(bytes), DOCX)).resolves.toBe(
       'hello docx',
     )

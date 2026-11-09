@@ -100,6 +100,7 @@ describe('valuesForType', () => {
       ],
       [group('experiment', 'harvest')],
     )
+
     expect(kept).toEqual({ harvest: 6 })
     expect(dropped).toEqual(['cell_line label'])
   })

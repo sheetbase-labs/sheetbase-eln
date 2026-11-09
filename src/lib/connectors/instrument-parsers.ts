@@ -42,7 +42,9 @@ function guessDelimiter(line: string): string {
   const tabs = line.split('\t').length
   const commas = line.split(',').length
   const semis = line.split(';').length
+
   if (tabs > 1 && tabs >= commas && tabs >= semis) return '\t'
+
   return semis > commas ? ';' : ','
 }
 
@@ -50,8 +52,10 @@ export function splitDelimited(line: string, delimiter: string): string[] {
   const cells: string[] = []
   let current = ''
   let inQuotes = false
+
   for (let i = 0; i < line.length; i += 1) {
     const char = line[i]
+
     if (char === '"') {
       if (inQuotes && line[i + 1] === '"') {
         current += '"'
@@ -66,7 +70,9 @@ export function splitDelimited(line: string, delimiter: string): string[] {
       current += char
     }
   }
+
   cells.push(current)
+
   return cells.map((cell) => cell.trim())
 }
 
@@ -97,6 +103,7 @@ function isGridHeader(cells: string[]): boolean {
   // `A,1,2` is a data row of a two-column plate, not a header.
   if (ROW_LABEL.test(cells[0] ?? '')) return false
   const numeric = cells.slice(1).filter((cell) => /^\d{1,2}$/.test(cell))
+
   return (
     numeric.length >= 2 &&
     numeric.length === cells.slice(1).filter((c) => c !== '').length
@@ -119,18 +126,22 @@ export function parsePlateGridCsv(text: string): ParsedInstrumentPayload {
     rows: Array<{ row: string; values: string[] }>
     columns: string[]
   }
+
   const blocks: Block[] = []
   let current: Block | null = null
   let pendingTitle = ''
 
   for (const raw of lines) {
     const line = raw.trim()
+
     if (line === '' || /^[,;\t\s]*$/.test(line)) {
       current = null
       continue
     }
+
     if (line.startsWith('#')) {
       const match = HASH_METADATA.exec(line)
+
       if (match) metadata[normaliseKey(match[1])] = match[2].trim()
       else
         warnings.push(
@@ -138,7 +149,9 @@ export function parsePlateGridCsv(text: string): ParsedInstrumentPayload {
         )
       continue
     }
+
     const cells = splitDelimited(line, guessDelimiter(line))
+
     if (isGridHeader(cells)) {
       current = {
         title: pendingTitle,
@@ -149,12 +162,15 @@ export function parsePlateGridCsv(text: string): ParsedInstrumentPayload {
       pendingTitle = ''
       continue
     }
+
     if (current && ROW_LABEL.test(cells[0])) {
       current.rows.push({ row: cells[0].toUpperCase(), values: cells.slice(1) })
       continue
     }
+
     // Anything else before a grid is a block title ("Plate 1", "Read 450nm").
     const nonEmpty = cells.filter((cell) => cell !== '')
+
     if (nonEmpty.length === 1) {
       pendingTitle = nonEmpty[0]
     } else if (nonEmpty.length === 2 && !current) {
@@ -169,27 +185,34 @@ export function parsePlateGridCsv(text: string): ParsedInstrumentPayload {
   }
 
   const multiple = blocks.length > 1
+
   const headers = multiple
     ? ['Plate', 'Well', 'Row', 'Column', 'Value']
     : ['Well', 'Row', 'Column', 'Value']
+
   const rows: Array<Record<string, string>> = []
   blocks.forEach((block, blockIndex) => {
     const plate =
       block.title ||
       t('data.instrumentParsers.plate', { value: blockIndex + 1 })
+
     const sorted = [...block.rows].sort(
       (a, b) => rowIndex(a.row) - rowIndex(b.row),
     )
+
     for (const gridRow of sorted) {
       block.columns.forEach((column, index) => {
         const value = gridRow.values[index] ?? ''
+
         const record: Record<string, string> = {
           Well: `${gridRow.row}${Number(column)}`,
           Row: gridRow.row,
           Column: String(Number(column)),
           Value: value,
         }
+
         if (multiple) record.Plate = plate
+
         // Unread wells in a partial plate stay out of the table.
         if (value !== '') rows.push(record)
       })
@@ -197,6 +220,7 @@ export function parsePlateGridCsv(text: string): ParsedInstrumentPayload {
   })
 
   metadata.plate_count = String(blocks.length)
+
   return { metadata, headers, rows, warnings }
 }
 
@@ -210,6 +234,7 @@ const CT_HEADER = /^(ct|cq|cp)(\s|$|\()|\bct\b|\bcq\b/i
 
 function looksLikeQpcrHeader(cells: string[]): boolean {
   const lower = cells.map((cell) => cell.toLowerCase())
+
   return (
     lower.some((cell) => cell === 'well' || cell === 'well position') &&
     cells.some((cell) => CT_HEADER.test(cell))
@@ -237,61 +262,79 @@ export function parseQpcrResultsCsv(text: string): ParsedInstrumentPayload {
     if (finished) break
     const line = raw.trim()
     const section = SECTION_LINE.exec(line)
+
     if (section) {
       sawSections = true
+
       if (inResults && headers) {
         finished = true
         continue
       }
+
       inResults = section[1].trim().toLowerCase() === 'results'
       continue
     }
+
     if (line === '') {
       if (headers && rows.length > 0) finished = true
       continue
     }
+
     if (headers === null) {
       const star = STAR_METADATA.exec(line)
+
       if (star) {
         metadata[normaliseKey(star[1])] = star[2].trim()
         continue
       }
+
       const hash = HASH_METADATA.exec(line)
+
       if (hash) {
         metadata[normaliseKey(hash[1])] = hash[2].trim()
         continue
       }
+
       if (sawSections && !inResults) {
         // Other sections (Sample Setup, Amplification Data) are skipped.
         continue
       }
+
       const delim = guessDelimiter(line)
       const cells = splitDelimited(line, delim)
+
       if (looksLikeQpcrHeader(cells)) {
         headers = cells.filter((cell) => cell !== '')
         delimiter = delim
         continue
       }
+
       const kv = line.split(/\s*:\s*/)
+
       if (kv.length === 2 && kv[0] && kv[1] && !inResults) {
         metadata[normaliseKey(kv[0])] = kv[1]
       }
+
       continue
     }
+
     const cells = splitDelimited(line, delimiter)
     const row: Record<string, string> = {}
     headers.forEach((header, index) => {
       row[header] = cells[index] ?? ''
     })
+
     if (Object.keys(row).some((header) => row[header] !== '')) rows.push(row)
   }
 
   if (!headers) {
     throw new Error(t('data.instrumentParsers.qpcrResultsTableWell'))
   }
+
   if (rows.length === 0) {
     throw new Error(t('data.instrumentParsers.dataRowsFoundInstrument'))
   }
+
   // Undetermined amplification is a real instrument answer, not a missing one.
   if (
     rows.some((row) =>
@@ -300,6 +343,7 @@ export function parseQpcrResultsCsv(text: string): ParsedInstrumentPayload {
   ) {
     warnings.push(t('data.instrumentParsers.someWellsReportUndetermined'))
   }
+
   return { metadata, headers, rows, warnings }
 }
 
@@ -310,6 +354,7 @@ export function parseQpcrResultsCsv(text: string): ParsedInstrumentPayload {
 function looksLikePeakHeader(cells: string[]): boolean {
   const hasRt = cells.some((cell) => /retention|^rt\b|^rt\s*\(/i.test(cell))
   const hasArea = cells.some((cell) => /area/i.test(cell))
+
   return hasRt && hasArea
 }
 
@@ -330,30 +375,40 @@ export function parseHplcPeaksCsv(text: string): ParsedInstrumentPayload {
 
   for (const raw of lines) {
     const line = raw.trim()
+
     if (line === '') continue
+
     if (headers === null) {
       const hash = HASH_METADATA.exec(line)
+
       if (hash) {
         metadata[normaliseKey(hash[1])] = hash[2].trim()
         continue
       }
+
       const delim = guessDelimiter(line)
       const cells = splitDelimited(line, delim)
+
       if (looksLikePeakHeader(cells)) {
         headers = cells.filter((cell) => cell !== '')
         delimiter = delim
         continue
       }
+
       const nonEmpty = cells.filter((cell) => cell !== '')
+
       if (nonEmpty.length === 2) {
         metadata[normaliseKey(nonEmpty[0])] = nonEmpty[1]
       } else if (nonEmpty.length > 2) {
         // Preamble line with a value that itself contains the delimiter.
         metadata[normaliseKey(nonEmpty[0])] = nonEmpty.slice(1).join(' ')
       }
+
       continue
     }
+
     const cells = splitDelimited(line, delimiter)
+
     if (/^(total|sum|totals?)$/i.test(cells[0])) {
       warnings.push(
         t('data.instrumentParsers.summaryLineIgnored', {
@@ -362,19 +417,23 @@ export function parseHplcPeaksCsv(text: string): ParsedInstrumentPayload {
       )
       continue
     }
+
     const row: Record<string, string> = {}
     headers.forEach((header, index) => {
       row[header] = cells[index] ?? ''
     })
+
     if (Object.keys(row).some((header) => row[header] !== '')) rows.push(row)
   }
 
   if (!headers) {
     throw new Error(t('data.instrumentParsers.peakTableRetentionTime'))
   }
+
   if (rows.length === 0) {
     throw new Error(t('data.instrumentParsers.dataRowsFoundInstrument'))
   }
+
   return { metadata, headers, rows, warnings }
 }
 
@@ -384,10 +443,13 @@ export function parseHplcPeaksCsv(text: string): ParsedInstrumentPayload {
 
 function stringifyValue(value: unknown): string {
   if (value === null || value === undefined) return ''
+
   if (typeof value === 'string') return value
+
   if (typeof value === 'number' || typeof value === 'boolean') {
     return String(value)
   }
+
   return JSON.stringify(value)
 }
 
@@ -398,60 +460,78 @@ function stringifyValue(value: unknown): string {
  */
 export function parseJsonRecords(text: string): ParsedInstrumentPayload {
   let doc: unknown
+
   try {
     doc = JSON.parse(stripBom(text))
   } catch {
     throw new Error(t('data.instrumentParsers.instrumentOutputValidJson'))
   }
+
   const metadata: Record<string, string> = {}
   let records: unknown = doc
+
   if (doc && typeof doc === 'object' && !Array.isArray(doc)) {
     const object = doc as Record<string, unknown>
+
     const key = ['rows', 'records', 'data', 'results'].find((name) =>
       Array.isArray(object[name]),
     )
+
     if (!key) {
       throw new Error(t('data.instrumentParsers.jsonOutputMustArray'))
     }
+
     records = object[key]
     const meta = object.metadata
+
     if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
       for (const [name, value] of Object.entries(meta)) {
         metadata[normaliseKey(name)] = stringifyValue(value)
       }
     }
   }
+
   if (!Array.isArray(records)) {
     throw new Error(t('data.instrumentParsers.jsonOutputMustArray2'))
   }
+
   if (records.length === 0) {
     throw new Error(t('data.instrumentParsers.dataRowsFoundInstrument'))
   }
+
   if (records.length > MAX_JSON_ROWS) {
     throw new Error(
       t('data.instrumentParsers.jsonOutputExceedsRows', { MAX_JSON_ROWS }),
     )
   }
+
   const headers: string[] = []
   const seen = new Set<string>()
   const rows: Array<Record<string, string>> = []
+
   for (const record of records) {
     if (!record || typeof record !== 'object' || Array.isArray(record)) {
       throw new Error(t('data.instrumentParsers.everyJsonRowMust'))
     }
+
     const row: Record<string, string> = {}
+
     for (const [name, value] of Object.entries(record)) {
       if (!seen.has(name)) {
         seen.add(name)
         headers.push(name)
       }
+
       row[name] = stringifyValue(value)
     }
+
     rows.push(row)
   }
+
   for (const row of rows) {
     for (const header of headers) row[header] ??= ''
   }
+
   return { metadata, headers, rows, warnings: [] }
 }
 
@@ -499,6 +579,7 @@ if (!getParser(DELIMITED_PARSER_ID)) {
     parse: (text) => {
       const preview = parseImportText(text, { header: true })
       const sheet = preview.sheets[0]
+
       return {
         headers: sheet.headers,
         rows: sheet.rows,
@@ -519,21 +600,30 @@ const SNIFF_LINES = 60
 export function detectParserId(text: string): string {
   const body = stripBom(text)
   const trimmed = body.trimStart()
+
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
     return JSON_RECORDS_PARSER_ID
   }
+
   const head = body.split(/\r?\n/).slice(0, SNIFF_LINES)
+
   const headCells = head.map((line) =>
     splitDelimited(line, guessDelimiter(line)),
   )
+
   if (head.some((line) => /^\[results\]$/i.test(line.trim()))) {
     return QPCR_PARSER_ID
   }
+
   if (headCells.some(isGridHeader)) return PLATE_GRID_PARSER_ID
+
   if (headCells.some(looksLikePeakHeader)) return HPLC_PARSER_ID
+
   if (head.some((line) => line.trim().startsWith('#'))) {
     return PLATE_READER_PARSER_ID
   }
+
   if (headCells.some(looksLikeQpcrHeader)) return QPCR_PARSER_ID
+
   return DELIMITED_PARSER_ID
 }

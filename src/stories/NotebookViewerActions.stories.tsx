@@ -24,7 +24,9 @@ const meta = {
     selectedBlockId: null,
   },
 } satisfies Meta<typeof NotebookViewerActions>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Comments enabled and a project to request access to. */

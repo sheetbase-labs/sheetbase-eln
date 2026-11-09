@@ -88,7 +88,9 @@ function clientWith(definitions: AnalysisDefinitionWire[]) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+
   client.setQueryData(analysisDefinitionQueryKeys.all, definitions)
+
   return client
 }
 
@@ -107,7 +109,9 @@ const meta = {
   ],
   args: { datasets, workspaceId: WORKSPACE_ID, userId: 'user-1' },
 } satisfies Meta<typeof AnalysisPanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Nothing selected yet: the studio waits for a dataset and lists the saves. */

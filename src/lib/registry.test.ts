@@ -43,6 +43,7 @@ describe('registry URL filters', () => {
 
 function memoryStorage(): Storage {
   const values = new Map<string, string>()
+
   return {
     get length() {
       return values.size
@@ -72,12 +73,14 @@ const viewState = {
 describe('registry saved views', () => {
   it('persists views in a key scoped to registry, workspace and user', () => {
     const storage = memoryStorage()
+
     const ownerA = createRegistrySavedViewStore({
       registryId: 'samples',
       workspaceId: 'workspace-a',
       userId: 'owner-a',
       storage,
     })
+
     const ownerB = createRegistrySavedViewStore({
       registryId: 'samples',
       workspaceId: 'workspace-a',
@@ -109,6 +112,7 @@ describe('registry saved views', () => {
       userId: 'owner-a',
       storage: memoryStorage(),
     })
+
     store.save({ id: 'attention', name: 'Attention', state: viewState })
     store.save({
       id: 'attention',
@@ -133,6 +137,7 @@ describe('registry saved views', () => {
       registrySavedViewStorageKey('samples', 'workspace-a', 'owner-a'),
       '{not-json',
     )
+
     const store = createRegistrySavedViewStore({
       registryId: 'samples',
       workspaceId: 'workspace-a',
@@ -194,6 +199,7 @@ describe('registry query URL codec', () => {
         },
       ],
     }
+
     expect(decodeRegistryQuery(encodeRegistryQuery(query))).toEqual(query)
   })
 

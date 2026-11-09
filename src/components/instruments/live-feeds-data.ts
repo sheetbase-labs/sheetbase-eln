@@ -69,6 +69,7 @@ export const LIVE_WINDOWS = [
   { id: '24h', minutes: 1440 },
   { id: '7d', minutes: 10_080 },
 ] as const
+
 export type LiveWindowId = (typeof LIVE_WINDOWS)[number]['id']
 
 /** A feed that has not reported for this long is no longer coming in live. */
@@ -132,6 +133,7 @@ export function useStorageFeeds(
   client: DataClient = notebookDataClient,
 ) {
   const column = kind === 'unit' ? 'storage_unit_id' : 'storage_room_id'
+
   return useQuery({
     queryKey: liveFeedQueryKeys.feeds(placeId),
     enabled: placeId.length > 0,
@@ -199,6 +201,7 @@ export async function logStorageReading(
 
 export function windowStart(windowId: LiveWindowId, now: number): number {
   const minutes = LIVE_WINDOWS.find((w) => w.id === windowId)?.minutes ?? 60
+
   return now - minutes * 60_000
 }
 
@@ -212,6 +215,7 @@ export function useFeedSeries(
     enabled: Boolean(feedId),
     queryFn: async () => {
       const until = Date.now()
+
       const rows = await client.rpc<SeriesWire[]>(
         'list_instrument_feed_series',
         {
@@ -221,6 +225,7 @@ export function useFeedSeries(
           p_buckets: 240,
         },
       )
+
       return {
         since: windowStart(windowId, until),
         until,
@@ -280,6 +285,7 @@ export function formatReadingValue(value: number | null): string {
   if (value === null) return '—'
   const abs = Math.abs(value)
   const digits = abs >= 1000 ? 0 : abs >= 100 ? 1 : abs >= 10 ? 2 : 3
+
   return Number(value.toFixed(digits)).toLocaleString('en-GB', {
     maximumFractionDigits: digits,
   })
@@ -289,9 +295,13 @@ export function formatReadingValue(value: number | null): string {
 export function formatAgo(iso: string | null, now: number): string {
   if (!iso) return '—'
   const seconds = Math.max(0, Math.round((now - Date.parse(iso)) / 1000))
+
   if (seconds < 60) return `${seconds} s ago`
+
   if (seconds < 3600) return `${Math.round(seconds / 60)} min ago`
+
   if (seconds < 86_400) return `${Math.round(seconds / 3600)} h ago`
+
   return formatDate(iso)
 }
 
@@ -319,32 +329,43 @@ export function layoutSeries(
   },
 ): ChartGeometry {
   const values = points.flatMap((p) => [p.min, p.max])
+
   if (limits.low !== null) values.push(limits.low)
+
   if (limits.high !== null) values.push(limits.high)
   let yMin = values.length ? Math.min(...values) : 0
   let yMax = values.length ? Math.max(...values) : 1
+
   if (yMax === yMin) {
     yMax += 1
     yMin -= 1
   }
+
   const pad = (yMax - yMin) * 0.08
   yMin -= pad
   yMax += pad
   const span = Math.max(1, window.until - window.since)
   const x = (at: number) => ((at - window.since) / span) * box.width
+
   const y = (value: number) =>
     box.height - ((value - yMin) / (yMax - yMin)) * box.height
+
   const f = (n: number) => n.toFixed(1)
+
   const line = points
     .map((p, i) => `${i === 0 ? 'M' : 'L'}${f(x(p.at))},${f(y(p.avg))}`)
     .join(' ')
+
   const top = points.map((p) => `${f(x(p.at))},${f(y(p.max))}`)
+
   const bottom = points
     .slice()
     .reverse()
     .map((p) => `${f(x(p.at))},${f(y(p.min))}`)
+
   const band =
     points.length > 1 ? `M${top.join(' L')} L${bottom.join(' L')} Z` : ''
+
   return { line, band, yMin, yMax, x, y }
 }
 
@@ -354,6 +375,7 @@ export function seriesCsv(feed: FeedRow, points: SeriesPoint[]): string {
   const label = `${feed.name}${unit}`.replace(/"/g, '""')
   const lines = [`Time,"${label} average",minimum,maximum,readings`]
   const clean = (value: number) => Number(value.toPrecision(10))
+
   for (const p of points) {
     lines.push(
       [
@@ -365,5 +387,6 @@ export function seriesCsv(feed: FeedRow, points: SeriesPoint[]): string {
       ].join(','),
     )
   }
+
   return `${lines.join('\n')}\n`
 }

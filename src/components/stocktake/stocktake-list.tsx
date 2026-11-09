@@ -53,6 +53,7 @@ import { STATUS_TONE, messageOf, statusLabel } from './stocktake-shared'
 const client: DataClient = notebookDataClient
 
 type Filter = 'all' | StocktakeStatus
+
 const FILTERS: Filter[] = ['all', 'open', 'completed', 'cancelled']
 
 interface PlaceOption {
@@ -64,17 +65,23 @@ interface PlaceOption {
 /** Every part of the storage tree a count can cover, that holds at least one box. */
 export function placeOptions(tree: StorageTree): PlaceOption[] {
   const hasBox = new Map<string, boolean>()
+
   const check = (id: string): boolean => {
     const cached = hasBox.get(id)
+
     if (cached !== undefined) return cached
     const node = tree.byId.get(id)
+
     const found =
       !!node &&
       (node.level === 'box' ||
         tree.childrenOf(node).some((child) => check(child.id)))
+
     hasBox.set(id, found)
+
     return found
   }
+
   return tree.nodes
     .filter(
       (node) =>
@@ -84,6 +91,7 @@ export function placeOptions(tree: StorageTree): PlaceOption[] {
     )
     .map((node) => {
       const path = nodePath(tree, node).join(' / ')
+
       return {
         id: node.id,
         level: node.level as StocktakeLevel,
@@ -110,10 +118,12 @@ async function fetchSummaries(): Promise<Map<string, StocktakeSummary>> {
     'stocktake_items',
     '?select=stocktake_id,state,resolved_at&limit=20000',
   )
+
   const grouped = new Map<
     string,
     Pick<StocktakeItem, 'state' | 'resolvedAt'>[]
   >()
+
   for (const row of rows) {
     const list = grouped.get(row.stocktake_id) ?? []
     list.push({
@@ -122,6 +132,7 @@ async function fetchSummaries(): Promise<Map<string, StocktakeSummary>> {
     })
     grouped.set(row.stocktake_id, list)
   }
+
   return new Map(
     [...grouped].map(([id, list]) => [id, summariseItems(list)] as const),
   )
@@ -139,15 +150,18 @@ export function StartCountDialog({
   onStarted: (id: string) => void
 }) {
   const queryClient = useQueryClient()
+
   const tree = useQuery({
     queryKey: stocktakeKeys.tree,
     queryFn: () => fetchStorageTree(client, { occupancy: false }),
     enabled: open,
   })
+
   const options = useMemo(
     () => (tree.data ? placeOptions(tree.data) : []),
     [tree.data],
   )
+
   const [choice, setChoice] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -155,6 +169,7 @@ export function StartCountDialog({
   const start = useMutation({
     mutationFn: () => {
       const option = options.find((o) => o.id === choice)!
+
       return startStocktake(client, {
         level: option.level,
         scopeId: option.id,
@@ -182,10 +197,13 @@ export function StartCountDialog({
             className="flex flex-col gap-3"
             onSubmit={(event) => {
               event.preventDefault()
+
               if (!choice) {
                 setError(t('library.stocktake.chooseAPlace'))
+
                 return
               }
+
               setError(null)
               start.mutate()
             }}
@@ -260,10 +278,13 @@ function resultOf(
   if (count.status !== 'completed' || !summary)
     return { tone: 'none', label: t('library.stocktake.resultNone') }
   const differences = summary.misplaced + summary.unexpected + summary.missing
+
   if (differences === 0)
     return { tone: 'ok', label: t('library.stocktake.resultClean') }
+
   if (summary.toFix === 0)
     return { tone: 'ok', label: t('library.stocktake.resultFixed') }
+
   return {
     tone: 'warn',
     label: t('library.stocktake.resultDifferences', { count: summary.toFix }),
@@ -274,16 +295,19 @@ export function StocktakeList({ canWrite }: { canWrite: boolean }) {
   const navigate = useNavigate()
   const [filter, setFilter] = useState<Filter>('all')
   const [starting, setStarting] = useState(false)
+
   const counts = useQuery({
     queryKey: stocktakeKeys.list,
     queryFn: () => fetchStocktakes(client),
     staleTime: 10_000,
   })
+
   const summaries = useQuery({
     queryKey: [...stocktakeKeys.list, 'summaries'],
     queryFn: fetchSummaries,
     staleTime: 10_000,
   })
+
   const names = useWorkspaceMemberNames()
 
   const all = counts.data ?? []
@@ -347,6 +371,7 @@ export function StocktakeList({ canWrite }: { canWrite: boolean }) {
             row.original,
             summaries.data?.get(row.original.id),
           )
+
           return result.tone === 'none' ? (
             <span className="text-fg-muted">{result.label}</span>
           ) : (

@@ -56,10 +56,13 @@ function Calendar({
         Chevron: ({ orientation }) => {
           if (orientation === 'left')
             return <Icon name="chevronLeft" className="size-4" />
+
           if (orientation === 'right')
             return <Icon name="chevronRight" className="size-4" />
+
           if (orientation === 'up')
             return <Icon name="chevronUp" className="size-4" />
+
           return <Icon name="chevronDown" className="size-4" />
         },
       }}

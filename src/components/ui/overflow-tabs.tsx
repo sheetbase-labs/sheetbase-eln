@@ -19,8 +19,10 @@ export interface OverflowTabItem {
 }
 
 const GAP = 12
+
 /** The More button's width, reserved whenever some tab is moved into it. */
 const MORE_WIDTH = 64
+
 /** Spare room so a tab never ends up a pixel short of its label. */
 const SLACK = 4
 
@@ -35,16 +37,22 @@ export function visibleTabIndexes(
   activeIndex: number,
 ): number[] {
   const all = widths.map((_, index) => index)
+
   const span = (indexes: number[]) =>
     indexes.reduce((sum, index) => sum + (widths[index] ?? 0), 0) +
     GAP * Math.max(indexes.length - 1, 0)
+
   if (span(all) <= available) return all
+
   for (let keep = widths.length - 1; keep >= 1; keep -= 1) {
     const head = all.slice(0, keep)
+
     const row =
       activeIndex >= keep ? [...head.slice(0, keep - 1), activeIndex] : head
+
     if (span(row) + GAP + MORE_WIDTH + SLACK <= available) return row
   }
+
   return activeIndex >= 0 ? [activeIndex] : [0]
 }
 
@@ -72,12 +80,16 @@ export function OverflowTabs({
   useLayoutEffect(() => {
     const row = rowRef.current
     const measure = measureRef.current
+
     if (!row || !measure) return
+
     const read = () => {
       setAvailable(row.clientWidth)
+
       const next = [...measure.children].map(
         (child) => (child as HTMLElement).offsetWidth,
       )
+
       setWidths((previous) =>
         previous.length === next.length &&
         previous.every((width, index) => width === next[index])
@@ -85,19 +97,24 @@ export function OverflowTabs({
           : next,
       )
     }
+
     read()
+
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(read)
     observer.observe(row)
     observer.observe(measure)
+
     return () => observer.disconnect()
   })
 
   const activeIndex = items.findIndex((item) => item.value === value)
+
   const shown =
     available === 0 || widths.length !== items.length
       ? items.map((_, index) => index)
       : visibleTabIndexes(widths, available, activeIndex)
+
   const hidden = items.filter((_, index) => !shown.includes(index))
 
   return (

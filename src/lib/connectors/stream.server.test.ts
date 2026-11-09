@@ -21,17 +21,22 @@ const personal: ExternalClaims = {
 
 function setup(options: { claims?: ExternalClaims; rpcError?: Error } = {}) {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+
   const client = {
     rpc: async (name: string, args: Record<string, unknown>) => {
       calls.push({ name, args })
+
       if (options.rpcError) throw options.rpcError
+
       return { stored: 1, feeds: 1 }
     },
   } as unknown as DataClient
+
   const deps: StreamDeps = {
     verifyCredential: vi.fn(async () => options.claims ?? personal),
     createClient: () => client,
   }
+
   return { deps, calls }
 }
 
@@ -65,6 +70,7 @@ describe('parseStreamBody', () => {
   it('names the reading that is wrong', () => {
     const bad = (readings: unknown[]) => () =>
       parseStreamBody({ instrumentId: INSTRUMENT, readings })
+
     expect(
       bad([
         { feed: 'a', value: 1 },
@@ -87,15 +93,19 @@ describe('readings for a freezer or room', () => {
 
   it('goes to the storage readings call', async () => {
     const { deps, calls } = setup()
+
     const unit = await handleStream(
       post({ storageUnitId: UNIT, readings: [reading] }),
       deps,
     )
+
     expect(unit.status).toBe(201)
+
     const room = await handleStream(
       post({ storageRoomId: UNIT, readings: [reading] }),
       deps,
     )
+
     expect(room.status).toBe(201)
     expect(
       calls.map((c) => [c.name, c.args['p_unit_id'], c.args['p_room_id']]),
@@ -162,16 +172,19 @@ describe('handleStream', () => {
     revoked.deps.verifyCredential = async () => {
       throw new ExternalTokenError('invalid_token', 'revoked')
     }
+
     expect((await handleStream(post(batch), revoked.deps)).status).toBe(401)
   })
 
   it('refuses what is not JSON or is too big', async () => {
     const { deps } = setup()
     expect((await handleStream(post('{nope'), deps)).status).toBe(400)
+
     const huge = await handleStream(
       post(batch, { 'content-length': '9999999' }),
       deps,
     )
+
     expect(huge.status).toBe(413)
   })
 
@@ -179,6 +192,7 @@ describe('handleStream', () => {
     const denied = setup({
       rpcError: new DataClientError('42501', 'instrument denied', 403),
     })
+
     const forbidden = await handleStream(post(batch), denied.deps)
     expect(forbidden.status).toBe(403)
     expect((await forbidden.json()).error.code).toBe('forbidden')
@@ -190,6 +204,7 @@ describe('handleStream', () => {
         400,
       ),
     })
+
     expect((await handleStream(post(batch), refused.deps)).status).toBe(422)
 
     const down = setup({ rpcError: new DataClientError('XX000', 'boom', 503) })

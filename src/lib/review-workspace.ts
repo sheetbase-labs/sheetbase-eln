@@ -120,8 +120,10 @@ export async function fetchRevisionRow(
     'revisions',
     `?id=eq.${revisionId}&limit=1`,
   )
+
   if (rows.length === 0) return null
   const evidence = await fetchRevisionSheetEvidence(client, revisionId)
+
   return {
     ...rows[0],
     frozenSheetEvidence: [...sheetEvidenceFromRevisionRows(evidence).values()],
@@ -165,12 +167,15 @@ export function toCanonicalEnvelope(
   revision: RevisionWire & { frozenSheetEvidence?: FrozenSheetEvidence[] },
 ): CanonicalRevisionEnvelope {
   const canonical = revision.canonical_snapshot
+
   if (canonical && typeof canonical === 'object' && 'blocks' in canonical) {
     const envelope = canonical as unknown as CanonicalRevisionEnvelope
+
     return revision.frozenSheetEvidence?.length
       ? { ...envelope, sheetEvidence: revision.frozenSheetEvidence }
       : envelope
   }
+
   return {
     formatVersion: 0,
     record: revision.metadata_snapshot,
@@ -272,27 +277,36 @@ export function deriveReviewActionPermission(
 ): ReviewActionPermission {
   const isActive = ctx.state === 'submitted'
   const isSuperseded = ctx.supersededByRevisionId !== null
+
   const isAssignedReviewer = ctx.assignedReviewerUserIds.includes(
     ctx.currentUserId,
   )
+
   const isSubmitter = ctx.submittedByUserId === ctx.currentUserId
 
   function reviewReason(): ReviewBlockedReason | null {
     if (!isActive) return 'not_active'
+
     if (isSuperseded) return 'superseded'
+
     if (!isAssignedReviewer) return 'not_assigned_reviewer'
+
     return null
   }
 
   function withdrawReason(): ReviewBlockedReason | null {
     if (!isActive) return 'not_active'
+
     if (isSuperseded) return 'superseded'
+
     if (!isSubmitter) return 'not_submitter'
+
     return null
   }
 
   const reviewBlockedReason = reviewReason()
   const withdrawBlockedReason = withdrawReason()
+
   return {
     canReview: reviewBlockedReason === null,
     canWithdraw: withdrawBlockedReason === null,

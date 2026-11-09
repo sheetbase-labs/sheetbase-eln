@@ -38,9 +38,11 @@ export function DecideRequestDialog({
   onClose: () => void
 }) {
   const fields = useRecordModelFields(request?.kind ?? '')
+
   const fieldLabels = new Map(
     (fields.data ?? []).map((f) => [f.fieldName, f.label] as const),
   )
+
   const queryClient = useQueryClient()
   const [note, setNote] = useState('')
   useEffect(() => setNote(''), [request?.id])
@@ -67,6 +69,7 @@ export function DecideRequestDialog({
   })
 
   const details = request ? requestDetails(request, fieldLabels) : []
+
   return (
     <Dialog open={request !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">

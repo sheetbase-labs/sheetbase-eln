@@ -21,11 +21,13 @@ export function ProjectNavigationTree({
   activeRecordId?: string
 }) {
   const folderIds = new Set(folders.map((folder) => folder.id))
+
   const rootFolders = folders
     .filter(
       (folder) => folder.parentId === null || !folderIds.has(folder.parentId),
     )
     .sort((a, b) => a.name.localeCompare(b.name))
+
   const rootRecords = records
     .filter((record) => !record.folderId || !folderIds.has(record.folderId))
     .sort((a, b) => a.title.localeCompare(b.title))
@@ -91,6 +93,7 @@ function FolderBranch({
   const children = folders
     .filter((candidate) => candidate.parentId === folder.id)
     .sort((a, b) => a.name.localeCompare(b.name))
+
   const folderRecords = records
     .filter((record) => record.folderId === folder.id)
     .sort((a, b) => a.title.localeCompare(b.title))

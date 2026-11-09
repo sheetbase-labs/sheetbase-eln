@@ -31,6 +31,7 @@ import { logger } from './logger'
 
 /** Hold limits are day-scale; a few hours of latency is irrelevant. */
 export const SAMPLE_HOLD_INTERVAL_MS = 6 * 60 * 60 * 1000
+
 /** Bounded batch per sweep, within the RPC's 1..1000 validated range. */
 export const SAMPLE_HOLD_BATCH_LIMIT = 100
 
@@ -64,6 +65,7 @@ function asNonEmptyString(value: unknown): string | null {
 function asFiniteNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null
   const n = typeof value === 'number' ? value : Number(value)
+
   return Number.isFinite(n) ? n : null
 }
 
@@ -72,11 +74,13 @@ export function parseHoldLimit(
   properties: Record<string, unknown> | null | undefined,
 ): ParsedHoldLimit {
   const props = properties ?? {}
+
   const allowed = Array.isArray(props.allowedUseExperimentIds)
     ? props.allowedUseExperimentIds.filter(
         (id): id is string => typeof id === 'string' && id !== '',
       )
     : []
+
   return {
     condition: asNonEmptyString(props.holdCondition),
     startedAt: asNonEmptyString(props.holdStartedAt),
@@ -89,6 +93,7 @@ export function parseHoldLimit(
 function toDate(value: string | null): Date | null {
   if (!value) return null
   const date = new Date(value)
+
   return Number.isNaN(date.getTime()) ? null : date
 }
 
@@ -99,11 +104,16 @@ function toDate(value: string | null): Date | null {
  */
 export function effectiveHoldDeadline(sample: HoldLimitSample): Date | null {
   const hold = parseHoldLimit(sample.properties)
+
   if (hold.until) return toDate(hold.until)
+
   if (hold.durationDays == null) return null
+
   const start =
     toDate(hold.startedAt) ?? toDate(sample.createdAt) ?? new Date(NaN)
+
   if (Number.isNaN(start.getTime())) return null
+
   return new Date(start.getTime() + hold.durationDays * DAY_MS)
 }
 
@@ -113,6 +123,7 @@ export function isHoldExceeded(
   now: Date = clockNow(),
 ): boolean {
   const deadline = effectiveHoldDeadline(sample)
+
   return deadline != null && deadline.getTime() <= now.getTime()
 }
 
@@ -165,11 +176,13 @@ export async function sweepSampleHoldLimits(
   limit: number = SAMPLE_HOLD_BATCH_LIMIT,
 ): Promise<number> {
   const conn = await deps.connect()
+
   try {
     const { rows } = await conn.query<SweepRow>(
       `SELECT api.sweep_sample_hold_limits($1) AS result`,
       [limit],
     )
+
     return rows.at(0)?.result.exceededCount ?? 0
   } finally {
     await conn.end()
@@ -187,6 +200,7 @@ export function createSampleHoldTick(
 ): () => Promise<void> {
   return async () => {
     const startedAt = Date.now()
+
     try {
       const exceededCount = await sweepSampleHoldLimits(deps, limit)
       log.info('sample hold sweep complete', {
@@ -213,8 +227,10 @@ const startedGlobalKey = '__sheetbaseSampleHoldSchedulerStarted'
  */
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
@@ -228,8 +244,10 @@ export function startSampleHoldScheduler(
   options: StartSampleHoldOptions = {},
 ): void {
   if (typeof window !== 'undefined') return
+
   if (schedulerDisabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
 
@@ -250,10 +268,12 @@ export function stopSampleHoldScheduler(): void {
     clearTimeout(holdBootTimer)
     holdBootTimer = null
   }
+
   if (holdTimer) {
     clearInterval(holdTimer)
     holdTimer = null
   }
+
   const g = globalThis as unknown as Record<string, unknown>
   delete g[startedGlobalKey]
 }
@@ -261,6 +281,7 @@ export function stopSampleHoldScheduler(): void {
 async function defaultConnect(): Promise<HoldConnection> {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   return {
     query: async (text, values = []) => client.query(text, values),
     end: () => client.end(),

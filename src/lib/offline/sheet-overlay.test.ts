@@ -26,6 +26,7 @@ describe('overlayOfflineSheetEdits', () => {
       columnId: 'a',
       value: 9,
     }
+
     expect(overlayOfflineSheetEdits(matrix, 's1', [other])).toBe(matrix)
   })
 
@@ -38,6 +39,7 @@ describe('overlayOfflineSheetEdits', () => {
       columnId: 'b',
       value: 99,
     }
+
     const next = overlayOfflineSheetEdits(matrix, 's1', [edit])
     expect(next.data[1]).toEqual([3, 99])
     expect(matrix.data[1]).toEqual([3, 4])
@@ -51,15 +53,18 @@ describe('overlayOfflineSheetEdits', () => {
       rowKey: 'new',
       values: { b: 'x' },
     }
+
     const next = overlayOfflineSheetEdits(matrix, 's1', [row])
     expect(next.rowKeys).toEqual(['r1', 'r2', 'new'])
     expect(next.data[2]).toEqual([null, 'x'])
+
     const synced = {
       ...matrix,
       rowKeys: ['r1', 'r2', 'new'],
       rowKinds: ['local', 'local', 'local'],
       data: [...matrix.data, [null, 'x']],
     } as CanonicalSheetGridMatrix
+
     expect(overlayOfflineSheetEdits(synced, 's1', [row]).rowKeys).toHaveLength(
       3,
     )

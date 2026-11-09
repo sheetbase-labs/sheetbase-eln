@@ -46,7 +46,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof BlockConflictDiff>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Both sides changed the paragraph: removed and added words read in place. */

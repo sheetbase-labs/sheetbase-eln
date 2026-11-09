@@ -44,6 +44,7 @@ export function sniffLogoType(bytes: Uint8Array): LogoMediaType | null {
   ) {
     return 'image/png'
   }
+
   if (
     bytes.length >= 3 &&
     bytes[0] === 0xff &&
@@ -52,6 +53,7 @@ export function sniffLogoType(bytes: Uint8Array): LogoMediaType | null {
   ) {
     return 'image/jpeg'
   }
+
   return null
 }
 
@@ -68,22 +70,29 @@ async function readCapped(
   const reader = body.getReader()
   const parts: Uint8Array[] = []
   let total = 0
+
   for (;;) {
     const { done, value } = await reader.read()
+
     if (done) break
     total += value.byteLength
+
     if (total > maxBytes) {
       await reader.cancel().catch(() => undefined)
       throw new OversizeError(`logo exceeds ${maxBytes} bytes`, maxBytes)
     }
+
     parts.push(value)
   }
+
   const joined = new Uint8Array(total)
   let offset = 0
+
   for (const part of parts) {
     joined.set(part, offset)
     offset += part.byteLength
   }
+
   return joined
 }
 
@@ -118,7 +127,9 @@ export async function handleLogoWrite(
   if (request.method !== 'PUT' && request.method !== 'DELETE') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use PUT or DELETE.')
   }
+
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
@@ -129,6 +140,7 @@ export async function handleLogoWrite(
       { p_workspace_id: context.workspaceId },
       context.token,
     )
+
     if (cleared.status >= 400) {
       return requestErrorResponse(
         cleared.status === 403 ? 403 : cleared.status,
@@ -136,20 +148,26 @@ export async function handleLogoWrite(
         'Only an administrator can remove the lab logo.',
       )
     }
+
     await removeQuietly(storage, previousKey(cleared.body))
+
     return new Response(null, { status: 204 })
   }
 
   let bytes: Uint8Array
+
   try {
     bytes = await readCapped(request.body, LOGO_MAX_BYTES)
   } catch (error) {
     if (error instanceof OversizeError) {
       return requestErrorResponse(413, 'oversize', 'Choose a logo under 1 MB.')
     }
+
     throw error
   }
+
   const mediaType = sniffLogoType(bytes)
+
   if (!mediaType) {
     return requestErrorResponse(
       415,
@@ -160,6 +178,7 @@ export async function handleLogoWrite(
 
   const key = logoStorageKey(context.workspaceId)
   await storage.putStream(key, streamOf(bytes), LOGO_MAX_BYTES)
+
   const saved = await postgrestRpc(
     'set_workspace_logo',
     {
@@ -169,15 +188,19 @@ export async function handleLogoWrite(
     },
     context.token,
   )
+
   if (saved.status >= 400) {
     await removeQuietly(storage, key)
+
     return requestErrorResponse(
       saved.status,
       'logo_not_saved',
       'Only an administrator can change the lab logo.',
     )
   }
+
   await removeQuietly(storage, previousKey(saved.body))
+
   return new Response(JSON.stringify({ mediaType }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
@@ -199,12 +222,17 @@ export async function findLogo(
   anonymous: () => Promise<LogoLookup | null>,
 ): Promise<LogoLookup | null> {
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok) return anonymous()
+
   const found = await postgrestRpc<
     Array<{ storage_key: string; media_type: string }>
   >('workspace_logo', {}, auth.context.token)
+
   const row = Array.isArray(found.body) ? found.body[0] : undefined
+
   if (found.status >= 400 || !row) return null
+
   return { storageKey: row.storage_key, mediaType: row.media_type }
 }
 
@@ -212,6 +240,7 @@ export async function findLogo(
 export async function anonymousLogo(): Promise<LogoLookup | null> {
   const { env } = await import('#/env.server')
   const { getPool } = await import('#/db/pool.server')
+
   const { rows } = await getPool(env.DATABASE_URL).query<{
     logo_storage_key: string
     logo_media_type: string
@@ -220,7 +249,9 @@ export async function anonymousLogo(): Promise<LogoLookup | null> {
       WHERE logo_storage_key IS NOT NULL AND status = 'active'
       ORDER BY created_at LIMIT 1`,
   )
+
   const row = rows.at(0)
+
   return row
     ? { storageKey: row.logo_storage_key, mediaType: row.logo_media_type }
     : null
@@ -236,11 +267,15 @@ export async function handleLogoDownload(
   if (request.method !== 'GET') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use GET.')
   }
+
   const logo = await findLogo(request, deps, anonymous)
+
   if (!logo) return requestErrorResponse(404, 'not_found', 'No logo.')
   const head = await storage.head(logo.storageKey)
+
   if (!head) return requestErrorResponse(404, 'not_found', 'No logo.')
   const { stream, byteSize } = await storage.getStream(logo.storageKey)
+
   // The page asks with `?v=<version>`, which changes with every new logo, so a
   // long cache never shows a stale one.
   return new Response(stream, {
@@ -262,6 +297,7 @@ export async function readWorkspaceLogoBytes(
 ): Promise<{ bytes: Uint8Array; mediaType: LogoMediaType } | null> {
   const { env } = await import('#/env.server')
   const { getPool } = await import('#/db/pool.server')
+
   const { rows } = await getPool(env.DATABASE_URL).query<{
     logo_storage_key: string
     logo_media_type: LogoMediaType
@@ -270,9 +306,12 @@ export async function readWorkspaceLogoBytes(
       WHERE id = $1::uuid AND logo_storage_key IS NOT NULL`,
     [workspaceId],
   )
+
   const row = rows.at(0)
+
   if (!row || !(await storage.head(row.logo_storage_key))) return null
   const { stream } = await storage.getStream(row.logo_storage_key)
+
   return {
     bytes: await readCapped(stream, LOGO_MAX_BYTES),
     mediaType: row.logo_media_type,

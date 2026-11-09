@@ -49,6 +49,7 @@ const GROUP_ORDER: ModelImpactGroup[] = [
 /** Classify a dependency kind into its impact-panel group. */
 export function classifyModelImpactKind(kind: string): ModelImpactGroup {
   if (kind === 'model_field') return 'fields'
+
   if (
     kind === 'record' ||
     kind === 'project' ||
@@ -59,10 +60,14 @@ export function classifyModelImpactKind(kind: string): ModelImpactGroup {
     kind === 'scientific_table'
   )
     return 'records'
+
   if (kind === 'model_relationship_rule') return 'rules'
+
   if (kind === 'sheet_definition_version' || kind === 'sheet_instance')
     return 'sheets'
+
   if (kind === 'notebook_template_version') return 'templates'
+
   return 'other'
 }
 
@@ -77,12 +82,15 @@ export function groupModelImpact(
   dependencies: ObjectDependency[],
 ): ModelImpactGroupView[] {
   const buckets = new Map<ModelImpactGroup, ObjectDependency[]>()
+
   for (const item of dependencies) {
     const group = classifyModelImpactKind(item.kind)
     const bucket = buckets.get(group)
+
     if (bucket) bucket.push(item)
     else buckets.set(group, [item])
   }
+
   return GROUP_ORDER.filter((group) => buckets.has(group)).map((group) => ({
     group,
     title: MODEL_IMPACT_GROUP_TITLES[group],

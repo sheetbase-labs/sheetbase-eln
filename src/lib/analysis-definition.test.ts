@@ -54,6 +54,7 @@ const row = (x: number, y: number | string | null, g: string) => ({
   [COL_Y]: y,
   [COL_G]: g,
 })
+
 const ROWS = [
   row(0, 1, '20C'),
   row(1, 3, '20C'),
@@ -156,10 +157,13 @@ describe('stats kernel', () => {
     // Predictor spread is O(1e-6) — variance ~1e-11 — so centring and
     // scaling must absorb the near-singular raw-space system.
     const xs = Array.from({ length: 40 }, (_, i) => i * 1e-6)
+
     const ys = xs.map((x) => {
       const u = x * 1e6
+
       return u ** 4 - 2 * u ** 3 + 0.5 * u + 7
     })
+
     const fit = olsFit(xs, ys, 4)!
     const quality = fitQuality(xs, ys, fit.coefficients)
     expect(quality.r2).toBeGreaterThan(0.999999)
@@ -206,6 +210,7 @@ describe('validateAnalysisDefinition', () => {
       ...descriptive,
       value: { fieldId: 'not-a-uuid' },
     })
+
     expect(errors).toContainEqual(
       expect.objectContaining({
         code: 'invalid_value',
@@ -234,6 +239,7 @@ describe('runAnalysis', () => {
   it('computes grouped descriptive statistics in sorted group order', () => {
     const result = runAnalysis(descriptive, COLUMNS, ROWS)
     expect(result.ok).toBe(true)
+
     if (!result.ok || result.result.kind !== 'descriptive') return
     expect(result.result.rows.map((r) => r.group)).toEqual(['20C', '4C'])
     const g20 = result.result.rows[0]
@@ -262,6 +268,7 @@ describe('runAnalysis', () => {
         logicalType: 'decimal',
       },
     ]
+
     expect(runAnalysis(descriptive, impostorColumns, ROWS)).toEqual({
       ok: false,
       error: { code: 'missing_field', fields: ['value'] },
@@ -271,10 +278,13 @@ describe('runAnalysis', () => {
   it('recovers exact linear coefficients and perfect fit quality', () => {
     const result = runAnalysis(regression, COLUMNS, ROWS)
     expect(result.ok).toBe(true)
+
     if (!result.ok || result.result.kind !== 'regression') return
+
     const byGroup = Object.fromEntries(
       result.result.rows.map((r) => [r.group, r]),
     )
+
     expect(byGroup['20C'].coefficients[0]).toBeCloseTo(1, 8)
     expect(byGroup['20C'].coefficients[1]).toBeCloseTo(2, 8)
     expect(byGroup['20C'].r2).toBeCloseTo(1, 8)
@@ -283,12 +293,15 @@ describe('runAnalysis', () => {
 
   it('curve-fits a quadratic when degree 2 is requested', () => {
     const rows = [-2, -1, 0, 1, 2].map((x) => row(x, x * x, 'all'))
+
     const result = runAnalysis(
       { ...regression, group: null, degree: 2 },
       COLUMNS,
       rows,
     )
+
     expect(result.ok).toBe(true)
+
     if (!result.ok || result.result.kind !== 'regression') return
     expect(result.result.rows[0].coefficients[2]).toBeCloseTo(1, 8)
     expect(result.result.rows[0].r2).toBeCloseTo(1, 8)
@@ -297,6 +310,7 @@ describe('runAnalysis', () => {
   it('linearises exponential data through an outcome log transform', () => {
     // y = 10·e^x ⇒ ln y = ln 10 + x exactly.
     const rows = [0, 1, 2, 3].map((x) => row(x, 10 * Math.exp(x), 'all'))
+
     const result = runAnalysis(
       {
         ...regression,
@@ -306,7 +320,9 @@ describe('runAnalysis', () => {
       COLUMNS,
       rows,
     )
+
     expect(result.ok).toBe(true)
+
     if (!result.ok || result.result.kind !== 'regression') return
     expect(result.result.rows[0].coefficients[1]).toBeCloseTo(1, 8)
     expect(result.result.rows[0].coefficients[0]).toBeCloseTo(Math.log(10), 6)
@@ -314,11 +330,13 @@ describe('runAnalysis', () => {
 
   it('refuses log transforms over non-positive values', () => {
     const rows = [row(-1, 1, 'all'), row(1, 2, 'all')]
+
     const result = runAnalysis(
       { ...regression, group: null, predictorTransform: 'log10' },
       COLUMNS,
       rows,
     )
+
     expect(result).toEqual({
       ok: false,
       error: { code: 'nonpositive_transform', field: 'predictor', count: 1 },
@@ -356,7 +374,9 @@ describe('runAnalysis', () => {
       row(9, 'oops', '20C'),
       row(9, null, '20C'),
     ])
+
     expect(result.ok).toBe(true)
+
     if (!result.ok || result.result.kind !== 'descriptive') return
     expect(result.result.rows[0].missing).toBe(2)
     expect(result.result.rows[0].stats.n).toBe(4)
@@ -392,6 +412,7 @@ describe('flagged-value exclusion (DSET-01.2)', () => {
       { ...row(0, 1, '20C'), __sheetbaseRowId: 'r1' },
       { ...row(1, 3, '20C'), __sheetbaseRowId: 'r2' },
     ]
+
     const result = runAnalysis(descriptive, COLUMNS, rows, [
       {
         id: 'f1',
@@ -404,7 +425,9 @@ describe('flagged-value exclusion (DSET-01.2)', () => {
         setAt: '2026-09-25T09:40:00Z',
       },
     ])
+
     expect(result.ok).toBe(true)
+
     if (result.ok && result.result.kind === 'descriptive') {
       const group = result.result.rows.find((entry) => entry.group === '20C')
       expect(group?.stats.n).toBe(1)
@@ -417,6 +440,7 @@ describe('flagged-value exclusion (DSET-01.2)', () => {
       { ...row(0, 1, '20C'), __sheetbaseRowId: 'r1' },
       { ...row(1, 3, '20C'), __sheetbaseRowId: 'r2' },
     ]
+
     const result = runAnalysis(descriptive, COLUMNS, rows, [
       {
         id: 'f1',
@@ -429,11 +453,14 @@ describe('flagged-value exclusion (DSET-01.2)', () => {
         setAt: '2026-09-25T09:40:00Z',
       },
     ])
+
     if (!result.ok || result.result.kind !== 'descriptive')
       throw new Error('expected descriptive result')
+
     const exclusion = result.result.checks.find(
       (check) => check.id === 'excluded_rows',
     )
+
     expect(exclusion?.status).toBe('warn')
     expect(exclusion?.detail).toContain('1 row(s) were excluded')
   })
@@ -472,6 +499,7 @@ describe('sampling distributions', () => {
     // 5.143 is the 5% critical value for F(2, 6).
     expect(fUpperP(5.143, 2, 6)).toBeCloseTo(0.05, 3)
     expect(fUpperP(0, 3, 4)).toBe(1)
+
     // F(1, df) is exactly t(df)², so the two tails must agree.
     for (const t of [0.5, 1.4, 2.9])
       expect(fUpperP(t * t, 1, 9)).toBeCloseTo(tTwoSidedP(t, 9), 12)
@@ -516,6 +544,7 @@ describe('linear model inference', () => {
   it('reports the terms, the method and every check it ran', () => {
     const rows = XS.map((x, index) => row(x, YS[index], 'all'))
     const result = runAnalysis({ ...regression, group: null }, COLUMNS, rows)
+
     if (!result.ok || result.result.kind !== 'regression')
       throw new Error('expected a regression result')
     const { method, checks } = result.result
@@ -572,9 +601,11 @@ describe('linear model inference', () => {
       row(1, 11, '4C'),
       row(2, 12, '4C'),
     ]
+
     // The `regression` fixture groups by condition, so two models run and
     // each carries its own six checks — no duplicate keys, no lost attribution.
     const result = runAnalysis(regression, COLUMNS, rows)
+
     if (!result.ok || result.result.kind !== 'regression')
       throw new Error('expected a regression result')
     const checks = result.result.checks
@@ -591,6 +622,7 @@ describe('linear model inference', () => {
   it('states that an ungrouped descriptive run makes no distributional claim', () => {
     const rows = XS.map((x, index) => row(x, YS[index], 'all'))
     const result = runAnalysis({ ...descriptive, group: null }, COLUMNS, rows)
+
     if (!result.ok || result.result.kind !== 'descriptive')
       throw new Error('expected a descriptive result')
     expect(result.result.method.id).toBe('descriptive')
@@ -601,6 +633,7 @@ describe('linear model inference', () => {
   it('runs no F test when only one group holds values', () => {
     const rows = XS.map((x, index) => row(x, YS[index], '20C'))
     const result = runAnalysis(descriptive, COLUMNS, rows)
+
     if (!result.ok || result.result.kind !== 'descriptive')
       throw new Error('expected a descriptive result')
     expect(result.result.method.id).toBe('one_way_anova')
@@ -621,6 +654,7 @@ describe('one-way ANOVA', () => {
       { group: 'B', values: [4, 5, 6] },
       { group: 'C', values: [7, 8, 9] },
     ]
+
     const anova = oneWayAnova(groups)!
     expect(anova.n).toBe(9)
     expect(anova.grandMean).toBe(5)
@@ -647,6 +681,7 @@ describe('one-way ANOVA', () => {
       { group: 'A', values: [1, 2, 3] },
       { group: 'B', values: [7, 8, 9] },
     ])!
+
     // Means 2 and 8, pooled sd 1, so F = 54 = t² with 4 residual df.
     expect(anova.f).toBeCloseTo(54, 10)
     expect(anova.dfWithin).toBe(4)
@@ -682,7 +717,9 @@ describe('one-way ANOVA', () => {
       row(1, 8, 'C'),
       row(2, 9, 'C'),
     ]
+
     const result = runAnalysis(descriptive, COLUMNS, rows)
+
     if (!result.ok || result.result.kind !== 'descriptive')
       throw new Error('expected a descriptive result')
     expect(result.result.method.id).toBe('one_way_anova')
@@ -706,11 +743,14 @@ describe('violated assumptions are reported, not corrected', () => {
     const noise = [0.1, -0.1, 0.1, -0.1, 0.1, -0.1, 8, -8, 8, -8, 8, -8]
     const rows = noise.map((d, index) => row(index + 1, index + 1 + d, 'all'))
     const result = runAnalysis({ ...regression, group: null }, COLUMNS, rows)
+
     if (!result.ok || result.result.kind !== 'regression')
       throw new Error('expected a regression result')
+
     const check = result.result.checks.find(
       (entry) => entry.id === 'constant_variance',
     )!
+
     expect(check.status).toBe('fail')
     expect(check.pValue!).toBeLessThan(0.05)
     expect(check.remedy).toBeTruthy()
@@ -736,12 +776,16 @@ describe('violated assumptions are reported, not corrected', () => {
       row(3, 0, 'B'),
       row(4, 100, 'B'),
     ]
+
     const result = runAnalysis(descriptive, COLUMNS, rows)
+
     if (!result.ok || result.result.kind !== 'descriptive')
       throw new Error('expected a descriptive result')
+
     const check = result.result.checks.find(
       (entry) => entry.id === 'residual_normality',
     )!
+
     expect(check.status).toBe('fail')
     expect(check.pValue!).toBeLessThan(0.01)
     expect(check.statistic!).toBeGreaterThan(10)
@@ -769,7 +813,9 @@ describe('analysis method reporting', () => {
     const rows = [1, 2, 3, 4, 5].map((x) =>
       row(x, [2, 4, 5, 4, 5][x - 1], 'all'),
     )
+
     const result = runAnalysis({ ...regression, group: null }, COLUMNS, rows)
+
     if (!result.ok) throw new Error('expected ok')
     const text = analysisMethodsText(result.result)
     expect(text).toContain('Linear model (ordinary least squares)')
@@ -799,27 +845,32 @@ describe('dose-response curve analysis', () => {
   const COL_OD = '0198d970-e266-4000-8000-0000000000a2'
   const COL_NAME = '0198d970-e266-4000-8000-0000000000a3'
   const COL_PLATE = '0198d970-e266-4000-8000-0000000000a4'
+
   const CURVE_COLUMNS: ChartColumn[] = [
     { id: COL_DOSE, label: 'Concentration', logicalType: 'decimal' },
     { id: COL_OD, label: 'OD450', logicalType: 'decimal' },
     { id: COL_NAME, label: 'Well', logicalType: 'text' },
     { id: COL_PLATE, label: 'Plate', logicalType: 'text' },
   ]
+
   // A rising 4PL: A 0.05, B 1.4, C 20, D 2.4.
   const truth = (x: number) => 2.4 + (0.05 - 2.4) / (1 + (x / 20) ** 1.4)
   const DOSES = [0.5, 1.5, 5, 15, 50, 150, 500, 1500]
+
   const standard = (dose: number, plate = 'P1') => ({
     [COL_DOSE]: dose,
     [COL_OD]: truth(dose),
     [COL_NAME]: `S${dose}`,
     [COL_PLATE]: plate,
   })
+
   const unknown = (name: string, od: number, plate = 'P1') => ({
     [COL_DOSE]: null,
     [COL_OD]: od,
     [COL_NAME]: name,
     [COL_PLATE]: plate,
   })
+
   const curve = (over: Record<string, unknown> = {}): AnalysisDefinition => ({
     definitionVersion: 1,
     kind: 'curve',
@@ -845,10 +896,12 @@ describe('dose-response curve analysis', () => {
 
   it('fits the standards, reports EC50 and reads unknowns back', () => {
     const unknownOd = truth(80)
+
     const result = runAnalysis(curve(), CURVE_COLUMNS, [
       ...DOSES.map((d) => standard(d)),
       unknown('U1', unknownOd),
     ])
+
     if (!result.ok || result.result.kind !== 'curve')
       throw new Error('expected a curve result')
     expect(result.result.method.id).toBe('logistic_curve')
@@ -864,6 +917,7 @@ describe('dose-response curve analysis', () => {
     expect(back.status).toBe('in_range')
     const standards = fit.readBack.filter((r) => r.role === 'standard')
     expect(standards).toHaveLength(8)
+
     for (const s of standards) expect(s.recovery).toBeCloseTo(100, 1)
     expect(
       result.result.checks.find((c) => c.id === 'curve_standard_recovery')
@@ -874,14 +928,17 @@ describe('dose-response curve analysis', () => {
 
   it('calls a falling curve an IC50 and flags unknowns beyond the standards', () => {
     const falling = (x: number) => 4 + (100 - 4) / (1 + (x / 8) ** 1.1)
+
     const rows = [0.3, 1, 3, 10, 30, 100, 300, 1000].map((d) => ({
       [COL_DOSE]: d,
       [COL_OD]: falling(d),
       [COL_NAME]: `S${d}`,
       [COL_PLATE]: 'P1',
     }))
+
     rows.push(unknown('High', 99.9) as never, unknown('Off', 150) as never)
     const result = runAnalysis(curve(), CURVE_COLUMNS, rows)
+
     if (!result.ok || result.result.kind !== 'curve')
       throw new Error('expected a curve result')
     const fit = result.result.rows[0]
@@ -908,6 +965,7 @@ describe('dose-response curve analysis', () => {
       ...DOSES.map((d) => standard(d)),
       standard(0),
     ])
+
     if (!result.ok || result.result.kind !== 'curve')
       throw new Error('expected a curve result')
     expect(result.result.rows[0].n).toBe(8)
@@ -923,6 +981,7 @@ describe('dose-response curve analysis', () => {
         ...DOSES.map((d) => standard(d, 'P2')),
       ],
     )
+
     if (!result.ok || result.result.kind !== 'curve')
       throw new Error('expected a curve result')
     expect(result.result.rows.map((r) => r.group)).toEqual(['P1', 'P2'])
@@ -935,13 +994,16 @@ describe('dose-response curve analysis', () => {
       standard(10),
       standard(100),
     ])
+
     expect(few).toEqual({
       ok: false,
       error: { code: 'insufficient_data', group: 'all', needed: 4 },
     })
+
     const five = runAnalysis(curve({ model: '5pl' }), CURVE_COLUMNS, [
       ...DOSES.slice(0, 4).map((d) => standard(d)),
     ])
+
     expect(five).toEqual({
       ok: false,
       error: { code: 'insufficient_data', group: 'all', needed: 5 },

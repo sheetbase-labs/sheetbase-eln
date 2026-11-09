@@ -82,9 +82,11 @@ export function ConfirmEmailChangeSurface({
 
 function ConfirmEmailChange() {
   const { token } = Route.useSearch()
+
   const [result, setResult] = useState<EmailChangeConfirmResult | null>(
     token ? null : { ok: false, reason: 'invalid_link' },
   )
+
   // A link is single use, so confirm once however often the page renders.
   const started = useRef(false)
   useEffect(() => {
@@ -94,5 +96,6 @@ function ConfirmEmailChange() {
       .then(setResult)
       .catch(() => setResult({ ok: false, reason: 'invalid_link' }))
   }, [token])
+
   return <ConfirmEmailChangeSurface result={result} />
 }

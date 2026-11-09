@@ -133,9 +133,11 @@ export class OfflineReplayRefusedError extends Error {
 /** Whether a commit failure means this edit and the server now overlap. */
 export function isOfflineReplayOverlap(error: unknown): boolean {
   if (error instanceof OfflineReplayOverlapError) return true
+
   if (error instanceof DataClientError) {
     if (error.code === 'stale_version' || error.code === 'conflict') return true
   }
+
   const code =
     error &&
     typeof error === 'object' &&
@@ -143,23 +145,29 @@ export function isOfflineReplayOverlap(error: unknown): boolean {
     typeof error.code === 'string'
       ? error.code
       : ''
+
   if (code === 'SB001' || code === 'SB073') return true
   const message = error instanceof Error ? error.message : String(error ?? '')
+
   return /SB001|SB073|stale|revision conflict/i.test(message)
 }
 
 function isRefused(error: unknown): boolean {
   if (error instanceof OfflineReplayRefusedError) return true
+
   if (error instanceof DataClientError)
     return error.status >= 400 && error.status < 500
+
   if (error instanceof Error) {
     if (error.name === 'ZodError') return true
+
     // The canonical sheet write path refuses a bad batch before writing.
     if (
       error.name === 'SheetBatchValidationError' ||
       error.name === 'SheetMixedAuthorityWriteError'
     )
       return true
+
     if (
       /unresolved_target|ambiguous_target|calculated_read_only/.test(
         error.message,
@@ -167,6 +175,7 @@ function isRefused(error: unknown): boolean {
     )
       return true
   }
+
   return false
 }
 
@@ -176,6 +185,7 @@ function failureReason(error: unknown): OfflineReplayReason {
 
 function failureMessage(error: unknown, reason: OfflineReplayReason): string {
   const detail = error instanceof Error ? error.message : String(error ?? '')
+
   return reason === 'refused'
     ? `The server refused this edit; it stays queued. ${detail}`.trim()
     : `This edit could not be sent; it stays queued. ${detail}`.trim()
@@ -222,7 +232,9 @@ export type OfflineBlockPayloadEdit = Extract<
 /** Order-insensitive deep equality for JSON payloads. */
 export function samePayload(a: unknown, b: unknown): boolean {
   if (a === b) return true
+
   if (typeof a !== typeof b || a === null || b === null) return false
+
   if (Array.isArray(a) || Array.isArray(b)) {
     return (
       Array.isArray(a) &&
@@ -231,10 +243,12 @@ export function samePayload(a: unknown, b: unknown): boolean {
       a.every((item, index) => samePayload(item, b[index]))
     )
   }
+
   if (typeof a !== 'object') return false
   const left = a as Record<string, unknown>
   const right = b as Record<string, unknown>
   const keys = Object.keys(left)
+
   return (
     keys.length === Object.keys(right).length &&
     keys.every((key) => key in right && samePayload(left[key], right[key]))
@@ -264,6 +278,7 @@ function holdMessage(
     blocked.rowId && blocked.columnId
       ? ` on row ${blocked.rowId} · ${blocked.columnId}`
       : ''
+
   return (
     `Held: ${sheetInstanceId} has an unresolved conflict${cell}, ` +
     'and this edit depends on it.'
@@ -303,6 +318,7 @@ export async function replayOfflineEdits(input: {
 
   for (const edit of edits) {
     const sheetInstanceId = sheetIdOf(edit)
+
     const base = {
       editId: edit.id,
       sequence: edit.sequence,
@@ -314,6 +330,7 @@ export async function replayOfflineEdits(input: {
       sheetInstanceId && mutatesSheet(edit)
         ? blocked.get(sheetInstanceId)
         : undefined
+
     if (blocker) {
       const outcome: OfflineReplayOutcome = {
         ...base,
@@ -322,6 +339,7 @@ export async function replayOfflineEdits(input: {
         message: holdMessage(sheetInstanceId!, blocker),
         conflictId: blocker.conflictId,
       }
+
       held.push(outcome)
       outcomes.push(outcome)
       continue
@@ -334,6 +352,7 @@ export async function replayOfflineEdits(input: {
         if (edit.kind === 'cell') {
           try {
             const conflictId = await input.port.raiseCellConflict(edit)
+
             const blockedCell: HeldCalculation = {
               sheetInstanceId: edit.sheetInstanceId,
               rowId: edit.rowId,
@@ -343,8 +362,10 @@ export async function replayOfflineEdits(input: {
                 `Calculations that depend on row ${edit.rowId} · ${edit.columnId} ` +
                 'are held until this conflict is resolved.',
             }
+
             blocked.set(edit.sheetInstanceId, blockedCell)
             heldCalculations.push(blockedCell)
+
             const outcome: OfflineReplayOutcome = {
               ...base,
               status: 'conflict',
@@ -352,6 +373,7 @@ export async function replayOfflineEdits(input: {
               message: conflictMessage(edit),
               conflictId,
             }
+
             conflicts.push(outcome)
             outcomes.push(outcome)
           } catch (raiseError) {
@@ -367,6 +389,7 @@ export async function replayOfflineEdits(input: {
                 (raiseError instanceof Error ? raiseError.message : ''),
               conflictId: null,
             }
+
             failed.push(outcome)
             outcomes.push(outcome)
           }
@@ -381,9 +404,11 @@ export async function replayOfflineEdits(input: {
               conflictId: null,
               message: `A queued edit to ${sheetInstanceId} is stale and is held until it is reviewed.`,
             }
+
             blocked.set(sheetInstanceId, blockedCell)
             heldCalculations.push(blockedCell)
           }
+
           const outcome: OfflineReplayOutcome = {
             ...base,
             status: 'conflict',
@@ -391,11 +416,13 @@ export async function replayOfflineEdits(input: {
             message: conflictMessage(edit),
             conflictId: null,
           }
+
           conflicts.push(outcome)
           outcomes.push(outcome)
         }
       } else {
         const reason = failureReason(error)
+
         const outcome: OfflineReplayOutcome = {
           ...base,
           status: 'failed',
@@ -403,9 +430,11 @@ export async function replayOfflineEdits(input: {
           message: failureMessage(error, reason),
           conflictId: null,
         }
+
         failed.push(outcome)
         outcomes.push(outcome)
       }
+
       continue
     }
 
@@ -455,7 +484,9 @@ export function shouldReplayOfflineEdits(
 /** One paragraph per line, so a plain-text draft becomes a valid payload. */
 export function richTextPayloadFromText(text: string): RichTextPayload {
   const lines = text.split(/\r?\n/)
+
   if (text.length === 0) return EMPTY_RICH_TEXT_PAYLOAD
+
   return {
     doc: {
       type: 'doc',
@@ -479,25 +510,31 @@ export function richTextPayloadFromText(text: string): RichTextPayload {
 export function retryTokenForEdit(editId: string): string {
   const hash = (seed: number): string => {
     let value = seed >>> 0
+
     for (let index = 0; index < editId.length; index += 1) {
       value ^= editId.charCodeAt(index)
       value = Math.imul(value, 0x01000193) >>> 0
     }
+
     // A second round over the reversed string decorrelates the halves.
     for (let index = editId.length - 1; index >= 0; index -= 1) {
       value ^= editId.charCodeAt(index)
       value = Math.imul(value, 0x85ebca6b) >>> 0
     }
+
     return value.toString(16).padStart(8, '0')
   }
+
   const hex = (
     hash(0x811c9dc5) +
     hash(0x9e3779b9) +
     hash(0x85ebca6b) +
     hash(0xc2b2ae35)
   ).slice(0, 32)
+
   const versioned = `${hex.slice(0, 12)}4${hex.slice(13, 16)}`
   const variant = `${((parseInt(hex.charAt(16), 16) & 0x3) | 0x8).toString(16)}${hex.slice(17)}`
+
   return `${versioned.slice(0, 8)}-${versioned.slice(8, 12)}-${versioned.slice(12, 16)}-${variant.slice(0, 4)}-${variant.slice(4, 16)}`
 }
 
@@ -513,17 +550,22 @@ async function readServerCellValue(
     const projected = composition?.boundProjection?.rows.find(
       (row) => row.rowKey === rowId,
     )
+
     const bound = projected?.values[columnId]
+
     if (bound) return bound.kind === 'present' ? bound.value : null
+
     if (composition?.localFieldIds.includes(columnId)) {
       const instance = await fetchSheetInstance(instanceId, client)
       const row = instance?.state.localValues[rowId]
+
       return row && columnId in row ? row[columnId] : null
     }
   } catch {
     // A remote value we cannot read is recorded as absent rather than
     // invented; the conflict still carries the local side and the row/column.
   }
+
   return null
 }
 
@@ -557,26 +599,31 @@ export function createCanonicalOfflineReplayWriter(
   ): Promise<ComposedSheetSnapshot> {
     if (fresh) compositions.delete(instanceId)
     const cached = compositions.get(instanceId)
+
     if (cached) return cached
     const next = await fetchComposedSheetRows(instanceId, {}, client)
     compositions.set(instanceId, next)
+
     return next
   }
 
   async function serverBlock(edit: OfflineBlockPayloadEdit) {
     if (!options.recordId) return null
     const blocks = await fetchBlocksForRecord(client, options.recordId)
+
     return blocks.find((block) => block.id === edit.blockId) ?? null
   }
 
   return {
     async keepMyBlockEdit(edit) {
       const current = await serverBlock(edit)
+
       if (!current) {
         throw new OfflineReplayRefusedError(
           'the block this edit was made to no longer exists',
         )
       }
+
       await updateBlockPayload(client, {
         blockId: edit.blockId,
         payload: edit.payload,
@@ -588,6 +635,7 @@ export function createCanonicalOfflineReplayWriter(
     async readServerBlockPayload(edit) {
       try {
         const current = await serverBlock(edit)
+
         return current?.payload ?? null
       } catch {
         return null
@@ -609,9 +657,11 @@ export function createCanonicalOfflineReplayWriter(
             // Someone saved this block while the device was offline. When
             // they saved the same content there is nothing to decide.
             const current = await serverBlock(edit).catch(() => null)
+
             if (current && samePayload(current.payload, edit.payload)) return
             throw error
           }
+
           return
 
         case 'block_text':
@@ -620,18 +670,23 @@ export function createCanonicalOfflineReplayWriter(
             payload: richTextPayloadFromText(edit.text),
             expectedVersion: edit.expectedRevision,
           })
+
           return
 
         case 'cell': {
           const composition = await compositionFor(edit.sheetInstanceId)
+
           const expected =
             sheetRevisions.get(edit.sheetInstanceId) ?? edit.expectedRevision
+
           if (composition.revision !== expected) {
             throw new OfflineReplayOverlapError(
               `Sheet revision ${composition.revision} is past the ${expected} this edit was based on.`,
             )
           }
+
           let target: SheetWriteTarget
+
           try {
             target = resolveSheetWriteTarget({
               composition,
@@ -646,6 +701,7 @@ export function createCanonicalOfflineReplayWriter(
               error instanceof Error ? error.message : 'unresolved cell target',
             )
           }
+
           await writeSheetCells(
             {
               composition,
@@ -669,13 +725,16 @@ export function createCanonicalOfflineReplayWriter(
             expected + (target.kind === 'local' ? 1 : 0),
           )
           compositions.delete(edit.sheetInstanceId)
+
           return
         }
 
         case 'row': {
           const expected =
             sheetRevisions.get(edit.sheetInstanceId) ?? edit.expectedRevision
+
           const rowKey = edit.rowKey ?? globalThis.crypto.randomUUID()
+
           const next = await mutateSheetLocalState(
             {
               instanceId: edit.sheetInstanceId,
@@ -690,8 +749,10 @@ export function createCanonicalOfflineReplayWriter(
             },
             client,
           )
+
           sheetRevisions.set(edit.sheetInstanceId, next.revision)
           compositions.delete(edit.sheetInstanceId)
+
           return
         }
 
@@ -704,7 +765,9 @@ export function createCanonicalOfflineReplayWriter(
               'a draft comment has no cell or row anchor, so it cannot be created',
             )
           }
+
           await replyToComment(client, edit.parentId, edit.body, edit.mentions)
+
           return
         }
       }
@@ -712,12 +775,14 @@ export function createCanonicalOfflineReplayWriter(
 
     async raiseCellConflict(edit) {
       let composition: ComposedSheetSnapshot | null = null
+
       try {
         composition = await compositionFor(edit.sheetInstanceId, true)
       } catch {
         // The conflict is still worth raising without a remote value: the
         // local side, row and column are enough for a person to decide.
       }
+
       const remoteValue = await readServerCellValue(
         edit.sheetInstanceId,
         edit.rowId,
@@ -725,6 +790,7 @@ export function createCanonicalOfflineReplayWriter(
         composition,
         client,
       )
+
       const conflict = await client.rpc<{ id?: string } | null>(
         'record_cell_conflict',
         {
@@ -739,6 +805,7 @@ export function createCanonicalOfflineReplayWriter(
           p_remote_at: null,
         },
       )
+
       return conflict?.id ?? null
     },
   }

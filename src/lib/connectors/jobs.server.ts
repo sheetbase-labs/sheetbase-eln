@@ -30,6 +30,7 @@ import type { InstrumentJobWire, JobWorklist, RobotFile } from '../robots'
 export const JOBS_MAX_BYTES = 2 * 1024 * 1024
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 const REPORT_STATUSES = new Set([
   'staged',
   'running',
@@ -100,6 +101,7 @@ export function toAgentJob(row: JobRpcRow): AgentJob {
     worklistName: row.worklist.name,
     transfers: row.worklist.transfers.length,
   }
+
   if (row.status === 'queued') {
     base.file = robotFileFor({
       number: row.number,
@@ -115,11 +117,13 @@ export function toAgentJob(row: JobRpcRow): AgentJob {
       } satisfies JobWorklist,
     })
   }
+
   return base
 }
 
 function errorResponse(status: number, code: string, message: string) {
   if (status >= 500) annotateRequest({ error: { code, message } })
+
   return new Response(JSON.stringify({ error: { code, message } }), {
     status,
     headers: { 'content-type': 'application/json' },
@@ -146,7 +150,9 @@ export function parseJobsBody(raw: unknown): JobsRequest {
   if (!isObject(raw)) {
     throw new PickupError(400, 'invalid_request', 'Send a JSON body.')
   }
+
   const action = raw['action']
+
   if (action !== 'list' && action !== 'report') {
     throw new PickupError(
       400,
@@ -154,7 +160,9 @@ export function parseJobsBody(raw: unknown): JobsRequest {
       'action must be list or report.',
     )
   }
+
   const instrumentId = raw['instrumentId']
+
   if (typeof instrumentId !== 'string' || !UUID.test(instrumentId)) {
     throw new PickupError(
       400,
@@ -162,12 +170,16 @@ export function parseJobsBody(raw: unknown): JobsRequest {
       'instrumentId must be the id of the robot.',
     )
   }
+
   if (action === 'list') return { action, instrumentId }
   const jobId = raw['jobId']
+
   if (typeof jobId !== 'string' || !UUID.test(jobId)) {
     throw new PickupError(400, 'invalid_request', 'jobId must be a job id.')
   }
+
   const status = raw['status']
+
   if (typeof status !== 'string' || !REPORT_STATUSES.has(status)) {
     throw new PickupError(
       400,
@@ -175,17 +187,23 @@ export function parseJobsBody(raw: unknown): JobsRequest {
       'status must be staged, running, complete, failed or cancelled.',
     )
   }
+
   const out: JobsRequest = { action, instrumentId, jobId, status }
+
   if (typeof raw['remoteRef'] === 'string')
     out.remoteRef = raw['remoteRef'].slice(0, 200)
+
   if (typeof raw['message'] === 'string')
     out.message = raw['message'].slice(0, 500)
+
   if (raw['runLog'] !== undefined) {
     if (typeof raw['runLog'] !== 'string') {
       throw new PickupError(400, 'invalid_request', 'runLog must be text.')
     }
+
     out.runLog = raw['runLog']
   }
+
   if (raw['volumeUnit'] !== undefined) {
     if (!['ul', 'nl', 'ml'].includes(String(raw['volumeUnit']))) {
       throw new PickupError(
@@ -194,8 +212,10 @@ export function parseJobsBody(raw: unknown): JobsRequest {
         'volumeUnit must be ul, nl or ml.',
       )
     }
+
     out.volumeUnit = raw['volumeUnit'] as 'ul' | 'nl' | 'ml'
   }
+
   if (raw['entries'] !== undefined) {
     if (!Array.isArray(raw['entries']) || raw['entries'].length > 20000) {
       throw new PickupError(
@@ -204,10 +224,12 @@ export function parseJobsBody(raw: unknown): JobsRequest {
         'entries must be a list of up to 20000 transfers.',
       )
     }
+
     out.entries = raw['entries'].map((item, index): LogEntry => {
       const row = isObject(item) ? item : {}
       const sourceWell = row['sourceWell']
       const destWell = row['destWell']
+
       if (typeof sourceWell !== 'string' || typeof destWell !== 'string') {
         throw new PickupError(
           400,
@@ -215,8 +237,10 @@ export function parseJobsBody(raw: unknown): JobsRequest {
           `Entry ${index + 1} needs sourceWell and destWell.`,
         )
       }
+
       const actual = row['actualUl']
       const entryStatus = row['status']
+
       return {
         sourceWell: sourceWell.toUpperCase(),
         destWell: destWell.toUpperCase(),
@@ -229,6 +253,7 @@ export function parseJobsBody(raw: unknown): JobsRequest {
       }
     })
   }
+
   if (status === 'complete' && !out.entries && out.runLog === undefined) {
     throw new PickupError(
       400,
@@ -236,6 +261,7 @@ export function parseJobsBody(raw: unknown): JobsRequest {
       'Completing a job needs entries or runLog: what the robot moved.',
     )
   }
+
   return out
 }
 
@@ -245,8 +271,10 @@ export function reconcileJobLog(
   report: Pick<JobsRequest, 'entries' | 'runLog' | 'volumeUnit'>,
 ): ReturnType<typeof reconcileRunLog> {
   let entries = report.entries
+
   if (!entries && report.runLog !== undefined) {
     const parsed = parseRunLog(report.runLog, { volumeUnit: report.volumeUnit })
+
     if (parsed.entries.length === 0) {
       throw new PickupError(
         422,
@@ -254,8 +282,10 @@ export function reconcileJobLog(
         'The robot’s log has no transfers Sheetbase can read.',
       )
     }
+
     entries = parsed.entries
   }
+
   return reconcileRunLog(planned, entries ?? [])
 }
 
@@ -264,10 +294,13 @@ export async function runJobs(
   deps: JobsDeps,
 ): Promise<unknown> {
   const token = readBearer(request.headers)
+
   if (!token) {
     throw new PickupError(401, 'unauthenticated', 'Bearer token required.')
   }
+
   let claims: ExternalClaims
+
   try {
     claims = await deps.verifyCredential(token)
   } catch (error) {
@@ -275,12 +308,14 @@ export async function runJobs(
       error instanceof Error && 'code' in error
         ? String((error as { code: unknown }).code)
         : 'invalid_token'
+
     throw new PickupError(
       code === 'insufficient_scope' ? 403 : 401,
       code,
       boundedErrorMessage(error),
     )
   }
+
   if (claims.role !== 'authenticated') {
     throw new PickupError(
       403,
@@ -288,6 +323,7 @@ export async function runJobs(
       'Robot jobs need a personal API token; service credentials cannot run a robot.',
     )
   }
+
   if (!claims.scopes.includes('datasets:write')) {
     throw new PickupError(
       403,
@@ -295,20 +331,27 @@ export async function runJobs(
       'Credential lacks scope: datasets:write',
     )
   }
+
   const declared = Number(request.headers.get('content-length') ?? '')
+
   if (Number.isFinite(declared) && declared > JOBS_MAX_BYTES) {
     throw new PickupError(413, 'too_large', 'That request is too large.')
   }
+
   const text = await request.text()
+
   if (text.length > JOBS_MAX_BYTES) {
     throw new PickupError(413, 'too_large', 'That request is too large.')
   }
+
   let raw: unknown
+
   try {
     raw = JSON.parse(text)
   } catch {
     throw new PickupError(400, 'invalid_request', 'The body is not JSON.')
   }
+
   const body = parseJobsBody(raw)
   annotateRequest({
     auth: 'api_credential',
@@ -316,22 +359,29 @@ export async function runJobs(
     instrument: { id: body.instrumentId },
   })
   const client = deps.createClient(token)
+
   if (body.action === 'list') {
     const rows = await client.rpc<JobRpcRow[]>('agent_instrument_jobs', {
       p_instrument_id: body.instrumentId,
     })
+
     return { jobs: rows.map(toAgentJob) }
   }
+
   let reconciled: unknown = null
+
   if (body.status === 'complete') {
     const jobs = await client.list<Pick<InstrumentJobWire, 'worklist_id'>>(
       'instrument_jobs',
       `select=worklist_id&id=eq.${body.jobId}&limit=1`,
     )
+
     const worklistId = jobs[0]?.worklist_id
+
     if (!worklistId) {
       throw new PickupError(404, 'not_found', 'That job is not here.')
     }
+
     const lists = await client.list<{
       transfers: Array<{
         sourceWell: string
@@ -346,10 +396,13 @@ export async function runJobs(
       'plate_worklists',
       `select=transfers,source_plate,dest_plate&id=eq.${worklistId}&limit=1`,
     )
+
     const list = lists.at(0)
+
     if (!list) {
       throw new PickupError(404, 'not_found', 'That worklist is not here.')
     }
+
     const planned: Transfer[] = list.transfers.map((t) => ({
       sourcePlate: list.source_plate,
       sourceWell: t.sourceWell,
@@ -359,8 +412,10 @@ export async function runJobs(
       label: t.label ?? '',
       sampleId: t.sampleId ?? null,
     }))
+
     reconciled = reconcileJobLog(planned, body)
   }
+
   const job = await client.rpc<InstrumentJobWire>(
     'agent_report_instrument_job',
     {
@@ -371,6 +426,7 @@ export async function runJobs(
       p_reconciled: reconciled,
     },
   )
+
   return { job: { id: job.id, number: job.number, status: job.status } }
 }
 
@@ -381,8 +437,10 @@ export async function handleJobs(
   if (request.method !== 'POST') {
     return errorResponse(405, 'method_not_allowed', 'Use POST.')
   }
+
   try {
     const result = await runJobs(request, deps)
+
     return new Response(JSON.stringify(result), {
       status: 200,
       headers: { 'content-type': 'application/json' },
@@ -391,6 +449,7 @@ export async function handleJobs(
     if (error instanceof PickupError) {
       return errorResponse(error.status, error.code, error.message)
     }
+
     if (error instanceof DataClientError) {
       if (error.status === 401 || error.status === 403) {
         return errorResponse(
@@ -399,6 +458,7 @@ export async function handleJobs(
           `The token’s owner cannot run this robot: ${boundedErrorMessage(error)}`,
         )
       }
+
       if (
         error.status === 400 ||
         error.status === 409 ||
@@ -407,11 +467,13 @@ export async function handleJobs(
         return errorResponse(422, 'refused', boundedErrorMessage(error))
       }
     }
+
     // The data client reports a refusal from the database as a plain Error; a
     // network failure is a TypeError. Only the second is worth retrying.
     if (error instanceof Error && !(error instanceof TypeError)) {
       return errorResponse(422, 'refused', boundedErrorMessage(error))
     }
+
     return errorResponse(502, 'jobs_failed', boundedErrorMessage(error))
   }
 }

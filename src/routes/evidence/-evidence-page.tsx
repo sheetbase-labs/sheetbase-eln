@@ -46,8 +46,10 @@ const Route = getRouteApi('/evidence/$revisionId')
 
 function textSummary(payload: Record<string, unknown>): string {
   const text = payload.text ?? payload.title ?? payload.value
+
   if (typeof text === 'string' && text.trim()) return text.trim()
   const keys = Object.keys(payload)
+
   return keys.length ? keys.slice(0, 4).join(', ') : '—'
 }
 
@@ -89,18 +91,23 @@ const frozenBlockColumns: RegistryColumn<FrozenBlock>[] = [
 
 export function EvidencePage() {
   const { revisionId } = Route.useParams()
+
   const revisionQuery = useQuery({
     queryKey: ['ui-port', 'evidence', revisionId],
     queryFn: () => fetchRevisionRow(reviewWorkspaceDataClient, revisionId),
   })
+
   const revision = revisionQuery.data
   const recordId = revision?.record_id ?? ''
+
   const recordQuery = useQuery({
     queryKey: ['ui-port', 'evidence-record', recordId],
     queryFn: () => fetchRecord(notebookDataClient, recordId),
     enabled: Boolean(recordId),
   })
+
   const record = recordQuery.data
+
   // Whether anyone has signed this revision decides what the page may call
   // it: submitted evidence is frozen, but only a signature makes it signed.
   const signatureRows = useQuery({
@@ -108,9 +115,11 @@ export function EvidencePage() {
     queryFn: () => fetchSignaturesForRecord(notebookDataClient, recordId),
     enabled: Boolean(recordId),
   })
+
   const signed =
     record?.lockedByRevisionId === revisionId ||
     (signatureRows.data ?? []).some((row) => row.revision_id === revisionId)
+
   const navigate = useNavigate()
   const [amendOpen, setAmendOpen] = useState(false)
   const [note, setNote] = useState('')
@@ -146,6 +155,7 @@ export function EvidencePage() {
   const title = useMemo(() => {
     const meta = revision?.metadata_snapshot ?? {}
     const fromMeta = meta.title
+
     return typeof fromMeta === 'string' && fromMeta.trim()
       ? fromMeta
       : (record?.title ?? t('notebook.evidencePage.submittedEvidence'))
@@ -168,6 +178,7 @@ export function EvidencePage() {
       </div>
     )
   }
+
   if (!revision) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
@@ -199,6 +210,7 @@ export function EvidencePage() {
     Boolean(revision.superseded_by_revision_id) ||
     (record?.lockedByRevisionId != null &&
       record.lockedByRevisionId !== revision.id)
+
   const blocks = [...revision.block_snapshot].sort((a, b) => a.order - b.order)
   const digest = revision.integrity_digest ?? '—'
   // The revision is fixed for this render; reading its id here keeps the
@@ -211,8 +223,10 @@ export function EvidencePage() {
   // button instead of a raw error page replacing the evidence.
   async function exportFile(path: string, fallbackName: string) {
     setExporting(true)
+
     try {
       const response = await fetch(path)
+
       if (!response.ok) {
         throw new Error(
           response.status === 404
@@ -220,10 +234,13 @@ export function EvidencePage() {
             : t('notebook.evidencePage.theServerCouldNot'),
         )
       }
+
       const blob = await response.blob()
       const disposition = response.headers.get('content-disposition')
+
       const filename =
         disposition?.match(/filename="([^"]+)"/)?.[1] ?? fallbackName
+
       downloadTextFile(filename, blob)
     } catch (error) {
       toast(t('notebook.evidencePage.couldNotExportThe'), {

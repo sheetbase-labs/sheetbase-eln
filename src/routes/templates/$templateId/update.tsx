@@ -113,7 +113,9 @@ function TemplateUpdate() {
 
   const sourceVersion = useMemo(() => {
     const pinned = notebook.data?.source_notebook_template_version_id
+
     if (!pinned) return null
+
     return list.find((v) => v.id === pinned)?.version ?? null
   }, [notebook.data?.source_notebook_template_version_id, list])
 
@@ -138,6 +140,7 @@ function TemplateUpdate() {
   }
 
   const item = template.data
+
   const trail: Crumb[] = [
     {
       label: t('library.templates.update.templates'),
@@ -221,6 +224,7 @@ function TemplateUpdate() {
   }
 
   const nb = notebook.data
+
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
       <PageHeader

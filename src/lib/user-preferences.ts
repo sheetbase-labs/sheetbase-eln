@@ -32,6 +32,7 @@ export function fetchUserPreferences(
   inflight ??= readUserPreferences(client).finally(() => {
     inflight = null
   })
+
   return inflight
 }
 
@@ -43,8 +44,11 @@ async function readUserPreferences(
     nav_collapsed: boolean
     nav_folded: string[] | null
   }>('user_preferences', '?limit=1&select=appearance,nav_collapsed,nav_folded')
+
   const row = rows[0]
+
   if (rows.length === 0) return null
+
   return {
     appearance: toAppearance(row.appearance),
     navCollapsed: row.nav_collapsed,
@@ -127,7 +131,9 @@ export async function fetchMyProfile(client: DataClient): Promise<MyProfile> {
     initials: string | null
     job_title: string | null
   }>('rpc/my_profile')
+
   const row = rows.at(0)
+
   return { initials: row?.initials ?? '', jobTitle: row?.job_title ?? '' }
 }
 

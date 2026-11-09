@@ -102,6 +102,7 @@ export function explainBlockValidation(input: {
   errors: Array<{ code: BlockValidationError; field?: string; message: string }>
 }): AssistExplanation | null {
   if (input.errors.length === 0) return null
+
   const why: AssistClaim[] = input.errors.map((error) => ({
     text:
       `${(BLOCK_WHY as Record<string, string | undefined>)[error.code] ?? error.message}` +
@@ -114,11 +115,13 @@ export function explainBlockValidation(input: {
         ` · ${error.message}`,
     },
   }))
+
   const howTo = input.errors.map(
     (error) =>
       (BLOCK_HOW_TO as Record<string, string | undefined>)[error.code] ??
       'Correct the flagged content and save again.',
   )
+
   return {
     title: `Why this ${input.blockType} block cannot save`,
     whatFailed: `The ${input.blockType} block failed validation: ${input.errors.length} problem${input.errors.length === 1 ? '' : 's'} must be fixed before it can save. Nothing was written.`,
@@ -139,11 +142,13 @@ function describeFieldRule(def: RecordFieldDefinition): string {
     `type ${def.logicalType}`,
     def.nullable ? 'optional' : 'required',
   ]
+
   if (Array.isArray((def.validation as { enum?: unknown }).enum)) {
     parts.push(
       `allowed: ${(def.validation as { enum: unknown[] }).enum.join(', ')}`,
     )
   }
+
   return parts.join(' · ')
 }
 
@@ -154,8 +159,10 @@ export function explainPropertyValidation(input: {
 }): AssistExplanation | null {
   if (input.errors.length === 0) return null
   const byField = new Map(input.definitions.map((def) => [def.fieldName, def]))
+
   const why: AssistClaim[] = input.errors.map((error) => {
     const def = byField.get(error.field)
+
     return {
       text: def
         ? `'${def.label}' failed its field rule (${describeFieldRule(def)}). ${error.message}`
@@ -173,6 +180,7 @@ export function explainPropertyValidation(input: {
           },
     }
   })
+
   return {
     title: `Why this ${input.kind} record is invalid`,
     whatFailed: `${input.errors.length} field${input.errors.length === 1 ? '' : 's'} failed validation against the active field definitions for '${input.kind}'. Nothing was written.`,
@@ -208,6 +216,7 @@ export function explainSheetWriteBack(input: {
         'sheet-write-back pre-commit guard · a range operation spanning more ' +
         'than one authoritative commit group is rejected before any write',
     }
+
     return {
       title: 'Why write-back was rejected',
       whatFailed:
@@ -227,7 +236,9 @@ export function explainSheetWriteBack(input: {
         'sheet-write-back pre-commit guard (SheetMixedAuthorityWriteError)',
     }
   }
+
   if (input.errors.length === 0) return null
+
   const why: AssistClaim[] = input.errors.map((error) => ({
     text:
       `The server rejected the batch at pre-commit validation (${error.code})` +
@@ -242,6 +253,7 @@ export function explainSheetWriteBack(input: {
         (error.fieldId ? ` · field '${error.fieldId}'` : ''),
     },
   }))
+
   return {
     title: 'Why write-back was rejected',
     whatFailed: `The server rejected the batch before commit: ${input.errors[0]?.code ?? 'validation_failed'}. Nothing was written.`,
@@ -264,6 +276,7 @@ export function explainPlateValidation(input: {
   errors: PlateDesignValidationError[]
 }): AssistExplanation | null {
   if (input.errors.length === 0) return null
+
   const why: AssistClaim[] = input.errors.map((error) => ({
     text:
       error.message +
@@ -278,6 +291,7 @@ export function explainPlateValidation(input: {
         (error.field ? ` · field '${error.field}'` : ''),
     },
   }))
+
   return {
     title: 'Why this plate design has issues',
     whatFailed: `${input.errors.length} design problem${input.errors.length === 1 ? '' : 's'} must be resolved before the plate can be used. Nothing was committed.`,
@@ -311,12 +325,14 @@ export function attachGrounding(
   grounding: AssistGrounding,
 ): AssistExplanation {
   const extra: AssistCitation[] = []
+
   const byId = new Map(
     (grounding.citations ?? []).map((citation) => [
       citation.stableId,
       citation,
     ]),
   )
+
   for (const object of grounding.envelope?.objects ?? []) {
     const citation = byId.get(object.id)
     extra.push({
@@ -330,6 +346,7 @@ export function attachGrounding(
       deepLink: citation?.deepLink ?? object.deepLink,
     })
   }
+
   for (const citation of grounding.citations ?? []) {
     if (
       grounding.envelope?.objects.some(
@@ -345,7 +362,9 @@ export function attachGrounding(
       deepLink: citation.deepLink,
     })
   }
+
   if (extra.length === 0) return explanation
+
   return {
     ...explanation,
     why: explanation.why,
@@ -391,11 +410,14 @@ export async function phraseExplanation(
       .concat(explanation.howTo)
       .join('\n'),
   })
+
   return toPhrasing(result)
 }
 
 export function toPhrasing(result: PageAiResult): AssistPhrasing | null {
   if (result.status !== 'ok' || result.mode !== 'provider') return null
+
   if (result.text === '') return null
+
   return { text: result.text, model: result.model, assistance: true }
 }

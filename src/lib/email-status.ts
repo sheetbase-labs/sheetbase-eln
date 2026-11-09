@@ -17,6 +17,7 @@ export const fetchEmailStatusFn = createServerFn({ method: 'GET' }).handler(
   async (): Promise<EmailStatus> => {
     // `*.server.*` modules cannot be imported statically into the client bundle.
     const { readSmtpConfig } = await import('./email-delivery.server')
+
     return { configured: readSmtpConfig() !== null }
   },
 )

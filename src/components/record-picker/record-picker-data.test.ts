@@ -43,6 +43,7 @@ describe('searchPickerRecords with no query', () => {
       { q: '', kinds: ['Experiment'] },
       client(tables),
     )
+
     expect(result.recent).toBe(true)
     expect(result.items.map((item) => item.id)).toEqual(['e-1'])
   })

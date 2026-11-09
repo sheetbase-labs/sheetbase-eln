@@ -40,7 +40,9 @@ const meta = {
     </div>
   ),
 } satisfies Meta<typeof NumberField>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

@@ -29,10 +29,14 @@ import { cn } from '#/lib/utils'
 
 function triggerIcon(label: string): IconName {
   const text = label.toLowerCase()
+
   if (/upload/.test(text)) return 'upload'
+
   if (/mon|tue|wed|thu|fri|sat|sun|daily|weekly|\d{2}:\d{2}/.test(text))
     return 'clock'
+
   if (/notebook|asked/.test(text)) return 'edit'
+
   return 'database'
 }
 
@@ -47,6 +51,7 @@ export function workflowOrder(
 ): AgentDefinition[] {
   const latest = (d: AgentDefinition) =>
     runs.find((r) => r.definition_id === d.id)?.started_at ?? ''
+
   return [...definitions].sort(
     (a, b) =>
       Number(b.enabled) - Number(a.enabled) ||
@@ -84,8 +89,10 @@ export function AgentWorkflowsBoard({
   error?: string | null
 }) {
   const definitions = workflowOrder(unsorted, runs)
+
   const selected =
     definitions.find((d) => d.id === selectedId) ?? definitions.at(0) ?? null
+
   if (!selected) {
     return (
       <EmptyState
@@ -95,16 +102,20 @@ export function AgentWorkflowsBoard({
       />
     )
   }
+
   const proposalOf = (run: AgentRun | undefined) =>
     run?.proposal_id
       ? proposals.find((p) => p.id === run.proposal_id)
       : undefined
+
   const projectsOf = (d: AgentDefinition) =>
     d.project_ids.length
       ? d.project_ids.map(projectName).join(', ')
       : t('data.workflowsBoard.allProjects')
+
   const lastRun = (d: AgentDefinition) =>
     runs.find((r) => r.definition_id === d.id)
+
   const selectedRuns = runs.filter((r) => r.definition_id === selected.id)
 
   return (
@@ -144,6 +155,7 @@ export function AgentWorkflowsBoard({
               const last = lastRun(d)
               const status = lastRunLabel(d, last, proposalOf(last), me, nameOf)
               const active = d.id === selected.id
+
               return (
                 <tr
                   key={d.id}
@@ -286,6 +298,7 @@ export function AgentWorkflowsBoard({
               {selectedRuns.slice(0, 4).map((run) => {
                 const proposal = proposalOf(run)
                 const status = runStatus(run, proposal)
+
                 return (
                   <li key={run.id} className="text-label">
                     <div className="flex items-center justify-between gap-2">

@@ -10,6 +10,7 @@ describe('auditFilterFromSearch', () => {
       from: '2026-09-01',
       to: '2026-09-30',
     })
+
     expect(filter).toEqual({
       object: 'rec-1',
       from: '2026-09-01T00:00:00.000Z',

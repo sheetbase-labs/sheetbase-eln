@@ -33,6 +33,7 @@ export async function runDatasetsAction(
               p_fields: action.fields,
             },
       )
+
       if (action.parentId && action.fields.length > 0) {
         // A table that extends another starts with the parent's columns; its
         // own come after them.
@@ -40,50 +41,62 @@ export async function runDatasetsAction(
           'dataset_schema_version_fields',
           `?schema_version_id=eq.${encodeURIComponent(created.schema_version_id)}&order=display_order.asc`,
         )
+
         await client.rpc('replace_dataset_schema_version_fields', {
           p_schema_version_id: created.schema_version_id,
           p_fields: [...inherited, ...action.fields],
         })
       }
+
       return { openHref: tableHref(created.schema_definition_id) }
     }
+
     case 'measurement_table.edit': {
       let versionId = action.draftVersionId
       let expectedRevision = action.expectedRevision
+
       if (!versionId) {
         const next = await client.rpc<{ schema_version_id: string }>(
           'create_next_dataset_schema_version',
           { p_schema_definition_id: action.definitionId },
         )
+
         versionId = next.schema_version_id
         expectedRevision = null
       }
+
       await client.rpc('replace_dataset_schema_version_fields', {
         p_schema_version_id: versionId,
         p_fields: action.fields,
         p_expected_revision: expectedRevision,
       })
+
       return { openHref: tableHref(action.definitionId) }
     }
+
     case 'measurement_table.publish':
       await client.rpc('publish_dataset_schema_version', {
         p_schema_version_id: action.versionId,
       })
+
       return { openHref: tableHref(action.definitionId) }
     case 'measurement_table.discard_draft':
       await client.rpc('delete_dataset_schema_version', {
         p_schema_version_id: action.versionId,
       })
+
       return { openHref: tableHref(action.definitionId) }
     case 'measurement_table.retire':
       await client.rpc('retire_dataset_schema_definition', {
         p_schema_definition_id: action.definitionId,
       })
+
       return { openHref: tableHref(action.definitionId) }
     case 'measurement_table.restore':
       await client.rpc('restore_dataset_schema_definition', {
         p_schema_definition_id: action.definitionId,
       })
+
       return { openHref: tableHref(action.definitionId) }
     case 'dataset.upgrade_table':
       await client.rpc('apply_dataset_model_upgrade', {
@@ -91,6 +104,7 @@ export async function runDatasetsAction(
         p_target_version_id: action.targetVersionId,
         p_expected_revision: action.expectedRevision,
       })
+
       return { openHref: datasetHref(action.datasetId) }
     case 'dataset.flag_value':
       await client.rpc('flag_dataset_value', {
@@ -101,12 +115,14 @@ export async function runDatasetsAction(
         p_reason: action.reason,
         p_comment: action.comment,
       })
+
       return { openHref: datasetHref(action.datasetId) }
     case 'dataset.clear_flag':
       await client.rpc('clear_dataset_value_flag', {
         p_flag_id: action.flagId,
         p_reason: action.reason,
       })
+
       return { openHref: datasetHref(action.datasetId) }
     case 'dataset.set_unit':
       await client.rpc('set_dataset_column_unit', {
@@ -115,6 +131,7 @@ export async function runDatasetsAction(
         p_unit: action.unit,
         p_reason: action.reason,
       })
+
       return { openHref: datasetHref(action.datasetId) }
     case 'dataset.set_intended_use':
       await client.rpc('set_dataset_intended_use', {
@@ -122,12 +139,14 @@ export async function runDatasetsAction(
         p_intended_use: action.use,
         p_reason: action.reason,
       })
+
       return { openHref: datasetHref(action.datasetId) }
     case 'dataset.keep_snapshot':
       await client.rpc('keep_dataset_version', {
         p_version_id: action.versionId,
         p_reason: action.reason,
       })
+
       return { openHref: `/datasets/${action.datasetId}/snapshots` }
     case 'dataset.plan_rows':
       for (const key of action.keys)
@@ -136,12 +155,14 @@ export async function runDatasetsAction(
           p_scheduled_at: action.scheduledAt,
           p_planned_key: key,
         })
+
       return { openHref: datasetHref(action.datasetId) }
     case 'intake.resolve':
       await client.rpc('resolve_intake_failure', {
         p_failure_id: action.failureId,
         p_resolution: action.resolution,
       })
+
       return undefined
   }
 }

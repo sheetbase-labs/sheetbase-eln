@@ -37,6 +37,7 @@ describe('parseCron', () => {
     ]) {
       expect(parseCron(bad), bad).toBeNull()
     }
+
     expect(parseCron(null)).toBeNull()
   })
 })
@@ -62,11 +63,13 @@ describe('nextCronAfter', () => {
       'Europe/London',
       at('2026-10-24T00:00:00Z'),
     )
+
     const after = nextCronAfter(
       '30 9 * * *',
       'Europe/London',
       at('2026-10-25T09:00:00Z'),
     )
+
     expect(before).toEqual(at('2026-10-24T08:30:00Z')) // BST, UTC+1
     expect(after).toEqual(at('2026-10-25T09:30:00Z')) // GMT, UTC+0
   })

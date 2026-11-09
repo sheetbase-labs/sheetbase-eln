@@ -60,7 +60,9 @@ export function subtypeKey(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
+
   const key = /^[a-z]/.test(slug) ? slug : `type_${slug}`
+
   return key.slice(0, 60).replace(/_+$/, '') || 'type'
 }
 
@@ -70,8 +72,10 @@ const PREFIX_PATTERN = /^[A-Z][A-Z0-9]{0,7}$/
 export function SubtypeOf({ modelKey }: { modelKey: string }) {
   const types = useModelTypes().data ?? []
   const own = types.find((type) => type.key === modelKey)
+
   if (!own?.parentKey) return null
   const parentKey = own.parentKey
+
   return (
     <span>
       {rich('library.models.modelSubtypeUi.subtypeOf', {
@@ -94,7 +98,9 @@ export function SubtypeOf({ modelKey }: { modelKey: string }) {
 export function SubtypesList({ modelKey }: { modelKey: string }) {
   const types = useModelTypes().data ?? []
   const direct = types.filter((type) => type.parentKey === modelKey)
+
   if (!direct.length) return null
+
   return (
     <span>
       {t('library.models.modelSubtypeUi.subtypes')}{' '}
@@ -126,11 +132,14 @@ export function useInheritedFieldGroups(modelKey: string): {
   const own = types.data?.find((type) => type.key === modelKey)
   const parentKey = own?.parentKey ?? null
   const root = types.data && parentKey ? typeRoot(types.data, parentKey) : ''
+
   const inherited = useTypeFields(types.data, root, parentKey, null, {
     enabled: Boolean(parentKey),
   })
+
   if (!parentKey) return { groups: [], isLoading: false }
   const builtIn = builtInModel(root)
+
   const groups = (inherited.data ?? []).map((group) => ({
     modelId: group.modelKey,
     modelName: group.modelName,
@@ -160,6 +169,7 @@ export function useInheritedFieldGroups(modelKey: string): {
       })),
     ],
   }))
+
   return { groups, isLoading: inherited.isLoading }
 }
 
@@ -186,9 +196,11 @@ export function NewSubtypeDialog({
   const [prefix, setPrefix] = useState('')
   const [description, setDescription] = useState('')
   const [submitted, setSubmitted] = useState(false)
+
   const nameError = name.trim()
     ? undefined
     : t('library.models.modelSubtypeUi.nameIsRequired')
+
   const prefixError = PREFIX_PATTERN.test(prefix.trim())
     ? undefined
     : t('library.models.modelSubtypeUi.use18UpperCase')
@@ -197,6 +209,7 @@ export function NewSubtypeDialog({
     mutationFn: async () => {
       if (!workspaceId)
         throw new Error(t('library.models.modelSubtypeUi.noActiveWorkspace'))
+
       const created = await createModelSubtype(notebookDataClient, {
         workspaceId,
         parentKey,
@@ -205,10 +218,12 @@ export function NewSubtypeDialog({
         prefix: prefix.trim(),
         description: description.trim() || null,
       })
+
       await createRecordModelVersion(notebookDataClient, {
         modelId: created.id,
         reason: t('library.models.modelSubtypeUi.defineFields'),
       })
+
       return created
     },
     onSuccess: (created) => {
@@ -240,6 +255,7 @@ export function NewSubtypeDialog({
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next)
+
         if (!next) reset()
       }}
     >
@@ -260,6 +276,7 @@ export function NewSubtypeDialog({
             onSubmit={(event) => {
               event.preventDefault()
               setSubmitted(true)
+
               if (nameError || prefixError) return
               create.mutate()
             }}
@@ -339,6 +356,7 @@ export function parentChoices(
   const below = new Set(
     typeDescendants(types, key).map((option) => option.type.key),
   )
+
   return [
     ...BUILT_IN_MODELS.map((model) => ({ key: model.key, name: model.name })),
     ...types
@@ -370,9 +388,12 @@ export function BasedOnDialog({
 }) {
   const queryClient = useQueryClient()
   const types = useModelTypes().data ?? []
+
   const current =
     types.find((type) => type.key === model.key)?.parentKey ?? null
+
   const [choice, setChoice] = useState<string>(current ?? '')
+
   const save = useMutation({
     mutationFn: () =>
       reparentRecordModel(notebookDataClient, model.id, choice || null),
@@ -391,11 +412,13 @@ export function BasedOnDialog({
       )
     },
   })
+
   return (
     <Dialog
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next)
+
         if (!next) {
           setChoice(current ?? '')
           save.reset()
@@ -461,6 +484,7 @@ export function BasedOnDialog({
 export function useTypedObjects(modelKey: string) {
   const types = useModelTypes()
   const type = types.data?.find((item) => item.key === modelKey) ?? null
+
   const objects = useQuery({
     queryKey: [...modelTypeQueryKeys.all, 'objects', modelKey],
     queryFn: () =>
@@ -470,6 +494,7 @@ export function useTypedObjects(modelKey: string) {
     enabled: Boolean(type?.parentKey),
     staleTime: 15_000,
   })
+
   return { types, type, objects }
 }
 
@@ -480,6 +505,7 @@ export function SubtypeObjects({ modelKey }: { modelKey: string }) {
   const surface = host?.builtIn?.surface ?? null
   const rows = objects.data ?? []
   const own = fields.data ?? []
+
   const columns: RegistryColumn<TypedObject>[] = [
     {
       id: 'identifier',
@@ -505,6 +531,7 @@ export function SubtypeObjects({ modelKey }: { modelKey: string }) {
         ) || '—',
     })),
   ]
+
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-auto px-4 py-4 md:px-6">
       {surface ? (

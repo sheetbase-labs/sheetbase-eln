@@ -180,6 +180,7 @@ describe('extractBlockText — other block types', () => {
         { text: 'Run qPCR', checked: false },
       ],
     })
+
     expect(text).toContain('Thaw reagents')
     expect(text).toContain('Run qPCR')
   })
@@ -195,6 +196,7 @@ describe('extractBlockText — other block types', () => {
       text: 'Centrifuge at 4000 g',
       note: 'for 10 min',
     })
+
     expect(text).toContain('Centrifuge at 4000 g')
     expect(text).toContain('for 10 min')
   })
@@ -209,6 +211,7 @@ describe('extractBlockText — other block types', () => {
         },
       ],
     })
+
     expect(text).toContain('RGT-2025-0001')
     expect(text).toContain('TaqMan kit')
     expect(text).toContain('store at -20 °C')
@@ -223,6 +226,7 @@ describe('extractBlockText — other block types', () => {
       targetIdentifier: 'SMP-2025-0001',
       label: 'Patient sample',
     })
+
     expect(text).toContain('SMP-2025-0001')
     expect(text).toContain('Patient sample')
   })
@@ -232,6 +236,7 @@ describe('extractBlockText — other block types', () => {
       protocolIdentifier: 'PRT-2025-0001',
       protocolTitle: 'qPCR protocol',
     })
+
     expect(text).toContain('PRT-2025-0001')
     expect(text).toContain('qPCR protocol')
   })
@@ -241,6 +246,7 @@ describe('extractBlockText — other block types', () => {
       displayName: 'raw_data.csv',
       fileIdentifier: 'FILE-2025-0001',
     })
+
     expect(text).toContain('raw_data.csv')
     expect(text).toContain('FILE-2025-0001')
   })
@@ -252,6 +258,7 @@ describe('extractBlockText — other block types', () => {
         ['S1', '28.4'],
       ],
     })
+
     expect(text).toContain('Sample')
     expect(text).toContain('28.4')
   })
@@ -261,6 +268,7 @@ describe('extractBlockText — other block types', () => {
       title: 'Growth curve',
       xAxis: 'Time',
     })
+
     expect(text).toContain('Growth curve')
     expect(text).toContain('Time')
   })
@@ -312,6 +320,7 @@ describe('buildSearchRpcArgs', () => {
       limit: 50,
       offset: 10,
     })
+
     expect(args.p_query).toBe('TaqMan')
     expect(args.p_project_id).toBe('proj-1')
     expect(args.p_kind).toBe('experiment')
@@ -329,6 +338,7 @@ describe('buildSearchRpcArgs', () => {
       kind: '',
       status: '',
     })
+
     expect(args).not.toHaveProperty('p_kind')
     expect(args).not.toHaveProperty('p_status')
   })
@@ -367,8 +377,10 @@ describe('toSearchResult', () => {
       const result = toSearchResult(
         wireRow({ result_type: resultType, record_id: 'x-1' }),
       )
+
       expect(result.resultType).toBe(resultType)
     }
+
     expect(
       toSearchResult(wireRow({ result_type: 'project', record_id: 'p-1' }))
         .deepLink,
@@ -393,6 +405,7 @@ describe('toSearchResult', () => {
     expect(plain.matchedBlockId).toBeNull()
     expect(plain.matchedFileName).toBe('')
     expect(plain.deepLink).not.toContain('#')
+
     const found = toSearchResult(
       wireRow({
         matched_field: 'embedded_file',
@@ -400,6 +413,7 @@ describe('toSearchResult', () => {
         matched_file_name: 'plate-reader.xlsx',
       }),
     )
+
     expect(found.matchedField).toBe('embedded_file')
     expect(found.matchedFileName).toBe('plate-reader.xlsx')
     expect(found.deepLink).toBe(
@@ -412,6 +426,7 @@ describe('toSearchResult', () => {
     const result = toSearchResult(
       wireRow({ result_type: 'file', kind: 'file' }),
     )
+
     expect(result.resultType).toBe('file')
     expect(result.kind).toBe('file')
   })
@@ -430,6 +445,7 @@ describe('toSearchResult', () => {
     const comment = '56000000-0000-4000-8000-000000000041'
     const owner = '56000000-0000-4000-8000-000000000042'
     const deepLink = `/sheets/${owner}?commentId=${comment}`
+
     const result = toSearchResult(
       wireRow({
         result_type: 'comment',
@@ -439,6 +455,7 @@ describe('toSearchResult', () => {
         deep_link: deepLink,
       }),
     )
+
     expect(result).toMatchObject({
       resultType: 'comment',
       recordId: comment,
@@ -539,10 +556,12 @@ describe('searchQueryKeys', () => {
   it('produces distinct keys for distinct object-class filters', () => {
     const base: SearchFilters = { query: 'virus' }
     const recordsKey = searchQueryKeys.search({ ...base, resultType: 'record' })
+
     const datasetsKey = searchQueryKeys.search({
       ...base,
       resultType: 'dataset',
     })
+
     const allKey = searchQueryKeys.search(base)
     expect(recordsKey).not.toEqual(datasetsKey)
     expect(recordsKey).not.toEqual(allKey)
@@ -560,6 +579,7 @@ describe('searchQueryKeys', () => {
 
   it('changes when an applied filter tree is edited', () => {
     const base: SearchFilters = { query: 'buffer' }
+
     const kind = {
       type: 'condition' as const,
       id: 'a',
@@ -567,10 +587,12 @@ describe('searchQueryKeys', () => {
       operator: 'eq' as const,
       value: 'experiment',
     }
+
     const one = searchQueryKeys.search({
       ...base,
       filter: { type: 'group', id: 'r', combinator: 'AND', children: [kind] },
     })
+
     const two = searchQueryKeys.search({
       ...base,
       filter: {
@@ -583,6 +605,7 @@ describe('searchQueryKeys', () => {
         ],
       },
     })
+
     expect(one).not.toEqual(two)
   })
 })
@@ -605,6 +628,7 @@ describe('executeSearch', () => {
     const results = await executeSearch(mockClient([wireRow()]), {
       query: 'virus',
     })
+
     expect(results).toHaveLength(1)
     expect(results[0].identifier).toBe('EXP-2025-0001')
   })
@@ -613,6 +637,7 @@ describe('executeSearch', () => {
     const results = await executeSearch(mockClient(wireRow()), {
       query: 'virus',
     })
+
     expect(results).toHaveLength(1)
   })
 })
@@ -620,6 +645,7 @@ describe('executeSearch', () => {
 describe('search cache behaviour (filters in query key)', () => {
   function countingClient(): { client: DataClient; calls: string[] } {
     const calls: string[] = []
+
     return {
       calls,
       client: {
@@ -629,7 +655,9 @@ describe('search cache behaviour (filters in query key)', () => {
         rpc: async (_name: string, args: Record<string, unknown>) => {
           const resultType =
             (args as { p_result_type?: string }).p_result_type ?? 'all'
+
           calls.push(resultType)
+
           return [
             wireRow({
               result_type: resultType === 'all' ? 'record' : resultType,
@@ -653,6 +681,7 @@ describe('search cache behaviour (filters in query key)', () => {
       })
 
     const recordResults = await fetch({ query: 'virus', resultType: 'record' })
+
     const datasetResults = await fetch({
       query: 'virus',
       resultType: 'dataset',
@@ -668,6 +697,7 @@ describe('search cache behaviour (filters in query key)', () => {
 
   it('refetches instead of serving the previous cache when the archived scope changes', async () => {
     const calls: Array<string> = []
+
     const client = {
       list: async () => [],
       insert: async () => ({}),
@@ -677,10 +707,13 @@ describe('search cache behaviour (filters in query key)', () => {
           args.p_include_archived === undefined
             ? true
             : Boolean(args.p_include_archived)
+
         calls.push(String(archived))
+
         return [wireRow({ archived })]
       },
     } as unknown as DataClient
+
     const queryClient = new QueryClient()
 
     const fetch = async (filters: SearchFilters) =>
@@ -797,12 +830,14 @@ describe('rankByTier', () => {
       matchedField: 'title',
       rank: 0.08,
     })
+
     const idMatch = searchResult({
       recordId: 'rec-b',
       identifier: 'EXP-2025-0001',
       matchedField: 'identifier',
       rank: 0.02,
     })
+
     const ranked = rankByTier([titleMatch, idMatch], 'EXP-2025-0001')
     expect(ranked[0].recordId).toBe('rec-b') // identifier match first
     expect(ranked[1].recordId).toBe('rec-a')
@@ -814,11 +849,13 @@ describe('rankByTier', () => {
       matchedField: 'block_text',
       rank: 0.09,
     })
+
     const structured = searchResult({
       recordId: 'rec-b',
       matchedField: 'tags',
       rank: 0.01,
     })
+
     const ranked = rankByTier([fuzzy, structured], 'lentivirus')
     expect(ranked[0].recordId).toBe('rec-b')
     expect(ranked[1].recordId).toBe('rec-a')
@@ -830,11 +867,13 @@ describe('rankByTier', () => {
       matchedField: 'title',
       rank: 0.01,
     })
+
     const high = searchResult({
       recordId: 'rec-b',
       matchedField: 'title',
       rank: 0.09,
     })
+
     const ranked = rankByTier([low, high], 'virus')
     expect(ranked[0].recordId).toBe('rec-b') // higher rank first
   })
@@ -844,10 +883,12 @@ describe('rankByTier', () => {
       recordId: 'rec-a',
       updatedAt: '2025-01-01T00:00:00Z',
     })
+
     const newer = searchResult({
       recordId: 'rec-b',
       updatedAt: '2025-06-01T00:00:00Z',
     })
+
     const ranked = rankByTier([older, newer], '')
     expect(ranked[0].recordId).toBe('rec-b') // newer first
   })
@@ -875,6 +916,7 @@ describe('deriveSuggestions', () => {
         title: 'Virus Stability at 4 °C',
       }),
     ]
+
     const suggestions = deriveSuggestions(results, 'EXP-2025')
     expect(suggestions).toHaveLength(1)
     expect(suggestions[0].kind).toBe('identifier')
@@ -888,6 +930,7 @@ describe('deriveSuggestions', () => {
       searchResult({ recordId: 'rec-a', kind: 'experiment' }),
       searchResult({ recordId: 'rec-b', kind: 'sample' }),
     ]
+
     const suggestions = deriveSuggestions(results, 'test')
     const typeSuggestions = suggestions.filter((s) => s.kind === 'type')
     expect(typeSuggestions.length).toBe(2) // one per kind
@@ -899,6 +942,7 @@ describe('deriveSuggestions', () => {
       searchResult({ recordId: 'rec-a', kind: 'experiment' }),
       searchResult({ recordId: 'rec-b', kind: 'experiment' }),
     ]
+
     const suggestions = deriveSuggestions(results, 'test')
     expect(suggestions.filter((s) => s.kind === 'type')).toHaveLength(0)
   })
@@ -915,6 +959,7 @@ describe('deriveSuggestions', () => {
       ],
       'recovery',
     )
+
     expect(
       suggestions.filter((suggestion) => suggestion.kind === 'type'),
     ).toEqual([])
@@ -930,6 +975,7 @@ describe('deriveSuggestions', () => {
         title: `Result ${kind}`,
       }),
     )
+
     const suggestions = deriveSuggestions(results, 'ID')
     // 7 identifier matches (all kinds have identifier matching 'ID')
     // + 7 type suggestions (7 kinds). But limited to 6 total.
@@ -962,6 +1008,7 @@ describe('saved queries', () => {
       ownerId: '',
       dateRange: 'all',
     })
+
     expect(next).toHaveLength(1)
     expect(next[0].name).toBe('My search')
     expect(next[0].query).toBe('virus stability')
@@ -981,6 +1028,7 @@ describe('saved queries', () => {
       ownerId: '',
       dateRange: 'all',
     })
+
     const next = saveQuery(wsId, {
       name: 'My search',
       query: 'virus',
@@ -990,6 +1038,7 @@ describe('saved queries', () => {
       ownerId: '',
       dateRange: 'all',
     })
+
     expect(next).toHaveLength(1)
   })
 
@@ -1003,6 +1052,7 @@ describe('saved queries', () => {
       ownerId: '',
       dateRange: 'all',
     })
+
     const id = next[0].id
     const afterDelete = deleteSavedQuery(wsId, id)
     expect(afterDelete).toEqual([])
@@ -1059,6 +1109,7 @@ describe('parseSearchUrl', () => {
       sort: 'updated',
       selected: 'rec-1',
     })
+
     expect(parsed).toEqual({
       q: 'virus stability',
       type: 'dataset',
@@ -1102,6 +1153,7 @@ describe('serializeSearchUrl', () => {
       kind: 'experiment',
       project: 'proj-1',
     })
+
     expect(serialized.q).toBe('test')
     expect(serialized.kind).toBe('experiment')
     expect(serialized.project).toBe('proj-1')
@@ -1167,11 +1219,13 @@ describe('groupSearchResults', () => {
     resultType: 'dataset',
     kind: 'dataset',
   })
+
   const sheet = searchResult({
     recordId: 'sh-1',
     resultType: 'sheet',
     kind: 'sheet_instance',
   })
+
   const sampleA = searchResult({ recordId: 'sa', kind: 'sample' })
   const sampleB = searchResult({ recordId: 'sb', kind: 'sample' })
   const sampleC = searchResult({ recordId: 'sc', kind: 'sample' })
@@ -1211,6 +1265,7 @@ describe('groupSearchResults', () => {
 describe('filterBySearchScope', () => {
   const projectA = searchResult({ recordId: 'a', projectId: 'p-a' })
   const projectB = searchResult({ recordId: 'b', projectId: 'p-b' })
+
   const workspaceTemplate = searchResult({
     recordId: 't',
     resultType: 'template',
@@ -1260,6 +1315,7 @@ describe('urlFiltersToSearchFilters', () => {
       { q: 'x', project: ['p-1', 'p-2'] },
       0,
     )
+
     expect(filters.projectId).toBeUndefined()
   })
 
@@ -1286,6 +1342,7 @@ describe('urlFiltersToSearchFilters', () => {
       { q: 'x', type: ['Notebook text and comments'] },
       0,
     )
+
     expect(filters.resultType).toBeUndefined()
     expect(filters.kind).toBeUndefined()
   })
@@ -1309,6 +1366,7 @@ describe('urlFiltersToSearchFilters', () => {
       },
       40,
     )
+
     const args = buildSearchRpcArgs(filters)
     expect(args.p_query).toBe('C-150')
     expect(args.p_kind).toBe('sample')
@@ -1336,12 +1394,14 @@ describe('filterSearchResults', () => {
     kind: 'sample',
     projectId: 'p-a',
   })
+
   const file = searchResult({
     recordId: 'f',
     resultType: 'file',
     kind: 'file',
     projectId: 'p-a',
   })
+
   const archived = searchResult({
     recordId: 'arch',
     kind: 'sample',
@@ -1356,9 +1416,11 @@ describe('filterSearchResults', () => {
 
   it('filters by one of several selected projects', () => {
     const other = searchResult({ recordId: 'o', projectId: 'p-b' })
+
     const filtered = filterSearchResults([sample, other], {
       project: ['p-a', 'p-b'],
     })
+
     expect(filtered.map((r) => r.recordId)).toEqual(['s', 'o'])
   })
 
@@ -1376,10 +1438,12 @@ describe('filterSearchResults', () => {
       recordId: 'recent',
       updatedAt: new Date(Date.now() - 2 * 86_400_000).toISOString(),
     })
+
     const old = searchResult({
       recordId: 'old',
       updatedAt: new Date(Date.now() - 40 * 86_400_000).toISOString(),
     })
+
     const filtered = filterSearchResults([recent, old], { updated: '7d' })
     expect(filtered.map((r) => r.recordId)).toEqual(['recent'])
   })
@@ -1399,22 +1463,27 @@ describe('filterSearchResults', () => {
       recordId: 'before',
       updatedAt: '2026-03-31T23:59:59Z',
     })
+
     const first = searchResult({
       recordId: 'first',
       updatedAt: '2026-04-01T00:00:00Z',
     })
+
     const last = searchResult({
       recordId: 'last',
       updatedAt: '2026-04-30T23:30:00Z',
     })
+
     const after = searchResult({
       recordId: 'after',
       updatedAt: '2026-05-01T00:00:00Z',
     })
+
     const filtered = filterSearchResults([before, first, last, after], {
       from: '2026-04-01',
       to: '2026-04-30',
     })
+
     expect(filtered.map((r) => r.recordId)).toEqual(['first', 'last'])
   })
 })
@@ -1427,6 +1496,7 @@ describe('owner and date-range facets', () => {
         0,
       ),
     )
+
     expect(args.p_owner_id).toBe('u-1')
     expect(args.p_date_from).toBe('2026-04-01T00:00:00.000Z')
     expect(args.p_date_to).toBe('2026-04-30T23:59:59.999Z')
@@ -1437,6 +1507,7 @@ describe('owner and date-range facets', () => {
       { q: 'x', updated: '7d', from: '2026-01-02' },
       0,
     )
+
     expect(filters.dateFrom).toBe('2026-01-02T00:00:00.000Z')
   })
 
@@ -1459,6 +1530,7 @@ describe('contextualSearchActions', () => {
     const actions = contextualSearchActions([
       searchResult({ kind: 'sample', identifier: 'SMP-2248' }),
     ])
+
     expect(actions).toHaveLength(1)
     expect(actions[0].label).toBe('Register a sample from SMP-2248…')
     expect(actions[0].to).toBe('/samples')
@@ -1470,6 +1542,7 @@ describe('contextualSearchActions', () => {
       searchResult({ recordId: 'a', kind: 'sample', identifier: 'SMP-1' }),
       searchResult({ recordId: 'b', kind: 'sample', identifier: 'SMP-1' }),
     ])
+
     expect(actions).toHaveLength(1)
   })
 
@@ -1530,6 +1603,7 @@ describe('saved searches keep the results-page facets', () => {
       owner: 'u-1',
       archived: true,
     }
+
     const saved = saveCurrentSearch(wsId, ' Plates ', search)
     expect(saved[0].name).toBe('Plates')
     expect(savedQueryToSearch(loadSavedQueries(wsId)[0])).toEqual(search)
@@ -1579,6 +1653,7 @@ describe('summariseSearchFacets', () => {
       type: ['Samples'],
       project: ['p-2'],
     })
+
     expect(types.get('Records')).toBe(60)
     expect(types.get('Samples')).toBeUndefined()
     expect(projects.get('p-1')).toBe(8)

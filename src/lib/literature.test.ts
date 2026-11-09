@@ -18,6 +18,7 @@ function fakeFetch(
   return async (url) => {
     seen.push(url)
     const key = Object.keys(answers).find((k) => url.includes(k))
+
     return key
       ? { ok: true, status: 200, json: async () => answers[key] }
       : { ok: false, status: 404, json: async () => ({}) }
@@ -48,6 +49,7 @@ describe('literature search', () => {
         ],
       },
     })
+
     expect(papers).toHaveLength(1)
     expect(papers[0]).toMatchObject({
       title: 'Base editing in cells.',
@@ -72,6 +74,7 @@ describe('literature search', () => {
         },
       },
     })
+
     expect(papers[0]).toMatchObject({
       pmid: '9',
       doi: '10.2/z',
@@ -95,6 +98,7 @@ describe('literature search', () => {
         },
       ],
     })
+
     expect(papers[0]).toMatchObject({
       abstract: 'hello world',
       pmid: '55',
@@ -105,9 +109,11 @@ describe('literature search', () => {
 
   it('sends only the phrase and reports failures plainly', async () => {
     const seen: string[] = []
+
     const papers = await searchLiterature('  base editing  ', {
       fetch: fakeFetch({ europepmc: { resultList: { result: [] } } }, seen),
     })
+
     expect(papers).toEqual([])
     expect(seen[0]).toContain('query=base%20editing')
     await expect(
@@ -118,10 +124,12 @@ describe('literature search', () => {
 
   it('asks PubMed in two steps and skips the second for no hits', async () => {
     const seen: string[] = []
+
     const none = await searchLiterature('zzz', {
       source: 'pubmed',
       fetch: fakeFetch({ esearch: { esearchresult: { idlist: [] } } }, seen),
     })
+
     expect(none).toEqual([])
     expect(seen).toHaveLength(1)
   })
@@ -138,6 +146,7 @@ describe('literature search', () => {
       url: '',
       source: 'europepmc',
     })
+
     expect(line.authors).toBe('a, b, c, d, e, f et al.')
   })
 })

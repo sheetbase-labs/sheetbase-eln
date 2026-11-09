@@ -30,12 +30,15 @@ const RUN = {
 
 function context(rows: Array<Record<string, unknown>>): LabToolContext {
   const seen: string[] = []
+
   const client = {
     list: (resource: string, query = '') => {
       seen.push(`${resource}${query}`)
+
       return Promise.resolve(resource === 'plate_runs' ? rows : [])
     },
   } as unknown as DataClient
+
   return {
     client,
     workspaceId: 'w',
@@ -50,6 +53,7 @@ describe('plates assistant cards', () => {
       expect(ASSISTANT_PROPOSE_TOOL_NAMES).toContain(name)
       expect(isPlatesProposalTool(name)).toBe(true)
     }
+
     expect(platesProposalDefs().map((d) => d.name)).toEqual(
       PLATES_PROPOSE_TOOL_NAMES.map((n) => n.replaceAll('.', '__')),
     )
@@ -61,6 +65,7 @@ describe('plates assistant cards', () => {
       { title: 'Analyse', summary: 's', run: 'PLR-0007' },
       context([RUN]),
     )
+
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'plate.analyse',
       runId: RUN.id,
@@ -74,12 +79,15 @@ describe('plates assistant cards', () => {
       { title: 'a', summary: 's', run: 'nothing' },
       context([]),
     )
+
     expect(none).toMatchObject({ ok: false })
+
     const many = await buildPlatesProposal(
       'sheetbase.plate.analyse',
       { title: 'a', summary: 's', run: 'kinase' },
       context([RUN, { ...RUN, id: 'x', number: 8, name: 'Kinase screen 2' }]),
     )
+
     expect(many.ok).toBe(false)
     expect(!many.ok && many.message).toContain('PLR-0008')
   })
@@ -96,6 +104,7 @@ describe('plates assistant cards', () => {
       },
       context([RUN]),
     )
+
     expect(built.ok && built.proposal.action).toMatchObject({
       kind: 'worklist.create',
       runId: RUN.id,
@@ -103,9 +112,11 @@ describe('plates assistant cards', () => {
       mode: 'stamp',
       volumeUl: 10,
     })
+
     const transfers = built.ok
       ? built.proposal.changes.find((c) => c.label === 'Transfers')
       : null
+
     // Blank wells are left out: three wells get a transfer.
     expect(transfers?.after).toMatch(/^3 from/)
   })
@@ -116,6 +127,7 @@ describe('plates assistant cards', () => {
       { title: 'w', summary: 's', run: 'PLR-0007' },
       context([{ ...RUN, wells: [{ wellCode: 'A1', role: 'sample' }] }]),
     )
+
     expect(built).toMatchObject({ ok: false })
   })
 

@@ -14,7 +14,9 @@ const meta = {
   parameters: { layout: 'padded' },
   args: { status: 'pass' },
 } satisfies Meta<typeof ContractStatusBadge>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Pass: Story = {}

@@ -65,11 +65,13 @@ export function TemplateSectionsBoard({
 }) {
   const sheets = useSheetDefinitions(versions)
   const users = useTemplateUsers(versions.map((v) => v.id))
+
   const names = useUserNames(
     [version.updatedByUserId, version.publishedByUserId].filter(
       (id): id is string => Boolean(id),
     ),
   )
+
   const previous = useMemo(
     () =>
       [...versions]
@@ -78,11 +80,13 @@ export function TemplateSectionsBoard({
         .at(0) ?? null,
     [versions, version.version],
   )
+
   const entries = useMemo(
     () =>
       describeSections(version.configuration.placements, sheets.versionsById),
     [version.configuration.placements, sheets.versionsById],
   )
+
   const changes = useMemo(
     () =>
       diffTemplatePlacements(
@@ -92,7 +96,9 @@ export function TemplateSectionsBoard({
       ),
     [previous, version.configuration.placements, sheets.versionsById],
   )
+
   const [pickedId, setPickedId] = useState<string | null>(null)
+
   const selected: SectionEntry | undefined =
     entries.find((e) => e.placement.id === pickedId) ??
     entries.find((e) => e.placement.kind === 'sheet') ??
@@ -102,23 +108,31 @@ export function TemplateSectionsBoard({
     if (!selected || selected.placement.kind !== 'sheet')
       return new Set<string>()
     const sheetPlacement = selected.placement
+
     const earlier = previous?.configuration.placements.find(
       (p) => p.id === sheetPlacement.id,
     )
+
     if (!earlier || earlier.kind !== 'sheet') return new Set<string>()
     const old = sheets.versionsById.get(earlier.definitionVersionId)
+
     if (!old) return new Set<string>()
+
     return new Set(old.configuration.columns.map((c) => c.id))
   }, [selected, previous, sheets.versionsById])
 
   const recordCounts = useMemo(() => {
     const counts = new Map<string, number>()
+
     for (const record of users.data ?? []) {
       const id = record.source_notebook_template_version_id
+
       if (id) counts.set(id, (counts.get(id) ?? 0) + 1)
     }
+
     return counts
   }, [users.data])
+
   const olderInUse = [...versions]
     .filter((v) => v.lifecycle === 'published' && v.version < version.version)
     .filter((v) => (recordCounts.get(v.id) ?? 0) > 0)
@@ -129,29 +143,37 @@ export function TemplateSectionsBoard({
   const protocolEntry = version.configuration.placements.find(
     (p) => p.kind === 'narrative' && p.blockType === 'protocol_reference',
   )
+
   const protocolLabel =
     protocolEntry?.kind === 'narrative' &&
     typeof protocolEntry.payload.protocol === 'string'
       ? `${protocolEntry.payload.protocol} v${String(protocolEntry.payload.version ?? '')}`.trim()
       : null
+
   const referencedModels = useMemo(() => {
     const labels = new Set<string>()
+
     for (const placement of version.configuration.placements) {
       if (placement.kind !== 'sheet') continue
       const sheet = sheets.versionsById.get(placement.definitionVersionId)
+
       for (const column of sheet?.configuration.columns ?? []) {
         const target = column.field.relationship?.target
+
         if (target?.kind === 'model') labels.add(target.modelKey)
       }
     }
+
     return [...labels]
   }, [version.configuration.placements, sheets.versionsById])
 
   const isDraft = version.lifecycle === 'draft'
   const params = { templateId }
+
   const editedBy = version.updatedByUserId
     ? names.userLabel(version.updatedByUserId)
     : null
+
   const editedAt = version.updatedAt
     ? formatInstant(version.updatedAt, {
         hour: '2-digit',
@@ -179,6 +201,7 @@ export function TemplateSectionsBoard({
         <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
           {entries.map((entry) => {
             const active = entry.placement.id === selected?.placement.id
+
             return (
               <li key={entry.placement.id}>
                 <button
@@ -337,6 +360,7 @@ export function TemplateSectionsBoard({
                       join: olderInUse
                         .map((v, i) => {
                           const n = recordCounts.get(v.id) ?? 0
+
                           return t(
                             i === 0
                               ? 'library.templates.templateSectionsBoard.notebooksOnV'
@@ -401,12 +425,16 @@ function SectionDetail({
   showVersionBadge: boolean
 }) {
   const { placement } = entry
+
   if (placement.kind === 'sheet') {
     const sheet = sheets.versionsById.get(placement.definitionVersionId)
+
     const definition = sheet
       ? sheets.definitionsById.get(sheet.definitionId)
       : undefined
+
     const rows = sheet ? sheetColumnRows(sheet.configuration) : []
+
     return (
       <div className="flex flex-col gap-4">
         <div className="flex items-baseline gap-2">
@@ -446,6 +474,7 @@ function SectionDetail({
                 showVersionBadge &&
                 previousColumnIds.size > 0 &&
                 !previousColumnIds.has(row.id)
+
               return (
                 <TableRow key={row.id}>
                   <TableCell>
@@ -493,10 +522,13 @@ function SectionDetail({
       </div>
     )
   }
+
   const payload = placement.kind === 'narrative' ? placement.payload : {}
+
   const fields = Array.isArray(payload.fields)
     ? (payload.fields as string[])
     : null
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-baseline gap-2">

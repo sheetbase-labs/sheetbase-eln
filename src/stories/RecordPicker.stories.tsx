@@ -80,6 +80,7 @@ const meta = {
 } satisfies Meta<typeof RecordPicker>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Results: Story = {}

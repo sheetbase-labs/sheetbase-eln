@@ -53,14 +53,17 @@ async function store(
   const found = await db.execute(
     sql`select 1 from api.dataset_import_files where workspace_id = ${PROCESS} and filename = ${file.name}`,
   )
+
   if (found.rows.length > 0) return
   const bytes = Buffer.from(file.text, 'utf8')
   const checksum = createHash('sha256').update(bytes).digest('hex')
   const key = `${PROCESS}/${file.id}/${createHash('md5').update(file.id).digest('hex')}`
+
   const target = resolve(
     process.env.FILE_STORAGE_DIR ?? './.storage/objects',
     key,
   )
+
   await mkdir(dirname(target), { recursive: true })
   await writeFile(target, bytes)
   await withDesignClaims(db, GARETH, PROCESS, async (client) => {

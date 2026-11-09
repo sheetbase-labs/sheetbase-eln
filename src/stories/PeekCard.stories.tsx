@@ -28,8 +28,10 @@ const SUMMARY: PeekSummary = {
 
 function withSummary(summary: PeekSummary | null) {
   const client = screenQueryClient()
+
   if (summary) client.setQueryData(['workspace', 'peek', HREF], summary)
   else holdRead(client, ['workspace', 'peek', HREF])
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <Story />
@@ -58,7 +60,9 @@ const meta = {
   },
   decorators: [withSummary(SUMMARY)],
 } satisfies Meta<typeof PeekCard>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

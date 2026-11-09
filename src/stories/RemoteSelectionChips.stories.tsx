@@ -33,7 +33,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof RemoteSelectionChips>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const AwaitingRoom: Story = {}

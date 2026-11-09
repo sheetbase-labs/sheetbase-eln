@@ -51,6 +51,7 @@ export type WorkItemKind =
   | 'qualification_granted'
   | 'following'
   | 'project_following'
+
 export type WorkItemState =
   'needs_action' | 'following' | 'overdue' | 'done_today'
 
@@ -131,6 +132,7 @@ const KINDS: readonly WorkItemKind[] = [
   'following',
   'project_following',
 ]
+
 const STATES: readonly WorkItemState[] = [
   'needs_action',
   'following',
@@ -153,6 +155,7 @@ function asState(value: string): WorkItemState {
 /** A `snake_case` key a person never types or reads. */
 function sentenceFromKey(key: string): string {
   const words = key.replace(/_+/g, ' ').trim()
+
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
@@ -163,14 +166,17 @@ export function isMachineKey(value: string | null): boolean {
 export function toWorkItem(row: WorkItemWire, now: Date = appNow()): WorkItem {
   const dueAt = row.due_at
   let state = asState(row.state)
+
   // The view computes overdueness from the due date; keep it authoritative but
   // never let a client clock disagree about a future due date.
   if (state === 'needs_action' && dueAt && Date.parse(dueAt) < now.getTime()) {
     state = 'overdue'
   }
+
   // A pipeline's item carries its internal key (ambr_250_daily_import_check)
   // as both identifier and title: the title says it as words.
   const keyOnly = !row.title && isMachineKey(row.identifier)
+
   return {
     kind: asKind(row.kind),
     recordId: row.record_id,
@@ -218,6 +224,7 @@ const WORK_ITEMS_TIMEOUT_MS = 30_000
 
 async function fetchWithTimeout<T>(work: Promise<T>): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
+
   try {
     return await Promise.race([
       work,
@@ -250,6 +257,7 @@ export async function fetchWorkItems(
       `?select=kind,record_id,identifier,title,project_id,reason,due_at,state,created_at,source_type,source_id,parser_version_id,connector_id,revision_id&order=due_at.asc,created_at.desc&limit=${limit}`,
     ),
   )
+
   return rows.map((row) => toWorkItem(row))
 }
 
@@ -261,6 +269,7 @@ export async function fetchSeenItemKeys(
     'work_item_views',
     '?select=item_key',
   )
+
   return new Set(rows.map((row) => row.item_key))
 }
 
@@ -280,6 +289,7 @@ export async function fetchNeedsActionCounts(
   client: DataClient = notebookDataClient,
 ): Promise<InboxCounts> {
   const rows = await client.rpc<InboxCounts[]>('inbox_needs_action_counts', {})
+
   // An answer with no row is a failed count, not a zero: the same rule the
   // `count=exact` reads follow, so a degraded read cannot read as calm.
   if (rows.length === 0) {
@@ -289,7 +299,9 @@ export async function fetchNeedsActionCounts(
       0,
     )
   }
+
   const [counts] = rows
+
   return { total: counts.total, reviews: counts.reviews }
 }
 
@@ -324,6 +336,7 @@ export async function fetchInboxPage(
       { p_tab: tab, p_type: type ?? null, p_limit: 100, p_offset: offset },
     ),
   )
+
   return { ...page, items: page.items.map((row) => toWorkItem(row)) }
 }
 
@@ -384,7 +397,9 @@ export function countByKind(
     following: 0,
     project_following: 0,
   }
+
   for (const item of items) counts[item.kind] += 1
+
   return counts
 }
 
@@ -418,10 +433,13 @@ export function readableReason(reason: string): string {
 export function dueLabel(dueAt: string | null, now: Date = appNow()): string {
   if (!dueAt) return '—'
   const due = Date.parse(dueAt)
+
   if (Number.isNaN(due)) return '—'
   const day = formatDate(dueAt, { year: false })
   const late = -(daysUntilDate(dueAt, now) ?? 0)
+
   if (late <= 0) return `Due ${day}`
+
   return `Due ${day} · ${late} ${late === 1 ? 'day' : 'days'} overdue`
 }
 
@@ -440,12 +458,15 @@ export function groupWorkItems(
     later: [],
     following: [],
   }
+
   for (const item of items) {
     if (item.state === 'following' || item.kind === 'following') {
       groups.following.push(item)
       continue
     }
+
     const days = item.dueAt ? daysUntilDate(item.dueAt, now) : null
+
     if (days === null) {
       groups.later.push(item)
     } else if (days < 0) {
@@ -458,5 +479,6 @@ export function groupWorkItems(
       groups.later.push(item)
     }
   }
+
   return groups
 }

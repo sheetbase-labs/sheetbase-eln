@@ -83,6 +83,7 @@ const meta = {
 } satisfies Meta<typeof ChartRenderer>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Line: Story = {}
@@ -131,6 +132,7 @@ const largeSpec: ChartSpec = {
   },
   overlays: { errorBars: null, fit: { method: 'ols', degree: 1 } },
 }
+
 const largeMaterialised = materialiseLiveChart(largeSpec, {
   source: {
     datasetId: 'dataset-1',

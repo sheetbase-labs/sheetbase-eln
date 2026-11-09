@@ -75,6 +75,7 @@ describe('parseSampleProperties and toSampleRecord', () => {
       lowStockThreshold: 2,
       notes: 'handle cold',
     })
+
     expect(props).toEqual({
       sampleType: 'plasma',
       quantity: 12.5,
@@ -138,6 +139,7 @@ describe('computeSampleSummaries', () => {
       toSampleRecord(wire({ quantity: 5, lowStockThreshold: 2 })), // available
       toSampleRecord(wire({ quantity: 0, lowStockThreshold: 2 })),
     ]
+
     rows[2].status = 'consumed'
     const summaries = computeSampleSummaries(rows, 1234)
     expect(summaries).toEqual([
@@ -171,6 +173,7 @@ describe('buildSamplesFilter', () => {
     const clauses = buildSamplesFilter([
       { fieldId: 'archived', operator: 'eq', values: ['included'] },
     ])
+
     expect(clauses).not.toContain('archived_at=is.null')
   })
 
@@ -178,6 +181,7 @@ describe('buildSamplesFilter', () => {
     const clauses = buildSamplesFilter([
       { fieldId: 'status', operator: 'eq', values: ['available'] },
     ])
+
     expect(clauses).toContain('status=eq.available')
   })
 
@@ -191,6 +195,7 @@ describe('buildSamplesFilter', () => {
       { fieldId: 'sampleType', operator: 'contains', values: ['plasma'] },
       { fieldId: 'barcode', operator: 'contains', values: ['BC-1'] },
     ])
+
     expect(clauses).toContain('properties->>storageLocation=ilike.*Freezer+A*')
     expect(clauses).toContain('properties->>sampleType=ilike.*plasma*')
     expect(clauses).toContain('properties->>barcode=ilike.*BC-1*')
@@ -200,6 +205,7 @@ describe('buildSamplesFilter', () => {
     const clauses = buildSamplesFilter([
       { fieldId: 'search', operator: 'contains', values: ['50%_off'] },
     ])
+
     const search = clauses.find((c) => c.startsWith('('))
     expect(search).toBeDefined()
     expect(search).not.toContain('%')
@@ -236,6 +242,7 @@ describe('buildSamplesOrder and buildSamplesQuery', () => {
       grouping: ['status'],
       sorting: [{ id: 'quantity', desc: true }],
     }
+
     expect(buildSamplesOrder(q)).toBe(
       'order=status.asc,(properties->>quantity)::numeric.desc,identifier.asc',
     )
@@ -261,6 +268,7 @@ describe('buildSamplesOrder and buildSamplesQuery', () => {
       grouping: [],
       filters: [{ fieldId: 'status', operator: 'eq', values: ['available'] }],
     }
+
     const built = buildSamplesQuery(q)
     expect(built.startsWith('?')).toBe(true)
     expect(built).toContain('kind=eq.sample')
@@ -279,6 +287,7 @@ describe('buildSamplesOrder and buildSamplesQuery', () => {
       pageSize: 100,
       filters: [{ fieldId: 'status', operator: 'eq', values: ['consumed'] }],
     }
+
     const built = buildSamplesCountQuery(q)
     expect(built).toContain('status=eq.consumed')
     expect(built).not.toContain('limit=')
@@ -290,9 +299,11 @@ describe('buildSamplesOrder and buildSamplesQuery', () => {
 describe('recordSampleLabelPrint', () => {
   it('records the print as its own sample event, with the label note', async () => {
     const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+
     const client = {
       rpc: (name: string, args: Record<string, unknown>) => {
         calls.push({ name, args })
+
         return Promise.resolve({
           id: 'ev-1',
           operation: 'print',
@@ -327,9 +338,11 @@ describe('recordSampleLabelPrint', () => {
 describe('fetchSampleEvents', () => {
   it('reads the whole custody ledger, newest first, without a silent cap', async () => {
     const requests: string[] = []
+
     const client = {
       list: (resource: string, query?: string) => {
         requests.push(`${resource}${query ?? ''}`)
+
         return Promise.resolve([])
       },
     } as unknown as DataClient
@@ -347,14 +360,18 @@ describe('fetchSampleEvents', () => {
 describe('bench RPC wrappers', () => {
   function recorder(result: unknown) {
     const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+
     const client = {
       rpc: (name: string, args: Record<string, unknown>) => {
         calls.push({ name, args })
+
         return Promise.resolve(result)
       },
     } as unknown as DataClient
+
     return { calls, client }
   }
+
   const sampleWire = (id: string, title: string) => ({
     id,
     identifier: `SMP-${id}`,
@@ -370,10 +387,12 @@ describe('bench RPC wrappers', () => {
       sampleWire('1', 'A'),
       sampleWire('2', 'B'),
     ])
+
     const out = await registerSamples(client, {
       projectId: 'p-1',
       samples: [{ title: 'A' }, { title: 'B', quantity: 3 }],
     })
+
     expect(calls).toEqual([
       {
         name: 'register_samples',
@@ -392,6 +411,7 @@ describe('bench RPC wrappers', () => {
       sample: sampleWire('0', 'Stock'),
       derivedSamples: [sampleWire('1', 'Stock 1'), sampleWire('2', 'Stock 2')],
     })
+
     const out = await aliquotSample(client, {
       recordId: 's-0',
       count: 2,
@@ -400,6 +420,7 @@ describe('bench RPC wrappers', () => {
       expectedMetadataVersion: 4,
       newContainer: { storageLocation: 'Box 3' },
     })
+
     expect(calls[0].name).toBe('aliquot_sample')
     expect(calls[0].args).toMatchObject({
       p_record_id: 's-0',
@@ -434,6 +455,7 @@ describe('bench RPC wrappers', () => {
         },
       ],
     })
+
     const status = await fetchSampleReleaseCheckStatus(client, 's-1')
     expect(calls[0]).toEqual({
       name: 'sample_release_check_status',

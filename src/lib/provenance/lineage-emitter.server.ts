@@ -74,13 +74,17 @@ async function datasetRef(
       WHERE v.id = $1`,
     [versionId],
   )
+
   const row = rows.at(0)
+
   if (!row) return null
+
   const { rows: fields } = await conn.query<{ key: string }>(
     `SELECT key FROM api.dataset_schema_version_fields
       WHERE schema_version_id = $1 AND lifecycle = 'active' ORDER BY display_order, key`,
     [row.schema_version_id],
   )
+
   return {
     datasetId: row.dataset_id,
     name: row.name,
@@ -99,7 +103,9 @@ export async function activityFor(
     operation: change.operation,
     payload: change.payload,
   })
+
   if (!intent) return null
+
   const base = {
     eventTime: new Date(change.created_at).toISOString(),
     runId: change.entity_uuid,
@@ -107,6 +113,7 @@ export async function activityFor(
     inputs: [] as LineageDatasetRef[],
     outputs: [] as LineageDatasetRef[],
   }
+
   if (intent.kind === 'PIPELINE') {
     const { rows } = await conn.query<{
       status: string
@@ -121,37 +128,52 @@ export async function activityFor(
         WHERE r.id = $1`,
       [change.entity_uuid],
     )
+
     const run = rows.at(0)
+
     if (!run) return null
+
     const eventType =
       intent.eventType === 'FROM_STATUS'
         ? eventTypeForRunStatus(run.status)
         : intent.eventType
+
     if (!eventType) return null
+
     const activity: LineageActivity = {
       ...base,
       eventType,
       jobName: `pipeline.${run.key}`,
     }
+
     for (const versionId of Object.values(run.input_versions ?? {})) {
       const ref = await datasetRef(conn, versionId)
+
       if (ref) activity.inputs.push(ref)
     }
+
     if (eventType === 'COMPLETE') {
       const { rows: outs } = await conn.query<{ dataset_version_id: string }>(
         `SELECT dataset_version_id FROM api.pipeline_run_outputs WHERE run_id = $1`,
         [change.entity_uuid],
       )
+
       for (const out of outs) {
         const ref = await datasetRef(conn, out.dataset_version_id)
+
         if (ref) activity.outputs.push(ref)
       }
     }
+
     if (eventType === 'FAIL') activity.errorMessage = run.error_message
+
     return activity
   }
+
   const eventType = intent.eventType === 'FROM_STATUS' ? null : intent.eventType
+
   if (!eventType) return null
+
   if (intent.kind === 'IMPORT') {
     const { rows } = await conn.query<{
       dataset_id: string
@@ -161,20 +183,28 @@ export async function activityFor(
       `SELECT dataset_id, snapshot_version_id, error_detail FROM api.dataset_imports WHERE id = $1`,
       [change.entity_uuid],
     )
+
     const row = rows.at(0)
+
     if (!row) return null
+
     const activity: LineageActivity = {
       ...base,
       eventType,
       jobName: `import.${row.dataset_id}`,
     }
+
     if (eventType === 'COMPLETE' && row.snapshot_version_id) {
       const ref = await datasetRef(conn, row.snapshot_version_id)
+
       if (ref) activity.outputs.push(ref)
     }
+
     if (eventType === 'FAIL') activity.errorMessage = row.error_detail
+
     return activity
   }
+
   if (intent.kind === 'INSTRUMENT') {
     const { rows } = await conn.query<{
       instrument_id: string
@@ -183,7 +213,9 @@ export async function activityFor(
       `SELECT instrument_id, error_message FROM api.instrument_runs WHERE id = $1`,
       [change.entity_uuid],
     )
+
     if (!rows[0]) return null
+
     return {
       ...base,
       eventType,
@@ -191,23 +223,29 @@ export async function activityFor(
       errorMessage: eventType === 'FAIL' ? rows[0].error_message : null,
     }
   }
+
   if (intent.kind === 'PLATE') {
     const { rows } = await conn.query<{ design_id: string | null }>(
       `SELECT design_id FROM api.plate_runs WHERE id = $1`,
       [change.entity_uuid],
     )
+
     if (!rows[0]) return null
+
     return {
       ...base,
       eventType,
       jobName: `plate-run.${rows[0].design_id ?? 'adhoc'}`,
     }
   }
+
   const { rows } = await conn.query<{ format: string }>(
     `SELECT format FROM api.plate_worklists WHERE id = $1`,
     [change.entity_uuid],
   )
+
   if (!rows[0]) return null
+
   return { ...base, eventType, jobName: `worklist.${rows[0].format}` }
 }
 
@@ -220,7 +258,9 @@ export async function enqueueLineage(
     `SELECT id, workspace_id, endpoint_url, namespace, auth_header_name, last_sequence::text
        FROM api.lineage_targets WHERE enabled`,
   )
+
   let queued = 0
+
   for (const target of targets) {
     const { rows: changes } = await conn.query<ChangeRow>(
       `SELECT id, sequence::text, entity_type, operation, entity_uuid, payload, created_at::text
@@ -230,9 +270,12 @@ export async function enqueueLineage(
         ORDER BY sequence LIMIT $3`,
       [target.workspace_id, target.last_sequence, BATCH],
     )
+
     let cursor = target.last_sequence
+
     for (const change of changes) {
       const activity = await activityFor(conn, change)
+
       if (activity) {
         const body = buildRunEvent(activity, target.namespace, artifactVersion)
         await conn.query(
@@ -251,8 +294,10 @@ export async function enqueueLineage(
         )
         queued++
       }
+
       cursor = change.sequence
     }
+
     if (cursor !== target.last_sequence) {
       await conn.query(
         `UPDATE api.lineage_targets SET last_sequence = $2 WHERE id = $1`,
@@ -260,6 +305,7 @@ export async function enqueueLineage(
       )
     }
   }
+
   return queued
 }
 
@@ -275,15 +321,18 @@ export async function sendToTarget(
   doFetch: typeof fetch = fetch,
 ): Promise<number> {
   const headers: Record<string, string> = { 'content-type': 'application/json' }
+
   if (sealedSecret) {
     headers[target.auth_header_name] = openSecret(sealedSecret, secretKey())
   }
+
   const response = await doFetch(target.endpoint_url, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
   })
+
   return response.status
 }
 
@@ -306,11 +355,14 @@ export async function deliverLineage(
       WHERE d.status = 'pending' AND d.next_attempt_at <= now()
       ORDER BY d.created_at LIMIT 50`,
   )
+
   let delivered = 0
   let failed = 0
+
   for (const row of rows) {
     try {
       const status = await sendToTarget(row, row.sealed, row.body, doFetch)
+
       if (status >= 200 && status < 300) {
         await conn.query(`SELECT internal.lineage_delivery_succeeded($1, $2)`, [
           row.id,
@@ -332,6 +384,7 @@ export async function deliverLineage(
       failed++
     }
   }
+
   return { delivered, failed }
 }
 
@@ -339,11 +392,13 @@ export async function sweepLineage(
   deps: LineageSweepDeps,
 ): Promise<{ queued: number; delivered: number; failed: number }> {
   const conn = await deps.connect()
+
   try {
     const queued = await enqueueLineage(
       conn,
       deps.artifactVersion ?? env.SHEETBASE_ARTIFACT_VERSION,
     )
+
     return { queued, ...(await deliverLineage(conn, deps.fetch)) }
   } finally {
     await conn.end()
@@ -356,26 +411,33 @@ const startedKey = '__sheetbaseLineageSchedulerStarted'
 
 function disabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
 export function startLineageScheduler(): void {
   if (typeof window !== 'undefined' || disabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedKey]) return
   g[startedKey] = true
+
   const tick = async () => {
     if (running) return
     running = true
+
     try {
       await sweepLineage({
         connect: async () => {
           const client = new PooledClient({
             connectionString: env.DATABASE_URL,
           })
+
           await client.connect()
+
           return client
         },
       })
@@ -387,6 +449,7 @@ export function startLineageScheduler(): void {
       running = false
     }
   }
+
   timer = setInterval(() => void tick(), LINEAGE_SWEEP_INTERVAL_MS)
   timer.unref()
 }

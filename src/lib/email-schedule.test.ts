@@ -11,6 +11,7 @@ describe('renderEmail', () => {
       recordTitle: 'Transfection ratio sweep',
       url: 'https://app.test/records/r1',
     })
+
     expect(email.subject).toBe('Review requested')
     expect(email.body).toContain('Priya S. — Review requested.')
     expect(email.body).toContain('EXP-0138 · Transfection ratio sweep')

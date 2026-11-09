@@ -119,6 +119,7 @@ describe('Inspector', () => {
     const { container } = render(
       <Inspector recordType="Experiment" title="4°C hold" tabs={tabs} />,
     )
+
     // The inspector root is a labelled region.
     expect(container.querySelector('[aria-label="Inspector"]')).toBeTruthy()
     // The scroll region exists and the header is outside it (pinned).
@@ -144,6 +145,7 @@ describe('Inspector sections', () => {
 
   it('keeps long stacked property values fully available', () => {
     const formula = '=IF(AND(A1>0,B1<10),"qualified","review")'
+
     const { container } = render(
       <PropertyList>
         <Property label="Formula" mono stacked>
@@ -151,6 +153,7 @@ describe('Inspector sections', () => {
         </Property>
       </PropertyList>,
     )
+
     expect(screen.getByText(formula)).toBeTruthy()
     expect(container.querySelector('dd')?.className).toContain('break-words')
     expect(container.querySelector('dd')?.className).not.toContain('truncate')
@@ -164,6 +167,7 @@ describe('Inspector sections', () => {
     const items: FileItem[] = [
       { id: '1', name: 'protocol.pdf', meta: '120 KB' },
     ]
+
     const { rerender } = render(<FileList items={items} />)
     expect(screen.getByText('protocol.pdf')).toBeTruthy()
     rerender(<FileList items={[]} />)
@@ -182,6 +186,7 @@ describe('Inspector sections', () => {
       // With no type in the name, the media type decides.
       { id: '3', name: 'raw-payload', mediaType: 'image/x-unknown' },
     ]
+
     render(<FileList items={items} />)
     expect(screen.getByRole('img', { name: 'PDF file' })).toBeTruthy()
     expect(screen.getByRole('img', { name: 'XLSX file' })).toBeTruthy()
@@ -200,6 +205,7 @@ describe('Inspector sections', () => {
       { id: '3', label: 'Training records', state: 'fail' },
       { id: '4', label: 'Calibration', state: 'pending' },
     ]
+
     render(<CheckList items={items} />)
     // Each state is exposed to screen readers as sr-only text.
     expect(screen.getAllByText('pass').length).toBeGreaterThan(0)
@@ -219,6 +225,7 @@ describe('Inspector sections', () => {
         at: '2h ago',
       },
     ]
+
     render(<ActivityFeed items={items} />)
     expect(screen.getByText('Gareth Price')).toBeTruthy()
     expect(screen.getByText('updated')).toBeTruthy()
@@ -235,6 +242,7 @@ describe('Inspector sections', () => {
         at: '1h ago',
       },
     ]
+
     const { rerender } = render(<CommentList items={items} />)
     expect(screen.getByText('Looks good to me.')).toBeTruthy()
     rerender(<CommentList items={[]} />)
@@ -258,6 +266,7 @@ describe('Inspector sections', () => {
         <InspectorSection title="Second">two</InspectorSection>
       </InspectorSectionStack>,
     )
+
     expect(container.firstElementChild?.className).toContain('space-y-4')
   })
 })

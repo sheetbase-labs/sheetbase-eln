@@ -10,6 +10,7 @@ const meta = {
 } satisfies Meta<typeof Person>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {

@@ -53,12 +53,15 @@ function asRule(raw: unknown): ReleaseRule | null {
   const r = raw as Record<string, unknown>
   const label = typeof r.label === 'string' && r.label ? r.label : undefined
   const text = (key: string) => (typeof r[key] === 'string' ? r[key] : '')
+
   const num = (key: string) => {
     const n = r[key]
+
     return typeof n === 'number' || (typeof n === 'string' && n !== '')
       ? Number(n)
       : undefined
   }
+
   switch (r.kind) {
     case 'no_result':
       return { kind: 'no_result', result: text('result') || 'fail', label }
@@ -90,6 +93,7 @@ export async function fetchReleaseRuleSets(
     'sample_release_rules',
     '?select=sample_type,rules,updated_at&order=sample_type',
   )
+
   return rows.map((row) => ({
     sampleType: row.sample_type,
     rules: (Array.isArray(row.rules) ? row.rules : [])
@@ -105,6 +109,7 @@ export async function fetchSampleTypes(client: DataClient): Promise<string[]> {
     'records',
     '?kind=eq.sample&archived_at=is.null&select=type:properties->>sampleType&limit=5000',
   )
+
   return [
     ...new Set(
       rows.map((row) => row.type?.trim()).filter((v): v is string => !!v),
@@ -115,15 +120,22 @@ export async function fetchSampleTypes(client: DataClient): Promise<string[]> {
 /** The rule as the database stores it: no empty fields. */
 export function ruleToWire(rule: ReleaseRule): Record<string, unknown> {
   const out: Record<string, unknown> = { kind: rule.kind }
+
   if (rule.label?.trim()) out.label = rule.label.trim()
+
   if (rule.kind === 'no_result') out.result = rule.result.trim()
+
   if (rule.kind === 'min_measurements') out.count = rule.count
+
   if (rule.kind === 'measurement_required' || rule.kind === 'measurement_range')
     out.measurement = rule.measurement.trim()
+
   if (rule.kind === 'measurement_range') {
     if (rule.min !== undefined) out.min = rule.min
+
     if (rule.max !== undefined) out.max = rule.max
   }
+
   return out
 }
 
@@ -167,19 +179,23 @@ export function validateRule(rule: ReleaseRule): string | null {
     case 'measurement_range':
       if (!rule.measurement.trim())
         return t('settings.releaseRules.needMeasurement')
+
       if (
         (rule.min !== undefined && Number.isNaN(rule.min)) ||
         (rule.max !== undefined && Number.isNaN(rule.max))
       )
         return t('settings.releaseRules.limitsAreNumbers')
+
       if (rule.min === undefined && rule.max === undefined)
         return t('settings.releaseRules.needALimit')
+
       if (
         rule.min !== undefined &&
         rule.max !== undefined &&
         rule.min > rule.max
       )
         return t('settings.releaseRules.minAboveMax')
+
       return null
   }
 }
@@ -201,14 +217,17 @@ export function describeRule(rule: ReleaseRule): string {
       })
     case 'measurement_range': {
       const { min, max, measurement } = rule
+
       if (min !== undefined && max !== undefined)
         return t('settings.releaseRules.describe.between', {
           measurement,
           min,
           max,
         })
+
       if (min !== undefined)
         return t('settings.releaseRules.describe.atLeast', { measurement, min })
+
       return t('settings.releaseRules.describe.atMost', {
         measurement,
         max: max ?? 0,

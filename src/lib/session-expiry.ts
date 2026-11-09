@@ -13,17 +13,20 @@ const listeners = new Set<() => void>()
 export function markSessionExpired(): void {
   if (expired) return
   expired = true
+
   for (const listener of listeners) listener()
 }
 
 export function resetSessionExpired(): void {
   if (!expired) return
   expired = false
+
   for (const listener of listeners) listener()
 }
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener)
+
   return () => listeners.delete(listener)
 }
 
@@ -38,5 +41,6 @@ export function useSessionExpired(): boolean {
 /** The sign-in URL that returns to the page the person was on. */
 export function signInHrefFor(path: string): string {
   const next = path.startsWith('/sign-in') ? '/' : path
+
   return `/sign-in?next=${encodeURIComponent(next)}`
 }

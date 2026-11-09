@@ -38,7 +38,9 @@ function initialSpec() {
     datasetId: source().datasetId,
     fields: [{ fieldId: TEMP_ID, label: 'Temperature', logicalType: 'number' }],
   })
+
   if (!proposal) throw new Error('fixture spec must build')
+
   return proposal.spec
 }
 
@@ -111,7 +113,9 @@ function specFor(datasetSource: CanonicalDatasetSource) {
       logicalType: column.logicalType,
     })),
   })
+
   if (!proposal) throw new Error('fixture spec must build')
+
   return proposal.spec
 }
 
@@ -160,11 +164,13 @@ describe('ChartConfigurator chart-type switching', () => {
     // materialiser and replaced the whole studio with the error surface.
     const onSpecChange = vi.fn()
     const datasetSource = errorSource(false)
+
     const boxSpec: ChartSpec = {
       ...specFor(datasetSource),
       type: 'box',
       fields: { ...specFor(datasetSource).fields, x: null },
     }
+
     render(
       <ChartConfigurator
         source={datasetSource}

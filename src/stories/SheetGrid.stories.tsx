@@ -87,9 +87,11 @@ function ReadingsGrid({
         source: { kind: 'local' as const, label: 'Local override' },
       }
     }
+
     if (variant === 'unsourced') {
       return { ...column, source: undefined }
     }
+
     return column
   })
 
@@ -115,7 +117,9 @@ const meta = {
   parameters: { layout: 'padded' },
   args: { variant: 'default' },
 } satisfies Meta<typeof ReadingsGrid>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A run's readings. Derived columns are tinted and say so in their header. */

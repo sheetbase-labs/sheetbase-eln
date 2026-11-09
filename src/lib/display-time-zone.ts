@@ -21,8 +21,10 @@ export function isUsableTimeZone(
   zone: string | null | undefined,
 ): zone is string {
   if (!zone) return false
+
   try {
     new Intl.DateTimeFormat('en-GB', { timeZone: zone })
+
     return true
   } catch {
     return false
@@ -36,13 +38,16 @@ export function getDisplayTimeZone(): string | undefined {
 export function setDisplayTimeZone(zone: string | null | undefined): void {
   if (typeof window === 'undefined') return
   const next = isUsableTimeZone(zone) ? zone : undefined
+
   if (next === displayTimeZone) return
   displayTimeZone = next
+
   for (const listener of listeners) listener()
 }
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener)
+
   return () => listeners.delete(listener)
 }
 
@@ -65,8 +70,10 @@ export function formatInstant(
 ): string {
   if (!iso) return '—'
   const parsed = Date.parse(iso)
+
   if (Number.isNaN(parsed)) return '—'
   const { zone, ...format } = options
+
   // Browsers and Node disagree on the en-GB spelling of September ("Sept" or
   // "Sep"); the workspace's date format is "25 Sep 2026" everywhere.
   return dateTimeFormat('en-GB', {

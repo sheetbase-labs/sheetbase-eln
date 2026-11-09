@@ -29,6 +29,7 @@ export type RowIdentityBatchResult =
 
 const uuid =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 const nilUuid = '00000000-0000-0000-0000-000000000000'
 
 function scalar(value: unknown): string | null {
@@ -37,14 +38,17 @@ function scalar(value: unknown): string | null {
 
 function isCalendarDate(value: string) {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+
   if (!match) return false
   const [, year, month, day] = match
   const numericYear = Number(year)
   const numericMonth = Number(month)
   const numericDay = Number(day)
+
   const leap =
     numericYear % 4 === 0 &&
     (numericYear % 100 !== 0 || numericYear % 400 === 0)
+
   return (
     numericYear >= 1 &&
     numericMonth >= 1 &&
@@ -80,10 +84,12 @@ function encode(
         : null
     case 'timestamp': {
       if (typeof value !== 'string') return null
+
       const match =
         /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/.exec(
           value,
         )
+
       return match &&
         isCalendarDate(match[1]) &&
         Number(match[2]) <= 23 &&
@@ -94,6 +100,7 @@ function encode(
         ? `t:${value}`
         : null
     }
+
     case 'category':
     case 'reference':
       return typeof value === 'string' && uuid.test(value) && value !== nilUuid
@@ -122,10 +129,12 @@ export function resolveRowIdentityBatch(
   rows: Array<Record<string, unknown> & { localId?: string }>,
 ): RowIdentityBatchResult {
   const errors: RowIdentityError[] = []
+
   const validCardinality =
     spec.kind === 'composite'
       ? spec.columnIds.length >= 2 && spec.columnIds.length <= 8
       : spec.columnIds.length === 1
+
   if (
     !validCardinality ||
     spec.columnIds.length !== spec.logicalTypes.length ||
@@ -135,37 +144,49 @@ export function resolveRowIdentityBatch(
     return { ok: false, errors: [{ code: 'invalid', row: 0 }] }
   const keys = new Map<string, number>()
   const resolved: Array<{ key: string; localId?: string }> = []
+
   for (const [row, input] of rows.entries()) {
     const values: string[] = []
+
     if (spec.kind === 'local') {
       const localId = input.localId ?? newRowUuid()
+
       if (!uuid.test(localId) || localId === nilUuid) {
         errors.push({ code: 'invalid', row, columnId: spec.columnIds[0] })
         continue
       }
+
       values.push(`u:${localId.toLowerCase()}`)
       const key = rowIdentityKey(spec, values)
       resolved.push({ key, localId })
+
       if (keys.has(key)) errors.push({ code: 'duplicate', row, key })
       else keys.set(key, row)
       continue
     }
+
     for (const [index, columnId] of spec.columnIds.entries()) {
       const value = input[columnId]
+
       if (value === undefined || value === null) {
         errors.push({ code: 'missing', row, columnId })
         continue
       }
+
       const encoded = encode(value, spec.logicalTypes[index])
+
       if (encoded === null) errors.push({ code: 'invalid', row, columnId })
       else values.push(encoded)
     }
+
     if (errors.some((error) => error.row === row)) continue
     const key = rowIdentityKey(spec, values)
     resolved.push({ key })
+
     if (keys.has(key)) errors.push({ code: 'duplicate', row, key })
     else keys.set(key, row)
   }
+
   return errors.length ? { ok: false, errors } : { ok: true, rows: resolved }
 }
 
@@ -200,6 +221,7 @@ function sha256HexBrowser(value: string): string {
     0x5b9cca4f, 0x682e6ff3, 0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208,
     0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
   ]
+
   let h0 = 0x6a09e667
   let h1 = 0xbb67ae85
   let h2 = 0x3c6ef372
@@ -210,13 +232,16 @@ function sha256HexBrowser(value: string): string {
   let h7 = 0x5be0cd19
   const w = new Uint32Array(64)
   const rotr = (x: number, n: number) => (x >>> n) | (x << (32 - n))
+
   for (let offset = 0; offset < withPad.length; offset += 64) {
     for (let i = 0; i < 16; i++) w[i] = view.getUint32(offset + i * 4)
+
     for (let i = 16; i < 64; i++) {
       const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3)
       const s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10)
       w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0
     }
+
     let a = h0
     let b = h1
     let c = h2
@@ -225,6 +250,7 @@ function sha256HexBrowser(value: string): string {
     let f = h5
     let g = h6
     let h = h7
+
     for (let i = 0; i < 64; i++) {
       const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)
       const ch = (e & f) ^ (~e & g)
@@ -241,6 +267,7 @@ function sha256HexBrowser(value: string): string {
       b = a
       a = (temp1 + temp2) >>> 0
     }
+
     h0 = (h0 + a) >>> 0
     h1 = (h1 + b) >>> 0
     h2 = (h2 + c) >>> 0
@@ -250,6 +277,7 @@ function sha256HexBrowser(value: string): string {
     h6 = (h6 + g) >>> 0
     h7 = (h7 + h) >>> 0
   }
+
   return [h0, h1, h2, h3, h4, h5, h6, h7]
     .map((word) => word.toString(16).padStart(8, '0'))
     .join('')

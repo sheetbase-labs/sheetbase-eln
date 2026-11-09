@@ -86,6 +86,7 @@ export function UnsyncedChangesList({
         <RowList className="gap-1.5">
           {edits.map((edit) => {
             const description = describe(edit)
+
             return (
               <Row
                 key={edit.id}

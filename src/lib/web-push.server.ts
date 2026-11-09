@@ -46,6 +46,7 @@ export type PushOutcome =
 
 const toBase64Url = (bytes: Uint8Array): string =>
   Buffer.from(bytes).toString('base64url')
+
 const fromBase64Url = (value: string): Buffer => Buffer.from(value, 'base64url')
 
 /** Make a fresh server key pair. */
@@ -53,12 +54,15 @@ export function generateVapidKeys(): VapidKeys {
   const { publicKey, privateKey } = generateKeyPairSync('ec', {
     namedCurve: 'prime256v1',
   })
+
   const pub = publicKey.export({ format: 'jwk' })
+
   const point = Buffer.concat([
     Buffer.from([0x04]),
     fromBase64Url(pub.x!),
     fromBase64Url(pub.y!),
   ])
+
   return {
     publicKey: toBase64Url(point),
     privateJwk: privateKey.export({ format: 'jwk' }),
@@ -75,6 +79,7 @@ export function vapidAuthorization(
   const header = toBase64Url(
     Buffer.from(JSON.stringify({ typ: 'JWT', alg: 'ES256' })),
   )
+
   const claims = toBase64Url(
     Buffer.from(
       JSON.stringify({
@@ -84,10 +89,12 @@ export function vapidAuthorization(
       }),
     ),
   )
+
   const signature = sign('sha256', Buffer.from(`${header}.${claims}`), {
     key: createPrivateKey({ key: keys.privateJwk, format: 'jwk' }),
     dsaEncoding: 'ieee-p1363',
   })
+
   return `vapid t=${header}.${claims}.${toBase64Url(signature)}, k=${keys.publicKey}`
 }
 
@@ -105,17 +112,21 @@ export function encryptPayload(
   const deviceKey = fromBase64Url(target.p256dh)
   const authSecret = fromBase64Url(target.auth)
   const ephemeral = options.ephemeral ?? createECDH('prime256v1')
+
   if (!options.ephemeral) ephemeral.generateKeys()
   const serverKey = ephemeral.getPublicKey()
   const salt = options.salt ?? randomBytes(16)
 
   const shared = ephemeral.computeSecret(deviceKey)
+
   const keyInfo = Buffer.concat([
     Buffer.from('WebPush: info\0'),
     deviceKey,
     serverKey,
   ])
+
   const ikm = Buffer.from(hkdfSync('sha256', shared, authSecret, keyInfo, 32))
+
   const cek = Buffer.from(
     hkdfSync(
       'sha256',
@@ -125,6 +136,7 @@ export function encryptPayload(
       16,
     ),
   )
+
   const nonce = Buffer.from(
     hkdfSync('sha256', ikm, salt, Buffer.from('Content-Encoding: nonce\0'), 12),
   )
@@ -132,16 +144,20 @@ export function encryptPayload(
   if (plaintext.length > RECORD_SIZE - 17 - 1) {
     throw new Error('push message is too large')
   }
+
   const cipher = createCipheriv('aes-128-gcm', cek, nonce)
+
   const encrypted = Buffer.concat([
     cipher.update(Buffer.concat([plaintext, Buffer.from([0x02])])),
     cipher.final(),
     cipher.getAuthTag(),
   ])
+
   const header = Buffer.alloc(16 + 4 + 1)
   salt.copy(header, 0)
   header.writeUInt32BE(RECORD_SIZE, 16)
   header.writeUInt8(serverKey.length, 20)
+
   return Buffer.concat([header, serverKey, encrypted])
 }
 
@@ -162,8 +178,10 @@ export async function sendWebPush(
   options: SendOptions,
 ): Promise<PushOutcome> {
   const doFetch = options.fetchImpl ?? fetch
+
   try {
     const body = encryptPayload(Buffer.from(JSON.stringify(message)), target)
+
     const response = await doFetch(target.endpoint, {
       method: 'POST',
       headers: {
@@ -181,11 +199,14 @@ export async function sendWebPush(
       body: new Uint8Array(body),
       signal: AbortSignal.timeout(options.timeoutMs ?? 10_000),
     })
+
     if (response.ok) return { kind: 'sent' }
+
     // 404 and 410 are the push service saying the device has unsubscribed.
     if (response.status === 404 || response.status === 410) {
       return { kind: 'gone' }
     }
+
     return { kind: 'retry', error: `push service answered ${response.status}` }
   } catch (error) {
     return {
@@ -199,6 +220,7 @@ export async function sendWebPush(
 export function isValidDeviceKey(p256dh: string): boolean {
   try {
     const bytes = fromBase64Url(p256dh)
+
     if (bytes.length !== 65 || bytes[0] !== 0x04) return false
     createPublicKey({
       key: {
@@ -209,6 +231,7 @@ export function isValidDeviceKey(p256dh: string): boolean {
       },
       format: 'jwk',
     })
+
     return true
   } catch {
     return false

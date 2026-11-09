@@ -35,6 +35,7 @@ export function PlaceField({
 }) {
   const [open, setOpen] = useState(false)
   const label = describePlace(value)
+
   return (
     <div className="flex items-center gap-2">
       <div
@@ -91,6 +92,7 @@ function PlaceDialog({
 }) {
   const [choice, setChoice] = useState<PlaceChoice | null>(initial)
   const ready = Boolean(describePlace(choice))
+
   return (
     <Dialog open onOpenChange={(next) => !next && onClose()}>
       <DialogContent className="w-[min(640px,calc(100vw-32px))]">

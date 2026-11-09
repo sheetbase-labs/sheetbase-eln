@@ -14,13 +14,17 @@ import { t } from '#/copy'
 /** How close a hit is, in words a scientist would use. */
 export function closenessLabel(similarity: number): string {
   if (similarity >= 0.6) return t('projects.searchMeaning.veryClose')
+
   if (similarity >= 0.45) return t('projects.searchMeaning.close')
+
   return t('projects.searchMeaning.related')
 }
 
 function closenessTone(similarity: number): Tone {
   if (similarity >= 0.6) return 'ok'
+
   if (similarity >= 0.45) return 'progress'
+
   return 'none'
 }
 
@@ -39,6 +43,7 @@ export function SemanticHitsTable({
   label: string
 }) {
   const navigate = useNavigate()
+
   const columns = useMemo<RegistryColumn<SemanticHit>[]>(
     () => [
       {
@@ -120,6 +125,7 @@ export function SemanticHitsTable({
     ],
     [],
   )
+
   return (
     <RegistryGrid
       label={label}

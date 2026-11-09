@@ -42,12 +42,15 @@ export function buildAnthropicRequest(
     request.prompt +
       (request.messages ?? []).map((turn) => turn.content).join(''),
   )
+
   const availableOutputTokens = Math.max(
     1,
     request.maxTokens - estimatedInputTokens,
   )
+
   const ceiling = profile.maxOutputTokens ?? availableOutputTokens
   const maxTokens = Math.min(availableOutputTokens, ceiling)
+
   if (!Number.isFinite(maxTokens) || maxTokens < 1) {
     throw new AiProviderError(
       'config_invalid',
@@ -55,6 +58,7 @@ export function buildAnthropicRequest(
       { providerId: profile.id },
     )
   }
+
   return {
     model: profile.model,
     max_tokens: Math.floor(maxTokens),
@@ -79,6 +83,7 @@ export function buildAnthropicRequest(
 
 export function anthropicMessagesUrl(baseUrl: string): string {
   const trimmed = baseUrl.replace(/\/+$/, '')
+
   return trimmed.endsWith('/v1')
     ? `${trimmed}/messages`
     : `${trimmed}/v1/messages`
@@ -86,10 +91,13 @@ export function anthropicMessagesUrl(baseUrl: string): string {
 
 function readAnthropicText(root: Record<string, unknown> | null): string {
   const content = root?.content
+
   if (!Array.isArray(content)) return ''
+
   return content
     .map((part) => {
       const record = asRecord(part)
+
       return record?.type === 'text' && typeof record.text === 'string'
         ? record.text
         : null
@@ -105,6 +113,7 @@ export function parseAnthropicResponse(
 ): ProviderResponse {
   const root = asRecord(json)
   const text = readAnthropicText(root)
+
   if (text.trim() === '') {
     throw new AiProviderError(
       'response_invalid',
@@ -112,9 +121,12 @@ export function parseAnthropicResponse(
       { providerId: profile.id },
     )
   }
+
   const usage = readNested(root, 'usage')
+
   const inputTokens =
     readNumber(usage, 'input_tokens') ?? estimateTokens(prompt)
+
   const outputTokens =
     readNumber(usage, 'output_tokens') ?? estimateTokens(text)
 
@@ -146,6 +158,7 @@ export class AnthropicProvider implements ModelProvider {
 
   async complete(request: ProviderRequest): Promise<ProviderResponse> {
     const body = buildAnthropicRequest(this.config, request)
+
     const json = await postProviderJson(
       this.config.id,
       {
@@ -158,6 +171,7 @@ export class AnthropicProvider implements ModelProvider {
       },
       this.deps,
     )
+
     return parseAnthropicResponse(this.config, request.prompt, json)
   }
 }

@@ -160,19 +160,26 @@ async function findRecord(
   text: string,
 ): Promise<FoundRecord | string> {
   const like = likeValue(text)
+
   const rows = await client.list<FoundRecord>(
     'records',
     `?kind=eq.${kind}&deleted_at=is.null&archived_at=is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title,metadata_version,properties&order=updated_at.desc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   const exact = rows.filter(
     (row) =>
       row.identifier.toLowerCase() === lower ||
       row.title.toLowerCase() === lower,
   )
+
   if (exact.length === 1) return exact[0]
+
   if (rows.length === 1) return rows[0]
+
   if (rows.length === 0) return `No ${kind} matches "${text}".`
+
   return `More than one ${kind} matches "${text}": ${rows
     .map((row) => `${row.identifier} ${row.title}`)
     .join(', ')}. Ask which one.`
@@ -186,6 +193,7 @@ function amountOf(row: FoundRecord): { quantity: number | null; unit: string } {
   const props = row.properties ?? {}
   const quantity = typeof props.quantity === 'number' ? props.quantity : null
   const unit = typeof props.quantityUnit === 'string' ? props.quantityUnit : ''
+
   return { quantity, unit }
 }
 
@@ -201,8 +209,10 @@ async function findProject(
     'projects',
     '?archived_at=is.null&select=id,title&order=title.asc&limit=200',
   )
+
   if (!name) {
     if (rows.length === 1) return rows[0]
+
     return rows.length === 0
       ? 'There is no project to put this in yet.'
       : `Which project? Ask the person: ${rows
@@ -210,14 +220,19 @@ async function findProject(
           .map((row) => row.title)
           .join(', ')}.`
   }
+
   const lower = name.trim().toLowerCase()
   const exact = rows.filter((row) => row.title.toLowerCase() === lower)
+
   if (exact.length === 1) return exact[0]
   const words = lower.split(/\s+/)
+
   const partial = rows.filter((row) =>
     words.every((word) => row.title.toLowerCase().includes(word)),
   )
+
   if (partial.length === 1) return partial[0]
+
   return partial.length === 0
     ? `No project matches "${name}". The projects are: ${rows
         .slice(0, 12)
@@ -234,26 +249,32 @@ async function findBox(
 ): Promise<BoxChoice | string> {
   const boxes = await fetchBoxChoices(client)
   const lower = name.trim().toLowerCase()
+
   const exact = boxes.filter(
     (box) =>
       box.name.toLowerCase() === lower ||
       box.code?.toLowerCase() === lower ||
       box.path.toLowerCase() === lower,
   )
+
   if (exact.length === 1) return exact[0]
   const words = lower.split(/\s+/)
+
   const partial = boxes.filter((box) =>
     words.every((word) =>
       `${box.path} ${box.code ?? ''}`.toLowerCase().includes(word),
     ),
   )
+
   if (partial.length === 1) return partial[0]
+
   if (partial.length === 0) {
     return `No box matches "${name}". Boxes: ${boxes
       .slice(0, 15)
       .map((box) => box.path)
       .join('; ')}.`
   }
+
   return `More than one box matches "${name}": ${partial
     .slice(0, 8)
     .map((box) => box.path)
@@ -267,9 +288,11 @@ async function freeSpots(
   count: number,
 ): Promise<{ ids: string[]; labels: string[] } | string> {
   const free = freePositions(await fetchBoxPositions(client, box.id), count)
+
   if (free.length < count) {
     return `${box.path} has only ${free.length} free position${free.length === 1 ? '' : 's'}; ${count} needed. Offer another box.`
   }
+
   return { ids: free.map((cell) => cell.id), labels: free.map((c) => c.label) }
 }
 
@@ -287,23 +310,29 @@ function coerceField(
     case 'decimal': {
       const number =
         typeof value === 'number' ? value : Number.parseFloat(String(value))
+
       return Number.isFinite(number)
         ? { ok: true, value: number, shown: String(number) }
         : { ok: false, message: `${field.label} needs a number.` }
     }
+
     case 'boolean': {
       const yes =
         value === true || /^(yes|true|y|1)$/i.test(String(value).trim())
+
       return { ok: true, value: yes, shown: yes ? 'Yes' : 'No' }
     }
+
     case 'category': {
       const wanted = String(value).trim().toLowerCase()
+
       const option = field.options.find(
         (candidate) =>
           candidate.lifecycle === 'active' &&
           (candidate.key.toLowerCase() === wanted ||
             candidate.label.toLowerCase() === wanted),
       )
+
       return option
         ? { ok: true, value: option.key, shown: option.label }
         : {
@@ -314,6 +343,7 @@ function coerceField(
               .join(', ')}.`,
           }
     }
+
     case 'reference':
       return {
         ok: false,
@@ -338,13 +368,16 @@ function matchFields(
   const customFields: Record<string, unknown> = {}
   const changes: ProposalChange[] = []
   const asked = fields.filter((field) => field.lifecycle === 'active')
+
   for (const [key, value] of Object.entries(answers)) {
     const lower = key.trim().toLowerCase()
+
     const field = asked.find(
       (candidate) =>
         candidate.fieldName.toLowerCase() === lower ||
         candidate.label.toLowerCase() === lower,
     )
+
     if (!field) {
       return {
         ok: false,
@@ -353,11 +386,14 @@ function matchFields(
           .join(', ')}.`,
       }
     }
+
     const coerced = coerceField(field, value)
+
     if (!coerced.ok) return coerced
     customFields[field.fieldName] = coerced.value
     changes.push({ label: field.label, before: null, after: coerced.shown })
   }
+
   const missing = asked.filter(
     (field) =>
       !field.nullable &&
@@ -365,6 +401,7 @@ function matchFields(
       field.logicalType !== 'boolean' &&
       !(field.fieldName in customFields),
   )
+
   if (missing.length > 0) {
     return {
       ok: false,
@@ -373,6 +410,7 @@ function matchFields(
         .join(', ')}. Ask for these, then propose again.`,
     }
   }
+
   return { ok: true, customFields, changes }
 }
 
@@ -386,25 +424,34 @@ async function pickForm(
   if (keys.length === 0) {
     return `This lab has not set up ${what} yet. It is set up from Settings > Lab setup.`
   }
+
   const models = await client.list<{ key: string; name: string }>(
     'record_models',
     `?key=in.(${keys.map(encodeURIComponent).join(',')})&select=key,name`,
   )
+
   if (!wanted) {
     if (models.length === 1) return models[0]
+
     return `Which form? Ask the person: ${models.map((model) => model.name).join(', ')}.`
   }
+
   const lower = wanted.trim().toLowerCase()
+
   const exact = models.filter(
     (model) =>
       model.name.toLowerCase() === lower || model.key.toLowerCase() === lower,
   )
+
   if (exact.length === 1) return exact[0]
   const words = lower.split(/\s+/)
+
   const partial = models.filter((model) =>
     words.every((word) => model.name.toLowerCase().includes(word)),
   )
+
   if (partial.length === 1) return partial[0]
+
   return `No ${what} form matches "${wanted}". The forms are: ${models
     .map((model) => model.name)
     .join(', ')}.`
@@ -419,6 +466,7 @@ function parse<T extends z.ZodType>(
   args: unknown,
 ): { ok: true; data: z.infer<T> } | { ok: false; message: string } {
   const parsed = schema.safeParse(args)
+
   return parsed.success
     ? { ok: true, data: parsed.data }
     : { ok: false, message: invalid(parsed.error) }
@@ -462,6 +510,7 @@ async function resolveStoragePlace(
 ): Promise<{ ok: true; place: StoragePlace } | { ok: false; message: string }> {
   const ws = encodeURIComponent(workspaceId)
   const columns = 'id,name,code'
+
   const [units, rooms] = await Promise.all([
     client.list<{ id: string; name: string; code: string }>(
       'storage_units',
@@ -472,24 +521,31 @@ async function resolveStoragePlace(
       `?workspace_id=eq.${ws}&archived_at=is.null&select=${columns}&limit=500`,
     ),
   ])
+
   const all: StoragePlace[] = [
     ...units.map((u) => ({ ...u, kind: 'unit' as const })),
     ...rooms.map((r) => ({ ...r, kind: 'room' as const })),
   ]
+
   const lower = wanted.trim().toLowerCase()
+
   const exact = all.filter(
     (p) =>
       p.name.toLowerCase() === lower ||
       p.code.toLowerCase() === lower ||
       p.id === wanted.trim(),
   )
+
   if (exact.length === 1) return { ok: true, place: exact[0] }
   const words = lower.split(/\s+/).filter(Boolean)
+
   const partial = all.filter((p) =>
     words.every((w) => `${p.name} ${p.code}`.toLowerCase().includes(w)),
   )
+
   if (partial.length === 1) return { ok: true, place: partial[0] }
   const placeLabel = (p: StoragePlace) => `${p.name} (${p.code})`
+
   if (partial.length > 1) {
     return {
       ok: false,
@@ -499,6 +555,7 @@ async function resolveStoragePlace(
         .join(', ')}. Ask the person which one they mean.`,
     }
   }
+
   return {
     ok: false,
     message: `No freezer or room matches "${wanted}". Ones that exist: ${all
@@ -514,30 +571,38 @@ export async function buildBenchProposal(
   context: LabToolContext,
 ): Promise<BenchProposalOutcome> {
   const { client, workspaceId } = context
+
   switch (name) {
     case REAGENT_ORDER_TOOL: {
       const parsed = parse(proposeReagentOrderSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const material = await findRecord(client, 'material', input.material)
+
       if (typeof material === 'string') return fail(material)
       const unit = input.unit ?? amountOf(material).unit
+
       const open = await client.list<{ number: number; status: string }>(
         'reagent_orders',
         `?material_record_id=eq.${material.id}&status=in.(requested,ordered)&select=number,status&limit=1`,
       )
+
       if (open.length > 0) {
         return fail(
           `A reorder is already open for ${material.title} (RO-${String(open[0].number).padStart(4, '0')}, ${open[0].status}). Tell the person rather than proposing another.`,
         )
       }
+
       const changes: ProposalChange[] = [
         { label: 'Material', before: null, after: label(material) },
         { label: 'Amount', before: null, after: amount(input.quantity, unit) },
       ]
+
       if (input.note) {
         changes.push({ label: 'Note', before: null, after: input.note })
       }
+
       return card(name, input, {
         target: 'Reagent order',
         deepLink: '/materials',
@@ -554,10 +619,12 @@ export async function buildBenchProposal(
 
     case REAGENT_RECEIVE_TOOL: {
       const parsed = parse(proposeReagentReceiveSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const number = /^RO-?(\d+)$/i.exec(input.order.trim())
       const like = likeValue(input.order)
+
       const orders = await client.list<{
         id: string
         number: number
@@ -573,9 +640,11 @@ export async function buildBenchProposal(
             : `material_title=ilike.${like}`
         }&select=id,number,material_title,quantity,unit,status&order=number.desc&limit=6`,
       )
+
       if (orders.length === 0) {
         return fail(`No open order matches "${input.order}".`)
       }
+
       if (orders.length > 1) {
         return fail(
           `More than one open order matches: ${orders
@@ -586,9 +655,11 @@ export async function buildBenchProposal(
             .join(', ')}. Ask which one.`,
         )
       }
+
       const order = orders[0]
       const unit = order.unit ?? ''
       const received = input.quantity ?? Number(order.quantity)
+
       return card(name, input, {
         target: `RO-${String(order.number).padStart(4, '0')}`,
         deepLink: '/materials',
@@ -610,12 +681,16 @@ export async function buildBenchProposal(
 
     case REAGENT_PLACE_TOOL: {
       const parsed = parse(proposeReagentPlaceSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       if (input.price !== undefined && !input.currency) {
         return fail('Ask the person which currency the price is in.')
       }
+
       const number = /^RO-?(\d+)$/i.exec(input.order.trim())
+
       const orders = await client.list<{
         id: string
         number: number
@@ -628,9 +703,11 @@ export async function buildBenchProposal(
             : `material_title=ilike.${likeValue(input.order)}`
         }&select=id,number,material_title&order=number.desc&limit=6`,
       )
+
       if (orders.length === 0) {
         return fail(`No requested order matches "${input.order}".`)
       }
+
       if (orders.length > 1) {
         return fail(
           `More than one requested order matches: ${orders
@@ -641,20 +718,26 @@ export async function buildBenchProposal(
             .join(', ')}. Ask which one.`,
         )
       }
+
       const order = orders[0]
       let supplierName: string | null = input.supplier?.trim() || null
       let supplierRecordId: string | null = null
+
       if (supplierName) {
         const suppliers = await fetchSuppliers(
           client,
           await fetchSupplierModelKeys(client),
         )
+
         const wanted = supplierName.toLowerCase()
+
         const match = suppliers.filter((s) =>
           s.title.toLowerCase().includes(wanted),
         )
+
         const exact = match.filter((s) => s.title.toLowerCase() === wanted)
         const chosen = exact.length === 1 ? exact : match
+
         if (chosen.length === 1) {
           supplierRecordId = chosen[0].id
           supplierName = chosen[0].title
@@ -666,13 +749,17 @@ export async function buildBenchProposal(
           )
         }
       }
+
       const currency = input.currency?.toUpperCase() ?? null
+
       const changes: ProposalChange[] = [
         { label: 'Material', before: null, after: order.material_title },
       ]
+
       if (supplierName) {
         changes.push({ label: 'Supplier', before: null, after: supplierName })
       }
+
       if (input.reference) {
         changes.push({
           label: 'Reference',
@@ -680,6 +767,7 @@ export async function buildBenchProposal(
           after: input.reference,
         })
       }
+
       if (input.price !== undefined && currency) {
         changes.push({
           label: 'Price',
@@ -687,6 +775,7 @@ export async function buildBenchProposal(
           after: formatMoney(input.price, currency),
         })
       }
+
       if (input.expectedOn) {
         changes.push({
           label: 'Expected',
@@ -694,6 +783,7 @@ export async function buildBenchProposal(
           after: input.expectedOn,
         })
       }
+
       return card(name, input, {
         target: `RO-${String(order.number).padStart(4, '0')}`,
         deepLink: '/materials',
@@ -713,18 +803,23 @@ export async function buildBenchProposal(
 
     case INSTRUMENT_RATE_TOOL: {
       const parsed = parse(proposeInstrumentRateSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       if (input.ratePerHour !== null && !input.currency) {
         return fail('Ask the person which currency the rate is in.')
       }
+
       const found = await resolveInstrument(
         client,
         workspaceId,
         input.instrument,
       )
+
       if (!found.ok) return fail(found.message)
       const instrument = found.instrument
+
       const current = await client.list<{
         rate_per_hour: string | number
         currency: string
@@ -732,14 +827,18 @@ export async function buildBenchProposal(
         'instrument_rates',
         `?instrument_id=eq.${instrument.id}&select=rate_per_hour,currency&limit=1`,
       )
+
       const before = current.at(0)
         ? `${formatMoney(Number(current[0].rate_per_hour), current[0].currency)} an hour`
         : 'No charge'
+
       const currency = input.currency?.toUpperCase() ?? null
+
       const after =
         input.ratePerHour === null || !currency
           ? 'No charge'
           : `${formatMoney(input.ratePerHour, currency)} an hour`
+
       return card(name, input, {
         target: instrumentLabel(instrument),
         deepLink: '/instruments',
@@ -755,20 +854,26 @@ export async function buildBenchProposal(
 
     case SAMPLES_LOG_TOOL: {
       const parsed = parse(proposeSamplesLogSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const project = await findProject(client, input.project)
+
       if (typeof project === 'string') return fail(project)
       let spots: { ids: string[]; labels: string[] } | null = null
       let box: BoxChoice | null = null
+
       if (input.box) {
         const found = await findBox(client, input.box)
+
         if (typeof found === 'string') return fail(found)
         box = found
         const free = await freeSpots(client, box, input.samples.length)
+
         if (typeof free === 'string') return fail(free)
         spots = free
       }
+
       return card(name, input, {
         target: box ? box.path : project.title,
         deepLink: '/samples',
@@ -807,23 +912,30 @@ export async function buildBenchProposal(
 
     case SAMPLE_USE_TOOL: {
       const parsed = parse(proposeSampleUseSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const sample = await findRecord(client, 'sample', input.sample)
+
       if (typeof sample === 'string') return fail(sample)
       const { quantity: have, unit } = amountOf(sample)
+
       if (have !== null && input.quantity > have) {
         return fail(
           `${sample.identifier} has only ${amount(have, unit)} left, so ${amount(input.quantity, unit)} cannot be used. Tell the person.`,
         )
       }
+
       let experiment: { id: string; identifier: string; title: string } | null =
         null
+
       if (input.experiment) {
         const found = await findExperiment(client, input.experiment)
+
         if (typeof found === 'string') return fail(found)
         experiment = found
       }
+
       const changes: ProposalChange[] = [
         {
           label: 'Amount left',
@@ -834,6 +946,7 @@ export async function buildBenchProposal(
               : `${amount(input.quantity, unit)} less`,
         },
       ]
+
       if (experiment) {
         changes.push({
           label: 'Used for',
@@ -841,6 +954,7 @@ export async function buildBenchProposal(
           after: label(experiment),
         })
       }
+
       return card(name, input, {
         target: label(sample),
         deepLink: null,
@@ -858,32 +972,43 @@ export async function buildBenchProposal(
 
     case SAMPLE_MOVE_TOOL: {
       const parsed = parse(proposeSampleMoveSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       if (!input.box && !input.place) {
         return fail('Where should they go? Ask for a box or a place.')
       }
+
       const samples: FoundRecord[] = []
+
       for (const text of input.samples) {
         const found = await findRecord(client, 'sample', text)
+
         if (typeof found === 'string') return fail(found)
         samples.push(found)
       }
+
       let spots: { ids: string[]; labels: string[] } | null = null
       let box: BoxChoice | null = null
+
       if (input.box) {
         const found = await findBox(client, input.box)
+
         if (typeof found === 'string') return fail(found)
         box = found
         const free = await freeSpots(client, box, samples.length)
+
         if (typeof free === 'string') return fail(free)
         spots = free
       }
+
       return card(name, input, {
         target: box ? box.path : (input.place ?? ''),
         deepLink: '/samples',
         changes: samples.map((sample, index) => {
           const props = sample.properties ?? {}
+
           return {
             label: label(sample),
             before:
@@ -910,19 +1035,24 @@ export async function buildBenchProposal(
 
     case SAMPLE_SPLIT_TOOL: {
       const parsed = parse(proposeSampleSplitSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const sample = await findRecord(client, 'sample', input.sample)
+
       if (typeof sample === 'string') return fail(sample)
       const experiment = await findExperiment(client, input.experiment)
+
       if (typeof experiment === 'string') return fail(experiment)
       const { quantity: have, unit } = amountOf(sample)
       const total = Math.round(input.count * input.quantityEach * 1e6) / 1e6
+
       if (have !== null && total > have) {
         return fail(
           `${sample.identifier} has ${amount(have, unit)}, but ${input.count} × ${amount(input.quantityEach, unit)} is ${amount(total, unit)}. Tell the person and offer a smaller amount.`,
         )
       }
+
       return card(name, input, {
         target: label(sample),
         deepLink: null,
@@ -957,24 +1087,31 @@ export async function buildBenchProposal(
 
     case INCIDENT_REPORT_TOOL: {
       const parsed = parse(proposeIncidentSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const forms = await client.list<{ model_key: string }>(
         'model_incident_logs',
         '?select=model_key',
       )
+
       const form = await pickForm(
         client,
         forms.map((row) => row.model_key),
         input.form,
         'incident log',
       )
+
       if (typeof form === 'string') return fail(form)
       const project = await findProject(client, input.project)
+
       if (typeof project === 'string') return fail(project)
       const fields = await fetchModelFields(client, form.key)
       const matched = matchFields(fields, input.fields ?? {})
+
       if (!matched.ok) return fail(matched.message)
+
       return card(name, input, {
         target: form.name,
         deepLink: '/incidents',
@@ -995,38 +1132,50 @@ export async function buildBenchProposal(
 
     case REQUEST_SEND_TOOL: {
       const parsed = parse(proposeRequestSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const forms = await client.list<{ model_key: string }>(
         'request_forms',
         '?select=model_key',
       )
+
       const form = await pickForm(
         client,
         forms.map((row) => row.model_key),
         input.form,
         'request',
       )
+
       if (typeof form === 'string') return fail(form)
       let project: { id: string; title: string } | null = null
+
       if (input.project) {
         const found = await findProject(client, input.project)
+
         if (typeof found === 'string') return fail(found)
         project = found
       }
+
       const fields = await fetchModelFields(client, form.key)
       const matched = matchFields(fields, input.fields ?? {})
+
       if (!matched.ok) return fail(matched.message)
+
       const changes: ProposalChange[] = [
         { label: 'Request', before: null, after: input.requestTitle },
         ...matched.changes,
       ]
+
       if (project) {
         changes.push({ label: 'Project', before: null, after: project.title })
       }
+
       if (input.note) {
         changes.push({ label: 'Note', before: null, after: input.note })
       }
+
       return card(name, input, {
         target: form.name,
         deepLink: '/requests',
@@ -1044,18 +1193,23 @@ export async function buildBenchProposal(
 
     case SAMPLE_ADVANCE_TOOL: {
       const parsed = parse(proposeSampleAdvanceSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const sample = await findRecord(client, 'sample', input.sample)
+
       if (typeof sample === 'string') return fail(sample)
+
       const runs = (await fetchSampleRuns(client, sample.id)).filter(
         (run) => !run.completedAt,
       )
+
       if (runs.length === 0) {
         return fail(
           `${sample.identifier} is not in a workflow, so there is no stage to move it to.`,
         )
       }
+
       if (runs.length > 1) {
         return fail(
           `${sample.identifier} is in more than one workflow (${runs
@@ -1063,23 +1217,30 @@ export async function buildBenchProposal(
             .join(', ')}). Ask which one.`,
         )
       }
+
       const run = runs[0]
+
       if (run.moves.length === 0) {
         return fail(
           `${sample.identifier} is at ${run.stageName} with no stage after it.`,
         )
       }
+
       let next = run.moves[0]
+
       if (input.toStage) {
         const lower = input.toStage.trim().toLowerCase()
+
         const found = run.moves.find(
           (move) => move.name.toLowerCase() === lower,
         )
+
         if (!found) {
           return fail(
             `From ${run.stageName} it can go to: ${run.moves.map((move) => move.name).join(', ')}. "${input.toStage}" is not one of them.`,
           )
         }
+
         next = found
       } else if (run.moves.length > 1) {
         return fail(
@@ -1088,9 +1249,11 @@ export async function buildBenchProposal(
             .join(', ')}. Ask which one.`,
         )
       }
+
       const changes: ProposalChange[] = [
         { label: run.workflowName, before: run.stageName, after: next.name },
       ]
+
       if (next.requiredFields.length > 0) {
         changes.push({
           label: 'Needs filling in first',
@@ -1098,6 +1261,7 @@ export async function buildBenchProposal(
           after: next.requiredFields.join(', '),
         })
       }
+
       return card(name, input, {
         target: label(sample),
         deepLink: null,
@@ -1113,24 +1277,31 @@ export async function buildBenchProposal(
 
     case INSTRUMENT_SERVICE_TOOL: {
       const parsed = parse(proposeInstrumentServiceSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const found = await resolveInstrument(
         client,
         workspaceId,
         input.instrument,
       )
+
       if (!found.ok) return fail(found.message)
       const instrument = found.instrument
+
       if (input.outOfService && !input.reason?.trim()) {
         return fail('Ask the person what is wrong with it first.')
       }
+
       if (input.outOfService && instrument.out_of_service_at) {
         return fail(`${instrumentLabel(instrument)} is already out of service.`)
       }
+
       if (!input.outOfService && !instrument.out_of_service_at) {
         return fail(`${instrumentLabel(instrument)} is already in service.`)
       }
+
       const changes: ProposalChange[] = [
         {
           label: 'Status',
@@ -1140,9 +1311,11 @@ export async function buildBenchProposal(
           after: input.outOfService ? 'Out of service' : 'In service',
         },
       ]
+
       if (input.reason && input.outOfService) {
         changes.push({ label: 'Reason', before: null, after: input.reason })
       }
+
       if (input.expectedBackOn && input.outOfService) {
         changes.push({
           label: 'Back on',
@@ -1150,6 +1323,7 @@ export async function buildBenchProposal(
           after: input.expectedBackOn,
         })
       }
+
       if (input.workDone && !input.outOfService) {
         changes.push({
           label: 'Work done',
@@ -1157,6 +1331,7 @@ export async function buildBenchProposal(
           after: input.workDone,
         })
       }
+
       return card(name, input, {
         target: instrumentLabel(instrument),
         deepLink: '/instruments',
@@ -1174,12 +1349,15 @@ export async function buildBenchProposal(
 
     case STORAGE_READING_TOOL: {
       const parsed = parse(proposeStorageReadingSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const found = await resolveStoragePlace(client, workspaceId, input.place)
+
       if (!found.ok) return fail(found.message)
       const place = found.place
       const unit = input.unit?.trim() || null
+
       const changes: ProposalChange[] = [
         {
           label: input.measurement,
@@ -1187,6 +1365,7 @@ export async function buildBenchProposal(
           after: `${input.value}${unit ? ` ${unit}` : ''}`,
         },
       ]
+
       return card(name, input, {
         target: `${place.name} (${place.code})`,
         deepLink: '/settings/lab/storage',

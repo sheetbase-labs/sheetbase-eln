@@ -28,6 +28,7 @@ describe('/help route (WORK-02.4)', () => {
       workspace: { name: 'Process Development' },
       user: { name: 'Gareth P.', email: 'gareth.p@design.sheetbase.dev' },
     }
+
     await expect(
       Route.options.beforeLoad?.({ context: { auth } } as never),
     ).resolves.toEqual({ context: auth })

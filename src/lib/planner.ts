@@ -16,6 +16,7 @@ import { now as appNow } from '#/lib/clock'
 // ---------------------------------------------------------------------------
 
 export type StudyTaskType = 'task' | 'milestone'
+
 export type StudyTaskStatus =
   | 'not_started'
   | 'in_progress'
@@ -23,15 +24,22 @@ export type StudyTaskStatus =
   | 'completed'
   | 'blocked'
   | 'cancelled'
+
 export type StudyTaskPriority = 'low' | 'medium' | 'high' | 'critical'
+
 export type StudyApprovalStatus =
   'not_required' | 'pending' | 'approved' | 'rejected'
+
 export type StudyAssignmentRole = 'assignee' | 'reviewer' | 'observer'
+
 export type StudyDependencyType =
   'finish_to_start' | 'start_to_start' | 'finish_to_finish' | 'start_to_finish'
+
 export type StudyDeliverableStatus =
   'planned' | 'in_progress' | 'delivered' | 'overdue'
+
 export type StudyWorkstreamStatus = 'active' | 'archived'
+
 export type PlannerView = 'timeline' | 'list' | 'workload'
 
 export interface StudyWorkstreamWire {
@@ -409,6 +417,7 @@ export async function fetchStudyWorkstreams(
     'study_workstreams',
     `?workspace_id=eq.${encodeURIComponent(workspaceId)}&order=position,name`,
   )
+
   return rows.map(toStudyWorkstream)
 }
 
@@ -430,6 +439,7 @@ export async function fetchStudyTaskAssignments(
     'study_task_assignments',
     `?task_id=eq.${encodeURIComponent(taskId)}&order=role,created_at`,
   )
+
   return rows.map(toStudyTaskAssignment)
 }
 
@@ -441,6 +451,7 @@ export async function fetchStudyTaskResources(
     'study_task_resources',
     `?task_id=eq.${encodeURIComponent(taskId)}&order=starts_at`,
   )
+
   return rows.map(toStudyTaskResource)
 }
 
@@ -452,6 +463,7 @@ export async function fetchStudyDeliverables(
     'study_deliverables',
     `?task_id=eq.${encodeURIComponent(taskId)}&order=due_at,name`,
   )
+
   return rows.map(toStudyDeliverable)
 }
 
@@ -487,7 +499,9 @@ export async function linkStudyDeliverableEvidence(
     'records',
     `?identifier=eq.${encodeURIComponent(input.recordIdentifier.trim())}&select=id&limit=1`,
   )
+
   const record = found.at(0)
+
   if (!record) {
     throw new DataClientError(
       'SB036',
@@ -495,6 +509,7 @@ export async function linkStudyDeliverableEvidence(
       404,
     )
   }
+
   return client.rpc('link_study_deliverable_evidence', {
     p_id: input.id,
     p_record_id: record.id,
@@ -509,6 +524,7 @@ export async function fetchStudyDependencies(
     'study_task_dependencies',
     `?workspace_id=eq.${encodeURIComponent(workspaceId)}`,
   )
+
   return rows.map(toStudyTaskDependency)
 }
 
@@ -559,6 +575,7 @@ export async function fetchMilestoneRisks(
     'milestone_risks',
     `?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=task_id,project_id,due_at,status,late,risk,risk_reason,conditions_total,conditions_open,unfinished_dependencies,blocking_title`,
   )
+
   return rows.map((row) => ({
     taskId: row.task_id,
     projectId: row.project_id,
@@ -612,6 +629,7 @@ export async function fetchCalendarResourcesAsPlanner(
     'study_task_resources',
     `?workspace_id=eq.${encodeURIComponent(workspaceId)}&order=starts_at`,
   )
+
   return rows.map(toStudyTaskResource)
 }
 
@@ -639,6 +657,7 @@ export async function createStudyWorkstream(
       p_position: input.position ?? 0,
     },
   )
+
   return toStudyWorkstream(wire)
 }
 
@@ -779,6 +798,7 @@ export async function fetchStudyTaskDueChanges(
     'study_task_due_changes',
     `?task_id=eq.${encodeURIComponent(taskId)}&select=id,task_id,from_due_at,to_due_at,reason,client_notified,changed_at,changed_by_user_id&order=changed_at.desc`,
   )
+
   return rows.map((row) => ({
     id: row.id,
     taskId: row.task_id,
@@ -885,6 +905,7 @@ export async function assignTaskResource(
 export function describePlannerError(error: unknown): string {
   if (!(error instanceof DataClientError))
     return 'Could not complete the planner operation. Try again.'
+
   const messages: Record<string, string> = {
     SB001: 'This task was edited by someone else. Refresh and try again.',
     SB005: 'The task input is invalid. Check the details and try again.',
@@ -899,6 +920,7 @@ export function describePlannerError(error: unknown): string {
     SB032: 'The end time must be after the start time.',
     '42501': 'You do not have access to this study planner.',
   }
+
   return messages[error.code] ?? error.message
 }
 
@@ -964,12 +986,16 @@ export function taskStartDate(task: StudyTaskWire | StudyTask): Date {
     'task_type' in task
       ? task.task_type === 'milestone'
       : task.taskType === 'milestone'
+
   if (isMilestone) {
     const due = 'due_at' in task ? task.due_at : task.dueAt
     const starts = 'starts_at' in task ? task.starts_at : task.startsAt
+
     return new Date(due ?? starts ?? appNow().getTime())
   }
+
   const starts = 'starts_at' in task ? task.starts_at : task.startsAt
+
   return new Date(starts ?? appNow().getTime())
 }
 
@@ -979,12 +1005,16 @@ export function taskEndDate(task: StudyTaskWire | StudyTask): Date {
     'task_type' in task
       ? task.task_type === 'milestone'
       : task.taskType === 'milestone'
+
   if (isMilestone) {
     const due = 'due_at' in task ? task.due_at : task.dueAt
     const ends = 'ends_at' in task ? task.ends_at : task.endsAt
+
     return new Date(due ?? ends ?? appNow().getTime())
   }
+
   const ends = 'ends_at' in task ? task.ends_at : task.endsAt
+
   return new Date(ends ?? appNow().getTime())
 }
 
@@ -992,6 +1022,7 @@ export function taskEndDate(task: StudyTaskWire | StudyTask): Date {
 export function taskDurationDays(task: StudyTaskWire | StudyTask): number {
   const start = taskStartDate(task)
   const end = taskEndDate(task)
+
   return Math.max(
     1,
     Math.round((end.getTime() - start.getTime()) / 86_400_000) + 1,
@@ -1003,30 +1034,37 @@ export function isoWeekNumber(date: Date): number {
   const d = new Date(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
   )
+
   const dayNum = d.getUTCDay() || 7
   d.setUTCDate(d.getUTCDate() + 4 - dayNum)
   const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+
   return Math.ceil(((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7)
 }
 
 /** Format a week label like "W28 7-13 Jul". */
 export function weekLabel(weekStart: Date, timeZone: string): string {
   const wk = isoWeekNumber(weekStart)
+
   const fmtDay = dateTimeFormat('en-GB', {
     timeZone,
     day: 'numeric',
   })
+
   const fmtDayMonth = dateTimeFormat('en-GB', {
     timeZone,
     day: 'numeric',
     month: 'short',
   })
+
   const start = weekStart
   const end = new Date(weekStart.getTime() + 6 * 86_400_000)
   const sameMonth = start.getUTCMonth() === end.getUTCMonth()
+
   const range = sameMonth
     ? `${fmtDay.format(start)}-${fmtDayMonth.format(end)}`
     : `${fmtDayMonth.format(start)} – ${fmtDayMonth.format(end)}`
+
   return `W${wk} ${range}`
 }
 
@@ -1038,6 +1076,7 @@ export function startOfWeekInZone(date: Date, timeZone: string): Date {
     month: '2-digit',
     day: '2-digit',
   }).formatToParts(date)
+
   const y = Number(parts.find((p) => p.type === 'year')!.value)
   const m = Number(parts.find((p) => p.type === 'month')!.value)
   const d = Number(parts.find((p) => p.type === 'day')!.value)
@@ -1046,6 +1085,7 @@ export function startOfWeekInZone(date: Date, timeZone: string): Date {
   const localMidnight = new Date(wallMidnight.getTime() - offsetMs)
   const day = localMidnight.getUTCDay()
   const diff = (day + 6) % 7
+
   return new Date(localMidnight.getTime() - diff * 86_400_000)
 }
 
@@ -1060,7 +1100,9 @@ function wallClockOffsetMs(instant: Date, timeZone: string): number {
     minute: '2-digit',
     second: '2-digit',
   }).formatToParts(instant)
+
   const get = (t: string) => Number(utcParts.find((p) => p.type === t)!.value)
+
   const wallMs = Date.UTC(
     get('year'),
     get('month') - 1,
@@ -1069,6 +1111,7 @@ function wallClockOffsetMs(instant: Date, timeZone: string): number {
     get('minute'),
     get('second'),
   )
+
   return wallMs - instant.getTime()
 }
 

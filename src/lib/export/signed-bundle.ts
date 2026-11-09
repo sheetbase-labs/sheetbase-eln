@@ -47,6 +47,7 @@ export interface SignedBundleInput {
 
 function viewDoc(input: SignedBundleInput): string {
   const stamped = input.timestamps.length
+
   return [
     '# Checking this bundle',
     '',
@@ -103,6 +104,7 @@ export async function buildSignedBundle(
     signer: string | null
     imprint: string
   }> = []
+
   for (const t of [...input.timestamps].sort((a, b) =>
     a.signatureId.localeCompare(b.signatureId),
   )) {
@@ -134,6 +136,7 @@ export async function buildSignedBundle(
     sha256: createHash('sha256').update(data).digest('hex'),
     bytes: data.length,
   }))
+
   const manifest = new TextEncoder().encode(
     JSON.stringify(
       {
@@ -151,7 +154,9 @@ export async function buildSignedBundle(
       2,
     ),
   )
+
   writer.add('manifest.json', manifest)
   writer.add('manifest.sig', input.sign(manifest))
+
   return writer.stream()
 }

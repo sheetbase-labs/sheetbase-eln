@@ -33,6 +33,7 @@ export async function fetchLabelTemplates(
     'label_templates',
     '?select=*&order=name.asc&limit=500',
   )
+
   return rows.map(labelTemplateFromRow)
 }
 
@@ -97,16 +98,20 @@ export function inputFromTemplate(template: LabelTemplate): LabelTemplateInput {
 /** The first thing wrong with a template form, in the words a person would use. */
 export function validateLabelInput(input: LabelTemplateInput): string | null {
   if (!input.name.trim()) return 'Give the template a name.'
+
   if (input.name.trim().length > 120)
     return 'Use 120 characters or fewer for the name.'
+
   for (const [label, raw] of [
     ['width', input.widthMm],
     ['height', input.heightMm],
   ] as const) {
     const n = Number(raw)
+
     if (!Number.isInteger(n) || n < 10 || n > 200)
       return `The ${label} is a whole number of millimetres between 10 and 200.`
   }
+
   return null
 }
 
@@ -131,6 +136,7 @@ export async function saveLabelTemplate(
     p_show_use_by: input.showUseBy,
     p_is_default: input.isDefault,
   })
+
   return labelTemplateFromRow(row)
 }
 

@@ -47,6 +47,7 @@ export const Route = createFileRoute('/models/$modelId/relations')({
 
 function ModelRelations() {
   const { modelId } = Route.useParams()
+
   // Relations apply to record models, not dataset schemas: a dataset schema's
   // records live in dataset versions, not `record_links`. Tell the truth rather
   // than offer a form that cannot save.
@@ -61,6 +62,7 @@ function ModelRelations() {
       </div>
     )
   }
+
   return <RecordModelRelations modelKey={modelId} />
 }
 
@@ -71,11 +73,13 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
 
   const model = useWorkspaceRecordModel(modelKey)
   const { rules } = useModelRelationshipRules(modelKey)
+
   const kindsQuery = useQuery({
     queryKey: ['ui-port', 'model-relations', 'record-kinds'] as const,
     queryFn: () => fetchModelKinds(modelRelationshipsDataClient),
     staleTime: 60_000,
   })
+
   // Only built-in record-backed models are legal rule targets (the RPC and the
   // `target_model_key` foreign key both require it).
   const targetKinds = (kindsQuery.data ?? []).filter(
@@ -92,6 +96,7 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
   const [label, setLabel] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
   // Removing a rule loosens what the server accepts for every future link, and
   // there is no undo, so the row action asks first.
   const [removeTarget, setRemoveTarget] = useState<{
@@ -103,8 +108,10 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
   const minValue = Number(minLinks)
   const minValid = Number.isInteger(minValue) && minValue >= 0
   const maxValue = maxLinks.trim() === '' ? null : Number(maxLinks)
+
   const maxValid =
     maxValue === null || (Number.isInteger(maxValue) && maxValue >= minValue)
+
   const canSubmit =
     Boolean(workspaceId) &&
     linkType.length > 0 &&
@@ -121,9 +128,11 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
+
     if (!canSubmit) return
     setBusy(true)
     setError(null)
+
     try {
       await configureModelRelationshipRule(modelRelationshipsDataClient, {
         workspaceId,
@@ -152,6 +161,7 @@ function RecordModelRelations({ modelKey }: { modelKey: string }) {
     setBusy(true)
     setError(null)
     setRemoveTarget(null)
+
     try {
       await removeModelRelationshipRule(modelRelationshipsDataClient, ruleId)
       await refresh()

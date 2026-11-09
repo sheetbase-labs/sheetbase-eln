@@ -73,6 +73,7 @@ export interface PipelineJobState {
 export const JOB_LEASE_SECONDS = 120
 const POLL_INTERVAL_MS = 2_000
 const ORPHAN_SCAN_INTERVAL_MS = 30_000
+
 /** Failures that retrying cannot fix: the run is failed, not retried. */
 const PERMANENT_ERROR_CODES = new Set([
   'workspace_membership_required',
@@ -152,6 +153,7 @@ export async function enqueuePipelineResume(
                      WHERE r.id = $1 AND r.status = 'waiting')`,
     [input.runId],
   )
+
   const { rowCount } = await conn.query(
     `INSERT INTO internal.pipeline_run_jobs(run_id, workspace_id, kind, actor_user_id, payload)
      VALUES ($1, $2, 'resume', $3, $4::jsonb)
@@ -163,6 +165,7 @@ export async function enqueuePipelineResume(
       JSON.stringify({ answer: input.answer }),
     ],
   )
+
   return (rowCount ?? 0) > 0
 }
 
@@ -190,9 +193,12 @@ export async function getPipelineJobState(
       ORDER BY enqueued_at DESC LIMIT 1`,
     [runId],
   )
+
   const row = rows.at(0)
+
   if (!row) return null
   const iso = (value: Date | null) => (value ? value.toISOString() : null)
+
   return {
     kind: row.kind,
     state: row.state,
@@ -239,7 +245,9 @@ export async function claimPipelineJob(
                 j.payload, j.attempts, j.max_attempts`,
     [workerId, leaseSeconds],
   )
+
   const row = rows.at(0)
+
   return row ? toJob(row) : null
 }
 
@@ -256,6 +264,7 @@ export async function heartbeatPipelineJob(
       WHERE id = $1 AND claimed_by = $2 AND state = 'claimed'`,
     [jobId, workerId, leaseSeconds],
   )
+
   return (rowCount ?? 0) > 0
 }
 
@@ -333,6 +342,7 @@ export async function reapAbandonedJobs(
       WHERE state = 'claimed' AND lease_expires_at < now() AND attempts >= max_attempts
       RETURNING run_id`,
   )
+
   for (const row of rows)
     await deps
       .failRun(
@@ -341,6 +351,7 @@ export async function reapAbandonedJobs(
         'The worker executing this run stopped responding and no attempts remain.',
       )
       .catch(() => {})
+
   return rows.length
 }
 
@@ -361,6 +372,7 @@ export async function adoptOrphanedRuns(
         AND NOT EXISTS (SELECT 1 FROM internal.pipeline_run_jobs j WHERE j.run_id = r.id)
      ON CONFLICT DO NOTHING`,
   )
+
   return rowCount ?? 0
 }
 
@@ -372,6 +384,7 @@ async function runStatus(
     'SELECT status FROM api.pipeline_runs WHERE id = $1',
     [runId],
   )
+
   return rows.at(0)?.status ?? null
 }
 
@@ -386,6 +399,7 @@ export async function processPipelineJob(
   deps: PipelineWorkerDeps,
 ): Promise<'done' | 'retry' | 'dead' | 'deferred'> {
   const lease = deps.leaseSeconds ?? JOB_LEASE_SECONDS
+
   const heartbeat = setInterval(
     () =>
       void heartbeatPipelineJob(conn, job.id, deps.workerId, lease).catch(
@@ -393,9 +407,11 @@ export async function processPipelineJob(
       ),
     Math.max(1_000, (lease * 1000) / 3),
   )
+
   heartbeat.unref()
   let report: PipelineExecuteReport | null = null
   let thrown: string | null = null
+
   try {
     report =
       job.kind === 'resume'
@@ -426,8 +442,10 @@ export async function processPipelineJob(
       errorMessage,
       false,
     )
+
     return 'deferred'
   }
+
   if (status !== 'running') {
     // The run reached a state of its own (finished, waiting, cancelled, gone).
     // A rejected answer leaves the run waiting; keep the reason for the job.
@@ -438,15 +456,20 @@ export async function processPipelineJob(
       'done',
       report?.ok ? null : errorMessage,
     )
+
     return 'done'
   }
+
   if (!thrown && report?.ok && job.kind === 'resume') {
     await finishJob(conn, job, deps.workerId, 'done', null)
+
     return 'done'
   }
+
   // Still running: the executor stopped before it could settle the run.
   const permanent =
     errorCode !== undefined && PERMANENT_ERROR_CODES.has(errorCode)
+
   if (permanent || job.attempts >= job.maxAttempts) {
     await finishJob(conn, job, deps.workerId, 'dead', errorMessage)
     await deps
@@ -456,8 +479,10 @@ export async function processPipelineJob(
         errorMessage ?? 'The pipeline run could not be executed.',
       )
       .catch(() => {})
+
     return 'dead'
   }
+
   await releaseJob(
     conn,
     job,
@@ -466,6 +491,7 @@ export async function processPipelineJob(
     errorMessage,
     true,
   )
+
   return 'retry'
 }
 
@@ -484,12 +510,15 @@ export async function runPipelineJobs(
   let claimed = 0
   let drained = false
   const lanes: Array<Promise<void>> = []
+
   try {
     await reapAbandonedJobs(claimConn, deps)
+
     const lane = async () => {
       // Each lane settles on its own connection so a heartbeat is never queued
       // behind another lane's statements.
       const conn = await deps.connect()
+
       try {
         while (!drained && claimed < maxJobs) {
           const job = await claimPipelineJob(
@@ -497,10 +526,13 @@ export async function runPipelineJobs(
             deps.workerId,
             deps.leaseSeconds,
           )
+
           if (!job) {
             drained = true
+
             return
           }
+
           claimed += 1
           await processPipelineJob(conn, job, deps)
           processed += 1
@@ -509,11 +541,13 @@ export async function runPipelineJobs(
         await conn.end().catch(() => {})
       }
     }
+
     for (let i = 0; i < concurrency; i += 1) lanes.push(lane())
     await Promise.all(lanes)
   } finally {
     await claimConn.end().catch(() => {})
   }
+
   return processed
 }
 
@@ -524,6 +558,7 @@ export async function runPipelineJobs(
 async function connectQueue(): Promise<QueueConnection> {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   return {
     query: async (text, values = []) => client.query(text, values),
     end: () => client.end(),
@@ -537,6 +572,7 @@ function executeDeps(actor: string): PipelineExecuteDeps {
     connect: async () => {
       const client = new PooledClient({ connectionString: env.DATABASE_URL })
       await client.connect()
+
       return {
         query: async (text, values = []) => client.query(text, values),
         begin: () => client.query('BEGIN').then(() => undefined),
@@ -582,6 +618,7 @@ export function startPipelineWorker(
   deps: PipelineWorkerDeps = createPipelineWorkerDeps(),
 ): void {
   if (typeof window !== 'undefined') return
+
   if (
     process.env.NODE_ENV === 'test' ||
     process.env.VITEST === 'true' ||
@@ -589,7 +626,9 @@ export function startPipelineWorker(
   ) {
     return
   }
+
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
 
@@ -597,14 +636,17 @@ export function startPipelineWorker(
     process.env.PIPELINE_WORKER_CONCURRENCY ?? '',
     10,
   )
+
   const concurrency = Number.isFinite(parsed)
     ? Math.min(Math.max(parsed, 1), 8)
     : 2
+
   let stopped = false
   stopWorker = () => {
     stopped = true
     wake?.()
   }
+
   let lastAdopted = 0
 
   const sleep = (ms: number) =>
@@ -620,6 +662,7 @@ export function startPipelineWorker(
   void (async () => {
     // Give the server a moment to finish booting before the first claim.
     await sleep(2_000)
+
     // `stopped` is flipped by the returned stop() while this loop awaits.
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     while (!stopped) {
@@ -627,13 +670,16 @@ export function startPipelineWorker(
         if (Date.now() - lastAdopted > ORPHAN_SCAN_INTERVAL_MS) {
           lastAdopted = Date.now()
           const conn = await deps.connect()
+
           try {
             await adoptOrphanedRuns(conn)
           } finally {
             await conn.end().catch(() => {})
           }
         }
+
         const processed = await runPipelineJobs(deps, { concurrency })
+
         if (processed === 0) await sleep(POLL_INTERVAL_MS)
       } catch (error) {
         logger.warn('pipeline worker pass failed', {

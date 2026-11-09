@@ -25,7 +25,9 @@ const meta = {
   tags: ['autodocs'],
   parameters: { layout: 'padded' },
 } satisfies Meta<typeof Tabs>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const PANELS: Record<string, string> = {

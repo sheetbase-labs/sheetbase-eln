@@ -49,6 +49,7 @@ const open = screenQueryClient({
     },
   ],
 })
+
 const none = screenQueryClient({
   data: [{ key: commentsQueryKeys.forRecord(RECORD_ID), value: [] }],
 })
@@ -77,7 +78,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof LiveBlockComments>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Two open threads on the block: the button carries the count. */

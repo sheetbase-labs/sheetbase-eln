@@ -99,16 +99,19 @@ function useDatasetNames(enabled: boolean) {
         'datasets',
         '?select=id,name&order=name.asc',
       )
+
       return new Map(rows.map((row) => [row.id, row.name]))
     },
     staleTime: 60_000,
   })
+
   return query.data ?? new Map<string, string>()
 }
 
 function namesDatasets(spec: Record<string, unknown>): boolean {
   if (typeof spec.datasetId === 'string') return true
   const inputs = spec.inputs
+
   return (
     !!inputs &&
     typeof inputs === 'object' &&
@@ -140,6 +143,7 @@ function OutputsSection({
 }) {
   if (!version) return null
   const config = version.configuration as Partial<PipelineConfig>
+
   return (
     <Section
       title={t('data.pipelineTriggers.whatRunKeeps')}
@@ -218,6 +222,7 @@ function PipelineTriggers() {
   // must not keep advertising a next run in that state; `null` means the
   // answer is not known yet, so no inert claim is made while it loads.
   const versions = usePipelineVersions(pipelineId)
+
   const hasPublishedVersion = versions.isSuccess
     ? versions.data.some((v) => v.lifecycle === 'published')
     : null
@@ -225,9 +230,11 @@ function PipelineTriggers() {
   const declaredVersion = versions.data
     ? currentVersion(versions.data)
     : undefined
+
   const shownVersion = versions.data
     ? (draftVersion(versions.data) ?? declaredVersion)
     : undefined
+
   const declared = declaredVersion
     ? declaredRunInputs(declaredVersion)
     : { inputs: [], parameters: [] }
@@ -298,6 +305,7 @@ function PipelineTriggers() {
       cell: ({ row }) => {
         const passed = scheduleParametersLabel(row.original.spec)
         const reads = describeInputs(row.original.spec, datasetNames)
+
         return (
           <span className="text-caption">
             {scheduleSpecLabel(
@@ -342,6 +350,7 @@ function PipelineTriggers() {
       header: t('data.pipelineTriggers.lastRun'),
       cell: ({ row }) => {
         const run = latestRuns.data?.get(row.original.id)
+
         if (!run)
           return (
             <span className="text-fg-muted">
@@ -349,6 +358,7 @@ function PipelineTriggers() {
             </span>
           )
         const status = runStatus(run.status)
+
         return (
           <span className="flex flex-col gap-0.5">
             <Status tone={status.tone}>{status.label}</Status>
@@ -368,6 +378,7 @@ function PipelineTriggers() {
       header: t('data.pipelineTriggers.nextRun'),
       cell: ({ row }) => {
         const next = row.original.next_run_at
+
         if (!row.original.enabled) {
           return (
             <span className="text-fg-muted">
@@ -375,6 +386,7 @@ function PipelineTriggers() {
             </span>
           )
         }
+
         if (hasPublishedVersion === false) {
           return (
             <span className="text-fg-muted">
@@ -382,6 +394,7 @@ function PipelineTriggers() {
             </span>
           )
         }
+
         if (row.original.kind === 'event') {
           return (
             <span className="text-fg-muted">
@@ -389,12 +402,14 @@ function PipelineTriggers() {
             </span>
           )
         }
+
         if (!next)
           return (
             <span className="text-fg-muted">
               {t('data.pipelineTriggers.neverFires')}
             </span>
           )
+
         return (
           <span className="flex flex-col gap-0.5">
             <span>{formatNotebookDateTime(next, { zone: true })}</span>

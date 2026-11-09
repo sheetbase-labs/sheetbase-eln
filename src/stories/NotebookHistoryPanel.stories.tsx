@@ -73,13 +73,16 @@ function client(state: 'ready' | 'submitted' | 'loading' | 'error') {
       },
     })
   }
+
   const instance = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+
   if (state !== 'loading') {
     instance.setQueryData(sign002QueryKeys.timeline(RECORD_ID), events)
     instance.setQueryData(REVISIONS_KEY, state === 'submitted' ? revisions : [])
   }
+
   return instance
 }
 
@@ -104,7 +107,9 @@ const meta = {
     currentUserName: 'Ava Chen',
   },
 } satisfies Meta<typeof NotebookHistoryPanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /**

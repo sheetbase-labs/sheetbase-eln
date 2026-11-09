@@ -32,6 +32,7 @@ function renderPanel() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <SettingsPasskeys />
@@ -49,6 +50,7 @@ beforeEach(() => {
   mocks.add.mockResolvedValue({ data: {}, error: null })
   mocks.remove.mockResolvedValue({ data: {}, error: null })
 })
+
 afterEach(cleanup)
 
 describe('SettingsPasskeys', () => {

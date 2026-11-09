@@ -34,6 +34,7 @@ export async function citeSnapshotInNotebook(
   input: CiteSnapshotInput,
 ): Promise<{ blockId: string }> {
   const record = await fetchRecord(client, input.recordId)
+
   const inserted = await insertBlock(client, {
     recordId: input.recordId,
     type: 'linked_record',
@@ -48,6 +49,7 @@ export async function citeSnapshotInNotebook(
     },
     expectedStructureVersion: record?.structureVersion,
   })
+
   try {
     await client.rpc('create_record_link', {
       p_source_record_id: input.recordId,
@@ -59,5 +61,6 @@ export async function citeSnapshotInNotebook(
   } catch (error) {
     if (!isDuplicateLinkError(error)) throw error
   }
+
   return { blockId: inserted.block.id }
 }

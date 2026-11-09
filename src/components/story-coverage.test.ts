@@ -35,9 +35,11 @@ const THIS_FILE = 'src/components/story-coverage.test.ts'
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const path = join(dir, entry)
+
     if (statSync(path).isDirectory()) walk(path, out)
     else if (/\.(ts|tsx)$/.test(entry)) out.push(path)
   }
+
   return out
 }
 
@@ -48,37 +50,47 @@ function walk(dir: string, out: string[] = []): string[] {
  */
 function exportedValueNames(source: string): string[] {
   const names = new Set<string>()
+
   const declaration =
     /^export\s+(?:default\s+)?(?:async\s+)?(?:function|const|class)\s+([A-Za-z_$][\w$]*)/gm
+
   for (const match of source.matchAll(declaration)) names.add(match[1])
+
   for (const match of source.matchAll(/^export\s*\{([^}]*)\}/gm)) {
     for (const part of match[1].split(',')) {
       const clause = part.trim()
+
       if (!clause || clause.startsWith('type ')) continue
+
       const name = clause
         .split(/\s+as\s+/)
         .pop()
         ?.trim()
+
       if (name) names.add(name)
     }
   }
+
   return [...names]
 }
 
 /** A module in scope that renders something: it exports a component-shaped value. */
 function isComponentModule(path: string): boolean {
   const source = readFileSync(join(ROOT, path), 'utf8')
+
   return exportedValueNames(source).some((name) => /^[A-Z]/.test(name))
 }
 
 /** Every story file the Storybook config picks up. */
 function storyFiles(): string[] {
   const stories: string[] = []
+
   for (const root of ['src/stories', 'src/components']) {
     for (const path of walk(join(ROOT, root))) {
       if (path.endsWith('.stories.tsx')) stories.push(relative(ROOT, path))
     }
   }
+
   return stories
 }
 
@@ -89,41 +101,53 @@ function storyFiles(): string[] {
  */
 function importedSpecifiers(source: string): string[] {
   const specifiers: string[] = []
+
   for (const match of source.matchAll(/from\s+['"]([^'"]+)['"]/g)) {
     specifiers.push(match[1])
   }
+
   return specifiers
 }
 
 function specifierForms(path: string): string[] {
   const withoutExtension = path.replace(/\.tsx?$/, '')
   const forms = new Set<string>([`#/${withoutExtension}`])
+
   if (withoutExtension.startsWith('src/')) {
     forms.add(`#/${withoutExtension.slice('src/'.length)}`)
   }
+
   if (withoutExtension.endsWith('/index')) {
     forms.add(`#/${withoutExtension.slice(0, -'/index'.length)}`)
+
     if (withoutExtension.startsWith('src/')) {
       forms.add(`#/${withoutExtension.slice('src/'.length, -'/index'.length)}`)
     }
   }
+
   return [...forms]
 }
 
 /** The component modules this guard owns, as repo-relative paths, sorted. */
 function componentModules(): string[] {
   const modules = new Set<string>()
+
   for (const root of SCOPE) {
     for (const path of walk(join(ROOT, root))) {
       const repoPath = relative(ROOT, path)
+
       if (/\.test\.tsx?$|\.stories\.tsx$/.test(repoPath)) continue
+
       if (repoPath === THIS_FILE) continue
+
       if (isComponentModule(repoPath)) modules.add(repoPath)
     }
   }
+
   for (const path of ICON_MODULES) {
     if (isComponentModule(path)) modules.add(path)
   }
+
   return [...modules].sort()
 }
 
@@ -131,11 +155,14 @@ function componentModules(): string[] {
 function modulesWithStories(): Set<string> {
   const covered = new Set<string>()
   const stories = storyFiles()
+
   const sources = stories.map((story) =>
     readFileSync(join(ROOT, story), 'utf8'),
   )
+
   for (const path of componentModules()) {
     const forms = specifierForms(path)
+
     if (
       sources.some((source) =>
         importedSpecifiers(source).some((s) => forms.includes(s)),
@@ -144,6 +171,7 @@ function modulesWithStories(): Set<string> {
       covered.add(path)
     }
   }
+
   return covered
 }
 
@@ -156,19 +184,24 @@ function recordedSkips(): Map<string, string> {
   const record = readFileSync(RECORD, 'utf8')
   const skips = new Map<string, string>()
   let inSkipTable = false
+
   for (const line of record.split('\n')) {
     if (!line.startsWith('|')) {
       inSkipTable = false
       continue
     }
+
     if (/^\|\s*Module\s*\|\s*Why no story\s*\|\s*$/.test(line)) {
       inSkipTable = true
       continue
     }
+
     if (!inSkipTable) continue
     const row = line.match(/^\|\s*`([^`]+)`\s*\|\s*(.+?)\s*\|\s*$/)
+
     if (row) skips.set(row[1], row[2])
   }
+
   return skips
 }
 

@@ -14,7 +14,9 @@ const meta = {
   component: RadioGroup,
   tags: ['autodocs'],
 } satisfies Meta<typeof RadioGroup>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const option = (value: string, text: string, disabled?: boolean) => (

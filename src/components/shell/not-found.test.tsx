@@ -48,6 +48,7 @@ describe('NotFound — unmatched URL', () => {
   it('renders the product screen inside the shell with exactly one h1', async () => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     const root = rootWithShell()
+
     const router = createRouter({
       routeTree: root.addChildren([
         createRoute({
@@ -81,6 +82,7 @@ describe('NotFound — unmatched URL', () => {
 
   it('links back to the section the pathname implies', async () => {
     const root = rootWithShell()
+
     const router = createRouter({
       routeTree: root.addChildren([
         createRoute({
@@ -124,6 +126,7 @@ describe('NotFound — unmatched URL', () => {
 describe('NotFound — unknown record id inside a record layout', () => {
   it('renders without a duplicate h1', async () => {
     const root = createRootRoute()
+
     // Mimic a record layout: it owns the page header (and its h1) and renders
     // its children through an outlet.
     const layout = createRoute({
@@ -136,6 +139,7 @@ describe('NotFound — unknown record id inside a record layout', () => {
         </div>
       ),
     })
+
     const index = createRoute({
       getParentRoute: () => layout,
       path: '/',

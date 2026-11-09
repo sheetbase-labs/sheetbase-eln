@@ -59,15 +59,19 @@ export function createServerDataClient(token: string): DataClient {
     args: Record<string, unknown>,
   ): Promise<T> {
     const { status, body } = await postgrestRpc<T>(name, args, token)
+
     if (status >= 400) {
       const message =
         body && typeof body === 'object' && 'message' in body
           ? String((body as { message?: unknown }).message)
           : `RPC ${name} failed.`
+
       throw new Error(message)
     }
+
     return body as T
   }
+
   return {
     list: async <T>(resource: string, query = ''): Promise<T[]> => {
       const { status, body } = await postgrestSelect<T[]>(
@@ -75,9 +79,11 @@ export function createServerDataClient(token: string): DataClient {
         query.replace(/^\?/, ''),
         token,
       )
+
       if (status >= 400) {
         throw new Error(`${resource} query failed (${status}).`)
       }
+
       return body as T[]
     },
     count: async (resource: string, query = ''): Promise<number> => {
@@ -85,6 +91,7 @@ export function createServerDataClient(token: string): DataClient {
         resource,
         query,
       )
+
       return rows.length
     },
     rpc,
@@ -93,9 +100,11 @@ export function createServerDataClient(token: string): DataClient {
       row: Record<string, unknown>,
     ): Promise<T> => {
       const { status, body } = await postgrestInsert<T>(resource, row, token)
+
       if (status >= 400) {
         throw new Error(`${resource} insert failed (${status}).`)
       }
+
       return body as T
     },
     patch: async <T>(
@@ -109,7 +118,9 @@ export function createServerDataClient(token: string): DataClient {
         row,
         token,
       )
+
       if (status >= 400) throw new Error(`${resource} update failed.`)
+
       return body as T[]
     },
     remove: async (): Promise<unknown[]> => {
@@ -132,17 +143,20 @@ export async function resolveConnectorExecutionContext(input: {
   if (!input.workspaceId) {
     throw new ConnectorExecutionError('forbidden', 'No workspace selected.')
   }
+
   if (!EXECUTOR_ROLES.has(input.role)) {
     throw new ConnectorExecutionError(
       'forbidden',
       'Your workspace role cannot execute integrations.',
     )
   }
+
   const token = await mintPostgrestToken(env.PGRST_JWT_SECRET, {
     userId: input.userId,
     workspaceId: input.workspaceId,
     sessionId: input.sessionId,
   })
+
   return {
     userId: input.userId,
     workspaceId: input.workspaceId,
@@ -152,4 +166,5 @@ export async function resolveConnectorExecutionContext(input: {
 }
 
 export { boundedErrorMessage }
+
 export { ConnectorExecutionError }

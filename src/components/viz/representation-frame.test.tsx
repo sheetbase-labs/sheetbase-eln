@@ -57,6 +57,7 @@ describe('RepresentationFrame', () => {
       },
       title: 'Assay trend',
     })
+
     render(
       <RepresentationFrame title="Assay trend" handle={handle}>
         <p>kind renderer output</p>
@@ -79,6 +80,7 @@ describe('RepresentationFrame', () => {
       },
       title: 'Frozen trend',
     })
+
     render(
       <RepresentationFrame title="Frozen trend" handle={handle}>
         <p>snapshot output</p>
@@ -103,11 +105,13 @@ describe('RepresentationFrame', () => {
       },
       title: 'Plate readings',
     })
+
     const { unmount } = render(
       <RepresentationFrame title="Plate readings" handle={sheet}>
         <p>grid</p>
       </RepresentationFrame>,
     )
+
     expect(screen.getByText(/editable/)).toBeTruthy()
     unmount()
 
@@ -120,6 +124,7 @@ describe('RepresentationFrame', () => {
       },
       title: 'Trend',
     })
+
     render(
       <RepresentationFrame title="Trend" handle={chart}>
         <p>plot</p>
@@ -138,6 +143,7 @@ describe('RepresentationFrame', () => {
       },
       title: 'Trend',
     })
+
     render(
       <RepresentationFrame
         title="Trend"

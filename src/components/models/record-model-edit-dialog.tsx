@@ -59,28 +59,35 @@ export function RecordModelEditDialog({
   client?: typeof notebookDataClient
 }) {
   const queryClient = useQueryClient()
+
   const initial = useMemo(
     () => initialModelFieldValues(fields, stored),
     [fields, stored],
   )
+
   const [values, setValues] =
     useState<Record<string, string | boolean>>(initial)
+
   const merged = useMemo(() => ({ ...initial, ...values }), [initial, values])
   const pluginErrors = usePluginFieldTypeErrors(modelKey ?? '', fields, merged)
   const pluginInputs = usePluginFieldInputs(modelKey ?? '')
+
   const errors = useMemo(
     () => ({ ...modelFieldInputErrors(fields, merged), ...pluginErrors }),
     [fields, merged, pluginErrors],
   )
+
   const changes = changedModelFieldValues(fields, initial, merged)
   const dirty = Object.keys(changes).length > 0
 
   const save = useMutation({
     mutationFn: async () => {
       const current = await fetchRecordModelFieldValues(client, recordId)
+
       if (current.locked) {
         throw Object.assign(new Error('locked'), { code: 'SB011' })
       }
+
       return updateRecordModelFieldValues(
         client,
         recordId,

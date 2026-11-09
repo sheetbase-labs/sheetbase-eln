@@ -29,7 +29,9 @@ const meta = {
     tanstack: { router: { route: screenRoutes('/'), path: '/' } },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const client = screenQueryClient({ data: [] })
@@ -37,6 +39,7 @@ const client = screenQueryClient({ data: [] })
 export const ShortcutsDialog: Story = {
   render: function Render() {
     const [open, setOpen] = useState(false)
+
     return (
       <ShortcutProvider definitions={[...PANE_SHORTCUTS, ...SCOPED_SHORTCUTS]}>
         <div className="p-6">
@@ -51,6 +54,7 @@ export const ShortcutsDialog: Story = {
 export const SearchPalette: Story = {
   render: function Render() {
     const [open, setOpen] = useState(false)
+
     return (
       <QueryClientProvider client={client}>
         <StubDataClient stub={{ rpc: async () => [], list: async () => [] }}>

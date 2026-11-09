@@ -43,18 +43,23 @@ export function MoveSampleDialog({
   canManageStorage?: boolean
 }) {
   const [choice, setChoice] = useState<PlaceChoice | null>(null)
+
   const current = useQuery({
     queryKey: ['storage-positions', 'sample', sample.id],
     queryFn: () => fetchSamplePosition(notebookDataClient, sample.id),
     enabled: open,
     retry: false,
   })
+
   const target = describePlace(choice)
+
   const unchanged =
     choice?.kind === 'text' &&
     Boolean(target) &&
     target.toLowerCase() === (sample.storageLocation ?? '').trim().toLowerCase()
+
   const ready = Boolean(target) && !unchanged
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(640px,calc(100vw-32px))]">

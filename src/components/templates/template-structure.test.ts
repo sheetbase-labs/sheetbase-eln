@@ -81,11 +81,13 @@ describe('template structure helpers', () => {
         ]),
       ],
     ])
+
     const changes = diffTemplatePlacements(
       [placement(id(1))],
       [placement(id(2))],
       lookup,
     )
+
     expect(changes.map((c) => `${c.kind} ${c.subject}`)).toEqual([
       'Added Pressure column',
       'Changed Load rule',

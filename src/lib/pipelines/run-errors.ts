@@ -120,6 +120,7 @@ const GUIDANCE: Record<string, RunErrorGuidance> = {
 /** Guidance for a code; an unknown code (Python, newer engines) may be retried. */
 export function explainRunError(code: string | null): RunErrorGuidance {
   const known = code ? GUIDANCE[code] : undefined
+
   return (
     known ?? {
       title: code ?? t('data.runErrors.runFailed'),

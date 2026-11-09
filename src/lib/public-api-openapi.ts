@@ -46,6 +46,7 @@ export const HUMAN_SESSION_ONLY_RPCS = [
 const SCHEMA_AUTHORING_RPCS: readonly string[] = []
 
 type OpenApiOperation = Record<string, unknown>
+
 type OpenApiPathItem = Record<string, unknown>
 
 export interface ExternalApiOpenApi {
@@ -161,6 +162,7 @@ function proxyErrorResponses(): Record<string, unknown> {
       schema: { $ref: '#/components/schemas/ProxyError' },
     },
   }
+
   return {
     '400': { description: '`validation_error`', content },
     '401': { description: '`unauthenticated`', content },
@@ -188,38 +190,52 @@ function scopeExtension(scopes: readonly Scope[]): Record<string, unknown> {
 
 function tagForTable(resource: string): string {
   if (resource in LAB_TABLES) return 'Lab'
+
   if (resource.startsWith('pipeline_')) return 'Pipelines'
+
   if (
     resource.startsWith('dataset_schema') ||
     resource.startsWith('sheet_definition')
   ) {
     return 'Catalogues'
   }
+
   if (resource.startsWith('notebook_template')) return 'Templates'
+
   if (resource.startsWith('dataset')) return 'Datasets'
+
   if (resource.startsWith('sheet_')) return 'Sheets'
+
   return 'Projects'
 }
 
 function tagForRpc(resource: string, scopes: readonly Scope[]): string {
   if (resource in LAB_RPCS && LAB_RPCS[resource].scope.startsWith('lab:'))
     return 'Lab'
+
   if (resource.includes('pipeline')) return 'Pipelines'
+
   if (resource.startsWith('query_dataset') || resource.includes('dataset')) {
     return 'Datasets'
   }
+
   if (
     resource.includes('sheet_instance') ||
     resource.includes('sheet_record')
   ) {
     return 'Sheets'
   }
+
   if (resource.includes('notebook_template')) return 'Templates'
+
   if (resource === 'preview_submission_digest') return 'Reviews'
+
   if (scopes.includes('models:read') || scopes.includes('models:write')) {
     return 'Models'
   }
+
   if (resource === 'search') return 'Search'
+
   return 'Projects'
 }
 
@@ -242,6 +258,7 @@ function tableRowRef(resource: string): JsonSchema {
 
 function tableReadResponses(resource: string): Record<string, unknown> {
   const rowArray = { type: 'array', items: tableRowRef(resource) }
+
   return {
     '200': {
       description: `JSON array of \`${resource}\` rows. With \`Prefer: count=exact\`, \`Content-Range\` is \`start-end/total\` (e.g. \`0-24/123\`).`,
@@ -280,6 +297,7 @@ function tableReadResponses(resource: string): Record<string, unknown> {
 function tableOperations(resource: string): OpenApiPathItem {
   const access = EXTERNAL_TABLE_ACCESS[resource]
   const item: OpenApiPathItem = {}
+
   const readOp: OpenApiOperation = {
     tags: [tagForTable(resource)],
     summary: `Read ${resource}`,
@@ -298,6 +316,7 @@ function tableOperations(resource: string): OpenApiPathItem {
     parameters: TABLE_QUERY_PARAMETERS,
     responses: tableReadResponses(resource),
   }
+
   item.get = readOp
   item.head = {
     ...readOp,
@@ -310,6 +329,7 @@ function tableOperations(resource: string): OpenApiPathItem {
   if (!access.write) return item
 
   const projectWritable = ['projects', 'records', 'blocks', 'record_links']
+
   if (resource === 'datasets') {
     item.post = {
       tags: ['Datasets'],
@@ -347,8 +367,10 @@ function tableOperations(resource: string): OpenApiPathItem {
         ...proxyErrorResponses(),
       },
     }
+
     return item
   }
+
   if (!projectWritable.includes(resource)) return item
 
   item.post = {
@@ -424,11 +446,13 @@ function tableOperations(resource: string): OpenApiPathItem {
       ...proxyErrorResponses(),
     },
   }
+
   return item
 }
 
 function rpcOperation(resource: string, scopes: Scope[]): OpenApiOperation {
   const contract = RPC_CONTRACTS[resource]
+
   return {
     tags: [tagForRpc(resource, scopes)],
     summary: contract.summary,
@@ -490,6 +514,7 @@ function description(): string {
 
 function componentParameters(): Record<string, unknown> {
   const filterOps = POSTGREST_FILTER_OPERATORS.join(', ')
+
   return {
     Select: {
       name: 'select',
@@ -732,12 +757,14 @@ export function buildExternalApiOpenApi(): ExternalApiOpenApi {
               const entries: Array<[string, JsonSchema]> = [
                 [tableInsertSchemaName(table), tableInsertSchema(table)],
               ]
+
               if (table !== 'datasets' && access.write) {
                 entries.push([
                   tablePatchSchemaName(table),
                   tablePatchSchema(table),
                 ])
               }
+
               return entries
             }),
         ),

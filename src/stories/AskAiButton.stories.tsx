@@ -19,7 +19,9 @@ const meta = {
   tags: ['autodocs'],
   decorators: [withPageAi('live')],
 } satisfies Meta<typeof AskAiButton>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const PageHeaderButton: Story = {}

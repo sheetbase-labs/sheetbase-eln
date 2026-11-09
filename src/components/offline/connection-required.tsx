@@ -53,6 +53,7 @@ export function ConnectionRequired({
 }: ConnectionRequiredProps) {
   const reasonId = React.useId()
   const disabled = !online
+
   return (
     <span className={cn('inline-flex flex-wrap items-center gap-2', className)}>
       {children({

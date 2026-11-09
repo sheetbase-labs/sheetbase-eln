@@ -46,15 +46,20 @@ export function renderEmail(
 ): RenderedEmail {
   const subject = SUBJECTS[eventType] ?? NOTIFICATION_EVENT_LABELS[eventType]
   const parts: string[] = []
+
   if (context.actorName) parts.push(`${context.actorName} — ${subject}.`)
   else parts.push(`${subject}.`)
+
   if (context.recordIdentifier || context.recordTitle) {
     const label = [context.recordIdentifier, context.recordTitle]
       .filter(Boolean)
       .join(' · ')
+
     parts.push(label)
   }
+
   if (context.url) parts.push(`Open: ${context.url}`)
   parts.push('Sheetbase')
+
   return { subject, body: parts.join('\n') }
 }

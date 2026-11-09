@@ -210,6 +210,7 @@ export function toSearchResult(row: SearchResultWire): RpcSearchResult {
   )
     ? (row.result_type as SearchResultType)
     : 'record'
+
   return {
     resultType,
     recordId: row.record_id,
@@ -260,20 +261,31 @@ export function buildSearchRpcArgs(
     p_limit: filters.limit ?? 20,
     p_offset: filters.offset ?? 0,
   }
+
   if (filters.projectId) args.p_project_id = filters.projectId
+
   if (filters.kind) args.p_kind = filters.kind
+
   if (filters.status) args.p_status = filters.status
+
   if (filters.ownerId) args.p_owner_id = filters.ownerId
+
   if (filters.dateFrom) args.p_date_from = filters.dateFrom
+
   if (filters.dateTo) args.p_date_to = filters.dateTo
+
   if (filters.resultType) args.p_result_type = filters.resultType
+
   // The archived scope is only sent when the caller states it, so a caller that
   // has no opinion keeps the RPC default rather than silently hiding work.
   if (filters.includeArchived !== undefined)
     args.p_include_archived = filters.includeArchived
   const filter = filterToRpc(filters.filter)
+
   if (filter) args.p_filter = filter
+
   if (filters.sort && filters.sort !== 'relevance') args.p_sort = filters.sort
+
   return args
 }
 
@@ -354,10 +366,15 @@ export function searchResultGroup(
   result: Pick<SearchResult, 'resultType' | 'kind' | 'matchedField'>,
 ): SearchResultGroup {
   if (result.resultType === 'project') return 'Projects'
+
   if (result.resultType === 'pipeline') return 'Pipelines'
+
   if (result.resultType === 'analysis') return 'Analyses'
+
   if (result.resultType === 'file') return 'Files'
+
   if (result.resultType === 'template') return 'Templates'
+
   if (
     result.resultType === 'dataset' ||
     result.resultType === 'sheet' ||
@@ -365,6 +382,7 @@ export function searchResultGroup(
     result.resultType === 'sheet_row'
   )
     return 'Sheet and dataset rows'
+
   switch (result.resultType) {
     case 'instrument':
     case 'instrument_run':
@@ -384,6 +402,7 @@ export function searchResultGroup(
     case 'parser':
       return 'Parsers'
   }
+
   if (
     result.resultType === 'comment' ||
     result.matchedField === 'block_text' ||
@@ -391,7 +410,9 @@ export function searchResultGroup(
     result.matchedField === 'comment_body'
   )
     return 'Notebook text and comments'
+
   if (result.kind === 'sample') return 'Samples'
+
   return 'Records'
 }
 
@@ -413,19 +434,24 @@ export function groupSearchResults(
   maxPerGroup?: number,
 ): SearchResultGroupBucket[] {
   const buckets = new Map<SearchResultGroup, SearchResult[]>()
+
   for (const result of results) {
     const group = searchResultGroup(result)
     const list = buckets.get(group)
+
     if (list) list.push(result)
     else buckets.set(group, [result])
   }
+
   return SEARCH_RESULT_GROUPS.filter((group) => buckets.has(group)).map(
     (group) => {
       const list = buckets.get(group) ?? []
+
       const limit =
         maxPerGroup && maxPerGroup > 0
           ? Math.min(maxPerGroup, list.length)
           : list.length
+
       return { group, results: list.slice(0, limit), total: list.length }
     },
   )
@@ -448,6 +474,7 @@ export function filterBySearchScope(
   projectId?: string | null,
 ): SearchResult[] {
   if (!projectId) return results
+
   return results.filter((result) => result.projectId === projectId)
 }
 
@@ -491,10 +518,13 @@ export interface SearchContextAction {
 /** Build the href for an action, used for the ⌘↵ new-tab case. */
 export function searchActionHref(action: SearchContextAction): string {
   const params = new URLSearchParams()
+
   for (const [key, value] of Object.entries(action.search ?? {})) {
     params.set(key, String(value))
   }
+
   const query = params.toString()
+
   return query ? `${action.to}?${query}` : action.to
 }
 
@@ -508,9 +538,11 @@ export function contextualSearchActions(
 ): SearchContextAction[] {
   const actions: SearchContextAction[] = []
   const seen = new Set<string>()
+
   for (const result of results) {
     if (result.resultType !== 'record' || result.kind !== 'sample') continue
     const id = `register-sample-${result.identifier}`
+
     if (seen.has(id)) continue
     seen.add(id)
     actions.push({
@@ -522,6 +554,7 @@ export function contextualSearchActions(
       search: { new: true },
     })
   }
+
   return actions
 }
 
@@ -570,7 +603,9 @@ const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 export function parseSearchDay(value: unknown): string | undefined {
   if (typeof value !== 'string' || !DAY_PATTERN.test(value)) return undefined
   const ms = Date.parse(`${value}T00:00:00Z`)
+
   if (Number.isNaN(ms)) return undefined
+
   return new Date(ms).toISOString().slice(0, 10) === value ? value : undefined
 }
 
@@ -587,6 +622,7 @@ function updatedDateFrom(
   const from = appNow()
   from.setUTCHours(0, 0, 0, 0)
   from.setUTCDate(from.getUTCDate() - 7)
+
   return from.toISOString()
 }
 
@@ -605,9 +641,12 @@ export function urlFiltersToSearchFilters(
     limit,
     offset,
   }
+
   const project = input.project ?? []
   const type = input.type ?? []
+
   if (project.length === 1) filters.projectId = project[0]
+
   if (type.length === 1) {
     switch (type[0]) {
       case 'Files':
@@ -624,6 +663,7 @@ export function urlFiltersToSearchFilters(
         break
       default: {
         const objects = GROUP_OBJECT_TYPES[type[0] as SearchResultGroup]
+
         if (objects)
           filters.filter = andFilters(input.filter, {
             type: 'group',
@@ -643,21 +683,28 @@ export function urlFiltersToSearchFilters(
       }
     }
   }
+
   if (input.filter && !filters.filter) filters.filter = input.filter
+
   if (input.sort) filters.sort = input.sort
   // An explicit range wins over the "last 7 days" shortcut; the two are one
   // facet in the UI, so only one of them is ever set at a time.
   const day = parseSearchDay(input.from)
+
   const dateFrom = day
     ? dayBoundary(day, false)
     : updatedDateFrom(input.updated)
+
   if (dateFrom) filters.dateFrom = dateFrom
   const lastDay = parseSearchDay(input.to)
+
   if (lastDay) filters.dateTo = dayBoundary(lastDay, true)
+
   if (input.owner) filters.ownerId = input.owner
   // Archived is a scope, not a client-side filter: the URL facet becomes the
   // RPC's p_include_archived so the boundary is authoritative (R5-SHELL-04).
   filters.includeArchived = input.archived === true
+
   return filters
 }
 
@@ -679,27 +726,37 @@ export function filterSearchResults(
   const project = input.project ?? []
   const fromDay = parseSearchDay(input.from)
   const toDay = parseSearchDay(input.to)
+
   const dateFrom = fromDay
     ? dayBoundary(fromDay, false)
     : updatedDateFrom(input.updated)
+
   const dateFromMs = dateFrom ? Date.parse(dateFrom) : undefined
   const dateToMs = toDay ? Date.parse(dayBoundary(toDay, true)) : undefined
+
   return results.filter((result) => {
     if (input.owner && result.createdByUserId !== input.owner) return false
+
     if (type.length && !type.includes(searchResultGroup(result))) return false
+
     if (
       project.length &&
       (!result.projectId || !project.includes(result.projectId))
     )
       return false
+
     if (dateFromMs !== undefined) {
       const updated = Date.parse(result.updatedAt)
+
       if (!Number.isNaN(updated) && updated < dateFromMs) return false
     }
+
     if (dateToMs !== undefined) {
       const updated = Date.parse(result.updatedAt)
+
       if (!Number.isNaN(updated) && updated > dateToMs) return false
     }
+
     return true
   })
 }
@@ -736,6 +793,7 @@ export function parseMatchedContext(context: string): ContextSegment[] {
   const regex = /<b>([\s\S]*?)<\/b>/g
   let lastIndex = 0
   let match: RegExpExecArray | null
+
   while ((match = regex.exec(context)) !== null) {
     if (match.index > lastIndex) {
       segments.push({
@@ -743,15 +801,18 @@ export function parseMatchedContext(context: string): ContextSegment[] {
         highlighted: false,
       })
     }
+
     segments.push({ text: match[1], highlighted: true })
     lastIndex = regex.lastIndex
   }
+
   if (lastIndex < context.length) {
     segments.push({
       text: context.slice(lastIndex),
       highlighted: false,
     })
   }
+
   return segments
 }
 
@@ -803,6 +864,7 @@ export function extractBlockText(
       } catch {
         return ''
       }
+
     case 'checklist':
       return extractFromArrayField(payload, 'items', ['text'])
     case 'callout':
@@ -868,7 +930,9 @@ export function extractBlockText(
         .join(' ')
     case 'table': {
       const rows = payload.rows
+
       if (!Array.isArray(rows)) return ''
+
       return rows
         .map((row) =>
           Array.isArray(row)
@@ -879,6 +943,7 @@ export function extractBlockText(
         )
         .join(' ')
     }
+
     default:
       return extractAllStrings(payload)
   }
@@ -889,6 +954,7 @@ function extractStringField(
   field: string,
 ): string {
   const value = payload[field]
+
   return typeof value === 'string' ? value : ''
 }
 
@@ -898,11 +964,14 @@ function extractFromArrayField(
   keys: string[],
 ): string {
   const arr = payload[field]
+
   if (!Array.isArray(arr)) return ''
+
   return arr
     .map((item) => {
       if (typeof item !== 'object' || item === null) return ''
       const obj = item as Record<string, unknown>
+
       return keys
         .map((k) => (typeof obj[k] === 'string' ? obj[k] : ''))
         .filter(Boolean)
@@ -918,14 +987,19 @@ function extractFromArrayField(
  */
 export function extractAllStrings(value: unknown): string {
   if (value === null || value === undefined) return ''
+
   if (typeof value === 'string') return value
+
   if (typeof value === 'number' || typeof value === 'boolean') return ''
+
   if (Array.isArray(value)) {
     return value.map(extractAllStrings).filter(Boolean).join(' ')
   }
+
   if (typeof value === 'object') {
     return Object.values(value).map(extractAllStrings).filter(Boolean).join(' ')
   }
+
   return ''
 }
 
@@ -942,11 +1016,13 @@ export function executeSearch(
   filters: SearchFilters,
 ): Promise<RpcSearchResult[]> {
   const args = buildSearchRpcArgs(filters)
+
   return client
     .rpc<SearchResultWire | SearchResultWire[]>('search', args)
     .then((raw) => {
       // PostgREST returns an array for table-returning functions.
       const rows = Array.isArray(raw) ? raw : [raw]
+
       return rows.map(toSearchResult)
     })
 }
@@ -965,8 +1041,10 @@ export const searchQueryKeys = {
    */
   search: (filters: SearchFilters) => {
     const parts: (string | number | boolean)[] = ['search-001', 'search']
+
     for (const name of Object.keys(filters).sort()) {
       const value = filters[name as keyof SearchFilters]
+
       // The filter tree is an object: `String()` would make every tree
       // "[object Object]", so editing an applied filter served the old page.
       if (value !== undefined)
@@ -974,6 +1052,7 @@ export const searchQueryKeys = {
           `${name}=${typeof value === 'object' ? JSON.stringify(value) : String(value)}`,
         )
     }
+
     return parts
   },
 }
@@ -1005,13 +1084,18 @@ export function matchTierForField(
   identifier: string,
 ): MatchTier {
   const q = query.trim().toLowerCase()
+
   if (q && field === 'identifier') {
     // Exact identifier match: the query is the identifier or a substring of it.
     if (identifier.toLowerCase().includes(q)) return 0
+
     return 1
   }
+
   if (field === 'title') return 2
+
   if (field === 'tags' || field === 'status' || field === 'kind') return 3
+
   return 4
 }
 
@@ -1025,6 +1109,7 @@ export function rankByTier(
   query: string,
 ): SearchResult[] {
   const q = query.trim()
+
   if (!q) {
     // Browse mode: keep updated_at order (RPC default).
     return [...results].sort(
@@ -1032,11 +1117,15 @@ export function rankByTier(
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     )
   }
+
   return [...results].sort((a, b) => {
     const tierA = matchTierForField(a.matchedField, q, a.identifier)
     const tierB = matchTierForField(b.matchedField, q, b.identifier)
+
     if (tierA !== tierB) return tierA - tierB
+
     if (b.rank !== a.rank) return b.rank - a.rank
+
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
   })
 }
@@ -1100,9 +1189,12 @@ export function savedQueriesKey(workspaceId: string): string {
 export function loadSavedQueries(workspaceId: string): SavedQuery[] {
   try {
     const raw = localStorage.getItem(savedQueriesKey(workspaceId))
+
     if (!raw) return []
     const parsed = JSON.parse(raw)
+
     if (!Array.isArray(parsed)) return []
+
     return parsed
       .filter(
         (s: unknown): s is SavedQuery =>
@@ -1124,21 +1216,27 @@ export function saveQuery(
   const existing = loadSavedQueries(workspaceId)
   // Deduplicate by name + query + filters.
   const dedupKey = `${params.name}|${params.query}|${params.type ?? ''}|${params.kind}|${params.projectId}|${params.status}|${params.ownerId}|${params.dateRange}|${JSON.stringify(params.facets ?? null)}`
+
   const filtered = existing.filter((s) => {
     const key = `${s.name}|${s.query}|${s.type ?? ''}|${s.kind}|${s.projectId}|${s.status}|${s.ownerId}|${s.dateRange}|${JSON.stringify(s.facets ?? null)}`
+
     return key !== dedupKey
   })
+
   const entry: SavedQuery = {
     ...params,
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     ts: Date.now(),
   }
+
   const next = [entry, ...filtered].slice(0, SAVED_MAX)
+
   try {
     localStorage.setItem(savedQueriesKey(workspaceId), JSON.stringify(next))
   } catch {
     /* ignore: private mode / disabled storage */
   }
+
   return next
 }
 
@@ -1148,11 +1246,13 @@ export function deleteSavedQuery(
 ): SavedQuery[] {
   const existing = loadSavedQueries(workspaceId)
   const next = existing.filter((s) => s.id !== id)
+
   try {
     localStorage.setItem(savedQueriesKey(workspaceId), JSON.stringify(next))
   } catch {
     /* ignore */
   }
+
   return next
 }
 
@@ -1188,6 +1288,7 @@ export function deriveSuggestions(
   query: string,
 ): SearchSuggestion[] {
   const q = query.trim().toLowerCase()
+
   if (!q || results.length === 0) return []
   const suggestions: SearchSuggestion[] = []
   const seen = new Set<string>()
@@ -1200,6 +1301,7 @@ export function deriveSuggestions(
       r.identifier.toLowerCase().includes(q)
     ) {
       const key = `id-${r.identifier}`
+
       if (!seen.has(key)) {
         seen.add(key)
         suggestions.push({
@@ -1220,6 +1322,7 @@ export function deriveSuggestions(
     // search suggestion.
     if (r.matchedField === 'tags') {
       const key = `tag-${r.identifier}`
+
       if (!seen.has(key)) {
         seen.add(key)
         suggestions.push({
@@ -1239,13 +1342,16 @@ export function deriveSuggestions(
 
   // 3. Type suggestions: if results span multiple kinds, offer to filter.
   const kindCounts = new Map<string, number>()
+
   for (const r of results) {
     if (r.resultType === 'comment') continue
     kindCounts.set(r.kind, (kindCounts.get(r.kind) ?? 0) + 1)
   }
+
   if (kindCounts.size > 1) {
     for (const [kind, count] of kindCounts) {
       const key = `type-${kind}`
+
       if (!seen.has(key) && count > 0) {
         seen.add(key)
         suggestions.push({
@@ -1279,6 +1385,7 @@ function kindLabelForSuggestion(kind: string): string {
     file: t('projects.search.files'),
     notebook_template: t('projects.search.templates'),
   }
+
   return labels[kind] ?? kind
 }
 
@@ -1437,6 +1544,7 @@ export function savedQueryToSearch(saved: SavedQuery): {
   q: string
 } & SavedSearchFacets {
   const facets = saved.facets ?? {}
+
   return {
     q: typeof facets.text === 'string' ? facets.text : saved.query,
     ...(facets.filter ? { filter: facets.filter } : {}),
@@ -1553,6 +1661,7 @@ export function saveSearchOnAccount(
       0,
     ),
   )
+
   return client.rpc('save_search', {
     p_name: name.trim(),
     p_query: search.q.trim(),
@@ -1621,18 +1730,22 @@ export async function moveBrowserSavedSearches(
   workspaceId: string,
 ): Promise<number> {
   const local = loadSavedQueries(workspaceId)
+
   if (!local.length) return 0
+
   for (const saved of [...local].reverse()) {
     await saveSearchOnAccount(client, saved.name, {
       q: saved.query,
       ...(saved.facets ?? {}),
     })
   }
+
   try {
     localStorage.removeItem(savedQueriesKey(workspaceId))
   } catch {
     /* ignore: private mode / disabled storage */
   }
+
   return local.length
 }
 
@@ -1667,6 +1780,7 @@ export function fetchSearchFacets(
     p_sort: _sort,
     ...args
   } = buildSearchRpcArgs(filters)
+
   return client
     .rpc<SearchFacetWire[] | SearchFacetWire>('search_facets', args)
     .then((raw) =>
@@ -1695,17 +1809,22 @@ export function summariseSearchFacets(
   const projects = new Map<string, number>()
   const wantType = chosen.type ?? []
   const wantProject = chosen.project ?? []
+
   for (const row of rows) {
     const inProject =
       !wantProject.length ||
       (row.projectId !== null && wantProject.includes(row.projectId))
+
     const inType = !wantType.length || wantType.includes(row.group)
+
     if (inProject) types.set(row.group, (types.get(row.group) ?? 0) + row.count)
+
     if (inType && row.projectId)
       projects.set(
         row.projectId,
         (projects.get(row.projectId) ?? 0) + row.count,
       )
   }
+
   return { types, projects }
 }

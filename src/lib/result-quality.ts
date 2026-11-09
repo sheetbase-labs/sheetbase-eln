@@ -52,6 +52,7 @@ export function useQualityOptions(workspaceId: string | undefined): {
     queryFn: () => fetchWorkspaceGeneral(),
     enabled: Boolean(workspaceId),
   })
+
   return {
     specLimits: general.data?.specLimitsEnabled ?? false,
     retention: general.data?.retentionEnabled ?? false,
@@ -83,31 +84,38 @@ export function specVerdict(
 ): SpecVerdict | null {
   if (value === null || value === undefined || Number.isNaN(value)) return null
   const { lowerLimit, upperLimit, alertLower, alertUpper } = limits
+
   if (
     (lowerLimit !== null && value < lowerLimit) ||
     (upperLimit !== null && value > upperLimit)
   ) {
     return 'fail'
   }
+
   if (
     (alertLower !== null && value < alertLower) ||
     (alertUpper !== null && value > alertUpper)
   ) {
     return 'alert'
   }
+
   return 'pass'
 }
 
 /** The limits as a short phrase: "90 to 100", "at least 90", "at most 100". */
 export function describeLimits(limits: SpecLimits): string {
   const { lowerLimit: lo, upperLimit: hi } = limits
+
   if (lo !== null && hi !== null)
     return t('quality.limits.rangeBetween', {
       low: String(lo),
       high: String(hi),
     })
+
   if (lo !== null) return t('quality.limits.rangeAtLeast', { low: String(lo) })
+
   if (hi !== null) return t('quality.limits.rangeAtMost', { high: String(hi) })
+
   return ''
 }
 
@@ -119,21 +127,31 @@ export function limitsProblem(limits: SpecLimits): string | null {
     alertLower: al,
     alertUpper: ah,
   } = limits
+
   const none = lo === null && hi === null && al === null && ah === null
+
   if (none) return null
+
   if (lo === null && hi === null) return 'needsLimit'
+
   if (lo !== null && hi !== null && lo > hi) return 'order'
+
   if (al !== null && lo !== null && al < lo) return 'alertOutside'
+
   if (ah !== null && hi !== null && ah > hi) return 'alertOutside'
+
   if (al !== null && ah !== null && al > ah) return 'order'
+
   return null
 }
 
 /** Read a typed number; an empty box means no limit. */
 export function parseLimit(text: string): number | null {
   const trimmed = text.trim()
+
   if (trimmed === '') return null
   const n = Number(trimmed)
+
   return Number.isFinite(n) ? n : null
 }
 
@@ -162,6 +180,7 @@ export async function fetchFieldLimits(
     'field_spec_limits',
     `?kind=eq.${encodeURIComponent(kind)}&select=field_name,lower_limit,upper_limit,alert_lower,alert_upper,note`,
   )
+
   return rows.map((row) => ({
     fieldName: row.field_name,
     lowerLimit: toNumber(row.lower_limit),
@@ -220,6 +239,7 @@ export async function fetchRecordResults(
     'record_spec_results',
     `?record_id=eq.${recordId}&select=record_id,field_name,value,verdict`,
   )
+
   return rows.map(toResult)
 }
 
@@ -232,6 +252,7 @@ export async function fetchKindResults(
     'record_spec_results',
     `?kind=eq.${encodeURIComponent(kind)}&select=record_id,field_name,value,verdict&limit=5000`,
   )
+
   return rows.map(toResult)
 }
 
@@ -240,7 +261,9 @@ export function worstVerdict(
   results: readonly { verdict: SpecVerdict }[],
 ): SpecVerdict | null {
   if (results.some((r) => r.verdict === 'fail')) return 'fail'
+
   if (results.some((r) => r.verdict === 'alert')) return 'alert'
+
   return results.length ? 'pass' : null
 }
 
@@ -270,8 +293,10 @@ export async function fetchIncidentModels(
     'model_incident_logs',
     '?select=model_key',
   )
+
   if (logs.length === 0) return []
   const list = logs.map((l) => encodeURIComponent(l.model_key)).join(',')
+
   return client.list<IncidentModel>(
     'record_models',
     `?key=in.(${list})&select=key,name,identifier_prefix&order=name.asc`,
@@ -284,6 +309,7 @@ export async function fetchIncidents(
 ): Promise<IncidentEntry[]> {
   if (kinds.length === 0) return []
   const list = kinds.map((k) => encodeURIComponent(k)).join(',')
+
   return client.list<IncidentEntry>(
     'records',
     `?kind=in.(${list})&deleted_at=is.null&order=created_at.desc&limit=5000&select=id,identifier,title,kind,status,custom_fields,created_at,archived_at`,
@@ -392,13 +418,18 @@ export async function createStarterModel(
 /** A stored value as a person reads it: keys become words, dates stay dates. */
 export function readableValue(value: unknown): string {
   if (typeof value === 'number') return String(value)
+
   if (typeof value !== 'string') return ''
   const trimmed = value.trim()
+
   if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) return trimmed.slice(0, 10)
+
   if (/^[a-z][a-z0-9]*(_[a-z0-9]+)*$/.test(trimmed)) {
     const words = trimmed.replace(/_/g, ' ')
+
     return words.charAt(0).toUpperCase() + words.slice(1)
   }
+
   return trimmed
 }
 
@@ -439,6 +470,7 @@ export async function fetchHoldCounts(
   const rows = await client.rpc<
     { hold_id: string; records: number | string }[]
   >('legal_hold_counts', {})
+
   return new Map(rows.map((r) => [r.hold_id, Number(r.records)]))
 }
 
@@ -478,6 +510,7 @@ export async function isRecordOnHold(
   const held = await client.rpc<boolean | null>('is_record_on_hold', {
     p_record_id: recordId,
   })
+
   return held === true
 }
 
@@ -549,21 +582,25 @@ export function useRecordQuality(
   onHold: boolean
 } {
   const options = useQualityOptions(workspaceId)
+
   const results = useQuery({
     queryKey: qualityKeys.recordResults(recordId),
     queryFn: () => fetchRecordResults(notebookDataClient, recordId),
     enabled: options.specLimits,
   })
+
   const limits = useQuery({
     queryKey: qualityKeys.limits(modelKey),
     queryFn: () => fetchFieldLimits(notebookDataClient, modelKey),
     enabled: options.specLimits,
   })
+
   const hold = useQuery({
     queryKey: qualityKeys.recordHold(recordId),
     queryFn: () => isRecordOnHold(notebookDataClient, recordId),
     staleTime: 30_000,
   })
+
   return {
     results: options.specLimits ? (results.data ?? []) : [],
     limitsByField: new Map(

@@ -70,38 +70,50 @@ export function stepProgress(
   const partById = new Map(parts.map((part) => [part.id, part]))
   const currentPartId = parts.find((part) => part.state === 'now')?.id ?? null
   const inPart = new Map<string, number>()
+
   for (const block of blocks) {
     if (block.type === 'procedure_step' && block.partId) {
       inPart.set(block.partId, (inPart.get(block.partId) ?? 0) + 1)
     }
   }
+
   const placed = new Map<string, number>()
   const results = new Map<string, number>()
+
   for (const block of blocks) {
     if (block.type !== 'metric') continue
     const step = text(block.payload.stepBlockId)
+
     if (step) results.set(step, (results.get(step) ?? 0) + 1)
   }
+
   const steps: StepProgress[] = []
   let currentTaken = false
+
   for (const block of blocks) {
     if (block.type !== 'procedure_step') continue
     const payload = block.payload
     const label = text(payload.text).trim()
+
     if (!label) continue
+
     const partId =
       block.partId && partById.has(block.partId) ? block.partId : null
+
     if (partId) placed.set(partId, (placed.get(partId) ?? 0) + 1)
     const done = payload.completed === true
     const note = text(payload.note).trim() || null
     const resultCount = results.get(block.id) ?? 0
+
     const status: StepStatus = done
       ? 'done'
       : note || resultCount > 0 || timerBlockIds.has(block.id)
         ? 'in_progress'
         : 'not_started'
+
     const inCurrentPart = parts.length === 0 || partId === currentPartId
     const current = !done && !currentTaken && inCurrentPart
+
     if (current) currentTaken = true
     steps.push({
       blockId: block.id,
@@ -128,6 +140,7 @@ export function stepProgress(
         : null,
     })
   }
+
   return steps
 }
 
@@ -147,13 +160,16 @@ export function instrumentNamedBy<
   T extends { id: string; name: string; displayId?: string | null },
 >(stepText: string, instruments: readonly T[]): T | null {
   const haystack = stepText.toLowerCase()
+
   const hits = instruments.filter((instrument) => {
     const name = instrument.name.trim().toLowerCase()
     const number = (instrument.displayId ?? '').trim().toLowerCase()
+
     return (
       (name.length >= 4 && haystack.includes(name)) ||
       (number.length >= 4 && haystack.includes(number))
     )
   })
+
   return hits.length === 1 ? hits[0] : null
 }

@@ -10,12 +10,14 @@ import { Field } from '#/components/ui/input'
 
 const stages = ['Discovery', 'Process development', 'Clinical supply']
 const leads = ['Priya Nair', 'Tom Eriksen', 'Amara Okafor', 'Jonas Weber']
+
 const clients = [
   'Internal',
   'AAV Vector Partners',
   'Helix Bio',
   'Northgate Therapeutics',
 ]
+
 const names = [
   'Lentivector stability study',
   'AAV capsid screen',
@@ -30,6 +32,7 @@ const names = [
   'Titre assay bridging',
   'Media screening DoE',
 ]
+
 const projects: PickerOption[] = names.map((label, i) => ({
   id: `p${i}`,
   label,
@@ -55,6 +58,7 @@ function Demo() {
   const [project, setProject] = useState('p0')
   const [reviewer, setReviewer] = useState('')
   const [team, setTeam] = useState<string[]>(['p1', 'p2'])
+
   return (
     <div className="flex w-[420px] flex-col gap-3 p-6">
       <Field label="Project" required>
@@ -93,10 +97,14 @@ function Demo() {
     </div>
   )
 }
+
 const meta = {
   title: 'Pickers/EntityPicker',
   component: Demo,
 } satisfies Meta<typeof Demo>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 export const Default: Story = {}

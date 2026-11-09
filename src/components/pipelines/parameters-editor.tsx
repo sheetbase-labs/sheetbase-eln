@@ -33,6 +33,7 @@ export function ParametersEditor({
       ) : null}
       {parameters.map((parameter, index) => {
         const n = index + 1
+
         return (
           <div
             key={index}

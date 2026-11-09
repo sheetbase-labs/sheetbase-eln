@@ -15,12 +15,14 @@ function Sparkline({
   const span = Math.max(...values) - min || 1
   const w = 64
   const h = 16
+
   const points = values
     .map(
       (v, i) =>
         `${((i / (values.length - 1)) * (w - 2) + 1).toFixed(1)},${(h - 1 - ((v - min) / span) * (h - 2)).toFixed(1)}`,
     )
     .join(' ')
+
   return (
     <svg
       role="img"
@@ -52,6 +54,7 @@ export function CellDisplayView({
   value: unknown
 }) {
   const model = cellDisplayModel(spec, value)
+
   switch (model.kind) {
     case 'empty':
       return <span className="text-fg-faint">—</span>
@@ -98,6 +101,7 @@ export function CellDisplayView({
       return <Sparkline values={model.values} tone={model.tone} />
     case 'svg': {
       const clean = sanitizeSvg(model.svg)
+
       return clean ? (
         <span
           className="inline-block h-5 [&>svg]:h-full [&>svg]:w-auto"

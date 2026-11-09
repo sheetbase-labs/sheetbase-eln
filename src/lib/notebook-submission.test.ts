@@ -27,7 +27,9 @@ function check(
   id: string,
 ) {
   const found = checks.find((item) => item.id === id)
+
   if (!found) throw new Error(`missing check: ${id}`)
+
   return found
 }
 
@@ -59,6 +61,7 @@ describe('submissionReadinessChecks', () => {
       ...readyInput(),
       hasUnsavedWork: true,
     })
+
     expect(check(checks, 'unsaved-drafts').state).toBe('fail')
     expect(check(checks, 'unsaved-drafts').detail).toContain('not saved yet')
     expect(submissionHasBlockingChecks(checks)).toBe(true)
@@ -82,6 +85,7 @@ describe('submissionReadinessChecks', () => {
       digest: null,
       digestPending: true,
     })
+
     expect(check(pending, 'snapshot-digest').state).toBe('pending')
 
     const failed = submissionReadinessChecks({
@@ -90,6 +94,7 @@ describe('submissionReadinessChecks', () => {
       digestPending: false,
       digestError: 'record denied',
     })
+
     expect(check(failed, 'snapshot-digest').state).toBe('fail')
     expect(check(failed, 'snapshot-digest').detail).toBe('record denied')
   })
@@ -99,6 +104,7 @@ describe('submissionReadinessChecks', () => {
       ...readyInput(),
       reviewerCount: 0,
     })
+
     expect(check(checks, 'reviewers').state).toBe('fail')
     expect(submissionHasBlockingChecks(checks)).toBe(true)
   })
@@ -135,6 +141,7 @@ describe('submissionSheetInstanceIds', () => {
       block('b1', 'rich_text', {}, 1),
       block('b2', 'sheet', { instanceId: 'instance-a' }, 3),
     ]
+
     expect(submissionSheetInstanceIds(blocks)).toEqual([
       'instance-b',
       'instance-a',
@@ -146,6 +153,7 @@ describe('submissionSheetInstanceIds', () => {
       block('b1', 'sheet', {}, 1),
       block('b2', 'rich_text', {}, 2),
     ]
+
     expect(submissionSheetInstanceIds(blocks)).toEqual([])
   })
 
@@ -155,6 +163,7 @@ describe('submissionSheetInstanceIds', () => {
       block('b2', 'sheet', { instanceId: 'instance-a' }, 2),
       block('b3', 'sheet', { instanceId: 'instance-a' }, 3),
     ]
+
     expect(submissionCompositionSummary(blocks)).toEqual({
       blockCount: 3,
       // Distinct instances only — the same Sheet embedded twice is one
@@ -184,6 +193,7 @@ describe('submissionSheetInstanceIds', () => {
       lockedAt: null,
       lockedByRevisionId: null,
     }
+
     const block: NotebookBlock = {
       id: 'b1',
       recordId: 'r1',
@@ -196,14 +206,17 @@ describe('submissionSheetInstanceIds', () => {
 
     it('is stable for identical inputs, regardless of payload key order', () => {
       const a = submissionCanonicalSignature({ record, blocks: [block] })
+
       const reordered: NotebookRecord = {
         ...record,
         properties: { dose: 10 },
       }
+
       const b = submissionCanonicalSignature({
         record: reordered,
         blocks: [{ ...block, payload: { doc: { type: 'doc' } } }],
       })
+
       expect(b).toBe(a)
     })
 
@@ -231,11 +244,13 @@ describe('submissionSheetInstanceIds', () => {
 
     it('changes when record metadata or structure versions change', () => {
       const base = submissionCanonicalSignature({ record, blocks: [block] })
+
       const changed = (overrides: Partial<NotebookRecord>) =>
         submissionCanonicalSignature({
           record: { ...record, ...overrides },
           blocks: [block],
         })
+
       expect(changed({ title: 'Renamed' })).not.toBe(base)
       expect(changed({ metadataVersion: 2 })).not.toBe(base)
       expect(changed({ structureVersion: 3 })).not.toBe(base)
@@ -275,6 +290,7 @@ describe('submissionReadinessChecks reviewer minimum', () => {
       reviewerCount: 1,
       minReviewers: 2,
     }).find((check) => check.id === 'reviewers')!
+
     expect(one.state).toBe('fail')
     expect(one.label).toBe('At least 2 reviewers are chosen')
     expect(one.detail).toMatch(/at least 2 reviewers/)
@@ -284,6 +300,7 @@ describe('submissionReadinessChecks reviewer minimum', () => {
       reviewerCount: 2,
       minReviewers: 2,
     }).find((check) => check.id === 'reviewers')!
+
     expect(two.state).toBe('pass')
   })
 })

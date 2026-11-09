@@ -63,6 +63,7 @@ export function hasCapability(
   capability: Capability,
 ): boolean {
   if (!role) return false
+
   switch (capability) {
     case 'workspace.admin':
       return role === 'owner'

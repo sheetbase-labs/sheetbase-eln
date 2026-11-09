@@ -25,10 +25,12 @@ function fakeConnection(prunedCount = 0, calls: string[] = []) {
     query: (async (text: string, values?: unknown[]) => {
       calls.push(text)
       void values
+
       return { rows: [{ result: { prunedCount, pruned: [] } }] }
     }) as RetentionConnection['query'],
     end: vi.fn(async () => {}),
   }
+
   return { conn, calls }
 }
 
@@ -51,14 +53,17 @@ describe('sweepDatasetRetention', () => {
   it('calls the prune RPC with the batch limit and returns the pruned count', async () => {
     const calls: string[] = []
     const values: unknown[][] = []
+
     const conn: RetentionConnection = {
       query: (async (text: string, params?: unknown[]) => {
         calls.push(text)
         values.push(params ?? [])
+
         return { rows: [{ result: { prunedCount: 3, pruned: [] } }] }
       }) as RetentionConnection['query'],
       end: vi.fn(async () => {}),
     }
+
     const deps = { connect: async () => conn }
 
     const pruned = await sweepDatasetRetention(deps, 250)
@@ -72,9 +77,11 @@ describe('sweepDatasetRetention', () => {
 
   it('uses the bounded default batch limit when none is supplied', async () => {
     const values: unknown[][] = []
+
     const conn: RetentionConnection = {
       query: (async (_text: string, params?: unknown[]) => {
         values.push(params ?? [])
+
         return { rows: [{ result: { prunedCount: 0, pruned: [] } }] }
       }) as RetentionConnection['query'],
       end: vi.fn(async () => {}),
@@ -92,11 +99,15 @@ describe('startDatasetRetentionScheduler', () => {
     // Explicit enable is required to run under a test runner.
     process.env.SHEETBASE_SCHEDULER_ENABLED = 'true'
     let attempt = 0
+
     const connect = vi.fn(async (): Promise<RetentionConnection> => {
       attempt += 1
+
       if (attempt === 1) throw new Error('database unavailable')
+
       return fakeConnection(2).conn
     })
+
     const log = silentLog()
 
     startDatasetRetentionScheduler({

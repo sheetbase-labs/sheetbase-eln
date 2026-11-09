@@ -25,11 +25,14 @@ function withEnv(
   run: () => void,
 ): void {
   const previous: Record<string, string | undefined> = {}
+
   for (const [key, value] of Object.entries(values)) {
     previous[key] = process.env[key]
+
     if (value === undefined) delete process.env[key]
     else process.env[key] = value
   }
+
   try {
     run()
   } finally {
@@ -119,6 +122,7 @@ describe('S3 connector config', () => {
       prefix: 'data',
       forcePathStyle: true,
     })
+
     expect(source.bucket).toBe('exports')
     expect(source.prefix).toBe('data/')
     expect(source.endpoint).toBe('https://minio.internal.test')
@@ -146,6 +150,7 @@ describe('PostgreSQL connector config + identifiers', () => {
       sslMode: 'require',
       allowedSchemas: ['public'],
     })
+
     expect(source.host).toBe('db.internal.test')
     expect(source.sslMode).toBe('require')
   })

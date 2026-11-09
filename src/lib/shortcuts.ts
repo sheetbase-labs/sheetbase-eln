@@ -15,6 +15,7 @@
  */
 
 export type ShortcutScope = 'global' | 'panes' | 'list' | 'notebook' | 'review'
+
 export type Platform = 'mac' | 'other'
 
 export interface ShortcutDefinition {
@@ -74,6 +75,7 @@ const KEY_LABELS: Record<string, string | undefined> = {
 
 export function currentPlatform(): Platform {
   if (typeof navigator === 'undefined') return 'other'
+
   return /mac|iphone|ipad|ipod/i.test(navigator.platform || navigator.userAgent)
     ? 'mac'
     : 'other'
@@ -86,6 +88,7 @@ export function parseBinding(
   const parts = binding.split('+')
   const rawKey = parts.pop() ?? ''
   const key = KEY_ALIASES[rawKey.toLowerCase()] ?? rawKey
+
   const parsed: ParsedBinding = {
     key,
     meta: false,
@@ -93,8 +96,10 @@ export function parseBinding(
     alt: false,
     shift: false,
   }
+
   for (const part of parts) {
     const token = part.toLowerCase()
+
     if (token === 'mod') {
       if (platform === 'mac') parsed.meta = true
       else parsed.ctrl = true
@@ -103,6 +108,7 @@ export function parseBinding(
     else if (token === 'alt' || token === 'option') parsed.alt = true
     else if (token === 'shift') parsed.shift = true
   }
+
   return parsed
 }
 
@@ -117,10 +123,12 @@ export function bindingMatches(
   // for an uppercase C. Any declared modifier makes the Shift state exact.
   const hasModifiers = parsed.meta || parsed.ctrl || parsed.alt || parsed.shift
   const shiftMatches = hasModifiers ? event.shiftKey === parsed.shift : true
+
   const keyMatches =
     event.key.toLowerCase() === parsed.key.toLowerCase() ||
     // Shift turns `\\` into `|` on most layouts, so ⌘⇧\\ arrives as `|`.
     (parsed.shift && SHIFTED_KEYS[parsed.key] === event.key)
+
   return (
     keyMatches &&
     event.metaKey === parsed.meta &&
@@ -147,17 +155,22 @@ export function stepMatches(
 /** Should a shortcut be suppressed because the user is typing? */
 export function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
+
   if (
     target.isContentEditable ||
     target.closest('[contenteditable="true"], [contenteditable=""]')
   )
     return true
   const tag = target.tagName.toLowerCase()
+
   if (tag === 'textarea' || tag === 'select') return true
+
   if (tag === 'input') {
     const type = (target as HTMLInputElement).type
+
     return !['button', 'submit', 'reset', 'checkbox', 'radio'].includes(type)
   }
+
   return false
 }
 
@@ -165,18 +178,25 @@ export function isEditableTarget(target: EventTarget | null): boolean {
 export function formatShortcut(binding: string, platform: Platform): string {
   // A sequence reads "G then H", matching the design's wording.
   const steps = sequenceSteps(binding)
+
   if (steps.length > 1) {
     return steps.map((step) => formatShortcut(step, platform)).join(' then ')
   }
+
   const parsed = parseBinding(binding, platform)
   const parts: string[] = []
+
   if (parsed.meta) parts.push('⌘')
+
   if (parsed.ctrl) parts.push('Ctrl')
+
   if (parsed.alt) parts.push(platform === 'mac' ? '⌥' : 'Alt')
+
   if (parsed.shift) parts.push(platform === 'mac' ? '⇧' : 'Shift')
   const label = KEY_LABELS[parsed.key]
   const key = label ?? (parsed.key === '\\' ? '\\' : parsed.key.toUpperCase())
   parts.push(key)
+
   return platform === 'mac' ? parts.join('') : parts.join('+')
 }
 
@@ -208,11 +228,13 @@ export function createShortcutRegistry(
   definitions: ShortcutDefinition[],
 ): ShortcutRegistry {
   const seen = new Set<string>()
+
   for (const definition of definitions) {
     if (seen.has(definition.id))
       throw new Error(`Duplicate shortcut id: ${definition.id}`)
     seen.add(definition.id)
   }
+
   return {
     definitions,
     inScope: (scope) => definitions.filter((d) => d.scope === scope),

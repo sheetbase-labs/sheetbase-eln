@@ -9,7 +9,9 @@ const meta = {
   tags: ['autodocs'],
   args: { count: 3, label: 'Comments on block', onClick: () => {} },
 } satisfies Meta<typeof CommentButton>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** With unresolved comments the badge appears. */

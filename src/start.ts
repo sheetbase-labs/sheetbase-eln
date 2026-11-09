@@ -20,7 +20,9 @@ const pipelineSchedulerMiddleware = createMiddleware().server(
   async ({ next }) => {
     const { startPipelineScheduler } =
       await import('#/lib/pipeline-scheduler.server')
+
     startPipelineScheduler()
+
     return next()
   },
 )
@@ -31,6 +33,7 @@ const pipelineSchedulerMiddleware = createMiddleware().server(
 const pipelineWorkerMiddleware = createMiddleware().server(async ({ next }) => {
   const { startPipelineWorker } = await import('#/lib/pipeline-queue.server')
   startPipelineWorker()
+
   return next()
 })
 
@@ -38,6 +41,7 @@ const pipelineWorkerMiddleware = createMiddleware().server(async ({ next }) => {
 const emailSchedulerMiddleware = createMiddleware().server(async ({ next }) => {
   const { startEmailScheduler } = await import('#/lib/email-scheduler.server')
   startEmailScheduler()
+
   return next()
 })
 
@@ -45,6 +49,7 @@ const emailSchedulerMiddleware = createMiddleware().server(async ({ next }) => {
 const pushSchedulerMiddleware = createMiddleware().server(async ({ next }) => {
   const { startPushScheduler } = await import('#/lib/push-delivery.server')
   startPushScheduler()
+
   return next()
 })
 
@@ -53,7 +58,9 @@ const channelSchedulerMiddleware = createMiddleware().server(
   async ({ next }) => {
     const { startChannelScheduler } =
       await import('#/lib/extensions/channel-delivery.server')
+
     startChannelScheduler()
+
     return next()
   },
 )
@@ -66,7 +73,9 @@ const datasetRetentionSchedulerMiddleware = createMiddleware().server(
   async ({ next }) => {
     const { startDatasetRetentionScheduler } =
       await import('#/lib/dataset-retention-scheduler.server')
+
     startDatasetRetentionScheduler()
+
     return next()
   },
 )
@@ -78,7 +87,9 @@ const fileTextBackfillMiddleware = createMiddleware().server(
   async ({ next }) => {
     const { startFileTextBackfill } =
       await import('#/lib/file-text-backfill.server')
+
     startFileTextBackfill()
+
     return next()
   },
 )
@@ -89,7 +100,9 @@ const embeddingIndexerMiddleware = createMiddleware().server(
   async ({ next }) => {
     const { startEmbeddingIndexer } =
       await import('#/lib/embedding-index.server')
+
     startEmbeddingIndexer()
+
     return next()
   },
 )
@@ -102,7 +115,9 @@ const sampleHoldSchedulerMiddleware = createMiddleware().server(
   async ({ next }) => {
     const { startSampleHoldScheduler } =
       await import('#/lib/sample-hold.server')
+
     startSampleHoldScheduler()
+
     return next()
   },
 )
@@ -112,7 +127,9 @@ const contractSchedulerMiddleware = createMiddleware().server(
   async ({ next }) => {
     const { startContractScheduler } =
       await import('#/lib/data-contracts/scheduler.server')
+
     startContractScheduler()
+
     return next()
   },
 )
@@ -125,7 +142,9 @@ const reagentExpirySchedulerMiddleware = createMiddleware().server(
   async ({ next }) => {
     const { startReagentExpiryScheduler } =
       await import('#/lib/reagent-expiry.server')
+
     startReagentExpiryScheduler()
+
     return next()
   },
 )
@@ -135,7 +154,9 @@ const reagentExpirySchedulerMiddleware = createMiddleware().server(
 const recurringWorkMiddleware = createMiddleware().server(async ({ next }) => {
   const { startRecurringWorkScheduler } =
     await import('#/lib/recurring-work.server')
+
   startRecurringWorkScheduler()
+
   return next()
 })
 
@@ -144,7 +165,9 @@ const recurringWorkMiddleware = createMiddleware().server(async ({ next }) => {
 const absenceCoverMiddleware = createMiddleware().server(async ({ next }) => {
   const { startAbsenceCoverScheduler } =
     await import('#/lib/absence-cover.server')
+
   startAbsenceCoverScheduler()
+
   return next()
 })
 
@@ -153,7 +176,9 @@ const absenceCoverMiddleware = createMiddleware().server(async ({ next }) => {
 const labWatcherMiddleware = createMiddleware().server(async ({ next }) => {
   const { startLabWatcherScheduler } =
     await import('#/lib/lab-watcher-scheduler.server')
+
   startLabWatcherScheduler()
+
   return next()
 })
 
@@ -162,6 +187,7 @@ const labWatcherMiddleware = createMiddleware().server(async ({ next }) => {
 const stepTimerMiddleware = createMiddleware().server(async ({ next }) => {
   const { startStepTimerScheduler } = await import('#/lib/step-timers.server')
   startStepTimerScheduler()
+
   return next()
 })
 
@@ -172,7 +198,9 @@ const auditVerificationMiddleware = createMiddleware().server(
   async ({ next }) => {
     const { startAuditVerificationScheduler } =
       await import('#/lib/audit-verification.server')
+
     startAuditVerificationScheduler()
+
     return next()
   },
 )
@@ -183,7 +211,9 @@ const auditVerificationMiddleware = createMiddleware().server(
 const timestampMiddleware = createMiddleware().server(async ({ next }) => {
   const { startTimestampScheduler } =
     await import('#/lib/timestamps/stamper.server')
+
   startTimestampScheduler()
+
   return next()
 })
 
@@ -193,10 +223,14 @@ const timestampMiddleware = createMiddleware().server(async ({ next }) => {
 const lineageMiddleware = createMiddleware().server(async ({ next }) => {
   const { startLineageScheduler } =
     await import('#/lib/provenance/lineage-emitter.server')
+
   startLineageScheduler()
+
   const { startReproductionScheduler } =
     await import('#/lib/provenance/reproduction-requests.server')
+
   startReproductionScheduler()
+
   return next()
 })
 
@@ -206,7 +240,9 @@ const lineageMiddleware = createMiddleware().server(async ({ next }) => {
 const scheduleMiddleware = createMiddleware().server(async ({ next }) => {
   const { startScheduleScheduler } =
     await import('#/lib/scheduler/plan-requests.server')
+
   startScheduleScheduler()
+
   return next()
 })
 
@@ -215,7 +251,9 @@ const scheduleMiddleware = createMiddleware().server(async ({ next }) => {
 const lakeMiddleware = createMiddleware().server(async ({ next }) => {
   const { startLakeScheduler } =
     await import('#/lib/lake/lake-scheduler.server')
+
   startLakeScheduler()
+
   return next()
 })
 
@@ -225,6 +263,7 @@ const lakeMiddleware = createMiddleware().server(async ({ next }) => {
 const publisherMiddleware = createMiddleware().server(async ({ next }) => {
   const { startPublisher } = await import('#/lib/publishing/publisher.server')
   startPublisher()
+
   return next()
 })
 
@@ -235,7 +274,9 @@ const backupSchedulerMiddleware = createMiddleware().server(
   async ({ next }) => {
     const { startBackupScheduler } =
       await import('#/lib/workspace-export/backup-scheduler.server')
+
     startBackupScheduler()
+
     return next()
   },
 )
@@ -247,7 +288,9 @@ const webhookDeliveryMiddleware = createMiddleware().server(
   async ({ next }) => {
     const { startWebhookDeliveryEngine } =
       await import('#/lib/webhook-delivery')
+
     startWebhookDeliveryEngine()
+
     return next()
   },
 )
@@ -264,10 +307,13 @@ const csrfMiddleware = createCsrfMiddleware({
 const failureContextMiddleware = createMiddleware().server(
   async ({ request, next }) => {
     const result = await next()
+
     const { annotateFailure, annotateSummary } =
       await import('#/lib/failure-context.server')
+
     annotateSummary(request, result.response)
     await annotateFailure(result.response)
+
     return result
   },
 )
@@ -282,9 +328,11 @@ const securityHeadersMiddleware = createMiddleware().server(
     // network, `sandbox` without `allow-same-origin`). Keep it, and leave its
     // scripts alone: a nonce added inside a bundle's strings would break it.
     const ownPolicy = headers.get('content-security-policy')
+
     if (ownPolicy && /(^|;)\s*sandbox\b/.test(ownPolicy)) {
       applySecurityHeaders(headers)
       headers.set('content-security-policy', ownPolicy)
+
       return result
     }
 
@@ -292,6 +340,7 @@ const securityHeadersMiddleware = createMiddleware().server(
     // policy; there is no document script surface to protect.
     if (!contentType.includes('text/html')) {
       applySecurityHeaders(headers)
+
       return result
     }
 
@@ -310,6 +359,7 @@ const securityHeadersMiddleware = createMiddleware().server(
     applySecurityHeaders(headers, undefined, nonce)
     const html = await result.response.text()
     const nonced = injectNonceIntoHtml(html, nonce)
+
     return {
       ...result,
       response: new Response(nonced, {

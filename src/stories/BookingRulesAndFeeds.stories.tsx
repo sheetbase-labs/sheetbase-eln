@@ -59,7 +59,9 @@ const meta = {
   ],
   args: { instrument, canManage: true },
 } satisfies Meta<typeof BookingRulesSection>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Rules set: training, a length limit and how far ahead. */

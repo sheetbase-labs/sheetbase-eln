@@ -46,6 +46,7 @@ export interface StreamResult {
 
 function errorResponse(status: number, code: string, message: string) {
   if (status >= 500) annotateRequest({ error: { code, message } })
+
   return new Response(JSON.stringify({ error: { code, message } }), {
     status,
     headers: { 'content-type': 'application/json' },
@@ -63,7 +64,9 @@ export function parseStreamBody(raw: unknown): {
   if (!raw || typeof raw !== 'object') {
     throw new PickupError(400, 'invalid_request', 'Send a JSON body.')
   }
+
   const body = raw as Record<string, unknown>
+
   const named = (
     [
       ['instrumentId', 'instrument'],
@@ -71,6 +74,7 @@ export function parseStreamBody(raw: unknown): {
       ['storageRoomId', 'room'],
     ] as const
   ).filter(([key]) => body[key] !== undefined)
+
   if (named.length !== 1) {
     throw new PickupError(
       400,
@@ -78,8 +82,10 @@ export function parseStreamBody(raw: unknown): {
       'Name one place for the readings: instrumentId, storageUnitId or storageRoomId.',
     )
   }
+
   const [idKey, kind] = named[0]
   const targetId = body[idKey]
+
   if (typeof targetId !== 'string' || !UUID.test(targetId)) {
     throw new PickupError(
       400,
@@ -87,7 +93,9 @@ export function parseStreamBody(raw: unknown): {
       `${idKey} must be the id of the ${kind === 'instrument' ? 'instrument' : kind === 'unit' ? 'storage unit' : 'room'}.`,
     )
   }
+
   const list = body['readings']
+
   if (
     !Array.isArray(list) ||
     list.length === 0 ||
@@ -99,10 +107,12 @@ export function parseStreamBody(raw: unknown): {
       `Send between 1 and ${STREAM_MAX_READINGS} readings at a time.`,
     )
   }
+
   const readings = list.map((item, index): StreamReading => {
     const row = (item ?? {}) as Record<string, unknown>
     const feed = typeof row['feed'] === 'string' ? row['feed'].trim() : ''
     const value = row['value']
+
     if (!feed || feed.length > 80) {
       throw new PickupError(
         400,
@@ -110,6 +120,7 @@ export function parseStreamBody(raw: unknown): {
         `Reading ${index + 1} needs a feed name of up to 80 characters.`,
       )
     }
+
     if (typeof value !== 'number' || !Number.isFinite(value)) {
       throw new PickupError(
         400,
@@ -117,10 +128,13 @@ export function parseStreamBody(raw: unknown): {
         `Reading ${index + 1} (${feed}) needs a number for value.`,
       )
     }
+
     const reading: StreamReading = { feed, value }
+
     if (typeof row['unit'] === 'string' && row['unit'].trim()) {
       reading.unit = row['unit'].trim().slice(0, 20)
     }
+
     if (typeof row['at'] === 'string' && row['at']) {
       if (Number.isNaN(Date.parse(row['at']))) {
         throw new PickupError(
@@ -129,10 +143,13 @@ export function parseStreamBody(raw: unknown): {
           `Reading ${index + 1} (${feed}) has a time that isn’t a date.`,
         )
       }
+
       reading.at = new Date(row['at']).toISOString()
     }
+
     return reading
   })
+
   return { target: { kind, id: targetId }, readings }
 }
 
@@ -141,10 +158,13 @@ export async function runStream(
   deps: StreamDeps,
 ): Promise<StreamResult> {
   const token = readBearer(request.headers)
+
   if (!token) {
     throw new PickupError(401, 'unauthenticated', 'Bearer token required.')
   }
+
   let claims: ExternalClaims
+
   try {
     claims = await deps.verifyCredential(token)
   } catch (error) {
@@ -152,12 +172,14 @@ export async function runStream(
       error instanceof Error && 'code' in error
         ? String((error as { code: unknown }).code)
         : 'invalid_token'
+
     throw new PickupError(
       code === 'insufficient_scope' ? 403 : 401,
       code,
       boundedErrorMessage(error),
     )
   }
+
   if (claims.role !== 'authenticated') {
     throw new PickupError(
       403,
@@ -165,6 +187,7 @@ export async function runStream(
       'Live readings need a personal API token; service credentials cannot write.',
     )
   }
+
   if (!claims.scopes.includes('datasets:write')) {
     throw new PickupError(
       403,
@@ -172,20 +195,27 @@ export async function runStream(
       'Credential lacks scope: datasets:write',
     )
   }
+
   const declared = Number(request.headers.get('content-length') ?? '')
+
   if (Number.isFinite(declared) && declared > STREAM_MAX_BYTES) {
     throw new PickupError(413, 'too_large', 'That batch is too large.')
   }
+
   const text = await request.text()
+
   if (text.length > STREAM_MAX_BYTES) {
     throw new PickupError(413, 'too_large', 'That batch is too large.')
   }
+
   let raw: unknown
+
   try {
     raw = JSON.parse(text)
   } catch {
     throw new PickupError(400, 'invalid_request', 'The body is not JSON.')
   }
+
   const { target, readings } = parseStreamBody(raw)
   annotateRequest({
     auth: 'api_credential',
@@ -195,12 +225,14 @@ export async function runStream(
       : { storage: { kind: target.kind, id: target.id } }),
   })
   const client = deps.createClient(token)
+
   if (target.kind === 'instrument') {
     return client.rpc<StreamResult>('record_instrument_readings', {
       p_instrument_id: target.id,
       p_readings: readings,
     })
   }
+
   return client.rpc<StreamResult>('record_storage_readings', {
     p_unit_id: target.kind === 'unit' ? target.id : null,
     p_room_id: target.kind === 'room' ? target.id : null,
@@ -215,8 +247,10 @@ export async function handleStream(
   if (request.method !== 'POST') {
     return errorResponse(405, 'method_not_allowed', 'Use POST.')
   }
+
   try {
     const result = await runStream(request, deps)
+
     return new Response(JSON.stringify(result), {
       status: 201,
       headers: { 'content-type': 'application/json' },
@@ -225,6 +259,7 @@ export async function handleStream(
     if (error instanceof PickupError) {
       return errorResponse(error.status, error.code, error.message)
     }
+
     if (error instanceof DataClientError) {
       // The database refused: no access to the instrument, a retired
       // instrument, a reading it will not take. Sending it again won't help.
@@ -235,10 +270,12 @@ export async function handleStream(
           `The token’s owner cannot send readings here: ${boundedErrorMessage(error)}`,
         )
       }
+
       if (error.status === 400 || error.status === 422) {
         return errorResponse(422, 'refused', boundedErrorMessage(error))
       }
     }
+
     return errorResponse(502, 'stream_failed', boundedErrorMessage(error))
   }
 }

@@ -15,10 +15,12 @@ import {
 } from './sheet-instance-demo'
 
 const WORKSPACE = '798f250c-99bb-4460-9a2a-e9ec98fbecab'
+
 // Resolved at seed time to the actual workspace owner (the logged-in user).
 // This ensures dashboard queries (which filter by current user) match seeded data.
 let GARETH = 'xB46roJKgzg1CEPqF8JmgkvCMilNGHtn'
 const EPOCH = new Date('2026-06-28T09:00:00Z')
+
 const uuid = (n: number) =>
   `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`
 
@@ -26,6 +28,7 @@ function daysAgo(n: number, hour = 10): Date {
   const d = new Date(EPOCH)
   d.setUTCDate(d.getUTCDate() + n)
   d.setUTCHours(hour, 0, 0, 0)
+
   return d
 }
 
@@ -33,15 +36,18 @@ function daysAgo(n: number, hour = 10): Date {
 export async function authClient(db: Parameters<SeedStep['run']>[0]) {
   const poolUrl = new URL(db.$client.options.connectionString ?? '')
   const pgrst = new URL(process.env.PGRST_DB_URI ?? '')
+
   if (!pgrst.username)
     throw new Error('PGRST_DB_URI is required for month seed')
   poolUrl.username = pgrst.username
   poolUrl.password = pgrst.password
+
   const jwt = JSON.stringify({
     sub: GARETH,
     workspace_id: WORKSPACE,
     role: 'authenticated',
   })
+
   const client = new Client({ connectionString: poolUrl.toString() })
   await client.connect()
   await client.query('SET ROLE authenticated')
@@ -55,6 +61,7 @@ export async function authClient(db: Parameters<SeedStep['run']>[0]) {
   const writer = new Client({ connectionString: migratorUrl.toString() })
   await writer.connect()
   await writer.query("SELECT set_config('request.jwt.claims',$1,false)", [jwt])
+
   return {
     client,
     rpc: async <T extends QueryResultRow = Record<string, unknown>>(
@@ -63,6 +70,7 @@ export async function authClient(db: Parameters<SeedStep['run']>[0]) {
     ) => {
       if (!/^[a-z_]+$/.test(name)) throw new Error(`Unsafe RPC name: ${name}`)
       const args = params.map((_, i) => `$${i + 1}`).join(',')
+
       return client.query<T>(`select * from api.${name}(${args})`, params)
     },
     migratorRpc: async <T extends QueryResultRow = Record<string, unknown>>(
@@ -71,6 +79,7 @@ export async function authClient(db: Parameters<SeedStep['run']>[0]) {
     ) => {
       if (!/^[a-z_]+$/.test(name)) throw new Error(`Unsafe RPC name: ${name}`)
       const args = params.map((_, i) => `$${i + 1}`).join(',')
+
       return writer.query<T>(`select * from api.${name}(${args})`, params)
     },
     close: async () => {
@@ -87,11 +96,13 @@ const people = [
   ["Tom O'Brien", 'tom.obrien@sheetbase.test', 'member'],
   ['Dr. Anna Kowalski', 'anna.kowalski@sheetbase.test', 'reviewer'],
 ] as const
+
 const projects = [
   ['cell-therapy', 'CAR-T Cell Therapy Development'],
   ['upstream-process', 'Upstream Process Optimization'],
   ['quality-assurance', 'Quality Assurance & Stability'],
 ] as const
+
 const experimentTitles = [
   'Transduction efficiency optimization - Batch 001',
   'Stability study week 2 - 4°C storage',
@@ -129,6 +140,7 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
   // Resolve the actual workspace owner (the OAuth-logged-in user, not the
   // hardcoded seed ID) so seeded data is visible in the dashboard.
   const oldGareth = GARETH
+
   const ownerRow = await db
     .select({ userId: schema.workspaceMemberships.userId })
     .from(schema.workspaceMemberships)
@@ -136,12 +148,14 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
       sql`${schema.workspaceMemberships.workspaceId} = ${WORKSPACE} AND ${schema.workspaceMemberships.role} = 'owner' AND ${schema.workspaceMemberships.userId} != ${oldGareth}`,
     )
     .limit(1)
+
   if (ownerRow[0]?.userId && ownerRow[0].userId !== GARETH) {
     // Migrate existing data from the old hardcoded user ID to the actual workspace owner.
     // Bypass triggers (some records may be locked by reviews). session_replication_role
     // is restored in a finally block so a failing UPDATE never leaves triggers disabled.
     const newGareth = ownerRow[0].userId
     await db.execute(sql`SET session_replication_role = replica`)
+
     try {
       await db.execute(
         sql`UPDATE api.records SET created_by_user_id = ${newGareth}, updated_by_user_id = ${newGareth} WHERE workspace_id = ${WORKSPACE} AND created_by_user_id = ${GARETH}`,
@@ -164,6 +178,7 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
     } finally {
       await db.execute(sql`SET session_replication_role = DEFAULT`)
     }
+
     GARETH = newGareth
   }
 
@@ -184,6 +199,7 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
         set: { role },
       })
   }
+
   for (const [i, [key, title]] of projects.entries()) {
     await db
       .insert(schema.projects)
@@ -220,6 +236,7 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
       updatedByUserId: GARETH,
     }),
   )
+
   for (let i = 0; i < 10; i++)
     records.push({
       id: uuid(0x340 + i),
@@ -241,6 +258,7 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
       createdByUserId: GARETH,
       updatedByUserId: GARETH,
     })
+
   const materialNames = [
     'Dulbecco’s PBS',
     'Human IL-2',
@@ -248,6 +266,7 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
     'Trypan blue',
     'Endotoxin assay reagent',
   ]
+
   for (let i = 0; i < 5; i++)
     records.push({
       id: uuid(0x350 + i),
@@ -268,6 +287,7 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
       createdByUserId: GARETH,
       updatedByUserId: GARETH,
     })
+
   for (let i = 0; i < 3; i++)
     records.push({
       id: uuid(0x360 + i),
@@ -288,6 +308,7 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
       createdByUserId: GARETH,
       updatedByUserId: GARETH,
     })
+
   for (let i = 0; i < 10; i++)
     records.push({
       id: uuid(0x370 + i),
@@ -304,6 +325,7 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
       createdByUserId: GARETH,
       updatedByUserId: GARETH,
     })
+
   for (const record of records)
     await db
       .insert(schema.records)
@@ -317,23 +339,30 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
       .from(schema.blocks)
       .where(eq(schema.blocks.recordId, uuid(0x300 + i)))
       .limit(1)
+
     if (existingBlocks.length > 0) continue
+
     const richTextDoc = (content: unknown[]) => ({
       doc: { type: 'doc' as const, content },
     })
+
     const paragraph = (text: string) => ({
       type: 'paragraph' as const,
       content: [{ type: 'text' as const, text }],
     })
+
     const heading = (level: 2 | 3, text: string) => ({
       type: 'heading' as const,
       attrs: { level },
       content: [{ type: 'text' as const, text }],
     })
+
     const isViability = i % 2 === 1
+
     const resultValue = isViability
       ? `${92 + (i % 7)}%`
       : `${(2.8 + i / 10).toFixed(1)}e9 IU/mL`
+
     const payloads = [
       {
         type: 'rich_text' as const,
@@ -434,6 +463,7 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
         },
       },
     ]
+
     for (const [j, block] of payloads.entries())
       await db
         .insert(schema.blocks)
@@ -447,17 +477,21 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
         })
         .onConflictDoNothing({ target: schema.blocks.id })
   }
+
   const storage = join(process.cwd(), '.storage', 'objects')
   await mkdir(storage, { recursive: true })
+
   for (let i = 0; i < 10; i++) {
     const body = `sample,ct,viability\nS${i + 1},${(19.5 + i / 3).toFixed(2)},${94 + (i % 5)}\n`
     const key = `${WORKSPACE}/${uuid(0x370 + i)}/${createHash('md5').update(`month-file-${i}`).digest('hex')}`
+
     if (i < 4) {
       await mkdir(join(storage, WORKSPACE, uuid(0x370 + i)), {
         recursive: true,
       })
       await writeFile(join(storage, key), body)
     }
+
     await db
       .insert(schema.fileObjects)
       .values({
@@ -481,6 +515,7 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
 
 async function upsertOperations(db: Parameters<SeedStep['run']>[0]) {
   const auth = await authClient(db)
+
   try {
     // ADR-0054 — instruments are registered through the canonical RPC and booked by instrument id;
     // their calendar resource is derived from the registry, so none is authored by hand here. The
@@ -489,16 +524,20 @@ async function upsertOperations(db: Parameters<SeedStep['run']>[0]) {
       ['QuantStudio 7', 'qpcr', 'Analytics Lab'],
       ['BD FACSAria', 'other', 'Cell Lab'],
     ] as const
+
     const instrumentIds: string[] = []
+
     for (const [name, type, location] of instrumentDefs) {
       const found = await auth.client.query<{ id: string }>(
         'select id from api.instruments where workspace_id=$1 and name=$2',
         [WORKSPACE, name],
       )
+
       if (found.rowCount) {
         instrumentIds.push(found.rows[0].id)
         continue
       }
+
       const created = await auth.rpc<{ id: string }>('create_instrument', [
         WORKSPACE,
         name,
@@ -508,16 +547,20 @@ async function upsertOperations(db: Parameters<SeedStep['run']>[0]) {
         null,
         location,
       ])
+
       instrumentIds.push(created.rows[0].id)
     }
+
     // Booking an instrument requires a current qualification (LAB-06.3, unconditional since
     // ADR-0054), so the seed's booker holds one on every instrument it books.
     const qualifiedUntil = new Date(Date.now() + 365 * 86_400_000)
+
     for (const instrumentId of instrumentIds) {
       const granted = await auth.client.query(
         'select 1 from api.instrument_qualifications where instrument_id=$1 and user_id=$2 and valid_until > now()',
         [instrumentId, GARETH],
       )
+
       if (!granted.rowCount)
         await auth.rpc('set_instrument_qualification', [
           instrumentId,
@@ -525,10 +568,12 @@ async function upsertOperations(db: Parameters<SeedStep['run']>[0]) {
           qualifiedUntil,
         ])
     }
+
     const room = await auth.client.query<{ id: string }>(
       'select id from api.calendar_resources where workspace_id=$1 and code=$2',
       [WORKSPACE, 'MEET'],
     )
+
     const roomId = room.rowCount
       ? room.rows[0].id
       : (
@@ -544,13 +589,17 @@ async function upsertOperations(db: Parameters<SeedStep['run']>[0]) {
             JSON.stringify({ seeded: 'month' }),
           ])
         ).rows[0].id
+
     const resourceIds = [...instrumentIds, roomId]
+
     for (let i = 0; i < 30; i++) {
       const title = `Month seed booking ${String(i + 1).padStart(2, '0')}`
+
       const exists = await auth.client.query(
         'select 1 from api.calendar_bookings where workspace_id=$1 and title=$2',
         [WORKSPACE, title],
       )
+
       if (!exists.rowCount)
         await auth.rpc('create_booking', [
           WORKSPACE,
@@ -579,11 +628,13 @@ async function upsertOperations(db: Parameters<SeedStep['run']>[0]) {
       'Regulatory Documentation',
       'Materials Management',
     ]
+
     for (const [i, name] of streams.entries()) {
       const found = await auth.client.query(
         'select id from api.study_workstreams where workspace_id=$1 and name=$2',
         [WORKSPACE, name],
       )
+
       if (!found.rowCount)
         await auth.rpc('create_study_workstream', [
           WORKSPACE,
@@ -593,18 +644,22 @@ async function upsertOperations(db: Parameters<SeedStep['run']>[0]) {
           i,
         ])
     }
+
     const ws = (
       await auth.client.query<{ id: string }>(
         'select id from api.study_workstreams where workspace_id=$1 and name=any($2)',
         [WORKSPACE, streams],
       )
     ).rows
+
     for (let i = 0; i < 40; i++) {
       const title = `Study plan ${String(i + 1).padStart(2, '0')} - ${['culture setup', 'assay execution', 'data review', 'documentation'][i % 4]}`
+
       const found = await auth.client.query(
         'select 1 from api.study_tasks where workspace_id=$1 and title=$2',
         [WORKSPACE, title],
       )
+
       if (!found.rowCount)
         await auth.rpc('create_study_task', [
           WORKSPACE,
@@ -645,7 +700,9 @@ async function upsertOperations(db: Parameters<SeedStep['run']>[0]) {
   const tasks = await db
     .select({ id: schema.studyTasks.id })
     .from(schema.studyTasks)
+
   const monthTasks = tasks.slice(-40)
+
   for (let i = 0; i < 9 && i + 1 < monthTasks.length; i++)
     await db
       .insert(schema.studyTaskDependencies)
@@ -657,6 +714,7 @@ async function upsertOperations(db: Parameters<SeedStep['run']>[0]) {
         createdByUserId: GARETH,
       })
       .onConflictDoNothing({ target: schema.studyTaskDependencies.id })
+
   for (let i = 0; i < 5 && i < monthTasks.length; i++)
     await db
       .insert(schema.studyDeliverables)
@@ -698,9 +756,11 @@ async function upsertOperations(db: Parameters<SeedStep['run']>[0]) {
       target: schema.instruments.id,
       set: { name: 'BD FACSAria III' },
     })
+
   for (let i = 0; i < 15; i++) {
     const status =
       i < 10 ? 'completed' : i < 12 ? 'running' : i === 12 ? 'failed' : 'queued'
+
     await db
       .insert(schema.instrumentRuns)
       .values({
@@ -735,6 +795,7 @@ async function upsertOperations(db: Parameters<SeedStep['run']>[0]) {
             status === 'completed' ? 100 : status === 'running' ? 55 : 0,
         },
       })
+
     if (i < 10) {
       await db
         .insert(schema.instrumentObservations)
@@ -791,6 +852,7 @@ async function upsertOperations(db: Parameters<SeedStep['run']>[0]) {
 
 async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
   const auth = await authClient(db)
+
   try {
     // --- Reports (RPC-created, lookup-or-create by document_identifier) ---
     const reportDefs = [
@@ -810,13 +872,17 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
         2,
       ],
     ] as const
+
     for (const [i, [title, subtitle, projIdx]] of reportDefs.entries()) {
       const docId = `RPT-2026-${String(i + 1).padStart(4, '0')}`
+
       const found = await auth.client.query(
         'select id from api.report_definitions where workspace_id=$1 and document_identifier=$2',
         [WORKSPACE, docId],
       )
+
       let reportId: string
+
       if (found.rowCount) {
         reportId = found.rows[0].id as string
       } else {
@@ -826,6 +892,7 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
           subtitle,
           uuid(0x200 + projIdx),
         ])
+
         reportId = res.rows[0].id as string
         // Update document_identifier to our stable value
         await auth.client.query(
@@ -839,6 +906,7 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
         'select count(*)::int as n from api.report_sections where report_id=$1',
         [reportId],
       )
+
       if (existingSections.rows[0].n === 0) {
         const sectionDefs = [
           ['Executive Summary', 'text', 'free_text'],
@@ -847,6 +915,7 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
           ['Discussion and Conclusions', 'text', 'free_text'],
           ['Appendix — Raw Data References', 'text', 'free_text'],
         ] as const
+
         for (const [, [secTitle, secType, srcType]] of sectionDefs.entries()) {
           await auth.rpc('add_report_section', [
             WORKSPACE,
@@ -863,14 +932,17 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
     // --- Revisions for 8 completed experiments ---
     // Create simple revisions that capture the experiment state for review
     const experimentIds = Array.from({ length: 8 }, (_, i) => uuid(0x300 + i))
+
     for (let i = 0; i < 8; i++) {
       const recordId = experimentIds[i]
       const revId = uuid(0x400 + i)
+
       const existing = await db
         .select({ id: schema.revisions.id })
         .from(schema.revisions)
         .where(eq(schema.revisions.id, revId))
         .limit(1)
+
       if (existing.length === 0) {
         const snapshot = {
           record: {
@@ -882,9 +954,11 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
           blocks: [],
           files: [],
         }
+
         const digest = createHash('sha256')
           .update(JSON.stringify(snapshot))
           .digest('hex')
+
         await db
           .insert(schema.revisions)
           .values({
@@ -910,17 +984,20 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
 
     // --- Review submissions (8 submissions with various states) ---
     const reviewerIds = people.map((_, i) => uuid(0x201 + i))
+
     for (let i = 0; i < 8; i++) {
       const subId = uuid(0x420 + i)
       const revId = uuid(0x400 + i)
       const recordId = experimentIds[i]
       // 5 approved, 2 returned (changes requested), 1 submitted (pending)
       const state = i < 5 ? 'approved' : i < 7 ? 'returned' : 'submitted'
+
       const existing = await db
         .select({ id: schema.reviewSubmissions.id })
         .from(schema.reviewSubmissions)
         .where(eq(schema.reviewSubmissions.id, subId))
         .limit(1)
+
       if (existing.length === 0) {
         await db
           .insert(schema.reviewSubmissions)
@@ -948,17 +1025,20 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
       if (i < 7) {
         const decId = uuid(0x440 + i)
         const decision = i < 5 ? 'approve' : 'request_changes'
+
         const existingDec = await db
           .select({ id: schema.reviewDecisions.id })
           .from(schema.reviewDecisions)
           .where(eq(schema.reviewDecisions.id, decId))
           .limit(1)
+
         if (existingDec.length === 0) {
           const rev = await db
             .select({ integrityDigest: schema.revisions.integrityDigest })
             .from(schema.revisions)
             .where(eq(schema.revisions.id, revId))
             .limit(1)
+
           await db
             .insert(schema.reviewDecisions)
             .values({
@@ -984,17 +1064,20 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
       // Signatures for approved reviews
       if (i < 5) {
         const sigId = uuid(0x460 + i)
+
         const existingSig = await db
           .select({ id: schema.signatures.id })
           .from(schema.signatures)
           .where(eq(schema.signatures.id, sigId))
           .limit(1)
+
         if (existingSig.length === 0) {
           const rev = await db
             .select({ integrityDigest: schema.revisions.integrityDigest })
             .from(schema.revisions)
             .where(eq(schema.revisions.id, revId))
             .limit(1)
+
           await db
             .insert(schema.signatures)
             .values({
@@ -1025,12 +1108,14 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
       const recordId = experimentIds[i] ?? uuid(0x300 + i)
       const revId = uuid(0x408 + (i - 8))
       const subId = uuid(0x428 + (i - 8))
+
       // Create revision if missing
       const existingRev = await db
         .select({ id: schema.revisions.id })
         .from(schema.revisions)
         .where(eq(schema.revisions.id, revId))
         .limit(1)
+
       if (existingRev.length === 0) {
         const snapshot = {
           record: {
@@ -1042,9 +1127,11 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
           blocks: [],
           files: [],
         }
+
         const digest = createHash('sha256')
           .update(JSON.stringify(snapshot))
           .digest('hex')
+
         await db
           .insert(schema.revisions)
           .values({
@@ -1066,11 +1153,13 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
           })
           .onConflictDoNothing({ target: schema.revisions.id })
       }
+
       const existingSub = await db
         .select({ id: schema.reviewSubmissions.id })
         .from(schema.reviewSubmissions)
         .where(eq(schema.reviewSubmissions.id, subId))
         .limit(1)
+
       if (existingSub.length === 0) {
         await db
           .insert(schema.reviewSubmissions)
@@ -1106,15 +1195,18 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
       'Good catch on the pipetting error. Documented correctly.',
       'This aligns with the stability protocol. Proceeding to the next timepoint.',
     ]
+
     for (let i = 0; i < 10; i++) {
       const commentId = uuid(0x480 + i)
       const revId = uuid(0x400 + (i % 8))
       const recordId = experimentIds[i % 8]
+
       const existing = await db
         .select({ id: schema.comments.id })
         .from(schema.comments)
         .where(eq(schema.comments.id, commentId))
         .limit(1)
+
       if (existing.length === 0) {
         await db
           .insert(schema.comments)
@@ -1144,16 +1236,19 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
       'Agreed, the reference is in section 2.1 of the protocol.',
       'Thanks for the review. Updated accordingly.',
     ]
+
     for (let i = 0; i < 3; i++) {
       const replyId = uuid(0x4a0 + i)
       const parentId = uuid(0x480 + i)
       const revId = uuid(0x400 + (i % 8))
       const recordId = experimentIds[i % 8]
+
       const existing = await db
         .select({ id: schema.comments.id })
         .from(schema.comments)
         .where(eq(schema.comments.id, replyId))
         .limit(1)
+
       if (existing.length === 0) {
         await db
           .insert(schema.comments)
@@ -1192,24 +1287,28 @@ function buildPlateMapWells() {
   const wells: Array<Record<string, unknown>> = []
   const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
   const sampleIds = [uuid(0x340), uuid(0x341), uuid(0x342), uuid(0x343)]
+
   const sampleIdents = [
     'SMP-2026-0001',
     'SMP-2026-0002',
     'SMP-2026-0003',
     'SMP-2026-0004',
   ]
+
   const sampleTitles = [
     'CAR-T process sample 01',
     'CAR-T process sample 02',
     'CAR-T process sample 03',
     'CAR-T process sample 04',
   ]
+
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 12; c++) {
       const wellCode = `${rows[r]}${c + 1}`
       let role = 'empty'
       let sampleRef: Record<string, unknown> | undefined
       let replicate: number | undefined
+
       if (c < 3) {
         role = 'positive_control'
         sampleRef = {
@@ -1239,6 +1338,7 @@ function buildPlateMapWells() {
         }
         replicate = c - 8
       }
+
       const well: Record<string, unknown> = {
         wellCode,
         row: r,
@@ -1246,11 +1346,14 @@ function buildPlateMapWells() {
         role,
         volume: { value: 25, unit: 'uL' },
       }
+
       if (sampleRef) well.sampleRef = sampleRef
+
       if (replicate !== undefined) well.replicate = replicate
       wells.push(well)
     }
   }
+
   return wells
 }
 
@@ -1261,6 +1364,7 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
     .from(schema.records)
     .where(eq(schema.records.id, SHOWCASE_RECORD))
     .limit(1)
+
   if (existingRecord.length === 0) {
     await db
       .insert(schema.records)
@@ -1299,6 +1403,7 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
     .update(schema.records)
     .set({ lockedAt: null, lockedByRevisionId: null })
     .where(eq(schema.records.id, SHOWCASE_RECORD))
+
   // Clean up orphaned scientific tables BEFORE deleting blocks (FK constraint)
   const orphanedTables = await db
     .select({
@@ -1307,11 +1412,13 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
     })
     .from(schema.scientificTables)
     .where(eq(schema.scientificTables.recordId, SHOWCASE_RECORD))
+
   for (const t of orphanedTables) {
     await db.execute(
       sql`DROP TABLE IF EXISTS api.${sql.identifier(t.resourceName)}`,
     )
   }
+
   await db
     .delete(schema.scientificTables)
     .where(eq(schema.scientificTables.recordId, SHOWCASE_RECORD))
@@ -1335,6 +1442,7 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
     .from(schema.blocks)
     .where(eq(schema.blocks.recordId, protocolRecordId))
     .limit(1)
+
   if (existingProtocolBlocks.length === 0) {
     const protocolSteps = [
       {
@@ -1346,6 +1454,7 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
         stepNumber: 2,
       },
     ]
+
     for (const [j, step] of protocolSteps.entries()) {
       await db
         .insert(schema.blocks)
@@ -1365,15 +1474,18 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
   const doc = (content: unknown[]) => ({
     doc: { type: 'doc' as const, content },
   })
+
   const para = (text: string) => ({
     type: 'paragraph' as const,
     content: [{ type: 'text' as const, text }],
   })
+
   const h = (level: 2 | 3, text: string) => ({
     type: 'heading' as const,
     attrs: { level },
     content: [{ type: 'text' as const, text }],
   })
+
   const bullet = (...items: string[]) => ({
     type: 'bulletList' as const,
     content: items.map((i) => ({
@@ -1516,6 +1628,7 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
     .set({ structureVersion: 1 })
     .where(eq(schema.records.id, SHOWCASE_RECORD))
   const auth = await authClient(db)
+
   try {
     try {
       // Query the current block version (defaults to 1 for new blocks)
@@ -1524,6 +1637,7 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
         .from(schema.blocks)
         .where(eq(schema.blocks.id, protocolBlockId))
         .limit(1)
+
       const blockVersion = blockVersionRow[0]?.version ?? 1
       await auth.rpc('pin_protocol_reference', [
         protocolBlockId,
@@ -1678,13 +1792,17 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
       { title: 'Updated table block: Results' },
     ],
   ] as const
+
   const maxSeqResult = await db.execute(
     sql`SELECT COALESCE(MAX(sequence), 0) as max_seq FROM api.change_events WHERE workspace_id = ${WORKSPACE}`,
   )
+
   const seq = Number(maxSeqResult.rows[0]?.max_seq ?? 0) + 1
+
   for (let i = 0; i < activityDefs.length; i++) {
     const [entityType, operation, recordId, projectId, payload] =
       activityDefs[i]
+
     await db
       .insert(schema.changeEvents)
       .values({

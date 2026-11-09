@@ -30,10 +30,13 @@ export const fetchBackupsFn = createServerFn({ method: 'POST' })
     await requireSettingsArea(data.workspaceId, 'backups')
     const { getPool } = await import('#/db/pool.server')
     const { env } = await import('#/env.server')
+
     const { listBackups, readBackupSettings, resolveBackupDestination } =
       await import('#/lib/workspace-export/backup.server')
+
     const pool = getPool(env.DATABASE_URL)
     const destination = resolveBackupDestination()
+
     return {
       settings: await readBackupSettings(pool, data.workspaceId),
       backups: await listBackups(pool, data.workspaceId),
@@ -52,6 +55,7 @@ export const saveBackupSettingsFn = createServerFn({ method: 'POST' })
       if (input.frequency !== 'daily' && input.frequency !== 'weekly') {
         throw new Error('invalid frequency')
       }
+
       if (
         !Number.isInteger(input.keepCount) ||
         input.keepCount < KEEP_COUNT_RANGE.min ||
@@ -59,20 +63,25 @@ export const saveBackupSettingsFn = createServerFn({ method: 'POST' })
       ) {
         throw new Error('invalid number of backups to keep')
       }
+
       return input
     },
   )
   .handler(async ({ data }): Promise<void> => {
     const { requireSettingsArea } = await import('#/lib/admin-platform')
+
     const { userId } = await requireSettingsArea(
       data.workspaceId,
       'backups',
       'manage',
     )
+
     const { getPool } = await import('#/db/pool.server')
     const { env } = await import('#/env.server')
+
     const { saveBackupSettings } =
       await import('#/lib/workspace-export/backup.server')
+
     await saveBackupSettings(
       getPool(env.DATABASE_URL),
       data.workspaceId,
@@ -94,20 +103,26 @@ export const runBackupNowFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string }) => input)
   .handler(async ({ data }): Promise<RunBackupNowResult> => {
     const { requireSettingsArea } = await import('#/lib/admin-platform')
+
     const { userId } = await requireSettingsArea(
       data.workspaceId,
       'backups',
       'manage',
     )
+
     const { defaultBackupDeps, runBackup } =
       await import('#/lib/workspace-export/backup.server')
+
     const outcome = await runBackup(defaultBackupDeps(), {
       workspaceId: data.workspaceId,
       trigger: 'manual',
       userId,
     })
+
     if (outcome.ok) return { ok: true, backup: outcome.backup }
+
     if (outcome.reason === 'already_running') return outcome
+
     return {
       ok: false,
       reason: 'failed',

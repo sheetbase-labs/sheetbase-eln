@@ -29,6 +29,7 @@ const marked: ImageAnnotation[] = [
 
 function Harness({ initial }: { initial: ImageAnnotation[] }) {
   const [open, setOpen] = useState(true)
+
   return (
     <>
       <Button onClick={() => setOpen(true)}>Annotate image</Button>
@@ -59,7 +60,9 @@ const meta = {
     onSave: async () => {},
   },
 } satisfies Meta<typeof ImageAnnotator>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A new image: no marks yet. */

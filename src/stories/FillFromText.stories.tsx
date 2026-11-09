@@ -33,7 +33,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof FillFromText>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Collapsed: Story = {}

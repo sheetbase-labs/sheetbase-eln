@@ -105,9 +105,11 @@ function client(state: 'ready' | 'loading' | 'error' = 'ready') {
       },
     })
   }
+
   const instance = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+
   if (state === 'ready') {
     instance.setQueryData(['record-audit-history', RECORD_ID], {
       events,
@@ -115,6 +117,7 @@ function client(state: 'ready' | 'loading' | 'error' = 'ready') {
     })
     instance.setQueryData(workspaceGeneralQueryKey, workspace)
   }
+
   return instance
 }
 
@@ -133,7 +136,9 @@ const meta = {
   ],
   args: { recordId: RECORD_ID, identifier: IDENTIFIER },
 } satisfies Meta<typeof ExperimentHistory>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The full trail with category counts, actor filter and CSV export. */

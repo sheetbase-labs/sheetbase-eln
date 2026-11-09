@@ -40,7 +40,9 @@ import { cn } from '#/lib/utils'
 
 // Types
 type StepperOrientation = 'horizontal' | 'vertical'
+
 type StepState = 'active' | 'completed' | 'inactive' | 'loading'
+
 type StepIndicators = {
   active?: React.ReactNode
   completed?: React.ReactNode
@@ -70,19 +72,24 @@ interface StepItemContextValue {
 }
 
 const StepperContext = createContext<StepperContextValue | undefined>(undefined)
+
 const StepItemContext = createContext<StepItemContextValue | undefined>(
   undefined,
 )
 
 function useStepper() {
   const ctx = useContext(StepperContext)
+
   if (!ctx) throw new Error('useStepper must be used within a Stepper')
+
   return ctx
 }
 
 function useStepItem() {
   const ctx = useContext(StepItemContext)
+
   if (!ctx) throw new Error('useStepItem must be used within a StepperItem')
+
   return ctx
 }
 
@@ -125,6 +132,7 @@ function Stepper({
       if (value === undefined) {
         setActiveStep(step)
       }
+
       onValueChange?.(step)
     },
     [value, onValueChange],
@@ -136,10 +144,13 @@ function Stepper({
   const focusTrigger = (idx: number) => {
     if (triggerNodes[idx]) triggerNodes[idx].focus()
   }
+
   const focusNext = (currentIdx: number) =>
     focusTrigger((currentIdx + 1) % triggerNodes.length)
+
   const focusPrev = (currentIdx: number) =>
     focusTrigger((currentIdx - 1 + triggerNodes.length) % triggerNodes.length)
+
   const focusFirst = () => focusTrigger(0)
   const focusLast = () => focusTrigger(triggerNodes.length - 1)
 
@@ -247,6 +258,7 @@ function StepperTrigger({
 }: StepperTriggerProps) {
   const { state, isLoading } = useStepItem()
   const stepperCtx = useStepper()
+
   const {
     setActiveStep,
     activeStep,
@@ -257,6 +269,7 @@ function StepperTrigger({
     focusFirst,
     focusLast,
   } = stepperCtx
+
   const { step, isDisabled } = useStepItem()
   const isSelected = activeStep === step
   const id = `stepper-tab-${step}`
@@ -282,19 +295,23 @@ function StepperTrigger({
       case 'ArrowRight':
       case 'ArrowDown':
         e.preventDefault()
+
         if (myIdx !== -1 && focusNext) focusNext(myIdx)
         break
       case 'ArrowLeft':
       case 'ArrowUp':
         e.preventDefault()
+
         if (myIdx !== -1 && focusPrev) focusPrev(myIdx)
         break
       case 'Home':
         e.preventDefault()
+
         if (focusFirst) focusFirst()
         break
       case 'End':
         e.preventDefault()
+
         if (focusLast) focusLast()
         break
       case 'Enter':

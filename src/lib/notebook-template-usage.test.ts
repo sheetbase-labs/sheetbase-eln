@@ -101,6 +101,7 @@ describe('buildInUseMatrix', () => {
       ],
       [version({ id: 'v-1', version: 1 }), version({ id: 'v-2', version: 2 })],
     )
+
     expect(matrix.map((row) => [row.version.version, row.total])).toEqual([
       [2, 1],
       [1, 3],
@@ -122,6 +123,7 @@ describe('buildInUseMatrix', () => {
       [record({ source_notebook_template_version_id: 'v-other' })],
       [version({ id: 'v-1', version: 1 })],
     )
+
     expect(matrix).toHaveLength(1)
     expect(matrix[0].total).toBe(0)
   })

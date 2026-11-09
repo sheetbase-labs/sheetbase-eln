@@ -13,6 +13,7 @@ vi.mock('#/lib/chart-data', () => ({
   sciDataClient: {},
   resolveDatasetRef: resolve,
 }))
+
 vi.mock('#/lib/dataset-explorer-data', () => ({
   listDatasetVersionSummaries: async (_client: unknown, datasetId: string) =>
     datasetId === 'ds-a'
@@ -51,6 +52,7 @@ function renderComparison() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <SourceComparison
@@ -108,9 +110,11 @@ describe('SourceComparison', () => {
     expect(
       await screen.findByText(/1 matched · 1 only in A · 1 only in B/),
     ).toBeTruthy()
+
     const options = within(screen.getByLabelText('Match rows by'))
       .getAllByRole('option')
       .map((option) => option.textContent)
+
     expect(options).not.toContain('Dataset row key')
     expect(resolve).toHaveBeenLastCalledWith(expect.anything(), {
       datasetId: 'ds-b',

@@ -12,6 +12,7 @@ export const GROUP_ROLES = [
   'reviewer',
   'viewer',
 ] as const
+
 export type GroupRole = (typeof GROUP_ROLES)[number]
 
 export interface GroupMappingWire {
@@ -40,6 +41,7 @@ export async function fetchGroupMappings(
     'idp_group_mappings',
     `?workspace_id=eq.${encodeURIComponent(workspaceId)}&order=group_name.asc&select=id,workspace_id,group_name,role,created_at`,
   )
+
   return rows.map((r) => ({ id: r.id, groupName: r.group_name, role: r.role }))
 }
 

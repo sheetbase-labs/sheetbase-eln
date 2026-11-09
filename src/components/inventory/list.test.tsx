@@ -47,6 +47,7 @@ describe('registry list search box', () => {
       placeholder: 'Search samples',
       label: 'Search samples',
     }
+
     const { rerender } = render(<ListToolbar q="M-48" {...props} />)
     const field = screen.getByLabelText<HTMLInputElement>('Search samples')
     expect(field.value).toBe('M-48')

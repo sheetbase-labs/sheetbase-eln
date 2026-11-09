@@ -17,9 +17,12 @@ export function sheetRecordTargetModelKey(
     | undefined,
 ): string | null {
   if (!configuration) return null
+
   for (const column of configuration.columns) {
     const target = column.field.relationship?.target
+
     if (target?.kind === 'model' && target.modelKey) return target.modelKey
   }
+
   return null
 }

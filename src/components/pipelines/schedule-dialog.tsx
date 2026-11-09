@@ -94,6 +94,7 @@ function useDatasetOptions(enabled: boolean) {
         name: string
         display_id: string | null
       }>('datasets', '?select=id,name,display_id&order=name.asc')
+
       return rows.map((row) => ({
         id: row.id,
         label: row.display_id ? `${row.display_id} · ${row.name}` : row.name,
@@ -148,20 +149,26 @@ export function ScheduleDialog({
 }) {
   const queryClient = useQueryClient()
   const inputNames = useMemo(() => inputs.map((i) => i.name), [inputs])
+
   const initial = useMemo((): ScheduleDraft => {
     const zone = defaultTimeZone()
+
     if (schedule) return scheduleToDraft(schedule, inputNames, zone)
     const draft = emptyDraft(zone)
+
     // New triggers follow the latest data: pinning is the opt-in, not the
     // default, so a daily trigger does not read the same old version forever.
     for (const name of inputNames) {
       draft.inputs[name] = { mode: 'latest', datasetId: '', versionId: '' }
     }
+
     for (const p of parameters) {
       if (p.default !== undefined) draft.parameters[p.name] = String(p.default)
     }
+
     return draft
   }, [schedule, inputNames, parameters])
+
   const [draft, setDraft] = useState<ScheduleDraft>(initial)
   const [tried, setTried] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
@@ -175,12 +182,15 @@ export function ScheduleDialog({
 
   const timed = draft.repeat !== 'event'
   const datasets = useDatasetOptions(open)
+
   const instruments = useInstrumentOptions(
     open && draft.repeat === 'event' && draft.eventType === 'dataset.versioned',
   )
+
   const versionChoices = useDatasetVersionChoices(
     open && Object.values(draft.inputs).some((i) => i?.mode === 'pinned'),
   )
+
   const zones = useMemo(() => knownTimeZones(), [])
 
   // An event trigger binds the version that fired it to one input.
@@ -188,12 +198,14 @@ export function ScheduleDialog({
     draft.repeat === 'event' && draft.eventType === 'dataset.versioned'
       ? draft.inputName || inputNames[0]
       : undefined
+
   const modeFor = (name: string): InputMode =>
     name === boundInput
       ? 'event'
       : ((draft.inputs[name]?.mode === 'event'
           ? 'latest'
           : draft.inputs[name]?.mode) ?? 'latest')
+
   const effective: ScheduleDraft = {
     ...draft,
     inputs: Object.fromEntries(
@@ -207,22 +219,28 @@ export function ScheduleDialog({
   const rawValue = (p: PipelineParameter) =>
     draft.parameters[p.name] ??
     (p.default === undefined ? '' : String(p.default))
+
   const parametersGiven = Object.fromEntries(
     parameters.flatMap((p) => {
       const value = parameterValue(p, rawValue(p))
+
       return value === undefined ? [] : [[p.name, value]]
     }),
   )
+
   const parameterProblem = parameters.some((p) =>
     parameterError(p, rawValue(p)),
   )
+
   const problem = draftError(effective, inputNames)
   const built = draftToSchedule(effective, inputNames, parametersGiven)
 
   const preview = useMemo(() => {
     if (problem || built.kind === 'event') return []
+
     return upcomingRuns(built.kind, built.spec as never, new Date(), 3)
   }, [problem, built.kind, built.spec])
+
   const previewZone =
     typeof built.spec.timeZone === 'string' ? built.spec.timeZone : 'UTC'
 
@@ -265,6 +283,7 @@ export function ScheduleDialog({
 
   const patch = (next: Partial<ScheduleDraft>) =>
     setDraft((current) => ({ ...current, ...next }))
+
   const patchInput = (name: string, next: Partial<InputDraft>) =>
     setDraft((current) => ({
       ...current,
@@ -277,6 +296,7 @@ export function ScheduleDialog({
   const title = schedule
     ? t('data.scheduleDialog.editTrigger')
     : t('data.scheduleDialog.newTrigger')
+
   const policyLabel = timed
     ? t('data.scheduleDialog.ifServerDownWhen')
     : t('data.scheduleDialog.eventsArriveWhileTrigger')
@@ -499,6 +519,7 @@ export function ScheduleDialog({
               {inputNames.map((name) => {
                 const mode = modeFor(name)
                 const input = draft.inputs[name] ?? blankInput()
+
                 if (mode === 'event') {
                   return (
                     <p key={name} className="m-0 text-body">
@@ -508,9 +529,11 @@ export function ScheduleDialog({
                     </p>
                   )
                 }
+
                 const modes: Array<Exclude<InputMode, 'event'>> = timed
                   ? ['latest', 'incremental', 'pinned']
                   : ['latest', 'pinned']
+
                 return (
                   <div
                     key={name}
@@ -616,11 +639,13 @@ export function ScheduleDialog({
           {parameters.map((parameter) => {
             const raw = rawValue(parameter)
             const error = tried ? parameterError(parameter, raw) : undefined
+
             const set = (value: string) =>
               setDraft((current) => ({
                 ...current,
                 parameters: { ...current.parameters, [parameter.name]: value },
               }))
+
             return (
               <Field
                 key={parameter.name}
@@ -733,6 +758,7 @@ export function ScheduleDialog({
             disabled={save.isPending}
             onClick={() => {
               setTried(true)
+
               if (problem || parameterProblem) return
               save.mutate()
             }}

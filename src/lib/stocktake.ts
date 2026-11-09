@@ -18,6 +18,7 @@ import type {
 
 /** The parts of the storage tree a count can cover. */
 export const STOCKTAKE_LEVELS = ['unit', 'shelf', 'rack', 'box'] as const
+
 export type StocktakeLevel = (typeof STOCKTAKE_LEVELS)[number]
 
 export function isStocktakeLevel(level: StorageLevel): level is StocktakeLevel {
@@ -39,6 +40,7 @@ export type StocktakeItemState =
 
 /** The differences a finished count asks someone to deal with. */
 export const DIFFERENCE_STATES = ['misplaced', 'unexpected', 'missing'] as const
+
 export type DifferenceState = (typeof DIFFERENCE_STATES)[number]
 
 export type StocktakeAction =
@@ -205,10 +207,13 @@ export function summariseItems(
 ): StocktakeSummary {
   const count = (state: StocktakeItemState) =>
     items.filter((item) => item.state === state).length
+
   const differences = items.filter((item) =>
     (DIFFERENCE_STATES as readonly string[]).includes(item.state),
   )
+
   const resolved = differences.filter((item) => item.resolvedAt).length
+
   return {
     total: items.length,
     confirmed: count('confirmed'),
@@ -224,6 +229,7 @@ export function summariseItems(
 /** What can be done about an item, best first. Mirrors the database's rules. */
 export function actionsFor(item: StocktakeItem): StocktakeAction[] {
   if (item.resolvedAt) return []
+
   switch (item.state) {
     case 'misplaced':
     case 'unexpected':
@@ -244,6 +250,7 @@ export function sortItems(items: readonly StocktakeItem[]): StocktakeItem[] {
     expected: 3,
     confirmed: 4,
   }
+
   return [...items].sort(
     (a, b) =>
       rank[a.state] - rank[b.state] ||
@@ -264,8 +271,10 @@ export function boxesInScope(
   stocktake: Pick<Stocktake, 'scopeId' | 'scopeLevel'>,
 ): CountBox[] {
   const scope = tree.byId.get(stocktake.scopeId)
+
   if (!scope) return []
   const boxes: CountBox[] = []
+
   const walk = (node: StorageNode) => {
     if (node.level === 'box') {
       boxes.push({
@@ -274,11 +283,15 @@ export function boxesInScope(
         code: node.code,
         path: nodePath(tree, node).join(' / '),
       })
+
       return
     }
+
     for (const child of tree.childrenOf(node)) walk(child)
   }
+
   walk(scope)
+
   return boxes.sort((a, b) =>
     a.path.localeCompare(b.path, undefined, { numeric: true }),
   )
@@ -290,7 +303,9 @@ export function matchBoxCode(
   code: string,
 ): CountBox | null {
   const wanted = code.trim().toLowerCase()
+
   if (!wanted) return null
+
   return (
     boxes.find((box) => box.code?.toLowerCase() === wanted) ??
     boxes.find((box) => box.name.toLowerCase() === wanted) ??
@@ -314,6 +329,7 @@ export async function fetchStocktakes(
     'stocktakes',
     '?order=started_at.desc&limit=200',
   )
+
   return rows.map(toStocktake)
 }
 
@@ -325,6 +341,7 @@ export async function fetchStocktake(
     'stocktakes',
     `?id=eq.${id}&limit=1`,
   )
+
   return rows[0] ? toStocktake(rows[0]) : null
 }
 
@@ -336,6 +353,7 @@ export async function fetchStocktakeItems(
     'stocktake_items',
     `?stocktake_id=eq.${id}&order=identifier&limit=5000`,
   )
+
   return rows.map(toStocktakeItem)
 }
 

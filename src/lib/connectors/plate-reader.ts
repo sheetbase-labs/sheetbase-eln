@@ -17,8 +17,10 @@ function splitCsvLine(line: string): string[] {
   const cells: string[] = []
   let current = ''
   let inQuotes = false
+
   for (let i = 0; i < line.length; i += 1) {
     const char = line[i]
+
     if (char === '"') {
       if (inQuotes && line[i + 1] === '"') {
         current += '"'
@@ -33,7 +35,9 @@ function splitCsvLine(line: string): string[] {
       current += char
     }
   }
+
   cells.push(current)
+
   return cells.map((cell) => cell.trim())
 }
 
@@ -57,20 +61,25 @@ export function parsePlateReaderCsv(text: string): ParsedInstrumentPayload {
   // Header lines: '# Key: value'. Without any '#' block the file is treated as
   // plain CSV and the first line becomes the data header.
   let dataIndex = 0
+
   while (dataIndex < lines.length) {
     const line = lines[dataIndex].trim()
+
     if (line === '') {
       dataIndex += 1
       continue
     }
+
     if (!line.startsWith('#')) break
     const match = METADATA_LINE.exec(line)
+
     if (match) {
       const key = match[1].trim().toLowerCase().replaceAll(' ', '_')
       metadata[key] = match[2].trim()
     } else {
       warnings.push(t('data.plateReader.unrecognisedMetadataLine', { line }))
     }
+
     dataIndex += 1
   }
 
@@ -78,6 +87,7 @@ export function parsePlateReaderCsv(text: string): ParsedInstrumentPayload {
   while (dataIndex < lines.length && lines[dataIndex].trim() === '') {
     dataIndex += 1
   }
+
   if (dataIndex >= lines.length) {
     throw new Error(t('data.plateReader.dataRowsFoundInstrument'))
   }
@@ -85,26 +95,32 @@ export function parsePlateReaderCsv(text: string): ParsedInstrumentPayload {
   const headers = splitCsvLine(lines[dataIndex]).filter(
     (header) => header !== '',
   )
+
   if (headers.length === 0) {
     throw new Error(t('data.plateReader.columnHeadersFoundInstrument'))
   }
 
   const rows: Array<Record<string, string>> = []
+
   for (let i = dataIndex + 1; i < lines.length; i += 1) {
     const line = lines[i].trim()
+
     if (line === '' || line.startsWith('#')) {
       if (line.startsWith('#')) {
         warnings.push(
           t('data.plateReader.trailingMetadataLineIgnored', { line }),
         )
       }
+
       continue
     }
+
     const cells = splitCsvLine(line)
     const row: Record<string, string> = {}
     headers.forEach((header, index) => {
       row[header] = cells[index] ?? ''
     })
+
     // Skip rows where every cell is empty.
     if (Object.keys(row).some((header) => row[header] !== '')) {
       rows.push(row)

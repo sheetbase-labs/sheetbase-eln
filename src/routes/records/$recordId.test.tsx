@@ -59,6 +59,7 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
   useRouterState: (options?: { select?: (state: unknown) => unknown }) => {
     const state = { location: routerLocation }
+
     return options?.select ? options.select(state) : state
   },
   Link: ({
@@ -75,11 +76,13 @@ vi.mock('@tanstack/react-router', () => ({
   } & Record<string, unknown>) => {
     linkCalls.calls.push({ to, params, search })
     let href = typeof to === 'string' ? to : '#'
+
     if (params) {
       for (const [k, v] of Object.entries(params)) {
         href = href.replace(`$${k}`, encodeURIComponent(v))
       }
     }
+
     return (
       <a href={href} {...props}>
         {children}
@@ -145,6 +148,7 @@ function renderWithQuery(ui: React.ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
   )
@@ -156,6 +160,7 @@ async function menuActions() {
     screen.getByRole('button', { name: 'More record actions' }),
   )
   const items = await screen.findAllByRole('menuitem')
+
   return items.map((item) => item.textContent.trim())
 }
 
@@ -288,6 +293,7 @@ describe('StickyRecordHeader withdraws a submission from the notebook menu', () 
         review={submission(submittedBy)}
       />,
     )
+
     return menuActions()
   }
 
@@ -341,10 +347,12 @@ describe('ArchivedBanner', () => {
 
   it('J-NBK-17 restores the notebook and names who can when it is refused', async () => {
     const user = userEvent.setup()
+
     const onRestore = vi
       .fn<() => Promise<unknown>>()
       .mockRejectedValueOnce(new Error('permission denied for table records'))
       .mockResolvedValueOnce({})
+
     render(<ArchivedBanner onRestore={onRestore} />)
     expect(screen.getByRole('status').textContent).toContain(
       'anyone who can edit the project can restore it',
@@ -599,6 +607,7 @@ describe('NotebookCanvas', () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+
     render(
       <QueryClientProvider client={client}>
         <NotebookCanvas
@@ -638,6 +647,7 @@ describe('NotebookCanvas', () => {
         onRetry={() => {}}
       />,
     )
+
     const busy = container.querySelector('[aria-busy="true"]')
     expect(busy).toBeTruthy()
   })
@@ -715,6 +725,7 @@ describe('NotebookCanvas', () => {
         version: 1,
       },
     ]
+
     const { container } = render(
       <NotebookCanvas
         record={archivedRecord}
@@ -724,6 +735,7 @@ describe('NotebookCanvas', () => {
         onRetry={() => {}}
       />,
     )
+
     expect(container.querySelector('#block-b1')).toBeTruthy()
     expect(container.querySelector('#block-b2')).toBeTruthy()
     // structured heading and paragraph content render
@@ -746,6 +758,7 @@ describe('NotebookCanvas', () => {
         version: 1,
       },
     ]
+
     render(
       <NotebookCanvas
         record={record}
@@ -860,6 +873,7 @@ describe('NotebookInspector', () => {
     const fetch = vi
       .spyOn(commentsData, 'fetchCommentsForRecord')
       .mockResolvedValue([])
+
     const queryClient = new QueryClient()
     render(
       <QueryClientProvider client={queryClient}>
@@ -887,9 +901,11 @@ describe('NotebookInspector', () => {
     const live = vi
       .spyOn(commentsData, 'fetchCommentsForRecord')
       .mockResolvedValue([])
+
     const frozen = vi
       .spyOn(commentsData, 'fetchCommentsForRevision')
       .mockResolvedValue([])
+
     const queryClient = new QueryClient()
     render(
       <QueryClientProvider client={queryClient}>
@@ -921,6 +937,7 @@ describe('NotebookInspector', () => {
     const live = vi
       .spyOn(commentsData, 'fetchCommentsForRecord')
       .mockResolvedValue([])
+
     renderWithQuery(
       <NotebookInspector
         record={record}
@@ -958,6 +975,7 @@ describe('NotebookInspector', () => {
 
   it('renders snapshot title, tags and dates for a historical revision after live edits', () => {
     const queryClient = new QueryClient()
+
     const historical = {
       ...record,
       title: 'Submitted title',
@@ -966,6 +984,7 @@ describe('NotebookInspector', () => {
       lockedAt: null,
       lockedByRevisionId: null,
     }
+
     render(
       <QueryClientProvider client={queryClient}>
         <NotebookInspector
@@ -1138,11 +1157,13 @@ describe('NotebookInspector', () => {
 describe('NotebookCanvas — editable path', () => {
   it('renders the block picker when a client and queryClient are supplied', () => {
     const queryClient = new QueryClient()
+
     const fakeClient = {
       list: () => Promise.resolve([]),
       insert: () => Promise.resolve({}),
       rpc: () => Promise.resolve({}),
     } as unknown as DataClient
+
     render(
       <QueryClientProvider client={queryClient}>
         <NotebookCanvas
@@ -1215,6 +1236,7 @@ function blockWire(id: string, text: string, order: number) {
 
 function richDomainBlock(id: string, text: string, order: number) {
   const wire = blockWire(id, text, order)
+
   return {
     id: wire.id,
     recordId: wire.record_id,
@@ -1229,18 +1251,21 @@ function richDomainBlock(id: string, text: string, order: number) {
 describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
   it('restores a deleted first block atomically via one insert_block with both anchors', async () => {
     const user = userEvent.setup()
+
     const queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
         mutations: { retry: false },
       },
     })
+
     queryClient.setQueryData(notebookQueryKeys.record('r1'), record)
     queryClient.setQueryData(notebookQueryKeys.blocks('r1'), [
       blockWire('b1', 'A', 1),
       blockWire('b2', 'B', 2),
     ])
     const blocksKey = notebookQueryKeys.blocks('r1')
+
     const cachedIds = () =>
       (queryClient.getQueryData<{ id: string }[]>(blocksKey) ?? []).map(
         (b) => b.id,
@@ -1268,6 +1293,7 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
           throw new Error(`unexpected rpc: ${name}`)
       }
     })
+
     const fakeClient = {
       list: () => Promise.resolve([]),
       rpc,
@@ -1319,18 +1345,21 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
 
   it('writes nothing to the cache when the atomic insert fails', async () => {
     const user = userEvent.setup()
+
     const queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
         mutations: { retry: false },
       },
     })
+
     queryClient.setQueryData(notebookQueryKeys.record('r1'), record)
     queryClient.setQueryData(notebookQueryKeys.blocks('r1'), [
       blockWire('b1', 'A', 1),
       blockWire('b2', 'B', 2),
     ])
     const blocksKey = notebookQueryKeys.blocks('r1')
+
     const cachedIds = () =>
       (queryClient.getQueryData<{ id: string }[]>(blocksKey) ?? []).map(
         (b) => b.id,
@@ -1340,10 +1369,12 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
     // is no partial state to reconcile: the delete stands, nothing was
     // re-inserted, and the record stays honest about what exists.
     let deleted = false
+
     const rpc = vi.fn(async (name: string) => {
       switch (name) {
         case 'delete_block':
           deleted = true
+
           return { structure_version: 2, order: [{ id: 'b2', order: 2 }] }
         case 'insert_block':
           if (!deleted) throw new Error('undo offered before delete')
@@ -1352,6 +1383,7 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
           throw new Error(`unexpected rpc: ${name}`)
       }
     })
+
     const fakeClient = {
       list: () => Promise.resolve([]),
       rpc,

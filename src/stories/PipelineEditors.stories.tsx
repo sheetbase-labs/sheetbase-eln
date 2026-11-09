@@ -46,7 +46,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const choices = [
@@ -63,11 +65,13 @@ const choices = [
     schemaName: 'Stability',
   },
 ]
+
 const fields = [
   { key: 'well', label: 'Well', type: 'text', required: true },
   { key: 'od600', label: 'OD600', type: 'decimal', required: true },
   { key: 'read_at', label: 'Read at', type: 'timestamp', required: false },
 ]
+
 const targets = {
   datasets: [
     {
@@ -124,6 +128,7 @@ export const Inputs: Story = {
       { name: 'readings', required: true, description: 'Plate reader export' },
       { name: 'Bad Name', required: false },
     ])
+
     return (
       <InputsEditor inputs={inputs} onChange={setInputs} onInsert={() => {}} />
     )
@@ -134,6 +139,7 @@ export const InputsEmpty: Story = {
   decorators: [withClient],
   render: function Render() {
     const [inputs, setInputs] = useState<PipelineInput[]>([])
+
     return (
       <InputsEditor inputs={inputs} onChange={setInputs} onInsert={() => {}} />
     )
@@ -147,6 +153,7 @@ export const Parameters: Story = {
       { name: 'threshold', type: 'decimal', required: true },
       { name: 'plate_label', type: 'text', required: false, default: 'P-01' },
     ])
+
     return <ParametersEditor parameters={parameters} onChange={setParameters} />
   },
 }
@@ -154,12 +161,14 @@ export const Parameters: Story = {
 export const ParametersEmpty: Story = {
   render: function Render() {
     const [parameters, setParameters] = useState<PipelineParameter[]>([])
+
     return <ParametersEditor parameters={parameters} onChange={setParameters} />
   },
 }
 
 function OutputStory({ start }: { start: OutputDraft }) {
   const [value, setValue] = useState(start)
+
   return (
     <OutputEditor
       value={value}
@@ -244,6 +253,7 @@ export const Sql: Story = {
     const [value, setValue] = useState(
       "-- keep reads above the cut-off\nselect well, round(od600, 3) as od600\nfrom readings\nwhere od600 > {{threshold}} and plate = 'P-01'\nlimit 100",
     )
+
     return (
       <SqlEditor
         aria-label="Transform"
@@ -262,6 +272,7 @@ const columns: PythonColumn[] = [
 export const PythonColumns: Story = {
   render: function Render() {
     const [value, setValue] = useState(columns)
+
     return (
       <ColumnsEditor
         label="Output columns"
@@ -279,6 +290,7 @@ export const PythonPackages: Story = {
       'pandas==2.2.3',
       'scipy==1.14.0',
     ])
+
     return (
       <PythonPackagesEditor
         requirements={requirements}
@@ -294,6 +306,7 @@ export const PythonPackages: Story = {
 }
 
 const pythonInputs: PipelineInput[] = [{ name: 'readings', required: true }]
+
 const pythonParameters: PipelineParameter[] = [
   { name: 'threshold', type: 'decimal', required: true },
 ]
@@ -304,10 +317,12 @@ export const PythonStep: Story = {
     const [statement, setStatement] = useState(
       'def transform(readings, threshold):\n    readings["flag"] = readings["od600"] > threshold\n    return readings\n',
     )
+
     const [contract, setContract] = useState<PythonContract | undefined>({
       inputs: { readings: columns },
       output: { columns },
     })
+
     return (
       <PythonStepEditor
         label="Transform"
@@ -365,6 +380,7 @@ export const Steps: Story = {
         },
       },
     ] as PipelineStep[])
+
     return (
       <StepsEditor
         steps={steps}

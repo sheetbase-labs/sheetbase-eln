@@ -19,35 +19,46 @@ export function SessionExpiredBanner({
 } = {}) {
   const stored = useSessionExpired()
   const live = useLiveStatus()
+
   const expired =
     expiredOverride ?? (stored || live.lastResetReason === 'session_expired')
+
   const ref = useRef<HTMLDivElement>(null)
   // The shell reads this height to start below the banner, so the banner never
   // covers the search box or the New button.
   useEffect(() => {
     const element = ref.current
+
     if (!expired || !element) return
     const root = document.documentElement
+
     const sync = () =>
       root.style.setProperty(
         '--session-banner-h',
         `${element.getBoundingClientRect().height}px`,
       )
+
     sync()
+
     const observer =
       typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(sync)
+
     observer?.observe(element)
+
     return () => {
       observer?.disconnect()
       root.style.removeProperty('--session-banner-h')
     }
   }, [expired])
+
   if (!expired) return null
+
   const here =
     path ??
     (typeof window === 'undefined'
       ? '/'
       : `${window.location.pathname}${window.location.search}`)
+
   return (
     <div
       ref={ref}

@@ -132,7 +132,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The source's columns with the part each plays in the charts. */
@@ -158,6 +160,7 @@ export const FieldsNoDataset: Story = {
 export const Charts: Story = {
   render: () => {
     const [selected, setSelected] = useState(0)
+
     return (
       <div className="w-[680px] max-w-full">
         <ChartStack
@@ -232,6 +235,7 @@ export const Tabs: Story = {
 export const Duplicate: Story = {
   render: () => {
     const [open, setOpen] = useState(true)
+
     return (
       <>
         <Button onClick={() => setOpen(true)}>Run on other data</Button>

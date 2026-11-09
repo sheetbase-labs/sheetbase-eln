@@ -21,11 +21,13 @@ export const BACKUP_DEFAULTS: BackupSettings = {
 export const KEEP_COUNT_RANGE = { min: 1, max: 90 } as const
 
 const HOUR_MS = 60 * 60 * 1000
+
 /** Slightly under the period, so a run is not pushed back a day by drift. */
 const PERIOD_MS: Record<BackupFrequency, number> = {
   daily: 23 * HOUR_MS,
   weekly: 6 * 24 * HOUR_MS + 23 * HOUR_MS,
 }
+
 /** After a failed run, wait before trying again. */
 export const RETRY_AFTER_FAILURE_MS = 6 * HOUR_MS
 
@@ -36,6 +38,7 @@ export function backupIsDue(
 ): boolean {
   if (!settings.enabled) return false
   const { lastSucceededAt, lastFailedAt } = last
+
   if (
     lastFailedAt &&
     (!lastSucceededAt || lastFailedAt > lastSucceededAt) &&
@@ -43,7 +46,9 @@ export function backupIsDue(
   ) {
     return false
   }
+
   if (!lastSucceededAt) return true
+
   return (
     now.getTime() - lastSucceededAt.getTime() >= PERIOD_MS[settings.frequency]
   )

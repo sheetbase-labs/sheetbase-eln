@@ -38,6 +38,7 @@ export function parseThemeCookie(
   if (!raw) return null
   const match = raw.match(/(?:^|;\s*)sb-theme=(light|dark|system)(?:;|$)/)
   const value = match?.[1]
+
   return isThemePref(value) ? value : null
 }
 

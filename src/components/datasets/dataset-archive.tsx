@@ -48,21 +48,26 @@ export function DatasetArchive({
   const controlled = controlledOpen !== undefined
   const open = controlled ? controlledOpen : ownOpen
   const setOpen = controlled ? (onOpenChange ?? (() => {})) : setOwnOpen
+
   const run = useMutation({
     mutationFn: async () => {
       const found = await client.list<{ revision: number | string }>(
         'datasets',
         `?id=eq.${encodeURIComponent(datasetId)}&select=revision`,
       )
+
       const expectedRevision = Number(found.at(0)?.revision ?? 0)
+
       return archived
         ? restoreDataset(client, { datasetId, expectedRevision })
         : archiveDataset(client, { datasetId, expectedRevision })
     },
     onSuccess: (result) => {
       setOpen(false)
+
       const refresh = () =>
         void queryClient.invalidateQueries({ queryKey: ['ui-port'] })
+
       refresh()
       undoToast(
         archived
@@ -73,6 +78,7 @@ export function DatasetArchive({
             datasetId,
             expectedRevision: Number(result.revision),
           }
+
           return archived
             ? archiveDataset(client, input)
             : restoreDataset(client, input)
@@ -87,6 +93,7 @@ export function DatasetArchive({
   })
 
   if (!canEdit) return null
+
   return (
     <>
       {controlled ? null : (

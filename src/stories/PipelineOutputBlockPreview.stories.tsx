@@ -43,7 +43,9 @@ const meta = {
     },
   },
 } satisfies Meta<typeof PipelineOutputBlockPreview>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** An attached run, its pinned Dataset Version and its destinations. */

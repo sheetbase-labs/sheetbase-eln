@@ -15,9 +15,12 @@ export function classifySheetRecordGridError(
 ): SheetRecordGridErrorKind {
   if (code === 'duplicate_input_row' || code === 'duplicate-input-row')
     return 'duplicate'
+
   if (code === '42501' || code === 'permission_denied') return 'permission'
+
   if (code === '23505' || code === 'conflict' || code === 'SB001')
     return 'conflict'
+
   return 'validation'
 }
 
@@ -47,13 +50,16 @@ export function nextSheetRecordGridError(
   current: SheetRecordGridError | null,
 ): SheetRecordGridError | null {
   if (errors.length === 0) return null
+
   if (!current) return errors[0]
+
   const index = errors.findIndex(
     (error) =>
       error.rowKey === current.rowKey &&
       error.code === current.code &&
       error.fieldName === current.fieldName,
   )
+
   return errors[(index + 1) % errors.length]
 }
 

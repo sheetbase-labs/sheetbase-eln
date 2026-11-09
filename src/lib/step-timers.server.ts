@@ -34,10 +34,12 @@ export interface StepTimerDeps {
 /** Run one sweep and return how many timers it notified. */
 export async function sweepStepTimers(deps: StepTimerDeps): Promise<number> {
   const conn = await deps.connect()
+
   try {
     const { rows } = await conn.query<{ n: number }>(
       `SELECT internal.sweep_step_timers() AS n`,
     )
+
     return rows[0]?.n ?? 0
   } finally {
     await conn.end()
@@ -50,14 +52,17 @@ const startedGlobalKey = '__sheetbaseStepTimerSchedulerStarted'
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
 async function defaultConnect(): Promise<StepTimerConnection> {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   return client
 }
 
@@ -65,15 +70,19 @@ export function startStepTimerScheduler(
   options: { deps?: StepTimerDeps; intervalMs?: number } = {},
 ): void {
   if (typeof window !== 'undefined') return
+
   if (schedulerDisabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
 
   const deps = options.deps ?? { connect: defaultConnect }
+
   const tick = async () => {
     try {
       const notified = await sweepStepTimers(deps)
+
       if (notified) logger.info('step timers notified', { notified })
     } catch (error) {
       logger.warn('step timer sweep failed', {
@@ -81,6 +90,7 @@ export function startStepTimerScheduler(
       })
     }
   }
+
   bootTimer = setTimeout(() => void tick(), 5_000)
   bootTimer.unref()
   timer = setInterval(
@@ -93,6 +103,7 @@ export function startStepTimerScheduler(
 /** Clear the timers and the per-process guard (tests and shutdown). */
 export function stopStepTimerScheduler(): void {
   if (bootTimer) clearTimeout(bootTimer)
+
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null

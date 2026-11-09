@@ -34,6 +34,7 @@ export function oklchToSrgb({ L, C, h }: Oklch): [number, number, number] {
 
 function linearToSrgb(c: number): number {
   const v = Math.min(1, Math.max(0, c))
+
   return v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055
 }
 
@@ -60,6 +61,7 @@ export function contrastRatio(
   const lb = relativeLuminance(b)
   const lighter = Math.max(la, lb)
   const darker = Math.min(la, lb)
+
   return (lighter + 0.05) / (darker + 0.05)
 }
 
@@ -92,12 +94,14 @@ export function srgbToOklch([r, g, b]: [number, number, number]): Oklch {
 
   const C = Math.sqrt(a * a + bb * bb)
   const h = ((Math.atan2(bb, a) * 180) / Math.PI + 360) % 360
+
   return { L, C, h }
 }
 
 /** Parse `#rgb`/`#rrggbb` to gamma-encoded sRGB channels (0..1). */
 export function hexToSrgb(hex: string): [number, number, number] {
   const value = hex.trim().replace(/^#/, '')
+
   const full =
     value.length === 3
       ? value
@@ -105,9 +109,11 @@ export function hexToSrgb(hex: string): [number, number, number] {
           .map((c) => c + c)
           .join('')
       : value
+
   if (!/^[0-9a-fA-F]{6}$/.test(full))
     throw new Error(`Unsupported colour: ${hex}`)
   const int = Number.parseInt(full, 16)
+
   return [
     ((int >> 16) & 255) / 255,
     ((int >> 8) & 255) / 255,

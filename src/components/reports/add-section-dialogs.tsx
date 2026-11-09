@@ -54,6 +54,7 @@ export function AddTextDialog({
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [touched, setTouched] = useState(false)
+
   const add = useMutation({
     mutationFn: () =>
       addTextSection(notebookDataClient, {
@@ -73,6 +74,7 @@ export function AddTextDialog({
     },
     onError: () => toast.error(t('projects.reports.addText.failed')),
   })
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
@@ -111,6 +113,7 @@ export function AddTextDialog({
             disabled={add.isPending}
             onClick={() => {
               setTouched(true)
+
               if (title.trim()) add.mutate()
             }}
           >
@@ -170,6 +173,7 @@ export function AddEvidenceDialog({
         }&order=identifier.asc&limit=200`,
       ),
   })
+
   const revisions = useQuery({
     queryKey: [
       ...reportKeys.evidenceRevisions(recordId),
@@ -179,9 +183,12 @@ export function AddEvidenceDialog({
     enabled: open && sourceId !== '',
     queryFn: () => fetchEvidenceRevisions(notebookDataClient, sourceId),
   })
+
   const versions = revisions.data ?? []
+
   const chosenVersion =
     versions.find((v) => v.id === versionId) ?? versions.at(0)
+
   const blocks = useQuery({
     queryKey: [
       ...reportKeys.evidenceRevisions(recordId),
@@ -192,6 +199,7 @@ export function AddEvidenceDialog({
     queryFn: () =>
       fetchRevisionBlocks(notebookDataClient, chosenVersion?.id ?? ''),
   })
+
   const source = (records.data ?? []).find((r) => r.id === sourceId)
   const block = (blocks.data ?? []).find((b) => b.id === blockId)
 
@@ -201,9 +209,11 @@ export function AddEvidenceDialog({
     setBlockId('')
     setTitle('')
   }
+
   const add = useMutation({
     mutationFn: () => {
       if (!source || !chosenVersion || !block) throw new Error('incomplete')
+
       const evidence: EvidenceChoice = {
         revisionId: chosenVersion.id,
         blockId: block.id,
@@ -212,6 +222,7 @@ export function AddEvidenceDialog({
         recordId: source.id,
         revisionVersion: chosenVersion.version,
       }
+
       return addEvidenceSection(notebookDataClient, {
         workspaceId,
         definitionId,

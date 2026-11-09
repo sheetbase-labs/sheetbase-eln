@@ -35,6 +35,7 @@ export function projectOption(
   note?: string | null,
 ): PickerOption {
   const archived = Boolean(p.archived_at) || p.status === 'archived'
+
   return {
     id: p.id,
     identifier: p.display_id ?? undefined,
@@ -101,6 +102,7 @@ export function pickerItemOption(i: PickerItem): PickerOption {
 export function recordSearch(kinds: PickerKind[]) {
   return async (q: string): Promise<PickerSearchResult> => {
     const r = await searchPickerRecords({ q, kinds })
+
     return {
       options: r.items.map(pickerItemOption),
       recent: r.recent,
@@ -125,6 +127,7 @@ const sheetHitOption = (h: SheetRecordSearchHit): PickerOption => ({
 export function modelRecordSearch(modelKey: string) {
   return async (q: string): Promise<PickerSearchResult> => {
     const hits = await searchSheetRecords({ modelKey, query: q, limit: 50 })
+
     return { options: hits.map(sheetHitOption), total: hits.length }
   }
 }
@@ -157,9 +160,13 @@ export function instrumentOption(i: {
   retiredAt?: string | null
 }): PickerOption {
   const facets: Record<string, string> = {}
+
   if (i.instrumentType) facets.type = i.instrumentType
+
   if (i.vendor) facets.vendor = i.vendor
+
   if (i.location) facets.location = i.location
+
   return {
     id: i.id,
     identifier: i.displayId ?? undefined,

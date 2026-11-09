@@ -6,8 +6,10 @@ import type * as FileStorage from '#/lib/file-storage'
 import { retainExternalBytes } from './retain.server'
 
 vi.mock('#/env.server', () => ({ env: { FILE_STORAGE_BACKEND: 'filesystem' } }))
+
 vi.mock('#/lib/file-storage', async (importOriginal) => {
   const actual = await importOriginal<typeof FileStorage>()
+
   return {
     ...actual,
     getObjectStorage: () => ({
@@ -31,6 +33,7 @@ describe('retainExternalBytes', () => {
         ? ([{ record_id: 'rec-1', identifier: 'FIL-001' }] as never)
         : {},
     )
+
     const retained = await retainExternalBytes({
       workspaceId: 'ws',
       projectId: 'proj',
@@ -39,6 +42,7 @@ describe('retainExternalBytes', () => {
       rpc,
       readFileObject: async () => fileObject,
     })
+
     expect(retained.fileRecordId).toBe('rec-1')
     expect(rpc).toHaveBeenCalledWith(
       'finalize_file_upload',
@@ -56,6 +60,7 @@ describe('retainExternalBytes', () => {
         name === 'create_file_upload' ? { record_id: 'rec-2' } : {},
       readFileObject: async () => fileObject,
     })
+
     expect(retained.fileRecordId).toBe('rec-2')
   })
 })

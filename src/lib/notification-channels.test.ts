@@ -62,6 +62,7 @@ describe('teamsMessageCard', () => {
       ...payload,
       result: { rowCount: 0 },
     })
+
     const facts = card.facts as Array<{ name: string; value: string }>
     expect(facts.map((fact) => fact.name)).toEqual(['Run', 'Rows'])
     expect(facts.find((fact) => fact.name === 'Rows')?.value).toBe('0')

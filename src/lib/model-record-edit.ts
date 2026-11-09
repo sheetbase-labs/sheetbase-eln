@@ -7,8 +7,10 @@ export function initialModelFieldValues(
   stored: Record<string, unknown> | null | undefined,
 ): Record<string, string | boolean> {
   const values: Record<string, string | boolean> = {}
+
   for (const field of fields) {
     const raw = stored?.[field.fieldName]
+
     if (field.logicalType === 'boolean') {
       values[field.fieldName] = raw === true
     } else {
@@ -16,6 +18,7 @@ export function initialModelFieldValues(
         raw === null || raw === undefined ? '' : String(raw)
     }
   }
+
   return values
 }
 
@@ -30,16 +33,21 @@ export function changedModelFieldValues(
   current: Record<string, string | boolean>,
 ): Record<string, unknown> {
   const changes: Record<string, unknown> = {}
+
   for (const field of fields) {
     const before = initial[field.fieldName]
     const after = current[field.fieldName]
+
     if (after === before) continue
+
     if (after === '') {
       if (field.nullable) changes[field.fieldName] = null
       continue
     }
+
     changes[field.fieldName] = parseModelFieldInput(field, after)
   }
+
   return changes
 }
 
@@ -49,10 +57,14 @@ export function describeFieldEditError(error: unknown): string {
     typeof error === 'object' && error !== null && 'code' in error
       ? String(error.code)
       : ''
+
   if (code === 'SB001')
     return 'Someone else changed this record while you were editing. Close this, reopen it and make the change again.'
+
   if (code === 'SB011')
     return 'This record is locked, so its fields cannot be edited. An admin can unlock it.'
+
   if (code === 'SB004') return 'This record is archived and cannot be edited.'
+
   return error instanceof Error ? error.message : 'Could not save the changes.'
 }

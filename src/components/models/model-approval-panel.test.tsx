@@ -61,6 +61,7 @@ function renderPanel(props: {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   render(
     <QueryClientProvider client={queryClient}>
       <ModelApprovalPanel
@@ -76,6 +77,7 @@ function renderPanel(props: {
       />
     </QueryClientProvider>,
   )
+
   return queryClient
 }
 
@@ -84,6 +86,7 @@ describe('Dataset Schema draft approval', () => {
     const fetcher = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(JSON.stringify(pending)))
+
     const queryClient = renderPanel({ requests: [], submitToken: 1, fetcher })
 
     const dialog = await screen.findByRole('dialog')

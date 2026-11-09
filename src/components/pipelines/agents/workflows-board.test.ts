@@ -4,6 +4,7 @@ import { workflowOrder } from './workflows-board'
 import type { AgentDefinition, AgentRun } from '#/lib/agent-registry'
 
 const def = (id: string, enabled = true) => ({ id, enabled }) as AgentDefinition
+
 const run = (definition_id: string, started_at: string) =>
   ({ definition_id, started_at }) as AgentRun
 
@@ -17,6 +18,7 @@ describe('workflowOrder', () => {
         run('b', '2026-09-26T10:00:00Z'),
       ],
     )
+
     expect(ordered.map((d) => d.id)).toEqual(['c', 'a', 'd', 'b'])
   })
 })

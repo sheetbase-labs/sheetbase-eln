@@ -106,17 +106,24 @@ export async function usableWorkspaces(
       WHERE semantic_search_enabled AND ai_enabled
         AND embeddings_profile IS NOT NULL`,
   )
+
   const out = new Map<string, UsableProfile>()
+
   for (const row of rows) {
     const profile = profiles.find((p) => p.id === row.embeddings_profile)
+
     if (!profile?.embeddingModel || profile.kind === 'anthropic') continue
+
     if (isCloudProvider(profile.kind) && !row.ai_cloud_egress_enabled) continue
+
     const apiKey = profile.apiKeyEnv
       ? process.env[profile.apiKeyEnv]
       : undefined
+
     if (profile.apiKeyEnv && !apiKey) continue
     out.set(row.workspace_id, { profile, apiKey })
   }
+
   return out
 }
 
@@ -127,6 +134,7 @@ export async function sweepEmbeddingsBatch(
   options: { limit?: number; embed?: EmbedFn; deps?: ProviderDeps } = {},
 ): Promise<EmbeddingSweepResult> {
   const embed = options.embed ?? embedTexts
+
   const result: EmbeddingSweepResult = {
     workspaces: 0,
     scanned: 0,
@@ -136,8 +144,10 @@ export async function sweepEmbeddingsBatch(
     chunks: 0,
     tokens: 0,
   }
+
   const usable = await usableWorkspaces(conn, profiles)
   result.workspaces = usable.size
+
   if (usable.size === 0) return result
 
   const { rows } = await conn.query<PendingRow>(
@@ -159,15 +169,19 @@ export async function sweepEmbeddingsBatch(
       options.limit ?? EMBEDDING_SWEEP_DOCUMENTS,
     ],
   )
+
   result.scanned = rows.length
 
   // A workspace whose provider errors is left alone until the next sweep.
   const broken = new Set<string>()
+
   for (const row of rows) {
     const use = usable.get(row.workspace_id)
+
     if (!use || broken.has(row.workspace_id)) continue
     const modelId = embeddingModelId(use.profile)
     const hash = documentHash(row)
+
     try {
       if (row.old_hash === hash && row.old_model === modelId) {
         await conn.query(
@@ -178,26 +192,33 @@ export async function sweepEmbeddingsBatch(
         result.unchanged += 1
         continue
       }
+
       const chunks = chunkDocument(row)
       const vectors: number[][] = []
+
       for (let i = 0; i < chunks.length; i += EMBEDDING_BATCH) {
         const part = chunks.slice(i, i + EMBEDDING_BATCH)
+
         const done = await embed(
           use.profile,
           use.apiKey,
           part.map((chunk) => chunk.text),
           options.deps,
         )
+
         vectors.push(...done.vectors)
         result.tokens += done.tokens
       }
+
       await conn.query('BEGIN')
+
       try {
         await conn.query(
           `DELETE FROM api.search_embeddings
             WHERE object_type = $1 AND object_id = $2`,
           [row.object_type, row.object_id],
         )
+
         for (const [index, chunk] of chunks.entries()) {
           await conn.query(
             `INSERT INTO api.search_embeddings
@@ -216,11 +237,13 @@ export async function sweepEmbeddingsBatch(
             ],
           )
         }
+
         await conn.query('COMMIT')
       } catch (error) {
         await conn.query('ROLLBACK')
         throw error
       }
+
       result.embedded += 1
       result.chunks += chunks.length
     } catch (error) {
@@ -235,6 +258,7 @@ export async function sweepEmbeddingsBatch(
       })
     }
   }
+
   return result
 }
 
@@ -258,11 +282,14 @@ export async function sweepEmbeddings(
     chunks: 0,
     tokens: 0,
   }
+
   const limit = options.limit ?? EMBEDDING_SWEEP_DOCUMENTS
+
   for (let batch = 0; batch < (options.maxBatches ?? MAX_BATCHES_PER_SWEEP);) {
     batch += 1
     const done = await sweepEmbeddingsBatch(conn, profiles, options)
     total.workspaces = done.workspaces
+
     for (const key of [
       'scanned',
       'embedded',
@@ -273,15 +300,18 @@ export async function sweepEmbeddings(
     ] as const) {
       total[key] += done[key]
     }
+
     // A failed object stays pending, so stop rather than retry it in a loop.
     if (done.scanned < limit || done.failed > 0) break
   }
+
   return total
 }
 
 export async function connectForEmbeddings(): Promise<EmbeddingConnection> {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   return {
     query: async (text, values = []) => client.query(text, values),
     end: () => client.end(),
@@ -292,29 +322,37 @@ const startedGlobalKey = '__sheetbaseEmbeddingIndexerStarted'
 
 function disabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
 /** Sweep every minute in the background. Errors are logged and never reach the server. */
 export function startEmbeddingIndexer(): void {
   if (typeof window !== 'undefined') return
+
   if (disabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
   let running = false
+
   const tick = () => {
     if (running) return
     running = true
     void (async () => {
       const configuration = getProviderConfiguration()
+
       if (configuration.error || configuration.profiles.length === 0) return
       const startedAt = Date.now()
       const conn = await connectForEmbeddings()
+
       try {
         const result = await sweepEmbeddings(conn, configuration.profiles)
+
         if (result.scanned > 0) {
           logger.info('embedding sweep complete', {
             ...result,
@@ -334,6 +372,7 @@ export function startEmbeddingIndexer(): void {
         running = false
       })
   }
+
   setTimeout(() => {
     tick()
     setInterval(tick, SWEEP_INTERVAL_MS).unref()

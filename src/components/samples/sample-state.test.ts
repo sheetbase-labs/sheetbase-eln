@@ -86,6 +86,7 @@ describe('describeSampleState', () => {
         quarantineReason: 'Endotoxin result pending from QC (EXP-0129)',
       }),
     )
+
     expect(state?.kind).toBe('quarantined')
     expect(state?.tone).toBe('warn')
     expect(state?.title).toBe('In quarantine since 16 Sep 2026.')
@@ -108,6 +109,7 @@ describe('describeSampleState', () => {
         holdDurationDays: 7,
       }),
     )
+
     expect(state?.kind).toBe('hold_exceeded')
     expect(state?.tone).toBe('bad')
     expect(state?.title).toBe(
@@ -124,6 +126,7 @@ describe('describeSampleState', () => {
         allowedUseExperimentIds: ['exp-131'],
       }),
     )
+
     expect(state?.body).toBe(
       'Remaining volume can only be used by 1 explicitly allowed experiment.',
     )
@@ -133,6 +136,7 @@ describe('describeSampleState', () => {
     const state = describeSampleState(
       sample({ status: 'expired', holdUntil: '2026-09-10' }),
     )
+
     expect(state?.kind).toBe('expired')
     expect(state?.title).toBe('Expired on 10 Sep 2026.')
   })
@@ -142,6 +146,7 @@ describe('describeSampleState', () => {
       events: [event()],
       userName: (id) => (id === 'u-9' ? 'Gareth P.' : null),
     })
+
     expect(state?.kind).toBe('consumed')
     expect(state?.tone).toBe('info')
     expect(state?.title).toBe('Fully used on 11 Sep 2026 by Gareth P.')
@@ -162,6 +167,7 @@ describe('describeSampleState', () => {
         disposalReason: 'Hold limit passed',
       }),
     )
+
     expect(state?.kind).toBe('disposed')
     expect(state?.title).toBe('Disposed on 26 Sep 2026.')
     expect(state?.body).toContain('Hold limit passed')
@@ -172,6 +178,7 @@ describe('sample action capabilities', () => {
   it('mirrors the sample.release role gate', () => {
     for (const role of ['owner', 'admin', 'steward', 'scientist', 'reviewer'])
       expect(canReleaseSample(role)).toBe(true)
+
     for (const role of ['member', 'analyst', 'viewer', null, undefined])
       expect(canReleaseSample(role)).toBe(false)
   })
@@ -179,6 +186,7 @@ describe('sample action capabilities', () => {
   it('mirrors the quarantine/dispose scientific role gate', () => {
     for (const role of ['owner', 'admin', 'steward', 'scientist'])
       expect(canQuarantineSample(role) && canDisposeSample(role)).toBe(true)
+
     for (const role of ['reviewer', 'member', 'analyst', 'viewer'])
       expect(canQuarantineSample(role) || canDisposeSample(role)).toBe(false)
   })
@@ -186,6 +194,7 @@ describe('sample action capabilities', () => {
   it('blocks withdrawal in attention and terminal states', () => {
     for (const status of ['available', 'reserved', 'frozen'])
       expect(canWithdrawSample(status)).toBe(true)
+
     for (const status of [
       'quarantined',
       'hold_exceeded',

@@ -21,6 +21,7 @@ function renderTab() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <DatasetUsedByTab datasetId="ds-1" />

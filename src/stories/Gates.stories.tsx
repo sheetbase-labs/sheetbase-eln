@@ -92,7 +92,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof GateBlockView>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Blocking: Story = {

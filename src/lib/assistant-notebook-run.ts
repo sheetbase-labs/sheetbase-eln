@@ -31,6 +31,7 @@ export async function runNotebookAction(
         body: action.body,
         mentions: action.mentions,
       })
+
       return { openHref: `/records/${action.recordId}` }
     case 'notebook.comment_reply':
       await replyToComment(
@@ -39,10 +40,12 @@ export async function runNotebookAction(
         action.body,
         action.mentions,
       )
+
       return
     case 'notebook.comment_resolve':
       if (action.reopen) await reopenCommentThread(client, action.commentId)
       else await resolveCommentThread(client, action.commentId)
+
       return
     case 'notebook.file_status':
       await client.rpc(
@@ -62,6 +65,7 @@ export async function runNotebookAction(
               p_reason: action.reason,
             },
       )
+
       return
     case 'notebook.protocol_new_version':
       await createProtocolVersion(client, {
@@ -69,6 +73,7 @@ export async function runNotebookAction(
         changeSummary: action.changeSummary,
         reason: action.reason,
       })
+
       return { openHref: `/records/${action.protocolRecordId}` }
     case 'notebook.protocol_set_status':
       await setProtocolVersionStatus(client, {
@@ -76,6 +81,7 @@ export async function runNotebookAction(
         status: action.status as 'in_review' | 'effective' | 'retired',
         reason: action.reason ?? '',
       })
+
       return
     case 'notebook.protocol_confirm_current':
       await client.rpc('confirm_protocol_version_current', {
@@ -83,6 +89,7 @@ export async function runNotebookAction(
         p_next_review_due_at: action.nextReviewDueAt,
         p_reason: action.reason,
       })
+
       return
     case 'notebook.protocol_assign_training':
       await assignProtocolTraining(client, {
@@ -91,12 +98,14 @@ export async function runNotebookAction(
         dueAt: action.dueAt,
         notes: action.notes ?? undefined,
       })
+
       return
     case 'notebook.protocol_unassign_training':
       await unassignProtocolTraining(client, {
         protocolRecordId: action.protocolRecordId,
         userId: action.userId,
       })
+
       return
     case 'notebook.protocol_record_trained':
       await recordProtocolTrained(client, {
@@ -104,9 +113,11 @@ export async function runNotebookAction(
         userId: action.userId,
         notes: action.notes ?? undefined,
       })
+
       return
     case 'notebook.deviation_reason':
       await recordDeviationReason(client, action.deviationId, action.reason)
+
       return
     case 'notebook.approval_request':
       await submitApprovalRequest(client, {
@@ -117,6 +128,7 @@ export async function runNotebookAction(
         reason: action.reason,
         requiredApprovals: action.approvals,
       })
+
       return
     case 'notebook.approval_withdraw':
       await withdrawApprovalRequest(
@@ -124,6 +136,7 @@ export async function runNotebookAction(
         action.requestId,
         action.reason ?? undefined,
       )
+
       return
   }
 }

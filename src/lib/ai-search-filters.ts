@@ -37,10 +37,12 @@ const answerSchema = z.object({
 
 function describeField(field: SheetbaseField): string {
   const ops = operatorsForField(field).join(',')
+
   const options =
     field.options && field.options.length > 0 && field.options.length <= 12
       ? ` | choices: ${field.options.join(', ')}`
       : ''
+
   return `- ${field.id} | ${field.label} | ${field.dataType} | operators: ${ops}${options}`
 }
 
@@ -71,27 +73,36 @@ export interface AiSearchProposal {
 }
 
 let counter = 0
+
 function nodeId(): string {
   counter += 1
+
   return `ai_${counter}`
 }
 
 function coerceScalar(field: SheetbaseField, value: unknown): unknown {
   if (field.dataType === 'number') {
     const n = typeof value === 'number' ? value : Number(value)
+
     return Number.isFinite(n) ? n : undefined
   }
+
   if (field.dataType === 'boolean') {
     if (typeof value === 'boolean') return value
+
     if (value === 'true') return true
+
     if (value === 'false') return false
+
     return undefined
   }
+
   if (field.dataType === 'date' || field.dataType === 'datetime') {
     return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)
       ? value
       : undefined
   }
+
   return typeof value === 'string' || typeof value === 'number'
     ? String(value)
     : undefined
@@ -103,17 +114,23 @@ async function resolveOption(
   value: unknown,
 ): Promise<unknown> {
   if (typeof value !== 'string') return undefined
+
   if (field.options && field.options.length > 0) {
     const wanted = value.trim().toLowerCase()
+
     return field.options.find((option) => option.toLowerCase() === wanted)
   }
+
   if (!field.loadOptions) return value
   const options = await field.loadOptions(value).catch(() => [])
   const wanted = value.trim().toLowerCase()
+
   const exact =
     options.find((option) => option.value === value) ??
     options.find((option) => option.label.toLowerCase() === wanted)
+
   if (exact) return exact.value
+
   return options.length === 1 ? options[0].value : undefined
 }
 
@@ -123,36 +140,48 @@ async function buildCondition(
   raw: unknown,
 ): Promise<ConditionNode | null> {
   const base = { type: 'condition' as const, id: nodeId(), field: field.id }
+
   if (operator === 'isNull' || operator === 'notNull')
     return { ...base, operator }
+
   const hasChoices = Boolean(
     (field.options && field.options.length > 0) || field.loadOptions,
   )
+
   const one = async (value: unknown) =>
     hasChoices ? await resolveOption(field, value) : coerceScalar(field, value)
+
   if (operator === 'withinLastDays') {
     const days = Number(raw)
+
     return Number.isFinite(days) && days > 0
       ? { ...base, operator, value: Math.round(days) }
       : null
   }
+
   if (operator === 'between') {
     if (!Array.isArray(raw) || raw.length !== 2) return null
     const pair = [coerceScalar(field, raw[0]), coerceScalar(field, raw[1])]
+
     return pair.every((v) => v !== undefined)
       ? { ...base, operator, value: pair }
       : null
   }
+
   if (operator === 'in') {
     const list = Array.isArray(raw) ? raw : [raw]
+
     const values = (await Promise.all(list.map(one))).filter(
       (v) => v !== undefined,
     )
+
     return values.length === list.length && values.length > 0
       ? { ...base, operator, value: values }
       : null
   }
+
   const value = await one(raw)
+
   return value === undefined ? null : { ...base, operator, value }
 }
 
@@ -162,33 +191,43 @@ export async function parseSearchAnswer(
   fields: readonly SheetbaseField[],
 ): Promise<AiSearchProposal | null> {
   const parsed = answerSchema.safeParse(extractJsonObject(text))
+
   if (!parsed.success) return null
   const byId = new Map(fields.map((field) => [field.id, field]))
   const conditions: ConditionNode[] = []
   const skipped: string[] = []
+
   for (const filter of parsed.data.filters.slice(0, MAX_CONDITIONS)) {
     const field = byId.get(filter.field)
+
     const label = `${field?.label ?? filter.field} ${filter.operator} ${
       filter.value === undefined ? '' : JSON.stringify(filter.value)
     }`.trim()
+
     if (!field) {
       skipped.push(label)
       continue
     }
+
     const allowed = operatorsForField(field) as readonly string[]
+
     if (!allowed.includes(filter.operator)) {
       skipped.push(label)
       continue
     }
+
     const condition = await buildCondition(
       field,
       filter.operator as FilterOperator,
       filter.value,
     )
+
     if (condition) conditions.push(condition)
     else skipped.push(label)
   }
+
   const match = parsed.data.match === 'any' ? 'OR' : 'AND'
+
   return {
     q: (parsed.data.text ?? '').trim(),
     filter:

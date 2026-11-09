@@ -22,7 +22,9 @@ function Composer({ selection }: { selection: string }) {
       '<p>We incubated the plate at 37 °C for 18 hours and read absorbance at 600 nm.</p>',
     immediatelyRender: false,
   })
+
   if (!editor) return null
+
   return (
     <QueryClientProvider client={client}>
       <div className="w-[560px] max-w-full">
@@ -39,7 +41,9 @@ const meta = {
   tags: ['autodocs'],
   args: { selection: '' },
 } satisfies Meta<typeof Composer>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Nothing selected: the quick actions work on the whole block. */

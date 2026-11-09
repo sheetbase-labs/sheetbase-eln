@@ -26,6 +26,7 @@ export function PlanReview({
   plan: ExperimentPlan
 }) {
   const counts = plateCounts(plan)
+
   return (
     <div className="flex flex-col gap-5">
       {plan.warnings.length > 0 ? (

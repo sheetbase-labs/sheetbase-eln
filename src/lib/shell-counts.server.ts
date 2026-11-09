@@ -23,6 +23,7 @@ export async function getShellCounts(
   userId: string,
 ): Promise<ShellCounts> {
   const client = db.$client
+
   // The badge labels the Inbox's "Needs action" tab, and Home's
   // "Open inbox · N items" uses the same number. Both read the same
   // server-side count (`api.inbox_needs_action_counts`, the Inbox predicate of
@@ -59,9 +60,11 @@ export async function getShellCounts(
       [workspaceId],
     ),
   ])
+
   const num = (q: { rows: { n: string }[] }) => Number(q.rows[0]?.n ?? 0)
   const flagCount = num(flags)
   const failedCount = num(failed)
+
   return {
     // Unknown (`null`) travels as a value, not as an absent key: the badge
     // renders no number for either, but only `null` says the read failed.

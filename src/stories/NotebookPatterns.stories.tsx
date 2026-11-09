@@ -18,6 +18,7 @@ import { PlateMap } from '#/components/viz/plate-map'
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, staleTime: Infinity } },
 })
+
 const meta = {
   title: 'Notebook/Patterns',
   component: NotebookBlock,
@@ -31,14 +32,18 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof NotebookBlock>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 const rows = [
   ['Day 0', 'R1', '250 µL', '4 °C'],
   ['Day 7', 'R1', '250 µL', '4 °C'],
   ['Day 14', 'R2', '250 µL', '4 °C'],
   ['Day 28', 'R2', '250 µL', '4 °C'],
 ]
+
 export const BlockLanguage: Story = {
   render: () => (
     <div className="mx-auto max-w-4xl divide-y rounded-lg border bg-background p-2">

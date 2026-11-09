@@ -13,6 +13,7 @@ describe('parseFillResponse', () => {
   it('keeps known fields from a JSON object, even inside a code fence', () => {
     const answer =
       'Here you go:\n```json\n{"name":"PBS","lot":4821,"x":"no"}\n```'
+
     expect(parseFillResponse(answer, fields)).toEqual({
       name: 'PBS',
       lot: '4821',
@@ -24,6 +25,7 @@ describe('parseFillResponse', () => {
       lot: { a: 1 },
       expiry: 'x'.repeat(600),
     })
+
     expect(parseFillResponse(answer, fields)).toEqual({})
   })
   it('returns nothing for a reply that is not JSON', () => {

@@ -112,6 +112,7 @@ export async function fetchContracts(
     'data_contracts',
     `?select=${CONTRACT_COLUMNS}&lifecycle=neq.retired&limit=500`,
   )
+
   return rows.map(toContract)
 }
 
@@ -123,6 +124,7 @@ export async function fetchContractById(
     'data_contracts',
     `?id=eq.${encodeURIComponent(contractId)}&select=${CONTRACT_COLUMNS}&limit=1`,
   )
+
   return rows[0] ? toContract(rows[0]) : null
 }
 
@@ -134,10 +136,12 @@ export async function fetchContractForTarget(
     target.kind === 'dataset_schema'
       ? `dataset_schema_id=eq.${encodeURIComponent(target.id)}`
       : `record_model_key=eq.${encodeURIComponent(target.key)}`
+
   const rows = await client.list<ContractWire>(
     'data_contracts',
     `?${filter}&select=${CONTRACT_COLUMNS}&limit=1`,
   )
+
   return rows[0] ? toContract(rows[0]) : null
 }
 
@@ -168,6 +172,7 @@ export async function saveContract(
     p_lifecycle: input.lifecycle ?? null,
     p_schedule_minutes: input.scheduleMinutes ?? null,
   })
+
   return toContract(row)
 }
 
@@ -177,7 +182,9 @@ export async function addRule(
   rule: Omit<ContractRule, 'id'> & { id?: string },
 ): Promise<DataContract> {
   const body = { ...rule }
+
   if (!body.id) delete body.id
+
   return toContract(
     await client.rpc<ContractWire>('add_contract_rule', {
       p_contract_id: contractId,
@@ -225,6 +232,7 @@ export async function runCheck(
     p_contract_id: contractId,
     p_dataset_id: datasetId ?? null,
   })
+
   return {
     contractId: result.contractId,
     status: result.status,
@@ -254,6 +262,7 @@ export async function fetchRuns(
     'data_contract_runs',
     `?contract_id=eq.${encodeURIComponent(contractId)}&select=*&order=created_at.desc&limit=${limit}`,
   )
+
   return rows.map(toRun)
 }
 
@@ -274,7 +283,9 @@ export async function fetchDatasetStatus(
     'data_contract_dataset_status',
     `?dataset_id=eq.${encodeURIComponent(datasetId)}&select=*&limit=1`,
   )
+
   const row = rows.at(0)
+
   return row
     ? {
         contractId: row.contract_id,
@@ -295,6 +306,7 @@ export async function checkRecord(
   const result = await client.rpc<
     ContractGateReport & { checked: boolean; status?: ContractStatus }
   >('check_record_contract', { p_record_id: recordId })
+
   return result
 }
 
@@ -339,6 +351,7 @@ export async function importOdcs(
     p_dataset_schema_id: target?.kind === 'dataset_schema' ? target.id : null,
     p_record_model_key: target?.kind === 'record_model' ? target.key : null,
   })
+
   return {
     contract: toContract(result.contract),
     rulesImported: result.rulesImported,

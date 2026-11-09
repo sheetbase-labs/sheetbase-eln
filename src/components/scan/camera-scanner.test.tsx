@@ -16,6 +16,7 @@ function Harness({
   onScan: (code: string, source: ScanSource) => void
 }) {
   const [value, setValue] = useState('')
+
   return (
     <CameraScanner value={value} onValueChange={setValue} onScan={onScan} />
   )
@@ -40,6 +41,7 @@ function setBarcodeDetector(values: string[]) {
       return values.map((rawValue) => ({ rawValue }))
     }
   }
+
   Object.defineProperty(window, 'BarcodeDetector', {
     configurable: true,
     writable: true,
@@ -63,13 +65,16 @@ function qrFrame(text: string): Frame {
   const quiet = 4
   const width = (size + quiet * 2) * scale
   const data = new Uint8ClampedArray(width * width * 4).fill(255)
+
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
       if (!modules.data[y * size + x]) continue
+
       for (let dy = 0; dy < scale; dy += 1) {
         for (let dx = 0; dx < scale; dx += 1) {
           const offset =
             (((y + quiet) * scale + dy) * width + (x + quiet) * scale + dx) * 4
+
           data[offset] = 0
           data[offset + 1] = 0
           data[offset + 2] = 0
@@ -77,12 +82,14 @@ function qrFrame(text: string): Frame {
       }
     }
   }
+
   return { data, width, height: width }
 }
 
 /** A frame with no readable code: deterministic high-frequency colour noise. */
 function noiseFrame(size = 64): Frame {
   const data = new Uint8ClampedArray(size * size * 4)
+
   for (let i = 0; i < data.length; i += 4) {
     const value = (i * 37) % 256
     data[i] = value
@@ -90,6 +97,7 @@ function noiseFrame(size = 64): Frame {
     data[i + 2] = (value * 7) % 256
     data[i + 3] = 255
   }
+
   return { data, width: size, height: size }
 }
 
@@ -104,6 +112,7 @@ function setVideoFrame(frame: Frame | null): void {
     configurable: true,
     get: () => frame?.height ?? 0,
   })
+
   const context = frame
     ? {
         drawImage: vi.fn(),
@@ -114,6 +123,7 @@ function setVideoFrame(frame: Frame | null): void {
         }),
       }
     : null
+
   // jsdom ships no canvas; the stub carries only what the decoder reads.
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
     (() => context) as never,
@@ -121,6 +131,7 @@ function setVideoFrame(frame: Frame | null): void {
 }
 
 const originalPlay = HTMLMediaElement.prototype.play
+
 const originalVideoSize = {
   width: Object.getOwnPropertyDescriptor(
     HTMLVideoElement.prototype,
@@ -139,6 +150,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   HTMLMediaElement.prototype.play = originalPlay
+
   if (originalVideoSize.width) {
     Object.defineProperty(
       HTMLVideoElement.prototype,
@@ -146,6 +158,7 @@ afterEach(() => {
       originalVideoSize.width,
     )
   }
+
   if (originalVideoSize.height) {
     Object.defineProperty(
       HTMLVideoElement.prototype,
@@ -153,6 +166,7 @@ afterEach(() => {
       originalVideoSize.height,
     )
   }
+
   vi.restoreAllMocks()
   Reflect.deleteProperty(window, 'BarcodeDetector')
   Reflect.deleteProperty(navigator, 'mediaDevices')
@@ -196,10 +210,12 @@ describe('CameraScanner', () => {
   it('uses a registered fallback decoder when BarcodeDetector is absent', async () => {
     vi.useFakeTimers()
     setMediaDevices(async () => fakeStream())
+
     const wasm: CodeDecoder = {
       name: 'zxing-wasm',
       detect: async () => ['QR-2231'],
     }
+
     setFallbackDecoderLoader(async () => wasm)
     const onScan = vi.fn()
     render(<Harness onScan={onScan} />)

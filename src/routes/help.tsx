@@ -15,9 +15,11 @@ import { t } from '#/copy'
 export const Route = createFileRoute('/help')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: HelpLayout,
@@ -34,6 +36,7 @@ function HelpLayout() {
 /** Side card with the running release: used on every help page. */
 export function ReleaseCard() {
   const help = useHelp()
+
   return (
     <section
       aria-labelledby="release-h"

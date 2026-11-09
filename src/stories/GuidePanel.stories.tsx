@@ -46,7 +46,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof GuidePanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Ready to check the snapshot: the first open step offers its action. */

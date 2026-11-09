@@ -49,10 +49,13 @@ export function enterpriseAdapterId(
   connector: ConnectorWire,
 ): EnterpriseAdapterId | null {
   const adapter = connector.config['adapter']
+
   if (adapter === 's3' && connector.connector_type === 'storage') return 's3'
+
   if (adapter === 'postgres' && connector.connector_type === 'database') {
     return 'postgres'
   }
+
   return null
 }
 
@@ -129,8 +132,10 @@ export function importLimitsFromConfig(
 ): ImportLimits {
   const readPositive = (key: string, fallback: number): number => {
     const value = Number(config[key])
+
     return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback
   }
+
   return {
     previewRows: readPositive(
       'preview_rows',

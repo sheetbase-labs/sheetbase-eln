@@ -227,62 +227,79 @@ export async function runPipelineExecution(
         'The pipeline exceeded its ten-minute execution budget.',
       )
     }
+
     return query<T>(statement, values)
   }
+
   metrics.pipelineActiveRuns.inc()
+
   const observeStage = (stage: PipelineStage, ms: number) => {
     metrics.pipelineStageDuration.observe({ stage }, ms / 1000)
   }
+
   try {
     const run = await loadRun(conn, runId)
+
     if (!run) {
       await conn.rollback()
+
       return {
         ok: false,
         errorCode: 'run_not_found',
         errorMessage: 'Pipeline run not found.',
       }
     }
+
     await assertMember(conn, run.workspace_id, actor)
+
     if (run.status !== 'running') {
       // Idempotent replay of an already-finished run: nothing to execute.
       const finished = await conn.query<PipelineRunWire>(
         'SELECT * FROM api.pipeline_runs WHERE id = $1',
         [run.id],
       )
+
       await conn.rollback()
+
       return { ok: true, run: finished.rows[0] ?? null }
     }
 
     // Stamp the run actor's identity for every governed RPC in this
     // transaction (SECURITY DEFINER functions read request.jwt.claims).
     await setRunActorClaims(conn, run)
+
     const { rows: executionLock } = await conn.query<{ acquired: boolean }>(
       'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
       [runId],
     )
+
     if (executionLock[0]?.acquired === false) {
       await conn.rollback()
+
       return {
         ok: false,
         errorCode: 'run_not_running',
         errorMessage: 'This run is already executing.',
       }
     }
+
     if (!(await tryWorkspaceExecutionLock(conn, run.workspace_id))) {
       await conn.rollback()
+
       return {
         ok: false,
         errorCode: 'workspace_busy',
         errorMessage: 'Another pipeline in this workspace is running.',
       }
     }
+
     await conn.query('SAVEPOINT sb_pipeline_work')
     workStarted = true
     enforceDeadline = true
 
     const config = parseConfig(run.configuration)
     const requestErrors = validateRunRequest(config, run)
+
     if (requestErrors) {
       throw new PipelineStepError('invalid_run_request', requestErrors)
     }
@@ -313,6 +330,7 @@ export async function runPipelineExecution(
 
     // Run the transform as the low-privilege role against the temp schema.
     const transformStarted = Date.now()
+
     const transform = await withSandbox(conn, deps, (sandbox) =>
       executeSteps(
         conn,
@@ -324,7 +342,9 @@ export async function runPipelineExecution(
         deps.plugins,
       ),
     )
+
     const transformMs = Date.now() - transformStarted
+
     if (transform.kind === 'cancelled') {
       await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
       await conn.commit()
@@ -332,12 +352,14 @@ export async function runPipelineExecution(
         trigger_kind: run.trigger_kind,
         outcome: 'cancelled',
       })
+
       return {
         ok: false,
         errorCode: 'run_cancelled',
         errorMessage: 'Run was cancelled.',
       }
     }
+
     if (transform.kind === 'error') {
       observeStage('transform', transformMs)
       await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
@@ -353,22 +375,27 @@ export async function runPipelineExecution(
         trigger_kind: run.trigger_kind,
         outcome: 'failed',
       })
+
       return {
         ok: false,
         errorCode: transform.code,
         errorMessage: transform.message,
       }
     }
+
     if (transform.kind === 'waiting') {
       observeStage('transform', transformMs)
       await pauseRun(conn, run, transform)
       await conn.commit()
+
       const { rows } = await conn.query<PipelineRunWire>(
         'SELECT * FROM api.pipeline_runs WHERE id = $1',
         [run.id],
       )
+
       return { ok: true, run: rows[0] ?? null }
     }
+
     observeStage('transform', transformMs)
     await log(conn, run, 'info', 'transform', 'Transform executed.', {
       rowCount: transform.rows.length,
@@ -381,36 +408,47 @@ export async function runPipelineExecution(
       materializeMs,
       observeStage,
     })
+
     await conn.commit()
+
     if (!finished.ok) {
       metrics.pipelineRuns.inc({
         trigger_kind: run.trigger_kind,
         outcome: 'failed',
       })
+
       return {
         ok: false,
         errorCode: finished.code,
         errorMessage: finished.message,
       }
     }
+
     observeStage('total', Date.now() - startedAt)
     metrics.pipelineRuns.inc({
       trigger_kind: run.trigger_kind,
       outcome: 'succeeded',
     })
+
     return { ok: true, run: finished.run }
   } catch (error) {
     enforceDeadline = false
+
     let code: PipelineErrorCode =
       error instanceof PipelineStepError ? error.code : 'pipeline_internal'
+
     let message = error instanceof Error ? error.message : String(error)
+
     if (!workStarted) {
       await conn.rollback()
+
       return { ok: false, errorCode: code, errorMessage: message }
     }
+
     try {
       await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
       const latest = await loadRun(conn, runId)
+
       if (latest?.status === 'cancelled') {
         code = 'run_cancelled'
         message = 'Run was cancelled.'
@@ -419,7 +457,9 @@ export async function runPipelineExecution(
     } catch {
       await conn.rollback()
     }
+
     observeStage('total', Date.now() - startedAt)
+
     return { ok: false, errorCode: code, errorMessage: message }
   } finally {
     metrics.pipelineActiveRuns.dec()
@@ -458,23 +498,28 @@ export async function tryPipelineDraft(
   const logs: TrialLogEntry[] = []
   const conn = await deps.connect()
   const startedAt = Date.now()
+
   const fail = (
     errorCode: PipelineErrorCode,
     errorMessage: string,
   ): PipelineTrialReport => ({ ok: false, errorCode, errorMessage, logs })
+
   try {
     await conn.begin()
     await assertMember(conn, input.workspaceId, actor)
     await setActorClaims(conn, actor, input.workspaceId)
     const config = parseConfig(input.configuration)
+
     const requestErrors = validatePipelineRunRequest(
       config,
       input.parameters,
       input.inputVersions,
     )
+
     if (requestErrors.length > 0) {
       return fail('invalid_run_request', requestErrors[0].message)
     }
+
     const run: RunRow = {
       id: randomUuid(),
       workspace_id: input.workspaceId,
@@ -495,10 +540,12 @@ export async function tryPipelineDraft(
       definition_name: 'draft',
       trial: logs,
     }
+
     const materialized = await materializeInputs(conn, run)
     await log(conn, run, 'info', 'inputs', 'Inputs read.', {
       inputs: materialized.map((m) => ({ name: m.name, rows: m.rowCount })),
     })
+
     const outcome = await withSandbox(conn, deps, (sandbox) =>
       executeSteps(
         conn,
@@ -510,10 +557,13 @@ export async function tryPipelineDraft(
         deps.plugins,
       ),
     )
+
     if (outcome.kind === 'error') return fail(outcome.code, outcome.message)
+
     if (outcome.kind === 'cancelled')
       return fail('run_cancelled', 'The trial was cancelled.')
     const waiting = outcome.kind === 'waiting'
+
     return {
       ok: true,
       ...(waiting
@@ -584,13 +634,16 @@ export async function reproducePipelineRun(
     input.tolerance >= 0
       ? input.tolerance
       : DEFAULT_REPRODUCE_TOLERANCE
+
   const startedAt = Date.now()
   const conn = await deps.connect()
   let workspaceId: string | null = null
   let outcome: ReproductionOutcome
+
   try {
     await conn.begin()
     const run = await loadRun(conn, input.runId)
+
     if (!run) {
       return {
         ok: false,
@@ -598,8 +651,10 @@ export async function reproducePipelineRun(
         errorMessage: 'Pipeline run not found.',
       }
     }
+
     await assertMember(conn, run.workspace_id, actor)
     await setActorClaims(conn, actor, run.workspace_id)
+
     if (run.status !== 'succeeded') {
       return {
         ok: false,
@@ -608,6 +663,7 @@ export async function reproducePipelineRun(
           'Only a run that finished successfully can be reproduced.',
       }
     }
+
     // From here on a failure is a finding about the run, and is kept.
     workspaceId = run.workspace_id
     outcome = await reproduceInScratch(conn, run, deps, tolerance)
@@ -620,6 +676,7 @@ export async function reproducePipelineRun(
         errorMessage: error instanceof Error ? error.message : String(error),
       }
     }
+
     outcome = {
       status: 'failed',
       compared: null,
@@ -643,10 +700,13 @@ export async function reproducePipelineRun(
       errorMessage: 'Pipeline run not found.',
     }
   }
+
   const keep = await deps.connect()
+
   try {
     await keep.begin()
     await setActorClaims(keep, actor, workspaceId)
+
     const { rows } = await keep.query<PipelineReproductionWire>(
       `SELECT * FROM api.record_pipeline_reproduction($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9)`,
       [
@@ -661,10 +721,13 @@ export async function reproducePipelineRun(
         Date.now() - startedAt,
       ],
     )
+
     await keep.commit()
+
     return { ok: true, reproduction: rows[0] }
   } catch (error) {
     await keep.rollback().catch(() => {})
+
     return {
       ok: false,
       errorCode: 'pipeline_internal',
@@ -682,19 +745,24 @@ async function reproduceInScratch(
   tolerance: number,
 ): Promise<ReproductionOutcome> {
   const config = parseConfig(source.configuration)
+
   const requestErrors = validatePipelineRunRequest(
     config,
     source.parameters,
     source.input_versions,
   )
+
   if (requestErrors.length > 0) {
     throw new PipelineStepError('invalid_run_request', requestErrors[0].message)
   }
+
   const { rows: manifestRows } = await conn.query<{ manifest: RunManifest }>(
     `SELECT manifest FROM api.pipeline_run_manifests WHERE run_id = $1`,
     [source.id],
   )
+
   const manifest: RunManifest | null = manifestRows.at(0)?.manifest ?? null
+
   // The decisions people gave at confirm steps are replayed, not asked again.
   const { rows: prompts } = await conn.query<{
     step_id: string
@@ -704,12 +772,14 @@ async function reproduceInScratch(
       WHERE run_id = $1 AND answer IS NOT NULL`,
     [source.id],
   )
+
   const answered = new Map(prompts.map((p) => [p.step_id, p.answer]))
 
   const trialLogs: TrialLogEntry[] = []
   const run: RunRow = { ...source, trial: trialLogs }
   const materialized = await materializeInputs(conn, run)
   const inputs: PipelineReproductionSummary['inputs'] = []
+
   for (const input of materialized) {
     const recorded = manifest?.inputs.find((entry) => entry.name === input.name)
     const digest = recorded ? await digestInput(conn, input.name) : null
@@ -722,6 +792,7 @@ async function reproduceInScratch(
           : null,
     })
   }
+
   const transform = await withSandbox(conn, deps, (sandbox) =>
     executeSteps(
       conn,
@@ -733,6 +804,7 @@ async function reproduceInScratch(
       deps.plugins,
     ),
   )
+
   if (transform.kind === 'error') {
     return {
       status: 'failed',
@@ -743,6 +815,7 @@ async function reproduceInScratch(
       errorMessage: transform.message,
     }
   }
+
   if (transform.kind !== 'rows') {
     return {
       status: 'failed',
@@ -757,6 +830,7 @@ async function reproduceInScratch(
   const reproducedRows = transform.rows
   const reproducedDigest = digestRows(reproducedRows)
   const originalDigest = manifest?.outputs.contentDigest ?? null
+
   const base: Partial<PipelineReproductionSummary> = {
     inputs,
     originalDigest,
@@ -764,6 +838,7 @@ async function reproduceInScratch(
     originalRows: manifest?.outputs.rowCount ?? 0,
     reproducedRows: reproducedRows.length,
   }
+
   if (originalDigest !== null && originalDigest === reproducedDigest) {
     return {
       status: 'matches',
@@ -796,6 +871,7 @@ async function reproduceInScratch(
     manifest,
     reproducedRows,
   )
+
   if (!baseline) {
     return {
       status: originalDigest === null ? 'failed' : 'differs',
@@ -816,8 +892,10 @@ async function reproduceInScratch(
           : null,
     }
   }
+
   const diff = diffResultRows(baseline.original, baseline.reproduced, tolerance)
   const { examples, ...counts } = diff
+
   return {
     status: diffMatches(diff) ? 'matches' : 'differs',
     compared: baseline.compared,
@@ -858,13 +936,17 @@ async function loadReproductionBaseline(
       WHERE run_id = $1 ORDER BY created_at LIMIT 1`,
     [source.id],
   )
+
   const versionId = outputs[0]?.dataset_version_id
   const expectedRows = manifest?.outputs.rowCount ?? null
+
   if (versionId && reproducedRows.length <= REPRODUCE_COMPARE_ROW_LIMIT) {
     const version = await loadInputVersion(conn, source.workspace_id, versionId)
+
     if (version) {
       const fields = await loadSchemaFields(conn, version.schema_version_id)
       const count = await countInputRows(conn, version.id)
+
       // An appending pipeline's version also holds earlier runs' rows; only a
       // version that is exactly this run's result can be compared whole.
       if (
@@ -877,6 +959,7 @@ async function loadReproductionBaseline(
           logicalType: f.logical_type,
           fieldId: f.field_id,
         }))
+
         await conn.query(buildInputTableDdl('_sb_reproduce_original', columns))
         await materializeInputRows(
           conn,
@@ -884,17 +967,21 @@ async function loadReproductionBaseline(
           version,
           columns,
         )
+
         const { rows } = await conn.query<{ row: Record<string, unknown> }>(
           `SELECT row_to_json(t) AS row FROM pg_temp._sb_reproduce_original t ORDER BY "_sb_row_id"`,
         )
+
         const original = rows.map((entry) => {
           const {
             _sb_row_id: _id,
             _sb_row_revision: _rev,
             ...values
           } = entry.row
+
           return values
         })
+
         return {
           compared: 'dataset_version',
           original,
@@ -904,12 +991,16 @@ async function loadReproductionBaseline(
       }
     }
   }
+
   const preview = readResultPreview(source.result ?? {})
+
   if (preview && preview.columns.length > 0) {
     const original = preview.rows.map((cells) =>
       Object.fromEntries(preview.columns.map((c, i) => [c, cells[i]])),
     )
+
     const shown = reproducedRows.slice(0, preview.rows.length)
+
     return {
       compared: 'preview',
       original,
@@ -920,6 +1011,7 @@ async function loadReproductionBaseline(
       note: `Compared the first ${preview.rows.length} rows only; the run did not keep its full result.`,
     }
   }
+
   return null
 }
 
@@ -931,18 +1023,24 @@ function toOutputFieldRows(
 ): Array<Record<string, unknown>> {
   const mapping = config.output.fieldMapping ?? {}
   const byKey = new Map(fields.map((f) => [f.key, f]))
+
   return rows.map((row) => {
     const out: Record<string, unknown> = {}
+
     for (const [column, raw] of Object.entries(row)) {
       const field = byKey.get(mapping[column] ?? column)
+
       if (!field) continue
+
       if (raw === null || raw === undefined) {
         out[field.key] = null
         continue
       }
+
       const value = coerceValue(field.logical_type, raw)
       out[field.key] = value === COERCE_ERROR ? raw : value
     }
+
     return out
   })
 }
@@ -1011,8 +1109,10 @@ async function finishExecution(
 ): Promise<FinishOutcome> {
   const { startedAt, materializeMs, observeStage } = timing
   const outputStarted = Date.now()
+
   if (!(await isRunRunning(conn, run.id)))
     throw new PipelineStepError('run_cancelled', 'Run was cancelled.')
+
   const output =
     config.output.mode === 'none'
       ? {
@@ -1024,13 +1124,17 @@ async function finishExecution(
           snapshotMs: 0,
         }
       : await writeOutput(conn, run, config, transform.rows)
+
   const outputMs = Date.now() - outputStarted
   observeStage('output_commit', outputMs)
+
   if (!output.ok) {
     await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
     await failRun(conn, run, output.code, output.message)
+
     return { ok: false, code: output.code, message: output.message }
   }
+
   await log(
     conn,
     run,
@@ -1048,6 +1152,7 @@ async function finishExecution(
   )
 
   await setRunActorClaims(conn, run)
+
   const actionResults = await executePipelineActions(
     conn,
     { workspaceId: run.workspace_id, runId: run.id },
@@ -1062,12 +1167,14 @@ async function finishExecution(
       },
     },
   )
+
   for (const action of config.actions ?? []) {
     await log(conn, run, 'info', 'action', `${action.name} completed.`, {
       name: action.name,
       operation: action.operation,
     })
   }
+
   const completion = {
     actions: actionResults,
     rowCount: transform.rows.length,
@@ -1094,6 +1201,7 @@ async function finishExecution(
       total: Date.now() - startedAt,
     },
   }
+
   await setRunActorClaims(conn, run)
   await queuePipelineNotifications(conn, run, config, completion, {
     parameters: run.parameters,
@@ -1136,12 +1244,14 @@ async function finishExecution(
       ? new Date(finished.finished_at).toISOString()
       : null,
   })
+
   return { ok: true, run: finished }
 }
 
 /** Keep the committed proposal bounded; a large one is stored as a summary. */
 function boundProposal(rows: Array<Record<string, unknown>>): unknown {
   if (JSON.stringify(rows).length <= MAX_PENDING_JSON_CHARS) return rows
+
   return {
     truncated: true,
     rowCount: rows.length,
@@ -1161,6 +1271,7 @@ async function pauseRun(
   outcome: Extract<TransformOutcome, { kind: 'waiting' }>,
 ): Promise<void> {
   const confirm = outcome.step.confirm
+
   if (!confirm)
     throw new PipelineStepError(
       'pipeline_internal',
@@ -1180,17 +1291,20 @@ async function pauseRun(
       expiresHours: hours,
     },
   )
+
   const pending = {
     step: outcome.step.name,
     since: new Date().toISOString(),
     previousRows: outcome.previous.length,
     proposal,
   }
+
   const updated = await conn.query<{ id: string }>(
     `UPDATE api.pipeline_runs SET status = 'waiting', result = $2::jsonb
       WHERE id = $1 AND status = 'running' RETURNING id`,
     [run.id, JSON.stringify({ pending })],
   )
+
   if (updated.rows.length === 0)
     throw new PipelineStepError(
       'run_cancelled',
@@ -1225,6 +1339,7 @@ async function loadOpenPrompt(
       ORDER BY created_at DESC LIMIT 1`,
     [runId],
   )
+
   return rows[0] ?? null
 }
 
@@ -1236,6 +1351,7 @@ async function loadRunWire(
     'SELECT * FROM api.pipeline_runs WHERE id = $1',
     [runId],
   )
+
   return rows[0] ?? null
 }
 
@@ -1287,27 +1403,34 @@ async function checkResumable(
   answer: unknown,
 ): Promise<ResumeCheck> {
   const run = await loadRun(conn, runId)
+
   if (!run) return refuse('run_not_found', 'Pipeline run not found.')
   await assertMember(conn, run.workspace_id, actor)
+
   if (run.status !== 'waiting')
     return refuse('run_not_waiting', 'This run is not waiting for a decision.')
   const prompt = await loadOpenPrompt(conn, run.id)
+
   if (!prompt)
     return refuse(
       'prompt_not_found',
       'No open decision was found for this run.',
     )
+
   if (!prompt.asked_user_ids.includes(actor))
     return refuse('confirm_not_asked', 'You were not asked to decide this run.')
   const config = parseConfig(run.configuration)
   const step = findPipelineConfirmStep(config, prompt.step_id)
+
   if (!step?.confirm)
     return refuse(
       'invalid_configuration',
       'The waiting step is not a confirm step in this version.',
     )
   const answerError = validateConfirmAnswer(step.confirm, answer)
+
   if (answerError) return refuse('invalid_answer', answerError)
+
   return { ok: true, run, prompt, config }
 }
 
@@ -1325,9 +1448,11 @@ export async function validatePipelineResume(
   | { ok: false; report: PipelineExecuteReport }
 > {
   const conn = await deps.connect()
+
   try {
     await conn.begin()
     const checked = await checkResumable(conn, actor, runId, answer)
+
     return checked.ok
       ? { ok: true, workspaceId: checked.run.workspace_id }
       : checked
@@ -1363,36 +1488,46 @@ export async function resumePipelineRun(
   await conn.begin()
   const startedAt = Date.now()
   let workStarted = false
+
   try {
     const checked = await checkResumable(conn, actor, runId, answer)
+
     if (!checked.ok) {
       await conn.rollback()
+
       return checked.report
     }
+
     const { run, prompt, config } = checked
     const decision = answer as PipelineConfirmAnswerInput
 
     await setRunActorClaims(conn, run)
+
     const { rows: executionLock } = await conn.query<{ acquired: boolean }>(
       'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
       [runId],
     )
+
     if (executionLock[0]?.acquired === false) {
       await conn.rollback()
+
       return {
         ok: false,
         errorCode: 'run_not_running',
         errorMessage: 'This run is already executing.',
       }
     }
+
     if (!(await tryWorkspaceExecutionLock(conn, run.workspace_id))) {
       await conn.rollback()
+
       return {
         ok: false,
         errorCode: 'workspace_busy',
         errorMessage: 'Another pipeline in this workspace is running.',
       }
     }
+
     await conn.query('SAVEPOINT sb_pipeline_work')
     workStarted = true
 
@@ -1400,6 +1535,7 @@ export async function resumePipelineRun(
     // (it enforces asked/unanswered/unexpired and emits the change event).
     // The claims must be the answering person's: PIPE-02.3 attribution.
     await setActorClaims(conn, actor, run.workspace_id)
+
     try {
       await conn.query(
         `SELECT * FROM api.answer_pipeline_run_prompt($1, $2::jsonb)`,
@@ -1407,8 +1543,10 @@ export async function resumePipelineRun(
       )
     } catch (error) {
       await conn.rollback()
+
       const message =
         error instanceof Error ? error.message : 'The decision was rejected.'
+
       return {
         ok: false,
         errorCode: /expire/i.test(message)
@@ -1417,15 +1555,19 @@ export async function resumePipelineRun(
         errorMessage: message,
       }
     }
+
     // The remaining automated steps run as the original run actor.
     await setRunActorClaims(conn, run)
+
     const resumed = await conn.query<{ id: string }>(
       `UPDATE api.pipeline_runs SET status = 'running', result = '{}'::jsonb
         WHERE id = $1 AND status = 'waiting' RETURNING id`,
       [run.id],
     )
+
     if (resumed.rows.length === 0) {
       await conn.rollback()
+
       return {
         ok: false,
         errorCode: 'run_not_waiting',
@@ -1447,6 +1589,7 @@ export async function resumePipelineRun(
         trigger_kind: run.trigger_kind,
         outcome: 'cancelled',
       })
+
       return { ok: true, run: await loadRunWire(conn, run.id) }
     }
 
@@ -1469,6 +1612,7 @@ export async function resumePipelineRun(
     const answered = new Map<string, Record<string, unknown>>([
       [prompt.step_id, answer as Record<string, unknown>],
     ])
+
     const transform = await withSandbox(conn, deps, (sandbox) =>
       executeSteps(
         conn,
@@ -1480,20 +1624,25 @@ export async function resumePipelineRun(
         deps.plugins,
       ),
     )
+
     if (transform.kind === 'waiting') {
       await pauseRun(conn, run, transform)
       await conn.commit()
+
       return { ok: true, run: await loadRunWire(conn, run.id) }
     }
+
     if (transform.kind === 'cancelled') {
       await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
       await conn.commit()
+
       return {
         ok: false,
         errorCode: 'run_cancelled',
         errorMessage: 'Run was cancelled.',
       }
     }
+
     if (transform.kind === 'error') {
       await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
       await failRun(
@@ -1508,47 +1657,60 @@ export async function resumePipelineRun(
         trigger_kind: run.trigger_kind,
         outcome: 'failed',
       })
+
       return {
         ok: false,
         errorCode: transform.code,
         errorMessage: transform.message,
       }
     }
+
     const observeStage = (stage: PipelineStage, ms: number) =>
       metrics.pipelineStageDuration.observe({ stage }, ms / 1000)
+
     const finished = await finishExecution(conn, run, config, transform, {
       startedAt,
       materializeMs,
       observeStage,
     })
+
     await conn.commit()
+
     if (!finished.ok) {
       metrics.pipelineRuns.inc({
         trigger_kind: run.trigger_kind,
         outcome: 'failed',
       })
+
       return {
         ok: false,
         errorCode: finished.code,
         errorMessage: finished.message,
       }
     }
+
     metrics.pipelineRuns.inc({
       trigger_kind: run.trigger_kind,
       outcome: 'succeeded',
     })
+
     return { ok: true, run: finished.run }
   } catch (error) {
     let code: PipelineErrorCode =
       error instanceof PipelineStepError ? error.code : 'pipeline_internal'
+
     let message = error instanceof Error ? error.message : String(error)
+
     if (!workStarted) {
       await conn.rollback()
+
       return { ok: false, errorCode: code, errorMessage: message }
     }
+
     try {
       await conn.query('ROLLBACK TO SAVEPOINT sb_pipeline_work')
       const latest = await loadRun(conn, runId)
+
       if (latest?.status === 'cancelled') {
         code = 'run_cancelled'
         message = 'Run was cancelled.'
@@ -1558,6 +1720,7 @@ export async function resumePipelineRun(
     } catch {
       await conn.rollback()
     }
+
     return { ok: false, errorCode: code, errorMessage: message }
   } finally {
     await conn.end()
@@ -1595,6 +1758,7 @@ export async function releaseSettledRunArtefacts(
 ): Promise<{ released: number; kept: number; failed: number }> {
   const conn = await deps.connect()
   const report = { released: 0, kept: 0, failed: 0 }
+
   try {
     const { rows } = await conn.query<{ id: string; workspace_id: string }>(
       `SELECT r.id, r.workspace_id FROM api.pipeline_runs r
@@ -1605,13 +1769,16 @@ export async function releaseSettledRunArtefacts(
         ORDER BY r.finished_at NULLS LAST
         LIMIT 50`,
     )
+
     for (const run of rows) {
       const proposed = await conn.query<{ n: string }>(
         `SELECT count(*)::text AS n FROM api.agent_operation_proposals
           WHERE workspace_id = $1 AND provenance->>'runId' = $2`,
         [run.workspace_id, run.id],
       )
+
       const keep = Number(proposed.rows[0]?.n ?? '0') > 0
+
       try {
         await releasePythonArtefacts(run.id, keep)
       } catch {
@@ -1621,18 +1788,21 @@ export async function releaseSettledRunArtefacts(
         report.failed += 1
         continue
       }
+
       await conn.query(
         `INSERT INTO api.pipeline_artefact_releases(run_id, workspace_id, kept)
          VALUES ($1, $2, $3::boolean)
          ON CONFLICT (run_id) DO NOTHING`,
         [run.id, run.workspace_id, keep],
       )
+
       if (keep) report.kept += 1
       else report.released += 1
     }
   } finally {
     await conn.end().catch(() => {})
   }
+
   return report
 }
 
@@ -1641,12 +1811,14 @@ export async function expirePipelinePrompts(
   now: Date = new Date(),
 ): Promise<PipelineExpiryReport> {
   const conn = await deps.connect()
+
   const report: PipelineExpiryReport = {
     examined: 0,
     reasked: 0,
     applied: 0,
     failed: 0,
   }
+
   try {
     const { rows: expired } = await conn.query<PromptRow>(
       `SELECT p.* FROM api.pipeline_run_prompts p
@@ -1656,9 +1828,11 @@ export async function expirePipelinePrompts(
         ORDER BY p.expires_at`,
       [now.toISOString()],
     )
+
     for (const prompt of expired) {
       report.examined += 1
       await conn.begin()
+
       try {
         // Re-check under a row lock: a concurrent answer, resumption or
         // another sweep must win without losing a recorded decision.
@@ -1670,6 +1844,7 @@ export async function expirePipelinePrompts(
             WHERE id = $1 FOR UPDATE`,
           [prompt.id],
         )
+
         if (
           !current[0] ||
           current[0].answer !== null ||
@@ -1679,23 +1854,29 @@ export async function expirePipelinePrompts(
           await conn.rollback()
           continue
         }
+
         const run = await loadRun(conn, prompt.run_id)
+
         if (!run || run.status !== 'waiting') {
           await conn.rollback()
           continue
         }
+
         await setRunActorClaims(conn, run)
         const config = parseConfig(run.configuration)
         const step = findPipelineConfirmStep(config, prompt.step_id)
+
         const outcome = step?.confirm
           ? confirmNoAnswerOutcome(step.confirm)
           : 'fail'
+
         if (outcome === 'apply' && step?.confirm) {
           if (!(await tryWorkspaceExecutionLock(conn, run.workspace_id))) {
             // Another pipeline is writing here; the next sweep applies it.
             await conn.rollback()
             continue
           }
+
           await conn.query(
             `UPDATE api.pipeline_runs SET status = 'running', result = '{}'::jsonb
               WHERE id = $1 AND status = 'waiting'`,
@@ -1717,9 +1898,11 @@ export async function expirePipelinePrompts(
           const materializeStarted = Date.now()
           await materializeInputs(conn, run)
           const materializeMs = Date.now() - materializeStarted
+
           const answered = new Map<string, Record<string, unknown>>([
             [prompt.step_id, { decision: 'confirm', values: {} }],
           ])
+
           const transform = await withSandbox(conn, deps, (sandbox) =>
             executeSteps(
               conn,
@@ -1731,9 +1914,11 @@ export async function expirePipelinePrompts(
               deps.plugins,
             ),
           )
+
           if (transform.kind === 'rows') {
             const observeStage = (stage: PipelineStage, ms: number) =>
               metrics.pipelineStageDuration.observe({ stage }, ms / 1000)
+
             const finished = await finishExecution(
               conn,
               run,
@@ -1745,6 +1930,7 @@ export async function expirePipelinePrompts(
                 observeStage,
               },
             )
+
             if (finished.ok) {
               metrics.pipelineRuns.inc({
                 trigger_kind: run.trigger_kind,
@@ -1779,10 +1965,12 @@ export async function expirePipelinePrompts(
               outcome: 'cancelled',
             })
           }
+
           await conn.commit()
           report.applied += 1
           continue
         }
+
         if (outcome === 'fail') {
           await endWaitingRun(
             conn,
@@ -1802,6 +1990,7 @@ export async function expirePipelinePrompts(
           report.failed += 1
           continue
         }
+
         await endWaitingRun(
           conn,
           run,
@@ -1824,6 +2013,7 @@ export async function expirePipelinePrompts(
   } finally {
     await conn.end()
   }
+
   return report
 }
 
@@ -1847,6 +2037,7 @@ async function tryWorkspaceExecutionLock(
     'SELECT pg_try_advisory_xact_lock(hashtextextended($1, 0)) AS acquired',
     [`pipeline-workspace:${workspaceId}`],
   )
+
   return rows[0]?.acquired !== false
 }
 
@@ -1866,6 +2057,7 @@ async function loadRun(
       WHERE r.id = $1`,
     [runId],
   )
+
   return rows[0] ?? null
 }
 
@@ -1879,7 +2071,9 @@ async function assertMember(
       WHERE m.workspace_id = $1 AND m.user_id = $2 AND m.suspended_at IS NULL`,
     [workspaceId, userId],
   )
+
   const role = rows.at(0)?.role
+
   // GOV-01 writer set: anyone but the read-only viewer may execute runs.
   if (!role || role === 'viewer') {
     throw new PipelineStepError(
@@ -1891,12 +2085,14 @@ async function assertMember(
 
 function parseConfig(raw: Record<string, unknown>): PipelineConfig {
   const errors = validatePipelineConfig(raw)
+
   if (errors.length > 0) {
     throw new PipelineStepError(
       'invalid_configuration',
       `Pipeline configuration is invalid: ${errors[0].message}`,
     )
   }
+
   return raw as unknown as PipelineConfig
 }
 
@@ -1909,6 +2105,7 @@ function validateRunRequest(
     run.parameters,
     run.input_versions,
   )
+
   return errors.length > 0 ? errors[0].message : null
 }
 
@@ -1924,41 +2121,50 @@ async function materializeInputs(
 ): Promise<MaterializedInput[]> {
   const config = run.configuration as unknown as PipelineConfig
   const result: MaterializedInput[] = []
+
   for (const input of config.inputs) {
     const versionId = run.input_versions[input.name]
     const version = await loadInputVersion(conn, run.workspace_id, versionId)
+
     if (!version) {
       throw new PipelineStepError(
         'input_not_found',
         `Input "${input.name}" references a Dataset Version that is not available in this workspace.`,
       )
     }
+
     const fields = await loadSchemaFields(conn, version.schema_version_id)
+
     if (fields.length === 0) {
       throw new PipelineStepError(
         'output_schema_not_found',
         `Input "${input.name}" schema has no active fields.`,
       )
     }
+
     if (fields.length > INPUT_FIELD_LIMIT) {
       throw new PipelineStepError(
         'input_too_large',
         'Input schema exceeds the field limit.',
       )
     }
+
     const columnDefs = fields.map((f) => ({
       slug: f.key,
       logicalType: f.logical_type,
       fieldId: f.field_id,
     }))
+
     await conn.query(buildInputTableDdl(input.name, columnDefs))
     const rowCount = await countInputRows(conn, version.id)
+
     if (rowCount > INPUT_ROW_LIMIT) {
       throw new PipelineStepError(
         'input_too_large',
         'Input Dataset Version exceeds the row limit.',
       )
     }
+
     await materializeInputRows(conn, input.name, version, columnDefs)
     result.push({
       name: input.name,
@@ -1966,6 +2172,7 @@ async function materializeInputs(
       rowCount,
     })
   }
+
   return result
 }
 
@@ -1987,6 +2194,7 @@ async function loadInputVersion(
       WHERE id = $1 AND workspace_id = $2`,
     [versionId, workspaceId],
   )
+
   return rows[0] ?? null
 }
 
@@ -2001,6 +2209,7 @@ async function loadSchemaFields(
       ORDER BY f.display_order, f.key`,
     [schemaVersionId],
   )
+
   return rows
 }
 
@@ -2013,6 +2222,7 @@ function buildInputTableDdl(
     '"_sb_row_revision" bigint NOT NULL',
     ...columns.map((c) => `"${c.slug}" ${pgTypeFor(c.logicalType)}`),
   ]
+
   return `CREATE TEMP TABLE ${name} (${cols.join(', ')})`
 }
 
@@ -2050,6 +2260,7 @@ async function countInputRows(
     `SELECT count(*) FROM api.dataset_version_rows WHERE dataset_version_id = $1`,
     [versionId],
   )
+
   return Number(rows[0]?.count ?? 0)
 }
 
@@ -2069,6 +2280,7 @@ async function materializeInputRows(
   columns: Array<{ slug: string; logicalType: string; fieldId: string }>,
 ): Promise<number> {
   if (columns.length === 0) return 0
+
   const valueColumn = (logicalType: string): string => {
     switch (logicalType) {
       case 'text':
@@ -2091,8 +2303,10 @@ async function materializeInputRows(
         return 'text_value'
     }
   }
+
   const quote = (slug: string) => `"${slug}"`
   const columnSql = columns.map((c) => quote(c.slug)).join(', ')
+
   const selectSql = columns
     .map(
       (c) =>
@@ -2100,6 +2314,7 @@ async function materializeInputRows(
         `FILTER (WHERE v.field_id = '${c.fieldId}'))[1] AS ${quote(c.slug)}`,
     )
     .join(', ')
+
   const sql = `
     INSERT INTO ${name} ("_sb_row_id", "_sb_row_revision", ${columnSql})
     SELECT r.row_id, r.revision, ${selectSql}
@@ -2117,7 +2332,9 @@ async function materializeInputRows(
      WHERE r.dataset_version_id = $1
      GROUP BY r.row_id, r.revision
      ORDER BY r.row_id`
+
   const result = await conn.query(sql, [version.id])
+
   return result.rowCount ?? 0
 }
 
@@ -2167,6 +2384,7 @@ async function withSandbox<T>(
       await conn.query('SELECT pg_terminate_backend($1)', [pid])
     },
   )
+
   try {
     return await fn(sandbox)
   } finally {
@@ -2214,18 +2432,23 @@ async function executeSteps(
   // narrowed to its initialiser by control-flow analysis, so the result could not ask whether
   // anything had been seen.
   const usages: PythonTransformUsage[] = []
+
   const recordUsage = (usage: PythonTransformUsage | undefined): void => {
     if (!usage) return
     usages.push(usage)
   }
+
   const steps = listSteps(config)
   // What each step gave back, so a plugin step can read any earlier one by name.
   const stepResults: Record<string, Array<Record<string, unknown>>> = {}
+
   const inputRows = async (name: string) => {
     if (!config.inputs.some((input) => input.name === name)) return undefined
+
     const { rows } = await conn.query<{ row: Record<string, unknown> }>(
       `SELECT row_to_json(t) AS row FROM pg_temp.${quoteIdentifier(name)} t ORDER BY "_sb_row_id"`,
     )
+
     return rows.map((entry) => entry.row)
   }
 
@@ -2242,8 +2465,10 @@ async function executeSteps(
               'SELECT api.current_user_id() AS id',
             )
           ).rows.at(0)?.id
+
         if (!actor)
           throw new PluginStepError('This run has no person to act as.')
+
         const result = await runPluginStep(
           {
             workspaceId: run.workspace_id,
@@ -2258,6 +2483,7 @@ async function executeSteps(
             steps: stepResults,
           },
         )
+
         await log(
           conn,
           run,
@@ -2266,6 +2492,7 @@ async function executeSteps(
           `Plugin step ${index + 1} completed.`,
           { step: step.name, operation: step.plugin?.operation },
         )
+
         return {
           kind: 'rows',
           rows: result.rows,
@@ -2282,16 +2509,22 @@ async function executeSteps(
         }
       }
     }
+
     if (step.language === 'python') {
       const inputs: Record<string, Array<Record<string, unknown>>> = {}
+
       for (const input of config.inputs) {
         const { rows } = await conn.query<{ row: Record<string, unknown> }>(
           `SELECT row_to_json(t) AS row FROM pg_temp.${quoteIdentifier(input.name)} t ORDER BY "_sb_row_id"`,
         )
+
         inputs[input.name] = rows.map((entry) => entry.row)
       }
+
       if (previous) inputs.previous = previous
+
       if (answerValues) inputs.answer = [answerValues]
+
       try {
         const result = await python({
           // PIPE-04.2: the artefact key is the run, so every Python step's files land in
@@ -2304,6 +2537,7 @@ async function executeSteps(
           requirements: config.pythonRequirements,
           contract: step.contract,
         })
+
         await log(
           conn,
           run,
@@ -2318,6 +2552,7 @@ async function executeSteps(
           },
         )
         recordUsage(result.usage)
+
         return {
           kind: 'rows',
           rows: result.rows,
@@ -2325,8 +2560,10 @@ async function executeSteps(
         }
       } catch (error) {
         const failure = error instanceof PipelinePythonError ? error : null
+
         const message =
           error instanceof Error ? error.message : 'Python execution failed.'
+
         return {
           kind: 'error',
           code: pythonErrorCode(error),
@@ -2345,13 +2582,18 @@ async function executeSteps(
         }
       }
     }
+
     if (previous) await materializePrevious(conn, previous)
+
     // Hand the sandbox exactly the tables this step may read.
     for (const input of config.inputs)
       if (!sandbox.has(input.name)) await sandbox.copyTable(conn, input.name)
+
     if (previous) await sandbox.copyTable(conn, 'previous')
+
     if (answerValues && !sandbox.has('confirm_answer'))
       await sandbox.copyTable(conn, 'confirm_answer')
+
     return executeTransform(
       run,
       {
@@ -2375,12 +2617,16 @@ async function executeSteps(
       )
       continue
     }
+
     if (!(await isRunRunning(conn, run.id, run.trial !== undefined)))
       return { kind: 'cancelled' }
     const outcome = await runStep(index, step)
+
     if (outcome.kind !== 'rows') return outcome
     let cells = 0
+
     for (const row of outcome.rows) cells += Object.keys(row).length
+
     if (outcome.rows.length > INPUT_ROW_LIMIT || cells > RESULT_CELL_LIMIT) {
       return {
         kind: 'error',
@@ -2388,11 +2634,13 @@ async function executeSteps(
         message: 'Step result exceeds the row or cell limit.',
       }
     }
+
     // PIPE-02: a confirm step proposes values and then waits for a person.
     // Its own result is the proposal; the dependent steps keep reading the
     // preceding result, so an unanswered run changes nothing.
     if (step.confirm) {
       const decision = answered?.get(step.name)
+
       if (!decision) {
         return {
           kind: 'waiting',
@@ -2402,14 +2650,17 @@ async function executeSteps(
           durationMs: Date.now() - started,
         }
       }
+
       if (decision.decision === 'skip')
         for (const name of step.confirm.skipSteps ?? []) skipped.add(name)
+
       // A plugin step's table is the work itself, not a proposal beside it: once
       // the person confirms it, the steps after it read it as `previous`.
       if (step.language === 'plugin' && decision.decision === 'confirm') {
         previous = outcome.rows
         stepResults[step.name] = outcome.rows
       }
+
       answerValues =
         (decision.values as Record<string, unknown> | undefined) ?? {}
       await provisionConfirmAnswer(conn, answerValues)
@@ -2428,6 +2679,7 @@ async function executeSteps(
       )
       continue
     }
+
     previous = outcome.rows
     stepResults[step.name] = outcome.rows
     await log(
@@ -2444,6 +2696,7 @@ async function executeSteps(
       },
     )
   }
+
   return {
     kind: 'rows',
     rows: previous ?? [],
@@ -2479,6 +2732,7 @@ function pythonErrorCode(error: unknown): PipelineErrorCode {
         return 'transform_failed'
     }
   }
+
   return 'transform_failed'
 }
 
@@ -2509,6 +2763,7 @@ async function materializePrevious(
   rows: Array<Record<string, unknown>>,
 ): Promise<void> {
   const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))]
+
   if (
     columns.length > INPUT_FIELD_LIMIT ||
     columns.some((name) => !name || Buffer.byteLength(name) > 63)
@@ -2518,20 +2773,25 @@ async function materializePrevious(
       'Previous step has too many columns or an invalid column name.',
     )
   }
+
   const fields = columns.map((name) => {
     const values = rows
       .map((row) => row[name])
       .filter((value) => value !== null && value !== undefined)
+
     const type = values.every((value) => typeof value === 'number')
       ? 'numeric'
       : values.every((value) => typeof value === 'boolean')
         ? 'boolean'
         : 'text'
+
     return `${quoteIdentifier(name)} ${type}`
   })
+
   await conn.query('DROP TABLE IF EXISTS pg_temp.previous')
   // A zero-column result still has a useful SQL relation (SELECT count(*)).
   await conn.query(`CREATE TEMP TABLE previous (${fields.join(', ')})`)
+
   if (columns.length && rows.length) {
     await conn.query(
       `INSERT INTO pg_temp.previous SELECT * FROM jsonb_populate_recordset(NULL::pg_temp.previous, $1::jsonb)`,
@@ -2548,6 +2808,7 @@ async function executeTransform(
 ): Promise<TransformOutcome> {
   const statement = config.transform.statement
   const check = checkTransformStatement(statement)
+
   if (!check.ok) {
     return {
       kind: 'error',
@@ -2555,14 +2816,17 @@ async function executeTransform(
       message: check.reason,
     }
   }
+
   const parameterTypes: Record<string, string> = Object.fromEntries(
     config.parameters.map((p) => [p.name, p.type]),
   )
+
   const substituted = substituteParameters(
     statement,
     run.parameters,
     parameterTypes,
   )
+
   if (!substituted.ok) {
     return {
       kind: 'error',
@@ -2570,15 +2834,19 @@ async function executeTransform(
       message: substituted.reason,
     }
   }
+
   const wrapped = wrapTransformStatement(substituted.statement)
 
   const started = Date.now()
+
   try {
     const result = await sandbox.run<Record<string, unknown>>(
       wrapped,
       EXECUTION_TIMEOUT_SECONDS,
     )
+
     const rows = result.rows
+
     if (rows.length > 100_000) {
       return {
         kind: 'error',
@@ -2586,6 +2854,7 @@ async function executeTransform(
         message: 'Transform produced more than 100000 rows.',
       }
     }
+
     for (const row of rows) {
       for (const value of Object.values(row)) {
         if (
@@ -2602,6 +2871,7 @@ async function executeTransform(
         }
       }
     }
+
     return { kind: 'rows', rows, durationMs: Date.now() - started }
   } catch (error) {
     // The sandbox is a separate session, so a failed statement cannot poison
@@ -2613,7 +2883,9 @@ async function executeTransform(
         message: error.message,
       }
     }
+
     const message = error instanceof Error ? error.message : String(error)
+
     if (
       /statement timeout|terminating connection|connection terminated/i.test(
         message,
@@ -2625,9 +2897,11 @@ async function executeTransform(
         message: `Transform exceeded the ${EXECUTION_TIMEOUT_SECONDS}s execution limit.`,
       }
     }
+
     const hint = /does not exist/i.test(message)
       ? await availableColumnsHint(conn)
       : ''
+
     return {
       kind: 'error',
       code: 'transform_failed',
@@ -2651,8 +2925,10 @@ async function availableColumnsHint(conn: ExecConnection): Promise<string> {
         GROUP BY c.table_name
         ORDER BY c.table_name`,
     )
+
     if (rows.length === 0) return ''
     const listing = rows.map((r) => `${r.table_name}(${r.columns})`).join('; ')
+
     return `. Available: ${truncate(listing, 600)}`
   } catch {
     return ''
@@ -2665,10 +2941,12 @@ async function isRunRunning(
   trial = false,
 ): Promise<boolean> {
   if (trial) return true
+
   const { rows } = await conn.query<{ status: string }>(
     `SELECT status FROM api.pipeline_runs WHERE id = $1`,
     [runId],
   )
+
   return rows[0]?.status === 'running'
 }
 
@@ -2694,6 +2972,7 @@ async function writeOutput(
   resultRows: Array<Record<string, unknown>>,
 ): Promise<OutputOutcome> {
   const output = config.output
+
   // Re-check cancellation before any output work.
   if (!(await isRunRunning(conn, run.id))) {
     return {
@@ -2702,6 +2981,7 @@ async function writeOutput(
       message: 'Run was cancelled before output.',
     }
   }
+
   // Re-stamp the run actor's identity: the transform ran in the same
   // transaction and could have touched request.jwt.claims via pg_catalog
   // set_config. The output phase must use the run's own identity, never one
@@ -2717,6 +2997,7 @@ async function writeOutput(
 
   let datasetId: string
   let schemaVersionId: string
+
   if (output.mode === 'create') {
     // "Create" makes the Dataset once. Later runs of the same pipeline add a
     // new Dataset Version to it instead of making another one every time.
@@ -2734,6 +3015,7 @@ async function writeOutput(
         output.datasetName!,
         run.actor_user_id,
       ))
+
     if (!created) {
       return {
         ok: false,
@@ -2742,6 +3024,7 @@ async function writeOutput(
           'The output Dataset Schema Version is not available in this workspace.',
       }
     }
+
     datasetId = created.id
     schemaVersionId = output.schemaVersionId!
   } else {
@@ -2750,6 +3033,7 @@ async function writeOutput(
       run.workspace_id,
       output.datasetId!,
     )
+
     if (!target) {
       return {
         ok: false,
@@ -2757,12 +3041,14 @@ async function writeOutput(
         message: 'The output Dataset is not available in this workspace.',
       }
     }
+
     datasetId = target.id
     schemaVersionId = target.schema_version_id
   }
 
   // Build + validate the canonical row batch against the schema version.
   const fields = await loadSchemaFields(conn, schemaVersionId)
+
   if (fields.length === 0) {
     return {
       ok: false,
@@ -2770,7 +3056,9 @@ async function writeOutput(
       message: 'The output schema has no active fields.',
     }
   }
+
   const mapped = mapOutputRows(config, fields, resultRows)
+
   if (mapped.kind === 'error') {
     return { ok: false, code: mapped.code, message: mapped.message }
   }
@@ -2784,7 +3072,9 @@ async function writeOutput(
       `SELECT api.check_dataset_contract($1, $2::jsonb, 'pipeline') result`,
       [datasetId, JSON.stringify(mapped.rows)],
     )
+
     const report = gate.rows[0]?.result
+
     if (report?.blocked) {
       return {
         ok: false,
@@ -2795,6 +3085,7 @@ async function writeOutput(
   }
 
   let commitMs = 0
+
   if (mapped.rows.length > 0) {
     // commit_dataset_row_batch accepts 1–1000 rows per call, so large
     // outputs are chunked; each commit bumps the Dataset revision, so the
@@ -2803,10 +3094,12 @@ async function writeOutput(
     // final chunk so it excludes snapshot/output-recording time.
     const BATCH_SIZE = 1000
     const commitStartedAt = Date.now()
+
     for (let offset = 0; offset < mapped.rows.length; offset += BATCH_SIZE) {
       const chunk = mapped.rows.slice(offset, offset + BATCH_SIZE)
       const expectedRevision = await loadDatasetRevision(conn, datasetId)
       const commitStarted = Date.now()
+
       const commit = await conn.query<{ result: unknown }>(
         `SELECT api.commit_dataset_row_batch($1, $2, $3::jsonb, $4) result`,
         [
@@ -2816,16 +3109,19 @@ async function writeOutput(
           `pipeline:${run.id}:${Math.floor(offset / BATCH_SIZE)}`,
         ],
       )
+
       metrics.datasetCommitDuration.observe(
         { size_bucket: sizeBucketFor(chunk.length) },
         (Date.now() - commitStarted) / 1000,
       )
       const commitResult = commit.rows[0]?.result
+
       const ok =
         commitResult !== null &&
         commitResult !== undefined &&
         typeof commitResult === 'object' &&
         (commitResult as { ok?: unknown }).ok === true
+
       if (!ok) {
         const detail =
           commitResult && typeof commitResult === 'object'
@@ -2833,6 +3129,7 @@ async function writeOutput(
                 (commitResult as { errors?: unknown }).errors ?? commitResult,
               )
             : 'Dataset commit was rejected.'
+
         return {
           ok: false,
           code: 'dataset_commit_failed',
@@ -2840,22 +3137,26 @@ async function writeOutput(
         }
       }
     }
+
     commitMs = Date.now() - commitStartedAt
   }
 
   const revision = await loadDatasetRevision(conn, datasetId)
   const snapshotRowCount = await loadDatasetRowCount(conn, datasetId)
   const snapshotStarted = Date.now()
+
   const snapshot = await conn.query<{ id: string }>(
     `SELECT (api.snapshot_dataset($1, $2, $3)).id AS id`,
     [datasetId, revision, output.datasetLabel],
   )
+
   const snapshotMs = Date.now() - snapshotStarted
   metrics.datasetSnapshotDuration.observe(
     { size_bucket: sizeBucketFor(snapshotRowCount) },
     snapshotMs / 1000,
   )
   const versionId = snapshot.rows[0]?.id
+
   if (!versionId) {
     return {
       ok: false,
@@ -2863,10 +3164,12 @@ async function writeOutput(
       message: 'Output Dataset snapshot failed.',
     }
   }
+
   await conn.query(
     `SELECT api.record_pipeline_run_output($1, $2, $3, $4, $5)`,
     [run.workspace_id, run.id, datasetId, versionId, output.datasetLabel],
   )
+
   return {
     ok: true,
     datasetId,
@@ -2894,11 +3197,14 @@ async function findOwnOutputDataset(
     `SELECT definition_id FROM api.pipeline_definition_versions WHERE id = $1`,
     [run.definition_version_id],
   )
+
   const definitionId = definition[0]?.definition_id
+
   if (!definitionId) return null
   await conn.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`, [
     `pipeline-output:${definitionId}`,
   ])
+
   const { rows } = await conn.query<{ id: string }>(
     `SELECT d.id
        FROM api.datasets d
@@ -2918,6 +3224,7 @@ async function findOwnOutputDataset(
       LIMIT 1`,
     [run.workspace_id, schemaVersionId, name.trim(), definitionId],
   )
+
   return rows[0] ?? null
 }
 
@@ -2934,6 +3241,7 @@ async function createDataset(
      RETURNING id`,
     [workspaceId, schemaVersionId, name.trim(), actorUserId],
   )
+
   return rows[0] ?? null
 }
 
@@ -2947,6 +3255,7 @@ async function loadOutputDataset(
       WHERE id = $1 AND workspace_id = $2 AND lifecycle = 'active'`,
     [datasetId, workspaceId],
   )
+
   return rows[0] ?? null
 }
 
@@ -2958,6 +3267,7 @@ async function loadDatasetRevision(
     `SELECT revision FROM api.datasets WHERE id = $1`,
     [datasetId],
   )
+
   return Number(rows[0]?.revision ?? 1)
 }
 
@@ -2969,6 +3279,7 @@ async function loadDatasetRowCount(
     `SELECT count(*) FROM api.dataset_rows WHERE dataset_id = $1`,
     [datasetId],
   )
+
   return Number(rows[0]?.count ?? 0)
 }
 
@@ -2987,11 +3298,14 @@ function mapOutputRows(
   const slugToField = new Map(fields.map((f) => [f.key, f]))
 
   const batches: Array<Record<string, unknown>> = []
+
   for (const source of resultRows) {
     const values: Record<string, unknown> = {}
+
     for (const [column, raw] of Object.entries(source)) {
       const slug = mapping[column] ?? column
       const field = slugToField.get(slug)
+
       if (!field) {
         return {
           kind: 'error',
@@ -2999,6 +3313,7 @@ function mapOutputRows(
           message: `Result column "${column}" does not map to any field of the output schema (use fieldMapping to map it).`,
         }
       }
+
       if (raw === null || raw === undefined) {
         if (!field.nullable) {
           return {
@@ -3007,10 +3322,13 @@ function mapOutputRows(
             message: `Output field "${slug}" is required but the transform produced a null value.`,
           }
         }
+
         values[field.field_id] = null
         continue
       }
+
       const coerced = coerceValue(field.logical_type, raw)
+
       if (coerced === COERCE_ERROR) {
         return {
           kind: 'error',
@@ -3018,12 +3336,15 @@ function mapOutputRows(
           message: `Output field "${slug}" received a value that does not match its ${field.logical_type} type.`,
         }
       }
+
       values[field.field_id] = coerced
     }
+
     // Required fields must be present in the result (mapped or default).
     for (const field of fields) {
       if (!field.nullable && !(field.field_id in values)) {
         const columns = Object.keys(source)
+
         return {
           kind: 'error',
           code: 'output_column_mapping',
@@ -3031,12 +3352,14 @@ function mapOutputRows(
         }
       }
     }
+
     batches.push({
       operation: 'create',
       rowId: randomUuid(),
       values,
     })
   }
+
   return { kind: 'ok', rows: batches }
 }
 
@@ -3051,14 +3374,19 @@ function coerceValue(
       return String(raw)
     case 'integer': {
       if (typeof raw === 'number' && Number.isInteger(raw)) return raw
+
       if (typeof raw === 'string' && /^-?\d+$/.test(raw.trim())) {
         const n = Number(raw)
+
         if (Number.isSafeInteger(n)) return n
       }
+
       return COERCE_ERROR
     }
+
     case 'decimal': {
       if (typeof raw === 'number' && Number.isFinite(raw)) return raw
+
       if (
         typeof raw === 'string' &&
         raw.trim() !== '' &&
@@ -3066,34 +3394,45 @@ function coerceValue(
       ) {
         return Number(raw)
       }
+
       return COERCE_ERROR
     }
+
     case 'boolean':
       return typeof raw === 'boolean' ? raw : COERCE_ERROR
     case 'date': {
       if (raw instanceof Date) return toDateString(raw)
+
       if (typeof raw === 'string') {
         const date = new Date(raw)
+
         if (!Number.isNaN(date.getTime())) return toDateString(date)
       }
+
       return COERCE_ERROR
     }
+
     case 'timestamp': {
       if (raw instanceof Date) return raw.toISOString()
+
       if (typeof raw === 'string' && !Number.isNaN(Date.parse(raw))) {
         return new Date(raw).toISOString()
       }
+
       return COERCE_ERROR
     }
+
     case 'category':
     case 'reference': {
       const text = String(raw)
+
       return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
         text,
       )
         ? text
         : COERCE_ERROR
     }
+
     default:
       return String(raw)
   }
@@ -3103,6 +3442,7 @@ function toDateString(date: Date): string {
   const y = date.getUTCFullYear()
   const m = String(date.getUTCMonth() + 1).padStart(2, '0')
   const d = String(date.getUTCDate()).padStart(2, '0')
+
   return `${y}-${m}-${d}`
 }
 
@@ -3110,9 +3450,11 @@ function randomUuid(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
     return crypto.randomUUID()
   }
+
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0
     const v = c === 'x' ? r : (r & 0x3) | 0x8
+
     return v.toString(16)
   })
 }
@@ -3130,6 +3472,7 @@ async function completeRun(
     `SELECT * FROM api.complete_pipeline_run($1, $2, $3::jsonb)`,
     [run.workspace_id, run.id, JSON.stringify(result)],
   )
+
   return (rows.at(0) as PipelineRunWire | undefined) ?? null
 }
 
@@ -3170,6 +3513,7 @@ export async function failStuckPipelineRun(
   message: string,
 ): Promise<void> {
   const conn = await deps.connect()
+
   try {
     await conn.begin()
     await failRunIfRunning(conn, runId, code, message)
@@ -3188,7 +3532,9 @@ async function failRunIfRunning(
   message: string,
 ): Promise<void> {
   const run = await loadRun(conn, runId)
+
   if (!run || run.status !== 'running') return
+
   try {
     await setRunActorClaims(conn, run)
   } catch {
@@ -3196,6 +3542,7 @@ async function failRunIfRunning(
     // reconciled as stale by a later start.
     return
   }
+
   try {
     await conn.query(
       `SELECT api.append_pipeline_run_log($1, $2, 'error', 'failure', $3, $4::jsonb)`,
@@ -3209,6 +3556,7 @@ async function failRunIfRunning(
   } catch {
     // best effort
   }
+
   await conn.query(`SELECT api.fail_pipeline_run($1, $2, $3, $4)`, [
     run.workspace_id,
     run.id,
@@ -3227,8 +3575,10 @@ async function log(
 ): Promise<void> {
   if (run.trial) {
     run.trial.push({ level, stage, message: truncate(message, 2000) })
+
     return
   }
+
   await conn.query(
     `SELECT api.append_pipeline_run_log($1, $2, $3, $4, $5, $6::jsonb)`,
     [

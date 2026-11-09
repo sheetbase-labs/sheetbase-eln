@@ -19,7 +19,9 @@ const MAX_OUTLIERS = 5
 function fmt(value: number): string {
   if (!Number.isFinite(value)) return String(value)
   const abs = Math.abs(value)
+
   if (abs !== 0 && (abs >= 1e6 || abs < 1e-3)) return value.toExponential(3)
+
   return String(Number(value.toPrecision(5)))
 }
 
@@ -36,23 +38,28 @@ export function trendOf(points: SeriesPoint[]): Trend | null {
   const pairs = points.flatMap((point, index) =>
     point.y === null ? [] : [[point.x ?? index, point.y] as [number, number]],
   )
+
   if (pairs.length < 3) return null
   const n = pairs.length
   const mx = pairs.reduce((sum, [x]) => sum + x, 0) / n
   const my = pairs.reduce((sum, [, y]) => sum + y, 0) / n
   let sxx = 0
   let sxy = 0
+
   for (const [x, y] of pairs) {
     sxx += (x - mx) ** 2
     sxy += (x - mx) * (y - my)
   }
+
   if (sxx === 0) return null
   const slope = sxy / sxx
   const xs = pairs.map(([x]) => x)
   const ys = pairs.map(([, y]) => y)
   const yRange = Math.max(...ys) - Math.min(...ys)
+
   if (yRange === 0) return 'flat'
   const change = slope * (Math.max(...xs) - Math.min(...xs))
+
   return Math.abs(change) / yRange < 0.15
     ? 'flat'
     : change > 0
@@ -63,13 +70,17 @@ export function trendOf(points: SeriesPoint[]): Trend | null {
 /** Points beyond 1.5 × the interquartile range from the quartiles. */
 export function outliersOf(points: SeriesPoint[]): SeriesPoint[] {
   const ys = points.flatMap((point) => (point.y === null ? [] : [point.y]))
+
   if (ys.length < 5) return []
   const stats = summaryStats(ys)
+
   if (!stats) return []
   const spread = stats.q3 - stats.q1
+
   if (spread === 0) return []
   const lo = stats.q1 - 1.5 * spread
   const hi = stats.q3 + 1.5 * spread
+
   return points.filter(
     (point) => point.y !== null && (point.y < lo || point.y > hi),
   )
@@ -84,14 +95,19 @@ function seriesFacts(
 ): string[] {
   const values = points.flatMap((point) => (point.y === null ? [] : [point.y]))
   const stats = summaryStats(values)
+
   if (!stats) return [`${label}: no numeric values.`]
   const unit = yUnit ? ` ${yUnit}` : ''
+
   const lines = [
     `${label}: ${stats.n} values of ${yLabel}; min ${fmt(stats.min)}${unit}, median ${fmt(stats.median)}${unit}, mean ${fmt(stats.mean)}${unit}, max ${fmt(stats.max)}${unit}${stats.sd === null ? '' : `, sd ${fmt(stats.sd)}${unit}`}.`,
   ]
+
   const trend = trendOf(points)
+
   if (trend) lines.push(`${label}: ${yLabel} is ${trend} across ${xLabel}.`)
   const outliers = outliersOf(points)
+
   if (outliers.length > 0) {
     lines.push(
       `${label}: ${outliers.length} possible outlier${outliers.length === 1 ? '' : 's'}: ${outliers
@@ -103,6 +119,7 @@ function seriesFacts(
         .join('; ')}.`,
     )
   }
+
   return lines
 }
 
@@ -113,13 +130,17 @@ export function chartFacts(
 ): string | null {
   if ((chart.state as MaterialisedChart['state'] | undefined)?.kind !== 'ok')
     return null
+
   const visible = chart.series.filter(
     (series) => series.visible !== false && series.renderAs !== 'line',
   )
+
   if (visible.length === 0) return null
+
   const lines = [
     `Chart: ${title}. X axis: ${chart.xLabel}${chart.xUnit ? ` (${chart.xUnit})` : ''}. Y axis: ${chart.yLabel}${chart.yUnit ? ` (${chart.yUnit})` : ''}.`,
   ]
+
   for (const series of visible.slice(0, MAX_SERIES)) {
     lines.push(
       ...seriesFacts(
@@ -131,22 +152,27 @@ export function chartFacts(
       ),
     )
   }
+
   if (visible.length > MAX_SERIES)
     lines.push(`${visible.length - MAX_SERIES} more series not listed.`)
+
   if (chart.fit && !chart.fit.error)
     lines.push(
       `Fitted line: ${chart.fit.equation}, R² ${chart.fit.r2 === null ? 'n/a' : fmt(chart.fit.r2)}, n ${chart.fit.n}.`,
     )
+
   if (chart.droppedPoints > 0)
     lines.push(
       `${chart.droppedPoints} rows were left out (missing or non-numeric).`,
     )
+
   return lines.join('\n')
 }
 
 /** What an analysis result says: method, key numbers and the assumption checks. */
 export function analysisFacts(result: AnalysisResult): string {
   const lines = [analysisMethodsText(result)]
+
   if (result.kind === 'descriptive') {
     for (const row of result.rows) {
       const s = row.stats
@@ -160,10 +186,12 @@ export function analysisFacts(result: AnalysisResult): string {
         `Group ${row.group}: ${row.equation}; R² ${fmt(row.r2)}, RMSE ${fmt(row.rmse)}, n ${row.n}.`,
       )
   }
+
   for (const check of result.checks)
     lines.push(
       `Check "${check.label}"${check.group ? ` (${check.group})` : ''}: ${check.status}. ${check.detail}`,
     )
+
   return lines.join('\n')
 }
 
@@ -218,11 +246,15 @@ export function parseChartChoice(
   types: readonly string[],
 ): AiChartChoice | null {
   const parsed = chartAnswerSchema.safeParse(extractJsonObject(text))
+
   if (!parsed.success) return null
   const ids = new Set(fields.map((field) => field.fieldId))
   const { type, x_field_id: x, y_field_id: y, reason } = parsed.data
+
   if (!types.includes(type) || !y || !ids.has(y)) return null
+
   if (x && !ids.has(x)) return null
+
   return {
     type,
     xFieldId: x ?? null,

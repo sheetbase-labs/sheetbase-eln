@@ -54,6 +54,7 @@ export function isInstantiable(
   archivedAt: string | null,
 ): boolean {
   if (archivedAt !== null) return false
+
   return INSTANTIABLE_STATUSES[kind].includes(status)
 }
 
@@ -77,6 +78,7 @@ export function allowedTemplateTransitions(
   from: string,
 ): readonly string[] {
   const fromMap = TEMPLATE_TRANSITIONS[kind]
+
   return from in fromMap ? fromMap[from] : []
 }
 
@@ -163,19 +165,24 @@ export function fetchTemplates(
     'deleted_at=is.null',
     'order=archived_at.asc,identifier.asc',
   ]
+
   if (opts.kind) {
     parts[0] = `kind=eq.${opts.kind}`
   }
+
   if (opts.status) {
     parts.push(`status=eq.${opts.status}`)
   }
+
   if (!opts.includeArchived) {
     parts.push('archived_at=is.null')
   }
+
   if (opts.search && opts.search.trim()) {
     const q = encodeURIComponent(opts.search.trim().replace(/[,*]/g, ''))
     parts.push(`(identifier=ilike.${q}*,title=ilike.${q}*)`)
   }
+
   return client
     .list<RecordWire>(
       'records',
@@ -292,6 +299,7 @@ export function duplicateTemplate(
       'Legacy notebook template records cannot be duplicated. Use createNotebookTemplate.',
     )
   }
+
   const blocks = params.blocks
     .slice()
     .sort((a, b) => a.order - b.order)
@@ -301,6 +309,7 @@ export function duplicateTemplate(
       payload_schema_version: block.payloadSchemaVersion,
       order: block.order,
     }))
+
   return client.rpc('create_record_with_blocks', {
     p_project_id: params.targetProjectId,
     p_kind: params.template.kind,
@@ -396,6 +405,7 @@ export function toTemplateUsageItem(
 ): TemplateUsageItem {
   const meta = row.link_metadata ?? {}
   const revisionId = meta.template_revision_id
+
   return {
     id: row.id,
     recordId: row.source_record_id,
@@ -439,7 +449,9 @@ export function canManageTemplate(
   role: string | null,
 ): boolean {
   if (!currentUserId) return false
+
   if (template.createdByUserId === currentUserId) return true
+
   return Boolean(role && MANAGING_ROLES.has(role))
 }
 
@@ -451,6 +463,7 @@ export function canManageTemplate(
  */
 export function archiveDependencyWarning(usageCount: number): string | null {
   if (usageCount <= 0) return null
+
   return `This template has been used ${usageCount} ${
     usageCount === 1 ? 'time' : 'times'
   }. Existing records keep their own copy and are unaffected, but the template will no longer be available for new instantiations.`
@@ -487,6 +500,7 @@ export function createTemplateFavouritesStore({
 }): TemplateFavouritesStore {
   const key = templateFavouritesStorageKey(workspaceId, userId)
   let resolvedStorage: Storage | null = storage ?? null
+
   if (!resolvedStorage && typeof window !== 'undefined') {
     try {
       resolvedStorage = window.localStorage
@@ -497,9 +511,12 @@ export function createTemplateFavouritesStore({
 
   function read(): string[] {
     if (!resolvedStorage) return []
+
     try {
       const parsed: unknown = JSON.parse(resolvedStorage.getItem(key) ?? '[]')
+
       if (!Array.isArray(parsed)) return []
+
       return parsed.filter((id): id is string => typeof id === 'string')
     } catch {
       return []
@@ -522,10 +539,13 @@ export function createTemplateFavouritesStore({
     },
     toggle(id) {
       const ids = read()
+
       const next = ids.includes(id)
         ? ids.filter((existing) => existing !== id)
         : [...ids, id]
+
       write(next)
+
       return next.includes(id)
     },
     set(ids) {

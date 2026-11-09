@@ -61,8 +61,10 @@ export async function fetchModelTypes(
       '?select=id,model_id,version,lifecycle&order=version.desc',
     ),
   ])
+
   return models.map((model) => {
     const own = versions.filter((version) => version.model_id === model.id)
+
     return {
       id: model.id,
       key: model.key,
@@ -86,13 +88,16 @@ export function typeAncestors(
   const chain: ModelType[] = []
   const seen = new Set<string>([key])
   let parent = byKey.get(key)?.parentKey ?? null
+
   while (parent && !seen.has(parent)) {
     seen.add(parent)
     const type = byKey.get(parent)
+
     if (!type) break
     chain.push(type)
     parent = type.parentKey
   }
+
   return chain
 }
 
@@ -101,8 +106,10 @@ export function typeRoot(types: readonly ModelType[], key: string): string {
   const byKey = new Map(types.map((type) => [type.key, type]))
   let current = key
   const seen = new Set<string>()
+
   for (;;) {
     const type = byKey.get(current)
+
     if (!type?.parentKey || seen.has(current)) return current
     seen.add(current)
     current = type.parentKey
@@ -121,14 +128,18 @@ export function typeDescendants(
   key: string,
 ): TypeOption[] {
   const out: TypeOption[] = []
+
   const walk = (parent: string, depth: number) => {
     if (depth > 64) return
+
     for (const type of types.filter((t) => t.parentKey === parent)) {
       out.push({ type, depth })
       walk(type.key, depth + 1)
     }
   }
+
   walk(key, 1)
+
   return out
 }
 
@@ -148,6 +159,7 @@ export function typeForVersion(
   versionId: string | null | undefined,
 ): ModelType | null {
   if (!versionId) return null
+
   return types.find((type) => type.versionIds.includes(versionId)) ?? null
 }
 
@@ -158,6 +170,7 @@ export function typeHost(
 ): { root: string; builtIn: BuiltInModel | null; host: BuiltInModelHost } {
   const root = typeRoot(types, key)
   const builtIn = builtInModel(root) ?? null
+
   return { root, builtIn, host: builtIn?.host ?? 'record' }
 }
 
@@ -185,13 +198,17 @@ export async function fetchTypeFields(
   const root = builtInModel(rootKey)
   const byKey = new Map(types.map((type) => [type.key, type]))
   const chain: ModelType[] = []
+
   if (typeKey && typeKey !== rootKey) {
     const own = byKey.get(typeKey)
+
     if (own) chain.push(...typeAncestors(types, typeKey).reverse(), own)
   } else if (!root) {
     const own = byKey.get(rootKey)
+
     if (own) chain.push(own)
   }
+
   const groups = await Promise.all([
     root
       ? fetchModelFields(client, root.key).then((fields): FieldGroup => ({
@@ -205,11 +222,14 @@ export async function fetchTypeFields(
         index === chain.length - 1 && pinnedVersionId
           ? pinnedVersionId
           : type.publishedVersionId
+
       if (!versionId) return null
       const fields = await fetchModelFields(client, type.key, false, versionId)
+
       return { modelKey: type.key, modelName: type.name, fields }
     }),
   ])
+
   return groups.filter((group): group is FieldGroup => group !== null)
 }
 
@@ -238,7 +258,9 @@ export async function setModelType(
     p_model_key: typeKey,
     p_custom_fields: values,
   })
+
   const identifier = row.identifier ?? row.display_id
+
   return { identifier: typeof identifier === 'string' ? identifier : null }
 }
 
@@ -256,18 +278,22 @@ export function valuesForType(
   to: readonly FieldGroup[],
 ): { kept: Record<string, unknown>; dropped: string[] } {
   const keep = fieldKeys(to)
+
   const labels = new Map(
     from.flatMap((group) =>
       group.fields.map((field) => [field.fieldName, field.label] as const),
     ),
   )
+
   const kept: Record<string, unknown> = {}
   const dropped: string[] = []
+
   for (const [key, value] of Object.entries(current)) {
     if (keep.has(key)) kept[key] = value
     else if (value !== null && value !== undefined && value !== '')
       dropped.push(labels.get(key) ?? key)
   }
+
   return { kept, dropped }
 }
 
@@ -286,9 +312,12 @@ export async function saveNewObjectFields(
 ): Promise<{ identifier: string | null }> {
   if (!typeKey) {
     await saveAddedFieldValues(client, model, objectId, values)
+
     return { identifier: null }
   }
+
   const { customFields } = await fetchAddedFieldValues(client, model, objectId)
+
   return setModelType(client, model.host, objectId, typeKey, {
     ...customFields,
     ...values,
@@ -316,6 +345,7 @@ export async function fetchTypedObjects(
   if (!type.versionIds.length) return []
   const { root, builtIn, host } = typeHost(types, type.key)
   const pins = `model_version_id=in.(${type.versionIds.join(',')})`
+
   if (host === 'project') {
     const rows = await client.list<{
       id: string
@@ -323,6 +353,7 @@ export async function fetchTypedObjects(
       title: string
       custom_fields: Record<string, unknown> | null
     }>('projects', `?${pins}&select=id,display_id,title,custom_fields`)
+
     return rows.map((row) => ({
       id: row.id,
       identifier: row.display_id ?? '',
@@ -331,6 +362,7 @@ export async function fetchTypedObjects(
       customFields: row.custom_fields ?? {},
     }))
   }
+
   if (host === 'instrument') {
     const rows = await client.list<{
       id: string
@@ -338,6 +370,7 @@ export async function fetchTypedObjects(
       name: string
       custom_fields: Record<string, unknown> | null
     }>('instruments', `?${pins}&select=id,display_id,name,custom_fields`)
+
     return rows.map((row) => ({
       id: row.id,
       identifier: row.display_id ?? '',
@@ -346,6 +379,7 @@ export async function fetchTypedObjects(
       customFields: row.custom_fields ?? {},
     }))
   }
+
   const rows = await client.list<{
     id: string
     identifier: string
@@ -356,6 +390,7 @@ export async function fetchTypedObjects(
     'records',
     `?${pins}&deleted_at=is.null&order=updated_at.desc&select=id,identifier,title,kind,custom_fields`,
   )
+
   return rows.map((row) => ({
     id: row.id,
     identifier: row.identifier,

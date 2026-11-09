@@ -29,10 +29,13 @@ describe('newCommands', () => {
     const experiment = newCommands('/projects/p-1').find(
       (c) => c.id === 'new-experiment',
     )
+
     expect(experiment?.search).toEqual({ project: 'p-1' })
+
     const fromSample = newCommands('/samples/s-1').find(
       (c) => c.id === 'new-experiment',
     )
+
     expect(fromSample?.search).toEqual({ sample: 's-1' })
   })
 

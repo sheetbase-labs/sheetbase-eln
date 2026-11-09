@@ -119,6 +119,7 @@ describe('agent workflow client contract', () => {
   it('submits a pinned plan, provenance, initial usage, and hard budgets', async () => {
     const rpc = vi.fn().mockResolvedValue(workflow)
     const client = clientWithRpc(rpc)
+
     const provenance = {
       agentId: 'assay-helper',
       tool: { name: 'sheetbase.workflow', version: '1' },
@@ -209,6 +210,7 @@ describe('AUTO-PLUS-02 plan dry-run and approval gates', () => {
       name: 'Pipe',
     },
   } as unknown as AgentWorkflowStep
+
   const commitStep = {
     operation: {
       kind: 'dataset_rows.commit',
@@ -288,6 +290,7 @@ describe('AUTO-PLUS-02 plan dry-run and approval gates', () => {
 
   it('dry-runs a plan without touching state: stored preview where proposed, prediction where planned', () => {
     const live = proposal({ id: 'proposal-1' })
+
     const steps = [
       {
         ...commitStep,
@@ -324,6 +327,7 @@ describe('AUTO-PLUS-02 plan dry-run and approval gates', () => {
         updated_at: '2026-08-30T16:00:00Z',
       },
     ] as AgentWorkflowStep[]
+
     const dryRun = dryRunAgentWorkflow(steps, { [live.id]: live })
     expect(dryRun).toHaveLength(2)
     expect(dryRun[0]).toMatchObject({
@@ -382,11 +386,13 @@ describe('AUTO-PLUS-02 plan dry-run and approval gates', () => {
 
   it('keeps completed results, retryable failures, and terminal cancellation distinct', () => {
     const paused = { ...workflow, status: 'paused' } as AgentWorkflow
+
     const steps = [
       { step_key: 'done', status: 'succeeded', proposal_id: 'proposal-0' },
       { step_key: 'broken', status: 'failed', proposal_id: 'proposal-1' },
       { step_key: 'later', status: 'planned', proposal_id: null },
     ] as AgentWorkflowStep[]
+
     expect(summarizeWorkflowRecovery(paused, steps)).toEqual({
       completed: [{ stepKey: 'done', proposalId: 'proposal-0' }],
       retryable: ['broken'],

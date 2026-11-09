@@ -88,13 +88,16 @@ const meta = {
     onDuplicated: () => {},
   },
 } satisfies Meta<typeof DuplicateNotebookDialog>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Open: the suggested title and the project the copy lands in. */
 export const Open: Story = {
   render: () => {
     const [open, setOpen] = useState(true)
+
     return (
       <DuplicateNotebookDialog
         open={open}
@@ -112,6 +115,7 @@ export const NoBlocks: Story = {
   args: { blocks: [] },
   render: () => {
     const [open, setOpen] = useState(true)
+
     return (
       <DuplicateNotebookDialog
         open={open}
@@ -129,6 +133,7 @@ export const Closed: Story = {
   args: { open: false },
   render: () => {
     const [open, setOpen] = useState(false)
+
     return (
       <DuplicateNotebookDialog
         open={open}

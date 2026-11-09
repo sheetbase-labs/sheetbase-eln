@@ -60,16 +60,20 @@ export interface PoolPlan {
  */
 export function planPool(rows: PoolRow[]): PoolPlan {
   const amounts = rows.map((row) => parseQuantityInput(row.take))
+
   const units = [
     ...new Set(rows.map((row) => row.unit).filter((u): u is string => !!u)),
   ]
+
   const unit = units[0] ?? null
   const empty = { amounts, total: null, unit }
+
   if (rows.length > POOL_MAX_SAMPLES)
     return {
       ...empty,
       error: t('library.samples.poolDialog.tooMany', { max: POOL_MAX_SAMPLES }),
     }
+
   if (units.length > 1)
     return {
       ...empty,
@@ -77,11 +81,15 @@ export function planPool(rows: PoolRow[]): PoolPlan {
         units: units.join(', '),
       }),
     }
+
   if (rows.length < 2)
     return { ...empty, error: t('library.samples.poolDialog.needAnother') }
+
   for (const [index, row] of rows.entries()) {
     const amount = amounts[index]
+
     if (amount == null) return { ...empty, error: null }
+
     if (amount <= 0)
       return {
         ...empty,
@@ -89,6 +97,7 @@ export function planPool(rows: PoolRow[]): PoolPlan {
           identifier: row.identifier,
         }),
       }
+
     if (row.free != null && amount > row.free + 1e-9)
       return {
         ...empty,
@@ -99,7 +108,9 @@ export function planPool(rows: PoolRow[]): PoolPlan {
         }),
       }
   }
+
   const total = (amounts as number[]).reduce((sum, a) => sum + a, 0)
+
   return { amounts, total, unit, error: null }
 }
 
@@ -164,8 +175,10 @@ export function PoolDialog({
     client,
     balancesProp === undefined,
   )
+
   const balances =
     balancesProp !== undefined ? balancesProp : (queriedBalances.data ?? null)
+
   const first: PoolRow = {
     id: sample.id,
     identifier: sample.identifier,
@@ -190,9 +203,11 @@ export function PoolDialog({
     ...row,
     take: takes[row.id] ?? row.take,
   }))
+
   const plan = planPool(rows)
   const unit = plan.unit
   const suffix = unit ? ` ${unit}` : ''
+
   const canSubmit =
     !busy &&
     Boolean(purpose) &&

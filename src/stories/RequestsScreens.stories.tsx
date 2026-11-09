@@ -48,7 +48,9 @@ const meta = {
     onTabChange: () => {},
   },
 } satisfies Meta<typeof RequestsPage>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The page for a writer who handles requests, while the lists load. */

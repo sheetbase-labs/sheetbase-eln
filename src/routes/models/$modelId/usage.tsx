@@ -32,6 +32,7 @@ export const Route = createFileRoute('/models/$modelId/usage')({
 
 function ModelUsage() {
   const { modelId } = Route.useParams()
+
   if (isUuid(modelId)) {
     return (
       <div className="px-4 py-6 md:px-6">
@@ -43,21 +44,25 @@ function ModelUsage() {
       </div>
     )
   }
+
   return <RecordModelUsage modelKey={modelId} />
 }
 
 function RecordModelUsage({ modelKey }: { modelKey: string }) {
   const model = useWorkspaceRecordModel(modelKey)
+
   const fields = useQuery({
     queryKey: ['ui-port', 'record-models', 'field-usage', modelKey] as const,
     queryFn: () => fetchModelFieldsWithUsage(notebookDataClient, modelKey),
   })
+
   const impact = useQuery({
     queryKey: ['ui-port', 'record-models', 'impact', modelKey] as const,
     queryFn: () => discoverModelImpact(notebookDataClient, modelKey),
   })
 
   const fieldRows = fields.data ?? []
+
   const columns: RegistryColumn<(typeof fieldRows)[number]>[] = [
     {
       id: 'field',
@@ -88,6 +93,7 @@ function RecordModelUsage({ modelKey }: { modelKey: string }) {
       },
     },
   ]
+
   const dependencies = impact.data?.dependencies ?? []
   const groups = groupModelImpact(dependencies)
   const actionable = countActionableModelImpact(dependencies)

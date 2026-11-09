@@ -211,8 +211,11 @@ function pick<T>(
   if (rows.length === 0)
     return { ok: false, message: `No ${what} matches "${wanted}".` }
   const same = rows.filter(exact)
+
   if (same.length === 1) return { ok: true, value: same[0] }
+
   if (rows.length === 1) return { ok: true, value: rows[0] }
+
   return {
     ok: false,
     message: `More than one ${what} matches "${wanted}": ${rows
@@ -242,10 +245,12 @@ async function findModel(
   text: string,
 ): Promise<Lookup<ModelRow>> {
   const like = likeValue(text)
+
   const rows = await client.list<ModelRow>(
     'record_models',
     `?or=(key.ilike.${like},name.ilike.${like})&select=${MODEL_COLUMNS}&order=name&limit=8`,
   )
+
   return pick(
     rows,
     text,
@@ -269,10 +274,12 @@ async function findField(
   text: string,
 ): Promise<Lookup<FieldRow>> {
   const like = likeValue(text)
+
   const rows = await client.list<FieldRow>(
     'record_field_definitions',
     `?kind=eq.${encodeURIComponent(modelKey)}&lifecycle=neq.retired&or=(field_name.ilike.${like},label.ilike.${like})&select=id,field_name,label,logical_type,lifecycle&limit=8`,
   )
+
   return pick(
     rows,
     text,
@@ -311,6 +318,7 @@ async function findOption(
       (row.key.toLowerCase().includes(text.trim().toLowerCase()) ||
         row.label.toLowerCase().includes(text.trim().toLowerCase())),
   )
+
   return pick(
     rows,
     text,
@@ -339,6 +347,7 @@ async function findRule(
     'model_rules',
     `?model_key=eq.${encodeURIComponent(modelKey)}&name=ilike.${likeValue(text)}&select=id,model_key,name,field_keys,condition,effect,message&limit=8`,
   )
+
   return pick(
     rows,
     text,
@@ -369,10 +378,12 @@ async function findDefinition(
   text: string,
 ): Promise<Lookup<DefinitionRow>> {
   const like = likeValue(text)
+
   const rows = await client.list<DefinitionRow>(
     table,
     `?or=(key.ilike.${like},name.ilike.${like})&select=id,key,name,lifecycle,revision&order=name&limit=8`,
   )
+
   return pick(
     rows,
     text,
@@ -440,12 +451,15 @@ async function readModels(
   client: DataClient,
 ): Promise<ReadResult> {
   const parsed = modelsReadSchema.safeParse(args)
+
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
+
   if (!parsed.data.model) {
     const rows = await client.list<ModelRow>(
       'record_models',
       `?select=${MODEL_COLUMNS}&order=name&limit=100`,
     )
+
     return ok({
       count: rows.length,
       types: rows.map((row) => ({
@@ -458,9 +472,12 @@ async function readModels(
       })),
     })
   }
+
   const found = await findModel(client, parsed.data.model)
+
   if (!found.ok) return { text: found.message, isError: true }
   const m = found.value
+
   const [fields, rules, links, versions] = await Promise.all([
     client.list<FieldRow>(
       'record_field_definitions',
@@ -483,7 +500,9 @@ async function readModels(
     ),
     versionsOf(client, 'record_model_versions', 'model_id', m.id),
   ])
+
   const categories = fields.filter((f) => f.logical_type === 'category')
+
   const options = new Map(
     await Promise.all(
       categories.map(
@@ -491,6 +510,7 @@ async function readModels(
       ),
     ),
   )
+
   return ok({
     type: `${m.name} (${m.key})`,
     prefix: m.identifier_prefix,
@@ -535,21 +555,26 @@ async function readDefinitions(
   what: 'sheet' | 'template',
 ): Promise<ReadResult> {
   const table = what === 'sheet' ? 'sheet_definitions' : 'notebook_templates'
+
   const parsed = (
     what === 'sheet' ? sheetDefinitionsReadSchema : templatesReadSchema
   ).safeParse(args)
+
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
+
   const wanted =
     'definition' in parsed.data
       ? parsed.data.definition
       : 'template' in parsed.data
         ? parsed.data.template
         : undefined
+
   if (!wanted) {
     const rows = await client.list<DefinitionRow>(
       table,
       '?select=id,key,name,lifecycle,revision&order=name&limit=100',
     )
+
     return ok({
       count: rows.length,
       items: rows.map((row) => ({
@@ -563,8 +588,11 @@ async function readDefinitions(
       })),
     })
   }
+
   const found = await findDefinition(client, table, wanted)
+
   if (!found.ok) return { text: found.message, isError: true }
+
   const versions =
     what === 'sheet'
       ? await versionsOf(
@@ -579,6 +607,7 @@ async function readDefinitions(
           'template_id',
           found.value.id,
         )
+
   return ok({
     name: `${found.value.name} (${found.value.key})`,
     state: found.value.lifecycle,
@@ -595,12 +624,16 @@ async function readDependencies(
   client: DataClient,
 ): Promise<ReadResult> {
   const parsed = modelDependenciesSchema.safeParse(args)
+
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
   const found = await findModel(client, parsed.data.model)
+
   if (!found.ok) return { text: found.message, isError: true }
+
   const result = await client.rpc<unknown>('discover_model_dependencies', {
     p_model_key: found.value.key,
   })
+
   return ok({ type: `${found.value.name} (${found.value.key})`, result })
 }
 
@@ -646,6 +679,7 @@ export async function buildSchemaProposal(
 ): Promise<SchemaOutcome> {
   const client = context.client
   const bad = (error: z.ZodError) => fail(invalid(error))
+
   switch (name) {
     case MODEL_CREATE_TOOL:
     case MODEL_ADD_SUBTYPE_TOOL: {
@@ -654,39 +688,50 @@ export async function buildSchemaProposal(
           ? proposeModelCreateSchema
           : proposeModelSubtypeSchema
       ).safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
       let parent: ModelRow | null = null
+
       const parentName =
         name === MODEL_ADD_SUBTYPE_TOOL
           ? (input as z.infer<typeof proposeModelSubtypeSchema>).parent
           : undefined
+
       if (parentName) {
         const found = await findModel(client, parentName)
+
         if (!found.ok) return fail(found.message)
         parent = found.value
       }
+
       const key = input.key ?? keyFromName(input.name)
+
       const taken = await client.list<{ key: string }>(
         'record_models',
         `?key=eq.${encodeURIComponent(key)}&select=key&limit=1`,
       )
+
       if (taken.length > 0)
         return fail(
           `There is already a record type with the key ${key}. Ask for another name or key.`,
         )
+
       const changes: ProposalChange[] = [
         { label: 'Name', before: null, after: input.name },
         { label: 'Identifiers start', before: null, after: input.prefix },
       ]
+
       if (parent)
         changes.push({ label: 'A kind of', before: null, after: parent.name })
+
       if (input.description)
         changes.push({
           label: 'Description',
           before: null,
           after: input.description,
         })
+
       return card(name, input, `${input.name} · Record type`, null, changes, {
         kind: 'schema.model_create',
         workspaceId: context.workspaceId,
@@ -697,14 +742,19 @@ export async function buildSchemaProposal(
         description: input.description ?? null,
       })
     }
+
     case FIELD_RETIRE_TOOL: {
       const parsed = proposeFieldRetireSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
       const m = await findModel(client, input.model)
+
       if (!m.ok) return fail(m.message)
       const f = await findField(client, m.value.key, input.field)
+
       if (!f.ok) return fail(f.message)
+
       return card(
         name,
         input,
@@ -714,20 +764,27 @@ export async function buildSchemaProposal(
         { kind: 'schema.field_retire', fieldId: f.value.id },
       )
     }
+
     case OPTION_ADD_TOOL: {
       const parsed = proposeOptionAddSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
       const m = await findModel(client, input.model)
+
       if (!m.ok) return fail(m.message)
       const f = await findField(client, m.value.key, input.field)
+
       if (!f.ok) return fail(f.message)
+
       if (f.value.logical_type !== 'category')
         return fail(`${f.value.label} is not a field with choices.`)
       const options = await listOptions(client, f.value.id)
       const key = input.key ?? keyFromName(input.label)
+
       if (options.some((o) => o.key === key))
         return fail(`${f.value.label} already has the choice ${key}.`)
+
       return card(
         name,
         input,
@@ -743,6 +800,7 @@ export async function buildSchemaProposal(
         },
       )
     }
+
     case OPTION_RENAME_TOOL:
     case OPTION_RETIRE_TOOL: {
       const parsed = (
@@ -750,17 +808,23 @@ export async function buildSchemaProposal(
           ? proposeOptionRenameSchema
           : proposeOptionRetireSchema
       ).safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
       const m = await findModel(client, input.model)
+
       if (!m.ok) return fail(m.message)
       const f = await findField(client, m.value.key, input.field)
+
       if (!f.ok) return fail(f.message)
       const o = await findOption(client, f.value.id, input.option)
+
       if (!o.ok) return fail(o.message)
       const target = `${m.value.name} · ${f.value.label}`
+
       if (name === OPTION_RENAME_TOOL) {
         const label = (input as z.infer<typeof proposeOptionRenameSchema>).label
+
         return card(
           name,
           input,
@@ -775,6 +839,7 @@ export async function buildSchemaProposal(
           },
         )
       }
+
       return card(
         name,
         input,
@@ -784,18 +849,24 @@ export async function buildSchemaProposal(
         { kind: 'schema.option_retire', optionId: o.value.id },
       )
     }
+
     case RULE_ADD_TOOL: {
       const parsed = proposeRuleAddSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
       const m = await findModel(client, input.model)
+
       if (!m.ok) return fail(m.message)
       const fields: FieldRow[] = []
+
       for (const wanted of input.fields) {
         const f = await findField(client, m.value.key, wanted)
+
         if (!f.ok) return fail(f.message)
         fields.push(f.value)
       }
+
       return card(
         name,
         input,
@@ -832,20 +903,26 @@ export async function buildSchemaProposal(
         },
       )
     }
+
     case RULE_UPDATE_TOOL: {
       const parsed = proposeRuleUpdateSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
       const m = await findModel(client, input.model)
+
       if (!m.ok) return fail(m.message)
       const r = await findRule(client, m.value.key, input.rule)
+
       if (!r.ok) return fail(r.message)
       const patch: Record<string, unknown> = {}
       const changes: ProposalChange[] = []
+
       if (input.name) {
         patch.name = input.name
         changes.push({ label: 'Name', before: r.value.name, after: input.name })
       }
+
       if (input.condition) {
         patch.condition = input.condition
         changes.push({
@@ -854,6 +931,7 @@ export async function buildSchemaProposal(
           after: describeCondition(input.condition),
         })
       }
+
       if (input.effect) {
         patch.effect = input.effect
         changes.push({
@@ -862,6 +940,7 @@ export async function buildSchemaProposal(
           after: EFFECT_WORDS[input.effect] ?? input.effect,
         })
       }
+
       if (input.message) {
         patch.message = input.message
         changes.push({
@@ -870,7 +949,9 @@ export async function buildSchemaProposal(
           after: input.message,
         })
       }
+
       if (changes.length === 0) return fail('Say what to change on the rule.')
+
       return card(
         name,
         input,
@@ -880,14 +961,19 @@ export async function buildSchemaProposal(
         { kind: 'schema.rule_update', ruleId: r.value.id, patch },
       )
     }
+
     case RULE_REMOVE_TOOL: {
       const parsed = proposeRuleRemoveSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
       const m = await findModel(client, input.model)
+
       if (!m.ok) return fail(m.message)
       const r = await findRule(client, m.value.key, input.rule)
+
       if (!r.ok) return fail(r.message)
+
       return card(
         name,
         input,
@@ -897,18 +983,24 @@ export async function buildSchemaProposal(
         { kind: 'schema.rule_remove', ruleId: r.value.id },
       )
     }
+
     case LINK_RULE_SET_TOOL: {
       const parsed = proposeLinkRuleSetSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
       const from = await findModel(client, input.from)
+
       if (!from.ok) return fail(from.message)
       const to = await findModel(client, input.to)
+
       if (!to.ok) return fail(to.message)
       const min = input.min ?? 0
       const max = input.max ?? null
+
       if (max !== null && max < min)
         return fail('The most links cannot be fewer than the fewest.')
+
       return card(
         name,
         input,
@@ -943,26 +1035,34 @@ export async function buildSchemaProposal(
         },
       )
     }
+
     case LINK_RULE_REMOVE_TOOL: {
       const parsed = proposeLinkRuleRemoveSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
       const from = await findModel(client, input.from)
+
       if (!from.ok) return fail(from.message)
       const to = await findModel(client, input.to)
+
       if (!to.ok) return fail(to.message)
+
       const rows = await client.list<{ id: string; link_type: string }>(
         'model_relationship_rules',
         `?source_model_key=eq.${encodeURIComponent(from.value.key)}&target_model_key=eq.${encodeURIComponent(to.value.key)}&select=id,link_type`,
       )
+
       if (rows.length === 0)
         return fail(
           `There is no rule for how ${from.value.name} links to ${to.value.name}.`,
         )
+
       if (rows.length > 1)
         return fail(
           `There is more than one: ${rows.map((r) => r.link_type).join(', ')}. Ask which kind of link.`,
         )
+
       return card(
         name,
         input,
@@ -972,6 +1072,7 @@ export async function buildSchemaProposal(
         { kind: 'schema.link_rule_remove', ruleId: rows[0].id },
       )
     }
+
     case MODEL_VERSION_START_TOOL:
     case MODEL_VERSION_PUBLISH_TOOL: {
       const parsed = (
@@ -979,23 +1080,29 @@ export async function buildSchemaProposal(
           ? proposeModelVersionStartSchema
           : proposeModelVersionPublishSchema
       ).safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
       const m = await findModel(client, input.model)
+
       if (!m.ok) return fail(m.message)
+
       const versions = await versionsOf(
         client,
         'record_model_versions',
         'model_id',
         m.value.id,
       )
+
       const draft = draftOf(versions)
       const newest = versions[0]?.version ?? 0
+
       if (name === MODEL_VERSION_START_TOOL) {
         if (draft)
           return fail(
             `${m.value.name} already has a draft, version ${draft.version}.`,
           )
+
         return card(
           name,
           input,
@@ -1016,7 +1123,9 @@ export async function buildSchemaProposal(
           },
         )
       }
+
       if (!draft) return fail(`${m.value.name} has no draft to publish.`)
+
       return card(
         name,
         input,
@@ -1032,19 +1141,24 @@ export async function buildSchemaProposal(
         { kind: 'schema.model_version_publish', versionId: draft.id },
       )
     }
+
     case SHEET_DEFINITION_PUBLISH_TOOL:
     case SHEET_DEFINITION_RETIRE_TOOL:
     case SHEET_DEFINITION_RESTORE_TOOL: {
       const parsed = proposeSheetDefinitionSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
+
       const d = await findDefinition(
         client,
         'sheet_definitions',
         input.definition,
       )
+
       if (!d.ok) return fail(d.message)
       const link = `/sheet-definitions/${d.value.id}`
+
       if (name === SHEET_DEFINITION_PUBLISH_TOOL) {
         const draft = draftOf(
           await versionsOf(
@@ -1054,7 +1168,9 @@ export async function buildSchemaProposal(
             d.value.id,
           ),
         )
+
         if (!draft) return fail(`${d.value.name} has no draft to publish.`)
+
         return card(
           name,
           input,
@@ -1074,11 +1190,14 @@ export async function buildSchemaProposal(
           },
         )
       }
+
       const retire = name === SHEET_DEFINITION_RETIRE_TOOL
+
       if (retire === (d.value.lifecycle === 'retired'))
         return fail(
           `${d.value.name} is already ${retire ? 'retired' : 'offered'}.`,
         )
+
       return card(
         name,
         input,
@@ -1099,16 +1218,21 @@ export async function buildSchemaProposal(
         },
       )
     }
+
     case TEMPLATE_PUBLISH_TOOL: {
       const parsed = proposeTemplatePublishSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
+
       const t = await findDefinition(
         client,
         'notebook_templates',
         input.template,
       )
+
       if (!t.ok) return fail(t.message)
+
       const draft = draftOf(
         await versionsOf(
           client,
@@ -1117,7 +1241,9 @@ export async function buildSchemaProposal(
           t.value.id,
         ),
       )
+
       if (!draft) return fail(`${t.value.name} has no draft to publish.`)
+
       return card(
         name,
         input,
@@ -1139,11 +1265,14 @@ export async function buildSchemaProposal(
         },
       )
     }
+
     case SHEET_RENAME_TOOL: {
       const parsed = proposeSheetRenameSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
       const like = likeValue(input.sheet)
+
       const rows = await client.list<{
         id: string
         display_id: string | null
@@ -1153,6 +1282,7 @@ export async function buildSchemaProposal(
         'sheet_instances',
         `?lifecycle=neq.archived&or=(display_id.ilike.${like},name.ilike.${like})&select=id,display_id,name,revision&order=updated_at.desc&limit=8`,
       )
+
       const s = pick(
         rows,
         input.sheet,
@@ -1162,7 +1292,9 @@ export async function buildSchemaProposal(
           same(row.display_id ?? '', input.sheet) ||
           same(row.name, input.sheet),
       )
+
       if (!s.ok) return fail(s.message)
+
       return card(
         name,
         input,

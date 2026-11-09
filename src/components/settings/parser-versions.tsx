@@ -32,6 +32,7 @@ export function ParserVersions({
   if (!parsers.some((parser) => parser.parser_versions.length)) {
     return <Muted>{t('settings.parserVersions.parserVersionsCreated')}</Muted>
   }
+
   return (
     <TableBox>
       <Table aria-label={t('settings.parserVersions.parserVersionsAria')}>

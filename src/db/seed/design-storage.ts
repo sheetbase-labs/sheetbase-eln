@@ -55,16 +55,19 @@ export async function seedDesignStorage(db: Db): Promise<void> {
   const present = await db.execute(sql`
     select 1 from api.storage_sites
      where workspace_id = ${PROCESS} and code = 'CAM-LAB' limit 1`)
+
   if (present.rows.length) return
 
   await withDesignClaims(db, GARETH, PROCESS, async (client) => {
     const one: Q = async (text, values = []) =>
       (await client.query<{ id: string }>(text, values)).rows[0]
+
     const site = await one(
       `insert into api.storage_sites(workspace_id, name, code)
        values ($1, 'Cambridge lab', 'CAM-LAB') returning id`,
       [PROCESS],
     )
+
     const room = async (name: string, code: string) =>
       (
         await one(
@@ -73,6 +76,7 @@ export async function seedDesignStorage(db: Db): Promise<void> {
           [PROCESS, site.id, name, code],
         )
       ).id
+
     const unit = async (
       roomId: string,
       name: string,
@@ -89,6 +93,7 @@ export async function seedDesignStorage(db: Db): Promise<void> {
           [PROCESS, roomId, name, code, type, lo, hi],
         )
       ).id
+
     const shelf = async (unitId: string, name: string, position: number) =>
       (
         await one(
@@ -97,6 +102,7 @@ export async function seedDesignStorage(db: Db): Promise<void> {
           [PROCESS, unitId, name, position],
         )
       ).id
+
     const rack = async (shelfId: string, name: string, position: number) =>
       (
         await one(
@@ -105,6 +111,7 @@ export async function seedDesignStorage(db: Db): Promise<void> {
           [PROCESS, shelfId, name, position],
         )
       ).id
+
     const box = async (
       rackId: string,
       name: string,

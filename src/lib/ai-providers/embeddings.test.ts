@@ -73,6 +73,7 @@ describe('parseEmbeddingResponse', () => {
       ],
       usage: { total_tokens: 7 },
     })
+
     expect(out.vectors[0][0]).toBe(1)
     expect(out.vectors[1][1]).toBe(1)
     expect(out.tokens).toBe(7)
@@ -88,17 +89,20 @@ describe('parseEmbeddingResponse', () => {
 describe('embedTexts', () => {
   it('posts to the embeddings endpoint with the key', async () => {
     let seen: { url: string; auth: string | null; body: unknown } | null = null
+
     const fetchImpl: typeof fetch = async (url, init) => {
       seen = {
         url: String(url),
         auth: new Headers(init?.headers).get('authorization'),
         body: JSON.parse(String(init?.body)),
       }
+
       return new Response(
         JSON.stringify({ data: [{ index: 0, embedding: [1, 2] }] }),
         { status: 200 },
       )
     }
+
     const out = await embedTexts(profile, 'secret', ['hello'], { fetchImpl })
     expect(seen).toMatchObject({
       url: 'http://localhost:11434/v1/embeddings',
@@ -117,6 +121,7 @@ describe('embedTexts', () => {
   it('does not echo the provider body on an error', async () => {
     const fetchImpl: typeof fetch = async () =>
       new Response('secret prompt echo', { status: 500 })
+
     await expect(
       embedTexts(profile, undefined, ['a'], { fetchImpl }),
     ).rejects.toThrow('Provider returned an error status')

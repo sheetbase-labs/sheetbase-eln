@@ -67,10 +67,12 @@ export function RuleDialog({
   }, [open, rule])
 
   const problem = draftProblem(draft)
+
   const set = (patch: Partial<RuleDraft>) => {
     setDraft((current) => ({ ...current, ...patch }))
     setPreview(null)
   }
+
   const fieldLabel = (key: string) =>
     fields.find((field) => field.key === key)?.label ?? key
 
@@ -78,6 +80,7 @@ export function RuleDialog({
     mutationFn: () => {
       const candidate = draftToRule(draft, rule?.id ?? 'preview')
       const others = contract.rules.filter((r) => r.id !== rule?.id)
+
       return previewRules(notebookDataClient, contract.id, [
         ...others,
         candidate,
@@ -90,7 +93,9 @@ export function RuleDialog({
   const save = useMutation({
     mutationFn: async () => {
       const next = draftToRule(draft, rule?.id)
+
       if (!rule) return addRule(notebookDataClient, contract.id, next)
+
       return saveContract(notebookDataClient, {
         target: contractTarget(contract),
         rules: contract.rules.map((r) => (r.id === rule.id ? next : r)),
@@ -120,6 +125,7 @@ export function RuleDialog({
         dataset: entry.datasetName,
       })),
   )
+
   const field = isFieldRule(draft.kind)
 
   return (

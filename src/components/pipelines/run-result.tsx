@@ -30,6 +30,7 @@ export function RunResult({
   datasetNames: Record<string, string>
 }) {
   const preview = readResultPreview(run.result)
+
   const rowCount =
     preview?.rowCount ??
     (typeof run.result.rowCount === 'number' ? run.result.rowCount : null)

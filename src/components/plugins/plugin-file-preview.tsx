@@ -19,7 +19,9 @@ import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
 export function usePluginPreview(fileName: string) {
   const points = useExtensionPoints()
   const extension = fileExtension(fileName)
+
   if (!extension) return undefined
+
   return points.data.previews.find((item) =>
     item.declaration.extensions.includes(extension),
   )
@@ -39,12 +41,15 @@ export function PluginFilePreview({
 }) {
   const preview = usePluginPreview(fileName)
   const [open, setOpen] = useState(false)
+
   const show = useMutation({
     mutationFn: async () => {
       if (!preview) throw new Error('No plugin reads this file.')
       const response = await fetch(`/api/files/${fileRecordId}/download`)
+
       if (!response.ok) throw new Error('The file could not be loaded.')
       const file = new File([await response.blob()], fileName)
+
       return previewWithPlugin({
         extensionKey: preview.extensionKey,
         previewId: preview.id,
@@ -53,8 +58,11 @@ export function PluginFilePreview({
       })
     },
   })
+
   const data = show.data
+
   if (!preview) return null
+
   return (
     // A press inside a notebook block opens it for editing, which would drop
     // this preview, so the press stays here.
@@ -71,6 +79,7 @@ export function PluginFilePreview({
         onClick={() => {
           const next = !open
           setOpen(next)
+
           if (next && !show.data) show.mutate()
         }}
       >

@@ -56,9 +56,11 @@ function plain(status: number, headers: HeadersInit = {}) {
 
 function tokenFrom(request: Request): string | null {
   const fromQuery = new URL(request.url).searchParams.get('access_token')
+
   if (fromQuery) return fromQuery
   const auth = request.headers.get('authorization')
   const match = auth ? /^Bearer\s+(.+)$/i.exec(auth) : null
+
   return match ? match[1] : null
 }
 
@@ -75,9 +77,11 @@ async function resolve(
 ): Promise<Resolved | Response> {
   const raw = tokenFrom(request)
   const claims = raw ? await verifyWopiToken(deps.secret, raw) : null
+
   if (!claims || claims.fileRecordId !== fileRecordId) {
     return json(401, { error: 'invalid or expired access token' })
   }
+
   const pgToken = await (deps.mintToken
     ? deps.mintToken(claims)
     : mintPostgrestToken(deps.secret, {
@@ -85,16 +89,21 @@ async function resolve(
         workspaceId: claims.workspaceId,
         sessionId: claims.sessionId,
       }))
+
   const res = await postgrestSelect<FileRow[]>(
     'file_objects',
     `record_id=eq.${encodeURIComponent(fileRecordId)}&select=${FILE_SELECT}&order=version.desc&limit=1`,
     pgToken,
   )
+
   const file = Array.isArray(res.body) ? res.body.at(0) : undefined
+
   if (res.status >= 400 || !file) return json(404, { error: 'file not found' })
+
   if (file.status !== 'active') {
     return json(409, { error: `file is ${file.status}` })
   }
+
   return { claims, pgToken, file }
 }
 
@@ -108,6 +117,7 @@ async function hostStillEditable(
   pgToken: string,
 ): Promise<boolean> {
   if (!claims.hostRecordId) return true
+
   const res = await postgrestSelect<
     { locked_at: string | null; archived_at: string | null }[]
   >(
@@ -115,7 +125,9 @@ async function hostStillEditable(
     `id=eq.${encodeURIComponent(claims.hostRecordId)}&select=locked_at,archived_at`,
     pgToken,
   )
+
   const row = Array.isArray(res.body) ? res.body.at(0) : undefined
+
   return Boolean(row && !row.locked_at && !row.archived_at)
 }
 
@@ -126,9 +138,11 @@ export async function handleCheckFileInfo(
   deps: WopiDeps,
 ): Promise<Response> {
   const resolved = await resolve(request, fileRecordId, deps)
+
   if (resolved instanceof Response) return resolved
   const { claims, file, pgToken } = resolved
   const canWrite = claims.canWrite && (await hostStillEditable(claims, pgToken))
+
   return json(200, {
     BaseFileName: file.display_name,
     OwnerId: file.workspace_id,
@@ -156,12 +170,15 @@ export async function handleGetFile(
   deps: WopiDeps,
 ): Promise<Response> {
   const resolved = await resolve(request, fileRecordId, deps)
+
   if (resolved instanceof Response) return resolved
   const { file } = resolved
   const storage = deps.storage ?? getObjectStorage()
   const head = await storage.head(file.storage_key)
+
   if (!head) return json(404, { error: 'file bytes are missing' })
   const { stream, byteSize } = await storage.getStream(file.storage_key)
+
   return new Response(stream, {
     status: 200,
     headers: {
@@ -180,16 +197,21 @@ export async function handlePutFile(
   deps: WopiDeps,
 ): Promise<Response> {
   const resolved = await resolve(request, fileRecordId, deps)
+
   if (resolved instanceof Response) return resolved
   const { claims, file, pgToken } = resolved
   const locks = deps.locks ?? wopiLocks
+
   if (!claims.canWrite || !(await hostStillEditable(claims, pgToken))) {
     return json(401, { error: 'this document cannot be edited' })
   }
+
   const lock = request.headers.get('x-wopi-lock')
+
   if (!locks.allowsWrite(file.id, lock)) {
     return plain(409, { 'x-wopi-lock': locks.current(file.id) ?? '' })
   }
+
   const saved = await storeFileVersion({
     context: { workspaceId: claims.workspaceId, token: pgToken },
     current: file,
@@ -199,11 +221,13 @@ export async function handlePutFile(
     storage: deps.storage ?? getObjectStorage(),
     request,
   })
+
   if (!saved.ok) {
     return json(saved.status === 413 ? 413 : saved.status, {
       error: saved.message,
     })
   }
+
   return json(
     200,
     { LastModifiedTime: new Date().toISOString() },
@@ -218,6 +242,7 @@ export async function handleLockOperation(
   deps: WopiDeps,
 ): Promise<Response> {
   const resolved = await resolve(request, fileRecordId, deps)
+
   if (resolved instanceof Response) return resolved
   const { file, claims } = resolved
   const locks = deps.locks ?? wopiLocks
@@ -225,6 +250,7 @@ export async function handleLockOperation(
   const lock = request.headers.get('x-wopi-lock') ?? ''
   const version = { 'x-wopi-itemversion': String(file.version) }
   const conflict = (held: string) => plain(409, { 'x-wopi-lock': held })
+
   if (override !== 'GET_LOCK' && !claims.canWrite) {
     return json(401, { error: 'this document cannot be edited' })
   }
@@ -232,29 +258,40 @@ export async function handleLockOperation(
   switch (override) {
     case 'LOCK': {
       const oldLock = request.headers.get('x-wopi-oldlock')
+
       if (oldLock && locks.current(file.id) === oldLock) {
         locks.unlock(file.id, oldLock)
       }
+
       const result = locks.lock(file.id, lock)
+
       return result.ok ? plain(200, version) : conflict(result.held)
     }
+
     case 'GET_LOCK':
       return plain(200, { 'x-wopi-lock': locks.current(file.id) ?? '' })
     case 'REFRESH_LOCK': {
       const result = locks.refresh(file.id, lock)
+
       return result.ok ? plain(200, version) : conflict(result.held)
     }
+
     case 'UNLOCK': {
       const result = locks.unlock(file.id, lock)
+
       return result.ok ? plain(200, version) : conflict(result.held)
     }
+
     case 'UNLOCK_AND_RELOCK': {
       const oldLock = request.headers.get('x-wopi-oldlock') ?? ''
       const released = locks.unlock(file.id, oldLock)
+
       if (!released.ok) return conflict(released.held)
       locks.lock(file.id, lock)
+
       return plain(200, version)
     }
+
     case 'PUT_RELATIVE':
     case 'RENAME_FILE':
     case 'DELETE':

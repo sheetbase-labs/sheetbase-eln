@@ -29,6 +29,7 @@ describe('keyResultsFrom', () => {
         provenance: '0.45 µm, mean of three replicates',
       }),
     ])
+
     expect(metrics).toEqual([
       {
         id: 'b4',
@@ -46,6 +47,7 @@ describe('keyResultsFrom', () => {
       block(1, 'metric', { label: 'Empty', value: ' ' }),
       block(2, 'conclusion', { verdict: 'supported' }),
     ])
+
     expect(metrics).toEqual([])
     expect(conclusions).toEqual([])
   })

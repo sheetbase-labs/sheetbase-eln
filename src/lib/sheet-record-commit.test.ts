@@ -14,6 +14,7 @@ describe('Sheet Record create and commit clients', () => {
       identifier: 'SMP-2026-0001',
       notebookRecordLink: false,
     })
+
     await createAndLinkSheetRecord(
       {
         projectId: '22222222-2222-4222-8222-222222222222',

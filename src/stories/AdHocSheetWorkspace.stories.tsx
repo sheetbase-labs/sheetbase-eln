@@ -75,6 +75,7 @@ function client() {
 
 function Harness({ readOnly }: { readOnly?: boolean }) {
   const [value] = useState(instance)
+
   return <AdHocSheetWorkspace instance={value} readOnly={readOnly} />
 }
 
@@ -93,7 +94,9 @@ const meta = {
   ],
   args: { instance },
 } satisfies Meta<typeof AdHocSheetWorkspace>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = { render: () => <Harness /> }

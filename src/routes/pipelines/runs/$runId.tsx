@@ -17,6 +17,7 @@ export const Route = createFileRoute('/pipelines/runs/$runId')({
 function RunRedirect() {
   const { runId } = Route.useParams()
   const pipelineId = usePipelineIdForRun(runId)
+
   if (pipelineId.data) {
     return (
       <Navigate
@@ -26,6 +27,7 @@ function RunRedirect() {
       />
     )
   }
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader

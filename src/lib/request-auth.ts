@@ -97,11 +97,13 @@ export const realSessionAuthDeps: SessionAuthDeps = {
         where: eq(schema.workspaceMemberships.userId, userId),
       }),
     ])
+
     // SHELL-01.4: prefer the chosen workspace while the user is a member.
     const membership = pickActiveMembership(
       memberships,
       preference?.activeWorkspaceId,
     )
+
     return membership && !membership.suspendedAt
       ? { id: membership.workspaceId }
       : null
@@ -114,9 +116,11 @@ export const realSessionAuthDeps: SessionAuthDeps = {
         token,
         env.PGRST_JWT_SECRET,
       )
+
       // Uploading and downloading act as a person, so only a personal token
       // (one that names its owner) can do it.
       if (!('sub' in claims) || !claims.scopes.includes(scope)) return null
+
       return {
         userId: claims.sub,
         workspaceId: claims.workspace_id,
@@ -133,8 +137,10 @@ export async function resolveSessionAuth(
   deps: SessionAuthDeps = realSessionAuthDeps,
 ): Promise<SessionAuthResult> {
   const session = await deps.getSession(headers)
+
   if (!session) {
     annotateRequest({ auth: 'denied', reason: 'unauthenticated' })
+
     return {
       ok: false,
       status: 401,
@@ -142,13 +148,16 @@ export async function resolveSessionAuth(
       message: 'Sign in to upload or download files.',
     }
   }
+
   const membership = await deps.getWorkspaceForUser(session.user.id)
+
   if (!membership) {
     annotateRequest({
       auth: 'denied',
       reason: 'no_workspace',
       user: { id: session.user.id },
     })
+
     return {
       ok: false,
       status: 403,
@@ -156,17 +165,20 @@ export async function resolveSessionAuth(
       message: 'Your account has no active workspace.',
     }
   }
+
   const token = await deps.mintToken({
     userId: session.user.id,
     workspaceId: membership.id,
     sessionId: session.session.id,
     clientId: headers.get('x-sheetbase-client-id') ?? null,
   })
+
   annotateRequest({
     auth: 'session',
     user: { id: session.user.id },
     workspace: { id: membership.id },
   })
+
   return {
     ok: true,
     context: {
@@ -204,12 +216,16 @@ export async function resolvePersonalAuth(
   deps: SessionAuthDeps = realSessionAuthDeps,
 ): Promise<SessionAuthResult> {
   const bearer = readBearerToken(headers)
+
   if (!bearer) return resolveSessionAuth(headers, deps)
+
   const verified = deps.verifyBearer
     ? await deps.verifyBearer(bearer, scope)
     : null
+
   if (!verified) {
     annotateRequest({ auth: 'denied', reason: 'invalid_token' })
+
     return {
       ok: false,
       status: 401,
@@ -217,11 +233,13 @@ export async function resolvePersonalAuth(
       message: `Use a personal API token with the ${scope} scope.`,
     }
   }
+
   annotateRequest({
     auth: 'token',
     user: { id: verified.userId },
     workspace: { id: verified.workspaceId },
   })
+
   return {
     ok: true,
     context: {
@@ -241,6 +259,7 @@ export function requestErrorResponse(
   message: string,
 ): Response {
   if (status >= 500) annotateRequest({ error: { code, message } })
+
   return new Response(JSON.stringify({ error: { code, message } }), {
     status,
     headers: { 'content-type': 'application/json' },
@@ -266,13 +285,16 @@ export async function postgrestRpc<T = unknown>(
     },
     body: JSON.stringify(args),
   })
+
   const text = await response.text()
   let body: T | { error: unknown }
+
   try {
     body = text ? (JSON.parse(text) as T) : ({} as T)
   } catch {
     body = { error: text }
   }
+
   return { status: response.status, body }
 }
 
@@ -292,13 +314,16 @@ export async function postgrestInsert<T = unknown>(
     },
     body: JSON.stringify(row),
   })
+
   const text = await response.text()
   let body: T | { error: unknown }
+
   try {
     body = text ? (JSON.parse(text) as T) : ({} as T)
   } catch {
     body = { error: text }
   }
+
   return { status: response.status, body }
 }
 
@@ -315,13 +340,16 @@ export async function postgrestSelect<T = unknown>(
       accept: 'application/json',
     },
   })
+
   const text = await response.text()
   let body: T | { error: unknown }
+
   try {
     body = text ? (JSON.parse(text) as T) : ({} as T)
   } catch {
     body = { error: text }
   }
+
   return { status: response.status, body }
 }
 
@@ -342,12 +370,15 @@ export async function postgrestPatch<T = unknown>(
     },
     body: JSON.stringify(patch),
   })
+
   const text = await response.text()
   let body: T | { error: unknown }
+
   try {
     body = text ? (JSON.parse(text) as T) : ({} as T)
   } catch {
     body = { error: text }
   }
+
   return { status: response.status, body }
 }

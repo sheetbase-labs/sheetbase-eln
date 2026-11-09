@@ -12,14 +12,18 @@ const properties = [
   ['Last modified', '29 July 2025'],
   ['Project', 'Vector stability'],
 ]
+
 const meta = {
   title: 'Scientific/PropertyList',
   component: PropertyList,
   tags: ['autodocs'],
   args: { children: null },
 } satisfies Meta<typeof PropertyList>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 export const Default: Story = {
   render: () => (
     <PropertyList>
@@ -31,6 +35,7 @@ export const Default: Story = {
     </PropertyList>
   ),
 }
+
 export const WithBadges: Story = {
   render: () => (
     <PropertyList>
@@ -45,6 +50,7 @@ export const WithBadges: Story = {
     </PropertyList>
   ),
 }
+
 export const Compact: Story = {
   render: () => (
     <div className="w-72 rounded-md border p-3">

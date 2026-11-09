@@ -24,7 +24,9 @@ const meta = {
     onLoadMore: () => {},
   },
 } satisfies Meta<typeof LoadMore>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The count and the control, which is the compare view's tail. */

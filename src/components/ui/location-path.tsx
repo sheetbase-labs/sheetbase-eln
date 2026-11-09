@@ -16,6 +16,7 @@ const SEPARATOR = ' / '
  */
 export function shortLocation(path: string, keep = 3): string {
   const places = path.split(SEPARATOR)
+
   return places.length <= keep
     ? path
     : t('common.locationTail', { tail: places.slice(-keep).join(SEPARATOR) })
@@ -30,7 +31,9 @@ export function LocationPath({
   keep?: number
 }) {
   const short = shortLocation(path, keep)
+
   if (short === path) return <>{path}</>
+
   return (
     <span title={path} className="whitespace-nowrap">
       <span className="sr-only">{path}</span>

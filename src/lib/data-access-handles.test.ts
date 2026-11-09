@@ -41,6 +41,7 @@ describe('data-access names', () => {
           ? 'seed_density_2'
           : undefined,
     }
+
     expect(reportingViewName('experiment', names)).toBe(
       'data.experiments_000300',
     )
@@ -58,6 +59,7 @@ describe('resolveDataAccessHandle', () => {
     const handle = resolveDataAccessHandle(
       '/experiments?status=running,review&q=gfp',
     )!
+
     expect(handle.scope).toBe('list')
     expect(apiRoute(handle)).toBe(
       '/api/db/records?kind=eq.experiment&status=in.(running,review)&title=ilike.*gfp*',
@@ -105,6 +107,7 @@ describe('resolveDataAccessHandle', () => {
       dataAccessSnippets(resolveDataAccessHandle(href)!, 'https://x.test').find(
         (snippet) => snippet.id === 'sdk',
       )
+
     const list = sdkOf('/experiments')!
     expect(list.label).toBe('Python SDK')
     expect(list.code).toContain('base_url="https://x.test"')

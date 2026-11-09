@@ -15,6 +15,7 @@ describe('ShortcutProvider', () => {
   it('only enables the active provider and discards a partial sequence on deactivation', () => {
     const first = vi.fn()
     const second = vi.fn()
+
     const definitions = (handler: () => void) => [
       {
         id: 'home',
@@ -24,6 +25,7 @@ describe('ShortcutProvider', () => {
         handler,
       },
     ]
+
     function Scene({ firstActive }: { firstActive: boolean }) {
       return (
         <>
@@ -42,6 +44,7 @@ describe('ShortcutProvider', () => {
         </>
       )
     }
+
     const app = render(<Scene firstActive />)
     fireEvent.keyDown(window, { key: 'g' })
     app.rerender(<Scene firstActive={false} />)
@@ -106,10 +109,13 @@ describe('ShortcutProvider', () => {
     const insert = vi.fn()
     const cancel = vi.fn()
     const save = vi.fn()
+
     function NotebookScene() {
       useShortcutScope('notebook')
+
       return <textarea aria-label="Cell value" />
     }
+
     render(
       <ShortcutProvider
         definitions={[
@@ -169,11 +175,13 @@ describe('ShortcutProvider', () => {
         <button onKeyDown={(event) => event.preventDefault()}>Control</button>
       </ShortcutProvider>,
     )
+
     const event = new KeyboardEvent('keydown', {
       key: ' ',
       bubbles: true,
       cancelable: true,
     })
+
     document.body.dispatchEvent(event)
     expect(event.defaultPrevented).toBe(false)
     fireEvent.keyDown(screen.getByRole('button'), { key: 'c' })
@@ -221,6 +229,7 @@ describe('route-scoped shortcuts (SHELL-03.3)', () => {
         [onNext],
       ),
     )
+
     return <div />
   }
 
@@ -239,11 +248,13 @@ describe('route-scoped shortcuts (SHELL-03.3)', () => {
   it('stops firing after the scene unmounts', async () => {
     const user = userEvent.setup()
     const onNext = vi.fn()
+
     const { rerender } = render(
       <ShortcutProvider definitions={[]}>
         <ListScene onNext={onNext} />
       </ShortcutProvider>,
     )
+
     await user.keyboard('j')
     expect(onNext).toHaveBeenCalledOnce()
     rerender(
@@ -280,10 +291,13 @@ describe('route-scoped shortcuts (SHELL-03.3)', () => {
   it('stands bare-letter workspace shortcuts down in a notebook but keeps modifier ones', () => {
     const create = vi.fn()
     const palette = vi.fn()
+
     function Scope() {
       useShortcutScope('notebook')
+
       return null
     }
+
     render(
       <ShortcutProvider
         definitions={[

@@ -79,6 +79,7 @@ export function Chip({
   ...props
 }: ChipProps & Omit<React.ComponentProps<'button'>, keyof ChipProps>) {
   const selected = variant === 'toggle' ? Boolean(pressed) : Boolean(current)
+
   return useRender({
     render,
     defaultTagName: variant === 'remove' ? 'span' : 'button',

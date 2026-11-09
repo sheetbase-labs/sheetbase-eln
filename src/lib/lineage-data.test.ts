@@ -99,13 +99,16 @@ const experiment = makeRecord(
   'EXP-2025-0014',
   'Virus Stability at 4°C',
 )
+
 const sample1 = makeRecord(
   'smp-1',
   'sample',
   'SMP-LV-0001',
   'Lentiviral Vector',
 )
+
 const sample2 = makeRecord('smp-2', 'sample', 'SMP-PLS-0001', 'Plasmid DNA')
+
 const dataset1 = makeRecord(
   'ds-1',
   'experiment',
@@ -113,6 +116,7 @@ const dataset1 = makeRecord(
   'Raw stability data',
   { kind: 'experiment' },
 )
+
 const dataset2 = makeRecord(
   'ds-2',
   'experiment',
@@ -122,6 +126,7 @@ const dataset2 = makeRecord(
 )
 
 const simpleRecords = [experiment, sample1, sample2, dataset1, dataset2]
+
 const simpleLinks = [
   makeLink('link-1', 'exp-1', 'smp-1', 'sample', 'SMP-LV-0001', 'sample'),
   makeLink('link-2', 'exp-1', 'smp-2', 'sample', 'SMP-PLS-0001', 'sample'),
@@ -211,6 +216,7 @@ describe('buildLineageGraph', () => {
     const edge = graph.edges.find(
       (e) => e.sourceId === 'exp-1' && e.targetId === 'smp-1',
     )
+
     expect(edge).toBeDefined()
     expect(edge!.relationshipType).toBe('sample')
     expect(edge!.label).toBe('uses')
@@ -252,6 +258,7 @@ describe('buildLineageGraph', () => {
     // Create many records to trigger truncation
     const manyRecords: RecordWire[] = [experiment]
     const manyLinks: RecordLinkWire[] = []
+
     for (let i = 0; i < 10; i++) {
       const rec = makeRecord(`rec-${i}`, 'sample', `SMP-${i}`, `Sample ${i}`)
       manyRecords.push(rec)
@@ -301,6 +308,7 @@ describe('detectCycles', () => {
     const recA = makeRecord('a', 'experiment', 'A', 'A')
     const recB = makeRecord('b', 'experiment', 'B', 'B')
     const recC = makeRecord('c', 'experiment', 'C', 'C')
+
     const cyclicLinks = [
       makeLink('l1', 'a', 'b', 'dataset', 'B', 'dataset'),
       makeLink('l2', 'b', 'c', 'dataset', 'C', 'dataset'),
@@ -345,6 +353,7 @@ describe('detectCycles', () => {
   it('handles a large acyclic graph without false positives', () => {
     const records: RecordWire[] = [experiment]
     const links: RecordLinkWire[] = []
+
     // Create a linear chain: exp → r1 → r2 → ... → r50
     for (let i = 0; i < 50; i++) {
       const rec = makeRecord(`chain-${i}`, 'sample', `CH-${i}`, `Chain ${i}`)
@@ -392,6 +401,7 @@ describe('missing records', () => {
       'SMP-GONE',
       'sample',
     )
+
     const graph = buildLineageGraph(
       [experiment],
       [linkWithMissingTarget],
@@ -420,6 +430,7 @@ describe('missing records', () => {
       'SMP-RESTRICTED',
       'sample',
     )
+
     const graph = buildLineageGraph(
       [experiment], // only the experiment is fetched, not the target
       [linkToRestricted],
@@ -433,6 +444,7 @@ describe('missing records', () => {
     const restrictedNode = graph.nodes.find(
       (n) => n.id === 'restricted:restricted-rec',
     )
+
     expect(restrictedNode).toBeDefined()
     expect(restrictedNode!.accessible).toBe(false)
     expect(restrictedNode!.identifier).toBe('SMP-RESTRICTED')
@@ -450,6 +462,7 @@ describe('missing records', () => {
         'sample',
       ),
     ]
+
     const graph = buildLineageGraph(
       [experiment],
       links,
@@ -463,11 +476,13 @@ describe('missing records', () => {
     const missingEdge = graph.edges.find(
       (e) => e.targetIdentifier === 'SMP-GONE',
     )
+
     expect(missingEdge).toBeDefined()
 
     const restrictedEdge = graph.edges.find(
       (e) => e.targetIdentifier === 'SMP-REST',
     )
+
     expect(restrictedEdge).toBeDefined()
   })
 })
@@ -565,6 +580,7 @@ describe('large neighbourhoods', () => {
   it('limits nodes to maxNodes', () => {
     const records: RecordWire[] = [experiment]
     const links: RecordLinkWire[] = []
+
     for (let i = 0; i < 100; i++) {
       const rec = makeRecord(
         `big-${i}`,
@@ -572,6 +588,7 @@ describe('large neighbourhoods', () => {
         `SMP-BIG-${i}`,
         `Big Sample ${i}`,
       )
+
       records.push(rec)
       links.push(
         makeLink(
@@ -606,6 +623,7 @@ describe('large neighbourhoods', () => {
   it('handles a wide graph without crashing', () => {
     const records: RecordWire[] = [experiment]
     const links: RecordLinkWire[] = []
+
     // 200 nodes all connected to the seed
     for (let i = 0; i < 200; i++) {
       const rec = makeRecord(`wide-${i}`, 'sample', `SMP-W-${i}`, `Wide ${i}`)
@@ -683,6 +701,7 @@ describe('filterLineageGraph', () => {
       'EXP-2025-0014',
       'sample',
     )
+
     const graph = buildLineageGraph(
       [experiment, sample1, dataset1],
       [upstreamLink, ...simpleLinks.filter((l) => l.id !== 'link-1')],
@@ -833,6 +852,7 @@ describe('buildTableData', () => {
     const rows = buildTableData(graph)
 
     expect(rows.length).toBeGreaterThan(0)
+
     // Each row should have an identifier and type label
     for (const row of rows) {
       expect(row.identifier).toBeTruthy()
@@ -975,6 +995,7 @@ describe('reviews, decisions and signatures', () => {
     const reviewEdge = graph.edges.find(
       (e) => e.relationshipType === 'reviewed_by',
     )
+
     expect(reviewEdge).toBeDefined()
     expect(reviewEdge!.sourceId).toBe('exp-1')
     expect(reviewEdge!.targetId).toBe('review:rev-1')
@@ -1012,6 +1033,7 @@ describe('reviews, decisions and signatures', () => {
     const approvalEdge = graph.edges.find(
       (e) => e.relationshipType === 'approved_by',
     )
+
     expect(approvalEdge).toBeDefined()
   })
 
@@ -1047,6 +1069,7 @@ describe('reviews, decisions and signatures', () => {
     const rejectionEdge = graph.edges.find(
       (e) => e.relationshipType === 'rejected_by',
     )
+
     expect(rejectionEdge).toBeDefined()
   })
 
@@ -1123,12 +1146,15 @@ describe('bulk filters stay under the proxy limit', () => {
 
   function recordingClient() {
     const queries: string[] = []
+
     const client = {
       list: async (_table: string, query: string) => {
         queries.push(query)
+
         return []
       },
     } as unknown as Parameters<typeof fetchLineageSignatures>[0]
+
     return { client, queries }
   }
 
@@ -1136,6 +1162,7 @@ describe('bulk filters stay under the proxy limit', () => {
     const { client, queries } = recordingClient()
     await fetchLineageSignatures(client, ids)
     expect(queries.length).toBeGreaterThan(1)
+
     for (const query of queries) {
       const value = new URLSearchParams(query).get('record_id') ?? ''
       expect(value.length).toBeLessThanOrEqual(500)
@@ -1146,6 +1173,7 @@ describe('bulk filters stay under the proxy limit', () => {
     const { client, queries } = recordingClient()
     await fetchLineageEvents(client, ids)
     expect(queries.length).toBeGreaterThan(1)
+
     for (const query of queries) {
       const value = new URLSearchParams(query).get('record_id') ?? ''
       expect(value.length).toBeLessThanOrEqual(500)

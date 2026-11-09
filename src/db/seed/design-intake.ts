@@ -16,8 +16,10 @@ const PROCESS = '00000000-0000-4000-8000-000000000300'
 const GARETH = '00000000-0000-4000-8000-000000000310'
 const DS_AMBR = '00000000-0000-4000-8000-000000000380'
 const DS_YIELD = '00000000-0000-4000-8000-000000000381'
+
 const INS = (n: number) =>
   `00000000-0000-4000-8000-0000000003${(0xa0 + n).toString(16)}`
+
 const AMBR = '00000000-0000-4000-8000-0000000003e1'
 const PR01 = '00000000-0000-4000-8000-0000000003e0'
 
@@ -41,6 +43,7 @@ interface Intake {
 const DAY = (n: number, time: string) => {
   const d = new Date('2026-09-25T00:00:00+01:00')
   d.setDate(d.getDate() - n)
+
   return `${d.toISOString().slice(0, 10)}T${time}+01:00`
 }
 
@@ -121,6 +124,7 @@ export async function seedDesignIntake(db: Db) {
       .select({ id: schema.instruments.id })
       .from(schema.instruments)
       .where(eq(schema.instruments.id, intake.instrumentId))
+
     if (!present.length) continue
 
     const existing = await db
@@ -132,7 +136,9 @@ export async function seedDesignIntake(db: Db) {
           eq(schema.parsers.key, intake.key),
         ),
       )
+
     if (existing.length) continue
+
     const [parser] = await db
       .insert(schema.parsers)
       .values({
@@ -144,6 +150,7 @@ export async function seedDesignIntake(db: Db) {
         createdByUserId: GARETH,
       })
       .returning({ id: schema.parsers.id })
+
     const [version] = await db
       .insert(schema.parserVersions)
       .values({
@@ -158,6 +165,7 @@ export async function seedDesignIntake(db: Db) {
         createdByUserId: GARETH,
       })
       .returning({ id: schema.parserVersions.id })
+
     const snapshot = await db
       .select({ id: schema.datasetVersions.id })
       .from(schema.datasetVersions)
@@ -169,6 +177,7 @@ export async function seedDesignIntake(db: Db) {
     for (const [n, entry] of intake.imports.entries()) {
       const at = new Date(entry.at)
       const checksum = `${intake.key.length.toString(16)}${n}`.padEnd(64, 'a')
+
       const [file] = await db
         .insert(schema.datasetImportFiles)
         .values({
@@ -189,6 +198,7 @@ export async function seedDesignIntake(db: Db) {
           createdAt: at,
         })
         .returning({ id: schema.datasetImportFiles.id })
+
       await db.insert(schema.datasetImports).values({
         workspaceId: PROCESS,
         datasetId: intake.datasetId,

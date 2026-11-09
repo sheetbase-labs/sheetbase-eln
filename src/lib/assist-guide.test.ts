@@ -122,6 +122,7 @@ describe('evaluateAnalysisToFigure', () => {
     const withDataset = evaluateAnalysisToFigure(
       analysisState({ columnCount: 3, rowCount: 10 }),
     )
+
     expect(withDataset.steps.map((s) => s.state)).toEqual([
       'done',
       'current',
@@ -133,6 +134,7 @@ describe('evaluateAnalysisToFigure', () => {
     const compared = evaluateAnalysisToFigure(
       analysisState({ columnCount: 3, rowCount: 10, compareConfigValid: true }),
     )
+
     expect(compared.steps.map((s) => s.state)).toEqual([
       'done',
       'done',
@@ -157,6 +159,7 @@ describe('evaluateAnalysisToFigure', () => {
         recordId: 'r1',
       }),
     )
+
     expect(proposed.steps.map((s) => s.state)).toEqual([
       'done',
       'done',
@@ -179,6 +182,7 @@ describe('evaluateAnalysisToFigure', () => {
         recordId: 'r1',
       }),
     )
+
     expect(done.complete).toBe(true)
     expect(done.currentStepId).toBeNull()
     expect(done.steps.every((s) => s.state === 'done')).toBe(true)
@@ -203,6 +207,7 @@ describe('evaluateAnalysisToFigure', () => {
         ],
       }),
     )
+
     const embed = workflow.steps[3]
     expect(embed.state).toBe('current')
     expect(embed.explanation?.title).toContain('chart')
@@ -238,6 +243,7 @@ describe('evaluateSubmissionReadiness', () => {
     const saved = evaluateSubmissionReadiness(
       submissionState({ hasUnsavedWork: false }),
     )
+
     expect(saved.currentStepId).toBe('snapshot-verified')
     expect(saved.steps[1]?.nextActions[0]?.target).toMatchObject({
       kind: 'accept',
@@ -247,6 +253,7 @@ describe('evaluateSubmissionReadiness', () => {
     const verified = evaluateSubmissionReadiness(
       submissionState({ hasUnsavedWork: false, digest: 'abc123' }),
     )
+
     expect(verified.currentStepId).toBe('reviewers-assigned')
     expect(verified.steps[2]?.blockedReason).toContain('someone to review')
 
@@ -257,6 +264,7 @@ describe('evaluateSubmissionReadiness', () => {
         reviewerCount: 2,
       }),
     )
+
     expect(staffed.currentStepId).toBe('submitted')
     expect(staffed.steps[3]?.nextActions[0]?.target).toMatchObject({
       kind: 'accept',
@@ -272,11 +280,14 @@ describe('evaluateSubmissionReadiness', () => {
         revisionId: 'rev-1',
       }),
     )
+
     expect(submitted.currentStepId).toBe('review-decided')
+
     const acceptKeys = submitted.steps[4]?.nextActions
       .map((a) => a.target)
       .filter((t) => t.kind === 'accept')
       .map((t) => (t as { acceptKey: GuideAcceptKey }).acceptKey)
+
     expect(acceptKeys).toEqual(
       expect.arrayContaining(['approveReview', 'requestChangesOnReview']),
     )
@@ -291,6 +302,7 @@ describe('evaluateSubmissionReadiness', () => {
         decision: 'approved',
       }),
     )
+
     expect(decided.complete).toBe(true)
     expect(decided.currentStepId).toBeNull()
   })
@@ -304,6 +316,7 @@ describe('evaluateSubmissionReadiness', () => {
         archivedAt: '2026-08-01T00:00:00Z',
       }),
     )
+
     expect(workflow.currentStepId).toBe('submitted')
     expect(workflow.steps[3].blockedReason).toContain('archived')
   })
@@ -317,6 +330,7 @@ describe('evaluateSubmissionReadiness', () => {
         ],
       }),
     )
+
     const snapshot = workflow.steps[1]
     expect(snapshot.state).toBe('current')
     expect(snapshot.explanation?.title).toContain('write-back')
@@ -336,6 +350,7 @@ describe('evaluateSubmissionReadiness', () => {
         submissionId: 'sub-1',
       }),
     )
+
     expect(
       awaitingRevision.steps[4].nextActions
         .map((action) => action.target)
@@ -354,6 +369,7 @@ describe('evaluateSubmissionReadiness', () => {
         revisionId: 'rev-1',
       }),
     )
+
     expect(
       withRevision.steps[4].nextActions
         .map((action) => action.target)
@@ -401,6 +417,7 @@ describe('execution parity (no new write paths)', () => {
         }),
       ),
     ]
+
     for (const workflow of states) {
       for (const step of workflow.steps) {
         for (const action of step.nextActions) {
@@ -424,6 +441,7 @@ describe('execution parity (no new write paths)', () => {
         submissionState({ sheetFailures: [{ code: 'validation_failed' }] }),
       ),
     ]
+
     for (const workflow of workflows) {
       expect(JSON.parse(JSON.stringify(workflow))).toEqual(workflow)
     }
@@ -434,7 +452,9 @@ describe('execution parity (no new write paths)', () => {
       recordTitle: 'EXP-1',
       envelope: envelope(),
     })
+
     if (!proposal) throw new Error('fixture proposal must build')
+
     const blockRow = {
       id: 'b1',
       record_id: 'r1',
@@ -446,19 +466,23 @@ describe('execution parity (no new write paths)', () => {
       created_at: '2026-07-19T00:00:00.000Z',
       updated_at: '2026-07-19T00:00:00.000Z',
     }
+
     const manualRpc = vi.fn(async () => ({
       block: blockRow,
       structure_version: 2,
     }))
+
     const guidedRpc = vi.fn(async () => ({
       block: blockRow,
       structure_version: 2,
     }))
+
     const manualClient = { rpc: manualRpc } as unknown as DataClient
     const guidedClient = { rpc: guidedRpc } as unknown as DataClient
 
     // Manual: the user accepts through the draft panel's canonical path.
     await acceptTextDraft(manualClient, { recordId: 'r1', proposal })
+
     // Guided: the workflow's next action invokes the same registered accept.
     const workflow = evaluateAnalysisToFigure(
       analysisState({
@@ -469,6 +493,7 @@ describe('execution parity (no new write paths)', () => {
         recordId: 'r1',
       }),
     )
+
     const embedAction = workflow.steps[3].nextActions[0]
     expect(embedAction.target).toMatchObject({
       kind: 'accept',

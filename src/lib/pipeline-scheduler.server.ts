@@ -56,6 +56,7 @@ import type {
 const SCHEDULE_COLUMNS = `id, workspace_id, definition_id, kind, spec, enabled,
   last_run_at, next_run_at, last_evaluated_at, last_evaluated_sequence,
   input_watermarks, created_by_user_id`
+
 const SCHEDULE_COLUMNS_S = SCHEDULE_COLUMNS.split(',')
   .map((column) => `s.${column.trim()}`)
   .join(', ')
@@ -145,8 +146,10 @@ export async function sweepPipelines(
   const sweepStarted = Date.now()
   let started = 0
   let recovered = 0
+
   try {
     await conn.begin()
+
     const { rows } = await conn.query<ScheduleRow>(
       `SELECT ${SCHEDULE_COLUMNS_S}
          FROM api.pipeline_schedules s
@@ -154,6 +157,7 @@ export async function sweepPipelines(
         WHERE s.enabled AND d.lifecycle = 'active'
         ORDER BY s.id`,
     )
+
     await conn.commit()
 
     for (const schedule of rows) {
@@ -165,6 +169,7 @@ export async function sweepPipelines(
         const due = schedule.next_run_at
           ? new Date(schedule.next_run_at).getTime() <= now.getTime()
           : true
+
         if (due) {
           const outcome = await sweepTimedSchedule(deps, schedule, now)
           started += outcome.fired
@@ -177,12 +182,16 @@ export async function sweepPipelines(
         }
       }
     }
+
     metrics.schedulerSweepDuration.observe(
       {},
       (Date.now() - sweepStarted) / 1000,
     )
+
     if (started > 0) metrics.schedulerDueOccurrences.inc({}, started)
+
     if (recovered > 0) metrics.schedulerRecoveredOccurrences.inc({}, recovered)
+
     return started
   } finally {
     await conn.end()
@@ -197,22 +206,29 @@ async function sweepTimedSchedule(
   const conn = await deps.connect()
   const startedRunIds: string[] = []
   let recovered = 0
+
   try {
     // Lock the schedule row so concurrent sweepers cannot double-fire.
     await conn.begin()
+
     const { rows } = await conn.query<ScheduleRow>(
       `SELECT ${SCHEDULE_COLUMNS}
          FROM api.pipeline_schedules WHERE id = $1 FOR UPDATE`,
       [schedule.id],
     )
+
     const locked = rows.at(0)
+
     if (!locked || !locked.enabled || locked.kind === 'event') {
       await conn.rollback()
+
       return { fired: 0, recovered: 0 }
     }
+
     // Stamp the schedule creator's identity so governed RPCs (run logs, the
     // start RPC) work throughout this evaluation.
     await setScheduleClaims(conn, locked)
+
     const versionId = await resolveLatestPublishedVersion(
       conn,
       locked.definition_id,
@@ -224,6 +240,7 @@ async function sweepTimedSchedule(
     // the exact version the crashed attempt used.
     const stale = await recoverStaleRuns(conn, locked)
     recovered += stale.length
+
     for (const s of stale) {
       const retryRunId = await startScheduledRun(
         conn,
@@ -235,12 +252,14 @@ async function sweepTimedSchedule(
         s.trigger_occurrence_id,
         s.id,
       )
+
       if (retryRunId) startedRunIds.push(retryRunId)
     }
 
     const due = locked.next_run_at
       ? new Date(locked.next_run_at).getTime() <= now.getTime()
       : true
+
     if (due) {
       const runId = await handleDueTick(
         conn,
@@ -249,16 +268,21 @@ async function sweepTimedSchedule(
         now,
         startedRunIds,
       )
+
       if (runId) startedRunIds.push(runId)
     }
+
     await conn.commit()
   } finally {
     await conn.end()
   }
+
   const creator = schedule.created_by_user_id ?? 'system'
+
   for (const runId of startedRunIds) {
     await deps.run(creator, runId)
   }
+
   return { fired: startedRunIds.length, recovered }
 }
 
@@ -278,6 +302,7 @@ async function handleDueTick(
 ): Promise<string | null> {
   const spec = locked.spec as unknown as TimedSpec
   const occurrenceId = scheduledOccurrenceId(locked.id, locked.next_run_at)
+
   const advance = () =>
     conn.query(
       `UPDATE api.pipeline_schedules
@@ -295,18 +320,23 @@ async function handleDueTick(
       'The pipeline has no published version, so nothing was run.',
     )
     await advance()
+
     return null
   }
+
   const prior = await latestRunForOccurrence(
     conn,
     locked.workspace_id,
     occurrenceId,
   )
+
   if (prior && prior.status === 'succeeded') {
     // Already executed this occurrence (duplicate sweep): back off only.
     await advance()
+
     return null
   }
+
   if (
     prior &&
     prior.status === 'running' &&
@@ -314,6 +344,7 @@ async function handleDueTick(
   ) {
     // In-flight (fresh) execution, or a run a worker holds / is queued: never double-start.
     await advance()
+
     return null
   }
 
@@ -321,6 +352,7 @@ async function handleDueTick(
   const lateMs = locked.next_run_at
     ? now.getTime() - new Date(locked.next_run_at).getTime()
     : 0
+
   if (
     !prior &&
     spec.missedRunPolicy === 'skip' &&
@@ -338,6 +370,7 @@ async function handleDueTick(
       { missed, dueAt: locked.next_run_at },
     )
     await advance()
+
     return null
   }
 
@@ -351,16 +384,19 @@ async function handleDueTick(
       'The previous run was still going, so this one was skipped.',
     )
     await advance()
+
     return null
   }
 
   // A retried occurrence reads exactly what the failed attempt read.
   let inputVersions: Record<string, string>
   let watermarks: Record<string, string> = {}
+
   if (prior) {
     inputVersions = prior.input_versions
   } else {
     const resolved = await resolveScheduleInputs(conn, locked, spec)
+
     if (resolved.skip) {
       await recordActivity(
         conn,
@@ -370,13 +406,16 @@ async function handleDueTick(
         resolved.skip.message,
       )
       await advance()
+
       return null
     }
+
     inputVersions = resolved.versions
     watermarks = resolved.watermarks
   }
 
   const failure: StartFailure = {}
+
   const runId = await startScheduledRun(
     conn,
     locked,
@@ -388,6 +427,7 @@ async function handleDueTick(
     prior?.id ?? null,
     failure,
   )
+
   if (runId) {
     await conn.query(
       `UPDATE api.pipeline_schedules
@@ -396,8 +436,10 @@ async function handleDueTick(
         WHERE id = $1`,
       [locked.id, nextDue(locked, now), JSON.stringify(watermarks)],
     )
+
     return runId
   }
+
   // Start failed (e.g. the creator is no longer a writer): say so, back off.
   await recordActivity(
     conn,
@@ -407,6 +449,7 @@ async function handleDueTick(
     failure.message ?? 'The run could not be started.',
   )
   await advance()
+
   return null
 }
 
@@ -418,23 +461,30 @@ async function sweepStaleRecovery(
   const conn = await deps.connect()
   const startedRunIds: string[] = []
   let recovered = 0
+
   try {
     await conn.begin()
+
     const { rows } = await conn.query<ScheduleRow>(
       `SELECT ${SCHEDULE_COLUMNS}
          FROM api.pipeline_schedules WHERE id = $1 FOR UPDATE`,
       [schedule.id],
     )
+
     const locked = rows.at(0)
+
     if (!locked || !locked.enabled || locked.kind === 'event') {
       await conn.rollback()
+
       return { fired: 0, recovered: 0 }
     }
+
     await setScheduleClaims(conn, locked)
     // Stale retries use the crashed run's OWN pinned version; no latest
     // version resolution is needed for recovery.
     const stale = await recoverStaleRuns(conn, locked)
     recovered += stale.length
+
     for (const s of stale) {
       const retryRunId = await startScheduledRun(
         conn,
@@ -446,16 +496,21 @@ async function sweepStaleRecovery(
         s.trigger_occurrence_id,
         s.id,
       )
+
       if (retryRunId) startedRunIds.push(retryRunId)
     }
+
     await conn.commit()
   } finally {
     await conn.end()
   }
+
   const creator = schedule.created_by_user_id ?? 'system'
+
   for (const runId of startedRunIds) {
     await deps.run(creator, runId)
   }
+
   return { fired: startedRunIds.length, recovered }
 }
 
@@ -467,23 +522,30 @@ async function sweepEventSchedule(
   const startedRunIds: string[] = []
   let fired = 0
   let recovered = 0
+
   try {
     await conn.begin()
+
     const { rows } = await conn.query<ScheduleRow>(
       `SELECT ${SCHEDULE_COLUMNS}
          FROM api.pipeline_schedules WHERE id = $1 FOR UPDATE`,
       [schedule.id],
     )
+
     const locked = rows.at(0)
+
     if (!locked || !locked.enabled || locked.kind !== 'event') {
       await conn.rollback()
+
       return { fired: 0, recovered: 0 }
     }
+
     await setScheduleClaims(conn, locked)
     // The latest published version is re-resolved per consumed event so a
     // version publish mid-sweep is picked up; there is no stale hoisted value.
     const stale = await recoverStaleRuns(conn, locked)
     recovered += stale.length
+
     for (const s of stale) {
       const retryRunId = await startScheduledRun(
         conn,
@@ -495,6 +557,7 @@ async function sweepEventSchedule(
         s.trigger_occurrence_id,
         s.id,
       )
+
       if (retryRunId) startedRunIds.push(retryRunId)
     }
 
@@ -506,6 +569,7 @@ async function sweepEventSchedule(
       inputVersions?: Record<string, string>
       parameters?: Record<string, unknown>
     } & ScheduleSpecCommon
+
     // Trigger configuration references catalogue event names. The stored
     // value is canonical, but pre-catalogue rows may still carry the legacy
     // `dataset_version_created` name — normalize at read time so they keep
@@ -513,19 +577,25 @@ async function sweepEventSchedule(
     // stays in place rather than skipping events silently.
     const triggerEvent = normalizeTriggerEventName(spec.eventType)
     const producer = producerForTriggerEvent(spec.eventType)
+
     if (!triggerEvent || !producer) {
       await conn.rollback()
+
       return { fired, recovered }
     }
+
     const cursor = Number(locked.last_evaluated_sequence ?? 0)
+
     // The dataset filter is meaningful only for `dataset.versioned` (whose
     // payload carries the parent datasetId); other events ignore it.
     const datasetFilter =
       triggerEvent === 'dataset.versioned' ? (spec.datasetId ?? null) : null
+
     // The instrument filter likewise applies to `dataset.versioned` only: the
     // version must be the snapshot of an import from that instrument.
     const instrumentFilter =
       triggerEvent === 'dataset.versioned' ? (spec.instrumentId ?? null) : null
+
     const events = await conn.query<ChangeEventRow>(
       `SELECT id, entity_uuid, sequence
          FROM api.change_events
@@ -578,6 +648,7 @@ async function sweepEventSchedule(
         locked.definition_id,
       ],
     )
+
     // Only `dataset.versioned` supplies an input version (the created
     // Dataset Version id). Other events fire with the schedule's configured
     // inputs; an explicitly configured inputName still binds the triggering
@@ -587,48 +658,59 @@ async function sweepEventSchedule(
       triggerEvent === 'dataset.versioned'
         ? (spec.inputName ?? (await firstInputName(locked.definition_id, conn)))
         : spec.inputName
+
     await conn.commit()
 
     for (const runId of startedRunIds) {
       const creator = locked.created_by_user_id ?? 'system'
       await deps.run(creator, runId)
     }
+
     fired += startedRunIds.length
 
     for (const event of events.rows) {
       // Each event is consumed exactly once: the cursor advances only with a
       // durable disposition (started run, or explicitly abandoned failure).
       await conn.begin()
+
       const { rows: fresh } = await conn.query<{
         last_evaluated_sequence: string | null
       }>(
         `SELECT last_evaluated_sequence FROM api.pipeline_schedules WHERE id = $1 FOR UPDATE`,
         [locked.id],
       )
+
       const currentCursor = Number(fresh.at(0)?.last_evaluated_sequence ?? 0)
+
       if (Number(event.sequence) <= currentCursor) {
         await conn.rollback()
         continue
       }
+
       const eventVersionId = await resolveLatestPublishedVersion(
         conn,
         locked.definition_id,
       )
+
       if (!eventVersionId) {
         await conn.rollback()
         break
       }
+
       const occurrenceId = eventOccurrenceId(event.id)
+
       const prior = await latestRunForOccurrence(
         conn,
         locked.workspace_id,
         occurrenceId,
       )
+
       // Other inputs follow their bindings (pinned, or the Dataset's latest
       // version now); the triggering entity binds to the event's input. A
       // retried occurrence reads exactly what the failed attempt read.
       const failure: StartFailure = {}
       let inputVersions: Record<string, string> | null
+
       if (prior?.status === 'failed') {
         inputVersions = prior.input_versions
       } else {
@@ -638,9 +720,12 @@ async function sweepEventSchedule(
           spec,
           inputName ? { name: inputName, versionId: event.entity_uuid } : null,
         )
+
         inputVersions = resolved.skip ? null : resolved.versions
+
         if (resolved.skip) failure.message = resolved.skip.message
       }
+
       const runId = inputVersions
         ? await startScheduledRun(
             conn,
@@ -654,6 +739,7 @@ async function sweepEventSchedule(
             failure,
           )
         : null
+
       if (runId) {
         await advanceEventCursor(conn, locked.id, event.sequence)
         await clearTriggerFailure(conn, locked.workspace_id, occurrenceId)
@@ -675,6 +761,7 @@ async function sweepEventSchedule(
           failure.message ?? 'The run could not be started.',
           { eventId: event.id },
         )
+
         const exhausted = await recordTriggerFailure(
           conn,
           locked,
@@ -683,6 +770,7 @@ async function sweepEventSchedule(
           'run_start_failed',
           failure.message ?? 'Scheduled run could not be started.',
         )
+
         if (exhausted) {
           await advanceEventCursor(conn, locked.id, event.sequence)
           await conn.commit()
@@ -692,6 +780,7 @@ async function sweepEventSchedule(
         }
       }
     }
+
     return { fired, recovered }
   } finally {
     await conn.end()
@@ -709,6 +798,7 @@ function scheduledOccurrenceId(
   const due = dueAt
     ? new Date(dueAt).toISOString().replace(/[:.]/g, '-')
     : new Date().toISOString().replace(/[:.]/g, '-')
+
   return `sched:${scheduleId}:${due}`
 }
 
@@ -735,6 +825,7 @@ async function latestRunForOccurrence(
       ORDER BY started_at DESC LIMIT 1`,
     [workspaceId, occurrenceId],
   )
+
   return rows.at(0) ?? null
 }
 
@@ -767,6 +858,7 @@ async function recoverStaleRuns(
       LIMIT ${MAX_STALE_RECOVERIES_PER_SWEEP}`,
     [schedule.id, STALE_THRESHOLD_SECONDS],
   )
+
   for (const run of rows) {
     // Log while still running, then fail (append_pipeline_run_log only
     // accepts running runs).
@@ -791,6 +883,7 @@ async function recoverStaleRuns(
       [run.id],
     )
   }
+
   return rows.map((r) => ({
     id: r.id,
     trigger_occurrence_id: r.trigger_occurrence_id,
@@ -844,8 +937,10 @@ async function recordTriggerFailure(
       WHERE workspace_id = $1 AND trigger_occurrence_id = $2 FOR UPDATE`,
     [schedule.workspace_id, occurrenceId],
   )
+
   const existing = rows.at(0)
   const attempt = existing ? existing.attempt + 1 : 1
+
   if (attempt >= EVENT_RETRY_BUDGET) {
     await conn.query(
       `INSERT INTO api.pipeline_trigger_failures(
@@ -866,8 +961,10 @@ async function recordTriggerFailure(
         attempt,
       ],
     )
+
     return true
   }
+
   await conn.query(
     `INSERT INTO api.pipeline_trigger_failures(
        workspace_id, schedule_id, trigger_occurrence_id, event_id,
@@ -886,6 +983,7 @@ async function recordTriggerFailure(
       attempt,
     ],
   )
+
   return false
 }
 
@@ -911,11 +1009,15 @@ async function firstInputName(
       ORDER BY version DESC LIMIT 1`,
     [definitionId],
   )
+
   const config = rows.at(0)?.configuration
+
   if (!config || !Array.isArray(config.inputs) || config.inputs.length === 0) {
     return null
   }
+
   const first = config.inputs[0] as { name?: unknown }
+
   return typeof first.name === 'string' ? first.name : null
 }
 
@@ -929,6 +1031,7 @@ async function resolveLatestPublishedVersion(
       ORDER BY version DESC LIMIT 1`,
     [definitionId],
   )
+
   return rows.at(0)?.id ?? null
 }
 
@@ -951,8 +1054,10 @@ async function startScheduledRun(
       workspace_id: schedule.workspace_id,
     }),
   ])
+
   try {
     await conn.query('SAVEPOINT sb_schedule_start')
+
     const { rows } = await conn.query<{ id: string }>(
       `SELECT (api.start_pipeline_run(
          $1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, $8
@@ -968,18 +1073,22 @@ async function startScheduledRun(
         schedule.id,
       ],
     )
+
     await conn.query('RELEASE SAVEPOINT sb_schedule_start')
+
     return rows.at(0)?.id ?? null
   } catch (error) {
     // e.g. the schedule creator left the workspace or the version was
     // retired between resolution and start. Restore the transaction so the
     // caller can record a durable failure; the run never starts.
     await conn.query('ROLLBACK TO SAVEPOINT sb_schedule_start').catch(() => {})
+
     if (failure) {
       failure.message = `The run could not be started: ${
         error instanceof Error ? error.message : 'the database refused it'
       }`
     }
+
     return null
   }
 }
@@ -1026,7 +1135,9 @@ async function recordActivity(
         ORDER BY occurred_at DESC LIMIT 1`,
       [schedule.id],
     )
+
     const last = rows.at(0)
+
     if (
       last &&
       last.kind === kind &&
@@ -1045,9 +1156,11 @@ async function recordActivity(
           JSON.stringify({ ...detail, count: (last.detail.count ?? 1) + 1 }),
         ],
       )
+
       return
     }
   }
+
   await conn.query(
     `INSERT INTO api.pipeline_schedule_activity(
        workspace_id, schedule_id, kind, occurrence_id, message, detail
@@ -1068,12 +1181,15 @@ function countMissedTicks(schedule: ScheduleRow, now: Date): number {
   if (schedule.kind === 'event' || !schedule.next_run_at) return 1
   let cursor = new Date(schedule.next_run_at)
   let missed = 0
+
   while (cursor.getTime() <= now.getTime() && missed < 1000) {
     missed += 1
     const next = nextRunAt(schedule.kind, schedule.spec as never, cursor)
+
     if (!next) break
     cursor = next
   }
+
   return Math.max(missed, 1)
 }
 
@@ -1096,6 +1212,7 @@ async function hasFreshRunningRun(
      ) AS found`,
     [scheduleId, STALE_THRESHOLD_SECONDS, ignoreRunIds],
   )
+
   return rows.at(0)?.found === true
 }
 
@@ -1110,6 +1227,7 @@ async function latestDatasetVersion(
       ORDER BY created_at DESC, id DESC LIMIT 1`,
     [workspaceId, datasetId],
   )
+
   return rows.at(0)?.id ?? null
 }
 
@@ -1140,17 +1258,21 @@ async function resolveScheduleInputs(
   const known = schedule.input_watermarks ?? {}
   let incremental = 0
   let changed = 0
+
   for (const [name, binding] of Object.entries(specBindings(spec))) {
     if (bound && name === bound.name) continue
+
     if (binding.mode === 'pinned') {
       versions[name] = binding.versionId
       continue
     }
+
     const latest = await latestDatasetVersion(
       conn,
       schedule.workspace_id,
       binding.datasetId,
     )
+
     if (!latest) {
       return {
         versions,
@@ -1161,15 +1283,19 @@ async function resolveScheduleInputs(
         },
       }
     }
+
     versions[name] = latest
+
     if (binding.mode === 'incremental') {
       incremental += 1
+
       if (known[name] !== latest) {
         changed += 1
         watermarks[name] = latest
       }
     }
   }
+
   if (incremental > 0 && changed === 0) {
     return {
       versions,
@@ -1181,7 +1307,9 @@ async function resolveScheduleInputs(
       },
     }
   }
+
   if (bound) versions[bound.name] = bound.versionId
+
   return { versions, watermarks }
 }
 
@@ -1194,6 +1322,7 @@ const startedGlobalKey = '__sheetbasePipelineSchedulerStarted'
 
 export function startPipelineScheduler(): void {
   if (typeof window !== 'undefined') return
+
   // Never run under test runners or CLI tooling.
   if (
     process.env.NODE_ENV === 'test' ||
@@ -1202,7 +1331,9 @@ export function startPipelineScheduler(): void {
   ) {
     return
   }
+
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
 
@@ -1210,11 +1341,13 @@ export function startPipelineScheduler(): void {
     connect: defaultConnect,
     run: async (_actor, runId) => {
       const conn = await defaultConnect()
+
       try {
         await enqueuePipelineRun(conn, runId)
       } finally {
         await conn.end().catch(() => {})
       }
+
       wakePipelineWorker()
     },
   }
@@ -1222,6 +1355,7 @@ export function startPipelineScheduler(): void {
   const tick = async () => {
     try {
       await sweepPipelines(deps)
+
       // PIPE-02.2: an unanswered prompt applies the outcome its author
       // configured for a run that nobody answered. This path acts as the
       // pipeline, not a person, so a human session is never needed — and if
@@ -1232,6 +1366,7 @@ export function startPipelineScheduler(): void {
         },
         connect: defaultConnect,
       }
+
       await expirePipelinePrompts(sweepDeps)
       // PIPE-04.2: a settled run's artefacts are temporary unless it kept them.
       await releaseSettledRunArtefacts(sweepDeps)
@@ -1243,6 +1378,7 @@ export function startPipelineScheduler(): void {
       })
     }
   }
+
   // First sweep shortly after boot, then on the interval.
   const first = setTimeout(() => void tick(), 5_000)
   first.unref()
@@ -1253,6 +1389,7 @@ export function startPipelineScheduler(): void {
 async function defaultConnect(): Promise<SchedulerConnection> {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   return {
     query: async (text, values = []) => client.query(text, values),
     begin: () => client.query('BEGIN').then(() => undefined),
@@ -1267,6 +1404,7 @@ function nextDue(
   now: Date,
 ): string | null {
   if (schedule.kind === 'event') return null
+
   return (
     nextRunAt(schedule.kind, schedule.spec as never, now)?.toISOString() ?? null
   )

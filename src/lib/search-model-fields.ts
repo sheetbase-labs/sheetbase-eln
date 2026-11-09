@@ -63,7 +63,9 @@ export function parseModelFieldId(
   if (!id.startsWith(MODEL_FIELD_PREFIX)) return undefined
   const rest = id.slice(MODEL_FIELD_PREFIX.length)
   const at = rest.indexOf(':')
+
   if (at <= 0 || at === rest.length - 1) return undefined
+
   return { kind: rest.slice(0, at), key: rest.slice(at + 1) }
 }
 
@@ -92,13 +94,16 @@ function indexedKind(
 ): string | undefined {
   const seen = new Set<string>()
   let current: string | null | undefined = key
+
   while (current && !seen.has(current)) {
     if (INDEXED_KINDS.has(current)) return current
     seen.add(current)
     const model = models.get(current)
+
     if (model && !model.parent_key) return current
     current = model?.parent_key
   }
+
   return undefined
 }
 
@@ -115,21 +120,28 @@ export function modelSearchFields(
   const models = new Map(recordModels.map((m) => [m.key, m]))
   const builtIn = new Map(BUILT_IN_MODELS.map((m) => [m.key, m.name]))
   const optionsBy = new Map<string, { value: string; label: string }[]>()
+
   for (const option of options) {
     const list = optionsBy.get(option.definition_id) ?? []
     list.push({ value: option.key, label: option.label })
     optionsBy.set(option.definition_id, list)
   }
+
   const out = new Map<string, SheetbaseField>()
+
   for (const field of definitions) {
     if (field.cardinality === 'many' || field.logical_type === 'reference')
       continue
     const kind = indexedKind(field.kind, models)
+
     if (!kind) continue
     const id = modelFieldId(kind, field.field_name)
+
     if (out.has(id)) continue
+
     const model =
       models.get(field.kind)?.name ?? builtIn.get(field.kind) ?? field.kind
+
     const unit = field.quantity?.storageUnit ?? field.unit?.symbol
     const choices = optionsBy.get(field.id)
     out.set(id, {
@@ -141,6 +153,7 @@ export function modelSearchFields(
         : {}),
     })
   }
+
   return [...out.values()].sort((a, b) => a.label.localeCompare(b.label))
 }
 
@@ -171,6 +184,7 @@ export async function fetchModelSearchFields(
       '?lifecycle=eq.published&order=version.desc&select=model_id,version,definition',
     ),
   ])
+
   // Read in groups: the proxy refuses an `in.(…)` list of many ids.
   const options = await listByIds(
     builtInFields.map((f) => f.id),
@@ -180,18 +194,23 @@ export async function fetchModelSearchFields(
         `?definition_id=in.(${ids})&lifecycle=eq.active&select=definition_id,key,label&order=display_order.asc`,
       ),
   )
+
   // A record type's fields live on its newest published version.
   const keyOf = new Map(recordModels.map((m) => [m.id, m.key]))
   const latest = new Set<string>()
   const typeFields: ModelFieldWire[] = []
   const typeOptions: ModelOptionWire[] = []
+
   for (const version of versions) {
     const key = keyOf.get(version.model_id)
+
     if (!key || latest.has(key)) continue
     latest.add(key)
+
     for (const field of version.definition.fields ?? []) {
       if (field.lifecycle && field.lifecycle !== 'active') continue
       typeFields.push({ ...field, kind: key })
+
       for (const option of field.options ?? [])
         if (!option.lifecycle || option.lifecycle === 'active')
           typeOptions.push({
@@ -201,6 +220,7 @@ export async function fetchModelSearchFields(
           })
     }
   }
+
   return modelSearchFields(
     [...builtInFields, ...typeFields],
     [...options, ...typeOptions],

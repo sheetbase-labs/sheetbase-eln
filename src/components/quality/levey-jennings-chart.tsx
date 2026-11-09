@@ -33,14 +33,17 @@ export function LeveyJenningsChart({
   const range = chartRange(series, points)
   const limited = series.mean !== null && series.sd !== null && series.sd > 0
   const count = points.length
+
   const px = (index: number) =>
     count <= 1
       ? (PAD.left + W - PAD.right) / 2
       : PAD.left + (index / (count - 1)) * (W - PAD.left - PAD.right)
+
   const py = (value: number) =>
     H -
     PAD.bottom -
     ((value - range.lo) / (range.hi - range.lo)) * (H - PAD.top - PAD.bottom)
+
   const label = t('quality.runQc.chart.label', { name: series.name })
   const mean = series.mean
   const sd = series.sd
@@ -91,6 +94,7 @@ export function LeveyJenningsChart({
       {range.ticks.map((tick, i) => {
         const k = limited && sd ? Math.round((tick - mean!) / sd) : null
         const isMean = k === 0
+
         return (
           <g key={`${i}-${tick}`}>
             <line
@@ -151,6 +155,7 @@ export function LeveyJenningsChart({
       {points.map((p, i) => {
         const zone = zoneOf(p)
         const fill = ZONE_FILL[zone]
+
         const title = [
           t('quality.runQc.chart.pointTitle', {
             label: p.label ?? formatDate(p.at, { time: true }),
@@ -165,6 +170,7 @@ export function LeveyJenningsChart({
         ]
           .filter(Boolean)
           .join(' · ')
+
         return (
           <g key={p.id}>
             <title>{title}</title>

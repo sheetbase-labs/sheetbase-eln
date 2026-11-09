@@ -40,6 +40,7 @@ export function usePasskeysSupported(): boolean {
   useEffect(() => {
     setSupported('PublicKeyCredential' in window)
   }, [])
+
   return supported
 }
 
@@ -59,10 +60,13 @@ export function SettingsPasskeys() {
     queryKey: passkeysQueryKey,
     queryFn: async () => {
       const { data, error } = await authClient.passkey.listUserPasskeys()
+
       if (error) throw new Error(error.message ?? t('people.passkeys.failed'))
+
       return data
     },
   })
+
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: passkeysQueryKey })
 
@@ -71,6 +75,7 @@ export function SettingsPasskeys() {
       const { error } = await authClient.passkey.addPasskey({
         name: name.trim() || undefined,
       })
+
       if (error) throw new Error(error.message ?? t('people.passkeys.failed'))
     },
     onSuccess: async () => {
@@ -79,9 +84,11 @@ export function SettingsPasskeys() {
       await refresh()
     },
   })
+
   const remove = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await authClient.passkey.deletePasskey({ id })
+
       if (error) throw new Error(error.message ?? t('people.passkeys.failed'))
     },
     onSuccess: async () => {
@@ -93,13 +100,16 @@ export function SettingsPasskeys() {
         description: messageOf(failure),
       }),
   })
+
   const rename = useMutation({
     mutationFn: async () => {
       if (!renaming) return
+
       const { error } = await authClient.passkey.updatePasskey({
         id: renaming.id,
         name: newName.trim(),
       })
+
       if (error) throw new Error(error.message ?? t('people.passkeys.failed'))
     },
     onSuccess: async () => {
@@ -109,6 +119,7 @@ export function SettingsPasskeys() {
   })
 
   const rows = list.data ?? []
+
   const columns: RegistryColumn<PasskeyRow>[] = [
     {
       id: 'name',

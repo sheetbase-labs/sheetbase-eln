@@ -15,6 +15,7 @@ export const INFERRED_TYPES = [
   'date',
   'timestamp',
 ] as const
+
 export type InferredType = (typeof INFERRED_TYPES)[number]
 
 export interface InferredColumn {
@@ -45,17 +46,22 @@ export function inferColumnType(values: string[]): InferredType {
   if (values.length === 0) return 'text'
   // A number written with a leading zero ("0412") is an identifier, not a count.
   const leadingZero = (value: string) => /^-?0\d/.test(value)
+
   if (values.every((value) => INTEGER.test(value) && !leadingZero(value))) {
     return values.every((value) => Number.isSafeInteger(Number(value)))
       ? 'integer'
       : 'decimal'
   }
+
   if (values.every((value) => DECIMAL.test(value) && !leadingZero(value))) {
     return 'decimal'
   }
+
   if (values.every((value) => BOOLEAN.has(value.toLowerCase())))
     return 'boolean'
+
   if (values.every((value) => DATE.test(value))) return 'date'
+
   if (
     values.every(
       (value) => TIMESTAMP.test(value) && !Number.isNaN(Date.parse(value)),
@@ -63,6 +69,7 @@ export function inferColumnType(values: string[]): InferredType {
   ) {
     return 'timestamp'
   }
+
   return 'text'
 }
 
@@ -72,6 +79,7 @@ export function columnNameFromHeader(header: string, position: number): string {
     .replace(/\s*(?:\([^()]+\)|\[[^[\]]+\])\s*$/, '')
     .replace(/\s+/g, ' ')
     .trim()
+
   return bare || `Column ${position + 1}`
 }
 
@@ -83,10 +91,13 @@ export function columnKeyFromName(name: string, taken: ReadonlySet<string>) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
+
   if (!/^[a-z]/.test(base)) base = `c_${base}`.replace(/_$/, '')
   base = base.slice(0, 50) || 'column'
   let key = base
+
   for (let n = 2; taken.has(key); n += 1) key = `${base}_${n}`
+
   return key
 }
 
@@ -95,20 +106,26 @@ export function inferImportColumns(
   rows: ReadonlyArray<Record<string, string>>,
 ): InferredColumn[] {
   const taken = new Set<string>()
+
   return headers.map((source, position) => {
     const present: string[] = []
     let emptyCount = 0
+
     for (const row of rows) {
       const value = (row[source] ?? '').trim()
+
       if (value === '') emptyCount += 1
       else present.push(value)
     }
+
     const type = inferColumnType(present)
     const name = columnNameFromHeader(source, position)
     const key = columnKeyFromName(name, taken)
     taken.add(key)
+
     const unit =
       type === 'integer' || type === 'decimal' ? importHeaderUnit(source) : null
+
     return {
       source,
       name,

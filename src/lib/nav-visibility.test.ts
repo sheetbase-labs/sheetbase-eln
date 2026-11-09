@@ -10,6 +10,7 @@ import type { NavVisibility } from './nav-visibility'
 describe('canSeeNavItem', () => {
   it('shows an item with no restriction to every role, including none', () => {
     const item: NavVisibility = {}
+
     for (const role of [null, undefined, 'owner', 'member', 'viewer']) {
       expect(canSeeNavItem(item, { role })).toBe(true)
     }
@@ -41,6 +42,7 @@ describe('canSeeNavItem', () => {
       roles: WORKSPACE_ADMIN_ROLES,
       capability: 'integrations.manage',
     }
+
     expect(canSeeNavItem(item, { role: 'owner' })).toBe(true)
     // Steward has the capability but not the role.
     expect(canSeeNavItem(item, { role: 'steward' })).toBe(false)

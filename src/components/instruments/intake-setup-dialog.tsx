@@ -80,6 +80,7 @@ function SamplePreviewView({ preview }: { preview: SamplePreview }) {
       </Notice>
     )
   }
+
   if (preview.status === 'unreadable') {
     return (
       <Notice tone="warn">
@@ -91,7 +92,9 @@ function SamplePreviewView({ preview }: { preview: SamplePreview }) {
       </Notice>
     )
   }
+
   const headers = preview.headers.slice(0, 6)
+
   return (
     <div className="flex flex-col gap-1.5">
       <p className="m-0 text-label font-medium">
@@ -153,12 +156,15 @@ export function IntakeSetupDialog({
 }) {
   const queryClient = useQueryClient()
   const [step, setStep] = useState<StepNumber>(initialStep)
+
   const [values, setValues] = useState<IntakeSetupValues>(() =>
     intakeSetupValues(connector),
   )
+
   const [errors, setErrors] = useState<IntakeSetupErrors>({})
   const [saved, setSaved] = useState<ConnectorWire | null>(connector)
   const [sample, setSample] = useState<string | null>(null)
+
   const [mode, setMode] = useState<'each' | 'always'>(
     values.parserKey === '' ? 'each' : 'always',
   )
@@ -168,15 +174,19 @@ export function IntakeSetupDialog({
     queryFn: async () => {
       // A workspace starts without the built-in parsers until something asks.
       await ensureBuiltinParsers(dataClient, workspaceId).catch(() => {})
+
       return fetchParserSettings(dataClient, workspaceId)
     },
   })
+
   // Only projects this person can add to: the agent writes as them.
   const projects = useWritableProjects(true)
+
   const schemas = useQuery({
     queryKey: ['instrument-intake', 'schemas'],
     queryFn: () => listPublishedDatasetSchemas(dataClient),
   })
+
   const datasets = useQuery({
     queryKey: ['instrument-intake', 'datasets', values.schemaVersionId],
     queryFn: () =>
@@ -190,8 +200,10 @@ export function IntakeSetupDialog({
   const parserRows = (parsers.data ?? []).filter((parser) =>
     currentVersion(parser),
   )
+
   const chosenParser =
     parserRows.find((parser) => parser.key === values.parserKey) ?? null
+
   const preview =
     sample !== null && (mode === 'each' || chosenParser)
       ? previewSample(sample, mode === 'each' ? null : chosenParser)
@@ -210,17 +222,22 @@ export function IntakeSetupDialog({
         existing: saved,
         values,
       })
+
       if (!result.ok) return result
+
       if (intakeMethod === 'none' || intakeMethod === 'manual') {
         await setInstrumentIntakeMethod(instrument.id, 'filedrop')
       }
+
       return result
     },
     onSuccess: async (result) => {
       if (!result.ok) {
         setErrors(result.errors)
+
         return
       }
+
       setErrors({})
       setSaved(result.connector)
       await Promise.all([
@@ -267,6 +284,7 @@ export function IntakeSetupDialog({
                 value={mode}
                 onValueChange={(next) => {
                   setMode(next === 'always' ? 'always' : 'each')
+
                   if (next === 'each') set('parserKey', '')
                 }}
               >
@@ -307,6 +325,7 @@ export function IntakeSetupDialog({
                     {parserRows.map((parser) => {
                       const approved =
                         currentVersion(parser)?.status === 'approved'
+
                       return (
                         <option key={parser.id} value={parser.key}>
                           {parser.name}

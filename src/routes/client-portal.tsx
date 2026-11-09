@@ -49,6 +49,7 @@ import { authClient } from '#/lib/auth-client'
 import { t } from '#/copy'
 
 const tabs = ['projects', 'reports', 'messages'] as const
+
 type PortalTab = (typeof tabs)[number]
 
 /** UI port (roadmap-4/ui-app3): the client portal (ADR-0049). A client viewer
@@ -70,9 +71,11 @@ export const Route = createFileRoute('/client-portal')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: ClientPortal,
@@ -83,6 +86,7 @@ const tabLabel: Record<PortalTab, string> = {
   reports: t('projects.clientPortal.tabs.reports'),
   messages: t('projects.clientPortal.tabs.messages'),
 }
+
 const tabIcon: Record<PortalTab, 'folder' | 'protocol' | 'inbox'> = {
   projects: 'folder',
   reports: 'protocol',
@@ -135,12 +139,14 @@ function portalMilestoneState(
 ): { tone: Tone; label: string } {
   if (status !== 'completed' && status !== 'cancelled' && dueAt) {
     const days = daysUntilDate(dueAt, now())
+
     if (days !== null && days < 0)
       return {
         tone: 'bad',
         label: t('projects.clientPortal.milestoneStatus.overdue'),
       }
   }
+
   return MILESTONE_STATUS[status] ?? withFallback(status)
 }
 
@@ -163,6 +169,7 @@ const portalMilestoneColumns: RegistryColumn<ClientPortalMilestone>[] = [
         row.original.status,
         row.original.dueAt,
       )
+
       return (
         <span
           className={cn(
@@ -270,13 +277,16 @@ function PortalProjectPanel({ project }: { project: ClientPortalProject }) {
     queryKey: clientPortalQueryKeys.milestones(project.projectId),
     queryFn: () => fetchClientPortalMilestones(project.projectId),
   })
+
   const records = useQuery({
     queryKey: clientPortalQueryKeys.records,
     queryFn: () => fetchClientPortalRecords(),
   })
+
   const approved = (records.data ?? []).filter(
     (r) => r.projectId === project.projectId && r.kind !== 'report',
   )
+
   const projectStatus =
     PROJECT_STATUS[project.status] ?? withFallback(project.status)
 
@@ -358,6 +368,7 @@ function PortalReports() {
     queryKey: clientPortalQueryKeys.reports,
     queryFn: () => fetchClientPortalReports(),
   })
+
   return (
     <div className="flex flex-col gap-6 px-8 py-[22px]">
       <Section
@@ -394,8 +405,10 @@ function PortalMessages({ isClient }: { isClient: boolean }) {
     queryFn: () => fetchClientPortalMessages(),
     enabled: isClient,
   })
+
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState('')
+
   const send = useMutation({
     mutationFn: () => postClientPortalMessage(draft.trim()),
     onSuccess: () => {
@@ -405,6 +418,7 @@ function PortalMessages({ isClient }: { isClient: boolean }) {
       })
     },
   })
+
   return (
     <div className="flex flex-col gap-4 px-8 py-[22px]">
       <Section
@@ -473,6 +487,7 @@ function PortalMessages({ isClient }: { isClient: boolean }) {
 /** The lab's logo in the portal's top bar; the table icon when it has none. */
 function PortalMark() {
   const version = useLabLogoVersion()
+
   return version ? (
     <img
       src={labLogoUrl(version)}
@@ -492,11 +507,14 @@ function ClientPortal() {
   const router = useRouter()
   const [signingOut, setSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState<string | null>(null)
+
   async function signOut() {
     setSignOutError(null)
     setSigningOut(true)
+
     try {
       const result = await authClient.signOut()
+
       if (result.error || !result.data.success) throw new Error('sign out')
       await router.options.context.queryClient.cancelQueries()
       router.options.context.queryClient.clear()
@@ -508,20 +526,25 @@ function ClientPortal() {
       setSigningOut(false)
     }
   }
+
   const tab = search.tab ?? 'projects'
   const setTab = (next: PortalTab) => void navigate({ search: { tab: next } })
+
   const projects = useQuery({
     queryKey: clientPortalQueryKeys.projects,
     queryFn: () => fetchClientPortalProjects(),
   })
+
   const reports = useQuery({
     queryKey: clientPortalQueryKeys.reports,
     queryFn: () => fetchClientPortalReports(),
   })
+
   const identity = useQuery({
     queryKey: clientPortalQueryKeys.identity,
     queryFn: () => fetchClientPortalIdentity(),
   })
+
   const isClient = Boolean(identity.data)
   // The portal is reachable by any signed-in member, so the account's own role
   // comes from the session, not from the page: only a `client_viewer` is a
@@ -530,26 +553,32 @@ function ClientPortal() {
   // disagree with /settings/workspace/members about the same account.
   const workspaceRole = context.workspace?.role ?? null
   const isClientAccount = workspaceRole === 'client_viewer'
+
   const roleLabel = workspaceRole
     ? ((WORKSPACE_ROLE_LABELS as Record<string, string>)[workspaceRole] ??
       workspaceRole)
     : t('projects.clientPortal.noWorkspace')
+
   const messages = useQuery({
     queryKey: clientPortalQueryKeys.messages,
     queryFn: () => fetchClientPortalMessages(),
     enabled: isClient,
   })
+
   const project = projects.data?.[0]
+
   const latestTeamMessage = [...(messages.data ?? [])]
     .filter((m) => m.authorKind === 'team')
     .sort((a, b) => Date.parse(a.createdAt) - Date.parse(b.createdAt))
     .at(-1)
+
   const initials = context.user.name
     .split(/\s+/)
     .filter((word) => /^[A-Za-z]/.test(word))
     .slice(0, 2)
     .map((word) => word[0].toUpperCase())
     .join('')
+
   const counts: Record<PortalTab, number | null> = {
     projects: null,
     reports: reports.data?.length ?? null,

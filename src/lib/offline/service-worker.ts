@@ -20,8 +20,11 @@ function canUseServiceWorker(): boolean {
 export async function requestPersistentStorage(): Promise<boolean> {
   try {
     const storage = (navigator as { storage?: StorageManager }).storage
+
     if (!storage || typeof storage.persist !== 'function') return false
+
     if (await storage.persisted()) return true
+
     return await storage.persist()
   } catch {
     return false
@@ -32,10 +35,13 @@ export async function requestPersistentStorage(): Promise<boolean> {
 export async function requestBackgroundSync(): Promise<boolean> {
   try {
     if (!canUseServiceWorker()) return false
+
     const registration = (await navigator.serviceWorker
       .ready) as SyncRegistration
+
     if (!registration.sync) return false
     await registration.sync.register(SYNC_TAG)
+
     return true
   } catch {
     return false
@@ -72,12 +78,15 @@ function loadedAssetUrls(): string[] {
  */
 export async function startOfflineSupport(): Promise<() => void> {
   if (!canUseServiceWorker()) return () => undefined
+
   const onMessage = (event: MessageEvent) => {
     if ((event.data as { type?: string } | null)?.type === 'sheetbase:replay') {
       window.dispatchEvent(new Event(OFFLINE_SYNC_EVENT))
     }
   }
+
   navigator.serviceWorker.addEventListener('message', onMessage)
+
   try {
     await navigator.serviceWorker.register('/sw.js')
     const registration = await navigator.serviceWorker.ready
@@ -89,5 +98,6 @@ export async function startOfflineSupport(): Promise<() => void> {
   } catch {
     // The app still works online without it.
   }
+
   return () => navigator.serviceWorker.removeEventListener('message', onMessage)
 }

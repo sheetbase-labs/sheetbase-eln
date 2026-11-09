@@ -34,6 +34,7 @@ describe('toWorkItem', () => {
       wire({ due_at: '2026-09-20T09:40:00+01:00', state: 'needs_action' }),
       NOW,
     )
+
     expect(item.kind).toBe('review_requested')
     expect(item.state).toBe('overdue')
     expect(item.title).toBe('Depth filter screening')
@@ -60,6 +61,7 @@ describe('toWorkItem', () => {
       }),
       NOW,
     )
+
     expect(witnessWork).toMatchObject({
       kind: 'witness_requested',
       recordId: 'live-record',
@@ -104,6 +106,7 @@ describe('countByKind', () => {
       item({ kind: 'calibration_overdue' }),
       item({ kind: 'qualification_requested' }),
     ])
+
     expect(counts).toEqual({
       review_requested: 2,
       witness_requested: 1,
@@ -173,12 +176,15 @@ describe('toWorkItem for the waiting states', () => {
 describe('fetchWorkItems', () => {
   it('orders the inbox by due date, so the toolbar copy is true', async () => {
     let query = ''
+
     const client = {
       list: async (_resource: string, q = '') => {
         query = q
+
         return []
       },
     } as unknown as DataClient
+
     await fetchWorkItems(client)
     expect(query).toContain('order=due_at.asc')
   })
@@ -196,6 +202,7 @@ describe('groupWorkItems', () => {
       ],
       NOW,
     )
+
     expect(groups.today.map((i) => i.recordId)).toEqual(['today'])
     expect(groups.nextSevenDays.map((i) => i.recordId)).toEqual(['week'])
     expect(groups.later.map((i) => i.recordId).sort()).toEqual([
@@ -210,6 +217,7 @@ describe('groupWorkItems', () => {
       [item({ dueAt: '2026-09-01T09:40:00+01:00', state: 'overdue' })],
       NOW,
     )
+
     expect(groups.overdue).toHaveLength(1)
     expect(groups.today).toHaveLength(0)
   })

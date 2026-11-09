@@ -54,6 +54,7 @@ export const KIND_PREFIX: Record<ScientificRecordKind, string> = {
  */
 export function identifierPattern(kind: ScientificRecordKind): RegExp {
   const prefix = KIND_PREFIX[kind]
+
   return new RegExp(`^${prefix}-\\d{4}-\\d{4}$`)
 }
 
@@ -120,9 +121,11 @@ export function toFieldDefinition(
   if (!isScientificRecordKind(row.kind)) {
     throw new Error(`unexpected field-definition kind: ${row.kind}`)
   }
+
   if (!isPropertyLogicalType(row.logical_type)) {
     throw new Error(`unexpected logical_type: ${row.logical_type}`)
   }
+
   return {
     id: row.id,
     workspaceId: row.workspace_id,
@@ -163,6 +166,7 @@ export function validateProperties(
   definitions: RecordFieldDefinition[],
 ): PropertyValidationError[] {
   const errors: PropertyValidationError[] = []
+
   const active = definitions.filter(
     (d) => d.kind === kind && d.lifecycle === 'active',
   )
@@ -170,6 +174,7 @@ export function validateProperties(
   for (const def of active) {
     const present = Object.hasOwn(properties, def.fieldName)
     const value = present ? properties[def.fieldName] : undefined
+
     if (!present || value === null || value === undefined) {
       if (
         !def.nullable &&
@@ -180,9 +185,12 @@ export function validateProperties(
           message: `${def.label} is required.`,
         })
       }
+
       continue
     }
+
     const typeError = checkLogicalType(def, value)
+
     if (typeError) errors.push({ field: def.fieldName, message: typeError })
   }
 
@@ -213,14 +221,18 @@ function checkLogicalType(
         : `${def.label} must be true or false.`
     case 'category': {
       if (typeof value !== 'string') return `${def.label} must be text.`
+
       const enumValues = Array.isArray(def.validation.enum)
         ? (def.validation.enum as unknown[])
         : null
+
       if (enumValues && enumValues.length > 0 && !enumValues.includes(value)) {
         return `${def.label} must be one of: ${enumValues.join(', ')}.`
       }
+
       return null
     }
+
     case 'date':
       return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
         ? null
@@ -240,6 +252,7 @@ function checkLogicalType(
 
 export type SampleStatus =
   'available' | 'reserved' | 'consumed' | 'expired' | 'quarantined' | 'frozen'
+
 export type MaterialStatus =
   | 'available'
   | 'reserved'
@@ -247,6 +260,7 @@ export type MaterialStatus =
   | 'expired'
   | 'quarantined'
   | 'low_stock'
+
 export type ProtocolStatus = 'draft' | 'active' | 'under_review'
 
 /**
@@ -343,18 +357,24 @@ export const DUPLICATE_SCIENTIFIC_LINK_MESSAGE =
  */
 export function isDuplicateLinkError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false
+
   const code =
     'code' in error && typeof error.code === 'string' ? error.code : null
+
   const message =
     'message' in error && typeof error.message === 'string' ? error.message : ''
+
   const status =
     'status' in error && typeof error.status === 'number' ? error.status : null
+
   if (code === '23505' || code === 'conflict') return true
+
   if (
     status === 409 &&
     /duplicate|already exists|already linked/i.test(message)
   )
     return true
+
   return /duplicate key|already linked|already exists/i.test(message)
 }
 
@@ -414,16 +434,20 @@ export function searchRecords(
 ): Promise<NotebookRecord[]> {
   const trimmed = query.trim()
   const filters: string[] = [`kind=eq.${kind}`, 'deleted_at=is.null']
+
   if (trimmed) {
     const enc = encodeURIComponent(`${trimmed}*`)
     filters.push(`(identifier=ilike.${enc},title=ilike.${enc})`)
   }
+
   filters.push('order=archived_at.asc,identifier.asc')
+
   if (!opts.includeArchived) {
     // Default: exclude archived from active pickers. Existing links to
     // archived targets are resolved separately via fetchRecordById.
     filters.splice(filters.length - 1, 0, 'archived_at=is.null')
   }
+
   return client
     .list<RecordWire>('records', `?${filters.join('&')}`)
     .then((rows) => rows.map(toRecord))
@@ -467,6 +491,7 @@ export function summariseProperties(
   const defs = definitions
     .filter((d) => d.kind === kind)
     .sort((a, b) => a.displayOrder - b.displayOrder)
+
   const entries: PropertySummaryEntry[] = []
   const seen = new Set<string>()
 
@@ -494,6 +519,7 @@ export function summariseProperties(
       orphaned: true,
     })
   }
+
   return entries
 }
 
@@ -504,7 +530,9 @@ export function summariseProperties(
  */
 export function formatPropertyValue(entry: PropertySummaryEntry): string {
   const { value, unit } = entry
+
   if (value === null || value === undefined || value === '') return '—'
+
   const unitSymbol =
     unit &&
     typeof unit === 'object' &&
@@ -512,12 +540,14 @@ export function formatPropertyValue(entry: PropertySummaryEntry): string {
     typeof unit.symbol === 'string'
       ? unit.symbol
       : null
+
   const valueStr =
     typeof value === 'number'
       ? Number.isInteger(value)
         ? String(value)
         : String(value)
       : String(value)
+
   return unitSymbol ? `${valueStr} ${unitSymbol}` : valueStr
 }
 

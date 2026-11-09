@@ -10,8 +10,11 @@ import type { PipelineScheduleKind } from '../pipeline-schedule'
 export type { PipelineScheduleKind }
 
 export type PipelineLifecycle = 'active' | 'retired'
+
 export type PipelineVersionLifecycle = 'draft' | 'published' | 'retired'
+
 export type PipelineRunTrigger = 'manual' | 'scheduled' | 'event'
+
 export type PipelineRunStatus =
   'running' | 'waiting' | 'succeeded' | 'failed' | 'cancelled'
 

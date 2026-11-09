@@ -28,6 +28,7 @@ export function useModelTypes(client: DataClient = notebookDataClient) {
 /** The published subtypes an object of `rootKey` can be given. */
 export function usePickableTypes(rootKey: string) {
   const types = useModelTypes()
+
   return {
     types: types.data ?? [],
     options: types.data ? pickableTypes(types.data, rootKey) : [],
@@ -92,27 +93,36 @@ export function reparentRecordModel(
 export function describeTypeError(error: unknown): string {
   const code = error instanceof DataClientError ? error.code : undefined
   const message = error instanceof Error ? error.message : ''
+
   if (code === '42501' || /capability|permission/i.test(message))
     return 'Your workspace role can’t do this. Ask a workspace owner, admin or steward.'
+
   if (code === 'SB011')
     return /signed records would/.test(message)
       ? `${message.replace(/ would change type.*/, '')} would change type. Signed records keep their type, so this type can’t move.`
       : 'This is signed, so its type can’t change.'
+
   if (code === 'SB082')
     return /prefix/i.test(message)
       ? 'That ID prefix is already used. Pick another.'
       : /field/i.test(message)
         ? 'A field name clashes with one the new parent already has.'
         : 'That name or ID prefix is already used in this workspace.'
+
   if (code === 'SB108')
     return 'That type has no published version yet. Publish it first.'
+
   if (code === 'SB071' && /can't move|can’t move/.test(message))
     return message.replace(/can't move/, 'can’t move')
+
   if (code === 'SB071' && /own subtype/.test(message))
     return 'A type can’t sit under one of its own subtypes.'
+
   if (code === 'SB070' && /only move within records/.test(message))
     return 'Types that already have records can only move under another record type.'
+
   if (code === 'SB071' || code === 'SB070')
     return 'Some of the values don’t fit the new type. Check the required fields.'
+
   return message || 'Could not change the type.'
 }

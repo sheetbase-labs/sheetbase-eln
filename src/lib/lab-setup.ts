@@ -14,6 +14,7 @@ export const STARTER_TABLE_KEYS = [
   'cell_counts',
   'general',
 ] as const
+
 export type StarterTableKey = (typeof STARTER_TABLE_KEYS)[number]
 
 export function starterTableLabel(key: StarterTableKey): string {
@@ -61,11 +62,13 @@ export function browserTimeZone(): string {
 /** Every zone to offer, with the person's own and the workspace's first. */
 export function timeZoneChoices(first: readonly string[]): string[] {
   let all: string[] = []
+
   try {
     all = Intl.supportedValuesOf('timeZone')
   } catch {
     all = ['Europe/London', 'UTC']
   }
+
   return [...new Set([...first, ...all])]
 }
 
@@ -101,9 +104,12 @@ export async function fetchLabSetupSkipped(
     'user_preferences',
     '?select=preferences&limit=1',
   )
+
   const preferences = rows[0]?.preferences
+
   if (!preferences || typeof preferences !== 'object') return false
   const skipped = (preferences as Record<string, unknown>).labSetupSkipped
+
   return Boolean(
     skipped &&
     typeof skipped === 'object' &&

@@ -18,6 +18,7 @@ const deps: LakeFileDeps = {
     getStream: async (key: string) => {
       if (key !== `lake/${WS}/main/samples/a.parquet`)
         throw new MissingStorageObjectError('absent')
+
       return {
         byteSize: DATA.length,
         stream: new ReadableStream<Uint8Array>({
@@ -42,6 +43,7 @@ const get = (
     path,
     deps,
   )
+
 const auth = { authorization: `Bearer ${SECRET}` }
 
 describe('lake file endpoint', () => {
@@ -68,19 +70,23 @@ describe('lake file endpoint', () => {
     const whole = await get('main/samples/a.parquet', auth)
     expect(whole.status).toBe(200)
     expect(new Uint8Array(await whole.arrayBuffer())).toEqual(DATA)
+
     const part = await get('main/samples/a.parquet', {
       ...auth,
       range: 'bytes=10-19',
     })
+
     expect(part.status).toBe(206)
     expect(part.headers.get('content-range')).toBe('bytes 10-19/100')
     expect(new Uint8Array(await part.arrayBuffer())).toEqual(
       DATA.subarray(10, 20),
     )
+
     const tail = await get('main/samples/a.parquet', {
       ...auth,
       range: 'bytes=-5',
     })
+
     expect(new Uint8Array(await tail.arrayBuffer())).toEqual(DATA.subarray(95))
     expect(
       (await get('main/samples/a.parquet', { ...auth, range: 'bytes=500-' }))

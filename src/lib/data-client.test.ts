@@ -10,6 +10,7 @@ import { forgetChangeReason, registerChangeReasonAsker } from './change-reason'
 
 function mockFetch(response: Response | (() => Response)): typeof fetch {
   const impl = response instanceof Response ? () => response : response
+
   return vi.fn(impl) as unknown as typeof fetch
 }
 
@@ -44,6 +45,7 @@ describe('createDataClient.list', () => {
         401,
       ),
     )
+
     const client = createDataClient(fetchImpl)
 
     await expect(client.list('projects')).rejects.toMatchObject({
@@ -66,6 +68,7 @@ describe('createDataClient.list', () => {
         403,
       ),
     )
+
     const client = createDataClient(fetchImpl)
 
     await expect(client.list('projects')).rejects.toMatchObject({
@@ -82,6 +85,7 @@ describe('createDataClient.list', () => {
         statusText: 'Bad Gateway',
       }),
     )
+
     const client = createDataClient(fetchImpl)
 
     await expect(client.list('projects')).rejects.toMatchObject({
@@ -105,6 +109,7 @@ describe('createDataClient.count', () => {
           headers: { 'content-range': header },
         },
       )
+
       const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(response)
       expect(
         await createDataClient(fetchImpl).count('records', '?kind=eq.sample'),
@@ -137,6 +142,7 @@ describe('createDataClient.count', () => {
       const response = new Response('[{"id":"one-row-is-not-the-total"}]', {
         headers: header === null ? {} : { 'content-range': header },
       })
+
       await expect(
         createDataClient(mockFetch(response)).count('records'),
       ).rejects.toMatchObject({
@@ -163,6 +169,7 @@ describe('createDataClient.rpc', () => {
     const fetchImpl = mockFetch(
       jsonResponse({ id: 'p1', key: 'virus-stability', title: 'Virus' }, 201),
     )
+
     const client = createDataClient(fetchImpl)
 
     const row = await client.rpc<{ id: string; key: string }>(
@@ -175,8 +182,10 @@ describe('createDataClient.rpc', () => {
     // (so x-sheetbase-client-id is added); assert against the call args
     // directly rather than objectContaining, which can't see Headers entries.
     expect(fetchImpl).toHaveBeenCalledTimes(1)
+
     const [path, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock
       .calls[0] as [string, RequestInit]
+
     expect(path).toBe('/api/db/rpc/create_project')
     expect(init.method).toBe('POST')
     expect(init.body).toBe(JSON.stringify({ p_title: 'Virus' }))
@@ -227,8 +236,10 @@ describe('createDataClient.rpc', () => {
       { p_block_id: 'b1' },
       { changeReason: 'Corrected against the bench sheet' },
     )
+
     const [, init] = (withReason as unknown as ReturnType<typeof vi.fn>).mock
       .calls[0] as [string, RequestInit]
+
     const headers = new Headers(init.headers)
     expect(headers.get('x-sheetbase-change-reason')).toBe(
       'Corrected against the bench sheet',
@@ -238,8 +249,10 @@ describe('createDataClient.rpc', () => {
     await createDataClient(without).rpc('update_block_payload', {
       p_block_id: 'b1',
     })
+
     const [, plain] = (without as unknown as ReturnType<typeof vi.fn>).mock
       .calls[0] as [string, RequestInit]
+
     expect(
       new Headers(plain.headers).get('x-sheetbase-change-reason'),
     ).toBeNull()
@@ -259,10 +272,12 @@ describe('createDataClient change reasons', () => {
   it('asks for a reason when the database wants one, then sends the write again with it', async () => {
     forgetChangeReason()
     registerChangeReasonAsker(async () => 'Corrected against the bench sheet')
+
     const fetchImpl = vi
       .fn()
       .mockImplementationOnce(async () => refusal())
       .mockImplementationOnce(async () => jsonResponse([{ id: 'b1' }]))
+
     const client = createDataClient(fetchImpl)
 
     const rows = await client.patch('blocks', '?id=eq.b1', { payload: {} })
@@ -381,6 +396,7 @@ describe('createDataClient shared reads', () => {
     const fetchImpl = mockFetch(() =>
       jsonResponse({ error: { code: 'boom', message: 'No.' } }, 500),
     )
+
     const client = createDataClient(fetchImpl)
 
     await expect(client.list('records', '?id=eq.1')).rejects.toBeDefined()

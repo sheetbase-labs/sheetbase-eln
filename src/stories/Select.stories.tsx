@@ -13,7 +13,9 @@ const meta = {
   tags: ['autodocs'],
   args: { className: 'w-[260px]' },
 } satisfies Meta<typeof Select>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {

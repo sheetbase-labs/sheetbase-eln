@@ -38,6 +38,7 @@ export function ExtensionObjectActions({
   onSelect: (action: ResolvedExtensionContribution) => void
 }) {
   if (actions.length === 0) return null
+
   return (
     <>
       {actions.map((action) => (
@@ -68,6 +69,7 @@ export function ExtensionCommandGroup({
   onSelect: (command: ResolvedExtensionContribution) => void
 }) {
   if (commands.length === 0) return null
+
   return (
     <CommandGroup
       heading={t('settings.extensionsExtensionSlots.extensionsHeading')}
@@ -100,8 +102,10 @@ export function toExtensionPanelTabs(
   renderContent: (panel: ResolvedExtensionContribution) => React.ReactNode,
 ): InspectorTab[] {
   const tabs: InspectorTab[] = []
+
   for (const panel of panels) {
     const content = renderContent(panel)
+
     if (!content) continue
     tabs.push({
       id: `extension-${panel.extensionKey}-${panel.id}`,
@@ -109,5 +113,6 @@ export function toExtensionPanelTabs(
       content,
     })
   }
+
   return tabs
 }

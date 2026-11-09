@@ -62,10 +62,12 @@ describe('createGlobalShortcuts', () => {
     ).toBe(false)
 
     const openCreate = vi.fn()
+
     const definitions = createGlobalShortcuts({
       ...makeHandlers(),
       openCreate,
     })
+
     const create = definitions.find((d) => d.id === 'create')
     expect(create?.keys).toEqual(['c'])
     create?.handler?.(event())

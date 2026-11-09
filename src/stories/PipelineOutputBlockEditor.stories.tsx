@@ -59,8 +59,10 @@ function client() {
   const instance = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+
   instance.setQueryData(['pipelines', 'recent-runs'], [run])
   instance.setQueryData(pipelineQueryKeys.runOutputs(RUN_ID), outputs)
+
   return instance
 }
 
@@ -94,7 +96,9 @@ const meta = {
     onStatusChange: () => {},
   },
 } satisfies Meta<typeof PipelineOutputBlockEditor>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** An attached run: the editor states it and offers to change it. */

@@ -52,6 +52,7 @@ export function ObjectHistoryDialog({
   })
 
   const events = historyQuery.data?.pages.flatMap((page) => page.events) ?? []
+
   const denied =
     historyQuery.error instanceof DataClientError &&
     (historyQuery.error.code === 'permission_denied' ||

@@ -72,6 +72,7 @@ describe('shared Parameter contract', () => {
       { ...scalar(), constraints: { pattern: '[' } },
       { ...scalar(), constraints: { min: Number.POSITIVE_INFINITY } },
     ]
+
     expect(invalid.every((value) => !safeParseParameter(value).success)).toBe(
       true,
     )

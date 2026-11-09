@@ -35,7 +35,9 @@ const meta = {
   ],
   args: { change: change(), active: false },
 } satisfies Meta<typeof ChangeCard>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Modified: Story = {}

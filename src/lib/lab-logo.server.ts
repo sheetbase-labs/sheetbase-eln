@@ -21,6 +21,7 @@ export async function labLogoVersion(
             ORDER BY created_at LIMIT 1`,
       workspaceId ? [workspaceId] : [],
     )
+
     return rows.at(0)?.v ?? null
   } catch {
     // The logo is decoration; a failed read must never stop a page loading.

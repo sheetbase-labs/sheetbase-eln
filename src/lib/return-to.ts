@@ -18,6 +18,7 @@ const TASKS: readonly ReopenTask[] = ['submit', 'sign']
 export function withReopen(path: string, task: ReopenTask): string {
   const url = new URL(path, 'https://return.invalid')
   url.searchParams.set('reopen', task)
+
   return `${url.pathname}${url.search}${url.hash}`
 }
 
@@ -25,24 +26,31 @@ export function withReopen(path: string, task: ReopenTask): string {
 export function reopenTaskFromSearch(search: unknown): ReopenTask | undefined {
   if (!search || typeof search !== 'object') return undefined
   const value = (search as Record<string, unknown>).reopen
+
   return TASKS.find((task) => task === value)
 }
 
 /** The task a return path reopens, for naming the way back. */
 export function reopenTaskOf(returnTo: string | undefined): ReopenTask | null {
   const safe = safeReturnTo(returnTo)
+
   if (!safe) return null
+
   const value = new URL(safe, 'https://return.invalid').searchParams.get(
     'reopen',
   )
+
   return TASKS.find((task) => task === value) ?? null
 }
 
 /** The label for the control that goes back. */
 export function returnLabel(returnTo: string | undefined): string {
   const task = reopenTaskOf(returnTo)
+
   if (task === 'submit') return 'Back to Submit'
+
   if (task === 'sign') return 'Back to Sign'
+
   return 'Back to what you were doing'
 }
 
@@ -54,5 +62,6 @@ export function returnLabel(returnTo: string | undefined): string {
 export function returnToHere(task?: ReopenTask): string | undefined {
   if (typeof window === 'undefined') return undefined
   const path = `${window.location.pathname}${window.location.search}`
+
   return safeReturnTo(task ? withReopen(path, task) : path)
 }

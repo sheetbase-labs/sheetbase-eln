@@ -1,6 +1,7 @@
 import type { DataClient } from './data-client'
 
 export type DependencyLiveness = 'active' | 'historical' | 'informational'
+
 export type DependencyEffect =
   'blocks_deletion' | 'requires_migration' | 'informational'
 

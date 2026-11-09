@@ -15,6 +15,7 @@ import type { SeedStep } from './run'
 type Db = Parameters<SeedStep['run']>[0]
 
 const PROCESS = '00000000-0000-4000-8000-000000000300'
+
 const RUN = (n: number) =>
   `00000000-0000-4000-8000-0000000${(5000 + n).toString(16).padStart(5, '0')}`
 
@@ -25,6 +26,7 @@ async function versionOf(db: Db, displayId: string) {
          where d.workspace_id = ${PROCESS} and d.display_id = ${displayId}
          order by v.version desc limit 1`,
   )
+
   return rows.rows.at(0)?.id
 }
 
@@ -40,6 +42,7 @@ async function history(
     const started = new Date(
       endsAt.getTime() - (count - i) * spacingMinutes * 60_000,
     )
+
     await db
       .insert(schema.pipelineRuns)
       .values({
@@ -60,6 +63,7 @@ export async function seedDesignPipelineRuns(db: Db) {
   await db.execute(
     sql`alter table api.pipeline_runs disable trigger prevent_pipeline_run_evidence_mutation`,
   )
+
   try {
     await writeRuns(db)
   } finally {
@@ -87,6 +91,7 @@ async function writeRuns(db: Db) {
 
   // PL-0014: 21 earlier runs, then the failed one (#22) with its steps.
   const full = await versionOf(db, 'PL-0014')
+
   if (full) {
     await db.execute(
       sql`update api.pipeline_definition_versions
@@ -146,6 +151,7 @@ async function writeRuns(db: Db) {
           '00000000-0000-4000-8000-000000000404',
         ),
       )
+
     const lines: Array<[string, string, Record<string, unknown>?]> = [
       ['info', 'step 3 python: resampling 2,416 traces at 0.1 s'],
       ['info', 'temporary storage 1.6 GB'],
@@ -160,6 +166,7 @@ async function writeRuns(db: Db) {
         'run stopped · steps 4 and 5 not started · temporary data deleted',
       ],
     ]
+
     for (const [i, [level, message, detail]] of lines.entries()) {
       await db.insert(schema.pipelineRunLogs).values({
         workspaceId: PROCESS,
@@ -176,6 +183,7 @@ async function writeRuns(db: Db) {
 
   // PL-0007: 147 earlier runs, so the seeded run is #148.
   const yieldVersion = await versionOf(db, 'PL-0007')
+
   if (yieldVersion)
     await history(
       db,
@@ -188,6 +196,7 @@ async function writeRuns(db: Db) {
 
   // PL-0003: 57 earlier runs plus the 3 seeded ones, then #61 waiting on Gareth.
   const ambr = await versionOf(db, 'PL-0003')
+
   if (ambr) {
     await history(
       db,
@@ -199,6 +208,7 @@ async function writeRuns(db: Db) {
     )
     const waitingId = RUN(900)
     const started = new Date(DESIGN_CLOCK.getTime() - 30 * 60_000)
+
     const existing = await db
       .select({ id: schema.pipelineRuns.id })
       .from(schema.pipelineRuns)
@@ -208,6 +218,7 @@ async function writeRuns(db: Db) {
           eq(schema.pipelineRuns.workspaceId, PROCESS),
         ),
       )
+
     if (!existing.length) {
       await db.insert(schema.pipelineRuns).values({
         id: waitingId,

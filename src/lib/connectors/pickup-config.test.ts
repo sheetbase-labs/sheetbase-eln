@@ -21,6 +21,7 @@ describe('pickup config form', () => {
   it('requires a project and a schema', () => {
     const result = buildPickupConfig({}, pickupFormValues({}))
     expect(result.ok).toBe(false)
+
     if (!result.ok) {
       expect(Object.keys(result.errors).sort()).toEqual([
         'projectId',
@@ -37,6 +38,7 @@ describe('pickup config form', () => {
       instrumentId: 'i',
       autoDetect: true,
     }
+
     const result = buildPickupConfig({ bucket: 'b' }, values)
     expect(result).toEqual({
       ok: true,

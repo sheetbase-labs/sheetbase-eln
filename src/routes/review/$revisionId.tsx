@@ -17,14 +17,17 @@ export const Route = createFileRoute('/review/$revisionId')({
   validateSearch: workspaceSearchSchema,
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     await resolveIdentifierParam({
       entity: 'review',
       ref: params.revisionId,
       href: location.href,
     })
+
     return { context }
   },
   component: lazyRouteComponent(

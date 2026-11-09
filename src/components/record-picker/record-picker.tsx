@@ -34,6 +34,7 @@ export const kindIcon: Record<PickerKind, IconName> = {
   Dataset: 'database',
   Experiment: 'flask',
 }
+
 const plural: Record<PickerKind, string> = {
   Sample: t('projects.recordPicker.kinds.Sample'),
   Material: t('projects.recordPicker.kinds.Material'),
@@ -78,6 +79,7 @@ export function RecordPicker({
   useEffect(() => {
     let live = true
     setLoading(true)
+
     const timer = setTimeout(
       () => {
         void searchPickerRecords({ q, kinds: filter }).then(
@@ -100,6 +102,7 @@ export function RecordPicker({
       },
       q ? 150 : 0,
     )
+
     return () => {
       live = false
       clearTimeout(timer)
@@ -108,18 +111,23 @@ export function RecordPicker({
 
   const toggleKind = (k: PickerKind | null) =>
     setKinds(k === null ? [] : kinds.length === 1 && kinds[0] === k ? [] : [k])
+
   const choose = (item: PickerItem) => {
     if (!multiple) {
       onPick([item])
+
       return
     }
+
     setPicked((p) =>
       p.some((x) => x.id === item.id)
         ? p.filter((x) => x.id !== item.id)
         : [...p, item],
     )
   }
+
   const items = res?.items ?? []
+
   const groups = res?.recent
     ? [{ key: t('projects.recordPicker.recent'), items }]
     : allowed
@@ -128,6 +136,7 @@ export function RecordPicker({
           items: items.filter((i) => i.kind === k),
         }))
         .filter((g) => g.items.length)
+
   const scope =
     kinds.length === 1
       ? plural[kinds[0]].toLowerCase()
@@ -185,6 +194,7 @@ export function RecordPicker({
                 {g.items.map((i) => {
                   const linked = exclude.includes(i.id)
                   const on = picked.some((p) => p.id === i.id)
+
                   return (
                     <CommandItem
                       key={i.id}

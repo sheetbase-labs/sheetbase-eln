@@ -16,11 +16,13 @@ type PluginParser = RunnerItem<ExtensionInstrumentParserDeclaration>
  */
 export function PluginParserTable() {
   const parsers = useExtensionPoints().data['instrument-parsers']
+
   return <PluginParserList parsers={parsers} />
 }
 
 export function PluginParserList({ parsers }: { parsers: PluginParser[] }) {
   if (parsers.length === 0) return null
+
   const columns: RegistryColumn<PluginParser>[] = [
     {
       id: 'parser',
@@ -49,6 +51,7 @@ export function PluginParserList({ parsers }: { parsers: PluginParser[] }) {
       header: t('plugins.parsers.recognisedBy'),
       cell: ({ row }) => {
         const contains = row.original.declaration.contains
+
         return contains ? (
           <span className="block max-w-56 truncate" title={contains.join(', ')}>
             {t('plugins.parsers.carries', { text: contains.join(', ') })}
@@ -66,6 +69,7 @@ export function PluginParserList({ parsers }: { parsers: PluginParser[] }) {
       cell: ({ row }) => row.original.extensionName,
     },
   ]
+
   return (
     <Section title={t('plugins.parsers.title')}>
       <Muted>{t('plugins.parsers.hint')}</Muted>

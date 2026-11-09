@@ -30,8 +30,10 @@ export function extractMentions(
   const ordered = candidates
     .filter((candidate) => normalise(candidate.name) !== '')
     .sort((a, b) => b.name.length - a.name.length)
+
   const found: string[] = []
   const lower = body.toLowerCase()
+
   for (
     let at = lower.indexOf('@');
     at !== -1;
@@ -40,15 +42,20 @@ export function extractMentions(
     // A mention starts a word: "a@b.com" is an address, not a mention.
     if (at > 0 && !/[\s([{'"]/.test(lower.charAt(at - 1))) continue
     const rest = lower.slice(at + 1)
+
     for (const candidate of ordered) {
       const name = normalise(candidate.name)
+
       if (!rest.startsWith(name)) continue
       const next = rest.charAt(name.length)
+
       if (next !== '' && !BOUNDARY.test(next)) continue
+
       if (!found.includes(candidate.userId)) found.push(candidate.userId)
       break
     }
   }
+
   return found
 }
 
@@ -63,12 +70,16 @@ export function activeMention(
 ): { query: string; start: number } | null {
   const before = text.slice(0, caret)
   const at = before.lastIndexOf('@')
+
   if (at === -1) return null
+
   if (at > 0 && !/[\s([{'"]/.test(before.charAt(at - 1))) return null
   const query = before.slice(at + 1)
+
   // Two words are allowed ("Ada Love") so a full name can be typed out; a
   // newline or a third word ends the mention.
   if (/\n/.test(query) || query.split(' ').length > 2) return null
+
   return { query, start: at }
 }
 
@@ -79,10 +90,13 @@ export function matchMentions(
   limit = 6,
 ): MentionCandidate[] {
   const needle = normalise(query)
+
   return candidates
     .filter((candidate) => {
       const name = normalise(candidate.name)
+
       if (name === '') return false
+
       return (
         needle === '' ||
         name.startsWith(needle) ||
@@ -99,8 +113,10 @@ export function insertMention(
   name: string,
 ): { text: string; caret: number } | null {
   const active = activeMention(text, caret)
+
   if (!active) return null
   const inserted = `@${name} `
+
   return {
     text: text.slice(0, active.start) + inserted + text.slice(caret),
     caret: active.start + inserted.length,

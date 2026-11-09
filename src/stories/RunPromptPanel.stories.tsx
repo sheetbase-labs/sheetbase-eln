@@ -25,10 +25,13 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof RunPromptPanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const asked = ['user-1', 'user-2']
+
 const nameOf = (id: string) =>
   id === 'user-1' ? 'Ada Scientist' : id === 'user-2' ? 'Marco Silva' : id
 

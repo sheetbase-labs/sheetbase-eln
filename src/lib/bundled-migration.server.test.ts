@@ -7,10 +7,12 @@ import { bundledMigrationVersion } from './bundled-migration.server'
 
 function build(journal: string | null): string {
   const root = mkdtempSync(join(tmpdir(), 'bundled-migration-'))
+
   if (journal !== null) {
     mkdirSync(join(root, 'drizzle/meta'), { recursive: true })
     writeFileSync(join(root, 'drizzle/meta/_journal.json'), journal)
   }
+
   return root
 }
 
@@ -24,6 +26,7 @@ describe('bundledMigrationVersion', () => {
         ],
       }),
     )
+
     expect(bundledMigrationVersion(root)).toBe('1800000000002')
   })
 

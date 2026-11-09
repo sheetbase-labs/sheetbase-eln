@@ -31,16 +31,20 @@ export function SheetGrid<TRow>({
 }) {
   const [active, setActive] = useState({ row: 0, col: 0 })
   const ref = useRef<HTMLTableElement>(null)
+
   const move = (row: number, col: number) => {
     const r = Math.max(0, Math.min(rows.length - 1, row)),
       c = Math.max(0, Math.min(columns.length - 1, col))
+
     setActive({ row: r, col: c })
     onActiveChange?.({ row: r, col: c })
     ref.current?.querySelector<HTMLElement>(`[data-cell="${r}-${c}"]`)?.focus()
   }
+
   const onKey = (e: React.KeyboardEvent) => {
     const k = e.key,
       { row, col } = active
+
     const next =
       k === 'ArrowDown'
         ? [row + 1, col]
@@ -55,11 +59,13 @@ export function SheetGrid<TRow>({
                 : k === 'End'
                   ? [row, columns.length - 1]
                   : null
+
     if (next) {
       e.preventDefault()
       move(next[0], next[1])
     }
   }
+
   return (
     <div className="overflow-x-auto rounded-md border border-border">
       <table
@@ -116,6 +122,7 @@ export function SheetGrid<TRow>({
               {columns.map((c, j) => {
                 const bad = invalid?.(r, c.key)
                 const on = active.row === i && active.col === j
+
                 return (
                   <td
                     key={c.key}

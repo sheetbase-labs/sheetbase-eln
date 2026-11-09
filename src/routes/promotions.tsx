@@ -10,7 +10,9 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 export const Route = createFileRoute('/promotions')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) throw redirect(signInRedirect(location))
+
     return { context }
   },
   component: PromotionsPage,
@@ -18,6 +20,7 @@ export const Route = createFileRoute('/promotions')({
 
 function PromotionsPage() {
   const { context } = Route.useRouteContext()
+
   return (
     <div className="px-4 py-4 md:px-6">
       <PageHeader

@@ -103,7 +103,9 @@ const meta = {
     onRefresh: () => {},
   },
 } satisfies Meta<typeof RecordHistoryTimeline>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The viewer's own events are attributed to their name; collaborators fall

@@ -52,10 +52,12 @@ export function protocolStepProgress(
   blocks: readonly ReadinessBlock[],
 ): ProtocolStepProgress[] {
   const steps: ProtocolStepProgress[] = []
+
   for (const block of blocks) {
     if (block.type !== 'procedure_step') continue
     const payload = block.payload
     const text = typeof payload.text === 'string' ? payload.text.trim() : ''
+
     if (!text) continue
     steps.push({
       blockId: block.id,
@@ -82,16 +84,21 @@ export function protocolStepProgress(
           : null,
     })
   }
+
   return steps.sort((a, b) => {
     if (a.stepNumber !== null && b.stepNumber !== null)
       return a.stepNumber - b.stepNumber
+
     if (a.stepNumber !== null) return -1
+
     if (b.stepNumber !== null) return 1
+
     return 0
   })
 }
 
 export type ReadinessCheckStatus = 'pass' | 'fail'
+
 export type ReadinessSeverity = 'blocking' | 'warning' | 'informational'
 
 /** One item inside a revision check result (mirrors `CheckItemResult`). */
@@ -186,10 +193,13 @@ export function blockIdByInstanceId(
   blocks: readonly ReadinessBlock[],
 ): Map<string, string> {
   const map = new Map<string, string>()
+
   for (const block of blocks) {
     const instanceId = block.payload.instanceId
+
     if (typeof instanceId === 'string') map.set(instanceId, block.id)
   }
+
   return map
 }
 
@@ -204,10 +214,12 @@ function locationForCheck(result: ReadinessCheckResult): DerivedLocation {
   const evidence = asRecord(result.evidence)
 
   const invalidColumns = asArray(evidence.invalidColumns)
+
   if (invalidColumns.length > 0) {
     const first = asRecord(invalidColumns[0])
     const fieldName = asString(first.fieldName) ?? asString(first.columnId)
     const logicalType = asString(first.logicalType)
+
     return {
       blockId: asString(first.tableId),
       detail:
@@ -226,11 +238,13 @@ function locationForCheck(result: ReadinessCheckResult): DerivedLocation {
     'missingResults',
   ]) {
     const formulas = asArray(evidence[key])
+
     if (formulas.length > 0) {
       const first = asRecord(formulas[0])
       const formulaId = asString(first.id)
       const separator = formulaId?.indexOf(':') ?? -1
       const reason = asString(first.reason) ?? asString(first.status)
+
       return {
         blockId:
           formulaId && separator > 0 ? formulaId.slice(0, separator) : null,
@@ -243,6 +257,7 @@ function locationForCheck(result: ReadinessCheckResult): DerivedLocation {
   }
 
   const missingLinkTypes = asArray(evidence.missingLinkTypes)
+
   if (missingLinkTypes.length > 0) {
     return {
       blockId: null,
@@ -255,9 +270,11 @@ function locationForCheck(result: ReadinessCheckResult): DerivedLocation {
   }
 
   const path = asString(evidence.path)
+
   if (path != null) {
     const count = evidence.count
     const minCount = evidence.minCount
+
     return {
       blockId: null,
       detail: `Found ${String(count ?? 0)} of ${String(
@@ -294,11 +311,14 @@ function locationForComment(
   blocksById: Map<string, string>,
 ): DerivedLocation {
   const blockId = asString(thread.target.blockId)
+
   if (blockId) return { blockId, detail: null, unresolvedReason: null }
 
   const instanceId = asString(thread.target.instanceId)
+
   if (instanceId) {
     const resolved = blocksById.get(instanceId) ?? null
+
     return {
       blockId: resolved,
       detail: null,
@@ -331,6 +351,7 @@ export function readinessItems(
 
   for (const [errorIndex, error] of readiness.validationErrors.entries()) {
     const failing = error.results.filter((result) => result.status === 'fail')
+
     for (const [resultIndex, result] of failing.entries()) {
       const location = locationForCheck(result)
       items.push({
@@ -349,8 +370,10 @@ export function readinessItems(
   for (const [index, thread] of readiness.openCommentThreads.entries()) {
     const location = locationForComment(thread, blocksById)
     const collapsed = thread.body.replace(/\s+/g, ' ').trim()
+
     const excerpt =
       collapsed.length > 120 ? `${collapsed.slice(0, 119)}…` : collapsed
+
     items.push({
       id: `comment:${thread.commentId}:${index}`,
       kind: 'comment',

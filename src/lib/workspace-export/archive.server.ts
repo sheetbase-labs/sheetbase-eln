@@ -72,6 +72,7 @@ interface ManifestFile {
 export async function defaultArchiveConnection(): Promise<ArchiveConnection> {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   return {
     query: async (text, values = []) => client.query(text, values),
     end: () => client.end(),
@@ -90,6 +91,7 @@ async function loadCatalog(
      WHERE c.relkind IN ('r', 'p') AND NOT c.relispartition
        AND n.nspname IN ('api', 'internal')
      GROUP BY n.nspname, c.relname`)
+
   const foreignKeys = await conn.query(`
     SELECT ns.nspname AS schema, cl.relname AS "table",
            (SELECT array_agg(a.attname::text ORDER BY k.ord)
@@ -105,6 +107,7 @@ async function loadCatalog(
       JOIN pg_class rcl ON rcl.oid = con.confrelid
       JOIN pg_namespace rns ON rns.oid = rcl.relnamespace
      WHERE con.contype = 'f' AND ns.nspname IN ('api', 'internal')`)
+
   return {
     tables: tables.rows as unknown as CatalogTable[],
     foreignKeys: foreignKeys.rows as unknown as CatalogForeignKey[],
@@ -134,14 +137,18 @@ export async function writeWorkspaceArchive(
   const now = deps.now ?? (() => new Date())
   const pending: Uint8Array[] = []
   const zipState: { error: unknown } = { error: null }
+
   const zip = new Zip((err, chunk) => {
     if (err) zipState.error = err
     else pending.push(chunk)
   })
+
   const flush = async () => {
     if (zipState.error) throw zipState.error
+
     while (pending.length) await channel.push(pending.shift() as Uint8Array)
   }
+
   const writeEntry = async (name: string, content: Uint8Array) => {
     const entry = new ZipDeflate(name, { level: 6 })
     zip.add(entry)
@@ -150,20 +157,24 @@ export async function writeWorkspaceArchive(
   }
 
   const conn = await deps.connect()
+
   try {
     await conn.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY')
     const catalog = await loadCatalog(conn)
+
     const plan: ExportPlan = buildExportPlan(
       workspaceId,
       catalog.tables,
       catalog.foreignKeys,
     )
+
     const workspace = (
       await conn.query(
         'SELECT id::text, name, slug FROM api.workspaces WHERE id = $1::uuid',
         [workspaceId],
       )
     ).rows.at(0)
+
     if (!workspace) throw new Error('workspace not found')
 
     const encoder = new TextEncoder()
@@ -171,6 +182,7 @@ export async function writeWorkspaceArchive(
 
     const tables: ManifestTable[] = []
     let rowCount = 0
+
     for (const table of plan.tables) {
       const cursor = 'workspace_export_cursor'
       await conn.query(
@@ -180,20 +192,26 @@ export async function writeWorkspaceArchive(
       let entry: ZipDeflate | null = null
       const hash = createHash('sha256')
       let rows = 0
+
       try {
         for (;;) {
           if (channel.isCancelled) throw new Error('archive reader went away')
+
           const page = await conn.query(
             `FETCH FORWARD ${FETCH_ROWS} FROM ${cursor}`,
           )
+
           if (page.rows.length === 0) break
+
           const bytes = encoder.encode(
             page.rows.map((r) => `${r.row as string}\n`).join(''),
           )
+
           if (!entry) {
             entry = new ZipDeflate(path, { level: 6 })
             zip.add(entry)
           }
+
           hash.update(bytes)
           entry.push(bytes, false)
           rows += page.rows.length
@@ -202,10 +220,12 @@ export async function writeWorkspaceArchive(
       } finally {
         await conn.query(`CLOSE ${cursor}`)
       }
+
       if (entry) {
         entry.push(new Uint8Array(0), true)
         await flush()
       }
+
       rowCount += rows
       tables.push({
         name: table.name,
@@ -226,7 +246,9 @@ export async function writeWorkspaceArchive(
         [workspaceId],
       )
     ).rows
+
     const files: ManifestFile[] = []
+
     for (const row of fileRows) {
       const base = {
         id: row.id as string,
@@ -235,7 +257,9 @@ export async function writeWorkspaceArchive(
         mediaType: row.media_type as string,
         bytes: Number(row.byte_size),
       }
+
       let opened: Awaited<ReturnType<ObjectStorage['getStream']>>
+
       try {
         opened = await deps.storage.getStream(row.storage_key as string)
       } catch (error) {
@@ -243,22 +267,27 @@ export async function writeWorkspaceArchive(
         files.push({ ...base, sha256: null, path: null, status: 'missing' })
         continue
       }
+
       const path = `files/${row.storage_key as string}`
       const entry = new ZipDeflate(path, { level: 1 })
       zip.add(entry)
       const hash = createHash('sha256')
       const reader = opened.stream.getReader()
+
       for (;;) {
         if (channel.isCancelled) {
           await reader.cancel()
           throw new Error('archive reader went away')
         }
+
         const { done, value } = await reader.read()
+
         if (done) break
         hash.update(value)
         entry.push(value, false)
         await flush()
       }
+
       entry.push(new Uint8Array(0), true)
       await flush()
       const sha256 = hash.digest('hex')
@@ -277,6 +306,7 @@ export async function writeWorkspaceArchive(
     await conn.query('COMMIT')
 
     const missingFileCount = files.filter((f) => f.status !== 'ok').length
+
     const manifest = {
       formatVersion: ARCHIVE_FORMAT_VERSION,
       kind: 'sheetbase-workspace-export',
@@ -295,6 +325,7 @@ export async function writeWorkspaceArchive(
       skippedTables: plan.skipped,
       files,
     }
+
     await writeEntry(
       'manifest.json',
       encoder.encode(`${JSON.stringify(manifest, null, 2)}\n`),
@@ -302,6 +333,7 @@ export async function writeWorkspaceArchive(
     zip.end()
     await flush()
     channel.close()
+
     return {
       tableCount: manifest.totals.tables,
       rowCount,
@@ -330,5 +362,6 @@ export function createWorkspaceArchive(
   // The stream reports the failure to its reader; an unread summary must not
   // become an unhandled rejection.
   summary.catch(() => undefined)
+
   return { stream: channel.stream, summary }
 }

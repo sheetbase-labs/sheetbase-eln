@@ -20,12 +20,14 @@ const { savePreference, saveTiming } = vi.hoisted(() => ({
 const emailStatus = vi.hoisted(() => ({
   configured: true,
 }))
+
 vi.mock('#/lib/email-status', async (importOriginal) => ({
   ...(await importOriginal()),
   fetchEmailStatusFn: async () => ({ configured: emailStatus.configured }),
 }))
 
 const toasts = vi.hoisted(() => ({ toast: vi.fn() }))
+
 vi.mock('#/components/ui/sonner', () => ({ toast: toasts.toast }))
 
 const SAVED_TIMING: NotificationTiming = {
@@ -78,6 +80,7 @@ describe('SettingsNotifications', () => {
     const email = await screen.findByRole('checkbox', {
       name: 'Review requested from you email',
     })
+
     expect(screen.queryByRole('button', { name: 'Save changes' })).toBeNull()
     await user.click(email)
     const save = await screen.findByRole('button', { name: 'Save changes' })
@@ -176,6 +179,7 @@ describe('SettingsNotifications', () => {
     const digest = await screen.findByRole('checkbox', {
       name: 'An instrument run fails digest',
     })
+
     expect(digest.hasAttribute('data-disabled')).toBe(false)
   })
 

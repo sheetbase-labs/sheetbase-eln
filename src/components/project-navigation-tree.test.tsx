@@ -20,9 +20,11 @@ vi.mock('@tanstack/react-router', () => ({
     children: React.ReactNode
   } & Record<string, unknown>) => {
     let href = to
+
     for (const [key, value] of Object.entries(params ?? {})) {
       href = href.replace(`$${key}`, value)
     }
+
     return (
       <a href={href} {...props}>
         {children}
@@ -107,6 +109,7 @@ describe('ProjectNavigationTree', () => {
     const contents = screen.getByRole('list', {
       name: 'Stability programme contents',
     })
+
     expect(within(contents).getByText('Assays')).toBeTruthy()
     expect(within(contents).getByText('Results')).toBeTruthy()
     expect(

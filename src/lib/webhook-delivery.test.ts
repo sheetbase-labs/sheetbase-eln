@@ -53,6 +53,7 @@ describe('attemptDelivery', () => {
       'fetch',
       vi.fn(async () => new Response('ok', { status: 200 })),
     )
+
     try {
       const result = await attemptDelivery(
         HOOK,
@@ -60,6 +61,7 @@ describe('attemptDelivery', () => {
         'sha256=abc',
         5000,
       )
+
       expect(result.success).toBe(true)
       expect(result.responseStatus).toBe(200)
     } finally {
@@ -76,9 +78,11 @@ describe('attemptDelivery', () => {
       'fetch',
       vi.fn(async (url: string, init: { body: string }) => {
         seen.push({ url, body: init.body })
+
         return new Response('1', { status: 200 })
       }),
     )
+
     try {
       const body = channelBody('teams', {
         schemaVersion: '1',
@@ -89,6 +93,7 @@ describe('attemptDelivery', () => {
         definitionVersionId: 'dv-1',
         result: { rowCount: 3, outputLabel: 'Turbidity results' },
       })
+
       const result = await attemptDelivery(HOOK, body, 'sha256=abc', 5000)
       expect(result.success).toBe(true)
       expect(seen[0].url).toBe(HOOK)
@@ -105,6 +110,7 @@ describe('attemptDelivery', () => {
       'fetch',
       vi.fn(async () => new Response('err', { status: 500 })),
     )
+
     try {
       const result = await attemptDelivery(
         HOOK,
@@ -112,6 +118,7 @@ describe('attemptDelivery', () => {
         'sha256=abc',
         5000,
       )
+
       expect(result.success).toBe(false)
       expect(result.responseStatus).toBe(500)
       expect(result.errorCode).toBe('http_error')
@@ -127,6 +134,7 @@ describe('attemptDelivery', () => {
         throw new TypeError('fetch failed')
       }),
     )
+
     try {
       const result = await attemptDelivery(
         HOOK,
@@ -134,6 +142,7 @@ describe('attemptDelivery', () => {
         'sha256=abc',
         5000,
       )
+
       expect(result.success).toBe(false)
       expect(result.errorCode).toBe('delivery_error')
     } finally {
@@ -153,9 +162,11 @@ describe('attemptDelivery', () => {
             ),
           )
         })
+
         return hanging
       }),
     )
+
     try {
       const result = await attemptDelivery(
         HOOK,
@@ -163,6 +174,7 @@ describe('attemptDelivery', () => {
         'sha256=abc',
         1000,
       )
+
       expect(result.success).toBe(false)
       expect(result.errorCode).toBe('timeout')
     } finally {

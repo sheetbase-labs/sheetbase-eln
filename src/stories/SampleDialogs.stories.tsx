@@ -66,15 +66,19 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const noop = () => {}
 const sample = sampleFixture()
+
 const experiments: ExperimentOption[] = [
   { id: 'exp-1', identifier: 'EXP-0142', title: 'Depth filtration' },
   { id: 'exp-2', identifier: 'EXP-0147', title: 'Virus inactivation' },
 ]
+
 const balances: SampleQuantityBalances = {
   sampleRecordId: SAMPLE_ID,
   unit: 'mL',
@@ -83,6 +87,7 @@ const balances: SampleQuantityBalances = {
   reserved: 600,
   free: 4000,
 }
+
 const sourceSample = {
   id: sample.id,
   identifier: sample.identifier,

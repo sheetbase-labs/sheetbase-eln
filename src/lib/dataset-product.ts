@@ -107,16 +107,21 @@ export async function listPublishedDatasetSchemas(
       '?lifecycle=eq.active&select=id,schema_id,version,lifecycle,published_at&order=version.desc',
     ),
   ])
+
   const definitionById = new Map(definitions.map((item) => [item.id, item]))
   const latestBySchema = new Map<string, SchemaVersionWire>()
+
   for (const version of versions) {
     if (!latestBySchema.has(version.schema_id)) {
       latestBySchema.set(version.schema_id, version)
     }
   }
+
   return [...latestBySchema.values()].flatMap((version) => {
     const definition = definitionById.get(version.schema_id)
+
     if (!definition) return []
+
     return [
       {
         schemaDefinitionId: definition.id,
@@ -134,6 +139,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     return value as Record<string, unknown>
   }
+
   return null
 }
 
@@ -171,10 +177,13 @@ export async function createDataset(
       },
     ),
   )
+
   const row = asRecord(created)
+
   if (!row || typeof row.id !== 'string') {
     throw new Error('Dataset create did not return an id')
   }
+
   return {
     id: row.id,
     name: typeof row.name === 'string' ? row.name : input.name,
@@ -301,6 +310,7 @@ export async function fetchDatasetDependencies(
     'dataset',
     datasetId,
   )
+
   return discovery.dependencies
 }
 
@@ -321,26 +331,35 @@ export function coerceDatasetCellValue(
   raw: string,
 ): unknown {
   const trimmed = raw.trim()
+
   if (trimmed === '') return null
+
   switch (column.logical_type) {
     case 'integer': {
       if (!/^-?\d+$/.test(trimmed))
         throw new Error(`Invalid integer: ${column.label}`)
       const value = Number(trimmed)
+
       if (!Number.isSafeInteger(value))
         throw new Error(`Invalid integer: ${column.label}`)
+
       return value
     }
+
     case 'decimal': {
       if (!/^-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/.test(trimmed))
         throw new Error(`Invalid number: ${column.label}`)
       const value = Number(trimmed)
+
       if (!Number.isFinite(value))
         throw new Error(`Invalid number: ${column.label}`)
+
       return value
     }
+
     case 'boolean':
       if (['true', '1', 'yes'].includes(trimmed.toLowerCase())) return true
+
       if (['false', '0', 'no'].includes(trimmed.toLowerCase())) return false
       throw new Error(`Invalid boolean: ${column.label}`)
     default:
@@ -369,12 +388,14 @@ export function parseTsvRows(
     .split(/\r?\n/)
     .map((line) => line.trimEnd())
     .filter((line) => line.length > 0)
+
   return lines.map((line) => {
     const cells = line.split('\t')
     const values: Record<string, unknown> = {}
     columns.forEach((column, index) => {
       values[column.id] = coerceDatasetCellValue(column, cells[index] ?? '')
     })
+
     return {
       operation: 'create',
       rowId: crypto.randomUUID(),
@@ -388,11 +409,13 @@ export function datasetRowsToCsv(
   rows: Array<Record<string, unknown>>,
 ): string {
   const header = columns.map((column) => csvCell(column.label)).join(',')
+
   const body = rows.map((row) =>
     columns
       .map((column) => csvCell(row[column.field_name] ?? row[column.id] ?? ''))
       .join(','),
   )
+
   return [header, ...body].join('\n')
 }
 
@@ -403,7 +426,9 @@ function csvCell(value: unknown): string {
       : typeof value === 'string'
         ? value
         : String(value)
+
   if (/[",\n]/.test(text)) return `"${text.replaceAll('"', '""')}"`
+
   return text
 }
 
@@ -412,7 +437,9 @@ export function describeDatasetCommitError(
 ): string {
   if (result.ok) return ''
   const first = result.errors?.[0]
+
   if (!first) return 'The Dataset batch was rejected.'
+
   switch (first.code) {
     case 'required_value':
       return 'A required field is missing.'

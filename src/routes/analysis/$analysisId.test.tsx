@@ -28,6 +28,7 @@ vi.mock('#/components/favourites/favourite-toggle', () => ({
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
+
   return {
     ...actual,
     createFileRoute: () => (options: unknown) => ({
@@ -49,11 +50,14 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       children?: React.ReactNode
     }) => {
       const params = new URLSearchParams()
+
       for (const [key, value] of Object.entries(search ?? {})) {
         if (value !== undefined) params.set(key, value)
       }
+
       const query = params.toString()
       const target = typeof to === 'string' ? to : '#'
+
       return <a href={`${target}${query ? `?${query}` : ''}`}>{children}</a>
     },
     redirect: (options: unknown) => options,
@@ -147,6 +151,7 @@ function sourceStatus(
 
 function renderView() {
   const AnalysisView = Route.options.component as React.ComponentType
+
   return render(
     <QueryClientProvider
       client={
@@ -173,6 +178,7 @@ describe('Read-only analysis view (R5-STUDIO-03)', () => {
   it('does not claim the sources are up to date while the check is still running', async () => {
     mocks.sourceStatus.mockImplementation(async () => {
       await new Promise((resolve) => setTimeout(resolve, 50))
+
       return sourceStatus('current')
     })
     renderView()
@@ -250,9 +256,11 @@ describe('Read-only analysis view (R5-STUDIO-03)', () => {
     ]
     renderView()
     expect(await screen.findByText('Clarification programme')).toBeTruthy()
+
     const hrefs = screen
       .getAllByRole('link')
       .map((link) => link.getAttribute('href'))
+
     expect(hrefs).toContain('/projects/$projectId')
     expect(hrefs).toContain('/experiments/$expId')
     expect(hrefs).toContain('/datasets/$datasetId')
@@ -320,9 +328,11 @@ describe('An analysis with several charts', () => {
     const save = await screen.findByRole('button', { name: 'Save as v4' })
     fireEvent.click(save)
     await vi.waitFor(() => expect(mocks.update).toHaveBeenCalled())
+
     const input = (mocks.update.mock.calls[0] as unknown as unknown[])[2] as {
       charts: unknown[]
     }
+
     expect(input.charts).toHaveLength(1)
   })
 })

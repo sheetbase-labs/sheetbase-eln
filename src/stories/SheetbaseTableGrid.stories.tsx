@@ -52,7 +52,9 @@ const meta = {
     height: 320,
   },
 } satisfies Meta<typeof SheetbaseTableGrid>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

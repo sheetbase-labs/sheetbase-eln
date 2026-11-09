@@ -49,6 +49,7 @@ async function parseError(response: Response): Promise<DataClientError> {
   // PostgREST returns its own JSON error body (passed through unchanged);
   // normalise both into DataClientError so callers see one shape.
   let body: unknown = null
+
   try {
     body = await response.json()
   } catch {
@@ -61,6 +62,7 @@ async function parseError(response: Response): Promise<DataClientError> {
     // The public envelope uses `category` (see src/lib/errors.ts); accept
     // `code` as well so older test mocks and any legacy callers still work.
     const code = envelope.error.category ?? envelope.error.code
+
     if (code && envelope.error.message) {
       return new DataClientError(code, envelope.error.message, response.status)
     }
@@ -69,6 +71,7 @@ async function parseError(response: Response): Promise<DataClientError> {
   if (body && typeof body === 'object' && 'message' in body) {
     // PostgREST's own error shape: { code, message, details, hint }
     const pgrst = body as { code?: string; message?: string }
+
     return new DataClientError(
       pgrst.code ?? 'upstream_error',
       pgrst.message ?? response.statusText,
@@ -136,6 +139,7 @@ export function dropSharedReads(): void {
 }
 
 type RowsChangedListener = (path: string) => void
+
 const rowsChangedListeners = new Set<RowsChangedListener>()
 
 /**
@@ -145,6 +149,7 @@ const rowsChangedListeners = new Set<RowsChangedListener>()
  */
 export function onRowsChanged(listener: RowsChangedListener): () => void {
   rowsChangedListeners.add(listener)
+
   return () => {
     rowsChangedListeners.delete(listener)
   }
@@ -154,11 +159,13 @@ function readStoreFor(fetchImpl: object): Map<string, SharedRead> | null {
   // The server renders for many people; only the browser shares reads.
   if (typeof window === 'undefined') return null
   let store = sharedReads.get(fetchImpl)
+
   if (!store) {
     store = new Map()
     sharedReads.set(fetchImpl, store)
     readStores.add(store)
   }
+
   return store
 }
 
@@ -168,6 +175,7 @@ const READ_ONLY_RPC =
 
 function changesRows(path: string, method: string | undefined): boolean {
   if (method === undefined || method === 'GET') return false
+
   return !READ_ONLY_RPC.test(path)
 }
 
@@ -181,6 +189,7 @@ const WRITING_RPC =
 
 function announcesChange(path: string, method: string | undefined): boolean {
   if (!changesRows(path, method)) return false
+
   return !path.startsWith('/rpc/') || WRITING_RPC.test(path)
 }
 
@@ -193,32 +202,41 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
   ): Promise<{ body: string; status: number; contentRange: string | null }> {
     const run = async () => {
       const response = await request(path, { method: 'GET', headers })
+
       return {
         body: await response.text(),
         status: response.status,
         contentRange: response.headers.get('content-range'),
       }
     }
+
     if (!reads) return run()
     const key = `${path}\n${headers.prefer as string | undefined}\n${headers.range as string | undefined}`
     const known = reads.get(key)
+
     if (known && (!known.settled || Date.now() - known.at < SHARED_READ_MS)) {
       return known.result
     }
+
     const entry: SharedRead = {
       at: Date.now(),
       settled: false,
       result: run(),
     }
+
     reads.set(key, entry)
+
     const settle = () => {
       entry.settled = true
       entry.at = Date.now()
     }
+
     entry.result.then(settle, () => {
       settle()
+
       if (reads.get(key) === entry) reads.delete(key)
     })
+
     return entry.result
   }
 
@@ -228,25 +246,33 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
     // the proxy mints it into the JWT and durable change events record
     // the actor's client. Missing on SSR / blocked storage → omitted.
     const clientId = getOrCreateClientId()
+
     if (clientId) headers.set(CLIENT_ID_HEADER, clientId)
     // A reason given a moment ago covers the edits that follow it.
     const writes = init.method !== undefined && init.method !== 'GET'
     const changes = changesRows(path, init.method)
+
     if (changes) dropSharedReads()
+
     if (writes && !headers.has(CHANGE_REASON_HEADER)) {
       const known = rememberedChangeReason()
+
       if (known) headers.set(CHANGE_REASON_HEADER, known)
     }
+
     let response = await devFetch(fetchImpl, `${API_BASE}${path}`, {
       ...init,
       headers,
     })
+
     if (!response.ok && writes && !headers.has(CHANGE_REASON_HEADER)) {
       // The workspace asks for a reason when a saved value changes: ask once,
       // then send the same write again with it.
       const refusal = await parseError(response.clone())
+
       if (refusal.code === CHANGE_REASON_REQUIRED_CODE) {
         const reason = await askForChangeReason()
+
         if (reason) {
           headers.set(CHANGE_REASON_HEADER, reason)
           response = await devFetch(fetchImpl, `${API_BASE}${path}`, {
@@ -256,18 +282,24 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         }
       }
     }
+
     if (changes) dropSharedReads()
+
     if (!response.ok) {
       // J-SET-05: a 401 here means the session ended; say so once, centrally.
       if (response.status === 401 && typeof window !== 'undefined') {
         console.warn(`Data request returned 401: ${path}`)
         markSessionExpired()
       }
+
       throw await parseError(response)
     }
+
     if (writes) announcePluginWarnings(response)
+
     if (announcesChange(path, init.method))
       rowsChangedListeners.forEach((listener) => listener(path))
+
     return response
   }
 
@@ -276,6 +308,7 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
       const shared = await sharedGet(`/${resource}${query}`, {
         accept: 'application/json',
       })
+
       return JSON.parse(shared.body) as T[]
     },
 
@@ -287,11 +320,13 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         prefer: 'count=exact',
         range: '0-0',
       })
+
       const contentRange = shared.contentRange
       const match = contentRange?.match(/^(?:(\d+)-(\d+)|\*)\/(\d+)$/)
       const total = match ? Number(match[3]) : NaN
       const start = match?.[1] === undefined ? null : Number(match[1])
       const end = match?.[2] === undefined ? null : Number(match[2])
+
       if (
         !Number.isSafeInteger(total) ||
         (start !== null &&
@@ -307,6 +342,7 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
           shared.status,
         )
       }
+
       return total
     },
 
@@ -320,15 +356,18 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         accept: 'application/json',
         prefer: 'return=representation',
       }
+
       // SET-01.3: a workspace can require a reason for changing a saved value;
       // the reason travels in the header the write triggers read.
       if (options?.changeReason)
         headers[CHANGE_REASON_HEADER] = options.changeReason
+
       const response = await request(`/rpc/${name}`, {
         method: 'POST',
         headers,
         body: JSON.stringify(args),
       })
+
       // Native PostgREST void functions succeed with 204 and no JSON body.
       return (response.status === 204 ? undefined : await response.json()) as T
     },
@@ -346,6 +385,7 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         },
         body: JSON.stringify(row),
       })
+
       return (await response.json()) as T
     },
 
@@ -363,6 +403,7 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         },
         body: JSON.stringify(row),
       })
+
       return (await response.json()) as T[]
     },
 
@@ -374,6 +415,7 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
           prefer: 'return=representation',
         },
       })
+
       // PostgREST returns the deleted rows with return=representation; an
       // empty body (e.g. when nothing matched) parses to an empty array.
       try {

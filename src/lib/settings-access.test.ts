@@ -13,9 +13,11 @@ describe('settings access', () => {
   it('defaults to how the workspace behaved before it was configurable', () => {
     expect(defaultSettingsLevel('general', 'admin')).toBe('manage')
     expect(defaultSettingsLevel('general', 'steward')).toBe('none')
+
     for (const area of ['instruments', 'integrations', 'storage'] as const) {
       expect(defaultSettingsLevel(area, 'steward')).toBe('manage')
     }
+
     expect(defaultSettingsLevel('audit', 'scientist')).toBe('none')
   })
 
@@ -25,6 +27,7 @@ describe('settings access', () => {
       { area: 'general', role: 'admin', level: 'none' },
       { area: 'general', role: 'owner', level: 'none' },
     ]
+
     expect(settingsLevelFor('audit', 'reviewer', rows)).toBe('view')
     expect(settingsLevelFor('general', 'admin', rows)).toBe('none')
     expect(settingsLevelFor('general', 'owner', rows)).toBe('manage')
@@ -48,6 +51,7 @@ describe('settings access', () => {
       role: 'viewer',
       settingsAccess: { ...resolveSettingsAccess('viewer'), audit: 'view' },
     } as const
+
     expect(canOpenSettings(workspace, 'audit')).toBe(true)
     expect(canManageSettings(workspace, 'audit')).toBe(false)
     expect(canOpenSettings({ role: 'viewer' }, 'audit')).toBe(false)
@@ -66,6 +70,7 @@ describe('work permissions', () => {
     ]) {
       expect(workPermissionAllowed('samples', role)).toBe(true)
     }
+
     expect(workPermissionAllowed('samples', 'viewer')).toBe(false)
     expect(workPermissionAllowed('samples', 'client_viewer')).toBe(false)
   })
@@ -76,6 +81,7 @@ describe('work permissions', () => {
       { area: 'work_samples', role: 'owner', level: 'none' },
       { area: 'work_comments', role: 'viewer', level: 'manage' },
     ]
+
     expect(workPermissionAllowed('samples', 'scientist', rows)).toBe(false)
     expect(workPermissionAllowed('datasets', 'scientist', rows)).toBe(true)
     expect(workPermissionAllowed('samples', 'owner', rows)).toBe(true)

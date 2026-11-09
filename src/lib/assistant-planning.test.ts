@@ -10,17 +10,22 @@ vi.mock('./step-timer-alert', () => ({
 
 function recordingClient() {
   const rpcs: Array<{ name: string; args: Record<string, unknown> }> = []
+
   const client = {
     list: () => Promise.resolve([]),
     rpc: (name: string, args: Record<string, unknown>) => {
       rpcs.push({ name, args })
+
       if (name === 'instantiate_template') {
         return Promise.resolve({ record: { id: 'new-exp' } })
       }
+
       if (name === 'create_shipment') return Promise.resolve({ id: 'ship-1' })
+
       return Promise.resolve({})
     },
   } as unknown as DataClient
+
   return { client, rpcs }
 }
 
@@ -34,6 +39,7 @@ describe('repeatDates', () => {
       count: 8,
       until: null,
     })
+
     expect(dates).toHaveLength(8)
     expect(dates[0]).toBe('2026-11-09')
     expect(dates[7]).toBe('2026-12-28')
@@ -82,12 +88,14 @@ describe('repeatDates', () => {
 describe('running a planning card', () => {
   it('starts an experiment from a template and says where it opened', async () => {
     const { client, rpcs } = recordingClient()
+
     const result = await runAssistantAction(client, {
       kind: 'experiment.start',
       templateRecordId: 'tpl',
       projectId: 'proj',
       title: 'ELISA plate 4',
     })
+
     expect(rpcs[0]).toMatchObject({
       name: 'instantiate_template',
       args: {
@@ -219,11 +227,13 @@ describe('running a planning card', () => {
 
   it('repeats a booking through the schedule rpc', async () => {
     const { client, rpcs } = recordingClient()
+
     ;(client as unknown as { rpc: unknown }).rpc = (
       name: string,
       args: Record<string, unknown>,
     ) => {
       rpcs.push({ name, args })
+
       return Promise.resolve({
         schedule: {
           id: 's',
@@ -250,6 +260,7 @@ describe('running a planning card', () => {
         result: { created: 8, skipped: 0, failed: 0, problems: [] },
       })
     }
+
     const result = await runAssistantAction(client, {
       kind: 'booking.repeat',
       input: {
@@ -265,6 +276,7 @@ describe('running a planning card', () => {
         endTime: '10:00',
       },
     })
+
     expect(rpcs[0]).toMatchObject({
       name: 'create_recurring_schedule',
       args: { p_kind: 'booking', p_weekdays: [1], p_max_occurrences: 8 },

@@ -42,14 +42,18 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const WS = 'ws-1'
 
 function provider(data: ReadSeed[], hold: ReadSeed['key'][] = []) {
   const client = screenQueryClient({ data })
+
   for (const key of hold) holdRead(client, key)
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <div className="flex min-h-[420px] w-[960px] max-w-full flex-col">
@@ -197,6 +201,7 @@ function parserDialogProvider() {
   client.setQueryData(instrumentQueryKeys.list, [], {
     updatedAt: Date.now() + 60 * 60 * 1000,
   })
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <Story />

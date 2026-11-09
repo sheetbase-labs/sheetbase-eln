@@ -2,6 +2,7 @@ import { beforeEach, expect, it, vi } from 'vitest'
 import { handleParserUpdateRequest } from './parser-update.server'
 
 const { rpc, resolve } = vi.hoisted(() => ({ rpc: vi.fn(), resolve: vi.fn() }))
+
 vi.mock('#/lib/request-auth', () => ({
   postgrestRpc: rpc,
   resolveSessionAuth: resolve,
@@ -9,17 +10,21 @@ vi.mock('#/lib/request-auth', () => ({
   requestErrorResponse: (status: number, code: string, message: string) =>
     Response.json({ error: { code, message } }, { status }),
 }))
+
 const FILE = '00000000-0000-4000-8000-000000000456'
+
 function request(extra = {}) {
   return new Request('http://app.invalid/api/parsers/request-update', {
     method: 'POST',
     body: JSON.stringify({ fileId: FILE, ...extra }),
   })
 }
+
 beforeEach(() => {
   vi.clearAllMocks()
   resolve.mockResolvedValue({ ok: true, context: { token: 'scoped-token' } })
 })
+
 it('does not accept client-selected recipients, failure state or resolution', async () => {
   for (const extra of [
     { recipientUserId: 'other' },
@@ -28,8 +33,10 @@ it('does not accept client-selected recipients, failure state or resolution', as
   ]) {
     expect((await handleParserUpdateRequest(request(extra))).status).toBe(400)
   }
+
   expect(rpc).not.toHaveBeenCalled()
 })
+
 it('passes only retained identity through the claims-bound authority and requires confirmation', async () => {
   rpc.mockResolvedValue({
     status: 200,
@@ -50,6 +57,7 @@ it('passes only retained identity through the claims-bound authority and require
   })
   expect((await handleParserUpdateRequest(request())).status).toBe(502)
 })
+
 it('does not report request success for a missing or denied SQL operation', async () => {
   for (const status of [404, 403]) {
     rpc.mockResolvedValue({ status, body: { message: 'Unavailable' } })

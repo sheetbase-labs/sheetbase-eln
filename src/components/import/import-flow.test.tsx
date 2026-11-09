@@ -96,6 +96,7 @@ vi.mock('#/lib/parser-settings', async (importOriginal) => ({
 }))
 
 const navigate = vi.fn()
+
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigate,
   Link: ({ to, children }: { to?: unknown; children?: ReactNode }) => (
@@ -118,6 +119,7 @@ function renderFlow(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
@@ -307,9 +309,11 @@ describe('import URL contract', () => {
         kind: 'dataset-field' as const,
       },
     ]
+
     const saved: ImportMappingDocument = {
       sources: [{ source: 'raw', fieldId: 'field-1', unit: null }],
     }
+
     expect(
       initialMappingValues(['raw', 'dilution'], fields, saved, {}),
     ).toEqual({ raw: 'field-1', dilution: '' })
@@ -324,6 +328,7 @@ describe('import URL contract', () => {
     const mapping: ImportMappingDocument = {
       sources: [{ source: 'raw', fieldId: 'field-1', unit: 'NTU' }],
     }
+
     const first = commitIdempotencyKey('file-1', 'ds-1', mapping)
     expect(commitIdempotencyKey('file-1', 'ds-1', mapping)).toBe(first)
     expect(commitIdempotencyKey('file-1', 'ds-2', mapping)).not.toBe(first)
@@ -395,9 +400,11 @@ describe('ImportUploadFlow', () => {
     renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
 
     await screen.findByRole('radio', { name: /Add to an existing dataset/ })
+
     const file = new File(['Sample,pH\nA,7.4'], 'ELISA-capsid-titre_run4.csv', {
       type: 'text/csv',
     })
+
     await user.upload(screen.getByLabelText('Laboratory file'), file)
 
     // Nothing is stored yet: the dataset is only suggested.
@@ -510,9 +517,11 @@ describe('ImportUploadFlow', () => {
       screen.getByLabelText('New dataset name'),
       'ELISA capsid titre run 4',
     )
+
     const file = new File(['Sample,pH\nA,7.4'], 'plate-01.csv', {
       type: 'text/csv',
     })
+
     await user.upload(screen.getByLabelText('Laboratory file'), file)
 
     await waitFor(() =>
@@ -565,6 +574,7 @@ describe('ImportUploadFlow context', () => {
     renderFlow(ui)
     await choose(user, /^Dataset structure/, /ELISA and turbidity/)
     await user.type(screen.getByLabelText('New dataset name'), 'Run 4')
+
     return user
   }
 
@@ -572,6 +582,7 @@ describe('ImportUploadFlow context', () => {
     experimentRows.data = [
       { id: 'exp-1', identifier: 'EXP-1', title: 'Titre', project_id: 'prj-9' },
     ]
+
     const user = await importNewDataset(
       <ImportUploadFlow
         workspaceId="ws-1"
@@ -579,6 +590,7 @@ describe('ImportUploadFlow context', () => {
         initialExperimentId="exp-1"
       />,
     )
+
     await user.upload(
       screen.getByLabelText('Laboratory file'),
       new File(['a,b\n1,2'], 'x.csv', { type: 'text/csv' }),
@@ -595,6 +607,7 @@ describe('ImportUploadFlow context', () => {
     experimentRows.data = [
       { id: 'exp-1', identifier: 'EXP-1', title: 'Titre', project_id: 'prj-9' },
     ]
+
     const user = await importNewDataset(
       <ImportUploadFlow
         workspaceId="ws-1"
@@ -604,6 +617,7 @@ describe('ImportUploadFlow context', () => {
         returnTo="/experiments/exp-1/data/datasets"
       />,
     )
+
     await user.upload(
       screen.getByLabelText('Laboratory file'),
       new File(['a,b\n1,2'], 'x.csv', { type: 'text/csv' }),
@@ -623,6 +637,7 @@ describe('ImportUploadFlow context', () => {
     experimentRows.data = [
       { id: 'exp-1', identifier: 'EXP-1', title: 'Titre', project_id: 'prj-9' },
     ]
+
     const user = await importNewDataset(
       <ImportUploadFlow
         workspaceId="ws-1"
@@ -631,6 +646,7 @@ describe('ImportUploadFlow context', () => {
         onUploaded={onUploaded}
       />,
     )
+
     expect(screen.getByLabelText('Link to experiment')).toHaveProperty(
       'disabled',
       true,
@@ -673,6 +689,7 @@ describe('ImportUploadFlow context', () => {
         initialExperimentId="exp-1"
       />,
     )
+
     expect(
       screen.getByRole('link', { name: 'Cancel' }).getAttribute('href'),
     ).toBe('/experiments/exp-1')
@@ -704,8 +721,10 @@ describe('ImportMapCheckFlow', () => {
     )
     importData.reviewImport.mockResolvedValue(reviewResponse())
     let latest: ImportSearch = { dataset: 'ds-1' }
+
     function Flow() {
       const [search, setSearch] = useState(latest)
+
       return (
         <ImportMapCheckFlow
           importId="file-1"
@@ -717,14 +736,17 @@ describe('ImportMapCheckFlow', () => {
         />
       )
     }
+
     const user = userEvent.setup()
     const { unmount } = renderFlow(<Flow />)
     await screen.findByLabelText('Worksheet')
     expect(screen.queryByRole('table', { name: 'Column mapping' })).toBeNull()
     await user.selectOptions(screen.getByLabelText('Worksheet'), 'Measurements')
+
     const unit = await screen.findByLabelText<HTMLInputElement>(
       'Source unit for raw',
     )
+
     expect(unit.value).toBe('') // The old target-unit label is not a source declaration.
     expect(
       screen.getByRole<HTMLButtonElement>('button', {
@@ -826,6 +848,7 @@ describe('ImportMapCheckFlow', () => {
       { titre: '7.1' },
       { titre: '5.4' },
     ]
+
     expect(columnExamples('titre', rows)).toEqual(['5.2', '4.8', '3.9'])
     expect(columnExamples('missing', rows)).toEqual([])
   })
@@ -884,6 +907,7 @@ describe('ImportMapCheckFlow', () => {
 
   it('does not claim the file matched no parser while the target Dataset loads', async () => {
     let resolveDatasets: (rows: CanonicalDatasetWire[]) => void = () => {}
+
     vi.mocked(fetchDatasetSummaries).mockReturnValue(
       new Promise<CanonicalDatasetWire[]>((resolve) => {
         resolveDatasets = resolve
@@ -931,9 +955,11 @@ describe('ImportMapCheckFlow', () => {
       outcome: {},
     })
     await screen.findByRole('table', { name: 'Column mapping' })
+
     const importButton = await screen.findByRole('button', {
       name: 'Import 2 rows',
     })
+
     await waitFor(() =>
       expect((importButton as HTMLButtonElement).disabled).toBe(false),
     )
@@ -977,6 +1003,7 @@ describe('ImportMapCheckFlow', () => {
     const select = await screen.findByLabelText<HTMLSelectElement>(
       'Parser for this file',
     )
+
     await waitFor(() => expect(select.value).toBe('sheetbase.tb02-turbidity'))
     expect(
       screen.getByText(/Suggested from the file name: TB-02 CSV firmware 4/),
@@ -998,6 +1025,7 @@ describe('ImportMapCheckFlow', () => {
       }),
     )
     importData.reviewImport.mockResolvedValue(reviewResponse())
+
     const { unmount } = renderFlow(
       <ImportMapCheckFlow
         importId="file-1"

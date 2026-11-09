@@ -65,6 +65,7 @@ describe('CodeBlock', () => {
     const { container, rerender } = render(
       <CodeBlock code="select 1" language="sql" label="Transform statement" />,
     )
+
     expect(
       container.querySelector('[data-slot="code-language"]')?.textContent,
     ).toBe('sql')
@@ -98,6 +99,7 @@ describe('CodeBlock', () => {
 
   it('keeps a long single-line statement whole in a scrollable region', () => {
     const long = `select '${'x'.repeat(4000)}' as wide`
+
     const { container } = render(
       <CodeBlock code={long} language="sql" label="Transform statement" />,
     )
@@ -126,6 +128,7 @@ describe('CodeBlock', () => {
     const { container, rerender } = render(
       <CodeBlock code="select 1" label="Payload" maxHeight="sm" />,
     )
+
     expect(container.querySelector('pre')?.className).toContain('max-h-40')
 
     rerender(<CodeBlock code="select 1" label="Payload" maxHeight="lg" />)
@@ -137,9 +140,11 @@ describe('CodeBlock', () => {
 
   it('puts the payload on the clipboard and confirms it', async () => {
     const user = userEvent.setup()
+
     const writeText = vi
       .spyOn(navigator.clipboard, 'writeText')
       .mockResolvedValue(undefined)
+
     render(
       <CodeBlock
         code={'{"rowCount": 12}'}

@@ -26,6 +26,8 @@ export const PAYLOAD_BYTE_LIMIT = 32 * 1024 * 1024
 /** Render a byte count for a limit-failure message, e.g. `33.6 MiB`. */
 export function formatByteSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
+
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`
+
   return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`
 }

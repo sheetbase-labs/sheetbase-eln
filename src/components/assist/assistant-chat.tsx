@@ -71,6 +71,7 @@ function viewerTimeZone(): string | undefined {
 
 function chatFor(workspaceId: string): Chat<AssistantUIMessage> {
   let chat = chats.get(workspaceId)
+
   if (!chat) {
     chat = new Chat<AssistantUIMessage>({
       id: `assistant:${workspaceId}`,
@@ -90,6 +91,7 @@ function chatFor(workspaceId: string): Chat<AssistantUIMessage> {
     })
     chats.set(workspaceId, chat)
   }
+
   return chat
 }
 
@@ -97,10 +99,12 @@ function chatFor(workspaceId: string): Chat<AssistantUIMessage> {
 function errorText(error: Error): string {
   try {
     const parsed = JSON.parse(error.message) as { message?: unknown }
+
     if (typeof parsed.message === 'string') return parsed.message
   } catch {
     // Not JSON: the text is already the message.
   }
+
   return error.message || t('notebook.assistantPanel.tryAgainOrAsk')
 }
 
@@ -127,10 +131,12 @@ export default function AssistantChat({
       // Loaded on open, not at module scope: a top-level server-function
       // import would make every shell test carry it.
       const { getAiSettingsFn } = await import('#/lib/ai-settings-actions')
+
       return getAiSettingsFn({ data: { workspaceId: workspaceId ?? '' } })
     },
     enabled: Boolean(workspaceId),
   })
+
   const readiness = settingsQuery.data?.readiness
   const ready = readiness?.ready ?? false
 
@@ -146,6 +152,7 @@ export default function AssistantChat({
       </div>
     )
   }
+
   if (settingsQuery.isPending) {
     return (
       <div className="flex flex-col gap-2 p-4">
@@ -154,6 +161,7 @@ export default function AssistantChat({
       </div>
     )
   }
+
   if (settingsQuery.isError) {
     return (
       <div className="p-4">
@@ -166,6 +174,7 @@ export default function AssistantChat({
       </div>
     )
   }
+
   if (readiness && !readiness.ready) {
     return (
       <div className="p-4">
@@ -239,11 +248,13 @@ function ChatBody({
     setMessages,
     clearError,
   } = useChat<AssistantUIMessage>({ chat: chatFor(workspaceId) })
+
   const [draft, setDraft] = useState('')
 
   const busy = status === 'submitted' || status === 'streaming'
   const kind = context ? contextKindLabel(context.kind).toLowerCase() : null
   const last = messages.at(-1)
+
   // Waiting for the first words of an answer.
   const waiting =
     status === 'submitted' ||
@@ -254,6 +265,7 @@ function ChatBody({
 
   function send(text: string) {
     const question = text.trim()
+
     if (!question || busy || !ready) return
     clearError()
     setDraft('')
@@ -266,8 +278,10 @@ function ChatBody({
   useEffect(() => {
     if (!initialPrompt) {
       sentPrompt.current = null
+
       return
     }
+
     // React may run this twice in development; the question goes out once.
     if (!ready || busy || sentPrompt.current === initialPrompt) return
     sentPrompt.current = initialPrompt
@@ -428,7 +442,9 @@ function lookupLabel(
   state: LookupState,
 ): string {
   const phase = state === 'running' ? 'running' : 'done'
+
   if (state === 'failed') return t('notebook.assistantPanel.lookup.failed')
+
   switch (toolName) {
     case 'sheetbase.context.assemble':
       return t(`notebook.assistantPanel.lookup.context.${phase}`)
@@ -441,10 +457,12 @@ function lookupLabel(
         input !== null && typeof input === 'object' && 'resource' in input
           ? String(input.resource).replaceAll('_', ' ')
           : 'the workspace'
+
       return t(`notebook.assistantPanel.lookup.canonical.${phase}`, {
         resource,
       })
     }
+
     case 'sheetbase.dataset_rows.query':
     case 'sheetbase.dataset_version_rows.query':
       return t(`notebook.assistantPanel.lookup.rows.${phase}`)
@@ -465,10 +483,12 @@ function lookupLabel(
         input !== null && typeof input === 'object' && 'area' in input
           ? String(input.area).replaceAll('_', ' ')
           : 'the lab'
+
       return t(`notebook.assistantPanel.lookup.canonical.${phase}`, {
         resource: area,
       })
     }
+
     case 'sheetbase.booking.create':
     case 'sheetbase.booking.move':
     case 'sheetbase.booking.cancel':
@@ -520,6 +540,7 @@ function openOnce(toolCallId: string, input: unknown) {
   if (carriedOut.has(toolCallId)) return
   carriedOut.add(toolCallId)
   const request = parseWorkspaceRequest(input)
+
   if (request) requestAssistantWorkspace(request)
 }
 
@@ -582,7 +603,9 @@ function ChatMessage({
       </Message>
     )
   }
+
   const hasLookups = message.parts.some((part) => part.type === 'dynamic-tool')
+
   // Nothing yet: the "thinking" row stands in until the first words arrive.
   if (text.trim() === '' && !hasLookups) return null
 
@@ -613,11 +636,13 @@ function ChatMessage({
               </MessageResponse>
             )
           }
+
           if (part.type === 'dynamic-tool') {
             const proposal =
               part.state === 'output-available'
                 ? proposalFromOutput(part.output)
                 : null
+
             if (proposal) {
               return (
                 <ProposalCard
@@ -628,12 +653,14 @@ function ChatMessage({
                 />
               )
             }
+
             const state: LookupState =
               part.state === 'output-error'
                 ? 'failed'
                 : part.state === 'output-available'
                   ? 'done'
                   : 'running'
+
             return (
               <LookupRow
                 key={part.toolCallId}
@@ -643,6 +670,7 @@ function ChatMessage({
               />
             )
           }
+
           return null
         })}
       </MessageContent>

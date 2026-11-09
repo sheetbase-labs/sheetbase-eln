@@ -127,11 +127,13 @@ export async function executeConnectorRun<T>(
   const connectorType = options.connectorType ?? 'custom'
   let runStartedAt = 0
   let run: ConnectorRunWire | null = null
+
   try {
     run = await startConnectorRun(client, {
       ...options,
       selectorDigest: options.selectorDigest ?? null,
     })
+
     if (run.status !== 'running') {
       // Digest deduplication returned an already-finished run.
       return {
@@ -142,14 +144,17 @@ export async function executeConnectorRun<T>(
         errorMessage: run.error_message ?? undefined,
       }
     }
+
     // PLAT-02 — the RPC auto-reconciled a stale `running` run for this
     // digest/selector: it failed the dead attempt with the bounded
     // `stale_run_reconciled` code and linked this attempt as its retry.
     if (run.attempt > 1 && !options.retryOfRunId) {
       observability?.onStaleReconciled(run, connectorType)
     }
+
     runStartedAt = Date.now()
     observability?.onStarted(run, connectorType)
+
     if (options.startedMessage) {
       await appendConnectorRunLog(client, {
         workspaceId: options.workspaceId,
@@ -159,6 +164,7 @@ export async function executeConnectorRun<T>(
         detail: { attempt: run.attempt },
       })
     }
+
     const log = async (
       stage: string,
       message: string,
@@ -174,19 +180,24 @@ export async function executeConnectorRun<T>(
         detail,
       })
     }
+
     const value = await work({ run, log })
+
     const finished = await completeConnectorRun(client, {
       workspaceId: options.workspaceId,
       runId: run.id,
       result: options.buildResult?.(value) ?? {},
     })
+
     run = finished
     observability?.onSucceeded(run, connectorType, Date.now() - runStartedAt)
+
     return { status: 'succeeded', run, value }
   } catch (error) {
     const step = error instanceof ConnectorStepError ? error : null
     const errorCode = step?.code ?? 'unexpected_error'
     const errorMessage = error instanceof Error ? error.message : String(error)
+
     if (run && run.status === 'running') {
       try {
         await failConnectorRun(client, {
@@ -206,6 +217,7 @@ export async function executeConnectorRun<T>(
         // as stale once the staleness threshold passes.
       }
     }
+
     return { status: 'failed', run, errorCode, errorMessage }
   }
 }

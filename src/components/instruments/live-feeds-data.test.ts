@@ -75,6 +75,7 @@ describe('layoutSeries', () => {
       window,
       box,
     )
+
     expect(geometry.x(window.since)).toBe(0)
     expect(geometry.x(window.until)).toBe(600)
     expect(geometry.y(3)).toBeLessThan(geometry.y(1))
@@ -88,6 +89,7 @@ describe('layoutSeries', () => {
       window,
       box,
     )
+
     expect(geometry.band.startsWith('M')).toBe(true)
     expect(geometry.band.endsWith('Z')).toBe(true)
   })
@@ -96,10 +98,12 @@ describe('layoutSeries', () => {
     const flat = layoutSeries([point(0, 5)], window, box)
     expect(flat.yMax).toBeGreaterThan(5)
     expect(flat.yMin).toBeLessThan(5)
+
     const limited = layoutSeries([point(0, 5), point(5, 5)], window, box, {
       low: 0,
       high: 10,
     })
+
     expect(limited.yMin).toBeLessThan(0)
     expect(limited.yMax).toBeGreaterThan(10)
   })

@@ -32,7 +32,9 @@ const meta = {
   ],
   args: { change: change() },
 } satisfies Meta<typeof ChangeBody>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Modified: Story = {}

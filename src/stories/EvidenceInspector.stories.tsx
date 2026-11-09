@@ -80,6 +80,7 @@ const signed = screenQueryClient({
     },
   ],
 })
+
 const moved = screenQueryClient({
   data: [
     { key: auditVerificationKeys.status, value: null },
@@ -87,9 +88,13 @@ const moved = screenQueryClient({
     { key: revisionEvidenceQueryKeys.drift(REVISION_ID), value: drift },
   ],
 })
+
 const loading = screenQueryClient()
+
 holdRead(loading, signatureQueryKeys.forRecord(RECORD_ID))
+
 holdRead(loading, revisionEvidenceQueryKeys.drift(REVISION_ID))
+
 holdRead(loading, auditVerificationKeys.status)
 
 const meta = {
@@ -111,7 +116,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof EvidenceSignatures>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The signatures that attest this revision. */

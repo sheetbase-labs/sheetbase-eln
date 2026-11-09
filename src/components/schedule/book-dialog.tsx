@@ -55,10 +55,12 @@ export async function workspaceTimezone(): Promise<string | null> {
   try {
     const zone =
       getDisplayTimeZone() ?? (await fetchWorkspaceGeneral())?.timezone
+
     if (!zone) return null
     // Resolving the name proves the platform can read it; a name it cannot read
     // would make every conversion silently wrong.
     new Intl.DateTimeFormat('en-US', { timeZone: zone })
+
     return zone
   } catch {
     return null
@@ -77,11 +79,14 @@ export function instantInZone(
   timeZone: string,
 ): string | null {
   const naiveMs = Date.parse(`${date}T${time}:00.000Z`)
+
   if (Number.isNaN(naiveMs)) return null
   let instant = new Date(naiveMs)
+
   for (let pass = 0; pass < 2; pass += 1) {
     instant = new Date(naiveMs - wallClockOffsetMs(instant, timeZone))
   }
+
   return instant.toISOString()
 }
 
@@ -97,8 +102,10 @@ function wallClockOffsetMs(instant: Date, timeZone: string): number {
     minute: '2-digit',
     second: '2-digit',
   }).formatToParts(instant)
+
   const get = (type: string) =>
     Number(parts.find((p) => p.type === type)?.value ?? 0)
+
   const wallMs = Date.UTC(
     get('year'),
     get('month') - 1,
@@ -107,6 +114,7 @@ function wallClockOffsetMs(instant: Date, timeZone: string): number {
     get('minute'),
     get('second'),
   )
+
   return wallMs - instant.getTime()
 }
 
@@ -172,20 +180,24 @@ export function BookDialog({
   // Samples start ticked: an experiment's booking is for the samples it uses,
   // so the person unticks what the run does not need.
   const [unticked, setUnticked] = useState<ReadonlySet<string>>(new Set())
+
   const chosenSamples = sampleOptions.filter(
     (sample) => !unticked.has(sample.id),
   )
+
   const [date, setDate] = useState(defaultDate)
   const [start, setStart] = useState(DEFAULT_START)
   const [end, setEnd] = useState(DEFAULT_END)
   const [repeat, setRepeat] = useState<RepeatForm>(NO_REPEAT)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
   // SB115/SB116 name an instrument the person can act on, so they carry a link.
   const [refusal, setRefusal] = useState<{
     code: 'SB115' | 'SB116'
     instrument: ScheduleInstrument
   } | null>(null)
+
   // The zone a booking's wall clock means. Resolved once per opening and shown
   // in the dialog so the person can see which clock From/To are read against;
   // the same promise is what submit awaits, so the label cannot disagree with
@@ -211,14 +223,17 @@ export function BookDialog({
     if (!open) {
       zonePromise.current = null
       setTimeZone(null)
+
       return
     }
+
     const promise = workspaceTimezone()
     zonePromise.current = promise
     let cancelled = false
     void promise.then((zone) => {
       if (!cancelled) setTimeZone(zone)
     })
+
     return () => {
       cancelled = true
     }
@@ -226,38 +241,53 @@ export function BookDialog({
 
   const submit = async () => {
     if (!workspaceId) return
+
     if (!resourceId || !title.trim()) {
       setError(t('projects.bookDialog.errors.missing'))
+
       return
     }
+
     setBusy(true)
     setError(null)
+
     try {
       // The person enters a wall clock, not an instant: the workspace's zone is
       // what that wall clock means, and it is recorded with the booking. This
       // is the same read the dialog showed, so the label cannot disagree with
       // the instant that is written.
       const timezone = await (zonePromise.current ?? workspaceTimezone())
+
       if (!timezone) {
         setError(t('projects.bookDialog.errors.zone'))
+
         return
       }
+
       const startsAt = instantInZone(date, start, timezone)
       const endsAt = instantInZone(date, end, timezone)
+
       if (!startsAt || !endsAt) {
         setError(t('projects.bookDialog.errors.when'))
+
         return
       }
+
       if (Date.parse(endsAt) <= Date.parse(startsAt)) {
         setError(t('projects.bookDialog.errors.order'))
+
         return
       }
+
       if (repeat.frequency !== 'none') {
         const problem = repeatFormError(repeat, date)
+
         if (problem) {
           setError(problem)
+
           return
         }
+
         const made = await createRepeat(notebookDataClient, {
           kind: 'booking',
           title: title.trim(),
@@ -269,12 +299,15 @@ export function BookDialog({
           projectId: null,
           ...repeatFormToRule(repeat),
         })
+
         onRepeated?.(made)
         setOpen(false)
         setTitle('')
         setResourceId('')
+
         return
       }
+
       const booking = await bookInstrument({
         workspaceId,
         resourceId,
@@ -286,6 +319,7 @@ export function BookDialog({
         projectId: experiment?.projectId,
         samples: chosenSamples,
       })
+
       onBooked(booking)
       setOpen(false)
       setTitle('')
@@ -296,6 +330,7 @@ export function BookDialog({
       // its reason rather than guessing at availability in the dialog.
       const code = e instanceof DataClientError ? e.code : null
       const instrument = instruments.find((item) => item.id === resourceId)
+
       if (instrument && (code === 'SB115' || code === 'SB116')) {
         setRefusal({ code, instrument })
         setError(null)
@@ -313,6 +348,7 @@ export function BookDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
+
         if (!next) onCancel?.()
       }}
     >
@@ -382,8 +418,10 @@ export function BookDialog({
                     onCheckedChange={(checked) =>
                       setUnticked((current) => {
                         const next = new Set(current)
+
                         if (checked) next.delete(sample.id)
                         else next.add(sample.id)
+
                         return next
                       })
                     }
@@ -467,6 +505,7 @@ function BookingRefusal({
   instrument: ScheduleInstrument
 }) {
   const qualification = code === 'SB115'
+
   return (
     <div role="alert" className="flex flex-col gap-1.5">
       <p className="m-0 text-label text-danger-text">
@@ -511,7 +550,9 @@ function TrainingNotice({ instrumentId }: { instrumentId: string }) {
     enabled: instrumentId !== '',
     staleTime: 15_000,
   })
+
   if (!gaps.data || gaps.data.length === 0) return null
+
   return (
     <div
       role="status"

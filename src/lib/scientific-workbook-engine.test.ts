@@ -21,6 +21,7 @@ import type { WorkbookTable } from './scientific-workbook'
  */
 
 const tableId = '11111111-1111-4111-8111-111111111111'
+
 it('records the installed engine without relabelling historical semantic profiles', () => {
   const manifest = JSON.parse(
     readFileSync(
@@ -31,6 +32,7 @@ it('records the installed engine without relabelling historical semantic profile
       'utf8',
     ),
   )
+
   expect(SHEETBASE_TABLE_ENGINE_VERSION).toBe(manifest.version)
   expect(SHEETBASE_PROFILE_FINGERPRINT).toBe('fnv1a32-dcfa915f')
 })
@@ -40,14 +42,17 @@ const rowIds = [
   '21111111-1111-4111-8111-111111111112',
   '21111111-1111-4111-8111-111111111113',
 ]
+
 const columnIds = [
   '31111111-1111-4111-8111-111111111111',
   '31111111-1111-4111-8111-111111111112',
   '31111111-1111-4111-8111-111111111113',
 ]
+
 const [r1, r2, r3] = rowIds
 const [c1, c2, c3] = columnIds
 const maps = { rowIds, columnIds }
+
 const persisted = (source: string) =>
   buildPersistedFormulaArtifact(parseFormula(source, maps), tableId)
 
@@ -84,6 +89,7 @@ describe('scientific workbook on the sheetbase-table engine', () => {
         { [c1]: { formula: persisted('=A3') }, [c3]: { literal: '=SUM(9)' } },
       ]),
     ])
+
     expect(workbook.get({ tableId, rowId: r1, columnId: c2 })).toMatchObject({
       status: 'formula',
       value: 6,
@@ -116,6 +122,7 @@ describe('scientific workbook on the sheetbase-table engine', () => {
         { [c1]: { formula: persisted('=A1&"x"*2') } },
       ]),
     ])
+
     expect(workbook.get({ tableId, rowId: r2, columnId: c1 })).toMatchObject({
       status: 'error',
       error: 'VALUE',
@@ -128,6 +135,7 @@ describe('scientific workbook on the sheetbase-table engine', () => {
     const workbook = buildScientificWorkbook([
       table([{ [c1]: { literal: 7, formula: persisted('=RAND()') } }]),
     ])
+
     expect(workbook.get({ tableId, rowId: r1, columnId: c1 })).toMatchObject({
       status: 'formula',
       source: '=RAND()',
@@ -155,6 +163,7 @@ describe('scientific workbook on the sheetbase-table engine', () => {
         },
       ],
     }
+
     const workbook = buildScientificWorkbook([dateTable])
     expect(workbook.get({ tableId, rowId: r1, columnId: c1 })).toMatchObject({
       value: 45351,
@@ -173,6 +182,7 @@ describe('scientific workbook on the sheetbase-table engine', () => {
         { [c2]: { formula: persisted('=A1%') } },
       ]),
     ])
+
     expect(workbook.get({ tableId, rowId: r2, columnId: c2 })).toMatchObject({
       status: 'formula',
       value: 0.5,
@@ -184,6 +194,7 @@ describe('scientific workbook on the sheetbase-table engine', () => {
     const betaTableId = '11111111-1111-4111-8111-111111111112'
     const betaRow = '21111111-1111-4111-8111-111111111114'
     const betaColumn = '31111111-1111-4111-8111-111111111114'
+
     const tableMaps = [
       { tableId, name: 'Alpha', rowIds: [r1], columnIds: [c1] },
       {
@@ -193,6 +204,7 @@ describe('scientific workbook on the sheetbase-table engine', () => {
         columnIds: [betaColumn],
       },
     ]
+
     const cross = buildPersistedFormulaArtifact(
       parseFormula("='Beta source'!A1*2", {
         ...tableMaps[0],
@@ -200,6 +212,7 @@ describe('scientific workbook on the sheetbase-table engine', () => {
       }),
       tableId,
     )
+
     const workbook = buildScientificWorkbook([
       {
         id: tableId,
@@ -226,6 +239,7 @@ describe('scientific workbook on the sheetbase-table engine', () => {
         ],
       },
     ])
+
     expect(workbook.get({ tableId, rowId: r1, columnId: c1 })).toMatchObject({
       status: 'formula',
       value: 8,
@@ -241,6 +255,7 @@ describe('scientific workbook on the sheetbase-table engine', () => {
     const workbook = buildScientificWorkbook([
       table([{ [c1]: { literal: 3 }, [c2]: { formula: persisted('=A1*3') } }]),
     ])
+
     const changes = workbook.setLiteral({ tableId, rowId: r1, columnId: c1 }, 4)
     expect(changes.map((change) => change.address.columnId)).toEqual([c1, c2])
     expect(

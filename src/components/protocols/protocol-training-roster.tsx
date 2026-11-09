@@ -77,19 +77,24 @@ export function ProtocolTrainingRoster({
 }) {
   const queryClient = useQueryClient()
   const [assignOpen, setAssignOpen] = useState(false)
+
   const [recording, setRecording] = useState<ProtocolTrainingStatus | null>(
     null,
   )
+
   const status = useQuery({
     queryKey: protocolTrainingKey(protocolId),
     queryFn: () => fetchProtocolTrainingStatus(notebookDataClient, protocolId),
   })
+
   const rows = status.data ?? []
+
   const names = useUserNames(
     rows.flatMap((r) =>
       r.recorded_by_user_id ? [r.user_id, r.recorded_by_user_id] : [r.user_id],
     ),
   )
+
   const refresh = () => {
     void queryClient.invalidateQueries({
       queryKey: protocolTrainingKey(protocolId),
@@ -101,6 +106,7 @@ export function ProtocolTrainingRoster({
       queryKey: ['ui-port', 'protocol-inspector'],
     })
   }
+
   const remove = useMutation({
     mutationFn: (userId: string) =>
       unassignProtocolTraining(notebookDataClient, {
@@ -125,6 +131,7 @@ export function ProtocolTrainingRoster({
       header: t('library.protocols.trainingRoster.status'),
       cell: ({ row }) => {
         const s = STATUS[row.original.status]
+
         return (
           <span className="flex items-center gap-2">
             <Status tone={s.tone}>{s.label}</Status>
@@ -260,6 +267,7 @@ function AssignDialog({
   const [userId, setUserId] = useState('')
   const [dueOn, setDueOn] = useState('')
   const [notes, setNotes] = useState('')
+
   const assign = useMutation({
     mutationFn: () =>
       assignProtocolTraining(notebookDataClient, {
@@ -278,6 +286,7 @@ function AssignDialog({
     },
     onError: (error: unknown) => toast.error(errorText(error)),
   })
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
@@ -353,6 +362,7 @@ function RecordDialog({
   onDone: () => void
 }) {
   const [notes, setNotes] = useState('')
+
   const record = useMutation({
     mutationFn: () =>
       recordProtocolTrained(notebookDataClient, {
@@ -367,6 +377,7 @@ function RecordDialog({
     },
     onError: (error: unknown) => toast.error(errorText(error)),
   })
+
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">

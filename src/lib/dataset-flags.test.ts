@@ -44,6 +44,7 @@ describe('toDatasetValueFlag', () => {
       cleared_at: null,
       cleared_reason: null,
     })
+
     expect(mapped).toMatchObject({
       id: 'f1',
       datasetId: 'd1',
@@ -73,12 +74,14 @@ describe('excluding flagged values', () => {
       { id: 'r2', titre: 2 },
       { id: 'r3', titre: 3 },
     ]
+
     const { rows: kept, excluded } = excludeFlaggedValues(
       rows,
       index,
       (row) => row.id,
       'titre',
     )
+
     expect(kept.map((row) => row.id)).toEqual(['r1', 'r3'])
     expect(excluded).toEqual([
       { rowId: 'r2', fieldId: 'titre', flag: index.get('r2:titre') },
@@ -87,6 +90,7 @@ describe('excluding flagged values', () => {
 
   it('summarises excluded values as counts and kinds, deduplicated', () => {
     const flagged = flag({ rowId: 'r2', fieldId: 'titre' })
+
     const summary = summariseExcludedValues([
       { rowId: 'r2', fieldId: 'titre', flag: flagged },
       // Same flagged value reached from two calculations must count once.
@@ -102,6 +106,7 @@ describe('excluding flagged values', () => {
         }),
       },
     ])
+
     expect(summary).toEqual({
       valueCount: 2,
       rowCount: 2,
@@ -118,11 +123,13 @@ describe('excluding flagged values', () => {
 describe('filterRowsByFlags', () => {
   it('keeps rows whose used fields are not flagged', () => {
     const index = buildFlagIndex([flag({ rowId: 'r2', fieldId: 'titre' })])
+
     const rows = [
       { __sheetbaseRowId: 'r1', titre: 1 },
       { __sheetbaseRowId: 'r2', titre: 2 },
       { titre: 3 },
     ]
+
     const kept = filterRowsByFlags(rows, [...index.values()], ['titre'])
     expect(kept.map((row) => row.__sheetbaseRowId ?? 'no-id')).toEqual([
       'r1',

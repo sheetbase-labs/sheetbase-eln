@@ -49,6 +49,7 @@ describe('draftToSchedule', () => {
         { intervalMinutes: 1440 },
       ],
     ]
+
     for (const [patch, kind, expected] of cases) {
       const built = draftToSchedule(draft(patch), [], {})
       expect(built.kind).toBe(kind)
@@ -79,6 +80,7 @@ describe('draftToSchedule', () => {
       ['readings', 'baseline'],
       { plate_size: 384 },
     )
+
     expect(built.spec).toMatchObject({
       missedRunPolicy: 'skip',
       parameters: { plate_size: 384 },
@@ -103,6 +105,7 @@ describe('draftToSchedule', () => {
       ['raw', 'reference'],
       {},
     )
+
     expect(built.kind).toBe('event')
     expect(built.spec).toMatchObject({
       eventType: 'dataset.versioned',
@@ -164,6 +167,7 @@ describe('scheduleToDraft', () => {
   it('reads each stored rule back into the preset it came from', () => {
     const round = (kind: never, spec: Record<string, unknown>) =>
       scheduleToDraft({ kind, spec }, [], 'UTC')
+
     expect(round('cron' as never, { cron: '15 7 * * 1-5' })).toMatchObject({
       repeat: 'weekdays',
       time: '07:15',
@@ -213,6 +217,7 @@ describe('scheduleToDraft', () => {
       ['readings', 'baseline', 'other'],
       'UTC',
     )
+
     expect(read.inputs.baseline).toMatchObject({
       mode: 'pinned',
       versionId: version,
@@ -237,6 +242,7 @@ describe('scheduleToDraft', () => {
         readings: { mode: 'latest', datasetId: dataset, versionId: '' },
       },
     })
+
     const built = draftToSchedule(original, ['readings'], {})
     const back = scheduleToDraft(built, ['readings'], 'UTC')
     expect(back).toMatchObject({

@@ -77,11 +77,13 @@ export async function verifyApiClientToken(
   secret: string,
 ): Promise<ExternalClaims> {
   let payload: unknown
+
   try {
     const { payload: p } = await jwtVerify(
       token,
       await hmacKey(secret, 'verify'),
     )
+
     payload = p
   } catch {
     throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
@@ -388,13 +390,17 @@ function denyUnknown(): never {
 export function requiredScopes(method: string, path: ProxyPath): Scope[] {
   if (path.kind === 'rpc') {
     if (!Object.hasOwn(EXTERNAL_RPC_SCOPES, path.resource)) denyUnknown()
+
     return EXTERNAL_RPC_SCOPES[path.resource]
   }
 
   if (!Object.hasOwn(EXTERNAL_TABLE_ACCESS, path.resource)) denyUnknown()
   const access = EXTERNAL_TABLE_ACCESS[path.resource]
+
   if (READ_METHODS.has(method)) return [access.read]
+
   if (!access.write) denyUnknown()
+
   return [access.write]
 }
 
@@ -419,6 +425,7 @@ export async function resolveExternalToken(
   const claims = await verifyExternalCredential(db, token, secret)
 
   const required = requiredScopes(method, path)
+
   for (const scope of required) {
     if (!hasScope(claims.scopes, scope)) {
       throw new ExternalTokenError(
@@ -475,12 +482,14 @@ export async function verifyExternalCredential(
     if (claims.role !== 'authenticated' || claims.sub !== row.createdByUserId) {
       throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
     }
+
     const membership = await db.query.workspaceMemberships.findFirst({
       where: and(
         eq(workspaceMemberships.userId, row.createdByUserId),
         eq(workspaceMemberships.workspaceId, row.workspaceId),
       ),
     })
+
     if (!membership || membership.suspendedAt) {
       throw new ExternalTokenError(
         'revoked',
@@ -497,7 +506,9 @@ export async function verifyExternalCredential(
 /** Extracts a bearer token from an Authorization header, or null. */
 export function readBearerToken(headers: Headers): string | null {
   const header = headers.get('authorization')
+
   if (!header) return null
   const match = /^Bearer\s+(.+)$/i.exec(header.trim())
+
   return match ? match[1] : null
 }

@@ -17,6 +17,7 @@ function withDomains(domains: Array<{ domain: string; role: string }>) {
   const client = screenQueryClient({
     data: [{ key: joinDomainKeys.list(WORKSPACE_ID), value: domains }],
   })
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <div className="w-[640px]">
@@ -39,7 +40,9 @@ const meta = {
   },
   decorators: [withDomains([{ domain: 'acme-bio.com', role: 'scientist' }])],
 } satisfies Meta<typeof JoinedWelcome>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Scientist: Story = {}

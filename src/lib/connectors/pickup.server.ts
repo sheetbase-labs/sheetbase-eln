@@ -91,6 +91,7 @@ export type PickupResult = IntakeResult
 export function readBearer(headers: Headers): string | null {
   const header = headers.get('authorization')
   const match = header ? /^Bearer\s+(.+)$/i.exec(header.trim()) : null
+
   return match ? match[1] : null
 }
 
@@ -99,9 +100,11 @@ export function sanitiseFileName(raw: string | null): string {
   const base = (raw ?? '').split(/[\\/]/).pop() ?? ''
   // eslint-disable-next-line no-control-regex
   const cleaned = base.replace(/[\u0000-\u001f]/g, '').trim()
+
   if (!cleaned || cleaned === '.' || cleaned === '..') {
     throw new PickupError(400, 'invalid_file_name', 'fileName is required.')
   }
+
   return cleaned.slice(0, 200)
 }
 
@@ -109,6 +112,7 @@ export function parsePickupConfig(
   config: Record<string, unknown>,
 ): PickupConfig {
   const raw = config['pickup']
+
   if (!raw || typeof raw !== 'object') {
     throw new PickupError(
       422,
@@ -116,9 +120,12 @@ export function parsePickupConfig(
       'This connector has no pickup settings (config.pickup).',
     )
   }
+
   const pickup = raw as Record<string, unknown>
+
   const uuid = (key: string, required: boolean): string | null => {
     const value = pickup[key]
+
     if (value === undefined || value === null || value === '') {
       if (required) {
         throw new PickupError(
@@ -127,8 +134,10 @@ export function parsePickupConfig(
           `config.pickup.${key} is required.`,
         )
       }
+
       return null
     }
+
     if (typeof value !== 'string' || !UUID.test(value)) {
       throw new PickupError(
         422,
@@ -136,9 +145,12 @@ export function parsePickupConfig(
         `config.pickup.${key} must be a UUID.`,
       )
     }
+
     return value
   }
+
   const pattern = pickup['datasetNamePattern']
+
   return {
     projectId: uuid('projectId', true)!,
     schemaVersionId: uuid('schemaVersionId', true)!,
@@ -161,6 +173,7 @@ export function renderDatasetName(
     .replaceAll('{file}', values.file)
     .replaceAll('{date}', values.date)
     .trim()
+
   return (name || values.file).slice(0, 200)
 }
 
@@ -168,12 +181,17 @@ function mediaTypeFor(fileName: string, header: string | null): string {
   // The extension is what the instrument PC knows; generic client defaults
   // such as text/plain or form-encoded are not a better answer.
   if (/\.json$/i.test(fileName)) return 'application/json'
+
   if (/\.csv$/i.test(fileName)) return 'text/csv'
+
   if (/\.tsv$/i.test(fileName)) return 'text/tab-separated-values'
+
   if (/\.txt$/i.test(fileName)) return 'text/plain'
+
   if (/\.xlsx$/i.test(fileName))
     return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   const declared = header?.split(';')[0].trim()
+
   return declared && declared !== 'application/x-www-form-urlencoded'
     ? declared
     : 'application/octet-stream'
@@ -181,6 +199,7 @@ function mediaTypeFor(fileName: string, header: string | null): string {
 
 async function readBody(request: Request, max: number): Promise<Uint8Array> {
   const declared = Number(request.headers.get('content-length') ?? '')
+
   if (Number.isFinite(declared) && declared > max) {
     throw new PickupError(
       413,
@@ -188,16 +207,21 @@ async function readBody(request: Request, max: number): Promise<Uint8Array> {
       `Instrument files are limited to ${max} bytes.`,
     )
   }
+
   if (!request.body) {
     throw new PickupError(400, 'empty_file', 'The request has no file body.')
   }
+
   const reader = request.body.getReader()
   const chunks: Uint8Array[] = []
   let total = 0
+
   for (;;) {
     const { done, value } = await reader.read()
+
     if (done) break
     total += value.byteLength
+
     if (total > max) {
       await reader.cancel()
       throw new PickupError(
@@ -206,22 +230,28 @@ async function readBody(request: Request, max: number): Promise<Uint8Array> {
         `Instrument files are limited to ${max} bytes.`,
       )
     }
+
     chunks.push(value)
   }
+
   if (total === 0) {
     throw new PickupError(400, 'empty_file', 'The file is empty.')
   }
+
   const bytes = new Uint8Array(total)
   let offset = 0
+
   for (const chunk of chunks) {
     bytes.set(chunk, offset)
     offset += chunk.byteLength
   }
+
   return bytes
 }
 
 function errorResponse(status: number, code: string, message: string) {
   if (status >= 500) annotateRequest({ error: { code, message } })
+
   return new Response(JSON.stringify({ error: { code, message } }), {
     status,
     headers: { 'content-type': 'application/json' },
@@ -233,10 +263,13 @@ export async function runPickup(
   deps: PickupDeps,
 ): Promise<PickupResult> {
   const token = readBearer(request.headers)
+
   if (!token) {
     throw new PickupError(401, 'unauthenticated', 'Bearer token required.')
   }
+
   let claims: ExternalClaims
+
   try {
     claims = await deps.verifyCredential(token)
   } catch (error) {
@@ -244,12 +277,14 @@ export async function runPickup(
       error instanceof Error && 'code' in error
         ? String((error as { code: unknown }).code)
         : 'invalid_token'
+
     throw new PickupError(
       code === 'insufficient_scope' ? 403 : 401,
       code,
       boundedErrorMessage(error),
     )
   }
+
   if (claims.role !== 'authenticated') {
     throw new PickupError(
       403,
@@ -257,6 +292,7 @@ export async function runPickup(
       'Instrument pickup needs a personal API token; service credentials cannot write files or Datasets.',
     )
   }
+
   for (const scope of ['files:write', 'datasets:write'] as const) {
     if (!claims.scopes.includes(scope)) {
       throw new PickupError(
@@ -269,9 +305,11 @@ export async function runPickup(
 
   const url = new URL(request.url)
   const connectorKey = url.searchParams.get('connector')?.trim()
+
   if (!connectorKey) {
     throw new PickupError(400, 'invalid_request', 'connector is required.')
   }
+
   const fileName = sanitiseFileName(url.searchParams.get('fileName'))
   const parserOverride = url.searchParams.get('parser')?.trim() || null
 
@@ -287,7 +325,9 @@ export async function runPickup(
     'connectors',
     `?key=eq.${encodeURIComponent(connectorKey)}&workspace_id=eq.${workspaceId}&select=*&limit=1`,
   )
+
   const connector = connectors.at(0)
+
   if (!connector || connector.connector_type !== 'instrument') {
     throw new PickupError(
       404,
@@ -295,6 +335,7 @@ export async function runPickup(
       'No such instrument connector.',
     )
   }
+
   if (connector.status !== 'active') {
     throw new PickupError(
       409,
@@ -302,6 +343,7 @@ export async function runPickup(
       `The connector is ${connector.status}.`,
     )
   }
+
   const pickup = parsePickupConfig(connector.config)
 
   const target = {
@@ -316,6 +358,7 @@ export async function runPickup(
           date: new Date().toISOString().slice(0, 10),
         }),
   }
+
   const forIntake = {
     client,
     workspaceId,
@@ -328,6 +371,7 @@ export async function runPickup(
   // A file that can't even be kept (too large, empty) is still written down,
   // so it doesn't vanish into the agent's `failed` folder unseen.
   let bytes: Uint8Array
+
   try {
     bytes = await readBody(request, deps.maxBytes ?? PICKUP_MAX_BYTES)
   } catch (error) {
@@ -343,8 +387,10 @@ export async function runPickup(
         runId: null,
       })
     }
+
     throw error
   }
+
   const checksum = await sha256Hex(bytes)
 
   // The same file sent again while its problem is open (the agent retries a
@@ -355,7 +401,9 @@ export async function runPickup(
       `?connector_id=eq.${connector.id}&checksum=eq.${checksum}&status=eq.open&select=file_record_id&limit=1`,
     )
     .catch(() => [])
+
   const kept = open[0]?.file_record_id ?? null
+
   const retained: IntakeRetained = kept
     ? {
         fileRecordId: kept,
@@ -395,6 +443,7 @@ export async function runPickup(
     if (error instanceof IntakeError) {
       throw new PickupError(error.status, error.code, error.message)
     }
+
     throw error
   }
 }
@@ -407,8 +456,10 @@ export async function handlePickup(
   if (request.method !== 'POST') {
     return errorResponse(405, 'method_not_allowed', 'Use POST.')
   }
+
   try {
     const result = await runPickup(request, deps)
+
     return new Response(JSON.stringify(result), {
       status: result.alreadyCompleted ? 200 : 201,
       headers: { 'content-type': 'application/json' },
@@ -417,6 +468,7 @@ export async function handlePickup(
     if (error instanceof PickupError) {
       return errorResponse(error.status, error.code, error.message)
     }
+
     // A refusal from the database (no edit access to the pickup project, a
     // revoked membership) will not change on retry, so report it as one the
     // agent gives up on instead of a retryable 502.
@@ -430,6 +482,7 @@ export async function handlePickup(
         `The token's owner cannot write to the pickup project or Dataset: ${boundedErrorMessage(error)}`,
       )
     }
+
     return errorResponse(502, 'pickup_failed', boundedErrorMessage(error))
   }
 }

@@ -66,10 +66,12 @@ export function addedFieldDisplay(
 ): string {
   if (field.logicalType === 'date')
     return raw == null || raw === '' ? '—' : formatDate(String(raw))
+
   if (field.logicalType === 'timestamp')
     return raw == null || raw === ''
       ? '—'
       : formatDate(String(raw), { time: true })
+
   return displayModelFieldValue(field, raw)
 }
 
@@ -80,10 +82,12 @@ export function groupAddedFields(
   defaultHeading: string,
 ): Array<{ heading: string; fields: ModelFieldDefinition[] }> {
   const groups = new Map<string, ModelFieldDefinition[]>()
+
   for (const field of fields) {
     const heading = field.section?.trim() || defaultHeading
     groups.set(heading, [...(groups.get(heading) ?? []), field])
   }
+
   return [...groups.entries()]
     .sort(([a], [b]) =>
       a === defaultHeading ? -1 : b === defaultHeading ? 1 : 0,
@@ -120,9 +124,11 @@ export function AddedFields({
   const values = useAddedFieldValues(model, objectId)
   const family = usePickableTypes(modelKey)
   const pinned = typeForVersion(family.types, values.data?.modelVersionId)
+
   const builtInFields = useBuiltInModelFields(modelKey, {
     enabled: Boolean(model),
   })
+
   const typeFields = useTypeFields(
     family.types,
     modelKey,
@@ -130,12 +136,15 @@ export function AddedFields({
     values.data?.modelVersionId ?? null,
     { enabled: Boolean(model && pinned) },
   )
+
   const [editing, setEditing] = useState(false)
   const [changingType, setChangingType] = useState(false)
+
   if (!model) return null
 
   const keep = (field: ModelFieldDefinition) =>
     !exclude?.includes(field.fieldName)
+
   // The built-in model's own added fields keep their headings; each subtype's
   // fields sit under the subtype's name unless a field names a heading.
   const fieldGroups = pinned
@@ -151,8 +160,10 @@ export function AddedFields({
         (builtInFields.data ?? []).filter(keep),
         t('library.models.shared.nameDetails', { name: model.name }),
       )
+
   const groups = fieldGroups.filter((group) => group.fields.length > 0)
   const hasTypes = family.options.length > 0 || pinned !== null
+
   if (groups.length === 0 && !hasTypes) return null
 
   const stored = values.data?.customFields ?? {}
@@ -160,6 +171,7 @@ export function AddedFields({
   const canEdit = editable && !locked && values.isSuccess
   const allFields = groups.flatMap((group) => group.fields)
   const typeName = pinned?.name ?? model.name
+
   const actions =
     canEdit && (allFields.length > 0 || hasTypes) ? (
       <span className="flex flex-wrap gap-1">
@@ -190,11 +202,13 @@ export function AddedFields({
           fields: [],
         },
       ]
+
   // The type reads best beside its own fields, under the subtype's heading.
   const typeRow = Math.max(
     0,
     shown.findIndex((group) => group.heading === typeName),
   )
+
   const body = (group: (typeof shown)[number], index: number) =>
     values.isError ? (
       <Muted>{t('library.models.addedFields.theseDetailsCouldNotBe')}</Muted>
@@ -313,24 +327,30 @@ function ChangeTypeDialog({
   const targetKey = target || null
   const targetFields = useTypeFields(types, model.key, targetKey)
   const groups = targetFields.data ?? []
+
   const fields = useMemo(
     () => groups.flatMap((group) => group.fields),
     [groups],
   )
+
   const { kept, dropped } = useMemo(
     () => valuesForType(stored, currentGroups, groups),
     [stored, currentGroups, groups],
   )
+
   const initial = useMemo(
     () => initialModelFieldValues(fields, kept),
     [fields, kept],
   )
+
   const [values, setValues] = useState<Record<string, string | boolean>>({})
   const merged = useMemo(() => ({ ...initial, ...values }), [initial, values])
+
   const errors = useMemo(
     () => modelFieldInputErrors(fields, merged),
     [fields, merged],
   )
+
   const unchanged = targetKey === (current?.key ?? null)
 
   const save = useMutation({
@@ -457,16 +477,20 @@ function AddedFieldsEditDialog({
   client?: DataClient
 }) {
   const queryClient = useQueryClient()
+
   const initial = useMemo(
     () => initialModelFieldValues(fields, stored),
     [fields, stored],
   )
+
   const [values, setValues] = useState<Record<string, string | boolean>>({})
   const merged = useMemo(() => ({ ...initial, ...values }), [initial, values])
+
   const errors = useMemo(
     () => modelFieldInputErrors(fields, merged),
     [fields, merged],
   )
+
   const changes = changedModelFieldValues(fields, initial, merged)
   const dirty = Object.keys(changes).length > 0
 
@@ -553,9 +577,11 @@ export function AddedFieldInputs({
     <div className="flex flex-col gap-3">
       {fields.map((field) => {
         const error = showErrors ? errors[field.fieldName] : undefined
+
         const value =
           values[field.fieldName] ??
           (field.logicalType === 'boolean' ? false : '')
+
         return (
           <div key={field.id} className="flex flex-col gap-1 text-label">
             {field.logicalType === 'boolean' ? (
@@ -606,24 +632,31 @@ export function useAddedFieldDraft(modelKey: string) {
   const builtInFields = useBuiltInModelFields(modelKey)
   const family = usePickableTypes(modelKey)
   const [typeKey, setTypeKey] = useState<string | null>(null)
+
   const typeFields = useTypeFields(family.types, modelKey, typeKey, null, {
     enabled: typeKey !== null,
   })
+
   const source = typeKey
     ? (typeFields.data ?? []).flatMap((group) => group.fields)
     : (builtInFields.data ?? [])
+
   const asked = useMemo(
     () => source.filter((field) => field.askOnCreate !== false),
     [source],
   )
+
   const [values, setValues] = useState<Record<string, string | boolean>>({})
+
   const errors = useMemo(
     () => modelFieldInputErrors(asked, values),
     [asked, values],
   )
+
   const rootKeys = new Set(
     (builtInFields.data ?? []).map((field) => field.fieldName),
   )
+
   return {
     fields: asked,
     values,
@@ -665,6 +698,7 @@ export function AddedFieldsFormSection({
   showErrors: boolean
 }) {
   if (draft.fields.length === 0 && draft.typeOptions.length === 0) return null
+
   return (
     <div className="flex flex-col gap-3">
       {draft.typeOptions.length > 0 ? (
@@ -707,13 +741,18 @@ function addedFieldSortValue(
   customFields: Record<string, unknown> | null | undefined,
 ): string | number | undefined {
   const raw = customFields?.[field.fieldName]
+
   if (raw == null || raw === '') return undefined
+
   if (field.logicalType === 'date' || field.logicalType === 'timestamp')
     return String(raw)
+
   if (field.logicalType === 'integer' || field.logicalType === 'decimal') {
     const number = Number(raw)
+
     if (Number.isFinite(number)) return number
   }
+
   return addedFieldDisplay(field, raw)
 }
 
@@ -735,6 +774,7 @@ export function addedFieldColumns<T extends object>(
       },
       cell: ({ row }) => {
         const value = customFieldsOf(row.original)?.[field.fieldName]
+
         return (
           <span
             className={
@@ -770,10 +810,12 @@ export function useAddedFieldListColumns<T extends object>(
   const fields = useBuiltInModelFields(modelKey, { enabled: Boolean(model) })
   const family = usePickableTypes(modelKey)
   const typed = family.options.length > 0
+
   const listed = useMemo(
     () => (fields.data ?? []).filter((field) => field.showInList),
     [fields.data],
   )
+
   const values = useQuery({
     queryKey: addedFieldListQueryKey(modelKey),
     queryFn: async () => {
@@ -787,19 +829,24 @@ export function useAddedFieldListColumns<T extends object>(
           ? `?kind=eq.${encodeURIComponent(modelKey)}&select=id,custom_fields,model_version_id`
           : '?select=id,custom_fields,model_version_id',
       )
+
       return new Map(rows.map((row) => [row.id, row]))
     },
     enabled: Boolean(model) && (listed.length > 0 || typed),
     staleTime: 15_000,
   })
+
   const byId = values.data
   const types = family.types
+
   return useMemo(() => {
     const columns = addedFieldColumns<T>(
       listed,
       (row) => byId?.get(String(row[idField]))?.custom_fields,
     )
+
     if (!typed || !model) return columns
+
     const typeColumn: RegistryColumn<T> = {
       id: 'model_type',
       header: t('library.models.addedFields.type'),
@@ -811,6 +858,7 @@ export function useAddedFieldListColumns<T extends object>(
           types,
           byId?.get(String(row.original[idField]))?.model_version_id,
         )
+
         return type ? (
           <span>{type.name}</span>
         ) : (
@@ -818,6 +866,7 @@ export function useAddedFieldListColumns<T extends object>(
         )
       },
     }
+
     return [typeColumn, ...columns]
   }, [listed, byId, idField, typed, model, types])
 }
@@ -829,6 +878,7 @@ export function withAddedColumns<T extends object>(
   added: RegistryColumn<T>[],
 ): RegistryColumn<T>[] {
   if (added.length === 0) return base
+
   return [...base.slice(0, -1), ...added, ...base.slice(-1)]
 }
 
@@ -846,5 +896,6 @@ export function ObjectTypeName({
   const values = useAddedFieldValues(model, objectId)
   const types = useModelTypes()
   const pinned = typeForVersion(types.data ?? [], values.data?.modelVersionId)
+
   return <>{pinned?.name ?? fallback}</>
 }

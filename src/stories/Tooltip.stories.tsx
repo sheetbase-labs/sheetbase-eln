@@ -28,7 +28,9 @@ const meta = {
     children: <Button icon="copy" aria-label="Copy the table as TSV" />,
   },
 } satisfies Meta<typeof Tooltip>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The common case: an icon-only control that needs its name in words. */

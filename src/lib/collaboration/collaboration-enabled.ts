@@ -14,5 +14,6 @@ export function useCollaborationEnabled(): boolean {
   const deployed = React.useContext(CollaborationEnabledContext)
   // The dev toolbar can switch it off for this browser; never on.
   const devOn = useDevFlag('collaboration')
+
   return deployed && devOn
 }

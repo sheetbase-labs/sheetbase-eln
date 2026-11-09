@@ -41,6 +41,7 @@ function OpenOnMount() {
   useEffect(() => {
     openAssistant()
   }, [])
+
   return null
 }
 
@@ -64,7 +65,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof AssistantPanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Closed: on a phone the floating button shows, elsewhere nothing does. */

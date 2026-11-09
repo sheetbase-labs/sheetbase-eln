@@ -208,7 +208,9 @@ function resolveBudgets(partial?: Partial<AiContextBudgets>): AiContextBudgets {
     typeof value === 'number' && Number.isFinite(value) && value >= 0
       ? Math.floor(value)
       : fallback
+
   const defaults = DEFAULT_AI_CONTEXT_BUDGETS
+
   return {
     maxObjects: pick(partial?.maxObjects, defaults.maxObjects),
     maxSectionsPerObject: pick(
@@ -235,6 +237,7 @@ function truncateSection(
   if (body.length <= maxChars) return { heading, body, truncated: false }
   const marker = `[truncated: section '${heading}' exceeded ${maxChars} chars; remainder omitted]`
   const kept = Math.max(0, maxChars - marker.length - 1)
+
   return {
     heading,
     body: `${body.slice(0, kept)}\n${marker}`,
@@ -249,15 +252,19 @@ function truncateSection(
 
 function scalarSummary(value: unknown): string {
   if (value === null || value === undefined) return '—'
+
   if (typeof value === 'string') return value === '' ? '—' : value
+
   if (
     typeof value === 'number' ||
     typeof value === 'boolean' ||
     typeof value === 'bigint'
   )
     return String(value)
+
   try {
     const serialized: unknown = JSON.stringify(value)
+
     return typeof serialized === 'string' ? serialized : '—'
   } catch {
     return '[unserialisable value]'
@@ -270,12 +277,16 @@ function summariseProperties(
 ): { body: string; dropped: number } {
   const clean = redact(properties)
   const keys = Object.keys(clean)
+
   const shown = keys.slice(0, maxEntries).map((key) => {
     const value = scalarSummary(clean[key])
+
     return `${key}: ${value}`
   })
+
   const dropped = keys.length - shown.length
   const body = shown.length > 0 ? shown.join('\n') : '(no properties)'
+
   return {
     body:
       dropped > 0
@@ -303,8 +314,11 @@ function frozenProvenanceOf(block: NotebookBlock): FrozenProvenance[] {
       }>
     } | null
   }
+
   const provenance = payload.frozen?.datasetProvenance
+
   if (!Array.isArray(provenance)) return []
+
   return provenance.flatMap((entry) => {
     if (
       typeof entry.datasetId !== 'string' ||
@@ -313,6 +327,7 @@ function frozenProvenanceOf(block: NotebookBlock): FrozenProvenance[] {
       typeof entry.checksum !== 'string'
     )
       return []
+
     return [
       {
         datasetId: entry.datasetId,
@@ -329,15 +344,19 @@ function blockSummary(block: NotebookBlock): {
   pins: AiVersionPin[]
 } {
   let text: string
+
   try {
     text = extractBlockText(block.type, block.payload)
   } catch {
     text = '[unreadable block payload]'
   }
+
   const pins: AiVersionPin[] = []
   let evidence = 'live: current draft content'
+
   if (block.type === 'analysis') {
     const frozen = frozenProvenanceOf(block)
+
     if (frozen.length > 0) {
       for (const entry of frozen) {
         pins.push({
@@ -346,6 +365,7 @@ function blockSummary(block: NotebookBlock): {
           detail: `dataset ${entry.datasetId}: ${entry.rowCount} rows, checksum ${entry.checksum}`,
         })
       }
+
       evidence = `pinned: frozen analysis over ${frozen.map((e) => `dataset version ${e.datasetVersionId} (${e.rowCount} rows, checksum ${e.checksum})`).join('; ')}`
     } else {
       const payload = block.payload as { definitionId?: unknown }
@@ -355,8 +375,10 @@ function blockSummary(block: NotebookBlock): {
           : 'live: draft analysis (unfrozen — results may change)'
     }
   }
+
   const clean = redact(text)
   const body = `[${block.type} block ${block.id}]\n${evidence}\n${typeof clean === 'string' ? clean : scalarSummary(clean)}`
+
   return { body, pins }
 }
 
@@ -391,15 +413,19 @@ async function resolveRecord(
   workspaceId: string,
 ): Promise<ResolvedObject> {
   const record = await fetchRecord(client, ref.id)
+
   if (!record) return { ok: false, omission: notVisible(ref.kind, ref.id) }
+
   const wire = (await client.list<{ workspace_id?: string }>(
     'records',
     `?id=eq.${encodeURIComponent(ref.id)}&select=workspace_id&limit=1`,
   )) as Array<{ workspace_id?: string }>
+
   // fetchRecord is the canonical resolver under RLS; the narrow workspace
   // projection confirms the row belongs to the requested workspace. When the
   // workspace is unverifiable or mismatched, fail closed.
   const ownerWorkspace = wire[0]?.workspace_id
+
   if (ownerWorkspace !== workspaceId) {
     return {
       ok: false,
@@ -411,7 +437,9 @@ async function resolveRecord(
       },
     }
   }
+
   const { body: propsBody } = summariseProperties(record.properties)
+
   const sections = [
     {
       heading: 'identity',
@@ -438,6 +466,7 @@ async function resolveRecord(
     },
     { heading: 'properties', body: propsBody },
   ]
+
   const pins: AiVersionPin[] =
     ref.pinnedVersionId != null
       ? [
@@ -448,6 +477,7 @@ async function resolveRecord(
           },
         ]
       : []
+
   return {
     ok: true,
     object: {
@@ -472,11 +502,14 @@ async function resolveProject(
   workspaceId: string,
 ): Promise<ResolvedObject> {
   const project = await fetchProject(client, ref.id)
+
   if (!project) return { ok: false, omission: notVisible(ref.kind, ref.id) }
+
   const wire = (await client.list<{ workspace_id?: string }>(
     'projects',
     `?id=eq.${encodeURIComponent(ref.id)}&select=workspace_id&limit=1`,
   )) as Array<{ workspace_id?: string }>
+
   if (wire[0]?.workspace_id !== workspaceId) {
     return {
       ok: false,
@@ -488,11 +521,14 @@ async function resolveProject(
       },
     }
   }
+
   const records = await fetchRecordsForProject(client, ref.id)
   const byKind = new Map<string, number>()
+
   for (const record of records) {
     byKind.set(record.kind, (byKind.get(record.kind) ?? 0) + 1)
   }
+
   const milestones = await client.list<{
     title: string
     status: string
@@ -502,7 +538,9 @@ async function resolveProject(
     'study_tasks',
     `?project_id=eq.${encodeURIComponent(ref.id)}&task_type=eq.milestone&order=due_at.asc.nullslast&select=title,status,due_at,task_type`,
   )
+
   const listed = records.slice(0, PROJECT_LISTED_ITEMS)
+
   const sections = [
     {
       heading: 'identity',
@@ -550,6 +588,7 @@ async function resolveProject(
             ].join('\n'),
     },
   ]
+
   return {
     ok: true,
     object: {
@@ -571,11 +610,14 @@ async function resolveNotebook(
   workspaceId: string,
 ): Promise<ResolvedObject> {
   const record = await fetchRecord(client, ref.id)
+
   if (!record) return { ok: false, omission: notVisible(ref.kind, ref.id) }
+
   const wire = await client.list<{ workspace_id?: string }>(
     'records',
     `?id=eq.${encodeURIComponent(ref.id)}&select=workspace_id&limit=1`,
   )
+
   if (wire[0]?.workspace_id !== workspaceId) {
     return {
       ok: false,
@@ -587,10 +629,12 @@ async function resolveNotebook(
       },
     }
   }
+
   const [blocks, links] = await Promise.all([
     fetchBlocksForRecord(client, record.id),
     fetchLinksForRecord(client, record.id),
   ])
+
   const pins: AiVersionPin[] =
     ref.pinnedVersionId != null
       ? [
@@ -601,6 +645,7 @@ async function resolveNotebook(
           },
         ]
       : []
+
   const sections: Array<{ heading: string; body: string }> = [
     {
       heading: 'identity',
@@ -614,11 +659,13 @@ async function resolveNotebook(
       ].join('\n'),
     },
   ]
+
   for (const block of blocks) {
     const summary = blockSummary(block)
     pins.push(...summary.pins)
     sections.push({ heading: `block:${block.type}`, body: summary.body })
   }
+
   sections.push({
     heading: 'provenance',
     body:
@@ -632,6 +679,7 @@ async function resolveNotebook(
           ].join('\n')
         : 'links: (none)',
   })
+
   return {
     ok: true,
     object: {
@@ -653,6 +701,7 @@ async function resolveSheet(
   workspaceId: string,
 ): Promise<ResolvedObject> {
   const instance = await fetchSheetInstance(ref.id, client)
+
   if (instance) {
     if (instance.workspaceId !== workspaceId) {
       return {
@@ -665,7 +714,9 @@ async function resolveSheet(
         },
       }
     }
+
     const pins: AiVersionPin[] = []
+
     if (instance.sourceDefinitionVersionId) {
       pins.push({
         kind: 'sheet_definition_version',
@@ -673,23 +724,28 @@ async function resolveSheet(
         detail: `source definition version the instance was created from (revision ${instance.revision})`,
       })
     }
+
     if (ref.pinnedVersionId != null) {
       // The pin names a Sheet Definition Version. The RLS-filtered read is
       // the visibility check: an invisible version reads as absent.
       let version = null
+
       try {
         version = await fetchSheetDefinitionVersion(ref.pinnedVersionId, client)
       } catch {
         version = null
       }
+
       if (!version) {
         return { ok: false, omission: notVisible(ref.kind, ref.id) }
       }
+
       pins.push({
         kind: 'sheet_definition_version',
         id: version.id,
         detail: `pinned definition version ${version.version} (${version.lifecycle}) of definition ${version.definitionId}`,
       })
+
       return {
         ok: true,
         object: {
@@ -714,6 +770,7 @@ async function resolveSheet(
         },
       }
     }
+
     return {
       ok: true,
       object: {
@@ -742,7 +799,9 @@ async function resolveSheet(
       },
     }
   }
+
   const definition = await fetchSheetDefinition(ref.id, client)
+
   if (!definition || definition.workspaceId !== workspaceId) {
     if (definition && definition.workspaceId !== workspaceId) {
       return {
@@ -755,9 +814,12 @@ async function resolveSheet(
         },
       }
     }
+
     return { ok: false, omission: notVisible(ref.kind, ref.id) }
   }
+
   let pinnedVersion = null
+
   if (ref.pinnedVersionId != null) {
     try {
       pinnedVersion = await fetchSheetDefinitionVersion(
@@ -767,10 +829,12 @@ async function resolveSheet(
     } catch {
       pinnedVersion = null
     }
+
     if (!pinnedVersion || pinnedVersion.definitionId !== definition.id) {
       return { ok: false, omission: notVisible(ref.kind, ref.id) }
     }
   }
+
   return resolveSheetDefinition(
     ref,
     definition.name,
@@ -798,6 +862,7 @@ function resolveSheetDefinition(
         },
       ]
     : []
+
   return {
     ok: true,
     object: {
@@ -835,10 +900,13 @@ async function resolveDataset(
   const summaries = await fetchDatasetSummaries(client, {
     includeArchived: true,
   })
+
   const table = summaries.find((entry) => entry.id === ref.id)
+
   // The summaries list is RLS-filtered: absence means not found or not
   // visible to the requesting actor.
   if (!table) return { ok: false, omission: notVisible(ref.kind, ref.id) }
+
   if (table.workspace_id !== workspaceId) {
     return {
       ok: false,
@@ -850,7 +918,9 @@ async function resolveDataset(
       },
     }
   }
+
   const pinned = ref.pinnedVersionId != null
+
   const pins: AiVersionPin[] = pinned
     ? [
         {
@@ -860,8 +930,10 @@ async function resolveDataset(
         },
       ]
     : []
+
   const columns = table.columns
   const datasetName = table.name || table.resource_name || table.id
+
   const sections: Array<{ heading: string; body: string }> = [
     {
       heading: 'identity',
@@ -893,7 +965,9 @@ async function resolveDataset(
           : '(no fields)',
     },
   ]
+
   let rowsSampled = 0
+
   if (
     !pinned &&
     ref.includeSampleRows === true &&
@@ -905,15 +979,19 @@ async function resolveDataset(
       sorting: [],
       filters: [],
     })
+
     rowsSampled = page.rows.length
+
     const lines = page.rows.map((row) => {
       const {
         id: _id,
         version: _version,
         ...values
       } = row as Record<string, unknown>
+
       return `- row ${(row as { id?: unknown }).id ?? '?'}: ${scalarSummary(redact(values))}`
     })
+
     sections.push({
       heading: 'sample_rows',
       body: [
@@ -922,6 +1000,7 @@ async function resolveDataset(
       ].join('\n'),
     })
   }
+
   return {
     ok: true,
     object: {
@@ -944,7 +1023,9 @@ async function resolveAnalysis(
   workspaceId: string,
 ): Promise<ResolvedObject> {
   const wire = await fetchAnalysisDefinition(client, ref.id)
+
   if (!wire) return { ok: false, omission: notVisible(ref.kind, ref.id) }
+
   if (wire.workspace_id !== workspaceId) {
     return {
       ok: false,
@@ -956,6 +1037,7 @@ async function resolveAnalysis(
       },
     }
   }
+
   const pins: AiVersionPin[] =
     ref.pinnedVersionId != null
       ? [
@@ -966,9 +1048,11 @@ async function resolveAnalysis(
           },
         ]
       : []
+
   const sources = Array.isArray(wire.source_revisions)
     ? wire.source_revisions
     : []
+
   return {
     ok: true,
     object: {
@@ -1028,6 +1112,7 @@ export async function assembleAiContext(
   if (!actor || typeof actor.id !== 'string' || actor.id === '') {
     throw new Error('assembleAiContext: actor with a non-empty id is required')
   }
+
   if (
     !input ||
     typeof input.workspaceId !== 'string' ||
@@ -1035,15 +1120,18 @@ export async function assembleAiContext(
   ) {
     throw new Error('assembleAiContext: workspaceId is required (fail closed)')
   }
+
   const budgets = resolveBudgets(input.budgets)
   const refs = Array.isArray(input.objectRefs) ? input.objectRefs : []
 
   let project: { id: string; title: string } | null = null
   const omissions: AiContextOmission[] = []
+
   if (input.projectId != null) {
     // fetchProject is the canonical RLS-filtered resolver: a null return
     // means the project is absent or invisible to the requesting actor.
     const resolved = await fetchProject(client, input.projectId)
+
     if (!resolved) {
       omissions.push({
         kind: 'project',
@@ -1057,6 +1145,7 @@ export async function assembleAiContext(
   }
 
   const objects: AiContextObject[] = []
+
   const usage: AiContextBudgetUsage = {
     chars: 0,
     sections: 0,
@@ -1066,6 +1155,7 @@ export async function assembleAiContext(
 
   const head = refs.slice(0, budgets.maxObjects)
   const dropped = refs.slice(budgets.maxObjects)
+
   for (const ref of dropped) {
     omissions.push({
       kind: String((ref as AiObjectRef | null)?.kind ?? 'unknown'),
@@ -1090,7 +1180,9 @@ export async function assembleAiContext(
       })
       continue
     }
+
     let resolved: ResolvedObject
+
     switch (ref.kind) {
       case 'record':
         resolved = await resolveRecord(client, ref, input.workspaceId)
@@ -1111,10 +1203,12 @@ export async function assembleAiContext(
         resolved = await resolveProject(client, ref, input.workspaceId)
         break
     }
+
     if (!resolved.ok) {
       omissions.push(resolved.omission)
       continue
     }
+
     // Per-section budget with explicit truncation markers.
     const truncatedSections = resolved.object.sections.map((section) =>
       truncateSection(
@@ -1123,9 +1217,11 @@ export async function assembleAiContext(
         budgets.maxCharsPerSection,
       ),
     )
+
     // Per-object section budget: drop whole trailing sections, name the cut.
     let finalSections = truncatedSections
     let truncated = false
+
     if (finalSections.length > budgets.maxSectionsPerObject) {
       const kept = finalSections.slice(0, budgets.maxSectionsPerObject)
       const cut = finalSections.slice(budgets.maxSectionsPerObject)
@@ -1139,14 +1235,17 @@ export async function assembleAiContext(
         },
       ]
     }
+
     const candidate: AiContextObject = {
       ...resolved.object,
       sections: finalSections,
       truncated,
     }
+
     // Total budget is enforced at object granularity: an object that does
     // not fit becomes an explicit omission naming the ref and the budget.
     const size = candidate.sections.reduce((sum, s) => sum + s.body.length, 0)
+
     if (usage.chars + size > budgets.maxCharsTotal) {
       omissions.push({
         kind: ref.kind,
@@ -1156,6 +1255,7 @@ export async function assembleAiContext(
       })
       continue
     }
+
     objects.push(candidate)
     usage.chars += size
     usage.sections += candidate.sections.length

@@ -29,6 +29,7 @@ export class DatabaseObjectStorage implements ObjectStorage {
   ): Promise<PutResult> {
     const client = await this.pool.connect()
     let finished = false
+
     try {
       await client.query('BEGIN')
       // The size and checksum are only known once the stream ends, so the
@@ -43,6 +44,7 @@ export class DatabaseObjectStorage implements ObjectStorage {
       let seq = 0
       let pending: Buffer[] = []
       let pendingBytes = 0
+
       const flush = async (final: boolean) => {
         while (pendingBytes >= CHUNK_BYTES || (final && pendingBytes > 0)) {
           const joined = Buffer.concat(pending)
@@ -57,11 +59,15 @@ export class DatabaseObjectStorage implements ObjectStorage {
           pendingBytes = rest.length
         }
       }
+
       const reader = body.getReader()
+
       for (;;) {
         const { done, value } = await reader.read()
+
         if (done) break
         byteSize += BigInt(value.byteLength)
+
         if (byteSize > BigInt(maxBytes)) {
           await reader.cancel().catch(() => undefined)
           throw new OversizeError(
@@ -69,6 +75,7 @@ export class DatabaseObjectStorage implements ObjectStorage {
             maxBytes,
           )
         }
+
         hash.update(value)
         pending.push(
           Buffer.from(value.buffer, value.byteOffset, value.byteLength),
@@ -76,6 +83,7 @@ export class DatabaseObjectStorage implements ObjectStorage {
         pendingBytes += value.byteLength
         await flush(false)
       }
+
       await flush(true)
       const checksum = hash.digest('hex')
       await client.query(
@@ -85,6 +93,7 @@ export class DatabaseObjectStorage implements ObjectStorage {
       )
       await client.query('COMMIT')
       finished = true
+
       return { byteSize, checksum }
     } catch (error) {
       await client.query('ROLLBACK').catch(() => undefined)
@@ -98,13 +107,16 @@ export class DatabaseObjectStorage implements ObjectStorage {
     storageKey: string,
   ): Promise<{ stream: ReadableStream<Uint8Array>; byteSize: number }> {
     const head = await this.head(storageKey)
+
     if (!head) {
       throw new MissingStorageObjectError(
         `storage object not found: ${storageKey}`,
       )
     }
+
     const pool = this.pool
     let seq = 0
+
     const stream = new ReadableStream<Uint8Array>({
       async pull(controller) {
         try {
@@ -113,10 +125,13 @@ export class DatabaseObjectStorage implements ObjectStorage {
               WHERE storage_key = $1 AND seq = $2`,
             [storageKey, seq],
           )
+
           if (rows.length === 0) {
             controller.close()
+
             return
           }
+
           seq += 1
           const data = rows[0].data
           controller.enqueue(
@@ -127,6 +142,7 @@ export class DatabaseObjectStorage implements ObjectStorage {
         }
       },
     })
+
     return { stream, byteSize: head.byteSize }
   }
 
@@ -135,6 +151,7 @@ export class DatabaseObjectStorage implements ObjectStorage {
       `SELECT byte_size::text FROM internal.file_blobs WHERE storage_key = $1`,
       [storageKey],
     )
+
     return rows[0] ? { byteSize: Number(rows[0].byte_size) } : null
   }
 

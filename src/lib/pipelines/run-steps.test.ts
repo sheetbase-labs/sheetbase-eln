@@ -37,6 +37,7 @@ describe('runSteps', () => {
     const steps = runSteps(config, { status: 'failed' }, [
       log({ level: 'error', detail: { step: 'deconvolve' } }),
     ])
+
     expect(steps.map((s) => s.state)).toEqual([
       'done',
       'done',
@@ -51,6 +52,7 @@ describe('runSteps', () => {
     const steps = runSteps(config, { status: 'waiting' }, [], {
       step_id: 'check_units',
     })
+
     expect(steps.map((s) => s.state)).toEqual([
       'done',
       'waiting',
@@ -66,6 +68,7 @@ describe('runNumbers', () => {
       { id: 'b', started_at: '2026-09-02T00:00:00Z' },
       { id: 'a', started_at: '2026-09-01T00:00:00Z' },
     ])
+
     expect(numbers.get('a')).toBe(1)
     expect(numbers.get('b')).toBe(2)
   })
@@ -88,6 +91,7 @@ describe('runSteps with a plugin step', () => {
       { status: 'succeeded' },
       [],
     )
+
     expect(steps.map((s) => s.kind)).toEqual(['SQL', 'Plugin'])
     expect(steps[1].note).toBe('Plugin')
   })

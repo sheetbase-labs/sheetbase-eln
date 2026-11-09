@@ -12,6 +12,7 @@ describe('block payload validation (ELN-002)', () => {
   it('accepts empty, uploaded and committed import blocks without a title', () => {
     const fileId = crypto.randomUUID()
     const datasetId = crypto.randomUUID()
+
     for (const payload of [
       {},
       { fileId, datasetId },
@@ -42,6 +43,7 @@ describe('block payload validation (ELN-002)', () => {
   it('rejects partial and malformed import pins', () => {
     const fileId = crypto.randomUUID()
     const datasetId = crypto.randomUUID()
+
     for (const payload of [
       null,
       [],
@@ -174,6 +176,7 @@ describe('block payload validation (ELN-002)', () => {
     const r = validateBlock({ type: 'rich_text', payload: {} })
     expect(r.ok).toBe(false)
     expect(r.errors[0]?.field).toBe('doc')
+
     for (const level of [1, 4]) {
       expect(
         validateBlock({
@@ -187,6 +190,7 @@ describe('block payload validation (ELN-002)', () => {
         }).ok,
       ).toBe(false)
     }
+
     expect(
       validateBlock({
         type: 'rich_text',
@@ -232,6 +236,7 @@ describe('block payload validation (ELN-002)', () => {
       type: 'checklist',
       payload: { items: [{ text: 'x', checked: 'yes' }] },
     })
+
     expect(r.ok).toBe(false)
     expect(r.errors[0]?.field).toBe('items[0].checked')
   })
@@ -255,6 +260,7 @@ describe('block payload validation (ELN-002)', () => {
       type: 'linked_record',
       payload: { targetKind: 'sample', targetIdentifier: 'SMP-1' },
     })
+
     expect(r.ok).toBe(false)
     expect(r.errors[0]?.field).toBe('linkType')
   })
@@ -264,6 +270,7 @@ describe('block payload validation (ELN-002)', () => {
       type: 'ai_summary',
       payload: { text: 'something' },
     })
+
     expect(r.ok).toBe(false)
     expect(r.errors[0]?.code).toBe('unknown_block_type')
   })
@@ -274,6 +281,7 @@ describe('block payload validation (ELN-002)', () => {
       payload: { doc: { type: 'doc', content: [{ type: 'paragraph' }] } },
       payloadSchemaVersion: 99,
     })
+
     expect(r.ok).toBe(false)
     expect(r.errors[0]?.code).toBe('unsupported_payload_schema_version')
   })
@@ -475,6 +483,7 @@ describe('block payload validation (ELN-002)', () => {
         ],
       },
     }
+
     for (const type of BLOCK_TYPES) {
       expect(validateBlock({ type, payload: samples[type] }).ok).toBe(true)
     }
@@ -486,6 +495,7 @@ describe('block payload validation (ELN-002)', () => {
         type: 'gate',
         payload: { mode: 'block', conditions: [condition] },
       }).ok
+
     expect(gate({ kind: 'qc_in_control' })).toBe(true)
     expect(
       gate({
@@ -502,6 +512,7 @@ describe('block payload validation (ELN-002)', () => {
         type: 'gate',
         payload: { mode: 'block', conditions: [condition] },
       }).ok
+
     expect(gate({ kind: 'plugin_flag', extensionKey: 'lab-rules' })).toBe(true)
     expect(gate({ kind: 'plugin_flag' })).toBe(false)
     expect(gate({ kind: 'plugin_flag', extensionKey: 'Lab Rules' })).toBe(false)
@@ -553,6 +564,7 @@ describe('block payload validation (ELN-002)', () => {
         ],
       },
     })
+
     expect(result.ok).toBe(false)
     expect(result.errors.map((error) => error.field)).toEqual(
       expect.arrayContaining([
@@ -597,6 +609,7 @@ describe('block payload validation (ELN-002)', () => {
 describe('conclusion block payload', () => {
   it('accepts an empty draft and each verdict', () => {
     expect(isBlockPayloadValid({ type: 'conclusion', payload: {} })).toBe(true)
+
     for (const verdict of ['supported', 'not_supported', 'inconclusive'])
       expect(
         isBlockPayloadValid({
@@ -611,6 +624,7 @@ describe('conclusion block payload', () => {
       type: 'conclusion',
       payload: { text: 'x', verdict: 'proven', basis: 3 },
     })
+
     expect(result.ok).toBe(false)
     expect(result.errors.map((error) => error.field)).toEqual([
       'verdict',
@@ -648,8 +662,10 @@ describe('code cell payloads', () => {
   const version = '11111111-1111-4111-8111-111111111111'
   it('accepts an empty draft and refuses what the cell cannot run', () => {
     expect(validateBlock({ type: 'code_cell', payload: {} }).ok).toBe(true)
+
     const bad = (payload: Record<string, unknown>) =>
       validateBlock({ type: 'code_cell', payload }).ok
+
     expect(bad({ language: 'ruby' })).toBe(false)
     expect(bad({ source: 'x'.repeat(50_001) })).toBe(false)
     expect(

@@ -136,7 +136,9 @@ export const BLOCK_DECLARATIONS = defineBlocks([
     defaultPayload: () => ({ items: [{ text: '', checked: false }] }),
     summary: (payload) => {
       const items = Array.isArray(payload.items) ? payload.items : []
+
       if (items.length === 0) return t('notebook.blockRegistry.noItems')
+
       return items
         .map((item) => {
           const checked =
@@ -144,6 +146,7 @@ export const BLOCK_DECLARATIONS = defineBlocks([
             item !== null &&
             'checked' in item &&
             item.checked === true
+
           const text =
             typeof item === 'object' &&
             item !== null &&
@@ -151,6 +154,7 @@ export const BLOCK_DECLARATIONS = defineBlocks([
             typeof item.text === 'string'
               ? item.text
               : ''
+
           return `[${checked ? 'x' : ' '}] ${text}`
         })
         .join('\n')
@@ -259,10 +263,12 @@ export const BLOCK_DECLARATIONS = defineBlocks([
     summary: (payload) => {
       const title = typeof payload.title === 'string' ? payload.title : ''
       const spec = 'spec' in payload ? payload.spec : undefined
+
       const wells =
         typeof spec === 'object' && spec !== null && 'wells' in spec
           ? spec.wells
           : undefined
+
       return t('notebook.blockRegistry.plateMapSummary', {
         title: title || t('notebook.blockRegistry.plateMapLabel'),
         count: Array.isArray(wells) ? wells.length : 0,

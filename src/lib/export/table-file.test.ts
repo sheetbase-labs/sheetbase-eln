@@ -13,6 +13,7 @@ describe('tableCsv', () => {
         ['SMP-3', null],
       ],
     })
+
     expect(csv.charCodeAt(0)).toBe(0xfeff)
     expect(csv.slice(1).split('\r\n')).toEqual([
       'ID,Name',
@@ -39,6 +40,7 @@ describe('tableXlsx', () => {
         'Samples',
       ),
     )
+
     expect(Object.keys(files)).toContain('xl/worksheets/sheet1.xml')
     expect(strFromU8(files['xl/workbook.xml'])).toContain('name="Samples"')
     const sheet = strFromU8(files['xl/worksheets/sheet1.xml'])

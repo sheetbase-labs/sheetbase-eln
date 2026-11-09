@@ -54,7 +54,9 @@ const meta = {
   ],
   args: { canWrite: true },
 } satisfies Meta<typeof ShipmentsPage>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The shipments list for a writer. */

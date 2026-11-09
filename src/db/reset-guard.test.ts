@@ -7,6 +7,7 @@ describe('parseResettableDatabaseUrl', () => {
     const target = parseResettableDatabaseUrl(
       'postgresql://sheetbase:sheetbase@localhost:5432/sheetbase',
     )
+
     expect(target.databaseName).toBe('sheetbase')
     expect(target.maintenanceUrl).toBe(
       'postgresql://sheetbase:sheetbase@localhost:5432/postgres',
@@ -17,6 +18,7 @@ describe('parseResettableDatabaseUrl', () => {
     const target = parseResettableDatabaseUrl(
       'postgresql://sheetbase:sheetbase@127.0.0.1:5432/sheetbase_test',
     )
+
     expect(target.databaseName).toBe('sheetbase_test')
   })
 

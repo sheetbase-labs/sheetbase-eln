@@ -68,6 +68,7 @@ describe('toSampleListRow status tabs', () => {
       new Map(),
       undefined,
     )
+
     expect(mapped.tabs).toEqual(['instock', 'quarantine'])
   })
 
@@ -77,6 +78,7 @@ describe('toSampleListRow status tabs', () => {
       new Map(),
       undefined,
     )
+
     expect(mapped.tabs).toEqual(['instock'])
     expect(mapped.status.label).toBe('Hold exceeded')
   })
@@ -92,6 +94,7 @@ describe('sampleListFilters', () => {
     expect(decoded('quarantine')).toContain('status=eq.quarantined')
     expect(decoded('awaiting')).toContain('status=eq.reserved')
     expect(decoded('mine')).toContain('created_by_user_id=eq.u-1')
+
     for (const tab of SAMPLE_TABS.filter((t) => t !== 'archived'))
       expect(decoded(tab)).toContain('archived_at=is.null')
     expect(decoded('archived')).toContain('archived_at=not.is.null')
@@ -128,6 +131,7 @@ describe('storage locations', () => {
       { location: null },
       { location: 'shelf a' },
     ])
+
     const client = { list } as unknown as DataClient
     expect(await fetchStorageLocations(client)).toEqual(['Shelf A', 'Shelf B'])
     expect(list).toHaveBeenCalledWith(

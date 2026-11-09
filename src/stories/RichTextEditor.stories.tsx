@@ -81,13 +81,16 @@ const meta = {
     onBlur: () => {},
   },
 } satisfies Meta<typeof RichTextEditor>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A paragraph, editable in place with the floating toolbar on selection. */
 export const Default: Story = {
   render: (args) => {
     const [value, setValue] = useState(args.payload)
+
     return (
       <RichTextEditor
         {...args}

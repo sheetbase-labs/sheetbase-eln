@@ -16,6 +16,7 @@ function readAlerted(): string[] {
     const parsed: unknown = JSON.parse(
       localStorage.getItem(ALERTED_KEY) ?? '[]',
     )
+
     return Array.isArray(parsed)
       ? parsed.filter((id): id is string => typeof id === 'string')
       : []
@@ -27,7 +28,9 @@ function readAlerted(): string[] {
 /** True the first time a timer is claimed on this device, false after. */
 export function claimAlert(timerId: string): boolean {
   const seen = readAlerted()
+
   if (seen.includes(timerId)) return false
+
   try {
     localStorage.setItem(
       ALERTED_KEY,
@@ -36,6 +39,7 @@ export function claimAlert(timerId: string): boolean {
   } catch {
     // Storage unavailable (private window): the alert still fires, maybe twice.
   }
+
   return true
 }
 
@@ -49,6 +53,7 @@ export function notificationPermission():
 /** Ask once, from the tap that starts a timer, and ready the service worker. */
 export async function prepareTimerAlerts(): Promise<void> {
   if (typeof window === 'undefined') return
+
   try {
     if (
       typeof Notification !== 'undefined' &&
@@ -56,6 +61,7 @@ export async function prepareTimerAlerts(): Promise<void> {
     ) {
       await Notification.requestPermission()
     }
+
     if ('serviceWorker' in navigator) {
       await navigator.serviceWorker.register('/sw.js')
     }
@@ -70,6 +76,7 @@ async function showNotification(
   url: string,
 ): Promise<void> {
   if (notificationPermission() !== 'granted') return
+
   const options: NotificationOptions & { vibrate?: number[] } = {
     body: label,
     tag: `step-timer-${timerId}`,
@@ -78,16 +85,21 @@ async function showNotification(
     vibrate: [300, 150, 300, 150, 300],
     requireInteraction: true,
   }
+
   const title = t('notebook.stepTimers.finishedTitle')
+
   try {
     const registration =
       'serviceWorker' in navigator
         ? await navigator.serviceWorker.getRegistration()
         : undefined
+
     if (registration) {
       await registration.showNotification(title, options)
+
       return
     }
+
     new Notification(title, options)
   } catch {
     // Some browsers only allow the service worker route; nothing else to try.
@@ -100,10 +112,13 @@ function beep(): void {
       AudioContext?: typeof AudioContext
       webkitAudioContext?: typeof AudioContext
     }
+
     const Context = audio.AudioContext ?? audio.webkitAudioContext
+
     if (!Context) return
     const context = new Context()
     const start = context.currentTime
+
     for (let i = 0; i < 3; i += 1) {
       const oscillator = context.createOscillator()
       const gain = context.createGain()
@@ -115,6 +130,7 @@ function beep(): void {
       oscillator.start(start + i * 0.4)
       oscillator.stop(start + i * 0.4 + 0.32)
     }
+
     window.setTimeout(() => void context.close(), 1800)
   } catch {
     // A page that has not been touched yet may not be allowed to play sound.
@@ -134,6 +150,7 @@ export async function alertTimerFinished(
   } catch {
     // Not every browser vibrates.
   }
+
   beep()
   await showNotification(timerId, label, url)
 }

@@ -18,12 +18,14 @@ describe('setDatasetColumnUnit', () => {
   it('calls the single server procedure and returns its result', async () => {
     const rpc = vi.fn(async () => ({ schemaVersion: 2, clearedFlags: 1 }))
     const client = { rpc } as unknown as DataClient
+
     const result = await setDatasetColumnUnit(client, {
       datasetId: 'ds-1',
       fieldKey: 'osmolality',
       unit: 'mOsm/kg',
       reason: 'Unit from instrument export header',
     })
+
     expect(result).toEqual({ schemaVersion: 2, clearedFlags: 1 })
     expect(rpc).toHaveBeenCalledWith('set_dataset_column_unit', {
       p_dataset_id: 'ds-1',

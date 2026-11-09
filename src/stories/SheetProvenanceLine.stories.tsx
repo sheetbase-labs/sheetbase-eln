@@ -46,7 +46,9 @@ const meta = {
     provenance: { kind: 'present', provenance: datasetProvenance },
   },
 } satisfies Meta<typeof SheetProvenanceLine>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A Dataset-bound column links to the Dataset explorer. */

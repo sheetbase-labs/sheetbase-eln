@@ -18,11 +18,13 @@ const scope = { userId: 'u1', recordId: 'r1' }
 
 function setup() {
   const store = createOfflineEditStore(createInMemoryStorage())
+
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <OfflineEditsProvider store={store} scope={scope}>
       {children}
     </OfflineEditsProvider>
   )
+
   return { store, ...renderHook(() => useOfflineEdits(), { wrapper }) }
 }
 
@@ -42,6 +44,7 @@ describe('losslessPlainText', () => {
         ],
       },
     }
+
     expect(losslessPlainText(bold)).toBeNull()
   })
 })

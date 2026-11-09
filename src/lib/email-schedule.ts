@@ -14,7 +14,9 @@ const TIME = /^([0-2][0-9]):([0-5][0-9])$/
 
 function minutesOfDay(value: string | null): number | null {
   const match = value ? TIME.exec(value) : null
+
   if (!match) return null
+
   return Number(match[1]) * 60 + Number(match[2])
 }
 
@@ -28,8 +30,10 @@ export const ALWAYS_DELIVERED = new Set([
 export function isWithinQuietHours(now: Date, quiet: QuietHours): boolean {
   const start = minutesOfDay(quiet.start)
   const end = minutesOfDay(quiet.end)
+
   if (start === null || end === null || start === end) return false
   const minute = now.getHours() * 60 + now.getMinutes()
+
   // Overnight window (e.g. 22:00–07:00) wraps midnight.
   return start < end
     ? minute >= start && minute < end
@@ -47,11 +51,14 @@ export function nextSendAt(
   eventType: string,
 ): Date {
   if (ALWAYS_DELIVERED.has(eventType)) return now
+
   if (!isWithinQuietHours(now, quiet)) return now
   const end = minutesOfDay(quiet.end) as number
   const result = new Date(now)
   result.setSeconds(0, 0)
   result.setHours(Math.floor(end / 60), end % 60, 0, 0)
+
   if (result <= now) result.setDate(result.getDate() + 1)
+
   return result
 }

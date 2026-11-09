@@ -45,6 +45,7 @@ export function goToCommands(
     ),
     ...EXTRA_PLACES,
   ]
+
   return places.map((place) => ({
     id: `go-${place.to}`,
     group: 'Go to',
@@ -55,6 +56,7 @@ export function goToCommands(
 /** The create screens, carrying the project, sample or dataset in view. */
 export function newCommands(pathname: string | undefined): PaletteCommand[] {
   const context = createContextFromPath(pathname ?? '')
+
   return [
     {
       id: 'new-experiment',
@@ -124,8 +126,10 @@ export function parseCommandQuery(query: string): {
 } {
   const trimmed = query.trim()
   const verb = COMMAND_PREFIX.exec(trimmed)
+
   if (!verb) return { group: null, text: trimmed.toLowerCase() }
   const word = verb[1].toLowerCase()
+
   return {
     group: word === 'new' || word === 'create' ? 'New' : 'Go to',
     text: trimmed.slice(verb[0].length).trim().toLowerCase(),
@@ -143,19 +147,24 @@ export function matchCommands(
 ): { commands: PaletteCommand[]; leads: boolean } {
   const { group, text } = parseCommandQuery(query)
   const verbOnly = /^(go to|goto|go|open|new|create)$/i.test(query.trim())
+
   if (!query.trim() || verbOnly) {
     const wanted = verbOnly
       ? parseCommandQuery(`${query.trim()} x`).group
       : null
+
     return {
       commands: wanted ? commands.filter((c) => c.group === wanted) : commands,
       leads: true,
     }
   }
+
   const matched = commands.filter((command) => {
     if (group && command.group !== group) return false
     const label = command.label.toLowerCase().replace(/^new\s+/, '')
+
     return label.includes(text) || command.label.toLowerCase().includes(text)
   })
+
   return { commands: matched, leads: group !== null }
 }

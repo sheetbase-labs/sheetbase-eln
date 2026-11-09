@@ -84,9 +84,11 @@ export const Route = createFileRoute('/pipelines/agents')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: AgentsRoute,
@@ -100,8 +102,10 @@ function mayDecide(
   role: string | undefined,
 ): boolean {
   const kind = proposal.operation_kind
+
   if (kind.startsWith('pipeline_definition.'))
     return hasCapability(role, 'pipelines.manage')
+
   if (
     kind.startsWith('notebook_block.') ||
     kind.startsWith('record.') ||
@@ -111,6 +115,7 @@ function mayDecide(
     kind === 'dataset_rows.commit'
   )
     return hasCapability(role, 'record.create')
+
   return hasCapability(role, 'schema.edit')
 }
 
@@ -120,9 +125,11 @@ function AgentsRoute() {
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
   const view = search.view ?? 'proposals'
+
   const [proposalId, setProposalId] = useState<string | null>(
     search.proposal ?? null,
   )
+
   const [planId, setPlanId] = useState<string | null>(null)
   const workspaceId = context.workspace?.id ?? ''
   const role = context.workspace?.role
@@ -134,47 +141,57 @@ function AgentsRoute() {
     queryFn: () => listAgentOperationProposals(dataClient),
     enabled: Boolean(workspaceId),
   })
+
   const policiesQuery = useQuery({
     queryKey: agentOperationQueryKeys.policies,
     queryFn: () => listAgentOperationPolicies(dataClient),
     enabled: Boolean(workspaceId),
   })
+
   const credentialsQuery = useQuery({
     queryKey: ['agent-operations', 'credentials', workspaceId],
     queryFn: () => listApiCredentialsFn({ data: { workspaceId } }),
     enabled: Boolean(workspaceId),
   })
+
   const definitionsQuery = useQuery({
     queryKey: agentRegistryQueryKeys.definitions,
     queryFn: () => listAgentDefinitions(dataClient),
     enabled: Boolean(workspaceId),
   })
+
   const runsQuery = useQuery({
     queryKey: agentRegistryQueryKeys.runs,
     queryFn: () => listAgentRuns(dataClient),
     enabled: Boolean(workspaceId),
   })
+
   const revisionsQuery = useQuery({
     queryKey: agentRegistryQueryKeys.revisions,
     queryFn: () => listAgentPolicyRevisions(dataClient),
     enabled: Boolean(workspaceId),
   })
+
   const membersQuery = useQuery({
     queryKey: agentRegistryQueryKeys.members,
     queryFn: () => listWorkspaceMembers(dataClient),
     enabled: Boolean(workspaceId),
   })
+
   const projectsQuery = useQuery({
     queryKey: agentRegistryQueryKeys.projects,
     queryFn: () => listAgentProjects(dataClient),
     enabled: Boolean(workspaceId),
   })
+
   const proposals = proposalsQuery.data ?? []
   const definitions = definitionsQuery.data ?? []
   const runs = runsQuery.data ?? []
   const members = membersQuery.data ?? []
+
   const nameOf = (id: string | null) =>
     id ? (members.find((m) => m.user_id === id)?.name ?? null) : null
+
   const projectName = (id: string) =>
     projectsQuery.data?.find((p) => p.id === id)?.title ??
     t('data.pipelinesAgents.aProject')
@@ -186,10 +203,12 @@ function AgentsRoute() {
   const visibleProposals = proposalBoardGroups(proposals, me, clock).flatMap(
     (group) => group.items,
   )
+
   const effectiveProposalId =
     visibleProposals.find((p) => p.id === proposalId)?.id ??
     visibleProposals.at(0)?.id ??
     null
+
   const needsYou = proposalBoardGroups(proposals, me, clock).find(
     (group) => group.stage === 'needs',
   )?.items.length
@@ -206,18 +225,22 @@ function AgentsRoute() {
     queryFn: () => listAgentWorkflows(dataClient),
     enabled: Boolean(workspaceId),
   })
+
   const plans = plansQuery.data ?? []
   const effectivePlanId = planId ?? plans.at(0)?.id ?? null
+
   const stepsQuery = useQuery({
     queryKey: agentWorkflowQueryKeys.steps(effectivePlanId ?? ''),
     queryFn: () => listAgentWorkflowSteps(dataClient, effectivePlanId ?? ''),
     enabled: Boolean(effectivePlanId),
   })
+
   const planEventsQuery = useQuery({
     queryKey: agentWorkflowQueryKeys.events(effectivePlanId ?? ''),
     queryFn: () => listAgentWorkflowEvents(dataClient, effectivePlanId ?? ''),
     enabled: Boolean(effectivePlanId),
   })
+
   const proposalEventsQuery = useQuery({
     queryKey: agentOperationQueryKeys.events(effectiveProposalId ?? ''),
     queryFn: () =>
@@ -239,10 +262,12 @@ function AgentsRoute() {
       queryClient.invalidateQueries({ queryKey: agentRegistryQueryKeys.runs }),
     ])
   }
+
   const refreshPolicies = () =>
     queryClient.invalidateQueries({
       queryKey: agentOperationQueryKeys.policies,
     })
+
   const refreshPlans = async (workflow: AgentWorkflow) => {
     await Promise.all([
       queryClient.invalidateQueries({
@@ -270,6 +295,7 @@ function AgentsRoute() {
       meaning: string | null
     }) => {
       let current = p
+
       if (p.signature_required && !p.approval_meaning) {
         if (!meaning)
           throw new Error(t('data.pipelinesAgents.signApproveProposal'))
@@ -279,11 +305,13 @@ function AgentsRoute() {
           meaning,
         })
       }
+
       const approved = await decideAgentOperation(dataClient, {
         proposalId: p.id,
         expectedRevision: proposalRevision(current),
         decision: 'approve',
       })
+
       return executeAgentOperation(dataClient, {
         proposalId: p.id,
         expectedRevision: proposalRevision(approved),
@@ -291,6 +319,7 @@ function AgentsRoute() {
     },
     onSettled: (_result, _error, { p }) => refreshProposals(p.id),
   })
+
   const reject = useMutation({
     mutationFn: ({
       p,
@@ -307,6 +336,7 @@ function AgentsRoute() {
       }),
     onSuccess: (p) => refreshProposals(p.id),
   })
+
   const execute = useMutation({
     mutationFn: (p: AgentOperationProposal) =>
       executeAgentOperation(dataClient, {
@@ -315,6 +345,7 @@ function AgentsRoute() {
       }),
     onSettled: (_result, _error, p) => refreshProposals(p.id),
   })
+
   const toggle = useMutation({
     mutationFn: ({
       definition,
@@ -332,6 +363,7 @@ function AgentsRoute() {
         queryKey: agentRegistryQueryKeys.definitions,
       }),
   })
+
   const changePolicy = useMutation({
     mutationFn: (input: Parameters<typeof changeAgentPolicy>[1]) =>
       changeAgentPolicy(dataClient, input),
@@ -345,6 +377,7 @@ function AgentsRoute() {
         }),
       ]),
   })
+
   const createPolicy = useMutation({
     mutationFn: (input: {
       name: string
@@ -368,19 +401,23 @@ function AgentsRoute() {
       }),
     onSuccess: refreshPolicies,
   })
+
   const disablePolicy = useMutation({
     mutationFn: (policyId: string) =>
       disableAgentOperationPolicy(dataClient, { workspaceId, policyId }),
     onSuccess: refreshPolicies,
   })
+
   const advance = useMutation({
     mutationFn: (w: AgentWorkflow) => advanceAgentWorkflow(dataClient, w),
     onSuccess: refreshPlans,
   })
+
   const resume = useMutation({
     mutationFn: (w: AgentWorkflow) => resumeAgentWorkflow(dataClient, w),
     onSuccess: refreshPlans,
   })
+
   const cancel = useMutation({
     mutationFn: ({ w, reason }: { w: AgentWorkflow; reason: string }) =>
       cancelAgentWorkflow(dataClient, { workflow: w, reason }),
@@ -394,6 +431,7 @@ function AgentsRoute() {
       : execute.isPending
         ? 'execute'
         : null
+
   const pendingPlan = advance.isPending
     ? 'advance'
     : resume.isPending
@@ -404,8 +442,10 @@ function AgentsRoute() {
 
   const message = (error: unknown) =>
     error instanceof Error ? error.message : null
+
   const proposalError =
     message(approve.error) ?? message(reject.error) ?? message(execute.error)
+
   const loadError =
     proposalsQuery.error ??
     policiesQuery.error ??

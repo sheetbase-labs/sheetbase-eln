@@ -8,6 +8,7 @@ import {
 } from './webhook-signing'
 
 const SECRET = 'test-signing-secret-32-chars-min!!!'
+
 const BODY = JSON.stringify({
   schemaVersion: '1',
   eventType: 'record.created',

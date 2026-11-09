@@ -20,7 +20,9 @@ const meta = {
   tags: ['autodocs'],
   parameters: { layout: 'fullscreen' },
 } satisfies Meta<typeof OfflineStatusBanner>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Offline with two drafts waiting on the device. */

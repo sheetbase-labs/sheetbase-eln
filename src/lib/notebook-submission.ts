@@ -55,7 +55,9 @@ export function submissionReadinessChecks(
 ): SubmissionCheck[] {
   const submittableState =
     !input.archivedAt && !input.lockedAt && !input.activeReview
+
   const minReviewers = Math.max(1, input.minReviewers ?? 1)
+
   const checks: SubmissionCheck[] = [
     {
       id: 'unsaved-drafts',
@@ -98,6 +100,7 @@ export function submissionReadinessChecks(
             : `Your workspace asks for at least ${minReviewers} reviewers on every submission.`,
     },
   ]
+
   if ((input.sheetCount ?? 0) > 0)
     checks.push({
       id: 'sheet-edits',
@@ -106,6 +109,7 @@ export function submissionReadinessChecks(
       detail:
         'Open each sheet and make sure its latest cell edits are saved. This dialog can’t see edits inside a sheet.',
     })
+
   return checks
 }
 
@@ -119,12 +123,16 @@ export function submissionHasBlockingChecks(
 /** Sheet Instance ids embedded in the record, in document order. */
 export function submissionSheetInstanceIds(blocks: NotebookBlock[]): string[] {
   const ids: string[] = []
+
   for (const block of blocks) {
     if (block.type !== 'sheet' && block.type !== 'sheet_shared') continue
+
     if (!isCanonicalSheetBlock(block.payload)) continue
     const id = sheetBlockInstanceId(block.payload)
+
     if (id && !ids.includes(id)) ids.push(id)
   }
+
   return ids
 }
 
@@ -146,13 +154,17 @@ export function submissionCompositionSummary(blocks: NotebookBlock[]): {
 /** Key-stable JSON serialisation so payloads compare regardless of key order. */
 export function stableStringify(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value)
+
   if (Array.isArray(value)) {
     return `[${value.map((item) => stableStringify(item)).join(',')}]`
   }
+
   const entries = Object.entries(value as Record<string, unknown>).filter(
     ([, v]) => v !== undefined,
   )
+
   entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+
   return `{${entries
     .map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`)
     .join(',')}}`
@@ -161,10 +173,12 @@ export function stableStringify(value: unknown): string {
 /** Compact FNV-1a hash — change detection only, not cryptographic. */
 function fnv1a(input: string): string {
   let hash = 0x811c9dc5
+
   for (let i = 0; i < input.length; i++) {
     hash ^= input.charCodeAt(i)
     hash = Math.imul(hash, 0x01000193)
   }
+
   return (hash >>> 0).toString(16)
 }
 
@@ -188,6 +202,7 @@ export function submissionCanonicalSignature(
   input: SubmissionCanonicalInput,
 ): string {
   const { record, blocks } = input
+
   const blockPart = [...blocks]
     .sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))
     .map(
@@ -195,6 +210,7 @@ export function submissionCanonicalSignature(
         `${block.id}:${block.type}:${block.order}:${block.version}:${block.payloadSchemaVersion}:${fnv1a(stableStringify(block.payload))}`,
     )
     .join(',')
+
   const recordPart = record
     ? [
         record.id,
@@ -209,5 +225,6 @@ export function submissionCanonicalSignature(
         stableStringify(record.properties),
       ].join('|')
     : 'no-record'
+
   return `${recordPart}#${blockPart}`
 }

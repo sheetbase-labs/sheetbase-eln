@@ -26,6 +26,7 @@ const meta = {
 } satisfies Meta<typeof RecordUnavailable>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const NotFound: Story = {}

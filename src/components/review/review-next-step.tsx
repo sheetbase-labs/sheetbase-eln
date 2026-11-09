@@ -25,6 +25,7 @@ export function ReviewNextStepPanel({
 }) {
   const work = useWorkItems(reviewsDataClient)
   const next = work.data ? nextReviewItem(work.data, currentRevisionId) : null
+
   return (
     <section
       aria-label={t('projects.nextStep.label')}

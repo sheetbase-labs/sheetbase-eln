@@ -46,7 +46,9 @@ import { dateTimeFormat } from '#/lib/intl-cache'
 function formatCredentialDate(timestamp: string | null | undefined): string {
   if (!timestamp) return t('settings.credentials.never')
   const date = new Date(timestamp)
+
   if (!Number.isFinite(date.getTime())) return t('settings.credentials.never')
+
   return dateTimeFormat('en-GB', {
     timeZone: getDisplayTimeZone(),
     day: '2-digit',
@@ -68,6 +70,7 @@ function ScopeSummary({ scopes }: { scopes: readonly Scope[] }) {
       </span>
     )
   }
+
   return (
     <details className="group">
       <summary className="cursor-pointer text-label text-fg-muted hover:text-fg">
@@ -175,6 +178,7 @@ export function SettingsCredentials({
   const [expiresAt, setExpiresAt] = useState('')
   const [selected, setSelected] = useState<Set<Scope>>(() => new Set<Scope>())
   const [showInactive, setShowInactive] = useState(false)
+
   // Revoking is permanent and rotating invalidates the live secret, so both ask
   // first: the row buttons only pick the action.
   const [confirming, setConfirming] = useState<{
@@ -192,8 +196,10 @@ export function SettingsCredentials({
   function toggle(scope: Scope) {
     setSelected((current) => {
       const next = new Set(current)
+
       if (next.has(scope)) next.delete(scope)
       else next.add(scope)
+
       return next
     })
   }
@@ -201,11 +207,13 @@ export function SettingsCredentials({
   function toggleGroup(group: (typeof SCOPE_GROUPS)[number]) {
     setSelected((current) => {
       const next = new Set(current)
+
       if (group.scopes.every((scope) => next.has(scope))) {
         for (const scope of group.scopes) next.delete(scope)
       } else {
         for (const scope of group.scopes) next.add(scope)
       }
+
       return next
     })
   }
@@ -213,6 +221,7 @@ export function SettingsCredentials({
   function submit(event: React.FormEvent) {
     event.preventDefault()
     const scopes = [...selected]
+
     if (!name.trim() || scopes.length === 0) return
     onCreate(
       name.trim(),
@@ -228,6 +237,7 @@ export function SettingsCredentials({
   const isInactive = (row: CredentialRow) =>
     Boolean(row.revokedAt) ||
     (Boolean(row.expiresAt) && new Date(row.expiresAt!).getTime() <= Date.now())
+
   const activeRows = tokens.filter((row) => !isInactive(row))
   const inactiveCount = tokens.length - activeRows.length
   const visibleRows = showInactive ? tokens : activeRows
@@ -237,8 +247,10 @@ export function SettingsCredentials({
 
   function stateFor(row: CredentialRow) {
     const isRevoked = Boolean(row.revokedAt)
+
     const isExpired =
       Boolean(row.expiresAt) && new Date(row.expiresAt!).getTime() <= Date.now()
+
     return {
       isRevoked,
       isExpired,
@@ -349,6 +361,7 @@ export function SettingsCredentials({
               <TableBody>
                 {visibleRows.map((row) => {
                   const state = stateFor(row)
+
                   return (
                     <TableRow key={row.id}>
                       <TableCell className="whitespace-normal">
@@ -416,6 +429,7 @@ export function SettingsCredentials({
           <div className="grid gap-2 md:grid-cols-2 xl:hidden">
             {visibleRows.map((row) => {
               const state = stateFor(row)
+
               return (
                 <div
                   key={row.id}
@@ -565,6 +579,7 @@ export function SettingsCredentials({
                     const allSelected = group.scopes.every((scope) =>
                       selected.has(scope),
                     )
+
                     return (
                       <div key={group.title} className="flex flex-col gap-2">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -673,6 +688,7 @@ export function SettingsCredentials({
               }
               onClick={() => {
                 if (!confirming) return
+
                 if (confirming.kind === 'rotate') onRotate(confirming.row.id)
                 else onRevoke(confirming.row.id)
                 setConfirming(null)

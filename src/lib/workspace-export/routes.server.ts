@@ -38,22 +38,27 @@ async function authorise(
   | { ok: false; response: Response }
 > {
   const auth = await resolveSessionAuth(request.headers, deps.auth)
+
   if (!auth.ok) {
     return {
       ok: false,
       response: requestErrorResponse(auth.status, auth.code, auth.message),
     }
   }
+
   const { userId, workspaceId } = auth.context
+
   if (!(await deps.canManage(userId, workspaceId))) {
     return { ok: false, response: notAllowed() }
   }
+
   return { ok: true, userId, workspaceId }
 }
 
 function archiveFilename(slug: string, when: Date): string {
   const day = when.toISOString().slice(0, 10).replace(/-/g, '')
   const safe = slug.replace(/[^a-z0-9-]+/gi, '-').replace(/^-+|-+$/g, '')
+
   return `sheetbase-${safe || 'workspace'}-${day}.zip`
 }
 
@@ -65,6 +70,7 @@ async function workspaceSlug(
     'SELECT slug FROM api.workspaces WHERE id = $1::uuid',
     [workspaceId],
   )
+
   return (rows[0]?.slug as string | undefined) ?? 'workspace'
 }
 
@@ -103,13 +109,17 @@ function closingWithReceipt(
   finish: () => Promise<void>,
 ): ReadableStream<Uint8Array> {
   const reader = source.getReader()
+
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
       const { done, value } = await reader.read()
+
       if (!done) {
         controller.enqueue(value)
+
         return
       }
+
       try {
         await finish()
         controller.close()
@@ -127,14 +137,18 @@ export async function handleWorkspaceExport(
   deps: WorkspaceExportRouteDeps,
 ): Promise<Response> {
   const who = await authorise(request, deps)
+
   if (!who.ok) return who.response
   const backup = deps.backup()
   const objectId = crypto.randomUUID()
+
   const { stream, summary } = createWorkspaceArchive(who.workspaceId, {
     ...backup.archive,
     now: backup.now,
   })
+
   let bytes = 0
+
   const counted = stream.pipeThrough(
     new TransformStream<Uint8Array, Uint8Array>({
       transform(chunk, controller) {
@@ -143,6 +157,7 @@ export async function handleWorkspaceExport(
       },
     }),
   )
+
   const body = closingWithReceipt(counted, async () => {
     const counts: ArchiveSummary = await summary
     await recordReceipt(backup, {
@@ -154,6 +169,7 @@ export async function handleWorkspaceExport(
       byteSize: bytes,
     })
   })
+
   return new Response(body, {
     headers: {
       'content-type': 'application/zip',
@@ -173,16 +189,22 @@ export async function handleBackupDownload(
   deps: WorkspaceExportRouteDeps,
 ): Promise<Response> {
   const who = await authorise(request, deps)
+
   if (!who.ok) return who.response
+
   if (!/^[0-9a-f-]{36}$/i.test(backupId)) {
     return requestErrorResponse(404, 'not_found', 'Backup not found.')
   }
+
   const backup = deps.backup()
   const found = await findBackup(backup.pool, who.workspaceId, backupId)
+
   if (!found || found.status !== 'succeeded' || !found.storageKey) {
     return requestErrorResponse(404, 'not_found', 'Backup not found.')
   }
+
   let opened
+
   try {
     opened = await backup.destination.storage.getStream(found.storageKey)
   } catch {
@@ -192,6 +214,7 @@ export async function handleBackupDownload(
       'This backup is no longer in storage.',
     )
   }
+
   await recordReceipt(backup, {
     workspaceId: who.workspaceId,
     userId: who.userId,
@@ -200,6 +223,7 @@ export async function handleBackupDownload(
     rowCount: found.rowCount,
     byteSize: found.byteSize,
   })
+
   return new Response(opened.stream, {
     headers: {
       'content-type': 'application/zip',

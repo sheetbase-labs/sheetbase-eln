@@ -32,6 +32,7 @@ const ALICE_DRAFTS: Draft[] = [
   { id: 'edit-1', text: 'Alice: 4.2 mM' },
   { id: 'edit-2', text: 'Alice: incubation 30 min' },
 ]
+
 const BOB_DRAFTS: Draft[] = [{ id: 'edit-3', text: 'Bob: pH 7.1' }]
 
 const scopeKey = (userId: string, recordId: string) =>
@@ -42,7 +43,9 @@ function createDeviceStore() {
     [scopeKey(ALICE, RECORD_ONE), [...ALICE_DRAFTS]],
     [scopeKey(BOB, RECORD_TWO), [...BOB_DRAFTS]],
   ])
+
   const discarded: string[] = []
+
   const port: RetainedDraftStore<Draft> = {
     listScopes: async (userId) =>
       [...entries.keys()]
@@ -53,6 +56,7 @@ function createDeviceStore() {
       ...(entries.get(scopeKey(userId, recordId)) ?? []),
     ],
   }
+
   return {
     port,
     /** Every byte the device currently holds, for a before/after comparison. */
@@ -133,10 +137,12 @@ describe('EXP-05.5 sign-out retention', () => {
   it('wires the port straight onto the real device store', async () => {
     // The one-line-per-method wiring EXP-05.1 leaves us, exercised end to end.
     const store = createOfflineEditStore(createInMemoryStorage())
+
     const port: RetainedDraftStore<OfflineEdit> = {
       listScopes: (userId) => store.listScopes(userId),
       listDrafts: (scope) => store.listEdits(scope),
     }
+
     await store.putEdit(
       { userId: ALICE, recordId: RECORD_ONE },
       {

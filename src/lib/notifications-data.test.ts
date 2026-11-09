@@ -29,6 +29,7 @@ describe('notificationDestination', () => {
     const reviews = new Map([
       ['record-1', { revisionId: 'rev-9', state: 'submitted' }],
     ])
+
     expect(notificationDestination(notification(), reviews)).toBe(
       '/review/rev-9',
     )
@@ -44,6 +45,7 @@ describe('notificationDestination', () => {
     const reviews = new Map([
       ['record-1', { revisionId: 'rev-9', state: 'returned' }],
     ])
+
     expect(
       notificationDestination(
         notification({ eventType: 'review_returned_or_signed' }),
@@ -75,6 +77,7 @@ describe('fetchLatestReviews', () => {
       { record_id: 'record-1', revision_id: 'rev-new', state: 'submitted' },
       { record_id: 'record-1', revision_id: 'rev-old', state: 'returned' },
     ])
+
     const latest = await fetchLatestReviews(
       [
         notification(),
@@ -83,6 +86,7 @@ describe('fetchLatestReviews', () => {
       ],
       { list } as unknown as DataClient,
     )
+
     expect(list).toHaveBeenCalledTimes(1)
     expect(latest.get('record-1')).toEqual({
       revisionId: 'rev-new',
@@ -92,10 +96,12 @@ describe('fetchLatestReviews', () => {
 
   it('does not ask when no notification is about a review', async () => {
     const list = vi.fn(async () => [])
+
     const latest = await fetchLatestReviews(
       [notification({ eventType: 'comment_or_mention' })],
       { list } as unknown as DataClient,
     )
+
     expect(list).not.toHaveBeenCalled()
     expect(latest.size).toBe(0)
   })

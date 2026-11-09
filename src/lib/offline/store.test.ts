@@ -112,15 +112,18 @@ describe('offline edit store', () => {
     const texts = (await store.listEdits(scope)).map((edit) =>
       edit.kind === 'block_text' ? edit.text : edit.kind,
     )
+
     expect(texts).toEqual(['first', 'second', 'third'])
   })
 
   it('isolates edits per user and per record', async () => {
     const store = createOfflineEditStore(createInMemoryStorage())
+
     const otherUser: OfflineEditScope = {
       userId: 'user-b',
       recordId: 'record-1',
     }
+
     const otherRecord: OfflineEditScope = {
       userId: 'user-a',
       recordId: 'record-2',
@@ -211,6 +214,7 @@ describe('offline edit store', () => {
     const storage = createInMemoryStorage({
       [offlineEditsKey(scope)]: { not: 'an array' },
     })
+
     const store = createOfflineEditStore(storage)
 
     await expect(store.listEdits(scope)).resolves.toEqual([])
@@ -225,6 +229,7 @@ describe('offline edit store', () => {
       const storage = createInMemoryStorage({
         [offlineEditsKey(scope)]: stored,
       })
+
       const store = createOfflineEditStore(storage)
 
       await expect(store.listEdits(scope)).resolves.toEqual([])
@@ -241,6 +246,7 @@ describe('offline edit store', () => {
       blockId: 'block-1',
       text: 'valid',
     }
+
     const storage = createInMemoryStorage({
       [offlineEditsKey(scope)]: [
         valid,
@@ -253,6 +259,7 @@ describe('offline edit store', () => {
         { ...valid, id: 'edit-5', kind: 'cell', rowId: undefined },
       ],
     })
+
     const store = createOfflineEditStore(storage)
 
     const edits = await store.listEdits(scope)
@@ -264,6 +271,7 @@ describe('offline edit store', () => {
     const storage = createInMemoryStorage({
       [offlineEditsKey(scope)]: ['garbage', { nonsense: true }],
     })
+
     const store = createOfflineEditStore(storage)
 
     const saved = await store.putEdit(scope, draft({ text: 'recovered' }))
@@ -305,6 +313,7 @@ describe('offline edit store', () => {
     const storage = createInMemoryStorage({
       [offlineEditsKey({ userId: 'user-a', recordId: 'corrupt' })]: ['junk'],
     })
+
     const store = createOfflineEditStore(storage)
     const first: OfflineEditScope = { userId: 'user-a', recordId: 'record-1' }
     const saved = await store.putEdit(first, draft())
@@ -319,6 +328,7 @@ describe('offline edit store', () => {
     const storage = createInMemoryStorage({
       'sheetbase-offline-edits-v1:user-a:%E0%A4%A': ['junk'],
     })
+
     const store = createOfflineEditStore(storage)
     await store.putEdit(scope, draft())
 
@@ -327,11 +337,13 @@ describe('offline edit store', () => {
 
   it('reports no scopes when the backend cannot enumerate keys', async () => {
     const backend = createInMemoryStorage()
+
     const store = createOfflineEditStore({
       get: backend.get,
       set: backend.set,
       delete: backend.delete,
     })
+
     await store.putEdit(scope, draft())
 
     await expect(store.listScopes('user-a')).resolves.toEqual([])
@@ -343,6 +355,7 @@ describe('offline edit store', () => {
     await store.putEdit(scope, draft({ text: 'original' }))
 
     const [read] = await store.listEdits(scope)
+
     if (read.kind === 'block_text') read.text = 'mutated'
 
     const [reread] = await store.listEdits(scope)

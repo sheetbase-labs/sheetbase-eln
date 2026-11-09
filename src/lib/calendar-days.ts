@@ -14,17 +14,22 @@ export function calendarDay(value: string | Date): number | null {
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return Math.round(Date.parse(value) / DAY_MS)
   }
+
   const instant =
     typeof value === 'string' ? Date.parse(value) : value.getTime()
+
   if (Number.isNaN(instant)) return null
+
   const parts = dateTimeFormat('en-GB', {
     timeZone: getDisplayTimeZone(),
     year: 'numeric',
     month: 'numeric',
     day: 'numeric',
   }).formatToParts(new Date(instant))
+
   const part = (type: string) =>
     Number(parts.find((p) => p.type === type)?.value)
+
   return Math.round(
     Date.UTC(part('year'), part('month') - 1, part('day')) / DAY_MS,
   )
@@ -38,6 +43,8 @@ export function calendarDay(value: string | Date): number | null {
 export function daysUntilDate(due: string | Date, now: Date): number | null {
   const dueDay = calendarDay(due)
   const today = calendarDay(now)
+
   if (dueDay === null || today === null) return null
+
   return dueDay - today
 }

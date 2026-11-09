@@ -22,8 +22,10 @@ export const SEMANTIC_OBJECT_TYPES = [
 
 /** About 300 words: enough context to mean something, small enough to match one idea. */
 export const CHUNK_TARGET_CHARS = 1400
+
 /** Overlap so an idea that straddles a cut is still whole in one chunk. */
 export const CHUNK_OVERLAP_CHARS = 200
+
 /** Cost bound per object: the first ~60 000 characters. */
 export const MAX_CHARS_PER_OBJECT = 60_000
 export const MAX_CHUNKS_PER_OBJECT = 48
@@ -59,37 +61,48 @@ export function chunkHeading(doc: EmbeddableDocument): string {
  */
 export function chunkDocument(doc: EmbeddableDocument): TextChunk[] {
   const heading = chunkHeading(doc)
+
   const body = doc.body
     .replace(/\r\n?/g, '\n')
     .replace(/[ \t]+/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
     .slice(0, MAX_CHARS_PER_OBJECT)
+
   if (body === '') return heading === '' ? [] : [{ chunkNo: 0, text: heading }]
 
   const room = Math.max(200, CHUNK_TARGET_CHARS - heading.length - 2)
   const pieces: string[] = []
   let start = 0
+
   while (start < body.length && pieces.length < MAX_CHUNKS_PER_OBJECT) {
     let end = Math.min(body.length, start + room)
+
     if (end < body.length) {
       const window = body.slice(start, end)
+
       const cut = Math.max(
         window.lastIndexOf('\n\n'),
         window.lastIndexOf('. '),
         window.lastIndexOf('\n'),
       )
+
       if (cut > room * 0.5) end = start + cut + 1
       else {
         const space = window.lastIndexOf(' ')
+
         if (space > room * 0.5) end = start + space
       }
     }
+
     const piece = body.slice(start, end).trim()
+
     if (piece !== '') pieces.push(piece)
+
     if (end >= body.length) break
     start = Math.max(end - CHUNK_OVERLAP_CHARS, start + 1)
   }
+
   return pieces.map((piece, chunkNo) => ({
     chunkNo,
     text: heading === '' ? piece : `${heading}\n${piece}`,
@@ -134,10 +147,12 @@ export interface SemanticHit {
 
 export function toSemanticHit(row: SemanticHitWire): SemanticHit {
   const lines = row.passage.split('\n')
+
   // Chunks open with "IDENTIFIER · Title"; the passage is what follows.
   const passage = (lines.length > 1 ? lines.slice(1).join(' ') : row.passage)
     .replace(/\s+/g, ' ')
     .trim()
+
   return {
     type: row.object_type,
     id: row.object_id,
@@ -172,6 +187,7 @@ export function fuseRankings<T extends RankedKey>(
   limit: number,
 ): Array<{ item: T; score: number; sources: number }> {
   const merged = new Map<string, { item: T; score: number; sources: number }>()
+
   for (const list of lists) {
     list.forEach((item, rank) => {
       const key = `${item.type}:${item.id}`
@@ -181,6 +197,7 @@ export function fuseRankings<T extends RankedKey>(
       merged.set(key, entry)
     })
   }
+
   return [...merged.values()].sort((a, b) => b.score - a.score).slice(0, limit)
 }
 

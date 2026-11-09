@@ -163,8 +163,10 @@ function client() {
       },
     },
   })
+
   instance.setQueryData(DATASETS_QUERY_KEY, [dataset])
   instance.setQueryData(importQueryKeys.file(IMPORT_ID), file)
+
   return instance
 }
 
@@ -184,6 +186,7 @@ function notFoundClient() {
       },
     },
   })
+
   void instance.fetchQuery({
     queryKey: importQueryKeys.file(IMPORT_ID),
     queryFn: () =>
@@ -192,6 +195,7 @@ function notFoundClient() {
       ),
   })
   instance.setQueryData(DATASETS_QUERY_KEY, [dataset])
+
   return instance
 }
 
@@ -202,16 +206,19 @@ function untargetedClient() {
       queries: { retry: false, queryFn: () => new Promise(() => {}) },
     },
   })
+
   instance.setQueryData(importQueryKeys.file(IMPORT_ID), {
     ...file,
     datasetId: null,
   })
   instance.setQueryData(DATASETS_QUERY_KEY, [dataset])
+
   return instance
 }
 
 function Caller({ initialSearch }: { initialSearch: ImportSearch }) {
   const [search, setSearch] = useState(initialSearch)
+
   return (
     <ImportMapCheckFlow
       importId={IMPORT_ID}
@@ -240,7 +247,9 @@ const meta = {
     onSearch: () => {},
   },
 } satisfies Meta<typeof ImportMapCheckFlow>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Step 2: the file's headers against the Dataset's fields. */
@@ -282,6 +291,7 @@ export const UnparsedFile: Story = {
             parser: null,
             sheet: null,
           })
+
           return refused
         })()}
       >

@@ -21,7 +21,9 @@ import type {
 
 function uniqueName(base: string, taken: string[]): string {
   let n = taken.length + 1
+
   while (taken.includes(`${base}_${n}`)) n += 1
+
   return `${base}_${n}`
 }
 
@@ -42,16 +44,22 @@ export function addParameter(list: PipelineParameter[]): PipelineParameter[] {
 /** A parameter's default as the type's value, or undefined for blank/invalid. */
 export function parseDefault(type: ParameterType, text: string): unknown {
   const trimmed = text.trim()
+
   if (!trimmed) return undefined
+
   switch (type) {
     case 'integer': {
       const n = Number(trimmed)
+
       return Number.isInteger(n) ? n : undefined
     }
+
     case 'decimal': {
       const n = Number(trimmed)
+
       return Number.isFinite(n) ? n : undefined
     }
+
     case 'boolean':
       return trimmed === 'true' ? true : trimmed === 'false' ? false : undefined
     default:
@@ -67,9 +75,12 @@ export function updateParameter(
   return list.map((parameter, position) => {
     if (position !== index) return parameter
     const next = { ...parameter, ...patch }
+
     // A required parameter has no default, and a default belongs to a type.
     if (next.required || patch.type !== undefined) delete next.default
+
     if (next.default === undefined) delete next.default
+
     return next
   })
 }
@@ -109,13 +120,17 @@ export function setStepLanguage(
 ): PipelineStep[] {
   return list.map((step, position) => {
     if (position !== index || step.language === language) return step
+
     // A plugin step has no code or data contract; a pause for a person carries
     // over, and the plugin it runs starts empty.
     if (language === 'plugin') {
       const { contract: _contract, ...rest } = step
+
       return { ...rest, language, statement: '' }
     }
+
     const { contract, plugin: _plugin, ...rest } = step
+
     return {
       ...rest,
       language,
@@ -139,6 +154,7 @@ export function setStepPlugin(
   return list.map((step, position) => {
     if (position !== index) return step
     const { plugin: _previous, ...rest } = step
+
     return { ...rest, ...(plugin ? { plugin } : {}) }
   })
 }
@@ -154,6 +170,7 @@ export function statementForLanguage(
   sqlStarter = '',
 ): string {
   if (!isStarterStatement(statement)) return statement
+
   return language === 'python' ? pythonSkeleton(context) : sqlStarter
 }
 
@@ -163,8 +180,10 @@ export function updateStep(
   patch: Partial<PipelineStep>,
 ): PipelineStep[] {
   const renamed = patch.name !== undefined ? list[index].name : null
+
   return list.map((step, position) => {
     if (position === index) return { ...step, ...patch }
+
     // A rename follows the skips that pointed at the old name.
     if (renamed && step.confirm?.skipSteps?.includes(renamed)) {
       return {
@@ -177,6 +196,7 @@ export function updateStep(
         },
       }
     }
+
     return step
   })
 }
@@ -190,6 +210,7 @@ export function setStepContract(
   return list.map((step, position) => {
     if (position !== index) return step
     const { contract: _old, ...rest } = step
+
     return contract ? { ...rest, contract } : rest
   })
 }
@@ -200,9 +221,13 @@ export function moveStep(
   direction: -1 | 1,
 ): PipelineStep[] {
   const target = index + direction
+
   if (target < 0 || target >= list.length) return list
+
   const next = [...list]
+
   ;[next[index], next[target]] = [next[target], next[index]]
+
   return next
 }
 
@@ -211,10 +236,12 @@ export function removeStep(
   index: number,
 ): PipelineStep[] {
   const name = list[index].name
+
   return list
     .filter((_, position) => position !== index)
     .map((step) => {
       if (!step.confirm?.skipSteps?.includes(name)) return step
+
       return {
         ...step,
         confirm: {
@@ -243,6 +270,7 @@ export function setStepConfirm(
   return list.map((step, position) => {
     if (position !== index) return step
     const { confirm: _old, ...rest } = step
+
     return confirm ? { ...rest, confirm } : rest
   })
 }
@@ -253,7 +281,9 @@ export function setConfirmPatch(
   patch: Partial<PipelineStepConfirm>,
 ): PipelineStep[] {
   const confirm = list[index].confirm
+
   if (!confirm) return list
+
   return setStepConfirm(list, index, { ...confirm, ...patch })
 }
 
@@ -269,8 +299,10 @@ export function suggestPipelineKey(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
+
   if (!slug) return ''
   const lettered = /^[a-z]/.test(slug) ? slug : `p_${slug}`
+
   return lettered.slice(0, 60).replace(/_+$/, '')
 }
 
@@ -283,6 +315,7 @@ export function columnForField(
   for (const [column, target] of Object.entries(mapping ?? {})) {
     if (target === fieldKey) return column
   }
+
   return ''
 }
 
@@ -294,11 +327,15 @@ export function setFieldColumn(
   column: string,
 ): Record<string, string> | null {
   const next: Record<string, string> = {}
+
   for (const [existing, target] of Object.entries(mapping ?? {})) {
     if (target !== fieldKey) next[existing] = target
   }
+
   const trimmed = column.trim()
+
   if (trimmed && trimmed !== fieldKey) next[trimmed] = fieldKey
+
   return Object.keys(next).length ? next : null
 }
 
@@ -320,11 +357,14 @@ export function checkOutputFit(
   const keys = new Set(fields.map((f) => f.key))
   const fed = new Set<string>()
   const unmatched: string[] = []
+
   for (const column of resultColumns) {
     const target = mapping?.[column] ?? column
+
     if (keys.has(target)) fed.add(target)
     else unmatched.push(column)
   }
+
   return {
     missing: fields
       .filter((f) => f.required && !fed.has(f.key))

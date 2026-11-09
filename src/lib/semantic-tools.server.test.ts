@@ -40,20 +40,25 @@ describe('search tools for the assistant and MCP', () => {
       { query: 'base editing' },
       { client: clientWith(settings({})), workspaceId: 'w' },
     )
+
     expect(result.isError).toBe(true)
     expect(result.text).toContain('Settings, AI')
   })
 
   it('refuses literature search until an owner turns it on', async () => {
     let called = false
+
     const fetch: FetchLike = async () => {
       called = true
+
       return { ok: true, status: 200, json: async () => ({}) }
     }
+
     const off = await runLiteratureSearch(
       { query: 'crispr' },
       { client: clientWith(settings({})), workspaceId: 'w', fetch },
     )
+
     expect(off.isError).toBe(true)
     expect(called).toBe(false)
 
@@ -73,6 +78,7 @@ describe('search tools for the assistant and MCP', () => {
         }),
       },
     )
+
     expect(on.isError).toBe(false)
     expect(on.text).toContain('https://doi.org/10.1/x')
   })
@@ -87,6 +93,7 @@ describe('search tools for the assistant and MCP', () => {
         workspaceId: 'w',
       },
     )
+
     expect(result.isError).toBe(true)
   })
 })

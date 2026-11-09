@@ -62,6 +62,7 @@ export function fetchCellConflicts(
 ): Promise<CellConflictRow[]> {
   const state = options.state ? `&state=eq.${options.state}` : ''
   const limit = options.limit ?? 50
+
   return client.list<CellConflictRow>(
     'sheet_cell_conflicts',
     `?sheet_instance_id=eq.${instanceId}${state}&order=created_at.desc&limit=${limit}`,
@@ -89,11 +90,16 @@ export function resolveCellConflict(
  */
 export function parseEnteredValue(text: string): unknown {
   const trimmed = text.trim()
+
   if (trimmed === '') return ''
+
   if (trimmed === 'true') return true
+
   if (trimmed === 'false') return false
   const asNumber = Number(trimmed)
+
   if (Number.isFinite(asNumber)) return asNumber
+
   return trimmed
 }
 
@@ -148,6 +154,7 @@ export function CellConflictPanel({
       conflict.resolved_by_user_id,
     ].filter((id): id is string => Boolean(id) && id !== currentUserId)
   }, [conflict, currentUserId])
+
   const { userLabel } = useUserNames(authorIds)
 
   // The database guarantees a resolved row carries its resolver, time and
@@ -172,21 +179,26 @@ export function CellConflictPanel({
   }
 
   const trimmedReason = reason.trim()
+
   const reasonValid =
     trimmedReason.length > 0 && trimmedReason.length <= CONFLICT_REASON_MAX
+
   const valueReady = side !== 'other' || entered.trim() !== ''
   const canResolve = valueReady && reasonValid && !pending
 
   async function submit() {
     if (!canResolve) return
+
     const value =
       side === 'remote'
         ? conflict.remote_value
         : side === 'local'
           ? conflict.local_value
           : parseEnteredValue(entered)
+
     setPending(true)
     setError(null)
+
     try {
       const next = await resolveCellConflict(
         client,
@@ -194,6 +206,7 @@ export function CellConflictPanel({
         value,
         trimmedReason,
       )
+
       setConflict(next)
       onResolved?.(next)
     } catch (cause) {
@@ -214,6 +227,7 @@ export function CellConflictPanel({
         : authorUserId === currentUserId
           ? t('notebook.cellConflictPanel.you')
           : userLabel(authorUserId)
+
     return `${who} · ${formatNotebookDateTime(at)}`
   }
 
@@ -363,6 +377,7 @@ function ResolvedConflict({
   className?: string
 }) {
   const resolverId = conflict.resolved_by_user_id
+
   const resolver =
     resolverId === null
       ? t('notebook.cellConflictPanel.unknown')

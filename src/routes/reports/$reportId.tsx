@@ -46,6 +46,7 @@ import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
 
 const tabs = ['build', 'preview', 'generated'] as const
+
 type ReportTab = (typeof tabs)[number]
 
 export const Route = createFileRoute('/reports/$reportId')({
@@ -58,9 +59,11 @@ export const Route = createFileRoute('/reports/$reportId')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: ReportPage,
@@ -106,12 +109,14 @@ function ReportPage() {
     queryKey: reportKeys.detail(reportId),
     queryFn: () => fetchReport(notebookDataClient, reportId),
   })
+
   const report = query.data
   const names = useUserNames(report ? [report.createdByUserId] : [])
   useRecentViewTracking('record', report ? report.recordId : null)
 
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: reportKeys.detail(reportId) })
+
   const check = useMutation({
     mutationFn: () =>
       validateReport(notebookDataClient, {
@@ -121,6 +126,7 @@ function ReportPage() {
     onSuccess: () => void refresh(),
     onError: () => toast.error(t('projects.reports.builder.checkFailed')),
   })
+
   const generate = useMutation({
     mutationFn: () =>
       generateReport(notebookDataClient, {
@@ -141,6 +147,7 @@ function ReportPage() {
           : t('projects.reports.builder.generateFailed'),
       ),
   })
+
   const move = useMutation({
     mutationFn: (input: { id: string; direction: -1 | 1 }) =>
       reorderSections(notebookDataClient, {
@@ -155,6 +162,7 @@ function ReportPage() {
     onSuccess: () => void refresh(),
     onError: () => toast.error(t('projects.reports.section.moveFailed')),
   })
+
   const changeStatus = useMutation({
     mutationFn: (status: ReportStatus) =>
       updateReport(notebookDataClient, {
@@ -215,16 +223,21 @@ function ReportPage() {
   const status = reportStatus(report.status)
   const locked = report.lockedAt !== null
   const editable = !locked && report.status === 'draft'
+
   const readiness = (() => {
     const counts = { valid: 0, stale: 0, missing: 0 }
+
     for (const s of report.sections) {
       if (s.sourceType === 'free_text') continue
+
       if (s.validationStatus === 'stale') counts.stale += 1
       else if (s.validationStatus === 'missing_source') counts.missing += 1
       else counts.valid += 1
     }
+
     return counts
   })()
+
   const attention = readiness.stale + readiness.missing
   const ready = report.sections.length > 0 && attention === 0
 

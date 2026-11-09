@@ -14,6 +14,7 @@ const table = (
   name,
   columns,
 })
+
 const fk = (
   from: string,
   columns: string[],
@@ -22,6 +23,7 @@ const fk = (
 ): CatalogForeignKey => {
   const [schema, t] = from.split('.')
   const [refSchema, refTable] = to.split('.')
+
   return { schema, table: t, columns, refSchema, refTable, refColumns }
 }
 
@@ -51,6 +53,7 @@ const tables = [
   ]),
   table('internal', 'session', ['id', 'token', 'userId']),
 ]
+
 const keys = [
   fk('api.blocks', ['record_id'], 'api.records', ['id']),
   fk('api.block_marks', ['block_id'], 'api.blocks', ['id']),

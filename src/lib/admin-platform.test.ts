@@ -38,6 +38,7 @@ describe('buildAttentionItems', () => {
       { ...zeroCounts, deadLetterDeliveries: 2 },
       [],
     )
+
     expect(items).toHaveLength(1)
     expect(items[0]).toMatchObject({
       level: 'warning',
@@ -53,6 +54,7 @@ describe('buildAttentionItems', () => {
       { ...zeroCounts, webhookRetryDebt: 3, autoDisabledEndpoints: 1 },
       [],
     )
+
     const categories = items.map((item) => item.category)
     expect(categories).toEqual(['webhook_retry_debt', 'webhook_endpoints'])
     expect(items[1]).toMatchObject({
@@ -66,7 +68,9 @@ describe('buildAttentionItems', () => {
       { ...zeroCounts, expiredCredentials: 1, expiringCredentials: 2 },
       [],
     )
+
     expect(items).toHaveLength(2)
+
     for (const item of items) {
       expect(item).toMatchObject({
         level: 'warning',
@@ -75,6 +79,7 @@ describe('buildAttentionItems', () => {
         runbook: 'security',
       })
     }
+
     expect(items[0]?.message).toMatch(/expired/)
     expect(items[1]?.message).toMatch(/within 30 days/)
   })
@@ -84,6 +89,7 @@ describe('buildAttentionItems', () => {
       { ...zeroCounts, staleCredentials: 1 },
       [],
     )
+
     expect(items[0]).toMatchObject({
       level: 'info',
       category: 'api_credentials',
@@ -125,7 +131,9 @@ describe('buildAttentionItems', () => {
       },
       ['ext-a'],
     )
+
     expect(items.length).toBeGreaterThan(0)
+
     for (const item of items) {
       expect(item.link).toMatch(/^\/admin\//)
     }

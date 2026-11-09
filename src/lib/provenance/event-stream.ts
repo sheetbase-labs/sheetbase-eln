@@ -54,8 +54,11 @@ function holds(
 ): boolean {
   if (condition === undefined) return true
   const value = payload[condition.key]
+
   if (condition.equals !== undefined) return value === condition.equals
+
   if (condition.notEquals !== undefined) return value !== condition.notEquals
+
   return true
 }
 
@@ -67,6 +70,7 @@ export function streamEventName(
 ): string | null {
   for (const entry of EVENT_CATALOGUE) {
     const producer = entry.producer
+
     if (
       producer !== null &&
       producer.entityType === entityType &&
@@ -76,6 +80,7 @@ export function streamEventName(
       return entry.name
     }
   }
+
   return null
 }
 
@@ -91,6 +96,7 @@ export const STREAM_ENTITY_TYPES: readonly string[] = Object.freeze([
 /** The kinds of change behind some event names, to narrow the database scan. */
 export function entityTypesFor(names: ReadonlySet<string>): readonly string[] {
   if (names.size === 0) return STREAM_ENTITY_TYPES
+
   return [
     ...new Set(
       EVENT_CATALOGUE.flatMap((entry) =>
@@ -113,7 +119,9 @@ export function toCloudEvent(
 ): CloudEvent | null {
   const payload = row.payload ?? {}
   const name = streamEventName(row.entity_type, row.operation, payload)
+
   if (name === null) return null
+
   const input: ChangeEventInput = {
     id: row.id,
     workspaceId,
@@ -129,7 +137,9 @@ export function toCloudEvent(
     payload,
     createdAt: new Date(row.created_at).toISOString(),
   }
+
   const envelope = toCanonicalEnvelope(input, name)
+
   return {
     specversion: '1.0',
     id: row.id,
@@ -163,14 +173,19 @@ export function shapePage(
   names?: ReadonlySet<string>,
 ): ShapedPage {
   const events: CloudEvent[] = []
+
   for (const row of page.events) {
     const event = toCloudEvent(workspaceId, row)
+
     if (!event) continue
+
     if (names && names.size > 0) {
       if (!names.has(event.type.slice(CLOUDEVENTS_TYPE_PREFIX.length))) continue
     }
+
     events.push(event)
   }
+
   return {
     events,
     nextCursor: Number(page.nextCursor),

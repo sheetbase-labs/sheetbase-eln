@@ -61,6 +61,7 @@ export function screenRoutes(
   links: readonly string[] = [],
 ) {
   const root = createRootRoute()
+
   return root.addChildren(
     [mount, ...links].map((path) =>
       createRoute({
@@ -97,11 +98,13 @@ function readBehaviour(
 ): () => Promise<never> {
   return () => {
     if (read === 'pending') return new Promise(() => {})
+
     if (read === 'denied') {
       return Promise.reject(
         new DataClientError('permission_denied', 'Permission denied', 403),
       )
     }
+
     return Promise.reject(new Error(failureMessage))
   }
 }
@@ -133,7 +136,9 @@ export function screenQueryClient({
       },
     },
   })
+
   for (const seed of data) client.setQueryData(seed.key, seed.value)
+
   return client
 }
 
@@ -165,6 +170,7 @@ export function holdRead(
       `holdRead: the read ${JSON.stringify(key)} is already seeded with data.`,
     )
   }
+
   void client.prefetchQuery({
     queryKey: key,
     queryFn: readBehaviour(read, failureMessage),
@@ -207,14 +213,19 @@ export function stubDataClient(
         new Error(`This story answers no read named ${name}.`),
       )
     }
+
     const read = reads[name]
+
     if (read === 'pending' || read === 'denied' || read === 'error') {
       return readBehaviour(read, 'The workspace connection failed.')()
     }
+
     return Promise.resolve(read)
   }
+
   const refuse = () =>
     Promise.reject(new Error('A story never reaches the server.'))
+
   return {
     list: <T,>(resource: string) => answer(resource) as Promise<T[]>,
     count: refuse,
@@ -254,14 +265,17 @@ export function StubDataClient({
   const install = () => {
     const client = notebookDataClient as unknown as DataClientStub
     saved.current ??= {}
+
     if (stub.rpc) {
       saved.current.rpc ??= client.rpc
       client.rpc = stub.rpc
     }
+
     if (stub.list) {
       saved.current.list ??= client.list
       client.list = stub.list
     }
+
     applied.current = stub
   }
 
@@ -270,9 +284,12 @@ export function StubDataClient({
   useEffect(() => {
     // Re-install after StrictMode's effect cleanup restored the originals.
     if (applied.current !== stub) install()
+
     return () => {
       const client = notebookDataClient as unknown as DataClientStub
+
       if (saved.current?.rpc) client.rpc = saved.current.rpc
+
       if (saved.current?.list) client.list = saved.current.list
       saved.current = null
       applied.current = null
@@ -300,7 +317,9 @@ const failedResponse = (message: string) =>
 
 function requestPath(input: RequestInfo | URL): string {
   if (typeof input === 'string') return input
+
   if (input instanceof URL) return input.pathname
+
   return input.url
 }
 
@@ -311,10 +330,14 @@ function installApiReads(read: UnseededRead, message: string): () => void {
     if (!requestPath(input).startsWith('/api/')) {
       return original.call(window, input, init)
     }
+
     if (read === 'pending') return new Promise<Response>(() => {})
+
     if (read === 'denied') return Promise.resolve(deniedResponse())
+
     return Promise.resolve(failedResponse(message))
   }
+
   return () => {
     window.fetch = original
   }
@@ -349,5 +372,6 @@ function ApiReads({
   // fetch in its own mount effect, which runs before this wrapper's.
   const restore = useMemo(() => installApiReads(read, message), [read, message])
   useEffect(() => restore, [restore])
+
   return <>{children}</>
 }

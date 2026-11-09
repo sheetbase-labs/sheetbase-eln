@@ -86,19 +86,27 @@ export function resolveSheetWriteTarget(input: {
   const sourceRows = input.composition.rows.filter(
     ({ rowKey }) => rowKey === input.rowKey,
   )
+
   if (sourceRows.length > 1) throw new Error('ambiguous_target')
+
   if (sourceRows.length !== 1) throw new Error('unresolved_target')
+
   if (input.composition.localFieldIds.includes(input.columnId))
     return { kind: 'local', columnId: input.columnId, fieldId: input.columnId }
   const configuration = input.composition.definitionConfiguration
+
   if (!configuration || !input.composition.boundProjection)
     throw new Error('unresolved_target')
   const column = configuration.columns.find(({ id }) => id === input.columnId)
+
   if (!column) throw new Error('unresolved_target')
+
   if (column.source.kind === 'calculated')
     throw new Error('calculated_read_only')
+
   if (column.source.kind === 'declared') throw new Error('unresolved_target')
   const source = column.source
+
   const rules = configuration.writeBackRules.flatMap((rule) =>
     rule.bindingId === source.bindingId
       ? rule.mappings
@@ -106,21 +114,29 @@ export function resolveSheetWriteTarget(input: {
           .map(({ targetFieldId }) => targetFieldId)
       : [],
   )
+
   if (rules.length > 1) throw new Error('ambiguous_target')
+
   if (rules.length !== 1 || rules[0] !== source.sourceFieldId)
     throw new Error('unresolved_target')
+
   const projectedRows = input.composition.boundProjection.rows.filter(
     ({ rowKey }) => rowKey === input.rowKey,
   )
+
   if (projectedRows.length > 1) throw new Error('ambiguous_target')
+
   if (!projectedRows[0] || !Object.hasOwn(projectedRows[0].values, column.id))
     throw new Error('unresolved_target')
   const value = projectedRows[0].values[column.id]
+
   if (value.kind === 'unmatched') throw new Error('unresolved_target')
   const provenance = value.provenance
+
   if (provenance.sourceKind === 'dataset') {
     if (provenance.sourceRowId === null || provenance.sourceRevision === null)
       throw new Error('unresolved_target')
+
     return {
       kind: 'dataset',
       columnId: column.id,
@@ -131,6 +147,7 @@ export function resolveSheetWriteTarget(input: {
       expectedRowRevision: provenance.sourceRevision,
     }
   }
+
   return {
     kind: 'model',
     columnId: column.id,
@@ -146,21 +163,31 @@ export function sheetCellWriteError(error: unknown): SheetCellWriteError {
     error && typeof error === 'object' && 'code' in error
       ? String(error.code)
       : ''
+
   const message = error instanceof Error ? error.message : String(error)
+
   if (error instanceof SheetBatchValidationError) return 'invalid_value'
+
   if (error instanceof SheetMixedAuthorityWriteError)
     return 'mixed_authority_write'
+
   if (message.includes('ambiguous_target')) return 'ambiguous_target'
+
   if (message.includes('calculated_read_only')) return 'calculated_read_only'
+
   if (message.includes('unresolved_target')) return 'unresolved_target'
+
   if (code === '42501' || /42501|denied|permission/i.test(message))
     return 'permission_denied'
+
   if (
     ['SB001', 'SB073'].includes(code) ||
     /SB001|SB073|stale|revision|metadata version/i.test(message)
   )
     return 'stale'
+
   if (code === '23505' || /23505|conflict/i.test(message)) return 'conflict'
+
   return 'invalid_value'
 }
 
@@ -183,6 +210,7 @@ async function dispatchResolvedSheetCell(
   client: DataClient,
 ) {
   uuid.parse(input.retryToken)
+
   if (input.target.kind === 'dataset')
     return client.rpc('commit_dataset_row_batch', {
       p_dataset_id: input.target.datasetId,
@@ -197,12 +225,14 @@ async function dispatchResolvedSheetCell(
       ],
       p_idempotency_key: input.retryToken,
     })
+
   if (input.target.kind === 'model')
     return client.rpc('update_record_custom_fields', {
       p_record_id: input.target.recordId,
       p_expected_metadata_version: input.target.expectedMetadataVersion,
       p_values: { [input.target.fieldName]: input.value },
     })
+
   return mutateSheetLocalState(
     {
       instanceId: input.instanceId,
@@ -235,9 +265,11 @@ export function writeSheetCell(
   client: DataClient = createDataClient(),
 ) {
   const target = resolveSheetWriteTarget(input)
+
   const row = input.composition.rows.find(
     ({ rowKey }) => rowKey === input.rowKey,
   )!
+
   return dispatchResolvedSheetCell(
     {
       instanceId: input.composition.instanceId,
@@ -287,12 +319,16 @@ export async function writeSheetCells(
   client: DataClient = createDataClient(),
 ): Promise<void> {
   const composition = input.composition
+
   const rowByKey = new Map(
     composition.rows.map((row) => [row.rowKey, row] as const),
   )
+
   const rowAddressFor = (rowKey: string) => {
     const row = rowByKey.get(rowKey)
+
     if (!row) throw new Error('unresolved_target')
+
     return {
       kind: 'composed' as const,
       rowKey: row.rowKey,
@@ -314,6 +350,7 @@ export async function writeSheetCells(
 
   const datasetGroups = new Map<string, typeof resolved>()
   const recordGroups = new Map<string, typeof resolved>()
+
   const localCells: Array<{
     rowAddress: ReturnType<typeof rowAddressFor>
     cell: SheetCellWrite
@@ -345,6 +382,7 @@ export async function writeSheetCells(
   // one while the UI reports nothing was written. Fail closed instead.
   const commitGroupCount =
     datasetGroups.size + recordGroups.size + (localCells.length > 0 ? 1 : 0)
+
   if (commitGroupCount > 1) throw new SheetMixedAuthorityWriteError()
 
   const newUuid = () =>
@@ -353,6 +391,7 @@ export async function writeSheetCells(
       : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
           const r = (Math.random() * 16) | 0
           const v = c === 'x' ? r : (r & 0x3) | 0x8
+
           return v.toString(16)
         })
 
@@ -362,6 +401,7 @@ export async function writeSheetCells(
   // operation (never multiple entries for the same row in one batch).
   for (const [key, group] of datasetGroups) {
     const [dataset, expectedDatasetRevision] = key.split(':')
+
     const rowsByRowId = new Map<
       string,
       {
@@ -370,9 +410,11 @@ export async function writeSheetCells(
         values: Record<string, unknown>
       }
     >()
+
     for (const { cell, target } of group) {
       const t = target as Extract<SheetWriteTarget, { kind: 'dataset' }>
       let entry = rowsByRowId.get(t.rowId)
+
       if (!entry) {
         entry = {
           rowId: t.rowId,
@@ -385,8 +427,10 @@ export async function writeSheetCells(
         // row revision; a divergence means the composition is inconsistent.
         throw new Error('ambiguous_target')
       }
+
       entry.values[t.fieldId] = cell.value
     }
+
     const rows = [...rowsByRowId.values()].map(
       ({ rowId, expectedRevision, values }) => ({
         operation: 'update' as const,
@@ -407,6 +451,7 @@ export async function writeSheetCells(
       p_expected_dataset_revision: Number(expectedDatasetRevision),
       p_rows: rows,
     })
+
     if (validated.ok === false) {
       throw new SheetBatchValidationError(validated.errors)
     }
@@ -424,6 +469,7 @@ export async function writeSheetCells(
       p_rows: rows,
       p_idempotency_key: `${input.retryToken}-${key.slice(0, 24)}`,
     })
+
     if (committed.ok === false) {
       throw new SheetBatchValidationError(committed.errors)
     }
@@ -432,14 +478,18 @@ export async function writeSheetCells(
   // One update per record.
   for (const [recordId, group] of recordGroups) {
     const values: Record<string, unknown> = {}
+
     for (const { cell, target } of group) {
       const t = target as Extract<SheetWriteTarget, { kind: 'model' }>
       values[t.fieldName] = cell.value
     }
+
     const first = group[0]
+
     const t = (
       first as { target: Extract<SheetWriteTarget, { kind: 'model' }> }
     ).target
+
     await client.rpc('update_record_custom_fields', {
       p_record_id: recordId,
       p_expected_metadata_version: t.expectedMetadataVersion,

@@ -22,5 +22,6 @@ export const Route = createFileRoute('/models/$modelId/records/')({
 
 function ModelRecords() {
   const { modelId } = Route.useParams()
+
   return <RecordModelRecords modelKey={modelId} />
 }

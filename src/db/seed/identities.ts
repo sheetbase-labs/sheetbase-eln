@@ -24,6 +24,7 @@ export const FIXTURE_PROJECT_KEY = 'fixture-project'
 
 export const DEMO_VIRUS_STABILITY_PROJECT_ID =
   '00000000-0000-4000-8000-000000000100'
+
 export const DEMO_VIRUS_STABILITY_PROJECT_KEY = 'virus-stability'
 
 // Virus Stability demonstration data (notebook domain, ELN-002). The demo
@@ -31,9 +32,12 @@ export const DEMO_VIRUS_STABILITY_PROJECT_KEY = 'virus-stability'
 // are visible to the fixture owner without a separate membership.
 export const DEMO_VIRUS_STABILITY_RECORD_ID =
   '00000000-0000-4000-8000-000000000101'
+
 export const DEMO_VIRUS_STABILITY_RECORD_IDENTIFIER = 'EXP-2025-0001'
+
 export const DEMO_VIRUS_STABILITY_PROTOCOL_RECORD_ID =
   '00000000-0000-4000-8000-000000000102'
+
 export const DEMO_VIRUS_STABILITY_PROTOCOL_IDENTIFIER = 'PRT-2025-0001'
 
 // Stable block ids so the demo notebook re-seeds idempotently. 0x110–0x11f.
@@ -71,8 +75,10 @@ export const DEMO_PROTOCOL_REVISION_ID = '00000000-0000-4000-8000-000000000150'
 // scientific fields without runtime configuration. 0x120–0x13f.
 export const DEMO_SAMPLE_RECORD_ID = '00000000-0000-4000-8000-000000000121'
 export const DEMO_SAMPLE_IDENTIFIER = 'SMP-2025-0001'
+
 export const DEMO_ARCHIVED_SAMPLE_RECORD_ID =
   '00000000-0000-4000-8000-000000000122'
+
 export const DEMO_ARCHIVED_SAMPLE_IDENTIFIER = 'SMP-2025-0002'
 export const DEMO_REAGENT_RECORD_ID = '00000000-0000-4000-8000-000000000123'
 export const DEMO_REAGENT_IDENTIFIER = 'RGT-2025-0001'

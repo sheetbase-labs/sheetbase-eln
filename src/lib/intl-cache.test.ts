@@ -23,11 +23,13 @@ describe('dateTimeFormat', () => {
 
   it('formats exactly as a new formatter would', () => {
     const instant = new Date('2026-07-14T23:30:00Z')
+
     const options = {
       timeZone: 'Europe/London',
       dateStyle: 'medium',
       timeStyle: 'short',
     } as const
+
     expect(dateTimeFormat('en-GB', options).format(instant)).toBe(
       new Intl.DateTimeFormat('en-GB', options).format(instant),
     )

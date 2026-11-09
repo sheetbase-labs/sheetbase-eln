@@ -7,5 +7,6 @@
 export function containsPattern(term: string): string {
   const likeEscaped = term.replace(/[\\%_]/g, (c) => `\\${c}`)
   const quoted = likeEscaped.replace(/[\\"]/g, (c) => `\\${c}`)
+
   return `"*${quoted}*"`
 }

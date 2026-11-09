@@ -72,6 +72,7 @@ const BUSY: readonly PublicationStatus[] = ['queued', 'sending', 'publishing']
 
 function formatBytes(n: number | null): string {
   if (n == null) return ''
+
   return n < 1024 * 1024
     ? `${Math.max(1, Math.round(n / 1024))} KB`
     : `${(n / 1024 ** 2).toFixed(1)} MB`
@@ -107,12 +108,14 @@ export function PublishControl({
     queryKey: openDataKeys.targets(workspaceId),
     queryFn: () => fetchPublicationTargets(dataClient),
   })
+
   const publications = useQuery({
     queryKey: openDataKeys.publications(kind, objectId),
     queryFn: () => fetchPublications(dataClient, kind, objectId),
     refetchInterval: (q) =>
       (q.state.data ?? []).some((p) => BUSY.includes(p.status)) ? 3_000 : false,
   })
+
   const invalidate = () =>
     queryClient.invalidateQueries({
       queryKey: openDataKeys.publications(kind, objectId),
@@ -126,6 +129,7 @@ export function PublishControl({
   const start = useMutation({
     mutationFn: () => {
       if (!chosen) throw new Error(t('openData.publish.noRepositories'))
+
       return requestPublication(dataClient, {
         targetId: chosen.id,
         kind,
@@ -139,6 +143,7 @@ export function PublishControl({
       toast(t('openData.publish.queued'))
     },
   })
+
   const act = useMutation({
     mutationFn: (input: { op: 'publish' | 'discard' | 'retry'; id: string }) =>
       input.op === 'publish'
@@ -194,6 +199,7 @@ export function PublishControl({
                 className="flex flex-col gap-3"
                 onSubmit={(event) => {
                   event.preventDefault()
+
                   if (chosen && (title ?? defaultTitle).trim()) start.mutate()
                 }}
               >

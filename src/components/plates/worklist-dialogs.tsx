@@ -71,6 +71,7 @@ const client = notebookDataClient
 
 function positive(text: string): number | undefined {
   const n = Number(text)
+
   return text.trim() !== '' && Number.isFinite(n) && n > 0 ? n : undefined
 }
 
@@ -95,10 +96,12 @@ export function WorklistBuilderDialog({
   const [wellVolume, setWellVolume] = useState('')
   const [minVolume, setMinVolume] = useState('')
   const [maxVolume, setMaxVolume] = useState('')
+
   const [experiment, setExperiment] = useState<{
     id: string
     name: string
   } | null>(null)
+
   const [picking, setPicking] = useState(false)
 
   useEffect(() => {
@@ -128,6 +131,7 @@ export function WorklistBuilderDialog({
         })),
     [run.wells],
   )
+
   const plan = useMemo(
     () =>
       buildWorklist(destinations, {
@@ -174,13 +178,16 @@ export function WorklistBuilderDialog({
           sourceWellVolumeUl: positive(wellVolume) ?? null,
         },
       })
+
       const file = writeWorklist(format, plan.transfers, {
         sourceFormat,
         destFormat: run.format,
         title: name,
       })
+
       const filename = `${worklistReference(worklist.number)}.${WORKLIST_FILE_EXTENSION[format]}`
       downloadTextFile(filename, file)
+
       return { worklist, filename }
     },
     onSuccess: ({ worklist, filename }) => {
@@ -371,10 +378,12 @@ export function WorklistDialog({
   const [unit, setUnit] = useState<'ul' | 'nl' | 'ml'>('ul')
   const [logText, setLogText] = useState<string | null>(null)
   const [withdraw, setWithdraw] = useState(true)
+
   const [experiment, setExperiment] = useState<{
     id: string
     name: string
   } | null>(null)
+
   const [picking, setPicking] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [sending, setSending] = useState(false)
@@ -411,6 +420,7 @@ export function WorklistDialog({
         movedUl: tr.volumeUl,
       }))
     }
+
     return reconcileRunLog(
       planned,
       parseRunLog(logText, { volumeUnit: unit }).entries,
@@ -419,13 +429,16 @@ export function WorklistDialog({
 
   const counts = useMemo(() => {
     const c = { done: 0, short: 0, failed: 0, skipped: 0, missing: 0 }
+
     for (const r of reconciled) c[r.status] += 1
+
     return c
   }, [reconciled])
 
   const complete = useMutation({
     mutationFn: async () => {
       if (!worklist) throw new Error('')
+
       return completePlateWorklist(client, {
         worklistId: worklist.id,
         reconciled: reconciled.map((r) => ({
@@ -450,12 +463,14 @@ export function WorklistDialog({
         }),
       )
       const w = done.withdrawals
+
       if (w && w.withdrawn.length > 0)
         toast.message(
           t('plates.worklists.complete.withdrawn', {
             count: w.withdrawn.length,
           }),
         )
+
       if (w && w.skipped.length > 0)
         toast.warning(
           t('plates.worklists.complete.skipped', { count: w.skipped.length }),
@@ -474,6 +489,7 @@ export function WorklistDialog({
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: plateRunKeys.all })
+
       if (worklist)
         toast.success(
           t('plates.worklists.cancelled', {
@@ -489,6 +505,7 @@ export function WorklistDialog({
   const reference = worklistReference(worklist.number)
   const isPlanned = worklist.status === 'planned'
   const needExperiment = withdraw && !experiment && !worklist.record_id
+
   const shown = isPlanned
     ? reconciled
     : ((worklist.reconciled as unknown as ReconciledTransfer[] | null) ??
@@ -500,11 +517,13 @@ export function WorklistDialog({
 
   function download() {
     if (!worklist) return
+
     const file = writeWorklist(worklist.format, planned, {
       sourceFormat: worklist.source_format,
       destFormat: worklist.dest_format,
       title: worklist.name,
     })
+
     try {
       downloadTextFile(
         `${reference}.${WORKLIST_FILE_EXTENSION[worklist.format]}`,

@@ -14,15 +14,18 @@ function valueAt(curve: SampleCurve, x: number): number {
   const A = curve.falling ? curve.top : curve.bottom
   const D = curve.falling ? curve.bottom : curve.top
   const G = curve.asymmetry ?? 1
+
   const C =
     curve.model === '5pl'
       ? curve.ec50 / (2 ** (1 / G) - 1) ** (1 / curve.hill)
       : curve.ec50
+
   return curveValue({ A, B: curve.hill, C, D, G }, x, curve.model)
 }
 
 export function DoseResponsePlot({ curve }: { curve: SampleCurve }) {
   const xs = curve.points.map((p) => p.x).filter((x) => x > 0)
+
   if (xs.length < 2) return null
   const lx0 = Math.log10(Math.min(...xs))
   const lx1 = Math.log10(Math.max(...xs))
@@ -31,22 +34,29 @@ export function DoseResponsePlot({ curve }: { curve: SampleCurve }) {
   const y0 = Math.min(...ys, curve.bottom, curve.top)
   const y1 = Math.max(...ys, curve.bottom, curve.top)
   const ySpan = y1 - y0 || 1
+
   const px = (x: number) =>
     PAD.left + ((Math.log10(x) - lx0) / span) * (W - PAD.left - PAD.right)
+
   const py = (y: number) =>
     H - PAD.bottom - ((y - y0) / ySpan) * (H - PAD.top - PAD.bottom)
+
   const steps = 60
   const path: string[] = []
+
   for (let i = 0; i <= steps; i++) {
     const x = 10 ** (lx0 + (span * i) / steps)
     const y = valueAt(curve, x)
+
     if (!Number.isFinite(y)) continue
     path.push(
       `${path.length === 0 ? 'M' : 'L'}${px(x).toFixed(1)},${py(y).toFixed(1)}`,
     )
   }
+
   const ticks = [y0, (y0 + y1) / 2, y1]
   const label = t('plates.curves.plotLabel', { label: curve.label })
+
   return (
     <svg
       role="img"

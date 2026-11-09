@@ -48,29 +48,39 @@ export function EditBookingDialog({
   const [start, setStart] = useState(booking.start)
   const [end, setEnd] = useState(booking.end)
   const [notes, setNotes] = useState(booking.notes ?? '')
+
   const [ticked, setTicked] = useState<ReadonlySet<string>>(
     new Set(currentSampleIds),
   )
+
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const save = async () => {
     const startsAt = instantInZone(date, start, booking.timezone)
     const endsAt = instantInZone(date, end, booking.timezone)
+
     if (!title.trim()) {
       setError(t('projects.editBooking.noTitle'))
+
       return
     }
+
     if (!startsAt || !endsAt) {
       setError(t('projects.bookDialog.errors.when'))
+
       return
     }
+
     if (Date.parse(endsAt) <= Date.parse(startsAt)) {
       setError(t('projects.bookDialog.errors.order'))
+
       return
     }
+
     setBusy(true)
     setError(null)
+
     try {
       const wire = await editBooking(client, {
         bookingId: booking.id,
@@ -91,6 +101,7 @@ export function EditBookingDialog({
               }))
           : undefined,
       })
+
       onSaved(toScheduleBooking(wire))
     } catch (cause) {
       setError(describeCalendarError(cause))
@@ -151,8 +162,10 @@ export function EditBookingDialog({
                     onCheckedChange={(checked) =>
                       setTicked((current) => {
                         const next = new Set(current)
+
                         if (checked) next.add(sample.id)
                         else next.delete(sample.id)
+
                         return next
                       })
                     }

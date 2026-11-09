@@ -24,6 +24,7 @@ export function Table({
     </table>
   )
 }
+
 export function TableBox({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
@@ -35,9 +36,11 @@ export function TableBox({ className, ...props }: React.ComponentProps<'div'>) {
     />
   )
 }
+
 export const TableHeader = (p: React.ComponentProps<'thead'>) => (
   <thead {...p} />
 )
+
 /**
  * The body either holds rows or states why it holds none: `loading` shows a
  * skeleton row, `empty` the message a caller gives. Call sites that pass
@@ -56,6 +59,7 @@ export function TableBody({
   colSpan?: number
 }) {
   const hasRows = Children.count(children) > 0
+
   return (
     <tbody {...props}>
       {loading ? (
@@ -90,6 +94,7 @@ export function TableStateRow({
     </tr>
   )
 }
+
 export function TableRow({
   className,
   selected,
@@ -103,6 +108,7 @@ export function TableRow({
     />
   )
 }
+
 export function TableHead({
   className,
   align,
@@ -119,6 +125,7 @@ export function TableHead({
     />
   )
 }
+
 export function TableCell({
   className,
   align,

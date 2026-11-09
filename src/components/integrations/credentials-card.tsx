@@ -74,6 +74,7 @@ export function ConnectorCredentialsCard({
   const stored = new Set(
     (secretsQuery.data ?? []).map((entry) => entry.secretName),
   )
+
   const missing = requiredSecrets.filter((name) => !stored.has(name))
 
   if (!canManage) {

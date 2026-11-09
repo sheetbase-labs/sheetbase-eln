@@ -116,6 +116,7 @@ export function plannerInstruction(
     s.quantity === null
       ? 'amount unknown'
       : `${s.quantity} ${s.unit ?? ''}`.trim()
+
   return [
     `Goal: ${JSON.stringify(goal.trim())}`,
     'Protocols you may start the experiment from (key | identifier | title):',
@@ -238,13 +239,16 @@ export function layoutConditions(
   transfers: PlanTransfer[]
 } {
   const labels: string[] = []
+
   for (const group of conditions)
     for (let i = 0; i < group.count; i++)
       labels.push(group.count > 1 ? `${group.label} ${i + 1}` : group.label)
+
   const trials: Trial[] = labels.map((label, i) => ({
     trial: i + 1,
     factors: { label },
   }))
+
   const { plate, trials: placed } = layoutRound(
     trials,
     {
@@ -258,11 +262,14 @@ export function layoutConditions(
     },
     seed,
   )
+
   if (!plate) return { wells: [], transfers: [] }
   const labelOf = new Map<string, string>()
+
   for (const trial of placed)
     for (const code of trial.wells ?? [])
       labelOf.set(code, String(trial.factors['label']))
+
   return {
     wells: plate.wells.map((well) => ({
       ...well,
@@ -280,8 +287,10 @@ export function layoutConditions(
 /** A stable seed from the goal, so the same plan lays out the same way. */
 function seedOf(text: string): number {
   let hash = 2166136261
+
   for (let i = 0; i < text.length; i++)
     hash = Math.imul(hash ^ text.charCodeAt(i), 16777619)
+
   return hash >>> 0
 }
 
@@ -295,6 +304,7 @@ export function parsePlanAnswer(
   context: PlannerContext,
 ): ExperimentPlan | null {
   const parsed = answerSchema.safeParse(extractJsonObject(text))
+
   if (!parsed.success) return null
   const answer = parsed.data
   const warnings = answer.warnings.map((w) => clean(w, 300)).filter(Boolean)
@@ -304,11 +314,13 @@ export function parsePlanAnswer(
       .slice(0, MAX_CONTEXT_PROTOCOLS)
       .map((p, i) => [protocolKey(i), p] as const),
   )
+
   const instrumentByKey = new Map(
     context.instruments
       .slice(0, MAX_CONTEXT_INSTRUMENTS)
       .map((n, i) => [instrumentKey(i), n] as const),
   )
+
   const sampleByKey = new Map(
     context.samples
       .slice(0, MAX_CONTEXT_SAMPLES)
@@ -316,11 +328,14 @@ export function parsePlanAnswer(
   )
 
   const title = clean(answer.experimentTitle, 200) || clean(goal, 120)
+
   if (!title) return null
 
   let protocol: PlannerProtocol | undefined
+
   if (answer.protocol) {
     protocol = protocolByKey.get(answer.protocol)
+
     if (!protocol)
       warnings.push(
         'A protocol the plan named was not found, so it starts blank.',
@@ -329,14 +344,17 @@ export function parsePlanAnswer(
 
   const parts: PlanPart[] = answer.parts.map((part, index) => {
     const needs: PlanPartNeed[] = []
+
     for (const need of part.instruments) {
       const instrument = instrumentByKey.get(need.key)
+
       if (!instrument) {
         warnings.push(
           `An instrument for “${clean(part.title, 60)}” was not found and was left out.`,
         )
         continue
       }
+
       if (needs.some((n) => n.instrumentId === instrument.id)) continue
       needs.push({
         instrumentId: instrument.id,
@@ -344,6 +362,7 @@ export function parsePlanAnswer(
         minutes: Math.round(need.minutes ?? 30),
       })
     }
+
     return {
       title: clean(part.title, 200),
       dayOffset: Math.round(part.day ?? index),
@@ -356,16 +375,20 @@ export function parsePlanAnswer(
 
   let plate: ExperimentPlan['plate'] = null
   let worklist: ExperimentPlan['worklist'] = null
+
   if (answer.plate && answer.plate.conditions.length > 0) {
     const asked = answer.plate.format ?? '96_well'
+
     const format: PlateFormat =
       asked in FORMAT_DIMENSIONS ? (asked as PlateFormat) : '96_well'
+
     if (asked !== format)
       warnings.push(
         `A plate format “${asked}” is not supported, so a 96-well plate is used.`,
       )
     const wantsWorklist = Boolean(answer.worklist)
     const volumeUl = answer.plate.volumeUl ?? (wantsWorklist ? 20 : undefined)
+
     try {
       const laid = layoutConditions(
         answer.plate.conditions.map((c) => ({
@@ -383,14 +406,18 @@ export function parsePlanAnswer(
         },
         seedOf(goal),
       )
+
       plate = { name: `${title} plate`, format, wells: laid.wells }
+
       if (wantsWorklist && laid.transfers.length > 0) {
         const askedFormat = answer.worklist?.format ?? 'csv'
+
         const worklistFormat: WorklistFormat = (
           WORKLIST_FORMATS as readonly string[]
         ).includes(askedFormat)
           ? (askedFormat as WorklistFormat)
           : 'csv'
+
         worklist = {
           format: worklistFormat,
           mode: 'stamp',
@@ -408,13 +435,17 @@ export function parsePlanAnswer(
   }
 
   const samples: ExperimentPlan['samples'] = []
+
   for (const wanted of answer.samples) {
     const sample = sampleByKey.get(wanted.key)
+
     if (!sample) {
       warnings.push('A sample the plan named was not found and was left out.')
       continue
     }
+
     if (samples.some((s) => s.recordId === sample.id)) continue
+
     if (sample.quantity !== null && wanted.quantity > sample.quantity)
       warnings.push(
         `${sample.identifier} has ${sample.quantity} ${sample.unit ?? ''} left, less than the ${wanted.quantity} the plan sets aside.`.replace(
@@ -460,6 +491,7 @@ export function plateCounts(plan: ExperimentPlan): {
   controls: number
 } {
   const wells = plan.plate?.wells ?? []
+
   return {
     samples: wells.filter((w) => w.role === 'sample').length,
     controls: wells.filter((w) => w.role !== 'sample').length,

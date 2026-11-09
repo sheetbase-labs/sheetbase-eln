@@ -14,8 +14,10 @@ const PINNED = resolvePinnedNow()
 
 function resolvePinnedNow(): Date | null {
   const raw = readPinnedValue()
+
   if (!raw) return null
   const parsed = new Date(raw)
+
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 
@@ -27,13 +29,16 @@ function readPinnedValue(): string | null {
   // The browser (and Storybook) has no `process`; only the server reads it.
   if (typeof process !== 'undefined') {
     const environment = process.env.SHEETBASE_ENV
+
     if (environment === 'development' || environment === 'test') {
       if (process.env.SHEETBASE_NOW) return process.env.SHEETBASE_NOW
     }
   }
+
   if (typeof __SHEETBASE_NOW__ === 'string' && __SHEETBASE_NOW__) {
     return __SHEETBASE_NOW__
   }
+
   return null
 }
 

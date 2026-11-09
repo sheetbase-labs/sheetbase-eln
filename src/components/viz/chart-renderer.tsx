@@ -8,6 +8,7 @@ export type {
   ChartSelection,
   PlotSelectionProps,
 } from './chart-renderer-impl'
+
 export { CHART_PALETTE } from '#/lib/chart-spec'
 
 /**

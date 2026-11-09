@@ -20,6 +20,7 @@ const ANNA = '00000000-0000-4000-8000-000000000315'
 const TEMPLATE = '00000000-0000-4000-8000-000000000382'
 const SHEET_A = '00000000-0000-4000-8000-000000000800'
 const SHEET_B = '00000000-0000-4000-8000-000000000801'
+
 const id = (n: number) =>
   `00000000-0000-4000-8000-0000000008${n.toString(16).padStart(2, '0')}`
 
@@ -33,12 +34,14 @@ const COL = {
   meetsCriteria: id(0x16),
   maxDp: id(0x17),
 }
+
 const COL_B = {
   filterTrain: id(0x20),
   inlet: id(0x21),
   outlet: id(0x22),
   dp: id(0x23),
 }
+
 const CALC = { stepYield: id(0x30), meets: id(0x31), dp: id(0x32) }
 
 interface ColumnSpec {
@@ -88,6 +91,7 @@ function column(spec: ColumnSpec) {
       : { mode: 'stored' },
     lifecycle: 'active',
   }
+
   return {
     id: spec.id,
     field,
@@ -177,6 +181,7 @@ function clarificationColumns(version: number): ColumnSpec[] {
       description: '0–50, else out of range',
     },
   ]
+
   if (version >= 2)
     specs.push({
       id: COL.capsidTitre,
@@ -199,6 +204,7 @@ function clarificationColumns(version: number): ColumnSpec[] {
       inputs: [version >= 2 ? COL.capsidTitre : COL.turbidityOut],
     },
   })
+
   if (version >= 3)
     specs.push({
       id: COL.meetsCriteria,
@@ -211,6 +217,7 @@ function clarificationColumns(version: number): ColumnSpec[] {
         inputs: [COL.turbidityOut, COL.stepYield],
       },
     })
+
   if (version >= 4)
     specs.push({
       id: COL.maxDp,
@@ -220,6 +227,7 @@ function clarificationColumns(version: number): ColumnSpec[] {
       unit: 'bar',
       max: 1.5,
     })
+
   return specs
 }
 
@@ -267,6 +275,7 @@ const SHEET_A_VERSIONS = [
   { id: id(0x42), version: 3, at: '2026-09-02T09:00:00Z' },
   { id: id(0x43), version: 4, at: '2026-09-25T08:00:00+01:00' },
 ] as const
+
 const SHEET_B_VERSION = { id: id(0x44), at: '2026-09-25T08:00:00+01:00' }
 
 function narrative(
@@ -331,6 +340,7 @@ function placements(version: number, sheetAVersion: string) {
       parameterMappings: [],
     },
   )
+
   if (version >= 4)
     out.push({
       id: id(0x55),
@@ -356,6 +366,7 @@ function placements(version: number, sheetAVersion: string) {
       ],
     }),
   )
+
   return out.map((p, index) => ({ ...p, order: index + 1 }))
 }
 
@@ -393,6 +404,7 @@ const TEMPLATE_VERSIONS = [
     reason: 'Pressure and ΔP sheet; Max ΔP field in the result summary',
   },
 ] as const
+
 const DRAFT = { id: id(0x64), version: 5 }
 
 export async function seedDesignTemplateStory(db: Db) {
@@ -460,6 +472,7 @@ export async function seedDesignTemplateStory(db: Db) {
       .select({ id: schema.sheetDefinitionVersions.id })
       .from(schema.sheetDefinitionVersions)
       .where(eq(schema.sheetDefinitionVersions.id, versionId))
+
     if (existing.length) return
     await db.insert(schema.sheetDefinitionVersions).values({
       id: versionId,
@@ -502,6 +515,7 @@ export async function seedDesignTemplateStory(db: Db) {
       .select({ id: schema.notebookTemplateVersions.id })
       .from(schema.notebookTemplateVersions)
       .where(eq(schema.notebookTemplateVersions.id, v.id))
+
     if (existing.length) continue
     await db.insert(schema.notebookTemplateVersions).values({
       id: v.id,
@@ -533,6 +547,7 @@ export async function seedDesignTemplateStory(db: Db) {
     .select({ id: schema.notebookTemplateVersions.id })
     .from(schema.notebookTemplateVersions)
     .where(eq(schema.notebookTemplateVersions.id, DRAFT.id))
+
   if (!draftExists.length) {
     await db.insert(schema.notebookTemplateVersions).values({
       id: DRAFT.id,
@@ -549,6 +564,7 @@ export async function seedDesignTemplateStory(db: Db) {
       createdAt: new Date('2026-09-25T08:40:00+01:00'),
     })
   }
+
   await db
     .update(schema.notebookTemplateVersions)
     .set({
@@ -597,8 +613,10 @@ export async function seedDesignTemplateStory(db: Db) {
       .select({ id: schema.approvalRequests.id })
       .from(schema.approvalRequests)
       .where(eq(schema.approvalRequests.objectId, v.id))
+
     if (existing.length) continue
     const at = new Date(v.at)
+
     const [request] = await db
       .insert(schema.approvalRequests)
       .values({
@@ -616,6 +634,7 @@ export async function seedDesignTemplateStory(db: Db) {
         decidedAt: at,
       })
       .returning({ id: schema.approvalRequests.id })
+
     await db.insert(schema.approvalRequestDecisions).values({
       requestId: request.id,
       workspaceId: PROCESS,
@@ -633,6 +652,7 @@ export async function seedDesignTemplateStory(db: Db) {
     [TEMPLATE_VERSIONS[2].id, ['EXP-0142', 'EXP-0139', 'EXP-0141', 'EXP-0137']],
     [TEMPLATE_VERSIONS[3].id, ['EXP-0145', 'EXP-0146', 'EXP-0147', 'EXP-0148']],
   ]
+
   for (const [versionId, identifiers] of pinsByVersion)
     await db
       .update(schema.records)
@@ -647,13 +667,17 @@ export async function seedDesignTemplateStory(db: Db) {
   // Identifiers the seed lacks are topped up with other experiments, so each
   // version keeps the board's count (2, 3, 4 and 4).
   const targets = [2, 3, 4, 4]
+
   for (const [index, [versionId]] of pinsByVersion.entries()) {
     const have = await db
       .select({ id: schema.records.id })
       .from(schema.records)
       .where(eq(schema.records.sourceNotebookTemplateVersionId, versionId))
+
     const missing = targets[index] - have.length
+
     if (missing <= 0) continue
+
     const spare = await db
       .select({ id: schema.records.id })
       .from(schema.records)
@@ -666,6 +690,7 @@ export async function seedDesignTemplateStory(db: Db) {
       )
       .orderBy(schema.records.identifier)
       .limit(missing)
+
     if (spare.length)
       await db
         .update(schema.records)

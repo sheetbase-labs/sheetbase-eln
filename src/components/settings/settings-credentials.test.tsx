@@ -152,6 +152,7 @@ function renderPanel(
       onDismissRevealed={vi.fn()}
     />,
   )
+
   return { onCreate, onRevoke, onRotate }
 }
 
@@ -188,12 +189,15 @@ describe.each(PANELS)('SettingsCredentials — $name', (panel) => {
 
     await user.click(screen.getByRole('button', { name: panel.open }))
     const dialog = await screen.findByRole('dialog')
+
     const submit = within(dialog).getByRole<HTMLButtonElement>('button', {
       name: panel.create,
     })
+
     const readScope = within(dialog).getByRole('checkbox', {
       name: 'projects:read',
     })
+
     expect(readScope.getAttribute('aria-checked')).toBe('false')
 
     await user.type(
@@ -221,6 +225,7 @@ describe.each(PANELS)('SettingsCredentials — $name', (panel) => {
       name: panel.heading,
       level: 2,
     })
+
     expect(heading.closest('section')).not.toBeNull()
 
     await user.click(screen.getByRole('button', { name: panel.open }))
@@ -292,9 +297,11 @@ describe.each(PANELS)('SettingsCredentials — $name', (panel) => {
 
   it('confirms the copy when the clipboard takes the secret', async () => {
     const user = userEvent.setup()
+
     const writeText = vi
       .spyOn(navigator.clipboard, 'writeText')
       .mockResolvedValue(undefined)
+
     renderPanel(panel, { revealed: panel.revealed })
 
     await user.click(screen.getByRole('button', { name: panel.copyLabel }))

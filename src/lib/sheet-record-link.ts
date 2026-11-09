@@ -34,6 +34,7 @@ export function linkSheetRecordReference(
     contract: input.contract,
     record: input.record,
   })
+
   return writeSheetCell(
     {
       composition: input.composition,

@@ -32,6 +32,7 @@ const BLOCK_ORDER_ENTRY: JsonSchema = obj(
   },
   ['id', 'order'],
 )
+
 const BLOCK_ORDER_LIST: JsonSchema = {
   type: 'array',
   items: BLOCK_ORDER_ENTRY,
@@ -41,21 +42,26 @@ const BLOCK_ORDER_LIST: JsonSchema = {
 function uuid(description: string): JsonSchema {
   return { ...UUID, description }
 }
+
 function text(description: string, extras: JsonSchema = {}): JsonSchema {
   return { ...TEXT, description, ...extras }
 }
+
 function bool(description: string): JsonSchema {
   return { ...BOOL, description }
 }
+
 function int(
   description: string,
   extras: { minimum?: number; maximum?: number; default?: number } = {},
 ): JsonSchema {
   return { ...INT, description, ...extras }
 }
+
 function bigint(description: string): JsonSchema {
   return { ...BIGINT, description }
 }
+
 function obj(
   properties: Record<string, JsonSchema>,
   required: string[] = [],
@@ -2619,9 +2625,11 @@ for (const [name, contract] of Object.entries(labRpcContracts())) {
 const missing = Object.keys(EXTERNAL_RPC_SCOPES).filter(
   (name) => !Object.hasOwn(RPC_CONTRACTS, name),
 )
+
 const extra = Object.keys(RPC_CONTRACTS).filter(
   (name) => !Object.hasOwn(EXTERNAL_RPC_SCOPES, name),
 )
+
 if (missing.length > 0 || extra.length > 0) {
   throw new Error(
     `RPC_CONTRACTS must match EXTERNAL_RPC_SCOPES (missing ${missing.join(',')}; extra ${extra.join(',')})`,

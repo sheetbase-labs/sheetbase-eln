@@ -35,10 +35,13 @@ export interface ExportRow {
  */
 export function formatCell(field: ExportField, value: unknown): string {
   if (value === null || value === undefined) return ''
+
   if (field.logicalType === 'boolean') {
     if (value === true) return 'true'
+
     if (value === false) return 'false'
   }
+
   return typeof value === 'string' ? value : String(value)
 }
 
@@ -51,6 +54,7 @@ export function csvEscape(text: string, delimiter: string): string {
   ) {
     return `"${text.replaceAll('"', '""')}"`
   }
+
   return text
 }
 

@@ -13,6 +13,7 @@ const handler = async ({
 }) => {
   const { handleLakeFile, realLakeFileDeps } =
     await import('#/lib/lake/lake-files.server')
+
   return handleLakeFile(
     request,
     params.workspaceId,

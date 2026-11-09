@@ -25,8 +25,11 @@ const KEYS = [
 /** An in-app path, or nothing: a `returnTo` must never leave the app. */
 export function safeReturnTo(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
+
   if (!value.startsWith('/') || value.startsWith('//')) return undefined
+
   if (value.includes('\\')) return undefined
+
   return value
 }
 
@@ -35,12 +38,17 @@ export function parseCreateContext(
   search: Record<string, unknown>,
 ): CreateContextSearch {
   const out: CreateContextSearch = {}
+
   for (const key of KEYS) {
     const value = search[key]
+
     if (typeof value === 'string' && value) out[key] = value
   }
+
   const returnTo = safeReturnTo(search.returnTo)
+
   if (returnTo) out.returnTo = returnTo
+
   return out
 }
 
@@ -53,9 +61,12 @@ export function cancelTarget(
   fallback: string,
 ): string {
   if (context.returnTo) return context.returnTo
+
   if (context.experiment)
     return `/experiments/${encodeURIComponent(context.experiment)}`
+
   if (context.project) return `/projects/${encodeURIComponent(context.project)}`
+
   return fallback
 }
 
@@ -70,11 +81,15 @@ export function returnWithContext(
   made: Partial<Omit<CreateContextSearch, 'returnTo'>>,
 ): string {
   const safe = safeReturnTo(returnTo)
+
   if (!safe) return returnTo
   const url = new URL(safe, 'https://return.invalid')
+
   for (const key of KEYS) {
     const value = made[key]
+
     if (value) url.searchParams.set(key, value)
   }
+
   return `${url.pathname}${url.search}${url.hash}`
 }

@@ -8,6 +8,7 @@ import { useEffect, useRef } from 'react'
 
 export const EDGE_WIDTH_PX = 24
 export const SWIPE_DISTANCE_PX = 56
+
 /** A swipe must be this much more sideways than up or down. */
 export const SWIPE_RATIO = 1.6
 
@@ -21,8 +22,11 @@ export type SwipeDirection = 'right' | 'left' | null
 export function classifySwipe(start: Point, end: Point): SwipeDirection {
   const dx = end.x - start.x
   const dy = end.y - start.y
+
   if (Math.abs(dx) < SWIPE_DISTANCE_PX) return null
+
   if (Math.abs(dx) < Math.abs(dy) * SWIPE_RATIO) return null
+
   return dx > 0 ? 'right' : 'left'
 }
 
@@ -41,15 +45,20 @@ const OPT_OUT = '[data-no-edge-swipe], canvas, input[type="range"]'
  */
 export function touchOwnsHorizontalDrag(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false
+
   if (target.closest(OPT_OUT)) return true
+
   if (target.closest('[role="dialog"], [role="alertdialog"]')) return true
+
   for (let el: Element | null = target; el; el = el.parentElement) {
     if (!(el instanceof HTMLElement) || el.scrollWidth <= el.clientWidth)
       continue
     const overflowX = getComputedStyle(el).overflowX
+
     if ((overflowX === 'auto' || overflowX === 'scroll') && el.scrollLeft > 0)
       return true
   }
+
   return false
 }
 
@@ -60,6 +69,7 @@ export function useEdgeSwipeOpen(onOpen: () => void, enabled = true): void {
   useEffect(() => {
     if (!enabled || typeof window === 'undefined') return
     let start: Point | null = null
+
     const onStart = (event: TouchEvent) => {
       const touch = event.touches[0]
       start =
@@ -70,22 +80,28 @@ export function useEdgeSwipeOpen(onOpen: () => void, enabled = true): void {
           ? { x: touch.clientX, y: touch.clientY }
           : null
     }
+
     const onEnd = (event: TouchEvent) => {
       const touch = event.changedTouches[0]
       const from = start
       start = null
+
       if (!from) return
+
       if (
         classifySwipe(from, { x: touch.clientX, y: touch.clientY }) === 'right'
       )
         onOpen()
     }
+
     const cancel = () => {
       start = null
     }
+
     window.addEventListener('touchstart', onStart, { passive: true })
     window.addEventListener('touchend', onEnd, { passive: true })
     window.addEventListener('touchcancel', cancel, { passive: true })
+
     return () => {
       window.removeEventListener('touchstart', onStart)
       window.removeEventListener('touchend', onEnd)
@@ -97,6 +113,7 @@ export function useEdgeSwipeOpen(onOpen: () => void, enabled = true): void {
 /** Props for a panel that closes when dragged left. */
 export function useSwipeToClose(onClose: () => void) {
   const start = useRef<Point | null>(null)
+
   return {
     onTouchStart: (event: React.TouchEvent) => {
       const touch = event.touches[0]
@@ -109,7 +126,9 @@ export function useSwipeToClose(onClose: () => void) {
       const touch = event.changedTouches[0]
       const from = start.current
       start.current = null
+
       if (!from) return
+
       if (
         classifySwipe(from, { x: touch.clientX, y: touch.clientY }) === 'left'
       )

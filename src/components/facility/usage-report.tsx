@@ -64,16 +64,19 @@ import type { MoneyTotals } from '#/lib/report-period'
 const client = notebookDataClient
 
 type View = 'instrument' | 'person' | 'project' | 'bookings'
+
 const VIEWS: readonly View[] = ['instrument', 'person', 'project', 'bookings']
 
 function totalOf(groups: readonly { charges: MoneyTotals }[]): MoneyTotals {
   const totals: MoneyTotals = {}
+
   for (const group of groups) {
     for (const [currency, amount] of Object.entries(group.charges)) {
       totals[currency] =
         Math.round(((totals[currency] ?? 0) + amount) * 100) / 100
     }
   }
+
   return totals
 }
 
@@ -98,6 +101,7 @@ export function InstrumentUsagePanel() {
     enabled: workspaceId !== '' && state.range !== null,
     staleTime: 15_000,
   })
+
   const rates = useQuery({
     queryKey: usageKeys.rates,
     queryFn: () => fetchInstrumentRates(client),
@@ -106,6 +110,7 @@ export function InstrumentUsagePanel() {
 
   const all = useMemo(() => lines.data ?? [], [lines.data])
   const hoursOpen = Number(openHours)
+
   const validHours =
     Number.isFinite(hoursOpen) && hoursOpen > 0 && hoursOpen <= 24
 
@@ -121,14 +126,17 @@ export function InstrumentUsagePanel() {
   // Every instrument in service shows, so one that nobody booked reads 0%.
   const utilisation = useMemo<InstrumentUtilisation[]>(() => {
     if (!state.range || !validHours) return []
+
     const booked = utilisationByInstrument(
       all,
       state.range,
       hoursOpen,
       state.zone,
     )
+
     const seen = new Set(booked.map((row) => row.key))
     const open = booked.at(0)?.openHours ?? 0
+
     const idle: InstrumentUtilisation[] = (instruments.data ?? [])
       .filter((i) => !i.retiredAt && !seen.has(i.id))
       .map((i) => ({
@@ -143,6 +151,7 @@ export function InstrumentUsagePanel() {
         utilisation: 0,
         people: 0,
       }))
+
     return [...booked, ...idle]
   }, [all, instruments.data, state.range, state.zone, hoursOpen, validHours])
 
@@ -151,19 +160,24 @@ export function InstrumentUsagePanel() {
   const totalHours = all.reduce((sum, line) => sum + line.hours, 0)
   const charges = useMemo(() => totalOf(projects), [projects])
   const rated = (rates.data ?? []).length > 0
+
   const lineByGroup = useMemo(() => {
     const byPerson = new Map<string, UsageLine>()
     const byProject = new Map<string, UsageLine>()
+
     for (const line of all) {
       if (line.userId) byPerson.set(line.userId, line)
+
       if (line.projectId) byProject.set(line.projectId, line)
     }
+
     return { byPerson, byProject }
   }, [all])
 
   const overall = useMemo(() => {
     const open = utilisation.at(0)?.openHours ?? 0
     const count = utilisation.length
+
     return open > 0 && count > 0 ? totalHours / (open * count) : 0
   }, [utilisation, totalHours])
 
@@ -245,6 +259,7 @@ export function InstrumentUsagePanel() {
         header: t('spend.usage.columns.rate'),
         accessorFn: (row) => {
           const rate = rates.data?.find((r) => r.instrumentId === row.key)
+
           return rate ? formatMoney(rate.ratePerHour, rate.currency) : ''
         },
         size: 110,
@@ -252,6 +267,7 @@ export function InstrumentUsagePanel() {
           const rate = rates.data?.find(
             (r) => r.instrumentId === row.original.key,
           )
+
           return rate ? (
             <span className="num">
               {formatMoney(rate.ratePerHour, rate.currency)}

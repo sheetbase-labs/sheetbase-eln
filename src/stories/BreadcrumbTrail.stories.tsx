@@ -19,7 +19,9 @@ const meta = {
   component: Breadcrumb,
   parameters: { layout: 'padded' },
 } satisfies Meta<typeof Breadcrumb>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A one-crumb trail, as the loading and not-found states of a page pass. */

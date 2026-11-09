@@ -8,6 +8,7 @@ afterEach(cleanup)
 
 function Harness({ initial }: { initial: string }) {
   const [value, setValue] = useState(initial)
+
   return (
     <SqlEditor
       aria-label="Transform code"

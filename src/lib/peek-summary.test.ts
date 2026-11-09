@@ -47,15 +47,18 @@ describe('peek summary', () => {
         'rpc/workspace_members_list': [{ user_id: 'u1', name: 'Gareth P.' }],
       }),
     )
+
     expect(summary).toMatchObject({
       identifier: 'SMP-2231',
       title: 'Harvest lot HL-0934',
       kindLabel: 'Sample',
       status: 'hold_exceeded',
     })
+
     const facts = Object.fromEntries(
       summary!.facts.map((entry) => [entry.label, entry.value]),
     )
+
     expect(facts.Owner).toBe('Gareth P.')
     expect(facts.Quantity).toBe('4600')
     expect(facts['Hold until']).toBe('4 Oct 2026')

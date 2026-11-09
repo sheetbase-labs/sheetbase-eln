@@ -14,6 +14,7 @@ const BADGE: Record<RunStepState, { glyph: string | null; className: string }> =
 /** The run's steps down the left: where it got to, and what each step is. */
 export function RunStepsRail({ steps }: { steps: RunStep[] }) {
   if (!steps.length) return null
+
   return (
     <nav
       aria-label={t('data.runStepsRail.ariaRunSteps')}
@@ -26,6 +27,7 @@ export function RunStepsRail({ steps }: { steps: RunStep[] }) {
         {steps.map((step) => {
           const badge = BADGE[step.state]
           const attention = step.state === 'failed' || step.state === 'waiting'
+
           return (
             <li
               key={step.index}

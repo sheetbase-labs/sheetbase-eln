@@ -127,19 +127,24 @@ function streamedRows(args: {
 }): Response {
   const encoder = new TextEncoder()
   let exportedRows = 0
+
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
         const header = args.renderHeader?.()
+
         if (header !== null && header !== undefined) {
           controller.enqueue(encoder.encode(header))
         }
+
         let isFirst = true
+
         for await (const row of args.rows) {
           controller.enqueue(encoder.encode(args.renderRow(row, isFirst)))
           isFirst = false
           exportedRows += 1
         }
+
         await insertReceipt({
           actorUserId: args.context.userId,
           workspaceId: args.target.workspaceId,
@@ -149,15 +154,18 @@ function streamedRows(args: {
           rowCount: exportedRows,
         })
         const footer = args.renderFooter?.()
+
         if (footer !== null && footer !== undefined) {
           controller.enqueue(encoder.encode(footer))
         }
+
         controller.close()
       } catch (error) {
         controller.error(error)
       }
     },
   })
+
   return exportResponse(stream, args.contentType, args.filename)
 }
 
@@ -192,7 +200,9 @@ export async function loadDatasetFields(
     `schema_version_id=eq.${schemaVersionId}&lifecycle=eq.active&order=display_order.asc&select=field_id,key,label,logical_type,nullable,quantity`,
     token,
   )
+
   if (res.status >= 400) throw new Error('Could not load export schema.')
+
   const fields = z
     .array(
       z.object({
@@ -205,6 +215,7 @@ export async function loadDatasetFields(
       }),
     )
     .parse(res.body)
+
   return fields.map((f) => ({
     id: f.field_id,
     key: f.key,
@@ -245,17 +256,21 @@ export function pagedRows(
 
   async function* iterate(): AsyncIterable<ExportRow> {
     let offset = 0
+
     for (;;) {
       const page = await postgrestRpc<QueryRowsResult>(
         rpcName,
         { ...args, p_offset: offset, p_limit: PAGE_SIZE },
         token,
       )
+
       if (page.status >= 400) throw new Error('Could not load export rows.')
       const body = queryRowsSchema.parse(page.body)
+
       if (totalCount === null) {
         totalCount = body.totalCount
       }
+
       if (
         body.totalCount !== totalCount ||
         (liveDataset &&
@@ -265,22 +280,27 @@ export function pagedRows(
           'Dataset changed during export. Retry or export a Dataset Version.',
         )
       }
+
       if (
         body.rows.length !==
         Math.min(PAGE_SIZE, Math.max(0, totalCount - offset))
       ) {
         throw new Error('Incomplete export page.')
       }
+
       for (const row of body.rows) yield row
       offset += body.rows.length
+
       if (offset >= totalCount) break
     }
+
     if (liveDataset) {
       const current = await postgrestSelect<DatasetWire[]>(
         'datasets',
         `id=eq.${liveDataset.id}&select=revision,schema_version_id&limit=1`,
         token,
       )
+
       const metadata = z
         .array(
           z.object({
@@ -289,6 +309,7 @@ export function pagedRows(
           }),
         )
         .parse(current.body)
+
       if (
         current.status >= 400 ||
         metadata.length !== 1 ||
@@ -312,17 +333,21 @@ export async function handleDatasetExport(
   variant: 'live' | 'version' = 'live',
 ): Promise<Response> {
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok) {
     return requestErrorResponse(auth.status, auth.code, auth.message)
   }
+
   const { context } = auth
 
   const url = new URL(request.url)
   const formatParam = url.searchParams.get('format') ?? 'csv'
   const pluginFormat = parsePluginName(formatParam)
+
   if (!pluginFormat && !isExportFormat(formatParam)) {
     return requestErrorResponse(400, 'invalid_format', 'Unknown export format.')
   }
+
   // A plugin format is written by the plugin after the rows are collected;
   // the built-in writers below never see it.
   const format: ExportFormat = pluginFormat
@@ -330,6 +355,7 @@ export async function handleDatasetExport(
     : (formatParam as ExportFormat)
 
   let dataset: DatasetWire | null = null
+
   if (variant === 'live') {
     // Metadata is read through the same RLS the rest of the app uses, so an
     // inaccessible dataset looks exactly like a missing one (404, no leak).
@@ -338,7 +364,9 @@ export async function handleDatasetExport(
       `id=eq.${encodeURIComponent(datasetId)}&select=id,workspace_id,name,description,lifecycle,revision,schema_version_id&limit=1`,
       context.token,
     )
+
     const list = Array.isArray(datasetRes.body) ? datasetRes.body : []
+
     if (datasetRes.status >= 400) {
       return requestErrorResponse(
         502,
@@ -346,9 +374,11 @@ export async function handleDatasetExport(
         'Could not load dataset.',
       )
     }
+
     if (list.length === 0) {
       return requestErrorResponse(404, 'not_found', 'Dataset not found.')
     }
+
     dataset = list[0]
   }
 
@@ -398,7 +428,9 @@ export async function handleDatasetExport(
       `id=eq.${encodeURIComponent(datasetId)}&select=id,dataset_id,workspace_id,label,source_dataset_revision,schema_version_id&limit=1`,
       context.token,
     )
+
     const versions = Array.isArray(versionRes.body) ? versionRes.body : []
+
     if (versionRes.status >= 400 || versions.length === 0) {
       return requestErrorResponse(
         404,
@@ -406,6 +438,7 @@ export async function handleDatasetExport(
         'Dataset Version not found.',
       )
     }
+
     const version = versions[0]
     target.workspaceId = version.workspace_id
     target.objectId = version.id
@@ -454,6 +487,7 @@ export async function handleDatasetExport(
 
   if (pluginFormat) {
     const all: Array<Record<string, unknown>> = []
+
     // The plugin reads columns by their names (the field keys), not by id.
     for await (const row of rows.rows)
       all.push(
@@ -462,6 +496,7 @@ export async function handleDatasetExport(
         ),
       )
     let made: Awaited<ReturnType<typeof runExtensionExporter>>
+
     try {
       made = await runExtensionExporter({
         workspaceId: target.workspaceId,
@@ -479,10 +514,12 @@ export async function handleDatasetExport(
         error instanceof Error ? error.message : 'The plugin export failed.',
       )
     }
+
     const bytes =
       made.encoding === 'base64'
         ? Buffer.from(made.content, 'base64')
         : Buffer.from(made.content, 'utf8')
+
     await insertReceipt({
       actorUserId: context.userId,
       workspaceId: target.workspaceId,
@@ -492,6 +529,7 @@ export async function handleDatasetExport(
       rowCount: all.length,
       byteSize: bytes.byteLength,
     })
+
     return new Response(bytes, {
       headers: {
         'Content-Type': made.mime,
@@ -503,23 +541,29 @@ export async function handleDatasetExport(
 
   if (format === 'xlsx') {
     const all: ExportRow[] = []
+
     for await (const row of rows.rows) all.push(row)
+
     const metaLines: Array<[string, string]> = [
       ['kind', String(meta.kind)],
       ['state', String(meta.state)],
       ['objectId', String(meta.objectId)],
       ['sourceRevision', String(meta.sourceRevision ?? '')],
     ]
+
     const notes = meta.notes
+
     if (Array.isArray(notes)) {
       for (const note of notes) metaLines.push(['note', String(note)])
     }
+
     for (const f of fields) {
       metaLines.push([
         `field:${f.key}`,
         `${f.logicalType}${f.unit ? ` (${f.unit})` : ''}${f.nullable ? '' : ' required'}`,
       ])
     }
+
     const bytes = await xlsxDocument(fields, all, metaLines)
     await insertReceipt({
       actorUserId: context.userId,
@@ -530,6 +574,7 @@ export async function handleDatasetExport(
       rowCount: all.length,
       byteSize: bytes.byteLength,
     })
+
     return exportResponse(
       bytes as unknown as BodyInit,
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -539,11 +584,15 @@ export async function handleDatasetExport(
 
   if (format === 'parquet') {
     const all: ExportRow[] = []
+
     for await (const row of rows.rows) {
       all.push(row)
+
       if (all.length > PARQUET_MAX_ROWS) break
     }
+
     let bytes: Uint8Array
+
     try {
       bytes = await parquetDocument(fields, all)
     } catch (error) {
@@ -553,6 +602,7 @@ export async function handleDatasetExport(
         error instanceof Error ? error.message : 'Parquet export too large.',
       )
     }
+
     await insertReceipt({
       actorUserId: context.userId,
       workspaceId: target.workspaceId,
@@ -562,6 +612,7 @@ export async function handleDatasetExport(
       rowCount: all.length,
       byteSize: bytes.byteLength,
     })
+
     return exportResponse(
       bytes as unknown as BodyInit,
       'application/octet-stream',
@@ -571,6 +622,7 @@ export async function handleDatasetExport(
 
   if (format === 'csv' || format === 'tsv') {
     const delimiter = format === 'csv' ? ',' : '\t'
+
     return streamedRows({
       objectType: variant === 'version' ? 'dataset_version' : 'dataset',
       target,
@@ -651,11 +703,13 @@ export async function handleSheetInstanceExport(
   deps: SessionAuthDeps,
 ): Promise<Response> {
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
 
   const formatParam = new URL(request.url).searchParams.get('format') ?? 'json'
+
   if (!isExportFormat(formatParam)) {
     return requestErrorResponse(400, 'invalid_format', 'Unknown export format.')
   }
@@ -665,25 +719,33 @@ export async function handleSheetInstanceExport(
     `id=eq.${encodeURIComponent(instanceId)}&select=id,workspace_id,project_id,notebook_record_id,name,lifecycle,revision,state&limit=1`,
     context.token,
   )
+
   const instances = Array.isArray(res.body) ? res.body : []
+
   if (res.status >= 400 || instances.length === 0) {
     return requestErrorResponse(404, 'not_found', 'Sheet Instance not found.')
   }
+
   const instance = instances[0]
 
   const state = instance.state
+
   const activeFields = (state.localFields ?? []).filter(
     (f) => f.lifecycle === undefined || f.lifecycle === 'active',
   )
+
   const presentation = state.presentation ?? {}
+
   const order = Array.isArray(presentation.columnOrder)
     ? presentation.columnOrder
     : []
+
   const hidden = new Set(
     Array.isArray(presentation.hiddenColumnIds)
       ? presentation.hiddenColumnIds
       : [],
   )
+
   const ordered = [
     ...order
       .map((id) => activeFields.find((f) => f.fieldId === id))
@@ -696,6 +758,7 @@ export async function handleSheetInstanceExport(
         !order.includes(String(f.fieldId)) && !hidden.has(String(f.fieldId)),
     ),
   ]
+
   const fields: ExportField[] = ordered.map((f, index) => ({
     id: String(f.fieldId),
     key: fieldKey(f, `field_${index + 1}`),
@@ -709,6 +772,7 @@ export async function handleSheetInstanceExport(
         ? String((f.quantity as { storageUnit: string }).storageUnit)
         : null,
   }))
+
   const rawRows: ExportRow[] = Object.entries(state.localValues ?? {}).map(
     ([rowKey, values]) => ({
       rowId: rowKey,
@@ -727,7 +791,9 @@ export async function handleSheetInstanceExport(
     sourceRevision: instance.revision,
     notes: [LIVE_STATE_NOTE],
   })
+
   const filename = `${slug(instance.name)}-sheet.${formatParam}`
+
   // Receipts are written only after the export content has been generated
   // successfully, so a serialization failure never leaves a successful
   // audit row behind (invariant: generated => exactly one receipt).
@@ -756,8 +822,10 @@ export async function handleSheetInstanceExport(
         state,
       },
     }
+
     const body = JSON.stringify(doc, null, 2)
     await recordSheetReceipt(new TextEncoder().encode(body).byteLength)
+
     return exportResponse(body, 'application/json; charset=utf-8', filename)
   }
 
@@ -769,11 +837,14 @@ export async function handleSheetInstanceExport(
       ['revision', String(instance.revision)],
       ['note', LIVE_STATE_NOTE],
     ]
+
     for (const f of fields) {
       metaLines.push([`field:${f.key}`, String(f.logicalType)])
     }
+
     const bytes = await xlsxDocument(fields, rawRows, metaLines)
     await recordSheetReceipt(bytes.byteLength)
+
     return exportResponse(
       bytes as unknown as BodyInit,
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -783,6 +854,7 @@ export async function handleSheetInstanceExport(
 
   if (formatParam === 'parquet') {
     let bytes: Uint8Array
+
     try {
       bytes = await parquetDocument(fields, rawRows)
     } catch (error) {
@@ -792,7 +864,9 @@ export async function handleSheetInstanceExport(
         error instanceof Error ? error.message : 'Parquet export too large.',
       )
     }
+
     await recordSheetReceipt(bytes.byteLength)
+
     return exportResponse(
       bytes as unknown as BodyInit,
       'application/octet-stream',
@@ -803,20 +877,25 @@ export async function handleSheetInstanceExport(
   // CSV / TSV of the local grid.
   const delimiter = formatParam === 'csv' ? ',' : '\t'
   const encoder = new TextEncoder()
+
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       controller.enqueue(
         encoder.encode(delimitedHeaderLine(fields, delimiter) + '\r\n'),
       )
+
       for (const row of rawRows) {
         controller.enqueue(
           encoder.encode(delimitedRowLine(fields, row, delimiter) + '\r\n'),
         )
       }
+
       controller.close()
     },
   })
+
   await recordSheetReceipt(null)
+
   return exportResponse(
     stream,
     formatParam === 'csv'
@@ -851,11 +930,13 @@ export async function handleRecordExport(
   deps: SessionAuthDeps,
 ): Promise<Response> {
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
 
   const formatParam = new URL(request.url).searchParams.get('format') ?? 'json'
+
   if (formatParam !== 'json') {
     return requestErrorResponse(
       400,
@@ -885,10 +966,13 @@ export async function handleRecordExport(
     `id=eq.${encodeURIComponent(recordId)}&select=id,workspace_id,identifier,title,kind,status,tags,properties,custom_fields,structure_version,metadata_version,archived_at,locked_at&limit=1`,
     context.token,
   )
+
   const list = Array.isArray(records.body) ? records.body : []
+
   if (records.status >= 400 || list.length === 0) {
     return requestErrorResponse(404, 'not_found', 'Record not found.')
   }
+
   const record = list[0]
 
   const [blocksRes, linksRes] = await Promise.all([
@@ -951,6 +1035,7 @@ export async function handleRecordExport(
   })
 
   const filename = `${slug(record.identifier)}-notebook.json`
+
   return exportResponse(body, 'application/json; charset=utf-8', filename)
 }
 
@@ -961,10 +1046,12 @@ export async function handleRecordAuditExport(
   deps: SessionAuthDeps,
 ): Promise<Response> {
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
   const search = new URL(request.url).searchParams
+
   const filter = z
     .object({
       recordId: z.uuid(),
@@ -978,6 +1065,7 @@ export async function handleRecordAuditExport(
       actor: search.get('actor'),
       before: search.get('before'),
     })
+
   if (!filter.success)
     return requestErrorResponse(
       400,
@@ -990,8 +1078,10 @@ export async function handleRecordAuditExport(
     `id=eq.${recordId}&select=id&limit=1`,
     context.token,
   )
+
   if (records.status >= 500)
     return requestErrorResponse(502, 'upstream_error', 'Audit is unavailable.')
+
   if (
     records.status >= 400 ||
     !Array.isArray(records.body) ||
@@ -1001,6 +1091,7 @@ export async function handleRecordAuditExport(
 
   const events: AuditEventWire[] = []
   let beforeSequence = filter.data.before
+
   for (;;) {
     const result = await postgrestRpc(
       'audit_events',
@@ -1012,15 +1103,18 @@ export async function handleRecordAuditExport(
       }),
       context.token,
     )
+
     if (result.status >= 500)
       return requestErrorResponse(
         502,
         'upstream_error',
         'Audit is unavailable.',
       )
+
     if (result.status >= 400)
       return requestErrorResponse(404, 'not_found', 'Record not found.')
     const parsed = auditEventsPageSchema.safeParse(result.body)
+
     if (!parsed.success)
       return requestErrorResponse(502, 'upstream_error', 'Invalid audit page.')
     const page = parsed.data
@@ -1029,7 +1123,9 @@ export async function handleRecordAuditExport(
         auditEventMatchesCategory(event, filter.data.category),
       ),
     )
+
     if (!page.hasMore) break
+
     if (page.nextCursor === null || page.nextCursor >= beforeSequence)
       return requestErrorResponse(
         502,
@@ -1038,6 +1134,7 @@ export async function handleRecordAuditExport(
       )
     beforeSequence = page.nextCursor
   }
+
   const body = auditEventsCsv(events)
   await insertReceipt({
     workspaceId: context.workspaceId,
@@ -1048,6 +1145,7 @@ export async function handleRecordAuditExport(
     rowCount: events.length,
     byteSize: new TextEncoder().encode(body).byteLength,
   })
+
   return exportResponse(
     body,
     'text/csv; charset=utf-8',
@@ -1065,6 +1163,7 @@ export async function handleRevisionEvidencePackage(
   deps: SessionAuthDeps,
 ): Promise<Response> {
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
@@ -1074,6 +1173,7 @@ export async function handleRevisionEvidencePackage(
     { p_revision_id: revisionId },
     context.token,
   )
+
   if (rpcRes.status >= 400 || !rpcRes.body) {
     // Denials and missing revisions are indistinguishable by design.
     return requestErrorResponse(404, 'not_found', 'Revision not found.')
@@ -1109,6 +1209,7 @@ export async function handleRevisionSignedBundle(
   deps: SessionAuthDeps,
 ): Promise<Response> {
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
@@ -1118,9 +1219,11 @@ export async function handleRevisionSignedBundle(
     { p_revision_id: revisionId },
     context.token,
   )
+
   if (rpcRes.status >= 400 || !rpcRes.body) {
     return requestErrorResponse(404, 'not_found', 'Revision not found.')
   }
+
   const pkg = rpcRes.body as Parameters<typeof buildEvidencePackage>[0]
 
   const stampRes = await postgrestSelect<
@@ -1139,6 +1242,7 @@ export async function handleRevisionSignedBundle(
     `select=signature_id,signed_data,response_b64,authority_name,authority_url,gen_time,serial,signer&revision_id=eq.${encodeURIComponent(revisionId)}&status=eq.stamped`,
     context.token,
   )
+
   if (stampRes.status >= 400 || !Array.isArray(stampRes.body)) {
     return requestErrorResponse(
       502,
@@ -1151,6 +1255,7 @@ export async function handleRevisionSignedBundle(
   const { ensureWorkspaceKey } = await import('./bundle-key.server')
   const { signWithKey } = await import('./bundle-key')
   const key = await ensureWorkspaceKey(pkg.revision.workspaceId)
+
   const bytes = await buildSignedBundle({
     evidence: pkg,
     timestamps: stampRes.body.map((row) => ({
@@ -1195,6 +1300,7 @@ export async function handleRevisionPdf(
   deps: SessionAuthDeps,
 ): Promise<Response> {
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
@@ -1204,14 +1310,18 @@ export async function handleRevisionPdf(
     { p_revision_id: revisionId },
     context.token,
   )
+
   if (rpcRes.status >= 400 || !rpcRes.body) {
     return requestErrorResponse(404, 'not_found', 'Revision not found.')
   }
+
   const pkg = rpcRes.body as Parameters<typeof buildEvidencePackage>[0]
   const { readWorkspaceLogoBytes } = await import('#/lib/workspace-logo-routes')
+
   const logo = await readWorkspaceLogoBytes(context.workspaceId).catch(
     () => null,
   )
+
   const bytes = await renderRevisionPdf(pkg, { logo })
 
   await insertReceipt({

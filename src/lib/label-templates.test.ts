@@ -66,6 +66,7 @@ describe('activeLabelTemplates', () => {
         }),
       ),
     ]
+
     expect(activeLabelTemplates(list, 'sample').map((t) => t.name)).toEqual([
       'A',
       'B',
@@ -93,6 +94,7 @@ describe('buildLabelLines with a template', () => {
     condition: '-80 °C',
     useBy: '04-Oct',
   }
+
   it('prints the lot and storage by default, not the type', () => {
     expect(buildLabelLines(source).map((l) => l.kind)).toEqual([
       'identifier',

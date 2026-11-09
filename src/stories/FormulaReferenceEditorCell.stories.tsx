@@ -18,6 +18,7 @@ function Harness({
 }) {
   const [outcome, setOutcome] = useState('Editing…')
   const [draft, setDraft] = useState(initialDraft)
+
   return (
     <div className="w-[420px] space-y-2">
       <div className="rounded-md border border-border p-2">
@@ -49,7 +50,9 @@ const meta = {
     cancel: () => {},
   },
 } satisfies Meta<typeof FormulaReferenceEditorCell>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** An existing formula, opened for editing. */

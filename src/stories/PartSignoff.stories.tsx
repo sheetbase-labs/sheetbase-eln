@@ -67,7 +67,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The Now card once the steps of Part 1 are done. */

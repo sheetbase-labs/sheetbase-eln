@@ -90,6 +90,7 @@ export interface CanonicalDatasetSource {
   revision: number
   columns: ChartColumn[]
 }
+
 /**
  * Adapt an explorer-style canonical dataset wire (columns already keyed by
  * field_id) into the source shape SCI components consume.
@@ -125,6 +126,7 @@ export function toCanonicalDatasetSource(dataset: {
     })),
   }
 }
+
 export interface ResolvedDataset {
   source: CanonicalDatasetSource
   rows: Record<string, unknown>[]
@@ -149,18 +151,24 @@ export async function fetchCanonicalDataset(
     'datasets',
     `?id=eq.${encodeURIComponent(datasetId)}${datasetVersionId ? '' : '&lifecycle=eq.active'}&limit=1`,
   )
+
   const dataset = datasets.at(0)
+
   if (!dataset) return null
+
   if (datasetVersionId) {
     const versions = await client.list<DatasetVersionWire>(
       'dataset_versions',
       `?id=eq.${encodeURIComponent(datasetVersionId)}&dataset_id=eq.${encodeURIComponent(datasetId)}&limit=1`,
     )
+
     const version = versions.at(0)
+
     if (!version || version.dataset_id !== datasetId) return null
     dataset.schema_version_id = version.schema_version_id
     dataset.revision = version.source_dataset_revision
   }
+
   const [fields, versions] = await Promise.all([
     client.list<DatasetVersionFieldWire>(
       'dataset_schema_version_fields',
@@ -171,9 +179,11 @@ export async function fetchCanonicalDataset(
       `?id=eq.${encodeURIComponent(dataset.schema_version_id)}&select=id,version&limit=1`,
     ),
   ])
+
   const pinnedSchemaVersion = versions.find(
     (v) => v.id === dataset.schema_version_id,
   )
+
   return {
     datasetId: dataset.id,
     name: dataset.name,
@@ -211,11 +221,13 @@ async function fetchRowsPaged(
   const totalCount = first.totalCount
   const rows = [...first.rows]
   let offset = rows.length
+
   while (offset < Math.min(totalCount, SCI_ANALYSIS_ROW_LIMIT)) {
     const page = await fetchPage(
       Math.min(ROW_PAGE_SIZE, SCI_ANALYSIS_ROW_LIMIT - offset),
       offset,
     )
+
     if (
       page.rows.length === 0 ||
       page.totalCount !== totalCount ||
@@ -225,6 +237,7 @@ async function fetchRowsPaged(
     rows.push(...page.rows)
     offset = rows.length
   }
+
   return {
     rows,
     totalCount,
@@ -283,6 +296,7 @@ export async function resolveChartDataset(
   spec: ChartSpec | null | undefined,
 ): Promise<ResolvedDataset | null> {
   if (!spec || spec.datasets.length === 0) return null
+
   return resolveDatasetRef(client, spec.datasets[0])
 }
 
@@ -301,17 +315,22 @@ export async function resolveDatasetRef(
     ref.datasetId,
     ref.datasetVersionId,
   )
+
   if (!source) return null
+
   if (ref.datasetVersionId) {
     const paged = await fetchDatasetVersionRows(client, ref.datasetVersionId)
+
     return { source, ...paged, flags: [] }
   }
+
   // Flags do not increment Dataset revision. Read them around the rows, then
   // recheck metadata so all presented values, exclusions and units coexisted.
   const flags = await fetchActiveDatasetFlags(client, source.datasetId)
   const paged = await fetchDatasetRows(client, source.datasetId)
   const currentFlags = await fetchActiveDatasetFlags(client, source.datasetId)
   const current = await fetchCanonicalDataset(client, source.datasetId)
+
   if (
     !current ||
     current.revision !== source.revision ||
@@ -322,6 +341,7 @@ export async function resolveDatasetRef(
       JSON.stringify([...currentFlags].sort((a, b) => a.id.localeCompare(b.id)))
   )
     throw new Error('Dataset changed while loading; reload before analysing')
+
   return { source, ...paged, flags }
 }
 
@@ -386,6 +406,7 @@ export function materialiseLiveChart(
       droppedPoints: 0,
     }
   }
+
   if (dataset.truncated) {
     return {
       state: {
@@ -403,12 +424,14 @@ export function materialiseLiveChart(
       droppedPoints: 0,
     }
   }
+
   // DSET-01.2 — exclude a row when any field the chart uses is flagged.
   const rows = filterRowsByFlags(
     dataset.rows,
     dataset.flags ?? [],
     chartUsedFieldIds(spec),
   )
+
   return materialiseChart(spec, dataset.source.columns, rows)
 }
 
@@ -424,12 +447,14 @@ export function materialiseFrozenChart(frozen: FrozenChart): MaterialisedChart {
     logicalType: c.logicalType,
     unit: c.unit,
   }))
+
   const series = frozen.data.series.map((s) => ({
     identifier: s.identifier,
     label: s.label,
     color: s.color,
     points: s.points,
   }))
+
   return {
     state: { kind: 'ok' },
     columns,
@@ -448,6 +473,7 @@ export function materialiseFrozenChart(frozen: FrozenChart): MaterialisedChart {
 
 export function frozenPinsDatasetVersion(frozen: FrozenChart): string | null {
   const versionId = frozen.datasetProvenance[0]?.datasetVersionId
+
   return typeof versionId === 'string' && versionId.length > 0
     ? versionId
     : null
@@ -468,14 +494,18 @@ export function reconstructFrozenVisualisation(input: {
     logicalType: column.logicalType,
     unit: column.unit,
   }))
+
   const rows = filterRowsByFlags(
     input.rows,
     input.flags ?? [],
     chartUsedFieldIds(input.spec),
   )
+
   const chart = materialiseChart(input.spec, columns, rows)
+
   if (!input.spec.fields.facet) return { chart, facets: null }
   const facets = materialiseFacetedCharts(input.spec, columns, rows)
+
   return { chart, facets }
 }
 
@@ -488,8 +518,10 @@ export function materialiseFrozenFacets(
   frozen: FrozenChart,
 ): { panels: FacetedChart[]; total: number } | null {
   const facets = frozen.data.facets
+
   if (!facets || facets.length === 0) return null
   const base = materialiseFrozenChart(frozen)
+
   return {
     total: frozen.data.facetsTotal ?? facets.length,
     panels: facets.map((facet) => ({
@@ -521,6 +553,7 @@ export async function fetchFrozenAnalysisRows(
       `Dataset Version holds ${expectedRowCount} rows, above the ${SCI_ANALYSIS_ROW_LIMIT}-row reconstruction ceiling`,
     )
   }
+
   const paged = await fetchRowsPaged((limit, offset) =>
     queryDatasetVersionRows(client, datasetVersionId, limit, offset).then(
       (page) => ({
@@ -532,6 +565,7 @@ export async function fetchFrozenAnalysisRows(
       }),
     ),
   )
+
   return {
     rows: paged.rows,
     totalCount: paged.totalCount,
@@ -557,6 +591,7 @@ export async function fetchFrozenAnalysisRows(
 export function useLiveChartDataset(spec: ChartSpec | null | undefined) {
   const datasetId = spec?.datasets[0]?.datasetId ?? ''
   const datasetVersionId = spec?.datasets[0]?.datasetVersionId ?? null
+
   const datasetQuery = useQuery({
     queryKey: [
       chartQueryKeys.dataset(datasetId),
@@ -566,12 +601,14 @@ export function useLiveChartDataset(spec: ChartSpec | null | undefined) {
     queryFn: () => resolveChartDataset(sciDataClient, spec),
     enabled: Boolean(datasetId),
   })
+
   return { datasetQuery }
 }
 
 export function useFrozenPinnedRows(frozen: FrozenChart | null) {
   const versionId = frozen ? frozenPinsDatasetVersion(frozen) : null
   const expected = frozen?.datasetProvenance[0]?.rowCount ?? 0
+
   const query = useQuery({
     queryKey: [
       ...chartQueryKeys.versionRows(versionId ?? ''),
@@ -587,6 +624,7 @@ export function useFrozenPinnedRows(frozen: FrozenChart | null) {
       ),
     enabled: Boolean(versionId),
   })
+
   return query
 }
 
@@ -608,6 +646,7 @@ export async function freezeChart(
     p_block_id: args.blockId,
     p_expected_version: args.expectedVersion,
   })
+
   return toBlock(row)
 }
 
@@ -624,5 +663,6 @@ export async function unfreezeChart(
     p_block_id: args.blockId,
     p_expected_version: args.expectedVersion,
   })
+
   return toBlock(row)
 }

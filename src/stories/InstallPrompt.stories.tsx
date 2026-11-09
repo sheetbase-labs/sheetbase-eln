@@ -19,7 +19,9 @@ const meta = {
   tags: ['autodocs'],
   parameters: { layout: 'fullscreen' },
 } satisfies Meta<typeof InstallPrompt>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function snoozeCleared() {
@@ -43,6 +45,7 @@ export const Installable: Story = {
         })
         window.dispatchEvent(event)
       })
+
       return <Story />
     },
   ],
@@ -64,21 +67,25 @@ function PresentAsIPhone({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
   useEffect(() => {
     snoozeCleared()
+
     const original = Object.getOwnPropertyDescriptor(
       window.navigator,
       'userAgent',
     )
+
     Object.defineProperty(window.navigator, 'userAgent', {
       configurable: true,
       get: () =>
         'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
     })
     setReady(true)
+
     return () => {
       if (original)
         Object.defineProperty(window.navigator, 'userAgent', original)
       else delete (window.navigator as { userAgent?: string }).userAgent
     }
   }, [])
+
   return ready ? <>{children}</> : null
 }

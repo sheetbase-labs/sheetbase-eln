@@ -62,12 +62,14 @@ describe('rule forms', () => {
   it('turns a draft into a rule and back', () => {
     const rule = draftToRule(ruleToDraft(range), 'r1')
     expect(rule).toEqual(range)
+
     const freshness: ContractRule = {
       id: 'f',
       kind: 'freshness',
       mode: 'warn',
       maxAgeMinutes: 2880,
     }
+
     expect(ruleToDraft(freshness)).toMatchObject({
       maxAge: '2',
       maxAgeUnit: 'days',
@@ -173,6 +175,7 @@ describe('what a blocked commit says', () => {
         },
       ],
     })
+
     expect(text).toContain('Plate reads')
     expect(text).toContain('Range on od600')
     expect(text).not.toContain('Required')

@@ -35,18 +35,23 @@ export function BlockedImportDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const contractId = report?.contractId
+
   const contract = useQuery({
     queryKey: [...contractKeys.all, 'by-id', contractId],
     queryFn: () => fetchContractById(notebookDataClient, contractId ?? ''),
     enabled: open && Boolean(contractId),
   })
+
   const fields = useContractFields(
     contract.data ? contractTarget(contract.data) : null,
   )
+
   const fieldLabel = (key: string) =>
     fields.find((field) => field.key === key)?.label ?? key
+
   const modelId =
     contract.data?.datasetSchemaId ?? contract.data?.recordModelKey ?? null
+
   const results = report ? blockingResults(report) : []
 
   return (
@@ -64,7 +69,9 @@ export function BlockedImportDialog({
               const rule = contract.data?.rules.find(
                 (candidate) => candidate.id === result.ruleId,
               )
+
               const rows = (result.samples ?? []).map((sample) => sample.row)
+
               return (
                 <li key={result.ruleId} className="flex flex-col gap-0.5">
                   <span className="font-medium">

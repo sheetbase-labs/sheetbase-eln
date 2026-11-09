@@ -17,9 +17,11 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 export const Route = createFileRoute('/evidence/$revisionId')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: lazyRouteComponent(

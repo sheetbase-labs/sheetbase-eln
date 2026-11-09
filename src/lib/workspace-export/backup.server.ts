@@ -29,8 +29,10 @@ import type { BackupFrequency, BackupSettings } from './schedule'
 
 /** Ceiling for one archive, so a runaway workspace cannot fill a bucket. */
 export const BACKUP_MAX_BYTES = 50 * 1024 * 1024 * 1024
+
 /** A run still marked running after this long is taken to have been interrupted. */
 const STALE_RUN_MS = 6 * 60 * 60 * 1000
+
 /** Failed attempts are kept this long so Diagnostics can show them. */
 const FAILED_KEEP_DAYS = 30
 
@@ -59,7 +61,9 @@ export function resolveBackupDestination(): BackupDestination {
       }),
     }
   }
+
   const name = env.FILE_STORAGE_BACKEND
+
   return { name, separate: name !== 'database', storage: getObjectStorage() }
 }
 
@@ -88,6 +92,7 @@ export interface BackupDeps {
 
 export function defaultBackupDeps(): BackupDeps {
   const destination = resolveBackupDestination()
+
   return {
     pool: getPool(env.DATABASE_URL),
     archive: {
@@ -105,6 +110,7 @@ const RECORD_COLUMNS = `id::text, trigger, status, started_at::text, finished_at
 
 function toRecord(row: Record<string, unknown>): BackupRecord {
   const num = (v: unknown) => (v === null || v === undefined ? null : Number(v))
+
   return {
     id: row.id as string,
     trigger: row.trigger as BackupRecord['trigger'],
@@ -131,9 +137,11 @@ export async function readBackupSettings(
       WHERE workspace_id = $1::uuid`,
     [workspaceId],
   )
+
   const row = rows[0] as
     | { enabled: boolean; frequency: BackupFrequency; keep_count: number }
     | undefined
+
   return row
     ? {
         enabled: row.enabled,
@@ -177,6 +185,7 @@ export async function listBackups(
       WHERE workspace_id = $1::uuid ORDER BY started_at DESC LIMIT $2`,
     [workspaceId, limit],
   )
+
   return rows.map(toRecord)
 }
 
@@ -190,7 +199,9 @@ export async function findBackup(
       WHERE workspace_id = $1::uuid AND id = $2::uuid`,
     [workspaceId, backupId],
   )
+
   const row = rows[0] as Record<string, unknown> | undefined
+
   return row
     ? {
         ...toRecord(row),
@@ -215,14 +226,17 @@ export async function latestBackupStatus(
       ORDER BY status, started_at DESC`,
     [workspaceId],
   )
+
   const by = new Map(
     rows.map((r) => [
       r.status as string,
       toRecord(r as Record<string, unknown>),
     ]),
   )
+
   const failed = by.get('failed') ?? null
   const succeeded = by.get('succeeded') ?? null
+
   return {
     lastSucceeded: succeeded,
     // A failure only matters while nothing newer has succeeded.
@@ -266,6 +280,7 @@ export async function runBackup(
   const id = randomUUID()
   const startedAt = deps.now()
   const storageKey = `backups/${input.workspaceId}/${backupPrefix(startedAt)}-${id.slice(0, 8)}.zip`
+
   try {
     await pool.query(
       `INSERT INTO internal.workspace_backups
@@ -285,6 +300,7 @@ export async function runBackup(
     if ((error as { code?: string }).code === '23505') {
       return { ok: false, reason: 'already_running' }
     }
+
     throw error
   }
 
@@ -293,10 +309,12 @@ export async function runBackup(
       ...deps.archive,
       now: deps.now,
     })
+
     const [put, counts] = await Promise.all([
       destination.storage.putStream(storageKey, stream, BACKUP_MAX_BYTES),
       summary,
     ])
+
     await pool.query(
       `UPDATE internal.workspace_backups
           SET status = 'succeeded', finished_at = now(), byte_size = $2,
@@ -326,11 +344,13 @@ export async function runBackup(
       ],
     )
     await pruneBackups(deps, input.workspaceId)
+
     const backup = (await findBackup(
       pool,
       input.workspaceId,
       id,
     )) as BackupRecord
+
     return { ok: true, backup }
   } catch (error) {
     await destination.storage.delete(storageKey).catch(() => undefined)
@@ -345,11 +365,13 @@ export async function runBackup(
         WHERE id = $1::uuid`,
       [id, message],
     )
+
     const backup = (await findBackup(
       pool,
       input.workspaceId,
       id,
     )) as BackupRecord
+
     return { ok: false, reason: 'failed', backup }
   }
 }
@@ -357,10 +379,13 @@ export async function runBackup(
 /** A reason a person can read; never a connection string or a stack. */
 function failureMessage(error: unknown): string {
   const name = (error as { name?: string }).name
+
   if (name === 'OversizeError') {
     return 'The workspace is larger than the backup limit.'
   }
+
   const message = error instanceof Error ? error.message : String(error)
+
   return message.replace(/\s+/g, ' ').slice(0, 300)
 }
 
@@ -370,27 +395,32 @@ export async function pruneBackups(
   workspaceId: string,
 ): Promise<number> {
   const settings = await readBackupSettings(deps.pool, workspaceId)
+
   const { rows } = await deps.pool.query(
     `SELECT id::text, storage_key FROM internal.workspace_backups
       WHERE workspace_id = $1::uuid AND status = 'succeeded'
       ORDER BY started_at DESC OFFSET $2`,
     [workspaceId, settings.keepCount],
   )
+
   for (const row of rows as { id: string; storage_key: string | null }[]) {
     if (row.storage_key) {
       await deps.destination.storage.delete(row.storage_key)
     }
+
     await deps.pool.query(
       'DELETE FROM internal.workspace_backups WHERE id = $1::uuid',
       [row.id],
     )
   }
+
   await deps.pool.query(
     `DELETE FROM internal.workspace_backups
       WHERE workspace_id = $1::uuid AND status = 'failed'
         AND started_at < now() - ($2::text || ' days')::interval`,
     [workspaceId, String(FAILED_KEEP_DAYS)],
   )
+
   return rows.length
 }
 
@@ -418,8 +448,10 @@ export async function sweepBackups(
       BACKUP_DEFAULTS.keepCount,
     ],
   )
+
   let ran = 0
   let failed = 0
+
   for (const row of rows as Record<string, unknown>[]) {
     const due = backupIsDue(
       {
@@ -437,13 +469,17 @@ export async function sweepBackups(
       },
       deps.now(),
     )
+
     if (!due) continue
+
     const outcome = await runBackup(deps, {
       workspaceId: row.id as string,
       trigger: 'scheduled',
     })
+
     if (outcome.ok) ran += 1
     else if (outcome.reason === 'failed') failed += 1
   }
+
   return { checked: rows.length, ran, failed }
 }

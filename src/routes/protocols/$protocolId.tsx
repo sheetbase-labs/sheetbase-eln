@@ -50,6 +50,7 @@ import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
 
 const tabs = ['document', 'template', 'usedby', 'versions', 'training'] as const
+
 type ProtocolTab = (typeof tabs)[number]
 
 /** UI port (roadmap-4/ui-app3): the protocol detail frame. The controlled
@@ -72,9 +73,11 @@ export const Route = createFileRoute('/protocols/$protocolId')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: ProtocolPage,
@@ -85,38 +88,47 @@ function ProtocolPage() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const tab = search.section ?? 'document'
+
   const record = useQuery({
     queryKey: notebookQueryKeys.record(protocolId),
     queryFn: () => fetchRecord(notebookDataClient, protocolId),
   })
+
   const blocks = useQuery({
     queryKey: ['ui-port', 'protocol-blocks', protocolId],
     queryFn: () => fetchBlocksForRecord(notebookDataClient, protocolId),
   })
+
   const links = useQuery({
     queryKey: ['ui-port', 'protocol-links', protocolId],
     queryFn: () => fetchLinksForRecord(notebookDataClient, protocolId),
   })
+
   const versions = useQuery({
     queryKey: protocolVersionsKey(protocolId),
     queryFn: () => fetchProtocolVersions(notebookDataClient, protocolId),
   })
+
   const [pickedVersionId, setPickedVersionId] = useState<string | null>(null)
   const versionRows = versions.data ?? []
+
   // The document reads the version picked, else the effective one, else the
   // newest frozen one; with no frozen version it falls back to the working text.
   const shownVersion =
     versionRows.find((v) => v.id === pickedVersionId) ??
     versionRows.find((v) => v.status === 'effective') ??
     [...versionRows].sort((a, b) => b.version - a.version).at(0)
+
   const snapshot = useQuery({
     queryKey: ['ui-port', 'protocol-revision', shownVersion?.id ?? ''],
     queryFn: () => fetchRevision(notebookDataClient, shownVersion?.id ?? ''),
     enabled: Boolean(shownVersion),
   })
+
   const names = useUserNames([
     ...(record.data ? [record.data.createdByUserId] : []),
   ])
+
   const p = record.data
   useRecentViewTracking('record', p?.kind === 'protocol_template' ? p.id : null)
 
@@ -153,9 +165,13 @@ function ProtocolPage() {
       </div>
     )
   }
+
   type ProtocolBlock = NonNullable<typeof blocks.data>[number]
+
   type ProtocolLink = NonNullable<typeof links.data>[number]
+
   const effectiveVersion = versions.data?.find((v) => v.status === 'effective')
+
   // A protocol is Active only while a version is approved and effective. The
   // record's own status can run ahead of its versions, so say what the versions
   // say rather than "Active" beside "No effective version".
@@ -459,23 +475,28 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
   const versions = useQuery({
     queryKey: ['ui-port', 'protocol-versions', protocolId],
     queryFn: () => fetchProtocolVersions(notebookDataClient, protocolId),
   })
+
   const rows = versions.data ?? []
+
   // Default to the current effective version, falling back to the newest frozen
   // one so a protocol without an effective version is still legible.
   const version =
     rows.find((v) => v.id === selectedId) ??
     rows.find((v) => v.status === 'effective') ??
     rows.at(0)
+
   const acknowledgements = useQuery({
     queryKey: ['ui-port', 'protocol-acknowledgements', version?.id ?? ''],
     queryFn: () =>
       fetchProtocolAcknowledgements(notebookDataClient, version?.id ?? ''),
     enabled: Boolean(version),
   })
+
   // GOV-01 / LAB-07 — the RPC refuses a viewer's acknowledgement, so the
   // control is only offered to a writer. The surface asks the same
   // `api.is_workspace_writer` question the server gates on, never a
@@ -493,6 +514,7 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
       ),
     enabled: Boolean(version),
   })
+
   const members = useQuery({
     queryKey: ['ui-port', 'protocol-training-members'],
     queryFn: () =>
@@ -502,6 +524,7 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
       ),
     staleTime: 60_000,
   })
+
   const acknowledge = useMutation({
     mutationFn: (versionId: string) =>
       acknowledgeProtocolVersion(notebookDataClient, versionId),
@@ -520,6 +543,7 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
       </p>
     )
   }
+
   if (versions.isError) {
     return (
       <p role="alert">
@@ -527,6 +551,7 @@ function TrainingTab({ protocolId }: { protocolId: string }) {
       </p>
     )
   }
+
   if (!version) {
     return (
       <EmptyState

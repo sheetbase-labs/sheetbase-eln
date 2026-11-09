@@ -78,6 +78,7 @@ function client() {
 
 function Harness({ readOnly }: { readOnly?: boolean }) {
   const [value] = useState(instance)
+
   return (
     <CanonicalSheetEditor
       instance={value}
@@ -102,7 +103,9 @@ const meta = {
   ],
   args: { instance, projectId: null },
 } satisfies Meta<typeof CanonicalSheetEditor>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = { render: () => <Harness /> }

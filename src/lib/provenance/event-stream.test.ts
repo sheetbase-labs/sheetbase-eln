@@ -69,8 +69,10 @@ describe('event stream', () => {
       },
       new Set(['pipeline.run.reproduced']),
     )
+
     expect(page.events).toHaveLength(1)
     expect(page.nextCursor).toBe(8)
+
     const none = shapePage(
       'ws-1',
       {
@@ -84,6 +86,7 @@ describe('event stream', () => {
       },
       new Set(['sample.created']),
     )
+
     expect(none.events).toHaveLength(0)
   })
 

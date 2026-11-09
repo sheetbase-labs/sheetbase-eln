@@ -190,6 +190,7 @@ function attachHandlers(
 ): ShortcutDefinition[] {
   return SCOPED_SHORTCUTS.flatMap((definition) => {
     const handler = handlers[definition.id]
+
     return handler ? [{ ...definition, handler }] : []
   })
 }
@@ -213,6 +214,7 @@ export function paneShortcuts(
 ): ShortcutDefinition[] {
   return PANE_SHORTCUTS.flatMap((definition) => {
     const attached = handlers[definition.id]
+
     return attached ? [{ ...definition, ...attached }] : []
   })
 }

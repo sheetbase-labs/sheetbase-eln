@@ -43,11 +43,14 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function provider(data: ReadSeed[]) {
   const client = screenQueryClient({ data })
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <Story />

@@ -14,16 +14,21 @@ const NUMBER_RE = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?$/
 
 function csvCell(text: string): unknown {
   if (text === '') return null
+
   if (text === 'true') return true
+
   if (text === 'false') return false
+
   if (NUMBER_RE.test(text)) {
     const n = Number(text)
+
     // Keep what would lose digits as a string, the way a run keeps decimals.
     return Number.isFinite(n) &&
       String(n).length >= text.replace(/^\+/, '').length
       ? n
       : text
   }
+
   return text
 }
 
@@ -32,8 +37,10 @@ function csvRecords(text: string): string[][] {
   let record: string[] = []
   let cell = ''
   let quoted = false
+
   for (let i = 0; i < text.length; i += 1) {
     const char = text[i]
+
     if (quoted) {
       if (char === '"' && text[i + 1] === '"') {
         cell += '"'
@@ -52,12 +59,15 @@ function csvRecords(text: string): string[][] {
       cell = ''
     } else cell += char
   }
+
   if (quoted)
     throw new SyntaxError(t('data.pipelineSample.quotedCsvValueNever'))
+
   if (cell !== '' || record.length) {
     record.push(cell)
     records.push(record)
   }
+
   return records.filter((r) => r.some((c) => c !== ''))
 }
 
@@ -66,29 +76,38 @@ const isRow = (value: unknown): value is Record<string, unknown> =>
 
 export function parseSample(text: string): SampleResult {
   const trimmed = text.trim()
+
   if (!trimmed) return { rows: [] }
+
   if (trimmed.length > MAX_SAMPLE_CHARS)
     return { error: t('data.pipelineSample.sampleTooLongPaste') }
+
   if (trimmed.startsWith('[')) {
     try {
       const parsed: unknown = JSON.parse(trimmed)
+
       if (!Array.isArray(parsed) || !parsed.every(isRow))
         return {
           error: t('data.pipelineSample.useListRowObjects', {
             sample: '[{"value": 1}]',
           }),
         }
+
       return { rows: parsed }
     } catch {
       return { error: t('data.pipelineSample.validJson') }
     }
   }
+
   if (trimmed.startsWith('{')) {
     const rows: Array<Record<string, unknown>> = []
+
     for (const [index, line] of trimmed.split('\n').entries()) {
       if (!line.trim()) continue
+
       try {
         const parsed: unknown = JSON.parse(line)
+
         if (!isRow(parsed))
           throw new Error(t('data.pipelineSample.notAnObject'))
         rows.push(parsed)
@@ -98,9 +117,12 @@ export function parseSample(text: string): SampleResult {
         }
       }
     }
+
     return { rows }
   }
+
   let records: string[][]
+
   try {
     records = csvRecords(trimmed)
   } catch (error) {
@@ -111,13 +133,17 @@ export function parseSample(text: string): SampleResult {
           : t('data.pipelineSample.badCsv'),
     }
   }
+
   const [header, ...body] = records
+
   if (!header.every((name) => name.trim()))
     return { error: t('data.pipelineSample.everyCsvColumnNeeds') }
   const names = header.map((name) => name.trim())
+
   if (new Set(names).size !== names.length)
     return { error: t('data.pipelineSample.csvColumnNamesMust') }
   const rows: Array<Record<string, unknown>> = []
+
   for (const [index, record] of body.entries()) {
     if (record.length !== names.length)
       return {
@@ -131,5 +157,6 @@ export function parseSample(text: string): SampleResult {
       Object.fromEntries(names.map((name, i) => [name, csvCell(record[i])])),
     )
   }
+
   return { rows }
 }

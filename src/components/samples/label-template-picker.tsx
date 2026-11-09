@@ -44,18 +44,23 @@ export function useLabelTemplateChoice(
     queryFn: () => fetchLabelTemplates(client),
     staleTime: 60_000,
   })
+
   const own = activeLabelTemplates(templates.data ?? [], recordKind)
+
   // A kind with no template of its own prints with the workspace's templates
   // for "other records", then with the built-in look.
   const active =
     own.length || recordKind === 'sample' || recordKind === 'material'
       ? own
       : activeLabelTemplates(templates.data ?? [], 'record')
+
   const [pickedId, setPickedId] = useState<string | null>(() =>
     remembered(recordKind),
   )
+
   const chosen: LabelTemplate | undefined =
     active.find((template) => template.id === pickedId) ?? active.at(0)
+
   return {
     templates: active,
     chosen,
@@ -76,6 +81,7 @@ export function LabelTemplatePicker({
   onChoose: (id: string) => void
 }) {
   if (templates.length < 2) return null
+
   return (
     <Field label={t('library.labelTemplatePicker.label')}>
       <Select

@@ -35,9 +35,11 @@ export function AccessBlockedSurface({
 }: AccessBlockedProps) {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
   async function run(action: () => Promise<void>, failure: string) {
     setBusy(true)
     setError(null)
+
     try {
       await action()
     } catch {
@@ -45,6 +47,7 @@ export function AccessBlockedSurface({
       setBusy(false)
     }
   }
+
   return (
     <div className="flex min-h-dvh flex-col items-center bg-surface-muted px-4 pt-[12vh] max-md:pt-8">
       <main
@@ -148,6 +151,7 @@ export function AccessBlocked(
 ) {
   const router = useRouter()
   const navigate = useNavigate()
+
   return (
     <AccessBlockedSurface
       {...props}
@@ -157,6 +161,7 @@ export function AccessBlocked(
       }}
       onSignOut={async () => {
         const result = await authClient.signOut()
+
         if (result.error || !result.data.success) throw new Error('sign out')
         router.options.context.queryClient.clear()
         await navigate({ to: '/sign-in', search: { state: 'signed-out' } })

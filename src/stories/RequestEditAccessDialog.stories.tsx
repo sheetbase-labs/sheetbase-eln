@@ -12,6 +12,7 @@ import { RequestEditAccessDialog } from '#/components/notebook/notebook-viewer-a
 function Harness({ initiallyOpen }: { initiallyOpen?: boolean }) {
   const [open, setOpen] = useState(Boolean(initiallyOpen))
   const [requested, setRequested] = useState(false)
+
   return (
     <div className="space-y-2">
       {requested ? (
@@ -56,7 +57,9 @@ const meta = {
     onRequested: () => {},
   },
 } satisfies Meta<typeof RequestEditAccessDialog>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Closed: nothing is rendered until the viewer asks. */

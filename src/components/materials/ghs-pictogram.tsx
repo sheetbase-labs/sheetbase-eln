@@ -168,6 +168,7 @@ export function GhsPictogram({
   decorative?: boolean
 }) {
   const name = pictogramName(code)
+
   return (
     <svg
       viewBox="0 0 100 100"

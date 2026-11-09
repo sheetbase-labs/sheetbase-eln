@@ -36,13 +36,17 @@ export function collapseRepeats(
   expanded: ReadonlySet<string>,
 ): InboxEntry[] {
   const groups = new Map<string, WorkItem[]>()
+
   for (const item of items) {
     const key = repeatKey(item)
     const members = groups.get(key)
+
     if (members) members.push(item)
     else groups.set(key, [item])
   }
+
   const entries: InboxEntry[] = []
+
   for (const [group, members] of groups) {
     const [first, ...rest] = members
     entries.push({
@@ -52,11 +56,13 @@ export function collapseRepeats(
       members,
       repeat: false,
     })
+
     if (expanded.has(group)) {
       for (const item of rest) {
         entries.push({ item, group, count: 1, members, repeat: true })
       }
     }
   }
+
   return entries
 }

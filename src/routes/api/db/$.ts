@@ -42,10 +42,12 @@ const handler = ({
           where: eq(schema.workspaceMemberships.userId, userId),
         }),
       ])
+
       const membership = pickActiveMembership(
         memberships,
         preference?.activeWorkspaceId,
       )
+
       return membership && !membership.suspendedAt
         ? { id: membership.workspaceId }
         : null
@@ -58,6 +60,7 @@ const handler = ({
       // Loaded on the first write, so a lab with no plugin hooks pays for nothing.
       const { guardRecordWrite } =
         await import('#/lib/extensions/record-hooks.server')
+
       return guardRecordWrite(input)
     },
   })

@@ -248,9 +248,12 @@ export type AgentOperation =
     }
 
 export type AgentOperationKind = AgentOperation['kind']
+
 export type AgentOperationRiskClass = 'safe_draft' | 'consequential_write'
+
 export type AgentOperationApprovalPolicy =
   'automatic' | 'human_required' | 'delegated'
+
 export type AgentProposalStatus =
   | 'pending'
   | 'approved'
@@ -433,6 +436,7 @@ export async function fetchAgentOperationProposal(
     'agent_operation_proposals',
     `?select=${PROPOSAL_FIELDS}&id=eq.${encodeURIComponent(proposalId)}`,
   )
+
   return rows.at(0) ?? null
 }
 
@@ -588,6 +592,7 @@ export function agentOperationLabel(kind: AgentOperationKind): string {
       return 'Update workspace AI settings'
     default: {
       const exhaustive: never = kind
+
       return exhaustive
     }
   }

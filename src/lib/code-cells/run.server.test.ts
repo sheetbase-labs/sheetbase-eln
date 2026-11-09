@@ -20,10 +20,13 @@ vi.mock('../request-auth', () => ({
     Response.json({ error: { code, message } }, { status }),
   resolveSessionAuth: async (headers: Headers, deps: SessionAuthDeps) => {
     const session = await deps.getSession(headers)
+
     if (!session) {
       return { ok: false, status: 401, code: 'unauthenticated', message: '' }
     }
+
     const workspace = await deps.getWorkspaceForUser(session.user.id)
+
     return {
       ok: true,
       context: {
@@ -53,14 +56,17 @@ const dataset = {
 
 function fakeClient(extra: { original?: unknown } = {}) {
   const recorded: Array<Record<string, unknown>> = []
+
   const client = {
     list: vi.fn(async () => (extra.original ? [extra.original] : [])),
     rpc: vi.fn(async (name: string, args: Record<string, unknown>) => {
       if (name === 'dataset_version_rows_json') return dataset
       recorded.push(args)
+
       return { id: RUN, number: 7, ran_at: '2026-11-07T10:00:00Z' }
     }),
   } as unknown as DataClient
+
   return { client, recorded }
 }
 
@@ -99,6 +105,7 @@ describe('runCodeCell', () => {
   it('runs Python on the dataset version and records the run', async () => {
     const { client, recorded } = fakeClient()
     const executePython = python([{ well: 'A1', n: 1 }])
+
     const out = await runCodeCell(
       client,
       {
@@ -111,6 +118,7 @@ describe('runCodeCell', () => {
       },
       { executePython, executeSql: vi.fn() },
     )
+
     expect(executePython).toHaveBeenCalledWith({
       source: expect.stringContaining('transform'),
       inputs: { s: dataset.rows },
@@ -130,6 +138,7 @@ describe('runCodeCell', () => {
 
   it('records a failure and carries the message', async () => {
     const { client, recorded } = fakeClient()
+
     const out = await runCodeCell(
       client,
       {
@@ -150,6 +159,7 @@ describe('runCodeCell', () => {
         }),
       },
     )
+
     expect(out.status).toBe('error')
     expect(out.errorMessage).toContain('nope')
     expect(recorded[0]).toMatchObject({ p_status: 'failed', p_output: null })
@@ -180,6 +190,7 @@ describe('runCodeCell', () => {
 
   it('reproduces a run with its own code and says whether it came out the same', async () => {
     const rows = [{ well: 'A1', n: 1 }]
+
     const original = {
       id: RUN,
       number: 3,
@@ -192,12 +203,15 @@ describe('runCodeCell', () => {
       output_digest: digestRows(rows),
       ran_at: '2026-11-06T10:00:00Z',
     }
+
     const same = fakeClient({ original })
+
     const a = await runCodeCell(
       same.client,
       { action: 'reproduce', recordId: RECORD, runId: RUN },
       { executePython: python(rows), executeSql: vi.fn() },
     )
+
     expect(a.reproducedFrom).toEqual({
       runId: RUN,
       reference: 'CC-0003',
@@ -209,11 +223,13 @@ describe('runCodeCell', () => {
     })
 
     const changed = fakeClient({ original })
+
     const b = await runCodeCell(
       changed.client,
       { action: 'reproduce', recordId: RECORD, runId: RUN },
       { executePython: python([{ well: 'A1', n: 2 }]), executeSql: vi.fn() },
     )
+
     expect(b.reproducedFrom?.matches).toBe(false)
     expect(changed.recorded[0]).toMatchObject({ p_matches: false })
     expect(changed.recorded[0]?.['p_diff']).toMatchObject({ changedCells: 1 })
@@ -231,6 +247,7 @@ describe('handleCodeCell', () => {
       executeSql: vi.fn(),
     }
   }
+
   const post = (body: unknown) =>
     new Request('http://x/api/notebook/code-cell', {
       method: 'POST',
@@ -240,6 +257,7 @@ describe('handleCodeCell', () => {
 
   it('runs a cell for the signed-in person', async () => {
     const { client } = fakeClient()
+
     const response = await handleCodeCell(
       post({
         action: 'run',
@@ -250,6 +268,7 @@ describe('handleCodeCell', () => {
       }),
       deps(client),
     )
+
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({
       status: 'ok',
@@ -259,16 +278,19 @@ describe('handleCodeCell', () => {
 
   it('refuses a bad request before reading any data', async () => {
     const { client } = fakeClient()
+
     const response = await handleCodeCell(
       post({ action: 'run', recordId: RECORD, language: 'ruby', source: 'x' }),
       deps(client),
     )
+
     expect(response.status).toBe(400)
     expect(client.rpc).not.toHaveBeenCalled()
   })
 
   it('refuses two inputs with the same name', async () => {
     const { client } = fakeClient()
+
     const response = await handleCodeCell(
       post({
         action: 'run',
@@ -282,6 +304,7 @@ describe('handleCodeCell', () => {
       }),
       deps(client),
     )
+
     expect(response.status).toBe(400)
   })
 })

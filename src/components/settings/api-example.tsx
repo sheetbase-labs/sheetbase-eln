@@ -20,6 +20,7 @@ export function ApiExample() {
   const [origin, setOrigin] = useState('https://your-workspace.example')
   useEffect(() => setOrigin(window.location.origin), [])
   const command = apiExampleCommand(origin)
+
   return (
     <Section
       title={t('settings.apiExample.useToken')}

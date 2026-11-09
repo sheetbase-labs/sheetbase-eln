@@ -21,6 +21,7 @@ describe('Sheet Record Definition actions', () => {
         },
       ],
     })
+
     expect(
       resolved.find((action) => action.kind === 'link-record'),
     ).toMatchObject({ enabled: true })

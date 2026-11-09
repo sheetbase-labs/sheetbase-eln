@@ -5,6 +5,7 @@ import { LinksPanel } from '../-links-tab'
 export const Route = createFileRoute('/experiments/$expId/data/links')({
   component: () => {
     const { expId } = Route.useParams()
+
     return <LinksPanel expId={expId} />
   },
 })

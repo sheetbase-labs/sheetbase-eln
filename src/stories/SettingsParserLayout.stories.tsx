@@ -20,10 +20,12 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function Editor({ initial }: { initial: ParserLayout }) {
   const [layout, setLayout] = useState(initial)
+
   return (
     <ParserLayoutEditor
       value={layout}

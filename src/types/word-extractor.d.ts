@@ -5,6 +5,7 @@ declare module 'word-extractor' {
     getFootnotes: () => string
     getEndnotes: () => string
   }
+
   export default class WordExtractor {
     extract: (input: string | Buffer) => Promise<ExtractedDocument>
   }

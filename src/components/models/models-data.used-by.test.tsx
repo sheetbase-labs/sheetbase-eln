@@ -22,7 +22,9 @@ describe('useRecordModelUsedBy', () => {
         },
       ],
     } as unknown as DataClient
+
     const queryClient = new QueryClient()
+
     const { result } = renderHook(() => useRecordModelUsedBy('r1', client), {
       wrapper: ({ children }) => (
         <QueryClientProvider client={queryClient}>
@@ -30,6 +32,7 @@ describe('useRecordModelUsedBy', () => {
         </QueryClientProvider>
       ),
     })
+
     await waitFor(() => expect(result.current.data).toHaveLength(1))
     expect(result.current.data?.[0]).toMatchObject({
       linkType: 'sample',

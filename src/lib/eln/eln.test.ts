@@ -119,6 +119,7 @@ describe('buildElnArchive', () => {
     const crate = JSON.parse(
       decode(entries.get('Project Alpha/ro-crate-metadata.json')!),
     )
+
     const graph = crate['@graph'] as Array<Record<string, unknown>>
     const byId = new Map(graph.map((e) => [e['@id'] as string, e]))
     expect(byId.get('ro-crate-metadata.json')?.conformsTo).toEqual({
@@ -143,9 +144,11 @@ describe('buildElnArchive', () => {
   it('records file checksums and signature metadata', async () => {
     const { bytes } = await buildElnArchive(input())
     const entries = readZip(bytes)
+
     const crate = JSON.parse(
       decode(entries.get('Project Alpha/ro-crate-metadata.json')!),
     )
+
     const graph = crate['@graph'] as Array<Record<string, unknown>>
     const sha = createHash('sha256').update('t,v\n0,1\n').digest('hex')
     const byName = graph.find((e) => e.sha256 === sha)
@@ -180,6 +183,7 @@ describe('buildElnArchive', () => {
     const hostile = experiment()
     hostile.files = [{ ...hostile.files[0], displayName: '../../etc/passwd' }]
     const { bytes } = await buildElnArchive(input([hostile]))
+
     for (const name of readZip(bytes).keys()) {
       expect(isSafeEntryName(name)).toBe(true)
     }
@@ -236,6 +240,7 @@ describe('parseElnArchive', () => {
         ],
       }),
     )
+
     return writer.stream().then((bytes) => {
       const plan = parseElnArchive(bytes)
       expect(plan.experiments[0].title).toBe('Foreign entry')

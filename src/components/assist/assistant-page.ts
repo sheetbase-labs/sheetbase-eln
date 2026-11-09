@@ -27,16 +27,20 @@ export function pageFromPathname(
   search = '',
 ): AssistantPage | null {
   let best: { prefix: string; title: string } | null = null
+
   for (const page of PAGES) {
     const matches =
       page.prefix === '/'
         ? pathname === '/'
         : pathname === page.prefix || pathname.startsWith(`${page.prefix}/`)
+
     if (matches && (!best || page.prefix.length > best.prefix.length)) {
       best = page
     }
   }
+
   if (!best) return null
+
   return {
     path: `${pathname}${search}`.slice(0, 200),
     title: best.title,
@@ -55,6 +59,7 @@ export function pageSuggestions(page: AssistantPage | null): string[] {
       | 'openShipments'
       | 'openIncidents',
   ) => t(`notebook.assistantPanel.pageSuggest.${key}`)
+
   switch (page?.title) {
     case 'Schedule':
     case 'Instruments':

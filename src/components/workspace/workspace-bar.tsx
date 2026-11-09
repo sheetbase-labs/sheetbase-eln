@@ -21,6 +21,7 @@ const shortcut = (binding: string) => formatShortcut(binding, currentPlatform())
 /** A 14px picture of how a preset tiles its panes. */
 export function LayoutGlyph({ preset }: { preset: LayoutPreset }) {
   const frame = <rect x="1.5" y="2.5" width="11" height="9" rx="1.5" />
+
   const lines: Record<LayoutPreset, string> = {
     single: '',
     'columns-2': 'M7 2.5v9',
@@ -28,6 +29,7 @@ export function LayoutGlyph({ preset }: { preset: LayoutPreset }) {
     'primary-context': 'M8.5 2.5v9M8.5 7h4',
     'rows-2': 'M1.5 7h11',
   }
+
   return (
     <svg
       className="mx-glyph"
@@ -126,6 +128,7 @@ export function WorkspaceBar({
 
   const finish = (id: string, name: string) => {
     if (name.trim()) onRename(id, name)
+
     if (saving === id) onSave(name.trim() || undefined)
     setEditing(null)
     setSaving(null)
@@ -144,6 +147,7 @@ export function WorkspaceBar({
       >
         {tabs.map((tab) => {
           const isActive = tab.id === activeTabId
+
           return (
             <div
               key={tab.id}
@@ -311,6 +315,7 @@ export function WorkspaceBar({
               item.preset === 'single'
                 ? maximized
                 : !maximized && preset === item.preset
+
             return (
               <button
                 key={item.preset}
@@ -392,15 +397,18 @@ function RenameInput({
 }) {
   const ref = useRef<HTMLInputElement>(null)
   const finished = useRef(false)
+
   const done = (name: string) => {
     if (finished.current) return
     finished.current = true
     onDone(name)
   }
+
   useEffect(() => {
     ref.current?.focus()
     ref.current?.select()
   }, [])
+
   return (
     <input
       ref={ref}
@@ -410,6 +418,7 @@ function RenameInput({
       onBlur={(event) => done(event.currentTarget.value)}
       onKeyDown={(event) => {
         if (event.key === 'Enter') done(event.currentTarget.value)
+
         if (event.key === 'Escape') {
           finished.current = true
           onCancel()

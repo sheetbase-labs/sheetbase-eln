@@ -9,6 +9,7 @@ const kinds = {
   calc: 'code',
   local: 'edit',
 } as const
+
 export type SourceKind = keyof typeof kinds
 
 export function Source({

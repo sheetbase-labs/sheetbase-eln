@@ -3,6 +3,7 @@ import { BlockPreview } from '#/components/notebook/block-preview'
 
 const block = (type: string, payload: unknown) =>
   ({ id: type, type, payload, payloadSchemaVersion: 1 }) as any
+
 const meta = {
   title: 'Notebook/Block preview',
   component: BlockPreview,
@@ -15,9 +16,13 @@ const meta = {
     }),
   },
 } satisfies Meta<typeof BlockPreview>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 export const Metric: Story = {}
+
 export const Checklist: Story = {
   args: {
     block: block('checklist', {
@@ -28,6 +33,7 @@ export const Checklist: Story = {
     }),
   },
 }
+
 export const Callout: Story = {
   args: {
     block: block('callout', {
@@ -36,6 +42,7 @@ export const Callout: Story = {
     }),
   },
 }
+
 export const Table: Story = {
   args: {
     block: block('table', {
@@ -47,6 +54,7 @@ export const Table: Story = {
     }),
   },
 }
+
 export const Unsupported: Story = {
   args: {
     block: block('future_analysis', { algorithm: 'spectral-v3', result: 0.98 }),

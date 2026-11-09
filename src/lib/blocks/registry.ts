@@ -31,6 +31,7 @@ import {
 import type { BlockDeclaration, BlockGroupId } from './declarations'
 
 export { CALCULATOR_PICKER_TYPE }
+
 export type { BlockGroupId }
 
 /**
@@ -167,5 +168,6 @@ export function summarizeBlockPayload(
   payload: Record<string, unknown>,
 ): string {
   const summary = blockDescriptor(type)?.summary
+
   return summary ? summary(payload) : JSON.stringify(payload, null, 2)
 }

@@ -61,6 +61,7 @@ describe('ProtocolDocument', () => {
         ]}
       />,
     )
+
     expect(
       screen.getByRole('heading', { name: 'Parameters', level: 2 }),
     ).toBeTruthy()
@@ -87,6 +88,7 @@ describe('ProtocolDocument', () => {
         payload: { text: 'Record turbidity ≤20 NTU.', stepNumber: 3 },
       },
     ]
+
     const before = structuredClone(blocks)
     const { container } = render(<ProtocolDocument blocks={blocks} />)
     expect(

@@ -35,9 +35,11 @@ let listeners = 0
 export function useKeyboardInset(active: boolean) {
   useEffect(() => {
     const viewport = window.visualViewport
+
     if (!active || !viewport) return
     const root = document.documentElement
     listeners += 1
+
     const update = () => {
       const { inset, accessory } = keyboardInset()
       const open = inset > KEYBOARD_OPEN_PX
@@ -49,18 +51,22 @@ export function useKeyboardInset(active: boolean) {
         open ? '0px' : 'env(safe-area-inset-bottom)',
       )
     }
+
     let timers: Array<ReturnType<typeof setTimeout>> = []
+
     const settle = () => {
       update()
       timers.forEach(clearTimeout)
       timers = SETTLE_DELAYS_MS.map((ms) => setTimeout(update, ms))
     }
+
     update()
     viewport.addEventListener('resize', update)
     viewport.addEventListener('scroll', update)
     window.addEventListener('resize', settle)
     document.addEventListener('focusin', settle)
     document.addEventListener('focusout', settle)
+
     return () => {
       timers.forEach(clearTimeout)
       viewport.removeEventListener('resize', update)
@@ -69,6 +75,7 @@ export function useKeyboardInset(active: boolean) {
       document.removeEventListener('focusin', settle)
       document.removeEventListener('focusout', settle)
       listeners -= 1
+
       if (listeners === 0)
         for (const name of VARS) root.style.removeProperty(name)
     }
@@ -82,5 +89,6 @@ export function useKeyboardInset(active: boolean) {
  */
 export function KeyboardAware() {
   useKeyboardInset(true)
+
   return null
 }

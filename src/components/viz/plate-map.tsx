@@ -128,6 +128,7 @@ function bandFor(
 ): string {
   if (value === null || value === undefined) return 'bg-muted/60'
   const band = bands.find((b) => value >= b.from && value <= b.to)
+
   return band ? band.className : 'bg-muted-foreground/10'
 }
 
@@ -161,6 +162,7 @@ export function PlateMap({
     wells.forEach((well, index) => {
       map.set(`${well.row}:${well.col}`, { well, index })
     })
+
     return map
   }, [wells])
 
@@ -170,29 +172,37 @@ export function PlateMap({
   const windowing =
     windowed === true ||
     (windowed === 'auto' && rows * cols > LARGE_PLATE_CELL_THRESHOLD)
+
   const windowCount = Math.max(1, Math.ceil(rows / Math.max(1, rowsPerWindow)))
   const [windowIndex, setWindowIndex] = React.useState(0)
   const safeWindowIndex = Math.min(windowIndex, windowCount - 1)
   const windowStartRow = windowing ? safeWindowIndex * rowsPerWindow : 0
+
   const windowEndRow = windowing
     ? Math.min(rows, windowStartRow + rowsPerWindow)
     : rows
+
   React.useEffect(() => {
     if (!windowing || !selectedWellCode) return
     const parsed = parseWellCode(selectedWellCode)
+
     if (!parsed || parsed.row < 0 || parsed.row >= rows) return
     const target = Math.floor(parsed.row / rowsPerWindow)
+
     if (target !== safeWindowIndex) setWindowIndex(target)
   }, [windowing, selectedWellCode, rows, rowsPerWindow, safeWindowIndex])
+
   // Selection reports the well code; editing never happens here.
   function handleSelect(r: number, c: number) {
     if (!interactive) return
     const cell = wellByCell.get(`${r}:${c}`)
     const code = wellCodeForRowCol(r, c)
+
     // For well-code-based selection, always report (even for empty cells)
     if (onSelectWellCode) {
       onSelectWellCode(code)
     }
+
     // For index-based selection, only report if the well exists
     if (onSelect && cell?.index !== undefined) {
       onSelect(cell.index)
@@ -203,6 +213,7 @@ export function PlateMap({
   function handleKeyDown(e: React.KeyboardEvent) {
     if (!interactive) return
     const focused = document.activeElement as HTMLButtonElement | null
+
     if (!focused || !focused.dataset.cell) return
 
     const [r, c] = focused.dataset.cell.split(':').map(Number)
@@ -229,6 +240,7 @@ export function PlateMap({
         } else {
           nc = 0
         }
+
         break
       case 'End':
         if (e.ctrlKey) {
@@ -237,18 +249,21 @@ export function PlateMap({
         } else {
           nc = cols - 1
         }
+
         break
       default:
         return
     }
 
     e.preventDefault()
+
     if (nr === r && nc === c) return
 
     // Find the button at the target cell
     const targetBtn = gridRef.current?.querySelector(
       `button[data-cell="${nr}:${nc}"]`,
     ) as HTMLButtonElement | null
+
     if (targetBtn) {
       targetBtn.focus()
       handleSelect(nr, nc)
@@ -338,13 +353,18 @@ export function PlateMap({
               const cell = wellByCell.get(`${r}:${c}`)
               const well = cell?.well
               const index = cell?.index
+
               const missing =
                 !well || well.value === null || well.value === undefined
+
               const code = wellCodeForRowCol(r, c)
+
               const selectedByIndex =
                 index !== undefined && index === selectedIndex
+
               const selectedByCode = selectedWellCode === code
               const selected = selectedByIndex || selectedByCode
+
               const title =
                 well?.label ??
                 `${rowLabel(r)}${c + 1}${missing ? ' (empty)' : ''}`

@@ -51,7 +51,9 @@ const meta = {
   ],
   args: { evidence },
 } satisfies Meta<typeof FrozenSheetEvidencePanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The frozen values, with the comment affordance for a cell selection. */

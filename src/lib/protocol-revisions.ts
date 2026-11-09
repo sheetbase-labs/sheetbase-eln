@@ -58,17 +58,21 @@ export async function submitProtocolRevision(
   input: SubmitRevisionInput,
 ): Promise<{ versionId: string; request: ApprovalRequest }> {
   const summary = input.changeSummary.trim()
+
   if (!summary) throw new Error('Say what changed in this version.')
   let versionId = input.existingVersion?.id
   let status = input.existingVersion?.status
+
   if (!versionId) {
     const version = await createProtocolVersion(client, {
       protocolRecordId: input.protocolRecordId,
       changeSummary: summary,
     })
+
     versionId = version.id
     status = version.status
   }
+
   if (status === 'draft') {
     await setProtocolVersionStatus(client, {
       protocolVersionId: versionId,
@@ -76,6 +80,7 @@ export async function submitProtocolRevision(
       reason: summary,
     })
   }
+
   const request = await submitApprovalRequest(client, {
     workspaceId: input.workspaceId,
     objectKind: PROTOCOL_REVISION_KIND,
@@ -85,6 +90,7 @@ export async function submitProtocolRevision(
     requireIndependence: true,
     requiredApprovals: PROTOCOL_REQUIRED_APPROVALS,
   })
+
   return { versionId, request }
 }
 
@@ -111,9 +117,12 @@ export async function approveProtocolRevision(
     input.requestId,
     input.reason,
   )
+
   if (request.state !== 'approved') return { request, effective: false }
+
   try {
     await makeProtocolVersionEffective(client, input.versionId)
+
     return { request, effective: true }
   } catch (cause) {
     return {
@@ -145,11 +154,13 @@ export function chainStage(
   approved: boolean,
 ): ChainStage {
   if (approved) return 'complete'
+
   const technical = decisions.some(
     (d) =>
       d.decision === 'approved' &&
       (TECHNICAL_REVIEW_ROLES as readonly string[]).includes(d.role),
   )
+
   return technical ? 'qa' : 'technical'
 }
 
@@ -160,6 +171,8 @@ export function chainStage(
  */
 export function stageRoles(stage: ChainStage): readonly string[] {
   if (stage === 'technical') return TECHNICAL_REVIEW_ROLES
+
   if (stage === 'qa') return QA_ROLES
+
   return []
 }

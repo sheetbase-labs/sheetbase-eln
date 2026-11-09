@@ -13,9 +13,11 @@ vi.mock('#/lib/workspace-general', async (importOriginal) => ({
     offlineEditingAllowed: allowed.value,
   }),
 }))
+
 vi.mock('./offline-replay', () => ({
   OfflineReplayRunner: () => <div data-testid="replay-runner" />,
 }))
+
 vi.mock('./offline-status', () => ({
   OfflineStatusBanner: ({
     offlineEditingAllowed,

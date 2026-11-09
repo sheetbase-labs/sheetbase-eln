@@ -66,6 +66,7 @@ function ResultsTab() {
   const datasetIds = all
     .filter((l) => l.target_kind === 'dataset')
     .map((l) => l.target_identifier)
+
   // A cited analysis is a `record_links` row with `link_type` and `target_kind`
   // 'analysis' — the exact predicate `internal.analysis_view_citations` reads.
   const analysisIds = all
@@ -82,6 +83,7 @@ function ResultsTab() {
         'records',
         `?id=eq.${encodeURIComponent(expId)}&select=decision,decision_notes`,
       )
+
       return rows.at(0) ?? null
     },
   })
@@ -121,6 +123,7 @@ function ResultsTab() {
   })
 
   const [open, setOpen] = useState(false)
+
   const datasetColumns: RegistryColumn<DatasetSummaryWire>[] = [
     {
       id: 'id',
@@ -168,6 +171,7 @@ function ResultsTab() {
           missingUnit: Number(row.original.missing_unit_count),
           reviewState: null,
         })
+
         return <Status tone={validation.tone}>{validation.label}</Status>
       },
     },
@@ -191,7 +195,9 @@ function ResultsTab() {
       meta: { cellClassName: 'text-right' },
     },
   ]
+
   const decision = record.data?.decision ?? null
+
   const decisionLabel = decision
     ? (DECISIONS.find((d) => d.value === decision)?.label ?? decision)
     : t('projects.expResults.notRecorded')
@@ -353,6 +359,7 @@ function DecisionForm({
 }) {
   const [decision, setDecision] = useState(current ?? 'supported')
   const [note, setNote] = useState(notes)
+
   const save = useMutation({
     mutationFn: () =>
       notebookDataClient.rpc('set_experiment_decision', {
@@ -372,6 +379,7 @@ function DecisionForm({
       )
     },
   })
+
   return (
     <>
       <DialogBody>

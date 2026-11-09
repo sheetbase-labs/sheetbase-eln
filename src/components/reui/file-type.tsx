@@ -57,6 +57,7 @@ type FileTypeExtension = {
  */
 const NEUTRAL =
   'text-fg-muted [--file-type-fill:color-mix(in_oklab,currentColor_45%,white)] [--file-type-glyph:color-mix(in_oklab,currentColor_80%,black)]'
+
 /** Amber, like the app's warning token: light enough for dark label text. */
 const AMBER = 'text-warning-text'
 
@@ -351,6 +352,7 @@ function resolveFileType(type?: string): ResolvedFileType {
   }
 
   const extension = has(extensions, key) ? extensions[key] : null
+
   if (extension) {
     return {
       type: key,
@@ -563,7 +565,9 @@ const MIME_FAMILIES: Record<string, FileTypeName> = {
 
 const MIME_PATTERN =
   /^(application|audio|font|image|message|model|multipart|text|video)\/[\w.+-]+$/
+
 const URL_ORIGIN = /^[a-z][\w+.-]*:\/\/[^/]*/
+
 /**
  * A value ending in an extension or a slash carries no query or hash. An
  * extension has a letter, so "?v=1.2" is still a query.
@@ -585,20 +589,26 @@ function getFileType(value: string): FileTypeName | (string & {}) {
   // starts a query only when the value does not already end like a name.
   if (URL_ORIGIN.test(input)) {
     input = input.split(/[?#]/)[0].replace(URL_ORIGIN, '')
+
     if (input === '/') return 'empty'
   } else if (!NAME_END.test(input)) {
     input = input.split(/[?#]/)[0]
   }
+
   if (!input) return 'empty'
+
   if (input.endsWith('/') || input.endsWith('\\')) return 'folder'
 
   const mime = input.split(';')[0].trim()
+
   if (MIME_PATTERN.test(mime)) {
     if (has(MIME_TYPES, mime)) return MIME_TYPES[mime]
     const [family, subtype] = mime.split('/')
     // A known extension after a dot makes it a storage key ("image/a.png").
     const tail = subtype.slice(subtype.lastIndexOf('.') + 1)
+
     if (subtype.includes('.') && has(extensions, tail)) return tail
+
     // A media subtype counts only inside its own family: audio/webm is audio.
     if (
       has(extensions, subtype) &&
@@ -608,18 +618,24 @@ function getFileType(value: string): FileTypeName | (string & {}) {
     ) {
       return subtype
     }
+
     return has(MIME_FAMILIES, family) ? MIME_FAMILIES[family] : 'empty'
   }
 
   const name = input.split(/[\\/]/).pop() ?? ''
+
   if (has(FILE_NAMES, name)) return FILE_NAMES[name]
   const dot = name.lastIndexOf('.')
   const extension = name.slice(dot + 1)
+
   if (has(EXTENSION_ALIASES, extension)) return EXTENSION_ALIASES[extension]
+
   if (!has(extensions, extension)) {
     const match = NAME_PATTERNS.find(([pattern]) => pattern.test(name))
+
     if (match) return match[1]
   }
+
   // No dot, or only a leading one: a bare extension or family ("pdf",
   // ".pdf", "image") resolves, anything else ("notes", ".hidden") has no type.
   if (dot <= 0) {
@@ -714,7 +730,9 @@ const GLYPHS: Partial<Record<FileTypeCategory, ReactNode>> = {
 /** The page: 16 by 20 units with 2-unit corners and a rounded 6-unit fold. */
 const PAGE_PATH =
   'M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h7.586a2 2 0 0 1 1.414.586l4.414 4.414A2 2 0 0 1 20 8.414V20a2 2 0 0 1-2 2Z'
+
 const FOLD_PATH = 'M14 2v5a1 1 0 0 0 1 1h5'
+
 /** The folded corner, traced along the page edge so it never leaves the page. */
 const FLAP_PATH =
   'M13.586 2a2 2 0 0 1 1.414.586l4.414 4.414A2 2 0 0 1 20 8.414V8h-5a1 1 0 0 1-1-1V2Z'
@@ -914,15 +932,19 @@ function FileType({
   const hasText = text !== undefined && text !== null && text !== ''
   // The name spells out a key its label shortens (DOCKERFILE, not DOCK).
   const spelled = resolved.label ? resolved.type.toUpperCase() : undefined
+
   const typeName = spelled
     ? `${spelled} file`
     : CATEGORY_NAMES[resolved.category]
+
   // A custom string label is part of what the icon says ("V3, DOCX file").
   const custom = typeof label === 'string' ? label.toUpperCase() : ''
+
   const name =
     custom && custom !== resolved.label && custom !== spelled
       ? `${label}, ${typeName}`
       : typeName
+
   const hasIcon = icon !== undefined && icon !== null && icon !== false
   const showLabel = hasText && !glyph && !hasIcon
   const glyphNode = showLabel || hasIcon ? null : GLYPHS[resolved.category]

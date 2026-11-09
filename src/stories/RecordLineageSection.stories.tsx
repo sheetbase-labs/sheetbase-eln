@@ -128,12 +128,14 @@ function withGraph(seedGraph: typeof graph, pending = false) {
         },
       },
     })
+
     if (!pending) {
       client.setQueryData(
         lineageQueryKeys.graphFor(SEED_ID, LINEAGE_MINI_DEPTH),
         seedGraph,
       )
     }
+
     return (
       <QueryClientProvider client={client}>
         <div className="w-[360px] max-w-full">
@@ -150,7 +152,9 @@ const meta = {
   tags: ['autodocs'],
   args: { graph, seedRecordId: SEED_ID },
 } satisfies Meta<typeof RecordLineageList>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The miniature: typed rows, live destinations, the missing row as text. */

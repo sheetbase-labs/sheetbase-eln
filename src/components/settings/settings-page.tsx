@@ -133,6 +133,7 @@ export function SettingsSaveBar({
   onSave: () => void
 }) {
   if (!dirty && !pending) return null
+
   return (
     <div
       role="region"

@@ -14,6 +14,7 @@ const titre = (base = 6.8): Readout => ({
   spread: 0.22,
   digits: 1,
 })
+
 const viability = (base = 93): Readout => ({
   name: 'Viability',
   unit: '%',
@@ -21,6 +22,7 @@ const viability = (base = 93): Readout => ({
   spread: 0.04,
   digits: 1,
 })
+
 const yieldPct = (base = 86): Readout => ({
   name: 'Step yield',
   unit: '%',

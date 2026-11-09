@@ -36,6 +36,7 @@ function renderDocument(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   })
+
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
@@ -43,13 +44,16 @@ function blockSection(container: HTMLElement, blockId: string) {
   const section = container.querySelector<HTMLElement>(
     `[data-doc-block="${blockId}"]`,
   )
+
   if (!section) throw new Error(`no document block ${blockId}`)
+
   return section
 }
 
 describe('RevisionDocumentReview', () => {
   it('marks insertions and deletions inline and leaves unchanged content unmarked', () => {
     const { before, after } = documentFixtures()
+
     const { container } = renderDocument(
       <RevisionDocumentReview
         after={after}
@@ -63,6 +67,7 @@ describe('RevisionDocumentReview', () => {
     const inserted = screen.getByText(
       'Harvest at 72 h and measure genome titre.',
     )
+
     expect(inserted.closest('ins')).not.toBeNull()
 
     // Deletion: the removed block keeps its frozen text inside <del>.
@@ -94,12 +99,14 @@ describe('RevisionDocumentReview', () => {
 
   it('anchors a comment to its block and keeps it navigable both ways', () => {
     const { before, after } = documentFixtures()
+
     const comment = commentFixture({
       id: 'comment-block',
       target_kind: 'block',
       target: { blockId: 'block-method' },
       body: 'This seeding density needs a citation.',
     })
+
     const { container } = renderDocument(
       <RevisionDocumentReview
         after={after}
@@ -114,6 +121,7 @@ describe('RevisionDocumentReview', () => {
     const marker = screen.getByRole('button', {
       name: /Show 1 comment on/,
     })
+
     fireEvent.click(marker)
     expect((document.activeElement as HTMLElement).dataset.commentId).toBe(
       'comment-block',
@@ -133,9 +141,11 @@ describe('RevisionDocumentReview', () => {
 
   it('reports a comment that no longer applies instead of re-anchoring it', () => {
     const { before, after } = documentFixtures()
+
     const textChange = buildRevisionDocument(before, after).diff.changes.find(
       (change) => change.area === 'text',
     )!
+
     const { container } = renderDocument(
       <RevisionDocumentReview
         after={after}
@@ -166,6 +176,7 @@ describe('RevisionDocumentReview', () => {
     const region = screen.getByRole('region', {
       name: 'Comments that no longer apply to this revision',
     })
+
     expect(region.textContent).toContain('Reword this method line.')
     expect(region.textContent).toContain('This change is too large.')
     expect(region.textContent).toContain(
@@ -187,9 +198,11 @@ describe('RevisionDocumentReview', () => {
 
   it('reads a change-anchored comment beside the change it was written against', () => {
     const { before, after } = documentFixtures()
+
     const textChange = buildRevisionDocument(before, after).diff.changes.find(
       (change) => change.area === 'text',
     )!
+
     const { container } = renderDocument(
       <RevisionDocumentReview
         after={after}
@@ -215,6 +228,7 @@ describe('RevisionDocumentReview', () => {
     const change = container.querySelector<HTMLElement>(
       `[data-doc-location="${textChange.id}"]`,
     )
+
     expect(change).not.toBeNull()
     expect(change?.querySelector('[data-comment-id]')).not.toBeNull()
     expect(
@@ -245,6 +259,7 @@ describe('RevisionDocumentReview', () => {
     const region = screen.getByRole('region', {
       name: 'Comments anchored to unmarked parts of this revision',
     })
+
     expect(region.textContent).toContain('Confirm the titre unit.')
     expect(
       screen.queryByRole('region', {
@@ -255,6 +270,7 @@ describe('RevisionDocumentReview', () => {
 
   it('renders frozen facts instead of reading live content', () => {
     const { after } = documentFixtures()
+
     const frozen: CanonicalRevisionEnvelope = {
       ...after,
       blocks: [
@@ -282,6 +298,7 @@ describe('RevisionDocumentReview', () => {
         },
       ],
     }
+
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
     renderDocument(<RevisionDocumentReview after={frozen} before={after} />)
 
@@ -299,6 +316,7 @@ describe('RevisionDocumentReview', () => {
 
   it('hides the change marks on request but keeps the anchored comments', () => {
     const { before, after } = documentFixtures()
+
     const { container } = renderDocument(
       <RevisionDocumentReview
         after={after}

@@ -27,6 +27,7 @@ describe('proposalBoardGroups', () => {
       { userId: 'u1', canApprove: true },
       now,
     )
+
     expect(groups.map((g) => g.stage)).toEqual(['needs', 'decided'])
   })
 
@@ -36,6 +37,7 @@ describe('proposalBoardGroups', () => {
       { userId: 'u1', canApprove: false },
       now,
     )
+
     expect(groups.map((g) => g.stage)).toEqual(['waiting'])
   })
 
@@ -45,6 +47,7 @@ describe('proposalBoardGroups', () => {
       { userId: 'u1', canApprove: true },
       now,
     )
+
     expect(groups).toEqual([])
   })
 })

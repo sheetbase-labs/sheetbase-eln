@@ -67,19 +67,24 @@ vi.mock('@sheetbase-labs/sheetbase-table', async (importOriginal) => {
   // the real module dynamically; static bindings are not yet initialised here.
   const actual = await importOriginal<typeof SheetbaseTableModule>()
   const React = await import('react')
+
   const Spreadsheet = React.forwardRef<SpreadsheetHandle, SpreadsheetProps>(
     (props, ref) => {
       captured.props.push(props)
       const { rowCount, columnCount } = props
+
       if (rowCount === undefined || columnCount === undefined)
         throw new Error('The adapter must supply grid dimensions')
+
       // Match 0.6.0: imperative annotation writes use a captured array, not a
       // functional updater. Several writes on one handle can overwrite each other.
       const [annotations, setAnnotations] = React.useState(
         props.initialAnnotations ?? [],
       )
+
       function annotationCell(address: string) {
         const { row, column } = actual.parseAddress(address)
+
         return {
           address,
           recordId: props.datasetHeader?.recordIdForRow?.(row),
@@ -87,11 +92,13 @@ vi.mock('@sheetbase-labs/sheetbase-table', async (importOriginal) => {
           bound: true,
         }
       }
+
       const handle: SpreadsheetHandle = {
         ...engineHandle,
         setAnnotation: (address, text) => {
           engineHandle.setAnnotation(address, text)
           const cell = annotationCell(address)
+
           const next = [
             ...annotations.filter(
               (note) =>
@@ -100,16 +107,19 @@ vi.mock('@sheetbase-labs/sheetbase-table', async (importOriginal) => {
             ),
             { address, recordId: cell.recordId, fieldId: cell.fieldId, text },
           ]
+
           setAnnotations(next)
           props.onAnnotationsChange?.(next)
         },
         removeAnnotation: (address) => {
           engineHandle.removeAnnotation(address)
           const cell = annotationCell(address)
+
           const next = annotations.filter(
             (note) =>
               note.recordId !== cell.recordId || note.fieldId !== cell.fieldId,
           )
+
           setAnnotations(next)
           props.onAnnotationsChange?.(next)
         },
@@ -128,16 +138,19 @@ vi.mock('@sheetbase-labs/sheetbase-table', async (importOriginal) => {
           frozenColumns: 0,
         }),
       }
+
       React.useImperativeHandle(ref, () => handle)
       React.useEffect(() => {
         props.onReady?.(handle)
       }, [])
+
       return React.createElement('div', {
         'data-testid': 'spreadsheet',
         'data-annotation-texts': annotations.map((note) => note.text).join('|'),
       })
     },
   )
+
   return { ...actual, Spreadsheet }
 })
 
@@ -172,7 +185,9 @@ function baseProps(
 
 function lastProps(): SpreadsheetProps {
   const props = captured.props.at(-1)
+
   if (!props) throw new Error('Spreadsheet did not render.')
+
   return props
 }
 
@@ -259,6 +274,7 @@ describe('Sheet header chrome (EXP-04.2)', () => {
       group: 'Derived',
     },
   ]
+
   const chromeRows: SheetbaseGridProps['rows'] = [
     { id: 'run-1', cells: ['A-50', 'MAT-0418', 6.2, 86] },
   ]
@@ -273,6 +289,7 @@ describe('Sheet header chrome (EXP-04.2)', () => {
         })}
       />,
     )
+
     return lastProps()
   }
 
@@ -307,6 +324,7 @@ describe('Sheet header chrome (EXP-04.2)', () => {
     const props = renderChrome({
       columnOrder: ['yield', 'turbidity', 'condition', 'train'],
     })
+
     expect(props.columnGroups).toEqual([
       { label: 'Derived', columns: [0] },
       { label: 'Results', columns: [1] },
@@ -323,10 +341,13 @@ describe('Sheet header chrome (EXP-04.2)', () => {
 describe('SheetbaseTableGridClient neutral handle', () => {
   it('keeps methods and selection current after the package replaces its handle, and clears on teardown', () => {
     const onReady = vi.fn<(handle: SheetbaseGridHandle | null) => void>()
+
     const { rerender, unmount } = render(
       <SheetbaseTableGridClient {...baseProps({ onReady })} />,
     )
+
     const handle = onReady.mock.calls[0][0]
+
     if (!handle) throw new Error('Expected a live grid handle')
     expect(handle).not.toBe(engineHandle)
     expect(handle.snapshot().selection.focus).toEqual({ row: 1, column: 2 })
@@ -420,9 +441,11 @@ describe('Sheet comment selection membership', () => {
 describe('Sheet comment markers', () => {
   it('retains all notes arriving after mount without remounting the engine', async () => {
     const onReady = vi.fn()
+
     const { rerender, getByTestId } = render(
       <SheetbaseTableGridClient {...baseProps({ onReady })} />,
     )
+
     const engine = getByTestId('spreadsheet')
     rerender(
       <SheetbaseTableGridClient
@@ -458,16 +481,20 @@ describe('Sheet comment markers', () => {
       id: `range-row-${index}`,
       cells: [index],
     }))
+
     const annotations = rangeRows.map((row, index) => ({
       rowId: row.id,
       columnId: 'alpha',
       text: `Range note ${index}`,
     }))
+
     const errors = vi.spyOn(console, 'error')
+
     try {
       const { rerender, getByTestId } = render(
         <SheetbaseTableGridClient {...baseProps({ rows: rangeRows })} />,
       )
+
       rerender(
         <SheetbaseTableGridClient
           {...baseProps({ rows: rangeRows, annotations })}
@@ -489,9 +516,11 @@ describe('Sheet comment markers', () => {
     const annotations = [
       { rowId: 'row-2', columnId: 'beta', text: 'Check recovery' },
     ]
+
     const { rerender } = render(
       <SheetbaseTableGridClient {...baseProps({ annotations })} />,
     )
+
     expect(lastProps().initialAnnotations).toEqual([
       {
         address: 'B2',
@@ -537,9 +566,11 @@ describe('Sheet comment markers', () => {
     const annotations = [
       { rowId: 'row-2', columnId: 'beta', text: 'Check recovery' },
     ]
+
     const { rerender } = render(
       <SheetbaseTableGridClient {...baseProps({ annotations })} />,
     )
+
     rerender(
       <SheetbaseTableGridClient
         {...baseProps({
@@ -597,9 +628,11 @@ describe('SheetbaseTableGridClient clipboard transforms', () => {
     const onCopy = vi.fn(
       (data: unknown[][], _range: SheetbaseGridClipboardRange) => {
         data[0][0] = '=SUM(A1:A2)'
+
         return data as string[][]
       },
     )
+
     render(
       <SheetbaseTableGridClient {...baseProps({ clipboard: { onCopy } })} />,
     )
@@ -626,13 +659,16 @@ describe('SheetbaseTableGridClient clipboard transforms', () => {
     const onPaste = vi.fn((data: unknown[][]) => {
       data[0][0] = '=A1+1'
     })
+
     render(
       <SheetbaseTableGridClient {...baseProps({ clipboard: { onPaste } })} />,
     )
+
     const result = lastProps().clipboard?.onPaste?.(clipboardPayload(), {
       row: 3,
       column: 2,
     })
+
     expect(result).toMatchObject({ text: '=A1+1\tb1\na2\tb2' })
     expect(onPaste).toHaveBeenCalledWith(expect.anything(), {
       row: 3,
@@ -647,12 +683,14 @@ describe('SheetbaseTableGridClient Record editor', () => {
     render(<SheetbaseTableGridClient {...baseProps({ onOpenRecordPicker })} />)
     const editors = lastProps().customEditors
     expect(editors).toHaveLength(1)
+
     const relationship = {
       id: 'r',
       label: 'R',
       column: 0,
       dataType: 'relationship' as const,
     }
+
     const text = { id: 't', label: 'T', column: 1, dataType: 'text' as const }
     const point = { row: 0, column: 0 }
     expect(editors?.[0].matches({ point, field: relationship })).toBe(true)
@@ -663,6 +701,7 @@ describe('SheetbaseTableGridClient Record editor', () => {
     const onOpenRecordPicker = vi.fn()
     render(<SheetbaseTableGridClient {...baseProps({ onOpenRecordPicker })} />)
     const editor = lastProps().customEditors?.[0]
+
     if (!editor) throw new Error('editor missing')
     let node: ReactNode = null
     act(() => {

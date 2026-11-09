@@ -182,6 +182,7 @@ describe('sizeBucketFor', () => {
 describe('PLAT-05 registry', () => {
   it('exposes the dataset, pipeline, scheduler and search metrics', () => {
     const registry = createMetricsRegistry()
+
     for (const metric of [
       registry.datasetRpcDuration,
       registry.datasetCommitDuration,
@@ -197,6 +198,7 @@ describe('PLAT-05 registry', () => {
     ]) {
       expect(metric).toBeDefined()
     }
+
     const rendered = registry.render()
     expect(rendered).toContain(
       '# TYPE sheetbase_pipeline_stage_duration_seconds histogram',

@@ -41,19 +41,23 @@ async function resolveSession(input: { workspaceId: string }) {
   const { getAppSession } = await import('#/lib/auth')
   const headers = getRequestHeaders()
   const session = await getAppSession(headers)
+
   if (!session) {
     throw new ConnectorExecutionError(
       'unauthenticated',
       'You must be signed in.',
     )
   }
+
   const context = await getCurrentContext(headers)
+
   if (!context || context.workspace?.id !== input.workspaceId) {
     throw new ConnectorExecutionError(
       'forbidden',
       'You do not have access to this workspace.',
     )
   }
+
   return resolveConnectorExecutionContext({
     userId: session.user.id,
     sessionId: session.session.id,
@@ -76,38 +80,47 @@ async function resolveConnector(input: ConnectorOperationInput): Promise<{
   source: never
 }> {
   const exec = await resolveSession(input)
+
   const connectors = await exec.client.list<ConnectorWire>(
     'connectors',
     `?select=id,workspace_id,key,name,connector_type,direction,status,parser_id,config,created_at,updated_at&id=eq.${encodeURIComponent(input.connectorId)}`,
   )
+
   const connector = connectors.find((entry) => entry.id === input.connectorId)
+
   if (!connector) {
     throw new ConnectorExecutionError(
       'not_found',
       'Connector not found in this workspace.',
     )
   }
+
   if (connector.status !== 'active') {
     throw new ConnectorExecutionError(
       'connector_paused',
       'This connector is paused.',
     )
   }
+
   const adapterId = enterpriseAdapterId(connector)
+
   if (!adapterId) {
     throw new ConnectorExecutionError(
       'unsupported_connector',
       'This connector has no enterprise source adapter configured.',
     )
   }
+
   const adapter = ADAPTERS[adapterId]
   const source = adapter.parseConfig(connector.config) as never
+
   const secrets = await loadConnectorSecrets({
     workspaceId: input.workspaceId,
     connectorId: connector.id,
     required: adapter.requiredSecrets,
     optional: adapter.optionalSecrets ?? [],
   })
+
   return {
     context: {
       client: exec.client,
@@ -125,10 +138,12 @@ async function resolveConnector(input: ConnectorOperationInput): Promise<{
 
 export async function testConnectorConnection(input: ConnectorOperationInput) {
   const resolved = await resolveConnector(input)
+
   const result = await resolved.adapter.testConnection(
     resolved.context,
     resolved.source,
   )
+
   return { ok: true as const, detail: result.detail ?? {} }
 }
 
@@ -136,6 +151,7 @@ export async function discoverConnectorSource(
   input: ConnectorOperationInput & { query?: Record<string, unknown> },
 ) {
   const resolved = await resolveConnector(input)
+
   return resolved.adapter.discover(
     resolved.context,
     resolved.source,
@@ -147,6 +163,7 @@ export async function previewConnectorSource(
   input: ConnectorOperationInput & { selector: Record<string, unknown> },
 ) {
   const resolved = await resolveConnector(input)
+
   return resolved.adapter.preview(
     resolved.context,
     resolved.source,
@@ -163,11 +180,13 @@ export interface ConnectorImportInput extends ConnectorOperationInput {
 
 export async function importConnectorSource(input: ConnectorImportInput) {
   const resolved = await resolveConnector(input)
+
   const request: ConnectorImportRequest<Record<string, unknown>> = {
     source: input.source,
     projectId: input.projectId ?? null,
     target: input.target,
     mappings: (input.mappings ?? undefined) as never,
   }
+
   return resolved.adapter.ingest(resolved.context, resolved.source, request)
 }

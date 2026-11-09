@@ -71,11 +71,14 @@ function newestVersion(
   versions: ReadonlyArray<ReuseVersionRef>,
 ): { id: string; version: number } | null {
   let latest: { id: string; version: number } | null = null
+
   for (const candidate of versions) {
     if (!Number.isInteger(candidate.version) || candidate.version <= 0) continue
+
     if (!latest || candidate.version > latest.version)
       latest = { id: candidate.id, version: candidate.version }
   }
+
   return latest
 }
 
@@ -93,9 +96,12 @@ export function reuseUpgradeAvailability(
   if (!pinned || !Number.isInteger(pinned.version) || pinned.version <= 0)
     return { status: 'unknown', latestVersion: null }
   const latest = newestVersion(published)
+
   if (!latest) return { status: 'unknown', latestVersion: null }
+
   if (latest.version <= pinned.version)
     return { status: 'current', latestVersion: null }
+
   return { status: 'upgrade-available', latestVersion: latest }
 }
 
@@ -150,10 +156,15 @@ type FamilyCounts = { added: number; removed: number; changed: number }
 
 function familyLine(label: string, counts: FamilyCounts): string | null {
   const parts: string[] = []
+
   if (counts.added > 0) parts.push(`${counts.added} added`)
+
   if (counts.removed > 0) parts.push(`${counts.removed} removed`)
+
   if (counts.changed > 0) parts.push(`${counts.changed} changed`)
+
   if (parts.length === 0) return null
+
   return `${label}: ${parts.join(', ')}`
 }
 
@@ -174,8 +185,10 @@ function sheetConflictFamily(
 ): { label: string; delta: 'removed' | 'changed' } | null {
   if (kind === 'parameter-required')
     return { label: 'Parameters', delta: 'changed' }
+
   if (kind === 'column-incompatible')
     return { label: 'Columns', delta: 'changed' }
+
   if (
     kind === 'row-identity-changed' ||
     kind === 'local-identity-collision' ||
@@ -183,10 +196,13 @@ function sheetConflictFamily(
   )
     return null
   const dash = kind.lastIndexOf('-')
+
   if (dash <= 0) return null
   const family = kind.slice(0, dash)
   const delta = kind.slice(dash + 1)
+
   if (delta !== 'removed' && delta !== 'changed') return null
+
   switch (family) {
     case 'column':
       return { label: 'Columns', delta }
@@ -210,6 +226,7 @@ function sheetConflictFamily(
 function sheetLocalTouchCount(preview: SheetDefinitionUpgradePreview): number {
   return preview.conflicts.filter((conflict) => {
     const references = conflict.instanceReferences
+
     return (
       references.localField ||
       references.localValueCount > 0 ||
@@ -231,6 +248,7 @@ export function summarizeSheetDefinitionUpgradeImpact(
   const parsed = parseSheetDefinitionUpgradePreview(preview)
   const families: Record<string, FamilyCounts> = {}
   const renamed: string[] = []
+
   for (const change of parsed.automaticChanges) {
     if (change.kind.endsWith('-label-renamed')) {
       renamed.push(
@@ -238,7 +256,9 @@ export function summarizeSheetDefinitionUpgradeImpact(
       )
       continue
     }
+
     const label = SHEET_AUTOMATIC_FAMILY[change.kind]
+
     if (!label) throw new Error(`Unresolvable upgrade change "${change.kind}".`)
     const counts = (families[label] ??= { added: 0, removed: 0, changed: 0 })
     counts.added += 1
@@ -246,11 +266,13 @@ export function summarizeSheetDefinitionUpgradeImpact(
 
   let requiredParameters = 0
   const structuralConflicts: string[] = []
+
   for (const conflict of parsed.conflicts) {
     if (conflict.kind === 'parameter-required') {
       requiredParameters += 1
       continue
     }
+
     if (
       conflict.kind === 'row-identity-changed' ||
       conflict.kind === 'local-identity-collision' ||
@@ -259,14 +281,18 @@ export function summarizeSheetDefinitionUpgradeImpact(
       structuralConflicts.push(conflict.kind)
       continue
     }
+
     const family = sheetConflictFamily(conflict.kind)
+
     if (!family)
       throw new Error(`Unresolvable upgrade conflict "${conflict.kind}".`)
+
     const counts = (families[family.label] ??= {
       added: 0,
       removed: 0,
       changed: 0,
     })
+
     counts[family.delta] += 1
   }
 
@@ -279,20 +305,26 @@ export function summarizeSheetDefinitionUpgradeImpact(
     'Write-back rules',
     'Actions',
   ]
+
   const lines: string[] = []
+
   for (const label of order) {
     const counts = families[label] as FamilyCounts | undefined
     const line = counts ? familyLine(label, counts) : null
+
     if (line) lines.push(line)
   }
+
   if (requiredParameters > 0)
     lines.push(
       `Parameters: ${pluralise(requiredParameters, 'newly required parameter')}`,
     )
+
   if (renamed.length > 0)
     lines.push(
       `${pluralise(renamed.length, 'label rename')} applied automatically`,
     )
+
   for (const kind of structuralConflicts) {
     if (kind === 'row-identity-changed')
       lines.push('Row identity changed: needs an explicit decision')
@@ -305,32 +337,39 @@ export function summarizeSheetDefinitionUpgradeImpact(
         'Instance calculation collides with a target object: needs an explicit decision',
       )
   }
+
   if (lines.length === 0)
     lines.push('No changes between pinned and latest versions.')
 
   const localEffects: string[] = []
+
   if (parsed.preserved.localFieldIds.length > 0)
     localEffects.push(
       `${pluralise(parsed.preserved.localFieldIds.length, 'local field')} preserved`,
     )
+
   if (parsed.preserved.localValueRowCount > 0)
     localEffects.push(
       `${pluralise(parsed.preserved.localValueRowCount, 'local value row')} preserved`,
     )
+
   if (parsed.preserved.calculationOverrideIds.length > 0)
     localEffects.push(
       `${pluralise(parsed.preserved.calculationOverrideIds.length, 'calculation override')} preserved`,
     )
+
   if (parsed.preserved.instanceCalculationIds.length > 0)
     localEffects.push(
       `${pluralise(parsed.preserved.instanceCalculationIds.length, 'instance calculation')} preserved`,
     )
+
   if (localEffects.length === 0)
     localEffects.push('No local fields, values, or overrides on this instance.')
   localEffects.push(
     'Presentation stays with the instance; bindings revalidated against the target.',
   )
   const touched = sheetLocalTouchCount(parsed)
+
   if (touched > 0)
     localEffects.push(
       `${pluralise(touched, 'conflict')} reference${touched === 1 ? 's' : ''} local state — check each decision.`,
@@ -355,29 +394,36 @@ export function summarizeNotebookTemplateUpgradeImpact(
 ): ReuseUpgradeImpactSummary {
   const parsed: NotebookUpgradePreview =
     parseNotebookTemplateUpgradePreviewFromWire(preview)
+
   const lines: string[] = []
   const localEffects: string[] = []
 
   let added = 0
   let removed = 0
   let repinned = 0
+
   for (const change of parsed.automatic) {
     if (change.kind === 'placement-added') added += 1
     else if (change.kind === 'placement-removed') removed += 1
     else repinned += 1
   }
+
   if (added > 0 || removed > 0) {
     const parts: string[] = []
+
     if (added > 0) parts.push(`${added} added`)
+
     if (removed > 0) parts.push(`${removed} removed`)
     lines.push(`Placements: ${parts.join(', ')}`)
   }
+
   if (repinned > 0)
     lines.push(
       `${pluralise(repinned, 'part')} re-pin${repinned === 1 ? 's' : ''} cleanly to a newer Definition version`,
     )
 
   let unresolved = 0
+
   for (const conflict of parsed.conflicts) {
     if (conflict.kind === 'sheet-placement-unresolved') {
       unresolved += 1
@@ -386,24 +432,33 @@ export function summarizeNotebookTemplateUpgradeImpact(
       )
       continue
     }
+
     if (!conflict.instancePreview)
       throw new Error(`Unresolvable upgrade conflict "${conflict.kind}".`)
+
     const nested = summarizeSheetDefinitionUpgradeImpact(
       conflict.instancePreview,
     )
+
     const part = conflict.placementId ?? conflict.id
+
     for (const line of nested.lines) lines.push(`Part ${part}: ${line}`)
+
     for (const effect of nested.localEffects) {
       const scoped = `Part ${part}: ${effect}`
+
       if (!localEffects.includes(scoped)) localEffects.push(scoped)
     }
   }
+
   if (unresolved === 0 && parsed.conflicts.length > 0 && lines.length === 0)
     lines.push(
       `${pluralise(parsed.conflicts.length, 'part')} need an explicit decision`,
     )
+
   if (lines.length === 0)
     lines.push('No changes between pinned and latest versions.')
+
   if (localEffects.length === 0)
     localEffects.push(
       'Local values and overrides stay untouched; only governed pins move.',
@@ -448,11 +503,14 @@ export function buildSheetDefinitionUpgradeAdoption(input: {
   decisions: unknown
 }): SheetDefinitionUpgradeAdoption {
   const parsed = parseSheetDefinitionUpgradePreview(input.preview)
+
   if (parsed.target.versionId !== input.targetVersionId)
     throw new Error('Upgrade preview is stale: re-preview before applying.')
   const decisions = parseSheetDefinitionUpgradeDecisions(input.decisions)
+
   if (decisions.length !== parsed.conflicts.length)
     throw new Error('Every upgrade conflict requires exactly one decision.')
+
   return {
     sourceDefinitionVersionId: parsed.source.versionId,
     targetDefinitionVersionId: parsed.target.versionId,
@@ -473,11 +531,14 @@ export function buildNotebookTemplateUpgradeAdoption(input: {
 }): NotebookTemplateUpgradeAdoption {
   const parsed: NotebookUpgradePreview =
     parseNotebookTemplateUpgradePreviewFromWire(input.preview)
+
   if (parsed.targetVersionId !== input.targetVersionId)
     throw new Error('Upgrade preview is stale: re-preview before applying.')
   const decisions = parseNotebookTemplateUpgradeDecisions(input.decisions)
+
   if (decisions.length !== parsed.conflicts.length)
     throw new Error('Every upgrade conflict requires exactly one decision.')
+
   return {
     sourceVersionId: parsed.sourceVersionId,
     targetVersionId: parsed.targetVersionId,

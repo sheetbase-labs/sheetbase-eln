@@ -69,6 +69,7 @@ export const Route = createFileRoute('/analysis/')({
 const client = createDataClient()
 
 const analysisSorts = ['Updated', 'Name', 'ID'] as const
+
 type AnalysisSort = (typeof analysisSorts)[number]
 
 const MODES = [
@@ -134,6 +135,7 @@ function definitionRow(saved: AnalysisDefinitionWire): AnalysisRow {
     kind?: string
     datasets?: { datasetId?: string }[]
   }
+
   return {
     id: saved.id,
     kind: 'statistics',
@@ -215,11 +217,13 @@ function RowLink({
 function AnalysisHome() {
   const { tab, q, state } = Route.useSearch()
   const navigate = useNavigate()
+
   const openAnalysis = useOpenRow<AnalysisRow>(
     navigate,
     analysisHref,
     (row) => row.name,
   )
+
   const { context } = Route.useRouteContext()
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
   const userId = context.user.id
@@ -231,16 +235,19 @@ function AnalysisHome() {
     queryFn: () => fetchAnalysisViews(client),
     staleTime: 10_000,
   })
+
   const definitions = useQuery({
     queryKey: analysisDefinitionQueryKeys.all,
     queryFn: () => fetchAnalysisDefinitions(),
     staleTime: 10_000,
   })
+
   const datasets = useQuery({
     queryKey: analysisStudioQueryKeys.datasets,
     queryFn: () => fetchDatasetSummaries(),
     staleTime: 30_000,
   })
+
   const citations = useQuery({
     queryKey: ['ui-port', 'analysis', 'cited'],
     queryFn: () =>
@@ -249,6 +256,7 @@ function AnalysisHome() {
         '?link_type=eq.analysis&select=target_identifier',
       ),
   })
+
   const citedIds = useMemo<Set<string>>(
     () =>
       new Set(
@@ -258,6 +266,7 @@ function AnalysisHome() {
       ),
     [citations.data],
   )
+
   const rows = useMemo<AnalysisRow[]>(
     () =>
       [
@@ -266,7 +275,9 @@ function AnalysisHome() {
       ].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
     [views.data, definitions.data],
   )
+
   const names = useUserNames(rows.map((r) => r.ownerId).filter(Boolean))
+
   const columns = useMemo<RegistryColumn<AnalysisRow>[]>(
     () => [
       {
@@ -319,14 +330,17 @@ function AnalysisHome() {
     ],
     [datasets.data, names, openAnalysis],
   )
+
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     selectedId,
     setSelectedId,
   )
+
   const datasetName = (id: string | undefined) =>
     (datasets.data ?? []).find((d) => d.id === id)?.name ?? '—'
 
   const needle = (q ?? '').trim().toLowerCase()
+
   const visible = useMemo(
     () =>
       [...rows]
@@ -341,8 +355,11 @@ function AnalysisHome() {
         )
         .filter((v) => {
           if (tab === 'mine' && v.ownerId !== userId) return false
+
           if (tab === 'cited' && !citedIds.has(v.citeKey)) return false
+
           if (tab === 'drafts' && v.version > 1) return false
+
           if (
             needle &&
             !`${v.identifier} ${v.name} ${kindLabel(v)} ${v.datasetId ?? ''}`
@@ -350,6 +367,7 @@ function AnalysisHome() {
               .includes(needle)
           )
             return false
+
           return true
         }),
     // `citedIds` resolves from its own query after the first render, so it has
@@ -370,21 +388,25 @@ function AnalysisHome() {
         title: t('data.analysisList.analysesMatch'),
         body: t('data.analysisList.analysisIdNameKind'),
       }
+
     if (rows.length > 0 && tab === 'cited')
       return {
         title: t('data.analysisList.analysesCitedRecords'),
         body: t('data.analysisList.analysisAppearsHereOnce'),
       }
+
     if (rows.length > 0 && tab === 'mine')
       return {
         title: t('data.analysisList.analysesOwn'),
         body: t('data.analysisList.haveSavedAnalysisWorkspace'),
       }
+
     if (rows.length > 0 && tab === 'drafts')
       return {
         title: t('data.analysisList.draftAnalyses'),
         body: t('data.analysisList.everyAnalysisWorkspaceHas'),
       }
+
     return {
       title: t('data.analysisList.analysesYet'),
       body: t('data.analysisList.analysisReadsPinnedDataset'),

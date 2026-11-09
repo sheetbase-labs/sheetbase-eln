@@ -125,6 +125,7 @@ export function AgentWorkflowsPanel({
 }) {
   const selected =
     workflows.find((w) => w.id === selectedId) ?? workflows.at(0) ?? null
+
   const [reason, setReason] = useState('')
   useEffect(() => setReason(''), [selected?.id])
 
@@ -397,14 +398,18 @@ export function AgentPoliciesPanel({
   /** The empty state's one action puts the cursor in the field that starts it. */
   const nameRef = useRef<HTMLInputElement>(null)
   const [credentialId, setCredentialId] = useState(credentials[0]?.id ?? '')
+
   const [targetType, setTargetType] =
     useState<AgentOperationPolicyTargetType>('dataset')
+
   const [targetId, setTargetId] = useState('')
   const [maxRows, setMaxRows] = useState('100')
   const [reason, setReason] = useState('')
+
   const [meaning, setMeaning] = useState(
     t('data.agentSurface.iApproveDelegation'),
   )
+
   /** PIPE-01: disabling removes a delegation, so it is confirmed first. */
   const [pendingDisable, setPendingDisable] =
     useState<AgentOperationPolicy | null>(null)
@@ -414,6 +419,7 @@ export function AgentPoliciesPanel({
   }, [credentialId, credentials])
 
   const limit = Number(maxRows)
+
   const valid =
     name.trim().length > 0 &&
     credentialId.length > 0 &&
@@ -453,6 +459,7 @@ export function AgentPoliciesPanel({
             className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_150px_1fr_100px_auto]"
             onSubmit={(e) => {
               e.preventDefault()
+
               if (!valid) return
               onCreate({
                 name: name.trim(),
@@ -674,6 +681,7 @@ export function AgentPoliciesPanel({
               onClick={() => {
                 const policy = pendingDisable
                 setPendingDisable(null)
+
                 if (policy) onDisable(policy)
               }}
             >

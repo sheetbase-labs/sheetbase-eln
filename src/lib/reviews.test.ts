@@ -82,6 +82,7 @@ describe('review inbox derivation', () => {
       PROJECT.title,
       PROJECT.key,
     )
+
     expect(item).toMatchObject({
       recordIdentifier: 'EXP-2025-0001',
       recordTitle: 'Virus stability',
@@ -106,10 +107,12 @@ describe('review inbox derivation', () => {
 
   it('derives the current step from the known workflow and stays on step 1 while submitted', () => {
     expect(workflowStepsFor('default-scientific-review')).toHaveLength(1)
+
     const step = currentStepFor({
       state: 'submitted',
       workflowDefinitionKey: 'default-scientific-review',
     })
+
     expect(step.key).toBe('scientific-review')
   })
 
@@ -128,9 +131,11 @@ describe('review inbox derivation', () => {
 
   it('flags a review overdue only when submitted beyond the SLA window', () => {
     const recent = new Date(Date.now() - 86_400_000).toISOString()
+
     const old = new Date(
       Date.now() - (OVERDUE_DAYS + 1) * 86_400_000,
     ).toISOString()
+
     expect(isOverdueFor('submitted', recent)).toBe(false)
     expect(isOverdueFor('submitted', old)).toBe(true)
     // Non-submitted reviews are never overdue.
@@ -139,12 +144,15 @@ describe('review inbox derivation', () => {
 
   it('derives priority from ageing: low → medium → high', () => {
     const fresh = new Date().toISOString()
+
     const aging = new Date(
       Date.now() - (MEDIUM_DAYS + 1) * 86_400_000,
     ).toISOString()
+
     const stale = new Date(
       Date.now() - (OVERDUE_DAYS + 1) * 86_400_000,
     ).toISOString()
+
     expect(priorityFor('submitted', fresh)).toBe('low')
     expect(priorityFor('submitted', aging)).toBe('medium')
     expect(priorityFor('submitted', stale)).toBe('high')
@@ -159,6 +167,7 @@ describe('review inbox derivation', () => {
       PROJECT.title,
       PROJECT.key,
     )
+
     expect(item.isWithdrawn).toBe(true)
     expect(item.status).toBe('withdrawn')
   })
@@ -285,13 +294,16 @@ describe('review inbox filter/sort/paginate', () => {
         ['Zoe', 'Alice', 'Ben'][index],
       ]),
     )
+
     const label = (id: string) => names.get(id) ?? id
+
     const match = filterReviews(
       items,
       { ...DEFAULT_REVIEW_FILTERS, search: label(items[0].submittedByUserId) },
       'me',
       label,
     )
+
     expect(match).toContain(items[0])
     const sorted = sortReviews(items, 'submitter', false, label)
     expect(sorted.map((item) => label(item.submittedByUserId))).toEqual(

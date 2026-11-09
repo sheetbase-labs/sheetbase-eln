@@ -101,6 +101,7 @@ export function ReportsRegistryGrid({
           compareRegistryText(a.getValue(id), b.getValue(id)),
         cell: ({ row }) => {
           const status = reportStatus(row.original.status)
+
           return <Status tone={status.tone}>{status.label}</Status>
         },
       },

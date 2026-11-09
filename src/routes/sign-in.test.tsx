@@ -72,6 +72,7 @@ describe('R5-SHELL-05 sign-in states', () => {
       state: 'signed-out',
       retainedDrafts: 2,
     })
+
     expect(
       screen.getByRole('heading', { name: 'You’re signed out' }),
     ).toBeTruthy()
@@ -314,6 +315,7 @@ describe('company OIDC and emailed sign-in link', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue({ ok: true, json: async () => ({}) })
+
     vi.stubGlobal('fetch', fetchMock)
     renderSurface({
       githubEnabled: false,

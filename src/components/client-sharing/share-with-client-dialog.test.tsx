@@ -18,6 +18,7 @@ vi.mock('#/lib/client-sharing', async (importOriginal) => ({
   shareRecordWithClient: mocks.shareRecordWithClient,
   unshareRecordWithClient: mocks.unshareRecordWithClient,
 }))
+
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
@@ -36,6 +37,7 @@ const base: RecordSharing = {
 
 function renderDialog(sharing: RecordSharing) {
   mocks.fetchRecordSharing.mockResolvedValue(sharing)
+
   return render(
     <QueryClientProvider client={new QueryClient()}>
       <ShareWithClientDialog
@@ -52,6 +54,7 @@ beforeEach(() => {
   mocks.shareRecordWithClient.mockResolvedValue(undefined)
   mocks.unshareRecordWithClient.mockResolvedValue(undefined)
 })
+
 afterEach(cleanup)
 
 describe('ShareWithClientDialog', () => {

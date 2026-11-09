@@ -7,6 +7,7 @@ import type { CommentWire } from '#/lib/comments-data'
 import { CommentPanel } from './comment-panel'
 
 const fetchComments = vi.hoisted(() => vi.fn())
+
 vi.mock('#/lib/comments-data', async (original) => ({
   ...(await original()),
   fetchCommentsForRevision: fetchComments,
@@ -44,6 +45,7 @@ describe('CommentPanel owner-scoped focus', () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+
     fetchComments.mockResolvedValue([])
     render(
       <QueryClientProvider client={client}>
@@ -85,9 +87,11 @@ describe('CommentPanel owner-scoped focus', () => {
 
   it('does not invent a missing hit, and allows historical replies without a new root composer', async () => {
     fetchComments.mockResolvedValue([wire('root')])
+
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+
     render(
       <QueryClientProvider client={client}>
         <CommentPanel

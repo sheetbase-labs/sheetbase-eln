@@ -50,6 +50,7 @@ function itemIcon(status: CheckItemResult['status']) {
       />
     )
   }
+
   return (
     <Icon
       name="x"

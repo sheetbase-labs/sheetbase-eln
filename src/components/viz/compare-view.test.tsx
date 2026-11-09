@@ -81,8 +81,10 @@ function renderCompare(
   flags: DatasetValueFlag[] = [],
 ) {
   const onPromote = vi.fn()
+
   function Harness() {
     const [config, setConfig] = useState(initial)
+
     return (
       <CompareView
         source={SOURCE}
@@ -95,7 +97,9 @@ function renderCompare(
       />
     )
   }
+
   render(<Harness />)
+
   return { onPromote }
 }
 
@@ -117,10 +121,12 @@ describe('CompareView', () => {
   it('binds faceting controls to explicit fields only', () => {
     renderCompare(baseConfig())
     const facet = screen.getByLabelText('Facet field')
+
     // The active groupBy field is never offered as a facet.
     const options = [...facet.querySelectorAll('option')].map(
       (o) => o.textContent,
     )
+
     expect(options).not.toContain('Buffer')
     expect(options).toContain('Time (h)')
     fireEvent.change(facet, { target: { value: TIME } })
@@ -143,6 +149,7 @@ describe('CompareView', () => {
     const { onPromote } = renderCompare(
       baseConfig({ viewType: 'distribution', timeField: null }),
     )
+
     // No time control for distributions; the promote path still holds.
     expect(screen.queryByLabelText('Time field')).toBeNull()
     fireEvent.click(
@@ -248,10 +255,13 @@ function renderAbCompare(rows: Record<string, unknown>[] = AB_ROWS) {
 /** The cells of the A/B row whose key cell reads `key`. */
 function pairCells(key: string): string[] {
   const table = screen.getByRole('table', { name: 'A/B comparison' })
+
   const row = within(table)
     .getAllByRole('row')
     .find((candidate) => within(candidate).queryByText(key) !== null)
+
   if (!row) throw new Error(`No paired row for ${key}`)
+
   return within(row)
     .getAllByRole('cell')
     .map((cell) => cell.textContent)
@@ -271,6 +281,7 @@ describe('CompareView A/B controls', () => {
     const headers = within(
       screen.getByRole('table', { name: 'A/B comparison' }),
     ).getAllByRole('columnheader')
+
     expect(headers[1].textContent).toContain('A · A')
     expect(headers[2].textContent).toContain('B · B')
 
@@ -292,6 +303,7 @@ describe('CompareView A/B controls', () => {
     const headers = within(
       screen.getByRole('table', { name: 'A/B comparison' }),
     ).getAllByRole('columnheader')
+
     expect(headers[1].textContent).toContain('A · B')
     expect(headers[2].textContent).toContain('B · A')
 
@@ -396,11 +408,13 @@ describe('CompareView flag exclusion and selection', () => {
       () => {
         const circle = document.querySelector('circle[r="9"]')
         expect(circle).toBeTruthy()
+
         return circle
       },
       // The first import transforms the renderer and the charts package.
       { timeout: 10_000 },
     )
+
     fireEvent.click(hit as Element)
 
     const summary = screen.getByText(/^Selected /)

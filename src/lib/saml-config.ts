@@ -20,6 +20,7 @@ const EMAIL_FORMAT = 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress'
 /** Where the provider is told to send people back to, and our identity. */
 export function samlServiceProvider(baseUrl: string, config: SamlConfig) {
   const root = baseUrl.replace(/\/+$/, '')
+
   return {
     entityId:
       config.spEntityId ??
@@ -32,11 +33,13 @@ export function samlServiceProvider(baseUrl: string, config: SamlConfig) {
 /** The groups in an assertion's attribute, as a list of names. */
 export function groupsFromAttribute(value: unknown): string[] | null {
   if (value === undefined || value === null) return null
+
   const list: unknown[] = Array.isArray(value)
     ? value
     : typeof value === 'string'
       ? value.split(',')
       : []
+
   return list
     .filter((entry): entry is string => typeof entry === 'string')
     .map((entry) => entry.trim())
@@ -51,6 +54,7 @@ export function samlPluginOptions(
   },
 ): SSOOptions {
   const sp = samlServiceProvider(deps.baseUrl, config)
+
   const mapping = {
     id: 'nameID',
     email: config.emailAttribute ?? 'email',
@@ -59,6 +63,7 @@ export function samlPluginOptions(
       ? { extraFields: { groups: config.groupsAttribute } }
       : {}),
   }
+
   const idpMetadata = config.idpMetadata
     ? { metadata: config.idpMetadata }
     : {
@@ -68,6 +73,7 @@ export function samlPluginOptions(
           { Binding: REDIRECT_BINDING, Location: config.idpSsoUrl ?? '' },
         ],
       }
+
   return {
     defaultSSO: [
       {
@@ -105,6 +111,7 @@ export function samlPluginOptions(
     provisionUserOnEveryLogin: true,
     provisionUser: async ({ user, userInfo }) => {
       const groups = groupsFromAttribute(userInfo.groups)
+
       if (groups) await deps.applyGroups(user.id, groups)
     },
   }

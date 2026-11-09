@@ -228,10 +228,13 @@ export function signatureChecksPassed(
   integrityDigest: string | null,
 ): boolean {
   if (!integrityDigest) return false
+
   if (results.length === 0) return false
+
   const latest = [...results].sort(
     (a, b) => Date.parse(b.run_at) - Date.parse(a.run_at),
   )[0]
+
   return (
     latest.revision_integrity_digest === integrityDigest &&
     latest.blocking_failure_count === 0 &&
@@ -253,6 +256,7 @@ export async function fetchSignatureEligibility(
       `?submission_id=eq.${submission.id}&witness_user_id=eq.${encodeURIComponent(userId)}`,
     ),
   ])
+
   return { writer: z.boolean().parse(writer), requests }
 }
 
@@ -291,6 +295,7 @@ export function availableSignatureMeanings(input: {
   signatures: SignatureWire[]
 }): PostSubmissionSignatureMeaning[] {
   const { submission, currentUserId, integrityDigest, eligibility } = input
+
   if (
     !submission ||
     !input.certificationCurrent ||
@@ -302,8 +307,10 @@ export function availableSignatureMeanings(input: {
     !['submitted', 'approved'].includes(submission.state)
   )
     return []
+
   return SIGNATURE_MEANING_OPTIONS.filter((option) => {
     if (!signatureMeaningEnabled(input.policy, option.value)) return false
+
     if (
       input.signatures.some(
         (signature) =>
@@ -312,12 +319,14 @@ export function availableSignatureMeanings(input: {
       )
     )
       return false
+
     if (option.value === 'witnessed')
       return eligibility.requests.some(
         (request) =>
           request.witness_user_id === currentUserId &&
           request.revision_digest === integrityDigest,
       )
+
     return (
       submission.assigned_reviewer_user_ids.includes(currentUserId) &&
       (option.value === 'reviewed' || submission.state === 'approved')
@@ -457,11 +466,14 @@ async function postSignatureAuthentication(input: object): Promise<unknown> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
   })
+
   const body: unknown = await response.json()
+
   if (!response.ok) {
     const error = z
       .object({ message: z.string(), code: z.string().optional() })
       .safeParse(body)
+
     throw new SignatureStepUpError(
       response.status,
       error.success
@@ -470,5 +482,6 @@ async function postSignatureAuthentication(input: object): Promise<unknown> {
       error.success ? error.data.code : undefined,
     )
   }
+
   return body
 }

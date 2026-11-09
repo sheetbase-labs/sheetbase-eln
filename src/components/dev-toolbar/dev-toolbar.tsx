@@ -78,10 +78,12 @@ export function DevToolbar({
   // Automated browsers keep clear of the bar unless it was switched on.
   const automated = mounted && navigator.webdriver === true
   const enabled = stored === '1' || (dev && stored === null && !automated)
+
   const available =
     mounted &&
     !import.meta.env.VITE_PARITY &&
     devToolbarAvailable({ dev, role, enabled })
+
   const canToggle = dev || devToolbarAvailable({ dev, role, enabled: true })
 
   React.useEffect(() => {
@@ -91,17 +93,21 @@ export function DevToolbar({
 
   React.useEffect(() => {
     if (!canToggle) return
+
     const onKey = (event: KeyboardEvent) => {
       if (event.ctrlKey && event.altKey && event.code === 'KeyD') {
         event.preventDefault()
         setDevSwitch(!enabled)
       }
     }
+
     window.addEventListener('keydown', onKey)
+
     return () => window.removeEventListener('keydown', onKey)
   }, [canToggle, enabled])
 
   if (!available) return null
+
   return <Bar role={role} queryClient={queryClient} />
 }
 
@@ -184,14 +190,18 @@ function BarPopover({
 
   React.useEffect(() => {
     if (!open) return
+
     const onDown = (event: MouseEvent) => {
       if (!ref.current?.contains(event.target as Node)) setLeft(null)
     }
+
     const onKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') setLeft(null)
     }
+
     document.addEventListener('mousedown', onDown)
     document.addEventListener('keydown', onKey)
+
     return () => {
       document.removeEventListener('mousedown', onDown)
       document.removeEventListener('keydown', onKey)
@@ -235,12 +245,14 @@ function FlagsPanel({
   overrides: ReturnType<typeof useDevFlagOverrides>
 }) {
   const changed = Object.keys(overrides).length > 0
+
   return (
     <>
       <p className="text-caption text-faint-foreground">{text.flagsHint}</p>
       <ul className="flex flex-col gap-2">
         {devFlags.map((flag) => {
           const on = overrides[flag.key] ?? true
+
           return (
             <li key={flag.key}>
               <label className="flex items-start gap-2 text-body">
@@ -339,6 +351,7 @@ function PerformancePanel({
 }) {
   const { log } = useDevRequests()
   const summary = summariseRequests(log)
+
   return (
     <>
       <h3 className="text-caption font-medium text-muted-foreground">
@@ -402,8 +415,10 @@ function PerformancePanel({
 
 function NetworkControls() {
   const network = useDevNetworkSettings()
+
   const select =
     'h-6 rounded-sm border border-border bg-card px-1 text-caption outline-none focus-visible:ring-2 focus-visible:ring-ring'
+
   return (
     <div className="flex shrink-0 items-center gap-2 text-caption">
       <span className="text-muted-foreground">{text.network}</span>
@@ -468,6 +483,7 @@ function ActionsPanel({
       flagOverrides: overrides,
       networkSimulation: network,
     }
+
     await navigator.clipboard.writeText(JSON.stringify(info, null, 2))
   }
 
@@ -505,10 +521,12 @@ function ActionsPanel({
           const keep = localStorage.getItem('sb-devtools')
           localStorage.clear()
           sessionStorage.clear()
+
           if (keep) localStorage.setItem('sb-devtools', keep)
         } catch {
           /* blocked storage: nothing to clear */
         }
+
         window.location.reload()
       },
     },

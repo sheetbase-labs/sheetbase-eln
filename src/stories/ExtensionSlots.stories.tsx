@@ -66,7 +66,9 @@ const meta = {
   tags: ['autodocs'],
   args: { actions, onSelect: () => {} },
 } satisfies Meta<typeof ExtensionObjectActions>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** One quiet button per resolved action, in the record's action row rhythm. */

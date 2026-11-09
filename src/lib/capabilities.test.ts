@@ -41,6 +41,7 @@ describe('capabilities', () => {
     expect(Object.keys(capabilityRoadmap).sort()).toEqual(
       [...capabilityKeys].sort(),
     )
+
     for (const key of capabilityKeys) {
       expect(capabilityRoadmap[key]).toMatch(/^RM-\d+$/)
     }

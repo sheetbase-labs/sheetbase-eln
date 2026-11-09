@@ -11,9 +11,11 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 export const Route = createFileRoute('/shipments')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: ShipmentsRoute,
@@ -21,6 +23,7 @@ export const Route = createFileRoute('/shipments')({
 
 function ShipmentsRoute() {
   const { context } = Route.useRouteContext()
+
   return (
     <ShipmentsPage
       canWrite={hasCapability(context.workspace?.role, 'record.create')}

@@ -34,12 +34,14 @@ export function useWritableProjects(
     enabled,
     staleTime: 60_000,
   })
+
   const assignments = useQuery({
     queryKey: ['ui-port', 'writable-projects', 'access'],
     queryFn: () => fetchMyProjectAssignments(client),
     enabled,
     staleTime: 60_000,
   })
+
   const writable = useMemo(
     () =>
       new Set(
@@ -49,9 +51,11 @@ export function useWritableProjects(
       ),
     [assignments.data],
   )
+
   const usable = (projects.data ?? []).filter(
     (p) => writable.has(p.id) && !p.archived_at && p.status !== 'archived',
   )
+
   return {
     usable,
     isLoading: projects.isLoading || assignments.isLoading,

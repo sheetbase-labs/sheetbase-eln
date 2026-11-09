@@ -261,18 +261,23 @@ async function findModel(
     'record_models',
     `?${extra}select=key,name&order=name.asc&limit=200`,
   )
+
   const lower = wanted.trim().toLowerCase()
+
   const exact = rows.filter(
     (row) =>
       row.key.toLowerCase() === lower || row.name.toLowerCase() === lower,
   )
+
   if (exact.length === 1) return { ok: true, value: exact[0] }
   const words = lower.split(/\s+/).filter(Boolean)
+
   const partial = rows.filter((row) =>
     words.every((word) =>
       `${row.name} ${row.key}`.toLowerCase().includes(word),
     ),
   )
+
   return pick(
     partial,
     wanted,
@@ -293,11 +298,14 @@ async function findProject(
   text: string,
 ): Promise<Lookup<ProjectRow>> {
   const like = likeValue(text)
+
   const rows = await client.list<ProjectRow>(
     'projects',
     `?archived_at=is.null&or=(key.ilike.${like},title.ilike.${like})&select=id,key,title&order=title.asc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -314,23 +322,28 @@ export async function buildLabworkProposal(
   context: LabToolContext,
 ): Promise<LabworkOutcome> {
   const { client, workspaceId } = context
+
   switch (name) {
     case STOCKTAKE_START_TOOL: {
       const parsed = parse(proposeStocktakeStartSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const tree = await fetchStorageTree(client)
       const lower = input.location.trim().toLowerCase()
       const words = lower.split(/\s+/).filter(Boolean)
+
       const nodes = tree.nodes
         .filter((node) => isStocktakeLevel(node.level))
         .filter((node) => !isArchived(tree, node))
         .map((node) => ({ node, path: formatNodePath(tree, node) }))
+
       const matches = nodes.filter(({ node, path }) =>
         words.every((word) =>
           `${path} ${node.code ?? ''}`.toLowerCase().includes(word),
         ),
       )
+
       const found = pick(
         matches,
         input.location,
@@ -341,17 +354,21 @@ export async function buildLabworkProposal(
           row.node.name.toLowerCase() === lower ||
           row.node.code?.toLowerCase() === lower,
       )
+
       if (!found.ok) return fail(found.message)
       const { node, path } = found.value
+
       const open = await client.list<{ number: number }>(
         'stocktakes',
         `?status=eq.open&scope_id=eq.${encodeURIComponent(node.id)}&select=number&limit=1`,
       )
+
       if (open.length > 0) {
         return fail(
           `${stocktakeReference(open[0].number)} is already open for ${path}. Tell the person.`,
         )
       }
+
       const changes: ProposalChange[] = [
         { label: 'Count', before: null, after: path },
         { label: 'Level', before: null, after: sentence(node.level) },
@@ -361,9 +378,11 @@ export async function buildLabworkProposal(
           after: String(node.held),
         },
       ]
+
       if (input.note) {
         changes.push({ label: 'Note', before: null, after: input.note })
       }
+
       return card(name, input, {
         target: path,
         deepLink: '/stocktake',
@@ -379,9 +398,11 @@ export async function buildLabworkProposal(
 
     case STOCKTAKE_COMPLETE_TOOL: {
       const parsed = parse(proposeStocktakeCompleteSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const number = /^ST-?(\d+)$/i.exec(input.stocktake.trim())
+
       const rows = await client.list<{
         id: string
         number: number
@@ -396,6 +417,7 @@ export async function buildLabworkProposal(
             : `or=(scope_name.ilike.${likeValue(input.stocktake)},scope_path.ilike.${likeValue(input.stocktake)})`
         }&select=id,number,scope_name,scope_path,status&order=number.desc&limit=6`,
       )
+
       const found = pick(
         rows,
         input.stocktake,
@@ -403,15 +425,20 @@ export async function buildLabworkProposal(
         (row) => `${stocktakeReference(row.number)} ${row.scope_name}`,
         (row) => number !== null && row.number === Number(number[1]),
       )
+
       if (!found.ok) return fail(found.message)
       const count = found.value
+
       const items = await client.list<{ state: string }>(
         'stocktake_items',
         `?stocktake_id=eq.${encodeURIComponent(count.id)}&select=state&limit=5000`,
       )
+
       const tally = (state: string) =>
         items.filter((item) => item.state === state).length
+
       const unseen = tally('expected')
+
       const changes: ProposalChange[] = [
         { label: 'Status', before: 'Open', after: 'Completed' },
         {
@@ -420,6 +447,7 @@ export async function buildLabworkProposal(
           after: String(tally('confirmed')),
         },
       ]
+
       if (unseen > 0) {
         changes.push({
           label: 'Not scanned, recorded as missing',
@@ -427,6 +455,7 @@ export async function buildLabworkProposal(
           after: String(unseen),
         })
       }
+
       for (const [state, label] of [
         ['misplaced', 'Found in a different box'],
         ['unexpected', 'Found but not on the list'],
@@ -435,6 +464,7 @@ export async function buildLabworkProposal(
           changes.push({ label, before: null, after: String(tally(state)) })
         }
       }
+
       return card(name, input, {
         target: `${stocktakeReference(count.number)} · ${count.scope_name}`,
         deepLink: `/stocktake/${count.id}`,
@@ -445,17 +475,21 @@ export async function buildLabworkProposal(
 
     case LEGAL_HOLD_CREATE_TOOL: {
       const parsed = parse(proposeLegalHoldCreateSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       if (!input.project && !input.kind) {
         return fail(
           'A hold covers a project or one kind of record. Ask the person which.',
         )
       }
+
       const same = await client.list<{ name: string }>(
         'legal_holds',
         `?released_at=is.null&name=ilike.${likeValue(input.name)}&select=name&limit=3`,
       )
+
       if (
         same.some(
           (row) => row.name.toLowerCase() === input.name.trim().toLowerCase(),
@@ -463,29 +497,39 @@ export async function buildLabworkProposal(
       ) {
         return fail(`There is already an active hold called "${input.name}".`)
       }
+
       let project: ProjectRow | null = null
+
       if (input.project) {
         const found = await findProject(client, input.project)
+
         if (!found.ok) return fail(found.message)
         project = found.value
       }
+
       let model: NamedModel | null = null
+
       if (input.kind) {
         const found = await findModel(client, input.kind)
+
         if (!found.ok) return fail(found.message)
         model = found.value
       }
+
       const covers = [
         project ? `Everything in ${project.title}` : null,
         model ? `Every ${model.name} record` : null,
       ].filter((text): text is string => text !== null)
+
       const changes: ProposalChange[] = [
         { label: 'Hold', before: null, after: input.name.trim() },
         { label: 'Covers', before: null, after: covers.join(', ') },
       ]
+
       if (input.reason) {
         changes.push({ label: 'Reason', before: null, after: input.reason })
       }
+
       return card(name, input, {
         target: input.name.trim(),
         deepLink: '/settings/lab/retention',
@@ -502,8 +546,10 @@ export async function buildLabworkProposal(
 
     case LEGAL_HOLD_RELEASE_TOOL: {
       const parsed = parse(proposeLegalHoldReleaseSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const rows = await client.list<{
         id: string
         name: string
@@ -512,7 +558,9 @@ export async function buildLabworkProposal(
         'legal_holds',
         `?released_at=is.null&name=ilike.${likeValue(input.hold)}&select=id,name,reason&order=created_at.desc&limit=6`,
       )
+
       const lower = input.hold.trim().toLowerCase()
+
       const found = pick(
         rows,
         input.hold,
@@ -520,7 +568,9 @@ export async function buildLabworkProposal(
         (row) => row.name,
         (row) => row.name.toLowerCase() === lower,
       )
+
       if (!found.ok) return fail(found.message)
+
       const changes: ProposalChange[] = [
         { label: 'Status', before: 'Active', after: 'Released' },
         {
@@ -529,9 +579,11 @@ export async function buildLabworkProposal(
           after: 'Can be archived or deleted again',
         },
       ]
+
       if (input.note) {
         changes.push({ label: 'Reason', before: null, after: input.note })
       }
+
       return card(name, input, {
         target: found.value.name,
         deepLink: '/settings/lab/retention',
@@ -546,25 +598,32 @@ export async function buildLabworkProposal(
 
     case RETENTION_SET_TOOL: {
       const parsed = parse(proposeRetentionSetSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const model = await findModel(client, input.kind)
+
       if (!model.ok) return fail(model.message)
+
       const existing = await client.list<{ keep_months: number }>(
         'retention_rules',
         `?kind=eq.${encodeURIComponent(model.value.key)}&select=keep_months&limit=1`,
       )
+
       const before = existing[0] ? keepTimeLabel(existing[0].keep_months) : null
+
       if (input.keepMonths === null && !existing[0]) {
         return fail(
           `${model.value.name} has no retention rule to remove. Tell the person.`,
         )
       }
+
       if (existing[0]?.keep_months === input.keepMonths) {
         return fail(
           `${model.value.name} is already kept for ${before}. Tell the person.`,
         )
       }
+
       const changes: ProposalChange[] = [
         {
           label: 'Keep',
@@ -575,9 +634,11 @@ export async function buildLabworkProposal(
               : keepTimeLabel(input.keepMonths),
         },
       ]
+
       if (input.note) {
         changes.push({ label: 'Note', before: null, after: input.note })
       }
+
       return card(name, input, {
         target: model.value.name,
         deepLink: '/settings/lab/retention',
@@ -593,27 +654,34 @@ export async function buildLabworkProposal(
 
     case RETENTION_APPLY_TOOL: {
       const parsed = parse(proposeRetentionApplySchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       let model: NamedModel | null = null
+
       if (input.kind) {
         const found = await findModel(client, input.kind)
+
         if (!found.ok) return fail(found.message)
         model = found.value
       }
+
       const due = await client.rpc<DueRecord[]>(
         'retention_due',
         model ? { p_kind: model.key } : {},
       )
+
       if (due.length === 0) {
         return fail(
           'Nothing is past its retention time (records on hold are skipped). Tell the person.',
         )
       }
+
       const sample = due
         .slice(0, 6)
         .map((row) => `${row.identifier} · ${row.title}`)
         .join('\n')
+
       return card(name, input, {
         target: model ? model.name : 'All retention rules',
         deepLink: '/settings/lab/retention',
@@ -635,30 +703,38 @@ export async function buildLabworkProposal(
 
     case REGISTRY_ADD_TOOL: {
       const parsed = parse(proposeRegistryAddSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const registry = await findModel(
         client,
         input.registry,
         'is_registry=eq.true&',
       )
+
       if (!registry.ok) return fail(registry.message)
       const project = await findProject(client, input.project)
+
       if (!project.ok) return fail(project.message)
       const defs = await fetchModelFields(client, registry.value.key)
       const customFields: Record<string, unknown> = {}
+
       const changes: ProposalChange[] = [
         { label: 'Name', before: null, after: input.name.trim() },
         { label: 'Project', before: null, after: project.value.title },
       ]
+
       for (const [wanted, value] of Object.entries(input.fields ?? {})) {
         const lower = wanted.trim().toLowerCase()
+
         const def = defs.find(
           (field) =>
             field.lifecycle === 'active' &&
             (field.fieldName.toLowerCase() === lower ||
               field.label.toLowerCase() === lower),
         )
+
         if (!def) {
           return fail(
             `${registry.value.name} has no field "${wanted}". Its fields are: ${defs
@@ -667,9 +743,11 @@ export async function buildLabworkProposal(
               .join(', ')}.`,
           )
         }
+
         customFields[def.fieldName] = value
         changes.push({ label: def.label, before: null, after: String(value) })
       }
+
       if (input.sequence) {
         const models = await client.list<{
           registry_sequence_field: string | null
@@ -677,15 +755,19 @@ export async function buildLabworkProposal(
           'record_models',
           `?key=eq.${encodeURIComponent(registry.value.key)}&select=registry_sequence_field&limit=1`,
         )
+
         const field = models.at(0)?.registry_sequence_field
+
         if (!field)
           return fail(
             `${registry.value.name} does not keep a sequence. Pick a registry that does, or leave the sequence out.`,
           )
+
         const residues = input.sequence
           .toUpperCase()
           .replace(/U/g, 'T')
           .replace(/[^ACGTRYKMSWBDHVN]/g, '')
+
         if (residues.length < 10)
           return fail('That sequence is too short to register.')
         const topology = input.topology ?? 'circular'
@@ -699,19 +781,24 @@ export async function buildLabworkProposal(
           residues,
           features: [],
         })
+
         if (registry.value.key === 'construct') {
           customFields.sequence_length = String(residues.length)
           customFields.shape = topology
         }
+
         changes.push({
           label: 'Sequence',
           before: null,
           after: `${residues.length} bp, ${topology}`,
         })
       }
+
       const parents: { recordId: string; role: string }[] = []
+
       for (const wanted of input.parents ?? []) {
         const like = likeValue(wanted.record)
+
         const found = await client.list<{
           id: string
           identifier: string
@@ -720,11 +807,14 @@ export async function buildLabworkProposal(
           'records',
           `?deleted_at=is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title&order=updated_at.desc&limit=5`,
         )
+
         const exact = found.find(
           (row) =>
             row.identifier.toLowerCase() === wanted.record.trim().toLowerCase(),
         )
+
         const one = exact ?? (found.length === 1 ? found[0] : undefined)
+
         if (!one)
           return fail(
             found.length === 0
@@ -740,6 +830,7 @@ export async function buildLabworkProposal(
           after: `${one.identifier} · ${one.title}`,
         })
       }
+
       const twins = await client.rpc<
         { identifier: string; title: string; match: string }[]
       >('registry_find_duplicates', {
@@ -748,6 +839,7 @@ export async function buildLabworkProposal(
         p_custom_fields: customFields,
         p_exclude_id: null,
       })
+
       if (twins.length > 0) {
         return fail(
           `${registry.value.name} already has ${twins
@@ -756,6 +848,7 @@ export async function buildLabworkProposal(
             .join(', ')}. Ask whether they meant that entry.`,
         )
       }
+
       return card(name, input, {
         target: registry.value.name,
         deepLink: '/registry',
@@ -773,8 +866,10 @@ export async function buildLabworkProposal(
 
     case COMPOUND_LOT_TOOL: {
       const parsed = parse(proposeCompoundLotSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const models = await client.list<{
         key: string
         name: string
@@ -783,13 +878,16 @@ export async function buildLabworkProposal(
         'record_models',
         '?is_registry=eq.true&registry_lot_kind=not.is.null&select=key,name,registry_lot_kind',
       )
+
       if (models.length === 0) {
         return fail(
           'No registry has a lot model yet, so there is nothing to add a lot to.',
         )
       }
+
       const like = likeValue(input.compound)
       const kinds = models.map((m) => m.key).join(',')
+
       const rows = await client.list<{
         id: string
         identifier: string
@@ -799,7 +897,9 @@ export async function buildLabworkProposal(
         'records',
         `?kind=in.(${kinds})&deleted_at=is.null&archived_at=is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title,kind&order=identifier.asc&limit=6`,
       )
+
       const lower = input.compound.trim().toLowerCase()
+
       const compound = pick(
         rows,
         input.compound,
@@ -809,29 +909,36 @@ export async function buildLabworkProposal(
           row.identifier.toLowerCase() === lower ||
           row.title.toLowerCase() === lower,
       )
+
       if (!compound.ok) return fail(compound.message)
       const model = models.find((m) => m.key === compound.value.kind)
+
       if (!model?.registry_lot_kind) {
         return fail(
           `${model?.name ?? 'That registry'} does not take lots. Tell the person to choose a lot model in the registry’s settings.`,
         )
       }
+
       const defs = await fetchModelFields(client, model.registry_lot_kind)
       const customFields: Record<string, unknown> = {}
       const label = `${compound.value.identifier} · ${compound.value.title}`
       const lotName = input.name?.trim() || `${compound.value.identifier} lot`
+
       const changes: ProposalChange[] = [
         { label: 'Compound', before: null, after: label },
         { label: 'Lot', before: null, after: lotName },
       ]
+
       for (const [wanted, value] of Object.entries(input.fields ?? {})) {
         const lowerField = wanted.trim().toLowerCase()
+
         const def = defs.find(
           (field) =>
             field.lifecycle === 'active' &&
             (field.fieldName.toLowerCase() === lowerField ||
               field.label.toLowerCase() === lowerField),
         )
+
         if (!def) {
           return fail(
             `A lot has no field "${wanted}". Its fields are: ${defs
@@ -840,9 +947,11 @@ export async function buildLabworkProposal(
               .join(', ')}.`,
           )
         }
+
         customFields[def.fieldName] = value
         changes.push({ label: def.label, before: null, after: String(value) })
       }
+
       return card(name, input, {
         target: label,
         deepLink: `/records/${compound.value.id}`,
@@ -859,15 +968,20 @@ export async function buildLabworkProposal(
 
     case WORKFLOW_ENROL_TOOL: {
       const parsed = parse(proposeWorkflowEnrolSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const sample = await findSample(client, input.sample)
+
       if (!sample.ok) return fail(sample.message)
+
       const workflows = await client.list<{ id: string; name: string }>(
         'sample_workflows',
         `?status=eq.active&name=ilike.${likeValue(input.workflow)}&select=id,name&order=name.asc&limit=6`,
       )
+
       const lower = input.workflow.trim().toLowerCase()
+
       const workflow = pick(
         workflows,
         input.workflow,
@@ -875,8 +989,10 @@ export async function buildLabworkProposal(
         (row) => row.name,
         (row) => row.name.toLowerCase() === lower,
       )
+
       if (!workflow.ok) return fail(workflow.message)
       const runs = await fetchSampleRuns(client, sample.value.id)
+
       if (
         runs.some(
           (run) => !run.completedAt && run.workflowId === workflow.value.id,
@@ -886,6 +1002,7 @@ export async function buildLabworkProposal(
           `${sample.value.identifier} is already in ${workflow.value.name}. Tell the person.`,
         )
       }
+
       return card(name, input, {
         target: sampleLabel(sample.value),
         deepLink: `/records/${sample.value.id}`,
@@ -902,17 +1019,23 @@ export async function buildLabworkProposal(
 
     case WORKFLOW_LEAVE_TOOL: {
       const parsed = parse(proposeWorkflowLeaveSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const sample = await findSample(client, input.sample)
+
       if (!sample.ok) return fail(sample.message)
+
       const open = (await fetchSampleRuns(client, sample.value.id)).filter(
         (run) => !run.completedAt,
       )
+
       const lower = input.workflow?.trim().toLowerCase()
+
       const matching = lower
         ? open.filter((run) => run.workflowName.toLowerCase().includes(lower))
         : open
+
       const run = pick(
         matching,
         input.workflow ?? input.sample,
@@ -920,6 +1043,7 @@ export async function buildLabworkProposal(
         (row) => row.workflowName,
         () => false,
       )
+
       if (!run.ok) {
         return fail(
           open.length === 0
@@ -927,6 +1051,7 @@ export async function buildLabworkProposal(
             : run.message,
         )
       }
+
       return card(name, input, {
         target: sampleLabel(sample.value),
         deepLink: `/records/${sample.value.id}`,
@@ -947,16 +1072,21 @@ export async function buildLabworkProposal(
 
     case SPEC_LIMITS_SET_TOOL: {
       const parsed = parse(proposeSpecLimitsSetSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const model = await findModel(client, input.model)
+
       if (!model.ok) return fail(model.message)
+
       const fields = (await fetchModelFields(client, model.value.key)).filter(
         (field) =>
           field.lifecycle === 'active' &&
           (field.logicalType === 'integer' || field.logicalType === 'decimal'),
       )
+
       const lower = input.field.trim().toLowerCase()
+
       const field = pick(
         fields.filter(
           (row) =>
@@ -970,6 +1100,7 @@ export async function buildLabworkProposal(
           row.fieldName.toLowerCase() === lower ||
           row.label.toLowerCase() === lower,
       )
+
       if (!field.ok) {
         return fail(
           fields.length === 0
@@ -977,13 +1108,16 @@ export async function buildLabworkProposal(
             : `${field.message} Number fields: ${fields.map((row) => row.label).join(', ')}.`,
         )
       }
+
       const next = {
         lowerLimit: input.lowerLimit ?? null,
         upperLimit: input.upperLimit ?? null,
         alertLower: input.alertLower ?? null,
         alertUpper: input.alertUpper ?? null,
       }
+
       const problem = limitsProblem(next)
+
       if (problem) {
         return fail(
           problem === 'order'
@@ -993,6 +1127,7 @@ export async function buildLabworkProposal(
               : 'A warning limit needs a fail limit on at least one side. Ask the person.',
         )
       }
+
       const current = await client.list<{
         lower_limit: number | string | null
         upper_limit: number | string | null
@@ -1002,10 +1137,14 @@ export async function buildLabworkProposal(
         'field_spec_limits',
         `?kind=eq.${encodeURIComponent(model.value.key)}&field_name=eq.${encodeURIComponent(field.value.fieldName)}&select=lower_limit,upper_limit,alert_lower,alert_upper&limit=1`,
       )
+
       const old = current.at(0)
+
       const show = (value: unknown) =>
         value === null || value === undefined ? 'none' : String(value)
+
       const changes: ProposalChange[] = []
+
       for (const [label, key, now] of [
         ['Fails below', 'lower_limit', next.lowerLimit],
         ['Fails above', 'upper_limit', next.upperLimit],
@@ -1013,13 +1152,16 @@ export async function buildLabworkProposal(
         ['Warns above', 'alert_upper', next.alertUpper],
       ] as const) {
         const was = old ? old[key] : null
+
         if (show(was) !== show(now)) {
           changes.push({ label, before: show(was), after: show(now) })
         }
       }
+
       if (changes.length === 0) {
         return fail('Those limits are already set. Tell the person.')
       }
+
       return card(name, input, {
         target: `${model.value.name} · ${field.value.label}`,
         deepLink: '/models',
@@ -1036,35 +1178,46 @@ export async function buildLabworkProposal(
 
     case BOOKING_RULES_SET_TOOL: {
       const parsed = parse(proposeBookingRulesSetSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const found = await resolveInstrument(
         client,
         workspaceId,
         input.instrument,
       )
+
       if (!found.ok) return fail(found.message)
       const current = await fetchBookingRules(client, found.instrument.id)
+
       const maxMinutes =
         input.maxBookingMinutes === undefined
           ? current.maxBookingMinutes
           : input.maxBookingMinutes
+
       const maxDays =
         input.maxAdvanceDays === undefined
           ? current.maxAdvanceDays
           : input.maxAdvanceDays
+
       let protocolIds = current.training.map((row) => row.protocolId)
+
       let trainingText = current.training
         .map((row) => `${row.identifier} · ${row.title}`)
         .join('\n')
+
       if (input.requiredTraining) {
         const options = await fetchProtocolOptions(client)
         const chosen: typeof options = []
+
         for (const wanted of input.requiredTraining) {
           const lower = wanted.trim().toLowerCase()
+
           const matches = options.filter((row) =>
             `${row.identifier} ${row.title}`.toLowerCase().includes(lower),
           )
+
           const one = pick(
             matches,
             wanted,
@@ -1074,19 +1227,25 @@ export async function buildLabworkProposal(
               row.identifier.toLowerCase() === lower ||
               row.title.toLowerCase() === lower,
           )
+
           if (!one.ok) return fail(one.message)
           chosen.push(one.value)
         }
+
         protocolIds = chosen.map((row) => row.id)
         trainingText = chosen
           .map((row) => `${row.identifier} · ${row.title}`)
           .join('\n')
       }
+
       const changes: ProposalChange[] = []
+
       const minutesText = (value: number | null) =>
         value === null ? 'No limit' : describeMinutes(value)
+
       const daysText = (value: number | null) =>
         value === null ? 'No limit' : `${value} days`
+
       if (maxMinutes !== current.maxBookingMinutes) {
         changes.push({
           label: 'Longest booking',
@@ -1094,6 +1253,7 @@ export async function buildLabworkProposal(
           after: minutesText(maxMinutes),
         })
       }
+
       if (maxDays !== current.maxAdvanceDays) {
         changes.push({
           label: 'Book ahead',
@@ -1101,11 +1261,13 @@ export async function buildLabworkProposal(
           after: daysText(maxDays),
         })
       }
+
       const sameTraining =
         protocolIds.length === current.training.length &&
         protocolIds.every((id) =>
           current.training.some((row) => row.protocolId === id),
         )
+
       if (!sameTraining) {
         changes.push({
           label: 'Training required',
@@ -1116,9 +1278,11 @@ export async function buildLabworkProposal(
           after: trainingText || 'None',
         })
       }
+
       if (changes.length === 0) {
         return fail('Those booking rules are already set. Tell the person.')
       }
+
       return card(name, input, {
         target: instrumentLabel(found.instrument),
         deepLink: '/instruments',
@@ -1135,16 +1299,20 @@ export async function buildLabworkProposal(
 
     case WATCHER_FINDING_TOOL: {
       const parsed = parse(proposeWatcherFindingSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const wanted =
         input.change === 'reopen'
           ? 'status=in.(dismissed,snoozed)'
           : 'status=in.(open,snoozed)'
+
       const rows = await client.list<{ id: string; title: string }>(
         'lab_watcher_findings',
         `?${wanted}&title=ilike.${likeValue(input.finding)}&select=id,title&order=created_at.desc&limit=6`,
       )
+
       const found = pick(
         rows,
         input.finding,
@@ -1152,8 +1320,10 @@ export async function buildLabworkProposal(
         (row) => row.title,
         (row) => row.title.toLowerCase() === input.finding.trim().toLowerCase(),
       )
+
       if (!found.ok) return fail(found.message)
       const days = input.days ?? 7
+
       return card(name, input, {
         target: found.value.title,
         deepLink: '/inbox',
@@ -1180,9 +1350,11 @@ export async function buildLabworkProposal(
 
     case WATCHER_SET_TOOL: {
       const parsed = parse(proposeWatcherSetSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const meta = watcherMeta(input.watcher)
+
       const rows = await client.list<{
         enabled: boolean
         schedule: 'hourly' | 'daily' | 'weekly'
@@ -1190,8 +1362,10 @@ export async function buildLabworkProposal(
         'lab_watchers',
         `?kind=eq.${input.watcher}&project_id=is.null&select=enabled,schedule&limit=1`,
       )
+
       const current = rows.at(0)
       const schedule = input.schedule ?? current?.schedule ?? 'daily'
+
       return card(name, input, {
         target: meta?.label ?? input.watcher,
         deepLink: '/settings/account/watchers',
@@ -1219,8 +1393,10 @@ export async function buildLabworkProposal(
 
     case TIMER_END_TOOL: {
       const parsed = parse(proposeTimerEndSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const rows = await client.list<{
         id: string
         record_id: string
@@ -1230,7 +1406,9 @@ export async function buildLabworkProposal(
         'my_step_timers',
         `?${input.timer ? `label=ilike.${likeValue(input.timer)}&` : ''}select=id,record_id,label,ends_at&order=ends_at.asc&limit=6`,
       )
+
       const lower = input.timer?.trim().toLowerCase()
+
       const found = pick(
         rows,
         input.timer ?? 'a timer',
@@ -1238,7 +1416,9 @@ export async function buildLabworkProposal(
         (row) => row.label,
         (row) => row.label.toLowerCase() === lower,
       )
+
       if (!found.ok) return fail(found.message)
+
       return card(name, input, {
         target: found.value.label,
         deepLink: `/records/${found.value.record_id}`,
@@ -1254,15 +1434,19 @@ export async function buildLabworkProposal(
     case RECURRING_PAUSE_TOOL:
     case RECURRING_END_TOOL: {
       const ending = name === RECURRING_END_TOOL
+
       const parsedPause = ending
         ? null
         : parse(proposeRecurringPauseSchema, args)
+
       const parsedEnd = ending ? parse(proposeRecurringEndSchema, args) : null
       const parsed = parsedPause ?? parsedEnd
+
       if (!parsed || !parsed.ok)
         return fail(parsed?.message ?? 'Invalid input.')
       const input = parsed.data
       const pause = parsedPause?.ok ? (parsedPause.data.pause ?? true) : true
+
       const rows = await client.list<{
         id: string
         title: string
@@ -1272,7 +1456,9 @@ export async function buildLabworkProposal(
         'recurring_schedules',
         `?status=in.(${ending || pause ? 'active,paused' : 'paused'})&title=ilike.${likeValue(input.schedule)}&select=id,title,status,kind&order=title.asc&limit=6`,
       )
+
       const lower = input.schedule.trim().toLowerCase()
+
       const found = pick(
         rows,
         input.schedule,
@@ -1280,12 +1466,15 @@ export async function buildLabworkProposal(
         (row) => row.title,
         (row) => row.title.toLowerCase() === lower,
       )
+
       if (!found.ok) return fail(found.message)
       const schedule = found.value
+
       if (!ending) {
         if (pause && schedule.status === 'paused') {
           return fail(`${schedule.title} is already paused.`)
         }
+
         return card(name, input, {
           target: schedule.title,
           deepLink: '/schedule',
@@ -1303,9 +1492,11 @@ export async function buildLabworkProposal(
           },
         })
       }
+
       const cancelUpcoming = parsedEnd?.ok
         ? (parsedEnd.data.cancelUpcoming ?? true)
         : true
+
       return card(name, input, {
         target: schedule.title,
         deepLink: '/schedule',
@@ -1333,40 +1524,52 @@ export async function buildLabworkProposal(
 
     case SAMPLE_POOL_TOOL: {
       const parsed = parse(proposeSamplePoolSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const experiment = await findExperiment(client, input.experiment)
+
       if (typeof experiment === 'string') return fail(experiment)
+
       const sources: Extract<
         LabworkAction,
         { kind: 'sample.pool' }
       >['sources'] = []
+
       const changes: ProposalChange[] = []
       let unit: string | null = null
       let total = 0
+
       for (const source of input.sources) {
         const sample = await findSample(client, source.sample)
+
         if (!sample.ok) return fail(sample.message)
         const row = sample.value
+
         if (sources.some((existing) => existing.recordId === row.id)) {
           return fail(`${row.identifier} is listed twice. Ask the person.`)
         }
+
         if (row.status !== 'available') {
           return fail(
             `${sampleLabel(row)} is ${row.status.replaceAll('_', ' ')}, so it cannot go into a pool.`,
           )
         }
+
         const amount = amountOf(row)
+
         if (amount.quantity !== null && source.quantity > amount.quantity) {
           return fail(
             `${row.identifier} has only ${withUnit(amount.quantity, amount.unit)}, so ${withUnit(source.quantity, amount.unit)} cannot be taken. Tell the person.`,
           )
         }
+
         if (unit !== null && amount.unit !== unit) {
           return fail(
             `${row.identifier} is measured in ${amount.unit || 'no unit'} but the others are in ${unit || 'no unit'}, so they cannot be pooled. Tell the person.`,
           )
         }
+
         unit = amount.unit
         total += source.quantity
         sources.push({
@@ -1381,6 +1584,7 @@ export async function buildLabworkProposal(
           after: `Take ${withUnit(source.quantity, unit)}`,
         })
       }
+
       changes.push({
         label: input.poolName
           ? `New pool: ${input.poolName}`
@@ -1388,6 +1592,7 @@ export async function buildLabworkProposal(
         before: null,
         after: `${withUnit(Math.round(total * 1_000_000) / 1_000_000, unit ?? '')} for ${experiment.identifier}`,
       })
+
       return card(name, input, {
         target: `${sources.length} samples`,
         deepLink: '/samples',
@@ -1406,11 +1611,14 @@ export async function buildLabworkProposal(
 
     case SOLUTION_PREPARE_TOOL: {
       const parsed = parse(proposeSolutionPrepareSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const project = await findProject(client, input.project)
+
       if (!project.ok) return fail(project.message)
       const ingredients: { recordId: string; quantity: number }[] = []
+
       const changes: ProposalChange[] = [
         {
           label: 'Makes',
@@ -1418,10 +1626,13 @@ export async function buildLabworkProposal(
           after: `${input.name.trim()}, lot ${input.lot.trim()}, ${withUnit(input.quantity, input.unit ?? '')}`,
         },
       ]
+
       const expiries: string[] = []
+
       for (const wanted of input.ingredients) {
         const lots = await searchIngredientLots(client, wanted.lot, 6)
         const lower = wanted.lot.trim().toLowerCase()
+
         const found = pick(
           lots,
           wanted.lot,
@@ -1431,16 +1642,20 @@ export async function buildLabworkProposal(
             row.identifier.toLowerCase() === lower ||
             row.lot?.toLowerCase() === lower,
         )
+
         if (!found.ok) return fail(found.message)
         const lot = found.value
+
         if (lot.quantity !== null && wanted.quantity > lot.quantity) {
           return fail(
             `${lot.identifier} has only ${withUnit(lot.quantity, lot.unit ?? '')} left, so ${withUnit(wanted.quantity, lot.unit ?? '')} cannot be used. Tell the person.`,
           )
         }
+
         if (ingredients.some((row) => row.recordId === lot.id)) {
           return fail(`${lot.identifier} is listed twice. Ask the person.`)
         }
+
         if (lot.expiry) expiries.push(lot.expiry)
         ingredients.push({ recordId: lot.id, quantity: wanted.quantity })
         changes.push({
@@ -1452,12 +1667,14 @@ export async function buildLabworkProposal(
           after: `Use ${withUnit(wanted.quantity, lot.unit ?? '')}`,
         })
       }
+
       const earliest = [...expiries].sort().at(0) ?? null
       changes.push({
         label: 'Expires',
         before: null,
         after: input.expiry ?? earliest ?? 'No expiry',
       })
+
       return card(name, input, {
         target: input.name.trim(),
         deepLink: '/materials',
@@ -1479,13 +1696,16 @@ export async function buildLabworkProposal(
 
     case SEARCH_SAVE_TOOL: {
       const parsed = parse(proposeSearchSaveSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const visibility = input.shareWithLab ? 'workspace' : 'private'
+
       const same = await client.list<{ name: string }>(
         'saved_searches',
         `?name=ilike.${likeValue(input.name)}&select=name&limit=3`,
       )
+
       if (
         same.some(
           (row) => row.name.toLowerCase() === input.name.trim().toLowerCase(),
@@ -1495,6 +1715,7 @@ export async function buildLabworkProposal(
           `There is already a saved search called "${input.name}". Ask for another name.`,
         )
       }
+
       return card(name, input, {
         target: input.name.trim(),
         deepLink: `/search?q=${encodeURIComponent(input.words.trim())}`,
@@ -1519,12 +1740,14 @@ export async function buildLabworkProposal(
 
     case PIN_TOOL: {
       const parsed = parse(proposePinSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const pin = input.pin ?? true
       const like = likeValue(input.name)
       const lower = input.name.trim().toLowerCase()
       let found: Lookup<{ id: string; label: string }>
+
       switch (input.target) {
         case 'record': {
           const rows = await client.list<{
@@ -1535,6 +1758,7 @@ export async function buildLabworkProposal(
             'records',
             `?deleted_at=is.null&archived_at=is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title&order=updated_at.desc&limit=6`,
           )
+
           found = pick(
             rows.map((row) => ({
               id: row.id,
@@ -1549,6 +1773,7 @@ export async function buildLabworkProposal(
           )
           break
         }
+
         case 'project': {
           const project = await findProject(client, input.name)
           found = project.ok
@@ -1559,12 +1784,14 @@ export async function buildLabworkProposal(
             : project
           break
         }
+
         case 'instrument': {
           const instrument = await resolveInstrument(
             client,
             workspaceId,
             input.name,
           )
+
           found = instrument.ok
             ? {
                 ok: true,
@@ -1576,11 +1803,13 @@ export async function buildLabworkProposal(
             : { ok: false, message: instrument.message }
           break
         }
+
         case 'pipeline': {
           const rows = await client.list<{ id: string; name: string }>(
             'pipeline_definitions',
             `?name=ilike.${like}&select=id,name&order=name.asc&limit=6`,
           )
+
           found = pick(
             rows.map((row) => ({ id: row.id, label: row.name })),
             input.name,
@@ -1591,17 +1820,22 @@ export async function buildLabworkProposal(
           break
         }
       }
+
       if (!found.ok) return fail(found.message)
+
       const existing = await client.list<{ object_id: string }>(
         'user_favourites',
         `?object_kind=eq.${input.target}&object_id=eq.${encodeURIComponent(found.value.id)}&select=object_id&limit=1`,
       )
+
       if (pin && existing.length > 0) {
         return fail(`${found.value.label} is already pinned.`)
       }
+
       if (!pin && existing.length === 0) {
         return fail(`${found.value.label} is not pinned.`)
       }
+
       return card(name, input, {
         target: found.value.label,
         deepLink:
@@ -1630,8 +1864,10 @@ export async function buildLabworkProposal(
 
     case LAB_LOGO_TOOL: {
       const parsed = parse(proposeLabLogoSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       if (input.change === 'remove') {
         return card(name, input, {
           target: 'Lab logo',
@@ -1642,11 +1878,13 @@ export async function buildLabworkProposal(
           action: { kind: 'logo.remove' },
         })
       }
+
       if (!input.file) {
         return fail(
           'Which file? The logo must be a PNG or JPEG already uploaded to the lab. Ask the person for its name, or point them to Settings > General to upload one.',
         )
       }
+
       const files = await client.list<{
         record_id: string
         display_name: string
@@ -1656,7 +1894,9 @@ export async function buildLabworkProposal(
         'file_objects',
         `?status=eq.active&media_type=in.(image/png,image/jpeg)&display_name=ilike.${likeValue(input.file)}&select=record_id,display_name,media_type,byte_size&order=created_at.desc&limit=6`,
       )
+
       const lower = input.file.trim().toLowerCase()
+
       const found = pick(
         files,
         input.file,
@@ -1664,12 +1904,15 @@ export async function buildLabworkProposal(
         (row) => row.display_name,
         (row) => row.display_name.toLowerCase() === lower,
       )
+
       if (!found.ok) return fail(found.message)
+
       if (Number(found.value.byte_size) > 1_048_576) {
         return fail(
           `${found.value.display_name} is over 1 MB, which is too big for a logo. Tell the person.`,
         )
       }
+
       return card(name, input, {
         target: 'Lab logo',
         deepLink: '/settings/workspace',

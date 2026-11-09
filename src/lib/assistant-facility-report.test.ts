@@ -7,6 +7,7 @@ function context(rows: Record<string, unknown[]>) {
   const client = {
     rpc: (name: string) => Promise.resolve(rows[name] ?? []),
   } as unknown as DataClient
+
   return {
     client,
     workspaceId: 'ws',
@@ -56,6 +57,7 @@ describe('the facility report read tool', () => {
         ],
       }),
     )
+
     expect(result.isError).toBe(false)
     expect(result.text).toContain('£100.00')
     expect(result.text).toContain('2 orders placed, 1 without a price')
@@ -68,6 +70,7 @@ describe('the facility report read tool', () => {
       { report: 'usage' },
       context({}),
     )
+
     expect(result.text).toContain('no bookings')
   })
 })

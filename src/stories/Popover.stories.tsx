@@ -21,7 +21,9 @@ const meta = {
   tags: ['autodocs'],
   parameters: { layout: 'padded' },
 } satisfies Meta<typeof Popover>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Aligned to the end of its trigger, the default for a toolbar control. */

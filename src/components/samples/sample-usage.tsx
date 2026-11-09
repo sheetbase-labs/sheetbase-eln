@@ -34,6 +34,7 @@ export function computeUsageSegments(
   const free = balances?.free ?? 0
   const total = used + reserved + free
   const pct = (value: number) => (total > 0 ? (value / total) * 100 : 0)
+
   return {
     used,
     reserved,
@@ -106,7 +107,9 @@ export function reservationStateLabel(state: string): {
 } {
   if (state === 'cancelled')
     return { tone: 'none', label: t('library.samples.sampleUsage.cancelled') }
+
   if (state === 'fulfilled')
     return { tone: 'ok', label: t('library.samples.sampleUsage.fulfilled') }
+
   return { tone: 'progress', label: t('library.samples.sampleUsage.active') }
 }

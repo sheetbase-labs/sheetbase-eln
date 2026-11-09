@@ -20,6 +20,7 @@ function Harness({
   list: typeof suggestions
 }) {
   const listRef = useRef<HTMLDivElement | null>(null)
+
   return (
     <div className="w-[420px] space-y-2">
       <input
@@ -50,7 +51,9 @@ const meta = {
     onSelect: () => {},
   },
 } satisfies Meta<typeof FunctionAutocompleteDropdown>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Suggestions for the typed prefix, with the first row highlighted. */

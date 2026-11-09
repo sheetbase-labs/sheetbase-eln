@@ -51,6 +51,7 @@ function renderHistory() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <RunHistory connectorId="conn-1" />

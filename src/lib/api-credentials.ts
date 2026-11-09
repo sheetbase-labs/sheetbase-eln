@@ -26,6 +26,7 @@ import { hmacKey } from '#/lib/hmac-key'
 export const MAX_CREDENTIAL_LIFETIME_DAYS = 90
 
 export type { Scope } from '#/lib/api-credential-scopes'
+
 export {
   isValidScope,
   SCOPE_GROUPS,
@@ -104,14 +105,18 @@ export function parseCredentialString(
   raw: string,
 ): { prefix: string; secret: string } | null {
   const match = /^sb_([0-9a-f]{8})_([0-9a-f]{32})$/.exec(raw)
+
   if (!match) return null
+
   return { prefix: match[1], secret: match[2] }
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
   const ab = Buffer.from(a)
   const bb = Buffer.from(b)
+
   if (ab.length !== bb.length) return false
+
   return timingSafeEqual(ab, bb)
 }
 
@@ -122,13 +127,17 @@ function assertIssuableScopes(scopes: readonly string[]): Scope[] {
       'At least one scope is required.',
     )
   }
+
   const issued: Scope[] = []
+
   for (const scope of scopes) {
     if (!isValidScope(scope)) {
       throw new CredentialError('invalid_scope', `Unknown scope: ${scope}`)
     }
+
     issued.push(scope)
   }
+
   return issued
 }
 
@@ -149,15 +158,19 @@ export async function createCredential(
   },
 ): Promise<CreatedCredential> {
   const name = input.name.trim()
+
   if (!name) {
     throw new Error('Name is required.')
   }
+
   const kind: CredentialKind = input.kind ?? 'service'
   const scopes = assertIssuableScopes(input.scopes)
   const expiresAt = input.expiresAt ?? null
+
   if (expiresAt && expiresAt.getTime() <= Date.now()) {
     throw new CredentialError('expired', 'Expiry must be in the future.')
   }
+
   if (
     expiresAt &&
     expiresAt.getTime() > Date.now() + MAX_CREDENTIAL_LIFETIME_DAYS * 86_400_000
@@ -173,10 +186,12 @@ export async function createCredential(
     // unique constraint is the backstop).
     let prefix = generatePrefix()
     const secret = generateSecret()
+
     for (let attempt = 0; attempt < 3; attempt++) {
       const existing = await tx.query.apiCredentials.findFirst({
         where: eq(apiCredentials.displayPrefix, prefix),
       })
+
       if (!existing) break
       prefix = generatePrefix()
     }
@@ -217,12 +232,16 @@ export async function listCredentials(
     where: eq(apiCredentials.workspaceId, workspaceId),
     orderBy: (table, { desc }) => [desc(table.createdAt)],
   })
+
   const now = Date.now()
+
   return rows.map((row) => {
     const expired = row.expiresAt !== null && row.expiresAt.getTime() <= now
+
     const unusedDays = row.lastUsedAt
       ? Math.floor((now - row.lastUsedAt.getTime()) / 86_400_000)
       : null
+
     return {
       id: row.id,
       workspaceId: row.workspaceId,
@@ -291,12 +310,15 @@ export async function rotateCredential(
         eq(apiCredentials.workspaceId, input.workspaceId),
       ),
     })
+
     if (!existing) {
       throw new CredentialError('invalid_credential', 'Credential not found.')
     }
+
     if (existing.revokedAt) {
       throw new CredentialError('revoked', 'Credential has been revoked.')
     }
+
     if (existing.expiresAt && existing.expiresAt.getTime() <= Date.now()) {
       throw new CredentialError('expired', 'Credential has expired.')
     }
@@ -311,10 +333,12 @@ export async function rotateCredential(
       expiresAt: existing.expiresAt,
       kind: existing.kind as CredentialKind,
     })
+
     await revokeCredential(tx, {
       workspaceId: input.workspaceId,
       credentialId: existing.id,
     })
+
     return created
   })
 }
@@ -394,6 +418,7 @@ export async function verifyCredential(
   requiredScopes: readonly string[] = [],
 ): Promise<VerifiedCredential> {
   const parsed = parseCredentialString(rawSecret)
+
   if (!parsed) {
     throw new CredentialError('invalid_credential', 'Invalid credential.')
   }
@@ -410,6 +435,7 @@ export async function verifyCredential(
   // Use a dummy hash comparison so timing does not reveal whether the prefix
   // existed.
   const expectedHash = row?.secretHash ?? hashSecret(parsed.prefix, 'no-such')
+
   if (
     !row ||
     !constantTimeEqual(hashSecret(parsed.prefix, parsed.secret), expectedHash)
@@ -445,6 +471,7 @@ export async function verifyCredential(
         eq(workspaceMemberships.workspaceId, row.workspaceId),
       ),
     })
+
     if (!member || member.suspendedAt) {
       throw new CredentialError(
         'revoked',
@@ -503,6 +530,7 @@ export async function exchangeCredential(
 ): Promise<string> {
   const requested = assertIssuableScopes(requiredScopes)
   const verified = await verifyCredential(db, rawSecret, requested)
+
   return deps.mintToken({
     workspaceId: verified.workspaceId,
     credentialId: verified.id,
@@ -523,6 +551,7 @@ export async function mintApiClientToken(
   },
 ): Promise<string> {
   const ttl = input.ttlSeconds ?? 300
+
   return await new SignJWT({
     workspace_id: input.workspaceId,
     credential_id: input.credentialId,
@@ -557,6 +586,7 @@ export async function mintPersonalApiToken(
   },
 ): Promise<string> {
   const ttl = input.ttlSeconds ?? 300
+
   return await new SignJWT({
     sub: input.userId,
     workspace_id: input.workspaceId,
@@ -586,6 +616,7 @@ export async function isWorkspaceOwner(
       eq(workspaceMemberships.workspaceId, workspaceId),
     ),
   })
+
   return membership?.role === 'owner' && !membership.suspendedAt
 }
 
@@ -601,5 +632,6 @@ export async function isWorkspaceMember(
       eq(workspaceMemberships.workspaceId, workspaceId),
     ),
   })
+
   return Boolean(membership && !membership.suspendedAt)
 }

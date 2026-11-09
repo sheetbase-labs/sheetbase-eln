@@ -197,8 +197,11 @@ function pick<T>(
   if (rows.length === 0)
     return { ok: false, message: `No ${what} matches "${wanted}".` }
   const same = rows.filter(exact)
+
   if (same.length === 1) return { ok: true, value: same[0] }
+
   if (rows.length === 1) return { ok: true, value: rows[0] }
+
   return {
     ok: false,
     message: `More than one ${what} matches "${wanted}": ${rows
@@ -220,11 +223,14 @@ async function findRecord(
   kind?: string,
 ): Promise<Lookup<RecordRow>> {
   const like = likeValue(text)
+
   const rows = await client.list<RecordRow>(
     'records',
     `?deleted_at=is.null${kind ? `&kind=eq.${kind}` : ''}&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title,project_id&order=updated_at.desc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -243,11 +249,13 @@ async function findPerson(
   const members = await memberNames(client)
   const lower = text.trim().toLowerCase()
   const words = lower.split(/\s+/).filter(Boolean)
+
   const matches = [...members.entries()]
     .map(([id, name]) => ({ id, name }))
     .filter((member) =>
       words.every((word) => member.name.toLowerCase().includes(word)),
     )
+
   return pick(
     matches,
     text,
@@ -262,11 +270,14 @@ async function findPeople(
   names: readonly string[] | undefined,
 ): Promise<Lookup<{ id: string; name: string }[]>> {
   const found: { id: string; name: string }[] = []
+
   for (const name of names ?? []) {
     const one = await findPerson(client, name)
+
     if (!one.ok) return one
     found.push(one.value)
   }
+
   return { ok: true, value: found }
 }
 
@@ -288,10 +299,13 @@ async function findThread(
   const rows = await client.rpc<CommentRow[]>('record_comments', {
     p_record_id: recordId,
   })
+
   const wanted = words.toLowerCase().split(/\s+/).filter(Boolean)
+
   const matches = rows.filter((row) =>
     wanted.every((word) => row.body.toLowerCase().includes(word)),
   )
+
   return pick(
     matches,
     words,
@@ -318,23 +332,30 @@ async function findVersion(
     'protocol_versions',
     `?protocol_record_id=eq.${protocolId}&select=id,version,status,protocol_record_id&order=version.desc&limit=50`,
   )
+
   if (rows.length === 0)
     return { ok: false, message: 'That protocol has no versions yet.' }
+
   if (version !== undefined) {
     const found = rows.find((row) => row.version === version)
+
     return found
       ? { ok: true, value: found }
       : { ok: false, message: `The protocol has no version ${version}.` }
   }
+
   if (prefer === 'effective') {
     const effective = rows.find((row) => row.status === 'effective')
+
     if (!effective)
       return {
         ok: false,
         message: 'No version of that protocol is in effect. Ask which version.',
       }
+
     return { ok: true, value: effective }
   }
+
   return { ok: true, value: rows[0] }
 }
 
@@ -374,16 +395,21 @@ async function readComments(
   context: LabToolContext,
 ): Promise<ReadResult> {
   const parsed = commentsReadSchema.safeParse(args)
+
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
   const found = await findRecord(context.client, parsed.data.record)
+
   if (!found.ok) return { text: found.message, isError: true }
+
   const [rows, names] = await Promise.all([
     context.client.rpc<CommentRow[]>('record_comments', {
       p_record_id: found.value.id,
     }),
     memberNames(context.client),
   ])
+
   const roots = new Map(rows.filter((r) => !r.parent_id).map((r) => [r.id, r]))
+
   const comments = rows
     .filter((row) => !parsed.data.openOnly || row.state === 'open')
     .slice(0, 60)
@@ -398,6 +424,7 @@ async function readComments(
       resolved: (roots.get(row.root_id)?.state ?? row.state) === 'resolved',
       body: row.body,
     }))
+
   return {
     text: JSON.stringify({
       notebook: `${found.value.identifier} ${found.value.title}`,
@@ -414,12 +441,15 @@ async function readProtocols(
   context: LabToolContext,
 ): Promise<ReadResult> {
   const parsed = protocolsReadSchema.safeParse(args)
+
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
+
   if (!parsed.data.protocol) {
     const rows = await context.client.list<RecordRow>(
       'records',
       '?kind=eq.protocol_template&deleted_at=is.null&select=id,identifier,title,project_id&order=title.asc&limit=40',
     )
+
     return {
       text: JSON.stringify({
         protocols: rows.map((row) => ({
@@ -431,12 +461,15 @@ async function readProtocols(
       isError: false,
     }
   }
+
   const found = await findRecord(
     context.client,
     parsed.data.protocol,
     'protocol_template',
   )
+
   if (!found.ok) return { text: found.message, isError: true }
+
   const [versions, training, names] = await Promise.all([
     context.client.list<
       VersionRow & {
@@ -459,6 +492,7 @@ async function readProtocols(
     ),
     memberNames(context.client),
   ])
+
   return {
     text: JSON.stringify({
       protocol: `${found.value.identifier} ${found.value.title}`,
@@ -486,8 +520,10 @@ async function readFiles(
   context: LabToolContext,
 ): Promise<ReadResult> {
   const parsed = filesReadSchema.safeParse(args)
+
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
   const { name, contains } = parsed.data
+
   if (contains) {
     const rows = await context.client.rpc<
       Array<{
@@ -499,6 +535,7 @@ async function readFiles(
         snippet: string
       }>
     >('search_file_contents', { p_query: contains, p_limit: 15 })
+
     return {
       text: JSON.stringify({
         matches: rows.map((row) => ({
@@ -511,7 +548,9 @@ async function readFiles(
       isError: false,
     }
   }
+
   const filter = name ? `&display_name=ilike.${likeValue(name)}` : ''
+
   const rows = await context.client.list<{
     id: string
     record_id: string
@@ -524,6 +563,7 @@ async function readFiles(
     'file_objects',
     `?deleted_at=is.null${filter}&select=id,record_id,display_name,media_type,byte_size,version,status&order=updated_at.desc&limit=25`,
   )
+
   return {
     text: JSON.stringify({
       files: rows.map((row) => ({
@@ -544,7 +584,9 @@ async function readApprovals(
   context: LabToolContext,
 ): Promise<ReadResult> {
   const parsed = approvalsReadSchema.safeParse(args)
+
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
+
   const [rows, names] = await Promise.all([
     context.client.list<{
       id: string
@@ -564,6 +606,7 @@ async function readApprovals(
     ),
     memberNames(context.client),
   ])
+
   return {
     text: JSON.stringify({
       requests: rows.map((row) => ({
@@ -622,25 +665,32 @@ export async function buildNotebookProposal(
 ): Promise<NotebookOutcome> {
   const client = context.client
   const bad = (error: z.ZodError) => fail(invalid(error))
+
   switch (name) {
     case COMMENT_ADD_TOOL: {
       const parsed = proposeCommentAddSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
       const found = await findRecord(client, input.record)
+
       if (!found.ok) return fail(found.message)
       const people = await findPeople(client, input.mentions)
+
       if (!people.ok) return fail(people.message)
+
       const changes: ProposalChange[] = [
         { label: 'Notebook', before: null, after: found.value.identifier },
         { label: 'Comment', before: null, after: input.body },
       ]
+
       if (people.value.length > 0)
         changes.push({
           label: 'Tells',
           before: null,
           after: names(people.value),
         })
+
       return card(
         name,
         input,
@@ -655,16 +705,22 @@ export async function buildNotebookProposal(
         },
       )
     }
+
     case COMMENT_REPLY_TOOL: {
       const parsed = proposeCommentReplySchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
       const found = await findRecord(client, input.record)
+
       if (!found.ok) return fail(found.message)
       const thread = await findThread(client, found.value.id, input.thread)
+
       if (!thread.ok) return fail(thread.message)
       const people = await findPeople(client, input.mentions)
+
       if (!people.ok) return fail(people.message)
+
       return card(
         name,
         input,
@@ -686,15 +742,20 @@ export async function buildNotebookProposal(
         },
       )
     }
+
     case COMMENT_RESOLVE_TOOL: {
       const parsed = proposeCommentResolveSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
       const found = await findRecord(client, input.record)
+
       if (!found.ok) return fail(found.message)
       const thread = await findThread(client, found.value.id, input.thread)
+
       if (!thread.ok) return fail(thread.message)
       const reopen = input.reopen ?? false
+
       return card(
         name,
         input,
@@ -719,14 +780,17 @@ export async function buildNotebookProposal(
         },
       )
     }
+
     case FILE_QUARANTINE_TOOL:
     case FILE_RESTORE_TOOL:
     case FILE_DELETE_TOOL: {
       const parsed = proposeFileStatusSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
       const quarantine = name === FILE_QUARANTINE_TOOL
       const remove = name === FILE_DELETE_TOOL
+
       const rows = await client.list<{
         id: string
         record_id: string
@@ -737,6 +801,7 @@ export async function buildNotebookProposal(
         'file_objects',
         `?display_name=ilike.${likeValue(input.file)}&status=${remove ? 'in.(active,quarantined)' : quarantine ? 'eq.active' : 'eq.quarantined'}&select=id,record_id,display_name,status,version&order=updated_at.desc&limit=6`,
       )
+
       const found = pick(
         rows,
         input.file,
@@ -744,7 +809,9 @@ export async function buildNotebookProposal(
         (row) => row.display_name,
         (row) => row.display_name.toLowerCase() === input.file.toLowerCase(),
       )
+
       if (!found.ok) return fail(found.message)
+
       return card(
         name,
         input,
@@ -769,16 +836,21 @@ export async function buildNotebookProposal(
         },
       )
     }
+
     case PROTOCOL_NEW_VERSION_TOOL: {
       const parsed = proposeProtocolNewVersionSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
+
       const found = await findRecord(
         client,
         input.protocol,
         'protocol_template',
       )
+
       if (!found.ok) return fail(found.message)
+
       return card(
         name,
         input,
@@ -800,23 +872,30 @@ export async function buildNotebookProposal(
         },
       )
     }
+
     case PROTOCOL_SET_STATUS_TOOL: {
       const parsed = proposeProtocolSetStatusSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
+
       const found = await findRecord(
         client,
         input.protocol,
         'protocol_template',
       )
+
       if (!found.ok) return fail(found.message)
+
       const version = await findVersion(
         client,
         found.value.id,
         input.version,
         'newest',
       )
+
       if (!version.ok) return fail(version.message)
+
       return card(
         name,
         input,
@@ -840,23 +919,30 @@ export async function buildNotebookProposal(
         },
       )
     }
+
     case PROTOCOL_CONFIRM_CURRENT_TOOL: {
       const parsed = proposeProtocolConfirmCurrentSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
+
       const found = await findRecord(
         client,
         input.protocol,
         'protocol_template',
       )
+
       if (!found.ok) return fail(found.message)
+
       const version = await findVersion(
         client,
         found.value.id,
         input.version,
         'newest',
       )
+
       if (!version.ok) return fail(version.message)
+
       return card(
         name,
         input,
@@ -882,6 +968,7 @@ export async function buildNotebookProposal(
         },
       )
     }
+
     case PROTOCOL_ASSIGN_TRAINING_TOOL:
     case PROTOCOL_UNASSIGN_TRAINING_TOOL:
     case PROTOCOL_RECORD_TRAINED_TOOL: {
@@ -891,7 +978,9 @@ export async function buildNotebookProposal(
           : name === PROTOCOL_UNASSIGN_TRAINING_TOOL
             ? proposeProtocolUnassignTrainingSchema.safeParse(args)
             : proposeProtocolRecordTrainedSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
+
       const input = parsed.data as {
         title: string
         summary: string
@@ -901,16 +990,20 @@ export async function buildNotebookProposal(
         notes?: string
         version?: number
       }
+
       const found = await findRecord(
         client,
         input.protocol,
         'protocol_template',
       )
+
       if (!found.ok) return fail(found.message)
       const who = await findPerson(client, input.person)
+
       if (!who.ok) return fail(who.message)
       const target = `${found.value.identifier} · Protocol`
       const link = recordLink(found.value.id)
+
       if (name === PROTOCOL_ASSIGN_TRAINING_TOOL) {
         return card(
           name,
@@ -932,6 +1025,7 @@ export async function buildNotebookProposal(
           },
         )
       }
+
       if (name === PROTOCOL_UNASSIGN_TRAINING_TOOL) {
         return card(
           name,
@@ -946,13 +1040,16 @@ export async function buildNotebookProposal(
           },
         )
       }
+
       const version = await findVersion(
         client,
         found.value.id,
         input.version,
         'effective',
       )
+
       if (!version.ok) return fail(version.message)
+
       return card(
         name,
         input,
@@ -973,12 +1070,16 @@ export async function buildNotebookProposal(
         },
       )
     }
+
     case PROTOCOL_DEVIATION_REASON_TOOL: {
       const parsed = proposeProtocolDeviationReasonSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
       const found = await findRecord(client, input.record)
+
       if (!found.ok) return fail(found.message)
+
       const rows = await client.list<{
         id: string
         recorded_text: string
@@ -987,15 +1088,18 @@ export async function buildNotebookProposal(
         'protocol_deviations',
         `?record_id=eq.${found.value.id}&select=id,recorded_text,reason&order=created_at.desc&limit=50`,
       )
+
       const wanted = (input.step ?? '')
         .toLowerCase()
         .split(/\s+/)
         .filter(Boolean)
+
       const open = rows.filter(
         (row) =>
           wanted.every((w) => row.recorded_text.toLowerCase().includes(w)) &&
           (wanted.length > 0 || row.reason === null),
       )
+
       const deviation = pick(
         open,
         input.step ?? 'a step without a reason',
@@ -1003,7 +1107,9 @@ export async function buildNotebookProposal(
         (row) => `"${row.recorded_text.slice(0, 60)}"`,
         () => false,
       )
+
       if (!deviation.ok) return fail(deviation.message)
+
       return card(
         name,
         input,
@@ -1028,10 +1134,13 @@ export async function buildNotebookProposal(
         },
       )
     }
+
     case APPROVAL_REQUEST_TOOL: {
       const parsed = proposeApprovalRequestSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
+
       return card(
         name,
         input,
@@ -1057,10 +1166,13 @@ export async function buildNotebookProposal(
         },
       )
     }
+
     case APPROVAL_WITHDRAW_TOOL: {
       const parsed = proposeApprovalWithdrawSchema.safeParse(args)
+
       if (!parsed.success) return bad(parsed.error)
       const input = parsed.data
+
       const rows = await client.list<{
         id: string
         object_kind: string
@@ -1069,6 +1181,7 @@ export async function buildNotebookProposal(
         'approval_requests',
         `?state=eq.pending${input.request ? `&id=eq.${input.request}` : `&submitted_by_user_id=eq.${context.userId}`}&select=id,object_kind,reason&order=submitted_at.desc&limit=6`,
       )
+
       const found = pick(
         rows,
         input.request ?? 'a request of yours',
@@ -1076,7 +1189,9 @@ export async function buildNotebookProposal(
         (row) => `${row.object_kind.replaceAll('_', ' ')} (${row.id})`,
         () => false,
       )
+
       if (!found.ok) return fail(found.message)
+
       return card(
         name,
         input,

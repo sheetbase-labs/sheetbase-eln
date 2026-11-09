@@ -92,6 +92,7 @@ describe('sectionForBlockType', () => {
       'protocol_reference',
       'materials',
     ]
+
     for (const type of knownTypes) {
       expect(BLOCK_SECTION_MAP[type]).toBeDefined()
     }
@@ -169,6 +170,7 @@ describe('composeSections', () => {
 
   it('assigns section labels from SECTION_LABELS', () => {
     const sections = composeSections(blocks)
+
     for (const section of sections) {
       expect(section.label).toBe(SECTION_LABELS[section.id])
     }
@@ -189,6 +191,7 @@ describe('getOverviewConfig', () => {
     const config = getOverviewConfig({
       overview: { excludedBlockIds: ['b1', 'b2'] },
     })
+
     expect(config).toEqual({ excludedBlockIds: ['b1', 'b2'] })
   })
 
@@ -213,6 +216,7 @@ describe('normaliseOverviewConfig', () => {
       ['b1', 'unknown', 'b2'],
       ['b1', 'b2', 'b3'],
     )
+
     expect(config.excludedBlockIds).toEqual(['b1', 'b2'])
   })
 
@@ -235,6 +239,7 @@ describe('normaliseOverviewConfig', () => {
       ['b1', 123, null, 'b2'],
       ['b1', 'b2'],
     )
+
     expect(config.excludedBlockIds).toEqual(['b1', 'b2'])
   })
 })
@@ -245,6 +250,7 @@ describe('mergeOverviewConfig', () => {
       { concentration: '50 mg/mL', other: 'value' },
       { excludedBlockIds: ['b1'] },
     )
+
     expect(merged.concentration).toBe('50 mg/mL')
     expect(merged.other).toBe('value')
     expect(merged.overview).toEqual({ excludedBlockIds: ['b1'] })
@@ -255,6 +261,7 @@ describe('mergeOverviewConfig', () => {
       { overview: { excludedBlockIds: ['old'] } },
       { excludedBlockIds: ['new'] },
     )
+
     expect(merged.overview).toEqual({ excludedBlockIds: ['new'] })
   })
 })
@@ -298,12 +305,15 @@ describe('detectOverviewMode', () => {
     archivedAt: null,
     lockedAt: null,
   }
+
   const lockedRecord = { status: 'locked', archivedAt: null, lockedAt: null }
+
   const signedRecord = {
     status: 'in_progress',
     archivedAt: null,
     lockedAt: '2026-07-26T00:00:00Z',
   }
+
   const archivedRecord = {
     status: 'in_progress',
     archivedAt: '2026-07-20T00:00:00Z',
@@ -403,6 +413,7 @@ describe('toOverviewRevision', () => {
       ...wire,
       superseded_by_revision_id: 'rev-2',
     })
+
     expect(revision.superseded).toBe(true)
   })
 
@@ -411,6 +422,7 @@ describe('toOverviewRevision', () => {
       ...wire,
       block_snapshot: [],
     })
+
     expect(revision.blocks).toEqual([])
   })
 
@@ -419,6 +431,7 @@ describe('toOverviewRevision', () => {
       ...wire,
       metadata_snapshot: {},
     })
+
     expect(revision.metadata).toEqual({})
   })
 })

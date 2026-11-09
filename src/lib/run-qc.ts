@@ -11,6 +11,7 @@
 import type { DataClient } from '#/lib/data-client'
 
 export const QC_RULES = ['1-3s', '2-2s', 'R-4s', '4-1s', '10x'] as const
+
 export type QcRule = (typeof QC_RULES)[number]
 
 export const QC_METRICS = [
@@ -22,6 +23,7 @@ export const QC_METRICS = [
   'positive_cv',
   'negative_cv',
 ] as const
+
 export type QcMetric = (typeof QC_METRICS)[number]
 
 export interface QcSeriesRow {
@@ -70,6 +72,7 @@ export const qcKeys = {
 
 const SERIES_COLUMNS =
   'id,name,source_kind,design_id,metric,instrument_id,unit,mean,sd,baseline_n,baseline_from,baseline_to,rules,enabled,state,state_changed_at,created_by_user_id,created_at'
+
 const POINT_COLUMNS =
   'id,series_id,plate_run_id,instrument_run_id,value,at,label,z,violations,excluded,acknowledged_at,acknowledged_by_user_id,note'
 
@@ -95,6 +98,7 @@ export function fetchQcSeries(
       : '',
     scope.designId ? `&design_id=eq.${encodeURIComponent(scope.designId)}` : '',
   ].join('')
+
   return client.list<QcSeriesRow>(
     'qc_series',
     `?select=${SERIES_COLUMNS}${filter}&order=state.desc,name.asc&limit=500`,
@@ -109,6 +113,7 @@ export async function fetchQcPoints(
     'qc_points',
     `?select=${POINT_COLUMNS}&series_id=eq.${encodeURIComponent(seriesId)}&order=at.desc,id.desc&limit=${QC_POINT_LIMIT}`,
   )
+
   return rows.reverse()
 }
 
@@ -229,7 +234,9 @@ export type QcZone = 'centre' | 'warn' | 'out' | 'none'
 
 export function zoneOf(point: Pick<QcPointRow, 'z' | 'violations'>): QcZone {
   if (point.z === null) return 'none'
+
   if (point.violations.length > 0) return 'out'
+
   return Math.abs(point.z) > 2 ? 'warn' : 'centre'
 }
 
@@ -248,21 +255,26 @@ export function chartRange(
   const values = points.map((p) => p.value)
   let lo = values.length ? Math.min(...values) : 0
   let hi = values.length ? Math.max(...values) : 1
+
   if (series.mean !== null && series.sd !== null && series.sd > 0) {
     lo = Math.min(lo, series.mean - 3 * series.sd)
     hi = Math.max(hi, series.mean + 3 * series.sd)
   }
+
   if (hi === lo) {
     lo -= 1
     hi += 1
   }
+
   const pad = (hi - lo) * 0.06
   lo -= pad
   hi += pad
+
   const ticks =
     series.mean !== null && series.sd !== null && series.sd > 0
       ? [-3, -2, -1, 0, 1, 2, 3].map((k) => series.mean! + k * series.sd!)
       : [lo, (lo + hi) / 2, hi]
+
   return { lo, hi, ticks }
 }
 

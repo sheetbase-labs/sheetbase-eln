@@ -128,12 +128,14 @@ function pagedRowsClient(
   calls: Array<Record<string, unknown>>
 } {
   const calls: Array<Record<string, unknown>> = []
+
   const client = {
     rpc: async (_name: string, args: Record<string, unknown>) => {
       calls.push(args)
       const offset = args.p_offset as number
       const limit = args.p_limit as number
       const count = Math.max(0, Math.min(limit, total - offset))
+
       return {
         rows: Array.from({ length: count }, (_, i) => ({
           rowId: `r${offset + i + 1}`,
@@ -145,6 +147,7 @@ function pagedRowsClient(
       } satisfies RowPage
     },
   } as unknown as DataClient
+
   return { client, calls }
 }
 
@@ -165,11 +168,13 @@ describe('fetchDatasetRows', () => {
       expect(live.truncated).toBe(false)
       expect(frozen.matchesProvenance).toBe(true)
       expect(frozen.rows).toEqual(live.rows)
+
       const rows = live.rows.map((row) => ({
         ...row,
         c1: row.n,
         c2: 3 * Number(row.n) + 7,
       }))
+
       const chart = materialiseLiveChart(
         lineSpec({
           fields: {
@@ -182,12 +187,14 @@ describe('fetchDatasetRows', () => {
         }),
         { source: makeSource(), rows, totalCount: count, truncated: false },
       )
+
       expect(chart.state.kind).toBe('ok')
       expect(chart.fit?.n).toBe(count)
       expect(chart.fit?.coefficients[0]).toBeCloseTo(7, 5)
       expect(chart.fit?.coefficients[1]).toBeCloseTo(3, 8)
       expect(chart.sampling?.analysisCount).toBe(count)
       expect(chart.sampling?.sampledCount).toBeLessThanOrEqual(4000)
+
       const analysis = runAnalysis(
         {
           definitionVersion: 1,
@@ -198,13 +205,16 @@ describe('fetchDatasetRows', () => {
         makeSource().columns,
         rows,
       )
+
       expect(analysis.ok).toBe(true)
+
       if (analysis.ok && analysis.result.kind === 'descriptive') {
         expect(analysis.result.rows[0].stats.n).toBe(count)
         expect(analysis.result.rows[0].stats.mean).toBe(
           (3 * (count + 1)) / 2 + 7,
         )
       }
+
       // A tail-only filter must run before the fit and before display sampling.
       const filtered = materialiseLiveChart(
         lineSpec({
@@ -219,6 +229,7 @@ describe('fetchDatasetRows', () => {
         }),
         { source: makeSource(), rows, totalCount: count, truncated: false },
       )
+
       expect(filtered.fit?.n).toBe(9000)
       expect(filtered.rows[0].c1).toBe(count - 8999)
       expect(filtered.sampling?.analysisCount).toBe(9000)
@@ -240,6 +251,7 @@ describe('fetchDatasetRows', () => {
       [1000, 1000],
       [2000, 1000],
     ])
+
     for (const call of calls) {
       expect(call.p_dataset_id).toBe(DATASET_ID)
       expect(call.p_query).toEqual({})
@@ -283,6 +295,7 @@ describe('fetchFrozenAnalysisRows', () => {
     expect(result.totalCount).toBe(1500)
     expect(result.rows).toHaveLength(1500)
     expect(calls.length).toBeGreaterThan(1)
+
     for (const call of calls) {
       expect(call.p_dataset_version_id).toBe('ver-1')
     }
@@ -310,11 +323,13 @@ describe('resolveDatasetRef on live data', () => {
       let metadataReads = 0
       let flagReads = 0
       const { client: pages } = pagedRowsClient(1)
+
       const client = {
         rpc: pages.rpc,
         list: async (table: string) => {
           if (table === 'datasets') {
             metadataReads++
+
             return [
               {
                 id: DATASET_ID,
@@ -327,8 +342,10 @@ describe('resolveDatasetRef on live data', () => {
               },
             ]
           }
+
           if (table === 'dataset_schema_versions')
             return [{ id: 'sv-1', version: 1 }]
+
           if (table === 'dataset_schema_version_fields')
             return [
               {
@@ -338,8 +355,10 @@ describe('resolveDatasetRef on live data', () => {
                 quantity: null,
               },
             ]
+
           if (table === 'dataset_value_flags') {
             flagReads++
+
             return change === 'flags' && flagReads > 1
               ? [
                   {
@@ -356,10 +375,13 @@ describe('resolveDatasetRef on live data', () => {
                 ]
               : []
           }
+
           throw new Error(`Unexpected resource ${table}`)
         },
       } as unknown as DataClient
+
       const result = resolveDatasetRef(client, { datasetId: DATASET_ID })
+
       if (change === 'unchanged') {
         await expect(result).resolves.toMatchObject({
           source: { revision: 1, schemaVersionId: 'sv-1' },
@@ -376,6 +398,7 @@ describe('resolveDatasetRef on live data', () => {
 describe('resolveDatasetRef on a snapshot', () => {
   it('reads the snapshot rows, not the live rows, and carries no live flags', async () => {
     const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = []
+
     const client = {
       list: async (table: string) =>
         table === 'datasets'
@@ -410,6 +433,7 @@ describe('resolveDatasetRef on a snapshot', () => {
                 ],
       rpc: async (name: string, args: Record<string, unknown>) => {
         rpcCalls.push({ name, args })
+
         return {
           rows: [{ rowId: 'r1', revision: 1, values: { c1: 0, c2: 7.2 } }],
           totalCount: 1,
@@ -474,6 +498,7 @@ describe('materialiseLiveChart', () => {
         facet: null,
       },
     })
+
     const result = materialiseLiveChart(spec, makeDataset())
     expect(result.state.kind).toBe('missing_field')
   })
@@ -482,6 +507,7 @@ describe('materialiseLiveChart', () => {
     const spec = lineSpec({
       filters: [{ fieldId: 'c1', op: 'gt' as const, value: 999999 }],
     })
+
     const result = materialiseLiveChart(spec, makeDataset())
     expect(result.state.kind).toBe('empty_dataset')
   })
@@ -504,6 +530,7 @@ describe('materialiseLiveChart', () => {
         facet: null,
       },
     })
+
     // Time has a 0 value, which is invalid for a log scale.
     const result = materialiseLiveChart(spec, makeDataset())
     expect(result.state.kind).toBe('log_scale_invalid')
@@ -513,10 +540,12 @@ describe('materialiseLiveChart', () => {
     const dataset = { ...makeDataset(), truncated: true, totalCount: 15_000 }
     const result = materialiseLiveChart(lineSpec(), dataset)
     expect(result.state.kind).toBe('dataset_too_large')
+
     if (result.state.kind === 'dataset_too_large') {
       expect(result.state.rowCount).toBe(15_000)
       expect(result.state.limit).toBe(SCI_ANALYSIS_ROW_LIMIT)
     }
+
     expect(result.series).toEqual([])
   })
 })
@@ -639,6 +668,7 @@ describe('materialiseFrozenFacets', () => {
     expect(result).not.toBeNull()
     expect(result!.total).toBe(5)
     expect(result!.panels.map((p) => p.value)).toEqual(['20C', '4C'])
+
     for (const panel of result!.panels) {
       expect(panel.chart.state.kind).toBe('ok')
       expect(panel.chart.series).toHaveLength(1)
@@ -653,6 +683,7 @@ describe('materialiseFrozenFacets', () => {
         facets: undefined,
       },
     }
+
     expect(materialiseFrozenFacets(plain)).toBeNull()
   })
 })
@@ -678,6 +709,7 @@ describe('flagged-value exclusion (DSET-01.2)', () => {
         },
       ],
     }
+
     const result = materialiseLiveChart(lineSpec(), dataset)
     expect(result.rows).toHaveLength(1)
     expect(result.rows[0].c2).toBe(7.2)

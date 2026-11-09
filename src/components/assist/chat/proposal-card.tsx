@@ -166,6 +166,7 @@ const FEATURE_CARD_WORDS: Readonly<Record<string, string>> = Object.assign(
 /** Button and done words for an everyday action: "Book", "Booked". */
 function actionWords(kind: AssistantActionKind | undefined) {
   const prefix = kind ? cardWordsKey(kind) : null
+
   if (prefix === null) {
     return {
       label: t('notebook.assistantPanel.proposal.label'),
@@ -174,6 +175,7 @@ function actionWords(kind: AssistantActionKind | undefined) {
       applied: t('notebook.assistantPanel.proposal.applied'),
     }
   }
+
   return {
     label:
       kind?.startsWith('booking.') && kind !== 'booking.repeat'
@@ -194,12 +196,15 @@ const cardWord = t as (key: string) => string
 /** Where the card's words are in the copy catalogue. */
 function cardWordsKey(kind: AssistantActionKind): string {
   const own = FEATURE_CARD_WORDS[kind]
+
   if (own) return own
+
   return `notebook.assistantPanel.proposal.${ACTION_COPY[kind as keyof typeof ACTION_COPY]}`
 }
 
 function failureReason(error: unknown): string {
   const message = error instanceof Error ? error.message : ''
+
   return /stale|revision|version|conflict/i.test(message)
     ? t('notebook.assistantPanel.proposal.stale')
     : t('notebook.assistantPanel.proposal.failed', {
@@ -219,6 +224,7 @@ export function ProposalCard({
   const [state, setStateRaw] = useState<CardState>(
     decided.get(callId) ?? { phase: 'idle' },
   )
+
   // One key per card, so a double press repeats the same request instead of
   // making a second change. Call ids from a provider are not unique across chats.
   const requestId = useRef(crypto.randomUUID()).current
@@ -228,6 +234,7 @@ export function ProposalCard({
   const [note, setNote] = useState<string | null>(null)
   const queryClient = useQueryClient()
   const router = useRouter()
+
   function setState(next: CardState) {
     if (next.phase !== 'applying') decided.set(callId, next)
     setStateRaw(next)
@@ -235,13 +242,16 @@ export function ProposalCard({
 
   async function apply() {
     setState({ phase: 'applying' })
+
     if (proposal.action) {
       try {
         const result = await runAssistantAction(
           createDataClient(),
           proposal.action,
         )
+
         if (result?.openHref) setOpened(result.openHref)
+
         if (result?.note) setNote(result.note)
         setState({ phase: 'applied' })
         void queryClient.invalidateQueries()
@@ -257,12 +267,17 @@ export function ProposalCard({
           }),
         })
       }
+
       return
     }
+
     const operation = proposal.operation
+
     if (!operation) return
+
     try {
       const client = createDataClient()
+
       // Runs one operation through propose, approve and execute. `null` means
       // it is waiting on a signature, which the card hands over to the
       // proposals page.
@@ -281,6 +296,7 @@ export function ProposalCard({
           },
           idempotencyKey: key,
         })
+
         if (row.status === 'pending') {
           if (row.signature_required) return null
           row = await decideAgentOperation(client, {
@@ -289,27 +305,34 @@ export function ProposalCard({
             decision: 'approve',
           })
         }
+
         if (row.status === 'approved') {
           row = await executeAgentOperation(client, {
             proposalId: row.id,
             expectedRevision: Number(row.revision),
           })
         }
+
         return row
       }
 
       const first = await run(operation, `assistant-${requestId}`)
+
       if (first === null) {
         setState({ phase: 'signature' })
+
         return
       }
+
       if (first.status === 'failed') {
         setState({
           phase: 'failed',
           reason: failureReason(new Error(first.error_message ?? '')),
         })
+
         return
       }
+
       if (proposal.followUp) {
         // The first change made something (a new pipeline); the second fills
         // it in, pinned to the revision the first one returned.
@@ -317,8 +340,10 @@ export function ProposalCard({
           id?: string
           revision?: number | string
         } | null
+
         if (!made?.id) throw new Error(t('common.errors.generic'))
         setOpened(`/pipelines/${made.id}`)
+
         const second = await run(
           {
             kind: proposal.followUp.kind,
@@ -329,18 +354,23 @@ export function ProposalCard({
           },
           `assistant-${requestId}-draft`,
         )
+
         if (second === null) {
           setState({ phase: 'signature' })
+
           return
         }
+
         if (second.status === 'failed') {
           setState({
             phase: 'failed',
             reason: failureReason(new Error(second.error_message ?? '')),
           })
+
           return
         }
       }
+
       setState({ phase: 'applied' })
       void queryClient.invalidateQueries()
       void router.invalidate()
@@ -352,6 +382,7 @@ export function ProposalCard({
   const words = actionWords(proposal.action?.kind)
   const href = opened ?? proposal.deepLink
   const done = state.phase === 'applied' || state.phase === 'dismissed'
+
   return (
     <section
       data-testid="assistant-proposal"

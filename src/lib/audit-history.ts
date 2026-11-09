@@ -60,6 +60,7 @@ export const auditEventsPageSchema = z
   })
 
 export type AuditEventsPageWire = z.infer<typeof auditEventsPageSchema>
+
 export type AuditEventWire = AuditEventsPageWire['events'][number]
 
 export const auditHistoryCategories = [
@@ -71,6 +72,7 @@ export const auditHistoryCategories = [
   'comments',
   'signatures',
 ] as const
+
 export type AuditHistoryCategory = (typeof auditHistoryCategories)[number]
 
 /** Classify captured event facts; an event can contain both text and status changes. */
@@ -79,6 +81,7 @@ export function auditEventMatchesCategory(
   category: AuditHistoryCategory,
 ): boolean {
   if (category === 'all') return true
+
   switch (category) {
     case 'files':
       return event.entityType === 'file'
@@ -175,15 +178,19 @@ export async function fetchAllAuditEvents(
   const events: AuditEventWire[] = []
   let beforeSequence: number | undefined
   const limit = filter.limit ?? AUDIT_PAGE_SIZE
+
   for (;;) {
     const page = await fetchAuditEvents(client, {
       ...filter,
       limit,
       ...(beforeSequence === undefined ? {} : { beforeSequence }),
     })
+
     if (beforeSequence === undefined) onFirstPage?.(page)
     events.push(...page.events)
+
     if (!page.hasMore) return events
+
     if (
       page.nextCursor === null ||
       (beforeSequence !== undefined && page.nextCursor >= beforeSequence)
@@ -203,6 +210,7 @@ export async function fetchRecordAuditHistory(
   recordId: string,
 ) {
   let snapshotBefore = 1
+
   const events = await fetchAllAuditEvents(
     client,
     { object: recordId },
@@ -210,6 +218,7 @@ export async function fetchRecordAuditHistory(
       snapshotBefore = (page.events[0]?.sequence ?? 0) + 1
     },
   )
+
   return { events, snapshotBefore }
 }
 
@@ -358,8 +367,10 @@ const OPERATION_LABELS: Record<string, string> = {
 /** An entity type in plain words ("Project access", not `project_access`). */
 export function entityLabel(entityType: string): string {
   const known = ENTITY_LABELS[entityType]
+
   if (known) return known
   const words = String(entityType).replace(/[_-]+/g, ' ').trim()
+
   return words.charAt(0).toUpperCase() + words.slice(1).toLowerCase()
 }
 
@@ -449,10 +460,15 @@ function humanizeToken(value: unknown): string {
 /** Preserve captured values in the inspector and exported audit trail. */
 export function formatChangeValue(value: unknown): string {
   if (value === null || value === undefined) return '—'
+
   if (typeof value === 'boolean') return value ? 'yes' : 'no'
+
   if (typeof value === 'number') return String(value)
+
   if (isRichTextPayload(value)) return richTextToPlainText(value)
+
   if (typeof value === 'object') return JSON.stringify(value)
+
   return String(value)
 }
 
@@ -464,6 +480,7 @@ const UUID_PATTERN =
  * the captured value. */
 export function readableChangeValue(value: string | undefined): string {
   if (value === undefined) return '—'
+
   return UUID_PATTERN.test(value)
     ? t('projects.experimentHistory.anotherItem')
     : value
@@ -486,10 +503,12 @@ function sentenceSubjectFor(event: AuditEventWire): string {
     // "signed as reviewed and approved", not "signed Signature (Reviewed And
     // Approved)": the verb already says it is a signature.
     const meaning = event.payload['signatureMeaning']
+
     return meaning
       ? `as ${String(meaning).replace(/[_-]+/g, ' ').toLowerCase()}`
       : 'a signature'
   }
+
   return lowerFirstWord(subjectFor(event, false))
 }
 
@@ -511,6 +530,7 @@ function subjectFor(event: AuditEventWire, withId = true): string {
   if (isAuditVerification(event)) return 'the audit trail'
   const label = entityLabel(event.entityType)
   const payload = event.payload
+
   const name =
     firstString(payload, [
       'title',
@@ -520,24 +540,33 @@ function subjectFor(event: AuditEventWire, withId = true): string {
       'identifier',
       'targetIdentifier',
     ]) ?? undefined
+
   if (name) return `${label} ${name}`
+
   if (event.entityType === 'signature') {
     const meaning = payload['signatureMeaning']
+
     return `${label} (${meaning ? humanizeToken(String(meaning)) : 'recorded'})`
   }
+
   if (event.entityType === 'review_decision') {
     const decision = payload['decision']
+
     return `${label} (${decision ? humanizeToken(String(decision)) : 'recorded'})`
   }
+
   if (event.entityType === 'review_submission') {
     return label
   }
+
   if (event.entityType === 'block') {
     const type = typeof payload['type'] === 'string' ? payload['type'] : null
+
     return type
       ? `${label} (${BLOCK_TYPE_LABELS[type] ?? humanizeToken(type)})`
       : label
   }
+
   return withId ? `${label} ${shortId(event.entityUuid)}` : label
 }
 
@@ -545,12 +574,15 @@ function actionFor(event: AuditEventWire): string {
   // A failed check must not read as routine: say what it found.
   if (isAuditVerification(event))
     return event.payload['ok'] === false ? 'found a problem in' : 'verified'
+
   const base =
     ACTION_LABELS[event.operation] ??
     humanizeToken(event.operation).toLowerCase()
+
   // Review decisions carry their own verb in the payload decision value.
   if (event.entityType === 'review_decision') {
     const decision = event.payload['decision']
+
     if (typeof decision === 'string') {
       switch (decision) {
         case 'request_changes':
@@ -566,8 +598,10 @@ function actionFor(event: AuditEventWire): string {
       }
     }
   }
+
   if (event.entityType === 'revision') {
     const reason = event.payload['reason']
+
     switch (reason) {
       case 'submit':
         return 'froze revision for review'
@@ -581,24 +615,32 @@ function actionFor(event: AuditEventWire): string {
         return 'saved version'
     }
   }
+
   if (event.entityType === 'check') {
     const status = event.payload['overallStatus']
+
     return `ran checks (${typeof status === 'string' ? humanizeToken(status) : 'recorded'})`
   }
+
   if (event.entityType === 'review_submission') {
     const state = event.payload['state']
+
     return state === 'submitted' ? 'submitted for review' : base
   }
+
   if (
     event.entityType === 'sheet_instance' &&
     hasChange(event, 'definitionVersion')
   ) {
     return 'upgraded definition'
   }
+
   if (event.entityType === 'dataset' && hasChange(event, 'schemaVersion')) {
     return 'pinned new schema version'
   }
+
   if (event.entityType === 'signature') return 'signed'
+
   return base
 }
 
@@ -608,13 +650,16 @@ function firstString(
 ): string | null {
   for (const key of keys) {
     const value = payload[key]
+
     if (typeof value === 'string' && value.length > 0) return value
   }
+
   return null
 }
 
 function changesOf(event: AuditEventWire): Record<string, unknown> {
   const changes = event.payload['changes']
+
   return changes && typeof changes === 'object' && !Array.isArray(changes)
     ? (changes as Record<string, unknown>)
     : {}
@@ -632,6 +677,7 @@ function hasChange(event: AuditEventWire, key: string): boolean {
 export function describeAuditEvent(event: AuditEventWire): DescribedAuditEvent {
   const changes = changesOf(event)
   const fields: FieldChange[] = []
+
   for (const [key, value] of Object.entries(changes)) {
     if (
       typeof value !== 'object' ||
@@ -641,24 +687,29 @@ export function describeAuditEvent(event: AuditEventWire): DescribedAuditEvent {
     ) {
       continue
     }
+
     const style: FieldStyle | undefined =
       key === 'payload' && event.payload.type === 'rich_text'
         ? { label: 'Text' }
         : FIELD_STYLES[key]
+
     const fromValue = 'from' in value ? value.from : null
     const toValue = 'to' in value ? value.to : null
+
     const from =
       fromValue === null || fromValue === undefined
         ? null
         : style?.render
           ? style.render(fromValue)
           : formatChangeValue(fromValue)
+
     const to =
       toValue === null || toValue === undefined
         ? null
         : style?.render
           ? style.render(toValue)
           : formatChangeValue(toValue)
+
     fields.push({
       label:
         style?.label ??
@@ -670,6 +721,7 @@ export function describeAuditEvent(event: AuditEventWire): DescribedAuditEvent {
       to: to ?? undefined,
     })
   }
+
   return {
     event,
     action: actionFor(event),
@@ -707,13 +759,16 @@ export function collapseActivity(
   const rows: CollapsedActivity[] = []
   // The things each row has named so far, to count the others once each.
   const subjects = new Map<CollapsedActivity, Set<string>>()
+
   for (const item of items) {
     const last = rows.at(-1)
+
     const sameDoer =
       last &&
       last.event.actorUserId === item.event.actorUserId &&
       last.event.actorName === item.event.actorName &&
       last.action === item.action
+
     if (
       sameDoer &&
       last.readableSubject === item.readableSubject &&
@@ -726,6 +781,7 @@ export function collapseActivity(
       last.count += 1
       continue
     }
+
     // The same person doing the same thing to several things of one kind
     // ("signed" three experiments) reads as one row naming the first.
     if (
@@ -735,12 +791,15 @@ export function collapseActivity(
     ) {
       const seen = subjects.get(last)!
       last.count += 1
+
       if (!seen.has(item.event.entityUuid)) {
         seen.add(item.event.entityUuid)
         last.others += 1
       }
+
       continue
     }
+
     const row = { ...item, count: 1, others: 0 }
     subjects.set(
       row,
@@ -748,6 +807,7 @@ export function collapseActivity(
     )
     rows.push(row)
   }
+
   return rows
 }
 
@@ -763,13 +823,16 @@ export function groupAuditEventsByDay(
     month: 'long',
     year: 'numeric',
   })
+
   const days = new Map<string, AuditEventWire[]>()
+
   for (const event of events) {
     const label = formatter.format(new Date(event.createdAt)).replace(',', '')
     const entries = days.get(label) ?? []
     entries.push(event)
     days.set(label, entries)
   }
+
   return Array.from(days, ([label, entries]) => ({ label, events: entries }))
 }
 
@@ -778,9 +841,11 @@ export function auditEventsCsv(events: AuditEventWire[]): string {
   const lines = [
     'time,sequence,actor,action,object,field,old_value,new_value,reason,client_id,payload',
   ]
+
   for (const event of events) {
     const described = describeAuditEvent(event)
     const changes = described.changes.length ? described.changes : [undefined]
+
     for (const change of changes) {
       lines.push(
         [
@@ -804,6 +869,7 @@ export function auditEventsCsv(events: AuditEventWire[]): string {
       )
     }
   }
+
   return `${lines.join('\r\n')}\r\n`
 }
 
@@ -838,6 +904,7 @@ export function groupAuditEvents(events: AuditEventWire[]): AuditGroup[] {
   const consumed = new Set<string>()
 
   const byEntityUuid = new Map<string, AuditEventWire[]>()
+
   for (const event of events) {
     if (event.entityType !== 'api_credential') continue
     const list = byEntityUuid.get(event.entityUuid) ?? []
@@ -847,27 +914,34 @@ export function groupAuditEvents(events: AuditEventWire[]): AuditGroup[] {
 
   for (const event of events) {
     if (consumed.has(event.id)) continue
+
     if (isCredentialRotationHalf(event)) {
       const revokedId = event.payload['rotatedFromCredentialId']
       const createdId = event.payload['rotatedToCredentialId']
       const related: AuditEventWire[] = []
+
       for (const counterpartId of [revokedId, createdId]) {
         if (typeof counterpartId !== 'string') continue
+
         for (const candidate of byEntityUuid.get(counterpartId) ?? []) {
           if (candidate.id === event.id || consumed.has(candidate.id)) continue
+
           if (isCredentialRotationHalf(candidate)) {
             related.push(candidate)
             consumed.add(candidate.id)
           }
         }
       }
+
       consumed.add(event.id)
       groups.push({ primary: event, related })
       continue
     }
+
     consumed.add(event.id)
     groups.push({ primary: event, related: [] })
   }
+
   return groups
 }
 
@@ -905,17 +979,21 @@ export function auditLinkFor(event: AuditEventWire): AuditLink | null {
     case 'signature':
     case 'review_decision': {
       const revisionId = event.payload['revisionId']
+
       return typeof revisionId === 'string'
         ? { href: `/review/${revisionId}`, label: 'Open review' }
         : null
     }
+
     case 'revision': {
       const revisionId = event.payload['revisionId']
+
       return {
         href: `/review/${typeof revisionId === 'string' ? revisionId : event.entityUuid}`,
         label: 'Open review',
       }
     }
+
     case 'dataset':
     case 'dataset_version':
       return {
@@ -951,14 +1029,17 @@ export function timelineToAuditEvents(
 
     let entityType: string = type
     let operation = 'update'
+
     switch (type) {
       case 'change_event':
         entityType = typeof rest.eventType === 'string' ? rest.eventType : type
         operation =
           typeof rest.operation === 'string' ? rest.operation : 'update'
+
         if (rest.payload && typeof rest.payload === 'object') {
           Object.assign(derived, rest.payload)
         }
+
         delete derived.eventType
         delete derived.operation
         break

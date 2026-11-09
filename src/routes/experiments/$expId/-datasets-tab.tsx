@@ -38,8 +38,11 @@ const PREVIEW_COLUMNS = 8
 
 function cellText(value: unknown): string {
   if (value == null) return '—'
+
   if (typeof value === 'number') return String(value)
+
   if (typeof value === 'string') return value
+
   return JSON.stringify(value)
 }
 
@@ -55,6 +58,7 @@ function sourceText(files: ExperimentFile[], identifier: string): string {
           : [],
       ),
   )
+
   return codes.length
     ? t('projects.expDatasets.exports', {
         list: [...new Set(codes)].join(', '),
@@ -71,24 +75,31 @@ function DatasetRowsPreview({ dataset }: { dataset: DatasetListRow }) {
       resolveDatasetRef(notebookDataClient, { datasetId: dataset.uuid }),
     staleTime: 15_000,
   })
+
   const allColumns = resolved.data?.source.columns ?? []
   const columns = allColumns.slice(0, PREVIEW_COLUMNS)
   const flags = resolved.data?.flags ?? []
+
   const flagged = new Map(
     flags.map((f) => [`${f.rowId}:${f.fieldId}`, f] as const),
   )
+
   const all = resolved.data?.rows ?? []
   // A window of the table that includes the flagged row, so a reader sees the
   // value that needs a look among its neighbours.
   const rowNumber = new Map(all.map((row, i) => [row, i + 1] as const))
+
   const flaggedAt = all.findIndex((row) =>
     flags.some((f) => f.rowId === row[CHART_ROW_ID_KEY]),
   )
+
   const start =
     flaggedAt < 0
       ? 0
       : Math.max(0, Math.min(flaggedAt - 7, all.length - PREVIEW_ROWS))
+
   const shown = all.slice(start, start + PREVIEW_ROWS)
+
   return (
     <Section
       title={dataset.id}
@@ -176,6 +187,7 @@ function DatasetRowsPreview({ dataset }: { dataset: DatasetListRow }) {
                 {shown.map((row, index) => {
                   const rowId = row[CHART_ROW_ID_KEY] as string | undefined
                   const hit = flags.find((f) => f.rowId === rowId)
+
                   return (
                     <tr key={index} className="border-t border-border-subtle">
                       <td className="h-8 px-3 text-fg-muted">
@@ -183,6 +195,7 @@ function DatasetRowsPreview({ dataset }: { dataset: DatasetListRow }) {
                       </td>
                       {columns.map((column) => {
                         const isFlagged = flagged.has(`${rowId}:${column.id}`)
+
                         return (
                           <td
                             key={column.id}
@@ -242,8 +255,11 @@ function useLatestImport(datasetId: string) {
         'dataset_imports',
         `?dataset_id=eq.${datasetId}&status=eq.committed&order=created_at.desc&limit=1&select=created_at,created_by_user_id,parser_id,file_id`,
       )
+
       const latest = imports.at(0)
+
       if (!latest) return null
+
       const [parser, file] = await Promise.all([
         latest.parser_id
           ? notebookDataClient.list<{ name: string }>(
@@ -258,6 +274,7 @@ function useLatestImport(datasetId: string) {
             )
           : Promise.resolve([]),
       ])
+
       return {
         importedAt: latest.created_at,
         by: latest.created_by_user_id,
@@ -278,12 +295,14 @@ function DatasetFacts({
 }) {
   const validation = datasetValidation(dataset)
   const provenance = useLatestImport(dataset.uuid)
+
   const resolved = useQuery({
     queryKey: ['ui-port', 'experiment-datasets', 'preview', dataset.uuid],
     queryFn: () =>
       resolveDatasetRef(notebookDataClient, { datasetId: dataset.uuid }),
     staleTime: 15_000,
   })
+
   const analyses = useQuery({
     queryKey: ['ui-port', 'experiment-datasets', 'analyses', dataset.uuid],
     queryFn: async () =>
@@ -293,17 +312,23 @@ function DatasetFacts({
         ),
       ),
   })
+
   const { userLabel } = useUserNames(
     provenance.data?.by ? [provenance.data.by] : [],
   )
+
   const sources = files.filter((file) =>
     file.feeds.some((f) => f.kind === 'dataset' && f.identifier === dataset.id),
   )
+
   const flag = resolved.data?.flags?.at(0)
+
   const column = resolved.data?.source.columns.find(
     (c) => c.id === flag?.fieldId,
   )
+
   const data = provenance.data
+
   return (
     <Inspector
       aria-label={t('projects.expDatasets.dataset')}
@@ -421,11 +446,14 @@ export function ExperimentDatasets({ expId }: { expId: string }) {
   const files = useExperimentFiles(expId)
   const links = useExperimentLinks(expId)
   const partsQuery = useRecordParts(expId)
+
   const partList = useMemo(
     () => partsProgress(partsQuery.data ?? [], []),
     [partsQuery.data],
   )
+
   const [partFilter, setPartFilter] = useState('all')
+
   // A dataset is linked to the experiment by its record or by its identifier.
   const partOfDataset = (d: DatasetListRow) =>
     (links.data ?? []).find(
@@ -433,19 +461,23 @@ export function ExperimentDatasets({ expId }: { expId: string }) {
         l.target_kind === 'dataset' &&
         (l.target_record_id === d.uuid || l.target_identifier === d.id),
     )?.part_id ?? null
+
   const datasets: Array<DatasetListRow & { source: string }> = (
     summaries.data ?? []
   )
     .filter((d) => identifier && d.experimentId === identifier && !d.archived)
     .filter((d) => showsForPart(partOfDataset(d), partFilter))
     .map((d) => ({ ...d, source: sourceText(files.data ?? [], d.id) }))
+
   const [picked, setPicked] = useState<string | null>(null)
   const selectedId = picked ?? datasets.at(0)?.uuid ?? null
   const selected = datasets.find((d) => d.uuid === selectedId)
+
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     selectedId,
     setPicked,
   )
+
   const columns: RegistryColumn<DatasetListRow & { source: string }>[] = [
     {
       id: 'dataset',
@@ -472,6 +504,7 @@ export function ExperimentDatasets({ expId }: { expId: string }) {
       header: t('projects.expDatasets.validation'),
       cell: ({ row }) => {
         const v = datasetValidation(row.original)
+
         return <Status tone={v.tone}>{v.label}</Status>
       },
     },
@@ -489,12 +522,14 @@ export function ExperimentDatasets({ expId }: { expId: string }) {
               const part = partList.find(
                 (candidate) => candidate.id === partOfDataset(d),
               )
+
               return part ? String(part.number) : '—'
             },
           } satisfies RegistryColumn<DatasetListRow & { source: string }>,
         ]
       : []),
   ]
+
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">

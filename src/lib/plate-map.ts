@@ -34,6 +34,7 @@ export const PLATE_FORMATS = [
   '384_well',
   '1536_well',
 ] as const
+
 export type PlateFormat = (typeof PLATE_FORMATS)[number]
 
 /**
@@ -56,6 +57,7 @@ export const FORMAT_DIMENSIONS: Record<
 /** Number of wells in a format. */
 export function plateWellCount(format: PlateFormat): number {
   const { rows, cols } = FORMAT_DIMENSIONS[format]
+
   return rows * cols
 }
 
@@ -80,6 +82,7 @@ export const ASSIGNMENT_ROLES = [
   'blank',
   'empty',
 ] as const
+
 export type AssignmentRole = (typeof ASSIGNMENT_ROLES)[number]
 
 /**
@@ -240,10 +243,12 @@ export type PlateMapSpecError = {
 export function rowLabel(row: number): string {
   let label = ''
   let n = row
+
   do {
     label = String.fromCharCode(65 + (n % 26)) + label
     n = Math.floor(n / 26) - 1
   } while (n >= 0)
+
   return label
 }
 
@@ -254,7 +259,9 @@ export function rowLabel(row: number): string {
 export function rowIndex(label: string): number | null {
   if (!/^[A-Z]+$/.test(label)) return null
   let row = 0
+
   for (const ch of label) row = row * 26 + (ch.charCodeAt(0) - 64)
+
   return row - 1
 }
 
@@ -274,9 +281,12 @@ export function parseWellCode(
   code: string,
 ): { row: number; col: number } | null {
   const match = /^([A-Z]+)([1-9][0-9]*)$/.exec(code)
+
   if (!match) return null
   const row = rowIndex(match[1])
+
   if (row === null) return null
+
   return { row, col: parseInt(match[2], 10) - 1 }
 }
 
@@ -289,7 +299,9 @@ export function isValidWellCode(
   cols: number,
 ): boolean {
   const parsed = parseWellCode(code)
+
   if (!parsed) return false
+
   return (
     parsed.row >= 0 && parsed.row < rows && parsed.col >= 0 && parsed.col < cols
   )
@@ -326,12 +338,14 @@ function isString(v: unknown): v is string {
  */
 export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
   const errors: PlateMapSpecError[] = []
+
   if (!isObject(spec)) {
     return [{ code: 'invalid_shape', message: 'spec must be an object' }]
   }
 
   // specVersion
   const specVersion = spec.specVersion
+
   if (specVersion !== PLATE_MAP_SPEC_VERSION) {
     errors.push({
       code: 'unsupported_spec_version',
@@ -342,12 +356,14 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
 
   // format
   const format = spec.format
+
   if (!isString(format) || !PLATE_FORMATS.includes(format as PlateFormat)) {
     errors.push({
       code: 'unsupported_format',
       field: 'spec.format',
       message: `format must be one of: ${PLATE_FORMATS.join(', ')}`,
     })
+
     return errors // Can't validate dimensions without a known format
   }
 
@@ -355,6 +371,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
 
   // rows
   const rows = spec.rows
+
   if (
     typeof rows !== 'number' ||
     !Number.isInteger(rows) ||
@@ -369,6 +386,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
 
   // cols
   const cols = spec.cols
+
   if (
     typeof cols !== 'number' ||
     !Number.isInteger(cols) ||
@@ -391,12 +409,14 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
 
   // wells
   const wells = spec.wells
+
   if (!Array.isArray(wells)) {
     errors.push({
       code: 'missing_field',
       field: 'spec.wells',
       message: 'wells is required and must be an array',
     })
+
     return errors
   }
 
@@ -411,6 +431,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
 
   // validation config
   const validation = spec.validation
+
   if (!isObject(validation)) {
     errors.push({
       code: 'missing_field',
@@ -431,11 +452,13 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
         field: prefix,
         message: 'well must be an object',
       })
+
       return
     }
 
     // wellCode
     const code = well.wellCode
+
     if (!isString(code)) {
       errors.push({
         code: 'missing_field',
@@ -452,6 +475,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
 
     // row
     const r = well.row
+
     if (
       typeof r !== 'number' ||
       !Number.isInteger(r) ||
@@ -467,6 +491,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
 
     // col
     const c = well.col
+
     if (
       typeof c !== 'number' ||
       !Number.isInteger(c) ||
@@ -493,6 +518,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
       c < actualCols
     ) {
       const expected = wellCode(r, c)
+
       if (code !== expected) {
         errors.push({
           code: 'invalid_well_code',
@@ -517,6 +543,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
 
     // role
     const role = well.role
+
     if (!isString(role) || !ASSIGNMENT_ROLES.includes(role as AssignmentRole)) {
       errors.push({
         code: 'unsupported_role',
@@ -527,6 +554,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
 
     // sampleRef
     const sampleRef = well.sampleRef
+
     if (sampleRef !== undefined && sampleRef !== null) {
       if (!isObject(sampleRef)) {
         errors.push({
@@ -536,6 +564,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
         })
       } else {
         const ref = sampleRef
+
         if (!isString(ref.recordId) || ref.recordId.length === 0) {
           errors.push({
             code: 'invalid_sample_ref',
@@ -544,6 +573,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
               'sampleRef.recordId is required and must be a non-empty string',
           })
         }
+
         if (!isString(ref.identifier)) {
           errors.push({
             code: 'invalid_sample_ref',
@@ -551,6 +581,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
             message: 'sampleRef.identifier is required and must be a string',
           })
         }
+
         if (!isString(ref.title)) {
           errors.push({
             code: 'invalid_sample_ref',
@@ -575,6 +606,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     // volume
     if (well.volume !== undefined && well.volume !== null) {
       const vol = well.volume
+
       if (!isObject(vol)) {
         errors.push({
           code: 'invalid_volume',
@@ -589,6 +621,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
             message: 'volume.value must be a positive finite number',
           })
         }
+
         if (!isNonEmptyString(vol.unit)) {
           errors.push({
             code: 'invalid_volume',
@@ -615,6 +648,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
       const ref = sampleRef
       const repKey = well.replicate ?? 0
       const key = `${ref.recordId}:${role}:${repKey}`
+
       if (!assignmentMap.has(key)) {
         assignmentMap.set(key, [i])
       } else {
@@ -637,6 +671,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
   // Required roles check
   if (isObject(validation)) {
     const requiredRoles = validation.requiredRoles
+
     if (Array.isArray(requiredRoles)) {
       const presentRoles = new Set(
         wells
@@ -644,6 +679,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
           .map((w) => w.role)
           .filter((r): r is string => isString(r)),
       )
+
       for (const required of requiredRoles) {
         if (
           isString(required) &&
@@ -663,6 +699,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
     // Volume constraints
     const volMin = validation.volumeMin
     const volMax = validation.volumeMax
+
     if (volMin !== undefined && typeof volMin !== 'number') {
       errors.push({
         code: 'invalid_value',
@@ -670,6 +707,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
         message: 'volumeMin must be a number',
       })
     }
+
     if (volMax !== undefined && typeof volMax !== 'number') {
       errors.push({
         code: 'invalid_value',
@@ -677,6 +715,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
         message: 'volumeMax must be a number',
       })
     }
+
     if (
       typeof volMin === 'number' &&
       typeof volMax === 'number' &&
@@ -694,7 +733,9 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
       wells.forEach((well, i) => {
         if (!isObject(well)) return
         const vol = well.volume
+
         if (!isObject(vol) || typeof vol.value !== 'number') return
+
         if (typeof volMin === 'number' && vol.value < volMin) {
           errors.push({
             code: 'invalid_volume',
@@ -702,6 +743,7 @@ export function validatePlateMapSpec(spec: unknown): PlateMapSpecError[] {
             message: `volume ${vol.value} ${vol.unit ?? ''} is below minimum ${volMin}`,
           })
         }
+
         if (typeof volMax === 'number' && vol.value > volMax) {
           errors.push({
             code: 'invalid_volume',
@@ -724,6 +766,7 @@ export function validatePlateMapPayload(payload: unknown): PlateMapSpecError[] {
   if (!isObject(payload)) {
     return [{ code: 'invalid_shape', message: 'payload must be an object' }]
   }
+
   if (Object.keys(payload).length === 0) return []
 
   const errors: PlateMapSpecError[] = []
@@ -784,12 +827,15 @@ export function wellsToPlateWells(spec: PlateMapSpec): Array<{
   return spec.wells.map((w) => {
     const roleLabel = ROLE_STYLES[w.role].label
     const parts = [w.wellCode, roleLabel]
+
     if (w.sampleRef) {
       parts.push(w.sampleRef.identifier)
     }
+
     if (w.replicate) {
       parts.push(`rep ${w.replicate}`)
     }
+
     return {
       row: w.row,
       col: w.col,
@@ -865,7 +911,9 @@ export function resolveWellSample(
   live?: LiveSampleObservation,
 ): WellSampleResolution | null {
   const ref = well.sampleRef
+
   if (!ref) return null
+
   if (!live) {
     return {
       state: ref.archived ? 'archived' : 'active',
@@ -873,6 +921,7 @@ export function resolveWellSample(
       snapshotOnly: true,
     }
   }
+
   switch (live.status) {
     case 'loading':
       return { state: 'loading', recordId: ref.recordId, snapshotOnly: false }
@@ -907,21 +956,27 @@ export function liveSampleObservationFromQuery(query: {
   isLoading: boolean
 }): LiveSampleObservation {
   if (query.isLoading) return { status: 'loading' }
+
   if (query.error) {
     return isForbiddenError(query.error)
       ? { status: 'restricted' }
       : { status: 'error' }
   }
+
   if (!query.data) return { status: 'not_found' }
+
   return { status: 'found', archivedAt: query.data.archivedAt }
 }
 
 function isForbiddenError(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false
   const record = error as Record<string, unknown>
+
   if (record.status === 403 || record.statusCode === 403) return true
+
   const message =
     typeof record.message === 'string' ? record.message : String(error)
+
   return /403|forbidden|permission denied|not permitted|unauthorised|unauthorized/i.test(
     message,
   )
@@ -958,11 +1013,14 @@ export function wellSelectionContext(
 ): WellSelectionContext | null {
   if (!isValidWellCode(code, spec.rows, spec.cols)) return null
   const parsed = parseWellCode(code)
+
   if (!parsed) return null
   const well = spec.wells.find((w) => w.wellCode === code) ?? null
+
   const observation = well?.sampleRef
     ? live?.get(well.sampleRef.recordId)
     : undefined
+
   return {
     wellCode: code,
     row: parsed.row,

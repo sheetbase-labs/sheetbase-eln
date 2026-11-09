@@ -74,12 +74,14 @@ function toNeutralValues(values: readonly (readonly string[])[]) {
 /** The engine's own light/dark mode; the ELN keeps the mode on `<html>`. */
 function resolvedGridTheme(): 'light' | 'dark' {
   if (typeof document === 'undefined') return 'light'
+
   return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
 }
 
 /** The engine's scalar union; anything else is stringified for display. */
 function toScalar(value: unknown): string | number | boolean | Date | null {
   if (value == null) return null
+
   if (
     typeof value === 'string' ||
     typeof value === 'number' ||
@@ -87,6 +89,7 @@ function toScalar(value: unknown): string | number | boolean | Date | null {
     value instanceof Date
   )
     return value
+
   return String(value)
 }
 
@@ -99,10 +102,15 @@ function dataTypeOf(
   column: SheetbaseGridColumn,
 ): DatasetFieldHeader['dataType'] {
   if (column.type === 'number') return 'number'
+
   if (column.type === 'checkbox') return 'boolean'
+
   if (column.type === 'date') return 'date'
+
   if (column.type === 'datetime') return 'datetime'
+
   if (column.type === 'record') return 'relationship'
+
   return 'text'
 }
 
@@ -111,17 +119,24 @@ function numberFormatOf(
   pattern: string | undefined,
 ): CellFormat['numberFormat'] | undefined {
   if (!pattern) return undefined
+
   if (pattern.includes('%')) return 'percent'
+
   if (/[¤$€£]/.test(pattern)) return 'currency'
+
   if (/[ymd]/i.test(pattern)) return 'date'
+
   return 'number'
 }
 
 /** Neutral column source + type → the design's Source badge kind. */
 function sourceOf(column: SheetbaseGridColumn): ColumnSource {
   if (column.source === 'calculated') return 'calc'
+
   if (column.type === 'record') return 'record'
+
   if (column.source === 'local') return 'local'
+
   return 'dataset'
 }
 
@@ -162,11 +177,14 @@ function columnGroupsOf(
   const groups: { label: string; columns: number[] }[] = []
   columns.forEach((column, index) => {
     const label = column.group
+
     if (!label) return
     const current = groups.at(-1)
+
     if (current && current.label === label) current.columns.push(index)
     else groups.push({ label, columns: [index] })
   })
+
   return groups.length > 0 ? groups : undefined
 }
 
@@ -184,6 +202,7 @@ function buildDisplayMap(
       )
     })
   })
+
   return map
 }
 
@@ -202,6 +221,7 @@ function buildCellMap(
       })
     })
   })
+
   return map
 }
 
@@ -210,8 +230,11 @@ function toWriteSource(
   source: SpreadsheetMutationSource,
 ): SheetbaseGridWriteSource {
   if (source === 'paste') return 'paste'
+
   if (source === 'fill') return 'fill'
+
   if (source === 'clear') return 'clear'
+
   return 'edit'
 }
 
@@ -221,19 +244,28 @@ function toWriteSource(
  */
 function sourceForLabel(label: string): SpreadsheetMutationSource {
   const text = label.toLowerCase()
+
   if (
     text.startsWith('sort ') ||
     (text.startsWith('clear ') && text.endsWith(' sort'))
   )
     return 'sort'
+
   if (text.startsWith('insert ') || text.startsWith('delete '))
     return 'structure'
+
   if (text.startsWith('revert ')) return 'revert'
+
   if (text.startsWith('move ')) return 'move'
+
   if (text.startsWith('paste')) return 'paste'
+
   if (text.startsWith('autofill') || text.startsWith('fill')) return 'fill'
+
   if (text.startsWith('clear ') || text.startsWith('cut ')) return 'clear'
+
   if (text.startsWith('replace')) return 'replace'
+
   return 'edit'
 }
 
@@ -256,6 +288,7 @@ function neutralOperator(
       [SheetbaseGridFilter['operator'], FilterOperator]
     >
   ).find(([, value]) => value === operator)
+
   return entry?.[0]
 }
 
@@ -283,14 +316,18 @@ function matrixEqual(
   original: readonly (readonly string[])[],
 ): boolean {
   if (values.length !== original.length) return false
+
   for (let row = 0; row < values.length; row += 1) {
     if (values[row].length !== original[row].length) return false
+
     for (let column = 0; column < values[row].length; column += 1) {
       const value = values[row][column]
+
       if ((value == null ? '' : String(value)) !== original[row][column])
         return false
     }
   }
+
   return true
 }
 
@@ -302,6 +339,7 @@ function toClipboardPayload(
   const rows = values.map((row) =>
     row.map((cell) => (cell == null ? '' : String(cell))),
   )
+
   return {
     text: rows.map((row) => row.join('\t')).join('\n'),
     values: rows,
@@ -321,7 +359,9 @@ function clipboardOverride(
   transformed: SheetbaseGridCellValue[][] | void,
 ): SpreadsheetClipboardPayload | undefined {
   const next = transformed ?? values
+
   if (!transformed && matrixEqual(next, payload.values)) return undefined
+
   return toClipboardPayload(payload, next)
 }
 
@@ -351,6 +391,7 @@ function RecordPickerOpener({
   const lastOpened = useRef<string | null>(null)
   useEffect(() => {
     const key = `${row}:${column}`
+
     if (lastOpened.current === key) return
     lastOpened.current = key
     onOpen(
@@ -361,6 +402,7 @@ function RecordPickerOpener({
       },
     )
   }, [row, column, columnId, commit, cancel, onOpen])
+
   return null
 }
 
@@ -409,11 +451,14 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
     () => orderColumnsById(columns, columnOrder),
     [columns, columnOrder],
   )
+
   const orderedRows = useMemo(() => {
     if (!columnOrder?.length) return rows
+
     const indexById = new Map(
       columns.map((column, index) => [column.id, index]),
     )
+
     return rows.map((row) => ({
       id: row.id,
       cells: orderedColumns.map(
@@ -433,9 +478,11 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
         const row = orderedRows.findIndex(
           (candidate) => candidate.id === note.rowId,
         )
+
         const column = orderedColumns.findIndex(
           (candidate) => candidate.id === note.columnId,
         )
+
         return row < 0 || column < 0
           ? []
           : [
@@ -449,14 +496,18 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
       }),
     [props.annotations, orderedRows, orderedColumns],
   )
+
   const [annotationVersion, annotationsChanged] = useReducer(
     (version: number) => version + 1,
     0,
   )
+
   useEffect(() => {
     const handle = handleRef.current
+
     if (!handle) return
     const current = handle.snapshot().annotations ?? []
+
     // 0.6.0 annotation methods capture their render's array. Apply only one
     // change, then let onAnnotationsChange advance to a fresh handle; batching
     // several calls on the same handle silently keeps only the final change.
@@ -471,19 +522,24 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
         )
       )
         continue
+
       // Resolve the old identity afresh. Its former address may now belong to
       // another row; a deleted identity's historical note must never move.
       const row = orderedRows.findIndex(
         (candidate) => candidate.id === previous.recordId,
       )
+
       const column = orderedColumns.findIndex(
         (candidate) => candidate.id === previous.fieldId,
       )
+
       if (row >= 0 && column >= 0) {
         handle.removeAnnotation(cellAddress(row, column))
+
         return
       }
     }
+
     for (const note of annotations) {
       if (
         current.some(
@@ -495,6 +551,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
       )
         continue
       handle.setAnnotation(note.address, note.text)
+
       return
     }
   }, [annotationVersion, annotations, orderedRows, orderedColumns])
@@ -506,9 +563,11 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
         props.columnWidth?.(column.id) ??
         initialColumnWidths?.[index] ??
         column.width
+
       if (width !== undefined) widthById.set(column.id, width)
     })
     const widths = orderedColumns.map((column) => widthById.get(column.id))
+
     return widths.every((width): width is number => width !== undefined)
       ? widths
       : undefined
@@ -521,9 +580,11 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
     .map((column) => column.id)
     .sort()
     .join('|')
+
   const orderKey = columnOrder?.join('|') ?? ''
   useEffect(() => {
     const handle = handleRef.current
+
     if (!handle) return
     const { rows: currentRows, columns: currentColumns } = layoutRef.current
     handle.replaceData(buildCellMap(currentRows, currentColumns))
@@ -535,20 +596,24 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
     () => datasetFields(orderedColumns, readOnly),
     [orderedColumns, readOnly],
   )
+
   // EXP-04.2: contiguous same-source runs become the engine's header groups.
   const columnGroups = useMemo(
     () => columnGroupsOf(orderedColumns),
     [orderedColumns],
   )
+
   const fieldIds = useMemo(
     () => orderedColumns.map((column) => column.id),
     [orderedColumns],
   )
+
   const initialData = useMemo(
     () => buildDisplayMap(layoutRef.current.rows, layoutRef.current.columns),
     // Mount-time snapshot; later data flows through `replaceData`.
     [],
   )
+
   const datasetHeader = useMemo(
     () => ({
       fields,
@@ -571,6 +636,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
     const sort: SortClause[] = (sorts ?? [])
       .filter((entry) => displayIds.has(entry.columnId))
       .map((entry) => ({ fieldId: entry.columnId, direction: entry.direction }))
+
     const filter: FilterClause[] = (filters ?? [])
       .filter((entry) => displayIds.has(entry.columnId))
       .map((entry) => ({
@@ -578,14 +644,17 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
         operator: PACKAGE_OPERATOR[entry.operator],
         value: entry.value ?? undefined,
       }))
+
     return { sort, filters: filter }
   }, [sorts, filters, displayIds])
 
   const announceCut = useMemo(
     () => (message: string) => {
       const cutStatusId = propsRef.current.cutStatusId
+
       if (!cutStatusId || typeof document === 'undefined') return
       const node = document.getElementById(cutStatusId)
+
       if (node) node.textContent = message
     },
     [],
@@ -597,11 +666,14 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
   const rangeHasGuardedColumn = useMemo(
     () => (range: SpreadsheetClipboardRange) => {
       const current = propsRef.current
+
       if (current.readOnly) return true
+
       return range.columnIds.some((columnId) => {
         const column = columnId
           ? current.columns.find((candidate) => candidate.id === columnId)
           : undefined
+
         return column
           ? column.readOnly === true || column.source === 'calculated'
           : false
@@ -614,10 +686,12 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
     () => ({
       onCopy: (payload: SpreadsheetClipboardPayload) => {
         const values = toNeutralValues(payload.values)
+
         const transformed = propsRef.current.clipboard?.onCopy?.(
           values,
           toNeutralRange(payload.range),
         )
+
         return clipboardOverride(payload, values, transformed)
       },
       onCut: (payload: SpreadsheetClipboardPayload) => {
@@ -625,14 +699,18 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
           announceCut(
             'Cut is unavailable because the active range contains read-only or derived cells.',
           )
+
           return false
         }
+
         announceCut('')
         const values = toNeutralValues(payload.values)
+
         const transformed = propsRef.current.clipboard?.onCut?.(
           values,
           toNeutralRange(payload.range),
         )
+
         return clipboardOverride(payload, values, transformed)
       },
       onPaste: (
@@ -640,10 +718,12 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
         target: { row: number; column: number },
       ) => {
         const values = toNeutralValues(payload.values)
+
         const transformed = propsRef.current.clipboard?.onPaste?.(values, {
           row: target.row,
           column: target.column,
         })
+
         return clipboardOverride(payload, values, transformed)
       },
       onCutStatusChange: (status) => {
@@ -661,10 +741,12 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
     () => (changes, source) => {
       if (source === 'sort' || source === 'structure' || source === 'revert')
         return undefined
+
       // A bound grid must never move values between record addresses.
       if (source === 'move') return false
       const current = propsRef.current
       const layout = layoutRef.current
+
       const neutral: SheetbaseGridCellChange[] = changes.map(
         (change: SpreadsheetCellChange) => ({
           rowIndex: change.row,
@@ -679,13 +761,16 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
           editable: change.editable === false ? false : undefined,
         }),
       )
+
       const result = current.beforeCellsChange?.(neutral, toWriteSource(source))
+
       if (result === false) return false
       // Carry host-coerced canonical values back into the applied mutation.
       neutral.forEach((change, index) => {
         changes[index].next =
           change.next == null ? undefined : String(change.next)
       })
+
       return undefined
     },
     [],
@@ -693,12 +778,14 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
 
   const contextMenuActions = useMemo<SpreadsheetMenuAction[]>(() => {
     if (!contextMenuItems) return []
+
     return contextMenuItems.filter(isMenuItem).map((entry) => ({
       id: entry.id,
       label: entry.label,
       disabled: entry.disabled,
       onSelect: ({ axis, index, fieldId }) => {
         const layout = layoutRef.current
+
         const ranges =
           axis === 'row'
             ? [
@@ -717,6 +804,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
                     : layout.columns.map((column) => column.id),
                 },
               ]
+
         entry.onSelect?.({ ranges })
       },
     }))
@@ -726,6 +814,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
   // menu; separators have no package equivalent and are dropped.
   const columnMenuActions = useMemo<SpreadsheetMenuAction[]>(() => {
     if (!columnMenuItems) return []
+
     return columnMenuItems.filter(isMenuItem).map((entry) => ({
       id: entry.id,
       label: entry.label,
@@ -760,6 +849,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
 
   const customEditors = useMemo<SpreadsheetCustomEditor[] | undefined>(() => {
     const editors: SpreadsheetCustomEditor[] = []
+
     // The Record picker is the more specific match (relationship fields), so
     // it is checked before the formula editor.
     if (onOpenRecordPicker) {
@@ -777,6 +867,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
         ),
       })
     }
+
     // COMP-06 step 3: formula-enabled columns edit through the ELN
     // formula-reference editor (in-cell `=…` entry, arrow/click reference
     // picking, and function autocomplete from the shared function list).
@@ -788,10 +879,12 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
       editors.push(
         createFormulaReferenceEditor(({ point }) => {
           const column = orderedColumns.at(point.column)
+
           return column?.formula === true && column.readOnly !== true
         }),
       )
     }
+
     return editors.length > 0 ? editors : undefined
   }, [onOpenRecordPicker, openRecordPicker, orderedColumns])
 
@@ -811,8 +904,10 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
         handleRef.current?.scrollCellIntoView(row, column),
       snapshot: () => {
         const handle = handleRef.current
+
         if (!handle) throw new Error('The Sheet grid is unavailable.')
         const { data, selection } = handle.snapshot()
+
         return {
           data,
           selection: {
@@ -827,12 +922,14 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
     }),
     [],
   )
+
   const handleReady = useMemo(
     () => (handle: SpreadsheetHandle | null) => {
       propsRef.current.onReady?.(handle ? neutralHandle : null)
     },
     [neutralHandle],
   )
+
   useEffect(() => () => propsRef.current.onReady?.(null), [])
 
   // Bound grids route row structure to the host's persistence seams.
@@ -843,12 +940,14 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
         : undefined,
     [],
   )
+
   const handleRowsInserted = useMemo(
     () => (rowIndex: number, count: number) => {
       propsRef.current.onRowsInserted?.(rowIndex, count, 'edit')
     },
     [],
   )
+
   const handleBeforeRowsRemove = useMemo(
     () => (rowIndex: number, count: number) =>
       propsRef.current.onBeforeRowsRemove?.(rowIndex, count) === false
@@ -856,6 +955,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
         : undefined,
     [],
   )
+
   const handleRowsRemoved = useMemo(
     () => (rowIndex: number, count: number) => {
       propsRef.current.onRowsRemoved?.(rowIndex, count, 'edit')
@@ -918,8 +1018,10 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
         const current = propsRef.current
         const captured: SheetbaseGridFilter[] = []
         const capturedIds = new Set<string>()
+
         for (const clause of next) {
           const operator = neutralOperator(clause.operator)
+
           if (!operator) continue
           captured.push({
             columnId: clause.fieldId,
@@ -933,6 +1035,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
           })
           capturedIds.add(clause.fieldId)
         }
+
         // A hidden column has no grid column, so its persisted filter cannot be
         // captured — carry it across so a later capture does not drop it.
         const preserved = (current.filters ?? []).filter(
@@ -940,6 +1043,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
             !displayIds.has(filter.columnId) &&
             !capturedIds.has(filter.columnId),
         )
+
         current.onFiltersChange?.([...preserved, ...captured])
       }}
       onSelectionChange={(selection) => {
@@ -947,15 +1051,20 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
         // An empty address is not A1 and must not retain the previous anchor.
         if (!selection.address || !selection.range) {
           onSelectionChange?.(null)
+
           return
         }
+
         const { row, column } = parseAddress(selection.address)
         const layout = layoutRef.current
         const definition = layout.columns.at(column)
+
         if (!definition) return
+
         const values =
           handleRef.current?.snapshot().data ??
           buildDisplayMap(layout.rows, layout.columns)
+
         const view = buildGridView({
           rowCount: layout.rows.length,
           query: handleRef.current?.getQuery() ?? query,
@@ -963,30 +1072,37 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
             const index = layout.columns.findIndex(
               (field) => field.id === fieldId,
             )
+
             return index < 0 ? undefined : index
           },
           valueAt: (sourceRow, sourceColumn) =>
             values.get(cellAddress(sourceRow, sourceColumn)) ?? '',
           hasRow: (sourceRow) => Boolean(layout.rows[sourceRow]?.id),
         })
+
         const [start, end = start] = selection.range
           .split(':')
           .map(parseAddress)
+
         const rowIds: string[] = []
+
         for (
           let displayRow = Math.min(start.row, end.row);
           displayRow <= Math.max(start.row, end.row);
           displayRow++
         ) {
           const id = layout.rows[viewSourceRow(view, displayRow)]?.id
+
           if (id) rowIds.push(id)
         }
+
         const columnIds = layout.columns
           .slice(
             Math.min(start.column, end.column),
             Math.max(start.column, end.column) + 1,
           )
           .map((field) => field.id)
+
         onSelectionChange?.({
           rowIndex: row,
           rowId: layout.rows[row]?.id,
@@ -999,17 +1115,20 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
       onColumnWidthsChange={(widths) => {
         const previous = widthsRef.current
         widthsRef.current = [...widths]
+
         if (!previous) return
         const layout = layoutRef.current
         widths.forEach((width, index) => {
           if (previous[index] === width) return
           const definition = layout.columns.at(index)
+
           if (definition) onColumnResize?.(definition.id, width)
         })
       }}
       onColumnMove={(from, to) => {
         const order = layoutRef.current.columns.map((column) => column.id)
         const moved = order.splice(from, 1).at(0)
+
         if (moved === undefined) return
         order.splice(to, 0, moved)
         onColumnOrderChange?.(order)
@@ -1018,6 +1137,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
         mutation: Parameters<NonNullable<SpreadsheetProps['onMutation']>>[0],
       ) => {
         const source = sourceForLabel(mutation.label)
+
         if (
           source === 'sort' ||
           source === 'structure' ||
@@ -1025,13 +1145,16 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
           source === 'move'
         )
           return
+
         if (mutation.cells.length === 0) return
         const current = propsRef.current
         const layout = layoutRef.current
         const changes: SheetbaseGridCellChange[] = []
+
         for (const cell of mutation.cells) {
           const { row, column } = parseAddress(cell.address)
           const definition = layout.columns.at(column)
+
           if (!definition) continue
           changes.push({
             rowIndex: row,
@@ -1041,6 +1164,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
             next: cell.after ?? null,
           })
         }
+
         if (changes.length === 0) return
         current.onCellsChange?.(changes, toWriteSource(source))
       }}

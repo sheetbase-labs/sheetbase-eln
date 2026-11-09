@@ -45,7 +45,9 @@ export async function fetchRepeatRows(
   at: Date = new Date(),
 ): Promise<RepeatRow[]> {
   const schedules = await fetchRepeatSchedules(client, kind)
+
   if (schedules.length === 0) return []
+
   const wires = await listByIds(
     schedules.map((s) => s.id),
     (inList) =>
@@ -54,7 +56,9 @@ export async function fetchRepeatRows(
         `?schedule_id=in.(${inList})&select=schedule_id,occurrence_on,outcome,message&order=occurrence_on.asc&limit=5000`,
       ),
   )
+
   const bySchedule = new Map<string, RepeatOccurrence[]>()
+
   for (const wire of wires) {
     const occurrence = toRepeatOccurrence(wire)
     bySchedule.set(occurrence.scheduleId, [
@@ -62,10 +66,12 @@ export async function fetchRepeatRows(
       occurrence,
     ])
   }
+
   const rows = schedules.map((schedule): RepeatRow => {
     const all = bySchedule.get(schedule.id) ?? []
     const today = dayIn(schedule.timezone, at)
     const created = all.filter((o) => o.outcome === 'created')
+
     return {
       schedule,
       made: created.length,
@@ -73,8 +79,10 @@ export async function fetchRepeatRows(
       notMade: all.filter((o) => o.outcome !== 'created'),
     }
   })
+
   // What is still running first, then what has finished.
   const rank = { active: 0, paused: 1, ended: 2 } as const
+
   return rows.sort((a, b) => rank[a.schedule.status] - rank[b.schedule.status])
 }
 
@@ -105,7 +113,9 @@ export function useStartableTemplates(enabled = true) {
       const templates = (
         await fetchNotebookTemplates(notebookDataClient)
       ).filter((template) => template.lifecycle === 'active')
+
       if (templates.length === 0) return []
+
       const versions = await listByIds(
         templates.map((template) => template.id),
         (inList) =>
@@ -114,7 +124,9 @@ export function useStartableTemplates(enabled = true) {
             `?template_id=in.(${inList})&lifecycle=eq.published&select=template_id`,
           ),
       )
+
       const published = new Set(versions.map((v) => v.template_id))
+
       return templates
         .filter((template) => published.has(template.id))
         .map((template) => ({ id: template.id, name: template.name }))

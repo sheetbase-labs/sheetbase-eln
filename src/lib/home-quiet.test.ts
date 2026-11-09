@@ -26,6 +26,7 @@ const TZ = 'Europe/London'
 
 function recent(overrides: Partial<RecentItem>): RecentItem {
   const id = overrides.id ?? 'rec-1'
+
   return {
     kind: 'record',
     id,
@@ -358,6 +359,7 @@ describe('buildComingUp', () => {
         },
       ],
     })
+
     expect(built.map((entry) => entry.key)).toEqual(['booking:inside'])
   })
 
@@ -378,6 +380,7 @@ describe('buildComingUp', () => {
         ),
       ],
     })
+
     const groups = groupComingUp(built, NOW, TZ)
     expect(groups.map((group) => [group.day, group.label])).toEqual([
       ['2026-09-25', 'Today'],
@@ -391,16 +394,19 @@ describe('buildComingUp', () => {
 describe('per-project approval progress', () => {
   it('counts each project’s own approved and in-review experiments', async () => {
     const urls: string[] = []
+
     const client = createDataClient(
       vi.fn<typeof fetch>(async (input) => {
         const url = new URL(String(input), 'http://sheetbase.test')
         urls.push(url.pathname + url.search)
         const approved = url.searchParams.get('status') === 'eq.approved'
+
         return new Response('[{"id":"one-row"}]', {
           headers: { 'content-range': `0-0/${approved ? 9 : 2}` },
         })
       }),
     )
+
     expect(
       await fetchProjectApprovalProgress(client, [
         {
@@ -446,6 +452,7 @@ describe('pickUpItems', () => {
         destination: '/sheets/sheet-1',
       }),
     ]
+
     const picked = pickUpItems(recents, recentStatusLabel, describeRecentChange)
     expect(picked.map((item) => item.identifier)).toEqual([
       'EXP-0145',
@@ -508,6 +515,7 @@ describe('freeInstruments', () => {
       NOW,
       TZ,
     )
+
     // The booking's resource_id IS the instrument id (ADR-0054), so 'busy' is
     // covered, 'later' is next free at 15:00, and a retired instrument is not
     // offered at all.
@@ -535,6 +543,7 @@ describe('freeInstruments', () => {
       NOW,
       TZ,
     )
+
     expect(free[0].label).toBe('Free all day')
   })
 })
@@ -542,25 +551,30 @@ describe('freeInstruments', () => {
 describe('the quiet Home reads', () => {
   it('counts unread notifications through the same authority the bell reads', async () => {
     const urls: string[] = []
+
     const client = createDataClient(
       vi.fn<typeof fetch>(async (input) => {
         const url = new URL(String(input), 'http://sheetbase.test')
         urls.push(url.pathname + url.search)
+
         return new Response('[{"id":"one-row"}]', {
           headers: { 'content-range': '0-0/4' },
         })
       }),
     )
+
     expect(await fetchUnreadNotificationCount(client)).toBe(4)
     expect(urls).toEqual(['/api/db/my_notifications?read_at=is.null'])
   })
 
   it('reads planned ends only inside the window, for experiments that are live', async () => {
     const urls: string[] = []
+
     const client = createDataClient(
       vi.fn<typeof fetch>(async (input) => {
         const url = new URL(String(input), 'http://sheetbase.test')
         urls.push(url.pathname + url.search)
+
         return new Response(
           JSON.stringify([
             {
@@ -574,6 +588,7 @@ describe('the quiet Home reads', () => {
         )
       }),
     )
+
     const window = homeUpcomingWindow(NOW, TZ)
     expect(await fetchUpcomingRecordEnds(client, 'ws-1', window)).toEqual([
       {
@@ -593,10 +608,12 @@ describe('the quiet Home reads', () => {
 
   it('reads milestones for the person’s projects, skipping the delivered ones', async () => {
     const urls: string[] = []
+
     const client = createDataClient(
       vi.fn<typeof fetch>(async (input) => {
         const url = new URL(String(input), 'http://sheetbase.test')
         urls.push(url.pathname + url.search)
+
         return new Response(
           JSON.stringify([
             {
@@ -610,6 +627,7 @@ describe('the quiet Home reads', () => {
         )
       }),
     )
+
     const window = homeUpcomingWindow(NOW, TZ)
     expect(
       await fetchUpcomingMilestones(client, ['project-1'], window),

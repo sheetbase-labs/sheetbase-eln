@@ -45,9 +45,11 @@ export class LocalFileStorage implements ObjectStorage {
     // server-generated and never derived from a user filename, so joining is
     // safe. Resolve and verify the result stays under root.
     const safe = join(this.root, storageKey)
+
     if (!safe.startsWith(this.root)) {
       throw new Error('storage key escapes storage root')
     }
+
     return safe
   }
 
@@ -62,31 +64,39 @@ export class LocalFileStorage implements ObjectStorage {
     let byteSize = 0n
     const handle = await open(target, 'wx', 0o600)
     let oversize = false
+
     try {
       const reader = body.getReader()
+
       for (;;) {
         const { done, value } = await reader.read()
+
         if (done) break
         byteSize += BigInt(value.byteLength)
+
         if (byteSize > BigInt(maxBytes)) {
           oversize = true
           break
         }
+
         hash.update(value)
         await handle.write(value)
       }
     } finally {
       await handle.close()
+
       if (oversize) {
         await rm(target, { force: true })
       }
     }
+
     if (oversize) {
       throw new OversizeError(
         `upload exceeds the ${maxBytes}-byte cap`,
         maxBytes,
       )
     }
+
     return { byteSize, checksum: hash.digest('hex') }
   }
 
@@ -95,6 +105,7 @@ export class LocalFileStorage implements ObjectStorage {
   ): Promise<{ stream: ReadableStream<Uint8Array>; byteSize: number }> {
     const target = this.path(storageKey)
     let info
+
     try {
       info = await stat(target)
     } catch {
@@ -102,8 +113,10 @@ export class LocalFileStorage implements ObjectStorage {
         `storage object not found: ${storageKey}`,
       )
     }
+
     const { createReadStream } = await import('node:fs')
     const nodeStream = createReadStream(target, { highWaterMark: CHUNK_SIZE })
+
     const stream = new ReadableStream<Uint8Array>({
       start(controller) {
         nodeStream.on('data', (chunk) => {
@@ -117,12 +130,14 @@ export class LocalFileStorage implements ObjectStorage {
         nodeStream.destroy()
       },
     })
+
     return { stream, byteSize: info.size }
   }
 
   async head(storageKey: string): Promise<{ byteSize: number } | null> {
     try {
       const info = await stat(this.path(storageKey))
+
       return { byteSize: info.size }
     } catch {
       return null
@@ -140,6 +155,7 @@ export type StorageBackendName = 'database' | 'local' | 's3'
 
 export function s3ConfigFromEnv(): S3StorageConfig | null {
   if (!env.FILE_STORAGE_S3_BUCKET) return null
+
   return {
     bucket: env.FILE_STORAGE_S3_BUCKET,
     endpoint: env.FILE_STORAGE_S3_ENDPOINT,
@@ -154,8 +170,10 @@ export function s3ConfigFromEnv(): S3StorageConfig | null {
 /** Build one named backend from the environment. */
 export function createObjectStorage(name: StorageBackendName): ObjectStorage {
   if (name === 'local') return new LocalFileStorage()
+
   if (name === 'database') return new DatabaseObjectStorage()
   const config = s3ConfigFromEnv()
+
   if (!config) {
     throw new Error(
       'FILE_STORAGE_BACKEND=s3 needs FILE_STORAGE_S3_BUCKET (and, for a ' +
@@ -163,6 +181,7 @@ export function createObjectStorage(name: StorageBackendName): ObjectStorage {
         'and secret).',
     )
   }
+
   return new S3ObjectStorage(config)
 }
 
@@ -191,6 +210,7 @@ export class ChainedObjectStorage implements ObjectStorage {
       return await this.primary.getStream(storageKey)
     } catch (error) {
       if (!(error instanceof MissingStorageObjectError)) throw error
+
       for (const fallback of this.fallbacks) {
         try {
           return await fallback.getStream(storageKey)
@@ -198,22 +218,28 @@ export class ChainedObjectStorage implements ObjectStorage {
           if (!(inner instanceof MissingStorageObjectError)) throw inner
         }
       }
+
       throw error
     }
   }
 
   async head(storageKey: string) {
     const found = await this.primary.head(storageKey)
+
     if (found) return found
+
     for (const fallback of this.fallbacks) {
       const other = await fallback.head(storageKey).catch(() => null)
+
       if (other) return other
     }
+
     return null
   }
 
   async delete(storageKey: string): Promise<void> {
     await this.primary.delete(storageKey)
+
     for (const fallback of this.fallbacks) {
       await fallback.delete(storageKey).catch(() => undefined)
     }
@@ -230,12 +256,16 @@ export function getObjectStorage(): ObjectStorage {
   const name = env.FILE_STORAGE_BACKEND
   const primary = createObjectStorage(name)
   const fallbacks: ObjectStorage[] = []
+
   for (const other of ['database', 'local', 's3'] as const) {
     if (other === name) continue
+
     if (other === 's3' && !s3ConfigFromEnv()) continue
     fallbacks.push(createObjectStorage(other))
   }
+
   cached = new ChainedObjectStorage(primary, fallbacks)
+
   return cached
 }
 
@@ -255,6 +285,7 @@ export function generateStorageKey(
   fileObjectId: string,
 ): string {
   const random = webcrypto.randomUUID().replace(/-/g, '')
+
   return `${workspaceId}/${fileObjectId}/${random}`
 }
 

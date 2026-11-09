@@ -125,6 +125,7 @@ describe('mapEventType with a payload', () => {
     expect(mapEventType('approval_request', 'create', {})).toBe(
       'approval.requested',
     )
+
     for (const state of ['approved', 'returned', 'withdrawn']) {
       expect(mapEventType('approval_request', 'update', { state })).toBe(
         `approval.${state}`,
@@ -214,6 +215,7 @@ describe('buildEventPayload', () => {
       projectId: '00000000-0000-4000-8000-000000000004',
       actorCredentialId: '00000000-0000-4000-8000-000000000005',
     }
+
     const payload = buildEventPayload(event, 'record.created')
     expect(payload.recordId).toBe('00000000-0000-4000-8000-000000000003')
     expect(payload.projectId).toBe('00000000-0000-4000-8000-000000000004')

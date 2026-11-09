@@ -84,10 +84,14 @@ export function parserKindOf(
   signature: Record<string, unknown>,
 ): ParserKind {
   if (isBuiltinParserKey(key)) return 'builtin'
+
   if (signature['webhook'] && typeof signature['webhook'] === 'object')
     return 'webhook'
+
   if (signature['converter'] && typeof signature['converter'] === 'object')
     return 'converter'
+
   if (typeof signature['engine'] === 'string') return 'builtin'
+
   return 'columns'
 }

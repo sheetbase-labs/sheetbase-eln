@@ -62,9 +62,11 @@ describe('operation declarations', () => {
     expect(errors).toEqual([])
     const names = CORE_OPERATIONS.map((op) => op.name)
     expect(new Set(names).size).toBe(names.length)
+
     const tools = CORE_OPERATIONS.flatMap((op) =>
       op.assistant ? [op.assistant.tool] : [],
     )
+
     expect(new Set(tools).size).toBe(tools.length)
   })
 
@@ -86,12 +88,14 @@ describe('operation declarations', () => {
     expect([...AGENT_OPERATION_TOOL_NAMES]).toEqual(
       assistantToolsFrom(CORE_OPERATIONS, 'operation'),
     )
+
     for (const tool of assistantToolsFrom(CORE_OPERATIONS, 'propose'))
       expect(ASSISTANT_PROPOSE_TOOL_NAMES).toContain(tool)
   })
 
   it('put every declared event in the catalogue', () => {
     const names = new Set(EVENT_CATALOGUE.map((e) => e.name))
+
     for (const op of CORE_OPERATIONS)
       for (const event of op.events ?? [])
         expect(names.has(event.name), event.name).toBe(true)
@@ -99,10 +103,12 @@ describe('operation declarations', () => {
 
   it('put every operation with a summary on the API allowlist and docs', () => {
     const dir = join(process.cwd(), 'docs/api')
+
     const doc = readdirSync(dir)
       .filter((file) => file.endsWith('.md'))
       .map((file) => readFileSync(join(dir, file), 'utf8'))
       .join('\n')
+
     for (const name of Object.keys(labRpcsFromOperations(CORE_OPERATIONS))) {
       expect(name in LAB_RPCS, name).toBe(true)
       expect(name in EXTERNAL_RPC_SCOPES, name).toBe(true)

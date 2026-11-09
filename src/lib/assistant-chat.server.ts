@@ -34,21 +34,26 @@ function failureResponse(message: string): Response {
       writer.write({ type: 'error', errorText: message })
     },
   })
+
   return createUIMessageStreamResponse({ stream })
 }
 
 export async function handleAssistantChat(request: Request): Promise<Response> {
   let body: unknown
+
   try {
     body = await request.json()
   } catch {
     return json(400, 'The request was not valid JSON.')
   }
+
   const parsed = assistantChatSchema.safeParse(body)
+
   if (!parsed.success) return json(400, 'The question could not be read.')
   const input = parsed.data
 
   let runtime: Awaited<ReturnType<typeof resolveAssistantRuntime>>
+
   try {
     runtime = await resolveAssistantRuntime(
       input.workspaceId,
@@ -58,6 +63,7 @@ export async function handleAssistantChat(request: Request): Promise<Response> {
   } catch {
     return json(403, 'You do not have access to this workspace.')
   }
+
   if (!runtime.ok) return failureResponse(runtime.result.message)
 
   const started = await streamAssistant(input, runtime.deps, request.signal)
@@ -75,9 +81,11 @@ export async function handleAssistantChat(request: Request): Promise<Response> {
       outcome: started.status,
     }),
   )
+
   if (started.status !== 'ok') return failureResponse(started.message)
 
   const { events } = started
+
   const stream = createUIMessageStream<AssistantUIMessage>({
     execute: async ({ writer }) => {
       const metadata: AssistantMessageMetadata = {
@@ -85,15 +93,18 @@ export async function handleAssistantChat(request: Request): Promise<Response> {
         providerProfile: started.providerProfile,
         sources: started.sources,
       }
+
       writer.write({ type: 'start', messageMetadata: metadata })
       // Text before and after a lookup are separate parts, so a "let me
       // check" line never runs into the final answer.
       let textId: string | null = null
       let textCount = 0
+
       const closeText = () => {
         if (textId !== null) writer.write({ type: 'text-end', id: textId })
         textId = null
       }
+
       try {
         for await (const event of events) {
           if (event.type === 'text') {
@@ -101,9 +112,11 @@ export async function handleAssistantChat(request: Request): Promise<Response> {
               textId = `answer-${textCount++}`
               writer.write({ type: 'text-start', id: textId })
             }
+
             writer.write({ type: 'text-delta', id: textId, delta: event.delta })
           } else if (event.type === 'tool') {
             closeText()
+
             if (event.phase === 'start') {
               writer.write({
                 type: 'tool-input-available',
@@ -150,5 +163,6 @@ export async function handleAssistantChat(request: Request): Promise<Response> {
     },
     onError: () => 'The assistant could not answer. Try again in a moment.',
   })
+
   return createUIMessageStreamResponse({ stream })
 }

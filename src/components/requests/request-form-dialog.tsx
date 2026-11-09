@@ -47,19 +47,23 @@ export function RequestFormDialog({
   initialKey?: string
 }) {
   const queryClient = useQueryClient()
+
   const [modelKey, setModelKey] = useState(
     initialKey ?? forms.at(0)?.model_key ?? '',
   )
+
   useEffect(() => {
     if (open) setModelKey(initialKey ?? forms.at(0)?.model_key ?? '')
   }, [open, initialKey, forms])
   const form = forms.find((f) => f.model_key === modelKey)
 
   const fieldsQuery = useRecordModelFields(modelKey)
+
   const fields = useMemo(
     () => (fieldsQuery.data ?? []).filter((f) => f.lifecycle === 'active'),
     [fieldsQuery.data],
   )
+
   const projects = useRecordModelProjects().data ?? []
 
   const [title, setTitle] = useState('')
@@ -81,10 +85,12 @@ export function RequestFormDialog({
     () => buildRecordModelCustomFields(fields, values),
     [fields, values],
   )
+
   const fieldErrors = useMemo(
     () => modelFieldInputErrors(fields, values),
     [fields, values],
   )
+
   const titleError = title.trim() ? null : t('requests.form.nameRequired')
   const canSend = !titleError && Object.keys(fieldErrors).length === 0
 
@@ -118,6 +124,7 @@ export function RequestFormDialog({
             onSubmit={(event) => {
               event.preventDefault()
               setInteracted(true)
+
               if (canSend && !send.isPending) send.mutate()
             }}
           >

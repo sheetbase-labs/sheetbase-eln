@@ -22,6 +22,7 @@ globalThis.ResizeObserver = class {
   unobserve() {}
   disconnect() {}
 }
+
 Element.prototype.scrollIntoView = () => {}
 
 function sampleWire(overrides: Record<string, unknown> = {}) {
@@ -105,6 +106,7 @@ function mount(
 }
 
 afterEach(() => cleanup())
+
 beforeEach(() => {
   queryClient = new QueryClient()
 })
@@ -114,9 +116,11 @@ describe('ScientificRecordLinker', () => {
     const user = userEvent.setup()
     mount()
     mount()
+
     const [first, second] = screen.getAllByRole('button', {
       name: /link record/i,
     })
+
     expect(first.hasAttribute('aria-controls')).toBe(false)
     expect(second.hasAttribute('aria-controls')).toBe(false)
     await user.click(first)
@@ -152,9 +156,11 @@ describe('ScientificRecordLinker', () => {
     const list = vi.fn().mockResolvedValue([sampleWire()])
     mount({ client: mockClient({ list }) })
     await user.click(screen.getByRole('button', { name: /link record/i }))
+
     const input = await screen.findByPlaceholderText(
       /search samples by identifier or title/i,
     )
+
     expect(input).toBeTruthy()
     // The sample result is fetched and rendered.
     await waitFor(() => {
@@ -164,6 +170,7 @@ describe('ScientificRecordLinker', () => {
 
   it('creates a link via the create_record_link RPC with the protocol link type for protocols', async () => {
     const user = userEvent.setup()
+
     const list = vi.fn().mockResolvedValue([
       {
         ...sampleWire({
@@ -175,6 +182,7 @@ describe('ScientificRecordLinker', () => {
         }),
       },
     ])
+
     const rpc = vi.fn().mockResolvedValue({})
     mount({ client: mockClient({ list, rpc }) })
     await user.click(screen.getByRole('button', { name: /link record/i }))
@@ -196,11 +204,13 @@ describe('ScientificRecordLinker', () => {
   it('shows a friendly error when link creation fails', async () => {
     const user = userEvent.setup()
     const list = vi.fn().mockResolvedValue([sampleWire()])
+
     const rpc = vi
       .fn()
       .mockRejectedValue(
         new DataClientError('SB002', 'record link crosses workspaces', 422),
       )
+
     mount({ client: mockClient({ list, rpc }) })
     await user.click(screen.getByRole('button', { name: /link record/i }))
     await screen.findByText('Virus stock A')
@@ -212,6 +222,7 @@ describe('ScientificRecordLinker', () => {
   it('says already linked when the server rejects a duplicate link', async () => {
     const user = userEvent.setup()
     const list = vi.fn().mockResolvedValue([sampleWire()])
+
     const rpc = vi
       .fn()
       .mockRejectedValue(
@@ -221,6 +232,7 @@ describe('ScientificRecordLinker', () => {
           409,
         ),
       )
+
     mount({ client: mockClient({ list, rpc }) })
     await user.click(screen.getByRole('button', { name: /link record/i }))
     await screen.findByText('Virus stock A')
@@ -232,9 +244,11 @@ describe('ScientificRecordLinker', () => {
   it('renders an existing linked scientific record as a summary', async () => {
     const list = vi.fn().mockImplementation((resource: string) => {
       if (resource === 'record_field_definitions') return Promise.resolve([])
+
       // fetchRecordById
       return Promise.resolve([sampleWire()])
     })
+
     mount({
       client: mockClient({ list }),
       links: [link()],
@@ -328,6 +342,7 @@ describe('ScientificRecordLinker with MODEL-03 rules', () => {
   it('surfaces the server not-allowed rejection honestly', async () => {
     const user = userEvent.setup()
     const list = vi.fn().mockResolvedValue([sampleWire()])
+
     const rpc = vi
       .fn()
       .mockRejectedValue(
@@ -337,6 +352,7 @@ describe('ScientificRecordLinker with MODEL-03 rules', () => {
           400,
         ),
       )
+
     mount({ client: mockClient({ list, rpc }) })
     await user.click(screen.getByRole('button', { name: /link record/i }))
     await screen.findByText('Virus stock A')
@@ -348,6 +364,7 @@ describe('ScientificRecordLinker with MODEL-03 rules', () => {
   it('surfaces the server cardinality rejection honestly', async () => {
     const user = userEvent.setup()
     const list = vi.fn().mockResolvedValue([sampleWire()])
+
     const rpc = vi
       .fn()
       .mockRejectedValue(
@@ -357,6 +374,7 @@ describe('ScientificRecordLinker with MODEL-03 rules', () => {
           400,
         ),
       )
+
     mount({ client: mockClient({ list, rpc }) })
     await user.click(screen.getByRole('button', { name: /link record/i }))
     await screen.findByText('Virus stock A')

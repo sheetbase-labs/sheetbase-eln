@@ -8,7 +8,9 @@ export async function loadSequenceFile(
   fileRecordId: string,
 ): Promise<ParsedSequence[]> {
   const res = await fetch(`/api/files/${fileRecordId}/download`)
+
   if (!res.ok) throw new Error(`The file could not be opened (${res.status}).`)
+
   return parseSequenceFile(await res.text())
 }
 

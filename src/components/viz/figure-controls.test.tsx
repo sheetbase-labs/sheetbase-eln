@@ -37,9 +37,11 @@ describe('FigureControls', () => {
 
   it('writes the legend and caption and flags an impossible range', () => {
     const onChange = vi.fn()
+
     const { rerender } = render(
       <FigureControls spec={spec} onSpecChange={onChange} />,
     )
+
     fireEvent.change(screen.getByLabelText('Legend position'), {
       target: { value: 'bottom' },
     })
@@ -52,12 +54,14 @@ describe('FigureControls', () => {
     expect((onChange.mock.calls[1][0] as ChartSpec).display.caption).toBe(
       'Growth curve',
     )
+
     const bad = {
       display: {
         ...spec.display,
         axes: { ...spec.display.axes, y: { scale: 'linear', min: 5, max: 1 } },
       },
     } as unknown as ChartSpec
+
     rerender(<FigureControls spec={bad} onSpecChange={onChange} />)
     expect(screen.getByRole('alert').textContent).toMatch(/below the maximum/)
   })

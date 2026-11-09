@@ -21,15 +21,19 @@ import { t } from '#/copy'
 
 export function PluginTable({ table }: { table: FrameTable }) {
   const router = useRouter()
+
   const [chosen, setChosen] = React.useState<{
     key: string
     descending: boolean
   } | null>(null)
+
   const sort = chosen ?? table.sort ?? null
+
   const rows = React.useMemo(
     () => sortFrameRows(table.rows, sort),
     [table.rows, sort],
   )
+
   return (
     <TableBox className="mt-3">
       <Table caption={t('plugins.screen.tableCaption')}>
@@ -37,6 +41,7 @@ export function PluginTable({ table }: { table: FrameTable }) {
           <tr>
             {table.columns.map((column) => {
               const active = sort?.key === column.key
+
               return (
                 <TableHead
                   key={column.key}
@@ -75,6 +80,7 @@ export function PluginTable({ table }: { table: FrameTable }) {
             <TableRow key={row.id}>
               {table.columns.map((column) => {
                 const cell = row.cells[column.key] ?? {}
+
                 const content = (
                   <>
                     {cell.svg ? (
@@ -89,6 +95,7 @@ export function PluginTable({ table }: { table: FrameTable }) {
                     {cell.text !== undefined ? cell.text : null}
                   </>
                 )
+
                 return (
                   <TableCell
                     key={column.key}

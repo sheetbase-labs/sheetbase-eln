@@ -1,5 +1,6 @@
 /** A parsed biological sequence with its annotated features. */
 export type MoleculeType = 'dna' | 'rna' | 'protein'
+
 export type Topology = 'linear' | 'circular'
 
 /** One stretch of a feature. Positions are 1-based and inclusive. */

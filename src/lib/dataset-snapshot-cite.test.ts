@@ -15,6 +15,7 @@ const input = {
 
 function clientWith(linkError?: unknown) {
   const calls: { fn: string; args: Record<string, unknown> }[] = []
+
   const client = {
     list: vi.fn(async () => [
       {
@@ -27,7 +28,9 @@ function clientWith(linkError?: unknown) {
     ]),
     rpc: vi.fn(async (fn: string, args: Record<string, unknown>) => {
       calls.push({ fn, args })
+
       if (fn === 'create_record_link' && linkError) throw linkError
+
       if (fn === 'insert_block') {
         return {
           block: {
@@ -41,9 +44,11 @@ function clientWith(linkError?: unknown) {
           structure_version: 8,
         }
       }
+
       return {}
     }),
   } as unknown as DataClient
+
   return { client, calls }
 }
 
@@ -77,6 +82,7 @@ describe('citeSnapshotInNotebook', () => {
       status: 409,
       code: '23505',
     })
+
     const { client } = clientWith(duplicate)
     await expect(citeSnapshotInNotebook(client, input)).resolves.toBeTruthy()
   })

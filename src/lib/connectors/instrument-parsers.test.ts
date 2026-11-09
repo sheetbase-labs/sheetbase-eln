@@ -67,6 +67,7 @@ describe('plate grid parser', () => {
     const parsed = parsePlateGridCsv(
       `Plate 1\n,1,2\nA,1,2\n\nPlate 2\n,1,2\nA,3,4\n`,
     )
+
     expect(parsed.headers[0]).toBe('Plate')
     expect(parsed.rows.map((r) => r.Plate)).toEqual([
       'Plate 1',
@@ -126,6 +127,7 @@ describe('JSON records parser', () => {
     const parsed = parseJsonRecords(
       '{"metadata":{"Serial No":"S1"},"rows":[{"w":"A1"}]}',
     )
+
     expect(parsed.metadata.serial_no).toBe('S1')
     expect(parsed.rows).toEqual([{ w: 'A1' }])
   })

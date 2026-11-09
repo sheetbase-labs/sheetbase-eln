@@ -50,6 +50,7 @@ function asText(value: string | number | boolean | null): string {
   // A blank stays blank: a service that has no value says null, and Sheetbase
   // never turns that into a zero or a word.
   if (value === null) return ''
+
   return typeof value === 'string' ? value : String(value)
 }
 
@@ -58,6 +59,7 @@ export function readWebhookParserAnswer(
   body: unknown,
 ): ParsedInstrumentPayload {
   const parsed = responseSchema.safeParse(body)
+
   if (!parsed.success) {
     const issue = parsed.error.issues[0]
     throw new WebhookParserError(
@@ -65,9 +67,11 @@ export function readWebhookParserAnswer(
       `The parser’s answer isn’t in the expected shape (${issue.path.join('.') || 'body'}: ${issue.message}).`,
     )
   }
+
   const { rows, metadata, warnings } = parsed.data
   const headers = parsed.data.headers ?? []
   const known = new Set(headers)
+
   for (const row of rows) {
     for (const key of Object.keys(row)) {
       if (!known.has(key)) {
@@ -77,17 +81,20 @@ export function readWebhookParserAnswer(
             `A row has a column “${key}” that isn’t in the answer’s headers.`,
           )
         }
+
         known.add(key)
         headers.push(key)
       }
     }
   }
+
   if (headers.length > WEBHOOK_PARSER_MAX_COLUMNS) {
     throw new WebhookParserError(
       'webhook_bad_answer',
       `The answer has more than ${WEBHOOK_PARSER_MAX_COLUMNS} columns.`,
     )
   }
+
   return {
     headers,
     rows: rows.map((row) =>
@@ -108,6 +115,7 @@ export function readWebhookParserError(
   if (body && typeof body === 'object' && 'error' in body) {
     const error = (body as { error?: { code?: unknown; message?: unknown } })
       .error
+
     if (error && typeof error.message === 'string' && error.message.trim()) {
       return new WebhookParserError(
         'webhook_refused',
@@ -115,6 +123,7 @@ export function readWebhookParserError(
       )
     }
   }
+
   return new WebhookParserError(
     'webhook_error',
     `The parser service answered with status ${status}.`,
@@ -126,20 +135,28 @@ export function webhookTarget(
   signature: Record<string, unknown>,
 ): { url: string } | null {
   const webhook = signature['webhook']
+
   if (webhook && typeof webhook === 'object' && 'url' in webhook) {
     const url = webhook.url
+
     if (typeof url === 'string' && url) return { url }
   }
+
   return null
 }
 
 /** The type a file is sent as, from its name; the service gets the raw bytes either way. */
 export function webhookMediaType(fileName: string): string {
   if (/\.json$/i.test(fileName)) return 'application/json'
+
   if (/\.csv$/i.test(fileName)) return 'text/csv'
+
   if (/\.tsv$/i.test(fileName)) return 'text/tab-separated-values'
+
   if (/\.txt$/i.test(fileName)) return 'text/plain'
+
   if (/\.xlsx$/i.test(fileName))
     return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
   return 'application/octet-stream'
 }

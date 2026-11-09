@@ -43,7 +43,9 @@ const str = (value: unknown): string => (typeof value === 'string' ? value : '')
 export function verificationCodeFor(digest: string | null): string | null {
   if (!digest) return null
   const hex = digest.replace(/[^0-9a-f]/gi, '').toUpperCase()
+
   if (hex.length < 12) return null
+
   return `${hex.slice(0, 4)}-${hex.slice(4, 8)}-${hex.slice(8, 12)}`
 }
 
@@ -61,8 +63,10 @@ export function revisionPackageToDocument(
     integrityDigest:
       str(s.revision_integrity_digest) || (pkg.revision.integrityDigest ?? ''),
   }))
+
   const last = signatures.at(-1)
   const structure = Number(pkg.revision.structureVersion)
+
   return {
     recordId: pkg.revision.id,
     identifier: pkg.record?.identifier ?? pkg.revision.id,

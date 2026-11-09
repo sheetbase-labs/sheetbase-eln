@@ -55,7 +55,9 @@ describe('file-policy', () => {
       byteSize: 1024,
       checksum: 'a'.repeat(64),
     })
+
     expect(res.ok).toBe(true)
+
     if (res.ok) {
       expect(res.value.displayName).toBe('run07.csv')
       expect(res.value.byteSize).toBe(1024)
@@ -69,7 +71,9 @@ describe('file-policy', () => {
       byteSize: FILE_MAX_BYTES + 1,
       checksum: 'not-hex',
     })
+
     expect(res.ok).toBe(false)
+
     if (!res.ok) {
       expect(res.violations.map((v) => v.field)).toContain('byteSize')
       expect(res.violations.map((v) => v.field)).toContain('mediaType')
@@ -82,6 +86,7 @@ describe('file-policy', () => {
       mediaType: 'text/csv',
       byteSize: 10,
     })
+
     expect(res.ok).toBe(false)
   })
 
@@ -91,7 +96,9 @@ describe('file-policy', () => {
       mediaType: 'text/csv',
       byteSize: 10,
     })
+
     expect(res.ok).toBe(true)
+
     if (res.ok) expect(res.value.checksum).toBeNull()
   })
 })
@@ -161,9 +168,11 @@ describe('LocalFileStorage', () => {
 
     for (;;) {
       const { done, value } = await reader.read()
+
       if (done) break
       acc += new TextDecoder().decode(value)
     }
+
     expect(acc).toBe('stream me back')
     expect(byteSize).toBe(payload.byteLength)
   })
@@ -173,6 +182,7 @@ describe('LocalFileStorage', () => {
       '00000000-0000-4000-8000-000000000004',
       newFileObjectId(),
     )
+
     expect(await storage.head(key)).toBeNull()
     await expect(storage.getStream(key)).rejects.toBeInstanceOf(
       MissingStorageObjectError,
@@ -197,33 +207,42 @@ describe('allowed media type list', () => {
 describe('ChainedObjectStorage', () => {
   const memory = (initial: Record<string, string> = {}) => {
     const objects = new Map(Object.entries(initial))
+
     const storage: ObjectStorage = {
       async putStream(key, body) {
         const reader = body.getReader()
         const parts: Buffer[] = []
+
         for (;;) {
           const { done, value } = await reader.read()
+
           if (done) break
           parts.push(Buffer.from(value))
         }
+
         const data = Buffer.concat(parts)
         objects.set(key, data.toString())
+
         return { byteSize: BigInt(data.length), checksum: 'x' }
       },
       async getStream(key) {
         const found = objects.get(key)
+
         if (found === undefined) throw new MissingStorageObjectError(key)
         const bytes = Buffer.from(found)
+
         return { stream: streamOf(bytes), byteSize: bytes.length }
       },
       async head(key) {
         const found = objects.get(key)
+
         return found === undefined ? null : { byteSize: found.length }
       },
       async delete(key) {
         objects.delete(key)
       },
     }
+
     return { storage, objects }
   }
 

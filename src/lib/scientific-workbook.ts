@@ -34,31 +34,37 @@ export interface WorkbookColumn {
   logicalType: ScientificLogicalType
   categoryOptionIds?: readonly string[]
 }
+
 export interface WorkbookCell {
   literal?: unknown
   /** Untrusted persisted JSON; validated recursively before engine use. */
   formula?: unknown
 }
+
 export interface WorkbookRow {
   id: string
   createdAt: string | Date
   cells: Readonly<Record<string, WorkbookCell | undefined>>
 }
+
 export interface WorkbookTable {
   id: string
   name?: string
   columns: readonly WorkbookColumn[]
   rows: readonly WorkbookRow[]
 }
+
 export interface WorkbookCellAddress {
   tableId: string
   rowId: string
   columnId: string
 }
+
 /** A cell the engine recalculated as a side effect of a write. */
 export interface WorkbookChange {
   address: WorkbookCellAddress
 }
+
 export type WorkbookResult =
   | {
       status: 'literal' | 'formula'
@@ -112,6 +118,7 @@ export class ScientificWorkbook {
 
   constructor(tables: readonly WorkbookTable[]) {
     this.engine = new Workbook()
+
     const stable = <T extends { id: string; createdAt: string | Date }>(
       values: readonly T[],
     ) =>
@@ -120,11 +127,13 @@ export class ScientificWorkbook {
           `${new Date(b.createdAt).toISOString()}/${b.id}`,
         ),
       )
+
     const normalized = tables.map((table) => ({
       ...table,
       rows: stable(table.rows),
       columns: stable(table.columns),
     }))
+
     // Register every engine sheet before installing any formula so a valid
     // reference never depends on notebook block render/registration order.
     for (const table of normalized) {
@@ -138,6 +147,7 @@ export class ScientificWorkbook {
       this.sheetNames.set(table.id, sheetName)
       this.worksheets.set(table.id, this.engine.sheet(sheetName))
     }
+
     for (const table of normalized) this.installTable(table)
   }
 
@@ -180,14 +190,17 @@ export class ScientificWorkbook {
   private installTable(table: WorkbookTable) {
     const sheetName = this.sheetNames.get(table.id)!
     const maps = this.maps(table)
+
     for (const [row, rowData] of table.rows.entries()) {
       for (const [column, columnData] of table.columns.entries()) {
         const { a1, identity } = this.address(table, row, column)
         this.addresses.set(`${table.id}/${a1}`, identity)
         const cell = rowData.cells[columnData.id]
+
         if (cell?.formula) {
           const formula = validatePersistedFormulaArtifact(cell.formula)
           this.formulas.set(this.key(identity), formula)
+
           // Unsupported artifacts remain durable and visible to callers, but
           // must never be interpreted by a calculation engine on reload.
           if (formula.status === 'supported') {
@@ -195,6 +208,7 @@ export class ScientificWorkbook {
             continue
           }
         }
+
         this.engine.set(
           sheetName,
           a1,
@@ -205,10 +219,14 @@ export class ScientificWorkbook {
   }
   private locate(address: WorkbookCellAddress) {
     const table = this.tables.get(address.tableId)
+
     if (!table) throw new Error('Unknown table.')
+
     const row = table.rows.findIndex((item) => item.id === address.rowId),
       column = table.columns.findIndex((item) => item.id === address.columnId)
+
     if (row < 0 || column < 0) throw new Error('Unknown stable cell identity.')
+
     return {
       table,
       row,
@@ -224,6 +242,7 @@ export class ScientificWorkbook {
     error: unknown,
   ): WorkbookResult {
     const message = error instanceof Error ? error.message : String(error)
+
     return {
       status: 'error',
       source,
@@ -246,21 +265,27 @@ export class ScientificWorkbook {
     const location = this.locate(address)
     const a1 = addressKey({ row: location.row, column: location.column })
     const worksheet = this.worksheets.get(address.tableId)!
+
     const formula = this.formulas.get(this.key(address)),
       engineFormula =
         worksheet.binding(a1)?.kind === 'formula'
           ? worksheet.input(a1)
           : undefined
+
     let raw: unknown
+
     try {
       raw = worksheet.value(a1)
     } catch (error) {
       return this.errorResult(formula?.source, engineFormula, error)
     }
+
     const value = normalizeEngineScalar(raw)
+
     // A spilled matrix is not a scalar cell value for this profile.
     if (value !== null && typeof value === 'object')
       return this.errorResult(formula?.source, engineFormula, '#VALUE!')
+
     return {
       status: formula ? 'formula' : 'literal',
       source: formula?.source,
@@ -281,25 +306,31 @@ export class ScientificWorkbook {
     const changes: WorkbookChange[] = []
     const seen = new Set<string>()
     const queue: Array<readonly [string, string]> = [[tableId, a1]]
+
     while (queue.length) {
       const current = queue.shift()!
       const [currentTableId, currentA1] = current
       const key = `${currentTableId}/${currentA1}`
+
       if (seen.has(key)) continue
       seen.add(key)
       const identity = this.addresses.get(key)
+
       if (!identity) continue
       changes.push({ address: identity })
       const worksheet = this.worksheets.get(currentTableId)!
+
       for (const dependent of worksheet.dependents(currentA1))
         queue.push([currentTableId, dependent])
       const qualified = `${this.sheetNames.get(currentTableId)}!${currentA1}`
+
       for (const [otherTableId, other] of this.worksheets) {
         for (const formula of other.formulaAddresses())
           if (other.dependencyAddresses(formula).includes(qualified))
             queue.push([otherTableId, formula])
       }
     }
+
     return changes
   }
   private write(
@@ -313,19 +344,23 @@ export class ScientificWorkbook {
       row,
       column,
     )
+
     this.addresses.set(`${tableId}/${a1}`, identity)
     this.engine.set(this.sheetNames.get(tableId)!, a1, binding)
+
     return a1
   }
   setLiteral(address: WorkbookCellAddress, value: unknown): WorkbookChange[] {
     const location = this.locate(address)
     this.formulas.delete(this.key(address))
+
     const a1 = this.write(
       address.tableId,
       location.row,
       location.column,
       encodeScientificLiteral(location.logicalType, value),
     )
+
     return this.affected(address.tableId, a1)
   }
   setFormula(
@@ -344,6 +379,7 @@ export class ScientificWorkbook {
       } {
     const location = this.locate(address),
       parsed = parseFormula(source, this.maps(location.table))
+
     if (parsed.status === 'unsupported')
       return {
         status: 'unsupported',
@@ -351,17 +387,21 @@ export class ScientificWorkbook {
         functionIds: parsed.functionIds,
       }
     const artifact = parsed.artifact
+
     // Real-target normalization is a compatibility check, not persisted meaning.
     try {
       compileFormula(artifact.engineExpression)
     } catch {
       throw new Error('The formula engine rejected the normalized expression.')
     }
+
     const a1 = this.write(address.tableId, location.row, location.column, {
       kind: 'formula',
       expression: artifact.engineExpression,
     })
+
     this.formulas.set(this.key(address), artifact)
+
     return {
       status: 'supported',
       artifact,
@@ -380,6 +420,7 @@ export class ScientificWorkbook {
   }
   describe(address: WorkbookCellAddress) {
     const location = this.locate(address)
+
     return {
       tableName: location.table.name ?? location.table.id,
       columnName:
@@ -396,6 +437,7 @@ export class ScientificWorkbook {
     this.tables.clear()
   }
 }
+
 export function buildScientificWorkbook(tables: readonly WorkbookTable[]) {
   return new ScientificWorkbook(tables)
 }

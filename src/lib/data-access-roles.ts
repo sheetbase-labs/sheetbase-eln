@@ -32,6 +32,8 @@ export function hasDataAccess(
   roles: readonly string[] | null | undefined,
 ): boolean {
   if (!role) return false
+
   if (ALWAYS_DATA_ACCESS_ROLES.includes(role)) return true
+
   return (roles ?? DEFAULT_DATA_ACCESS_ROLES).includes(role)
 }

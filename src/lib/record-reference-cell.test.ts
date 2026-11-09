@@ -42,16 +42,19 @@ describe('Record-reference cell contract', () => {
     expect(() =>
       parsePersistedRecordReference('SMP-2026-0001', { nullable: true }),
     ).toThrow(RecordReferenceCellError)
+
     try {
       parsePersistedRecordReference('SMP-2026-0001', { nullable: true })
     } catch (error) {
       expect(error).toMatchObject({ code: 'label-identity' })
     }
+
     try {
       parsePersistedRecordReference('LV harvest', { nullable: true })
     } catch (error) {
       expect(error).toMatchObject({ code: 'not-uuid' })
     }
+
     expect(() =>
       parsePersistedRecordReference(null, { nullable: false }),
     ).toThrowError(/required/)
@@ -85,20 +88,24 @@ describe('Record-reference cell contract', () => {
     expect(formatRecordReferenceLabel(snapshot)).toBe(
       'SMP-2026-0001 · LV harvest',
     )
+
     const renamed = snapshotFromRecord(
       { ...sampleRecord, title: 'LV harvest renamed' },
       'sample',
     )
+
     const before = resolveRecordReferenceState({
       persistedId: SAMPLE_ID,
       snapshot,
       targetModelKey: 'sample',
     })
+
     const after = resolveRecordReferenceState({
       persistedId: SAMPLE_ID,
       snapshot: renamed,
       targetModelKey: 'sample',
     })
+
     expect(before).toMatchObject({ kind: 'present', recordId: SAMPLE_ID })
     expect(after).toMatchObject({ kind: 'present', recordId: SAMPLE_ID })
     expect(formatRecordReferenceLabel(renamed)).toBe(
@@ -140,10 +147,12 @@ describe('Record-reference cell contract', () => {
       }),
     ).toEqual({ kind: 'missing', recordId: SAMPLE_ID })
     const live = snapshotFromRecord(sampleRecord, 'sample')
+
     const archived = snapshotFromRecord(
       { ...sampleRecord, archivedAt: '2026-08-15T00:00:00.000Z' },
       'sample',
     )
+
     expect(
       resolveRecordReferenceState({
         persistedId: SAMPLE_ID,

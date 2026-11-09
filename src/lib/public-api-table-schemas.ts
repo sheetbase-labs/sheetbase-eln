@@ -1836,11 +1836,13 @@ const INSERT_REQUIRED: Record<string, string[]> = {
 
 export function tableInsertSchema(table: string): JsonSchema {
   const rowSchema = TABLE_ROW_SCHEMAS[table]
+
   const properties = Object.fromEntries(
     Object.entries(rowSchema.properties as Record<string, JsonSchema>).filter(
       ([key]) => !INSERT_OMIT.has(key),
     ),
   )
+
   return {
     type: 'object',
     additionalProperties: false,
@@ -1851,6 +1853,7 @@ export function tableInsertSchema(table: string): JsonSchema {
 
 export function tablePatchSchema(table: string): JsonSchema {
   const insert = tableInsertSchema(table)
+
   return {
     type: 'object',
     additionalProperties: false,
@@ -1879,9 +1882,11 @@ Object.assign(TABLE_ROW_SCHEMAS, labTableRowSchemas())
 const missingTables = Object.keys(EXTERNAL_TABLE_ACCESS).filter(
   (name) => !Object.hasOwn(TABLE_ROW_SCHEMAS, name),
 )
+
 const extraTables = Object.keys(TABLE_ROW_SCHEMAS).filter(
   (name) => !Object.hasOwn(EXTERNAL_TABLE_ACCESS, name),
 )
+
 if (missingTables.length > 0 || extraTables.length > 0) {
   throw new Error(
     `TABLE_ROW_SCHEMAS must match EXTERNAL_TABLE_ACCESS (missing ${missingTables.join(',')}; extra ${extraTables.join(',')})`,

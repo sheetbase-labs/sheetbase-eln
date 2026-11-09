@@ -53,24 +53,29 @@ export async function resolveRegistryObject(
   identifier: string,
 ): Promise<ResolvedObject | null> {
   const exact = encodeURIComponent(identifier)
+
   const settled = await Promise.allSettled(
     REGISTRIES.map(async (registry) => {
       const rows = await client.list<RegistryRow>(
         registry.table,
         `?display_id=eq.${exact}&select=id,display_id,${registry.titleColumn}&limit=1`,
       )
+
       return { registry, row: rows.at(0) ?? null }
     }),
   )
+
   // A registry that cannot be read must not hide the one that can; a lookup
   // where every registry failed is an error, not a miss.
   if (settled.every((result) => result.status === 'rejected')) {
     throw settled[0].reason
   }
+
   for (const result of settled) {
     if (result.status !== 'fulfilled' || !result.value.row) continue
     const { registry, row } = result.value
     const title = row[registry.titleColumn]
+
     return {
       source: 'registry',
       id: row.id,
@@ -79,6 +84,7 @@ export async function resolveRegistryObject(
       title: typeof title === 'string' && title ? title : identifier,
     }
   }
+
   return null
 }
 
@@ -90,8 +96,11 @@ async function resolveAlias(
     'record_aliases',
     `?alias=ilike.${encodeURIComponent(identifier)}&select=record_id,alias&limit=1`,
   )
+
   const alias = aliases.at(0)
+
   if (!alias) return null
+
   const records = await client.list<{
     id: string
     identifier: string
@@ -101,7 +110,9 @@ async function resolveAlias(
     'records',
     `?id=eq.${encodeURIComponent(alias.record_id)}&deleted_at=is.null&select=id,identifier,kind,title&limit=1`,
   )
+
   const record = records.at(0)
+
   return record
     ? { source: 'record', ...record, matchedAlias: alias.alias }
     : null
@@ -113,11 +124,15 @@ export async function resolveObjectByIdentifier(
   identifier: string,
 ): Promise<ResolvedObject | null> {
   const trimmed = identifier.trim()
+
   if (!trimmed) return null
   const record = await resolveRecordByIdentifier(client, trimmed)
+
   if (record) return { source: 'record', ...record }
   const registry = await resolveRegistryObject(client, trimmed)
+
   if (registry) return registry
+
   return resolveAlias(client, trimmed)
 }
 

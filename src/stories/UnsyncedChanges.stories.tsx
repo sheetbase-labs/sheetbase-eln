@@ -24,7 +24,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof UnsyncedChangesList>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** One row for each kind of edit: block text, cell, added row and comment. */

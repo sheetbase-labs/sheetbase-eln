@@ -36,6 +36,7 @@ function largeSnapshot(): ComposedSheetSnapshot {
     presentation: { kind: 'text', inputType: 'text' },
     permission: { editability: 'editable' },
   }))
+
   const rows = Array.from({ length: ROW_COUNT }, (_, row) => ({
     rowKey: `sb-row-v1:row-${row}`,
     values: Object.fromEntries(
@@ -45,6 +46,7 @@ function largeSnapshot(): ComposedSheetSnapshot {
       ]),
     ),
   }))
+
   return {
     boundProjection: { columns, rows },
   } as unknown as ComposedSheetSnapshot
@@ -60,10 +62,12 @@ function largeInstance(): SheetInstance {
 describe('GRID-05 canonical grid performance budgets', () => {
   it('builds the canonical matrix within budget', () => {
     const start = performance.now()
+
     const matrix = canonicalSheetGridMatrix({
       instance: largeInstance(),
       composition: largeSnapshot(),
     })
+
     const elapsed = performance.now() - start
     console.log(`canonicalSheetGridMatrix 5k x 8: ${elapsed.toFixed(1)}ms`)
     expect(matrix.rowKeys).toHaveLength(ROW_COUNT)
@@ -78,6 +82,7 @@ describe('GRID-05 canonical grid performance budgets', () => {
       instance: largeInstance(),
       composition: largeSnapshot(),
     })
+
     const presentation = {
       columnOrder: [columnId(7), columnId(0)],
       hiddenColumnIds: [columnId(1)],
@@ -86,6 +91,7 @@ describe('GRID-05 canonical grid performance budgets', () => {
       filters: [],
       sorts: [],
     } as unknown as SheetPresentation
+
     const start = performance.now()
     const projected = applySheetPresentation(matrix, presentation)
     const elapsed = performance.now() - start
@@ -108,21 +114,25 @@ describe('GRID-05 canonical grid performance budgets', () => {
     const columns = Array.from({ length: COLUMN_COUNT }, (_, column) => ({
       id: columnId(column),
     }))
+
     const stack: HotFilterConditionStack[] = columns.flatMap((_, column) => [
       { column, conditions: [{ name: 'eq', args: [`v${column}`] }] },
       { column, conditions: [{ name: 'not_empty', args: [] }] },
       { column, conditions: [{ name: 'empty', args: [] }] },
       { column, conditions: [{ name: 'true', args: [] }] },
     ])
+
     const start = performance.now()
     const captured = hotFiltersToPresentationFilters(stack, columns)
     const additions = presentationFiltersToHotAdditions(captured, columns)
+
     const preserved = preserveHiddenColumnFilters(
       captured.slice(0, 8),
       captured,
       columns,
       columns.slice(0, 4),
     )
+
     const elapsed = performance.now() - start
     console.log(`filter capture/restore 32-stack: ${elapsed.toFixed(3)}ms`)
     expect(captured).toHaveLength(32)

@@ -25,9 +25,11 @@ export function deviceOfflineEditStore(): OfflineEditStore {
       async putEdit(scope, draft) {
         const edit = await store.putEdit(scope, draft)
         void requestBackgroundSync()
+
         return edit
       },
     }
   }
+
   return deviceStore
 }

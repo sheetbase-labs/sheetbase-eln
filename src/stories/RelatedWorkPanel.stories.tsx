@@ -44,7 +44,9 @@ function client(seed: RelatedWorkItem[]) {
   const instance = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+
   instance.setQueryData(relatedWorkQueryKeys.related(KIND, ID), seed)
+
   return instance
 }
 
@@ -65,7 +67,9 @@ const meta = {
   decorators: [withClient(items)],
   args: { kind: KIND, id: ID },
 } satisfies Meta<typeof RelatedWorkPanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Resolved items, each with its transparent reason and destination. */

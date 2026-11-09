@@ -36,6 +36,7 @@ function context(
       Promise.resolve(tables[resource]?.(query) ?? []),
     rpc: vi.fn(() => Promise.resolve({})),
   } as unknown as DataClient
+
   return {
     client,
     workspaceId: 'ws',
@@ -52,6 +53,7 @@ describe('experiment, alias and label template assistant cards', () => {
       expect(ASSISTANT_PROPOSE_TOOL_NAMES).toContain(name)
       expect(isExperimentProposalTool(name)).toBe(true)
     }
+
     expect(experimentProposalDefs()).toHaveLength(
       EXPERIMENT_PROPOSE_TOOL_NAMES.length,
     )
@@ -63,17 +65,20 @@ describe('experiment, alias and label template assistant cards', () => {
       { ...base, experiment: 'EXP-0012' },
       context({ records: () => [EXP] }),
     )
+
     expect(draft.ok && draft.proposal.action).toEqual({
       kind: 'experiments.start',
       recordId: EXP.id,
       reason: null,
     })
     expect(isExperimentAction({ kind: 'experiments.start' })).toBe(true)
+
     const running = await buildExperimentProposal(
       EXPERIMENT_START_TOOL,
       { ...base, experiment: 'EXP-0012' },
       context({ records: () => [{ ...EXP, status: 'in_progress' }] }),
     )
+
     expect(running).toEqual({
       ok: false,
       message: 'EXP-0012 is already In progress.',
@@ -86,6 +91,7 @@ describe('experiment, alias and label template assistant cards', () => {
       { ...base, experiment: 'EXP-0012' },
       context({ records: () => [{ ...EXP, status: 'completed' }] }),
     )
+
     expect(built.ok).toBe(false)
   })
 
@@ -94,17 +100,21 @@ describe('experiment, alias and label template assistant cards', () => {
       records: () => [EXP],
       record_aliases: () => [{ alias: 'SUP-77' }],
     }
+
     const again = await buildExperimentProposal(
       ALIAS_ADD_TOOL,
       { ...base, record: 'EXP-0012', alias: 'sup-77' },
       context(tables),
     )
+
     expect(again.ok).toBe(false)
+
     const fresh = await buildExperimentProposal(
       ALIAS_ADD_TOOL,
       { ...base, record: 'EXP-0012', alias: 'OLD-3' },
       context(tables),
     )
+
     expect(fresh.ok && fresh.proposal.action).toEqual({
       kind: 'experiments.alias_add',
       recordId: EXP.id,
@@ -122,6 +132,7 @@ describe('experiment, alias and label template assistant cards', () => {
         ],
       }),
     )
+
     expect(built.ok && built.proposal.changes[0]).toEqual({
       label: 'Offered when printing',
       before: 'Yes',
@@ -132,8 +143,10 @@ describe('experiment, alias and label template assistant cards', () => {
   it('runs each card through its own call', async () => {
     const rpc = vi.fn(() => Promise.resolve({}))
     const client = { rpc } as unknown as DataClient
+
     const run = (action: ExperimentAction) =>
       runExperimentAction(client, action)
+
     await run({
       kind: 'experiments.outcome',
       recordId: EXP.id,

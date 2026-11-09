@@ -42,6 +42,7 @@ export function PluginCalculatorPanel({
   const [values, setValues] = useState<FieldValues>({})
   const active = calculators.find((c) => c.name === name) ?? calculators[0]
   const [missing, setMissing] = useState<string | null>(null)
+
   const run = useMutation({
     mutationFn: async (input: Record<string, unknown>) => ({
       input,
@@ -52,12 +53,16 @@ export function PluginCalculatorPanel({
       })),
     }),
   })
+
   const calculate = () => {
     const read = readFieldValues(active.declaration.inputs, values)
+
     if (!read.ok) {
       setMissing(read.missing[0])
+
       return
     }
+
     setMissing(null)
     run.mutate(read.input)
   }
@@ -67,12 +72,15 @@ export function PluginCalculatorPanel({
 
   const answer = useMemo<PluginAnswer | null>(() => {
     if (!result) return null
+
     const first = outputs.find(
       (field) =>
         (field.type === 'number' || field.type === 'integer') &&
         typeof result.output[field.name] === 'number',
     )
+
     if (!first) return null
+
     const inputs = active.declaration.inputs
       .filter((field) => result.input[field.name] !== undefined)
       .map(
@@ -80,6 +88,7 @@ export function PluginCalculatorPanel({
           `${fieldLabel(field)} ${formatFieldValue(result.input[field.name])}${field.unit ? ` ${field.unit}` : ''}`,
       )
       .join(', ')
+
     const others = outputs
       .filter((field) => field !== first && result.output[field.name] != null)
       .map(
@@ -87,6 +96,7 @@ export function PluginCalculatorPanel({
           `${fieldLabel(field)} ${formatFieldValue(result.output[field.name])}${field.unit ? ` ${field.unit}` : ''}`,
       )
       .join(' · ')
+
     return {
       value: result.output[first.name] as number,
       unitLabel: first.unit ?? '',
@@ -99,6 +109,7 @@ export function PluginCalculatorPanel({
       note: others || undefined,
     }
   }, [result, outputs, active])
+
   useEffect(() => onAnswer(answer), [answer, onAnswer])
 
   return (
@@ -133,6 +144,7 @@ export function PluginCalculatorPanel({
         values={values}
         onChange={(next) => {
           setValues(next)
+
           if (run.data) run.reset()
         }}
       />

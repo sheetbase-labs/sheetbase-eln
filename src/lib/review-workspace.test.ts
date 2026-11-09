@@ -103,6 +103,7 @@ describe('deriveReviewActionPermission', () => {
     const p = deriveReviewActionPermission(
       ctx({ supersededByRevisionId: 'rev-2' }),
     )
+
     expect(p.canReview).toBe(false)
     expect(p.canWithdraw).toBe(false)
     expect(p.reviewBlockedReason).toBe('superseded')
@@ -113,6 +114,7 @@ describe('deriveReviewActionPermission', () => {
     const p = deriveReviewActionPermission(
       ctx({ currentUserId: 'somebody-else' }),
     )
+
     expect(p.canReview).toBe(false)
     expect(p.reviewBlockedReason).toBe('not_assigned_reviewer')
   })
@@ -123,6 +125,7 @@ describe('deriveReviewActionPermission', () => {
     const p = deriveReviewActionPermission(
       ctx({ state: 'approved', supersededByRevisionId: 'rev-2' }),
     )
+
     expect(p.canReview).toBe(false)
     expect(p.reviewBlockedReason).toBe('not_active')
   })
@@ -136,6 +139,7 @@ describe('blockedReasonLabel', () => {
       'not_assigned_reviewer',
       'not_submitter',
     ] as const
+
     for (const reason of reasons) {
       expect(blockedReasonLabel(reason)).toMatch(/\.$/)
       expect(blockedReasonLabel(reason).length).toBeGreaterThan(10)
@@ -165,6 +169,7 @@ describe('DECISION_CONSEQUENCE', () => {
       // reversed — the workspace dialog relies on this.
       expect(text.length).toBeGreaterThan(20)
     }
+
     expect(DECISION_CONSEQUENCE.approve).toMatch(/sign/i)
     expect(DECISION_CONSEQUENCE.reject).toMatch(/reject/i)
     expect(DECISION_CONSEQUENCE.request_changes).toMatch(/return/i)
@@ -183,7 +188,9 @@ describe('toCanonicalEnvelope', () => {
       formulas: [],
       files: [],
     }
+
     const stored = revision({ canonical_snapshot: canonical })
+
     const list = vi
       .fn()
       .mockResolvedValueOnce([stored])
@@ -202,11 +209,14 @@ describe('toCanonicalEnvelope', () => {
           },
         },
       ])
+
     const fetched = await fetchRevisionRow(
       { ...reviewWorkspaceDataClient, list },
       'rev-1',
     )
+
     expect(fetched).not.toBeNull()
+
     if (!fetched) throw new Error('revision missing')
     const envelope = toCanonicalEnvelope(fetched)
     expect(envelope.sheetEvidence?.[0].composedGrid).toMatchObject({
@@ -223,6 +233,7 @@ describe('toCanonicalEnvelope', () => {
 
   it('uses canonical_snapshot when it carries blocks', () => {
     const blocks = [{ id: 'blk-9', type: 'text', payload: {}, order: 0 }]
+
     const rev = revision({
       canonical_snapshot: {
         formatVersion: 1,
@@ -234,6 +245,7 @@ describe('toCanonicalEnvelope', () => {
         files: [],
       },
     })
+
     const envelope = toCanonicalEnvelope(rev)
     expect(envelope.blocks).toEqual(blocks)
     expect(envelope.formatVersion).toBe(1)
@@ -257,6 +269,7 @@ describe('toCanonicalEnvelope', () => {
       canonical_snapshot:
         'not-an-envelope' as unknown as RevisionWire['canonical_snapshot'],
     })
+
     const envelope = toCanonicalEnvelope(rev)
     expect(envelope.formatVersion).toBe(0)
     expect(envelope.blocks[0].id).toBe('blk-1')

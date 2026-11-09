@@ -35,6 +35,7 @@ const deviation = {
 
 const none = screenQueryClient({ data: [{ key, value: [] }] })
 const needsReason = screenQueryClient({ data: [{ key, value: [deviation] }] })
+
 const explained = screenQueryClient({
   data: [
     {
@@ -74,7 +75,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof StepDeviation>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A pinned step run as written: the action to record a deviation is offered. */

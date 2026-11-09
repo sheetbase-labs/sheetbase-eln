@@ -28,7 +28,9 @@ import type {
 } from './types'
 
 export type Catalogue = Widen<typeof en>
+
 export type CopyKey = MessageKey<typeof en>
+
 export type { CopyValue } from './types'
 
 export type LocaleId = 'en' | 'pseudo'
@@ -41,11 +43,13 @@ const INTL_LOCALE: Record<LocaleId, string> = { en: 'en-GB', pseudo: 'en-GB' }
 function initialLocale(): LocaleId {
   // Scripts run outside Vite (the seed, tsx tools) have no import.meta.env.
   const env = (import.meta as { env?: Record<string, string | undefined> }).env
+
   const requested =
     env?.VITE_SHEETBASE_LOCALE ??
     (typeof process === 'undefined'
       ? undefined
       : process.env.VITE_SHEETBASE_LOCALE)
+
   return requested === 'pseudo' ? 'pseudo' : 'en'
 }
 
@@ -68,15 +72,18 @@ export function intlLocale(): string {
 function lookup(key: string): Message {
   const catalogue = CATALOGUES[active === 'pseudo' ? 'en' : active]
   let node: unknown = catalogue
+
   for (const part of key.split('.')) {
     node = (node as Record<string, unknown> | undefined)?.[part]
   }
+
   if (
     typeof node === 'string' ||
     (typeof node === 'object' && node !== null && 'other' in node)
   ) {
     return node as Message
   }
+
   // A key the types accept always exists; this only guards bad casts.
   return key
 }
@@ -97,10 +104,13 @@ function resolve(
 ) {
   const message = lookup(key)
   const locale = INTL_LOCALE[active]
+
   let text = isPlural(message)
     ? selectPlural(locale, message, Number(values?.count ?? 0))
     : message
+
   if (active === 'pseudo') text = pseudo(text)
+
   return interpolate(locale, text, values)
 }
 
@@ -132,17 +142,21 @@ export function rich<TKey extends CopyKey>(
 ): ReactNode {
   const all = parts as Readonly<Record<string, unknown>>
   const plain: Record<string, CopyValue> = {}
+
   for (const [name, value] of Object.entries(all)) {
     if (typeof value === 'string' || typeof value === 'number')
       plain[name] = value
   }
+
   const text = resolve(key, plain)
   const nodes: Array<ReactNode> = []
   const pattern = /<(\w+)>(.*?)<\/\1>|\{(\w+)\}/g
   let last = 0
+
   for (const match of text.matchAll(pattern)) {
     if (match.index > last) nodes.push(text.slice(last, match.index))
     const [whole, tag, inner, name] = match
+
     if (tag) {
       const render = all[tag]
       nodes.push(
@@ -153,9 +167,12 @@ export function rich<TKey extends CopyKey>(
     } else if (name) {
       nodes.push(name in all ? (all[name] as ReactNode) : whole)
     }
+
     last = match.index + whole.length
   }
+
   if (last < text.length) nodes.push(text.slice(last))
+
   return createElement(
     Fragment,
     null,

@@ -133,9 +133,11 @@ function envelopeCitations(
   citations: AiCitation[] | null | undefined,
 ): AssistCitation[] {
   const out: AssistCitation[] = []
+
   const byId = new Map(
     (citations ?? []).map((citation) => [citation.stableId, citation]),
   )
+
   for (const object of envelope?.objects ?? []) {
     const citation = byId.get(object.id)
     out.push({
@@ -146,6 +148,7 @@ function envelopeCitations(
       deepLink: citation?.deepLink ?? object.deepLink,
     })
   }
+
   for (const citation of citations ?? []) {
     if (envelope?.objects.some((object) => object.id === citation.stableId))
       continue
@@ -157,6 +160,7 @@ function envelopeCitations(
       deepLink: citation.deepLink,
     })
   }
+
   return out
 }
 
@@ -199,14 +203,19 @@ export function buildTextDraftProposal(input: {
   groundedFrom?: string
 }): AssistTextDraftProposal | null {
   const cited = envelopeCitations(input.envelope, input.citations)
+
   if (cited.length === 0) return null
+
   const sourceLines = cited.map(
     (citation, index) => `${index + 1}. ${citation.label} — ${citation.detail}`,
   )
+
   const focus = input.focus?.trim()
+
   const keyPoints = (input.keyPoints ?? [])
     .map((point) => point.trim())
     .filter((point) => point.length > 0)
+
   const draftText = [
     `Draft summary for '${input.recordTitle}'.`,
     focus ? `Focus: ${focus}.` : null,
@@ -218,6 +227,7 @@ export function buildTextDraftProposal(input: {
   ]
     .filter((line): line is string => line !== null)
     .join('\n')
+
   const payload = draftPayload([
     `Draft summary for '${input.recordTitle}'.`,
     focus ? `Focus: ${focus}.` : 'Grounded in the cited record context below.',
@@ -226,7 +236,9 @@ export function buildTextDraftProposal(input: {
       : []),
     ...sourceLines,
   ])
+
   if (!validateBlock({ type: 'rich_text', payload }).ok) return null
+
   return {
     kind: 'notebook_text',
     title: `Draft summary for '${input.recordTitle}'`,
@@ -263,11 +275,13 @@ export async function acceptTextDraft(
     type: args.proposal.block.type,
     payload: args.proposal.block.payload,
   })
+
   if (!validation.ok) {
     throw new Error(
       `Draft failed block validation: ${validation.errors.map((error) => error.message).join(' ')}`,
     )
   }
+
   return insertBlock(client, {
     recordId: args.recordId,
     type: args.proposal.block.type,
@@ -279,6 +293,7 @@ export async function acceptTextDraft(
 
 /** Max blocks summarised into one draft context; beyond this a truncation section is added. */
 export const MAX_DRAFT_SOURCE_BLOCKS = 20 as const
+
 /** Max chars kept per block body; longer bodies are cut with an ellipsis marker. */
 export const MAX_DRAFT_CHARS_PER_BLOCK = 500 as const
 
@@ -305,19 +320,23 @@ export function summariseNotebookBlocks(input: {
   const maxBlocks = input.maxBlocks ?? MAX_DRAFT_SOURCE_BLOCKS
   const maxChars = input.maxCharsPerBlock ?? MAX_DRAFT_CHARS_PER_BLOCK
   const taken = input.blocks.slice(0, maxBlocks)
+
   const bodies = taken.map((block) => {
     if (!isRichTextPayload(block.payload))
       return `(${block.type} block — no text summary)`
     const text = richTextToPlainText(block.payload).trim()
+
     return text.length <= maxChars
       ? text
       : `${text.slice(0, maxChars).trimEnd()}…`
   })
+
   const sections = bodies.map((body, index) => ({
     heading: `${taken[index]?.type ?? 'unknown'} block ${index + 1}`,
     body,
     truncated: body.endsWith('…'),
   }))
+
   if (input.blocks.length > taken.length) {
     sections.push({
       heading: 'Truncation',
@@ -325,6 +344,7 @@ export function summariseNotebookBlocks(input: {
       truncated: false,
     })
   }
+
   return {
     context: {
       version: AI_CONTEXT_VERSION,
@@ -367,6 +387,7 @@ function exactTarget(
   fields: ImportTargetField[],
 ): ImportTargetField | null {
   const wanted = normalise(source)
+
   return (
     fields.find((field) =>
       [field.label, field.key, field.id]
@@ -382,11 +403,14 @@ function closeTarget(
   fields: ImportTargetField[],
 ): { field: ImportTargetField; reason: string } | null {
   const flat = normalisedAlnum(source)
+
   if (flat.length === 0) return null
+
   for (const field of fields) {
     const labels = [field.label, field.key, field.id]
       .filter(Boolean)
       .map((value) => normalisedAlnum(String(value)))
+
     if (labels.includes(flat)) {
       return {
         field,
@@ -394,6 +418,7 @@ function closeTarget(
       }
     }
   }
+
   // Token containment for renamed-but-recognisable headers (e.g.
   // "sample_id" vs "Sample"). Tokens shorter than 3 chars never match so
   // single-letter columns do not fuzzy-bind to unrelated fields.
@@ -401,9 +426,11 @@ function closeTarget(
     const labelTokens = normalise(String(field.label))
       .split(/[^a-z0-9]+/g)
       .filter((token) => token.length >= 3)
+
     const sourceTokens = normalise(source)
       .split(/[^a-z0-9]+/g)
       .filter((token) => token.length >= 3)
+
     const hit = labelTokens.find(
       (token) =>
         sourceTokens.includes(token) ||
@@ -411,6 +438,7 @@ function closeTarget(
           (candidate) => candidate.includes(token) || token.includes(candidate),
         ),
     )
+
     if (hit) {
       return {
         field,
@@ -418,6 +446,7 @@ function closeTarget(
       }
     }
   }
+
   return null
 }
 
@@ -436,6 +465,7 @@ export function suggestMappingProposal(
 ): AssistMappingProposal {
   const suggestions: ImportMappingSuggestion[] = headers.map((source) => {
     const exact = exactTarget(source, fields)
+
     if (exact) {
       return {
         source,
@@ -444,7 +474,9 @@ export function suggestMappingProposal(
         reason: `Exact match on '${exact.label}' (label, key, or id, case-insensitive).`,
       }
     }
+
     const close = closeTarget(source, fields)
+
     if (close) {
       return {
         source,
@@ -453,6 +485,7 @@ export function suggestMappingProposal(
         reason: close.reason,
       }
     }
+
     return {
       source,
       mapping: { source, kind: 'ignore' },
@@ -461,9 +494,11 @@ export function suggestMappingProposal(
         'No matching target field — the column will be ignored unless mapped by hand.',
     }
   })
+
   const mappedCount = suggestions.filter(
     (suggestion) => suggestion.mapping.kind === 'field',
   ).length
+
   return {
     kind: 'import_mapping',
     title: `Suggested field mapping for ${headers.length} column${headers.length === 1 ? '' : 's'}`,
@@ -539,6 +574,7 @@ export function proposeChartSpec(input: {
   // Field bindings resolve by stable UUID (validateChartSpec rejects
   // anything else), so only UUID fields can ground a valid proposal.
   const fields = input.fields.filter((field) => isUuid(field.fieldId))
+
   if (fields.length === 0) return null
   const first = fields[0]
   const numerics = fields.filter((field) => isNumericType(field.logicalType))
@@ -552,9 +588,12 @@ export function proposeChartSpec(input: {
     const type = input.preferredType
     const needsX = (CHART_TYPES_REQUIRING_X as readonly string[]).includes(type)
     const nullsX = (CHART_TYPES_NULL_X as readonly string[]).includes(type)
+
     if (needsX && !x) return null
     const boundX = nullsX ? null : (x ?? secondNumeric(numerics, y))
+
     if (!nullsX && !boundX) return null
+
     return buildChartProposal(
       input.datasetId,
       type,
@@ -569,6 +608,7 @@ export function proposeChartSpec(input: {
       fields,
     )
   }
+
   // Automatic rules, most-structured plot first: a categorical x against a
   // numeric y plots as bars; two numerics plot pairwise; a lone measured
   // field summarises as a distribution; otherwise the first field is
@@ -586,7 +626,9 @@ export function proposeChartSpec(input: {
       fields,
     )
   }
+
   const second = secondNumeric(numerics, y)
+
   if (second) {
     return buildChartProposal(
       input.datasetId,
@@ -600,6 +642,7 @@ export function proposeChartSpec(input: {
       fields,
     )
   }
+
   if (isNumericType(y.logicalType)) {
     return buildChartProposal(
       input.datasetId,
@@ -613,6 +656,7 @@ export function proposeChartSpec(input: {
       fields,
     )
   }
+
   return buildChartProposal(
     input.datasetId,
     'summary',
@@ -642,12 +686,16 @@ export function proposeChartSpecFromChoice(input: {
   if (!isUuid(input.datasetId)) return null
   const fields = input.fields.filter((field) => isUuid(field.fieldId))
   const y = fields.find((field) => field.fieldId === input.yFieldId)
+
   if (!y) return null
   const nullsX = (CHART_TYPES_NULL_X as readonly string[]).includes(input.type)
+
   const x = nullsX
     ? null
     : (fields.find((field) => field.fieldId === input.xFieldId) ?? null)
+
   if (!nullsX && !x) return null
+
   return buildChartProposal(
     input.datasetId,
     input.type,
@@ -699,7 +747,9 @@ function buildChartProposal(
     },
     overlays: { errorBars: null },
   }
+
   if (validateChartSpec(spec).length > 0) return null
+
   return {
     kind: 'chart_config',
     title: `Proposed ${type} chart`,
@@ -750,6 +800,7 @@ export async function phraseDraft(
           : [proposal.draftText],
     )
     .join('\n')
+
   return toPhrasing(
     await run({
       task: 'draft',

@@ -52,10 +52,12 @@ export function ScanSampleActions({
   const queryClient = useQueryClient()
   const [dialog, setDialog] = useState<'withdraw' | 'move' | null>(null)
   const key = sampleQueryKeys.detail(sampleId)
+
   const sample = useQuery({
     queryKey: key,
     queryFn: () => fetchSample(client, sampleId),
   })
+
   const record = sample.data
 
   const refresh = () => {
@@ -88,6 +90,7 @@ export function ScanSampleActions({
     onError: (error) =>
       toast.error(describeWithdrawError(error, record?.quantityUnit ?? null)),
   })
+
   const move = useMutation({
     mutationFn: (choice: PlaceChoice) =>
       placeSample(client, {
@@ -105,6 +108,7 @@ export function ScanSampleActions({
   })
 
   if (sample.isPending) return null
+
   if (!record) {
     return (
       <p role="alert" className="m-0 text-label text-danger-text">
@@ -117,6 +121,7 @@ export function ScanSampleActions({
     record.quantity != null
       ? `${formatQuantityAmount(record.quantity)}${record.quantityUnit ? ` ${record.quantityUnit}` : ''}`
       : null
+
   const archived = Boolean(record.archivedAt)
   const withdrawable = !archived && canWithdrawSample(record.status)
   const movable = !archived && !['consumed', 'disposed'].includes(record.status)

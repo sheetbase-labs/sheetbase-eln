@@ -44,10 +44,12 @@ export async function loadPlanInput(
   now: Date,
 ): Promise<{ input: PlanInput; identifier: string }> {
   const q = conn.query
+
   const { rows: records } = await q<{ identifier: string }>(
     `SELECT identifier FROM api.records WHERE id = $1`,
     [proposal.record_id],
   )
+
   const identifier = records[0]?.identifier ?? 'Experiment'
 
   const { rows: settings } = await q<{
@@ -60,6 +62,7 @@ export async function loadPlanInput(
        FROM api.scheduler_settings WHERE workspace_id = $1`,
     [proposal.workspace_id],
   )
+
   const hours: WorkingHours = settings[0]
     ? {
         timezone: settings[0].timezone,
@@ -87,6 +90,7 @@ export async function loadPlanInput(
       ORDER BY p."position", p.id`,
     [proposal.record_id],
   )
+
   const { rows: needRows } = await q<{
     part_id: string
     resource_id: string
@@ -101,11 +105,14 @@ export async function loadPlanInput(
       ORDER BY n."position"`,
     [proposal.record_id],
   )
+
   const { rows: doneRows } = await q<{ id: string }>(
     `SELECT id FROM api.experiment_parts WHERE record_id = $1 AND completed_at IS NOT NULL`,
     [proposal.record_id],
   )
+
   const done = new Set(doneRows.map((r) => r.id))
+
   const parts: PlanPart[] = partRows
     .filter((p) => !done.has(p.id))
     .map((p) => ({
@@ -126,6 +133,7 @@ export async function loadPlanInput(
     }))
 
   const resourceIds = [...new Set(needRows.map((n) => n.resource_id))]
+
   const people = [
     ...new Set([
       proposal.requested_by_user_id,
@@ -136,6 +144,7 @@ export async function loadPlanInput(
   // Bookings other than the ones an earlier accepted plan for this experiment made;
   // accepting a new plan replaces those.
   const busy = new Map<string, Busy[]>()
+
   if (resourceIds.length > 0) {
     const { rows } = await q<{
       resource_id: string
@@ -151,6 +160,7 @@ export async function loadPlanInput(
              WHERE sb.booking_id = b.id AND sp.record_id = $3 AND sp.status = 'accepted')`,
       [resourceIds, now.toISOString(), proposal.record_id],
     )
+
     for (const row of rows) {
       const list = busy.get(row.resource_id) ?? []
       list.push({
@@ -163,6 +173,7 @@ export async function loadPlanInput(
 
   const rules = new Map<string, ResourceRules>()
   const gaps = new Map<string, string>()
+
   if (resourceIds.length > 0) {
     const { rows } = await q<{
       id: string
@@ -178,6 +189,7 @@ export async function loadPlanInput(
         WHERE r.id = ANY($1::uuid[])`,
       [resourceIds],
     )
+
     for (const row of rows) {
       rules.set(row.id, {
         maxBookingMinutes: row.max_booking_minutes,
@@ -185,6 +197,7 @@ export async function loadPlanInput(
         outOfService: row.out_of_service,
       })
     }
+
     const { rows: gapRows } = await q<{
       resource_id: string
       user_id: string
@@ -202,11 +215,13 @@ export async function loadPlanInput(
           AND (NOT internal.instrument_qualified(r.id, u) OR g.protocol_record_id IS NOT NULL)`,
       [resourceIds, people],
     )
+
     for (const row of gapRows)
       gaps.set(`${row.resource_id}:${row.user_id}`, row.reason)
   }
 
   const absences = new Map<string, Array<readonly [string, string]>>()
+
   if (people.length > 0) {
     const { rows } = await q<{
       user_id: string
@@ -217,6 +232,7 @@ export async function loadPlanInput(
         WHERE workspace_id = $1 AND user_id = ANY($2::text[]) AND cancelled_at IS NULL AND ends_on >= current_date`,
       [proposal.workspace_id, people],
     )
+
     for (const row of rows) {
       const list = absences.get(row.user_id) ?? []
       list.push([asDate(row.starts_on), asDate(row.ends_on)] as const)
@@ -225,6 +241,7 @@ export async function loadPlanInput(
   }
 
   const notBefore = Math.ceil(now.getTime() / 60_000 / 5) * 5
+
   return {
     identifier,
     input: {
@@ -255,24 +272,29 @@ export async function sweepScheduleRequests(
 ): Promise<number> {
   const conn = await deps.connect()
   let handled = 0
+
   try {
     for (let i = 0; i < 5; i++) {
       const { rows } = await conn.query<ClaimedProposal | null>(
         `SELECT id, workspace_id, record_id, requested_by_user_id, anchor_on
            FROM internal.claim_schedule_proposal() WHERE id IS NOT NULL`,
       )
+
       const proposal = rows.at(0)
+
       if (!proposal) break
       let items: unknown = []
       let conflicts = 0
       let error: string | null = null
       let anchor = asDate(proposal.anchor_on)
+
       try {
         const { input, identifier } = await loadPlanInput(
           conn,
           proposal,
           (deps.now ?? (() => new Date()))(),
         )
+
         const plan = planSchedule(input)
         anchor = input.anchorOn
         items = plan.items.map((item) => ({
@@ -283,6 +305,7 @@ export async function sweepScheduleRequests(
       } catch (cause) {
         error = cause instanceof Error ? cause.message : String(cause)
       }
+
       await conn.query(
         `SELECT internal.fill_schedule_proposal($1::uuid, $2::date, $3::jsonb, $4::int, $5)`,
         [proposal.id, anchor, JSON.stringify(items), conflicts, error],
@@ -292,6 +315,7 @@ export async function sweepScheduleRequests(
   } finally {
     await conn.end()
   }
+
   return handled
 }
 
@@ -301,8 +325,10 @@ const startedKey = '__sheetbaseScheduleSchedulerStarted'
 
 function disabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
@@ -310,16 +336,21 @@ function disabled(): boolean {
 export function startScheduleScheduler(): void {
   if (typeof window !== 'undefined' || disabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedKey]) return
   g[startedKey] = true
+
   const open = async () => {
     const client = new PooledClient({ connectionString: env.DATABASE_URL })
     await client.connect()
+
     return client
   }
+
   const tick = async () => {
     if (running) return
     running = true
+
     try {
       await sweepScheduleRequests({ connect: open })
     } catch (error) {
@@ -330,6 +361,7 @@ export function startScheduleScheduler(): void {
       running = false
     }
   }
+
   timer = setInterval(() => void tick(), SCHEDULE_SWEEP_INTERVAL_MS)
   timer.unref()
 }

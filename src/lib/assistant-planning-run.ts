@@ -26,14 +26,17 @@ export async function runPlanningAction(
         targetKind: 'experiment',
         ...(action.title ? { title: action.title } : {}),
       })
+
       return { openHref: `/records/${made.record.id}` }
     }
+
     case 'record.assign':
       await client.rpc('assign_record', {
         p_record_id: action.recordId,
         p_expected_metadata_version: action.expectedMetadataVersion,
         p_assignee_user_id: action.userId,
       })
+
       return { openHref: `/records/${action.recordId}` }
     case 'record.comment':
       await createRecordComment(client, {
@@ -41,14 +44,17 @@ export async function runPlanningAction(
         body: action.body,
         mentions: action.mentions,
       })
+
       return { openHref: `/records/${action.recordId}` }
     case 'booking.repeat':
       await createRepeat(client, action.input)
+
       return { openHref: '/schedule' }
     case 'timer.start':
       // A browser only allows asking for alerts from the press itself.
       await prepareTimerAlerts()
       await startStepTimer(action.blockId, action.seconds ?? undefined, client)
+
       return undefined
     case 'step.done':
       await client.rpc('set_step_done', {
@@ -56,6 +62,7 @@ export async function runPlanningAction(
         p_done: action.done,
         ...(action.note !== null ? { p_note: action.note } : {}),
       })
+
       return undefined
     case 'part.add':
       await client.rpc('create_experiment_part', {
@@ -65,6 +72,7 @@ export async function runPlanningAction(
           ? { p_day_offset: action.dayOffset }
           : {}),
       })
+
       return undefined
     case 'part.update':
       await client.rpc('update_experiment_part', {
@@ -78,12 +86,14 @@ export async function runPlanningAction(
           : {}),
         ...(action.clearAssignee ? { p_clear_assignee: true } : {}),
       })
+
       return undefined
     case 'part.done':
       await client.rpc('set_part_done', {
         p_part_id: action.partId,
         p_done: action.done,
       })
+
       return undefined
     case 'gate.go_on':
       await client.rpc('override_gate', {
@@ -92,6 +102,7 @@ export async function runPlanningAction(
           : { p_gate_part_id: action.partId }),
         p_reason: action.reason,
       })
+
       return undefined
     case 'part.signoff_request':
       await client.rpc('request_part_signoff', {
@@ -100,6 +111,7 @@ export async function runPlanningAction(
         p_note: action.note,
         p_due_at: null,
       })
+
       return undefined
     case 'step.result':
       await client.rpc('add_step_result', {
@@ -108,6 +120,7 @@ export async function runPlanningAction(
         p_value: action.value,
         ...(action.unit !== null ? { p_unit: action.unit } : {}),
       })
+
       return undefined
     case 'series.add':
       await client.rpc('add_series_member', {
@@ -117,14 +130,17 @@ export async function runPlanningAction(
           ? { p_planned_on: action.plannedOn }
           : {}),
       })
+
       return { openHref: `/experiments/${action.seriesRecordId}/series` }
     case 'series.remove':
       await client.rpc('remove_series_member', {
         p_member_record_id: action.memberRecordId,
       })
+
       return undefined
     case 'shipment.create': {
       const made = await createShipment(client, action.input)
+
       if (action.markSent) {
         await markShipmentInTransit(client, {
           shipmentId: made.id,
@@ -134,14 +150,17 @@ export async function runPlanningAction(
           expectedOn: action.input.expectedOn,
         })
       }
+
       return { openHref: '/shipments' }
     }
+
     case 'shipment.receive':
       await receiveShipment(client, {
         shipmentId: action.shipmentId,
         results: action.results,
         conditionNote: action.conditionNote,
       })
+
       return { openHref: '/shipments' }
   }
 }

@@ -60,6 +60,7 @@ export interface DatabaseVerificationReport {
 }
 
 type SqlRow = Record<string, unknown>
+
 type SqlFn = (sql: string, params?: unknown[]) => Promise<{ rows: SqlRow[] }>
 
 function check(name: string, ok: boolean, detail?: string): VerificationCheck {
@@ -100,7 +101,9 @@ export async function verifyRestoredDatabase(
     const migrations = await sql(
       'SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations',
     )
+
     const migrationCount = Number(migrations.rows[0]?.n ?? 0)
+
     return check(
       'migrations_applied',
       migrationCount > 0,
@@ -114,6 +117,7 @@ export async function verifyRestoredDatabase(
       const result = await sql('SELECT to_regclass($1) AS reg', [
         `api.${table}`,
       ])
+
       return check(`table_${table}`, result.rows[0]?.reg !== null)
     })
   }
@@ -129,7 +133,9 @@ export async function verifyRestoredDatabase(
           WHERE n.nspname = 'api' AND c.relname = $1`,
         [table],
       )
+
       const guarded = result.rows[0]?.relrowsecurity === true
+
       return check(
         `rls_${table}`,
         guarded,
@@ -148,6 +154,7 @@ export async function verifyRestoredDatabase(
           WHERE n.nspname = 'api' AND p.proname = $1`,
         [rpc],
       )
+
       return check(`rpc_${rpc}`, Number(result.rows[0]?.n ?? 0) > 0)
     })
   }
@@ -156,8 +163,10 @@ export async function verifyRestoredDatabase(
     const result = await sql(`SELECT count(*)::int AS n FROM pg_roles
       WHERE rolname IN ('authenticated','anon','api_client','authenticator','pipeline_sandbox')
         AND NOT rolsuper AND NOT rolbypassrls AND NOT rolcreatedb AND NOT rolcreaterole`)
+
     return check('request_roles_unprivileged', result.rows[0]?.n === 5)
   })
+
   for (const table of [
     'records',
     'datasets',
@@ -175,18 +184,22 @@ export async function verifyRestoredDatabase(
         FROM pg_class WHERE oid = $1::regclass`,
         [`api.${table}`],
       )
+
       const row = result.rows.at(0)
+
       return check(
         `permissions_${table}`,
         row?.owned === true && row.readable === true && row.anonymous === false,
       )
     })
   }
+
   await probe('authenticator_membership', async () => {
     const result = await sql(`SELECT
       pg_has_role('authenticator','authenticated','MEMBER') AND
       NOT pg_has_role('authenticator','migrator','MEMBER') AND
       NOT pg_has_role('pipeline_sandbox','authenticated','MEMBER') AS ok`)
+
     return check('authenticator_membership', result.rows[0]?.ok === true)
   })
 
@@ -241,17 +254,21 @@ export function verifyObjectArchive(
   const missing: string[] = []
   const sizeMismatch: string[] = []
   const hashMismatch: string[] = []
+
   for (const row of active) {
     const expected = Number(row.byte_size)
     const actual = byName.get(row.storage_key)
+
     if (actual === undefined) {
       missing.push(row.storage_key)
     } else {
       if (actual.size !== expected) sizeMismatch.push(row.storage_key)
+
       if (!row.checksum || actual.sha256 !== row.checksum)
         hashMismatch.push(row.storage_key)
     }
   }
+
   checks.push(
     check(
       'object_checksums_match',
@@ -286,6 +303,7 @@ export function verifyObjectArchive(
         : undefined,
     ),
   )
+
   return { ok: checks.every((c) => c.ok), checks }
 }
 
@@ -302,6 +320,7 @@ export async function verifyRestoredDatabaseWithClient(
  */
 export async function verifyRestoredAccess(admin: Client, request: Client) {
   const checks: VerificationCheck[] = []
+
   const witnesses = await admin.query<{
     id: string
     workspace_id: string
@@ -320,7 +339,9 @@ export async function verifyRestoredAccess(admin: Client, request: Client) {
     WHERE r.deleted_at IS NULL
       AND (NOT (r.kind='experiment' AND r.status='draft') OR r.created_by_user_id=m.user_id)
     LIMIT 1`)
+
   const actor = witnesses.rows.at(0)
+
   if (!actor?.other_workspace)
     return {
       ok: false,
@@ -341,6 +362,7 @@ export async function verifyRestoredAccess(admin: Client, request: Client) {
     body: () => Promise<boolean>,
   ) {
     await request.query('BEGIN')
+
     try {
       await request.query('SET LOCAL ROLE authenticated')
       await request.query(`SELECT set_config('request.jwt.claims',$1,true)`, [
@@ -363,6 +385,7 @@ export async function verifyRestoredAccess(admin: Client, request: Client) {
       await request.query('ROLLBACK')
     }
   }
+
   async function readsRecord() {
     return (
       (
@@ -372,34 +395,41 @@ export async function verifyRestoredAccess(admin: Client, request: Client) {
       ).rowCount === 1
     )
   }
+
   async function deniedWrite() {
     try {
       await request.query(`SELECT api.create_project('Restore denial probe')`)
+
       return false
     } catch (error) {
       return error instanceof Error && 'code' in error && error.code === '42501'
     }
   }
+
   async function deniedRecordWrite() {
     try {
       const updated = await request.query(
         'UPDATE api.records SET title=title WHERE id=$1 RETURNING id',
         [recordId],
       )
+
       return updated.rowCount === 0
     } catch (error) {
       return error instanceof Error && 'code' in error && error.code === '42501'
     }
   }
+
   await asActor(
     actor.owner_id,
     actor.workspace_id,
     'owner_read_write',
     async () => {
       if (!(await readsRecord())) return false
+
       const created = await request.query(
         `SELECT (api.create_project('Restore rollback probe')).id AS id`,
       )
+
       return typeof created.rows[0]?.id === 'string'
     },
   )
@@ -415,5 +445,6 @@ export async function verifyRestoredAccess(admin: Client, request: Client) {
     'cross_workspace_denial',
     async () => !(await readsRecord()) && (await deniedWrite()),
   )
+
   return { ok: checks.every((item) => item.ok), checks }
 }

@@ -22,10 +22,12 @@ describe('change reason', () => {
   it('asks once for edits that fail together and remembers the answer', async () => {
     const asker = vi.fn(async () => '  Corrected the volume  ')
     registerChangeReasonAsker(asker)
+
     const [first, second] = await Promise.all([
       askForChangeReason(),
       askForChangeReason(),
     ])
+
     expect(first).toBe('Corrected the volume')
     expect(second).toBe('Corrected the volume')
     expect(asker).toHaveBeenCalledTimes(1)

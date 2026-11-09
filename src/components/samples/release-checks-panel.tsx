@@ -32,9 +32,11 @@ export function ReleaseChecksSummary({
       </p>
     )
   }
+
   const passing = status.checks.filter((check) => check.passed).length
   // Checks over no data pass by default; that is not the same as being checked.
   const unchecked = status.passed && measurementCount === 0
+
   return (
     <div className="flex flex-col gap-2">
       <p role="status" className="m-0 text-label">
@@ -139,18 +141,21 @@ export function ReleaseChecksPanel({
     refetchOnWindowFocus: true,
     staleTime: 0,
   })
+
   if (query.isPending)
     return (
       <p className="m-0 text-label text-fg-muted">
         {t('library.samples.releaseChecksPanel.checking')}
       </p>
     )
+
   if (query.isError)
     return (
       <p role="alert" className="m-0 text-label text-danger-text">
         {t('library.samples.releaseChecksPanel.theReleaseChecksCouldNot')}
       </p>
     )
+
   return (
     <ReleaseChecksSummary
       status={query.data}

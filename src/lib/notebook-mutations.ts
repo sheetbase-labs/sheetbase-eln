@@ -51,6 +51,7 @@ export async function updateBlockPayload(
     p_payload_schema_version:
       args.payloadSchemaVersion ?? PAYLOAD_SCHEMA_VERSION,
   })
+
   return toBlock(row)
 }
 
@@ -100,6 +101,7 @@ export async function insertBlock(
     p_before_block_id: args.beforeBlockId ?? null,
     p_expected_structure_version: args.expectedStructureVersion ?? null,
   })
+
   return {
     block: toBlock(res.block),
     structureVersion: res.structure_version,
@@ -125,6 +127,7 @@ export async function insertSheetInstanceBlock(
     p_expected_structure_version: args.expectedStructureVersion ?? null,
     p_instance_id: args.instanceId ?? null,
   })
+
   return {
     block: toBlock(res.block),
     instanceId: res.instance.id,
@@ -158,11 +161,13 @@ export async function duplicateBlock(
       p_block_id: args.block.id,
       p_expected_structure_version: args.expectedStructureVersion,
     })
+
     return {
       block: toBlock(res.block),
       structureVersion: res.structure_version,
     }
   }
+
   return insertBlock(client, {
     recordId: args.block.recordId,
     type: args.block.type,
@@ -189,6 +194,7 @@ export async function deleteBlock(
     p_block_id: args.blockId,
     p_expected_structure_version: args.expectedStructureVersion ?? null,
   })
+
   return {
     structureVersion: res.structure_version,
     order: res.order,
@@ -232,6 +238,7 @@ export async function moveBlock(
     p_before_block_id: args.beforeBlockId ?? null,
     p_expected_structure_version: args.expectedStructureVersion ?? null,
   })
+
   return {
     block: toBlock(res.block),
     structureVersion: res.structure_version,

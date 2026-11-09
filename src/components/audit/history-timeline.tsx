@@ -244,6 +244,7 @@ function RawPayload({ value }: { value: unknown }) {
 function HistoryRow({ entry, step }: { entry: HistoryEntry; step: number }) {
   const hasDetail = Boolean(entry.changes?.length || entry.related?.length)
   const hasFooter = entry.link != null || entry.raw !== undefined
+
   return (
     <TimelineItem step={step} render={<li />} className="ps-3">
       <TimelineIndicator>

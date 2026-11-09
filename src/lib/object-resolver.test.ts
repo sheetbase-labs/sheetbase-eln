@@ -13,7 +13,9 @@ function client(
   return {
     list: vi.fn(async (table: string, query: string) => {
       const answer = tables[table]?.(query) ?? []
+
       if (answer instanceof Error) throw answer
+
       return answer
     }),
   } as unknown as DataClient
@@ -29,6 +31,7 @@ describe('resolveObjectByIdentifier', () => {
       }),
       ' SMP-1 ',
     )
+
     expect(found).toMatchObject({ source: 'record', id: 's-1', kind: 'sample' })
     expect(resolvedObjectPath(found!)).toBe('/samples/s-1')
   })
@@ -48,6 +51,7 @@ describe('resolveObjectByIdentifier', () => {
           ? [{ id: 'p-1', display_id: 'PRJ-0217', title: 'Gene therapy' }]
           : [],
     }
+
     const c = client(tables)
     const instrument = await resolveObjectByIdentifier(c, 'INS-0007')
     expect(instrument).toMatchObject({
@@ -80,6 +84,7 @@ describe('resolveObjectByIdentifier', () => {
       }),
       'FRZ-A-12',
     )
+
     expect(found).toMatchObject({ id: 'r-1', matchedAlias: 'FRZ-A-12' })
   })
 
@@ -98,6 +103,7 @@ describe('resolveObjectByIdentifier', () => {
       }),
       'INS-2',
     )
+
     expect(found?.kind).toBe('instrument')
   })
 
@@ -108,6 +114,7 @@ describe('resolveObjectByIdentifier', () => {
         throw new Error('down')
       }),
     } as unknown as DataClient
+
     await expect(resolveObjectByIdentifier(failing, 'DS-1')).rejects.toThrow(
       'down',
     )

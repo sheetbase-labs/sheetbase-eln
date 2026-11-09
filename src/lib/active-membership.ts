@@ -11,6 +11,7 @@ export function pickActiveMembership<
   T extends { workspaceId: string; suspendedAt: Date | null },
 >(memberships: readonly T[], preferredWorkspaceId?: string | null): T | null {
   const live = memberships.filter((item) => !item.suspendedAt)
+
   return (
     live.find((item) => item.workspaceId === preferredWorkspaceId) ??
     live.at(0) ??

@@ -26,6 +26,7 @@ export function wakeLockSupported(nav: Navigator = navigator): boolean {
 export function useWakeLock(active: boolean): void {
   useEffect(() => {
     if (!active || typeof navigator === 'undefined') return
+
     if (!wakeLockSupported()) return
     const api = (navigator as Navigator & { wakeLock: WakeLockApi }).wakeLock
     let sentinel: WakeLockSentinelLike | null = null
@@ -35,12 +36,16 @@ export function useWakeLock(active: boolean): void {
     const acquire = async () => {
       if (stopped() || sentinel || document.visibilityState !== 'visible')
         return
+
       try {
         const next = await api.request('screen')
+
         if (stopped()) {
           void next.release().catch(() => undefined)
+
           return
         }
+
         sentinel = next
         next.addEventListener('release', () => {
           if (sentinel === next) sentinel = null
@@ -49,15 +54,18 @@ export function useWakeLock(active: boolean): void {
         // Low battery or a policy refused it; the screen may dim as usual.
       }
     }
+
     const onVisible = () => void acquire()
 
     void acquire()
     document.addEventListener('visibilitychange', onVisible)
+
     return () => {
       state.cancelled = true
       document.removeEventListener('visibilitychange', onVisible)
       const held = sentinel
       sentinel = null
+
       if (held) void held.release().catch(() => undefined)
     }
   }, [active])

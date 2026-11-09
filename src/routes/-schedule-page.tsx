@@ -60,21 +60,29 @@ import { t } from '#/copy'
 
 const iso = (d: Date) => d.toISOString().slice(0, 10)
 const parse = (s: string) => new Date(`${s}T12:00:00Z`)
+
 const addDays = (s: string, n: number) => {
   const d = parse(s)
   d.setUTCDate(d.getUTCDate() + n)
+
   return iso(d)
 }
+
 const monday = (s: string) => {
   const d = parse(s)
+
   return addDays(s, -((d.getUTCDay() + 6) % 7))
 }
+
 const fmt = (s: string, o: Intl.DateTimeFormatOptions) =>
   parse(s).toLocaleDateString('en-GB', { ...o, timeZone: 'UTC' })
+
 const toMin = (time: string) => {
   const [h, m] = time.split(':').map(Number)
+
   return h * 60 + m
 }
+
 /** The core hours the day grid draws; it widens to cover the day's bookings. */
 const DAY_START = 8 * 60
 const DAY_END = 18 * 60
@@ -113,12 +121,14 @@ export function Schedule() {
   const { context } = Route.useRouteContext()
   const { book, experiment, returnTo } = Route.useSearch()
   const navigate = useNavigate()
+
   const forExperiment = useQuery({
     queryKey: ['ui-port', 'schedule-experiment', experiment ?? ''],
     queryFn: async () => {
       const filter = isUuid(experiment ?? '')
         ? `id=eq.${experiment}`
         : `identifier=eq.${encodeURIComponent(experiment ?? '')}`
+
       const rows = await notebookDataClient.list<{
         id: string
         identifier: string
@@ -128,15 +138,20 @@ export function Schedule() {
         'records',
         `?${filter}&kind=eq.experiment&select=id,identifier,title,project_id&limit=1`,
       )
+
       return rows.at(0) ?? null
     },
     enabled: Boolean(experiment),
   })
+
   const experimentSamples = useExperimentSamples(forExperiment.data?.id)
+
   const bookingTitle = forExperiment.data
     ? `${forExperiment.data.identifier} ${forExperiment.data.title}`
     : undefined
+
   const workspaceId = context.workspace?.id
+
   // QA-022: a Schedule day is the workspace's day. Home groups the same
   // bookings by the workspace timezone, so "today" comes from that clock rather
   // than the UTC calendar day, which can be a day ahead or behind.
@@ -145,8 +160,10 @@ export function Schedule() {
     queryFn: () => fetchWorkspaceGeneral(),
     enabled: Boolean(workspaceId),
   })
+
   const timeZone = useDisplayTimeZone(workspaceQuery.data?.timezone)
   const today = useMemo(() => homeIsoDay(appNow(), timeZone), [timeZone])
+
   // Minutes past midnight in the workspace's zone, for the day view's now line.
   const nowMinute = useMemo(() => {
     const parts = dateTimeFormat('en-GB', {
@@ -155,10 +172,13 @@ export function Schedule() {
       minute: '2-digit',
       hourCycle: 'h23',
     }).formatToParts(appNow())
+
     const part = (type: string) =>
       Number(parts.find((p) => p.type === type)?.value ?? 0)
+
     return part('hour') * 60 + part('minute')
   }, [timeZone])
+
   const [view, setView] = useState<'week' | 'day'>('week')
   const [anchor, setAnchor] = useState<string>(today)
   const [added, setAdded] = useState<ScheduleBooking[]>([])
@@ -177,6 +197,7 @@ export function Schedule() {
 
   const weekStart = view === 'day' ? anchor : monday(anchor)
   const weekEnd = addDays(weekStart, 7)
+
   // QA-023: on a phone the day list is the only schedule surface, so it follows
   // the navigated anchor instead of being pinned to today: the anchor day in Day
   // view, today while the viewed week contains it, otherwise the week's first
@@ -187,14 +208,17 @@ export function Schedule() {
       : today >= weekStart && today < weekEnd
         ? today
         : weekStart
+
   const rangeFrom = weekStart
   const rangeTo = addDays(weekStart, view === 'day' ? 1 : 7)
   const instrumentsQuery = useScheduleInstruments(workspaceId)
+
   const bookingsQuery = useRangeBookings(
     workspaceId,
     `${rangeFrom}T00:00:00.000Z`,
     `${rangeTo}T00:00:00.000Z`,
   )
+
   const instruments: ScheduleInstrument[] = instrumentsQuery.data ?? []
   const instrumentNames = new Map(instruments.map((i) => [i.id, i.name]))
   const membersQuery = useWorkspaceMemberNames()
@@ -204,6 +228,7 @@ export function Schedule() {
   // too: keep one of them.
   const fetched = bookingsQuery.data ?? []
   const fetchedIds = new Set(fetched.map((b) => b.id))
+
   const bookings = [...fetched, ...added.filter((b) => !fetchedIds.has(b.id))]
     .filter((b) => !cancelledIds.has(b.id))
     .map((b) => edited.get(b.id) ?? b)
@@ -215,15 +240,20 @@ export function Schedule() {
           t('projects.schedulePage.colleague'))
         : t('projects.schedulePage.colleague'),
     }))
+
   const mineCount = bookings.filter((b) => b.mine).length
+
   const bookingSamples = useBookingSamples(
     bookings.filter((b) => b.date === today).map((b) => b.id),
   )
+
   const partsDue = useQuery({
     queryKey: partQueryKeys.inRange(rangeFrom, rangeTo),
     queryFn: () => fetchPartsInRange(notebookDataClient, rangeFrom, rangeTo),
   })
+
   const workItemsQuery = useWorkItems()
+
   const reviews = (workItemsQuery.data ?? []).filter(
     (i) => i.kind === 'review_requested',
   )
@@ -233,25 +263,32 @@ export function Schedule() {
       dir === 0 ? today : addDays(weekStart, dir * (view === 'day' ? 1 : 7)),
     )
   }
+
   const selectedBooking = bookings.find((b) => b.id === openBookingId) ?? null
+
   const selectedBookingSamples = useBookingSamples(
     selectedBooking ? [selectedBooking.id] : [],
   )
+
   const selectedExperimentSamples = useExperimentSamples(
     selectedBooking?.experiment?.id,
   )
+
   const selectedInstrument = selectedBooking
     ? instruments.find((i) => i.id === selectedBooking.resourceId)
     : undefined
+
   const openBooking = (id: string) => {
     setOpenBookingId(id)
     setCancelError(null)
   }
+
   const confirmCancel = async () => {
     if (!selectedBooking) return
     const bookingId = selectedBooking.id
     setCancelling(true)
     setCancelError(null)
+
     try {
       await cancelBooking(notebookDataClient, { bookingId })
       setCancelledIds((prev) => new Set(prev).add(bookingId))
@@ -267,7 +304,9 @@ export function Schedule() {
       setCancelling(false)
     }
   }
+
   const instrumentsUsed = new Set(bookings.map((b) => b.resourceId)).size
+
   const subtitleTail =
     (mineCount
       ? t('projects.schedulePage.mine', { count: mineCount })
@@ -275,6 +314,7 @@ export function Schedule() {
     (instrumentsUsed
       ? t('projects.schedulePage.instrumentsUsed', { count: instrumentsUsed })
       : '')
+
   const subtitle =
     view === 'day'
       ? `${fmt(anchor, { weekday: 'long', day: 'numeric', month: 'long' })}${subtitleTail}`
@@ -360,6 +400,7 @@ export function Schedule() {
             setAdded((a) => [...a, b])
             void queryClient.invalidateQueries({ queryKey: ['schedule'] })
             toast(t('projects.schedulePage.booked'))
+
             if (returnTo) void navigate({ to: returnTo })
           }}
         />
@@ -579,6 +620,7 @@ function mergeSamples(
   onBooking: BookingSample[],
 ): BookableSample[] {
   const byId = new Map(fromExperiment.map((s) => [s.id, s]))
+
   for (const sample of onBooking) {
     if (sample.sampleRecordId && !byId.has(sample.sampleRecordId))
       byId.set(sample.sampleRecordId, {
@@ -587,6 +629,7 @@ function mergeSamples(
         title: sample.title,
       })
   }
+
   return [...byId.values()]
 }
 
@@ -602,13 +645,16 @@ function dayWindow(dayBookings: ScheduleBooking[]): {
 } {
   let start = DAY_START
   let end = DAY_END
+
   for (const booking of dayBookings) {
     const from = toMin(booking.start)
     const to = toMin(booking.end)
+
     if (!Number.isFinite(from) || !Number.isFinite(to)) continue
     start = Math.min(start, Math.floor(from / 60) * 60)
     end = Math.max(end, Math.ceil(to / 60) * 60)
   }
+
   return { start, end: Math.max(end, start + 60) }
 }
 
@@ -630,12 +676,16 @@ function DayGrid({
   const bounds = dayWindow(dayBookings)
   const span = bounds.end - bounds.start
   const position = (time: string) => ((toMin(time) - bounds.start) / span) * 100
+
   const hours = Array.from({ length: span / 60 }, (_, i) => {
     const hour = bounds.start + i * 60
+
     return `${String(hour / 60).padStart(2, '0')}:00`
   })
+
   // Any empty day gets the note; weekends are bookable like every other day.
   const closed = dayBookings.length === 0
+
   return (
     <section
       aria-label={t('projects.schedulePage.grid')}
@@ -770,6 +820,7 @@ function DayGrid({
 /** Saturday or Sunday, for an ISO day. */
 function isWeekend(day: string) {
   const weekday = new Date(`${day}T12:00:00Z`).getUTCDay()
+
   return weekday === 0 || weekday === 6
 }
 
@@ -789,6 +840,7 @@ function WeekGrid({
   today: string
 }) {
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i))
+
   return (
     <section
       aria-label={t('projects.schedulePage.grid')}
@@ -855,7 +907,9 @@ function WeekGrid({
                 const list = bookings
                   .filter((b) => b.resourceId === ins.id && b.date === x)
                   .sort((a, b) => a.start.localeCompare(b.start))
+
                 const weekend = isWeekend(x)
+
                 return (
                   <td
                     key={x}
@@ -930,6 +984,7 @@ function PhoneDay({
   const list = bookings
     .filter((b) => b.date === day)
     .sort((a, b) => a.start.localeCompare(b.start))
+
   return (
     <section
       aria-label={t('projects.schedulePage.bookingsOn', {
@@ -946,6 +1001,7 @@ function PhoneDay({
         <ul className="m-0 list-none p-0">
           {list.map((b) => {
             const instrument = instruments.find((i) => i.id === b.resourceId)
+
             return (
               <li
                 key={b.id}
@@ -1014,6 +1070,7 @@ function PartsDue({
   today: string
 }) {
   if (parts.length === 0) return null
+
   return (
     <section data-testid="schedule-parts">
       <div className="mb-1 flex items-baseline gap-2">

@@ -35,7 +35,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof StockWithdrawButton>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Not yet withdrawn: the button offers it. */

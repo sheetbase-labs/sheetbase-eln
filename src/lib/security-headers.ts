@@ -34,7 +34,9 @@ export function officeEditorOrigin(
   env: NodeJS.ProcessEnv = process.env,
 ): string | null {
   const raw = env.OFFICE_EDITOR_URL
+
   if (!raw) return null
+
   try {
     return new URL(raw).origin
   } catch {
@@ -69,6 +71,7 @@ export function buildContentSecurityPolicy(
       : nonce
         ? `'self' 'nonce-${nonce}'`
         : "'self' 'unsafe-inline'"
+
   // COLLAB: presence and live editing ride a same-origin WebSocket to the
   // bundled co-editing server, which `'self'` covers, so no third-party host
   // is allowed. GitHub avatars are rendered from user profiles in
@@ -78,6 +81,7 @@ export function buildContentSecurityPolicy(
 
   const editorOrigin = officeEditorOrigin()
   const editorSource = editorOrigin ? ` ${editorOrigin}` : ''
+
   return [
     "default-src 'self'",
     "base-uri 'self'",
@@ -139,6 +143,7 @@ export function applySecurityHeaders(
   for (const [name, value] of securityHeaderEntries(mode, nonce)) {
     headers.set(name, value)
   }
+
   return headers
 }
 
@@ -149,5 +154,6 @@ export function stampSecurityHeaders(
   nonce?: string,
 ): Response {
   applySecurityHeaders(response.headers, mode, nonce)
+
   return response
 }

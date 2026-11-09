@@ -28,6 +28,7 @@ const verified = screenQueryClient({
     },
   ],
 })
+
 const failed = screenQueryClient({
   data: [
     {
@@ -42,8 +43,10 @@ const failed = screenQueryClient({
     },
   ],
 })
+
 const never = screenQueryClient({ data: [{ key, value: null }] })
 const pending = screenQueryClient()
+
 holdRead(pending, key)
 
 const meta = {
@@ -66,7 +69,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof AuditCheckLine>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The trail was found intact: the tooltip says when. */

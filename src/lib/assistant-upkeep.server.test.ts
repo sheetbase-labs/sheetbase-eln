@@ -14,15 +14,18 @@ type Rows = Partial<
 
 function context(rows: Rows): { ctx: LabToolContext; calls: string[] } {
   const calls: string[] = []
+
   const client = {
     list: (resource: string, query = '') => {
       calls.push(`${resource}${query}`)
       const source = rows[resource]
+
       return Promise.resolve(
         typeof source === 'function' ? source(query) : (source ?? []),
       )
     },
   } as unknown as DataClient
+
   return {
     ctx: { client, workspaceId: WS, userId: 'me', timeZone: 'Europe/London' },
     calls,
@@ -81,10 +84,12 @@ describe('project and follow cards', () => {
         },
       },
     })
+
     const followed = context({
       records: [rec],
       work_item_follows: [{ record_id: 'r1' }],
     })
+
     expect(
       await buildUpkeepProposal(
         'sheetbase.follow',
@@ -170,6 +175,7 @@ describe('orders and shipments', () => {
         },
       ],
     })
+
     expect(
       await buildUpkeepProposal(
         'sheetbase.shipment.cancel',
@@ -177,6 +183,7 @@ describe('orders and shipments', () => {
         received.ctx,
       ),
     ).toMatchObject({ ok: false })
+
     const moving = context({
       shipments: [
         {
@@ -188,6 +195,7 @@ describe('orders and shipments', () => {
         },
       ],
     })
+
     expect(
       await buildUpkeepProposal(
         'sheetbase.shipment.cancel',
@@ -215,6 +223,7 @@ describe('sample cards', () => {
     const { ctx } = context({
       records: (q) => (q.includes('kind=eq.sample') ? [s142] : [exp]),
     })
+
     expect(
       await buildUpkeepProposal(
         'sheetbase.sample.reserve',
@@ -312,6 +321,7 @@ describe('instrument visit card', () => {
         },
       ],
     })
+
     expect(
       await buildUpkeepProposal(
         'sheetbase.instrument.log_service',
@@ -342,17 +352,21 @@ describe('instrument visit card', () => {
 describe('running upkeep actions', () => {
   it('calls the ordinary RPCs, as the person', async () => {
     const calls: Array<[string, Record<string, unknown>]> = []
+
     const client = {
       rpc: (name: string, args: Record<string, unknown>) => {
         calls.push([name, args])
+
         return Promise.resolve({ id: 'x' })
       },
     } as unknown as DataClient
+
     const project = await runUpkeepAction(client, {
       kind: 'project.create',
       title: 'Vaccine B',
       startedOn: null,
     })
+
     await runUpkeepAction(client, { kind: 'notifications.read' })
     await runUpkeepAction(client, {
       kind: 'follow.set',
@@ -402,16 +416,19 @@ describe('people and continuity cards', () => {
             ]
           : (rpc[name] ?? []),
       )
+
     return made
   }
 
   it('sets out of office with a named cover, and refuses past dates', async () => {
     const { ctx } = withPeople({})
+
     const ok = await buildUpkeepProposal(
       'sheetbase.absence.set',
       { ...base, from: '2999-01-01', until: '2999-01-05', cover: 'Priya' },
       ctx,
     )
+
     expect(ok).toMatchObject({
       ok: true,
       proposal: {
@@ -444,11 +461,13 @@ describe('people and continuity cards', () => {
     expect(
       await buildUpkeepProposal('sheetbase.absence.cancel', base, none.ctx),
     ).toMatchObject({ ok: false })
+
     const some = withPeople({
       member_absences: [
         { id: 'a1', starts_on: '2999-01-01', ends_on: '2999-01-05' },
       ],
     })
+
     expect(
       await buildUpkeepProposal('sheetbase.absence.cancel', base, some.ctx),
     ).toMatchObject({
@@ -466,6 +485,7 @@ describe('people and continuity cards', () => {
         ],
       },
     )
+
     expect(
       await buildUpkeepProposal(
         'sheetbase.handover.start',
@@ -499,6 +519,7 @@ describe('people and continuity cards', () => {
         { id: 'g1', group_name: 'lab-admins', role: 'admin' },
       ],
     })
+
     expect(
       await buildUpkeepProposal(
         'sheetbase.group_role.set',
@@ -527,6 +548,7 @@ describe('people and continuity cards', () => {
         { id: 't1', label: 'Okta', last_used_at: '2026-11-01T10:00:00Z' },
       ],
     })
+
     expect(
       await buildUpkeepProposal(
         'sheetbase.scim_token.revoke',
@@ -541,12 +563,15 @@ describe('people and continuity cards', () => {
 
   it('runs the cards through the ordinary RPCs', async () => {
     const calls: Array<[string, Record<string, unknown>]> = []
+
     const client = {
       rpc: (name: string, args: Record<string, unknown>) => {
         calls.push([name, args])
+
         return Promise.resolve({})
       },
     } as unknown as DataClient
+
     await runUpkeepAction(client, {
       kind: 'absence.set',
       workspaceId: WS,
@@ -579,8 +604,10 @@ describe('people and continuity cards', () => {
 describe('validation run card', () => {
   const withAllowed = (allowed: boolean) => {
     const made = context({})
+
     ;(made.ctx.client as unknown as { rpc: unknown }).rpc = () =>
       Promise.resolve(allowed)
+
     return made
   }
 
@@ -704,8 +731,10 @@ describe('data contract cards', () => {
 describe('trusted timestamp cards', () => {
   const withSettings = (rows: Rows, settings: unknown) => {
     const made = context(rows)
+
     ;(made.ctx.client as unknown as { rpc: unknown }).rpc = () =>
       Promise.resolve(settings)
+
     return made
   }
 
@@ -714,6 +743,7 @@ describe('trusted timestamp cards', () => {
       {},
       { enabled: false, authority: null, url: null },
     )
+
     expect(
       await buildUpkeepProposal(
         'sheetbase.timestamps.set',
@@ -750,11 +780,13 @@ describe('trusted timestamp cards', () => {
 
   it('proposes trying again only for a signature that has not been stamped', async () => {
     const sig = '44444444-4444-4444-8444-444444444444'
+
     const gaveUp = context({
       signature_timestamps: [
         { signature_id: sig, status: 'failed', attempts: 6 },
       ],
     })
+
     expect(
       await buildUpkeepProposal(
         'sheetbase.timestamps.retry',
@@ -765,11 +797,13 @@ describe('trusted timestamp cards', () => {
       ok: true,
       proposal: { action: { kind: 'timestamps.retry', signatureId: sig } },
     })
+
     const stamped = context({
       signature_timestamps: [
         { signature_id: sig, status: 'stamped', attempts: 1 },
       ],
     })
+
     expect(
       await buildUpkeepProposal(
         'sheetbase.timestamps.retry',
@@ -781,12 +815,15 @@ describe('trusted timestamp cards', () => {
 
   it('runs the cards through the ordinary RPCs', async () => {
     const calls: Array<[string, Record<string, unknown>]> = []
+
     const client = {
       rpc: (name: string, args: Record<string, unknown>) => {
         calls.push([name, args])
+
         return Promise.resolve({})
       },
     } as unknown as DataClient
+
     await runUpkeepAction(client, {
       kind: 'timestamps.set',
       workspaceId: WS,
@@ -814,6 +851,7 @@ describe('trusted timestamp cards', () => {
 
 describe('reproduce run card', () => {
   const definition = { id: 'd1', name: 'Scale titres', display_id: 'PL-0001' }
+
   const run = {
     id: 'r1',
     status: 'succeeded',
@@ -827,11 +865,13 @@ describe('reproduce run card', () => {
       pipeline_definition_versions: [{ id: 'v1' }],
       pipeline_runs: [run],
     })
+
     const outcome = await buildUpkeepProposal(
       'sheetbase.pipeline.reproduce',
       { ...base, pipeline: 'scale titres' },
       ctx,
     )
+
     expect(outcome).toMatchObject({
       ok: true,
       proposal: {
@@ -849,11 +889,13 @@ describe('reproduce run card', () => {
         context({}).ctx,
       ),
     ).toMatchObject({ ok: false })
+
     const unfinished = context({
       pipeline_runs: [{ ...run, status: 'failed' }],
       pipeline_definition_versions: [{ definition_id: 'd1' }],
       pipeline_definitions: [definition],
     })
+
     expect(
       await buildUpkeepProposal(
         'sheetbase.pipeline.reproduce',
@@ -933,6 +975,7 @@ describe('sample stock and storage cards', () => {
         },
       ],
     })
+
     expect(
       await buildUpkeepProposal(
         'sheetbase.sample.reservation_cancel',
@@ -945,6 +988,7 @@ describe('sample stock and storage cards', () => {
         action: { kind: 'sample.reservation_cancel', reservationId: 'v1' },
       },
     })
+
     const two = context({
       records: [s142],
       sample_reservations: [
@@ -962,6 +1006,7 @@ describe('sample stock and storage cards', () => {
         },
       ],
     })
+
     expect(
       await buildUpkeepProposal(
         'sheetbase.sample.reservation_cancel',
@@ -983,11 +1028,13 @@ describe('sample stock and storage cards', () => {
 
   it('puts a sample in a free position, refuses a taken one, and takes it out', async () => {
     const box = { id: 'b1', name: 'Box 7', code: 'B7' }
+
     const free = context({
       records: [s142],
       storage_boxes: [box],
       storage_positions: [{ id: 'p4', label: 'B4', status: 'available' }],
     })
+
     expect(
       await buildUpkeepProposal(
         'sheetbase.storage.place',
@@ -998,11 +1045,13 @@ describe('sample stock and storage cards', () => {
       ok: true,
       proposal: { action: { kind: 'storage.place', positionId: 'p4' } },
     })
+
     const taken = context({
       records: [s142],
       storage_boxes: [box],
       storage_positions: [{ id: 'p4', label: 'B4', status: 'occupied' }],
     })
+
     expect(
       await buildUpkeepProposal(
         'sheetbase.storage.place',
@@ -1048,6 +1097,7 @@ describe('sample stock and storage cards', () => {
         },
       },
     })
+
     for (const args of [
       { level: 'unit', name: 'Freezer 3', code: 'F3' },
       { level: 'unit', name: 'Freezer 3', inside: 'Room 1' },
@@ -1064,12 +1114,15 @@ describe('sample stock and storage cards', () => {
 
   it('runs the cards by calling the sample and storage functions', async () => {
     const calls: Array<[string, unknown]> = []
+
     const client = {
       rpc: (name: string, args: unknown) => {
         calls.push([name, args])
+
         return Promise.resolve({ id: 'x', metadata_version: 5 })
       },
     } as unknown as DataClient
+
     await runUpkeepAction(client, {
       kind: 'storage.place',
       recordId: 's1',

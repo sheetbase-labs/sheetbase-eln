@@ -161,7 +161,9 @@ const meta = {
     onClose: () => {},
   },
 } satisfies Meta<typeof Inspector>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Loaded experiment with five tabs; the identity header stays pinned. */

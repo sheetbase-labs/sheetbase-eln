@@ -65,6 +65,7 @@ function PanePageInstance({
   onReady,
 }: PanePageProps) {
   const outerRouter = useRouter()
+
   const callbacks = useRef({
     onLocationChange,
     onReady,
@@ -74,6 +75,7 @@ function PanePageInstance({
     onMissing,
     onMakePrimary,
   })
+
   callbacks.current = {
     onLocationChange,
     onReady,
@@ -83,6 +85,7 @@ function PanePageInstance({
     onMissing,
     onMakePrimary,
   }
+
   const paneContext = useMemo(
     () => ({
       paneId: id,
@@ -107,13 +110,17 @@ function PanePageInstance({
       editingPane?.sameRecord,
     ],
   )
+
   const [prompt, setPrompt] = useState<{
     edits: PendingEdit[]
     resolve: (leave: boolean) => void
   } | null>(null)
+
   const [page] = useState(() => {
     const router = getPaneRouter(context, href)
+
     type Blocker = Parameters<RouterHistory['block']>[0]
+
     const blockers = new Set<Blocker>()
     const pending = new Set<() => void>()
     const register = router.history.block
@@ -125,23 +132,28 @@ function PanePageInstance({
         ...blocker,
         blockerFn: async (args) => {
           let cancel = () => {}
+
           const cancelled = new Promise<boolean>((resolve) => {
             cancel = () => resolve(true)
             pending.add(cancel)
           })
+
           try {
             const blocked = await Promise.race([
               blocker.blockerFn(args),
               cancelled,
             ])
+
             return blocked
           } finally {
             pending.delete(cancel)
           }
         },
       }
+
       blockers.add(guarded)
       const unregister = register(guarded)
+
       return () => {
         blockers.delete(guarded)
         unregister()
@@ -154,10 +166,14 @@ function PanePageInstance({
       // Pages that register their unsaved edits answer through the prompt.
       if (!runLeaveCheck()) {
         toast.error(t('projects.panePage.unsaved'))
+
         return false
       }
+
       const held = pendingEditsFor(id)
+
       if (held.length === 0) return true
+
       return new Promise<boolean>((resolve) => {
         setPrompt({ edits: held, resolve })
       })
@@ -170,8 +186,10 @@ function PanePageInstance({
       router.history[method] = (path, state, options) => {
         if (options?.ignoreBlocker) {
           commit(path, state, options)
+
           return
         }
+
         void canLeaveEditors().then((leave) => {
           if (leave) commit(path, state, options)
         })
@@ -183,7 +201,9 @@ function PanePageInstance({
       action: 'PUSH' | 'REPLACE',
     ) {
       for (const cancel of pending) cancel()
+
       if (!(await canLeaveEditors())) return false
+
       for (const blocker of [...blockers]) {
         if (
           await blocker.blockerFn({
@@ -194,6 +214,7 @@ function PanePageInstance({
         )
           return false
       }
+
       return true
     }
 
@@ -204,10 +225,13 @@ function PanePageInstance({
         router.buildLocation(
           options as Parameters<typeof router.buildLocation>[0],
         ).href
+
       if (!workspaceHref(targetHref, window.location.origin)) {
         return outerRouter.navigate({ href: targetHref })
       }
+
       const target = new URL(targetHref, window.location.origin)
+
       if (
         !options.ignoreBlocker &&
         !(await approve(
@@ -223,6 +247,7 @@ function PanePageInstance({
       ) {
         return
       }
+
       return navigate({
         ...options,
         ignoreBlocker: true,
@@ -232,6 +257,7 @@ function PanePageInstance({
     }
 
     let closing: Promise<boolean> | undefined
+
     const handle: PanePageHandle = {
       navigate: async (nextHref) => {
         await router.navigate({ href: nextHref })
@@ -241,9 +267,11 @@ function PanePageInstance({
         closing = approve(router.history.location, 'REPLACE').finally(() => {
           closing = undefined
         })
+
         return closing
       },
     }
+
     return { router, handle, pending }
   })
 
@@ -251,6 +279,7 @@ function PanePageInstance({
   const previousContextKey = useRef(contextKey)
   useEffect(() => {
     page.router.update({ context: { ...context, workspacePane: true } })
+
     if (previousContextKey.current === contextKey) return
     previousContextKey.current = contextKey
     void page.router.invalidate()
@@ -258,27 +287,33 @@ function PanePageInstance({
 
   useEffect(() => {
     let lastHref: string | undefined
+
     const notify = (committedHref: string) => {
       if (committedHref === lastHref) return
       lastHref = committedHref
       callbacks.current.onLocationChange(committedHref)
     }
+
     const unsubscribe = page.router.subscribe(
       'onResolved',
       ({ toLocation }) => {
         notify(toLocation.href)
       },
     )
+
     callbacks.current.onReady(page.handle)
+
     if (
       page.router.state.status === 'idle' &&
       page.router.state.resolvedLocation
     ) {
       notify(page.router.state.resolvedLocation.href)
     }
+
     return () => {
       callbacks.current.onReady(null)
       unsubscribe()
+
       for (const cancel of page.pending) cancel()
       page.router.history.destroy()
     }

@@ -56,34 +56,43 @@ export function modelCreateErrors(input: {
   const name = input.name.trim()
   const description = input.description.trim()
   const errors: { key?: string; name?: string; description?: string } = {}
+
   if (!key) errors.key = t('library.models.modelCreateDialog.keyIsRequired')
   else if (!MODEL_KEY_PATTERN.test(key))
     errors.key = t('library.models.modelCreateDialog.useLowerCaseLettersDigits')
+
   if (!name) errors.name = t('library.models.modelCreateDialog.nameIsRequired')
   else if (name.length > MODEL_NAME_MAX)
     errors.name = t('library.models.modelCreateDialog.nameMustBeCharactersOr', {
       modelNameMax: MODEL_NAME_MAX,
     })
+
   if (description.length > MODEL_DESCRIPTION_MAX)
     errors.description = t(
       'library.models.modelCreateDialog.descriptionMustBeCharactersOr',
       { modelDescriptionMax: MODEL_DESCRIPTION_MAX },
     )
+
   return errors
 }
 
 /** Map the RPC's refusal to a short, true reason rather than a shrug. */
 export function describeModelCreateError(error: unknown): string | null {
   if (error == null) return null
+
   if (error instanceof DataClientError) {
     if (error.code === '42501' || /capability/i.test(error.message))
       return t('library.models.modelCreateDialog.youDontHavePermissionTo')
+
     if (error.code === 'SB082')
       return t('library.models.modelCreateDialog.thatRecordTypeKeyOr')
+
     if (error.code === '23505' || /duplicate key/i.test(error.message))
       return t('library.models.modelCreateDialog.aModelWithThatKey')
+
     return error.message
   }
+
   return error instanceof Error
     ? error.message
     : t('library.models.modelCreateDialog.couldNotCreateTheModel')
@@ -115,14 +124,17 @@ export function ModelCreateDialog({
   const showKey = submitted || key.length > 0
   const showName = submitted || name.length > 0
   const showDescription = submitted || description.length > 0
+
   const prefixError =
     kind === 'record' && !/^[A-Z][A-Z0-9]{0,7}$/.test(identifierPrefix.trim())
       ? t('library.models.modelCreateDialog.use18UpperCase')
       : null
+
   const invalid = Object.keys(errors).length > 0 || Boolean(prefixError)
 
   function submit() {
     setSubmitted(true)
+
     if (invalid) return
     onCreate({
       key: key.trim(),
@@ -140,6 +152,7 @@ export function ModelCreateDialog({
       open={open}
       onOpenChange={(next) => {
         onOpenChange(next)
+
         if (!next) {
           setKey('')
           setName('')

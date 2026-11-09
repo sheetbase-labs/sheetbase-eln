@@ -80,6 +80,7 @@ const withOpen = screenQueryClient({
     { key: namesKey, value: names },
   ],
 })
+
 const allResolved = screenQueryClient({
   data: [
     { key: decisionsKey, value: [decision] },
@@ -87,8 +88,11 @@ const allResolved = screenQueryClient({
     { key: namesKey, value: names },
   ],
 })
+
 const loading = screenQueryClient()
+
 holdRead(loading, decisionsKey)
+
 holdRead(loading, commentsKey)
 
 const meta = {
@@ -125,7 +129,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof ReturnedReviewBanner>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Two comments are still open. */

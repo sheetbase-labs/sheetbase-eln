@@ -26,7 +26,9 @@ export function SnapshotSourceBanner({
     queryFn: () => listDatasetVersionSummaries(sciDataClient, datasetId),
     staleTime: 30_000,
   })
+
   const version = versions.data?.find((v) => v.id === datasetVersionId)
+
   return (
     <div
       role="status"

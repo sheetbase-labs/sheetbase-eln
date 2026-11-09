@@ -34,6 +34,7 @@ const key = ['office-workbook', 'file-1', 2] as const
 const ready = screenQueryClient({ data: [{ key, value: workbook }] })
 const empty = screenQueryClient({ data: [{ key, value: [] }] })
 const loading = screenQueryClient()
+
 holdRead(loading, key)
 
 const meta = {
@@ -60,7 +61,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof MakeSheetFromFile>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 async function open(canvasElement: HTMLElement) {

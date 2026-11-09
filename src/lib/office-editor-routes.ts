@@ -51,20 +51,26 @@ export async function handleEditorStatus(
   deps: EditorSessionDeps = realEditorSessionDeps(),
 ): Promise<Response> {
   const session = await resolveSessionAuth(request.headers, auth)
+
   if (!session.ok) {
     return requestErrorResponse(session.status, session.code, session.message)
   }
+
   if (!deps.config) return ok({ enabled: false })
+
   // `?check=1` also asks the editor whether it answers, for the admin view.
   if (new URL(request.url).searchParams.get('check') !== '1') {
     return ok({ enabled: true })
   }
+
   let reachable = true
+
   try {
     await (deps.discovery ?? fetchDiscovery)(deps.config.editorUrl)
   } catch {
     reachable = false
   }
+
   return ok({
     enabled: true,
     reachable,
@@ -92,11 +98,15 @@ export async function handleEditorSession(
   if (request.method !== 'POST') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
   }
+
   const session = await resolveSessionAuth(request.headers, auth)
+
   if (!session.ok) {
     return requestErrorResponse(session.status, session.code, session.message)
   }
+
   const { context } = session
+
   if (!deps.config) {
     return requestErrorResponse(
       404,
@@ -104,13 +114,17 @@ export async function handleEditorSession(
       'The browser editor is not set up for this workspace.',
     )
   }
+
   let body: { fileRecordId?: unknown; recordId?: unknown; mode?: unknown }
+
   try {
     body = await request.json()
   } catch {
     return requestErrorResponse(400, 'invalid_body', 'Body must be JSON.')
   }
+
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
   if (typeof body.fileRecordId !== 'string' || !uuid.test(body.fileRecordId)) {
     return requestErrorResponse(
       400,
@@ -118,10 +132,12 @@ export async function handleEditorSession(
       'fileRecordId is required.',
     )
   }
+
   const recordId =
     typeof body.recordId === 'string' && uuid.test(body.recordId)
       ? body.recordId
       : undefined
+
   const wantView = body.mode === 'view'
 
   const fileRes = await postgrestSelect<FileInfo[]>(
@@ -129,14 +145,19 @@ export async function handleEditorSession(
     `record_id=eq.${body.fileRecordId}&select=display_name,version,status&order=version.desc&limit=1`,
     context.token,
   )
+
   const file = Array.isArray(fileRes.body) ? fileRes.body.at(0) : undefined
+
   if (fileRes.status >= 400 || !file) {
     return requestErrorResponse(404, 'not_found', 'File not found.')
   }
+
   if (file.status !== 'active') {
     return requestErrorResponse(409, 'not_available', `File is ${file.status}.`)
   }
+
   const ext = editableExtension(file.display_name)
+
   if (!ext) {
     return requestErrorResponse(
       415,
@@ -147,12 +168,14 @@ export async function handleEditorSession(
 
   let canWrite = !wantView
   let lockedReason: 'signed' | 'archived' | null = null
+
   if (recordId) {
     const blockRes = await postgrestSelect<{ id: string }[]>(
       'blocks',
       `record_id=eq.${recordId}&type=eq.file&payload->>fileRecordId=eq.${body.fileRecordId}&select=id&limit=1`,
       context.token,
     )
+
     if (!Array.isArray(blockRes.body) || blockRes.body.length === 0) {
       return requestErrorResponse(
         404,
@@ -160,6 +183,7 @@ export async function handleEditorSession(
         'That file is not in this experiment.',
       )
     }
+
     const recRes = await postgrestSelect<
       { locked_at: string | null; archived_at: string | null }[]
     >(
@@ -167,14 +191,19 @@ export async function handleEditorSession(
       `id=eq.${recordId}&select=locked_at,archived_at`,
       context.token,
     )
+
     const rec = Array.isArray(recRes.body) ? recRes.body.at(0) : undefined
+
     if (!rec) return requestErrorResponse(404, 'not_found', 'Record not found.')
+
     if (rec.locked_at) lockedReason = 'signed'
     else if (rec.archived_at) lockedReason = 'archived'
+
     if (lockedReason) canWrite = false
   }
 
   let urlsrc: string | null
+
   try {
     const xml = await (deps.discovery ?? fetchDiscovery)(deps.config.editorUrl)
     urlsrc =
@@ -188,6 +217,7 @@ export async function handleEditorSession(
       'The browser editor did not answer. Check that it is running.',
     )
   }
+
   if (!urlsrc) {
     return requestErrorResponse(
       415,
@@ -205,7 +235,9 @@ export async function handleEditorSession(
     canWrite,
     hostRecordId: recordId,
   })
+
   const wopiSrc = `${deps.config.wopiHostUrl}/api/wopi/files/${body.fileRecordId}`
+
   return ok({
     actionUrl: editorFormAction(urlsrc, wopiSrc),
     accessToken,

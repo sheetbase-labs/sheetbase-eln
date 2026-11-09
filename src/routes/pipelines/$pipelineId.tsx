@@ -36,14 +36,17 @@ import { validatePipelineConfig } from '#/lib/pipelines/config'
 export const Route = createFileRoute('/pipelines/$pipelineId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     await resolveIdentifierParam({
       entity: 'pipeline',
       ref: params.pipelineId,
       href: location.href,
     })
+
     return { context }
   },
   component: PipelineLayout,
@@ -54,9 +57,11 @@ function PipelineLayout() {
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
   const matchRoute = useMatchRoute()
+
   const onRun = Boolean(
     matchRoute({ to: '/pipelines/$pipelineId/runs/$runId', fuzzy: true }),
   )
+
   const onSteps = Boolean(matchRoute({ to: '/pipelines/$pipelineId/steps' }))
   const queryClient = useQueryClient()
   const definition = usePipelineDefinition(pipelineId)
@@ -73,6 +78,7 @@ function PipelineLayout() {
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'pipelines'] })
 
   const navigate = useNavigate()
+
   const run = useRunLauncher(
     workspaceId,
     (started) =>
@@ -85,6 +91,7 @@ function PipelineLayout() {
   const publish = useMutation({
     mutationFn: () => {
       if (!draft) throw new Error(t('data.pipelinePage.thereDraftPublish'))
+
       return publishPipelineDefinitionVersion(notebookDataClient, {
         workspaceId,
         versionId: draft.id,
@@ -106,7 +113,9 @@ function PipelineLayout() {
   })
 
   const d = definition.data
+
   if (onRun) return <Outlet />
+
   if (!d) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
@@ -150,7 +159,9 @@ function PipelineLayout() {
       </div>
     )
   }
+
   const params = { pipelineId: d.id }
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader

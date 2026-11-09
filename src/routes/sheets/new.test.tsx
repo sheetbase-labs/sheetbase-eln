@@ -46,22 +46,27 @@ describe('/sheets/new search', () => {
     } as ReturnType<typeof Route.useRouteContext>)
     vi.spyOn(Route, 'useSearch').mockReturnValue({})
     const NewSheet = Route.options.component!
+
     const first = render(
       <QueryClientProvider client={new QueryClient()}>
         <NewSheet />
       </QueryClientProvider>,
     )
+
     const second = render(
       <QueryClientProvider client={new QueryClient()}>
         <NewSheet />
       </QueryClientProvider>,
     )
+
     const firstName = within(first.container).getByRole('textbox', {
       name: 'Name',
     })
+
     const secondName = within(second.container).getByRole('textbox', {
       name: 'Name',
     })
+
     const firstScroll = vi.fn()
     const secondScroll = vi.fn()
     firstName.closest('div')!.scrollIntoView = firstScroll

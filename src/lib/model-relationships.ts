@@ -38,6 +38,7 @@ export function useModelRelationshipRules(
   options: { client?: DataClient; enabled?: boolean } = {},
 ): { rules: ModelRelationshipRule[]; isLoading: boolean } {
   const { client = modelRelationshipsDataClient, enabled = true } = options
+
   const rulesQuery = useQuery({
     queryKey:
       sourceModelKey != null
@@ -47,6 +48,7 @@ export function useModelRelationshipRules(
     enabled: enabled && sourceModelKey != null && sourceModelKey !== '',
     staleTime: 60_000,
   })
+
   return { rules: rulesQuery.data ?? [], isLoading: rulesQuery.isLoading }
 }
 
@@ -59,8 +61,10 @@ export function useRelationshipTypeLabels(
   options: { client?: DataClient; enabled?: boolean } = {},
 ): Record<string, string> | undefined {
   const { rules } = useModelRelationshipRules(sourceModelKey, options)
+
   if (sourceModelKey == null || sourceModelKey === '') return undefined
   const labels = relationshipTypeLabels(rules)
+
   return Object.keys(labels).length > 0 ? labels : undefined
 }
 
@@ -138,10 +142,12 @@ export async function fetchModelRelationshipRules(
   const filter = sourceModelKey
     ? `?source_model_key=eq.${encodeURIComponent(sourceModelKey)}&order=link_type.asc,target_model_key.asc`
     : '?order=source_model_key.asc,link_type.asc,target_model_key.asc'
+
   const rows = await client.list<ModelRelationshipRuleWire>(
     'model_relationship_rules',
     filter,
   )
+
   return rows.map(toModelRelationshipRule)
 }
 
@@ -216,7 +222,9 @@ export function isLinkAllowed(
   edge: { sourceModelKey: string; linkType: string; targetModelKey: string },
 ): boolean {
   const declared = rulesForSourceModel(rules, edge.sourceModelKey)
+
   if (declared.length === 0) return true
+
   return declared.some(
     (rule) =>
       rule.linkType === edge.linkType &&
@@ -235,6 +243,7 @@ export function allowedTargetModels(
   linkType: string,
 ): string[] | null {
   if (rulesForSourceModel(rules, sourceModelKey).length === 0) return null
+
   return rulesForLinkType(rules, sourceModelKey, linkType).map(
     (rule) => rule.targetModelKey,
   )
@@ -249,7 +258,9 @@ export function allowedLinkTypes(
   sourceModelKey: string,
 ): string[] | null {
   const declared = rulesForSourceModel(rules, sourceModelKey)
+
   if (declared.length === 0) return null
+
   return [...new Set(declared.map((rule) => rule.linkType))]
 }
 
@@ -265,7 +276,9 @@ export function isReferenceTargetAllowed(
   targetModelKey: string,
 ): boolean {
   const declared = rulesForSourceModel(rules, sourceModelKey)
+
   if (declared.length === 0) return true
+
   return declared.some((rule) => rule.targetModelKey === targetModelKey)
 }
 
@@ -339,11 +352,13 @@ export function relationshipTypeLabels(
   rules: readonly Pick<ModelRelationshipRule, 'linkType' | 'label'>[],
 ): Record<string, string> {
   const labels: Record<string, string> = {}
+
   for (const rule of rules) {
     if (rule.label && !(rule.linkType in labels)) {
       labels[rule.linkType] = rule.label
     }
   }
+
   return labels
 }
 
@@ -361,8 +376,10 @@ export function resolveRelationshipLabel(
     const declared = rules.find(
       (rule) => rule.linkType === linkType && rule.label,
     )
+
     if (declared?.label) return declared.label
   }
+
   return relationshipLabel(linkType)
 }
 
@@ -372,11 +389,13 @@ export function resolveRelationshipLabel(
 
 function errorCode(error: unknown): string | null {
   if (!error || typeof error !== 'object') return null
+
   return 'code' in error && typeof error.code === 'string' ? error.code : null
 }
 
 function errorMessage(error: unknown): string {
   if (!error || typeof error !== 'object') return ''
+
   return 'message' in error && typeof error.message === 'string'
     ? error.message
     : ''
@@ -389,6 +408,7 @@ function errorMessage(error: unknown): string {
  */
 export function isRelationshipNotAllowedError(error: unknown): boolean {
   if (errorCode(error) === 'SB080') return true
+
   return /not allowed for model|target model is not recognised/i.test(
     errorMessage(error),
   )
@@ -400,6 +420,7 @@ export function isRelationshipNotAllowedError(error: unknown): boolean {
  */
 export function isRelationshipCardinalityError(error: unknown): boolean {
   if (errorCode(error) === 'SB081') return true
+
   return /exceeds the maximum/i.test(errorMessage(error))
 }
 
@@ -437,24 +458,29 @@ export function ruleDeclarationGuidance(
   existingSourceRules: number,
 ): string[] {
   const guidance: string[] = []
+
   if (existingSourceRules === 0) {
     guidance.push(
       `This first declaration closes the world for model “${pending.sourceModelKey}”: from now on only declared (link type, target model) pairs are accepted at link creation, and anything else is rejected.`,
     )
   }
+
   if (pending.maxLinks !== null) {
     guidance.push(
       `Links beyond the maximum of ${pending.maxLinks} are rejected when created. Existing over-maximum links stay readable but cannot be recreated once removed — review them before tightening.`,
     )
   }
+
   if (pending.minLinks > 0) {
     guidance.push(
       `The minimum of ${pending.minLinks} is completeness metadata for readers; it is never enforced when links are created, so under-linked records need a steward pass, not a migration.`,
     )
   }
+
   guidance.push(
     'Declaring a rule never rewrites existing links or local working state; it only changes which future links are accepted.',
   )
+
   return guidance
 }
 
@@ -476,11 +502,13 @@ export function ruleRemovalGuidance(
       `Removing this last declaration restores unrestricted links for model “${rule.sourceModelKey}”: every link type is accepted again. Existing links are unaffected.`,
     ]
   }
+
   if (remainingForLinkType === 0) {
     return [
       `Removing this declaration re-opens “${rule.linkType}” links for model “${rule.sourceModelKey}”: that type no longer requires a declared target. Existing links are unaffected.`,
     ]
   }
+
   return [
     `Other declarations still constrain “${rule.linkType}” links for model “${rule.sourceModelKey}”. Existing links are unaffected.`,
   ]

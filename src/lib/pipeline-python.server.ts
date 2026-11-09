@@ -103,9 +103,11 @@ export class PipelinePythonError extends Error {
 }
 
 const MAX_LOG_BYTES = 64 * 1024
+
 /** Log output kept from a plugin call; it only trims what is shown after a failure. */
 const PLUGIN_LOG_BYTES = 1024 * 1024
 const DIGEST_IMAGE = /^[a-z0-9][a-z0-9./:_-]*@sha256:[a-f0-9]{64}$/
+
 const isObject = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
 
@@ -126,33 +128,39 @@ function measureRows(
   const rowLimit = limits?.rows ?? INPUT_ROW_LIMIT
   const fieldLimit = limits ? Infinity : INPUT_FIELD_LIMIT
   const cellLimit = limits ? Infinity : RESULT_CELL_LIMIT
+
   if (!Array.isArray(rows))
     throw new PipelinePythonError(
       `${label} must be a list of row objects.`,
       code,
     )
+
   if (rows.length > rowLimit)
     throw new PipelinePythonError(
       `${label} has ${rows.length} rows, over the ${rowLimit} row limit.`,
       code,
     )
   let cells = 0
+
   for (const row of rows) {
     if (!isObject(row))
       throw new PipelinePythonError(`${label} must contain row objects.`, code)
     const fields = Object.keys(row).length
     cells += fields
+
     if (fields > fieldLimit)
       throw new PipelinePythonError(
         `${label} has a row with ${fields} fields, over the ${INPUT_FIELD_LIMIT} field limit.`,
         code,
       )
+
     if (cells > cellLimit)
       throw new PipelinePythonError(
         `${label} has ${cells} cells, over the ${RESULT_CELL_LIMIT} cell limit.`,
         code,
       )
   }
+
   return { rows: rows.length, cells }
 }
 
@@ -161,6 +169,7 @@ function serialize(input: PythonTransformInput): string {
   const byteLimit = limits?.bytes ?? PAYLOAD_BYTE_LIMIT
   const rowLimit = limits?.rows ?? INPUT_ROW_LIMIT
   const cellLimit = limits ? Infinity : RESULT_CELL_LIMIT
+
   if (
     !input.statement.trim() ||
     // A plugin's files travel inside its steps, bounded by its data limit instead.
@@ -173,11 +182,13 @@ function serialize(input: PythonTransformInput): string {
     )
   let rows = 0
   let cells = 0
+
   for (const values of Object.values(input.inputs)) {
     const measured = measureRows(values, 'input', limits)
     cells += measured.cells
     rows += measured.rows
   }
+
   if (rows > rowLimit || cells > cellLimit)
     throw new PipelinePythonError(
       limits
@@ -186,6 +197,7 @@ function serialize(input: PythonTransformInput): string {
       'input_too_large',
     )
   let body: string
+
   try {
     body = JSON.stringify(input, (_key, value: unknown) => {
       if (
@@ -196,6 +208,7 @@ function serialize(input: PythonTransformInput): string {
         typeof value === 'symbol'
       )
         throw new Error('non-JSON value')
+
       return value
     })
   } catch {
@@ -203,12 +216,15 @@ function serialize(input: PythonTransformInput): string {
       'Python inputs and parameters must contain finite JSON values.',
     )
   }
+
   const bytes = Buffer.byteLength(body)
+
   if (bytes > byteLimit)
     throw new PipelinePythonError(
       `Python input is ${formatByteSize(bytes)}, over the ${formatByteSize(byteLimit)} limit.`,
       'input_too_large',
     )
+
   return body
 }
 
@@ -219,18 +235,21 @@ function failureDetail(
 ): { logs?: string[]; line?: number } {
   if (!isObject(result)) return {}
   const detail: { logs?: string[]; line?: number } = {}
+
   if (
     Array.isArray(result.logs) &&
     result.logs.every((line): line is string => typeof line === 'string') &&
     Buffer.byteLength(result.logs.join('\n')) <= logLimit
   )
     detail.logs = result.logs
+
   if (
     typeof result.line === 'number' &&
     Number.isInteger(result.line) &&
     result.line > 0
   )
     detail.line = result.line
+
   return detail
 }
 
@@ -242,10 +261,12 @@ function readEnvironment(value: unknown): PythonEnvironment | undefined {
   )
     return undefined
   const packages: Record<string, string> = {}
+
   for (const [name, version] of Object.entries(value.packages)) {
     if (typeof version !== 'string') return undefined
     packages[name] = version
   }
+
   return { python: value.python, packages }
 }
 
@@ -254,11 +275,13 @@ async function boundedJson(
   byteLimit: number = PAYLOAD_BYTE_LIMIT,
 ): Promise<{ value: unknown; bytes: number }> {
   const declared = Number(response.headers.get('content-length'))
+
   if (declared > byteLimit)
     throw new PipelinePythonError(
       `Python response declares ${formatByteSize(declared)}, over the ${formatByteSize(byteLimit)} limit.`,
       'output_too_large',
     )
+
   if (!response.body)
     throw new PipelinePythonError(
       'Python runner returned an empty response.',
@@ -267,11 +290,14 @@ async function boundedJson(
   const reader = response.body.getReader()
   const chunks: Uint8Array[] = []
   let bytes = 0
+
   try {
     for (;;) {
       const next = await reader.read()
+
       if (next.done) break
       bytes += next.value.byteLength
+
       if (bytes > byteLimit) {
         await reader.cancel()
         throw new PipelinePythonError(
@@ -279,14 +305,17 @@ async function boundedJson(
           'output_too_large',
         )
       }
+
       chunks.push(next.value)
     }
+
     return {
       value: JSON.parse(Buffer.concat(chunks).toString('utf8')) as unknown,
       bytes,
     }
   } catch (error) {
     if (error instanceof PipelinePythonError) throw error
+
     if (
       error instanceof Error &&
       ['TimeoutError', 'AbortError'].includes(error.name)
@@ -317,9 +346,11 @@ export async function releasePythonArtefacts(
 ): Promise<void> {
   const runnerUrl = process.env.PIPELINE_PYTHON_RUNNER_URL
   const token = process.env.PIPELINE_PYTHON_RUNNER_TOKEN
+
   if (!runnerUrl || !token || token.length < 32) return
   const url = new URL(runnerUrl)
   url.pathname = '/artefacts/release'
+
   const response = await fetch(url, {
     method: 'POST',
     redirect: 'error',
@@ -330,6 +361,7 @@ export async function releasePythonArtefacts(
     body: JSON.stringify({ key: artefactKey, keep }),
     signal: AbortSignal.timeout(10_000),
   })
+
   if (!response.ok)
     throw new PipelinePythonError(
       `The Python runner did not release this run's files (${response.status}).`,
@@ -342,14 +374,17 @@ export async function executePythonTransform(
 ): Promise<PythonTransformResult> {
   const runnerUrl = process.env.PIPELINE_PYTHON_RUNNER_URL
   const token = process.env.PIPELINE_PYTHON_RUNNER_TOKEN
+
   if (!runnerUrl || !token || token.length < 32)
     throw new PipelinePythonError(
       'Python execution is not configured. Ask an administrator to configure the Python runner.',
       'runner_unavailable',
     )
   let url: URL
+
   try {
     url = new URL(runnerUrl)
+
     if (
       !['http:', 'https:'].includes(url.protocol) ||
       url.username ||
@@ -366,8 +401,10 @@ export async function executePythonTransform(
       'runner_unavailable',
     )
   }
+
   const body = serialize(input)
   let response: Response
+
   try {
     response = await fetch(url, {
       method: 'POST',
@@ -398,7 +435,9 @@ export async function executePythonTransform(
       'runner_unavailable',
     )
   }
+
   const logLimit = input.limits ? PLUGIN_LOG_BYTES : MAX_LOG_BYTES
+
   const { value: result, bytes: outputBytes } = await boundedJson(
     response,
     // The answer within the plugin's data limit, plus its logs and framing.
@@ -406,11 +445,13 @@ export async function executePythonTransform(
       ? input.limits.bytes + PLUGIN_LOG_BYTES + 1024 * 1024
       : undefined,
   )
+
   if (!response.ok) {
     const message =
       isObject(result) && typeof result.error === 'string'
         ? result.error.slice(0, 2000)
         : 'Python execution failed.'
+
     throw new PipelinePythonError(
       message,
       isObject(result) &&
@@ -425,6 +466,7 @@ export async function executePythonTransform(
       failureDetail(result, logLimit),
     )
   }
+
   if (
     !isObject(result) ||
     typeof result.runtime !== 'string' ||
@@ -434,11 +476,13 @@ export async function executePythonTransform(
       'Python runner did not report a pinned runtime.',
       'runner_unavailable',
     )
+
   if (input.runtime && input.runtime !== result.runtime)
     throw new PipelinePythonError(
       'The runner returned a different Python runtime than the pinned version.',
       'runner_unavailable',
     )
+
   // PIPE-04.1: the runner reports the files it collected, if the step declared a key.
   const files = Array.isArray(result.files)
     ? (result.files as unknown[]).map((entry) => {
@@ -450,14 +494,17 @@ export async function executePythonTransform(
           throw new PipelinePythonError(
             'Python runner reported a malformed file entry.',
           )
+
         return { name: entry.name, size: entry.size }
       })
     : []
 
   const measured = measureRows(result.rows, 'result', input.limits)
+
   const logBytes = Array.isArray(result.logs)
     ? Buffer.byteLength(result.logs.join('\n'))
     : 0
+
   if (
     !Array.isArray(result.logs) ||
     result.logs.some((line) => typeof line !== 'string') ||
@@ -467,6 +514,7 @@ export async function executePythonTransform(
       `Python log output is ${formatByteSize(logBytes)}, over the ${formatByteSize(logLimit)} limit.`,
       'output_too_large',
     )
+
   return {
     rows: result.rows as Record<string, unknown>[],
     logs: result.logs as string[],
@@ -493,13 +541,16 @@ export interface PythonRuntimeInfo {
 export async function getPythonRuntimeInfo(): Promise<PythonRuntimeInfo> {
   const runnerUrl = process.env.PIPELINE_PYTHON_RUNNER_URL
   const token = process.env.PIPELINE_PYTHON_RUNNER_TOKEN
+
   if (!runnerUrl || !token || token.length < 32)
     throw new PipelinePythonError(
       'Python execution is not configured.',
       'runner_unavailable',
     )
+
   try {
     const url = new URL(runnerUrl)
+
     if (
       !['http:', 'https:'].includes(url.protocol) ||
       url.username ||
@@ -510,12 +561,15 @@ export async function getPythonRuntimeInfo(): Promise<PythonRuntimeInfo> {
     )
       throw new Error('invalid runner address')
     url.pathname = '/runtime'
+
     const response = await fetch(url, {
       headers: { Authorization: `Bearer ${token}` },
       redirect: 'error',
       signal: AbortSignal.timeout(15_000),
     })
+
     const { value: result } = await boundedJson(response)
+
     if (
       !response.ok ||
       !isObject(result) ||
@@ -524,9 +578,11 @@ export async function getPythonRuntimeInfo(): Promise<PythonRuntimeInfo> {
     )
       throw new Error('runtime unavailable')
     const packages: Record<string, string> = {}
+
     if (isObject(result.packages))
       for (const [name, version] of Object.entries(result.packages))
         if (typeof version === 'string') packages[name] = version
+
     return {
       runtime: result.runtime,
       ...(typeof result.python === 'string' ? { python: result.python } : {}),
@@ -555,6 +611,7 @@ export interface PythonEnvironmentStatus {
 function runnerRequest(path: string, init: RequestInit): Promise<Response> {
   const runnerUrl = process.env.PIPELINE_PYTHON_RUNNER_URL
   const token = process.env.PIPELINE_PYTHON_RUNNER_TOKEN
+
   if (!runnerUrl || !token || token.length < 32)
     throw new PipelinePythonError(
       'Python execution is not configured. Ask an administrator to configure the Python runner.',
@@ -562,6 +619,7 @@ function runnerRequest(path: string, init: RequestInit): Promise<Response> {
     )
   const url = new URL(runnerUrl)
   url.pathname = path
+
   return fetch(url, {
     ...init,
     redirect: 'error',
@@ -577,6 +635,7 @@ async function environmentAnswer(
   response: Response,
 ): Promise<PythonEnvironmentStatus> {
   const { value } = await boundedJson(response, 4 * 1024 * 1024)
+
   if (!response.ok || !isObject(value) || typeof value.id !== 'string') {
     throw new PipelinePythonError(
       isObject(value) && typeof value.error === 'string'
@@ -585,10 +644,13 @@ async function environmentAnswer(
       'runner_unavailable',
     )
   }
+
   const packages: Record<string, string> = {}
+
   if (isObject(value.packages))
     for (const [name, version] of Object.entries(value.packages))
       if (typeof version === 'string') packages[name] = version
+
   return {
     id: value.id,
     state:
@@ -607,6 +669,7 @@ export async function requestPythonEnvironment(
   requirements: string[],
 ): Promise<PythonEnvironmentStatus> {
   let response: Response
+
   try {
     response = await runnerRequest('/environments', {
       method: 'POST',
@@ -620,6 +683,7 @@ export async function requestPythonEnvironment(
       'runner_unavailable',
     )
   }
+
   return environmentAnswer(response)
 }
 
@@ -628,6 +692,7 @@ export async function getPythonEnvironment(
   id: string,
 ): Promise<PythonEnvironmentStatus> {
   let response: Response
+
   try {
     response = await runnerRequest(`/environments/${id}`, { method: 'GET' })
   } catch (error) {
@@ -637,5 +702,6 @@ export async function getPythonEnvironment(
       'runner_unavailable',
     )
   }
+
   return environmentAnswer(response)
 }

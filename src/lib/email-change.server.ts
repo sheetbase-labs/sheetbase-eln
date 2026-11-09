@@ -46,22 +46,29 @@ export async function createEmailChange(
   | { ok: false; reason: EmailChangeRefusal }
 > {
   const newEmail = normaliseAddress(input.newEmail)
+
   if (!ADDRESS.test(newEmail) || newEmail.length > 254) {
     return { ok: false, reason: 'invalid_address' }
   }
+
   const current = await pool.query<{ email: string }>(
     `SELECT email FROM internal."user" WHERE id = $1`,
     [input.userId],
   )
+
   const oldEmail = current.rows.at(0)?.email
+
   if (!oldEmail) return { ok: false, reason: 'unknown_user' }
+
   if (oldEmail.toLowerCase() === newEmail) {
     return { ok: false, reason: 'same_address' }
   }
+
   const taken = await pool.query(
     `SELECT 1 FROM internal."user" WHERE lower(email) = $1 AND id <> $2`,
     [newEmail, input.userId],
   )
+
   if (taken.rows.length > 0) return { ok: false, reason: 'address_taken' }
 
   const token = randomBytes(32).toString('base64url')
@@ -83,6 +90,7 @@ export async function createEmailChange(
       new Date(Date.now() + LIFETIME_MS),
     ],
   )
+
   return { ok: true, token, oldEmail, newEmail }
 }
 
@@ -95,8 +103,10 @@ export async function confirmEmailChange(
   token: string,
 ): Promise<EmailChangeConfirmation> {
   const client = await pool.connect()
+
   try {
     await client.query('BEGIN')
+
     const found = await client.query<{
       id: string
       value: string
@@ -106,36 +116,51 @@ export async function confirmEmailChange(
         WHERE identifier = $1 FOR UPDATE`,
       [IDENTIFIER_PREFIX + hashOf(token)],
     )
+
     const row = found.rows.at(0)
+
     if (!row) {
       await client.query('ROLLBACK')
+
       return { ok: false, reason: 'invalid_link' }
     }
+
     await client.query(`DELETE FROM internal.verification WHERE id = $1`, [
       row.id,
     ])
+
     if (row.expires_at.getTime() < Date.now()) {
       await client.query('COMMIT')
+
       return { ok: false, reason: 'expired' }
     }
+
     const pending = JSON.parse(row.value) as { userId: string; email: string }
+
     const taken = await client.query(
       `SELECT 1 FROM internal."user" WHERE lower(email) = $1 AND id <> $2`,
       [pending.email, pending.userId],
     )
+
     if (taken.rows.length > 0) {
       await client.query('COMMIT')
+
       return { ok: false, reason: 'address_taken' }
     }
+
     const before = await client.query<{ email: string }>(
       `SELECT email FROM internal."user" WHERE id = $1 FOR UPDATE`,
       [pending.userId],
     )
+
     const oldEmail = before.rows.at(0)?.email
+
     if (!oldEmail) {
       await client.query('ROLLBACK')
+
       return { ok: false, reason: 'invalid_link' }
     }
+
     await client.query(
       `UPDATE internal."user"
           SET email = $2, "emailVerified" = true, "updatedAt" = now()
@@ -146,6 +171,7 @@ export async function confirmEmailChange(
       pending.userId,
     ])
     await client.query('COMMIT')
+
     return { ok: true, oldEmail, newEmail: pending.email }
   } catch (error) {
     await client.query('ROLLBACK').catch(() => undefined)

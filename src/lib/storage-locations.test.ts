@@ -81,6 +81,7 @@ function tree() {
       archived_at: '2026-10-01T00:00:00Z',
     }),
   ]
+
   return buildStorageTree(
     nodes,
     new Map([
@@ -128,6 +129,7 @@ describe('locationSuggestions', () => {
     const nodes = tree().nodes.map((n) =>
       n.id === 'u1' ? { ...n, archivedAt: '2026-10-01T00:00:00Z' } : n,
     )
+
     const t = buildStorageTree(nodes)
     expect(isArchived(t, t.byId.get('b1')!)).toBe(true)
     expect(locationSuggestions(t)).toEqual([])
@@ -197,6 +199,7 @@ describe('writes', () => {
       patch: ReturnType<typeof vi.fn>
     }
   }
+
   const t = tree()
 
   it('makes a box through the function that also makes its positions', async () => {

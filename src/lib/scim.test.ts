@@ -141,17 +141,23 @@ describe('groups', () => {
       { Operations: [{ op: 'add', path: 'members', value: [{ value: 'c' }] }] },
       ['a', 'b'],
     )
+
     expect(add.members).toEqual(['a', 'b', 'c'])
+
     const removeOne = groupChangesFromPatch(
       { Operations: [{ op: 'remove', path: 'members[value eq "a"]' }] },
       ['a', 'b'],
     )
+
     expect(removeOne.members).toEqual(['b'])
+
     const removeAll = groupChangesFromPatch(
       { Operations: [{ op: 'remove', path: 'members' }] },
       ['a', 'b'],
     )
+
     expect(removeAll.members).toEqual([])
+
     const replace = groupChangesFromPatch(
       {
         Operations: [
@@ -160,6 +166,7 @@ describe('groups', () => {
       },
       ['a'],
     )
+
     expect(replace.members).toEqual(['z'])
   })
   it('renames without touching members', () => {
@@ -169,6 +176,7 @@ describe('groups', () => {
       },
       ['a'],
     )
+
     expect(renamed).toEqual({ displayName: 'Chemists' })
   })
 })
@@ -190,6 +198,7 @@ describe('shaping a user', () => {
       },
       'https://eln.test/api/scim/v2',
     )
+
     expect(shaped.meta.location).toBe('https://eln.test/api/scim/v2/Users/u1')
     expect(shaped.name).toMatchObject({
       givenName: 'Ada',

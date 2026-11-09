@@ -49,7 +49,9 @@ export function useReportRange(
     if (period !== 'custom') return resolvePeriod(period, appNow(), zone)
     const start = dayStart(from, zone)
     const end = dayEnd(to, zone)
+
     if (!start || !end || end <= start) return null
+
     return { from: start, to: end }
   }, [period, from, to, zone])
 

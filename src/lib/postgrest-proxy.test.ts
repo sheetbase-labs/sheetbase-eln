@@ -31,16 +31,19 @@ function req(path: string, init: RequestInit = {}): Request {
 describe('handleProxyRequest', () => {
   it('rejects disallowed paths before touching the session', async () => {
     let sessionChecked = false
+
     const response = await handleProxyRequest(
       req('../internal.user'),
       '../internal.user',
       makeDeps({
         getSession: async () => {
           sessionChecked = true
+
           return null
         },
       }),
     )
+
     expect(response.status).toBe(400)
     expect(sessionChecked).toBe(false)
     const body = await response.json()
@@ -53,6 +56,7 @@ describe('handleProxyRequest', () => {
       'projects',
       makeDeps({ getSession: async () => null }),
     )
+
     expect(response.status).toBe(401)
     const body = await response.json()
     expect(body.error.category).toBe('unauthenticated')
@@ -61,12 +65,14 @@ describe('handleProxyRequest', () => {
 
   it('never falls back to a browser session for a malformed bearer header', async () => {
     let sessionChecked = false
+
     const malformed = await handleProxyRequest(
       req('projects', { headers: { authorization: 'Bearer ' } }),
       'projects',
       makeDeps({
         getSession: async () => {
           sessionChecked = true
+
           return {
             user: { id: 'user-1' },
             session: { id: 'session-1' },
@@ -74,6 +80,7 @@ describe('handleProxyRequest', () => {
         },
       }),
     )
+
     expect(malformed.status).toBe(401)
     expect(sessionChecked).toBe(false)
 
@@ -82,6 +89,7 @@ describe('handleProxyRequest', () => {
       'projects',
       makeDeps({ resolveExternalToken: undefined }),
     )
+
     expect(missingResolver.status).toBe(401)
   })
 
@@ -91,22 +99,26 @@ describe('handleProxyRequest', () => {
       'projects',
       makeDeps({ getWorkspaceForUser: async () => null }),
     )
+
     expect(response.status).toBe(403)
     expect((await response.json()).error.category).toBe('permission_denied')
   })
 
   it('rejects workspace-mismatched requests before forwarding', async () => {
     let forwarded = false
+
     const response = await handleProxyRequest(
       req('projects', { headers: { 'x-sheetbase-workspace': 'workspace-2' } }),
       'projects',
       makeDeps({
         fetchFn: async () => {
           forwarded = true
+
           return new Response('[]')
         },
       }),
     )
+
     expect(response.status).toBe(403)
     expect((await response.json()).error.category).toBe('permission_denied')
     expect(forwarded).toBe(false)
@@ -114,6 +126,7 @@ describe('handleProxyRequest', () => {
 
   it('forwards with the minted token, method, body and safe query', async () => {
     let seen: { url: string; init: RequestInit } | null = null
+
     const response = await handleProxyRequest(
       req('projects?select=id', {
         method: 'POST',
@@ -127,6 +140,7 @@ describe('handleProxyRequest', () => {
       makeDeps({
         fetchFn: async (url, init) => {
           seen = { url: String(url), init: init ?? {} }
+
           return new Response('[{"id":"p1"}]', {
             status: 201,
             headers: { 'content-type': 'application/json' },
@@ -150,16 +164,19 @@ describe('handleProxyRequest', () => {
 
   it('rejects an unsafe query instead of dropping a filter', async () => {
     let forwarded = false
+
     const response = await handleProxyRequest(
       req('projects?bad[key]=1'),
       'projects',
       makeDeps({
         fetchFn: async () => {
           forwarded = true
+
           return new Response('[]')
         },
       }),
     )
+
     expect(response.status).toBe(400)
     expect(forwarded).toBe(false)
   })
@@ -167,6 +184,7 @@ describe('handleProxyRequest', () => {
   it('requires id/version for a generated PATCH and controls its Prefer header', async () => {
     const resource = `sheet_${'a'.repeat(26)}`
     const id = '10000000-0000-4000-8000-000000000001'
+
     const missingVersion = await handleProxyRequest(
       req(`${resource}?id=eq.${id}`, {
         method: 'PATCH',
@@ -175,9 +193,11 @@ describe('handleProxyRequest', () => {
       resource,
       makeDeps(),
     )
+
     expect(missingVersion.status).toBe(400)
 
     let prefer: string | null = null
+
     const success = await handleProxyRequest(
       req(`${resource}?id=eq.${id}&version=eq.1`, {
         method: 'PATCH',
@@ -191,10 +211,12 @@ describe('handleProxyRequest', () => {
       makeDeps({
         fetchFn: async (_url, init) => {
           prefer = new Headers(init?.headers).get('prefer')
+
           return Response.json([{ id, version: 2 }])
         },
       }),
     )
+
     expect(success.status).toBe(200)
     expect(prefer).toBe('handling=strict,max-affected=1,return=representation')
   })
@@ -202,8 +224,10 @@ describe('handleProxyRequest', () => {
   it('rejects caller-controlled filters and response shaping on mutations', async () => {
     const resource = `sheet_${'a'.repeat(26)}`
     const id = '10000000-0000-4000-8000-000000000001'
+
     for (const extra of ['select=id', 'limit=0', 'col_value=eq.hidden']) {
       let forwarded = false
+
       const response = await handleProxyRequest(
         req(`${resource}?id=eq.${id}&version=eq.1&${extra}`, {
           method: 'PATCH',
@@ -213,10 +237,12 @@ describe('handleProxyRequest', () => {
         makeDeps({
           fetchFn: async () => {
             forwarded = true
+
             return Response.json([])
           },
         }),
       )
+
       expect(response.status, extra).toBe(400)
       expect(forwarded, extra).toBe(false)
     }
@@ -225,6 +251,7 @@ describe('handleProxyRequest', () => {
   it('maps an empty generated mutation result to stale_version', async () => {
     const resource = `sheet_${'a'.repeat(26)}`
     const id = '10000000-0000-4000-8000-000000000001'
+
     const response = await handleProxyRequest(
       req(`${resource}?id=eq.${id}&version=eq.1`, {
         method: 'DELETE',
@@ -232,6 +259,7 @@ describe('handleProxyRequest', () => {
       resource,
       makeDeps({ fetchFn: async () => Response.json([]) }),
     )
+
     expect(response.status).toBe(409)
     expect((await response.json()).error.category).toBe('stale_version')
   })
@@ -243,6 +271,7 @@ describe('handleProxyRequest', () => {
       makeDeps({
         fetchFn: async (_url, init) => {
           expect(new Headers(init?.headers).get('range')).toBe('0-9')
+
           return new Response('[]', {
             headers: {
               'content-type': 'application/json',
@@ -253,12 +282,14 @@ describe('handleProxyRequest', () => {
         },
       }),
     )
+
     expect(response.headers.get('content-range')).toBe('0-9/25')
     expect(response.headers.get('range-unit')).toBe('items')
   })
 
   it('does not poll OpenAPI readiness for a still-valid non-schema RPC', async () => {
     let calls = 0
+
     const response = await handleProxyRequest(
       req('rpc/create_record', {
         method: 'POST',
@@ -269,16 +300,19 @@ describe('handleProxyRequest', () => {
       makeDeps({
         fetchFn: async () => {
           calls += 1
+
           return Response.json({ id: '10000000-0000-4000-8000-000000000001' })
         },
       }),
     )
+
     expect(response.status).toBe(200)
     expect(calls).toBe(1)
   })
 
   it('forwards the x-sheetbase-client-id header to the token minter (LIVE-003)', async () => {
     let minted: { clientId?: string | null } | null = null
+
     const response = await handleProxyRequest(
       req('projects', {
         headers: { 'x-sheetbase-client-id': 'tab-123' },
@@ -287,10 +321,12 @@ describe('handleProxyRequest', () => {
       makeDeps({
         mintToken: async (input) => {
           minted = input
+
           return 'minted-jwt'
         },
       }),
     )
+
     expect(response.status).toBe(200)
     expect(minted).toMatchObject({ clientId: 'tab-123' })
   })
@@ -303,6 +339,7 @@ describe('handleProxyRequest', () => {
       makeDeps({
         mintToken: async (input) => {
           minted = input
+
           return 'minted-jwt'
         },
       }),
@@ -320,6 +357,7 @@ describe('handleProxyRequest', () => {
         },
       }),
     )
+
     expect(response.status).toBe(502)
     const body = await response.json()
     expect(body.error.category).toBe('service_unavailable')
@@ -328,12 +366,14 @@ describe('handleProxyRequest', () => {
 
   it('stamps a request id on every response, forwarding it upstream', async () => {
     let upstreamRequestId: string | null = null
+
     const response = await handleProxyRequest(
       req('projects', { headers: { 'x-request-id': 'req-abc-123' } }),
       'projects',
       makeDeps({
         fetchFn: async (_url, init) => {
           upstreamRequestId = new Headers(init?.headers).get('x-request-id')
+
           return new Response('[]', {
             status: 200,
             headers: { 'content-type': 'application/json' },
@@ -341,6 +381,7 @@ describe('handleProxyRequest', () => {
         },
       }),
     )
+
     expect(response.headers.get('x-request-id')).toBe('req-abc-123')
     expect(upstreamRequestId).toBe('req-abc-123')
   })
@@ -351,6 +392,7 @@ describe('handleProxyRequest', () => {
       'projects',
       makeDeps(),
     )
+
     const id = response.headers.get('x-request-id')
     expect(id).not.toBeNull()
     expect(id).toMatch(/^[a-z0-9-]{1,128}$/i)
@@ -374,6 +416,7 @@ describe('handleProxyRequest', () => {
           ),
       }),
     )
+
     expect(response.status).toBe(409)
     const body = await response.json()
     expect(body.error.category).toBe('conflict')
@@ -395,6 +438,7 @@ describe('handleProxyRequest', () => {
           }),
       }),
     )
+
     expect(response.status).toBe(403)
     expect((await response.json()).error.category).toBe('permission_denied')
   })
@@ -411,6 +455,7 @@ describe('handleProxyRequest', () => {
           }),
       }),
     )
+
     expect(await response.json()).toEqual([{ id: 'p1', title: 'A' }])
   })
 })
@@ -418,6 +463,7 @@ describe('handleProxyRequest', () => {
 describe('handleProxyRequest — external bearer token path', () => {
   it('forwards the bearer token untouched when the resolver succeeds', async () => {
     let seenAuth: string | null = null
+
     const response = await handleProxyRequest(
       req('projects', {
         headers: { authorization: 'Bearer external-jwt' },
@@ -427,6 +473,7 @@ describe('handleProxyRequest — external bearer token path', () => {
         resolveExternalToken: async () => ({ workspaceId: 'workspace-1' }),
         fetchFn: async (_url, init) => {
           seenAuth = new Headers(init?.headers).get('authorization')
+
           return new Response('[]', {
             status: 200,
             headers: { 'content-type': 'application/json' },
@@ -434,6 +481,7 @@ describe('handleProxyRequest — external bearer token path', () => {
         },
       }),
     )
+
     expect(response.status).toBe(200)
     expect(seenAuth).toBe('Bearer external-jwt')
   })
@@ -447,10 +495,12 @@ describe('handleProxyRequest — external bearer token path', () => {
           const err = new (class extends Error {
             code = 'invalid_token' as const
           })()
+
           throw err
         },
       }),
     )
+
     // ExternalTokenError mapping lives in external-token.ts; the proxy's
     // fallback for a non-ExternalTokenError is the unauthenticated envelope.
     expect(response.status).toBe(401)
@@ -459,6 +509,7 @@ describe('handleProxyRequest — external bearer token path', () => {
 
   it('returns permission_denied when the resolver rejects with insufficient_scope', async () => {
     const { ExternalTokenError } = await import('./external-token')
+
     const response = await handleProxyRequest(
       req('projects', {
         method: 'POST',
@@ -474,6 +525,7 @@ describe('handleProxyRequest — external bearer token path', () => {
         },
       }),
     )
+
     expect(response.status).toBe(403)
     const body = await response.json()
     expect(body.error.category).toBe('permission_denied')
@@ -483,6 +535,7 @@ describe('handleProxyRequest — external bearer token path', () => {
 
   it('returns permission_denied when the resolver rejects with revoked', async () => {
     const { ExternalTokenError } = await import('./external-token')
+
     const response = await handleProxyRequest(
       req('projects', { headers: { authorization: 'Bearer external-jwt' } }),
       'projects',
@@ -495,22 +548,26 @@ describe('handleProxyRequest — external bearer token path', () => {
         },
       }),
     )
+
     expect(response.status).toBe(403)
     expect((await response.json()).error.category).toBe('permission_denied')
   })
 
   it('falls back to the browser session when no bearer header is present', async () => {
     let resolverCalled = false
+
     const response = await handleProxyRequest(
       req('projects'),
       'projects',
       makeDeps({
         resolveExternalToken: async () => {
           resolverCalled = true
+
           return { workspaceId: 'workspace-1' }
         },
       }),
     )
+
     expect(response.status).toBe(200)
     expect(resolverCalled).toBe(false)
   })
@@ -543,6 +600,7 @@ describe('PLAT-02 proxy metrics', () => {
           }),
       }),
     )
+
     expect(response.status).toBe(503)
     expect(metrics.render()).toMatch(
       /sheetbase_db_upstream_requests_total\{category="service_unavailable"\} \d+/,
@@ -566,6 +624,7 @@ describe('PLAT-02 log correlation', () => {
     const info = vi
       .spyOn(requestLog, 'annotateRequest')
       .mockImplementation(() => undefined)
+
     try {
       await handleProxyRequest(
         req('projects', { headers: { 'x-request-id': 'corr-123' } }),
@@ -590,10 +649,12 @@ describe('PLAT-03 proxy rate limiting', () => {
 
   it('blocks the principal with the public rate_limited envelope after the cap', async () => {
     const deps = limitedDeps(2)
+
     for (let i = 0; i < 2; i += 1) {
       const ok = await handleProxyRequest(req('projects'), 'projects', deps)
       expect(ok.status).toBe(200)
     }
+
     const blocked = await handleProxyRequest(req('projects'), 'projects', deps)
     expect(blocked.status).toBe(429)
     expect(blocked.headers.get('retry-after')).toBeTruthy()
@@ -613,11 +674,13 @@ describe('PLAT-03 proxy rate limiting', () => {
       }),
       rateLimiter: deps.rateLimiter,
     })
+
     const different = await handleProxyRequest(
       req('projects'),
       'projects',
       other,
     )
+
     expect(different.status).toBe(200)
 
     expect(metrics.render()).toMatch(

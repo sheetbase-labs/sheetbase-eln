@@ -81,9 +81,11 @@ function RunPage() {
   const run = usePipelineRun(runId)
   const logs = useRunLogs(runId)
   const outputs = useRunOutputs(runId)
+
   const datasetNames = useDatasetNames(
     (outputs.data ?? []).map((o) => o.dataset_id),
   )
+
   const runInputs = useRunInputs(Object.values(run.data?.input_versions ?? {}))
   // Re-render when the person's time zone is applied or changed.
   useDisplayTimeZone()
@@ -95,6 +97,7 @@ function RunPage() {
   const deliveryIds = readDeliveryIds(run.data?.result ?? {})
   const deliveries = useRunDeliveries(runId, deliveryIds)
   const queryClient = useQueryClient()
+
   const answer = useMutation({
     mutationFn: (value: PipelineRunPromptAnswer) =>
       answerPipelineRunPrompt(runId, value),
@@ -123,25 +126,32 @@ function RunPage() {
           : t('data.pipelineRun.couldAnswerRun'),
       ),
   })
+
   const version = (versions.data ?? []).find(
     (v) => v.id === run.data?.definition_version_id,
   )
+
   const r = run.data
+
   // A retry is pinned to the version the run failed on. When the pipeline has
   // since published a newer version, the same inputs can be run on that one.
   const currentPublished = (versions.data ?? []).find(
     (v) => v.lifecycle === 'published',
   )
+
   const canRerunOnCurrent =
     !!r &&
     (r.status === 'failed' || r.status === 'cancelled') &&
     !!currentPublished &&
     currentPublished.id !== r.definition_version_id
+
   // The newest prompt is the one a waiting run is paused on.
   const promptList = prompts.data ?? []
+
   const prompt = promptList.length
     ? promptList[promptList.length - 1]
     : undefined
+
   const launcher = useRunLauncher(
     r?.workspace_id ?? '',
     (started) =>
@@ -150,12 +160,15 @@ function RunPage() {
         params: { pipelineId, runId: started.id },
       }),
   )
+
   const nameOf = (userId: string) => members.data?.[userId] ?? userId
+
   // A running run is stopped through api.cancel_pipeline_run; a waiting run is
   // moved on by answering its prompt (a Stop decision cancels it there).
   const cancel = useMutation({
     mutationFn: () => {
       if (!r) throw new Error(t('data.pipelineRun.runLoadedYet'))
+
       return cancelPipelineRun(notebookDataClient, {
         workspaceId: r.workspace_id,
         runId,
@@ -234,19 +247,24 @@ function RunPage() {
 
   const status = runStatus(r.status)
   const guidance = explainRunError(r.error_code)
+
   // What the run's own log said at the point it stopped, when it said anything.
   const failureLine = [...(logs.data ?? [])]
     .reverse()
     .find((entry) => entry.level === 'error')?.message
+
   const number = numbers.data?.get(r.id)
   const runLabel = number ? `#${number}` : r.id.slice(0, 8)
+
   const steps = runSteps(
     version?.configuration ?? {},
     r,
     logs.data ?? [],
     prompt,
   )
+
   const failedStep = steps.find((step) => step.state === 'failed')
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
@@ -599,6 +617,7 @@ function RunPage() {
                 labelWidth={90}
                 items={Object.entries(r.input_versions).map(([k, v]) => {
                   const info = runInputs.data?.[v]
+
                   return [
                     k,
                     info ? (

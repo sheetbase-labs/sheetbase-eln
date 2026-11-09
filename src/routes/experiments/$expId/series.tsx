@@ -11,6 +11,7 @@ export const Route = createFileRoute('/experiments/$expId/series')({
 function SeriesTab() {
   const { expId } = Route.useParams()
   const { context } = Route.useRouteContext()
+
   return (
     <ExperimentSeries
       expId={expId}

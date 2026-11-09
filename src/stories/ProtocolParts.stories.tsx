@@ -51,7 +51,9 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function inside(queryClient: QueryClient, width = 760) {
@@ -63,6 +65,7 @@ function inside(queryClient: QueryClient, width = 760) {
     </QueryClientProvider>
   )
 }
+
 const seeded = (data: ReadSeed[]) => screenQueryClient({ data })
 
 const version = (
@@ -85,6 +88,7 @@ const version = (
 const v1 = version(1, 'superseded', 'First release.')
 const v2 = version(2, 'effective', 'Hold parameters clarified.')
 const v3 = version(3, 'draft', 'Add a second wash step.')
+
 const names = (ids: string[]): ReadSeed => ({
   key: ['user-names', ids],
   value: { [ADA]: 'Ada Okafor', [GRACE]: 'Grace Owner' },

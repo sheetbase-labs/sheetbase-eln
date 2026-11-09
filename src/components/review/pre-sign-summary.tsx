@@ -21,6 +21,7 @@ function warningText(warning: PreSignWarning): string {
     where: warning.where,
     limit: warning.limit ?? '',
   }
+
   return warning.kind === 'missing-unit'
     ? t('projects.preSign.warning.missingUnit', values)
     : warning.kind === 'out-of-spec'
@@ -40,9 +41,11 @@ export function PreSignSummary({ input }: { input: PreSignInput }) {
 
   async function summarise() {
     setState('working')
+
     const result = await ai
       .run({ task: 'summarise', text: preSignFacts(review, diff) })
       .catch(() => null)
+
     if (result?.status === 'ok') {
       setText(result.text)
       setState('idle')

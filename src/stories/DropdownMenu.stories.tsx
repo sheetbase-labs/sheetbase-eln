@@ -25,7 +25,9 @@ const meta = {
   tags: ['autodocs'],
   parameters: { layout: 'padded' },
 } satisfies Meta<typeof DropdownMenu>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Commands, hints and a destructive item last, which is the app's row menu. */

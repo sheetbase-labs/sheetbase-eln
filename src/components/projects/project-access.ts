@@ -41,7 +41,9 @@ export function useHasProjectAccess(
     queryFn: () => fetchMyProjectAssignments(client),
     staleTime: 60_000,
   })
+
   if (!query.data) return undefined
+
   return query.data.length > 0
 }
 

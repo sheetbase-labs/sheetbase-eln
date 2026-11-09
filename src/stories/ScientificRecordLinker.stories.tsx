@@ -76,7 +76,9 @@ const meta = {
     onLinked: () => {},
   },
 } satisfies Meta<typeof ScientificRecordLinker>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** No links yet: the picker is the only affordance. */

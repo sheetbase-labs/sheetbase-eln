@@ -26,18 +26,22 @@ export function PendingEditsDialog({
 }) {
   const [saving, setSaving] = useState(false)
   const label = edits?.map((edit) => edit.label).join(', ') ?? ''
+
   async function save() {
     if (!edits) return
     setSaving(true)
+
     try {
       for (const edit of edits) {
         if (!(await edit.save())) return
       }
+
       onResolve(true)
     } finally {
       setSaving(false)
     }
   }
+
   return (
     <ConfirmDialog
       open={edits !== null}

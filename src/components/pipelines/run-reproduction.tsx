@@ -47,6 +47,7 @@ export function ReproductionBadge({
   status: PipelineReproductionStatus
 }) {
   const view = STATUS[status]
+
   return <Status tone={view.tone}>{view.label}</Status>
 }
 
@@ -68,6 +69,7 @@ export function useReproduceRun(
   onDone?: (reproduction: PipelineReproductionWire) => void,
 ) {
   const queryClient = useQueryClient()
+
   return useMutation({
     mutationFn: () => reproducePipelineRun({ runId }),
     onSuccess: (reproduction) => {
@@ -103,11 +105,14 @@ export function ReproductionResult({
 }) {
   const summary = summaryOf(reproduction)
   const changes = reproduction.changes
+
   const inputChanged = (summary.inputs ?? []).some(
     (input) => input.unchanged === false,
   )
+
   if (reproduction.status === 'failed') {
     const guidance = explainRunError(reproduction.error_code)
+
     return (
       <Notice tone="bad" title={guidance.title}>
         <p className="m-0 whitespace-pre-wrap">
@@ -116,7 +121,9 @@ export function ReproductionResult({
       </Notice>
     )
   }
+
   const rows = summary.reproducedRows ?? 0
+
   return (
     <div className="flex flex-col gap-3">
       <Notice
@@ -231,16 +238,19 @@ function rowLabel(row: Record<string, unknown>, changed: string[]): string {
     .filter(([column, value]) => !changed.includes(column) && value !== null)
     .slice(0, 3)
     .map(([column, value]) => `${column}: ${formatCell(value)}`)
+
   return parts.length > 0 ? parts.join(' · ') : '—'
 }
 
 function formatCell(value: unknown): string {
   if (value === null || value === undefined) return '—'
+
   if (typeof value === 'number') {
     return Number.isInteger(value)
       ? String(value)
       : String(Number(value.toPrecision(10)))
   }
+
   return String(value)
 }
 
@@ -262,6 +272,7 @@ export function RunReproductions({
   const list = reproductions.data ?? []
   const latest: PipelineReproductionWire | undefined = list.at(0)
   const earlier = list.slice(1)
+
   return (
     <section
       id="reproduce"
@@ -360,6 +371,7 @@ export function SnapshotReproduce({
 }) {
   const [verdict, setVerdict] = useState<PipelineReproductionWire | null>(null)
   const reproduce = useReproduceRun(runId, setVerdict)
+
   return (
     <div className="flex flex-col gap-1.5">
       <Link

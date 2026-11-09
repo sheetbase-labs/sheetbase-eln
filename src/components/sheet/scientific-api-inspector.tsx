@@ -30,14 +30,17 @@ export function buildScientificApiExamples(
   const rowId = options.rowId ?? '<row-uuid>'
   const rowVersion = options.rowVersion ?? 1
   const base = `/api/db/${table.resource_name}`
+
   const insertBody = Object.fromEntries(
     table.columns
       .slice(0, 2)
       .map((column) => [column.field_name, exampleValue(column)]),
   )
+
   const updateBody = {
     [second]: exampleValue(table.columns[1] ?? table.columns[0]),
   }
+
   const definitions = [
     {
       id: 'list' as const,
@@ -66,8 +69,10 @@ export function buildScientificApiExamples(
       body: updateBody,
     },
   ]
+
   return definitions.map((example) => {
     const body = 'body' in example ? example.body : undefined
+
     const parts = [
       `curl --fail${example.method === 'GET' ? ' -G' : ` -X ${example.method}`}`,
       '-H "Authorization: Bearer $TOKEN"',
@@ -80,12 +85,14 @@ export function buildScientificApiExamples(
         : []),
       shellQuote(example.path),
     ]
+
     return { ...example, body, code: parts.join(' \\\n  ') }
   })
 }
 
 function exampleValue(column?: ScientificColumnWire): unknown {
   if (!column) return 'value'
+
   switch (column.logical_type) {
     case 'integer':
       return 1
@@ -131,6 +138,7 @@ function describeUnit(unit: unknown) {
   const value = unit as { symbol?: unknown; code?: unknown }
   const symbol = typeof value.symbol === 'string' ? value.symbol : null
   const code = typeof value.code === 'string' ? value.code : null
+
   return symbol && code && symbol !== code
     ? `${symbol} (${code})`
     : (symbol ?? code ?? t('common.states.none'))
@@ -140,8 +148,10 @@ function describeValidation(column: ScientificColumnWire) {
   const rules = Object.entries(column.validation)
     .map(([key, value]) => `${key}: ${String(value)}`)
     .join(', ')
+
   if (column.logical_type === 'category')
     return `${column.options.length} allowed option${column.options.length === 1 ? '' : 's'}`
+
   return (
     rules || t('notebook.scientificApiInspector.databaseTypeValidationOnly')
   )
@@ -159,10 +169,12 @@ export function ScientificApiInspector({
   selectedColumnId?: string
 }) {
   const [copied, setCopied] = useState<string | null>(null)
+
   const examples = buildScientificApiExamples(table, {
     rowId: selectedRowId,
     rowVersion: selectedRowVersion,
   })
+
   const selectedColumn = table.columns.find(
     (column) => column.id === selectedColumnId,
   )

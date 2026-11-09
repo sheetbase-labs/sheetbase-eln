@@ -40,6 +40,7 @@ import { cn } from '#/lib/utils'
 
 const MIN_THUMB_SIZE = 24
 const FALLBACK_SCROLLBAR_SIZE = 12
+
 // Gap between each track and the grid edge: the mb-px / me-px on the tracks and
 // the overlay's inset-e-px. The overlay's height math adds it below the bar.
 const SCROLLBAR_EDGE_GAP = 1
@@ -112,11 +113,13 @@ function areMetricsEqual(next: ScrollbarMetrics, prev: ScrollbarMetrics) {
 // takes its top, so the thumb never paints over the totals.
 function getStickyFooterHeight(table: HTMLElement | null) {
   const footer = table instanceof HTMLTableElement ? table.tFoot : null
+
   if (!footer) return 0
 
   const isSticky = [footer, footer.rows[0]?.cells[0]].some(
     (element) => element && getComputedStyle(element).position === 'sticky',
   )
+
   return isSticky ? footer.getBoundingClientRect().height : 0
 }
 
@@ -149,12 +152,15 @@ function DataGridScrollArea({
   const containerRef = useRef<HTMLDivElement>(null)
   const overlayRef = useRef<HTMLDivElement | null>(null)
   const viewportRef = useRef<HTMLDivElement | null>(null)
+
   const dragRef = useRef<{
     pointerId: number
     startScrollTop: number
     startY: number
   } | null>(null)
+
   const metricsRef = useRef<ScrollbarMetrics>(INITIAL_METRICS)
+
   const observedElementsRef = useRef<ObservedElements>({
     header: null,
     horizontalScrollbar: null,
@@ -164,13 +170,16 @@ function DataGridScrollArea({
 
   const showHorizontal = orientation !== 'vertical'
   const showVertical = orientation !== 'horizontal'
+
   const usesCustomVerticalScrollbar =
     showVertical && !!dataGridProps.tableLayout?.headerSticky
+
   // Pinned columns are sticky and never scroll, so the horizontal scrollbar
   // track is inset to span only the scrollable center region between them.
   const isColumnsPinnable = !!dataGridProps.tableLayout?.columnsPinnable
   const scrollbarInsetStart = isColumnsPinnable ? table.getStartTotalSize() : 0
   const scrollbarInsetEnd = isColumnsPinnable ? table.getEndTotalSize() : 0
+
   const [hasCustomVerticalOverflow, setHasCustomVerticalOverflow] =
     useState(false)
 
@@ -184,6 +193,7 @@ function DataGridScrollArea({
 
   useLayoutEffect(() => {
     const container = containerRef.current
+
     if (!container) return
 
     const readDirection = () => {
@@ -192,6 +202,7 @@ function DataGridScrollArea({
     }
 
     readDirection()
+
     if (typeof MutationObserver === 'undefined') return
 
     // Only a dir attribute flips it at runtime (an RTL toggle on <html>).
@@ -201,6 +212,7 @@ function DataGridScrollArea({
       attributeFilter: ['dir'],
       subtree: true,
     })
+
     return () => observer.disconnect()
   }, [])
 
@@ -222,6 +234,7 @@ function DataGridScrollArea({
   const resetMetrics = useCallback(() => {
     if (!areMetricsEqual(INITIAL_METRICS, metricsRef.current)) {
       metricsRef.current = INITIAL_METRICS
+
       if (overlayRef.current) applyMetrics(overlayRef.current, INITIAL_METRICS)
     }
 
@@ -234,6 +247,7 @@ function DataGridScrollArea({
 
     if (!container || !viewport || !usesCustomVerticalScrollbar) {
       resetMetrics()
+
       return
     }
 
@@ -244,12 +258,15 @@ function DataGridScrollArea({
     const viewportWidth = viewport.clientWidth
     const scrollHeight = viewport.scrollHeight
     const scrollWidth = viewport.scrollWidth
+
     const hasHorizontalOverflow =
       showHorizontal && scrollWidth > viewportWidth + 0.5
+
     const horizontalScrollbarSize = hasHorizontalOverflow
       ? (horizontalScrollbar?.offsetHeight || FALLBACK_SCROLLBAR_SIZE) +
         SCROLLBAR_EDGE_GAP
       : 0
+
     // The horizontal bar overlays the bottom of the viewport, which a sticky
     // footer already covers, so only the larger of the two is taken off.
     const trackHeight = Math.max(
@@ -258,6 +275,7 @@ function DataGridScrollArea({
         headerHeight -
         Math.max(footerHeight, horizontalScrollbarSize),
     )
+
     const maxScroll = Math.max(0, scrollHeight - viewportHeight)
 
     let nextMetrics: ScrollbarMetrics
@@ -276,12 +294,15 @@ function DataGridScrollArea({
         trackHeight,
         scrollHeight - headerHeight - footerHeight,
       )
+
       const thumbHeight = clamp(
         trackHeight * (trackHeight / bodyContentHeight),
         MIN_THUMB_SIZE,
         trackHeight,
       )
+
       const maxThumbTop = Math.max(0, trackHeight - thumbHeight)
+
       const thumbTop =
         maxThumbTop > 0 ? (viewport.scrollTop / maxScroll) * maxThumbTop : 0
 
@@ -297,6 +318,7 @@ function DataGridScrollArea({
 
     if (!areMetricsEqual(nextMetrics, metricsRef.current)) {
       metricsRef.current = nextMetrics
+
       // Scoped to the overlay, never to the container. These four properties
       // inherit, and thumbTop changes on essentially every scroll frame, so
       // writing them on the element that wraps the whole grid invalidates
@@ -320,6 +342,7 @@ function DataGridScrollArea({
 
     if (!usesCustomVerticalScrollbar) {
       resetMetrics()
+
       return
     }
 
@@ -334,6 +357,7 @@ function DataGridScrollArea({
       typeof ResizeObserver === 'undefined'
         ? null
         : new ResizeObserver(scheduleSync)
+
     const observed = new Set<HTMLElement>()
 
     const observeElement = (element: HTMLElement | null) => {
@@ -378,6 +402,7 @@ function DataGridScrollArea({
     // would otherwise never be observed and the custom scrollbar would
     // overlap the sticky header. One-shot: disconnects once resolved.
     let mutationObserver: MutationObserver | null = null
+
     if (!resolvedOnMount && typeof MutationObserver !== 'undefined') {
       mutationObserver = new MutationObserver(() => {
         if (resolveObservedElements()) {
@@ -414,6 +439,7 @@ function DataGridScrollArea({
 
     if (maxScroll === 0 || maxThumbTop === 0) {
       viewport.scrollTop = 0
+
       return
     }
 
@@ -455,6 +481,7 @@ function DataGridScrollArea({
     if (maxThumbTop === 0 || maxScroll === 0) return
 
     const deltaY = event.clientY - dragState.startY
+
     const nextScrollTop =
       dragState.startScrollTop + (deltaY / maxThumbTop) * maxScroll
 
@@ -572,4 +599,5 @@ function DataGridScrollArea({
 }
 
 export { DataGridScrollArea }
+
 export type { DataGridScrollAreaOrientation, DataGridScrollAreaProps }

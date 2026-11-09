@@ -25,6 +25,7 @@ const handler = ({ request }: { request: Request }) =>
     createClient: createServerDataClient,
     retain: async (input) => {
       const readFileObject = postgrestFileObjectReader(input.token)
+
       const retained = await retainExternalBytes({
         workspaceId: input.workspaceId,
         projectId: input.projectId,
@@ -34,10 +35,12 @@ const handler = ({ request }: { request: Request }) =>
         rpc: (name, args) => input.client.rpc(name, args),
         readFileObject,
       })
+
       const fileObject = await readFileObject(
         input.workspaceId,
         retained.fileRecordId,
       )
+
       return {
         fileRecordId: retained.fileRecordId,
         fileObjectId: fileObject?.id ?? null,

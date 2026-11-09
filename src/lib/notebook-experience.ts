@@ -50,7 +50,9 @@ export function isActiveNotebookReview(
   review: NotebookReviewContext | null | undefined,
 ): boolean {
   if (!review?.submission) return false
+
   if (review.revision?.superseded_by_revision_id) return false
+
   return (
     review.submission.state === 'submitted' ||
     review.submission.state === 'approved'
@@ -61,6 +63,7 @@ export function notebookReviewActivity(
   review: NotebookReviewContext | null | undefined,
 ): NotebookReviewActivity {
   if (!isActiveNotebookReview(review) || !review?.submission) return 'none'
+
   return review.submission.state === 'approved' ? 'approved' : 'submitted'
 }
 
@@ -71,13 +74,16 @@ export function notebookLifecycleLabel(record: {
   isHistorical?: boolean
 }): NotebookLifecycleLabel {
   if (record.archivedAt) return 'Archived'
+
   if (record.isHistorical || record.lockedAt) return 'Submitted'
+
   if (
     record.reviewActivity === 'submitted' ||
     record.reviewActivity === 'approved'
   ) {
     return 'In review'
   }
+
   return 'Working'
 }
 
@@ -87,10 +93,13 @@ export function notebookReviewRevisionId(input: {
   historicalRevisionId?: string
 }): string | undefined {
   if (input.historicalRevisionId) return input.historicalRevisionId
+
   if (input.lockedByRevisionId) return input.lockedByRevisionId
+
   if (!isActiveNotebookReview(input.review) || !input.review?.submission) {
     return undefined
   }
+
   return input.review.submission.revision_id
 }
 
@@ -102,9 +111,12 @@ export async function fetchNotebookReviewContext(
     'review_submissions',
     `?record_id=eq.${encodeURIComponent(recordId)}&order=submitted_at.desc,id.desc&limit=1`,
   )
+
   // `.at(0)` types as T | undefined; plain indexing hides the empty-list case.
   const submission = submissions.at(0) ?? null
+
   if (!submission) return { submission: null, revision: null }
+
   const revisions = await client.list<{
     id: string
     superseded_by_revision_id: string | null
@@ -112,6 +124,7 @@ export async function fetchNotebookReviewContext(
     'revisions',
     `?id=eq.${encodeURIComponent(submission.revision_id)}&select=id,superseded_by_revision_id&limit=1`,
   )
+
   return { submission, revision: revisions[0] ?? null }
 }
 
@@ -121,6 +134,7 @@ export function recordFromRevisionSnapshot(
 ): NotebookRecord {
   const tags = snapshot.tags
   const properties = snapshot.properties
+
   return {
     ...live,
     title: typeof snapshot.title === 'string' ? snapshot.title : live.title,
@@ -178,14 +192,17 @@ export function notebookQueryKeysAfterSignature(input: {
     sign002QueryKeys.lockState(input.recordId),
     ['notebook-experience', 'revisions', input.recordId],
   ]
+
   if (input.submissionId) {
     keys.push(signatureQueryKeys.forSubmission(input.submissionId))
   }
+
   if (input.revisionId) {
     keys.push(reviewWorkspaceQueryKeys.submissionForRevision(input.revisionId))
     keys.push(reviewWorkspaceQueryKeys.revision(input.revisionId))
     keys.push(signatureQueryKeys.forRevision(input.revisionId))
   }
+
   return keys
 }
 
@@ -221,6 +238,7 @@ export function reviewerOptionLabel(
   // indistinguishable between people — a resolved name is what identifies a
   // candidate. The slice stays only as the last resort for an unknown id.
   const name = member.name?.trim()
+
   return name
     ? `${name} · ${member.role}`
     : `${member.userId.slice(0, 8)} · ${member.role}`
@@ -254,6 +272,7 @@ export function linksFromRevisionSnapshot(
     const targetKind = snapshotString(link.targetKind)
     const targetIdentifier = snapshotString(link.targetIdentifier)
     const linkType = snapshotString(link.linkType)
+
     if (
       !id ||
       !sourceRecordId ||
@@ -263,12 +282,14 @@ export function linksFromRevisionSnapshot(
     ) {
       return []
     }
+
     const targetRecordId = link.targetRecordId
     // Pinned links predate the createdAt pin: prefer the snapshot's own
     // timestamp when present, else the revision pin time (the link provably
     // existed then). The pinned panel does not render this metadata.
     const createdAt = snapshotString(link.createdAt) ?? revision.created_at
     const createdByUserId = snapshotString(link.createdByUserId)
+
     return [
       {
         id,
@@ -327,6 +348,7 @@ export async function updateExperimentMetadata(
     `?id=eq.${input.recordId}&select=id,title,tags,metadata_version,updated_at`,
     { title: input.title, tags: input.tags },
   )
+
   if (rows.length === 0) {
     throw new DataClientError(
       'not_found',
@@ -334,7 +356,9 @@ export async function updateExperimentMetadata(
       404,
     )
   }
+
   const row = rows[0]
+
   return {
     id: row.id,
     title: row.title,
@@ -364,6 +388,7 @@ export async function duplicateExperiment(
   input: DuplicateExperimentInput,
 ): Promise<{ record: NotebookRecord }> {
   const projectId = input.source.projectId
+
   if (!projectId) {
     throw new DataClientError(
       'validation_error',
@@ -376,6 +401,7 @@ export async function duplicateExperiment(
   const ordered = [...input.blocks].sort((a, b) => a.order - b.order)
   const leading: NotebookBlock[] = []
   let index = 0
+
   while (index < ordered.length && ordered[index].type !== 'sheet') {
     leading.push(ordered[index])
     index += 1
@@ -407,18 +433,23 @@ export async function duplicateExperiment(
       p_properties: input.source.properties,
     },
   )
+
   const record = toRecord(result.record)
+
   const created = [...result.blocks]
     .map(toBlock)
     .sort((a, b) => a.order - b.order)
+
   let lastBlockId = created.at(-1)?.id
   let structureVersion = record.structureVersion
 
   for (const source of ordered.slice(index)) {
     if (source.type === 'sheet' && isCanonicalSheetBlock(source.payload)) {
       const instanceId = sheetBlockInstanceId(source.payload)
+
       if (!instanceId) continue
       const instance = await fetchSheetInstance(instanceId, client)
+
       if (!instance) {
         throw new DataClientError(
           'not_found',
@@ -426,23 +457,28 @@ export async function duplicateExperiment(
           404,
         )
       }
+
       const duplicated = await duplicateSheetInstance(
         instance.id,
         instance.revision,
         `${instance.name} copy`,
         client,
       )
+
       const inserted = await insertSheetInstanceBlock(client, {
         recordId: record.id,
         instanceId: duplicated.id,
         expectedStructureVersion: structureVersion,
         ...(lastBlockId ? { afterBlockId: lastBlockId } : {}),
       })
+
       lastBlockId = inserted.block.id
       structureVersion = inserted.structureVersion
       continue
     }
+
     if (source.type === 'sheet') continue
+
     const inserted = await insertBlock(client, {
       recordId: record.id,
       type: source.type,
@@ -451,6 +487,7 @@ export async function duplicateExperiment(
       expectedStructureVersion: structureVersion,
       ...(lastBlockId ? { afterBlockId: lastBlockId } : {}),
     })
+
     lastBlockId = inserted.block.id
     structureVersion = inserted.structureVersion
   }
@@ -484,16 +521,21 @@ export function notebookSignState(input: {
   signatures: Array<{ signer_user_id: string }>
 }): NotebookSignState {
   if (!input.submission) return 'none'
+
   const alreadySigned = input.signatures.some(
     (signature) => signature.signer_user_id === input.currentUserId,
   )
+
   if (alreadySigned) return 'already-signed'
+
   if (input.submission.state !== 'approved') return 'awaiting-review'
+
   if (
     !input.submission.assigned_reviewer_user_ids.includes(input.currentUserId)
   ) {
     return 'not-assigned'
   }
+
   return 'can-sign'
 }
 
@@ -502,9 +544,11 @@ export function groupChartTables<
 >(tables: T[], notebookRecordId: string): { local: T[]; workspace: T[] } {
   const local: T[] = []
   const workspace: T[] = []
+
   for (const table of tables) {
     if (table.record_id === notebookRecordId) local.push(table)
     else workspace.push(table)
   }
+
   return { local, workspace }
 }

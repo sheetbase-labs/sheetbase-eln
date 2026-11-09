@@ -61,6 +61,7 @@ export async function fetchPlannerContext(
       `?select=id,identifier,title,properties&kind=eq.sample&deleted_at=is.null&archived_at=is.null&order=updated_at.desc&limit=${MAX_CONTEXT_SAMPLES}`,
     ),
   ])
+
   return {
     protocols: protocols.map((p) => ({
       id: p.id,
@@ -71,6 +72,7 @@ export async function fetchPlannerContext(
     samples: samples.map((s) => {
       const quantity = Number(s.properties?.['quantity'])
       const unit = s.properties?.['quantityUnit']
+
       return {
         id: s.id,
         identifier: s.identifier,

@@ -57,6 +57,7 @@ export function validateUploadRequest(input: {
 
   const displayName =
     typeof input.displayName === 'string' ? input.displayName.trim() : ''
+
   if (displayName.length === 0 || displayName.length > 255) {
     violations.push({
       field: 'displayName',
@@ -66,6 +67,7 @@ export function validateUploadRequest(input: {
 
   const mediaType =
     typeof input.mediaType === 'string' ? input.mediaType.trim() : ''
+
   if (!isAllowedMediaType(mediaType)) {
     violations.push({
       field: 'mediaType',
@@ -74,9 +76,11 @@ export function validateUploadRequest(input: {
   }
 
   let byteSize = -1
+
   if (typeof input.byteSize === 'number' && Number.isFinite(input.byteSize)) {
     byteSize = Math.floor(input.byteSize)
   }
+
   if (byteSize < 0 || byteSize > FILE_MAX_BYTES) {
     violations.push({
       field: 'byteSize',
@@ -86,6 +90,7 @@ export function validateUploadRequest(input: {
 
   const checksum =
     typeof input.checksum === 'string' ? input.checksum.trim() : null
+
   if (checksum !== null && !/^[0-9a-f]{64}$/.test(checksum)) {
     violations.push({
       field: 'displayName',
@@ -94,6 +99,7 @@ export function validateUploadRequest(input: {
   }
 
   if (violations.length > 0) return { ok: false, violations }
+
   return {
     ok: true,
     value: {

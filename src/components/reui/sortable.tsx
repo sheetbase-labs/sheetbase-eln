@@ -111,15 +111,19 @@ const getIsMounted = () => true
 const getIsMountedOnServer = () => false
 
 const MOUSE_SENSOR_OPTIONS = { activationConstraint: { distance: 10 } }
+
 const TOUCH_SENSOR_OPTIONS = {
   activationConstraint: { delay: 250, tolerance: 5 },
 }
+
 const KEYBOARD_SENSOR_OPTIONS = {
   coordinateGetter: sortableKeyboardCoordinates,
 }
+
 const MEASURING_CONFIG = {
   droppable: { strategy: MeasuringStrategy.Always },
 }
+
 const STRATEGY_MAP = {
   horizontal: rectSortingStrategy,
   grid: rectSortingStrategy,
@@ -174,6 +178,7 @@ function Sortable<T>({
   ...props
 }: SortableRootProps<T>) {
   const [activeId, setActiveId] = useState<UniqueIdentifier | null>(null)
+
   const mounted = useSyncExternalStore(
     subscribeToNothing,
     getIsMounted,
@@ -206,6 +211,7 @@ function Sortable<T>({
       const activeIndex = value.findIndex(
         (item: T) => getItemValue(item) === active.id,
       )
+
       const overIndex = value.findIndex(
         (item: T) => getItemValue(item) === over.id,
       )
@@ -240,8 +246,10 @@ function Sortable<T>({
 
   const itemIds = useMemo(() => {
     const ids = value.map(getItemValue)
+
     if (process.env.NODE_ENV !== 'production') {
       const seen = new Set<string>()
+
       for (const id of ids) {
         if (seen.has(id)) {
           console.warn(
@@ -249,9 +257,11 @@ function Sortable<T>({
           )
           break
         }
+
         seen.add(id)
       }
     }
+
     return ids
   }, [value, getItemValue])
 
@@ -279,6 +289,7 @@ function Sortable<T>({
         })
       }
     })
+
     return result
   }, [activeId, children])
 
@@ -434,6 +445,7 @@ function SortableOverlay({
   ...props
 }: SortableOverlayProps) {
   const { activeId, modifiers } = useContext(SortableInternalContext)
+
   const mounted = useSyncExternalStore(
     subscribeToNothing,
     getIsMounted,

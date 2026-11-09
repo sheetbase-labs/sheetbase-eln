@@ -309,9 +309,11 @@ function ChangePolicyDialog({
   const [reason, setReason] = useState('')
   const [meaning, setMeaning] = useState(t('data.policiesBoard.iApproveChange'))
   useEffect(() => setPolicy(definition.policy), [definition])
+
   const changed = POLICY_COLUMNS.some(
     (c) => policy[c.key] !== definition.policy[c.key],
   )
+
   const valid = changed && reason.trim() && meaning.trim()
 
   return (

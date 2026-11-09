@@ -59,12 +59,14 @@ export const serverConnectorRunObservability: ConnectorRunObservability = {
       connector_type: connectorType,
       error_code: boundedCode,
     })
+
     if (durationMs > 0) {
       metrics.connectorRunDuration.observe(
         { connector_type: connectorType, outcome: 'failed' },
         durationMs / 1000,
       )
     }
+
     logger.error('connector run failed', {
       connector_run_id: run.id,
       connector_type: connectorType,

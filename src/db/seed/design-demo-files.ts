@@ -29,11 +29,13 @@ const GARETH = '00000000-0000-4000-8000-000000000310'
 /** Deterministic pseudo-random in [0, 1), so a reseed writes the same file. */
 function unit(seed: string, n: number): number {
   const h = createHash('sha256').update(`${seed}:${n}`).digest()
+
   return h.readUInt32BE(0) / 2 ** 32
 }
 
 function pressureLog(): string {
   const rows = ['run,time_min,pressure_bar,flow_lpm']
+
   for (const [r, run] of ['A', 'B', 'C'].entries()) {
     for (let i = 0; i < 9; i++) {
       const t = i * 5
@@ -42,6 +44,7 @@ function pressureLog(): string {
       rows.push(`${run},${t},${pressure.toFixed(2)},${flow.toFixed(2)}`)
     }
   }
+
   return `${rows.join('\n')}\n`
 }
 
@@ -51,27 +54,36 @@ const xmlEscape = (s: string) =>
 /** A minimal, valid workbook: three 8x12 plates of OD450 readings. */
 function plateWorkbook(): Uint8Array {
   const column = (c: number) => String.fromCharCode(65 + c)
+
   const sheets = [1, 2, 3].map((plate) => {
     const rows: string[] = []
+
     const cell = (ref: string, value: string | number) =>
       typeof value === 'number'
         ? `<c r="${ref}"><v>${value}</v></c>`
         : `<c r="${ref}" t="inlineStr"><is><t>${xmlEscape(value)}</t></is></c>`
+
     rows.push(
       `<row r="1">${cell('A1', `Plate ${plate}, OD450`)}${Array.from({ length: 12 }, (_, c) => cell(`${column(c + 1)}1`, c + 1)).join('')}</row>`,
     )
+
     for (let r = 0; r < 8; r++) {
       const label = String.fromCharCode(65 + r)
+
       const values = Array.from({ length: 12 }, (_, c) => {
         // Standard curve down the first columns, samples after.
         const od =
           c < 2 ? 2.4 / 2 ** r : 0.1 + unit(`p${plate}`, r * 12 + c) * 1.9
+
         return cell(`${column(c + 1)}${r + 2}`, Number(od.toFixed(3)))
       }).join('')
+
       rows.push(`<row r="${r + 2}">${cell(`A${r + 2}`, label)}${values}</row>`)
     }
+
     return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rows.join('')}</sheetData></worksheet>`
   })
+
   const files: Record<string, Uint8Array> = {
     '[Content_Types].xml': strToU8(
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${sheets.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')}</Types>`,
@@ -86,9 +98,11 @@ function plateWorkbook(): Uint8Array {
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}</Relationships>`,
     ),
   }
+
   sheets.forEach((xml, i) => {
     files[`xl/worksheets/sheet${i + 1}.xml`] = strToU8(xml)
   })
+
   return zipSync(files, { mtime: new Date('2026-09-24T15:03:00Z') })
 }
 
@@ -109,6 +123,7 @@ async function textPdf(title: string, lines: string[]): Promise<Uint8Array> {
       color: rgb(0.15, 0.15, 0.15),
     })
   })
+
   return pdf.save({ useObjectStreams: false })
 }
 
@@ -191,13 +206,16 @@ export async function seedDemoFileBytes(db: Db): Promise<void> {
      WHERE f.workspace_id = ${PROCESS}
        AND f.status = 'missing'
        AND NOT EXISTS (SELECT 1 FROM internal.file_blobs b WHERE b.storage_key = f.storage_key)`)
+
   for (const file of files.rows) {
     const make = CONTENT[file.display_name]
+
     const bytes = make
       ? await make()
       : file.extracted_text
         ? strToU8(`${file.extracted_text.trimEnd()}\n`)
         : null
+
     if (!bytes) continue
     const buffer = Buffer.from(bytes)
     const checksum = createHash('sha256').update(buffer).digest('hex')

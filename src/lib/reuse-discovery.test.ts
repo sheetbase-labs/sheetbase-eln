@@ -173,6 +173,7 @@ describe('summarizeNotebookTemplateRequirements', () => {
         ],
       }),
     )
+
     expect(summary.parameterCount).toBe(2)
     expect(summary.requiredCount).toBe(1)
     expect(summary.optionalCount).toBe(1)

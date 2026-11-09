@@ -22,8 +22,10 @@ export function getDisplayClock(): ClockFormat {
 export function setDisplayClock(next: unknown): void {
   if (typeof window === 'undefined') return
   const value = toClockFormat(next)
+
   if (value === clock) return
   clock = value
+
   for (const listener of listeners) listener()
 }
 
@@ -34,6 +36,7 @@ export function displayHour12(): boolean {
 
 function subscribe(listener: () => void): () => void {
   listeners.add(listener)
+
   return () => listeners.delete(listener)
 }
 

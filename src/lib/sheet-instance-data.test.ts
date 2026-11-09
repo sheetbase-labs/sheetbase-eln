@@ -8,6 +8,7 @@ import {
 import { validSheetInstanceState } from './sheet-instance.test'
 
 const id = () => crypto.randomUUID()
+
 function wire() {
   return {
     id: id(),
@@ -50,6 +51,7 @@ describe('Sheet Instance data boundary', () => {
       created_at: '2026-08-16T10:02:23.661876+00:00',
       updated_at: '2026-08-16T10:02:23.661876+00:00',
     })
+
     expect(parsed.createdAt).toBe('2026-08-16T10:02:23.661876+00:00')
   })
 
@@ -58,12 +60,15 @@ describe('Sheet Instance data boundary', () => {
       ...wire(),
       source_definition_version_id: payload.p_source_definition_version_id,
     }))
+
     const client: any = { rpc }
+
     const input = {
       workspaceId: id(),
       name: 'Sheet',
       state: validSheetInstanceState(),
     }
+
     await createAdHocSheetInstance(input, client)
     const sourceDefinitionVersionId = id()
     await createSheetInstanceFromDefinition(

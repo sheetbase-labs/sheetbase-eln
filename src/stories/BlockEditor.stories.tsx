@@ -45,7 +45,9 @@ const meta = {
   ],
   args: { block: prose('Cells were incubated at 37 °C for 24 hours.'), save },
 } satisfies Meta<typeof BlockEditor>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A prose block, editing in place. */

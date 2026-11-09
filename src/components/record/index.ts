@@ -3,5 +3,7 @@
  * Import from `#/components/record`.
  */
 export * from './record-header'
+
 export * from './inspector'
+
 export * from './inspector-sections'

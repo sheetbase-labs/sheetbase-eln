@@ -46,13 +46,17 @@ export function mergePlate(dataText: string, layoutText: string) {
   const layout = layoutText.trim() ? parsePlateTable(layoutText) : null
   let wells: AssayWell[] = data.wells
   const readout: PlateReadout = { ...data.readout }
+
   if (layout && layout.wells.length > 0) {
     wells = layout.wells
+
     for (const [code, v] of Object.entries(layout.readout)) {
       if (!(code in readout)) readout[code] = v
     }
   }
+
   const warnings = [...data.warnings, ...(layout?.warnings ?? [])]
+
   return {
     wells,
     readout,
@@ -78,6 +82,7 @@ export function NewRunDialog({
   const [layout, setLayout] = useState('')
   const [projectId, setProjectId] = useState('')
   const [designId, setDesignId] = useState('')
+
   const designs =
     useQuery({
       queryKey: qcKeys.designs,
@@ -85,6 +90,7 @@ export function NewRunDialog({
       staleTime: 60_000,
       enabled: open,
     }).data ?? []
+
   const [analyseNow, setAnalyseNow] = useState(true)
   const [interacted, setInteracted] = useState(false)
 
@@ -101,18 +107,25 @@ export function NewRunDialog({
   }, [open])
 
   const parsed = useMemo(() => mergePlate(data, layout), [data, layout])
+
   const format: PlateFormat | null =
     formatChoice === 'auto' ? parsed.format : formatChoice
+
   const controls = parsed.wells.filter(
     (w) => w.role === 'positive_control' || w.role === 'negative_control',
   ).length
+
   const samples = parsed.wells.filter((w) => w.role === 'sample').length
+
   const readCount = Object.values(parsed.readout).filter(
     (v) => v !== null,
   ).length
+
   const nameError = name.trim() ? null : t('plates.form.nameRequired')
+
   const noWellColumn =
     data.trim() !== '' && parsed.warnings.includes('no_well_column')
+
   const skipped = parsed.warnings.filter(
     (w) => w.startsWith('bad_well') || w.startsWith('duplicate_well'),
   )
@@ -120,14 +133,17 @@ export function NewRunDialog({
   const save = useMutation({
     mutationFn: async () => {
       if (!format) throw new Error(t('plates.form.previewNothing'))
+
       const labels = parsed.wells.flatMap((w) =>
         w.role === 'sample' && w.sampleLabel ? [w.sampleLabel] : [],
       )
+
       const ids = labels.length
         ? await resolveSampleIds(client, labels).catch(
             () => new Map<string, string>(),
           )
         : new Map<string, string>()
+
       const wells = parsed.wells.map((w) => ({
         ...w,
         sampleId:
@@ -135,11 +151,13 @@ export function NewRunDialog({
             ? (ids.get(w.sampleLabel) ?? null)
             : (w.sampleId ?? null),
       }))
+
       const unlinked = new Set(
         wells
           .filter((w) => w.sampleLabel && !w.sampleId)
           .map((w) => w.sampleLabel),
       ).size
+
       let run = await createPlateRun(client, {
         name,
         format,
@@ -149,9 +167,11 @@ export function NewRunDialog({
         projectId: projectId || null,
         designId: designId || null,
       })
+
       if (analyseNow) {
         run = (await analyseAndSavePlateRun(client, run)).run
       }
+
       return { run, unlinked }
     },
     onSuccess: ({ run, unlinked }) => {
@@ -159,6 +179,7 @@ export function NewRunDialog({
       toast.success(
         t('plates.form.created', { reference: plateRunReference(run.number) }),
       )
+
       if (unlinked > 0)
         toast.message(t('plates.form.unlinkedSamples', { count: unlinked }))
       onOpenChange(false)
@@ -170,6 +191,7 @@ export function NewRunDialog({
 
   function submit() {
     setInteracted(true)
+
     if (nameError || !format || readCount === 0 || save.isPending) return
     save.mutate()
   }

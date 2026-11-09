@@ -52,15 +52,19 @@ const recordDocument: ClientPortalRecordDocument = {
 async function pdfText(bytes: Uint8Array): Promise<string> {
   const pdf = await PDFDocument.load(bytes)
   const lines: string[] = []
+
   for (const [, object] of pdf.context.enumerateIndirectObjects()) {
     if (!(object instanceof PDFRawStream)) continue
+
     const commands = new TextDecoder().decode(
       decodePDFRawStream(object).decode(),
     )
+
     for (const match of commands.matchAll(/<([\dA-Fa-f]+)>\s*Tj/g)) {
       lines.push(Buffer.from(match[1], 'hex').toString('latin1'))
     }
   }
+
   return lines.join('\n')
 }
 
@@ -104,6 +108,7 @@ describe('client portal record PDF', () => {
         integrityDigest: 'cd'.repeat(32),
       },
     ]
+
     const text = await pdfText(
       await renderClientPortalRecordPdf({
         ...recordDocument,
@@ -111,8 +116,10 @@ describe('client portal record PDF', () => {
         signatures,
       }),
     )
+
     expect(text).toContain('Compare 1.5, 2.0 and 2.5 × 10^6 cells/mL.')
     expect(text).toContain('Signer name not recorded')
+
     for (const signature of signatures) {
       expect(text).toContain(signature.id)
       expect(text).toContain(signature.revisionId)
@@ -120,6 +127,7 @@ describe('client portal record PDF', () => {
       expect(text).toContain(signature.signatureMeaning)
       expect(text).toContain(signature.integrityDigest)
     }
+
     expect(text).toContain('Stored Witness Name')
     expect(text).not.toContain('Renamed Current Profile')
     expect(text).not.toContain('the CDMO team')
@@ -129,6 +137,7 @@ describe('client portal record PDF', () => {
     const text = await pdfText(
       await renderClientPortalRecordPdf(recordDocument),
     )
+
     expect(text).toContain('Immutable signature evidence is unavailable')
     expect(text).not.toContain('Mei L.')
     expect(text).not.toContain('Meaning: approve-for-record')
@@ -175,6 +184,7 @@ describe('client portal record PDF', () => {
         ],
       }),
     )
+
     expect(text).toContain('Frozen table: Submitted assay')
     expect(text).toContain('Viability: 83 | Titre: 17')
     expect(text).toContain('Viability: 71 | Titre: 29')
@@ -206,6 +216,7 @@ describe('client portal record PDF', () => {
         },
       ],
     })
+
     const header = new TextDecoder().decode(bytes.slice(0, 5))
     expect(header).toBe('%PDF-')
   })
@@ -262,9 +273,11 @@ describe('the lab logo', () => {
 
   it('is drawn at the head of the first page when the lab has one', async () => {
     const plain = await renderClientPortalRecordPdf(recordDocument)
+
     const branded = await renderClientPortalRecordPdf(recordDocument, {
       logo: { bytes: logo, mediaType: 'image/png' },
     })
+
     expect(branded.byteLength).toBeGreaterThan(plain.byteLength)
     const pdf = await PDFDocument.load(branded)
     expect(pdf.getPageCount()).toBeGreaterThan(0)
@@ -274,6 +287,7 @@ describe('the lab logo', () => {
     const bytes = await renderClientPortalRecordPdf(recordDocument, {
       logo: { bytes: Uint8Array.from([1, 2, 3]), mediaType: 'image/png' },
     })
+
     expect(bytes.byteLength).toBeGreaterThan(0)
   })
 })

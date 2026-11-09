@@ -51,22 +51,26 @@ export function deriveReviewLifecycle(input: {
       explanation: t('projects.reviewLifecycle.aLaterAmendmentReplacedThis'),
     }
   }
+
   if (input.lockedAt) {
     const lockOwnedByViewedRevision =
       input.lockedByRevisionId == null ||
       input.viewedRevisionId == null ||
       input.lockedByRevisionId === input.viewedRevisionId
+
     if (lockOwnedByViewedRevision) {
       return {
         status: 'signed-locked',
         explanation: t('projects.reviewLifecycle.anApproveForRecordSignature'),
       }
     }
+
     return {
       status: 'signed-locked',
       explanation: t('projects.reviewLifecycle.thisRecordIsCurrentlyLocked'),
     }
   }
+
   switch (input.submissionState) {
     case 'submitted':
       return {
@@ -145,12 +149,14 @@ export function deriveSignatureApplicability(input: {
       explanation: t('projects.reviewLifecycle.thisSignaturePinsADifferent'),
     }
   }
+
   if (input.viewedRevisionSupersededBy) {
     return {
       applicability: 'superseded',
       explanation: t('projects.reviewLifecycle.thisSignatureRemainsAttachedTo'),
     }
   }
+
   return {
     applicability: 'current',
     explanation: t('projects.reviewLifecycle.thisSignatureAppliesToThe'),
@@ -173,15 +179,19 @@ export function buildAmendmentChain(
 ): RevisionChainEntry[] {
   if (options.length === 0) return []
   const byId = new Map(options.map((option) => [option.id, option]))
+
   const supersededIds = new Set(
     options
       .map((option) => option.superseded_by_revision_id)
       .filter((id): id is string => id !== null),
   )
+
   const roots = options.filter((option) => !supersededIds.has(option.id))
+
   if (roots.length === 0) return []
 
   const chains: RevisionChainEntry[][] = []
+
   for (const root of roots.sort((a, b) =>
     a.created_at.localeCompare(b.created_at),
   )) {
@@ -193,12 +203,15 @@ export function buildAmendmentChain(
         supersededByRevisionId: root.superseded_by_revision_id,
       },
     ]
+
     let cursor: RevisionOptionWire | undefined = root
+
     for (;;) {
       // Walk the supersedes edge forward: r1.superseded_by = r2 means r2
       // replaced r1, so the next entry is the option r1 points to.
       if (cursor.superseded_by_revision_id === null) break
       const next = byId.get(cursor.superseded_by_revision_id)
+
       if (!next) break
       chain.push({
         id: next.id,
@@ -208,12 +221,15 @@ export function buildAmendmentChain(
       })
       cursor = next
     }
+
     chains.push(chain)
   }
+
   // A single connected chain is the product case; multiple roots stay honest
   // as separate branches rather than being merged by timestamp guessing.
   const longest = chains.reduce((best, chain) =>
     chain.length > best.length ? chain : best,
   )
+
   return longest
 }

@@ -44,10 +44,12 @@ export async function readBackupStatus(
   env: Record<string, string | undefined> = process.env,
 ): Promise<GoLiveStatus['backup']> {
   const dir = env.SHEETBASE_BACKUP_DIR
+
   if (dir) {
     try {
       const raw = await readFile(join(dir, 'latest.json'), 'utf8')
       const parsed = latestBackup.parse(JSON.parse(raw))
+
       return {
         source: 'folder',
         lastBackupAt: parsed.finishedAt,
@@ -57,9 +59,11 @@ export async function readBackupStatus(
       return { source: 'folder', lastBackupAt: null, unreadable: true }
     }
   }
+
   if (env.SHEETBASE_BACKUPS_BY_HOST === 'true') {
     return { source: 'host', lastBackupAt: null, unreadable: false }
   }
+
   return { source: 'none', lastBackupAt: null, unreadable: false }
 }
 
@@ -67,12 +71,14 @@ export async function readGoLive(
   env: Record<string, string | undefined> = process.env,
 ): Promise<GoLiveStatus> {
   const methods = readAuthMethods(env)
+
   const names = [
     ...(methods.github ? ['GitHub'] : []),
     ...(methods.oidc ? [methods.oidc.name] : []),
     ...(methods.saml ? [methods.saml.name] : []),
     ...(methods.emailLink ? ['Email link'] : []),
   ]
+
   return {
     signIn: { open: env.SHEETBASE_DEV_AUTH_FREE === 'true', methods: names },
     email: { configured: Boolean(env.SMTP_HOST) },

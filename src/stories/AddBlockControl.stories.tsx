@@ -21,7 +21,9 @@ const meta = {
   ],
   args: { onInsert: () => {}, label: 'Add block' },
 } satisfies Meta<typeof AddBlockControl>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The button form used at the end of a document. */
@@ -44,6 +46,7 @@ export const AfterBlock: Story = {
 export const CustomLabel: Story = {
   render: () => {
     const [inserted, setInserted] = useState<string | null>(null)
+
     return (
       <div className="space-y-2">
         <AddBlockControl

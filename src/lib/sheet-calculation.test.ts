@@ -14,6 +14,7 @@ import type { DatasetValueFlag } from './dataset-flags'
 const RECOVERED = '21000000-0000-4000-8000-000000000001'
 const INPUT = '21000000-0000-4000-8000-000000000002'
 const OUTPUT = '21000000-0000-4000-8000-000000000003'
+
 const quantity = {
   kind: 'mass',
   dimension: 'mass',
@@ -91,6 +92,7 @@ describe('composed Sheet calculation profile', () => {
         input(INPUT, 3, field(INPUT, 'decimal', quantity)),
       ],
     })
+
     const renamed = [
       {
         ...input(RECOVERED, 10, field(RECOVERED, 'decimal', quantity)),
@@ -98,6 +100,7 @@ describe('composed Sheet calculation profile', () => {
       },
       input(INPUT, 3, field(INPUT, 'decimal', quantity)),
     ]
+
     expect(
       evaluateSheetCalculation({
         calculationId: OUTPUT,
@@ -154,6 +157,7 @@ describe('composed Sheet calculation profile', () => {
         outputField: field(OUTPUT),
         inputs: [input(RECOVERED, 8), input(INPUT, divisor)],
       })
+
     expect(calculate(0)).toMatchObject({
       status: 'error',
       errorCode: 'DIV_BY_ZERO',
@@ -171,6 +175,7 @@ describe('composed Sheet calculation profile', () => {
       dependencies: [{ kind: 'local-field', id: RECOVERED }],
       expression: { language: 'sheetbase-formula-v1', source: '=A1' },
     }
+
     expect(sheetInstanceCalculationSchema.parse(definition)).toEqual(definition)
     expect(
       sheetInstanceCalculationSchema.safeParse({
@@ -222,10 +227,12 @@ describe('sheetCalculationDependenciesFromExpression', () => {
         { id: RECOVERED, origin: 'local' },
       ],
     })
+
     const values = new Map([
       [INPUT, 3],
       [RECOVERED, 10],
     ])
+
     expect(
       evaluateSheetCalculation({
         calculationId: OUTPUT,
@@ -265,6 +272,7 @@ describe('sheetCalculationDependenciesFromExpression', () => {
       source: '=I1*2',
       columns: eightLocals,
     })
+
     expect(claimed).toEqual([{ kind: 'local-field', id: COL_I }])
     expect(claimed.map((item) => item.id)).not.toContain(COL_A)
   })
@@ -328,12 +336,14 @@ describe('flagged value exclusion in ƒx evaluation', () => {
   const DATASET = '31000000-0000-4000-8000-000000000001'
   const ROW = '32000000-0000-4000-8000-000000000001'
   const FIELD = '33000000-0000-4000-8000-000000000001'
+
   const provenance = {
     sourceKind: 'dataset',
     sourceDatasetId: DATASET,
     sourceRowId: ROW,
     sourceFieldId: FIELD,
   }
+
   const flagged: DatasetValueFlag = {
     id: '34000000-0000-4000-8000-000000000001',
     datasetId: DATASET,
@@ -379,7 +389,9 @@ describe('flagged value exclusion in ƒx evaluation', () => {
         },
       ],
     })
+
     expect(result).toMatchObject({ status: 'error', errorCode: 'EXCLUDED' })
+
     if (result.status === 'error')
       expect(result.dependencyProvenance).toEqual([provenance])
   })
@@ -392,13 +404,16 @@ describe('flagged value exclusion in ƒx evaluation', () => {
       value: 8,
       provenance,
     }
+
     const index = buildFlagIndex([flagged])
+
     const excluded = evaluateSheetCalculation({
       calculationId: OUTPUT,
       expression: '=A1',
       outputField: field(OUTPUT),
       inputs: [{ ...present, state: 'excluded' }],
     })
+
     expect(excluded).toMatchObject({ status: 'error', errorCode: 'EXCLUDED' })
     // Clearing the flag leaves the provenance but no index entry, so a present
     // input evaluates normally again.
@@ -406,12 +421,14 @@ describe('flagged value exclusion in ƒx evaluation', () => {
     expect(
       flaggedValueForProvenance(provenance, buildFlagIndex([])),
     ).toBeUndefined()
+
     const restored = evaluateSheetCalculation({
       calculationId: OUTPUT,
       expression: '=A1',
       outputField: field(OUTPUT),
       inputs: [present],
     })
+
     expect(restored).toMatchObject({ status: 'value', value: 8 })
   })
 })

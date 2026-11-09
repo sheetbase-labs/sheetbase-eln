@@ -16,7 +16,9 @@ import { t } from '#/copy'
 
 function toneFor(similarity: number) {
   if (similarity >= 0.6) return 'ok' as const
+
   if (similarity >= 0.45) return 'progress' as const
+
   return 'none' as const
 }
 
@@ -44,13 +46,16 @@ export function SimilarWorkPanel({
     enabled: Boolean(workspaceId),
     staleTime: 60_000,
   })
+
   const enabled = settings.data?.settings.enabled === true
+
   const similar = useQuery({
     queryKey: ['similar-work', workspaceId, objectType, objectId],
     queryFn: () => fetchSimilarWork(notebookDataClient, objectType, objectId),
     enabled: enabled && Boolean(objectId),
     staleTime: 60_000,
   })
+
   if (!enabled) return null
   const hits = similar.data ?? []
 

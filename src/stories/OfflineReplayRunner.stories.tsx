@@ -45,7 +45,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof OfflineReplayRunner>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Every edit committed: the runner has nothing to say and renders nothing. */

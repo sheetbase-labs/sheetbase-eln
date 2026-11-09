@@ -77,6 +77,7 @@ function defaultNestedDrafts(
   conflict: NotebookUpgradePreview['conflicts'][number],
 ): NestedDrafts {
   const drafts: NestedDrafts = {}
+
   for (const nested of conflict.instancePreview?.conflicts ?? []) {
     const chosen = nested.allowedOutcomes[0]
     drafts[nested.id] = {
@@ -84,6 +85,7 @@ function defaultNestedDrafts(
       targetId: chosen === 'map' ? nested.targetCandidates[0] : undefined,
     }
   }
+
   return drafts
 }
 
@@ -93,12 +95,14 @@ export function defaultNotebookUpgradeDrafts(
   preview: NotebookUpgradePreview,
 ): Record<string, NotebookUpgradeDecisionDraft> {
   const drafts: Record<string, NotebookUpgradeDecisionDraft> = {}
+
   for (const conflict of preview.conflicts) {
     drafts[conflict.id] = {
       outcome: conflict.allowedOutcomes[0],
       instanceDecisionDrafts: defaultNestedDrafts(conflict),
     }
   }
+
   return drafts
 }
 
@@ -133,6 +137,7 @@ export function NotebookTemplateUpdateView({
   const [choices, setChoices] = useState<
     Record<string, NotebookUpgradeDecisionDraft | undefined>
   >({})
+
   const [applying, setApplying] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -141,6 +146,7 @@ export function NotebookTemplateUpdateView({
     if (!preview) return {}
     const base = defaultNotebookUpgradeDrafts(preview)
     const merged: Record<string, NotebookUpgradeDecisionDraft | undefined> = {}
+
     for (const conflict of preview.conflicts) {
       merged[conflict.id] = {
         outcome: choices[conflict.id]?.outcome ?? base[conflict.id].outcome,
@@ -149,12 +155,14 @@ export function NotebookTemplateUpdateView({
           base[conflict.id].instanceDecisionDrafts,
       }
     }
+
     return merged
   }, [preview, choices])
 
   const built = useMemo(() => {
     if (!preview)
       return { decisions: [] as NotebookUpgradeDecision[], problem: null }
+
     try {
       return {
         decisions: buildNotebookTemplateUpgradeDecisions(preview, drafts),
@@ -184,14 +192,18 @@ export function NotebookTemplateUpdateView({
     next: 'retain-local' | 'map' | 'defer',
   ) {
     const conflict = preview?.conflicts.find((c) => c.id === conflictId)
+
     const nested = conflict?.instancePreview?.conflicts.find(
       (c) => c.id === nestedId,
     )
+
     const current = drafts[conflictId]?.instanceDecisionDrafts ?? {}
+
     const targetId =
       next === 'map'
         ? (current[nestedId]?.targetId ?? nested?.targetCandidates[0])
         : current[nestedId]?.targetId
+
     setChoices((prev) => ({
       ...prev,
       [conflictId]: {
@@ -225,6 +237,7 @@ export function NotebookTemplateUpdateView({
   async function submit() {
     setError(null)
     setApplying(true)
+
     try {
       await onApply(built.decisions)
       setDone(true)
@@ -367,7 +380,9 @@ export function NotebookTemplateUpdateView({
             {conflicts.map((conflict) => {
               const selected =
                 drafts[conflict.id]?.outcome ?? conflict.allowedOutcomes[0]
+
               const nestedConflicts = conflict.instancePreview?.conflicts ?? []
+
               return (
                 <div
                   key={conflict.id}
@@ -411,8 +426,10 @@ export function NotebookTemplateUpdateView({
                           drafts[conflict.id]?.instanceDecisionDrafts?.[
                             nested.id
                           ]
+
                         const nestedSelected =
                           nestedDraft?.outcome ?? nested.allowedOutcomes[0]
+
                         return (
                           <div
                             key={nested.id}

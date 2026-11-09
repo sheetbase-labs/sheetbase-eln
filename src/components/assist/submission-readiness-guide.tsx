@@ -64,12 +64,16 @@ export function SubmissionReadinessGuide({
   function handleAccept(key: GuideAcceptKey) {
     if (key === 'previewSubmissionDigest') {
       onCheckSnapshot?.()
+
       return
     }
+
     if (key === 'submitRecordRevision') {
       onSubmitRevision?.()
+
       return
     }
+
     // Review decisions belong to the review workspace, not the submit
     // dialog: navigate there. Guidance only navigates — nothing is changed.
     onOpenReviews?.()

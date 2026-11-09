@@ -82,7 +82,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof PartsStrip>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The part to work on now is the one shown. */

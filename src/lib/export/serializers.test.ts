@@ -72,8 +72,10 @@ describe('ZipWriter', () => {
       const writer = new ZipWriter()
       writer.add('a.txt', 'alpha')
       writer.add('dir/b.txt', new TextEncoder().encode('beta gamma'))
+
       return writer.stream()
     }
+
     const a = await build()
     const b = await build()
     expect(Buffer.compare(Buffer.from(a), Buffer.from(b))).toBe(0)
@@ -89,6 +91,7 @@ describe('xlsxDocument', () => {
       ['kind', 'sheetbase.dataset.export'],
       ['state', 'live'],
     ])
+
     const preview = await parseImportBytes(
       bytes.buffer.slice(
         bytes.byteOffset,
@@ -96,6 +99,7 @@ describe('xlsxDocument', () => {
       ) as ArrayBuffer,
       { fileName: 'export.xlsx' },
     )
+
     const sheet = preview.sheets[0]
     expect(sheet.rows[0]).toEqual({ Sample: 'plain', pH: '7.2' })
     expect(sheet.rows[1].Sample).toBe('has,comma "and" quote\nnew')

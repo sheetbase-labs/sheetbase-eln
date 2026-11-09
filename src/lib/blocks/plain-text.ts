@@ -18,6 +18,7 @@ export function plainTextToRichText(text: string): RichTextPayload {
 
   const textNodes = (value: string) =>
     value === '' ? undefined : [{ type: 'text' as const, text: value }]
+
   const flushParagraph = () => {
     if (paragraph.length === 0) return
     content.push({
@@ -26,6 +27,7 @@ export function plainTextToRichText(text: string): RichTextPayload {
     })
     paragraph = []
   }
+
   const flushList = () => {
     if (!list) return
     content.push({
@@ -40,6 +42,7 @@ export function plainTextToRichText(text: string): RichTextPayload {
     const heading = /^(#{2,3})\s+(.*)$/.exec(line)
     const bullet = /^[-*]\s+(.*)$/.exec(line)
     const numbered = /^\d+[.)]\s+(.*)$/.exec(line)
+
     if (line === '') {
       flushParagraph()
       flushList()
@@ -54,6 +57,7 @@ export function plainTextToRichText(text: string): RichTextPayload {
     } else if (bullet || numbered) {
       flushParagraph()
       const ordered = numbered !== null
+
       if (list && list.ordered !== ordered) flushList()
       list ??= { ordered, items: [] }
       list.items.push({
@@ -72,8 +76,11 @@ export function plainTextToRichText(text: string): RichTextPayload {
       paragraph.push(line)
     }
   }
+
   flushParagraph()
   flushList()
+
   if (content.length === 0) content.push({ type: 'paragraph' })
+
   return { doc: { type: 'doc', content } }
 }

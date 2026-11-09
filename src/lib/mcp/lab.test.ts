@@ -51,6 +51,7 @@ async function call(args: Record<string, unknown>, context: McpContext) {
   )) as unknown as {
     result: { isError?: boolean; content: { text: string }[] }
   }
+
   return response.result
 }
 
@@ -59,6 +60,7 @@ async function toolNames(context: McpContext): Promise<string[]> {
     { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} },
     context,
   )) as unknown as { result: { tools: { name: string }[] } }
+
   return response.result.tools.map((tool) => tool.name)
 }
 
@@ -94,13 +96,16 @@ describe('MCP lab actions', () => {
           level: status === 'approved' ? 'auto' : 'ask',
         }
       }
+
       if (name === 'finish_agent_action') return { id: 'request-1' }
+
       return reply
     })
   }
 
   it('runs an Auto action with validated arguments and records the outcome', async () => {
     const rpc = guarded('approved')
+
     const result = await call(
       {
         action: 'cancel_reagent_order',
@@ -108,6 +113,7 @@ describe('MCP lab actions', () => {
       },
       ctx({ client: client(rpc) }),
     )
+
     expect(result.isError).toBeUndefined()
     expect(rpc).toHaveBeenCalledWith('cancel_reagent_order', {
       p_order_id: ORDER_ID,
@@ -121,6 +127,7 @@ describe('MCP lab actions', () => {
 
   it('offers the core actions under the scope the API already asks for', async () => {
     const rpc = guarded('approved')
+
     // archive_record needs projects:write, which lab scopes alone do not give.
     const refused = await call(
       {
@@ -129,8 +136,10 @@ describe('MCP lab actions', () => {
       },
       ctx({ client: client(rpc) }),
     )
+
     expect(refused.isError).toBe(true)
     expect(refused.content[0].text).toContain('projects:write')
+
     const archived = await call(
       {
         action: 'archive_record',
@@ -138,6 +147,7 @@ describe('MCP lab actions', () => {
       },
       ctx({ client: client(rpc), scopes: ['projects:write'] }),
     )
+
     expect(archived.isError).toBeUndefined()
     expect(rpc).toHaveBeenCalledWith('archive_record', {
       p_record_id: ORDER_ID,
@@ -154,6 +164,7 @@ describe('MCP lab actions', () => {
       subscription: { id: ORDER_ID },
       signing_secret: 'whsec_secret',
     })
+
     const result = await call(
       {
         action: 'create_webhook_subscription',
@@ -165,6 +176,7 @@ describe('MCP lab actions', () => {
       },
       ctx({ client: client(rpc), scopes: ['webhooks:write'] }),
     )
+
     expect(result.isError).toBeUndefined()
     expect(result.content[0].text).not.toContain('whsec_secret')
     expect(JSON.stringify(rpc.mock.calls)).not.toContain('whsec_secret')
@@ -172,10 +184,12 @@ describe('MCP lab actions', () => {
 
   it('starts a pipeline run through the permission step, needing pipelines:write', async () => {
     const rpc = guarded('pending')
+
     const result = await call(
       { action: 'run_pipeline', arguments: { p_pipeline_key: 'scale_values' } },
       ctx({ client: client(rpc), scopes: ['pipelines:write'] }),
     )
+
     expect(result.isError).toBeUndefined()
     expect(result.content[0].text).toContain('waiting_for_approval')
     expect(rpc).not.toHaveBeenCalledWith('run_pipeline', expect.anything())
@@ -183,10 +197,12 @@ describe('MCP lab actions', () => {
 
   it('leaves an Ask action waiting for a person and does not run it', async () => {
     const rpc = guarded('pending')
+
     const result = await call(
       { action: 'cancel_reagent_order', arguments: { p_order_id: ORDER_ID } },
       ctx({ client: client(rpc) }),
     )
+
     expect(result.isError).toBeUndefined()
     expect(result.content[0].text).toContain('waiting_for_approval')
     expect(result.content[0].text).toContain('request-1')
@@ -198,10 +214,12 @@ describe('MCP lab actions', () => {
 
   it('refuses a Never action and does not run it', async () => {
     const rpc = guarded('refused')
+
     const result = await call(
       { action: 'cancel_reagent_order', arguments: { p_order_id: ORDER_ID } },
       ctx({ client: client(rpc) }),
     )
+
     expect(result.isError).toBe(true)
     expect(result.content[0].text).toContain('switched off')
     expect(rpc).not.toHaveBeenCalledWith(
@@ -221,10 +239,12 @@ describe('MCP lab actions', () => {
         arguments: { p_order_id: ORDER_ID },
       },
     ]) as unknown as DataClient['list']
+
     const result = await call(
       { action: 'cancel_reagent_order', arguments: { p_order_id: ORDER_ID } },
       ctx({ client: waiting }),
     )
+
     expect(result.content[0].text).toContain('request-0')
     expect(rpc).not.toHaveBeenCalledWith(
       'request_agent_action',
@@ -234,6 +254,7 @@ describe('MCP lab actions', () => {
 
   it('runs a lookup at once, whatever the permissions say', async () => {
     const rpc = guarded('pending', [{ id: 'row' }])
+
     const result = await call(
       {
         action: 'query_storage_readings',
@@ -241,6 +262,7 @@ describe('MCP lab actions', () => {
       },
       ctx({ client: client(rpc) }),
     )
+
     expect(result.isError).toBeUndefined()
     expect(rpc).toHaveBeenCalledWith('query_storage_readings', {})
     expect(rpc).not.toHaveBeenCalledWith(
@@ -280,10 +302,12 @@ describe('MCP lab actions', () => {
 
   it('needs the scope of the action: a read scope cannot write', async () => {
     const rpc = vi.fn()
+
     const result = await call(
       { action: 'cancel_reagent_order', arguments: { p_order_id: ORDER_ID } },
       ctx({ scopes: ['lab:read'], client: client(rpc) }),
     )
+
     expect(result.isError).toBe(true)
     expect(result.content[0].text).toContain('lab:write')
     expect(rpc).not.toHaveBeenCalled()
@@ -291,6 +315,7 @@ describe('MCP lab actions', () => {
 
   it('refuses a service credential and a workspace that has not switched it on', async () => {
     const rpc = vi.fn()
+
     const service = await call(
       { action: 'cancel_reagent_order', arguments: { p_order_id: ORDER_ID } },
       ctx({
@@ -298,11 +323,14 @@ describe('MCP lab actions', () => {
         client: client(rpc),
       }),
     )
+
     expect(service.isError).toBe(true)
+
     const off = await call(
       { action: 'cancel_reagent_order', arguments: { p_order_id: ORDER_ID } },
       ctx({ flags: { ...flags, mcp_lab: false }, client: client(rpc) }),
     )
+
     expect(off.isError).toBe(true)
     expect(rpc).not.toHaveBeenCalled()
   })
@@ -314,7 +342,9 @@ describe('MCP lab actions', () => {
     )) as unknown as {
       result: { tools: { name: string; description: string }[] }
     }
+
     const tool = response.result.tools.find((t) => t.name === LAB_ACT_TOOL_NAME)
+
     for (const name of Object.keys(LAB_RPCS)) {
       expect(tool?.description).toContain(`- ${name}(`)
     }

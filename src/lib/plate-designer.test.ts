@@ -157,11 +157,13 @@ describe('autoFillPlate', () => {
   ])('fills in %s order', (fillDirection, expected) => {
     const selectedSamples =
       fillDirection === 'serpentine' ? samples : samples.slice(0, 3)
+
     const wells = autoFillPlate(
       2,
       3,
       fillOptions({ samples: selectedSamples, fillDirection }),
     )
+
     expect(wells.map((well) => well.wellCode)).toEqual(expected)
   })
 
@@ -173,6 +175,7 @@ describe('autoFillPlate', () => {
         controls: [{ role: 'positive_control', wellCode: 'A2' }],
       }),
     )
+
     expect(wells[0]).toMatchObject({ wellCode: 'A2', role: 'positive_control' })
     expect(wells.slice(1).map((well) => well.wellCode)).toEqual([
       'A1',
@@ -190,6 +193,7 @@ describe('autoFillPlate', () => {
         replicates: 3,
       }),
     )
+
     expect(
       wells.map((well) => [well.sampleRef?.identifier, well.replicate]),
     ).toEqual([
@@ -236,6 +240,7 @@ describe('autoFillPlate', () => {
         concentration: { value: 2.5, unit: 'ng/uL' },
       }),
     )
+
     expect(well).toMatchObject({
       volume: { value: 25, unit: 'uL' },
       concentrationValue: 2.5,
@@ -251,6 +256,7 @@ describe('validatePlateDesign', () => {
         validation: { requiredRoles: ['positive_control', 'negative_control'] },
       }),
     )
+
     expect(
       errors.filter((error) => error.code === 'missing_required_role'),
     ).toHaveLength(2)
@@ -261,6 +267,7 @@ describe('validatePlateDesign', () => {
       sampleWell('A1', 0, 0),
       { wellCode: 'A2', row: 0, col: 1, role: 'positive_control' } as const,
     ]
+
     expect(
       validatePlateDesign(
         design(wells, {
@@ -274,6 +281,7 @@ describe('validatePlateDesign', () => {
     const errors = validatePlateDesign(
       design([sampleWell('A1', 0, 0), sampleWell('A2', 0, 1)]),
     )
+
     expect(errors.some((error) => error.code === 'duplicate_assignment')).toBe(
       true,
     )
@@ -293,6 +301,7 @@ describe('validatePlateDesign', () => {
         validation,
       }),
     )
+
     expect(errors.some((error) => error.code === 'invalid_volume')).toBe(true)
   })
 
@@ -300,6 +309,7 @@ describe('validatePlateDesign', () => {
     const errors = validatePlateDesign(
       design([sampleWell('A1', 0, 0, { sampleRef: undefined })]),
     )
+
     expect(errors.some((error) => error.code === 'missing_sample_ref')).toBe(
       true,
     )
@@ -309,6 +319,7 @@ describe('validatePlateDesign', () => {
     const errors = validatePlateDesign(
       design([sampleWell('A1', 0, 0, { concentrationValue: -0.1 })]),
     )
+
     expect(errors.some((error) => error.code === 'invalid_concentration')).toBe(
       true,
     )
@@ -384,6 +395,7 @@ describe('previewCsvImport', () => {
       8,
       12,
     )
+
     expect(preview.mapping).toEqual({
       wellCode: 'Well Code',
       role: 'Role',
@@ -404,6 +416,7 @@ describe('previewCsvImport', () => {
       8,
       12,
     )
+
     expect(preview.errors).toEqual([])
     expect(preview.rows[0]).toMatchObject({ wellCode: 'H12', role: 'sample' })
   })
@@ -458,6 +471,7 @@ describe('designerWellToWellAssignment', () => {
       volume: { value: 20, unit: 'µL' },
       notes: 'edge well',
     })
+
     expect(assignment).toEqual({
       wellCode: 'A1',
       row: 0,
@@ -485,6 +499,7 @@ describe('plateDesignDocToSpec', () => {
         volume: { value: 20, unit: 'µL' },
       },
     ])
+
     expect(validatePlateDesign(doc)).toEqual([])
     const spec = plateDesignDocToSpec(doc)
     // The designer operates on the canonical spec: envelope fields come from
@@ -503,6 +518,7 @@ describe('plateDesignDocToSpec', () => {
       volume: { value: 20, unit: 'µL' },
       concentration: { value: 10, unit: 'µM' },
     })
+
     const spec = plateDesignDocToSpec(design(filled))
     expect(validatePlateMapSpec(spec)).toEqual([])
     expect(spec.wells.length).toBeGreaterThan(0)
@@ -522,6 +538,7 @@ describe('designer view-state annotations', () => {
       ],
       selectedWellCode: 'A1',
     }
+
     const spec = designerViewStateToSpec(state)
     expect(validatePlateMapSpec(spec)).toEqual([])
     expect(spec.wells).toHaveLength(1)

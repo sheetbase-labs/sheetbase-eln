@@ -27,13 +27,16 @@ import {
  */
 export function NotificationsBell() {
   const queryClient = useQueryClient()
+
   const query = useQuery({
     queryKey: notificationsQueryKeys.list(),
     queryFn: () => fetchMyNotifications(),
     staleTime: 30_000,
     retry: false,
   })
+
   const notifications = query.data ?? []
+
   // The review each review notification is about, so it opens the review and
   // not just the record. Until it answers, the record link stands in.
   const reviews = useQuery({
@@ -47,6 +50,7 @@ export function NotificationsBell() {
     staleTime: 30_000,
     retry: false,
   })
+
   const unread = notifications.filter((item) => item.readAt === null)
 
   const markRead = useMutation({

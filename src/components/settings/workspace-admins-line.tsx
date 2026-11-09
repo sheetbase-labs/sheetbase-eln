@@ -25,8 +25,11 @@ export function WorkspaceAdminsLine({
     enabled: Boolean(workspaceId),
     staleTime: 60_000,
   })
+
   const names = formatAdminNames(admins.data ?? [])
+
   if (!names) return null
+
   return (
     <span className={className}>
       {t('settings.workspaceAdminsLine.workspaceAdmins', { names })}

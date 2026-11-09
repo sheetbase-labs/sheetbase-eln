@@ -23,6 +23,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const problems: IntakeProblem[] = [
@@ -47,6 +48,7 @@ function provider(rows: IntakeProblem[]) {
   const client = screenQueryClient({
     data: [{ key: intakeQueryKeys.problems('instrument-tb02'), value: rows }],
   })
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <Story />

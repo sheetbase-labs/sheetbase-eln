@@ -13,7 +13,9 @@ const meta = {
   tags: ['autodocs'],
   parameters: { layout: 'padded' },
 } satisfies Meta<typeof Secret>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {

@@ -19,6 +19,7 @@ const meta: DepositMeta = {
   contactEmail: null,
   publisher: 'Sheetbase',
 }
+
 const pkg = { name: 'growth.zip', bytes: new Uint8Array([1, 2, 3]) }
 
 interface Call {
@@ -30,6 +31,7 @@ interface Call {
 
 function fake(routes: Record<string, unknown>) {
   const calls: Call[] = []
+
   const fetch: RepoFetch = async (url, init) => {
     const method = init?.method ?? 'GET'
     calls.push({
@@ -39,6 +41,7 @@ function fake(routes: Record<string, unknown>) {
       body: init?.body,
     })
     const key = `${method} ${new URL(url).pathname}`
+
     if (!(key in routes))
       return {
         ok: false,
@@ -48,6 +51,7 @@ function fake(routes: Record<string, unknown>) {
       }
     const value = routes[key]
     const text = JSON.stringify(value)
+
     return {
       ok: true,
       status: 200,
@@ -55,6 +59,7 @@ function fake(routes: Record<string, unknown>) {
       text: async () => text,
     }
   }
+
   return { fetch, calls }
 }
 
@@ -78,6 +83,7 @@ describe('Zenodo', () => {
         links: { html: 'https://sandbox.zenodo.org/deposit/77' },
       },
     })
+
     const draft = await createDraft(target, meta, pkg, { fetch })
     expect(draft).toEqual({
       remoteId: '77',
@@ -85,9 +91,11 @@ describe('Zenodo', () => {
       doi: '10.5072/zenodo.77',
     })
     expect(calls.every((c) => c.auth === 'Bearer tok-123456')).toBe(true)
+
     const described = calls.find(
       (c) => c.method === 'PUT' && c.url.endsWith('/depositions/77'),
     )
+
     expect(JSON.parse(described!.body as string).metadata).toMatchObject({
       title: 'Growth curves',
       license: 'cc-by-4.0',
@@ -102,6 +110,7 @@ describe('Zenodo', () => {
         links: { record_html: 'https://sandbox.zenodo.org/records/77' },
       },
     })
+
     expect(await publishDraft(target, '77', { fetch })).toEqual({
       doi: '10.5072/zenodo.77',
       recordUrl: 'https://sandbox.zenodo.org/records/77',
@@ -124,6 +133,7 @@ describe('InvenioRDM', () => {
       collection: null,
       token: 'tok-123456',
     }
+
     const { fetch, calls } = fake({
       'POST /api/records': {
         id: 'abcd-1234',
@@ -134,6 +144,7 @@ describe('InvenioRDM', () => {
       'PUT /api/records/abcd-1234/draft/files/growth.zip/content': {},
       'POST /api/records/abcd-1234/draft/files/growth.zip/commit': {},
     })
+
     const draft = await createDraft(target, meta, pkg, { fetch })
     expect(draft.remoteId).toBe('abcd-1234')
     expect(

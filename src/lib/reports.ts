@@ -19,6 +19,7 @@ export const REPORT_STATUSES = [
   'published',
   'archived',
 ] as const
+
 export type ReportStatus = (typeof REPORT_STATUSES)[number]
 
 export type SectionValidation =
@@ -147,6 +148,7 @@ export async function fetchReports(
     'report_definitions',
     '?select=id,record_id,project_id,title,subtitle,document_identifier,status,version,created_by_user_id,updated_at,projects(title),report_sections(count),report_generations(generated_at)&report_generations.order=generated_at.desc&report_generations.limit=1&order=updated_at.desc',
   )
+
   return rows.map((r) => ({
     recordId: r.record_id,
     definitionId: r.id,
@@ -199,16 +201,21 @@ export async function fetchReport(
   recordId: string,
 ): Promise<ReportDetail | null> {
   const id = z.uuid().parse(recordId)
+
   const rows = await client.list<DetailWire>(
     'report_definitions',
     `?record_id=eq.${id}&select=id,workspace_id,record_id,project_id,title,subtitle,document_identifier,status,version,created_by_user_id,created_at,updated_at,projects(title),report_sections(id,position,title,description,section_type,source_type,source_revision_id,source_ref,frozen_payload,validation_status,validation_detail)&report_sections.order=position.asc,id.asc&limit=1`,
   )
+
   const r = rows.at(0)
+
   if (!r) return null
+
   const locks = await client.list<{ locked_at: string | null }>(
     'records',
     `?id=eq.${id}&select=locked_at&limit=1`,
   )
+
   return {
     lockedAt: locks.at(0)?.locked_at ?? null,
     definitionId: r.id,
@@ -258,6 +265,7 @@ export async function createReport(
       p_project_id: input.projectId || null,
     },
   )
+
   return { recordId: row.record_id, definitionId: row.id }
 }
 
@@ -338,6 +346,7 @@ export async function addEvidenceSection(
   },
 ): Promise<void> {
   const kind = sectionKindForBlock(input.evidence.blockType)
+
   const section = await client.rpc<{ id: string }>('add_report_section', {
     p_workspace_id: input.workspaceId,
     p_report_id: input.definitionId,
@@ -346,6 +355,7 @@ export async function addEvidenceSection(
     p_section_type: kind.sectionType,
     p_source_type: kind.sourceType,
   })
+
   await bindEvidence(client, {
     workspaceId: input.workspaceId,
     sectionId: section.id,
@@ -417,10 +427,12 @@ export function moveId(
 ): string[] {
   const from = ids.indexOf(id)
   const to = from + direction
+
   if (from < 0 || to < 0 || to >= ids.length) return [...ids]
   const next = [...ids]
   next.splice(from, 1)
   next.splice(to, 0, id)
+
   return next
 }
 
@@ -442,6 +454,7 @@ export async function validateReport(
     p_workspace_id: input.workspaceId,
     p_report_id: input.definitionId,
   })
+
   return readinessSchema.parse(raw)
 }
 
@@ -476,6 +489,7 @@ export async function generateReport(
     p_report_id: input.definitionId,
     p_output_format: 'html',
   })
+
   return mapGeneration(row)
 }
 
@@ -484,10 +498,12 @@ export async function fetchGenerations(
   definitionId: string,
 ): Promise<ReportGeneration[]> {
   const id = z.uuid().parse(definitionId)
+
   const rows = await client.list<GenerationWire>(
     'report_generations',
     `?report_id=eq.${id}&select=id,report_version,output_format,output_checksum,output_size_bytes,actor_user_id,generated_at&order=generated_at.desc&limit=50`,
   )
+
   return rows.map(mapGeneration)
 }
 
@@ -497,16 +513,19 @@ export async function fetchGenerationHtml(
   generationId: string,
 ): Promise<string> {
   const id = z.uuid().parse(generationId)
+
   const rows = await client.list<{ output_html: string | null }>(
     'report_generations',
     `?id=eq.${id}&select=output_html&limit=1`,
   )
+
   return rows.at(0)?.output_html ?? ''
 }
 
 /** The short form of a checksum a person can read out or compare. */
 export function fingerprint(checksum: string): string {
   const head = checksum.slice(0, 8).toUpperCase()
+
   return `${head.slice(0, 4)}-${head.slice(4)}`
 }
 
@@ -526,12 +545,14 @@ export async function fetchEvidenceRevisions(
   recordId: string,
 ): Promise<EvidenceRevision[]> {
   const id = z.uuid().parse(recordId)
+
   const rows = await client.list<
     Pick<RevisionWire, 'id' | 'structure_version' | 'reason' | 'created_at'>
   >(
     'revisions',
     `?record_id=eq.${id}&select=id,structure_version,reason,created_at&order=created_at.desc,id.desc&limit=20`,
   )
+
   return rows.map((r) => ({
     id: r.id,
     version: r.structure_version,
@@ -550,18 +571,24 @@ export interface EvidenceBlock {
 /** Every `text` value in a block's payload, in order, as one line. */
 export function payloadText(payload: unknown): string {
   const out: string[] = []
+
   const walk = (node: unknown) => {
     if (!node || typeof node !== 'object') return
+
     if (Array.isArray(node)) {
       for (const item of node) walk(item)
+
       return
     }
+
     for (const [key, value] of Object.entries(node)) {
       if (key === 'text' && typeof value === 'string') out.push(value)
       else walk(value)
     }
   }
+
   walk(payload)
+
   return out.join(' ').replace(/\s+/g, ' ').trim()
 }
 
@@ -570,11 +597,14 @@ export async function fetchRevisionBlocks(
   revisionId: string,
 ): Promise<EvidenceBlock[]> {
   const id = z.uuid().parse(revisionId)
+
   const rows = await client.list<Pick<RevisionWire, 'block_snapshot'>>(
     'revisions',
     `?id=eq.${id}&select=block_snapshot&limit=1`,
   )
+
   const blocks = rows.at(0)?.block_snapshot ?? []
+
   return blocks.map((b) => ({
     id: b.id,
     type: b.type,
@@ -602,7 +632,9 @@ export function frozenBlockOf(section: ReportSection): {
         version?: number
       }
     | undefined
+
   if (!block?.id || !block.type) return null
+
   return {
     id: block.id,
     recordId: String(section.sourceRef.recordId ?? ''),

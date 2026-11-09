@@ -22,9 +22,11 @@ export const GHS_PICTOGRAMS = [
   'GHS08',
   'GHS09',
 ] as const
+
 export type GhsPictogram = (typeof GHS_PICTOGRAMS)[number]
 
 export const SIGNAL_WORDS = ['danger', 'warning'] as const
+
 export type SignalWord = (typeof SIGNAL_WORDS)[number]
 
 /** Every hazard statement the catalogue words. */
@@ -41,8 +43,10 @@ export function pictogramName(code: GhsPictogram): string {
 /** The wording of a hazard statement, or the bare code when it has no wording. */
 export function hazardStatementText(code: string): string {
   const key = `safety.statements.${code}` as `safety.statements.${HazardCode}`
+
   try {
     const text = t(key)
+
     return text === key ? code : text
   } catch {
     return code
@@ -119,7 +123,9 @@ export async function fetchMaterialSafety(
     'material_safety',
     `?record_id=eq.${encodeURIComponent(recordId)}&select=${SELECT}&limit=1`,
   )
+
   const row = rows.at(0)
+
   return row ? toMaterialSafety(row) : null
 }
 
@@ -129,12 +135,14 @@ export async function fetchMaterialSafetyFor(
   recordIds: readonly string[],
 ): Promise<Map<string, MaterialSafety>> {
   if (recordIds.length === 0) return new Map()
+
   const rows = await listByIds(recordIds, (inList) =>
     client.list<MaterialSafetyWire>(
       'material_safety',
       `?record_id=in.(${inList})&select=${SELECT}`,
     ),
   )
+
   return new Map(rows.map((row) => [row.record_id, toMaterialSafety(row)]))
 }
 
@@ -146,6 +154,7 @@ export async function fetchAllMaterialSafety(
     'material_safety',
     `?select=${SELECT}&limit=2000`,
   )
+
   return new Map(rows.map((row) => [row.record_id, toMaterialSafety(row)]))
 }
 
@@ -191,16 +200,21 @@ export function materialIdsFromBlocks(
   blocks: readonly { type: string; payload: unknown }[],
 ): string[] {
   const ids: string[] = []
+
   for (const block of blocks) {
     if (block.type !== 'materials') continue
     const items = (block.payload as { items?: unknown } | null)?.items
+
     if (!Array.isArray(items)) continue
+
     for (const item of items) {
       const id = (item as { materialRecordId?: unknown } | null)
         ?.materialRecordId
+
       if (typeof id === 'string' && id !== '') ids.push(id)
     }
   }
+
   return ids
 }
 

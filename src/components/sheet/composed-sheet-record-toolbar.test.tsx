@@ -11,6 +11,7 @@ describe('composed Sheet Record toolbar', () => {
   it('disables create when the Definition is link-only and focuses the next error', async () => {
     const onCreate = vi.fn()
     const onNextError = vi.fn()
+
     const actions = resolveSheetRecordActions({
       actions: [
         {
@@ -21,6 +22,7 @@ describe('composed Sheet Record toolbar', () => {
         },
       ],
     })
+
     render(
       <ComposedSheetRecordToolbar
         actions={actions}

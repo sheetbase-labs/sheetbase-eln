@@ -26,11 +26,13 @@ describe('catalogue == SDK vocabulary', () => {
 
   it('TypeScript SDK mirrors every wire alias', () => {
     const expected: Record<string, string> = {}
+
     for (const entry of EVENT_CATALOGUE) {
       if (entry.wireName !== null && entry.wireName !== entry.name) {
         expected[entry.wireName] = entry.name
       }
     }
+
     expect(SDK_EVENT_ALIASES).toEqual(expected)
   })
 
@@ -39,9 +41,11 @@ describe('catalogue == SDK vocabulary', () => {
       resolve(process.cwd(), 'sdks/python/src/sheetbase/_generated/events.py'),
       'utf8',
     )
+
     for (const name of EVENT_NAMES) {
       expect(source, `python SDK missing ${name}`).toContain(`"${name}"`)
     }
+
     for (const entry of EVENT_CATALOGUE) {
       if (entry.wireName !== null && entry.wireName !== entry.name) {
         expect(source, `python SDK missing alias ${entry.wireName}`).toContain(
@@ -55,11 +59,14 @@ describe('catalogue == SDK vocabulary', () => {
     const lab = EVENT_CATALOGUE.filter(
       (entry) => entry.introducedIn === 'lab-01',
     ).map((entry) => entry.name)
+
     expect(lab.length).toBeGreaterThan(0)
+
     const python = readFileSync(
       resolve(process.cwd(), 'sdks/python/src/sheetbase/_generated/events.py'),
       'utf8',
     )
+
     for (const name of lab) {
       expect(SDK_EVENT_NAMES, `TypeScript SDK missing ${name}`).toContain(name)
       expect(python, `python SDK missing ${name}`).toContain(`"${name}"`)

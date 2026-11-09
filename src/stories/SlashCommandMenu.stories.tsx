@@ -20,7 +20,9 @@ const meta = {
   ],
   args: { query: '', selectedIndex: 0, onSelect: () => {} },
 } satisfies Meta<typeof SlashCommandMenu>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Every block type, with the first option highlighted. */

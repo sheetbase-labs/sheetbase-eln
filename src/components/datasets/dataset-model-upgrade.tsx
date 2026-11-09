@@ -42,18 +42,22 @@ export function DatasetModelUpgrade({
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [chosen, setChosen] = useState('')
+
   const position = useQuery({
     queryKey: datasetModelPositionKey(datasetId),
     queryFn: () => fetchDatasetModelPosition(client, datasetId),
     staleTime: 30_000,
   })
+
   const newer = position.data?.newer ?? []
   const target = chosen || newer.at(-1)?.id || ''
+
   const preview = useQuery({
     queryKey: ['ui-port', 'dataset-model-preview', datasetId, target],
     queryFn: () => previewDatasetModelUpgrade(client, datasetId, target),
     enabled: open && Boolean(target),
   })
+
   const apply = useMutation({
     mutationFn: () =>
       applyDatasetModelUpgrade(client, {

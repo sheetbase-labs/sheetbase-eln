@@ -5,6 +5,7 @@ import type {
 } from './data-grid'
 
 export { formatDataGridValue as formatRegistryValue } from './data-grid'
+
 export type { DataGridValueFormat as RegistryValueFormat } from './data-grid'
 
 export type RegistryDensity = 'comfortable' | 'compact'
@@ -15,7 +16,9 @@ export interface RegistrySort {
 }
 
 export type RegistryScalar = DataGridScalar
+
 export type RegistryFilterOperator = DataGridFilterOperator
+
 export type RegistryFilterValue = DataGridFilterValue
 
 /**
@@ -116,6 +119,7 @@ function isRegistryFilter(value: unknown): value is RegistryFilterValue {
 function encodeFilterScalar(value: RegistryScalar): string {
   const type =
     typeof value === 'number' ? 'n' : typeof value === 'boolean' ? 'b' : 's'
+
   return `${type}:${encodeURIComponent(String(value))}`
 }
 
@@ -133,14 +137,19 @@ export function encodeRegistryFilters(filters: RegistryFilterValue[]): string {
 export function decodeRegistryFilters(value: unknown): RegistryFilterValue[] {
   if (typeof value !== 'string' || value.length === 0 || value.length > 4096)
     return []
+
   try {
     const entries = value.split('|')
+
     if (entries.length > 20) return []
+
     const filters: RegistryFilterValue[] = entries.map((entry) => {
       const fieldEnd = entry.indexOf(':')
       const operatorEnd = entry.indexOf(':', fieldEnd + 1)
+
       if (fieldEnd <= 0 || operatorEnd < 0) throw new Error('Invalid filter')
       const values = entry.slice(operatorEnd + 1)
+
       return {
         fieldId: decodeURIComponent(entry.slice(0, fieldEnd)),
         operator: entry.slice(
@@ -150,26 +159,35 @@ export function decodeRegistryFilters(value: unknown): RegistryFilterValue[] {
         values: values
           ? values.split(',').map((encoded): RegistryScalar => {
               const type = encoded.slice(0, 1)
+
               if (encoded.slice(1, 2) !== ':')
                 throw new Error('Invalid filter value')
               const scalar = decodeURIComponent(encoded.slice(2))
+
               if (type === 'n') {
                 const numeric = Number(scalar)
+
                 if (!Number.isFinite(numeric))
                   throw new Error('Invalid numeric filter value')
+
                 return numeric
               }
+
               if (type === 'b') {
                 if (scalar !== 'true' && scalar !== 'false')
                   throw new Error('Invalid boolean filter value')
+
                 return scalar === 'true'
               }
+
               if (type !== 's') throw new Error('Invalid filter value type')
+
               return scalar
             })
           : [],
       }
     })
+
     return filters.every(isRegistryFilter) ? filters : []
   } catch {
     return []
@@ -185,11 +203,14 @@ export function encodeRegistryQuery(query: RegistryQuery): string {
 export function decodeRegistryQuery(value: unknown): RegistryQuery | null {
   if (typeof value !== 'string' || value.length === 0 || value.length > 4096)
     return null
+
   try {
     const envelope: unknown = JSON.parse(decodeURIComponent(value))
+
     if (!isRecord(envelope) || envelope.v !== 1 || !isRecord(envelope.q))
       return null
     const query = envelope.q
+
     if (
       !Number.isInteger(query.pageIndex) ||
       Number(query.pageIndex) < 0 ||
@@ -216,6 +237,7 @@ export function decodeRegistryQuery(value: unknown): RegistryQuery | null {
       !query.filters.every(isRegistryFilter)
     )
       return null
+
     return query as unknown as RegistryQuery
   } catch {
     return null
@@ -230,10 +252,14 @@ function isSavedView(value: unknown): value is RegistrySavedView {
   ) {
     return false
   }
+
   const state = value.state
+
   if (!isRecord(state) || !isRecord(state.query)) return false
+
   if (!isRecord(state.columnVisibility)) return false
   const query = state.query
+
   const sortingValid =
     Array.isArray(query.sorting) &&
     query.sorting.every(
@@ -242,15 +268,19 @@ function isSavedView(value: unknown): value is RegistrySavedView {
         typeof sort.id === 'string' &&
         typeof sort.desc === 'boolean',
     )
+
   const groupingValid =
     Array.isArray(query.grouping) &&
     query.grouping.every((group) => typeof group === 'string')
+
   const filtersValid =
     Array.isArray(query.filters) &&
     query.filters.every((filter) => isRegistryFilter(filter))
+
   const visibilityValid = Object.values(state.columnVisibility).every(
     (visible) => typeof visible === 'boolean',
   )
+
   return (
     Number.isInteger(query.pageIndex) &&
     Number(query.pageIndex) >= 0 &&
@@ -321,6 +351,7 @@ export function createRegistrySavedViewStore({
 }): RegistrySavedViewStore {
   const key = registrySavedViewStorageKey(registryId, workspaceId, userId)
   let resolvedStorage: Storage | null = storage ?? null
+
   if (!resolvedStorage && typeof window !== 'undefined') {
     try {
       resolvedStorage = window.localStorage
@@ -331,8 +362,10 @@ export function createRegistrySavedViewStore({
 
   function list(): RegistrySavedView[] {
     if (!resolvedStorage) return []
+
     try {
       const parsed: unknown = JSON.parse(resolvedStorage.getItem(key) ?? '[]')
+
       return Array.isArray(parsed) ? parsed.filter(isSavedView) : []
     } catch {
       return []
@@ -354,9 +387,11 @@ export function createRegistrySavedViewStore({
       const saved = { ...view, updatedAt: new Date().toISOString() }
       const views = list()
       const existing = views.findIndex((candidate) => candidate.id === view.id)
+
       if (existing >= 0) views[existing] = saved
       else views.push(saved)
       write(views)
+
       return saved
     },
     remove(id) {

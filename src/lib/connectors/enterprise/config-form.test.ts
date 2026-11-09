@@ -21,12 +21,14 @@ describe('connector config form', () => {
 
   it('keeps keys the form does not own, because the RPC replaces config wholesale', () => {
     const existing = { adapter: 'postgres', allowedSchemas: ['lims'] }
+
     const values = {
       ...configFormValues('postgres', existing),
       host: ' db.example.org ',
       port: '5432',
       database: 'lims',
     }
+
     expect(buildConnectorConfig('postgres', existing, values)).toEqual({
       ok: true,
       config: {
@@ -51,16 +53,20 @@ describe('connector config form', () => {
         database: '',
       },
     )
+
     expect(bad).toMatchObject({
       ok: false,
       errors: { port: expect.any(String), database: expect.any(String) },
     })
+
     const cleared = buildConnectorConfig(
       's3',
       { adapter: 's3', bucket: 'b1', prefix: 'old/' },
       { ...configFormValues('s3', { bucket: 'b1' }), prefix: '' },
     )
+
     expect(cleared.ok).toBe(true)
+
     if (cleared.ok) expect(cleared.config).not.toHaveProperty('prefix')
   })
 })

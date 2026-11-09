@@ -60,13 +60,16 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
   const published = list.find((v) => v.lifecycle === 'published')
   const version = published ?? list.at(0)
   const [selected, setSelected] = useState<string | null>(null)
+
   const fields = (version?.definition.fields ?? []).filter(
     (f) => f.lifecycle !== 'retired',
   )
+
   const groups = groupFieldsBySection(fields)
   const inherited = useInheritedFieldGroups(modelKey)
   const above = inheritedRows(inherited.groups)
   const sel = fields.find((f) => f.id === selected) ?? fields.at(0)
+
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     sel?.id ?? null,
     setSelected,
@@ -82,6 +85,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
   // Below inherited fields, the model's own get a band even when unsectioned.
   const ownName =
     model.data?.name ?? t('library.models.recordModelFieldsTab.thisModel')
+
   const rows: RegistryRow<ModelVersionField | InheritedRow>[] = [
     ...above,
     ...groups.flatMap((group) => [
@@ -96,9 +100,11 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
 
   const dataAccess = useDataAccess()
   const names = useReportingNames()
+
   const muted = (value: string | null) => (
     <span className="text-fg-muted">{value ?? '—'}</span>
   )
+
   const columns: RegistryColumn<ModelVersionField | InheritedRow>[] = [
     {
       id: 'field',
@@ -117,6 +123,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
         const key = isInherited(row.original)
           ? row.original.key
           : row.original.field_name
+
         return key ? (
           <span className="mono text-fg-muted">{key}</span>
         ) : (
@@ -133,6 +140,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
               const key = isInherited(row.original)
                 ? row.original.key
                 : row.original.field_name
+
               return key ? (
                 <span className="mono text-fg-muted">
                   {reportingColumnName(modelKey, key, names)}
@@ -182,6 +190,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
       cell: ({ row }) => {
         if (isInherited(row.original)) return muted(null)
         const first = since(row.original)
+
         return (
           <span
             className={
@@ -226,10 +235,12 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
 
   const recordsOnVersion =
     usage.data?.find((row) => row.version_id === version.id)?.record_count ?? 0
+
   const recordsTotal = (usage.data ?? []).reduce(
     (sum, row) => sum + row.record_count,
     0,
   )
+
   const draft = list.find((v) => v.lifecycle === 'draft')
 
   return (

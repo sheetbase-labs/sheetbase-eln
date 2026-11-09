@@ -37,12 +37,14 @@ function renderTab(node: React.ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>{node}</QueryClientProvider>,
   )
 }
 
 beforeEach(() => dataClient.list.mockReset())
+
 afterEach(cleanup)
 
 describe('ExperimentSamples', () => {
@@ -54,6 +56,7 @@ describe('ExperimentSamples', () => {
           { id: 'l2', target_kind: 'sample', target_record_id: 's2' },
         ]
       }
+
       if (resource === 'record_links') {
         return [
           {
@@ -63,6 +66,7 @@ describe('ExperimentSamples', () => {
           },
         ]
       }
+
       if (resource === 'records') {
         return [
           {
@@ -81,6 +85,7 @@ describe('ExperimentSamples', () => {
           },
         ]
       }
+
       return []
     })
     renderTab(<ExperimentSamples expId="exp-1" />)

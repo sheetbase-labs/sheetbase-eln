@@ -15,7 +15,9 @@ const meta = {
   parameters: { layout: 'fullscreen' },
   args: { expired: true, path: '/projects/p1/experiments' },
 } satisfies Meta<typeof SessionExpiredBanner>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Expired: Story = {}

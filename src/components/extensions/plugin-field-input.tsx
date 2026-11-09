@@ -40,6 +40,7 @@ export function PluginFieldInput({
     },
     [onChange],
   )
+
   return (
     <div className="flex flex-col gap-1">
       <span className="text-xs text-fg-muted">

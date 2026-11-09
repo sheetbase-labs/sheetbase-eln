@@ -22,7 +22,9 @@ const meta = {
   ],
   args: { onAdd: () => {}, open: true, onOpenChange: () => {} },
 } satisfies Meta<typeof AddBlockMenu>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Open: the block types a writer can insert. */
@@ -47,6 +49,7 @@ export const Closed: Story = {
 export const WithTrigger: Story = {
   render: () => {
     const [open, setOpen] = useState(false)
+
     return (
       <AddBlockMenu
         open={open}

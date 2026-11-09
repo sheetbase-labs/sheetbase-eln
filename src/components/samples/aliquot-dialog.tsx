@@ -53,7 +53,9 @@ export function planAliquots(
   const count = parseQuantityInput(rawCount)
   const quantityEach = parseQuantityInput(rawEach)
   const empty = { count, quantityEach, total: null, remaining: null }
+
   if (count == null || quantityEach == null) return { ...empty, error: null }
+
   if (!Number.isInteger(count) || count < 1 || count > ALIQUOT_MAX_TUBES)
     return {
       ...empty,
@@ -61,6 +63,7 @@ export function planAliquots(
         aliquotMaxTubes: ALIQUOT_MAX_TUBES,
       }),
     }
+
   if (quantityEach <= 0)
     return {
       ...empty,
@@ -68,6 +71,7 @@ export function planAliquots(
     }
   const total = count * quantityEach
   const suffix = unit ? ` ${unit}` : ''
+
   if (free != null && total > free + 1e-9) {
     return {
       count,
@@ -85,6 +89,7 @@ export function planAliquots(
       }),
     }
   }
+
   return {
     count,
     quantityEach,
@@ -152,8 +157,10 @@ export function AliquotDialog({
     client,
     balancesProp === undefined,
   )
+
   const balances =
     balancesProp !== undefined ? balancesProp : (queriedBalances.data ?? null)
+
   const unit = balances?.unit ?? sample.quantityUnit
   const free = balances?.free ?? sample.quantity
 
@@ -166,6 +173,7 @@ export function AliquotDialog({
   const [printing, setPrinting] = useState(false)
 
   const plan = planAliquots(count, each, free, unit)
+
   const canSubmit =
     !busy &&
     Boolean(purpose) &&

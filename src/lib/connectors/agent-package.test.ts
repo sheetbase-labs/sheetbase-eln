@@ -27,6 +27,7 @@ describe('connectorKeyForInstrument', () => {
 
   it('copes with names that are empty, start with a digit or are very long', () => {
     const valid = /^[a-z][a-z0-9-]{0,48}$/
+
     for (const name of [
       '',
       '7500 Fast',
@@ -41,9 +42,11 @@ describe('connectorKeyForInstrument', () => {
 describe('agentFiles', () => {
   it('puts the address, instrument, folder and token in the settings file', () => {
     const files = agentFiles({ ...base, system: 'windows' })
+
     const settings = JSON.parse(
       files.find((file) => file.path.endsWith('sheetbase-agent.json'))!.content,
     )
+
     expect(settings).toEqual({
       url: 'https://eln.example.com',
       connector: 'qpcr-bench-inst-3',
@@ -55,12 +58,15 @@ describe('agentFiles', () => {
   it('adds the start file for the chosen system', () => {
     const names = (system: 'windows' | 'mac' | 'linux') =>
       agentFiles({ ...base, system }).map((file) => file.path.split('/').pop())
+
     expect(names('windows')).toContain('Start Sheetbase agent.bat')
     expect(names('mac')).toContain('Start Sheetbase agent.command')
     expect(names('linux')).toContain('start-sheetbase-agent.sh')
+
     const mac = agentFiles({ ...base, system: 'mac' }).find((file) =>
       file.path.endsWith('.command'),
     )
+
     expect(mac?.executable).toBe(true)
     expect(mac?.content.startsWith('#!/bin/sh')).toBe(true)
   })
@@ -73,6 +79,7 @@ describe('agentFiles', () => {
     const readme = agentFiles({ ...base, system: 'windows' }).find((file) =>
       file.path.endsWith('README.txt'),
     )!.content
+
     expect(readme).toContain('C:\\Results')
     expect(readme).not.toMatch(/token|scope|uuid|connector/i)
   })

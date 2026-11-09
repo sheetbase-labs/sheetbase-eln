@@ -16,6 +16,7 @@ describe('HelpRecords', () => {
       routeTree: createRootRoute({ component: Route.options.component }),
       history: createMemoryHistory({ initialEntries: ['/'] }),
     })
+
     render(<RouterProvider router={router} />)
 
     await screen.findByRole('heading', {
@@ -47,6 +48,7 @@ describe('HelpRecords', () => {
     for (const topic of helpTopics) {
       if (topic.hash) expect(document.getElementById(topic.hash)).not.toBeNull()
     }
+
     for (const article of helpArticles) {
       if (
         article.link.to === '/help/records' &&

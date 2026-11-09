@@ -100,11 +100,13 @@ function NumberFieldGroup({
 }: NumberFieldPrimitive.Group.Props &
   Partial<VariantProps<typeof numberFieldGroupVariants>>) {
   const context = useContext(NumberFieldContext)
+
   if (!context) {
     throw new Error(
       'NumberFieldGroup must be used within a NumberField component.',
     )
   }
+
   const size = sizeProp ?? context.size
 
   return (
@@ -126,11 +128,13 @@ function NumberFieldDecrement({
     children?: React.ReactNode
   }) {
   const context = useContext(NumberFieldContext)
+
   if (!context) {
     throw new Error(
       'NumberFieldDecrement must be used within a NumberField component.',
     )
   }
+
   const size = sizeProp ?? context.size
 
   return (
@@ -158,11 +162,13 @@ function NumberFieldIncrement({
     children?: ReactNode
   }) {
   const context = useContext(NumberFieldContext)
+
   if (!context) {
     throw new Error(
       'NumberFieldIncrement must be used within a NumberField component.',
     )
   }
+
   const size = sizeProp ?? context.size
 
   return (
@@ -187,11 +193,13 @@ function NumberFieldInput({
 }: NumberFieldPrimitive.Input.Props &
   Partial<VariantProps<typeof numberFieldInputVariants>>) {
   const context = useContext(NumberFieldContext)
+
   if (!context) {
     throw new Error(
       'NumberFieldInput must be used within a NumberField component.',
     )
   }
+
   const size = sizeProp ?? context.size
 
   return (
@@ -211,6 +219,7 @@ function NumberFieldScrubArea({
   label: string
 }) {
   const context = useContext(NumberFieldContext)
+
   if (!context) {
     throw new Error(
       'NumberFieldScrubArea must be used within a NumberField component for accessibility.',

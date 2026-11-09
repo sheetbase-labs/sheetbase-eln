@@ -23,6 +23,7 @@ function renderWithQuery(ui: React.ReactNode) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
   )
@@ -51,6 +52,7 @@ describe('FavouriteToggle', () => {
         client={stubClient({})}
       />,
     )
+
     expect(container.firstChild).toBeNull()
   })
 
@@ -60,6 +62,7 @@ describe('FavouriteToggle', () => {
       object_id: string
       created_at: string
     }> = []
+
     const rpc = vi.fn((_name: string, args: Record<string, unknown>) => {
       // Model the server: the write lands, so the RLS read returns the row.
       rows.push({
@@ -67,8 +70,10 @@ describe('FavouriteToggle', () => {
         object_id: String(args.p_object_id),
         created_at: '2026-08-31T12:00:00Z',
       })
+
       return Promise.resolve('2026-08-31T12:00:00Z')
     })
+
     renderWithQuery(
       <FavouriteToggle
         kind="record"
@@ -80,6 +85,7 @@ describe('FavouriteToggle', () => {
     const button = await screen.findByRole('button', {
       name: 'Pin to the sidebar',
     })
+
     expect(button.getAttribute('aria-pressed')).toBe('false')
 
     fireEvent.click(button)
@@ -88,6 +94,7 @@ describe('FavouriteToggle', () => {
       const starred = screen.getByRole('button', {
         name: 'Unpin from the sidebar',
       })
+
       expect(starred.getAttribute('aria-pressed')).toBe('true')
     })
     expect(rpc).toHaveBeenCalledWith('set_record_favourite', {
@@ -101,6 +108,7 @@ describe('FavouriteToggle', () => {
     const rpc = vi.fn(() =>
       Promise.reject(new DataClientError('upstream_error', 'boom', 500)),
     )
+
     renderWithQuery(
       <FavouriteToggle
         kind="sheet"
@@ -112,6 +120,7 @@ describe('FavouriteToggle', () => {
     const button = await screen.findByRole('button', {
       name: 'Pin to the sidebar',
     })
+
     fireEvent.click(button)
 
     await waitFor(() => {

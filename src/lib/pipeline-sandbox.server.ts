@@ -64,16 +64,20 @@ const WATCHDOG_GRACE_MS = 5_000
 
 export const connectPipelineSandbox: ConnectSandbox = async () => {
   const connectionString = env.PIPELINE_SANDBOX_DATABASE_URL
+
   if (!connectionString) {
     throw new SandboxUnavailableError(
       'The pipeline SQL sandbox is not configured. Set PIPELINE_SANDBOX_DATABASE_URL to the pipeline_sandbox login.',
     )
   }
+
   const client = new Client({ connectionString })
   await client.connect()
+
   const pid = await client.query<{ pid: number }>(
     'SELECT pg_backend_pid() AS pid',
   )
+
   return {
     query: async (text, values = []) => client.query(text, values),
     backendPid: pid.rows[0].pid,
@@ -101,6 +105,7 @@ export class SandboxSession {
 
   private async session(): Promise<SandboxConnection> {
     if (!this.conn) this.conn = await this.connect()
+
     return this.conn
   }
 
@@ -117,6 +122,7 @@ export class SandboxSession {
   async copyTable(source: SandboxSource, name: string): Promise<void> {
     const sandbox = await this.session()
     const quoted = quoteSandboxIdentifier(name)
+
     const { rows: columns } = await source.query<{
       name: string
       type: string
@@ -128,6 +134,7 @@ export class SandboxSession {
         ORDER BY a.attnum`,
       [name],
     )
+
     await sandbox.query(`DROP TABLE IF EXISTS pg_temp.${quoted}`)
     await sandbox.query(
       `CREATE TEMP TABLE ${quoted} (${columns
@@ -135,15 +142,19 @@ export class SandboxSession {
         .join(', ')})`,
     )
     this.loaded.add(name)
+
     if (columns.length === 0) return
+
     const { rows } = await source.query<{ doc: string }>(
       `SELECT row_to_json(t)::text AS doc FROM pg_temp.${quoted} t`,
     )
+
     for (let i = 0; i < rows.length; i += COPY_CHUNK_ROWS) {
       const chunk = `[${rows
         .slice(i, i + COPY_CHUNK_ROWS)
         .map((r) => r.doc)
         .join(',')}]`
+
       await sandbox.query(
         `INSERT INTO pg_temp.${quoted}
            SELECT * FROM jsonb_populate_recordset(NULL::pg_temp.${quoted}, $1::jsonb)`,
@@ -164,6 +175,7 @@ export class SandboxSession {
     const sandbox = await this.session()
     await sandbox.query(`SET statement_timeout = '${timeoutSeconds}s'`)
     let watchdog: ReturnType<typeof setTimeout> | undefined
+
     if (this.terminate) {
       const terminate = this.terminate
       watchdog = setTimeout(
@@ -171,6 +183,7 @@ export class SandboxSession {
         timeoutSeconds * 1000 + WATCHDOG_GRACE_MS,
       )
     }
+
     try {
       return await sandbox.query<T>(statement)
     } catch (error) {

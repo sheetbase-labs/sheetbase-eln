@@ -24,9 +24,11 @@ if (hasMigrations) {
 }
 
 const seedArgs = ['exec', 'tsx', 'src/db/seed/run.ts']
+
 for (const flag of ['--demo', '--design']) {
   if (process.argv.includes(flag)) seedArgs.push(flag)
 }
+
 execFileSync('pnpm', seedArgs, { stdio: 'inherit' })
 
 console.log('Fresh environment ready.')

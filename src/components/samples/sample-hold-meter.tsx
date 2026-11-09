@@ -36,18 +36,23 @@ export interface SampleHoldState {
 function readString(record: HoldMeterRecord, key: string): string | null {
   for (const source of [record.properties, record.customFields]) {
     const value = source?.[key]
+
     if (typeof value === 'string' && value.trim() !== '') return value.trim()
   }
+
   return null
 }
 
 function readNumber(record: HoldMeterRecord, key: string): number | null {
   for (const source of [record.properties, record.customFields]) {
     const value = source?.[key]
+
     if (value === null || value === undefined || value === '') continue
     const n = typeof value === 'number' ? value : Number(value)
+
     if (Number.isFinite(n)) return n
   }
+
   return null
 }
 
@@ -64,13 +69,16 @@ function resolveHold(
   const expiryIso = readString(record, 'expiryDate')
 
   const start = new Date(startedIso ?? record.createdAt)
+
   if (Number.isNaN(start.getTime())) return null
 
   let expiry: Date | null = null
+
   if (untilIso) expiry = new Date(untilIso)
   else if (durationDays != null)
     expiry = new Date(start.getTime() + durationDays * DAY_MS)
   else if (expiryIso) expiry = new Date(expiryIso)
+
   if (!expiry || Number.isNaN(expiry.getTime())) return null
 
   return { start, expiry, condition: readString(record, 'holdCondition') }
@@ -89,6 +97,7 @@ export function computeSampleHold(
   now: Date = clockNow(),
 ): SampleHoldState | null {
   const resolved = resolveHold(record)
+
   if (!resolved) return null
   const { start, expiry, condition } = resolved
 
@@ -99,15 +108,19 @@ export function computeSampleHold(
 
   const totalDays =
     windowMs > 0 ? Math.max(1, Math.round(windowMs / DAY_MS)) : 1
+
   const daysUsed = expired
     ? totalDays
     : clamp(Math.floor((nowMs - start.getTime()) / DAY_MS), 0, totalDays)
+
   const daysLeft = expired
     ? 0
     : Math.max(0, Math.ceil((expiryMs - nowMs) / DAY_MS))
+
   const daysAgo = expired
     ? Math.max(0, Math.floor((nowMs - expiryMs) / DAY_MS))
     : 0
+
   const percentUsed =
     windowMs > 0
       ? clamp(Math.round(((nowMs - start.getTime()) / windowMs) * 100), 0, 100)
@@ -160,6 +173,7 @@ export function SampleHoldMeter({
   now?: Date
 }) {
   const state = computeSampleHold(record, now)
+
   if (!state) {
     return (
       <p className="m-0 text-caption text-fg-muted">

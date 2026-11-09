@@ -27,6 +27,7 @@ it('selects the exact persisted version and does not invent validation or approv
       },
     ],
   }
+
   const onSelect = vi.fn()
   render(
     <ParserVersions

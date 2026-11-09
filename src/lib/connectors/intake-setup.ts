@@ -36,6 +36,7 @@ export function intakeSetupValues(
   connector: ConnectorWire | null,
 ): IntakeSetupValues {
   const pickup = pickupFormValues(connector?.config ?? {})
+
   return {
     parserKey:
       connector?.parser_id && !pickup.autoDetect ? connector.parser_id : '',
@@ -55,9 +56,11 @@ export async function findInstrumentConnector(
     'connectors',
     '?connector_type=eq.instrument&status=neq.archived&select=*&order=created_at.asc',
   )
+
   return (
     rows.find((row) => {
       const pickup = row.config['pickup']
+
       return (
         pickup !== null &&
         typeof pickup === 'object' &&
@@ -83,13 +86,16 @@ export async function saveIntakeSetup(
   | { ok: false; errors: IntakeSetupErrors }
 > {
   const { values, existing, instrument } = input
+
   const built = buildPickupConfig(existing?.config ?? {}, {
     ...values,
     autoDetect: values.parserKey === '',
     instrumentId: instrument.id,
   })
+
   if (!built.ok) return { ok: false, errors: built.errors }
   const parserId = values.parserKey || null
+
   if (existing) {
     const connector = await updateConnector(client, {
       workspaceId: input.workspaceId,
@@ -97,8 +103,10 @@ export async function saveIntakeSetup(
       config: built.config,
       parserId,
     })
+
     return { ok: true, connector }
   }
+
   const connector = await registerConnector(client, {
     workspaceId: input.workspaceId,
     key: connectorKeyForInstrument(instrument.name, instrument.displayId),
@@ -108,6 +116,7 @@ export async function saveIntakeSetup(
     config: built.config,
     parserId,
   })
+
   return { ok: true, connector }
 }
 
@@ -135,6 +144,7 @@ function tablePreview(
   if (rows.length === 0) {
     return { status: 'unreadable', reason: 'empty', missing: [] }
   }
+
   return {
     status: 'ok',
     readBy,
@@ -157,9 +167,12 @@ export function previewSample(
   if (!parser) {
     const id = detectParserId(text)
     const reader = getParser(id)
+
     if (!reader) return { status: 'unreadable', reason: 'empty', missing: [] }
+
     try {
       const payload = reader.parse(text)
+
       return tablePreview(
         reader.label,
         payload.headers,
@@ -170,18 +183,26 @@ export function previewSample(
       return { status: 'unreadable', reason: 'empty', missing: [] }
     }
   }
+
   const version =
     parser.parser_versions.find((v) => v.status !== 'retired') ??
     parser.parser_versions.at(0)
+
   const kind: ParserKind = parserKindOf(parser.key, version?.signature ?? {})
+
   if (kind === 'webhook' || kind === 'converter')
     return { status: 'later', reason: 'service' }
+
   if (parser.format === 'xlsx') return { status: 'later', reason: 'binary' }
+
   if (kind === 'builtin') {
     const reader = getParser(parser.key)
+
     if (!reader) return { status: 'later', reason: 'service' }
+
     try {
       const payload = reader.parse(text)
+
       return tablePreview(
         parser.name,
         payload.headers,
@@ -192,18 +213,24 @@ export function previewSample(
       return { status: 'unreadable', reason: 'empty', missing: [] }
     }
   }
+
   const required = Array.isArray(version?.signature['requiredHeaders'])
     ? (version.signature['requiredHeaders'] as string[])
     : []
+
   let sheet: ReturnType<typeof parseImportText>['sheets'][number]
+
   try {
     sheet = parseImportText(text, { header: true }).sheets[0]
   } catch {
     return { status: 'unreadable', reason: 'empty', missing: [] }
   }
+
   const have = new Set(sheet.headers.map((h) => h.trim().toLowerCase()))
   const missing = required.filter((h) => !have.has(h.toLowerCase()))
+
   if (missing.length > 0)
     return { status: 'unreadable', reason: 'columns', missing }
+
   return tablePreview(parser.name, sheet.headers, sheet.rows, [])
 }

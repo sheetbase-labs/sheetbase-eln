@@ -27,11 +27,13 @@ describe('demo notebook content', () => {
             kit,
             firstOrder: 1,
           })
+
           for (const block of blocks) {
             const result = validateBlock({
               type: block.type,
               payload: block.payload,
             })
+
             expect(
               result.ok,
               `${name} ${topic.title} ${status} ${block.type}`,
@@ -44,6 +46,7 @@ describe('demo notebook content', () => {
 
   it('is the same notebook every time', () => {
     const kit = KITS.aav9
+
     const input = {
       identifier: 'EXP-2001',
       status: 'approved' as const,
@@ -51,12 +54,14 @@ describe('demo notebook content', () => {
       kit,
       firstOrder: 1,
     }
+
     expect(buildNotebook(input)).toEqual(buildNotebook(input))
   })
 
   it('ends finished work in a conclusion and open work without one', () => {
     const kit = KITS.cart
     const topic = kit.topics[0]
+
     const types = (status: NotebookStatus) =>
       buildNotebook({
         identifier: 'EXP-2201',
@@ -65,6 +70,7 @@ describe('demo notebook content', () => {
         kit,
         firstOrder: 1,
       }).map((b) => b.type)
+
     expect(types('approved')).toContain('conclusion')
     expect(types('in_review')).toContain('conclusion')
     expect(types('in_progress')).not.toContain('conclusion')

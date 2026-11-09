@@ -32,8 +32,10 @@ vi.mock('@tanstack/react-router', () => ({
   } & Record<string, unknown>) => {
     void search
     let href = to
+
     for (const [key, value] of Object.entries(params ?? {}))
       href = href.replace(`$${key}`, encodeURIComponent(String(value)))
+
     return (
       <a href={href} {...props}>
         {children}
@@ -64,6 +66,7 @@ function renderTab() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <DatasetImportsTab datasetId="ds-1" />

@@ -14,10 +14,14 @@ export interface WorkspaceAdminContact {
 export const getWorkspaceAdmins = createServerFn({ method: 'GET' }).handler(
   async (): Promise<WorkspaceAdminContact[]> => {
     const { getRequestHeaders } = await import('@tanstack/react-start/server')
+
     const { getCurrentContext, listAccessContacts } =
       await import('#/lib/current-user')
+
     const context = await getCurrentContext(getRequestHeaders())
+
     if (!context?.workspace || context.workspace.suspended) return []
+
     return listAccessContacts(context.workspace.id)
   },
 )
@@ -30,7 +34,10 @@ export function formatAdminNames(
   admins: readonly { name: string }[],
 ): string | null {
   const names = admins.map((a) => a.name)
+
   if (names.length === 0) return null
+
   if (names.length === 1) return names[0]
+
   return `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
 }

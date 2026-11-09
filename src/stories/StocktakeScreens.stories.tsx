@@ -155,6 +155,7 @@ const client = screenQueryClient({
     { key: stocktakeKeys.items('st-3'), value: ITEMS },
   ],
 })
+
 const emptyClient = screenQueryClient({
   data: [
     { key: stocktakeKeys.list, value: [] },
@@ -186,7 +187,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const noop = () => {}
@@ -237,6 +240,7 @@ export const CountNotFound: Story = {
         { key: stocktakeKeys.tree, value: tree },
       ],
     })
+
     return (
       <QueryClientProvider client={missing}>
         <div className="flex h-[360px] w-[1000px] max-w-full flex-col">

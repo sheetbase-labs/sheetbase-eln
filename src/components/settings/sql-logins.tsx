@@ -67,9 +67,11 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
   const [createOpen, setCreateOpen] = useState(false)
   const [name, setName] = useState('')
   const [expiry, setExpiry] = useState('90')
+
   const [revealed, setRevealed] = useState<
     (SqlLoginSecret & { name: string }) | null
   >(null)
+
   const [confirming, setConfirming] = useState<{
     kind: 'revoke' | 'rotate'
     login: SqlLogin
@@ -79,15 +81,18 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
     queryKey: dataAccessKeys.ready(workspaceId),
     queryFn: () => fetchSqlAccessReady(),
   })
+
   const connection = useQuery({
     queryKey: sqlConnectionQueryKey,
     queryFn: () => getSqlConnectionFn(),
   })
+
   const logins = useQuery({
     queryKey: dataAccessKeys.logins(workspaceId),
     queryFn: () => fetchSqlLogins(workspaceId),
     enabled: ready.data === true,
   })
+
   const refresh = () =>
     queryClient.invalidateQueries({
       queryKey: dataAccessKeys.logins(workspaceId),
@@ -108,6 +113,7 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
       void refresh()
     },
   })
+
   const rotate = useMutation({
     mutationFn: (login: SqlLogin) => rotateSqlLogin(workspaceId, login.id),
     onSuccess: (secret, login) => {
@@ -115,10 +121,12 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
       void refresh()
     },
   })
+
   const revoke = useMutation({
     mutationFn: (login: SqlLogin) => revokeSqlLogin(workspaceId, login.id),
     onSuccess: () => void refresh(),
   })
+
   const failed = create.error ?? rotate.error ?? revoke.error
 
   if (ready.isPending || connection.isPending) return null
@@ -244,6 +252,7 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
           <form
             onSubmit={(event) => {
               event.preventDefault()
+
               if (name.trim()) create.mutate()
             }}
           >
@@ -328,6 +337,7 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
               }
               onClick={() => {
                 if (!confirming) return
+
                 if (confirming.kind === 'rotate')
                   rotate.mutate(confirming.login)
                 else revoke.mutate(confirming.login)

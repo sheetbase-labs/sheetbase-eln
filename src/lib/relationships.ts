@@ -167,15 +167,20 @@ export async function fetchRelationshipLinks(
     quiet(fetchIncomingLinksForRecord(client, recordId), []),
     quiet(fetchRecord(client, recordId), null),
   ])
+
   const seen = new Set(outgoing.map((link) => link.id))
   const incoming: NotebookLink[] = []
+
   const takeIncoming = (link: NotebookLink) => {
     if (link.sourceRecordId === recordId) return
+
     if (seen.has(link.id)) return
     seen.add(link.id)
     incoming.push(link)
   }
+
   for (const link of incomingById) takeIncoming(link)
+
   const dataset = seed
     ? null
     : await quiet(
@@ -184,21 +189,25 @@ export async function fetchRelationshipLinks(
         ),
         undefined,
       )
+
   const identifiers = dataset
     ? [dataset.id, ...(dataset.display_id ? [dataset.display_id] : [])]
     : seed?.identifier
       ? [seed.identifier]
       : []
+
   const byIdentifiers = await Promise.all(
     [...new Set(identifiers)].map((identifier) =>
       quiet(fetchIncomingLinksByIdentifier(client, identifier), []),
     ),
   )
+
   for (const links of byIdentifiers) {
     for (const link of links) {
       if (!dataset || link.targetKind === 'dataset') takeIncoming(link)
     }
   }
+
   return { outgoing, incoming }
 }
 
@@ -223,6 +232,7 @@ export async function fetchRelationshipEndpoints(
   datasetReferences: readonly string[] = [],
 ): Promise<Map<string, RelationshipEndpoint>> {
   const unique = [...new Set(ids)].filter(Boolean)
+
   const rows = await quiet(
     listByIds(unique, (inList) =>
       client.list<RelationshipEndpointWire>(
@@ -232,7 +242,9 @@ export async function fetchRelationshipEndpoints(
     ),
     [],
   )
+
   const byId = new Map<string, RelationshipEndpoint>()
+
   for (const row of rows) {
     byId.set(row.id, {
       id: row.id,
@@ -243,7 +255,9 @@ export async function fetchRelationshipEndpoints(
       deletedAt: row.deleted_at,
     })
   }
+
   const datasets = await fetchDatasetLinkTargets(client, datasetReferences)
+
   for (const [reference, dataset] of datasets) {
     byId.set(`dataset:${reference}`, {
       id: dataset.id,
@@ -254,6 +268,7 @@ export async function fetchRelationshipEndpoints(
       deletedAt: null,
     })
   }
+
   return byId
 }
 
@@ -272,11 +287,16 @@ export function lifecycleToRowState(
   hasCounterparty: boolean,
 ): RelationshipRowState {
   if (!hasCounterparty) return 'missing'
+
   if (!endpoint) return 'permission-restricted'
+
   if (endpoint.deletedAt !== null) return 'deleted'
+
   if (endpoint.archivedAt !== null) return 'archived'
+
   return 'available'
 }
+
 function toRelationshipRow(
   link: NotebookLink,
   direction: RelationshipDirection,
@@ -286,9 +306,12 @@ function toRelationshipRow(
 ): RelationshipRow | null {
   const otherRecordId =
     direction === 'outgoing' ? link.targetRecordId : link.sourceRecordId
+
   if (otherRecordId !== null && otherRecordId === recordId) return null
+
   const datasetTarget =
     direction === 'outgoing' && link.targetKind === 'dataset'
+
   const endpoint = datasetTarget
     ? (endpoints.get(
         `dataset:${link.targetRecordId ?? link.targetIdentifier}`,
@@ -296,12 +319,15 @@ function toRelationshipRow(
     : otherRecordId
       ? (endpoints.get(otherRecordId) ?? null)
       : null
+
   const state = lifecycleToRowState(
     endpoint,
     datasetTarget || otherRecordId !== null,
   )
+
   const label = typeLabels?.[link.linkType] ?? relationshipLabel(link.linkType)
   const available = state === 'available' && endpoint !== null
+
   return {
     linkId: link.id,
     direction,
@@ -379,6 +405,7 @@ function collapseKey(
     direction === 'outgoing'
       ? (link.targetRecordId ?? `identifier:${link.targetIdentifier}`)
       : link.sourceRecordId
+
   return `${link.linkType}|${counterparty}`
 }
 
@@ -396,6 +423,7 @@ function collectRows(
 ): RelationshipRow[] {
   const rows: RelationshipRow[] = []
   const seen = new Map<string, RelationshipRow>()
+
   for (const link of links) {
     const row = toRelationshipRow(
       link,
@@ -404,9 +432,11 @@ function collectRows(
       endpoints,
       typeLabels,
     )
+
     if (!row) continue
     const key = collapseKey(direction, link)
     const existing = seen.get(key)
+
     if (existing) {
       existing.duplicateCount += 1
     } else {
@@ -414,22 +444,27 @@ function collectRows(
       rows.push(row)
     }
   }
+
   return rows
 }
+
 /** Counterparty ids needing endpoint resolution for a link set. */
 export function relationshipCounterpartyIds(
   recordId: string,
   links: RelationshipLinks,
 ): string[] {
   const ids = new Set<string>()
+
   for (const link of links.outgoing) {
     if (link.targetRecordId && link.targetRecordId !== recordId) {
       ids.add(link.targetRecordId)
     }
   }
+
   for (const link of links.incoming) {
     if (link.sourceRecordId !== recordId) ids.add(link.sourceRecordId)
   }
+
   return [...ids]
 }
 
@@ -460,6 +495,7 @@ export function useRelationships(
     enabled: enabled && Boolean(recordId),
     staleTime: 10_000,
   })
+
   const counterpartyIds = useMemo(
     () =>
       linksQuery.data
@@ -467,6 +503,7 @@ export function useRelationships(
         : [],
     [linksQuery.data, recordId],
   )
+
   const datasetReferences = useMemo(
     () =>
       linksQuery.data?.outgoing
@@ -474,6 +511,7 @@ export function useRelationships(
         .map((link) => link.targetRecordId ?? link.targetIdentifier) ?? [],
     [linksQuery.data],
   )
+
   const endpointsQuery = useQuery({
     queryKey: relationshipQueryKeys.endpoints(
       JSON.stringify([counterpartyIds, datasetReferences]),
@@ -490,6 +528,7 @@ export function useRelationships(
       (counterpartyIds.length > 0 || datasetReferences.length > 0),
     staleTime: 10_000,
   })
+
   const rows = useMemo(
     () =>
       buildRelationshipRows(
@@ -500,6 +539,7 @@ export function useRelationships(
       ),
     [recordId, linksQuery.data, endpointsQuery.data, typeLabels],
   )
+
   return {
     outgoing: rows.outgoing,
     incoming: rows.incoming,

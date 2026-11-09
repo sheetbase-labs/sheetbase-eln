@@ -42,6 +42,7 @@ const READ_ANY = (scopes: readonly Scope[]) =>
 
 function allowed(context: McpContext, item: Item): boolean {
   if (context.actor.kind !== 'user') return false
+
   return item.declaration.access === 'read'
     ? context.flags.mcp_read && READ_ANY(context.scopes)
     : context.flags.mcp_lab && context.scopes.includes('lab:write')
@@ -59,6 +60,7 @@ export async function listExtensionMcpTools(
   context: McpContext,
 ): Promise<ExtensionMcpTool[]> {
   if (context.actor.kind !== 'user') return []
+
   return (await items(context))
     .filter((item) => allowed(context, item))
     .map((item) => ({
@@ -101,14 +103,17 @@ export async function callExtensionMcpTool(
   context: McpContext,
 ): Promise<ExtensionMcpOutcome> {
   const item = (await items(context)).find((entry) => entry.name === name)
+
   if (!item || !allowed(context, item)) {
     return {
       ok: false,
       message: 'The tool is not available to this credential.',
     }
   }
+
   const { declaration } = item
   let input: Record<string, unknown>
+
   try {
     input = checkDeclaredValues(declaration.inputs, args, 'input')
   } catch (error) {
@@ -118,6 +123,7 @@ export async function callExtensionMcpTool(
       message: error instanceof Error ? error.message : 'Invalid arguments.',
     }
   }
+
   // `approved`: a write that was approved (or allowed to run on its own) by
   // the workspace's agent permission, so the changes it makes into the app on
   // the person's behalf may be made. A read may call in to read.
@@ -138,11 +144,13 @@ export async function callExtensionMcpTool(
           approve: approved ? 'all' : 'none',
         },
       )
+
       if (outcome.kind === 'confirm')
         return {
           ok: false as const,
           message: `${outcome.confirm.summary ?? 'This'} changes something and needs a person to confirm it in Sheetbase.`,
         }
+
       return { ok: true as const, value: outcome.result.output }
     } catch (error) {
       return {
@@ -154,14 +162,17 @@ export async function callExtensionMcpTool(
       }
     }
   }
+
   if (declaration.access === 'read') return run()
 
   const actionKey = extensionActionKey(item.extensionKey, item.id)
+
   const argumentsJson = {
     extensionKey: item.extensionKey,
     operationId: item.id,
     input,
   }
+
   const waiting = await context.client.list<{
     id: string
     arguments: Record<string, unknown>
@@ -169,10 +180,13 @@ export async function callExtensionMcpTool(
     'agent_action_requests',
     `?select=id,arguments&status=eq.pending&action_key=eq.${encodeURIComponent(actionKey)}&order=created_at.desc&limit=20`,
   )
+
   const same = waiting.find(
     (row) => JSON.stringify(row.arguments) === JSON.stringify(argumentsJson),
   )
+
   if (same) return { ok: 'waiting', requestId: same.id, message: WAITING }
+
   const request = await context.client.rpc<{ id: string; status: string }>(
     'request_agent_action',
     {
@@ -191,6 +205,7 @@ export async function callExtensionMcpTool(
       p_idempotency_key: `mcp-${crypto.randomUUID()}`,
     },
   )
+
   if (request.status === 'refused') {
     return {
       ok: false,
@@ -198,9 +213,11 @@ export async function callExtensionMcpTool(
       message: `${declaration.title} is switched off for agents in this workspace. A person can do it in Sheetbase.`,
     }
   }
+
   if (request.status === 'pending') {
     return { ok: 'waiting', requestId: request.id, message: WAITING }
   }
+
   // Auto: run now, then record how it ended.
   const outcome = await run(true)
   await context.client
@@ -211,5 +228,6 @@ export async function callExtensionMcpTool(
       p_error: outcome.ok ? null : outcome.message,
     })
     .catch(() => undefined)
+
   return outcome
 }

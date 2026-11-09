@@ -23,6 +23,7 @@ export function SampleRecentHistory({
   limit?: number
 }) {
   const rows = events.slice(0, limit)
+
   if (rows.length === 0) {
     return (
       <p className="m-0 text-caption text-fg-muted">
@@ -30,10 +31,12 @@ export function SampleRecentHistory({
       </p>
     )
   }
+
   return (
     <div className="flex flex-col text-caption">
       {rows.map((event, index) => {
         const actor = actorLabel(event)
+
         return (
           <div
             key={event.id}

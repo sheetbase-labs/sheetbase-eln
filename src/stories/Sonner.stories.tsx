@@ -18,7 +18,9 @@ const meta = {
   tags: ['autodocs'],
   parameters: { layout: 'padded' },
 } satisfies Meta<typeof Toaster>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Fire the toasts by hand: they are the only thing this component renders. */

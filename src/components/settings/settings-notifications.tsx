@@ -39,10 +39,12 @@ import { t } from '#/copy'
  */
 export function SettingsNotifications() {
   const queryClient = useQueryClient()
+
   const preferencesQuery = useQuery({
     queryKey: notificationPreferencesQueryKeys.preferences(),
     queryFn: () => fetchNotificationPreferences(),
   })
+
   const timingQuery = useQuery({
     queryKey: notificationPreferencesQueryKeys.timing(),
     queryFn: () => fetchNotificationTiming(),
@@ -74,8 +76,10 @@ export function SettingsNotifications() {
   const save = useMutation({
     mutationFn: async () => {
       const saved = preferencesQuery.data ?? defaultPreferences()
+
       for (const row of rows) {
         const before = saved.find((s) => s.eventType === row.eventType)
+
         if (
           before &&
           before.inApp === row.inApp &&
@@ -86,6 +90,7 @@ export function SettingsNotifications() {
           continue
         await saveNotificationPreference(row)
       }
+
       await saveNotificationTiming({
         quietHoursStart: quietStart,
         quietHoursEnd: quietEnd,
@@ -109,9 +114,11 @@ export function SettingsNotifications() {
   // inert until something actually changes. Times are wall-clock values in the
   // person's own zone; the delivery and digest queries read them there.
   const savedRows = preferencesQuery.data ?? defaultPreferences()
+
   const dirty =
     rows.some((row) => {
       const before = savedRows.find((s) => s.eventType === row.eventType)
+
       return (
         !before ||
         before.inApp !== row.inApp ||
@@ -128,10 +135,13 @@ export function SettingsNotifications() {
     Array<{ name: string; rows: NotificationPreference[] }>
   >((acc, event) => {
     const row = rows.find((r) => r.eventType === event.key)
+
     if (!row) return acc
     const last = acc.at(-1)
+
     if (last && last.name === event.group) last.rows.push(row)
     else acc.push({ name: event.group, rows: [row] })
+
     return acc
   }, [])
 

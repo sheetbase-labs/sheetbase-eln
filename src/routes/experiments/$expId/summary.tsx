@@ -28,6 +28,7 @@ export const Route = createFileRoute('/experiments/$expId/summary')({
 interface FollowedByWire {
   source_record_id: string
 }
+
 interface FollowedByRecord {
   id: string
   identifier: string
@@ -83,9 +84,12 @@ function Overview() {
         'record_links',
         `?target_record_id=eq.${expId}&link_type=in.(follows,upstream)&select=source_record_id`,
       )
+
       const ids = [...new Set(incoming.map((row) => row.source_record_id))]
+
       if (ids.length === 0) return []
       const filter = ids.map((id) => encodeURIComponent(id)).join(',')
+
       return notebookDataClient.list<FollowedByRecord>(
         'records',
         `?id=in.(${filter})&deleted_at=is.null&select=id,identifier,title,status`,
@@ -146,6 +150,7 @@ function Overview() {
         }
       : {}),
   }
+
   const readinessData = readiness.data ?? null
   const signatureRows = signatures.data ?? []
 
@@ -167,6 +172,7 @@ function Overview() {
     typeof props.reviewerId === 'string' ? props.reviewerId : '',
     ...(submission.data?.assigned_reviewer_user_ids ?? []),
   ].filter(Boolean)
+
   const { userLabel } = useUserNames(userIds)
 
   if (!record) {

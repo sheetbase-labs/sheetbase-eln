@@ -40,6 +40,7 @@ describe('Home authority enrichment', () => {
       const url = new URL(String(input), 'http://sheetbase.test')
       const resource = url.pathname.split('/api/db/')[1]
       let rows: unknown
+
       if (resource === 'review_submissions') {
         expect(url.searchParams.get('state')).toBe('eq.submitted')
         expect(url.searchParams.get('assigned_reviewer_user_ids')).toBe(
@@ -79,8 +80,10 @@ describe('Home authority enrichment', () => {
           { user_id: 'priya', name: 'Priya S.' },
         ]
       } else throw new Error(`Unexpected Home authority ${resource}`)
+
       return new Response(JSON.stringify(rows))
     })
+
     expect(
       await fetchHomeReviews(createDataClient(fetchImpl), 'reviewer-a'),
     ).toEqual([
@@ -101,8 +104,10 @@ describe('Home authority enrichment', () => {
     const client = createDataClient(
       vi.fn<typeof fetch>(async (input) => {
         const url = new URL(String(input), 'http://sheetbase.test')
+
         if (url.pathname.endsWith('/rpc/dataset_list_summary')) {
           expect(url.searchParams.get('archived_at')).toBe('is.null')
+
           return new Response(
             JSON.stringify([
               {
@@ -126,11 +131,14 @@ describe('Home authority enrichment', () => {
             ]),
           )
         }
+
         expect(url.searchParams.get('cleared_at')).toBe('is.null')
+
         const reasons =
           url.searchParams.get('dataset_id') === 'eq.d1'
             ? ['Unit missing', 'Unit missing']
             : ['Measured 61.5 NTU, allowed 0–50 NTU']
+
         return new Response(
           JSON.stringify(
             reasons.map((reason, index) => ({
@@ -142,6 +150,7 @@ describe('Home authority enrichment', () => {
         )
       }),
     )
+
     expect(await fetchHomeDatasetIssues(client)).toEqual([
       {
         id: 'd1',
@@ -203,6 +212,7 @@ describe('Home authority enrichment', () => {
           ),
       ),
     )
+
     expect(await fetchHomePeople(client, ['p1', 'p2'], 'self')).toEqual([
       { id: 'lead', name: 'Gareth', role: 'Project lead' },
       { id: 'scientist', name: 'Priya', role: 'Workspace member' },
@@ -221,11 +231,13 @@ describe('Home authority enrichment', () => {
           expect(url.searchParams.get('user_id')).toBe('eq.me')
           expect(url.searchParams.get('object_kind')).toBe('eq.project')
           expect(url.searchParams.get('object_id')).toBe('in.(p1,p2)')
+
           return new Response('[]', {
             headers: { 'content-range': total ? '0-0/1' : '*/0' },
           })
         }),
       )
+
       expect(await hasOpenedHomeProject(client, 'me', ['p1', 'p2'])).toBe(
         total > 0,
       )
@@ -239,13 +251,16 @@ describe('hasOpenedHomeProject with many projects', () => {
       { length: 25 },
       (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
     )
+
     const opened = ids[20]
     const lengths: number[] = []
+
     const client = createDataClient(
       vi.fn<typeof fetch>(async (input) => {
         const url = new URL(String(input), 'http://sheetbase.test')
         const inList = url.searchParams.get('object_id') ?? ''
         lengths.push(inList.length)
+
         return new Response('[]', {
           headers: {
             'content-range': inList.includes(opened) ? '0-0/1' : '*/0',
@@ -253,6 +268,7 @@ describe('hasOpenedHomeProject with many projects', () => {
         })
       }),
     )
+
     expect(await hasOpenedHomeProject(client, 'me', ids)).toBe(true)
     expect(lengths).toHaveLength(3)
     expect(Math.max(...lengths)).toBeLessThanOrEqual(500)
@@ -268,6 +284,7 @@ describe('Home project assignments', () => {
       can_manage: false,
       client_portal: false,
     }
+
     expect(
       homeAssignedProjects(
         [
@@ -368,18 +385,23 @@ describe('Home day boundaries', () => {
 describe('Home exact totals', () => {
   it('uses permission-scoped distinct Datasets and real runs, with totals beyond every preview cap', async () => {
     const urls: string[] = []
+
     const fetchImpl = vi.fn<typeof fetch>(async (input) => {
       const url = new URL(String(input), 'http://sheetbase.test')
       urls.push(url.pathname + url.search)
+
       if (url.pathname.endsWith('/rpc/inbox_needs_action_counts')) {
         // The Inbox total is the server's count over every row the caller can
         // see, seen state included. Reading the list instead — as Home did —
         // returns at most `limit=200` rows, so a workspace past that cap
         // stated 200 where the sidebar stated more.
         expect(url.searchParams.has('limit')).toBe(false)
+
         return new Response(JSON.stringify([{ total: 250, reviews: 41 }]))
       }
+
       let total: number
+
       if (url.pathname.endsWith('/rpc/dataset_list_summary')) {
         expect(url.searchParams.get('issue_count')).toBe('gt.0')
         expect(url.searchParams.get('archived_at')).toBe('is.null')
@@ -403,11 +425,14 @@ describe('Home exact totals', () => {
       } else {
         throw new Error(`Unexpected Home authority: ${url.pathname}`)
       }
+
       expect(url.searchParams.has('limit')).toBe(false)
+
       return new Response('[{"id":"one-row"}]', {
         headers: { 'content-range': `0-0/${total}` },
       })
     })
+
     expect(
       await fetchHomeCounts(createDataClient(fetchImpl), 'workspace-a', {
         start: '2026-09-24T23:00:00.000Z',
@@ -430,6 +455,7 @@ describe('Home exact totals', () => {
     const client = createDataClient(
       vi.fn<typeof fetch>().mockImplementation(async () => new Response('[]')),
     )
+
     await expect(
       fetchHomeCounts(client, 'workspace-a', homeDayRange(new Date(), 'UTC')),
     ).rejects.toMatchObject({ code: 'invalid_count' })

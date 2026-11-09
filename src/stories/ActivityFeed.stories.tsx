@@ -39,7 +39,9 @@ const meta = {
   ],
   args: { items },
 } satisfies Meta<typeof ActivityFeed>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Rows without a target read as a bare sentence; initials fall back to the

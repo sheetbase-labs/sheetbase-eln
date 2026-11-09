@@ -31,11 +31,14 @@ export const Route = createFileRoute('/samples/$sampleId/history')({
 
 function SampleHistory() {
   const { sampleId } = Route.useParams()
+
   const events = useQuery({
     queryKey: ['ui-port', 'sample-events', sampleId],
     queryFn: () => fetchSampleEvents(notebookDataClient, sampleId),
   })
+
   const rows = events.data ?? []
+
   const names = useUserNames(
     rows.map((e) => e.actorUserId ?? '').filter(Boolean),
   )

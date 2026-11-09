@@ -31,7 +31,9 @@ const meta = {
     ),
   },
 } satisfies Meta<typeof ConnectionRequired>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Offline: the action is disabled and the reason sits beside it. */

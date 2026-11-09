@@ -64,38 +64,46 @@ export function RequestsPage({
   const formsQuery = useRequestForms()
   const forms = useMemo(() => formsQuery.data ?? [], [formsQuery.data])
   const kinds = useMemo(() => forms.map((f) => f.model_key), [forms])
+
   const formByKey = useMemo(
     () => new Map(forms.map((f) => [f.model_key, f] as const)),
     [forms],
   )
+
   const requests = useQuery({
     queryKey: requestKeys.list(kinds),
     queryFn: () => fetchRequests(notebookDataClient, kinds),
     enabled: formsQuery.isSuccess && kinds.length > 0,
     staleTime: 10_000,
   })
+
   const handledQuery = useQuery({
     queryKey: requestKeys.handled,
     queryFn: () => fetchHandledForms(notebookDataClient),
     enabled: formsQuery.isSuccess && kinds.length > 0,
     staleTime: 30_000,
   })
+
   const handled = useMemo(
     () => new Set(handledQuery.data ?? []),
     [handledQuery.data],
   )
+
   const names = useWorkspaceMemberNames().data
   const all = useMemo(() => requests.data ?? [], [requests.data])
 
   const mine = all.filter((r) => r.created_by_user_id === userId)
+
   // What is waiting for this person: requests of the forms they handle.
   const waiting = all.filter(
     (r) => r.status === 'requested' && handled.has(r.kind),
   )
+
   const showTriage = handled.size > 0
 
   const inTab = tab === 'mine' ? mine : tab === 'triage' ? waiting : all
   const needle = q.trim().toLowerCase()
+
   const visible = inTab.filter(
     (r) =>
       needle === '' ||
@@ -105,6 +113,7 @@ export function RequestsPage({
   const setUp = useMutation({
     mutationFn: async (key: string) => {
       const starter = STARTER_REQUESTS.find((s) => s.key === key)
+
       if (starter) await createStarterRequest(notebookDataClient, starter)
     },
     onSuccess: () => {
@@ -220,6 +229,7 @@ export function RequestsPage({
     })
 
   const noForms = formsQuery.isSuccess && forms.length === 0
+
   const newButton =
     canWrite && forms.length > 0 ? (
       <Button variant="primary" onClick={() => setComposing(true)}>
@@ -233,6 +243,7 @@ export function RequestsPage({
       : tab === 'triage'
         ? t('requests.empty.triage')
         : t('requests.empty.all')
+
   const emptyBody =
     tab === 'mine'
       ? t('requests.empty.mineBody')

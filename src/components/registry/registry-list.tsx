@@ -74,12 +74,15 @@ export function RegistryList({
     queryFn: () => fetchRegistryModels(client),
     staleTime: 10_000,
   })
+
   const registries = useMemo(() => models.data ?? [], [models.data])
   const keys = useMemo(() => registries.map((m) => m.key), [registries])
+
   const chemical = useMemo(
     () => registries.filter((m) => m.key === COMPOUND_STARTER.compound.key),
     [registries],
   )
+
   const modelByKey = useMemo(
     () => new Map(registries.map((m) => [m.key, m] as const)),
     [registries],
@@ -91,32 +94,41 @@ export function RegistryList({
     enabled: models.isSuccess && keys.length > 0,
     staleTime: 10_000,
   })
+
   const all = useMemo(() => entries.data ?? [], [entries.data])
   const ids = useMemo(() => all.map((e) => e.id), [all])
+
   const links = useQuery({
     queryKey: [...registryKeys.lineage, ids.length],
     queryFn: () => fetchLineageLinks(client, ids),
     enabled: ids.length > 0,
     staleTime: 10_000,
   })
+
   const byId = useMemo(() => new Map(all.map((e) => [e.id, e] as const)), [all])
+
   const parentsOf = useMemo(() => {
     const map = new Map<string, string[]>()
+
     for (const link of links.data ?? []) {
       const parent = byId.get(link.parent_id)
+
       if (!parent) continue
       map.set(link.entry_id, [
         ...(map.get(link.entry_id) ?? []),
         parent.identifier,
       ])
     }
+
     return map
   }, [links.data, byId])
 
   const needle = q.trim().toLowerCase()
+
   const inStatus = all.filter(
     (e) => status === 'all' || entryStatus(e) === status,
   )
+
   const visible = inStatus.filter(
     (e) =>
       (kind === 'all' || e.kind === kind) &&
@@ -220,6 +232,7 @@ export function RegistryList({
         size: 110,
         cell: ({ row }) => {
           const s = entryStatus(row.original)
+
           return (
             <Status tone={s === 'active' ? 'ok' : 'none'}>
               {t(`registry.statuses.${s}`)}
@@ -253,6 +266,7 @@ export function RegistryList({
   function register() {
     const only =
       kind !== 'all' ? kind : registries.length === 1 ? registries[0].key : null
+
     if (only) {
       void navigate({
         to: '/models/$modelId/records/new',
@@ -269,6 +283,7 @@ export function RegistryList({
         {t('registry.register')}
       </Button>
     ) : null
+
   const compoundsButton =
     canEditModels && registries.length > 0 && chemical.length === 0 ? (
       <Button
@@ -354,6 +369,7 @@ export function RegistryList({
             const kinds = new Set(
               visible.filter((e) => bulk.has(e.id)).map((e) => e.kind),
             )
+
             return kinds.size === 1 ? [...kinds][0] : undefined
           })()}
           canWrite={canWrite}
@@ -479,6 +495,7 @@ function ChooseRegistry({
   const navigate = useNavigate()
   const [choice, setChoice] = useState('')
   const selected = choice || registries[0]?.key || ''
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(420px,calc(100vw-32px))]">

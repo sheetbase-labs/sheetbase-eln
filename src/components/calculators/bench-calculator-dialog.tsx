@@ -134,6 +134,7 @@ function MolarityPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
   const [mass, setMass] = useState({ v: '', u: 'mg' })
   const [volume, setVolume] = useState({ v: '', u: 'mL' })
   const [conc, setConc] = useState({ v: '', u: 'mM' })
+
   const result = useMemo(
     () =>
       solveMolarity({
@@ -145,11 +146,15 @@ function MolarityPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
       }),
     [target, mw, mass, volume, conc],
   )
+
   const answer = useMemo(() => {
     const r = fromResult(result)
+
     if (!r) return null
+
     const part = (x: { v: string; u: string }) =>
       `${x.v} ${unitById(x.u).label}`
+
     const workings =
       target === 'mass'
         ? t('calculators.workings.molarity', {
@@ -158,6 +163,7 @@ function MolarityPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
             weight: mw,
           })
         : `${mw} g/mol, ${target === 'volume' ? part(mass) + ', ' + part(conc) : part(mass) + ', ' + part(volume)}`
+
     return {
       value: r.value,
       unitLabel: unitById(r.unit).label,
@@ -165,6 +171,7 @@ function MolarityPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
       workings,
     }
   }, [result, target, mw, mass, volume, conc])
+
   useEffect(() => onAnswer(answer), [answer, onAnswer])
 
   return (
@@ -225,6 +232,7 @@ function MolarityPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
 
 function Status({ result }: { result: CalcResult }) {
   if (result.ok) return null
+
   return (
     <p className="text-label text-fg-muted" role="status">
       {result.reason === 'invalid'
@@ -240,6 +248,7 @@ function DilutionPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
   const [v1, setV1] = useState({ v: '', u: 'uL' })
   const [c2, setC2] = useState({ v: '', u: 'mM' })
   const [v2, setV2] = useState({ v: '', u: 'uL' })
+
   const result = useMemo(
     () =>
       solveDilution({
@@ -251,25 +260,32 @@ function DilutionPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
       }),
     [target, c1, v1, c2, v2],
   )
+
   const recipe = useMemo(() => {
     if (target !== 'v1') return null
+
     return dilutionRecipe({
       stock: q(c1.v, c1.u),
       target: q(c2.v, c2.u),
       finalVolume: q(v2.v, v2.u),
     })
   }, [target, c1, c2, v2])
+
   const answer = useMemo(() => {
     const r = fromResult(result)
+
     if (!r) return null
+
     const part = (x: { v: string; u: string }) =>
       `${x.v} ${unitById(x.u).label}`
+
     const parts = {
       c1: target === 'c1' ? '?' : part(c1),
       v1: target === 'v1' ? '?' : part(v1),
       c2: target === 'c2' ? '?' : part(c2),
       v2: target === 'v2' ? '?' : part(v2),
     }
+
     const recipeText =
       recipe && recipe.feasible
         ? t('calculators.dilution.recipe', {
@@ -277,6 +293,7 @@ function DilutionPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
             diluent: `${formatQuantity(recipe.diluent.value)} ${unitById(recipe.diluent.unit).label}`,
           })
         : undefined
+
     return {
       value: r.value,
       unitLabel: unitById(r.unit).label,
@@ -285,6 +302,7 @@ function DilutionPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
       note: recipeText,
     }
   }, [result, target, c1, v1, c2, v2, recipe])
+
   useEffect(() => onAnswer(answer), [answer, onAnswer])
 
   const field = (
@@ -356,6 +374,7 @@ function ConvertPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
 
   function changeKind(next: ConvertKind) {
     setKind(next)
+
     const defaults: Record<ConvertKind, [string, string]> = {
       mass: ['mg', 'ug'],
       volume: ['mL', 'uL'],
@@ -364,6 +383,7 @@ function ConvertPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
       massMoles: ['mg', 'umol'],
       temperature: ['C', 'F'],
     }
+
     setFrom(defaults[next][0])
     setTo(defaults[next][1])
   }
@@ -382,7 +402,9 @@ function ConvertPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
 
   const result: CalcResult = useMemo(() => {
     const n = toNumber(value)
+
     if (!Number.isFinite(n)) return { ok: false, reason: 'missing' }
+
     if (kind === 'temperature') {
       return {
         ok: true,
@@ -391,6 +413,7 @@ function ConvertPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
         summary: 'temperature',
       }
     }
+
     return convertWithWeight({
       value: n,
       from,
@@ -400,9 +423,12 @@ function ConvertPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
   }, [kind, value, from, to, mw])
 
   const labelOf = (id: string) => options.find((o) => o.id === id)?.label ?? id
+
   const answer = useMemo(() => {
     const r = fromResult(result)
+
     if (!r) return null
+
     return {
       value: r.value,
       unitLabel: labelOf(to),
@@ -413,6 +439,7 @@ function ConvertPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
       }),
     }
   }, [result, value, from, to])
+
   useEffect(() => onAnswer(answer), [answer, onAnswer])
 
   const needsWeight =
@@ -520,17 +547,21 @@ export function BenchCalculatorDialog({
   onInsert?: (insert: CalculatorInsert) => void
 }) {
   const [tab, setTab] = useState<Tab>('molarity')
+
   const [answers, setAnswers] = useState<Record<Tab, Answer | null>>({
     molarity: null,
     dilution: null,
     convert: null,
     plugins: null,
   })
+
   // Calculators that installed plugins add, as one more tab.
   const pluginCalculators = useExtensionPoints().operations.filter(
     (item) => item.point === 'calculators',
   )
+
   const answer = answers[tab]
+
   const setters = useMemo(
     () => ({
       molarity: (a: Answer | null) =>

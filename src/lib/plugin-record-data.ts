@@ -64,6 +64,7 @@ export async function fetchPluginRecordState(
         `&record_id=eq.${recordId}&state=eq.open&order=raised_at.asc`,
     ),
   ])
+
   return {
     summaries,
     flags: flags.map(({ plugin_flag_sign_offs, ...flag }) => ({
@@ -94,6 +95,7 @@ export function useSignOffPluginStep(
   client: DataClient = notebookDataClient,
 ) {
   const queryClient = useQueryClient()
+
   return useMutation({
     mutationFn: (args: { flagId: string; comment?: string }) =>
       client.rpc('sign_off_plugin_step', {

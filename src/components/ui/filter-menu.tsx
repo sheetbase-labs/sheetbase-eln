@@ -40,7 +40,9 @@ export function FilterMenu({
   const options = rawOptions.map((o) =>
     typeof o === 'string' ? { value: o, label: o } : o,
   )
+
   const current = options.find((o) => o.value === value)
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger

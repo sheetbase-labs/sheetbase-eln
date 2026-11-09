@@ -43,6 +43,7 @@ describe('canonical Sheet local values', () => {
   it('sends the bounded authoritative row-address contract to the local mutation RPC', async () => {
     const instanceId = crypto.randomUUID()
     const retryToken = crypto.randomUUID()
+
     const rpc = vi.fn().mockResolvedValue({
       id: instanceId,
       workspace_id: crypto.randomUUID(),
@@ -60,6 +61,7 @@ describe('canonical Sheet local values', () => {
       created_by_user_id: 'user',
       updated_by_user_id: 'user',
     })
+
     await mutateSheetLocalState(
       {
         instanceId,
@@ -171,6 +173,7 @@ describe('trusted Sheet recalculation', () => {
     instanceId: '19000000-0000-4000-8000-000000000001',
     expectedRevision: 7,
   }
+
   const completion = {
     instanceId: input.instanceId,
     revision: 7,
@@ -184,12 +187,14 @@ describe('trusted Sheet recalculation', () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
       .mockImplementation(async () => Response.json(completion))
+
     await expect(
       recalculateSheetInstance({ ...input, offset: 200, limit: 23 }, fetchImpl),
     ).resolves.toEqual(completion)
     await recalculateSheetInstance(input, fetchImpl)
 
     const tokens: string[] = []
+
     for (const [index, [url, init]] of fetchImpl.mock.calls.entries()) {
       expect(url).toBe('/api/sheet-calculations')
       expect(init).toMatchObject({
@@ -211,6 +216,7 @@ describe('trusted Sheet recalculation', () => {
       )
       tokens.push(body.retryToken)
     }
+
     expect(tokens[0]).not.toBe(tokens[1])
   })
 
@@ -227,6 +233,7 @@ describe('trusted Sheet recalculation', () => {
         .mockResolvedValue(
           Response.json({ error: { code, message } }, { status }),
         )
+
       await expect(
         recalculateSheetInstance(input, fetchImpl),
       ).rejects.toMatchObject({
@@ -242,6 +249,7 @@ describe('trusted Sheet recalculation', () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response('Bad gateway', { status: 502 }))
+
     await expect(
       recalculateSheetInstance(input, fetchImpl),
     ).rejects.toMatchObject({
@@ -260,6 +268,7 @@ describe('trusted Sheet recalculation', () => {
     const fetchImpl = vi
       .fn<typeof fetch>()
       .mockResolvedValue(Response.json(body))
+
     await expect(
       recalculateSheetInstance(input, fetchImpl),
     ).rejects.toMatchObject({

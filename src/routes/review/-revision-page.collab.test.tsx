@@ -265,9 +265,11 @@ vi.mock('#/components/audit', () => ({
   ApprovalStepper: () => <div />,
   RecordHistoryTimeline: () => <div />,
 }))
+
 vi.mock('#/components/comments', () => ({
   CommentPanel: () => {
     const [replying, setReplying] = useState(false)
+
     return replying ? (
       <textarea aria-label="Reply body" />
     ) : (
@@ -275,9 +277,11 @@ vi.mock('#/components/comments', () => ({
     )
   },
 }))
+
 vi.mock('#/components/notebook/notebook-sheet-block', () => ({
   FrozenSheetEvidencePanel: () => <div />,
 }))
+
 vi.mock('#/components/review', () => ({
   ReviewCheckResults: () => <div />,
   RevisionDiffReview: () => <div />,
@@ -302,6 +306,7 @@ function renderWorkspace(withShortcuts = false) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       {withShortcuts ? (
@@ -331,9 +336,11 @@ describe('review workspace collaboration gating', () => {
     await act(async () => {
       await new Promise((resolve) => requestAnimationFrame(resolve))
     })
+
     const reply = within(second.container).getByRole('textbox', {
       name: 'Reply body',
     })
+
     expect(document.activeElement).toBe(reply)
     expect(
       within(first.container).queryByRole('textbox', { name: 'Reply body' }),

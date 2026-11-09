@@ -44,7 +44,9 @@ const meta = {
     },
   },
 } satisfies Meta<typeof NotebookCellProperties>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Complete: Story = {}

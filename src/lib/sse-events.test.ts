@@ -77,11 +77,14 @@ async function readStream(response: Response): Promise<string> {
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let out = ''
+
   for (;;) {
     const { value, done } = await reader.read()
+
     if (done) break
     out += decoder.decode(value, { stream: true })
   }
+
   return out + decoder.decode()
 }
 
@@ -100,13 +103,17 @@ async function readUntil(
   const decoder = new TextDecoder()
   let out = ''
   const start = Date.now()
+
   try {
     for (;;) {
       if (predicate(out)) return out
+
       if (Date.now() - start > timeoutMs) {
         throw new Error(`readUntil timed out; body so far:\n${out}`)
       }
+
       const { value, done } = await reader.read()
+
       if (done) return out + decoder.decode()
       out += decoder.decode(value, { stream: true })
     }
@@ -162,6 +169,7 @@ describe('decideReplay', () => {
       hasMore: false,
       earliestAvailableSeq: 1,
     }
+
     const decision = decideReplay(0, replay)
     expect(decision.events).toHaveLength(2)
     expect(decision.reset).toBeNull()
@@ -173,6 +181,7 @@ describe('decideReplay', () => {
       hasMore: false,
       earliestAvailableSeq: 50,
     }
+
     const decision = decideReplay(10, replay)
     expect(decision.events).toEqual([])
     expect(decision.reset).toEqual({
@@ -183,11 +192,13 @@ describe('decideReplay', () => {
 
   it('sends a replay_bound reset when the bound is hit and events remain', () => {
     const events = Array.from({ length: 5 }, (_, i) => event(i + 1))
+
     const replay = {
       events,
       hasMore: true,
       earliestAvailableSeq: 1,
     }
+
     const decision = decideReplay(0, replay)
     expect(decision.events).toHaveLength(5)
     expect(decision.reset).toEqual({
@@ -202,6 +213,7 @@ describe('decideReplay', () => {
       hasMore: false,
       earliestAvailableSeq: 0,
     })
+
     expect(decision.reset).toBeNull()
   })
 })
@@ -212,6 +224,7 @@ describe('handleSseRequest — auth', () => {
       req(),
       makeDeps({ getSession: async () => null }),
     )
+
     expect(response.status).toBe(401)
     expect(response.headers.get('content-type')).toContain('application/json')
     const body = await response.json()
@@ -223,6 +236,7 @@ describe('handleSseRequest — auth', () => {
       req(),
       makeDeps({ getWorkspaceForUser: async () => null }),
     )
+
     expect(response.status).toBe(403)
     const body = await response.json()
     expect(body.error.category).toBe('no_workspace')
@@ -232,6 +246,7 @@ describe('handleSseRequest — auth', () => {
 describe('handleSseRequest — stream', () => {
   it('sends hello, replays durable events in order, then closes on reset', async () => {
     const replayEvents = [event(3), event(4)]
+
     const response = await handleSseRequest(
       req({ headers: { 'last-event-id': '2' } }),
       makeDeps({
@@ -245,6 +260,7 @@ describe('handleSseRequest — stream', () => {
       }),
       { heartbeatIntervalMs: 100_000, sessionCheckIntervalMs: 100_000 },
     )
+
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toContain('text/event-stream')
     const body = await readUntil(response, (b) => b.includes('id: 4'))
@@ -263,11 +279,13 @@ describe('handleSseRequest — stream', () => {
         earliestAvailableSeq: 1,
       }),
     )
+
     const response = await handleSseRequest(
       req(),
       makeDeps({ readEvents, latestSequence: async () => 900 }),
       { heartbeatIntervalMs: 100_000, sessionCheckIntervalMs: 100_000 },
     )
+
     const body = await readUntil(response, (b) => b.includes('event: hello'))
     expect(body).toContain('"resumeFrom":900')
     expect(body).not.toContain('id: 1')
@@ -280,11 +298,13 @@ describe('handleSseRequest — stream', () => {
       hasMore: false,
       earliestAvailableSeq: 1,
     }))
+
     const response = await handleSseRequest(
       new Request('http://localhost:3000/api/events?after=10'),
       makeDeps({ readEvents, latestSequence: async () => 900 }),
       { heartbeatIntervalMs: 100_000, sessionCheckIntervalMs: 100_000 },
     )
+
     const body = await readUntil(response, (b) => b.includes('id: 11'))
     expect(body).toContain('"resumeFrom":10')
   })
@@ -300,6 +320,7 @@ describe('handleSseRequest — stream', () => {
         }),
       }),
     )
+
     const body = await readUntil(response, (b) => b.includes('event: reset'))
     expect(body).toContain('event: reset')
     expect(body).toContain('"reason":"history_unavailable"')
@@ -312,6 +333,7 @@ describe('handleSseRequest — stream', () => {
     const live: { cb: (e: ChangeEventWire) => void } = {
       cb: () => {},
     }
+
     const response = await handleSseRequest(
       req({ headers: { 'last-event-id': '0' } }),
       makeDeps({
@@ -322,6 +344,7 @@ describe('handleSseRequest — stream', () => {
         }),
         subscribe: async (_ws, onEvent) => {
           live.cb = onEvent
+
           return () => {
             live.cb = () => {}
           }
@@ -329,6 +352,7 @@ describe('handleSseRequest — stream', () => {
       }),
       { heartbeatIntervalMs: 100_000, sessionCheckIntervalMs: 100_000 },
     )
+
     // Drain the stream in parallel; deliver live events once replay done.
     const bodyPromise = readUntil(response, (b) => b.includes('id: 2'))
     // Wait a tick for start() to subscribe and finish replay before delivering.
@@ -357,11 +381,13 @@ describe('handleSseRequest — stream', () => {
 
   it('closes the stream when the session expires at the heartbeat check', async () => {
     let sessionChecks = 0
+
     const response = await handleSseRequest(
       req(),
       makeDeps({
         isSessionValid: async () => {
           sessionChecks++
+
           // Expire on the first check.
           return false
         },
@@ -371,6 +397,7 @@ describe('handleSseRequest — stream', () => {
         sessionCheckIntervalMs: 10,
       },
     )
+
     const body = await readStream(response)
     expect(body).toContain('event: bye')
     expect(body).toContain('"reason":"session_expired"')

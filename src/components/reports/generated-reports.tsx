@@ -44,12 +44,15 @@ export function GeneratedReports({
   identifier: string
 }) {
   const [openId, setOpenId] = useState<string | null>(null)
+
   const list = useQuery({
     queryKey: reportKeys.generations(definitionId),
     queryFn: () => fetchGenerations(notebookDataClient, definitionId),
   })
+
   const rows = list.data ?? []
   const names = useUserNames(rows.map((r) => r.actorUserId))
+
   const html = useQuery({
     queryKey: ['ui-port', 'reports', 'generation-html', openId],
     enabled: openId !== null,
@@ -138,6 +141,7 @@ export function GeneratedReports({
       />
     )
   }
+
   return (
     <div className="flex flex-col gap-3">
       {list.isError ? (

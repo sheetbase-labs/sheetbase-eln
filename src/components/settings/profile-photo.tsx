@@ -22,6 +22,7 @@ import { t } from '#/copy'
 
 /** Side of the square the cropped photo is saved at. */
 const OUTPUT_PX = 512
+
 /** Side of the crop area on screen. */
 const STAGE_PX = 280
 const MAX_ZOOM = 4
@@ -69,6 +70,7 @@ export function ProfilePhoto({
           onChange={(event) => {
             const file = event.target.files?.[0]
             event.target.value = ''
+
             if (file) setSource(URL.createObjectURL(file))
           }}
         />
@@ -88,6 +90,7 @@ export function ProfilePhoto({
             disabled={removing}
             onClick={async () => {
               setRemoving(true)
+
               try {
                 await removeMyPhoto()
                 await refresh()
@@ -142,6 +145,7 @@ function clampOffset(
   const scale = coverScale(natural.width, natural.height) * zoom
   const maxX = Math.max(0, (natural.width * scale - STAGE_PX) / 2)
   const maxY = Math.max(0, (natural.height * scale - STAGE_PX) / 2)
+
   return {
     x: Math.min(maxX, Math.max(-maxX, offset.x)),
     y: Math.min(maxY, Math.max(-maxY, offset.y)),
@@ -156,23 +160,31 @@ export async function renderCrop(
 ): Promise<Blob> {
   const scale = coverScale(image.naturalWidth, image.naturalHeight) * zoom
   const side = STAGE_PX / scale
+
   const sx =
     (image.naturalWidth * scale - STAGE_PX) / 2 / scale - offset.x / scale
+
   const sy =
     (image.naturalHeight * scale - STAGE_PX) / 2 / scale - offset.y / scale
+
   const canvas = document.createElement('canvas')
   canvas.width = OUTPUT_PX
   canvas.height = OUTPUT_PX
   const context = canvas.getContext('2d')
+
   if (!context) throw new Error(t('settings.profile.tryAgain'))
   context.imageSmoothingQuality = 'high'
   context.drawImage(image, sx, sy, side, side, 0, 0, OUTPUT_PX, OUTPUT_PX)
+
   const encode = (type: string) =>
     new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, 0.9))
+
   // Browsers that cannot write WebP hand back a PNG; JPEG is smaller then.
   const webp = await encode('image/webp')
+
   if (webp && webp.type === 'image/webp') return webp
   const jpeg = await encode('image/jpeg')
+
   if (jpeg) return jpeg
   throw new Error(t('settings.profile.tryAgain'))
 }
@@ -187,10 +199,12 @@ function PhotoCropDialog({
   onSaved: () => Promise<void>
 }) {
   const imageRef = useRef<HTMLImageElement>(null)
+
   const [natural, setNatural] = useState<{
     width: number
     height: number
   } | null>(null)
+
   const [zoom, setZoom] = useState(1)
   const [offset, setOffset] = useState<Offset>({ x: 0, y: 0 })
   const [saving, setSaving] = useState(false)
@@ -228,6 +242,7 @@ function PhotoCropDialog({
             }}
             onPointerMove={(event) => {
               const start = drag.current
+
               if (!start || start.pointer !== event.pointerId) return
               move({ x: event.clientX - start.x, y: event.clientY - start.y })
             }}
@@ -239,13 +254,16 @@ function PhotoCropDialog({
             }}
             onKeyDown={(event) => {
               const step = event.shiftKey ? 20 : 5
+
               const moves: Partial<Record<string, Offset>> = {
                 ArrowLeft: { x: offset.x - step, y: offset.y },
                 ArrowRight: { x: offset.x + step, y: offset.y },
                 ArrowUp: { x: offset.x, y: offset.y - step },
                 ArrowDown: { x: offset.x, y: offset.y + step },
               }
+
               const next = moves[event.key]
+
               if (!next) return
               event.preventDefault()
               move(next)
@@ -299,6 +317,7 @@ function PhotoCropDialog({
               onChange={(event) => {
                 const next = Number(event.target.value)
                 setZoom(next)
+
                 if (natural) setOffset(clampOffset(offset, natural, next))
               }}
             />
@@ -312,8 +331,10 @@ function PhotoCropDialog({
             disabled={!natural || saving}
             onClick={async () => {
               const image = imageRef.current
+
               if (!image) return
               setSaving(true)
+
               try {
                 await uploadMyPhoto(await renderCrop(image, zoom, offset))
                 await onSaved()

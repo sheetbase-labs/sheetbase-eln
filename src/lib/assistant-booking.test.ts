@@ -44,6 +44,7 @@ describe('wall-clock times', () => {
 
 describe('findFreeGaps', () => {
   const at = (local: string) => instantFromLocal(local, LONDON)
+
   const base = {
     dayStart: '08:00',
     dayEnd: '18:00',
@@ -61,6 +62,7 @@ describe('findFreeGaps', () => {
         { start: at('2026-11-06T11:30'), end: at('2026-11-06T13:00') },
       ],
     })
+
     expect(
       gaps.map((gap) => [
         localFromInstant(gap.start, LONDON),
@@ -79,6 +81,7 @@ describe('findFreeGaps', () => {
       minutes: 120,
       busy: [{ start: at('2026-11-06T09:00'), end: at('2026-11-06T17:00') }],
     })
+
     expect(gaps).toEqual([])
   })
 
@@ -90,6 +93,7 @@ describe('findFreeGaps', () => {
       minutes: 30,
       busy: [],
     })
+
     expect(localFromInstant(gaps[0].start, LONDON)).toBe('2026-11-06T10:15')
   })
 })

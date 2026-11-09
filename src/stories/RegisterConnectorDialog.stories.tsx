@@ -38,7 +38,9 @@ const meta = {
     onOpenChange: () => {},
   },
 } satisfies Meta<typeof RegisterConnectorDialog>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Open on the default type: an instrument, with its ingestion parser. */

@@ -57,6 +57,7 @@ export type NotebookStatus =
 
 function unit01(key: string): number {
   const digest = createHash('sha1').update(key).digest()
+
   return digest.readUInt32BE(0) / 0xffffffff
 }
 
@@ -106,6 +107,7 @@ function measure(
     values: readouts.map((readout, r) => {
       const wobble = unit01(`${identifier}:${c}:${r}`) - 0.5
       const trend = (c - (conditions.length - 1) / 2) * 0.35 * wobble
+
       return readout.base * (1 + readout.spread * 2 * (wobble + trend))
     }),
   }))
@@ -118,6 +120,7 @@ function chooseConditions(
   if (all.length <= 3) return all
   const keep = 3 + (unit01(`${identifier}:n`) > 0.5 ? 1 : 0)
   const start = Math.floor(unit01(`${identifier}:s`) * (all.length - keep + 1))
+
   return all.slice(start, start + keep)
 }
 
@@ -147,10 +150,12 @@ export function buildNotebook(input: BuildInput): NotebookBlock[] {
   const { identifier, status, topic, kit } = input
   const factor = topic.factor ?? kit.factor
   const readouts = topic.readouts ?? kit.readouts
+
   const conditions = chooseConditions(
     identifier,
     topic.conditions ?? kit.conditions,
   )
+
   const blocks: Array<Omit<NotebookBlock, 'order'>> = []
 
   blocks.push({ type: 'rich_text', payload: doc('Objective', topic.objective) })
@@ -178,11 +183,13 @@ export function buildNotebook(input: BuildInput): NotebookBlock[] {
         })),
       },
     })
+
     return number(blocks, input.firstOrder)
   }
 
   const finished =
     status === 'in_review' || status === 'returned' || status === 'approved'
+
   const cells = measure(identifier, conditions, readouts)
   // Work in progress has the last condition still to read out.
   const pending = finished ? -1 : cells.length - 1
@@ -204,25 +211,32 @@ export function buildNotebook(input: BuildInput): NotebookBlock[] {
 
   const done = cells.filter((_, c) => c !== pending)
   const primary = readouts[0]
+
   if (done.length === 0) return number(blocks, input.firstOrder)
   const higher = primary.higherIsBetter !== false
+
   const ranked = [...done].sort((a, b) =>
     higher
       ? (b.values[0] ?? 0) - (a.values[0] ?? 0)
       : (a.values[0] ?? 0) - (b.values[0] ?? 0),
   )
+
   const best = ranked[0]
   const worst = ranked[ranked.length - 1]
   const bestValue = fixed(best.values[0] ?? 0, primary.digits)
+
   const gap = fixed(
     Math.abs((best.values[0] ?? 0) - (worst.values[0] ?? 0)),
     primary.digits,
   )
+
   const second = readouts.at(1)
   const secondValues = done.map((cell) => cell.values[1] ?? 0)
+
   const secondLine = second
     ? ` ${second.name} stayed between ${fixed(Math.min(...secondValues), second.digits)} and ${withUnit(fixed(Math.max(...secondValues), second.digits), second.unit)}.`
     : ''
+
   const lead = finished ? '' : 'So far, '
   const verb = finished ? 'gave' : 'is giving'
   const observation = `${lead}${best.condition} ${verb} the ${higher ? 'highest' : 'lowest'} ${primary.name.toLowerCase()} at ${withUnit(bestValue, primary.unit)}, ${withUnit(gap, primary.unit)} ${higher ? 'above' : 'below'} ${worst.condition}.${secondLine} ${pick(kit.quirks, `${identifier}:q`)}`
@@ -245,14 +259,17 @@ export function buildNotebook(input: BuildInput): NotebookBlock[] {
       },
     })
     const roll = unit01(`${identifier}:verdict`)
+
     const verdict =
       roll < 0.1 ? 'inconclusive' : roll < 0.16 ? 'not_supported' : 'supported'
+
     const text =
       verdict === 'supported'
         ? `${best.condition} is the better choice on ${primary.name.toLowerCase()}. ${pick(kit.next, `${identifier}:n`)}`
         : verdict === 'inconclusive'
           ? `The ${withUnit(gap, primary.unit)} gap between ${best.condition} and ${worst.condition} is within what the replicates scatter by. Repeat before choosing.`
           : `${best.condition} did not beat the current condition by the margin we set out to see. Keep the current setting.`
+
     blocks.push({
       type: 'conclusion',
       payload: {
@@ -273,6 +290,7 @@ export function buildNotebook(input: BuildInput): NotebookBlock[] {
             },
     })
   }
+
   return number(blocks, input.firstOrder)
 }
 

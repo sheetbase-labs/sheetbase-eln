@@ -13,6 +13,7 @@ describe('pluginWarningsOf', () => {
     const header = encodeURIComponent(
       'Lab rules: No protocol note yet. | Other: Check units',
     )
+
     expect(pluginWarningsOf(response(header))).toEqual([
       'Lab rules: No protocol note yet.',
       'Other: Check units',

@@ -36,10 +36,12 @@ describe('step timer maths', () => {
   it('finds finished timers and the next end', () => {
     const now = Date.parse('2026-11-04T10:02:00Z')
     const running = toStepTimer(wire, now)
+
     const done = toStepTimer(
       { ...wire, id: 't2', ends_at: '2026-11-04T10:01:00Z' },
       now,
     )
+
     expect(finishedTimers([running, done], now).map((t) => t.id)).toEqual([
       't2',
     ])

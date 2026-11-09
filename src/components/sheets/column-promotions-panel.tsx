@@ -60,15 +60,19 @@ export function promotionNextStep(
   requestedBy: string,
 ): PromotionNextStep {
   if (!request) return 'none'
+
   if (request.state === 'pending') {
     return canDecide(request, userId, role) ? 'decide' : 'waiting'
   }
+
   if (!isWorkspaceWriter(role)) return 'none'
+
   if (request.state === 'approved') {
     return userId === requestedBy || role === 'steward' || role === 'admin'
       ? 'apply'
       : 'none'
   }
+
   // Returned or withdrawn: recording the outcome frees the column again.
   return 'settle'
 }
@@ -98,16 +102,20 @@ export function ColumnPromotionsPanel({
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [dialog, setDialog] = useState<Dialog | null>(null)
+
   const promotions = useQuery({
     queryKey: columnPromotionsKey(instanceId),
     queryFn: () => listOpenColumnPromotions(client, instanceId),
   })
+
   const rows = promotions.data ?? []
+
   const approvals = useModelApprovalIndex(
     rows.map((row) => row.id),
     client,
     COLUMN_PROMOTION_KIND,
   )
+
   const names = useUserNames(
     rows.map((row) => row.requested_by_user_id),
     user ?? undefined,
@@ -123,6 +131,7 @@ export function ColumnPromotionsPanel({
     })
     void queryClient.invalidateQueries({ queryKey: ['work-items'] })
   }
+
   const failed = (title: string) => (cause: unknown) =>
     toast(title, {
       description:
@@ -151,6 +160,7 @@ export function ColumnPromotionsPanel({
     },
     onError: failed(t('notebook.columnPromotionsPanel.couldNotApprove')),
   })
+
   const returnBack = useMutation({
     mutationFn: (input: { requestId: string; reason: string }) =>
       returnApprovalRequest(client, input.requestId, input.reason),
@@ -165,6 +175,7 @@ export function ColumnPromotionsPanel({
     },
     onError: failed(t('notebook.columnPromotionsPanel.couldNotReturnThe')),
   })
+
   const withdraw = useMutation({
     mutationFn: (input: { requestId: string; reason: string }) =>
       withdrawApprovalRequest(
@@ -179,6 +190,7 @@ export function ColumnPromotionsPanel({
     },
     onError: failed(t('notebook.columnPromotionsPanel.couldNotWithdrawThe')),
   })
+
   const apply = useMutation({
     mutationFn: (promotion: ColumnPromotion) =>
       applyColumnPromotion(client, promotion.id),
@@ -190,6 +202,7 @@ export function ColumnPromotionsPanel({
       void queryClient.invalidateQueries({
         queryKey: ['composed-sheet', promotion.sheet_instance_id],
       })
+
       if (result.applied && result.datasetId) {
         toast(t('notebook.columnPromotionsPanel.columnPromoted'), {
           description: t(
@@ -197,9 +210,12 @@ export function ColumnPromotionsPanel({
           ),
         })
         const to = objectPath('dataset', result.datasetId)
+
         if (to) void navigate({ to } as never)
+
         return
       }
+
       toast(t('notebook.columnPromotionsPanel.promotionClosed'), {
         description: result.reason
           ? t(
@@ -211,6 +227,7 @@ export function ColumnPromotionsPanel({
     },
     onError: failed(t('notebook.columnPromotionsPanel.couldNotApplyThe')),
   })
+
   const busy =
     approve.isPending ||
     returnBack.isPending ||
@@ -218,6 +235,7 @@ export function ColumnPromotionsPanel({
     apply.isPending
 
   if (promotions.isLoading) return null
+
   if (promotions.isError) {
     return (
       <Banner tone="bad" title={t('notebook.columnPromotionsPanel.title')}>
@@ -225,6 +243,7 @@ export function ColumnPromotionsPanel({
       </Banner>
     )
   }
+
   if (rows.length === 0) {
     return instanceId ? null : (
       <EmptyState
@@ -246,13 +265,16 @@ export function ColumnPromotionsPanel({
         const request = latestRequest(
           approvals.data?.byVersion.get(promotion.id) ?? [],
         )
+
         const step = promotionNextStep(
           request,
           user?.id,
           role,
           promotion.requested_by_user_id,
         )
+
         const stewardRoles = request?.required_approver_roles ?? ['steward']
+
         return (
           <div
             key={promotion.id}

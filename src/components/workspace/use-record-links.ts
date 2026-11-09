@@ -9,9 +9,12 @@ export function recordAnchor(
 ): HTMLAnchorElement | null {
   if (!(target instanceof Element)) return null
   const anchor = target.closest('a[href]')
+
   if (!(anchor instanceof HTMLAnchorElement)) return null
   const href = workspaceHref(anchor.href, location.origin)
+
   if (!href || !paneKind(href).record) return null
+
   return anchor
 }
 
@@ -21,13 +24,17 @@ export function recordAnchor(
  */
 export function focusedRecordAnchor(): HTMLAnchorElement | null {
   const active = document.activeElement
+
   if (active instanceof HTMLTableRowElement) {
     for (const anchor of active.querySelectorAll('a[href]')) {
       const found = recordAnchor(anchor)
+
       if (found) return found
     }
+
     return null
   }
+
   return active instanceof HTMLAnchorElement ? recordAnchor(active) : null
 }
 
@@ -77,10 +84,12 @@ export function useRecordLinks(
       // Touch fires emulated mouseover after a tap; no hover, no hint.
       if (!canHover()) return
       const anchor = recordAnchor(event.target)
+
       if (anchor === hovered.current) return
       clearHint()
       hovered.current = anchor && inside(anchor) ? anchor : null
       const current = hovered.current
+
       if (!current) return
       timer.current = window.setTimeout(() => {
         const rect = current.getBoundingClientRect()
@@ -93,19 +102,26 @@ export function useRecordLinks(
         })
       }, 400)
     }
+
     const onFocus = (event: FocusEvent) => {
       const anchor = recordAnchor(event.target)
+
       if (anchor && inside(anchor)) hovered.current = anchor
     }
+
     const onBlur = (event: FocusEvent) => {
       if (event.target === hovered.current) hovered.current = null
     }
+
     const dismiss = () => clearHint()
+
     const onDragStart = (event: DragEvent) => {
       const anchor =
         event.target instanceof Element ? event.target.closest('a[href]') : null
+
       if (!(anchor instanceof HTMLAnchorElement) || !inside(anchor)) return
       const href = workspaceHref(anchor.href, location.origin)
+
       if (!href || !event.dataTransfer) return
       event.dataTransfer.setData(LINK_MIME, href)
       event.dataTransfer.setData(
@@ -116,6 +132,7 @@ export function useRecordLinks(
       clearHint()
       setDragging(true)
     }
+
     const onDragEnd = () => setDragging(false)
 
     // Touch: hold a record link to peek it. The press that opens the peek
@@ -123,15 +140,19 @@ export function useRecordLinks(
     let hold: number | null = null
     let origin = { x: 0, y: 0 }
     let fired = false
+
     const cancelHold = () => {
       if (hold !== null) window.clearTimeout(hold)
       hold = null
     }
+
     const onTouchDown = (event: PointerEvent) => {
       cancelHold()
       fired = false
+
       if (event.pointerType !== 'touch') return
       const anchor = recordAnchor(event.target)
+
       if (!anchor || !inside(anchor)) return
       origin = { x: event.clientX, y: event.clientY }
       hold = window.setTimeout(() => {
@@ -140,6 +161,7 @@ export function useRecordLinks(
         longPress.current?.(anchor)
       }, LONG_PRESS_MS)
     }
+
     const onTouchMove = (event: PointerEvent) => {
       if (
         hold !== null &&
@@ -147,17 +169,21 @@ export function useRecordLinks(
       )
         cancelHold()
     }
+
     const swallow = (event: Event) => {
       if (!fired) return
       event.preventDefault()
       event.stopPropagation()
     }
+
     const onClickAfterHold = (event: MouseEvent) => {
       swallow(event)
       fired = false
     }
+
     const onContextMenu = (event: Event) => {
       if (fired || (hold !== null && recordAnchor(event.target))) swallow(event)
+
       if (!fired && recordAnchor(event.target) && !canHover())
         event.preventDefault()
     }
@@ -178,6 +204,7 @@ export function useRecordLinks(
     window.addEventListener('scroll', cancelHold, true)
     window.addEventListener('click', onClickAfterHold, true)
     window.addEventListener('contextmenu', onContextMenu, true)
+
     return () => {
       window.removeEventListener('mouseover', onOver, true)
       window.removeEventListener('focusin', onFocus, true)
@@ -207,8 +234,10 @@ export function useRecordLinks(
       held?: HTMLAnchorElement,
     ) => {
       const anchor = held ?? hovered.current ?? focusedRecordAnchor()
+
       if (!anchor) return false
       const href = workspaceHref(anchor.href, location.origin)
+
       if (!href) return false
       const text = anchor.textContent.trim()
       const identifier = ID_PATTERN.test(text) ? text : undefined
@@ -221,6 +250,7 @@ export function useRecordLinks(
         from: paneLabel(anchor),
         rect: { left: rect.left, top: rect.top, bottom: rect.bottom },
       })
+
       return true
     },
     [clearHint],

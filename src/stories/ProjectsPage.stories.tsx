@@ -49,6 +49,7 @@ const meta = {
 } satisfies Meta<typeof ProjectsPage>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const roleKey = ['workspace', 'my-role', ME_ID] as const
@@ -64,7 +65,9 @@ function client(
   held?: { key: readonly unknown[]; read: 'pending' | 'error' },
 ) {
   const instance = screenQueryClient({ data: seeds })
+
   if (held) holdRead(instance, held.key, held.read)
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={instance}>
       <Story />

@@ -55,6 +55,7 @@ describe('listPublishedDatasetSchemas', () => {
             },
           ]
         }
+
         return [
           {
             id: 'ver-2',
@@ -73,6 +74,7 @@ describe('listPublishedDatasetSchemas', () => {
         ]
       },
     } as unknown as DataClient
+
     const options = await listPublishedDatasetSchemas(client)
     expect(options).toEqual([
       {
@@ -90,9 +92,11 @@ describe('listPublishedDatasetSchemas', () => {
 describe('createDataset', () => {
   it('inserts api.datasets with the selected Schema Version', async () => {
     const calls: Array<{ resource: string; row: Record<string, unknown> }> = []
+
     const client = {
       insert: async (resource: string, row: Record<string, unknown>) => {
         calls.push({ resource, row })
+
         return {
           id: 'ds-1',
           name: row.name,
@@ -100,12 +104,14 @@ describe('createDataset', () => {
         }
       },
     } as unknown as DataClient
+
     const created = await createDataset(client, {
       workspaceId: 'ws-1',
       schemaVersionId: 'ver-2',
       name: '  HPLC results  ',
       description: 'live',
     })
+
     expect(calls).toEqual([
       {
         resource: 'datasets',
@@ -126,12 +132,15 @@ describe('createDataset', () => {
 
   it('records the person a new Dataset is attributed to', async () => {
     const calls: Array<{ resource: string; row: Record<string, unknown> }> = []
+
     const client = {
       insert: async (resource: string, row: Record<string, unknown>) => {
         calls.push({ resource, row })
+
         return { id: 'ds-2', name: row.name, revision: 1 }
       },
     } as unknown as DataClient
+
     await createDataset(client, {
       workspaceId: 'ws-1',
       schemaVersionId: 'ver-2',
@@ -148,12 +157,15 @@ describe('createDataset', () => {
 describe('snapshot and live-edit RPCs', () => {
   it('snapshots through snapshot_dataset', async () => {
     const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+
     const client = {
       rpc: async (name: string, args: Record<string, unknown>) => {
         calls.push({ name, args })
+
         return { id: 'ver-snap' }
       },
     } as unknown as DataClient
+
     await snapshotDataset(client, {
       datasetId: 'ds-1',
       expectedRevision: 4,
@@ -171,12 +183,15 @@ describe('snapshot and live-edit RPCs', () => {
 
   it('commits live edits through commit_dataset_row_batch', async () => {
     const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+
     const client = {
       rpc: async (name: string, args: Record<string, unknown>) => {
         calls.push({ name, args })
+
         return { ok: true, datasetRevision: 5 }
       },
     } as unknown as DataClient
+
     const result = await commitDatasetRowBatch(client, {
       datasetId: 'ds-1',
       expectedRevision: 4,
@@ -190,6 +205,7 @@ describe('snapshot and live-edit RPCs', () => {
         },
       ],
     })
+
     expect(calls[0]?.name).toBe('commit_dataset_row_batch')
     expect(result.ok).toBe(true)
   })
@@ -237,6 +253,7 @@ describe('cell coercion, TSV paste and CSV export', () => {
       }),
       column({ id: 'f-ph', field_name: 'f-ph' }),
     ])
+
     expect(rows).toHaveLength(2)
     expect(rows[0]?.operation).toBe('create')
     expect(rows[0]?.values).toEqual({ 'f-text': 'A', 'f-ph': 7.2 })
@@ -255,6 +272,7 @@ describe('cell coercion, TSV paste and CSV export', () => {
       ],
       [{ 'f-text': 'A,1', 'f-ph': 7.2 }],
     )
+
     expect(csv).toBe('Sample,pH\n"A,1",7.2')
   })
 })
@@ -296,6 +314,7 @@ describe('describeDatasetCommitError and Sheet links', () => {
 describe('historical Schema Version columns', () => {
   it('uses the pinned Schema Version fields, not later live Schema columns', () => {
     const liveColumnIds = ['ph-field', 'colour-field']
+
     const historical = columnsForPinnedSchemaVersion([
       {
         field_id: 'ph-field',
@@ -320,6 +339,7 @@ describe('historical Schema Version columns', () => {
         display_order: 1,
       },
     ])
+
     expect(historical.map((column) => column.id)).toEqual(['ph-field'])
     expect(historical.map((column) => column.label)).toEqual(['pH'])
     expect(historical.map((column) => column.id)).not.toEqual(liveColumnIds)

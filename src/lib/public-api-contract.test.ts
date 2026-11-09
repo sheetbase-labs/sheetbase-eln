@@ -7,7 +7,9 @@ function grantsFor(scope: string): string {
   const row = contract
     .split('\n')
     .find((line) => new RegExp(`^\\| \`${scope}\` +\\|`).test(line))
+
   expect(row, `missing contract row for ${scope}`).toBeTruthy()
+
   return row ?? ''
 }
 

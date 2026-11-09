@@ -69,6 +69,7 @@ async function findRun(
   text: string,
 ): Promise<{ ok: true; run: RunRow } | { ok: false; message: string }> {
   const number = /^PLR-?(\d+)$/i.exec(text.trim())
+
   const rows = await context.client.list<RunRow>(
     'plate_runs',
     `?${
@@ -77,13 +78,18 @@ async function findRun(
         : `name=ilike.${likeValue(text)}`
     }&status=neq.archived&select=id,number,name,format,status,qc_status,wells,config,results&order=number.desc&limit=6`,
   )
+
   if (rows.length === 0)
     return { ok: false, message: `No plate run matches "${text}".` }
+
   const exact = number
     ? rows.filter((r) => r.number === Number(number[1]))
     : rows.filter((r) => r.name.toLowerCase() === text.trim().toLowerCase())
+
   if (exact.length === 1) return { ok: true, run: exact[0] }
+
   if (rows.length === 1) return { ok: true, run: rows[0] }
+
   return {
     ok: false,
     message: `More than one plate run matches "${text}": ${rows
@@ -100,14 +106,18 @@ export async function buildPlatesProposal(
   switch (name) {
     case PLATE_ANALYSE_TOOL: {
       const parsed = proposePlateAnalyseSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const found = await findRun(context, input.run)
+
       if (!found.ok) return fail(found.message)
       const run = found.run
       const readings = run.wells.length
+
       if (readings === 0)
         return fail(`${plateRunReference(run.number)} has no wells to analyse.`)
+
       const changes: ProposalChange[] = [
         {
           label: 'Plate run',
@@ -130,6 +140,7 @@ export async function buildPlatesProposal(
           ),
         },
       ]
+
       return {
         ok: true,
         proposal: {
@@ -143,16 +154,20 @@ export async function buildPlatesProposal(
         },
       }
     }
+
     case WORKLIST_CREATE_TOOL: {
       const parsed = proposeWorklistCreateSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const found = await findRun(context, input.run)
+
       if (!found.ok) return fail(found.message)
       const run = found.run
       const format = input.format ?? 'csv'
       const mode = input.mode ?? 'stamp'
       const sourcePlate = input.sourcePlate?.trim() || 'SRC1'
+
       const plan = buildWorklist(destinationsOf(run.wells), {
         mode,
         sourcePlate,
@@ -161,10 +176,12 @@ export async function buildPlatesProposal(
         destPlate: plateRunReference(run.number),
         ...(input.volumeUl ? { defaultVolumeUl: input.volumeUl } : {}),
       })
+
       if (plan.transfers.length === 0)
         return fail(
           `No wells of ${plateRunReference(run.number)} have a volume to move. Ask the person how many microlitres to move into each well.`,
         )
+
       const changes: ProposalChange[] = [
         {
           label: 'Plate run',
@@ -178,12 +195,14 @@ export async function buildPlatesProposal(
           after: `${plan.transfers.length} from ${plan.sources.length} source wells`,
         },
       ]
+
       if (plan.issues.length > 0)
         changes.push({
           label: 'Check',
           before: null,
           after: `${plan.issues.length} issue(s), such as: ${plan.issues[0].message}`,
         })
+
       return {
         ok: true,
         proposal: {

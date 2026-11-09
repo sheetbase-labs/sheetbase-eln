@@ -27,23 +27,28 @@ export const JSQR_FORMATS = ['qr_code'] as const
  */
 export async function loadJsqrCodeDecoder(): Promise<CodeDecoder> {
   let canvas: HTMLCanvasElement | undefined
+
   return {
     name: 'jsQR',
     formats: JSQR_FORMATS,
     async detect(video) {
       const width = video.videoWidth
       const height = video.videoHeight
+
       if (width <= 0 || height <= 0) return []
       canvas ??= document.createElement('canvas')
       canvas.width = width
       canvas.height = height
       const context = canvas.getContext('2d', { willReadFrequently: true })
+
       if (!context) return []
       context.drawImage(video, 0, 0, width, height)
       const image = context.getImageData(0, 0, width, height)
+
       const result = decode(image.data, width, height, {
         inversionAttempts: 'dontInvert',
       })
+
       return result?.data ? [result.data] : []
     },
   }

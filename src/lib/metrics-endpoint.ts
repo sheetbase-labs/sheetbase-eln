@@ -26,6 +26,7 @@ function metricsResponse(
   body: string,
 ): Response {
   const requestId = resolveRequestId(request.headers)
+
   return stampSecurityHeaders(
     stampRequestId(
       new Response(body, {
@@ -42,7 +43,9 @@ function metricsResponse(
 
 function bearerToken(request: Request): string | null {
   const header = request.headers.get('authorization')
+
   if (!header?.startsWith('Bearer ')) return null
+
   return header.slice('Bearer '.length)
 }
 
@@ -52,12 +55,15 @@ export async function handleMetricsRequest(
 ): Promise<Response> {
   const deployed =
     deps.environment === 'staging' || deps.environment === 'production'
+
   if (deployed && !deps.token) {
     // Fail closed: no token configured means no metrics surface.
     return metricsResponse(request, 404, 'not found\n')
   }
+
   if (deps.token) {
     const provided = bearerToken(request)
+
     if (
       provided === null ||
       provided.length !== deps.token.length ||
@@ -66,14 +72,17 @@ export async function handleMetricsRequest(
       return metricsResponse(request, 401, 'unauthenticated\n')
     }
   }
+
   return metricsResponse(request, 200, metrics.render())
 }
 
 /** Constant-time string comparison to avoid a token oracle. */
 function timingSafeEqual(provided: string, expected: string): boolean {
   let mismatch = 0
+
   for (let i = 0; i < expected.length; i += 1) {
     mismatch |= provided.charCodeAt(i) ^ expected.charCodeAt(i)
   }
+
   return mismatch === 0
 }

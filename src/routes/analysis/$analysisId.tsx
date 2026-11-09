@@ -55,14 +55,17 @@ import { formatDate } from '#/lib/format-date'
 export const Route = createFileRoute('/analysis/$analysisId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     await resolveIdentifierParam({
       entity: 'analysis',
       ref: params.analysisId,
       href: location.href,
     })
+
     return { context }
   },
   component: AnalysisView,
@@ -72,6 +75,7 @@ function AnalysisView() {
   const { analysisId } = Route.useParams()
   const { context } = Route.useRouteContext()
   const [duplicating, setDuplicating] = useState(false)
+
   const viewQuery = useQuery({
     queryKey: ['ui-port', 'analysis', 'view', analysisId],
     queryFn: () =>
@@ -82,7 +86,9 @@ function AnalysisView() {
         )
         .then((rows) => rows[0] ?? null),
   })
+
   const view = viewQuery.data
+
   const datasetQuery = useQuery({
     queryKey: ['ui-port', 'analysis', 'dataset', view?.id, view?.version],
     queryFn: () =>
@@ -91,18 +97,23 @@ function AnalysisView() {
   })
 
   const queryClient = useQueryClient()
+
   const versionsQuery = useQuery({
     queryKey: ['ui-port', 'analysis', 'versions', view?.id, view?.version],
     queryFn: () => listAnalysisVersions(analysisStudioDataClient, view!.id),
     enabled: Boolean(view),
   })
+
   const [edited, setEdited] = useState<ChartSpec[] | null>(null)
   const [selected, setSelected] = useState(0)
   const base = useMemo(() => (view ? view.charts : []), [view])
   const charts = edited ?? base
+
   const dirty =
     edited !== null && JSON.stringify(edited) !== JSON.stringify(base)
+
   const columns = datasetQuery.data?.source.columns ?? []
+
   const save = useMutation({
     mutationFn: () =>
       updateAnalysisView(analysisStudioDataClient, view!.id, {
@@ -121,12 +132,14 @@ function AnalysisView() {
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : String(error)),
   })
+
   const flagged = exclusionCounts(datasetQuery.data ?? null, charts)
 
   const specCheck = useMemo(
     () => (view ? validateAnalysisSpec(view.charts[0]) : null),
     [view],
   )
+
   const materialised = useMemo(
     () =>
       view && specCheck?.ok
@@ -134,6 +147,7 @@ function AnalysisView() {
         : null,
     [view, specCheck, datasetQuery.data],
   )
+
   // R5-STUDIO-03: the canonical staleness answer and the citation list, both
   // from the database boundary, so this read-only view agrees with the studio.
   const statusQuery = useQuery({
@@ -143,6 +157,7 @@ function AnalysisView() {
     enabled: Boolean(view),
     staleTime: 5_000,
   })
+
   const citationsQuery = useQuery({
     queryKey: analysisStudioQueryKeys.citations(analysisId),
     queryFn: () =>
@@ -150,12 +165,14 @@ function AnalysisView() {
     enabled: Boolean(view),
     staleTime: 5_000,
   })
+
   // Where the analysis sits, for the trail: the dataset it draws on, the
   // experiment that made it and that experiment's project.
   const summaries = useDatasetSummaries()
   const sourceId = view ? specSourceDatasetId(view.charts[0]) : null
   const source = summaries.data?.find((d) => d.uuid === sourceId) ?? null
   const sourceProjectId = source?.projectId ?? null
+
   const sourceProject = useQuery({
     queryKey: ['ui-port', 'analysis', 'source-project', sourceProjectId ?? ''],
     queryFn: () =>
@@ -164,7 +181,9 @@ function AnalysisView() {
         : null,
     enabled: Boolean(sourceProjectId),
   })
+
   const status = statusQuery.data ?? null
+
   const movedSources =
     status?.sources.filter((item) => item.status !== 'current') ?? []
 
@@ -183,6 +202,7 @@ function AnalysisView() {
       </div>
     )
   }
+
   if (!view) {
     return (
       <div className="flex min-w-0 flex-1 flex-col">
@@ -212,6 +232,7 @@ function AnalysisView() {
   }
 
   const datasetId = specSourceDatasetId(view.charts[0])
+
   return (
     <>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -391,6 +412,7 @@ function AnalysisView() {
                   nextChart(charts, columns)
                     ? () => {
                         const next = nextChart(charts, columns)
+
                         if (!next) return
                         setEdited([...charts, next])
                         setSelected(charts.length)
@@ -477,6 +499,7 @@ function AnalysisView() {
           editable={specCheck?.ok === true}
           onYChange={(columnId) => {
             const column = columns.find((c) => c.id === columnId)
+
             if (!column) return
             const at = Math.min(selected, charts.length - 1)
             setEdited(

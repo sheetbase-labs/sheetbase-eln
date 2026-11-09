@@ -94,9 +94,12 @@ function fakeClient(
   const list = async <T>(resource: string, query = ''): Promise<T[]> => {
     calls.push(`${resource} ${query}`)
     const route = routes.find((r) => r.match(resource, query))
+
     if (!route) throw new Error(`unexpected query: ${resource} ${query}`)
+
     return route.rows as T[]
   }
+
   return {
     list,
     count: async () => 0,
@@ -135,6 +138,7 @@ describe('fetchIncomingLinksForRecord', () => {
         }),
       ]),
     ])
+
     const links = await fetchIncomingLinksForRecord(client, 'rec-1')
     expect(links).toEqual([
       {
@@ -169,6 +173,7 @@ describe('fetchIncomingLinksByIdentifier', () => {
         }),
       ]),
     ])
+
     const links = await fetchIncomingLinksByIdentifier(client, 'EXP-1')
     expect(links.map((l) => l.id)).toEqual(['by-id-1'])
   })
@@ -176,12 +181,14 @@ describe('fetchIncomingLinksByIdentifier', () => {
 
 describe('canonical Dataset traversal', () => {
   const datasetId = '00000000-0000-4000-8000-000000000765'
+
   const dataset = {
     id: datasetId,
     display_id: 'DS-0765',
     name: 'Assay results',
     archived_at: null,
   }
+
   const link = {
     id: 'citation',
     sourceRecordId: 'rec-1',
@@ -198,16 +205,19 @@ describe('canonical Dataset traversal', () => {
       const client = fakeClient([
         on('datasets', 'display_id=in.', visible ? [dataset] : []),
       ])
+
       const endpoints = await fetchRelationshipEndpoints(
         client,
         [],
         ['DS-0765'],
       )
+
       const row = buildRelationshipRows(
         'rec-1',
         { outgoing: [link], incoming: [] },
         endpoints,
       ).outgoing[0]
+
       expect(row).toMatchObject(
         visible
           ? {
@@ -241,6 +251,7 @@ describe('canonical Dataset traversal', () => {
         }),
       ]),
     ])
+
     const links = await fetchRelationshipLinks(client, datasetId)
     expect(links.incoming).toHaveLength(1)
     expect(links.incoming[0].sourceRecordId).toBe('rec-1')
@@ -256,7 +267,9 @@ describe('canonical Dataset traversal', () => {
         link_type: 'dataset',
         target_record_id: null,
       })
+
       const calls: string[] = []
+
       const client = fakeClient(
         [
           on('records', '?id=eq.', []),
@@ -283,6 +296,7 @@ describe('canonical Dataset traversal', () => {
         ],
         calls,
       )
+
       const links = await fetchRelationshipLinks(client, datasetId)
       expect(links.incoming.map((edge) => edge.id)).toEqual(
         visible ? ['overview-link', 'display-citation'] : [],
@@ -347,6 +361,7 @@ describe('fetchRelationshipLinks', () => {
 
   it('skips the by-identifier fallback when the seed is unreadable', async () => {
     const calls: string[] = []
+
     const client = fakeClient(
       [
         on('record_links', 'source_record_id=eq.rec-1', []),
@@ -356,6 +371,7 @@ describe('fetchRelationshipLinks', () => {
       ],
       calls,
     )
+
     const { outgoing, incoming } = await fetchRelationshipLinks(client, 'rec-1')
     expect(outgoing).toEqual([])
     expect(incoming).toEqual([])
@@ -380,12 +396,14 @@ describe('fetchRelationshipEndpoints', () => {
         recordWire('rec-4', { deleted_at: '2026-08-05T00:00:00Z' }),
       ]),
     ])
+
     const byId = await fetchRelationshipEndpoints(client, [
       'rec-2',
       'rec-3',
       'rec-4',
       'rec-missing',
     ])
+
     expect(byId.get('rec-2')).toMatchObject({
       archivedAt: null,
       deletedAt: null,
@@ -492,6 +510,7 @@ describe('buildRelationshipRows', () => {
       },
       endpoints,
     )
+
     expect(outgoing).toHaveLength(1)
     expect(outgoing[0]).toMatchObject({
       direction: 'outgoing',
@@ -517,9 +536,11 @@ describe('buildRelationshipRows', () => {
       ],
       incoming: [],
     }
+
     const declared = buildRelationshipRows('rec-1', links, endpoints, {
       template: 'instantiated from',
     })
+
     expect(declared.outgoing[0]).toMatchObject({ label: 'instantiated from' })
     const canonical = buildRelationshipRows('rec-1', links, endpoints)
     expect(canonical.outgoing[0]).toMatchObject({ label: 'created from' })
@@ -586,6 +607,7 @@ describe('buildRelationshipRows', () => {
       },
       endpoints,
     )
+
     const byId = new Map(outgoing.map((r) => [r.linkId, r]))
     // Sample counterparty resolves through the samples surface.
     expect(byId.get('out-1')).toMatchObject({
@@ -632,11 +654,13 @@ describe('buildRelationshipRows', () => {
       targetIdentifier: 'EXP-1',
       linkType: 'general',
     }
+
     const { outgoing, incoming } = buildRelationshipRows(
       'rec-1',
       { outgoing: [loop], incoming: [{ ...loop, id: 'self-in' }] },
       endpoints,
     )
+
     expect(outgoing).toEqual([])
     expect(incoming).toEqual([])
   })
@@ -769,6 +793,7 @@ describe('buildRelationshipRows duplicates and metadata', () => {
       })),
       incoming: [],
     }
+
     const { outgoing } = buildRelationshipRows('rec-1', links, endpoints)
     expect(outgoing).toHaveLength(1)
     expect(outgoing[0]).toMatchObject({
@@ -792,6 +817,7 @@ describe('buildRelationshipRows duplicates and metadata', () => {
         createdByUserId: null,
       })),
     }
+
     const { incoming } = buildRelationshipRows('rec-1', links, endpoints)
     expect(incoming).toHaveLength(1)
     expect(incoming[0]).toMatchObject({

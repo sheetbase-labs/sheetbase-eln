@@ -28,10 +28,12 @@ export interface LabWatcherDeps {
 /** Run every due watcher and return how many new findings they made. */
 export async function sweepLabWatchers(deps: LabWatcherDeps): Promise<number> {
   const conn = await deps.connect()
+
   try {
     const { rows } = await conn.query(
       'SELECT internal.run_due_lab_watchers() AS found',
     )
+
     return rows[0]?.found ?? 0
   } finally {
     await conn.end()
@@ -44,14 +46,17 @@ const startedGlobalKey = '__sheetbaseLabWatcherSchedulerStarted'
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
 async function defaultConnect(): Promise<LabWatcherConnection> {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   return client
 }
 
@@ -59,15 +64,19 @@ export function startLabWatcherScheduler(
   options: { deps?: LabWatcherDeps; intervalMs?: number } = {},
 ): void {
   if (typeof window !== 'undefined') return
+
   if (schedulerDisabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
 
   const deps = options.deps ?? { connect: defaultConnect }
+
   const tick = async () => {
     try {
       const found = await sweepLabWatchers(deps)
+
       if (found > 0) logger.info('lab watchers found something', { found })
     } catch (error) {
       logger.warn('lab watcher sweep failed', {
@@ -75,6 +84,7 @@ export function startLabWatcherScheduler(
       })
     }
   }
+
   bootTimer = setTimeout(() => void tick(), 20_000)
   bootTimer.unref()
   timer = setInterval(
@@ -87,6 +97,7 @@ export function startLabWatcherScheduler(
 /** Clear the timers and the per-process guard (tests and shutdown). */
 export function stopLabWatcherScheduler(): void {
   if (bootTimer) clearTimeout(bootTimer)
+
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null

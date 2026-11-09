@@ -38,10 +38,12 @@ export function MemberSessionsDialog({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
+
   const sessions = useQuery({
     queryKey: adminQueryKeys.sessions(workspaceId),
     queryFn: () => fetchWorkspaceSessions(dataClient, workspaceId),
   })
+
   const revoke = useMutation({
     mutationFn: (sessionId: string) =>
       revokeUserSession(dataClient, { workspaceId, sessionId }),
@@ -50,7 +52,9 @@ export function MemberSessionsDialog({
         queryKey: adminQueryKeys.sessions(workspaceId),
       }),
   })
+
   const mine = (sessions.data ?? []).filter((s) => s.userId === userId)
+
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent>

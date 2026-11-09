@@ -27,6 +27,7 @@ const template = {
   archived_at: null,
   assignee_user_id: null,
 }
+
 const experiment = {
   id: 'exp-12',
   identifier: 'EXP-12',
@@ -59,12 +60,14 @@ function fakeClient(
       switch (resource) {
         case 'records': {
           const kind = /kind=in\.\(([^)]+)\)/.exec(query)?.[1]
+
           return Promise.resolve(
             (data.records ?? [template, experiment]).filter(
               (row) => !kind || row.kind === kind,
             ),
           )
         }
+
         case 'projects':
           return Promise.resolve([
             { id: 'proj-1', key: 'VAC', title: 'Vaccine' },
@@ -95,19 +98,27 @@ function fakeClient(
     },
     rpc: (name: string, args?: Record<string, unknown>) => {
       if (name === 'record_steps') return Promise.resolve(data.steps ?? [])
+
       if (name === 'record_gates') return Promise.resolve(data.gates ?? [])
+
       if (name === 'record_series') {
         const row = data.membership?.[String(args?.p_record_id)]
+
         return Promise.resolve(row ? [row] : [])
       }
+
       if (name === 'series_members')
         return Promise.resolve(data.seriesMembers ?? [])
+
       if (name === 'series_rollup') {
         return Promise.resolve({ total: 2, approved: 1, samples: 3 })
       }
+
       if (name === 'record_part_signoffs')
         return Promise.resolve(data.signoffs ?? [])
+
       if (name === 'record_parts') return Promise.resolve(data.parts ?? [])
+
       if (name === 'workspace_members_list') {
         return Promise.resolve([
           { user_id: 'user-me', name: 'Gareth P' },
@@ -115,6 +126,7 @@ function fakeClient(
           { user_id: 'user-sam', name: 'Sam Lee' },
         ])
       }
+
       if (name === 'inbox_work_items_page') {
         return Promise.resolve({
           items: [
@@ -137,9 +149,11 @@ function fakeClient(
           types: {},
         })
       }
+
       return Promise.resolve([])
     },
   } as unknown as DataClient
+
   return client
 }
 
@@ -156,10 +170,12 @@ function context(client: DataClient): LabToolContext {
 describe('what is waiting on me', () => {
   it('lists the inbox with a link to each item', async () => {
     const result = await readInbox({}, context(fakeClient()))
+
     const parsed = JSON.parse(result.text) as {
       waitingOnPerson: number
       items: Array<{ open: string; title: string }>
     }
+
     expect(parsed.waitingOnPerson).toBe(1)
     expect(parsed.items[0]).toMatchObject({
       title: 'Standards curve',
@@ -180,7 +196,9 @@ describe('experiment from a template', () => {
       },
       context(fakeClient()),
     )
+
     expect(built.ok).toBe(true)
+
     if (built.ok) {
       expect(built.proposal.action).toMatchObject({
         kind: 'experiment.start',
@@ -202,6 +220,7 @@ describe('experiment from a template', () => {
       },
       context(fakeClient({ records: [{ ...template, status: 'draft' }] })),
     )
+
     expect(built.ok).toBe(false)
   })
 })
@@ -218,6 +237,7 @@ describe('handing work on and asking', () => {
       },
       context(fakeClient()),
     )
+
     expect(built.ok && built.proposal.action).toMatchObject({
       kind: 'record.assign',
       recordId: 'exp-12',
@@ -238,6 +258,7 @@ describe('handing work on and asking', () => {
       },
       context(fakeClient()),
     )
+
     expect(built.ok && built.proposal.action).toMatchObject({
       kind: 'record.comment',
       body: '@Sam Lee Can you check the standards curve?',
@@ -257,6 +278,7 @@ describe('handing work on and asking', () => {
       },
       context(fakeClient()),
     )
+
     expect(built.ok).toBe(false)
   })
 })
@@ -282,12 +304,15 @@ describe('repeating a booking', () => {
       starts_at: instantFromLocal('2026-11-16T09:00', TZ).toISOString(),
       ends_at: instantFromLocal('2026-11-16T10:00', TZ).toISOString(),
     }
+
     const built = await buildPlanningProposal(
       'sheetbase.booking.repeat',
       args,
       context(fakeClient({ bookings: [taken] })),
     )
+
     expect(built.ok).toBe(true)
+
     if (built.ok) {
       const labels = built.proposal.changes.map((c) => c.label)
       expect(labels).toContain('Dates (8)')
@@ -312,6 +337,7 @@ describe('repeating a booking', () => {
       { ...args, firstDay: '2026-11-02' },
       context(fakeClient()),
     )
+
     expect(built.ok).toBe(false)
   })
 })
@@ -341,6 +367,7 @@ describe('step timer', () => {
         }),
       ),
     )
+
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'timer.start',
       blockId: 'b2',
@@ -361,6 +388,7 @@ describe('step timer', () => {
         }),
       ),
     )
+
     expect(built.ok).toBe(false)
   })
 
@@ -378,6 +406,7 @@ describe('step timer', () => {
         fakeClient({ blocks: [{ id: 'b2', payload: { text: 'Incubate' } }] }),
       ),
     )
+
     expect(built.ok && built.proposal.action).toMatchObject({ seconds: 1800 })
   })
 })
@@ -395,6 +424,7 @@ describe('shipments', () => {
       },
       context(fakeClient()),
     )
+
     expect(built.ok && built.proposal.action).toMatchObject({
       kind: 'shipment.create',
       markSent: true,
@@ -433,6 +463,7 @@ describe('shipments', () => {
         }),
       ),
     )
+
     expect(built.ok && built.proposal.action).toMatchObject({
       kind: 'shipment.receive',
       shipmentId: 'ship-12',
@@ -461,6 +492,7 @@ describe('shipments', () => {
         }),
       ),
     )
+
     expect(built.ok).toBe(false)
   })
 })
@@ -534,6 +566,7 @@ describe('parts', () => {
       { record: 'EXP-12' },
       context(fakeClient({ parts })),
     )
+
     const body = JSON.parse(read.text)
     expect(read.isError).toBe(false)
     expect(body.partsDone).toBe(1)
@@ -564,6 +597,7 @@ describe('parts', () => {
         }),
       ),
     )
+
     const body = JSON.parse(read.text)
     expect(body.parts[0]).toMatchObject({
       needsSignature: true,
@@ -584,22 +618,26 @@ describe('parts', () => {
         amendment_count: 0,
       },
     ]
+
     const built = await buildPlanningProposal(
       'sheetbase.part.request_signoff',
       { title: 'Ask', summary: 's', record: 'EXP-12', person: 'Sam' },
       context(fakeClient({ parts, signoffs })),
     )
+
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'part.signoff_request',
       partId: 'part-2',
       userId: 'user-sam',
       note: null,
     })
+
     const none = await buildPlanningProposal(
       'sheetbase.part.request_signoff',
       { title: 'Ask', summary: 's', record: 'EXP-12', person: 'Sam' },
       context(fakeClient({ parts })),
     )
+
     expect(none.ok).toBe(false)
   })
 
@@ -615,6 +653,7 @@ describe('parts', () => {
       },
       context(fakeClient({ parts })),
     )
+
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'part.add',
       recordId: 'exp-12',
@@ -629,11 +668,13 @@ describe('parts', () => {
       { title: 'Move', summary: 's', record: 'EXP-12', day: 5 },
       context(fakeClient({ parts })),
     )
+
     expect(current.ok && current.proposal.action).toMatchObject({
       kind: 'part.update',
       partId: 'part-2',
       dayOffset: 5,
     })
+
     const byNumber = await buildPlanningProposal(
       'sheetbase.part.update',
       {
@@ -645,6 +686,7 @@ describe('parts', () => {
       },
       context(fakeClient({ parts })),
     )
+
     expect(byNumber.ok && byNumber.proposal.action).toMatchObject({
       partId: 'part-3',
       assigneeUserId: 'user-sam',
@@ -658,16 +700,19 @@ describe('parts', () => {
       { title: 'Done', summary: 's', record: 'EXP-12' },
       context(fakeClient({ parts })),
     )
+
     expect(ok.ok && ok.proposal.action).toEqual({
       kind: 'part.done',
       partId: 'part-2',
       done: true,
     })
+
     const refused = await buildPlanningProposal(
       'sheetbase.part.complete',
       { title: 'Done', summary: 's', record: 'EXP-12', part: 'seed' },
       context(fakeClient({ parts })),
     )
+
     expect(refused.ok).toBe(false)
   })
 })
@@ -707,6 +752,7 @@ describe('gates', () => {
         }),
       ),
     )
+
     const body = JSON.parse(read.text)
     expect(read.isError).toBe(false)
     expect(body.closed).toBe(1)
@@ -730,6 +776,7 @@ describe('gates', () => {
       },
       context(fakeClient({ gates: [gate(3)] })),
     )
+
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'gate.go_on',
       blockId: null,
@@ -746,12 +793,15 @@ describe('gates', () => {
         fakeClient({ gates: [gate(3, { mode: 'block', blocking: true })] }),
       ),
     )
+
     expect(blocked.ok).toBe(false)
+
     const open = await buildPlanningProposal(
       'sheetbase.gate.go_on',
       { title: 'Go on', summary: 's', record: 'EXP-12', reason: 'Late' },
       context(fakeClient({ gates: [gate(3, { met: true, missing: [] })] })),
     )
+
     expect(open.ok).toBe(false)
   })
 })
@@ -762,6 +812,7 @@ describe('steps', () => {
       { record: 'EXP-12' },
       context(fakeClient({ steps })),
     )
+
     const body = JSON.parse(read.text)
     expect(read.isError).toBe(false)
     expect(body.stepsDone).toBe(1)
@@ -780,6 +831,7 @@ describe('steps', () => {
       { title: 'Finish blocking', summary: 's', record: 'EXP-12' },
       context(fakeClient({ steps })),
     )
+
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'step.done',
       blockId: 'step-2',
@@ -801,6 +853,7 @@ describe('steps', () => {
       },
       context(fakeClient({ steps })),
     )
+
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'step.done',
       blockId: 'step-1',
@@ -822,6 +875,7 @@ describe('steps', () => {
       },
       context(fakeClient({ steps })),
     )
+
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'step.result',
       blockId: 'step-2',
@@ -837,29 +891,37 @@ describe('steps', () => {
       status: 'done',
       is_current: false,
     }))
+
     const finished = await buildPlanningProposal(
       'sheetbase.step.complete',
       { title: 't', summary: 's', record: 'EXP-12' },
       context(fakeClient({ steps: allDone })),
     )
+
     expect(!finished.ok && finished.message).toContain('already done')
+
     const none = await buildPlanningProposal(
       'sheetbase.step.complete',
       { title: 't', summary: 's', record: 'EXP-12', step: 'centrifuge' },
       context(fakeClient({ steps })),
     )
+
     expect(!none.ok && none.message).toContain('No step')
+
     const several = await buildPlanningProposal(
       'sheetbase.step.complete',
       { title: 't', summary: 's', record: 'EXP-12', step: 'plate' },
       context(fakeClient({ steps })),
     )
+
     expect(!several.ok && several.message).toContain('More than one')
+
     const empty = await buildPlanningProposal(
       'sheetbase.step.complete',
       { title: 't', summary: 's', record: 'EXP-12' },
       context(fakeClient({ steps: [] })),
     )
+
     expect(!empty.ok && empty.message).toContain('no protocol steps')
   })
 })
@@ -871,12 +933,14 @@ describe('a series of experiments', () => {
     identifier: 'EXP-0142',
     title: 'Cell viability assay',
   }
+
   const run = {
     ...experiment,
     id: 'exp-0145',
     identifier: 'EXP-0145',
     title: 'Dose',
   }
+
   const membership = {
     series_record_id: 'exp-0142',
     series_identifier: 'EXP-0142',
@@ -884,6 +948,7 @@ describe('a series of experiments', () => {
     member_number: 3,
     member_total: 5,
   }
+
   const seriesMembers = [
     {
       member_record_id: 'exp-0143',
@@ -912,6 +977,7 @@ describe('a series of experiments', () => {
         }),
       ),
     )
+
     expect(read.isError).toBe(false)
     const body = JSON.parse(read.text)
     expect(body).toMatchObject({
@@ -945,12 +1011,14 @@ describe('a series of experiments', () => {
       },
       context(fakeClient({ records: [head, run] })),
     )
+
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'series.add',
       seriesRecordId: 'exp-0142',
       memberRecordId: 'exp-0145',
       plannedOn: '2026-11-05',
     })
+
     const taken = await buildPlanningProposal(
       'sheetbase.series.add_member',
       { title: 't', summary: 's', series: 'EXP-0142', experiment: 'EXP-0145' },
@@ -961,6 +1029,7 @@ describe('a series of experiments', () => {
         }),
       ),
     )
+
     expect(!taken.ok && taken.message).toContain('already in EXP-0142')
   })
 
@@ -975,15 +1044,18 @@ describe('a series of experiments', () => {
         }),
       ),
     )
+
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'series.remove',
       memberRecordId: 'exp-0145',
     })
+
     const none = await buildPlanningProposal(
       'sheetbase.series.remove_member',
       { title: 't', summary: 's', experiment: 'EXP-0145' },
       context(fakeClient({ records: [head, run] })),
     )
+
     expect(!none.ok && none.message).toContain('not in a series')
   })
 })

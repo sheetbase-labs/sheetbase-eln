@@ -193,11 +193,13 @@ async function registerDraftEngine(
   parserIdentity: string,
 ): Promise<{ parserId: string; parserVersionId: string }> {
   const identity = /^(.*)@(\d+)$/.exec(parserIdentity)
+
   if (!identity)
     throw new ConnectorStepError(
       'parser_required',
       t('data.tabularIngestion.versionedParserIdentityRequired'),
     )
+
   return client.rpc<{ parserId: string; parserVersionId: string }>(
     'ensure_parser',
     {
@@ -230,9 +232,11 @@ async function mapValidateCommitStages(input: {
   log: StageLog
 }): Promise<{ rowCount: number; datasetId: string; datasetRevision?: number }> {
   const { client, payload, log } = input
+
   for (const warning of payload.warnings) {
     await log('parse', warning, {}, 'warning')
   }
+
   await log(
     'parse',
     t('data.tabularIngestion.parsedDataRows', {
@@ -246,17 +250,20 @@ async function mapValidateCommitStages(input: {
   const mappings =
     input.mappings ??
     suggestImportMappings(payload.headers, input.target.fields)
+
   if (mappings.every((mapping) => mapping.kind === 'ignore')) {
     throw new ConnectorStepError(
       'no_mapping',
       t('data.tabularIngestion.sourceColumnsMappedDataset'),
     )
   }
+
   const mapped = mapImportSheet(
     { name: input.sheetName, headers: payload.headers, rows: payload.rows },
     mappings,
     input.target.schemaVersionId,
   )
+
   await log(
     'map',
     t('data.tabularIngestion.mappedRowsAcrossFields', {
@@ -264,12 +271,14 @@ async function mapValidateCommitStages(input: {
       length2: mappings.filter((m) => m.kind === 'field').length,
     }),
   )
+
   if (mapped.rows.length === 0) {
     throw new ConnectorStepError(
       'no_rows',
       t('data.tabularIngestion.sourcePayloadContainsData'),
     )
   }
+
   if (mapped.errors.length > 0) {
     throw new ConnectorStepError('mapping_failed', mapped.errors[0].message, {
       errors: mapped.errors.slice(0, 20),
@@ -285,12 +294,14 @@ async function mapValidateCommitStages(input: {
       .filter((mapping) => mapping.kind === 'field')
       .map((mapping) => mapping.field.id),
   )
+
   const missingRequired = input.target.fields.filter(
     (field) =>
       field.kind === 'dataset-field' &&
       !field.nullable &&
       !mappedFieldIds.has(field.id),
   )
+
   if (missingRequired.length > 0) {
     throw new ConnectorStepError(
       'required_mapping',
@@ -305,6 +316,7 @@ async function mapValidateCommitStages(input: {
   // Stage — resolve the target Dataset.
   let datasetId = input.target.datasetId ?? null
   let expectedRevision = input.target.expectedRevision ?? null
+
   if (!datasetId) {
     if (!input.target.newDatasetName?.trim()) {
       throw new ConnectorStepError(
@@ -312,11 +324,13 @@ async function mapValidateCommitStages(input: {
         t('data.tabularIngestion.chooseExistingDatasetName'),
       )
     }
+
     const created = await createDataset(client, {
       workspaceId: input.workspaceId,
       schemaVersionId: input.target.schemaVersionId,
       name: input.target.newDatasetName.trim(),
     })
+
     datasetId = created.id
     expectedRevision = created.revision
     await log(
@@ -337,12 +351,14 @@ async function mapValidateCommitStages(input: {
     rowId: row.rowId,
     values: row.values,
   }))
+
   const parser = input.parserVersion
     ? {
         parserId: input.parserVersion.parserId,
         parserVersionId: input.parserVersion.parserVersionId,
       }
     : await registerDraftEngine(client, input.workspaceId, input.parserIdentity)
+
   const committed = await client
     .rpc<DatasetCommitResult>('commit_dataset_import', {
       p_dataset_id: datasetId,
@@ -369,6 +385,7 @@ async function mapValidateCommitStages(input: {
         message,
       )
     })
+
   if (!committed.ok) {
     const first = committed.errors?.[0]
     throw new ConnectorStepError(
@@ -379,6 +396,7 @@ async function mapValidateCommitStages(input: {
       { errors: committed.errors?.slice(0, 20) ?? [] },
     )
   }
+
   const committedCount = committed.rows?.length ?? rows.length
   const datasetRevision = committed.datasetRevision
 
@@ -426,15 +444,19 @@ export async function ingestTabularPayload(
   input: TabularIngestionInput,
 ): Promise<TabularIngestionResult> {
   const payload = input.payload
+
   if (!payload && !input.parse) {
     throw new Error(t('data.tabularIngestion.tabularIngestionRequiresPayload'))
   }
+
   if (!payload && !input.checksum) {
     // The digest must be known before the run starts; a lazily parsed
     // source without a caller-supplied content hash cannot build one.
     throw new Error(t('data.tabularIngestion.tabularIngestionLazyParse'))
   }
+
   const contentSha256 = input.checksum ?? (await payloadContentSha256(payload!))
+
   const requestDigest = await ingestionRequestDigest(
     digestParts({
       connectorId: input.connectorId,
@@ -451,6 +473,7 @@ export async function ingestTabularPayload(
   // recorded as failed runs with a bounded error code.
   const resolvePayload = async (): Promise<ParsedTabularPayload> => {
     if (input.payload) return input.payload
+
     try {
       return await input.parse!()
     } catch (error) {
@@ -463,6 +486,7 @@ export async function ingestTabularPayload(
         /^[a-z][a-z0-9_]{0,59}$/.test(error.code)
           ? error.code
           : null
+
       throw new ConnectorStepError(
         ownCode ?? input.parseErrorCode ?? 'parse_failed',
         error instanceof Error
@@ -492,6 +516,7 @@ export async function ingestTabularPayload(
       },
       async ({ run, log }) => {
         const resolved = await resolvePayload()
+
         const stages = await mapValidateCommitStages({
           client,
           workspaceId: input.workspaceId,
@@ -510,6 +535,7 @@ export async function ingestTabularPayload(
           payload: resolved,
           log,
         })
+
         return {
           rowCount: stages.rowCount,
           metadata: resolved.metadata,
@@ -539,6 +565,7 @@ export async function ingestTabularPayload(
   // user, resolve the failed run and explicitly retry against it — one new
   // linked attempt with the same digest.
   let report = await runOnce()
+
   if (
     report.status === 'failed' &&
     /retry with retry_of_run_id/i.test(report.errorMessage ?? '')
@@ -547,6 +574,7 @@ export async function ingestTabularPayload(
       'connector_runs',
       `?connector_id=eq.${encodeURIComponent(input.connectorId)}&request_digest=eq.${encodeURIComponent(requestDigest)}&status=eq.failed&order=started_at.desc&limit=1`,
     )
+
     if (failedRuns.length > 0) {
       report = await runOnce(failedRuns[0].id)
     }
@@ -567,7 +595,9 @@ export async function ingestTabularPayload(
         report.run.id,
       )
     }
+
     const stored = report.run.result
+
     return {
       runId: report.run.id,
       attempt: report.run.attempt,
@@ -688,6 +718,7 @@ export async function ingestExternalPayload(
     'connector_runs',
     `?connector_id=eq.${encodeURIComponent(input.connectorId)}&selector_digest=eq.${encodeURIComponent(selectorDigest)}&status=eq.failed&order=started_at.desc&limit=1`,
   )
+
   const retryOfRunId = failedRuns[0]?.id ?? null
 
   const report = await executeConnectorRun<IngestionWork>(
@@ -711,14 +742,17 @@ export async function ingestExternalPayload(
       // authentication_failed, source_not_found, download_failed,
       // query_failed, row_limit_exceeded, ...).
       let content: ExternalContentResolution
+
       try {
         content = await input.resolveContent(log)
       } catch (error) {
         if (error instanceof ConnectorExecutionError) {
           throw new ConnectorStepError(error.code, error.message)
         }
+
         throw error
       }
+
       await log(
         'source',
         t('data.tabularIngestion.readSourceContentSha256', {
@@ -749,6 +783,7 @@ export async function ingestExternalPayload(
         datasetRevision?: number
         metadata: Record<string, string>
       } | null = null
+
       try {
         await establishConnectorRunRequest(client, {
           workspaceId: input.workspaceId,
@@ -757,6 +792,7 @@ export async function ingestExternalPayload(
         })
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
+
         if (!/already imported|SB047/i.test(message)) {
           if (/already in progress|SB044/i.test(message)) {
             throw new ConnectorStepError(
@@ -764,8 +800,10 @@ export async function ingestExternalPayload(
               t('data.tabularIngestion.identicalImportAlreadyRunning'),
             )
           }
+
           throw error
         }
+
         const prior = await client.list<{
           id: string
           attempt: number
@@ -774,6 +812,7 @@ export async function ingestExternalPayload(
           'connector_runs',
           `?connector_id=eq.${encodeURIComponent(input.connectorId)}&request_digest=eq.${encodeURIComponent(requestDigest)}&status=eq.succeeded&order=started_at.desc&limit=1`,
         )
+
         const stored = prior[0]?.result ?? {}
         replay = {
           runId: prior[0]?.id ?? '',
@@ -823,6 +862,7 @@ export async function ingestExternalPayload(
       // platform (storage connectors), before mapping and commit.
       let fileRecordId: string | null = null
       let retainedByteSize = content.byteSize ?? null
+
       if (input.retain) {
         const retained = await input.retain(log, content.contentSha256)
         fileRecordId = retained.fileRecordId
@@ -838,12 +878,14 @@ export async function ingestExternalPayload(
 
       // Stages — parse → map → target → validate → commit.
       const resolved = content.payload ?? content.parse?.()
+
       if (!resolved) {
         throw new ConnectorStepError(
           content.parseErrorCode ?? 'parse_failed',
           t('data.tabularIngestion.payloadParseStepSupplied'),
         )
       }
+
       const stages = await mapValidateCommitStages({
         client,
         workspaceId: input.workspaceId,
@@ -860,6 +902,7 @@ export async function ingestExternalPayload(
         payload: resolved,
         log,
       })
+
       return {
         rowCount: stages.rowCount,
         metadata: resolved.metadata,

@@ -239,6 +239,7 @@ describe('blocksFromRevision', () => {
       created_at: '2026-08-17T00:00:00.000Z',
       created_by_user_id: 'u1',
     }
+
     expect(blocksFromRevision(revision)).toEqual([
       {
         id: 'b1',
@@ -354,6 +355,7 @@ describe('inspectorEvidenceFromRevision', () => {
       created_at: '2026-08-17T00:00:00.000Z',
       created_by_user_id: 'u1',
     })
+
     expect(evidence.blocks.map((item) => item.payload.displayName)).toEqual([
       'gel-at-submit.png',
     ])
@@ -374,11 +376,13 @@ describe('updateExperimentMetadata', () => {
         updated_at: '2026-08-18T00:00:00.000Z',
       },
     ])
+
     const result = await updateExperimentMetadata(mockClient({ patch }), {
       recordId: 'r1',
       title: 'Renamed',
       tags: ['a'],
     })
+
     expect(patch).toHaveBeenCalledWith(
       'records',
       '?id=eq.r1&select=id,title,tags,metadata_version,updated_at',
@@ -400,6 +404,7 @@ describe('duplicateExperiment', () => {
       record: recordWire({ title: 'Stability run copy' }),
       blocks: [],
     })
+
     const { record } = await duplicateExperiment(mockClient({ rpc }), {
       source: sourceRecord(),
       blocks: [
@@ -423,6 +428,7 @@ describe('duplicateExperiment', () => {
         }),
       ],
     })
+
     expect(rpc).toHaveBeenCalledWith(
       'create_record_with_blocks',
       expect.objectContaining({
@@ -455,11 +461,14 @@ describe('duplicateExperiment', () => {
       .fn()
       .mockResolvedValueOnce({ record: recordWire(), blocks: [] })
       .mockRejectedValueOnce(new Error('link refused'))
+
     const source = sourceRecord()
+
     const { record } = await duplicateExperiment(mockClient({ rpc }), {
       source,
       blocks: [],
     })
+
     expect(record).toBeDefined()
     expect(rpc).toHaveBeenLastCalledWith(
       'create_record_link',
@@ -476,6 +485,7 @@ describe('duplicateExperiment', () => {
       record: recordWire(),
       blocks: [],
     })
+
     await duplicateExperiment(mockClient({ rpc }), {
       source: sourceRecord(),
       blocks: [],
@@ -498,10 +508,13 @@ describe('duplicateExperiment', () => {
   it('duplicates canonical Sheet Instances onto the new record', async () => {
     const instanceId = '20000000-0000-4000-8000-000000000001'
     const duplicatedId = '20000000-0000-4000-8000-000000000002'
+
     const { fetchSheetInstance, duplicateSheetInstance } =
       await import('#/lib/sheet-instance-data')
+
     const { insertSheetInstanceBlock, insertBlock } =
       await import('#/lib/notebook-mutations')
+
     vi.mocked(insertSheetInstanceBlock).mockClear()
     vi.mocked(insertBlock).mockClear()
     vi.mocked(fetchSheetInstance).mockResolvedValue({
@@ -519,10 +532,12 @@ describe('duplicateExperiment', () => {
       instanceId: duplicatedId,
       structureVersion: 2,
     })
+
     const rpc = vi.fn().mockResolvedValue({
       record: recordWire(),
       blocks: [],
     })
+
     const client = mockClient({ rpc })
     await duplicateExperiment(client, {
       source: sourceRecord(),
@@ -558,10 +573,13 @@ describe('duplicateExperiment', () => {
   it('keeps interleaved Sheet order when duplicating text, Sheet, text', async () => {
     const instanceId = '20000000-0000-4000-8000-000000000001'
     const duplicatedId = '20000000-0000-4000-8000-000000000002'
+
     const { fetchSheetInstance, duplicateSheetInstance } =
       await import('#/lib/sheet-instance-data')
+
     const { insertSheetInstanceBlock, insertBlock } =
       await import('#/lib/notebook-mutations')
+
     vi.mocked(insertSheetInstanceBlock).mockClear()
     vi.mocked(insertBlock).mockClear()
     vi.mocked(fetchSheetInstance).mockResolvedValue({
@@ -587,6 +605,7 @@ describe('duplicateExperiment', () => {
       }),
       structureVersion: 3,
     })
+
     const rpc = vi.fn().mockResolvedValue({
       record: recordWire(),
       blocks: [
@@ -603,6 +622,7 @@ describe('duplicateExperiment', () => {
         },
       ],
     })
+
     const client = mockClient({ rpc })
     await duplicateExperiment(client, {
       source: sourceRecord(),
@@ -652,10 +672,13 @@ describe('duplicateExperiment', () => {
   it('places a leading Sheet first without a blank rich-text placeholder', async () => {
     const instanceId = '20000000-0000-4000-8000-000000000001'
     const duplicatedId = '20000000-0000-4000-8000-000000000002'
+
     const { fetchSheetInstance, duplicateSheetInstance } =
       await import('#/lib/sheet-instance-data')
+
     const { insertSheetInstanceBlock, insertBlock } =
       await import('#/lib/notebook-mutations')
+
     vi.mocked(insertSheetInstanceBlock).mockClear()
     vi.mocked(insertBlock).mockClear()
     vi.mocked(fetchSheetInstance).mockResolvedValue({
@@ -681,10 +704,12 @@ describe('duplicateExperiment', () => {
       }),
       structureVersion: 3,
     })
+
     const rpc = vi.fn().mockResolvedValue({
       record: recordWire(),
       blocks: [],
     })
+
     const client = mockClient({ rpc })
     await duplicateExperiment(client, {
       source: sourceRecord(),
@@ -814,10 +839,12 @@ describe('notebook review activity', () => {
     submission: { state: 'approved', revision_id: 'rev-sub' },
     revision: { id: 'rev-sub', superseded_by_revision_id: null },
   } as NotebookReviewContext
+
   const submitted = {
     submission: { state: 'submitted', revision_id: 'rev-sub' },
     revision: { id: 'rev-sub', superseded_by_revision_id: null },
   } as NotebookReviewContext
+
   const superseded = {
     submission: { state: 'approved', revision_id: 'rev-sub' },
     revision: { id: 'rev-sub', superseded_by_revision_id: 'amend' },
@@ -867,10 +894,12 @@ describe('notebook review activity', () => {
       .mockResolvedValueOnce([
         { id: 'rev-sub', superseded_by_revision_id: null },
       ])
+
     const result = await fetchNotebookReviewContext(
       mockClient({ list }),
       'rec/1',
     )
+
     expect(list).toHaveBeenNthCalledWith(
       1,
       'review_submissions',
@@ -891,6 +920,7 @@ describe('recordFromRevisionSnapshot', () => {
       lockedAt: null,
       lockedByRevisionId: null,
     })
+
     const overlaid = recordFromRevisionSnapshot(live, {
       title: 'Submitted title',
       status: 'in-progress',
@@ -899,6 +929,7 @@ describe('recordFromRevisionSnapshot', () => {
       createdAt: '2026-08-17T00:00:00.000Z',
       updatedAt: '2026-08-18T12:00:00.000Z',
     })
+
     expect(overlaid.title).toBe('Submitted title')
     expect(overlaid.tags).toEqual(['qPCR', 'stability'])
     expect(overlaid.updatedAt).toBe('2026-08-18T12:00:00.000Z')
@@ -914,6 +945,7 @@ describe('notebookQueryKeysAfterSignature', () => {
       submissionId: 'sub1',
       revisionId: 'rev1',
     })
+
     expect(keys).toContainEqual(['notebook', 'record', 'r1'])
     expect(keys).toContainEqual(['notebook', 'blocks', 'r1'])
     expect(keys).toContainEqual(['notebook', 'review', 'r1'])

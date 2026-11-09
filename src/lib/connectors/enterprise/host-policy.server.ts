@@ -28,6 +28,7 @@ const PRIVATE_HOSTNAMES = new Set(['localhost', '127.0.0.1', '::1'])
 function isPrivateIp(host: string): boolean {
   if (host.startsWith('[') && host.endsWith(']')) {
     const bracketed = host.slice(1, -1)
+
     return (
       bracketed === '::1' ||
       bracketed.toLowerCase().startsWith('fe80:') ||
@@ -35,15 +36,23 @@ function isPrivateIp(host: string): boolean {
       bracketed.toLowerCase().startsWith('fd')
     )
   }
+
   const parts = host.split('.')
+
   if (parts.length !== 4 || parts.some((part) => !/^\d{1,3}$/.test(part))) {
     return false
   }
+
   const [a, b] = parts.map(Number)
+
   if (a === 10 || a === 127) return true
+
   if (a === 192 && b === 168) return true
+
   if (a === 172 && b >= 16 && b <= 31) return true
+
   if (a === 169 && b === 254) return true
+
   return false
 }
 
@@ -60,13 +69,17 @@ function allowlist(): string[] {
 
 function hostAllowedByAllowlist(host: string): boolean {
   const entries = allowlist()
+
   if (entries.length === 0) return true
   const normalized = host.toLowerCase().replace(/^\[|\]$/g, '')
+
   return entries.some((entry) => {
     if (entry.startsWith('*.')) {
       const suffix = entry.slice(1)
+
       return normalized.endsWith(suffix)
     }
+
     return normalized === entry
   })
 }
@@ -83,11 +96,13 @@ function checkHost(host: string, what: string): void {
   if (!host || host.includes('/') || host.includes('\\')) {
     throw new ConnectorEndpointError(`${what} is malformed.`)
   }
+
   if (!hostAllowedByAllowlist(host)) {
     throw new ConnectorEndpointError(
       `${what} is not on this deployment's connector host allowlist.`,
     )
   }
+
   if (
     !allowPrivateHosts() &&
     (PRIVATE_HOSTNAMES.has(host) || isPrivateIp(host))
@@ -104,25 +119,31 @@ function checkHost(host: string, what: string): void {
  */
 export function validateConnectorEndpointUrl(raw: string): URL {
   let url: URL
+
   try {
     url = new URL(raw)
   } catch {
     throw new ConnectorEndpointError('The endpoint URL is malformed.')
   }
+
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
     throw new ConnectorEndpointError(
       'Only http(s) endpoint URLs are supported for connectors.',
     )
   }
+
   if (url.username || url.password) {
     throw new ConnectorEndpointError(
       'Endpoint URLs must not embed credentials; store them as connector secrets.',
     )
   }
+
   if (!url.hostname) {
     throw new ConnectorEndpointError('The endpoint URL has no host.')
   }
+
   checkHost(url.hostname, 'The endpoint host')
+
   return url
 }
 
@@ -137,8 +158,10 @@ export function validateConnectorHost(host: string, port: number): void {
   ) {
     throw new ConnectorEndpointError('The database host is malformed.')
   }
+
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
     throw new ConnectorEndpointError('The database port is malformed.')
   }
+
   checkHost(host.replace(/^\[|\]$/g, ''), 'The database host')
 }

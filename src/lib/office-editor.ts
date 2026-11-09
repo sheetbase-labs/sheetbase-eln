@@ -28,12 +28,14 @@ export type EditableExtension = (typeof EDITABLE_EXTENSIONS)[number]
 
 export function fileExtension(name: string): string {
   const dot = name.lastIndexOf('.')
+
   return dot < 0 ? '' : name.slice(dot + 1).toLowerCase()
 }
 
 /** The extension the editor would open this file with, or null. */
 export function editableExtension(name: string): EditableExtension | null {
   const ext = fileExtension(name)
+
   return (EDITABLE_EXTENSIONS as readonly string[]).includes(ext)
     ? (ext as EditableExtension)
     : null
@@ -53,6 +55,7 @@ export function officeEditorConfig(env: {
   BETTER_AUTH_URL: string
 }): OfficeEditorConfig | null {
   if (!env.OFFICE_EDITOR_URL) return null
+
   return {
     editorUrl: env.OFFICE_EDITOR_URL.replace(/\/+$/, ''),
     wopiHostUrl: (
@@ -113,7 +116,9 @@ export async function verifyWopiToken(
       await hmacKey(wopiSecret(secret), 'verify'),
       { audience: 'wopi' },
     )
+
     const p = payload as Partial<WopiTokenClaims>
+
     if (
       typeof p.fileRecordId !== 'string' ||
       typeof p.userId !== 'string' ||
@@ -122,6 +127,7 @@ export async function verifyWopiToken(
     ) {
       return null
     }
+
     return {
       fileRecordId: p.fileRecordId,
       userId: p.userId,
@@ -152,14 +158,18 @@ export function editorActionUrl(
 ): string | null {
   for (const tag of discoveryXml.matchAll(/<action\b[^>]*>/g)) {
     const attrs = new Map<string, string>()
+
     for (const m of tag[0].matchAll(/([\w-]+)="([^"]*)"/g)) {
       attrs.set(m[1], m[2])
     }
+
     if (attrs.get('ext') === ext && attrs.get('name') === action) {
       const url = attrs.get('urlsrc')
+
       if (url) return url.replace(/&amp;/g, '&')
     }
   }
+
   return null
 }
 
@@ -171,6 +181,7 @@ export async function fetchDiscovery(
   fetcher: typeof fetch = fetch,
 ): Promise<string> {
   const now = Date.now()
+
   if (
     discoveryCache &&
     discoveryCache.url === editorUrl &&
@@ -178,18 +189,22 @@ export async function fetchDiscovery(
   ) {
     return discoveryCache.xml
   }
+
   const res = await fetcher(`${editorUrl}/hosting/discovery`, {
     signal: AbortSignal.timeout(8000),
   })
+
   if (!res.ok) throw new Error(`editor discovery answered ${res.status}`)
   const xml = await res.text()
   discoveryCache = { url: editorUrl, xml, at: now }
+
   return xml
 }
 
 /** The address the iframe form posts to: the editor's own URL plus WOPISrc. */
 export function editorFormAction(urlsrc: string, wopiSrc: string): string {
   const sep = urlsrc.includes('?') ? (urlsrc.endsWith('?') ? '' : '&') : '?'
+
   return `${urlsrc}${sep}WOPISrc=${encodeURIComponent(wopiSrc)}`
 }
 
@@ -211,11 +226,15 @@ export class WopiLocks {
 
   current(fileId: string): string | null {
     const entry = this.held.get(fileId)
+
     if (!entry) return null
+
     if (entry.expires <= this.now()) {
       this.held.delete(fileId)
+
       return null
     }
+
     return entry.lock
   }
 
@@ -225,29 +244,36 @@ export class WopiLocks {
     lock: string,
   ): { ok: true } | { ok: false; held: string } {
     const current = this.current(fileId)
+
     if (current !== null && current !== lock)
       return { ok: false, held: current }
     this.held.set(fileId, { lock, expires: this.now() + LOCK_TTL_MS })
+
     return { ok: true }
   }
 
   refresh(fileId: string, lock: string) {
     const current = this.current(fileId)
+
     if (current !== lock) return { ok: false as const, held: current ?? '' }
     this.held.set(fileId, { lock, expires: this.now() + LOCK_TTL_MS })
+
     return { ok: true as const }
   }
 
   unlock(fileId: string, lock: string) {
     const current = this.current(fileId)
+
     if (current !== lock) return { ok: false as const, held: current ?? '' }
     this.held.delete(fileId)
+
     return { ok: true as const }
   }
 
   /** A save may go ahead when nothing holds the file or the caller's lock does. */
   allowsWrite(fileId: string, lock: string | null): boolean {
     const current = this.current(fileId)
+
     return current === null || current === lock
   }
 }

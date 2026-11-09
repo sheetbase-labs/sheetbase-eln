@@ -21,6 +21,7 @@ import type { ChartColumn, ChartSpec } from './chart-spec'
 import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
 
 export const COMPARATIVE_VIEW_TYPES = ['time_series', 'distribution'] as const
+
 export type ComparativeViewType = (typeof COMPARATIVE_VIEW_TYPES)[number]
 
 /** Version of the comparative-view envelope (no canonical spec module). */
@@ -94,16 +95,20 @@ export function validateComparativeViewConfig(config: unknown): string[] {
   if (typeof config !== 'object' || config === null || Array.isArray(config)) {
     return ['config must be an object']
   }
+
   const errors: string[] = []
   const c = config as Record<string, unknown>
+
   if (c.configVersion !== COMPARATIVE_VIEW_CONFIG_VERSION) {
     errors.push(
       `config.configVersion must be ${COMPARATIVE_VIEW_CONFIG_VERSION}`,
     )
   }
+
   if (!isNonEmptyString(c.datasetId)) {
     errors.push('config.datasetId is required')
   }
+
   if (
     c.versionId !== null &&
     c.versionId !== undefined &&
@@ -111,6 +116,7 @@ export function validateComparativeViewConfig(config: unknown): string[] {
   ) {
     errors.push('config.versionId must be a stable version ID or null')
   }
+
   if (
     c.viewType !== 'time_series' &&
     (c.viewType as string) !== 'distribution'
@@ -119,12 +125,15 @@ export function validateComparativeViewConfig(config: unknown): string[] {
       `config.viewType must be one of ${COMPARATIVE_VIEW_TYPES.join(', ')}`,
     )
   }
+
   if (c.viewType === 'time_series' && !isNonEmptyString(c.timeField)) {
     errors.push('config.timeField is required for time_series views')
   }
+
   if (!isNonEmptyString(c.valueField)) {
     errors.push('config.valueField is required')
   }
+
   if (!Array.isArray(c.groupBy) || c.groupBy.length === 0) {
     errors.push('config.groupBy must list at least one explicit field')
   } else {
@@ -134,6 +143,7 @@ export function validateComparativeViewConfig(config: unknown): string[] {
       }
     })
     const seen = new Set<string>()
+
     for (const field of c.groupBy) {
       if (typeof field === 'string') {
         if (seen.has(field)) errors.push(`config.groupBy duplicates ${field}`)
@@ -141,6 +151,7 @@ export function validateComparativeViewConfig(config: unknown): string[] {
       }
     }
   }
+
   if (c.facetBy !== null && c.facetBy !== undefined) {
     if (!isNonEmptyString(c.facetBy)) {
       errors.push('config.facetBy must be an explicit field ID or null')
@@ -148,6 +159,7 @@ export function validateComparativeViewConfig(config: unknown): string[] {
       errors.push('config.facetBy must not duplicate a groupBy field')
     }
   }
+
   return errors
 }
 
@@ -159,11 +171,15 @@ export function validateComparativeViewConfig(config: unknown): string[] {
  */
 export function toComparableNumber(value: unknown): number | null {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null
+
   if (typeof value === 'string' && value.trim() !== '') {
     const n = Number(value)
+
     return Number.isFinite(n) ? n : null
   }
+
   if (typeof value === 'boolean') return value ? 1 : 0
+
   return null
 }
 
@@ -175,8 +191,10 @@ export function summarizeValues(
   const sorted = [...values].sort((a, b) => a - b)
   const sum = sorted.reduce((acc, v) => acc + v, 0)
   const mid = Math.floor(sorted.length / 2)
+
   const median =
     sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+
   return {
     n: sorted.length,
     min: sorted[0],
@@ -211,16 +229,22 @@ export function groupRowsByFields(
   rows.forEach((row, index) => {
     const parts = fieldIds.map((fieldId) => {
       const v = row[fieldId]
+
       return v === null || v === undefined ? null : String(v)
     })
+
     const key = JSON.stringify(parts)
+
     const label = parts
       .map((part) => (part === null ? COMPARATIVE_VIEW_MISSING_LABEL : part))
       .join(' · ')
+
     const existing = groups.get(key)
+
     if (existing) existing.rowIndexes.push(index)
     else groups.set(key, { label, rowIndexes: [index] })
   })
+
   return [...groups.entries()]
     .sort(([a], [b]) => compareKeys(a, b))
     .map(([key, group]) => ({ key, ...group }))
@@ -244,33 +268,44 @@ export function shapeComparativeView(
   const byKey = new Map(grouped.map((g) => [g.key, g]))
   const expected = opts?.expectedKeys ?? []
   const emptyGroupKeys: string[] = []
+
   for (const { key } of expected) {
     if (!byKey.has(key)) emptyGroupKeys.push(key)
   }
+
   const orderedKeys = [
     ...grouped.map((g) => g.key),
     ...emptyGroupKeys.sort(compareKeys),
   ]
+
   let droppedNullValues = 0
+
   const groups: ComparativeGroup[] = orderedKeys.map((key) => {
     const group = byKey.get(key)
     const rowIndexes = group?.rowIndexes ?? []
+
     const label =
       group?.label ?? expected.find((e) => e.key === key)?.label ?? key
+
     const values: number[] = []
     let nullCount = 0
     let facet: string | null = null
     const facetParts = new Set<string | null>()
+
     for (const index of rowIndexes) {
       const row = rows[index]
+
       if (config.facetBy) {
         const raw = row[config.facetBy]
         facetParts.add(raw === null || raw === undefined ? null : String(raw))
       }
+
       const v = toComparableNumber(row[config.valueField])
+
       if (v === null) nullCount++
       else values.push(v)
     }
+
     // A facet labels the group only when every row agrees on it (a missing
     // facet counts as a value: mixing missing and present is mixed, not
     // uniform). Mixed groups report null rather than picking a facet.
@@ -282,7 +317,9 @@ export function shapeComparativeView(
         facet = null
       }
     }
+
     droppedNullValues += nullCount
+
     return {
       key,
       label,
@@ -293,6 +330,7 @@ export function shapeComparativeView(
       stats: summarizeValues(values),
     }
   })
+
   return { groups, emptyGroupKeys, totalRows: rows.length, droppedNullValues }
 }
 
@@ -316,14 +354,18 @@ export function promoteToChartSpec(
   columns?: ChartColumn[],
 ): ChartSpec {
   const errors = validateComparativeViewConfig(config)
+
   if (errors.length > 0) {
     throw new Error(`Invalid comparative view config: ${errors.join('; ')}`)
   }
+
   const seriesField = config.groupBy[0] ?? null
   const facetField = config.facetBy ?? null
   const yLabel = columnLabel(columns, config.valueField)
+
   if (config.viewType === 'distribution') {
     const seriesLabel = seriesField ? columnLabel(columns, seriesField) : 'all'
+
     return {
       specVersion: CHART_SPEC_VERSION,
       type: 'box',
@@ -350,7 +392,9 @@ export function promoteToChartSpec(
       overlays: { errorBars: null },
     }
   }
+
   const xField = config.timeField as string
+
   return {
     specVersion: CHART_SPEC_VERSION,
     type: 'line',
@@ -377,7 +421,9 @@ export function promoteToChartSpec(
     overlays: { errorBars: null },
   }
 }
+
 const NUMERIC_TYPES: ReadonlySet<string> = new Set(['decimal', 'integer'])
+
 const GROUPABLE_TYPES: ReadonlySet<string> = new Set([
   'category',
   'text',
@@ -399,13 +445,17 @@ export function buildDefaultComparativeViewConfig(source: {
   const numerics = source.columns.filter((c) =>
     NUMERIC_TYPES.has(c.logicalType),
   )
+
   const groupable = source.columns.find((c) =>
     GROUPABLE_TYPES.has(c.logicalType),
   )
+
   if (numerics.length === 0 || !groupable) return null
   const valueField = numerics[0].id
+
   const timeField =
     numerics.find((c) => c.id !== valueField)?.id ?? numerics[0].id
+
   return {
     configVersion: COMPARATIVE_VIEW_CONFIG_VERSION,
     datasetId: source.datasetId,
@@ -435,6 +485,7 @@ export function buildDefaultComparativeViewConfig(source: {
  *                never a label-inferred join.
  */
 export const COMPARATIVE_MATCH_MODES = ['row_key', 'position', 'field'] as const
+
 export type ComparativeMatchMode = (typeof COMPARATIVE_MATCH_MODES)[number]
 
 export const COMPARATIVE_MATCH_MODE_LABELS: Record<
@@ -511,12 +562,16 @@ function pairingKey(
   position: number,
 ): string | null {
   if (matchBy === 'position') return String(position)
+
   if (matchBy === 'field') {
     if (!fieldId) return null
     const value = row[fieldId]
+
     return value === null || value === undefined ? null : String(value)
   }
+
   const key = row[CHART_ROW_ID_KEY]
+
   return typeof key === 'string' && key.length > 0 ? key : null
 }
 
@@ -535,6 +590,7 @@ export function pairComparativeSides(
   fieldLabel?: string | null,
 ): ComparativePairing {
   const rule = describeComparativeMatchRule(matchBy, fieldLabel)
+
   const empty: ComparativePairing = {
     rows: [],
     matchedCount: 0,
@@ -543,11 +599,13 @@ export function pairComparativeSides(
     changedCount: 0,
     rule,
   }
+
   if (!sides.a || !sides.b) return empty
 
   const grouped = groupRowsByFields(rows, config.groupBy)
   const sideA = grouped.find((group) => group.key === sides.a)
   const sideB = grouped.find((group) => group.key === sides.b)
+
   if (!sideA || !sideB) return empty
 
   const collect = (group: GroupedRows) =>
@@ -560,6 +618,7 @@ export function pairComparativeSides(
 
   const entriesA = collect(sideA)
   const entriesB = collect(sideB)
+
   return assemblePairing(entriesA, entriesB, rule)
 }
 
@@ -578,12 +637,14 @@ function collectPairEntries(
     // A row with no key under the chosen rule cannot be paired honestly; it
     // is folded into the `(no key)` bucket instead of being dropped.
     const resolved = key ?? COMPARATIVE_MATCH_MISSING_LABEL
+
     const label =
       matchBy === 'position'
         ? `#${resolved}`
         : matchBy === 'field'
           ? `${resolved}`
           : resolved
+
     // Duplicate keys keep the first row's value: the key is the identity.
     if (!entries.has(resolved)) {
       entries.set(resolved, {
@@ -592,6 +653,7 @@ function collectPairEntries(
       })
     }
   })
+
   return entries
 }
 
@@ -603,13 +665,16 @@ function assemblePairing(
   const keys = [...new Set([...entriesA.keys(), ...entriesB.keys()])].sort(
     compareKeys,
   )
+
   const paired: ComparativePairedRow[] = keys.map((key) => {
     const a = entriesA.get(key)
     const b = entriesB.get(key)
     const aValue = a?.value ?? null
     const bValue = b?.value ?? null
+
     const presence: ComparativePresence =
       a && b ? 'both' : a ? 'a-only' : 'b-only'
+
     return {
       key,
       label: a?.label ?? b?.label ?? key,
@@ -619,6 +684,7 @@ function assemblePairing(
       presence,
     }
   })
+
   return {
     rows: paired,
     matchedCount: paired.filter((row) => row.presence === 'both').length,
@@ -653,6 +719,7 @@ export function pairComparativeSources(
   matchFieldLabel?: string | null,
 ): ComparativePairing {
   const rule = describeComparativeMatchRule(matchBy, matchFieldLabel)
+
   return assemblePairing(
     collectPairEntries(a.rows, a.valueField, matchBy, a.matchField),
     collectPairEntries(b.rows, b.valueField, matchBy, b.matchField),

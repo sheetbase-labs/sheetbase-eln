@@ -19,7 +19,9 @@ function dayLabel(value: string): string {
 export function DatasetIssueActions({ dataset }: { dataset: DatasetListRow }) {
   const missingUnit = dataset.missingUnitFields.length > 0
   const outOfRange = dataset.outOfRange > 0
+
   if (!missingUnit && !outOfRange) return null
+
   return (
     <div className="mt-2 flex flex-wrap gap-2">
       {missingUnit ? (
@@ -67,6 +69,7 @@ export function DatasetIssueActions({ dataset }: { dataset: DatasetListRow }) {
 export function DatasetInspector({ dataset }: { dataset: DatasetListRow }) {
   const validation = datasetValidation(dataset)
   const hasIssues = dataset.issues > 0
+
   return (
     <Inspector
       aria-label={t('data.datasetInspector.ariaDataset')}

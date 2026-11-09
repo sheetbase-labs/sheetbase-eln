@@ -55,6 +55,7 @@ export function ScientificRecordSummary({
   className,
 }: ScientificRecordSummaryProps) {
   const kind = isScientificRecordKind(record.kind) ? record.kind : null
+
   const entries = kind
     ? summariseProperties(kind, record.properties, fieldDefinitions)
     : []

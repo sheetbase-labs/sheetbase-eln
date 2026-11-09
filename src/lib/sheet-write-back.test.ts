@@ -26,9 +26,11 @@ const configuration = validSheetDefinitionConfiguration()
 const mappedColumn = configuration.columns[0]
 const unmappedColumn = configuration.columns[1]
 const calculatedColumn = configuration.columns[2]
+
 const mappedSource = (() => {
   if (mappedColumn.source.kind !== 'bound')
     throw new Error('invalid test fixture')
+
   return mappedColumn.source
 })()
 
@@ -152,11 +154,13 @@ function twoColumnConfiguration() {
     targetFieldId: SECOND_FIELD,
   })
   configuration.presentation.columnOrder.push(SECOND_COLUMN)
+
   return parseSheetDefinitionConfiguration(configuration)
 }
 
 function twoColumnDatasetWire(matched = true) {
   const config = twoColumnConfiguration()
+
   return {
     instanceId: INSTANCE,
     definitionVersionId: VERSION,
@@ -204,6 +208,7 @@ const RECORD_B = '30000000-0000-4000-8000-000000000021'
 const secondColumnSource = (() => {
   if (unmappedColumn.source.kind !== 'bound')
     throw new Error('invalid test fixture')
+
   return unmappedColumn.source
 })()
 
@@ -220,6 +225,7 @@ function twoWritableBindingConfiguration() {
       },
     ],
   })
+
   return parseSheetDefinitionConfiguration(configuration)
 }
 
@@ -240,6 +246,7 @@ function twoWritableBindingWire(
       },
 ) {
   const config = twoWritableBindingConfiguration()
+
   return {
     instanceId: INSTANCE,
     definitionVersionId: VERSION,
@@ -360,6 +367,7 @@ describe('composed Sheet write-back', () => {
   it('dispatches exact Dataset, Model and active local payloads from the snapshot', async () => {
     const dataset = await snapshot(datasetWire())
     const datasetRpc = vi.fn().mockResolvedValue({ ok: true })
+
     const datasetInput = {
       composition: dataset,
       rowKey: dataset.rows[0].rowKey,
@@ -367,6 +375,7 @@ describe('composed Sheet write-back', () => {
       retryToken: TOKEN,
       value: RECORD,
     }
+
     await writeSheetCell(datasetInput, clientWithRpc(datasetRpc))
     await writeSheetCell(datasetInput, clientWithRpc(datasetRpc))
     expect(datasetRpc).toHaveBeenNthCalledWith(1, 'commit_dataset_row_batch', {
@@ -446,12 +455,14 @@ describe('composed Sheet write-back', () => {
     )
 
     const dataset = await snapshot(datasetWire())
+
     const resolve = (composition: ComposedSheetSnapshot, columnId: string) =>
       resolveSheetWriteTarget({
         composition,
         rowKey: composition.rows[0].rowKey,
         columnId,
       })
+
     expect(() => resolve(dataset, unmappedColumn.id)).toThrow(
       'unresolved_target',
     )
@@ -496,6 +507,7 @@ describe('composed Sheet write-back', () => {
     const RECORD2 = '30000000-0000-4000-8000-000000000017'
     const ROW2 = '30000000-0000-4000-8000-000000000018'
     const base = datasetWire()
+
     const twoRows = {
       ...base,
       rows: [
@@ -515,6 +527,7 @@ describe('composed Sheet write-back', () => {
         },
       ],
     }
+
     const composition = await snapshot(twoRows)
     const rpc = vi.fn().mockResolvedValue({ ok: true })
     await writeSheetCells(
@@ -610,6 +623,7 @@ describe('composed Sheet write-back', () => {
 
   it('validates the bulk batch before the authoritative commit (GRID-02)', async () => {
     const composition = await snapshot(datasetWire())
+
     const rpc = vi.fn().mockImplementation((name: string) => {
       if (name === 'validate_dataset_row_batch') {
         return Promise.resolve({
@@ -617,8 +631,10 @@ describe('composed Sheet write-back', () => {
           errors: [{ code: 'invalid_value', rowId: ROW }],
         })
       }
+
       return Promise.resolve({ ok: true })
     })
+
     await expect(
       writeSheetCells(
         {
@@ -708,6 +724,7 @@ describe('composed Sheet write-back', () => {
     const RECORD2 = '30000000-0000-4000-8000-000000000017'
     const ROW2 = '30000000-0000-4000-8000-000000000018'
     const base = twoColumnDatasetWire()
+
     const wire = {
       ...base,
       rows: [
@@ -730,6 +747,7 @@ describe('composed Sheet write-back', () => {
         },
       ],
     }
+
     const composition = await snapshot(wire)
     const rpc = vi.fn().mockResolvedValue({ ok: true })
     await writeSheetCells(
@@ -813,9 +831,11 @@ describe('composed Sheet write-back', () => {
 
   it('still dispatches a pure-local batch as a single mutation (GRID-02)', async () => {
     const composition = await snapshot(datasetWire())
+
     const rpc = vi
       .fn()
       .mockRejectedValue(new Error('stop after local dispatch'))
+
     const rowKey = composition.rows[0].rowKey
     await expect(
       writeSheetCells(
@@ -898,14 +918,17 @@ describe('GRID-02 mixed-authority rejection', () => {
 
   it('rejects Dataset + local even when the bound batch would fail validation — nothing is written', async () => {
     const composition = await snapshot(datasetWire())
+
     const rpc = vi.fn().mockImplementation((name: string) => {
       if (name === 'validate_dataset_row_batch')
         return Promise.resolve({
           ok: false,
           errors: [{ code: 'invalid_value' }],
         })
+
       return Promise.resolve({ ok: true })
     })
+
     const rowKey = composition.rows[0].rowKey
     await expect(
       writeSheetCells(
@@ -927,14 +950,17 @@ describe('GRID-02 mixed-authority rejection', () => {
 describe('GRID-02 review fixes', () => {
   it('treats a commit that returns ok:false as a rejected write, not success', async () => {
     const composition = await snapshot(datasetWire())
+
     const rpc = vi.fn().mockImplementation((name: string) => {
       if (name === 'validate_dataset_row_batch')
         return Promise.resolve({ ok: true })
+
       return Promise.resolve({
         ok: false,
         errors: [{ code: 'stale_row_revision', rowId: ROW }],
       })
     })
+
     await expect(
       writeSheetCells(
         {
@@ -955,6 +981,7 @@ describe('GRID-02 review fixes', () => {
 
   it('propagates a validate→commit revision race as a rejected batch', async () => {
     const composition = await snapshot(datasetWire())
+
     const rpc = vi
       .fn()
       .mockImplementation((name: string) =>
@@ -962,6 +989,7 @@ describe('GRID-02 review fixes', () => {
           ? Promise.resolve({ ok: true })
           : Promise.resolve({ ok: false }),
       )
+
     await expect(
       writeSheetCells(
         {

@@ -29,6 +29,7 @@ export type AvatarMediaType = 'image/png' | 'image/jpeg' | 'image/webp'
 /** Reads the image type from the leading bytes, never from the request. */
 export function sniffAvatarType(bytes: Uint8Array): AvatarMediaType | null {
   const at = (index: number) => bytes[index]
+
   if (
     bytes.length >= 8 &&
     at(0) === 0x89 &&
@@ -42,9 +43,11 @@ export function sniffAvatarType(bytes: Uint8Array): AvatarMediaType | null {
   ) {
     return 'image/png'
   }
+
   if (bytes.length >= 3 && at(0) === 0xff && at(1) === 0xd8 && at(2) === 0xff) {
     return 'image/jpeg'
   }
+
   if (
     bytes.length >= 12 &&
     String.fromCharCode(at(0), at(1), at(2), at(3)) === 'RIFF' &&
@@ -52,6 +55,7 @@ export function sniffAvatarType(bytes: Uint8Array): AvatarMediaType | null {
   ) {
     return 'image/webp'
   }
+
   return null
 }
 
@@ -68,22 +72,29 @@ async function readCapped(
   const reader = body.getReader()
   const parts: Uint8Array[] = []
   let total = 0
+
   for (;;) {
     const { done, value } = await reader.read()
+
     if (done) break
     total += value.byteLength
+
     if (total > maxBytes) {
       await reader.cancel().catch(() => undefined)
       throw new OversizeError(`photo exceeds ${maxBytes} bytes`, maxBytes)
     }
+
     parts.push(value)
   }
+
   const joined = new Uint8Array(total)
   let offset = 0
+
   for (const part of parts) {
     joined.set(part, offset)
     offset += part.byteLength
   }
+
   return joined
 }
 
@@ -118,13 +129,16 @@ export async function handleMyAvatar(
   if (request.method !== 'PUT' && request.method !== 'DELETE') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use PUT or DELETE.')
   }
+
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
 
   if (request.method === 'DELETE') {
     const cleared = await postgrestRpc('clear_my_photo', {}, context.token)
+
     if (cleared.status >= 400) {
       return requestErrorResponse(
         cleared.status,
@@ -132,20 +146,26 @@ export async function handleMyAvatar(
         'Your photo could not be removed.',
       )
     }
+
     await removeQuietly(storage, previousKey(cleared.body))
+
     return new Response(null, { status: 204 })
   }
 
   let bytes: Uint8Array
+
   try {
     bytes = await readCapped(request.body, AVATAR_MAX_BYTES)
   } catch (error) {
     if (error instanceof OversizeError) {
       return requestErrorResponse(413, 'oversize', 'Choose a photo under 2 MB.')
     }
+
     throw error
   }
+
   const mediaType = sniffAvatarType(bytes)
+
   if (!mediaType) {
     return requestErrorResponse(
       415,
@@ -156,20 +176,25 @@ export async function handleMyAvatar(
 
   const key = avatarStorageKey(context.userId)
   await storage.putStream(key, streamOf(bytes), AVATAR_MAX_BYTES)
+
   const saved = await postgrestRpc(
     'set_my_photo',
     { p_storage_key: key, p_media_type: mediaType },
     context.token,
   )
+
   if (saved.status >= 400) {
     await removeQuietly(storage, key)
+
     return requestErrorResponse(
       saved.status,
       'photo_not_saved',
       'Your photo could not be saved.',
     )
   }
+
   await removeQuietly(storage, previousKey(saved.body))
+
   return new Response(JSON.stringify({ mediaType }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
@@ -186,19 +211,27 @@ export async function handleAvatarDownload(
   if (request.method !== 'GET') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use GET.')
   }
+
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
+
   const found = await postgrestRpc<
     Array<{ storage_key: string; media_type: string }>
   >('member_photo', { p_user_id: userId }, auth.context.token)
+
   const row = Array.isArray(found.body) ? found.body[0] : undefined
+
   if (found.status >= 400 || !row) {
     return requestErrorResponse(404, 'not_found', 'No photo.')
   }
+
   const head = await storage.head(row.storage_key)
+
   if (!head) return requestErrorResponse(404, 'not_found', 'No photo.')
   const { stream, byteSize } = await storage.getStream(row.storage_key)
+
   // The client asks with `?v=<version>`, which changes with every new photo,
   // so a long private cache never shows a stale one.
   return new Response(stream, {

@@ -42,6 +42,7 @@ const STATE_LABEL: Record<string, string> = {
  * one went. Each row opens its review. */
 function Submissions() {
   const { expId } = Route.useParams()
+
   const submissions = useQuery({
     queryKey: ['ui-port', 'experiment-submissions', expId],
     queryFn: () =>
@@ -50,13 +51,16 @@ function Submissions() {
         `?record_id=eq.${encodeURIComponent(expId)}&order=submitted_at.desc&select=id,revision_id,state,submitted_at,submitted_by_user_id,assigned_reviewer_user_ids`,
       ),
   })
+
   const rows = submissions.data ?? []
+
   const { userLabel } = useUserNames(
     rows.flatMap((row) => [
       row.submitted_by_user_id,
       ...row.assigned_reviewer_user_ids,
     ]),
   )
+
   return (
     <div className="min-w-0 flex-1 px-4 py-4 md:px-8">
       {submissions.isError ? (

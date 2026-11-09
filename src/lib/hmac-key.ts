@@ -17,6 +17,7 @@ const keys = new Map<string, Promise<CryptoKey>>()
 export function hmacKey(secret: string, use: HmacKeyUse): Promise<CryptoKey> {
   const cacheKey = `${use}\u0000${secret}`
   let key = keys.get(cacheKey)
+
   if (!key) {
     key = crypto.subtle.importKey(
       'raw',
@@ -32,5 +33,6 @@ export function hmacKey(secret: string, use: HmacKeyUse): Promise<CryptoKey> {
     })
     keys.set(cacheKey, pending)
   }
+
   return key
 }

@@ -134,10 +134,14 @@ export function orderFavourites(
 ): Favourite[] {
   const sorted = [...favourites].sort((a, b) => {
     const diff = Date.parse(b.createdAt) - Date.parse(a.createdAt)
+
     if (diff !== 0) return diff
+
     if (a.kind !== b.kind) return a.kind < b.kind ? -1 : 1
+
     return a.id < b.id ? -1 : 1
   })
+
   return sorted.slice(0, limit)
 }
 
@@ -155,8 +159,10 @@ export function applyFavouriteChange(
   const without = favourites.filter(
     (f) => !(f.kind === kind && f.id === objectId),
   )
+
   if (!favourite) return without
   const existing = favourites.find((f) => f.kind === kind && f.id === objectId)
+
   return [
     {
       kind,
@@ -215,6 +221,7 @@ export function setFavourite(
     })
     .then((row) => {
       if (typeof row === 'string') return row
+
       return row?.created_at ?? null
     })
 }
@@ -265,6 +272,7 @@ export async function resolveFavouriteItems(
   if (favourites.length === 0) return []
 
   const idsByKind = new Map<FavouriteObjectKind, string[]>()
+
   for (const favourite of favourites) {
     const ids = idsByKind.get(favourite.kind) ?? []
     ids.push(favourite.id)
@@ -319,13 +327,16 @@ export async function resolveFavouriteItems(
     (Object.keys(NAMED_KINDS) as (keyof typeof NAMED_KINDS)[]).map(
       async (kind) => {
         const ids = idsByKind.get(kind)
+
         if (!ids) return [] as [string, NamedLabelWire][]
+
         const rows = await listByIds(ids, (inList) =>
           client.list<NamedLabelWire>(
             NAMED_KINDS[kind],
             `?id=in.(${inList})&select=id,name,display_id`,
           ),
         )
+
         return rows.map((row): [string, NamedLabelWire] => [
           `${kind}:${row.id}`,
           row,
@@ -333,6 +344,7 @@ export async function resolveFavouriteItems(
       },
     ),
   )
+
   const namedByKey = new Map(namedRows.flat())
 
   const recordById = new Map(
@@ -346,24 +358,28 @@ export async function resolveFavouriteItems(
       },
     ]),
   )
+
   const datasetById = new Map(
     datasetRows.map((d) => [
       d.id,
       { name: d.name, openable: d.lifecycle === 'active' },
     ]),
   )
+
   const sheetById = new Map(
     sheetRows.map((s) => [
       s.id,
       { name: s.name, openable: s.lifecycle === 'active' },
     ]),
   )
+
   const templateById = new Map(
     templateRows.map((t) => [
       t.id,
       { key: t.key, name: t.name, openable: t.lifecycle === 'active' },
     ]),
   )
+
   const projectById = new Map(
     projectRows.map((p) => [
       p.id,
@@ -377,10 +393,12 @@ export async function resolveFavouriteItems(
   )
 
   const resolved: FavouriteItem[] = []
+
   for (const favourite of favourites) {
     switch (favourite.kind) {
       case 'record': {
         const record = recordById.get(favourite.id)
+
         if (!record || !record.openable) break
         resolved.push({
           ...favourite,
@@ -390,8 +408,10 @@ export async function resolveFavouriteItems(
         })
         break
       }
+
       case 'dataset': {
         const dataset = datasetById.get(favourite.id)
+
         if (!dataset || !dataset.openable) break
         resolved.push({
           ...favourite,
@@ -401,8 +421,10 @@ export async function resolveFavouriteItems(
         })
         break
       }
+
       case 'sheet': {
         const sheet = sheetById.get(favourite.id)
+
         if (!sheet || !sheet.openable) break
         resolved.push({
           ...favourite,
@@ -412,8 +434,10 @@ export async function resolveFavouriteItems(
         })
         break
       }
+
       case 'project': {
         const project = projectById.get(favourite.id)
+
         if (!project || !project.openable) break
         resolved.push({
           ...favourite,
@@ -424,14 +448,17 @@ export async function resolveFavouriteItems(
         })
         break
       }
+
       case 'instrument':
       case 'pipeline':
       case 'analysis_view': {
         const named = namedByKey.get(`${favourite.kind}:${favourite.id}`)
+
         const destination = objectPath(
           favourite.kind === 'analysis_view' ? 'analysis' : favourite.kind,
           favourite.id,
         )
+
         if (!named || !destination) break
         resolved.push({
           ...favourite,
@@ -441,8 +468,10 @@ export async function resolveFavouriteItems(
         })
         break
       }
+
       case 'notebook_template': {
         const template = templateById.get(favourite.id)
+
         if (!template || !template.openable) break
         resolved.push({
           ...favourite,
@@ -454,6 +483,7 @@ export async function resolveFavouriteItems(
       }
     }
   }
+
   return resolved
 }
 
@@ -470,11 +500,14 @@ export async function fetchFavouriteItems(
   limit = FAVOURITES_LIMIT,
 ): Promise<FavouriteItem[]> {
   const favourites = await fetchFavourites(client)
+
   const windowed = orderFavourites(
     favourites,
     Math.max(limit, FAVOURITES_RESOLVE_WINDOW),
   )
+
   const resolved = await resolveFavouriteItems(client, windowed)
+
   return resolved.slice(0, limit)
 }
 
@@ -513,10 +546,12 @@ export function useSetFavourite(
   client: DataClient = notebookDataClient,
 ): ReturnType<typeof useMutation<void, Error, SetFavouriteVariables>> {
   const queryClient = useQueryClient()
+
   // The sidebar's pins (every kind) come from the shell loader, not a query.
   // Outside a router (unit tests, isolated renders) there is none to refresh.
   const router = useRouter({ warn: false }) as
     ReturnType<typeof useRouter> | undefined
+
   return useMutation({
     mutationFn: async ({
       kind,
@@ -532,15 +567,18 @@ export function useSetFavourite(
       // items write would restore the already-mutated list.
       const previous =
         queryClient.getQueryData<Favourite[]>(favouritesQueryKeys.list()) ?? []
+
       const previousItems = queryClient.getQueryData<FavouriteItem[]>(
         favouritesQueryKeys.items(),
       )
+
       queryClient.setQueryData<Favourite[]>(
         favouritesQueryKeys.list(),
         orderFavourites(
           applyFavouriteChange(previous, kind, objectId, favourite),
         ),
       )
+
       if (!favourite) {
         // Hide the item from the home surface immediately; favouriting from
         // an object page adds no home item until the refetch resolves labels.
@@ -552,6 +590,7 @@ export function useSetFavourite(
             ),
         )
       }
+
       return { previous, previousItems }
     },
     onError: (_error, _variables, context) => {
@@ -559,6 +598,7 @@ export function useSetFavourite(
       if (context?.previous) {
         queryClient.setQueryData(favouritesQueryKeys.list(), context.previous)
       }
+
       if (context?.previousItems !== undefined) {
         queryClient.setQueryData(
           favouritesQueryKeys.items(),
@@ -604,6 +644,7 @@ export function useFavouriteState(
 
   const isFavourite = useMemo(() => {
     if (!objectId) return false
+
     return (listQuery.data ?? []).some(
       (f) => f.kind === kind && f.id === objectId,
     )

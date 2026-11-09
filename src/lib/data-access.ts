@@ -19,6 +19,7 @@ export {
   DEFAULT_DATA_ACCESS_ROLES,
   hasDataAccess,
 } from './data-access-roles'
+
 export type { DataAccessRole } from './data-access-roles'
 
 /**
@@ -30,6 +31,7 @@ export function canUseDataAccess(
   roles: readonly string[] = DEFAULT_DATA_ACCESS_ROLES,
 ): boolean {
   if (!role || role === 'client_viewer') return false
+
   return hasDataAccess(role, roles)
 }
 
@@ -40,12 +42,14 @@ export function canUseDataAccess(
  */
 export function useDataAccess(): boolean {
   const { auth } = useRouteContext({ from: '__root__' })
+
   return Boolean(auth?.dataAccess)
 }
 
 /** Whether the signed-in person is a workspace admin (root route context). */
 export function useIsWorkspaceAdmin(): boolean {
   const { auth } = useRouteContext({ from: '__root__' })
+
   return hasCapability(auth?.workspace?.role, 'workspace.admin')
 }
 
@@ -65,6 +69,7 @@ export async function fetchDataAccessRoles(
     'workspace_settings',
     '?select=data_access_roles&limit=1',
   )
+
   return rows[0]?.data_access_roles ?? [...DEFAULT_DATA_ACCESS_ROLES]
 }
 
@@ -133,6 +138,7 @@ export async function fetchSqlLogins(
   const rows = await client.rpc<SqlLoginWire[]>('list_sql_logins', {
     p_workspace_id: workspaceId,
   })
+
   return rows.map((row) => ({
     id: row.id,
     name: row.name,
@@ -155,6 +161,7 @@ export async function createSqlLogin(
     p_name: input.name,
     p_expires_at: input.expiresAt,
   })
+
   return toSecret(rows[0])
 }
 
@@ -167,6 +174,7 @@ export async function rotateSqlLogin(
     p_workspace_id: workspaceId,
     p_login_id: loginId,
   })
+
   return toSecret(rows[0])
 }
 
@@ -186,5 +194,6 @@ export async function fetchSqlAccessReady(
   client: DataClient = notebookDataClient,
 ): Promise<boolean> {
   const ready = await client.rpc<boolean>('sql_access_ready', {})
+
   return ready === true
 }

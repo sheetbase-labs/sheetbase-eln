@@ -75,6 +75,7 @@ const label = {
   removed: t('data.datasetCompare.removed'),
   changed: t('data.datasetCompare.changed'),
 } as const
+
 const badgeVariant = { added: 'add', removed: 'del', changed: 'chg' } as const
 
 /** A value change or a flag change rendered on the same diff row. */
@@ -97,6 +98,7 @@ interface CompareGridRow {
 /** Human label for a flag kind, falling back to the raw value if unknown. */
 function flagKindLabel(kind: string): string {
   const labels: Record<string, string | undefined> = FLAG_KIND_LABELS
+
   return labels[kind] ?? kind
 }
 
@@ -108,6 +110,7 @@ function entriesForRow(row: ComparePayload['rows'][number]): DiffEntry[] {
     from: field.from,
     to: field.to,
   }))
+
   for (const flag of row.flagFields) {
     entries.push({
       key: `flag-${flag.fieldId}-${flag.kind}-${flag.source}-${flag.change}`,
@@ -119,6 +122,7 @@ function entriesForRow(row: ComparePayload['rows'][number]): DiffEntry[] {
       to: flag.to?.reason ?? null,
     })
   }
+
   return entries.length
     ? entries
     : [{ key: 'none', isFlag: false, fieldId: null, from: null, to: null }]
@@ -131,12 +135,14 @@ function Compare() {
   const versions = useDatasetVersions(datasetId)
   const list = versions.data ?? []
   const versionIds = list.map((version) => version.id)
+
   // Never compare a snapshot with itself: the RPC would compare a version to
   // itself and every counter would report nothing changed.
   const to =
     search.to && versionIds.includes(search.to) && search.to !== search.from
       ? search.to
       : list.at(0)?.id
+
   const from =
     search.from && versionIds.includes(search.from) && search.from !== to
       ? search.from
@@ -158,6 +164,7 @@ function Compare() {
         : undefined,
     enabled: Boolean(from && to),
   })
+
   const data = diff.data?.pages.at(0)
   const entries = diff.data?.pages.flatMap((page) => page.rows) ?? []
   const totalChanges = data ? snapshotCompareTotalRows(data.counts) : 0
@@ -166,15 +173,20 @@ function Compare() {
   // payload carries field ids only.
   const fieldIds = useMemo(() => {
     const ids = new Set<string>()
+
     for (const page of diff.data?.pages ?? []) {
       for (const column of page.columns) ids.add(column.fieldId)
+
       for (const row of page.rows) {
         for (const field of row.fields) ids.add(field.fieldId)
+
         for (const flag of row.flagFields) ids.add(flag.fieldId)
       }
     }
+
     return [...ids]
   }, [diff.data])
+
   const fieldQuery = useQuery({
     queryKey: ['ui-port', 'dataset-field-labels', datasetId, fieldIds],
     enabled: fieldIds.length > 0,
@@ -185,17 +197,20 @@ function Compare() {
       ),
     staleTime: 60_000,
   })
+
   const labelByField = new Map(
     (fieldQuery.data ?? []).map((field) => [
       field.field_id,
       field.label || field.key,
     ]),
   )
+
   // One grid row per diff entry: the bespoke table flattened each compared row's
   // entries into its own rows.
   const gridRows: CompareGridRow[] = entries.flatMap((r) =>
     entriesForRow(r).map((entry) => ({ row: r, entry })),
   )
+
   const columns: RegistryColumn<CompareGridRow>[] = [
     {
       id: 'change',
@@ -223,6 +238,7 @@ function Compare() {
       header: t('data.datasetCompare.field'),
       cell: ({ row }) => {
         const entry = row.original.entry
+
         if (entry.isFlag) {
           return (
             <span className="inline-flex items-center gap-1">
@@ -232,6 +248,7 @@ function Compare() {
             </span>
           )
         }
+
         return entry.fieldId ? fieldLabel(entry.fieldId) : '—'
       },
     },
@@ -240,6 +257,7 @@ function Compare() {
       header: t('data.datasetCompare.change'),
       cell: ({ row }) => {
         const entry = row.original.entry
+
         return entry.isFlag || entry.fieldId ? (
           <Diff
             before={String(entry.from ?? '')}
@@ -262,8 +280,10 @@ function Compare() {
   entries.forEach((row, index) => {
     if (!rowNumber.has(row.rowId)) rowNumber.set(row.rowId, index + 1)
   })
+
   const describeVersion = (id: string | undefined) => {
     const version = list.find((candidate) => candidate.id === id)
+
     return version
       ? `${version.label} · ${formatDate(version.createdAt)}`
       : t('data.datasetCompare.noSnapshot')

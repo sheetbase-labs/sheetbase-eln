@@ -73,7 +73,9 @@ function seededClient(rows: CommentWire[], key: readonly unknown[]) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+
   client.setQueryData(key, rows)
+
   return client
 }
 
@@ -139,7 +141,9 @@ const meta = {
     canComment: true,
   },
 } satisfies Meta<typeof CommentPanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Open and resolved threads, plus the composer. */

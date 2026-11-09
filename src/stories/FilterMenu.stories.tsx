@@ -12,6 +12,7 @@ import { FilterMenu } from '#/components/ui/filter-menu'
  * the chips stay the visible record of what is active.
  */
 const KINDS = ['Experiment', 'Dataset', 'Sample', 'Instrument']
+
 const STATUSES = [
   { value: 'ok', label: 'Valid' },
   { value: 'review', label: 'Needs review' },
@@ -25,7 +26,9 @@ const meta = {
   parameters: { layout: 'padded' },
   args: { label: 'Kind', options: KINDS, onChange: () => {} },
 } satisfies Meta<typeof FilterMenu>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Nothing picked: the trigger reads "Kind: any". */
@@ -60,6 +63,7 @@ export const Active: Story = {
 export const LabelledOptions: Story = {
   render: () => {
     const [status, setStatus] = useState<string | undefined>('review')
+
     return (
       <FilterMenu
         label="Status"

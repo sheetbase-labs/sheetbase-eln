@@ -51,12 +51,15 @@ function fakeClient(
       rpcImpl ? await rpcImpl(name, args) : await rpcMock(name, args)
     ) as T
   }
+
   async function insert<T>(): Promise<T> {
     return {} as T
   }
+
   async function patch<T>(): Promise<T[]> {
     return []
   }
+
   return {
     list: <T,>(resource: string, query?: string) =>
       listMock(resource, query) as Promise<T[]>,
@@ -91,6 +94,7 @@ vi.mock('./sheetbase-grid', () => ({
   SheetbaseTableGrid: (props: SheetbaseGridProps) => {
     const { columns } = props
     gridRender(props)
+
     return (
       <table>
         <thead>
@@ -158,6 +162,7 @@ const RECORD = '21000000-0000-4000-8000-000000000007'
 function twoWritableDatasetConfiguration() {
   const configuration = validSheetDefinitionConfiguration()
   const [columnA, columnB] = configuration.columns
+
   if (
     columnA.source.kind !== 'bound' ||
     columnB.source.kind !== 'bound' ||
@@ -165,6 +170,7 @@ function twoWritableDatasetConfiguration() {
   ) {
     throw new Error('invalid test fixture')
   }
+
   configuration.writeBackRules.push({
     id: '21000000-0000-4000-8000-000000000008',
     bindingId: columnB.source.bindingId,
@@ -177,6 +183,7 @@ function twoWritableDatasetConfiguration() {
     ],
   })
   configuration.presentation.hiddenColumnIds = []
+
   return configuration
 }
 
@@ -187,9 +194,11 @@ function twoWritableDatasetConfiguration() {
 function twoDatasetWire() {
   const configuration = twoWritableDatasetConfiguration()
   const [columnA, columnB] = configuration.columns
+
   if (columnA.source.kind !== 'bound' || columnB.source.kind !== 'bound') {
     throw new Error('invalid test fixture')
   }
+
   return {
     instanceId: INSTANCE,
     definitionVersionId: DEFINITION_VERSION,
@@ -248,6 +257,7 @@ async function composedSnapshot(): Promise<ComposedSheetSnapshot> {
 async function composedInstance(): Promise<SheetInstance> {
   const snapshot = await composedSnapshot()
   const base = validSheetInstanceState()
+
   // The composed row needs a local-state entry so the extra local column can
   // render against it without inventing an unmatched row.
   return {
@@ -276,6 +286,7 @@ function renderWorkspace(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
@@ -285,6 +296,7 @@ describe('Sheet comment inspector', () => {
     const base = await composedInstance()
     const state = validSheetInstanceState()
     const field = state.localFields[0].fieldId
+
     const instance: SheetInstance = {
       ...base,
       projectId: null,
@@ -297,6 +309,7 @@ describe('Sheet comment inspector', () => {
         presentation: { ...state.presentation, filters: [], sorts: [] },
       },
     }
+
     renderWorkspace(
       <CanonicalSheetEditor
         instance={instance}
@@ -411,6 +424,7 @@ describe('Canonical local write row proofs', () => {
       key: 'second_observation',
       label: 'Second observation',
     })
+
     const instance = {
       ...base,
       sourceDefinitionVersionId: null,
@@ -420,6 +434,7 @@ describe('Canonical local write row proofs', () => {
         presentation: { ...state.presentation, filters: [], sorts: [] },
       },
     }
+
     vi.mocked(mutateSheetLocalState).mockResolvedValue(instance)
     renderWorkspace(
       <CanonicalSheetEditor
@@ -532,6 +547,7 @@ describe('CanonicalSheetWorkspace — GRID-02 mixed-authority regression', () =>
     // The composed Sheet carries both a local column and the two
     // Dataset-bound columns.
     await waitFor(() => expect(gridRender).toHaveBeenCalled())
+
     const props = gridRender.mock.lastCall?.[0] as {
       columns: Array<{ id: string; label: string }>
       rows: Array<{ id?: string }>
@@ -544,6 +560,7 @@ describe('CanonicalSheetWorkspace — GRID-02 mixed-authority regression', () =>
         source: string,
       ) => void
     }
+
     expect(props.columns.map((column) => column.label)).toEqual([
       'sample',
       'comparison',
@@ -569,6 +586,7 @@ describe('CanonicalSheetWorkspace — GRID-02 mixed-authority regression', () =>
         next: '21000000-0000-4000-8000-0000000000c2',
       },
     ]
+
     expect(props.beforeCellsChange(paste, 'paste')).toBeUndefined()
     props.onCellsChange(paste, 'paste')
 
@@ -606,6 +624,7 @@ describe('CanonicalSheetEditor — GRID-05 incremental paging', () => {
     options: { revision: number; hasMore: boolean },
   ) {
     const wire = twoDatasetWire()
+
     return {
       ...wire,
       offset,
@@ -662,9 +681,11 @@ describe('CanonicalSheetEditor — GRID-05 incremental paging', () => {
     rpcMock.mockImplementation(
       async (_name: string, args: Record<string, unknown>) => {
         const offset = Number(args.p_offset ?? 0)
+
         if (offset === 0 && zeroCalls++ === 0) {
           return pageWire(0, { revision: 6, hasMore: true })
         }
+
         return pageWire(offset, {
           revision: 7,
           hasMore: offset === 0,
@@ -696,6 +717,7 @@ describe('CanonicalSheetEditor — GRID-05 incremental paging', () => {
     ).toEqual([0, 200, 0, 200])
   })
 })
+
 describe('CanonicalSheetWorkspace — explain surface (ASSIST-01)', () => {
   it('explains a mixed-authority rejection with a cited, read-only panel', async () => {
     const user = userEvent.setup()
@@ -710,6 +732,7 @@ describe('CanonicalSheetWorkspace — explain surface (ASSIST-01)', () => {
     )
 
     await waitFor(() => expect(gridRender).toHaveBeenCalled())
+
     const props = gridRender.mock.lastCall?.[0] as {
       columns: Array<{ id: string; label: string }>
       rows: Array<{ id?: string }>
@@ -722,6 +745,7 @@ describe('CanonicalSheetWorkspace — explain surface (ASSIST-01)', () => {
         source: string,
       ) => void
     }
+
     const paste = [
       {
         rowIndex: 0,
@@ -738,6 +762,7 @@ describe('CanonicalSheetWorkspace — explain surface (ASSIST-01)', () => {
         next: '21000000-0000-4000-8000-0000000000c2',
       },
     ]
+
     expect(props.beforeCellsChange(paste, 'paste')).toBeUndefined()
     props.onCellsChange(paste, 'paste')
 
@@ -765,6 +790,7 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
   /** The composed fixture plus one active instance calculation column. */
   async function composedInstanceWithCalculation(): Promise<SheetInstance> {
     const instance = await composedInstance()
+
     const outputField = {
       fieldId: CALC,
       key: 'step_yield',
@@ -781,6 +807,7 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
       computation: { mode: 'computed' as const, expressionId: CALC },
       lifecycle: 'active' as const,
     }
+
     return {
       ...instance,
       state: {
@@ -833,9 +860,11 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
       source: 'local',
       group: 'This experiment',
     })
+
     const derived = props.columns.find(
       (column) => column.source === 'calculated',
     )
+
     expect(derived).toMatchObject({ label: 'Step yield', group: 'Derived' })
     expect(derived?.sourceLabel).toBeUndefined()
 
@@ -852,6 +881,7 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
 
   it('offers Recalculate beside the stale message and re-reads the results (J-DAT-16)', async () => {
     const instance = await composedInstanceWithCalculation()
+
     const resultsFor = (calculationStatus: string) => ({
       results: [
         {
@@ -862,6 +892,7 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
         },
       ],
     })
+
     vi.mocked(readSheetInstanceCalculationResults).mockResolvedValue(
       resultsFor('stale'),
     )
@@ -924,6 +955,7 @@ describe('CanonicalSheetEditor — cell conflict inspector (EXP-05.4)', () => {
   function conflictInstance(): SheetInstance {
     const base = validSheetInstanceState()
     const field = base.localFields[0]
+
     return {
       id: INSTANCE,
       workspaceId: '21000000-0000-4000-8000-000000000009',
@@ -984,6 +1016,7 @@ describe('CanonicalSheetEditor — cell conflict inspector (EXP-05.4)', () => {
     const instance = conflictInstance()
     const fieldId = instance.state.localFields[0].fieldId
     const open = openConflict(fieldId)
+
     const resolved: CellConflictRow = {
       ...open,
       state: 'resolved',
@@ -992,6 +1025,7 @@ describe('CanonicalSheetEditor — cell conflict inspector (EXP-05.4)', () => {
       resolved_at: '2026-10-10T11:00:00.000Z',
       reason: 'Use the online value',
     }
+
     listMock.mockImplementation(async (resource: string) =>
       resource === 'sheet_cell_conflicts' ? [open] : [],
     )
@@ -1005,6 +1039,7 @@ describe('CanonicalSheetEditor — cell conflict inspector (EXP-05.4)', () => {
         mutations: { retry: false },
       },
     })
+
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
     render(
       <QueryClientProvider client={queryClient}>
@@ -1119,6 +1154,7 @@ describe('CanonicalSheetWorkspace — stale cell write (GRID-04 parity)', () => 
   async function editableLocalInstance(): Promise<SheetInstance> {
     const base = await composedInstance()
     const state = validSheetInstanceState()
+
     return {
       ...base,
       sourceDefinitionVersionId: null,
@@ -1132,10 +1168,12 @@ describe('CanonicalSheetWorkspace — stale cell write (GRID-04 parity)', () => 
 
   it('re-reads the instance and retries the committed cell once when a sibling write moved the revision', async () => {
     const instance = await editableLocalInstance()
+
     const fresh: SheetInstance = {
       ...instance,
       revision: instance.revision + 1,
     }
+
     vi.mocked(mutateSheetLocalState)
       .mockRejectedValueOnce(new Error('stale revision: the Sheet moved on'))
       .mockResolvedValue(fresh)

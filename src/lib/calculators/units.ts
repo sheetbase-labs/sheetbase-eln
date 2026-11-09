@@ -44,7 +44,9 @@ const BY_ID = new Map(UNITS.map((u) => [u.id, u]))
 
 export function unitById(id: string): UnitDef {
   const unit = BY_ID.get(id)
+
   if (!unit) throw new Error(`Unknown unit ${id}`)
+
   return unit
 }
 
@@ -56,17 +58,22 @@ export function unitsOfKind(kind: UnitKind): UnitDef[] {
 export function convertSameKind(value: number, from: string, to: string) {
   const a = unitById(from)
   const b = unitById(to)
+
   if (a.kind !== b.kind) throw new Error('Units are of different kinds')
+
   return (value * a.factor) / b.factor
 }
 
 /** Format a number for a bench: 4 significant figures, no float noise. */
 export function formatQuantity(value: number): string {
   if (!Number.isFinite(value)) return ''
+
   if (value === 0) return '0'
   const abs = Math.abs(value)
+
   if (abs >= 1e6 || abs < 1e-3)
     return Number(value.toPrecision(4)).toExponential()
+
   return String(Number(value.toPrecision(4)))
 }
 
@@ -76,11 +83,16 @@ export function friendlyUnit(
   kind: UnitKind,
 ): { value: number; unit: UnitDef } {
   const candidates = unitsOfKind(kind).sort((a, b) => b.factor - a.factor)
+
   if (baseValue === 0) return { value: 0, unit: candidates[0] }
+
   for (const unit of candidates) {
     const v = baseValue / unit.factor
+
     if (Math.abs(v) >= 1 - 1e-9) return { value: v, unit }
   }
+
   const last = candidates[candidates.length - 1]
+
   return { value: baseValue / last.factor, unit: last }
 }

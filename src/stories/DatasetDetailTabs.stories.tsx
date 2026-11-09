@@ -46,7 +46,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /**
@@ -64,9 +66,11 @@ function provider(key: readonly unknown[], read: TabRead | ReadSeed[]) {
   const client = screenQueryClient({
     data: Array.isArray(read) ? read : [],
   })
+
   if (!Array.isArray(read)) {
     holdRead(client, key, read === 'loading' ? 'pending' : read)
   }
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <Story />

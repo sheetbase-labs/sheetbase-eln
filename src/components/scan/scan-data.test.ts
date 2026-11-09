@@ -48,6 +48,7 @@ describe('resolveScanCode', () => {
         ],
       }),
     )
+
     expect(result.found).toBe(true)
     expect(result.hit?.status).toEqual({ tone: 'warn', label: 'Quarantine' })
   })
@@ -67,6 +68,7 @@ describe('resolveScanCode', () => {
         ],
       }),
     )
+
     const consumed = await resolveScanCode(
       'SMP-3',
       stubClient({
@@ -81,6 +83,7 @@ describe('resolveScanCode', () => {
         ],
       }),
     )
+
     expect(available.hit?.status.label).toBe('Stored')
     expect(consumed.hit?.status.label).toBe('Consumed')
   })
@@ -100,6 +103,7 @@ describe('resolveScanCode', () => {
         ],
       }),
     )
+
     expect(result.found).toBe(true)
     expect(result.hit?.kind).toBe('instrument')
     expect(result.hit?.status.label).toBe('Not connected')
@@ -120,6 +124,7 @@ describe('resolveScanCode', () => {
         ],
       }),
     )
+
     expect(result.hit?.kind).toBe('experiment')
     expect(scanTargetHref(result.hit!)).toEqual({
       to: '/experiments/$expId',
@@ -137,6 +142,7 @@ describe('resolveScanCode other objects', () => {
         datasets: [{ id: 'd-1', display_id: 'DS-0311', name: 'Titre run' }],
       }),
     )
+
     expect(result.found).toBe(true)
     expect(result.hit).toMatchObject({
       kind: 'object',
@@ -165,6 +171,7 @@ describe('resolveScanCode other objects', () => {
         ],
       }),
     )
+
     expect(scanTargetActionLabel(result.hit!)).toBe('Open experiment')
     expect(scanTargetHref(result.hit!).to).toBe('/experiments/$expId')
   })

@@ -21,7 +21,9 @@ const meta = {
       'The block leaves the document and stays readable in the record history.',
   },
 } satisfies Meta<typeof Choice>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const Column = ({ children }: { children: React.ReactNode }) => (

@@ -39,6 +39,7 @@ import type { ReagentOrderStatus } from '#/lib/reagent-orders'
 const client = notebookDataClient
 
 type View = SpendGrouping | 'orders'
+
 const VIEWS: readonly View[] = ['project', 'supplier', 'month', 'orders']
 
 export function SpendReportPanel() {
@@ -61,6 +62,7 @@ export function SpendReportPanel() {
 
   const all = useMemo(() => lines.data ?? [], [lines.data])
   const total = useMemo(() => totalSpend(all), [all])
+
   const groups = useMemo(
     () => (view === 'orders' ? [] : groupSpend(all, view, state.zone)),
     [all, view, state.zone],

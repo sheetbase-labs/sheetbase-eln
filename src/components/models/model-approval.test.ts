@@ -120,6 +120,7 @@ describe('latestRequest and pendingRequest', () => {
         state: 'pending',
       }),
     ]
+
     expect(latestRequest(requests)?.id).toBe('b')
     expect(pendingRequest(requests)?.id).toBe('b')
     expect(pendingRequest([requests[0]])).toBeNull()
@@ -133,6 +134,7 @@ describe('canDecide', () => {
       submitted_by_user_id: 'submitter',
       require_independence: true,
     })
+
     expect(canDecide(req, 'approver', 'reviewer')).toBe(true)
     expect(canDecide(req, 'submitter', 'reviewer')).toBe(false) // independence
     expect(canDecide(req, 'approver', 'member')).toBe(false) // not named
@@ -148,6 +150,7 @@ describe('canDecide', () => {
       required_approver_roles: ['owner'],
       submitted_by_user_id: 'submitter',
     })
+
     expect(canDecide(req, 'submitter', 'owner')).toBe(true)
   })
 
@@ -156,6 +159,7 @@ describe('canDecide', () => {
       required_approver_roles: ['reviewer'],
       approved_by_user_ids: ['approver'],
     })
+
     expect(canDecide(req, 'approver', 'reviewer')).toBe(false)
   })
 })
@@ -240,6 +244,7 @@ describe('canPublishDraft', () => {
         created_at: '2026-01-01T00:00:00Z',
       }),
     ]
+
     expect(canPublishDraft(requests)).toBe(false)
   })
 })
@@ -253,9 +258,11 @@ describe('buildApprovalTrail', () => {
       decision_reason: 'Looks right',
       approved_by_user_ids: ['approver'],
     })
+
     const trail = buildApprovalTrail(req, [
       decision({ reason: 'Checked the range' }),
     ])
+
     expect(trail.map((entry) => entry.kind)).toEqual(['submitted', 'approved'])
     expect(trail[0].reason).toBe('Added flux')
     expect(trail[1].actorUserId).toBe('approver')
@@ -270,6 +277,7 @@ describe('buildApprovalTrail', () => {
       decided_at: '2026-01-03T08:30:00Z',
       decision_reason: 'Wrong unit',
     })
+
     const trail = buildApprovalTrail(req, [])
     expect(trail.map((entry) => entry.kind)).toEqual(['submitted', 'returned'])
     expect(trail[1].reason).toBe('Wrong unit')
@@ -283,6 +291,7 @@ describe('buildApprovalTrail', () => {
       decided_at: '2026-01-04T07:00:00Z',
       decision_reason: 'Found a mistake',
     })
+
     const trail = buildApprovalTrail(req, [])
     expect(trail.at(-1)).toMatchObject({
       kind: 'withdrawn',

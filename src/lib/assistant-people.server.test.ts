@@ -25,10 +25,12 @@ const members = [
 
 function context(rows: Rows): { ctx: LabToolContext; calls: string[] } {
   const calls: string[] = []
+
   const client = {
     list: (resource: string, query = '') => {
       calls.push(`${resource}${query}`)
       const source = rows[resource]
+
       return Promise.resolve(
         typeof source === 'function' ? source(query) : (source ?? []),
       )
@@ -36,6 +38,7 @@ function context(rows: Rows): { ctx: LabToolContext; calls: string[] } {
     rpc: (name: string) =>
       Promise.resolve(name === 'workspace_members_list' ? members : []),
   } as unknown as DataClient
+
   return {
     ctx: { client, workspaceId: WS, userId: 'me', timeZone: 'Europe/London' },
     calls,
@@ -47,7 +50,9 @@ describe('people cards', () => {
     const defs = peopleProposalDefs().map((def) =>
       def.name.replaceAll('__', '.'),
     )
+
     expect([...defs].sort()).toEqual([...PEOPLE_PROPOSE_TOOL_NAMES].sort())
+
     for (const name of PEOPLE_PROPOSE_TOOL_NAMES) {
       expect(isPeopleProposalTool(name)).toBe(true)
     }
@@ -58,6 +63,7 @@ describe('people cards', () => {
       workspace_invitations: [],
       projects: [{ id: 'p1', title: 'Vaccine B' }],
     })
+
     expect(
       await buildPeopleProposal(
         'sheetbase.member.invite',
@@ -127,11 +133,13 @@ describe('people cards', () => {
 
   it('asks which person when a name matches two', async () => {
     const { ctx } = context({})
+
     const result = await buildPeopleProposal(
       'sheetbase.member.suspend',
       { ...base, member: 'Ada' },
       ctx,
     )
+
     expect(result).toMatchObject({ ok: false })
     expect(JSON.stringify(result)).toContain('Ada Lovelace')
   })
@@ -152,6 +160,7 @@ describe('people cards', () => {
       projects: [{ id: 'p1', title: 'Vaccine B' }],
       project_access: [],
     })
+
     expect(
       await buildPeopleProposal(
         'sheetbase.project_access.grant',
@@ -178,6 +187,7 @@ describe('people cards', () => {
       ],
       projects: [{ title: 'Vaccine B' }],
     })
+
     expect(
       await buildPeopleProposal(
         'sheetbase.project_access.decide',
@@ -215,6 +225,7 @@ describe('people cards', () => {
     const { ctx } = context({
       workspace_groups: [{ id: 'g1', name: 'Assay team' }],
     })
+
     expect(
       await buildPeopleProposal(
         'sheetbase.group.delete',
@@ -238,11 +249,13 @@ describe('people cards', () => {
         },
       ],
     })
+
     const result = await buildPeopleProposal(
       'sheetbase.workspace.general',
       { ...base, timezone: 'Europe/Paris', site: 'Cambridge' },
       ctx,
     )
+
     expect(result).toMatchObject({
       ok: true,
       proposal: {
@@ -263,6 +276,7 @@ describe('people cards', () => {
       clients: [{ id: 'c1', code: 'CL-001', name: 'Acme Bio' }],
       records: [{ id: 'r1', identifier: 'EXP-12', title: 'ELISA' }],
     }
+
     const { ctx } = context(rows)
     expect(
       await buildPeopleProposal(
@@ -321,8 +335,10 @@ describe('running a people card', () => {
           : null,
       ),
     )
+
     const client = { rpc } as unknown as DataClient
     vi.stubGlobal('window', { location: { origin: 'https://lab.example' } })
+
     const invited = await runPeopleAction(client, {
       kind: 'member.invite',
       workspaceId: WS,
@@ -331,6 +347,7 @@ describe('running a people card', () => {
       clientId: null,
       projectGrants: [],
     })
+
     expect(invited?.note).toContain('tok123')
     await runPeopleAction(client, {
       kind: 'member.suspend',

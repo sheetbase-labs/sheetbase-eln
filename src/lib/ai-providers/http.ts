@@ -27,6 +27,7 @@ export async function postProviderJson(
   const timer = setTimeout(() => controller.abort(), timeoutMs)
 
   let response: Response
+
   try {
     response = await fetchImpl(request.url, {
       method: 'POST',
@@ -44,6 +45,7 @@ export async function postProviderJson(
     const aborted =
       cause instanceof Error &&
       (cause.name === 'AbortError' || cause.name === 'TimeoutError')
+
     throw new AiProviderError(
       'network',
       aborted ? 'Provider request timed out' : 'Provider request failed',
@@ -64,6 +66,7 @@ export async function postProviderJson(
   }
 
   let text: string
+
   try {
     text = await response.text()
   } catch (cause) {
@@ -114,14 +117,17 @@ export async function* postProviderSse(
   const onAbort = () => controller.abort()
   signal?.addEventListener('abort', onAbort, { once: true })
   let idle: ReturnType<typeof setTimeout> | undefined
+
   const arm = () => {
     clearTimeout(idle)
     idle = setTimeout(() => controller.abort(), timeoutMs)
   }
+
   arm()
 
   try {
     let response: Response
+
     try {
       response = await fetchImpl(request.url, {
         method: 'POST',
@@ -141,6 +147,7 @@ export async function* postProviderSse(
         cause,
       })
     }
+
     if (!response.ok || !response.body) {
       await response.body?.cancel().catch(() => undefined)
       throw new AiProviderError('http', 'Provider returned an error status', {
@@ -153,8 +160,10 @@ export async function* postProviderSse(
     const decoder = new TextDecoder()
     let buffer = ''
     let total = 0
+
     for (;;) {
       let step: ReadableStreamReadResult<Uint8Array>
+
       try {
         step = await reader.read()
       } catch (cause) {
@@ -165,9 +174,12 @@ export async function* postProviderSse(
           { providerId, cause },
         )
       }
+
       arm()
+
       if (step.done) break
       total += step.value.byteLength
+
       if (total > MAX_PROVIDER_RESPONSE_BYTES) {
         await reader.cancel().catch(() => undefined)
         throw new AiProviderError(
@@ -176,16 +188,21 @@ export async function* postProviderSse(
           { providerId },
         )
       }
+
       buffer += decoder.decode(step.value, { stream: true })
       let newline = buffer.indexOf('\n')
+
       while (newline !== -1) {
         const line = buffer.slice(0, newline).replace(/\r$/, '')
         buffer = buffer.slice(newline + 1)
+
         if (line.startsWith('data:')) yield line.slice(5).trim()
         newline = buffer.indexOf('\n')
       }
     }
+
     const tail = buffer.trim()
+
     if (tail.startsWith('data:')) yield tail.slice(5).trim()
   } finally {
     clearTimeout(idle)
@@ -209,6 +226,7 @@ export function readNumber(
   key: string,
 ): number | null {
   const value = record?.[key]
+
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
@@ -217,6 +235,7 @@ export function readString(
   key: string,
 ): string | null {
   const value = record?.[key]
+
   return typeof value === 'string' ? value : null
 }
 

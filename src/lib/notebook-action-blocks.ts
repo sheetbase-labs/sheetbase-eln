@@ -74,6 +74,7 @@ export const CORRECTIVE_ACTION_STATUSES = [
   'done',
   'void',
 ] as const
+
 export type CorrectiveActionStatus = (typeof CORRECTIVE_ACTION_STATUSES)[number]
 
 export const CORRECTIVE_ACTION_STATUS_LABEL: Record<
@@ -129,8 +130,10 @@ export function validateSignatureRequest(
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
   const errors: ActionBlockFieldError[] = []
+
   for (const key of ['requestedUserId', 'requestedUserName'] as const) {
     const value = payload[key]
+
     if (value !== null && value !== undefined && typeof value !== 'string') {
       errors.push({
         code: 'invalid_field_value',
@@ -139,6 +142,7 @@ export function validateSignatureRequest(
       })
     }
   }
+
   if (
     payload.meaning !== undefined &&
     !SIGNATURE_REQUEST_MEANINGS.includes(payload.meaning as SignatureMeaning)
@@ -149,6 +153,7 @@ export function validateSignatureRequest(
       message: `meaning must be one of ${SIGNATURE_REQUEST_MEANINGS.join(', ')}`,
     })
   }
+
   if (payload.note !== undefined && typeof payload.note !== 'string') {
     errors.push({
       code: 'invalid_field_value',
@@ -156,6 +161,7 @@ export function validateSignatureRequest(
       message: 'note must be a string',
     })
   }
+
   return errors
 }
 
@@ -167,6 +173,7 @@ export function validateCorrectiveActions(
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
   const items = payload.items
+
   if (!Array.isArray(items)) {
     return [
       {
@@ -176,6 +183,7 @@ export function validateCorrectiveActions(
       },
     ]
   }
+
   const errors: ActionBlockFieldError[] = []
   items.forEach((item, i) => {
     if (!isObject(item)) {
@@ -184,8 +192,10 @@ export function validateCorrectiveActions(
         field: `items[${i}]`,
         message: 'each action must be an object',
       })
+
       return
     }
+
     if (typeof item.action !== 'string') {
       errors.push({
         code: 'missing_required_field',
@@ -193,8 +203,10 @@ export function validateCorrectiveActions(
         message: 'action is required',
       })
     }
+
     for (const key of ['ownerUserId', 'ownerName', 'due'] as const) {
       const value = item[key]
+
       if (value !== null && value !== undefined && typeof value !== 'string') {
         errors.push({
           code: 'invalid_field_value',
@@ -203,6 +215,7 @@ export function validateCorrectiveActions(
         })
       }
     }
+
     if (
       item.status !== undefined &&
       !CORRECTIVE_ACTION_STATUSES.includes(
@@ -216,6 +229,7 @@ export function validateCorrectiveActions(
       })
     }
   })
+
   return errors
 }
 
@@ -257,9 +271,12 @@ function signatureMatchesRequest(
   payload: SignatureRequestPayload,
 ): boolean {
   if (signature.signature_meaning !== payload.meaning) return false
+
   if (payload.requestedUserId)
     return signature.signer_user_id === payload.requestedUserId
+
   if (!payload.requestedUserName) return false
+
   return (
     (signature.signer_name ?? '').trim().toLowerCase() ===
     payload.requestedUserName.trim().toLowerCase()
@@ -277,15 +294,20 @@ export function signatureRequestState(
 ): SignatureRequestState {
   if (!payload.requestedUserId && !payload.requestedUserName)
     return 'unassigned'
+
   if (context.supersededByRevisionId) return 'superseded'
+
   const match = (context.signatures ?? []).find((signature) =>
     signatureMatchesRequest(signature, payload),
   )
+
   if (match) {
     if (context.revisionId && match.revision_id !== context.revisionId)
       return 'changed'
+
     return 'signed'
   }
+
   return context.revisionId ? 'requested' : 'awaiting'
 }
 
@@ -332,7 +354,9 @@ export function correctiveActionOwner(item: CorrectiveActionItem): {
   missing: boolean
 } {
   const name = item.ownerName?.trim()
+
   if (!name) return { label: 'No owner', missing: true }
+
   return { label: name, missing: false }
 }
 
@@ -354,13 +378,16 @@ export function correctiveActionsSummary(
     void: 0,
     unowned: 0,
   }
+
   for (const item of payload.items) {
     if (item.status === 'open') summary.open += 1
     else if (item.status === 'in-progress') summary.inProgress += 1
     else if (item.status === 'done') summary.done += 1
     else summary.void += 1
+
     if (correctiveActionOwner(item).missing) summary.unowned += 1
   }
+
   return summary
 }
 
@@ -387,13 +414,17 @@ export function requiredSectionChecklist(
 ): RequiredSectionEntry[] {
   if (requiredLabels.length === 0) return []
   const present = new Set<string>()
+
   for (const entry of notebookOutline(blocks)) {
     present.add(entry.text.trim().toLowerCase())
   }
+
   for (const block of blocks) {
     const title = block.payload.title
+
     if (typeof title === 'string') present.add(title.trim().toLowerCase())
   }
+
   return requiredLabels.map((label) => ({
     label,
     state: present.has(label.trim().toLowerCase()) ? 'present' : 'missing',
@@ -419,8 +450,10 @@ export function requestedSignatureRows(
   context: ActionBlockContext = { revisionId: null },
 ): RequestedSignatureRow[] {
   const rows: RequestedSignatureRow[] = []
+
   for (const block of blocks) {
     if (block.type !== 'signature_request') continue
+
     if (!isSignatureRequestPayload(block.payload)) continue
     const payload = block.payload
     const state = signatureRequestState(payload, context)
@@ -432,5 +465,6 @@ export function requestedSignatureRows(
       statusLabel: SIGNATURE_REQUEST_STATE_LABEL[state],
     })
   }
+
   return rows
 }

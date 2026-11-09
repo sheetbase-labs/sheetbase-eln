@@ -264,6 +264,7 @@ interface FoundContract {
 
 function contractLink(contract: FoundContract): string {
   const model = contract.dataset_schema_id ?? contract.record_model_key
+
   return model ? `/models/${encodeURIComponent(model)}/contract` : '/models'
 }
 
@@ -275,13 +276,18 @@ async function findContract(
     'data_contracts',
     `?name=ilike.${likeValue(words)}&lifecycle=neq.retired&select=id,name,last_status,dataset_schema_id,record_model_key&limit=5`,
   )
+
   const exact = rows.filter(
     (row) => row.name.toLowerCase() === words.trim().toLowerCase(),
   )
+
   const matches = exact.length === 1 ? exact : rows
+
   if (matches.length === 0) return `No data contract matches “${words}”.`
+
   if (matches.length > 1)
     return `Several data contracts match “${words}”: ${matches.map((row) => row.name).join(', ')}. Say which one.`
+
   return matches[0]
 }
 
@@ -299,11 +305,15 @@ export function pick<T>(
   exact: (row: T) => boolean,
 ): Lookup<T> {
   const exacts = rows.filter(exact)
+
   if (exacts.length === 1) return { ok: true, value: exacts[0] }
+
   if (rows.length === 1) return { ok: true, value: rows[0] }
+
   if (rows.length === 0) {
     return { ok: false, message: `No ${what} matches "${wanted}".` }
   }
+
   return {
     ok: false,
     message: `More than one ${what} matches "${wanted}": ${rows
@@ -327,11 +337,14 @@ export async function findSample(
   text: string,
 ): Promise<Lookup<SampleRow>> {
   const like = likeValue(text)
+
   const rows = await client.list<SampleRow>(
     'records',
     `?kind=eq.sample&deleted_at=is.null&archived_at=is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title,status,metadata_version,properties&order=updated_at.desc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -351,6 +364,7 @@ export function amountOf(row: SampleRow): {
   unit: string
 } {
   const props = row.properties ?? {}
+
   return {
     quantity: typeof props.quantity === 'number' ? props.quantity : null,
     unit: typeof props.quantityUnit === 'string' ? props.quantityUnit : '',
@@ -371,6 +385,7 @@ export function parse<T extends z.ZodType>(
   args: unknown,
 ): { ok: true; data: z.infer<T> } | { ok: false; message: string } {
   const parsed = schema.safeParse(args)
+
   return parsed.success
     ? { ok: true, data: parsed.data }
     : { ok: false, message: invalid(parsed.error) }
@@ -418,6 +433,7 @@ async function findOpenOrder(
   }>
 > {
   const number = /^RO-?(\d+)$/i.exec(text.trim())
+
   const rows = await client.list<{
     id: string
     number: number
@@ -434,6 +450,7 @@ async function findOpenOrder(
         : `material_title=ilike.${likeValue(text)}`
     }&select=id,number,material_title,status,quantity,unit,supplier&order=number.desc&limit=6`,
   )
+
   return pick(
     rows,
     text,
@@ -449,15 +466,19 @@ export async function buildUpkeepProposal(
   context: LabToolContext,
 ): Promise<UpkeepOutcome> {
   const { client, workspaceId } = context
+
   switch (name) {
     case PROJECT_CREATE_TOOL: {
       const parsed = parse(proposeProjectCreateSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const same = await client.list<{ id: string; title: string }>(
         'projects',
         `?title=ilike.${encodeURIComponent(input.projectName.trim().replaceAll(/[*,()"\\]/g, ' '))}&select=id,title&limit=3`,
       )
+
       if (
         same.some(
           (row) =>
@@ -468,12 +489,15 @@ export async function buildUpkeepProposal(
           `There is already a project called "${input.projectName}". Ask whether they meant that one.`,
         )
       }
+
       const changes: ProposalChange[] = [
         { label: 'Project', before: null, after: input.projectName.trim() },
       ]
+
       if (input.startedOn) {
         changes.push({ label: 'Starts', before: null, after: input.startedOn })
       }
+
       return card(name, input, {
         target: input.projectName.trim(),
         deepLink: '/projects',
@@ -488,25 +512,33 @@ export async function buildUpkeepProposal(
 
     case ABSENCE_SET_TOOL: {
       const parsed = parse(proposeAbsenceSetSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const todayLocal = new Intl.DateTimeFormat('en-CA', {
         timeZone: context.timeZone,
       }).format(new Date())
+
       const startsOn = input.from ?? todayLocal
+
       if (input.until < startsOn) {
         return fail(
           'The last day away is before the first. Ask which dates they meant.',
         )
       }
+
       if (input.until < todayLocal) {
         return fail('Those dates are already past. Ask which dates they meant.')
       }
+
       let delegate: { id: string; name: string } | null = null
+
       if (input.cover) {
         const members = await memberNames(client)
         const lower = input.cover.trim().toLowerCase()
         const words = lower.split(/\s+/).filter(Boolean)
+
         const matches = [...members.entries()]
           .map(([id, personName]) => ({ id, name: personName }))
           .filter(
@@ -514,6 +546,7 @@ export async function buildUpkeepProposal(
               member.id !== context.userId &&
               words.every((word) => member.name.toLowerCase().includes(word)),
           )
+
         const found = pick(
           matches,
           input.cover,
@@ -521,9 +554,11 @@ export async function buildUpkeepProposal(
           (row) => row.name,
           (row) => row.name.toLowerCase() === lower,
         )
+
         if (!found.ok) return fail(found.message)
         delegate = found.value
       }
+
       const changes: ProposalChange[] = [
         { label: 'First day away', before: null, after: startsOn },
         { label: 'Back after', before: null, after: input.until },
@@ -533,9 +568,11 @@ export async function buildUpkeepProposal(
           after: delegate?.name ?? 'No one',
         },
       ]
+
       if (input.note?.trim()) {
         changes.push({ label: 'Note', before: null, after: input.note.trim() })
       }
+
       return card(name, input, {
         target: 'Out of office',
         deepLink: '/settings/account/away',
@@ -553,12 +590,15 @@ export async function buildUpkeepProposal(
 
     case HANDOVER_TOOL: {
       const parsed = parse(proposeHandoverSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const members = await memberNames(client)
+
       const find = (text: string, skipSelf: boolean) => {
         const lower = text.trim().toLowerCase()
         const words = lower.split(/\s+/).filter(Boolean)
+
         const matches = [...members.entries()]
           .map(([id, personName]) => ({ id, name: personName }))
           .filter(
@@ -566,6 +606,7 @@ export async function buildUpkeepProposal(
               !(skipSelf && member.id === context.userId) &&
               words.every((word) => member.name.toLowerCase().includes(word)),
           )
+
         return pick(
           matches,
           text,
@@ -574,28 +615,38 @@ export async function buildUpkeepProposal(
           (row) => row.name.toLowerCase() === lower,
         )
       }
+
       const to = find(input.to, true)
+
       if (!to.ok) return fail(to.message)
+
       let from = {
         id: context.userId,
         name: members.get(context.userId) ?? 'You',
       }
+
       if (input.from) {
         const found = find(input.from, false)
+
         if (!found.ok) return fail(found.message)
         from = found.value
       }
+
       if (from.id === to.value.id) {
         return fail('Work cannot be handed to the same person.')
       }
+
       const rows = await client.rpc<HandoverItemWire[]>(
         'preview_member_handover',
         { p_workspace_id: workspaceId, p_user_id: from.id },
       )
+
       const items = toHandoverItems(rows).filter((item) => item.count > 0)
+
       if (items.length === 0) {
         return fail(`${from.name} has no open work to hand over.`)
       }
+
       return card(name, input, {
         target: `${from.name} to ${to.value.name}`,
         deepLink: '/settings/workspace/members',
@@ -616,12 +667,15 @@ export async function buildUpkeepProposal(
 
     case GROUP_ROLE_SET_TOOL: {
       const parsed = parse(proposeGroupRoleSetSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const existing = await client.list<{ role: string }>(
         'idp_group_mappings',
         `?workspace_id=eq.${encodeURIComponent(workspaceId)}&group_name=ilike.${likeValue(input.group)}&select=role&limit=1`,
       )
+
       return card(name, input, {
         target: input.group.trim(),
         deepLink: '/settings/workspace/members',
@@ -643,8 +697,10 @@ export async function buildUpkeepProposal(
 
     case TIMESTAMPS_SET_TOOL: {
       const parsed = parse(proposeTimestampsSetSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       if (
         input.service === 'custom' &&
         !/^https?:\/\/\S+$/.test(input.address ?? '')
@@ -653,7 +709,9 @@ export async function buildUpkeepProposal(
           'A time-stamping service of your own needs its address, starting with http:// or https://.',
         )
       }
+
       const current = await fetchTimestampSettings(client, workspaceId)
+
       const nameOf = (service: string | null) =>
         service === 'dfn'
           ? 'DFN-Verein'
@@ -662,6 +720,7 @@ export async function buildUpkeepProposal(
             : service === 'custom'
               ? 'Their own service'
               : 'Off'
+
       return card(name, input, {
         target: 'Trusted timestamps',
         deepLink: '/settings/workspace/audit',
@@ -686,8 +745,10 @@ export async function buildUpkeepProposal(
 
     case TIMESTAMPS_RETRY_TOOL: {
       const parsed = parse(proposeTimestampsRetrySchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const rows = await client.list<{
         signature_id: string
         status: string
@@ -696,10 +757,13 @@ export async function buildUpkeepProposal(
         'signature_timestamps',
         `?signature_id=eq.${encodeURIComponent(input.signatureId)}&select=signature_id,status,attempts&limit=1`,
       )
+
       if (!rows[0]) return fail('That signature has no timestamp to retry.')
+
       if (rows[0].status === 'stamped') {
         return fail('That signature is already timestamped.')
       }
+
       return card(name, input, {
         target: 'Signature timestamp',
         deepLink: '/settings/workspace/audit',
@@ -719,9 +783,11 @@ export async function buildUpkeepProposal(
 
     case OPEN_TABLES_SET_TOOL: {
       const parsed = parse(proposeOpenTablesSetSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const current = await fetchLakeSettings(client, workspaceId)
+
       if (current.enabled === input.enabled) {
         return fail(
           input.enabled
@@ -729,6 +795,7 @@ export async function buildUpkeepProposal(
             : 'Open tables are already off.',
         )
       }
+
       return card(name, input, {
         target: 'Open tables',
         deepLink: '/settings/workspace/open-data',
@@ -749,20 +816,26 @@ export async function buildUpkeepProposal(
 
     case PUBLICATION_REQUEST_TOOL: {
       const parsed = parse(proposePublicationRequestSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const targets = (await fetchPublicationTargets(client)).filter(
         (t) => t.enabled && t.token_set,
       )
+
       if (targets.length === 0) {
         return fail(
           'No repository is set up to publish to. An admin adds one in Settings > Open data.',
         )
       }
+
       const wanted = input.repository?.trim().toLowerCase()
+
       const matches = wanted
         ? targets.filter((t) => t.name.toLowerCase().includes(wanted))
         : targets
+
       if (matches.length !== 1) {
         return fail(
           matches.length === 0
@@ -770,12 +843,16 @@ export async function buildUpkeepProposal(
             : `Which repository? ${matches.map((t) => t.name).join(', ')}.`,
         )
       }
+
       const target = matches[0]
+
       if (input.kind === 'experiment') {
         if (!input.experiment) return fail('Which experiment?')
         const found = await findExperiment(client, input.experiment)
+
         if (typeof found === 'string') return fail(found)
         const publicationTitle = input.publicationTitle?.trim() || found.title
+
         return card(name, input, {
           target: `${found.identifier} ${found.title}`,
           deepLink: `/experiments/${found.id}`,
@@ -803,26 +880,33 @@ export async function buildUpkeepProposal(
           },
         })
       }
+
       if (!input.dataset) return fail('Which dataset?')
+
       const datasets = await client.list<{ id: string; name: string }>(
         'datasets',
         `?name=ilike.${likeValue(input.dataset)}&select=id,name&order=updated_at.desc&limit=5`,
       )
+
       if (datasets.length === 0)
         return fail(`No dataset matches "${input.dataset}".`)
+
       const dataset =
         datasets.find(
           (d) => d.name.toLowerCase() === input.dataset!.trim().toLowerCase(),
         ) ?? (datasets.length === 1 ? datasets[0] : null)
+
       if (!dataset) {
         return fail(
           `More than one dataset matches "${input.dataset}": ${datasets.map((d) => d.name).join(', ')}. Ask which one.`,
         )
       }
+
       const versions = await client.list<{ id: string; label: string }>(
         'dataset_versions',
         `?dataset_id=eq.${dataset.id}${input.version ? `&label=ilike.${likeValue(input.version)}` : ''}&select=id,label&order=created_at.desc&limit=5`,
       )
+
       if (versions.length === 0) {
         return fail(
           input.version
@@ -830,14 +914,17 @@ export async function buildUpkeepProposal(
             : `${dataset.name} has no saved version yet. Save one on its Snapshots tab first.`,
         )
       }
+
       const version =
         versions.find(
           (v) =>
             v.label.toLowerCase() ===
             (input.version ?? '').trim().toLowerCase(),
         ) ?? versions[0]
+
       const publicationTitle =
         input.publicationTitle?.trim() || `${dataset.name} (${version.label})`
+
       return card(name, input, {
         target: `${dataset.name} · ${version.label}`,
         deepLink: `/datasets/${dataset.id}/snapshots`,
@@ -868,15 +955,19 @@ export async function buildUpkeepProposal(
 
     case VALIDATION_RUN_TOOL: {
       const parsed = parse(proposeValidationRunSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
+
       const allowed = await client.rpc<boolean>('can_run_validation', {
         p_workspace_id: workspaceId,
       })
+
       if (allowed !== true) {
         return fail(
           'Validation checks are for regulated labs, and need audit access.',
         )
       }
+
       return card(name, parsed.data, {
         target: 'Validation checks',
         deepLink: '/settings/workspace/validation',
@@ -893,43 +984,56 @@ export async function buildUpkeepProposal(
 
     case PIPELINE_REPRODUCE_TOOL: {
       const parsed = parse(proposePipelineReproduceSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       if (!input.runId && !input.pipeline) {
         return fail('Say which pipeline to reproduce, by name.')
       }
+
       type RunInfo = {
         id: string
         status: string
         definition_version_id: string
         created_at: string
       }
+
       let run: RunInfo | undefined
       let definition: { id: string; name: string; display_id: string | null }
+
       if (input.runId) {
         const rows = await client.list<RunInfo>(
           'pipeline_runs',
           `?id=eq.${input.runId}&select=id,status,definition_version_id,created_at&limit=1`,
         )
+
         run = rows.at(0)
+
         if (!run) return fail('That run was not found.')
+
         const versions = await client.list<{ definition_id: string }>(
           'pipeline_definition_versions',
           `?id=eq.${run.definition_version_id}&select=definition_id&limit=1`,
         )
+
         const found = await client.list<typeof definition>(
           'pipeline_definitions',
           `?id=eq.${versions[0]?.definition_id ?? ''}&select=id,name,display_id&limit=1`,
         )
+
         if (!found[0]) return fail('That run was not found.')
         definition = found[0]
       } else {
         const like = likeValue(input.pipeline ?? '')
+
         const rows = await client.list<typeof definition>(
           'pipeline_definitions',
           `?lifecycle=eq.active&or=(name.ilike.${like},display_id.ilike.${like},key.ilike.${like})&select=id,name,display_id&limit=6`,
         )
+
         const lower = (input.pipeline ?? '').trim().toLowerCase()
+
         const chosen = pick(
           rows,
           input.pipeline ?? '',
@@ -939,25 +1043,33 @@ export async function buildUpkeepProposal(
             row.name.toLowerCase() === lower ||
             row.display_id?.toLowerCase() === lower,
         )
+
         if (!chosen.ok) return fail(chosen.message)
         definition = chosen.value
+
         const versions = await client.list<{ id: string }>(
           'pipeline_definition_versions',
           `?definition_id=eq.${definition.id}&select=id`,
         )
+
         if (versions.length === 0) {
           return fail(`${definition.name} has no published version yet.`)
         }
+
         const runs = await client.list<RunInfo>(
           'pipeline_runs',
           `?definition_version_id=in.(${versions.map((v) => v.id).join(',')})&status=eq.succeeded&select=id,status,definition_version_id,created_at&order=created_at.desc&limit=1`,
         )
+
         run = runs.at(0)
+
         if (!run) return fail(`${definition.name} has no finished run yet.`)
       }
+
       if (run.status !== 'succeeded') {
         return fail('Only a run that finished successfully can be reproduced.')
       }
+
       return card(name, input, {
         target: definition.display_id
           ? `${definition.display_id} · ${definition.name}`
@@ -980,9 +1092,12 @@ export async function buildUpkeepProposal(
 
     case CONTRACT_CHECK_TOOL: {
       const parsed = parse(proposeContractCheckSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const found = await findContract(client, parsed.data.contract)
+
       if (typeof found === 'string') return fail(found)
+
       return card(name, parsed.data, {
         target: found.name,
         deepLink: contractLink(found),
@@ -999,23 +1114,34 @@ export async function buildUpkeepProposal(
 
     case CONTRACT_RULE_ADD_TOOL: {
       const parsed = parse(proposeContractRuleAddSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const found = await findContract(client, input.contract)
+
       if (typeof found === 'string') return fail(found)
+
       const rule: ContractRuleInput = {
         kind: input.kind,
         mode: input.mode ?? 'warn',
       }
+
       if (input.field) rule.field = input.field
+
       if (input.min !== undefined) rule.min = input.min
+
       if (input.max !== undefined) rule.max = input.max
+
       if (input.units) rule.units = input.units
+
       if (input.threshold !== undefined) rule.threshold = input.threshold
+
       if (input.maxAgeMinutes !== undefined)
         rule.maxAgeMinutes = input.maxAgeMinutes
       const problem = draftProblem(ruleToDraft({ id: 'new', ...rule }))
+
       if (problem) return fail(problem)
+
       return card(name, input, {
         target: found.name,
         deepLink: contractLink(found),
@@ -1032,8 +1158,10 @@ export async function buildUpkeepProposal(
 
     case GROUP_ROLE_REMOVE_TOOL: {
       const parsed = parse(proposeGroupRoleRemoveSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const rows = await client.list<{
         id: string
         group_name: string
@@ -1042,7 +1170,9 @@ export async function buildUpkeepProposal(
         'idp_group_mappings',
         `?workspace_id=eq.${encodeURIComponent(workspaceId)}&group_name=ilike.${likeValue(input.group)}&select=id,group_name,role&limit=6`,
       )
+
       const lower = input.group.trim().toLowerCase()
+
       const found = pick(
         rows,
         input.group,
@@ -1050,7 +1180,9 @@ export async function buildUpkeepProposal(
         (row) => row.group_name,
         (row) => row.group_name.toLowerCase() === lower,
       )
+
       if (!found.ok) return fail(found.message)
+
       return card(name, input, {
         target: found.value.group_name,
         deepLink: '/settings/workspace/members',
@@ -1067,8 +1199,10 @@ export async function buildUpkeepProposal(
 
     case SCIM_TOKEN_REVOKE_TOOL: {
       const parsed = parse(proposeScimTokenRevokeSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const rows = await client.list<{
         id: string
         label: string
@@ -1077,7 +1211,9 @@ export async function buildUpkeepProposal(
         'scim_tokens',
         `?workspace_id=eq.${encodeURIComponent(workspaceId)}&revoked_at=is.null&label=ilike.${likeValue(input.token)}&select=id,label,last_used_at&limit=6`,
       )
+
       const lower = input.token.trim().toLowerCase()
+
       const found = pick(
         rows,
         input.token,
@@ -1085,7 +1221,9 @@ export async function buildUpkeepProposal(
         (row) => row.label,
         (row) => row.label.toLowerCase() === lower,
       )
+
       if (!found.ok) return fail(found.message)
+
       return card(name, input, {
         target: found.value.label,
         deepLink: '/settings/workspace/members',
@@ -1104,10 +1242,13 @@ export async function buildUpkeepProposal(
 
     case ABSENCE_CANCEL_TOOL: {
       const parsed = parse(proposeAbsenceCancelSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
+
       const todayLocal = new Intl.DateTimeFormat('en-CA', {
         timeZone: context.timeZone,
       }).format(new Date())
+
       const rows = await client.list<{
         id: string
         starts_on: string
@@ -1116,7 +1257,9 @@ export async function buildUpkeepProposal(
         'member_absences',
         `?workspace_id=eq.${encodeURIComponent(workspaceId)}&user_id=eq.${encodeURIComponent(context.userId)}&cancelled_at=is.null&ends_on=gte.${todayLocal}&order=starts_on.asc&limit=1&select=id,starts_on,ends_on`,
       )
+
       if (rows.length === 0) return fail('They have no out of office set.')
+
       return card(name, parsed.data, {
         target: 'Out of office',
         deepLink: '/settings/account/away',
@@ -1133,12 +1276,14 @@ export async function buildUpkeepProposal(
 
     case FOLLOW_TOOL: {
       const parsed = parse(proposeFollowSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const following = input.follow ?? true
       const like = likeValue(input.name)
       const lower = input.name.trim().toLowerCase()
       let found: Lookup<{ id: string; label: string }>
+
       if (input.target === 'project') {
         const rows = await client.list<{
           id: string
@@ -1148,6 +1293,7 @@ export async function buildUpkeepProposal(
           'projects',
           `?archived_at=is.null&or=(key.ilike.${like},title.ilike.${like})&select=id,key,title&order=title.asc&limit=6`,
         )
+
         found = pick(
           rows.map((row) => ({
             id: row.id,
@@ -1168,6 +1314,7 @@ export async function buildUpkeepProposal(
           'records',
           `?deleted_at=is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title&order=updated_at.desc&limit=6`,
         )
+
         found = pick(
           rows.map((row) => ({
             id: row.id,
@@ -1181,17 +1328,22 @@ export async function buildUpkeepProposal(
           (row) => row.identifier === lower || row.title === lower,
         )
       }
+
       if (!found.ok) return fail(found.message)
+
       const already = await client.list<Record<string, string>>(
         input.target === 'project' ? 'project_follows' : 'work_item_follows',
         `?${input.target === 'project' ? 'project_id' : 'record_id'}=eq.${encodeURIComponent(found.value.id)}&select=${input.target === 'project' ? 'project_id' : 'record_id'}&limit=1`,
       )
+
       if (following && already.length > 0) {
         return fail(`The person already follows ${found.value.label}.`)
       }
+
       if (!following && already.length === 0) {
         return fail(`The person does not follow ${found.value.label}.`)
       }
+
       return card(name, input, {
         target: found.value.label,
         deepLink:
@@ -1216,14 +1368,18 @@ export async function buildUpkeepProposal(
 
     case NOTIFICATIONS_READ_TOOL: {
       const parsed = parse(proposeNotificationsReadSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
+
       const unread = await client.list<{ id: string }>(
         'my_notifications',
         '?read_at=is.null&select=id&limit=500',
       )
+
       if (unread.length === 0) {
         return fail('There is nothing unread to mark as read. Tell the person.')
       }
+
       return card(name, parsed.data, {
         target: 'Notifications',
         deepLink: '/inbox',
@@ -1240,16 +1396,20 @@ export async function buildUpkeepProposal(
 
     case REAGENT_UPDATE_TOOL: {
       const parsed = parse(proposeReagentUpdateSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const found = await findOpenOrder(
         client,
         input.order,
         input.change === 'ordered' ? 'requested' : 'requested,ordered',
       )
+
       if (!found.ok) return fail(found.message)
       const order = found.value
       const quantity = withUnit(Number(order.quantity), order.unit ?? '')
+
       const changes: ProposalChange[] = [
         {
           label: 'Material',
@@ -1262,6 +1422,7 @@ export async function buildUpkeepProposal(
           after: input.change === 'ordered' ? 'Ordered' : 'Cancelled',
         },
       ]
+
       if (input.change === 'ordered') {
         if (input.supplier) {
           changes.push({
@@ -1270,6 +1431,7 @@ export async function buildUpkeepProposal(
             after: input.supplier,
           })
         }
+
         if (input.orderReference) {
           changes.push({
             label: 'Order number',
@@ -1277,6 +1439,7 @@ export async function buildUpkeepProposal(
             after: input.orderReference,
           })
         }
+
         if (input.expectedOn) {
           changes.push({
             label: 'Expected',
@@ -1287,6 +1450,7 @@ export async function buildUpkeepProposal(
       } else if (input.reason) {
         changes.push({ label: 'Reason', before: null, after: input.reason })
       }
+
       return card(name, input, {
         target: orderReference(order.number),
         deepLink: '/materials',
@@ -1310,9 +1474,11 @@ export async function buildUpkeepProposal(
 
     case SHIPMENT_CANCEL_TOOL: {
       const parsed = parse(proposeShipmentCancelSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const number = /^SHP-?(\d+)$/i.exec(input.shipment.trim())
+
       const rows = await client.list<{
         id: string
         number: number
@@ -1327,9 +1493,11 @@ export async function buildUpkeepProposal(
             : `counterparty=ilike.${likeValue(input.shipment)}`
         }&select=id,number,direction,status,counterparty&order=number.desc&limit=8`,
       )
+
       const open = rows.filter(
         (row) => row.status === 'draft' || row.status === 'in_transit',
       )
+
       if (open.length === 0) {
         return fail(
           rows.length > 0
@@ -1337,6 +1505,7 @@ export async function buildUpkeepProposal(
             : `No shipment matches "${input.shipment}".`,
         )
       }
+
       const found = pick(
         open,
         input.shipment,
@@ -1344,8 +1513,10 @@ export async function buildUpkeepProposal(
         (row) => `${shipmentReference(row.number)} ${row.counterparty}`,
         (row) => number !== null && row.number === Number(number[1]),
       )
+
       if (!found.ok) return fail(found.message)
       const shipment = found.value
+
       const changes: ProposalChange[] = [
         {
           label: shipment.direction === 'inbound' ? 'From' : 'To',
@@ -1358,9 +1529,11 @@ export async function buildUpkeepProposal(
           after: 'Cancelled',
         },
       ]
+
       if (input.reason) {
         changes.push({ label: 'Reason', before: null, after: input.reason })
       }
+
       return card(name, input, {
         target: shipmentReference(shipment.number),
         deepLink: '/shipments',
@@ -1375,24 +1548,32 @@ export async function buildUpkeepProposal(
 
     case SAMPLE_RESERVE_TOOL: {
       const parsed = parse(proposeSampleReserveSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const sample = await findSample(client, input.sample)
+
       if (!sample.ok) return fail(sample.message)
       const row = sample.value
+
       if (!['available', 'reserved'].includes(row.status)) {
         return fail(
           `${sampleLabel(row)} is ${row.status.replaceAll('_', ' ')}, so it cannot be reserved.`,
         )
       }
+
       const { quantity: have, unit } = amountOf(row)
+
       if (have !== null && input.quantity > have) {
         return fail(
           `${row.identifier} has only ${withUnit(have, unit)}, so ${withUnit(input.quantity, unit)} cannot be reserved. Tell the person.`,
         )
       }
+
       const experiment = await findExperiment(client, input.experiment)
+
       if (typeof experiment === 'string') return fail(experiment)
+
       return card(name, input, {
         target: sampleLabel(row),
         deepLink: `/records/${row.id}`,
@@ -1422,20 +1603,25 @@ export async function buildUpkeepProposal(
     case SAMPLE_QUARANTINE_TOOL:
     case SAMPLE_DISPOSE_TOOL: {
       const parsed = parse(proposeSampleRetireSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const dispose = name === SAMPLE_DISPOSE_TOOL
       const sample = await findSample(client, input.sample)
+
       if (!sample.ok) return fail(sample.message)
       const row = sample.value
+
       const allowed = dispose
         ? !['disposed', 'released'].includes(row.status)
         : ['available', 'reserved', 'hold_exceeded'].includes(row.status)
+
       if (!allowed) {
         return fail(
           `${sampleLabel(row)} is ${row.status.replaceAll('_', ' ')}, so it cannot be ${dispose ? 'disposed of' : 'quarantined'}. Tell the person.`,
         )
       }
+
       const changes: ProposalChange[] = [
         {
           label: 'Status',
@@ -1444,6 +1630,7 @@ export async function buildUpkeepProposal(
         },
         { label: 'Reason', before: null, after: input.reason.trim() },
       ]
+
       return card(name, input, {
         target: sampleLabel(row),
         deepLink: `/records/${row.id}`,
@@ -1460,20 +1647,26 @@ export async function buildUpkeepProposal(
 
     case SAMPLE_RECEIVE_TOOL: {
       const parsed = parse(proposeSampleReceiveSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const sample = await findSample(client, input.sample)
+
       if (!sample.ok) return fail(sample.message)
       const row = sample.value
+
       if (['disposed', 'released'].includes(row.status)) {
         return fail(
           `${sampleLabel(row)} is ${row.status.replaceAll('_', ' ')}, so stock cannot be added.`,
         )
       }
+
       const { unit } = amountOf(row)
+
       const changes: ProposalChange[] = [
         { label: 'Add', before: null, after: withUnit(input.quantity, unit) },
       ]
+
       if (input.location?.trim()) {
         changes.push({
           label: 'Kept at',
@@ -1481,6 +1674,7 @@ export async function buildUpkeepProposal(
           after: input.location.trim(),
         })
       }
+
       return card(name, input, {
         target: sampleLabel(row),
         deepLink: `/records/${row.id}`,
@@ -1499,20 +1693,26 @@ export async function buildUpkeepProposal(
 
     case SAMPLE_ARCHIVE_TOOL: {
       const parsed = parse(proposeSampleArchiveSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       let row: SampleRow
+
       if (input.archived) {
         const sample = await findSample(client, input.sample)
+
         if (!sample.ok) return fail(sample.message)
         row = sample.value
       } else {
         const like = likeValue(input.sample)
+
         const found = await client.list<SampleRow>(
           'records',
           `?kind=eq.sample&deleted_at=is.null&archived_at=not.is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title,status,metadata_version,properties&limit=6`,
         )
+
         const lower = input.sample.trim().toLowerCase()
+
         const picked = pick(
           found,
           input.sample,
@@ -1520,9 +1720,11 @@ export async function buildUpkeepProposal(
           (r) => `${r.identifier} ${r.title}`,
           (r) => r.identifier.toLowerCase() === lower,
         )
+
         if (!picked.ok) return fail(picked.message)
         row = picked.value
       }
+
       return card(name, input, {
         target: sampleLabel(row),
         deepLink: `/records/${row.id}`,
@@ -1545,11 +1747,14 @@ export async function buildUpkeepProposal(
 
     case SAMPLE_RESERVATION_CANCEL_TOOL: {
       const parsed = parse(proposeSampleReservationCancelSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const sample = await findSample(client, input.sample)
+
       if (!sample.ok) return fail(sample.message)
       const row = sample.value
+
       const held = await client.list<{
         id: string
         quantity: number
@@ -1559,7 +1764,9 @@ export async function buildUpkeepProposal(
         'sample_reservations',
         `?sample_record_id=eq.${row.id}&state=eq.active&select=id,quantity,unit,experiment:records!sample_reservations_experiment_record_id_records_id_fk(identifier,title)&order=created_at.desc&limit=20`,
       )
+
       const wanted = input.experiment?.trim().toLowerCase()
+
       const matching = wanted
         ? held.filter((r) =>
             `${r.experiment?.identifier ?? ''} ${r.experiment?.title ?? ''}`
@@ -1567,6 +1774,7 @@ export async function buildUpkeepProposal(
               .includes(wanted),
           )
         : held
+
       const picked = pick(
         matching,
         input.experiment ?? row.identifier,
@@ -1575,8 +1783,10 @@ export async function buildUpkeepProposal(
           `${withUnit(Number(r.quantity), r.unit ?? '')} for ${r.experiment?.identifier ?? 'an experiment'}`,
         () => false,
       )
+
       if (!picked.ok) return fail(picked.message)
       const reservation = picked.value
+
       return card(name, input, {
         target: sampleLabel(row),
         deepLink: `/records/${row.id}`,
@@ -1596,11 +1806,14 @@ export async function buildUpkeepProposal(
 
     case STORAGE_PLACE_TOOL: {
       const parsed = parse(proposeStoragePlaceSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const sample = await findSample(client, input.sample)
+
       if (!sample.ok) return fail(sample.message)
       const row = sample.value
+
       if (!input.box?.trim() || !input.position?.trim()) {
         return card(name, input, {
           target: sampleLabel(row),
@@ -1621,7 +1834,9 @@ export async function buildUpkeepProposal(
           },
         })
       }
+
       const boxLike = likeValue(input.box)
+
       const boxes = await client.list<{
         id: string
         name: string
@@ -1630,7 +1845,9 @@ export async function buildUpkeepProposal(
         'storage_boxes',
         `?archived_at=is.null&or=(name.ilike.${boxLike},code.ilike.${boxLike})&select=id,name,code&limit=6`,
       )
+
       const boxLower = input.box.trim().toLowerCase()
+
       const box = pick(
         boxes,
         input.box,
@@ -1640,7 +1857,9 @@ export async function buildUpkeepProposal(
           b.name.toLowerCase() === boxLower ||
           b.code.toLowerCase() === boxLower,
       )
+
       if (!box.ok) return fail(box.message)
+
       const positions = await client.list<{
         id: string
         label: string
@@ -1649,19 +1868,23 @@ export async function buildUpkeepProposal(
         'storage_positions',
         `?box_id=eq.${box.value.id}&label=ilike.${likeValue(input.position.trim())}&select=id,label,status&limit=4`,
       )
+
       const position = positions.find(
         (p) => p.label.toLowerCase() === input.position!.trim().toLowerCase(),
       )
+
       if (!position) {
         return fail(
           `Box ${box.value.name} has no position ${input.position}. Tell the person.`,
         )
       }
+
       if (position.status !== 'available') {
         return fail(
           `${box.value.name} ${position.label} is ${position.status}, so a sample cannot go there. Tell the person.`,
         )
       }
+
       return card(name, input, {
         target: sampleLabel(row),
         deepLink: `/records/${row.id}`,
@@ -1684,8 +1907,10 @@ export async function buildUpkeepProposal(
 
     case STORAGE_ADD_LOCATION_TOOL: {
       const parsed = parse(proposeStorageAddLocationSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const PARENT: Record<string, string | null> = {
         site: null,
         room: 'storage_sites',
@@ -1694,21 +1919,27 @@ export async function buildUpkeepProposal(
         rack: 'storage_shelves',
         box: 'storage_racks',
       }
+
       const parentTable = PARENT[input.level]
       let parentId: string | null = null
       let parentName: string | null = null
+
       if (parentTable) {
         if (!input.inside?.trim()) {
           return fail(
             `A ${input.level} goes inside another location. Ask the person where.`,
           )
         }
+
         const like = likeValue(input.inside)
+
         const parents = await client.list<{ id: string; name: string }>(
           parentTable,
           `?archived_at=is.null&name=ilike.${like}&select=id,name&limit=6`,
         )
+
         const lower = input.inside.trim().toLowerCase()
+
         const parent = pick(
           parents,
           input.inside,
@@ -1716,10 +1947,12 @@ export async function buildUpkeepProposal(
           (p) => p.name,
           (p) => p.name.toLowerCase() === lower,
         )
+
         if (!parent.ok) return fail(parent.message)
         parentId = parent.value.id
         parentName = parent.value.name
       }
+
       if (
         ['site', 'room', 'unit', 'box'].includes(input.level) &&
         !input.code?.trim()
@@ -1728,6 +1961,7 @@ export async function buildUpkeepProposal(
           `A ${input.level} needs a short code. Ask the person for one.`,
         )
       }
+
       const changes: ProposalChange[] = [
         {
           label: 'Add',
@@ -1735,9 +1969,11 @@ export async function buildUpkeepProposal(
           after: `${input.level}: ${input.name.trim()}`,
         },
       ]
+
       if (parentName) {
         changes.push({ label: 'Inside', before: null, after: parentName })
       }
+
       return card(name, input, {
         target: input.name.trim(),
         deepLink: '/settings/lab/storage',
@@ -1758,14 +1994,18 @@ export async function buildUpkeepProposal(
 
     case INSTRUMENT_LOG_TOOL: {
       const parsed = parse(proposeInstrumentLogSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const found = await resolveInstrument(
         client,
         workspaceId,
         input.instrument,
       )
+
       if (!found.ok) return fail(found.message)
+
       const changes: ProposalChange[] = [
         {
           label: 'Visit',
@@ -1774,9 +2014,11 @@ export async function buildUpkeepProposal(
         },
         { label: 'What was done', before: null, after: input.summaryOfWork },
       ]
+
       if (input.performedBy) {
         changes.push({ label: 'By', before: null, after: input.performedBy })
       }
+
       return card(name, input, {
         target: instrumentLabel(found.instrument),
         deepLink: '/instruments',

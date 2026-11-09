@@ -14,6 +14,7 @@ describe('deriveReviewLifecycle', () => {
       lockedAt: '2026-08-26T10:00:00Z',
       supersededByRevisionId: null,
     })
+
     expect(lifecycle.status).toBe('signed-locked')
   })
 
@@ -23,6 +24,7 @@ describe('deriveReviewLifecycle', () => {
       lockedAt: null,
       supersededByRevisionId: 'rev-2',
     })
+
     expect(lifecycle.status).toBe('superseded')
   })
 
@@ -36,6 +38,7 @@ describe('deriveReviewLifecycle', () => {
       viewedRevisionId: 'rev-a',
       supersededByRevisionId: 'rev-b',
     })
+
     expect(lifecycle.status).toBe('superseded')
   })
 
@@ -47,6 +50,7 @@ describe('deriveReviewLifecycle', () => {
       viewedRevisionId: 'rev-b',
       supersededByRevisionId: null,
     })
+
     expect(lifecycle.status).toBe('signed-locked')
   })
 
@@ -58,6 +62,7 @@ describe('deriveReviewLifecycle', () => {
       ['approved', 'approved'],
       ['withdrawn', 'withdrawn'],
     ] as const
+
     for (const [state, expected] of states) {
       expect(
         deriveReviewLifecycle({
@@ -97,6 +102,7 @@ describe('deriveSignatureApplicability', () => {
       viewedRevisionDigest: 'aa'.repeat(32),
       viewedRevisionSupersededBy: 'rev-2',
     })
+
     expect(validity.applicability).toBe('superseded')
     expect(validity.explanation).toMatch(/didn’t move/)
   })
@@ -134,6 +140,7 @@ describe('buildAmendmentChain', () => {
       option('r1', 'submit', '2026-01-01T00:00:00Z', 'r2'),
       option('r2', 'amend', '2026-01-02T00:00:00Z', 'r3'),
     ])
+
     expect(chain.map((entry) => entry.id)).toEqual(['r1', 'r2', 'r3'])
     expect(chain[0].supersededByRevisionId).toBe('r2')
     expect(chain[2].supersededByRevisionId).toBeNull()
@@ -144,6 +151,7 @@ describe('buildAmendmentChain', () => {
       option('a1', 'submit', '2026-01-01T00:00:00Z', null),
       option('b1', 'submit', '2026-01-02T00:00:00Z', null),
     ])
+
     // Two disconnected roots: the product case is one chain; no fake merge.
     expect(chain).toHaveLength(1)
   })

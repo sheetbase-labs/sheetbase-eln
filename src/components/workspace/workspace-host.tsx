@@ -97,6 +97,7 @@ import { canNativeShare, shareLink } from '#/lib/pwa/share'
 import { t } from '#/copy'
 
 const ID_PATTERN = /^[A-Z]{2,5}-[A-Z0-9-]{2,}$/
+
 /** A redirect right after a pane opens is not a step in its trail. */
 const SETTLE_MS = 1500
 
@@ -107,6 +108,7 @@ function followedSelectionFor(
   selected: Record<string, string | undefined>,
 ): string | undefined {
   const link = tab.links.find((entry) => entry.followerIds.includes(paneId))
+
   return link ? selected[link.driverId] : undefined
 }
 
@@ -119,9 +121,11 @@ export function WorkspaceHost({
 }) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
+
   // Start hydrates the canonical page once. Independent page routers are CSR
   // only; they must never write a second document or hydrate Start again.
   if (!mounted) return children
+
   return (
     <ClientWorkspace
       key={`${context.auth?.user.id}:${context.auth?.workspace?.id}`}
@@ -134,15 +138,19 @@ export function WorkspaceHost({
 function mainScroller(pane: Element): HTMLElement | null {
   let best: HTMLElement | null = null
   let extent = 1
+
   for (const element of pane.querySelectorAll<HTMLElement>('*')) {
     const overflow = getComputedStyle(element).overflowY
+
     if (overflow !== 'auto' && overflow !== 'scroll') continue
     const room = element.scrollHeight - element.clientHeight
+
     if (room > extent) {
       best = element
       extent = room
     }
   }
+
   return best
 }
 
@@ -157,8 +165,10 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   // The open panes belong to this tab, but the shelf is the person's own list
   // of kept records, so it lives in localStorage and follows them to new tabs.
   const shelfKey = `sheetbase-shelf:${scope}`
+
   const [state, setState] = useState<WorkspaceState>(() => {
     let restored: WorkspaceState
+
     try {
       restored = restoreWorkspace(
         sessionStorage.getItem(storageKey),
@@ -168,13 +178,16 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     } catch {
       restored = initialWorkspace(href)
     }
+
     try {
       const kept = restoreShelf(localStorage.getItem(shelfKey), location.origin)
+
       return kept ? { ...restored, shelf: kept } : restored
     } catch {
       return restored
     }
   })
+
   const [layouts, setLayouts] = useState<SavedLayout[]>(() => {
     try {
       return restoreSavedLayouts(
@@ -185,6 +198,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       return []
     }
   })
+
   const team = useTeamLayouts(Boolean(context.auth?.workspace?.id))
   const current = useRef(state)
   current.current = state
@@ -195,28 +209,36 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   const [phone, setPhone] = useState(false)
   const [maximized, setMaximized] = useState(false)
   const [error, setError] = useState('')
+
   const [crumbs, setCrumbs] = useState<Record<string, PaneCrumb[] | undefined>>(
     {},
   )
+
   const [newer, setNewer] = useState<Record<string, string | undefined>>({})
+
   // The address each pane showed when its record reported being frozen, so a
   // pane that moves on to another page stops claiming frozen evidence.
   const [frozenAt, setFrozenAt] = useState<
     Partial<Record<string, { href: string; why: FrozenState }>>
   >({})
+
   // Likewise the address at which a pane's record reported itself missing.
   const [missingAt, setMissingAt] = useState<Record<string, string>>({})
+
   const [selected, setSelected] = useState<Record<string, string | undefined>>(
     {},
   )
+
   const [dropTarget, setDropTarget] = useState<{
     paneId: string
     edge: DropEdge | 'center'
   } | null>(null)
+
   const busyClosing = useRef(false)
   const workspaceRoot = useRef<HTMLElement | null>(null)
   const stage = useRef<HTMLDivElement | null>(null)
   const peekHeld = useRef<(anchor: HTMLAnchorElement) => void>(() => {})
+
   const links = useRecordLinks(workspaceRoot, (anchor) =>
     peekHeld.current(anchor),
   )
@@ -225,10 +247,12 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   const apply = useCallback(
     (change: (previous: WorkspaceState) => WorkspaceState) => {
       const next = change(current.current)
+
       if (next !== current.current) {
         current.current = next
         setState(next)
       }
+
       return next
     },
     [],
@@ -239,10 +263,12 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   /* The browser tab is named for the focused pane's page, with the Inbox's
      unread count in front while something waits. */
   const focusedForTitle = paneOf(tab, tab.activeId)
+
   // A record's identifier is a step of its own breadcrumb (EXP-3101 › title).
   const titleIdentifier =
     focusedForTitle?.identifier ??
     crumbs[tab.activeId]?.find((step) => ID_PATTERN.test(step.label))?.label
+
   const unreadCount = unreadFromShellCount(context.shellCounts.inbox)
   useEffect(() => {
     document.title = browserTitle({
@@ -255,13 +281,17 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   /* Titles and record IDs come from the page each pane renders. */
   useEffect(() => {
     const root = workspaceRoot.current
+
     if (!root) return
+
     const read = () => {
       for (const element of root.querySelectorAll<HTMLElement>(
         '[data-workspace-pane]',
       )) {
         const id = element.dataset.workspacePane
+
         if (!id) continue
+
         // An editable title is an input inside the heading, so its text lives
         // in the value rather than the heading's text content.
         const title = Array.from(element.querySelectorAll('h1'))
@@ -272,10 +302,13 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
               '',
           )
           .find(Boolean)
+
         const pageTrail = 'nav[aria-label="Breadcrumb"]:not([data-pane-path])'
+
         const crumb = element
           .querySelector(`${pageTrail} [aria-current="page"]`)
           ?.textContent.trim()
+
         // The page's own location, so the pane header can show the same path.
         const path = Array.from(element.querySelectorAll(`${pageTrail} li`))
           .map((item) => ({
@@ -286,12 +319,14 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
             href: item.querySelector('a')?.getAttribute('href') ?? undefined,
           }))
           .filter((entry) => entry.label)
+
         setCrumbs((previous) =>
           JSON.stringify(previous[id]) === JSON.stringify(path)
             ? previous
             : { ...previous, [id]: path },
         )
         const identifier = crumb && ID_PATTERN.test(crumb) ? crumb : undefined
+
         if (title || identifier) {
           apply((previous) =>
             setPaneMeta(previous, id, {
@@ -302,6 +337,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         }
       }
     }
+
     const observer = new MutationObserver(read)
     observer.observe(root, {
       childList: true,
@@ -309,6 +345,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       subtree: true,
     })
     read()
+
     return () => observer.disconnect()
   }, [apply])
 
@@ -317,6 +354,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     const update = () => setNarrow(media.matches)
     update()
     media.addEventListener('change', update)
+
     return () => media.removeEventListener('change', update)
   }, [])
 
@@ -325,6 +363,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     const update = () => setPhone(media.matches)
     update()
     media.addEventListener('change', update)
+
     return () => media.removeEventListener('change', update)
   }, [])
 
@@ -371,6 +410,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     (id: string) => {
       const next = apply((previous) => focusPaneState(previous, id))
       const target = paneOf(activeTab(next), id)
+
       if (target) mirror(target.href)
     },
     [apply, mirror],
@@ -379,18 +419,25 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   const open = useCallback(
     (value: string, options?: WorkspaceOpenOptions) => {
       const nextHref = workspaceHref(value, location.origin)
+
       if (!nextHref) {
         setError(t('projects.workspaceHost.badLink'))
+
         return
       }
+
       setError('')
+
       if (!options?.beside && !options?.duplicate) {
         // Ordinary navigation changes the focused pane and adds a trail step.
         const active = activeTab(current.current).activeId
         void handles.current.get(active)?.navigate(nextHref)
+
         return
       }
+
       const newId = crypto.randomUUID()
+
       const result = openBeside(current.current, {
         href: nextHref,
         newId,
@@ -400,9 +447,12 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         direction: options.below ? 'column' : 'row',
         before: options.before,
       })
+
       apply(() => result.state)
+
       if (result.created) openedAt.current.set(result.paneId, Date.now())
       const pane = paneOf(activeTab(result.state), result.paneId)
+
       if (pane) mirror(pane.href)
     },
     [apply, mirror],
@@ -414,6 +464,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         direction === 'back'
           ? stepBack(current.current, id, steps)
           : stepForward(current.current, id)
+
       if (!result) return
       stepping.current.set(id, Date.now())
       apply(() => result.state)
@@ -427,9 +478,11 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     for (const workspaceTab of current.current.tabs) {
       for (const pane of workspaceTab.panes) {
         const handle = handles.current.get(pane.id)
+
         if (!handle || !(await handle.requestClose())) return false
       }
     }
+
     return true
   }, [])
 
@@ -445,15 +498,20 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     () =>
       registerAssistantWorkspace((request) => {
         setMaximized(false)
+
         const next = apply((previous) =>
           composeWorkspace(previous, request, () => crypto.randomUUID()),
         )
+
         const tab = activeTab(next)
+
         for (const pane of tab.panes) {
           if (!openedAt.current.has(pane.id))
             openedAt.current.set(pane.id, Date.now())
         }
+
         const focused = paneOf(tab, tab.activeId)
+
         if (focused) mirror(focused.href)
       }),
     [apply, mirror],
@@ -478,25 +536,34 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
           action: string
         }) => {
           const nextHref = workspaceHref(nextLocation.href, location.origin)
+
           if (!nextHref) return !(await approveLeave())
+
           if (action !== 'PUSH' && action !== 'REPLACE') {
             // The browser's Back and Forward step the focused pane's own trail.
             const activeId = activeTab(current.current).activeId
             const pane = paneOf(activeTab(current.current), activeId)
+
             if (pane?.trail.at(-1)?.href === nextHref) {
               stepTrail(activeId, 'back')
+
               return false
             }
+
             if (pane?.forward[0]?.href === nextHref) {
               stepTrail(activeId, 'forward')
+
               return false
             }
           }
+
           // Keep the concrete URL, including search/snapshot identity. A route's
           // fullPath is a pattern such as /records/$recordId, not its destination.
           const active = activeTab(current.current).activeId
           const handle = handles.current.get(active)
+
           if (handle) await handle.navigate(nextHref)
+
           return true
         },
         enableBeforeUnload: false,
@@ -508,6 +575,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     const onClick = (event: MouseEvent) => {
       const anchor =
         event.target instanceof Element ? event.target.closest('a[href]') : null
+
       if (
         !(anchor instanceof HTMLAnchorElement) ||
         anchor.download ||
@@ -519,9 +587,12 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       )
         return
       const raw = anchor.getAttribute('href')
+
       if (!raw || raw.startsWith('#')) return
       const target = workspaceHref(anchor.href, location.origin)
+
       if (!target) return
+
       if (event.altKey) {
         event.preventDefault()
         event.stopImmediatePropagation()
@@ -537,7 +608,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         void handles.current.get(active)?.navigate(target)
       }
     }
+
     window.addEventListener('click', onClick, true)
+
     return () => window.removeEventListener('click', onClick, true)
   }, [open])
 
@@ -546,22 +619,29 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       if (busyClosing.current) return
       const active = activeTab(current.current)
       const handle = handles.current.get(id)
+
       if (!handle || !active.panes.some((pane) => pane.id === id)) return
       busyClosing.current = true
+
       try {
         if (!(await handle.requestClose())) return
+
         if (active.panes.length === 1) {
           // The last pane of a workspace tab closes the tab, if there is another.
           if (current.current.tabs.length < 2) return
           const next = apply((previous) => closeTabState(previous, active.id))
           const nextTab = activeTab(next)
           const pane = paneOf(nextTab, nextTab.activeId)
+
           if (pane) mirror(pane.href)
+
           return
         }
+
         const next = apply((previous) => closePaneState(previous, id))
         const nextActive = activeTab(next)
         const pane = paneOf(nextActive, nextActive.activeId)
+
         if (pane) mirror(pane.href)
       } finally {
         busyClosing.current = false
@@ -573,14 +653,19 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   const closeWorkspaceTab = useCallback(
     async (id: string) => {
       const target = current.current.tabs.find((entry) => entry.id === id)
+
       if (!target || current.current.tabs.length < 2) return
+
       for (const pane of target.panes) {
         const handle = handles.current.get(pane.id)
+
         if (!handle || !(await handle.requestClose())) return
       }
+
       const next = apply((previous) => closeTabState(previous, id))
       const nextTab = activeTab(next)
       const pane = paneOf(nextTab, nextTab.activeId)
+
       if (pane) mirror(pane.href)
     },
     [apply, mirror],
@@ -592,6 +677,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       stepping.current.delete(id)
       const settling = Date.now() - (openedAt.current.get(id) ?? 0) < SETTLE_MS
       let moved = false
+
       if (stepAt && Date.now() - stepAt < 3000) {
         apply((previous) => setPaneHref(previous, id, next))
       } else if (settling) {
@@ -600,7 +686,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         moved = true
         apply((previous) => recordNavigation(previous, id, next))
       }
+
       const active = activeTab(current.current)
+
       if (active.activeId === id) mirror(next, moved)
     },
     [apply, mirror],
@@ -610,7 +698,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     (direction: 'row' | 'column', paneId?: string) => {
       const active = activeTab(current.current)
       const target = paneOf(active, paneId ?? active.activeId)
+
       if (!target) return
+
       if (paneId) apply((previous) => focusPaneState(previous, paneId))
       open(target.href, {
         beside: true,
@@ -635,8 +725,10 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     (preset: LayoutPreset) => {
       if (preset === 'single') {
         setMaximized((value) => !value)
+
         return
       }
+
       setMaximized(false)
       apply((previous) => arrange(previous, preset, () => crypto.randomUUID()))
     },
@@ -650,9 +742,11 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         paneId: crypto.randomUUID(),
       }),
     )
+
     const added = activeTab(next)
     openedAt.current.set(added.activeId, Date.now())
     const pane = paneOf(added, added.activeId)
+
     if (pane) mirror(pane.href)
   }, [apply, mirror])
 
@@ -661,6 +755,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       const next = apply((previous) => switchTab(previous, id))
       const nextTab = activeTab(next)
       const pane = paneOf(nextTab, nextTab.activeId)
+
       if (pane) mirror(pane.href)
     },
     [apply, mirror],
@@ -687,12 +782,15 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       const layout = [...layouts, ...team.layouts].find(
         (entry) => entry.id === id,
       )
+
       if (!layout) return
       const opened = tabFromLayout(layout)
+
       for (const pane of opened.panes) openedAt.current.set(pane.id, Date.now())
       const next = apply((previous) => addTabFrom(previous, opened))
       const nextTab = activeTab(next)
       const pane = paneOf(nextTab, nextTab.activeId)
+
       if (pane) mirror(pane.href)
     },
     [apply, layouts, team.layouts, mirror],
@@ -700,11 +798,13 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
 
   const shareLayout = useCallback(() => {
     const active = activeTab(current.current)
+
     const saved = layoutFromTab(
       active,
       active.layoutId ?? crypto.randomUUID(),
       active.name,
     )
+
     team.share(saved).then(
       () =>
         toast.success(
@@ -723,13 +823,17 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     const active = activeTab(current.current)
     const pane = paneOf(active, paneId)
     const identifier = paneOf(active, active.primaryId)?.identifier
+
     if (!pane || !identifier) return
+
     try {
       const found = await notebookDataClient.list<{ id: string }>(
         'records',
         `?identifier=eq.${encodeURIComponent(identifier)}&select=id&limit=1`,
       )
+
       const recordId = found.at(0)?.id
+
       if (!recordId)
         throw new Error(t('projects.workspaceHost.notFound', { identifier }))
       const steps = trailEvidenceSteps(pane.trail, pane)
@@ -750,10 +854,13 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     const id = element
       .closest('[data-workspace-pane]')
       ?.getAttribute('data-workspace-pane')
+
     if (!id) return undefined
     const pane = paneOf(activeTab(current.current), id)
+
     return pane?.identifier ?? pane?.title
   }, [])
+
   peekHeld.current = (anchor) => links.peekHovered(paneLabel, anchor)
 
   const pinHref = useCallback(
@@ -774,12 +881,16 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   const pinPane = useCallback(
     (id: string) => {
       const pane = paneOf(activeTab(current.current), id)
+
       if (!pane) return
       const kept = current.current.shelf.find((item) => item.href === pane.href)
+
       if (kept) {
         apply((previous) => unpin(previous, kept.id))
+
         return
       }
+
       pinHref(pane.href, pane.title, pane.identifier)
     },
     [apply, pinHref],
@@ -788,43 +899,57 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   /* Linked panes: the driver's scroll position carries to its followers. */
   useEffect(() => {
     const root = workspaceRoot.current
+
     if (!root) return
+
     const onScroll = (event: Event) => {
       const target = event.target
+
       if (!(target instanceof HTMLElement)) return
       const paneElement = target.closest('[data-workspace-pane]')
       const id = paneElement?.getAttribute('data-workspace-pane')
+
       if (!paneElement || !id) return
+
       const link = activeTab(current.current).links.find(
         (entry) => entry.driverId === id,
       )
+
       if (!link) return
       const room = target.scrollHeight - target.clientHeight
+
       if (room <= 0 || mainScroller(paneElement) !== target) return
       const ratio = target.scrollTop / room
+
       for (const followerId of link.followerIds) {
         const follower = root.querySelector(
           `[data-workspace-pane="${CSS.escape(followerId)}"]`,
         )
+
         const scroller = follower ? mainScroller(follower) : null
+
         if (scroller) {
           scroller.scrollTop =
             ratio * (scroller.scrollHeight - scroller.clientHeight)
         }
       }
     }
+
     root.addEventListener('scroll', onScroll, true)
+
     return () => root.removeEventListener('scroll', onScroll, true)
   }, [])
 
   /* Keyboard: the multiplex map. Handlers read live state, never closures. */
   const focusedLinkAnchor = () => {
     const element = document.activeElement
+
     return element instanceof HTMLAnchorElement &&
       workspaceHref(element.href, location.origin)
       ? element
       : null
   }
+
   const shortcuts = useMemo(
     () =>
       paneShortcuts({
@@ -865,10 +990,13 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                 links.peek.from,
               )
               links.setPeek(null)
+
               return
             }
+
             const anchor = links.hoveredAnchor()
             const target = anchor && workspaceHref(anchor.href, location.origin)
+
             if (anchor && target) {
               const text = anchor.textContent.trim()
               pinHref(
@@ -885,6 +1013,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
           handler: () => {
             const anchor = focusedLinkAnchor()
             const target = anchor && workspaceHref(anchor.href, location.origin)
+
             if (anchor && target)
               open(target, {
                 beside: true,
@@ -897,6 +1026,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
           handler: () => {
             const anchor = focusedLinkAnchor()
             const target = anchor && workspaceHref(anchor.href, location.origin)
+
             if (anchor && target)
               open(target, {
                 beside: true,
@@ -911,6 +1041,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
             const next = apply((previous) => nextWorkspaceTab(previous))
             const nextActive = activeTab(next)
             const pane = paneOf(nextActive, nextActive.activeId)
+
             if (pane) mirror(pane.href)
           },
         },
@@ -919,6 +1050,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
           when: (event) => !isEditableTarget(event.target),
           handler: () => {
             const active = activeTab(current.current)
+
             if (active.layoutId) saveLayout()
             else toast.message(t('projects.workspaceHost.nameLayout'))
           },
@@ -935,6 +1067,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       saveLayout,
     ],
   )
+
   useRegisterShortcuts(shortcuts)
 
   useEffect(() => {
@@ -942,6 +1075,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       const modifier = /mac|iphone|ipad/i.test(navigator.platform)
         ? event.metaKey
         : event.ctrlKey
+
       if (
         !modifier ||
         event.altKey ||
@@ -951,11 +1085,14 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       )
         return
       const target = paneAtNumber(activeTab(current.current), Number(event.key))
+
       if (!target) return
       event.preventDefault()
       focus(target)
     }
+
     window.addEventListener('keydown', onKey, true)
+
     return () => window.removeEventListener('keydown', onKey, true)
   }, [focus])
 
@@ -963,10 +1100,13 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   const citeOnPrimary = async (href: string) => {
     const active = activeTab(current.current)
     const identifier = paneOf(active, active.primaryId)?.identifier
+
     try {
       const target = citationTarget(href)
+
       if (!identifier || !target)
         throw new Error(t('projects.workspaceHost.cantCite'))
+
       const [found, cited] = await Promise.all([
         notebookDataClient.list<{ id: string }>(
           'records',
@@ -974,9 +1114,12 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         ),
         resolveCitation(notebookDataClient, target),
       ])
+
       const recordId = found.at(0)?.id
+
       if (!recordId)
         throw new Error(t('projects.workspaceHost.notFound', { identifier }))
+
       if (!cited) throw new Error(t('projects.workspaceHost.objectNotFound'))
       await citeInNotebook(notebookDataClient, { recordId, cited })
       await context.queryClient.invalidateQueries()
@@ -1003,13 +1146,18 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     const dropped = event.dataTransfer.getData(LINK_MIME)
     const nextHref = dropped && workspaceHref(dropped, location.origin)
     setDropTarget(null)
+
     if (!nextHref) return
     event.preventDefault()
+
     if (edge === 'center') {
       void citeOnPrimary(nextHref)
+
       return
     }
+
     const newId = crypto.randomUUID()
+
     const result = openBeside(current.current, {
       href: nextHref,
       newId,
@@ -1018,9 +1166,12 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       direction: edge === 'left' || edge === 'right' ? 'row' : 'column',
       before: edge === 'left' || edge === 'top',
     })
+
     apply(() => result.state)
+
     if (result.created) openedAt.current.set(result.paneId, Date.now())
     const pane = paneOf(activeTab(result.state), result.paneId)
+
     if (pane) mirror(pane.href)
   }
 
@@ -1031,22 +1182,27 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     index: number,
   ) => {
     const box = stage.current?.getBoundingClientRect()
+
     if (!box) return
     const element = event.currentTarget as HTMLElement
     element.setPointerCapture(event.pointerId)
     element.classList.add('is-drag')
     let last = { x: event.clientX, y: event.clientY }
+
     const move = (moveEvent: PointerEvent) => {
       const geometry = layoutGeometry(
         activeTab(current.current).tree,
       ).dividers.find(
         (entry) => entry.splitId === splitId && entry.index === index,
       )
+
       if (!geometry) return
+
       const delta =
         geometry.direction === 'row'
           ? moveEvent.clientX - last.x
           : moveEvent.clientY - last.y
+
       last = { x: moveEvent.clientX, y: moveEvent.clientY }
       apply((previous) =>
         resizeDivider(
@@ -1060,12 +1216,14 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         ),
       )
     }
+
     const end = () => {
       element.classList.remove('is-drag')
       element.removeEventListener('pointermove', move)
       element.removeEventListener('pointerup', end)
       element.removeEventListener('pointercancel', end)
     }
+
     element.addEventListener('pointermove', move)
     element.addEventListener('pointerup', end)
     element.addEventListener('pointercancel', end)
@@ -1073,8 +1231,10 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
 
   const navigation = useMemo(() => ({ open }), [open])
   const solo = narrow || maximized
+
   const hints = useMemo(() => {
     const focusedPane = paneOf(tab, tab.activeId)
+
     return statusHints({
       hasTrail: (focusedPane?.trail.length ?? 0) > 0,
       linked: !!linkOf(tab, tab.activeId),
@@ -1082,10 +1242,12 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
       paneCount: tab.panes.length,
     })
   }, [tab])
+
   const focusedLink = linkOf(tab, tab.activeId)
   const driver = focusedLink ? paneOf(tab, focusedLink.driverId) : undefined
   const shelfHrefs = new Set(state.shelf.map((item) => item.href))
   const currentPreset = detectPreset(tab.tree)
+
   // One page on its own needs no layout bar and no shortcut footer: they say
   // nothing a single pane can use. They appear once there is something to lay
   // out (a split, another workspace tab, pinned items), or when the person
@@ -1197,6 +1359,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
               const isActiveTab = workspaceTab.id === state.activeTabId
               const geometry = layoutGeometry(workspaceTab.tree)
               const order = listPaneIds(workspaceTab.tree)
+
               return (
                 <div
                   key={workspaceTab.id}
@@ -1209,6 +1372,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                     const rect = geometry.panes.get(pane.id)
                     const focused = pane.id === workspaceTab.activeId
                     const primary = pane.id === workspaceTab.primaryId
+
                     const mode = paneMode(
                       pane.href,
                       primary,
@@ -1221,11 +1385,14 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                         : false,
                       missingAt[pane.id] === pane.href,
                     )
+
                     const readOnly =
                       mode.kind === 'read-only' || mode.kind === 'signed'
+
                     const kind = paneKind(pane.href)
                     const link = linkOf(workspaceTab, pane.id)
                     const hiddenBySolo = solo && !focused
+
                     const style: React.CSSProperties = rect
                       ? {
                           left: `${rect.x * 100}%`,
@@ -1234,6 +1401,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                           height: `${rect.h * 100}%`,
                         }
                       : {}
+
                     return (
                       <div
                         key={pane.id}
@@ -1253,19 +1421,24 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                           if (!event.dataTransfer.types.includes(LINK_MIME))
                             return
                           event.preventDefault()
+
                           const box =
                             event.currentTarget.getBoundingClientRect()
+
                           const point = {
                             x: event.clientX - box.left,
                             y: event.clientY - box.top,
                           }
+
                           const middle =
                             Math.abs(point.x / box.width - 0.5) < 0.2 &&
                             Math.abs(point.y / box.height - 0.5) < 0.2
+
                           const edge =
                             primary && middle
                               ? ('center' as const)
                               : dropEdge(point, box)
+
                           setDropTarget((previous) =>
                             previous?.paneId === pane.id &&
                             previous.edge === edge
@@ -1289,6 +1462,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                             dropTarget?.paneId === pane.id
                               ? dropTarget.edge
                               : 'right'
+
                           dropOnPane(pane.id, edge, event)
                         }}
                       >
@@ -1350,11 +1524,14 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                           }
                           onCompareNewer={() => {
                             const revision = newer[pane.id]
+
                             if (!revision) return
+
                             const target = pane.href.replace(
                               /([?&])snapshot=[^&#]*/,
                               `$1snapshot=${encodeURIComponent(revision)}`,
                             )
+
                             open(target, { beside: true, duplicate: true })
                           }}
                           trailTarget={
@@ -1373,6 +1550,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                                   }).then((outcome) => {
                                     if (outcome === 'failed')
                                       toast.error(t('pwa.share.failed'))
+
                                     if (outcome === 'copied')
                                       toast.success(t('pwa.share.copied'))
                                   })
@@ -1428,6 +1606,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                                 setFrozenAt((previous) => {
                                   if (frozen) {
                                     const held = previous[pane.id]
+
                                     return held?.href === pane.href &&
                                       held.why === frozen
                                       ? previous
@@ -1439,8 +1618,10 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                                           },
                                         }
                                   }
+
                                   if (!(pane.id in previous)) return previous
                                   const { [pane.id]: _, ...rest } = previous
+
                                   return rest
                                 })
                               }
@@ -1451,8 +1632,10 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                                       ? previous
                                       : { ...previous, [pane.id]: pane.href }
                                   }
+
                                   if (!(pane.id in previous)) return previous
                                   const { [pane.id]: _, ...rest } = previous
+
                                   return rest
                                 })
                               }
@@ -1488,6 +1671,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                   {!solo
                     ? geometry.dividers.map((divider) => {
                         const vertical = divider.direction === 'row'
+
                         return (
                           <div
                             key={`${divider.splitId}-${divider.index}`}
@@ -1518,7 +1702,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                               const forward = vertical
                                 ? 'ArrowRight'
                                 : 'ArrowDown'
+
                               const back = vertical ? 'ArrowLeft' : 'ArrowUp'
+
                               if (event.key !== forward && event.key !== back)
                                 return
                               event.preventDefault()
@@ -1556,17 +1742,21 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                   id,
                   crypto.randomUUID(),
                 )
+
                 if (!result) return
                 apply(() => result.state)
+
                 if (result.created)
                   openedAt.current.set(result.paneId, Date.now())
                 const pane = paneOf(activeTab(result.state), result.paneId)
+
                 if (pane) mirror(pane.href)
               }}
               onRemove={(id) => apply((previous) => unpin(previous, id))}
               onClose={() => apply((previous) => setShelfOpen(previous, false))}
               onDropLink={(dropped) => {
                 const nextHref = workspaceHref(dropped, location.origin)
+
                 if (nextHref) pinHref(nextHref, pageTitleFor(nextHref))
               }}
             />
@@ -1620,6 +1810,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
             onOpenBeside={() => {
               const target = links.peek
               links.setPeek(null)
+
               if (target)
                 open(target.href, {
                   beside: true,
@@ -1630,11 +1821,13 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
             onOpenHere={() => {
               const target = links.peek
               links.setPeek(null)
+
               if (target) open(target.href)
             }}
             onPin={() => {
               const target = links.peek
               links.setPeek(null)
+
               if (target)
                 pinHref(
                   target.href,
@@ -1656,6 +1849,7 @@ function pageTitleFor(href: string) {
 
 function DropOverlay({ edge }: { edge: DropEdge | 'center' | null }) {
   if (!edge) return null
+
   if (edge === 'center')
     return (
       <div
@@ -1668,6 +1862,7 @@ function DropOverlay({ edge }: { edge: DropEdge | 'center' | null }) {
         </span>
       </div>
     )
+
   const style: React.CSSProperties =
     edge === 'left'
       ? { top: 0, bottom: 0, left: 0, width: '50%' }
@@ -1676,6 +1871,7 @@ function DropOverlay({ edge }: { edge: DropEdge | 'center' | null }) {
         : edge === 'top'
           ? { top: 0, left: 0, right: 0, height: '50%' }
           : { bottom: 0, left: 0, right: 0, height: '50%' }
+
   return (
     <div className="mx-drop" style={style} aria-hidden="true">
       <span className="mx-drop-l">

@@ -53,6 +53,7 @@ export function fieldEditorPresentation(
       if (options?.relationshipTarget === 'model') {
         return { kind: 'record-picker', inputType: 'text' }
       }
+
       return { kind: 'text', inputType: 'text' }
     case 'text':
       return { kind: 'text', inputType: 'text' }
@@ -67,6 +68,7 @@ export function selectableFieldOptions(
   currentValue: unknown,
 ) {
   if (field.category?.kind !== 'embedded') return []
+
   return field.category.options.filter(
     (option) => option.lifecycle === 'active' || option.key === currentValue,
   )

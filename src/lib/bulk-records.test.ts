@@ -61,10 +61,12 @@ describe('fetchBulkTargets', () => {
         properties: null,
       },
     ])
+
     const targets = await fetchBulkTargets({ list } as unknown as DataClient, [
       'a',
       'b',
     ])
+
     expect(list).toHaveBeenCalledWith(
       'records',
       expect.stringContaining('id=in.(a,b)'),
@@ -83,6 +85,7 @@ describe('runBulk', () => {
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new DataClientError('SB001', 'stale', 409))
       .mockResolvedValueOnce(undefined)
+
     const outcome = await runBulk(
       [
         target({ id: 'a', identifier: 'A' }),
@@ -91,6 +94,7 @@ describe('runBulk', () => {
       ],
       act,
     )
+
     expect(outcome.done.sort()).toEqual(['A', 'C'])
     expect(outcome.failed).toEqual([
       {
@@ -112,11 +116,13 @@ describe('runBulk', () => {
 describe('bulk actions', () => {
   it('archives a sample through archive_sample and others through archive_record', async () => {
     const rpc = vi.fn().mockResolvedValue({})
+
     const outcome = await bulkArchive(client(rpc), [
       target({ id: 's', kind: 'sample', identifier: 'SMP-1' }),
       target({ id: 'e', kind: 'experiment' }),
       target({ id: 'x', archived: true, identifier: 'EXP-9' }),
     ])
+
     expect(rpc).toHaveBeenCalledWith(
       'archive_sample',
       expect.objectContaining({ p_record_id: 's' }),
@@ -154,12 +160,14 @@ describe('bulk actions', () => {
 
   it('skips a locked record when setting a field', async () => {
     const rpc = vi.fn().mockResolvedValue({})
+
     const outcome = await bulkSetField(
       client(rpc),
       [target({ id: 'a' }), target({ id: 'b', locked: true, identifier: 'B' })],
       'batch',
       'L1',
     )
+
     expect(rpc).toHaveBeenCalledTimes(1)
     expect(rpc).toHaveBeenCalledWith('update_record_custom_fields', {
       p_record_id: 'a',

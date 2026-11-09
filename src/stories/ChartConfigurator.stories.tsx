@@ -62,6 +62,7 @@ function Caller({
   'spec' | 'onSpecChange'
 >) {
   const [spec, setSpec] = useState(initialSpec)
+
   return (
     <div className="w-[900px] max-w-full">
       <ChartConfigurator {...props} spec={spec} onSpecChange={setSpec} />
@@ -75,7 +76,9 @@ const meta = {
   tags: ['autodocs'],
   args: { source, spec: baseSpec, onSpecChange: () => {} },
 } satisfies Meta<typeof ChartConfigurator>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Wrap: Story = {

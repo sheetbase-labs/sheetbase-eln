@@ -35,6 +35,7 @@ describe('chart suggestion', () => {
     { fieldId: 'a', label: 'Time', logicalType: 'decimal' },
     { fieldId: 'b', label: 'Titre', logicalType: 'decimal' },
   ]
+
   const types = ['scatter', 'bar'] as const
   it('lists fields and types for the model', () => {
     const text = chartSuggestionInstruction(fields, types)
@@ -44,6 +45,7 @@ describe('chart suggestion', () => {
   it('keeps a pick only when type and fields are real', () => {
     const good =
       '{"type":"scatter","x_field_id":"a","y_field_id":"b","reason":"Two measures."}'
+
     expect(parseChartChoice(good, fields, types)).toEqual({
       type: 'scatter',
       xFieldId: 'a',

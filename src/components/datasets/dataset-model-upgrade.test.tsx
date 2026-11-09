@@ -12,9 +12,11 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
+
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
+
 vi.mock('#/lib/dataset-model-upgrade', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   fetchDatasetModelPosition: (...a: unknown[]) => mocks.position(...a),
@@ -28,6 +30,7 @@ const POSITION = {
   currentVersion: 1,
   newer: [{ id: 'v2', version: 2 }],
 }
+
 const PREVIEW = {
   ok: true,
   blocked: false,

@@ -25,7 +25,9 @@ vi.mock('@tanstack/react-router', () => ({
     </a>
   ),
 }))
+
 vi.mock('#/lib/reviews', () => ({ reviewsDataClient: {} }))
+
 vi.mock('#/lib/work-items/data', async (importOriginal) => ({
   ...(await importOriginal<typeof WorkItemsData>()),
   useWorkItems: () => work,

@@ -8,6 +8,7 @@ const SECRET = 'test-secret-with-at-least-thirty-two-characters-in-it'
 
 async function decode(token: string) {
   const { payload } = await jwtVerify(token, new TextEncoder().encode(SECRET))
+
   return payload
 }
 
@@ -18,6 +19,7 @@ describe('mintPostgrestToken', () => {
       workspaceId: 'ws-1',
       sessionId: 'sess-1',
     })
+
     const claims = await decode(token)
     expect(claims.sub).toBe('user-1')
     expect(claims.workspace_id).toBe('ws-1')
@@ -36,6 +38,7 @@ describe('mintPostgrestToken', () => {
       sessionId: 'sess-1',
       clientId: 'tab-abc',
     })
+
     const claims = await decode(token)
     expect(claims.client_id).toBe('tab-abc')
   })
@@ -49,6 +52,7 @@ describe('mintPostgrestToken', () => {
         clientId: null,
       }),
     )
+
     expect(a.client_id).toBeUndefined()
 
     const b = await decode(
@@ -59,6 +63,7 @@ describe('mintPostgrestToken', () => {
         clientId: '',
       }),
     )
+
     expect(b.client_id).toBeUndefined()
   })
 })

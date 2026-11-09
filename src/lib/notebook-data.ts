@@ -424,9 +424,11 @@ export function fetchFileObjectsByRecordIds(
   fileRecordIds: string[],
 ): Promise<Map<string, FileObjectSummary>> {
   if (fileRecordIds.length === 0) return Promise.resolve(new Map())
+
   const filter = fileRecordIds
     .map((id) => `eq.${encodeURIComponent(id)}`)
     .join(',')
+
   return client
     .list<FileObjectWire>(
       'file_objects',
@@ -434,7 +436,9 @@ export function fetchFileObjectsByRecordIds(
     )
     .then((rows) => {
       const map = new Map<string, FileObjectSummary>()
+
       for (const row of rows) map.set(row.record_id, toFileObjectSummary(row))
+
       return map
     })
 }
@@ -521,18 +525,26 @@ export function statusDomainForKind(
 export function formatRelativeTime(iso: string | null | undefined): string {
   if (!iso) return '—'
   const then = Date.parse(iso)
+
   if (Number.isNaN(then)) return '—'
   const seconds = Math.round((appNow().getTime() - then) / 1000)
+
   if (seconds < 0) return 'just now'
+
   if (seconds < 60) return 'just now'
   const minutes = Math.round(seconds / 60)
+
   if (minutes < 60) return `${minutes}m ago`
   const hours = Math.round(minutes / 60)
+
   if (hours < 24) return `${hours}h ago`
   const days = Math.round(hours / 24)
+
   if (days < 7) return `${days}d ago`
   const weeks = Math.round(days / 7)
+
   if (weeks < 5) return `${weeks}w ago`
+
   return formatDate(iso)
 }
 
@@ -546,7 +558,9 @@ const ukDate: Intl.DateTimeFormatOptions = {
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—'
   const parsed = Date.parse(iso)
+
   if (Number.isNaN(parsed)) return '—'
+
   return formatInstant(iso, ukDate)
 }
 

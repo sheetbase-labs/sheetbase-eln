@@ -221,31 +221,41 @@ const FIELD_WEIGHTS: Array<{
 
 function mockSearchRpc(args: Record<string, unknown>): SearchResultWire[] {
   const query = String(args.p_query ?? '')
+
   const recordOnly =
     args.p_kind != null || args.p_status != null || args.p_owner_id != null
+
   const scored: Array<{
     doc: FixtureDoc
     rank: number
     matchedField: string
     context: string
   }> = []
+
   for (const doc of VISIBLE_DOCS) {
     if (args.p_result_type != null) {
       const facet = String(args.p_result_type)
+
       if (facet === 'file' || facet === 'record') {
         if (doc.resultType !== 'record' && doc.resultType !== 'file') continue
+
         if ((facet === 'file') !== (doc.kind === 'file')) continue
       } else if (doc.resultType !== facet) continue
     }
+
     if (recordOnly && doc.resultType !== 'record' && doc.resultType !== 'file')
       continue
+
     if (
       args.p_project_id != null &&
       doc.projectId !== String(args.p_project_id)
     )
       continue
+
     if (args.p_kind != null && doc.kind !== String(args.p_kind)) continue
+
     if (args.p_status != null && doc.status !== String(args.p_status)) continue
+
     if (args.p_owner_id != null && doc.createdBy !== String(args.p_owner_id))
       continue
     const words = tokens(query)
@@ -253,24 +263,32 @@ function mockSearchRpc(args: Record<string, unknown>): SearchResultWire[] {
     let bestWeight = 0
     let bestField = FIELD_WEIGHTS[0]
     let ok = true
+
     for (const word of words) {
       let tokenBest = 0
+
       for (const candidate of FIELD_WEIGHTS) {
         const haystack = new Set(tokens(doc.fields[candidate.field]))
+
         if (haystack.has(word) && candidate.weight > tokenBest) {
           tokenBest = candidate.weight
         }
       }
+
       if (tokenBest === 0) {
         ok = false
         break
       }
+
       score += tokenBest
     }
+
     if (!ok) continue
+
     for (const candidate of FIELD_WEIGHTS) {
       const haystack = new Set(tokens(doc.fields[candidate.field]))
       const hits = words.filter((word) => haystack.has(word)).length
+
       if (hits > 0 && candidate.weight >= bestWeight) {
         // Strictly greater wins; ties keep the earlier (higher-priority) field.
         if (candidate.weight > bestWeight) {
@@ -279,19 +297,25 @@ function mockSearchRpc(args: Record<string, unknown>): SearchResultWire[] {
         }
       }
     }
+
     const source = doc.fields[bestField.field]
+
     const firstWord = words.find((word) =>
       new RegExp(`\\b${word}\\b`, 'i').test(source),
     )
+
     let context = source.slice(0, 120)
+
     if (firstWord) {
       const match = new RegExp(`(\\b${firstWord}\\b)`, 'i').exec(source)
+
       if (match) {
         const start = Math.max(0, match.index - 30)
         context = `${start > 0 ? '… ' : ''}${source.slice(start, match.index + match[0].length + 30).trim()} …`
         context = context.replace(match[0], `<b>${match[0]}</b>`)
       }
     }
+
     scored.push({
       doc,
       rank: score / 10,
@@ -299,12 +323,14 @@ function mockSearchRpc(args: Record<string, unknown>): SearchResultWire[] {
       context,
     })
   }
+
   scored.sort(
     (a, b) => b.rank - a.rank || (a.doc.updatedAt < b.doc.updatedAt ? 1 : -1),
   )
   const total = scored.length
   const offset = Number(args.p_offset ?? 0)
   const limit = Number(args.p_limit ?? 20)
+
   return scored
     .slice(offset, offset + limit)
     .map(({ doc, rank, matchedField, context }) => ({
@@ -360,7 +386,9 @@ function recordWire(id: string, overrides: Record<string, unknown> = {}) {
       archived_at: '2026-01-20T00:00:00Z',
     },
   }
+
   const base = titles[id] ?? titles[STABILITY_ID]
+
   return {
     id,
     workspace_id: WS,
@@ -394,17 +422,21 @@ function mockClient() {
     recordWire(FREEZETHAW_ID),
     recordWire(PROTOCOL_ID),
   ]
+
   const rpcMock = vi.fn(async (name: string, args: Record<string, unknown>) => {
     if (name === 'search') return mockSearchRpc(args)
     throw new Error(`unexpected rpc ${name}`)
   })
+
   const client = {
     list: vi.fn(async (resource: string, query = '') => {
       if (resource === 'records') {
         const match = /id=eq\.([^&]*)/.exec(query)
         const id = match ? decodeURIComponent(match[1]) : null
+
         return records.filter((row) => !id || row.id === id)
       }
+
       return []
     }),
     count: vi.fn(async () => 0),
@@ -420,6 +452,7 @@ function mockClient() {
     patch: ReturnType<typeof vi.fn>
     remove: ReturnType<typeof vi.fn>
   }
+
   return client
 }
 
@@ -512,9 +545,11 @@ describe('ai-retrieval lifecycle and permission boundaries', () => {
   it('marks archived records explicitly without pinning them', async () => {
     const client = mockClient()
     const { citations } = await retrieve(client, 'transduction protocol')
+
     const archived = citations.find(
       (citation) => citation.stableId === PROTOCOL_ID,
     )
+
     expect(archived).toBeDefined()
     expect(archived?.archived).toBe(true)
     expect(archived?.freshness).toBe('live')
@@ -536,10 +571,12 @@ describe('ai-retrieval lifecycle and permission boundaries', () => {
 
   it('never cites RLS-invisible objects', async () => {
     const client = mockClient()
+
     const { citations, totalCount } = await retrieve(
       client,
       'competitor collaboration',
     )
+
     expect(citations).toEqual([])
     // Totals derive from the permission-filtered set, so nothing leaks.
     expect(totalCount).toBe(0)
@@ -619,6 +656,7 @@ describe('ai-retrieval contract', () => {
         total_count: '1',
       }),
     )
+
     expect(citation).toMatchObject({
       kind: 'dataset',
       stableId: DATASET_ID,
@@ -634,6 +672,7 @@ describe('ai-retrieval contract', () => {
   it('maps citation kinds to envelope refs; templates have no envelope kind', () => {
     const ref = (kind: AiCitation['kind']): string | null =>
       citationToObjectRef({ kind, stableId: 'id' } as AiCitation)?.kind ?? null
+
     expect(ref('record')).toBe('record')
     expect(ref('file')).toBe('record')
     expect(ref('dataset')).toBe('dataset')
@@ -646,10 +685,12 @@ describe('ai-retrieval contract', () => {
 describe('grounded envelope integration', () => {
   it('assembles one envelope object per resolvable citation with quoted context', async () => {
     const client = mockClient()
+
     const grounded = await assembleGroundedContext(client, ACTOR, {
       workspaceId: WS,
       query: 'lentivector',
     })
+
     expect(grounded.citations.map((citation) => citation.stableId)).toEqual([
       STABILITY_ID,
       FREEZETHAW_ID,
@@ -659,25 +700,30 @@ describe('grounded envelope integration', () => {
       FREEZETHAW_ID,
     ])
     expect(grounded.envelope.omissions).toEqual([])
+
     // Quoted evidence travels on the citation next to its envelope object.
     for (const citation of grounded.citations) {
       const object = grounded.envelope.objects.find(
         (entry) => entry.id === citation.stableId,
       )
+
       expect(object).toBeDefined()
       expect(citation.matchedContext).toContain('<b>')
       expect(object?.deepLink).toBeTruthy()
     }
+
     expect(grounded.totalCount).toBe(2)
     expect(grounded.hasMore).toBe(false)
   })
 
   it('keeps template citations citable but omits them from the envelope explicitly', async () => {
     const client = mockClient()
+
     const grounded = await assembleGroundedContext(client, ACTOR, {
       workspaceId: WS,
       query: 'Gibson assembly cloning',
     })
+
     expect(grounded.citations).toHaveLength(1)
     expect(grounded.citations[0].deepLink).toContain(TEMPLATE_ID)
     expect(grounded.envelope.objects).toEqual([])
@@ -691,11 +737,13 @@ describe('grounded envelope integration', () => {
 
   it('drops over-budget citations as explicit budget_exceeded omissions', async () => {
     const client = mockClient()
+
     const grounded = await assembleGroundedContext(client, ACTOR, {
       workspaceId: WS,
       query: 'lentivector',
       budgets: { maxObjects: 1 },
     })
+
     expect(grounded.envelope.objects).toHaveLength(1)
     expect(grounded.envelope.omissions).toHaveLength(1)
     expect(grounded.envelope.omissions[0]).toMatchObject({

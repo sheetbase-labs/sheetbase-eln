@@ -25,6 +25,7 @@ import type * as studioData from '#/lib/analysis-studio-data'
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
+
   return {
     ...actual,
     getRouteApi: () => ({
@@ -43,6 +44,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
 
 vi.mock('#/lib/analysis-studio-data', async (importOriginal) => {
   const actual = await importOriginal<typeof studioData>()
+
   return {
     ...actual,
     analysisStudioQueryKeys: {
@@ -60,9 +62,11 @@ vi.mock('#/lib/analysis-studio-data', async (importOriginal) => {
 
 function renderStudio() {
   const Studio = AnalysisStudio as React.ComponentType
+
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <Studio />
@@ -73,7 +77,9 @@ function renderStudio() {
 /** The studio's mode switch, however its items are rendered. */
 function studioTabs() {
   const list = document.querySelector('[role="tablist"]')
+
   if (!list) throw new Error('the studio mode switch is not a tablist')
+
   return Array.from(list.querySelectorAll<HTMLElement>('[role="tab"]'))
 }
 

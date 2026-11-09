@@ -14,16 +14,20 @@ export function openArchive(
   wanted: (name: string) => boolean,
 ): Archive {
   let declared = 0
+
   const archive = unzipSync(bytes, {
     filter: (file) => {
       if (!wanted(file.name)) return false
       declared += file.originalSize
+
       if (declared > PREVIEW_UNZIP_MAX_BYTES) {
         throw new Error('The file is too large to preview.')
       }
+
       return true
     },
   })
+
   return archive
 }
 
@@ -35,9 +39,11 @@ export function partText(archive: Archive, name: string): string | null {
 
 export function parseXml(xml: string): Document {
   const doc = new DOMParser().parseFromString(xml, 'application/xml')
+
   if (doc.getElementsByTagName('parsererror').length > 0) {
     throw new Error('The file could not be read.')
   }
+
   return doc
 }
 
@@ -45,10 +51,12 @@ export function parseXml(xml: string): Document {
 export function resolvePart(from: string, target: string): string {
   if (target.startsWith('/')) return target.slice(1)
   const parts = from.split('/').slice(0, -1)
+
   for (const piece of target.split('/')) {
     if (piece === '..') parts.pop()
     else if (piece !== '.' && piece !== '') parts.push(piece)
   }
+
   return parts.join('/')
 }
 
@@ -59,15 +67,19 @@ export function relationships(
 ): Map<string, string> {
   const xml = partText(archive, relsPart)
   const map = new Map<string, string>()
+
   if (!xml) return map
   const doc = parseXml(xml)
+
   for (const rel of Array.from(doc.getElementsByTagName('Relationship'))) {
     const id = rel.getAttribute('Id')
     const target = rel.getAttribute('Target')
+
     if (id && target && rel.getAttribute('TargetMode') !== 'External') {
       map.set(id, resolvePart(base, target))
     }
   }
+
   return map
 }
 
@@ -83,5 +95,6 @@ const IMAGE_TYPES: Record<string, string> = {
 /** Media type of an embedded picture a browser can draw, else null. */
 export function imageTypeOf(part: string): string | null {
   const extension = part.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]
+
   return extension ? (IMAGE_TYPES[extension] ?? null) : null
 }

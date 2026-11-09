@@ -33,10 +33,12 @@ export function normalCdf(x: number): number {
   if (Number.isNaN(x)) return Number.NaN
   const abs = Math.abs(x)
   let cum: number
+
   if (abs > 37) {
     cum = 0
   } else {
     const e = Math.exp((-abs * abs) / 2)
+
     if (abs < 7.07106781186547) {
       let b = 3.52624965998911e-2 * abs + 0.700383064443688
       b = b * abs + 6.37396220353165
@@ -62,6 +64,7 @@ export function normalCdf(x: number): number {
       cum = e / b / 2.506628274631
     }
   }
+
   return x > 0 ? 1 - cum : cum
 }
 
@@ -74,65 +77,86 @@ export function normalTwoSidedP(z: number): number {
 export function tCdf(t: number, df: number): number {
   if (!Number.isFinite(t) || !(df > 0)) return Number.NaN
   const tail = 0.5 * tTwoSidedP(t, df)
+
   return t >= 0 ? 1 - tail : tail
 }
 
 /** Quantile of Student's t distribution (bisection on the CDF). */
 export function tQuantile(p: number, df: number): number {
   if (!(p > 0 && p < 1) || !(df > 0)) return Number.NaN
+
   if (p === 0.5) return 0
   let lo = -1
   let hi = 1
+
   while (tCdf(lo, df) > p) lo *= 2
+
   while (tCdf(hi, df) < p) hi *= 2
+
   for (let i = 0; i < 200; i++) {
     const mid = (lo + hi) / 2
+
     if (tCdf(mid, df) < p) lo = mid
     else hi = mid
+
     if (hi - lo < 1e-12) break
   }
+
   return (lo + hi) / 2
 }
 
 /** Regularized lower incomplete gamma P(a, x). */
 export function gammaP(a: number, x: number): number {
   if (!(a > 0) || !(x >= 0)) return Number.NaN
+
   if (x === 0) return 0
+
   if (x < a + 1) {
     let sum = 1 / a
     let term = sum
+
     for (let n = 1; n < 500; n++) {
       term *= x / (a + n)
       sum += term
+
       if (Math.abs(term) < Math.abs(sum) * 1e-15) break
     }
+
     return sum * Math.exp(-x + a * Math.log(x) - logGamma(a))
   }
+
   // Continued fraction for Q(a, x), modified Lentz.
   const tiny = 1e-300
   let b = x + 1 - a
   let c = 1 / tiny
   let d = 1 / b
   let h = d
+
   for (let i = 1; i < 500; i++) {
     const an = -i * (i - a)
     b += 2
     d = an * d + b
+
     if (Math.abs(d) < tiny) d = tiny
     c = b + an / c
+
     if (Math.abs(c) < tiny) c = tiny
     d = 1 / d
     const delta = d * c
     h *= delta
+
     if (Math.abs(delta - 1) < 1e-15) break
   }
+
   return 1 - Math.exp(-x + a * Math.log(x) - logGamma(a)) * h
 }
 
 /** Upper-tail p-value of a χ² statistic with `df` degrees of freedom. */
 export function chiSquareUpperP(x: number, df: number): number {
   if (!Number.isFinite(x) || !(df > 0)) return Number.NaN
+
   if (x <= 0) return 1
+
   return Math.max(0, 1 - gammaP(df / 2, x / 2))
 }
 
@@ -141,30 +165,38 @@ export function chiSquareUpperP(x: number, df: number): number {
 // ---------------------------------------------------------------------------
 
 export const P_ADJUSTMENTS = ['none', 'bonferroni', 'holm', 'bh'] as const
+
 export type PAdjustment = (typeof P_ADJUSTMENTS)[number]
 
 /** Adjust a family of p-values. Order of the input is preserved. */
 export function adjustPValues(p: number[], method: PAdjustment): number[] {
   const m = p.length
+
   if (method === 'none' || m === 0) return [...p]
+
   if (method === 'bonferroni') return p.map((v) => Math.min(1, v * m))
   const order = p.map((v, i) => ({ v, i })).sort((a, b) => a.v - b.v)
   const out = new Array<number>(m)
+
   if (method === 'holm') {
     let running = 0
     order.forEach((entry, rank) => {
       running = Math.max(running, Math.min(1, entry.v * (m - rank)))
       out[entry.i] = running
     })
+
     return out
   }
+
   // Benjamini–Hochberg
   let running = 1
+
   for (let rank = m - 1; rank >= 0; rank--) {
     const entry = order[rank]
     running = Math.min(running, Math.min(1, (entry.v * m) / (rank + 1)))
     out[entry.i] = running
   }
+
   return out
 }
 
@@ -178,6 +210,7 @@ export const T_TEST_KINDS = [
   'paired',
   'one_sample',
 ] as const
+
 export type TTestKind = (typeof T_TEST_KINDS)[number]
 
 export interface TTestResult {
@@ -208,6 +241,7 @@ function result(
   if (!(parts.se > 0) || !(parts.df > 0)) return null
   const t = parts.difference / parts.se
   const crit = tQuantile(0.975, parts.df)
+
   return {
     kind,
     ...parts,
@@ -224,7 +258,9 @@ function result(
 export function oneSampleTTest(values: number[], mu = 0): TTestResult | null {
   const x = finite(values)
   const s = summaryStats(x)
+
   if (!s || s.n < 2 || s.sd === null) return null
+
   return result('one_sample', {
     n1: s.n,
     n2: null,
@@ -243,15 +279,18 @@ export function welchTTest(a: number[], b: number[]): TTestResult | null {
   const y = finite(b)
   const sa = summaryStats(x)
   const sb = summaryStats(y)
+
   if (!sa || !sb || sa.n < 2 || sb.n < 2 || sa.sd === null || sb.sd === null)
     return null
   const va = (sa.sd * sa.sd) / sa.n
   const vb = (sb.sd * sb.sd) / sb.n
   const se = Math.sqrt(va + vb)
   const df = (va + vb) ** 2 / ((va * va) / (sa.n - 1) + (vb * vb) / (sb.n - 1))
+
   const pooled = Math.sqrt(
     ((sa.n - 1) * sa.sd ** 2 + (sb.n - 1) * sb.sd ** 2) / (sa.n + sb.n - 2),
   )
+
   return result('welch', {
     n1: sa.n,
     n2: sb.n,
@@ -270,12 +309,15 @@ export function studentTTest(a: number[], b: number[]): TTestResult | null {
   const y = finite(b)
   const sa = summaryStats(x)
   const sb = summaryStats(y)
+
   if (!sa || !sb || sa.n < 2 || sb.n < 2 || sa.sd === null || sb.sd === null)
     return null
   const df = sa.n + sb.n - 2
+
   const pooled = Math.sqrt(
     ((sa.n - 1) * sa.sd ** 2 + (sb.n - 1) * sb.sd ** 2) / df,
   )
+
   return result('student', {
     n1: sa.n,
     n2: sb.n,
@@ -297,6 +339,7 @@ export function pairedTTest(a: number[], b: number[]): TTestResult | null {
   const diffs: number[] = []
   const left: number[] = []
   const right: number[] = []
+
   for (let i = 0; i < a.length; i++) {
     if (Number.isFinite(a[i]) && Number.isFinite(b[i])) {
       diffs.push(a[i] - b[i])
@@ -304,8 +347,11 @@ export function pairedTTest(a: number[], b: number[]): TTestResult | null {
       right.push(b[i])
     }
   }
+
   const sd = summaryStats(diffs)
+
   if (!sd || sd.n < 2 || sd.sd === null) return null
+
   return result('paired', {
     n1: sd.n,
     n2: sd.n,
@@ -341,26 +387,32 @@ export interface MannWhitneyResult {
 function mannWhitneyCounts(n: number, m: number): number[] {
   // c[i][j] is an array of counts over u for sizes (i, j).
   const table: number[][][] = []
+
   for (let i = 0; i <= n; i++) {
     table[i] = []
+
     for (let j = 0; j <= m; j++) {
       if (i === 0 || j === 0) {
         table[i][j] = [1]
         continue
       }
+
       const size = i * j + 1
       const row = new Array<number>(size).fill(0)
       const viaI = table[i - 1][j]
       const viaJ = table[i][j - 1]
+
       for (let u = 0; u < size; u++) {
         // Largest element is from sample 1: it beats all j of sample 2.
         const a = u - j >= 0 && u - j < viaI.length ? viaI[u - j] : 0
         const b = u < viaJ.length ? viaJ[u] : 0
         row[u] = a + b
       }
+
       table[i][j] = row
     }
   }
+
   return table[n][m]
 }
 
@@ -373,26 +425,35 @@ export function mannWhitneyU(
   const y = finite(b)
   const n1 = x.length
   const n2 = y.length
+
   if (n1 < 1 || n2 < 1) return null
+
   const all = [
     ...x.map((v) => ({ v, g: 0 })),
     ...y.map((v) => ({ v, g: 1 })),
   ].sort((p, q) => p.v - q.v)
+
   const ranks = new Array<number>(all.length)
   let tieTerm = 0
   let hasTies = false
+
   for (let i = 0; i < all.length;) {
     let j = i
+
     while (j + 1 < all.length && all[j + 1].v === all[i].v) j++
     const rank = (i + j) / 2 + 1
+
     for (let k = i; k <= j; k++) ranks[k] = rank
     const t = j - i + 1
+
     if (t > 1) {
       hasTies = true
       tieTerm += t ** 3 - t
     }
+
     i = j + 1
   }
+
   let r1 = 0
   all.forEach((entry, i) => {
     if (entry.g === 0) r1 += ranks[i]
@@ -403,10 +464,12 @@ export function mannWhitneyU(
   const median = (v: number[]) => summaryStats(v)!.median
   let p: number
   let method: MannWhitneyResult['method']
+
   if (!hasTies && n1 <= 20 && n2 <= 20) {
     const counts = mannWhitneyCounts(n1, n2)
     const total = counts.reduce((s, c) => s + c, 0)
     let tail = 0
+
     for (let k = 0; k <= Math.floor(u); k++) tail += counts[k] ?? 0
     p = Math.min(1, (2 * tail) / total)
     method = 'exact'
@@ -414,11 +477,13 @@ export function mannWhitneyU(
     const n = n1 + n2
     const mean = (n1 * n2) / 2
     const variance = ((n1 * n2) / 12) * (n + 1 - tieTerm / (n * (n - 1)))
+
     if (!(variance > 0)) return null
     const z = (Math.abs(u1 - mean) - 0.5) / Math.sqrt(variance)
     p = Math.min(1, normalTwoSidedP(Math.max(0, z)))
     method = 'normal_approximation'
   }
+
   return {
     n1,
     n2,
@@ -441,19 +506,23 @@ function simpson(f: (x: number) => number, a: number, b: number, n: number) {
   const steps = n % 2 === 0 ? n : n + 1
   const h = (b - a) / steps
   let sum = f(a) + f(b)
+
   for (let i = 1; i < steps; i++) sum += f(a + i * h) * (i % 2 === 0 ? 2 : 4)
+
   return (sum * h) / 3
 }
 
 /** Density of s = χ_ν / √ν. */
 function scaledChiDensity(s: number, df: number): number {
   if (!(s > 0)) return 0
+
   const logDensity =
     Math.log(2) +
     (df / 2) * Math.log(df / 2) -
     logGamma(df / 2) +
     (df - 1) * Math.log(s) -
     (df * s * s) / 2
+
   return Math.exp(logDensity)
 }
 
@@ -463,6 +532,7 @@ function overScaledChi(inner: (s: number) => number, df: number): number {
   const spread = 8 / Math.sqrt(2 * df)
   const lo = Math.max(1e-9, 1 - spread)
   const hi = 1 + spread
+
   return simpson((s) => scaledChiDensity(s, df) * inner(s), lo, hi, 240)
 }
 
@@ -474,13 +544,16 @@ function rangeProbability(w: number, k: number): number {
   // P(range of k standard normals < w)
   const f = (z: number) =>
     normalPdf(z) * Math.max(0, normalCdf(z) - normalCdf(z - w)) ** (k - 1)
+
   return k * simpson(f, -8, 8 + w, 240)
 }
 
 /** CDF of the studentised range with k groups and df error degrees of freedom. */
 export function studentizedRangeCdf(q: number, k: number, df: number): number {
   if (!(q > 0)) return 0
+
   if (!(k >= 2) || !(df > 0)) return Number.NaN
+
   return Math.min(
     1,
     Math.max(
@@ -503,13 +576,18 @@ export function studentizedRangeQuantile(
 ): number {
   let lo = 0
   let hi = 4
+
   while (studentizedRangeCdf(hi, k, df) < prob) hi *= 2
+
   for (let i = 0; i < 60; i++) {
     const mid = (lo + hi) / 2
+
     if (studentizedRangeCdf(mid, k, df) < prob) lo = mid
     else hi = mid
+
     if (hi - lo < 1e-8) break
   }
+
   return (lo + hi) / 2
 }
 
@@ -532,22 +610,26 @@ export function dunnettCdf(
 ): number {
   if (!(d > 0)) return 0
   const lambdas = groupSizes.map((n) => Math.sqrt(n / (n + controlSize)))
+
   const inner = (s: number) =>
     simpson(
       (z) => {
         let prod = normalPdf(z)
+
         for (const lambda of lambdas) {
           const scale = Math.sqrt(1 - lambda * lambda)
           prod *=
             normalCdf((lambda * z + d * s) / scale) -
             normalCdf((lambda * z - d * s) / scale)
         }
+
         return prod
       },
       -8,
       8,
       200,
     )
+
   return Math.min(1, Math.max(0, overScaledChi(inner, df)))
 }
 
@@ -560,13 +642,18 @@ export function dunnettCritical(
 ): number {
   let lo = 0
   let hi = 4
+
   while (dunnettCdf(hi, groupSizes, controlSize, df) < prob) hi *= 2
+
   for (let i = 0; i < 50; i++) {
     const mid = (lo + hi) / 2
+
     if (dunnettCdf(mid, groupSizes, controlSize, df) < prob) lo = mid
     else hi = mid
+
     if (hi - lo < 1e-7) break
   }
+
   return (lo + hi) / 2
 }
 
@@ -580,6 +667,7 @@ export const POST_HOC_METHODS = [
   'bonferroni',
   'holm',
 ] as const
+
 export type PostHocMethod = (typeof POST_HOC_METHODS)[number]
 
 export interface PostHocComparison {
@@ -617,18 +705,24 @@ export function postHocComparisons(
   options: { control?: string; alpha?: number } = {},
 ): PostHocResult | null {
   const alpha = options.alpha ?? 0.05
+
   const used = groups
     .map((g) => ({ group: g.group, values: finite(g.values) }))
     .filter((g) => g.values.length > 0)
+
   const k = used.length
+
   if (k < 2) return null
   const stats = used.map((g) => summaryStats(g.values)!)
   const n = stats.reduce((s, g) => s + g.n, 0)
   const dfWithin = n - k
+
   if (dfWithin < 1) return null
   let ssWithin = 0
+
   for (const g of stats) if (g.sd !== null) ssWithin += (g.n - 1) * g.sd ** 2
   const msWithin = ssWithin / dfWithin
+
   if (!(msWithin > 0)) return null
 
   const comparisons: PostHocComparison[] = []
@@ -638,19 +732,23 @@ export function postHocComparisons(
   if (method === 'dunnett') {
     const controlName = options.control ?? used[0].group
     const ci = used.findIndex((g) => g.group === controlName)
+
     if (ci < 0) return null
     control = controlName
     const others = used.map((_, i) => i).filter((i) => i !== ci)
     const sizes = others.map((i) => stats[i].n)
     const crit = dunnettCritical(1 - alpha, sizes, stats[ci].n, dfWithin)
+
     for (const i of others) {
       const se = Math.sqrt(msWithin * (1 / stats[i].n + 1 / stats[ci].n))
       const diff = stats[i].mean - stats[ci].mean
       const t = diff / se
+
       const pAdjusted = Math.max(
         0,
         1 - dunnettCdf(Math.abs(t), sizes, stats[ci].n, dfWithin),
       )
+
       comparisons.push({
         group1: used[i].group,
         group2: controlName,
@@ -663,16 +761,20 @@ export function postHocComparisons(
         significant: pAdjusted < alpha,
       })
     }
+
     return { method, alpha, msWithin, dfWithin, control, comparisons }
   }
 
   const pairs: Array<[number, number]> = []
+
   for (let i = 0; i < k; i++) for (let j = i + 1; j < k; j++) pairs.push([i, j])
+
   const raw: Array<{ diff: number; se: number; t: number; q: number }> =
     pairs.map(([i, j]) => {
       const diff = stats[i].mean - stats[j].mean
       const seT = Math.sqrt(msWithin * (1 / stats[i].n + 1 / stats[j].n))
       const t = diff / seT
+
       return { diff, se: seT, t, q: Math.abs(t) * Math.SQRT2 }
     })
 
@@ -699,10 +801,12 @@ export function postHocComparisons(
     const adjusted = adjustPValues(rawP, method)
     pairs.forEach(([i, j], idx) => {
       const r = raw[idx]
+
       const half =
         method === 'bonferroni'
           ? tQuantile(1 - alpha / (2 * pairs.length), dfWithin) * r.se
           : tCrit * r.se
+
       comparisons.push({
         group1: used[i].group,
         group2: used[j].group,
@@ -716,6 +820,7 @@ export function postHocComparisons(
       })
     })
   }
+
   return { method, alpha, msWithin, dfWithin, control, comparisons }
 }
 
@@ -760,6 +865,7 @@ export function kaplanMeier(
   const data = observations.filter(
     (o) => Number.isFinite(o.time) && o.time >= 0,
   )
+
   if (data.length === 0) return null
   const times = [...new Set(data.map((o) => o.time))].sort((a, b) => a - b)
   let atRisk = data.length
@@ -769,26 +875,33 @@ export function kaplanMeier(
   let events = 0
   let censored = 0
   let median: number | null = null
+
   for (const time of times) {
     const at = data.filter((o) => o.time === time)
     const d = at.filter((o) => o.event).length
     const c = at.length - d
+
     if (d > 0) {
       survival *= 1 - d / atRisk
+
       if (atRisk > d) greenwood += d / (atRisk * (atRisk - d))
       else greenwood = Number.POSITIVE_INFINITY
     }
+
     const se =
       survival > 0 && Number.isFinite(greenwood)
         ? survival * Math.sqrt(greenwood)
         : 0
+
     let lo = survival
     let hi = survival
+
     if (survival > 0 && survival < 1 && Number.isFinite(greenwood)) {
       const seLog = Math.sqrt(greenwood) / Math.abs(Math.log(survival))
       lo = survival ** Math.exp(1.96 * seLog)
       hi = survival ** Math.exp(-1.96 * seLog)
     }
+
     events += d
     censored += c
     steps.push({
@@ -801,9 +914,11 @@ export function kaplanMeier(
       lo: Math.max(0, lo),
       hi: Math.min(1, hi),
     })
+
     if (median === null && survival <= 0.5) median = time
     atRisk -= at.length
   }
+
   return {
     group,
     n: data.length,
@@ -829,18 +944,24 @@ export interface LogRankResult {
 function solveLinear(matrix: number[][], rhs: number[]): number[] | null {
   const n = rhs.length
   const a = matrix.map((row, i) => [...row, rhs[i]])
+
   for (let col = 0; col < n; col++) {
     let pivot = col
+
     for (let r = col + 1; r < n; r++)
       if (Math.abs(a[r][col]) > Math.abs(a[pivot][col])) pivot = r
+
     if (Math.abs(a[pivot][col]) < 1e-12) return null
     ;[a[col], a[pivot]] = [a[pivot], a[col]]
+
     for (let r = 0; r < n; r++) {
       if (r === col) continue
       const factor = a[r][col] / a[col][col]
+
       for (let c = col; c <= n; c++) a[r][c] -= factor * a[col][c]
     }
   }
+
   return a.map((row, i) => row[n] / row[i])
 }
 
@@ -851,30 +972,40 @@ export function logRankTest(
   const data = observations.filter(
     (o) => Number.isFinite(o.time) && o.time >= 0,
   )
+
   const groups = [...new Set(data.map((o) => o.group))]
   const k = groups.length
+
   if (k < 2) return null
+
   const times = [
     ...new Set(data.filter((o) => o.event).map((o) => o.time)),
   ].sort((a, b) => a - b)
+
   if (times.length === 0) return null
   const observed = new Array<number>(k).fill(0)
   const expected = new Array<number>(k).fill(0)
   const cov = Array.from({ length: k }, () => new Array<number>(k).fill(0))
+
   for (const time of times) {
     const risk = groups.map(
       (g) => data.filter((o) => o.group === g && o.time >= time).length,
     )
+
     const dead = groups.map(
       (g) =>
         data.filter((o) => o.group === g && o.time === time && o.event).length,
     )
+
     const n = risk.reduce((s, v) => s + v, 0)
     const d = dead.reduce((s, v) => s + v, 0)
+
     if (n < 2) continue
+
     for (let i = 0; i < k; i++) {
       observed[i] += dead[i]
       expected[i] += (d * risk[i]) / n
+
       for (let j = 0; j < k; j++) {
         const term =
           (d *
@@ -882,19 +1013,25 @@ export function logRankTest(
             (i === j ? 1 - risk[i] / n : -risk[j] / n) *
             (n - d)) /
           (n - 1)
+
         cov[i][j] += term
       }
     }
   }
+
   const diff = observed.map((o, i) => o - expected[i])
   const reduced = cov.slice(0, k - 1).map((row) => row.slice(0, k - 1))
   const solved = solveLinear(reduced, diff.slice(0, k - 1))
+
   if (!solved) return null
+
   const chiSquare = diff
     .slice(0, k - 1)
     .reduce((s, v, i) => s + v * solved[i], 0)
+
   const df = k - 1
   let hazardRatio: LogRankResult['hazardRatio'] = null
+
   if (k === 2 && cov[1][1] > 0) {
     const variance = cov[1][1]
     const logHr = (observed[1] - expected[1]) / variance
@@ -905,6 +1042,7 @@ export function logRankTest(
       hi: Math.exp(logHr + 1.96 * se),
     }
   }
+
   return {
     groups,
     observed,

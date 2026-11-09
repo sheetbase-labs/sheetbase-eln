@@ -98,6 +98,7 @@ export function fieldTypeName(field: ModelFieldDefinition): string {
     typeof field.unit?.symbol === 'string' && field.unit.symbol
       ? ` · ${field.unit.symbol}`
       : ''
+
   return `${TYPE_LABELS[field.logicalType]}${unit}`
 }
 
@@ -148,6 +149,7 @@ export function BuiltInModelFields({
   const added = fields.data ?? []
   const active = added.filter((field) => field.lifecycle !== 'retired')
   const retired = added.filter((field) => field.lifecycle === 'retired')
+
   const sections = [
     ...new Set(active.map((field) => field.section).filter(Boolean)),
   ] as string[]
@@ -158,6 +160,7 @@ export function BuiltInModelFields({
     standard: false,
     field,
   })
+
   const rows: RegistryRow<FieldRow>[] = [
     bandRow(
       t('library.models.builtInModelFields.addedByYourWorkspace'),
@@ -180,9 +183,11 @@ export function BuiltInModelFields({
       standard: true,
     })),
   ]
+
   const sel =
     added.find((field) => field.id === selected) ??
     (selected === null ? active.at(0) : undefined)
+
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     sel?.id ?? null,
     setSelected,
@@ -216,6 +221,7 @@ export function BuiltInModelFields({
 
   const dataAccess = useDataAccess()
   const names = useReportingNames()
+
   const columns: RegistryColumn<FieldRow>[] = [
     {
       id: 'field',
@@ -326,6 +332,7 @@ export function BuiltInModelFields({
             onRowSelectionChange={(updater) => {
               const next =
                 typeof updater === 'function' ? updater(rowSelection) : updater
+
               // Standard fields have nothing to inspect.
               if (Object.keys(next).some((key) => key.startsWith('standard:')))
                 return
@@ -511,13 +518,16 @@ export function parseChoices(
 ): Array<{ key: string; label: string }> {
   const taken = new Set<string>()
   const choices: Array<{ key: string; label: string }> = []
+
   for (const line of text.split('\n')) {
     const label = line.trim()
+
     if (!label || choices.some((choice) => choice.label === label)) continue
     const key = fieldKeyFromLabel(label, taken)
     taken.add(key)
     choices.push({ key, label })
   }
+
   return choices
 }
 
@@ -555,6 +565,7 @@ function BuiltInFieldDialog({
   const [submitted, setSubmitted] = useState(false)
 
   const options = useMemo(() => parseChoices(choices), [choices])
+
   // A stand-in definition so the starting value uses the same input the
   // record pages will.
   const draft: ModelFieldDefinition = {
@@ -584,16 +595,19 @@ function BuiltInFieldDialog({
     : label.trim().length > 200
       ? t('library.models.builtInModelFields.keepTheNameUnder200')
       : undefined
+
   const choicesError =
     !editing && type === 'category' && options.length === 0
       ? t('library.models.builtInModelFields.addAtLeastOneChoice')
       : undefined
+
   const startError =
     !editing && required && type !== 'boolean' && startValue === ''
       ? t('library.models.builtInModelFields.aRequiredFieldNeedsA', {
           plural: model.plural,
         })
       : undefined
+
   const blocking = labelError ?? choicesError ?? startError
 
   const save = useMutation({
@@ -603,19 +617,23 @@ function BuiltInFieldDialog({
         askOnCreate,
         showInList,
       }
+
       if (field) {
         await updateBuiltInModelField(notebookDataClient, field.id, {
           label: label.trim(),
           description: description.trim() || null,
           ...placement,
         })
+
         return field.id
       }
+
       if (!workspaceId)
         throw new Error(
           t('library.models.builtInModelFields.noActiveWorkspace'),
         )
       const keys = taken.data ?? new Set<string>()
+
       return createBuiltInModelField(notebookDataClient, {
         workspaceId,
         modelKey: model.key,
@@ -696,6 +714,7 @@ function BuiltInFieldDialog({
             onSubmit={(event) => {
               event.preventDefault()
               setSubmitted(true)
+
               if (!blocking && !taken.isLoading) save.mutate()
             }}
           >

@@ -80,10 +80,12 @@ export interface ControlPlacement {
 /** Mulberry32's compact, deterministic 32-bit pseudo-random generator. */
 export function mulberry32(seed: number): () => number {
   let state = seed >>> 0
+
   return () => {
     state = (state + 0x6d2b79f5) | 0
     let value = Math.imul(state ^ (state >>> 15), 1 | state)
     value = (value + Math.imul(value ^ (value >>> 7), 61 | value)) ^ value
+
     return ((value ^ (value >>> 14)) >>> 0) / 4294967296
   }
 }
@@ -91,10 +93,13 @@ export function mulberry32(seed: number): () => number {
 export function shuffleWithSeed<T>(arr: T[], seed: number): T[] {
   const result = [...arr]
   const random = mulberry32(seed)
+
   for (let i = result.length - 1; i > 0; i -= 1) {
     const j = Math.floor(random() * (i + 1))
+
     ;[result[i], result[j]] = [result[j], result[i]]
   }
+
   return result
 }
 
@@ -105,12 +110,15 @@ export function generateWellOrder(
   startWell: string,
 ): Array<{ row: number; col: number; wellCode: string }> {
   const order: Array<{ row: number; col: number; wellCode: string }> = []
+
   if (!isValidWellCode(startWell, rows, cols)) return order
+
   if (direction === 'row' || direction === 'serpentine') {
     for (let row = 0; row < rows; row += 1) {
       for (let step = 0; step < cols; step += 1) {
         const col =
           direction === 'serpentine' && row % 2 === 1 ? cols - step - 1 : step
+
         order.push({ row, col, wellCode: wellCode(row, col) })
       }
     }
@@ -121,11 +129,14 @@ export function generateWellOrder(
           direction === 'column_serpentine' && col % 2 === 1
             ? rows - step - 1
             : step
+
         order.push({ row, col, wellCode: wellCode(row, col) })
       }
     }
   }
+
   const start = order.findIndex((well) => well.wellCode === startWell)
+
   return start < 0 ? [] : order.slice(start)
 }
 
@@ -136,8 +147,10 @@ export function autoFillPlate(
 ): PlateWellAssignment[] {
   const assignments: PlateWellAssignment[] = []
   const occupied = new Set<string>()
+
   for (const control of options.controls) {
     const position = parseWellCode(control.wellCode)
+
     if (
       !position ||
       !isValidWellCode(control.wellCode, rows, cols) ||
@@ -155,16 +168,20 @@ export function autoFillPlate(
 
   if (!Number.isInteger(options.replicates) || options.replicates < 1)
     return assignments
+
   const available = generateWellOrder(
     rows,
     cols,
     options.fillDirection,
     options.startWell,
   ).filter((well) => !occupied.has(well.wellCode))
+
   const samples = options.randomize
     ? shuffleWithSeed(options.samples, options.seed)
     : [...options.samples]
+
   let index = 0
+
   for (const sample of samples) {
     for (let replicate = 1; replicate <= options.replicates; replicate += 1) {
       if (index >= available.length) return assignments
@@ -185,6 +202,7 @@ export function autoFillPlate(
       })
     }
   }
+
   return assignments
 }
 
@@ -213,6 +231,7 @@ export function validatePlateDesign(
 
   doc.wells.forEach((well, index) => {
     const field = `wells[${index}]`
+
     if (well.role === 'sample' && !well.sampleRef) {
       base.push({
         code: 'missing_sample_ref',
@@ -221,6 +240,7 @@ export function validatePlateDesign(
         message: 'Sample wells must reference a sample record.',
       })
     }
+
     if (
       well.concentrationValue !== undefined &&
       (!Number.isFinite(well.concentrationValue) || well.concentrationValue < 0)
@@ -233,6 +253,7 @@ export function validatePlateDesign(
       })
     }
   })
+
   return base
 }
 
@@ -255,8 +276,10 @@ export class UndoStack<T> {
 
   undo(): T | null {
     const previous = this.history.pop()
+
     if (previous === undefined) return null
     this.state = previous
+
     return previous
   }
 
@@ -314,8 +337,10 @@ export function parseCsv(text: string): string[][] {
   let row: string[] = []
   let field = ''
   let quoted = false
+
   for (let i = 0; i < text.length; i += 1) {
     const char = text[i]
+
     if (quoted) {
       if (char === '"' && text[i + 1] === '"') {
         field += '"'
@@ -334,10 +359,12 @@ export function parseCsv(text: string): string[][] {
       field = ''
     } else field += char
   }
+
   if (field.length > 0 || row.length > 0) {
     row.push(field)
     rows.push(row)
   }
+
   return rows
 }
 
@@ -361,20 +388,25 @@ export function previewCsvImport(
   const parsed = parseCsv(text)
   const detectedColumns = parsed[0]?.map((header) => header.trim()) ?? []
   const mapping = {} as CsvImportMapping
+
   for (const key of Object.keys(CSV_ALIASES) as Array<keyof CsvImportMapping>) {
     const index = detectedColumns.findIndex((header) =>
       CSV_ALIASES[key].includes(header.toLowerCase().replace(/[\s_-]/g, '')),
     )
+
     mapping[key] = index >= 0 ? detectedColumns[index] : ''
   }
+
   const columnIndex = (key: keyof CsvImportMapping) =>
     mapping[key] ? detectedColumns.indexOf(mapping[key]) : -1
+
   const imported = parsed
     .slice(1)
     .filter((values) => values.some((value) => value.trim()))
     .map((values) => {
       const value = (key: keyof CsvImportMapping) =>
         values[columnIndex(key)]?.trim() ?? ''
+
       return {
         wellCode: value('wellCode').toUpperCase(),
         role: value('role').toLowerCase(),
@@ -387,9 +419,11 @@ export function previewCsvImport(
         notes: value('notes'),
       }
     })
+
   const errors: PlateDesignValidationError[] = []
   imported.forEach((row, index) => {
     const field = `rows[${index}]`
+
     if (!isValidWellCode(row.wellCode, rows, cols))
       errors.push({
         code: 'invalid_well_code',
@@ -397,6 +431,7 @@ export function previewCsvImport(
         wellCode: row.wellCode,
         message: `Invalid or out-of-bounds well code "${row.wellCode}".`,
       })
+
     if (!ASSIGNMENT_ROLES.includes(row.role as AssignmentRole))
       errors.push({
         code: 'unsupported_role',
@@ -404,6 +439,7 @@ export function previewCsvImport(
         wellCode: row.wellCode,
         message: `Invalid role "${row.role}".`,
       })
+
     if (
       row.replicate &&
       (!Number.isInteger(Number(row.replicate)) || Number(row.replicate) < 1)
@@ -414,6 +450,7 @@ export function previewCsvImport(
         wellCode: row.wellCode,
         message: 'Replicate must be a positive integer.',
       })
+
     for (const key of ['volumeValue', 'concentrationValue'] as const) {
       if (row[key] && !Number.isFinite(Number(row[key])))
         errors.push({
@@ -424,6 +461,7 @@ export function previewCsvImport(
         })
     }
   })
+
   return { rows: imported, errors, mapping, detectedColumns }
 }
 
@@ -494,6 +532,7 @@ export function toPlateWellAssignment(
         title: well.sample_title ?? '',
       }
     : undefined
+
   return {
     wellCode: well.well_code,
     row: well.row_index,
@@ -553,6 +592,7 @@ export async function fetchPlateDesigns(
     'plate_designs',
     `?workspace_id=eq.${encodeURIComponent(workspaceId)}&order=updated_at.desc`,
   )
+
   return Promise.all(
     designs.map(async (design) =>
       toPlateDesignDoc(
@@ -574,11 +614,14 @@ export async function fetchPlateDesign(
     'plate_designs',
     `?id=eq.${encodeURIComponent(designId)}&limit=1`,
   )
+
   if (!designs[0]) return null
+
   const wells = await client.list<PlateWellWire>(
     'plate_wells',
     `?design_id=eq.${encodeURIComponent(designId)}&order=row_index,col_index`,
   )
+
   return toPlateDesignDoc(designs[0], wells)
 }
 
@@ -590,6 +633,7 @@ export async function fetchPlateWells(
     'plate_wells',
     `?design_id=eq.${encodeURIComponent(designId)}&order=row_index,col_index`,
   )
+
   return wells.map(toPlateWellAssignment)
 }
 
@@ -619,6 +663,7 @@ export async function createPlateDesign(
 ): Promise<PlateDesignWire> {
   const format = input.format ?? '96_well'
   const dimensions = FORMAT_DIMENSIONS[format]
+
   return client.rpc('create_plate_design', {
     p_workspace_id: input.workspaceId,
     p_name: input.name,
@@ -654,6 +699,7 @@ export async function savePlateDesign(
     concentrationUnit: well.concentrationUnit ?? null,
     notes: well.notes ?? null,
   }))
+
   return client.rpc('save_plate_design', {
     p_design_id: input.designId,
     p_wells: serializedWells,
@@ -687,6 +733,7 @@ export async function savePlateLayoutTemplate(
 ): Promise<PlateLayoutTemplateWire> {
   const format = input.format ?? '96_well'
   const dimensions = FORMAT_DIMENSIONS[format]
+
   return client.rpc('save_plate_layout_template', {
     p_workspace_id: input.workspaceId,
     p_name: input.name,
@@ -702,6 +749,7 @@ export async function savePlateLayoutTemplate(
 export function describePlateDesignerError(error: unknown): string {
   if (!(error instanceof DataClientError))
     return 'Could not complete the plate designer operation. Try again.'
+
   const messages: Record<string, string> = {
     SB001:
       'This plate design was edited by someone else. Refresh and try again.',
@@ -715,6 +763,7 @@ export function describePlateDesignerError(error: unknown): string {
     SB005: 'The plate design input is invalid.',
     '42501': 'You do not have access to this plate design.',
   }
+
   return messages[error.code] ?? error.message
 }
 
@@ -725,6 +774,7 @@ export function describePlateDesignerError(error: unknown): string {
 export function defaultPlateDesignDoc(workspaceId: string): PlateDesignDoc {
   const now = new Date().toISOString()
   const dimensions = FORMAT_DIMENSIONS['96_well']
+
   return {
     id: null,
     workspaceId,
@@ -790,10 +840,15 @@ export function designerWellToWellAssignment(
     col: well.col,
     role: well.role,
   }
+
   if (well.sampleRef) assignment.sampleRef = { ...well.sampleRef }
+
   if (well.replicate !== undefined) assignment.replicate = well.replicate
+
   if (well.volume) assignment.volume = { ...well.volume }
+
   if (well.notes !== undefined) assignment.notes = well.notes
+
   return assignment
 }
 

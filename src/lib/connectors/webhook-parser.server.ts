@@ -56,13 +56,17 @@ export function signParserRequest(
 
 async function readLimited(response: Response): Promise<string> {
   const reader = response.body?.getReader()
+
   if (!reader) return ''
   const chunks: Uint8Array[] = []
   let total = 0
+
   for (;;) {
     const { done, value } = await reader.read()
+
     if (done) break
     total += value.byteLength
+
     if (total > WEBHOOK_PARSER_RESPONSE_BYTES) {
       await reader.cancel()
       throw new WebhookParserError(
@@ -70,8 +74,10 @@ async function readLimited(response: Response): Promise<string> {
         'The parser’s answer is too large to read.',
       )
     }
+
     chunks.push(value)
   }
+
   return new TextDecoder().decode(Buffer.concat(chunks))
 }
 
@@ -80,6 +86,7 @@ export async function callWebhookParser(
   deps: WebhookParserDeps = {},
 ): Promise<ParsedInstrumentPayload> {
   let url: URL
+
   try {
     url = validateConnectorEndpointUrl(call.url)
   } catch (error) {
@@ -90,10 +97,13 @@ export async function callWebhookParser(
         : 'The parser’s address is refused.',
     )
   }
+
   const timestamp = String(
     deps.now ? deps.now() : Math.floor(Date.now() / 1000),
   )
+
   let response: Response
+
   try {
     response = await (deps.fetch ?? fetch)(url, {
       method: 'POST',
@@ -116,31 +126,38 @@ export async function callWebhookParser(
     })
   } catch (error) {
     const name = (error as { name?: unknown } | null)?.name
+
     if (name === 'TimeoutError' || name === 'AbortError') {
       throw new WebhookParserError(
         'webhook_timeout',
         'The parser service didn’t answer in time.',
       )
     }
+
     throw new WebhookParserError(
       'webhook_unreachable',
       'The parser service couldn’t be reached.',
     )
   }
+
   const text = await readLimited(response)
   let body: unknown = null
+
   try {
     body = text ? JSON.parse(text) : null
   } catch {
     body = null
   }
+
   if (!response.ok) throw readWebhookParserError(response.status, body)
+
   if (body === null) {
     throw new WebhookParserError(
       'webhook_bad_answer',
       'The parser service didn’t answer with JSON.',
     )
   }
+
   return readWebhookParserAnswer(body)
 }
 
@@ -172,6 +189,7 @@ export async function rotateParserWebhookSecret(input: {
       target: parserWebhookSecrets.parserId,
       set: { ciphertext, updatedAt: new Date() },
     })
+
   return secret
 }
 
@@ -182,6 +200,7 @@ export async function loadParserWebhookSecret(
   const { db } = await import('#/db/client.server')
   const { parserWebhookSecrets } = await import('#/db/schema')
   const { eq } = await import('drizzle-orm')
+
   const rows = await db
     .select({
       workspaceId: parserWebhookSecrets.workspaceId,
@@ -189,13 +208,16 @@ export async function loadParserWebhookSecret(
     })
     .from(parserWebhookSecrets)
     .where(eq(parserWebhookSecrets.parserId, parserId))
+
   const row = rows.at(0)
+
   if (!row || row.workspaceId !== workspaceId) {
     throw new WebhookParserError(
       'webhook_no_key',
       'This parser has no signing key. Make a new one in Settings.',
     )
   }
+
   return openSecret(Buffer.from(row.ciphertext).toString('utf8'), secretKey())
 }
 

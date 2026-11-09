@@ -30,6 +30,7 @@ export interface CitationTarget {
 export function citationTarget(href: string): CitationTarget | null {
   const [section, reference] = href.split(/[?#]/)[0].split('/').filter(Boolean)
   const kind = section ? SECTIONS[section] : undefined
+
   return kind && reference ? { kind, reference } : null
 }
 
@@ -46,8 +47,10 @@ export async function resolveCitation(
   target: CitationTarget,
 ): Promise<ResolvedCitation | null> {
   const reference = encodeURIComponent(target.reference)
+
   if (target.kind === 'dataset') {
     const column = UUID.test(target.reference) ? 'id' : 'display_id'
+
     const row = (
       await client.list<{
         id: string
@@ -58,6 +61,7 @@ export async function resolveCitation(
         `?${column}=eq.${reference}&select=id,display_id,name&limit=1`,
       )
     ).at(0)
+
     return row
       ? {
           id: row.id,
@@ -67,7 +71,9 @@ export async function resolveCitation(
         }
       : null
   }
+
   const column = UUID.test(target.reference) ? 'id' : 'identifier'
+
   const row = (
     await client.list<{
       id: string
@@ -79,6 +85,7 @@ export async function resolveCitation(
       `?${column}=eq.${reference}&deleted_at=is.null&select=id,identifier,kind,title&limit=1`,
     )
   ).at(0)
+
   return row
     ? {
         id: row.id,
@@ -107,6 +114,7 @@ export async function citeInNotebook(
 ): Promise<{ blockId: string }> {
   const { cited } = input
   const record = await fetchRecord(client, input.recordId)
+
   const inserted = await insertBlock(client, {
     recordId: input.recordId,
     type: 'linked_record',
@@ -119,6 +127,7 @@ export async function citeInNotebook(
     },
     expectedStructureVersion: record?.structureVersion,
   })
+
   try {
     await client.rpc('create_record_link', {
       p_source_record_id: input.recordId,
@@ -130,5 +139,6 @@ export async function citeInNotebook(
   } catch (error) {
     if (!isDuplicateLinkError(error)) throw error
   }
+
   return { blockId: inserted.block.id }
 }

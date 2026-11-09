@@ -48,8 +48,10 @@ export function captureDefinitionSourceRevisions(
   definition: AnalysisDefinition,
 ): SourceRevision[] {
   const byId = new Map(sources.map((s) => [s.datasetId, s]))
+
   return definition.datasets.map((ref) => {
     const source = byId.get(ref.datasetId)
+
     return {
       datasetId: ref.datasetId,
       schemaVersionNumber: source?.schemaVersionNumber ?? 0,
@@ -75,6 +77,7 @@ export async function fetchAnalysisDefinition(
     'analysis_definitions',
     `?id=eq.${encodeURIComponent(id)}&select=*&limit=1`,
   )
+
   return rows[0] ?? null
 }
 
@@ -102,6 +105,7 @@ export async function createAnalysisDefinition(
       source_revisions: input.source_revisions,
     },
   )
+
   return created[0]
 }
 
@@ -124,6 +128,7 @@ export async function updateAnalysisDefinition(
       source_revisions: input.source_revisions,
     },
   )
+
   return updated[0]
 }
 
@@ -137,6 +142,7 @@ export async function saveAnalysisDefinition(
   if (input.id) {
     return updateAnalysisDefinition(client, input.id, input)
   }
+
   return createAnalysisDefinition(client, input, workspaceId, userId)
 }
 
@@ -192,11 +198,14 @@ export async function unfreezeAnalysisBlock(
  */
 export function definitionNameFrom(base: string, attempt = 1): string {
   const suffix = attempt > 1 ? ` ${attempt}` : ''
+
   const cleaned = base
     .replace(/[^\p{L}\p{N} _.-]+/gu, ' ')
     .replace(/\s+/g, ' ')
     .replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
+
   const head = (cleaned || 'Analysis').slice(0, 99 - suffix.length)
+
   return `${head.replace(/[^\p{L}\p{N}]+$/u, '') || 'Analysis'}${suffix}`
 }
 
@@ -215,6 +224,7 @@ export async function composeAnalysisDefinition(
   },
 ): Promise<AnalysisDefinitionWire> {
   let lastError: unknown
+
   for (let attempt = 1; attempt <= 5; attempt += 1) {
     try {
       return await client.rpc<AnalysisDefinitionWire>(
@@ -228,8 +238,10 @@ export async function composeAnalysisDefinition(
     } catch (error) {
       lastError = error
       const code = (error as { code?: string }).code
+
       if (code !== '23505') throw error
     }
   }
+
   throw lastError
 }

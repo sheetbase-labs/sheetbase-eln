@@ -39,6 +39,7 @@ export function MemberUsernameDialog({
 }) {
   const queryClient = useQueryClient()
   const [value, setValue] = useState(current)
+
   const save = useMutation({
     mutationFn: () =>
       setMemberUsername(dataClient, { workspaceId, userId, username: value }),
@@ -49,6 +50,7 @@ export function MemberUsernameDialog({
       onClose()
     },
   })
+
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent>

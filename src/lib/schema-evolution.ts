@@ -263,6 +263,7 @@ export function applyColumnPromotion(
 export function describeColumnPromotionError(error: unknown): string {
   if (!(error instanceof DataClientError))
     return 'Could not request the promotion. Try again.'
+
   const messages: Record<string, string> = {
     SB071:
       'Some values in this column cannot be promoted to the dataset. Fix or clear them, then try again.',
@@ -273,5 +274,6 @@ export function describeColumnPromotionError(error: unknown): string {
     '22023': 'Check the dataset and reason, then try again.',
     '42501': 'You do not have permission to promote columns in this sheet.',
   }
+
   return messages[error.code] ?? error.message
 }

@@ -67,10 +67,14 @@ function instrumentGuidance(
   canEdit: boolean,
 ): string {
   if (!canEdit) return t('settings.parserSettings.askWorkspaceAdmin')
+
   if (status === 'draft') return t('settings.parserSettings.pickRetainedExport')
+
   if (status === 'validated')
     return t('settings.parserSettings.validationPassedApprove')
+
   if (status === 'approved') return t('settings.parserSettings.versionApproved')
+
   return t('settings.parserSettings.createDraftBelow')
 }
 
@@ -90,16 +94,19 @@ export function ParserSettings({
 }) {
   const qc = useQueryClient()
   const instruments = useInstruments()
+
   const parsers = useQuery({
     queryKey: parserSettingsQueryKeys.list(workspaceId),
     queryFn: () => fetchParserSettings(client, workspaceId),
     enabled: Boolean(workspaceId),
   })
+
   const files = useQuery({
     queryKey: [...parserSettingsQueryKeys.files(workspaceId), fileId],
     queryFn: () => fetchParserTestFiles(client, workspaceId, fileId),
     enabled: Boolean(workspaceId),
   })
+
   const [selectedId, setSelectedId] = useState(versionId ?? '')
   const [testFileId, setTestFileId] = useState(fileId ?? '')
   const forInstrument = instruments.data?.find((i) => i.id === forInstrumentId)
@@ -112,37 +119,48 @@ export function ParserSettings({
   const [signature, setSignature] = useState('{}')
   const [mapping, setMapping] = useState('{}')
   const [layout, setLayout] = useState<ParserLayout>({})
+
   // The instrument whose parsers are listed; blank lists every parser.
   const [shownInstrumentId, setShownInstrumentId] = useState(
     forInstrumentId ?? '',
   )
+
   const [message, setMessage] = useState('')
   const [addingWebhook, setAddingWebhook] = useState(false)
   const [newKey, setNewKey] = useState('')
+
   const selectedParser = parsers.data?.find((p) =>
     p.parser_versions.some((v) => v.id === selectedId),
   )
+
   const selected = selectedParser?.parser_versions.find(
     (v) => v.id === selectedId,
   )
+
   const testFile = files.data?.find((f) => f.id === testFileId)
   // Arriving from an instrument with nothing selected, start the draft as that
   // instrument's parser instead of a blank form.
   const [prefilled, setPrefilled] = useState(false)
+
   if (forInstrument && !selectedId && !prefilled && !key && !name) {
     setPrefilled(true)
     setName(`${forInstrument.name} export`)
   }
+
   const shownInstrument = instruments.data?.find(
     (i) => i.id === shownInstrumentId,
   )
+
   const shownParsers = (parsers.data ?? []).filter(
     (p) => !shownInstrumentId || p.instrument_id === shownInstrumentId,
   )
+
   const approverNames = useUserNames(
     selected?.approved_by_user_id ? [selected.approved_by_user_id] : [],
   )
+
   const canEdit = hasCapability(role, 'schema.edit')
+
   const refresh = async () => {
     await Promise.all([
       qc.invalidateQueries({
@@ -154,16 +172,20 @@ export function ParserSettings({
       qc.invalidateQueries({ queryKey: ['work-items'] }),
     ])
   }
+
   const action = useMutation({
     mutationFn: async (kind: 'create' | 'validate' | 'approve') => {
       setMessage('')
+
       if (kind === 'create') {
         const parserKey = key.trim() || slugOf(name)
         const existing = parsers.data?.find((p) => p.key === parserKey)
+
         const required = headers
           .split(',')
           .map((header) => header.trim())
           .filter(Boolean)
+
         const result = await createParserDraft(client, {
           workspaceId,
           key: parserKey,
@@ -185,6 +207,7 @@ export function ParserSettings({
           },
           mapping: parseDefinition(mapping),
         })
+
         setSelectedId(result.parserVersionId)
         setMessage(
           t('settings.parserSettings.createdDraftRevision', {
@@ -206,13 +229,16 @@ export function ParserSettings({
         await approveParserVersion(client, selectedId)
         setMessage(t('settings.parserSettings.parserVersionApproved'))
       }
+
       await refresh()
     },
   })
+
   const rotate = useMutation({
     mutationFn: (parserId: string) => rotateWebhookParserKey(parserId),
     onSuccess: (result) => setNewKey(result.secret),
   })
+
   const upload = useMutation({
     mutationFn: async (file: File) => {
       const result = await uploadImportFile({ file })
@@ -220,9 +246,11 @@ export function ParserSettings({
       await refresh()
     },
   })
+
   // A refused test-file upload is reported by the file field, on the file's own
   // row, with the retry beside it — so this line carries the other four sources.
   const error = action.error ?? rotate.error ?? parsers.error ?? files.error
+
   return (
     <div className="flex min-w-0 flex-col gap-6">
       {forInstrument ? (

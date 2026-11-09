@@ -10,7 +10,9 @@ import { PlanDialog } from './plan-dialog'
 export function PlanWithAi() {
   const ai = usePageAi()
   const [open, setOpen] = useState(false)
+
   if (!ai.live) return null
+
   return (
     <>
       <Button icon="spark" onClick={() => setOpen(true)}>

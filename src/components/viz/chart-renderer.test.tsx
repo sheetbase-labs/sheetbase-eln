@@ -195,6 +195,7 @@ describe('ChartRenderer', () => {
         ],
       },
     }
+
     render(
       <ChartRenderer
         title="Frozen"
@@ -224,6 +225,7 @@ describe('ChartRenderer', () => {
 
   it('renders an accessible legend with series labels', () => {
     const mat = okMaterialised()
+
     const twoSeries: MaterialisedChart = {
       ...mat,
       series: [
@@ -236,6 +238,7 @@ describe('ChartRenderer', () => {
         },
       ],
     }
+
     render(
       <ChartRenderer
         title="Legend"
@@ -255,6 +258,7 @@ describe('ChartRenderer', () => {
       series: [],
       rows: [],
     }
+
     render(
       <ChartRenderer
         title="Missing"
@@ -274,6 +278,7 @@ describe('ChartRenderer', () => {
       series: [],
       rows: [],
     }
+
     render(
       <ChartRenderer
         title="Empty"
@@ -290,6 +295,7 @@ describe('ChartRenderer', () => {
       ...okMaterialised(),
       state: { kind: 'log_scale_invalid', axis: 'y', invalidCount: 1 },
     }
+
     render(
       <ChartRenderer
         title="Log"
@@ -310,6 +316,7 @@ describe('ChartRenderer', () => {
         detail: 'A plotted formula is stale. Recalculate the dataset.',
       },
     }
+
     render(
       <ChartRenderer
         title="Stale"
@@ -328,6 +335,7 @@ describe('ChartRenderer', () => {
       series: [],
       rows: [],
     }
+
     render(
       <ChartRenderer
         title="No dataset"
@@ -436,6 +444,7 @@ describe('SCI-01 distribution chart types', () => {
       yUnit: undefined,
       droppedPoints: 2,
     }
+
     for (const type of ['histogram', 'box', 'violin', 'summary'] as const) {
       cleanup()
       render(
@@ -501,6 +510,7 @@ describe('SCI-01 distribution chart types', () => {
         },
       ],
     }
+
     render(
       <ChartRenderer
         title="Violin"
@@ -550,6 +560,7 @@ describe('SCI-01 distribution chart types', () => {
         },
       ],
     }
+
     render(
       <ChartRenderer
         title="Box"
@@ -567,6 +578,7 @@ describe('SCI-01 distribution chart types', () => {
 
   it('renders a heatmap from the package primitive with an accessible table', () => {
     const onSelect = vi.fn()
+
     const materialised = {
       ...okMaterialised(),
       series: [],
@@ -582,6 +594,7 @@ describe('SCI-01 distribution chart types', () => {
         aggregate: 'count' as const,
       },
     }
+
     render(
       <ChartRenderer
         title="Heatmap"
@@ -619,6 +632,7 @@ describe('SCI-01 distribution chart types', () => {
         },
       ],
     }
+
     for (const type of ['grouped_bar', 'stacked_bar'] as const) {
       cleanup()
       render(
@@ -657,6 +671,7 @@ describe('SCI-01 distribution chart types', () => {
         })),
       },
     }))
+
     render(
       <ChartRenderer
         title="Faceted"
@@ -691,6 +706,7 @@ describe('SCI-02 fit overlay rendering', () => {
         },
       ],
     }
+
     render(
       <ChartRenderer
         title="Scatter with fit"

@@ -84,6 +84,7 @@ describe('requiredScopes', () => {
         resource: 'record_field_definitions',
       }),
     ).toEqual(['projects:read'])
+
     for (const resource of ['folders', 'record_field_definitions'] as const) {
       expect(() => requiredScopes('POST', { kind: 'table', resource })).toThrow(
         ExternalTokenError,
@@ -96,6 +97,7 @@ describe('requiredScopes', () => {
 
   it('denies scientific-table and SCI-010 resources as insufficient_scope', () => {
     const resource = `sheet_${'a'.repeat(26)}`
+
     const denied = [
       { method: 'GET', path: { kind: 'table' as const, resource } },
       { method: 'POST', path: { kind: 'table' as const, resource } },
@@ -125,8 +127,10 @@ describe('requiredScopes', () => {
         path: { kind: 'rpc' as const, resource: 'add_scientific_column' },
       },
     ]
+
     for (const { method, path } of denied) {
       expect(() => requiredScopes(method, path)).toThrow(ExternalTokenError)
+
       try {
         requiredScopes(method, path)
       } catch (error) {
@@ -162,6 +166,7 @@ describe('requiredScopes', () => {
       ['search_sheet_records', ['models:read']],
       ['update_record_custom_fields', ['models:write']],
     ]
+
     for (const [resource, scopes] of allowed) {
       expect(requiredScopes('POST', { kind: 'rpc', resource })).toEqual(scopes)
     }
@@ -174,6 +179,7 @@ describe('requiredScopes', () => {
       ['instantiate_notebook_template_version', 'templates:write'],
       ['update_record_custom_fields', 'models:write'],
     ] as const
+
     for (const [resource, required] of writes) {
       const scopes = requiredScopes('POST', { kind: 'rpc', resource })
       expect(scopes).toEqual([required])
@@ -194,6 +200,7 @@ describe('requiredScopes', () => {
       expect(requiredScopes('POST', { kind: 'rpc', resource })).toEqual([
         'schema:write',
       ])
+
     for (const resource of [
       'publish_sheet_definition_version',
       'publish_notebook_template_version',
@@ -213,6 +220,7 @@ describe('requiredScopes', () => {
       expect(requiredScopes('POST', { kind: 'rpc', resource })).toEqual([
         'schema:write',
       ])
+
     for (const resource of [
       'publish_dataset_schema_version',
       'retire_dataset_schema_definition',
@@ -259,6 +267,7 @@ describe('requiredScopes', () => {
       'discover_object_dependencies',
       'record_cell_conflict',
     ]
+
     for (const resource of privateRpcs) {
       expect(() => requiredScopes('POST', { kind: 'rpc', resource })).toThrow(
         ExternalTokenError,
@@ -346,6 +355,7 @@ describe('requiredScopes', () => {
         'agent_operations:write',
       ])
     }
+
     for (const resource of [
       'agent_workflows',
       'agent_workflow_steps',
@@ -355,6 +365,7 @@ describe('requiredScopes', () => {
         'agent_operations:read',
       ])
     }
+
     expect(() =>
       requiredScopes('POST', {
         kind: 'rpc',
@@ -391,6 +402,7 @@ describe('verifyApiClientToken', () => {
       scopes: ['projects:read'],
       role: 'api_client',
     })
+
     const claims = await verifyApiClientToken(token, SECRET)
     expect(claims).toEqual({
       workspace_id: 'ws-1',
@@ -407,6 +419,7 @@ describe('verifyApiClientToken', () => {
       scopes: ['projects:read'],
       role: 'authenticated',
     })
+
     await expect(verifyApiClientToken(token, SECRET)).rejects.toBeInstanceOf(
       ExternalTokenError,
     )
@@ -419,6 +432,7 @@ describe('verifyApiClientToken', () => {
       scopes: ['projects:read'],
       role: 'api_client',
     })
+
     await expect(
       verifyApiClientToken(token, 'other-secret-32-characters-minimum!!'),
     ).rejects.toBeInstanceOf(ExternalTokenError)
@@ -440,6 +454,7 @@ describe('verifyApiClientToken', () => {
       kind: 'personal',
       role: 'authenticated',
     })
+
     const claims = await verifyApiClientToken(token, SECRET)
     expect(claims).toEqual({
       workspace_id: 'ws-1',
@@ -460,6 +475,7 @@ describe('verifyApiClientToken', () => {
       sub: 'user-1',
       role: 'authenticated',
     })
+
     await expect(verifyApiClientToken(token, SECRET)).rejects.toBeInstanceOf(
       ExternalTokenError,
     )
@@ -474,6 +490,7 @@ describe('verifyApiClientToken', () => {
         kind: 'personal',
         role: 'authenticated',
       }
+
       if (sub !== undefined) claims.sub = sub
       const token = await mint(claims)
       await expect(verifyApiClientToken(token, SECRET)).rejects.toBeInstanceOf(
@@ -510,6 +527,7 @@ describe('mintPersonalApiToken', () => {
     const custom = decodeJwt(
       await mintPersonalApiToken(SECRET, { ...input, ttlSeconds: 60 }),
     )
+
     expect((custom.exp as number) - (custom.iat as number)).toBe(60)
   })
 

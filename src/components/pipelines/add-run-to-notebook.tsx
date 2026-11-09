@@ -35,11 +35,13 @@ export function AddRunToNotebook({
   async function add() {
     if (!target) return
     setBusy(true)
+
     try {
       const { identifier } = await addRunToNotebook(notebookDataClient, {
         recordId: target.id,
         paragraphs,
       })
+
       toast(t('data.addRunToNotebook.addedNotebook'), {
         description: t('data.addRunToNotebook.nowCitesRun', {
           value: identifier ?? t('data.addRunToNotebook.theNotebook'),

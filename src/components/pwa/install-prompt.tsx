@@ -16,8 +16,10 @@ import { t } from '#/copy'
  */
 export function InstallPrompt() {
   const offer = useInstallOffer()
+
   if (offer === 'none') return null
   const ios = offer === 'ios'
+
   return (
     <aside
       aria-label={t('pwa.install.title')}

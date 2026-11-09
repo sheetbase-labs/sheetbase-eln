@@ -26,11 +26,13 @@ const DATASET = '22222222-2222-4222-8222-222222222222'
 
 const rpc = vi.hoisted(() => vi.fn().mockResolvedValue({}))
 const RUNTIME = `registry.example/sheetbase-python@sha256:${'a'.repeat(64)}`
+
 const pythonRuntime = vi.hoisted(() => {
   const current: { isLoading: boolean; data: unknown } = {
     isLoading: false,
     data: undefined,
   }
+
   return { current }
 })
 
@@ -135,9 +137,11 @@ describe('Steps editor output', () => {
     fireEvent.click(save)
 
     await waitFor(() => expect(rpc).toHaveBeenCalled())
+
     const args = rpc.mock.calls[0][1] as {
       p_configuration: { output: Record<string, unknown> }
     }
+
     expect(args.p_configuration.output).toMatchObject({
       mode: 'create',
       schemaVersionId: SCHEMA_VERSION,
@@ -162,12 +166,14 @@ describe('Steps editor output', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
     await waitFor(() => expect(rpc).toHaveBeenCalled())
+
     const args = rpc.mock.calls[0][1] as {
       p_configuration: {
         parameters: unknown[]
         steps: { name: string; confirm?: unknown }[]
       }
     }
+
     expect(args.p_configuration.parameters).toMatchObject([{ name: 'dose' }])
     expect(args.p_configuration.steps[0].name).toBe('step_1')
     expect(args.p_configuration.steps[0].confirm).toBeTruthy()
@@ -220,11 +226,13 @@ describe('Steps editor Python', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
     await waitFor(() => expect(rpc).toHaveBeenCalled())
+
     const config = (rpc.mock.calls[0][1] as { p_configuration: unknown })
       .p_configuration as {
       pythonRuntime: string
       transform: { language: string }
     }
+
     expect(config.transform.language).toBe('python')
     expect(config.pythonRuntime).toBe(RUNTIME)
   })
@@ -244,8 +252,10 @@ describe('Steps editor Python', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
     await waitFor(() => expect(rpc).toHaveBeenCalled())
+
     const config = (rpc.mock.calls[0][1] as { p_configuration: unknown })
       .p_configuration as { pythonRuntime: string }
+
     expect(config.pythonRuntime).toBe(RUNTIME)
   })
 
@@ -275,8 +285,10 @@ describe('Steps editor Python', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
     await waitFor(() => expect(rpc).toHaveBeenCalled())
+
     const config = (rpc.mock.calls[0][1] as { p_configuration: object })
       .p_configuration
+
     expect(config).toMatchObject({ pythonRuntime: undefined })
   })
 
@@ -305,11 +317,13 @@ describe('Steps editor Python', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
     await waitFor(() => expect(rpc).toHaveBeenCalled())
+
     const config = (rpc.mock.calls[0][1] as { p_configuration: unknown })
       .p_configuration as {
       pythonRequirements: string[]
       transform: { contract: unknown }
     }
+
     expect(config.pythonRequirements).toEqual(['scipy==1.15.3'])
     expect(config.transform.contract).toEqual({
       output: { columns: [{ name: 'mean', type: 'text' }] },
@@ -355,8 +369,10 @@ describe('Steps editor Python', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
     await waitFor(() => expect(rpc).toHaveBeenCalled())
+
     const config = (rpc.mock.calls[0][1] as { p_configuration: object })
       .p_configuration
+
     expect(config).toMatchObject({
       pythonRequirements: undefined,
       pythonRuntime: undefined,
@@ -395,9 +411,11 @@ describe('Steps editor guided building', () => {
     })
     fireEvent.click(screen.getByRole('button', { name: 'Create draft v1' }))
     await waitFor(() => expect(rpc).toHaveBeenCalled())
+
     const args = rpc.mock.calls[0][1] as {
       p_configuration: { output: Record<string, unknown> }
     }
+
     expect(args.p_configuration.output.fieldMapping).toEqual({
       optical_density: 'od',
     })
@@ -495,10 +513,12 @@ describe('Steps editor Try draft', () => {
     await screen.findByText('Try draft result')
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('/api/pipelines/try-draft')
+
     const body = JSON.parse(init.body as string) as {
       workspaceId: string
       configuration: { transform: { statement: string } }
     }
+
     expect(body.workspaceId).toBe('ws-1')
     expect(body.configuration.transform.statement).toBe('select 1 as n')
     expect(screen.getByText(/Nothing was saved/)).toBeTruthy()

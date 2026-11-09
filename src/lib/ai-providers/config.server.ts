@@ -43,6 +43,7 @@ export function getProviderConfiguration(): ProviderConfiguration {
 function keyAvailable(profile: ProviderProfile): boolean {
   if (!profile.apiKeyEnv) return true
   const value = process.env[profile.apiKeyEnv]
+
   return typeof value === 'string' && value.trim() !== ''
 }
 
@@ -51,6 +52,7 @@ export function getPublicProviderProfiles(): {
   error: string | null
 } {
   const configuration = getProviderConfiguration()
+
   return {
     profiles: configuration.profiles.map((profile) =>
       toPublicProviderProfile(profile, keyAvailable(profile)),
@@ -76,12 +78,15 @@ export function resolveProvider(
   deps: ProviderDeps = {},
 ): ResolvedProvider {
   const configuration = getProviderConfiguration()
+
   if (configuration.error) {
     throw new AiProviderError('config_invalid', configuration.error, {
       providerId: profileId,
     })
   }
+
   const profile = configuration.profiles.find((entry) => entry.id === profileId)
+
   if (!profile) {
     throw new AiProviderError(
       'config_invalid',
@@ -89,7 +94,9 @@ export function resolveProvider(
       { providerId: profileId },
     )
   }
+
   const apiKey = profile.apiKeyEnv ? process.env[profile.apiKeyEnv] : undefined
+
   return {
     provider: createModelProvider(profile, apiKey, deps),
     profile,

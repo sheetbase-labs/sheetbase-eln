@@ -93,7 +93,9 @@ export function GuidePanel({
                       </Button>
                     )
                   }
+
                   const acceptKey = action.target.acceptKey
+
                   return (
                     <Button
                       key={action.label}

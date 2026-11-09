@@ -16,6 +16,7 @@ import type * as NotebookTemplateData from '#/lib/notebook-template-data'
 
 const router = vi.hoisted(() => {
   const search: Record<string, unknown> = {}
+
   return { search, navigate: vi.fn() }
 })
 
@@ -38,6 +39,7 @@ vi.mock('#/components/ui/sonner', () => ({ toast: vi.fn() }))
 
 const client = vi.hoisted(() => ({ list: vi.fn(), rpc: vi.fn() }))
 const publish = vi.hoisted(() => vi.fn())
+
 vi.mock('#/lib/notebook-template-data', async (importOriginal) => ({
   ...(await importOriginal<typeof NotebookTemplateData>()),
   notebookTemplateDataClient: client,
@@ -127,6 +129,7 @@ function recordWire(overrides: Partial<RecordWire> = {}): RecordWire {
 }
 
 const VERSION_1 = versionWire({ id: V1, version: 1 })
+
 const VERSION_2 = versionWire({
   id: V2,
   version: 2,
@@ -135,6 +138,7 @@ const VERSION_2 = versionWire({
     placeholder(uuid(22), 2, 'B'),
   ]),
 })
+
 const VERSION_3_DRAFT = versionWire({
   id: V3,
   version: 3,
@@ -152,17 +156,22 @@ function withData(
   client.list.mockImplementation((resource: string) => {
     if (resource === 'notebook_template_versions')
       return Promise.resolve(versions)
+
     if (resource === 'records') return Promise.resolve(records)
+
     if (resource === 'projects') return Promise.resolve([])
+
     return Promise.resolve([])
   })
 }
 
 function renderRoute() {
   const Component = Route.options.component as React.ComponentType
+
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={queryClient}>
       <Component />
@@ -186,19 +195,23 @@ describe('Template versions', () => {
     // Change set of the selected (current) version against the one before it.
     expect(await screen.findByText('Changes since v1')).toBeTruthy()
     const changes = screen.getByRole('list', { name: 'Changes in version 2' })
+
     const added = within(changes)
       .getAllByRole('listitem')
       .find((item) => item.textContent.includes('B'))
+
     expect(added?.textContent).toContain('Added')
 
     // Signatures list names the publisher of the selected version.
     const signatures = screen.getByText('Signatures').closest('section')
+
     if (!signatures) throw new Error('Signature section required')
     expect(within(signatures).getByText(/user-9/)).toBeTruthy()
     expect(within(signatures).getByText(/No signature recorded/)).toBeTruthy()
 
     // Records-on-this-version split.
     const total = screen.getByText('Total').parentElement
+
     if (!total) throw new Error('Record total required')
     expect(await within(total).findByText('1')).toBeTruthy()
   })

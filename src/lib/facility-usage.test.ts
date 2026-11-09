@@ -68,6 +68,7 @@ describe('toUsageLine', () => {
       rate_per_hour: '12.00',
       currency: 'GBP',
     })
+
     expect(mapped.hours).toBe(2.5)
     expect(mapped.ratePerHour).toBe(12)
   })
@@ -106,6 +107,7 @@ describe('utilisationByInstrument', () => {
       from: new Date('2026-11-02T00:00:00Z'),
       to: new Date('2026-11-09T00:00:00Z'),
     }
+
     const rows = utilisationByInstrument(LINES, week, 10, 'UTC')
     const reader = rows.find((r) => r.key === 'i1')
     expect(reader?.openHours).toBe(50)
@@ -124,6 +126,7 @@ describe('utilisationByInstrument', () => {
       10,
       'UTC',
     )
+
     expect(rows.every((r) => r.utilisation === 0 || r.openHours > 0)).toBe(true)
   })
 })

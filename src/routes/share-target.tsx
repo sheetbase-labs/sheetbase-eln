@@ -33,6 +33,7 @@ export const Route = createFileRoute('/share-target')({
   ): { title?: string; text?: string; url?: string } => {
     const pick = (value: unknown) =>
       typeof value === 'string' && value.trim() ? value.trim() : undefined
+
     return {
       ...(pick(search.title) ? { title: pick(search.title) } : {}),
       ...(pick(search.text) ? { text: pick(search.text) } : {}),
@@ -41,9 +42,11 @@ export const Route = createFileRoute('/share-target')({
   },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: ShareTargetPage,
@@ -69,6 +72,7 @@ function ShareTargetPage() {
       if (live && parked.length > 0) setFiles(parked)
     })
     const stop = onLaunchedWithFiles((opened) => setFiles(opened))
+
     return () => {
       live = false
       stop()
@@ -81,7 +85,9 @@ function ShareTargetPage() {
   const add = useMutation({
     mutationFn: async (target: PickerOption) => {
       const record = await fetchRecord(notebookDataClient, target.id)
+
       if (!record?.projectId) throw new Error(t('pwa.shareTarget.failed'))
+
       for (const file of files) {
         await uploadFileToExperiment(notebookDataClient, {
           projectId: record.projectId,
@@ -89,6 +95,7 @@ function ShareTargetPage() {
           file,
         })
       }
+
       if (note) {
         await insertBlock(notebookDataClient, {
           recordId: record.id,
@@ -105,7 +112,9 @@ function ShareTargetPage() {
           expectedStructureVersion: record.structureVersion,
         })
       }
+
       await clearSharedFiles()
+
       return record
     },
     onSuccess: (record) => {

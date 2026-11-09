@@ -62,7 +62,9 @@ export function EnterpriseSourcePanel({
   connector: ConnectorWire
 }) {
   const adapterId = enterpriseAdapterId(connector)
+
   if (!adapterId) return null
+
   return adapterId === 's3' ? (
     <S3SourcePanel workspaceId={workspaceId} connector={connector} />
   ) : (
@@ -86,6 +88,7 @@ function useTargetFields(schemaVersionId: string) {
       listCanonicalDatasetSchemaVersionFields(dataClient, schemaVersionId),
     enabled: Boolean(schemaVersionId),
   })
+
   const fields: ImportTargetField[] = useMemo(
     () =>
       (fieldsQuery.data ?? [])
@@ -100,6 +103,7 @@ function useTargetFields(schemaVersionId: string) {
         })),
     [fieldsQuery.data],
   )
+
   return fields
 }
 
@@ -114,6 +118,7 @@ function TargetControls({
     queryKey: ['connectors', 'source', 'schemas'],
     queryFn: () => listPublishedDatasetSchemas(dataClient),
   })
+
   const datasetsQuery = useQuery({
     queryKey: ['connectors', 'source', 'datasets', state.schemaVersionId],
     queryFn: () =>
@@ -123,6 +128,7 @@ function TargetControls({
       ),
     enabled: Boolean(state.schemaVersionId),
   })
+
   return (
     <div className="flex flex-col gap-3">
       <Field
@@ -229,7 +235,9 @@ function MappingSummary({
 }) {
   const mappings = suggestImportMappings(headers, fields)
   const mapped = mappings.filter((mapping) => mapping.kind === 'field')
+
   if (headers.length === 0) return null
+
   return (
     <ul className="m-0 list-none space-y-0.5 p-0 text-label text-fg-muted">
       {mappings.map((mapping) => (
@@ -249,6 +257,7 @@ function MappingSummary({
 
 function PreviewTable({ preview }: { preview: PreviewResult }) {
   if (preview.columns.length === 0) return null
+
   return (
     <Table
       aria-label={t(
@@ -369,6 +378,7 @@ function TestConnectionButton({
   const mutation = useMutation({
     mutationFn: () => testConnectorConnection({ workspaceId, connectorId }),
   })
+
   return (
     <div className="flex items-center gap-2">
       <Button
@@ -402,15 +412,19 @@ function S3SourcePanel({
 }) {
   const queryClient = useQueryClient()
   const [objects, setObjects] = useState<S3DiscoveryPage['objects']>([])
+
   const [continuationToken, setContinuationToken] = useState<string | null>(
     null,
   )
+
   const [selectedKey, setSelectedKey] = useState('')
+
   const [target, setTarget] = useState<TargetState>({
     schemaVersionId: '',
     datasetId: '',
     newDatasetName: '',
   })
+
   const fields = useTargetFields(target.schemaVersionId)
 
   const projectsQuery = useQuery({
@@ -421,6 +435,7 @@ function S3SourcePanel({
         '?select=id,title&order=title.asc',
       ),
   })
+
   const [projectId, setProjectId] = useState('')
 
   const discoverMutation = useMutation({
@@ -631,11 +646,13 @@ function PostgresSourcePanel({
   const queryClient = useQueryClient()
   const [schema, setSchema] = useState('')
   const [selectedTable, setSelectedTable] = useState('')
+
   const [target, setTarget] = useState<TargetState>({
     schemaVersionId: '',
     datasetId: '',
     newDatasetName: '',
   })
+
   const fields = useTargetFields(target.schemaVersionId)
 
   const discoverMutation = useMutation({
@@ -648,6 +665,7 @@ function PostgresSourcePanel({
   })
 
   const discovery = discoverMutation.data
+
   const selectedTableDescriptor = discovery?.tables.find(
     (table) => table.name === selectedTable,
   )

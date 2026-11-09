@@ -61,6 +61,7 @@ describe('phaseBands', () => {
         { id: 'phase-1', name: 'Upstream' },
       ],
     )
+
     expect(bands.map((band) => band.name)).toEqual([
       'Downstream',
       'Upstream',
@@ -92,6 +93,7 @@ describe('MilestoneTimeline', () => {
         now={NOW}
       />,
     )
+
     expect(
       screen.getByRole('radiogroup', { name: 'Timeline scale' }),
     ).toBeTruthy()
@@ -142,6 +144,7 @@ describe('MilestoneTimeline', () => {
         now={NOW}
       />,
     )
+
     expect(container.firstChild).toBeNull()
   })
 
@@ -171,6 +174,7 @@ describe('MilestoneTimeline', () => {
         now={NOW}
       />,
     )
+
     const band = container.querySelector('[data-band="phase-1"]')
     expect(band?.className).toContain('bg-danger-wash')
     expect(band?.className).not.toContain('bg-success-wash')
@@ -196,6 +200,7 @@ describe('MilestoneTimeline', () => {
         now={NOW}
       />,
     )
+
     const band = container.querySelector('[data-band="phase-1"]')
     expect(band?.className).toContain('bg-success-wash')
   })

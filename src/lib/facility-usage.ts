@@ -80,12 +80,14 @@ export async function fetchUsageLines(
     p_from: range.from.toISOString(),
     p_to: range.to.toISOString(),
   })
+
   return rows.map(toUsageLine)
 }
 
 /** What a booking is charged at its instrument's rate, or null with no rate. */
 export function lineCharge(line: UsageLine): number | null {
   if (line.ratePerHour === null || !line.currency) return null
+
   return Math.round(line.hours * line.ratePerHour * 100) / 100
 }
 
@@ -105,7 +107,9 @@ const NONE = '__none__'
 
 function groupKey(line: UsageLine, by: UsageGrouping): string {
   if (by === 'instrument') return line.instrumentId
+
   if (by === 'person') return line.userId ?? NONE
+
   return line.projectId ?? NONE
 }
 
@@ -115,9 +119,11 @@ export function groupUsage(
   by: UsageGrouping,
 ): UsageGroup[] {
   const groups = new Map<string, UsageGroup>()
+
   for (const line of lines) {
     const key = groupKey(line, by)
     let group = groups.get(key)
+
     if (!group) {
       group = {
         key,
@@ -128,13 +134,16 @@ export function groupUsage(
       }
       groups.set(key, group)
     }
+
     group.bookings += 1
     group.hours = Math.round((group.hours + line.hours) * 100) / 100
     const charge = lineCharge(line)
+
     if (charge !== null && line.currency) {
       addMoney(group.charges, charge, line.currency)
     }
   }
+
   return [...groups.values()].sort((a, b) => b.hours - a.hours)
 }
 
@@ -162,19 +171,23 @@ export function utilisationByInstrument(
   const open = weekdaysIn(range, timeZone) * openHoursPerDay
   const people = new Map<string, Set<string>>()
   const names = new Map<string, { name: string; code: string | null }>()
+
   for (const line of lines) {
     names.set(line.instrumentId, {
       name: line.instrumentName,
       code: line.instrumentCode,
     })
+
     if (line.userId) {
       const set = people.get(line.instrumentId) ?? new Set<string>()
       set.add(line.userId)
       people.set(line.instrumentId, set)
     }
   }
+
   return groupUsage(lines, 'instrument').map((group) => {
     const info = names.get(group.key)
+
     return {
       ...group,
       name: info?.name ?? '',
@@ -260,10 +273,13 @@ export function rechargeCsv(
       charge: number | null
     }
   >()
+
   for (const line of lines) {
     const who =
       by === 'person' ? labels.person(line.userId) : labels.project(line)
+
     const key = `${who}\u0000${line.instrumentId}`
+
     const entry = rows.get(key) ?? {
       who,
       line,
@@ -271,17 +287,21 @@ export function rechargeCsv(
       hours: 0,
       charge: null,
     }
+
     entry.bookings += 1
     entry.hours = Math.round((entry.hours + line.hours) * 100) / 100
     const charge = lineCharge(line)
+
     if (charge !== null) entry.charge = (entry.charge ?? 0) + charge
     rows.set(key, entry)
   }
+
   const sorted = [...rows.values()].sort(
     (a, b) =>
       a.who.localeCompare(b.who) ||
       a.line.instrumentName.localeCompare(b.line.instrumentName),
   )
+
   return csv([
     [
       by === 'person' ? 'Person' : 'Project',
@@ -324,6 +344,7 @@ export async function fetchInstrumentRates(
   client: DataClient,
 ): Promise<InstrumentRate[]> {
   const rows = await client.list<RateWire>('instrument_rates', '?limit=1000')
+
   return rows.map((row) => ({
     instrumentId: row.instrument_id,
     ratePerHour: Number(row.rate_per_hour),

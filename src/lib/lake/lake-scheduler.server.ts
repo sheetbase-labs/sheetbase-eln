@@ -19,6 +19,7 @@ export async function sweepLakes(
 ): Promise<{ workspaces: number; written: number; failed: number }> {
   const conn = await deps.connect()
   let due: Array<{ workspace_id: string; exporter_user_id: string }> = []
+
   try {
     // Logins belong to people with data access; drop the ones whose owner lost it.
     await conn.query(`SELECT internal.lake_revoke_orphaned_credentials()`)
@@ -30,15 +31,19 @@ export async function sweepLakes(
   } finally {
     await conn.end()
   }
+
   const total = { workspaces: 0, written: 0, failed: 0 }
+
   for (const row of due) {
     if (running.has(row.workspace_id)) continue
     running.add(row.workspace_id)
+
     try {
       const result = await refreshWorkspaceLake(deps, {
         workspaceId: row.workspace_id,
         exporterUserId: row.exporter_user_id,
       })
+
       total.workspaces++
       total.written += result.written
       total.failed += result.failed
@@ -52,6 +57,7 @@ export async function sweepLakes(
       running.delete(row.workspace_id)
     }
   }
+
   return total
 }
 
@@ -61,8 +67,10 @@ const startedGlobalKey = '__sheetbaseLakeSchedulerStarted'
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
@@ -71,6 +79,7 @@ export function realLakeDeps(): LakeRefreshDeps {
     connect: async () => {
       const client = new PooledClient({ connectionString: env.DATABASE_URL })
       await client.connect()
+
       return client
     },
     storage: getObjectStorage(),
@@ -82,13 +91,17 @@ export function startLakeScheduler(
   options: { deps?: LakeRefreshDeps; intervalMs?: number } = {},
 ): void {
   if (typeof window !== 'undefined') return
+
   if (schedulerDisabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
+
   const tick = async () => {
     try {
       const result = await sweepLakes(options.deps ?? realLakeDeps())
+
       if (result.written || result.failed) {
         logger.info('open tables swept', result)
       }
@@ -98,6 +111,7 @@ export function startLakeScheduler(
       })
     }
   }
+
   bootTimer = setTimeout(() => void tick(), 20_000)
   bootTimer.unref()
   timer = setInterval(
@@ -109,6 +123,7 @@ export function startLakeScheduler(
 
 export function stopLakeScheduler(): void {
   if (bootTimer) clearTimeout(bootTimer)
+
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null

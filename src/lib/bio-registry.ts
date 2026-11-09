@@ -30,6 +30,7 @@ export const PARENT_ROLES = [
   'transfected_with',
   'clone_of',
 ] as const
+
 export type ParentRole = (typeof PARENT_ROLES)[number]
 
 export function asRole(value: unknown): ParentRole {
@@ -83,6 +84,7 @@ export async function fetchRegistryEntries(
 ): Promise<RegistryEntry[]> {
   if (kinds.length === 0) return []
   const list = kinds.map((k) => encodeURIComponent(k)).join(',')
+
   return client.list<RegistryEntry>(
     'records',
     `?kind=in.(${list})&deleted_at=is.null&order=created_at.desc&limit=5000&select=id,identifier,title,kind,custom_fields,created_at,archived_at,metadata_version`,
@@ -107,10 +109,12 @@ export async function fetchLineageLinks(
   entryIds: readonly string[],
 ): Promise<LineageLink[]> {
   if (entryIds.length === 0) return []
+
   const rows = await client.list<LineageWire>(
     'record_links',
     `?link_type=eq.upstream&source_record_id=in.(${entryIds.join(',')})&select=source_record_id,target_record_id,link_metadata&limit=20000`,
   )
+
   return rows
     .filter((r) => r.target_record_id)
     .map((r) => ({
@@ -143,6 +147,7 @@ export async function findDuplicates(
     p_custom_fields: input.customFields,
     p_exclude_id: input.excludeId ?? null,
   })
+
   return rows.map((row) => ({
     id: row.id,
     identifier: row.identifier,
@@ -172,6 +177,7 @@ export async function createRegistryEntry<T>(
           title: input.title,
           customFields: input.customFields,
         })
+
   return client.rpc<T>('create_registry_entry', {
     p_project_id: input.projectId,
     p_kind: input.kind,
@@ -332,6 +338,7 @@ export async function createStarterRegistry(
 async function sha256(text: string): Promise<string> {
   const bytes = new TextEncoder().encode(text)
   const digest = await crypto.subtle.digest('SHA-256', bytes)
+
   return [...new Uint8Array(digest)]
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
@@ -395,21 +402,27 @@ export function walkLineage(
   const seen = new Set<string>([start])
   const out: LineageNode[] = []
   let frontier = [start]
+
   for (let depth = 1; depth <= maxDepth && frontier.length > 0; depth++) {
     const next: string[] = []
+
     for (const id of frontier) {
       for (const link of links) {
         const from = direction === 'up' ? link.entry_id : link.parent_id
         const to = direction === 'up' ? link.parent_id : link.entry_id
+
         if (from !== id || seen.has(to)) continue
         const entry = byId.get(to)
+
         if (!entry) continue
         seen.add(to)
         next.push(to)
         out.push({ entry, role: link.role, depth })
       }
     }
+
     frontier = next
   }
+
   return out
 }

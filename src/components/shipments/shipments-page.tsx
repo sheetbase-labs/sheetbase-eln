@@ -41,6 +41,7 @@ import {
 } from './shipments-shared'
 
 type Tab = 'open' | 'received' | 'all'
+
 type Direction = 'all' | 'outbound' | 'inbound'
 
 export function ShipmentsPage({ canWrite }: { canWrite: boolean }) {
@@ -55,22 +56,28 @@ export function ShipmentsPage({ canWrite }: { canWrite: boolean }) {
     queryFn: () => fetchShipments(notebookDataClient),
     staleTime: 10_000,
   })
+
   const counts = useQuery({
     queryKey: shipmentKeys.counts,
     queryFn: () => fetchManifestCounts(notebookDataClient),
     staleTime: 10_000,
   })
+
   const all = useMemo(() => shipments.data ?? [], [shipments.data])
   const today = appNow().toISOString().slice(0, 10)
 
   const inDirection = all.filter(
     (s) => direction === 'all' || s.direction === direction,
   )
+
   const open = inDirection.filter((s) => isOpenShipment(s.status))
   const received = inDirection.filter((s) => s.status === 'received')
+
   const inTab =
     tab === 'open' ? open : tab === 'received' ? received : inDirection
+
   const needle = q.trim().toLowerCase()
+
   const visible = inTab.filter(
     (s) => needle === '' || shipmentText(s).includes(needle),
   )

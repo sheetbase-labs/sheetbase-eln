@@ -160,7 +160,9 @@ const Route = getRouteApi('/analysis/new')
 
 /** The studio modes, in tab order: the strip announces these as tabs. */
 const STUDIO_MODES = ['chart', 'analyse', 'compare'] as const
+
 type StudioMode = (typeof STUDIO_MODES)[number]
+
 const STUDIO_MODE_LABEL: Record<StudioMode, string> = {
   chart: t('data.analysisStudio.chartBuilder'),
   analyse: t('data.analysisStudio.analyse'),
@@ -181,6 +183,7 @@ export function AnalysisStudio() {
     queryFn: () => fetchDatasetSummaries(),
     staleTime: 30_000,
   })
+
   const datasets = summariesQuery.data ?? []
 
   const viewsQuery = useQuery({
@@ -188,27 +191,35 @@ export function AnalysisStudio() {
     queryFn: () => fetchAnalysisViews(analysisStudioDataClient),
     staleTime: 10_000,
   })
+
   const views = viewsQuery.data ?? []
+
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(
     search.dataset ?? null,
   )
+
   const [spec, setSpec] = useState<ChartSpec | null>(null)
   const [inspectorOpen, setInspectorOpen] = useState(false)
+
   // The snapshot named by `?snapshot=` belongs to the dataset named by
   // `?dataset=`; choosing another dataset leaves it behind.
   const [snapshotId, setSnapshotId] = useState<string | null>(
     search.snapshot ?? null,
   )
+
   const activeSnapshotId =
     snapshotId && selectedDatasetId === search.dataset ? snapshotId : null
+
   // Read when a default spec is built, without rebuilding (and so discarding
   // the user's encodings) when they switch back to live data.
   const activeSnapshotRef = useRef(activeSnapshotId)
   activeSnapshotRef.current = activeSnapshotId
   const [selectedViewId, setSelectedViewId] = useState<string | null>(null)
+
   const [chartSelection, setChartSelection] = useState<ChartSelection | null>(
     null,
   )
+
   // SCI-02: the studio serves both chart authoring and reusable analysis
   // definitions; the mode is session state, never persisted server-side.
   // VIEW-03 adds the compare mode: grouped time-series / distribution
@@ -218,18 +229,23 @@ export function AnalysisStudio() {
       ? search.mode
       : 'chart',
   )
+
   const [compareConfig, setCompareConfig] =
     useState<ComparativeViewConfig | null>(null)
+
   // ASSIST-03: whether the live compare config was promoted through the
   // canonical hand-off (CompareView Promote or the guide accept — both feed
   // the same follow-on). Session state only; resets with the dataset.
   const [comparePromoted, setComparePromoted] = useState(false)
   const [configOpen, setConfigOpen] = useState(true)
   const [viewName, setViewName] = useState('')
+
   const [exportSettings, setExportSettings] = useState<ExportSettings>(
     DEFAULT_EXPORT_SETTINGS,
   )
+
   const [cleanChart, setCleanChart] = useState('')
+
   // What the chart looked like when it was last saved or loaded, so Discard
   // can put it back.
   const cleanSnapshot = useRef<{
@@ -237,6 +253,7 @@ export function AnalysisStudio() {
     name: string
     exportSettings: ExportSettings
   } | null>(null)
+
   function markClean(
     nextSpec: ChartSpec | null,
     name: string,
@@ -250,6 +267,7 @@ export function AnalysisStudio() {
     chartDirtyRef.current = false
     setCleanChart(stableStringify([nextSpec, name, nextExport]))
   }
+
   const chartDraft = stableStringify([spec, viewName, exportSettings])
   const chartDirty = cleanChart !== '' && cleanChart !== chartDraft
   const chartDirtyRef = useRef(chartDirty)
@@ -258,14 +276,17 @@ export function AnalysisStudio() {
     shouldBlockFn: () => chartDirtyRef.current,
     enableBeforeUnload: false,
   })
+
   function discardChart() {
     const snapshot = cleanSnapshot.current
+
     if (!snapshot) return
     chartDirtyRef.current = false
     setSpec(snapshot.spec)
     setViewName(snapshot.name)
     setExportSettings(snapshot.exportSettings)
   }
+
   const paneId = usePaneContext().paneId
   const saveRef = useRef<() => Promise<boolean>>(async () => false)
   usePendingEdit({
@@ -286,6 +307,7 @@ export function AnalysisStudio() {
   // reruns the default-spec rebuild right after the view lands; the rebuild
   // skips once for this dataset so the opened view survives it.
   const requestedViewAppliedOnRef = useRef<string | null>(null)
+
   const [deleteTarget, setDeleteTarget] = useState<AnalysisViewWire | null>(
     null,
   )
@@ -295,6 +317,7 @@ export function AnalysisStudio() {
     if (!selectedDatasetId && datasets.length > 0) {
       setSelectedDatasetId(datasets[0].id)
     }
+
     if (
       selectedDatasetId &&
       datasets.length > 0 &&
@@ -303,14 +326,17 @@ export function AnalysisStudio() {
       setSelectedDatasetId(datasets[0].id)
     }
   }, [datasets, selectedDatasetId])
+
   const selectedDataset = useMemo(
     () => datasets.find((d) => d.id === selectedDatasetId) ?? null,
     [datasets, selectedDatasetId],
   )
+
   const selectedSource = useMemo(
     () => (selectedDataset ? toCanonicalDatasetSource(selectedDataset) : null),
     [selectedDataset],
   )
+
   const sources = useMemo(
     () => datasets.map(toCanonicalDatasetSource),
     [datasets],
@@ -323,24 +349,32 @@ export function AnalysisStudio() {
     if (!selectedDataset) return
     const appliedOn = requestedViewAppliedOnRef.current
     requestedViewAppliedOnRef.current = null
+
     if (appliedOn === selectedDataset.id && !pendingViewRef.current) return
     const pending = pendingViewRef.current
+
     if (pending) {
       pendingViewRef.current = null
       setSelectedViewId(pending.id)
       setViewName(pending.name)
       setSpec(pending.charts[0])
+
       if (pending.export_settings) setExportSettings(pending.export_settings)
       markClean(
         pending.charts[0],
         pending.name,
         pending.export_settings ?? exportSettings,
       )
+
       return
     }
+
     const next = buildDefaultChartSpec(selectedDataset)
+
     if (next && search.x) next.fields.x = { fieldId: search.x }
+
     if (next && search.y) next.fields.y = { fieldId: search.y }
+
     if (next && activeSnapshotRef.current)
       next.datasets = [
         {
@@ -372,6 +406,7 @@ export function AnalysisStudio() {
     } else {
       setCompareConfig(null)
     }
+
     setComparePromoted(false)
   }, [selectedSource])
 
@@ -379,6 +414,7 @@ export function AnalysisStudio() {
   // materialised chart is lifted here so the preview and the export panel
   // share one authoritative materialisation.
   const { datasetQuery } = useLiveChartDataset(spec)
+
   const liveMaterialised = useMemo(
     () =>
       spec
@@ -386,8 +422,10 @@ export function AnalysisStudio() {
         : missingDatasetChart(),
     [spec, datasetQuery.data],
   )
+
   const analysisMaterialised = useMemo(() => {
     if (!spec || !datasetQuery.data) return liveMaterialised
+
     return materialiseAnalysisChart(
       spec,
       datasetQuery.data.source.columns,
@@ -395,10 +433,12 @@ export function AnalysisStudio() {
       datasetQuery.data.flags ?? [],
     )
   }, [spec, datasetQuery.data, liveMaterialised])
+
   const analysisFacets = useMemo(() => {
     if (!spec || !datasetQuery.data || !spec.fields.facet) {
       return { panels: [], total: 0 }
     }
+
     return materialiseAnalysisFacets(
       spec,
       datasetQuery.data.source.columns,
@@ -425,8 +465,10 @@ export function AnalysisStudio() {
   const saveMutation = useMutation({
     mutationFn: async (options?: { asNew?: boolean; name?: string }) => {
       const name = (options?.name ?? viewName).trim()
+
       if (!spec || !name) return
       const sourceRevisions = captureSourceRevisions(sources, spec)
+
       return saveAnalysisView(
         analysisStudioDataClient,
         {
@@ -449,6 +491,7 @@ export function AnalysisStudio() {
         setSelectedViewId(view.id)
         setViewName(view.name)
       }
+
       // A saved view has an address: reloading or sharing the page finds it.
       if (view) {
         markClean(
@@ -462,6 +505,7 @@ export function AnalysisStudio() {
           ignoreBlocker: true,
         })
       }
+
       if (view) {
         toast(t('data.analysisStudio.analysisViewSaved'), {
           description: `${view.name} v${view.version}`,
@@ -475,6 +519,7 @@ export function AnalysisStudio() {
             : {}),
         })
       }
+
       queryClient.invalidateQueries({ queryKey: analysisStudioQueryKeys.views })
     },
     onError: (error) => {
@@ -487,6 +532,7 @@ export function AnalysisStudio() {
       ) {
         setSelectedViewId(null)
       }
+
       toast(t('data.analysisStudio.couldSaveAnalysisView'), {
         description:
           error instanceof Error
@@ -500,6 +546,7 @@ export function AnalysisStudio() {
   // one from its dataset, so saving is never blocked on typing.
   async function saveChart(): Promise<boolean> {
     if (!spec) return false
+
     // Names take letters, digits, spaces and _ . - only, so a dataset name
     // like "ELISA standard curve, plate PR-01" is cleaned to fit.
     const generated = t('data.analysisStudio.defaultViewName', {
@@ -510,19 +557,24 @@ export function AnalysisStudio() {
       .trim()
       .slice(0, 100)
       .replace(/[ _.-]+$/, '')
+
     // Names are unique per person, so a second unnamed chart becomes "… 2".
     const taken = new Set(views.map((view) => view.name))
     let generatedName = generated
+
     for (let n = 2; taken.has(generatedName); n += 1) {
       generatedName = `${generated} ${n}`
     }
+
     const name = viewName.trim() || generatedName
+
     try {
       return Boolean(await saveMutation.mutateAsync({ name }))
     } catch {
       return false
     }
   }
+
   saveRef.current = saveChart
 
   const deleteMutation = useMutation({
@@ -530,12 +582,14 @@ export function AnalysisStudio() {
       deleteAnalysisView(analysisStudioDataClient, id),
     onSuccess: (_deleted, id) => {
       toast(t('data.analysisStudio.analysisViewDeleted'))
+
       // The deleted view is gone from the list; the panel must not stay armed
       // on it, or its Update button would write to a row that no longer exists.
       if (selectedViewId === id) {
         setSelectedViewId(null)
         setViewName('')
       }
+
       queryClient.invalidateQueries({ queryKey: analysisStudioQueryKeys.views })
     },
     onError: (error) => {
@@ -550,18 +604,23 @@ export function AnalysisStudio() {
 
   function loadView(view: AnalysisViewWire) {
     const datasetId = specSourceDatasetId(view.charts[0]) ?? null
+
     const targetId =
       datasetId && datasets.some((d) => d.id === datasetId) ? datasetId : null
+
     if (targetId && targetId !== selectedDatasetId) {
       // Switching dataset rebuilds a default spec in the effect above and
       // would wipe the loaded view, so hand it to that effect instead.
       pendingViewRef.current = view
       setSelectedDatasetId(targetId)
+
       return
     }
+
     setSelectedViewId(view.id)
     setViewName(view.name)
     setSpec(view.charts[0])
+
     if (view.export_settings) setExportSettings(view.export_settings)
     markClean(view.charts[0], view.name, view.export_settings ?? exportSettings)
   }
@@ -571,24 +630,31 @@ export function AnalysisStudio() {
   // does. Consumed once so a later list refresh does not reapply it.
   useEffect(() => {
     const requested = requestedViewRef.current
+
     // Wait for the dataset list too: until it loads, the view's dataset cannot
     // be matched, and the default-spec rebuild after auto-select would wipe it.
     if (!requested || views.length === 0 || summariesQuery.isLoading) return
     requestedViewRef.current = null
     const view = views.find((candidate) => candidate.id === requested)
+
     if (!view) return
     const datasetId = specSourceDatasetId(view.charts[0]) ?? null
+
     const targetId =
       datasetId && datasets.some((d) => d.id === datasetId) ? datasetId : null
+
     if (targetId && targetId !== selectedDatasetId) {
       pendingViewRef.current = view
       setSelectedDatasetId(targetId)
+
       return
     }
+
     requestedViewAppliedOnRef.current = selectedDatasetId
     setSelectedViewId(view.id)
     setViewName(view.name)
     setSpec(view.charts[0])
+
     if (view.export_settings) setExportSettings(view.export_settings)
     markClean(view.charts[0], view.name, view.export_settings ?? exportSettings)
   }, [views, datasets, selectedDatasetId, summariesQuery.isLoading])
@@ -605,6 +671,7 @@ export function AnalysisStudio() {
     enabled: Boolean(selectedViewId),
     staleTime: 5_000,
   })
+
   const citationsQuery = useQuery({
     queryKey: selectedViewId
       ? analysisStudioQueryKeys.citations(selectedViewId)
@@ -614,6 +681,7 @@ export function AnalysisStudio() {
     enabled: Boolean(selectedViewId),
     staleTime: 5_000,
   })
+
   const resolveMutation = useMutation({
     mutationFn: (resolution: AnalysisSourceResolution) =>
       resolveAnalysisViewSources(analysisStudioDataClient, {
@@ -623,6 +691,7 @@ export function AnalysisStudio() {
       }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: analysisStudioQueryKeys.views })
+
       if (selectedViewId) {
         queryClient.invalidateQueries({
           queryKey: analysisStudioQueryKeys.sourceStatus(selectedViewId),
@@ -631,6 +700,7 @@ export function AnalysisStudio() {
           queryKey: analysisStudioQueryKeys.citations(selectedViewId),
         })
       }
+
       toast(
         result.resolution === 'keep'
           ? t('data.analysisStudio.keepingPinnedVersions')
@@ -1004,6 +1074,7 @@ export function AnalysisStudioHeader({
   returnTo,
 }: AnalysisStudioHeaderProps) {
   const id = useId()
+
   return (
     <header
       // No `shrink-0`: the header is a flex item in the studio's toolbar, and
@@ -1080,34 +1151,42 @@ export function FilterControls({
   onSpecChange: (spec: ChartSpec) => void
 }) {
   const id = useId()
+
   function setFilter(index: number, value: string): void {
     const filters = [...spec.filters]
+
     if (filters[index]) {
       filters[index] = { ...filters[index], value }
       onSpecChange({ ...spec, filters })
     }
   }
+
   function addFilter(): void {
     if (spec.filters.length >= ANALYSIS_MAX_FILTERS) return
+
     const column = source.columns.find(
       (c) => !spec.filters.some((f) => f.fieldId === c.id),
     )
+
     if (!column) return
     onSpecChange({
       ...spec,
       filters: [...spec.filters, { fieldId: column.id, op: 'eq', value: '' }],
     })
   }
+
   function removeFilter(index: number): void {
     onSpecChange({
       ...spec,
       filters: spec.filters.filter((_, i) => i !== index),
     })
   }
+
   return (
     <div className="space-y-1.5">
       {spec.filters.map((filter, i) => {
         const column = source.columns.find((c) => c.id === filter.fieldId)
+
         return (
           <div key={filter.fieldId + i} className="flex items-center gap-1.5">
             <span className="flex-1 truncate text-xs text-fg-muted">
@@ -1163,7 +1242,9 @@ function SelectedPointSummary({
         (item) => item.identifier === selection.seriesIdentifier,
       )
     : undefined
+
   const point = series?.points[selection?.index ?? -1]
+
   if (!point) {
     return (
       <p className="text-xs text-fg-muted">
@@ -1171,6 +1252,7 @@ function SelectedPointSummary({
       </p>
     )
   }
+
   return (
     <PropertyList>
       <Property label={t('data.analysisStudio.series')}>
@@ -1240,6 +1322,7 @@ function AnalysisInspector({
   experimentId?: string
 }) {
   const id = useId()
+
   function setScale(axis: 'x' | 'y', scale: AxisScale) {
     onSpecChange({
       ...spec,
@@ -1449,6 +1532,7 @@ export function SavedViewsPanel({
   canSave,
 }: SavedViewsPanelProps) {
   const id = useId()
+
   return (
     <section className="space-y-3" aria-labelledby={`${id}-title`}>
       <h2 id={`${id}-title`} className="text-sm font-semibold">
@@ -1503,6 +1587,7 @@ export function SavedViewsPanel({
         <ul className="space-y-1">
           {views.map((view) => {
             const selected = view.id === selectedViewId
+
             return (
               <li
                 key={view.id}
@@ -1577,6 +1662,7 @@ function chartsToSave(
   spec: ChartSpec,
 ): ChartSpec[] {
   const existing = viewId ? views.find((v) => v.id === viewId) : undefined
+
   return [spec, ...(existing?.charts.slice(1) ?? [])]
 }
 
@@ -1601,6 +1687,7 @@ export function ExportPanel({
   const [caption, setCaption] = useState('')
   const [pickedTarget, setTarget] = useState<PickerItem | null>(null)
   const [citing, setCiting] = useState(false)
+
   // The experiment the studio was opened from is the first choice; picking
   // another in the dialog replaces it.
   const handedExperiment = useQuery({
@@ -1620,6 +1707,7 @@ export function ExportPanel({
       ).at(0) ?? null,
     staleTime: 60_000,
   })
+
   const target: PickerItem | null =
     pickedTarget ??
     (handedExperiment.data
@@ -1637,6 +1725,7 @@ export function ExportPanel({
   async function cite() {
     if (!caption.trim() || !target) return
     setCiting(true)
+
     try {
       const view = await saveAnalysisView(
         analysisStudioDataClient,
@@ -1650,6 +1739,7 @@ export function ExportPanel({
         workspaceId,
         user.id,
       )
+
       // A figure is cited as a frozen analysis block that holds the view's
       // chart: the notebook shows exactly this chart, pinned to the dataset
       // version it was drawn from. One block kind holds a chart, a statistic
@@ -1657,17 +1747,20 @@ export function ExportPanel({
       // over several datasets cannot be pinned to one Dataset Version, so it
       // is still cited as a frozen chart block, which pins each source.
       const targetRecord = await fetchRecord(notebookDataClient, target.id)
+
       if (view.charts[0].datasets.length === 1) {
         const definition = await composeAnalysisDefinition(notebookDataClient, {
           chartViewId: view.id,
           name: caption.trim(),
         })
+
         const inserted = await insertBlock(notebookDataClient, {
           recordId: target.id,
           type: 'analysis',
           payload: { title: caption.trim(), definitionId: definition.id },
           expectedStructureVersion: targetRecord?.structureVersion,
         })
+
         await freezeAnalysisBlock(notebookDataClient, {
           blockId: inserted.block.id,
           expectedVersion: inserted.block.version,
@@ -1679,11 +1772,13 @@ export function ExportPanel({
           payload: { title: caption.trim(), spec: view.charts[0] },
           expectedStructureVersion: targetRecord?.structureVersion,
         })
+
         await freezeChart(notebookDataClient, {
           blockId: inserted.block.id,
           expectedVersion: inserted.block.version,
         })
       }
+
       await recordAnalysisCitation(notebookDataClient, target.id, view)
       toast(t('data.analysisStudio.citedNotebook'), {
         description: t('data.analysisStudio.nowShowsFigure', {
@@ -1728,11 +1823,13 @@ export function ExportPanel({
       chartRoot.current?.querySelector<SVGSVGElement>(
         '[data-analysis-chart] svg',
       ) ?? null
+
     // Provenance names a view that exists: the selected id is resolved against
     // the loaded list, so an id whose row is gone (deleted since the list was
     // read) is never stamped onto the file.
     const selectedView = views.find((v) => v.id === selectedViewId) ?? null
     const sourceRevisions = captureSourceRevisions(sources, spec)
+
     const provenance = buildExportProvenance(
       {
         name:
@@ -1746,18 +1843,23 @@ export function ExportPanel({
       sourceRevisions,
       spec,
     )
+
     const filename = (viewName || 'analysis').replace(/[^a-z0-9_-]+/gi, '_')
     const needsChart = settings.format === 'png' || settings.format === 'svg'
+
     if (needsChart && !chartSvg) {
       toast(t('data.analysisStudio.chartExport'), {
         description: t('data.analysisStudio.imageExportReadsRendered'),
       })
+
       return
     }
+
     try {
       if (settings.format === 'png') {
         const caption = spec.display.caption
         const svg = exportChartSvg(chartSvg, settings, provenance, caption)
+
         const blob = await rasteriseSvgToPng(svg, {
           format: 'png',
           width: settings.width,
@@ -1768,12 +1870,16 @@ export function ExportPanel({
           background: settings.theme === 'dark' ? 'transparent' : 'opaque',
           includeProvenance: settings.includeProvenance,
         })
+
         downloadTextFile(`${filename}.png`, blob, 'image/png')
+
         return
       }
+
       let content: string
       let mime: string
       let ext: string
+
       if (settings.format === 'json') {
         content = exportViewJson(spec, settings, provenance)
         mime = 'application/json'
@@ -1795,6 +1901,7 @@ export function ExportPanel({
         mime = 'image/svg+xml'
         ext = 'svg'
       }
+
       downloadTextFile(`${filename}.${ext}`, content, mime)
     } catch (error) {
       toast(t('data.analysisStudio.couldExport'), {
@@ -2033,6 +2140,7 @@ export function AnalysisPreview({
 }: AnalysisPreviewProps) {
   const id = useId()
   const [dataPreviewOpen, setDataPreviewOpen] = useState(false)
+
   const validation = useMemo(
     () => validateAnalysisSpec(spec, datasetQuery.data?.rows.length ?? 0),
     [spec, datasetQuery.data],
@@ -2043,21 +2151,27 @@ export function AnalysisPreview({
   const localStaleDetail = useMemo(() => {
     if (!selectedViewId) return null
     const view = views.find((v) => v.id === selectedViewId)
+
     if (!view) return null
+
     return detectStaleSources(view.source_revisions, sources)
   }, [selectedViewId, views, sources])
 
   const movedSources =
     sourceStatus?.sources.filter((item) => item.status !== 'current') ?? []
+
   // `.at(0)` (not `[0]`) so the type admits the empty list: nothing has moved
   // whenever the status says the sources are current.
   const firstMoved = movedSources.at(0)
+
   const staleDetail = sourceStatus
     ? (firstMoved?.detail ?? null)
     : localStaleDetail
+
   const liveTarget = movedSources.find(
     (item) => item.status === 'stale' && item.live,
   )
+
   const canUpdate =
     sourceStatus !== null &&
     sourceStatus.state === 'stale' &&
@@ -2066,6 +2180,7 @@ export function AnalysisPreview({
 
   const resultRowCount = datasetQuery.data?.rows.length ?? 0
   const excessiveSize = resultRowCount > ANALYSIS_MAX_RESULT_ROWS
+
   const summaries = useMemo(
     () =>
       analysisMaterialised.series.flatMap((series) => {
@@ -2073,15 +2188,19 @@ export function AnalysisPreview({
           (point): point is typeof point & { x: number; y: number } =>
             point.x !== null && point.y !== null,
         )
+
         if (valid.length === 0) return []
         const firstX = Math.min(...valid.map((point) => point.x))
         const lastX = Math.max(...valid.map((point) => point.x))
         const first = valid.filter((point) => point.x === firstX)
         const last = valid.filter((point) => point.x === lastX)
+
         const firstMean =
           first.reduce((sum, point) => sum + point.y, 0) / first.length
+
         const lastMean =
           last.reduce((sum, point) => sum + point.y, 0) / last.length
+
         return [
           {
             identifier: series.identifier,
@@ -2335,8 +2454,10 @@ function previewCsv(
 ): string {
   const cell = (value: unknown) => {
     const text = value === null || value === undefined ? '' : String(value)
+
     return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
   }
+
   return [
     columns.map((column) => cell(column.label)).join(','),
     ...rows.map((row) =>
@@ -2364,9 +2485,11 @@ export function DataTableAlternative({
   datasetId: string
 }) {
   const id = useId()
+
   if (loading) {
     return <Skeleton className="h-32 w-full" />
   }
+
   if (
     materialised.state.kind !== 'ok' &&
     materialised.state.kind !== 'log_scale_invalid'
@@ -2377,6 +2500,7 @@ export function DataTableAlternative({
       </div>
     )
   }
+
   const chartRows = materialised.series.flatMap((s) =>
     s.points.map((p) => ({
       series: s.label,
@@ -2385,8 +2509,10 @@ export function DataTableAlternative({
       yError: p.yError,
     })),
   )
+
   const hasSourceRows =
     materialised.columns.length > 0 && materialised.rows.length > 0
+
   const columns = hasSourceRows
     ? materialised.columns.map((column) => ({
         key: column.id,
@@ -2400,9 +2526,11 @@ export function DataTableAlternative({
         { key: 'y', label: materialised.yLabel },
         { key: 'yError', label: t('data.analysisStudio.error') },
       ]
+
   const rows: Record<string, unknown>[] = hasSourceRows
     ? materialised.rows.slice(0, 50)
     : chartRows
+
   return (
     <div
       className="flex min-h-0 flex-col overflow-hidden border-t"
@@ -2473,8 +2601,10 @@ export function DataTableAlternative({
                       (item) => item.identifier === selection.seriesIdentifier,
                     )?.points[selection.index]?.rowId
                   : undefined
+
                 const isSelected =
                   selectedRowId && row[CHART_ROW_ID_KEY] === selectedRowId
+
                 return (
                   <TableRow
                     key={i}
@@ -2536,6 +2666,7 @@ export function EmptyAnalysisState({
       </div>
     )
   }
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-lg border bg-surface p-10 text-center">
       {loading ? (

@@ -6,6 +6,7 @@
  */
 
 export const CODE_CELL_LANGUAGES = ['python', 'sql'] as const
+
 export type CodeCellLanguage = (typeof CODE_CELL_LANGUAGES)[number]
 
 export function isCodeCellLanguage(value: unknown): value is CodeCellLanguage {
@@ -17,6 +18,7 @@ export function isCodeCellLanguage(value: unknown): value is CodeCellLanguage {
 
 export const MAX_CODE_CELL_SOURCE = 50_000
 export const MAX_CODE_CELL_INPUTS = 5
+
 /** Rows of a run's output kept in the block. The digest covers every row. */
 export const MAX_STORED_OUTPUT_ROWS = 100
 export const CODE_CELL_ALIAS = /^[A-Za-z_][A-Za-z0-9_]{0,30}$/
@@ -92,11 +94,16 @@ export function codeCellReference(number: number): string {
 /** Whether the block's code or inputs changed after its output was produced. */
 export function outputIsStale(payload: CodeCellPayload): boolean {
   const output = payload.output
+
   if (!output) return false
+
   if ((payload.source ?? '') !== output.source) return true
+
   if ((payload.language ?? 'python') !== output.language) return true
   const now = payload.inputs ?? []
+
   if (now.length !== output.inputs.length) return true
+
   return now.some(
     (input, index) =>
       input.datasetVersionId !== output.inputs[index]?.datasetVersionId ||
@@ -126,14 +133,18 @@ export async function requestCodeCellRun(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(request),
   })
+
   const body = (await response.json().catch(() => null)) as
     CodeCellOutput | { error?: { message?: string } } | null
+
   if (!response.ok || !body || 'error' in body) {
     const message =
       body && 'error' in body && body.error?.message
         ? body.error.message
         : 'The code could not be run.'
+
     throw new Error(message)
   }
+
   return body as CodeCellOutput
 }

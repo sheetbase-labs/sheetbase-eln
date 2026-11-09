@@ -15,6 +15,7 @@ function client() {
   const instance = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+
   instance.setQueryData(
     ['dataset-schema-definitions', 'promote-target'],
     [
@@ -42,8 +43,10 @@ function client() {
       },
     ],
   )
+
   return instance
 }
+
 const field: SheetPromoteLocalField = {
   fieldId: '0198d970-e266-4000-8000-00000000f001',
   key: 'observation',
@@ -71,7 +74,9 @@ const meta = {
     onSubmitted: () => {},
   },
 } satisfies Meta<typeof SheetPromote>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Closed: the trigger the column menu renders. */

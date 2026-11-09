@@ -33,12 +33,15 @@ describe('parameters', () => {
       0,
       { required: true },
     )
+
     expect(list[0]).not.toHaveProperty('default')
+
     const typed = updateParameter(
       [{ name: 'n', type: 'integer', required: false, default: 3 }],
       0,
       { type: 'text' },
     )
+
     expect(typed[0]).not.toHaveProperty('default')
   })
 
@@ -58,6 +61,7 @@ describe('steps', () => {
 
   it('adds uniquely named steps that the validator accepts', () => {
     expect(two.map((s) => s.name)).toEqual(['step_1', 'step_2'])
+
     const errors = validatePipelineConfig({
       configVersion: 1,
       parameters: [],
@@ -66,6 +70,7 @@ describe('steps', () => {
       output: { mode: 'none', datasetLabel: 'x' },
       steps: two,
     })
+
     expect(errors.filter((e) => e.field.startsWith('steps'))).toEqual([])
   })
 
@@ -77,6 +82,7 @@ describe('steps', () => {
   it('adds a confirm that validates, and removes it again', () => {
     const asked = setStepConfirm(two, 0, defaultConfirm(['u-1']))
     expect(asked[0].confirm?.askedUserIds).toEqual(['u-1'])
+
     const errors = validatePipelineConfig({
       configVersion: 1,
       parameters: [],
@@ -85,6 +91,7 @@ describe('steps', () => {
       output: { mode: 'none', datasetLabel: 'x' },
       steps: asked,
     })
+
     expect(errors.filter((e) => e.field.startsWith('steps'))).toEqual([])
     expect(setStepConfirm(asked, 0, undefined)[0]).not.toHaveProperty('confirm')
   })
@@ -144,6 +151,7 @@ describe('output column mapping', () => {
       { key: 'od', required: true },
       { key: 'note', required: false },
     ]
+
     expect(checkOutputFit(fields, null, ['sample', 'od'])).toEqual({
       missing: [],
       unmatched: [],
@@ -166,14 +174,17 @@ describe('plugin steps', () => {
         confirm: defaultConfirm(['u']),
       },
     ]
+
     const plugin = setStepLanguage(start, 0, 'plugin')[0]
     expect(plugin.language).toBe('plugin')
     expect(plugin.statement).toBe('')
     expect(plugin.confirm?.askedUserIds).toEqual(['u'])
+
     const chosen = setStepPlugin([plugin], 0, {
       operation: 'plugin.a.b',
       arguments: { left: { $ref: 'previous' } },
     })
+
     expect(chosen[0].plugin?.operation).toBe('plugin.a.b')
     const back = setStepLanguage(chosen, 0, 'sql')[0]
     expect(back.language).toBe('sql')
@@ -185,6 +196,7 @@ describe('plugin steps', () => {
       operation: 'plugin.a.b',
       arguments: {},
     })
+
     expect(setStepPlugin([step], 0, undefined)[0]).not.toHaveProperty('plugin')
   })
 })

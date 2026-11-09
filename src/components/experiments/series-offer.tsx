@@ -26,7 +26,9 @@ export function SeriesOffer({
   onChange: (checked: boolean) => void
 }) {
   const membership = useSeriesMembership(sourceId)
+
   if (!membership.data) return null
+
   return (
     <label className="flex cursor-pointer items-start gap-2 text-label">
       <Checkbox
@@ -56,11 +58,13 @@ export function SeriesOffer({
  */
 export function useJoinSeries() {
   const queryClient = useQueryClient()
+
   return async (
     membership: SeriesMembership | null | undefined,
     recordId: string,
   ) => {
     if (!membership) return
+
     try {
       await addSeriesMember(notebookDataClient, {
         seriesId: membership.series_record_id,

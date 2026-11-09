@@ -38,6 +38,7 @@ function isNotFound(error: unknown): boolean {
     name?: string
     $metadata?: { httpStatusCode?: number }
   } | null
+
   return (
     e?.name === 'NoSuchKey' ||
     e?.name === 'NotFound' ||
@@ -83,16 +84,21 @@ export class S3ObjectStorage implements ObjectStorage {
   ): Promise<PutResult> {
     const dir = await mkdtemp(join(tmpdir(), 'sheetbase-upload-'))
     const spool = join(dir, 'object')
+
     try {
       const hash = createHash('sha256')
       let byteSize = 0n
       const handle = await open(spool, 'w', 0o600)
+
       try {
         const reader = body.getReader()
+
         for (;;) {
           const { done, value } = await reader.read()
+
           if (done) break
           byteSize += BigInt(value.byteLength)
+
           if (byteSize > BigInt(maxBytes)) {
             await reader.cancel().catch(() => undefined)
             throw new OversizeError(
@@ -100,12 +106,14 @@ export class S3ObjectStorage implements ObjectStorage {
               maxBytes,
             )
           }
+
           hash.update(value)
           await handle.write(value)
         }
       } finally {
         await handle.close()
       }
+
       const checksum = hash.digest('hex')
       const { size } = await stat(spool)
       await this.client.send(
@@ -117,6 +125,7 @@ export class S3ObjectStorage implements ObjectStorage {
           Metadata: { sha256: checksum },
         }),
       )
+
       return { byteSize, checksum }
     } finally {
       await rm(dir, { recursive: true, force: true })
@@ -133,11 +142,13 @@ export class S3ObjectStorage implements ObjectStorage {
           Key: this.key(storageKey),
         }),
       )
+
       if (!response.Body) {
         throw new MissingStorageObjectError(
           `storage object not found: ${storageKey}`,
         )
       }
+
       return {
         stream:
           response.Body.transformToWebStream() as ReadableStream<Uint8Array>,
@@ -149,6 +160,7 @@ export class S3ObjectStorage implements ObjectStorage {
           `storage object not found: ${storageKey}`,
         )
       }
+
       throw error
     }
   }
@@ -161,6 +173,7 @@ export class S3ObjectStorage implements ObjectStorage {
           Key: this.key(storageKey),
         }),
       )
+
       return { byteSize: Number(response.ContentLength ?? 0) }
     } catch (error) {
       if (isNotFound(error)) return null

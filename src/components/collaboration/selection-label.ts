@@ -30,10 +30,12 @@ export function selectionRowsLabel(
   selection: PresenceSelection | null | undefined,
 ): string {
   if (!selection || !selection.rowKey) return ''
+
   const isRange =
     typeof selection.endRowKey === 'string' &&
     selection.endRowKey !== '' &&
     selection.endRowKey !== selection.rowKey
+
   return isRange ? 'multiple rows' : '1 row'
 }
 
@@ -47,8 +49,10 @@ export function remoteSelectionChips(
   peers: readonly SelectionPeer[],
 ): RemoteSelectionChip[] {
   const chips: RemoteSelectionChip[] = []
+
   for (const [index, peer] of peers.entries()) {
     const rowsLabel = selectionRowsLabel(peer.selection)
+
     if (!rowsLabel) continue
     chips.push({
       key:
@@ -59,5 +63,6 @@ export function remoteSelectionChips(
       rowsLabel,
     })
   }
+
   return chips
 }

@@ -100,6 +100,7 @@ function readerFor(
 ): () => ParsedInstrumentPayload | Promise<ParsedInstrumentPayload> {
   if (parser.kind === 'webhook') {
     const readWithWebhook = input.readWithWebhook
+
     if (!readWithWebhook) {
       throw new ParserResolutionError(
         'parser_unsupported',
@@ -107,10 +108,13 @@ function readerFor(
         parser.key,
       )
     }
+
     return () => readWithWebhook(parser)
   }
+
   if (parser.kind === 'converter') {
     const readWithConverter = input.readWithConverter
+
     if (!readWithConverter) {
       throw new ParserResolutionError(
         'parser_unsupported',
@@ -118,10 +122,14 @@ function readerFor(
         parser.key,
       )
     }
+
     return () => readWithConverter(parser)
   }
+
   const reader = builtinReader(parser)
+
   if (reader) return () => reader.parse(input.text)
+
   if (parser.kind === 'columns')
     return () => readWithColumns(parser, input.text)
   throw new ParserResolutionError(
@@ -136,11 +144,13 @@ export async function ingestInstrumentPayload(
   input: InstrumentIngestionInput,
 ): Promise<InstrumentIngestionResult> {
   await ensureBuiltinParsers(client, input.workspaceId)
+
   const parser = await resolveParserVersion(
     client,
     input.workspaceId,
     input.parserId,
   )
+
   const read = readerFor(parser, input)
   const identity = parserIdentity(parser)
 
@@ -161,6 +171,7 @@ export async function ingestInstrumentPayload(
     // failed run with the bounded `parse_failed` code.
     parse: async () => {
       parsed = await read()
+
       return parsed
     },
     source: { kind: 'instrument_upload', fileName: input.fileName },

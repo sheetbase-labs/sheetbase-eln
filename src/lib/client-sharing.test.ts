@@ -27,10 +27,12 @@ describe('createClientOrganisation', () => {
     const insert = vi.fn(async () => [
       { id: 'c1', code: 'CL-004', name: 'Acme' },
     ])
+
     const created = await createClientOrganisation(stub({ insert }), {
       workspaceId: 'ws-1',
       name: ' Acme ',
     })
+
     expect(insert).toHaveBeenCalledWith('clients', {
       workspace_id: 'ws-1',
       name: 'Acme',
@@ -65,9 +67,11 @@ describe('sharing', () => {
       { id: 'a', identifier: 'EXP-1', title: 'A', kind: 'experiment' },
       { id: 'b', identifier: 'EXP-2', title: 'B', kind: 'experiment' },
     ]
+
     const shares = [
       { id: 's', clientId: 'c', recordId: 'a', sharedAt: '2026-10-19' },
     ]
+
     expect(unsharedRecords(records, shares).map((r) => r.id)).toEqual(['b'])
   })
 
@@ -116,6 +120,7 @@ describe('fetchClientPortalPreview', () => {
             },
           ],
     )
+
     const preview = await fetchClientPortalPreview(stub({ rpc }), 'c1')
     expect(preview.projects[0]?.clientCode).toBe('CL-001')
     expect(preview.records[0]?.recordId).toBe('r1')

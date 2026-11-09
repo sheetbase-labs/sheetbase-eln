@@ -6,6 +6,7 @@ import { ModelFieldInput } from './model-field-input'
 import type { ModelFieldDefinition } from '#/lib/model-fields'
 
 afterEach(cleanup)
+
 // jsdom does not implement ResizeObserver; cmdk reads it on mount.
 globalThis.ResizeObserver = class {
   observe() {}

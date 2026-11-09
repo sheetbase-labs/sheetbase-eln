@@ -16,11 +16,13 @@ describe('downloadTextFile', () => {
     URL.createObjectURL = createObjectURL
     URL.revokeObjectURL = revokeObjectURL
     let attachedWhenClicked = false
+
     const anchorClick = vi
       .spyOn(HTMLAnchorElement.prototype, 'click')
       .mockImplementation(function (this: HTMLAnchorElement) {
         attachedWhenClicked = document.body.contains(this)
       })
+
     try {
       vi.useFakeTimers()
       downloadTextFile('report.csv', 'a,b\n1,2', 'text/csv')
@@ -49,6 +51,7 @@ describe('downloadTextFile', () => {
     const createObjectURL = vi.fn((_blob: Blob) => 'blob:given')
     const originalCreate = URL.createObjectURL
     URL.createObjectURL = createObjectURL
+
     try {
       const blob = new Blob(['zip'], { type: 'application/zip' })
       downloadTextFile('package.zip', blob)
@@ -63,9 +66,11 @@ describe('downloadTextFile', () => {
       HTMLAnchorElement.prototype,
       'download',
     )
+
     // Without the download attribute the click navigates to the blob instead
     // of saving it, so the helper has to say so rather than go quiet.
     delete (HTMLAnchorElement.prototype as Partial<HTMLAnchorElement>).download
+
     try {
       expect(() => downloadTextFile('report.csv', 'a,b')).toThrow(
         'This browser cannot save files.',

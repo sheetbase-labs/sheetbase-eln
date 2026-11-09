@@ -54,6 +54,7 @@ const isSample = (record: { kind?: string }) =>
  */
 export function batchLabelKind(records: readonly BatchLabelRecord[]): string {
   const kinds = new Set(records.map((record) => record.kind ?? 'sample'))
+
   return kinds.size === 1 ? [...kinds][0] : 'record'
 }
 
@@ -67,6 +68,7 @@ export function SampleLabelSheet({
   template?: LabelLook
 }) {
   if (typeof document === 'undefined') return null
+
   return createPortal(
     <div data-slot="sample-label-print" className="hidden">
       <div className="grid grid-cols-3 gap-2">
@@ -113,6 +115,7 @@ export async function recordBatchPrints(
 ): Promise<BatchPrintOutcome> {
   // Only a sample keeps a print in its history; other records just print.
   const samples = records.filter(isSample)
+
   const settled = await Promise.allSettled(
     samples.map((record) =>
       recordSampleLabelPrint(client, {
@@ -122,6 +125,7 @@ export async function recordBatchPrints(
       }),
     ),
   )
+
   const failed: BatchPrintOutcome['failed'] = []
   settled.forEach((result, index) => {
     if (result.status === 'rejected')
@@ -130,6 +134,7 @@ export async function recordBatchPrints(
         error: result.reason,
       })
   })
+
   return { recorded: samples.length - failed.length, failed }
 }
 
@@ -159,10 +164,12 @@ export function PrintLabelsDialog({
 
   const print = async () => {
     setBusy(true)
+
     try {
       // The browser dialog blocks the thread, so record first and print after.
       const outcome = await recordBatchPrints(client, batch)
       onPrinted?.()
+
       if (outcome.failed.length) {
         toast.error(
           t('library.samples.sampleLabelSheet.ofPrintsCouldNotBe', {
@@ -183,6 +190,7 @@ export function PrintLabelsDialog({
           }),
         )
       }
+
       window.print()
       onOpenChange(false)
     } finally {

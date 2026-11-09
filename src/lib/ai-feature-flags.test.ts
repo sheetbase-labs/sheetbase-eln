@@ -50,6 +50,7 @@ describe('AI feature flags', () => {
     const complete = Object.fromEntries(
       AI_FEATURE_FLAGS.map((flag) => [flag.key, true]),
     )
+
     expect(
       updateAiFeatureFlagsSchema.safeParse({
         workspaceId: WORKSPACE_ID,
@@ -74,6 +75,7 @@ describe('AI feature flags', () => {
     const client = {
       list: vi.fn(async () => [{ ai_feature_flags: { mcp_read: false } }]),
     } as unknown as DataClient
+
     await expect(readAiFeatureFlags(client, WORKSPACE_ID)).resolves.toEqual({
       ...defaultAiFeatureFlags(),
       mcp_read: false,

@@ -42,6 +42,7 @@ export function WorkspaceGroups({
   const [groupId, setGroupId] = useState(groups.at(0)?.id ?? '')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const group = groups.find((g) => g.id === groupId)
+
   const mutation = useMutation({
     mutationFn: async (
       action:
@@ -67,7 +68,9 @@ export function WorkspaceGroups({
         queryKey: workspaceAccessKeys.all(workspaceId),
       })
       setConfirmDelete(false)
+
       if (action.kind === 'create') setName('')
+
       if (action.kind === 'delete') setGroupId('')
       toast(
         action.kind === 'member'
@@ -82,6 +85,7 @@ export function WorkspaceGroups({
         description: error.message,
       }),
   })
+
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">

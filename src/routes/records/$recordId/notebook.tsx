@@ -14,7 +14,9 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 export const Route = createFileRoute('/records/$recordId/notebook')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) throw redirect(signInRedirect(location))
+
     return { context }
   },
   component: lazyRouteComponent(

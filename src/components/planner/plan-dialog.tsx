@@ -60,27 +60,36 @@ export function PlanDialog({
       ),
     enabled: open,
   })
+
   const options = projects.data ?? []
   const selected = projectId || options[0]?.id || ''
 
   async function draft() {
     setWorking(true)
     setError(null)
+
     try {
       const context = await fetchPlannerContext(client)
+
       const result = await ai.run({
         task: 'plan_experiment',
         instruction: plannerInstruction(goal, context),
       })
+
       if (result.status !== 'ok') {
         setError(t('planner.dialog.failed', { message: result.message }))
+
         return
       }
+
       const drawn = parsePlanAnswer(result.text, goal, context)
+
       if (!drawn) {
         setError(t('planner.dialog.nothing'))
+
         return
       }
+
       setPlan(drawn)
     } catch (e) {
       setError(

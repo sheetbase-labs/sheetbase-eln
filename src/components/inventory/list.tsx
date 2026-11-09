@@ -109,6 +109,7 @@ export type ViewOptions = {
  * control rather than a menu that does nothing. */
 /** The sorts a list offers when it has no dates or counts of its own. */
 export const nameSorts = ['Name', 'ID'] as const
+
 export type NameSort = (typeof nameSorts)[number]
 
 /** A copy of `rows` ordered by name or identifier, numbers in order (PL-9 before PL-10). */
@@ -119,6 +120,7 @@ export function sortByName<T>(
   id: (row: T) => string,
 ): T[] {
   const key = sort === 'ID' ? id : name
+
   return [...rows].sort((a, b) =>
     key(a).localeCompare(key(b), 'en-GB', { numeric: true }),
   )
@@ -134,11 +136,14 @@ export function ViewControls({
 }: ViewOptions) {
   const [localSort, setLocalSort] = useState(sort ?? sorts?.[0])
   const cur = sort ?? localSort
+
   const pick = (s: string) => {
     setLocalSort(s)
     onSort?.(s)
   }
+
   const item = (on: boolean) => (on ? '' : 'pl-[30px]')
+
   return (
     <>
       {filters?.length && onFilter ? (
@@ -204,6 +209,7 @@ export function FieldsButton({
   onToggle: (field: string) => void
 }) {
   const hiddenSet = new Set(hidden)
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -248,6 +254,7 @@ export function ListToolbar({
   const lead = views ? <ViewControls {...views} /> : children
   const fields = views?.fields
   const onToggleField = views?.onToggleField
+
   // The box holds what was typed and reports a settled value up. Rendering it
   // straight from the route's `q` lost characters: each keystroke navigated, and
   // a re-render with the still-stale param wrote an older value back into the
@@ -260,6 +267,7 @@ export function ListToolbar({
     SEARCH_SETTLE_MS,
     onSearch,
   )
+
   return (
     <div className="flex items-center gap-1 border-b border-border px-4 py-2 md:px-6">
       {lead}
@@ -307,11 +315,15 @@ export function footerCount({
   query?: string
 }) {
   const noun = total === 1 ? one : many
+
   const qualifier =
     tab && tab.toLowerCase() !== 'all' ? ` · ${tab.toLowerCase()}` : ''
+
   if (query)
     return `${shown} matching “${query}” of ${total} ${noun}${qualifier}`
+
   if (shown !== total) return `${shown} of ${total} ${noun}${qualifier}`
+
   return `${total} ${noun}${qualifier}`
 }
 
@@ -420,6 +432,7 @@ export type MobileItem = {
   onSelect?: () => void
   selected?: boolean
 }
+
 export function MobileList({
   items,
   label,
@@ -429,6 +442,7 @@ export function MobileList({
 }) {
   const cls =
     'flex min-h-14 w-full cursor-pointer items-center gap-3 border-0 border-b border-border-subtle bg-transparent px-4 py-2 text-left text-body text-fg no-underline hover:bg-row-hover hover:text-fg hover:no-underline'
+
   return (
     <ul aria-label={label} className="m-0 list-none p-0 md:hidden">
       {items.map((it) => {
@@ -461,6 +475,7 @@ export function MobileList({
             ) : null}
           </>
         )
+
         return (
           <li key={it.key}>
             {it.link ? (
@@ -487,5 +502,6 @@ export function MobileList({
 /** Classes for a sticky first column when a table scrolls sideways (tablet). */
 export const stickyHead =
   'max-xl:sticky max-xl:left-0 max-xl:z-[1] max-xl:shadow-[1px_0_0_var(--border-subtle)]'
+
 export const stickyCell =
   'max-xl:sticky max-xl:left-0 max-xl:z-[1] max-xl:bg-surface max-xl:shadow-[1px_0_0_var(--border-subtle)]'

@@ -33,6 +33,7 @@ export async function sweepReproductionRequests(
   const conn = await deps.connect()
   const run = deps.reproduce ?? reproducePipelineRun
   let handled = 0
+
   try {
     for (let i = 0; i < 5; i++) {
       // Claim one at a time so two servers never run the same request.
@@ -45,22 +46,28 @@ export async function sweepReproductionRequests(
              FOR UPDATE SKIP LOCKED LIMIT 1)
         RETURNING r.id, r.run_id, r.requested_by_user_id`,
       )
+
       const request = rows.at(0)
+
       if (!request) break
       let reproductionId: string | null = null
       let error: string | null = null
+
       try {
         const report = await run(
           request.requested_by_user_id,
           { runId: request.run_id },
           deps.exec,
         )
+
         reproductionId = report.reproduction?.id ?? null
+
         if (!report.ok)
           error = report.errorMessage ?? 'The run could not be reproduced.'
       } catch (cause) {
         error = cause instanceof Error ? cause.message : String(cause)
       }
+
       await conn.query(
         `SELECT internal.pipeline_reproduction_request_handled($1::uuid, $2::uuid, $3)`,
         [request.id, reproductionId, error],
@@ -70,6 +77,7 @@ export async function sweepReproductionRequests(
   } finally {
     await conn.end()
   }
+
   return handled
 }
 
@@ -79,21 +87,27 @@ const startedKey = '__sheetbaseReproductionSchedulerStarted'
 
 function disabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
 export function startReproductionScheduler(): void {
   if (typeof window !== 'undefined' || disabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedKey]) return
   g[startedKey] = true
+
   const open = async () => {
     const client = new PooledClient({ connectionString: env.DATABASE_URL })
     await client.connect()
+
     return client
   }
+
   const exec: PipelineExecuteDeps = {
     getSession: async () => null,
     async connect() {
@@ -101,7 +115,9 @@ export function startReproductionScheduler(): void {
         connectionString: env.DATABASE_URL,
         query_timeout: 30_000,
       })
+
       await client.connect()
+
       return {
         query: async (text, values = []) => client.query(text, values),
         begin: () => client.query('BEGIN').then(() => undefined),
@@ -111,9 +127,11 @@ export function startReproductionScheduler(): void {
       }
     },
   }
+
   const tick = async () => {
     if (running) return
     running = true
+
     try {
       await sweepReproductionRequests({ exec, connect: open })
     } catch (error) {
@@ -124,6 +142,7 @@ export function startReproductionScheduler(): void {
       running = false
     }
   }
+
   timer = setInterval(() => void tick(), REPRODUCTION_SWEEP_INTERVAL_MS)
   timer.unref()
 }

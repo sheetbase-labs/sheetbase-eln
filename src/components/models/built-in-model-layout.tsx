@@ -34,6 +34,7 @@ export function BuiltInModelLayout({
   const [subtypeOpen, setSubtypeOpen] = useState(false)
   const canEdit = hasCapability(role, 'schema.edit')
   const params = { modelId: model.key }
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
@@ -153,6 +154,7 @@ export function BuiltInModelFieldsRoute({
   onAddOpenChange: (open: boolean) => void
 }) {
   const canEdit = hasCapability(role, 'schema.edit')
+
   return (
     <BuiltInModelFields
       model={model}

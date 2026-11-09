@@ -48,6 +48,7 @@ export function startOfWeek(time: number): number {
   date.setHours(0, 0, 0, 0)
   const day = (date.getDay() + 6) % 7
   date.setDate(date.getDate() - day)
+
   return date.getTime()
 }
 
@@ -63,16 +64,20 @@ export function timelineWindow(
   const times = [...dates, now]
   const min = Math.min(...times)
   const max = Math.max(...times)
+
   if (scale === 'week') {
     const start = startOfWeek(min)
+
     return { start, end: startOfWeek(max) + 7 * DAY }
   }
+
   const start = new Date(min)
   start.setDate(1)
   start.setHours(0, 0, 0, 0)
   const end = new Date(max)
   end.setMonth(end.getMonth() + 1, 1)
   end.setHours(0, 0, 0, 0)
+
   return { start: start.getTime(), end: end.getTime() }
 }
 
@@ -89,6 +94,7 @@ export function timelineTicks(
 ): TimelineTick[] {
   const ticks: TimelineTick[] = []
   const cursor = new Date(start)
+
   if (scale === 'week') {
     while (cursor.getTime() < end) {
       ticks.push({
@@ -102,9 +108,12 @@ export function timelineTicks(
       })
       cursor.setDate(cursor.getDate() + 7)
     }
+
     return ticks
   }
+
   cursor.setDate(1)
+
   while (cursor.getTime() < end) {
     ticks.push({
       at: cursor.getTime(),
@@ -114,6 +123,7 @@ export function timelineTicks(
     })
     cursor.setMonth(cursor.getMonth() + 1)
   }
+
   return ticks
 }
 
@@ -135,17 +145,23 @@ export function phaseBands(
 ): PhaseBand[] {
   const bands: PhaseBand[] = []
   const byPhase = new Map<string | null, PlanMilestone[]>()
+
   for (const milestone of milestones) {
     const bucket = byPhase.get(milestone.workstreamId)
+
     if (bucket) bucket.push(milestone)
     else byPhase.set(milestone.workstreamId, [milestone])
   }
+
   for (const phase of phases) {
     const inPhase = byPhase.get(phase.id)
+
     if (!inPhase?.length) continue
     bands.push({ id: phase.id, name: phase.name, ...span(inPhase) })
   }
+
   const unphased = byPhase.get(null)
+
   if (unphased?.length) {
     bands.push({
       id: 'unphased',
@@ -153,6 +169,7 @@ export function phaseBands(
       ...span(unphased),
     })
   }
+
   return bands
 }
 
@@ -163,6 +180,7 @@ function span(milestones: PlanMilestone[]): {
 } {
   const dated = milestones.filter((m) => m.dueAt)
   const times = dated.map((m) => Date.parse(m.dueAt!))
+
   return {
     milestones,
     start: times.length ? Math.min(...times) : 0,
@@ -191,11 +209,14 @@ const riskLabel = (risk: PlanMilestone['risk']) =>
 
 const BAND_HEIGHT = 66
 const HEADER_HEIGHT = 24
+
 /** Diamonds sit in the upper part of a band, their label underneath. */
 const BAND_CENTRE = 22
+
 /** Height of one row of milestone labels under the diamonds. */
 const LABEL_ROW = 13
 const LABEL_ROWS = 2
+
 /** Share of the scale a label needs before the next one may share its row. */
 const LABEL_SPAN_PERCENT = 11
 
@@ -209,14 +230,17 @@ export function labelRows(
 ): Map<string, number> {
   const rows = new Map<string, number>()
   const lastEnd: number[] = Array.from({ length: LABEL_ROWS }, () => -Infinity)
+
   for (const item of [...positions].sort((a, b) => a.percent - b.percent)) {
     let row = lastEnd.findIndex(
       (end) => item.percent - LABEL_SPAN_PERCENT / 2 >= end,
     )
+
     if (row === -1) row = 0
     lastEnd[row] = item.percent + LABEL_SPAN_PERCENT / 2
     rows.set(item.id, row)
   }
+
   return rows
 }
 
@@ -240,6 +264,7 @@ export function MilestoneTimeline({
   now?: number
 }) {
   const dated = milestones.filter((m) => m.dueAt)
+
   if (dated.length === 0) return null
 
   const { start, end } = timelineWindow(
@@ -247,6 +272,7 @@ export function MilestoneTimeline({
     now,
     scale,
   )
+
   const width = end - start || 1
   const at = (time: number) => ((time - start) / width) * 100
   const ticks = timelineTicks(start, end, scale)
@@ -256,15 +282,18 @@ export function MilestoneTimeline({
     band.milestones.forEach((m) => rowOf.set(m.id, index))
   })
   const visible = new Set(milestones.map((m) => m.id))
+
   const edges = dependencies.filter(
     (d) => visible.has(d.predecessorId) && visible.has(d.successorId),
   )
+
   const todayLabel = new Date(now)
     .toLocaleDateString('en-GB', {
       day: 'numeric',
       month: 'short',
     })
     .replace('Sept', 'Sep')
+
   const finished = milestones.filter((m) => m.status === 'completed').length
 
   return (
@@ -281,11 +310,13 @@ export function MilestoneTimeline({
             if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
             event.preventDefault()
             const index = MILESTONE_SCALES.findIndex((s) => s.value === scale)
+
             const next =
               MILESTONE_SCALES[
                 (index + (event.key === 'ArrowRight' ? 1 : -1) + 2) %
                   MILESTONE_SCALES.length
               ]
+
             onScaleChange(next.value)
           }}
         >
@@ -344,18 +375,23 @@ export function MilestoneTimeline({
             {edges.map((edge) => {
               const from = dated.find((m) => m.id === edge.predecessorId)
               const to = dated.find((m) => m.id === edge.successorId)
+
               if (!from || !to) return null
               const x1 = at(Date.parse(from.dueAt!))
               const x2 = at(Date.parse(to.dueAt!))
+
               const y1 =
                 (rowOf.get(from.id) ?? 0) * BAND_HEIGHT +
                 HEADER_HEIGHT +
                 BAND_CENTRE
+
               const y2 =
                 (rowOf.get(to.id) ?? 0) * BAND_HEIGHT +
                 HEADER_HEIGHT +
                 BAND_CENTRE
+
               const mid = (x1 + x2) / 2
+
               return (
                 <path
                   key={edge.id}
@@ -394,6 +430,7 @@ export function MilestoneTimeline({
               m.dueAt ? [{ id: m.id, percent: at(Date.parse(m.dueAt)) }] : [],
             ),
           )
+
           return (
             <div
               key={band.id}
@@ -463,6 +500,7 @@ export function MilestoneTimeline({
                 {band.milestones.map((milestone) => {
                   if (!milestone.dueAt) return null
                   const label = milestone.title
+
                   return (
                     <button
                       key={milestone.id}

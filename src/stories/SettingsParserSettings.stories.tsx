@@ -208,6 +208,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const fileKey = (fileId?: string) => [
@@ -223,10 +224,12 @@ const fileKey = (fileId?: string) => [
  */
 function provider(data: ReadSeed[], failed: FailedRead[] = []) {
   const client = screenQueryClient({ data })
+
   for (const read of failed) holdRead(client, read.key, read.kind, read.message)
   client.setQueryData(instrumentQueryKeys.list, instruments, {
     updatedAt: Date.now() + 60 * 60 * 1000,
   })
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <Story />

@@ -48,15 +48,18 @@ export function exportTable<T extends RowData>(
   table: DataGridTableInstance<T>,
 ): ExportTable {
   const columns = exportable(table)
+
   const rows = table
     .getRowModel()
     .rows.filter((row) => !('__band' in (row.original as object)))
     .map((row) =>
       columns.map((column): ExportValue => {
         const custom = column.columnDef.meta?.exportValue
+
         return custom ? custom(row.original) : row.getValue(column.id)
       }),
     )
+
   return { headers: columns.map(getColumnHeaderLabel), rows }
 }
 
@@ -67,6 +70,7 @@ export function exportFileName(name: string, extension: string): string {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'list'
+
   return `${stem}-${new Date().toISOString().slice(0, 10)}.${extension}`
 }
 
@@ -86,11 +90,15 @@ export function ListViewMenu<T extends RowData>({
 
   const save = (kind: 'csv' | 'xlsx') => {
     const data = exportTable(table)
+
     if (data.rows.length === 0) {
       toast(t('library.listView.nothingToExport'))
+
       return
     }
+
     const file = exportFileName(name, kind)
+
     try {
       if (kind === 'csv') {
         downloadTextFile(file, tableCsv(data), 'text/csv;charset=utf-8')
@@ -100,6 +108,7 @@ export function ListViewMenu<T extends RowData>({
           new Blob([tableXlsx(data, name) as BlobPart], { type: XLSX_TYPE }),
         )
       }
+
       toast(t('library.listView.exported', { count: data.rows.length, file }))
     } catch (error) {
       toast(t('library.listView.exportFailed'), {
@@ -132,6 +141,7 @@ export function ListViewMenu<T extends RowData>({
               </DropdownMenuLabel>
               {hideable.map((column) => {
                 const on = column.getIsVisible()
+
                 return (
                   <DropdownMenuItem
                     key={column.id}

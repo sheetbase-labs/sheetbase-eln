@@ -14,7 +14,9 @@ const meta = {
   parameters: { layout: 'padded' },
   args: { kind: 'dataset', children: 'Dataset · DS-0311' },
 } satisfies Meta<typeof Source>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The four kinds, on the header line they annotate. */

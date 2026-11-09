@@ -9,6 +9,7 @@ const SearchPalette = lazy(() =>
     default: module.SearchPalette,
   })),
 )
+
 const ShortcutsDialog = lazy(() =>
   import('#/components/shortcuts/shortcuts-dialog').then((module) => ({
     default: module.RegistryShortcutsDialog as ComponentType<
@@ -25,7 +26,9 @@ const ShortcutsDialog = lazy(() =>
  */
 function useEverOpen(open: boolean | undefined): boolean {
   const [everOpen, setEverOpen] = useState(Boolean(open))
+
   if (open && !everOpen) setEverOpen(true)
+
   return everOpen
 }
 
@@ -33,7 +36,9 @@ export function LazySearchPalette(
   props: ComponentProps<typeof SearchPaletteComponent>,
 ) {
   const mounted = useEverOpen(props.open)
+
   if (!mounted) return null
+
   return (
     <Suspense fallback={null}>
       <SearchPalette {...props} />
@@ -45,7 +50,9 @@ export function LazyShortcutsDialog(
   props: ComponentProps<typeof ShortcutsDialogComponent>,
 ) {
   const mounted = useEverOpen(props.open)
+
   if (!mounted) return null
+
   return (
     <Suspense fallback={null}>
       <ShortcutsDialog {...props} />

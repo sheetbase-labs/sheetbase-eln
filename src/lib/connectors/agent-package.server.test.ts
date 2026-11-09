@@ -14,10 +14,13 @@ vi.mock('../request-auth', () => ({
     Response.json({ error: { code, message } }, { status }),
   resolveSessionAuth: async (headers: Headers, deps: SessionAuthDeps) => {
     const session = await deps.getSession(headers)
+
     if (!session) {
       return { ok: false, status: 401, code: 'unauthenticated', message: '' }
     }
+
     const workspace = await deps.getWorkspaceForUser(session.user.id)
+
     return {
       ok: true,
       context: {
@@ -54,14 +57,17 @@ function setup(options: {
   const revoked: string[] = []
   const created: Array<Record<string, unknown>> = []
   const audit = vi.fn(async () => {})
+
   const client = {
     list: async <T>() =>
       (options.connector === null ? [] : [connector(options.connector)]) as T[],
     rpc: async () => {
       if (options.denied) throw new Error('capability required')
+
       return {}
     },
   } as unknown as DataClient
+
   const deps: AgentPackageDeps = {
     getSession: async () =>
       options.signedIn === false
@@ -80,6 +86,7 @@ function setup(options: {
       },
       createCredential: async (_db, input) => {
         created.push(input)
+
         return {
           id: 'new-cred',
           secret: 'sbk_fresh',
@@ -95,6 +102,7 @@ function setup(options: {
     emitAudit: audit,
     now: () => NOW,
   }
+
   return { deps, revoked, created, audit }
 }
 
@@ -104,12 +112,14 @@ const post = (body: unknown) =>
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
+
 const get = (id = CONNECTOR) =>
   new Request(`https://eln.example.com/api/connectors/agent?connector=${id}`)
 
 describe('agent download', () => {
   it('returns a zip with the settings filled in and a new token', async () => {
     const { deps, created } = setup({})
+
     const response = await handleAgentPackage(
       post({
         connectorId: CONNECTOR,
@@ -118,6 +128,7 @@ describe('agent download', () => {
       }),
       deps,
     )
+
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toBe('application/zip')
     expect(response.headers.get('content-disposition')).toContain(
@@ -157,6 +168,7 @@ describe('agent download', () => {
         },
       ],
     })
+
     await handleAgentPackage(
       post({ connectorId: CONNECTOR, system: 'linux', folder: '/data' }),
       deps,
@@ -179,10 +191,12 @@ describe('agent download', () => {
 
   it('asks for the destination first, and rejects unknown instruments and bad requests', async () => {
     const body = { connectorId: CONNECTOR, system: 'mac', folder: '/r' }
+
     const unset = await handleAgentPackage(
       post(body),
       setup({ connector: { config: {} } }).deps,
     )
+
     expect(unset.status).toBe(422)
     expect(
       (await handleAgentPackage(post(body), setup({ connector: null }).deps))
@@ -197,8 +211,10 @@ describe('agent download', () => {
 describe('agent status', () => {
   it('says whether it was downloaded and when it last checked in', async () => {
     const name = 'Folder agent · qpcr-bench'
+
     const read = async (existing: Array<Record<string, unknown>>) =>
       (await handleAgentPackage(get(), setup({ existing }).deps)).json()
+
     expect(await read([])).toEqual({
       downloaded: false,
       lastSeenAt: null,
@@ -225,6 +241,7 @@ describe('agent status', () => {
 
   it('ignores revoked tokens and other instruments', async () => {
     const recent = new Date(NOW.getTime() - 60_000)
+
     const response = await handleAgentPackage(
       get(),
       setup({
@@ -244,12 +261,14 @@ describe('agent status', () => {
         ],
       }).deps,
     )
+
     expect(await response.json()).toMatchObject({ downloaded: false })
   })
 })
 
 describe('live readings agent', () => {
   const INSTRUMENT = '66666666-6666-4666-8666-666666666666'
+
   const instrument = (overrides: Record<string, unknown> = {}) => ({
     id: INSTRUMENT,
     name: 'Freezer F-01',
@@ -257,6 +276,7 @@ describe('live readings agent', () => {
     retired_at: null,
     ...overrides,
   })
+
   const live = [
     {
       kind: 'network',
@@ -269,10 +289,12 @@ describe('live readings agent', () => {
 
   it('returns a zip that follows the chosen source, with no results folder', async () => {
     const { deps, created } = setup({ connector: instrument() })
+
     const response = await handleAgentPackage(
       post({ instrumentId: INSTRUMENT, system: 'linux', live }),
       deps,
     )
+
     expect(response.status).toBe(200)
     expect(response.headers.get('content-disposition')).toContain(
       'sheetbase-live-ins-0007.zip',
@@ -282,9 +304,11 @@ describe('live readings agent', () => {
       kind: 'personal',
     })
     const files = unzipSync(new Uint8Array(await response.arrayBuffer()))
+
     const settings = JSON.parse(
       strFromU8(files['sheetbase-agent/sheetbase-agent.json']),
     )
+
     expect(settings).toEqual({
       url: 'https://eln.example.com',
       credential: 'sbk_fresh',
@@ -324,9 +348,11 @@ describe('live readings agent', () => {
         )
       ).status,
     ).toBe(404)
+
     const retired = setup({
       connector: instrument({ retired_at: '2026-01-01' }),
     })
+
     expect(
       (
         await handleAgentPackage(
@@ -350,12 +376,14 @@ describe('live readings agent', () => {
         },
       ],
     })
+
     const response = await handleAgentPackage(
       new Request(
         `https://eln.example.com/api/connectors/agent?instrument=${INSTRUMENT}`,
       ),
       deps,
     )
+
     expect(await response.json()).toMatchObject({
       downloaded: true,
       running: true,

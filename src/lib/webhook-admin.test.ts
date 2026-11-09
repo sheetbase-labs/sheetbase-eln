@@ -40,6 +40,7 @@ describe('toSubscriptionWire', () => {
       created_at: '2026-09-01T10:00:00Z',
       updated_at: '2026-09-02T10:00:00Z',
     })
+
     expect(wire).toMatchObject({
       id: 'sub-1',
       key: 'orders',
@@ -66,6 +67,7 @@ describe('toSubscriptionWire', () => {
       created_at: '2026-09-01T10:00:00Z',
       updated_at: '2026-09-01T10:00:00Z',
     })
+
     expect(wire.eventTypes).toEqual([])
     expect(wire.rateLimitPerMinute).toBe(60)
   })
@@ -98,6 +100,7 @@ describe('toHealthWire', () => {
         delivery_id: 'del-9',
       },
     })
+
     expect(wire).toMatchObject({
       total24h: 20,
       delivered24h: 15,
@@ -132,6 +135,7 @@ describe('toHealthWire', () => {
       oldest_pending_at: null,
       last_error: null,
     })
+
     expect(wire.successRate24h).toBeNull()
     expect(wire.lastError).toBeNull()
   })
@@ -156,6 +160,7 @@ describe('toDeliveryWire', () => {
       created_at: '2026-09-05T10:00:00Z',
       updated_at: '2026-09-05T12:00:00Z',
     })
+
     expect(wire).toMatchObject({
       status: 'dead_letter',
       attempt: 3,

@@ -5,6 +5,7 @@ import { THEME_COOKIE } from '#/lib/theme-cookie'
 /** A minimal matchMedia stub that records its change listener. */
 function stubMatchMedia(matches: boolean) {
   const listeners = new Set<(e: { matches: boolean }) => void>()
+
   const mql = {
     matches,
     media: '(prefers-color-scheme: dark)',
@@ -15,7 +16,9 @@ function stubMatchMedia(matches: boolean) {
       listeners.delete(cb)
     },
   }
+
   vi.stubGlobal('matchMedia', () => mql)
+
   return {
     emit(next: boolean) {
       mql.matches = next
@@ -29,6 +32,7 @@ async function loadStore(matches = false) {
   vi.resetModules()
   const mm = stubMatchMedia(matches)
   const mod = await import('./theme')
+
   return { mod, mm }
 }
 

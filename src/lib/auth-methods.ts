@@ -75,7 +75,9 @@ export const SAML_PROVIDER_ID = 'saml'
 /** A certificate pasted into an environment variable often loses its line breaks. */
 export function normalisePem(value: string): string {
   const trimmed = value.trim().replace(/\\n/g, '\n')
+
   if (trimmed.includes('-----BEGIN')) return trimmed
+
   return `-----BEGIN CERTIFICATE-----\n${trimmed.replace(/\s+/g, '').replace(/(.{64})/g, '$1\n')}\n-----END CERTIFICATE-----`
 }
 
@@ -85,11 +87,14 @@ export function readSamlConfig(env: AuthMethodEnv): SamlConfig | null {
   const cert = env.SAML_IDP_CERT?.trim()
   const entityId = env.SAML_IDP_ENTITY_ID?.trim()
   const manual = Boolean(ssoUrl && cert && entityId)
+
   if (!metadata && !manual) return null
   const emailDomains = parseAllowedDomains(env.SAML_EMAIL_DOMAINS)
+
   // Without a domain nobody could be matched to this provider, and a sign-in
   // could not be trusted to take over an existing account.
   if (emailDomains.length === 0) return null
+
   return {
     name: env.SAML_PROVIDER_NAME || 'Company SSO',
     idpMetadata: metadata || undefined,
@@ -109,6 +114,7 @@ export function readOidcConfig(env: AuthMethodEnv): OidcConfig | null {
   if (!env.OIDC_ISSUER_URL || !env.OIDC_CLIENT_ID || !env.OIDC_CLIENT_SECRET) {
     return null
   }
+
   return {
     issuerUrl: env.OIDC_ISSUER_URL.replace(/\/+$/, ''),
     clientId: env.OIDC_CLIENT_ID,
@@ -122,6 +128,7 @@ export function readOidcConfig(env: AuthMethodEnv): OidcConfig | null {
 export function readAuthMethods(env: AuthMethodEnv): AuthMethods {
   const oidc = readOidcConfig(env)
   const saml = readSamlConfig(env)
+
   return {
     github: Boolean(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET),
     oidc: oidc ? { name: oidc.name } : null,
@@ -148,6 +155,8 @@ export function mayCreateByEmailLink(
   allowedDomains: string[],
 ): boolean {
   const at = email.lastIndexOf('@')
+
   if (at < 0) return false
+
   return allowedDomains.includes(email.slice(at + 1).toLowerCase())
 }

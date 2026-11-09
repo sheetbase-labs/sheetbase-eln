@@ -47,6 +47,7 @@ function client() {
 
 function Harness({ conflict }: { conflict: CellConflictRow }) {
   const [value] = useState(conflict)
+
   return <CellConflictPanel conflict={value} />
 }
 
@@ -70,7 +71,9 @@ const meta = {
     unit: 'vg/mL',
   },
 } satisfies Meta<typeof CellConflictPanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Both edits with their authors; the reader chooses one and states why. */

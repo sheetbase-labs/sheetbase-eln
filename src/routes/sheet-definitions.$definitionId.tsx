@@ -43,6 +43,7 @@ export const Route = createFileRoute('/sheet-definitions/$definitionId')({
   }),
   beforeLoad: ({ context, location }) => {
     if (!context.auth) throw redirect(signInRedirect(location))
+
     return { context: context.auth }
   },
   component: SheetDefinitionPage,
@@ -55,22 +56,27 @@ function SheetDefinitionPage() {
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
   const [confirming, setConfirming] = useState(false)
+
   const definition = useQuery({
     queryKey: ['sheet-definitions', definitionId],
     queryFn: () => fetchSheetDefinition(definitionId),
   })
+
   const versions = useQuery({
     queryKey: ['sheet-definition-versions', definitionId],
     queryFn: () => fetchSheetDefinitionVersions(definitionId),
     enabled: Boolean(definition.data),
   })
+
   const version = search.version
     ? versions.data?.find((item) => item.id === search.version)
     : versions.data?.at(-1)
+
   const publish = useMutation({
     mutationFn: () => {
       if (!version)
         throw new Error(t('notebook.sheetDefinitionPage.chooseAVersionTo'))
+
       return publishSheetDefinitionVersion(version.id, version.revision)
     },
     onSuccess: async () => {
@@ -83,6 +89,7 @@ function SheetDefinitionPage() {
       })
     },
   })
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-auto">
       <PageHeader

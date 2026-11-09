@@ -32,11 +32,13 @@ describe('modelCreateErrors', () => {
       'CELL',
       'a'.repeat(61),
     ]
+
     for (const key of bad) {
       expect(
         modelCreateErrors({ key, name: 'Cell bank', description: '' }).key,
       ).toBeDefined()
     }
+
     for (const key of ['a', 'cell_bank_reading', 'a'.repeat(60)]) {
       expect(
         modelCreateErrors({ key, name: 'Cell bank', description: '' }).key,
@@ -50,6 +52,7 @@ describe('modelCreateErrors', () => {
       name: 'x'.repeat(MODEL_NAME_MAX + 1),
       description: '',
     })
+
     expect(longName.name).toBeDefined()
     expect(
       modelCreateErrors({
@@ -64,6 +67,7 @@ describe('modelCreateErrors', () => {
       name: 'Cell bank',
       description: 'x'.repeat(MODEL_DESCRIPTION_MAX + 1),
     })
+
     expect(longDescription.description).toBeDefined()
     expect(
       modelCreateErrors({
@@ -130,6 +134,7 @@ function renderDialog(onCreate: (input: ModelCreateInput) => void = vi.fn()) {
       error={null}
     />,
   )
+
   return onCreate
 }
 

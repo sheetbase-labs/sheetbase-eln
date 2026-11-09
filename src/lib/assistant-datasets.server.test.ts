@@ -30,7 +30,9 @@ const TABLE = {
   lifecycle: 'active',
   display_id: 'MT-0003',
 }
+
 const PUBLISHED = { id: 'v-2', version: 2, lifecycle: 'active', revision: 5 }
+
 const FIELDS = [
   {
     field_id: 'f-well',
@@ -55,6 +57,7 @@ const FIELDS = [
     display_order: 2,
   },
 ]
+
 const DATASET = {
   id: '22222222-2222-4222-8222-222222222222',
   name: 'Plate 7 readout',
@@ -64,6 +67,7 @@ const DATASET = {
   lifecycle: 'active',
   intended_use: 'exploratory_research',
 }
+
 const ROW = '33333333-3333-4333-8333-333333333333'
 
 function context(extra: Record<string, unknown[]> = {}): LabToolContext {
@@ -75,10 +79,12 @@ function context(extra: Record<string, unknown[]> = {}): LabToolContext {
     dataset_rows: [{ id: ROW }],
     ...extra,
   }
+
   const client = {
     list: (resource: string) => Promise.resolve(rows[resource] ?? []),
     rpc: () => Promise.resolve({ blocked: false }),
   } as unknown as DataClient
+
   return { client, workspaceId: 'ws-1', userId: 'u', timeZone: 'UTC' }
 }
 
@@ -87,6 +93,7 @@ const base = { title: 'Do it', summary: 'What was asked' }
 describe('dataset and measurement table assistant cards', () => {
   it('registers every tool with the agent catalogue and the model', () => {
     const offered = datasetsProposalDefs().map((def) => def.name)
+
     for (const name of DATASETS_PROPOSE_TOOL_NAMES) {
       expect(ASSISTANT_PROPOSE_TOOL_NAMES).toContain(name)
       expect(isDatasetsProposalTool(name)).toBe(true)
@@ -113,7 +120,9 @@ describe('dataset and measurement table assistant cards', () => {
       },
       context(),
     )
+
     expect(built.ok).toBe(true)
+
     if (!built.ok) return
     const action = built.proposal.action
     expect(action && isDatasetsAction(action)).toBe(true)
@@ -139,7 +148,9 @@ describe('dataset and measurement table assistant cards', () => {
       },
       context(),
     )
+
     expect(built.ok).toBe(true)
+
     if (!built.ok) return
     expect(built.proposal.action).toMatchObject({
       kind: 'measurement_table.edit',
@@ -160,7 +171,9 @@ describe('dataset and measurement table assistant cards', () => {
       { ...base, table: 'ELISA plate', remove: ['Colour'] },
       context(),
     )
+
     expect(built).toMatchObject({ ok: false })
+
     if (built.ok) return
     expect(built.message).toContain('Well, OD450')
   })
@@ -171,13 +184,16 @@ describe('dataset and measurement table assistant cards', () => {
       { ...base, table: 'ELISA plate' },
       context(),
     )
+
     expect(none.ok).toBe(false)
     const draft = { id: 'v-3', version: 3, lifecycle: 'draft', revision: 1 }
+
     const built = await buildDatasetsProposal(
       TABLE_PUBLISH_TOOL,
       { ...base, table: 'ELISA plate' },
       context({ dataset_schema_versions: [draft, PUBLISHED] }),
     )
+
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'measurement_table.publish',
       definitionId: TABLE.id,
@@ -193,6 +209,7 @@ describe('dataset and measurement table assistant cards', () => {
         dataset_schema_definitions: [{ ...TABLE, lifecycle: 'retired' }],
       }),
     )
+
     expect(built.ok).toBe(false)
   })
 
@@ -209,6 +226,7 @@ describe('dataset and measurement table assistant cards', () => {
       },
       context(),
     )
+
     expect(built.ok && built.proposal.action).toMatchObject({
       kind: 'dataset.flag_value',
       datasetId: DATASET.id,
@@ -223,17 +241,21 @@ describe('dataset and measurement table assistant cards', () => {
       { id: 'a', kind: 'high_cv', reason: 'CV 30%' },
       { id: 'b', kind: 'high_cv', reason: 'CV 25%' },
     ]
+
     const built = await buildDatasetsProposal(
       DATASET_CLEAR_FLAG_TOOL,
       { ...base, dataset: 'Plate 7', field: 'OD450' },
       context({ dataset_value_flags: flags }),
     )
+
     expect(built.ok).toBe(false)
+
     const one = await buildDatasetsProposal(
       DATASET_CLEAR_FLAG_TOOL,
       { ...base, dataset: 'Plate 7', field: 'OD450' },
       context({ dataset_value_flags: [flags[0]] }),
     )
+
     expect(one.ok && one.proposal.action).toMatchObject({
       kind: 'dataset.clear_flag',
       flagId: 'a',
@@ -252,6 +274,7 @@ describe('dataset and measurement table assistant cards', () => {
       },
       context(),
     )
+
     expect(built.ok && built.proposal.changes).toEqual([
       { label: 'OD450 unit', before: 'AU', after: 'OD' },
     ])
@@ -268,6 +291,7 @@ describe('dataset and measurement table assistant cards', () => {
       },
       context(),
     )
+
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'dataset.plan_rows',
       datasetId: DATASET.id,
@@ -291,6 +315,7 @@ describe('dataset and measurement table assistant cards', () => {
         ],
       }),
     )
+
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'intake.resolve',
       failureId: 'p-1',

@@ -27,9 +27,12 @@ export const getSqlConnectionFn = createServerFn({ method: 'GET' }).handler(
     const { getRequestHeaders } = await import('@tanstack/react-start/server')
     const { getCurrentContext } = await import('#/lib/current-user')
     const context = await getCurrentContext(getRequestHeaders())
+
     if (!context?.dataAccess) return null
     const { env } = await import('#/env.server')
+
     if (!env.SHEETBASE_SQL_HOST) return null
+
     return {
       host: env.SHEETBASE_SQL_HOST,
       port: env.SHEETBASE_SQL_PORT,

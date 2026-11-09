@@ -19,9 +19,11 @@ export const Route = createFileRoute('/requests')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: RequestsRoute,
@@ -31,6 +33,7 @@ function RequestsRoute() {
   const { context } = Route.useRouteContext()
   const { tab = 'mine' } = Route.useSearch()
   const navigate = Route.useNavigate()
+
   return (
     <RequestsPage
       userId={context.user.id}

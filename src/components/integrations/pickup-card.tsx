@@ -41,21 +41,26 @@ export function PickupCard({
   canManage: boolean
 }) {
   const queryClient = useQueryClient()
+
   const [values, setValues] = useState<PickupFormValues>(() =>
     pickupFormValues(connector.config),
   )
+
   const [errors, setErrors] = useState<
     Partial<Record<keyof PickupFormValues, string>>
   >({})
+
   const [saved, setSaved] = useState(false)
   const configured = Boolean(pickupFormValues(connector.config).schemaVersionId)
 
   // Only projects this person can add to: the agent writes as them.
   const projects = useWritableProjects(canManage)
+
   const schemas = useQuery({
     queryKey: ['connectors', 'pickup', 'schemas'],
     queryFn: () => listPublishedDatasetSchemas(dataClient),
   })
+
   const datasets = useQuery({
     queryKey: ['connectors', 'pickup', 'datasets', values.schemaVersionId],
     queryFn: () =>
@@ -65,6 +70,7 @@ export function PickupCard({
       ),
     enabled: Boolean(values.schemaVersionId),
   })
+
   const instruments = useQuery({
     queryKey: ['connectors', 'pickup', 'instruments'],
     queryFn: () =>
@@ -118,10 +124,13 @@ export function PickupCard({
             event.preventDefault()
             setSaved(false)
             const built = buildPickupConfig(connector.config, values)
+
             if (!built.ok) {
               setErrors(built.errors)
+
               return
             }
+
             setErrors({})
             save.mutate(built.config)
           }}

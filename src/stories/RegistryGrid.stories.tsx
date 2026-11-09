@@ -82,12 +82,15 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function Focusable({ rows }: { rows: RegistryRow<Row>[] }) {
   const [selected, setSelected] = useState<string | null>('r2')
   const focus = useRowFocus(selected, setSelected)
+
   return (
     <RegistryGrid
       label="Samples"

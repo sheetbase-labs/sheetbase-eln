@@ -52,11 +52,13 @@ export function destinationLabel(sub: {
       name: sub.recipientName || t('settings.webhookSections.aPerson'),
     })
   }
+
   if (sub.channelType === 'teams') {
     return t('settings.webhookSections.teamsChannel', {
       host: endpointHost(sub.url),
     })
   }
+
   return sub.url
 }
 
@@ -66,26 +68,32 @@ export function lastDeliverySummary(
   health: WebhookEndpointHealthWire | undefined,
 ): { tone: Tone; text: string } {
   if (sub.status === 'paused') return { tone: 'stored', text: 'Paused' }
+
   if (sub.status === 'disabled') {
     return {
       tone: 'bad',
       text: t('settings.webhookSections.stoppedAfterRepeated'),
     }
   }
+
   if (sub.status === 'archived') return { tone: 'stored', text: 'Archived' }
+
   if (health && health.consecutiveFailures > 0) {
     const tries = health.consecutiveFailures
+
     return {
       tone: 'bad',
       text: `Failing · retried ${tries} ${tries === 1 ? 'time' : 'times'}`,
     }
   }
+
   if (health?.lastDeliveredAt) {
     return {
       tone: 'ok',
       text: `Delivered ${formatDate(health.lastDeliveredAt, { time: true })}`,
     }
   }
+
   return { tone: 'none', text: t('settings.webhookSections.deliveriesYet') }
 }
 
@@ -120,6 +128,7 @@ const outgoingColumns: RegistryColumn<OutgoingRow>[] = [
     header: t('settings.webhookSections.lastDelivery'),
     cell: ({ row }) => {
       const s = lastDeliverySummary(row.original.sub, row.original.health)
+
       return <Status tone={s.tone}>{s.text}</Status>
     },
   },
@@ -145,14 +154,17 @@ export function OutgoingWebhooks({ workspaceId }: { workspaceId: string }) {
     queryFn: () => listWebhookSubscriptionsFn({ data: { workspaceId } }),
     enabled: Boolean(workspaceId),
   })
+
   const health = useQuery({
     queryKey: webhookAdminKeys.health(workspaceId),
     queryFn: () => fetchWebhookHealthFn({ data: { workspaceId } }),
     enabled: Boolean(workspaceId),
   })
+
   const healthById = new Map(
     (health.data?.data ?? []).map((h) => [h.subscriptionId, h]),
   )
+
   const rows: OutgoingRow[] = (subscriptions.data ?? [])
     .filter((sub) => sub.status !== 'archived')
     .map((sub) => ({ sub, health: healthById.get(sub.id) }))
@@ -232,7 +244,9 @@ export function IncomingWebhooks({ workspaceId }: { workspaceId: string }) {
     queryFn: () => listIncomingWebhooksFn({ data: { workspaceId } }),
     enabled: Boolean(workspaceId),
   })
+
   const rows = incoming.data ?? []
+
   return (
     <section
       aria-label={t('settings.webhookSections.incomingWebhooksAria')}

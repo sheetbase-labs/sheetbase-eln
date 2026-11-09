@@ -8,8 +8,10 @@ import { setInstrumentGateMode } from '#/lib/instrument-gate'
 import type * as instrumentGateModule from '#/lib/instrument-gate'
 
 vi.mock('#/components/ui/sonner', () => ({ toast: vi.fn() }))
+
 vi.mock('#/lib/instrument-gate', async (importOriginal) => {
   const actual = await importOriginal<typeof instrumentGateModule>()
+
   return {
     ...actual,
     useInstrumentGateMode: () => 'warn' as const,
@@ -34,9 +36,11 @@ describe('InstrumentGateSetting', () => {
   it('shows the current rule and saves a different one', async () => {
     const user = userEvent.setup()
     renderSetting(true)
+
     const select = screen.getByLabelText<HTMLSelectElement>(
       'When an instrument isn’t ready',
     )
+
     expect(select.value).toBe('warn')
     expect(screen.getByText(/marked with what was wrong/)).toBeTruthy()
 

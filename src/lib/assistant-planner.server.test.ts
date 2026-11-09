@@ -22,10 +22,12 @@ function context(
   const defaults: Record<string, unknown[] | undefined> = {
     projects: [PROJECT],
   }
+
   const client = {
     list: (resource: string) =>
       Promise.resolve(rows[resource] ?? defaults[resource] ?? []),
   } as unknown as DataClient
+
   return { client, workspaceId: 'w', userId: 'u', timeZone: 'UTC' }
 }
 
@@ -44,6 +46,7 @@ describe('planner assistant card', () => {
       expect(ASSISTANT_PROPOSE_TOOL_NAMES).toContain(name)
       expect(isPlannerProposalTool(name)).toBe(true)
     }
+
     expect(plannerProposalDefs().map((d) => d.name)).toEqual(
       PLANNER_PROPOSE_TOOL_NAMES.map((n) => n.replaceAll('.', '__')),
     )
@@ -52,6 +55,7 @@ describe('planner assistant card', () => {
   it('proposes creating the experiment in the named project', async () => {
     const built = await buildPlannerProposal(PLAN_TOOL, base, context())
     expect(built.ok).toBe(true)
+
     if (!built.ok) return
     expect(built.proposal.action).toMatchObject({
       kind: 'plan.apply',
@@ -67,6 +71,7 @@ describe('planner assistant card', () => {
       base,
       context({ projects: [] }),
     )
+
     expect(built.ok).toBe(false)
   })
 })

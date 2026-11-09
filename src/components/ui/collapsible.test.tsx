@@ -32,6 +32,7 @@ describe('Collapsible', () => {
     const trigger = screen.getByRole('button', {
       name: 'Agreement and start date',
     })
+
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
 
     await user.click(trigger)

@@ -57,12 +57,15 @@ function client(state: 'ready' | 'loading' | 'error') {
       },
     })
   }
+
   const instance = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+
   if (state === 'ready') {
     instance.setQueryData(signatureQueryKeys.forRecord(RECORD_ID), signatures)
   }
+
   return instance
 }
 
@@ -83,7 +86,9 @@ const meta = {
   decorators: [withClient('ready')],
   args: { recordId: RECORD_ID },
 } satisfies Meta<typeof NotebookSignedSection>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The recorded signatures, oldest first. */
@@ -97,6 +102,7 @@ export const None: Story = {
         client={((): QueryClient => {
           const instance = client('ready')
           instance.setQueryData(signatureQueryKeys.forRecord(RECORD_ID), [])
+
           return instance
         })()}
       >

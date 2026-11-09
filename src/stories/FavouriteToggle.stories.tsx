@@ -31,6 +31,7 @@ function withFavourites(favourited: boolean) {
       },
     ],
   })
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <Story />
@@ -44,7 +45,9 @@ const meta = {
   tags: ['autodocs'],
   args: { kind: 'record', objectId: OBJECT_ID, client: stubDataClient() },
 } satisfies Meta<typeof FavouriteToggle>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const NotFavourited: Story = { decorators: [withFavourites(false)] }

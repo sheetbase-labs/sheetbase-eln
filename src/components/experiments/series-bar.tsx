@@ -26,8 +26,10 @@ export function SeriesBar({
   const membership = useSeriesMembership(recordId)
   const info = membership.data
   const members = useSeriesMembers(info?.series_record_id)
+
   if (!info) return null
   const chips = members.data ?? []
+
   return (
     <nav
       aria-label={t('projects.series.bar.label')}
@@ -62,6 +64,7 @@ export function SeriesBar({
         <span className="flex shrink-0 items-center gap-1">
           {chips.map((member) => {
             const current = member.member_record_id === recordId
+
             return (
               <Link
                 key={member.member_record_id}

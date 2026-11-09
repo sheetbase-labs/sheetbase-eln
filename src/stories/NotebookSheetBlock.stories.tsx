@@ -64,7 +64,9 @@ const meta = {
   ],
   args: { block, record },
 } satisfies Meta<typeof NotebookSheetBlock>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A live block: the Sheet is read from its instance. */

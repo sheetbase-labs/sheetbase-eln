@@ -47,9 +47,12 @@ export function importUnitError(
     return null
   const source = sourceUnit?.trim() || null
   const target = field.unit ?? null
+
   if (source === target) return null
+
   if (!source)
     return `Declare the source unit for ${field.label}. The Dataset stores ${target}; confirm that unit only if the file already uses it.`
+
   return `${field.label}: source unit ${source} does not match storage unit ${target ?? '(unitless)'}. Convert the source values to ${target ?? 'a unitless value'} before uploading, or choose a field with the correct storage unit. No automatic conversion is available.`
 }
 
@@ -89,12 +92,15 @@ export function suggestImportMappings(
     // `Capsid titre (×10¹⁰ vg/mL)` names the field `Capsid titre`; the
     // annotation is read separately as a suggested source unit.
     const bare = normalised.replace(/\s*(?:\([^()]+\)|\[[^[\]]+\])\s*$/, '')
+
     const field = fields.find((item) => {
       const labels = [item.label, item.key, item.id]
         .filter(Boolean)
         .map((value) => String(value).trim().toLowerCase())
+
       return labels.includes(normalised) || labels.includes(bare)
     })
+
     return field ? { source, kind: 'field', field } : { source, kind: 'ignore' }
   })
 }
@@ -121,6 +127,7 @@ function columnUnit(quantity: unknown): string | null {
   if (!quantity || typeof quantity !== 'object') return null
   const record = quantity as Record<string, unknown>
   const unit = record.storageUnit ?? record.symbol ?? record.unit
+
   return typeof unit === 'string' && unit.trim() ? unit.trim() : null
 }
 
@@ -142,6 +149,7 @@ export function recordFieldsFromModel(
     nullable: false,
     kind: 'record-title',
   }
+
   const status: ImportTargetField = {
     id: 'status',
     key: 'status',
@@ -150,6 +158,7 @@ export function recordFieldsFromModel(
     nullable: true,
     kind: 'record-status',
   }
+
   const model = fields
     .filter((field) => field.lifecycle !== 'retired')
     .map((field) => ({
@@ -161,6 +170,7 @@ export function recordFieldsFromModel(
       options: field.options,
       kind: 'record-field' as const,
     }))
+
   return [title, status, ...model]
 }
 
@@ -171,20 +181,25 @@ export function mapImportSheet(
   rowIdFactory: () => string = () => crypto.randomUUID(),
 ): MappedImport {
   const errors: ImportRowError[] = []
+
   const rows = sheet.rows.map((sourceRow, index) => {
     const values: Record<string, unknown> = {}
     let title: string | undefined
     let status: string | undefined
+
     for (const mapping of mappings) {
       if (mapping.kind === 'ignore') continue
       const raw = sourceRow[mapping.source] ?? ''
+
       try {
         const unitError = importUnitError(
           mapping.field,
           mapping.sourceUnit ?? importHeaderUnit(mapping.source),
         )
+
         if (unitError) throw new Error(unitError)
         const coerced = coerceImportValue(mapping.field, raw)
+
         if (mapping.field.kind === 'record-title') {
           title = typeof coerced === 'string' ? coerced : String(coerced ?? '')
         } else if (mapping.field.kind === 'record-status') {
@@ -205,8 +220,10 @@ export function mapImportSheet(
         })
       }
     }
+
     return { rowId: rowIdFactory(), values, title, status }
   })
+
   return { schemaVersionId, rows, errors }
 }
 
@@ -230,13 +247,17 @@ export function coerceImportValue(
       display_order: 0,
     })),
   }
+
   const trimmed = raw.trim()
+
   if (trimmed === '') {
     if (!field.nullable && field.kind !== 'record-status') {
       throw new Error(`${field.label} is required.`)
     }
+
     return field.kind === 'record-status' ? undefined : null
   }
+
   switch (field.logicalType) {
     case 'integer':
     case 'decimal':
@@ -246,6 +267,7 @@ export function coerceImportValue(
       if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
         throw new Error(`Invalid date: ${field.label}`)
       }
+
       return trimmed
     case 'timestamp':
       if (
@@ -254,6 +276,7 @@ export function coerceImportValue(
       ) {
         throw new Error(`Invalid timestamp: ${field.label}`)
       }
+
       return trimmed
     case 'category': {
       const option = (field.options ?? []).find(
@@ -262,9 +285,12 @@ export function coerceImportValue(
           item.key === trimmed ||
           item.label.toLowerCase() === trimmed.toLowerCase(),
       )
+
       if (!option) throw new Error(`Invalid category: ${field.label}`)
+
       return option.id
     }
+
     case 'reference':
       if (
         !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
@@ -273,6 +299,7 @@ export function coerceImportValue(
       ) {
         throw new Error(`Invalid reference: ${field.label}`)
       }
+
       return trimmed
     default:
       return trimmed
@@ -284,6 +311,7 @@ export function assertPinnedSchemaVersion(
   actualSchemaVersionId: string | null | undefined,
 ): void {
   if (!expectedSchemaVersionId || !actualSchemaVersionId) return
+
   if (expectedSchemaVersionId !== actualSchemaVersionId) {
     throw new Error(
       'This Dataset Schema Version changed. Refresh the mapping and try again.',

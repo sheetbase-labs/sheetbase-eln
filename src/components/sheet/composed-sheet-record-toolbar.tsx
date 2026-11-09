@@ -25,6 +25,7 @@ export function ComposedSheetRecordToolbar({
 }) {
   const link = actions.find((action) => action.kind === 'link-record')
   const create = actions.find((action) => action.kind === 'create-record')
+
   return (
     <div className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
       <Button

@@ -22,12 +22,14 @@ const PROCESS = '00000000-0000-4000-8000-000000000300'
 export async function seedDemoWebhooks(db: Db): Promise<void> {
   if (!demoSigningEnabled()) return
   await giveSigningSecrets(db)
+
   const url = demoWebhookSinkUrl(
     process.env.BETTER_AUTH_URL ??
       (process.env.RAILWAY_PUBLIC_DOMAIN
         ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
         : undefined),
   )
+
   if (!url) return
   await db.execute(sql`
     UPDATE api.webhook_subscriptions SET url = ${url}
@@ -42,12 +44,15 @@ export async function seedDemoWebhooks(db: Db): Promise<void> {
  */
 async function giveSigningSecrets(db: Db): Promise<void> {
   const master = process.env.BETTER_AUTH_SECRET
+
   if (!master) return
   const key = deriveWebhookSecretKey(master)
+
   const subscriptions = await db.execute<{ id: string }>(sql`
     SELECT s.id FROM api.webhook_subscriptions s
      WHERE s.workspace_id = ${PROCESS}
        AND NOT EXISTS (SELECT 1 FROM internal.webhook_secrets w WHERE w.subscription_id = s.id)`)
+
   for (const { id } of subscriptions.rows) {
     const sealed = sealSecret(randomBytes(32).toString('base64url'), key)
     await db.execute(sql`

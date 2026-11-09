@@ -39,11 +39,13 @@ export function InstrumentRateSection({
   canManage: boolean
 }) {
   const [editing, setEditing] = useState(false)
+
   const rates = useQuery({
     queryKey: usageKeys.rates,
     queryFn: () => fetchInstrumentRates(client),
     staleTime: 30_000,
   })
+
   const rate = rates.data?.find((r) => r.instrumentId === instrument.id)
 
   return (
@@ -103,6 +105,7 @@ function RateDialog({
       }),
     onSuccess: (_result, value) => {
       void queryClient.invalidateQueries({ queryKey: usageKeys.all })
+
       if (value !== null) rememberCurrency(currency)
       toast.success(t('spend.usage.rate.saved'))
       onClose()
@@ -128,16 +131,22 @@ function RateDialog({
             className="grid grid-cols-[1fr_120px] items-start gap-3"
             onSubmit={(event) => {
               event.preventDefault()
+
               if (rate.trim() === '') {
                 setError(null)
                 save.mutate(null)
+
                 return
               }
+
               const value = Number(rate)
+
               if (!Number.isFinite(value) || value < 0) {
                 setError(t('spend.usage.rate.enterARate'))
+
                 return
               }
+
               setError(null)
               save.mutate(value)
             }}

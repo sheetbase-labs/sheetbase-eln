@@ -40,9 +40,11 @@ export function ObjectLink({
   const workspace = useWorkspaceNavigation()
   const to = ref ? objectPath(kind, ref) : null
   const label = children ?? identifier ?? id ?? ''
+
   if (!to) {
     return <span className={cn(mono && 'mono', className)}>{label}</span>
   }
+
   return (
     <Link
       to={to}

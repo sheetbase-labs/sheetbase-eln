@@ -26,10 +26,12 @@ describe('resolveCitation', () => {
     const list = vi.fn(async (_r: string, _q: string) => [
       { id: 'r1', identifier: 'SMP-2231', kind: 'sample', title: 'Feed' },
     ])
+
     const cited = await resolveCitation({ list } as unknown as DataClient, {
       kind: 'sample',
       reference: 'SMP-2231',
     })
+
     expect(cited).toMatchObject({ id: 'r1', kind: 'sample' })
     expect(list.mock.calls[0]?.[1]).toContain('identifier=eq.SMP-2231')
     expect(citationLabel(cited!)).toBe('SMP-2231 · Feed')
@@ -39,10 +41,12 @@ describe('resolveCitation', () => {
     const list = vi.fn(async (_r: string, _q: string) => [
       { id: 'd1', display_id: 'DS-0311', name: 'ELISA' },
     ])
+
     const cited = await resolveCitation({ list } as unknown as DataClient, {
       kind: 'dataset',
       reference: '3f2b8f4e-1c2d-4e5f-8a9b-0c1d2e3f4a5b',
     })
+
     expect(cited?.identifier).toBe('DS-0311')
     expect(list.mock.calls[0]?.[1]).toContain('id=eq.')
   })

@@ -43,18 +43,22 @@ export function dueSummary(
   now = Date.now(),
 ): { text: string; tone: 'ok' | 'warn' | 'bad' | 'none' } {
   const days = daysUntil(dueAt, now)
+
   if (days === null)
     return { text: t('settings.sampleWorkflows.onSample.noDue'), tone: 'none' }
+
   if (days < 0)
     return {
       text: t('settings.sampleWorkflows.onSample.overdue', { count: -days }),
       tone: 'bad',
     }
+
   if (days === 0)
     return {
       text: t('settings.sampleWorkflows.onSample.dueToday'),
       tone: 'warn',
     }
+
   return {
     text: t('settings.sampleWorkflows.onSample.dueIn', { count: days }),
     tone: days <= 2 ? 'warn' : 'ok',
@@ -80,21 +84,26 @@ export function SampleWorkflowPanel({
 }) {
   const queryClient = useQueryClient()
   const [choice, setChoice] = useState('')
+
   const runs = useQuery({
     queryKey: ['sample-workflow-runs', sampleId],
     queryFn: () => fetchSampleRuns(client, sampleId),
   })
+
   const events = useQuery({
     queryKey: ['sample-workflow-events', sampleId],
     queryFn: () => fetchSampleWorkflowEvents(client, sampleId),
   })
+
   const open = (runs.data ?? []).filter((run) => !run.completedAt)
   const done = (runs.data ?? []).filter((run) => run.completedAt)
+
   const startable = useQuery({
     queryKey: ['sample-workflows-startable', sampleType],
     queryFn: () => fetchStartableWorkflows(client, sampleType),
     enabled: canMove,
   })
+
   const refresh = async () => {
     await Promise.all([
       queryClient.invalidateQueries({
@@ -109,11 +118,13 @@ export function SampleWorkflowPanel({
       }),
     ])
   }
+
   const move = useMutation({
     mutationFn: (args: { run: WorkflowRun; to: string; name: string }) =>
       advanceRun(client, args.run.id, args.to),
     onSuccess: async (result, args) => {
       const failed = result.automation.filter((a) => a.outcome === 'failed')
+
       if (failed.length)
         toast.error(
           t('settings.sampleWorkflows.onSample.automationFailed', {
@@ -127,11 +138,13 @@ export function SampleWorkflowPanel({
     },
     onError: (error) => toast.error(errorMessage(error)),
   })
+
   const leave = useMutation({
     mutationFn: (run: WorkflowRun) => leaveRun(client, run.id),
     onSuccess: refresh,
     onError: (error) => toast.error(errorMessage(error)),
   })
+
   const start = useMutation({
     mutationFn: (workflowId: string) =>
       enrolSample(client, sampleId, workflowId),
@@ -144,9 +157,11 @@ export function SampleWorkflowPanel({
 
   if (runs.isLoading)
     return <Muted>{t('settings.sampleWorkflows.loading')}</Muted>
+
   const options = (startable.data ?? []).filter(
     (w) => !open.some((run) => run.workflowId === w.id),
   )
+
   if (
     open.length === 0 &&
     done.length === 0 &&
@@ -159,6 +174,7 @@ export function SampleWorkflowPanel({
     <div className="flex flex-col gap-3">
       {open.map((run) => {
         const due = dueSummary(run.dueAt)
+
         return (
           <div key={run.id} className="flex flex-col gap-1.5">
             <span className="text-label text-fg-muted">{run.workflowName}</span>
@@ -257,6 +273,7 @@ function WorkflowHistory({ events }: { events: WorkflowEvent[] }) {
             const failed = event.automation.filter(
               (a) => a.outcome === 'failed',
             )
+
             return (
               <TableRow key={event.id}>
                 <TableCell>

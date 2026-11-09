@@ -65,6 +65,7 @@ const client = screenQueryClient({
     { key: measurementTableKeys.inherited('tbl-2'), value: [] },
   ],
 })
+
 const emptyClient = screenQueryClient({
   data: [
     { key: modelTypeQueryKeys.all, value: modelTypes },
@@ -101,7 +102,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const noop = () => {}

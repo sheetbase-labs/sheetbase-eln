@@ -31,7 +31,9 @@ const LABEL = {
 const meta = {
   title: 'Samples/Label print',
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /**

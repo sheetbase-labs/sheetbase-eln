@@ -16,6 +16,7 @@ vi.mock('#/components/pipelines/pipelines-data', async (original) => ({
   ...(await original<Record<string, unknown>>()),
   usePipelineRows: () => ({ data: mocks.rows }),
 }))
+
 vi.mock('#/components/pipelines/use-run-launcher', () => ({
   useRunLauncher: () => ({
     launch: mocks.launch,
@@ -40,6 +41,7 @@ function row(
     lifecycle,
     configuration: { inputs },
   }
+
   return {
     id: key,
     key,
@@ -55,6 +57,7 @@ describe('pipelinesThatReadADataset', () => {
       row('no-input', 'published', []),
       row('draft', 'draft', [{ name: 'raw', required: true }]),
     ]
+
     expect(pipelinesThatReadADataset(rows).map((r) => r.key)).toEqual(['reads'])
   })
 })

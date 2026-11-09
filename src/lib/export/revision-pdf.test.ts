@@ -60,6 +60,7 @@ describe('revisionPackageToDocument', () => {
       signatures: [],
       revision: { ...pkg.revision, integrityDigest: null },
     })
+
     expect(doc.approvedByName).toBeNull()
     expect(doc.verificationCode).toBeNull()
     expect(doc.signatures).toEqual([])

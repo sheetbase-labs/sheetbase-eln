@@ -75,6 +75,7 @@ function FixtureScreen({
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'updatedAt', desc: true },
   ])
+
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
 
   return (
@@ -98,7 +99,9 @@ const meta = {
   component: FixtureScreen,
   tags: ['autodocs'],
 } satisfies Meta<typeof FixtureScreen>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

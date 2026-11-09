@@ -40,11 +40,13 @@ const qualifications = vi.hoisted(() => ({
 
 const requests = vi.hoisted(() => ({ current: [] as unknown[] }))
 const calibrations = vi.hoisted(() => ({ current: [] as unknown[] }))
+
 const intake = vi.hoisted(() => ({
   method: 'none',
   parsers: [] as unknown[],
   lastImport: null as null | { status: string; createdAt: string },
 }))
+
 const search = vi.hoisted(() => ({ current: {} }))
 const feeds = vi.hoisted(() => ({ current: [] as unknown[] }))
 
@@ -90,11 +92,13 @@ vi.mock('@tanstack/react-router', () => ({
     // action that dropped the instrument would render the same href as a link
     // that never carried it.
     const path = typeof to === 'string' ? to : '#'
+
     const query = new URLSearchParams(
       Object.entries(search ?? {})
         .filter(([, value]) => value != null)
         .map(([key, value]) => [key, String(value)]),
     ).toString()
+
     return <a href={query ? `${path}?${query}` : path}>{children}</a>
   },
 }))
@@ -158,6 +162,7 @@ function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <InstrumentPage />
@@ -177,20 +182,26 @@ beforeEach(() => {
   dataClient.list.mockImplementation(async (...args: unknown[]) => {
     if (String(args[0]) === 'projects')
       return [{ id: 'p-1', title: 'Process development' }]
+
     if (String(args[0]) === 'instrument_qualification_requests')
       return requests.current
+
     if (String(args[0]) === 'instrument_feeds') return feeds.current
+
     if (
       String(args[0]) === 'qc_series' ||
       String(args[0]) === 'instrument_run_documents'
     )
       return []
+
     return [{ user_id: 'u-2' }]
   })
   dataClient.rpc.mockImplementation((name: string) => {
     if (name === 'instrument_qualification_list')
       return Promise.resolve(qualifications.current)
+
     if (name === 'list_instrument_feed_series') return Promise.resolve([])
+
     return Promise.resolve({})
   })
 })
@@ -421,6 +432,7 @@ describe('asking to be qualified', () => {
     const button = await screen.findByRole('button', {
       name: 'Qualification requested',
     })
+
     expect((button as HTMLButtonElement).disabled).toBe(true)
   })
 })
@@ -500,6 +512,7 @@ describe('J-INS-10 overdue calibration and its certificate', () => {
 
   it('uploads the certificate and passes its file id to the calibration', async () => {
     const user = userEvent.setup()
+
     const fetchMock = vi.fn(async (url: string) =>
       String(url).includes('upload-authorize')
         ? new Response(
@@ -508,7 +521,9 @@ describe('J-INS-10 overdue calibration and its certificate', () => {
           )
         : new Response('{}', { status: 200 }),
     )
+
     vi.stubGlobal('fetch', fetchMock)
+
     try {
       search.current = { record: '1' }
       renderPage()
@@ -516,14 +531,17 @@ describe('J-INS-10 overdue calibration and its certificate', () => {
       const input = await screen.findByLabelText('Calibration certificate', {
         selector: 'input',
       })
+
       await user.upload(
         input,
         new File(['%PDF'], 'cert.pdf', { type: 'application/pdf' }),
       )
       await screen.findByText('Certificate: cert.pdf')
+
       const buttons = screen.getAllByRole('button', {
         name: 'Record calibration',
       })
+
       await user.click(buttons[buttons.length - 1])
 
       await waitFor(() =>

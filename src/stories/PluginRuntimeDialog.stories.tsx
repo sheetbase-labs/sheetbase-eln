@@ -45,7 +45,9 @@ const meta = {
     onClose: () => {},
   },
 } satisfies Meta<typeof PluginRuntimeDialog>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Packages installed, hosts approved, one limit changed from its default. */

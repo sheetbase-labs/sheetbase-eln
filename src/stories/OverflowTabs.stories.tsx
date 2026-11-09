@@ -14,6 +14,7 @@ const items = [
 
 function Demo({ width }: { width: number }) {
   const [value, setValue] = useState('properties')
+
   return (
     <div style={{ width }} className="border border-border bg-surface">
       <TabsRoot value={value} onValueChange={(next) => setValue(String(next))}>
@@ -36,7 +37,9 @@ const meta = {
   tags: ['autodocs'],
   args: { items, value: 'properties', onValueChange: () => {} },
 } satisfies Meta<typeof OverflowTabs>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Wide: Story = { render: () => <Demo width={520} /> }

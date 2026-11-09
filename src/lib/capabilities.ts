@@ -34,6 +34,7 @@
 export const capabilityKeys = [] as const
 
 export type CapabilityKey = (typeof capabilityKeys)[number]
+
 export type Capabilities = Record<CapabilityKey, boolean>
 
 /** The all-off baseline: what the UI shows when nothing is enabled. */
@@ -52,6 +53,7 @@ export function capabilitiesFromEnv(
     .split(',')
     .map((entry) => entry.trim())
     .filter(Boolean)
+
   return Object.fromEntries(
     capabilityKeys.map((key) => [key, enabled.includes(key)]),
   )

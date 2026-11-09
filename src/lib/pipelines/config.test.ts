@@ -48,6 +48,7 @@ describe('validatePipelineConfig', () => {
       ...validConfig(),
       configVersion: 2,
     })
+
     expect(errors.some((e) => e.code === 'unsupported_config_version')).toBe(
       true,
     )
@@ -142,6 +143,7 @@ describe('validatePipelineRunRequest', () => {
       { factor: 1, bogus: 'x' },
       { measurements: '22222222-2222-4222-8222-222222222222' },
     )
+
     expect(errors.some((e) => e.message.includes('unknown parameter'))).toBe(
       true,
     )
@@ -153,6 +155,7 @@ describe('validatePipelineRunRequest', () => {
       {},
       { measurements: '22222222-2222-4222-8222-222222222222' },
     )
+
     expect(
       errors.some((e) => e.message.includes('missing required parameter')),
     ).toBe(true)
@@ -164,6 +167,7 @@ describe('validatePipelineRunRequest', () => {
       { factor: 'not-a-number' },
       { measurements: '22222222-2222-4222-8222-222222222222' },
     )
+
     expect(errors.some((e) => e.message.includes('does not match'))).toBe(true)
   })
 
@@ -181,6 +185,7 @@ describe('validatePipelineRunRequest', () => {
         bogus: '22222222-2222-4222-8222-222222222222',
       },
     )
+
     expect(errors.some((e) => e.message.includes('unknown input'))).toBe(true)
   })
 })
@@ -243,6 +248,7 @@ describe('Plugin steps in the chain', () => {
     statement: '',
     plugin: { operation: 'plugin.plate-tools.join', arguments: args },
   })
+
   it('accepts a plugin step that reads the result so far, an input and a setting', () => {
     const config = validConfig()
     config.steps = [
@@ -362,6 +368,7 @@ describe('Confirm steps (PIPE-02)', () => {
         statement: 'SELECT batch FROM measurements',
       },
     ]
+
     return config
   }
 
@@ -425,6 +432,7 @@ describe('Confirm steps (PIPE-02)', () => {
       ],
       askedUserIds: ['chemist-a'],
     }
+
     expect(validateConfirmAnswer(confirm, { decision: 'stop' })).toBeNull()
     expect(validateConfirmAnswer(confirm, { decision: 'skip' })).toBeNull()
     expect(
@@ -451,6 +459,7 @@ describe('Confirm steps (PIPE-02)', () => {
 
 describe('Python requirements and contracts', () => {
   const RUNTIME = `registry.example/py@sha256:${'c'.repeat(64)}`
+
   function pythonConfig(extra: Record<string, unknown> = {}): PipelineConfig {
     return {
       ...validConfig(),
@@ -482,6 +491,7 @@ describe('Python requirements and contracts', () => {
     const errors = validatePipelineConfig(
       pythonConfig({ pythonRequirements: ['scipy>=1'] }),
     )
+
     expect(errors).toMatchObject([{ field: 'pythonRequirements' }])
   })
 
@@ -490,6 +500,7 @@ describe('Python requirements and contracts', () => {
       ...validConfig(),
       pythonRequirements: ['scipy==1.15.3'],
     })
+
     expect(errors.map((e) => e.field)).toEqual(['pythonRequirements'])
   })
 
@@ -502,7 +513,9 @@ describe('Python requirements and contracts', () => {
         contract: { output: { columns: [] } },
       },
     })
+
     expect(sql).toMatchObject([{ field: 'transform.contract' }])
+
     const steps = validatePipelineConfig(
       pythonConfig({
         steps: [
@@ -521,6 +534,7 @@ describe('Python requirements and contracts', () => {
         ],
       }),
     )
+
     expect(steps.map((e) => e.field)).toEqual([
       'steps[0].contract',
       'steps[1].contract',

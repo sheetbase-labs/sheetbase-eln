@@ -71,7 +71,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof FileColumnsStep>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Names, types and units read from the file, ready to fix. */

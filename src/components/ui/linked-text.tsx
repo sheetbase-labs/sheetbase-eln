@@ -3,7 +3,9 @@ import { splitRefs, useRecordRef } from '#/lib/record-refs'
 
 function Ref({ identifier }: { identifier: string }) {
   const kind = useRecordRef(identifier)
+
   if (!kind) return <>{identifier}</>
+
   return <ObjectLink kind={kind} identifier={identifier} />
 }
 

@@ -29,6 +29,7 @@ describe('diffRevisionEnvelopes', () => {
       rowKeys: ['day0', 'day28'],
       rows: [[100], [79.125]],
     }
+
     for (const [before, after] of [
       [historical, current],
       [current, historical],
@@ -350,6 +351,7 @@ describe('diffRevisionEnvelopes', () => {
         { text: 'Inspect plate', checked: true },
       ],
     }
+
     const checklist = diffRevisionEnvelopes(
       revisionFixture(),
       after,
@@ -374,9 +376,11 @@ describe('diffRevisionEnvelopes', () => {
   it('reports a column reorder as a move without a duplicate modification', () => {
     const before = revisionFixture()
     const after = revisionFixture()
+
     const columns = after.scientificTables[0].columns as Array<
       Record<string, unknown>
     >
+
     columns[0].display_order = 1
     columns[1].display_order = 0
     after.scientificTables[0].columns = [columns[1], columns[0]]
@@ -384,6 +388,7 @@ describe('diffRevisionEnvelopes', () => {
     const columnChanges = diffRevisionEnvelopes(before, after).changes.filter(
       (change) => change.columnId,
     )
+
     expect(columnChanges).toHaveLength(1)
     expect(columnChanges[0]).toMatchObject({ kind: 'moved' })
   })
@@ -410,6 +415,7 @@ describe('diffRevisionEnvelopes', () => {
       revisionFixture(),
       changedRevisionFixture(),
     )
+
     expect(diff.changes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -428,7 +434,9 @@ describe('diffRevisionEnvelopes', () => {
       revisionFixture(),
       changedRevisionFixture(),
     )
+
     const summary = diff.tableSummaries[0]
+
     const cell = summary.changes.find(
       (change) => change.identity === 'table-1:row-2:column-titer',
     )
@@ -454,6 +462,7 @@ describe('diffRevisionEnvelopes', () => {
       revisionFixture(),
       changedRevisionFixture(),
     )
+
     expect(diff.changes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -492,11 +501,14 @@ describe('diffRevisionEnvelopes', () => {
     const after = changedRevisionFixture()
     const tableBefore = before.scientificTables[0]
     const tableAfter = after.scientificTables[0]
+
     const toFieldName = (columns: unknown) =>
       (columns as Array<Record<string, unknown>>).map((column) => {
         const { api_name, ...rest } = column
+
         return { ...rest, field_name: api_name }
       })
+
     tableBefore.columns = toFieldName(tableBefore.columns)
     tableAfter.columns = toFieldName(tableAfter.columns)
     // Re-key the dynamic rows to match the renamed columns.
@@ -512,6 +524,7 @@ describe('diffRevisionEnvelopes', () => {
 
     const diff = diffRevisionEnvelopes(before, after)
     const summary = diff.tableSummaries[0]
+
     const cell = summary.changes.find(
       (change) => change.identity === 'table-1:row-2:column-titer',
     )

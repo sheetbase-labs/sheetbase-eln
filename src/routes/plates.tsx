@@ -14,9 +14,11 @@ export const Route = createFileRoute('/plates')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: PlatesRoute,
@@ -26,6 +28,7 @@ function PlatesRoute() {
   const { context } = Route.useRouteContext()
   const { run } = Route.useSearch()
   const navigate = Route.useNavigate()
+
   return (
     <PlatesPage
       canWrite={hasCapability(context.workspace?.role, 'record.create')}

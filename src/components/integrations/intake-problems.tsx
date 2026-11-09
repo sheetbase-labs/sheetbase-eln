@@ -65,6 +65,7 @@ function shortReason(code: string): string {
     code in SHORT_REASON
       ? SHORT_REASON[code as keyof typeof SHORT_REASON]
       : 'unreadable'
+
   return t(`data.intake.problems.short.${key}`)
 }
 
@@ -83,20 +84,25 @@ export function IntakeProblems({
   canManage: boolean
 }) {
   const scope = instrumentId ?? connectorId ?? 'all'
+
   const problems = useQuery({
     queryKey: intakeQueryKeys.problems(scope),
     queryFn: () => fetchIntakeProblems(client, { instrumentId, connectorId }),
     enabled: Boolean(workspaceId),
   })
+
   const [imported, setImported] = useState('')
   const [showAll, setShowAll] = useState(false)
 
   if (problems.isError) {
     return <Notice tone="warn">{t('data.intake.problems.loadFailed')}</Notice>
   }
+
   const rows = problems.data ?? []
   const shown = showAll ? rows : rows.slice(0, PREVIEW_ROWS)
+
   if (!rows.length && !imported) return null
+
   return (
     <Section title={t('data.intake.problems.title')} count={rows.length}>
       {rows.length ? (
@@ -173,16 +179,20 @@ function ProblemRow({
   const queryClient = useQueryClient()
   const [choosing, setChoosing] = useState(false)
   const [parserKey, setParserKey] = useState('')
+
   const parsers = useQuery({
     queryKey: parserSettingsQueryKeys.list(workspaceId),
     queryFn: () => fetchParserSettings(client, workspaceId),
     enabled: choosing,
   })
+
   const approved = (parsers.data ?? []).filter((parser) =>
     parser.parser_versions.some((version) => version.status === 'approved'),
   )
+
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: intakeQueryKeys.all })
+
   const retry = useMutation({
     mutationFn: (key: string | null) =>
       postIntake({ kind: 'retry', failureId: problem.id, parserKey: key }),
@@ -199,6 +209,7 @@ function ProblemRow({
     // The problem stays listed with its newest reason and attempt count.
     onSettled: () => refresh(),
   })
+
   const dismiss = useMutation({
     mutationFn: () => dismissIntakeProblem(client, problem.id),
     onSuccess: () => {
@@ -207,6 +218,7 @@ function ProblemRow({
       })
     },
   })
+
   const busy = retry.isPending || dismiss.isPending
   const error = retry.error ?? dismiss.error
 

@@ -13,5 +13,6 @@ export function devToolbarAvailable({
   enabled: boolean
 }): boolean {
   if (dev) return enabled
+
   return enabled && (role === 'owner' || role === 'admin')
 }

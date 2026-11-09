@@ -38,6 +38,7 @@ export async function fetchDatasetSheetOptions(
       p_dataset_id: datasetId,
     },
   )
+
   return options.sort((a, b) =>
     a.definitionName.localeCompare(b.definitionName),
   )
@@ -70,6 +71,7 @@ export async function openDatasetInSheet(
       'This definition cannot open the selected dataset with its required inputs.',
     )
   }
+
   const instance = await createSheetInstanceFromDefinition(
     {
       workspaceId: input.workspaceId,
@@ -88,5 +90,6 @@ export async function openDatasetInSheet(
     },
     client,
   )
+
   return resolveSheetInstanceRowIdentity(instance.id, instance.revision, client)
 }

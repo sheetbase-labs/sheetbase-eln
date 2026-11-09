@@ -21,6 +21,7 @@ export const fetchSampleDataStatusFn = createServerFn({ method: 'POST' })
     const { requireSettingsArea } = await import('#/lib/admin-platform')
     await requireSettingsArea(data.workspaceId, 'general')
     const { sampleDataStatus } = await import('#/lib/sample-data.server')
+
     return sampleDataStatus(data.workspaceId)
   })
 
@@ -28,11 +29,14 @@ export const addSampleDataFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string }) => input)
   .handler(async ({ data }): Promise<AddSampleDataResult> => {
     const { requireSettingsArea } = await import('#/lib/admin-platform')
+
     const { userId } = await requireSettingsArea(
       data.workspaceId,
       'general',
       'manage',
     )
+
     const { addSampleData } = await import('#/lib/sample-data.server')
+
     return addSampleData({ workspaceId: data.workspaceId, userId })
   })

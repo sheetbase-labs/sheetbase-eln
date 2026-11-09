@@ -28,6 +28,7 @@ describe('sampleResultsFromPayload', () => {
         { 'Turbidity unit': 'NTU' },
       ),
     )
+
     expect(results).toEqual([
       {
         sample: 'SMP-1',
@@ -51,6 +52,7 @@ describe('sampleResultsFromPayload', () => {
         ],
       ),
     )
+
     expect(one.checks).toEqual([
       { name: 'Viability', type: 'info', value: 96.1 },
       { name: 'QC', type: 'pass' },
@@ -68,6 +70,7 @@ describe('sampleResultsFromPayload', () => {
     const [row] = sampleResultsFromPayload(
       payload(['Sample', 'Colour', 'pH'], [['A', 'amber', '7.2']]),
     )
+
     expect(row.checks.map((c) => c.name)).toEqual(['pH'])
     expect(
       sampleResultsFromPayload(payload(['Well', 'OD'], [['A1', '0.2']])),
@@ -84,6 +87,7 @@ describe('sampleResultsFromPayload', () => {
         ],
       ),
     )
+
     expect(one.checks).toHaveLength(2)
   })
 })
@@ -93,16 +97,20 @@ describe('recordRunSampleResults', () => {
     const rpc = vi
       .fn()
       .mockResolvedValue({ linked: 1, checks: 1, unknown: ['X'] })
+
     const client = { rpc } as unknown as DataClient
+
     const results = Array.from({ length: 401 }, (_, i) => ({
       sample: `S-${i}`,
       checks: [],
     }))
+
     const outcome = await recordRunSampleResults(client, {
       workspaceId: 'w',
       runId: 'r',
       results,
     })
+
     expect(rpc).toHaveBeenCalledTimes(2)
     expect(rpc.mock.calls[0][1].p_results).toHaveLength(400)
     expect(outcome).toEqual({ linked: 2, checks: 2, unknown: ['X', 'X'] })

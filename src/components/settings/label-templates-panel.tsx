@@ -75,13 +75,16 @@ export function LabelTemplatesPanel({
 }) {
   const queryClient = useQueryClient()
   const pluginPoints = useExtensionPoints()
+
   const templates = useQuery({
     queryKey: labelTemplateKeys.all(workspaceId),
     queryFn: () => fetchLabelTemplates(client),
     enabled: Boolean(workspaceId),
   })
+
   // 'new' is the blank form; an id edits that template.
   const [editing, setEditing] = useState<string | 'new' | null>(null)
+
   const refresh = () => {
     void queryClient.invalidateQueries({
       queryKey: labelTemplateKeys.all(workspaceId),
@@ -99,6 +102,7 @@ export function LabelTemplatesPanel({
       </SettingsBody>
     )
   }
+
   if (!templates.data) {
     return (
       <SettingsBody>
@@ -106,17 +110,21 @@ export function LabelTemplatesPanel({
       </SettingsBody>
     )
   }
+
   const list = templates.data
+
   const pluginCodeTitles = new Map(
     pluginPoints.data['barcode-formats'].map((item) => [
       item.name,
       `${item.declaration.title} (${item.extensionName})`,
     ]),
   )
+
   const barcodeLabel = (type: string) =>
     type === 'qr' || type === 'code128'
       ? BARCODE_TYPE_LABELS[type]
       : (pluginCodeTitles.get(type) ?? type.split('.').at(-1) ?? type)
+
   const current =
     editing && editing !== 'new'
       ? (list.find((tpl) => tpl.id === editing) ?? null)
@@ -248,16 +256,21 @@ function TemplateForm({
   const [input, setInput] = useState<LabelTemplateInput>(() =>
     template ? inputFromTemplate(template) : EMPTY_LABEL_INPUT,
   )
+
   const set = (patch: Partial<LabelTemplateInput>) =>
     setInput({ ...input, ...patch })
+
   // Layouts and codes that installed plugins add. A template that already
   // names one keeps it in the list even if the plugin has since gone.
   const points = useExtensionPoints()
+
   const pluginLayouts = points.data['label-formats'].filter((item) =>
     item.declaration.kinds.includes(input.recordKind),
   )
+
   const pluginCodes = points.data['barcode-formats']
   const pluginCode = pluginCodes.find((item) => item.name === input.barcodeType)
+
   // Any record model can be labelled, so its kind is offered beside the
   // built-in ones; a template already saved for a kind keeps its own entry.
   const modelKinds = useQuery({
@@ -265,7 +278,9 @@ function TemplateForm({
     queryFn: () => fetchModelKinds(client),
     staleTime: 60_000,
   })
+
   const kindOptions: { key: string; label: string }[] = [...LABEL_RECORD_KINDS]
+
   for (const kind of modelKinds.data ?? []) {
     if (
       kind.identityTable === 'api.records' &&
@@ -273,12 +288,15 @@ function TemplateForm({
     )
       kindOptions.push({ key: kind.key, label: kind.label })
   }
+
   if (!kindOptions.some((option) => option.key === input.recordKind))
     kindOptions.push({ key: input.recordKind, label: input.recordKind })
   const problem = validateLabelInput(input)
+
   const dirty = template
     ? JSON.stringify(input) !== JSON.stringify(inputFromTemplate(template))
     : true
+
   const save = useMutation({
     mutationFn: () =>
       saveLabelTemplate(client, workspaceId, template?.id ?? null, input),
@@ -292,6 +310,7 @@ function TemplateForm({
     },
     onError: (error) => toast.error(errorMessage(error)),
   })
+
   const archive = useMutation({
     mutationFn: (archived: boolean) =>
       setLabelTemplateArchived(client, template!.id, archived),
@@ -309,9 +328,11 @@ function TemplateForm({
   const width = Number(input.widthMm)
   const height = Number(input.heightMm)
   const previewable = !validateLabelInput({ ...input, name: 'x' })
+
   const preset = LABEL_SIZE_PRESETS.find(
     (p) => p.widthMm === width && p.heightMm === height,
   )
+
   return (
     <div className="flex flex-col gap-4">
       <h2 className="m-0 text-section">
@@ -373,6 +394,7 @@ function TemplateForm({
               const next = LABEL_SIZE_PRESETS.find(
                 (p) => p.label === e.target.value,
               )
+
               if (next)
                 set({
                   widthMm: String(next.widthMm),

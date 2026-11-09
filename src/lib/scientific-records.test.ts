@@ -219,12 +219,14 @@ describe('validateProperties', () => {
       ['made_on', '21 July', /date/],
       ['run_at', 'not-a-time', /timestamp/],
     ]
+
     for (const [field, value, pattern] of cases) {
       const errors = validateProperties(
         'sample',
         { required_text: 'x', [field]: value },
         definitions,
       )
+
       const hit = errors.find((e) => e.field === field)
       expect(
         hit,
@@ -240,6 +242,7 @@ describe('validateProperties', () => {
       { required_text: 'x', state: 'unknown' },
       definitions,
     )
+
     expect(errors).toContainEqual({
       field: 'state',
       message: 'state must be one of: fresh, old.',
@@ -256,12 +259,14 @@ describe('validateProperties', () => {
       }),
       def({ fieldName: 'material_lot', logicalType: 'text', kind: 'material' }),
     ]
+
     // retired field is not validated; material field is not validated for sample.
     const errors = validateProperties(
       'sample',
       { required_text: 'x', legacy: 'preserved', material_lot: 9 },
       mixed,
     )
+
     expect(errors).toEqual([])
   })
 })
@@ -291,6 +296,7 @@ describe('status vocabularies and transition rules', () => {
       ['protocol_template', 'under_review', 'draft'],
       ['protocol_template', 'active', 'draft'],
     ]
+
     for (const [kind, from, to] of allowed) {
       expect(isAllowedTransition(kind, from, to)).toBe(true)
     }
@@ -359,6 +365,7 @@ describe('summariseProperties', () => {
       { mass: 1.5, note: 'cold' },
       definitions,
     )
+
     expect(entries.map((e) => e.fieldName)).toEqual(['note', 'mass'])
     const mass = entries.find((e) => e.fieldName === 'mass')!
     expect(mass.label).toBe('Mass')
@@ -373,6 +380,7 @@ describe('summariseProperties', () => {
       { note: 'cold', legacy: 7 },
       definitions,
     )
+
     const legacy = entries.find((e) => e.fieldName === 'legacy')!
     expect(legacy.orphaned).toBe(true)
     expect(legacy.value).toBe(7)
@@ -384,6 +392,7 @@ describe('summariseProperties', () => {
       { note: 'cold', mystery: 'x' },
       definitions,
     )
+
     const mystery = entries.find((e) => e.fieldName === 'mystery')!
     expect(mystery.orphaned).toBe(true)
     expect(mystery.label).toBe('mystery')
@@ -395,6 +404,7 @@ describe('summariseProperties', () => {
       { note: 'cold' },
       definitions,
     )
+
     expect(entries).toEqual([
       {
         fieldName: 'note',

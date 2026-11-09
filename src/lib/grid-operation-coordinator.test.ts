@@ -21,6 +21,7 @@ import type {
 
 vi.mock('#/lib/scientific-sheet-data', async (importOriginal) => {
   const original = await importOriginal<typeof ScientificSheetDataModule>()
+
   return {
     ...original,
     applyScientificRowChanges: vi.fn(),
@@ -30,6 +31,7 @@ vi.mock('#/lib/scientific-sheet-data', async (importOriginal) => {
 
 vi.mock('#/lib/data-client', async (importOriginal) => {
   const original = await importOriginal<typeof DataClientModule>()
+
   return { ...original, DataClientError: original.DataClientError }
 })
 
@@ -122,6 +124,7 @@ function setup(overrides: Partial<CoordinatorConfig> = {}) {
     onCalculationNeeded: vi.fn(),
     onRefetchRows: vi.fn(),
   }
+
   const config: CoordinatorConfig = {
     client: {} as CoordinatorConfig['client'],
     getCanonicalRows: () => rows,
@@ -131,6 +134,7 @@ function setup(overrides: Partial<CoordinatorConfig> = {}) {
     ...callbacks,
     ...overrides,
   }
+
   return {
     coordinator: new GridOperationCoordinator(config),
     callbacks,
@@ -359,6 +363,7 @@ describe('GridOperationCoordinator', () => {
       ['row-1/col-a', formula('row-1', 'col-a', 5)],
       ['row-1/col-b', formula('row-1', 'col-b', 8)],
     ])
+
     const { coordinator } = setup({ getFormulaByCell: () => formulas })
     coordinator.enqueue([
       cell(0, 'row-1', 'col-a', '=11'),

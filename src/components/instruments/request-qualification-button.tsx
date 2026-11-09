@@ -31,6 +31,7 @@ export function RequestQualificationButton({
 
   async function request() {
     setPending(true)
+
     try {
       await requestInstrumentQualification(notebookDataClient, { instrumentId })
       setSent(true)
@@ -74,6 +75,7 @@ export function RequestQualificationButton({
       </Button>
     )
   }
+
   return (
     <Button size={size} disabled={pending} onClick={() => void request()}>
       {pending

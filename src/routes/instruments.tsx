@@ -135,9 +135,11 @@ export const Route = createFileRoute('/instruments')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: InstrumentsRoute,
@@ -164,6 +166,7 @@ function InstrumentsRoute() {
   const isIndex = useRouterState({
     select: (state) => state.location.pathname === '/instruments',
   })
+
   return isIndex ? <InstrumentsList /> : <Outlet />
 }
 
@@ -185,6 +188,7 @@ export function calibrationState(
       tone: 'none',
     }
   const due = Date.parse(dueAt)
+
   if (Number.isNaN(due))
     return {
       state: 'na',
@@ -193,35 +197,41 @@ export function calibrationState(
     }
   const days = daysUntilDate(dueAt, now) ?? 0
   const day = formatInstrumentDay(dueAt)
+
   if (days < 0)
     return {
       state: 'overdue',
       label: t('library.instruments.list.dOverdue', { day, days: -days }),
       tone: 'bad',
     }
+
   if (days <= CALIBRATION_DUE_SOON_DAYS)
     return {
       state: 'soon',
       label: t('library.instruments.list.dueInD', { day, days }),
       tone: 'warn',
     }
+
   return { state: 'ok', label: day, tone: 'ok' }
 }
 
 function InstrumentsList() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+
   const dropNewFlag = useCallback(() => {
     void navigate({
       search: (current) => ({ ...current, new: undefined }),
       replace: true,
     })
   }, [navigate])
+
   const openInstrument = useOpenRow<InstrumentRow>(
     navigate,
     (row) => objectPath('instrument', row.id),
     (row) => row.name,
   )
+
   const { context } = Route.useRouteContext()
   const workspaceId = context.workspace?.id ?? ''
   const gateMode = useInstrumentGateMode(workspaceId)
@@ -231,6 +241,7 @@ function InstrumentsList() {
   const parserReadiness = useParserReadinessByInstrument()
   const rows = query.data ?? []
   const role = context.workspace?.role
+
   // Registering, retiring and setting up instruments follows the Instruments
   // row on the Roles page; the database checks the same rule.
   const canManageInstruments = canManageSettings(
@@ -245,6 +256,7 @@ function InstrumentsList() {
   // well, not "Waiting for first data". Until the parsers load, the list passes no
   // opinion and falls back to the import evidence.
   const readiness = parserReadiness.data
+
   const healthFor = (instrument: InstrumentRow) =>
     intakeHealth(instrument.intakeMethod, {
       parserReady: parserReadiness.isSuccess
@@ -252,6 +264,7 @@ function InstrumentsList() {
         : undefined,
       lastImport: lastImports.get(instrument.id) ?? null,
     })
+
   const calFor = (id: string) => calibrationState(latest.get(id)?.dueAt ?? null)
 
   const names = useUserNames(
@@ -268,6 +281,7 @@ function InstrumentsList() {
   // "All" is the in-service registry: retired instruments have their own tab, so the
   // count must be the rows the tab's list shows, not every row in the table.
   const inService = rows.filter((i) => !i.retiredAt)
+
   const counts = {
     all: inService.length,
     connected: rows.filter(
@@ -278,6 +292,7 @@ function InstrumentsList() {
     calibration: rows.filter((i) => {
       if (i.retiredAt) return false
       const c = calFor(i.id).state
+
       return c === 'overdue' || c === 'soon' || c === 'na'
     }).length,
     retired: rows.filter((i) => i.retiredAt).length,
@@ -285,6 +300,7 @@ function InstrumentsList() {
   }
 
   const q = (search.q ?? '').trim().toLowerCase()
+
   const visible = rows.filter((i) => {
     if (
       tab === 'connected' &&
@@ -292,27 +308,38 @@ function InstrumentsList() {
         (i.intakeMethod !== 'filedrop' && i.intakeMethod !== 'webhook'))
     )
       return false
+
     if (tab === 'calibration') {
       const c = calFor(i.id).state
+
       if (i.retiredAt || (c !== 'overdue' && c !== 'soon' && c !== 'na'))
         return false
     }
+
     if (tab === 'retired' && !i.retiredAt) return false
+
     if (tab === 'all' && i.retiredAt) return false
+
     if (search.type && i.instrumentType !== search.type) return false
+
     if (search.connection && i.intakeMethod !== search.connection) return false
+
     if (search.calibration && calFor(i.id).state !== search.calibration)
       return false
+
     if (q) {
       const hay =
         `${i.displayId ?? ''} ${i.name} ${i.instrumentType} ${i.model ?? ''} ${i.vendor ?? ''} ${i.serialNumber ?? ''} ${i.location ?? ''}`.toLowerCase()
+
       if (!hay.includes(q)) return false
     }
+
     return true
   })
 
   const sel =
     visible.find((i) => i.id === (search.selected ?? '')) ?? visible.at(0)
+
   const filtered = Boolean(
     search.q || search.type || search.connection || search.calibration,
   )
@@ -333,6 +360,7 @@ function InstrumentsList() {
     'instrument',
     'id',
   )
+
   const baseColumns = useMemo<RegistryColumn<InstrumentRow>[]>(
     () => [
       {
@@ -414,6 +442,7 @@ function InstrumentsList() {
         accessorFn: (i) => intakeMethodLabel(i.intakeMethod),
         cell: ({ row }) => {
           const health = healthFor(row.original)
+
           return (
             <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
               <Dot tone={health.tone} />
@@ -444,6 +473,7 @@ function InstrumentsList() {
         },
         cell: ({ row }) => {
           const c = calFor(row.original.id)
+
           return (
             <span
               // The date is in the tooltip; the cell keeps the part that matters
@@ -487,7 +517,9 @@ function InstrumentsList() {
       openInstrument,
     ],
   )
+
   const view = useListView('instruments')
+
   const columns = useMemo(
     () => withAddedColumns(baseColumns, addedColumns),
     [baseColumns, addedColumns],
@@ -681,6 +713,7 @@ function InstrumentsList() {
                     items={visible.map((i) => {
                       const c = calFor(i.id)
                       const health = healthFor(i)
+
                       return {
                         key: i.id,
                         id: i.displayId ?? i.id.slice(0, 8),
@@ -878,21 +911,28 @@ export function InstrumentInspector({
   const lastImport = useInstrumentLastImport(instrument.id)
   const booking = useInstrumentNextBooking(instrument.id)
   const parserRows = parsers.data ?? []
+
   const parserReady =
     parserRows.length > 0 && parserRows.some((parser) => parser.validated)
+
   const needsParser = intakeMethodNeedsParser(instrument.intakeMethod)
+
   const followUp = parserFollowUp(
     instrument.id,
     instrument.intakeMethod,
     parsers.data,
   )
+
   const health = intakeHealth(instrument.intakeMethod, {
     parserReady: parsers.isSuccess ? parserReady : undefined,
     lastImport: lastImport.data ?? null,
   })
+
   const deliveryProblem = intakeDeliveryProblem(health.label)
+
   const lastDataAt =
     lastImport.data?.status === 'committed' ? lastImport.data.createdAt : null
+
   const nextBooking = !booking.isSuccess
     ? '—'
     : !booking.data.bookable
@@ -900,6 +940,7 @@ export function InstrumentInspector({
       : booking.data.next
         ? `${booking.data.next.startsAt.slice(0, 16).replace('T', ' ')} · ${booking.data.next.title}`
         : 'None'
+
   const parserLabel = !needsParser
     ? t('library.instruments.list.notUsed')
     : parserRows.length
@@ -910,6 +951,7 @@ export function InstrumentInspector({
           )
           .join(', ')
       : t('library.instruments.list.noParserAttached')
+
   const retire = useMutation({
     mutationFn: (retired: boolean) =>
       setInstrumentRetired(instrument.id, retired),
@@ -931,6 +973,7 @@ export function InstrumentInspector({
     onError: () =>
       toast(t('library.instruments.list.couldNotChangeTheInstrument')),
   })
+
   const changeMethod = useMutation({
     mutationFn: (method: IntakeMethod) =>
       setInstrumentIntakeMethod(instrument.id, method),
@@ -944,6 +987,7 @@ export function InstrumentInspector({
     },
     onError: () => toast(t('library.instruments.list.couldNotChangeHowData')),
   })
+
   return (
     <Inspector
       aria-label={t('library.instruments.list.instrumentDetails')}
@@ -1185,12 +1229,14 @@ export function RegisterInstrument({
     onAutoOpened?.()
   }, [autoOpen, onAutoOpened])
   const [tried, setTried] = useState(false)
+
   // A refusal usually belongs to the form, not to one field: only a serial clash is
   // about the serial number, everything else (permission, workspace) shows at the top.
   const [serverError, setServerError] = useState<{
     field: 'serial' | null
     message: string
   } | null>(null)
+
   const empty = {
     name: '',
     type: 'qpcr',
@@ -1200,6 +1246,7 @@ export function RegisterInstrument({
     location: '',
     method: 'filedrop' as IntakeMethod,
   }
+
   const [f, setF] = useState(empty)
 
   const errors = {
@@ -1217,12 +1264,14 @@ export function RegisterInstrument({
       ? t('library.instruments.list.enterWhereItSitsE')
       : null,
   }
+
   const err = (k: keyof typeof errors) =>
     tried || (k === 'serial' && serverError?.field === 'serial')
       ? errors[k]
       : null
 
   const addedFields = useAddedFieldDraft('instrument')
+
   const create = useMutation({
     mutationFn: async () => {
       const row = await createInstrument({
@@ -1236,6 +1285,7 @@ export function RegisterInstrument({
         location: f.location.trim() || null,
         ownerId,
       })
+
       const typed = await saveNewObjectFields(
         notebookDataClient,
         INSTRUMENT_MODEL,
@@ -1243,6 +1293,7 @@ export function RegisterInstrument({
         addedFields.typeKey,
         addedFields.payload(),
       )
+
       return { ...row, displayId: typed.identifier ?? row.displayId }
     },
     onSuccess: (row) => {
@@ -1299,6 +1350,7 @@ export function RegisterInstrument({
       open={open}
       onOpenChange={(o) => {
         setOpen(o)
+
         if (!o) {
           setF(empty)
           setTried(false)
@@ -1430,6 +1482,7 @@ export function RegisterInstrument({
             disabled={create.isPending}
             onClick={() => {
               setTried(true)
+
               if (Object.values(errors).some(Boolean) || !addedFields.valid)
                 return
               create.mutate()

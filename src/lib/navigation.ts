@@ -115,6 +115,7 @@ export function isLinkableObjectKind(kind: string): kind is ObjectKind {
  */
 export function objectPath(kind: string, ref: string): string | null {
   const key = encodeURIComponent(ref)
+
   switch (OBJECT_KIND_ALIASES[kind] ?? kind) {
     case 'project':
       return `/projects/${key}`
@@ -184,6 +185,7 @@ export function searchResultDestination(
       const url = new URL(ownerScopedLink ?? '', base)
       const path = url.pathname.split('/')
       const frozen = path[1] === 'review'
+
       if (
         !ownerScopedLink?.startsWith('/') ||
         url.origin !== base ||
@@ -199,8 +201,10 @@ export function searchResultDestination(
         throw new Error(
           'Comment search requires a valid owner-scoped destination.',
         )
+
       return ownerScopedLink
     }
+
     case 'dataset':
       return datasetPath(recordId)
     case 'sheet':
@@ -247,21 +251,26 @@ export function objectContextBreadcrumbs(options: {
   owningRecord?: { id: string; title: string } | null
 }): NavigationBreadcrumb[] {
   const crumbs: NavigationBreadcrumb[] = []
+
   if (options.project || options.owningRecord) {
     crumbs.push({ label: 'Projects', to: '/projects' })
   }
+
   if (options.project) {
     crumbs.push({
       label: options.project.title,
       to: projectPath(options.project.id),
     })
   }
+
   if (options.owningRecord) {
     crumbs.push({
       label: options.owningRecord.title,
       to: recordPath(options.owningRecord.id),
     })
   }
+
   crumbs.push({ label: options.objectLabel })
+
   return crumbs
 }

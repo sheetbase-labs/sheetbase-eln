@@ -49,6 +49,7 @@ const baseInstance: SheetInstance = {
 
 function Harness({ value }: { value: SheetInstance }) {
   const [instance, setInstance] = useState(value)
+
   return (
     <CanonicalSheetLifecyclePanel
       instance={instance}
@@ -80,7 +81,9 @@ const meta = {
   ],
   args: { instance: baseInstance, onInstance: () => {} },
 } satisfies Meta<typeof CanonicalSheetLifecyclePanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A composed sheet: its lifecycle actions are available and confirmed. */

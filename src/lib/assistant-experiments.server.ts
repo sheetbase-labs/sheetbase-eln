@@ -109,10 +109,14 @@ function pick<T>(
   exact: (row: T) => boolean,
 ): Lookup<T> {
   const exacts = rows.filter(exact)
+
   if (exacts.length === 1) return { ok: true, value: exacts[0] }
+
   if (rows.length === 1) return { ok: true, value: rows[0] }
+
   if (rows.length === 0)
     return { ok: false, message: `No ${what} matches "${wanted}".` }
+
   return {
     ok: false,
     message: `More than one ${what} matches "${wanted}": ${rows
@@ -128,11 +132,14 @@ async function findRecord(
   kind?: string,
 ): Promise<Lookup<RecordRow>> {
   const like = likeValue(text)
+
   const rows = await client.list<RecordRow>(
     'records',
     `?deleted_at=is.null${kind ? `&kind=eq.${kind}` : ''}&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title,kind,status,created_by_user_id&order=updated_at.desc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -172,7 +179,9 @@ const STATUS_WORDS: Record<string, string> = {
   on_hold: 'On hold',
   completed: 'Completed',
 }
+
 const statusWord = (status: string) => STATUS_WORDS[status] ?? status
+
 const OUTCOME_WORDS: Record<string, string> = {
   supported: 'Supported',
   refuted: 'Refuted',
@@ -187,6 +196,7 @@ function parse<T extends z.ZodType>(
   args: unknown,
 ): { ok: true; data: z.infer<T> } | { ok: false; message: string } {
   const parsed = schema.safeParse(args)
+
   return parsed.success
     ? { ok: true, data: parsed.data }
     : { ok: false, message: invalid(parsed.error) }
@@ -198,19 +208,25 @@ export async function buildExperimentProposal(
   context: LabToolContext,
 ): Promise<ExperimentOutcome> {
   const client = context.client
+
   switch (name) {
     case EXPERIMENT_START_TOOL: {
       const input = parse(proposeExperimentStartSchema, args)
+
       if (!input.ok) return fail(input.message)
+
       const found = await findRecord(
         client,
         input.data.experiment,
         'experiment',
       )
+
       if (!found.ok) return fail(found.message)
       const row = found.value
+
       if (row.status !== 'draft')
         return fail(`${row.identifier} is already ${statusWord(row.status)}.`)
+
       return card(name, input.data, {
         target: label(row),
         deepLink: experimentLink(row.id),
@@ -228,18 +244,24 @@ export async function buildExperimentProposal(
         },
       })
     }
+
     case EXPERIMENT_STATUS_TOOL: {
       const input = parse(proposeExperimentStatusSchema, args)
+
       if (!input.ok) return fail(input.message)
+
       const found = await findRecord(
         client,
         input.data.experiment,
         'experiment',
       )
+
       if (!found.ok) return fail(found.message)
       const row = found.value
+
       if (row.status === input.data.status)
         return fail(`${row.identifier} is already ${statusWord(row.status)}.`)
+
       return card(name, input.data, {
         target: label(row),
         deepLink: experimentLink(row.id),
@@ -259,16 +281,21 @@ export async function buildExperimentProposal(
         },
       })
     }
+
     case EXPERIMENT_OUTCOME_TOOL: {
       const input = parse(proposeExperimentOutcomeSchema, args)
+
       if (!input.ok) return fail(input.message)
+
       const found = await findRecord(
         client,
         input.data.experiment,
         'experiment',
       )
+
       if (!found.ok) return fail(found.message)
       const row = found.value
+
       return card(name, input.data, {
         target: label(row),
         deepLink: experimentLink(row.id),
@@ -290,20 +317,26 @@ export async function buildExperimentProposal(
         },
       })
     }
+
     case EXPERIMENT_DELETE_DRAFT_TOOL: {
       const input = parse(proposeExperimentDeleteDraftSchema, args)
+
       if (!input.ok) return fail(input.message)
+
       const found = await findRecord(
         client,
         input.data.experiment,
         'experiment',
       )
+
       if (!found.ok) return fail(found.message)
       const row = found.value
+
       if (row.status !== 'draft')
         return fail(
           `${row.identifier} is ${statusWord(row.status)}, and only a draft can be deleted.`,
         )
+
       return card(name, input.data, {
         target: label(row),
         deepLink: experimentLink(row.id),
@@ -313,29 +346,38 @@ export async function buildExperimentProposal(
         action: { kind: 'experiments.delete_draft', recordId: row.id },
       })
     }
+
     case ALIAS_ADD_TOOL:
     case ALIAS_REMOVE_TOOL: {
       const adding = name === ALIAS_ADD_TOOL
+
       const input = parse(
         adding ? proposeAliasAddSchema : proposeAliasRemoveSchema,
         args,
       )
+
       if (!input.ok) return fail(input.message)
       const found = await findRecord(client, input.data.record)
+
       if (!found.ok) return fail(found.message)
       const row = found.value
       const alias = input.data.alias.trim()
+
       const existing = await client.list<{ alias: string }>(
         'record_aliases',
         `?record_id=eq.${row.id}&select=alias`,
       )
+
       const has = existing.some(
         (a) => a.alias.toLowerCase() === alias.toLowerCase(),
       )
+
       if (adding && has)
         return fail(`${row.identifier} is already known as ${alias}.`)
+
       if (!adding && !has)
         return fail(`${row.identifier} has no other name ${alias}.`)
+
       return card(name, input.data, {
         target: label(row),
         deepLink: recordPath(row.id),
@@ -353,10 +395,13 @@ export async function buildExperimentProposal(
         },
       })
     }
+
     case LABEL_TEMPLATE_ARCHIVE_TOOL: {
       const input = parse(proposeLabelTemplateArchiveSchema, args)
+
       if (!input.ok) return fail(input.message)
       const like = likeValue(input.data.template)
+
       const rows = await client.list<{
         id: string
         name: string
@@ -365,7 +410,9 @@ export async function buildExperimentProposal(
         'label_templates',
         `?name=ilike.${like}&select=id,name,archived_at&order=name.asc&limit=6`,
       )
+
       const lower = input.data.template.trim().toLowerCase()
+
       const found = pick(
         rows,
         input.data.template,
@@ -373,13 +420,16 @@ export async function buildExperimentProposal(
         (row) => row.name,
         (row) => row.name.toLowerCase() === lower,
       )
+
       if (!found.ok) return fail(found.message)
       const row = found.value
       const archived = row.archived_at !== null
+
       if (archived === input.data.archived)
         return fail(
           `${row.name} is already ${archived ? 'archived' : 'offered'}.`,
         )
+
       return card(name, input.data, {
         target: row.name,
         deepLink: '/settings/lab/storage',

@@ -45,6 +45,7 @@ const meta = {
   args: { parsers, selectedVersionId: 'version-4', onSelect: () => {} },
   render: function Render(args) {
     const [selected, setSelected] = useState(args.selectedVersionId)
+
     return (
       <ParserVersions
         {...args}
@@ -54,7 +55,10 @@ const meta = {
     )
   },
 } satisfies Meta<typeof ParserVersions>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 export const Populated: Story = {}
 export const Empty: Story = { args: { parsers: [] } }

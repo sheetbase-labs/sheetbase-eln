@@ -28,11 +28,14 @@ describe('API-02 canonical scopes', () => {
     const attestation = SCOPE_GROUPS.find((group) =>
       group.scopes.includes('reviews:write'),
     )
+
     expect(attestation?.effective).toBe(false)
     expect(attestation?.description).toMatch(/stay with people/)
+
     const preview = SCOPE_GROUPS.find((group) =>
       group.scopes.includes('reviews:read'),
     )
+
     expect(preview?.effective).toBe(true)
     expect(preview?.description).toMatch(/Can’t submit/)
   })
@@ -41,10 +44,13 @@ describe('API-02 canonical scopes', () => {
     const administration = SCOPE_GROUPS.find((group) =>
       group.scopes.includes('admin:read'),
     )
+
     expect(administration?.personalOnly).toBe(true)
+
     const serviceScopes = SERVICE_SCOPE_GROUPS.flatMap((group) => [
       ...group.scopes,
     ])
+
     expect(serviceScopes).not.toContain('admin:read')
     expect(serviceScopes).not.toContain('admin:write')
   })

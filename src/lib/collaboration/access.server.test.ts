@@ -34,6 +34,7 @@ function makeDeps(overrides: {
     'membershipRole' in overrides
       ? (overrides.membershipRole as string | null)
       : 'scientist'
+
   return {
     getSession: async () => ({
       user: { id: overrides.userId ?? 'user-1', name: 'Ada', email: 'a@x.io' },
@@ -59,6 +60,7 @@ describe('collaboration room access resolution', () => {
   it('authenticates through the Sheetbase session and grants scoped access', async () => {
     const result = await resolveRoomAccess(new Headers(), ROOM, makeDeps({}))
     expect(result.ok).toBe(true)
+
     if (result.ok) {
       expect(result.userId).toBe('user-1')
       expect(result.userInfo.name).toBe('Ada')
@@ -71,6 +73,7 @@ describe('collaboration room access resolution', () => {
     const deps = makeDeps({ objectLivesIn: WS })
     const result = await resolveRoomAccess(new Headers(), foreignRoom, deps)
     expect(result.ok).toBe(false)
+
     if (!result.ok) expect(result.code).toBe('forbidden')
   })
 
@@ -80,6 +83,7 @@ describe('collaboration room access resolution', () => {
       ROOM,
       makeDeps({ membershipRole: null }),
     )
+
     expect(noMember.ok).toBe(false)
 
     const suspended = await resolveRoomAccess(
@@ -87,7 +91,9 @@ describe('collaboration room access resolution', () => {
       ROOM,
       makeDeps({ suspended: true }),
     )
+
     expect(suspended.ok).toBe(false)
+
     if (!suspended.ok) expect(suspended.code).toBe('membership_suspended')
   })
 
@@ -97,7 +103,9 @@ describe('collaboration room access resolution', () => {
       ROOM,
       makeDeps({ membershipRole: 'viewer' }),
     )
+
     expect(result.ok).toBe(true)
+
     if (result.ok) {
       expect(result.permissions.permissions).toContain('room:read')
       expect(result.permissions.permissions).not.toContain('room:write')
@@ -110,7 +118,9 @@ describe('collaboration room access resolution', () => {
       ROOM,
       makeDeps({ workspaceStatus: 'archived' }),
     )
+
     expect(archived.ok).toBe(false)
+
     if (!archived.ok) expect(archived.code).toBe('forbidden')
 
     const missingObject = await resolveRoomAccess(
@@ -118,6 +128,7 @@ describe('collaboration room access resolution', () => {
       ROOM,
       makeDeps({ objectLivesIn: OTHER_WS }),
     )
+
     expect(missingObject.ok).toBe(false)
 
     // Soft-deleted records must never satisfy the grant.
@@ -126,7 +137,9 @@ describe('collaboration room access resolution', () => {
       ROOM,
       makeDeps({ objectState: 'denied' }),
     )
+
     expect(deleted.ok).toBe(false)
+
     if (!deleted.ok) expect(deleted.code).toBe('forbidden')
   })
 
@@ -137,7 +150,9 @@ describe('collaboration room access resolution', () => {
         ROOM,
         makeDeps({ membershipRole: 'scientist', objectState: state }),
       )
+
       expect(result.ok).toBe(true)
+
       if (result.ok) {
         expect(result.objectState).toBe('read_only')
         expect(result.permissions.permissions).toContain('room:read')
@@ -153,7 +168,9 @@ describe('collaboration room access resolution', () => {
       ROOM,
       makeDeps({ membershipRole: 'scientist', objectState: 'writable' }),
     )
+
     expect(result.ok).toBe(true)
+
     if (result.ok) {
       expect(result.objectState).toBe('writable')
       expect(result.permissions.permissions).toContain('room:write')
@@ -166,7 +183,9 @@ describe('collaboration room access resolution', () => {
       ROOM,
       makeDeps({ membershipRole: 'viewer', objectState: 'writable' }),
     )
+
     expect(result.ok).toBe(true)
+
     if (result.ok) {
       expect(result.permissions.permissions).toContain('room:read')
       expect(result.permissions.permissions).not.toContain('room:write')
@@ -176,11 +195,14 @@ describe('collaboration room access resolution', () => {
   it('rejects unauthenticated sessions and malformed rooms', async () => {
     const deps = makeDeps({})
     const anonHeaders = new Headers()
+
     const anon = await resolveRoomAccess(anonHeaders, ROOM, {
       ...deps,
       getSession: async () => null,
     })
+
     expect(anon.ok).toBe(false)
+
     if (!anon.ok) expect(anon.status).toBe(401)
 
     for (const room of [

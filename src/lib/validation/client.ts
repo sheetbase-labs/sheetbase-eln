@@ -34,22 +34,28 @@ export async function fetchValidationRuns(
 
 export async function startValidationRun(): Promise<ValidationRunRecord> {
   const res = await fetch('/api/validation/run', { method: 'POST' })
+
   if (!res.ok) throw new Error(await errorText(res))
+
   return (await res.json()) as ValidationRunRecord
 }
 
 export async function fetchValidationPack(): Promise<Blob> {
   const res = await fetch('/api/validation/pack')
+
   if (!res.ok) throw new Error(await errorText(res))
+
   return res.blob()
 }
 
 async function errorText(res: Response): Promise<string> {
   try {
     const body = (await res.json()) as { message?: string }
+
     if (body.message) return body.message
   } catch {
     // fall through
   }
+
   return `The request failed (${res.status}).`
 }

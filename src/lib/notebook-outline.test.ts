@@ -11,6 +11,7 @@ import {
 } from './notebook-outline'
 
 let seq = 0
+
 function richTextBlock(
   headings: Array<{ level: 2 | 3 }>,
   order: number,
@@ -23,13 +24,16 @@ function richTextBlock(
       { type: 'text', text: `${h.level === 2 ? 'H2' : 'H3'} ${h.level}` },
     ],
   }))
+
   for (let i = 0; i < trailingParagraphs; i += 1) {
     content.push({
       type: 'paragraph',
       content: [{ type: 'text', text: `p${i}` }],
     })
   }
+
   seq += 1
+
   return {
     id: `block-${seq}`,
     recordId: 'record-1',
@@ -43,6 +47,7 @@ function richTextBlock(
 
 function otherBlock(type: string, order: number): NotebookBlock {
   seq += 1
+
   return {
     id: `block-${seq}`,
     recordId: 'record-1',
@@ -61,6 +66,7 @@ describe('notebookOutline (NOTE-02)', () => {
       otherBlock('file', 2),
       richTextBlock([{ level: 3 }], 3),
     ]
+
     const outline = notebookOutline(blocks)
     expect(outline).toHaveLength(2)
     expect(outline[0].level).toBe(2)
@@ -180,11 +186,13 @@ describe('NOTE-02 same-block collapse (remediation)', () => {
 
   it('a heading followed by prose in one block collapses the prose only', () => {
     seq = 0
+
     const block = proseBlock('b1', 1, [
       heading(2, 'Methods'),
       paragraph('step one'),
       paragraph('step two'),
     ])
+
     const spans = notebookSectionSpans([block])
     const anchor = `section-b1-h0`
     // No later blocks are owned; the same-block range covers exactly the
@@ -208,12 +216,14 @@ describe('NOTE-02 same-block collapse (remediation)', () => {
 
   it('multiple sibling headings in one block are independently collapsible', () => {
     seq = 0
+
     const block = proseBlock('b1', 1, [
       heading(2, 'Intro'),
       paragraph('intro prose'),
       heading(2, 'Detail'),
       paragraph('detail prose'),
     ])
+
     const spans = notebookSectionSpans([block])
     // H2's same-block range ends at the next same-level heading.
     expect(spans.get(`section-b1-h0`)?.nodeRange).toEqual({
@@ -227,23 +237,27 @@ describe('NOTE-02 same-block collapse (remediation)', () => {
       from: 3,
       to: 4,
     })
+
     // Collapsing both yields the union; ranges are disjoint and never hide
     // a heading node.
     const both = collapsedSectionNodeIndexes(
       spans,
       new Set([`section-b1-h0`, `section-b1-h2`]),
     )
+
     expect(both.get('b1')).toEqual(new Set([1, 3]))
   })
 
   it('collapsing an H2 encompasses its nested H3 content in the same block', () => {
     seq = 0
+
     const block = proseBlock('b1', 1, [
       heading(2, 'Methods'),
       paragraph('methods prose'),
       heading(3, 'Detail'),
       paragraph('detail prose'),
     ])
+
     const spans = notebookSectionSpans([block])
     // H2's same-block range runs past the H3 to the end of the block, so
     // collapsing it hides the methods prose, the H3 heading node and the
@@ -260,12 +274,14 @@ describe('NOTE-02 same-block collapse (remediation)', () => {
 
   it('a nested H3 stays independently collapsible inside an H2 section', () => {
     seq = 0
+
     const block = proseBlock('b1', 1, [
       heading(2, 'Methods'),
       paragraph('methods prose'),
       heading(3, 'Detail'),
       paragraph('detail prose'),
     ])
+
     const spans = notebookSectionSpans([block])
     // H3's own range stops at the end of the block and covers only its own
     // prose — the H3 heading itself is never hidden by its own collapse.
@@ -277,17 +293,20 @@ describe('NOTE-02 same-block collapse (remediation)', () => {
     expect(
       collapsedSectionNodeIndexes(spans, new Set([`section-b1-h2`])),
     ).toEqual(new Map([['b1', new Set([3])]]))
+
     // Collapsing both H2 and H3 unions to the same hidden set as the H2
     // alone — the H3 collapse adds nothing extra but stays independent.
     const both = collapsedSectionNodeIndexes(
       spans,
       new Set([`section-b1-h0`, `section-b1-h2`]),
     )
+
     expect(both.get('b1')).toEqual(new Set([1, 2, 3]))
   })
 
   it('a nested H3 does not extend an H2 section across a later H2 boundary', () => {
     seq = 0
+
     const block = proseBlock('b1', 1, [
       heading(2, 'Methods'),
       paragraph('methods prose'),
@@ -296,6 +315,7 @@ describe('NOTE-02 same-block collapse (remediation)', () => {
       heading(2, 'Results'),
       paragraph('results prose'),
     ])
+
     const spans = notebookSectionSpans([block])
     // First H2's range ends at the next H2, hiding everything in between.
     expect(spans.get(`section-b1-h0`)?.nodeRange).toEqual({
@@ -320,10 +340,12 @@ describe('NOTE-02 same-block collapse (remediation)', () => {
 
   it('a section closed by a heading in a later block still owns the rest of its own block', () => {
     seq = 0
+
     const block = proseBlock('b1', 1, [
       heading(2, 'Methods'),
       paragraph('same-block prose'),
     ])
+
     const mid = proseBlock('b2', 2, [paragraph('whole-block body')])
     const next = proseBlock('b3', 3, [heading(2, 'Results')])
     const spans = notebookSectionSpans([block, mid, next])
@@ -348,6 +370,7 @@ describe('NOTE-02 same-block collapse (remediation)', () => {
 
   it('collapse unions across sections never overlap on the same block nodes', () => {
     seq = 0
+
     // Three sibling headings each followed by one prose node in one block.
     const block = proseBlock('b1', 1, [
       heading(2, 'A'),
@@ -357,11 +380,14 @@ describe('NOTE-02 same-block collapse (remediation)', () => {
       heading(2, 'C'),
       paragraph('c'),
     ])
+
     const spans = notebookSectionSpans([block])
+
     const hidden = collapsedSectionNodeIndexes(
       spans,
       new Set([`section-b1-h0`, `section-b1-h2`, `section-b1-h4`]),
     )
+
     expect(hidden.get('b1')).toEqual(new Set([1, 3, 5]))
   })
 })
@@ -385,6 +411,7 @@ describe('NOTE-02 review fixes', () => {
   it('a heading mid-block leaves the block in the prior section, but the boundary heading is not hidden by its own span', () => {
     seq = 0
     const h2a = richTextBlock([{ level: 2 }], 1)
+
     // Block with a paragraph then an H2: belongs to the prior section.
     const boundary = {
       ...richTextBlock([{ level: 2 }], 2),
@@ -402,6 +429,7 @@ describe('NOTE-02 review fixes', () => {
         },
       },
     } as NotebookBlock
+
     const tail = richTextBlock([], 3)
     const spans = notebookSectionSpans([h2a, boundary, tail])
     // Block-granular: the boundary block (lead paragraph + heading) belongs

@@ -19,11 +19,14 @@ const SEGMENT_TO_KEY = {
 /** Pull the open project, experiment, sample or Dataset out of a pathname. */
 export function createContextFromPath(pathname: string): CreateContext {
   const [segment, id] = pathname.split('/').filter(Boolean)
+
   const key = (
     SEGMENT_TO_KEY as Record<string, keyof CreateContext | undefined>
   )[segment]
+
   // `/experiments/new` and the like are routes, not records.
   if (!key || !id || id === 'new') return {}
+
   return { [key]: decodeURIComponent(id) }
 }
 
@@ -32,6 +35,7 @@ export function createContextFromPath(pathname: string): CreateContext {
 export function createMenuSearch(pathname: string) {
   const context = createContextFromPath(pathname)
   const returnTo = Object.keys(context).length > 0 ? pathname : undefined
+
   return {
     experiment: {
       project: context.project,

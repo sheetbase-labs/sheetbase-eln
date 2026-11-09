@@ -6,6 +6,7 @@ import { AuditTrail } from './audit-trail'
 import type { AuditEvent } from './audit-trail'
 
 afterEach(() => cleanup())
+
 beforeAll(() => {
   globalThis.ResizeObserver = class {
     observe() {}

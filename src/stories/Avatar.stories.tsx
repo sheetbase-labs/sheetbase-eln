@@ -16,6 +16,7 @@ const meta = {
 } satisfies Meta<typeof Avatar>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const PEOPLE = [

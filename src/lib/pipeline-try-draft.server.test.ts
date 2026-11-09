@@ -4,11 +4,14 @@ import { handlePipelineTryDraft } from './pipeline-run-requests.server'
 import type { PipelineRunRequestDeps } from './pipeline-run-requests.server'
 
 const trial = vi.hoisted(() => ({ run: vi.fn() }))
+
 vi.mock('./pipeline-execute.server', () => ({
   tryPipelineDraft: trial.run,
   validatePipelineResume: vi.fn(),
 }))
+
 vi.mock('#/env.server', () => ({ env: { DATABASE_URL: 'postgres://unused' } }))
+
 vi.mock('#/lib/auth', () => ({ getAppSession: vi.fn() }))
 
 const WS = '0e010000-0000-4000-8000-000000000101'
@@ -16,6 +19,7 @@ let userCounter = 0
 
 function deps(signedIn = true): PipelineRunRequestDeps {
   userCounter += 1
+
   return {
     getSession: async () =>
       signedIn ? { user: { id: `user-${userCounter}` } } : null,
@@ -58,6 +62,7 @@ describe('POST /api/pipelines/try-draft', () => {
   it('hands the configuration, inputs and parameters to the trial as the signed-in person', async () => {
     trial.run.mockResolvedValue({ ok: true })
     const configuration = { transform: { statement: 'select 1' } }
+
     const response = await handlePipelineTryDraft(
       post({
         workspaceId: WS,
@@ -67,6 +72,7 @@ describe('POST /api/pipelines/try-draft', () => {
       }),
       deps(),
     )
+
     expect(response.status).toBe(200)
     expect(response.headers.get('cache-control')).toBe('no-store')
     expect(trial.run).toHaveBeenCalledWith(
@@ -88,10 +94,12 @@ describe('POST /api/pipelines/try-draft', () => {
       errorMessage: 'No.',
       logs: [],
     })
+
     const response = await handlePipelineTryDraft(
       post({ workspaceId: WS, configuration: {} }),
       deps(),
     )
+
     expect(response.status).toBe(403)
   })
 
@@ -102,21 +110,26 @@ describe('POST /api/pipelines/try-draft', () => {
       errorMessage: 'Transform failed',
       logs: [],
     })
+
     const response = await handlePipelineTryDraft(
       post({ workspaceId: WS, configuration: {} }),
       deps(),
     )
+
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({ ok: false })
   })
 
   it('limits how often one person can try', async () => {
     trial.run.mockResolvedValue({ ok: true })
+
     const same: PipelineRunRequestDeps = {
       getSession: async () => ({ user: { id: 'busy-user' } }),
       connect: vi.fn(),
     }
+
     let last = 200
+
     for (let i = 0; i < 35; i += 1) {
       last = (
         await handlePipelineTryDraft(
@@ -125,6 +138,7 @@ describe('POST /api/pipelines/try-draft', () => {
         )
       ).status
     }
+
     expect(last).toBe(429)
   })
 })

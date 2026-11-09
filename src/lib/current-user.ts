@@ -82,6 +82,7 @@ export async function listAccessContacts(
         inArray(schema.workspaceMemberships.role, ['owner', 'admin']),
       ),
     )
+
   return rows
     .filter((row) => !row.suspendedAt)
     .map(({ name, email, role }) => ({ name, email, role }))
@@ -96,6 +97,7 @@ function displayPreferencesOf(preferences: unknown): {
     preferences && typeof preferences === 'object'
       ? (preferences as Record<string, unknown>)
       : {}
+
   return {
     clock: value.clock === '12h' ? '12h' : '24h',
     alwaysShowLayout: value.alwaysShowLayout === true,
@@ -107,6 +109,7 @@ export async function getCurrentContext(
   headers: Headers,
 ): Promise<CurrentContext | null> {
   const session = await getAppSession(headers)
+
   if (!session) return null
 
   const [preference, memberships] = await Promise.all([
@@ -125,7 +128,9 @@ export async function getCurrentContext(
     memberships,
     preference?.activeWorkspaceId,
   )
+
   const suspended = Boolean(membership?.suspendedAt)
+
   // These reads depend only on the chosen membership, so they share one
   // round trip. This runs on every page load (the root route's auth context).
   const [workspaceSettings, settingsAccessRows, accessContacts] =
@@ -158,6 +163,7 @@ export async function getCurrentContext(
         : undefined,
       membership && suspended ? listAccessContacts(membership.workspaceId) : [],
     ])
+
   const settingsAccess =
     membership && settingsAccessRows
       ? resolveSettingsAccess(membership.role, settingsAccessRows)
@@ -213,12 +219,17 @@ export async function resolveUserNames(
 ): Promise<Record<string, string>> {
   if (userIds.length === 0) return {}
   const uniqueIds = [...new Set(userIds)].filter(Boolean)
+
   if (uniqueIds.length === 0) return {}
+
   const rows = await db
     .select({ id: schema.user.id, name: schema.user.name })
     .from(schema.user)
     .where(inArray(schema.user.id, uniqueIds))
+
   const map: Record<string, string> = {}
+
   for (const r of rows) map[r.id] = r.name
+
   return map
 }

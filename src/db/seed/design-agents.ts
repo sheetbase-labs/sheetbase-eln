@@ -28,6 +28,7 @@ const AMBR = '00000000-0000-4000-8000-000000000322'
 const ASSISTANT = 'Sheetbase assistant, pinned 2026-08'
 
 type Mode = 'never' | 'allowed' | 'needs_approval' | 'needs_signature'
+
 interface Policy {
   read: Mode
   notebook_blocks: Mode
@@ -35,6 +36,7 @@ interface Policy {
   create_records: Mode
   messages: Mode
 }
+
 const policy = (overrides: Partial<Policy>): Policy => ({
   read: 'allowed',
   notebook_blocks: 'never',
@@ -581,9 +583,11 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
   const { rows: existing } = await db.execute(
     sql`select 1 from api.agent_definitions where workspace_id = ${PROCESS} and display_id = 'AG-0003' limit 1`,
   )
+
   if (existing.length > 0) return
 
   const definitionIds = new Map<string, string>()
+
   for (const d of DEFINITIONS) {
     const { rows } = await db.execute(sql`
       insert into api.agent_definitions
@@ -594,6 +598,7 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
               ${d.owner}, ${d.model}, ${sql.raw(`ARRAY[${d.reads.map((r) => `'${r.replace(/'/g, "''")}'`).join(',')}]::text[]`)},
               ${d.proposes}, ${d.enabled}, ${JSON.stringify(d.policy)}::jsonb)
       returning id`)
+
     definitionIds.set(d.id, (rows as Array<{ id: string }>)[0].id)
   }
 
@@ -610,16 +615,20 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
       from generate_series(371, 412) n`)
 
   const runIds = new Map<string, string>()
+
   const { rows: flagged } = await db.execute(
     sql`select id from api.agent_runs where definition_id = ${rangeChecker} and run_number = 412`,
   )
+
   runIds.set('AG-0001#412', (flagged as Array<{ id: string }>)[0].id)
+
   for (const [agent, runs] of Object.entries(RUNS)) {
     for (const [number, outcome, summary, detail, at] of runs) {
       const { rows } = await db.execute(sql`
         insert into api.agent_runs (workspace_id, definition_id, run_number, outcome, summary, detail, started_at)
         values (${PROCESS}, ${definitionIds.get(agent)!}, ${number}, ${outcome}, ${summary}, ${detail}, ${at}::timestamptz)
         returning id`)
+
       runIds.set(`${agent}#${number}`, (rows as Array<{ id: string }>)[0].id)
     }
   }
@@ -635,12 +644,14 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
   const { rows: credentials } = await db.execute(
     sql`select id from internal.api_credentials where workspace_id = ${PROCESS} and name = 'Seed agent credential' limit 1`,
   )
+
   const credentialId = (credentials as Array<{ id: string }>)[0]?.id ?? null
 
   const recordId = async (identifier: string) => {
     const { rows } = await db.execute(
       sql`select id, structure_version from api.records where workspace_id = ${PROCESS} and identifier = ${identifier} limit 1`,
     )
+
     return (
       (rows as Array<{ id: string; structure_version: number }>).at(0) ?? null
     )
@@ -664,6 +675,7 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
     // A notebook block the person can really approve and execute.
     if (p.kind === 'notebook_block.insert') {
       const record = await recordId(p.subject)
+
       if (record) {
         proposalId = await withDesignClaims(
           db,
@@ -699,6 +711,7 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
                       },
                     },
                   }
+
             try {
               const { rows } = await client.query<{ id: string }>(
                 'select id from api.propose_agent_operation($1,$2,$3,$4::jsonb,$5::jsonb,$6)',
@@ -717,6 +730,7 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
                   `seed-agent-${p.display}`,
                 ],
               )
+
               return rows[0]?.id ?? null
             } catch {
               return null
@@ -727,6 +741,7 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
     }
 
     const approved = p.state === 'approved'
+
     const status =
       p.state === 'mine' || p.state === 'waiting'
         ? 'pending'
@@ -735,17 +750,20 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
           : p.state === 'rejected'
             ? 'rejected'
             : 'failed'
+
     const evidence = {
       evidence: p.evidence,
       confidence: p.confidence ?? null,
       risk: p.risk,
       approverRole: p.approverRole,
     }
+
     const target = {
       identifier: p.subject,
       label: p.target,
       context: p.context,
     }
+
     const summaryChange = { rendered: p.rendered }
 
     if (proposalId) {
@@ -764,6 +782,7 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
     }
 
     const operation = { kind: p.kind, seeded: true }
+
     const preview = {
       formatVersion: 1,
       kind: p.kind,
@@ -771,6 +790,7 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
       changes: [],
       ...summaryChange,
     }
+
     const impact = {
       formatVersion: 1,
       mutationClass: 'content',
@@ -779,6 +799,7 @@ export async function seedDesignAgentRegistry(db: Db): Promise<void> {
       affectedRows: p.display === 'PR-0409' ? 24 : 1,
       destructive: false,
     }
+
     await db.execute(sql`
       insert into api.agent_operation_proposals
         (workspace_id, title, summary, operation_kind, operation, preview, impact,

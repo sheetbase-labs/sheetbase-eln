@@ -11,6 +11,7 @@ import type { Scope } from '#/lib/api-credential-scopes'
 import { emitCredentialAuditEvent } from '#/lib/credential-audit'
 
 export { SCOPE_GROUPS, VALID_SCOPES } from '#/lib/api-credential-scopes'
+
 export type { Scope } from '#/lib/api-credential-scopes'
 
 export const personalTokenQueryKey = (userId: string, workspaceId: string) =>
@@ -70,7 +71,9 @@ async function loadSession(workspaceId: string) {
   const credentials = await import('#/lib/api-credentials')
 
   const context = await getCurrentContext(getRequestHeaders())
+
   if (!context) throw new Error('You must be signed in.')
+
   if (!context.workspace || context.workspace.id !== workspaceId) {
     throw new Error('You do not have access to this workspace.')
   }
@@ -80,6 +83,7 @@ async function loadSession(workspaceId: string) {
     context.user.id,
     workspaceId,
   )
+
   if (!isMember) {
     throw new Error('You do not have access to this workspace.')
   }
@@ -92,10 +96,12 @@ export const listPersonalTokensFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const { db, credentials, context } = await loadSession(data.workspaceId)
     const rows = await credentials.listCredentials(db, data.workspaceId)
+
     const mine = rows.filter(
       (row) =>
         row.kind === 'personal' && row.createdByUserId === context.user.id,
     )
+
     return mine.map(toWire)
   })
 
@@ -110,6 +116,7 @@ export const createPersonalTokenFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }): Promise<CreatedPersonalTokenWire> => {
     const { db, credentials, context } = await loadSession(data.workspaceId)
+
     // The mutation and its activity event commit together: a token must
     // never exist without its audit trail.
     const created = await db.transaction(async (tx) => {
@@ -121,6 +128,7 @@ export const createPersonalTokenFn = createServerFn({ method: 'POST' })
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null,
         kind: 'personal',
       })
+
       await emitCredentialAuditEvent(tx, {
         actorUserId: context.user.id,
         workspaceId: data.workspaceId,
@@ -132,8 +140,10 @@ export const createPersonalTokenFn = createServerFn({ method: 'POST' })
           kind: minted.kind,
         },
       })
+
       return minted
     })
+
     return {
       id: created.id,
       secret: created.secret,
@@ -148,12 +158,14 @@ export const revokePersonalTokenFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     const { db, credentials, context } = await loadSession(data.workspaceId)
     const mine = await credentials.listCredentials(db, data.workspaceId)
+
     const target = mine.find(
       (row) =>
         row.id === data.tokenId &&
         row.kind === 'personal' &&
         row.createdByUserId === context.user.id,
     )
+
     if (!target) throw new Error('Token not found.')
     await db.transaction(async (tx) => {
       await credentials.revokeCredential(tx, {
@@ -168,6 +180,7 @@ export const revokePersonalTokenFn = createServerFn({ method: 'POST' })
         payload: {},
       })
     })
+
     return { ok: true as const }
   })
 
@@ -176,19 +189,23 @@ export const rotatePersonalTokenFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<CreatedPersonalTokenWire> => {
     const { db, credentials, context } = await loadSession(data.workspaceId)
     const mine = await credentials.listCredentials(db, data.workspaceId)
+
     const target = mine.find(
       (row) =>
         row.id === data.tokenId &&
         row.kind === 'personal' &&
         row.createdByUserId === context.user.id,
     )
+
     if (!target) throw new Error('Token not found.')
+
     const created = await db.transaction(async (tx) => {
       const rotated = await credentials.rotateCredential(tx, {
         workspaceId: data.workspaceId,
         credentialId: target.id,
         createdByUserId: context.user.id,
       })
+
       await emitCredentialAuditEvent(tx, {
         actorUserId: context.user.id,
         workspaceId: data.workspaceId,
@@ -210,8 +227,10 @@ export const rotatePersonalTokenFn = createServerFn({ method: 'POST' })
           rotatedFromCredentialId: target.id,
         },
       })
+
       return rotated
     })
+
     return {
       id: created.id,
       secret: created.secret,

@@ -46,7 +46,9 @@ const meta = {
   ],
   args: { items },
 } satisfies Meta<typeof FileList>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

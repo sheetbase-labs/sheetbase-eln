@@ -47,7 +47,9 @@ const meta = {
   ],
   args: { payload: { items } },
 } satisfies Meta<typeof CorrectiveActionsPreview>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Complete, in progress and open actions in one block. */

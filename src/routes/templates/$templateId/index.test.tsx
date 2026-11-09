@@ -38,20 +38,24 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 const sonner = vi.hoisted(() => ({ toast: vi.fn(), error: vi.fn() }))
+
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(sonner.toast, { error: sonner.error }),
 }))
 
 const client = vi.hoisted(() => {
   const noRows: unknown[] = []
+
   return {
     list: vi.fn(async (_resource: string, _query?: string) => noRows),
     count: vi.fn(async () => 0),
     rpc: vi.fn(async (_name: string, _args?: unknown) => ({})),
   }
 })
+
 vi.mock('#/lib/notebook-template-data', async (importOriginal) => {
   const actual = await importOriginal<typeof NotebookTemplateData>()
+
   return {
     ...actual,
     notebookTemplateDataClient: client,
@@ -67,6 +71,7 @@ vi.mock('#/lib/notebook-template-data', async (importOriginal) => {
         p_expected_template_revision: expectedTemplateRevision,
         p_configuration: configuration,
       })
+
       return actual.notebookTemplateVersionFromWire(row)
     },
   }
@@ -131,16 +136,20 @@ function versionWire(overrides: Record<string, unknown> = {}) {
 function withVersions(versions: unknown[]) {
   client.list.mockImplementation(async (resource: string) => {
     if (resource === 'notebook_template_versions') return versions
+
     if (resource === 'notebook_templates') return [templateWire()]
+
     return []
   })
 }
 
 function renderRoute() {
   const Component = Route.options.component as React.ComponentType
+
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={queryClient}>
       <Component />
@@ -150,6 +159,7 @@ function renderRoute() {
 
 function sectionRows() {
   const table = screen.getByRole('table', { name: 'Template sections' })
+
   return within(table).getAllByRole('row')
 }
 

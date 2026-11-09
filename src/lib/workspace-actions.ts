@@ -48,8 +48,10 @@ export function editingPaneFor(
   pane: WorkspacePane,
 ): { identifier?: string; sameRecord: boolean } | undefined {
   const primary = paneOf(tab, tab.primaryId)
+
   if (!primary || primary.id === pane.id) return undefined
   const path = (href: string) => href.split(/[?#]/)[0]
+
   return {
     identifier: primary.identifier,
     sameRecord: path(primary.href) === path(pane.href),
@@ -83,7 +85,9 @@ export function focusPane(
   paneId: string,
 ): WorkspaceState {
   const tab = activeTab(state)
+
   if (tab.activeId === paneId || !hasPane(tab.tree, paneId)) return state
+
   return updateTab(state, tab.id, (current) => ({
     ...current,
     activeId: paneId,
@@ -131,8 +135,10 @@ export interface OpenResult {
  */
 export function sameDestination(paneHref: string, requested: string): boolean {
   if (paneHref === requested) return true
+
   if (!/^\/[^/?#]+\/[^/?#]+$/.test(requested)) return false
   const path = paneHref.split(/[?#]/)[0] ?? ''
+
   return path.startsWith(`${requested}/`)
 }
 
@@ -141,10 +147,12 @@ export function openBeside(
   request: OpenRequest,
 ): OpenResult {
   const tab = activeTab(state)
+
   if (!request.duplicate) {
     const existing = tab.panes.find((pane) =>
       sameDestination(pane.href, request.href),
     )
+
     if (existing) {
       return {
         state: focusPane(state, existing.id),
@@ -153,18 +161,23 @@ export function openBeside(
       }
     }
   }
+
   const targetId =
     request.targetId && hasPane(tab.tree, request.targetId)
       ? request.targetId
       : tab.activeId
+
   const source = paneOf(tab, targetId)
   const base = newPane(request.href, request.newId)
+
   const pane: WorkspacePane = {
     ...base,
     title: request.title ?? base.title,
     identifier: request.identifier,
   }
+
   const sourceIsRecord = source ? paneKind(source.href).record : false
+
   const next = updateTab(state, tab.id, (current) =>
     touch({
       ...current,
@@ -180,6 +193,7 @@ export function openBeside(
       primaryId: sourceIsRecord ? current.primaryId : pane.id,
     }),
   )
+
   return { state: next, paneId: pane.id, created: true }
 }
 
@@ -188,16 +202,19 @@ export function closePane(
   paneId: string,
 ): WorkspaceState {
   const tab = activeTab(state)
+
   if (tab.panes.length < 2 || !hasPane(tab.tree, paneId)) return state
   const order = listPaneIds(tab.tree)
   const index = order.indexOf(paneId)
   const tree = removePane(tab.tree, paneId)
+
   if (!tree) return state
   const remaining = tab.panes.filter((pane) => pane.id !== paneId)
   const fallback = order[index + 1] ?? order[index - 1]
   const activeId = tab.activeId === paneId ? fallback : tab.activeId
   const primaryId = tab.primaryId === paneId ? activeId : tab.primaryId
   const links = tab.links.flatMap((link) => pruneLink(link, paneId))
+
   return updateTab(state, tab.id, (current) =>
     touch({ ...current, panes: remaining, tree, activeId, primaryId, links }),
   )
@@ -205,12 +222,15 @@ export function closePane(
 
 function pruneLink(link: PaneLink, removed: string): PaneLink[] {
   const followerIds = link.followerIds.filter((id) => id !== removed)
+
   if (link.driverId === removed) {
     const [driverId, ...rest] = followerIds
+
     return driverId && rest.length > 0
       ? [{ ...link, driverId, followerIds: rest }]
       : []
   }
+
   return followerIds.length > 0 ? [{ ...link, followerIds }] : []
 }
 
@@ -219,7 +239,9 @@ export function makePrimary(
   paneId: string,
 ): WorkspaceState {
   const tab = activeTab(state)
+
   if (tab.primaryId === paneId || !hasPane(tab.tree, paneId)) return state
+
   return updateTab(state, tab.id, (current) =>
     touch({ ...current, primaryId: paneId, activeId: paneId }),
   )
@@ -232,6 +254,7 @@ export function resizeDivider(
   fraction: number,
 ): WorkspaceState {
   const tab = activeTab(state)
+
   return updateTab(state, tab.id, (current) =>
     touch({
       ...current,
@@ -251,10 +274,12 @@ export function arrange(
   newIds: () => string,
 ): WorkspaceState {
   const tab = activeTab(state)
+
   if (preset === 'single') return state
   const source = paneOf(tab, tab.activeId)
   let panes = tab.panes
   const missing = Math.max(0, presetPaneCount[preset] - panes.length)
+
   for (let i = 0; i < missing && source; i += 1) {
     panes = [
       ...panes,
@@ -265,12 +290,14 @@ export function arrange(
       },
     ]
   }
+
   const order = [
     ...listPaneIds(tab.tree),
     ...panes
       .filter((pane) => !hasPane(tab.tree, pane.id))
       .map((pane) => pane.id),
   ]
+
   return updateTab(state, tab.id, (current) =>
     touch({
       ...current,
@@ -293,7 +320,9 @@ function seatOnEditable(
 ): WorkspaceTab {
   if (tab.primaryId === paneId || !isEditablePage(href)) return tab
   const primary = paneOf(tab, tab.primaryId)
+
   if (primary && isEditablePage(primary.href)) return tab
+
   return { ...tab, primaryId: paneId }
 }
 
@@ -305,14 +334,17 @@ export function recordNavigation(
 ): WorkspaceState {
   const tab = activeTabContaining(state, paneId)
   const pane = tab ? paneOf(tab, paneId) : undefined
+
   if (!tab || !pane || pane.href === href) return state
   const samePage = pane.href.split(/[?#]/)[0] === href.split(/[?#]/)[0]
+
   const step: TrailStep = {
     href: pane.href,
     title: pane.title,
     identifier: pane.identifier,
     leftAt: new Date().toISOString(),
   }
+
   return updateTab(state, tab.id, (current) =>
     seatOnEditable(
       {
@@ -351,17 +383,21 @@ export function stepBack(
 ): { state: WorkspaceState; href: string } | null {
   const tab = activeTabContaining(state, paneId)
   const pane = tab ? paneOf(tab, paneId) : undefined
+
   if (!tab || !pane || pane.trail.length < steps) return null
   const keep = pane.trail.slice(0, pane.trail.length - steps)
   const popped = pane.trail.slice(pane.trail.length - steps)
   const target = popped[0]
+
   const here: TrailStep = {
     href: pane.href,
     title: pane.title,
     identifier: pane.identifier,
     leftAt: new Date().toISOString(),
   }
+
   const forward = [...popped.slice(1), here, ...pane.forward]
+
   return {
     href: target.href,
     state: updateTab(state, tab.id, (current) => ({
@@ -388,13 +424,16 @@ export function stepForward(
 ): { state: WorkspaceState; href: string } | null {
   const tab = activeTabContaining(state, paneId)
   const pane = tab ? paneOf(tab, paneId) : undefined
+
   if (!tab || !pane || pane.forward.length === 0) return null
   const [target, ...rest] = pane.forward
+
   const here: TrailStep = {
     href: pane.href,
     title: pane.title,
     identifier: pane.identifier,
   }
+
   return {
     href: target.href,
     state: updateTab(state, tab.id, (current) => ({
@@ -426,8 +465,10 @@ export function setPaneHref(
 ): WorkspaceState {
   const tab = activeTabContaining(state, paneId)
   const pane = tab ? paneOf(tab, paneId) : undefined
+
   if (!tab || !pane || pane.href === href) return state
   const samePage = pane.href.split(/[?#]/)[0] === href.split(/[?#]/)[0]
+
   return updateTab(state, tab.id, (current) =>
     seatOnEditable(
       {
@@ -459,10 +500,13 @@ export function setPaneMeta(
 ): WorkspaceState {
   const tab = activeTabContaining(state, paneId)
   const pane = tab ? paneOf(tab, paneId) : undefined
+
   if (!tab || !pane) return state
   const title = meta.title ?? pane.title
   const identifier = meta.identifier ?? pane.identifier
+
   if (title === pane.title && identifier === pane.identifier) return state
+
   return updateTab(state, tab.id, (current) => ({
     ...current,
     panes: current.panes.map((entry) =>
@@ -488,15 +532,20 @@ export function linkOf(
 export function toggleLink(state: WorkspaceState): WorkspaceState {
   const tab = activeTab(state)
   const existing = linkOf(tab, tab.activeId)
+
   if (existing) {
     const links = tab.links.flatMap((link) =>
       link === existing ? pruneLink(link, tab.activeId) : [link],
     )
+
     return updateTab(state, tab.id, (current) => touch({ ...current, links }))
   }
+
   const neighbour = neighbourOf(tab.tree, tab.activeId)
+
   if (!neighbour) return state
   const neighbourLink = linkOf(tab, neighbour)
+
   if (neighbourLink) {
     return updateTab(state, tab.id, (current) =>
       touch({
@@ -509,14 +558,18 @@ export function toggleLink(state: WorkspaceState): WorkspaceState {
       }),
     )
   }
+
   const used = new Set(tab.links.map((link) => link.letter))
   const letter = linkLetters.find((candidate) => !used.has(candidate))
+
   if (!letter) return state
+
   const link: PaneLink = {
     letter,
     driverId: tab.activeId,
     followerIds: [neighbour],
   }
+
   return updateTab(state, tab.id, (current) =>
     touch({ ...current, links: [...current.links, link] }),
   )
@@ -528,7 +581,9 @@ export function makeDriver(
 ): WorkspaceState {
   const tab = activeTab(state)
   const link = linkOf(tab, paneId)
+
   if (!link || link.driverId === paneId) return state
+
   return updateTab(state, tab.id, (current) => ({
     ...current,
     links: current.links.map((entry) =>
@@ -553,6 +608,7 @@ export function pinToShelf(
   if (state.shelf.some((entry) => entry.href === item.href)) {
     return { ...state, shelfOpen: true }
   }
+
   return { ...state, shelf: [...state.shelf, item], shelfOpen: true }
 }
 
@@ -567,13 +623,16 @@ export function promoteFromShelf(
   newId: string,
 ): OpenResult | null {
   const item = state.shelf.find((entry) => entry.id === id)
+
   if (!item) return null
+
   const opened = openBeside(unpin(state, id), {
     href: item.href,
     newId,
     title: item.title,
     identifier: item.identifier,
   })
+
   return opened
 }
 
@@ -592,11 +651,13 @@ export function addTab(
   ids: { tabId: string; paneId: string },
 ): WorkspaceState {
   const count = state.tabs.length + 1
+
   const tab = newTab(href, {
     id: ids.tabId,
     paneId: ids.paneId,
     name: `Workspace ${count}`,
   })
+
   return {
     ...state,
     tabs: [...state.tabs, { ...tab, dirty: true }],
@@ -623,18 +684,22 @@ export function switchTab(
 /** ⌃Tab: the next workspace tab, wrapping. */
 export function nextTab(state: WorkspaceState): WorkspaceState {
   const index = state.tabs.findIndex((tab) => tab.id === state.activeTabId)
+
   return switchTab(state, state.tabs[(index + 1) % state.tabs.length].id)
 }
 
 export function closeTab(state: WorkspaceState, tabId: string): WorkspaceState {
   if (state.tabs.length < 2) return state
   const index = state.tabs.findIndex((tab) => tab.id === tabId)
+
   if (index < 0) return state
   const tabs = state.tabs.filter((tab) => tab.id !== tabId)
+
   const activeTabId =
     state.activeTabId === tabId
       ? tabs[Math.min(index, tabs.length - 1)].id
       : state.activeTabId
+
   return { ...state, tabs, activeTabId }
 }
 
@@ -644,7 +709,9 @@ export function renameTab(
   name: string,
 ): WorkspaceState {
   const trimmed = name.trim()
+
   if (!trimmed) return state
+
   return updateTab(state, tabId, (tab) => touch({ ...tab, name: trimmed }))
 }
 
@@ -683,8 +750,10 @@ export function composeWorkspace(
   if (request.pages.length === 0) return state
   const [first, ...rest] = request.pages
   let next = state
+
   if (request.newWorkspace) {
     next = addTab(next, first.href, { tabId: newId(), paneId: newId() })
+
     if (request.name) next = renameTab(next, next.activeTabId, request.name)
     const added = activeTab(next)
     next = setPaneMeta(next, added.activeId, { title: first.title })
@@ -695,6 +764,7 @@ export function composeWorkspace(
       title: first.title,
     }).state
   }
+
   for (const page of rest) {
     next = openBeside(next, {
       href: page.href,
@@ -702,6 +772,7 @@ export function composeWorkspace(
       title: page.title,
     }).state
   }
+
   // Tile only when there are enough pages to fill the layout; never duplicate
   // a page just to fill a slot.
   if (
@@ -710,5 +781,6 @@ export function composeWorkspace(
   ) {
     next = arrange(next, request.layout, newId)
   }
+
   return next
 }

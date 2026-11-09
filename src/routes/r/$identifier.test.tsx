@@ -23,6 +23,7 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
+
 vi.mock('#/lib/object-resolver', async () => ({
   ...(await vi.importActual<object>('#/lib/object-resolver')),
   resolveObjectByIdentifier: hoisted.resolve,

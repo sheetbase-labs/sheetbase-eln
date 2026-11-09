@@ -23,10 +23,12 @@ const searchExperiments = recordSearch(['Experiment'])
 function experimentSearch(client: DataClient) {
   return async (q: string): Promise<PickerSearchResult> => {
     if (q.trim()) return searchExperiments(q)
+
     const rows = await client.list<ExperimentChoice>(
       'records',
       '?kind=eq.experiment&deleted_at=is.null&archived_at=is.null&order=updated_at.desc&limit=50&select=id,identifier,title',
     )
+
     return {
       options: rows.map((r) => ({ ...recordOption(r), group: 'Latest' })),
       recent: true,
@@ -64,13 +66,16 @@ export function ExperimentPicker({
   disabled?: boolean
 }) {
   const search = useMemo(() => experimentSearch(client), [client])
+
   const options = useMemo(
     () => experiments?.map((e) => recordOption(e)),
     [experiments],
   )
+
   // A stored value may not be among the recent results: read it by id so the
   // field can still name it.
   const known = experiments?.some((e) => e.id === value) ?? false
+
   const stored = useQuery({
     queryKey: ['ui-port', 'experiment-picker', 'selected', value],
     enabled: Boolean(value) && !known && experiments === undefined,
@@ -80,9 +85,11 @@ export function ExperimentPicker({
         'records',
         `?id=eq.${encodeURIComponent(value)}&select=id,identifier,title&limit=1`,
       )
+
       return rows[0] ? recordOption(rows[0]) : null
     },
   })
+
   return (
     <PickerSelect
       noun="experiment"

@@ -53,6 +53,7 @@ export const DATASET_MAX_TRANSFORMATIONS = 4
 export const DATASET_MAX_PAGE_SIZE = 100
 export const DATASET_PAGE_SIZES = [25, 50, 100] as const
 export const DATASET_DEFAULT_PAGE_SIZE = 50
+
 /** Hard server-side ceiling from `query_dataset`; surfaced honestly. */
 export const DATASET_QUERY_HARD_LIMIT = 5000
 
@@ -132,6 +133,7 @@ export async function fetchDatasetLifecycleById(
   const rows = await client.list<{
     lifecycle: 'active' | 'archived' | 'retired'
   }>('datasets', `?id=eq.${encodeURIComponent(datasetId)}&select=lifecycle`)
+
   return rows.at(0)?.lifecycle ?? null
 }
 
@@ -175,16 +177,20 @@ export function resolveDatasetDeepLinkSelection({
       flipToArchived: false,
     }
   }
+
   if (datasets.some((dataset) => dataset.id === requestedDatasetId)) {
     return { selectedDatasetId: requestedDatasetId, flipToArchived: false }
   }
+
   if (!summariesLoaded) {
     return { selectedDatasetId: null, flipToArchived: false }
   }
+
   if (requestedLifecycle === undefined) {
     // Lifecycle lookup still in flight: hold the requested selection.
     return { selectedDatasetId: null, flipToArchived: false }
   }
+
   if (requestedLifecycle === null) {
     // The requested Dataset does not exist: fall back to the list default.
     return {
@@ -192,11 +198,13 @@ export function resolveDatasetDeepLinkSelection({
       flipToArchived: false,
     }
   }
+
   if (requestedLifecycle !== 'active') {
     // Archived/retired: keep selecting the requested Dataset, but in the
     // archived view where the list actually contains it.
     return { selectedDatasetId: null, flipToArchived: true }
   }
+
   // Active but absent from the list (e.g. raced creation): fall back.
   return {
     selectedDatasetId: datasets.at(0)?.id ?? null,
@@ -210,8 +218,10 @@ export function resolveDatasetDeepLinkSelection({
  */
 function inChunks(ids: string[], size = 10): string[][] {
   const out: string[][] = []
+
   for (let i = 0; i < ids.length; i += size)
     out.push(ids.slice(i, i + size).map(encodeURIComponent))
+
   return out
 }
 
@@ -221,13 +231,16 @@ export async function fetchDatasetSummaries(
   options: { includeArchived?: boolean } = {},
 ): Promise<CanonicalDatasetWire[]> {
   const lifecycleFilter = options.includeArchived ? '' : 'lifecycle=eq.active&'
+
   const datasets = await client.list<DatasetResourceWire>(
     'datasets',
     `?${lifecycleFilter}order=created_at.desc`,
   )
+
   const versionIds = [
     ...new Set(datasets.map((item) => item.schema_version_id)),
   ]
+
   const fields = (
     await Promise.all(
       inChunks(versionIds).map((ids) =>
@@ -238,6 +251,7 @@ export async function fetchDatasetSummaries(
       ),
     )
   ).flat()
+
   const versions = (
     await Promise.all(
       inChunks(versionIds).map((ids) =>
@@ -252,7 +266,9 @@ export async function fetchDatasetSummaries(
       ),
     )
   ).flat()
+
   const definitionIds = [...new Set(versions.map((item) => item.schema_id))]
+
   const definitions = (
     await Promise.all(
       inChunks(definitionIds).map((ids) =>
@@ -263,13 +279,17 @@ export async function fetchDatasetSummaries(
       ),
     )
   ).flat()
+
   const versionById = new Map(versions.map((item) => [item.id, item]))
   const definitionById = new Map(definitions.map((item) => [item.id, item]))
+
   return datasets.map((dataset) => {
     const version = versionById.get(dataset.schema_version_id)
+
     const definition = version
       ? definitionById.get(version.schema_id)
       : undefined
+
     return {
       ...dataset,
       resource_name: '',
@@ -338,17 +358,21 @@ export function buildDatasetRowQuery(
   const limit = Math.min(Math.max(1, query.pageSize), DATASET_MAX_PAGE_SIZE)
   const offset = Math.max(0, query.pageIndex) * limit
   const parts: string[] = ['select=*']
+
   if (query.sorting.length > 0) {
     const sorting = query.sorting.map((sort) => {
       if (!fields.has(sort.id))
         throw new Error(`Unsupported dataset sort field: ${sort.id}`)
+
       return `${encodeURIComponent(sort.id)}.${sort.desc ? 'desc' : 'asc'}`
     })
+
     if (!query.sorting.some((sort) => sort.id === 'id')) sorting.push('id.asc')
     parts.push(`order=${sorting.join(',')}`)
   } else {
     parts.push('order=created_at.asc,id.asc')
   }
+
   for (const filter of query.filters.slice(0, DATASET_MAX_FILTERS)) {
     if (
       !fields.has(filter.fieldId) ||
@@ -359,13 +383,17 @@ export function buildDatasetRowQuery(
         `Unsupported dataset filter: ${filter.fieldId}/${filter.operator}`,
       )
     }
+
     const value = filter.values[0]
+
     if (value === '') continue
     parts.push(
       `${encodeURIComponent(filter.fieldId)}=eq.${encodeURIComponent(String(value))}`,
     )
   }
+
   parts.push(`limit=${limit}`, `offset=${offset}`)
+
   return `?${parts.join('&')}`
 }
 
@@ -377,14 +405,18 @@ export async function fetchDatasetRowPage(
   includeCount = true,
 ): Promise<DatasetRowPage> {
   const fieldIds = new Set(table.columns.map((field) => field.id))
+
   for (const filter of query.filters.slice(0, DATASET_MAX_FILTERS)) {
     if (!fieldIds.has(filter.fieldId) || filter.values.length !== 1)
       throw new Error(`Unsupported dataset filter: ${filter.fieldId}`)
   }
+
   const sort = query.sorting.at(0)
+
   if (sort && !fieldIds.has(sort.id))
     throw new Error(`Unsupported dataset sort field: ${sort.id}`)
   const limit = Math.min(Math.max(1, query.pageSize), DATASET_MAX_PAGE_SIZE)
+
   const result = await client.rpc<{
     rows: Array<{
       rowId: string
@@ -407,6 +439,7 @@ export async function fetchDatasetRowPage(
     p_limit: limit,
     p_offset: Math.max(0, query.pageIndex) * limit,
   })
+
   return {
     rows: result.rows.map((row) => ({
       id: row.rowId,
@@ -425,6 +458,7 @@ export function getNextDatasetPageParam(
 ): number | undefined {
   const loaded = pages.reduce((count, page) => count + page.rows.length, 0)
   const total = pages[0]?.totalCount ?? 0
+
   return lastPage.rows.length < pageSize || loaded >= total
     ? undefined
     : pages.length
@@ -446,7 +480,9 @@ export async function fetchDatasetSchemaDetail(
   table: ScientificTableWire,
 ): Promise<DatasetSchemaDetail> {
   const schemaId = table.dataset_schema_id ?? null
+
   if (!schemaId) return { schema: null, fields: [] }
+
   // Fields and schema are independent — fetch in parallel to avoid
   // a sequential waterfall that adds a full round-trip of latency.
   const [fields, schemas] = await Promise.all([
@@ -456,6 +492,7 @@ export async function fetchDatasetSchemaDetail(
       `?id=eq.${encodeURIComponent(schemaId)}&limit=1`,
     ),
   ])
+
   return { schema: schemas[0] ?? null, fields }
 }
 
@@ -468,6 +505,7 @@ export async function fetchDatasetRelationshipsFor(
   // Filter server-side via PostgREST `or` so we transfer only the
   // relationships that touch this schema, not the entire workspace set.
   const filter = `or=(source_schema_id.eq.${encodeURIComponent(schemaId)},target_schema_id.eq.${encodeURIComponent(schemaId)})`
+
   return client.list<DatasetSchemaRelationshipWire>(
     'dataset_schema_relationships',
     `?lifecycle=eq.active&${filter}&order=created_at.asc`,
@@ -494,6 +532,7 @@ export async function fetchDatasetLineage(
     fetchScientificFormulas(client, datasetId),
     fetchScientificDependencies(client, datasetId),
   ])
+
   return { formulas, dependencies }
 }
 
@@ -537,11 +576,15 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isDatasetRowQuery(value: unknown): value is DatasetRowQuery {
   if (!isRecord(value)) return false
+
   if (!Number.isInteger(value.pageIndex) || Number(value.pageIndex) < 0)
     return false
+
   if (!Number.isInteger(value.pageSize) || Number(value.pageSize) <= 0)
     return false
+
   if (!Array.isArray(value.sorting)) return false
+
   if (
     !value.sorting.every(
       (s) =>
@@ -549,7 +592,9 @@ function isDatasetRowQuery(value: unknown): value is DatasetRowQuery {
     )
   )
     return false
+
   if (!Array.isArray(value.filters)) return false
+
   if (
     !value.filters.every(
       (f) =>
@@ -566,16 +611,22 @@ function isDatasetRowQuery(value: unknown): value is DatasetRowQuery {
     )
   )
     return false
+
   return true
 }
 
 function isDatasetViewSpec(value: unknown): value is DatasetViewSpec {
   if (!isRecord(value)) return false
+
   if (!isDatasetRowQuery(value.query)) return false
+
   if (!Array.isArray(value.hiddenFields)) return false
+
   if (!value.hiddenFields.every((f) => typeof f === 'string')) return false
+
   if (value.density !== 'comfortable' && value.density !== 'compact')
     return false
+
   return true
 }
 
@@ -587,6 +638,7 @@ function isDatasetSavedView(value: unknown): value is DatasetSavedView {
     typeof value.datasetId !== 'string'
   )
     return false
+
   return isDatasetViewSpec(value.spec)
 }
 
@@ -600,21 +652,26 @@ export function sanitizeDatasetView(
   columns: ScientificColumnWire[],
 ): DatasetSavedView {
   const fieldNames = new Set(columns.map((c) => c.field_name))
+
   const sorting = view.spec.query.sorting
     .filter((s) => fieldNames.has(s.id))
     .slice(0, 4)
+
   const filters = view.spec.query.filters
     .filter(
       (f) =>
         fieldNames.has(f.fieldId) && f.operator === 'eq' && f.values[0] !== '',
     )
     .slice(0, DATASET_MAX_FILTERS)
+
   const hiddenFields = view.spec.hiddenFields.filter((f) => fieldNames.has(f))
+
   const pageSize = (DATASET_PAGE_SIZES as readonly number[]).includes(
     view.spec.query.pageSize,
   )
     ? view.spec.query.pageSize
     : DATASET_DEFAULT_PAGE_SIZE
+
   return {
     ...view,
     spec: {
@@ -641,6 +698,7 @@ export function createDatasetSavedViewStore({
 }): DatasetSavedViewStore {
   const key = datasetSavedViewStorageKey(workspaceId, userId)
   let resolvedStorage: Storage | null = storage ?? null
+
   if (!resolvedStorage && typeof window !== 'undefined') {
     try {
       resolvedStorage = window.localStorage
@@ -651,8 +709,10 @@ export function createDatasetSavedViewStore({
 
   function readAll(): DatasetSavedView[] {
     if (!resolvedStorage) return []
+
     try {
       const parsed: unknown = JSON.parse(resolvedStorage.getItem(key) ?? '[]')
+
       return Array.isArray(parsed) ? parsed.filter(isDatasetSavedView) : []
     } catch {
       return []
@@ -676,9 +736,11 @@ export function createDatasetSavedViewStore({
       const saved = { ...view, updatedAt: new Date().toISOString() }
       const views = readAll()
       const existing = views.findIndex((candidate) => candidate.id === view.id)
+
       if (existing >= 0) views[existing] = saved
       else views.push(saved)
       writeAll(views)
+
       return saved
     },
     remove(datasetId, id) {
@@ -704,6 +766,7 @@ export function buildDefaultChartSpec(
   const numericColumns = table.columns.filter(
     (c) => c.logical_type === 'decimal' || c.logical_type === 'integer',
   )
+
   if (numericColumns.length === 0) return null
 
   // For scatter/line charts both axes must be numeric. Pick the first two
@@ -718,10 +781,13 @@ export function buildDefaultChartSpec(
             c.logical_type === 'date' ||
             c.logical_type === 'text',
         ) ?? null)
+
   const y = numericColumns[numericColumns.length >= 2 ? 1 : 0]
+
   const series = table.columns.find(
     (c) => c.logical_type === 'category' || c.logical_type === 'text',
   )
+
   return {
     specVersion: CHART_SPEC_VERSION,
     type: 'scatter',
@@ -772,15 +838,18 @@ export function validateTransformations(
   }[],
 ): { ok: true } | { ok: false; errors: string[] } {
   const errors: string[] = []
+
   if (transformations.length > DATASET_MAX_TRANSFORMATIONS) {
     errors.push(
       `At most ${DATASET_MAX_TRANSFORMATIONS} transformations are allowed.`,
     )
   }
+
   for (const t of transformations) {
     if (t.kind !== 'aggregate' && t.kind !== 'bin' && t.kind !== 'normalise') {
       errors.push(`Unsupported transformation kind: ${String(t.kind)}.`)
     }
+
     if (
       typeof t.params !== 'object' ||
       t.params === null ||
@@ -789,6 +858,7 @@ export function validateTransformations(
       errors.push('Transformation params must be an object.')
     }
   }
+
   return errors.length > 0 ? { ok: false, errors } : { ok: true }
 }
 

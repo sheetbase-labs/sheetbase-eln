@@ -23,6 +23,7 @@ describe('model fields in the search builder', () => {
       [],
       [],
     )
+
     expect(only).toMatchObject({
       id: 'model:sample:concentration',
       label: 'Sample · Concentration (mg/mL)',
@@ -47,6 +48,7 @@ describe('model fields in the search builder', () => {
         { key: 'mammalian', name: 'Mammalian', parent_key: 'experiment' },
       ],
     )
+
     expect(fields.map((f) => [f.id, f.label])).toEqual([
       ['model:experiment:passage', 'Cell culture · Passage'],
     ])
@@ -66,6 +68,7 @@ describe('model fields in the search builder', () => {
       [],
       [{ key: 'cell_bank', name: 'Cell bank', parent_key: null }],
     )
+
     expect(fields.map((f) => [f.id, f.label])).toEqual([
       ['model:cell_bank:passage', 'Cell bank · Passage'],
     ])
@@ -86,6 +89,7 @@ describe('model fields in the search builder', () => {
       ],
       [],
     )
+
     expect(await only.loadOptions?.('gm')).toEqual([
       { value: 'gmp', label: 'GMP' },
     ])

@@ -21,6 +21,7 @@ export const PYTHON_COLUMN_TYPES = [
   'timestamp',
   'json',
 ] as const
+
 export type PythonColumnType = (typeof PYTHON_COLUMN_TYPES)[number]
 
 export interface PythonColumn {
@@ -79,6 +80,7 @@ export interface PythonTestRunFailure {
 export const MAX_PYTHON_REQUIREMENTS = 50
 export const MAX_CONTRACT_COLUMNS = 256
 export const PYTHON_COLUMN_NAME_RE = /^[^\s\0][^\0]{0,127}$/
+
 /** `name==version`, nothing else: no ranges, extras, URLs or index options. */
 export const PYTHON_REQUIREMENT_RE =
   /^([A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)==([A-Za-z0-9](?:[A-Za-z0-9.!+_-]*[A-Za-z0-9])?)$/
@@ -95,6 +97,7 @@ export function parseRequirement(
   line: string,
 ): { name: string; version: string } | null {
   const match = PYTHON_REQUIREMENT_RE.exec(line.trim())
+
   return match
     ? { name: normalisePackageName(match[1]), version: match[2] }
     : null
@@ -105,6 +108,7 @@ export function requirementErrors(requirements: unknown): string[] {
   if (!Array.isArray(requirements))
     return [t('data.pipelinePython.requirementsMustListName')]
   const errors: string[] = []
+
   if (requirements.length > MAX_PYTHON_REQUIREMENTS)
     errors.push(
       t('data.pipelinePython.mostPackagesDeclared', {
@@ -112,12 +116,15 @@ export function requirementErrors(requirements: unknown): string[] {
       }),
     )
   const seen = new Set<string>()
+
   for (const entry of requirements) {
     if (typeof entry !== 'string') {
       errors.push(t('data.pipelinePython.eachRequirementMustText'))
       continue
     }
+
     const parsed = parseRequirement(entry)
+
     if (!parsed) {
       errors.push(
         t('data.pipelinePython.pinnedWriteNameVersion', {
@@ -126,10 +133,12 @@ export function requirementErrors(requirements: unknown): string[] {
       )
       continue
     }
+
     if (seen.has(parsed.name))
       errors.push(`${parsed.name} is declared more than once.`)
     seen.add(parsed.name)
   }
+
   return errors
 }
 
@@ -142,10 +151,13 @@ export function unmetRequirements(
   installed: Partial<Record<string, string>>,
 ): string[] {
   const unmet: string[] = []
+
   for (const line of requirements) {
     const parsed = parseRequirement(line)
+
     if (!parsed) continue
     const have = installed[parsed.name]
+
     if (have === undefined)
       unmet.push(`${parsed.name}==${parsed.version} is not in this runtime.`)
     else if (have !== parsed.version)
@@ -153,15 +165,18 @@ export function unmetRequirements(
         `${parsed.name}==${parsed.version} was requested but this runtime has ${have}.`,
       )
   }
+
   return unmet
 }
 
 function columnErrors(columns: unknown, where: string): string[] {
   if (!Array.isArray(columns)) return [`${where} must be a list of columns.`]
   const errors: string[] = []
+
   if (columns.length > MAX_CONTRACT_COLUMNS)
     errors.push(`${where} has more than ${MAX_CONTRACT_COLUMNS} columns.`)
   const names = new Set<string>()
+
   for (const column of columns) {
     if (
       !isObject(column) ||
@@ -171,18 +186,22 @@ function columnErrors(columns: unknown, where: string): string[] {
       errors.push(`${where} has a column without a valid name.`)
       continue
     }
+
     if (names.has(column.name))
       errors.push(`${where} lists column “${column.name}” twice.`)
     names.add(column.name)
+
     if (!(PYTHON_COLUMN_TYPES as readonly unknown[]).includes(column.type))
       errors.push(
         `${where} column “${column.name}” needs a type: ${PYTHON_COLUMN_TYPES.join(', ')}.`,
       )
+
     if (column.nullable !== undefined && typeof column.nullable !== 'boolean')
       errors.push(
         `${where} column “${column.name}” nullable must be true or false.`,
       )
   }
+
   return errors
 }
 
@@ -190,6 +209,7 @@ function columnErrors(columns: unknown, where: string): string[] {
 export function contractErrors(contract: unknown): string[] {
   if (!isObject(contract)) return [t('data.pipelinePython.contractMustObject')]
   const errors: string[] = []
+
   if (contract.inputs !== undefined) {
     if (!isObject(contract.inputs))
       errors.push(t('data.pipelinePython.contractInputsMustMap'))
@@ -202,11 +222,13 @@ export function contractErrors(contract: unknown): string[] {
         )
       }
   }
+
   if (contract.output !== undefined) {
     if (!isObject(contract.output))
       errors.push(t('data.pipelinePython.contractOutputMustObject'))
     else {
       errors.push(...columnErrors(contract.output.columns, 'Output'))
+
       if (
         contract.output.additionalColumns !== undefined &&
         typeof contract.output.additionalColumns !== 'boolean'
@@ -214,9 +236,11 @@ export function contractErrors(contract: unknown): string[] {
         errors.push(t('data.pipelinePython.outputAdditionalcolumnsMustTrue'))
     }
   }
+
   for (const key of Object.keys(contract))
     if (key !== 'inputs' && key !== 'output')
       errors.push(t('data.pipelinePython.unknownContractKey', { key }))
+
   return errors
 }
 
@@ -254,26 +278,33 @@ export function pythonSkeleton(options: SkeletonOptions): string {
     '',
     'def transform(inputs, parameters):',
   ]
+
   const aliases = [
     ...options.inputs.map((input) => input.name).filter(Boolean),
     ...(options.hasPrevious ? ['previous'] : []),
   ]
+
   for (const alias of aliases) {
     const columns = options.contract?.inputs?.[alias]
     lines.push(`    ${alias} = pd.DataFrame(inputs["${alias}"])`)
+
     if (columns?.length)
       lines.push(
         `    # ${alias} columns: ${columns.map((c) => `${c.name} (${c.type})`).join(', ')}`,
       )
   }
+
   for (const parameter of options.parameters)
     lines.push(
       `    ${parameter.name} = parameters["${parameter.name}"]  # ${parameter.type}`,
     )
+
   if (aliases.length || options.parameters.length) lines.push('')
   const output = options.contract?.output?.columns
+
   if (output?.length) {
     lines.push('    return pd.DataFrame({')
+
     for (const column of output)
       lines.push(
         `        ${JSON.stringify(column.name)}: [${PY_DEFAULTS[column.type]}],`,
@@ -286,6 +317,7 @@ export function pythonSkeleton(options: SkeletonOptions): string {
         : '    return pd.DataFrame({"value": [1]})',
     )
   }
+
   return `${lines.join('\n')}\n`
 }
 
@@ -295,6 +327,7 @@ export const DEFAULT_SQL_STATEMENT = 'select * from previous'
 /** True when a statement is a starter (empty, the SQL default or a skeleton). */
 export function isStarterStatement(statement: string): boolean {
   const trimmed = statement.trim()
+
   return (
     trimmed === '' ||
     trimmed === DEFAULT_SQL_STATEMENT ||
@@ -344,14 +377,19 @@ export function importedModules(
   const found: Array<{ module: string; line: number }> = []
   code.split('\n').forEach((text, index) => {
     const from = /^\s*from\s+([A-Za-z_]\w*)/.exec(text)
+
     if (from) return void found.push({ module: from[1], line: index + 1 })
     const plain = /^\s*import\s+(.+)$/.exec(text)
+
     if (!plain) return
+
     for (const part of plain[1].split(',')) {
       const name = /^\s*([A-Za-z_]\w*)/.exec(part)
+
       if (name) found.push({ module: name[1], line: index + 1 })
     }
   })
+
   return found
 }
 
@@ -362,6 +400,7 @@ export function analysePython(
   const diagnostics: PythonDiagnostic[] = []
   const lines = code.split('\n')
   const defIndex = lines.findIndex((line) => /^def\s+transform\s*\(/.test(line))
+
   if (defIndex < 0) {
     diagnostics.push({
       level: 'error',
@@ -369,9 +408,11 @@ export function analysePython(
     })
   } else {
     const match = /^def\s+transform\s*\(([^)]*)\)/.exec(lines[defIndex])
+
     const parameters = match
       ? match[1].split(',').filter((part) => part.trim()).length
       : 2
+
     if (match && parameters !== 2)
       diagnostics.push({
         level: 'error',
@@ -379,12 +420,16 @@ export function analysePython(
         line: defIndex + 1,
       })
   }
+
   const installed = options.installed
+
   if (installed) {
     const reported = new Set<string>()
+
     for (const { module, line } of importedModules(code)) {
       if (STDLIB.has(module) || reported.has(module)) continue
       const dist = normalisePackageName(MODULE_DISTRIBUTION[module] ?? module)
+
       if (installed[dist] !== undefined) continue
       reported.add(module)
       diagnostics.push({
@@ -396,6 +441,7 @@ export function analysePython(
       })
     }
   }
+
   return diagnostics
 }
 
@@ -416,13 +462,17 @@ export function normaliseContract(
   contract: PythonContract | undefined,
 ): PythonContract | undefined {
   if (!contract) return undefined
+
   const inputs = Object.fromEntries(
     Object.entries(contract.inputs ?? {}).filter(
       ([, columns]) => columns.length > 0,
     ),
   )
+
   const output = contract.output?.columns.length ? contract.output : undefined
+
   if (!Object.keys(inputs).length && !output) return undefined
+
   return {
     ...(Object.keys(inputs).length ? { inputs } : {}),
     ...(output ? { output } : {}),
@@ -459,13 +509,18 @@ const DATE_TEXT = /^\d{4}-\d{2}-\d{2}$/
 
 function columnTypeOf(value: unknown): PythonColumnType {
   if (typeof value === 'boolean') return 'boolean'
+
   if (typeof value === 'number')
     return Number.isInteger(value) ? 'integer' : 'decimal'
+
   if (typeof value === 'string') {
     if (DATE_TEXT.test(value)) return 'date'
+
     if (TIMESTAMP_TEXT.test(value)) return 'timestamp'
+
     return 'text'
   }
+
   return 'json'
 }
 
@@ -479,18 +534,22 @@ export function inferColumns(
   const order: string[] = []
   const types = new Map<string, Set<PythonColumnType>>()
   const nullable = new Set<string>()
+
   for (const row of rows)
     for (const [name, value] of Object.entries(row)) {
       if (!types.has(name)) {
         types.set(name, new Set())
         order.push(name)
       }
+
       if (value === null || value === undefined) nullable.add(name)
       else types.get(name)?.add(columnTypeOf(value))
     }
+
   return order.map((name) => {
     const seen = types.get(name) ?? new Set<PythonColumnType>()
     let type: PythonColumnType
+
     if (seen.size === 0) type = 'text'
     else if (seen.size === 1) type = [...seen][0]
     else if ([...seen].every((ty) => ty === 'integer' || ty === 'decimal'))
@@ -498,6 +557,7 @@ export function inferColumns(
     else if ([...seen].every((ty) => ty === 'date' || ty === 'timestamp'))
       type = 'timestamp'
     else type = [...seen].every((ty) => ty !== 'json') ? 'text' : 'json'
+
     return { name, type, ...(nullable.has(name) ? {} : { nullable: false }) }
   })
 }

@@ -27,6 +27,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('#/lib/related-work', async (importOriginal) => {
   const actual = await importOriginal<typeof RelatedWork>()
+
   return { ...actual, useRelatedWork: vi.fn() }
 })
 

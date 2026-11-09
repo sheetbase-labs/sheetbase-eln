@@ -32,6 +32,7 @@ describe('buildFixText', () => {
       failedStep: TRANSFORM_TARGET,
       config,
     })
+
     expect(text).toContain('transform_failed')
     expect(text).toContain('Error log:\na\nb')
     expect(text).toContain('Inputs: readings')
@@ -50,6 +51,7 @@ describe('parseFailureReply', () => {
         statement: 'select * from readings',
       },
     })
+
     for (const text of [body, '```json\n' + body + '\n```']) {
       const parsed = parseFailureReply(text, config)
       expect(parsed?.fix?.target).toBe('transform')
@@ -67,6 +69,7 @@ describe('parseFailureReply', () => {
   it('drops a fix aimed at a step that does not exist, or one that changes language, or changes nothing', () => {
     const wrap = (fix: unknown) =>
       parseFailureReply(JSON.stringify({ explanation: 'x', fix }), config)
+
     expect(
       wrap({ target: 'nope', language: 'sql', statement: 'select 1' })?.fix,
     ).toBeNull()
@@ -96,13 +99,16 @@ describe('applyStepFix', () => {
       language: 'sql',
       statement: 'select 2 as n from previous',
     })
+
     expect(result.ok).toBe(true)
+
     if (result.ok) {
       expect(result.config.steps?.[0]?.statement).toBe(
         'select 2 as n from previous',
       )
       expect(result.config.transform.statement).toBe('select * from readingz')
     }
+
     expect(config.steps?.[0]?.statement).toBe('select 1 as n from previous')
   })
 
@@ -113,6 +119,7 @@ describe('applyStepFix', () => {
       language: 'sql',
       statement: 'select 1',
     })
+
     expect(result.ok).toBe(false)
   })
 })

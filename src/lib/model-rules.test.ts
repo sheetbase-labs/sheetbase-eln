@@ -96,6 +96,7 @@ describe('modelRuleConditionMatches', () => {
 
 describe('evaluateModelRules', () => {
   const warn = rule()
+
   const block = rule({
     id: 'r-2',
     effect: 'block',
@@ -103,6 +104,7 @@ describe('evaluateModelRules', () => {
     condition: { field: 'vials_left', op: 'lt', value: 0 },
     message: "Vials left can't go below 0",
   })
+
   const flag = rule({
     id: 'r-3',
     effect: 'flag_block_submit',
@@ -115,6 +117,7 @@ describe('evaluateModelRules', () => {
       passage: 34,
       vials_left: -1,
     })
+
     expect(result.blocked).toBe(true)
     expect(result.blockSubmit).toBe(true)
     expect(result.blocks.map((m) => m.ruleId)).toEqual(['r-2'])
@@ -127,6 +130,7 @@ describe('evaluateModelRules', () => {
       passage: 12,
       vials_left: 4,
     })
+
     expect(result).toMatchObject({
       blocked: false,
       blockSubmit: false,

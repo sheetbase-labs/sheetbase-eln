@@ -43,6 +43,7 @@ export function draftCommentCount(drafts: ReviewCommentDraft[]): number {
  */
 export function returnWithCommentsLabel(count: number): string {
   if (count <= 0) return 'Return with comments'
+
   return `Return with ${count} comment${count === 1 ? '' : 's'}`
 }
 
@@ -71,6 +72,7 @@ export function addDraft(
   draft: ReviewCommentDraft,
 ): ReviewCommentDraft[] {
   if (!draft.body.trim()) return drafts
+
   return [...drafts, draft]
 }
 
@@ -130,10 +132,14 @@ export function loadDrafts(
 ): ReviewCommentDraft[] {
   if (!storage) return []
   const raw = storage.getItem(draftStorageKey(revisionId, userId))
+
   if (!raw) return []
+
   try {
     const parsed: unknown = JSON.parse(raw)
+
     if (!Array.isArray(parsed)) return []
+
     return parsed.filter(isDraft)
   } catch {
     return []
@@ -143,6 +149,7 @@ export function loadDrafts(
 function isDraft(value: unknown): value is ReviewCommentDraft {
   if (!value || typeof value !== 'object') return false
   const draft = value as Record<string, unknown>
+
   return (
     typeof draft.id === 'string' &&
     typeof draft.body === 'string' &&
@@ -212,6 +219,7 @@ export async function returnWithDraftComments(
       body: draft.body,
     })),
   })
+
   return {
     decision: result.decision,
     publishedCommentIds: result.commentIds,
@@ -276,6 +284,7 @@ export function useReviewCommentDrafts({
       if (!input.body.trim()) return null
       const draft = newDraft(input)
       setDrafts((current) => addDraft(current, draft))
+
       return draft
     },
     [],

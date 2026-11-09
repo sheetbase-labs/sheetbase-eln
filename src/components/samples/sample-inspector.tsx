@@ -14,14 +14,17 @@ import { t } from '#/copy'
 /** The quantity a sample carries, as the registry shows it. */
 function quantityLabel(record: SampleRecord): string {
   if (record.quantity == null) return '—'
+
   const amount = record.quantity.toLocaleString('en-GB', {
     maximumFractionDigits: 2,
   })
+
   return record.quantityUnit ? `${amount} ${record.quantityUnit}` : amount
 }
 
 function dayLabel(value: string | null): string | null {
   if (!value) return null
+
   return formatDate(value)
 }
 
@@ -36,8 +39,11 @@ function useSampleCitations(sample: SampleRecord) {
         'record_links',
         `?target_record_id=eq.${encodeURIComponent(sample.id)}&link_type=eq.sample&select=source_record_id`,
       )
+
       const ids = [...new Set(links.map((link) => link.source_record_id))]
+
       if (ids.length === 0) return []
+
       return notebookDataClient.list<{
         id: string
         identifier: string
@@ -58,19 +64,24 @@ function useSampleCitations(sample: SampleRecord) {
  */
 export function SampleInspector({ sample }: { sample: SampleRecord }) {
   const status = sampleStatus(sample.status, sample.releasedAt)
+
   const lineage = useQuery({
     queryKey: ['ui-port', 'sample-inspector', 'lineage', sample.id],
     queryFn: () => fetchLineageGraph(lineageDataClient, sample.id, 1),
     staleTime: 15_000,
   })
+
   const citations = useSampleCitations(sample)
+
   const derived = (lineage.data?.nodes ?? []).filter(
     (node) =>
       node.entityType === 'sample' &&
       node.recordId !== sample.id &&
       node.direction === 'downstream',
   )
+
   const holdUntil = dayLabel(sample.holdUntil)
+
   return (
     <Inspector
       aria-label={t('library.samples.sampleInspector.sample')}

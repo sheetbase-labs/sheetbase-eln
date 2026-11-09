@@ -98,6 +98,7 @@ describe('validateChartSpec', () => {
     const errors = validateChartSpec(
       baseSpec({ fields: { ...baseSpec().fields, x: null } }),
     )
+
     expect(errors.some((e) => e.field === 'spec.fields.x')).toBe(true)
   })
 
@@ -105,6 +106,7 @@ describe('validateChartSpec', () => {
     const errors = validateChartSpec(
       baseSpec({ type: 'pie' as unknown as ChartSpec['type'] }),
     )
+
     expect(errors.some((e) => e.code === 'unsupported_type')).toBe(true)
   })
 
@@ -122,6 +124,7 @@ describe('validateChartSpec', () => {
     const errors = validateChartSpec(
       baseSpec({ datasets: [{ datasetId: 'not-a-uuid' }] }),
     )
+
     expect(errors.some((e) => e.code === 'invalid_dataset_reference')).toBe(
       true,
     )
@@ -133,6 +136,7 @@ describe('validateChartSpec', () => {
         fields: { ...baseSpec().fields, y: { fieldId: 'not-a-uuid' } },
       }),
     )
+
     expect(errors.some((e) => e.field === 'spec.fields.y.fieldId')).toBe(true)
   })
 
@@ -145,6 +149,7 @@ describe('validateChartSpec', () => {
         },
       }),
     )
+
     expect(errors.some((e) => e.code === 'invalid_palette')).toBe(true)
   })
 
@@ -157,6 +162,7 @@ describe('validateChartSpec', () => {
         },
       }),
     )
+
     expect(errors).toEqual([])
   })
 
@@ -171,6 +177,7 @@ describe('validateChartSpec', () => {
         },
       }),
     )
+
     expect(errors.some((e) => e.field === 'spec.overlays.errorBars')).toBe(true)
   })
 
@@ -183,6 +190,7 @@ describe('validateChartSpec', () => {
         },
       }),
     )
+
     expect(errors.some((e) => e.field === 'spec.fields.y')).toBe(true)
   })
 
@@ -282,6 +290,7 @@ describe('applyFilters', () => {
     const out = applyFilters(ROWS, [
       { fieldId: COL_GCN, op: 'between', value: [1.7e8, 1.9e8] },
     ])
+
     expect(
       out.every(
         (r) => Number(r[COL_GCN]) >= 1.7e8 && Number(r[COL_GCN]) <= 1.9e8,
@@ -292,6 +301,7 @@ describe('applyFilters', () => {
     const out = applyFilters(ROWS, [
       { fieldId: COL_REP, op: 'eq', value: 'Rep 1' },
     ])
+
     expect(out.every((r) => r[COL_REP] === 'Rep 1')).toBe(true)
   })
 })
@@ -304,6 +314,7 @@ describe('materialiseChart', () => {
         series: { fieldId: COL_REP },
       },
     })
+
     const m = materialiseChart(spec, COLUMNS, ROWS)
     expect(m.state.kind).toBe('ok')
     expect(m.series.map((s) => s.identifier).sort()).toEqual(['Rep 1', 'Rep 2'])
@@ -314,6 +325,7 @@ describe('materialiseChart', () => {
     const spec = baseSpec({
       fields: { ...baseSpec().fields, x: null, series: null },
     })
+
     const materialised = materialiseChart(spec, COLUMNS, ROWS)
 
     expect(materialised.state.kind).toBe('ok')
@@ -326,6 +338,7 @@ describe('materialiseChart', () => {
     const spec = baseSpec()
     const m = materialiseChart(spec, [], ROWS)
     expect(m.state.kind).toBe('missing_field')
+
     if (m.state.kind === 'missing_field') {
       expect(m.state.fields).toContain('x')
       expect(m.state.fields).toContain('y')
@@ -348,8 +361,10 @@ describe('materialiseChart', () => {
         logicalType: 'decimal',
       },
     ]
+
     const m = materialiseChart(baseSpec(), impostor, ROWS)
     expect(m.state.kind).toBe('missing_field')
+
     if (m.state.kind === 'missing_field') {
       expect(m.state.fields).toContain('x')
       expect(m.state.fields).toContain('y')
@@ -360,6 +375,7 @@ describe('materialiseChart', () => {
     const spec = baseSpec({
       filters: [{ fieldId: COL_DAYS, op: 'gt', value: 999 }],
     })
+
     const m = materialiseChart(spec, COLUMNS, ROWS)
     expect(m.state.kind).toBe('empty_dataset')
   })
@@ -374,12 +390,15 @@ describe('materialiseChart', () => {
         },
       },
     })
+
     const rowsWithZero = [
       ...ROWS,
       { [COL_DAYS]: 14, [COL_GCN]: 0, [COL_REP]: 'Rep 1', [COL_ERR]: 0 },
     ]
+
     const m = materialiseChart(spec, COLUMNS, rowsWithZero)
     expect(m.state.kind).toBe('log_scale_invalid')
+
     if (m.state.kind === 'log_scale_invalid') {
       expect(m.state.axis).toBe('y')
       expect(m.state.invalidCount).toBe(1)
@@ -392,6 +411,7 @@ describe('materialiseChart', () => {
         errorBars: { fieldId: COL_ERR, basis: 'sd' },
       },
     })
+
     const m = materialiseChart(spec, COLUMNS, ROWS)
     expect(m.state.kind).toBe('ok')
     expect(m.series[0].points.every((p) => typeof p.yError === 'number')).toBe(
@@ -405,12 +425,15 @@ describe('materialiseChart', () => {
         errorBars: { fieldId: COL_ERR, basis: 'sd' },
       },
     })
+
     const m = materialiseChart(
       spec,
       COLUMNS.filter((c) => c.id !== COL_ERR),
       ROWS,
     )
+
     expect(m.state.kind).toBe('missing_field')
+
     if (m.state.kind === 'missing_field')
       expect(m.state.fields).toContain('errorBars')
   })
@@ -422,6 +445,7 @@ describe('materialiseChart', () => {
         series: { fieldId: COL_REP },
       },
     })
+
     const m = materialiseChart(spec, COLUMNS, ROWS)
     expect(m.series.map((s) => s.color)).toEqual([
       CHART_PALETTE[0].toLowerCase(),
@@ -464,6 +488,7 @@ describe('SCI-01 distribution chart types', () => {
       logicalType: 'text',
     },
   ]
+
   const DIST_ROWS = [
     { [COL_DAYS]: 0, [COL_GCN]: 100, [COL_REP]: '4C' },
     { [COL_DAYS]: 24, [COL_GCN]: 97, [COL_REP]: '4C' },
@@ -497,6 +522,7 @@ describe('SCI-01 distribution chart types', () => {
       typeParams: { histogram: { bins: 10 } },
       fields: { ...baseSpec().fields, x: null },
     })
+
     expect(
       validateChartSpec({
         ...histogram,
@@ -528,6 +554,7 @@ describe('SCI-01 distribution chart types', () => {
         heatmap: { aggregate: 'count', valueField: null, xBins: 10, yBins: 10 },
       },
     })
+
     expect(validateChartSpec(heatmap)).toEqual([])
     expect(
       validateChartSpec({
@@ -568,6 +595,7 @@ describe('SCI-01 distribution chart types', () => {
         annotations: [{ x: 1, y: 2, label: 'peak' }],
       },
     })
+
     expect(validateChartSpec(annotated)).toEqual([])
     expect(
       validateChartSpec({
@@ -591,12 +619,15 @@ describe('SCI-01 distribution chart types', () => {
       },
       typeParams: { histogram: { bins: 3 } },
     })
+
     const m = materialiseChart(spec, DIST_COLUMNS, DIST_ROWS)
     expect(m.state.kind).toBe('ok')
     expect(m.bins?.edges.map((e) => Math.round(e))).toEqual([70, 80, 90, 100])
+
     const byKey = Object.fromEntries(
       m.series.map((s) => [s.identifier, s.points.map((p) => p.y)]),
     )
+
     expect(byKey['4C']).toEqual([0, 0, 4])
     expect(byKey['20C']).toEqual([1, 3, 0])
     expect(m.droppedPoints).toBe(0)
@@ -608,11 +639,13 @@ describe('SCI-01 distribution chart types', () => {
       fields: { ...baseSpec().fields, x: null },
       typeParams: { histogram: { bins: 2 } },
     })
+
     const m = materialiseChart(spec, DIST_COLUMNS, [
       { [COL_DAYS]: 0, [COL_GCN]: 1, [COL_REP]: '4C' },
       { [COL_DAYS]: 0, [COL_GCN]: 'oops', [COL_REP]: '4C' },
       { [COL_DAYS]: 0, [COL_GCN]: null, [COL_REP]: '4C' },
     ])
+
     expect(m.droppedPoints).toBe(2)
   })
 
@@ -626,10 +659,13 @@ describe('SCI-01 distribution chart types', () => {
       },
       typeParams: { box: { showOutliers: true } },
     })
+
     const m = materialiseChart(spec, DIST_COLUMNS, DIST_ROWS)
+
     const byKey = Object.fromEntries(
       m.series.map((s) => [s.identifier, s.points[0].box]),
     )
+
     expect(byKey['4C']).toMatchObject({
       lo: 93,
       q1: 94.5,
@@ -659,10 +695,12 @@ describe('SCI-01 distribution chart types', () => {
       },
       typeParams: {},
     })
+
     const rows = [
       ...DIST_ROWS,
       { [COL_DAYS]: 96, [COL_GCN]: 10, [COL_REP]: '4C' },
     ]
+
     const m = materialiseChart(spec, DIST_COLUMNS, rows)
     const box4c = m.series.find((s) => s.identifier === '4C')!.points[0].box!
     expect(box4c.outliers).toEqual([10])
@@ -684,6 +722,7 @@ describe('SCI-01 distribution chart types', () => {
         heatmap: { aggregate: 'count', valueField: null, yBins: 2 },
       },
     })
+
     const m = materialiseChart(spec, DIST_COLUMNS, DIST_ROWS)
     expect(m.state.kind).toBe('ok')
     expect(m.heatmap).toBeDefined()
@@ -704,6 +743,7 @@ describe('SCI-01 distribution chart types', () => {
       fields: { ...baseSpec().fields, x: null },
       typeParams: { heatmap: { aggregate: 'count', valueField: null } },
     })
+
     const m = materialiseChart(spec, DIST_COLUMNS, DIST_ROWS)
     expect(m.state).toEqual({ kind: 'missing_field', fields: ['x'] })
     expect(m.series).toEqual([])
@@ -728,6 +768,7 @@ describe('SCI-01 distribution chart types', () => {
         heatmap: { aggregate: 'count', valueField: null },
       },
     })
+
     const m = materialiseChart(spec, DIST_COLUMNS, [
       { [COL_DAYS]: 0, [COL_GCN]: 1 },
       { [COL_DAYS]: 10, [COL_GCN]: 3 },
@@ -735,6 +776,7 @@ describe('SCI-01 distribution chart types', () => {
       { [COL_DAYS]: null, [COL_GCN]: 2 }, // invalid x only
       { [COL_DAYS]: null, [COL_GCN]: 'oops' }, // invalid in BOTH dimensions
     ])
+
     expect(m.state.kind).toBe('ok')
     // Three omitted ROWS — the doubly-invalid row contributes 1, not 2.
     expect(m.droppedPoints).toBe(3)
@@ -761,6 +803,7 @@ describe('SCI-01 distribution chart types', () => {
         },
       },
     })
+
     expect(chartSpecReferencedFieldIds(spec)).toEqual(
       [COL_DAYS, COL_GCN, COL_REP].sort(),
     )
@@ -785,15 +828,18 @@ describe('SCI-01 distribution chart types', () => {
         },
       },
     })
+
     const live = materialiseChart(spec, DIST_COLUMNS, DIST_ROWS)
     expect(live.state.kind).toBe('ok')
     expect(live.heatmap?.aggregate).toBe('mean')
     expect(live.heatmap?.cells.some((cell) => cell.value !== null)).toBe(true)
+
     const missingValue = materialiseChart(
       spec,
       DIST_COLUMNS.filter((column) => column.id !== COL_GCN),
       DIST_ROWS,
     )
+
     expect(missingValue.state).toEqual({
       kind: 'missing_field',
       fields: ['value'],
@@ -810,9 +856,11 @@ describe('SCI-01 distribution chart types', () => {
       typeParams: { box: {} },
       type: 'box',
     })
+
     const result = materialiseFacetedCharts(spec, DIST_COLUMNS, DIST_ROWS)
     expect(result.total).toBe(2)
     expect(result.panels.map((p) => p.value)).toEqual(['20C', '4C'])
+
     for (const panel of result.panels) {
       expect(panel.chart.state.kind).toBe('ok')
       expect(panel.chart.series).toHaveLength(1)

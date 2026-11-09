@@ -59,7 +59,9 @@ function textProposal(): AssistDraftProposal {
       },
     },
   })
+
   if (!proposal) throw new Error('fixture proposal must build')
+
   return proposal
 }
 
@@ -74,6 +76,7 @@ function mappingProposal(): AssistDraftProposal {
       kind: 'record-field',
     },
   ]
+
   return suggestMappingProposal(['Organism', 'zzz_unmatched'], fields)
 }
 
@@ -88,7 +91,9 @@ function chartProposal(): AssistDraftProposal {
       },
     ],
   })
+
   if (!proposal) throw new Error('fixture proposal must build')
+
   return proposal
 }
 

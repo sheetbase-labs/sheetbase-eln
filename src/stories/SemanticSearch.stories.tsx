@@ -89,13 +89,16 @@ function settings(over: Partial<SemanticSettingsView['settings']> = {}) {
 
 function seeded(view: SemanticSettingsView | null, similar?: SemanticHit[]) {
   const client = screenQueryClient()
+
   if (view) client.setQueryData(['semantic-settings', WORKSPACE], view)
+
   if (similar) {
     client.setQueryData(
       ['similar-work', WORKSPACE, 'record', EXPERIMENT],
       similar,
     )
   }
+
   return client
 }
 
@@ -109,7 +112,9 @@ const meta = {
   },
   args: { hits: HITS, label: 'Close in meaning' },
 } satisfies Meta<typeof SemanticHitsTable>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Work that reads close to the question, with the passage that matched. */

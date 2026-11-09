@@ -68,11 +68,13 @@ export function RunDetail({
   onBack: () => void
 }) {
   const queryClient = useQueryClient()
+
   const run = useQuery({
     queryKey: plateRunKeys.one(runId),
     queryFn: () => fetchPlateRun(client, runId),
     staleTime: 5_000,
   })
+
   const [view, setView] = useState<MapView>('normalised')
   const [tab, setTab] = useState<DetailTab>('hits')
   const [settings, setSettings] = useState(false)
@@ -95,6 +97,7 @@ export function RunDetail({
   const analyse = useMutation({
     mutationFn: async () => {
       if (!data) throw new Error(t('plates.run.notFound'))
+
       return analyseAndSavePlateRun(client, data)
     },
     onSuccess: () => {
@@ -111,6 +114,7 @@ export function RunDetail({
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: plateRunKeys.all })
+
       if (data)
         toast.success(
           t('plates.run.archived', {
@@ -261,6 +265,7 @@ export function RunDetail({
   if (run.isPending) {
     return <div className="p-6 text-fg-muted">…</div>
   }
+
   if (!data || !map) {
     return (
       <div className="p-6">
@@ -275,8 +280,10 @@ export function RunDetail({
 
   const samples = (analysis?.samples ?? []).filter((s) => !onlyHits || s.hit)
   const curves = analysis?.curves ?? []
+
   const curve: SampleCurve | undefined =
     curves.find((c) => c.key === selectedCurve) ?? curves.at(0)
+
   const reference = plateRunReference(data.number)
 
   return (
@@ -511,13 +518,16 @@ export function RunDetail({
 
 function QcCard({ run }: { run: PlateRunRow }) {
   const a = run.results
+
   if (!a) return null
   const qc = a.qc
+
   const rows: Array<[string, typeof qc.positive]> = [
     [t('plates.qc.positive'), qc.positive],
     [t('plates.qc.negative'), qc.negative],
     [t('plates.qc.blank'), qc.blank],
   ]
+
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border-subtle p-4">
       <div className="flex items-center gap-2">
@@ -628,6 +638,7 @@ function Metric({
 
 function numberOrNull(text: string): number | null {
   const n = Number(text)
+
   return text.trim() === '' || !Number.isFinite(n) ? null : n
 }
 
@@ -645,6 +656,7 @@ function SettingsDialog({
   const [sb, setSb] = useState('')
   const [cv, setCv] = useState('')
   const [lastOpen, setLastOpen] = useState(false)
+
   if (open && !lastOpen) {
     setLastOpen(true)
     setConfig(run.config)
@@ -664,12 +676,14 @@ function SettingsDialog({
           controlCvMax: numberOrNull(cv),
         },
       }
+
       const updated = await updatePlateRun(
         client,
         run.id,
         { config: next },
         run.metadata_version,
       )
+
       return analyseAndSavePlateRun(client, updated)
     },
     onSuccess: () => {
@@ -683,6 +697,7 @@ function SettingsDialog({
 
   const setHit = (patch: Partial<PlateAssayConfig['hit']>) =>
     setConfig((c) => ({ ...c, hit: { ...c.hit, ...patch } }))
+
   const setQc = (patch: Partial<PlateAssayConfig['qc']>) =>
     setConfig((c) => ({ ...c, qc: { ...c.qc, ...patch } }))
 
@@ -766,6 +781,7 @@ function SettingsDialog({
                 value={String(config.hit.threshold)}
                 onChange={(e) => {
                   const n = numberOrNull(e.target.value)
+
                   if (n !== null) setHit({ threshold: n })
                 }}
               />
@@ -835,6 +851,7 @@ function SettingsDialog({
                 value={String(config.qc.zPrimeMin)}
                 onChange={(e) => {
                   const n = numberOrNull(e.target.value)
+
                   if (n !== null) setQc({ zPrimeMin: n })
                 }}
               />
@@ -845,6 +862,7 @@ function SettingsDialog({
                 value={String(config.qc.zPrimeFail)}
                 onChange={(e) => {
                   const n = numberOrNull(e.target.value)
+
                   if (n !== null) setQc({ zPrimeFail: n })
                 }}
               />

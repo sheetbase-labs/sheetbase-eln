@@ -25,17 +25,22 @@ export function PluginBlockView({
   insertBelow?: (type: string, payload: Record<string, unknown>) => void
 }) {
   const points = usePluginPoints()
+
   const body = (payload ?? {}) as {
     plugin?: string
     block?: string
     state?: unknown
   }
+
   const item = points.blocks.find(
     (b) => b.extensionKey === body.plugin && b.id === body.block,
   )
+
   if (points.isLoading) return null
+
   if (!item) {
     const known = body.plugin ? points.installed.get(body.plugin) : undefined
+
     return (
       <p className="m-0 rounded-md border border-dashed border-border px-3 py-2 text-label text-fg-muted">
         {t('plugins.screen.pluginBlockGone', {
@@ -44,7 +49,9 @@ export function PluginBlockView({
       </p>
     )
   }
+
   const declaration = item.declaration
+
   return (
     <PluginScreen
       extensionKey={item.extensionKey}

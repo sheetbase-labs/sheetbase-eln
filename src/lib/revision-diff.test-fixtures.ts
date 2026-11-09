@@ -205,5 +205,6 @@ export function technicalChurnRevisionFixture(): CanonicalRevisionEnvelope {
   revision.blocks[0].updatedAt = '2026-07-26T10:00:00Z'
   revision.formulas[0].version = 2
   revision.files[0].version = 2
+
   return revision
 }

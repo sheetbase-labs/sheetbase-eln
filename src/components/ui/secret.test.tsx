@@ -24,9 +24,11 @@ afterEach(() => {
 describe('Secret', () => {
   it('confirms the copy when the clipboard takes the value', async () => {
     const user = userEvent.setup()
+
     const writeText = vi
       .spyOn(navigator.clipboard, 'writeText')
       .mockResolvedValue(undefined)
+
     render(<Secret value="sb_live_123" />)
 
     await user.click(screen.getByRole('button', { name: 'Copy' }))

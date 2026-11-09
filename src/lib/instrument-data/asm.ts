@@ -55,18 +55,22 @@ export const ASM_DOCUMENT_BYTE_LIMIT = 16 * 1024 * 1024
 export function deviceLabel(device: Record<string, unknown>): string {
   const text = (key: string) => {
     const value = device[key]
+
     return typeof value === 'string' && value && value !== 'N/A' ? value : ''
   }
+
   const parts = [
     text('product manufacturer') || text('brand name'),
     text('model number'),
   ].filter(Boolean)
+
   return parts.join(' ')
 }
 
 /** `qubit4-dsdna.csv` → `qubit4-dsdna.asm.json`. */
 export function asmFileName(fileName: string): string {
   const base = fileName.replace(/\.[A-Za-z0-9]{1,5}$/, '') || 'instrument-data'
+
   return `${base}.asm.json`
 }
 
@@ -80,10 +84,13 @@ export function converterTarget(
   signature: Record<string, unknown>,
 ): { vendor: string } | null {
   const converter = signature['converter']
+
   if (converter && typeof converter === 'object' && 'vendor' in converter) {
     const vendor = (converter as { vendor?: unknown }).vendor
+
     if (typeof vendor === 'string' && /^[A-Z0-9_]{2,80}$/.test(vendor))
       return { vendor }
   }
+
   return null
 }

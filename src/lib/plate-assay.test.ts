@@ -16,8 +16,10 @@ import { wellCode } from './plate-map'
 
 function lcg(seed: number) {
   let s = seed
+
   return () => {
     s = (s * 1664525 + 1013904223) % 4294967296
+
     return s / 4294967296 - 0.5
   }
 }
@@ -27,9 +29,11 @@ function screenPlate(seed = 1) {
   const noise = lcg(seed)
   const wells: AssayWell[] = []
   const readout: PlateReadout = {}
+
   for (let r = 0; r < 16; r++)
     for (let c = 0; c < 24; c++) {
       const code = wellCode(r, c)
+
       if (c === 0) {
         wells.push({ wellCode: code, role: 'negative_control' })
         readout[code] = 1000 + noise() * 40
@@ -46,6 +50,7 @@ function screenPlate(seed = 1) {
         readout[code] = (r === 3 ? 150 : 1000) + noise() * 40
       }
     }
+
   return { wells, readout }
 }
 
@@ -66,9 +71,11 @@ describe('384-well screening plate', () => {
     const negs = a.wells
       .filter((w) => w.role === 'negative_control')
       .map((w) => w.normalised!)
+
     const poss = a.wells
       .filter((w) => w.role === 'positive_control')
       .map((w) => w.normalised!)
+
     expect(negs.reduce((s, v) => s + v, 0) / negs.length).toBeCloseTo(0, 6)
     expect(poss.reduce((s, v) => s + v, 0) / poss.length).toBeCloseTo(100, 6)
   })
@@ -81,6 +88,7 @@ describe('384-well screening plate', () => {
   it('flags a plate with no separation as failed', () => {
     const flat: PlateReadout = {}
     const n = lcg(9)
+
     for (const w of wells) flat[w.wellCode] = 500 + n() * 400
     const bad = analysePlate(wells, flat)
     expect(bad.qc.zPrime!).toBeLessThan(0)
@@ -103,18 +111,22 @@ describe('384-well screening plate', () => {
         minReplicates: 'all',
       },
     })
+
     expect(sd.summary.hitSamples).toBe(22)
+
     const mad = analysePlate(wells, readout, {
       ...defaultAssayConfig(),
       normalisation: 'robust_z',
       hit: { kind: 'mad', threshold: 3, direction: 'below', minReplicates: 1 },
     })
+
     expect(mad.summary.hitSamples).toBe(22)
   })
   it('subtracts a blank', () => {
     const withBlank = wells.map((w, i) =>
       i === 5 ? { ...w, role: 'blank' as const } : w,
     )
+
     const r = analysePlate(
       withBlank,
       { ...readout, [wells[5].wellCode]: 50 },
@@ -123,6 +135,7 @@ describe('384-well screening plate', () => {
         subtractBlank: true,
       },
     )
+
     const w = r.wells[10]
     expect(w.corrected).toBeCloseTo(w.raw! - 50, 6)
   })
@@ -133,14 +146,17 @@ function dilutionPlate(ec50: number, seed: number, unit = 'nM') {
   const wells: AssayWell[] = []
   const readout: PlateReadout = {}
   const params = { A: 0, B: 1.2, C: ec50, D: 100, G: 1 }
+
   for (let r = 0; r < 6; r++) {
     wells.push({ wellCode: wellCode(r, 0), role: 'negative_control' })
     readout[wellCode(r, 0)] = noise() * 2
     wells.push({ wellCode: wellCode(r, 11), role: 'positive_control' })
     readout[wellCode(r, 11)] = 100 + noise() * 2
   }
+
   for (let c = 1; c <= 10; c++) {
     const conc = 10000 / 3 ** (c - 1)
+
     for (const r of [0, 1]) {
       const code = wellCode(r, c)
       wells.push({
@@ -153,6 +169,7 @@ function dilutionPlate(ec50: number, seed: number, unit = 'nM') {
       readout[code] = curveValue(params, conc) + noise() * 4
     }
   }
+
   return { wells, readout }
 }
 
@@ -173,6 +190,7 @@ describe('dose–response and potency across plates', () => {
       dilutionPlate(0.11, 4, 'µM'),
     ].map((p, i) => {
       const a = analysePlate(p.wells, p.readout)
+
       return {
         runId: `r${i}`,
         runName: `Plate ${i}`,
@@ -180,6 +198,7 @@ describe('dose–response and potency across plates', () => {
         curves: a.curves,
       }
     })
+
     // The µM plate's doses are in µM, but its curve was generated from nM doses,
     // so only check the machinery: three plates, molar, plausible geometric mean.
     const s = summarisePotency(plates)
@@ -193,9 +212,11 @@ describe('dose–response and potency across plates', () => {
   it('leaves failed plates out unless asked', () => {
     const p = dilutionPlate(100, 1)
     const a = analysePlate(p.wells, p.readout)
+
     const input = [
       { runId: 'r', runName: 'r', qcStatus: 'fail' as const, curves: a.curves },
     ]
+
     expect(summarisePotency(input)).toHaveLength(0)
     expect(summarisePotency(input, { includeFailed: true })).toHaveLength(1)
   })
@@ -207,11 +228,13 @@ describe('dose–response and potency across plates', () => {
       concentration: c,
       concentrationUnit: 'nM',
     }))
+
     const a = analysePlate(
       wells,
       { A2: 1, A3: 2, A4: 3 },
       { ...defaultAssayConfig(), normalisation: 'none' },
     )
+
     expect(a.curves).toHaveLength(0)
     expect(a.unfitted[0].reason).toBe('too_few_doses')
   })
@@ -227,6 +250,7 @@ describe('dose–response and potency across plates', () => {
       molar: true,
       values: [],
     }
+
     const r = relativePotency(
       [
         { ...base, key: 'a', label: 'ref', geoMean: 1e-7 },
@@ -234,6 +258,7 @@ describe('dose–response and potency across plates', () => {
       ],
       'a',
     )!
+
     expect(r[0].ratio).toBeCloseTo(2, 6)
   })
 })
@@ -241,11 +266,13 @@ describe('dose–response and potency across plates', () => {
 describe('helpers', () => {
   it('reads configs defensively', () => {
     expect(normaliseAssayConfig(null)).toEqual(defaultAssayConfig())
+
     const c = normaliseAssayConfig({
       normalisation: 'bogus',
       hit: { minReplicates: 2, kind: 'mad' },
       qc: { controlCvMax: 10 },
     })
+
     expect(c.normalisation).toBe('percent_effect')
     expect(c.hit.minReplicates).toBe(2)
     expect(c.hit.kind).toBe('mad')
@@ -270,6 +297,7 @@ describe('parsePlateTable', () => {
     const t = parsePlateTable(
       'Well,Role,Sample,Concentration,Unit,Value\nA1,neg,,,,1000\nA2,pos,,,,100\nA3,sample,X-1,10,nM,500\nZZ,sample,X,1,nM,1\nA3,sample,X,1,nM,1',
     )
+
     expect(t.wells.map((w) => w.role)).toEqual([
       'negative_control',
       'positive_control',

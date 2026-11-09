@@ -64,6 +64,7 @@ describe('changeSetFromVersions', () => {
       undefined,
       config([sheet()], [parameter()]),
     )
+
     expect(entries.every((entry) => entry.tag === 'added')).toBe(true)
     expect(entries.map((entry) => entry.label)).toContain('Sheet · Samples')
     expect(entries.map((entry) => entry.label)).toContain('Parameter · Results')
@@ -74,6 +75,7 @@ describe('changeSetFromVersions', () => {
       config([sheet({ definitionVersionId: D1 })]),
       config([sheet({ definitionVersionId: D2 })]),
     )
+
     expect(entries).toEqual([
       {
         id: P1,
@@ -92,6 +94,7 @@ describe('changeSetFromVersions', () => {
       config([sheet(), narrative(P2)]),
       config([sheet()]),
     )
+
     expect(entries).toEqual([
       {
         id: P2,
@@ -106,6 +109,7 @@ describe('changeSetFromVersions', () => {
       config([sheet()]),
       config([sheet(), narrative(P2)]),
     )
+
     expect(added).toEqual([
       {
         id: P2,
@@ -122,6 +126,7 @@ describe('changeSetFromVersions', () => {
       config([sheet()], [parameter({ required: true })]),
       config([sheet()], [parameter({ required: false })]),
     )
+
     expect(entries).toEqual([
       {
         id: T1,

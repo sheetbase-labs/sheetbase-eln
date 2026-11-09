@@ -24,7 +24,9 @@ const meta = {
     title: 'Experiments',
   },
 } satisfies Meta<typeof PageHeader>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The trail, the title and the page's own controls. */

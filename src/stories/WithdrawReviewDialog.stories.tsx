@@ -35,6 +35,7 @@ const submission = {
 
 function Harness() {
   const [open, setOpen] = useState(true)
+
   return (
     <QueryClientProvider client={client}>
       <Button onClick={() => setOpen(true)}>Withdraw from review</Button>
@@ -53,7 +54,9 @@ const meta = {
   tags: ['autodocs'],
   args: { open: true, onOpenChange: () => {}, submission },
 } satisfies Meta<typeof WithdrawReviewDialog>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Open: the optional note and the two choices. */

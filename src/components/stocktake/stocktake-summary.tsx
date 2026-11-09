@@ -47,6 +47,7 @@ const client = notebookDataClient
 
 function useRefresh(stocktakeId: string) {
   const queryClient = useQueryClient()
+
   return () => {
     void queryClient.invalidateQueries({
       queryKey: stocktakeKeys.items(stocktakeId),
@@ -108,6 +109,7 @@ export function StocktakeSummaryView({
   const resolve = useMutation({
     mutationFn: (input: { item: StocktakeItem; action: StocktakeAction }) => {
       setBusyId(input.item.id)
+
       return resolveStocktakeItem(client, {
         itemId: input.item.id,
         action: input.action,
@@ -131,15 +133,18 @@ export function StocktakeSummaryView({
       ['misplaced', 'unexpected', 'missing'].includes(i.state),
     ),
   )
+
   const refilable = differences.filter(
     (i) => !i.resolvedAt && actionsFor(i).includes('refile'),
   )
+
   const confirmed = items.filter((i) => i.state === 'confirmed')
 
   const fixAll = useMutation({
     mutationFn: async () => {
       let done = 0
       let failed = 0
+
       for (const item of refilable) {
         try {
           await resolveStocktakeItem(client, {
@@ -151,6 +156,7 @@ export function StocktakeSummaryView({
           failed += 1
         }
       }
+
       return { done, failed }
     },
     onSuccess: ({ done, failed }) => {
@@ -165,10 +171,12 @@ export function StocktakeSummaryView({
   })
 
   const who = (id: string | null) => (id && names.data?.get(id)) || null
+
   const when = formatDate(
     stocktake.completedAt ?? stocktake.cancelledAt ?? stocktake.startedAt,
     { time: true },
   )
+
   const finishedBy = who(stocktake.completedBy)
 
   const onAction = (item: StocktakeItem, action: StocktakeAction) => {
@@ -184,6 +192,7 @@ export function StocktakeSummaryView({
         size: 210,
         cell: ({ row }) => {
           const item = row.original
+
           return (
             <span className="flex min-w-0">
               <span className="flex min-w-0 gap-2">
@@ -254,6 +263,7 @@ export function StocktakeSummaryView({
         size: 220,
         cell: ({ row }) => {
           const item = row.original
+
           if (item.resolution)
             return (
               <span className="inline-flex items-center gap-1.5 text-fg-muted">
@@ -261,8 +271,10 @@ export function StocktakeSummaryView({
                 {t(`library.stocktake.resolved.${item.resolution}`)}
               </span>
             )
+
           if (!canWrite || called) return null
           const actions = actionsFor(item)
+
           return (
             <span className="flex gap-1 whitespace-nowrap">
               {actions.map((action, index) => (

@@ -102,6 +102,7 @@ describe('buildTextDraftProposal', () => {
       envelope: envelope(),
       citations: [citation()],
     })
+
     expect(proposal).not.toBeNull()
     expect(proposal?.kind).toBe('notebook_text')
     expect(proposal?.citations.length).toBeGreaterThan(0)
@@ -136,7 +137,9 @@ describe('acceptTextDraft', () => {
       recordTitle: 'EXP-1',
       envelope: envelope(),
     })
+
     if (!proposal) throw new Error('fixture proposal must build')
+
     const rpc = vi.fn(async () => ({
       block: {
         id: 'b1',
@@ -151,11 +154,14 @@ describe('acceptTextDraft', () => {
       },
       structure_version: 2,
     }))
+
     const client = { rpc } as unknown as DataClient
+
     const result = await acceptTextDraft(client, {
       recordId: 'r1',
       proposal,
     })
+
     expect(rpc).toHaveBeenCalledWith(
       'insert_block',
       expect.objectContaining({
@@ -184,6 +190,7 @@ describe('suggestMappingProposal', () => {
       ['Organism', 'sample_id', 'zzz_unmatched'],
       fields,
     )
+
     expect(proposal.kind).toBe('import_mapping')
     expect(proposal.suggestions[0]?.confidence).toBe('exact')
     expect(proposal.suggestions[0]?.mapping).toMatchObject({
@@ -225,6 +232,7 @@ describe('proposeChartSpec', () => {
         { fieldId: TEMP_ID, label: 'Temperature', logicalType: 'number' },
       ],
     })
+
     expect(proposal?.spec.type).toBe('histogram')
     expect(validateChartSpec(proposal?.spec)).toEqual([])
   })
@@ -237,6 +245,7 @@ describe('proposeChartSpec', () => {
         { fieldId: COND_ID, label: 'Condition', logicalType: 'text' },
       ],
     })
+
     expect(proposal?.spec.type).toBe('bar')
     expect(validateChartSpec(proposal?.spec)).toEqual([])
   })
@@ -262,7 +271,9 @@ describe('phraseDraft', () => {
       recordTitle: 'EXP-1',
       envelope: envelope(),
     })
+
     if (!proposal) throw new Error('fixture proposal must build')
+
     const ok = {
       status: 'ok' as const,
       text: 'A short plain summary.',
@@ -271,10 +282,12 @@ describe('phraseDraft', () => {
       usage: { tokensUsed: 1, costMicrousd: 1, latencyMs: 1 },
       generated: true as const,
     }
+
     const phrasing = await phraseDraft(proposal, async () => ({
       ...ok,
       mode: 'provider' as const,
     }))
+
     expect(phrasing).toEqual({
       text: 'A short plain summary.',
       model: 'claude-test',
@@ -318,6 +331,7 @@ describe('summariseNotebookBlocks', () => {
         textBlock('b2', 'Result: 7.4'),
       ],
     })
+
     expect(summary.context.version).toBe(1)
     expect(summary.context.objects).toHaveLength(1)
     expect(summary.context.objects[0]?.sections.map((s) => s.body)).toEqual([
@@ -328,6 +342,7 @@ describe('summariseNotebookBlocks', () => {
       'Objective: measure kinetics',
       'Result: 7.4',
     ])
+
     // A local summary satisfies the minimal context input.
     const proposal = buildTextDraftProposal({
       recordTitle: 'EXP-1',
@@ -335,6 +350,7 @@ describe('summariseNotebookBlocks', () => {
       keyPoints: summary.keyPoints,
       groundedFrom: summary.groundedFrom,
     })
+
     expect(proposal?.draftText).toContain('Objective: measure kinetics')
     expect(proposal?.groundedFrom).toContain('visible notebook blocks')
     expect(
@@ -356,6 +372,7 @@ describe('summariseNotebookBlocks', () => {
       ],
       maxBlocks: 1,
     })
+
     expect(summary.context.objects[0]?.sections.map((s) => s.heading)).toEqual([
       'rich_text block 1',
       'Truncation',
@@ -373,6 +390,7 @@ describe('summariseNotebookBlocks', () => {
       blocks: [textBlock('b1', 'x'.repeat(600))],
       maxCharsPerBlock: 100,
     })
+
     const body = summary.context.objects[0]?.sections[0]?.body ?? ''
     expect(body.endsWith('…')).toBe(true)
     expect(body.length).toBeLessThan(600)

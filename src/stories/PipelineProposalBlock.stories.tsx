@@ -105,7 +105,9 @@ const meta = {
     onExecute: () => {},
   },
 } satisfies Meta<typeof PipelineProposalBlock>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Pending: the reviewer may accept or reject, with the reason field. */

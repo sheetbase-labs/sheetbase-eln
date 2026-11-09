@@ -63,18 +63,21 @@ function datasetOf(
   ref: LineageDatasetRef,
 ): OpenLineageDataset {
   const facets: Record<string, unknown> = {}
+
   if (ref.versionId) {
     facets.version = {
       ...facetBase('DatasetVersionDatasetFacet'),
       datasetVersion: ref.versionId,
     }
   }
+
   if (ref.columns && ref.columns.length > 0) {
     facets.schema = {
       ...facetBase('SchemaDatasetFacet'),
       fields: ref.columns.map((name) => ({ name })),
     }
   }
+
   return { namespace, name: `datasets/${ref.datasetId}`, facets }
 }
 
@@ -85,6 +88,7 @@ export function columnLineageFor(
   output: LineageDatasetRef,
 ): Record<string, unknown> | null {
   const fields: Record<string, unknown> = {}
+
   for (const column of output.columns ?? []) {
     const sources = inputs
       .filter((input) =>
@@ -97,6 +101,7 @@ export function columnLineageFor(
         name: `datasets/${input.datasetId}`,
         field: column,
       }))
+
     if (sources.length > 0) {
       fields[column] = {
         inputFields: sources,
@@ -105,6 +110,7 @@ export function columnLineageFor(
       }
     }
   }
+
   return Object.keys(fields).length > 0
     ? { ...facetBase('ColumnLineageDatasetFacet'), fields }
     : null
@@ -118,10 +124,14 @@ export function buildRunEvent(
   const outputs = activity.outputs.map((ref) => {
     const dataset = datasetOf(namespace, ref)
     const lineage = columnLineageFor(namespace, activity.inputs, ref)
+
     if (lineage) dataset.facets.columnLineage = lineage
+
     return dataset
   })
+
   const runFacets: Record<string, unknown> = {}
+
   if (activity.errorMessage) {
     runFacets.errorMessage = {
       ...facetBase('ErrorMessageRunFacet'),
@@ -129,6 +139,7 @@ export function buildRunEvent(
       programmingLanguage: 'n/a',
     }
   }
+
   return {
     eventType: activity.eventType,
     eventTime: activity.eventTime,
@@ -168,6 +179,7 @@ export interface LineageIntent {
 /** Which change events matter to lineage, and as what. Null for the rest. */
 export function lineageIntent(change: LineageChange): LineageIntent | null {
   const status = change.payload.status
+
   switch (change.entityType) {
     case 'pipeline_run':
       return change.operation === 'create'
@@ -178,16 +190,22 @@ export function lineageIntent(change: LineageChange): LineageIntent | null {
     case 'dataset_import':
       if (change.operation === 'create')
         return { kind: 'IMPORT', eventType: 'START' }
+
       if (status === 'committed')
         return { kind: 'IMPORT', eventType: 'COMPLETE' }
+
       if (status === 'failed') return { kind: 'IMPORT', eventType: 'FAIL' }
+
       return null
     case 'instrument_run':
       if (change.operation === 'create')
         return { kind: 'INSTRUMENT', eventType: 'START' }
+
       if (status === 'completed')
         return { kind: 'INSTRUMENT', eventType: 'COMPLETE' }
+
       if (status === 'failed') return { kind: 'INSTRUMENT', eventType: 'FAIL' }
+
       return null
     case 'plate_run':
       return change.operation === 'create'
@@ -196,6 +214,7 @@ export function lineageIntent(change: LineageChange): LineageIntent | null {
     case 'plate_worklist':
       if (change.operation === 'create')
         return { kind: 'WORKLIST', eventType: 'START' }
+
       return payloadSaysCompleted(change.payload)
         ? { kind: 'WORKLIST', eventType: 'COMPLETE' }
         : null
@@ -211,7 +230,10 @@ function payloadSaysCompleted(payload: Record<string, unknown>): boolean {
 /** The lineage event type for a pipeline run's status; null while it is not over. */
 export function eventTypeForRunStatus(status: string): LineageEventType | null {
   if (status === 'succeeded') return 'COMPLETE'
+
   if (status === 'failed') return 'FAIL'
+
   if (status === 'cancelled') return 'ABORT'
+
   return null
 }

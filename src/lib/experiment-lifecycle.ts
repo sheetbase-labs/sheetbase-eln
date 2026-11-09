@@ -26,9 +26,12 @@ async function currentMetadataVersion(
     'records',
     `?id=eq.${encodeURIComponent(recordId)}&select=metadata_version&limit=1`,
   )
+
   const version = rows.at(0)?.metadata_version
+
   if (version === undefined)
     throw new Error('This experiment is not available.')
+
   return Number(version)
 }
 
@@ -145,6 +148,7 @@ export function blocksForNewRun(blocks: BlockForRun[]) {
       payload_schema_version: block.payloadSchemaVersion,
       order: index + 1,
     }))
+
   return kept.length > 0
     ? kept
     : [
@@ -170,14 +174,17 @@ export function partsForNewRun(
   const kept = [...blocks]
     .filter((block) => STRUCTURE_BLOCK_TYPES.has(block.type))
     .sort((a, b) => a.order - b.order)
+
   const points: {
     title: string
     first_block_id: string
     day_offset: number
   }[] = []
+
   for (const part of parts) {
     const index = kept.findIndex((block) => block.partId === part.id)
     const firstBlockId = index >= 0 ? newBlockIds[index] : undefined
+
     if (!firstBlockId) continue
     points.push({
       title: part.title,
@@ -185,6 +192,7 @@ export function partsForNewRun(
       day_offset: part.dayOffset,
     })
   }
+
   return points
 }
 
@@ -209,12 +217,15 @@ export async function createNewRun(
   },
 ): Promise<NotebookRecord> {
   const { source } = input
+
   if (!source.projectId) {
     throw new Error(
       'This experiment is not in a project, so it cannot be repeated.',
     )
   }
+
   const blocks = await fetchBlocksForRecord(client, source.id)
+
   const result = await client.rpc<{ record: RecordWire; blocks: BlockWire[] }>(
     'create_record_with_blocks',
     {
@@ -227,14 +238,18 @@ export async function createNewRun(
       p_properties: {},
     },
   )
+
   const record = toRecord(result.record)
 
   const sourceParts = await fetchPartsForRecord(client, source.id)
+
   if (sourceParts.length > 0) {
     const newBlockIds = [...result.blocks]
       .sort((a, b) => a.order - b.order)
       .map((block) => block.id)
+
     const points = partsForNewRun(blocks, sourceParts, newBlockIds)
+
     if (points.length > 0) {
       await client.rpc('split_record_into_parts', {
         p_record_id: record.id,
@@ -252,6 +267,7 @@ export async function createNewRun(
       `?id=eq.${source.id}&select=reviewer_user_id,planned_end&limit=1`,
     )
   ).at(0)
+
   if (sourceRow?.reviewer_user_id) {
     await client.rpc('set_experiment_fields', {
       p_record_id: record.id,
@@ -266,6 +282,7 @@ export async function createNewRun(
       `?source_record_id=eq.${source.id}&link_type=eq.protocol&select=target_record_id&limit=1`,
     )
   ).at(0)
+
   if (protocolLink?.target_record_id) {
     await applyExperimentSetup(client, record.id, {
       protocolRecordId: protocolLink.target_record_id,
@@ -289,5 +306,6 @@ export async function createNewRun(
       reason: `New run of ${source.identifier}`,
     })
   }
+
   return record
 }

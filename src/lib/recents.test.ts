@@ -54,6 +54,7 @@ describe('signalEventsFromChangeEvents', () => {
       changeEvent({ id: 'b', entity_type: 'block', record_id: 'r-2' }),
       changeEvent({ id: 'c', entity_type: 'record_link', record_id: 'r-3' }),
     ])
+
     expect(signals).toEqual([
       { kind: 'record', id: 'r-1', at: T1, signal: 'edited' },
       { kind: 'record', id: 'r-2', at: T1, signal: 'edited' },
@@ -76,6 +77,7 @@ describe('signalEventsFromChangeEvents', () => {
         entity_uuid: 't-1',
       }),
     ])
+
     expect(signals.map((s) => [s.kind, s.id])).toEqual([
       ['sheet', 's-1'],
       ['dataset', 'd-1'],
@@ -93,6 +95,7 @@ describe('signalEventsFromChangeEvents', () => {
         record_id: 'r-1',
       }),
     ])
+
     expect(signals).toEqual([
       { kind: 'record', id: 'r-1', at: T1, signal: 'reviewed' },
     ])
@@ -104,6 +107,7 @@ describe('signalEventsFromChangeEvents', () => {
       changeEvent({ id: 'b', operation: 'archive' }),
       changeEvent({ id: 'c', entity_type: 'webhook_delivery' }),
     ])
+
     expect(signals).toEqual([])
   })
 
@@ -111,6 +115,7 @@ describe('signalEventsFromChangeEvents', () => {
     const signals = signalEventsFromChangeEvents([
       changeEvent({ id: 'a', entity_type: 'block', record_id: null }),
     ])
+
     expect(signals).toEqual([])
   })
 })
@@ -142,6 +147,7 @@ describe('buildRecentItems', () => {
         { kind: 'sheet', id: 's-edit', at: T1, signal: 'edited' },
       ],
     })
+
     expect(items.map((i) => [i.kind, i.id, i.signal])).toEqual([
       ['dataset', 'd-new', 'viewed'],
       ['record', 'r-mid', 'edited'],
@@ -155,6 +161,7 @@ describe('buildRecentItems', () => {
       views: [view('record', 'r-1', T0)],
       signals: [{ kind: 'record', id: 'r-1', at: T2, signal: 'edited' }],
     })
+
     expect(items).toHaveLength(1)
     expect(items[0].signal).toBe('edited')
     expect(items[0].viewedAt).toBe(T0)
@@ -167,6 +174,7 @@ describe('buildRecentItems', () => {
       views: [view('record', 'r-1', T2)],
       signals: [{ kind: 'record', id: 'r-1', at: T0, signal: 'edited' }],
     })
+
     expect(items[0].signal).toBe('viewed')
     expect(items[0].editedAt).toBe(T0)
     expect(items[0].lastActivityAt).toBe(T2)
@@ -181,6 +189,7 @@ describe('buildRecentItems', () => {
         { kind: 'record', id: 'r-1', at: T1, signal: 'reviewed' },
       ],
     })
+
     expect(items).toHaveLength(1)
     expect(items[0].signal).toBe('edited')
     expect(items[0].reviewedAt).toBe(T1)
@@ -194,6 +203,7 @@ describe('buildRecentItems', () => {
         new Date(Date.parse(T0) + i * 1000).toISOString(),
       ),
     )
+
     const items = buildRecentItems({ views, signals: [], limit: 20 })
     expect(items).toHaveLength(20)
     // Newest first after the cap.
@@ -210,6 +220,7 @@ describe('buildRecentItems', () => {
       ],
       signals: [],
     })
+
     expect(items.map((i) => `${i.kind}:${i.id}`)).toEqual([
       'dataset:d-1',
       'project:p-1',
@@ -247,21 +258,26 @@ describe('resolveRecentItems', () => {
 
   it('looks labels up in batches short enough for the proxy', async () => {
     const queries: string[] = []
+
     const client = {
       list: (resource: string, query: string) => {
         if (resource === 'records') queries.push(query)
+
         return Promise.resolve([])
       },
     } as unknown as DataClient
+
     const ids = Array.from(
       { length: 25 },
       (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
     )
+
     await resolveRecentItems(
       client,
       ids.map((id) => derived('record', id)),
     )
     expect(queries).toHaveLength(3)
+
     for (const query of queries) {
       const value = new URLSearchParams(query).get('id') ?? ''
       expect(value.length).toBeLessThanOrEqual(500)
@@ -284,6 +300,7 @@ describe('resolveRecentItems', () => {
       }),
       [derived('record', 'r-1')],
     )
+
     expect(items).toHaveLength(1)
     expect(items[0].label).toBe('Buffer lot A')
     expect(items[0].destination).toBe('/samples/r-1')
@@ -341,6 +358,7 @@ describe('resolveRecentItems', () => {
         derived('notebook_template', 't-retired'),
       ],
     )
+
     expect(items).toEqual([])
   })
 
@@ -393,6 +411,7 @@ describe('resolveRecentItems', () => {
         derived('notebook_template', 't-1'),
       ],
     )
+
     expect(items.map((i) => [i.kind, i.destination])).toEqual([
       ['sheet', '/sheets/s-1'],
       ['record', '/experiments/r-1'],
@@ -414,6 +433,7 @@ describe('resolveRecentItems', () => {
       derived('record', 'r-gone'),
       derived('sheet', 's-gone'),
     ])
+
     expect(items).toEqual([])
   })
 })
@@ -460,6 +480,7 @@ describe('resolveRecentItems status', () => {
       list: (resource: string) => Promise.resolve(rows[resource] ?? []),
     } as unknown as DataClient
   }
+
   const derivedItem = (
     kind: RecentObjectKind,
     id: string,
@@ -504,6 +525,7 @@ describe('resolveRecentItems status', () => {
         derivedItem('project', 'p-1'),
       ],
     )
+
     expect(items.map((i) => [i.kind, i.status])).toEqual([
       ['record', 'in_progress'],
       ['dataset', 'active'],
@@ -519,16 +541,20 @@ describe('resolveRecentItems status', () => {
 describe('fetchMyRecentSignals', () => {
   it('queries the canonical change_events audit trail scoped to the actor', async () => {
     const queries: string[] = []
+
     const client = {
       list: (_resource: string, query: string) => {
         queries.push(_resource + query)
+
         return Promise.resolve([])
       },
     } as unknown as DataClient
+
     const signals: RecentSignalEvent[] = await fetchMyRecentSignals(
       client,
       'user-1',
     )
+
     expect(signals).toEqual([])
     expect(queries).toEqual([
       'change_events?actor_user_id=eq.user-1&operation=in.(create,update,amend)&order=created_at.desc&select=id,entity_type,entity_uuid,operation,record_id,actor_user_id,created_at&limit=300',
@@ -547,15 +573,18 @@ describe('fetchMyRecentSignals paging', () => {
     queries: string[]
   } {
     const queries: string[] = []
+
     const client = {
       list: (_resource: string, query: string) => {
         queries.push(_resource + query)
         const params = new URLSearchParams(query)
         const offset = Number(params.get('offset') ?? 0)
         const pageSize = Number(params.get('limit') ?? 100)
+
         return Promise.resolve(events.slice(offset, offset + pageSize))
       },
     } as unknown as DataClient
+
     return { client, queries }
   }
 
@@ -574,10 +603,13 @@ describe('fetchMyRecentSignals paging', () => {
       changeEvent({ id: 'e-a', entity_uuid: 'r-a', created_at: T0 }),
       changeEvent({ id: 'e-b', entity_uuid: 'r-b', created_at: T0 }),
     ]
+
     const { client } = pagedClient(events)
+
     const signals = await fetchMyRecentSignals(client, 'user-1', {
       targetDistinct: 3,
     })
+
     const ids = new Set(signals.map((s) => s.id))
     expect(ids).toContain('r-burst')
     expect(ids).toContain('r-a')
@@ -589,10 +621,12 @@ describe('fetchMyRecentSignals paging', () => {
       changeEvent({ id: 'a', entity_uuid: 'r-1', created_at: T2 }),
       changeEvent({ id: 'b', entity_uuid: 'r-2', created_at: T1 }),
     ])
+
     const signals = await fetchMyRecentSignals(client, 'user-1', {
       targetDistinct: 2,
       pageSize: 1,
     })
+
     expect(queries).toHaveLength(2)
     expect(new Set(signals.map((s) => s.id))).toEqual(new Set(['r-1', 'r-2']))
   })
@@ -601,9 +635,11 @@ describe('fetchMyRecentSignals paging', () => {
     const { client, queries } = pagedClient([
       changeEvent({ id: 'a', entity_uuid: 'r-1', created_at: T1 }),
     ])
+
     const signals = await fetchMyRecentSignals(client, 'user-1', {
       pageSize: 2,
     })
+
     expect(queries).toHaveLength(1)
     expect(signals).toHaveLength(1)
   })
@@ -626,6 +662,7 @@ describe('fetchRecentItems', () => {
   /** Reads the `id=in.(a,b)` filter out of a PostgREST query string. */
   function idsFromInQuery(query: string): string[] {
     const raw = new URLSearchParams(query).get('id') ?? ''
+
     return raw
       .replace(/^in\.\(/, '')
       .replace(/\)$/, '')
@@ -642,16 +679,21 @@ describe('fetchRecentItems', () => {
       object_id: `r-${i}`,
       viewed_at: new Date(Date.parse(T0) + i * 1000).toISOString(),
     }))
+
     const visible = new Set(Array.from({ length: 20 }, (_, i) => `r-${i}`))
+
     const client = {
       list: (resource: string, query: string) => {
         if (resource === 'recently_viewed') return Promise.resolve(views)
+
         if (resource === 'records') {
           const rows = idsFromInQuery(query)
             .filter((id) => visible.has(id))
             .map(visibleRecord)
+
           return Promise.resolve(rows)
         }
+
         return Promise.resolve([])
       },
     } as unknown as DataClient
@@ -675,18 +717,23 @@ describe('fetchRecentItems', () => {
       changeEvent({ id: 'e-a', entity_uuid: 'r-a', created_at: T0 }),
       changeEvent({ id: 'e-b', entity_uuid: 'r-b', created_at: T0 }),
     ]
+
     const client = {
       list: (resource: string, query: string) => {
         if (resource === 'change_events') {
           const params = new URLSearchParams(query)
           const offset = Number(params.get('offset') ?? 0)
           const pageSize = Number(params.get('limit') ?? 100)
+
           return Promise.resolve(events.slice(offset, offset + pageSize))
         }
+
         if (resource === 'records') {
           const rows = idsFromInQuery(query).map(visibleRecord)
+
           return Promise.resolve(rows)
         }
+
         return Promise.resolve([])
       },
     } as unknown as DataClient
@@ -702,12 +749,15 @@ describe('fetchRecentItems', () => {
 describe('recordRecentView', () => {
   it('writes through the record_recent_view RPC with stable object identity', async () => {
     const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+
     const client = {
       rpc: (name: string, args: Record<string, unknown>) => {
         calls.push({ name, args })
+
         return Promise.resolve('2026-08-31T12:00:00Z')
       },
     } as unknown as DataClient
+
     const viewedAt = await recordRecentView(client, 'sheet', 's-1')
     expect(viewedAt).toBe('2026-08-31T12:00:00Z')
     expect(calls).toEqual([
@@ -722,12 +772,15 @@ describe('recordRecentView', () => {
     const stringClient = {
       rpc: () => Promise.resolve('2026-08-31T12:00:00Z'),
     } as unknown as DataClient
+
     expect(await recordRecentView(stringClient, 'record', 'r-1')).toBe(
       '2026-08-31T12:00:00Z',
     )
+
     const nullClient = {
       rpc: () => Promise.resolve(null),
     } as unknown as DataClient
+
     expect(await recordRecentView(nullClient, 'record', 'r-1')).toBeNull()
   })
 })

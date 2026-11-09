@@ -20,6 +20,7 @@ describe('reading a parser service’s answer', () => {
       metadata: { instrument: 'PL-8', run: 7 },
       warnings: ['one row was short'],
     })
+
     expect(parsed.rows).toEqual([
       { Sample: 'A1', OD: '0.42', Flag: 'true' },
       { Sample: 'A2', OD: '', Flag: '' },
@@ -32,6 +33,7 @@ describe('reading a parser service’s answer', () => {
     const parsed = readWebhookParserAnswer({
       rows: [{ a: 1 }, { a: 2, b: 3 }],
     })
+
     expect(parsed.headers).toEqual(['a', 'b'])
     expect(parsed.rows[0]).toEqual({ a: '1', b: '' })
   })
@@ -56,6 +58,7 @@ describe('reading a parser service’s answer', () => {
     const error = readWebhookParserError(422, {
       error: { code: 'bad_header', message: 'No Sample column.' },
     })
+
     expect(error).toMatchObject({
       code: 'webhook_refused',
       message: 'No Sample column.',
@@ -100,15 +103,19 @@ describe('calling a webhook parser', () => {
           headers: { 'content-type': 'application/json' },
         }),
     )
+
     const parsed = await callWebhookParser(call, {
       fetch: fetchMock as unknown as typeof fetch,
       now: () => 1700000000,
     })
+
     expect(parsed.rows).toEqual([{ a: '1' }])
+
     const [url, init] = fetchMock.mock.calls[0] as unknown as [
       URL,
       RequestInit & { headers: Record<string, string> },
     ]
+
     expect(String(url)).toBe('https://parsers.example.org/pl-8')
     expect(init.method).toBe('POST')
     expect(init.redirect).toBe('error')
@@ -128,6 +135,7 @@ describe('calling a webhook parser', () => {
         JSON.stringify({ error: { code: 'x', message: 'Not a PL-8 log.' } }),
         { status: 422 },
       )
+
     await expect(
       callWebhookParser(call, { fetch: fetchMock as unknown as typeof fetch }),
     ).rejects.toMatchObject({

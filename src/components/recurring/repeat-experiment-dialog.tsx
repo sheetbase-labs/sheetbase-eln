@@ -33,11 +33,15 @@ import { recurringQueryKeys, useStartableTemplates } from './recurring-data'
 /** Days written as "0, 7, 14, 30" → [0, 7, 14, 30], or `null` when they aren't. */
 export function parseTimePoints(text: string): number[] | null {
   const parts = text.split(/[\s,;]+/).filter(Boolean)
+
   if (parts.length === 0 || parts.length > 60) return null
+
   const days = parts.map((part) =>
     /^\d{1,4}$/.test(part) ? Number(part) : NaN,
   )
+
   if (days.some((day) => Number.isNaN(day) || day > 3660)) return null
+
   return [...new Set(days)].sort((a, b) => a - b)
 }
 
@@ -58,6 +62,7 @@ export function RepeatExperimentDialog({
 }) {
   const [open, setOpen] = useState(false)
   const templates = useStartableTemplates(open)
+
   const projects = useQuery({
     queryKey: ['recurring', 'projects'],
     enabled: open,
@@ -68,6 +73,7 @@ export function RepeatExperimentDialog({
       ),
     staleTime: 30_000,
   })
+
   const queryClient = useQueryClient()
 
   const [templateId, setTemplateId] = useState('')
@@ -75,10 +81,12 @@ export function RepeatExperimentDialog({
   const [name, setName] = useState('')
   const [firstDay, setFirstDay] = useState(tomorrow)
   const [mode, setMode] = useState<'regular' | 'points'>('regular')
+
   const [repeat, setRepeat] = useState<RepeatForm>({
     ...NO_REPEAT,
     frequency: 'weekly',
   })
+
   const [points, setPoints] = useState('')
   const [leadDays, setLeadDays] = useState(0)
   const [error, setError] = useState<string | null>(null)
@@ -98,9 +106,12 @@ export function RepeatExperimentDialog({
   const create = useMutation({
     mutationFn: async () => {
       const problem = validate()
+
       if (problem) throw new Error(problem)
       const timezone = await workspaceTimezone()
+
       if (!timezone) throw new Error(t('projects.bookDialog.errors.zone'))
+
       const base = {
         kind: 'experiment' as const,
         title: name.trim(),
@@ -110,6 +121,7 @@ export function RepeatExperimentDialog({
         projectId,
         leadDays,
       }
+
       return createRepeat(
         notebookDataClient,
         mode === 'points'
@@ -143,13 +155,17 @@ export function RepeatExperimentDialog({
 
   function validate(): string | null {
     if (!templateId) return t('projects.recurring.errors.template')
+
     if (!projectId) return t('projects.recurring.errors.project')
+
     if (!name.trim()) return t('projects.recurring.errors.title')
+
     if (mode === 'points') {
       return parseTimePoints(points)
         ? null
         : t('projects.recurring.errors.offsets')
     }
+
     return repeatFormError(repeat, firstDay)
   }
 
@@ -158,6 +174,7 @@ export function RepeatExperimentDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
+
         if (!next) reset()
       }}
     >

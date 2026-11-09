@@ -26,12 +26,14 @@ const INSTRUMENT = {
   display_id: 'INS-0001',
   retired_at: null,
 }
+
 const RUN = {
   id: '22222222-2222-4222-8222-222222222222',
   name: 'Nightly qPCR',
   run_identifier: 'RUN-7',
   status: 'queued',
 }
+
 const CONNECTOR = {
   id: '33333333-3333-4333-8333-333333333333',
   name: 'Lab S3',
@@ -52,6 +54,7 @@ function context(): LabToolContext {
       ),
     rpc: () => Promise.resolve([{ user_id: 'u-ada', name: 'Ada Lovelace' }]),
   } as unknown as DataClient
+
   return {
     client,
     workspaceId: 'w',
@@ -69,6 +72,7 @@ describe('instrument assistant cards', () => {
       expect(ASSISTANT_PROPOSE_TOOL_NAMES).toContain(name)
       expect(isInstrumentsProposalTool(name)).toBe(true)
     }
+
     expect(instrumentsProposalDefs().map((d) => d.name)).toEqual(
       INSTRUMENTS_PROPOSE_TOOL_NAMES.map((n) => n.replaceAll('.', '__')),
     )
@@ -80,6 +84,7 @@ describe('instrument assistant cards', () => {
       { ...base, name: ' Centrifuge ', location: 'Room 2' },
       context(),
     )
+
     expect(built.ok && built.proposal.action).toMatchObject({
       kind: 'instrument.add',
       workspaceId: 'w',
@@ -94,6 +99,7 @@ describe('instrument assistant cards', () => {
       { ...base, instrument: 'plate reader' },
       context(),
     )
+
     expect(retire.ok && retire.proposal.action).toEqual({
       kind: 'instrument.retire',
       instrumentId: INSTRUMENT.id,
@@ -113,7 +119,9 @@ describe('instrument assistant cards', () => {
       },
       context(),
     )
+
     expect(bad.ok).toBe(false)
+
     const good = await buildInstrumentsProposal(
       INSTRUMENT_CALIBRATE_TOOL,
       {
@@ -124,6 +132,7 @@ describe('instrument assistant cards', () => {
       },
       context(),
     )
+
     expect(good.ok && good.proposal.action).toMatchObject({
       kind: 'instrument.calibrate',
       dueAt: '2027-05-09T00:00:00Z',
@@ -141,19 +150,23 @@ describe('instrument assistant cards', () => {
       },
       context(),
     )
+
     expect(grant.ok && grant.proposal.action).toMatchObject({
       kind: 'instrument.qualify',
       userId: 'u-ada',
       validUntil: '2027-01-01T00:00:00Z',
     })
+
     const revoke = await buildInstrumentsProposal(
       INSTRUMENT_QUALIFY_TOOL,
       { ...base, instrument: 'plate reader', person: 'ada', revoke: true },
       context(),
     )
+
     expect(revoke.ok && revoke.proposal.action).toMatchObject({
       validUntil: null,
     })
+
     const unknown = await buildInstrumentsProposal(
       INSTRUMENT_QUALIFY_TOOL,
       {
@@ -164,12 +177,15 @@ describe('instrument assistant cards', () => {
       },
       context(),
     )
+
     expect(unknown.ok).toBe(false)
+
     const noDate = await buildInstrumentsProposal(
       INSTRUMENT_QUALIFY_TOOL,
       { ...base, instrument: 'plate reader', person: 'ada' },
       context(),
     )
+
     expect(noDate.ok).toBe(false)
   })
 
@@ -179,15 +195,18 @@ describe('instrument assistant cards', () => {
       { ...base, instrument: 'plate reader', name: 'Plate 4' },
       context(),
     )
+
     expect(created.ok && created.proposal.action).toMatchObject({
       kind: 'run.create',
       runIdentifier: 'RUN-202611091015',
     })
+
     const done = await buildInstrumentsProposal(
       RUN_UPDATE_TOOL,
       { ...base, run: 'RUN-7', status: 'completed' },
       context(),
     )
+
     expect(done.ok && done.proposal.action).toMatchObject({
       kind: 'run.update',
       runId: RUN.id,
@@ -201,15 +220,18 @@ describe('instrument assistant cards', () => {
       { ...base, connector: 'lab s3', status: 'paused' },
       context(),
     )
+
     expect(paused.ok && paused.proposal.action).toMatchObject({
       kind: 'connector.set',
       status: 'paused',
     })
+
     const same = await buildInstrumentsProposal(
       CONNECTOR_SET_TOOL,
       { ...base, connector: 'lab s3', status: 'active' },
       context(),
     )
+
     expect(same.ok).toBe(false)
   })
 

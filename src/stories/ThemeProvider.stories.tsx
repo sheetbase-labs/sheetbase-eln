@@ -11,6 +11,7 @@ import { Button } from '#/components/ui/button'
  */
 function Picker() {
   const { theme, setTheme } = useTheme()
+
   return (
     <div className="flex flex-col gap-2 text-body">
       <span>
@@ -37,7 +38,9 @@ const meta = {
   tags: ['autodocs'],
   args: { children: <Picker /> },
 } satisfies Meta<typeof ThemeProvider>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

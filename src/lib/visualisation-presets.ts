@@ -20,6 +20,7 @@ export const VISUALISATION_PRESET_IDS = [
   'distribution',
   'correlation',
 ] as const
+
 export type VisualisationPresetId = (typeof VISUALISATION_PRESET_IDS)[number]
 
 export interface VisualisationPreset {
@@ -96,16 +97,24 @@ export function recommendPlotType(input: {
 }): ChartType {
   const x = input.x
   const y = input.y
+
   const yNumeric =
     y !== null && (y.logicalType === 'decimal' || y.logicalType === 'integer')
+
   const xNumeric =
     x !== null && (x.logicalType === 'decimal' || x.logicalType === 'integer')
+
   const xCategory =
     x !== null && ['category', 'text', 'boolean'].includes(x.logicalType)
+
   if (yNumeric && xNumeric) return 'scatter'
+
   if (yNumeric && xCategory) return 'box'
+
   if (yNumeric && x === null) return 'histogram'
+
   if (yNumeric) return 'bar'
+
   return 'scatter'
 }
 
@@ -120,6 +129,7 @@ export function applyVisualisationPreset(input: {
   const xNumeric = numeric.length > 1 ? numeric.at(0) : undefined
   const xCat = cats.at(0)
   const base = emptyChartSpec(input.datasetId)
+
   if (y === undefined) return base
 
   if (input.preset === 'distribution') {
@@ -172,12 +182,14 @@ export function applyVisualisationPreset(input: {
     input.preset === 'correlation' || input.preset === 'dose_response'
       ? xNumeric
       : (xNumeric ?? xCat)
+
   const type: ChartType =
     input.preset === 'time_course'
       ? 'line'
       : input.preset === 'dose_response'
         ? 'scatter_line'
         : 'scatter'
+
   return {
     ...base,
     type,

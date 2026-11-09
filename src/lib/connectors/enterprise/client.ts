@@ -23,14 +23,18 @@ async function callSource<T>(body: Record<string, unknown>): Promise<T> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
+
   const text = await response.text()
   const parsed: unknown = text ? JSON.parse(text) : {}
+
   if (!response.ok) {
     const message =
       (parsed as SourceError).error?.message ??
       'The connector operation failed.'
+
     throw new Error(message)
   }
+
   return parsed as T
 }
 

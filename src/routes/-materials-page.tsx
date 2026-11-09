@@ -139,6 +139,7 @@ function todayISO(): string {
   const now = appNow()
   const month = `${now.getMonth() + 1}`.padStart(2, '0')
   const day = `${now.getDate()}`.padStart(2, '0')
+
   return `${now.getFullYear()}-${month}-${day}`
 }
 
@@ -146,7 +147,9 @@ function todayISO(): string {
 function dayLabel(iso: string | null): string {
   if (!iso) return '—'
   const date = new Date(iso)
+
   if (Number.isNaN(date.getTime())) return '—'
+
   return date.toLocaleDateString('en-GB', {
     day: 'numeric',
     month: 'short',
@@ -159,7 +162,9 @@ function dayLabel(iso: string | null): string {
 function shortDay(iso: string | null): string {
   if (!iso) return ''
   const date = new Date(iso)
+
   if (Number.isNaN(date.getTime())) return ''
+
   return `${date.getUTCDate()} ${date
     .toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })
     .slice(0, 3)}`
@@ -175,13 +180,18 @@ const NARROW_HIDE = {
 export function stockOfTotal(row: MaterialListRow): string {
   const unit = row.unit ? ` ${row.unit}` : ''
   const current = row.stock
+
   if (row.initialQuantity == null) return current
+
   const total = row.initialQuantity.toLocaleString('en-GB', {
     maximumFractionDigits: 2,
   })
+
   return `${current.replace(unit, '')} of ${total}${unit}`
 }
+
 export type MaterialTab = (typeof tabs)[number]
+
 /** The `expiring` tab is each lot's own expiry warning window (30 days by
  * default, overridable per lot in its reagent properties), so its label claims
  * no fixed window. */
@@ -204,6 +214,7 @@ export function MaterialsRoute() {
   const isIndex = useRouterState({
     select: (state) => state.location.pathname === '/materials',
   })
+
   return isIndex ? <MaterialsList /> : <Outlet />
 }
 
@@ -214,16 +225,19 @@ function MaterialsList() {
   const [reorderOpen, setReorderOpen] = useState(false)
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+
   const openMaterial = useOpenRow<MaterialListRow>(
     navigate,
     (row) => reagentPath(row.uuid),
     (row) => row.name,
   )
+
   // Spend shows prices, which only the people who place orders can read.
   const tab: MaterialTab =
     search.tab === 'spend' && !canPlaceOrders
       ? 'instock'
       : (search.tab ?? 'instock')
+
   // Orders and Spend are panels of their own, not lists of lots.
   const panelTab = tab === 'orders' || tab === 'spend'
   const page = useReagentPage()
@@ -252,16 +266,21 @@ function MaterialsList() {
   const [replacementOpen, setReplacementOpen] = useState(false)
   const [quarantineOpen, setQuarantineOpen] = useState(false)
   const [quarantineReason, setQuarantineReason] = useState('')
+
   // Soonest expiry first, so the lot that lapses next leads the list; a lot
   // with no expiry is not imminent and sorts after every dated one. A click on
   // a column header takes over from this order.
   const rows = useMemo(() => {
     const byExpiry = (a: Reagent, b: Reagent) => {
       if (a.expiry === b.expiry) return 0
+
       if (a.expiry === null) return 1
+
       if (b.expiry === null) return -1
+
       return a.expiry.localeCompare(b.expiry)
     }
+
     return [...(page.data?.rows ?? []), ...(archivedPage.data?.rows ?? [])]
       .sort(byExpiry)
       .map(toMaterialListRow)
@@ -269,6 +288,7 @@ function MaterialsList() {
 
   const inTab = (r: MaterialListRow, item: MaterialTab): boolean =>
     r.tabs.includes(item)
+
   const counts = Object.fromEntries(
     tabs.map((item) => [
       item,
@@ -283,7 +303,9 @@ function MaterialsList() {
             : rows.filter((r) => inTab(r, item)).length,
     ]),
   ) as Record<MaterialTab, number>
+
   const q = (search.q ?? '').trim().toLowerCase()
+
   const visible = rows
     .filter((r) => inTab(r, tab))
     .filter(
@@ -293,9 +315,11 @@ function MaterialsList() {
           v.toLowerCase().includes(q),
         ),
     )
+
   const sel =
     visible.find((r) => r.uuid === (selected ?? search.selected)) ??
     visible.at(0)
+
   const openOrder = sel ? openOrderFor(orders.data, sel.uuid) : undefined
 
   // A link such as `?selected=<lot>` names a lot, not a tab. When that lot lives
@@ -304,10 +328,12 @@ function MaterialsList() {
   const linked = search.selected
     ? rows.find((r) => r.uuid === search.selected)
     : undefined
+
   const linkedTab =
     linked && !inTab(linked, tab)
       ? tabs.find((item) => inTab(linked, item))
       : undefined
+
   useEffect(() => {
     if (!linkedTab) return
     void navigate({
@@ -325,12 +351,15 @@ function MaterialsList() {
     'material',
     'uuid',
   )
+
   const safetyByLot = useQuery({
     queryKey: materialSafetyKeys.all(),
     queryFn: () => fetchAllMaterialSafety(notebookDataClient),
     staleTime: 30_000,
   })
+
   const safetyMap = safetyByLot.data
+
   const baseColumns = useMemo<RegistryColumn<MaterialListRow>[]>(
     () => [
       {
@@ -423,6 +452,7 @@ function MaterialsList() {
     ],
     [safetyMap],
   )
+
   const columns = useMemo(
     () => withAddedColumns(baseColumns, addedColumns),
     [baseColumns, addedColumns],
@@ -553,7 +583,9 @@ function MaterialsList() {
         },
         customFields: input.customFields,
       })
+
       if (!input.typeKey) return created
+
       // A subtype gives the lot its own ID.
       const typed = await saveNewObjectFields(
         notebookDataClient,
@@ -562,6 +594,7 @@ function MaterialsList() {
         input.typeKey,
         input.typeFields ?? {},
       )
+
       return { ...created, identifier: typed.identifier ?? created.identifier }
     },
     onSuccess: (created) => {
@@ -1244,6 +1277,7 @@ function RegisterLotForm({
   const [errors, setErrors] = useState<Record<string, string>>({})
   const addedFields = useAddedFieldDraft('material')
   const [tried, setTried] = useState(false)
+
   const fillFields = [
     { key: 'name', label: t('library.materials.page.material') },
     { key: 'supplier', label: t('library.materials.page.supplier') },
@@ -1266,6 +1300,7 @@ function RegisterLotForm({
     },
     ...addedFillFields(addedFields.fields),
   ]
+
   return (
     <form
       id="register-lot-form"
@@ -1274,16 +1309,21 @@ function RegisterLotForm({
         e.preventDefault()
         const n = Number(quantity)
         const next: Record<string, string> = {}
+
         if (!projectId)
           next.project = t('library.materials.page.chooseTheProjectThatOwns')
+
         if (!title.trim())
           next.title = t('library.materials.page.enterTheMaterialName')
+
         if (quantity.trim() === '' || !Number.isFinite(n) || n <= 0)
           next.quantity = t('library.materials.page.enterAQuantityGreaterThan')
+
         if (expiry && expiry < todayISO())
           next.expiry = t('library.materials.page.theExpiryMustBeToday')
         setErrors(next)
         setTried(true)
+
         if (Object.keys(next).length || !addedFields.valid) return
         onSubmit({
           projectId,
@@ -1305,15 +1345,23 @@ function RegisterLotForm({
         fields={fillFields}
         onFill={(values) => {
           if (values.name) setTitle(values.name)
+
           if (values.supplier) setSupplier(values.supplier)
+
           if (values.catalogNo) setCatalogNo(values.catalogNo)
+
           if (values.lot) setLot(values.lot)
+
           if (values.expiry && onlyIsoDate(values.expiry))
             setExpiry(values.expiry)
+
           if (values.quantity && Number.isFinite(Number(values.quantity)))
             setQuantity(values.quantity)
+
           if (values.unit) setUnit(values.unit)
+
           if (values.storage) setStorage(values.storage)
+
           for (const [key, value] of Object.entries(values)) {
             if (key.startsWith('field:'))
               addedFields.setValue(key.slice(6), value)
@@ -1435,6 +1483,7 @@ export function ReplacementForm({
   const [lotError, setLotError] = useState<string | null>(null)
   const [expiryError, setExpiryError] = useState<string | null>(null)
   const [quantityError, setQuantityError] = useState<string | null>(null)
+
   return (
     <form
       id="replacement-lot-form"
@@ -1442,22 +1491,27 @@ export function ReplacementForm({
       onSubmit={(e) => {
         e.preventDefault()
         const n = Number(quantity)
+
         // A refused submission states why: the form never returns silently.
         const lotProblem = lot.trim()
           ? null
           : t('library.materials.page.enterTheReplacementLot')
+
         const expiryProblem = !expiry
           ? t('library.materials.page.enterTheReplacementLotsExpiry')
           : expiry < todayISO()
             ? t('library.materials.page.theExpiryMustBeToday')
             : null
+
         const quantityProblem =
           quantity.trim() === '' || !Number.isFinite(n) || n <= 0
             ? t('library.materials.page.enterAQuantityGreaterThan')
             : null
+
         setLotError(lotProblem)
         setExpiryError(expiryProblem)
         setQuantityError(quantityProblem)
+
         if (lotProblem || expiryProblem || quantityProblem) return
         onSubmit({
           lot: lot.trim(),
@@ -1544,6 +1598,7 @@ function ReceiveForm({
   const [quantity, setQuantity] = useState('')
   const [reason, setReason] = useState('')
   const [quantityError, setQuantityError] = useState<string | null>(null)
+
   return (
     <form
       id="receive-lot-form"
@@ -1551,6 +1606,7 @@ function ReceiveForm({
       onSubmit={(e) => {
         e.preventDefault()
         const n = Number(quantity)
+
         // A refused submission states why: the form never returns silently. The
         // browser empties a number field that holds letters, so an empty value
         // is the same refusal as a zero.
@@ -1558,8 +1614,10 @@ function ReceiveForm({
           setQuantityError(
             t('library.materials.page.enterTheQuantityReceivedGreater'),
           )
+
           return
         }
+
         setQuantityError(null)
         onSubmit({ quantity: n, reason: reason || undefined })
       }}

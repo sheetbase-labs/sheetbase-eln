@@ -17,6 +17,7 @@ afterEach(cleanup)
 function mount(result: unknown) {
   const rpc = vi.fn(async () => result)
   const client = { rpc } as unknown as DataClient
+
   const root = createRootRoute({
     component: () => (
       <QueryClientProvider client={new QueryClient()}>
@@ -24,6 +25,7 @@ function mount(result: unknown) {
       </QueryClientProvider>
     ),
   })
+
   render(
     <RouterProvider
       router={createRouter({
@@ -32,6 +34,7 @@ function mount(result: unknown) {
       })}
     />,
   )
+
   return rpc
 }
 
@@ -58,6 +61,7 @@ describe('ReleaseChecksPanel', () => {
         },
       ],
     })
+
     expect(await screen.findByText('1 of 2 checks pass')).toBeTruthy()
     expect(rpc).toHaveBeenCalledWith('sample_release_check_status', {
       p_record_id: 's-1',
@@ -108,6 +112,7 @@ describe('ReleaseChecksPanel', () => {
         throw new Error('down')
       }),
     } as unknown as DataClient
+
     const root = createRootRoute({
       component: () => (
         <QueryClientProvider
@@ -119,6 +124,7 @@ describe('ReleaseChecksPanel', () => {
         </QueryClientProvider>
       ),
     })
+
     render(
       <RouterProvider
         router={createRouter({

@@ -96,6 +96,7 @@ describe('quantity storage-unit safety', () => {
     for (const input of [10, '10', '10 mg', '10mg', ' 10 mg ']) {
       expect(parseQuantityNumericValue(field, input)).toBe(10)
     }
+
     expect(parseQuantityNumericValue(field, '1,234.5 mg')).toBe(1234.5)
     expect(
       parseQuantityNumericValue(

@@ -20,14 +20,18 @@ export function createServerDataClient(
       typeof input === 'string'
         ? input.replace(/^\/api\/db/, env.POSTGREST_URL)
         : input
+
     const headers = new Headers(init?.headers)
     headers.set('authorization', `Bearer ${token}`)
     // Writes from the server (the assistant, imports, pipelines) are shown to
     // the plugin hooks that run before a save, like writes from the browser.
     const guarded = await guardServerWrite(url, init, token)
+
     if (guarded.refusal) return guarded.refusal
+
     return fetchImpl(url, { ...init, ...(guarded.init ?? {}), headers })
   }
+
   return createDataClient(authorisedFetch)
 }
 
@@ -40,17 +44,22 @@ async function guardServerWrite(
   token: string,
 ): Promise<{ init?: RequestInit; refusal?: Response }> {
   const method = (init?.method ?? 'GET').toUpperCase()
+
   if (!WRITE_METHODS.has(method) || typeof url !== 'string') return {}
+
   if (typeof init?.body !== 'string') return {}
   const prefix = `${env.POSTGREST_URL}/`
+
   if (!url.startsWith(prefix)) return {}
   const rest = url.slice(prefix.length)
   const [pathPart, ...queryParts] = rest.split('?')
   const segments = pathPart.split('/')
   const isRpc = segments[0] === 'rpc'
   const resource = isRpc ? segments[1] : segments[0]
+
   if (!resource) return {}
   const { guardRecordWrite } = await import('./extensions/record-hooks.server')
+
   const result = await guardRecordWrite({
     method,
     kind: isRpc ? 'rpc' : 'table',
@@ -59,6 +68,7 @@ async function guardServerWrite(
     body: init.body,
     token,
   })
+
   if (result.kind === 'refused')
     return {
       refusal: Response.json(
@@ -69,5 +79,6 @@ async function guardServerWrite(
         { status: 422 },
       ),
     }
+
   return result.body === init.body ? {} : { init: { body: result.body } }
 }

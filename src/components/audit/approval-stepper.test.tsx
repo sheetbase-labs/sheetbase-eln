@@ -5,6 +5,7 @@ import { ApprovalStepper } from './approval-stepper'
 import type { ApprovalStepDef } from './approval-stepper'
 
 afterEach(() => cleanup())
+
 beforeAll(() => {
   globalThis.ResizeObserver = class {
     observe() {}
@@ -108,9 +109,11 @@ describe('ApprovalStepper', () => {
       id: `s${i}`,
       title: `Step ${i + 1}`,
     }))
+
     const { container } = render(
       <ApprovalStepper steps={many} reviewState={{}} />,
     )
+
     const list = container.querySelector('ol[aria-label="Approval workflow"]')
     expect(list).toBeTruthy()
     expect(list?.getAttribute('style') ?? '').toContain('max-height')

@@ -113,15 +113,18 @@ function stableIdentity(value: RevisionEntity): string | null {
 
 function exactEqual(before: unknown, after: unknown): boolean {
   if (Object.is(before, after)) return true
+
   if (Array.isArray(before) && Array.isArray(after)) {
     return (
       before.length === after.length &&
       before.every((value, index) => exactEqual(value, after[index]))
     )
   }
+
   if (isEntity(before) && isEntity(after)) {
     const beforeKeys = Object.keys(before).sort()
     const afterKeys = Object.keys(after).sort()
+
     return (
       beforeKeys.length === afterKeys.length &&
       beforeKeys.every(
@@ -130,6 +133,7 @@ function exactEqual(before: unknown, after: unknown): boolean {
       )
     )
   }
+
   return false
 }
 
@@ -137,6 +141,7 @@ function humanise(value: string): string {
   const words = value
     .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
     .replace(/[_-]+/g, ' ')
+
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
@@ -155,6 +160,7 @@ function displayName(entity: RevisionEntity, fallback: string): string {
       return String(entity[key])
     }
   }
+
   return fallback
 }
 
@@ -198,8 +204,10 @@ function compareValue({
   if (before !== MISSING && after !== MISSING && exactEqual(before, after)) {
     return
   }
+
   if (isEntity(before) && isEntity(after)) {
     const keys = new Set([...Object.keys(before), ...Object.keys(after)])
+
     for (const key of [...keys].sort()) {
       if (TECHNICAL_FIELDS.has(key) || key === 'id') continue
       compareValue({
@@ -213,11 +221,13 @@ function compareValue({
         table,
       })
     }
+
     return
   }
 
   const kind: RevisionChangeKind =
     before === MISSING ? 'added' : after === MISSING ? 'removed' : 'modified'
+
   changes.push(
     makeChange({
       area,
@@ -236,11 +246,13 @@ function byIdentity(items: RevisionEntity[]): Map<string, RevisionEntity> {
   return new Map(
     items.map((item) => {
       const id = stableIdentity(item)
+
       if (!id) {
         throw new Error(
           'Canonical revision entity is missing a stable string identity',
         )
       }
+
       return [id, item] as const
     }),
   )
@@ -250,6 +262,7 @@ function orderValue(entity: RevisionEntity, fallback: number): number {
   for (const key of ['order', 'displayOrder', 'display_order']) {
     if (typeof entity[key] === 'number') return entity[key]
   }
+
   return fallback
 }
 
@@ -269,6 +282,7 @@ function movedIdentities(beforeIds: string[], afterIds: string[]): Set<string> {
   const common = new Set(beforeIds.filter((id) => afterIds.includes(id)))
   const before = beforeIds.filter((id) => common.has(id))
   const after = afterIds.filter((id) => common.has(id))
+
   const lengths = Array.from({ length: before.length + 1 }, () =>
     Array<number>(after.length + 1).fill(0),
   )
@@ -285,6 +299,7 @@ function movedIdentities(beforeIds: string[], afterIds: string[]): Set<string> {
   const unchangedOrder = new Set<string>()
   let i = 0
   let j = 0
+
   while (i < before.length && j < after.length) {
     if (before[i] === after[j]) {
       unchangedOrder.add(before[i])
@@ -296,6 +311,7 @@ function movedIdentities(beforeIds: string[], afterIds: string[]): Set<string> {
       j += 1
     }
   }
+
   return new Set([...common].filter((id) => !unchangedOrder.has(id)))
 }
 
@@ -315,9 +331,11 @@ function compareEntityCollection({
   const beforeMap = byIdentity(before)
   const afterMap = byIdentity(after)
   const ids = new Set([...beforeMap.keys(), ...afterMap.keys()])
+
   for (const id of [...ids].sort()) {
     const previous = beforeMap.get(id)
     const next = afterMap.get(id)
+
     if (!previous || !next) {
       const entity = previous ?? next!
       changes.push(
@@ -332,6 +350,7 @@ function compareEntityCollection({
       )
       continue
     }
+
     compareValue({
       area,
       identity: id,
@@ -346,8 +365,11 @@ function compareEntityCollection({
 
 function blockArea(type: unknown): RevisionChangeArea {
   const value = String(type ?? '').toLowerCase()
+
   if (value.includes('checklist')) return 'checklists'
+
   if (/text|heading|note|paragraph/.test(value)) return 'text'
+
   return 'blocks'
 }
 
@@ -356,9 +378,12 @@ function richTextValue(payload: RevisionEntity): string | null {
 
   function nodeText(node: unknown): string {
     if (!isEntity(node)) return ''
+
     if (node.type === 'text')
       return typeof node.text === 'string' ? node.text : ''
+
     if (!Array.isArray(node.content)) return ''
+
     const separator =
       node.type === 'doc' ||
       node.type === 'bulletList' ||
@@ -366,6 +391,7 @@ function richTextValue(payload: RevisionEntity): string | null {
       node.type === 'listItem'
         ? '\n'
         : ''
+
     return node.content.map(nodeText).join(separator)
   }
 
@@ -374,15 +400,20 @@ function richTextValue(payload: RevisionEntity): string | null {
 
 function checklistItems(items: RevisionEntity[]): Map<string, RevisionEntity> {
   const occurrences = new Map<string, number>()
+
   return new Map(
     items.map((item, index) => {
       const id = stableIdentity(item)
+
       if (id) return [`id:${id}`, item]
+
       if (typeof item.text === 'string') {
         const occurrence = occurrences.get(item.text) ?? 0
         occurrences.set(item.text, occurrence + 1)
+
         return [`text:${item.text}:${occurrence}`, item]
       }
+
       return [`index:${index}`, item]
     }),
   )
@@ -397,12 +428,15 @@ function compareChecklist(
   const beforeItems = Array.isArray(beforePayload.items)
     ? beforePayload.items.filter(isEntity)
     : []
+
   const afterItems = Array.isArray(afterPayload.items)
     ? afterPayload.items.filter(isEntity)
     : []
+
   const beforeMap = checklistItems(beforeItems)
   const afterMap = checklistItems(afterItems)
   const ids = new Set([...beforeMap.keys(), ...afterMap.keys()])
+
   for (const id of [...ids].sort()) {
     const previous = beforeMap.get(id)
     const next = afterMap.get(id)
@@ -436,6 +470,7 @@ function compareBlocks(
     const next = afterMap.get(id)
     const entity = next ?? previous!
     const label = displayName(entity, `Block ${id}`)
+
     if (!previous || !next) {
       changes.push(
         makeChange({
@@ -449,6 +484,7 @@ function compareBlocks(
       )
       continue
     }
+
     if (moved.has(id)) {
       changes.push(
         makeChange({
@@ -482,6 +518,7 @@ function compareBlocks(
     const beforePayload = isEntity(previous.payload) ? previous.payload : {}
     const afterPayload = isEntity(next.payload) ? next.payload : {}
     const area = blockArea(next.type ?? previous.type)
+
     if (area === 'checklists') {
       compareChecklist(id, beforePayload, afterPayload, changes)
       const beforeRest = { ...beforePayload }
@@ -500,6 +537,7 @@ function compareBlocks(
     } else if (String(next.type ?? previous.type) === 'rich_text') {
       const beforeText = richTextValue(beforePayload)
       const afterText = richTextValue(afterPayload)
+
       if (beforeText !== afterText) {
         compareValue({
           area: 'text',
@@ -521,6 +559,7 @@ function compareBlocks(
           changes,
         })
       }
+
       const beforeRest = { ...beforePayload }
       const afterRest = { ...afterPayload }
       delete beforeRest.doc
@@ -556,6 +595,7 @@ function tableColumnKey(column: RevisionEntity): string | null {
   for (const key of ['apiName', 'api_name', 'field_name', 'name']) {
     if (typeof column[key] === 'string') return column[key]
   }
+
   return null
 }
 
@@ -579,12 +619,15 @@ function compareTables(
     const table = next ?? previous!
     const label = displayName(table, `Table ${tableId}`)
     const tableChanges: RevisionChange[] = []
+
     if (!previous || !next) {
       const evidence = previous ?? next!
+
       const summaryValue = {
         columns: Array.isArray(evidence.columns) ? evidence.columns.length : 0,
         rows: Array.isArray(evidence.rows) ? evidence.rows.length : 0,
       }
+
       tableChanges.push(
         makeChange({
           area: 'tables',
@@ -617,25 +660,31 @@ function compareTables(
       const beforeColumns = Array.isArray(previous.columns)
         ? previous.columns.filter(isEntity)
         : []
+
       const afterColumns = Array.isArray(next.columns)
         ? next.columns.filter(isEntity)
         : []
+
       const beforeColumnMap = byIdentity(beforeColumns)
       const afterColumnMap = byIdentity(afterColumns)
+
       const columnIds = new Set([
         ...beforeColumnMap.keys(),
         ...afterColumnMap.keys(),
       ])
+
       const movedColumns = movedIdentities(
         orderedIds(beforeColumns),
         orderedIds(afterColumns),
       )
+
       for (const columnId of [...columnIds].sort()) {
         const beforeColumn = beforeColumnMap.get(columnId)
         const afterColumn = afterColumnMap.get(columnId)
         const column = afterColumn ?? beforeColumn!
         const columnLabel = tableColumnName(column, columnId)
         const identity = `${tableId}:${columnId}`
+
         if (!beforeColumn || !afterColumn) {
           tableChanges.push(
             makeChange({
@@ -653,6 +702,7 @@ function compareTables(
           )
           continue
         }
+
         if (movedColumns.has(columnId)) {
           tableChanges.push(
             makeChange({
@@ -674,6 +724,7 @@ function compareTables(
             }),
           )
         }
+
         compareValue({
           area: 'tables',
           identity,
@@ -699,15 +750,19 @@ function compareTables(
       const beforeRows = Array.isArray(previous.rows)
         ? previous.rows.filter(isEntity)
         : []
+
       const afterRows = Array.isArray(next.rows)
         ? next.rows.filter(isEntity)
         : []
+
       const beforeRowMap = byIdentity(beforeRows)
       const afterRowMap = byIdentity(afterRows)
       const rowIds = new Set([...beforeRowMap.keys(), ...afterRowMap.keys()])
+
       for (const rowId of [...rowIds].sort()) {
         const beforeRow = beforeRowMap.get(rowId)
         const afterRow = afterRowMap.get(rowId)
+
         if (!beforeRow || !afterRow) {
           tableChanges.push(
             makeChange({
@@ -723,19 +778,25 @@ function compareTables(
           )
           continue
         }
+
         for (const columnId of [...columnIds].sort()) {
           const beforeColumn = beforeColumnMap.get(columnId)
           const afterColumn = afterColumnMap.get(columnId)
+
           if (!beforeColumn || !afterColumn) continue
           const beforeKey = tableColumnKey(beforeColumn)
           const afterKey = tableColumnKey(afterColumn)
+
           if (!beforeKey || !afterKey) continue
+
           const beforeValue = Object.hasOwn(beforeRow, beforeKey)
             ? beforeRow[beforeKey]
             : MISSING
+
           const afterValue = Object.hasOwn(afterRow, afterKey)
             ? afterRow[afterKey]
             : MISSING
+
           if (
             beforeValue !== MISSING &&
             afterValue !== MISSING &&
@@ -743,12 +804,14 @@ function compareTables(
           ) {
             continue
           }
+
           const kind: RevisionChangeKind =
             beforeValue === MISSING
               ? 'added'
               : afterValue === MISSING
                 ? 'removed'
                 : 'modified'
+
           const columnLabel = tableColumnName(afterColumn, columnId)
           tableChanges.push(
             makeChange({
@@ -792,6 +855,7 @@ function compareTables(
       })
     }
   }
+
   return summaries
 }
 
@@ -808,6 +872,7 @@ function compareChanges(a: RevisionChange, b: RevisionChange): number {
 function sheetTables(evidence: FrozenSheetEvidence[] = []): RevisionEntity[] {
   return evidence.map((sheet) => {
     const grid = sheet.composedGrid
+
     if (
       grid &&
       Array.isArray(grid.rowKeys) &&
@@ -816,6 +881,7 @@ function sheetTables(evidence: FrozenSheetEvidence[] = []): RevisionEntity[] {
     ) {
       const rowKeys = grid.rowKeys
       const rows = grid.rows
+
       if (
         rowKeys.length !== rows.length ||
         rowKeys.some((key) => typeof key !== 'string')
@@ -824,11 +890,13 @@ function sheetTables(evidence: FrozenSheetEvidence[] = []): RevisionEntity[] {
           'Frozen Sheet row identities do not match composed rows',
         )
       }
+
       const columns = grid.columns.map((column) => {
         if (typeof column.id !== 'string')
           throw new Error('Frozen Sheet column identity is missing')
         const field = isEntity(column.field) ? column.field : column
         const quantity = isEntity(field.quantity) ? field.quantity : {}
+
         return {
           ...field,
           ...column,
@@ -837,6 +905,7 @@ function sheetTables(evidence: FrozenSheetEvidence[] = []): RevisionEntity[] {
           unit: quantity.storageUnit,
         }
       })
+
       return {
         id: sheet.blockId,
         name: 'Sheet',
@@ -847,6 +916,7 @@ function sheetTables(evidence: FrozenSheetEvidence[] = []): RevisionEntity[] {
           if (!Array.isArray(cells) || cells.length !== columns.length) {
             throw new Error('Frozen Sheet cells do not match composed columns')
           }
+
           return {
             ...Object.fromEntries(
               columns.map((column, position) => [column.id, cells[position]]),
@@ -856,12 +926,15 @@ function sheetTables(evidence: FrozenSheetEvidence[] = []): RevisionEntity[] {
         }),
       }
     }
+
     const fields = Array.isArray(sheet.instanceState.localFields)
       ? sheet.instanceState.localFields.filter(isEntity)
       : []
+
     const values = isEntity(sheet.instanceState.localValues)
       ? sheet.instanceState.localValues
       : {}
+
     return {
       id: sheet.blockId,
       name: 'Sheet',
@@ -885,7 +958,9 @@ function sheetFormulas(evidence: FrozenSheetEvidence[] = []): RevisionEntity[] {
     const frozen =
       sheet.composedGrid?.calculations ??
       sheet.instanceState.instanceCalculations
+
     const calculations = Array.isArray(frozen) ? frozen.filter(isEntity) : []
+
     return [...byIdentity(calculations)].map(([id, calculation]) => ({
       ...calculation,
       id: `${sheet.blockId}:${id}`,
@@ -902,6 +977,7 @@ export function diffRevisionEnvelopes(
   after: CanonicalRevisionEnvelope,
 ): RevisionDiffResult {
   const changes: RevisionChange[] = []
+
   const unavailableSheetComparisons = [
     ...new Set(
       [...(before.sheetEvidence ?? []), ...(after.sheetEvidence ?? [])]
@@ -913,6 +989,7 @@ export function diffRevisionEnvelopes(
         .map((sheet) => sheet.blockId),
     ),
   ]
+
   compareValue({
     area: 'metadata',
     identity: String(after.record.id ?? before.record.id ?? 'record'),
@@ -930,6 +1007,7 @@ export function diffRevisionEnvelopes(
     label: (entity, id) => displayName(entity, `Link ${id}`),
     changes,
   })
+
   const tableSummaries = compareTables(
     [
       ...before.scientificTables,
@@ -949,6 +1027,7 @@ export function diffRevisionEnvelopes(
     ],
     changes,
   )
+
   compareEntityCollection({
     area: 'formulas',
     before: [...before.formulas, ...sheetFormulas(before.sheetEvidence)],
@@ -971,7 +1050,9 @@ export function diffRevisionEnvelopes(
     modified: 0,
     moved: 0,
   }
+
   for (const change of changes) counts[change.kind] += 1
+
   return {
     changes,
     counts,

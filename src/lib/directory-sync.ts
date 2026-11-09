@@ -53,6 +53,7 @@ export async function fetchScimTokens(
     'scim_tokens',
     `?workspace_id=eq.${encodeURIComponent(workspaceId)}&revoked_at=is.null&order=created_at.desc&select=id,workspace_id,label,created_at,last_used_at,revoked_at`,
   )
+
   return rows.map((r) => ({
     id: r.id,
     label: r.label,
@@ -68,6 +69,7 @@ export async function fetchDirectorySyncStatus(
   const r = await c.rpc<StatusWire>('directory_sync_status', {
     p_workspace_id: workspaceId,
   })
+
   return {
     activeTokens: r.active_tokens,
     lastCalledAt: r.last_called_at,
@@ -88,6 +90,7 @@ export async function createScimToken(
     'create_scim_token',
     { p_workspace_id: workspaceId, p_label: label },
   )
+
   return made.secret
 }
 

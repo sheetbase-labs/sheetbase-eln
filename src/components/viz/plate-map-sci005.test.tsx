@@ -116,9 +116,11 @@ describe('PlateMap SCI-005 extensions', () => {
       />,
     )
     const cells = screen.getAllByRole('gridcell')
+
     const selected = cells.find(
       (c) => c.getAttribute('aria-selected') === 'true',
     )
+
     expect(selected).toBeTruthy()
     expect(selected?.querySelector('button')?.getAttribute('aria-label')).toBe(
       'A2 Positive control',
@@ -221,6 +223,7 @@ describe('PlateMap SCI-005 extensions', () => {
   it('disables all well buttons in read-only mode', () => {
     render(<PlateMap wells={roleWells} readOnly ariaLabel="Read-only plate" />)
     const buttons = screen.getAllByRole('button')
+
     for (const btn of buttons) {
       expect(btn.hasAttribute('disabled')).toBe(true)
     }
@@ -264,10 +267,12 @@ describe('PlateMap VIEW-02 selectable read-only', () => {
         ariaLabel="Selectable plate"
       />,
     )
+
     // Selection is enabled: buttons stay interactive but nothing edits.
     for (const btn of screen.getAllByRole('button')) {
       expect(btn.hasAttribute('disabled')).toBe(false)
     }
+
     await user.click(screen.getByRole('button', { name: 'A1 Sample' }))
     expect(onSelectWellCode).toHaveBeenCalledWith('A1')
     // Empty cells report their code too, so hosts can show context.

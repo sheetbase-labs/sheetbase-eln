@@ -34,6 +34,7 @@ import type { CanonicalDatasetSource } from '#/lib/chart-data'
 
 vi.mock('#/lib/analysis-definitions-data', async (importOriginal) => {
   const actual = await importOriginal<typeof definitionsData>()
+
   return {
     ...actual,
     fetchAnalysisDefinitions: vi.fn(),
@@ -41,8 +42,10 @@ vi.mock('#/lib/analysis-definitions-data', async (importOriginal) => {
     deleteAnalysisDefinition: vi.fn().mockResolvedValue(undefined),
   }
 })
+
 vi.mock('#/lib/chart-data', async (importOriginal) => {
   const actual = await importOriginal<typeof chartData>()
+
   return {
     ...actual,
     sciDataClient: {} as never,
@@ -75,6 +78,7 @@ function wrapper() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   )
@@ -139,9 +143,11 @@ async function runDescriptive() {
 describe('AnalysisPanel', () => {
   it('authors and saves against the examined snapshot schema and revision', async () => {
     const snapshotId = '22222222-2222-4222-8222-222222222222'
+
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+
     client.setQueryData(['dataset-version-summaries', DATASET.datasetId], [])
     client.setQueryData(
       ['analysis-definition-rows', DATASET.datasetId, snapshotId],
@@ -210,6 +216,7 @@ describe('AnalysisPanel', () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+
     const tree = (datasets: CanonicalDatasetSource[]) => (
       <QueryClientProvider client={client}>
         <AnalysisPanel
@@ -220,6 +227,7 @@ describe('AnalysisPanel', () => {
         />
       </QueryClientProvider>
     )
+
     const { rerender } = render(tree([]))
     const select = await screen.findByLabelText('Analysis dataset')
     expect(select.textContent).toBe('Select a dataset')
@@ -234,9 +242,11 @@ describe('AnalysisPanel', () => {
   it('synchronises studio source changes without losing a loaded snapshot', async () => {
     const other = { ...DATASET, datasetId: 'other', name: 'Other dataset' }
     const snapshotId = '22222222-2222-4222-8222-222222222222'
+
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+
     client.setQueryData(['dataset-version-summaries', DATASET.datasetId], [])
     mockFetchDefinitions.mockResolvedValue([
       {
@@ -258,8 +268,10 @@ describe('AnalysisPanel', () => {
         updated_at: '',
       },
     ])
+
     function Studio() {
       const [source, setSource] = useState(other.datasetId)
+
       return (
         <QueryClientProvider client={client}>
           <label>
@@ -285,6 +297,7 @@ describe('AnalysisPanel', () => {
         </QueryClientProvider>
       )
     }
+
     render(<Studio />)
     const studio = screen.getByLabelText<HTMLSelectElement>('Studio source')
     const panel = screen.getByLabelText('Analysis dataset')
@@ -333,9 +346,11 @@ describe('AnalysisPanel', () => {
 
   it('adopts a saved analysis immediately for citation and subsequent updates', async () => {
     await runDescriptive()
+
     const save = screen.getByRole('button', {
       name: /^Save$/,
     })
+
     expect(save.hasAttribute('disabled')).toBe(true)
     fireEvent.change(screen.getByLabelText('Analysis name'), {
       target: { value: 'Recovery summary' },
@@ -442,6 +457,7 @@ describe('AnalysisResultTable', () => {
     // Deliberately heteroscedastic: the residual spread is far larger over
     // the second half, so the constant-variance check must fail visibly.
     const noise = [0.1, -0.1, 0.1, -0.1, 0.1, -0.1, 8, -8, 8, -8, 8, -8]
+
     const definition: AnalysisDefinition = {
       definitionVersion: 1,
       kind: 'regression',
@@ -450,15 +466,19 @@ describe('AnalysisResultTable', () => {
       predictor: { fieldId: FIELD_TIME },
       degree: 1,
     }
+
     const columns: ChartColumn[] = [
       { id: FIELD_TIME, label: 'Time (h)', logicalType: 'decimal' },
       { id: FIELD_RECOVERY, label: 'Recovery (%)', logicalType: 'decimal' },
     ]
+
     const rows = noise.map((d, index) => ({
       [FIELD_TIME]: index + 1,
       [FIELD_RECOVERY]: index + 1 + d,
     }))
+
     const result = runAnalysis(definition, columns, rows)
+
     if (!result.ok) throw new Error('expected a regression result')
     render(<AnalysisResultTable result={result.result} />)
 

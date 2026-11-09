@@ -16,6 +16,7 @@ import type { ShortcutDefinition } from '#/lib/shortcuts'
  */
 function Playground() {
   const [fired, setFired] = useState<string[]>([])
+
   const definitions: ShortcutDefinition[] = [
     {
       id: 'demo-home',
@@ -32,6 +33,7 @@ function Playground() {
       handler: () => setFired((list) => [...list, 'Focus search'].slice(-5)),
     },
   ]
+
   return (
     <ShortcutProvider definitions={definitions}>
       <div className="flex w-80 flex-col gap-3 text-body">
@@ -62,7 +64,9 @@ const meta = {
   tags: ['autodocs'],
   args: { definitions: [], children: null },
 } satisfies Meta<typeof ShortcutProvider>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Interactive: Story = { render: () => <Playground /> }
@@ -78,6 +82,7 @@ function Registered() {
       handler: () => setLast('Route action'),
     },
   ])
+
   return (
     <p className="m-0 text-body">
       Press <Kbd>r</Kbd>. Last fired: {last}

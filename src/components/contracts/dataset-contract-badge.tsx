@@ -12,15 +12,18 @@ import { useDatasetContractStatus } from './contract-data'
 export function DatasetContractBadge({ datasetId }: { datasetId: string }) {
   const standing = useDatasetContractStatus(datasetId)
   const contractId = standing.data?.contractId
+
   const contract = useQuery({
     queryKey: [...contractKeys.all, 'by-id', contractId],
     queryFn: () => fetchContractById(notebookDataClient, contractId ?? ''),
     enabled: Boolean(contractId),
     staleTime: 30_000,
   })
+
   if (!standing.data) return null
   const modelId = contract.data?.datasetSchemaId
   const badge = <ContractStatusBadge status={standing.data.status} />
+
   return (
     <span
       className="inline-flex items-center gap-1.5 text-fg"

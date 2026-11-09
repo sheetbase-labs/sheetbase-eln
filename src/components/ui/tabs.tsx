@@ -114,6 +114,7 @@ const LIST: Record<TabVariant, string> = {
 
 function TabCount({ count }: { count?: React.ReactNode }) {
   if (count == null) return null
+
   // The space is explicit: without it the tab's accessible name runs the label
   // and the count together ("All4"), which is what a screen reader reads out.
   return (
@@ -234,6 +235,7 @@ function UrlTabs({
     <nav aria-label={label} className={cn(LIST[variant], className)}>
       {items.map((item, index) => {
         const current = value === undefined ? undefined : item.key === value
+
         return (
           <Link
             key={item.key ?? item.link.to ?? index}

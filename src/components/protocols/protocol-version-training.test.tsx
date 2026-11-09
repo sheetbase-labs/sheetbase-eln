@@ -18,6 +18,7 @@ const version: ProtocolVersion = {
   created_by_user_id: 'author',
   created_at: '2026-08-28T00:00:00Z',
 }
+
 const members = [
   { user_id: 'sam', name: 'Sam' },
   { user_id: 'mei', name: 'Mei' },

@@ -59,10 +59,12 @@ export function categorisePostgrestError(
   body: { code?: string; message?: string } | null,
 ): CategorisedError {
   const code = body?.code
+
   const category =
     code != null && code !== '' && Object.hasOwn(PG_CODE_TO_CATEGORY, code)
       ? PG_CODE_TO_CATEGORY[code]
       : inferFromStatus(status)
+
   return {
     category,
     status:
@@ -80,13 +82,21 @@ export function categorisePostgrestError(
 
 function inferFromStatus(status: number): ErrorCategory {
   if (status === 401) return 'unauthenticated'
+
   if (status === 403) return 'permission_denied'
+
   if (status === 404) return 'not_found'
+
   if (status === 409) return 'conflict'
+
   if (status === 422) return 'missing_link'
+
   if (status === 429) return 'rate_limited'
+
   if (status === 400) return 'validation_error'
+
   if (status >= 500) return 'service_unavailable'
+
   return 'server_error'
 }
 

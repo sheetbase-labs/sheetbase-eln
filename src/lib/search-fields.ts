@@ -73,6 +73,7 @@ const STATUS_VALUES = [
 
 function humanise(value: string): string {
   const spaced = value.replace(/[_.]/g, ' ').trim()
+
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
@@ -87,6 +88,7 @@ export function matchOptions(
   limit = 20,
 ): SearchOption[] {
   const needle = query.trim().toLowerCase()
+
   const hit = needle
     ? options.filter(
         (o) =>
@@ -94,10 +96,12 @@ export function matchOptions(
           o.value.toLowerCase().includes(needle),
       )
     : [...options]
+
   return hit
     .sort((a, b) => {
       const aStart = a.label.toLowerCase().startsWith(needle) ? 0 : 1
       const bStart = b.label.toLowerCase().startsWith(needle) ? 0 : 1
+
       return aStart - bStart
     })
     .slice(0, limit)
@@ -166,9 +170,12 @@ export function commonSearchFields(
 
 function dataTypeOf(value: unknown): SheetbaseField['dataType'] {
   if (typeof value === 'number') return 'number'
+
   if (typeof value === 'boolean') return 'boolean'
+
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}(T|$)/.test(value))
     return 'date'
+
   return 'text'
 }
 
@@ -239,10 +246,13 @@ export function typeSearchFields(
 ): SheetbaseField[] {
   if (!group) return []
   const seen = new Map<string, SheetbaseField>()
+
   for (const result of results) {
     if (searchResultGroup(result) !== group) continue
+
     for (const [key, value] of Object.entries(result.fields)) {
       if (value === null || value === undefined || seen.has(key)) continue
+
       if (HIDDEN_TYPE_FIELDS.has(key)) continue
       seen.set(key, {
         id: `fields.${key}`,
@@ -251,5 +261,6 @@ export function typeSearchFields(
       })
     }
   }
+
   return [...seen.values()].sort((a, b) => a.label.localeCompare(b.label))
 }

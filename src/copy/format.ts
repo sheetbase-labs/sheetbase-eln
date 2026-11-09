@@ -5,19 +5,23 @@ const numberFormats = new Map<string, Intl.NumberFormat>()
 
 function rulesFor(locale: string) {
   let rules = pluralRules.get(locale)
+
   if (!rules) {
     rules = new Intl.PluralRules(locale)
     pluralRules.set(locale, rules)
   }
+
   return rules
 }
 
 function numberFormatFor(locale: string) {
   let format = numberFormats.get(locale)
+
   if (!format) {
     format = new Intl.NumberFormat(locale)
     numberFormats.set(locale, format)
   }
+
   return format
 }
 
@@ -33,6 +37,7 @@ export function selectPlural(
 ): string {
   if (count === 0 && message.zero !== undefined) return message.zero
   const category = rulesFor(locale).select(count)
+
   return message[category] ?? message.other
 }
 
@@ -49,6 +54,7 @@ export function interpolate(
   values: Readonly<Record<string, CopyValue>> | undefined,
 ): string {
   if (!values) return text
+
   return text.replace(/\{(\w+)\}/g, (whole, name: string) =>
     name in values ? formatValue(locale, values[name]) : whole,
   )
@@ -111,10 +117,13 @@ const PSEUDO: Record<string, string> = {
  */
 export function pseudo(text: string): string {
   let letters = 0
+
   const body = text.replace(/(\{\w+\}|<\/?\w+>)|([A-Za-z])/g, (_, keep, ch) => {
     if (keep) return keep as string
     letters += 1
+
     return PSEUDO[ch as string] ?? (ch as string)
   })
+
   return `⟦${body}${'·'.repeat(Math.ceil(letters / 3))}⟧`
 }

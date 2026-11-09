@@ -25,20 +25,25 @@ export async function handleOntologySearch(
   search: typeof searchOntologyTerms = searchOntologyTerms,
 ): Promise<Response> {
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
   const url = new URL(request.url)
   const query = (url.searchParams.get('q') ?? '').trim()
+
   if (query.length < 2) {
     return Response.json({ terms: [] satisfies OntologyTerm[] })
   }
+
   const settingsRes = await postgrestRpc<OntologySettings>(
     'ontology_settings',
     { p_workspace_id: context.workspaceId },
     context.token,
   )
+
   const settings = settingsRes.body as OntologySettings
+
   if (settingsRes.status >= 400 || !settings.enabled) {
     return requestErrorResponse(
       409,
@@ -46,14 +51,19 @@ export async function handleOntologySearch(
       'Ontology lookup is off. An admin can turn it on in Settings > Open data.',
     )
   }
+
   const allowed = new Set<string>(settings.ontologies)
+
   const asked = (url.searchParams.get('ontology') ?? '')
     .split(',')
     .map((o) => o.trim().toLowerCase())
     .filter((o) => allowed.has(o))
+
   const ontologies = asked.length > 0 ? asked : [...allowed]
+
   try {
     const terms = await search(query, ontologies)
+
     return Response.json({ terms })
   } catch (error) {
     return requestErrorResponse(

@@ -22,6 +22,7 @@ import { screenQueryClient, screenRoutes } from './screen-stories'
  * address, and `DataAccessButton` is the `{ }` button in a page header.
  */
 const LIST = resolveDataAccessHandle('/experiments') as DataAccessHandle
+
 const RECORD = resolveDataAccessHandle(
   '/experiments/EXP-2026-0042',
 ) as DataAccessHandle
@@ -49,7 +50,9 @@ const meta = {
   ],
   args: { handle: LIST },
 } satisfies Meta<typeof DataAccessPanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The panel sits in a popover, as it does under the header button. */

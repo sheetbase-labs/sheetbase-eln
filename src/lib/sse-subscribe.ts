@@ -77,16 +77,20 @@ export async function readChangeEvents(
         LIMIT $3`,
       [workspaceId, afterSeq, limit],
     )
+
     const minSeq = await client.query<{ min: string | null }>(
       `SELECT min(sequence)::text AS min FROM api.change_events WHERE workspace_id = $1`,
       [workspaceId],
     )
+
     const earliestAvailableSeq = minSeq.rows[0].min
       ? Number(minSeq.rows[0].min)
       : 0
+
     const events = rows.rows.map(mapChangeEventRow)
     // hasMore when we filled the limit and there is at least one more.
     const hasMore = events.length === limit
+
     return { events, hasMore, earliestAvailableSeq }
   }
 }
@@ -100,6 +104,7 @@ export async function latestChangeEventSequence(
     `SELECT max(sequence)::text AS max FROM api.change_events WHERE workspace_id = $1`,
     [workspaceId],
   )
+
   return result.rows[0].max ? Number(result.rows[0].max) : 0
 }
 
@@ -137,15 +142,19 @@ async function deliver(
   const interested = [...listener.subscribers].filter(
     (s) => s.workspaceId === payload.workspace_id,
   )
+
   if (interested.length === 0) return
+
   // Fetch the full durable row by id. The NOTIFY payload is intentionally a
   // lightweight pointer; the durable row is the source of truth.
   const { rows } = await getPool(connectionString).query<ChangeEventRow>(
     `SELECT * FROM api.change_events WHERE id = $1`,
     [payload.id],
   )
+
   if (!rows[0]) return
   const event = mapChangeEventRow(rows[0])
+
   for (const subscriber of interested) subscriber.onEvent(event)
 }
 
@@ -165,11 +174,13 @@ function ensureConnected(
   connectionString: string,
 ): Promise<void> {
   if (listener.client) return Promise.resolve()
+
   if (listener.connecting) return listener.connecting
   listener.connecting = (async () => {
     const client = new Client({ connectionString })
     client.on('notification', (msg) => {
       if (!msg.payload) return
+
       try {
         const payload = JSON.parse(msg.payload) as NotificationPayload
         void deliver(listener, connectionString, payload).catch((error) =>
@@ -181,6 +192,7 @@ function ensureConnected(
         /* malformed payload: ignore */
       }
     })
+
     const lost = () => {
       if (listener.client !== client) return
       listener.client = null
@@ -189,11 +201,13 @@ function ensureConnected(
       client.end().catch(() => {})
       scheduleReconnect(listener, connectionString)
     }
+
     client.on('error', (error) => {
       logger.warn('live event connection error', { message: error.message })
       lost()
     })
     client.on('end', lost)
+
     try {
       await client.connect()
       await client.query('LISTEN sheetbase_change')
@@ -207,6 +221,7 @@ function ensureConnected(
       listener.connecting = null
     }
   })()
+
   return listener.connecting
 }
 
@@ -222,6 +237,7 @@ export async function subscribeToChangeEvents(
   connectionString: string = env.DATABASE_URL,
 ): Promise<Unsubscribe> {
   let listener = listeners.get(connectionString)
+
   if (!listener) {
     listener = {
       subscribers: new Set(),
@@ -231,9 +247,11 @@ export async function subscribeToChangeEvents(
     }
     listeners.set(connectionString, listener)
   }
+
   const active = listener
   const subscriber = { workspaceId, onEvent }
   active.subscribers.add(subscriber)
+
   try {
     await ensureConnected(active, connectionString)
   } catch (error) {
@@ -243,14 +261,18 @@ export async function subscribeToChangeEvents(
 
   return async () => {
     if (!active.subscribers.delete(subscriber)) return
+
     if (active.subscribers.size > 0) return
+
     if (active.retry) {
       clearTimeout(active.retry)
       active.retry = null
     }
+
     const client = active.client
     active.client = null
     listeners.delete(connectionString)
+
     if (client) {
       client.removeAllListeners()
       client.on('error', () => {})

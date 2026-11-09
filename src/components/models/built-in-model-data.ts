@@ -79,6 +79,7 @@ export function useTakenFieldKeys(
           `?kind=eq.${encodeURIComponent(modelKey)}&select=field_name`,
         ),
       ])
+
       return new Set([
         ...base.map((row) => row.field_key),
         ...defined.map((row) => row.field_name),
@@ -135,11 +136,13 @@ export async function createBuiltInModelField(
       p_description: input.description,
     },
   )
+
   await updateBuiltInModelField(client, created.id, {
     section: input.section,
     askOnCreate: input.askOnCreate,
     showInList: input.showInList,
   })
+
   return created.id
 }
 
@@ -170,20 +173,29 @@ export function describeFieldAuthoringError(error: unknown): string {
     typeof error === 'object' && error !== null && 'code' in error
       ? String(error.code)
       : ''
+
   const message = error instanceof Error ? error.message : ''
+
   if (code === '42501')
     return 'Your workspace role can’t change fields. Ask a workspace owner, admin or steward.'
+
   if (message.includes('needs a default'))
     return 'Records already exist, so a required field needs a starting value to fill them with.'
+
   if (message.includes('locked records'))
     return 'Some signed records have no value for this field, so it can’t be required. Make it optional instead.'
+
   if (message.includes('category needs an active option'))
     return 'Add at least one choice.'
+
   if (code === 'SB082')
     return 'A subtype of this model already has a field with that name. Choose another name.'
+
   if (code === 'SB070' || message.includes('collision'))
     return 'That name is already used on this model. Choose another name.'
+
   if (code === 'SB071')
     return 'Some of these settings don’t fit together. Check the starting value and limits.'
+
   return message || 'Could not save the field.'
 }

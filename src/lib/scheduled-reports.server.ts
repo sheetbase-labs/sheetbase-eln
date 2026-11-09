@@ -47,21 +47,26 @@ async function loadData(
 ): Promise<ReportData> {
   const from = range.from.toISOString()
   const to = range.to.toISOString()
+
   if (report.kind === 'instrument_usage') {
     const rows = await db.query<Parameters<typeof toUsageLine>[0]>(
       'SELECT * FROM api.report_usage_lines($1, $2, $3)',
       [report.workspace_id, from, to],
     )
+
     const lines = rows.rows.map(toUsageLine)
     const people = [...new Set(lines.map((l) => l.userId).filter(Boolean))]
     const missing = people.filter((id): id is string => !!id && !names.has(id))
+
     if (missing.length > 0) {
       const found = await db.query<{ id: string; name: string }>(
         'SELECT id, name FROM internal."user" WHERE id = ANY($1)',
         [missing],
       )
+
       for (const row of found.rows) names.set(row.id, row.name)
     }
+
     return {
       kind: 'instrument_usage',
       lines,
@@ -73,12 +78,15 @@ async function loadData(
       },
     }
   }
+
   if (report.kind === 'spend') {
     const rows = await db.query<Parameters<typeof toSpendLine>[0]>(
       'SELECT * FROM api.report_spend_lines($1, $2, $3)',
       [report.workspace_id, from, to],
     )
+
     const lines = rows.rows.map(toSpendLine)
+
     return {
       kind: 'spend',
       lines: report.project_id
@@ -86,10 +94,12 @@ async function loadData(
         : lines,
     }
   }
+
   const rows = await db.query<Parameters<typeof toProjectStatus>[0]>(
     'SELECT * FROM api.report_project_status($1, $2, $3, $4)',
     [report.workspace_id, report.project_id, from, to],
   )
+
   return { kind: 'project_status', rows: rows.rows.map(toProjectStatus) }
 }
 
@@ -102,12 +112,15 @@ export async function runDueScheduledReports(
   const claimed = await db.query<ClaimedReport>(
     'SELECT * FROM internal.claim_due_scheduled_reports(20)',
   )
+
   const result: ReportRunResult = {
     claimed: claimed.rows.length,
     queued: 0,
     failed: 0,
   }
+
   const names = new Map<string, string>()
+
   for (const report of claimed.rows) {
     try {
       const range = resolvePeriod(report.period, now, report.time_zone)
@@ -122,10 +135,12 @@ export async function runDueScheduledReports(
             AND m.user_id = ANY($2)`,
         [report.workspace_id, report.recipient_user_ids],
       )
+
       const sender = await db.query<{ name: string }>(
         'SELECT name FROM internal."user" WHERE id = $1',
         [report.created_by_user_id],
       )
+
       const email = buildReportEmail({
         name: report.name,
         range,
@@ -134,7 +149,9 @@ export async function runDueScheduledReports(
         baseUrl,
         sender: sender.rows.at(0)?.name ?? '',
       })
+
       let queued = 0
+
       for (const member of members.rows) {
         const queuedId = await db.query<{ id: string | null }>(
           'SELECT internal.enqueue_report_email($1, $2, $3, $4, $5::jsonb) AS id',
@@ -146,8 +163,10 @@ export async function runDueScheduledReports(
             JSON.stringify(email.attachments),
           ],
         )
+
         if (queuedId.rows.at(0)?.id) queued += 1
       }
+
       await db.query('SELECT internal.finish_scheduled_report($1, $2, $3)', [
         report.id,
         queued > 0 ? 'sent' : 'nobody',
@@ -165,5 +184,6 @@ export async function runDueScheduledReports(
       ])
     }
   }
+
   return result
 }

@@ -8,6 +8,7 @@ import {
 } from './notebook-template-bulk-upgrade'
 
 const TARGET = '00000000-0000-4000-8000-0000000000f0'
+
 const ID = (n: number) =>
   `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
 
@@ -24,18 +25,22 @@ function client(
   failFor: Set<string> = new Set(),
 ) {
   const applied: string[] = []
+
   const fetcher = vi.fn(
     async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
+
       const json = (value: unknown, status = 200) =>
         new Response(JSON.stringify(value), {
           status,
           headers: { 'Content-Type': 'application/json' },
         })
+
       if (url.includes('/rpc/preview_notebook_template_upgrade')) {
         const body = JSON.parse(String(init?.body))
         const id = body.p_record_id as string
         const preview = emptyPreview(id)
+
         if (conflictsFor.has(id)) {
           return json({
             ...preview,
@@ -48,20 +53,28 @@ function client(
             ],
           })
         }
+
         return json(preview)
       }
+
       if (url.includes('/rpc/apply_notebook_template_upgrade')) {
         const body = JSON.parse(String(init?.body))
+
         if (failFor.has(body.p_record_id)) {
           return json({ message: 'structure version moved on' }, 409)
         }
+
         applied.push(body.p_record_id)
+
         return json({})
       }
+
       if (url.includes('/records?')) return json([{ structure_version: 4 }])
+
       return json([])
     },
   )
+
   return { client: createDataClient(fetcher), applied, fetcher }
 }
 
@@ -69,6 +82,7 @@ describe('upgradeNotebooksInBulk', () => {
   it('updates the clean ones, leaves decisions and signed notebooks, and carries on past a failure', async () => {
     const { client: c, applied } = client(new Set([ID(2)]), new Set([ID(4)]))
     const progress: number[] = []
+
     const results = await upgradeNotebooksInBulk(
       c,
       {
@@ -83,6 +97,7 @@ describe('upgradeNotebooksInBulk', () => {
       },
       (done) => progress.push(done),
     )
+
     expect(results.map((r) => r.outcome.kind)).toEqual([
       'updated',
       'needs-decision',

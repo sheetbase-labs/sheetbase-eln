@@ -48,10 +48,13 @@ const loaded = screenQueryClient({
     },
   ],
 })
+
 const empty = screenQueryClient({
   data: [{ key: linkedSequencesKey(RECORD_ID), value: [] }],
 })
+
 const pending = screenQueryClient()
+
 holdRead(pending, ['ui-port', 'sequence-file', 'file-9'])
 
 const meta = {
@@ -72,13 +75,16 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The plasmid map: the sequence as a ring with its features on it. */
 export const Circular: Story = {
   render: () => {
     const [selected, setSelected] = useState<number | null>(null)
+
     return (
       <CircularMap
         sequence={plasmid[0]}
@@ -94,6 +100,7 @@ export const Circular: Story = {
 export const Linear: Story = {
   render: () => {
     const [selected, setSelected] = useState<number | null>(2)
+
     return (
       <LinearMap
         sequence={plasmid[0]}

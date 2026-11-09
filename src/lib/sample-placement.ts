@@ -29,6 +29,7 @@ export async function placeSample(
   input: PlaceSampleInput,
 ): Promise<number> {
   const { choice } = input
+
   if (choice.kind === 'position') {
     const row = await moveSampleToPosition(client, {
       recordId: input.recordId,
@@ -36,9 +37,12 @@ export async function placeSample(
       expectedMetadataVersion: input.expectedMetadataVersion,
       notes: input.notes,
     })
+
     return row.metadata_version
   }
+
   const text = choice.text.trim()
+
   if (input.hasLocation) {
     const row = await transferSample(client, {
       recordId: input.recordId,
@@ -46,14 +50,17 @@ export async function placeSample(
       expectedMetadataVersion: input.expectedMetadataVersion,
       notes: input.notes,
     })
+
     return row.metadataVersion
   }
+
   const row = await editSample(client, {
     recordId: input.recordId,
     expectedMetadataVersion: input.expectedMetadataVersion,
     properties: { storageLocation: text },
     notes: input.notes,
   })
+
   return row.metadataVersion
 }
 
@@ -71,16 +78,20 @@ export async function placeInSequence(
   const cells = (await fetchBoxPositions(client, target.boxId)).sort(
     (a, b) => a.rowIndex - b.rowIndex || a.colIndex - b.colIndex,
   )
+
   const from = target.startPositionId
     ? Math.max(
         0,
         cells.findIndex((cell) => cell.id === target.startPositionId),
       )
     : 0
+
   const free = cells.slice(from).filter((cell) => cell.status === 'available')
   let placed = 0
+
   for (const [index, tube] of tubes.entries()) {
     const cell = free.at(index)
+
     if (!cell) break
     await moveSampleToPosition(client, {
       recordId: tube.id,
@@ -89,5 +100,6 @@ export async function placeInSequence(
     })
     placed += 1
   }
+
   return placed
 }

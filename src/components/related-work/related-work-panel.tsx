@@ -69,6 +69,7 @@ export function RelatedWorkPanel({
   id: string
 }) {
   const { data, isLoading } = useRelatedWork(kind, id)
+
   if (isLoading) {
     return (
       <InspectorSection title={t('projects.relatedWork.title')}>
@@ -78,7 +79,9 @@ export function RelatedWorkPanel({
       </InspectorSection>
     )
   }
+
   if (!data || data.length === 0) return null
+
   return (
     <InspectorSection title={t('projects.relatedWork.title')}>
       <RelatedWorkList items={data} />

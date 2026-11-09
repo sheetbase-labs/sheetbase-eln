@@ -64,6 +64,7 @@ describe('AuditCheckLine', () => {
 
   it('says nothing when the status cannot be read', async () => {
     mocks.fetchStatus.mockRejectedValue(new Error('denied'))
+
     const { container } = render(
       <QueryClientProvider
         client={
@@ -73,6 +74,7 @@ describe('AuditCheckLine', () => {
         <AuditCheckLine />
       </QueryClientProvider>,
     )
+
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(container.textContent).toBe('')
   })

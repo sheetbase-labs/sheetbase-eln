@@ -186,9 +186,11 @@ describe('NotebookTemplateUpdateView', () => {
 
   it('surfaces a rejected apply instead of reporting success', async () => {
     const user = userEvent.setup()
+
     const onApply = vi.fn(async () => {
       throw new Error('structure version mismatch: expected 3, got 4')
     })
+
     renderView(onApply)
 
     await user.click(screen.getByRole('button', { name: 'Apply v4' }))

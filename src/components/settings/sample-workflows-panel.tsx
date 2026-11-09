@@ -74,6 +74,7 @@ export function SampleWorkflowsPanel({
   client?: DataClient
 }) {
   const setEditing = onEdit
+
   if (editing) {
     return (
       <WorkflowEditor
@@ -86,6 +87,7 @@ export function SampleWorkflowsPanel({
       />
     )
   }
+
   return (
     <WorkflowList
       workspaceId={workspaceId}
@@ -112,6 +114,7 @@ function WorkflowList({
     queryFn: () => fetchWorkflowSummaries(client),
     enabled: Boolean(workspaceId),
   })
+
   if (list.isError) {
     return (
       <SettingsBody>
@@ -122,6 +125,7 @@ function WorkflowList({
       </SettingsBody>
     )
   }
+
   return (
     <SettingsBody>
       <p className="m-0 max-w-prose text-body text-fg-muted">
@@ -213,6 +217,7 @@ function WorkflowEditor({
     staleTime: Infinity,
     gcTime: 0,
   })
+
   if (loaded.isError) {
     return (
       <SettingsBody>
@@ -225,6 +230,7 @@ function WorkflowEditor({
       </SettingsBody>
     )
   }
+
   if (!loaded.data) {
     return (
       <SettingsBody>
@@ -232,6 +238,7 @@ function WorkflowEditor({
       </SettingsBody>
     )
   }
+
   return (
     <EditorBody
       initial={loaded.data}
@@ -258,16 +265,20 @@ function EditorBody({
 }) {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState<WorkflowDraft>(initial)
+
   const [selectedKey, setSelectedKey] = useState<string | null>(
     initial.stages[0]?.key ?? null,
   )
+
   const sampleTypes = useQuery({
     queryKey: ['sample-types', workspaceId],
     queryFn: () => fetchSampleTypes(client),
     enabled: Boolean(workspaceId),
   })
+
   const problem = validateWorkflow(draft)
   const dirty = JSON.stringify(draft) !== JSON.stringify(initial)
+
   const save = useMutation({
     mutationFn: () => saveWorkflow(client, draft),
     onSuccess: async () => {
@@ -279,6 +290,7 @@ function EditorBody({
     },
     onError: (error) => toast.error(errorMessage(error)),
   })
+
   const archive = useMutation({
     mutationFn: (status: 'active' | 'archived') =>
       setWorkflowStatus(client, draft.id!, status),
@@ -298,19 +310,23 @@ function EditorBody({
 
   const patch = (changes: Partial<WorkflowDraft>) =>
     setDraft({ ...draft, ...changes })
+
   const patchStage = (key: string, changes: Partial<WorkflowStageDraft>) =>
     patch({
       stages: draft.stages.map((s) =>
         s.key === key ? { ...s, ...changes } : s,
       ),
     })
+
   const move = (index: number, by: -1 | 1) => {
     const stages = [...draft.stages]
     const target = index + by
+
     if (target < 0 || target >= stages.length) return
     ;[stages[index], stages[target]] = [stages[target], stages[index]]
     patch({ stages })
   }
+
   const addStage = () => {
     const stage = blankStage()
     // Slot it before a final step, and let the step it follows lead to it.
@@ -319,7 +335,9 @@ function EditorBody({
     const stages = [...draft.stages]
     stages.splice(insertAt, 0, stage)
     const after = insertAt + 1 < stages.length ? stages[insertAt + 1] : null
+
     if (after) stage.next = [after.key]
+
     // The step before now leads to the new one instead of past it.
     if (insertAt > 0 && !stages[insertAt - 1].final) {
       const before = stages[insertAt - 1]
@@ -331,9 +349,11 @@ function EditorBody({
             : [...before.next, stage.key],
       }
     }
+
     patch({ stages })
     setSelectedKey(stage.key)
   }
+
   const removeStage = (key: string) => {
     patch({
       stages: draft.stages
@@ -342,7 +362,9 @@ function EditorBody({
     })
     setSelectedKey(null)
   }
+
   const selected = draft.stages.find((s) => s.key === selectedKey) ?? null
+
   const nameOf = (key: string) =>
     draft.stages.find((s) => s.key === key)?.name ||
     t('settings.sampleWorkflows.unnamedStep')
@@ -477,6 +499,7 @@ function EditorBody({
                   onClick={() => setSelectedKey(stage.key)}
                   onKeyDown={(event) => {
                     if (event.target !== event.currentTarget) return
+
                     if (event.key === 'Enter' || event.key === ' ') {
                       event.preventDefault()
                       setSelectedKey(stage.key)
@@ -590,6 +613,7 @@ function StageEditor({
   onRemove: () => void
 }) {
   const [fieldInput, setFieldInput] = useState('')
+
   const templates = useQuery({
     queryKey: ['notebook-templates-for-workflows', workspaceId],
     queryFn: () =>
@@ -601,12 +625,15 @@ function StageEditor({
       Boolean(workspaceId) &&
       stage.actions.some((a) => a.kind === 'start_experiment'),
   })
+
   const addField = () => {
     const field = fieldInput.trim()
+
     if (field && !stage.requiredFields.includes(field))
       onChange({ requiredFields: [...stage.requiredFields, field] })
     setFieldInput('')
   }
+
   const setAction = (index: number, action: WorkflowAction) =>
     onChange({
       actions: stage.actions.map((a, i) => (i === index ? action : a)),

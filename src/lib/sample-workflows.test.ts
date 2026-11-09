@@ -13,6 +13,7 @@ import {
 function valid() {
   const draft = blankWorkflow()
   draft.name = 'Intake'
+
   return draft
 }
 
@@ -63,9 +64,11 @@ describe('draftToWire', () => {
     const draft = valid()
     draft.stages[1].next = [draft.stages[0].key]
     draft.stages[0].turnaroundDays = ' 3 '
+
     const wire = draftToWire(draft) as {
       stages: { next: string[]; turnaroundDays: number | null }[]
     }
+
     expect(wire.stages[1].next).toEqual([])
     expect(wire.stages[0].turnaroundDays).toBe(3)
   })

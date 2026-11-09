@@ -14,11 +14,14 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mocks.navigate,
 }))
+
 vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
+
 vi.mock('#/lib/experiment-to-template', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   saveExperimentAsTemplate: (...args: unknown[]) => mocks.save(...args),
 }))
+
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign((...args: unknown[]) => mocks.toast(...args), {
     error: vi.fn(),
@@ -26,6 +29,7 @@ vi.mock('#/components/ui/sonner', () => ({
 }))
 
 afterEach(cleanup)
+
 beforeEach(() => {
   vi.resetAllMocks()
 })

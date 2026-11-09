@@ -45,6 +45,7 @@ describe('planPool', () => {
       row({ take: '100' }),
       row({ id: 's-2', identifier: 'SMP-2', take: '50.5' }),
     ])
+
     expect(plan).toMatchObject({ total: 150.5, unit: 'µL', error: null })
   })
 
@@ -53,6 +54,7 @@ describe('planPool', () => {
       row({ take: '100' }),
       row({ id: 's-2', identifier: 'SMP-2', free: 20, take: '30' }),
     ])
+
     expect(plan.error).toBe('SMP-2 has only 20 µL free; take 20 µL or less.')
   })
 
@@ -77,6 +79,7 @@ const SAMPLE = {
   storageLocation: 'Freezer 1',
   metadataVersion: 3,
 }
+
 const OTHER = row({
   id: 's-2',
   identifier: 'SMP-2',
@@ -84,7 +87,9 @@ const OTHER = row({
   free: 300,
   metadataVersion: 7,
 })
+
 const EXPERIMENTS = [{ id: 'e-1', identifier: 'EXP-1', title: 'Titration' }]
+
 const BALANCES = {
   sampleRecordId: 's-1',
   unit: 'µL',
@@ -112,6 +117,7 @@ function mount(props: Partial<React.ComponentProps<typeof PoolDialog>>) {
       </QueryClientProvider>
     ),
   })
+
   render(
     <RouterProvider
       router={createRouter({
@@ -138,9 +144,11 @@ describe('PoolDialog', () => {
     expect(screen.getByRole('status').textContent).toContain(
       'The pool will hold 300 µL.',
     )
+
     const submit = screen.getByRole<HTMLButtonElement>('button', {
       name: 'Pool samples',
     })
+
     expect(submit.disabled).toBe(true)
     await choose(userEvent.setup(), /For experiment/, /Titration/)
     fireEvent.change(screen.getByLabelText(/Name/), {
@@ -197,6 +205,7 @@ describe('PoolDialog', () => {
       },
       sources: [{ identifier: 'SMP-1' }, { identifier: 'SMP-2' }],
     } as unknown as PoolSamplesResult
+
     mount({ created })
     expect(await screen.findByText('Made SMP-9')).toBeTruthy()
     expect(screen.getByText('Pooled from SMP-1, SMP-2.')).toBeTruthy()

@@ -71,6 +71,7 @@ export function openBesideOnAlt(
     ...(event.shiftKey ? { below: true } : {}),
     title,
   })
+
   return true
 }
 
@@ -90,14 +91,19 @@ export function useOpenRow<T>(
   // Callers pass inline arrows; the handler stays stable so column memos do too.
   const latest = useRef({ hrefFor, titleFor })
   latest.current = { hrefFor, titleFor }
+
   return useCallback(
     (row: T, event?: ReactMouseEvent) => {
       event?.stopPropagation()
+
       if (event && isBrowserClick(event)) return
       const href = latest.current.hrefFor(row)
+
       if (!href) return
+
       if (openBesideOnAlt(workspace, href, event, latest.current.titleFor(row)))
         return
+
       if (!event) void navigate({ href })
     },
     [workspace, navigate],
@@ -163,6 +169,7 @@ export function useReportMissing(missing: boolean) {
   const { reportMissing } = useContext(PaneContext)
   useEffect(() => {
     reportMissing?.(missing)
+
     // A page that goes away (or finds its record after all) stops claiming it.
     return () => reportMissing?.(false)
   }, [reportMissing, missing])
@@ -191,14 +198,18 @@ export function registerOpenBeside(
 ) {
   const listener = (event: Event) => {
     if (!(event instanceof CustomEvent)) return
+
     const { href, title, below } = event.detail as {
       href: string
       title?: string
       below?: boolean
     }
+
     open(href, title, below)
   }
+
   window.addEventListener(BESIDE_EVENT, listener)
+
   return () => window.removeEventListener(BESIDE_EVENT, listener)
 }
 
@@ -212,6 +223,7 @@ export async function requestWorkspaceLeave(): Promise<boolean> {
       detail: (approval) => approvals.push(approval),
     }),
   )
+
   return (await Promise.all(approvals)).every(Boolean)
 }
 
@@ -219,6 +231,8 @@ export function registerWorkspaceLeave(approve: () => Promise<boolean>) {
   const listener = (event: Event) => {
     if (event instanceof CustomEvent) event.detail(approve())
   }
+
   window.addEventListener(LEAVE_EVENT, listener)
+
   return () => window.removeEventListener(LEAVE_EVENT, listener)
 }

@@ -20,9 +20,11 @@ const SAMPLE = '11111111-1111-4111-8111-111111111111'
 
 const configuration = validSheetDefinitionConfiguration()
 const mappedColumn = configuration.columns[0]
+
 const mappedSource = (() => {
   if (mappedColumn.source.kind !== 'bound')
     throw new Error('invalid test fixture')
+
   return mappedColumn.source
 })()
 

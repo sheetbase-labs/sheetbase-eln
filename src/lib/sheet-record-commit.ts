@@ -24,6 +24,7 @@ export function enrichSheetRecordWriteTarget(
 ): SheetRecordWriteTarget {
   if (resolved.kind !== 'local') return resolved
   const row = composition.rows.find((item) => item.rowKey === rowKey)
+
   return {
     ...resolved,
     instanceId: composition.instanceId,
@@ -44,26 +45,34 @@ export function composedSheetRecordLinkBatchRows(
   writeTarget: SheetRecordWriteTarget
 }> {
   const columns = composition.boundProjection?.columns ?? []
+
   const picker = columns.find(
     (column) =>
       column.presentation.kind === 'record-picker' &&
       column.permission.editability === 'editable',
   )
+
   if (!picker) return []
+
   return (composition.boundProjection?.rows ?? []).flatMap((row) => {
     const pending = Object.hasOwn(pendingValues, row.rowKey)
       ? pendingValues[row.rowKey][picker.id]
       : undefined
+
     const projected = row.values[picker.id]
+
     const raw =
       pending ?? (projected.kind === 'present' ? projected.value : null)
+
     if (typeof raw !== 'string' || !RECORD_UUID.test(raw)) return []
+
     try {
       const resolved = resolveSheetWriteTarget({
         composition,
         rowKey: row.rowKey,
         columnId: picker.id,
       })
+
       return [
         {
           rowKey: row.rowKey,

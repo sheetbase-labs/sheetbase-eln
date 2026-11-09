@@ -67,7 +67,9 @@ export const Route = createFileRoute('/models/$modelId/fields')({
 function ModelFieldsRoute() {
   const { modelId } = Route.useParams()
   const builtIn = builtInModel(modelId)
+
   if (builtIn) return <BuiltInFields model={builtIn} />
+
   return isUuid(modelId) ? (
     <ModelFields />
   ) : (
@@ -79,6 +81,7 @@ function BuiltInFields({ model }: { model: BuiltInModel }) {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
   const { context } = Route.useRouteContext()
+
   return (
     <BuiltInModelFieldsRoute
       model={model}
@@ -114,6 +117,7 @@ function ModelFields() {
   const inheritedKeys = inherited.keys
   const rows = (fields.data ?? []).filter((f) => !inheritedKeys.has(f.key))
   const above = inheritedRows(inherited.groups)
+
   const tableRows: RegistryRow<CanonicalDatasetSchemaField | InheritedRow>[] =
     above.length
       ? [
@@ -125,15 +129,20 @@ function ModelFields() {
           ...rows,
         ]
       : rows
+
   const sel = rows.find((f) => f.field_id === selected) ?? rows.at(0)
+
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     sel?.field_id ?? null,
     setSelected,
   )
+
   const dataAccess = useDataAccess()
+
   const muted = (value: string) => (
     <span className="text-fg-muted">{value}</span>
   )
+
   const columns: RegistryColumn<CanonicalDatasetSchemaField | InheritedRow>[] =
     [
       {

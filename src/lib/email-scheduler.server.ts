@@ -26,6 +26,7 @@ const startedGlobalKey = '__sheetbaseEmailSchedulerStarted'
 
 export function startEmailScheduler(): void {
   if (typeof window !== 'undefined') return
+
   if (
     process.env.NODE_ENV === 'test' ||
     process.env.VITEST === 'true' ||
@@ -33,13 +34,16 @@ export function startEmailScheduler(): void {
   ) {
     return
   }
+
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
 
   const tick = async () => {
     const client = new PooledClient({ connectionString: env.DATABASE_URL })
     await client.connect()
+
     try {
       const smtp = readSmtpConfig()
       // Inbox-only events have no notification row: this queues their emails
@@ -49,12 +53,15 @@ export function startEmailScheduler(): void {
       })
       // The digest is enqueued regardless of transport so it is not lost.
       await client.query('SELECT internal.enqueue_daily_digests()')
+
       const query: EmailQuery = {
         query: ((sql: string, params?: unknown[]) =>
           client.query(sql, params)) as EmailQuery['query'],
       }
+
       // Scheduled reports are queued the same way: they wait for email.
       await runDueScheduledReports(query, env.BETTER_AUTH_URL)
+
       if (!smtp) return
       const transport = await createSmtpTransport(smtp)
       await processEmailDeliveries(query, transport)
@@ -68,6 +75,7 @@ export function startEmailScheduler(): void {
       error: error instanceof Error ? error.message : String(error),
     })
   }
+
   const first = setTimeout(() => void tick().catch(onError), 5_000)
   first.unref()
   timer = setInterval(() => void tick().catch(onError), EMAIL_INTERVAL_MS)

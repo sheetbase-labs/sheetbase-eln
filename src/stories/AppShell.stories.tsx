@@ -144,6 +144,7 @@ const shellData = {
  * `fetch` when it runs and is answered by `withApiReads`.
  */
 const client = screenQueryClient()
+
 client.setQueryData(
   ['ui-port', 'experiments', 'projects'],
   new Map([
@@ -172,6 +173,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** What a story puts where the routed page renders. */

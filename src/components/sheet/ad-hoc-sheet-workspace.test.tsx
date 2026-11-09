@@ -32,6 +32,7 @@ vi.mock('#/lib/sheet-instance-data', async (importOriginal) => ({
 vi.mock('./sheetbase-grid', () => {
   const Recorder = (props: Record<string, any>) => {
     gridRender(props)
+
     return (
       <table>
         <thead>
@@ -48,6 +49,7 @@ vi.mock('./sheetbase-grid', () => {
       </table>
     )
   }
+
   return { SheetbaseTableGrid: Recorder }
 })
 
@@ -80,6 +82,7 @@ function renderWorkspace(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+
   return render(ui, {
     wrapper: ({ children }) => (
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
@@ -150,6 +153,7 @@ const statusFieldId = '15000000-0000-4000-8000-000000000002'
 /** Typed fixture covering the GRID-03 editor surface. */
 function typedInstance(): SheetInstance {
   const base = instance()
+
   return {
     ...base,
     state: {
@@ -273,10 +277,12 @@ describe('CanonicalSheetEditor typed editing and validation UX (GRID-03)', () =>
         ),
       ).toBe(false)
     })
+
     const statuses = screen
       .getAllByRole('status')
       .map((element) => element.textContent)
       .join(' ')
+
     expect(statuses).toContain('Edit rejected: invalid_value in Count')
     expect(statuses).toContain('kept its previous value')
     expect(mutateSheetLocalState).not.toHaveBeenCalled()
@@ -300,10 +306,12 @@ describe('CanonicalSheetEditor typed editing and validation UX (GRID-03)', () =>
         props.beforeCellsChange(cellChange(props, 0, 100, 'oops'), 'paste'),
       ).toBe(false)
     })
+
     const statuses = screen
       .getAllByRole('status')
       .map((element) => element.textContent)
       .join(' ')
+
     expect(statuses).toContain('Paste rejected: invalid_value in Count')
     expect(mutateSheetLocalState).not.toHaveBeenCalled()
   })
@@ -321,6 +329,7 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
 
   it('wires freeze, widths, sort restore and column-menu settings', () => {
     const base = typedInstance()
+
     const withView: SheetInstance = {
       ...base,
       state: {
@@ -333,6 +342,7 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
         },
       },
     }
+
     renderWorkspace(<AdHocSheetWorkspace instance={withView} />)
     const props = lastProps()
     expect(props.frozenColumns).toBe(1)
@@ -359,6 +369,7 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
   it('hides presentation-hidden columns and restores them via the toolbar', async () => {
     const user = userEvent.setup()
     const base = typedInstance()
+
     const withHidden: SheetInstance = {
       ...base,
       state: {
@@ -369,6 +380,7 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
         },
       },
     }
+
     renderWorkspace(<AdHocSheetWorkspace instance={withHidden} />)
     // Display-only concealment: the hidden column is not rendered.
     expect(
@@ -492,6 +504,7 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
 
   it('persists a sort as presentation state and guards identical restores', async () => {
     const current = typedInstance()
+
     // The first persist resolves to state that already carries the new sort,
     // so the restored state must not re-write identical state.
     const updated: SheetInstance = {
@@ -505,6 +518,7 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
         },
       },
     }
+
     vi.mocked(updateSheetInstance).mockResolvedValueOnce(updated)
     const view = renderWorkspace(<AdHocSheetWorkspace instance={current} />)
     const props = lastProps()
@@ -539,6 +553,7 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
 
   it('persists filters as canonical presentation state and guards identical restores', async () => {
     const current = typedInstance()
+
     const updated: SheetInstance = {
       ...current,
       revision: 2,
@@ -553,13 +568,16 @@ describe('CanonicalSheetEditor sort, filter, freeze & view ergonomics (GRID-04)'
         },
       },
     }
+
     vi.mocked(updateSheetInstance).mockResolvedValueOnce(updated)
     const view = renderWorkspace(<AdHocSheetWorkspace instance={current} />)
     const props = lastProps()
+
     const filters = [
       { columnId: countId, operator: 'equals', value: 1_200 },
       { columnId: statusFieldId, operator: 'is-not-empty' },
     ]
+
     await act(async () => {
       props.onFiltersChange(filters)
     })

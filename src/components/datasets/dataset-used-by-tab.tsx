@@ -44,8 +44,11 @@ function relationLabel(relation: string): string {
 
 function dependencyHref(kind: string, id: string): string | null {
   if (kind === 'sheet_instance') return sheetPath(id)
+
   if (kind === 'dataset') return datasetPath(id)
+
   if (kind === 'record') return recordPath(id)
+
   return null
 }
 
@@ -62,6 +65,7 @@ export function DatasetUsedByTab({ datasetId }: { datasetId: string }) {
     queryFn: () =>
       discoverObjectDependencies(notebookDataClient, 'dataset', datasetId),
   })
+
   const access = classifyDatasetTabAccess(query.error)
 
   if (query.isLoading) {
@@ -121,6 +125,7 @@ export function DatasetUsedByTab({ datasetId }: { datasetId: string }) {
               <TableBody>
                 {users.map((dependency) => {
                   const href = dependencyHref(dependency.kind, dependency.id)
+
                   return (
                     <TableRow key={`${dependency.kind}:${dependency.id}`}>
                       <TableCell className="first:pl-3">

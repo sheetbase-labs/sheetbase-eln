@@ -15,6 +15,7 @@ import { createHmac, hkdfSync, randomBytes, timingSafeEqual } from 'node:crypto'
 export function signPayload(body: string, secret: string): string {
   const hmac = createHmac('sha256', secret)
   hmac.update(body)
+
   return `sha256=${hmac.digest('hex')}`
 }
 
@@ -30,7 +31,9 @@ export function verifySignature(
   const expected = signPayload(body, secret)
   const a = Buffer.from(expected)
   const b = Buffer.from(signature)
+
   if (a.length !== b.length) return false
+
   return timingSafeEqual(a, b)
 }
 
@@ -40,6 +43,7 @@ export function verifySignature(
  */
 export function deriveWebhookSecretKey(masterSecret: string): Buffer {
   const SALT = new Uint8Array(32).fill(0x2e)
+
   return Buffer.from(
     hkdfSync('sha256', masterSecret, SALT, 'sheetbase:webhook-secrets:v1', 32),
   )

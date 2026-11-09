@@ -67,10 +67,13 @@ export function readTheme() {
   const root = document.documentElement
   const styles = getComputedStyle(root)
   const tokens: Record<string, string> = {}
+
   for (const [name, source] of Object.entries(TOKENS)) {
     const value = styles.getPropertyValue(source).trim()
+
     if (value) tokens[name] = value
   }
+
   return {
     theme: root.dataset.theme === 'dark' ? 'dark' : 'light',
     tokens,
@@ -127,32 +130,40 @@ export function PluginFrame(props: PluginFrameProps) {
     persist,
     className,
   } = props
+
   const storageKey = persist ? `sb-plugin-state:${persist}` : null
+
   const [kept, setKept] = React.useState<unknown>(() => {
     if (!storageKey) return undefined
+
     try {
       const raw = localStorage.getItem(storageKey)
+
       return raw === null ? undefined : (JSON.parse(raw) as unknown)
     } catch {
       return undefined
     }
   })
+
   const shownState = state !== undefined ? state : kept
   const router = useRouter()
   const frame = React.useRef<HTMLIFrameElement>(null)
   const [height, setHeight] = React.useState(160)
   const [ready, setReady] = React.useState(false)
   const [table, setTable] = React.useState<FrameTable | null>(null)
+
   const [asking, setAsking] = React.useState<{
     operation: string
     detail?: string
     decide: (run: boolean) => void
   } | null>(null)
+
   const latest = React.useRef({ context, state: shownState })
   latest.current = { context, state: shownState }
 
   const sendContext = React.useCallback(() => {
     const target = frame.current?.contentWindow
+
     if (!target) return
     target.postMessage(
       {
@@ -177,6 +188,7 @@ export function PluginFrame(props: PluginFrameProps) {
     if (!ready) return
     const before = sent.current
     sent.current = { context: contextKey, state: stateKey }
+
     if (
       before &&
       before.context === contextKey &&
@@ -194,6 +206,7 @@ export function PluginFrame(props: PluginFrameProps) {
       attributes: true,
       attributeFilter: ['data-theme'],
     })
+
     return () => observer.disconnect()
   }, [ready, sendContext])
 
@@ -203,9 +216,11 @@ export function PluginFrame(props: PluginFrameProps) {
         { sb: 1, type: 'result', id, ...body },
         '*',
       )
+
     const onMessage = async (event: MessageEvent) => {
       if (!frame.current || event.source !== frame.current.contentWindow) return
       const data: unknown = event.data
+
       if (
         typeof data !== 'object' ||
         data === null ||
@@ -213,10 +228,12 @@ export function PluginFrame(props: PluginFrameProps) {
       )
         return
       const message = data as Record<string, unknown>
+
       switch (message.type) {
         case 'ready':
           setReady(true)
           sendContext()
+
           return
         case 'resize':
           if (
@@ -224,13 +241,16 @@ export function PluginFrame(props: PluginFrameProps) {
             Number.isFinite(message.height)
           )
             setHeight(Math.max(60, Math.ceil(message.height)))
+
           return
         case 'table':
           setTable(checkFrameTable(message.table))
+
           return
         case 'emit':
           if (typeof message.name === 'string' && message.name.length <= 40)
             onEmit?.(message.name, message.payload)
+
           return
         case 'navigate':
           if (
@@ -239,6 +259,7 @@ export function PluginFrame(props: PluginFrameProps) {
             INTERNAL_PATH_RE.test(message.path)
           )
             router.history.push(message.path)
+
           return
         case 'notify':
           if (
@@ -249,9 +270,11 @@ export function PluginFrame(props: PluginFrameProps) {
             if (message.tone === 'danger') toast.error(message.text)
             else toast(message.text)
           }
+
           return
         case 'state': {
           let size = Infinity
+
           try {
             size = new TextEncoder().encode(
               JSON.stringify(message.state),
@@ -259,11 +282,14 @@ export function PluginFrame(props: PluginFrameProps) {
           } catch {
             /* not JSON */
           }
+
           if (size <= MAX_STATE_BYTES) {
             echo.current = JSON.stringify(message.state ?? null)
             onState?.(message.state)
+
             if (storageKey) {
               setKept(message.state)
+
               try {
                 localStorage.setItem(storageKey, JSON.stringify(message.state))
               } catch {
@@ -271,18 +297,23 @@ export function PluginFrame(props: PluginFrameProps) {
               }
             }
           }
+
           return
         }
+
         case 'host': {
           const id = typeof message.id === 'string' ? message.id : ''
+
           if (!id) return
           const name = message.name
+
           const input =
             typeof message.input === 'object' &&
             message.input !== null &&
             !Array.isArray(message.input)
               ? (message.input as Record<string, unknown>)
               : {}
+
           if (typeof name === 'string' && name.startsWith('sheetbase.')) {
             // Any tool the MCP server has, by its MCP name. The server checks
             // the plugin's declared scopes and says when a change needs the
@@ -295,15 +326,19 @@ export function PluginFrame(props: PluginFrameProps) {
                 arguments: input,
                 confirmed,
               })
+
             try {
               let output
+
               try {
                 output = await run(false)
               } catch (error) {
                 if ((error as { code?: string }).code !== 'confirmation_needed')
                   throw error
+
                 const action =
                   typeof input.action === 'string' ? input.action : name
+
                 const allowed = await new Promise<boolean>((resolve) =>
                   setAsking({
                     operation: action.replace(/_/g, ' '),
@@ -311,16 +346,21 @@ export function PluginFrame(props: PluginFrameProps) {
                     decide: resolve,
                   }),
                 )
+
                 setAsking(null)
+
                 if (!allowed) {
                   reply(id, {
                     ok: false,
                     error: t('plugins.screen.askDeclined'),
                   })
+
                   return
                 }
+
                 output = await run(true)
               }
+
               reply(id, { ok: true, output })
             } catch (error) {
               reply(id, {
@@ -328,20 +368,27 @@ export function PluginFrame(props: PluginFrameProps) {
                 error: error instanceof Error ? error.message : 'Failed.',
               })
             }
+
             return
           }
+
           if (!isHostCapability(name)) {
             reply(id, { ok: false, error: 'Sheetbase does not offer that.' })
+
             return
           }
+
           const capability = HOST_CAPABILITIES[name]
+
           if (!(scopes ?? []).includes(capability.scope)) {
             reply(id, {
               ok: false,
               error: `This plugin did not ask for the access “${capability.scope}”, so it cannot do that.`,
             })
+
             return
           }
+
           if (capability.write) {
             const allowed = await new Promise<boolean>((resolve) =>
               setAsking({
@@ -350,12 +397,16 @@ export function PluginFrame(props: PluginFrameProps) {
                 decide: resolve,
               }),
             )
+
             setAsking(null)
+
             if (!allowed) {
               reply(id, { ok: false, error: t('plugins.screen.askDeclined') })
+
               return
             }
           }
+
           try {
             const output = await runHostRequest(name, input, {
               recordId:
@@ -364,6 +415,7 @@ export function PluginFrame(props: PluginFrameProps) {
                   : null,
               insertBelow,
             })
+
             reply(id, { ok: true, output })
           } catch (error) {
             reply(id, {
@@ -374,37 +426,49 @@ export function PluginFrame(props: PluginFrameProps) {
                 : {}),
             })
           }
+
           return
         }
+
         case 'call': {
           const id = typeof message.id === 'string' ? message.id : ''
+
           const operation =
             typeof message.operation === 'string' ? message.operation : ''
+
           const input =
             typeof message.input === 'object' &&
             message.input !== null &&
             !Array.isArray(message.input)
               ? (message.input as Record<string, unknown>)
               : null
+
           if (!id) return
           const access = operations[operation] as 'read' | 'write' | undefined
+
           if (!access || !input) {
             reply(id, {
               ok: false,
               error: 'That operation is not part of this plugin.',
             })
+
             return
           }
+
           if (access === 'write') {
             const allowed = await new Promise<boolean>((resolve) =>
               setAsking({ operation, decide: resolve }),
             )
+
             setAsking(null)
+
             if (!allowed) {
               reply(id, { ok: false, error: t('plugins.screen.askDeclined') })
+
               return
             }
           }
+
           try {
             const answer = await runPluginOperation(
               { extensionKey, operationId: operation, input },
@@ -423,11 +487,14 @@ export function PluginFrame(props: PluginFrameProps) {
                     decide: resolve,
                   }),
                 )
+
                 setAsking(null)
+
                 return allowed
               },
               t('plugins.screen.askDeclined'),
             )
+
             reply(id, { ok: true, output: answer.output })
           } catch (error) {
             reply(id, {
@@ -438,7 +505,9 @@ export function PluginFrame(props: PluginFrameProps) {
         }
       }
     }
+
     window.addEventListener('message', onMessage)
+
     return () => window.removeEventListener('message', onMessage)
   }, [
     extensionKey,

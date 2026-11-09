@@ -27,10 +27,13 @@ const OFFICE_UNZIP_MAX_BYTES = 64 * 1024 * 1024
 const EXTRACTED_TEXT_MAX_CHARS = 1_900_000
 
 const PDF_MEDIA_TYPE = 'application/pdf'
+
 const DOCX_MEDIA_TYPE =
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+
 const XLSX_MEDIA_TYPE =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
 const PPTX_MEDIA_TYPE =
   'application/vnd.openxmlformats-officedocument.presentationml.presentation'
 
@@ -90,22 +93,30 @@ export async function extractTextFromStream(
   const decoder = new TextDecoder('utf-8')
   let text = ''
   let read = 0
+
   try {
     for (;;) {
       const { done, value } = await reader.read()
+
       if (done) break
       const remaining = maxBytes - read
+
       if (remaining <= 0) break
+
       const slice =
         value.byteLength > remaining ? value.subarray(0, remaining) : value
+
       read += slice.byteLength
       text += decoder.decode(slice, { stream: true })
+
       if (read >= maxBytes) break
     }
+
     text += decoder.decode()
   } finally {
     reader.releaseLock()
   }
+
   return text
 }
 
@@ -116,23 +127,29 @@ async function readAllBytes(
   const reader = stream.getReader()
   const chunks: Uint8Array[] = []
   let read = 0
+
   try {
     for (;;) {
       const { done, value } = await reader.read()
+
       if (done) break
       read += value.byteLength
+
       if (read > maxBytes) return null
       chunks.push(value)
     }
   } finally {
     reader.releaseLock()
   }
+
   const bytes = new Uint8Array(read)
   let offset = 0
+
   for (const chunk of chunks) {
     bytes.set(chunk, offset)
     offset += chunk.byteLength
   }
+
   return bytes
 }
 
@@ -147,19 +164,24 @@ const XML_ENTITIES: Record<string, string> = {
 function decodeXmlEntities(value: string): string {
   return value.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, entity) => {
     const lower = (entity as string).toLowerCase()
+
     if (lower.startsWith('#x')) {
       return safeCodePoint(Number.parseInt(lower.slice(2), 16)) ?? match
     }
+
     if (lower.startsWith('#')) {
       return safeCodePoint(Number.parseInt(lower.slice(1), 10)) ?? match
     }
+
     return XML_ENTITIES[lower] ?? match
   })
 }
 
 function safeCodePoint(code: number): string | null {
   if (!Number.isInteger(code) || code < 0 || code > 0x10ffff) return null
+
   if (code >= 0xd800 && code <= 0xdfff) return null
+
   return String.fromCodePoint(code)
 }
 
@@ -174,16 +196,20 @@ function ooxmlText(xml: string, runTag: string): string {
     `<${runTag}(?:\\s[^>]*)?>([^<]*)</${runTag}>|(</(?:w:p|a:p|si|row)>)|(<w:tab\\s*/>|<w:br\\s*/>|</c>)`,
     'g',
   )
+
   let out = ''
+
   for (const match of xml.matchAll(tokens)) {
     const [, run, paragraphEnd] = match as unknown as [
       string,
       string | undefined,
       string | undefined,
     ]
+
     if (run !== undefined) out += decodeXmlEntities(run)
     else out += paragraphEnd ? '\n' : ' '
   }
+
   return out
     .split('\n')
     .map((line) => line.replace(/[ \t]+/g, ' ').trim())
@@ -196,13 +222,16 @@ function unzipOffice(
   wanted: (name: string) => boolean,
 ): Record<string, Uint8Array> {
   let total = 0
+
   return unzipSync(bytes, {
     filter: (file) => {
       if (!wanted(file.name)) return false
       total += file.originalSize
+
       if (total > OFFICE_UNZIP_MAX_BYTES) {
         throw new Error('office archive expands beyond the extraction cap')
       }
+
       return true
     },
   })
@@ -257,25 +286,32 @@ function xlsxSheetNames(xml: string): string[] {
  */
 function xlsxSheetText(xml: string): string {
   const rows: string[] = []
+
   for (const row of xml.matchAll(/<row\b[^>]*>([\s\S]*?)<\/row>/g)) {
     const cells: string[] = []
+
     for (const cell of row[1].matchAll(
       /<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g,
     )) {
       const type = /\bt="([^"]*)"/.exec(cell[1])?.[1] ?? 'n'
       const inner = (cell[2] as string | undefined) ?? ''
+
       if (type === 'inlineStr') {
         const text = ooxmlText(inner, 't')
+
         if (text) cells.push(text.replace(/\n/g, ' '))
       } else if (type === 'n' || type === 'str') {
         const value = /<v>([^<]*)<\/v>/.exec(inner)?.[1]
+
         if (value !== undefined && value.trim() !== '') {
           cells.push(decodeXmlEntities(value.trim()))
         }
       }
     }
+
     if (cells.length > 0) rows.push(cells.join(' '))
   }
+
   return rows.join('\n')
 }
 
@@ -293,6 +329,7 @@ function odfText(xml: string): string {
       ' ',
     )
     .replace(/<[^>]*>/g, '')
+
   return decodeXmlEntities(withBreaks)
     .split('\n')
     .map((line) => line.replace(/[ \t]+/g, ' ').trim())
@@ -303,6 +340,7 @@ function odfText(xml: string): string {
 function extractOdfText(bytes: Uint8Array): string {
   const entries = unzipOffice(bytes, (name) => name === 'content.xml')
   const content = entries['content.xml'] as Uint8Array | undefined
+
   return content ? odfText(new TextDecoder('utf-8').decode(content)) : ''
 }
 
@@ -312,6 +350,7 @@ export function extractOfficeText(
   mediaType: string,
 ): string {
   const type = mediaType.trim().toLowerCase()
+
   if (
     type === ODT_MEDIA_TYPE ||
     type === ODS_MEDIA_TYPE ||
@@ -319,28 +358,38 @@ export function extractOfficeText(
   ) {
     return extractOdfText(bytes)
   }
+
   const parts = officeParts(type)
+
   if (!parts) return ''
   const entries = unzipOffice(bytes, parts.wanted)
+
   const names = Object.keys(entries).sort(
     (a, b) => slideOrder(a) - slideOrder(b) || b.localeCompare(a),
   )
+
   const decoder = new TextDecoder('utf-8')
   const sections: string[] = []
+
   for (const name of names) {
     const xml = decoder.decode(entries[name])
+
     if (name === 'xl/workbook.xml') {
       const sheets = xlsxSheetNames(xml)
+
       if (sheets.length > 0) sections.unshift(sheets.join('\n'))
       continue
     }
+
     // xlsx worksheets hold numbers and inline strings; shared strings carry
     // the rest.
     const text = /^xl\/worksheets\//.test(name)
       ? xlsxSheetText(xml)
       : ooxmlText(xml, parts.runTag)
+
     if (text) sections.push(text)
   }
+
   return sections.join('\n')
 }
 
@@ -349,6 +398,7 @@ export async function extractPdfText(bytes: Uint8Array): Promise<string> {
   const { getDocumentProxy, extractText } = await import('unpdf')
   const pdf = await getDocumentProxy(bytes)
   const { text } = await extractText(pdf, { mergePages: true })
+
   return text
 }
 
@@ -363,10 +413,14 @@ export async function extractDocumentText(
   mediaType: string,
 ): Promise<string> {
   const type = mediaType.trim().toLowerCase()
+
   if (isTextExtractableMediaType(type)) return extractTextFromStream(stream)
+
   if (!isDocumentExtractableMediaType(type)) return ''
   const bytes = await readAllBytes(stream, DOCUMENT_EXTRACT_MAX_BYTES)
+
   if (!bytes) return ''
+
   const text =
     type === PDF_MEDIA_TYPE
       ? await extractPdfText(bytes)
@@ -375,6 +429,7 @@ export async function extractDocumentText(
         : type === XLS_MEDIA_TYPE
           ? extractXlsText(bytes)
           : extractOfficeText(bytes, type)
+
   return text.length > EXTRACTED_TEXT_MAX_CHARS
     ? text.slice(0, EXTRACTED_TEXT_MAX_CHARS)
     : text

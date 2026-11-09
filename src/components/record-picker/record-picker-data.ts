@@ -68,10 +68,13 @@ export function toPickerItem(
   projectNames?: Map<string, string>,
 ): PickerItem | null {
   let kind: PickerKind | null = null
+
   if (result.resultType === 'dataset') kind = 'Dataset'
   else if (result.resultType === 'record')
     kind = PICKER_KIND_BY_RECORD_KIND.get(result.kind) ?? null
+
   if (!kind) return null
+
   return {
     id: result.recordId,
     identifier: result.identifier,
@@ -86,15 +89,23 @@ export function toPickerItem(
 
 export function pickerStatus(status: string): { tone: Tone; label: string } {
   const key = status.toLowerCase()
+
   if (key.includes('approve') || key.includes('sign'))
     return { tone: 'ok', label: 'Approved' }
+
   if (key.includes('review')) return { tone: 'review', label: 'In review' }
+
   if (key.includes('progress'))
     return { tone: 'progress', label: 'In progress' }
+
   if (key.includes('draft')) return { tone: 'draft', label: 'Draft' }
+
   if (key.includes('archiv')) return { tone: 'stored', label: 'Archived' }
+
   if (key.includes('quarant')) return { tone: 'warn', label: 'Quarantine' }
+
   if (key.includes('consum')) return { tone: 'stored', label: 'Consumed' }
+
   return { tone: 'none', label: status || '—' }
 }
 
@@ -106,6 +117,7 @@ async function fetchProjectNames(
     'projects',
     '?select=id,title',
   )
+
   return new Map(rows.map((r) => [r.id, r.title]))
 }
 
@@ -145,12 +157,15 @@ export async function fetchPickerRecents(
     'recently_viewed',
     `?order=viewed_at.desc&limit=${limit * 4}&select=object_kind,object_id`,
   )
+
   const recordIds = views
     .filter((v) => v.object_kind === 'record')
     .map((v) => v.object_id)
+
   const datasetIds = views
     .filter((v) => v.object_kind === 'dataset')
     .map((v) => v.object_id)
+
   if (!recordIds.length && !datasetIds.length) return []
 
   const [projectNames, records, datasets] = await Promise.all([
@@ -176,8 +191,10 @@ export async function fetchPickerRecents(
   ])
 
   const byId = new Map<string, PickerItem>()
+
   for (const r of records) {
     const kind = PICKER_KIND_BY_RECORD_KIND.get(r.kind)
+
     if (!kind) continue
     byId.set(r.id, {
       id: r.id,
@@ -188,6 +205,7 @@ export async function fetchPickerRecents(
       project: r.project_id ? (projectNames.get(r.project_id) ?? '') : '',
     })
   }
+
   for (const d of datasets) {
     byId.set(d.id, {
       id: d.id,
@@ -203,14 +221,18 @@ export async function fetchPickerRecents(
 
   const items: PickerItem[] = []
   const seen = new Set<string>()
+
   for (const view of views) {
     if (seen.has(view.object_id)) continue
     const item = byId.get(view.object_id)
+
     if (!item) continue
     seen.add(view.object_id)
     items.push(item)
+
     if (items.length >= limit) break
   }
+
   return items
 }
 
@@ -219,30 +241,40 @@ export async function searchPickerRecords(
   client: DataClient = pickerClient,
 ): Promise<PickerResult> {
   const q = input.q.trim()
+
   // Empty query: the person's own recent records. There is no page of results
   // to fabricate them from, so a person with no history gets nothing and the
   // picker says "Nothing recent".
   if (!q) {
     const all = await fetchPickerRecents(client)
     const counts = emptyCounts()
+
     for (const item of all) counts[item.kind] += 1
+
     // A picker that is limited to some kinds must not offer the others.
     const recent = input.kinds?.length
       ? all.filter((item) => input.kinds!.includes(item.kind))
       : all
+
     return { recent: true, items: recent, counts, total: all.length }
   }
+
   const [results, projectNames] = await Promise.all([
     executeSearch(client, { query: q, limit: 50 }),
     fetchProjectNames(client),
   ])
+
   const all = results
     .map((r) => toPickerItem(r, projectNames))
     .filter((item): item is PickerItem => item !== null)
+
   const counts = emptyCounts()
+
   for (const item of all) counts[item.kind] += 1
+
   const items = input.kinds?.length
     ? all.filter((item) => input.kinds!.includes(item.kind))
     : all
+
   return { recent: false, items, counts, total: all.length }
 }

@@ -37,6 +37,7 @@ function client(): DataClient {
   return {
     list: (resource: string) => {
       if (resource === 'records') return Promise.resolve([recordRow])
+
       if (resource === 'blocks')
         return Promise.resolve([
           {
@@ -49,6 +50,7 @@ function client(): DataClient {
             version: 3,
           },
         ])
+
       return Promise.resolve([])
     },
   } as unknown as DataClient
@@ -67,7 +69,9 @@ describe('buildAssistantProposal', () => {
         text: 'Test the buffer.',
       },
     )
+
     expect(built.ok).toBe(true)
+
     if (!built.ok) return
     expect(built.proposal.operation).toMatchObject({
       kind: 'notebook_block.insert',
@@ -90,7 +94,9 @@ describe('buildAssistantProposal', () => {
         text: 'New aim',
       },
     )
+
     expect(built.ok).toBe(true)
+
     if (!built.ok) return
     expect(built.proposal.changes[0]).toMatchObject({
       before: 'Old aim',
@@ -114,6 +120,7 @@ describe('buildAssistantProposal', () => {
         values: { organism: 'B. subtilis' },
       },
     )
+
     expect(built.ok && built.proposal.changes[0]).toMatchObject({
       label: 'organism',
       before: 'E. coli',
@@ -136,13 +143,16 @@ describe('buildAssistantProposal', () => {
         text: 'z',
       },
     )
+
     expect(bad.ok).toBe(false)
+
     const unknown = await buildAssistantProposal(
       client(),
       WORKSPACE,
       'sheetbase.signature.sign',
       {},
     )
+
     expect(unknown).toEqual({
       ok: false,
       message: 'That tool is not available.',
@@ -180,8 +190,10 @@ function pipelineClient(versions: unknown[], lifecycle = 'active'): DataClient {
             revision: 5,
           },
         ])
+
       if (resource === 'pipeline_definition_versions')
         return Promise.resolve(versions)
+
       return Promise.resolve([])
     },
   } as unknown as DataClient
@@ -218,6 +230,7 @@ describe('pipeline proposals', () => {
         steps: [{ name: 'rank', statement: 'select * from previous' }],
       },
     )
+
     expect(built.ok).toBe(true)
     const proposal = built.ok ? built.proposal : null
     expect(proposal?.operation).toMatchObject({
@@ -257,6 +270,7 @@ describe('pipeline proposals', () => {
         ],
       },
     )
+
     expect(built.ok).toBe(false)
   })
 
@@ -279,6 +293,7 @@ describe('pipeline proposals', () => {
         statement: 'select * from raw where signal > 0',
       },
     )
+
     expect(built.ok && built.proposal.operation).toMatchObject({
       kind: 'pipeline_definition.update_draft',
       versionId: DRAFT,
@@ -314,6 +329,7 @@ describe('pipeline proposals', () => {
         steps: [],
       },
     )
+
     expect(built.ok && built.proposal.operation).toMatchObject({
       kind: 'pipeline_definition.create_version',
       definitionId: PIPELINE,
@@ -356,6 +372,7 @@ describe('pipeline proposals', () => {
         ],
       },
     )
+
     expect(built.ok && built.proposal.operation).toMatchObject({
       configuration: {
         steps: [
@@ -397,11 +414,13 @@ describe('pipeline proposals', () => {
         ],
       },
     )
+
     expect(built.ok).toBe(false)
   })
 
   it('edits a draft that lacks empty parameter and input lists', async () => {
     const { parameters: _p, inputs: _i, ...bare } = baseConfig
+
     const built = await buildAssistantProposal(
       pipelineClient([
         { id: DRAFT, lifecycle: 'draft', revision: 1, configuration: bare },
@@ -415,6 +434,7 @@ describe('pipeline proposals', () => {
         statement: 'select * from raw where signal > 0',
       },
     )
+
     expect(built.ok && built.proposal.changes).toHaveLength(1)
   })
 
@@ -430,6 +450,7 @@ describe('pipeline proposals', () => {
         },
       ],
     }
+
     const built = await buildAssistantProposal(
       pipelineClient([
         { id: DRAFT, lifecycle: 'draft', revision: 1, configuration: python },
@@ -443,6 +464,7 @@ describe('pipeline proposals', () => {
         steps: [{ name: 'fit', statement: 'def transform(i, p):\n  return i' }],
       },
     )
+
     expect(built.ok && built.proposal.operation).toMatchObject({
       configuration: { steps: [{ name: 'fit', language: 'python' }] },
     })
@@ -450,32 +472,39 @@ describe('pipeline proposals', () => {
 
   it('refuses a retired pipeline, a missing pipeline and a no-op', async () => {
     const args = { title: 'x', summary: 'y', statement: 'select * from raw' }
+
     const versions = [
       { id: DRAFT, lifecycle: 'draft', revision: 1, configuration: baseConfig },
     ]
+
     const retired = await buildAssistantProposal(
       pipelineClient(versions, 'retired'),
       WORKSPACE,
       'sheetbase.pipeline_definition.update_draft',
       { ...args, pipelineId: PIPELINE },
     )
+
     expect(retired).toEqual({ ok: false, message: 'That pipeline is retired.' })
+
     const missing = await buildAssistantProposal(
       client(),
       WORKSPACE,
       'sheetbase.pipeline_definition.update_draft',
       { ...args, pipelineId: PIPELINE },
     )
+
     expect(missing).toEqual({
       ok: false,
       message: 'That pipeline was not found.',
     })
+
     const same = await buildAssistantProposal(
       pipelineClient(versions),
       WORKSPACE,
       'sheetbase.pipeline_definition.update_draft',
       { ...args, pipelineId: PIPELINE },
     )
+
     expect(same).toEqual({
       ok: false,
       message: 'That would not change anything.',

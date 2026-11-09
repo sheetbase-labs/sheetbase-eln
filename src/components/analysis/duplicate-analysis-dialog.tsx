@@ -55,22 +55,27 @@ export function DuplicateAnalysisDialog({
   const sourceId = specSourceDatasetId(view.charts[0])
   const [targetId, setTargetId] = useState('')
   const [name, setName] = useState('')
+
   const datasets = useQuery({
     queryKey: ['ui-port', 'analysis-duplicate', 'datasets'],
     queryFn: () => fetchDatasetSummaries(client),
     enabled: open,
   })
+
   const options = (datasets.data ?? []).filter((d) => d.id !== sourceId)
+
   const source = useQuery({
     queryKey: ['ui-port', 'analysis-duplicate', 'source', sourceId],
     queryFn: () => fetchCanonicalDataset(client, sourceId ?? ''),
     enabled: open && Boolean(sourceId),
   })
+
   const target = useQuery({
     queryKey: ['ui-port', 'analysis-duplicate', 'target', targetId],
     queryFn: () => fetchCanonicalDataset(client, targetId),
     enabled: open && Boolean(targetId),
   })
+
   const rebound = useMemo(
     () =>
       source.data && target.data
@@ -81,10 +86,12 @@ export function DuplicateAnalysisDialog({
         : null,
     [view.charts[0], source.data, target.data],
   )
+
   const save = useMutation({
     mutationFn: async () => {
       if (!rebound?.spec || !target.data)
         throw new Error(t('data.duplicateAnalysisDialog.nothingSave'))
+
       return createAnalysisView(
         client,
         {
@@ -101,6 +108,7 @@ export function DuplicateAnalysisDialog({
       onOpenChange(false)
       toast(t('data.duplicateAnalysisDialog.analysisCopiedOntoNew'))
       const to = objectPath('analysis', created.id)
+
       if (to) void navigate({ to } as never)
     },
   })

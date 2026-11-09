@@ -66,6 +66,7 @@ function Caller({
 >) {
   const [config, setConfig] = useState(initialConfig)
   const errors = validateComparativeViewConfig(config)
+
   return (
     <div className="w-[860px] max-w-full space-y-2">
       <CompareView {...props} config={config} onConfigChange={setConfig} />
@@ -91,7 +92,9 @@ const meta = {
     onPromote: () => {},
   },
 } satisfies Meta<typeof CompareView>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Time series grouped by buffer, previewed through the chart renderer. */

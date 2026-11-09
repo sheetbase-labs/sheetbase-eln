@@ -48,6 +48,7 @@ export function SheetRecordPicker({
   includeArchived?: boolean
 }) {
   const kind = sheetRecordPickerKind(modelKey)
+
   if (kind) {
     return (
       <RecordPicker
@@ -65,12 +66,15 @@ export function SheetRecordPicker({
       />
     )
   }
+
   const label = t('notebook.sheetRecordPicker.searchModelkeyRecordsBy', {
     modelKey,
   })
+
   const visible = includeArchived
     ? results
     : results.filter((record) => !record.archivedAt)
+
   return (
     <Command label={label} shouldFilter={false} loop>
       <CommandInput

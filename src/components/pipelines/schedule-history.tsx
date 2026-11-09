@@ -119,6 +119,7 @@ export function ScheduleHistoryDialog({
                   <TableBody>
                     {runRows.map((run) => {
                       const status = runStatus(run.status)
+
                       return (
                         <TableRow key={run.id}>
                           <TableCell>
@@ -167,6 +168,7 @@ export function ScheduleHistoryDialog({
                 {activityRows.map((row) => {
                   const kind = ACTIVITY_LABELS[row.kind]
                   const count = Number(row.detail.count ?? 1)
+
                   return (
                     <div
                       key={row.id}

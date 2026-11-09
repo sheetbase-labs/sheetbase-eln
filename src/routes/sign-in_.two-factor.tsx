@@ -44,10 +44,13 @@ export function TwoFactorSurface({
     setError(null)
     const failure = await verify({ code: code.replace(/\s/g, ''), backup })
     setBusy(false)
+
     if (failure) {
       setError(failure)
+
       return
     }
+
     onSignedIn(safeNextPath(next) ?? '/')
   }
 
@@ -132,6 +135,7 @@ async function defaultVerify(input: {
     const { error } = input.backup
       ? await authClient.twoFactor.verifyBackupCode({ code: input.code })
       : await authClient.twoFactor.verifyTotp({ code: input.code })
+
     return error
       ? (error.message ?? t('settings.signIn.twoFactor.codeAcceptedTry'))
       : null
@@ -142,5 +146,6 @@ async function defaultVerify(input: {
 
 function TwoFactorPrompt() {
   const { next } = Route.useSearch()
+
   return <TwoFactorSurface next={next} />
 }

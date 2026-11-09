@@ -68,10 +68,12 @@ export function moveField(
 ): DraftField[] {
   const from = rows.findIndex((row) => row.rowKey === rowKey)
   const to = from + delta
+
   if (from < 0 || to < 0 || to >= rows.length) return [...rows]
   const next = [...rows]
   next[from] = rows[to]
   next[to] = rows[from]
+
   return next
 }
 
@@ -113,20 +115,25 @@ export function computeChanges(
 ): ChangeSummary {
   const byKey = new Map<string, 'Added' | 'Changed'>()
   const publishedByKey = new Map(published.map((f) => [f.key, f]))
+
   for (const row of rows) {
     const before = publishedByKey.get(row.key)
+
     if (!before) {
       byKey.set(row.key, 'Added')
     } else if (fieldContract(toDraftField(before)) !== fieldContract(row)) {
       byKey.set(row.key, 'Changed')
     }
   }
+
   const draftKeys = new Set(rows.map((r) => r.key))
   const removed = published.filter((f) => !draftKeys.has(f.key))
+
   return { total: byKey.size + removed.length, byKey, removed }
 }
 
 const KEY_PATTERN = /^[a-z][a-z0-9_]*$/
+
 const relationshipSchema = z.object({
   target: z.object({
     kind: z.literal('model'),
@@ -150,10 +157,13 @@ export function validateDraft(
 ): Map<string, string> {
   const issues = new Map<string, string>()
   const firstByKey = new Map<string, string>()
+
   for (const row of rows) {
     const label = row.label.trim()
     const key = row.key.trim()
+
     if (!label) issues.set(row.rowKey, 'Name is required.')
+
     if (!key) {
       if (!issues.has(row.rowKey)) issues.set(row.rowKey, 'Key is required.')
     } else if (!KEY_PATTERN.test(key)) {
@@ -169,24 +179,31 @@ export function validateDraft(
     } else {
       firstByKey.set(key, label || key)
     }
+
     const validation = row.validation ?? {}
     const min = numberValue(validation.min)
     const max = numberValue(validation.max)
+
     if (min !== null && max !== null && min > max) {
       issues.set(row.rowKey, 'Minimum is more than maximum.')
     }
+
     const minLength = numberValue(validation.minLength)
     const maxLength = numberValue(validation.maxLength)
+
     if (minLength !== null && maxLength !== null && minLength > maxLength) {
       issues.set(row.rowKey, 'Minimum length is more than maximum length.')
     }
+
     const relationship = relationshipSchema.safeParse(row.relationship)
+
     if (row.logicalType === 'reference' && !relationship.success) {
       issues.set(
         row.rowKey,
         'A link field needs a target. Enter its target model key in Configuration.',
       )
     }
+
     if (
       row.logicalType === 'reference' &&
       relationship.success &&
@@ -194,6 +211,7 @@ export function validateDraft(
     ) {
       issues.set(row.rowKey, 'Field and reference cardinality must agree.')
     }
+
     if (row.cardinality === 'many' && row.defaultValue != null) {
       issues.set(
         row.rowKey,
@@ -201,16 +219,20 @@ export function validateDraft(
       )
     }
   }
+
   return issues
 }
 
 /** Deterministic JSON so jsonb key reordering never reads as a change. */
 export function stableJson(value: unknown): string {
   if (value === null || typeof value !== 'object') return JSON.stringify(value)
+
   if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
+
   const entries = Object.entries(value as Record<string, unknown>).sort(
     ([a], [b]) => a.localeCompare(b),
   )
+
   return `{${entries
     .map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
     .join(',')}}`
@@ -250,12 +272,15 @@ export function changedKeys(
   next: ReadonlyMap<string, string>,
 ): Set<string> {
   const changed = new Set<string>()
+
   for (const [key, signature] of next) {
     if (base.get(key) !== signature) changed.add(key)
   }
+
   for (const key of base.keys()) {
     if (!next.has(key)) changed.add(key)
   }
+
   return changed
 }
 
@@ -286,6 +311,7 @@ export function detectDraftConflict(input: {
   const theirs = changedKeys(input.base, fieldSnapshot(input.serverRows))
   const mine = changedKeys(input.base, fieldSnapshot(input.mine))
   const overlap = [...mine].some((key) => theirs.has(key))
+
   return {
     serverRows: [...input.serverRows],
     serverRevision: input.serverRevision,
@@ -310,20 +336,25 @@ export function mergeDraftRows(input: {
   const mineChanged = changedKeys(input.base, fieldSnapshot(input.mine))
   const myByKey = new Map(input.mine.map((row) => [row.rowKey, row]))
   const myKeys = new Set(input.mine.map((row) => row.rowKey))
+
   const myRemoved = new Set(
     [...input.base.keys()].filter((key) => !myKeys.has(key)),
   )
+
   const merged = input.serverRows
     .filter((row) => !myRemoved.has(row.rowKey))
     .map((row) =>
       mineChanged.has(row.rowKey) ? (myByKey.get(row.rowKey) ?? row) : row,
     )
+
   const present = new Set(merged.map((row) => row.rowKey))
+
   for (const row of input.mine) {
     if (!input.base.has(row.rowKey) && !present.has(row.rowKey)) {
       merged.push(row)
     }
   }
+
   return merged
 }
 
@@ -331,6 +362,7 @@ export function mergeDraftRows(input: {
 export function isStaleRevision(error: unknown): boolean {
   if (error instanceof DataClientError) return error.code === 'SB001'
   const message = error instanceof Error ? error.message : String(error)
+
   return /stale dataset schema version revision/i.test(message)
 }
 
@@ -338,5 +370,6 @@ export function isStaleRevision(error: unknown): boolean {
 export function isApprovalLock(error: unknown): boolean {
   if (error instanceof DataClientError) return error.code === 'SB085'
   const message = error instanceof Error ? error.message : String(error)
+
   return /locked while approval is pending/i.test(message)
 }

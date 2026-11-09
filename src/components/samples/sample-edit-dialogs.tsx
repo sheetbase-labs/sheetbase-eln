@@ -35,6 +35,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 const searchExperiments = recordSearch(['Experiment'])
 
 const dayInput = (iso: string | null): string => (iso ? iso.slice(0, 10) : '')
+
 const dayToIso = (day: string): string | undefined =>
   day ? `${day}T00:00:00.000Z` : undefined
 
@@ -61,6 +62,7 @@ export function EditDetailsDialog({
   const [tags, setTags] = useState(sample.tags.join(', '))
   const [reason, setReason] = useState('')
   const valid = title.trim() !== '' && reason.trim() !== ''
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[min(460px,calc(100vw-32px))]">
@@ -141,16 +143,21 @@ export function EditHoldDialog({
 }) {
   const [condition, setCondition] = useState(sample.holdCondition ?? '')
   const [started, setStarted] = useState(dayInput(sample.holdStartedAt))
+
   const [days, setDays] = useState(
     sample.holdDurationDays != null ? String(sample.holdDurationDays) : '',
   )
+
   const [until, setUntil] = useState(dayInput(sample.holdUntil))
+
   const [allowed, setAllowed] = useState<string[]>(
     sample.allowedUseExperimentIds ?? [],
   )
+
   const [reason, setReason] = useState('')
   // Names for the experiments already allowed, and for the ones just chosen.
   const [picked, setPicked] = useState<Map<string, PickerOption>>(new Map())
+
   const stored = useQuery({
     queryKey: ['ui-port', 'sample-hold', 'allowed', sample.id],
     enabled: (sample.allowedUseExperimentIds ?? []).length > 0,
@@ -164,15 +171,20 @@ export function EditHoldDialog({
         }>('records', `?id=in.(${ids})&select=id,identifier,title`),
       ),
   })
+
   const known = new Map<string, PickerOption>([
     ...(stored.data ?? []).map((r) => [r.id, recordOption(r)] as const),
     ...picked,
   ])
+
   const parsedDays = days.trim() === '' ? null : parseQuantityInput(days)
+
   const daysInvalid =
     days.trim() !== '' &&
     (parsedDays == null || parsedDays <= 0 || !Number.isInteger(parsedDays))
+
   const valid = reason.trim() !== '' && !daysInvalid
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
@@ -305,6 +317,7 @@ export function ReceiveStockDialog({
   const parsed = parseQuantityInput(quantity)
   const invalid = quantity.trim() !== '' && (parsed == null || parsed <= 0)
   const unit = sample.quantityUnit ?? ''
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[min(420px,calc(100vw-32px))]">

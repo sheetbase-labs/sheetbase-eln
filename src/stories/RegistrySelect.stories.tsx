@@ -26,7 +26,9 @@ const meta = {
     size: { control: 'inline-radio', options: ['sm', 'default'] },
   },
 } satisfies Meta<typeof NativeSelect>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The default: the platform popup, with the item's own chevron. */

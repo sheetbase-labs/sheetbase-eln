@@ -87,6 +87,7 @@ describe('fetchProjectExperimentsPage', () => {
         updated_at: '2026-01-02T00:00:00Z',
       },
     ]
+
     const list = vi.fn().mockResolvedValue(rows)
     const count = vi.fn().mockResolvedValue(31)
     const client = { list, count } as unknown as DataClient
@@ -135,6 +136,7 @@ describe('fetchProjectSamplesPage', () => {
       locked_at: null,
       locked_by_revision_id: null,
     }
+
     const list = vi.fn().mockResolvedValue([wire])
     const count = vi.fn().mockResolvedValue(1)
     const client = { list, count } as unknown as DataClient
@@ -177,6 +179,7 @@ describe('fetchProjectDatasetsPage', () => {
         archived_at: null,
       },
     ])
+
     const count = vi.fn().mockResolvedValue(1)
     const client = { rpc, count } as unknown as DataClient
 
@@ -204,11 +207,13 @@ describe('fetchProjectDatasetsPage', () => {
 describe('counts', () => {
   it('uses the same predicate as the list for a record kind', async () => {
     const count = vi.fn().mockResolvedValue(5)
+
     const total = await fetchProjectRecordCount(
       { count } as unknown as DataClient,
       PROJECT,
       'sample',
     )
+
     expect(total).toBe(5)
     expect(count).toHaveBeenCalledWith(
       'records',

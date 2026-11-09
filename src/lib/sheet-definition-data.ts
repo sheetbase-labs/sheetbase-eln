@@ -12,6 +12,7 @@ import { parseSheetDefinitionConfiguration } from './sheet-definition'
 import type { SheetDefinitionConfiguration } from './sheet-definition'
 
 export type SheetDefinitionLifecycle = 'active' | 'retired'
+
 export type SheetDefinitionVersionLifecycle = 'draft' | 'published' | 'retired'
 
 export interface SheetDefinitionWire {
@@ -100,6 +101,7 @@ export function sheetDefinitionVersionFromWire(
       `Unsupported Sheet Definition configuration format: ${wire.configuration_format_version}`,
     )
   }
+
   return {
     id: wire.id,
     definitionId: wire.definition_id,
@@ -119,6 +121,7 @@ export async function fetchSheetDefinitions(
     'sheet_definitions',
     '?order=created_at.asc,id.asc',
   )
+
   return rows.map(sheetDefinitionFromWire)
 }
 
@@ -130,6 +133,7 @@ export async function fetchSheetDefinitionVersions(
     'sheet_definition_versions',
     `?definition_id=eq.${encodeURIComponent(definitionId)}&order=version.asc`,
   )
+
   return rows.map(sheetDefinitionVersionFromWire)
 }
 
@@ -141,7 +145,9 @@ export async function fetchSheetDefinition(
     'sheet_definitions',
     `?id=eq.${encodeURIComponent(definitionId)}&limit=1`,
   )
+
   if (rows.length === 0) return null
+
   return sheetDefinitionFromWire(rows[0])
 }
 
@@ -153,7 +159,9 @@ export async function fetchSheetDefinitionVersion(
     'sheet_definition_versions',
     `?id=eq.${encodeURIComponent(versionId)}&limit=1`,
   )
+
   if (rows.length === 0) return null
+
   return sheetDefinitionVersionFromWire(rows[0])
 }
 
@@ -174,8 +182,10 @@ export async function createSheetDefinition(
     p_description: input.description ?? null,
     p_configuration: parseSheetDefinitionConfiguration(input.configuration),
   })
+
   if (!result.version)
     throw new Error('Sheet Definition create returned no version.')
+
   return {
     definition: sheetDefinitionFromWire(result.definition),
     version: sheetDefinitionVersionFromWire(result.version),
@@ -196,6 +206,7 @@ export async function updateSheetDefinitionDraft(
       p_configuration: parseSheetDefinitionConfiguration(configuration),
     },
   )
+
   return sheetDefinitionVersionFromWire(result)
 }
 
@@ -213,6 +224,7 @@ export async function createSheetDefinitionVersion(
       p_configuration: parseSheetDefinitionConfiguration(configuration),
     },
   )
+
   return sheetDefinitionVersionFromWire(result)
 }
 
@@ -230,6 +242,7 @@ export async function updateSheetDefinition(
       p_patch: patch,
     },
   )
+
   return sheetDefinitionFromWire(result)
 }
 
@@ -242,6 +255,7 @@ export async function publishSheetDefinitionVersion(
     'publish_sheet_definition_version',
     { p_version_id: versionId, p_expected_revision: expectedRevision },
   )
+
   return sheetDefinitionVersionFromWire(result)
 }
 
@@ -257,6 +271,7 @@ export async function retireSheetDefinition(
       p_expected_revision: expectedRevision,
     },
   )
+
   return sheetDefinitionFromWire(result)
 }
 
@@ -269,6 +284,7 @@ export async function retireSheetDefinitionVersion(
     'retire_sheet_definition_version',
     { p_version_id: versionId, p_expected_revision: expectedRevision },
   )
+
   return sheetDefinitionVersionFromWire(result)
 }
 
@@ -286,6 +302,7 @@ export async function previewSheetDefinitionExtraction(
       p_selection: parseSheetDefinitionExtractionSelection(selection),
     },
   )
+
   return parseSheetDefinitionExtractionPreview(result)
 }
 
@@ -315,8 +332,10 @@ export async function extractSheetDefinitionDraft(
       p_selection: parseSheetDefinitionExtractionSelection(input.selection),
     },
   )
+
   if (!result.version)
     throw new Error('Sheet Definition extraction returned no draft version.')
+
   return {
     definition: sheetDefinitionFromWire(result.definition),
     version: sheetDefinitionVersionFromWire(result.version),

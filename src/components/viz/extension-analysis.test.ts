@@ -12,10 +12,13 @@ describe('analysis from a plugin', () => {
       join(__dirname, 'extension-analysis.tsx'),
       'utf8',
     )
+
     const paths = [...source.matchAll(/fetch\('(\/api\/[^']+)'/g)].map(
       (match) => match[1],
     )
+
     expect(paths).toEqual(['/api/plugins/run'])
+
     for (const path of paths) {
       const file = path.replace('/api/', '').replaceAll('/', '.')
       expect(

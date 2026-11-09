@@ -68,6 +68,7 @@ describe('the page check of a gate condition', () => {
         ]),
       ]),
     )
+
     expect(result).toMatchObject({
       known: true,
       met: false,
@@ -95,6 +96,7 @@ describe('the page check of a gate condition', () => {
         ]),
       ]),
     )
+
     expect(result.text).toBe(
       'Confluence check needs 3 rows with Confluence (%) (1 so far)',
     )
@@ -107,6 +109,7 @@ describe('the page check of a gate condition', () => {
       order: 10,
       payload: {},
     }
+
     expect(evaluateGateCondition(filled, ctx([sheet])).known).toBe(false)
     expect(
       evaluateGateCondition({ kind: 'samples_linked', min: 3 }, ctx([])).known,
@@ -135,6 +138,7 @@ describe('the page check of a gate condition', () => {
       ...step('s9', 1, true),
       payload: { text: 'x', completed: true, sourceStepBlockId: 'template-s' },
     }
+
     expect(
       evaluateGateCondition(
         { kind: 'step_done', blockId: 'template-s' },
@@ -149,6 +153,7 @@ describe('the page check of a gate condition', () => {
       ctx([]),
       new Date('2026-11-07T10:00:00Z'),
     )
+
     expect(early).toMatchObject({
       met: false,
       soft: true,
@@ -195,6 +200,7 @@ describe('a gate as the page shows it', () => {
       [{ kind: 'step_done', blockId: 's1' }],
       ctx([step('s1', 1, true)]),
     )
+
     expect(live.met).toBe(true)
     expect(live.blocking).toBe(false)
     expect(live.missing).toEqual([])
@@ -210,6 +216,7 @@ describe('a gate as the page shows it', () => {
       [{ kind: 'samples_linked', min: 3 }],
       ctx([]),
     )
+
     expect(live.met).toBe(false)
     expect(live.missing).toEqual(['few'])
   })
@@ -224,6 +231,7 @@ describe('a gate as the page shows it', () => {
       [{ kind: 'date_reached', date: '2099-01-01' }],
       ctx([]),
     )
+
     expect(live.met).toBe(false)
     expect(live.blocking).toBe(false)
   })
@@ -246,6 +254,7 @@ describe('what a closed gate holds back', () => {
     const held = blocksBehindGates(blocks, [
       gate({ gateId: 'part:p2', kind: 'part', blockId: null, partId: 'p2' }),
     ])
+
     expect([...held.keys()]).toEqual(['c'])
   })
 
@@ -261,6 +270,7 @@ describe('what a closed gate holds back', () => {
       step('s3', 3, false),
       step('s4', 4, false),
     ]
+
     const waits = stepWaitsOnStep(steps, new Set(['p1']))
     expect([...waits.entries()]).toEqual([
       ['s3', 2],

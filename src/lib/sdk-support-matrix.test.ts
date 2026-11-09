@@ -72,6 +72,7 @@ function rpcPathsIn(files: string[]): string[] {
       (match) => match[1],
     ),
   )
+
   return [...new Set(matches)].sort()
 }
 
@@ -80,11 +81,14 @@ function rpcWrapperBlock(file: string, name: string): string {
   const marker = `/api/db/rpc/${name}`
   const markerIndex = source.indexOf(marker)
   expect(markerIndex, `${marker} in ${file}`).toBeGreaterThanOrEqual(0)
+
   const methodStarts = [
     ...source.matchAll(/\n\s+(?:(?:async\s+)?def|async)\s+[a-zA-Z_]\w*\s*\(/g),
   ].map((match) => match.index)
+
   const start = methodStarts.filter((index) => index <= markerIndex).at(-1) ?? 0
   const end = methodStarts.find((index) => index > markerIndex)
+
   return source.slice(start, end)
 }
 
@@ -94,15 +98,19 @@ function rpcRequiredParameters(name: string): string[] {
       content: { 'application/json': { schema: { required?: string[] } } }
     }
   }
+
   return operation.requestBody.content['application/json'].schema.required ?? []
 }
 
 function declaredStrings(file: string, name: string): string[] {
   const source = readFileSync(file, 'utf8')
+
   const declaration = source.match(
     new RegExp(`${name}\\s*=\\s*[\\[(]([\\s\\S]*?)[\\])]`),
   )
+
   expect(declaration, `${name} in ${file}`).toBeTruthy()
+
   return [...(declaration?.[1] ?? '').matchAll(/['"]([^'"]+)['"]/g)].map(
     (match) => match[1],
   )
@@ -193,6 +201,7 @@ const generatedTables = readFileSync(
   'sdks/python/src/sheetbase/_generated/tables.py',
   'utf8',
 )
+
 const generatedRpc = readFileSync(
   'sdks/python/src/sheetbase/_generated/rpc.py',
   'utf8',
@@ -201,9 +210,12 @@ const generatedRpc = readFileSync(
 function inGeneratedLayer(operation: string): boolean {
   const [, path] = operation.split(' ')
   const rpc = path.match(/^\/api\/db\/rpc\/([a-z_0-9]+)$/)
+
   if (rpc) return generatedRpc.includes(`    def ${rpc[1]}(`)
   const table = path.match(/^\/api\/db\/([a-z_0-9]+)$/)
+
   if (table) return generatedTables.includes(`    name = "${table[1]}"`)
+
   return false
 }
 
@@ -211,11 +223,13 @@ describe('SDK-01 public-contract support matrix', () => {
   it('only lists contract operations, each once', () => {
     const operations = matrixOperations()
     const contract = new Set(openApiOperations())
+
     for (const operation of operations) {
       expect(contract.has(operation), `${operation} is in the contract`).toBe(
         true,
       )
     }
+
     expect(new Set(operations).size).toBe(operations.length)
     expect(matrix.contract.apiVersion).toBe(spec.info.version)
     expect(matrix.contract.basePath).toBe('/api/db')
@@ -224,15 +238,18 @@ describe('SDK-01 public-contract support matrix', () => {
 
   it('covers every other contract operation in the generated Python layer', () => {
     const listed = new Set(matrixOperations())
+
     const unlisted = openApiOperations().filter(
       (operation) => !listed.has(operation),
     )
+
     for (const operation of unlisted) {
       expect(
         inGeneratedLayer(operation),
         `${operation} is missing from the Python SDK: run pnpm sdk:generate`,
       ).toBe(true)
     }
+
     for (const operation of openApiOperations()) {
       if (operation.startsWith('POST /api/token')) continue
       expect(inGeneratedLayer(operation), operation).toBe(true)
@@ -254,6 +271,7 @@ describe('SDK-01 public-contract support matrix', () => {
         matrix.contract.errorCategories,
       )
     }
+
     expect(
       readFileSync('sdks/python/src/sheetbase/_version.py', 'utf8'),
     ).toContain(`API_VERSION = "${matrix.contract.apiVersion}"`)
@@ -266,6 +284,7 @@ describe('SDK-01 public-contract support matrix', () => {
     const npmPackage = JSON.parse(
       readFileSync('sdks/typescript/package.json', 'utf8'),
     ) as { version: string }
+
     const pyproject = readFileSync('sdks/python/pyproject.toml', 'utf8')
     const pythonVersion = pyproject.match(/^version\s*=\s*"([^"]+)"$/m)?.[1]
 
@@ -281,9 +300,11 @@ describe('SDK-01 public-contract support matrix', () => {
 
   it('makes deliberate and identical Python/TypeScript decisions', () => {
     const decisions = [...matrix.token, ...matrix.tables, ...matrix.rpcs]
+
     for (const decision of decisions) {
       expect(decision.python).toBe(decision.typescript)
     }
+
     expect(matrix.token.every((entry) => entry.python === 'automatic')).toBe(
       true,
     )
@@ -305,9 +326,11 @@ describe('SDK-01 public-contract support matrix', () => {
     const names = wrapped.map(({ name }) => name).sort()
     expect(rpcPathsIn(pythonResources)).toEqual(names)
     expect(rpcPathsIn(typescriptResources)).toEqual(names)
+
     for (const { name, resource } of wrapped) {
       const files = resourceFiles[resource]
       expect(files, `${name} has a known resource`).toBeDefined()
+
       if (!files) throw new Error(`Unknown SDK resource: ${resource}`)
       expect(readFileSync(files.python, 'utf8')).toContain(
         `/api/db/rpc/${name}`,
@@ -315,6 +338,7 @@ describe('SDK-01 public-contract support matrix', () => {
       expect(readFileSync(files.typescript, 'utf8')).toContain(
         `/api/db/rpc/${name}`,
       )
+
       for (const parameter of rpcRequiredParameters(name)) {
         expect(rpcWrapperBlock(files.python, name)).toContain(parameter)
         expect(rpcWrapperBlock(files.typescript, name)).toContain(parameter)
@@ -327,14 +351,17 @@ describe('SDK-01 public-contract support matrix', () => {
       'sdks/python/src/sheetbase/client.py',
       'utf8',
     )
+
     const asyncPythonClient = readFileSync(
       'sdks/python/src/sheetbase/async_client.py',
       'utf8',
     )
+
     const typescriptClient = readFileSync(
       'sdks/typescript/src/client.ts',
       'utf8',
     )
+
     for (const method of ['get', 'head', 'post', 'patch']) {
       expect(pythonClient).toMatch(new RegExp(`def table_${method}\\(`))
       expect(asyncPythonClient).toMatch(
@@ -357,11 +384,14 @@ describe('SDK-01 public-contract support matrix', () => {
       get?: { operationId?: string }
       head?: { operationId?: string }
     }
+
     expect(pathItem.get?.operationId).toBe('get_record_links')
     expect(pathItem.head?.operationId).toBe('head_record_links')
+
     const entry = matrix.tables.find(
       ({ resource }) => resource === 'record_links',
     )
+
     expect(entry?.methods).toContain('GET')
     expect(entry?.methods).toContain('HEAD')
   })

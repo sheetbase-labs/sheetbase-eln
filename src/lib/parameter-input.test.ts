@@ -46,6 +46,7 @@ describe('defaultParameterDrafts', () => {
         constraints: {},
       },
     ])
+
     expect(drafts).toEqual({
       '20000000-0000-4000-8000-000000000001': '5',
       '20000000-0000-4000-8000-000000000002': 'wild-type',
@@ -75,6 +76,7 @@ describe('buildParameterInputs fail-closed', () => {
       label: 'Passage number',
       required: true,
     })
+
     expect(() => parseScalarParameterValue(parameter, '')).toThrow(
       'Parameter "Passage number" is required.',
     )
@@ -90,6 +92,7 @@ describe('buildParameterInputs fail-closed', () => {
       required: true,
       defaultValue: 5,
     })
+
     expect(buildParameterInputs([parameter], {})).toEqual([
       { parameterId: parameter.id, kind: 'scalar', value: 5 },
     ])
@@ -107,6 +110,7 @@ describe('buildParameterInputs fail-closed', () => {
       type: { kind: 'record', modelKey: 'sample' },
       constraints: {},
     } as Parameter
+
     expect(() => buildParameterInputs([parameter], {})).toThrow(
       'Parameter "Sample" is required.',
     )
@@ -119,6 +123,7 @@ describe('buildParameterInputs fail-closed', () => {
       required: false,
       type: { kind: 'scalar', valueType: 'text' },
     })
+
     expect(buildParameterInputs([parameter], {})).toEqual([])
   })
 })

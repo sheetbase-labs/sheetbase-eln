@@ -53,7 +53,9 @@ import { t } from '#/copy'
  */
 export function RecordModelRecords({ modelKey }: { modelKey: string }) {
   const model = useWorkspaceRecordModel(modelKey)
+
   if (model.data?.parent_key) return <SubtypeObjects modelKey={modelKey} />
+
   return <RecordModelRecordList modelKey={modelKey} />
 }
 
@@ -73,31 +75,38 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
 
   // Result limits: a column and a filter, only for a model that has limits.
   const quality = useQualityOptions(model.data?.workspace_id)
+
   const limitsQuery = useQuery({
     queryKey: qualityKeys.limits(modelKey),
     queryFn: () => fetchFieldLimits(notebookDataClient, modelKey),
     enabled: quality.specLimits,
   })
+
   const judged = quality.specLimits && (limitsQuery.data?.length ?? 0) > 0
+
   const outOfSpec = useQuery({
     queryKey: qualityKeys.kindResults(modelKey),
     queryFn: () => fetchKindResults(notebookDataClient, modelKey),
     enabled: judged,
   })
+
   const verdictByRecord = useMemo(() => {
     const grouped = new Map<string, { verdict: SpecVerdict }[]>()
+
     for (const r of outOfSpec.data ?? []) {
       grouped.set(r.recordId, [
         ...(grouped.get(r.recordId) ?? []),
         { verdict: r.verdict },
       ])
     }
+
     return new Map(
       [...grouped].map(([id, list]) => [id, worstVerdict(list)] as const),
     )
   }, [outOfSpec.data])
 
   const statuses = useMemo(() => recordStatusOptions(records), [records])
+
   const visible = useMemo(() => {
     const matching = filterRecordModelRecords(records, fields, {
       q,
@@ -105,9 +114,11 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
       fieldName,
       fieldValue,
     })
+
     return judged && results === 'out'
       ? matching.filter((record) => {
           const verdict = verdictByRecord.get(record.id)
+
           return verdict === 'fail' || verdict === 'alert'
         })
       : matching
@@ -124,6 +135,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
   ])
 
   const [selected, setSelected] = useState<RecordModelRecord[]>([])
+
   const plugin = usePluginTableHooks({
     modelKey,
     fields,
@@ -165,10 +177,12 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         accessorFn: (record) => record.status,
         cell: ({ row }) => {
           const mapped = pickerStatus(row.original.status)
+
           return <Status tone={mapped.tone}>{mapped.label}</Status>
         },
       },
     ]
+
     if (judged) {
       base.push({
         id: 'result',
@@ -176,6 +190,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         accessorFn: (record) => verdictByRecord.get(record.id) ?? '',
         cell: ({ row }) => {
           const verdict = verdictByRecord.get(row.original.id)
+
           return verdict ? (
             <SpecVerdictBadge verdict={verdict} short />
           ) : (
@@ -184,6 +199,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         },
       })
     }
+
     return [
       ...base,
       ...fields.map<ColumnDef<DataTableFeatures, RecordModelRecord, unknown>>(
@@ -197,6 +213,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
             ),
           cell: ({ getValue, row }) => {
             const renderer = plugin.cellRenderer(field)
+
             if (renderer)
               return (
                 <PluginCell
@@ -206,6 +223,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
                 />
               )
             const display = plugin.cellDisplay(field)
+
             return display ? (
               <CellDisplayView
                 spec={display}
@@ -226,6 +244,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
 
   const exportCsv = () => {
     const csv = recordModelCsv(visible, fields)
+
     try {
       downloadTextFile(
         `${model.data?.key ?? modelKey}-records.csv`,

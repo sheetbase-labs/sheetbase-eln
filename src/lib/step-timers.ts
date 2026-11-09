@@ -67,7 +67,9 @@ export async function fetchMyStepTimers(
     'my_step_timers',
     '?select=id,record_id,block_id,label,duration_seconds,started_at,ends_at,server_now&order=ends_at.asc',
   )
+
   const receivedAt = Date.now()
+
   return rows.map((row) => toStepTimer(row, receivedAt))
 }
 
@@ -105,6 +107,7 @@ export function formatCountdown(ms: number): string {
   const minutes = Math.floor((total % 3600) / 60)
   const seconds = total % 60
   const pad = (n: number) => String(n).padStart(2, '0')
+
   return hours > 0
     ? `${hours}:${pad(minutes)}:${pad(seconds)}`
     : `${minutes}:${pad(seconds)}`
@@ -114,6 +117,7 @@ export function formatCountdown(ms: number): string {
 export function stepDurationSeconds(payload: unknown): number | null {
   if (typeof payload !== 'object' || payload === null) return null
   const value = (payload as Record<string, unknown>).durationSeconds
+
   return typeof value === 'number' &&
     Number.isInteger(value) &&
     value >= 1 &&
@@ -128,9 +132,13 @@ export function formatDuration(seconds: number): string {
   const m = Math.floor((seconds % 3600) / 60)
   const s = seconds % 60
   const parts: string[] = []
+
   if (h) parts.push(t('notebook.stepTimers.length.hours', { count: h }))
+
   if (m) parts.push(t('notebook.stepTimers.length.minutes', { count: m }))
+
   if (s && !h) parts.push(t('notebook.stepTimers.length.seconds', { count: s }))
+
   return (
     parts.join(' ') || t('notebook.stepTimers.length.seconds', { count: 0 })
   )
@@ -150,9 +158,12 @@ export function nextEndInMs(
   nowMs: number,
 ): number | null {
   let soonest: number | null = null
+
   for (const timer of timers) {
     const left = remainingMs(timer, nowMs)
+
     if (left > 0 && (soonest === null || left < soonest)) soonest = left
   }
+
   return soonest
 }

@@ -37,6 +37,7 @@ export function ConvertedDataSection({
   instrumentId: string
 }) {
   const [busy, setBusy] = useState<string | null>(null)
+
   const documents = useQuery({
     queryKey: ['instrument-documents', instrumentId],
     queryFn: () =>
@@ -46,10 +47,12 @@ export function ConvertedDataSection({
       ),
     staleTime: 10_000,
   })
+
   const rows = documents.data ?? []
 
   async function download(row: DocumentWire) {
     setBusy(row.id)
+
     try {
       const found = (
         await client.list<{ document: unknown }>(
@@ -57,10 +60,13 @@ export function ConvertedDataSection({
           `?select=document&id=eq.${encodeURIComponent(row.id)}&limit=1`,
         )
       ).at(0)
+
       if (!found) throw new Error('missing')
+
       const blob = new Blob([JSON.stringify(found.document, null, 2)], {
         type: 'application/json',
       })
+
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
@@ -155,6 +161,7 @@ export function ConvertedDataSection({
 
   // Nothing converted and nothing wrong: stay out of the way of the page.
   if (documents.isSuccess && rows.length === 0) return null
+
   return (
     <Section
       className="border-t border-border pt-4"

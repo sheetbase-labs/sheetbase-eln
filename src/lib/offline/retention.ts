@@ -64,6 +64,7 @@ export const SIGN_OUT_RETENTION_KEY = 'sheetbase.signed-out-retention'
 function isSignOutRetention(value: unknown): value is SignOutRetention {
   if (typeof value !== 'object' || value === null) return false
   const marker = value as Record<string, unknown>
+
   return (
     typeof marker.userId === 'string' &&
     marker.userId.length > 0 &&
@@ -85,8 +86,10 @@ export function webSignOutRetentionStorage(
     read() {
       try {
         const raw = storage.getItem(SIGN_OUT_RETENTION_KEY)
+
         if (!raw) return null
         const parsed: unknown = JSON.parse(raw)
+
         return isSignOutRetention(parsed) ? parsed : null
       } catch {
         return null
@@ -114,6 +117,7 @@ export function createInMemorySignOutRetentionStorage(
   initial: SignOutRetention | null = null,
 ): SignOutRetentionStorage {
   let value = initial
+
   return {
     read: () => value,
     write: (next) => {
@@ -131,9 +135,11 @@ export async function countRetainedDrafts<TDraft>(
   userId: string,
 ): Promise<number> {
   let total = 0
+
   for (const recordId of await store.listScopes(userId)) {
     total += (await store.listDrafts({ userId, recordId })).length
   }
+
   return total
 }
 
@@ -153,7 +159,9 @@ export async function retainDraftsOnSignOut<TDraft>(
     retained: await countRetainedDrafts(store, userId),
     signedOutAt: now().toISOString(),
   }
+
   retention.write(marker)
+
   return marker
 }
 
@@ -166,9 +174,12 @@ export async function restoreDraftsForUser<TDraft>(
   userId: string,
 ): Promise<Array<{ recordId: string; drafts: TDraft[] }>> {
   const restored: Array<{ recordId: string; drafts: TDraft[] }> = []
+
   for (const recordId of await store.listScopes(userId)) {
     const drafts = await store.listDrafts({ userId, recordId })
+
     if (drafts.length > 0) restored.push({ recordId, drafts })
   }
+
   return restored
 }

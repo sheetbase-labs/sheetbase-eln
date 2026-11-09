@@ -52,6 +52,7 @@ function updatedAt(version: {
   [key: string]: unknown
 }): string {
   const value = version.updated_at
+
   return typeof value === 'string' ? value : version.created_at
 }
 
@@ -74,29 +75,36 @@ export function RecordModelVersions({
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string | null>(null)
   const modelId = model.data?.id
+
   const versions = useQuery({
     queryKey: ['ui-port', 'record-models', 'versions', modelId],
     queryFn: () => (modelId ? listRecordModelVersions(client, modelId) : []),
     enabled: Boolean(modelId),
   })
+
   const usage = useQuery({
     queryKey: ['ui-port', 'record-models', 'version-usage', modelId],
     queryFn: () =>
       modelId ? listRecordModelVersionUsage(client, modelId) : [],
     enabled: Boolean(modelId),
   })
+
   const rows = versions.data ?? []
+
   const members = useQuery({
     queryKey: workspaceMemberQueryKeys.identities,
     queryFn: () => fetchWorkspaceMemberIdentities(),
   })
+
   const approvals = useModelApprovalIndex(
     rows.map((version) => version.id),
     client,
     RECORD_MODEL_VERSION_KIND,
   )
+
   const selected =
     rows.find((version) => version.id === selectedId) ?? rows.at(0)
+
   const draft = rows.find((version) => version.lifecycle === 'draft')
   const requests = approvals.data?.byVersion.get(selected?.id ?? '') ?? []
   const canEdit = hasCapability(role, 'schema.edit')
@@ -108,18 +116,21 @@ export function RecordModelVersions({
     })
     void queryClient.invalidateQueries({ queryKey: ['ui-port', 'models'] })
   }
+
   const onError = (cause: unknown) =>
     setError(
       cause instanceof Error
         ? cause.message
         : t('library.models.recordModelVersions.theServerRefusedThisAction'),
     )
+
   const startDraft = useMutation({
     mutationFn: () => {
       if (!modelId)
         throw new Error(
           t('library.models.recordModelVersions.recordModelNotFound'),
         )
+
       return createRecordModelVersion(client, {
         modelId,
         reason: reason.trim(),
@@ -132,6 +143,7 @@ export function RecordModelVersions({
     },
     onError,
   })
+
   const publish = useMutation({
     mutationFn: (id: string) => publishRecordModelVersion(client, id),
     onSuccess: invalidate,
@@ -159,12 +171,14 @@ export function RecordModelVersions({
         </Notice>
       </div>
     )
+
   if (model.isLoading || (modelId && versions.isLoading))
     return (
       <p role="status" className="p-4 text-label">
         {t('library.models.recordModelVersions.loadingRecordModelVersions')}
       </p>
     )
+
   if (!model.data)
     return (
       <p role="status" className="p-4 text-label">
@@ -175,33 +189,41 @@ export function RecordModelVersions({
   const selectedUsage = usage.data?.find(
     (row) => row.version_id === selected?.id,
   )
+
   const publishedList = rows.filter((v) => v.lifecycle === 'published')
   const current = publishedList.at(0)
+
   /** The version a row is compared with: the published one before it. */
   const previousOf = (version: (typeof rows)[number]) =>
     publishedList
       .filter((v) => v.version < version.version)
       .sort((a, b) => b.version - a.version)
       .at(0) ?? null
+
   const changesOf = (version: (typeof rows)[number]) =>
     diffModelVersions(
       previousOf(version)?.definition ?? null,
       version.definition,
     )
+
   const nameOf = (userId: string | null | undefined) =>
     (userId && members.data?.find((m) => m.user_id === userId)?.name) || null
+
   const approvedBy = (versionId: string) => {
     const approved = (approvals.data?.byVersion.get(versionId) ?? []).find(
       (r) => r.state === 'approved',
     )
+
     return approved
       ? approved.approved_by_user_ids.map(
           (id) => nameOf(id) ?? t('library.models.recordModelVersions.someone'),
         )
       : []
   }
+
   const selectedChanges = selected ? changesOf(selected) : []
   const selectedPrevious = selected ? previousOf(selected) : null
+
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col overflow-auto">
@@ -305,9 +327,11 @@ export function RecordModelVersions({
                   {rows.map((version) => {
                     const requestRows =
                       approvals.data?.byVersion.get(version.id) ?? []
+
                     const status = approvalStatus(requestRows, version.revision)
                     const changes = changesOf(version)
                     const names = approvedBy(version.id)
+
                     return (
                       <TableRow
                         key={version.id}

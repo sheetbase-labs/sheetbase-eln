@@ -21,11 +21,13 @@ const ExperimentsRoute = Route.options.component as React.ComponentType
 const router = vi.hoisted<{ search: Record<string, unknown> }>(() => ({
   search: {},
 }))
+
 const dataClient = vi.hoisted(() => ({
   list: vi.fn(),
   count: vi.fn(),
   rpc: vi.fn(),
 }))
+
 const navigateSpy = vi.hoisted(() => vi.fn())
 
 vi.mock('@tanstack/react-router', () => ({
@@ -110,6 +112,7 @@ beforeEach(() => {
           client_portal: false,
         },
       ]
+
     return undefined
   })
 })
@@ -138,13 +141,16 @@ describe('experiments list rows', () => {
     ])
 
     renderList()
+
     // The tick column and the added columns settle after the first paint, so
     // the row is read again until it is attached.
     const row = await waitFor(() => {
       const found = within(screen.getByRole('table', { name: 'Experiments' }))
         .getByText('AAV9 titration')
         .closest('tr')
+
       expect(found).not.toBeNull()
+
       return found
     })
 
@@ -191,14 +197,17 @@ describe('experiments header reflows at 400 % zoom (QA4-zoom-experiments)', () =
 
     const row = (await screen.findByText('Experiments', { selector: 'h1' }))
       .parentElement
+
     expect(row).not.toBeNull()
     // The header is `ListHeader` now, so the wrap is the header's guarantee:
     // the row wraps, and below `md` the actions take a line of their own
     // rather than being pushed past the column edge.
     expect(row!.className).toContain('flex-wrap')
+
     const actions = row!.parentElement!.querySelector(
       '[class*="max-md:w-full"]',
     )
+
     expect(actions).not.toBeNull()
     expect(
       row!.parentElement!.contains(screen.getByText('New experiment')),

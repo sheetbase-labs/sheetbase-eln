@@ -53,10 +53,13 @@ export function carriedOverSettings(
   receipt: DatasetImportRecord,
 ): ImportSearch {
   const values: Record<string, string> = {}
+
   for (const entry of receipt.mapping?.sources ?? []) {
     if (entry.fieldId) values[entry.source] = entry.fieldId
   }
+
   const map = serializeImportMapping(values)
+
   const units = serializeImportMapping(
     Object.fromEntries(
       (receipt.mapping?.sources ?? []).flatMap((entry) =>
@@ -64,6 +67,7 @@ export function carriedOverSettings(
       ),
     ),
   )
+
   return {
     step: 'map',
     dataset: receipt.dataset_id,
@@ -100,30 +104,37 @@ export function ImportReceipt({
 }) {
   const navigate = useNavigate()
   const [error, setError] = useState('')
+
   const returnPath =
     safeReturnTo(returnTo) ??
     (receipt.experiment_record_id
       ? `/experiments/${encodeURIComponent(receipt.experiment_record_id)}/notebook`
       : undefined)
+
   const filename =
     text(receipt.source_provenance.filename) ??
     t('data.importReceipt.importedFile')
+
   const parserName = text(receipt.parser_provenance.name)
   const parserVersion = receipt.parser_provenance.version
+
   const sources = (receipt.mapping?.sources ?? []).filter(
     (entry) => entry.fieldId,
   )
+
   const outcome = Object.entries(receipt.outcome).filter(
     (entry): entry is [string, number] => typeof entry[1] === 'number',
   )
 
   async function uploadCorrected(file: File) {
     setError('')
+
     try {
       const upload = await uploadImportFile({
         file,
         datasetId: receipt.dataset_id,
       })
+
       await navigate({
         to: '/import/$importId',
         params: { importId: upload.fileId },

@@ -40,6 +40,7 @@ export const listLineageSettingsFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'settings.integrations.view',
     )
+
     try {
       const { rows } = await session.client.query(
         `SELECT t.id, t.name, t.endpoint_url, t.namespace, t.auth_header_name,
@@ -54,11 +55,13 @@ export const listLineageSettingsFn = createServerFn({ method: 'POST' })
           ORDER BY lower(t.name)`,
         [data.workspaceId],
       )
+
       const retention = await session.client.query(
         `SELECT event_stream_retention_days AS days
            FROM api.workspace_settings WHERE workspace_id = $1::uuid`,
         [data.workspaceId],
       )
+
       return {
         retentionDays: Number(retention.rows[0]?.days ?? 30),
         targets: rows.map((row: Record<string, unknown>) => ({
@@ -103,6 +106,7 @@ export const saveLineageTargetFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'integrations.manage',
     )
+
     try {
       const { rows } = await session.client.query(
         `SELECT id FROM api.save_lineage_target($1::uuid, $2::uuid, $3, $4, $5, $6, $7)`,
@@ -116,15 +120,19 @@ export const saveLineageTargetFn = createServerFn({ method: 'POST' })
           data.enabled,
         ],
       )
+
       const id = String(rows[0].id)
+
       if (data.headerValue.trim()) {
         const { sealSecret, secretKey } =
           await import('#/lib/connector-secrets.server')
+
         await session.client.query(
           `SELECT id FROM api.set_lineage_target_secret($1::uuid, $2)`,
           [id, sealSecret(data.headerValue.trim(), secretKey())],
         )
       }
+
       return { id }
     } finally {
       await session.release()
@@ -138,10 +146,12 @@ export const deleteLineageTargetFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'integrations.manage',
     )
+
     try {
       await session.client.query(`SELECT api.delete_lineage_target($1::uuid)`, [
         data.id,
       ])
+
       return { ok: true }
     } finally {
       await session.release()
@@ -155,11 +165,13 @@ export const retryLineageDeliveriesFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'integrations.manage',
     )
+
     try {
       const { rows } = await session.client.query(
         `SELECT api.retry_lineage_deliveries($1::uuid) AS n`,
         [data.id],
       )
+
       return { requeued: Number(rows[0]?.n ?? 0) }
     } finally {
       await session.release()
@@ -173,11 +185,13 @@ export const setEventStreamRetentionFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'integrations.manage',
     )
+
     try {
       const { rows } = await session.client.query(
         `SELECT api.set_event_stream_retention($1::uuid, $2::int) AS days`,
         [data.workspaceId, Math.round(data.days)],
       )
+
       return { days: Number(rows[0]?.days) }
     } finally {
       await session.release()
@@ -192,14 +206,17 @@ export const testLineageTargetFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'integrations.manage',
     )
+
     try {
       const { db } = await import('#/db/client.server')
       const { sql } = await import('drizzle-orm')
+
       const result = await db.execute(sql`
         SELECT t.endpoint_url, t.auth_header_name, t.namespace, s.sealed
           FROM api.lineage_targets t
           LEFT JOIN internal.lineage_target_secrets s ON s.target_id = t.id
          WHERE t.id = ${data.id}::uuid AND t.workspace_id = ${data.workspaceId}::uuid`)
+
       const target = result.rows[0] as
         | {
             endpoint_url: string
@@ -208,11 +225,13 @@ export const testLineageTargetFn = createServerFn({ method: 'POST' })
             sealed: string | null
           }
         | undefined
+
       if (!target) throw new Error('That endpoint no longer exists.')
       const { buildRunEvent } = await import('./openlineage')
       const { sendToTarget } = await import('./lineage-emitter.server')
       const { env } = await import('#/env.server')
       const now = new Date().toISOString()
+
       const event = buildRunEvent(
         {
           eventType: 'COMPLETE',
@@ -226,8 +245,10 @@ export const testLineageTargetFn = createServerFn({ method: 'POST' })
         target.namespace,
         env.SHEETBASE_ARTIFACT_VERSION,
       )
+
       let ok = false
       let message: string
+
       try {
         const status = await sendToTarget(target, target.sealed, event)
         ok = status >= 200 && status < 300
@@ -235,10 +256,12 @@ export const testLineageTargetFn = createServerFn({ method: 'POST' })
       } catch (error) {
         message = error instanceof Error ? error.message : String(error)
       }
+
       await session.client.query(
         `SELECT api.record_lineage_test($1::uuid, $2, $3)`,
         [data.id, ok, message.slice(0, 300)],
       )
+
       return { ok, message }
     } finally {
       await session.release()

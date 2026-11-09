@@ -12,6 +12,7 @@ import {
 import type { Ocl } from './chemistry-draw'
 
 let ocl: Ocl
+
 beforeAll(async () => {
   ocl = await loadOcl()
 })
@@ -19,12 +20,14 @@ beforeAll(async () => {
 const aspirinMolfile = () => {
   const molecule = ocl.Molecule.fromSmiles('CC(=O)Oc1ccccc1C(=O)O')
   molecule.inventCoordinates()
+
   return molecule.toMolfile()
 }
 
 const drawn = (smiles: string) => {
   const molecule = ocl.Molecule.fromSmiles(smiles)
   molecule.inventCoordinates()
+
   return molecule
 }
 
@@ -34,9 +37,11 @@ const esterification = () => {
     [drawn('CC(=O)O'), drawn('OCC')],
     2,
   )
+
   reaction.addCatalyst(drawn('[H+]'))
   reaction.addProduct(drawn('CC(=O)OCC'))
   reaction.addProduct(drawn('O'))
+
   return encodeReaction(ocl, reaction)
 }
 

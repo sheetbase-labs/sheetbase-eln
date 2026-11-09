@@ -63,6 +63,7 @@ function responseError(
   message: string,
 ): Response {
   if (status >= 500) annotateRequest({ error: { code, message } })
+
   return Response.json({ error: { code, message } }, { status })
 }
 
@@ -85,6 +86,7 @@ async function loadAccess(
        FROM api.pipeline_runs r WHERE r.id = $1`,
     [runId, userId],
   )
+
   return rows.at(0) ?? null
 }
 
@@ -96,13 +98,16 @@ async function loadRunWire(
     'SELECT * FROM api.pipeline_runs WHERE id = $1',
     [runId],
   )
+
   return rows.at(0) ?? null
 }
 
 /** Statuses the answer path used to report, kept for the existing client. */
 function answerStatus(code: string | undefined): number {
   if (code === 'run_not_found') return 404
+
   if (code === 'invalid_answer') return 400
+
   return 409
 }
 
@@ -119,10 +124,13 @@ export async function handlePipelineExecute(
   deps: PipelineRunRequestDeps = defaultDeps,
 ): Promise<Response> {
   const session = await deps.getSession(request.headers)
+
   if (!session) {
     return responseError(401, 'unauthenticated', 'Authentication is required.')
   }
+
   let body: unknown
+
   try {
     body = await request.json()
   } catch {
@@ -132,6 +140,7 @@ export async function handlePipelineExecute(
       'A JSON request body is required.',
     )
   }
+
   const runId =
     body &&
     typeof body === 'object' &&
@@ -139,24 +148,31 @@ export async function handlePipelineExecute(
     typeof body.runId === 'string'
       ? body.runId
       : null
+
   if (!runId || !UUID.test(runId)) {
     return responseError(400, 'invalid_request', 'A valid runId is required.')
   }
+
   const hasAnswer =
     body !== null && typeof body === 'object' && 'answer' in body
+
   const answer = hasAnswer ? (body as { answer: unknown }).answer : undefined
   const userId = session.user.id
 
   const conn = await deps.connect()
+
   try {
     const access = await loadAccess(conn, runId, userId)
+
     if (access)
       annotateRequest({
         workspace: { id: access.workspace_id },
         pipeline_run: { id: runId },
       })
+
     if (!access)
       return responseError(404, 'run_not_found', 'Pipeline run not found.')
+
     // GOV-01 writer set: anyone but the read-only viewer may run pipelines.
     if (!access.role || access.role === 'viewer') {
       return responseError(
@@ -173,6 +189,7 @@ export async function handlePipelineExecute(
         answer,
         pipelineExecuteDeps(deps),
       )
+
       if (!checked.ok) {
         return responseError(
           answerStatus(checked.report.errorCode),
@@ -180,12 +197,14 @@ export async function handlePipelineExecute(
           checked.report.errorMessage ?? 'The decision was rejected.',
         )
       }
+
       const queued = await enqueuePipelineResume(conn, {
         runId,
         workspaceId: access.workspace_id,
         actorUserId: userId,
         answer,
       })
+
       if (!queued) {
         return responseError(
           409,
@@ -193,15 +212,19 @@ export async function handlePipelineExecute(
           'This run is already being resumed.',
         )
       }
+
       ;(deps.wake ?? wakePipelineWorker)()
+
       return Response.json(await loadRunWire(conn, runId), { status: 202 })
     }
 
     if (access.status === 'running') {
       await enqueuePipelineRun(conn, runId)
       ;(deps.wake ?? wakePipelineWorker)()
+
       return Response.json(await loadRunWire(conn, runId), { status: 202 })
     }
+
     // Already settled (or waiting for a person): nothing to queue.
     return Response.json(await loadRunWire(conn, runId))
   } finally {
@@ -230,10 +253,13 @@ export async function handlePipelineTryDraft(
   deps: PipelineRunRequestDeps = defaultDeps,
 ): Promise<Response> {
   const session = await deps.getSession(request.headers)
+
   if (!session) {
     return responseError(401, 'unauthenticated', 'Authentication is required.')
   }
+
   const decision = trialLimiter.hit(`try-draft:${session.user.id}`)
+
   if (!decision.allowed) {
     return responseError(
       429,
@@ -241,12 +267,16 @@ export async function handlePipelineTryDraft(
       `Too many trial runs. Try again in ${decision.retryAfterSeconds ?? 60} seconds.`,
     )
   }
+
   let body: unknown
+
   try {
     const text = await request.text()
+
     if (text.length > TRIAL_BODY_BYTES) {
       return responseError(413, 'body_too_large', 'The draft is too large.')
     }
+
     body = JSON.parse(text) as unknown
   } catch {
     return responseError(
@@ -255,6 +285,7 @@ export async function handlePipelineTryDraft(
       'A JSON request body is required.',
     )
   }
+
   if (
     !isRecord(body) ||
     typeof body.workspaceId !== 'string' ||
@@ -267,8 +298,10 @@ export async function handlePipelineTryDraft(
       'workspaceId and configuration are required.',
     )
   }
+
   const inputVersions = isRecord(body.inputVersions) ? body.inputVersions : {}
   const parameters = isRecord(body.parameters) ? body.parameters : {}
+
   if (Object.values(inputVersions).some((id) => typeof id !== 'string')) {
     return responseError(
       400,
@@ -276,7 +309,9 @@ export async function handlePipelineTryDraft(
       'inputVersions must map each input to a Dataset Version id.',
     )
   }
+
   annotateRequest({ workspace: { id: body.workspaceId } })
+
   const report: PipelineTrialReport = await tryPipelineDraft(
     session.user.id,
     {
@@ -287,9 +322,11 @@ export async function handlePipelineTryDraft(
     },
     pipelineExecuteDeps(deps),
   )
+
   if (!report.ok && report.errorCode === 'workspace_membership_required') {
     return responseError(403, report.errorCode, report.errorMessage)
   }
+
   return Response.json(report, { headers: { 'Cache-Control': 'no-store' } })
 }
 
@@ -312,10 +349,13 @@ export async function handlePipelineReproduce(
   const caller =
     (await deps.getSession(request.headers)) ??
     (deps.getTokenUser ? await deps.getTokenUser(request.headers) : null)
+
   if (!caller) {
     return responseError(401, 'unauthenticated', 'Authentication is required.')
   }
+
   const decision = reproduceLimiter.hit(`reproduce:${caller.user.id}`)
+
   if (!decision.allowed) {
     return responseError(
       429,
@@ -323,7 +363,9 @@ export async function handlePipelineReproduce(
       `Too many reproductions. Try again in ${decision.retryAfterSeconds ?? 60} seconds.`,
     )
   }
+
   let body: unknown
+
   try {
     body = await request.json()
   } catch {
@@ -333,6 +375,7 @@ export async function handlePipelineReproduce(
       'A JSON request body is required.',
     )
   }
+
   if (
     !isRecord(body) ||
     typeof body.runId !== 'string' ||
@@ -340,6 +383,7 @@ export async function handlePipelineReproduce(
   ) {
     return responseError(400, 'invalid_request', 'A valid runId is required.')
   }
+
   const tolerance =
     typeof body.tolerance === 'number' &&
     Number.isFinite(body.tolerance) &&
@@ -347,11 +391,13 @@ export async function handlePipelineReproduce(
     body.tolerance <= 1
       ? body.tolerance
       : undefined
+
   const report = await reproducePipelineRun(
     caller.user.id,
     { runId: body.runId, tolerance },
     pipelineExecuteDeps(deps),
   )
+
   if (!report.ok) {
     const status =
       report.errorCode === 'run_not_found'
@@ -361,12 +407,14 @@ export async function handlePipelineReproduce(
           : report.errorCode === 'run_not_finished'
             ? 409
             : 500
+
     return responseError(
       status,
       report.errorCode ?? 'pipeline_internal',
       report.errorMessage ?? 'The run could not be reproduced.',
     )
   }
+
   return Response.json(report.reproduction, {
     headers: { 'Cache-Control': 'no-store' },
   })
@@ -386,30 +434,40 @@ export async function handlePipelineRunState(
   deps: PipelineRunRequestDeps = defaultDeps,
 ): Promise<Response> {
   const session = await deps.getSession(request.headers)
+
   if (!session) {
     return responseError(401, 'unauthenticated', 'Authentication is required.')
   }
+
   const runId = new URL(request.url).searchParams.get('runId')
+
   if (!runId || !UUID.test(runId)) {
     return responseError(400, 'invalid_request', 'A valid runId is required.')
   }
+
   const conn = await deps.connect()
+
   try {
     const access = await loadAccess(conn, runId, session.user.id)
+
     if (access)
       annotateRequest({
         workspace: { id: access.workspace_id },
         pipeline_run: { id: runId },
       })
+
     if (!access?.role)
       return responseError(404, 'run_not_found', 'Pipeline run not found.')
     const run = await loadRunWire(conn, runId)
+
     if (!run)
       return responseError(404, 'run_not_found', 'Pipeline run not found.')
+
     const body: PipelineRunStateBody = {
       run,
       job: await getPipelineJobState(conn, runId),
     }
+
     return Response.json(body, { headers: { 'Cache-Control': 'no-store' } })
   } finally {
     await conn.end().catch(() => {})
@@ -442,18 +500,25 @@ export async function handlePipelineManifest(
   deps: PipelineRunRequestDeps = defaultDeps,
 ): Promise<Response> {
   const session = await deps.getSession(request.headers)
+
   if (!session) {
     return responseError(401, 'unauthenticated', 'Authentication is required.')
   }
+
   const runId = new URL(request.url).searchParams.get('runId')
+
   if (!runId || !UUID.test(runId)) {
     return responseError(400, 'invalid_request', 'A valid runId is required.')
   }
+
   const conn = await deps.connect()
+
   try {
     const access = await loadAccess(conn, runId, session.user.id)
+
     if (!access?.role)
       return responseError(404, 'run_not_found', 'Pipeline run not found.')
+
     const { rows } = await conn.query<{
       sequence: string
       manifest: RunManifest
@@ -469,29 +534,36 @@ export async function handlePipelineManifest(
          FROM api.pipeline_run_manifests WHERE run_id = $1`,
       [runId],
     )
+
     const row = rows.at(0)
+
     if (!row)
       return responseError(
         404,
         'manifest_not_found',
         'This run has no manifest: only succeeded runs are recorded.',
       )
+
     const previous = await conn.query<{ manifest_digest: string }>(
       `SELECT manifest_digest FROM api.pipeline_run_manifests
         WHERE workspace_id = $1 AND sequence = $2::bigint - 1`,
       [access.workspace_id, row.sequence],
     )
+
     const key = loadSigningKey()
+
     const publicKey =
       key && key.keyId === row.key_id
         ? key.publicKey.export({ type: 'spki', format: 'pem' }).toString()
         : null
+
     const stored = {
       manifest: row.manifest,
       manifestDigest: row.manifest_digest,
       previousDigest: row.previous_digest,
       signature: row.signature,
     }
+
     const body: PipelineManifestBody = {
       runId,
       sequence: Number(row.sequence),
@@ -509,6 +581,7 @@ export async function handlePipelineManifest(
         previous.rows.at(0)?.manifest_digest ?? null,
       ),
     }
+
     return Response.json(body, { headers: { 'Cache-Control': 'no-store' } })
   } finally {
     await conn.end().catch(() => {})
@@ -525,16 +598,20 @@ const defaultDeps: PipelineRunRequestDeps = {
   getSession: getAppSession,
   async getTokenUser(headers) {
     const token = readBearerToken(headers)
+
     if (!token) return null
+
     try {
       const claims = await verifyExternalCredential(
         db,
         token,
         env.PGRST_JWT_SECRET,
       )
+
       if (!('sub' in claims) || !hasScope(claims.scopes, 'pipelines:write')) {
         return null
       }
+
       return { user: { id: claims.sub } }
     } catch {
       return null
@@ -545,7 +622,9 @@ const defaultDeps: PipelineRunRequestDeps = {
       connectionString: env.DATABASE_URL,
       query_timeout: 30_000,
     })
+
     await client.connect()
+
     return {
       query: async (text, values = []) => client.query(text, values),
       begin: () => client.query('BEGIN').then(() => undefined),

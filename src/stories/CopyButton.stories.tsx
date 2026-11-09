@@ -13,7 +13,9 @@ const meta = {
   tags: ['autodocs'],
   args: { value: 'sb_live_7f3c9a12', children: 'Copy' },
 } satisfies Meta<typeof CopyButton>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

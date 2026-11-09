@@ -32,7 +32,9 @@ export function parameterValue(
   raw: string,
 ): unknown | undefined {
   const text = raw.trim()
+
   if (text === '') return undefined
+
   switch (parameter.type) {
     case 'integer':
     case 'decimal':
@@ -49,13 +51,18 @@ export function parameterError(
   raw: string,
 ): string | undefined {
   const text = raw.trim()
+
   if (text === '') return parameter.required ? 'Required.' : undefined
+
   if (parameter.type === 'integer' && !/^-?\d+$/.test(text))
     return t('data.runDialog.enterWholeNumber')
+
   if (parameter.type === 'decimal' && Number.isNaN(Number(text)))
     return t('data.runDialog.enterNumber')
+
   if (parameter.type === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(text))
     return t('data.runDialog.useFormatYyyyMm')
+
   return undefined
 }
 
@@ -84,19 +91,24 @@ export function RunDialog({
 }) {
   const { inputs, parameters } = declaredRunInputs(version)
   const choices = useDatasetVersionChoices(inputs.length > 0)
+
   const [pinned, setPinned] = useState<Record<string, string>>(
     initial?.inputVersions ?? {},
   )
+
   // Each input starts narrowed to the schema it declares, if any; "Any schema"
   // shows every Dataset Version.
   const [schemaFilter, setSchemaFilter] = useState<Record<string, string>>(() =>
     Object.fromEntries(inputs.map((i) => [i.name, i.schemaId ?? ''])),
   )
+
   const schemas = schemasOf(choices.data ?? [])
+
   const [values, setValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(
       parameters.map((p) => {
         const given = initial?.parameters?.[p.name] ?? p.default
+
         return [p.name, given === undefined ? '' : String(given)]
       }),
     ),
@@ -104,9 +116,11 @@ export function RunDialog({
 
   // The database asks for every declared input, required or not.
   const missingInput = inputs.some((input) => !pinned[input.name])
+
   const invalidParameter = parameters.some((p) =>
     parameterError(p, values[p.name] ?? ''),
   )
+
   const noVersions =
     inputs.length > 0 && choices.isSuccess && choices.data.length === 0
 
@@ -142,13 +156,16 @@ export function RunDialog({
           ) : null}
           {inputs.map((input) => {
             const filter = schemaFilter[input.name] ?? ''
+
             const offered = (choices.data ?? []).filter(
               (choice) =>
                 !filter ||
                 choice.schemaId === filter ||
                 choice.id === pinned[input.name],
             )
+
             const filterName = schemas.find((s) => s.id === filter)?.name
+
             return (
               <Field
                 key={input.name}
@@ -214,8 +231,10 @@ export function RunDialog({
           })}
           {parameters.map((parameter) => {
             const raw = values[parameter.name] ?? ''
+
             const error =
               raw === '' ? undefined : parameterError(parameter, raw)
+
             return (
               <Field
                 key={parameter.name}
@@ -281,6 +300,7 @@ export function RunDialog({
                 parameters: Object.fromEntries(
                   parameters.flatMap((p) => {
                     const value = parameterValue(p, values[p.name] ?? '')
+
                     return value === undefined ? [] : [[p.name, value]]
                   }),
                 ),

@@ -46,10 +46,13 @@ export interface SeriesSummaryRow {
 
 function numeric(value: unknown): number | null {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null
+
   if (typeof value === 'string' && value.trim() !== '') {
     const n = Number(value)
+
     return Number.isFinite(n) ? n : null
   }
+
   return null
 }
 
@@ -65,10 +68,12 @@ export function summariseBySeries(
   columnIds: readonly string[],
 ): SeriesSummaryRow[] {
   const groups = new Map<string, Record<string, unknown>[]>()
+
   for (const row of rows) {
     const key = String(row[seriesFieldId] ?? '—')
     groups.set(key, [...(groups.get(key) ?? []), row])
   }
+
   return [...groups.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([series, members]) => ({
@@ -79,9 +84,11 @@ export function summariseBySeries(
           const values = members
             .map((m) => numeric(m[id]))
             .filter((v): v is number => v !== null)
+
           if (!values.length) return [id, '—']
           const lo = Math.min(...values)
           const hi = Math.max(...values)
+
           return [id, lo === hi ? trim(lo) : `${trim(lo)}–${trim(hi)}`]
         }),
       ),
@@ -120,6 +127,7 @@ export function ResultsWorkspace({
   }
 }) {
   const queryClient = useQueryClient()
+
   const sources = useQueries({
     queries: views.map((view) => ({
       queryKey: ['ui-port', 'results', 'dataset', view.id, view.version],
@@ -128,12 +136,14 @@ export function ResultsWorkspace({
       staleTime: 15_000,
     })),
   })
+
   const owners = useUserNames(views.map((v) => v.owner_user_id))
 
   const outputs = useMemo<Output[]>(() => {
     const list: Output[] = []
     let figure = 0
     let table = 0
+
     for (const view of views) {
       figure += 1
       list.push({
@@ -149,6 +159,7 @@ export function ResultsWorkspace({
         view,
       })
     }
+
     for (const view of views) {
       table += 1
       list.push({
@@ -161,31 +172,38 @@ export function ResultsWorkspace({
         view,
       })
     }
+
     list.push({
       key: 'decision',
       kind: 'decision',
       title: t('projects.resultsWorkspace.decision'),
       sub: decision.label,
     })
+
     return list
   }, [views, decision.label])
 
   const [picked, setPicked] = useState<OutputKey | null>(null)
   const selected = outputs.find((o) => o.key === picked) ?? outputs.at(0)
   const selectedView = selected?.view
+
   const selectedIndex = selectedView
     ? views.findIndex((v) => v.id === selectedView.id)
     : -1
+
   const dataset: ResolvedDataset | null =
     selectedIndex >= 0 ? (sources[selectedIndex]?.data ?? null) : null
+
   const [excludeFlagged, setExcludeFlagged] = useState(true)
 
   const flagged = dataset?.flags?.length ?? 0
+
   const effective = useMemo<ResolvedDataset | null>(
     () =>
       dataset ? (excludeFlagged ? dataset : { ...dataset, flags: [] }) : null,
     [dataset, excludeFlagged],
   )
+
   const materialised = useMemo(
     () =>
       selectedView && effective
@@ -204,22 +222,27 @@ export function ResultsWorkspace({
 
   const columnLabel = (id: string | undefined) =>
     dataset?.source.columns.find((c) => c.id === id)?.label ?? '—'
+
   const spec = selectedView?.charts[0]
+
   const specFields = (spec?.fields ?? {}) as Record<
     string,
     { fieldId?: string } | null | undefined
   >
+
   const xId = specFields.x?.fieldId
   const yId = specFields.y?.fieldId
   const seriesId = specFields.series?.fieldId
 
   const summary = useMemo(() => {
     if (!effective || !seriesId) return null
+
     const columns = effective.source.columns.filter(
       (c) =>
         c.id !== xId &&
         (c.logicalType === 'decimal' || c.logicalType === 'integer'),
     )
+
     const rows = excludeFlagged
       ? filterRowsByFlags(
           effective.rows,
@@ -227,6 +250,7 @@ export function ResultsWorkspace({
           columns.map((c) => c.id),
         )
       : effective.rows
+
     return {
       columns,
       rows: summariseBySeries(
@@ -241,6 +265,7 @@ export function ResultsWorkspace({
   const unit = (id: string) => {
     const column = dataset?.source.columns.find((c) => c.id === id)
     const value = column?.unit
+
     return typeof value === 'string' && value ? ` (${value})` : ''
   }
 
@@ -256,6 +281,7 @@ export function ResultsWorkspace({
         <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
           {outputs.map((output) => {
             const active = output.key === selected?.key
+
             return (
               <li key={output.key}>
                 <button

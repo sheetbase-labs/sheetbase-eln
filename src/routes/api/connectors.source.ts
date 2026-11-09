@@ -50,6 +50,7 @@ export const Route = createFileRoute('/api/connectors/source')({
     handlers: {
       POST: async ({ request }) => {
         let body: SourceOperationBody
+
         try {
           body = (await request.json()) as SourceOperationBody
         } catch {
@@ -59,6 +60,7 @@ export const Route = createFileRoute('/api/connectors/source')({
             'Request body must be JSON.',
           )
         }
+
         if (
           typeof body['workspaceId'] !== 'string' ||
           typeof body['connectorId'] !== 'string'
@@ -69,19 +71,23 @@ export const Route = createFileRoute('/api/connectors/source')({
             'workspaceId and connectorId are required.',
           )
         }
+
         const base = {
           workspaceId: body['workspaceId'],
           connectorId: body['connectorId'],
         }
+
         try {
           switch (body['operation']) {
             case 'test': {
               const result = await testConnectorConnection(base)
+
               return new Response(JSON.stringify(result), {
                 status: 200,
                 headers: { 'content-type': 'application/json' },
               })
             }
+
             case 'discover': {
               const result = await discoverConnectorSource({
                 ...base,
@@ -90,11 +96,13 @@ export const Route = createFileRoute('/api/connectors/source')({
                     ? (body['query'] as Record<string, unknown>)
                     : {},
               })
+
               return new Response(JSON.stringify(result), {
                 status: 200,
                 headers: { 'content-type': 'application/json' },
               })
             }
+
             case 'preview': {
               if (!body['selector'] || typeof body['selector'] !== 'object') {
                 return errorResponse(
@@ -103,22 +111,27 @@ export const Route = createFileRoute('/api/connectors/source')({
                   'selector is required.',
                 )
               }
+
               const result = await previewConnectorSource({
                 ...base,
                 selector: body['selector'] as Record<string, unknown>,
               })
+
               return new Response(JSON.stringify(result), {
                 status: 200,
                 headers: { 'content-type': 'application/json' },
               })
             }
+
             case 'import': {
               if (!body['source'] || typeof body['source'] !== 'object') {
                 return errorResponse(400, 'invalid_body', 'source is required.')
               }
+
               if (!body['target'] || typeof body['target'] !== 'object') {
                 return errorResponse(400, 'invalid_body', 'target is required.')
               }
+
               const result = await importConnectorSource({
                 ...base,
                 source: body['source'] as Record<string, unknown>,
@@ -131,11 +144,13 @@ export const Route = createFileRoute('/api/connectors/source')({
                   ? (body['mappings'] as Array<Record<string, unknown>>)
                   : null,
               })
+
               return new Response(JSON.stringify(result), {
                 status: 200,
                 headers: { 'content-type': 'application/json' },
               })
             }
+
             default:
               return errorResponse(
                 400,
@@ -147,6 +162,7 @@ export const Route = createFileRoute('/api/connectors/source')({
           if (error instanceof ConnectorExecutionError) {
             return errorResponse(400, error.code, boundedErrorMessage(error))
           }
+
           return errorResponse(
             500,
             'operation_failed',

@@ -92,9 +92,11 @@ function client(behaviour: 'loaded' | 'pending' | 'refused') {
       },
     },
   })
+
   if (behaviour === 'loaded') {
     queryClient.setQueryData(['sheet-instance', INSTANCE_ID], instance)
   }
+
   return queryClient
 }
 
@@ -115,7 +117,9 @@ const meta = {
   decorators: [withClient('loaded')],
   args: { instanceId: INSTANCE_ID, projectId: null },
 } satisfies Meta<typeof CanonicalSheetWorkspace>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The loaded workspace with a writable-looking ad-hoc worksheet. */

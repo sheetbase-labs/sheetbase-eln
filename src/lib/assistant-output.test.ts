@@ -6,6 +6,7 @@ describe('cleanAnswer', () => {
   it('removes a raw tool call the model was never offered', () => {
     const raw =
       "<|tool_call_start|>[sheetbase(workspace='0', query='list all objects')]<|tool_call_end|>"
+
     expect(cleanAnswer(raw, true).trim()).toBe('')
   })
 
@@ -36,6 +37,7 @@ describe('cleanAnswer', () => {
 describe('AnswerCleaner', () => {
   it('never shows half a token while streaming', () => {
     const cleaner = new AnswerCleaner()
+
     const shown = [
       'Hi ',
       '<|tool',
@@ -45,6 +47,7 @@ describe('AnswerCleaner', () => {
     ]
       .map((piece) => cleaner.push(piece))
       .join('')
+
     expect(shown + cleaner.finish()).toBe('Hi  bye')
     expect(cleaner.hasContent).toBe(true)
   })

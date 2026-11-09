@@ -48,6 +48,7 @@ describe('rebindSpec', () => {
       datasetId: 'ds-b',
       columns: source,
     })
+
     expect(result.unmatched).toEqual([])
     expect(result.spec?.datasets).toEqual([{ datasetId: 'ds-b' }])
     expect(result.spec?.fields.y.fieldId).toBe('f-signal')
@@ -60,10 +61,12 @@ describe('rebindSpec', () => {
       col('g-2', 'SIGNAL'),
       col('g-3', 'Batch', 'text'),
     ]
+
     const result = rebindSpec(spec, source, {
       datasetId: 'ds-b',
       columns: target,
     })
+
     expect(result.spec?.fields.x?.fieldId).toBe('g-1')
     expect(result.spec?.fields.y.fieldId).toBe('g-2')
     expect(result.spec?.filters[0]?.fieldId).toBe('g-3')
@@ -72,10 +75,12 @@ describe('rebindSpec', () => {
 
   it('refuses rather than dropping a column the target lacks', () => {
     const target = [col('g-1', 'Concentration'), col('g-3', 'Batch', 'text')]
+
     const result = rebindSpec(spec, source, {
       datasetId: 'ds-b',
       columns: target,
     })
+
     expect(result.spec).toBeNull()
     expect(result.unmatched).toEqual(['Signal'])
   })
@@ -86,6 +91,7 @@ describe('rebindSpec', () => {
       col('g-2', 'Signal', 'text'),
       col('g-3', 'Batch', 'text'),
     ]
+
     expect(
       rebindSpec(spec, source, { datasetId: 'ds-b', columns: target })
         .unmatched,

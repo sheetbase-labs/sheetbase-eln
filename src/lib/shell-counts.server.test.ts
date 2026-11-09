@@ -12,6 +12,7 @@ const { connect, release, connectionQuery, query } = vi.hoisted(() => {
   const releaseMock = vi.fn()
   const connectionQueryMock = vi.fn()
   const queryMock = vi.fn()
+
   return {
     release: releaseMock,
     connectionQuery: connectionQueryMock,
@@ -41,7 +42,9 @@ function answerCounts(flags: number, failed: number) {
 function answerInbox(total: number | Error) {
   connectionQuery.mockImplementation(async (sql: string) => {
     if (!sql.includes('inbox_needs_action_counts')) return { rows: [] }
+
     if (total instanceof Error) throw total
+
     return { rows: [{ total, reviews: 0 }] }
   })
 }
@@ -83,10 +86,12 @@ describe('getShellCounts', () => {
   })
   it('reads the dataset and pipeline counts without waiting for the Inbox', async () => {
     let releaseInbox: () => void = () => {}
+
     connect.mockImplementationOnce(async () => {
       await new Promise<void>((resolve) => {
         releaseInbox = resolve
       })
+
       return { query: connectionQuery, release }
     })
     const pending = getShellCounts(WORKSPACE, USER)

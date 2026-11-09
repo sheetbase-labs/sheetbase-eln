@@ -9,24 +9,31 @@ const schema = {
   status: 'published',
   latest_published_revision: 2,
 }
+
 const meta = {
   title: 'Features/SchemaBadge',
   component: SchemaBadge,
   tags: ['autodocs'],
   args: { schema },
 } satisfies Meta<typeof SchemaBadge>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 export const Current: Story = {}
+
 export const UpgradeAvailable: Story = {
   args: { schema: { ...schema, latest_published_revision: 4 } },
 }
+
 export const WithUpgradeAction: Story = {
   args: {
     schema: { ...schema, latest_published_revision: 4 },
     onUpgrade: () => undefined,
   },
 }
+
 export const Upgrading: Story = {
   args: {
     schema: { ...schema, latest_published_revision: 4 },

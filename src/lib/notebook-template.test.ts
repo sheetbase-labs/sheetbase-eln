@@ -42,6 +42,7 @@ describe('Notebook Template configuration', () => {
         },
       ],
     })
+
     expect(parsed.placements[0]).toMatchObject({ kind: 'sheet' })
   })
 

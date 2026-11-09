@@ -140,6 +140,7 @@ export function toSubscriptionWire(
   row: Record<string, unknown>,
 ): WebhookSubscriptionWire {
   const rawEventTypes = row.event_types
+
   return {
     id: String(row.id),
     key: String(row.key),
@@ -164,6 +165,7 @@ export function toHealthWire(
   row: Record<string, unknown>,
 ): WebhookEndpointHealthWire {
   const rawError = row.last_error as Record<string, unknown> | null
+
   return {
     subscriptionId: String(row.subscription_id),
     key: String(row.key),
@@ -221,18 +223,23 @@ export function toDeliveryWire(
 /** Map webhook admin failures to operator-actionable messages. */
 export function describeWebhookAdminError(cause: unknown): string {
   const message = cause instanceof Error ? cause.message : String(cause ?? '')
+
   if (message.startsWith('permission_denied')) {
     return 'You do not have permission to manage webhooks (integrations.manage required).'
   }
+
   if (message.includes('SB036')) {
     return 'The webhook subscription or delivery was not found.'
   }
+
   if (message.includes('SB034')) {
     return `Invalid webhook request: ${message}`
   }
+
   if (message.includes('SB033')) {
     return 'This action belongs to a different workspace.'
   }
+
   if (
     /42501|permission denied|not allowed|required for this operation/i.test(
       message,
@@ -240,6 +247,7 @@ export function describeWebhookAdminError(cause: unknown): string {
   ) {
     return 'You do not have permission to manage webhooks (integrations.manage required).'
   }
+
   return message || 'Could not complete the webhook operation. Try again.'
 }
 
@@ -255,9 +263,11 @@ async function recipientNames(
   userIds: string[],
 ): Promise<Map<string, string>> {
   const names = new Map<string, string>()
+
   if (userIds.length === 0) return names
   const { db } = await import('#/db/client.server')
   const { sql } = await import('drizzle-orm')
+
   const result = await db.execute(sql`
     SELECT m.user_id, u.name, u.email
       FROM api.workspace_memberships m
@@ -265,9 +275,11 @@ async function recipientNames(
      WHERE m.workspace_id = ${workspaceId}::uuid
        AND m.user_id = ANY(${userIds}::text[])
   `)
+
   for (const row of result.rows) {
     names.set(String(row.user_id), String(row.name || row.email || ''))
   }
+
   return names
 }
 
@@ -290,9 +302,11 @@ export const listWebhookRecipientsFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'integrations.manage',
     )
+
     try {
       const { db } = await import('#/db/client.server')
       const { sql } = await import('drizzle-orm')
+
       const result = await db.execute(sql`
         SELECT m.user_id, u.name, u.email
           FROM api.workspace_memberships m
@@ -301,6 +315,7 @@ export const listWebhookRecipientsFn = createServerFn({ method: 'POST' })
            AND m.suspended_at IS NULL
          ORDER BY lower(coalesce(nullif(u.name, ''), u.email))
       `)
+
       return result.rows.map((row) => ({
         userId: String(row.user_id),
         name: String(row.name ?? ''),
@@ -318,6 +333,7 @@ export const listWebhookSubscriptionsFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'settings.integrations.view',
     )
+
     try {
       // RLS restricts rows to workspace members; the section gate plus the
       // requireCapability check above restrict callers to integration
@@ -332,12 +348,14 @@ export const listWebhookSubscriptionsFn = createServerFn({ method: 'POST' })
           ORDER BY key ASC`,
         [data.workspaceId],
       )
+
       const names = await recipientNames(
         data.workspaceId,
         rows
           .map((row: Record<string, unknown>) => str(row.recipient_user_id))
           .filter((id: string | null): id is string => id !== null),
       )
+
       return rows.map((row: Record<string, unknown>) =>
         toSubscriptionWire({
           ...row,
@@ -363,15 +381,18 @@ export const fetchWebhookHealthFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'settings.integrations.view',
     )
+
     try {
       const { rows } = await session.client.query(
         `SELECT api.get_webhook_endpoint_health($1::uuid, $2::uuid) AS result`,
         [data.workspaceId, data.subscriptionId ?? null],
       )
+
       const result = (rows[0]?.result ?? {}) as {
         data?: Array<Record<string, unknown>>
         generated_at?: unknown
       }
+
       return {
         data: (result.data ?? []).map(toHealthWire),
         generatedAt: String(result.generated_at ?? ''),
@@ -401,6 +422,7 @@ export const setWebhookSubscriptionStatusFn = createServerFn({
       data.workspaceId,
       'integrations.manage',
     )
+
     try {
       const { rows } = await session.client.query(
         `SELECT * FROM api.update_webhook_subscription(
@@ -408,10 +430,13 @@ export const setWebhookSubscriptionStatusFn = createServerFn({
          )`,
         [data.workspaceId, data.subscriptionId, data.status],
       )
+
       const row = rows[0] as Record<string, unknown> | undefined
+
       if (!row?.id) {
         throw new Error('Webhook subscription not found or update failed.')
       }
+
       return toSubscriptionWire({
         ...row,
         created_at: row.created_at ?? null,
@@ -433,15 +458,19 @@ export const archiveWebhookSubscriptionFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'integrations.manage',
     )
+
     try {
       const { rows } = await session.client.query(
         `SELECT * FROM api.delete_webhook_subscription($1::uuid, $2::uuid)`,
         [data.workspaceId, data.subscriptionId],
       )
+
       const row = rows[0] as Record<string, unknown> | undefined
+
       if (!row?.id) {
         throw new Error('Webhook subscription not found or archive failed.')
       }
+
       return toSubscriptionWire({
         ...row,
         created_at: row.created_at ?? null,
@@ -471,6 +500,7 @@ export function webhookKeyFor(name: string, salt: string): string {
     .replace(/^[^a-z]+/, '')
     .slice(0, 36)
     .replace(/-+$/g, '')
+
   return `${slug || 'webhook'}-${salt}`.slice(0, 49)
 }
 
@@ -491,9 +521,11 @@ export const createWebhookSubscriptionFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'integrations.manage',
     )
+
     try {
       const salt = Math.random().toString(36).slice(2, 8)
       const channelType = data.channelType ?? 'webhook'
+
       const { rows } = await session.client.query(
         `SELECT api.create_webhook_subscription(
            $1::uuid, $2, $3, $4::jsonb, $5,
@@ -509,10 +541,14 @@ export const createWebhookSubscriptionFn = createServerFn({ method: 'POST' })
           channelType === 'email' ? (data.recipientUserId ?? null) : null,
         ],
       )
+
       const result = (rows[0]?.result ?? {}) as Record<string, unknown>
+
       const subscription = result.subscription as
         Record<string, unknown> | undefined
+
       if (!subscription?.id) throw new Error('The webhook was not created.')
+
       return {
         subscription: toSubscriptionWire(subscription),
         signingSecret: result.signing_secret
@@ -535,15 +571,19 @@ export const rotateWebhookSecretFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'integrations.manage',
     )
+
     try {
       const { rows } = await session.client.query(
         `SELECT api.rotate_webhook_secret($1::uuid, $2::uuid, NULL) AS result`,
         [data.workspaceId, data.subscriptionId],
       )
+
       const result = (rows[0]?.result ?? {}) as Record<string, unknown>
+
       if (!result.signing_secret) {
         throw new Error('Webhook secret rotation failed.')
       }
+
       return {
         subscriptionId: String(result.subscriptionId ?? data.subscriptionId),
         signingSecret: String(result.signing_secret),
@@ -576,6 +616,7 @@ export const listWebhookDeliveriesFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'settings.integrations.view',
     )
+
     try {
       const { rows } = await session.client.query(
         `SELECT api.list_webhook_deliveries(
@@ -592,12 +633,14 @@ export const listWebhookDeliveriesFn = createServerFn({ method: 'POST' })
           data.until?.trim() ? data.until.trim() : null,
         ],
       )
+
       const result = (rows[0]?.result ?? {}) as {
         data?: Array<Record<string, unknown>>
         total?: unknown
         limit?: unknown
         offset?: unknown
       }
+
       return {
         data: (result.data ?? []).map(toDeliveryWire),
         total: num(result.total),
@@ -620,15 +663,19 @@ export const replayWebhookDeliveryFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'integrations.manage',
     )
+
     try {
       const { rows } = await session.client.query(
         `SELECT * FROM api.replay_webhook_delivery($1::uuid, $2::uuid)`,
         [data.workspaceId, data.deliveryId],
       )
+
       const row = rows[0] as Record<string, unknown> | undefined
+
       if (!row?.id) {
         throw new Error('Webhook delivery replay failed.')
       }
+
       return toDeliveryWire(row)
     } finally {
       await session.release()
@@ -656,6 +703,7 @@ export const replayWebhookDeliveriesFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'integrations.manage',
     )
+
     try {
       const { rows } = await session.client.query(
         `SELECT api.replay_webhook_deliveries(
@@ -670,8 +718,10 @@ export const replayWebhookDeliveriesFn = createServerFn({ method: 'POST' })
           data.limit ?? 50,
         ],
       )
+
       const result = (rows[0]?.result ?? {}) as Record<string, unknown>
       const rawIds = result.delivery_ids
+
       return {
         replayedCount: num(result.replayed_count),
         deliveryIds: Array.isArray(rawIds) ? rawIds.map(String) : [],
@@ -693,10 +743,12 @@ export const fetchWebhookDeliveryRecordsFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }): Promise<Record<string, string>> => {
     if (data.changeEventIds.length === 0) return {}
+
     const session = await requireCapability(
       data.workspaceId,
       'settings.integrations.view',
     )
+
     try {
       const { rows } = await session.client.query(
         `SELECT e.id::text AS event_id, r.identifier
@@ -705,6 +757,7 @@ export const fetchWebhookDeliveryRecordsFn = createServerFn({ method: 'POST' })
           WHERE e.workspace_id = $1::uuid AND e.id = ANY($2::uuid[])`,
         [data.workspaceId, data.changeEventIds.slice(0, 200)],
       )
+
       return Object.fromEntries(
         rows.map((row: Record<string, unknown>) => [
           String(row.event_id),
@@ -737,9 +790,11 @@ export const listIncomingWebhooksFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'settings.integrations.view',
     )
+
     await session.release()
     const { db } = await import('#/db/client.server')
     const { sql } = await import('drizzle-orm')
+
     const result = await db.execute(sql`
       SELECT d.id, d.display_id, d.name, t.enabled,
              (SELECT max(r.created_at)::text
@@ -752,6 +807,7 @@ export const listIncomingWebhooksFn = createServerFn({ method: 'POST' })
        WHERE t.workspace_id = ${data.workspaceId}::uuid
        ORDER BY d.name ASC
     `)
+
     return result.rows.map((row) => ({
       pipelineId: String(row.id),
       displayId: str(row.display_id),

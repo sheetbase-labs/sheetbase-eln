@@ -43,14 +43,19 @@ export function PublishDialog({
   const declaration = publisher.declaration
   const [values, setValues] = useState<FieldValues>({})
   const [missing, setMissing] = useState<string | null>(null)
+
   const send = useMutation({
     mutationFn: async (): Promise<Sent | undefined> => {
       const parameters = readFieldValues(declaration.parameters, values)
+
       if (!parameters.ok) {
         setMissing(parameters.missing[0])
+
         return undefined
       }
+
       setMissing(null)
+
       const response = await fetch(
         `/api/plugins/publish-dataset/${encodeURIComponent(datasetId)}`,
         {
@@ -63,16 +68,21 @@ export function PublishDialog({
           }),
         },
       )
+
       const body = (await response.json().catch(() => null)) as
         (Sent & { error?: { message?: string } }) | null
+
       if (!response.ok || !body?.message)
         throw new Error(
           body?.error?.message ?? t('plugins.publish.couldNotSend'),
         )
+
       return body
     },
   })
+
   const sent = send.data
+
   return (
     <Dialog
       open

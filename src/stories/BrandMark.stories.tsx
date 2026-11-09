@@ -7,9 +7,13 @@ const meta = {
   tags: ['autodocs'],
   args: { size: 48 },
 } satisfies Meta<typeof BrandMark>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 export const Default: Story = {}
+
 export const Sizes: Story = {
   render: () => (
     <span className="flex items-end gap-4 text-fg">

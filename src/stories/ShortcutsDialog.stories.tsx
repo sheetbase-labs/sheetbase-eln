@@ -42,7 +42,9 @@ const meta = {
   parameters: { layout: 'fullscreen' },
   args: { open: true, onOpenChange: () => {}, definitions: DEFINITIONS },
 } satisfies Meta<typeof ShortcutsDialog>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Open, with every scope the registry holds grouped under its heading. */
@@ -57,6 +59,7 @@ export const OneScope: Story = {
 export const FromRegistry: Story = {
   render: function Render() {
     const [open, setOpen] = useState(true)
+
     return (
       <ShortcutProvider definitions={DEFINITIONS}>
         <div className="p-6">

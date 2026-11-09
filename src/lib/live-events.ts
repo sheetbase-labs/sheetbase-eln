@@ -250,15 +250,18 @@ export function createLiveEventCoordinator(
       prefix,
       eventWorkspaceId,
     ])
+
     if (homeInvalidationTimer !== null) return
     // An initial SSE replay can contain hundreds of real domain mutations.
     // Coalesce each affected Home collection once per short batch rather
     // than restarting its reads for every historical event.
     homeInvalidationTimer = setTimeout(() => {
       homeInvalidationTimer = null
+
       for (const queryKey of pendingHomeQueries.values()) {
         void deps.queryClient.invalidateQueries({ queryKey })
       }
+
       pendingHomeQueries.clear()
     }, 100)
   }
@@ -269,6 +272,7 @@ export function createLiveEventCoordinator(
 
   function emit(): void {
     const s = snapshot()
+
     for (const l of listeners) l(s)
   }
 
@@ -287,6 +291,7 @@ export function createLiveEventCoordinator(
    */
   const EVENT_EMIT_WINDOW_MS = 50
   let eventEmitTimer: ReturnType<typeof setTimeout> | null = null
+
   function scheduleEventEmit(): void {
     if (eventEmitTimer !== null) return
     eventEmitTimer = setTimeout(() => {
@@ -307,11 +312,13 @@ export function createLiveEventCoordinator(
     if (event.sequence <= lastAppliedSeq) return
 
     const self = deps.getClientId()
+
     if (self && event.clientId === self) {
       // Own echo: the mutation's onSuccess already reconciled the cache.
       // Advance the cursor so a later replayed batch does not re-apply.
       lastAppliedSeq = event.sequence
       scheduleEventEmit()
+
       return
     }
 
@@ -326,6 +333,7 @@ export function createLiveEventCoordinator(
   function invalidateForEvent(event: ChangeEventWire): void {
     dropSharedReads()
     const qc = deps.queryClient
+
     if (
       [
         'create',
@@ -351,16 +359,20 @@ export function createLiveEventCoordinator(
         'workspace_group_membership',
         'project_access_request',
       ].includes(event.entityType)
+
       if (accessChanged) {
         void qc.invalidateQueries({
           queryKey: ['workspace-access', event.workspaceId],
         })
       }
+
       const homeEntity = accessChanged ? 'project_access' : event.entityType
+
       for (const prefix of homeQueriesByEntity[homeEntity] ?? []) {
         queueHomeInvalidation(prefix, event.workspaceId)
       }
     }
+
     switch (event.entityType) {
       case 'parser':
       case 'parser_version':
@@ -374,10 +386,12 @@ export function createLiveEventCoordinator(
         void qc.invalidateQueries({ queryKey: ['work-items'] })
         break
       }
+
       case 'connector_run': {
         void qc.invalidateQueries({ queryKey: ['work-items'] })
         break
       }
+
       case 'project': {
         void qc.invalidateQueries({
           queryKey: keys.project(event.entityUuid),
@@ -387,21 +401,25 @@ export function createLiveEventCoordinator(
         void qc.invalidateQueries({ queryKey: ['work-items'] })
         break
       }
+
       case 'record': {
         void qc.invalidateQueries({
           queryKey: keys.record(event.entityUuid),
         })
+
         if (event.projectId) {
           void qc.invalidateQueries({
             queryKey: keys.records(event.projectId),
           })
         }
+
         // Records list on the home/projects views may also reflect this.
         void qc.invalidateQueries({ queryKey: keys.projectsList() })
         // Reviews and follows on this record change the Inbox work list.
         void qc.invalidateQueries({ queryKey: ['work-items'] })
         break
       }
+
       case 'block': {
         if (event.recordId) {
           void qc.invalidateQueries({
@@ -412,16 +430,20 @@ export function createLiveEventCoordinator(
             queryKey: keys.record(event.recordId),
           })
         }
+
         break
       }
+
       case 'record_link': {
         if (event.recordId) {
           void qc.invalidateQueries({
             queryKey: keys.links(event.recordId),
           })
         }
+
         break
       }
+
       // The parts of an experiment: added, finished, reopened or opened. Their
       // blocks may have moved with them.
       case 'experiment_part':
@@ -444,19 +466,24 @@ export function createLiveEventCoordinator(
             queryKey: keys.blocks(event.recordId),
           })
         }
+
         break
       }
+
       case 'comment': {
         // REV-004: comment events carry the anchored revision id in the
         // payload. Invalidate the comments collection for that revision so a
         // second tab's comment arrives without a full reload.
         const revisionId = event.payload.revisionId
+
         if (typeof revisionId === 'string') {
           void qc.invalidateQueries({
             queryKey: ['comments', 'revision', revisionId],
           })
         }
+
         const sheetInstanceId = event.payload.sheetInstanceId
+
         if (typeof sheetInstanceId === 'string') {
           void qc.invalidateQueries({
             queryKey: ['comments', 'sheet', sheetInstanceId],
@@ -465,22 +492,27 @@ export function createLiveEventCoordinator(
           // Record comments RPC rechecks the caller's access on refetch.
           void qc.invalidateQueries({ queryKey: ['comments', 'record'] })
         }
+
         if (event.recordId) {
           void qc.invalidateQueries({
             queryKey: ['comments', 'record', event.recordId],
           })
         }
+
         break
       }
+
       case 'scientific_table': {
         void qc.invalidateQueries({
           queryKey: ['scientific-table', event.entityUuid],
         })
+
         if (event.recordId) {
           void qc.invalidateQueries({
             queryKey: ['scientific-tables', event.recordId],
           })
         }
+
         // Use the same metadata and row prefixes for every table event. This
         // intentionally includes display/reorder changes: a future operation
         // must not need a client release to avoid a stale grid shape.
@@ -495,8 +527,10 @@ export function createLiveEventCoordinator(
         })
         break
       }
+
       case 'scientific_row': {
         const tableId = event.payload.tableId
+
         if (typeof tableId === 'string') {
           void qc.invalidateQueries({ queryKey: ['scientific-rows', tableId] })
           void qc.invalidateQueries({
@@ -506,10 +540,13 @@ export function createLiveEventCoordinator(
             queryKey: ['scientific-calculation-results'],
           })
         }
+
         break
       }
+
       case 'formula': {
         const tableId = event.payload.tableId
+
         if (typeof tableId === 'string') {
           void qc.invalidateQueries({ queryKey: ['formula', tableId] })
           void qc.invalidateQueries({
@@ -523,17 +560,21 @@ export function createLiveEventCoordinator(
           })
           void qc.invalidateQueries({ queryKey: ['calculation', tableId] })
         }
+
         break
       }
+
       case 'calculation': {
         void qc.invalidateQueries({
           queryKey: ['scientific-calculation-results'],
         })
         const tableId = event.payload.tableId
+
         if (typeof tableId === 'string')
           void qc.invalidateQueries({ queryKey: ['calculation', tableId] })
         break
       }
+
       default: {
         // Unknown entity type: invalidate nothing rather than the whole
         // cache. A future schema entry will map it.
@@ -551,13 +592,16 @@ export function createLiveEventCoordinator(
   function handleReset(reason: string, resumeFrom: number): void {
     lastResetReason = reason
     invalidateAllWorkspaceCollections()
+
     // Close the current stream; reconnect manually with ?after.
     if (source) {
       source.close()
       source = null
     }
+
     reconnectAfter = resumeFrom
     setStatus('reconnecting')
+
     if (!disposed) {
       scheduleReconnect(0)
     }
@@ -565,18 +609,22 @@ export function createLiveEventCoordinator(
 
   function invalidateAllWorkspaceCollections(): void {
     const qc = deps.queryClient
+
     if (workspaceId) {
       for (const prefix of new Set(Object.values(homeQueriesByEntity).flat())) {
         void qc.invalidateQueries({ queryKey: [prefix, workspaceId] })
       }
+
       void qc.invalidateQueries({ queryKey: ['workspace-access', workspaceId] })
     }
+
     // Invalidate by the notebook prefix and the projects-list key. This
     // is the recover-from-reset path, not the per-event path, so a broad
     // (but still workspace-scoped) invalidation is correct: the client
     // has lost contiguous history and must refetch current state.
     void qc.invalidateQueries({ queryKey: ['notebook'] })
     void qc.invalidateQueries({ queryKey: keys.projectsList() })
+
     for (const prefix of [
       'scientific-table',
       'scientific-tables',
@@ -597,6 +645,7 @@ export function createLiveEventCoordinator(
     const next = Math.min(delayMs + 500, 10_000)
     reconnectTimer = setTimeout(() => {
       reconnectTimer = null
+
       if (disposed) return
       openStream()
     }, next)
@@ -604,12 +653,15 @@ export function createLiveEventCoordinator(
 
   function openStream(): void {
     if (disposed) return
+
     if (source) {
       source.close()
       source = null
     }
+
     const fullUrl =
       reconnectAfter !== null ? `${url}?after=${reconnectAfter}` : url
+
     setStatus('connecting')
     const es = deps.eventSourceFactory(fullUrl)
     source = es
@@ -652,12 +704,15 @@ export function createLiveEventCoordinator(
 
   function handleChangeMessage(data: string): void {
     let event: ChangeEventWire
+
     try {
       event = JSON.parse(data) as ChangeEventWire
     } catch {
       return
     }
+
     if (typeof event.sequence !== 'number') return
+
     if (workspaceId && event.workspaceId !== workspaceId) return
     applyEvent(event)
   }
@@ -667,18 +722,22 @@ export function createLiveEventCoordinator(
     data: string,
   ): void {
     let payload: Record<string, unknown>
+
     try {
       payload = JSON.parse(data) as Record<string, unknown>
     } catch {
       payload = {}
     }
+
     if (type === 'hello') {
       workspaceId =
         typeof payload.workspaceId === 'string'
           ? payload.workspaceId
           : workspaceId
+
       const resumeFrom =
         typeof payload.resumeFrom === 'number' ? payload.resumeFrom : 0
+
       // The server's starting cursor becomes the floor for duplicate
       // suppression: anything at or below it has been replayed (or is
       // about to be) and should not be double-applied.
@@ -692,24 +751,30 @@ export function createLiveEventCoordinator(
     } else if (type === 'reset') {
       const reason =
         typeof payload.reason === 'string' ? payload.reason : 'unknown'
+
       const resumeFrom =
         typeof payload.resumeFrom === 'number'
           ? payload.resumeFrom
           : lastAppliedSeq
+
       handleReset(reason, resumeFrom)
     } else {
       const reason =
         typeof payload.reason === 'string' ? payload.reason : 'unknown'
+
       lastResetReason = reason
+
       if (source) {
         source.close()
         source = null
       }
+
       // session_expired → stop; replay_failed → try again.
       if (reason === 'session_expired') {
         setStatus('offline')
       } else {
         setStatus('reconnecting')
+
         if (!disposed) scheduleReconnect(1000)
       }
     }
@@ -718,11 +783,13 @@ export function createLiveEventCoordinator(
   function handleGenericMessage(data: string): void {
     // Polyfill dispatch: peek at a `type` field if present.
     let payload: Record<string, unknown> & { type?: string }
+
     try {
       payload = JSON.parse(data) as Record<string, unknown> & { type?: string }
     } catch {
       return
     }
+
     switch (payload.type) {
       case 'change':
         handleChangeMessage(data)
@@ -743,6 +810,7 @@ export function createLiveEventCoordinator(
       // that unmounts and remounts (an effect re-run, a dev hydration retry)
       // does not leave the whole session reading as offline.
       disposed = false
+
       if (source) return
       openStream()
     },
@@ -756,23 +824,29 @@ export function createLiveEventCoordinator(
     },
     disconnect() {
       disposed = true
+
       if (homeInvalidationTimer !== null) {
         clearTimeout(homeInvalidationTimer)
         homeInvalidationTimer = null
       }
+
       pendingHomeQueries.clear()
+
       if (eventEmitTimer !== null) {
         clearTimeout(eventEmitTimer)
         eventEmitTimer = null
       }
+
       if (reconnectTimer) {
         clearTimeout(reconnectTimer)
         reconnectTimer = null
       }
+
       if (source) {
         source.close()
         source = null
       }
+
       setStatus('offline')
     },
     getStatus() {
@@ -781,6 +855,7 @@ export function createLiveEventCoordinator(
     subscribe(listener) {
       listeners.add(listener)
       listener(snapshot())
+
       return () => {
         listeners.delete(listener)
       }
@@ -800,6 +875,7 @@ export function invalidateWorkspaceCollections(
 ): void {
   void qc.invalidateQueries({ queryKey: ['notebook'] })
   void qc.invalidateQueries({ queryKey: keys.projectsList() })
+
   for (const prefix of [
     'scientific-table',
     'scientific-tables',

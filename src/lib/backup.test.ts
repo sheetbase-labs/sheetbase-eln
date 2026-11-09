@@ -35,6 +35,7 @@ describe('selectExpiredBackupPrefixes', () => {
       'sheetbase-20260820T000000Z-db.sql.gz', // 7 days old
       'sheetbase-20260826T000000Z-db.sql.gz', // 1 day old
     ]
+
     expect(selectExpiredBackupPrefixes(files, now, 14)).toEqual([
       'sheetbase-20260810T000000Z',
     ])

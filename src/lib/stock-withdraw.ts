@@ -38,24 +38,31 @@ export async function withdrawItemFromStock(
   if (!(item.quantity > 0)) {
     throw new Error(`Enter an amount above zero for ${item.identifier}.`)
   }
+
   const note = `${WITHDRAWN_NOTE_PREFIX} ${new Date().toISOString().slice(0, 10)}`
+
   if (item.kind === 'material') {
     const lot = await fetchReagent(client, item.materialRecordId)
+
     if (!lot) throw new Error(`${item.identifier} could not be read.`)
+
     if (lot.unit && !sameUnit(lot.unit, item.unit.symbol)) {
       throw new Error(
         `${item.identifier} is stocked in ${lot.unit}, but this block uses ${item.unit.symbol}. Change the unit to ${lot.unit}, then withdraw.`,
       )
     }
+
     if (lot.quantity != null && item.quantity > lot.quantity) {
       throw new Error(
         `Only ${[lot.quantity, lot.unit].filter((v) => v != null).join(' ')} of ${item.identifier} is in stock.`,
       )
     }
+
     const experiments = await client.list<{ identifier: string }>(
       'records',
       `?id=eq.${encodeURIComponent(experiment.id)}&select=identifier&limit=1`,
     )
+
     const label = experiments.at(0)?.identifier
     await recordReagentMovement(client, {
       recordId: lot.id,
@@ -64,9 +71,12 @@ export async function withdrawItemFromStock(
       reason: label ? `Used in ${label}` : 'Used in an experiment',
       expectedMetadataVersion: lot.metadataVersion,
     })
+
     return { note }
   }
+
   const sample = await fetchSample(client, item.materialRecordId)
+
   if (!sample) throw new Error(`${item.identifier} could not be read.`)
   await withdrawSample(client, {
     recordId: sample.id,
@@ -75,5 +85,6 @@ export async function withdrawItemFromStock(
     purposeExperimentId: experiment.id,
     expectedMetadataVersion: sample.metadataVersion,
   })
+
   return { note }
 }

@@ -11,18 +11,23 @@
 
 const TOOL_CALL_SPAN =
   /<\|(?:tool_call_start|tool_calls_begin|python_tag)\|>[\s\S]*?<\|(?:tool_call_end|tool_calls_end|eom_id|eot_id)\|>/g
+
 /** An opened tool call that has not closed (yet): drop it and what follows. */
 const OPEN_TOOL_CALL =
   /<\|(?:tool_call_start|tool_calls_begin|python_tag)\|>[\s\S]*$/
+
 /** Any other chat-template token such as `<|im_end|>` or `<|endoftext|>`. */
 const SPECIAL_TOKEN = /<\|[a-z0-9_ ]{1,40}\|>/gi
+
 /** A token that may still be arriving: `<`, `<|`, `<|tool_ca` at the very end. */
 const PARTIAL_TOKEN = /<(?:\|[a-z0-9_ ]{0,40})?$/i
 
 export function cleanAnswer(raw: string, final: boolean): string {
   let text = raw.replace(TOOL_CALL_SPAN, '').replace(OPEN_TOOL_CALL, '')
   text = text.replace(SPECIAL_TOKEN, '')
+
   if (!final) text = text.replace(PARTIAL_TOKEN, '')
+
   return text
 }
 
@@ -36,6 +41,7 @@ export class AnswerCleaner {
   /** Feed a raw delta; returns the newly safe-to-show text (maybe empty). */
   push(delta: string): string {
     this.raw += delta
+
     return this.release(false)
   }
 
@@ -51,9 +57,11 @@ export class AnswerCleaner {
 
   private release(final: boolean): string {
     const clean = cleanAnswer(this.raw, final)
+
     if (clean.length <= this.released) return ''
     const next = clean.slice(this.released)
     this.released = clean.length
+
     return next
   }
 }

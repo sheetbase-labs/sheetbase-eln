@@ -123,14 +123,17 @@ const HOME_ACTIVITY_READ = 24
 export const Route = createFileRoute('/')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     // A client viewer has no Home: the portal is their whole product, so they
     // land there instead of on a workspace page they cannot use.
     if (context.workspace?.role === 'client_viewer') {
       throw redirect({ to: '/client-portal' })
     }
+
     return { context }
   },
   validateSearch: (search: Record<string, unknown>): { setup?: true } => ({
@@ -147,6 +150,7 @@ interface FirstRunProject {
   title: string
   accessLevel: string
 }
+
 export interface FirstRunInput {
   workspaceName: string
   accountHint?: string
@@ -182,6 +186,7 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
   const administers = input.role === 'owner' || input.role === 'admin'
   const readOnly = input.role === 'viewer' || input.role === 'client_viewer'
   const reviewOnly = input.role === 'reviewer'
+
   const steps: FirstRunStep[] = [
     {
       label: t('projects.home.firstRun.accountCreated'),
@@ -251,6 +256,7 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
       actionTo: '/protocols',
     },
   ]
+
   // The checklist asks each role only for what that role can do: a viewer
   // cannot sign or author, and a reviewer reviews what others submit rather
   // than creating experiments, so neither is given a step it cannot finish.
@@ -261,6 +267,7 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
         step.actionTo !== '/protocols',
     )
   }
+
   if (reviewOnly) {
     return steps
       .filter((step) => step.actionTo !== '/protocols')
@@ -273,6 +280,7 @@ export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
           : step,
       )
   }
+
   return steps
 }
 
@@ -385,6 +393,7 @@ const homeRecentColumns: RegistryColumn<RecentItem>[] = [
     meta: PHONE_HIDDEN,
     cell: ({ row }) => {
       const status = recentStatusLabel(row.original)
+
       return status ? (
         <Status tone={recentTone(row.original)}>{status}</Status>
       ) : (
@@ -448,11 +457,13 @@ export function Home() {
   const [setupClosed, setSetupClosed] = useState(false)
   const workspaceId = context.workspace?.id
   const userId = context.user.id
+
   const reviewsQuery = useQuery({
     queryKey: ['home-reviews', workspaceId, userId],
     queryFn: () => fetchHomeReviews(notebookDataClient, userId),
     enabled: Boolean(workspaceId),
   })
+
   const materialsQuery = useQuery({
     queryKey: ['home-materials', workspaceId, userId],
     queryFn: () => fetchHomeMaterials(notebookDataClient),
@@ -464,22 +475,26 @@ export function Home() {
     queryFn: () => fetchWorkspaceGeneral(notebookDataClient),
     enabled: Boolean(workspaceId),
   })
+
   const skippedQuery = useQuery({
     queryKey: ['lab-setup-skipped', workspaceId, userId],
     queryFn: () => fetchLabSetupSkipped(notebookDataClient, workspaceId!),
     enabled: Boolean(workspaceId),
   })
+
   const timeZone = useDisplayTimeZone(workspaceQuery.data?.timezone)
   const now = appNow()
   const range = homeDayRange(now, timeZone)
   // R5-HOME-01: one booking read serves both the busy Home (today only) and
   // the quiet Home's "Coming up" list, so the calm state adds no second read.
   const upcomingWindow = homeUpcomingWindow(now, timeZone)
+
   const countsQuery = useQuery({
     queryKey: ['home-counts', workspaceId, userId, range.start, range.end],
     queryFn: () => fetchHomeCounts(notebookDataClient, workspaceId!, range),
     enabled: Boolean(workspaceId) && workspaceQuery.isSuccess,
   })
+
   const counts = countsQuery.data
   // The sidebar badge states the caller's inbox total and Home displays the
   // same number, so one screen cannot show two numbers for the same work: the
@@ -488,6 +503,7 @@ export function Home() {
   // back to its own read rather than stating a number it cannot back.
   const shellInbox = 'inbox' in shellCounts ? shellCounts.inbox : undefined
   const inboxCount = shellInbox != null ? Number(shellInbox) : counts?.inbox
+
   // The pace is decided by this page's own reads — the reads that fill the
   // banner, Coming up and the review table — so whatever Home says is waiting
   // is something the page can name and open, not a badge snapshot it cannot
@@ -499,7 +515,9 @@ export function Home() {
         unreadNotifications: counts.unreadNotifications,
       }
     : null
+
   const pace = waitingCounts ? homePace(waitingCounts) : 'busy'
+
   const bookingsQuery = useQuery({
     queryKey: ['home-bookings', workspaceId, userId, range.start],
     queryFn: () =>
@@ -525,6 +543,7 @@ export function Home() {
     queryFn: () => fetchRecentItems(notebookDataClient, userId, 6),
     enabled: Boolean(workspaceId),
   })
+
   const recents = recentsQuery.data ?? []
   const showFirstRun = recentsQuery.isSuccess && recents.length === 0
   // R5-HOME-01: the calm page shows the person's projects, so their project
@@ -538,6 +557,7 @@ export function Home() {
     queryFn: () => fetchMyOnboardingState(notebookDataClient),
     enabled: Boolean(workspaceId) && showFirstRun,
   })
+
   const onboarding = onboardingQuery.data
 
   // GAP 2 — first-run setup state. Only fetched when it will be shown.
@@ -550,32 +570,39 @@ export function Home() {
       ),
     enabled: Boolean(workspaceId) && showFirstRun,
   })
+
   const assignmentsQuery = useQuery({
     queryKey: workspaceAccessKeys.assignments(workspaceId ?? '', userId),
     queryFn: () => fetchMyProjectAssignments(notebookDataClient),
     enabled: Boolean(workspaceId) && needsProjects,
   })
+
   const projectsQuery = useQuery({
     queryKey: ['home-first-run-projects', workspaceId, userId],
     queryFn: () => fetchProjectSummaries(workspaceId),
     enabled:
       Boolean(workspaceId) && needsProjects && assignmentsQuery.isSuccess,
   })
+
   const projects = homeAssignedProjects(
     projectsQuery.data ?? [],
     assignmentsQuery.data ?? [],
   )
+
   const projectIds = projects.map((project) => project.id)
+
   const projectOpensQuery = useQuery({
     queryKey: ['home-first-run-project-opens', workspaceId, userId, projectIds],
     queryFn: () => hasOpenedHomeProject(notebookDataClient, userId, projectIds),
     enabled: showFirstRun && projectsQuery.isSuccess,
   })
+
   const peopleQuery = useQuery({
     queryKey: ['home-first-run-people', workspaceId, userId, projectIds],
     queryFn: () => fetchHomePeople(notebookDataClient, projectIds, userId),
     enabled: showFirstRun && projectsQuery.isSuccess,
   })
+
   const membersQuery = useQuery({
     queryKey: ['home-first-run-members', workspaceId, userId],
     queryFn: () => fetchWorkspaceMemberIdentities(),
@@ -584,6 +611,7 @@ export function Home() {
       (onboarding?.workspace_role === 'owner' ||
         onboarding?.workspace_role === 'admin'),
   })
+
   const experimentsQuery = useQuery({
     queryKey: ['home-first-run-experiments', workspaceId, userId],
     queryFn: () =>
@@ -603,18 +631,21 @@ export function Home() {
     queryFn: () => fetchCalendarResources(notebookDataClient, workspaceId!),
     enabled: Boolean(workspaceId) && workspaceQuery.isSuccess && calm,
   })
+
   // ADR-0054 — the free-instrument list is the registry, not the mirror of it.
   const instrumentsQuery = useQuery({
     queryKey: ['home-instruments', workspaceId],
     queryFn: () => fetchCalendarInstruments(notebookDataClient, workspaceId!),
     enabled: Boolean(workspaceId) && workspaceQuery.isSuccess && calm,
   })
+
   const upcomingEndsQuery = useQuery({
     queryKey: ['home-upcoming', workspaceId, userId, range.start],
     queryFn: () =>
       fetchUpcomingRecordEnds(notebookDataClient, workspaceId!, upcomingWindow),
     enabled: Boolean(workspaceId) && workspaceQuery.isSuccess && calm,
   })
+
   const milestonesQuery = useQuery({
     queryKey: [
       'home-upcoming-milestones',
@@ -627,6 +658,7 @@ export function Home() {
       fetchUpcomingMilestones(notebookDataClient, projectIds, upcomingWindow),
     enabled: calm && projectsQuery.isSuccess && projectIds.length > 0,
   })
+
   const approvalsQuery = useQuery({
     queryKey: [
       'home-project-approvals',
@@ -654,6 +686,7 @@ export function Home() {
     queryFn: () => fetchSeenItemKeys(),
     enabled: Boolean(workspaceId),
   })
+
   const seen = seenQuery.data ?? EMPTY_SEEN
 
   const reviews = (reviewsQuery.data ?? []).filter((review) =>
@@ -668,16 +701,21 @@ export function Home() {
       seen,
     ),
   )
+
   // Settled with nothing to review: Home says so in one line, below the work.
   const reviewsSettledEmpty =
     reviewsQuery.isSuccess && seenQuery.isSuccess && reviews.length === 0
+
   const datasetIssues = datasetIssuesQuery.data ?? []
+
   const materials = (materialsQuery.data ?? []).filter((material) =>
     needsAction(material, seen),
   )
+
   const bookings = (bookingsQuery.data ?? []).filter(
     (b: CalendarBookingWire) => !b.cancelled_at,
   )
+
   // Access bookkeeping is not something anyone did to their work; it stays in
   // the audit log, not in Home's recent activity.
   const activity = (activityQuery.data?.events ?? [])
@@ -691,9 +729,11 @@ export function Home() {
   // The booking read now spans the "Coming up" window; the busy Home still
   // means today.
   const calendarBookings = bookings.map((booking) => toCalendarBooking(booking))
+
   const todayBookings = calendarBookings.filter((booking) =>
     isSameDayInZone(new Date(booking.startsAt), now, timeZone),
   )
+
   const waiting =
     pace === 'near-quiet' && waitingCounts
       ? homeWaitingItem({
@@ -714,10 +754,13 @@ export function Home() {
           })),
         })
       : null
+
   const pickUp = calm
     ? pickUpItems(recents, recentStatusLabel, describeRecentChange)
     : []
+
   const continueWorking = calm ? continueWorkingItems(recents, pickUp) : recents
+
   const comingUp = calm
     ? groupComingUp(
         buildComingUp({
@@ -761,6 +804,7 @@ export function Home() {
         timeZone,
       )
     : []
+
   const instrumentsFree = calm
     ? freeInstruments(
         instrumentsQuery.data ?? [],
@@ -771,6 +815,7 @@ export function Home() {
     : []
 
   const mine = (certificationsQuery.data ?? []).find((c) => c.userId === userId)
+
   const setupSteps = firstRunSteps({
     workspaceName:
       context.workspace?.name ?? t('projects.home.firstRun.thisWorkspace'),
@@ -797,6 +842,7 @@ export function Home() {
     memberCount: membersQuery.data?.length,
     setupDone: Boolean(workspaceQuery.data?.setupCompletedAt),
   })
+
   const progress = firstRunProgress(setupSteps)
 
   // QA2-Home-1: a chip leads to the set it counts, so the destination opens
@@ -810,6 +856,7 @@ export function Home() {
     day: 'numeric',
     month: 'long',
   })
+
   const openNotebookId = recents.find((r) => r.kind === 'record')?.id
 
   const homeQueries = [
@@ -848,6 +895,7 @@ export function Home() {
         ]
       : []),
   ]
+
   // Home degrades one section at a time. Only the two reads that decide which
   // Home to draw (the workspace's time zone and the person's recents) take the
   // whole page down with them; every other read that fails leaves its own
@@ -869,6 +917,7 @@ export function Home() {
       </div>
     )
   }
+
   if (homeQueries.some((query) => query.isPending)) {
     return (
       <div className="flex flex-col gap-4 p-6" role="status">
@@ -931,13 +980,16 @@ export function Home() {
         ]
       : []),
   ])
+
   const retryUnavailable = () => {
     for (const section of unavailable)
       for (const query of section.queries)
         if (query.isError) void query.refetch()
   }
+
   const sectionFailed = (...queries: HomeQueryState[]) =>
     queries.some((query) => query.isError)
+
   const retrySection =
     (...queries: HomeQueryState[]) =>
     () => {
@@ -1023,6 +1075,7 @@ export function Home() {
       }
     />
   )
+
   const header = (
     <>
       {pageHeader}
@@ -1070,6 +1123,7 @@ export function Home() {
   // open while the workspace or the person's earlier skip is still loading. A
   // failed skip read falls back to this browser's own memory.
   const skippedElsewhere = skippedQuery.data === true
+
   const setupOpen =
     !setupClosed &&
     context.workspace?.role === 'owner' &&
@@ -1096,6 +1150,7 @@ export function Home() {
                 () => undefined,
               )
             }
+
             setSetupClosed(true)
           }}
         />
@@ -1707,12 +1762,14 @@ export function Home() {
  */
 function ActivitySubject({ described }: { described: DescribedAuditEvent }) {
   const link = auditLinkFor(described.event)
+
   if (link)
     return (
       <a href={link.href} className="hover:text-link">
         {described.sentenceSubject}
       </a>
     )
+
   // An object with no page of its own opens its history from the subject, so
   // the line reads as one sentence instead of breaking around a button.
   return (

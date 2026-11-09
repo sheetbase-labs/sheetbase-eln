@@ -63,6 +63,7 @@ describe('computeChanges', () => {
       ],
       [published('vials'), published('gone', { label: 'Gone' })],
     )
+
     expect(changes.byKey.get('vials')).toBe('Changed')
     expect(changes.byKey.get('new_one')).toBe('Added')
     expect(changes.removed.map((field) => field.key)).toEqual(['gone'])
@@ -74,6 +75,7 @@ describe('computeChanges', () => {
       [{ key: 'a', label: 'a', logicalType: 'text' }],
       [published('a')],
     )
+
     expect(changes.total).toBe(0)
   })
 })
@@ -87,12 +89,14 @@ describe('field ordering', () => {
         { id: 'option-id', key: 'pass', label: 'Pass', lifecycle: 'active' },
       ],
     }
+
     const rows = [
       row('a', { logicalType: 'category', category }),
       row('b'),
       row('c', { logicalType: 'category', category }),
       row('d'),
     ]
+
     const moved = moveField(rows, 'row-c', 1)
     expect(moved.map((field) => field.key)).toEqual(['a', 'b', 'd', 'c'])
     expect(
@@ -128,6 +132,7 @@ describe('validateDraft', () => {
       }),
       row('', { label: '' }),
     ])
+
     expect(issues.size).toBe(4)
   })
 
@@ -153,6 +158,7 @@ describe('validateDraft', () => {
     const issues = validateDraft([
       row('sample', { label: 'Sample', logicalType: 'reference' }),
     ])
+
     expect(issues.get('row-sample')).toMatch(/link field needs a target/i)
   })
 })
@@ -196,6 +202,7 @@ describe('orderedForSave', () => {
         },
       }),
     ]
+
     const saved = orderedForSave(fields.map(toDraftField))
     expect(saved.map((field) => field.defaultValue)).toEqual([
       0,
@@ -246,6 +253,7 @@ describe('orderedForSave', () => {
         quantity: { kind: 'v', dimension: 'ratio', storageUnit: '%' },
       }),
     ])
+
     expect(wire.map((field) => field.displayOrder)).toEqual([1, 2])
     expect(wire.map((field) => field.key)).toEqual(['b', 'a'])
     expect(wire[1]?.validation).toEqual({ min: 0 })
@@ -264,14 +272,17 @@ describe('conflict detection and merging', () => {
     row('b', { category: 'Growth' }),
     row('c', { category: 'Growth' }),
   ]
+
   const base = fieldSnapshot(baseRows)
 
   it('ignores a pure reorder but reports a changed contract', () => {
     const reordered = [baseRows[2], baseRows[0], baseRows[1]]
     expect(changedKeys(base, fieldSnapshot(reordered)).size).toBe(0)
+
     const relabelled = baseRows.map((field) =>
       field.key === 'b' ? { ...field, label: 'Biomass' } : field,
     )
+
     expect([...changedKeys(base, fieldSnapshot(relabelled))]).toEqual(['row-b'])
   })
 
@@ -279,25 +290,30 @@ describe('conflict detection and merging', () => {
     const mine = baseRows.map((field) =>
       field.key === 'c' ? { ...field, nullable: false } : field,
     )
+
     const serverRows = baseRows.map((field) =>
       field.key === 'a' ? { ...field, label: 'Sample identity' } : field,
     )
+
     const conflict = detectDraftConflict({
       base,
       mine,
       serverRows,
       serverRevision: 9,
     })
+
     expect(conflict.overlap).toBe(false)
     expect([...conflict.theirs]).toEqual(['row-a'])
     expect([...conflict.mine]).toEqual(['row-c'])
     expect(conflict.serverRevision).toBe(9)
+
     const merged = mergeDraftRows({
       base,
       mine,
       theirs: conflict.theirs,
       serverRows,
     })
+
     expect(
       merged.map((field) => [field.key, field.label, field.nullable]),
     ).toEqual([
@@ -309,12 +325,14 @@ describe('conflict detection and merging', () => {
 
   it('merges their addition, keeps their order and honours my removal', () => {
     const mine = baseRows.filter((field) => field.key !== 'b')
+
     const serverRows = [
       ...baseRows.map((field) =>
         field.key === 'c' ? { ...field, label: 'Culture' } : field,
       ),
       row('d', { category: 'Identity', label: 'Added elsewhere' }),
     ]
+
     const theirs = changedKeys(base, fieldSnapshot(serverRows))
     const merged = mergeDraftRows({ base, mine, theirs, serverRows })
     expect(merged.map((field) => field.key)).toEqual(['a', 'c', 'd'])
@@ -325,15 +343,18 @@ describe('conflict detection and merging', () => {
     const mine = baseRows.map((field) =>
       field.key === 'a' ? { ...field, label: 'Mine' } : field,
     )
+
     const serverRows = baseRows.map((field) =>
       field.key === 'a' ? { ...field, label: 'Theirs' } : field,
     )
+
     const conflict = detectDraftConflict({
       base,
       mine,
       serverRows,
       serverRevision: 4,
     })
+
     expect(conflict.overlap).toBe(true)
     expect([...conflict.mine]).toEqual(['row-a'])
   })

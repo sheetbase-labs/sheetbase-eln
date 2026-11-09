@@ -23,6 +23,7 @@ describe('parseBulkSamples', () => {
   it('reads a pasted spreadsheet with a header in any column order', () => {
     const text =
       'Location\tName\tQuantity\nFreezer 1\tLysate A\t500 µL\nFreezer 1\tLysate B\t1.5 mL\n'
+
     const { rows, issues } = parseBulkSamples(text)
     expect(issues).toEqual([])
     expect(rows).toEqual([
@@ -47,6 +48,7 @@ describe('parseBulkSamples', () => {
     const { rows, issues } = parseBulkSamples(
       'Plasmid 1\nPlasmid 2\n\nPlasmid 3',
     )
+
     expect(issues).toEqual([])
     expect(rows.map((r) => r.title)).toEqual([
       'Plasmid 1',
@@ -76,6 +78,7 @@ describe('parseBulkSamples', () => {
     const { rows, issues } = parseBulkSamples(
       'Name,Quantity\nGood,5 mL\nBad,lots\n,3',
     )
+
     expect(rows.map((r) => r.title)).toEqual(['Good'])
     expect(issues).toEqual([
       { line: 3, message: 'Quantity "lots" is not a number.' },
@@ -94,6 +97,7 @@ describe('parseBulkSamples', () => {
       { length: SAMPLE_BULK_LIMIT + 3 },
       (_, i) => `S${i}`,
     ).join('\n')
+
     const { rows, issues } = parseBulkSamples(text)
     expect(rows).toHaveLength(SAMPLE_BULK_LIMIT)
     expect(issues[0].message).toContain('at most 500')

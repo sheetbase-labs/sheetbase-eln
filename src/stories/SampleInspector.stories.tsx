@@ -31,7 +31,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 // --- Hold meter ------------------------------------------------------------
@@ -275,7 +277,9 @@ const historyEvents: SampleEvent[] = [
 
 function actorLabel(entry: SampleEvent): string | null {
   if (entry.actorUserId === 'u-gareth') return 'Gareth P.'
+
   if (entry.actorUserId === 'u-ada') return 'Ada S.'
+
   return null
 }
 

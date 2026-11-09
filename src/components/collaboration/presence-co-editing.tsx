@@ -30,11 +30,14 @@ export function coEditingPeerNames(
   blockId: string,
 ): string[] {
   const names: string[] = []
+
   for (const peer of peers) {
     if (peer.presence?.mode !== 'editing') continue
+
     if (peer.presence.activeBlockId !== blockId) continue
     names.push(peer.info?.name?.trim() || 'Someone')
   }
+
   return names
 }
 
@@ -50,7 +53,9 @@ export function BlockCoEditBadge({
   className?: string
 }) {
   const ready = useCollaborationRoomReady()
+
   if (!ready) return null
+
   return (
     <BlockCoEditBadgeInner
       blockId={blockId}
@@ -70,9 +75,12 @@ function BlockCoEditBadgeInner({
   className?: string
 }) {
   const others: readonly CoEditingPeer[] = useOthers()
+
   if (!active) return null
   const names = coEditingPeerNames(others, blockId)
+
   if (names.length === 0) return null
+
   return (
     <span
       role="status"

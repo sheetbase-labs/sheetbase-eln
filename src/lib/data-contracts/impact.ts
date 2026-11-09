@@ -28,17 +28,21 @@ export function contractImpact(
 ): ContractImpact[] {
   const byKey = new Map(next.map((field) => [field.key, field]))
   const out: ContractImpact[] = []
+
   for (const rule of rules) {
     if (!isFieldRule(rule.kind) || !rule.field) continue
     const field = byKey.get(rule.field)
+
     if (!field) {
       out.push({ rule, reason: 'removed' })
       continue
     }
+
     if (rule.kind === 'range' && !NUMBER_TYPES.includes(field.logicalType)) {
       out.push({ rule, reason: 'not_number' })
       continue
     }
+
     if (
       rule.kind === 'units' &&
       (!field.unit || !(rule.units ?? []).includes(field.unit))
@@ -46,5 +50,6 @@ export function contractImpact(
       out.push({ rule, reason: 'unit_changed' })
     }
   }
+
   return out
 }

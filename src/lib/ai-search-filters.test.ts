@@ -35,13 +35,16 @@ describe('parseSearchAnswer', () => {
         { field: 'fields.titre', operator: 'gt', value: '2.5' },
       ],
     })
+
     const out = await parseSearchAnswer(answer, fields)
     expect(out?.q).toBe('buffer')
     expect(out?.skipped).toEqual([])
+
     const kids = out?.filter?.children as unknown as Array<{
       field: string
       value: unknown
     }>
+
     expect(kids.map((c) => [c.field, c.value])).toEqual([
       ['type', 'sample'],
       ['project', 'p-1'],
@@ -60,6 +63,7 @@ describe('parseSearchAnswer', () => {
         { field: 'type', operator: 'eq', value: 'sample' },
       ],
     })
+
     const out = await parseSearchAnswer(answer, fields)
     expect(out?.skipped).toHaveLength(4)
     expect(out?.filter?.children).toHaveLength(1)
@@ -75,6 +79,7 @@ describe('parseSearchAnswer', () => {
       }),
       fields,
     )
+
     expect(out?.filter?.combinator).toBe('OR')
   })
 

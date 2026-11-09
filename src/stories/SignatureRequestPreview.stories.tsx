@@ -51,7 +51,9 @@ const meta = {
   ],
   args: { payload, context: { revisionId: 'rev-1' } },
 } satisfies Meta<typeof SignatureRequestPreview>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A signer is chosen, nothing is signed yet. */

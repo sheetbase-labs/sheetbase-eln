@@ -209,7 +209,9 @@ function requireArgument(
   name: string,
 ): string {
   const value = args[name]?.trim()
+
   if (!value) throw new Error(`Missing required prompt argument: ${name}`)
+
   return value
 }
 

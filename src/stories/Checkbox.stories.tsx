@@ -17,7 +17,9 @@ const meta = {
   component: Checkbox,
   tags: ['autodocs'],
 } satisfies Meta<typeof Checkbox>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const label = (text: string, control: React.ReactNode) => (
@@ -82,6 +84,7 @@ export const Disabled: Story = {
 export const Controlled: Story = {
   render: () => {
     const [checked, setChecked] = useState(true)
+
     return (
       <div className="flex flex-col gap-2">
         {label(

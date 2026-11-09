@@ -120,6 +120,7 @@ describe('Dataset Schema canonical field projection', () => {
       label: 'Sample',
       validation: {},
     })
+
     const definition = datasetFieldDefinitionFromWire(reference, [
       referenceEdge(reference.id),
     ])
@@ -145,6 +146,7 @@ describe('Dataset Schema canonical field projection', () => {
       slug: 'historic_reading',
       lifecycle: 'retired',
     })
+
     const definition = datasetSchemaDefinitionFromWire(
       schema,
       [field(), retired],

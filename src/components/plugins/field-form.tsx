@@ -16,6 +16,7 @@ import type { ExtensionField } from '#/lib/extensions/points'
 export function fieldLabel(field: ExtensionField): string {
   if (field.label) return field.label
   const spaced = field.name.replaceAll('_', ' ')
+
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
@@ -31,24 +32,31 @@ export function readFieldValues(
 ): ReadFieldValues {
   const input: Record<string, unknown> = {}
   const missing: string[] = []
+
   for (const field of fields) {
     const raw = (values[field.name] ?? '').trim()
+
     if (field.type === 'boolean') {
       input[field.name] = raw === 'true'
       continue
     }
+
     if (raw === '') {
       if (field.required) missing.push(fieldLabel(field))
       continue
     }
+
     if (field.type === 'number' || field.type === 'integer') {
       const n = Number(raw)
+
       const ok =
         Number.isFinite(n) && (field.type === 'number' || Number.isInteger(n))
+
       if (!ok) {
         missing.push(fieldLabel(field))
         continue
       }
+
       input[field.name] = n
     } else if (field.type === 'json') {
       try {
@@ -58,6 +66,7 @@ export function readFieldValues(
       }
     } else input[field.name] = raw
   }
+
   return missing.length ? { ok: false, missing } : { ok: true, input }
 }
 
@@ -77,10 +86,12 @@ export function FieldForm({
 }) {
   const set = (name: string, value: string) =>
     onChange({ ...values, [name]: value })
+
   return (
     <div className="grid gap-3">
       {fields.map((field) => {
         const label = fieldLabel(field)
+
         if (field.type === 'boolean')
           return (
             <label
@@ -97,6 +108,7 @@ export function FieldForm({
               <span>{label}</span>
             </label>
           )
+
         if (field.type === 'date')
           return (
             <Field
@@ -113,6 +125,7 @@ export function FieldForm({
               />
             </Field>
           )
+
         return (
           <Field
             key={field.name}
@@ -150,12 +163,16 @@ export function FieldForm({
 /** A value a plugin returned, as a person reads it. */
 export function formatFieldValue(value: unknown): string {
   if (value === null || value === undefined) return ''
+
   if (typeof value === 'boolean')
     return value ? t('calculators.plugin.yes') : t('calculators.plugin.no')
+
   if (typeof value === 'number')
     return Number.isInteger(value)
       ? String(value)
       : String(Number(value.toPrecision(6)))
+
   if (typeof value === 'string') return value
+
   return JSON.stringify(value)
 }

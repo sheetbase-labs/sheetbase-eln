@@ -34,13 +34,16 @@ const meta = {
     onAmended: () => {},
   },
 } satisfies Meta<typeof AmendNotebookDialog>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Open: the note explaining why the locked record is being amended. */
 export const Open: Story = {
   render: () => {
     const [open, setOpen] = useState(true)
+
     return (
       <AmendNotebookDialog
         open={open}
@@ -56,6 +59,7 @@ export const Open: Story = {
 export const Closed: Story = {
   render: () => {
     const [open, setOpen] = useState(false)
+
     return (
       <AmendNotebookDialog
         open={open}

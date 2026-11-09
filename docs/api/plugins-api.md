@@ -173,7 +173,9 @@ plugin; the defaults are what it gets until they change them:
 
 ## Endpoints
 
-`POST /api/plugins/install` (owners and admins, `extensions.manage`; session only)
+`POST /api/plugins/install` (owners and admins, `extensions.manage`; signed in, or a
+personal API token with `admin:write`, so a script or CI job can ship a plugin:
+`curl -X POST -H "Authorization: Bearer $TOKEN" --data-binary @my.sbplugin "$APP/api/plugins/install?mode=install&acknowledge=1"`)
 
 - `?mode=check` unpacks the zip body, validates it and answers
   `{ "plugin": { id, name, version, description, author, permissions, python,
@@ -186,7 +188,8 @@ adds, fileCount, size, sha256, existing, changes } }` without storing anything.
   the API. It also starts installing the plugin's Python packages.
 
 `GET /api/plugins/runtime` and `POST /api/plugins/runtime` (owners and admins,
-`extensions.manage`; session only). GET answers `{ "runtime": [ { extensionId,
+`extensions.manage`; signed in, or a personal token with `admin:read` for GET and
+`admin:write` for POST). GET answers `{ "runtime": [ { extensionId,
 requirements, network, overrides, limits, environment: { state, error, packages } } ] }`
 for every plugin: `overrides` is only what differs from the defaults, `limits` is
 what it runs with, and `environment.state` is `none`, `building`, `ready`,
@@ -230,7 +233,8 @@ tools. For example the chemistry plugin's `find` (`mode`: `substructure` or
 `POST /api/plugins/host` (session only; a plugin screen or Python operation
 calling an MCP tool as the person: `{ extensionKey, point, name, arguments,
 confirmed }`; a change answers `409 confirmation_needed` until `confirmed`) and
-`POST /api/plugins/reindex` (owners and administrators; `{ extensionKey }`
+`POST /api/plugins/reindex` (owners and administrators, or their personal token
+with `admin:write`; `{ extensionKey }`
 brings the plugin's search index up to date for records saved before it was
 added) sit beside it.
 
@@ -294,7 +298,8 @@ with no extra work, and each call is audited as `extension.invoked`.
   answers `{ "message", "link?", "requests", "rows", "durationMs" }`. The server
   reads the rows with the caller's own access and records an export receipt.
 - `GET /api/plugins/connections` and `POST /api/plugins/connections` (owners and
-  admins, `extensions.manage`; session only). GET answers
+  admins, `extensions.manage`; session only, because the values can be secrets, and
+  secrets are never taken over the API). GET answers
   `{ "connections": [ { extensionId, extensionKey, point, itemId, title, hosts, off, settings: [ { name, label, secret, required, isSet, value } ] } ] }`
   (`value` is only given for a setting that is not a secret). POST sets or
   clears: `{ "extensionId", "point", "itemId", "values": { "token": "…", "region": null } }`;

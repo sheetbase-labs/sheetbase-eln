@@ -11,7 +11,7 @@ import { logger } from '../logger'
 import {
   realSessionAuthDeps,
   requestErrorResponse,
-  resolveSessionAuth,
+  resolvePersonalAuth,
 } from '../request-auth'
 import type { SessionAuthDeps } from '../request-auth'
 import { runExtensionRecordHook } from './data-runtime.server'
@@ -124,7 +124,11 @@ export async function handlePluginReindex(
 ): Promise<Response> {
   if (request.method !== 'POST')
     return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
-  const auth = await resolveSessionAuth(request.headers, deps.auth)
+  const auth = await resolvePersonalAuth(
+    request.headers,
+    'admin:write',
+    deps.auth,
+  )
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth

@@ -13,6 +13,7 @@
  * wiring. The database makes the same decision (`api.request_agent_action`);
  * this module is the copy the screens and the MCP tool read.
  */
+import { agentActionAlwaysAsk } from '../features/agent-policies/feature'
 import { featureAgentAreas, featureAgentDeletes } from '../features/collect'
 import { LAB_RPCS } from './lab-api-surface'
 import type { LabRpc } from './lab-api-surface'
@@ -78,6 +79,15 @@ export function agentActionResult(action: string, result: unknown): unknown {
     return rest
   }
   return result
+}
+
+export { agentActionAlwaysAsk }
+
+/** The levels an action can be set to: never Auto for a change to agent permissions. */
+export function agentActionLevelsFor(key: string): readonly AgentActionLevel[] {
+  return agentActionAlwaysAsk(key)
+    ? AGENT_ACTION_LEVELS.filter((level) => level !== 'auto')
+    : AGENT_ACTION_LEVELS
 }
 
 /** Which part of the lab an action belongs to, for grouping the list. */
@@ -235,6 +245,16 @@ export function resolveAgentActionLevel(
   subject: PolicySubject = {},
 ): AgentActionLevel {
   if (agentActionAlwaysNever(actionKey)) return 'never'
+  const level = storedAgentActionLevel(policies, actionKey, subject)
+  // Changes to what agents may do always wait for a person.
+  return level === 'auto' && agentActionAlwaysAsk(actionKey) ? 'ask' : level
+}
+
+function storedAgentActionLevel(
+  policies: Parameters<typeof resolveAgentActionLevel>[0],
+  actionKey: string,
+  subject: PolicySubject,
+): AgentActionLevel {
   const forKey = policies.filter((row) => row.action_key === actionKey)
   const byCredential = subject.credentialId
     ? forKey.find(

@@ -37,9 +37,10 @@ import {
   AGENT_ACTIONS_ALWAYS_OFF,
   AGENT_ACTION_AREAS,
   AGENT_ACTION_DEFAULT_LEVEL,
-  AGENT_ACTION_LEVELS,
   AGENT_ACTION_ROLES,
+  agentActionAlwaysAsk,
   agentActionByKey,
+  agentActionLevelsFor,
   agentActionKeys,
   fetchAgentActionPolicies,
   setAgentActionPolicy,
@@ -160,7 +161,13 @@ export function AgentPermissionsPanel({
                       return (
                         <TableRow key={entry.key}>
                           <TableCell>
-                            <Tooltip content={entry.description}>
+                            <Tooltip
+                              content={
+                                agentActionAlwaysAsk(entry.key)
+                                  ? `${entry.description} ${t('agents.permissions.alwaysAsk')}`
+                                  : entry.description
+                              }
+                            >
                               <span className="block max-w-[40rem] truncate font-medium text-fg">
                                 {entry.label}
                               </span>
@@ -179,7 +186,7 @@ export function AgentPermissionsPanel({
                                 })
                               }
                             >
-                              {AGENT_ACTION_LEVELS.map((value) => (
+                              {agentActionLevelsFor(entry.key).map((value) => (
                                 <option key={value} value={value}>
                                   {LEVEL_LABEL[value]}
                                 </option>
@@ -339,7 +346,14 @@ function AddException({
           <Field label={t('agents.permissions.exceptionAction')}>
             <Select
               value={actionKey}
-              onChange={(event) => setActionKey(event.target.value)}
+              onChange={(event) => {
+                setActionKey(event.target.value)
+                if (
+                  level === 'auto' &&
+                  agentActionAlwaysAsk(event.target.value)
+                )
+                  setLevel('ask')
+              }}
             >
               <option value="">
                 {t('agents.permissions.exceptionPickAction')}
@@ -409,7 +423,7 @@ function AddException({
                 setLevel(event.target.value as AgentActionLevel)
               }
             >
-              {AGENT_ACTION_LEVELS.map((value) => (
+              {agentActionLevelsFor(actionKey).map((value) => (
                 <option key={value} value={value}>
                   {LEVEL_LABEL[value]}
                 </option>

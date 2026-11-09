@@ -112,4 +112,12 @@ describe('notebook change events', () => {
       userId: TRAINEE,
     })
   })
+
+  it('lets an agent delete a file but nothing else that deletes', async () => {
+    const { rows } = await migrator.query<{ file: boolean; record: boolean }>(
+      `SELECT internal.agent_action_always_never('delete_file') AS file,
+              internal.agent_action_always_never('delete_record') AS record`,
+    )
+    expect(rows[0]).toEqual({ file: false, record: true })
+  })
 })

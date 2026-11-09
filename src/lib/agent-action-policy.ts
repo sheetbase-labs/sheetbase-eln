@@ -38,8 +38,10 @@ export type AgentActionRole = (typeof AGENT_ACTION_ROLES)[number]
 export function agentActionAlwaysNever(key: string): boolean {
   return (
     (/(^|_)(sign|amend|lock|unlock|delete|destroy|purge)(_|$)/.test(key) &&
-      // Deleting a group is allowed, behind a confirmation like any other write.
-      key !== 'delete_workspace_group') ||
+      // Deleting a group or a file is allowed, behind a confirmation like any
+      // other write (a deleted file can be restored).
+      key !== 'delete_workspace_group' &&
+      key !== 'delete_file') ||
     /^submit_(experiment|record|review|notebook|for_review)/.test(key) ||
     [
       'submit_for_review',

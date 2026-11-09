@@ -1,8 +1,8 @@
 /**
  * Database objects that are deliberately NOT on the external API.
  *
- * Every table and function a migration adds to the `api` schema from
- * migration 0057 on must be reachable by API tokens (and so by MCP and the
+ * Every table and function in the `api` schema (the whole app, from the
+ * first migration on) must be reachable by API tokens (and so by MCP and the
  * docs), or be listed here with the reason it is not. The guard test
  * (`integration-coverage.test.ts`) enforces that, so a new feature cannot
  * ship as a screen only.
@@ -12,7 +12,32 @@
  * do yet; it authors the workspace's schema (people only, `schema.edit`); or
  * it is an attestation or a bulk, hard-to-undo decision that a person makes
  * in the app. "Not got round to it" is not a reason.
+ *
+ * Plumbing the database runs for itself (who is signed in, whether they hold a
+ * capability) is not a feature: group it in `NOT_EXPOSED_PATTERNS` with one
+ * reason instead of listing every name.
  */
+
+/** Groups of plumbing that no caller needs. Each pattern must match something. */
+export const NOT_EXPOSED_PATTERNS: readonly {
+  readonly pattern: RegExp
+  readonly reason: string
+}[] = [
+  {
+    pattern:
+      /^(current_(user|workspace|credential|client)_id|claim_probe|has_write_actor|has_capability|has_schema_capability|require_capability|is_workspace_(member|writer|client))$/,
+    reason:
+      'Who is signed in and whether they may do something: the database asks these on every call, so a caller never needs to.',
+  },
+]
+
+/** The reason an object is not exposed, or undefined when it has none. */
+export function notExposedReason(name: string): string | undefined {
+  return (
+    NOT_EXPOSED[name] ??
+    NOT_EXPOSED_PATTERNS.find((group) => group.pattern.test(name))?.reason
+  )
+}
 
 export const NOT_EXPOSED: Readonly<Record<string, string>> = {
   // Plate formats (migration 0104): existing functions rewritten to accept the

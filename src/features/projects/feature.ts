@@ -6,6 +6,7 @@
 import { PROJECTS_LAB_TABLES } from './api-tables'
 import { PROJECTS_READ_TOOL_NAMES } from './cards'
 import { PROJECTS_EVENTS, PROJECTS_EVENT_LABELS } from './events'
+import { PROJECTS_NOT_EXPOSED } from './exemptions'
 import { PROJECTS_OPERATIONS } from './operations'
 import { defineFeature } from '../define'
 
@@ -15,6 +16,7 @@ export const feature = defineFeature({
   events: PROJECTS_EVENTS,
   eventLabels: PROJECTS_EVENT_LABELS,
   labTables: PROJECTS_LAB_TABLES,
+  notExposed: PROJECTS_NOT_EXPOSED,
   agentArea: {
     area: 'Projects, folders and audit',
     match:

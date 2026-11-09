@@ -102,11 +102,6 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
   my_request_forms: 'A no-argument lookup; request_forms lists the same forms.',
   legal_hold_counts:
     'A no-argument count; legal_hold_records holds the same rows.',
-  // Secrets.
-  calendar_feeds:
-    'Holds the secret link a person subscribes their calendar app to.',
-  create_calendar_feed: 'Hands out a secret calendar link for one person.',
-  revoke_calendar_feed: 'Revokes a person’s secret calendar link.',
   // File uploads (tokens have no file access yet).
   set_my_photo: 'Needs an uploaded image from the person’s device.',
   clear_my_photo: 'Removes the person’s own profile photo.',
@@ -153,8 +148,6 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
   normalize_pipeline_event_type:
     'Checks the event name on a pipeline schedule; the schedule calls already take it.',
   // Instrument data and run quality control.
-  create_converter_parser:
-    'Choosing how an instrument’s files are read is an integrations setting with its own admin route (`/api/parsers/converter`); documents and quality control are exposed.',
   my_notifications:
     'A person’s own bell list, rebuilt only to carry the page a notification opens; read in the app.',
   // Labels.

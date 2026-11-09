@@ -179,6 +179,82 @@ export const notebook = {
         applying: 'Handing over…',
         applied: 'Handed over',
       },
+      inviteMember: {
+        apply: 'Send invitation',
+        applying: 'Inviting…',
+        applied: 'Invited',
+      },
+      revokeInvitation: {
+        apply: 'Cancel invitation',
+        applying: 'Cancelling…',
+        applied: 'Cancelled',
+      },
+      changeRole: {
+        apply: 'Change role',
+        applying: 'Changing…',
+        applied: 'Role changed',
+      },
+      suspendMember: {
+        apply: 'Suspend',
+        applying: 'Suspending…',
+        applied: 'Suspended',
+      },
+      reinstateMember: {
+        apply: 'Reinstate',
+        applying: 'Reinstating…',
+        applied: 'Reinstated',
+      },
+      removeMember: {
+        apply: 'Remove member',
+        applying: 'Removing…',
+        applied: 'Removed',
+      },
+      grantAccess: {
+        apply: 'Give access',
+        applying: 'Saving…',
+        applied: 'Access given',
+      },
+      revokeAccess: {
+        apply: 'Take access away',
+        applying: 'Saving…',
+        applied: 'Access removed',
+      },
+      decideAccess: {
+        apply: 'Decide',
+        applying: 'Saving…',
+        applied: 'Decided',
+      },
+      createGroup: {
+        apply: 'Make group',
+        applying: 'Making…',
+        applied: 'Group made',
+      },
+      groupMember: {
+        apply: 'Update group',
+        applying: 'Saving…',
+        applied: 'Group updated',
+      },
+      renameWorkspace: {
+        apply: 'Rename',
+        applying: 'Renaming…',
+        applied: 'Renamed',
+      },
+      saveGeneral: {
+        apply: 'Save settings',
+        applying: 'Saving…',
+        applied: 'Saved',
+      },
+      createClient: {
+        apply: 'Add client',
+        applying: 'Adding…',
+        applied: 'Client added',
+      },
+      shareWithClient: {
+        apply: 'Update portal',
+        applying: 'Saving…',
+        applied: 'Portal updated',
+      },
+      linkNote: 'Invitation link, shown once:',
       mapGroup: { apply: 'Save group', applying: 'Saving…', applied: 'Saved' },
       setTimestamps: {
         apply: 'Save timestamps',

@@ -144,6 +144,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `parser_mappings`                   | How a parser’s columns map onto a dataset or model’s fields.                                                                                                                                                                                                                                                                                    |
 | `connectors`                        | A connector that brings data in from, or sends it to, another system. Its `config` holds only non-secret settings.                                                                                                                                                                                                                              |
 | `connector_runs`                    | One run of a connector: how it started, whether it worked and what it did.                                                                                                                                                                                                                                                                      |
+| `calendar_feeds`                    | Your calendar subscription links: what each covers (`scope`), the label, when it was last used and whether it is revoked. The link itself is never kept; it comes back once from `create_calendar_feed`.                                                                                                                                        |
 | `connector_run_logs`                | The log lines of a connector run.                                                                                                                                                                                                                                                                                                               |
 
 ## Actions
@@ -2251,6 +2252,60 @@ Scope: `lab:write`.
 | `p_signature` *    | json | JSON description of the files the parser reads.                           |
 | `p_mapping`        | json | JSON mapping from the source’s columns to fields.                         |
 | `p_instrument_id`  | uuid | Instrument id.                                                            |
+
+### `create_calendar_feed`
+
+Make a calendar subscription link. Makes a link a calendar app can subscribe to: `mine` (your bookings), `instrument` (one instrument, give `p_resource_id`) or `all`. The link secret comes back once as `token` and is not kept, so store it. Up to 20 live links per person.
+
+Scope: `lab:write`.
+
+| Argument        | Type |                                                             |
+| --------------- | ---- | ----------------------------------------------------------- |
+| `p_scope` *     | text | What a calendar link covers: `mine`, `instrument` or `all`. |
+| `p_resource_id` | uuid | The instrument to book.                                     |
+| `p_label`       | text | What was measured.                                          |
+
+### `revoke_calendar_feed`
+
+Revoke a calendar subscription link. Stops one of your calendar links working. `p_feed_id` is the id of the link from `calendar_feeds`.
+
+Scope: `lab:write`.
+
+| Argument      | Type |                     |
+| ------------- | ---- | ------------------- |
+| `p_feed_id` * | uuid | Instrument feed id. |
+
+### `create_converter_parser`
+
+Add a parser that uses a vendor converter. Adds a parser that reads an instrument’s files with a built-in vendor converter. Needs integrations access.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                     |
+| ------------------ | ---- | ------------------- |
+| `p_workspace_id` * | uuid | Workspace id.       |
+| `p_key` *          | text | A short unique key. |
+| `p_name` *         | text | Name.               |
+| `p_format` *       | text | File format.        |
+| `p_version` *      | int  | Version number.     |
+| `p_vendor` *       | text | Maker.              |
+| `p_instrument_id`  | uuid | Instrument id.      |
+
+### `create_webhook_parser`
+
+Add a parser that is an address elsewhere. Adds a parser that sends files to an outside http or https address to be read. Needs integrations access.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                           |
+| ------------------ | ---- | ------------------------- |
+| `p_workspace_id` * | uuid | Workspace id.             |
+| `p_key` *          | text | A short unique key.       |
+| `p_name` *         | text | Name.                     |
+| `p_format` *       | text | File format.              |
+| `p_version` *      | int  | Version number.           |
+| `p_url` *          | text | An http or https address. |
+| `p_instrument_id`  | uuid | Instrument id.            |
 
 ### `save_parser_mapping`
 

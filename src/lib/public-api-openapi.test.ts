@@ -8,6 +8,7 @@ import {
   requiredScopes,
 } from '#/lib/external-token'
 import { errorEnvelope } from '#/lib/errors'
+import { LAB_RPCS } from '#/lib/lab-api-surface'
 import { handleProxyRequest } from '#/lib/postgrest-proxy'
 import {
   HUMAN_SESSION_ONLY_RPCS,
@@ -47,6 +48,12 @@ function rpcRequestSchema(name: string): {
     content: { 'application/json': { schema: Record<string, unknown> } }
   }
   return body.content['application/json'].schema
+}
+
+/** The parameters of a lab RPC, or undefined for one declared elsewhere. */
+function labParams(name: string): number | undefined {
+  return (LAB_RPCS as Record<string, { params: readonly unknown[] } | undefined>)[name]
+    ?.params.length
 }
 
 describe('API-03 external OpenAPI', () => {
@@ -290,7 +297,8 @@ describe('API-03 external OpenAPI', () => {
       expect(schema.properties).toEqual(contract.properties)
       expect(schema.required ?? []).toEqual(contract.required)
       const propertyNames = Object.keys(schema.properties ?? {})
-      expect(propertyNames.length).toBeGreaterThan(0)
+      // A lookup that takes no arguments (such as the member list) has none.
+      if (labParams(name) !== 0) expect(propertyNames.length).toBeGreaterThan(0)
       expect(propertyNames.every((key) => key.startsWith('p_'))).toBe(true)
     }
   })
@@ -415,7 +423,8 @@ describe('API-03 external OpenAPI', () => {
   it('publishes concrete RPC request and result schemas', () => {
     for (const name of Object.keys(EXTERNAL_RPC_SCOPES)) {
       const request = rpcRequestSchema(name) as JsonNode
-      assertConcreteSchema(request, `${name} request`)
+      if (labParams(name) !== 0)
+        assertConcreteSchema(request, `${name} request`)
       const result = jsonContentSchema(
         operation(`/api/db/rpc/${name}`, 'post').responses,
         '200',

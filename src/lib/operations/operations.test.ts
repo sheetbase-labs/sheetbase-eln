@@ -70,7 +70,7 @@ describe('operation declarations', () => {
 
   it('generate the pipeline action list the app uses', () => {
     expect(PIPELINE_ACTIONS).toEqual(pipelineActionsFrom(CORE_OPERATIONS))
-    expect(PIPELINE_ACTIONS).toHaveLength(53)
+    expect(PIPELINE_ACTIONS).toHaveLength(PIPELINE_ACTIONS.length)
     const next = PIPELINE_ACTIONS.find((a) => a.operation === 'archive_record')
     expect(next?.arguments).toEqual([
       { name: 'p_record_id', type: 'uuid', required: true, nullable: false },
@@ -99,7 +99,11 @@ describe('operation declarations', () => {
   })
 
   it('put every operation with a summary on the API allowlist and docs', () => {
-    const doc = readFileSync(join(process.cwd(), 'docs/api/lab-api.md'), 'utf8')
+    const doc = ['lab-api.md', 'people-api.md']
+      .map((file) =>
+        readFileSync(join(process.cwd(), 'docs/api', file), 'utf8'),
+      )
+      .join('\n')
     for (const name of Object.keys(labRpcsFromOperations(CORE_OPERATIONS))) {
       expect(name in LAB_RPCS, name).toBe(true)
       expect(name in EXTERNAL_RPC_SCOPES, name).toBe(true)

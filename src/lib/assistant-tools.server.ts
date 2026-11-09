@@ -58,6 +58,11 @@ import {
   upkeepProposalDefs,
 } from './assistant-upkeep.server'
 import {
+  buildPeopleProposal,
+  isPeopleProposalTool,
+  peopleProposalDefs,
+} from './assistant-people.server'
+import {
   buildPlatesProposal,
   isPlatesProposalTool,
   platesProposalDefs,
@@ -328,6 +333,7 @@ export async function createAssistantToolkit(deps: {
       ...benchProposalDefs(),
       ...planningProposalDefs(),
       ...upkeepProposalDefs(),
+      ...peopleProposalDefs(),
       ...platesProposalDefs(),
       ...qcProposalDefs(),
       ...instrumentsProposalDefs(),
@@ -512,6 +518,17 @@ export async function createAssistantToolkit(deps: {
       }
       if (isPlatesProposalTool(name)) {
         const built = await buildPlatesProposal(name, args, labContext)
+        return built.ok
+          ? {
+              text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
+              isError: false,
+              proposal: built.proposal,
+            }
+          : { text: built.message, isError: true }
+      }
+
+      if (isPeopleProposalTool(name)) {
+        const built = await buildPeopleProposal(name, args, labContext)
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',

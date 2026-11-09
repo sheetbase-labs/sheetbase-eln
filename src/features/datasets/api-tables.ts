@@ -195,4 +195,40 @@ export const DATASET_LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['created_at', 'ts', 1],
     ],
   },
+  column_promotions: {
+    summary:
+      'A sheet column asked to become a field of a measurement table (`target` `dataset_schema`) or of a record type (`model_field`). `state` is pending, approved, returned, applied or withdrawn.',
+    scope: 'schema:read',
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['sheet_instance_id', 'uuid', 1],
+      ['field_id', 'uuid', 1],
+      ['target', 'text', 1],
+      ['schema_definition_id', 'uuid', 0],
+      ['schema_version_id', 'uuid', 0],
+      ['model_key', 'text', 0],
+      ['state', 'text', 1],
+      ['approval_request_id', 'uuid', 0],
+      ['reason', 'text', 0],
+      ['requested_by_user_id', 'text', 1],
+      ['requested_at', 'ts', 1],
+      ['decided_at', 'ts', 0],
+      ['created_at', 'ts', 1],
+      ['updated_at', 'ts', 1],
+    ],
+  },
+  reading_planned_rows: {
+    summary:
+      'Planned dataset rows waiting for a reading, with the sample each is for and the column it measures when a repeat was asked for.',
+    scope: 'datasets:read',
+    columns: [
+      ['id', 'uuid', 0],
+      ['dataset_id', 'uuid', 0],
+      ['planned_key', 'text', 0],
+      ['scheduled_at', 'ts', 0],
+      ['sample_id', 'uuid', 0],
+      ['measurement_field_id', 'uuid', 0],
+    ],
+  },
 }

@@ -190,7 +190,7 @@ describe('aliases', () => {
     expect(canonicalNameFor('dataset_version', 'create')).toBe(
       'dataset.versioned',
     )
-    expect(canonicalNameFor('folder', 'create')).toBeNull()
+    expect(canonicalNameFor('block', 'create')).toBeNull()
   })
 
   it('eventForProducer finds entries by producer pair', () => {

@@ -90,12 +90,12 @@ describe('validateScheduleSpec', () => {
   })
 
   it('rejects non-triggerable catalogue names', () => {
-    // Provisional (pipeline.*), reserved (notebook.amended), administration
-    // (project.*) and excluded producers are never pipeline triggers.
+    // Provisional (pipeline.*, workspace.credential.*), reserved
+    // (notebook.amended) and excluded producers are never pipeline triggers.
     for (const name of [
       'pipeline.created',
       'notebook.amended',
-      'project.created',
+      'workspace.credential.created',
       'record.amended',
       'workspace.settings_access.changed',
       'storage_movement',

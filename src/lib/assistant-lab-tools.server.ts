@@ -219,6 +219,14 @@ export const LAB_AREAS = {
     'When pipelines run by themselves: every so many minutes, daily, on a cron or on an event, and whether each is switched on (openOnly: only those switched on)',
   plugins:
     'Plugins installed in the workspace: name, version, whether each is switched on and which parts are switched off (openOnly: only those switched on)',
+  measurement_tables:
+    'Measurement tables: the columns each kind of dataset is made of, with whether each is a draft, in use or retired (openOnly: leave out retired ones)',
+  dataset_flags:
+    'Flags on dataset values (out of range, missing unit, above curve, high CV), by a person or a rule, with the reason (openOnly: only those not cleared)',
+  import_files:
+    'Files uploaded to be imported into a dataset, and whether each was read (openOnly: only those that could not be read)',
+  intake_problems:
+    'Files an instrument connector or an upload could not bring in, with why and how many tries (openOnly: only those still open)',
 } as const
 
 export type LabArea = keyof typeof LAB_AREAS
@@ -808,6 +816,10 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   imports: 'status=eq.failed',
   connectors: 'status=eq.active',
   connector_runs: 'status=eq.failed',
+  measurement_tables: 'lifecycle=neq.retired',
+  dataset_flags: 'cleared_at=is.null',
+  import_files: 'status=eq.failed',
+  intake_problems: 'status=eq.open',
 }
 
 interface PlainArea {
@@ -946,6 +958,36 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'started_at.desc',
     search: ['error_message'],
     page: '/settings/workspace/integrations',
+  measurement_tables: {
+    table: 'dataset_schema_definitions',
+    select: 'id,display_id,key,name,description,lifecycle,parent_id,updated_at',
+    order: 'name.asc',
+    search: ['name', 'key', 'display_id'],
+    page: '/models',
+  },
+  dataset_flags: {
+    table: 'dataset_value_flags',
+    select:
+      'id,dataset_id,row_id,field_id,kind,reason,comment,source,set_at,cleared_at',
+    order: 'set_at.desc',
+    search: ['reason', 'comment'],
+    page: '/datasets',
+  },
+  import_files: {
+    table: 'dataset_import_files',
+    select:
+      'id,dataset_id,filename,format,status,parse_error,byte_size,created_at',
+    order: 'created_at.desc',
+    search: ['filename'],
+    page: '/import',
+  },
+  intake_problems: {
+    table: 'intake_failures',
+    select:
+      'id,connector_id,instrument_id,file_name,code,message,attempts,status,last_attempt_at',
+    order: 'last_attempt_at.desc',
+    search: ['file_name', 'message'],
+    page: '/instruments',
   },
   directory_sync: {
     table: 'scim_tokens',

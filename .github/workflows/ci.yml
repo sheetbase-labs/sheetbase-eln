@@ -29,7 +29,9 @@ jobs:
           - name: Format
             command: pnpm check
           - name: Lint
-            command: pnpm lint
+            command: pnpm lint:oxlint
+          - name: React Doctor
+            command: pnpm lint:react
           - name: Typecheck
             command: pnpm typecheck
     env:

@@ -73,7 +73,7 @@ independent copies. The notebook design/QA pilot is defined in
 | `pnpm build`                     | Production build → `.output/public/` + `.output/server/` |
 | `pnpm start`                     | Production server (`scripts/start-prod.mjs`) on `$PORT`  |
 | `pnpm typecheck`                 | TypeScript check (no emit)                               |
-| `pnpm lint`                      | ESLint                                                   |
+| `pnpm lint`                      | Oxlint, anti-slop and React Doctor                       |
 | `pnpm test`                      | Vitest (unit + integration)                              |
 | `pnpm test:db`                   | Database integration tests                               |
 | `pnpm test:api`                  | API tests                                                |

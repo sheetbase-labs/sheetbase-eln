@@ -1,0 +1,9 @@
+{
+  "adoptExistingLintConfig": false,
+  "ignore": {
+    "files": [
+      "tools/oxlint/anti-slop/**",
+      "docs/knowledge/design/ui-system-v3/runtime/dc-runtime.js"
+    ]
+  }
+}

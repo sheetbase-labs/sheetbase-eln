@@ -24,6 +24,11 @@ import {
   INSTRUMENT_TABLES,
 } from './lab-api-instruments'
 import { CORE_OPERATIONS } from './operations/registry'
+import {
+  SAMPLE_LAB_PARAM_NOTES,
+  SAMPLE_LAB_RPCS,
+  SAMPLE_LAB_TABLES,
+} from './lab-api-samples'
 
 /** Column or parameter type. */
 export type LabType =
@@ -61,6 +66,7 @@ export interface LabRpc {
 }
 
 const LAB_PARAM_NOTES_BASE: Readonly<Record<string, string>> = {
+  ...SAMPLE_LAB_PARAM_NOTES,
   p_name: 'Name.',
   p_format:
     'Plate format, such as `96_well` or `384_well`; or a worklist file format.',
@@ -292,7 +298,8 @@ const LAB_PARAM_NOTES_BASE: Readonly<Record<string, string>> = {
   p_odcs:
     'An Open Data Contract Standard (ODCS v3.1) document as JSON. YAML parses to the same thing.',
   p_dataset_id: 'Dataset id.',
-  p_rows: 'JSON array of rows about to be committed.',
+  p_rows:
+    'For a dataset commit, a JSON array of rows about to be committed. For a storage box, the number of rows (1 to 26).',
   p_extension_key: 'The plugin’s key.',
   p_index_name: 'The name of one of the plugin’s search indexes.',
   p_vector:
@@ -526,6 +533,7 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
     ],
   },
   ...INSTRUMENT_TABLES,
+  ...SAMPLE_LAB_TABLES,
   gate_check_results: {
     summary:
       'What a plugin check answered for a table on an experiment: `pass`, `warn` or `fail` with its message, and a fingerprint of the table when it ran. A gate reads this; when the table has changed since, the answer is out of date and the gate is not met. Written only by the app when someone runs the check.',
@@ -2090,6 +2098,7 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
 }
 
 const LAB_RPCS_HAND_WRITTEN: Readonly<Record<string, LabRpc>> = {
+  ...SAMPLE_LAB_RPCS,
   request_reagent_order: {
     summary: 'Request a reagent order',
     description:

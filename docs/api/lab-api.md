@@ -1940,6 +1940,77 @@ Scope: `lab:write`.
 ### `create_study_task`
 
 Create a planner task. Adds a task or milestone to the study planner. `p_task_type` is `task` (default) or `milestone`; `p_status` is `not_started` by default and `p_priority` `medium`. Returns the task. Sends `study.task.created`.
+## Samples and storage
+
+Receive, use, move, split, reserve and dispose of samples, and manage the freezers, boxes and positions they sit in. Releasing a sample is a person's decision in the app (it is checked against the release rules), so it is not here. Every sample action sends the webhook event named in its description, and the assistant, MCP and pipelines can run the same actions. Stewards can query the history and storage with SQL in `data.sample_history`, `data.sample_reservations`, `data.storage_positions` and `data.storage_movements`.
+
+### Sample and storage tables
+
+| Table                  | What it holds                                                                                                                                                                    |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sample_events`        | The history of a sample: every receive, use, move, edit, release, quarantine and disposal, with the quantity before and after. Written only by the sample actions, never edited. |
+| `sample_reservations`  | Volume of a sample held for an experiment. `state` is active, cancelled or fulfilled.                                                                                            |
+| `sample_measurements`  | A value measured on a sample, with its unit, method and when it was measured.                                                                                                    |
+| `sample_release_rules` | The checks a sample of a type must pass before it can be released. A row with no sample type is the workspace default.                                                           |
+| `storage_sites`        | A site: the building or campus a freezer is in. The top of the storage tree.                                                                                                     |
+| `storage_rooms`        | A room inside a site.                                                                                                                                                            |
+| `storage_units`        | A freezer, fridge, incubator or other storage unit inside a room. `unit_type` is freezer, fridge, cryo, incubator, ambient, dewar or cabinet.                                    |
+| `storage_shelves`      | A shelf inside a storage unit.                                                                                                                                                   |
+| `storage_racks`        | A rack on a shelf.                                                                                                                                                               |
+| `storage_boxes`        | A box in a rack, with a grid of positions (`rows` by `cols`, at most 26 each).                                                                                                   |
+| `storage_positions`    | One position in a box (A1, B3 and so on). `status` is available, occupied, quarantined or missing; `occupied_record_id` is the sample in it.                                     |
+| `storage_movements`    | Every time a sample was placed in, moved between or taken out of a storage position (`operation` is place, move or remove), with where from and to.                              |
+
+### Sample and storage actions
+
+Each action is `POST /api/db/rpc/<name>`. Arguments marked * are required.
+
+#### `receive_sample`
+
+Receive stock of a sample. Adds a quantity to a sample (a delivery, a top-up) and optionally records where it is. Sends `sample.received`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                                 |
+| ------------------------------- | ---- | --------------------------------------------------------------- |
+| `p_record_id` *                 | uuid | Record id.                                                      |
+| `p_quantity` *                  | num  | Amount.                                                         |
+| `p_expected_metadata_version` * | int  | The `metadata_version` last read; refused if it moved.          |
+| `p_unit`                        | text | Unit of the quantity.                                           |
+| `p_location`                    | text | Where the sample is, as free text such as `Freezer 2, shelf 3`. |
+| `p_notes`                       | text | Notes.                                                          |
+
+#### `consume_sample`
+
+Use up part of a sample. Takes a quantity out of a sample, optionally for an experiment. Refused when less than that is left. Sends `sample.consumed`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                        |
+| ------------------------------- | ---- | ------------------------------------------------------ |
+| `p_record_id` *                 | uuid | Record id.                                             |
+| `p_quantity` *                  | num  | Amount.                                                |
+| `p_expected_metadata_version` * | int  | The `metadata_version` last read; refused if it moved. |
+| `p_notes`                       | text | Notes.                                                 |
+| `p_experiment_id`               | uuid | The experiment the sample is used or held for.         |
+| `p_purpose_record_id`           | uuid | The experiment the samples were used for.              |
+
+#### `transfer_sample`
+
+Move a sample to another place. Records that a sample moved, by free-text location. To put it in a box position use `move_sample_to_position`. Sends `sample.moved`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                        |
+| ------------------------------- | ---- | ------------------------------------------------------ |
+| `p_record_id` *                 | uuid | Record id.                                             |
+| `p_to_location` *               | text | Where the sample goes, as free text.                   |
+| `p_expected_metadata_version` * | int  | The `metadata_version` last read; refused if it moved. |
+| `p_notes`                       | text | Notes.                                                 |
+
+#### `edit_sample`
+
+Edit a sample’s details. Changes the title, properties, tags or custom fields of a sample, and notes why. Sends `sample.edited`.
 
 Scope: `lab:write`.
 
@@ -3416,3 +3487,347 @@ Scope: `lab:write`.
 | `p_stage` *        | text | Stage of the run.                                |
 | `p_message` *      | text | Message.                                         |
 | `p_detail`         | json | JSON detail.                                     |
+
+| `p_record_id` *                 | uuid   | Record id.                                             |
+| `p_expected_metadata_version` * | int    | The `metadata_version` last read; refused if it moved. |
+| `p_title` *                     | text   | Title.                                                 |
+| `p_properties` *                | json   | Properties of the sample, keyed by name.               |
+| `p_tags` *                      | text[] | Tags.                                                  |
+| `p_notes` *                     | text   | Notes.                                                 |
+| `p_custom_fields` *             | json   | Field values, keyed by field name.                     |
+
+#### `archive_sample`
+
+Archive a sample. Takes a sample out of the active list. Its history stays. Sends `sample.archived`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                        |
+| ------------------------------- | ---- | ------------------------------------------------------ |
+| `p_record_id` *                 | uuid | Record id.                                             |
+| `p_expected_metadata_version` * | int  | The `metadata_version` last read; refused if it moved. |
+| `p_notes`                       | text | Notes.                                                 |
+
+#### `restore_sample`
+
+Restore an archived sample. Brings an archived sample back. Sends `sample.restored`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                        |
+| ------------------------------- | ---- | ------------------------------------------------------ |
+| `p_record_id` *                 | uuid | Record id.                                             |
+| `p_expected_metadata_version` * | int  | The `metadata_version` last read; refused if it moved. |
+| `p_notes`                       | text | Notes.                                                 |
+
+#### `quarantine_sample`
+
+Quarantine a sample. Holds a sample back from use while its quality is looked into. Sends `sample.quarantined`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                        |
+| ------------------------------- | ---- | ------------------------------------------------------ |
+| `p_record_id` *                 | uuid | Record id.                                             |
+| `p_expected_metadata_version` * | int  | The `metadata_version` last read; refused if it moved. |
+| `p_reason` *                    | text | Why, in a sentence.                                    |
+| `p_notes`                       | text | Notes.                                                 |
+
+#### `dispose_sample`
+
+Dispose of a sample. Records that a sample was thrown away, and why. Sends `sample.disposed`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                        |
+| ------------------------------- | ---- | ------------------------------------------------------ |
+| `p_record_id` *                 | uuid | Record id.                                             |
+| `p_expected_metadata_version` * | int  | The `metadata_version` last read; refused if it moved. |
+| `p_reason` *                    | text | Why, in a sentence.                                    |
+| `p_notes`                       | text | Notes.                                                 |
+
+#### `withdraw_sample`
+
+Take a portion of a sample for an experiment. Takes a quantity out of a sample for an experiment, and can make a new sample for the portion. Returns `{ source, created }`. Sends `sample.consumed`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                        |
+| ------------------------------- | ---- | ------------------------------------------------------ |
+| `p_record_id` *                 | uuid | Record id.                                             |
+| `p_quantity` *                  | num  | Amount.                                                |
+| `p_expected_metadata_version` * | int  | The `metadata_version` last read; refused if it moved. |
+| `p_purpose_experiment_id` *     | uuid | The experiment the pool is for.                        |
+| `p_unit`                        | text | Unit of the quantity.                                  |
+| `p_notes`                       | text | Notes.                                                 |
+| `p_new_container`               | json | JSON describing the new container. Optional.           |
+
+#### `aliquot_sample`
+
+Split a sample into portions. Makes several smaller samples from one, each with its own record, and takes the total out of the source. Returns `{ source, aliquots }`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                        |
+| ------------------------------- | ---- | ------------------------------------------------------ |
+| `p_record_id` *                 | uuid | Record id.                                             |
+| `p_count` *                     | int  | How many portions to make.                             |
+| `p_quantity_each` *             | num  | The quantity in each portion.                          |
+| `p_purpose_experiment_id` *     | uuid | The experiment the pool is for.                        |
+| `p_expected_metadata_version` * | int  | The `metadata_version` last read; refused if it moved. |
+| `p_unit`                        | text | Unit of the quantity.                                  |
+| `p_notes`                       | text | Notes.                                                 |
+| `p_new_container`               | json | JSON describing the new container. Optional.           |
+
+#### `register_samples`
+
+Register several samples at once. Creates sample records in a project, such as a batch that has just arrived. Returns the new samples.
+
+Scope: `lab:write`.
+
+| Argument         | Type |                                                                                                              |
+| ---------------- | ---- | ------------------------------------------------------------------------------------------------------------ |
+| `p_project_id` * | uuid | Project id.                                                                                                  |
+| `p_samples` *    | json | JSON array of the samples to register, each `{ title, quantity, unit, location, properties, customFields }`. |
+
+#### `request_repeat`
+
+Ask for a measurement to be repeated. Plans a repeat of a measurement for a sample, as a new planned row in the dataset. Returns the request.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                                        |
+| ---------------------- | ---- | ------------------------------------------------------ |
+| `p_source_record_id` * | uuid | The sample to repeat a measurement for.                |
+| `p_dataset_id` *       | uuid | Dataset id.                                            |
+| `p_scheduled_at`       | ts   | When the repeat is planned.                            |
+| `p_planned_row_count`  | int  | How many rows the repeat will add (default 1).         |
+| `p_source_row_id`      | uuid | The dataset row being repeated.                        |
+| `p_source_field_id`    | uuid | The dataset field being repeated.                      |
+| `p_title`              | text | Title.                                                 |
+| `p_properties`         | json | Properties of the sample, keyed by name.               |
+| `p_planned_key`        | text | A key that makes asking again return the same request. |
+
+#### `create_sample_reservation`
+
+Hold part of a sample for an experiment. Sets aside a quantity so nobody else uses it. Refused when less than that is free. Sends `sample.reserved`.
+
+Scope: `lab:write`.
+
+| Argument            | Type |                                                 |
+| ------------------- | ---- | ----------------------------------------------- |
+| `p_record_id` *     | uuid | Record id.                                      |
+| `p_experiment_id` * | uuid | The experiment the sample is used or held for.  |
+| `p_quantity` *      | num  | Amount.                                         |
+| `p_unit`            | text | Unit of the quantity.                           |
+| `p_planned`         | bool | `true` for an experiment not yet run (default). |
+| `p_notes`           | text | Notes.                                          |
+
+#### `cancel_sample_reservation`
+
+Cancel a reservation. Gives the held quantity back to the sample. Sends `sample.reservation_cancelled`.
+
+Scope: `lab:write`.
+
+| Argument             | Type |                 |
+| -------------------- | ---- | --------------- |
+| `p_reservation_id` * | uuid | Reservation id. |
+| `p_notes`            | text | Notes.          |
+
+#### `record_sample_label_print`
+
+Record that a sample label was printed. Adds a print to the sample’s history, so there is a trace of who labelled what.
+
+Scope: `lab:write`.
+
+| Argument                        | Type   |                                                        |
+| ------------------------------- | ------ | ------------------------------------------------------ |
+| `p_record_id` *                 | uuid   | Record id.                                             |
+| `p_expected_metadata_version` * | bigint | The `metadata_version` last read; refused if it moved. |
+| `p_note` *                      | text   | A note.                                                |
+
+#### `record_sample_measurement`
+
+Record a measurement on a sample. Adds a measured value (concentration, purity and so on) to a sample.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                          |
+| ---------------------- | ---- | ---------------------------------------- |
+| `p_sample_record_id` * | uuid | The sample.                              |
+| `p_name` *             | text | Name.                                    |
+| `p_value` *            | num  | The measured value, as a number or text. |
+| `p_unit`               | text | Unit of the quantity.                    |
+| `p_method`             | text | How it was measured.                     |
+| `p_measured_at`        | ts   | When it was measured (default now).      |
+| `p_notes`              | text | Notes.                                   |
+
+#### `set_sample_release_rules`
+
+Set the checks a sample must pass before release. Sets the release checks for a sample type, or the workspace default. Needs permission to change lab settings.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                                                                                                                                                                                                                                                                                                    |
+| ------------------ | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `p_workspace_id` * | uuid | Your workspace id.                                                                                                                                                                                                                                                                                                                 |
+| `p_sample_type`    | text | The sample type, or leave out for the workspace default.                                                                                                                                                                                                                                                                           |
+| `p_rules` *        | json | Westgard rules to judge by, from `1-3s`, `2-2s`, `R-4s`, `4-1s` and `10x`. For a data contract, a JSON array of rules: `{ id, kind, field, mode, min, max, units, threshold, maxAgeMinutes }`, where `kind` is `required`, `unique`, `range`, `units`, `completeness`, `row_count` or `freshness` and `mode` is `warn` or `block`. |
+
+#### `move_sample_to_position`
+
+Put a sample in a box position. Places a sample in an empty position, taking it out of the one it was in. Refused when the position is taken or blocked. Sends `storage.placed` or `storage.moved`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                        |
+| ------------------------------- | ---- | ------------------------------------------------------ |
+| `p_record_id` *                 | uuid | Record id.                                             |
+| `p_to_position_id` *            | uuid | Storage position the sample goes to.                   |
+| `p_expected_metadata_version` * | int  | The `metadata_version` last read; refused if it moved. |
+| `p_notes`                       | text | Notes.                                                 |
+
+#### `remove_sample_from_position`
+
+Take a sample out of its box position. Frees the position the sample is in. Sends `storage.removed`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                        |
+| ------------------------------- | ---- | ------------------------------------------------------ |
+| `p_record_id` *                 | uuid | Record id.                                             |
+| `p_expected_metadata_version` * | int  | The `metadata_version` last read; refused if it moved. |
+| `p_notes`                       | text | Notes.                                                 |
+
+#### `set_position_status`
+
+Mark a box position available, quarantined or missing. Changes a position that holds no sample. `p_status` is `available`, `quarantined` or `missing`.
+
+Scope: `lab:write`.
+
+| Argument          | Type |                      |
+| ----------------- | ---- | -------------------- |
+| `p_position_id` * | uuid | Storage position id. |
+| `p_status` *      | text | New status.          |
+| `p_notes`         | text | Notes.               |
+
+#### `match_sample_locations`
+
+Match free-text sample locations to box positions. Looks at samples whose location is typed text and puts them in the box position of the same name, where there is one. Returns `{ matched, unmatched }`.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                    |
+| ------------------ | ---- | ------------------ |
+| `p_workspace_id` * | uuid | Your workspace id. |
+
+#### `create_storage_box`
+
+Add a box to a rack. Makes a box with a grid of positions (`p_rows` by `p_cols`, at most 26 each). Needs permission to manage storage. Sends `storage.box.created`.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                                                                                    |
+| ------------------ | ---- | ------------------------------------------------------------------------------------------------------------------ |
+| `p_workspace_id` * | uuid | Your workspace id.                                                                                                 |
+| `p_rack_id` *      | uuid | The rack the box goes in.                                                                                          |
+| `p_name` *         | text | Name.                                                                                                              |
+| `p_code` *         | text | A short code, such as `F2`.                                                                                        |
+| `p_rows` *         | int  | For a dataset commit, a JSON array of rows about to be committed. For a storage box, the number of rows (1 to 26). |
+| `p_cols` *         | int  | Number of columns in the box (1 to 26).                                                                            |
+| `p_metadata`       | json |                                                                                                                    |
+
+#### `create_storage_location`
+
+Add a site, room, freezer, shelf or rack. Adds one level of the storage tree. Needs permission to manage storage. A site has no parent; a room goes in a site, a unit (freezer, fridge and so on) in a room, a shelf in a unit and a rack on a shelf. Returns `{ id, level, name, code }`. Sends `storage.<level>.created`.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                                                                                                                          |
+| ---------------------- | ---- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `p_workspace_id` *     | uuid | Your workspace id.                                                                                                                       |
+| `p_level` *            | text | Which kind of location: `site`, `room`, `unit`, `shelf`, `rack` or `box`.                                                                |
+| `p_parent_location_id` | uuid | The location it goes inside: the site for a room, the room for a unit, the unit for a shelf, the shelf for a rack. Leave out for a site. |
+| `p_name` *             | text | Name.                                                                                                                                    |
+| `p_code`               | text | A short code, such as `F2`.                                                                                                              |
+| `p_unit_type`          | text | `freezer`, `fridge`, `cryo`, `incubator`, `ambient`, `dewar` or `cabinet`.                                                               |
+| `p_temperature_min_c`  | num  | Lowest allowed temperature in °C.                                                                                                        |
+| `p_temperature_max_c`  | num  | Highest allowed temperature in °C.                                                                                                       |
+
+#### `update_storage_location`
+
+Rename or change a storage location. Changes the name, code, type or temperature limits of a site, room, unit, shelf, rack or box. Anything left out stays as it was.
+
+Scope: `lab:write`.
+
+| Argument              | Type |                                                                            |
+| --------------------- | ---- | -------------------------------------------------------------------------- |
+| `p_level` *           | text | Which kind of location: `site`, `room`, `unit`, `shelf`, `rack` or `box`.  |
+| `p_location_id` *     | uuid | Id of the site, room, unit, shelf, rack or box.                            |
+| `p_name`              | text | Name.                                                                      |
+| `p_code`              | text | A short code, such as `F2`.                                                |
+| `p_unit_type`         | text | `freezer`, `fridge`, `cryo`, `incubator`, `ambient`, `dewar` or `cabinet`. |
+| `p_temperature_min_c` | num  | Lowest allowed temperature in °C.                                          |
+| `p_temperature_max_c` | num  | Highest allowed temperature in °C.                                         |
+
+#### `set_storage_location_archived`
+
+Take a storage location out of use, or bring it back. Archives or restores a site, room, unit, shelf, rack or box. A location that holds a sample cannot be archived.
+
+Scope: `lab:write`.
+
+| Argument          | Type |                                                                           |
+| ----------------- | ---- | ------------------------------------------------------------------------- |
+| `p_level` *       | text | Which kind of location: `site`, `room`, `unit`, `shelf`, `rack` or `box`. |
+| `p_location_id` * | uuid | Id of the site, room, unit, shelf, rack or box.                           |
+| `p_archived` *    | bool | `true` takes it out of use, `false` brings it back.                       |
+
+#### `lookup_sample_by_barcode`
+
+Find a sample by its barcode. Returns the sample whose label has this barcode, if any.
+
+Scope: `lab:read`.
+
+| Argument      | Type |                                          |
+| ------------- | ---- | ---------------------------------------- |
+| `p_barcode` * | text | The barcode printed on the sample label. |
+
+#### `sample_quantity_balances`
+
+How much of a sample is left, used and held. Returns `{ quantity, unit, used, reserved, available }` for a sample, worked out from its history and active reservations.
+
+Scope: `lab:read`.
+
+| Argument        | Type |            |
+| --------------- | ---- | ---------- |
+| `p_record_id` * | uuid | Record id. |
+
+#### `storage_path`
+
+Where a position is, as a path. Returns the path of a position, such as `Main site / Room 1 / Freezer 2 / Shelf 3 / Rack A / Box 7 / B4`.
+
+Scope: `lab:read`.
+
+| Argument          | Type |                      |
+| ----------------- | ---- | -------------------- |
+| `p_position_id` * | uuid | Storage position id. |
+
+#### `sample_measurement_provenance`
+
+Where a sample’s measured values came from. Returns each measured value on a sample with the experiment and dataset it came from.
+
+Scope: `lab:read`.
+
+| Argument               | Type |             |
+| ---------------------- | ---- | ----------- |
+| `p_sample_record_id` * | uuid | The sample. |
+
+#### `sample_release_check_status`
+
+Whether a sample passes its release checks. Returns each release check for the sample and whether it passes now. Releasing the sample is a person’s decision in the app.
+
+Scope: `lab:read`.
+
+| Argument        | Type |            |
+| --------------- | ---- | ---------- |
+| `p_record_id` * | uuid | Record id. |

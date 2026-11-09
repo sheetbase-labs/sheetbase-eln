@@ -51,9 +51,6 @@ env:
   REGISTRY: ghcr.io
   APP_IMAGE_NAME: ${{ github.repository }}
   POSTGREST_IMAGE_NAME: ${{ github.repository }}-postgrest
-  # Reads the private @sheetbase-labs/* packages from GitHub Packages (the
-  # remote VPS install reuses it through GHCR_TOKEN).
-  NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   # PLAT-01 deployment gate: a release artifact is only built from a commit
@@ -79,6 +76,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       # PostgreSQL 18 with pgvector (docker/db/Dockerfile), built here because a
       # service container can only pull a published image.
@@ -102,11 +101,10 @@ jobs:
         with:
           version: 11.9.0
 
-      - name: GitHub Packages auth
-        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        uses: ./.github/actions/install-private
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Typecheck
         run: pnpm typecheck
@@ -147,16 +145,13 @@ jobs:
         run: pnpm build
 
   build:
-    name: Build and push images
+    name: Build images without publish credentials
     needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # `write` includes read of the private @sheetbase-labs/* packages.
-      packages: write
+      packages: read
     outputs:
-      app_image_ref: ${{ steps.app_digest.outputs.ref }}
-      postgrest_image_ref: ${{ steps.postgrest_digest.outputs.ref }}
       artifact_version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout
@@ -165,6 +160,7 @@ jobs:
           # build-artifact.ts validates a clean worktree via git status;
           # a shallow checkout leaves .git shallow but clean.
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Set artifact version
         id: version
@@ -176,13 +172,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       # Resolve the Node.js base image digest so build-artifact.ts can pin it.
       # The artifact builder requires NODE_IMAGE as name@sha256:digest.
@@ -207,11 +196,10 @@ jobs:
         with:
           version: 11.9.0
 
-      - name: GitHub Packages auth
-        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        uses: ./.github/actions/install-private
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       # routeTree.gen.ts is committed — do not regenerate it here. Running
       # `tsr generate` would mutate the clean checkout and break the artifact
@@ -223,16 +211,6 @@ jobs:
           SHEETBASE_ARTIFACT_TAG: ${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:${{ steps.version.outputs.version }}
         run: pnpm artifact:build
 
-      - name: Push app image to GHCR
-        id: app_digest
-        run: |
-          TAG="${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:${{ steps.version.outputs.version }}"
-          docker push "$TAG"
-          # Resolve the registry digest after push.
-          REF="$(docker inspect --format '{{index .RepoDigests 0}}' "$TAG")"
-          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
-          echo "App image: ${REF}"
-
       # Build and push the PostgREST image (postgrest/postgrest:v14.5 + curl).
       - name: Build PostgREST image
         run: |
@@ -240,6 +218,57 @@ jobs:
             --build-arg POSTGREST_VERSION=v14.5 \
             --tag ${{ env.REGISTRY }}/${{ env.POSTGREST_IMAGE_NAME }}:v14.5 \
             docker/postgrest
+
+      - name: Export built images
+        run: |
+          docker save \
+            "${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:${{ steps.version.outputs.version }}" \
+            "${{ env.REGISTRY }}/${{ env.POSTGREST_IMAGE_NAME }}:v14.5" \
+            -o "$RUNNER_TEMP/production-images.tar"
+
+      - name: Transfer images to the isolated publisher
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-images
+          path: ${{ runner.temp }}/production-images.tar
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+
+  publish:
+    name: Publish images without running repository code
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    outputs:
+      app_image_ref: ${{ steps.app_digest.outputs.ref }}
+      postgrest_image_ref: ${{ steps.postgrest_digest.outputs.ref }}
+    steps:
+      - name: Download built images
+        uses: actions/download-artifact@v4
+        with:
+          name: production-images
+          path: ${{ runner.temp }}/images
+
+      - name: Load images without executing them
+        run: docker load -i "$RUNNER_TEMP/images/production-images.tar"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push app image to GHCR
+        id: app_digest
+        run: |
+          TAG="${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:${{ needs.build.outputs.artifact_version }}"
+          docker push "$TAG"
+          REF="$(docker inspect --format '{{index .RepoDigests 0}}' "$TAG")"
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
+          echo "App image: ${REF}"
 
       - name: Push PostgREST image to GHCR
         id: postgrest_digest
@@ -252,7 +281,7 @@ jobs:
 
   deploy:
     name: Deploy to VPS
-    needs: build
+    needs: [build, publish]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     environment: production
@@ -292,10 +321,25 @@ jobs:
             git checkout --detach "$ARTIFACT_VERSION"
 
             echo "==> Installing dependencies"
-            npm install --global pnpm@11.9.0
-            # Private @sheetbase-labs/* packages come from GitHub Packages.
-            printf '//npm.pkg.github.com/:_authToken=%s\n' "$GHCR_TOKEN" >> ~/.npmrc
-            NODE_AUTH_TOKEN="$GHCR_TOKEN" pnpm install --frozen-lockfile
+            npm install --global --ignore-scripts pnpm@11.9.0
+            CREDENTIALS_DIR="$(mktemp -d)"
+            trap 'rm -rf "$CREDENTIALS_DIR"' EXIT
+            export NPM_CONFIG_USERCONFIG="$CREDENTIALS_DIR/npmrc"
+            export DOCKER_CONFIG="$CREDENTIALS_DIR/docker"
+            printf '//npm.pkg.github.com/:_authToken=%s\n' "$GHCR_TOKEN" > "$NPM_CONFIG_USERCONFIG"
+            pnpm install --frozen-lockfile --ignore-scripts
+            : > "$NPM_CONFIG_USERCONFIG"
+
+            echo "==> Pulling deployment images"
+            printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USERNAME" --password-stdin
+            docker pull "$APP_IMAGE_REF"
+            docker pull "$POSTGREST_IMAGE_REF"
+            rm -rf "$DOCKER_CONFIG"
+            unset DOCKER_CONFIG
+            unset GHCR_TOKEN
+
+            echo "==> Rebuilding dependencies without registry credentials"
+            pnpm rebuild --pending
 
             echo "==> Loading production secrets"
             set -a
@@ -306,12 +350,6 @@ jobs:
             # Override the image references with the immutable digests from CI.
             export SHEETBASE_APP_IMAGE="$APP_IMAGE_REF"
             export SHEETBASE_POSTGREST_IMAGE="$POSTGREST_IMAGE_REF"
-
-            echo "==> Pulling deployment images"
-            printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USERNAME" --password-stdin
-            docker pull "$SHEETBASE_APP_IMAGE"
-            docker pull "$SHEETBASE_POSTGREST_IMAGE"
-            unset GHCR_TOKEN
 
             # Derive the artifact digest from the app image reference.
             export SHEETBASE_ARTIFACT_DIGEST="${APP_IMAGE_REF##*@}"
@@ -331,8 +369,8 @@ jobs:
             echo "==> Deployment complete"
             echo "Verify: https://app.sheetbase.co.uk/api/health/ready"
         env:
-          APP_IMAGE_REF: ${{ needs.build.outputs.app_image_ref }}
-          POSTGREST_IMAGE_REF: ${{ needs.build.outputs.postgrest_image_ref }}
+          APP_IMAGE_REF: ${{ needs.publish.outputs.app_image_ref }}
+          POSTGREST_IMAGE_REF: ${{ needs.publish.outputs.postgrest_image_ref }}
           ARTIFACT_VERSION: ${{ needs.build.outputs.artifact_version }}
           GHCR_USERNAME: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -22,6 +22,9 @@ concurrency:
   group: sdk-release
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   # SDK-03 compatibility gate: the support matrix and both SDKs must match
   # the committed public contract before any artifact is built.
@@ -32,11 +35,11 @@ jobs:
       contents: read
       # Read the private @sheetbase-labs/* packages from GitHub Packages.
       packages: read
-    env:
-      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -48,11 +51,10 @@ jobs:
         with:
           version: 11.9.0
 
-      - name: GitHub Packages auth
-        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        uses: ./.github/actions/install-private
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       # The OpenAPI contract and the Python SDK's generated layer are not
       # committed; build them once here and hand them to the SDK jobs.

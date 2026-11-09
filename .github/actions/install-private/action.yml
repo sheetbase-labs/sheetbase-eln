@@ -1,0 +1,23 @@
+name: Install private dependencies without lifecycle credentials
+description: Fetch locked packages with read-only credentials, then rebuild without them.
+inputs:
+  token:
+    description: GitHub token with packages read permission only
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Fetch dependencies without lifecycle scripts
+      shell: bash
+      env:
+        NODE_AUTH_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+        NPM_CONFIG_USERCONFIG="$(mktemp "$RUNNER_TEMP/sheetbase-npmrc.XXXXXX")"
+        export NPM_CONFIG_USERCONFIG
+        trap 'rm -f "$NPM_CONFIG_USERCONFIG"' EXIT
+        printf '//npm.pkg.github.com/:_authToken=%s\n' "$NODE_AUTH_TOKEN" > "$NPM_CONFIG_USERCONFIG"
+        pnpm install --frozen-lockfile --ignore-scripts
+    - name: Rebuild dependencies without registry credentials
+      shell: bash
+      run: pnpm rebuild --pending

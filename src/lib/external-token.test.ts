@@ -204,19 +204,26 @@ describe('requiredScopes', () => {
       ])
   })
 
-  it('does not let datasets:* or sheets:write author governed schema', () => {
-    const stewardship = [
+  it('needs schema scopes, not datasets:*, to author measurement tables', () => {
+    for (const resource of [
       'create_dataset_schema_definition',
       'replace_dataset_schema_version_fields',
-      'publish_dataset_schema_version',
       'create_next_dataset_schema_version',
+    ])
+      expect(requiredScopes('POST', { kind: 'rpc', resource })).toEqual([
+        'schema:write',
+      ])
+    for (const resource of [
+      'publish_dataset_schema_version',
       'retire_dataset_schema_definition',
-    ]
-    for (const resource of stewardship) {
-      expect(() => requiredScopes('POST', { kind: 'rpc', resource })).toThrow(
-        ExternalTokenError,
-      )
-    }
+      'apply_dataset_schema_evolution',
+    ])
+      expect(requiredScopes('POST', { kind: 'rpc', resource })).toEqual([
+        'schema:publish',
+      ])
+  })
+
+  it('does not let datasets:* or sheets:write write schema tables directly', () => {
     expect(
       requiredScopes('GET', { kind: 'table', resource: 'datasets' }),
     ).toEqual(['datasets:read'])

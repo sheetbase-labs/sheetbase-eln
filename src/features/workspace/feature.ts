@@ -6,6 +6,7 @@
  * pipelines and webhooks.
  */
 import { WORKSPACE_LAB_TABLES } from './api-tables'
+import { WORKSPACE_READ_TOOL_NAMES } from './cards'
 import { WORKSPACE_EVENTS, WORKSPACE_EVENT_LABELS } from './events'
 import { WORKSPACE_NOT_EXPOSED } from './exemptions'
 import { WORKSPACE_OPERATIONS } from './operations'
@@ -24,4 +25,5 @@ export const feature = defineFeature({
       /workspace_setup|starter_structures|join_domains|regulated_lab|cell_conflict/,
     beforeCore: true,
   },
+  assistantReadTools: WORKSPACE_READ_TOOL_NAMES,
 })

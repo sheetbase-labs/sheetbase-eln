@@ -3579,8 +3579,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     status: 'stable',
     introducedIn: 'lab-01',
     consumers: webhookSsePipeline,
-    notes:
-      'Payload carries key, name, identifierPrefix and lifecycle.',
+    notes: 'Payload carries key, name, identifierPrefix and lifecycle.',
   },
   {
     name: 'model.updated',
@@ -3641,13 +3640,13 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     status: 'stable',
     introducedIn: 'lab-01',
     consumers: webhookSsePipeline,
-    notes:
-      'Payload carries modelId and version.',
+    notes: 'Payload carries modelId and version.',
   },
   {
     name: 'model.version.published',
     family: 'administration',
-    summary: 'A version of a record type was published; its fields are now the live ones.',
+    summary:
+      'A version of a record type was published; its fields are now the live ones.',
     producer: {
       entityType: 'record_model_version',
       operation: 'update',
@@ -3657,8 +3656,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     status: 'stable',
     introducedIn: 'lab-01',
     consumers: webhookSsePipeline,
-    notes:
-      'Payload carries modelId and version.',
+    notes: 'Payload carries modelId and version.',
   },
   // -- declared with their operations (`#/lib/operations`) ---------------
   ...eventEntriesFrom(CORE_OPERATIONS, webhookSsePipeline),

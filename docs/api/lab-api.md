@@ -124,6 +124,26 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `code_cell_runs`               | Every run of a notebook code cell, kept with its code, the digests of the dataset versions it read, the first rows of the output and its digest, and the runtime it ran in (an image digest for Python). A run that reproduces another has `reproduces_run_id` and says whether the output `matches`.                                           |
 | `field_plugin_types`           | Which model fields have a plugin’s field type: the model (`kind`), the field, the plugin and the type id. The type adds a display and checks to the field; what the database stores does not change.                                                                                                                                            |
 | `gate_overrides`               | Someone went on past a gate that warns, with a reason: who, when, what the gate was and what was still missing. The reviewer sees these.                                                                                                                                                                                                        |
+| `study_workstreams`            | Study workstreams: the lanes of the study planner that group tasks.                                                                                                                                                                                                                                                                             |
+| `study_tasks`                  | Study planner tasks and milestones: what is planned, when, who it is linked to and whether it is shared with a client.                                                                                                                                                                                                                          |
+| `study_deliverables`           | Deliverables of a study task: what the task must produce and whether it is done.                                                                                                                                                                                                                                                                |
+| `study_task_dependencies`      | Dependencies between planner tasks: which task must finish (or start) before another.                                                                                                                                                                                                                                                           |
+| `study_task_assignments`       | Who a planner task is assigned to, with their role and effort.                                                                                                                                                                                                                                                                                  |
+| `study_task_resources`         | Instruments or rooms booked against a planner task.                                                                                                                                                                                                                                                                                             |
+| `study_task_due_changes`       | The history of a task’s due date moving, with the reason and whether the client was told.                                                                                                                                                                                                                                                       |
+| `study_plan_snapshots`         | Saved snapshots of a study’s whole plan, kept for the record.                                                                                                                                                                                                                                                                                   |
+| `study_experiments`            | Which experiments belong to a study.                                                                                                                                                                                                                                                                                                            |
+| `study_projects`               | Which projects take part in a study.                                                                                                                                                                                                                                                                                                            |
+| `milestone_risks`              | Milestone risk, worked out per task: open conditions, unfinished dependencies and whether it is late.                                                                                                                                                                                                                                           |
+| `analysis_views`               | Saved Analysis Studio views: a set of charts over chosen data, with the data versions they were made from.                                                                                                                                                                                                                                      |
+| `analysis_view_versions`       | Every saved version of an analysis view.                                                                                                                                                                                                                                                                                                        |
+| `analysis_definitions`         | Saved analysis definitions: a reusable analysis with the data revisions it was made from.                                                                                                                                                                                                                                                       |
+| `report_definitions`           | Reports: a title, status and the sections that make it up.                                                                                                                                                                                                                                                                                      |
+| `report_sections`              | The sections of a report and where each one gets its content.                                                                                                                                                                                                                                                                                   |
+| `report_generations`           | Every time a report was generated, with its checksum and output (`output_html` can be large).                                                                                                                                                                                                                                                   |
+| `plate_designs`                | Plate designs: a plate layout drawn ahead of the run.                                                                                                                                                                                                                                                                                           |
+| `plate_layout_templates`       | Reusable plate layouts.                                                                                                                                                                                                                                                                                                                         |
+| `plate_wells`                  | The wells of a plate design: role, sample and amounts.                                                                                                                                                                                                                                                                                          |
 
 ## Actions
 
@@ -1813,3 +1833,584 @@ Scope: `lab:read`.
 | Argument          | Type |                     |
 | ----------------- | ---- | ------------------- |
 | `p_compound_id` * | uuid | The compound entry. |
+
+### `create_study`
+
+Create a study. Creates a study: a record that groups projects and experiments and carries the plan. Returns the study record.
+
+Scope: `lab:write`.
+
+| Argument            | Type |                                    |
+| ------------------- | ---- | ---------------------------------- |
+| `p_workspace_id` *  | uuid | Your workspace id.                 |
+| `p_title` *         | text | Title.                             |
+| `p_home_project_id` | uuid |                                    |
+| `p_summary`         | text | One-line summary.                  |
+| `p_starts_on`       | date | First date (YYYY-MM-DD).           |
+| `p_ends_on`         | date | Last date (YYYY-MM-DD).            |
+| `p_custom_fields`   | json | Field values, keyed by field name. |
+
+### `edit_study`
+
+Change a study. Changes a study’s title, status, summary, dates or custom fields. Returns the study record.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                                                                |
+| ------------------------------- | ---- | ---------------------------------------------------------------------------------------------- |
+| `p_study_record_id` *           | uuid |                                                                                                |
+| `p_expected_metadata_version` * | int  | The version of the study you last read. A change made since is refused instead of overwritten. |
+| `p_title` *                     | text | Title.                                                                                         |
+| `p_status` *                    | text | New status.                                                                                    |
+| `p_summary` *                   | text | One-line summary.                                                                              |
+| `p_starts_on` *                 | date | First date (YYYY-MM-DD).                                                                       |
+| `p_ends_on` *                   | date | Last date (YYYY-MM-DD).                                                                        |
+| `p_custom_fields` *             | json | Field values, keyed by field name.                                                             |
+
+### `link_study_experiment`
+
+Add an experiment to a study. Makes an experiment part of a study. `p_relationship` is `member` by default. Returns the link.
+
+Scope: `lab:write`.
+
+| Argument                   | Type |     |
+| -------------------------- | ---- | --- |
+| `p_study_record_id` *      | uuid |     |
+| `p_experiment_record_id` * | uuid |     |
+| `p_relationship`           | text |     |
+
+### `link_study_project`
+
+Add a project to a study. Makes a project take part in a study. `p_relationship` is `participating` by default. Returns the link.
+
+Scope: `lab:write`.
+
+| Argument              | Type |             |
+| --------------------- | ---- | ----------- |
+| `p_study_record_id` * | uuid |             |
+| `p_project_id` *      | uuid | Project id. |
+| `p_relationship`      | text |             |
+
+### `create_study_workstream`
+
+Create a workstream. Adds a lane to the study planner that groups tasks. Returns the workstream.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                |
+| ------------------ | ---- | ---------------------------------------------- |
+| `p_workspace_id` * | uuid | Your workspace id.                             |
+| `p_name` *         | text | Name.                                          |
+| `p_project_id`     | uuid | Project id.                                    |
+| `p_color`          | text |                                                |
+| `p_position`       | int  | Where it sits in the series. Omit for the end. |
+
+### `create_study_task`
+
+Create a planner task. Adds a task or milestone to the study planner. `p_task_type` is `task` (default) or `milestone`; `p_status` is `not_started` by default and `p_priority` `medium`. Returns the task. Sends `study.task.created`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type   |                                                        |
+| ------------------------------- | ------ | ------------------------------------------------------ |
+| `p_workspace_id` *              | uuid   | Your workspace id.                                     |
+| `p_title` *                     | text   | Title.                                                 |
+| `p_task_type`                   | text   |                                                        |
+| `p_workstream_id`               | uuid   |                                                        |
+| `p_project_id`                  | uuid   | Project id.                                            |
+| `p_description`                 | text   | A description.                                         |
+| `p_status`                      | text   | New status.                                            |
+| `p_priority`                    | text   |                                                        |
+| `p_starts_at`                   | ts     |                                                        |
+| `p_ends_at`                     | ts     |                                                        |
+| `p_due_at`                      | ts     | When it is wanted by (an ISO date and time). Optional. |
+| `p_linked_experiment_record_id` | uuid   |                                                        |
+| `p_linked_protocol_record_id`   | uuid   |                                                        |
+| `p_tags`                        | text[] |                                                        |
+
+### `edit_study_task`
+
+Change a planner task. Changes a task or milestone: title, description, status (`not_started`, `in_progress`, `blocked`, `done`, `cancelled`), priority, dates, progress, links or tags. Leave a field out to keep it. To move a due date that people have been told about, use `move_study_task_due`, which keeps the reason. Returns the task. Sends `study.task.updated`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type   |                                                                                               |
+| ------------------------------- | ------ | --------------------------------------------------------------------------------------------- |
+| `p_task_id` *                   | uuid   |                                                                                               |
+| `p_title`                       | text   | Title.                                                                                        |
+| `p_description`                 | text   | A description.                                                                                |
+| `p_task_type`                   | text   |                                                                                               |
+| `p_status`                      | text   | New status.                                                                                   |
+| `p_priority`                    | text   |                                                                                               |
+| `p_starts_at`                   | ts     |                                                                                               |
+| `p_ends_at`                     | ts     |                                                                                               |
+| `p_due_at`                      | ts     | When it is wanted by (an ISO date and time). Optional.                                        |
+| `p_workstream_id`               | text   |                                                                                               |
+| `p_project_id`                  | uuid   | Project id.                                                                                   |
+| `p_progress_percent`            | int    |                                                                                               |
+| `p_linked_experiment_record_id` | uuid   |                                                                                               |
+| `p_linked_protocol_record_id`   | uuid   |                                                                                               |
+| `p_tags`                        | text[] |                                                                                               |
+| `p_expected_metadata_version`   | int    | The version of the task you last read. A change made since is refused instead of overwritten. |
+
+### `delete_study_task`
+
+Delete a planner task. Removes a task or milestone from the planner, with its deliverables and dependencies. Sends `study.task.deleted`.
+
+Scope: `lab:write`.
+
+| Argument      | Type |     |
+| ------------- | ---- | --- |
+| `p_task_id` * | uuid |     |
+
+### `move_study_task_due`
+
+Move a planner task’s due date. Moves the due date and keeps the reason in the task’s history. `p_notify_client` tells the client when the task is shared with them. Returns the task. Sends `study.task.updated`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                                                               |
+| ------------------------------- | ---- | --------------------------------------------------------------------------------------------- |
+| `p_task_id` *                   | uuid |                                                                                               |
+| `p_expected_metadata_version` * | int  | The version of the task you last read. A change made since is refused instead of overwritten. |
+| `p_due_at` *                    | ts   | When it is wanted by (an ISO date and time). Optional.                                        |
+| `p_reason` *                    | text | Why, in a sentence.                                                                           |
+| `p_notify_client`               | bool |                                                                                               |
+
+### `set_study_task_client_visible`
+
+Share a planner task with a client. Shows or hides a task on the client portal, with an optional reason. Returns the task.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                                                               |
+| ------------------------------- | ---- | --------------------------------------------------------------------------------------------- |
+| `p_task_id` *                   | uuid |                                                                                               |
+| `p_expected_metadata_version` * | int  | The version of the task you last read. A change made since is refused instead of overwritten. |
+| `p_client_visible` *            | bool |                                                                                               |
+| `p_reason`                      | text | Why, in a sentence.                                                                           |
+
+### `create_dependency`
+
+Add a dependency between planner tasks. Makes the successor wait for the predecessor. `p_dependency_type` is `finish_to_start` (default), `start_to_start`, `finish_to_finish` or `start_to_finish`; `p_lag_days` adds a gap. Returns the dependency.
+
+Scope: `lab:write`.
+
+| Argument             | Type |                    |
+| -------------------- | ---- | ------------------ |
+| `p_workspace_id` *   | uuid | Your workspace id. |
+| `p_predecessor_id` * | uuid |                    |
+| `p_successor_id` *   | uuid |                    |
+| `p_dependency_type`  | text |                    |
+| `p_lag_days`         | int  |                    |
+| `p_is_external`      | bool |                    |
+
+### `delete_dependency`
+
+Remove a dependency between planner tasks. Removes the dependency.
+
+Scope: `lab:write`.
+
+| Argument            | Type |     |
+| ------------------- | ---- | --- |
+| `p_dependency_id` * | uuid |     |
+
+### `assign_task_resource`
+
+Book a resource for a planner task. Reserves an instrument or room for a planner task between two times. Returns the reservation.
+
+Scope: `lab:write`.
+
+| Argument                   | Type |                    |
+| -------------------------- | ---- | ------------------ |
+| `p_workspace_id` *         | uuid | Your workspace id. |
+| `p_task_id` *              | uuid |                    |
+| `p_calendar_resource_id` * | uuid |                    |
+| `p_starts_at` *            | ts   |                    |
+| `p_ends_at` *              | ts   |                    |
+| `p_notes`                  | text | Notes.             |
+
+### `create_study_deliverable`
+
+Add a deliverable to a planner task. Adds something the task must produce. `p_status` is `planned` by default. Returns `{ id, taskId, name, status, dueAt, position }`. Sends `study.deliverable.created`.
+
+Scope: `lab:write`.
+
+| Argument        | Type |                                                        |
+| --------------- | ---- | ------------------------------------------------------ |
+| `p_task_id` *   | uuid |                                                        |
+| `p_name` *      | text | Name.                                                  |
+| `p_description` | text | A description.                                         |
+| `p_status`      | text | New status.                                            |
+| `p_due_at`      | ts   | When it is wanted by (an ISO date and time). Optional. |
+
+### `update_study_deliverable`
+
+Change a planner deliverable. Changes a deliverable’s name, description, status or due date. Leave a field out to keep it. Returns the deliverable. Sends `study.deliverable.updated`.
+
+Scope: `lab:write`.
+
+| Argument        | Type |                                                        |
+| --------------- | ---- | ------------------------------------------------------ |
+| `p_id` *        | uuid |                                                        |
+| `p_name`        | text | Name.                                                  |
+| `p_description` | text | A description.                                         |
+| `p_status`      | text | New status.                                            |
+| `p_due_at`      | ts   | When it is wanted by (an ISO date and time). Optional. |
+
+### `reorder_study_deliverables`
+
+Reorder planner deliverables. Puts a task’s deliverables in the order given.
+
+Scope: `lab:write`.
+
+| Argument      | Type   |     |
+| ------------- | ------ | --- |
+| `p_task_id` * | uuid   |     |
+| `p_ids` *     | uuid[] |     |
+
+### `link_study_deliverable_evidence`
+
+Attach evidence to a planner deliverable. Links the experiment or record that shows the deliverable was met. Returns the deliverable.
+
+Scope: `lab:write`.
+
+| Argument        | Type |            |
+| --------------- | ---- | ---------- |
+| `p_id` *        | uuid |            |
+| `p_record_id` * | uuid | Record id. |
+
+### `snapshot_study_plan`
+
+Snapshot a study’s plan. Saves the whole plan of a study as it stands, with a checksum, so a later change can be compared with it. Returns the snapshot. Sends `study.plan.snapshotted`.
+
+Scope: `lab:write`.
+
+| Argument              | Type |                     |
+| --------------------- | ---- | ------------------- |
+| `p_study_record_id` * | uuid |                     |
+| `p_reason`            | text | Why, in a sentence. |
+
+### `create_report_definition`
+
+Create a report. Starts a report, optionally in a project and from a template. Returns the report. Sends `report.created`.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                    |
+| ---------------------- | ---- | ------------------ |
+| `p_workspace_id` *     | uuid | Your workspace id. |
+| `p_title` *            | text | Title.             |
+| `p_subtitle`           | text |                    |
+| `p_project_id`         | uuid | Project id.        |
+| `p_template_record_id` | uuid |                    |
+
+### `update_report_definition`
+
+Change a report. Changes a report’s title, subtitle, status or template. Leave a field out to keep it. Returns the report. Sends `report.updated`.
+
+Scope: `lab:write`.
+
+| Argument                 | Type |                    |
+| ------------------------ | ---- | ------------------ |
+| `p_workspace_id` *       | uuid | Your workspace id. |
+| `p_report_id` *          | uuid |                    |
+| `p_title`                | text | Title.             |
+| `p_subtitle`             | text |                    |
+| `p_status`               | text | New status.        |
+| `p_template_record_id`   | uuid |                    |
+| `p_review_submission_id` | uuid |                    |
+
+### `add_report_section`
+
+Add a report section. Adds a section to the end of a report. `p_section_type` is `text` by default; `p_source_type` says where the content comes from (`free_text` by default). Returns the section.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                    |
+| ------------------ | ---- | ------------------ |
+| `p_workspace_id` * | uuid | Your workspace id. |
+| `p_report_id` *    | uuid |                    |
+| `p_title` *        | text | Title.             |
+| `p_description`    | text | A description.     |
+| `p_section_type`   | text |                    |
+| `p_source_type`    | text |                    |
+
+### `update_report_section`
+
+Change a report section. Changes a section’s title, description, type or position. Leave a field out to keep it. Returns the section.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                |
+| ------------------ | ---- | ---------------------------------------------- |
+| `p_workspace_id` * | uuid | Your workspace id.                             |
+| `p_section_id` *   | uuid |                                                |
+| `p_title`          | text | Title.                                         |
+| `p_description`    | text | A description.                                 |
+| `p_section_type`   | text |                                                |
+| `p_position`       | int  | Where it sits in the series. Omit for the end. |
+
+### `bind_report_section_source`
+
+Bind a report section to its source. Fills a section from a saved revision (a chart, table or analysis), so the report always shows that exact data. `p_source_ref` says which part. Returns the section.
+
+Scope: `lab:write`.
+
+| Argument                 | Type |                    |
+| ------------------------ | ---- | ------------------ |
+| `p_workspace_id` *       | uuid | Your workspace id. |
+| `p_section_id` *         | uuid |                    |
+| `p_source_revision_id` * | uuid |                    |
+| `p_source_ref`           | json |                    |
+
+### `remove_report_section`
+
+Remove a report section. Takes a section out of a report.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                    |
+| ------------------ | ---- | ------------------ |
+| `p_workspace_id` * | uuid | Your workspace id. |
+| `p_section_id` *   | uuid |                    |
+
+### `reorder_report_sections`
+
+Reorder report sections. Puts the sections in the order given: `p_section_ids` is a JSON array of section ids.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                    |
+| ------------------ | ---- | ------------------ |
+| `p_workspace_id` * | uuid | Your workspace id. |
+| `p_report_id` *    | uuid |                    |
+| `p_section_ids` *  | json |                    |
+
+### `validate_report`
+
+Check a report. Checks every section: whether its source still exists and is unchanged. Returns the findings; nothing is changed.
+
+Scope: `lab:read`.
+
+| Argument           | Type |                    |
+| ------------------ | ---- | ------------------ |
+| `p_workspace_id` * | uuid | Your workspace id. |
+| `p_report_id` *    | uuid |                    |
+
+### `generate_report`
+
+Generate a report. Builds the report from its sections as they stand now and keeps the result with a checksum. `p_output_format` is `html` by default. Returns the generation. Sends `report.generated`.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                    |
+| ------------------ | ---- | ------------------ |
+| `p_workspace_id` * | uuid | Your workspace id. |
+| `p_report_id` *    | uuid |                    |
+| `p_output_format`  | text |                    |
+
+### `create_plate_design`
+
+Create a plate design. Starts a plate layout. `p_format` is `96_well` by default (`6_well` to `1536_well`), with `p_rows` and `p_cols` to match. Returns the design. Sends `plate_design.created`.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                                           |
+| ------------------ | ---- | ------------------------------------------------------------------------- |
+| `p_workspace_id` * | uuid | Your workspace id.                                                        |
+| `p_name` *         | text | Name.                                                                     |
+| `p_project_id`     | uuid | Project id.                                                               |
+| `p_format`         | text | Plate format, such as `96_well` or `384_well`; or a worklist file format. |
+| `p_rows`           | int  | JSON array of rows about to be committed.                                 |
+| `p_cols`           | int  |                                                                           |
+| `p_validation`     | json |                                                                           |
+
+### `save_plate_design`
+
+Save a plate design. Replaces the wells of a design. `p_wells` is a JSON array of `{ wellCode, role, sampleId, sampleLabel, concentration, concentrationUnit, volumeUl }`. Returns the design. Sends `plate_design.updated`.
+
+Scope: `lab:write`.
+
+| Argument                      | Type |                                                                                                        |
+| ----------------------------- | ---- | ------------------------------------------------------------------------------------------------------ |
+| `p_design_id` *               | uuid | Plate design the layout came from.                                                                     |
+| `p_wells` *                   | json | JSON array of `{ wellCode, role, sampleId, sampleLabel, concentration, concentrationUnit, volumeUl }`. |
+| `p_validation`                | json |                                                                                                        |
+| `p_expected_metadata_version` | int  | The version of the design you last read. A change made since is refused instead of overwritten.        |
+
+### `archive_plate_design`
+
+Archive a plate design. Archives a design so it no longer shows in lists. Returns the design. Sends `plate_design.updated`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                                                                 |
+| ------------------------------- | ---- | ----------------------------------------------------------------------------------------------- |
+| `p_design_id` *                 | uuid | Plate design the layout came from.                                                              |
+| `p_expected_metadata_version` * | int  | The version of the design you last read. A change made since is refused instead of overwritten. |
+
+### `save_plate_layout_template`
+
+Save a plate layout template. Saves a layout others can start from. Give `p_template_id` to change one. Returns the template. Sends `plate_layout_template.created` or `plate_layout_template.updated`.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                                           |
+| ------------------ | ---- | ------------------------------------------------------------------------- |
+| `p_workspace_id` * | uuid | Your workspace id.                                                        |
+| `p_name` *         | text | Name.                                                                     |
+| `p_description`    | text | A description.                                                            |
+| `p_format`         | text | Plate format, such as `96_well` or `384_well`; or a worklist file format. |
+| `p_rows`           | int  | JSON array of rows about to be committed.                                 |
+| `p_cols`           | int  |                                                                           |
+| `p_layout`         | json |                                                                           |
+| `p_template_id`    | uuid |                                                                           |
+
+### `save_analysis_view`
+
+Save an analysis view. Creates a view (leave `p_id` out) or saves a new version of one you own. `p_charts` is a JSON list of one to eight chart specifications and `p_source_revisions` the data versions it was made from, so the view can be reproduced. Returns the view. Sends `analysis_view.created` or `analysis_view.updated`.
+
+Scope: `lab:write`.
+
+| Argument               | Type |       |
+| ---------------------- | ---- | ----- |
+| `p_id`                 | uuid |       |
+| `p_name` *             | text | Name. |
+| `p_charts` *           | json |       |
+| `p_source_revisions` * | json |       |
+| `p_export_settings`    | json |       |
+
+### `delete_analysis_view`
+
+Delete an analysis view. Deletes a view you own. A view a notebook cites cannot be deleted. Sends `analysis_view.deleted`.
+
+Scope: `lab:write`.
+
+| Argument | Type |     |
+| -------- | ---- | --- |
+| `p_id` * | uuid |     |
+
+### `save_analysis_definition`
+
+Save an analysis definition. Creates a reusable analysis (leave `p_id` out) or saves a new version of one you own. Returns the definition.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                                                                   |
+| ---------------------- | ---- | --------------------------------------------------------------------------------- |
+| `p_id`                 | uuid |                                                                                   |
+| `p_name` *             | text | Name.                                                                             |
+| `p_definition` *       | json | JSON workflow definition: name, description, sample type, stages and transitions. |
+| `p_source_revisions` * | json |                                                                                   |
+
+### `delete_analysis_definition`
+
+Delete an analysis definition. Deletes a definition you own.
+
+Scope: `lab:write`.
+
+| Argument | Type |     |
+| -------- | ---- | --- |
+| `p_id` * | uuid |     |
+
+### `compose_analysis_definition`
+
+Compose an analysis definition from a chart. Combines a saved chart view with a statistic definition into a named analysis definition. Returns the definition.
+
+Scope: `lab:write`.
+
+| Argument                      | Type |       |
+| ----------------------------- | ---- | ----- |
+| `p_chart_view_id` *           | uuid |       |
+| `p_statistic_definition_id` * | uuid |       |
+| `p_name` *                    | text | Name. |
+
+### `analysis_view_source_status`
+
+Check an analysis view’s sources. For each data version the view was made from, whether a newer one exists. Returns the findings; nothing is changed.
+
+Scope: `lab:read`.
+
+| Argument      | Type |     |
+| ------------- | ---- | --- |
+| `p_view_id` * | uuid |     |
+
+### `analysis_view_citations`
+
+List where an analysis view is cited. The notebooks that cite the view, and whether each is locked. Returns the list.
+
+Scope: `lab:read`.
+
+| Argument      | Type |     |
+| ------------- | ---- | --- |
+| `p_view_id` * | uuid |     |
+
+### `resolve_analysis_view_sources`
+
+Resolve newer data behind an analysis view. `p_resolution` is `keep` (stay on the pinned versions, with a `p_justification`) or `update` (move to the newest). Returns the new status.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                                                               |
+| ------------------------------- | ---- | --------------------------------------------------------------------------------------------- |
+| `p_view_id` *                   | uuid |                                                                                               |
+| `p_expected_metadata_version` * | int  | The version of the view you last read. A change made since is refused instead of overwritten. |
+| `p_resolution` *                | text |                                                                                               |
+| `p_justification`               | text |                                                                                               |
+
+### `freeze_chart`
+
+Freeze a chart. Fixes a chart block to the data it shows now, so later data cannot change it. Returns the block.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                                     |
+| ---------------------- | ---- | --------------------------------------------------- |
+| `p_block_id` *         | uuid | The protocol step block (a `procedure_step` block). |
+| `p_expected_version` * | int  |                                                     |
+
+### `unfreeze_chart`
+
+Unfreeze a chart. Lets a frozen chart block follow its data again. Returns the block.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                                     |
+| ---------------------- | ---- | --------------------------------------------------- |
+| `p_block_id` *         | uuid | The protocol step block (a `procedure_step` block). |
+| `p_expected_version` * | int  |                                                     |
+
+### `bind_chart_revision`
+
+Bind a chart to a revision. Makes a chart block show one saved revision of its data. Returns the block.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                                     |
+| ---------------------- | ---- | --------------------------------------------------- |
+| `p_block_id` *         | uuid | The protocol step block (a `procedure_step` block). |
+| `p_revision_id` *      | uuid |                                                     |
+| `p_expected_version` * | int  |                                                     |
+
+### `freeze_analysis_block`
+
+Freeze an analysis block. Fixes an analysis block to the data it shows now. Returns the block.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                                     |
+| ---------------------- | ---- | --------------------------------------------------- |
+| `p_block_id` *         | uuid | The protocol step block (a `procedure_step` block). |
+| `p_expected_version` * | int  |                                                     |
+
+### `unfreeze_analysis_block`
+
+Unfreeze an analysis block. Lets a frozen analysis block follow its data again. Returns the block.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                                     |
+| ---------------------- | ---- | --------------------------------------------------- |
+| `p_block_id` *         | uuid | The protocol step block (a `procedure_step` block). |
+| `p_expected_version` * | int  |                                                     |

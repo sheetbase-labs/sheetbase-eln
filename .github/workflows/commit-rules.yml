@@ -1,0 +1,35 @@
+name: Commit rules
+
+# Commits, PR titles and bodies follow Conventional Commits and carry no
+# assistant credit; branches are not named claude/. Separate from CI so an
+# edit to the PR title or body re-runs only this check. Needs no install.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: commit-rules-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  commit-rules:
+    name: Commit rules
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Check commits, title, body and branch
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_HEAD: ${{ github.event.pull_request.head.ref }}
+        run: node scripts/check-commits.mjs "origin/${{ github.base_ref }}"

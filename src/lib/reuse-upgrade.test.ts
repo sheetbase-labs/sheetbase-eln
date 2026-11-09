@@ -94,6 +94,7 @@ describe('notebookTemplateUpgradeAvailability', () => {
         { id: TARGET_VERSION_ID, version: 2, lifecycle: 'published' },
       ],
     )
+
     expect(result).toEqual({
       status: 'upgrade-available',
       latestVersion: { id: TARGET_VERSION_ID, version: 2 },
@@ -121,6 +122,7 @@ describe('notebookTemplateUpgradeAvailability', () => {
         { id: 'v2-id', version: 2, lifecycle: 'published' },
       ],
     )
+
     expect(result).toEqual({
       status: 'upgrade-available',
       latestVersion: { id: 'v2-id', version: 2 },
@@ -151,6 +153,7 @@ describe('sheetDefinitionUpgradeAvailability', () => {
     const compositionPins = [
       { placementId: PLACEMENT_ID, definitionVersionId: SOURCE_VERSION_ID },
     ]
+
     const statuses = compositionPins.map((pin) =>
       sheetDefinitionUpgradeAvailability(
         { id: pin.definitionVersionId, version: 1 },
@@ -160,6 +163,7 @@ describe('sheetDefinitionUpgradeAvailability', () => {
         ],
       ),
     )
+
     expect(statuses).toEqual([
       {
         status: 'upgrade-available',
@@ -206,6 +210,7 @@ describe('summarizeSheetDefinitionUpgradeImpact', () => {
         },
       }),
     )
+
     expect(summary.title).toBe('Definition v1 → v2')
     expect(summary.lines).toContain('Parameters: 1 added, 1 removed')
     expect(summary.lines).toContain('Columns: 1 added, 1 removed')
@@ -236,6 +241,7 @@ describe('summarizeSheetDefinitionUpgradeImpact', () => {
         ],
       }),
     )
+
     expect(summary.lines).toContain('Parameters: 1 newly required parameter')
     expect(summary.localEffects).toContain(
       '1 conflict references local state — check each decision.',
@@ -287,6 +293,7 @@ describe('summarizeNotebookTemplateUpgradeImpact', () => {
         ],
       }),
     )
+
     expect(summary.lines).toContain('Placements: 1 added')
     expect(summary.lines).toContain(
       '1 part re-pins cleanly to a newer Definition version',
@@ -306,11 +313,13 @@ describe('summarizeNotebookTemplateUpgradeImpact', () => {
 describe('explicit adoption', () => {
   it('records old/new Definition versions for a Sheet adoption', () => {
     const preview = sheetPreview({ conflicts: [sheetConflict()] })
+
     const adoption = buildSheetDefinitionUpgradeAdoption({
       preview,
       targetVersionId: TARGET_VERSION_ID,
       decisions: [{ conflictId: CONFLICT_ID, outcome: 'defer' }],
     })
+
     expect(adoption).toEqual({
       sourceDefinitionVersionId: SOURCE_VERSION_ID,
       targetDefinitionVersionId: TARGET_VERSION_ID,
@@ -338,11 +347,13 @@ describe('explicit adoption', () => {
 
   it('records old/new Template versions for a Notebook adoption', () => {
     const preview = notebookPreview()
+
     const adoption = buildNotebookTemplateUpgradeAdoption({
       preview,
       targetVersionId: TARGET_VERSION_ID,
       decisions: [],
     })
+
     expect(adoption).toEqual({
       sourceVersionId: SOURCE_VERSION_ID,
       targetVersionId: TARGET_VERSION_ID,

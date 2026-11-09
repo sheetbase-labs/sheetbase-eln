@@ -18,11 +18,14 @@ const data = vi.hoisted(() => ({
   createRecordComment: vi.fn(async (..._args: unknown[]) => ({})),
   replyToComment: vi.fn(async (..._args: unknown[]) => ({})),
 }))
+
 vi.mock('#/lib/comments-data', async (original) => ({
   ...(await original<typeof CommentsData>()),
   ...data,
 }))
+
 vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
+
 vi.mock('#/lib/workspace-admin', async (original) => ({
   ...(await original<typeof WorkspaceAdmin>()),
   fetchWorkspaceMembers: vi.fn(async () => [
@@ -31,6 +34,7 @@ vi.mock('#/lib/workspace-admin', async (original) => ({
     { userId: 'u-bo', suspendedAt: null },
   ]),
 }))
+
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({
     names: { 'u-me': 'Me Myself', 'u-ada': 'Ada Lovelace', 'u-bo': 'Bo Peep' },
@@ -70,6 +74,7 @@ function renderPanel(props: { blockId?: string } = {}) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <CommentPanel
@@ -89,9 +94,11 @@ describe('notebook comments', () => {
     data.fetchCommentsForRecord.mockResolvedValue([])
     const user = userEvent.setup()
     renderPanel({})
+
     const box = await screen.findByRole('combobox', {
       name: 'New comment body',
     })
+
     await user.type(box, 'Can @ada')
     await user.click(
       await screen.findByRole('option', { name: 'Ada Lovelace' }),

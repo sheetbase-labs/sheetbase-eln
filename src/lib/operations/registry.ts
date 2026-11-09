@@ -42,33 +42,42 @@ const RESERVED = new Set(['__proto__', 'constructor', 'prototype'])
 /** Why a descriptor cannot be registered, or an empty list when it can. */
 export function validateOperation(op: OperationDescriptor): string[] {
   const errors: string[] = []
+
   if (!OPERATION_NAME.test(op.name) || RESERVED.has(op.name))
     errors.push(`${op.name}: names are lower case letters, digits and _`)
+
   if (!op.label.trim()) errors.push(`${op.name}: a label is required`)
+
   if (!op.description.trim())
     errors.push(`${op.name}: a description is required`)
+
   if (op.assistant && !TOOL_NAME.test(op.assistant.tool))
     errors.push(`${op.name}: tool names look like sheetbase.area.verb`)
   const seen = new Set<string>()
+
   for (const field of op.inputs) {
     if (!/^[a-z][a-z0-9_]*$/.test(field.name) || seen.has(field.name))
       errors.push(`${op.name}: input ${field.name} is not a unique name`)
     seen.add(field.name)
   }
+
   if (op.scope && op.scope.endsWith(':read') !== (op.kind === 'read'))
     errors.push(
       `${op.name}: a read needs a :read scope, a write one that is not`,
     )
+
   if (
     op.assistant &&
     op.assistant.presentation === 'answer' &&
     op.kind === 'write'
   )
     errors.push(`${op.name}: a write cannot be answered without a card`)
+
   return errors
 }
 
 const registered = new Map<string, readonly OperationDescriptor[]>()
+
 const key = (source: string, workspaceId?: string) =>
   `${workspaceId ?? '*'}\u0000${source}`
 
@@ -85,22 +94,31 @@ export function registerOperations(
 ): () => void {
   const taken = new Set<string>()
   const tools = new Set<string>()
+
   for (const op of listOperations(workspaceId)) {
     taken.add(op.name)
+
     if (op.assistant) tools.add(op.assistant.tool)
   }
+
   const errors: string[] = []
+
   for (const op of operations) {
     errors.push(...validateOperation(op))
+
     if (taken.has(op.name)) errors.push(`${op.name}: already declared`)
+
     if (op.assistant && tools.has(op.assistant.tool))
       errors.push(`${op.name}: tool ${op.assistant.tool} is already declared`)
     taken.add(op.name)
+
     if (op.assistant) tools.add(op.assistant.tool)
   }
+
   if (errors.length > 0) throw new Error(errors.join('; '))
   const stamped = operations.map((op) => Object.freeze({ ...op, source }))
   registered.set(key(source, workspaceId), stamped)
+
   return () => unregisterOperations(source, workspaceId)
 }
 
@@ -114,10 +132,13 @@ export function unregisterOperations(
 /** The built-in operations plus those registered for this workspace. */
 export function listOperations(workspaceId?: string): OperationDescriptor[] {
   const extra: OperationDescriptor[] = []
+
   for (const [k, ops] of registered) {
     const scope = k.slice(0, k.indexOf('\u0000'))
+
     if (scope === '*' || scope === workspaceId) extra.push(...ops)
   }
+
   return [...CORE_OPERATIONS, ...extra]
 }
 

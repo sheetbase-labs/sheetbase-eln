@@ -45,6 +45,7 @@ export function PageHeader({
   const Title = `h${titleLevel}` as 'h1'
   const ref = useRef<HTMLElement>(null)
   const collapsed = useCollapsedOnScroll(ref, compact)
+
   return (
     <header
       ref={ref}
@@ -145,6 +146,7 @@ function useCollapsedOnScroll(
   const [collapsed, setCollapsed] = useState(false)
   useEffect(() => {
     const root = header.current?.parentElement
+
     if (!enabled || !root) return
     const last = new WeakMap<EventTarget, number>()
     // Folding the header changes the height of the page under it, which moves
@@ -152,35 +154,45 @@ function useCollapsedOnScroll(
     // not the person scrolling, so they are ignored for a moment after each
     // change; otherwise the header can fold and unfold in a loop.
     let settledAt = 0
+
     const change = (next: boolean) => {
       settledAt = Date.now() + 350
       setCollapsed(next)
     }
+
     const typing = () => {
       const active = document.activeElement
+
       return (
         active instanceof HTMLElement &&
         (active.isContentEditable ||
           /^(input|textarea|select)$/i.test(active.tagName))
       )
     }
+
     const onScroll = (event: Event) => {
       const target = event.target
+
       if (!(target instanceof HTMLElement) || header.current?.contains(target))
         return
       const top = target.scrollTop
       const previous = last.get(target) ?? 0
       last.set(target, top)
+
       // While writing, the page scrolls to keep the caret in view; the header
       // stays as it is rather than moving under the person's hands.
       if (typing() || Date.now() < settledAt) return
+
       if (top < 24) change(false)
       else if (top - previous > 6 && top > 96) change(true)
       else if (previous - top > 6) change(false)
     }
+
     root.addEventListener('scroll', onScroll, { capture: true, passive: true })
+
     return () => root.removeEventListener('scroll', onScroll, { capture: true })
   }, [header, enabled])
+
   return enabled && collapsed
 }
 
@@ -209,10 +221,12 @@ export function Inspector({
 }) {
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
+
   function setOpen(next: boolean) {
     setInternalOpen(next)
     onOpenChange?.(next)
   }
+
   return (
     <>
       <aside
@@ -251,6 +265,7 @@ export function Inspector({
     </>
   )
 }
+
 export function InspectorSection({
   title,
   children,

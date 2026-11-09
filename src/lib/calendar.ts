@@ -16,9 +16,13 @@ import { dateTimeFormat } from './intl-cache'
 // ---------------------------------------------------------------------------
 
 export type CalendarResourceType = 'instrument' | 'room' | 'equipment'
+
 export type CalendarResourceStatus = 'active' | 'inactive'
+
 export type CalendarBookingStatus = 'tentative' | 'confirmed' | 'cancelled'
+
 export type CalendarParticipantRole = 'owner' | 'participant'
+
 export type CalendarView = 'day' | 'week' | 'month'
 
 export interface CalendarResourceWire {
@@ -328,6 +332,7 @@ export async function fetchCalendarResources(
     'calendar_resources',
     `?workspace_id=eq.${encodeURIComponent(workspaceId)}&order=name`,
   )
+
   return rows.map(toCalendarResource)
 }
 
@@ -345,6 +350,7 @@ export async function fetchCalendarInstruments(
       `&workspace_id=eq.${encodeURIComponent(workspaceId)}` +
       `&order=position.asc,name.asc`,
   )
+
   return rows.map(toCalendarInstrument)
 }
 
@@ -383,6 +389,7 @@ export async function fetchBookingParticipants(
     'calendar_booking_participants',
     `?booking_id=eq.${encodeURIComponent(bookingId)}&order=role,created_at`,
   )
+
   return rows.map(toCalendarParticipant)
 }
 
@@ -394,6 +401,7 @@ export async function fetchBookingSamples(
     'calendar_booking_samples',
     `?booking_id=eq.${encodeURIComponent(bookingId)}&order=created_at`,
   )
+
   return rows.map(toCalendarSample)
 }
 
@@ -437,6 +445,7 @@ export async function createCalendarResource(
       p_metadata: input.metadata ?? {},
     },
   )
+
   return toCalendarResource(wire)
 }
 
@@ -559,6 +568,7 @@ export async function cancelBooking(
 export function describeCalendarError(error: unknown): string {
   if (!(error instanceof DataClientError))
     return 'Could not complete the calendar operation. Try again.'
+
   const messages: Record<string, string> = {
     SB001: 'This booking was edited by someone else. Refresh and try again.',
     SB005: 'The booking input is invalid. Check the details and try again.',
@@ -577,6 +587,7 @@ export function describeCalendarError(error: unknown): string {
     SB024: 'This booking is already cancelled.',
     '42501': 'You do not have access to this calendar.',
   }
+
   return messages[error.code] ?? error.message
 }
 
@@ -598,6 +609,7 @@ export function startOfDayInZone(date: Date, timeZone: string): Date {
     month: '2-digit',
     day: '2-digit',
   }).formatToParts(date)
+
   const y = Number(parts.find((p) => p.type === 'year')!.value)
   const m = Number(parts.find((p) => p.type === 'month')!.value)
   const d = Number(parts.find((p) => p.type === 'day')!.value)
@@ -605,6 +617,7 @@ export function startOfDayInZone(date: Date, timeZone: string): Date {
   // maps back to it. Round-trip via the formatter to get the offset.
   const wallMidnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0))
   const offsetMs = wallClockOffsetMs(wallMidnight, timeZone)
+
   return new Date(wallMidnight.getTime() - offsetMs)
 }
 
@@ -620,7 +633,9 @@ function wallClockOffsetMs(instant: Date, timeZone: string): number {
     minute: '2-digit',
     second: '2-digit',
   }).formatToParts(instant)
+
   const get = (t: string) => Number(utcParts.find((p) => p.type === t)!.value)
+
   const wallMs = Date.UTC(
     get('year'),
     get('month') - 1,
@@ -629,6 +644,7 @@ function wallClockOffsetMs(instant: Date, timeZone: string): number {
     get('minute'),
     get('second'),
   )
+
   return wallMs - instant.getTime()
 }
 
@@ -637,12 +653,14 @@ export function startOfWeekInZone(date: Date, timeZone: string): Date {
   const start = startOfDayInZone(date, timeZone)
   const day = start.getUTCDay() // 0=Sun … 6=Sat
   const diff = (day + 6) % 7 // days since Monday
+
   return new Date(start.getTime() - diff * 86_400_000)
 }
 
 /** First of the month containing `date` (in timezone). */
 export function startOfMonthInZone(date: Date, timeZone: string): Date {
   const start = startOfDayInZone(date, timeZone)
+
   return new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), 1))
 }
 
@@ -664,13 +682,18 @@ export function viewRange(
 ): { start: Date; end: Date } {
   if (view === 'day') {
     const start = startOfDayInZone(cursor, timeZone)
+
     return { start, end: addDays(start, 1) }
   }
+
   if (view === 'week') {
     const start = startOfWeekInZone(cursor, timeZone)
+
     return { start, end: addDays(start, 7) }
   }
+
   const start = startOfMonthInZone(cursor, timeZone)
+
   return { start, end: addMonths(start, 1) }
 }
 
@@ -723,6 +746,7 @@ export function isSameDayInZone(a: Date, b: Date, timeZone: string): boolean {
     month: '2-digit',
     day: '2-digit',
   })
+
   return fmt.format(a) === fmt.format(b)
 }
 
@@ -737,8 +761,10 @@ export function dstGapHours(
   const elapsedH = (end.getTime() - start.getTime()) / 3_600_000
   const startWall = wallHourOnSameDay(start, timeZone)
   const endWall = wallHourOnSameDay(end, timeZone)
+
   if (startWall == null || endWall == null) return 0
   const wallSpan = endWall - startWall
+
   return Math.round(elapsedH - wallSpan)
 }
 
@@ -750,7 +776,9 @@ function wallHourOnSameDay(instant: Date, timeZone: string): number | null {
     hour12: false,
     day: '2-digit',
   }).formatToParts(instant)
+
   const hour = Number(parts.find((p) => p.type === 'hour')!.value)
+
   return hour === 24 ? 0 : hour
 }
 

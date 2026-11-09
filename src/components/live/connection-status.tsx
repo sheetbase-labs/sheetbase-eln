@@ -82,10 +82,12 @@ export function ConnectionStatus({
   className,
 }: ConnectionStatusProps) {
   const meta = STATUS_META[status]
+
   const seqNote =
     lastAppliedSeq !== undefined && lastAppliedSeq > 0
       ? ` ${t('notebook.connectionStatus.caughtUp', { seq: lastAppliedSeq })}`
       : ''
+
   return (
     <Tooltip content={`${meta.tip}${seqNote}`}>
       <button

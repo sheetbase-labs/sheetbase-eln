@@ -60,9 +60,11 @@ function createFakePort(
 ) {
   const calls: string[] = []
   const raised: string[] = []
+
   const port: OfflineReplayPort = {
     async commit(edit) {
       calls.push(edit.id)
+
       switch (behaviour(edit)) {
         case 'overlap':
           throw new OfflineReplayOverlapError()
@@ -75,9 +77,11 @@ function createFakePort(
     },
     async raiseCellConflict(edit) {
       raised.push(edit.id)
+
       return `conflict-for-${edit.id}`
     },
   }
+
   return { port, calls, raised }
 }
 
@@ -86,13 +90,16 @@ async function seed(
   drafts: OfflineEditDraft[],
 ): Promise<OfflineEdit[]> {
   const saved: OfflineEdit[] = []
+
   for (const draft of drafts) saved.push(await store.putEdit(scope, draft))
+
   return saved
 }
 
 describe('offline replay engine', () => {
   it('replays edits in sequence order, whatever order they are stored in', async () => {
     const store = createOfflineEditStore(createInMemoryStorage())
+
     const saved = await seed(store, [
       {
         kind: 'block_text',
@@ -110,6 +117,7 @@ describe('offline replay engine', () => {
         expectedRevision: 5,
       },
     ])
+
     const { port, calls } = createFakePort(() => 'commit')
 
     const report = await replayOfflineEdits({ scope, store, port })
@@ -155,6 +163,7 @@ describe('offline replay engine', () => {
 
   it('holds later sheet edits and their calculations while a conflict is open', async () => {
     const store = createOfflineEditStore(createInMemoryStorage())
+
     const saved = await seed(store, [
       cellDraft({ columnId: 'viability' }),
       cellDraft({ columnId: 'titre' }),
@@ -165,6 +174,7 @@ describe('offline replay engine', () => {
         expectedRevision: 1,
       },
     ])
+
     const { port, calls } = createFakePort((edit) =>
       edit.kind === 'cell' && edit.columnId === 'viability'
         ? 'overlap'
@@ -201,6 +211,7 @@ describe('offline replay engine', () => {
       cellDraft(),
       cellDraft({ sheetInstanceId: 'sheet-2', expectedRevision: 2 }),
     ])
+
     const { port } = createFakePort((edit) =>
       'sheetInstanceId' in edit && edit.sheetInstanceId === SHEET_ID
         ? 'refuse'
@@ -235,6 +246,7 @@ describe('offline replay engine', () => {
   it('keeps a stale edit queued when the conflict cannot be recorded', async () => {
     const store = createOfflineEditStore(createInMemoryStorage())
     await seed(store, [cellDraft()])
+
     const port: OfflineReplayPort = {
       commit: async () => {
         throw new OfflineReplayOverlapError()
@@ -329,16 +341,21 @@ describe('canonical replay writer', () => {
 
   it('raises a conflict with both sides through record_cell_conflict when the revision moved', async () => {
     const calls: Array<[string, Record<string, unknown>]> = []
+
     const client: DataClient = fakeClient({
       rpc: (async (name: string, args: Record<string, unknown>) => {
         calls.push([name, args])
+
         if (name === 'query_sheet_instance_rows') {
           return { ...composition, revision: 6 }
         }
+
         if (name === 'record_cell_conflict') return { id: 'conflict-1' }
+
         return undefined
       }) as DataClient['rpc'],
     })
+
     const writer = createCanonicalOfflineReplayWriter({
       client,
       userId: 'user-a',
@@ -367,6 +384,7 @@ describe('canonical replay writer', () => {
           ? composition
           : undefined) as DataClient['rpc'],
     })
+
     const writer = createCanonicalOfflineReplayWriter({
       client,
       userId: 'user-a',
@@ -379,6 +397,7 @@ describe('canonical replay writer', () => {
 
   it('refuses a draft comment with no anchor instead of inventing one', async () => {
     const client = fakeClient()
+
     const writer = createCanonicalOfflineReplayWriter({
       client,
       userId: 'user-a',

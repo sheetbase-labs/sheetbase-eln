@@ -58,7 +58,9 @@ const meta = {
     onNextError: () => {},
   },
 } satisfies Meta<typeof ComposedSheetRecordToolbar>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Both actions configured on the Sheet Definition. */

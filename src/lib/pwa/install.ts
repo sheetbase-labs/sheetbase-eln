@@ -19,6 +19,7 @@ export const INSTALL_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000
 /** True when the page is already running as an installed app. */
 export function isStandalone(win: Window = window): boolean {
   const nav = win.navigator as Navigator & { standalone?: boolean }
+
   return (
     nav.standalone === true ||
     win.matchMedia('(display-mode: standalone)').matches === true
@@ -32,6 +33,7 @@ export function isIos(
   maxTouchPoints: number,
 ): boolean {
   if (/iPad|iPhone|iPod/.test(userAgent)) return true
+
   return platform === 'MacIntel' && maxTouchPoints > 1
 }
 
@@ -46,6 +48,7 @@ export function installSnoozed(
 ): boolean {
   try {
     const until = Number(storage?.getItem(INSTALL_SNOOZE_KEY) ?? 0)
+
     return Number.isFinite(until) && until > now
   } catch {
     return false
@@ -96,21 +99,26 @@ function localStore(): Storage | null {
 
 function snapshot(): InstallOffer {
   if (typeof window === 'undefined' || installed || snoozedNow) return 'none'
+
   if (isStandalone() || installSnoozed(localStore(), Date.now())) return 'none'
+
   if (deferred) return 'prompt'
   const nav = window.navigator
+
   if (
     isIos(nav.userAgent, nav.platform, nav.maxTouchPoints) &&
     isIosSafari(nav.userAgent)
   ) {
     return 'ios'
   }
+
   return 'none'
 }
 
 function subscribe(listener: () => void): () => void {
   start()
   listeners.add(listener)
+
   return () => listeners.delete(listener)
 }
 
@@ -122,12 +130,15 @@ export function useInstallOffer(): InstallOffer {
 /** Ask the browser to install. Resolves true if the person accepted. */
 export async function promptInstall(): Promise<boolean> {
   const event = deferred
+
   if (!event) return false
   deferred = null
   emit()
+
   try {
     await event.prompt()
     const choice = await event.userChoice
+
     return choice.outcome === 'accepted'
   } catch {
     return false

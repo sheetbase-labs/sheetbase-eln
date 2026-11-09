@@ -37,11 +37,13 @@ import { t } from '#/copy'
  */
 export function codeText(value: string): string {
   let out = ''
+
   for (const character of value) {
     const codePoint = character.codePointAt(0) ?? 0
     const loneSurrogate = codePoint >= 0xd800 && codePoint <= 0xdfff
     out += loneSurrogate || codePoint === 0 ? '\uFFFD' : character
   }
+
   return out
 }
 

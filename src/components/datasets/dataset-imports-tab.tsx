@@ -61,6 +61,7 @@ function stringField(
   key: string,
 ): string | null {
   const field = value[key]
+
   return typeof field === 'string' && field.length > 0 ? field : null
 }
 
@@ -84,6 +85,7 @@ export function toDatasetImportRow(
   const parserName = stringField(receipt.parser_provenance, 'name')
   const parserVersion = receipt.parser_provenance.version
   const added = receipt.outcome.added
+
   return {
     id: receipt.id,
     when: formatNotebookDateTime(receipt.created_at),
@@ -117,6 +119,7 @@ export function DatasetImportsTab({ datasetId }: { datasetId: string }) {
     queryKey: importQueryKeys.imports(datasetId),
     queryFn: () => fetchDatasetImports(notebookDataClient, datasetId),
   })
+
   const access = classifyDatasetTabAccess(query.error)
 
   if (query.isLoading) {

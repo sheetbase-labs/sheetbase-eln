@@ -13,7 +13,9 @@ function event(key: string) {
 
 function byId(definitions: ShortcutDefinition[], id: string) {
   const found = definitions.find((d) => d.id === id)
+
   if (!found) throw new Error(`missing definition ${id}`)
+
   return found
 }
 

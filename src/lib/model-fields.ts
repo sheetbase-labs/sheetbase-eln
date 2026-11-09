@@ -108,6 +108,7 @@ export async function fetchModelFields(
         `?key=eq.${encodeURIComponent(modelKey)}&select=id`,
       )
     ).at(0)
+
     // Built-in models (Experiment, Sample…) have no record model; their
     // fields come straight from the definitions below.
     if (model?.id) {
@@ -117,10 +118,13 @@ export async function fetchModelFields(
           `?model_id=eq.${model.id}&lifecycle=eq.published&order=version.desc&limit=1&select=id`,
         )
       ).at(0)
+
       if (!published?.id) return []
+
       return fetchModelFields(client, modelKey, includeRetired, published.id)
     }
   }
+
   if (versionId) {
     const version = (
       await client.list<{
@@ -132,7 +136,9 @@ export async function fetchModelFields(
         `?id=eq.${encodeURIComponent(versionId)}&select=definition`,
       )
     ).at(0)
+
     if (!version) throw new Error('The record’s Model version is unavailable.')
+
     return version.definition.fields
       .filter((field) => includeRetired || field.lifecycle === 'active')
       .map((field) => {
@@ -156,6 +162,7 @@ export async function fetchModelFields(
           lifecycle: field.lifecycle,
           options: field.options ?? [],
         }
+
         return {
           ...modelField,
           definition: fieldDefinitionFromModelField(modelField),
@@ -163,12 +170,16 @@ export async function fetchModelFields(
       })
       .sort((a, b) => a.displayOrder - b.displayOrder)
   }
+
   const lifecycle = includeRetired ? 'in.(active,retired)' : 'eq.active'
+
   const definitions = await client.list<DefinitionWire>(
     'record_field_definitions',
     `?kind=eq.${modelKey}&lifecycle=${lifecycle}&order=display_order.asc,field_name.asc`,
   )
+
   if (definitions.length === 0) return []
+
   // Read in groups: the proxy refuses an `in.(…)` list of many ids.
   const options = await listByIds(
     definitions.map(({ id }) => id),
@@ -178,13 +189,16 @@ export async function fetchModelFields(
         `?definition_id=in.(${ids})&order=display_order.asc,key.asc`,
       ),
   )
+
   const optionsByDefinition = new Map<string, OptionWire[]>()
+
   for (const option of options) {
     optionsByDefinition.set(option.definition_id, [
       ...(optionsByDefinition.get(option.definition_id) ?? []),
       option,
     ])
   }
+
   return definitions.map((definition) => {
     const modelField = {
       id: definition.id,
@@ -215,6 +229,7 @@ export async function fetchModelFields(
         lifecycle: option.lifecycle,
       })),
     }
+
     return {
       ...modelField,
       definition: fieldDefinitionFromModelField(modelField),
@@ -249,8 +264,11 @@ export async function fetchRecordModelFieldValues(
     'records',
     `?id=eq.${encodeURIComponent(recordId)}&select=custom_fields,metadata_version,locked_at`,
   )
+
   const row = rows.at(0)
+
   if (!row) throw new Error('Record not found.')
+
   return {
     customFields: row.custom_fields,
     metadataVersion: row.metadata_version,
@@ -276,6 +294,7 @@ export async function fetchModelFieldsWithUsage(
   modelKey: string,
 ): Promise<Array<ModelFieldDefinition & { usageCount: number }>> {
   const fields = await fetchModelFields(client, modelKey, true)
+
   return Promise.all(
     fields.map(async (field) => ({
       ...field,
@@ -303,7 +322,9 @@ export function parseModelFieldInput(
   value: string | boolean,
 ): unknown {
   if (typeof value === 'boolean') return value
+
   if (value === '') return definition.nullable ? null : value
+
   if (
     definition.logicalType === 'integer' ||
     definition.logicalType === 'decimal'
@@ -314,9 +335,12 @@ export function parseModelFieldInput(
       definitionOfModelField(definition),
       value,
     )
+
     if (typeof parsed === 'number') return parsed
+
     return value
   }
+
   return value
 }
 
@@ -343,6 +367,7 @@ export function modelFieldValuesFromInput(
         values,
         definition.fieldName,
       )
+
       if (omitBlank && !hasValue) {
         return definition.logicalType === 'boolean' &&
           !definition.nullable &&
@@ -350,10 +375,13 @@ export function modelFieldValuesFromInput(
           ? [[definition.fieldName, false]]
           : []
       }
+
       const value =
         values[definition.fieldName] ??
         (definition.logicalType === 'boolean' ? false : '')
+
       if (omitBlank && value === '') return []
+
       return [[definition.fieldName, parseModelFieldInput(definition, value)]]
     }),
   )
@@ -364,7 +392,9 @@ export function displayModelFieldValue(
   value: unknown,
 ): string {
   if (value === null || value === undefined || value === '') return '—'
+
   if (definition.logicalType === 'boolean') return value === true ? 'Yes' : 'No'
+
   if (definition.logicalType === 'category') {
     return (
       definition.options.find(
@@ -372,14 +402,17 @@ export function displayModelFieldValue(
       )?.label ?? String(value)
     )
   }
+
   // MODEL-02: governed quantity display unit wins; legacy opaque unit
   // symbols remain the fallback until semantics are configured.
   const legacySymbol =
     typeof definition.unit?.symbol === 'string' ? definition.unit.symbol : null
+
   const unit = fieldDisplayUnit(
     definitionOfModelField(definition),
     legacySymbol,
   )
+
   return unit ? `${String(value)} ${unit}` : String(value)
 }
 
@@ -417,9 +450,11 @@ export function modelFieldValidationForServer(
   validation: Record<string, unknown>,
 ): Record<string, unknown> {
   const { pattern, ...rest } = validation
+
   if (typeof pattern === 'string' && pattern) {
     return { ...rest, regex: pattern }
   }
+
   return validation
 }
 
@@ -460,8 +495,10 @@ export async function createModelFieldWithSemantics(
     p_unit: input.unit,
     p_description: input.description,
   })
+
   await configureModelFieldSemantics(client, created.id, input.semantics)
   let position = 0
+
   for (const option of input.options) {
     position += 1
     await client.rpc('create_model_field_option', {
@@ -471,6 +508,7 @@ export async function createModelFieldWithSemantics(
       p_display_order: position,
     })
   }
+
   return client.rpc('activate_model_field', {
     p_definition_id: created.id,
   })

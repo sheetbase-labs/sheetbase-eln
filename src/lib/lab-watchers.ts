@@ -17,9 +17,11 @@ export const WATCHER_KINDS = [
   'data_missing',
   'results_off',
 ] as const
+
 export type WatcherKind = (typeof WATCHER_KINDS)[number]
 
 export const WATCHER_SCHEDULES = ['hourly', 'daily', 'weekly'] as const
+
 export type WatcherSchedule = (typeof WATCHER_SCHEDULES)[number]
 
 export const WATCHER_SCHEDULE_LABEL: Record<WatcherSchedule, string> = {
@@ -170,6 +172,7 @@ export async function fetchWatcherFinding(
     'lab_watcher_findings',
     `?select=*&id=eq.${encodeURIComponent(id)}`,
   )
+
   return rows.at(0) ?? null
 }
 
@@ -225,10 +228,13 @@ export async function runSuggestedAction(
   finding: Pick<LabWatcherFindingRow, 'suggested_action'>,
 ): Promise<void> {
   const suggestion = finding.suggested_action
+
   if (!suggestion) return
+
   if (!agentActionByKey(suggestion.action)) {
     throw new Error('This suggestion is not something the app can do.')
   }
+
   await client.rpc(suggestion.action, suggestion.arguments)
 }
 
@@ -243,5 +249,6 @@ export function snoozeUntil(days: number, now = new Date()): Date {
   const until = new Date(now)
   until.setDate(until.getDate() + days)
   until.setHours(8, 0, 0, 0)
+
   return until
 }

@@ -23,10 +23,12 @@ export async function runAndRecordEvals(input: {
   toolsOnly?: boolean
 }): Promise<AiEvalRunRow> {
   const startedAt = new Date()
+
   const runtime = await resolveAssistantRuntime(
     input.workspaceId,
     input.headers,
   )
+
   let mode: EvalMode = 'tools'
   let profile: string | null = null
   let model: string | null = null
@@ -53,7 +55,9 @@ export async function runAndRecordEvals(input: {
   const client = new PooledClient({
     connectionString: process.env.MIGRATION_DATABASE_URL ?? env.DATABASE_URL,
   })
+
   await client.connect()
+
   try {
     const { rows } = await client.query<AiEvalRunRow>(
       `SELECT * FROM internal.record_ai_eval_run($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)`,
@@ -69,6 +73,7 @@ export async function runAndRecordEvals(input: {
         startedAt,
       ],
     )
+
     logger.info(
       'ai.evals.completed',
       redact({
@@ -78,6 +83,7 @@ export async function runAndRecordEvals(input: {
         status: rows[0]?.status,
       }),
     )
+
     return rows[0]
   } finally {
     await client.end()

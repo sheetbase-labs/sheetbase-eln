@@ -26,7 +26,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof SettingsCredentials>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const noop = () => {}

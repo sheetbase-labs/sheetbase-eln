@@ -59,6 +59,7 @@ import type { ChartColumn, ChartSpec, DatasetRef } from './chart-spec'
 import { t } from '#/copy'
 
 export const ANALYSIS_DEFINITION_VERSION = 1 as const
+
 export const ANALYSIS_KINDS = [
   'descriptive',
   'regression',
@@ -66,6 +67,7 @@ export const ANALYSIS_KINDS = [
   'comparison',
   'survival',
 ] as const
+
 /**
  * What a notebook analysis block may hold: a statistic, a chart, or a
  * statistic with a chart beside it. `chart` is not a statistic, so the
@@ -74,6 +76,7 @@ export const ANALYSIS_KINDS = [
 export const ANALYSIS_BLOCK_KINDS = [...ANALYSIS_KINDS, 'chart'] as const
 
 export const COLUMN_TRANSFORMS = ['none', 'log10', 'ln'] as const
+
 export type ColumnTransform = (typeof COLUMN_TRANSFORMS)[number]
 
 export const MAX_DEGREE = 4 as const
@@ -105,6 +108,7 @@ export const ANALYSIS_METHOD_IDS = [
   'anova_post_hoc',
   'kaplan_meier',
 ] as const
+
 export type AnalysisMethodId = (typeof ANALYSIS_METHOD_IDS)[number]
 
 export type AssumptionCheckStatus = 'pass' | 'warn' | 'fail' | 'not_checked'
@@ -154,6 +158,7 @@ export function analysisMethodFor(
   definition: AnalysisDefinition,
 ): AnalysisMethod {
   const base = { version: ANALYSIS_METHOD_VERSION, runner: ANALYSIS_RUNNER }
+
   if (definition.kind === 'descriptive') {
     if (definition.group)
       return {
@@ -162,6 +167,7 @@ export function analysisMethodFor(
         label: t('data.analysisDefinition.oneWayAnova'),
         statement: t('data.analysisDefinition.oneWayFixedEffects'),
       }
+
     return {
       ...base,
       id: 'descriptive',
@@ -169,6 +175,7 @@ export function analysisMethodFor(
       statement: t('data.analysisDefinition.groupedSummaryStatisticsModel'),
     }
   }
+
   if (definition.kind === 'survival')
     return {
       ...base,
@@ -176,8 +183,10 @@ export function analysisMethodFor(
       label: t('data.analysisDefinition.kaplanMeier'),
       statement: t('data.analysisDefinition.kaplanMeierStatement'),
     }
+
   if (definition.kind === 'comparison') {
     const test = definition.test ?? 'welch'
+
     if (test === 'paired')
       return {
         ...base,
@@ -185,6 +194,7 @@ export function analysisMethodFor(
         label: t('data.analysisDefinition.pairedTTest'),
         statement: t('data.analysisDefinition.pairedTTestStatement'),
       }
+
     if (test === 'mann_whitney')
       return {
         ...base,
@@ -192,6 +202,7 @@ export function analysisMethodFor(
         label: t('data.analysisDefinition.mannWhitney'),
         statement: t('data.analysisDefinition.mannWhitneyStatement'),
       }
+
     if (test === 'anova')
       return {
         ...base,
@@ -199,6 +210,7 @@ export function analysisMethodFor(
         label: t('data.analysisDefinition.anovaPostHoc'),
         statement: t('data.analysisDefinition.anovaPostHocStatement'),
       }
+
     return {
       ...base,
       id: 'two_group_t_test',
@@ -212,8 +224,10 @@ export function analysisMethodFor(
           : t('data.analysisDefinition.welchTTestStatement'),
     }
   }
+
   if (definition.kind === 'curve') {
     const model = definition.model ?? '4pl'
+
     return {
       ...base,
       id: 'logistic_curve',
@@ -226,7 +240,9 @@ export function analysisMethodFor(
       }),
     }
   }
+
   const degree = definition.degree ?? 1
+
   return {
     ...base,
     id: 'linear_model',
@@ -303,6 +319,7 @@ export const COMPARISON_TESTS = [
   'mann_whitney',
   'anova',
 ] as const
+
 export type ComparisonTest = (typeof COMPARISON_TESTS)[number]
 
 export const COMPARISON_POST_HOCS = [
@@ -312,6 +329,7 @@ export const COMPARISON_POST_HOCS = [
   'holm',
   'none',
 ] as const
+
 export type ComparisonPostHoc = (typeof COMPARISON_POST_HOCS)[number]
 
 /**
@@ -623,17 +641,20 @@ function validateBinding(
       ? [{ code: 'missing_field', field, message: `${field} is required` }]
       : []
   }
+
   if (!isObject(v))
     return [
       { code: 'invalid_shape', field, message: `${field} must be an object` },
     ]
   const errors: AnalysisDefinitionError[] = []
+
   if (!isUuid(v.fieldId))
     errors.push({
       code: 'invalid_value',
       field: `${field}.fieldId`,
       message: `${field}.fieldId must be a UUID`,
     })
+
   return errors
 }
 
@@ -647,6 +668,7 @@ function validateCompanionChart(
   required: boolean,
 ): AnalysisDefinitionError[] {
   const chart = v.chart
+
   if (chart === undefined || chart === null) {
     return required
       ? [
@@ -658,6 +680,7 @@ function validateCompanionChart(
         ]
       : []
   }
+
   if (!isObject(chart))
     return [
       {
@@ -669,6 +692,7 @@ function validateCompanionChart(
   const errors: AnalysisDefinitionError[] = []
   const datasets = chart.datasets
   const own = Array.isArray(v.datasets) ? v.datasets[0] : undefined
+
   if (
     !Array.isArray(datasets) ||
     datasets.length !== 1 ||
@@ -683,6 +707,7 @@ function validateCompanionChart(
     })
   const fields = isObject(chart.fields) ? chart.fields : null
   errors.push(...validateBinding(fields?.y, 'chart.fields.y', true))
+
   return errors
 }
 
@@ -724,6 +749,7 @@ export function validateAnalysisDefinition(
     })
 
   const kind = v.kind
+
   if (
     typeof kind !== 'string' ||
     !(ANALYSIS_BLOCK_KINDS as readonly string[]).includes(kind)
@@ -733,6 +759,7 @@ export function validateAnalysisDefinition(
       field: 'kind',
       message: `kind must be one of ${ANALYSIS_BLOCK_KINDS.join(', ')}`,
     })
+
     return errors
   }
 
@@ -747,6 +774,7 @@ export function validateAnalysisDefinition(
     errors.push(...validateBinding(v.value, 'value', true))
     errors.push(...validateBinding(v.group, 'group', true))
     errors.push(...validateBinding(v.pair ?? null, 'pair', v.test === 'paired'))
+
     if (
       v.test !== undefined &&
       !(COMPARISON_TESTS as readonly string[]).includes(v.test as string)
@@ -756,6 +784,7 @@ export function validateAnalysisDefinition(
         field: 'test',
         message: `test must be one of ${COMPARISON_TESTS.join(', ')}`,
       })
+
     if (
       v.postHoc !== undefined &&
       !(COMPARISON_POST_HOCS as readonly string[]).includes(v.postHoc as string)
@@ -765,6 +794,7 @@ export function validateAnalysisDefinition(
         field: 'postHoc',
         message: `postHoc must be one of ${COMPARISON_POST_HOCS.join(', ')}`,
       })
+
     if (
       v.alpha !== undefined &&
       (typeof v.alpha !== 'number' || !(v.alpha > 0 && v.alpha < 1))
@@ -774,6 +804,7 @@ export function validateAnalysisDefinition(
         field: 'alpha',
         message: 'alpha must be between 0 and 1',
       })
+
     if (
       v.control !== undefined &&
       v.control !== null &&
@@ -793,6 +824,7 @@ export function validateAnalysisDefinition(
     errors.push(...validateBinding(v.response, 'response', true))
     errors.push(...validateBinding(v.label ?? null, 'label', false))
     errors.push(...validateBinding(v.group ?? null, 'group', false))
+
     if (
       v.model !== undefined &&
       !(CURVE_MODELS as readonly string[]).includes(v.model as string)
@@ -806,6 +838,7 @@ export function validateAnalysisDefinition(
     errors.push(...validateBinding(v.outcome, 'outcome', true))
     errors.push(...validateBinding(v.predictor, 'predictor', true))
     errors.push(...validateBinding(v.group ?? null, 'group', false))
+
     if (
       v.degree !== undefined &&
       (typeof v.degree !== 'number' ||
@@ -818,8 +851,10 @@ export function validateAnalysisDefinition(
         field: 'degree',
         message: `degree must be an integer between 1 and ${MAX_DEGREE}`,
       })
+
     for (const key of ['outcomeTransform', 'predictorTransform'] as const) {
       const tv = v[key]
+
       if (
         tv !== undefined &&
         tv !== null &&
@@ -832,6 +867,7 @@ export function validateAnalysisDefinition(
         })
     }
   }
+
   return errors
 }
 
@@ -844,11 +880,14 @@ function groupRows(
   fieldId: string | null,
 ): Map<string, Record<string, unknown>[]> {
   const groups = new Map<string, Record<string, unknown>[]>()
+
   for (const row of rows) {
     const key = fieldId ? String(row[fieldId] ?? '—') : 'all'
+
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key)!.push(row)
   }
+
   return new Map(
     Array.from(groups.entries()).sort(([a], [b]) =>
       a < b ? -1 : a > b ? 1 : 0,
@@ -862,6 +901,7 @@ function toNumeric(rowValues: unknown[]): {
 } {
   let missing = 0
   const values: number[] = []
+
   for (const v of rowValues) {
     if (typeof v === 'number' && Number.isFinite(v)) values.push(v)
     else if (
@@ -872,6 +912,7 @@ function toNumeric(rowValues: unknown[]): {
       values.push(Number(v))
     else missing += 1
   }
+
   return { values, missing }
 }
 
@@ -894,6 +935,7 @@ export function runAnalysis(
   // The count travels into the reported checks: an exclusion is stated, never
   // silently applied.
   let excludedRows = 0
+
   if (flags.length > 0) {
     const usedFields = (
       definition.kind === 'descriptive'
@@ -913,19 +955,25 @@ export function runAnalysis(
     )
       .map((binding) => binding?.fieldId)
       .filter((fieldId): fieldId is string => typeof fieldId === 'string')
+
     if (usedFields.length > 0) {
       const index = buildFlagIndex(flags)
       rows = rows.filter((row) => {
         const rowId = row[CHART_ROW_ID_KEY]
+
         if (typeof rowId !== 'string') return true
+
         const flagged = usedFields.some((fieldId) =>
           isValueFlagged(index, rowId, fieldId),
         )
+
         if (flagged) excludedRows += 1
+
         return !flagged
       })
     }
   }
+
   if (rows.length === 0) return { ok: false, error: { code: 'empty_dataset' } }
 
   // The stable fieldId is the only key that resolves a binding; a missing
@@ -936,21 +984,26 @@ export function runAnalysis(
 
   if (definition.kind === 'descriptive') {
     const valueCol = resolve(definition.value)
+
     if (!valueCol)
       return { ok: false, error: { code: 'missing_field', fields: ['value'] } }
     const groupCol = resolve(definition.group ?? null)
+
     if (definition.group && !groupCol)
       return { ok: false, error: { code: 'missing_field', fields: ['group'] } }
 
     const outRows: DescriptiveRow[] = []
     const anovaGroups: Array<{ group: string; values: number[] }> = []
+
     for (const [key, group] of groupRows(rows, groupCol?.id ?? null)) {
       const { values, missing } = toNumeric(group.map((r) => r[valueCol.id]))
       const stats = summaryStats(values)
+
       if (!stats) continue
       outRows.push({ group: key, missing, stats })
       anovaGroups.push({ group: key, values })
     }
+
     if (outRows.length === 0)
       return {
         ok: false,
@@ -963,6 +1016,7 @@ export function runAnalysis(
     const method = analysisMethodFor(definition)
     const checks: AssumptionCheck[] = []
     let anova: OneWayAnovaResult | null = null
+
     if (method.id === 'one_way_anova') {
       anova = oneWayAnova(anovaGroups)
       checks.push(
@@ -971,7 +1025,9 @@ export function runAnalysis(
           : [anovaUndefinedCheck(anovaGroups)]),
       )
     }
+
     pushExcludedRowsCheck(checks, excludedRows)
+
     return {
       ok: true,
       result: { kind: 'descriptive', method, checks, rows: outRows, anova },
@@ -980,8 +1036,10 @@ export function runAnalysis(
 
   if (definition.kind === 'curve')
     return runCurve(definition, resolve, rows, excludedRows)
+
   if (definition.kind === 'comparison')
     return runComparison(definition, resolve, rows, excludedRows)
+
   if (definition.kind === 'survival')
     return runSurvival(definition, resolve, rows, excludedRows)
 
@@ -990,9 +1048,13 @@ export function runAnalysis(
   const predictorCol = resolve(definition.predictor)
   const groupCol = resolve(definition.group ?? null)
   const missingCols: string[] = []
+
   if (!outcomeCol) missingCols.push('outcome')
+
   if (!predictorCol) missingCols.push('predictor')
+
   if (definition.group && !groupCol) missingCols.push('group')
+
   if (missingCols.length > 0)
     return { ok: false, error: { code: 'missing_field', fields: missingCols } }
 
@@ -1001,15 +1063,19 @@ export function runAnalysis(
   const predictorTransform = definition.predictorTransform ?? 'none'
   const outRows: RegressionFitRow[] = []
   const checks: AssumptionCheck[] = []
+
   for (const [key, group] of groupRows(rows, groupCol?.id ?? null)) {
     // Pair jointly so one missing side drops the whole observation rather
     // than silently shifting the alignment between predictor and outcome.
     const pairs: Array<[number, number]> = []
+
     for (const row of group) {
       const px = toNumeric([row[predictorCol!.id]]).values
       const py = toNumeric([row[outcomeCol!.id]]).values
+
       if (px.length === 1 && py.length === 1) pairs.push([px[0], py[0]])
     }
+
     if (pairs.length < degree + 1)
       return {
         ok: false,
@@ -1022,15 +1088,18 @@ export function runAnalysis(
     let outcomeDropped = 0
     const xs: number[] = []
     const ys: number[] = []
+
     for (const [x, y] of pairs) {
       if (predictorTransform !== 'none' && x <= 0) {
         predictorDropped += 1
         continue
       }
+
       if (outcomeTransform !== 'none' && y <= 0) {
         outcomeDropped += 1
         continue
       }
+
       xs.push(
         predictorTransform === 'none'
           ? x
@@ -1040,8 +1109,10 @@ export function runAnalysis(
         outcomeTransform === 'none' ? y : TRANSFORM_FNS[outcomeTransform](y),
       )
     }
+
     if (predictorDropped > 0 || outcomeDropped > 0) {
       const field = predictorDropped > 0 ? 'predictor' : 'outcome'
+
       return {
         ok: false,
         error: {
@@ -1051,6 +1122,7 @@ export function runAnalysis(
         },
       }
     }
+
     if (xs.length < degree + 1)
       return {
         ok: false,
@@ -1058,8 +1130,10 @@ export function runAnalysis(
       }
 
     const fit = olsFitWithInference(xs, ys, degree)
+
     if (!fit) return { ok: false, error: { code: 'singular_fit', group: key } }
     const predictorSpace = spaceLabel('x', predictorTransform)
+
     const coefficientTerms = fit.coefficients
       .map((c, d) =>
         d === 0
@@ -1068,6 +1142,7 @@ export function runAnalysis(
       )
       .reverse()
       .join(' + ')
+
     outRows.push({
       group: key,
       n: xs.length,
@@ -1097,12 +1172,14 @@ export function runAnalysis(
       }).map((check) => (definition.group ? { ...check, group: key } : check)),
     )
   }
+
   if (outRows.length === 0)
     return {
       ok: false,
       error: { code: 'no_numeric_values', field: outcomeCol!.id },
     }
   pushExcludedRowsCheck(checks, excludedRows)
+
   return {
     ok: true,
     result: {
@@ -1186,6 +1263,7 @@ function pairedChecks(
           }),
         },
   )
+
   if (duplicates > 0)
     checks.push({
       id: 'repeated_subjects',
@@ -1196,6 +1274,7 @@ function pairedChecks(
       }),
     })
   checks.push(independentObservationsCheck())
+
   return checks
 }
 
@@ -1211,32 +1290,41 @@ function runComparison(
   const test = definition.test ?? 'welch'
   const alpha = definition.alpha ?? 0.05
   const missingCols: string[] = []
+
   if (!valueCol) missingCols.push('value')
+
   if (!groupCol) missingCols.push('group')
+
   if (test === 'paired' && !pairCol) missingCols.push('pair')
+
   if (missingCols.length > 0 || !valueCol || !groupCol)
     return { ok: false, error: { code: 'missing_field', fields: missingCols } }
 
   const grouped = groupRows(rows, groupCol.id)
   const outRows: DescriptiveRow[] = []
   const data: Array<{ group: string; values: number[] }> = []
+
   for (const [key, group] of grouped) {
     const { values, missing } = toNumeric(group.map((r) => r[valueCol.id]))
     const stats = summaryStats(values)
+
     if (!stats) continue
     outRows.push({ group: key, missing, stats })
     data.push({ group: key, values })
   }
+
   if (outRows.length === 0)
     return {
       ok: false,
       error: { code: 'no_numeric_values', field: valueCol.id },
     }
+
   if (TWO_GROUP_TESTS.includes(test) && data.length !== 2)
     return {
       ok: false,
       error: { code: 'needs_groups', needed: 2, found: data.length },
     }
+
   if (test === 'anova' && data.length < 2)
     return {
       ok: false,
@@ -1245,6 +1333,7 @@ function runComparison(
 
   const method = analysisMethodFor(definition)
   const checks: AssumptionCheck[] = []
+
   const base = {
     kind: 'comparison' as const,
     method,
@@ -1257,29 +1346,38 @@ function runComparison(
     const [g1, g2] = data
     const bySubject = new Map<string, { a?: number; b?: number }>()
     let duplicates = 0
+
     for (const [key, group] of grouped) {
       if (key !== g1.group && key !== g2.group) continue
+
       for (const row of group) {
         const num = toNumeric([row[valueCol.id]]).values
+
         if (num.length !== 1) continue
         const id = String(row[pairCol!.id] ?? '')
+
         if (id === '') continue
         const slot = bySubject.get(id) ?? {}
         const field = key === g1.group ? 'a' : 'b'
+
         if (slot[field] !== undefined) duplicates += 1
         else slot[field] = num[0]
         bySubject.set(id, slot)
       }
     }
+
     const a: number[] = []
     const b: number[] = []
+
     for (const slot of bySubject.values())
       if (slot.a !== undefined && slot.b !== undefined) {
         a.push(slot.a)
         b.push(slot.b)
       }
+
     if (a.length === 0) return { ok: false, error: { code: 'no_pairs' } }
     const r = pairedTTest(a, b)
+
     if (!r)
       return {
         ok: false,
@@ -1292,6 +1390,7 @@ function runComparison(
       ),
     )
     pushExcludedRowsCheck(checks, excludedRows)
+
     return {
       ok: true,
       result: {
@@ -1310,6 +1409,7 @@ function runComparison(
   if (test === 'mann_whitney') {
     const [g1, g2] = data
     const r = mannWhitneyU(g1.values, g2.values)
+
     if (!r)
       return {
         ok: false,
@@ -1333,6 +1433,7 @@ function runComparison(
     })
     checks.push(independentObservationsCheck())
     pushExcludedRowsCheck(checks, excludedRows)
+
     return {
       ok: true,
       result: {
@@ -1374,15 +1475,18 @@ function runComparison(
 
   if (test === 'welch' || test === 'student') {
     const [g1, g2] = data
+
     const r =
       test === 'student'
         ? studentTTest(g1.values, g2.values)
         : welchTTest(g1.values, g2.values)
+
     if (!r)
       return {
         ok: false,
         error: { code: 'insufficient_data', group: g1.group, needed: 2 },
       }
+
     return {
       ok: true,
       result: {
@@ -1403,16 +1507,20 @@ function runComparison(
   let postHoc: PostHocMethod | null = choice === 'none' ? null : choice
   let control: string | null = null
   let pairs: ComparisonPair[] = []
+
   if (omnibus && postHoc) {
     if (postHoc === 'dunnett') {
       control = definition.control ?? data[0].group
+
       if (!data.some((g) => g.group === control))
         return { ok: false, error: { code: 'unknown_control', control } }
     }
+
     const ph = postHocComparisons(data, postHoc, {
       alpha,
       ...(control ? { control } : {}),
     })
+
     if (ph)
       pairs = ph.comparisons.map((c) => ({
         group1: c.group1,
@@ -1430,6 +1538,7 @@ function runComparison(
       }))
     else postHoc = null
   }
+
   return {
     ok: true,
     result: {
@@ -1456,6 +1565,7 @@ const EVENT_YES = new Set([
   'died',
   'relapse',
 ])
+
 const EVENT_NO = new Set([
   '0',
   'false',
@@ -1470,12 +1580,17 @@ const EVENT_NO = new Set([
 /** Did the event happen? null when the cell says neither. */
 function parseEvent(value: unknown): boolean | null {
   if (typeof value === 'boolean') return value
+
   if (typeof value === 'number')
     return value === 1 ? true : value === 0 ? false : null
+
   if (typeof value !== 'string') return null
   const v = value.trim().toLowerCase()
+
   if (EVENT_YES.has(v)) return true
+
   if (EVENT_NO.has(v)) return false
+
   return null
 }
 
@@ -1489,28 +1604,38 @@ function runSurvival(
   const eventCol = resolve(definition.event)
   const groupCol = resolve(definition.group ?? null)
   const missingCols: string[] = []
+
   if (!timeCol) missingCols.push('time')
+
   if (!eventCol) missingCols.push('event')
+
   if (definition.group && !groupCol) missingCols.push('group')
+
   if (missingCols.length > 0 || !timeCol || !eventCol)
     return { ok: false, error: { code: 'missing_field', fields: missingCols } }
 
   const curves: SurvivalGroupCurve[] = []
   const all: SurvivalObservation[] = []
+
   for (const [key, group] of groupRows(rows, groupCol?.id ?? null)) {
     const obs: SurvivalObservation[] = []
     let missing = 0
+
     for (const row of group) {
       const time = toNumeric([row[timeCol.id]]).values
       const event = parseEvent(row[eventCol.id])
+
       if (time.length !== 1 || time[0] < 0 || event === null) missing += 1
       else obs.push({ time: time[0], event, group: key })
     }
+
     const curve = kaplanMeier(obs, key)
+
     if (!curve) continue
     curves.push({ ...curve, missing })
     all.push(...obs)
   }
+
   if (curves.length === 0)
     return {
       ok: false,
@@ -1564,6 +1689,7 @@ const RECOVERY_BAND = { lo: 80, hi: 120 } as const
 function curveEquation(fit: CurveFit): string {
   const { A, B, C, D, G } = fit.params
   const base = `1 + (x / ${formatCoef(C)})^${formatCoef(B)}`
+
   return fit.model === '5pl'
     ? `y = ${formatCoef(D)} + (${formatCoef(A)} − ${formatCoef(D)}) / (${base})^${formatCoef(G)}`
     : `y = ${formatCoef(D)} + (${formatCoef(A)} − ${formatCoef(D)}) / (${base})`
@@ -1574,8 +1700,11 @@ function readBackStatus(
   range: { min: number; max: number },
 ): CurveReadBack['status'] {
   if (concentration === null) return 'off_curve'
+
   if (concentration < range.min) return 'below_range'
+
   if (concentration > range.max) return 'above_range'
+
   return 'in_range'
 }
 
@@ -1634,9 +1763,11 @@ function curveChecks(input: {
   const low = Math.min(...responses)
   const high = Math.max(...responses)
   const span = Math.max(high - low, 1e-12)
+
   const unsupported = [fit.params.A, fit.params.D].filter(
     (value) => value < low - 0.25 * span || value > high + 0.25 * span,
   ).length
+
   checks.push({
     id: 'curve_plateaus',
     label: t('data.analysisDefinition.curvePlateaus'),
@@ -1655,10 +1786,12 @@ function curveChecks(input: {
   const standards = readBack.filter(
     (r) => r.role === 'standard' && r.recovery !== null,
   )
+
   if (standards.length > 0) {
     const off = standards.filter(
       (r) => r.recovery! < RECOVERY_BAND.lo || r.recovery! > RECOVERY_BAND.hi,
     ).length
+
     checks.push({
       id: 'curve_standard_recovery',
       label: t('data.analysisDefinition.curveRecovery'),
@@ -1676,6 +1809,7 @@ function curveChecks(input: {
   }
 
   const unknowns = readBack.filter((r) => r.role === 'unknown')
+
   if (unknowns.length > 0) {
     const outside = unknowns.filter((r) => r.status !== 'in_range').length
     checks.push({
@@ -1701,6 +1835,7 @@ function curveChecks(input: {
         count: zeroDose,
       }),
     })
+
   return checks
 }
 
@@ -1717,10 +1852,15 @@ function runCurve(
   const labelCol = resolve(definition.label ?? null)
   const groupCol = resolve(definition.group ?? null)
   const missingCols: string[] = []
+
   if (!doseCol) missingCols.push('dose')
+
   if (!responseCol) missingCols.push('response')
+
   if (definition.label && !labelCol) missingCols.push('label')
+
   if (definition.group && !groupCol) missingCols.push('group')
+
   if (missingCols.length > 0)
     return { ok: false, error: { code: 'missing_field', fields: missingCols } }
 
@@ -1735,24 +1875,32 @@ function runCurve(
       dose: number
       response: number
     }> = []
+
     const unknowns: Array<{ label: string | null; response: number }> = []
     let zeroDose = 0
+
     for (const row of group) {
       const response = toNumeric([row[responseCol!.id]]).values
+
       if (response.length !== 1) continue
       const labelCell = labelCol ? row[labelCol.id] : null
+
       const label =
         labelCell === null || labelCell === undefined || labelCell === ''
           ? null
           : String(labelCell)
+
       const dose = toNumeric([row[doseCol!.id]]).values
+
       if (dose.length === 1 && dose[0] > 0)
         standards.push({ label, dose: dose[0], response: response[0] })
       else if (dose.length === 1) zeroDose += 1
       else unknowns.push({ label, response: response[0] })
     }
+
     // Lowest dose first, so the read-back table follows the dilution series.
     standards.sort((a, b) => a.dose - b.dose)
+
     if (standards.length < needed)
       return {
         ok: false,
@@ -1764,6 +1912,7 @@ function runCurve(
       standards.map((s) => s.response),
       model,
     )
+
     if (!fit)
       return {
         ok: false,
@@ -1774,9 +1923,11 @@ function runCurve(
       min: Math.min(...standards.map((s) => s.dose)),
       max: Math.max(...standards.map((s) => s.dose)),
     }
+
     const readBack: CurveReadBack[] = [
       ...standards.map((s) => {
         const concentration = curveInverse(fit.params, s.response, model)
+
         return {
           role: 'standard' as const,
           label: s.label,
@@ -1790,6 +1941,7 @@ function runCurve(
       }),
       ...unknowns.map((u) => {
         const concentration = curveInverse(fit.params, u.response, model)
+
         return {
           role: 'unknown' as const,
           label: u.label,
@@ -1801,6 +1953,7 @@ function runCurve(
         }
       }),
     ]
+
     outRows.push({
       group: key,
       model,
@@ -1828,12 +1981,14 @@ function runCurve(
       }).map((check) => (definition.group ? { ...check, group: key } : check)),
     )
   }
+
   if (outRows.length === 0)
     return {
       ok: false,
       error: { code: 'no_numeric_values', field: responseCol!.id },
     }
   pushExcludedRowsCheck(checks, excludedRows)
+
   return {
     ok: true,
     result: {
@@ -1862,6 +2017,7 @@ function spaceLabel(base: string, transform: ColumnTransform): string {
 function termLabel(power: number, predictorTransform: ColumnTransform): string {
   if (power === 0) return t('data.analysisDefinition.intercept')
   const base = spaceLabel('x', predictorTransform)
+
   return power === 1 ? base : `${base}${superscript(power)}`
 }
 
@@ -1877,8 +2033,10 @@ function linearModelTerms(
   predictorTransform: ColumnTransform,
 ): LinearModelTerm[] {
   const tCritical = tCritical95(fit.dfResidual)
+
   return fit.coefficients.map((estimate, power) => {
     const term = termLabel(power, predictorTransform)
+
     if (fit.sigma === null || fit.sigma === 0) {
       return {
         term,
@@ -1889,11 +2047,14 @@ function linearModelTerms(
         p: null,
       }
     }
+
     const variance = fit.covariance[power]?.[power] ?? Number.NaN
+
     if (!(variance > 0) || !Number.isFinite(variance))
       return { term, estimate, se: null, ci95: null, t: null, p: null }
     const se = Math.sqrt(variance)
     const tStat = estimate / se
+
     return {
       term,
       estimate,
@@ -1927,6 +2088,7 @@ function linearModelChecks(input: LinearModelCheckInput): AssumptionCheck[] {
   const checks: AssumptionCheck[] = []
 
   const normality = jarqueBeraTest(fit.residuals)
+
   if (!normality)
     checks.push({
       id: 'residual_normality',
@@ -1959,6 +2121,7 @@ function linearModelChecks(input: LinearModelCheckInput): AssumptionCheck[] {
     })
 
   const heteroscedasticity = breuschPaganTest(fitted, fit.residuals)
+
   if (!heteroscedasticity)
     checks.push({
       id: 'constant_variance',
@@ -2059,6 +2222,7 @@ function linearModelChecks(input: LinearModelCheckInput): AssumptionCheck[] {
       ? null
       : `the outcome transform ${TRANSFORM_LABEL[input.outcomeTransform]}`,
   ].filter((part): part is string => part !== null)
+
   if (transforms.length > 0)
     checks.push({
       id: 'transform_scope',
@@ -2085,12 +2249,14 @@ function anovaUndefinedCheck(
 ): AssumptionCheck {
   const used = groups.filter((entry) => entry.values.length > 0)
   const total = used.reduce((acc, entry) => acc + entry.values.length, 0)
+
   const reason =
     used.length < 2
       ? `only ${used.length} group(s) hold values; the F test needs at least two`
       : total - used.length < 1
         ? `the groups hold ${total} observation(s) in total, leaving no within-group degrees of freedom`
         : 'every group is perfectly constant, so there is no within-group variance'
+
   return {
     id: 'anova_defined',
     label: t('data.analysisDefinition.oneWayAnovaDefined'),
@@ -2104,14 +2270,18 @@ function anovaAssumptionChecks(
   groups: Array<{ group: string; values: number[] }>,
 ): AssumptionCheck[] {
   const used = groups.filter((entry) => entry.values.length > 0)
+
   const residuals = used.flatMap((entry) => {
     const mean =
       entry.values.reduce((acc, v) => acc + v, 0) / entry.values.length
+
     return entry.values.map((v) => v - mean)
   })
+
   const checks: AssumptionCheck[] = []
 
   const normality = jarqueBeraTest(residuals)
+
   if (!normality)
     checks.push({
       id: 'residual_normality',
@@ -2144,6 +2314,7 @@ function anovaAssumptionChecks(
     })
 
   const variance = brownForsytheTest(used)
+
   if (!variance)
     checks.push({
       id: 'equal_variance',
@@ -2177,6 +2348,7 @@ function anovaAssumptionChecks(
     (min, group) => Math.min(min, group.n),
     Number.POSITIVE_INFINITY,
   )
+
   checks.push(
     smallest < 2
       ? {
@@ -2194,6 +2366,7 @@ function anovaAssumptionChecks(
           detail: t('data.analysisDefinition.everyGroupHasLeast', { smallest }),
         },
   )
+
   return checks
 }
 
@@ -2213,11 +2386,13 @@ function pushExcludedRowsCheck(
 
 function formatQuantity(value: number): string {
   if (!Number.isFinite(value)) return t('data.analysisDefinition.notEstimable')
+
   return Number(value.toPrecision(4)).toString()
 }
 
 function formatPValue(value: number): string {
   if (!Number.isFinite(value)) return t('data.analysisDefinition.notEstimable')
+
   return value < 0.001 ? '< 0.001' : Number(value.toPrecision(3)).toString()
 }
 
@@ -2229,6 +2404,7 @@ function formatPValue(value: number): string {
  */
 export function analysisMethodsText(result: AnalysisResult): string {
   const { method } = result
+
   const parts: string[] = [
     `${method.label} (${method.runner}, method v${method.version}).`,
   ]
@@ -2237,6 +2413,7 @@ export function analysisMethodsText(result: AnalysisResult): string {
     const observations = result.rows.reduce((acc, row) => acc + row.stats.n, 0)
     parts.push(`n = ${observations} across ${result.rows.length} group(s).`)
     const anova = result.anova
+
     if (anova) {
       parts.push(
         t('data.analysisDefinition.oneWayAnovaF', {
@@ -2271,6 +2448,7 @@ export function analysisMethodsText(result: AnalysisResult): string {
           .join('; '),
       }),
     )
+
     if (result.omnibus)
       parts.push(
         t('data.analysisDefinition.oneWayAnovaF', {
@@ -2281,6 +2459,7 @@ export function analysisMethodsText(result: AnalysisResult): string {
           value3: formatQuantity(result.omnibus.etaSquared),
         }),
       )
+
     for (const pair of result.pairs)
       parts.push(
         t('data.analysisDefinition.comparisonPair', {
@@ -2309,6 +2488,7 @@ export function analysisMethodsText(result: AnalysisResult): string {
               : formatQuantity(c.medianSurvival),
         }),
       )
+
     if (result.logRank)
       parts.push(
         t('data.analysisDefinition.logRank', {
@@ -2386,6 +2566,7 @@ export function analysisMethodsText(result: AnalysisResult): string {
           .join('; '),
       }),
     )
+
   return parts.join(' ')
 }
 
@@ -2410,8 +2591,10 @@ export function regressionFitCurve(
   if (coefficients.length === 0 || samples < 2) return []
   const { min, max } = xRange
   const span = max - min || 1
+
   return Array.from({ length: samples }, (_, i) => {
     const x = min + (span * i) / (samples - 1)
+
     return { x, y: polyEval(coefficients, x) }
   })
 }
@@ -2422,6 +2605,7 @@ function formatCoef(c: number): string {
 
 function superscript(n: number): string {
   const sup = ['⁰', '¹', '²', '³', '⁴']
+
   return sup[n] ?? `^${n}`
 }
 

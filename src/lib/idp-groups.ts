@@ -24,12 +24,15 @@ export function groupsFromProfile(
   claim: string = DEFAULT_GROUPS_CLAIM,
 ): string[] | null {
   const value = profile[claim]
+
   if (value === undefined || value === null) return null
+
   const list: unknown[] = Array.isArray(value)
     ? value
     : typeof value === 'string'
       ? value.split(',')
       : []
+
   return list
     .filter((entry): entry is string => typeof entry === 'string')
     .map((entry) => entry.trim())
@@ -53,5 +56,6 @@ export function takeGroups(
   const key = email.toLowerCase()
   const entry = held.get(key)
   held.delete(key)
+
   return entry && entry.until >= at ? entry.groups : null
 }

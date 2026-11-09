@@ -22,20 +22,27 @@ export class ByteChannel {
         for (;;) {
           if (this.failure) {
             controller.error(this.failure)
+
             return
           }
+
           const next = this.queue.shift()
+
           if (next) {
             this.queued -= next.byteLength
             this.writeWaiter?.()
             this.writeWaiter = null
             controller.enqueue(next)
+
             return
           }
+
           if (this.closed) {
             controller.close()
+
             return
           }
+
           await new Promise<void>((resolve) => {
             this.readWaiter = resolve
           })
@@ -62,16 +69,19 @@ export class ByteChannel {
 
   async push(chunk: Uint8Array): Promise<void> {
     if (this.gone()) throw new Error('archive reader went away')
+
     if (chunk.byteLength === 0) return
     this.queue.push(chunk)
     this.queued += chunk.byteLength
     this.readWaiter?.()
     this.readWaiter = null
+
     while (this.queued > this.highWater && !this.gone()) {
       await new Promise<void>((resolve) => {
         this.writeWaiter = resolve
       })
     }
+
     if (this.gone()) throw new Error('archive reader went away')
   }
 

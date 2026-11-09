@@ -64,17 +64,25 @@ export interface ReproduceDiff {
  */
 export function normaliseCell(value: unknown): DiffCell {
   if (value === null || value === undefined) return null
+
   if (typeof value === 'number') return Number.isFinite(value) ? value : null
+
   if (typeof value === 'boolean') return value
+
   if (typeof value === 'bigint') return Number(value)
+
   if (value instanceof Date) return value.toISOString()
+
   if (typeof value === 'string') return value
+
   return JSON.stringify(value)
 }
 
 function normaliseRow(row: DiffRow): Record<string, DiffCell> {
   const out: Record<string, DiffCell> = {}
+
   for (const key of Object.keys(row).sort()) out[key] = normaliseCell(row[key])
+
   return out
 }
 
@@ -84,15 +92,19 @@ export function cellsAgree(
   tolerance: number,
 ): boolean {
   if (a === b) return true
+
   if (typeof a === 'number' && typeof b === 'number') {
     const scale = Math.max(1, Math.abs(a), Math.abs(b))
+
     return Math.abs(a - b) <= tolerance * scale
   }
+
   return false
 }
 
 function digitsFor(tolerance: number): number {
   if (!(tolerance > 0)) return 17
+
   return Math.min(17, Math.max(1, Math.floor(-Math.log10(tolerance))))
 }
 
@@ -105,6 +117,7 @@ function rowKey(
   return JSON.stringify(
     columns.map((column) => {
       const value = row[column]
+
       return typeof value === 'number'
         ? Number(value.toPrecision(digits))
         : value
@@ -128,9 +141,11 @@ function agreement(
   tolerance: number,
 ): number {
   let score = 0
+
   for (const column of columns) {
     if (cellsAgree(a[column], b[column], tolerance)) score++
   }
+
   return score
 }
 
@@ -143,15 +158,19 @@ export function diffResultRows(
   const after = reproduced.map(normaliseRow)
   const beforeColumns = new Set(before.flatMap((row) => Object.keys(row)))
   const afterColumns = new Set(after.flatMap((row) => Object.keys(row)))
+
   const shared = [...beforeColumns]
     .filter((column) => afterColumns.has(column))
     .sort()
+
   const columnsRemoved = [...beforeColumns]
     .filter((column) => !afterColumns.has(column))
     .sort()
+
   const columnsAdded = [...afterColumns]
     .filter((column) => !beforeColumns.has(column))
     .sort()
+
   const digits = digitsFor(tolerance)
 
   // Pass 1: rows that agree exactly (within rounding) pair off.
@@ -159,6 +178,7 @@ export function diffResultRows(
   after.forEach((row, index) => {
     const key = rowKey(row, shared, digits)
     const list = pool.get(key)
+
     if (list) list.push(index)
     else pool.set(key, [index])
   })
@@ -167,18 +187,23 @@ export function diffResultRows(
   let matched = 0
   before.forEach((row, index) => {
     const candidates = pool.get(rowKey(row, shared, digits))
+
     const found = candidates?.find(
       (candidate) =>
         !usedAfter.has(candidate) &&
         rowsAgree(row, after[candidate], shared, tolerance),
     )
+
     if (found === undefined) {
       leftoverBefore.push(index)
+
       return
     }
+
     usedAfter.add(found)
     matched++
   })
+
   const leftoverAfter = after
     .map((_, index) => index)
     .filter((index) => !usedAfter.has(index))
@@ -186,6 +211,7 @@ export function diffResultRows(
   // Pass 2: pair what is left by how much of the row still agrees.
   const pairs: Array<[number, number]> = []
   const freeAfter = new Set(leftoverAfter)
+
   if (
     leftoverBefore.length <= MAX_SIMILARITY_PAIRING &&
     leftoverAfter.length <= MAX_SIMILARITY_PAIRING
@@ -193,13 +219,16 @@ export function diffResultRows(
     for (const i of leftoverBefore) {
       let best = -1
       let bestScore = 0
+
       for (const j of freeAfter) {
         const score = agreement(before[i], after[j], shared, tolerance)
+
         if (score > bestScore) {
           best = j
           bestScore = score
         }
       }
+
       // Rows with nothing in common are a removal and an addition.
       if (best >= 0 && bestScore * 2 >= shared.length) {
         pairs.push([i, best])
@@ -211,8 +240,10 @@ export function diffResultRows(
     leftoverBefore
       .slice(0, rest.length)
       .forEach((i, k) => pairs.push([i, rest[k]]))
+
     for (const [, j] of pairs) freeAfter.delete(j)
   }
+
   const pairedBefore = new Set(pairs.map(([i]) => i))
 
   const examples: DiffExample[] = []
@@ -223,6 +254,7 @@ export function diffResultRows(
   let removedRows = 0
   let addedRows = 0
   let truncated = false
+
   const keep = (example: DiffExample) => {
     if (examples.length < MAX_DIFF_EXAMPLES) examples.push(example)
     else truncated = true
@@ -230,12 +262,15 @@ export function diffResultRows(
 
   for (const [i, j] of pairs.sort((a, b) => a[0] - b[0])) {
     const cells: CellChange[] = []
+
     for (const column of shared) {
       const a = before[i][column]
       const b = after[j][column]
+
       if (cellsAgree(a, b, tolerance)) continue
       cells.push({ column, before: a, after: b })
       changedColumns[column] = (changedColumns[column] ?? 0) + 1
+
       if (typeof a === 'number' && typeof b === 'number') {
         largestDelta[column] = Math.max(
           largestDelta[column] ?? 0,
@@ -243,19 +278,23 @@ export function diffResultRows(
         )
       }
     }
+
     if (cells.length === 0) {
       matched++
       continue
     }
+
     changedRows++
     changedCells += cells.length
     keep({ kind: 'changed', position: i + 1, row: before[i], cells })
   }
+
   for (const i of leftoverBefore) {
     if (pairedBefore.has(i)) continue
     removedRows++
     keep({ kind: 'removed', row: before[i] })
   }
+
   for (const j of freeAfter) {
     addedRows++
     keep({ kind: 'added', row: after[j] })

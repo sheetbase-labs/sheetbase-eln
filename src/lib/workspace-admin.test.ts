@@ -39,6 +39,7 @@ describe('workspace-admin mappers', () => {
       created_at: timestamp,
       updated_at: timestamp,
     }
+
     expect(toWorkspaceMember(wire)).toMatchObject({
       workspaceId: 'workspace-1',
       userId: 'user-1',
@@ -63,6 +64,7 @@ describe('workspace-admin mappers', () => {
       created_at: timestamp,
       updated_at: timestamp,
     }
+
     expect(toWorkspaceInvitation(wire)).toMatchObject({
       workspaceId: 'workspace-1',
       expiresAt: '2026-08-01T00:00:00Z',
@@ -89,6 +91,7 @@ describe('workspace-admin mappers', () => {
       created_at: timestamp,
       updated_at: timestamp,
     }
+
     expect(toWorkspaceSettings(wire)).toMatchObject({
       workspaceId: 'workspace-1',
       registrationMode: 'invitation_only',
@@ -112,6 +115,7 @@ describe('workspace-admin mappers', () => {
       created_at: timestamp,
       updated_at: timestamp,
     }
+
     expect(toProjectAccess(wire)).toMatchObject({
       workspaceId: 'workspace-1',
       projectId: 'project-1',
@@ -133,6 +137,7 @@ describe('workspace-admin mappers', () => {
       created_at: timestamp,
       expires_at: '2026-08-01T00:00:00Z',
     }
+
     expect(toWorkspaceSession(wire)).toMatchObject({
       userId: 'user-1',
       userName: 'Test User',
@@ -223,6 +228,7 @@ describe('describeAdminError', () => {
       SB033: 'This action belongs to a different workspace.',
       '42501': 'You do not have owner access to perform this action.',
     }
+
     for (const [code, message] of Object.entries(messages)) {
       expect(describeAdminError(new DataClientError(code, 'x', 400))).toBe(
         message,

@@ -38,7 +38,9 @@ function range(values: unknown[]): string | null {
   const numbers = values
     .map((v) => (typeof v === 'number' ? v : Number(v)))
     .filter((n) => Number.isFinite(n))
+
   if (!numbers.length) return null
+
   return `${Math.min(...numbers)}–${Math.max(...numbers)}`
 }
 
@@ -80,7 +82,9 @@ export function ColumnInspector({
           `?id=eq.${encodeURIComponent(datasetId)}&select=schema_version_id`,
         )
       ).at(0)
+
       if (!dataset) return null
+
       const found = (
         await notebookDataClient.list<{
           quantity: { storageUnit?: string } | null
@@ -89,9 +93,11 @@ export function ColumnInspector({
           `?schema_version_id=eq.${dataset.schema_version_id}&key=eq.${encodeURIComponent(field.key)}&select=quantity`,
         )
       ).at(0)
+
       return { unit: found?.quantity?.storageUnit ?? null }
     },
   })
+
   const set = useMutation({
     mutationFn: () =>
       setDatasetColumnUnit(notebookDataClient, {
@@ -131,6 +137,7 @@ export function ColumnInspector({
 
   const missing = current.isSuccess && current.data?.unit == null
   const seen = range(values)
+
   const others = [
     ...new Set(
       flags
@@ -141,6 +148,7 @@ export function ColumnInspector({
         .filter((label): label is string => Boolean(label)),
     ),
   ]
+
   const ready = unit.trim().length > 0 && reason.trim().length > 0
 
   return (
@@ -183,6 +191,7 @@ export function ColumnInspector({
             className="flex flex-col gap-2"
             onSubmit={(e) => {
               e.preventDefault()
+
               if (ready) set.mutate()
             }}
           >

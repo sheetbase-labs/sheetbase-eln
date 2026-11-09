@@ -79,7 +79,9 @@ export function defaultSettingsLevel(
   role: string | null | undefined,
 ): SettingsLevel {
   if (role === 'owner' || role === 'admin') return 'manage'
+
   if (role === 'steward' && STEWARD_AREAS.has(area)) return 'manage'
+
   return 'none'
 }
 
@@ -100,8 +102,10 @@ export function settingsLevelFor(
   rows: readonly SettingsAccessRow[] = [],
 ): SettingsLevel {
   if (role === 'owner') return 'manage'
+
   if (!role || role === 'client_viewer') return 'none'
   const stored = rows.find((r) => r.area === area && r.role === role)
+
   return (stored && asLevel(stored.level)) || defaultSettingsLevel(area, role)
 }
 
@@ -215,10 +219,14 @@ export function workPermissionAllowed(
   rows: readonly SettingsAccessRow[] = [],
 ): boolean {
   if (role === 'owner') return true
+
   if (!role || role === 'client_viewer') return false
+
   const stored = rows.find(
     (r) => r.area === `work_${permission}` && r.role === role,
   )
+
   if (stored) return stored.level === 'manage'
+
   return WORK_DEFAULT_ROLES.has(role)
 }

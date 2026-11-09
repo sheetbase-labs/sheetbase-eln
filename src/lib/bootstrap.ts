@@ -34,6 +34,7 @@ export async function joinWorkspaceByEmailDomain(
   const result = await db.execute<{ id: string | null }>(
     sql`select internal.join_workspace_by_email_domain(${userId}) as id`,
   )
+
   return result.rows[0]?.id ?? null
 }
 
@@ -50,6 +51,7 @@ export async function bootstrapWorkspaceForUser(
     const existing = await tx.query.workspaceMemberships.findFirst({
       where: eq(schema.workspaceMemberships.userId, user.id),
     })
+
     if (existing) {
       return { workspaceId: existing.workspaceId, created: false }
     }

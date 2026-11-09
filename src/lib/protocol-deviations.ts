@@ -35,6 +35,7 @@ export async function fetchStepDeviations(
     'protocol_deviations',
     `?block_id=eq.${z.uuid().parse(blockId)}&select=${SELECT}&order=created_at.desc,id.desc`,
   )
+
   return z.array(protocolDeviationSchema).parse(rows)
 }
 
@@ -43,6 +44,7 @@ export const DEVIATION_REASON_MAX = 2000
 /** Trimmed reason within 1..2000, or null when it would be refused. */
 export function normaliseDeviationReason(value: string): string | null {
   const reason = value.trim()
+
   return reason.length >= 1 && reason.length <= DEVIATION_REASON_MAX
     ? reason
     : null
@@ -54,11 +56,14 @@ export async function recordDeviationReason(
   reason: string,
 ): Promise<ProtocolDeviation> {
   const clean = normaliseDeviationReason(reason)
+
   if (!clean) throw new Error('Say why the step was done differently.')
+
   const row = await client.rpc<unknown>('record_protocol_deviation_reason', {
     p_deviation_id: z.uuid().parse(deviationId),
     p_reason: clean,
   })
+
   return protocolDeviationSchema.parse(row)
 }
 

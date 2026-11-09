@@ -6,6 +6,7 @@ const steps = [
   { id: 'science', title: 'Scientific review', role: 'Principal scientist' },
   { id: 'quality', title: 'Quality approval', role: 'QA manager' },
 ]
+
 const meta = {
   title: 'Audit/Approval stepper',
   component: ApprovalStepper,
@@ -22,9 +23,13 @@ const meta = {
     },
   },
 } satisfies Meta<typeof ApprovalStepper>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 export const InProgress: Story = {}
+
 export const Approved: Story = {
   args: {
     reviewState: Object.fromEntries(
@@ -35,6 +40,7 @@ export const Approved: Story = {
     ),
   },
 }
+
 export const Rejected: Story = {
   args: {
     reviewState: {
@@ -48,6 +54,7 @@ export const Rejected: Story = {
     },
   },
 }
+
 export const Returned: Story = {
   args: {
     reviewState: {

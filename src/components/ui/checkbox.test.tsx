@@ -85,21 +85,27 @@ const styles = readFileSync('src/styles.css', 'utf8').replace(
 function declarations(selector: string): Map<string, string> {
   const found = new Map<string, string>()
   let from = 0
+
   for (;;) {
     const start = styles.indexOf(`${selector} {`, from)
+
     if (start === -1) break
     const end = styles.indexOf('}', start)
+
     for (const match of styles
       .slice(start, end)
       .matchAll(/(--[\w-]+):\s*([^;]+);/g)) {
       found.set(match[1], match[2].trim())
     }
+
     from = end
   }
+
   expect(
     found.size,
     `${selector} declarations in src/styles.css`,
   ).toBeGreaterThan(0)
+
   return found
 }
 
@@ -112,11 +118,14 @@ function utilityColour(utility: string, theme: 'light' | 'dark'): Oklch {
 
   let value = themeVars.get(`--color-${utility}`)
   expect(value, `--color-${utility} in the @theme inline block`).toBeTruthy()
+
   for (let hop = 0; hop < 4 && value?.startsWith('var('); hop += 1) {
     value = vars.get(value.slice('var('.length, value.indexOf(')')))
   }
+
   const channels = value?.match(/oklch\(\s*([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*\)/)
   expect(channels, `an oklch value for ${utility}`).toBeTruthy()
+
   return {
     L: Number(channels![1]),
     C: Number(channels![2]),
@@ -138,20 +147,28 @@ function painted(
   theme: 'light' | 'dark',
 ): Oklch | null {
   const themeVars = declarations('@theme inline')
+
   const candidates = [...element.classList].flatMap((name) => {
     const parts = name.split(':')
     const utility = parts.at(-1) ?? ''
     const variants = parts.slice(0, -1)
+
     if (!variants.every((variant) => element.hasAttribute(variant))) return []
+
     if (!utility.startsWith(`${property}-`)) return []
     const token = utility.slice(property.length + 1)
+
     if (!themeVars.has(`--color-${token}`)) return []
+
     return [{ token, specificity: variants.length + 1 }]
   })
+
   if (!candidates.length) return null
+
   const winner = candidates.reduce((best, candidate) =>
     candidate.specificity >= best.specificity ? candidate : best,
   )
+
   return utilityColour(winner.token, theme)
 }
 
@@ -197,6 +214,7 @@ describe('Checkbox — the mixed state paints a visible mark', () => {
     expect(mixed.hasAttribute('data-disabled')).toBe(true)
 
     const primary = utilityColour('primary', 'light')
+
     for (const box of [checked, mixed]) {
       const fill = painted(box, 'bg', 'light')
       const ink = painted(box, 'text', 'light')

@@ -30,11 +30,13 @@ interface RowsSearch {
 
 const fixtures = vi.hoisted(() => {
   const state: { search: RowsSearch } = { search: {} }
+
   return state
 })
 
 const dataClient = vi.hoisted(() => ({ list: vi.fn(), rpc: vi.fn() }))
 const navigateMock = vi.hoisted(() => vi.fn())
+
 const routeContext = vi.hoisted(() => ({
   value: {
     workspace: { id: 'ws-1', name: 'Process Development', role: 'member' },
@@ -130,6 +132,7 @@ const VERSION = {
 function page(offset: number) {
   const end = Math.min(offset + PAGE_SIZE, TOTAL_ROWS)
   const rows = []
+
   for (let n = offset + 1; n <= end; n += 1) {
     rows.push({
       rowId: `r-${n}`,
@@ -137,6 +140,7 @@ function page(offset: number) {
       values: { 'f-1': `val-${n}`, 'f-2': `vol-${n}` },
     })
   }
+
   return {
     datasetVersionId: VERSION.id,
     datasetId: 'ds-1',
@@ -152,6 +156,7 @@ function renderGrid() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       {React.createElement(RowsRoute)}
@@ -163,15 +168,19 @@ beforeEach(() => {
   fixtures.search = {}
   dataClient.list.mockImplementation(async (resource: string) => {
     if (resource === 'dataset_schema_version_fields') return FIELDS
+
     if (resource === 'dataset_value_flags') return FLAGS
+
     return []
   })
   dataClient.rpc.mockImplementation(
     async (name: string, args: Record<string, unknown>) => {
       if (name === 'dataset_version_list') return [VERSION]
+
       if (name === 'query_dataset_version_rows') {
         return page(Number(args.p_offset ?? 0))
       }
+
       return []
     },
   )
@@ -203,6 +212,7 @@ describe('dataset rows grid', () => {
     fixtures.search = { row: 'r-903', field: 'f-2', live: true }
     dataClient.rpc.mockImplementation(async (name: string) => {
       if (name === 'dataset_version_list') return []
+
       if (name === 'dataset_value_context')
         return {
           datasetId: 'ds-1',
@@ -218,6 +228,7 @@ describe('dataset rows grid', () => {
             },
           ],
         }
+
       return []
     })
     renderGrid()
@@ -306,9 +317,11 @@ describe('dataset rows grid', () => {
 
     expect(field.value).toBe('QA3')
     await waitFor(() => expect(navigateMock).toHaveBeenCalledTimes(1))
+
     const navigated = navigateMock.mock.calls[0][0] as {
       search: (previous: RowsSearch) => RowsSearch
     }
+
     expect(navigated.search({})).toMatchObject({ q: 'QA3' })
   })
 
@@ -316,11 +329,13 @@ describe('dataset rows grid', () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+
     const tree = (
       <QueryClientProvider client={client}>
         {React.createElement(RowsRoute)}
       </QueryClientProvider>
     )
+
     const view = render(tree)
     const field = await screen.findByLabelText<HTMLInputElement>('Search rows')
     expect(field.value).toBe('')

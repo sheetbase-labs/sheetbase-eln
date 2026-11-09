@@ -96,12 +96,14 @@ export async function seedDesignSubtypes(db: Db): Promise<void> {
     select 1 from api.records
      where workspace_id = ${PROCESS} and model_version_id = ${CULTURE_VERSION}
      limit 1`)
+
   if (!existing.rows.length) {
     await withDesignClaims(db, GARETH, PROCESS, async (client) => {
       const created = await client.query<{ id: string }>(
         `select id from api.create_model_record($1,'experiment',$2,'draft','{}','{}','{}')`,
         [AAV9_PROJECT, 'HEK293 shake flask expansion'],
       )
+
       await client.query(
         `select api.set_model_type('records',$1,'cell_culture_run',$2)`,
         [
@@ -120,10 +122,13 @@ export async function seedDesignSubtypes(db: Db): Promise<void> {
   const vicell = await db.execute(sql`
     select id from api.dataset_schema_definitions
      where workspace_id = ${PROCESS} and key = 'vicell_viability'`)
+
   const parentId = (vicell.rows[0] as { id: string } | undefined)?.id
+
   const blu = await db.execute(sql`
     select id from api.dataset_schema_definitions
      where workspace_id = ${PROCESS} and key = 'vicell_blu'`)
+
   if (!parentId || blu.rows.length) return
   await withDesignClaims(db, GARETH, PROCESS, async (client) => {
     const created = await client.query<{
@@ -132,7 +137,9 @@ export async function seedDesignSubtypes(db: Db): Promise<void> {
       `select api.create_dataset_schema_subtype($1,'vicell_blu','ViCell BLU',$2) as result`,
       [parentId, 'ViCell readings from the BLU, with the mean cell diameter.'],
     )
+
     const versionId = created.rows[0].result.schema_version_id
+
     const inherited = await client.query<Record<string, unknown>>(
       `select field_id, key, label, logical_type, nullable, quantity, validation,
               category, cardinality, display_order
@@ -140,6 +147,7 @@ export async function seedDesignSubtypes(db: Db): Promise<void> {
         where schema_version_id = $1 order by display_order`,
       [versionId],
     )
+
     await client.query(
       'select api.replace_dataset_schema_version_fields($1,$2::jsonb)',
       [

@@ -62,6 +62,7 @@ export function itemLink(item: WorkItem): WorkItemLink {
           ...(meaning ? { search: { signatureMeaning: meaning } } : {}),
         }
       : null
+
   const record = (): WorkItemLink =>
     item.recordId
       ? { to: '/records/$recordId', params: { recordId: item.recordId } }
@@ -142,11 +143,13 @@ export function itemLink(item: WorkItem): WorkItemLink {
     default:
       break
   }
+
   if (item.sourceType === 'connector_run' && item.connectorId)
     return {
       to: '/settings/workspace/integrations/$connectorId',
       params: { connectorId: item.connectorId },
     }
+
   if (item.sourceType === 'dataset_import_file' && item.sourceId)
     return {
       to: '/settings/lab/instruments',
@@ -155,15 +158,18 @@ export function itemLink(item: WorkItem): WorkItemLink {
         versionId: item.parserVersionId ?? undefined,
       },
     }
+
   if (item.kind === 'run_failed' || item.kind === 'run_waiting')
     // Until the run is resolved, at least narrow the list to the pipeline the
     // item is about.
     return { to: '/pipelines', search: { q: item.identifier ?? undefined } }
+
   if (
     item.kind === 'approval_requested' &&
     item.identifier === 'column_promotion'
   )
     return { to: '/promotions' }
+
   if (item.kind === 'data_issue')
     return item.datasetId && item.rowId && item.fieldId
       ? {
@@ -172,16 +178,22 @@ export function itemLink(item: WorkItem): WorkItemLink {
           search: { row: item.rowId, field: item.fieldId, live: true },
         }
       : { to: '/datasets' }
+
   if (item.kind === 'reorder_requested' || item.kind === 'reorder_incoming')
     return { to: '/materials', search: { tab: 'orders' } }
+
   if (item.kind === 'shipment_incoming') return { to: '/shipments' }
+
   if (item.kind === 'request_submitted')
     return { to: '/requests', search: { tab: 'triage' } }
+
   if (item.kind === 'request_update')
     return { to: '/requests', search: { tab: 'mine' } }
+
   if (item.kind === 'material_expiring')
     return item.recordId
       ? { to: '/materials/$lotId', params: { lotId: item.recordId } }
       : { to: '/materials' }
+
   return record()
 }

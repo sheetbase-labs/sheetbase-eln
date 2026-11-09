@@ -38,7 +38,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof ExplainPanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Facts only, which is how it reads with AI off. */

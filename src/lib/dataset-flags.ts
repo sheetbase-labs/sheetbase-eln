@@ -107,6 +107,7 @@ export function systemFlagProvenance(
   flag: DatasetValueFlag,
 ): DatasetSystemFlagProvenance | null {
   if (flag.source !== 'system' || !flag.systemRule) return null
+
   return {
     rule: flag.systemRule,
     evaluatedValue: flag.evaluatedValue,
@@ -128,6 +129,7 @@ export async function fetchActiveDatasetFlags(
     'dataset_value_flags',
     `?dataset_id=eq.${encodeURIComponent(datasetId)}&cleared_at=is.null&select=id,dataset_id,row_id,field_id,kind,source,system_rule,reason,comment,evaluated_value,threshold,evaluated_at,set_at,cleared_at,cleared_reason`,
   )
+
   return rows.map((row) => toDatasetValueFlag(row))
 }
 
@@ -162,6 +164,7 @@ export async function flagDatasetValue(
     p_reason: input.reason,
     p_comment: input.comment ?? null,
   })
+
   return toDatasetValueFlag(wire)
 }
 
@@ -182,6 +185,7 @@ export async function clearDatasetValueFlag(
     'clear_dataset_value_flag',
     { p_flag_id: flagId, p_reason: reason ?? null },
   )
+
   return toDatasetValueFlag(wire)
 }
 
@@ -195,7 +199,9 @@ export function buildFlagIndex(
   flags: readonly DatasetValueFlag[],
 ): Map<string, DatasetValueFlag> {
   const index = new Map<string, DatasetValueFlag>()
+
   for (const flag of flags) index.set(flagKey(flag.rowId, flag.fieldId), flag)
+
   return index
 }
 
@@ -218,9 +224,12 @@ export function filterRowsByFlags(
 ): Record<string, unknown>[] {
   if (flags.length === 0 || fieldIds.length === 0) return [...rows]
   const index = buildFlagIndex(flags)
+
   return rows.filter((row) => {
     const rowId = row[CHART_ROW_ID_KEY]
+
     if (typeof rowId !== 'string') return true
+
     return !fieldIds.some((fieldId) => isValueFlagged(index, rowId, fieldId))
   })
 }
@@ -250,11 +259,13 @@ export function summariseExcludedValues(
   const values = new Set<string>()
   const rows = new Set<string>()
   const kinds = new Set<DatasetValueFlagKind>()
+
   for (const item of excluded) {
     values.add(flagKey(item.rowId, item.fieldId))
     rows.add(item.rowId)
     kinds.add(item.flag.kind)
   }
+
   return {
     valueCount: values.size,
     rowCount: rows.size,
@@ -274,12 +285,15 @@ export function excludeFlaggedValues<T>(
 ): { rows: T[]; excluded: ExcludedValue[] } {
   const kept: T[] = []
   const excluded: ExcludedValue[] = []
+
   for (const row of rows) {
     const rowId = rowIdOf(row)
     const flag = index.get(flagKey(rowId, fieldId))
+
     if (flag) excluded.push({ rowId, fieldId, flag })
     else kept.push(row)
   }
+
   return { rows: kept, excluded }
 }
 

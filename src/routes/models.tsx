@@ -53,7 +53,9 @@ import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
 
 const tabs = ['all', 'published', 'drafts', 'retired'] as const
+
 type ModelTab = (typeof tabs)[number]
+
 const tabLabel: Record<ModelTab, string> = {
   all: t('library.models.list.all'),
   published: t('library.models.list.published'),
@@ -100,9 +102,11 @@ export const Route = createFileRoute('/models')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: ModelsRoute,
@@ -112,14 +116,18 @@ function ModelsRoute() {
   const isIndex = useRouterState({
     select: (state) => state.location.pathname === '/models',
   })
+
   return isIndex ? <ModelsList /> : <Outlet />
 }
 
 function inTab(model: ModelRow, tab: ModelTab): boolean {
   if (tab === 'all') return true
+
   if (tab === 'published')
     return model.lifecycle === 'active' || model.lifecycle === 'published'
+
   if (tab === 'drafts') return model.lifecycle === 'draft'
+
   return model.lifecycle === 'retired'
 }
 
@@ -131,7 +139,9 @@ function inTab(model: ModelRow, tab: ModelTab): boolean {
 function modelVersionLabel(model: ModelRow): string {
   if (model.kind === 'builtin') return '—'
   const version = model.publishedVersion ?? model.latestVersion
+
   if (!version) return '—'
+
   return version.lifecycle === 'published' || version.lifecycle === 'active'
     ? `v${version.version}`
     : `v${version.version} ${version.lifecycle}`
@@ -140,8 +150,10 @@ function modelVersionLabel(model: ModelRow): string {
 function captureLabel(model: ModelRow): string {
   if (model.kind === 'builtin')
     return t('library.models.list.builtInRecordType')
+
   if (model.parentName)
     return t('library.models.list.subtypeOf', { parentName: model.parentName })
+
   return model.kind === 'record'
     ? t('library.models.list.recordType')
     : t('library.models.list.measurementTable')
@@ -150,6 +162,7 @@ function captureLabel(model: ModelRow): string {
 function usedByLabel(model: ModelRow): string {
   if (model.kind === 'builtin')
     return countOf(model.recordCount ?? 0, model.name.toLowerCase())
+
   return model.kind === 'record'
     ? countOf(model.recordCount ?? 0, model.objectNoun ?? 'record')
     : countOf(model.datasetCount, 'dataset')
@@ -158,16 +171,20 @@ function usedByLabel(model: ModelRow): string {
 function ModelsList() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+
   const openModel = useOpenRow<ModelRow>(
     navigate,
     (row) => `/models/${encodeURIComponent(row.id)}`,
     (row) => row.name,
   )
+
   const query = useModels()
   const rows = query.data ?? []
   const members = useWorkspaceMemberNames()
+
   const ownerName = (id: string | null) =>
     id ? (members.data?.get(id) ?? '—') : '—'
+
   const tab: ModelTab = search.tab ?? 'all'
   const [selected, setSelected] = useState<string | null>(null)
   const view = useListView('models')
@@ -178,13 +195,16 @@ function ModelsList() {
   // (`api.require_capability`): the board offers the control only to a role
   // that holds it, and states why when it does not.
   const canCreate = hasCapability(context.workspace?.role, 'schema.edit')
+
   const [createOpen, setCreateOpen] = useState(
     () => search.create === true && canCreate,
   )
+
   const create = useMutation({
     mutationFn: async (input: ModelCreateInput) => {
       if (!workspaceId)
         throw new Error(t('library.models.list.noActiveWorkspace'))
+
       if (input.kind === 'record') {
         const created = await notebookDataClient.rpc<{ key: string }>(
           'create_workspace_model',
@@ -196,14 +216,17 @@ function ModelsList() {
             p_description: input.description,
           },
         )
+
         return { routeId: created.key }
       }
+
       const created = await createDatasetSchemaDefinition(notebookDataClient, {
         workspaceId,
         key: input.key,
         name: input.name,
         description: input.description,
       })
+
       return { routeId: created.schema_definition_id }
     },
     onSuccess: (created, input) => {
@@ -251,7 +274,9 @@ function ModelsList() {
       ) as Record<ModelTab, number>,
     [rows],
   )
+
   const q = (search.q ?? '').trim().toLowerCase()
+
   const visible = sortByName(
     rows
       .filter((m) => inTab(m, tab))
@@ -260,6 +285,7 @@ function ModelsList() {
     (m) => m.name,
     (m) => m.display_id ?? m.key,
   )
+
   const sel = visible.find((m) => m.id === (selected ?? search.selected))
 
   const columns = useMemo<RegistryColumn<ModelRow>[]>(
@@ -346,6 +372,7 @@ function ModelsList() {
         accessorFn: (m) => modelStatus(m.lifecycle).label,
         cell: ({ row }) => {
           const status = modelStatus(row.original.lifecycle)
+
           return <Status tone={status.tone}>{status.label}</Status>
         },
       },
@@ -465,6 +492,7 @@ function ModelsList() {
             label={t('library.models.list.models')}
             items={visible.map((m) => {
               const status = modelStatus(m.lifecycle)
+
               return {
                 key: m.id,
                 id: `${m.display_id ?? m.key} · ${modelVersionLabel(m)}`,
@@ -530,6 +558,7 @@ function ModelsList() {
         open={createOpen}
         onOpenChange={(next) => {
           setCreateOpen(next)
+
           // A refusal belongs to the attempt that earned it; reopening starts
           // from a clean slate rather than showing the last refusal forever.
           if (next) create.reset()

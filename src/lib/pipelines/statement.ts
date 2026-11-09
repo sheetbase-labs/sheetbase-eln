@@ -78,12 +78,14 @@ export type StatementCheck = { ok: true } | { ok: false; reason: string }
  */
 export function checkTransformStatement(statement: string): StatementCheck {
   const text = statement.trim()
+
   if (text.length === 0)
     return { ok: false, reason: t('data.pipelineStatement.statementEmpty') }
 
   // A single statement only: strip one trailing semicolon, then reject any
   // other semicolon.
   const normalized = text.replace(/;+$/, '')
+
   if (normalized.includes(';')) {
     return {
       ok: false,
@@ -92,6 +94,7 @@ export function checkTransformStatement(statement: string): StatementCheck {
   }
 
   const upper = normalized.toUpperCase()
+
   if (!upper.startsWith('SELECT') && !upper.startsWith('WITH')) {
     return { ok: false, reason: 'transform must be a single SELECT statement' }
   }
@@ -99,12 +102,15 @@ export function checkTransformStatement(statement: string): StatementCheck {
   if (normalized.includes('--')) {
     return { ok: false, reason: t('data.pipelineStatement.commentsAllowed') }
   }
+
   if (normalized.includes('/*')) {
     return { ok: false, reason: t('data.pipelineStatement.commentsAllowed') }
   }
+
   if (normalized.includes('$')) {
     return { ok: false, reason: 'dollar-quoting is not allowed' }
   }
+
   if (normalized.includes('\\')) {
     return {
       ok: false,
@@ -161,22 +167,29 @@ export function substituteParameters(
   const placeholderRe = /\{\{([a-z][a-z0-9_]{0,47})\}\}/g
   const used = new Set<string>()
   let match: RegExpExecArray | null
+
   while ((match = placeholderRe.exec(statement)) !== null) {
     used.add(match[1])
   }
+
   // Resolve every placeholder to a literal first; any failure aborts the
   // whole substitution so a partially-rewritten statement never runs.
   const literals = new Map<string, string>()
+
   for (const name of used) {
     const literal = literalForParameter(name, parameters, parameterTypes)
+
     if (typeof literal !== 'string') {
       return { ok: false, reason: literal.reason }
     }
+
     literals.set(name, literal)
   }
+
   const result = statement.replace(placeholderRe, (_, name: string) => {
     return literals.get(name) ?? 'NULL'
   })
+
   return { ok: true, statement: result }
 }
 
@@ -186,11 +199,14 @@ function literalForParameter(
   parameterTypes: Record<string, string>,
 ): string | { reason: string } {
   const type = parameterTypes[name]
+
   if (!type) return { reason: `undeclared parameter: ${name}` }
   const value = parameters[name]
+
   if (value === undefined || value === null) {
     return 'NULL'
   }
+
   switch (type) {
     case 'text':
       return `'${String(value).replace(/'/g, "''")}'`
@@ -198,30 +214,40 @@ function literalForParameter(
       if (typeof value !== 'number' || !Number.isInteger(value)) {
         return { reason: `${name} must be an integer` }
       }
+
       return String(value)
     }
+
     case 'decimal': {
       if (typeof value !== 'number' || !Number.isFinite(value)) {
         return { reason: `${name} must be a finite number` }
       }
+
       return String(value)
     }
+
     case 'boolean':
       return value === true ? 'true' : 'false'
     case 'date': {
       const text = String(value)
+
       if (!/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(text)) {
         return { reason: `${name} must be a YYYY-MM-DD date` }
       }
+
       return `'${text}'::date`
     }
+
     case 'timestamp': {
       const text = String(value)
+
       if (Number.isNaN(Date.parse(text))) {
         return { reason: `${name} must be an ISO timestamp` }
       }
+
       return `'${text}'::timestamptz`
     }
+
     default:
       return { reason: `${name} has an unsupported type: ${type}` }
   }

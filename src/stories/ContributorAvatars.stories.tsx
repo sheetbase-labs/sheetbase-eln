@@ -17,7 +17,9 @@ const meta = {
   tags: ['autodocs'],
   args: { contributors },
 } satisfies Meta<typeof ContributorAvatars>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Six contributors, `max` of four shown, the rest counted. */

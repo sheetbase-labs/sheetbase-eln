@@ -95,11 +95,13 @@ import type { ImportSearch } from './import-search'
 import { parseImportMapping, serializeImportMapping } from './import-search'
 
 const client = createDataClient()
+
 const STEPS = [
   t('common.actions.upload'),
   t('data.importFlow.mapColumns'),
   t('data.importFlow.reviewImport'),
 ]
+
 const DATASETS_QUERY_KEY = ['ui-port', 'import', 'datasets'] as const
 const SCHEMAS_QUERY_KEY = ['ui-port', 'import', 'schemas'] as const
 
@@ -108,6 +110,7 @@ export {
   parseImportSearch,
   serializeImportMapping,
 } from './import-search'
+
 export type { ImportSearch } from './import-search'
 
 /**
@@ -123,12 +126,14 @@ export function suggestParserFromFilename(
   options: ImportParserSummary[],
 ): ImportParserSummary | null {
   const name = filename.toLowerCase()
+
   return (
     options.find((option) => {
       const label = option.label
         .toLowerCase()
         .replace(/ v[\d.]+$/, '')
         .split(' ')[0]
+
       return label.length >= 3 && name.includes(label)
     }) ?? null
   )
@@ -147,24 +152,32 @@ export function suggestDatasetFromFilename<
     .toLowerCase()
     .replace(/\.[a-z0-9]+$/, '')
     .replace(/[^a-z0-9]+/g, ' ')
+
   const scored = datasets
     .map((dataset) => {
       const id = (dataset.display_id ?? '')
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, ' ')
+
       if (id.trim() && stem.includes(id.trim())) return { dataset, score: 100 }
+
       const words = dataset.name
         .toLowerCase()
         .split(/[^a-z0-9]+/)
         .filter((word) => word.length >= 3)
+
       const hits = words.filter((word) => stem.includes(word)).length
+
       return { dataset, score: words.length > 0 ? hits : 0 }
     })
     .filter((entry) => entry.score >= 2 || entry.score === 100)
     .sort((a, b) => b.score - a.score)
+
   const best = scored.at(0)
   const next = scored.at(1)
+
   if (!best || (next && next.score === best.score)) return null
+
   return best.dataset
 }
 
@@ -182,12 +195,16 @@ export function initialMappingValues(
 ): Record<string, string> {
   if (Object.keys(urlMapping).length > 0) {
     const values: Record<string, string> = {}
+
     for (const header of headers) values[header] = urlMapping[header] ?? ''
+
     return values
   }
+
   const saved = savedMapping?.sources ?? []
   const suggested = suggestImportMappings(headers, fields)
   const values: Record<string, string> = {}
+
   for (const source of headers) {
     const savedEntry = saved.find((entry) => entry.source === source)
     const suggestedEntry = suggested.find((entry) => entry.source === source)
@@ -197,6 +214,7 @@ export function initialMappingValues(
         ? suggestedEntry.field.id
         : ''
   }
+
   return values
 }
 
@@ -220,11 +238,14 @@ export function commitIdempotencyKey(
       source.sourceUnit,
     ]),
   ])
+
   let hash = 2166136261
+
   for (let index = 0; index < canonical.length; index += 1) {
     hash ^= canonical.charCodeAt(index)
     hash = Math.imul(hash, 16777619)
   }
+
   return `import-${fileId}-${datasetId}-${(hash >>> 0).toString(16)}`
 }
 
@@ -232,8 +253,11 @@ const BUILT_IN_EXTENSIONS = ['.csv', '.tsv', '.tab', '.txt', '.json', '.xlsx']
 
 function outcomeTone(outcome: string): 'ok' | 'warn' | 'bad' | 'stored' {
   if (outcome === 'flagged') return 'warn'
+
   if (outcome === 'skipped') return 'stored'
+
   if (outcome === 'planned') return 'ok'
+
   return 'stored'
 }
 
@@ -243,12 +267,15 @@ function outcomeLabel(row: {
   flags: Array<{ reason: string }>
 }): string {
   if (row.outcome === 'skipped') return t('data.importFlow.controlImported')
+
   if (row.outcome === 'flagged')
     return (
       row.flags.map((flag) => flag.reason).join('; ') ||
       t('data.importFlow.flagged')
     )
+
   if (row.outcome === 'planned') return t('data.importFlow.fillsPlannedRow')
+
   return t('data.importFlow.newRow')
 }
 
@@ -333,16 +360,19 @@ export function ImportUploadFlow({
   const navigate = useNavigate()
   const targetGroup = useId()
   const queryClient = useQueryClient()
+
   const datasets = useQuery({
     queryKey: DATASETS_QUERY_KEY,
     queryFn: () => fetchDatasetSummaries(client),
     staleTime: 15_000,
   })
+
   const schemas = useQuery({
     queryKey: SCHEMAS_QUERY_KEY,
     queryFn: () => listPublishedDatasetSchemas(client),
     staleTime: 60_000,
   })
+
   const experiments = useExperimentRecords(undefined)
   const instruments = useInstruments()
   const calibrations = useLatestCalibrationsByInstrument()
@@ -352,6 +382,7 @@ export function ImportUploadFlow({
   const pluginImporters = pluginPoints.data.importers
   const pluginConnectors = pluginPoints.data.connectors
   const pluginParsers = pluginPoints.data['instrument-parsers']
+
   const pluginImporterExtensions = useMemo(
     () => [
       ...new Set(
@@ -360,6 +391,7 @@ export function ImportUploadFlow({
     ],
     [pluginImporters],
   )
+
   const pluginExtensions = useMemo(
     () => [
       ...new Set([
@@ -369,6 +401,7 @@ export function ImportUploadFlow({
     ],
     [pluginImporterExtensions, pluginParsers],
   )
+
   /** A file in a format a plugin reads becomes a table first; anything else is left alone. */
   async function readable(file: File): Promise<File> {
     // An instrument's own file: a plugin parser that recognises it takes it.
@@ -376,6 +409,7 @@ export function ImportUploadFlow({
     // what its files carry, so a parser can't swallow every CSV or sheet.
     const extension = fileExtension(file.name)
     const builtIn = BUILT_IN_EXTENSIONS.includes(extension)
+
     const asText = pluginParsers.some(
       (item) =>
         item.declaration.extensions.includes(extension) &&
@@ -383,6 +417,7 @@ export function ImportUploadFlow({
     )
       ? await file.slice(0, 200_000).text()
       : null
+
     const parser = pickInstrumentParser(
       pluginParsers.filter(
         (item) => !builtIn || Boolean(item.declaration.contains),
@@ -390,6 +425,7 @@ export function ImportUploadFlow({
       file.name,
       asText,
     )
+
     if (parser) {
       try {
         return await readWithInstrumentParser({
@@ -404,10 +440,13 @@ export function ImportUploadFlow({
         if (!builtIn) throw error
       }
     }
+
     const importer = pluginImporters.find((item) =>
       item.declaration.extensions.includes(fileExtension(file.name)),
     )
+
     if (!importer) return file
+
     return readWithImporter({
       extensionKey: importer.extensionKey,
       importerId: importer.id,
@@ -417,23 +456,28 @@ export function ImportUploadFlow({
   }
 
   const [mode, setMode] = useState<'append' | 'new' | 'file' | null>(null)
+
   // A file already read, waiting for its table's columns to be set up.
   const [columnsStage, setColumnsStage] = useState<{
     fileId: string
     filename: string
     sheet: ImportSheetPreview
   } | null>(null)
+
   const [datasetId, setDatasetId] = useState(initialDatasetId ?? '')
   const [schemaVersionId, setSchemaVersionId] = useState('')
   const [newName, setNewName] = useState('')
   const [experimentId, setExperimentId] = useState(initialExperimentId ?? '')
+
   const [experimentOption, setExperimentOption] = useState<PickerOption | null>(
     null,
   )
+
   // The experiment the page was opened from is named before anything is picked.
   const initialExperiment = initialExperimentId
     ? experiments.data?.find((item) => item.id === initialExperimentId)
     : undefined
+
   const initialExperimentOption: PickerOption | null = initialExperiment
     ? {
         id: initialExperiment.id,
@@ -441,6 +485,7 @@ export function ImportUploadFlow({
         label: initialExperiment.title,
       }
     : null
+
   const [instrumentId, setInstrumentId] = useState(initialInstrumentId ?? '')
   // A file picked before the target is chosen is held here until it is.
   const [held, setHeld] = useState<File | null>(null)
@@ -450,6 +495,7 @@ export function ImportUploadFlow({
 
   const datasetRows = datasets.data ?? []
   const structureRows = schemas.data ?? []
+
   // With nothing to append to, a table made from the file itself is the way in:
   // the first import never waits for someone to define columns.
   const defaultMode =
@@ -458,7 +504,9 @@ export function ImportUploadFlow({
       : structureRows.length > 0
         ? 'new'
         : 'file'
+
   const effectiveMode = mode ?? defaultMode
+
   const targetReady =
     effectiveMode === 'append'
       ? Boolean(datasetId)
@@ -469,6 +517,7 @@ export function ImportUploadFlow({
   const latestCalibration = instrumentId
     ? calibrations.data?.get(instrumentId)
     : undefined
+
   const calibration = calibrationStatus(latestCalibration?.dueAt ?? null)
 
   /**
@@ -480,31 +529,39 @@ export function ImportUploadFlow({
   async function experimentProjectId(id: string): Promise<string | null> {
     if (!id) return null
     const loaded = experiments.data?.find((item) => item.id === id)
+
     if (loaded) return loaded.project_id ?? null
+
     const rows = await client.list<{ project_id: string | null }>(
       'records',
       `?id=eq.${encodeURIComponent(id)}&select=project_id&limit=1`,
     )
+
     return rows.at(0)?.project_id ?? null
   }
 
   async function start(picked: File) {
     const file = await readable(picked)
+
     if (effectiveMode === 'file') {
       // Read the file first; its columns are what the new table is made from.
       const upload = await uploadImportFile({ file, datasetId: null })
+
       if (!upload.sheet) {
         throw new Error(
           upload.parseError ?? t('data.importFlow.fileColumns.failed'),
         )
       }
+
       setColumnsStage({
         fileId: upload.fileId,
         filename: upload.filename,
         sheet: upload.sheet,
       })
+
       return
     }
+
     const target = await resolveImportTarget(
       client,
       effectiveMode === 'new'
@@ -521,13 +578,16 @@ export function ImportUploadFlow({
           }
         : { mode: 'append', datasetId },
     )
+
     const upload = await uploadImportFile({
       file,
       datasetId: target.datasetId,
     })
+
     if (target.created) {
       void queryClient.invalidateQueries({ queryKey: DATASETS_QUERY_KEY })
     }
+
     const search: ImportSearch = {
       step: 'map',
       dataset: target.datasetId,
@@ -536,10 +596,13 @@ export function ImportUploadFlow({
       project: initialProjectId,
       returnTo,
     }
+
     if (onUploaded) {
       await onUploaded(upload.fileId, search)
+
       return
     }
+
     await navigate({
       to: '/import/$importId',
       params: { importId: upload.fileId },
@@ -554,26 +617,34 @@ export function ImportUploadFlow({
    */
   function pick(file: File | null): void | Promise<void> {
     setHoldError(null)
+
     if (!file) {
       setHeld(null)
       setSuggested(null)
+
       return undefined
     }
+
     if (targetReady) return start(file)
     setHeld(file)
+
     if (effectiveMode === 'append' && !datasetId) {
       const match = suggestDatasetFromFilename(file.name, datasetRows)
+
       if (match) {
         setDatasetId(match.id)
         setSuggested(match.id)
       }
     }
+
     return undefined
   }
+
   async function startHeld() {
     if (!held) return
     setStarting(true)
     setHoldError(null)
+
     try {
       await start(held)
     } catch (failure) {
@@ -591,6 +662,7 @@ export function ImportUploadFlow({
     const experimentProject =
       experiments.data?.find((item) => item.id === experimentId)?.project_id ??
       null
+
     return (
       <FileColumnsStep
         workspaceId={workspaceId}
@@ -602,6 +674,7 @@ export function ImportUploadFlow({
         onBack={() => setColumnsStage(null)}
         onCreated={async (result: FileColumnsResult) => {
           void queryClient.invalidateQueries({ queryKey: DATASETS_QUERY_KEY })
+
           const search: ImportSearch = {
             step: 'map',
             dataset: result.datasetId,
@@ -613,10 +686,13 @@ export function ImportUploadFlow({
             units: result.units,
             sheet: result.sheet,
           }
+
           if (onUploaded) {
             await onUploaded(columnsStage.fileId, search)
+
             return
           }
+
           await navigate({
             to: '/import/$importId',
             params: { importId: columnsStage.fileId },
@@ -941,6 +1017,7 @@ function ImportMapCheckContent({
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const step: 'map' | 'check' = search.step === 'check' ? 'check' : 'map'
+
   const file = useQuery({
     queryKey: [
       ...importQueryKeys.file(importId),
@@ -955,6 +1032,7 @@ function ImportMapCheckContent({
       }),
     staleTime: Infinity,
   })
+
   const datasets = useQuery({
     queryKey: DATASETS_QUERY_KEY,
     queryFn: () => fetchDatasetSummaries(client),
@@ -962,6 +1040,7 @@ function ImportMapCheckContent({
   })
 
   const datasetId = search.dataset ?? file.data?.datasetId ?? ''
+
   // A committed import is a receipt: read-only, with a way to upload a
   // corrected file. It is found among the Dataset's receipts by this file.
   const receipts = useQuery({
@@ -970,13 +1049,17 @@ function ImportMapCheckContent({
     enabled: Boolean(datasetId),
     staleTime: 15_000,
   })
+
   const receipt = findCommittedReceipt(receipts.data, importId, search.sheet)
+
   const dataset =
     (datasets.data ?? []).find((item) => item.id === datasetId) ?? null
+
   const fields = useMemo(
     () => (dataset ? datasetFieldsFromColumns(dataset.columns) : []),
     [dataset],
   )
+
   const headers = file.data?.sheet?.headers ?? []
 
   const parserOptions = useMemo(() => {
@@ -985,7 +1068,9 @@ function ImportMapCheckContent({
       ...(file.data?.approvedParsers ?? []),
       ...(file.data?.draftParsers ?? []),
     ].filter((option): option is ImportParserSummary => Boolean(option))
+
     const seen = new Set<string>()
+
     return options.filter((option) =>
       seen.has(option.key) ? false : (seen.add(option.key), true),
     )
@@ -997,14 +1082,18 @@ function ImportMapCheckContent({
   const [mappingReady, setMappingReady] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+
   const [blockedByContract, setBlockedByContract] =
     useState<ContractGateReport | null>(null)
+
   const [saveWarning, setSaveWarning] = useState('')
+
   const [outcome, setOutcome] = useState<ImportCommitResponseSummary | null>(
     null,
   )
 
   const urlMapping = useMemo(() => parseImportMapping(search.map), [search.map])
+
   const suggestedParser = useMemo(
     () =>
       file.data
@@ -1012,8 +1101,10 @@ function ImportMapCheckContent({
         : null,
     [file.data, parserOptions],
   )
+
   const parserKey =
     search.parser ?? file.data?.parser?.key ?? suggestedParser?.key ?? ''
+
   const activeParser = manual
     ? null
     : (parserOptions.find((option) => option.key === parserKey) ??
@@ -1050,11 +1141,13 @@ function ImportMapCheckContent({
     urlMapping,
     search.units,
   ])
+
   const mappingDocument = useMemo<ImportMappingDocument>(
     () => ({
       sheetName: file.data?.sheet?.name,
       sources: headers.map((source) => {
         const fieldId = mappingValues[source] ?? ''
+
         return {
           source,
           fieldId: fieldId || null,
@@ -1065,11 +1158,14 @@ function ImportMapCheckContent({
     }),
     [file.data, fields, headers, mappingValues, sourceUnits],
   )
+
   const unitErrors = mappingDocument.sources.flatMap((entry) => {
     const field = fields.find((item) => item.id === entry.fieldId)
     const message = field ? importUnitError(field, entry.sourceUnit) : null
+
     return message ? [message] : []
   })
+
   // A required Schema field no column feeds: the database refuses every row, so
   // say so on the mapping instead of after Import.
   const mappedFieldIds = new Set(
@@ -1077,6 +1173,7 @@ function ImportMapCheckContent({
       entry.fieldId ? [entry.fieldId] : [],
     ),
   )
+
   const requiredUnmapped =
     mappedFieldIds.size > 0
       ? fields.filter(
@@ -1086,14 +1183,18 @@ function ImportMapCheckContent({
             !mappedFieldIds.has(field.id),
         )
       : []
+
   const worksheetReady = Boolean(
     search.sheet || file.data?.sheet?.sheetNames.length === 1,
   )
+
   const mappedCount = Object.values(mappingValues).filter(Boolean).length
   const parsed = Boolean(file.data?.parsed)
   const datasetPending = Boolean(datasetId) && datasets.isLoading
+
   const datasetUnavailable =
     Boolean(datasetId) && !datasets.isLoading && !dataset
+
   // The map step needs a chosen parser or a hand mapping before its table can
   // say anything. The review step reads the rows the mapping produces, so it
   // needs only the mapping: a reload at step=check with the pins kept shows the
@@ -1104,8 +1205,10 @@ function ImportMapCheckContent({
     worksheetReady &&
     Boolean(dataset) &&
     Boolean(activeParser || manual)
+
   const showReview =
     step === 'check' && parsed && Boolean(dataset) && mappedCount > 0
+
   // "Choose how to read this file" claims nothing matched the file, so it waits until
   // the target is settled: not while the Dataset list is still loading (a parser may
   // already have matched), and not when the Dataset itself is missing — that banner
@@ -1164,6 +1267,7 @@ function ImportMapCheckContent({
     setBusy(true)
     setError('')
     setSaveWarning('')
+
     try {
       // Saving the mapping as the parser's default is a convenience: a refused save
       // (permission, parser rules) leaves the review, which writes nothing, available.
@@ -1182,6 +1286,7 @@ function ImportMapCheckContent({
           )
         }
       }
+
       writeSearch({
         ...search,
         step: 'check',
@@ -1199,6 +1304,7 @@ function ImportMapCheckContent({
    * then write the rows the review above already shows. */
   async function importNow() {
     if (!file.data || !datasetId || !review.data) return
+
     if (activeParser?.parserId) {
       try {
         await saveParserMapping(client, {
@@ -1214,6 +1320,7 @@ function ImportMapCheckContent({
         )
       }
     }
+
     await runCommit()
   }
 
@@ -1240,6 +1347,7 @@ function ImportMapCheckContent({
     if (!file.data || !datasetId || !review.data) return
     setBusy(true)
     setError('')
+
     try {
       const result = await commitImport({
         fileId: importId,
@@ -1257,10 +1365,13 @@ function ImportMapCheckContent({
           mappingDocument,
         ),
       })
+
       if (!result.ok && result.contract?.blocked) {
         setBlockedByContract(result.contract)
+
         return
       }
+
       if (!result.ok) {
         setError(
           describeRejectedImport(
@@ -1268,8 +1379,10 @@ function ImportMapCheckContent({
             fields,
           ),
         )
+
         return
       }
+
       setOutcome({
         committed: result.committed,
         importId: result.importId ?? null,
@@ -1311,6 +1424,7 @@ function ImportMapCheckContent({
   }
 
   if (receipt && renderReceipt) return renderReceipt(receipt)
+
   if (receipt)
     return (
       <ImportReceipt
@@ -1775,11 +1889,14 @@ function ImportMapCheckContent({
                 onApplyAi={(suggestions) => {
                   const nextMap = { ...mappingValues }
                   const nextUnits = { ...sourceUnits }
+
                   for (const suggestion of suggestions) {
                     nextMap[suggestion.header] = suggestion.fieldId
+
                     if (suggestion.sourceUnit)
                       nextUnits[suggestion.header] = suggestion.sourceUnit
                   }
+
                   setMappingValues(nextMap)
                   setSourceUnits(nextUnits)
                   writeSearch({
@@ -1846,9 +1963,11 @@ function ParserChoice({
   onAskAdmin: () => void
 }) {
   const [choice, setChoice] = useState('manual')
+
   const extension = file.name.includes('.')
     ? file.name.slice(file.name.lastIndexOf('.') + 1).toUpperCase()
     : 'FILE'
+
   const options = [
     { value: 'manual', label: t('data.importFlow.mapColumnsHandFile') },
     ...drafts.map((draft) => ({
@@ -1857,6 +1976,7 @@ function ParserChoice({
     })),
     { value: 'admin', label: t('data.importFlow.askAdminUpdateParser2') },
   ]
+
   return (
     <div className="grid gap-4">
       <div className="flex items-center gap-3 rounded-md border px-3 py-2.5">
@@ -1949,9 +2069,11 @@ export function columnNote(
   mapped: boolean,
 ): string {
   if (!mapped) return t('data.importFlow.matchingField')
+
   const matched = sampleRows
     .slice(0, 6)
     .filter((row) => (row[source] ?? '').trim().length > 0).length
+
   return t('data.importFlow.matchedOf', { matched, min: Math.min(rowCount, 6) })
 }
 
@@ -1979,14 +2101,17 @@ function MapTable({
   const mappedCount = Object.values(mappingValues).filter(Boolean).length
   const sampleRows = sheet?.sampleRows ?? []
   const ai = usePageAi()
+
   const [aiState, setAiState] = useState<
     | { phase: 'idle' }
     | { phase: 'running' }
     | { phase: 'failed'; message: string }
     | { phase: 'ready'; suggestions: AiMappingSuggestion[] }
   >({ phase: 'idle' })
+
   const askAi = async () => {
     setAiState({ phase: 'running' })
+
     const result = await ai.run({
       task: 'map_columns',
       instruction: buildMappingInstruction(
@@ -1997,10 +2122,13 @@ function MapTable({
         fields,
       ),
     })
+
     if (result.status !== 'ok') {
       setAiState({ phase: 'failed', message: result.message })
+
       return
     }
+
     setAiState({
       phase: 'ready',
       suggestions: changesFromSuggestions(
@@ -2010,8 +2138,10 @@ function MapTable({
       ),
     })
   }
+
   const pending = aiState.phase === 'ready' ? aiState.suggestions : []
   const pendingByHeader = new Map(pending.map((item) => [item.header, item]))
+
   return (
     <div className="grid gap-4">
       <p className="m-0 text-body text-fg-muted">
@@ -2105,10 +2235,13 @@ function MapTable({
             {headers.map((header) => {
               const fieldId = mappingValues[header] ?? ''
               const field = fields.find((item) => item.id === fieldId)
+
               const unitError = field
                 ? importUnitError(field, sourceUnits[header])
                 : null
+
               const examples = columnExamples(header, sampleRows)
+
               return (
                 <TableRow key={header}>
                   <TableCell>{header}</TableCell>
@@ -2196,6 +2329,7 @@ function AiSuggestionHint({
   fields: ImportTargetField[]
 }) {
   const field = fields.find((item) => item.id === suggestion.fieldId)
+
   const bits = [
     field?.label,
     suggestion.sourceUnit
@@ -2203,6 +2337,7 @@ function AiSuggestionHint({
       : null,
     suggestion.kind ? t(`data.importFlow.aiKind.${suggestion.kind}`) : null,
   ].filter(Boolean)
+
   return (
     <p className="m-0 mt-1 flex items-start gap-1 text-label text-fg">
       <Icon name="spark" size={12} className="mt-0.5 shrink-0" aria-hidden />
@@ -2236,7 +2371,9 @@ function ReviewTable({
       </p>
     )
   }
+
   if (!review) return null
+
   const rows = (
     <>
       {review.errors.length > 0 ? (
@@ -2316,6 +2453,7 @@ function ReviewTable({
       </div>
     </>
   )
+
   const aside = (
     <>
       <Section title={t('data.importFlow.summary')}>
@@ -2352,8 +2490,11 @@ function ReviewTable({
       </Section>
     </>
   )
+
   if (part === 'rows') return <>{rows}</>
+
   if (part === 'aside') return <div className="grid gap-4">{aside}</div>
+
   return (
     <div className="grid gap-4">
       {rows}

@@ -23,7 +23,9 @@ import type { FieldDefinition } from './field-definition'
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 const CALENDAR_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/
+
 const TIMESTAMP_RE =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(?:Z|[+-](\d{2}):(\d{2}))$/
 
@@ -33,9 +35,11 @@ export function isUuid(value: string): boolean {
 
 export function isValidCalendarDate(value: string): boolean {
   const match = CALENDAR_DATE_RE.exec(value)
+
   if (!match) return false
   const [, year, month, day] = match.map(Number)
   const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0)
+
   return (
     year >= 1 &&
     month >= 1 &&
@@ -48,7 +52,9 @@ export function isValidCalendarDate(value: string): boolean {
 
 export function isValidTimestamp(value: string): boolean {
   const match = TIMESTAMP_RE.exec(value)
+
   if (!match) return false
+
   return (
     isValidCalendarDate(`${match[1]}-${match[2]}-${match[3]}`) &&
     Number(match[4]) <= 23 &&
@@ -73,13 +79,17 @@ export function fieldDisplayUnit(
 
 function stripUnitSuffix(trimmed: string, symbols: string[]): string {
   const ordered = [...symbols].sort((a, b) => b.length - a.length)
+
   for (const symbol of ordered) {
     if (!symbol) continue
+
     if (trimmed.endsWith(symbol)) {
       const head = trimmed.slice(0, trimmed.length - symbol.length).trimEnd()
+
       if (head !== '' && /[\d.]$/.test(head)) return head
     }
   }
+
   return trimmed
 }
 
@@ -95,26 +105,35 @@ export function parseQuantityNumericValue(
   raw: unknown,
 ): unknown {
   if (typeof raw === 'number') return raw
+
   if (typeof raw !== 'string') return raw
+
   const withoutUnit = stripUnitSuffix(
     raw.trim(),
     fieldUnitSymbols(field),
   ).trim()
+
   if (field.logicalType === 'integer') {
     if (/^-?\d+$/.test(withoutUnit)) return Number(withoutUnit)
+
     // Thousands-separated clipboard values coerce when the grouping is
     // unambiguous; anything else fails closed.
     if (/^-?\d{1,3}(,\d{3})+$/.test(withoutUnit))
       return Number(withoutUnit.replace(/,/g, ''))
+
     return raw
   }
+
   if (field.logicalType === 'decimal') {
     if (withoutUnit !== '' && !Number.isNaN(Number(withoutUnit)))
       return Number(withoutUnit)
+
     if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(withoutUnit))
       return Number(withoutUnit.replace(/,/g, ''))
+
     return raw
   }
+
   return raw
 }
 
@@ -133,17 +152,22 @@ export function fieldScalarError(
   // not a category value at all, matching the Sheet cell codes.
   if (field.logicalType === 'category') {
     if (typeof value !== 'string') return 'invalid_value'
+
     const options =
       field.category?.kind === 'embedded' ? field.category.options : []
+
     const match = options.some(
       (option) =>
         (option.id === value || option.key === value) &&
         option.lifecycle === 'active',
     )
+
     if (!match)
       return isUuid(value) ? 'invalid_category_option' : 'invalid_value'
+
     return null
   }
+
   const valid =
     field.logicalType === 'text'
       ? typeof value === 'string'
@@ -158,7 +182,9 @@ export function fieldScalarError(
               : field.logicalType === 'timestamp'
                 ? typeof value === 'string' && isValidTimestamp(value)
                 : typeof value === 'string' && isUuid(value)
+
   if (!valid) return 'invalid_value'
+
   if (
     field.logicalType === 'text' &&
     typeof value === 'string' &&
@@ -170,6 +196,7 @@ export function fieldScalarError(
         !new RegExp(field.validation.pattern).test(value)))
   )
     return 'text_validation'
+
   if (
     (field.logicalType === 'integer' || field.logicalType === 'decimal') &&
     typeof value === 'number' &&
@@ -177,6 +204,7 @@ export function fieldScalarError(
       (field.validation.max !== undefined && value > field.validation.max))
   )
     return 'numeric_validation'
+
   return null
 }
 
@@ -194,13 +222,18 @@ export function validateFieldValue(
       ? null
       : 'required_value'
   const values = field.cardinality === 'many' ? value : [value]
+
   if (!Array.isArray(values) || values.length === 0 || values.length > 1_000)
     return 'invalid_cardinality'
+
   if (field.cardinality === 'one' && Array.isArray(value))
     return 'invalid_cardinality'
+
   for (const item of values) {
     const error = fieldScalarError(field, item)
+
     if (error) return error
   }
+
   return null
 }

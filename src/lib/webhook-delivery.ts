@@ -61,18 +61,23 @@ export function validateWebhookUrl(url: string): {
   reason?: string
 } {
   let parsed: URL
+
   try {
     parsed = new URL(url)
   } catch {
     return { ok: false, reason: 'invalid URL' }
   }
+
   if (parsed.protocol !== 'https:') {
     return { ok: false, reason: 'must be HTTPS' }
   }
+
   if (parsed.username || parsed.password) {
     return { ok: false, reason: 'credentials in URL are not allowed' }
   }
+
   const hostname = parsed.hostname
+
   // Reject IP literals that are loopback/private/reserved.
   if (isIP(hostname)) {
     if (isPrivateOrLoopbackIP(hostname)) {
@@ -81,6 +86,7 @@ export function validateWebhookUrl(url: string): {
   } else {
     // Reject common internal hostnames.
     const lower = hostname.toLowerCase()
+
     if (
       lower === 'localhost' ||
       lower.endsWith('.local') ||
@@ -90,6 +96,7 @@ export function validateWebhookUrl(url: string): {
       return { ok: false, reason: 'internal hostname not allowed' }
     }
   }
+
   return { ok: true }
 }
 
@@ -103,30 +110,42 @@ function isPrivateOrLoopbackIP(ip: string): boolean {
   // IPv4-mapped IPv6
   const v4part = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i)
   const addr = v4part ? v4part[1] : ip
+
   if (isIP(addr) === 4) {
     const parts = addr.split('.').map(Number)
+
     // 127.0.0.0/8 — loopback
     if (parts[0] === 127) return true
+
     // 10.0.0.0/8 — private
     if (parts[0] === 10) return true
+
     // 172.16.0.0/12 — private
     if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true
+
     // 192.168.0.0/16 — private
     if (parts[0] === 192 && parts[1] === 168) return true
+
     // 169.254.0.0/16 — link-local (cloud metadata)
     if (parts[0] === 169 && parts[1] === 254) return true
+
     // 0.0.0.0/8 — reserved
     if (parts[0] === 0) return true
+
     // 100.64.0.0/10 — CGNAT (Tailscale)
     if (parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127) return true
   }
+
   if (isIP(ip) === 6) {
     // fc00::/7 — unique local
     const first = parseInt(ip.slice(0, 2), 16)
+
     if ((first & 0xfe) === 0xfc) return true
+
     // fe80::/10 — link-local
     if ((first & 0xff) === 0xfe) return true
   }
+
   return false
 }
 
@@ -140,11 +159,13 @@ export function validateRedirect(
   baseUrl: string,
 ): { ok: boolean; reason?: string } {
   let resolved: URL
+
   try {
     resolved = new URL(location, baseUrl)
   } catch {
     return { ok: false, reason: 'invalid redirect URL' }
   }
+
   return validateWebhookUrl(resolved.toString())
 }
 
@@ -166,6 +187,7 @@ export interface WebhookSubscriptionRow {
   channel_type: 'webhook' | 'teams' | 'email'
   recipient_user_id: string | null
 }
+
 export interface WebhookDeliveryRow {
   id: string
   workspace_id: string
@@ -206,6 +228,7 @@ export function computeBackoff(
   const exponential = baseMs * Math.pow(2, attempt)
   const capped = Math.min(exponential, maxMs)
   const jitterAmount = capped * jitter * (Math.random() * 2 - 1)
+
   return Math.max(0, Math.round(capped + jitterAmount))
 }
 
@@ -242,6 +265,7 @@ export async function attemptDelivery(
 ): Promise<DeliveryResult> {
   // Validate the initial URL against the SSRF policy.
   const urlCheck = validateWebhookUrl(url)
+
   if (!urlCheck.ok) {
     return {
       success: false,
@@ -251,9 +275,11 @@ export async function attemptDelivery(
   }
 
   let currentUrl = url
+
   for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount++) {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
+
     try {
       const response = await safeWebhookFetch(currentUrl, {
         method: 'POST',
@@ -272,6 +298,7 @@ export async function attemptDelivery(
       // Handle redirects (3xx) — validate each target.
       if (response.status >= 300 && response.status < 400) {
         const location = response.headers.get('location')
+
         if (!location) {
           return {
             success: false,
@@ -280,6 +307,7 @@ export async function attemptDelivery(
             errorMessage: 'Redirect response missing Location header',
           }
         }
+
         if (redirectCount >= maxRedirects) {
           return {
             success: false,
@@ -288,7 +316,9 @@ export async function attemptDelivery(
             errorMessage: `Too many redirects (max ${maxRedirects})`,
           }
         }
+
         const redirectCheck = validateRedirect(location, currentUrl)
+
         if (!redirectCheck.ok) {
           return {
             success: false,
@@ -297,12 +327,14 @@ export async function attemptDelivery(
             errorMessage: `Redirect target rejected: ${redirectCheck.reason}`,
           }
         }
+
         const resolved = new URL(location, currentUrl).toString()
         currentUrl = resolved
         continue // Re-attempt with the new URL.
       }
 
       const responseText = await response.text().catch(() => '')
+
       // 2xx = success; anything else triggers retry.
       if (response.status >= 200 && response.status < 300) {
         return {
@@ -311,6 +343,7 @@ export async function attemptDelivery(
           responseBody: responseText.slice(0, 10_000),
         }
       }
+
       return {
         success: false,
         responseStatus: response.status,
@@ -326,6 +359,7 @@ export async function attemptDelivery(
           errorMessage: `Request timed out after ${timeoutMs}ms`,
         }
       }
+
       return {
         success: false,
         errorCode: 'delivery_error',
@@ -336,6 +370,7 @@ export async function attemptDelivery(
       clearTimeout(timer)
     }
   }
+
   // Should not reach here, but return a failure as a safety net.
   return {
     success: false,
@@ -360,6 +395,7 @@ export async function findMatchingSubscriptions(
 ): Promise<WebhookSubscriptionRow[]> {
   const client = new PooledClient({ connectionString })
   await client.connect()
+
   try {
     const { rows } = await client.query<WebhookSubscriptionRow>(
       `SELECT id, workspace_id, key, url, event_types, max_retries,
@@ -370,6 +406,7 @@ export async function findMatchingSubscriptions(
           AND ($2::timestamptz IS NULL OR created_at <= $2)`,
       [workspaceId, eventCreatedAt ?? null],
     )
+
     return rows.filter((sub) => matchesFilter(eventType, sub.event_types))
   } finally {
     await client.end()
@@ -388,19 +425,24 @@ export async function getSigningSecret(
 ): Promise<string | null> {
   const client = new PooledClient({ connectionString })
   await client.connect()
+
   try {
     const { rows } = await client.query<{ ciphertext: Buffer }>(
       `SELECT ciphertext FROM internal.webhook_secrets
         WHERE subscription_id = $1 AND secret_name = 'signing_secret'`,
       [subscriptionId],
     )
+
     if (rows.length === 0) return null
     const stored = rows[0].ciphertext.toString('utf8')
+
     // If already encrypted (sealed envelope), decrypt and return.
     if (stored.startsWith('v1.')) {
       const key = webhookSecretKey()
+
       return openSecret(stored, key)
     }
+
     // Legacy plaintext — encrypt on first read and update the row.
     const key = webhookSecretKey()
     const sealed = sealSecret(stored, key)
@@ -410,6 +452,7 @@ export async function getSigningSecret(
         WHERE subscription_id = $2 AND secret_name = 'signing_secret'`,
       [Buffer.from(sealed, 'utf8'), subscriptionId],
     )
+
     return stored
   } finally {
     await client.end()
@@ -419,9 +462,11 @@ export async function getSigningSecret(
 /** Derive the webhook-specific encryption key from the master secret. */
 function webhookSecretKey(): Buffer {
   const master = process.env.BETTER_AUTH_SECRET
+
   if (!master || master.length === 0) {
     throw new Error('BETTER_AUTH_SECRET is not configured.')
   }
+
   return deriveWebhookSecretKey(master)
 }
 
@@ -446,6 +491,7 @@ export async function createDeliveryRecord(
 ): Promise<WebhookDeliveryRow | null> {
   const client = new PooledClient({ connectionString })
   await client.connect()
+
   try {
     const { rows } = await client.query<WebhookDeliveryRow>(
       `INSERT INTO api.webhook_deliveries
@@ -466,6 +512,7 @@ export async function createDeliveryRecord(
         signature,
       ],
     )
+
     // null when a delivery already exists for this (subscription, change_event)
     return rows.length > 0 ? rows[0] : null
   } finally {
@@ -486,7 +533,9 @@ export async function recordDeliveryResult(
   transaction?: PooledClient,
 ): Promise<void> {
   const client = transaction ?? new PooledClient({ connectionString })
+
   if (!transaction) await client.connect()
+
   try {
     if (result.success) {
       await client.query(
@@ -506,6 +555,7 @@ export async function recordDeliveryResult(
       // picks it up again — recovery is an explicit operator replay.
       const shouldRetry = attempt < maxRetries
       const status = shouldRetry ? 'retrying' : 'dead_letter'
+
       const nextAttemptAt = shouldRetry
         ? new Date(Date.now() + computeBackoff(attempt))
         : null
@@ -561,6 +611,7 @@ export async function countRecentAttempts(
 ): Promise<number> {
   const client = new PooledClient({ connectionString })
   await client.connect()
+
   try {
     const { rows } = await client.query<{ n: number }>(
       `SELECT count(*)::int AS n
@@ -571,6 +622,7 @@ export async function countRecentAttempts(
           AND ($2 OR id <> $3)`,
       [subscriptionId, includeSelf, excludeDeliveryId],
     )
+
     return rows[0].n
   } finally {
     await client.end()
@@ -598,6 +650,7 @@ async function deliverByEmail(
     { eventType, createdAt: eventRow.createdAt },
     env.BETTER_AUTH_URL,
   )
+
   const record = await createDeliveryRecord(
     sub.workspace_id,
     sub.id,
@@ -608,7 +661,9 @@ async function deliverByEmail(
     '',
     connectionString,
   )
+
   if (!record) return
+
   if (!sub.recipient_user_id) {
     // Record the event once as undeliverable, so catch-up sweeps do not pick
     // it up again.
@@ -624,10 +679,13 @@ async function deliverByEmail(
       1,
       connectionString,
     )
+
     return
   }
+
   const client = new PooledClient({ connectionString })
   await client.connect()
+
   try {
     await client.query('BEGIN')
     await client.query(
@@ -668,6 +726,7 @@ export async function processChangeEvent(
   const eventClient = new PooledClient({ connectionString })
   await eventClient.connect()
   let eventRow: ChangeEventInput | null = null
+
   try {
     const { rows } = await eventClient.query(
       `SELECT id, workspace_id, sequence, entity_type, entity_uuid,
@@ -677,6 +736,7 @@ export async function processChangeEvent(
         WHERE id = $1`,
       [notification.id],
     )
+
     if (rows.length === 0) return
     const row = rows[0]
     eventRow = {
@@ -704,6 +764,7 @@ export async function processChangeEvent(
     eventRow.operation,
     eventRow.payload,
   )
+
   if (!eventType) return // Not in the webhook surface.
 
   // Find matching subscriptions.
@@ -713,6 +774,7 @@ export async function processChangeEvent(
     connectionString,
     eventRow.createdAt,
   )
+
   if (subscriptions.length === 0) return
 
   // Build the payload once (same for all subscriptions).
@@ -733,6 +795,7 @@ export async function processChangeEvent(
         )
         continue
       }
+
       const body =
         sub.channel_type === 'teams'
           ? JSON.stringify(
@@ -742,6 +805,7 @@ export async function processChangeEvent(
               ),
             )
           : webhookBody
+
       const secret = await getSigningSecret(sub.id, connectionString)
       // Teams cards go to an incoming-webhook URL that cannot verify a
       // signature, so they never carry one. Anything else without a secret
@@ -762,6 +826,7 @@ export async function processChangeEvent(
         signature,
         connectionString,
       )
+
       if (unsignable && delivery) {
         logger.warn('webhook: no signing secret for subscription', {
           workspace_id: sub.workspace_id,
@@ -810,6 +875,7 @@ export async function processRetries(
   const client = new PooledClient({ connectionString })
   await client.connect()
   let processed = 0
+
   try {
     // Keep ownership through HTTP and settlement. A crashed worker rolls back,
     // releasing its locks for recovery. Receivers must still deduplicate when an
@@ -818,6 +884,7 @@ export async function processRetries(
     // waiting for a whole batch's network requests.
     for (let selected = 0; selected < batchSize; selected++) {
       await client.query('BEGIN')
+
       const { rows } = await client.query(
         `SELECT d.id, d.workspace_id, d.subscription_id, d.change_event_id,
               d.event_type, d.payload, d.body, d.signature, d.attempt,
@@ -835,11 +902,14 @@ export async function processRetries(
         LIMIT 1
         FOR UPDATE OF d, s SKIP LOCKED`,
       )
+
       const row = rows[0]
+
       if (!row) {
         await client.query('COMMIT')
         break
       }
+
       // EVENT-02: per-endpoint rate budget — defer over-budget retries
       // without attempting (the row's own last attempt counts, so a
       // just-failed delivery is not immediately re-attempted).
@@ -850,6 +920,7 @@ export async function processRetries(
           row.status !== 'pending',
           connectionString,
         )
+
         if (recent >= row.rate_limit_per_minute) {
           await client.query(
             `UPDATE api.webhook_deliveries
@@ -861,9 +932,11 @@ export async function processRetries(
           continue
         }
       }
+
       // The result RPC increments attempt on failure; it is already the
       // number of failed attempts, not a zero-based retry index to increment.
       const attempt = row.attempt
+
       // Use the stored body text (byte-accurate with the original signature).
       // The idempotency key is the original change_event id.
       const result = await attemptDelivery(
@@ -893,6 +966,7 @@ export async function processRetries(
   } finally {
     await client.end()
   }
+
   return processed
 }
 
@@ -902,6 +976,7 @@ export async function processRetries(
 
 /** Maximum events to process during a single catch-up sweep. */
 const CATCHUP_BATCH_SIZE = 500
+
 /** Delay before reconnecting the LISTEN client after an error. */
 /** How often plugin reactions read new events. */
 const EVENT_HOOK_INTERVAL_MS = 15_000
@@ -920,6 +995,7 @@ export async function reconcileWebhookDeliveries(
   const client = new PooledClient({ connectionString })
   await client.connect()
   let processed = 0
+
   try {
     // Entity types that are in the webhook event surface.
     const entityTypes = [
@@ -936,8 +1012,10 @@ export async function reconcileWebhookDeliveries(
       'notebook_template',
       'notebook_template_version',
     ]
+
     let afterSequence = '0'
     let afterId = '00000000-0000-0000-0000-000000000000'
+
     for (;;) {
       const { rows } = await client.query(
         `SELECT ce.id, ce.workspace_id, ce.sequence, ce.entity_type, ce.operation
@@ -958,6 +1036,7 @@ export async function reconcileWebhookDeliveries(
         LIMIT ${CATCHUP_BATCH_SIZE}`,
         [afterSequence, entityTypes, afterId],
       )
+
       if (rows.length === 0) break
       afterSequence = String(rows[rows.length - 1].sequence)
       afterId = rows[rows.length - 1].id
@@ -983,12 +1062,14 @@ export async function reconcileWebhookDeliveries(
         }
       }
     }
+
     if (processed > 0) {
       logger.info('webhook startup catch-up processed', { count: processed })
     }
   } finally {
     await client.end()
   }
+
   return processed
 }
 
@@ -1009,6 +1090,7 @@ export async function reconcileWebhookDeliveries(
  * the retry timer.
  */
 const WEBHOOK_ENGINE_STOP = Symbol.for('sheetbase.webhook-delivery.stop')
+
 type WebhookEngineGlobal = typeof globalThis & {
   [WEBHOOK_ENGINE_STOP]?: () => Promise<void>
 }
@@ -1019,6 +1101,7 @@ export function startWebhookDeliveryEngine(
 ): () => Promise<void> {
   const registry = globalThis as WebhookEngineGlobal
   const running = registry[WEBHOOK_ENGINE_STOP]
+
   if (running) return running
 
   let listenClient: Client | null = null
@@ -1032,9 +1115,11 @@ export function startWebhookDeliveryEngine(
 
   async function drainPending(): Promise<void> {
     let observed: number
+
     do {
       observed = notifications
       await reconcileWebhookDeliveries(connectionString)
+
       while (!stopped && (await processRetries(connectionString)) > 0) {
         // Drain all due batches, not just the first 50 rows.
       }
@@ -1043,15 +1128,18 @@ export function startWebhookDeliveryEngine(
 
   function drain(): Promise<void> {
     if (stopped) return Promise.resolve()
+
     if (draining) return draining
     draining = drainPending().finally(() => {
       draining = null
     })
+
     return draining
   }
 
   async function handleNotification(msg: { payload?: string }) {
     if (!msg.payload || stopped) return
+
     try {
       // Notifications only wake the durable reconciliation path.
       notifications++
@@ -1089,7 +1177,9 @@ export function startWebhookDeliveryEngine(
     if (stopped || reconnectTimer) return
     reconnectTimer = setTimeout(async () => {
       reconnectTimer = null
+
       if (stopped) return
+
       try {
         // Clean up the old client.
         if (listenClient) {
@@ -1098,8 +1188,10 @@ export function startWebhookDeliveryEngine(
           } catch {
             /* best effort */
           }
+
           listenClient = null
         }
+
         // LISTEN first, then repair the whole disconnected interval.
         await connectListener()
         await drain()
@@ -1128,6 +1220,7 @@ export function startWebhookDeliveryEngine(
     // Periodic reconciliation and retry processor.
     retryTimer = setInterval(async () => {
       if (stopped) return
+
       try {
         await drain()
       } catch (err) {
@@ -1158,28 +1251,36 @@ export function startWebhookDeliveryEngine(
 
   const stop = async () => {
     stopped = true
+
     if (retryTimer) clearInterval(retryTimer)
+
     if (hookTimer) clearInterval(hookTimer)
+
     if (reconnectTimer) clearTimeout(reconnectTimer)
     await started.catch(() => {})
     await draining?.catch(() => {})
+
     if (listenClient) {
       try {
         await listenClient.query('UNLISTEN sheetbase_change')
       } catch {
         /* best effort */
       }
+
       try {
         await listenClient.end()
       } catch {
         /* best effort */
       }
     }
+
     if (registry[WEBHOOK_ENGINE_STOP] === stop) {
       delete registry[WEBHOOK_ENGINE_STOP]
     }
+
     logger.info('webhook delivery engine stopped')
   }
+
   // Register synchronously before startup begins. Request middleware can call
   // this function again while the first asynchronous connection is opening.
   registry[WEBHOOK_ENGINE_STOP] = stop

@@ -32,11 +32,14 @@ export function deriveConnectorSecretKey(masterSecret: string): Buffer {
 export function sealSecret(value: string, key: Buffer): string {
   const iv = randomBytes(12)
   const cipher = createCipheriv('aes-256-gcm', key, iv)
+
   const ciphertext = Buffer.concat([
     cipher.update(value, 'utf8'),
     cipher.final(),
   ])
+
   const tag = cipher.getAuthTag()
+
   return [
     'v1',
     iv.toString('base64'),
@@ -47,15 +50,19 @@ export function sealSecret(value: string, key: Buffer): string {
 
 export function openSecret(token: string, key: Buffer): string {
   const [version, ivB64, tagB64, dataB64] = token.split('.')
+
   if (version !== 'v1' || !ivB64 || !tagB64 || !dataB64) {
     throw new Error('Unrecognised connector secret envelope.')
   }
+
   const decipher = createDecipheriv(
     'aes-256-gcm',
     key,
     Buffer.from(ivB64, 'base64'),
   )
+
   decipher.setAuthTag(Buffer.from(tagB64, 'base64'))
+
   return Buffer.concat([
     decipher.update(Buffer.from(dataB64, 'base64')),
     decipher.final(),
@@ -64,9 +71,11 @@ export function openSecret(token: string, key: Buffer): string {
 
 export function secretKey(): Buffer {
   const master = process.env.BETTER_AUTH_SECRET
+
   if (!master || master.length === 0) {
     throw new Error('BETTER_AUTH_SECRET is not configured.')
   }
+
   return deriveConnectorSecretKey(master)
 }
 
@@ -78,14 +87,19 @@ async function loadSession(workspaceId: string) {
   const { db } = await import('#/db/client.server')
 
   const context = await getCurrentContext(getRequestHeaders())
+
   if (!context) throw new Error('You must be signed in.')
+
   if (!context.workspace || context.workspace.id !== workspaceId) {
     throw new Error('You do not have access to this workspace.')
   }
+
   const role: string = context.workspace.role
+
   if (!['owner', 'admin', 'steward'].includes(role)) {
     throw new Error('Only owners, admins or stewards manage connector secrets.')
   }
+
   return { db, context }
 }
 
@@ -100,6 +114,7 @@ export async function listConnectorSecretNames(
 ): Promise<ConnectorSecretEntry[]> {
   const { db } = await loadSession(workspaceId)
   const { connectorSecrets } = await import('#/db/schema')
+
   const rows = await db
     .select({
       secretName: connectorSecrets.secretName,
@@ -112,6 +127,7 @@ export async function listConnectorSecretNames(
         eq(connectorSecrets.connectorId, connectorId),
       ),
     )
+
   return rows.map((row) => ({
     secretName: row.secretName,
     updatedAt: row.updatedAt.toISOString(),
@@ -129,8 +145,10 @@ export async function setConnectorSecret(
       'Secret names are lowercase snake_case identifiers (e.g. api_key).',
     )
   }
+
   const { db, context } = await loadSession(workspaceId)
   const { connectorSecrets, connectors } = await import('#/db/schema')
+
   // Composite FK enforces this at rest; verify explicitly for a clear error.
   const owned = await db
     .select({ id: connectors.id })
@@ -141,10 +159,13 @@ export async function setConnectorSecret(
         eq(connectors.workspaceId, workspaceId),
       ),
     )
+
   if (owned.length === 0) {
     throw new Error('Connector not found in this workspace.')
   }
+
   const sealed = sealSecret(value.trim(), secretKey())
+
   // Insert or rotate. Only the name + timestamp leave this function.
   const existing = await db
     .select({ id: connectorSecrets.id })
@@ -155,13 +176,16 @@ export async function setConnectorSecret(
         eq(connectorSecrets.secretName, secretName),
       ),
     )
+
   if (existing.length > 0) {
     await db
       .update(connectorSecrets)
       .set({ ciphertext: Buffer.from(sealed, 'utf8'), updatedAt: new Date() })
       .where(eq(connectorSecrets.id, existing[0].id))
+
     return { secretName, rotated: true }
   }
+
   await db.insert(connectorSecrets).values({
     workspaceId,
     connectorId,
@@ -169,6 +193,7 @@ export async function setConnectorSecret(
     ciphertext: Buffer.from(sealed, 'utf8'),
     createdByUserId: context.user.id,
   })
+
   return { secretName, rotated: false }
 }
 
@@ -187,5 +212,6 @@ export async function deleteConnectorSecret(
         eq(connectorSecrets.secretName, secretName),
       ),
     )
+
   return { deleted: true }
 }

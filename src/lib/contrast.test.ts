@@ -35,6 +35,7 @@ describe('srgbToOklch', () => {
       const source = hexToSrgb(hex)
       const roundTrip = oklchToSrgb(srgbToOklch(source))
       const step = 1 / 255
+
       for (let channel = 0; channel < 3; channel += 1) {
         expect(Math.abs(roundTrip[channel] - source[channel])).toBeLessThan(
           step,
@@ -174,6 +175,7 @@ for (const [theme, tokens] of [
 function washOver(wash: Oklch, alpha: number, surface: Oklch) {
   const [wr, wg, wb] = oklchToSrgb(wash)
   const [sr, sg, sb] = oklchToSrgb(surface)
+
   return [
     wr * alpha + sr * (1 - alpha),
     wg * alpha + sg * (1 - alpha),

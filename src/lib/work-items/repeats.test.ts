@@ -22,6 +22,7 @@ function item(overrides: Partial<WorkItem>): WorkItem {
 describe('collapseRepeats', () => {
   const first = item({ sourceId: 'run-2' })
   const second = item({ sourceId: 'run-1' })
+
   const other = item({
     sourceId: 'run-3',
     reason: 'The parser timed out.',
@@ -41,6 +42,7 @@ describe('collapseRepeats', () => {
       [first, other, second],
       new Set([repeatKey(first)]),
     )
+
     expect(entries.map((e) => [e.item.sourceId, e.repeat])).toEqual([
       ['run-2', false],
       ['run-1', true],

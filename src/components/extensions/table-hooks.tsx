@@ -65,10 +65,12 @@ export function pluginRow(
     title: record.title,
     status: record.status,
   }
+
   for (const field of fields) {
     if (inputs && !inputs.includes(field.fieldName)) continue
     row[field.fieldName] = recordFieldValue(record, field.fieldName) ?? null
   }
+
   return row
 }
 
@@ -100,6 +102,7 @@ export function usePluginActionRunner() {
     title: string
     node: NonNullable<ActionResult['view']>
   } | null>(null)
+
   const [busy, setBusy] = React.useState<string | null>(null)
 
   const run = React.useCallback(
@@ -110,11 +113,13 @@ export function usePluginActionRunner() {
       },
     ) => {
       setBusy(label)
+
       try {
         const answer =
           await runPluginHook<Extract<PluginHookAnswer, { kind: 'action' }>>(
             body,
           )
+
         if (answer.download) {
           try {
             downloadTextFile(
@@ -131,9 +136,12 @@ export function usePluginActionRunner() {
             )
           }
         }
+
         if (answer.view) setView({ title: label, node: answer.view })
+
         if (answer.notice) {
           const text = answer.notice.text
+
           if (answer.notice.tone === 'danger') toast.error(text)
           else if (answer.notice.tone === 'success') toast.success(text)
           else toast(text)
@@ -170,6 +178,7 @@ export function usePluginActionRunner() {
       </DialogContent>
     </Dialog>
   )
+
   return { run, busy, dialog }
 }
 
@@ -181,6 +190,7 @@ function ColumnHeader({
   onAction: (actionId: string, title: string) => void
 }) {
   const actions = item.declaration.actions ?? []
+
   return (
     <span className="inline-flex items-center gap-1">
       {item.declaration.title}
@@ -225,6 +235,7 @@ function ColumnValue({
   state: 'loading' | 'error' | 'ready'
 }) {
   if (state === 'loading') return <Spinner className="size-3" />
+
   if (state === 'error')
     return (
       <span
@@ -237,15 +248,20 @@ function ColumnValue({
         —
       </span>
     )
+
   if (value === null || value === undefined)
     return <span className="text-fg-faint">—</span>
   const declaration = item.declaration
+
   const display: CellDisplaySpec | undefined =
     declaration.display ??
     (declaration.value === 'svg' ? { kind: 'svg' } : undefined)
+
   if (display) return <CellDisplayView spec={display} value={value} />
+
   if (typeof value === 'boolean')
     return <span>{value ? t('plugins.hooks.yes') : t('plugins.hooks.no')}</span>
+
   return <span>{String(value)}</span>
 }
 
@@ -320,7 +336,9 @@ export function usePluginTableHooks({
 
   const typeOf = React.useMemo(() => {
     const map = new Map<string, FieldTypeLink>()
+
     for (const link of fieldTypes.data ?? []) map.set(link.field_name, link)
+
     return map
   }, [fieldTypes.data])
 
@@ -328,12 +346,17 @@ export function usePluginTableHooks({
   const cellFor = React.useCallback(
     (field: ModelFieldDefinition) => {
       const link = typeOf.get(field.fieldName)
+
       for (const cell of points.tableCells) {
         const target = cell.declaration.appliesTo
+
         if (!applies(target.models, modelKey)) continue
+
         if (target.fields && !target.fields.includes(field.fieldName)) continue
+
         if (target.fieldTypes && !target.fieldTypes.includes(field.logicalType))
           continue
+
         if (
           target.pluginTypes &&
           !(
@@ -343,8 +366,10 @@ export function usePluginTableHooks({
           )
         )
           continue
+
         return cell
       }
+
       return undefined
     },
     [typeOf, points.tableCells, modelKey],
@@ -353,13 +378,16 @@ export function usePluginTableHooks({
   const cellDisplay = React.useCallback(
     (field: ModelFieldDefinition): CellDisplaySpec | undefined => {
       const link = typeOf.get(field.fieldName)
+
       if (link) {
         const type = points.fieldTypes.find(
           (item) =>
             item.extensionKey === link.plugin_key && item.id === link.type_id,
         )
+
         if (type?.declaration.display) return type.declaration.display
       }
+
       return cellFor(field)?.declaration.display
     },
     [typeOf, points.fieldTypes, cellFor],
@@ -371,6 +399,7 @@ export function usePluginTableHooks({
       field: ModelFieldDefinition,
     ): { extensionKey: string; itemId: string } | undefined => {
       const cell = cellFor(field)
+
       return cell?.declaration.render
         ? { extensionKey: cell.extensionKey, itemId: cell.id }
         : undefined
@@ -385,6 +414,7 @@ export function usePluginTableHooks({
       ),
     [points.columns, modelKey],
   )
+
   const actions = React.useMemo(
     () =>
       points.rowActions.filter((item) =>
@@ -397,7 +427,9 @@ export function usePluginTableHooks({
     () => records.map((r) => `${r.id}:${r.updated_at}`).join('|'),
     [records],
   )
+
   const fieldKey = fields.map((f) => f.fieldName).join(',')
+
   const columnQueries = useQueries({
     queries: columnItems.map((item) => ({
       queryKey: [
@@ -420,6 +452,7 @@ export function usePluginTableHooks({
             .slice(0, MAX_ROWS)
             .map((r) => pluginRow(r, fields, item.declaration.inputs)),
         })
+
         return answer.values
       },
       enabled: ready && records.length > 0,
@@ -435,8 +468,10 @@ export function usePluginTableHooks({
       columnItems.map((item, index) => {
         const query = columnQueries[index] as
           (typeof columnQueries)[number] | undefined
+
         const values = query?.data
         const indexOf = new Map(records.map((r, i) => [r.id, i] as const))
+
         return {
           id: `plugin:${item.extensionKey}:${item.id}`,
           // The header carries its own menu button, so it is not a sort button too.
@@ -459,10 +494,12 @@ export function usePluginTableHooks({
           ),
           accessorFn: (record) => {
             const at = indexOf.get(record.id)
+
             return at === undefined ? null : (values?.[at] ?? null)
           },
           cell: ({ row }) => {
             const at = indexOf.get(row.original.id)
+
             return (
               <ColumnValue
                 item={item}
@@ -503,6 +540,7 @@ export function PluginActionBar({
   runner: ReturnType<typeof usePluginActionRunner>
 }) {
   if (actions.length === 0 || selected.length === 0) return null
+
   return (
     <div
       role="toolbar"
@@ -515,6 +553,7 @@ export function PluginActionBar({
       {actions.map((item) => {
         const tooMany =
           item.declaration.selection === 'one' && selected.length !== 1
+
         return (
           <Button
             key={`${item.extensionKey}:${item.id}`}

@@ -68,7 +68,9 @@ async function withArchivedProjectsOpen<T>(
   const archived = await db.execute(sql`
     select id, archived_at from api.projects
      where workspace_id = ${PROCESS} and archived_at is not null`)
+
   await db.execute(sql`alter table api.projects disable trigger user`)
+
   try {
     await db.execute(sql`
       update api.projects set archived_at = null
@@ -76,10 +78,12 @@ async function withArchivedProjectsOpen<T>(
   } finally {
     await db.execute(sql`alter table api.projects enable trigger user`)
   }
+
   try {
     return await fn()
   } finally {
     await db.execute(sql`alter table api.projects disable trigger user`)
+
     try {
       for (const project of archived.rows) {
         await db.execute(sql`
@@ -126,6 +130,7 @@ function blockId(identifier: string, n: number): string {
   const h = createHash('sha1')
     .update(`notebook:${identifier}:${n}`)
     .digest('hex')
+
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`
 }
 
@@ -141,6 +146,7 @@ async function loadExperiments(db: Db): Promise<ExperimentRow[]> {
       join api.projects p on p.id = r.project_id
      where r.workspace_id = ${PROCESS} and r.kind = 'experiment'
      order by r.identifier`)
+
   return result.rows.map((row) => ({
     id: String(row.id),
     identifier: String(row.identifier),
@@ -165,35 +171,47 @@ function generatedStatus(
   count: number,
 ): NotebookStatus {
   const position = index + 1
+
   if (projectStatus === 'complete' || projectStatus === 'archived') {
     return 'approved'
   }
+
   if (projectStatus === 'in_review') {
     const approved = count >= 4 ? count - 2 : Math.max(0, count - 1)
+
     return position <= approved ? 'approved' : 'in_review'
   }
+
   if (projectStatus === 'on_hold') {
     return position <= Math.floor(count * 0.6) ? 'approved' : 'on_hold'
   }
+
   const approved = Math.floor(count * 0.5)
   const reviewing = count >= 12 ? 2 : count >= 6 ? 1 : 0
+
   if (position <= approved) return 'approved'
+
   if (position <= approved + reviewing) return 'in_review'
+
   return 'in_progress'
 }
 
 export function planExperiments(rows: ExperimentRow[]): Planned[] {
   const generatedByProject = new Map<string, ExperimentRow[]>()
+
   for (const row of rows) {
     if (!/^EXP-[2-4]\d{3}$/.test(row.identifier)) continue
     const list = generatedByProject.get(row.projectKey) ?? []
     list.push(row)
     generatedByProject.set(row.projectKey, list)
   }
+
   const planned: Planned[] = []
+
   for (const row of rows) {
     const named = NAMED_TOPICS[row.identifier] as
       (typeof NAMED_TOPICS)[string] | undefined
+
     if (named) {
       planned.push({
         row,
@@ -205,8 +223,10 @@ export function planExperiments(rows: ExperimentRow[]): Planned[] {
       })
       continue
     }
+
     const siblings = generatedByProject.get(row.projectKey)
     const index = siblings?.indexOf(row) ?? -1
+
     if (!siblings || index < 0) continue
     const kit = kitFor(row.projectKey)
     const cycle = Math.floor(index / kit.topics.length)
@@ -227,6 +247,7 @@ export function planExperiments(rows: ExperimentRow[]): Planned[] {
       generated: true,
     })
   }
+
   return planned
 }
 
@@ -235,6 +256,7 @@ function atWorkingHour(day: Date, key: string): Date {
   const minutes = Math.floor(unit01(`${key}:hm`) * 8 * 60)
   const d = new Date(day)
   d.setUTCHours(8, 0, 0, 0)
+
   return new Date(d.getTime() + minutes * 60_000)
 }
 
@@ -253,24 +275,31 @@ function timelineFor(p: Planned): Timeline {
   const pos = p.count > 0 ? p.index / p.count : 0
   const first = done ? Date.UTC(2026, 5, 1) : Date.UTC(2026, 7, 15)
   const length = done ? 57 : 36
+
   const created = p.generated
     ? atWorkingHour(
         new Date(first + Math.round(pos * length) * DAY),
         row.identifier,
       )
     : new Date(Math.min(row.createdAt.getTime(), CLOCK.getTime() - 3 * DAY))
+
   const latest =
     done && p.generated ? Date.UTC(2026, 7, 13) : CLOCK.getTime() - DAY
+
   const cap = (t: number) => new Date(Math.min(t, latest))
+
   if (done) {
     const submitted = cap(
       created.getTime() + (4 + unit01(`${row.identifier}:s`) * 5) * DAY,
     )
+
     const decided = cap(
       submitted.getTime() + (1 + unit01(`${row.identifier}:d`) * 2) * DAY,
     )
+
     return { created, submitted, decided, updated: decided }
   }
+
   if (p.status === 'in_review') {
     const submitted = new Date(
       Math.max(
@@ -278,12 +307,15 @@ function timelineFor(p: Planned): Timeline {
         CLOCK.getTime() - (1 + unit01(`${row.identifier}:w`) * 4) * DAY,
       ),
     )
+
     return { created, submitted, decided: null, updated: submitted }
   }
+
   const age =
     p.status === 'on_hold'
       ? 10 + unit01(`${row.identifier}:h`) * 12
       : unit01(`${row.identifier}:u`) * 4
+
   return {
     created,
     submitted: null,
@@ -296,6 +328,7 @@ function timelineFor(p: Planned): Timeline {
 
 async function setStatus(db: Db, id: string, status: string): Promise<void> {
   await db.execute(sql`alter table api.records disable trigger user`)
+
   try {
     await db.execute(
       sql`update api.records set status = ${status} where id = ${id}`,
@@ -314,17 +347,21 @@ async function writeNotebooks(db: Db): Promise<void> {
   await db.execute(
     sql`alter table api.blocks disable trigger change_event_blocks`,
   )
+
   try {
     for (const p of planned) {
       if (HAND_WRITTEN.has(p.row.identifier)) continue
       // Records the design seeded with an Objective only are extended; any
       // other record with blocks has its own story.
       const objectiveOnly = p.row.blocks === 1 && !p.generated
+
       if (p.row.blocks > 0 && !objectiveOnly) continue
       const firstId = blockId(p.row.identifier, 1)
+
       const done = await db.execute(
         sql`select 1 from api.blocks where id = ${firstId}`,
       )
+
       if (done.rows.length) continue
 
       const blocks = buildNotebook({
@@ -334,12 +371,15 @@ async function writeNotebooks(db: Db): Promise<void> {
         kit: kitFor(p.row.projectKey),
         firstOrder: p.row.maxOrder + 1,
       })
+
       // An existing Objective stays; the new one is only for empty notebooks.
       const fresh = objectiveOnly ? blocks.slice(1) : blocks
       // An approved notebook is closed to edits: open it while writing and
       // put it back as it was.
       const reopen = p.row.status === 'approved'
+
       if (reopen) await setStatus(db, p.row.id, 'in_progress')
+
       for (const [n, block] of fresh.entries()) {
         await db.execute(sql`
           insert into api.blocks (id, record_id, type, "order", payload, created_by_user_id)
@@ -348,7 +388,9 @@ async function writeNotebooks(db: Db): Promise<void> {
                   ${p.row.createdBy})
           on conflict do nothing`)
       }
+
       if (reopen) await setStatus(db, p.row.id, 'approved')
+
       if (p.generated && p.topic.title !== p.row.title) {
         await db.execute(sql`
           update api.records set title = ${p.topic.title}
@@ -379,6 +421,7 @@ interface Marks {
 
 async function dbNow(db: Db): Promise<Date> {
   const result = await db.execute(sql`select clock_timestamp() as t`)
+
   return new Date(result.rows[0]?.t as string)
 }
 
@@ -388,13 +431,16 @@ function people(p: Planned): { reviewers: string[]; submitters: string[] } {
   // Analytical reviews everywhere; Gareth reviews what Mei leads, and shares
   // the stability work with her (the design gives him review there).
   let reviewers: string[]
+
   if (lead === MEI) reviewers = [GARETH]
   else if (p.row.projectKey === 'lvv-stability-2-8c')
     reviewers = odd ? [GARETH, MEI] : [MEI, GARETH]
   else reviewers = [MEI]
+
   const submitters = [lead, PRIYA, TOM, SAM, GARETH, MEI].filter(
     (id, i, all) => SESSIONS[id] && all.indexOf(id) === i,
   )
+
   return { reviewers, submitters }
 }
 
@@ -407,15 +453,18 @@ async function submitAndDecide(
   const key = `design-notebook-review-${row.identifier.toLowerCase()}`
   const { reviewers, submitters } = people(p)
   const reviewerIds = reviewers
+
   for (const reviewer of reviewerIds) {
     for (const submitter of submitters) {
       if (submitter === reviewer) continue
       const tSubmit = await dbNow(db)
+
       let submission: {
         submissionId: string
         revisionId: string
         digest: string
       }
+
       try {
         submission = await withDesignClaims(
           db,
@@ -426,8 +475,11 @@ async function submitAndDecide(
               "select api.preview_submission_digest($1)->>'sourceDigest' as source_digest",
               [row.id],
             )
+
             const sourceDigest = preview.rows[0]?.source_digest
+
             if (!sourceDigest) throw new Error('no digest')
+
             const submitted = await client.query<{
               result: {
                 revision: { id: string; integrityDigest: string }
@@ -439,8 +491,11 @@ async function submitAndDecide(
                ) as result`,
               [row.id, sourceDigest, [reviewer], key, null],
             )
+
             const result = submitted.rows.at(0)?.result
+
             if (!result) throw new Error('submit failed')
+
             return {
               submissionId: result.submission.id,
               revisionId: result.revision.id,
@@ -460,6 +515,7 @@ async function submitAndDecide(
       // the record waits.
       const runner = p.status === 'in_review' ? submitter : reviewer
       let tDecide: Date | null = null
+
       try {
         await withDesignClaims(
           db,
@@ -473,6 +529,7 @@ async function submitAndDecide(
           },
           SESSIONS[runner],
         )
+
         if (p.status !== 'in_review') {
           tDecide = await dbNow(db)
           await withDesignClaims(
@@ -518,6 +575,7 @@ async function submitAndDecide(
           `seed: ${row.identifier} review step failed (${reviewer}): ${(error as Error).message}`,
         )
       }
+
       return {
         recordId: row.id,
         submissionId: submission.submissionId,
@@ -530,7 +588,9 @@ async function submitAndDecide(
       }
     }
   }
+
   console.warn(`seed: ${row.identifier} could not be submitted by anyone`)
+
   return null
 }
 
@@ -548,16 +608,19 @@ async function stampTimeline(db: Db, marks: Marks[]): Promise<void> {
   for (const table of REVIEW_TABLES) {
     await db.execute(sql.raw(`alter table api.${table} disable trigger user`))
   }
+
   try {
     for (const m of marks) {
       const t = m.timeline
       const tSub = t.submitted ?? t.created
       const tDec = t.decided ?? tSub
+
       // Everything the submit, the checks and the decision wrote moves into
       // the project's own timeline, keeping its order.
       const decideFrom = (
         m.tDecide ?? new Date('9999-01-01T00:00:00Z')
       ).toISOString()
+
       const submitFrom = m.tSubmit.toISOString()
       await db.execute(sql`
         update api.change_events
@@ -604,11 +667,13 @@ async function stampRecords(
 ): Promise<void> {
   await db.execute(sql`alter table api.records disable trigger user`)
   await db.execute(sql`alter table api.blocks disable trigger user`)
+
   try {
     for (const p of planned) {
       if (HAND_WRITTEN.has(p.row.identifier) || p.row.submissions > 0) continue
       const t = timelineFor(p)
       const reviewer = reviewers.get(p.row.id) ?? null
+
       const future =
         p.status === 'in_progress' ||
         p.status === 'planned' ||
@@ -621,15 +686,19 @@ async function stampRecords(
               .toISOString()
               .slice(0, 10)
           : null
+
       const finished =
         p.status === 'approved' ||
         p.status === 'in_review' ||
         p.status === 'returned'
+
       const kit = kitFor(p.row.projectKey)
+
       const decision =
         p.status === 'approved' || p.status === 'returned'
           ? decisionFor(p, kit)
           : null
+
       await db.execute(sql`
         update api.records
            set created_at = ${t.created.toISOString()}::timestamptz,
@@ -662,12 +731,16 @@ function decisionFor(
     kit,
     firstOrder: 1,
   })
+
   const conclusion = blocks.find((b) => b.type === 'conclusion')
+
   if (!conclusion) return null
+
   const { verdict, text } = conclusion.payload as {
     verdict: string
     text: string
   }
+
   return {
     verdict: verdict === 'not_supported' ? 'refuted' : verdict,
     text,
@@ -689,7 +762,9 @@ async function runReviews(db: Db): Promise<void> {
       p.status === 'approved' ||
       p.status === 'in_review' ||
       p.status === 'returned'
+
     if (!wantsReview || p.row.submissions > 0) continue
+
     if (p.row.identifier === 'EXP-0142' || HAND_REVIEWED.has(p.row.identifier))
       continue
 
@@ -698,8 +773,10 @@ async function runReviews(db: Db): Promise<void> {
     if (p.row.status !== 'in_progress') {
       await setStatus(db, p.row.id, 'in_progress')
     }
+
     const timeline = timelineFor(p)
     const result = await submitAndDecide(db, p, timeline)
+
     if (result) {
       marks.push(result)
       reviewers.set(p.row.id, result.reviewer)
@@ -708,6 +785,7 @@ async function runReviews(db: Db): Promise<void> {
 
   // Statuses with no review behind them: paused work.
   await db.execute(sql`alter table api.records disable trigger user`)
+
   try {
     for (const p of planned) {
       if (p.status === 'on_hold' && p.generated) {
@@ -733,6 +811,7 @@ async function runReviews(db: Db): Promise<void> {
 export async function seedDesignNotebookDates(db: Db): Promise<void> {
   const planned = planExperiments(await loadExperiments(db))
   await db.execute(sql`alter table api.records disable trigger user`)
+
   try {
     for (const p of planned) {
       if (!p.generated || p.status === 'approved') continue

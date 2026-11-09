@@ -17,6 +17,7 @@ import type { Parameter } from './parameter'
  */
 
 export type TemplateChangeTag = 'added' | 'removed' | 'changed'
+
 export type TemplateChangeKind = 'placement' | 'parameter'
 
 export interface TemplateChangeSetEntry {
@@ -72,11 +73,13 @@ function placementFields(
     ['order', String(placement.order)],
     ['kind', placement.kind],
   ]
+
   if (placement.kind === 'narrative') {
     fields.push(['blockType', placement.blockType])
     fields.push(['payload', JSON.stringify(placement.payload)])
   } else if (placement.kind === 'sheet') {
     fields.push(['definitionVersionId', placement.definitionVersionId])
+
     if (placement.title) fields.push(['title', placement.title])
     fields.push([
       'parameterMappings',
@@ -90,6 +93,7 @@ function placementFields(
     fields.push(['key', placement.key])
     fields.push(['label', placement.label])
   }
+
   return fields
 }
 
@@ -128,8 +132,10 @@ function changedFields(
 ): TemplateChangeSetEntry[] {
   const beforeByField = new Map(before)
   const entries: TemplateChangeSetEntry[] = []
+
   for (const [field, afterValue] of after) {
     const beforeValue = beforeByField.get(field)
+
     if (beforeValue === undefined || beforeValue === afterValue) continue
     entries.push({
       id,
@@ -141,6 +147,7 @@ function changedFields(
       after: afterValue,
     })
   }
+
   return entries
 }
 
@@ -158,11 +165,14 @@ export function changeSetFromVersions(
   const previousPlacements = new Map(
     (previous?.placements ?? []).map((place) => [place.id, place]),
   )
+
   const nextPlacementIds = new Set(next.placements.map((place) => place.id))
+
   for (const placement of [...next.placements].sort(
     (a, b) => a.order - b.order,
   )) {
     const before = previousPlacements.get(placement.id)
+
     if (!before) {
       entries.push({
         id: placement.id,
@@ -175,6 +185,7 @@ export function changeSetFromVersions(
       })
       continue
     }
+
     entries.push(
       ...changedFields(
         'placement',
@@ -185,6 +196,7 @@ export function changeSetFromVersions(
       ),
     )
   }
+
   for (const placement of previous?.placements ?? []) {
     if (nextPlacementIds.has(placement.id)) continue
     entries.push({
@@ -201,9 +213,12 @@ export function changeSetFromVersions(
   const previousParameters = new Map(
     (previous?.parameters ?? []).map((parameter) => [parameter.id, parameter]),
   )
+
   const nextParameterIds = new Set(next.parameters.map((item) => item.id))
+
   for (const parameter of next.parameters) {
     const before = previousParameters.get(parameter.id)
+
     if (!before) {
       entries.push({
         id: parameter.id,
@@ -216,6 +231,7 @@ export function changeSetFromVersions(
       })
       continue
     }
+
     entries.push(
       ...changedFields(
         'parameter',
@@ -226,6 +242,7 @@ export function changeSetFromVersions(
       ),
     )
   }
+
   for (const parameter of previous?.parameters ?? []) {
     if (nextParameterIds.has(parameter.id)) continue
     entries.push({

@@ -32,6 +32,7 @@ export async function runBenchAction(
         unit: action.unit,
         note: action.note,
       })
+
       return
     case 'reagent.receive':
       await receiveReagentOrder(client, {
@@ -40,6 +41,7 @@ export async function runBenchAction(
         expiry: action.expiry,
         quantity: action.quantity,
       })
+
       return
     case 'reagent.place':
       await markReagentOrdered(client, {
@@ -51,6 +53,7 @@ export async function runBenchAction(
         totalPrice: action.price,
         currency: action.currency,
       })
+
       return
     case 'instrument.rate':
       await setInstrumentRate(client, {
@@ -58,17 +61,21 @@ export async function runBenchAction(
         ratePerHour: action.ratePerHour,
         currency: action.ratePerHour === null ? null : action.currency,
       })
+
       return
     case 'samples.log': {
       const made = await registerSamples(client, {
         projectId: action.projectId,
         samples: action.samples,
       })
+
       // The samples are in; file each in its position. A failure here leaves
       // them registered and says so, rather than hiding what did happen.
       for (const [index, positionId] of action.positionIds.entries()) {
         const sample = made.at(index)
+
         if (!sample) break
+
         try {
           await moveSampleToPosition(client, {
             recordId: sample.id,
@@ -81,8 +88,10 @@ export async function runBenchAction(
           )
         }
       }
+
       return
     }
+
     case 'sample.use':
       await consumeSample(client, {
         recordId: action.recordId,
@@ -91,6 +100,7 @@ export async function runBenchAction(
         purposeRecordId: action.purposeRecordId ?? undefined,
         notes: action.notes ?? undefined,
       })
+
       return
     case 'sample.move':
       for (const move of action.moves) {
@@ -110,6 +120,7 @@ export async function runBenchAction(
           })
         }
       }
+
       return
     case 'sample.split':
       await aliquotSample(client, {
@@ -121,6 +132,7 @@ export async function runBenchAction(
         expectedMetadataVersion: action.expectedMetadataVersion,
         notes: action.notes ?? undefined,
       })
+
       return
     case 'record.create':
       await client.rpc('create_model_record', {
@@ -132,6 +144,7 @@ export async function runBenchAction(
         p_properties: {},
         p_custom_fields: action.customFields,
       })
+
       return
     case 'request.send':
       await submitRequest(client, {
@@ -141,6 +154,7 @@ export async function runBenchAction(
         projectId: action.projectId,
         note: action.note,
       })
+
       return
     case 'sample.advance':
       await advanceRun(
@@ -149,6 +163,7 @@ export async function runBenchAction(
         action.toStageId,
         action.notes ?? undefined,
       )
+
       return
     case 'instrument.service':
       await client.rpc('set_instrument_out_of_service', {
@@ -158,6 +173,7 @@ export async function runBenchAction(
         p_expected_back_on: action.expectedBackOn,
         p_work_done: action.workDone,
       })
+
       return
     case 'storage.reading':
       await client.rpc('record_storage_readings', {
@@ -171,6 +187,7 @@ export async function runBenchAction(
           },
         ],
       })
+
       return
   }
 }

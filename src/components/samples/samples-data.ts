@@ -52,9 +52,11 @@ export function sampleStatus(
       ? { tone: 'ok', label: 'Released' }
       : { tone: 'stored', label: 'Stored' }
   }
+
   if (status === 'reserved') {
     return { tone: 'progress', label: 'Awaiting measurement' }
   }
+
   return (
     STATUS[status] ?? {
       tone: 'none',
@@ -72,7 +74,9 @@ export function toSampleListRow(
     record.quantity != null
       ? `${record.quantity.toLocaleString('en-GB', { maximumFractionDigits: 2 })}${record.quantityUnit ? ` ${record.quantityUnit}` : ''}`
       : '—'
+
   const tabs: string[] = []
+
   if (record.archivedAt) {
     // An archived sample is out of every working list; it is found, and
     // restored, from the Archived tab.
@@ -85,11 +89,15 @@ export function toSampleListRow(
     tabs.push('consumed')
   } else {
     tabs.push('instock')
+
     if (record.status === 'quarantined') tabs.push('quarantine')
+
     if (record.status === 'reserved') tabs.push('awaiting')
   }
+
   if (!record.archivedAt && meId && record.createdByUserId === meId)
     tabs.push('mine')
+
   return {
     uuid: record.id,
     id: record.identifier,
@@ -121,6 +129,7 @@ export const SAMPLE_TABS = [
   'consumed',
   'archived',
 ] as const
+
 export type SampleTabKey = (typeof SAMPLE_TABS)[number]
 
 /** How many samples the list loads at a time; the footer says how many more
@@ -145,6 +154,7 @@ export function sampleListFilters(
     SAMPLE_BASE,
     tab === 'archived' ? 'archived_at=not.is.null' : 'archived_at=is.null',
   ]
+
   // The Archived tab holds everything archived, whatever state it was in.
   if (tab === 'instock') clauses.push('status=not.in.(consumed,disposed)')
   else if (tab === 'quarantine') clauses.push('status=eq.quarantined')
@@ -153,12 +163,14 @@ export function sampleListFilters(
   else if (tab === 'mine')
     clauses.push(`created_by_user_id=eq.${encodeURIComponent(userId ?? '')}`)
   const term = (query ?? '').trim()
+
   if (term) {
     const pattern = encodeURIComponent(containsPattern(term))
     clauses.push(
       `or=(identifier.ilike.${pattern},title.ilike.${pattern},properties->>sampleType.ilike.${pattern},properties->>storageLocation.ilike.${pattern})`,
     )
   }
+
   return clauses
 }
 
@@ -176,8 +188,10 @@ const SAMPLE_SORT_COLUMNS: Record<string, string> = {
  * clicked. Sorting in the database keeps a click right past the first page. */
 export function sampleOrder(sorting: SortingState | undefined): string {
   const first = sorting?.find((entry) => SAMPLE_SORT_COLUMNS[entry.id])
+
   if (!first) return 'created_at.desc,identifier.desc'
   const direction = first.desc ? 'desc' : 'asc'
+
   return `${SAMPLE_SORT_COLUMNS[first.id]}.${direction}.nullslast,identifier.${direction}`
 }
 
@@ -192,6 +206,7 @@ export function useSampleList(
   sorting?: SortingState,
 ) {
   const order = sampleOrder(sorting)
+
   return useQuery({
     queryKey: [
       ...sampleListQueryKeys.page,
@@ -233,6 +248,7 @@ export function useSampleTabCounts(
           ),
         ),
       )
+
       return Object.fromEntries(
         SAMPLE_TABS.map((tab, i) => [tab, totals[i]]),
       ) as Record<SampleTabKey, number>
@@ -249,6 +265,7 @@ export function useProjectNames(client: DataClient = notebookDataClient) {
         'projects',
         '?select=id,title',
       )
+
       return new Map(rows.map((r) => [r.id, r.title]))
     },
     staleTime: 60_000,
@@ -260,11 +277,14 @@ export function distinctLocations(
   values: readonly (string | null | undefined)[],
 ): string[] {
   const seen = new Map<string, string>()
+
   for (const value of values) {
     const trimmed = value?.trim()
+
     if (trimmed && !seen.has(trimmed.toLowerCase()))
       seen.set(trimmed.toLowerCase(), trimmed)
   }
+
   return [...seen.values()].sort((a, b) =>
     a.localeCompare(b, 'en-GB', { numeric: true, sensitivity: 'base' }),
   )
@@ -286,6 +306,7 @@ export async function fetchStorageLocations(
     'rpc/sample_storage_locations',
     '?select=location',
   )
+
   return distinctLocations(rows.map((row) => row.location))
 }
 

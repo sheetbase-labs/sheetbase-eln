@@ -46,6 +46,7 @@ const { signOut, navigate, invalidate, cancelQueries, clearQueries, goBack } =
 const { markNotificationsRead } = vi.hoisted(() => ({
   markNotificationsRead: vi.fn(async () => 1),
 }))
+
 vi.mock('#/lib/notifications-data', () => ({ markNotificationsRead }))
 
 /**
@@ -56,6 +57,7 @@ const { shellConnect, shellQuery } = vi.hoisted(() => ({
   shellConnect: vi.fn(),
   shellQuery: vi.fn(),
 }))
+
 vi.mock('#/db/client.server', () => ({
   db: { $client: { connect: shellConnect, query: shellQuery } },
 }))
@@ -64,6 +66,7 @@ vi.mock('#/db/client.server', () => ({
 const routerPath = { current: '/' }
 
 vi.mock('#/lib/auth-client', () => ({ authClient: { signOut } }))
+
 beforeEach(() => {
   vi.clearAllMocks()
   // The collapse preference is mirrored in localStorage; clear it so a test that
@@ -207,6 +210,7 @@ const PIN = {
 describe('v3 AppShell navigation (SHELL-01)', () => {
   it('renders every destination as a focusable link', () => {
     renderShell()
+
     for (const label of ['Home', 'Inbox', 'Schedule', 'Projects', 'Samples']) {
       const links = screen.getAllByRole('link', { name: label })
       expect(links.length).toBeGreaterThan(0)
@@ -222,12 +226,15 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
 
   it('groups the sidebar and folds a group, saving the fold for the person', async () => {
     const { container } = renderShell()
+
     const sidebar = Array.from(container.querySelectorAll('nav')).find((n) =>
       n.className.includes('w-nav'),
     )!
+
     for (const group of ['Work', 'Lab', 'Data', 'Methods']) {
       expect(within(sidebar).getByRole('group', { name: group })).toBeTruthy()
     }
+
     expect(
       within(sidebar).getByRole('link', { name: 'Protocols' }),
     ).toBeTruthy()
@@ -253,9 +260,11 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
 
   it('sets Settings apart, after a rule and outside every group', () => {
     const { container } = renderShell()
+
     const sidebar = Array.from(container.querySelectorAll('nav')).find((n) =>
       n.className.includes('w-nav'),
     )!
+
     const settings = within(sidebar).getByRole('link', { name: 'Settings' })
     expect(settings.closest('[role="group"]')).toBeNull()
     expect(settings.previousElementSibling?.getAttribute('role')).toBe(
@@ -276,12 +285,15 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
         },
       ],
     })
+
     const sidebar = Array.from(container.querySelectorAll('nav')).find((n) =>
       n.className.includes('w-nav'),
     )!
+
     const underInstruments = within(sidebar).getByRole('list', {
       name: 'Pinned Instruments',
     })
+
     expect(
       within(underInstruments).getByRole('link', { name: 'Plate reader 2' }),
     ).toBeTruthy()
@@ -309,9 +321,11 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
 
   it('hides pins with their group when the group is folded', async () => {
     const { container } = renderShell({ pinned: [PIN] })
+
     const sidebar = Array.from(container.querySelectorAll('nav')).find((n) =>
       n.className.includes('w-nav'),
     )!
+
     fireEvent.click(within(sidebar).getByRole('button', { name: 'Hide Work' }))
     await waitFor(() =>
       expect(within(sidebar).queryByText('Assay development')).toBeNull(),
@@ -322,9 +336,11 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
     const { container } = renderShell({
       hiddenPages: ['shipments', 'incidents', 'projects'],
     })
+
     const sidebar = Array.from(container.querySelectorAll('nav')).find((n) =>
       n.className.includes('w-nav'),
     )!
+
     expect(
       within(sidebar).queryByRole('link', { name: 'Shipments' }),
     ).toBeNull()
@@ -344,9 +360,11 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
 
   it('renders live counts in the sidebar', () => {
     const { container } = renderShell()
+
     const sidebar = Array.from(container.querySelectorAll('nav')).find((n) =>
       n.className.includes('w-nav'),
     )!
+
     expect(within(sidebar).getByText('3')).toBeTruthy()
     expect(within(sidebar).getByText('2')).toBeTruthy()
     expect(within(sidebar).getByText('1')).toBeTruthy()
@@ -451,6 +469,7 @@ describe('SHELL-01 one sidebar at every width', () => {
     const { container } = renderShell({
       counts: { inbox: '5', datasets: '2', pipelines: '1' },
     })
+
     const full = container.querySelector<HTMLElement>('nav[class*="w-nav"]')!
     expect(
       within(full).getByRole('link', { name: /Inbox/ }).textContent,
@@ -463,6 +482,7 @@ describe('SHELL-01 one sidebar at every width', () => {
     const { container } = renderShell({
       counts: { inbox: null, datasets: '2 errors', pipelines: '1 failed' },
     })
+
     const full = container.querySelector<HTMLElement>('nav[class*="w-nav"]')!
     const inbox = within(full).getByRole('link', { name: /Inbox/ })
     expect(inbox.textContent).not.toContain('0')
@@ -532,11 +552,13 @@ describe('SHELL-01 one sidebar at every width', () => {
     expect(
       within(header).getByRole('button', { name: 'Account: Gareth P.' }),
     ).toBeTruthy()
+
     // The phone search control is `size-10`, so its container keeps room for it
     // rather than being squeezed until the icon paints over its neighbours.
     const search = within(header).getByRole('button', {
       name: 'Search',
     }).parentElement!
+
     expect(search.className).toContain('max-md:shrink-0')
   })
 
@@ -623,9 +645,11 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
     await user.click(
       screen.getByRole('button', { name: 'Notifications, 1 unread' }),
     )
+
     const row = await screen.findByRole('link', {
       name: /Pipeline run failed/,
     })
+
     expect(row.getAttribute('href')).toBe('/pipelines/runs/run-9')
 
     await user.click(row)
@@ -676,6 +700,7 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
 
   it('keeps the active workspace when a page refuses to leave', async () => {
     const unregister = registerWorkspaceLeave(async () => false)
+
     try {
       const user = userEvent.setup()
       renderShell()
@@ -728,6 +753,7 @@ describe('SHELL-02 notification bell and SHELL-01 workspace switch', () => {
   it('never lets a late preference response undo a collapse the user made', async () => {
     // Executor form: tsconfig lib predates Promise.withResolvers (ES2024).
     let release: (value: UserPreferences) => void = () => {}
+
     vi.mocked(fetchUserPreferences).mockReturnValueOnce(
       new Promise<UserPreferences>((resolve) => {
         release = resolve
@@ -805,6 +831,7 @@ describe('v3 AccountMenu native signout', () => {
   it('keeps unsaved editors mounted and does not end their session', async () => {
     const guard = (event: Event) => event.preventDefault()
     window.addEventListener('beforeunload', guard)
+
     try {
       await chooseSignOut()
       expect((await screen.findByRole('alert')).textContent).toContain(
@@ -824,6 +851,7 @@ describe('v3 AccountMenu native signout', () => {
     // keeps the drafts, and signing back in as the same user restores them. The
     // only thing that blocks sign-out is an editor with work it has not saved.
     const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+
     try {
       await chooseSignOut()
       await waitFor(() => expect(signOut).toHaveBeenCalled())
@@ -837,6 +865,7 @@ describe('v3 AccountMenu native signout', () => {
   it('still refuses to sign out while an editor holds unsaved work', async () => {
     const listener = (event: Event) => event.preventDefault()
     window.addEventListener('beforeunload', listener)
+
     try {
       await chooseSignOut()
       await screen.findByRole('alert')
@@ -863,13 +892,16 @@ describe('SHELL-01 landmarks in the v3 shell', () => {
 
   it('marks the active destination aria-current=page and leaves the rest unmarked', () => {
     routerPath.current = '/projects'
+
     try {
       renderShell()
       const projects = screen.getAllByRole('link', { name: 'Projects' })
       expect(projects.length).toBeGreaterThan(1)
+
       for (const link of projects) {
         expect(link.getAttribute('aria-current')).toBe('page')
       }
+
       for (const link of screen.getAllByRole('link', { name: 'Schedule' })) {
         expect(link.getAttribute('aria-current')).toBeNull()
       }
@@ -952,6 +984,7 @@ describe('QA4 · the shell badge and a count it could not read', () => {
     shellConnect.mockResolvedValue({
       query: vi.fn(async (sql: string) => {
         if (sql.includes('inbox_needs_action_counts')) throw new Error('down')
+
         return { rows: [] }
       }),
       release: vi.fn(),

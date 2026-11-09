@@ -35,6 +35,7 @@ export interface NextStep {
 
 export function experimentNextStep(input: NextStepInput): NextStep {
   const { status } = input
+
   if (input.archived || !input.canWrite) {
     // A reader has no next step. A locked, approved record still offers Sign
     // from the notebook, to whoever holds a signature to give.
@@ -46,6 +47,7 @@ export function experimentNextStep(input: NextStepInput): NextStep {
       authoring: false,
     }
   }
+
   if (status === 'in_review' && input.isReviewer) {
     return {
       role: 'reviewer',
@@ -55,6 +57,7 @@ export function experimentNextStep(input: NextStepInput): NextStep {
       authoring: false,
     }
   }
+
   const author = (
     primary: NextStepKind | null,
     secondary: NextStep['secondary'] = [],
@@ -65,6 +68,7 @@ export function experimentNextStep(input: NextStepInput): NextStep {
     reviewing: false,
     authoring: true,
   })
+
   switch (status) {
     case 'draft':
     case 'planned':

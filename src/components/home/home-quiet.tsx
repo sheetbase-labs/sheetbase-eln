@@ -64,8 +64,11 @@ const START_SOMETHING = [
  * active/archived directly. */
 export function recentTone(item: Pick<RecentItem, 'kind' | 'status'>): Tone {
   if (item.kind === 'record') return experimentStatus(item.status ?? '').tone
+
   if (item.status === 'active') return 'progress'
+
   if (item.status === 'archived' || item.status === 'retired') return 'stored'
+
   return 'none'
 }
 
@@ -354,6 +357,7 @@ export function HomeQuiet(props: HomeQuietProps) {
               <ul className="m-0 flex list-none flex-col p-0">
                 {continueWorking.map((recent) => {
                   const status = recentStatusLabel(recent)
+
                   return (
                     <li
                       key={`${recent.kind}:${recent.id}`}
@@ -505,6 +509,7 @@ export function HomeQuiet(props: HomeQuietProps) {
                 .slice(0, 6)
                 .map((item) => {
                   const change = item.count > 1 ? undefined : item.changes.at(0)
+
                   return (
                     <li key={item.event.id} className="flex gap-3">
                       <span className="num w-16 shrink-0 text-label text-fg-muted">

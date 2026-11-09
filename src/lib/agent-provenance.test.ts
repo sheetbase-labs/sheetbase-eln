@@ -174,6 +174,7 @@ describe('AUTO-PLUS-03 run provenance record', () => {
       risk_class: 'safe_draft',
       result: { id: DEFINITION_ID },
     })
+
     const first = step({
       id: 'step-id-0',
       position: 0,
@@ -189,7 +190,9 @@ describe('AUTO-PLUS-03 run provenance record', () => {
       input_references: [],
       proposal_id: 'proposal-0',
     })
+
     const second = step({ position: 1, proposal_id: 'proposal-1' })
+
     const record = buildWorkflowProvenanceRecord(workflow(), [second, first], {
       'proposal-0': draft,
       'proposal-1': proposal(),
@@ -237,6 +240,7 @@ describe('AUTO-PLUS-03 run provenance record', () => {
       [step({ status: 'planned', attempt: 0, proposal_id: null })],
       {},
     )
+
     expect(record.steps[0]).toMatchObject({
       proposalId: null,
       proposalStatus: null,
@@ -260,11 +264,13 @@ describe('AUTO-PLUS-03 run provenance record', () => {
       result: null,
       error_code: null,
     })
+
     const record = buildWorkflowProvenanceRecord(
       workflow({ status: 'paused', completed_at: null }),
       [step({ status: 'rejected', proposal_id: 'proposal-1' })],
       { 'proposal-1': rejected },
     )
+
     expect(record.steps[0]).toMatchObject({
       proposalStatus: 'rejected',
       outputReferences: [
@@ -347,10 +353,12 @@ describe('AUTO-PLUS-03 evidence boundaries', () => {
     expect(marking.versionPins).toEqual([
       { kind: 'dataset_version', id: VERSION_ID },
     ])
+
     const planned = markWorkflowStepEvidence(
       step({ status: 'planned', attempt: 0, proposal_id: null }),
       null,
     )
+
     expect(planned.qualifiesForSubmission).toBe(false)
     expect(planned.qualification).toContain('no proposal')
   })
@@ -364,6 +372,7 @@ describe('AUTO-PLUS-03 run cost/latency rollup', () => {
       { status: 'failed' },
       { status: 'planned' },
     ])
+
     expect(metrics.operations).toEqual({ used: 3, max: 4, remaining: 1 })
     expect(metrics.costUsd).toEqual({ used: '0.0600', max: '0.5000' })
     expect(metrics.wallLatencyMs).toBe(300_000)
@@ -383,6 +392,7 @@ describe('AUTO-PLUS-03 run cost/latency rollup', () => {
       workflow({ status: 'budget_exhausted', completed_at: null }),
       [{ status: 'cancelled' }],
     )
+
     expect(metrics.wallLatencyMs).toBeNull()
     expect(metrics.budgetExhausted).toBe(true)
     expect(metrics.steps.cancelled).toBe(1)

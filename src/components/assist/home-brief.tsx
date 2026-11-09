@@ -78,6 +78,7 @@ export function HomeBrief({
   async function write() {
     askedFor.current = facts
     setState('working')
+
     const result = await ai
       .run({
         task: 'freeform',
@@ -85,6 +86,7 @@ export function HomeBrief({
         text: facts,
       })
       .catch(() => null)
+
     if (result?.status === 'ok') {
       setText(result.text)
       setState('idle')
@@ -97,6 +99,7 @@ export function HomeBrief({
   // facts keeps the brief that is already there.
   useEffect(() => {
     if (!open || !ready || !homeBriefHasFacts(input)) return
+
     if (askedFor.current === facts) return
     void write()
   }, [open, ready, facts])

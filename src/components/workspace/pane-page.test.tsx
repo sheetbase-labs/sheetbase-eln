@@ -35,26 +35,33 @@ vi.mock('@tanstack/react-start', () => ({
       validator: () => builder,
       handler: () => vi.fn(),
     }
+
     return builder
   },
   createServerOnlyFn: (fn: unknown) => fn,
 }))
+
 vi.mock('#/db/client.server', () => ({ db: {} }))
+
 vi.mock('#/env.server', () => ({
   env: { DATABASE_URL: 'postgres://unused:unused@localhost/unused' },
 }))
+
 vi.mock('#/lib/auth', () => ({
   auth: {},
   getAppSession: vi.fn(),
   handleAuthRequest: vi.fn(),
 }))
+
 vi.mock('#/lib/identifier-resolution', () => ({
   resolveIdentifierParam: async () => {},
   redirectExperimentRecord: async () => {},
 }))
+
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ names: {}, userLabel: () => 'Scientist' }),
 }))
+
 vi.mock('#/lib/reagent-data', async (original) => ({
   ...(await original<typeof ReagentData>()),
   fetchReagent: async (_client: unknown, id: string) => ({
@@ -81,6 +88,7 @@ vi.mock('#/lib/reagent-data', async (original) => ({
 }))
 
 const LotPage = LotRoute.options.component!
+
 afterEach(() => {
   cleanup()
   LotRoute.options.component = LotPage
@@ -91,6 +99,7 @@ function setup() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   const context: RouterContext = {
     queryClient,
     auth: {
@@ -108,12 +117,15 @@ function setup() {
     themePref: 'system',
     labLogo: null,
   }
+
   const outer = createRouter({
     routeTree: createRootRoute({ component: Outlet }),
     history: createMemoryHistory(),
   })
+
   const handles = new Map<string, PanePageHandle>()
   const changed = vi.fn()
+
   function panes(href = '/materials/alpha', currentContext = context) {
     return (
       <QueryClientProvider client={queryClient}>
@@ -146,6 +158,7 @@ function setup() {
       </QueryClientProvider>
     )
   }
+
   return {
     ...render(panes()),
     handles,
@@ -201,6 +214,7 @@ it('refuses close and navigation while an existing spreadsheet unload guard is d
   await screen.findByRole('heading', { name: 'Buffer alpha' })
   const guard = (event: Event) => event.preventDefault()
   window.addEventListener('beforeunload', guard)
+
   try {
     expect(await app.handles.get('first')!.requestClose()).toBe(false)
     await act(async () => {
@@ -210,6 +224,7 @@ it('refuses close and navigation while an existing spreadsheet unload guard is d
   } finally {
     window.removeEventListener('beforeunload', guard)
   }
+
   expect(await app.handles.get('first')!.requestClose()).toBe(true)
 })
 
@@ -218,12 +233,14 @@ it('asks Save, Discard or Cancel when its own page holds unsaved edits', async (
   await screen.findByRole('heading', { name: 'Buffer alpha' })
   const save = vi.fn(async () => true)
   const discard = vi.fn()
+
   const remove = registerPendingEditForTest({
     label: 'Analysis Studio',
     paneId: 'first',
     save,
     discard,
   })
+
   try {
     // The other pane has nothing to save, so it closes straight away.
     expect(await app.handles.get('second')!.requestClose()).toBe(true)
@@ -260,6 +277,7 @@ it('sends authentication destinations to the outer router, not a pane document',
 it('refreshes inherited permission context without remounting or reporting unchanged locations', async () => {
   LotRoute.options.component = function RolePage() {
     const { context } = LotRoute.useRouteContext()
+
     return (
       <>
         <LotPage />
@@ -267,6 +285,7 @@ it('refreshes inherited permission context without remounting or reporting uncha
       </>
     )
   }
+
   const app = setup()
   await screen.findByRole('heading', { name: 'Buffer alpha' })
   expect(
@@ -276,10 +295,12 @@ it('refreshes inherited permission context without remounting or reporting uncha
   ).toBe(true)
   const handle = app.handles.get('first')
   const auth = app.context.auth!
+
   const nextContext = {
     ...app.context,
     auth: { ...auth, workspace: { ...auth.workspace!, role: 'admin' } },
   }
+
   const notifications = app.changed.mock.calls.length
   app.rerender(app.panes(undefined, nextContext))
   await waitFor(() =>
@@ -297,11 +318,13 @@ it('refreshes inherited permission context without remounting or reporting uncha
 
 function ResolverPage() {
   const { lotId } = LotRoute.useParams()
+
   const blocker = useBlocker({
     shouldBlockFn: () => lotId === 'alpha',
     enableBeforeUnload: false,
     withResolver: true,
   })
+
   return (
     <>
       <LotPage />
@@ -318,6 +341,7 @@ function ResolverPage() {
 it('protects Studio-style raw history pushes with unload guards and real resolver approval', async () => {
   LotRoute.options.component = function StudioPage() {
     const router = useRouter()
+
     return (
       <>
         <ResolverPage />
@@ -331,11 +355,13 @@ it('protects Studio-style raw history pushes with unload guards and real resolve
       </>
     )
   }
+
   const app = setup()
   await screen.findByRole('heading', { name: 'Buffer alpha' })
   const first = within(screen.getByRole('region', { name: 'first' }))
   const guard = (event: Event) => event.preventDefault()
   window.addEventListener('beforeunload', guard)
+
   try {
     fireEvent.click(first.getByRole('button', { name: 'Studio hand-off' }))
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -343,6 +369,7 @@ it('protects Studio-style raw history pushes with unload guards and real resolve
   } finally {
     window.removeEventListener('beforeunload', guard)
   }
+
   fireEvent.click(first.getByRole('button', { name: 'Studio hand-off' }))
   fireEvent.click(await screen.findByRole('button', { name: 'Stay' }))
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())

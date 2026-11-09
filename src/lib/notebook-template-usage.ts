@@ -35,7 +35,9 @@ export function templateUseStatus(record: {
   locked_at: string | null
 }): TemplateUseStatus {
   if (record.locked_at) return 'signed'
+
   if (record.status.toLowerCase().includes('review')) return 'in-review'
+
   return 'in-progress'
 }
 
@@ -55,8 +57,10 @@ export function countTemplateUse<
     inReview: 0,
     signed: 0,
   }
+
   for (const record of records) {
     counts.total += 1
+
     switch (templateUseStatus(record)) {
       case 'signed':
         counts.signed += 1
@@ -69,6 +73,7 @@ export function countTemplateUse<
         break
     }
   }
+
   return counts
 }
 
@@ -86,13 +91,16 @@ export function buildInUseMatrix(
   versions: NotebookTemplateVersion[],
 ): TemplateInUseMatrixRow[] {
   const byVersion = new Map<string, TemplateUsageRecord[]>()
+
   for (const record of records) {
     const key = record.source_notebook_template_version_id
+
     if (!key) continue
     const bucket = byVersion.get(key) ?? []
     bucket.push(record)
     byVersion.set(key, bucket)
   }
+
   return [...versions]
     .sort((a, b) => b.version - a.version)
     .map((version) => ({
@@ -122,17 +130,22 @@ export function inUseStaleness(
   let behind = 0
   let updatable = 0
   let stays = 0
+
   for (const record of records) {
     if (!currentVersionId) break
+
     if (record.source_notebook_template_version_id === currentVersionId)
       continue
     behind += 1
+
     if (record.locked_at) {
       stays += 1
       continue
     }
+
     if (!record.status.toLowerCase().includes('review')) updatable += 1
   }
+
   return { behind, updatable, stays }
 }
 
@@ -153,8 +166,10 @@ export function filterInUseRecords<T extends TemplateUsageRecord>(
       record.source_notebook_template_version_id !== filters.versionId
     )
       return false
+
     if (filters.projectId && record.project_id !== filters.projectId)
       return false
+
     return true
   })
 }

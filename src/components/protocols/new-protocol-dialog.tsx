@@ -55,9 +55,11 @@ export function NewProtocolDialog({
   const [title, setTitle] = useState('')
   const [touched, setTouched] = useState(false)
   const projects = useWritableProjects(open)
+
   const effectiveProjectId = projects.usable.some((p) => p.id === projectId)
     ? projectId
     : (projects.usable.at(0)?.id ?? '')
+
   const titleError =
     touched && title.trim().length < 3
       ? t('library.protocols.newProtocolDialog.giveTheProtocolATitle')
@@ -72,6 +74,7 @@ export function NewProtocolDialog({
         title: title.trim(),
         kind: 'protocol_template',
       })
+
       const typed = await saveNewObjectFields(
         notebookDataClient,
         PROTOCOL_MODEL,
@@ -79,6 +82,7 @@ export function NewProtocolDialog({
         addedFields.typeKey,
         addedFields.payload(),
       )
+
       return { ...record, identifier: typed.identifier ?? record.identifier }
     },
     onSuccess: (record) => {
@@ -117,6 +121,7 @@ export function NewProtocolDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
+
         if (!next) {
           setTitle('')
           setTouched(false)
@@ -203,6 +208,7 @@ export function NewProtocolDialog({
             disabled={create.isPending || !effectiveProjectId}
             onClick={() => {
               setTouched(true)
+
               if (title.trim().length < 3 || !addedFields.valid) return
               create.mutate()
             }}

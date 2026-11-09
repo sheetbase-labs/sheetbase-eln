@@ -18,7 +18,9 @@ const ADMIN_ONLY = [
   'Usage',
   'Plugins',
 ]
+
 const GOVERNED_ONLY = ['Integrations']
+
 const LAB = [
   'Models',
   'Storage locations',
@@ -50,6 +52,7 @@ describe('SHELL-01.2 settings navigation', () => {
       expect(labels(role, 'lab')).toEqual([])
       expect(labels(role, 'account')).toContain('API and SDK')
     }
+
     expect(labels(null, 'workspace')).toEqual([])
     expect(labels(null, 'lab')).toEqual([])
   })
@@ -57,6 +60,7 @@ describe('SHELL-01.2 settings navigation', () => {
   it('shows workspace administration and lab setup to owners and admins', () => {
     for (const role of ['owner', 'admin']) {
       const workspace = labels(role, 'workspace')
+
       for (const restricted of [
         ...ADMIN_ONLY,
         ...GOVERNED_ONLY,
@@ -64,6 +68,7 @@ describe('SHELL-01.2 settings navigation', () => {
       ]) {
         expect(workspace).toContain(restricted)
       }
+
       expect(labels(role, 'lab')).toEqual(LAB)
     }
   })
@@ -94,6 +99,7 @@ describe('SHELL-01.2 settings navigation', () => {
         'API and SDK',
       ])
     }
+
     for (const role of ['viewer', 'client_viewer', null]) {
       expect(labels(role, 'account')).toEqual([
         'Profile',
@@ -119,6 +125,7 @@ describe('SHELL-01.2 settings navigation', () => {
       ...resolveSettingsAccess('steward'),
       integrations: 'none',
     } as const
+
     expect(settingsHomePath('steward', access)).toBe('/settings/lab/storage')
   })
 
@@ -126,6 +133,7 @@ describe('SHELL-01.2 settings navigation', () => {
     expect(settingsHomePath('owner')).toBe('/settings/workspace/members')
     expect(settingsHomePath('admin')).toBe('/settings/workspace/members')
     expect(settingsHomePath('steward')).toBe('/settings/workspace/integrations')
+
     for (const role of [
       'scientist',
       'member',
@@ -143,9 +151,11 @@ describe('SHELL-01.2 settings navigation', () => {
       audit: 'view',
       usage: 'manage',
     } as const
+
     const workspace = settingsNavForRole('reviewer', access).workspace.map(
       (i) => i.label,
     )
+
     expect(workspace).toContain('Audit and retention')
     expect(workspace).toContain('Usage')
     expect(workspace).not.toContain('Members and roles')
@@ -156,14 +166,17 @@ describe('SHELL-01.2 settings navigation', () => {
       ...resolveSettingsAccess('scientist'),
       storage: 'view',
     } as const
+
     expect(
       settingsNavForRole('scientist', access).lab.map((i) => i.label),
     ).toContain('Storage locations')
     expect(labels('scientist', 'lab')).not.toContain('Storage locations')
+
     const revoked = {
       ...resolveSettingsAccess('steward'),
       storage: 'none',
     } as const
+
     expect(
       settingsNavForRole('steward', revoked).lab.map((i) => i.label),
     ).toEqual(['Models', 'Instruments and parsers'])

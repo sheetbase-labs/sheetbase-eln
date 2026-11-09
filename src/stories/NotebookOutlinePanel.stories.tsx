@@ -45,7 +45,9 @@ const meta = {
   ],
   args: { entries },
 } satisfies Meta<typeof NotebookOutlinePanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Headings at two levels, each one a link into the document. */

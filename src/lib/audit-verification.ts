@@ -62,13 +62,17 @@ export async function verifyWorkspaces(
       order by w.slug`,
     [maxAgeMs],
   )
+
   const checked: WorkspaceVerification[] = []
+
   for (const workspace of workspaces) {
     const { rows } = await db.query<{ result: VerificationResult }>(
       'select api.run_audit_verification($1) as result',
       [workspace.id],
     )
+
     checked.push({ slug: workspace.slug, result: rows[0].result })
   }
+
   return checked
 }

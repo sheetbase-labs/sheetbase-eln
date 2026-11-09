@@ -86,6 +86,7 @@ export function OfflineReplayRunner({
 
   React.useEffect(() => {
     mounted.current = true
+
     return () => {
       mounted.current = false
     }
@@ -100,12 +101,14 @@ export function OfflineReplayRunner({
     if (running.current) return
     running.current = true
     setRetrying(true)
+
     try {
       const next = await replayOfflineEdits({
         scope: { userId, recordId },
         store,
         port: writer,
       })
+
       if (!mounted.current) return
       setReport(next)
       onReport?.(next)
@@ -114,6 +117,7 @@ export function OfflineReplayRunner({
       refresh()
     } finally {
       running.current = false
+
       if (mounted.current) setRetrying(false)
     }
   }, [store, userId, recordId, writer, refresh, onReport])
@@ -121,6 +125,7 @@ export function OfflineReplayRunner({
   React.useEffect(() => {
     const previous = previousStatus.current
     previousStatus.current = status.status
+
     // `null` is the mount case: a tab that loads already live also has drafts
     // to send, so the first live status counts as the reconnect.
     if (
@@ -129,6 +134,7 @@ export function OfflineReplayRunner({
     ) {
       return
     }
+
     if (previous === null && status.status !== 'live') return
     void runReplay()
   }, [status.status, runReplay])
@@ -138,19 +144,23 @@ export function OfflineReplayRunner({
   React.useEffect(() => {
     const onSync = () => void runReplay()
     window.addEventListener(OFFLINE_SYNC_EVENT, onSync)
+
     return () => window.removeEventListener(OFFLINE_SYNC_EVENT, onSync)
   }, [runReplay])
 
   const keepMine = React.useCallback(
     async (edit: OfflineEdit) => {
       if (edit.kind !== 'block_payload' || !writer.keepMyBlockEdit) return
+
       try {
         await writer.keepMyBlockEdit(edit)
       } catch {
         // Still queued; the next replay says why.
         await runReplay()
+
         return
       }
+
       await store.removeEdits({ userId, recordId }, [edit.id])
       setReport((current) =>
         current
@@ -188,11 +198,13 @@ export function OfflineReplayRunner({
   if (!report || !unresolved(report)) return null
 
   const conflictCount = report.conflicts.length + report.held.length
+
   const unresolvedOutcomes: OfflineReplayOutcome[] = [
     ...report.conflicts,
     ...report.held,
     ...report.failed,
   ].sort((a, b) => a.sequence - b.sequence)
+
   return (
     <Notice
       tone={noticeTone(report)}
@@ -226,6 +238,7 @@ export function OfflineReplayRunner({
         {unresolvedOutcomes.map((outcome) => {
           const edit = edits.find((e) => e.id === outcome.editId)
           const description = edit ? describeOfflineEdit(edit) : null
+
           return (
             <li
               key={outcome.editId}

@@ -148,9 +148,11 @@ export function signalEventsFromChangeEvents(
   rows: ChangeEventSignalWire[],
 ): RecentSignalEvent[] {
   const signals: RecentSignalEvent[] = []
+
   for (const row of rows) {
     if (!EDIT_OPERATIONS.has(row.operation)) continue
     const at = row.created_at
+
     switch (row.entity_type) {
       case 'record':
         signals.push({
@@ -170,6 +172,7 @@ export function signalEventsFromChangeEvents(
             signal: 'edited',
           })
         }
+
         break
       case 'review_submission':
         if (row.record_id) {
@@ -180,6 +183,7 @@ export function signalEventsFromChangeEvents(
             signal: 'reviewed',
           })
         }
+
         break
       case 'sheet_instance':
         signals.push({
@@ -217,6 +221,7 @@ export function signalEventsFromChangeEvents(
         break
     }
   }
+
   return signals
 }
 
@@ -234,7 +239,9 @@ interface RecentAccumulator {
 
 function newer(a: string | null, b: string | null): string | null {
   if (!a) return b
+
   if (!b) return a
+
   return Date.parse(b) > Date.parse(a) ? b : a
 }
 
@@ -261,6 +268,7 @@ export function buildRecentItems(args: {
 
   for (const view of args.views) {
     const key = keyFor(view.kind, view.id)
+
     const acc = byKey.get(key) ?? {
       kind: view.kind,
       id: view.id,
@@ -268,12 +276,14 @@ export function buildRecentItems(args: {
       editedAt: null,
       reviewedAt: null,
     }
+
     acc.viewedAt = newer(acc.viewedAt, view.viewedAt)
     byKey.set(key, acc)
   }
 
   for (const signal of args.signals) {
     const key = keyFor(signal.kind, signal.id)
+
     const acc = byKey.get(key) ?? {
       kind: signal.kind,
       id: signal.id,
@@ -281,6 +291,7 @@ export function buildRecentItems(args: {
       editedAt: null,
       reviewedAt: null,
     }
+
     if (signal.signal === 'edited')
       acc.editedAt = newer(acc.editedAt, signal.at)
     else acc.reviewedAt = newer(acc.reviewedAt, signal.at)
@@ -288,13 +299,16 @@ export function buildRecentItems(args: {
   }
 
   const items: DerivedRecentItem[] = []
+
   for (const acc of byKey.values()) {
     const lastActivityAt = newer(
       newer(acc.editedAt, acc.reviewedAt),
       acc.viewedAt,
     )
+
     if (!lastActivityAt) continue
     let signal: RecentSignal = 'viewed'
+
     if (acc.editedAt === lastActivityAt) signal = 'edited'
     else if (acc.reviewedAt === lastActivityAt) signal = 'reviewed'
     items.push({ ...acc, lastActivityAt, signal })
@@ -302,10 +316,14 @@ export function buildRecentItems(args: {
 
   items.sort((a, b) => {
     const diff = Date.parse(b.lastActivityAt) - Date.parse(a.lastActivityAt)
+
     if (diff !== 0) return diff
+
     if (a.kind !== b.kind) return a.kind < b.kind ? -1 : 1
+
     return a.id < b.id ? -1 : 1
   })
+
   return items.slice(0, limit)
 }
 
@@ -360,27 +378,34 @@ export async function fetchMyRecentSignals(
 ): Promise<RecentSignalEvent[]> {
   const targetDistinct =
     options.targetDistinct ?? RECENTS_LIMIT * RECENTS_CANDIDATE_MULTIPLIER
+
   const pageSize = options.pageSize ?? RECENTS_SIGNAL_PAGE_SIZE
   const maxPages = options.maxPages ?? RECENTS_SIGNAL_MAX_PAGES
+
   const baseQuery =
     `?actor_user_id=eq.${userId}&operation=in.(create,update,amend)` +
     `&order=created_at.desc&select=id,entity_type,entity_uuid,operation,record_id,actor_user_id,created_at`
 
   const signals: RecentSignalEvent[] = []
   let offset = 0
+
   for (let page = 0; page < maxPages; page += 1) {
     const query =
       `${baseQuery}&limit=${pageSize}` + (offset > 0 ? `&offset=${offset}` : '')
+
     const rows = await client.list<ChangeEventSignalWire>(
       'change_events',
       query,
     )
+
     signals.push(...signalEventsFromChangeEvents(rows))
     offset += rows.length
     const distinct = new Set(signals.map((s) => `${s.kind}:${s.id}`)).size
+
     // Feed exhausted, or enough distinct objects already: stop paging.
     if (rows.length < pageSize || distinct >= targetDistinct) break
   }
+
   return signals
 }
 
@@ -403,6 +428,7 @@ export function recordRecentView(
     })
     .then((row) => {
       if (typeof row === 'string') return row
+
       return row?.viewed_at ?? null
     })
 }
@@ -456,13 +482,16 @@ async function listByIds<T>(
 ): Promise<T[]> {
   if (!ids) return []
   const batches: string[][] = []
+
   for (let i = 0; i < ids.length; i += ID_BATCH_SIZE)
     batches.push(ids.slice(i, i + ID_BATCH_SIZE))
+
   const pages = await Promise.all(
     batches.map((batch) =>
       client.list<T>(resource, `?id=in.(${batch.join(',')})&select=${select}`),
     ),
   )
+
   return pages.flat()
 }
 
@@ -480,6 +509,7 @@ export async function resolveRecentItems(
   if (items.length === 0) return []
 
   const idsByKind = new Map<RecentObjectKind, string[]>()
+
   for (const item of items) {
     const ids = idsByKind.get(item.kind) ?? []
     ids.push(item.id)
@@ -532,6 +562,7 @@ export async function resolveRecentItems(
       },
     ]),
   )
+
   const datasetById = new Map(
     datasetRows.map((d) => [
       d.id,
@@ -543,6 +574,7 @@ export async function resolveRecentItems(
       },
     ]),
   )
+
   const sheetById = new Map(
     sheetRows.map((s) => [
       s.id,
@@ -554,6 +586,7 @@ export async function resolveRecentItems(
       },
     ]),
   )
+
   const templateById = new Map(
     templateRows.map((t) => [
       t.id,
@@ -565,6 +598,7 @@ export async function resolveRecentItems(
       },
     ]),
   )
+
   const projectById = new Map(
     projectRows.map((p) => [
       p.id,
@@ -578,10 +612,12 @@ export async function resolveRecentItems(
   )
 
   const resolved: RecentItem[] = []
+
   for (const item of items) {
     switch (item.kind) {
       case 'record': {
         const record = recordById.get(item.id)
+
         if (!record || !record.resumable) break
         resolved.push({
           ...item,
@@ -592,8 +628,10 @@ export async function resolveRecentItems(
         })
         break
       }
+
       case 'dataset': {
         const dataset = datasetById.get(item.id)
+
         if (!dataset || !dataset.resumable) break
         resolved.push({
           ...item,
@@ -604,8 +642,10 @@ export async function resolveRecentItems(
         })
         break
       }
+
       case 'sheet': {
         const sheet = sheetById.get(item.id)
+
         if (!sheet || !sheet.resumable) break
         resolved.push({
           ...item,
@@ -616,8 +656,10 @@ export async function resolveRecentItems(
         })
         break
       }
+
       case 'project': {
         const project = projectById.get(item.id)
+
         if (!project || !project.resumable) break
         resolved.push({
           ...item,
@@ -628,8 +670,10 @@ export async function resolveRecentItems(
         })
         break
       }
+
       case 'notebook_template': {
         const template = templateById.get(item.id)
+
         if (!template || !template.resumable) break
         resolved.push({
           ...item,
@@ -642,6 +686,7 @@ export async function resolveRecentItems(
       }
     }
   }
+
   return resolved
 }
 
@@ -666,8 +711,11 @@ export function describeRecentChange(
   item: Pick<RecentItem, 'kind' | 'signal'>,
 ): string {
   const noun = OBJECT_NOUNS[item.kind]
+
   if (item.signal === 'reviewed') return 'Submitted for review'
+
   if (item.signal === 'edited') return `Edited ${noun}`
+
   return `Viewed ${noun}`
 }
 
@@ -697,9 +745,11 @@ export function recentStatusLabel(
   item: Pick<RecentItem, 'status'> & { destination?: string },
 ): string | null {
   if (!item.status) return null
+
   // Samples word their lifecycle their own way ("Stored", not "Available").
   if (item.destination?.startsWith('/samples/'))
     return sampleStatus(item.status).label
+
   return (
     STATUS_LABELS[item.status] ??
     item.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
@@ -727,12 +777,15 @@ export async function fetchRecentItems(
   limit = RECENTS_LIMIT,
 ): Promise<RecentItem[]> {
   const candidateLimit = limit * RECENTS_CANDIDATE_MULTIPLIER
+
   const [views, signals] = await Promise.all([
     fetchRecentViews(client, candidateLimit * 2),
     fetchMyRecentSignals(client, userId, { targetDistinct: candidateLimit }),
   ])
+
   const derived = buildRecentItems({ views, signals, limit: candidateLimit })
   const resolved = await resolveRecentItems(client, derived)
+
   return resolved.slice(0, limit)
 }
 
@@ -757,6 +810,7 @@ export function useRecentViewTracking(
         if (!viewedAt) return
         void queryClient.invalidateQueries({ queryKey: ['recents'] })
         void queryClient.invalidateQueries({ queryKey: ['home-recents'] })
+
         if (kind === 'project') {
           void queryClient.invalidateQueries({
             queryKey: ['home-first-run-project-opens'],

@@ -62,6 +62,7 @@ describe('checkTransformStatement', () => {
     ]) {
       const result = checkTransformStatement(statement)
       expect(result.ok).toBe(false)
+
       if (result.ok) {
         throw new Error(`expected rejection: ${statement}`)
       }
@@ -93,6 +94,7 @@ describe('substituteParameters', () => {
       { factor: 2.5, note: "it's" },
       types,
     )
+
     expect(result).toEqual({
       ok: true,
       statement: "SELECT * FROM input WHERE value > 2.5 AND label = 'it''s'",
@@ -105,6 +107,7 @@ describe('substituteParameters', () => {
       { n: 3, flag: true, d: '2024-01-31', ts: '2024-01-31T10:00:00Z' },
       types,
     )
+
     expect(result).toEqual({
       ok: true,
       statement:
@@ -123,6 +126,7 @@ describe('substituteParameters', () => {
       { n: 'not-an-int' },
       types,
     )
+
     expect(result.ok).toBe(false)
   })
 

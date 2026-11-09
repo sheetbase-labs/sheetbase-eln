@@ -75,9 +75,13 @@ type ReviewItem =
 
 export function exactText(value: unknown): string {
   if (typeof value === 'string') return value
+
   if (value === null) return 'null'
+
   if (value === undefined) return t('projects.diffReview.notPresent')
+
   if (typeof value === 'object') return JSON.stringify(value, null, 2)
+
   return String(value)
 }
 
@@ -85,6 +89,7 @@ export function focusChange(target: HTMLElement | undefined) {
   if (!target) return
   target.focus()
   const scrollIntoView: unknown = Reflect.get(target, 'scrollIntoView')
+
   if (typeof scrollIntoView === 'function') {
     scrollIntoView.call(target, { behavior: 'auto', block: 'nearest' })
   }
@@ -92,6 +97,7 @@ export function focusChange(target: HTMLElement | undefined) {
 
 export function KindBadge({ kind }: { kind: RevisionChangeKind }) {
   const meta = KIND_META[kind]
+
   return (
     <Badge variant={meta.variant}>
       <Icon name={meta.icon} size={12} aria-hidden="true" />
@@ -135,6 +141,7 @@ export function ChangeBody({ change }: { change: RevisionChange }) {
       </p>
     )
   }
+
   return (
     <div className="mt-3 grid gap-2 sm:grid-cols-2">
       <ChangeValue
@@ -194,9 +201,11 @@ function TableDiffCard({
   const [expanded, setExpanded] = React.useState(false)
   const [visibleLimit, setVisibleLimit] = React.useState(TABLE_DETAIL_BATCH)
   const rootRef = React.useRef<HTMLElement>(null)
+
   const activeDetailIndex = changes.findIndex(
     (change) => change.id === activeChangeId,
   )
+
   const visibleChanges = changes.slice(0, visibleLimit)
 
   React.useLayoutEffect(() => {
@@ -207,11 +216,13 @@ function TableDiffCard({
 
   React.useEffect(() => {
     if (!expanded || activeDetailIndex < 0 || !activeChangeId) return
+
     const target = Array.from(
       rootRef.current?.querySelectorAll<HTMLElement>(
         '[data-revision-change-id]',
       ) ?? [],
     ).find((element) => element.dataset.revisionChangeId === activeChangeId)
+
     focusChange(target)
   }, [activeChangeId, activeDetailIndex, expanded, visibleLimit])
 
@@ -348,6 +359,7 @@ function buildReviewItems(
     const visibleChanges = summary.changes.filter((change) =>
       changeMatchesFilters(change, enabledKinds, enabledAreas),
     )
+
     if (visibleChanges.length === 0) continue
     items.push({
       id: `table-summary:${summary.tableId}`,
@@ -357,6 +369,7 @@ function buildReviewItems(
       visibleChanges,
     })
   }
+
   return items.sort((a, b) => a.order - b.order || a.id.localeCompare(b.id))
 }
 
@@ -372,14 +385,18 @@ export function RevisionDiffReview({
     () => diffRevisionEnvelopes(before, after),
     [after, before],
   )
+
   const [enabledKinds, setEnabledKinds] = React.useState(
     () => new Set<RevisionChangeKind>(KINDS),
   )
+
   const [enabledAreas, setEnabledAreas] = React.useState(
     () => new Set<RevisionChangeArea>(AREA_ORDER),
   )
+
   const [activeIndex, setActiveIndex] = React.useState(0)
   const rootRef = React.useRef<HTMLElement>(null)
+
   const areasInDiff = React.useMemo(
     () =>
       AREA_ORDER.filter((area) =>
@@ -387,10 +404,12 @@ export function RevisionDiffReview({
       ),
     [diff.changes],
   )
+
   const items = React.useMemo(
     () => buildReviewItems(diff, enabledKinds, enabledAreas),
     [diff, enabledKinds, enabledAreas],
   )
+
   const visibleChanges = React.useMemo(
     () =>
       diff.changes.filter((change) =>
@@ -398,6 +417,7 @@ export function RevisionDiffReview({
       ),
     [diff.changes, enabledKinds, enabledAreas],
   )
+
   const activeChange: RevisionChange | undefined =
     visibleChanges.at(activeIndex)
 
@@ -409,19 +429,23 @@ export function RevisionDiffReview({
 
   React.useEffect(() => {
     if (!activeChange || activeChange.tableId) return
+
     const target = Array.from(
       rootRef.current?.querySelectorAll<HTMLElement>(
         '[data-revision-change-id]',
       ) ?? [],
     ).find((element) => element.dataset.revisionChangeId === activeChange.id)
+
     focusChange(target)
   }, [activeChange])
 
   function toggleKind(kind: RevisionChangeKind) {
     setEnabledKinds((current) => {
       const next = new Set(current)
+
       if (next.has(kind)) next.delete(kind)
       else next.add(kind)
+
       return next
     })
   }
@@ -429,8 +453,10 @@ export function RevisionDiffReview({
   function toggleArea(area: RevisionChangeArea) {
     setEnabledAreas((current) => {
       const next = new Set(current)
+
       if (next.has(area)) next.delete(area)
       else next.add(area)
+
       return next
     })
   }
@@ -525,6 +551,7 @@ export function RevisionDiffReview({
             >
               {KINDS.map((kind) => {
                 const enabled = enabledKinds.has(kind)
+
                 return (
                   <Button
                     key={kind}
@@ -556,9 +583,11 @@ export function RevisionDiffReview({
               >
                 {areasInDiff.map((area) => {
                   const enabled = enabledAreas.has(area)
+
                   const areaCount = diff.changes.filter(
                     (change) => change.area === area,
                   ).length
+
                   return (
                     <Button
                       key={area}

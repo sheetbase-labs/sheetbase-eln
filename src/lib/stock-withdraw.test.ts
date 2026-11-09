@@ -21,11 +21,15 @@ function client(opts: { lot?: unknown; sample?: unknown }) {
       ? { sample: lotWire({}), derivedSampleId: null, derivedSample: null }
       : {},
   )
+
   const list = vi.fn(async (_t: string, q: string) => {
     if (q.includes('select=identifier')) return [{ identifier: 'EXP-9' }]
+
     if (q.includes('kind=eq.sample')) return opts.sample ? [opts.sample] : []
+
     return opts.lot ? [opts.lot] : []
   })
+
   return { rpc, list, c: { rpc, list } as unknown as DataClient }
 }
 
@@ -75,6 +79,7 @@ describe('withdrawItemFromStock', () => {
         kind: 'sample',
       },
     })
+
     await withdrawItemFromStock(
       c,
       item({ kind: 'sample', materialRecordId: 'lot-1' }),

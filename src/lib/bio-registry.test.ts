@@ -20,11 +20,13 @@ describe('canonicalSequence', () => {
   it('gives a circle the same text from any start and either strand', () => {
     const plasmid = 'ATGGCCATTGTAATGGGCCGCTGAAAGGGTGCCCGATAG'
     const rotated = plasmid.slice(11) + plasmid.slice(0, 11)
+
     const reverse = plasmid
       .split('')
       .reverse()
       .map((c) => ({ A: 'T', T: 'A', G: 'C', C: 'G' })[c] ?? c)
       .join('')
+
     const base = canonicalSequence(plasmid, 'dna', 'circular')
     expect(canonicalSequence(rotated, 'dna', 'circular')).toBe(base)
     expect(canonicalSequence(reverse, 'dna', 'circular')).toBe(base)
@@ -60,6 +62,7 @@ describe('leastRotation', () => {
 
 describe('walkLineage', () => {
   const entries = ['a', 'b', 'c', 'd'].map(entry)
+
   const links: LineageLink[] = [
     { entry_id: 'b', parent_id: 'a', role: 'vector' },
     { entry_id: 'c', parent_id: 'b', role: 'transfected_with' },
@@ -86,6 +89,7 @@ describe('walkLineage', () => {
       ...links,
       { entry_id: 'a', parent_id: 'c', role: 'parent' },
     ]
+
     expect(walkLineage('a', 'down', entries, looped)).toHaveLength(2)
   })
 })

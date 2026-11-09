@@ -94,6 +94,7 @@ function Rows() {
   const navigate = Route.useNavigate()
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
+
   // The box holds what was typed and reports the settled value to the route —
   // the two-nature rule (adopt a change made elsewhere, drop pending typing)
   // lives in the hook, twice over in this screen's history.
@@ -108,7 +109,9 @@ function Rows() {
         replace: true,
       }),
   )
+
   const versions = useDatasetVersions(datasetId)
+
   // A snapshot is named by its id or by its label (S-14), so a pane can be
   // pointed at the newer one by the label it shows.
   const version = search.snapshot
@@ -116,13 +119,16 @@ function Rows() {
         (v) => v.id === search.snapshot || v.label === search.snapshot,
       )
     : versions.data?.at(0)
+
   // A pane pinned to a snapshot says when a newer one exists.
   const { reportNewer } = usePaneContext()
   const newestLabel = versions.data?.at(0)?.label
+
   const pinnedNewer =
     search.snapshot && version && newestLabel && version.label !== newestLabel
       ? newestLabel
       : undefined
+
   useEffect(() => {
     reportNewer(pinnedNewer)
   }, [reportNewer, pinnedNewer])
@@ -130,6 +136,7 @@ function Rows() {
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
   // A value link is a live inspection, not a claim about a frozen snapshot.
   const liveValue = Boolean(search.live && search.row && !search.snapshot)
+
   const valueContext = useQuery({
     queryKey: ['ui-port', 'dataset-value', datasetId, search.row],
     queryFn: () =>
@@ -155,6 +162,7 @@ function Rows() {
         : undefined,
     enabled: Boolean(version) && !liveValue,
   })
+
   const payload = liveValue ? valueContext.data : rowsQuery.data?.pages.at(0)
 
   const fieldsQuery = useQuery({
@@ -171,9 +179,11 @@ function Rows() {
     queryKey: ['ui-port', 'dataset-flags', datasetId],
     queryFn: () => fetchActiveDatasetFlags(notebookDataClient, datasetId),
   })
+
   const fields = fieldsQuery.data ?? []
   const flags = flagsQuery.data ?? []
   const flagIndex = useMemo(() => buildFlagIndex(flags), [flags])
+
   const flaggedRowIds = useMemo(
     () => new Set(flags.map((f) => f.rowId)),
     [flags],
@@ -187,12 +197,15 @@ function Rows() {
       ),
     [flags],
   )
+
   const columnField = fields.find((f) => f.field_id === search.col)
 
   const q = (search.q ?? '').trim().toLowerCase()
+
   const rows = liveValue
     ? (valueContext.data?.rows ?? [])
     : (rowsQuery.data?.pages.flatMap((page) => page.rows) ?? [])
+
   // The flagged filter reads only the rows loaded so far, so its count must
   // too — otherwise "(12)" sits beside "Showing 9 of 162" as a contradiction.
   // The count converges on the dataset total as "Load more" extends the window.
@@ -200,14 +213,19 @@ function Rows() {
     (count, row) => (flaggedRowIds.has(row.rowId) ? count + 1 : count),
     0,
   )
+
   const visible = rows.filter((r) => {
     if (search.flagged && !flaggedRowIds.has(r.rowId)) return false
+
     if (!q) return true
+
     return Object.values(r.values).some((v) =>
       String(v).toLowerCase().includes(q),
     )
   })
+
   const selected = visible.find((r) => r.rowId === search.row) ?? visible.at(0)
+
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     selected?.rowId ?? null,
     (rowId) =>
@@ -218,6 +236,7 @@ function Rows() {
         replace: true,
       }),
   )
+
   // One grid column per schema field, right-aligned unless the field is text —
   // the bespoke table's own rule — plus the row-number column the snapshot
   // shows. A value cell carries the flag colour of its own row and field.
@@ -228,6 +247,7 @@ function Rows() {
       cell: ({ row }) => {
         if (!('values' in row.original)) return null
         const index = visible.findIndex((r) => r.rowId === row.original.rowId)
+
         return (
           <span className="num text-fg-muted">
             {index + 1}
@@ -239,10 +259,12 @@ function Rows() {
       },
       meta: { headerClassName: 'min-w-[64px]' },
     }
+
     return [
       rowNumber,
       ...fields.map((f) => {
         const align = f.logical_type === 'text' ? undefined : 'right'
+
         return {
           id: f.field_id,
           header: () => (
@@ -275,9 +297,11 @@ function Rows() {
           cell: ({ row }) => {
             if (!('values' in row.original)) return null
             const value = row.original.values[f.field_id]
+
             const flagged = flagIndex.get(
               flagKey(row.original.rowId, f.field_id),
             )
+
             return (
               <span className={cn(flagged && 'text-danger-text')}>
                 {value == null ? '—' : String(value)}
@@ -303,6 +327,7 @@ function Rows() {
     datasetId,
     navigate,
   ])
+
   const selectedField =
     fields.find((f) => f.field_id === search.field) ?? fields.at(0)
 
@@ -316,6 +341,7 @@ function Rows() {
     void queryClient.invalidateQueries({
       queryKey: datasetListQueryKeys.page,
     })
+
     if (versionId) {
       void queryClient.invalidateQueries({
         queryKey: ['ui-port', 'dataset-rows', versionId],
@@ -335,6 +361,7 @@ function Rows() {
       </p>
     )
   }
+
   if (versions.isError && !liveValue) {
     return (
       <div className="px-6 py-4">
@@ -351,6 +378,7 @@ function Rows() {
       </div>
     )
   }
+
   if (!version && !liveValue) {
     return (
       <div className="px-6 py-4">
@@ -389,6 +417,7 @@ function Rows() {
   const selectedValue = selectedField
     ? selected?.values[selectedField.field_id]
     : undefined
+
   const selectedFlags =
     selected && selectedField
       ? flags.filter(
@@ -569,10 +598,13 @@ function Rows() {
             <div className="flex flex-col">
               {fields.map((f) => {
                 const value = selected.values[f.field_id]
+
                 const cellFlag = flagIndex.get(
                   flagKey(selected.rowId, f.field_id),
                 )
+
                 const isSelected = f.field_id === selectedField?.field_id
+
                 return (
                   <button
                     key={f.field_id}
@@ -690,8 +722,10 @@ function useRowSourceSample(
             ',',
           )})&select=id,identifier&limit=1`,
         )
+
         if (byId[0]) return byId[0]
       }
+
       for (const identifier of sampleTexts.slice(0, 3)) {
         const byText = await notebookDataClient.list<
           Pick<RepeatSourceSample, 'id' | 'identifier'>
@@ -701,8 +735,10 @@ function useRowSourceSample(
             identifier,
           )}&select=id,identifier&limit=1`,
         )
+
         if (byText[0]) return byText[0]
       }
+
       return null
     },
   })

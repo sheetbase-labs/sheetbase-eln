@@ -45,6 +45,7 @@ export function useRunLauncher(
 ) {
   const queryClient = useQueryClient()
   const [target, setTarget] = useState<Target | null>(null)
+
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'pipelines'] })
 
@@ -61,6 +62,7 @@ export function useRunLauncher(
         },
         ({ error }) => {
           void refresh()
+
           if (error)
             toast.error(t('data.useRunLauncher.runStartedButCould'), {
               description: error.message,
@@ -101,10 +103,13 @@ export function useRunLauncher(
 
   const launch = (next: Target) => {
     const retried = next.retryOf ?? next.rerunOn
+
     if (!retried && runNeedsDetails(next.version)) {
       setTarget(next)
+
       return
     }
+
     start.mutate({
       target: next,
       details: {

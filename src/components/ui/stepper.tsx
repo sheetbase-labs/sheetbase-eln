@@ -24,6 +24,7 @@ export function Stepper({
     >
       {steps.map((s, i) => {
         const n = i + 1
+
         const state =
           n < current
             ? 'done'
@@ -32,6 +33,7 @@ export function Stepper({
                 ? 'bad'
                 : 'now'
               : 'todo'
+
         return (
           <li
             key={s}

@@ -20,6 +20,7 @@ import { CHART_TYPES_NULL_X } from '#/lib/chart-spec'
 import type { ChartColumn, ChartSpec, ChartType } from '#/lib/chart-spec'
 
 export const CHART_ROLES = ['x', 'y', 'colour', 'size', 'facet'] as const
+
 export type ChartRole = (typeof CHART_ROLES)[number]
 
 /** The `DataTransfer` type a dragged field carries to a role slot. */
@@ -47,6 +48,7 @@ export const ROLE_LABEL: Record<ChartRole, string> = {
 
 /** Row groups in the field list, in display order. */
 export const FIELD_GROUPS = ['Measured', 'Derived', 'Run metadata'] as const
+
 export type FieldGroup = (typeof FIELD_GROUPS)[number]
 
 const MEASURED_LOGICAL_TYPES = ['decimal', 'integer']
@@ -98,11 +100,13 @@ export function roleAvailableForType(
       ok: false,
       reason: `A ${type} chart has no X-axis mapping.`,
     }
+
   if (type === 'heatmap' && (role === 'colour' || role === 'size'))
     return {
       ok: false,
       reason: `A heatmap has no ${ROLE_LABEL[role].toLowerCase()} encoding; its cells are row counts or a value field.`,
     }
+
   return { ok: true }
 }
 
@@ -113,7 +117,9 @@ export function checkAssignment(
   type: ChartType,
 ): RoleCheck {
   const availability = roleAvailableForType(role, type)
+
   if (!availability.ok) return availability
+
   if (role === 'colour' || role === 'facet')
     return isCategoryColumn(column)
       ? { ok: true }
@@ -121,6 +127,7 @@ export function checkAssignment(
           ok: false,
           reason: `${ROLE_LABEL[role]} needs a category field; “${column.label}” is ${column.logicalType}.`,
         }
+
   return isMeasuredColumn(column)
     ? { ok: true }
     : {
@@ -139,6 +146,7 @@ export function columnsForRole(
   type: ChartType,
 ): ChartColumn[] {
   if (!roleAvailableForType(role, type).ok) return []
+
   return columns.filter((column) => checkAssignment(role, column, type).ok)
 }
 

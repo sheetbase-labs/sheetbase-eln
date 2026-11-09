@@ -55,7 +55,9 @@ const meta = {
   // the meta's component needs so a story without its own args still types.
   args: { ...base, canWrite: true },
 } satisfies Meta<typeof ValueActions>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A value nothing is wrong with: flag it, or ask for a repeat from its sample. */

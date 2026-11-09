@@ -81,10 +81,14 @@ import {
 export type { ProjectRow } from './types'
 
 const tabs = ['all', 'mine', 'inprogress', 'inreview', 'archived'] as const
+
 export type ProjectsTab = (typeof tabs)[number]
+
 const tabLabel = (tab: ProjectsTab) => t(`projects.projectsPage.tabs.${tab}`)
 const sorts = ['updated', 'id', 'name'] as const
+
 export type ProjectsSort = (typeof sorts)[number]
+
 const sortLabel = (sort: ProjectsSort) =>
   t(`projects.projectsPage.sorts.${sort}`)
 
@@ -101,6 +105,7 @@ export function archivedModeFor(tab: ProjectsTab): ArchivedMode {
 /** Why a create action cannot run, in one voice wherever it is stated. */
 const createDisabledReasonText = () =>
   t('projects.projectsPage.createDisabled.reason')
+
 const createDisabledBodyText = () =>
   t('projects.projectsPage.createDisabled.body')
 
@@ -177,16 +182,21 @@ export function ProjectsPage({
 }) {
   const workspace = useWorkspaceNavigation()
   const navigate = useNavigate()
+
   const openProject = (project: ProjectRow, event?: React.MouseEvent) => {
     event?.stopPropagation()
+
     if (event && isBrowserClick(event)) return
     const href = projectPath(project.uuid)
+
     if (openBesideOnAlt(workspace, href, event, project.name)) return
+
     if (!event) {
       if (onOpenProject) onOpenProject(project)
       else void navigate({ href })
     }
   }
+
   const hasProjectAccess = useHasProjectAccess()
   const tab: ProjectsTab = search.tab ?? 'all'
   const archived: ArchivedMode = search.archived ?? archivedModeFor(tab)
@@ -196,6 +206,7 @@ export function ProjectsPage({
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [draftQ, setDraftQ] = useState(search.q ?? '')
   const [confirmArchive, setConfirmArchive] = useState(false)
+
   // A create intent arrives from the URL (`?new=true`: the shell's New →
   // Project link, a refresh, a bookmark) or from this page's own button. Once
   // one has arrived the dialog's open state is local: a click's client
@@ -205,6 +216,7 @@ export function ProjectsPage({
   const [newProjectOpen, setNewProjectOpen] = useState(
     canCreate && !!search.new,
   )
+
   // Whether a refused intent has already been answered: the param can outlive
   // the navigation that set it, and the person hears the reason once.
   const refusedNewProject = useRef(false)
@@ -218,6 +230,7 @@ export function ProjectsPage({
     if (requestedNewProject && !lastRequestedNewProject.current) {
       setNewProjectOpen(true)
     }
+
     lastRequestedNewProject.current = requestedNewProject
   }, [requestedNewProject])
 
@@ -241,8 +254,10 @@ export function ProjectsPage({
   useEffect(() => {
     if (!search.new) {
       refusedNewProject.current = false
+
       return
     }
+
     if (canCreate || refusedNewProject.current) return
     refusedNewProject.current = true
     toast.error(createDisabledReasonText(), {
@@ -263,6 +278,7 @@ export function ProjectsPage({
           : tabKey === 'inreview'
             ? p.status.tone === 'review'
             : !!p.archived
+
   // A tab's count is the number of rows it lists, so the strip and the table
   // agree: every tab's rows pass through the same `inTab` and archived test.
   const counts = Object.fromEntries(
@@ -276,9 +292,12 @@ export function ProjectsPage({
       ).length,
     ]),
   ) as Record<ProjectsTab, number>
+
   const q = (search.q ?? '').trim().toLowerCase()
+
   const matchesQ = (p: ProjectRow) =>
     !q || [p.name, p.id, p.client].some((s) => s.toLowerCase().includes(q))
+
   const base = projects.filter(
     (p) =>
       inTab(p, tab) &&
@@ -287,6 +306,7 @@ export function ProjectsPage({
       (!search.client || p.client === search.client) &&
       (!search.modality || p.modality === search.modality),
   )
+
   const rows = base
     .filter((p) => archived === 'include' || !p.archived)
     .sort((a, b) =>
@@ -296,13 +316,16 @@ export function ProjectsPage({
           ? a.id.localeCompare(b.id)
           : a.name.localeCompare(b.name),
     )
+
   const archivedHidden =
     archived === 'exclude' ? base.filter((p) => p.archived).length : 0
+
   const filterCount =
     (archived === 'exclude' ? 1 : 0) +
     (search.stage ? 1 : 0) +
     (search.client ? 1 : 0) +
     (search.modality ? 1 : 0)
+
   const cols = [
     {
       key: 'client' as const,
@@ -319,6 +342,7 @@ export function ProjectsPage({
       label: t('projects.projectsPage.columns.experiments'),
     },
   ].filter((c) => !hidden.has(c.key))
+
   const grouped: [string | null, ProjectRow[]][] =
     group === 'none'
       ? [[null, rows]]
@@ -326,6 +350,7 @@ export function ProjectsPage({
           g,
           rows.filter((r) => r[group] === g),
         ])
+
   // `archive_project`/`unarchive_project` admit a workspace owner or admin
   // only, so the selection exists only for a caller the server will accept.
   const role = useQuery({
@@ -340,6 +365,7 @@ export function ProjectsPage({
         .then((memberships) => memberships[0]?.role ?? null),
     staleTime: 60_000,
   })
+
   const canBulkArchive = role.data === 'owner' || role.data === 'admin'
   const selected = rows.filter((p) => checked.has(p.id))
   const archivable = selected.filter((p) => !p.archived)
@@ -347,9 +373,11 @@ export function ProjectsPage({
 
   const targetsOf = (operation: 'archive' | 'restore') =>
     operation === 'archive' ? archivable : restorable
+
   const bulk = useMutation({
     mutationFn: async (operation: 'archive' | 'restore') => {
       const targets = targetsOf(operation)
+
       const settled = await Promise.allSettled(
         targets.map((p) =>
           projectDataClient.rpc(
@@ -358,6 +386,7 @@ export function ProjectsPage({
           ),
         ),
       )
+
       return {
         operation,
         count: targets.length,
@@ -370,14 +399,17 @@ export function ProjectsPage({
       void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY })
       setConfirmArchive(false)
       const done = count - refused
+
       if (refused) {
         setBulkError(
           operation === 'archive'
             ? t('projects.projectsPage.bulk.partialArchived', { done, count })
             : t('projects.projectsPage.bulk.partialRestored', { done, count }),
         )
+
         return
       }
+
       const undoIds = targetsOf(operation).map((p) => p.uuid)
       setChecked(new Set())
       // Archiving and restoring are each other's Undo.
@@ -409,7 +441,9 @@ export function ProjectsPage({
       )
     },
   })
+
   const colSpan = (canBulkArchive ? 4 : 3) + cols.length
+
   // A disabled control has to say why (QA2-projects-1): the header button was
   // disabled with no stated reason.
   const createDisabledReason = !canCreate
@@ -676,6 +710,7 @@ export function ProjectsPage({
                   className="h-7 pl-7 max-lg:h-9"
                   onChange={(e) => {
                     setDraftQ(e.target.value)
+
                     if (!e.target.value) setSearch({ q: undefined })
                   }}
                 />
@@ -708,6 +743,7 @@ export function ProjectsPage({
                         className={hidden.has(k) ? 'pl-[30px]' : ''}
                         onClick={() => {
                           const next = new Set(hidden)
+
                           if (next.has(k)) next.delete(k)
                           else next.add(k)
                           setSearch({
@@ -909,8 +945,10 @@ export function ProjectsPage({
                                   onCheckedChange={(on) =>
                                     setChecked((s) => {
                                       const n = new Set(s)
+
                                       if (on) n.add(p.id)
                                       else n.delete(p.id)
+
                                       return n
                                     })
                                   }
@@ -1099,6 +1137,7 @@ export function ProjectsPage({
         onOpenChange={(open) => {
           if (open) return
           setNewProjectOpen(false)
+
           if (search.new) setSearch({ new: undefined })
         }}
         onCreate={onCreate}
@@ -1245,13 +1284,16 @@ function NewProjectDialog({
   const [modality, setModality] = useState('')
   // The person creating a project leads it unless they pick someone else.
   const [leadChoice, setLeadChoice] = useState<string | null>(null)
+
   const leadDefault =
     meId && memberOptions.some((member) => member.id === meId) ? meId : ''
+
   const lead = leadChoice ?? leadDefault
   const setLead = setLeadChoice
   const [reviewer, setReviewer] = useState('')
   const [agreement, setAgreement] = useState('')
   const [startedOn, setStartedOn] = useState('')
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(460px,calc(100vw-32px))]">
@@ -1263,8 +1305,11 @@ function NewProjectDialog({
             onSubmit={(e) => {
               e.preventDefault()
               setTried(true)
+
               if (!title.trim()) return
+
               if (addingClient && !newClientName.trim()) return
+
               if (!addedFields.valid) return
               onCreate({
                 title: title.trim(),

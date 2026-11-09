@@ -22,10 +22,12 @@ function parseComposedGrid(
   value: unknown,
 ): FrozenSheetEvidence['composedGrid'] {
   if (!isRecord(value)) return null
+
   return {
     columns: Array.isArray(value.columns)
       ? value.columns.map((column) => {
           if (!isRecord(column)) return {}
+
           return column
         })
       : undefined,
@@ -38,6 +40,7 @@ function parseComposedGrid(
 
 function parseBindings(value: unknown): Array<Record<string, unknown>> {
   if (!Array.isArray(value)) return []
+
   return value.filter(isRecord)
 }
 
@@ -53,6 +56,7 @@ export function sheetEvidenceFromRevisionRows(
   }>,
 ): Map<string, FrozenSheetEvidence> {
   const map = new Map<string, FrozenSheetEvidence>()
+
   for (const row of rows) {
     map.set(row.block_id, {
       blockId: row.block_id,
@@ -64,6 +68,7 @@ export function sheetEvidenceFromRevisionRows(
       composedGrid: parseComposedGrid(row.composed_grid),
     })
   }
+
   return map
 }
 
@@ -72,15 +77,19 @@ export function sheetEvidenceFromEnvelope(
 ): Map<string, FrozenSheetEvidence> {
   const items = envelope?.sheetEvidence
   const map = new Map<string, FrozenSheetEvidence>()
+
   if (!Array.isArray(items)) return map
+
   for (const item of items) {
     if (!isRecord(item)) continue
+
     if (
       typeof item.blockId !== 'string' ||
       typeof item.instanceId !== 'string'
     ) {
       continue
     }
+
     map.set(item.blockId, {
       blockId: item.blockId,
       instanceId: item.instanceId,
@@ -94,5 +103,6 @@ export function sheetEvidenceFromEnvelope(
       composedGrid: parseComposedGrid(item.composedGrid),
     })
   }
+
   return map
 }

@@ -36,6 +36,7 @@ const record: NotebookRecord = {
 
 function Harness({ initiallyOpen }: { initiallyOpen?: boolean }) {
   const [open, setOpen] = useState(Boolean(initiallyOpen))
+
   return (
     <div className="space-y-2">
       <button
@@ -91,7 +92,9 @@ const meta = {
     blocks: [],
   },
 } satisfies Meta<typeof SubmitNotebookDialog>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Closed: nothing is rendered until the writer submits. */

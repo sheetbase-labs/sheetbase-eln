@@ -26,7 +26,9 @@ const meta = {
     onKeepLocal: () => {},
   },
 } satisfies Meta<typeof ConflictBanner>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

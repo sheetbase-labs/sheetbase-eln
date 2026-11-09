@@ -18,15 +18,18 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mocks.navigate,
 }))
+
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
+
 vi.mock('#/lib/analysis-studio-data', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   analysisStudioDataClient: {},
   fetchDatasetSummaries: (...a: unknown[]) => mocks.summaries(...a),
   createAnalysisView: (...a: unknown[]) => mocks.create(...a),
 }))
+
 vi.mock('#/lib/chart-data', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   fetchCanonicalDataset: (_c: unknown, id: string) => mocks.canonical(id),
@@ -37,6 +40,7 @@ const col = (id: string, label: string) => ({
   label,
   logicalType: 'decimal',
 })
+
 const view = {
   id: 'view-1',
   name: 'Dose response',
@@ -112,8 +116,10 @@ describe('DuplicateAnalysisDialog', () => {
     expect(await screen.findByText(/Dose → dose/)).toBeTruthy()
     await user.click(screen.getByRole('button', { name: 'Save copy' }))
     await waitFor(() => expect(mocks.create).toHaveBeenCalled())
+
     const { name, charts }: { name: string; charts: ChartSpec[] } =
       mocks.create.mock.calls[0][1]
+
     const spec = charts[0]
     expect(name).toBe('Dose response on Plate 2')
     expect(spec.fields.x?.fieldId).toBe('g1')

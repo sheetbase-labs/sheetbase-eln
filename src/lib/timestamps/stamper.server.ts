@@ -55,9 +55,11 @@ interface DueRow {
 /** Normalise any Postgres timestamptz text to UTC with microseconds. */
 export function isoMicros(text: string): string {
   const ms = Date.parse(text)
+
   if (Number.isNaN(ms)) throw new Error(`unreadable time: ${text}`)
   const fraction = /\.(\d{1,6})(?!\d)/.exec(text)?.[1] ?? ''
   const base = new Date(ms).toISOString().slice(0, 19)
+
   return `${base}.${fraction.padEnd(6, '0')}Z`
 }
 
@@ -68,6 +70,7 @@ export async function sweepTimestamps(
   const conn = await deps.connect()
   let stamped = 0
   let failed = 0
+
   try {
     const { rows } = await conn.query<DueRow>(
       `SELECT signature_id, workspace_id, revision_id, record_id, signature_meaning,
@@ -77,10 +80,13 @@ export async function sweepTimestamps(
          FROM internal.signatures_due_timestamp($1)`,
       [BATCH],
     )
+
     for (const due of rows) {
       try {
         const url = due.authority_url
+
         if (!url) throw new Error('no time-stamping authority is set')
+
         const signedData = canonicalSignedData({
           signatureId: due.signature_id,
           workspaceId: due.workspace_id,
@@ -91,15 +97,19 @@ export async function sweepTimestamps(
           meaning: due.signature_meaning,
           signedAt: isoMicros(due.signed_at),
         })
+
         const imprint = sha256Hex(signedData)
         const request = buildTimestampRequest(imprint)
+
         const response = await requestTimestamp(url, request, {
           fetch: deps.fetch,
         })
+
         const info = verifyTimestampResponse(response, {
           expectedImprintHex: imprint,
           expectedNonce: request.nonce,
         })
+
         await conn.query(
           `SELECT internal.record_signature_timestamp($1, $2, $3, $4, $5, $6, $7, $8)`,
           [
@@ -127,6 +137,7 @@ export async function sweepTimestamps(
         })
       }
     }
+
     return { stamped, failed }
   } finally {
     await conn.end()
@@ -140,14 +151,17 @@ const startedGlobalKey = '__sheetbaseTimestampSchedulerStarted'
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
 async function defaultConnect(): Promise<TimestampConnection> {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   return client
 }
 
@@ -155,18 +169,23 @@ export function startTimestampScheduler(
   options: { deps?: TimestampSweepDeps; intervalMs?: number } = {},
 ): void {
   if (typeof window !== 'undefined') return
+
   if (schedulerDisabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
 
   const deps = options.deps ?? { connect: defaultConnect }
+
   const tick = async () => {
     // A slow authority must not let passes pile up.
     if (running) return
     running = true
+
     try {
       const { stamped, failed } = await sweepTimestamps(deps)
+
       if (stamped || failed) {
         logger.info('signature timestamps swept', { stamped, failed })
       }
@@ -178,6 +197,7 @@ export function startTimestampScheduler(
       running = false
     }
   }
+
   bootTimer = setTimeout(() => void tick(), 15_000)
   bootTimer.unref()
   timer = setInterval(
@@ -189,6 +209,7 @@ export function startTimestampScheduler(
 
 export function stopTimestampScheduler(): void {
   if (bootTimer) clearTimeout(bootTimer)
+
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null

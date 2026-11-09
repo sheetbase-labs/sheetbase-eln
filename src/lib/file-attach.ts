@@ -65,8 +65,10 @@ function mapStatusToError(status: number, body: unknown): AttachFileError {
     body && typeof body === 'object' && 'error' in body
       ? String((body as { error: { code?: unknown } }).error.code ?? '')
       : ''
+
   if (status === 401)
     return new AttachFileError('Sign in to upload files.', 'unauthenticated')
+
   if (status === 403 || status === 404)
     return new AttachFileError(
       code === 'not_found'
@@ -74,11 +76,13 @@ function mapStatusToError(status: number, body: unknown): AttachFileError {
         : 'Permission denied.',
       'permission_denied',
     )
+
   if (status === 409 && code === 'checksum_mismatch')
     return new AttachFileError(
       'The uploaded bytes do not match the declared checksum.',
       'checksum_mismatch',
     )
+
   return new AttachFileError(`Upload failed (${status}).`, 'server_error')
 }
 
@@ -92,6 +96,7 @@ export function validateFileForUpload(
   | { ok: true; mediaType: string }
   | { ok: false; code: 'oversize' | 'disallowed_type'; message: string } {
   const mediaType = file.type || 'application/octet-stream'
+
   if (!isAllowedMediaType(mediaType)) {
     return {
       ok: false,
@@ -99,6 +104,7 @@ export function validateFileForUpload(
       message: `Files of type "${mediaType}" are not allowed.`,
     }
   }
+
   if (file.size > FILE_MAX_BYTES) {
     return {
       ok: false,
@@ -106,6 +112,7 @@ export function validateFileForUpload(
       message: `File is ${formatFileSize(file.size)}; the limit is ${formatFileSize(FILE_MAX_BYTES)}.`,
     }
   }
+
   return { ok: true, mediaType }
 }
 
@@ -119,7 +126,9 @@ export async function uploadProjectFile(args: {
   file: File
 }): Promise<{ fileObjectId: string; displayName: string }> {
   const checked = validateFileForUpload(args.file)
+
   if (!checked.ok) throw new AttachFileError(checked.message, checked.code)
+
   const authorizeRes = await fetch('/api/files/upload-authorize', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -130,27 +139,32 @@ export async function uploadProjectFile(args: {
       byteSize: args.file.size,
     }),
   })
+
   if (authorizeRes.status >= 400) {
     throw mapStatusToError(
       authorizeRes.status,
       await authorizeRes.json().catch(() => null),
     )
   }
+
   const meta = (await authorizeRes.json()) as {
     fileRecordId: string
     fileObjectId: string
   }
+
   const uploadRes = await fetch(`/api/files/${meta.fileRecordId}/upload`, {
     method: 'PUT',
     headers: { 'content-type': checked.mediaType },
     body: args.file,
   })
+
   if (uploadRes.status >= 400) {
     throw mapStatusToError(
       uploadRes.status,
       await uploadRes.json().catch(() => null),
     )
   }
+
   return { fileObjectId: meta.fileObjectId, displayName: args.file.name }
 }
 
@@ -159,9 +173,11 @@ export async function attachFileToBlock(
   args: AttachFileArgs,
 ): Promise<AttachFileResult> {
   const checked = validateFileForUpload(args.file)
+
   if (!checked.ok) {
     throw new AttachFileError(checked.message, checked.code)
   }
+
   const mediaType = checked.mediaType
 
   const authorizeRes = await fetch('/api/files/upload-authorize', {
@@ -174,12 +190,14 @@ export async function attachFileToBlock(
       byteSize: args.file.size,
     }),
   })
+
   if (authorizeRes.status >= 400) {
     throw mapStatusToError(
       authorizeRes.status,
       await authorizeRes.json().catch(() => null),
     )
   }
+
   const meta = (await authorizeRes.json()) as {
     fileRecordId: string
     fileIdentifier: string
@@ -193,6 +211,7 @@ export async function attachFileToBlock(
     headers: { 'content-type': mediaType },
     body: args.file,
   })
+
   if (uploadRes.status >= 400) {
     throw mapStatusToError(
       uploadRes.status,
@@ -208,6 +227,7 @@ export async function attachFileToBlock(
       `?record_id=eq.${meta.fileRecordId}&select=version&order=version.desc&limit=1`,
     )
     .catch(() => [] as Array<{ version: number }>)
+
   const fileVersion = stored[0]?.version
 
   const payload = {
@@ -218,7 +238,9 @@ export async function attachFileToBlock(
     mediaType,
     byteSize: args.file.size,
   }
+
   const validation = validateBlock({ type: 'file', payload })
+
   if (!validation.ok) {
     throw new AttachFileError(
       validation.errors.map((e) => e.message).join(' '),

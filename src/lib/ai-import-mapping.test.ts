@@ -48,11 +48,13 @@ describe('parseMappingAnswer', () => {
         },
       ],
     })
+
     const out = parseMappingAnswer(
       `Here you go:\n\`\`\`json\n${answer}\n\`\`\``,
       headers,
       fields,
     )
+
     expect(out).toHaveLength(2)
     expect(out[0]).toMatchObject({
       header: 'Conc (mg/mL)',
@@ -73,6 +75,7 @@ describe('parseMappingAnswer', () => {
         { header: 'Notes', field_id: 'f-titre' },
       ],
     })
+
     const out = parseMappingAnswer(answer, headers, fields)
     expect(out.map((s) => s.header)).toEqual(['Conc (mg/mL)'])
   })
@@ -90,6 +93,7 @@ describe('changesFromSuggestions', () => {
       { header: 'A', fieldId: 'f1', sourceUnit: null, kind: null, reason: '' },
       { header: 'B', fieldId: 'f2', sourceUnit: 'mg', kind: null, reason: '' },
     ]
+
     expect(
       changesFromSuggestions(suggestions, { A: 'f1', B: 'f2' }, { B: 'mg' }),
     ).toEqual([])
@@ -107,6 +111,7 @@ describe('buildMappingInstruction', () => {
       [{ header: 'Lot', examples: ['A1', 'A2'] }],
       fields,
     )
+
     expect(text).toContain(
       'f-titre | Titre | decimal | stored in mg/mL | required',
     )

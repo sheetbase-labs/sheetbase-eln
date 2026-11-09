@@ -14,7 +14,9 @@ import { usePageAi } from '#/lib/use-page-ai'
  */
 export function AskAiButton({ className }: { className?: string }) {
   const { available } = usePageAi()
+
   if (!available) return null
+
   return (
     <Tooltip content={t('notebook.askAiButton.label')}>
       <Button
@@ -37,7 +39,9 @@ export function AskAiButton({ className }: { className?: string }) {
 export function AssistantTrigger({ className }: { className?: string }) {
   const platform = usePlatform()
   const { available } = usePageAi()
+
   if (!available) return null
+
   return (
     <Tooltip
       content={t('notebook.askAiButton.withShortcut', {

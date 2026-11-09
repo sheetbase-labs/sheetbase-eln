@@ -67,6 +67,7 @@ const fileRateLimiter: RateLimiter = createRateLimiter(
 
 function positiveInt(value: string | undefined): number | undefined {
   const parsed = Number(value)
+
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
 }
 
@@ -85,12 +86,14 @@ function fileRateLimitDecision(
     const decision = fileRateLimiter.hit(
       `${RATE_LIMIT_SCOPE_FILES}:${sessionId}`,
     )
+
     if (decision.allowed) return decision
     logger.warn('file route rate limited', {
       request_id: resolveRequestId(request.headers),
       operation,
     })
     metrics.fileOperations.inc({ operation, outcome: 'rate_limited' })
+
     return decision
   } catch {
     return null
@@ -103,7 +106,9 @@ function fileRateLimitedResponse(decision: RateLimitDecision): Response {
     'rate_limited',
     'Too many requests. Slow down and try again shortly.',
   )
+
   response.headers.set('retry-after', String(decision.retryAfterSeconds ?? 60))
+
   return response
 }
 
@@ -120,6 +125,7 @@ function recordFileOperation(
 ): void {
   metrics.fileOperations.inc({ operation, outcome })
   metrics.fileDuration.observe({ operation }, (Date.now() - startedAt) / 1000)
+
   if (bytes !== undefined) metrics.fileBytes.inc({ operation }, bytes)
 }
 
@@ -145,6 +151,7 @@ interface FileObjectWire {
 
 function asRow<T>(body: T | { error: unknown }): T | undefined {
   if (Array.isArray(body)) return (body as T[])[0]
+
   return body as T
 }
 
@@ -164,12 +171,16 @@ async function persistExtractedFileText(
 ): Promise<void> {
   if (isSequenceFileName(displayName)) {
     await persistSequenceFile(storage, storageKey, fileId, token, request)
+
     return
   }
+
   if (!isSearchableMediaType(mediaType)) return
+
   try {
     const { stream } = await storage.getStream(storageKey)
     const text = await extractDocumentText(stream, mediaType)
+
     if (text.trim().length === 0) return
     await postgrestRpc(
       'record_file_text',
@@ -225,7 +236,9 @@ export async function handleUploadAuthorize(
   if (request.method !== 'POST') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
   }
+
   const authResult = await resolveFileAuth(request.headers, 'files:write', deps)
+
   if (!authResult.ok) {
     return requestErrorResponse(
       authResult.status,
@@ -233,6 +246,7 @@ export async function handleUploadAuthorize(
       authResult.message,
     )
   }
+
   const { context } = authResult
 
   let payload: {
@@ -242,6 +256,7 @@ export async function handleUploadAuthorize(
     byteSize?: unknown
     checksum?: unknown
   }
+
   try {
     payload = await request.json()
   } catch {
@@ -251,10 +266,13 @@ export async function handleUploadAuthorize(
       'Request body must be JSON.',
     )
   }
+
   if (typeof payload.projectId !== 'string' || !payload.projectId) {
     return requestErrorResponse(400, 'invalid_body', 'projectId is required.')
   }
+
   const checked = validateUploadRequest(payload)
+
   if (!checked.ok) {
     return requestErrorResponse(
       400,
@@ -262,6 +280,7 @@ export async function handleUploadAuthorize(
       checked.violations.map((v) => v.message).join(' '),
     )
   }
+
   const { displayName, mediaType, byteSize, checksum } = checked.value
 
   const fileObjectId = newFileObjectId()
@@ -284,6 +303,7 @@ export async function handleUploadAuthorize(
     },
     context.token,
   )
+
   if (uploadRes.status >= 400) {
     return requestErrorResponse(
       uploadRes.status,
@@ -291,7 +311,9 @@ export async function handleUploadAuthorize(
       'Could not create the file record.',
     )
   }
+
   const uploadRow = asRow<CreateFileUploadRow>(uploadRes.body)
+
   if (!uploadRow || !uploadRow.record_id) {
     return requestErrorResponse(
       502,
@@ -323,7 +345,9 @@ export async function handleUpload(
   if (request.method !== 'PUT') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use PUT.')
   }
+
   const authResult = await resolveFileAuth(request.headers, 'files:write', deps)
+
   if (!authResult.ok) {
     return requestErrorResponse(
       authResult.status,
@@ -331,15 +355,19 @@ export async function handleUpload(
       authResult.message,
     )
   }
+
   const { context } = authResult
+
   const uploadRateLimit = fileRateLimitDecision(
     request,
     context.sessionId,
     'upload',
   )
+
   if (uploadRateLimit && !uploadRateLimit.allowed) {
     return fileRateLimitedResponse(uploadRateLimit)
   }
+
   const uploadStartedAt = Date.now()
 
   const selectRes = await postgrestSelect<FileObjectWire[]>(
@@ -347,26 +375,34 @@ export async function handleUpload(
     `record_id=eq.${fileRecordId}&select=id,storage_key,status,version,checksum,byte_size,workspace_id,media_type,display_name&order=version.desc&limit=1`,
     context.token,
   )
+
   if (selectRes.status >= 400) {
     recordFileOperation('upload', 'error', uploadStartedAt)
+
     return requestErrorResponse(
       selectRes.status,
       'file_lookup_failed',
       'Could not resolve the file object.',
     )
   }
+
   const rows = selectRes.body as FileObjectWire[]
+
   if (rows.length === 0) {
     recordFileOperation('upload', 'not_found', uploadStartedAt)
+
     return requestErrorResponse(
       404,
       'not_found',
       'File object not found in your workspace.',
     )
   }
+
   const fileObject = rows[0]
+
   if (fileObject.status !== 'active' && fileObject.status !== 'missing') {
     recordFileOperation('upload', 'not_uploadable', uploadStartedAt)
+
     return requestErrorResponse(
       409,
       'not_uploadable',
@@ -376,6 +412,7 @@ export async function handleUpload(
 
   const claimedChecksum = fileObject.checksum
   const previousStorageKey = fileObject.storage_key
+
   // Never stream a PUT over the current object. The fresh candidate is made
   // visible only by finalize_file_upload, whose row lock serializes with
   // submitted-revision retention and concurrent upload attempts.
@@ -383,7 +420,9 @@ export async function handleUpload(
     context.workspaceId,
     fileObject.id,
   )
+
   let result
+
   try {
     result = await storage.putStream(
       candidateStorageKey,
@@ -398,18 +437,21 @@ export async function handleUpload(
   } catch (error) {
     if (error instanceof OversizeError) {
       recordFileOperation('upload', 'oversize', uploadStartedAt)
+
       return requestErrorResponse(
         413,
         'oversize',
         `Upload exceeds the ${FILE_MAX_BYTES}-byte cap.`,
       )
     }
+
     throw error
   }
 
   if (claimedChecksum && claimedChecksum !== result.checksum) {
     await storage.delete(candidateStorageKey)
     recordFileOperation('upload', 'checksum_mismatch', uploadStartedAt)
+
     return requestErrorResponse(
       409,
       'checksum_mismatch',
@@ -427,10 +469,13 @@ export async function handleUpload(
     storage,
     storageKey: candidateStorageKey,
   }
+
   const refused = await refuseUploadIfAsked(hookArgs)
+
   if (refused) {
     await storage.delete(candidateStorageKey)
     recordFileOperation('upload', 'conflict', uploadStartedAt)
+
     return requestErrorResponse(
       422,
       'plugin_refused',
@@ -450,9 +495,11 @@ export async function handleUpload(
     },
     context.token,
   )
+
   if (finalize.status >= 400) {
     await storage.delete(candidateStorageKey)
     recordFileOperation('upload', 'conflict', uploadStartedAt)
+
     return requestErrorResponse(
       409,
       'upload_conflict',
@@ -522,7 +569,9 @@ export async function handleUploadVersion(
   if (request.method !== 'PUT') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use PUT.')
   }
+
   const authResult = await resolveFileAuth(request.headers, 'files:write', deps)
+
   if (!authResult.ok) {
     return requestErrorResponse(
       authResult.status,
@@ -530,8 +579,10 @@ export async function handleUploadVersion(
       authResult.message,
     )
   }
+
   const { context } = authResult
   const rateLimit = fileRateLimitDecision(request, context.sessionId, 'upload')
+
   if (rateLimit && !rateLimit.allowed) return fileRateLimitedResponse(rateLimit)
   const startedAt = Date.now()
 
@@ -540,38 +591,49 @@ export async function handleUploadVersion(
     `record_id=eq.${fileRecordId}&select=id,storage_key,status,version,display_name,media_type,workspace_id&order=version.desc&limit=1`,
     context.token,
   )
+
   if (selectRes.status >= 400) {
     recordFileOperation('upload', 'error', startedAt)
+
     return requestErrorResponse(
       selectRes.status,
       'file_lookup_failed',
       'Could not resolve the file object.',
     )
   }
+
   const current = (selectRes.body as FileObjectWire[]).at(0)
+
   if (!current) {
     recordFileOperation('upload', 'not_found', startedAt)
+
     return requestErrorResponse(
       404,
       'not_found',
       'File object not found in your workspace.',
     )
   }
+
   if (current.status !== 'active') {
     recordFileOperation('upload', 'not_uploadable', startedAt)
+
     return requestErrorResponse(
       409,
       'not_uploadable',
       `File is ${current.status} and cannot take a new version.`,
     )
   }
+
   const url = new URL(request.url)
+
   const displayName = (url.searchParams.get('name') ?? current.display_name)
     .trim()
     .slice(0, 255)
+
   const declared = (request.headers.get('content-type') ?? '')
     .split(';')[0]
     .trim()
+
   const mediaType = VERSION_MEDIA_TYPES.has(declared)
     ? declared
     : 'application/octet-stream'
@@ -585,15 +647,19 @@ export async function handleUploadVersion(
     storage,
     request,
   })
+
   if (!saved.ok) {
     recordFileOperation(
       'upload',
       saved.code === 'oversize' ? 'oversize' : 'conflict',
       startedAt,
     )
+
     return requestErrorResponse(saved.status, saved.code, saved.message)
   }
+
   recordFileOperation('upload', 'ok', startedAt, Number(saved.byteSize))
+
   return new Response(
     JSON.stringify({
       fileRecordId,
@@ -631,11 +697,14 @@ export async function storeFileVersion(input: {
   request: Request
 }): Promise<StoreFileVersionResult> {
   const { context, current, displayName, mediaType, storage, request } = input
+
   const candidateStorageKey = generateStorageKey(
     context.workspaceId,
     current.id,
   )
+
   let result
+
   try {
     result = await storage.putStream(
       candidateStorageKey,
@@ -656,6 +725,7 @@ export async function storeFileVersion(input: {
         message: `Upload exceeds the ${FILE_MAX_BYTES}-byte cap.`,
       }
     }
+
     throw error
   }
 
@@ -669,9 +739,12 @@ export async function storeFileVersion(input: {
     storage,
     storageKey: candidateStorageKey,
   }
+
   const refused = await refuseUploadIfAsked(hookArgs)
+
   if (refused) {
     await storage.delete(candidateStorageKey)
+
     return {
       ok: false,
       status: 422,
@@ -692,8 +765,10 @@ export async function storeFileVersion(input: {
     },
     context.token,
   )
+
   if (registered.status >= 400) {
     await storage.delete(candidateStorageKey)
+
     return {
       ok: false,
       status: registered.status === 403 ? 403 : 409,
@@ -702,8 +777,10 @@ export async function storeFileVersion(input: {
         'The new version could not be saved. The file may be locked or you may not be able to edit its record.',
     }
   }
+
   const row = asRow(registered.body as FileObjectWire | { error: unknown })
   const newId = row?.id
+
   if (newId) {
     await persistExtractedFileText(
       storage,
@@ -715,7 +792,9 @@ export async function storeFileVersion(input: {
       displayName || current.display_name,
     )
   }
+
   void afterUpload(hookArgs)
+
   return {
     ok: true,
     id: newId,
@@ -735,7 +814,9 @@ export async function handleDownload(
   if (request.method !== 'GET') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use GET.')
   }
+
   const authResult = await resolveFileAuth(request.headers, 'files:read', deps)
+
   if (!authResult.ok) {
     return requestErrorResponse(
       authResult.status,
@@ -743,18 +824,23 @@ export async function handleDownload(
       authResult.message,
     )
   }
+
   const { context } = authResult
+
   const downloadRateLimit = fileRateLimitDecision(
     request,
     context.sessionId,
     'download',
   )
+
   if (downloadRateLimit && !downloadRateLimit.allowed) {
     return fileRateLimitedResponse(downloadRateLimit)
   }
+
   const downloadStartedAt = Date.now()
   // `?version=N` fetches an earlier version; without it the newest is served.
   const versionParam = new URL(request.url).searchParams.get('version')
+
   const wantedVersion =
     versionParam && /^[1-9][0-9]{0,8}$/.test(versionParam) ? versionParam : null
 
@@ -763,17 +849,22 @@ export async function handleDownload(
     `record_id=eq.${fileRecordId}${wantedVersion ? `&version=eq.${wantedVersion}` : ''}&select=id,storage_key,status,status_reason,version,display_name,media_type,byte_size,workspace_id&order=version.desc&limit=1`,
     context.token,
   )
+
   if (selectRes.status >= 400) {
     recordFileOperation('download', 'error', downloadStartedAt)
+
     return requestErrorResponse(
       selectRes.status,
       'file_lookup_failed',
       'Could not resolve the file object.',
     )
   }
+
   const rows = selectRes.body as FileObjectWire[]
+
   if (rows.length === 0) {
     recordFileOperation('download', 'not_found', downloadStartedAt)
+
     return requestErrorResponse(
       404,
       'not_found',
@@ -782,8 +873,10 @@ export async function handleDownload(
   }
 
   const fileObject = rows[0]
+
   if (fileObject.status === 'quarantined') {
     recordFileOperation('download', 'not_uploadable', downloadStartedAt)
+
     return requestErrorResponse(
       410,
       'quarantined',
@@ -791,12 +884,16 @@ export async function handleDownload(
         'This file is quarantined and not downloadable.',
     )
   }
+
   if (fileObject.status === 'deleted') {
     recordFileOperation('download', 'not_found', downloadStartedAt)
+
     return requestErrorResponse(410, 'deleted', 'This file is deleted.')
   }
+
   if (fileObject.status === 'missing') {
     recordFileOperation('download', 'missing', downloadStartedAt)
+
     return requestErrorResponse(
       404,
       'missing',
@@ -805,6 +902,7 @@ export async function handleDownload(
   }
 
   const head = await storage.head(fileObject.storage_key)
+
   if (!head) {
     recordFileOperation('download', 'missing', downloadStartedAt)
     await postgrestRpc(
@@ -817,6 +915,7 @@ export async function handleDownload(
       },
       context.token,
     )
+
     return requestErrorResponse(
       404,
       'missing',
@@ -827,12 +926,14 @@ export async function handleDownload(
   const { stream, byteSize } = await storage.getStream(fileObject.storage_key)
   recordFileOperation('download', 'ok', downloadStartedAt, byteSize)
   const safeName = fileObject.display_name.replace(/[\r\n"]/g, '').slice(0, 200)
+
   const headers = new Headers({
     'content-type': fileObject.media_type,
     'content-length': String(byteSize),
     'content-disposition': `attachment; filename="${safeName}"`,
     'cache-control': 'private, no-store',
   })
+
   return new Response(stream, {
     status: 200,
     headers,

@@ -70,9 +70,11 @@ export function earliestExpiry(
   expiries: ReadonlyArray<string | null | undefined>,
 ): string | null {
   let earliest: string | null = null
+
   for (const expiry of expiries) {
     if (expiry && (earliest === null || expiry < earliest)) earliest = expiry
   }
+
   return earliest
 }
 
@@ -82,9 +84,13 @@ export function isUsableIngredient(
   now: Date = appNow(),
 ): boolean {
   if (lot.archivedAt) return false
+
   if (lot.status !== 'available' && lot.status !== 'reserved') return false
+
   if ((lot.quantity ?? 0) <= 0) return false
+
   if (lot.expiry && (daysUntilDate(lot.expiry, now) ?? 0) < 0) return false
+
   return true
 }
 
@@ -95,20 +101,24 @@ export async function searchIngredientLots(
   limit = 12,
 ): Promise<Reagent[]> {
   const cleaned = text.replace(/[,&()*."\\%]/g, ' ').trim()
+
   const parts = [
     'kind=eq.material',
     'deleted_at=is.null',
     'archived_at=is.null',
     'status=in.(available,reserved)',
   ]
+
   if (cleaned) {
     const pattern = encodeURIComponent(`"*${cleaned}*"`)
     parts.push(
       `or=(identifier.ilike.${pattern},title.ilike.${pattern},properties->>lot.ilike.${pattern})`,
     )
   }
+
   parts.push('order=title.asc,identifier.asc', `limit=${limit}`)
   const rows = await client.list<RecordWire>('records', `?${parts.join('&')}`)
+
   return rows.map(toReagentFromWire).filter((lot) => isUsableIngredient(lot))
 }
 
@@ -146,6 +156,7 @@ export async function fetchMadeFrom(
     `?product_record_id=eq.${encodeURIComponent(productRecordId)}&order=position.asc` +
       `&select=id,ingredient_record_id,quantity,unit,ingredient_identifier,ingredient_title,ingredient_lot,ingredient_expiry,position`,
   )
+
   return rows.map((row) => ({
     id: row.id,
     recordId: row.ingredient_record_id,
@@ -186,6 +197,7 @@ export async function fetchPreparedWith(
     `?ingredient_record_id=eq.${encodeURIComponent(ingredientRecordId)}&order=created_at.desc&limit=100` +
       `&select=id,quantity,unit,created_at,product:records!product_record_id(id,identifier,title)`,
   )
+
   return rows.flatMap((row) =>
     row.product
       ? [

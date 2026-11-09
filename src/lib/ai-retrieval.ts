@@ -137,6 +137,7 @@ function resolveLimit(limit: number | undefined): number {
   if (typeof limit !== 'number' || !Number.isFinite(limit)) {
     return DEFAULT_AI_RETRIEVAL_LIMIT
   }
+
   return Math.min(MAX_AI_RETRIEVAL_LIMIT, Math.max(1, Math.floor(limit)))
 }
 
@@ -154,6 +155,7 @@ export async function retrieveForAi(
   if (!actor || typeof actor.id !== 'string' || actor.id === '') {
     throw new Error('retrieveForAi: actor with a non-empty id is required')
   }
+
   if (
     !scope ||
     typeof scope.workspaceId !== 'string' ||
@@ -163,10 +165,13 @@ export async function retrieveForAi(
       'retrieveForAi: scope.workspaceId is required (fail closed)',
     )
   }
+
   if (typeof query !== 'string' || query.trim() === '') {
     throw new Error('retrieveForAi: a non-empty query is required')
   }
+
   const limit = resolveLimit(scope.limit)
+
   const results = await executeSearch(client, {
     query: query.trim(),
     projectId: scope.projectId ?? undefined,
@@ -177,8 +182,10 @@ export async function retrieveForAi(
     limit,
     offset: 0,
   })
+
   const citations = results.map(toAiCitation)
   const totalCount = results.length > 0 ? results[0].totalCount : 0
+
   return {
     citations,
     totalCount,
@@ -200,7 +207,9 @@ export function citationToObjectRef(citation: AiCitation): AiObjectRef | null {
         : citation.kind === 'sheet'
           ? 'sheet'
           : null
+
   if (!kind) return null
+
   return { kind, id: citation.stableId }
 }
 
@@ -263,20 +272,26 @@ export async function assembleGroundedContext(
     ownerId: input.ownerId,
     limit: input.limit,
   })
+
   const refs: AiObjectRef[] = []
   const unsupportedOmissions: AiContextOmission[] = []
+
   for (const citation of retrieved.citations) {
     const ref = citationToObjectRef(citation)
+
     if (ref) refs.push(ref)
     else unsupportedOmissions.push(unsupportedCitationOmission(citation))
   }
+
   const envelope = await assembleAiContext(client, actor, {
     workspaceId: input.workspaceId,
     projectId: input.projectId,
     objectRefs: refs,
     budgets: input.budgets,
   })
+
   envelope.omissions.push(...unsupportedOmissions)
+
   return {
     envelope,
     citations: retrieved.citations,

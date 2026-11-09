@@ -13,6 +13,7 @@ const resolveUserNamesFn = createServerFn({ method: 'POST' })
   .validator((userIds: string[]) => userIds)
   .handler(async ({ data }) => {
     const { resolveUserNames } = await import('#/lib/current-user')
+
     return resolveUserNames(data)
   })
 
@@ -27,7 +28,9 @@ export function useUserNames(
 ) {
   const uniqueIds = useMemo(() => {
     const ids = new Set<string>()
+
     for (const id of userIds) if (id) ids.add(id)
+
     return Array.from(ids)
   }, [userIds])
 
@@ -39,8 +42,10 @@ export function useUserNames(
 
   const names = useMemo(() => {
     const map: Record<string, string> = {}
+
     if (currentUser) map[currentUser.id] = currentUser.name
     Object.assign(map, query.data ?? {})
+
     return map
   }, [currentUser, query.data])
 

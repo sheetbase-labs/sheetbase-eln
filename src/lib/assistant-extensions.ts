@@ -44,6 +44,8 @@ export function describeFieldValue(
   value: unknown,
 ): string {
   if (value === null || value === undefined) return ''
+
   if (field.type === 'json') return JSON.stringify(value)
+
   return String(value)
 }

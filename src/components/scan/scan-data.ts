@@ -76,7 +76,9 @@ export function scanKindLabel(kind: string): string {
 function toRecordTarget(row: RecordWire): ScanTarget {
   const kind =
     row.kind === 'sample' || row.kind === 'experiment' ? row.kind : 'record'
+
   const status = sampleStatus(row.status)
+
   return {
     id: row.id,
     identifier: row.identifier,
@@ -161,6 +163,7 @@ export async function resolveScanCode(
   client: DataClient = notebookDataClient,
 ): Promise<ScanResolution> {
   const trimmed = code.trim()
+
   if (!trimmed) return { found: false, code: trimmed, suggestions: [] }
   const exact = encodeURIComponent(trimmed)
   const fuzzy = encodeURIComponent(`*${trimmed}*`)
@@ -181,17 +184,21 @@ export async function resolveScanCode(
   ])
 
   const exactAliasTargets = await aliasTargets(client, exactAliases)
+
   const exactTargets = [
     ...exactRecords.map(toRecordTarget),
     ...exactInstruments.map(toInstrumentTarget),
     ...exactAliasTargets,
   ]
+
   // Not a record or an instrument: a dataset, project, sheet, pipeline or
   // analysis carries a display id too, and its label scans the same way.
   if (exactTargets.length === 0) {
     const other = await resolveRegistryObject(client, trimmed)
+
     if (other) exactTargets.push(toObjectTarget(other))
   }
+
   if (exactTargets.length > 0) {
     return {
       found: true,
@@ -215,12 +222,15 @@ export async function resolveScanCode(
       `?select=record_id,alias&alias=ilike.${fuzzy}&limit=8`,
     ),
   ])
+
   const fuzzyAliasTargets = await aliasTargets(client, fuzzyAliases)
+
   const suggestions = [
     ...fuzzyRecords.map(toRecordTarget),
     ...fuzzyInstruments.map(toInstrumentTarget),
     ...fuzzyAliasTargets,
   ].slice(0, 5)
+
   return { found: false, code: trimmed, suggestions }
 }
 
@@ -231,18 +241,23 @@ async function aliasTargets(
 ): Promise<ScanTarget[]> {
   if (aliases.length === 0) return []
   const ids = Array.from(new Set(aliases.map((a) => a.record_id)))
+
   const records = await listByIds(ids, (inList) =>
     client.list<RecordWire>(
       'records',
       `?select=${RECORD_FIELDS}&id=in.(${inList})`,
     ),
   )
+
   const byId = new Map(records.map((r) => [r.id, r]))
   const out: ScanTarget[] = []
+
   for (const alias of aliases) {
     const record = byId.get(alias.record_id)
+
     if (record)
       out.push({ ...toRecordTarget(record), matchedAlias: alias.alias })
   }
+
   return out
 }

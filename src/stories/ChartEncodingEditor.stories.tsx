@@ -61,6 +61,7 @@ function short(binding: { fieldId: string } | null): string {
 
 function Caller({ initialSpec }: { initialSpec: ChartSpec }) {
   const [spec, setSpec] = useState(initialSpec)
+
   return (
     <div className="w-[900px] max-w-full space-y-2">
       <ChartEncodingEditor
@@ -88,7 +89,9 @@ const meta = {
   tags: ['autodocs'],
   args: { idPrefix: 'encoding', columns, spec: boundSpec, onAssign: () => {} },
 } satisfies Meta<typeof ChartEncodingEditor>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Bound: Story = {

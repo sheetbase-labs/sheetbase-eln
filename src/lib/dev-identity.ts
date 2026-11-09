@@ -21,7 +21,9 @@ export function resolveDevUserId(configuredId?: string): string {
  */
 export function devUserEmail(userId: string, configured?: string): string {
   if (configured?.trim()) return configured.trim()
+
   if (userId === DEFAULT_DEV_USER_ID) return DEFAULT_DEV_USER_EMAIL
+
   return `owner+${userId.replaceAll('-', '').slice(0, 12)}@sheetbase.test`
 }
 
@@ -35,6 +37,7 @@ export function resolveDevUserIdentity(
   configured: { name?: string; email?: string } = {},
 ) {
   const id = resolveDevUserId(configuredId)
+
   return {
     id,
     name: configured.name?.trim() || DEV_USER_NAME,

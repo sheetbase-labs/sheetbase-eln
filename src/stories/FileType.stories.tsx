@@ -20,6 +20,7 @@ const meta = {
 } satisfies Meta<typeof FileType>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Sizes: Story = {

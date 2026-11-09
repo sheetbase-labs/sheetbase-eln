@@ -53,9 +53,11 @@ const input: DatasetCrateInput = {
 
 function metadata(bytes: Uint8Array) {
   const files = readZip(bytes)
+
   const key = [...files.keys()].find((k) =>
     k.endsWith('ro-crate-metadata.json'),
   )!
+
   return {
     files,
     names: [...files.keys()],
@@ -71,9 +73,11 @@ describe('dataset crate', () => {
     expect(built.includesRunCrate).toBe(false)
     const { names, graph, files } = metadata(built.bytes)
     expect(names.some((n) => n.endsWith('.csv'))).toBe(true)
+
     const csv = new TextDecoder().decode(
       files.get(names.find((n) => n.endsWith('.csv'))!),
     )
+
     expect(csv).toContain('K-12')
     expect(JSON.stringify(graph)).toContain('NCBITaxon_562')
     expect(JSON.stringify(graph)).toContain('Ada Lovelace')
@@ -104,6 +108,7 @@ describe('dataset crate', () => {
         manifestDigest: null,
       },
     })
+
     expect(built.includesRunCrate).toBe(true)
     const text = JSON.stringify(metadata(built.bytes).graph)
     expect(text).toContain('https://w3id.org/ro/wfrun/workflow/0.5')

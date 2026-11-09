@@ -45,6 +45,7 @@ export function FigureControls({
           const problem = axisRangeProblem(spec, axis)
           const display = spec.display.axes[axis]
           const name = axis.toUpperCase()
+
           return (
             <fieldset
               key={axis}

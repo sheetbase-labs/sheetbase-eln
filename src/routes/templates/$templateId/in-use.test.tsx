@@ -15,6 +15,7 @@ import type * as NotebookTemplateData from '#/lib/notebook-template-data'
 
 const router = vi.hoisted(() => {
   const search: Record<string, unknown> = {}
+
   return { search, navigate: vi.fn() }
 })
 
@@ -38,6 +39,7 @@ const client = vi.hoisted(() => ({
   count: vi.fn(),
   rpc: vi.fn(),
 }))
+
 vi.mock('#/lib/notebook-template-data', async (importOriginal) => ({
   ...(await importOriginal<typeof NotebookTemplateData>()),
   notebookTemplateDataClient: client,
@@ -132,9 +134,11 @@ const PROJECTS = [
 
 function renderRoute() {
   const Component = Route.options.component as React.ComponentType
+
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={queryClient}>
       <Component />
@@ -160,8 +164,11 @@ function withRecords(records: RecordWire[], madeCount = records.length) {
   client.list.mockImplementation((resource: string) => {
     if (resource === 'notebook_template_versions')
       return Promise.resolve(VERSIONS)
+
     if (resource === 'records') return Promise.resolve(records)
+
     if (resource === 'projects') return Promise.resolve(PROJECTS)
+
     return Promise.resolve([])
   })
   client.count.mockResolvedValue(madeCount)
@@ -183,6 +190,7 @@ describe('Template in-use', () => {
     const matrix = await screen.findByRole('table', {
       name: 'Records by version',
     })
+
     const rows = within(matrix).getAllByRole('row')
     expect(
       within(rows[1])
@@ -256,6 +264,7 @@ describe('Template in-use', () => {
           status: 'in_progress',
         }),
     )
+
     const lastPage = [
       recordWire({
         id: 'rec-last',
@@ -263,16 +272,21 @@ describe('Template in-use', () => {
         status: 'in_review',
       }),
     ]
+
     let served = false
     client.list.mockImplementation((resource: string) => {
       if (resource === 'notebook_template_versions')
         return Promise.resolve(VERSIONS)
+
       if (resource === 'records') {
         const rows = served ? lastPage : firstPage
         served = true
+
         return Promise.resolve(rows)
       }
+
       if (resource === 'projects') return Promise.resolve(PROJECTS)
+
       return Promise.resolve([])
     })
     client.count.mockResolvedValue(TEMPLATE_USERS_PAGE_SIZE + 1)
@@ -281,6 +295,7 @@ describe('Template in-use', () => {
     const matrix = await screen.findByRole('table', {
       name: 'Records by version',
     })
+
     const rows = within(matrix).getAllByRole('row')
     expect(
       within(rows[1])

@@ -15,6 +15,7 @@ export const REAGENT_ORDER_STATUSES = [
   'received',
   'cancelled',
 ] as const
+
 export type ReagentOrderStatus = (typeof REAGENT_ORDER_STATUSES)[number]
 
 /** An order that has not reached the shelf or been called off. */
@@ -128,6 +129,7 @@ export async function fetchReagentOrderPrices(
     total_price: string | number
     currency: string
   }>('reagent_order_prices', '?limit=5000')
+
   return new Map(
     rows.map((row) => [
       row.order_id,
@@ -159,6 +161,7 @@ export async function fetchReagentOrders(
     'reagent_orders',
     '?order=requested_at.desc&limit=500',
   )
+
   return rows.map(toReagentOrder)
 }
 

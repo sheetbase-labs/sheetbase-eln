@@ -89,11 +89,14 @@ export async function fetchParserTestFiles(
     'dataset_import_files',
     `?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=id,filename,checksum,parser_failure&order=created_at.desc&limit=100`,
   )
+
   if (!fileId || recent.some((file) => file.id === fileId)) return recent
+
   const target = await client.list<ParserTestFile>(
     'dataset_import_files',
     `?workspace_id=eq.${encodeURIComponent(workspaceId)}&id=eq.${encodeURIComponent(fileId)}&select=id,filename,checksum,parser_failure&limit=1`,
   )
+
   return [...target, ...recent]
 }
 
@@ -106,13 +109,16 @@ export async function validateParserVersion(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ parserVersionId, fileId }),
   })
+
   const body = (await response.json()) as {
     ok: boolean
     validation?: { errors?: string[] }
     error?: { message: string }
   }
+
   if (!response.ok)
     throw new Error(body.error?.message ?? 'Parser validation failed.')
+
   return body
 }
 
@@ -122,14 +128,17 @@ export async function requestParserUpdate(fileId: string) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ fileId }),
   })
+
   const body = (await response.json()) as {
     ok: boolean
     error?: { message: string }
   }
+
   if (!response.ok || body.ok !== true)
     throw new Error(
       body.error?.message ?? 'The parser update request was not recorded.',
     )
+
   return body
 }
 
@@ -148,10 +157,13 @@ async function postWebhookParserAction<T>(body: unknown, fallback: string) {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
+
   const payload = (await response.json().catch(() => null)) as
     (T & { error?: { message?: string } }) | null
+
   if (!response.ok || !payload || payload.error)
     throw new Error(payload?.error?.message ?? fallback)
+
   return payload
 }
 

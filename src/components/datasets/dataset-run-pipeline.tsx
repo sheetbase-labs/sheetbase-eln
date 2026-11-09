@@ -51,10 +51,12 @@ export function useDatasetPipelineRuns({
 }) {
   const pipelines = usePipelineRows()
   const run = useRunLauncher(workspaceId, onStarted)
+
   const candidates = useMemo(
     () => pipelinesThatReadADataset(pipelines.data ?? []),
     [pipelines.data],
   )
+
   const start = (row: (typeof candidates)[number]) => {
     const input = declaredRunInputs(row.current).inputs.at(0)
     run.launch({
@@ -66,6 +68,7 @@ export function useDatasetPipelineRuns({
           : undefined,
     })
   }
+
   return { candidates, start, pending: run.pending, dialog: run.dialog }
 }
 
@@ -82,6 +85,7 @@ export function DatasetPipelineMenuItems({
   latestVersionId: string | null
 }) {
   if (runs.candidates.length === 0) return null
+
   return (
     <DropdownMenuGroup>
       <DropdownMenuLabel>
@@ -119,7 +123,9 @@ export function DatasetRunPipeline({
     latestVersionId,
     onStarted,
   })
+
   const candidates = run.candidates
+
   if (candidates.length === 0) return null
 
   return (

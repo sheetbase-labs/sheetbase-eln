@@ -45,6 +45,7 @@ export const clientSharingKeys = {
 /** A client's name, trimmed; null when it is not one the database accepts. */
 export function validClientName(raw: string): string | null {
   const name = raw.trim()
+
   return name.length >= 1 && name.length <= 200 ? name : null
 }
 
@@ -63,13 +64,17 @@ export async function createClientOrganisation(
   input: { workspaceId: string; name: string },
 ): Promise<ClientSummary> {
   const name = validClientName(input.name)
+
   if (!name) throw new Error('Enter a client name of up to 200 characters.')
+
   // The code (CL-001, …) is assigned by the database on insert.
   const row = await client.insert<ClientSummary | ClientSummary[]>('clients', {
     workspace_id: input.workspaceId,
     name,
   })
+
   const created = Array.isArray(row) ? row[0] : row
+
   return created
 }
 
@@ -88,6 +93,7 @@ export async function fetchClientShares(
     'client_portal_shares',
     `?client_id=eq.${encodeURIComponent(clientId)}&select=id,client_id,record_id,shared_at&order=shared_at.desc`,
   )
+
   return rows.map((r) => ({
     id: r.id,
     clientId: r.client_id,
@@ -145,8 +151,11 @@ export async function fetchRecordSharing(
   const rows = await client.rpc<RecordSharingWire[]>('record_client_sharing', {
     p_record_id: recordId,
   })
+
   const r = rows.at(0)
+
   if (!r) return null
+
   return {
     recordStatus: r.record_status,
     projectId: r.project_id,
@@ -166,6 +175,7 @@ export async function fetchRecordsByIds(
   ids: string[],
 ): Promise<Array<ShareableRecord & { status: string }>> {
   if (ids.length === 0) return []
+
   return listByIds(ids, (inList) =>
     client.list<ShareableRecord & { status: string }>(
       'records',
@@ -180,6 +190,7 @@ export function unsharedRecords(
   shares: ClientShare[],
 ): ShareableRecord[] {
   const shared = new Set(shares.map((s) => s.recordId))
+
   return records.filter((r) => !shared.has(r.id))
 }
 
@@ -246,6 +257,7 @@ export async function fetchClientPortalPreview(
       p_client_id: clientId,
     }),
   ])
+
   return {
     projects: projects.map((r) => ({
       projectId: r.project_id,

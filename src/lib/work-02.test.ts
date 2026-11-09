@@ -94,6 +94,7 @@ describe('firstRunSteps', () => {
       hasOpenedProject: true,
       hasExperiment: true,
     })
+
     expect(firstRunProgress(steps)).toEqual({ done: 4, total: 4 })
     expect(steps[2].hint).toContain('AAV9 process transfer')
   })
@@ -105,6 +106,7 @@ describe('firstRunSteps', () => {
         { id: 'p-1', title: 'AAV9 process transfer', accessLevel: 'editor' },
       ],
     })
+
     expect(steps[2]).toMatchObject({
       done: false,
       actionLabel: 'Open project',
@@ -167,6 +169,7 @@ describe('Inbox J/K navigation', () => {
       createdAt: null,
       ...overrides,
     })
+
     expect(rowKey(item({ recordId: 'r-1', identifier: 'EXP-1' }))).toBe('r-1')
     expect(rowKey(item({ identifier: 'EXP-1' }))).toBe('EXP-1')
     expect(rowKey(item({}))).toBe('Untitled')

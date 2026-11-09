@@ -56,6 +56,7 @@ export function inheritedRows(
     .filter((group) => group.rows.length > 0)
     .flatMap((group) => {
       const source = { id: group.modelId, name: group.modelName }
+
       return [
         bandRow(
           t('library.models.shared.fromName', { name: group.modelName }),

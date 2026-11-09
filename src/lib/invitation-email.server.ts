@@ -20,6 +20,7 @@ export function composeInvitationEmail(input: {
     ).toLowerCase(),
     link: invitationLink(input.origin, input.token),
   }
+
   return {
     to: input.email,
     subject: t('settings.members.invitationEmailSubject', values),

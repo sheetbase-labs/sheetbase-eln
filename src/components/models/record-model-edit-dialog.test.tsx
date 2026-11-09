@@ -16,6 +16,7 @@ vi.mock('#/lib/model-fields', async (importOriginal) => ({
   fetchRecordModelFieldValues: (...a: unknown[]) => mocks.fetchValues(...a),
   updateRecordModelFieldValues: (...a: unknown[]) => mocks.update(...a),
 }))
+
 vi.mock('./models-data', () => ({
   modelFieldInputErrors: () => ({}),
   modelFieldErrorMessage: (code: string) => code,
@@ -24,9 +25,11 @@ vi.mock('./models-data', () => ({
     timeline: (id: string) => ['timeline', id],
   },
 }))
+
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
+
 vi.mock('#/components/scientific/model-field-input', () => ({
   ModelFieldInput: ({
     definition,
@@ -71,6 +74,7 @@ function mount() {
       />
     </QueryClientProvider>,
   )
+
   return onOpenChange
 }
 

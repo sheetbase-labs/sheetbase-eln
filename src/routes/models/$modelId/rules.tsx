@@ -42,6 +42,7 @@ export const Route = createFileRoute('/models/$modelId/rules')({
 })
 
 const OPS = ['gt', 'gte', 'lt', 'lte', 'eq', 'neq', 'in', 'not_in'] as const
+
 type Op = (typeof OPS)[number]
 
 const EFFECTS: Array<{ value: ModelRuleEffect; label: string }> = [
@@ -61,7 +62,9 @@ function parseConditionValue(op: Op, raw: string): unknown {
       .filter(Boolean)
       .map((entry) => (Number.isFinite(Number(entry)) ? Number(entry) : entry))
   }
+
   if (raw.trim() === '') return null
+
   return Number.isFinite(Number(raw)) ? Number(raw) : raw
 }
 
@@ -70,8 +73,10 @@ function describeCondition(condition: ModelRuleCondition): string {
     const value = Array.isArray(condition.value)
       ? condition.value.join(', ')
       : String(condition.value ?? '')
+
     return `${condition.field} ${condition.op ?? 'eq'} ${value}`.trim()
   }
+
   return 'always'
 }
 
@@ -94,6 +99,7 @@ function ModelRules() {
       </div>
     )
   }
+
   return <RecordModelRules modelKey={modelId} workspaceId={workspaceId} />
 }
 
@@ -119,6 +125,7 @@ function RecordModelRules({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [removeError, setRemoveError] = useState<string | null>(null)
+
   const [pendingRemove, setPendingRemove] = useState<{
     id: string
     name: string
@@ -126,6 +133,7 @@ function RecordModelRules({
 
   const rows = rules.data ?? []
   const conditionFieldName = conditionField || fieldOptions[0]?.fieldName || ''
+
   const canSubmit =
     Boolean(workspaceId) &&
     name.trim().length > 0 &&
@@ -136,9 +144,11 @@ function RecordModelRules({
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
+
     if (!canSubmit) return
     setBusy(true)
     setError(null)
+
     try {
       await createModelRule(notebookDataClient, {
         workspaceId,
@@ -172,6 +182,7 @@ function RecordModelRules({
   async function remove(id: string) {
     setBusy(true)
     setRemoveError(null)
+
     try {
       await removeModelRule(notebookDataClient, id)
       await rules.refetch()

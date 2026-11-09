@@ -23,7 +23,9 @@ const meta = {
     error: null,
   },
 } satisfies Meta<typeof ModelCreateDialog>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The dialog as it opens: a key, a name and an optional description. */

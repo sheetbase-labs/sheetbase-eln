@@ -39,12 +39,15 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const incidentModels: IncidentModel[] = [
   { key: 'incident', name: 'Incident', identifier_prefix: 'INC' },
 ]
+
 const incident = (
   id: string,
   identifier: string,
@@ -60,6 +63,7 @@ const incident = (
   created_at: '2026-11-02T09:00:00.000Z',
   archived_at: null,
 })
+
 const incidents = [
   incident('i1', 'INC-0001', '-80 °C freezer door left ajar', {
     kind: 'deviation',
@@ -79,6 +83,7 @@ const incidentClient = screenQueryClient({
     { key: qualityKeys.incidents(['incident']), value: incidents },
   ],
 })
+
 const noLogClient = screenQueryClient({
   data: [{ key: qualityKeys.incidentModels, value: [] }],
 })
@@ -128,6 +133,7 @@ const limits: FieldLimits[] = [
     note: null,
   },
 ]
+
 const dialogClient = (specLimits: boolean) =>
   screenQueryClient({
     data: [
@@ -151,6 +157,7 @@ const dialogClient = (specLimits: boolean) =>
       },
     ],
   })
+
 const withLimits = dialogClient(true)
 const withoutLimits = dialogClient(false)
 
@@ -185,6 +192,7 @@ export const QualityDialogLimitsOff: Story = {
 const rules: RetentionRule[] = [
   { id: 'r1', kind: 'incident', keep_months: 24, note: 'Quality procedure' },
 ]
+
 const due: DueRecord[] = [
   {
     record_id: 'i2',
@@ -196,6 +204,7 @@ const due: DueRecord[] = [
     due_since: '2026-05-05T09:00:00.000Z',
   },
 ]
+
 const holds: LegalHold[] = [
   {
     id: 'h1',
@@ -208,6 +217,7 @@ const holds: LegalHold[] = [
     release_note: null,
   },
 ]
+
 const retentionClient = screenQueryClient({
   data: [
     { key: workspaceGeneralQueryKey, value: { retentionEnabled: true } },

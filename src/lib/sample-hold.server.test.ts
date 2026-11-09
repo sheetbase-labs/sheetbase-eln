@@ -56,6 +56,7 @@ describe('parseHoldLimit', () => {
       holdUntil: '2026-10-04T00:00:00.000Z',
       allowedUseExperimentIds: ['exp-1', 'exp-2', 42],
     })
+
     expect(parsed.condition).toBe('2-8 C')
     expect(parsed.startedAt).toBe(CREATED)
     expect(parsed.durationDays).toBe(14)
@@ -69,6 +70,7 @@ describe('parseHoldLimit', () => {
       holdDurationDays: 'not-a-number',
       allowedUseExperimentIds: 'exp-1',
     })
+
     expect(parsed.condition).toBeNull()
     expect(parsed.durationDays).toBeNull()
     expect(parsed.allowedUseExperimentIds).toEqual([])
@@ -81,6 +83,7 @@ describe('effectiveHoldDeadline / isHoldExceeded', () => {
       createdAt: CREATED,
       properties: { holdStartedAt: CREATED, holdDurationDays: 14 },
     }
+
     expect(effectiveHoldDeadline(sample)?.toISOString()).toBe(
       '2026-10-04T00:00:00.000Z',
     )
@@ -91,6 +94,7 @@ describe('effectiveHoldDeadline / isHoldExceeded', () => {
       createdAt: CREATED,
       properties: { holdDurationDays: 14 },
     }
+
     expect(effectiveHoldDeadline(sample)?.toISOString()).toBe(
       '2026-10-04T00:00:00.000Z',
     )
@@ -105,6 +109,7 @@ describe('effectiveHoldDeadline / isHoldExceeded', () => {
         holdUntil: '2026-09-24T00:00:00.000Z',
       },
     }
+
     expect(effectiveHoldDeadline(sample)?.toISOString()).toBe(
       '2026-09-24T00:00:00.000Z',
     )
@@ -119,6 +124,7 @@ describe('effectiveHoldDeadline / isHoldExceeded', () => {
         holdDurationDays: 3,
       },
     }
+
     expect(isHoldExceeded(sample, NOW)).toBe(false)
     expect(isHoldExceeded(sample, new Date('2026-09-28T00:00:00.000Z'))).toBe(
       true,
@@ -130,6 +136,7 @@ describe('effectiveHoldDeadline / isHoldExceeded', () => {
       createdAt: CREATED,
       properties: { holdCondition: '2-8 C' },
     }
+
     expect(effectiveHoldDeadline(sample)).toBeNull()
     expect(isHoldExceeded(sample, NOW)).toBe(false)
   })
@@ -139,10 +146,12 @@ describe('sweepSampleHoldLimits', () => {
   it('calls the sweep RPC with the batch limit and returns the exceeded count', async () => {
     const calls: string[] = []
     const values: unknown[][] = []
+
     const conn: HoldConnection = {
       query: (async (text: string, params?: unknown[]) => {
         calls.push(text)
         values.push(params ?? [])
+
         return { rows: [{ result: { exceededCount: 3, exceeded: [] } }] }
       }) as HoldConnection['query'],
       end: vi.fn(async () => {}),
@@ -162,9 +171,11 @@ describe('sweepSampleHoldLimits', () => {
 
   it('uses the bounded default batch limit when none is supplied', async () => {
     const values: unknown[][] = []
+
     const conn: HoldConnection = {
       query: (async (_text: string, params?: unknown[]) => {
         values.push(params ?? [])
+
         return { rows: [{ result: { exceededCount: 0, exceeded: [] } }] }
       }) as HoldConnection['query'],
       end: vi.fn(async () => {}),
@@ -181,11 +192,15 @@ describe('startSampleHoldScheduler', () => {
     vi.useFakeTimers()
     process.env.SHEETBASE_SCHEDULER_ENABLED = 'true'
     let attempt = 0
+
     const connect = vi.fn(async (): Promise<HoldConnection> => {
       attempt += 1
+
       if (attempt === 1) throw new Error('database unavailable')
+
       return fakeConnection(2)
     })
+
     const log = silentLog()
 
     startSampleHoldScheduler({

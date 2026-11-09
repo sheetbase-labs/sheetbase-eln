@@ -28,6 +28,7 @@ export function trailEvidenceSteps(
   now = appNow(),
 ): TrailEvidenceStep[] {
   const stamp = now.toISOString()
+
   return [
     ...trail.map((step) => ({ ...step, at: step.leftAt ?? stamp })),
     { ...current, at: stamp },

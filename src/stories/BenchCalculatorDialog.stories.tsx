@@ -9,7 +9,9 @@ const meta = {
   tags: ['autodocs'],
   args: { open: true, onOpenChange: () => {}, onInsert: () => {} },
 } satisfies Meta<typeof BenchCalculatorDialog>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** With an insert action, as in a notebook. */

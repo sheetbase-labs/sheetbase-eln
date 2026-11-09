@@ -41,14 +41,17 @@ import { RecordActionsProvider } from '#/components/notebook/record-actions'
 export const Route = createFileRoute('/experiments/$expId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     await resolveIdentifierParam({
       entity: 'experiment',
       ref: params.expId,
       href: location.href,
     })
+
     return { context }
   },
   component: ExperimentLayout,
@@ -129,12 +132,15 @@ function ExperimentLayout() {
   const seriesHead = useIsSeriesHead(expId)
   const partsQuery = useRecordParts(expId)
   const e = record.data
+
   const { userLabel } = useUserNames(
     [e?.created_by_user_id, e?.reviewer_user_id].filter((id): id is string =>
       Boolean(id),
     ),
   )
+
   const { regulated } = useRegulatedLab(e?.workspace_id)
+
   // The same read the notebook makes, so it is one request: the submitted
   // version a reviewer decides on, and who it was sent to.
   const review = useQuery({
@@ -142,12 +148,15 @@ function ExperimentLayout() {
     queryFn: () => fetchNotebookReviewContext(notebookDataClient, expId),
     enabled: e?.status === 'in_review',
   })
+
   const userId = context.user.id
+
   const assigned =
     e?.reviewer_user_id === userId ||
     Boolean(
       review.data?.submission?.assigned_reviewer_user_ids.includes(userId),
     )
+
   const nextStep = experimentNextStep({
     status: e?.status ?? '',
     locked: Boolean(e?.locked_at),
@@ -156,10 +165,12 @@ function ExperimentLayout() {
     regulated,
     isReviewer: assigned && e?.created_by_user_id !== userId,
   })
+
   const reviewRevisionId = notebookReviewRevisionId({
     lockedByRevisionId: null,
     review: review.data,
   })
+
   // The pane header says why the notebook is read-only: the reviewer reads
   // the submitted version, and an approved record is locked.
   useReportFrozen(
@@ -171,6 +182,7 @@ function ExperimentLayout() {
           : true
         : false,
   )
+
   const project = useQuery({
     queryKey: ['ui-port', 'experiment-project', e?.project_id ?? ''],
     queryFn: () =>
@@ -210,15 +222,19 @@ function ExperimentLayout() {
 
   const rows = links.data ?? []
   const params = { expId: e.id }
+
   const protocolLink = rows.find(
     (l) => l.link_type === 'protocol' && l.target_record_id,
   )
+
   const kindCount = (kind: string) =>
     rows.filter((l) => l.target_kind === kind).length
+
   const status = experimentStatusFor(e.status)
   // "Day 3 of 10" while an experiment with parts is running: how far along the
   // calendar it is, out of the day of its last part.
   const lastDay = lastDayOffset(partsQuery.data ?? [])
+
   const runningDay =
     lastDay != null &&
     lastDay > 0 &&
@@ -228,6 +244,7 @@ function ExperimentLayout() {
           total: String(lastDay),
         })
       : null
+
   return (
     <RecordActionsProvider
       reviewing={nextStep.reviewing}

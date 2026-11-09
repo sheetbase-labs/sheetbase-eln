@@ -15,6 +15,7 @@
 import { DataClientError } from '#/lib/data-client'
 
 export const datasetDetailTabs = ['imports', 'used-by', 'history'] as const
+
 export type DatasetDetailTab = (typeof datasetDetailTabs)[number]
 
 export function isDatasetDetailTab(value: unknown): value is DatasetDetailTab {
@@ -35,6 +36,7 @@ export function classifyDatasetTabAccess(
   error: unknown,
 ): DatasetTabAccess | null {
   if (!error) return null
+
   if (
     error instanceof DataClientError &&
     (error.code === 'permission_denied' ||
@@ -43,5 +45,6 @@ export function classifyDatasetTabAccess(
   ) {
     return 'denied'
   }
+
   return 'error'
 }

@@ -46,6 +46,7 @@ export function ScientificTransferPanel({
 
   const runExport = async () => {
     setBusy(true)
+
     try {
       await recordScientificExport(scientificDataClient, table.id, rows.length)
       const name = safeName(table.name)

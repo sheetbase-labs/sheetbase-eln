@@ -35,6 +35,7 @@ export function InputsEditor({
         position === index ? { ...item, ...change } : item,
       ),
     )
+
   return (
     <div className="flex flex-col gap-2">
       {inputs.length === 0 ? (
@@ -89,6 +90,7 @@ function InputRow({
   const choices = useDatasetVersionChoices(true)
   const fields = useDatasetVersionFields(example)
   const nameInvalid = input.name !== '' && !INPUT_NAME_RE.test(input.name)
+
   return (
     <div className="flex flex-col gap-2 rounded-md border border-border-subtle p-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -129,11 +131,13 @@ function InputRow({
           value={example}
           onChange={(event) => {
             setExample(event.target.value)
+
             // The example's schema is what this input will usually be given, so
             // the Run dialog narrows its list to it unless the author chose one.
             const schemaId = (choices.data ?? []).find(
               (choice) => choice.id === event.target.value,
             )?.schemaId
+
             if (schemaId && !input.schemaId) onPatch({ schemaId })
           }}
         >

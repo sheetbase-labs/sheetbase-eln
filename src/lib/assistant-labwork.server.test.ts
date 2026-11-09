@@ -25,12 +25,14 @@ function context(
   const client = {
     list: (resource: string, query = '') => {
       const source = rows[resource]
+
       return Promise.resolve(
         typeof source === 'function' ? source(query) : (source ?? []),
       )
     },
     rpc: (name: string) => Promise.resolve(rpcs[name] ?? []),
   } as unknown as DataClient
+
   return { client, workspaceId: WS, userId: 'me', timeZone: 'Europe/London' }
 }
 
@@ -49,6 +51,7 @@ const s1 = {
   metadata_version: 2,
   properties: { quantity: 100, quantityUnit: 'µl' },
 }
+
 const s2 = { ...s1, id: 's2', identifier: 'S-0002', title: 'Plasma B' }
 const exp = { id: 'e1', identifier: 'EXP-1', title: 'Pool run' }
 
@@ -58,6 +61,7 @@ describe('tool wiring', () => {
       expect(isLabworkProposalTool(name)).toBe(true)
       expect(ASSISTANT_PROPOSE_TOOL_NAMES).toContain(name)
     }
+
     expect(labworkProposalDefs().map((def) => def.name)).toHaveLength(
       LABWORK_PROPOSE_TOOL_NAMES.length,
     )
@@ -104,11 +108,13 @@ describe('stocktakes', () => {
         { state: 'expected' },
       ],
     })
+
     const built = await build(
       'sheetbase.stocktake.complete',
       { stocktake: 'ST-7' },
       ctx,
     )
+
     expect(built).toMatchObject({
       ok: true,
       proposal: { action: { kind: 'stocktake.complete', stocktakeId: 'c1' } },
@@ -155,6 +161,7 @@ describe('legal holds and retention', () => {
     const models = {
       record_models: [{ key: 'experiment', name: 'Experiment' }],
     }
+
     expect(
       await build(
         'sheetbase.retention.set',
@@ -204,6 +211,7 @@ describe('registry, workflows and rules', () => {
       record_models: [{ key: 'cell_line', name: 'Cell line' }],
       projects: [{ id: 'p1', key: 'VAC', title: 'Vaccine A' }],
     }
+
     const input = { registry: 'cell line', name: 'HEK-293', project: 'VAC' }
     expect(
       await build('sheetbase.registry.add', input, context(rows)),
@@ -243,7 +251,9 @@ describe('registry, workflows and rules', () => {
       projects: [{ id: 'p1', key: 'VAC', title: 'Vaccine A' }],
       records: [{ id: 'v1', identifier: 'CON-1', title: 'pUC19' }],
     }
+
     const seq = 'GAATTCGCTAGCAAGCTTGGATCCGTCGACCTGCAGG'
+
     const input = {
       registry: 'construct',
       name: 'pTest',
@@ -251,6 +261,7 @@ describe('registry, workflows and rules', () => {
       sequence: seq,
       parents: [{ record: 'CON-1', role: 'vector' }],
     }
+
     const first = await build('sheetbase.registry.add', input, context(rows))
     expect(first).toMatchObject({
       ok: true,
@@ -262,19 +273,23 @@ describe('registry, workflows and rules', () => {
         },
       },
     })
+
     // The same circle written from another start and strand is the same entry.
     const rc = [...seq]
       .reverse()
       .map((c) => ({ A: 'T', C: 'G', G: 'C', T: 'A' })[c] ?? c)
       .join('')
+
     const again = await build(
       'sheetbase.registry.add',
       { ...input, sequence: rc.slice(7) + rc.slice(0, 7) },
       context(rows),
     )
+
     const fp = (r: unknown) =>
       (r as { proposal: { action: { customFields: Record<string, string> } } })
         .proposal.action.customFields.sequence_fingerprint
+
     expect(fp(first)).toMatch(/^seq:/)
     expect(fp(again)).toBe(fp(first))
   })
@@ -284,6 +299,7 @@ describe('registry, workflows and rules', () => {
       record_models: [{ key: 'cell_line', name: 'Cell line' }],
       projects: [{ id: 'p1', key: 'VAC', title: 'Vaccine A' }],
     }
+
     expect(
       await build(
         'sheetbase.registry.add',
@@ -303,6 +319,7 @@ describe('registry, workflows and rules', () => {
       records: [s1],
       sample_workflows: [{ id: 'w1', name: 'QC release' }],
     }
+
     expect(
       await build(
         'sheetbase.workflow.enrol',
@@ -357,6 +374,7 @@ describe('registry, workflows and rules', () => {
       display_id: 'INS-1',
       location: null,
     }
+
     const ctx = context({
       instruments: [instrument],
       instrument_booking_rules: [
@@ -364,11 +382,13 @@ describe('registry, workflows and rules', () => {
       ],
       instrument_required_training: [],
     })
+
     const built = await build(
       'sheetbase.booking_rules.set',
       { instrument: 'INS-1', maxBookingMinutes: 120 },
       ctx,
     )
+
     expect(built).toMatchObject({
       ok: true,
       proposal: {
@@ -414,6 +434,7 @@ describe('timers, repeats and pooling', () => {
         { id: 'c1', title: 'Weekly QC', status: 'active', kind: 'booking' },
       ],
     })
+
     expect(
       await build('sheetbase.recurring.pause', { schedule: 'weekly' }, ctx),
     ).toMatchObject({
@@ -437,6 +458,7 @@ describe('timers, repeats and pooling', () => {
             ? [s2]
             : [s1],
     })
+
     expect(
       await build(
         'sheetbase.sample.pool',
@@ -530,6 +552,7 @@ describe('searches, pins and the logo', () => {
       media_type: 'image/png',
       byte_size: 40_000,
     }
+
     expect(
       await build(
         'sheetbase.lab.logo',
@@ -556,18 +579,22 @@ describe('searches, pins and the logo', () => {
 describe('running lab-work actions', () => {
   it('calls the ordinary RPCs, as the person', async () => {
     const calls: Array<[string, Record<string, unknown>]> = []
+
     const client = {
       rpc: (name: string, args: Record<string, unknown>) => {
         calls.push([name, args])
+
         return Promise.resolve({ id: 'x', pool: { id: 'p' }, sources: [] })
       },
     } as unknown as DataClient
+
     const started = await runLabworkAction(client, {
       kind: 'stocktake.start',
       level: 'box',
       scopeId: 'b1',
       note: null,
     })
+
     await runLabworkAction(client, {
       kind: 'stocktake.complete',
       stocktakeId: 'c1',
@@ -630,6 +657,7 @@ describe('running lab-work actions', () => {
       id: 'r1',
       pinned: true,
     })
+
     const pooled = await runLabworkAction(client, {
       kind: 'sample.pool',
       sources: [{ recordId: 's1', quantity: 1, expectedMetadataVersion: 2 }],
@@ -639,6 +667,7 @@ describe('running lab-work actions', () => {
       poolName: null,
       storageLocation: null,
     })
+
     expect(started).toEqual({ openHref: '/stocktake/x' })
     expect(pooled).toEqual({ openHref: '/records/p' })
     expect(calls.map(([name]) => name)).toEqual([

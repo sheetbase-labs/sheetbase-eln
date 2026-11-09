@@ -16,10 +16,12 @@ import {
 import type * as workspaceGeneralModule from '#/lib/workspace-general'
 
 const toasts = vi.hoisted(() => ({ toast: vi.fn() }))
+
 vi.mock('#/components/ui/sonner', () => ({ toast: toasts.toast }))
 
 vi.mock('#/lib/workspace-general', async (importOriginal) => {
   const actual = await importOriginal<typeof workspaceGeneralModule>()
+
   return {
     ...actual,
     fetchWorkspaceGeneral: vi.fn(async () => ({
@@ -68,9 +70,11 @@ describe('SettingsGeneral', () => {
     renderSection()
     expect(await screen.findByDisplayValue('Process Development')).toBeTruthy()
     expect(screen.getByDisplayValue('Cambridge')).toBeTruthy()
+
     const toggle = screen.getByRole('checkbox', {
       name: /Require approval before publishing dataset versions/,
     })
+
     expect(toggle.getAttribute('aria-checked')).toBe('false')
     await user.click(toggle)
     expect(toggle.getAttribute('aria-checked')).toBe('true')
@@ -79,6 +83,7 @@ describe('SettingsGeneral', () => {
     const offline = screen.getByRole('checkbox', {
       name: /Allow offline editing on this workspace’s devices/,
     })
+
     expect(offline.getAttribute('aria-checked')).toBe('true')
     await user.click(offline)
     expect(offline.getAttribute('aria-checked')).toBe('false')
@@ -87,11 +92,14 @@ describe('SettingsGeneral', () => {
     const lock = screen.getByRole('checkbox', {
       name: /Lock a record once it is approved and signed/,
     })
+
     expect(lock.getAttribute('aria-checked')).toBe('true')
     await user.click(lock)
+
     const reason = screen.getByRole('checkbox', {
       name: /Ask for a reason when a saved value changes/,
     })
+
     expect(reason.getAttribute('aria-checked')).toBe('false')
     await user.click(reason)
 
@@ -127,9 +135,11 @@ describe('SettingsGeneral', () => {
   it('turns the regulated-lab rules on, and only writes them when they changed', async () => {
     const user = userEvent.setup()
     renderSection()
+
     const regulated = await screen.findByRole('checkbox', {
       name: /This is a regulated lab/,
     })
+
     expect(regulated.getAttribute('aria-checked')).toBe('false')
     await user.click(regulated)
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
@@ -158,8 +168,10 @@ describe('SettingsGeneral', () => {
     const user = userEvent.setup()
     renderSection()
     const timezone = await screen.findByLabelText<HTMLInputElement>('Time zone')
+
     const saveButton = () =>
       screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' })
+
     expect(saveButton().disabled).toBe(true)
 
     await user.clear(timezone)
@@ -180,8 +192,10 @@ describe('SettingsGeneral', () => {
   it('requires the workspace name rather than skipping the rename silently', async () => {
     const user = userEvent.setup()
     renderSection()
+
     const saveButton = () =>
       screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' })
+
     const name =
       await screen.findByLabelText<HTMLInputElement>('Workspace name')
 
@@ -224,8 +238,10 @@ describe('SettingsGeneral', () => {
   it('treats a cleared record-ID prefix as unchanged', async () => {
     const user = userEvent.setup()
     renderSection()
+
     const saveButton = () =>
       screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' })
+
     await screen.findByDisplayValue('Process Development')
     const prefix = screen.getByLabelText<HTMLInputElement>('sample prefix')
     expect(saveButton().disabled).toBe(true)
@@ -248,9 +264,11 @@ describe('SettingsGeneral', () => {
     expect(await screen.findByDisplayValue('Fixture Workspace')).toBeTruthy()
     expect(screen.queryByText('Enter a workspace name.')).toBeNull()
     expect(screen.getByDisplayValue('Europe/London')).toBeTruthy()
+
     const save = screen.getByRole<HTMLButtonElement>('button', {
       name: 'Save changes',
     })
+
     expect(save.disabled).toBe(true)
     await user.type(screen.getByLabelText('Site'), 'Cambridge')
     expect(save.disabled).toBe(false)

@@ -155,11 +155,14 @@ async function findPipeline(
   text: string,
 ): Promise<Lookup<PipelineRow>> {
   const like = likeValue(text)
+
   const rows = await context.client.list<PipelineRow>(
     'pipeline_definitions',
     `?or=(name.ilike.${like},key.ilike.${like})&select=id,key,name,lifecycle&order=name.asc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -191,7 +194,9 @@ async function runs(
     'pipeline_definition_versions',
     `?definition_id=eq.${encodeURIComponent(definitionId)}&select=id&limit=500`,
   )
+
   if (all.length === 0) return []
+
   return context.client.list<RunRow>(
     'pipeline_runs',
     `?definition_version_id=in.(${all.map((v) => v.id).join(',')})&status=in.(${statuses.join(',')})&select=id,status,attempt,started_at,error_message&order=started_at.desc&limit=1`,
@@ -208,12 +213,15 @@ async function findSchedule(
     'pipeline_schedules',
     `?definition_id=eq.${encodeURIComponent(definitionId)}${kind ? `&kind=eq.${kind}` : ''}&select=id,kind,spec,enabled&order=created_at.asc&limit=20`,
   )
+
   if (rows.length === 1) return { ok: true, value: rows[0] }
+
   if (rows.length === 0)
     return {
       ok: false,
       message: `${pipelineName} has no ${kind ? `${kind} ` : ''}schedule.`,
     }
+
   return {
     ok: false,
     message: `${pipelineName} has ${rows.length} schedules: ${rows.map(describeSchedule).join('; ')}. Ask the person which one, and pass its kind.`,
@@ -225,11 +233,14 @@ async function findPlugin(
   text: string,
 ): Promise<Lookup<PluginRow>> {
   const like = likeValue(text)
+
   const rows = await context.client.list<PluginRow>(
     'extensions',
     `?or=(name.ilike.${like},key.ilike.${like})&select=id,key,name,version,status&order=name.asc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -247,6 +258,7 @@ export function describeSchedule(schedule: {
   enabled?: boolean
 }): string {
   const { spec } = schedule
+
   const when =
     schedule.kind === 'interval'
       ? `every ${String(spec.intervalMinutes)} minutes`
@@ -255,6 +267,7 @@ export function describeSchedule(schedule: {
         : schedule.kind === 'cron'
           ? `on the cron ${String(spec.cron)}`
           : `when ${String(spec.eventType)} happens`
+
   return schedule.enabled === false ? `${when} (off)` : when
 }
 
@@ -290,45 +303,58 @@ export async function buildPipelinesProposal(
   switch (name) {
     case PIPELINE_RUN_TOOL: {
       const parsed = proposePipelineRunSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const found = await findPipeline(context, input.pipeline)
+
       if (!found.ok) return fail(found.message)
       const pipeline = found.value
+
       if (pipeline.lifecycle !== 'active')
         return fail(`${pipeline.name} is retired, so it cannot run.`)
       const version = (await versions(context, pipeline.id, 'published')).at(0)
+
       if (!version)
         return fail(
           `${pipeline.name} has no published version yet; publish its draft first.`,
         )
       const declared = version.configuration?.inputs ?? []
       const given = input.inputs ?? {}
+
       const unknown = Object.keys(given).filter(
         (key) => !declared.some((d) => d.name === key),
       )
+
       if (unknown.length > 0)
         return fail(
           `${pipeline.name} has no input called ${unknown.join(', ')}. Its inputs are: ${declared.map((d) => d.name).join(', ') || 'none'}.`,
         )
+
       const missing = declared.filter(
         (d) => d.required !== false && !(d.name in given),
       )
+
       if (missing.length > 0)
         return fail(
           `Ask the person which dataset ${missing.map((d) => d.name).join(' and ')} should read.`,
         )
       const inputVersions: Record<string, string> = {}
+
       const changes: ProposalChange[] = [
         { label: 'Version', before: null, after: `v${version.version}` },
       ]
+
       for (const [inputName, datasetName] of Object.entries(given)) {
         const like = likeValue(datasetName)
+
         const datasets = await context.client.list<{
           id: string
           name: string
         }>('datasets', `?name=ilike.${like}&select=id,name&limit=6`)
+
         const lower = datasetName.trim().toLowerCase()
+
         const dataset = pick(
           datasets,
           datasetName,
@@ -336,7 +362,9 @@ export async function buildPipelinesProposal(
           (row) => row.name,
           (row) => row.name.toLowerCase() === lower,
         )
+
         if (!dataset.ok) return fail(dataset.message)
+
         const latest = (
           await context.client.list<{
             id: string
@@ -346,6 +374,7 @@ export async function buildPipelinesProposal(
             `?dataset_id=eq.${encodeURIComponent(dataset.value.id)}&select=id,label&order=created_at.desc&limit=1`,
           )
         ).at(0)
+
         if (!latest)
           return fail(`${dataset.value.name} has no saved version to read.`)
         inputVersions[inputName] = latest.id
@@ -355,9 +384,12 @@ export async function buildPipelinesProposal(
           after: `${dataset.value.name} (${latest.label})`,
         })
       }
+
       const parameters = input.parameters ?? {}
+
       for (const [key, value] of Object.entries(parameters))
         changes.push({ label: key, before: null, after: JSON.stringify(value) })
+
       return card(
         name,
         input,
@@ -376,16 +408,21 @@ export async function buildPipelinesProposal(
 
     case PIPELINE_RETRY_TOOL: {
       const parsed = proposePipelineRetrySchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const found = await findPipeline(context, input.pipeline)
+
       if (!found.ok) return fail(found.message)
       const pipeline = found.value
+
       const run = (
         await runs(context, pipeline.id, ['failed', 'cancelled'])
       ).at(0)
+
       if (!run)
         return fail(`${pipeline.name} has no failed or cancelled run to retry.`)
+
       return card(
         name,
         input,
@@ -407,13 +444,17 @@ export async function buildPipelinesProposal(
 
     case PIPELINE_CANCEL_TOOL: {
       const parsed = proposePipelineCancelSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const found = await findPipeline(context, input.pipeline)
+
       if (!found.ok) return fail(found.message)
       const pipeline = found.value
       const run = (await runs(context, pipeline.id, ['running'])).at(0)
+
       if (!run) return fail(`${pipeline.name} has no run going now.`)
+
       return card(
         name,
         input,
@@ -431,14 +472,18 @@ export async function buildPipelinesProposal(
 
     case PIPELINE_PUBLISH_TOOL: {
       const parsed = proposePipelinePublishSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const found = await findPipeline(context, input.pipeline)
+
       if (!found.ok) return fail(found.message)
       const pipeline = found.value
       const draft = (await versions(context, pipeline.id, 'draft')).at(0)
+
       if (!draft) return fail(`${pipeline.name} has no draft to publish.`)
       const current = (await versions(context, pipeline.id, 'published')).at(0)
+
       return card(
         name,
         input,
@@ -462,14 +507,18 @@ export async function buildPipelinesProposal(
 
     case PIPELINE_RETIRE_TOOL: {
       const parsed = proposePipelineRetireSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const found = await findPipeline(context, input.pipeline)
+
       if (!found.ok) return fail(found.message)
       const pipeline = found.value
       const lifecycle = input.retire ? 'retired' : 'active'
+
       if (pipeline.lifecycle === lifecycle)
         return fail(`${pipeline.name} is already ${lifecycle}.`)
+
       return card(
         name,
         input,
@@ -487,20 +536,24 @@ export async function buildPipelinesProposal(
 
     case PIPELINE_SCHEDULE_ADD_TOOL: {
       const parsed = proposePipelineScheduleAddSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
+
       const given = [
         input.everyMinutes,
         input.dailyAt,
         input.cron,
         input.onEvent,
       ].filter((value) => value !== undefined)
+
       if (given.length !== 1)
         return fail(
           'Give exactly one of everyMinutes, dailyAt, cron and onEvent.',
         )
       let scheduleKind: 'interval' | 'daily' | 'cron' | 'event'
       let spec: Record<string, unknown>
+
       if (input.everyMinutes !== undefined) {
         scheduleKind = 'interval'
         spec = { intervalMinutes: input.everyMinutes }
@@ -513,17 +566,22 @@ export async function buildPipelinesProposal(
       } else {
         scheduleKind = 'event'
         const eventType = normalizeTriggerEventName(input.onEvent)
+
         if (!eventType)
           return fail(
             `${String(input.onEvent)} is not an event that can start a pipeline.`,
           )
         spec = { eventType }
       }
+
       const problem = validateScheduleSpec(scheduleKind, spec)
+
       if (problem) return fail(problem.message)
       const found = await findPipeline(context, input.pipeline)
+
       if (!found.ok) return fail(found.message)
       const pipeline = found.value
+
       return card(
         name,
         input,
@@ -549,23 +607,29 @@ export async function buildPipelinesProposal(
     case PIPELINE_SCHEDULE_SWITCH_TOOL:
     case PIPELINE_SCHEDULE_DELETE_TOOL: {
       const switching = name === PIPELINE_SCHEDULE_SWITCH_TOOL
+
       const parsed = switching
         ? proposePipelineScheduleSwitchSchema.safeParse(args)
         : proposePipelineScheduleDeleteSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const found = await findPipeline(context, input.pipeline)
+
       if (!found.ok) return fail(found.message)
       const pipeline = found.value
+
       const schedule = await findSchedule(
         context,
         pipeline.id,
         pipeline.name,
         input.kind,
       )
+
       if (!schedule.ok) return fail(schedule.message)
       const target = `${pipeline.name} · Triggers`
       const link = `${pipelineLink(pipeline.id)}/triggers`
+
       if (!switching)
         return card(
           name,
@@ -587,8 +651,10 @@ export async function buildPipelinesProposal(
           },
         )
       const on = 'on' in input && input.on === true
+
       if (schedule.value.enabled === on)
         return fail(`That schedule is already ${on ? 'on' : 'off'}.`)
+
       return card(
         name,
         input,
@@ -613,14 +679,18 @@ export async function buildPipelinesProposal(
 
     case PLUGIN_SWITCH_TOOL: {
       const parsed = proposePluginSwitchSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const found = await findPlugin(context, input.plugin)
+
       if (!found.ok) return fail(found.message)
       const plugin = found.value
       const isOn = plugin.status === 'enabled'
+
       if (isOn === input.on)
         return fail(`${plugin.name} is already ${isOn ? 'on' : 'off'}.`)
+
       return card(
         name,
         input,
@@ -644,11 +714,14 @@ export async function buildPipelinesProposal(
 
     case PLUGIN_REMOVE_TOOL: {
       const parsed = proposePluginRemoveSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const found = await findPlugin(context, input.plugin)
+
       if (!found.ok) return fail(found.message)
       const plugin = found.value
+
       return card(
         name,
         input,

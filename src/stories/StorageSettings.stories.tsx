@@ -238,6 +238,7 @@ function Page({
   initial: 'locations' | 'labels'
 }) {
   const [tab, setTab] = useState<string>(initial)
+
   return (
     <QueryClientProvider client={queryClient}>
       <div className="flex min-h-[640px] w-[1180px] flex-col border border-border bg-background">
@@ -277,7 +278,9 @@ const meta = {
   title: 'Settings/Storage and labels',
   parameters: { layout: 'fullscreen' },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const StorageLocations: Story = {

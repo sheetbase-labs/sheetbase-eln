@@ -32,6 +32,7 @@ describe('block allow-list', () => {
     for (const type of BLOCK_TYPES) {
       expect(isBlockType(type)).toBe(true)
     }
+
     // Decision 0015: an unknown future type is reported as unsupported and
     // preserved as a readable placeholder, never rewritten.
     expect(isBlockType('quantum_state')).toBe(false)
@@ -71,9 +72,11 @@ describe('editable types', () => {
       'code_cell',
       'plugin',
     ])
+
     for (const type of ['table', 'sheet'] as const) {
       expect(isEditableBlockType(type)).toBe(false)
     }
+
     expect(isEditableBlockType('quantum_state')).toBe(false)
   })
 })
@@ -85,11 +88,13 @@ describe('insert catalogue', () => {
     const aliases = BLOCK_PICKER_OPTIONS.map((o) => o.type).filter(
       (type) => !isBlockType(type),
     )
+
     expect(aliases).toEqual(['sheet_shared', 'calculator'])
   })
 
   it('names no group the menu does not declare', () => {
     const groupIds = BLOCK_PICKER_GROUPS.map((g) => g.id)
+
     for (const option of BLOCK_PICKER_OPTIONS) {
       expect(groupIds).toContain(option.group)
     }
@@ -248,6 +253,7 @@ describe('block declarations', () => {
     const types = BLOCK_DECLARATIONS.map((d) => d.type)
     expect(new Set(types).size).toBe(types.length)
     expect([...BLOCK_TYPES]).toEqual(types)
+
     for (const declaration of BLOCK_DECLARATIONS) {
       expect(typeof declaration.validate).toBe('function')
       expect(typeof declaration.defaultPayload).toBe('function')
@@ -261,6 +267,7 @@ describe('block declarations', () => {
       ),
       ...EXTRA_PICKER_OPTIONS.map((o) => o.order),
     ]
+
     expect(new Set(orders).size).toBe(orders.length)
     expect(BLOCK_PICKER_OPTIONS).toHaveLength(orders.length)
   })

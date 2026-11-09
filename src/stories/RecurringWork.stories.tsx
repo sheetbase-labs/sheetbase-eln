@@ -23,6 +23,7 @@ import {
  * points. Reads are seeded into the query cache, so no request leaves the page.
  */
 const WS = '0198d970-e266-4000-8000-000000000009'
+
 const INSTRUMENTS: ScheduleInstrument[] = [
   {
     id: '0198d970-e266-4000-8000-0000000a0001',
@@ -35,6 +36,7 @@ const INSTRUMENTS: ScheduleInstrument[] = [
     name: 'Thermocycler PCR-02',
   },
 ]
+
 const ZONE = { list: async () => [{ timezone: 'Europe/London' }] }
 
 const wire = (over: Partial<RepeatScheduleWire>): RepeatScheduleWire => ({
@@ -180,7 +182,9 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function withClient(
@@ -281,6 +285,7 @@ const TEMPLATES = [
   { id: 'tpl-1', name: 'Stability pull' },
   { id: 'tpl-2', name: 'Column wash' },
 ]
+
 const PROJECTS = [
   { id: 'proj-1', title: 'Process development' },
   { id: 'proj-2', title: 'Formulation' },

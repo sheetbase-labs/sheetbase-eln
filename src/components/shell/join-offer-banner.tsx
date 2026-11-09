@@ -18,6 +18,7 @@ import { setActiveWorkspace } from '#/lib/user-preferences'
 import { t } from '#/copy'
 
 const client = createDataClient()
+
 const dismissedKey = (workspaceId: string) =>
   `sheetbase.join-offer.dismissed.${workspaceId}`
 
@@ -40,16 +41,19 @@ const ROLE_WORDS: Record<string, () => string> = {
 function useJoinOffer() {
   const queryClient = useQueryClient()
   const router = useRouter()
+
   const offer = useQuery({
     queryKey: joinDomainKeys.offer,
     queryFn: () => fetchJoinOffer(client),
     staleTime: 5 * 60_000,
     retry: false,
   })
+
   const join = useMutation({
     mutationFn: async (target: JoinOffer) => {
       const workspaceId = await joinMyDomainWorkspace(client)
       await setActiveWorkspace(client, workspaceId)
+
       return target
     },
     onSuccess: async (target) => {
@@ -63,13 +67,16 @@ function useJoinOffer() {
     },
     onError: (failure) => toast.error(describeJoinDomainError(failure)),
   })
+
   return { offer: offer.data ?? null, join }
 }
 
 /** The workspace menu's own row for the same offer. */
 export function JoinOfferMenuItem() {
   const { offer, join } = useJoinOffer()
+
   if (!offer) return null
+
   return (
     <DropdownMenuItem
       icon="user"
@@ -89,6 +96,7 @@ export function JoinOfferMenuItem() {
 export function JoinOfferBanner() {
   const { offer: data, join } = useJoinOffer()
   const [hidden, setHidden] = useState<string | null>(null)
+
   if (
     !data ||
     hidden === data.workspace_id ||
@@ -96,6 +104,7 @@ export function JoinOfferBanner() {
   ) {
     return null
   }
+
   return (
     <Banner
       tone="review"
@@ -124,6 +133,7 @@ export function JoinOfferBanner() {
               } catch {
                 // Hidden for this visit even when the browser won't remember.
               }
+
               setHidden(data.workspace_id)
             }}
           >

@@ -41,10 +41,12 @@ import {
  * order the sections first appear; fields with no section follow, unnamed. */
 function fieldSections(fields: ModelFieldDefinition[]) {
   const groups = new Map<string, ModelFieldDefinition[]>()
+
   for (const field of fields) {
     const name = field.section ?? ''
     groups.set(name, [...(groups.get(name) ?? []), field])
   }
+
   return [...groups.entries()]
     .sort(([a], [b]) => (a === '' ? 1 : 0) - (b === '' ? 1 : 0))
     .map(([name, grouped]) => ({ name, fields: grouped }))
@@ -75,11 +77,14 @@ export function RecordModelRecord({
   // A record given a subtype pins the subtype's version and carries every
   // field from this model down to it.
   const types = useModelTypes()
+
   const pinnedType = typeForVersion(
     types.data ?? [],
     recordQuery.data?.model_version_id,
   )
+
   const subtype = pinnedType && pinnedType.key !== modelKey ? pinnedType : null
+
   const ownFields = useRecordModelFields(
     recordQuery.data?.model_version_id && !subtype && !types.isLoading
       ? modelKey
@@ -87,6 +92,7 @@ export function RecordModelRecord({
     notebookDataClient,
     recordQuery.data?.model_version_id ?? undefined,
   )
+
   const chainFields = useTypeFields(
     types.data,
     modelKey,
@@ -94,6 +100,7 @@ export function RecordModelRecord({
     recordQuery.data?.model_version_id ?? null,
     { enabled: Boolean(subtype) },
   )
+
   const fieldsQuery = subtype
     ? {
         data: chainFields.data?.flatMap((group) => group.fields),
@@ -105,6 +112,7 @@ export function RecordModelRecord({
         isError: ownFields.isError,
         isLoading: ownFields.isLoading || types.isLoading,
       }
+
   const usedByQuery = useRecordModelUsedBy(recordId)
   const quality = useRecordQuality(model.data?.workspace_id, modelKey, recordId)
   const timelineQuery = useRecordModelTimeline(recordId)
@@ -147,8 +155,10 @@ export function RecordModelRecord({
   const results = quality.results
   const resultByField = new Map(results.map((r) => [r.fieldName, r] as const))
   const limitsByField = quality.limitsByField
+
   const labelOf = (fieldName: string) =>
     fields.find((f) => f.fieldName === fieldName)?.label ?? fieldName
+
   const failing = results.filter((r) => r.verdict === 'fail')
   const alerting = results.filter((r) => r.verdict === 'alert')
   const status = record ? pickerStatus(record.status) : null
@@ -157,6 +167,7 @@ export function RecordModelRecord({
   // A field with a plugin's type, where that plugin also has a panel for this
   // model, is shown by the panel; the plain list would only show its raw value.
   const fieldTypeLinks = useFieldPluginTypes(modelKey)
+
   const shownByPanel = new Set(
     (fieldTypeLinks.data ?? [])
       .filter((link) =>
@@ -169,6 +180,7 @@ export function RecordModelRecord({
       )
       .map((link) => link.field_name),
   )
+
   const canWrite = hasCapability(role, 'record.create')
 
   return (
@@ -346,12 +358,15 @@ export function RecordModelRecord({
                         // A date-typed field stores an ISO date; show it in the
                         // same short form as the record's own metadata.
                         const raw = recordFieldValue(record, field.fieldName)
+
                         const shown =
                           field.logicalType === 'date'
                             ? formatDate(raw == null ? null : String(raw))
                             : displayModelFieldValue(field, raw)
+
                         const result = resultByField.get(field.fieldName)
                         const limits = limitsByField.get(field.fieldName)
+
                         return [
                           field.label,
                           result ? (

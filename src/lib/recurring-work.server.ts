@@ -54,6 +54,7 @@ export async function sweepRecurringWork(
   log: Pick<typeof logger, 'warn'> = logger,
 ): Promise<RecurringSweepResult> {
   const conn = await deps.connect()
+
   const result: RecurringSweepResult = {
     schedules: 0,
     created: 0,
@@ -61,14 +62,17 @@ export async function sweepRecurringWork(
     failed: 0,
     errors: 0,
   }
+
   try {
     const { rows } = await conn.query<DueSchedule>(
       `SELECT id, workspace_id, created_by_user_id
          FROM api.recurring_schedules WHERE status = 'active'
         ORDER BY created_at`,
     )
+
     for (const schedule of rows) {
       result.schedules += 1
+
       try {
         await conn.query('BEGIN')
         await conn.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
@@ -78,9 +82,11 @@ export async function sweepRecurringWork(
             workspace_id: schedule.workspace_id,
           }),
         ])
+
         const made = await conn.query<{
           r: { created: number; skipped: number; failed: number }
         }>(`SELECT api.materialise_recurring_schedule($1) AS r`, [schedule.id])
+
         await conn.query('COMMIT')
         const counts = made.rows[0].r
         result.created += counts.created
@@ -98,6 +104,7 @@ export async function sweepRecurringWork(
   } finally {
     await conn.end()
   }
+
   return result
 }
 
@@ -107,14 +114,17 @@ const startedGlobalKey = '__sheetbaseRecurringWorkSchedulerStarted'
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
 async function defaultConnect(): Promise<RecurringConnection> {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   return client
 }
 
@@ -122,16 +132,21 @@ export function startRecurringWorkScheduler(
   options: { deps?: RecurringWorkDeps; intervalMs?: number } = {},
 ): void {
   if (typeof window !== 'undefined') return
+
   if (schedulerDisabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
 
   const deps = options.deps ?? { connect: defaultConnect }
+
   const tick = async () => {
     const startedAt = Date.now()
+
     try {
       const result = await sweepRecurringWork(deps)
+
       if (result.created || result.skipped || result.failed || result.errors) {
         logger.info('repeating work swept', {
           ...result,
@@ -144,6 +159,7 @@ export function startRecurringWorkScheduler(
       })
     }
   }
+
   bootTimer = setTimeout(() => void tick(), 5_000)
   bootTimer.unref()
   timer = setInterval(
@@ -156,6 +172,7 @@ export function startRecurringWorkScheduler(
 /** Clear the timers and the per-process guard (tests and shutdown). */
 export function stopRecurringWorkScheduler(): void {
   if (bootTimer) clearTimeout(bootTimer)
+
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null

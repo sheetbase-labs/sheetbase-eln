@@ -126,6 +126,7 @@ export function canonicalJson(value: unknown): string {
         ),
       )
     }
+
     return v
   })
 }
@@ -141,6 +142,7 @@ export function sha256Hex(value: string | Buffer): string {
  */
 export function digestRows(rows: Array<Record<string, unknown>>): string {
   const hashes = rows.map((row) => sha256Hex(canonicalJson(row))).sort()
+
   return sha256Hex(hashes.join('\n'))
 }
 
@@ -176,9 +178,11 @@ export function loadSigningKey(
 ): SigningKey | null {
   if (!pem) return null
   const privateKey = createPrivateKey(pem.replaceAll('\\n', '\n'))
+
   if (privateKey.asymmetricKeyType !== 'ed25519')
     throw new Error('PIPELINE_MANIFEST_SIGNING_KEY must be an Ed25519 key.')
   const publicKey = createPublicKey(privateKey)
+
   return { privateKey, publicKey, keyId: keyIdFor(publicKey) }
 }
 
@@ -211,9 +215,12 @@ export function verifyRunManifest(
 ): ManifestVerification {
   const digestMatches =
     digestManifest(stored.manifest) === stored.manifestDigest
+
   let signatureValid: boolean | null = null
+
   if (stored.signature) {
     signatureValid = false
+
     if (publicKeyPem && digestMatches) {
       try {
         signatureValid = verify(
@@ -227,10 +234,12 @@ export function verifyRunManifest(
       }
     }
   }
+
   const chainValid =
     previousDigest === undefined
       ? null
       : (stored.previousDigest ?? null) === previousDigest
+
   return { digestMatches, signatureValid, chainValid }
 }
 
@@ -290,6 +299,7 @@ export async function digestInput(
               'UTF8')), 'hex') AS digest
        FROM pg_temp.${quote(name)} t`,
   )
+
   return {
     rowCount: Number(rows[0]?.n ?? 0),
     contentDigest: rows[0]?.digest ?? sha256Hex(''),
@@ -303,8 +313,10 @@ export async function buildRunManifest(
 ): Promise<RunManifest> {
   const { run } = input
   const inputs: ManifestInput[] = []
+
   for (const name of input.inputNames) {
     const versionId = run.input_versions[name]
+
     const { rows } = await conn.query<{
       dataset_id: string | null
       schema_version_id: string | null
@@ -312,6 +324,7 @@ export async function buildRunManifest(
       `SELECT dataset_id, schema_version_id FROM api.dataset_versions WHERE id = $1`,
       [versionId],
     )
+
     const digest = await digestInput(conn, name)
     inputs.push({
       name,
@@ -321,6 +334,7 @@ export async function buildRunManifest(
       ...digest,
     })
   }
+
   const { rows: decisionRows } = await conn.query<{
     step_id: string
     answer: Record<string, unknown> | null
@@ -333,6 +347,7 @@ export async function buildRunManifest(
       ORDER BY answered_at, step_id`,
     [run.id],
   )
+
   return {
     schema: MANIFEST_SCHEMA,
     run: {
@@ -396,6 +411,7 @@ export async function recordRunManifest(
 ): Promise<StoredManifest> {
   const manifest = await buildRunManifest(conn, input)
   const manifestDigest = digestManifest(manifest)
+
   const { rows: tip } = await conn.query<{
     sequence: string
     manifest_digest: string
@@ -405,9 +421,11 @@ export async function recordRunManifest(
       WHERE m.workspace_id = $1 ORDER BY m.sequence DESC LIMIT 1`,
     [input.run.workspace_id],
   )
+
   const sequence = Number(tip[0]?.sequence ?? 0) + 1
   const previousDigest = tip[0]?.manifest_digest ?? null
   const signature = key ? signDigest(manifestDigest, key) : null
+
   const { rows } = await conn.query<{ signed_at: Date }>(
     `INSERT INTO api.pipeline_run_manifests
        (run_id, workspace_id, sequence, manifest, manifest_digest,
@@ -426,6 +444,7 @@ export async function recordRunManifest(
       key?.keyId ?? null,
     ],
   )
+
   return {
     runId: input.run.id,
     workspaceId: input.run.workspace_id,

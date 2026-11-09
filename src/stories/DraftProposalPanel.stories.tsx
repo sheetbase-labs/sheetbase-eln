@@ -83,7 +83,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof DraftProposalPanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A notebook text draft, inserted as an ordinary text block on Accept. */

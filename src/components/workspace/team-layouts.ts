@@ -41,6 +41,7 @@ export function useTeamLayouts(enabled: boolean) {
         'workspace_layouts',
         '?select=id,name,layout,updated_at&order=name.asc',
       )
+
       setLayouts(teamLayoutsFromRows(rows, location.origin))
     } catch {
       // Shared layouts are a convenience; the personal ones still work.

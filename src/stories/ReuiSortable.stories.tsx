@@ -56,6 +56,7 @@ const meta = {
 } satisfies Meta<typeof Sortable>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A vertical list: drag a grip with the pointer or a finger, or lift it with the keyboard. */
@@ -63,6 +64,7 @@ export const Default: Story = {
   render: () => {
     const List = () => {
       const [items, setItems] = React.useState(ITEMS)
+
       return (
         <Sortable
           value={items}
@@ -94,6 +96,7 @@ export const Default: Story = {
         </Sortable>
       )
     }
+
     return <List />
   },
 }

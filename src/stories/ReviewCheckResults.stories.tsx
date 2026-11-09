@@ -34,15 +34,20 @@ const base: any = {
     },
   ],
 }
+
 const meta = {
   title: 'Review/Check results',
   component: ReviewCheckResults,
   tags: ['autodocs'],
   args: { result: base },
 } satisfies Meta<typeof ReviewCheckResults>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 export const Warning: Story = {}
+
 export const Passed: Story = {
   args: {
     result: {
@@ -54,6 +59,7 @@ export const Passed: Story = {
     },
   },
 }
+
 export const BlockingFailure: Story = {
   args: {
     result: {

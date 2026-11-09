@@ -92,6 +92,7 @@ async function offeredVersions() {
   const dialogs = await screen.findAllByRole('dialog')
   const list = dialogs[dialogs.length - 1]
   await within(list).findAllByRole('option')
+
   return within(list)
     .getAllByRole('option')
     .map((o) => o.textContent)
@@ -116,9 +117,11 @@ describe('RunDialog', () => {
         />
       </QueryClientProvider>,
     )
+
     const run = await screen.findByRole<HTMLButtonElement>('button', {
       name: 'Run',
     })
+
     expect(run.disabled).toBe(true)
 
     await choose(
@@ -212,10 +215,12 @@ describe('startAndExecuteRun', () => {
     mocks.startPipelineRun.mockResolvedValue({ id: 'run-1' })
     mocks.executePipelineRun.mockResolvedValue({ id: 'run-1' })
     const onSettled = vi.fn()
+
     const started = await startAndExecuteRun(
       { workspaceId: 'ws', definitionVersionId: 'v-1', triggerKind: 'manual' },
       onSettled,
     )
+
     expect(started.id).toBe('run-1')
     expect(mocks.executePipelineRun).toHaveBeenCalledWith('run-1')
     await waitFor(() => expect(onSettled).toHaveBeenCalledWith({}))

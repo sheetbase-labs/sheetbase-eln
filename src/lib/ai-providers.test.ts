@@ -118,6 +118,7 @@ describe('OpenAI-compatible request', () => {
       { ...profile, maxOutputTokens: 500 },
       { prompt: 'Summarise this notebook.', maxTokens: 800, citationIds: [] },
     )
+
     expect(body.model).toBe('anthropic/claude-sonnet-4.5')
     expect(body.max_tokens).toBe(500)
     expect(body.temperature).toBe(0)
@@ -132,6 +133,7 @@ describe('OpenAI-compatible request', () => {
       maxTokens: 200,
       citationIds: [],
     })
+
     // ~100 input tokens, so at most 100 output tokens remain under the cap.
     expect(body.max_tokens).toBe(100)
   })
@@ -144,6 +146,7 @@ describe('OpenAI-compatible request', () => {
       ],
       usage: { prompt_tokens: 10, completion_tokens: 20, cost: 0.00042 },
     })
+
     expect(parsed.text).toBe('Grounded answer.')
     expect(parsed.inputTokens).toBe(10)
     expect(parsed.outputTokens).toBe(20)
@@ -156,6 +159,7 @@ describe('OpenAI-compatible request', () => {
       choices: [{ message: { content: 'Answer.' } }],
       usage: { prompt_tokens: 1_000, completion_tokens: 1_000 },
     })
+
     // 1,000 × 3 µUSD + 1,000 × 15 µUSD = 18,000 µUSD.
     expect(parsed.costMicrousd).toBe(18_000)
   })
@@ -184,15 +188,18 @@ describe('Anthropic request', () => {
       baseUrl: 'https://api.anthropic.com',
       model: 'claude-sonnet-4-5',
     }
+
     const body = buildAnthropicRequest(config, {
       prompt: 'Explain the validation error.',
       maxTokens: 400,
       citationIds: [],
     })
+
     expect(body.system).toContain('Use only the supplied Sheetbase context')
     expect(body.messages).toEqual([
       { role: 'user', content: 'Explain the validation error.' },
     ])
+
     const parsed = parseAnthropicResponse(config, 'prompt', {
       model: 'claude-sonnet-4-5',
       content: [
@@ -201,6 +208,7 @@ describe('Anthropic request', () => {
       ],
       usage: { input_tokens: 12, output_tokens: 34 },
     })
+
     expect(parsed.text).toBe('First.\nSecond.')
     expect(parsed.costMicrousd).toBe(546)
   })
@@ -215,12 +223,14 @@ describe('provider transports', () => {
         usage: { prompt_tokens: 3, completion_tokens: 4 },
       }),
     )
+
     const fetchImpl = fetchMock as unknown as typeof fetch
 
     const provider = new OpenAiCompatibleProvider(
       { ...profile, apiKey: 'test-key-not-real' },
       { fetchImpl },
     )
+
     const result = await provider.complete({
       prompt: 'Prompt.',
       maxTokens: 100,
@@ -229,10 +239,12 @@ describe('provider transports', () => {
 
     expect(result.text).toBe('Answer.')
     expect(fetchMock).toHaveBeenCalledTimes(1)
+
     const [url, init] = fetchMock.mock.calls[0] as unknown as [
       string,
       RequestInit,
     ]
+
     expect(url).toBe('https://openrouter.ai/api/v1/chat/completions')
     const headers = new Headers(init.headers)
     expect(headers.get('authorization')).toBe('Bearer test-key-not-real')
@@ -249,6 +261,7 @@ describe('provider transports', () => {
         usage: { input_tokens: 3, output_tokens: 4 },
       }),
     )
+
     const fetchImpl = fetchMock as unknown as typeof fetch
 
     const provider = new AnthropicProvider(
@@ -261,21 +274,25 @@ describe('provider transports', () => {
       },
       { fetchImpl },
     )
+
     await provider.complete({
       prompt: 'Prompt.',
       maxTokens: 100,
       citationIds: [],
     })
+
     const [url, init] = fetchMock.mock.calls[0] as unknown as [
       string,
       RequestInit,
     ]
+
     expect(url).toBe('https://api.anthropic.com/v1/messages')
     expect(new Headers(init.headers).get('x-api-key')).toBe('test-key-not-real')
   })
 
   it('turns a non-2xx response into an HTTP error without reading the body', async () => {
     const cancel = vi.fn()
+
     const fetchImpl = vi.fn(
       async () =>
         new Response(
@@ -288,10 +305,12 @@ describe('provider transports', () => {
           { status: 429 },
         ),
     ) as unknown as typeof fetch
+
     const provider = new OpenAiCompatibleProvider(
       { ...profile, apiKey: 'test-key-not-real' },
       { fetchImpl },
     )
+
     await expect(
       provider.complete({ prompt: 'Prompt.', maxTokens: 10, citationIds: [] }),
     ).rejects.toMatchObject({ code: 'http', status: 429 })
@@ -301,10 +320,12 @@ describe('provider transports', () => {
     const fetchImpl = vi.fn(
       async () => new Response('not-json', { status: 200 }),
     ) as unknown as typeof fetch
+
     const provider = new OpenAiCompatibleProvider(
       { ...profile, apiKey: 'test-key-not-real' },
       { fetchImpl },
     )
+
     await expect(
       provider.complete({ prompt: 'Prompt.', maxTokens: 10, citationIds: [] }),
     ).rejects.toMatchObject({ code: 'response_invalid' })
@@ -317,13 +338,16 @@ describe('provider transports', () => {
         usage: { prompt_tokens: 3, completion_tokens: 4 },
       }),
     )
+
     const fetchImpl = fetchMock as unknown as typeof fetch
     const provider = new OpenAiCompatibleProvider(localProfile, { fetchImpl })
+
     const result = await provider.complete({
       prompt: 'Prompt.',
       maxTokens: 100,
       citationIds: [],
     })
+
     expect(result.text).toBe('Local answer.')
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect(new Headers(init.headers).get('authorization')).toBeNull()
@@ -348,6 +372,7 @@ describe('OpenAI-compatible streaming and history', () => {
       },
       { stream: true },
     )
+
     expect(body.messages.map((message) => message.role)).toEqual([
       'system',
       'user',
@@ -366,6 +391,7 @@ describe('OpenAI-compatible streaming and history', () => {
       'data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":2,"cost":0.000004}}\n\n',
       'data: [DONE]\n\n',
     ]
+
     const fetchImpl = vi.fn(
       async () =>
         new Response(
@@ -374,14 +400,17 @@ describe('OpenAI-compatible streaming and history', () => {
               for (const frame of frames) {
                 controller.enqueue(new TextEncoder().encode(frame))
               }
+
               controller.close()
             },
           }),
           { status: 200, headers: { 'content-type': 'text/event-stream' } },
         ),
     ) as unknown as typeof fetch
+
     const provider = new OpenAiCompatibleProvider(resolved, { fetchImpl })
     const chunks = []
+
     for await (const chunk of provider.stream({
       prompt: 'CONTEXT',
       maxTokens: 4_000,
@@ -390,6 +419,7 @@ describe('OpenAI-compatible streaming and history', () => {
     })) {
       chunks.push(chunk)
     }
+
     expect(chunks.filter((chunk) => chunk.type === 'text')).toEqual([
       { type: 'text', delta: 'Hel' },
       { type: 'text', delta: 'lo' },
@@ -406,7 +436,9 @@ describe('OpenAI-compatible streaming and history', () => {
     const fetchImpl = vi.fn(
       async () => new Response('secret prompt echo', { status: 429 }),
     ) as unknown as typeof fetch
+
     const provider = new OpenAiCompatibleProvider(resolved, { fetchImpl })
+
     const run = async () => {
       for await (const chunk of provider.stream({
         prompt: 'CONTEXT',
@@ -416,6 +448,7 @@ describe('OpenAI-compatible streaming and history', () => {
         void chunk
       }
     }
+
     await expect(run()).rejects.toMatchObject({ code: 'http', status: 429 })
   })
 })
@@ -445,6 +478,7 @@ describe('OpenAI-compatible tool calls', () => {
         { role: 'tool', toolCallId: 'c1', content: '{"hits":1}' },
       ],
     })
+
     expect(body.tool_choice).toBe('auto')
     expect(body.tools?.[0]?.function.name).toBe('sheetbase__search')
     expect(body.messages[2]).toMatchObject({
@@ -466,6 +500,7 @@ describe('OpenAI-compatible tool calls', () => {
       'data: {"choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5}}\n\n',
       'data: [DONE]\n\n',
     ]
+
     const fetchImpl = vi.fn(
       async () =>
         new Response(
@@ -479,8 +514,10 @@ describe('OpenAI-compatible tool calls', () => {
           { status: 200 },
         ),
     ) as unknown as typeof fetch
+
     const provider = new OpenAiCompatibleProvider(resolved, { fetchImpl })
     const chunks = []
+
     for await (const chunk of provider.stream({
       prompt: 'CONTEXT',
       maxTokens: 4_000,
@@ -489,6 +526,7 @@ describe('OpenAI-compatible tool calls', () => {
     })) {
       chunks.push(chunk)
     }
+
     expect(chunks.find((chunk) => chunk.type === 'tool_call')).toEqual({
       type: 'tool_call',
       id: 'c1',

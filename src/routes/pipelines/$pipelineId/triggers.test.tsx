@@ -64,6 +64,7 @@ vi.mock('#/lib/pipelines/data', async (importOriginal) => ({
     input: Record<string, unknown>,
   ) => {
     state.created.push(input)
+
     return Promise.resolve({})
   },
   updatePipelineSchedule: (
@@ -71,6 +72,7 @@ vi.mock('#/lib/pipelines/data', async (importOriginal) => ({
     input: Record<string, unknown>,
   ) => {
     state.updated.push(input)
+
     return Promise.resolve({ enabled: input.enabled ?? true })
   },
 }))
@@ -397,9 +399,11 @@ describe('a schedule the sweep can never fire', () => {
     renderTriggers()
 
     fireEvent.click(screen.getAllByText('New trigger')[0])
+
     const mode = screen.getByLabelText<HTMLSelectElement>(
       'How readings picks its data',
     )
+
     // Following the latest version is the default; pinning is the opt-in.
     expect(mode.value).toBe('latest')
     fireEvent.click(screen.getByText('Add trigger'))

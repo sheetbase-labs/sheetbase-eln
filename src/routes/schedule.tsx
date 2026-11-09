@@ -17,6 +17,7 @@ export const Route = createFileRoute('/schedule')({
     search: Record<string, unknown>,
   ): { book?: string; experiment?: string; returnTo?: string } => {
     const { experiment, returnTo } = parseCreateContext(search)
+
     return {
       ...(typeof search.book === 'string' && search.book
         ? { book: search.book }
@@ -27,9 +28,11 @@ export const Route = createFileRoute('/schedule')({
   },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: lazyRouteComponent(() => import('./-schedule-page'), 'Schedule'),

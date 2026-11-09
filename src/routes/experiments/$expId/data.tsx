@@ -11,6 +11,7 @@ export const Route = createFileRoute('/experiments/$expId/data')({
 
 function DataTab() {
   const params = Route.useParams()
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <SectionTabs

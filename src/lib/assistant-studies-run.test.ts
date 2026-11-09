@@ -8,6 +8,7 @@ function client(answers: Record<string, unknown> = {}) {
     async (name: string, _args?: Record<string, unknown>) =>
       answers[name] ?? {},
   )
+
   return { client: { rpc } as unknown as DataClient, rpc }
 }
 
@@ -16,6 +17,7 @@ describe('running a planning card', () => {
     const { client: c, rpc } = client({
       edit_study_task: { metadata_version: 5 },
     })
+
     await runStudiesAction(c, {
       kind: 'study.task_update',
       taskId: 't1',
@@ -42,6 +44,7 @@ describe('running a planning card', () => {
     const { client: c, rpc } = client({
       create_study_task: { id: 't2', project_id: 'p1' },
     })
+
     const result = await runStudiesAction(c, {
       kind: 'study.task_add',
       workspaceId: 'ws-1',
@@ -52,6 +55,7 @@ describe('running a planning card', () => {
       priority: null,
       description: null,
     })
+
     expect(rpc.mock.calls[0][1]).toMatchObject({
       p_workspace_id: 'ws-1',
       p_title: 'Sign off',
@@ -72,6 +76,7 @@ describe('running a planning card', () => {
         generated_at: '2026-11-09T00:00:00Z',
       },
     })
+
     expect(
       await runStudiesAction(c, {
         kind: 'report.generate',

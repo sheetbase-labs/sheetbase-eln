@@ -42,7 +42,9 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function inside(queryClient: QueryClient, width = 960) {
@@ -54,6 +56,7 @@ function inside(queryClient: QueryClient, width = 960) {
     </QueryClientProvider>
   )
 }
+
 const seeded = (data: ReadSeed[]) => screenQueryClient({ data })
 
 // --- Reviewer band and Submit label ------------------------------------------

@@ -84,8 +84,11 @@ function ComparePointSummary({
   const series = materialised.series.find(
     (item) => item.identifier === selection.seriesIdentifier,
   )
+
   const point = series?.points[selection.index]
+
   if (!series || !point) return null
+
   return (
     <p className="text-xs text-fg-muted" role="status">
       {[
@@ -122,8 +125,10 @@ export function CompareView({
   onPromote,
 }: CompareViewProps) {
   const errors = validateComparativeViewConfig(config)
+
   const draft: ChartSpec | null =
     errors.length === 0 ? promoteToChartSpec(config, columns) : null
+
   // DSET-01.2 — a row whose used field is flagged is left out, matching the
   // Analyse panel and notebook charts. The promoted draft's field bindings are
   // the fields this surface reads; both the chart and the A/B tables use the
@@ -135,6 +140,7 @@ export function CompareView({
         : [],
     [config, columns, errors.length],
   )
+
   const rows = React.useMemo(
     () =>
       flags.length === 0
@@ -142,6 +148,7 @@ export function CompareView({
         : filterRowsByFlags(sourceRows, flags, usedFieldIds),
     [sourceRows, flags, usedFieldIds],
   )
+
   const shaped = React.useMemo(
     () =>
       errors.length === 0
@@ -154,10 +161,12 @@ export function CompareView({
           },
     [rows, config, errors.length],
   )
+
   const materialised = React.useMemo(
     () => (draft ? materialiseChart(draft, columns, rows) : null),
     [draft, columns, rows],
   )
+
   const handle = React.useMemo(
     () =>
       draft
@@ -186,6 +195,7 @@ export function CompareView({
     a: null,
     b: null,
   })
+
   const [matchBy, setMatchBy] = React.useState<ComparativeMatchMode>('row_key')
   const [matchFieldId, setMatchFieldId] = React.useState<string | null>(null)
   // The preview's points are clickable and keyboard-reachable, so the
@@ -210,6 +220,7 @@ export function CompareView({
             ? current.b
             : (groupKeys[1] ?? null),
       }
+
       return next.a === current.a && next.b === current.b ? current : next
     })
     // groupKeys is derived from shaped.groups; keying on its join means the
@@ -221,15 +232,18 @@ export function CompareView({
       if (current && columns.some((column) => column.id === current)) {
         return current
       }
+
       const fallback =
         columns.find((column) => !config.groupBy.includes(column.id)) ??
         columns.at(0)
+
       return fallback ? fallback.id : null
     })
   }, [columns, config.groupBy.join('\u0000')])
 
   const matchFieldLabel =
     columns.find((column) => column.id === matchFieldId)?.label ?? matchFieldId
+
   const pairing = React.useMemo(
     () =>
       pairComparativeSides(
@@ -242,6 +256,7 @@ export function CompareView({
       ),
     [rows, config, sides, matchBy, matchFieldId, matchFieldLabel],
   )
+
   // Frozen side labels: after a swap the sides (and therefore the Δ sign and
   // every presence flag) follow the new assignment; the labels come from the
   // group labels so a swapped table cannot mislabel its columns.
@@ -249,6 +264,7 @@ export function CompareView({
     shaped.groups.find((group) => group.key === sides.a)?.label ??
     sides.a ??
     t('data.compareView.notSelected')
+
   const sideBLabel =
     shaped.groups.find((group) => group.key === sides.b)?.label ??
     sides.b ??
@@ -258,6 +274,7 @@ export function CompareView({
     const next = config.groupBy.includes(fieldId)
       ? config.groupBy.filter((f) => f !== fieldId)
       : [...config.groupBy, fieldId]
+
     onConfigChange({ ...config, groupBy: next })
   }
 

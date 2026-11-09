@@ -22,6 +22,7 @@ export function RiskGlyph({
 }) {
   const level =
     new Map(Object.entries(RISK)).get(risk.toLowerCase()) ?? RISK.medium
+
   return (
     <span
       className={cn(
@@ -60,9 +61,11 @@ const ROUTES: Record<string, string> = {
 /** Turn record identifiers in a sentence into links to those records. */
 export function linkifyIdentifiers(text: string): React.ReactNode {
   const parts = text.split(/\b((?:EXP|DS|PRT|SMP)-\d{4})\b/)
+
   return parts.map((part, index) => {
     const prefix = part.slice(0, part.indexOf('-'))
     const route = ROUTES[prefix]
+
     return index % 2 === 1 && route ? (
       <a key={index} href={`${route}${part}`} className="text-link">
         {part}

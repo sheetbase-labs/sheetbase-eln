@@ -53,6 +53,7 @@ const meta = {
 } satisfies Meta<typeof LeveyJenningsChart>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const WithABreach: Story = {}

@@ -11,6 +11,7 @@ import {
 import type { ResolvedParser } from './parser-resolution'
 
 const execute = vi.fn()
+
 vi.mock('#/lib/pipeline-python.server', async (original) => ({
   ...(await original<Record<string, unknown>>()),
   executePythonTransform: (...args: unknown[]) => execute(...args),
@@ -93,11 +94,13 @@ describe('convertFile', () => {
 
   it('sends the bytes and the converter, and returns the document and the rows', async () => {
     execute.mockResolvedValue(answer)
+
     const out = await convertFile({
       fileName: 'plate.txt',
       bytes: new TextEncoder().encode('hello'),
       vendor: 'MOLDEV_SOFTMAX_PRO',
     })
+
     const sent = execute.mock.calls[0]?.[0]
     expect(sent.inputs.file[0]).toEqual({
       name: 'plate.txt',
@@ -127,11 +130,13 @@ describe('convertFile', () => {
         'transform_failed',
       ),
     )
+
     const error = await convertFile({
       fileName: 'x.csv',
       bytes: new Uint8Array([1]),
       vendor: null,
     }).catch((e: unknown) => e)
+
     expect(error).toBeInstanceOf(ConverterError)
     expect(error).toMatchObject({
       code: 'converter_failed',

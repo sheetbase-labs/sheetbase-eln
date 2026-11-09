@@ -64,10 +64,13 @@ function isEmptyCell(value: unknown): boolean {
 
 function asNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
+
   if (typeof value === 'string' && value.trim() !== '') {
     const parsed = Number(value)
+
     return Number.isFinite(parsed) ? parsed : null
   }
+
   return null
 }
 
@@ -79,6 +82,7 @@ function sheetLabel(
   const block = list(envelope.blocks).find((item) => item.id === blockId)
   const payload = asRec(block?.payload)
   const title = payload?.title ?? payload?.name ?? payload?.label
+
   return typeof title === 'string' && title.trim()
     ? title.trim()
     : `Sheet ${index + 1}`
@@ -86,7 +90,9 @@ function sheetLabel(
 
 function fieldLabel(field: Rec): string {
   if (typeof field.label === 'string' && field.label.trim()) return field.label
+
   if (typeof field.key === 'string' && field.key.trim()) return field.key
+
   return 'Column'
 }
 
@@ -95,21 +101,29 @@ function sheetWarnings(envelope: CanonicalRevisionEnvelope): PreSignWarning[] {
   const warnings: PreSignWarning[] = []
   list(envelope.sheetEvidence).forEach((sheet, index) => {
     const state = asRec(sheet.instanceState) ?? {}
+
     const fields = Array.isArray(state.localFields)
       ? state.localFields.map(asRec).filter((f): f is Rec => f !== null)
       : []
+
     const values = asRec(state.localValues) ?? {}
     const rows = Object.values(values).map((row) => asRec(row) ?? {})
+
     if (rows.length === 0) return
     const where = sheetLabel(envelope, sheet.blockId, index)
+
     for (const field of fields) {
       const fieldId = field.fieldId
+
       if (typeof fieldId !== 'string') continue
+
       if (field.lifecycle === 'retired' || field.lifecycle === 'draft') continue
       const computed = asRec(field.computation)?.mode === 'computed'
       const name = fieldLabel(field)
+
       if (field.nullable === false && !computed) {
         const empty = rows.filter((row) => isEmptyCell(row[fieldId])).length
+
         if (empty > 0) {
           warnings.push({
             id: `empty:${sheet.blockId}:${fieldId}`,
@@ -120,17 +134,21 @@ function sheetWarnings(envelope: CanonicalRevisionEnvelope): PreSignWarning[] {
           })
         }
       }
+
       const validation = asRec(field.validation) ?? {}
       const min = asNumber(validation.min)
       const max = asNumber(validation.max)
+
       if (min !== null || max !== null) {
         const out = rows.filter((row) => {
           const n = asNumber(row[fieldId])
+
           return (
             n !== null &&
             ((min !== null && n < min) || (max !== null && n > max))
           )
         }).length
+
         if (out > 0) {
           const unit = asRec(field.quantity)?.storageUnit
           const suffix = typeof unit === 'string' ? ` ${unit}` : ''
@@ -149,8 +167,10 @@ function sheetWarnings(envelope: CanonicalRevisionEnvelope): PreSignWarning[] {
           })
         }
       }
+
       const numeric =
         field.logicalType === 'decimal' || field.logicalType === 'integer'
+
       if (
         numeric &&
         !computed &&
@@ -167,35 +187,44 @@ function sheetWarnings(envelope: CanonicalRevisionEnvelope): PreSignWarning[] {
       }
     }
   })
+
   return warnings
 }
 
 /** Warnings from the record's scientific tables: numbers in a column with no unit. */
 function tableWarnings(envelope: CanonicalRevisionEnvelope): PreSignWarning[] {
   const warnings: PreSignWarning[] = []
+
   for (const table of list(envelope.scientificTables)) {
     const columns = Array.isArray(table.columns)
       ? table.columns.map(asRec).filter((c): c is Rec => c !== null)
       : []
+
     const rows = Array.isArray(table.rows)
       ? table.rows.map(asRec).filter((r): r is Rec => r !== null)
       : []
+
     const where =
       typeof table.display_name === 'string' && table.display_name.trim()
         ? table.display_name
         : 'Table'
+
     for (const column of columns) {
       if (typeof column.api_name !== 'string') continue
       const unit = column.unit
+
       if (typeof unit === 'string' && unit.trim()) continue
+
       const numbers = rows.filter(
         (row) => asNumber(row[column.api_name as string]) !== null,
       ).length
+
       // A column of plain labels or identifiers is not a missing unit: only
       // flag a column where most of what is there is a number.
       const filled = rows.filter(
         (row) => !isEmptyCell(row[column.api_name as string]),
       ).length
+
       if (numbers > 0 && numbers === filled) {
         warnings.push({
           id: `unit:${String(table.id)}:${String(column.id)}`,
@@ -210,6 +239,7 @@ function tableWarnings(envelope: CanonicalRevisionEnvelope): PreSignWarning[] {
       }
     }
   }
+
   return warnings
 }
 
@@ -232,12 +262,16 @@ export function buildPreSignReview(
     ...sheetWarnings(revision),
     ...tableWarnings(revision),
   ].sort((a, b) => KIND_ORDER[a.kind] - KIND_ORDER[b.kind])
+
   const changes: PreSignChangeLine[] = []
+
   if (diff) {
     const byArea = new Map<RevisionChangeArea, number>()
+
     for (const change of diff.changes) {
       byArea.set(change.area, (byArea.get(change.area) ?? 0) + 1)
     }
+
     for (const [area, count] of byArea) changes.push({ area, count })
     changes.sort((a, b) => a.area.localeCompare(b.area))
   } else {
@@ -251,10 +285,12 @@ export function buildPreSignReview(
       ['files', list(revision.files).length],
       ['links', list(revision.links).length],
     ]
+
     for (const [area, count] of parts) {
       if (count > 0) changes.push({ area, count })
     }
   }
+
   return { changes, warnings, compared: diff !== null }
 }
 
@@ -268,22 +304,27 @@ export function preSignFacts(
   diff: RevisionDiffResult | null,
 ): string {
   const lines: string[] = []
+
   if (review.compared && diff) {
     lines.push(
       `Changes since the earlier version: ${diff.counts.added} added, ${diff.counts.removed} removed, ${diff.counts.modified} edited, ${diff.counts.moved} moved.`,
     )
+
     for (const change of diff.changes.slice(0, 40)) {
       lines.push(`- ${change.kind} ${change.area}: ${change.label}`)
     }
   } else {
     lines.push('This is the first submitted version.')
+
     for (const line of review.changes)
       lines.push(`- ${line.count} ${line.area}`)
   }
+
   for (const warning of review.warnings) {
     lines.push(
       `Check (${warning.kind}): ${warning.where} / ${warning.field}, ${warning.count} value(s)${warning.limit ? `, limit ${warning.limit}` : ''}.`,
     )
   }
+
   return lines.join('\n')
 }

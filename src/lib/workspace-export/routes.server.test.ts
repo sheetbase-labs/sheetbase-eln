@@ -18,10 +18,13 @@ vi.mock('#/lib/request-auth', () => ({
     },
   ) => {
     const session = await deps.getSession(headers)
+
     if (!session) {
       return { ok: false, status: 401, code: 'unauthenticated', message: '' }
     }
+
     const membership = await deps.getWorkspaceForUser(session.user.id)
+
     return membership
       ? {
           ok: true,
@@ -30,6 +33,7 @@ vi.mock('#/lib/request-auth', () => ({
       : { ok: false, status: 403, code: 'no_workspace', message: '' }
   },
 }))
+
 vi.mock('./backup.server', () => ({
   findBackup: async (
     pool: {
@@ -45,7 +49,9 @@ vi.mock('./backup.server', () => ({
       'SELECT FROM internal.workspace_backups',
       [workspaceId, id],
     )
+
     const row = rows.at(0)
+
     return row
       ? {
           id: row.id,
@@ -58,6 +64,7 @@ vi.mock('./backup.server', () => ({
       : null
   },
 }))
+
 vi.mock('./archive.server', () => ({
   createWorkspaceArchive: vi.fn(() => ({
     stream: new ReadableStream<Uint8Array>({
@@ -92,12 +99,15 @@ function setup(
 ) {
   const queries: { text: string; values: unknown[] }[] = []
   const stored = new Uint8Array([1, 2, 3, 4, 5])
+
   const backup = {
     pool: {
       query: vi.fn(async (text: string, values: unknown[] = []) => {
         queries.push({ text, values })
+
         if (text.includes('FROM api.workspaces'))
           return { rows: [{ slug: 'my lab!' }] }
+
         if (text.includes('FROM internal.workspace_backups')) {
           return {
             rows:
@@ -119,6 +129,7 @@ function setup(
                   ],
           }
         }
+
         return { rows: [] }
       }),
     },
@@ -140,11 +151,13 @@ function setup(
     },
     now: () => new Date('2026-10-30T09:00:00Z'),
   } as unknown as BackupDeps
+
   const deps: WorkspaceExportRouteDeps = {
     auth,
     canManage: async () => options.canManage ?? true,
     backup: () => backup,
   }
+
   return { deps, queries, backup }
 }
 
@@ -175,9 +188,11 @@ describe('handleWorkspaceExport', () => {
     )
     const body = new Uint8Array(await response.arrayBuffer())
     expect([...body]).toEqual([80, 75, 3, 4])
+
     const receipt = queries.find((q) =>
       q.text.includes('INSERT INTO api.data_exports'),
     )
+
     expect(receipt?.values).toEqual([
       WS,
       expect.any(String),
@@ -237,9 +252,11 @@ describe('handleBackupDownload', () => {
     expect([...new Uint8Array(await response.arrayBuffer())]).toEqual([
       1, 2, 3, 4, 5,
     ])
+
     const receipt = queries.find((q) =>
       q.text.includes('INSERT INTO api.data_exports'),
     )
+
     expect(receipt?.values).toEqual([
       WS,
       BACKUP,

@@ -86,6 +86,7 @@ export const REPRESENTATION_KINDS = [
   'analysis',
   'sheet',
 ] as const
+
 export type RepresentationKind = (typeof REPRESENTATION_KINDS)[number]
 
 /**
@@ -192,15 +193,22 @@ function describeProvenance(
   frozen: boolean,
 ): string {
   const parts: string[] = []
+
   if (source.datasetId) parts.push(`Dataset ${shortId(source.datasetId)}`)
+
   if (source.versionId) parts.push(`Version ${shortId(source.versionId)}`)
   else if (source.datasetId) parts.push(frozen ? 'snapshot' : 'live')
+
   if (source.recordId) parts.push(`Record ${shortId(source.recordId)}`)
+
   if (parts.length > 0) return parts.join(' · ')
+
   // Kinds with no dataset/record binding still need an identity line.
   if (kind === 'sheet' && config.kind === 'sheet')
     return `Sheet instance ${shortId(config.config.instanceId)}`
+
   if (kind === 'plate_map') return 'Plate map'
+
   return kind
 }
 
@@ -220,13 +228,16 @@ export function createRepresentationHandle(input: {
 }): RepresentationHandle {
   const kind = input.config.kind
   const expected = representationConfigVersion(kind)
+
   if (input.config.configVersion !== expected) {
     throw new Error(
       `${kind} configVersion must be ${expected} (got ${String(input.config.configVersion)})`,
     )
   }
+
   const readOnly = representationReadOnly(kind)
   const frozen = input.frozen ?? input.source.versionId != null
+
   return {
     source: { ...input.source },
     config: input.config,
@@ -246,6 +257,7 @@ export function createRepresentationHandle(input: {
 export function pinnedVersionId(handle: RepresentationHandle): string | null {
   return handle.source.versionId
 }
+
 /** True when the handle renders frozen evidence (pinned or legacy snapshot). */
 export function isFrozenRepresentation(handle: RepresentationHandle): boolean {
   return handle.provenance.frozen
@@ -294,6 +306,7 @@ function requireConfigKind<TKind extends RepresentationConfig['kind']>(
       `handle kind mismatch: expected ${kind} (got ${handle.config.kind})`,
     )
   }
+
   return handle.config as Extract<RepresentationConfig, { kind: TKind }>
 }
 
@@ -311,18 +324,23 @@ export function materialiseRepresentation(
   switch (handle.config.kind) {
     case 'chart': {
       const { config: spec } = requireConfigKind(handle, 'chart')
+
       // DSET-01.2 — exclude flagged values the chart uses.
       const usedFields = Object.values(spec.fields)
         .map((binding) => binding?.fieldId)
         .filter((fieldId): fieldId is string => typeof fieldId === 'string')
+
       const rows = filterRowsByFlags(input.rows, input.flags ?? [], usedFields)
+
       return {
         kind: 'chart',
         materialised: materialiseChart(spec, input.columns, rows),
       }
     }
+
     case 'analysis': {
       const { config: definition } = requireConfigKind(handle, 'analysis')
+
       return {
         kind: 'analysis',
         outcome: runAnalysis(
@@ -333,16 +351,20 @@ export function materialiseRepresentation(
         ),
       }
     }
+
     case 'plate_map': {
       const { config: spec } = requireConfigKind(handle, 'plate_map')
+
       return {
         kind: 'plate_map',
         errors: validatePlateMapSpec(spec),
         wellCount: spec.wells.length,
       }
     }
+
     case 'sheet': {
       const { config } = requireConfigKind(handle, 'sheet')
+
       return { kind: 'sheet', instanceId: config.instanceId }
     }
   }
@@ -373,6 +395,7 @@ export type RepresentationFrozenResult =
 function isFrozenChart(v: RepresentationFrozenPayload): v is FrozenChart {
   if (typeof v !== 'object' || v === null) return false
   const data = (v as unknown as Record<string, unknown>).data
+
   return (
     typeof data === 'object' &&
     data !== null &&
@@ -383,8 +406,10 @@ function isFrozenChart(v: RepresentationFrozenPayload): v is FrozenChart {
 function isFrozenAnalysis(v: RepresentationFrozenPayload): v is FrozenAnalysis {
   if (typeof v !== 'object' || v === null) return false
   const definition = (v as unknown as Record<string, unknown>).definition
+
   return typeof definition === 'object' && definition !== null
 }
+
 /**
  * Reconstruct frozen evidence. The pinned Version id travels on
  * `handle.source.versionId`; the pinned *rows* arrive via `input` (read from
@@ -404,34 +429,42 @@ export function reconstructFrozenRepresentation(
   switch (handle.config.kind) {
     case 'chart': {
       const { config: spec } = requireConfigKind(handle, 'chart')
+
       if (!isFrozenChart(frozen)) {
         throw new Error('chart reconstruction requires a FrozenChart payload')
       }
+
       if (input) {
         const { chart, facets } = reconstructFrozenVisualisation({
           spec,
           frozen,
           rows: input.rows,
         })
+
         return { kind: 'chart', materialised: chart, facets }
       }
+
       return {
         kind: 'chart',
         materialised: materialiseFrozenChart(frozen),
         facets: materialiseFrozenFacets(frozen),
       }
     }
+
     case 'analysis': {
       requireConfigKind(handle, 'analysis')
+
       if (!isFrozenAnalysis(frozen)) {
         throw new Error(
           'analysis reconstruction requires a FrozenAnalysis payload',
         )
       }
+
       // R5-STUDIO-01: when the freeze recorded a method version this build
       // cannot reproduce, the numbers are withheld rather than silently
       // recomputed under a method the citation never named.
       const methodMismatch = frozenAnalysisMethodMismatch(frozen)
+
       if (methodMismatch) {
         return {
           kind: 'analysis',
@@ -441,12 +474,14 @@ export function reconstructFrozenRepresentation(
           },
         }
       }
+
       if (!input) {
         return {
           kind: 'analysis',
           outcome: { ok: false, error: { code: 'empty_dataset' } },
         }
       }
+
       return {
         kind: 'analysis',
         outcome: runAnalysis(
@@ -457,19 +492,24 @@ export function reconstructFrozenRepresentation(
         ),
       }
     }
+
     case 'plate_map': {
       const { config: spec } = requireConfigKind(handle, 'plate_map')
+
       if (frozen !== null) {
         throw new Error('plate_map has no frozen payload')
       }
+
       return {
         kind: 'plate_map',
         errors: validatePlateMapSpec(spec),
         wellCount: spec.wells.length,
       }
     }
+
     case 'sheet': {
       const { config } = requireConfigKind(handle, 'sheet')
+
       return { kind: 'sheet', instanceId: config.instanceId }
     }
   }
@@ -506,18 +546,21 @@ export function chartToRepresentationHandle(input: {
   if (!input.spec) return null
   const provenance = input.frozen?.datasetProvenance ?? []
   const primary = provenance.at(0)
+
   const datasetId =
     (typeof primary?.datasetId === 'string' && primary.datasetId.length > 0
       ? primary.datasetId
       : null) ??
     input.spec.datasets.at(0)?.datasetId ??
     null
+
   const singlePin =
     provenance.length === 1 &&
     typeof primary?.datasetVersionId === 'string' &&
     primary.datasetVersionId.length > 0
       ? primary.datasetVersionId
       : null
+
   return createRepresentationHandle({
     source: { datasetId, versionId: singlePin },
     config: {
@@ -549,6 +592,7 @@ export function plateMapToRepresentationHandle(input: {
   frozen?: boolean
 }): RepresentationHandle | null {
   if (!input.spec) return null
+
   return createRepresentationHandle({
     source: { datasetId: null, versionId: null },
     config: {
@@ -584,8 +628,10 @@ export function validateRepresentationEmbed(input: unknown): {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) {
     return { ok: false, errors: ['embed must be an object'] }
   }
+
   const candidate = input as Record<string, unknown>
   const kind = candidate.kind
+
   if (
     kind !== 'chart' &&
     kind !== 'plate_map' &&
@@ -597,6 +643,7 @@ export function validateRepresentationEmbed(input: unknown): {
       errors: [`unknown representation kind: ${String(kind)}`],
     }
   }
+
   if (candidate.configVersion !== representationConfigVersion(kind)) {
     return {
       ok: false,
@@ -605,42 +652,54 @@ export function validateRepresentationEmbed(input: unknown): {
       ],
     }
   }
+
   const source = candidate.source as Record<string, unknown> | undefined
   const sourceErrors: string[] = []
+
   if (!source || typeof source !== 'object') {
     sourceErrors.push('source must be an object')
   } else {
     if (source.datasetId !== null && !isUuidLike(source.datasetId)) {
       sourceErrors.push('source.datasetId must be a UUID or null')
     }
+
     if (source.versionId !== null && !isUuidLike(source.versionId)) {
       sourceErrors.push('source.versionId must be a UUID or null')
     }
+
     if (source.recordId !== undefined && !isUuidLike(source.recordId)) {
       sourceErrors.push('source.recordId must be a UUID when present')
     }
   }
+
   if (sourceErrors.length > 0) return { ok: false, errors: sourceErrors }
   const config = candidate.config
   const configErrors: string[] = []
+
   if (kind === 'chart' && validateChartSpec(config).length > 0) {
     configErrors.push('chart config failed the ChartSpec validator')
   }
+
   if (kind === 'plate_map' && validatePlateMapSpec(config).length > 0) {
     configErrors.push('plate_map config failed the PlateMapSpec validator')
   }
+
   if (kind === 'analysis' && validateAnalysisDefinition(config).length > 0) {
     configErrors.push(
       'analysis config failed the analysis definition validator',
     )
   }
+
   if (kind === 'sheet') {
     const instanceId = (config as Record<string, unknown> | null)?.instanceId
+
     if (!isUuidLike(instanceId)) {
       configErrors.push('sheet config.instanceId must be a UUID')
     }
   }
+
   if (configErrors.length > 0) return { ok: false, errors: configErrors }
+
   const typedSource: RepresentationSource = {
     datasetId: (source as Record<string, unknown>).datasetId as string | null,
     versionId: (source as Record<string, unknown>).versionId as string | null,
@@ -648,6 +707,7 @@ export function validateRepresentationEmbed(input: unknown): {
       ? { recordId: (source as Record<string, unknown>).recordId as string }
       : {}),
   }
+
   const handle = createRepresentationHandle({
     source: typedSource,
     config: {
@@ -659,6 +719,7 @@ export function validateRepresentationEmbed(input: unknown): {
     frozen:
       typeof candidate.frozen === 'boolean' ? candidate.frozen : undefined,
   })
+
   return { ok: true, handle, errors: [] }
 }
 
@@ -722,6 +783,7 @@ export function analysisExportStamp(
 ): FigureProvenanceStamp {
   if (handle.config.kind !== 'analysis')
     throw new Error('analysis export stamp requires an analysis handle')
+
   return {
     ...representationExportStamp(handle, exportedAt),
     method: {
@@ -755,6 +817,7 @@ export function analysisToRepresentationHandle(input: {
   frozen?: boolean
 }): RepresentationHandle | null {
   if (!input.definition) return null
+
   return createRepresentationHandle({
     source: {
       datasetId: input.datasetId,
@@ -779,6 +842,7 @@ export function sheetToRepresentationHandle(input: {
   title?: string
 }): RepresentationHandle | null {
   if (!input.instanceId) return null
+
   return createRepresentationHandle({
     source: { datasetId: null, versionId: null },
     config: {
@@ -803,10 +867,13 @@ export function comparativeViewToRepresentationHandle(
   title?: string,
 ): RepresentationHandle {
   const errors = validateComparativeViewConfig(config)
+
   if (errors.length > 0) {
     throw new Error(`Invalid comparative view config: ${errors.join('; ')}`)
   }
+
   const spec = promoteToChartSpec(config, columns)
+
   return createRepresentationHandle({
     source: {
       datasetId: config.datasetId,

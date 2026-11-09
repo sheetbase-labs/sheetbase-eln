@@ -15,11 +15,13 @@ function listClient(answers: Record<string, unknown>) {
   const fetcher = vi.fn(async (input: RequestInfo | URL) => {
     const url = String(input)
     const key = Object.keys(answers).find((k) => url.includes(k))
+
     return new Response(JSON.stringify(key ? answers[key] : []), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     })
   })
+
   return { client: createDataClient(fetcher), fetcher }
 }
 
@@ -45,6 +47,7 @@ describe('fetchDatasetSheetOptions', () => {
         },
       ],
     })
+
     const options = await fetchDatasetSheetOptions(client, ID(80))
     expect(options.map((o) => [o.definitionName, o.version])).toEqual([
       ['Aardvark', 4],
@@ -80,6 +83,7 @@ describe('openDatasetInSheet', () => {
       created_by_user_id: 'user',
       updated_by_user_id: 'user',
     }
+
     const identity = {
       formatVersion: 1,
       kind: 'source',
@@ -88,6 +92,7 @@ describe('openDatasetInSheet', () => {
       sourceBindingId: ID(102),
       sourceFieldId: ID(103),
     }
+
     const fetcher = vi.fn(
       async (url: RequestInfo | URL, _init?: RequestInit) =>
         new Response(
@@ -106,7 +111,9 @@ describe('openDatasetInSheet', () => {
           },
         ),
     )
+
     const client = createDataClient(fetcher)
+
     const instance = await openDatasetInSheet(client, {
       workspaceId: ID(60),
       name: '  Titre  ',
@@ -114,6 +121,7 @@ describe('openDatasetInSheet', () => {
       datasetId: ID(80),
       projectId: ID(70),
     })
+
     expect(instance.state.resolvedRowIdentity).toEqual(identity)
     expect(instance.revision).toBe(2)
     expect(String(fetcher.mock.calls[0]?.[0])).toContain(

@@ -87,29 +87,35 @@ export function StorageLocationsPanel({
   client?: DataClient
 }) {
   const queryClient = useQueryClient()
+
   const tree = useQuery({
     queryKey: storageKeys.all(workspaceId),
     queryFn: () => fetchStorageTree(client),
     enabled: Boolean(workspaceId),
   })
+
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<Set<string> | null>(null)
   const [showArchived, setShowArchived] = useState(false)
+
   const [adding, setAdding] = useState<{
     level: StorageLevel
     parent: StorageNode | null
   } | null>(null)
 
   const data = tree.data
+
   // Sites and rooms start open so the freezers are in view; the rest on demand.
   const open = useMemo(() => {
     if (expanded) return expanded
+
     return new Set(
       (data?.nodes ?? [])
         .filter((n) => n.level === 'site' || n.level === 'room')
         .map((n) => n.id),
     )
   }, [expanded, data])
+
   const selected = (selectedId && data?.byId.get(selectedId)) || null
   const out = useOutOfRangeCounts(data)
 
@@ -126,6 +132,7 @@ export function StorageLocationsPanel({
       </SettingsBody>
     )
   }
+
   if (!data) {
     return (
       <SettingsBody>
@@ -137,6 +144,7 @@ export function StorageLocationsPanel({
   }
 
   const archivedCount = data.nodes.filter((n) => n.archivedAt).length
+
   const sites = data
     .childrenOf(null)
     .filter((n) => showArchived || !n.archivedAt)
@@ -218,6 +226,7 @@ export function StorageLocationsPanel({
                 onSelect={setSelectedId}
                 onToggle={(id) => {
                   const next = new Set(open)
+
                   if (next.has(id)) next.delete(id)
                   else next.add(id)
                   setExpanded(next)
@@ -265,6 +274,7 @@ export function StorageLocationsPanel({
             if (adding.parent) {
               setExpanded(new Set([...open, adding.parent.id]))
             }
+
             void refresh()
             setAdding(null)
           }}
@@ -306,11 +316,14 @@ function TreeBranch({
 }) {
   const outBelow = outOfRange.counts.get(node.id) ?? 0
   const outHere = outOfRange.own.has(node.id)
+
   const children = tree
     .childrenOf(node)
     .filter((c) => showArchived || !c.archivedAt)
+
   const isOpen = open.has(node.id)
   const selected = selectedId === node.id
+
   return (
     <div role="none">
       <div
@@ -430,11 +443,13 @@ function LocationDetails({
   const problem = validateNodeInput(node.level, input, true)
   const inherited = !node.archivedAt && isArchived(tree, node)
   const child = childLevel(node.level)
+
   const hasTemperature =
     (node.level === 'site' || node.level === 'room' || node.level === 'unit') &&
     (canManage ||
       node.temperatureMinC !== null ||
       node.temperatureMaxC !== null)
+
   const save = useMutation({
     mutationFn: () => updateStorageNode(client, node, input),
     onSuccess: () => {
@@ -445,6 +460,7 @@ function LocationDetails({
     },
     onError: (error) => toast.error(errorMessage(error)),
   })
+
   const archive = useMutation({
     mutationFn: (archived: boolean) =>
       setStorageNodeArchived(client, node, archived),
@@ -457,6 +473,7 @@ function LocationDetails({
 
   const contents = tree.childrenOf(node).filter((c) => !c.archivedAt)
   const set = (patch: Partial<NodeInput>) => setInput({ ...input, ...patch })
+
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -631,8 +648,10 @@ function AddLocationDialog({
   const [codeEdited, setCodeEdited] = useState(false)
   const problem = validateNodeInput(level, input, false)
   const siblings = tree.childrenOf(parent)
+
   const nextPosition =
     siblings.reduce((max, s) => Math.max(max, s.position ?? 0), 0) + 1
+
   const create = useMutation({
     mutationFn: () =>
       createStorageNode(
@@ -651,9 +670,12 @@ function AddLocationDialog({
     },
     onError: (error) => toast.error(errorMessage(error)),
   })
+
   const set = (patch: Partial<NodeInput>) => setInput({ ...input, ...patch })
+
   const hasTemperature =
     level === 'site' || level === 'room' || level === 'unit'
+
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
@@ -795,6 +817,7 @@ function MatchSamples({
   onMatched: () => void
 }) {
   const queryClient = useQueryClient()
+
   const typed = useQuery({
     queryKey: ['storage-positions', 'typed-places', workspaceId],
     queryFn: async () =>
@@ -806,7 +829,9 @@ function MatchSamples({
       ).filter((row) => row.loc?.trim()).length,
     enabled: Boolean(workspaceId),
   })
+
   const unfiled = Math.max(0, (typed.data ?? 0) - held)
+
   const match = useMutation({
     mutationFn: () => matchSampleLocations(client, workspaceId),
     onSuccess: (result) => {
@@ -822,7 +847,9 @@ function MatchSamples({
     },
     onError: (error) => toast.error(errorMessage(error)),
   })
+
   if (typed.isPending || unfiled === 0) return null
+
   return (
     <div className="flex items-center gap-2">
       <Tooltip content={t('settings.storageLocationsPanel.matchHint')}>

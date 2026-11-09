@@ -33,6 +33,7 @@ export interface RepresentationFrameProps {
 
 function sourceBadgeText(handle: RepresentationHandle): string | null {
   const { datasetId, versionId, recordId } = handle.source
+
   if (datasetId) {
     return versionId
       ? t('data.representationFrame.datasetV', {
@@ -41,8 +42,10 @@ function sourceBadgeText(handle: RepresentationHandle): string | null {
         })
       : t('data.representationFrame.dataset', { slice: datasetId.slice(0, 8) })
   }
+
   if (recordId)
     return t('data.representationFrame.record', { slice: recordId.slice(0, 8) })
+
   return null
 }
 
@@ -58,6 +61,7 @@ export function RepresentationFrame({
   const frozen = handle.provenance.frozen
   const sourceBadge = sourceBadgeText(handle)
   const titleId = React.useId()
+
   // A frozen handle pinning exactly one Dataset Version surfaces the pin at
   // a glance (mirrors the chart preview's version subtitle); multi-source
   // affordances stay with the kind renderer.

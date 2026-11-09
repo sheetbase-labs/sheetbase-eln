@@ -38,9 +38,12 @@ const PLACEMENTS = [
 export async function seedDesignSamplePositions(db: Db): Promise<void> {
   const done = await db.execute(sql`
     select 1 from api.storage_movements where workspace_id = ${PROCESS} limit 1`)
+
   if (done.rows.length) return
+
   const pending = await db.execute(sql`
     select 1 from api.storage_sites where workspace_id = ${PROCESS} limit 1`)
+
   if (!pending.rows.length) return
 
   // The Storage page's own matcher files the samples that name one position.
@@ -61,7 +64,9 @@ export async function seedDesignSamplePositions(db: Db): Promise<void> {
             and b.code = $3 and p.label = $4 and p.status = 'available'`,
         [PROCESS, identifier, box, label],
       )
+
       const row = found.rows.at(0)
+
       if (!row) continue
       await client.query(
         `select api.move_sample_to_position($1, $2, $3, null)`,
@@ -89,6 +94,7 @@ export async function seedDesignSamplePositions(db: Db): Promise<void> {
     // The TB-02 run that read the first file, with a result for each sample in it.
     const file = DEMO_FILES[0]
     const checksum = createHash('sha256').update(file.text).digest('hex')
+
     const run = (
       await client.query<{ id: string }>(
         `select id from api.create_instrument_run(
@@ -104,6 +110,7 @@ export async function seedDesignSamplePositions(db: Db): Promise<void> {
         ],
       )
     ).rows[0]
+
     await client.query(`select api.start_instrument_run($1, $2)`, [
       PROCESS,
       run.id,
@@ -117,9 +124,11 @@ export async function seedDesignSamplePositions(db: Db): Promise<void> {
       PROCESS,
       run.id,
     ])
+
     const results = sampleResultsFromPayload(
       readWithLayout(file.text, FW4_LAYOUT),
     )
+
     await client.query(
       `select api.record_run_sample_results($1, $2, $3::jsonb)`,
       [PROCESS, run.id, JSON.stringify(results)],

@@ -40,6 +40,7 @@ describe('import mapping', () => {
         display_order: 1,
       }),
     ])
+
     const mappings = suggestImportMappings(['sample', 'pH', 'extra'], fields)
     expect(mappings[0]).toMatchObject({ kind: 'field' })
     expect(mappings[1]).toMatchObject({ kind: 'field' })
@@ -54,6 +55,7 @@ describe('import mapping', () => {
       nullable: true,
       kind: 'dataset-field',
     }
+
     expect(() => coerceImportValue(integer, '1.5')).toThrow(/Invalid integer/)
     expect(() =>
       coerceImportValue(
@@ -79,7 +81,9 @@ describe('import mapping', () => {
       }),
       column({ id: 'f-ph', field_name: 'ph' }),
     ])
+
     const mappings = suggestImportMappings(['Sample', 'pH'], fields)
+
     const mapped = mapImportSheet(
       {
         name: 'Sheet 1',
@@ -93,6 +97,7 @@ describe('import mapping', () => {
       'schema-v1',
       () => 'row-fixed',
     )
+
     expect(mapped.schemaVersionId).toBe('schema-v1')
     expect(mapped.rows[0]?.values).toEqual({ 'f-text': 'A', 'f-ph': 7.2 })
     expect(mapped.errors).toEqual([
@@ -114,6 +119,7 @@ describe('import mapping', () => {
     const field = datasetFieldsFromColumns([
       column({ unit: { storageUnit: 'mg/mL' } }),
     ])[0]
+
     const map = (sourceUnit: string | null, source = 'Concentration') =>
       mapImportSheet(
         {
@@ -124,7 +130,9 @@ describe('import mapping', () => {
         [{ source, kind: 'field', field, sourceUnit }],
         'schema-v1',
       )
+
     expect(map('mg/mL').rows[0]?.values[field.id]).toBe(0.125)
+
     for (const unit of [null, 'g/L', 'cells/mL', 'MG/ML']) {
       const result = map(unit)
       expect(result.rows[0]?.values).toEqual({})
@@ -132,6 +140,7 @@ describe('import mapping', () => {
         /Declare the source unit|Convert the source values/,
       )
     }
+
     expect(map(null, 'Concentration (g/L)').errors[0]?.message).toContain(
       'source unit g/L',
     )
@@ -154,6 +163,7 @@ describe('suggestImportMappings with a unit annotation', () => {
         kind: 'dataset-field' as const,
       },
     ]
+
     const [mapping] = suggestImportMappings(['Capsid titre (vg/mL)'], fields)
     expect(mapping).toMatchObject({ kind: 'field', field: { id: 'f1' } })
   })

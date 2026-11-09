@@ -147,6 +147,7 @@ function chartHandle(): RepresentationHandle {
 
 function frozenChartPayload() {
   const materialised = materialiseChart(chartSpec(), COLUMNS, ROWS)
+
   return {
     revisionId: null,
     frozenAt: '2026-01-01T00:00:00.000Z',
@@ -212,6 +213,7 @@ describe('provenance-stamped figure export', () => {
       configVersion: CHART_SPEC_VERSION,
       exportedAt: EXPORTED_AT,
     }
+
     const line = buildFigureProvenanceLine(stamp)
     expect(line).toContain(DATASET_ID.slice(0, 8))
     expect(line).toContain(VERSION_ID.slice(0, 8))
@@ -227,6 +229,7 @@ describe('provenance-stamped figure export', () => {
       configVersion: CHART_SPEC_VERSION,
       exportedAt: EXPORTED_AT,
     })
+
     expect(line).toContain('live')
     expect(line).toContain(DATASET_ID.slice(0, 8))
   })
@@ -239,6 +242,7 @@ describe('provenance-stamped figure export', () => {
       configVersion: PLATE_MAP_SPEC_VERSION,
       exportedAt: EXPORTED_AT,
     })
+
     expect(line).toContain('plate_map')
     expect(line).toContain(EXPORTED_AT)
   })
@@ -285,6 +289,7 @@ describe('provenance-stamped data export', () => {
 
   it('serialises rows deterministically under the header', () => {
     const stamp = representationExportStamp(chartHandle(), EXPORTED_AT)
+
     const csv = serialiseRepresentationCsv({
       columns: ['time', 'signal'],
       rows: [
@@ -293,6 +298,7 @@ describe('provenance-stamped data export', () => {
       ],
       stamp,
     })
+
     expect(csv).toContain(`# dataset_version_id: ${VERSION_ID}`)
     expect(csv).toContain('time,signal')
     expect(csv).toContain('0,1')
@@ -309,6 +315,7 @@ describe('frozen evidence reconstruction', () => {
     const first = reconstructFrozenRepresentation(handle, frozen, input)
     const second = reconstructFrozenRepresentation(handle, frozen, input)
     expect(JSON.stringify(first)).toBe(JSON.stringify(second))
+
     if (first.kind !== 'chart' || second.kind !== 'chart')
       throw new Error('unreachable')
     expect(first.materialised).toEqual(
@@ -327,6 +334,7 @@ describe('frozen evidence reconstruction', () => {
       versionId: VERSION_ID,
       title: 'Signal',
     })!
+
     const frozen = frozenAnalysisPayload()
     const input = { columns: COLUMNS, rows: ROWS }
     const first = reconstructFrozenRepresentation(handle, frozen, input)
@@ -338,8 +346,10 @@ describe('frozen evidence reconstruction', () => {
     })
     // CSV evidence is byte-identical for a pinned export timestamp.
     const stamp = representationExportStamp(handle, EXPORTED_AT)
+
     const csvAt = (rows: Array<Array<string | number | null>>) =>
       serialiseRepresentationCsv({ columns: ['signal'], rows, stamp })
+
     expect(csvAt([['a'], ['b']])).toBe(csvAt([['a'], ['b']]))
   })
 })
@@ -352,6 +362,7 @@ describe('frozen analysis method version (R5-STUDIO-01)', () => {
       versionId: VERSION_ID,
       title: 'Signal',
     })!
+
     const frozen = { ...frozenAnalysisPayload(), methodVersion: 2 }
     expect(
       reconstructFrozenRepresentation(handle, frozen, {
@@ -378,12 +389,15 @@ describe('frozen analysis method version (R5-STUDIO-01)', () => {
       versionId: VERSION_ID,
       title: 'Signal',
     })!
+
     const input = { columns: COLUMNS, rows: ROWS }
+
     const current = reconstructFrozenRepresentation(
       handle,
       { ...frozenAnalysisPayload(), methodVersion: ANALYSIS_METHOD_VERSION },
       input,
     )
+
     expect(current).toEqual({
       kind: 'analysis',
       outcome: runAnalysis(descriptiveDefinition(), COLUMNS, ROWS),
@@ -405,7 +419,9 @@ describe('frozen analysis method version (R5-STUDIO-01)', () => {
       versionId: VERSION_ID,
       title: 'Signal',
     })!
+
     const outcome = runAnalysis(descriptiveDefinition(), COLUMNS, ROWS)
+
     if (!outcome.ok) throw new Error('expected ok')
     const stamp = analysisExportStamp(handle, EXPORTED_AT, outcome.result)
     expect(stamp.method).toEqual({
@@ -417,11 +433,13 @@ describe('frozen analysis method version (R5-STUDIO-01)', () => {
     expect(stamp.checks?.map((check) => check.id)).toEqual(
       outcome.result.checks.map((check) => check.id),
     )
+
     const csv = serialiseRepresentationCsv({
       columns: ['signal'],
       rows: [['a']],
       stamp,
     })
+
     expect(csv).toContain(
       `# method: one_way_anova v${ANALYSIS_METHOD_VERSION} — One-way ANOVA`,
     )
@@ -435,6 +453,7 @@ describe('frozen analysis method version (R5-STUDIO-01)', () => {
 
   it('refuses to stamp a non-analysis handle', () => {
     const outcome = runAnalysis(descriptiveDefinition(), COLUMNS, ROWS)
+
     if (!outcome.ok) throw new Error('expected ok')
     expect(() =>
       analysisExportStamp(chartHandle(), EXPORTED_AT, outcome.result),
@@ -494,6 +513,7 @@ describe('stable embed configs', () => {
       config: {},
       source: { datasetId: null, versionId: null },
     })
+
     expect(result.ok).toBe(false)
     expect(result.handle).toBeUndefined()
     expect(result.errors.join(' ')).toMatch(/unknown representation kind/)
@@ -504,6 +524,7 @@ describe('stable embed configs', () => {
       ...embedInput(),
       configVersion: 999,
     })
+
     expect(result.ok).toBe(false)
     expect(result.handle).toBeUndefined()
     expect(result.errors.join(' ')).toMatch(/configVersion must be/)
@@ -514,14 +535,17 @@ describe('stable embed configs', () => {
       ...embedInput(),
       config: { ...chartSpec(), type: 'not-a-chart' },
     })
+
     expect(bad.ok).toBe(false)
     expect(bad.errors.join(' ')).toMatch(/ChartSpec/)
+
     const badSheet = validateRepresentationEmbed({
       kind: 'sheet',
       configVersion: SHEET_REPRESENTATION_CONFIG_VERSION,
       config: { instanceId: 'not-a-uuid' },
       source: { datasetId: null, versionId: null },
     })
+
     expect(badSheet.ok).toBe(false)
   })
 
@@ -530,6 +554,7 @@ describe('stable embed configs', () => {
       ...embedInput(),
       source: { datasetId: 'dataset-1', versionId: null },
     })
+
     expect(result.ok).toBe(false)
     expect(result.errors.join(' ')).toMatch(/source\.datasetId/)
   })
@@ -541,11 +566,13 @@ describe('notebook embedding coverage', () => {
     expect(
       validateBlock({ type: 'chart', payload: { spec, title: 'Trend' } }).ok,
     ).toBe(true)
+
     const handle = chartToRepresentationHandle({
       spec,
       frozen: null,
       title: 'Trend',
     })
+
     expect(handle?.config.kind).toBe('chart')
     expect(
       validateRepresentationEmbed({
@@ -577,12 +604,15 @@ describe('notebook embedding coverage', () => {
       datasetId: DATASET_ID,
       title: 'Signal',
     })
+
     expect(analysis?.config.kind).toBe('analysis')
     expect(analysis?.readOnly).toBe(true)
+
     const sheet = sheetToRepresentationHandle({
       instanceId: INSTANCE_ID,
       title: 'Grid',
     })
+
     expect(sheet?.config.kind).toBe('sheet')
     expect(sheet?.readOnly).toBe(false)
   })
@@ -598,13 +628,17 @@ describe('notebook embedding coverage', () => {
       groupBy: [COL_G],
       facetBy: null,
     }
+
     expect(validateComparativeViewConfig(config)).toEqual([])
+
     const promoted = comparativeViewToRepresentationHandle(
       config,
       COLUMNS,
       'Compare',
     )
+
     expect(promoted.config.kind).toBe('chart')
+
     if (promoted.config.kind !== 'chart') throw new Error('unreachable')
     // The promoted spec passes the canonical validator — the existing chart
     // block path (validateBlock + chart adapter) already embeds it.
@@ -629,6 +663,7 @@ describe('notebook embedding coverage', () => {
       groupBy: [COL_G],
       facetBy: null,
     }
+
     expect(validateComparativeViewConfig(config)).toEqual([])
     const promoted = comparativeViewToRepresentationHandle(config, COLUMNS)
     expect(promoted.provenance.frozen).toBe(true)
@@ -666,9 +701,11 @@ describe('representation metadata surface', () => {
 
   it('stays readable through the existing blocks contract (no new tables)', () => {
     const contract = readFileSync('docs/api/public-api-contract.md', 'utf8')
+
     const blocksRow = contract
       .split('\n')
       .find((line) => /^\| `blocks`/.test(line))
+
     expect(blocksRow, 'blocks must stay on the public contract').toBeTruthy()
     expect(blocksRow).toMatch(/projects:read/)
     // Metadata derives from block payloads, so no new public table is needed.

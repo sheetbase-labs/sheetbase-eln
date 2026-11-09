@@ -31,6 +31,7 @@ describe('proseRunMembers', () => {
       block('b', 'rich_text'),
       block('c', 'rich_text'),
     ])
+
     expect(members.a).toEqual({
       size: 3,
       indexInRun: 0,
@@ -57,6 +58,7 @@ describe('proseRunMembers', () => {
       block('b', 'sheet'),
       block('c', 'rich_text'),
     ])
+
     expect(members).toEqual({})
   })
 
@@ -68,6 +70,7 @@ describe('proseRunMembers', () => {
       block('d', 'rich_text'),
       block('e', 'rich_text'),
     ])
+
     expect(members.a?.size).toBe(2)
     expect(members.b?.isLast).toBe(true)
     expect(members.d?.indexInRun).toBe(0)
@@ -81,6 +84,7 @@ describe('proseRunMembers', () => {
       block('a', 'rich_text'),
       block('b', 'rich_text'),
     ])
+
     expect(members.b?.isLast).toBe(true)
     expect(members.x).toBeUndefined()
   })

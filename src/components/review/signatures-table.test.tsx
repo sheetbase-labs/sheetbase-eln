@@ -39,6 +39,7 @@ function signature(
 
 function bodyRows() {
   const table = screen.getByRole('table', { name: 'Signatures' })
+
   return within(table).getAllByRole('row').slice(1)
 }
 
@@ -107,6 +108,7 @@ describe('SignaturesTable', () => {
 
     const row = screen.getByRole('heading', { name: 'Signatures' })
       .parentElement as HTMLElement
+
     expect(within(row).getByTestId('signature-note')).toBeTruthy()
   })
 

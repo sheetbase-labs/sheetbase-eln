@@ -107,9 +107,12 @@ function text(value: unknown): string | null {
 
 function fieldValue(value: unknown): string | null {
   const asText = text(value)
+
   if (asText) return asText
+
   if (typeof value === 'number' || typeof value === 'boolean')
     return String(value)
+
   return null
 }
 
@@ -119,6 +122,7 @@ function toPreviewBlock(
   recordId: string,
 ): NotebookBlock {
   const payload = isEntity(block.payload) ? block.payload : {}
+
   return {
     id: String(block.id),
     recordId,
@@ -150,6 +154,7 @@ function locationId(location: DocumentLocation): string {
 
 function findMarked(root: HTMLElement | null, value: string) {
   if (!root) return undefined
+
   return Array.from(
     root.querySelectorAll<HTMLElement>('[data-doc-location]'),
   ).find((element) => element.dataset.docLocation === value)
@@ -157,6 +162,7 @@ function findMarked(root: HTMLElement | null, value: string) {
 
 function findComment(root: HTMLElement | null, commentId: string) {
   if (!root) return undefined
+
   return Array.from(
     root.querySelectorAll<HTMLElement>('[data-comment-id]'),
   ).find((element) => element.dataset.commentId === commentId)
@@ -225,6 +231,7 @@ function FrozenFacts({ block }: { block: CanonicalRevisionEntity }) {
   const payload: Record<string, unknown> = isEntity(block.payload)
     ? block.payload
     : {}
+
   const facts = [
     [
       t('projects.documentReview.facts.name'),
@@ -254,6 +261,7 @@ function FrozenFacts({ block }: { block: CanonicalRevisionEntity }) {
       fieldValue(payload.datasetVersionId),
     ],
   ].filter((entry): entry is [string, string] => entry[1] !== null)
+
   return (
     <div className="rounded-md border border-dashed bg-surface-muted px-3 py-2.5">
       <p className="text-xs font-semibold text-fg">
@@ -302,13 +310,16 @@ function FrozenBlockContent({
       </p>
     )
   }
+
   const frozenAnalysis =
     entry.type === 'analysis' &&
     isEntity(entry.block.payload) &&
     isEntity(entry.block.payload.frozen)
+
   if (LIVE_PREVIEW_BLOCK_TYPES.has(entry.type) && !frozenAnalysis) {
     return <FrozenFacts block={entry.block} />
   }
+
   return <BlockPreview block={toPreviewBlock(entry.block, recordId)} frozen />
 }
 
@@ -333,12 +344,14 @@ function CommentCard({
   onOpenComment?: (commentId: string) => void
 }) {
   const { comment, location, orphanReason } = anchor
+
   const anchoredLabel = comment.revision_id
     ? (revisionLabels?.get(comment.revision_id) ??
       t('projects.documentReview.revisionShort', {
         id: comment.revision_id.slice(0, 8),
       }))
     : null
+
   return (
     <aside
       data-comment-id={comment.id}
@@ -428,6 +441,7 @@ function CommentMarker({
   onShowComment: (commentId: string) => void
 }) {
   if (anchors.length === 0) return null
+
   return (
     <Button
       variant="quiet"
@@ -523,12 +537,15 @@ export function RevisionDocumentReview({
 }: RevisionDocumentReviewProps) {
   const rootRef = React.useRef<HTMLElement>(null)
   const [showMarks, setShowMarks] = React.useState(true)
+
   const [activeChangeId, setActiveChangeId] = React.useState<string | null>(
     null,
   )
+
   const [highlightedLocation, setHighlightedLocation] = React.useState<
     string | null
   >(null)
+
   const [highlightedComment, setHighlightedComment] = React.useState<
     string | null
   >(null)
@@ -537,6 +554,7 @@ export function RevisionDocumentReview({
     () => buildRevisionDocument(before, after),
     [after, before],
   )
+
   const anchors = React.useMemo(
     () =>
       placeDocumentComments({
@@ -547,6 +565,7 @@ export function RevisionDocumentReview({
       }),
     [comments, comparisonRevisionId, document, revisionId],
   )
+
   const placed = anchors.filter(isPlaced)
   const orphans = anchors.filter((anchor) => anchor.orphanReason !== undefined)
 
@@ -555,6 +574,7 @@ export function RevisionDocumentReview({
       placed.filter((anchor) => locationId(anchor.location) === value),
     [placed],
   )
+
   /**
    * A comment can be anchored to a part of the frozen revision that carries no
    * change (an unchanged scientific table, for example). It is still placed —
@@ -563,12 +583,18 @@ export function RevisionDocumentReview({
    */
   const unmarked = React.useMemo(() => {
     const rendered = new Set<string>(['revision'])
+
     for (const block of document.blocks) rendered.add(block.id)
+
     for (const table of document.tables) rendered.add(table.tableId)
+
     for (const area of document.areas) rendered.add(`area-${area.key}`)
+
     for (const change of document.diff.changes) rendered.add(change.id)
+
     return placed.filter((anchor) => !rendered.has(locationId(anchor.location)))
   }, [document, placed])
+
   const orphanRegionRef = React.useRef<HTMLElement>(null)
 
   const showLocation = React.useCallback((location: DocumentLocation) => {
@@ -583,11 +609,13 @@ export function RevisionDocumentReview({
     setHighlightedComment(commentId)
     setHighlightedLocation(null)
     const element = findComment(rootRef.current, commentId)
+
     if (element) focusChange(element)
   }, [])
 
   React.useEffect(() => {
     if (!focusCommentId) return
+
     if (!anchors.some((anchor) => anchor.comment.id === focusCommentId)) return
     showComment(focusCommentId)
   }, [anchors, focusCommentId, showComment])
@@ -597,7 +625,9 @@ export function RevisionDocumentReview({
 
   function renderAnchors(value: string, label: string) {
     const forLocation = anchorsFor(value)
+
     if (forLocation.length === 0) return null
+
     return (
       <div
         role="group"
@@ -628,6 +658,7 @@ export function RevisionDocumentReview({
   function renderBlock(entry: DocumentBlockEntry) {
     const changed = entry.changes.length > 0
     const marked = showMarks && changed
+
     const content = (
       <FrozenBlockContent
         entry={entry}
@@ -635,6 +666,7 @@ export function RevisionDocumentReview({
         onSheetCommentTarget={onSheetCommentTarget}
       />
     )
+
     return (
       <section
         key={entry.id}

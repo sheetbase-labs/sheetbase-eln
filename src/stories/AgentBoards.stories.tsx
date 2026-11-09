@@ -41,7 +41,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const NOW = new Date('2026-10-14T10:00:00.000Z')
@@ -156,6 +158,7 @@ const revisions: AgentPolicyRevision[] = [
 
 const nameOf = (id: string | null) =>
   id === 'u-1' ? 'Priya Raman' : id === 'u-2' ? 'Tom Okafor' : null
+
 const projectName = (id: string) => (id === 'p-1' ? 'Stability' : id)
 
 /** The risk glyph at each level, with and without its label. */

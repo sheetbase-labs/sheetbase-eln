@@ -32,7 +32,9 @@ const meta = {
     onSubmit: () => {},
   },
 } satisfies Meta<typeof ESignDialog>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The form: meaning, name confirmation, password. */

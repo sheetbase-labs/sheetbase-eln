@@ -39,14 +39,17 @@ const samples = vi.hoisted(() => ({
   fetchSampleMeasurements: vi.fn(),
   fetchSampleReservations: vi.fn(),
 }))
+
 const sonner = vi.hoisted(() => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
+
 const routeContext = vi.hoisted(() => ({
   value: {
     workspace: { role: 'scientist' },
   },
 }))
+
 const data = vi.hoisted(() => ({
   list: vi.fn(),
 }))
@@ -73,10 +76,12 @@ vi.mock('@tanstack/react-router', () => ({
     children: React.ReactNode
   } & Record<string, unknown>) => {
     let href = typeof to === 'string' ? to : '#'
+
     if (params) {
       for (const [key, value] of Object.entries(params))
         href = href.replace(`$${key}`, encodeURIComponent(String(value)))
     }
+
     return (
       <a href={href} {...props}>
         {children}
@@ -106,12 +111,15 @@ vi.mock('#/lib/samples', async () => ({
     }>,
   ) => {
     const consumes = events.filter((e) => e.operation === 'consume')
+
     const used = consumes.length
       ? consumes.reduce((sum, e) => sum + Math.abs(e.quantityDelta ?? 0), 0)
       : null
+
     const creates = events.filter((e) => e.operation === 'create')
     const created = creates.at(-1)
     const latest = consumes.at(0)
+
     return {
       registered:
         created?.quantityAfter ??
@@ -256,6 +264,7 @@ function renderRoute() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <SampleRoute />
@@ -678,11 +687,14 @@ describe('sample lineage export', () => {
         depth: 0,
       },
     ])
+
     try {
       renderRoute()
+
       const button = await screen.findByRole('button', {
         name: 'Export lineage',
       })
+
       vi.useFakeTimers()
       button.click()
 

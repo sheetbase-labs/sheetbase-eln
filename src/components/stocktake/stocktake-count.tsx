@@ -76,9 +76,11 @@ export function StocktakeCount({
     queryKey: stocktakeKeys.detail(stocktakeId),
     queryFn: () => fetchStocktake(client, stocktakeId),
   })
+
   const items = useStocktakeItems(stocktakeId)
 
   if (header.isPending) return <div className="flex-1" aria-busy="true" />
+
   if (!header.data)
     return (
       <div className="flex flex-1 justify-center px-6">
@@ -96,6 +98,7 @@ export function StocktakeCount({
       </div>
     )
   const stocktake = header.data
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <ListHeader
@@ -149,30 +152,37 @@ function OpenCount({
   canWrite: boolean
 }) {
   const queryClient = useQueryClient()
+
   const tree = useQuery({
     queryKey: stocktakeKeys.tree,
     queryFn: () => fetchStorageTree(client, { occupancy: false }),
     staleTime: 30_000,
   })
+
   const boxes = useMemo<CountBox[]>(
     () => (tree.data ? boxesInScope(tree.data, stocktake) : []),
     [tree.data, stocktake],
   )
+
   const [pickedBox, setPickedBox] = useState<string | null>(null)
+
   // A count of one box is always standing at that box; a count of a rack or
   // freezer with one box in it has nowhere else to stand.
   const standingAt =
     pickedBox ??
     (stocktake.scopeLevel === 'box' ? stocktake.scopeId : null) ??
     (boxes.length === 1 ? boxes[0].id : null)
+
   const box = boxes.find((b) => b.id === standingAt) ?? null
 
   const [code, setCode] = useState('')
   const [tab, setTab] = useState<Tab>('toFind')
+
   const [last, setLast] = useState<{
     tone: 'ok' | 'warn' | 'bad' | 'info'
     text: string
   } | null>(null)
+
   const [finishing, setFinishing] = useState(false)
   const [callingOff, setCallingOff] = useState(false)
 
@@ -184,29 +194,38 @@ function OpenCount({
   }
 
   const resolveScanCode = useScanCodeResolver()
+
   const scan = useMutation({
     mutationFn: async (raw: string) => {
       const trimmed = raw.trim()
+
       if (!trimmed) return null
       const boxHit = matchBoxCode(boxes, trimmed)
+
       if (boxHit) {
         setPickedBox(boxHit.id)
         setLast({
           tone: 'info',
           text: t('library.stocktake.count.nowAt', { name: boxHit.name }),
         })
+
         return null
       }
+
       const resolved = await resolveScanCode(trimmed)
       const hit = resolved.hit
+
       if (!resolved.found || !hit) {
         setLast({
           tone: 'warn',
           text: t('library.stocktake.count.notFound', { code: trimmed }),
         })
+
         return null
       }
+
       const isLot = hit.kind === 'record' && hit.recordKind === 'material'
+
       if (hit.kind !== 'sample' && !isLot) {
         setLast({
           tone: 'warn',
@@ -214,24 +233,30 @@ function OpenCount({
             code: hit.identifier,
           }),
         })
+
         return null
       }
+
       if (hit.kind === 'sample' && !standingAt) {
         setLast({
           tone: 'warn',
           text: t('library.stocktake.count.scanBoxFirst'),
         })
+
         return null
       }
+
       const wire = await recordStocktakeScan(client, {
         stocktakeId: stocktake.id,
         recordId: hit.id,
         boxId: standingAt,
       })
+
       return toStocktakeItem(wire)
     },
     onSuccess: (item) => {
       setCode('')
+
       if (!item) return
       setLast(describeScan(item, stocktake.scopePath))
       refresh()
@@ -253,6 +278,7 @@ function OpenCount({
     onError: (e: unknown) =>
       toast.error(messageOf(e, t('library.stocktake.count.couldNotFinish'))),
   })
+
   const callOff = useMutation({
     mutationFn: () => cancelStocktake(client, stocktake.id),
     onSuccess: () => {
@@ -265,9 +291,11 @@ function OpenCount({
 
   const summary = summariseItems(items)
   const expectedTotal = items.filter((i) => i.expected).length
+
   const expectedSeen = items.filter(
     (i) => i.expected && i.state !== 'expected',
   ).length
+
   const extra = items.filter((i) => !i.expected).length
 
   const shown = sortItems(
@@ -556,6 +584,7 @@ function describeScan(
   text: string
 } {
   const identifier = item.identifier
+
   switch (item.state) {
     case 'confirmed':
       return {

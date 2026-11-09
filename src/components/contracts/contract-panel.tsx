@@ -70,15 +70,19 @@ function latestFindings(
 ): Map<string, ContractRuleResult[]> {
   const seen = new Set<string>()
   const byRule = new Map<string, ContractRuleResult[]>()
+
   for (const run of runs) {
     if (run.scope !== 'stored') continue
     const key = run.datasetId ?? ''
+
     if (seen.has(key)) continue
     seen.add(key)
+
     for (const result of run.results) {
       byRule.set(result.ruleId, [...(byRule.get(result.ruleId) ?? []), result])
     }
   }
+
   return byRule
 }
 
@@ -109,7 +113,9 @@ export function ContractPanel({
     if (saved) queryClient.setQueryData(contractKeys.target(target), saved)
     void queryClient.invalidateQueries({ queryKey: contractKeys.all })
   }
+
   const fail = (e: unknown) => setError(messageOf(e))
+
   const fieldLabel = (key: string | undefined) =>
     fields.find((option) => option.key === key)?.label ?? key ?? ''
 
@@ -118,6 +124,7 @@ export function ContractPanel({
     onSuccess: (saved) => refresh(saved),
     onError: fail,
   })
+
   const update = useMutation({
     mutationFn: (patch: {
       lifecycle?: ContractLifecycle
@@ -131,6 +138,7 @@ export function ContractPanel({
     },
     onError: fail,
   })
+
   const check = useMutation({
     mutationFn: () => runCheck(notebookDataClient, contract?.id ?? ''),
     onSuccess: (outcome) => {
@@ -143,6 +151,7 @@ export function ContractPanel({
     },
     onError: fail,
   })
+
   const remove = useMutation({
     mutationFn: (ruleId: string) =>
       removeRule(notebookDataClient, contract?.id ?? '', ruleId),
@@ -152,6 +161,7 @@ export function ContractPanel({
     },
     onError: fail,
   })
+
   const destroy = useMutation({
     mutationFn: () => deleteContract(notebookDataClient, contract?.id ?? ''),
     onSuccess: () => {
@@ -161,17 +171,20 @@ export function ContractPanel({
     },
     onError: fail,
   })
+
   const importFile = useMutation({
     mutationFn: async (file: File) =>
       importOdcs(notebookDataClient, parseOdcs(await file.text()), target),
     onSuccess: (result) => {
       refresh(result.contract)
       toast(t('contracts.odcs.imported', { count: result.rulesImported }))
+
       if (result.ignored.length > 0)
         toast(t('contracts.odcs.left', { items: result.ignored.join(', ') }))
     },
     onError: fail,
   })
+
   const exportFile = useMutation({
     mutationFn: async () => {
       const document = await exportOdcs(notebookDataClient, contract?.id ?? '')
@@ -186,6 +199,7 @@ export function ContractPanel({
   })
 
   const findings = useMemo(() => latestFindings(runs.data ?? []), [runs.data])
+
   const datasetNames = useQuery({
     queryKey: ['data-contracts', 'dataset-names', contract?.id],
     queryFn: async () => {
@@ -196,11 +210,14 @@ export function ContractPanel({
           ),
         ),
       ]
+
       if (ids.length === 0) return {}
+
       const rows = await notebookDataClient.list<{
         id: string
         name: string
       }>('datasets', `?id=in.(${ids.join(',')})&select=id,name`)
+
       return Object.fromEntries(rows.map((row) => [row.id, row.name]))
     },
     enabled: (runs.data ?? []).length > 0,
@@ -298,6 +315,7 @@ export function ContractPanel({
                   onChange={(e) => {
                     const file = e.target.files?.[0]
                     e.target.value = ''
+
                     if (file) importFile.mutate(file)
                   }}
                 />
@@ -429,6 +447,7 @@ export function ContractPanel({
                   placeholder={t('contracts.panel.descriptionHint')}
                   onBlur={(e) => {
                     const next = e.target.value.trim()
+
                     if (next !== (contract.description ?? ''))
                       update.mutate({ description: next })
                   }}
@@ -478,6 +497,7 @@ export function ContractPanel({
               {contract.rules.map((rule) => {
                 const results = findings.get(rule.id)
                 const failed = results?.find((r) => r.status === 'fail')
+
                 return (
                   <TableRow key={rule.id}>
                     <TableCell className="first:pl-3">

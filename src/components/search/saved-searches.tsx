@@ -43,6 +43,7 @@ export function SavedSearches({
       userId,
       role,
     })
+
   const [naming, setNaming] = useState(false)
   const [name, setName] = useState('')
   const [shareNew, setShareNew] = useState(false)
@@ -147,6 +148,7 @@ export function SavedSearches({
           <ul className="m-0 flex list-none flex-col p-1 pt-0">
             {recentSavedSearches(saved, RECENT).map((s) => {
               const shared = s.visibility === 'workspace'
+
               return (
                 <li key={s.id}>
                   <button

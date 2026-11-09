@@ -30,6 +30,7 @@ async function sendLogo(method: 'PUT' | 'DELETE', body?: Blob): Promise<void> {
     body,
     credentials: 'same-origin',
   })
+
   if (!response.ok) {
     throw new Error(
       response.status === 413
@@ -41,6 +42,7 @@ async function sendLogo(method: 'PUT' | 'DELETE', body?: Blob): Promise<void> {
             : 'The logo could not be saved.',
     )
   }
+
   requestShellRefresh()
 }
 
@@ -62,10 +64,13 @@ export async function runLabworkAction(
         scopeId: action.scopeId,
         note: action.note,
       })
+
       return { openHref: `/stocktake/${made.id}` }
     }
+
     case 'stocktake.complete':
       await completeStocktake(client, action.stocktakeId)
+
       return { openHref: `/stocktake/${action.stocktakeId}` }
     case 'hold.create':
       await createLegalHold(client, {
@@ -74,9 +79,11 @@ export async function runLabworkAction(
         projectId: action.projectId,
         kind: action.recordKind,
       })
+
       return { openHref: '/settings/lab/retention' }
     case 'hold.release':
       await releaseLegalHold(client, action.holdId, action.note)
+
       return { openHref: '/settings/lab/retention' }
     case 'retention.set':
       await saveRetentionRule(
@@ -85,12 +92,14 @@ export async function runLabworkAction(
         action.keepMonths,
         action.note,
       )
+
       return { openHref: '/settings/lab/retention' }
     case 'retention.apply':
       if (action.recordKind === null) await applyRetention(client)
       else {
         await client.rpc('apply_retention', { p_kind: action.recordKind })
       }
+
       return { openHref: '/settings/lab/retention' }
     case 'registry.add': {
       const made = await createRegistryEntry<{ id: string } | null>(client, {
@@ -100,25 +109,32 @@ export async function runLabworkAction(
         customFields: action.customFields,
         allowDuplicate: false,
       })
+
       if (made?.id) {
         for (const parent of action.parents ?? [])
           await addParent(client, made.id, parent.recordId, asRole(parent.role))
       }
+
       return { openHref: made?.id ? `/records/${made.id}` : '/registry' }
     }
+
     case 'compound.lot': {
       const made = await addRegistryLot<{ id: string } | null>(client, {
         entryId: action.compoundId,
         title: action.title,
         customFields: action.customFields,
       })
+
       return { openHref: made?.id ? `/records/${made.id}` : '/registry' }
     }
+
     case 'workflow.enrol':
       await enrolSample(client, action.sampleId, action.workflowId)
+
       return { openHref: `/records/${action.sampleId}` }
     case 'workflow.leave':
       await leaveRun(client, action.runId)
+
       return { openHref: `/records/${action.sampleId}` }
     case 'limits.set':
       await saveFieldLimits(
@@ -133,6 +149,7 @@ export async function runLabworkAction(
         },
         action.note,
       )
+
       return { openHref: '/models' }
     case 'booking_rules.set':
       await setBookingRules(client, {
@@ -141,6 +158,7 @@ export async function runLabworkAction(
         maxBookingMinutes: action.maxBookingMinutes,
         maxAdvanceDays: action.maxAdvanceDays,
       })
+
       return { openHref: '/instruments' }
     case 'watcher.finding':
       await setFindingStatus(client, {
@@ -149,6 +167,7 @@ export async function runLabworkAction(
         until:
           action.change === 'snooze' ? snoozeUntil(action.days) : undefined,
       })
+
       return { openHref: '/inbox' }
     case 'watcher.set':
       await setLabWatcher(client, {
@@ -157,17 +176,21 @@ export async function runLabworkAction(
         enabled: action.enabled,
         schedule: action.schedule,
       })
+
       return { openHref: '/settings/account/watchers' }
     case 'timer.end':
       await endStepTimer(action.timerId, client)
+
       return action.recordId
         ? { openHref: `/records/${action.recordId}` }
         : undefined
     case 'recurring.pause':
       await setRepeatPaused(client, action.scheduleId, action.paused)
+
       return { openHref: '/schedule' }
     case 'recurring.end':
       await endRepeat(client, action.scheduleId, action.cancelUpcoming)
+
       return { openHref: '/schedule' }
     case 'sample.pool': {
       const made = await poolSamples(client, {
@@ -183,8 +206,10 @@ export async function runLabworkAction(
               }
             : undefined,
       })
+
       return { openHref: `/records/${made.pool.id}` }
     }
+
     case 'solution.prepare': {
       const made = await prepareSolution(client, {
         projectId: action.projectId,
@@ -197,8 +222,10 @@ export async function runLabworkAction(
         note: action.note,
         ingredients: action.ingredients,
       })
+
       return { openHref: `/records/${made.id}` }
     }
+
     case 'search.save':
       await saveSearchOnAccount(
         client,
@@ -206,25 +233,32 @@ export async function runLabworkAction(
         { q: action.words },
         action.visibility,
       )
+
       return { openHref: '/saved-searches' }
     case 'pin.set':
       await setFavourite(client, action.target, action.id, action.pinned)
+
       return { openHref: PIN_HREF[action.target](action.id) }
     case 'logo.set': {
       const response = await fetch(
         `/api/files/${encodeURIComponent(action.fileRecordId)}/download`,
         { credentials: 'same-origin' },
       )
+
       if (!response.ok) {
         throw new Error(
           `The image could not be read (${response.status}). Upload it to the lab first.`,
         )
       }
+
       await sendLogo('PUT', await response.blob())
+
       return { openHref: '/settings/workspace' }
     }
+
     case 'logo.remove':
       await sendLogo('DELETE')
+
       return { openHref: '/settings/workspace' }
   }
 }

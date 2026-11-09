@@ -39,15 +39,19 @@ function schemaFor(type: LabType): JsonSchema {
 /** Row schemas for the lab tables, keyed like TABLE_ROW_SCHEMAS. */
 export function labTableRowSchemas(): Record<string, JsonSchema> {
   const out: Record<string, JsonSchema> = {}
+
   for (const [table, def] of Object.entries(LAB_TABLES)) {
     const properties: Record<string, JsonSchema> = {}
     const required: string[] = []
+
     for (const [name, type, req] of def.columns) {
       properties[name] = req
         ? schemaFor(type)
         : { ...schemaFor(type), nullable: true }
+
       if (req) required.push(name)
     }
+
     out[table] = {
       type: 'object',
       additionalProperties: false,
@@ -56,6 +60,7 @@ export function labTableRowSchemas(): Record<string, JsonSchema> {
       properties,
     }
   }
+
   return out
 }
 
@@ -88,6 +93,7 @@ function resultSchema(result: string, summary: string): JsonSchema {
   if (result === 'void') {
     return { type: 'null', nullable: true, description: 'No content.' }
   }
+
   if (result === 'json') {
     return {
       type: 'object',
@@ -95,26 +101,33 @@ function resultSchema(result: string, summary: string): JsonSchema {
       description: `${summary} A JSON object.`,
     }
   }
+
   if (result === 'list:text') {
     return { type: 'array', items: { type: 'string' } }
   }
+
   if (result.startsWith('row:')) {
     const table = result.slice(4)
     const known = table in LAB_TABLES || OTHER_ROW_TABLES.has(table)
+
     const row: JsonSchema = known
       ? { $ref: `#/components/schemas/${rowName(table)}` }
       : {
           type: 'object',
           additionalProperties: { $ref: '#/components/schemas/JsonValue' },
         }
+
     return pgrstRow(row, summary)
   }
+
   if (result.startsWith('rows:')) {
     const properties: Record<string, JsonSchema> = {}
+
     for (const part of result.slice(5).split(',')) {
       const [name, type] = part.split('=') as [string, LabType]
       properties[name] = schemaFor(type)
     }
+
     return {
       type: 'array',
       items: {
@@ -124,6 +137,7 @@ function resultSchema(result: string, summary: string): JsonSchema {
       },
     }
   }
+
   return schemaFor(result as LabType)
 }
 
@@ -142,17 +156,21 @@ export interface LabRpcContract {
 /** Request/result contracts for the lab RPCs, keyed like RPC_CONTRACTS. */
 export function labRpcContracts(): Record<string, LabRpcContract> {
   const out: Record<string, LabRpcContract> = {}
+
   for (const [name, def] of Object.entries(LAB_RPCS)) {
     const properties: Record<string, JsonSchema> = {}
     const required: string[] = []
+
     for (const [pname, type, req] of def.params) {
       const note = describeParam(pname)
       properties[pname] = {
         ...schemaFor(type),
         ...(note ? { description: note } : {}),
       }
+
       if (req) required.push(pname)
     }
+
     out[name] = {
       summary: def.summary,
       description: def.description,
@@ -161,6 +179,7 @@ export function labRpcContracts(): Record<string, LabRpcContract> {
       result: resultSchema(def.result, def.summary),
     }
   }
+
   return out
 }
 

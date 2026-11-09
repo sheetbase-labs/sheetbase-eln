@@ -53,7 +53,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The dialog as the Usage tab opens it: 1,600 mL free of 15,000 mL registered. */

@@ -25,6 +25,7 @@ export async function shareLink(
   if (canNativeShare(nav)) {
     try {
       await nav.share(payload)
+
       return 'shared'
     } catch (error) {
       // Closing the share sheet is a choice, not a failure.
@@ -32,8 +33,10 @@ export async function shareLink(
         return 'cancelled'
     }
   }
+
   try {
     await nav.clipboard.writeText(payload.url)
+
     return 'copied'
   } catch {
     return 'failed'

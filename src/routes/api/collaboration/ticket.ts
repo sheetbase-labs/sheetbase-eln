@@ -16,11 +16,13 @@ import { requestErrorResponse } from '#/lib/request-auth'
 
 const handler = async ({ request }: { request: Request }) => {
   const room = new URL(request.url).searchParams.get('room')
+
   const resolved = await resolveRoomAccess(
     request.headers,
     room,
     realCollaborationAuthDeps,
   )
+
   if (!resolved.ok) {
     return requestErrorResponse(
       resolved.status,
@@ -28,6 +30,7 @@ const handler = async ({ request }: { request: Request }) => {
       resolved.message,
     )
   }
+
   return Response.json(
     {
       userId: resolved.userId,

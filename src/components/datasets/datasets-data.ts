@@ -92,16 +92,20 @@ export function datasetValidation(
       label: `Valid${row.reviewState ? reviewSuffix[row.reviewState] : ''}`,
     }
   }
+
   if (row.missingUnit > 0) {
     const n = row.missingUnit
+
     return {
       tone: 'bad',
       label: n === 1 ? '1 column missing a unit' : `${n} columns missing units`,
     }
   }
+
   if (row.outOfRange > 0) {
     return { tone: 'bad', label: `${row.outOfRange} out of range` }
   }
+
   return {
     tone: 'bad',
     label: `${row.issues} ${row.issues === 1 ? 'issue' : 'issues'}`,
@@ -112,20 +116,27 @@ export function datasetValidation(
 export function datasetIssueSummary(row: DatasetListRow): string {
   if (row.missingUnitFields.length > 0) {
     const names = row.missingUnitFields.map((name) => `“${name}”`)
+
     const list =
       names.length === 1
         ? names[0]
         : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
+
     const verb = names.length === 1 ? 'has' : 'have'
+
     const blocker = row.experimentId
       ? ` Units are required before ${row.experimentId} can be submitted.`
       : ' Units are required before the dataset can be submitted.'
+
     return `${list} ${verb} no unit.${blocker} A model owner or admin sets the unit on the model's field, or re-import with a unit column.`
   }
+
   if (row.outOfRange > 0) {
     const n = row.outOfRange
+
     return `${n} value${n === 1 ? '' : 's'} ${n === 1 ? 'is' : 'are'} outside the model's allowed range.`
   }
+
   return 'This dataset has unresolved issues.'
 }
 
@@ -141,6 +152,7 @@ export function useDatasetSummaries(client: DataClient = notebookDataClient) {
         'dataset_list_summary',
         {},
       )
+
       return rows.map(toDatasetListRow)
     },
     staleTime: 15_000,

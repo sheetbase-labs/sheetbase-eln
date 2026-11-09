@@ -28,13 +28,17 @@ interface OutlineRichTextNode {
 
 function headingText(node: OutlineRichTextNode): string {
   const parts: string[] = []
+
   const walk = (content: Array<OutlineRichTextNode> | undefined) => {
     for (const child of content ?? []) {
       if (typeof child.text === 'string') parts.push(child.text)
+
       if (Array.isArray(child.content)) walk(child.content)
     }
   }
+
   walk(node.content)
+
   return parts.join('').replace(/\s+/g, ' ').trim()
 }
 
@@ -49,16 +53,20 @@ export function notebookOutline(
   >,
 ): NotebookOutlineEntry[] {
   const entries: NotebookOutlineEntry[] = []
+
   for (const block of [...blocks].sort((a, b) => a.order - b.order)) {
     if (block.type !== 'rich_text') continue
+
     const doc = block.payload as unknown as {
       doc?: { content?: OutlineRichTextNode[] }
     }
+
     const docContent = doc.doc?.content
     const content = Array.isArray(docContent) ? docContent : []
     content.forEach((node, index) => {
       if (node.type !== 'heading') return
       const level = node.attrs?.level
+
       if (level !== 2 && level !== 3) return
       entries.push({
         blockId: block.id,
@@ -69,6 +77,7 @@ export function notebookOutline(
       })
     })
   }
+
   return entries
 }
 
@@ -132,6 +141,7 @@ export function notebookSectionSpans(
   const ordered = [...blocks].sort((a, b) => a.order - b.order)
   const spans = new Map<string, NotebookSectionSpan>()
   const open: OpenSection[] = []
+
   const close = (section: OpenSection) => {
     if (spans.has(section.anchorId)) return
     // Same-block ownership: nodes after the heading up to the closing
@@ -141,6 +151,7 @@ export function notebookSectionSpans(
     // H2's collapse hides its nested H3 content too.
     let nodeRange: NotebookSectionSpan['nodeRange']
     const to = section.nodeEnd ?? section.startNodeCount
+
     if (section.startNodeIndex + 1 < to) {
       nodeRange = {
         blockId: section.startBlockId,
@@ -148,14 +159,17 @@ export function notebookSectionSpans(
         to,
       }
     }
+
     spans.set(section.anchorId, {
       blockIds: section.span,
       ...(nodeRange ? { nodeRange } : {}),
     })
   }
+
   for (const block of ordered) {
     const headings = block.type === 'rich_text' ? blockHeadings(block) : []
     const nodeCount = blockNodeCount(block)
+
     // Close at this block's first boundary (same or higher level) BEFORE
     // ownership, so the boundary block belongs to the new section, not the
     // old one.
@@ -164,11 +178,13 @@ export function notebookSectionSpans(
         close(open.pop()!)
       }
     }
+
     // Sections opened by earlier blocks own this whole block (block-granular
     // collapse). Sections started in THIS block never own it.
     for (const section of open) {
       if (section.startBlockId !== block.id) section.span.push(block.id)
     }
+
     for (const head of headings) {
       // A heading bounds the same-block node range of sections started in
       // this block only when its level is the same or higher — an H3 does
@@ -185,11 +201,13 @@ export function notebookSectionSpans(
           section.nodeEnd = head.index
         }
       }
+
       // A second heading in the same block closes the earlier one (same
       // block, same start), so spans never overlap.
       while (open.length > 0 && open[open.length - 1].level >= head.level) {
         close(open.pop()!)
       }
+
       open.push({
         anchorId: head.anchorId,
         level: head.level,
@@ -201,7 +219,9 @@ export function notebookSectionSpans(
       })
     }
   }
+
   for (const section of open) close(section)
+
   return spans
 }
 
@@ -209,7 +229,9 @@ function blockNodeCount(block: Pick<NotebookBlock, 'payload'>): number {
   const doc = block.payload as unknown as {
     doc?: { content?: OutlineRichTextNode[] }
   }
+
   const content = doc.doc?.content
+
   return Array.isArray(content) ? content.length : 0
 }
 
@@ -219,15 +241,18 @@ function blockHeadings(
   const doc = block.payload as unknown as {
     doc?: { content?: OutlineRichTextNode[] }
   }
+
   const docContent = doc.doc?.content
   const content = Array.isArray(docContent) ? docContent : []
   const result: Array<{ anchorId: string; level: 2 | 3; index: number }> = []
   content.forEach((node, index) => {
     if (node.type !== 'heading') return
     const level = node.attrs?.level
+
     if (level !== 2 && level !== 3) return
     result.push({ anchorId: `section-${block.id}-h${index}`, level, index })
   })
+
   return result
 }
 
@@ -237,9 +262,11 @@ export function collapsedSectionBlockIds(
   collapsedAnchors: ReadonlySet<string>,
 ): Set<string> {
   const hidden = new Set<string>()
+
   for (const anchor of collapsedAnchors) {
     for (const blockId of spans.get(anchor)?.blockIds ?? []) hidden.add(blockId)
   }
+
   return hidden
 }
 
@@ -255,13 +282,17 @@ export function collapsedSectionNodeIndexes(
   collapsedAnchors: ReadonlySet<string>,
 ): Map<string, Set<number>> {
   const hidden = new Map<string, Set<number>>()
+
   for (const anchor of collapsedAnchors) {
     const range = spans.get(anchor)?.nodeRange
+
     if (!range) continue
     const set = hidden.get(range.blockId) ?? new Set<number>()
+
     for (let i = range.from; i < range.to; i += 1) set.add(i)
     hidden.set(range.blockId, set)
   }
+
   return hidden
 }
 
@@ -279,11 +310,14 @@ export function sectionHiddenCounts(
   collapsedAnchors: ReadonlySet<string>,
 ): Map<string, number> {
   const counts = new Map<string, number>()
+
   for (const anchor of collapsedAnchors) {
     const span = spans.get(anchor)
+
     if (span && span.blockIds.length > 0) {
       counts.set(anchor, span.blockIds.length)
     }
   }
+
   return counts
 }

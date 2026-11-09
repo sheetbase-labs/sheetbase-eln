@@ -62,18 +62,22 @@ export function ExperimentHistory({
     queryKey: ['record-audit-history', recordId],
     queryFn: () => fetchRecordAuditHistory(notebookDataClient, recordId),
   })
+
   const workspace = useQuery({
     queryKey: workspaceGeneralQueryKey,
     queryFn: () => fetchWorkspaceGeneral(),
   })
+
   // The person's own zone; the workspace's only when they have not set one.
   const displayZone = useDisplayTimeZone(workspace.data?.timezone)
+
   if (history.isPending || workspace.isPending)
     return (
       <p className="p-6 text-fg-muted" role="status">
         {t('projects.experimentHistory.loading')}
       </p>
     )
+
   if (history.error || workspace.error || !workspace.data)
     return (
       <div className="p-6">
@@ -88,6 +92,7 @@ export function ExperimentHistory({
         </Button>
       </div>
     )
+
   return (
     <ExperimentHistoryView
       key={recordId}
@@ -120,29 +125,37 @@ export function ExperimentHistoryView({
   const [category, setCategory] = useState<AuditHistoryCategory>('all')
   const [actorId, setActorId] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+
   const actors = new Map(
     events
       .filter((event) => event.actorUserId)
       .map((event) => [event.actorUserId, actor(event)]),
   )
+
   const byActor = events.filter(
     (event) => !actorId || event.actorUserId === actorId,
   )
+
   const visible = byActor.filter((event) =>
     auditEventMatchesCategory(event, category),
   )
+
   const selected = visible.find((event) => event.id === selectedId)
+
   const time = dateTimeFormat('en-GB', {
     timeZone,
     hour: '2-digit',
     minute: '2-digit',
     ...clockOption(),
   })
+
   const exportQuery = new URLSearchParams({
     category,
     before: String(snapshotBefore),
   })
+
   if (actorId) exportQuery.set('actor', actorId)
+
   return (
     <div
       className="flex min-h-0 min-w-0 flex-1 flex-col"
@@ -245,6 +258,7 @@ export function ExperimentHistoryView({
                   </TableRow>
                   {day.events.map((event) => {
                     const described = describeAuditEvent(event)
+
                     return (
                       <TableRow
                         key={event.id}
@@ -368,6 +382,7 @@ function EntryDetails({
   const described = describeAuditEvent(event)
   const effects = auditKnockOnEvents(event, events)
   const link = auditLinkFor(event)
+
   return (
     <aside
       aria-label={t('projects.experimentHistory.details.label')}
@@ -467,6 +482,7 @@ function EntryDetails({
           <ul className="space-y-2">
             {effects.map((effect) => {
               const item = describeAuditEvent(effect)
+
               return (
                 <li key={effect.id}>
                   {item.action} {item.subject}

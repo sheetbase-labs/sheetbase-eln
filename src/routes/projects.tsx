@@ -114,6 +114,7 @@ const PROJECT_MODEL = requireBuiltInModel('project')
 export const Route = createFileRoute('/projects')({
   validateSearch: (search: Record<string, unknown>): ProjectsSearch => {
     const tab = search.tab
+
     return {
       tab:
         tab === 'mine' ||
@@ -150,9 +151,11 @@ export const Route = createFileRoute('/projects')({
   },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: ProjectsRoute,
@@ -162,6 +165,7 @@ function ProjectsRoute() {
   const isIndex = useRouterState({
     select: (state) => state.location.pathname === '/projects',
   })
+
   return isIndex ? <ProjectsIndexRoute /> : <Outlet />
 }
 
@@ -169,6 +173,7 @@ function ProjectsIndexRoute() {
   const { context } = Route.useRouteContext()
   const navigate = useNavigate({ from: Route.fullPath })
   const matchSearch = Route.useSearch()
+
   // Coming back to /projects within the router's cache window renders this page
   // once with the *previous* visit's search ("?new=true", from the create that
   // just landed), before the URL's own empty search replaces it. The page opens
@@ -178,9 +183,11 @@ function ProjectsIndexRoute() {
     select: (state) =>
       Boolean((state.location.search as { new?: unknown } | undefined)?.new),
   })
+
   const search = urlAsksForNew
     ? matchSearch
     : { ...matchSearch, new: undefined }
+
   const queryClient = useQueryClient()
 
   const query = useQuery({
@@ -194,14 +201,18 @@ function ProjectsIndexRoute() {
       withReadDeadline(
         (async () => {
           const rows: ProjectSummaryWire[] = []
+
           for (;;) {
             const page = await dataClient.list<ProjectSummaryWire>(
               'rpc/project_list_summary',
               `?order=updated_at.desc,id.asc&limit=200&offset=${rows.length}`,
             )
+
             rows.push(...page)
+
             if (page.length < 200) break
           }
+
           return rows
         })(),
         t('projects.projectsRoute.projectList'),
@@ -218,22 +229,26 @@ function ProjectsIndexRoute() {
   })
 
   const workspaceId = context.workspace?.id
+
   const create = useMutation({
     // A project for a client that does not exist yet creates the client first,
     // so a workspace's first client project can be set up from this dialog.
     mutationFn: async (input: NewProjectInput) => {
       const { newClientName, customFields, typeKey, ...details } = input
       let clientId = details.clientId
+
       if (newClientName) {
         const client = await createClientOrganisation(dataClient, {
           workspaceId: workspaceId ?? '',
           name: newClientName,
         })
+
         void queryClient.invalidateQueries({
           queryKey: ['clients', workspaceId],
         })
         clientId = client.id
       }
+
       const created = await createProject({ ...details, clientId })
       await saveNewObjectFields(
         dataClient,
@@ -242,6 +257,7 @@ function ProjectsIndexRoute() {
         typeKey ?? null,
         customFields ?? {},
       )
+
       return created
     },
     // The dialog closes and the row appears, but nothing said the write landed.
@@ -275,6 +291,7 @@ function ProjectsIndexRoute() {
     () => (query.data ?? []).map(toProjectRow),
     [query.data],
   )
+
   const clientOptions = (clientsQuery.data ?? []).map((c) => ({
     id: c.id,
     label: `${c.code} · ${c.name}`,

@@ -24,6 +24,7 @@ export async function fetchHomeMaterials(client: DataClient) {
     'my_work_items',
     '?kind=eq.material_expiring&state=in.(needs_action,overdue)&order=due_at.asc&limit=5',
   )
+
   return rows.map((row) => toWorkItem(row))
 }
 
@@ -33,24 +34,30 @@ export function homeMaterialExpiryLabel(
   timeZone: string,
 ) {
   if (!material.dueAt) return material.reason
+
   const formatter = dateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
   })
+
   // Compare wall-calendar dates, not elapsed 24-hour periods across DST.
   const [expiryDay, today] = [new Date(material.dueAt), now].map((date) => {
     const parts = formatter.formatToParts(date)
+
     return Date.UTC(
       Number(parts.find((part) => part.type === 'year')?.value),
       Number(parts.find((part) => part.type === 'month')?.value) - 1,
       Number(parts.find((part) => part.type === 'day')?.value),
     )
   })
+
   const days = (expiryDay - today) / 86_400_000
+
   if (days === 0) return 'lot expires today'
   const unit = Math.abs(days) === 1 ? 'day' : 'days'
+
   return days > 0
     ? `lot expires in ${days} ${unit}`
     : `lot expired ${Math.abs(days)} ${unit} ago`
@@ -66,9 +73,12 @@ export async function fetchHomePeople(
       client.rpc<ProjectMember[]>('project_members', { p_project_id: id }),
     ),
   )
+
   const people = new Map<string, { id: string; name: string; role: string }>()
+
   for (const member of projects.flat()) {
     if (member.user_id === userId) continue
+
     if (people.has(member.user_id) && !member.is_lead) continue
     people.set(member.user_id, {
       id: member.user_id,
@@ -80,6 +90,7 @@ export async function fetchHomePeople(
           : 'Project member',
     })
   }
+
   return [...people.values()]
 }
 
@@ -88,16 +99,20 @@ export async function fetchHomeReviews(client: DataClient, userId: string) {
     'review_submissions',
     `?state=eq.submitted&assigned_reviewer_user_ids=cs.${encodeURIComponent(`{${userId}}`)}&select=id,record_id,revision_id,due_at,submitted_by_user_id&order=due_at.asc.nullslast,submitted_at.desc&limit=5`,
   )
+
   if (!submissions.length) return []
+
   const records = await fetchRecordsForReviews(
     client,
     submissions.map((row) => row.record_id),
   )
+
   const projectIds = [
     ...new Set(
       records.flatMap((row) => (row.project_id ? [row.project_id] : [])),
     ),
   ]
+
   const [projects, members] = await Promise.all([
     projectIds.length
       ? client.list<Pick<ProjectWire, 'id' | 'title'>>(
@@ -107,10 +122,13 @@ export async function fetchHomeReviews(client: DataClient, userId: string) {
       : [],
     client.rpc<WorkspaceMemberIdentity[]>('workspace_members_list', {}),
   ])
+
   return submissions.flatMap((submission) => {
     const record = records.find((row) => row.id === submission.record_id)
+
     // The record's read authority is required for every displayed review.
     if (!record) return []
+
     return [
       {
         id: submission.id,
@@ -133,6 +151,7 @@ export function homeDatasetIssueLabel(row: DatasetListRow) {
   if (row.outOfRange > 0 && row.missingUnit === 0) {
     return `${row.outOfRange} ${row.outOfRange === 1 ? 'value' : 'values'} outside range`
   }
+
   return datasetValidation(row).label
 }
 
@@ -141,10 +160,12 @@ export async function fetchHomeDatasetIssues(client: DataClient) {
     'rpc/dataset_list_summary',
     '?issue_count=gt.0&archived_at=is.null&order=updated_at.desc&limit=5',
   )
+
   return Promise.all(
     datasets.map(async (wire) => {
       const row = toDatasetListRow(wire)
       const flags = await fetchActiveDatasetFlags(client, row.uuid)
+
       return {
         id: row.uuid,
         identifier: row.id,
@@ -163,6 +184,7 @@ export async function hasOpenedHomeProject(
   projectIds: string[],
 ) {
   if (!projectIds.length) return false
+
   // The proxy refuses a query value over 500 characters, so a person on more
   // than a dozen projects is checked in groups (see chunk-ids).
   const counts = await Promise.all(
@@ -173,6 +195,7 @@ export async function hasOpenedHomeProject(
       ),
     ),
   )
+
   return counts.some((count) => count > 0)
 }
 
@@ -183,6 +206,7 @@ export function homeAssignedProjects<T extends { id: string; title: string }>(
   return assignments.flatMap((assignment) => {
     if (!assignment.can_view) return []
     const project = projects.find((row) => row.id === assignment.project_id)
+
     const accessLevel = assignment.can_manage
       ? 'Owner'
       : assignment.can_edit
@@ -192,18 +216,21 @@ export function homeAssignedProjects<T extends { id: string; title: string }>(
         : assignment.can_review
           ? 'Review only'
           : 'Viewer'
+
     return project ? [{ ...project, accessLevel }] : []
   })
 }
 
 export function homeDayRange(now: Date, timeZone: string) {
   const start = startOfDayInZone(now, timeZone)
+
   // Resolve the following wall-clock midnight independently: DST days are
   // not necessarily 24 hours. Noon tomorrow is safely inside that next day.
   const end = startOfDayInZone(
     new Date(start.getTime() + 36 * 60 * 60 * 1000),
     timeZone,
   )
+
   return { start: start.toISOString(), end: end.toISOString() }
 }
 
@@ -213,6 +240,7 @@ export async function fetchHomeCounts(
   range: ReturnType<typeof homeDayRange>,
 ) {
   const workspace = `workspace_id=eq.${encodeURIComponent(workspaceId)}`
+
   const [
     datasetsWithErrors,
     experimentsInProgress,
@@ -247,6 +275,7 @@ export async function fetchHomeCounts(
     // the quiet condition cannot call a page calm while the bell shows unread.
     client.count('my_notifications', '?read_at=is.null'),
   ])
+
   return {
     reviews: inboxCounts.reviews,
     datasetsWithErrors,
@@ -264,13 +293,16 @@ export function homeDueLabel(
 ) {
   if (!dueAt) return '—'
   const date = new Date(dueAt)
+
   const day = dateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
   })
+
   if (day.format(date) === day.format(now)) return 'Today'
+
   return date
     .toLocaleDateString('en-GB', {
       timeZone,

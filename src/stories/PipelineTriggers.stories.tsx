@@ -48,7 +48,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const schedule: PipelineScheduleWire = {
@@ -169,6 +171,7 @@ const withClient = (Story: () => React.ReactNode) => (
 )
 
 const inputs = [{ name: 'readings', required: true }]
+
 const parameters = [
   { name: 'threshold', type: 'decimal' as const, required: true },
 ]

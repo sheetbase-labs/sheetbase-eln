@@ -34,10 +34,12 @@ function messageOf(error: unknown, fallback: string): string {
 
 export function SettingsTwoFactor() {
   const queryClient = useQueryClient()
+
   const status = useQuery({
     queryKey: twoFactorQueryKey,
     queryFn: () => getTwoFactorStatusFn(),
   })
+
   const [password, setPassword] = useState('')
   const [code, setCode] = useState('')
   const [enrolment, setEnrolment] = useState<Enrolment | null>(null)
@@ -54,12 +56,15 @@ export function SettingsTwoFactor() {
         password,
         method: 'totp',
       })
+
       if (error) {
         throw new Error(error.message ?? t('settings.twoFactor.couldStartTwo'))
       }
+
       if (data.method !== 'totp') {
         throw new Error('Could not start two-factor setup.')
       }
+
       const secret = new URL(data.totpURI).searchParams.get('secret') ?? ''
       setEnrolment({
         secret,
@@ -75,6 +80,7 @@ export function SettingsTwoFactor() {
       const { error } = await authClient.twoFactor.verifyTotp({
         code: code.replace(/\s/g, ''),
       })
+
       if (error)
         throw new Error(error.message ?? t('settings.twoFactor.codeAccepted'))
     },
@@ -89,6 +95,7 @@ export function SettingsTwoFactor() {
   const turnOff = useMutation({
     mutationFn: async () => {
       const { error } = await authClient.twoFactor.disable({ password })
+
       if (error)
         throw new Error(error.message ?? t('settings.twoFactor.couldTurnOff'))
     },

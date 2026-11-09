@@ -29,10 +29,13 @@ export function dateTimeFormat(
   // option the same as an absent one.
   const key = `${locale}\u0000${JSON.stringify(options)}`
   let formatter = formatters.get(key)
+
   if (!formatter) {
     formatter = new Intl.DateTimeFormat(locale, options)
+
     if (formatters.size >= MAX_ENTRIES) formatters.clear()
     formatters.set(key, formatter)
   }
+
   return formatter
 }

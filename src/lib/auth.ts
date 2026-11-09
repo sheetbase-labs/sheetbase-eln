@@ -107,6 +107,7 @@ async function sendConfiguredEmail(message: {
   body: string
 }) {
   const config = readSmtpConfig()
+
   if (!config) return
   await (await createSmtpTransport(config)).send(message)
 }
@@ -122,7 +123,9 @@ function twoFactorWithEmailLink() {
     // Better Auth's own gate (attempt counter plus lock) is the throttle.
     totpOptions: { digits: 6, period: 30 },
   })
+
   const challenge = plugin.hooks.after[0]
+
   return {
     ...plugin,
     hooks: {
@@ -136,18 +139,24 @@ function twoFactorWithEmailLink() {
             context.path === '/magic-link/verify',
           handler: createAuthMiddleware(async (ctx) => {
             if (!ctx.context.newSession?.user.twoFactorEnabled) return
+
             const held = (await challenge.handler({
               ...ctx,
               returnHeaders: true,
             })) as unknown as { headers: Headers }
+
             const next = safeNextPath(ctx.query?.callbackURL)
+
             const redirect = ctx.redirect(
               `/sign-in/two-factor${next ? `?next=${encodeURIComponent(next)}` : ''}`,
             )
+
             const headers = new Headers(redirect.headers)
+
             for (const cookie of held.headers.getSetCookie()) {
               headers.append('set-cookie', cookie)
             }
+
             redirect.headers = headers
             throw redirect
           }),
@@ -169,12 +178,15 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
       : {}
 
   const oidc = deps.oidc === undefined ? readOidcConfig(env) : deps.oidc
+
   const emailLink =
     deps.emailLink ??
     readAuthMethods({ ...env, SMTP_HOST: process.env.SMTP_HOST }).emailLink
+
   const allowedDomains =
     deps.emailLinkAllowedDomains ??
     parseAllowedDomains(env.EMAIL_LOGIN_ALLOWED_DOMAINS)
+
   const sendEmail = deps.sendEmail ?? sendConfiguredEmail
 
   const plugins: BetterAuthPlugin[] = [
@@ -187,6 +199,7 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
       origin: new URL(env.BETTER_AUTH_URL).origin,
     }),
   ]
+
   if (oidc) {
     plugins.push(
       genericOAuth({
@@ -206,9 +219,11 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
                 profile,
                 oidc.groupsClaim ?? DEFAULT_GROUPS_CLAIM,
               )
+
               if (groups && typeof profile.email === 'string') {
                 holdGroups(profile.email, groups)
               }
+
               return {}
             },
           },
@@ -216,7 +231,9 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
       }),
     )
   }
+
   const saml = deps.saml === undefined ? readSamlConfig(env) : deps.saml
+
   if (saml) {
     plugins.push(
       sso(
@@ -230,6 +247,7 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
       ),
     )
   }
+
   if (emailLink) {
     plugins.push(
       magicLink({
@@ -244,12 +262,14 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
             .from(user)
             .where(eq(user.email, email.toLowerCase()))
             .limit(1)
+
           if (
             known.length === 0 &&
             !mayCreateByEmailLink(email, allowedDomains)
           ) {
             return
           }
+
           await sendEmail({
             to: email,
             subject: 'Your Sheetbase sign-in link',
@@ -288,8 +308,10 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
         ) {
           const { id, email } = ctx.context.newSession.user
           const groups = takeGroups(email)
+
           if (groups) await applyIdpGroups(database, id, groups)
         }
+
         // Adding or removing a passkey is announced to the person's
         // workspaces (webhooks, activity). Never allowed to fail the call.
         if (
@@ -298,18 +320,23 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
         ) {
           try {
             const result: unknown = ctx.context.returned
+
             const failed =
               result instanceof Error ||
               (typeof result === 'object' &&
                 result !== null &&
                 'statusCode' in result)
+
             const added = ctx.path === '/passkey/verify-registration'
             const body = (ctx.body ?? {}) as { id?: unknown }
+
             const made = (
               typeof result === 'object' && result !== null ? result : {}
             ) as { id?: unknown; name?: unknown; userId?: unknown }
+
             const userId = ctx.context.session?.user.id ?? made.userId
             const passkeyId = added ? made.id : body.id
+
             if (
               !failed &&
               typeof userId === 'string' &&
@@ -325,6 +352,7 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
             })
           }
         }
+
         const returned: unknown = ctx.context.returned
         annotateRequest({
           auth_flow: {
@@ -361,6 +389,7 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user: target, token }) => {
         const operation = passwordRecovery.getStore()
+
         if (
           !operation ||
           operation.userId !== target.id ||
@@ -370,6 +399,7 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
             'Independent password recovery authorization required',
           )
         }
+
         await operation.redeem(token)
       },
     },
@@ -416,10 +446,13 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
               context?.context as
                 { session?: { session?: { userId?: string } } } | undefined
             )?.session?.session
+
             if (!(changes as { expiresAt?: unknown }).expiresAt) return
+
             const seconds = refreshed?.userId
               ? await sessionIdleSeconds(database, refreshed.userId)
               : REGULATED_IDLE_SECONDS
+
             return {
               data: {
                 ...changes,
@@ -436,7 +469,9 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
           // the sign-in, so a refusal leaves nothing behind.
           before: async (created, context) => {
             const path = (context as { path?: string } | null | undefined)?.path
+
             if (!saml || !path?.startsWith('/sso/saml2/sp/acs/')) return
+
             if (!mayCreateByEmailLink(created.email, saml.emailDomains)) {
               throw new APIError('FORBIDDEN', {
                 code: 'saml_domain_not_allowed',
@@ -500,6 +535,7 @@ export async function recoverSigningPassword(
       await instance.api.requestPasswordReset({ body: { email: input.email } })
     },
   )
+
   if (!outcome.completed) throw new Error('Password recovery did not complete')
 }
 
@@ -515,8 +551,10 @@ async function isAllowedSsoRequest(
 ): Promise<boolean> {
   if (pathname === '/api/auth/sign-in/sso') {
     if (request.method !== 'POST') return false
+
     try {
       const body: unknown = await request.clone().json()
+
       return (
         typeof body === 'object' &&
         body !== null &&
@@ -526,16 +564,20 @@ async function isAllowedSsoRequest(
       return false
     }
   }
+
   if (!pathname.startsWith('/api/auth/sso/')) return true
+
   if (pathname === '/api/auth/sso/saml2/sp/acs/' + SAML_PROVIDER_ID) {
     return request.method === 'POST'
   }
+
   if (pathname === '/api/auth/sso/saml2/sp/metadata') {
     return (
       request.method === 'GET' &&
       new URL(request.url).searchParams.get('providerId') === SAML_PROVIDER_ID
     )
   }
+
   return false
 }
 
@@ -545,6 +587,7 @@ export async function handleAuthRequest(
   instance: Pick<typeof auth, 'handler'> = auth,
 ): Promise<Response> {
   let pathname: string
+
   try {
     pathname = decodeURIComponent(new URL(request.url).pathname).replace(
       /\/+/g,
@@ -553,12 +596,15 @@ export async function handleAuthRequest(
   } catch {
     return new Response(null, { status: 404 })
   }
+
   if (pathname.startsWith('/api/auth/reset-password/')) {
     return new Response(null, { status: 404 })
   }
+
   if (!(await isAllowedSsoRequest(request, pathname))) {
     return new Response(null, { status: 404 })
   }
+
   return instance.handler(request)
 }
 
@@ -572,11 +618,15 @@ export async function getAppSession(
   if (isDevAuthFreeEnabled()) {
     const devSession = await getDevSession(headers)
     annotateRequest({ user: { id: devSession.user.id } })
+
     return devSession
   }
+
   const appSession = await auth.api.getSession({ headers })
+
   if (!appSession) return null
   annotateRequest({ user: { id: appSession.user.id } })
+
   return {
     user: {
       id: appSession.user.id,
@@ -588,6 +638,7 @@ export async function getAppSession(
 }
 
 export { isDevAuthFreeEnabled }
+
 export const isGithubConfigured = Boolean(
   env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET,
 )

@@ -9,17 +9,21 @@ import type { ParsedSequence } from '#/lib/sequence'
 /** The least rotation of a string (Booth's algorithm), in linear time. */
 export function leastRotation(s: string): string {
   const n = s.length
+
   if (n < 2) return s
   const doubled = s + s
   const failure = new Array<number>(2 * n).fill(-1)
   let k = 0
+
   for (let j = 1; j < 2 * n; j++) {
     const c = doubled[j]
     let i = failure[j - k - 1]
+
     while (i !== -1 && c !== doubled[k + i + 1]) {
       if (c < doubled[k + i + 1]) k = j - i - 1
       i = failure[i]
     }
+
     if (c !== doubled[k + i + 1]) {
       if (c < doubled[k]) k = j
       failure[j - k] = -1
@@ -27,6 +31,7 @@ export function leastRotation(s: string): string {
       failure[j - k] = i + 1
     }
   }
+
   return s.slice(k) + s.slice(0, k)
 }
 
@@ -41,10 +46,12 @@ export function canonicalSequence(
   topology: ParsedSequence['topology'],
 ): string {
   const seq = residues.toUpperCase().replace(/[^A-Z*]/g, '')
+
   if (molecule === 'protein') return seq
   const dna = molecule === 'rna' ? seq.replace(/U/g, 'T') : seq
   const forward = topology === 'circular' ? leastRotation(dna) : dna
   const rc = reverseComplement(dna)
   const reverse = topology === 'circular' ? leastRotation(rc) : rc
+
   return forward <= reverse ? forward : reverse
 }

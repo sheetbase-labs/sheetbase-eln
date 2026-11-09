@@ -7,7 +7,9 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 export const Route = createFileRoute('/plugins/$key/$id')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) throw redirect(signInRedirect(location))
+
     return { context }
   },
   component: PluginSidebarPage,
@@ -15,5 +17,6 @@ export const Route = createFileRoute('/plugins/$key/$id')({
 
 function PluginSidebarPage() {
   const { key, id } = Route.useParams()
+
   return <PluginPage extensionKey={key} id={id} kind="pages" />
 }

@@ -21,17 +21,20 @@ const scope = { userId: 'u1', recordId: 'r1' }
 
 function setup() {
   const store = createOfflineEditStore(createInMemoryStorage())
+
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <OfflineEditsProvider store={store} scope={scope}>
       {children}
     </OfflineEditsProvider>
   )
+
   return { store, ...renderHook(() => useOfflineEdits(), { wrapper }) }
 }
 
 const checklist = (done: boolean) => ({
   items: [{ id: 'i1', text: 'Weigh sample', done }],
 })
+
 const block = (version: number) => ({
   id: 'b1',
   type: 'checklist',
@@ -51,6 +54,7 @@ describe('canEditBlockOffline', () => {
     ]) {
       expect(canEditBlockOffline(type)).toBe(true)
     }
+
     for (const type of ['file', 'dataset_import', 'signature_request']) {
       expect(canEditBlockOffline(type)).toBe(false)
     }
@@ -78,6 +82,7 @@ describe('queueBlockPayload', () => {
 
   it('keeps formatted text, which plain text could not hold', async () => {
     const { store, result } = setup()
+
     const bold = {
       doc: {
         type: 'doc',
@@ -89,6 +94,7 @@ describe('queueBlockPayload', () => {
         ],
       },
     }
+
     let kept = false
     await act(async () => {
       kept = await result.current.queueBlockPayload(
@@ -180,11 +186,13 @@ describe('replay of a block payload', () => {
       await result.current.queueBlockPayload(block(2), checklist(true))
     })
     const sent: unknown[] = []
+
     const report = await replayOfflineEdits({
       scope,
       store,
       port: port(async (edit) => void sent.push(edit)),
     })
+
     expect(report.committedEditIds).toHaveLength(1)
     expect(sent).toHaveLength(1)
     expect(await store.listEdits(scope)).toHaveLength(0)
@@ -195,6 +203,7 @@ describe('replay of a block payload', () => {
     await act(async () => {
       await result.current.queueBlockPayload(block(2), checklist(true))
     })
+
     const report = await replayOfflineEdits({
       scope,
       store,
@@ -202,6 +211,7 @@ describe('replay of a block payload', () => {
         throw Object.assign(new Error('stale'), { code: 'stale_version' })
       }),
     })
+
     expect(report.conflicts).toHaveLength(1)
     expect(report.conflicts[0].message).toMatch(/someone else/)
     expect(await store.listEdits(scope)).toHaveLength(1)
@@ -225,10 +235,12 @@ describe('overlayQueuedBlocks', () => {
       await result.current.queueBlockPayload(block(1), checklist(true))
     })
     const edits = await store.listEdits(scope)
+
     const blocks = [
       { id: 'b1', payload: checklist(false) },
       { id: 'b2', payload: { other: true } },
     ]
+
     const shown = overlayQueuedBlocks(blocks, edits)
     expect(shown[0].payload).toEqual(checklist(true))
     expect(shown[1]).toBe(blocks[1])

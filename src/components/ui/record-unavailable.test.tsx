@@ -54,6 +54,7 @@ describe('RecordUnavailable', () => {
         back={back}
       />,
     )
+
     expect(container.textContent).toBe('')
   })
 
@@ -81,11 +82,13 @@ describe('RecordUnavailable', () => {
 
   it('tells its pane the record is missing, and withdraws it on unmount', () => {
     const reportMissing = vi.fn()
+
     const { unmount } = render(
       <PaneContext.Provider value={pane(reportMissing)}>
         <RecordUnavailable query={query()} what="sample" back={back} />
       </PaneContext.Provider>,
     )
+
     expect(reportMissing).toHaveBeenLastCalledWith(true)
     unmount()
     expect(reportMissing).toHaveBeenLastCalledWith(false)

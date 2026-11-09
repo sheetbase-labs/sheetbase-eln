@@ -43,6 +43,7 @@ function bench() {
     href: '/instruments/DEV-0007',
     newId: 'dev',
   }).state
+
   return state
 }
 
@@ -63,17 +64,21 @@ describe('opening beside', () => {
 
   it('focuses a page that is already open instead of opening it twice, unless asked', () => {
     const state = bench()
+
     const again = openBeside(state, {
       href: '/datasets/DS-0311?snapshot=S-15',
       newId: 'x',
     })
+
     expect(again.created).toBe(false)
     expect(again.paneId).toBe('ds')
+
     const copy = openBeside(state, {
       href: '/datasets/DS-0311?snapshot=S-15',
       newId: 'copy',
       duplicate: true,
     })
+
     expect(copy.created).toBe(true)
   })
 
@@ -212,12 +217,14 @@ describe('layout presets', () => {
 describe('shelf', () => {
   it('keeps a record once and promotes it to a pane beside the focused one', () => {
     let state = bench()
+
     const item = {
       id: 's1',
       href: '/samples/SMP-2248',
       title: 'C-150 filtrate',
       identifier: 'SMP-2248',
     }
+
     state = pinToShelf(pinToShelf(state, item), { ...item, id: 's2' })
     expect(state.shelf).toHaveLength(1)
     expect(state.shelfOpen).toBe(true)
@@ -271,8 +278,10 @@ describe('the pane that edits', () => {
 describe('composeWorkspace', () => {
   const ids = () => {
     let n = 0
+
     return () => `id-${(n += 1)}`
   }
+
   const base = () => {
     const empty = addTab(
       {
@@ -282,11 +291,13 @@ describe('composeWorkspace', () => {
       '/experiments',
       { tabId: 't0', paneId: 'p0' },
     )
+
     return empty
   }
 
   it('opens pages beside the focused pane and tiles them', async () => {
     const { composeWorkspace } = await import('./workspace-actions')
+
     const next = composeWorkspace(
       base(),
       {
@@ -295,6 +306,7 @@ describe('composeWorkspace', () => {
       },
       ids(),
     )
+
     const tab = activeTab(next)
     expect(tab.panes.map((pane) => pane.href)).toEqual([
       '/experiments',
@@ -307,6 +319,7 @@ describe('composeWorkspace', () => {
   it('starts a named workspace without closing the old one', async () => {
     const { composeWorkspace } = await import('./workspace-actions')
     const start = base()
+
     const next = composeWorkspace(
       start,
       {
@@ -316,6 +329,7 @@ describe('composeWorkspace', () => {
       },
       ids(),
     )
+
     expect(next.tabs).toHaveLength(start.tabs.length + 1)
     expect(activeTab(next).name).toBe('Stability review')
     expect(activeTab(next).panes).toHaveLength(2)
@@ -323,11 +337,13 @@ describe('composeWorkspace', () => {
 
   it('focuses a page that is already open instead of duplicating it', async () => {
     const { composeWorkspace } = await import('./workspace-actions')
+
     const next = composeWorkspace(
       base(),
       { pages: [{ href: '/experiments' }] },
       ids(),
     )
+
     expect(activeTab(next).panes).toHaveLength(1)
   })
 })
@@ -336,10 +352,12 @@ describe('the editing seat follows what can be edited', () => {
   function homeBeside() {
     // Home holds the seat; a second pane is split off beside it.
     const state = initialWorkspace('/')
+
     const split = openBeside(state, {
       href: '/experiments',
       newId: 'list',
     }).state
+
     return makePrimary(split, 'initial')
   }
 

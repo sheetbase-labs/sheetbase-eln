@@ -54,12 +54,16 @@ export function RegisterConnectorDialog({
   const [key, setKey] = useState('')
   // The key follows the name until a person types their own.
   const [keyEdited, setKeyEdited] = useState(false)
+
   const [connectorType, setConnectorType] =
     useState<ConnectorType>('instrument')
+
   const [direction, setDirection] = useState<ConnectorDirection>('inbound')
+
   const [parserId, setParserId] = useState<string>(
     listParsers()[0]?.parserId ?? '',
   )
+
   const [adapter, setAdapter] = useState('')
   const [error, setError] = useState<string | null>(null)
 
@@ -114,6 +118,7 @@ export function RegisterConnectorDialog({
               value={name}
               onChange={(event) => {
                 setName(event.target.value)
+
                 if (!keyEdited) setKey(slugKey(event.target.value))
               }}
               placeholder={t(

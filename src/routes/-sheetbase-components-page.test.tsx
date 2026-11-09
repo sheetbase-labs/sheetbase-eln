@@ -22,6 +22,7 @@ describe('/sheetbase-components route gate (COMP-05)', () => {
 
   it('redirects to / in production builds', () => {
     vi.stubEnv('PROD', true)
+
     try {
       Route.options.beforeLoad?.({} as never)
       throw new Error('expected beforeLoad to throw a redirect')

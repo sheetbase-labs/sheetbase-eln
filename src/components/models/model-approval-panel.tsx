@@ -143,8 +143,10 @@ export function ModelApprovalPanel({
   useEffect(() => {
     if (!submitToken || submitToken === seenSubmitToken.current) return
     seenSubmitToken.current = submitToken
+
     if (canSubmit) setDialog('submit')
   }, [submitToken, canSubmit])
+
   const approvers = (roles: readonly string[]) =>
     everyRole ? roles.map(roleLabel).join(' and ') : roleList(roles)
 
@@ -152,12 +154,14 @@ export function ModelApprovalPanel({
     () => approvalActorIds(requests, decisions),
     [requests, decisions],
   )
+
   const { userLabel } = useUserNames(actorIds, user ?? undefined)
 
   const trail = useMemo(() => {
     const chronological = [...requests].sort(
       (a, b) => Date.parse(a.created_at) - Date.parse(b.created_at),
     )
+
     return chronological.flatMap((request) =>
       buildApprovalTrail(request, decisions),
     )

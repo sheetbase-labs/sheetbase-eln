@@ -46,17 +46,21 @@ function buildIndex(
   decisions: ApprovalDecision[],
 ): ModelApprovalIndex {
   const byVersion = new Map<string, ApprovalRequest[]>()
+
   for (const request of requests) {
     const list = byVersion.get(request.object_id) ?? []
     list.push(request)
     byVersion.set(request.object_id, list)
   }
+
   const byRequest = new Map<string, ApprovalDecision[]>()
+
   for (const decision of decisions) {
     const list = byRequest.get(decision.request_id) ?? []
     list.push(decision)
     byRequest.set(decision.request_id, list)
   }
+
   return { requests, decisions, byVersion, byRequest }
 }
 
@@ -72,10 +76,12 @@ export function useModelApprovalIndex(
   objectKind = DATASET_SCHEMA_VERSION_KIND,
 ) {
   const ids = [...new Set(versionIds.filter(Boolean))]
+
   return useQuery({
     queryKey: modelApprovalQueryKeys.index(ids, objectKind),
     queryFn: async (): Promise<ModelApprovalIndex> => {
       if (ids.length === 0) return buildIndex([], [])
+
       const requests = (
         await listByIds(ids, (inList) =>
           client.list<ApprovalRequest>(
@@ -90,7 +96,9 @@ export function useModelApprovalIndex(
           ),
         )
       ).sort((a, b) => b.created_at.localeCompare(a.created_at))
+
       const requestIds = requests.map((request) => request.id)
+
       const decisions = requestIds.length
         ? (
             await listByIds(requestIds, (inList) =>
@@ -102,6 +110,7 @@ export function useModelApprovalIndex(
             )
           ).sort((a, b) => a.created_at.localeCompare(b.created_at))
         : []
+
       return buildIndex(requests, decisions)
     },
     enabled: ids.length > 0,

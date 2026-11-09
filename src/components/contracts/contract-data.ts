@@ -66,6 +66,7 @@ export function useContractFields(
   const versions = useModelVersions(schemaId, client)
   const latest = versions.data?.[0]
   const schemaFields = useModelFields(latest?.id, client)
+
   const recordFields = useQuery({
     queryKey: ['data-contracts', 'record-fields', target],
     queryFn: async (): Promise<ContractFieldOption[]> => {
@@ -73,12 +74,15 @@ export function useContractFields(
         'record_field_definitions',
         `?kind=eq.${encodeURIComponent((target as { key: string }).key)}&lifecycle=eq.active&select=field_name,label&order=display_order`,
       )
+
       return rows.map((row) => ({ key: row.field_name, label: row.label }))
     },
     enabled: target?.kind === 'record_model',
     staleTime: 30_000,
   })
+
   if (target?.kind === 'record_model') return recordFields.data ?? []
+
   return (schemaFields.data ?? [])
     .filter((field) => field.lifecycle === 'active')
     .map((field) => ({ key: field.key, label: field.label }))

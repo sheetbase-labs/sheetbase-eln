@@ -14,6 +14,7 @@ export function pgIdentifier(key: string): string {
     .replace(/[^A-Za-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
     .toLowerCase()
+
   return /^[0-9]/.test(snake) ? `m_${snake}` : snake
 }
 
@@ -49,6 +50,7 @@ export function reportingViewName(
     names?.viewName(modelKey) ??
     BUILT_IN_VIEWS[modelKey] ??
     pgIdentifier(modelKey)
+
   return view.includes('.') ? view : `data.${view}`
 }
 
@@ -167,8 +169,10 @@ function sqlLiteral(value: string): string {
 /** Search params a list page keeps its filters in, as PostgREST filters. */
 function filtersFromSearch(search: URLSearchParams): string[] {
   const out: string[] = []
+
   for (const [name, value] of search) {
     if (!value) continue
+
     if (name === 'status' || name === 'project') {
       const column = name === 'project' ? 'project_id' : 'status'
       const values = value.split(',').filter(Boolean)
@@ -181,6 +185,7 @@ function filtersFromSearch(search: URLSearchParams): string[] {
       out.push(`title=ilike.*${value}*`)
     }
   }
+
   return out
 }
 
@@ -193,17 +198,23 @@ const VIEW_COLUMNS: Readonly<Record<string, string | null>> = {
 function whereFromFilters(filters: string[], view: boolean): string[] {
   return filters.flatMap((filter) => {
     const match = /^([a-z_]+)=(eq|in|ilike)\.(.*)$/.exec(filter)
+
     if (!match) return []
     const [, rawColumn = '', op, rest] = match
     const column = view ? (VIEW_COLUMNS[rawColumn] ?? rawColumn) : rawColumn
+
     if (view && VIEW_COLUMNS[rawColumn] === null) return []
+
     if (op === 'eq') return [`${column} = ${sqlLiteral(rest)}`]
+
     if (op === 'ilike')
       return [`${column} ILIKE ${sqlLiteral(rest.replaceAll('*', '%'))}`]
+
     const values = rest
       .slice(1, -1)
       .split(',')
       .map((value) => sqlLiteral(value))
+
     return [`${column} IN (${values.join(', ')})`]
   })
 }
@@ -211,6 +222,7 @@ function whereFromFilters(filters: string[], view: boolean): string[] {
 function splitHref(href: string) {
   const [pathAndQuery = ''] = href.split('#')
   const [path = '', query = ''] = pathAndQuery.split('?')
+
   return {
     segments: path.split('/').filter(Boolean).map(decodeURIComponent),
     search: new URLSearchParams(query),
@@ -227,6 +239,7 @@ export function resolveDataAccessHandle(
 ): DataAccessHandle | null {
   const { segments, search } = splitHref(href)
   const [segment, id] = segments
+
   if (!segment) return null
 
   if (segment === 'models') {
@@ -242,7 +255,9 @@ export function resolveDataAccessHandle(
         where: [],
       }
     }
+
     if (isUuid(id)) return null
+
     return {
       scope: 'model',
       label: 'Model',
@@ -270,6 +285,7 @@ export function resolveDataAccessHandle(
 
   if (segment === 'records' && id) {
     const column = isUuid(id) ? 'id' : 'identifier'
+
     return {
       scope: 'record',
       label: 'Record',
@@ -283,17 +299,21 @@ export function resolveDataAccessHandle(
   }
 
   const surface = SURFACES.find((entry) => entry.segment === segment)
+
   if (!surface || id === 'new') return null
   // Datasets are read from their table; every model has a reporting view.
   const view = surface.modelKey !== 'dataset'
+
   const relation = view
     ? reportingViewName(surface.modelKey, names)
     : `api.${surface.resource}`
+
   if (!id) {
     const filters = [
       ...(surface.kindFilter ? [`kind=eq.${surface.kindFilter}`] : []),
       ...filtersFromSearch(search),
     ]
+
     return {
       scope: 'list',
       label: surface.label,
@@ -308,8 +328,10 @@ export function resolveDataAccessHandle(
       ),
     }
   }
+
   const column = isUuid(id) ? 'id' : surface.refColumn
   const filter = `${column}=eq.${id}`
+
   return {
     scope: surface.segment === 'datasets' ? 'dataset' : 'record',
     label: surface.singular,
@@ -331,6 +353,7 @@ export interface DataAccessSnippet {
 
 export function apiRoute(handle: DataAccessHandle): string {
   const query = handle.filters.length ? `?${handle.filters.join('&')}` : ''
+
   return `/api/db/${handle.resource}${query}`
 }
 
@@ -345,25 +368,32 @@ function sdkCall(
   const match = filter ? /^([a-z_]+)=eq\.(.*)$/.exec(filter) : null
   const column = match?.[1]
   const value = match?.[2] ?? ''
+
   if (handle.resource === 'records') {
     if (match && !extra.length && column === 'kind')
       return {
         call: `client.records.list(kind="${value}", limit=50)`,
         scope: 'records:read',
       }
+
     if (match && !extra.length && column === 'id' && isUuid(value))
       return { call: `client.records.get("${value}")`, scope: 'records:read' }
+
     return filter
       ? null
       : { call: 'client.records.list(limit=50)', scope: 'records:read' }
   }
+
   if (handle.resource === 'projects' || handle.resource === 'datasets') {
     const scope = `${handle.resource}:read`
+
     if (!filter)
       return { call: `client.${handle.resource}.list(limit=50)`, scope }
+
     if (match && !extra.length && column === 'id' && isUuid(value))
       return { call: `client.${handle.resource}.get("${value}")`, scope }
   }
+
   return null
 }
 
@@ -374,12 +404,14 @@ export function dataAccessSnippets(
   const route = apiRoute(handle)
   const sdk = sdkCall(handle)
   const url = `${origin}${route}${route.includes('?') ? '&' : '?'}limit=50`
+
   const sql = [
     `SELECT *`,
     `FROM ${handle.relation}`,
     ...(handle.where.length ? [`WHERE ${handle.where.join('\n  AND ')}`] : []),
     'LIMIT 50;',
   ].join('\n')
+
   return [
     {
       id: 'curl',

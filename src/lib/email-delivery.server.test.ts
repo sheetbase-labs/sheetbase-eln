@@ -27,12 +27,15 @@ function row(id: string): EmailDeliveryRow {
 
 function fakeQuery(rows: EmailDeliveryRow[]) {
   const calls: string[] = []
+
   const query: EmailQuery = {
     query: vi.fn(async (sql: string) => {
       calls.push(sql)
+
       return { rows: sql.includes('claim_due_email_deliveries') ? rows : [] }
     }) as EmailQuery['query'],
   }
+
   return { query, calls }
 }
 
@@ -50,9 +53,11 @@ describe('processEmailDeliveries', () => {
 
   it('records a failure so the outbox schedules the backoff', async () => {
     const { query, calls } = fakeQuery([row('d1')])
+
     const send = vi.fn(async () => {
       throw new Error('SMTP down')
     })
+
     const result = await processEmailDeliveries(query, { send })
     expect(result).toEqual({ processed: 1, sent: 0, failed: 1 })
     expect(
@@ -92,6 +97,7 @@ describe('real SMTP TLS boundary', () => {
 
   beforeAll(async () => {
     directory = await mkdtemp(join(tmpdir(), 'sheetbase-smtp-'))
+
     for (const hostname of ['localhost', 'other.invalid']) {
       await run('openssl', [
         'req',
@@ -111,6 +117,7 @@ describe('real SMTP TLS boundary', () => {
         join(directory, `${hostname}.crt`),
       ])
     }
+
     certificate = await readFile(join(directory, 'localhost.crt'))
     key = await readFile(join(directory, 'localhost.key'))
     wrongCertificate = await readFile(join(directory, 'other.invalid.crt'))
@@ -128,6 +135,7 @@ describe('real SMTP TLS boundary', () => {
     const commands: string[] = []
     const messages: string[] = []
     const protocols: Array<string | null> = []
+
     const context = createSecureContext({
       cert: mode === 'wrong-host' ? wrongCertificate : certificate,
       key: mode === 'wrong-host' ? wrongKey : key,
@@ -135,6 +143,7 @@ describe('real SMTP TLS boundary', () => {
         ? { minVersion: 'TLSv1.1' as const, maxVersion: 'TLSv1.1' as const }
         : {}),
     })
+
     function receive(socket: Socket, encrypted: boolean) {
       sockets.add(socket)
       socket.on('error', () => {})
@@ -142,12 +151,15 @@ describe('real SMTP TLS boundary', () => {
       let buffer = ''
       let data = false
       let body = ''
+
       const onData = (chunk: Buffer) => {
         buffer += chunk.toString()
         let end: number
+
         while ((end = buffer.indexOf('\r\n')) >= 0) {
           const line = buffer.slice(0, end)
           buffer = buffer.slice(end + 2)
+
           if (data) {
             if (line === '.') {
               messages.push(body)
@@ -156,9 +168,12 @@ describe('real SMTP TLS boundary', () => {
             } else {
               body += `${line}\n`
             }
+
             continue
           }
+
           commands.push(line)
+
           if (line.startsWith('EHLO')) {
             socket.write(
               mode !== 'plain' && !encrypted
@@ -168,12 +183,15 @@ describe('real SMTP TLS boundary', () => {
           } else if (line === 'STARTTLS' && mode !== 'plain') {
             socket.write('220 upgrade\r\n')
             socket.removeListener('data', onData)
+
             const secure = new TLSSocket(socket, {
               isServer: true,
               secureContext: context,
             })
+
             secure.on('secure', () => protocols.push(secure.getProtocol()))
             receive(secure, true)
+
             return
           } else if (
             line.startsWith('MAIL FROM:') ||
@@ -190,22 +208,28 @@ describe('real SMTP TLS boundary', () => {
           }
         }
       }
+
       socket.on('data', onData)
     }
+
     const server = createServer((socket) => {
       receive(socket, false)
       socket.write('220 fixture\r\n')
     })
+
     await new Promise<void>((resolve, reject) => {
       server.once('error', reject)
       server.listen(0, '127.0.0.1', resolve)
     })
     const address = server.address()
+
     if (!address || typeof address === 'string') throw new Error('No SMTP port')
+
     // A separate Node process loads the real transport. NODE_EXTRA_CA_CERTS
     // supplies fixture trust at startup without relaxing certificate checks.
     const moduleUrl = new URL('./email-delivery.server.ts', import.meta.url)
       .href
+
     const code = `
       import { createSmtpTransport } from ${JSON.stringify(moduleUrl)};
       try {
@@ -219,6 +243,7 @@ describe('real SMTP TLS boundary', () => {
         console.log(JSON.stringify({ok:false, code:error.code}));
       }
     `
+
     try {
       const { stdout } = await run(
         process.execPath,
@@ -239,7 +264,9 @@ describe('real SMTP TLS boundary', () => {
           timeout: 10_000,
         },
       )
+
       const result: { ok: boolean; code?: string } = JSON.parse(stdout.trim())
+
       return { result, commands, messages, protocols }
     } finally {
       for (const socket of sockets) socket.destroy()

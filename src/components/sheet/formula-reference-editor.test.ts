@@ -19,6 +19,7 @@ function hexToRgb(hex: string): string {
   const r = (n >> 16) & 255
   const g = (n >> 8) & 255
   const b = n & 255
+
   return `rgb(${r}, ${g}, ${b})`
 }
 
@@ -159,6 +160,7 @@ function mockGrid(cellGrid: HTMLElement[][]): {
   const root = doc.createElement('div')
   root.className = 'grid-canvas'
   doc.body.appendChild(root)
+
   for (const row of cellGrid) for (const node of row) root.appendChild(node)
 
   const hot: ReferenceGridHost = {
@@ -167,14 +169,17 @@ function mockGrid(cellGrid: HTMLElement[][]): {
     getCoords: (el) => {
       for (let r = 0; r < cellGrid.length; r++) {
         const c = cellGrid[r].indexOf(el)
+
         if (c !== -1) return { row: r, col: c }
       }
+
       return null
     },
     getCell: (row, col) => cellGrid[row]?.[col] ?? null,
     countRows: () => cellGrid.length,
     countCols: () => cellGrid[0]?.length ?? 0,
   }
+
   return { hot, root }
 }
 
@@ -182,6 +187,7 @@ function mockGrid(cellGrid: HTMLElement[][]): {
 function cell(): HTMLElement {
   const element = document.createElement('div')
   element.setAttribute('role', 'gridcell')
+
   return element
 }
 
@@ -189,7 +195,9 @@ function cell(): HTMLElement {
 function chrome(role: string, className = ''): HTMLElement {
   const element = document.createElement('div')
   element.setAttribute('role', role)
+
   if (className) element.className = className
+
   return element
 }
 
@@ -245,9 +253,11 @@ describe('ReferencePicker', () => {
       [cell(), cell(), cell()],
       [cell(), cell(), cell()],
     ]
+
     const { hot, root } = mockGrid(cells)
     // Anchor the editor's textarea centre somewhere harmless for elementFromPoint.
     const inserted: string[] = []
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => 'Sheet1',
       insertReference: (a1) => inserted.push(a1),
@@ -280,6 +290,7 @@ describe('ReferencePicker', () => {
     const cells = Array.from({ length: 5 }, () => [cell()])
     const { hot, root } = mockGrid(cells)
     const inserted: string[] = []
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: (a1) => inserted.push(a1),
@@ -287,17 +298,20 @@ describe('ReferencePicker', () => {
     })
 
     picker.onPointerDown(pointer('pointerdown', cells[0][0]))
+
     // Stub elementFromPoint to report the dragged-to cell (A5). jsdom does not
     // implement elementsFromPoint, so install it for the duration of the drag.
     const descriptor = Object.getOwnPropertyDescriptor(
       document,
       'elementsFromPoint',
     )
+
     Object.defineProperty(document, 'elementsFromPoint', {
       configurable: true,
       writable: true,
       value: () => [cells[4][0] as Element],
     })
+
     try {
       picker.onPointerMove(pointer('pointermove', null, 10, 90))
       picker.onPointerUp(pointer('pointerup', cells[4][0]))
@@ -313,10 +327,12 @@ describe('ReferencePicker', () => {
     }
 
     expect(inserted).toEqual(['A1:A5'])
+
     // A persistent overlay div is created for the range.
     const highlights = root.querySelectorAll<HTMLDivElement>(
       '.sheetbase-ref-highlight',
     )
+
     expect(highlights).toHaveLength(1)
     expect(highlights[0].style.border).toContain('dashed')
     expect(highlights[0].style.border).toContain(hexToRgb(REFERENCE_COLORS[0]))
@@ -327,8 +343,10 @@ describe('ReferencePicker', () => {
       [cell(), cell(), cell()],
       [cell(), cell(), cell()],
     ]
+
     const { hot, root } = mockGrid(cells)
     const inserted: string[] = []
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: (a1) => inserted.push(a1),
@@ -344,9 +362,11 @@ describe('ReferencePicker', () => {
 
     expect(inserted).toEqual(['B1', 'C2'])
     expect(picker.references).toHaveLength(2)
+
     const highlights = root.querySelectorAll<HTMLDivElement>(
       '.sheetbase-ref-highlight',
     )
+
     expect(highlights).toHaveLength(2)
     const firstBorder = highlights[0].style.border
     const secondBorder = highlights[1].style.border
@@ -360,7 +380,9 @@ describe('ReferencePicker', () => {
       [cell(), cell()],
       [cell(), cell()],
     ]
+
     const { hot, root } = mockGrid(cells)
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
@@ -385,6 +407,7 @@ describe('ReferencePicker', () => {
     const { hot } = mockGrid(cells)
     const refocus = vi.fn()
     const inserted: string[] = []
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: (a1) => inserted.push(a1),
@@ -410,6 +433,7 @@ describe('ReferencePicker', () => {
   it('lets clicks on the fill handle pass through', () => {
     const cells = [[cell()]]
     const { hot } = mockGrid(cells)
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
@@ -432,6 +456,7 @@ describe('ReferencePicker', () => {
     const cells = [[cell()]]
     const { hot } = mockGrid(cells)
     const inserted: string[] = []
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: (a1) => inserted.push(a1),
@@ -451,6 +476,7 @@ describe('ReferencePicker', () => {
   it('reset clears references, drag state, and the preview overlay', () => {
     const cells = [[cell(), cell()]]
     const { hot, root } = mockGrid(cells)
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
@@ -469,6 +495,7 @@ describe('ReferencePicker', () => {
   it('repositionHighlights updates overlay positions from cell geometry', () => {
     const cells = [[cell(), cell()]]
     const { hot, root } = mockGrid(cells)
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
@@ -477,15 +504,18 @@ describe('ReferencePicker', () => {
 
     picker.onPointerDown(pointer('pointerdown', cells[0][1]))
     picker.onPointerUp(pointer('pointerup', cells[0][1]))
+
     const overlay = root.querySelector(
       '.sheetbase-ref-highlight',
     ) as HTMLDivElement
+
     expect(overlay).not.toBeNull()
     const leftBefore = overlay.style.left
 
     // Simulate a scroll: move the cell's bounding rect and reposition.
     const originalGetBoundingClientRect =
       cells[0][1].getBoundingClientRect.bind(cells[0][1])
+
     vi.spyOn(cells[0][1], 'getBoundingClientRect').mockReturnValue({
       ...originalGetBoundingClientRect(),
       left: originalGetBoundingClientRect().left + 50,
@@ -501,6 +531,7 @@ describe('ReferencePicker', () => {
     const { hot } = mockGrid(cells)
     const refocus = vi.fn()
     const inserted: string[] = []
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: (a1) => inserted.push(a1),
@@ -522,6 +553,7 @@ describe('ReferencePicker', () => {
   it('does not suppress mousedown on grid chrome (fill handle, headers)', () => {
     const cells = [[cell()]]
     const { hot } = mockGrid(cells)
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
@@ -543,6 +575,7 @@ describe('ReferencePicker', () => {
   it('suppresses mousedown on content nested inside a data cell', () => {
     const cells = [[cell()]]
     const { hot } = mockGrid(cells)
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
@@ -559,6 +592,7 @@ describe('ReferencePicker', () => {
   it('does not suppress mousedown outside its own grid', () => {
     const cells = [[cell()]]
     const { hot } = mockGrid(cells)
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
@@ -576,6 +610,7 @@ describe('ReferencePicker', () => {
     const cells = [[cell(), cell()]]
     const { hot, root } = mockGrid(cells)
     const inserted: string[] = []
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: (a1) => inserted.push(a1),
@@ -598,11 +633,13 @@ describe('ReferencePicker', () => {
   it('abortDrag is idempotent when no drag is in progress', () => {
     const cells = [[cell()]]
     const { hot } = mockGrid(cells)
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
       refocusEditor: vi.fn(),
     })
+
     // Calling abortDrag with no active drag must not throw.
     expect(() => picker.abortDrag()).not.toThrow()
     expect(picker.isDragging).toBe(false)
@@ -613,6 +650,7 @@ describe('ReferencePicker', () => {
     const { hot } = mockGrid(cells)
     const refocus = vi.fn()
     const inserted: string[] = []
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: (a1) => inserted.push(a1),
@@ -623,6 +661,7 @@ describe('ReferencePicker', () => {
     const rightClick = pointer('pointerdown', cells[0][1], 0, 0, {
       button: 2,
     })
+
     picker.onPointerDown(rightClick)
     expect(rightClick.stopPropagation).toHaveBeenCalled()
     expect(rightClick.preventDefault).toHaveBeenCalled()
@@ -635,6 +674,7 @@ describe('ReferencePicker', () => {
       isPrimary: false,
       pointerId: 2,
     })
+
     picker.onPointerDown(secondTouch)
     expect(secondTouch.stopPropagation).toHaveBeenCalled()
     expect(picker.isDragging).toBe(false)
@@ -645,6 +685,7 @@ describe('ReferencePicker', () => {
     const cells = [[cell(), cell()]]
     const { hot } = mockGrid(cells)
     const inserted: string[] = []
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: (a1) => inserted.push(a1),
@@ -683,9 +724,11 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
       [cell(), cell(), cell()],
       [cell(), cell(), cell()],
     ]
+
     const { hot, root } = mockGrid(cells)
     const inserted: string[] = []
     const refocus = vi.fn()
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: (a1) => inserted.push(a1),
@@ -718,6 +761,7 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
     const cells = Array.from({ length: 4 }, () => [cell()])
     const { hot, root } = mockGrid(cells)
     const inserted: string[] = []
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: (a1) => inserted.push(a1),
@@ -740,8 +784,10 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
       [cell(), cell(), cell()],
       [cell(), cell(), cell()],
     ]
+
     const { hot, root } = mockGrid(cells)
     const inserted: string[] = []
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: (a1) => inserted.push(a1),
@@ -756,9 +802,11 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
 
     expect(inserted).toEqual(['A1', 'C2'])
     expect(picker.references).toHaveLength(2)
+
     const highlights = root.querySelectorAll<HTMLDivElement>(
       '.sheetbase-ref-highlight',
     )
+
     expect(highlights).toHaveLength(2)
     // Colours cycle in insertion order, matching the pointer-only path.
     expect(highlights[0].style.border).toContain(hexToRgb(REFERENCE_COLORS[0]))
@@ -770,8 +818,10 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
       [cell(), cell(), cell()],
       [cell(), cell(), cell()],
     ]
+
     const { hot, root } = mockGrid(cells)
     const inserted: string[] = []
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: (a1) => inserted.push(a1),
@@ -800,11 +850,13 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
   it('popLastReference returns null when there are no references', () => {
     const cells = [[cell()]]
     const { hot } = mockGrid(cells)
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
       refocusEditor: vi.fn(),
     })
+
     expect(picker.popLastReference()).toBeNull()
   })
 
@@ -813,7 +865,9 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
       [cell(), cell(), cell()],
       [cell(), cell(), cell()],
     ]
+
     const { hot, root } = mockGrid(cells)
+
     const picker = new ReferencePicker(hot, {
       getSheetName: () => '',
       insertReference: vi.fn(),
@@ -827,9 +881,11 @@ describe('ReferencePicker.pickCell (keyboard reference picking)', () => {
 
     expect(picker.references).toHaveLength(1)
     expect(picker.references[0].a1).toBe('B1')
+
     const highlights = root.querySelectorAll<HTMLDivElement>(
       '.sheetbase-ref-highlight',
     )
+
     expect(highlights).toHaveLength(1)
     // The new reference uses the same colour as the popped one.
     expect(highlights[0].style.border).toContain(hexToRgb(REFERENCE_COLORS[0]))

@@ -82,6 +82,7 @@ export interface DatasetQueryRow {
 }
 
 export type RelationshipType = 'references' | 'derives_from' | 'composed_of'
+
 export type RelationshipCardinality =
   'one_to_one' | 'one_to_many' | 'many_to_many'
 
@@ -137,7 +138,9 @@ function schemaLifecycle(
   status: DatasetSchemaWire['status'],
 ): DatasetSchemaDefinition['lifecycle'] {
   if (status === 'draft') return 'draft'
+
   if (status === 'published') return 'active'
+
   return 'retired'
 }
 
@@ -157,6 +160,7 @@ export function datasetFieldDefinitionFromWire(
       relationship.relationship_type === 'references' &&
       relationship.source_field_id === field.id,
   )
+
   if (referenceEdges.length > 1) {
     throw new Error(
       `Dataset field ${field.id} has multiple active reference targets.`,
@@ -172,6 +176,7 @@ export function datasetFieldDefinitionFromWire(
         cardinality: 'one',
       }
     : null
+
   const definition = fieldDefinitionFromDatasetSchemaField({
     id: field.id,
     slug: field.slug,
@@ -188,12 +193,15 @@ export function datasetFieldDefinitionFromWire(
     relationship,
     lifecycle: field.lifecycle,
   })
+
   const issues = validateFieldDefinition(definition)
+
   if (issues.length > 0) {
     throw new Error(
       `Invalid Dataset field ${field.id}: ${issues.map((issue) => issue.message).join(' ')}`,
     )
   }
+
   return definition
 }
 
@@ -205,16 +213,21 @@ export function datasetSchemaDefinitionFromWire(
   const definitions = fields.map((field) =>
     datasetFieldDefinitionFromWire(field, relationships),
   )
+
   const fieldsByKey: Record<string, string> = {}
+
   for (const field of definitions) {
     if (field.lifecycle !== 'active') continue
+
     if (fieldsByKey[field.key]) {
       throw new Error(
         `Dataset schema ${schema.id} has duplicate field key ${field.key}.`,
       )
     }
+
     fieldsByKey[field.key] = field.fieldId
   }
+
   return {
     schemaId: schema.id,
     schemaKey: schema.slug,
@@ -281,7 +294,9 @@ export async function fetchDatasetSchemaDefinition(
     fetchDatasetSchemaFields(client, schemaId),
     fetchDatasetSchemaRelationships(client),
   ])
+
   if (schemas.length === 0) throw new Error('Dataset schema not found.')
+
   return datasetSchemaDefinitionFromWire(schemas[0], fields, relationships)
 }
 

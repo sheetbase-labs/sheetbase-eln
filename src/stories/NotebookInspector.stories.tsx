@@ -55,7 +55,9 @@ const meta = {
     historyCount: 12,
   },
 } satisfies Meta<typeof NotebookInspector>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A selected cell with its validation warning and provenance. */

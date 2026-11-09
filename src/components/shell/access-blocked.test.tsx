@@ -9,6 +9,7 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => vi.fn(),
   useRouter: () => ({}),
 }))
+
 vi.mock('#/lib/auth-client', () => ({ authClient: {} }))
 
 afterEach(cleanup)
@@ -29,6 +30,7 @@ function surface(over: Partial<Parameters<typeof AccessBlockedSurface>[0]>) {
       {...over}
     />,
   )
+
   return { onSignOut, onSwitch }
 }
 
@@ -40,6 +42,7 @@ describe('AccessBlockedSurface', () => {
         { name: 'Olive Owner', email: 'olive@lab.test', role: 'owner' },
       ],
     })
+
     expect(
       screen.getByRole('heading', {
         name: 'Your access to Acme Lab is suspended',
@@ -66,6 +69,7 @@ describe('AccessBlockedSurface', () => {
       suspendedWorkspace: { name: 'Acme Lab' },
       otherWorkspaces: [{ id: 'w2', name: 'Sam’s workspace' }],
     })
+
     await userEvent.click(
       screen.getByRole('button', { name: 'Sam’s workspace' }),
     )
@@ -78,6 +82,7 @@ describe('pickActiveMembership', () => {
     workspaceId,
     suspendedAt,
   })
+
   it('skips a suspended preferred workspace for a live one', () => {
     const picked = pickActiveMembership([m('a', new Date()), m('b', null)], 'a')
     expect(picked?.workspaceId).toBe('b')

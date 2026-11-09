@@ -14,6 +14,7 @@ describe('material safety', () => {
     for (const code of knownHazardCodes()) {
       expect(hazardStatementText(code)).not.toBe(code)
     }
+
     expect(hazardStatementText('H999')).toBe('H999')
   })
 
@@ -27,7 +28,9 @@ describe('material safety', () => {
       updated_at: '2026-11-04T00:00:00Z',
       sds: null,
     })
+
     expect(isHazardous(empty)).toBe(false)
+
     const flagged = toMaterialSafety({
       record_id: 'b',
       pictograms: ['GHS02', 'nonsense'],
@@ -37,6 +40,7 @@ describe('material safety', () => {
       updated_at: '2026-11-04T00:00:00Z',
       sds: { id: 'f', record_id: 'r', display_name: 'SDS.pdf' },
     })
+
     expect(flagged.pictograms).toEqual(['GHS02'])
     expect(flagged.sheet?.name).toBe('SDS.pdf')
     expect(isHazardous(flagged)).toBe(true)

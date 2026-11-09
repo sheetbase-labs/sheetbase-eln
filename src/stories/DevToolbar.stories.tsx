@@ -27,8 +27,10 @@ function Switched({
   useEffect(() => {
     setDevSwitch(on)
     setReady(true)
+
     return () => setDevSwitch(false)
   }, [on])
+
   return ready ? <>{children}</> : null
 }
 
@@ -48,7 +50,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof DevToolbar>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Owner: Story = {}

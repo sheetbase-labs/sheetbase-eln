@@ -62,10 +62,12 @@ function SortableRows({ enabled }: { enabled: boolean }) {
     setOrder((current) => {
       const without = current.filter((row) => row.id !== id)
       const moved = current.find((row) => row.id === id)
+
       if (!moved) return current
       const at = Math.max(0, Math.min(targetIndex, without.length))
       const next = [...without]
       next.splice(at, 0, moved)
+
       return next
     })
   }
@@ -86,13 +88,16 @@ function SortableRows({ enabled }: { enabled: boolean }) {
               'aria-label': `${row.label} block${enabled ? ' — Alt+Arrow keys move; Ctrl+Arrow keys navigate' : ''}`,
               onKeyDown: (event) => {
                 if (!enabled || !event.altKey) return
+
                 if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
                 event.preventDefault()
+
                 const target = moveTargetIndex(
                   order.map((entry) => entry.id),
                   row.id,
                   event.key === 'ArrowUp' ? 'up' : 'down',
                 )
+
                 if (target !== null) move(row.id, target)
               },
             }}
@@ -123,6 +128,7 @@ const meta = {
 } satisfies Meta<typeof NotebookBlockList>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The shipped shape: every row carries a grip, reordering by pointer, touch or keyboard. */

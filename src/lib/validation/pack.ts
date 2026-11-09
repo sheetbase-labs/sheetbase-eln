@@ -69,6 +69,7 @@ export function traceCsv(): string {
     ['Requirement', 'Layer', 'Automated test file', 'Test'],
     ...REQUIREMENTS.flatMap((r) => {
       const tests = trace.entries.filter((e) => e.requirement === r.id)
+
       return tests.length === 0
         ? [[r.id, '', '', '(no automated test is tagged to this requirement)']]
         : tests.map((e) => [r.id, e.layer, e.file, e.title])
@@ -87,6 +88,7 @@ export function traceMarkdown(latest: ValidationRunRecord | undefined): string {
         : ' (no run included).'),
     '',
   ]
+
   for (const r of REQUIREMENTS) {
     lines.push(`## ${r.id} — ${r.area}`, '', r.statement, '')
     const tests = trace.entries.filter((e) => e.requirement === r.id)
@@ -101,12 +103,14 @@ export function traceMarkdown(latest: ValidationRunRecord | undefined): string {
       ...(r.checks.length
         ? r.checks.map((id) => {
             const result = latest?.results.find((c) => c.id === id)
+
             return `- ${id} ${checkTitle(id)}${result ? `: ${result.status}` : ''}`
           })
         : ['- none']),
     )
     lines.push('')
   }
+
   return lines.join('\n')
 }
 
@@ -123,11 +127,13 @@ export function protocolMarkdown(input: PackInput): string {
     'check was not performed and is not a pass.',
     '',
   ]
+
   for (const kind of ['iq', 'oq'] as const) {
     lines.push(
       kind === 'iq' ? '## Installation checks' : '## Operational checks',
       '',
     )
+
     for (const c of CHECKS.filter((x) => x.kind === kind)) {
       lines.push(
         `### ${c.id} ${c.title}`,
@@ -141,6 +147,7 @@ export function protocolMarkdown(input: PackInput): string {
       )
     }
   }
+
   lines.push(
     '## Review and sign-off',
     '',
@@ -156,6 +163,7 @@ export function protocolMarkdown(input: PackInput): string {
     '',
     '',
   )
+
   return lines.join('\n')
 }
 
@@ -175,6 +183,7 @@ export function runMarkdown(run: ValidationRunRecord): string {
     ),
     '',
   ]
+
   return lines.join('\n')
 }
 
@@ -237,10 +246,12 @@ export async function buildValidationPack(
   writer.add('trace.csv', traceCsv())
   writer.add('trace.md', traceMarkdown(latest))
   writer.add('protocol.md', protocolMarkdown(input))
+
   for (const run of input.runs) {
     writer.add(`runs/${run.id}.json`, JSON.stringify(run, null, 2))
     writer.add(`runs/${run.id}.md`, runMarkdown(run))
   }
+
   writer.add('public-key.pem', input.publicKeyPem)
   writer.add('verify.mjs', VERIFY_MJS)
   writer.add('verify.sh', VERIFY_SH)
@@ -251,6 +262,7 @@ export async function buildValidationPack(
     sha256: createHash('sha256').update(data).digest('hex'),
     bytes: data.length,
   }))
+
   const manifest = new TextEncoder().encode(
     JSON.stringify(
       {
@@ -265,7 +277,9 @@ export async function buildValidationPack(
       2,
     ),
   )
+
   writer.add('manifest.json', manifest)
   writer.add('manifest.sig', input.sign(manifest))
+
   return writer.stream()
 }

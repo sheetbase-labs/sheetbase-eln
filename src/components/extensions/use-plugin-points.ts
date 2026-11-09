@@ -43,8 +43,10 @@ export function usePluginPoints(): ResolvedRunnerPoints & {
     queryFn: () => listExtensions(notebookDataClient),
     staleTime: 30_000,
   })
+
   return React.useMemo(() => {
     const data = installs.data ?? []
+
     return {
       ...(data.length > 0 ? resolveRunnerPoints(data) : EMPTY),
       isLoading: installs.isLoading,

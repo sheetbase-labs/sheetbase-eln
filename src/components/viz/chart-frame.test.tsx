@@ -82,6 +82,7 @@ describe('ChartFrame', () => {
 
   it('changes between expanded and contracted states', async () => {
     const onExpandedChange = vi.fn()
+
     const { rerender } = render(
       <ChartFrame title="Trend" onExpandedChange={onExpandedChange}>
         <svg />

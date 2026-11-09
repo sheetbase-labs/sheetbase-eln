@@ -35,14 +35,20 @@ function checked(value: unknown): RenderedCell | null {
   if (typeof value !== 'object' || value === null) return null
   const v = value as Record<string, unknown>
   const out: RenderedCell = {}
+
   if (typeof v.svg === 'string') {
     const clean = sanitizeSvg(v.svg)
+
     if (clean) out.svg = clean
   }
+
   if (typeof v.image === 'string' && IMAGE_RE.test(v.image)) out.image = v.image
+
   if (typeof v.text === 'string') out.text = v.text.slice(0, 500)
+
   if (typeof v.tone === 'string' && TONES.includes(v.tone))
     out.tone = v.tone as RenderedCell['tone']
+
   return out.svg || out.image || out.text !== undefined ? out : null
 }
 
@@ -85,10 +91,12 @@ class RendererHost {
     this.listener = (event) => this.onMessage(event)
     window.addEventListener('message', this.listener)
     document.body.appendChild(this.frame)
+
     const observer = new MutationObserver(() => {
       this.cache.clear()
       this.sendContext()
     })
+
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ['data-theme'],
@@ -105,24 +113,31 @@ class RendererHost {
   private onMessage(event: MessageEvent) {
     if (event.source !== this.frame.contentWindow) return
     const data: unknown = event.data
+
     if (typeof data !== 'object' || data === null) return
     const message = data as Record<string, unknown>
+
     if (message.sb !== 1) return
+
     if (message.type === 'ready') {
       this.ready = true
       this.sendContext()
       this.flush()
     } else if (message.type === 'rendered' && typeof message.id === 'string') {
       const waiting = this.inflight.get(message.id)
+
       if (!waiting) return
       this.inflight.delete(message.id)
+
       const cells = Array.isArray(message.cells)
         ? (message.cells as Array<Record<string, unknown>>)
         : []
+
       waiting.forEach((entry, index) => {
         const answer = message.error
           ? null
           : checked(cells.find((c) => c.key === index))
+
         entry.resolve(answer)
       })
     }
@@ -149,7 +164,9 @@ class RendererHost {
 
   render(value: unknown): Promise<RenderedCell | null> {
     const key = JSON.stringify(value ?? null)
+
     if (this.cache.has(key)) return Promise.resolve(this.cache.get(key) ?? null)
+
     return new Promise((resolve) => {
       this.queue.push({
         value,
@@ -158,6 +175,7 @@ class RendererHost {
           resolve(cell)
         },
       })
+
       if (!this.scheduled) {
         this.scheduled = true
         setTimeout(() => {
@@ -174,10 +192,12 @@ const hosts = new Map<string, RendererHost>()
 function hostFor(extensionKey: string, itemId: string): RendererHost {
   const id = `${extensionKey}/${itemId}`
   let host = hosts.get(id)
+
   if (!host) {
     host = new RendererHost(extensionKey, itemId)
     hosts.set(id, host)
   }
+
   return host
 }
 
@@ -196,19 +216,24 @@ export function PluginCell({
   const [cell, setCell] = React.useState<RenderedCell | null | undefined>(
     undefined,
   )
+
   const key = JSON.stringify(value ?? null)
   React.useEffect(() => {
     let live = true
     setCell(undefined)
+
     if (value === null || value === undefined || value === '') {
       setCell(null)
+
       return
     }
+
     void hostFor(extensionKey, itemId)
       .render(value)
       .then((answer) => {
         if (live) setCell(answer)
       })
+
     return () => {
       live = false
     }
@@ -224,6 +249,7 @@ export function PluginCell({
         —
       </span>
     )
+
   return (
     <span
       data-slot="plugin-cell"

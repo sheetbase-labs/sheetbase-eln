@@ -41,6 +41,7 @@ describe('calendar feed', () => {
         { ...event, id: '2', status: 'cancelled' },
       ],
     })
+
     expect(ics).toContain('STATUS:TENTATIVE')
     expect(ics).toContain('STATUS:CANCELLED')
   })
@@ -57,6 +58,7 @@ describe('calendar feed', () => {
         },
       ],
     })
+
     expect(ics).toContain('DTSTART;VALUE=DATE:20261105')
     expect(ics).toContain('DTEND;VALUE=DATE:20261107')
   })
@@ -64,9 +66,11 @@ describe('calendar feed', () => {
   it('folds long lines at 75 octets without splitting a character', () => {
     const long = `SUMMARY:${'é'.repeat(60)}`
     const folded = foldLine(long)
+
     for (const line of folded.split('\r\n')) {
       expect(new TextEncoder().encode(line).length).toBeLessThanOrEqual(75)
     }
+
     expect(folded.replace(/\r\n /g, '')).toBe(long)
   })
 

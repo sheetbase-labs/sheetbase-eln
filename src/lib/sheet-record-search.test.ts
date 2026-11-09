@@ -14,10 +14,12 @@ describe('Sheet Record search', () => {
         archived: false,
       },
     ])
+
     const hits = await searchSheetRecords(
       { modelKey: 'sample', query: 'SMP-2026-0001', limit: 200 },
       { rpc } as never,
     )
+
     expect(rpc).toHaveBeenCalledWith('search_sheet_records', {
       p_model_key: 'sample',
       p_query: 'SMP-2026-0001',

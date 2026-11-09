@@ -84,6 +84,7 @@ describe('RunLog', () => {
         ]}
       />,
     )
+
     expect(screen.getByText('Failed at line 4 of step analysis.')).toBeTruthy()
     expect(container.querySelector('details')?.hasAttribute('open')).toBe(true)
   })

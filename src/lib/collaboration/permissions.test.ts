@@ -38,10 +38,12 @@ describe('collaboration permission mapping', () => {
       ok: false,
       reason: 'no_membership',
     })
+
     const suspended = {
       role: 'scientist',
       suspendedAt: new Date('2026-01-01T00:00:00Z'),
     }
+
     expect(accessForMembership(suspended)).toEqual({
       ok: false,
       reason: 'suspended',
@@ -51,6 +53,7 @@ describe('collaboration permission mapping', () => {
   it('maps an active membership to scoped access', () => {
     const result = accessForMembership({ role: 'viewer', suspendedAt: null })
     expect(result.ok).toBe(true)
+
     if (result.ok) {
       expect(result.role).toBe('viewer')
       expect(result.permissions).toEqual(['room:read'])

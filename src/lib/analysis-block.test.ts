@@ -96,6 +96,7 @@ describe('validateAnalysisBlockPayload', () => {
         } as unknown as AnalysisDefinition,
       },
     })
+
     expect(errors).toContainEqual(
       expect.objectContaining({
         field: expect.stringContaining('frozen.definition'),
@@ -116,6 +117,7 @@ describe('validateAnalysisBlockPayload', () => {
         },
       },
     })
+
     expect(errors).toContainEqual(
       expect.objectContaining({ field: 'frozen.data' }),
     )
@@ -140,6 +142,7 @@ describe('validateAnalysisBlockPayload', () => {
         ...completePayload(),
         frozen: { ...frozen(), datasetProvenance },
       })
+
       expect(errors).toContainEqual(
         expect.objectContaining({ field: 'frozen.datasetProvenance' }),
       )
@@ -163,6 +166,7 @@ describe('validateAnalysisBlockPayload', () => {
         ],
       },
     })
+
     expect(errors).toContainEqual(
       expect.objectContaining({ field: 'frozen.datasetProvenance' }),
     )
@@ -184,6 +188,7 @@ describe('recorded method version (R5-STUDIO-01)', () => {
         frozen: { ...frozen(), methodVersion: 1 },
       }),
     ).toEqual([])
+
     for (const methodVersion of [0, 1.5, '1', null]) {
       expect(
         validateAnalysisBlockPayload({
@@ -194,6 +199,7 @@ describe('recorded method version (R5-STUDIO-01)', () => {
         expect.objectContaining({ field: 'frozen.methodVersion' }),
       )
     }
+
     // Absent is still valid: payloads frozen before method recording.
     expect(
       validateAnalysisBlockPayload({
@@ -218,17 +224,20 @@ describe('recorded method version (R5-STUDIO-01)', () => {
 
   it('keeps its method when the live definition and source have changed', () => {
     const snapshot: FrozenAnalysis = { ...frozen(), methodVersion: 1 }
+
     // The pinned Version rows — the evidence the citation holds.
     const pinnedRows = [
       { [FIELD_TIME]: 0, [FIELD_RECOVERY]: 1 },
       { [FIELD_TIME]: 24, [FIELD_RECOVERY]: 3 },
       { [FIELD_TIME]: 48, [FIELD_RECOVERY]: 5 },
     ]
+
     const frozenRun = runAnalysis(
       snapshot.definition,
       columns(snapshot),
       pinnedRows,
     )
+
     if (!frozenRun.ok || frozenRun.result.kind !== 'regression')
       throw new Error('expected a regression result')
     expect(frozenRun.result.method.id).toBe('linear_model')
@@ -247,10 +256,12 @@ describe('recorded method version (R5-STUDIO-01)', () => {
       datasets: [{ datasetId: DATASET_ID }],
       value: { fieldId: FIELD_RECOVERY },
     }
+
     const liveRun = runAnalysis(liveDefinition, columns(snapshot), [
       { [FIELD_RECOVERY]: 100 },
       { [FIELD_RECOVERY]: 200 },
     ])
+
     if (!liveRun.ok || liveRun.result.kind !== 'descriptive')
       throw new Error('expected a descriptive result')
     expect(liveRun.result.method.id).toBe('descriptive')
@@ -266,6 +277,7 @@ describe('recorded method version (R5-STUDIO-01)', () => {
 describe('frozen evidence reproduction', () => {
   it('re-executes identically over the pinned Dataset Version inputs', async () => {
     const snapshot = frozen()
+
     // The immutable Version holds exactly the rows the provenance pinned;
     // fetchFrozenAnalysisRows pages them back and verifies the row count.
     const versionRows = [
@@ -285,6 +297,7 @@ describe('frozen evidence reproduction', () => {
         values: { [FIELD_TIME]: 48, [FIELD_RECOVERY]: 5 },
       },
     ]
+
     const client = {
       rpc: async (
         _name: string,
@@ -300,6 +313,7 @@ describe('frozen evidence reproduction', () => {
       snapshot.datasetProvenance[0].datasetVersionId,
       snapshot.datasetProvenance[0].rowCount,
     )
+
     expect(pinned.matchesProvenance).toBe(true)
     expect(pinned.totalCount).toBe(3)
 
@@ -308,9 +322,11 @@ describe('frozen evidence reproduction', () => {
       label: c.label,
       logicalType: c.logicalType,
     }))
+
     const first = runAnalysis(snapshot.definition, columns, pinned.rows)
     const second = runAnalysis(snapshot.definition, columns, pinned.rows)
     expect(first).toEqual(second)
+
     if (!first.ok || first.result.kind !== 'regression') return
     expect(first.result.rows[0]).toMatchObject({ group: 'all', n: 3 })
     expect(first.result.rows[0].coefficients[1]).toBeCloseTo(2 / 24, 6)
@@ -324,6 +340,7 @@ describe('frozen evidence reproduction', () => {
       revision: 2,
       values: { [FIELD_TIME]: i, [FIELD_RECOVERY]: i },
     }))
+
     const client = {
       rpc: async (
         _name: string,
@@ -333,6 +350,7 @@ describe('frozen evidence reproduction', () => {
         totalCount: versionRows.length,
       }),
     } as unknown as DataClient
+
     const pinned = await fetchFrozenAnalysisRows(client, VERSION_ID, 3)
     expect(pinned.matchesProvenance).toBe(false)
     expect(pinned.totalCount).toBe(7)
@@ -360,12 +378,14 @@ describe('merged analysis block: a chart, a statistic or both', () => {
   } as unknown as NonNullable<AnalysisDefinition['chart']>
 
   const withChart: AnalysisDefinition = { ...DEFINITION, chart: CHART }
+
   const chartOnly = {
     definitionVersion: 1 as const,
     kind: 'chart' as const,
     datasets: [{ datasetId: DATASET_ID }],
     chart: CHART,
   }
+
   const payloadWith = (definition: unknown) => ({
     title: 'Recovery',
     definitionId: DATASET_ID,
@@ -395,6 +415,7 @@ describe('merged analysis block: a chart, a statistic or both', () => {
         datasets: [{ datasetId: '0198d970-e266-4000-8000-0000000000ff' }],
       },
     }
+
     const errors = validateAnalysisBlockPayload(payloadWith(other))
     expect(errors.some((e) => e.field?.includes('chart.datasets'))).toBe(true)
   })

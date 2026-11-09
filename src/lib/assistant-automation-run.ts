@@ -18,12 +18,15 @@ export async function runAutomationAction(
         worklistId: action.worklistId,
         note: action.note ?? undefined,
       })
+
       return { openHref: `/instruments/${action.instrumentId}` }
     case 'schedule.plan':
       await requestProposal(client, action.recordId)
+
       return { openHref: `/experiments/${action.recordId}/summary` }
     case 'schedule.accept':
       await acceptProposal(client, action.proposalId)
+
       return { openHref: `/experiments/${action.recordId}/summary` }
   }
 }

@@ -52,6 +52,7 @@ export async function seedScale(
 ): Promise<{ experiments: number; samples: number }> {
   const experiments = input.experiments ?? SCALE_EXPERIMENTS
   const samples = input.samples ?? SCALE_SAMPLES
+
   const experimentResult = await client.query(
     `INSERT INTO api.records
        (workspace_id, project_id, kind, identifier, title, status,
@@ -75,6 +76,7 @@ export async function seedScale(
       SCALE_EXPERIMENT_STATUSES,
     ],
   )
+
   const sampleResult = await client.query(
     `INSERT INTO api.records
        (workspace_id, project_id, kind, identifier, title, status,
@@ -102,6 +104,7 @@ export async function seedScale(
       SAMPLE_TYPES,
     ],
   )
+
   return {
     experiments: experimentResult.rowCount ?? 0,
     samples: sampleResult.rowCount ?? 0,

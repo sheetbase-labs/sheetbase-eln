@@ -25,10 +25,12 @@ const datasetFlags = vi.hoisted(() => ({
 
 vi.mock('#/lib/dataset-flags', async (importOriginal) => {
   const actual = await importOriginal<typeof DatasetFlagsModule>()
+
   return { ...actual, ...datasetFlags }
 })
 
 const sonner = vi.hoisted(() => ({ toast: vi.fn() }))
+
 vi.mock('#/components/ui/sonner', () => ({
   toast: sonner.toast,
   Toaster: () => null,
@@ -86,6 +88,7 @@ function renderActions(
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <ValueActions
@@ -137,6 +140,7 @@ describe('ValueActions', () => {
 
   it('clears a manual flag in one step without a reason', async () => {
     const user = userEvent.setup()
+
     const manual: DatasetValueFlag = {
       ...systemFlag,
       id: 'flag-manual',
@@ -149,6 +153,7 @@ describe('ValueActions', () => {
       threshold: null,
       evaluatedAt: null,
     }
+
     renderActions({ flags: [manual] })
 
     await user.click(screen.getByRole('button', { name: 'Clear flag' }))
@@ -171,6 +176,7 @@ describe('ValueActions', () => {
       reason: 'Unit was not recorded',
       comment: null,
     }
+
     renderActions({ flags: [systemFlag, manual] })
     expect(screen.getByText('Out of range')).toBeTruthy()
     expect(screen.getByText('Missing unit')).toBeTruthy()
@@ -239,9 +245,11 @@ describe('ValueActions', () => {
         description: expect.stringContaining('2 planned rows'),
       }),
     )
+
     const href = (
       await screen.findByRole('link', { name: 'Record repeat reading' })
     ).getAttribute('href')
+
     const search = new URL(href!, 'http://test.invalid').searchParams
     expect(search.get('sample')).toBe('repeat-sample')
     expect(search.get('dataset')).toBe('ds-1')
@@ -302,9 +310,11 @@ describe('MarkOutOfRangeDialog', () => {
       />,
     )
     expect(screen.getByRole('dialog')).toBeTruthy()
+
     for (const category of FLAG_REASON_CATEGORIES) {
       expect(screen.getByRole('radio', { name: category })).toBeTruthy()
     }
+
     expect(screen.getByText(/The value stays as recorded/)).toBeTruthy()
   })
 })

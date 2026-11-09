@@ -38,6 +38,7 @@ export function CiteSnapshotDialog({
   const navigate = useNavigate()
   const [target, setTarget] = useState<PickerItem | null>(null)
   const [citing, setCiting] = useState(false)
+
   const dataset = useQuery({
     queryKey: ['ui-port', 'dataset-cite-identity', datasetId],
     queryFn: async () =>
@@ -56,6 +57,7 @@ export function CiteSnapshotDialog({
   async function cite() {
     if (!target || !dataset.data) return
     setCiting(true)
+
     try {
       await citeSnapshotInNotebook(notebookDataClient, {
         recordId: target.id,

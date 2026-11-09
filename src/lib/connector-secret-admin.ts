@@ -21,6 +21,7 @@ export const listConnectorSecretNamesFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<ConnectorSecretEntry[]> => {
     const { listConnectorSecretNames } =
       await import('./connector-secrets.server')
+
     return listConnectorSecretNames(data.workspaceId, data.connectorId)
   })
 
@@ -39,8 +40,10 @@ export const setConnectorSecretFn = createServerFn({ method: 'POST' })
         'Secret names are lowercase snake_case identifiers (e.g. api_key).',
       )
     }
+
     if (!data.value.trim()) throw new Error('Secret value cannot be empty.')
     const { setConnectorSecret } = await import('./connector-secrets.server')
+
     return setConnectorSecret(
       data.workspaceId,
       data.connectorId,
@@ -56,6 +59,7 @@ export const deleteConnectorSecretFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }) => {
     const { deleteConnectorSecret } = await import('./connector-secrets.server')
+
     return deleteConnectorSecret(
       data.workspaceId,
       data.connectorId,

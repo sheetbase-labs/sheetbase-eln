@@ -42,6 +42,7 @@ describe('positions in a box', () => {
       box,
       position: cell(0, 1),
     }
+
     expect(describePlace(position)).toBe('Lab / Freezer F-1 / Box 3 / A2')
     expect(describePlace({ kind: 'text', text: '  Bench 4 ' })).toBe('Bench 4')
     expect(describePlace(null)).toBe('')
@@ -59,12 +60,14 @@ describe('positions in a box', () => {
 describe('placing a sample', () => {
   it('files into a position through the move call and returns the new version', async () => {
     const rpc = vi.fn().mockResolvedValue({ id: 'r1', metadata_version: 4 })
+
     const version = await placeSample({ rpc } as never, {
       recordId: 'r1',
       expectedMetadataVersion: 3,
       hasLocation: true,
       choice: { kind: 'position', box, position: cell(0, 1) },
     })
+
     expect(version).toBe(4)
     expect(rpc).toHaveBeenCalledWith(
       'move_sample_to_position',
@@ -78,6 +81,7 @@ describe('placing a sample', () => {
 
   it('fills the free positions in order and stops when the box is full', async () => {
     const rpc = vi.fn().mockResolvedValue({ id: 'x', metadata_version: 2 })
+
     const list = vi.fn().mockResolvedValue(
       cells.map((c) => ({
         id: c.id,
@@ -89,8 +93,10 @@ describe('placing a sample', () => {
         occupied_record_id: c.occupant ? 'r' : null,
       })),
     )
+
     // The occupant lookup is a second list call.
     list.mockResolvedValueOnce(await list()).mockResolvedValue([])
+
     const placed = await placeInSequence(
       { rpc, list } as never,
       [
@@ -101,6 +107,7 @@ describe('placing a sample', () => {
       ],
       { boxId: 'box-1' },
     )
+
     expect(placed).toBe(3)
     expect(rpc.mock.calls.map((call) => call[1].p_to_position_id)).toEqual([
       'p01',

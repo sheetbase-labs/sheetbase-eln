@@ -64,13 +64,16 @@ export function connectorKeyForInstrument(
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '')
+
   const slug = slugify(name)
   const base = /^[a-z]/.test(slug) ? slug : `instrument-${slug}`
   const suffix = slugify(displayId)
+
   const key =
     suffix && !base.endsWith(suffix)
       ? `${base.slice(0, 48 - suffix.length)}-${suffix}`
       : base
+
   return key.slice(0, 49).replace(/-+$/g, '') || 'instrument'
 }
 
@@ -94,6 +97,7 @@ export function agentFiles(input: {
   robot?: RobotInput
 }): AgentFile[] {
   const root = 'sheetbase-agent'
+
   const settings = JSON.stringify(
     {
       url: input.url,
@@ -109,10 +113,12 @@ export function agentFiles(input: {
     null,
     2,
   )
+
   const files: AgentFile[] = [
     { path: `${root}/instrument-agent.mjs`, content: input.agentSource },
     { path: `${root}/sheetbase-agent.json`, content: `${settings}\n` },
   ]
+
   if (input.system === 'windows') {
     files.push({
       path: `${root}/Start Sheetbase agent.bat`,
@@ -134,6 +140,7 @@ export function agentFiles(input: {
       input.system === 'mac'
         ? 'Start Sheetbase agent.command'
         : 'start-sheetbase-agent.sh'
+
     files.push({
       path: `${root}/${name}`,
       executable: true,
@@ -149,10 +156,12 @@ export function agentFiles(input: {
       ].join('\n'),
     })
   }
+
   files.push({
     path: `${root}/README.txt`,
     content: readme(input),
   })
+
   return files
 }
 
@@ -169,6 +178,7 @@ function readme(input: {
       : input.system === 'mac'
         ? 'Open "Start Sheetbase agent.command".'
         : 'Run start-sheetbase-agent.sh.'
+
   if (input.robot && !input.folder) {
     return [
       `Sheetbase robot agent for ${input.instrumentName}`,
@@ -189,6 +199,7 @@ function readme(input: {
       '',
     ].join('\n')
   }
+
   if (input.live?.length && !input.folder) {
     return [
       `Sheetbase live readings for ${input.instrumentName}`,
@@ -212,6 +223,7 @@ function readme(input: {
       '',
     ].join('\n')
   }
+
   return [
     `Sheetbase agent for ${input.instrumentName}`,
     '',

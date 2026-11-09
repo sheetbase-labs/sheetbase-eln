@@ -31,11 +31,13 @@ const fake = vi.hoisted(() => {
   // the rows without freezing the clock the page reads.
   const at = (hours: number) =>
     new Date(Date.now() + hours * 3_600_000).toISOString()
+
   const on = (days: number) =>
     new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10)
 
   const list = async (resource: string, query = '') => {
     if (fixture.failing.includes(resource)) throw new Error('unavailable')
+
     switch (resource) {
       case 'workspace_settings':
         return [
@@ -79,6 +81,7 @@ const fake = vi.hoisted(() => {
             },
           ]
         }
+
         if (query.includes('id=in.')) {
           return [
             {
@@ -113,6 +116,7 @@ const fake = vi.hoisted(() => {
             },
           ]
         }
+
         return []
       case 'calendar_bookings':
         return [
@@ -244,13 +248,19 @@ const fake = vi.hoisted(() => {
   const count = async (resource: string, query = '') => {
     if (resource === 'rpc/dataset_list_summary')
       return fixture.datasetsWithErrors
+
     if (resource === 'my_notifications') return fixture.unread
+
     if (resource === 'records') {
       if (query.includes('status=eq.approved')) return 9
+
       if (query.includes('status=eq.in_review')) return 2
+
       return 4
     }
+
     if (resource === 'calendar_bookings') return 1
+
     return 0
   }
 
@@ -260,6 +270,7 @@ const fake = vi.hoisted(() => {
       // seen state included — not the length of a `limit=200` preview.
       return [{ total: fixture.inbox, reviews: fixture.reviews }]
     }
+
     if (name === 'audit_events') {
       return {
         formatVersion: 1,
@@ -284,9 +295,11 @@ const fake = vi.hoisted(() => {
         nextCursor: null,
       }
     }
+
     if (name === 'workspace_members_list') {
       return [{ user_id: 'user-2', name: 'Priya S.' }]
     }
+
     if (name === 'my_project_permissions') {
       return [
         {
@@ -300,6 +313,7 @@ const fake = vi.hoisted(() => {
         },
       ]
     }
+
     return []
   }
 
@@ -308,11 +322,13 @@ const fake = vi.hoisted(() => {
 
 vi.mock('#/lib/notebook-data', async (importOriginal) => {
   const actual = await importOriginal<typeof notebookData>()
+
   return { ...actual, notebookDataClient: fake }
 })
 
 vi.mock('#/components/projects/project-data', async (importOriginal) => {
   const actual = await importOriginal<typeof projectData>()
+
   return {
     ...actual,
     fetchProjectSummaries: async () => [
@@ -343,6 +359,7 @@ vi.mock('#/components/projects/project-data', async (importOriginal) => {
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
+
   return {
     ...actual,
     createFileRoute: () => (options: object) => ({
@@ -371,6 +388,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       search?: unknown
     }) => {
       void params
+
       const suffix =
         search && typeof search === 'object'
           ? '?' +
@@ -380,6 +398,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
               ),
             ).toString()
           : ''
+
       return (
         <a href={`${typeof to === 'string' ? to : '#'}${suffix}`} {...rest}>
           {children}
@@ -472,6 +491,7 @@ describe('Home pace', () => {
     const comingUp = screen
       .getByRole('heading', { name: 'Coming up' })
       .closest('section')!
+
     expect(within(comingUp).getByText('next 2 weeks')).toBeTruthy()
     expect(
       within(comingUp).getByRole('link', { name: /Ambr 250 bay 2/ }),
@@ -495,6 +515,7 @@ describe('Home pace', () => {
     const pickUp = screen
       .getByRole('heading', { name: 'Pick something up' })
       .closest('section')!
+
     expect(
       within(pickUp).getByRole('link', {
         name: 'Harvest clarification: 50 L confirmation run',
@@ -507,13 +528,16 @@ describe('Home pace', () => {
     const projects = screen
       .getByRole('heading', { name: 'Your projects' })
       .closest('section')!
+
     expect(within(projects).getByText('9')).toBeTruthy()
     expect(within(projects).getByText(/of 14 approved/)).toBeTruthy()
     expect(within(projects).getByText('2 in review')).toBeTruthy()
+
     // The approval bar reports a value, not a sentence read as an image.
     const approval = within(projects).getByRole('progressbar', {
       name: /^Approval for /,
     })
+
     expect(approval.getAttribute('aria-valuenow')).toBe('9')
     expect(approval.getAttribute('aria-valuemax')).toBe('14')
     expect(approval.getAttribute('aria-valuetext')).toBe(
@@ -524,6 +548,7 @@ describe('Home pace', () => {
     const continueWorking = screen
       .getByRole('heading', { name: 'Continue working' })
       .closest('section')!
+
     expect(
       within(continueWorking).getByRole('link', {
         name: 'VCD readings, day 6',
@@ -636,7 +661,9 @@ describe('Home pace', () => {
       ...screen.getAllByRole('link'),
       ...screen.getAllByRole('button'),
     ]
+
     expect(interactive.length).toBeGreaterThan(10)
+
     for (const element of interactive) {
       // Base UI marks a link acting as a button with role="button" and
       // tabindex="0"; nothing in the calm page may leave the tab order.
@@ -644,6 +671,7 @@ describe('Home pace', () => {
       expect(tabindex === null || Number(tabindex) >= 0).toBe(true)
       expect(element.getAttribute('aria-hidden')).toBeNull()
     }
+
     // Every calm-page link carries an accessible name.
     for (const link of screen.getAllByRole('link')) {
       expect(link.textContent.trim().length > 0).toBe(true)

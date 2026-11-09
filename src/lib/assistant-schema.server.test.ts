@@ -37,6 +37,7 @@ const REAGENT = {
   lifecycle: 'active',
   is_registry: false,
 }
+
 const CELL_LINE = {
   ...REAGENT,
   id: '22222222-2222-4222-8222-222222222222',
@@ -44,6 +45,7 @@ const CELL_LINE = {
   name: 'Cell line',
   identifier_prefix: 'CL',
 }
+
 const STATE = {
   id: '33333333-3333-4333-8333-333333333333',
   field_name: 'state',
@@ -51,6 +53,7 @@ const STATE = {
   logical_type: 'category',
   lifecycle: 'active',
 }
+
 const PASSAGE = {
   ...STATE,
   id: '44444444-4444-4444-8444-444444444444',
@@ -67,6 +70,7 @@ function context(
       Promise.resolve(tables[resource]?.(query) ?? []),
     rpc: vi.fn(() => Promise.resolve({})),
   } as unknown as DataClient
+
   return {
     client,
     workspaceId: 'ws',
@@ -91,6 +95,7 @@ describe('record type, sheet definition and template assistant tools', () => {
       expect(ASSISTANT_PROPOSE_TOOL_NAMES).toContain(name)
       expect(isSchemaProposalTool(name)).toBe(true)
     }
+
     for (const name of SCHEMA_READ_TOOL_NAMES)
       expect(ASSISTANT_READ_TOOL_NAMES).toContain(name)
     expect(schemaProposalDefs()).toHaveLength(SCHEMA_PROPOSE_TOOL_NAMES.length)
@@ -109,7 +114,9 @@ describe('record type, sheet definition and template assistant tools', () => {
         record_models: (q) => (q.includes('key=eq.antibody') ? [] : models(q)),
       }),
     )
+
     expect(built.ok).toBe(true)
+
     if (!built.ok) return
     expect(built.proposal.action).toEqual({
       kind: 'schema.model_create',
@@ -132,6 +139,7 @@ describe('record type, sheet definition and template assistant tools', () => {
         record_field_definitions: () => [PASSAGE],
       }),
     )
+
     expect(built).toEqual({
       ok: false,
       message: 'Passage is not a field with choices.',
@@ -156,6 +164,7 @@ describe('record type, sheet definition and template assistant tools', () => {
         ],
       }),
     )
+
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'schema.option_add',
       fieldId: STATE.id,
@@ -182,7 +191,9 @@ describe('record type, sheet definition and template assistant tools', () => {
         record_field_definitions: () => [PASSAGE],
       }),
     )
+
     expect(built.ok).toBe(true)
+
     if (!built.ok) return
     expect(built.proposal.action).toMatchObject({
       kind: 'schema.rule_add',
@@ -206,6 +217,7 @@ describe('record type, sheet definition and template assistant tools', () => {
       },
       context({ record_models: models }),
     )
+
     expect(built.ok && built.proposal.changes[1]).toEqual({
       label: 'How many',
       before: null,
@@ -224,10 +236,12 @@ describe('record type, sheet definition and template assistant tools', () => {
         ],
       }),
     )
+
     expect(none).toEqual({
       ok: false,
       message: 'Cell line has no draft to publish.',
     })
+
     const draft = await buildSchemaProposal(
       MODEL_VERSION_PUBLISH_TOOL,
       { ...base, model: 'Cell line' },
@@ -239,6 +253,7 @@ describe('record type, sheet definition and template assistant tools', () => {
         ],
       }),
     )
+
     expect(draft.ok && draft.proposal.action).toEqual({
       kind: 'schema.model_version_publish',
       versionId: 'v2',
@@ -261,6 +276,7 @@ describe('record type, sheet definition and template assistant tools', () => {
         ],
       }),
     )
+
     expect(built).toEqual({ ok: false, message: 'Growth is already retired.' })
   })
 
@@ -285,10 +301,13 @@ describe('record type, sheet definition and template assistant tools', () => {
         record_model_versions: () => [],
       }),
     )
+
     expect(read.isError).toBe(false)
+
     const body = JSON.parse(read.text) as {
       fields: Array<{ label: string; choices?: string[] }>
     }
+
     expect(body.fields[0]).toMatchObject({
       label: 'State',
       choices: ['Frozen'],

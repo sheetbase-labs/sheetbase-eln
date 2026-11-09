@@ -43,6 +43,7 @@ describe('ShortcutsDialog', () => {
         definitions={definitions}
       />,
     )
+
     expect(container.querySelector('[role="dialog"]')).toBeNull()
   })
 
@@ -64,6 +65,7 @@ describe('registry binding presentation', () => {
     const { rerender, container } = render(
       <ShortcutKeys bindings={['g h']} platform="mac" />,
     )
+
     expect(container.textContent).toBe('G then H')
     expect(
       [...container.querySelectorAll('kbd')].map((key) => key.textContent),
@@ -89,8 +91,10 @@ describe('registry binding presentation', () => {
         />
       </>,
     )
+
     const headings = [...container.querySelectorAll('h2, h3')]
     expect(new Set(headings.map((heading) => heading.id)).size).toBe(4)
+
     for (const section of container.querySelectorAll('section')) {
       expect(section.querySelector('h2, h3')?.id).toBe(
         section.getAttribute('aria-labelledby'),
@@ -106,6 +110,7 @@ describe('RegistryShortcutsDialog', () => {
 
   function ListScene() {
     useRegisterShortcuts(listDefinitions)
+
     return null
   }
 
@@ -128,6 +133,7 @@ describe('RegistryShortcutsDialog', () => {
         <RegistryShortcutsDialog open onOpenChange={vi.fn()} />
       </ShortcutProvider>,
     )
+
     expect(screen.getByText('Next and previous item')).toBeTruthy()
     rerender(
       <ShortcutProvider definitions={definitions}>

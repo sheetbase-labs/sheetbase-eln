@@ -84,14 +84,18 @@ async function findWorklist(
   text: string,
 ): Promise<Lookup<WorklistRow>> {
   const number = /^wl-?0*(\d+)$/i.exec(text.trim())?.[1]
+
   const filter = number
     ? `number=eq.${number}`
     : `name=ilike.${likeValue(text)}`
+
   const rows = await context.client.list<WorklistRow>(
     'plate_worklists',
     `?${filter}&status=eq.planned&select=id,number,name,status,format,record_id&order=number.desc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -108,11 +112,14 @@ async function findExperiment(
   text: string,
 ): Promise<Lookup<ExperimentRow>> {
   const like = likeValue(text)
+
   const rows = await context.client.list<ExperimentRow>(
     'records',
     `?kind=eq.experiment&deleted_at=is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title&order=updated_at.desc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -135,6 +142,7 @@ async function partCount(
     'experiment_parts',
     `?record_id=eq.${recordId}&select=id&limit=50`,
   )
+
   return parts.length
 }
 
@@ -146,16 +154,21 @@ export async function buildAutomationProposal(
   switch (name) {
     case ROBOT_SEND_TOOL: {
       const parsed = proposeRobotSendSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const worklist = await findWorklist(context, input.worklist)
+
       if (!worklist.ok) return fail(worklist.message)
+
       const robot = await resolveInstrument(
         context.client,
         context.workspaceId,
         input.robot,
       )
+
       if (!robot.ok) return fail(robot.message)
+
       const settings = await context.client.list<{
         driver: string
         worklist_format: string
@@ -163,11 +176,13 @@ export async function buildAutomationProposal(
         'instrument_robot_settings',
         `?instrument_id=eq.${robot.instrument.id}&select=driver,worklist_format&limit=1`,
       )
+
       if (!settings[0]) {
         return fail(
           `${robot.instrument.name} is not set up as a robot yet. Say that it can be set up on its instrument page, under Robot, and offer to open it.`,
         )
       }
+
       const open = await context.client.list<{
         number: number
         status: string
@@ -175,12 +190,15 @@ export async function buildAutomationProposal(
         'instrument_jobs',
         `?worklist_id=eq.${worklist.value.id}&status=in.(queued,staged,starting,running)&select=number,status&limit=1`,
       )
+
       if (open[0]) {
         return fail(
           `${worklistReference(worklist.value.number)} is already on a robot (${open[0].status}).`,
         )
       }
+
       const note = input.note?.trim() || null
+
       const changes: ProposalChange[] = [
         {
           label: 'Worklist',
@@ -194,7 +212,9 @@ export async function buildAutomationProposal(
           after: 'Waits on the robot until a person presses Start',
         },
       ]
+
       if (note) changes.push({ label: 'Note', before: null, after: note })
+
       return {
         ok: true,
         proposal: {
@@ -213,17 +233,22 @@ export async function buildAutomationProposal(
         },
       }
     }
+
     case SCHEDULE_PLAN_TOOL: {
       const parsed = proposeSchedulePlanSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const found = await findExperiment(context, parsed.data.experiment)
+
       if (!found.ok) return fail(found.message)
       const parts = await partCount(context, found.value.id)
+
       if (parts === 0) {
         return fail(
           `${experimentLabel(found.value)} is not split into parts, so there is nothing to schedule.`,
         )
       }
+
       const needs = await context.client.list<{ id: string }>(
         'part_resource_needs',
         `?part_id=in.(${(
@@ -235,11 +260,13 @@ export async function buildAutomationProposal(
           .map((p) => p.id)
           .join(',')})&select=id&limit=1`,
       )
+
       if (needs.length === 0) {
         return fail(
           `No part of ${experimentLabel(found.value)} says which instrument it needs yet. Say that this is set in the Schedule section of the experiment's Summary, and offer to open it.`,
         )
       }
+
       return {
         ok: true,
         proposal: {
@@ -265,11 +292,15 @@ export async function buildAutomationProposal(
         },
       }
     }
+
     case SCHEDULE_ACCEPT_TOOL: {
       const parsed = proposeScheduleAcceptSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const found = await findExperiment(context, parsed.data.experiment)
+
       if (!found.ok) return fail(found.message)
+
       const proposals = await context.client.list<
         Pick<
           ScheduleProposalWire,
@@ -279,15 +310,19 @@ export async function buildAutomationProposal(
         'schedule_proposals',
         `?record_id=eq.${found.value.id}&status=eq.proposed&select=id,number,items,conflict_count,reason&order=created_at.desc&limit=1`,
       )
+
       const proposal = proposals.at(0)
+
       if (!proposal) {
         return fail(
           `${experimentLabel(found.value)} has no proposed schedule waiting. Offer to ask for one first.`,
         )
       }
+
       const slots = proposal.items.filter(
         (item) => item.kind === 'instrument' && item.startsAt,
       ).length
+
       const changes: ProposalChange[] = [
         {
           label: 'Experiment',
@@ -305,6 +340,7 @@ export async function buildAutomationProposal(
           after: `${slots} instrument slot${slots === 1 ? '' : 's'} booked in your name`,
         },
       ]
+
       if (proposal.conflict_count > 0) {
         changes.push({
           label: 'Needs a look',
@@ -312,6 +348,7 @@ export async function buildAutomationProposal(
           after: `${proposal.conflict_count} slot${proposal.conflict_count === 1 ? '' : 's'} with something in the way; any that cannot be booked are listed afterwards`,
         })
       }
+
       return {
         ok: true,
         proposal: {

@@ -95,6 +95,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const ConnectionsDialog: Story = {
@@ -112,6 +113,7 @@ export const NotificationChannel: Story = {
     (Story) => {
       const seeded = client()
       seeded.setQueryData(channelsQueryKey, channels)
+
       return (
         <QueryClientProvider client={seeded}>
           <Story />

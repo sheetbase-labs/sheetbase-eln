@@ -34,9 +34,11 @@ export async function sweepAuditVerification(
   maxAgeMs: number = VERIFICATION_MAX_AGE_MS,
 ): Promise<{ checked: number; failed: number }> {
   const conn = await deps.connect()
+
   try {
     const results = await verifyWorkspaces(conn, maxAgeMs)
     const failed = results.filter(({ result }) => !result.ok)
+
     for (const { slug, result } of failed) {
       logger.error('audit verification failed', {
         workspace: slug,
@@ -44,6 +46,7 @@ export async function sweepAuditVerification(
         firstBadRevision: result.signedRevisions.firstBadRevisionId,
       })
     }
+
     return { checked: results.length, failed: failed.length }
   } finally {
     await conn.end()
@@ -55,8 +58,10 @@ export function createAuditVerificationTick(
 ): () => Promise<void> {
   return async () => {
     const startedAt = Date.now()
+
     try {
       const { checked, failed } = await sweepAuditVerification(deps)
+
       if (checked > 0) {
         logger.info('audit verification complete', {
           checked,
@@ -79,8 +84,10 @@ const startedGlobalKey = '__sheetbaseAuditVerificationSchedulerStarted'
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
@@ -93,14 +100,17 @@ export function startAuditVerificationScheduler(
   options: StartAuditVerificationOptions = {},
 ): void {
   if (typeof window !== 'undefined') return
+
   if (schedulerDisabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
 
   const tick = createAuditVerificationTick(
     options.deps ?? { connect: defaultConnect },
   )
+
   // First pass shortly after boot, so a fresh or reseeded deployment shows a
   // result straight away, then hourly.
   verificationBootTimer = setTimeout(() => void tick(), 20_000)
@@ -117,10 +127,12 @@ export function stopAuditVerificationScheduler(): void {
     clearTimeout(verificationBootTimer)
     verificationBootTimer = null
   }
+
   if (verificationTimer) {
     clearInterval(verificationTimer)
     verificationTimer = null
   }
+
   const g = globalThis as unknown as Record<string, unknown>
   delete g[startedGlobalKey]
 }
@@ -134,6 +146,8 @@ async function defaultConnect(): Promise<AuditVerificationConnection> {
   const client = new Client({
     connectionString: process.env.MIGRATION_DATABASE_URL ?? env.DATABASE_URL,
   })
+
   await client.connect()
+
   return client
 }

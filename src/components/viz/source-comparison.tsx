@@ -47,6 +47,7 @@ function numericColumns(source: CanonicalDatasetSource | undefined) {
 
 function format(value: number | null | undefined): string {
   if (value === null || value === undefined) return '—'
+
   return Number.isInteger(value) ? String(value) : value.toPrecision(5)
 }
 
@@ -81,6 +82,7 @@ export function SourceComparison({
     queryFn: () => listDatasetVersionSummaries(sciDataClient, datasetB),
     staleTime: 30_000,
   })
+
   const rowsB = useQuery({
     queryKey: ['source-comparison-rows', datasetB, snapshotB],
     queryFn: () =>
@@ -92,27 +94,35 @@ export function SourceComparison({
 
   const columnsA = numericColumns(sourceA)
   const columnsB = numericColumns(sourceB)
+
   const valueFieldA = columnsA.some((c) => c.id === valueA)
     ? valueA
     : (columnsA[0]?.id ?? '')
+
   const valueFieldB = columnsB.some((c) => c.id === valueB)
     ? valueB
     : (columnsB[0]?.id ?? '')
+
   // Row keys are only shared within one dataset's lineage.
   const effectiveMatch: ComparativeMatchMode =
     !sameDataset && matchBy === 'row_key' ? 'field' : matchBy
+
   const matchFieldA = sourceA.columns.some((c) => c.id === matchA)
     ? matchA
     : (sourceA.columns[0]?.id ?? '')
+
   const matchFieldB = (sourceB?.columns ?? []).some((c) => c.id === matchB)
     ? matchB
     : (sourceB?.columns[0]?.id ?? '')
+
   const matchLabel =
     sourceA.columns.find((c) => c.id === matchFieldA)?.label ?? null
 
   const resolvedB = rowsB.data
+
   const pairing = React.useMemo(() => {
     if (!resolvedB || !valueFieldA || !valueFieldB) return null
+
     return pairComparativeSources(
       { rows: rowsA, valueField: valueFieldA, matchField: matchFieldA },
       {
@@ -140,7 +150,9 @@ export function SourceComparison({
         .map((row) => toComparableNumber(row[field]))
         .filter((v): v is number => v !== null),
     )
+
   const statsA = valueFieldA ? statsOf(rowsA, valueFieldA) : null
+
   const statsB =
     resolvedB && valueFieldB ? statsOf(resolvedB.rows, valueFieldB) : null
 

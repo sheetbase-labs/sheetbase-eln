@@ -91,6 +91,7 @@ function useIsPhone(): boolean {
     (notify) => {
       const query = window.matchMedia(PHONE_QUERY)
       query.addEventListener('change', notify)
+
       return () => query.removeEventListener('change', notify)
     },
     () => window.matchMedia(PHONE_QUERY).matches,
@@ -116,6 +117,7 @@ export function ExperimentSeries({
   const [planning, setPlanning] = useState<SeriesMember | null>(null)
   const [removing, setRemoving] = useState<SeriesMember | null>(null)
   const rows = members.data ?? []
+
   const { userLabel } = useUserNames(
     rows.flatMap((row) =>
       [row.owner_user_id, row.reviewer_user_id].filter((id): id is string =>
@@ -123,6 +125,7 @@ export function ExperimentSeries({
       ),
     ),
   )
+
   // A series follows what is on its page: an approved or archived head is
   // read-only, as the database also enforces.
   const canEdit =
@@ -131,6 +134,7 @@ export function ExperimentSeries({
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: seriesQueryKeys.all })
   }
+
   const run = useMutation({
     mutationFn: (job: () => Promise<unknown>) => job(),
     onSuccess: refresh,
@@ -152,6 +156,7 @@ export function ExperimentSeries({
   }
 
   const isPhone = useIsPhone()
+
   const allColumns: RegistryColumn<SeriesMember>[] = [
     {
       id: 'id',
@@ -191,6 +196,7 @@ export function ExperimentSeries({
       header: t('projects.series.tab.columns.when'),
       cell: ({ row }) => {
         const { planned_on, day_offset } = row.original
+
         if (!planned_on) {
           return (
             <span className="text-fg-muted">
@@ -198,6 +204,7 @@ export function ExperimentSeries({
             </span>
           )
         }
+
         return (
           <span>
             {t('projects.series.tab.day', { day: day_offset ?? 0 })}
@@ -223,6 +230,7 @@ export function ExperimentSeries({
         let full: string = status.label
         let short: string = status.label
         let muted = false
+
         if (progress.kind === 'active') {
           tone = 'progress'
           short = t('projects.series.tab.short.inProgress')
@@ -249,8 +257,10 @@ export function ExperimentSeries({
             title: progress.waitingTitle ?? progress.waitingFor,
           })
         }
+
         // On a phone the cell is a short word and the detail is in a tooltip.
         const text = isPhone ? short : full
+
         const detail =
           progress.kind === 'waiting' && progress.waitingFor
             ? t('projects.series.tab.waitingForTip', {
@@ -258,11 +268,13 @@ export function ExperimentSeries({
                 title: progress.waitingTitle ?? '',
               })
             : full
+
         const label = muted ? (
           <span className="text-fg-muted">{text}</span>
         ) : (
           text
         )
+
         return (
           <Tooltip content={detail}>
             <span className="inline-flex">
@@ -282,6 +294,7 @@ export function ExperimentSeries({
       cell: ({ row }) => {
         const member = row.original
         const index = member.member_number - 1
+
         return (
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -359,6 +372,7 @@ export function ExperimentSeries({
       meta: rightAligned<SeriesMember>().meta,
     },
   ]
+
   // On a phone the ID and owner go under the title and the table is three
   // columns, so it fits the screen and needs no sideways scroll.
   const phoneWidths: Record<string, number> = {
@@ -366,6 +380,7 @@ export function ExperimentSeries({
     status: 84,
     actions: 40,
   }
+
   const columns = isPhone
     ? allColumns
         .filter(
@@ -374,11 +389,13 @@ export function ExperimentSeries({
         )
         .map((column) => {
           const width = phoneWidths[column.id ?? '']
+
           return width ? { ...column, size: width, minSize: width } : column
         })
     : allColumns
 
   const nextDue = rollup.data?.next
+
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 py-4 md:px-6">
       {members.isError ? (
@@ -599,6 +616,7 @@ function AddMemberDialog({
   const [memberId, setMemberId] = useState('')
   const [chosen, setChosen] = useState<PickerOption | null>(null)
   const [plannedOn, setPlannedOn] = useState('')
+
   const add = useMutation({
     mutationFn: () =>
       addSeriesMember(notebookDataClient, {
@@ -609,6 +627,7 @@ function AddMemberDialog({
     onSuccess: () => onDone(chosen?.identifier ?? ''),
     onError: (error: unknown) => toast.error(errorText(error)),
   })
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
@@ -667,6 +686,7 @@ function PlanDayDialog({
   onDone: () => void
 }) {
   const [day, setDay] = useState(member.planned_on ?? '')
+
   const save = useMutation({
     mutationFn: () =>
       setSeriesMemberDay(
@@ -677,6 +697,7 @@ function PlanDayDialog({
     onSuccess: onDone,
     onError: (error: unknown) => toast.error(errorText(error)),
   })
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[min(420px,calc(100vw-32px))]">

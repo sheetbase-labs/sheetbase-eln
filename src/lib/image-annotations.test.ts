@@ -41,6 +41,7 @@ describe('image annotations', () => {
         { id: 'd', kind: 'label', x: 0.1, y: 0.1, text: '   ' },
       ],
     })
+
     expect(marks.map((m) => m.id)).toEqual(['a', 'b'])
     expect(marks[1]).toMatchObject({ text: '50 kDa', color: 'yellow' })
   })
@@ -65,6 +66,7 @@ describe('image annotations', () => {
       text: 'Ladder',
       color: 'white',
     } as const
+
     const withMark = withAnnotations(file, [lane])
     expect(withMark).toMatchObject({ ...file, annotations: [lane] })
     expect(withAnnotations(withMark, [])).toEqual(file)
@@ -75,6 +77,7 @@ describe('image annotations', () => {
       { id: '2', kind: 'lane', x: 0.7, text: 'B', color: 'white' },
       { id: '1', kind: 'lane', x: 0.2, text: 'A', color: 'white' },
     ])
+
     expect(lanes.map((l) => l.text)).toEqual(['A', 'B'])
   })
 
@@ -88,11 +91,14 @@ describe('image annotations', () => {
         ],
       },
     })
+
     expect(ok.ok).toBe(true)
+
     const bad = validateBlock({
       type: 'file',
       payload: { ...file, annotations: [{ id: 'q' }] },
     })
+
     expect(bad.ok).toBe(false)
     expect(JSON.stringify(bad)).toContain('annotations')
   })

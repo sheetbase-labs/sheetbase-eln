@@ -62,6 +62,7 @@ const client = screenQueryClient({
     { key: ['ui-port', 'workspace-members'], value: [] },
   ],
 })
+
 const emptyClient = screenQueryClient({
   data: [
     { key: savedSearchQueryKey(WORKSPACE_ID), value: [] },
@@ -80,7 +81,9 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const noop = () => {}
@@ -154,6 +157,7 @@ const EXPERIMENTS = [
 
 function Experiment({ initial }: { initial: string }) {
   const [value, setValue] = useState(initial)
+
   return (
     <div className="w-[360px]">
       <ExperimentPicker

@@ -83,17 +83,21 @@ function HelpCentre() {
   const { q = '' } = Route.useSearch()
   const navigate = Route.useNavigate()
   const { registry } = useShortcuts()
+
   const topShortcuts = registry
     .inScope('global')
     .filter((definition) => !definition.id.startsWith('go-'))
+
   const help = useHelp()
   const [query, setQuery] = useState(q)
   const term = q.trim().toLowerCase()
+
   const hits = term
     ? helpArticles.filter((a) =>
         `${a.title} ${a.summary} ${a.terms}`.toLowerCase().includes(term),
       )
     : []
+
   const version = help?.release.version ?? 'this release'
 
   return (
@@ -407,6 +411,7 @@ function HelpCentre() {
 /** Support needs a service-desk integration; until it exists, the honest gap. */
 function SupportSection() {
   const help = useHelp()
+
   return (
     <Section
       title={

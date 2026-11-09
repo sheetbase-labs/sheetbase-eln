@@ -47,12 +47,14 @@ export function LocationInput({
   const listId = useId()
   const fetched = useStorageLocations(undefined, locations === undefined)
   const configured = useConfiguredLocations(locations === undefined)
+
   const options = [
     ...new Set([
       ...(configured.data ?? []),
       ...(locations ?? fetched.data ?? []),
     ]),
   ]
+
   return (
     <>
       <Input

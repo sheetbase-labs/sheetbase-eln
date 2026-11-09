@@ -51,15 +51,18 @@ export function OutputEditor({
   fieldErrors: Record<string, string>
 }) {
   const targets = usePipelineOutputTargets()
+
   const dataset = (targets.data?.datasets ?? []).find(
     (d) => d.id === value.datasetId,
   )
+
   const fieldsSchemaVersion =
     value.mode === 'create'
       ? value.schemaVersionId
       : value.mode === 'append'
         ? (dataset?.schemaVersionId ?? '')
         : ''
+
   const fields = useSchemaVersionFields(fieldsSchemaVersion)
   const fieldList = fields.data ?? []
   const fit = checkOutputFit(fieldList, value.fieldMapping, resultColumns)

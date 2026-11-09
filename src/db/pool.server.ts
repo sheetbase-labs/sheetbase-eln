@@ -15,6 +15,7 @@ const pools = new Map<string, Pool>()
 
 function poolMax(): number {
   const parsed = Number(process.env.DB_POOL_MAX)
+
   return Number.isInteger(parsed) && parsed > 0 ? parsed : DEFAULT_POOL_MAX
 }
 
@@ -29,7 +30,9 @@ export function getPool(
 ): Pool {
   const key = `${options.queryTimeoutMs ?? 0}|${connectionString}`
   const existing = pools.get(key)
+
   if (existing) return existing
+
   const pool = new Pool({
     connectionString,
     max: poolMax(),
@@ -39,17 +42,20 @@ export function getPool(
       ? { query_timeout: options.queryTimeoutMs }
       : {}),
   })
+
   // An idle connection the server drops (restart, failover) emits 'error' on
   // the pool. Unhandled, that takes the whole process down.
   pool.on('error', (error) => {
     logger.warn('database pool connection error', { message: error.message })
   })
   pools.set(key, pool)
+
   return pool
 }
 
 const SESSION_STATE =
   /\bset\s+(session|role)\b|\breset\s+role\b|set_config\([^)]*,\s*false\s*\)|advisory_lock\(|\blisten\b/i
+
 const TX_OPEN = /^\s*(begin|start\s+transaction)\b/i
 const TX_CLOSE = /^\s*(commit|rollback|end)\b/i
 
@@ -79,22 +85,28 @@ export class PooledClient {
 
   readonly query = ((...args: unknown[]) => {
     const client = this.client
+
     if (!client) return Promise.reject(new Error('Client is not connected'))
     const first = args[0]
+
     const text =
       typeof first === 'string'
         ? first
         : ((first as { text?: string } | undefined)?.text ?? '')
+
     if (SESSION_STATE.test(text) && !/set\s+local\b/i.test(text)) {
       this.dirty = true
     }
+
     if (TX_OPEN.test(text)) this.inTransaction = true
     else if (TX_CLOSE.test(text)) this.inTransaction = false
+
     return (client.query as (...a: unknown[]) => unknown)(...args)
   }) as PoolClient['query']
 
   async end(): Promise<void> {
     const client = this.client
+
     if (!client) return
     this.client = null
     client.release(this.dirty || this.inTransaction)

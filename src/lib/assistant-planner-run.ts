@@ -11,5 +11,6 @@ export async function runPlannerAction(
     projectId: action.projectId,
     plan: action.plan,
   })
+
   return { openHref: `/experiments/${result.recordId}` }
 }

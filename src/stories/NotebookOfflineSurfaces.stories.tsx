@@ -20,11 +20,13 @@ function client(offlineEditingAllowed: boolean | null) {
   const instance = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+
   if (offlineEditingAllowed !== null) {
     instance.setQueryData([...workspaceGeneralQueryKey, 'offline-gate'], {
       offlineEditingAllowed,
     })
   }
+
   return instance
 }
 
@@ -47,7 +49,9 @@ const meta = {
   parameters: { layout: 'fullscreen' },
   args: { store, scope: SCOPE },
 } satisfies Meta<typeof NotebookOfflineSurfaces>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Offline editing is allowed: the banner promises edits are kept. */

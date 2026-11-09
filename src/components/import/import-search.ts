@@ -30,6 +30,7 @@ export function parseImportSearch(
 ): ImportSearch {
   const text = (value: unknown) =>
     typeof value === 'string' && value ? value : undefined
+
   return {
     step:
       search.step === 'check'
@@ -68,16 +69,21 @@ export function parseImportMapping(
 ): Record<string, string> {
   if (!value) return {}
   const values: Record<string, string> = {}
+
   for (const pair of value.split(',')) {
     const separator = pair.indexOf(':')
+
     if (separator <= 0) continue
+
     try {
       const source = decodeURIComponent(pair.slice(0, separator))
       const fieldId = decodeURIComponent(pair.slice(separator + 1))
+
       if (source) values[source] = fieldId
     } catch {
       // A malformed pair is ignored rather than failing the whole link.
     }
   }
+
   return values
 }

@@ -103,6 +103,7 @@ describe('supportsPackageFigure', () => {
     for (const type of PACKAGE_FIGURE_TYPES) {
       expect(supportsPackageFigure(type)).toBe(true)
     }
+
     for (const type of PACKAGE_UNSUPPORTED_TYPES) {
       expect(supportsPackageFigure(type)).toBe(false)
     }
@@ -133,6 +134,7 @@ describe('buildPackageDataset', () => {
         series('B', [{ x: 0, y: 5 }]),
       ]),
     )
+
     expect(dataset.rows).toHaveLength(3)
     expect(dataset.columns.map((c) => c.key)).toEqual([
       '__x',
@@ -152,6 +154,7 @@ describe('buildPackageDataset', () => {
         ]),
       ]),
     )
+
     expect(dataset.rows).toEqual([
       { __x: 1, __y: 2, __series: 'A' },
       { __x: 2, __y: 3, __series: 'A' },
@@ -172,6 +175,7 @@ describe('buildPackageDataset', () => {
         series('B', [{ x: 2, y: 10 }], { label: 'Beta' }),
       ],
     }
+
     const dataset = buildPackageDataset(makeSpec('box'), chart)
     expect(dataset.columns.map((c) => c.key)).toEqual(['__category', '__y'])
     expect(dataset.rows).toEqual([
@@ -193,6 +197,7 @@ describe('buildPackageDataset', () => {
       ],
       series: [series('A', []), series('B', [])],
     }
+
     const dataset = buildPackageDataset(makeSpec('histogram'), chart)
     expect(dataset.columns.map((c) => c.key)).toEqual(['__x', '__series'])
     expect(dataset.rows).toEqual([
@@ -216,6 +221,7 @@ describe('buildPackageDataset', () => {
         series('B', [], { label: 'Beta' }),
       ],
     }
+
     const dataset = buildPackageDataset(makeSpec('violin'), chart)
     expect(dataset.columns.map((c) => c.key)).toEqual([
       '__category',
@@ -245,6 +251,7 @@ describe('buildPackageDataset', () => {
         aggregate: 'count',
       },
     }
+
     const dataset = buildPackageDataset(makeSpec('heatmap'), chart)
     expect(dataset.columns.map((c) => c.key)).toEqual(['__x', '__y', '__value'])
     // The empty cell is omitted, never coerced to zero.
@@ -257,12 +264,14 @@ describe('package figure per chart type', () => {
     const figure = buildPackageFigure(makeSpec('line'), twoSeries())
     expect(figure).not.toBeNull()
     expect(figure?.series).toHaveLength(2)
+
     for (const s of figure?.series ?? []) {
       expect(s.line.length).toBeGreaterThan(1)
       expect(s.markers).toBe(true)
       expect(s.points[0].px).toBeTypeOf('number')
       expect(s.points[0].py).toBeTypeOf('number')
     }
+
     expect(figure?.x.title).toBe('Time (d)')
     expect(figure?.y.title).toBe('Titre (log10)')
   })
@@ -278,6 +287,7 @@ describe('package figure per chart type', () => {
       makeSpec('connected_scatter'),
       twoSeries(),
     )
+
     expect(figure?.series.every((s) => s.line.length > 1)).toBe(true)
   })
 
@@ -301,6 +311,7 @@ describe('package figure per chart type', () => {
         { renderAs: 'line' },
       ),
     ])
+
     const figure = buildPackageFigure(makeSpec('scatter_line'), chart)
     const observed = figure?.series.find((s) => s.id === 'observed')
     const fit = figure?.series.find((s) => s.id === 'fit')
@@ -328,6 +339,7 @@ describe('package figure per chart type', () => {
       ],
       ['strip', 'strip chart of Titre (log10) against Time (d)'],
     ]
+
     for (const [type, label] of announced) {
       expect(buildPackageFigure(makeSpec(type), twoSeries())?.ariaLabel).toBe(
         label,
@@ -358,6 +370,7 @@ describe('package figure per chart type', () => {
         { x: 2, y: 3.5 },
       ]),
     ])
+
     const figure = buildPackageFigure(makeSpec('summary'), chart)
     expect(figure?.bars).toHaveLength(2)
   })
@@ -378,6 +391,7 @@ describe('package figure per chart type', () => {
         series('B', [{ x: 2, y: 11 }], { label: 'Beta' }),
       ],
     }
+
     const figure = buildPackageFigure(makeSpec('box'), chart)
     expect(figure?.boxes).toHaveLength(2)
     expect(figure?.boxes?.[0].category).toBe('Alpha')
@@ -404,6 +418,7 @@ describe('package figure per chart type', () => {
         aggregate: 'count',
       },
     }
+
     const figure = buildPackageFigure(makeSpec('heatmap'), chart)
     expect(figure?.heat).toHaveLength(2)
     expect(figure?.heat?.map((c) => c.value)).toEqual([2, 4])
@@ -422,10 +437,12 @@ describe('package figure per chart type', () => {
       ],
       series: [series('A', []), series('B', [])],
     }
+
     const figure = buildPackageFigure(
       makeSpec('histogram', { typeParams: { histogram: { bins: 3 } } }),
       chart,
     )
+
     expect(figure).not.toBeNull()
     expect(figure?.bins).toHaveLength(3)
     expect(figure?.bars?.length).toBeGreaterThan(0)
@@ -447,6 +464,7 @@ describe('package figure per chart type', () => {
       ],
       series: [series('A', [], { label: 'Alpha' })],
     }
+
     const figure = buildPackageFigure(makeSpec('violin'), chart)
     expect(figure?.violins).toHaveLength(1)
     expect(figure?.violins?.[0].seriesId).toBe('A')
@@ -459,6 +477,7 @@ describe('package figure per chart type', () => {
   it('honours display.gridlines=false by clearing the model gridlines', () => {
     const on = buildPackageFigure(makeSpec('line'), twoSeries())
     expect(on?.gridlines.length).toBeGreaterThan(0)
+
     const off = buildPackageFigure(
       makeSpec('line', {
         display: {
@@ -472,6 +491,7 @@ describe('package figure per chart type', () => {
       }),
       twoSeries(),
     )
+
     expect(off?.gridlines).toEqual([])
   })
 })
@@ -496,6 +516,7 @@ describe('buildPackageChartSpec', () => {
         ],
       },
     })
+
     const packageSpec = buildPackageChartSpec(spec, materialised([]))
     expect(packageSpec.kind).toBe('line')
     expect(packageSpec.xScale).toBe('log')
@@ -546,13 +567,16 @@ describe('buildPackageChartSpec', () => {
       makeSpec('histogram', { typeParams: { histogram: { bins: 25 } } }),
       materialised([]),
     )
+
     expect(bins.histogramBins).toBe(25)
     expect(bins.histogramBinWidth).toBeUndefined()
     expect(bins.histogramDensity).toBe(false)
+
     const width = buildPackageChartSpec(
       makeSpec('histogram', { typeParams: { histogram: { binWidth: 5 } } }),
       materialised([]),
     )
+
     expect(width.histogramBinWidth).toBe(5)
   })
 })
@@ -568,6 +592,7 @@ describe('figureValueToPx', () => {
         series: [],
       },
     })
+
     const figure = buildPackageFigure(
       spec,
       materialised([
@@ -577,7 +602,9 @@ describe('figureValueToPx', () => {
         ]),
       ]),
     )
+
     expect(figure).not.toBeNull()
+
     if (!figure) return
     const { plot } = figure
     expect(figureValueToPx(figure, 'y', 'linear', 0)).toBeCloseTo(
@@ -602,6 +629,7 @@ describe('figureValueToPx', () => {
         series: [],
       },
     })
+
     const figure = buildPackageFigure(
       spec,
       materialised([
@@ -611,7 +639,9 @@ describe('figureValueToPx', () => {
         ]),
       ]),
     )
+
     expect(figure).not.toBeNull()
+
     if (!figure) return
     const mid = figureValueToPx(figure, 'y', 'log', 10)
     expect(mid).toBeCloseTo(figure.plot.y + figure.plot.height / 2, 4)
@@ -630,7 +660,9 @@ describe('figureCategoryToPx', () => {
         ]),
       ]),
     )
+
     expect(figure).not.toBeNull()
+
     if (!figure?.x.bands) return
     expect(figureCategoryToPx(figure, 1)).toBeCloseTo(figure.x.bands[0].px, 5)
     expect(figureCategoryToPx(figure, 3)).toBeCloseTo(

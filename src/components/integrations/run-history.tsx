@@ -42,8 +42,10 @@ function runTone(status: ConnectorRunWire['status']): {
       tone: 'ok',
       label: t('settings.integrations.runHistory.succeeded'),
     }
+
   if (status === 'failed')
     return { tone: 'bad', label: t('common.states.failed') }
+
   return {
     tone: 'progress',
     label: t('settings.integrations.runHistory.running'),
@@ -54,10 +56,13 @@ function runTone(status: ConnectorRunWire['status']): {
 function runSummary(run: ConnectorRunWire): string {
   const result = run.result
   const parts: string[] = []
+
   if (typeof result['kind'] === 'string') parts.push(result['kind'])
+
   if (result['rowCount'] !== undefined)
     parts.push(`${String(result['rowCount'])} rows`)
   const source = result['source'] as Record<string, unknown> | undefined
+
   if (source && typeof source === 'object') {
     if (source['kind'] === 's3_object') {
       parts.push(`${String(source['bucket'])}/${String(source['key'])}`)
@@ -67,9 +72,11 @@ function runSummary(run: ConnectorRunWire): string {
       )
     }
   }
+
   if (typeof result['fileSha256'] === 'string') {
     parts.push(`sha256 ${String(result['fileSha256']).slice(0, 12)}…`)
   }
+
   return parts.join(' · ')
 }
 
@@ -116,6 +123,7 @@ function ConnectedRunRows({
   })
 
   if (!query.data) return null
+
   if (query.data.length === 0) {
     return (
       <TableBody>
@@ -127,6 +135,7 @@ function ConnectedRunRows({
       </TableBody>
     )
   }
+
   return (
     <>
       {query.data.map((run) => (
@@ -151,6 +160,7 @@ function RunRowWithLogs({
   onToggle: () => void
 }) {
   const status = runTone(run.status)
+
   return (
     // The disclosure wraps the trigger row and its detail row, so the control
     // carries aria-expanded and aria-controls. A row group is the only element
@@ -201,6 +211,7 @@ function ExpandedRunRow({
     queryKey: connectorQueryKeys.runLogs(runId),
     queryFn: () => listRunLogs(dataClient, runId),
   })
+
   return (
     <TableCell colSpan={6}>
       {run.status === 'failed' && (

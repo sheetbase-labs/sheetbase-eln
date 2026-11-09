@@ -51,7 +51,9 @@ export type PositionChoice = Extract<PlaceChoice, { kind: 'position' }>
 /** The words for a choice, the way the sample's location will read. */
 export function describePlace(choice: PlaceChoice | null): string {
   if (!choice) return ''
+
   if (choice.kind === 'text') return choice.text.trim()
+
   return [...choice.box.above, choice.box.name, choice.position.label].join(
     ' / ',
   )
@@ -74,6 +76,7 @@ export function boxChoices(tree: StorageTree): BoxChoice[] {
     )
     .map((node) => {
       const names = nodePath(tree, node)
+
       return {
         id: node.id,
         name: node.name,
@@ -114,22 +117,28 @@ export async function fetchBoxPositions(
     'storage_positions',
     `?box_id=eq.${boxId}&select=id,box_id,row_index,col_index,label,status,occupied_record_id&order=row_index,col_index&limit=1000`,
   )
+
   const ids = rows
     .map((row) => row.occupied_record_id)
     .filter((id): id is string => Boolean(id))
+
   const people = new Map<string, { identifier: string; title: string | null }>()
+
   if (ids.length) {
     const records = await client.list<{
       id: string
       identifier: string
       title: string | null
     }>('records', `?id=in.(${ids.join(',')})&select=id,identifier,title`)
+
     for (const record of records) people.set(record.id, record)
   }
+
   return rows.map((row) => {
     const held = row.occupied_record_id
       ? people.get(row.occupied_record_id)
       : undefined
+
     return {
       id: row.id,
       boxId: row.box_id,
@@ -220,5 +229,6 @@ export async function fetchSamplePosition(
     'storage_positions',
     `?occupied_record_id=eq.${recordId}&select=id,box_id&limit=1`,
   )
+
   return rows[0] ? { id: rows[0].id, boxId: rows[0].box_id } : null
 }

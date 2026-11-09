@@ -26,11 +26,14 @@ export function useExtensionPoints(
     enabled: Boolean(workspaceId),
     staleTime: 30_000,
   })
+
   const points = React.useMemo<ResolvedExtensionPoints>(() => {
     const installs = (installsQuery.data ?? []).filter(
       (install) => !workspaceId || install.workspace_id === workspaceId,
     )
+
     return resolveExtensionContributions(installs, role)
   }, [installsQuery.data, role, workspaceId])
+
   return { ...points, isLoading: installsQuery.isLoading }
 }

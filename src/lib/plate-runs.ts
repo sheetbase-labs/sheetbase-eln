@@ -90,6 +90,7 @@ export async function fetchPlateRuns(
     'plate_runs',
     `?select=${RUN_COLUMNS}&status=neq.archived&order=number.desc&limit=1000`,
   )
+
   return rows.map(toRun)
 }
 
@@ -101,6 +102,7 @@ export async function fetchPlateRun(
     'plate_runs',
     `?select=${RUN_COLUMNS}&id=eq.${encodeURIComponent(id)}&limit=1`,
   )
+
   return rows.length ? toRun(rows[0]) : null
 }
 
@@ -129,6 +131,7 @@ export async function createPlateRun(
     p_record_id: input.recordId ?? null,
     p_design_id: input.designId ?? null,
   })
+
   return toRun(wire)
 }
 
@@ -151,6 +154,7 @@ export async function updatePlateRun(
     p_config: patch.config ?? null,
     p_expected_metadata_version: expectedVersion ?? null,
   })
+
   return toRun(wire)
 }
 
@@ -163,12 +167,14 @@ export async function analyseAndSavePlateRun(
   >,
 ): Promise<{ run: PlateRunRow; analysis: PlateAnalysis }> {
   const analysis = analysePlate(run.wells, run.readout, run.config)
+
   const wire = await client.rpc<PlateRunWire>('save_plate_run_analysis', {
     p_plate_run_id: run.id,
     p_analysis: analysis,
     p_qc_status: analysis.qc.status,
     p_expected_metadata_version: run.metadata_version,
   })
+
   return { run: toRun(wire), analysis }
 }
 
@@ -190,9 +196,11 @@ export async function resolveSampleIds(
 ): Promise<Map<string, string>> {
   const unique = [...new Set(labels.map((l) => l.trim()).filter(Boolean))]
   const found = new Map<string, string>()
+
   for (let i = 0; i < unique.length; i += 100) {
     const batch = unique.slice(i, i + 100)
     const list = batch.map((l) => `"${l.replace(/[",()\\]/g, '')}"`).join(',')
+
     const rows = await client.list<{
       id: string
       identifier: string
@@ -201,11 +209,14 @@ export async function resolveSampleIds(
       'records',
       `?select=id,identifier,title&kind=eq.sample&deleted_at=is.null&or=(identifier.in.(${list}),title.in.(${list}))&limit=500`,
     )
+
     for (const r of rows) {
       found.set(r.identifier, r.id)
+
       if (!found.has(r.title)) found.set(r.title, r.id)
     }
   }
+
   return found
 }
 

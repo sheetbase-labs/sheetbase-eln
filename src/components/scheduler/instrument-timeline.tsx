@@ -31,11 +31,13 @@ export function slotSegments(
   days = DAYS,
 ): Array<[number, number, number]> {
   const out: Array<[number, number, number]> = []
+
   for (let day = 0; day < days; day += 1) {
     const from = origin + day * DAY_MS
     const to = from + DAY_MS
     const start = Math.max(slot.start, from)
     const end = Math.min(slot.end, to)
+
     if (end <= start) continue
     out.push([
       day,
@@ -43,18 +45,21 @@ export function slotSegments(
       Math.max(((end - start) / DAY_MS) * 100, 0.8),
     ])
   }
+
   return out
 }
 
 function startOfToday(now: number): number {
   const d = new Date(now)
   d.setHours(0, 0, 0, 0)
+
   return d.getTime()
 }
 
 export function InstrumentTimeline({ instrumentId }: { instrumentId: string }) {
   const origin = startOfToday(Date.now())
   const until = origin + DAYS * DAY_MS
+
   const slots = useQuery({
     queryKey: [...scheduleQueryKeys.lane(instrumentId), origin],
     queryFn: async (): Promise<Slot[]> => {
@@ -73,6 +78,7 @@ export function InstrumentTimeline({ instrumentId }: { instrumentId: string }) {
           '?select=id,items&status=eq.proposed&limit=50',
         ),
       ])
+
       const proposed = proposals.flatMap((p) =>
         p.items
           .filter(
@@ -87,6 +93,7 @@ export function InstrumentTimeline({ instrumentId }: { instrumentId: string }) {
             proposed: true,
           })),
       )
+
       return [
         ...bookings.map((b): Slot => ({
           key: b.id,
@@ -104,7 +111,9 @@ export function InstrumentTimeline({ instrumentId }: { instrumentId: string }) {
   const list = (slots.data ?? []).filter(
     (s) => s.end > origin && s.start < until,
   )
+
   if (slots.isPending) return null
+
   return (
     <Section
       className="border-t border-border pt-4"
@@ -123,6 +132,7 @@ export function InstrumentTimeline({ instrumentId }: { instrumentId: string }) {
         >
           {Array.from({ length: DAYS }, (_, day) => {
             const dayStart = origin + day * DAY_MS
+
             return (
               <div
                 role="row"

@@ -30,6 +30,7 @@ describe('isUsableIngredient', () => {
     expiry: '2027-01-01',
     archivedAt: null,
   }
+
   it('accepts an in-date lot with stock', () => {
     expect(isUsableIngredient(base, NOW)).toBe(true)
     expect(isUsableIngredient({ ...base, expiry: null }, NOW)).toBe(true)
@@ -114,6 +115,7 @@ describe('fetchPreparedWith', () => {
         product: null,
       },
     ])
+
     const used = await fetchPreparedWith(c, 'lot-1')
     expect(used).toEqual([
       {

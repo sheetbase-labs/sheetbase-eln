@@ -30,7 +30,9 @@ const meta = {
   tags: ['autodocs'],
   args: { label: 'Commands' },
 } satisfies Meta<typeof Command>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const items = (
@@ -94,6 +96,7 @@ export const Loading: Story = {
 export const Picker: Story = {
   render: (args) => {
     const [open, setOpen] = useState(true)
+
     return (
       <CommandPopover
         open={open}
@@ -113,6 +116,7 @@ export const Picker: Story = {
 export const Dialog: Story = {
   render: (args) => {
     const [open, setOpen] = useState(true)
+
     return (
       <>
         <Button variant="secondary" onClick={() => setOpen(true)}>

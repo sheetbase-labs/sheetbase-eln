@@ -48,10 +48,14 @@ export function ProtocolVersionTraining({
       .filter((row) => row.protocol_version_id === version.id)
       .map((row) => [row.user_id, row]),
   )
+
   const current = acknowledged.has(currentUserId)
+
   const lifecycleAllows =
     version.status === 'in_review' || version.status === 'effective'
+
   const canAcknowledge = writer && lifecycleAllows
+
   return (
     <Section
       title={t('library.protocols.protocolVersionTraining.trainingOnV', {
@@ -105,6 +109,7 @@ export function ProtocolVersionTraining({
         <TableBody>
           {members.map((member) => {
             const acknowledgement = acknowledged.get(member.user_id)
+
             return (
               <TableRow key={member.user_id}>
                 <TableCell>{member.name}</TableCell>

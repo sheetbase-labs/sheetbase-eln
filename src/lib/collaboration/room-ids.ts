@@ -29,6 +29,7 @@ export function buildRoomId(
   if (!uuid.test(workspaceId) || !uuid.test(objectId)) {
     throw new Error('Room ids are built from canonical UUIDs only')
   }
+
   return `${ROOM_PREFIX}:${workspaceId}:${ROOM_KIND_SEGMENTS[kind]}:${objectId}` as CollaborationRoomId
 }
 
@@ -44,16 +45,20 @@ export type ParsedRoomId =
 /** Parses `workspace:<ws>:record|sheet|dataset:<id>`; rejects everything else. */
 export function parseRoomId(room: string): ParsedRoomId {
   const parts = room.split(':')
+
   if (parts.length !== 4 || parts[0] !== ROOM_PREFIX) return { ok: false }
   const [, workspaceId, segment, objectId] = parts
+
   const entry = (
     Object.entries(ROOM_KIND_SEGMENTS) as Array<
       [CollaborationObjectKind, string]
     >
   ).find(([, seg]) => seg === segment)
+
   if (!entry || !uuid.test(workspaceId) || !uuid.test(objectId)) {
     return { ok: false }
   }
+
   return {
     ok: true,
     workspaceId: workspaceId,

@@ -7,9 +7,11 @@ import {
 } from './sheet-comment-anchor'
 
 const instance = '10000000-0000-4000-8000-000000000001'
+
 const rows = [2, 3, 4].map((id) => ({
   id: `10000000-0000-4000-8000-${String(id).padStart(12, '0')}`,
 }))
+
 const fields = [5, 6].map((id) => ({
   id: `10000000-0000-4000-8000-${String(id).padStart(12, '0')}`,
 }))
@@ -22,6 +24,7 @@ describe('canonical Sheet comment identities', () => {
       [rows[1].id],
       [fields[1].id],
     )
+
     expect(sheetCommentCells(anchor, instance, rows, fields)).toEqual([
       { row: 1, column: 1 },
     ])
@@ -55,6 +58,7 @@ describe('canonical Sheet comment identities', () => {
       [rows[2].id, rows[0].id],
       [fields[1].id],
     )
+
     expect(sheetCommentCells(anchor, instance, rows, fields)).toEqual([
       { row: 0, column: 1 },
       { row: 2, column: 1 },
@@ -111,12 +115,14 @@ describe('canonical Sheet comment identities', () => {
     expect(() =>
       sheetCommentAnchor(instance, 'sheet_row', [rows[0].id], [fields[0].id]),
     ).toThrow()
+
     const anchor = sheetCommentAnchor(
       instance,
       'sheet_cell',
       [rows[0].id],
       [fields[0].id],
     )
+
     expect(
       sheetCommentAnchorSchema.safeParse({
         ...anchor,

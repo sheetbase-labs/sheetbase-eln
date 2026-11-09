@@ -39,7 +39,9 @@ export function ConversationContent({
 
 export function ConversationScrollButton() {
   const { isAtBottom, scrollToBottom } = useStickToBottomContext()
+
   if (isAtBottom) return null
+
   return (
     <button
       type="button"

@@ -31,9 +31,11 @@ export function describeRetentionPolicy(
   retention: DatasetVersionRetention | null | undefined,
 ): string {
   const policy = retention?.policy
+
   if (!policy) {
     return 'Workspace retention policy was not reported for this snapshot.'
   }
+
   return `Snapshots cited by a signed record are kept for ${policy.citedYears} years; uncited snapshots lose their rows ${policy.uncitedYears} years after the dataset is archived.`
 }
 
@@ -47,6 +49,7 @@ export function describeSnapshotRetention(
 ): SnapshotRetentionView {
   const policy = describeRetentionPolicy(retention)
   const keptUntil = formatDate(retention?.keptUntil ?? null)
+
   switch (retention?.reason) {
     case 'cited_by_signed_record':
       return {
@@ -125,9 +128,11 @@ export function describePruneWarning(
     return null
   const dueAt = version.retention.keptUntil
   const overdue = dueAt ? new Date(dueAt).getTime() <= now.getTime() : false
+
   const title = overdue
     ? `${version.label} is overdue for row removal (was due ${formatDate(dueAt)}).`
     : `${version.label} is due for row removal on ${formatDate(dueAt)}.`
+
   return {
     versionId: version.id,
     label: version.label,
@@ -150,10 +155,14 @@ export function mostUrgentPruneWarning(
   const warnings = versions
     .map((version) => describePruneWarning(version, now))
     .filter((warning): warning is SnapshotPruneWarning => warning !== null)
+
   if (warnings.length === 0) return null
+
   const dueTime = (warning: SnapshotPruneWarning) =>
     warning.dueAt ? new Date(warning.dueAt).getTime() : Number.POSITIVE_INFINITY
+
   warnings.sort((a, b) => dueTime(a) - dueTime(b))
+
   return warnings[0]
 }
 
@@ -188,6 +197,7 @@ export function describeSnapshotTombstone(
 ): SnapshotTombstoneView {
   const removedAt = formatDate(version.rowsRemovedAt)
   const policy = version.retention.policy
+
   return {
     label: 'Rows removed',
     tone: 'stored',
@@ -209,8 +219,10 @@ export function describeSnapshotKeeping(
   version: SnapshotVersion | null | undefined,
 ): SnapshotRetentionView | null {
   if (!version) return null
+
   if (isSnapshotTombstone(version)) {
     const tombstone = describeSnapshotTombstone(version)
+
     return {
       label: tombstone.label,
       tone: tombstone.tone,
@@ -218,6 +230,7 @@ export function describeSnapshotKeeping(
       policy: describeRetentionPolicy(version.retention),
     }
   }
+
   return describeSnapshotRetention(version.retention)
 }
 
@@ -226,17 +239,25 @@ export function describeSnapshotSource(
   source: DatasetVersionSource | null | undefined,
 ): string {
   if (!source) return '—'
+
   if (source.kind === 'pipeline_run') {
     const bits = [source.definitionName ?? 'Pipeline run']
+
     if (source.triggerKind) bits.push(source.triggerKind)
+
     if (source.status) bits.push(source.status)
+
     if (source.label) bits.push(source.label)
+
     return bits.join(' · ')
   }
+
   if (source.kind === 'import') {
     return source.label ? `Imported from ${source.label}` : 'Imported'
   }
+
   if (source.kind === 'api') return 'Saved through the API'
+
   return 'Saved by hand'
 }
 
@@ -261,6 +282,7 @@ export function hasSnapshotCitations(
   citedBy: DatasetVersionCitations | null | undefined,
 ): boolean {
   const counts = countSnapshotCitations(citedBy)
+
   return (
     counts.signedRevisions > 0 || counts.pipelineRuns > 0 || counts.analyses > 0
   )
@@ -276,17 +298,21 @@ export function describeSnapshotCitations(
   citedBy: DatasetVersionCitations | null | undefined,
 ): string[] {
   const lines: string[] = []
+
   for (const revision of citedBy?.signedRevisions ?? []) {
     lines.push(
       `Signed record ${revision.revisionId.slice(0, 8)} · ${formatDate(revision.signedAt)}`,
     )
   }
+
   for (const run of citedBy?.pipelineRuns ?? []) {
     lines.push(`Pipeline run ${run.runId.slice(0, 8)} · ${run.status}`)
   }
+
   for (const analysis of citedBy?.analyses ?? []) {
     lines.push(`Analysis in ${analysis.recordId.slice(0, 8)}`)
   }
+
   return lines
 }
 
@@ -319,13 +345,18 @@ export function hasMoreSnapshotCompareRows(page: SnapshotComparePage): boolean {
 export function describeSnapshotError(cause: unknown): string {
   if (cause && typeof cause === 'object' && 'code' in cause) {
     const code = (cause as { code?: unknown }).code
+
     if (code === 'SB001')
       return 'This dataset changed elsewhere. Refresh and try again.'
+
     if (code === '42501')
       return 'You do not have permission to snapshot this dataset.'
+
     if (code === '22023') return 'Archived datasets cannot be snapshotted.'
   }
+
   if (cause instanceof Error && cause.message) return cause.message
+
   return 'Please try again.'
 }
 
@@ -337,11 +368,15 @@ export function describeSnapshotError(cause: unknown): string {
 export function describeKeepError(cause: unknown): string {
   if (cause && typeof cause === 'object' && 'code' in cause) {
     const code = (cause as { code?: unknown }).code
+
     if (code === '42501')
       return 'You do not have permission to keep this snapshot, or it is not in the active workspace.'
+
     if (code === '22023')
       return 'Enter a reason between 1 and 500 characters to keep this snapshot.'
   }
+
   if (cause instanceof Error && cause.message) return cause.message
+
   return 'Please try again.'
 }

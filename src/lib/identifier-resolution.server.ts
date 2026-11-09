@@ -59,11 +59,13 @@ export async function resolveIdentifier(
   input: ResolveIdentifierRequest,
 ): Promise<string | null> {
   const spec = ENTITY_SPECS[input.entity]
+
   const { client, release } = await getScopedClient(
     input.workspaceId,
     input.userId,
     input.pool,
   )
+
   try {
     if (spec.revisionOfRecord) {
       const { rows } = await client.query<{ id: string }>(
@@ -75,15 +77,18 @@ export async function resolveIdentifier(
           LIMIT 1`,
         [input.workspaceId, input.identifier],
       )
+
       return rows[0]?.id ?? null
     }
 
     const params: string[] = [input.workspaceId, input.identifier]
     let where = `workspace_id = $1 AND ${spec.column} = $2`
+
     if (spec.kind) {
       params.push(spec.kind)
       where += ` AND kind = $3`
     }
+
     const { rows } = await client.query<{ id: string }>(
       `SELECT id FROM ${spec.table}
         WHERE ${where}
@@ -91,6 +96,7 @@ export async function resolveIdentifier(
         LIMIT 1`,
       params,
     )
+
     return rows[0]?.id ?? null
   } finally {
     await release()
@@ -113,8 +119,10 @@ export async function resolveRecordKind(input: {
     input.userId,
     input.pool,
   )
+
   try {
     const byId = isUuid(input.ref)
+
     const { rows } = await client.query<{ kind: string }>(
       `SELECT kind FROM api.records
         WHERE workspace_id = $1 AND ${byId ? 'id = $2::uuid' : 'identifier = $2'}
@@ -122,6 +130,7 @@ export async function resolveRecordKind(input: {
         LIMIT 1`,
       [input.workspaceId, input.ref],
     )
+
     return rows[0]?.kind ?? null
   } finally {
     await release()

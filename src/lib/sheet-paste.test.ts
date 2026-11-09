@@ -38,9 +38,11 @@ describe('parsePastedTable', () => {
       { length: PASTE_MAX_COLUMNS + 3 },
       (_, i) => `c${i}`,
     ).join(',')
+
     const rows = Array.from({ length: PASTE_MAX_ROWS + 2 }, () => '1').join(
       '\n',
     )
+
     const table = parsePastedTable(`${header}\n${rows}\n`)
     expect(table?.headers).toHaveLength(PASTE_MAX_COLUMNS)
     expect(table?.rows).toHaveLength(PASTE_MAX_ROWS)

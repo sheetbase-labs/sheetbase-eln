@@ -43,13 +43,17 @@ export function recordIdPattern(kind: string): RegExp | null {
   if (kind in KIND_PREFIX) {
     return identifierPattern(kind as ScientificRecordKind)
   }
+
   const prefix = RECORD_KIND_PREFIX[kind]
+
   if (!prefix) return null
+
   return new RegExp(`^${prefix}-\\d{4}-\\d{4}$`)
 }
 
 export function isGeneratedRecordId(kind: string, identifier: string): boolean {
   const pattern = recordIdPattern(kind)
+
   return pattern ? pattern.test(identifier) : false
 }
 

@@ -60,9 +60,11 @@ function eventSentence(event: AuditEvent): string {
       ? t('projects.auditTrail.someone')
       : event.actor.name
     : t('projects.auditTrail.system')
+
   const target = event.target
     ? t('projects.auditTrail.onTarget', { target: event.target })
     : ''
+
   return t('projects.auditTrail.sentence', {
     actor,
     title: event.title.toLowerCase(),

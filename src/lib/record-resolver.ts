@@ -20,11 +20,14 @@ export async function resolveRecordByIdentifier(
   identifier: string,
 ): Promise<ResolvedRecord | null> {
   const trimmed = identifier.trim()
+
   if (!trimmed) return null
+
   const rows = await client.list<ResolvedRecord>(
     'records',
     `?identifier=eq.${encodeURIComponent(trimmed)}&deleted_at=is.null` +
       `&order=created_at.desc&limit=1&select=id,identifier,kind,title`,
   )
+
   return rows[0] ?? null
 }

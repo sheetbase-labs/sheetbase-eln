@@ -136,6 +136,7 @@ describe('shapeComparativeView', () => {
     const shaped = shapeComparativeView(rows(), timeSeriesConfig(), {
       expectedKeys: [{ key: JSON.stringify(['C']), label: 'C' }],
     })
+
     expect(shaped.emptyGroupKeys).toEqual([JSON.stringify(['C'])])
     const empty = shaped.groups.find((g) => g.label === 'C')
     expect(empty).toMatchObject({ count: 0, nullCount: 0, stats: null })
@@ -146,18 +147,22 @@ describe('shapeComparativeView', () => {
       ...row,
       [BATCH]: i < 2 ? 'batch-1' : 'batch-2',
     }))
+
     const shaped = shapeComparativeView(
       withBatch,
       timeSeriesConfig({ facetBy: BATCH }),
     )
+
     const a = shaped.groups.find((g) => g.label === 'A')
     expect(a?.facet).toBe('batch-1')
+
     // Group B spans both batches after row 4 joins it... rows 2,3 are
     // batch-2, so B is uniform batch-2 here; mix facet across one group:
     const mixed = shapeComparativeView(
       withBatch,
       timeSeriesConfig({ facetBy: TIME }),
     )
+
     // TIME varies within group A (0 and 1) → facet must not pick one.
     expect(mixed.groups.find((g) => g.label === 'A')?.facet).toBeNull()
   })
@@ -223,6 +228,7 @@ describe('promoteToChartSpec', () => {
         facetBy: BATCH,
       }),
     )
+
     expect(spec.type).toBe('box')
     expect(spec.fields.x).toBeNull()
     expect(spec.fields.y).toEqual({ fieldId: PH })
@@ -250,6 +256,7 @@ describe('buildDefaultComparativeViewConfig', () => {
       datasetId: DATASET_ID,
       columns,
     })
+
     expect(config).toMatchObject({
       datasetId: DATASET_ID,
       versionId: null,
@@ -286,16 +293,19 @@ describe('pairComparativeSources', () => {
 
   it('pairs a snapshot with its live rows by row key and reports the change', () => {
     const snapshot = [row('r1', { c2: 1 }), row('r2', { c2: 2 })]
+
     const live = [
       row('r1', { c2: 1 }),
       row('r2', { c2: 5 }),
       row('r3', { c2: 9 }),
     ]
+
     const pairing = pairComparativeSources(
       { rows: snapshot, valueField: 'c2', matchField: null },
       { rows: live, valueField: 'c2', matchField: null },
       'row_key',
     )
+
     expect(pairing.matchedCount).toBe(2)
     expect(pairing.onlyBCount).toBe(1)
     expect(pairing.changedCount).toBe(1)
@@ -323,6 +333,7 @@ describe('pairComparativeSources', () => {
       'field',
       'Sample',
     )
+
     expect(pairing.rows.map((r) => [r.key, r.presence, r.delta])).toEqual([
       ['S1', 'a-only', null],
       ['S2', 'both', 5],

@@ -20,6 +20,7 @@ import type { LabRpc } from './lab-api-surface'
 import type { DataClient } from './data-client'
 
 export const AGENT_ACTION_LEVELS = ['auto', 'ask', 'never'] as const
+
 export type AgentActionLevel = (typeof AGENT_ACTION_LEVELS)[number]
 
 export const AGENT_ACTION_DEFAULT_LEVEL: AgentActionLevel = 'ask'
@@ -34,6 +35,7 @@ export const AGENT_ACTION_ROLES = [
   'reviewer',
   'viewer',
 ] as const
+
 export type AgentActionRole = (typeof AGENT_ACTION_ROLES)[number]
 
 /**
@@ -76,8 +78,10 @@ export function agentActionResult(action: string, result: unknown): unknown {
       string,
       unknown
     >
+
     return rest
   }
+
   return result
 }
 
@@ -116,17 +120,20 @@ export const AGENT_ACTION_AREAS: readonly string[] = [
   ...new Set(FEATURE_AREAS.map((entry) => entry.area)),
   'Other',
 ]
+
 export type AgentActionArea = string
 
 export function agentActionArea(key: string): AgentActionArea {
   for (const entry of FEATURE_AREAS)
     if (entry.beforeCore && entry.match.test(key)) return entry.area
+
   return coreAgentActionArea(key) ?? featureAgentActionArea(key) ?? 'Other'
 }
 
 function featureAgentActionArea(key: string): string | undefined {
   for (const entry of FEATURE_AREAS)
     if (!entry.beforeCore && entry.match.test(key)) return entry.area
+
   return undefined
 }
 
@@ -135,18 +142,28 @@ function coreAgentActionArea(
 ): (typeof CORE_AGENT_ACTION_AREAS)[number] | undefined {
   if (/reagent|stocktake|material|solution|replacement_lot/.test(key))
     return 'Orders and stock'
+
   if (/sample|pool_|storage_location|storage_box|position/.test(key))
     return 'Samples'
+
   if (/instrument|storage_reading|feed|recurring/.test(key))
     return 'Instruments'
+
   if (/study|dependency|task_resource|deliverable|workstream/.test(key))
     return 'Studies and planning'
+
   if (/report|analysis|chart/.test(key)) return 'Reports and analysis'
+
   if (/step|series|experiment/.test(key)) return 'Experiments'
+
   if (/plate/.test(key)) return 'Plates'
+
   if (/shipment|request/.test(key)) return 'Shipments and requests'
+
   if (/registry/.test(key)) return 'Registry'
+
   if (/legal_hold|retention|field_spec/.test(key)) return 'Compliance'
+
   return undefined
 }
 
@@ -246,6 +263,7 @@ export function resolveAgentActionLevel(
 ): AgentActionLevel {
   if (agentActionAlwaysNever(actionKey)) return 'never'
   const level = storedAgentActionLevel(policies, actionKey, subject)
+
   // Changes to what agents may do always wait for a person.
   return level === 'auto' && agentActionAlwaysAsk(actionKey) ? 'ask' : level
 }
@@ -256,6 +274,7 @@ function storedAgentActionLevel(
   subject: PolicySubject,
 ): AgentActionLevel {
   const forKey = policies.filter((row) => row.action_key === actionKey)
+
   const byCredential = subject.credentialId
     ? forKey.find(
         (row) =>
@@ -263,14 +282,18 @@ function storedAgentActionLevel(
           row.credential_id === subject.credentialId,
       )
     : undefined
+
   if (byCredential) return byCredential.level
+
   const byRole = subject.role
     ? forKey.find(
         (row) => row.subject_kind === 'role' && row.role === subject.role,
       )
     : undefined
+
   if (byRole) return byRole.level
   const everyone = forKey.find((row) => row.subject_kind === 'everyone')
+
   return everyone?.level ?? AGENT_ACTION_DEFAULT_LEVEL
 }
 
@@ -355,6 +378,7 @@ export async function fetchAgentActionRequest(
     'agent_action_requests',
     `?select=*&id=eq.${encodeURIComponent(id)}`,
   )
+
   return rows.at(0) ?? null
 }
 
@@ -365,6 +389,7 @@ export function describeAgentAction(
 ): string {
   const entry = agentActionByKey(actionKey)
   const label = entry?.label ?? actionKey.replace(/_/g, ' ')
+
   const parts = Object.entries(args)
     .filter(([, value]) => value !== null && value !== undefined)
     .map(
@@ -373,6 +398,7 @@ export function describeAgentAction(
           typeof value === 'object' ? JSON.stringify(value) : String(value)
         }`,
     )
+
   return parts.length > 0 ? `${label} (${parts.join(', ')})` : label
 }
 
@@ -388,6 +414,7 @@ async function runExtensionRequest(
   // The person pressed the button for this operation, so what it does inside
   // the app (`host_call`) is covered by that same yes.
   const { runPluginOperation } = await import('#/lib/extensions/run-client')
+
   const answer = await runPluginOperation<{ output?: unknown }>(
     {
       extensionKey: String(args.extensionKey),
@@ -397,6 +424,7 @@ async function runExtensionRequest(
     async () => true,
     'The plugin could not do that.',
   )
+
   return answer.output ?? null
 }
 
@@ -424,10 +452,12 @@ export async function approveAndRunAgentAction(
       'This is not an action the lab can run for an agent.',
     )
   }
+
   await client.rpc('decide_agent_action', {
     p_request_id: request.id,
     p_decision: 'approve',
   })
+
   return runApprovedAgentAction(client, request)
 }
 
@@ -442,9 +472,12 @@ const SECRET_RESULT_KEYS: Readonly<
 /** What of an action's answer may be written to its request record. */
 export function recordableResult(action: string, result: unknown): unknown {
   const keys = SECRET_RESULT_KEYS[action]
+
   if (!keys || typeof result !== 'object' || result === null) return result
   const kept = { ...(result as Record<string, unknown>) }
+
   for (const key of keys) delete kept[key]
+
   return kept
 }
 
@@ -454,6 +487,7 @@ export async function runApprovedAgentAction(
   request: Pick<AgentActionRequestRow, 'id' | 'action_key' | 'arguments'>,
 ): Promise<AgentActionRequestRow> {
   let result: unknown = null
+
   try {
     result = isExtensionActionKey(request.action_key)
       ? await runExtensionRequest(request.arguments)
@@ -469,6 +503,7 @@ export async function runApprovedAgentAction(
       p_error: error instanceof Error ? error.message : 'The action failed.',
     })
   }
+
   return client.rpc<AgentActionRequestRow>('finish_agent_action', {
     p_request_id: request.id,
     p_ok: true,

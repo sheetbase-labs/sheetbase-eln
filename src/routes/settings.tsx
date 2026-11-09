@@ -35,9 +35,11 @@ import { t } from '#/copy'
 export const Route = createFileRoute('/settings')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: SettingsLayout,
@@ -49,8 +51,10 @@ function SettingsLayout() {
   const role = context.workspace?.role
   const access = settingsAccessOf(context.workspace)
   const pluginPages = usePluginPoints().settingsPages
+
   const nav = React.useMemo(() => {
     const base = settingsNavForRole(role, access)
+
     // Pages the lab's plugins add sit in Workspace, for the people who hold
     // General (the same people who manage plugins).
     const added: SettingsNavItem[] = pluginPages.map((page) => ({
@@ -66,6 +70,7 @@ function SettingsLayout() {
         `/settings/workspace/plugin-pages/${page.extensionKey}/${page.id}`,
       area: 'general',
     }))
+
     return {
       ...base,
       workspace: [
@@ -74,13 +79,16 @@ function SettingsLayout() {
       ],
     }
   }, [role, access, pluginPages])
+
   const current =
     settingsItemForPath(pathname) ??
     nav.workspace.find((item) => item.match(pathname))
+
   const place: SettingsPlace = current?.place ?? 'account'
   const places = settingsPlaces.filter((p) => nav[p.key].length > 0)
   const sections = nav[place]
   const allowed = !current || canOpenSettingsItem(current, role, access)
+
   // A section opened through its area at "view" is read-only; one a role may
   // always open (their own signature) is not.
   const viewOnly =
@@ -88,8 +96,10 @@ function SettingsLayout() {
     current?.area != null &&
     access[current.area] === 'view' &&
     !(role && current.alwaysFor?.includes(role))
+
   const item = (i: SettingsNavItem) => {
     const on = i.match(pathname)
+
     return (
       <Link
         key={i.label}
@@ -111,6 +121,7 @@ function SettingsLayout() {
       </Link>
     )
   }
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <Tabs

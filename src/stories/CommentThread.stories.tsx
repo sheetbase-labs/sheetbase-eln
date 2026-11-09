@@ -11,6 +11,7 @@ const root: any = {
   target: { blockId: 'Results' },
   created_at: '2026-07-29T10:00:00Z',
 }
+
 const replies: any[] = [
   {
     ...root,
@@ -21,6 +22,7 @@ const replies: any[] = [
     created_at: '2026-07-29T11:00:00Z',
   },
 ]
+
 const meta = {
   title: 'Comments/Comment thread',
   component: CommentThread,
@@ -37,8 +39,11 @@ const meta = {
     onReopen: async () => {},
   },
 } satisfies Meta<typeof CommentThread>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 export const OpenThread: Story = {}
 export const Resolved: Story = { args: { resolved: true } }
 export const ReadOnly: Story = { args: { canComment: false } }

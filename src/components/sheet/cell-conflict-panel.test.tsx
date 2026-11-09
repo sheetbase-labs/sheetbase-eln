@@ -93,6 +93,7 @@ describe('CellConflictPanel', () => {
     const fetcher = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(JSON.stringify(resolvedConflict())))
+
     const client = createDataClient(fetcher)
     render(
       <CellConflictPanel
@@ -122,6 +123,7 @@ describe('CellConflictPanel', () => {
     const fetcher = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(JSON.stringify(resolvedConflict())))
+
     const client = createDataClient(fetcher)
     render(
       <CellConflictPanel
@@ -214,6 +216,7 @@ describe('CellConflictPanel', () => {
         { status: 400 },
       ),
     )
+
     const client = createDataClient(fetcher)
     render(
       <CellConflictPanel

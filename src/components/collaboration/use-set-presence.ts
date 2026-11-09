@@ -76,11 +76,14 @@ export function PresenceSync(
   props: SettablePresenceFields,
 ): React.ReactElement | null {
   const ready = useCollaborationRoomReady()
+
   if (!ready) return null
+
   return React.createElement(PresenceSyncEffect, props)
 }
 
 function PresenceSyncEffect(props: SettablePresenceFields): null {
   useSetPresence(props)
+
   return null
 }

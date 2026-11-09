@@ -67,9 +67,11 @@ function fakeClient(data: {
   requestForms?: Array<Record<string, unknown>>
 }) {
   const calls: string[] = []
+
   const client = {
     list: (resource: string, query = '') => {
       calls.push(`${resource}${query}`)
+
       switch (resource) {
         case 'instruments':
           return Promise.resolve(
@@ -80,15 +82,19 @@ function fakeClient(data: {
         case 'calendar_bookings': {
           const rows = data.bookings ?? []
           const id = /id=eq\.([\w-]+)/.exec(query)?.[1]
+
           if (query.startsWith('?id=eq.')) {
             return Promise.resolve(rows.filter((row) => row.id === id))
           }
+
           const start = decodeURIComponent(
             /ends_at=gt\.([^&]+)/.exec(query)?.[1] ?? '',
           )
+
           const end = decodeURIComponent(
             /starts_at=lt\.([^&]+)/.exec(query)?.[1] ?? '',
           )
+
           return Promise.resolve(
             rows.filter(
               (row) =>
@@ -96,6 +102,7 @@ function fakeClient(data: {
             ),
           )
         }
+
         case 'instrument_booking_rules':
           return Promise.resolve(data.rules ?? [])
         case 'records':
@@ -110,12 +117,15 @@ function fakeClient(data: {
       if (name === 'my_instrument_training_gaps') {
         return Promise.resolve(data.training ?? [])
       }
+
       if (name === 'workspace_members_list') {
         return Promise.resolve([{ user_id: 'user-other', name: 'Priya Shah' }])
       }
+
       return Promise.resolve([])
     },
   } as unknown as DataClient
+
   return { client, calls }
 }
 
@@ -144,6 +154,7 @@ describe('resolveInstrument', () => {
     const { client } = fakeClient({})
     const result = await resolveInstrument(client, WS, 'mass spec')
     expect(result.ok).toBe(false)
+
     if (!result.ok) {
       expect(result.message).toContain('QuantStudio 5 qPCR (INS-0001)')
       expect(result.message).not.toContain(QPCR)
@@ -154,15 +165,19 @@ describe('resolveInstrument', () => {
 describe('schedule reads', () => {
   it('reads bookings with names, on the person’s clock', async () => {
     const { client } = fakeClient({ bookings: [booking({})] })
+
     const result = await runLabReadTool(
       'sheetbase.schedule.read',
       { from: '2026-11-06', days: 1 },
       context(client),
     )
+
     expect(result.isError).toBe(false)
+
     const parsed = JSON.parse(result.text) as {
       bookings: Array<Record<string, string>>
     }
+
     expect(parsed.bookings[0]).toMatchObject({
       instrument: 'QuantStudio 5 qPCR (INS-0001)',
       when: 'Fri 6 Nov, 09:00–11:00',
@@ -176,16 +191,19 @@ describe('schedule reads', () => {
       training: [{ identifier: 'PRO-4', title: 'qPCR training' }],
       rules: [{ max_booking_minutes: 240, max_advance_days: 14 }],
     })
+
     const result = await runLabReadTool(
       'sheetbase.schedule.free_time',
       { instrument: 'qpcr', from: '2026-11-06', days: 1, durationMinutes: 60 },
       context(client),
     )
+
     const parsed = JSON.parse(result.text) as {
       free: Array<{ when: string }>
       cannotBookBecause: string[]
       rules: Record<string, string>
     }
+
     expect(parsed.free.map((gap) => gap.when)).toEqual([
       'Fri 6 Nov, 08:00–09:00',
       'Fri 6 Nov, 11:00–18:00',
@@ -201,11 +219,13 @@ describe('schedule reads', () => {
         { identifier: 'REQ-3', title: 'Sanger run', status: 'requested' },
       ],
     })
+
     const result = await runLabReadTool(
       'sheetbase.lab.list',
       { area: 'requests', openOnly: true, query: 'sanger' },
       context(client),
     )
+
     expect(JSON.parse(result.text)).toMatchObject({
       area: 'requests',
       returned: 1,
@@ -221,6 +241,7 @@ describe('schedule reads', () => {
 describe('booking proposals', () => {
   it('proposes a free slot as a card the person confirms', async () => {
     const { client } = fakeClient({ bookings: [booking({})] })
+
     const outcome = await buildBookingProposal(
       'sheetbase.booking.create',
       {
@@ -232,7 +253,9 @@ describe('booking proposals', () => {
       },
       context(client),
     )
+
     expect(outcome.ok).toBe(true)
+
     if (!outcome.ok) return
     expect(outcome.proposal.changes).toContainEqual({
       label: 'When',
@@ -255,6 +278,7 @@ describe('booking proposals', () => {
 
   it('says why when the time is taken or the instrument is out of service', async () => {
     const { client } = fakeClient({ bookings: [booking({})] })
+
     const taken = await buildBookingProposal(
       'sheetbase.booking.create',
       {
@@ -266,7 +290,9 @@ describe('booking proposals', () => {
       },
       context(client),
     )
+
     expect(taken).toMatchObject({ ok: false })
+
     if (!taken.ok) expect(taken.message).toContain('already booked')
 
     const broken = await buildBookingProposal(
@@ -280,18 +306,23 @@ describe('booking proposals', () => {
       },
       context(client),
     )
+
     expect(broken).toMatchObject({ ok: false })
+
     if (!broken.ok) expect(broken.message).toContain('out of service')
   })
 
   it('only moves the person’s own booking, keeping its length', async () => {
     const mine = booking({ id: MINE, created_by_user_id: ME })
+
     const theirs = booking({
       id: THEIRS,
       starts_at: at('2026-11-07T09:00'),
       ends_at: at('2026-11-07T10:00'),
     })
+
     const { client } = fakeClient({ bookings: [mine, theirs] })
+
     const moved = await buildBookingProposal(
       'sheetbase.booking.move',
       {
@@ -302,6 +333,7 @@ describe('booking proposals', () => {
       },
       context(client),
     )
+
     expect(moved).toMatchObject({
       ok: true,
       proposal: {
@@ -320,6 +352,7 @@ describe('booking proposals', () => {
       { title: 'Cancel', summary: 'x', bookingId: THEIRS },
       context(client),
     )
+
     expect(refused).toMatchObject({ ok: false })
   })
 })

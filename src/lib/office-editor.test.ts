@@ -12,6 +12,7 @@ import {
 } from './office-editor'
 
 const SECRET = 'x'.repeat(40)
+
 const claims = {
   fileRecordId: 'f1',
   userId: 'u1',
@@ -97,6 +98,7 @@ describe('discovery', () => {
     <app name="writer"><action urlsrc="https://o/browser/abc/cool.html?" ext="docx" name="edit" />
     <action ext="docx" name="view" urlsrc="https://o/browser/abc/cool.html?a=1&amp;b=2"/></app>
   </net-zone></wopi-discovery>`
+
   it('finds the action whatever the attribute order', () => {
     expect(editorActionUrl(xml, 'docx', 'edit')).toBe(
       'https://o/browser/abc/cool.html?',

@@ -36,9 +36,11 @@ describe('SampleLabelCard', () => {
         record={{ identifier: 'SMP-2231', customFields: {} }}
       />,
     )
+
     const code = screen.getByRole('img', {
       name: 'Label code resolving to https://app.sheetbase.test/r/SMP-2231',
     })
+
     // A real code, not the old fixed decorative pattern.
     const path = code.querySelector('path')
     expect(path?.getAttribute('d')).toBeTruthy()

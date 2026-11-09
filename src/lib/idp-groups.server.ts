@@ -23,6 +23,7 @@ export async function applyIdpGroups(
     const result = await database.execute<{ n: number }>(
       sql`select internal.apply_idp_groups(${userId}, ${sql.param(groups)}::text[]) as n`,
     )
+
     annotateRequest({
       sso_groups: {
         count: groups.length,

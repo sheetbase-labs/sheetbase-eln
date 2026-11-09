@@ -59,7 +59,9 @@ export const EMPTY_RICH_TEXT_PAYLOAD: RichTextPayload = {
 export function isEmptyRichText(payload: unknown): boolean {
   if (!isObject(payload) || !isObject(payload.doc)) return false
   const content = (payload.doc as { content?: unknown }).content
+
   if (!Array.isArray(content)) return true
+
   return content.every(
     (node) =>
       isObject(node) &&
@@ -84,21 +86,26 @@ function isSafeLink(href: string): boolean {
 
 function isMark(value: unknown): value is RichTextMark {
   if (!isObject(value) || typeof value.type !== 'string') return false
+
   if (
     ['bold', 'italic', 'code', 'subscript', 'superscript'].includes(value.type)
   ) {
     return hasOnlyKeys(value, ['type'])
   }
+
   if (value.type !== 'link' || !hasOnlyKeys(value, ['type', 'attrs'])) {
     return false
   }
+
   const attrs = value.attrs
+
   if (
     !isObject(attrs) ||
     !hasOnlyKeys(attrs, ['href', 'target', 'rel', 'class'])
   ) {
     return false
   }
+
   return (
     typeof attrs.href === 'string' &&
     isSafeLink(attrs.href) &&
@@ -115,6 +122,7 @@ function isTextNode(value: unknown): value is RichTextTextNode {
   if (!isObject(value) || !hasOnlyKeys(value, ['type', 'text', 'marks'])) {
     return false
   }
+
   if (
     value.type !== 'text' ||
     typeof value.text !== 'string' ||
@@ -122,16 +130,22 @@ function isTextNode(value: unknown): value is RichTextTextNode {
   ) {
     return false
   }
+
   if (value.marks === undefined) return true
+
   if (!Array.isArray(value.marks) || !value.marks.every(isMark)) return false
   const markTypes = value.marks.map((mark) => mark.type)
+
   if (new Set(markTypes).size !== markTypes.length) return false
+
   if (markTypes.includes('code') && markTypes.length > 1) return false
+
   return !(markTypes.includes('subscript') && markTypes.includes('superscript'))
 }
 
 function isParagraph(value: unknown): value is RichTextParagraphNode {
   if (!isObject(value) || !hasOnlyKeys(value, ['type', 'content'])) return false
+
   return (
     value.type === 'paragraph' &&
     (value.content === undefined ||
@@ -143,6 +157,7 @@ function isHeading(value: unknown): value is RichTextHeadingNode {
   if (!isObject(value) || !hasOnlyKeys(value, ['type', 'attrs', 'content'])) {
     return false
   }
+
   if (
     value.type !== 'heading' ||
     !isObject(value.attrs) ||
@@ -151,6 +166,7 @@ function isHeading(value: unknown): value is RichTextHeadingNode {
   ) {
     return false
   }
+
   return (
     value.content === undefined ||
     (Array.isArray(value.content) && value.content.every(isTextNode))
@@ -161,7 +177,9 @@ function isList(value: unknown): value is RichTextListNode {
   if (!isObject(value) || !hasOnlyKeys(value, ['type', 'attrs', 'content'])) {
     return false
   }
+
   if (value.type !== 'bulletList' && value.type !== 'orderedList') return false
+
   if (value.attrs !== undefined) {
     if (
       !isObject(value.attrs) ||
@@ -169,6 +187,7 @@ function isList(value: unknown): value is RichTextListNode {
     ) {
       return false
     }
+
     if (
       value.attrs.start !== undefined &&
       (!Number.isInteger(value.attrs.start) ||
@@ -176,6 +195,7 @@ function isList(value: unknown): value is RichTextListNode {
     ) {
       return false
     }
+
     if (
       value.attrs.type !== undefined &&
       value.attrs.type !== null &&
@@ -184,12 +204,14 @@ function isList(value: unknown): value is RichTextListNode {
       return false
     }
   }
+
   return (
     Array.isArray(value.content) &&
     value.content.length > 0 &&
     value.content.every((item) => {
       if (!isObject(item) || !hasOnlyKeys(item, ['type', 'content']))
         return false
+
       return (
         item.type === 'listItem' &&
         Array.isArray(item.content) &&
@@ -209,7 +231,9 @@ export function isRichTextPayload(value: unknown): value is RichTextPayload {
   ) {
     return false
   }
+
   const doc = value.doc
+
   return (
     hasOnlyKeys(doc, ['type', 'content']) &&
     doc.type === 'doc' &&
@@ -228,10 +252,12 @@ export function richTextToPlainText(payload: RichTextPayload): string {
     if (node.type === 'paragraph' || node.type === 'heading') {
       return node.content?.map((child) => child.text).join('') ?? ''
     }
+
     return node.content
       .map((item) => item.content.map(nodeText).join('\n'))
       .join('\n')
   }
+
   return payload.doc.content.map(nodeText).join('\n').trim()
 }
 
@@ -239,12 +265,14 @@ function renderText(node: RichTextTextNode, key: number): React.ReactNode {
   const plain = !(node.marks ?? []).some(
     (mark) => mark.type === 'link' || mark.type === 'code',
   )
+
   // An identifier that names a real record reads as a link to it.
   let child: React.ReactNode = plain ? (
     <LinkedText text={node.text} />
   ) : (
     node.text
   )
+
   for (const mark of node.marks ?? []) {
     switch (mark.type) {
       case 'bold':
@@ -280,6 +308,7 @@ function renderText(node: RichTextTextNode, key: number): React.ReactNode {
         break
     }
   }
+
   return <React.Fragment key={key}>{child}</React.Fragment>
 }
 
@@ -296,6 +325,7 @@ function renderNode(
   hidden = false,
 ): React.ReactNode {
   const hiddenClass = hidden ? 'hidden print:contents' : undefined
+
   if (node.type === 'paragraph') {
     return (
       <p key={key} className={hiddenClass}>
@@ -303,8 +333,10 @@ function renderNode(
       </p>
     )
   }
+
   if (node.type === 'heading') {
     const Tag = node.attrs.level === 2 ? 'h2' : 'h3'
+
     return (
       <Tag
         // NOTE-02: stable in-payload anchor. The ordinal is the heading's
@@ -328,7 +360,9 @@ function renderNode(
       </Tag>
     )
   }
+
   const Tag = node.type === 'orderedList' ? 'ol' : 'ul'
+
   return (
     <Tag
       key={key}

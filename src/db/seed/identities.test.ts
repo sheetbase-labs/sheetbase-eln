@@ -50,6 +50,7 @@ describe('seed identities', () => {
       FIXTURE_WORKSPACE_ID,
       FIXTURE_PROJECT_ID,
     ]
+
     expect(fixtureIds).not.toContain(DEMO_VIRUS_STABILITY_PROJECT_ID)
     expect(new Set(fixtureIds).size).toBe(fixtureIds.length)
   })
@@ -66,9 +67,11 @@ describe('seed identities', () => {
       expect(id).toMatch(uuidPattern)
       expect(id.startsWith('00000000-')).toBe(true)
     }
+
     expect(new Set(Object.values(DESIGN_CREDENTIAL_IDS)).size).toBe(
       Object.values(DESIGN_CREDENTIAL_IDS).length,
     )
+
     for (const id of Object.values(DESIGN_SESSION_IDS)) {
       expect(id.length).toBeGreaterThan(0)
       expect(id.startsWith('design-session-')).toBe(true)

@@ -29,6 +29,7 @@ export function DraftConflictBanner({
   busy?: boolean
 }) {
   const changed = conflict.theirs.size
+
   return (
     <Banner
       tone="warn"

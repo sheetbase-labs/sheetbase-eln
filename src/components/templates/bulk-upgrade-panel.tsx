@@ -52,6 +52,7 @@ export function BulkUpgradePanel({
     mutationFn: () => {
       setResults(null)
       setProgress(0)
+
       return upgradeNotebooksInBulk(
         notebookTemplateDataClient,
         { notebooks, targetVersionId },
@@ -90,6 +91,7 @@ export function BulkUpgradePanel({
   })
 
   const left = results?.filter((r) => r.outcome.kind !== 'updated') ?? []
+
   return (
     <div className="flex flex-col gap-3 pb-3">
       <Banner

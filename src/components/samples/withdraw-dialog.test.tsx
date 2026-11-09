@@ -70,6 +70,7 @@ function renderDialog(
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <WithdrawDialog
@@ -132,6 +133,7 @@ describe('describeWithdrawError', () => {
       'insufficient free quantity: available 2, reserved 0, withdrawing 5',
       400,
     )
+
     expect(describeWithdrawError(error, 'mL')).toBe(
       'Only 2 mL available. Enter 2 or less.',
     )
@@ -143,6 +145,7 @@ describe('describeWithdrawError', () => {
       'insufficient quantity: have 2, consuming 5',
       400,
     )
+
     expect(describeWithdrawError(error, 'mL')).toBe(
       'Only 2 mL available. Enter 2 or less.',
     )
@@ -252,9 +255,11 @@ describe('WithdrawDialog', () => {
       balances: GRAM_BALANCES,
     })
     const dialog = screen.getByRole('dialog')
+
     const unit = within(dialog).getByRole<HTMLSelectElement>('combobox', {
       name: /Unit/,
     })
+
     expect(unit.value).toBe('g')
     expect(unit.disabled).toBe(true)
 
@@ -277,6 +282,7 @@ function renderReserveDialog(
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <ReserveDialog

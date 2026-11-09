@@ -54,7 +54,9 @@ function inChronologicalOrder(signatures: SignatureWire[]): SignatureWire[] {
 
 function formatVersionList(versions: number[]): string {
   const ordered = [...versions].sort((a, b) => a - b)
+
   if (ordered.length <= 1) return String(ordered[0] ?? '')
+
   return t('projects.signatures.listAnd', {
     list: ordered.slice(0, -1).join(', '),
     last: ordered[ordered.length - 1],
@@ -67,6 +69,7 @@ function formatVersionList(versions: number[]): string {
  */
 export function signatureBindingNote(versions: number[]): string {
   if (versions.length === 0) return t('projects.signatures.bindingNone')
+
   return versions.length === 1
     ? t('projects.signatures.bindingOne', {
         versions: formatVersionList(versions),
@@ -88,6 +91,7 @@ export function SignaturesTable({
       {heading}
     </h2>
   ) : null
+
   if (isError) {
     return (
       <section aria-label={t('projects.signatures.title')} className="py-4">

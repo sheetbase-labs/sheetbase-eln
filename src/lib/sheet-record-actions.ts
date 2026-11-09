@@ -38,8 +38,10 @@ export function resolveSheetRecordActions(
   const configured = new Map(
     (configuration?.actions ?? []).map((action) => [action.kind, action]),
   )
+
   return KIND_ORDER.map((kind) => {
     const action = configured.get(kind)
+
     if (!action) {
       return {
         kind,
@@ -49,6 +51,7 @@ export function resolveSheetRecordActions(
         reason: 'Not configured on the Sheet Definition.',
       }
     }
+
     return {
       kind,
       key: action.key,

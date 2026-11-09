@@ -56,14 +56,17 @@ function renderPanel(canManage: boolean, c = client()) {
       <LabelTemplatesPanel workspaceId="ws" canManage={canManage} client={c} />
     </QueryClientProvider>,
   )
+
   return c
 }
 
 describe('LabelTemplatesPanel', () => {
   it('lists templates with their size, code and default', async () => {
     renderPanel(true)
+
     const row = (await screen.findByRole('row', { name: /Sample tube/ }))
       .textContent
+
     expect(row).toContain('Default')
     expect(row).toContain('50 × 25 mm')
     expect(row).toContain('QR code')

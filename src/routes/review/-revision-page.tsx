@@ -348,6 +348,7 @@ export function statusLabel(state: string): string {
   const def = (
     workspaceStatusVocabulary as Partial<Record<string, StatusDefinition>>
   )[state]
+
   return def?.label ?? state
 }
 
@@ -385,10 +386,12 @@ export function ReviewWorkspaceRoute() {
   const currentUserName = context.user.name
   const activeTab = search.tab ?? 'diff'
   const commentsPanelRef = useRef<HTMLDivElement>(null)
+
   const [commentSelection, setCommentSelection] = useState<{
     revisionId: string
     anchor: ReviewCommentTarget
   } | null>(null)
+
   const commentAnchor =
     commentSelection?.revisionId === revisionId ? commentSelection.anchor : null
 
@@ -406,6 +409,7 @@ export function ReviewWorkspaceRoute() {
               commentsPanelRef.current?.querySelector<HTMLButtonElement>(
                 '[aria-label="Reply to thread"]',
               )
+
             trigger?.click()
             requestAnimationFrame(() => {
               commentsPanelRef.current
@@ -439,6 +443,7 @@ export function ReviewWorkspaceRoute() {
   // Null when collaboration is disabled or the workspace/record identity is
   // incomplete — CollaborationRoom then renders children unchanged.
   const collaborationEnabled = useCollaborationEnabled()
+
   const collaborationRoomId = collaborationEnabled
     ? safeBuildRoomId(context.workspace?.id, 'record', recordId)
     : null
@@ -477,11 +482,13 @@ export function ReviewWorkspaceRoute() {
   })
 
   const recordIds = useMemo(() => (recordId ? [recordId] : []), [recordId])
+
   const recordsQuery = useQuery({
     queryKey: reviewQueryKeys.recordsForReviews(recordIds),
     queryFn: () => fetchRecordsForReviews(reviewsDataClient, recordIds),
     enabled: recordIds.length > 0,
   })
+
   const projectsQuery = useQuery({
     queryKey: reviewQueryKeys.projectsForReviews(),
     queryFn: () => fetchProjectsForReviews(reviewsDataClient),
@@ -499,13 +506,17 @@ export function ReviewWorkspaceRoute() {
 
   const revision = revisionQuery.data ?? null
   const submission = submissionQuery.data ?? null
+
   const record = useMemo(
     () => (recordsQuery.data ?? []).find((r) => r.id === recordId) ?? null,
     [recordsQuery.data, recordId],
   )
+
   const isLocked = Boolean(record?.locked_at)
+
   const project = useMemo(() => {
     const map = projectsQuery.data ?? new Map()
+
     return record?.project_id ? map.get(record.project_id) : undefined
   }, [projectsQuery.data, record])
 
@@ -516,6 +527,7 @@ export function ReviewWorkspaceRoute() {
   // record (the revision immediately older than the submitted one).
   const defaultComparisonId = useMemo(() => {
     if (!revision) return null
+
     const prior = revisionOptions
       .filter(
         (option) =>
@@ -523,6 +535,7 @@ export function ReviewWorkspaceRoute() {
           Date.parse(option.created_at) < Date.parse(revision.created_at),
       )
       .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+
     return prior[0]?.id ?? null
   }, [revisionOptions, revision])
 
@@ -540,6 +553,7 @@ export function ReviewWorkspaceRoute() {
 
   const permission = useMemo(() => {
     if (!submission || !revision) return null
+
     return deriveReviewActionPermission({
       state: submission.state,
       supersededByRevisionId: revision.superseded_by_revision_id,
@@ -578,10 +592,12 @@ export function ReviewWorkspaceRoute() {
   // carries the actor's id, so resolve it the way the rest of the app does
   // rather than printing a UUID at the author.
   const returnedByUserId = latestReturn?.actor_user_id ?? null
+
   const returnedByNames = useUserNames(
     returnedByUserId ? [returnedByUserId] : [],
     { id: currentUserId, name: currentUserName },
   )
+
   const returnedByName = returnedByUserId
     ? (returnedByNames.names[returnedByUserId] ??
       t('projects.revisionPage.aColleague'))
@@ -592,6 +608,7 @@ export function ReviewWorkspaceRoute() {
   // Signing is offered from the banner as well as the inspector, so the
   // dialog's state lives here.
   const [signingOpen, setSigningOpen] = useState(false)
+
   const signing = useSigningMeanings({
     submission,
     revision,
@@ -605,6 +622,7 @@ export function ReviewWorkspaceRoute() {
   // them here, once, so nobody has to find a Run button before they can
   // approve or sign.
   const autoRanChecks = useRef<string | null>(null)
+
   const needsChecks =
     Boolean(submission) &&
     ['submitted', 'approved'].includes(submission?.state ?? '') &&
@@ -614,6 +632,7 @@ export function ReviewWorkspaceRoute() {
     !checksQuery.data.some(
       (result) => result.revision_integrity_digest === integrityDigest,
     )
+
   useEffect(() => {
     if (!needsChecks || autoRanChecks.current === revisionId) return
     autoRanChecks.current = revisionId
@@ -625,6 +644,7 @@ export function ReviewWorkspaceRoute() {
         }),
       )
   }, [needsChecks, revisionId, queryClient])
+
   const checksGate = reviewChecksGate(
     checksQuery.isSuccess ? checksQuery.data : null,
     integrityDigest,
@@ -640,6 +660,7 @@ export function ReviewWorkspaceRoute() {
     ],
     { id: currentUserId, name: currentUserName },
   )
+
   const nextStep = reviewNextStep({
     state: submission?.state ?? null,
     superseded: Boolean(revision?.superseded_by_revision_id),
@@ -673,19 +694,23 @@ export function ReviewWorkspaceRoute() {
 
   const beforeEnvelope = useMemo(() => {
     if (!comparisonRevisionQuery.data) return null
+
     return toCanonicalEnvelope(comparisonRevisionQuery.data)
   }, [comparisonRevisionQuery.data])
 
   const afterEnvelope = useMemo(() => {
     if (!revision) return null
+
     return toCanonicalEnvelope(revision)
   }, [revision])
 
   const preSign = useMemo<PreSignInput | null>(() => {
     if (!afterEnvelope) return null
+
     const diff = beforeEnvelope
       ? diffRevisionEnvelopes(beforeEnvelope, afterEnvelope)
       : null
+
     return { review: buildPreSignReview(afterEnvelope, diff), diff }
   }, [afterEnvelope, beforeEnvelope])
 
@@ -789,6 +814,7 @@ export function ReviewWorkspaceRoute() {
             recordId ? [recordId] : [],
           ),
         })
+
         if (recordId) {
           await queryClient.invalidateQueries({
             queryKey: sign002QueryKeys.timeline(recordId),
@@ -855,6 +881,7 @@ export function ReviewWorkspaceRoute() {
                 const firstOpen = groupCommentsIntoThreads(
                   commentsQuery.data ?? [],
                 ).find((thread) => threadState(thread) === 'open')
+
                 void navigate({
                   to: '/review/$revisionId',
                   params: { revisionId },
@@ -1060,7 +1087,9 @@ export function WorkspaceHeader({
 }) {
   const isSuperseded =
     revision?.superseded_by_revision_id !== null && revision !== null
+
   const state = submission?.state ?? null
+
   // GOV-04: one derived lifecycle from authoritative fields — never a
   // second state machine. Viewed-revision supersession outranks the
   // record-level lock, so an amended predecessor can never present its
@@ -1072,6 +1101,7 @@ export function WorkspaceHeader({
     viewedRevisionId: revision?.id ?? null,
     supersededByRevisionId: revision?.superseded_by_revision_id ?? null,
   })
+
   return (
     <header className="space-y-2 rounded-lg border bg-card p-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1289,10 +1319,12 @@ function DraftCommentRow({
   useEffect(() => {
     setBody(draft.body)
   }, [draft.body])
+
   const target =
     draft.targetKind === 'revision'
       ? t('projects.revisionPage.drafts.wholeRevision')
       : draft.targetKind.replace(/^sheet_/, '').replace(/_/g, ' ')
+
   return (
     <li className="rounded-md border bg-card p-2 text-xs">
       <div className="mb-1 flex flex-wrap items-center gap-2">
@@ -1381,6 +1413,7 @@ export function DraftCommentsTray({
 }) {
   if (drafts.length === 0) return null
   const count = drafts.length
+
   return (
     <section
       aria-label={t('projects.revisionPage.drafts.title')}
@@ -1446,6 +1479,7 @@ function DiffPanel({
   const comparableOptions = revisionOptions.filter(
     (option) => option.id !== currentRevisionId,
   )
+
   // R5-NOTE-01: the document reads by default; the change list stays one
   // click away for reviews that are better read as a list of changes.
   const [view, setView] = useState<'document' | 'changes'>('document')
@@ -1460,15 +1494,18 @@ function DiffPanel({
   const reviewedAt = revisionOptions.find(
     (option) => option.id === currentRevisionId,
   )?.created_at
+
   const recordCommentsQuery = useQuery({
     queryKey: commentsQueryKeys.forRecord(recordId ?? ''),
     queryFn: () => fetchCommentsForRecord(reviewsDataClient, recordId!),
     enabled:
       view === 'document' && recordId !== null && reviewedAt !== undefined,
   })
+
   const earlierComments = useMemo(() => {
     if (!reviewedAt) return []
     const reviewed = Date.parse(reviewedAt)
+
     return (recordCommentsQuery.data ?? []).filter(
       (comment) =>
         comment.revision_id !== null &&
@@ -1480,16 +1517,20 @@ function DiffPanel({
         ) < reviewed,
     )
   }, [currentRevisionId, recordCommentsQuery.data, reviewedAt, revisionOptions])
+
   const revisionLabels = useMemo(() => {
     const labels = new Map<string, string>()
+
     for (const option of revisionOptions) {
       labels.set(
         option.id,
         `${formatDate(option.created_at)} · ${revisionReasonLabel(option.reason)}`,
       )
     }
+
     return labels
   }, [revisionOptions])
+
   const documentComments = useMemo(
     () => [...earlierComments, ...revisionComments],
     [earlierComments, revisionComments],
@@ -1635,6 +1676,7 @@ function ChecksPanel({
   async function handleRun() {
     setRunning(true)
     setError(null)
+
     try {
       await runDefaultRevisionChecks(reviewsDataClient, revisionId)
       await queryClient.invalidateQueries({
@@ -1787,6 +1829,7 @@ function ReviewInspector({
   const decideOnArrival = useSearch({ from: '/review/$revisionId' }).decide
 
   const queryClient = useQueryClient()
+
   // REV-03.4: Control+Shift+Enter approves and then opens the signing dialog.
   // The handler is stable so `ReviewInspector`'s shortcut definitions keep one
   // identity across renders; an unstable array re-registers every render and
@@ -1795,12 +1838,14 @@ function ReviewInspector({
     () => onSigningOpenChange(true),
     [onSigningOpenChange],
   )
+
   // QA-180: an assigned reviewer is a person, not a UUID. Resolve them to names
   // the way the rest of the app does; initials come from the name.
   const reviewerNames = useUserNames(
     submission?.assigned_reviewer_user_ids ?? [],
     { id: currentUserId, name: currentUserName },
   )
+
   const actorIds = useMemo(
     () => [
       ...(submission ? [submission.submitted_by_user_id] : []),
@@ -1809,6 +1854,7 @@ function ReviewInspector({
     ],
     [submission, decisions, signatures],
   )
+
   const { userLabel: actorLabel } = useUserNames(actorIds, {
     id: currentUserId,
     name: currentUserName,
@@ -1834,6 +1880,7 @@ function ReviewInspector({
   }
 
   const steps = buildApprovalSteps(submission)
+
   const reviewState = buildStepperState(submission, decisions, actorLabel, {
     signers: signatures.map((signature) => signature.signer_user_id),
   })
@@ -1906,6 +1953,7 @@ function ReviewInspector({
                 const name =
                   reviewerNames.names[userId] ??
                   t('projects.revisionPage.inspector.unknownMember')
+
                 return (
                   <li
                     key={userId}
@@ -2002,6 +2050,7 @@ function ReviewInspector({
               } else {
                 await runDecision(kind, input)
               }
+
               if (submission.id) {
                 await queryClient.invalidateQueries({
                   queryKey: reviewWorkspaceQueryKeys.decisions(submission.id),
@@ -2059,11 +2108,14 @@ export function reviewChecksGate(
   integrityDigest: string | null,
 ): ReviewChecksGate {
   if (results === null || integrityDigest === null) return 'unknown'
+
   const latest = [...results]
     .filter((result) => result.revision_integrity_digest === integrityDigest)
     .sort((a, b) => Date.parse(b.run_at) - Date.parse(a.run_at))
     .at(0)
+
   if (!latest) return 'running'
+
   return latest.blocking_failure_count > 0 || latest.overall_status === 'fail'
     ? 'failed'
     : 'passed'
@@ -2071,7 +2123,9 @@ export function reviewChecksGate(
 
 export function checksGateReason(gate: ReviewChecksGate): string | null {
   if (gate === 'running') return t('projects.revisionPage.checks.gateRunning')
+
   if (gate === 'failed') return t('projects.revisionPage.checks.gateFailed')
+
   return null
 }
 
@@ -2102,9 +2156,11 @@ export function ActionButtons({
   openDecision?: ReviewDecisionKind
 }) {
   const [note, setNote] = useState('')
+
   const [pendingKind, setPendingKind] = useState<ReviewDecisionKind | null>(
     null,
   )
+
   const openedFor = useRef<ReviewDecisionKind | null>(null)
   useEffect(() => {
     if (
@@ -2123,10 +2179,12 @@ export function ActionButtons({
     integrityDigest,
     approveBlockedReason,
   ])
+
   // QA-182: the decision RPC is awaited, so the dialog must not close under a
   // failed action and the button must not accept a second submission.
   const [submittingKind, setSubmittingKind] =
     useState<ReviewDecisionKind | null>(null)
+
   const [error, setError] = useState<string | null>(null)
   useRegisterShortcuts(
     useMemo(
@@ -2166,6 +2224,7 @@ export function ActionButtons({
     const kind = pendingKind
     setError(null)
     setSubmittingKind(kind)
+
     try {
       await onAfterDecision(kind, {
         submissionId: submission.id,
@@ -2174,6 +2233,7 @@ export function ActionButtons({
       })
       setPendingKind(null)
       setNote('')
+
       // Approving leads straight into signing; the dialog offers Sign later.
       if (kind === 'approve') onApprovedForSigning?.()
     } catch (err) {
@@ -2219,7 +2279,9 @@ export function ActionButtons({
         {reviewActions.map((action) => {
           const waitingOnChecks =
             action.kind === 'approve' && approveBlockedReason !== null
+
           const disabled = !permission.canReview || waitingOnChecks
+
           return (
             <DecisionDialog
               key={action.kind}
@@ -2330,6 +2392,7 @@ function DecisionDialog({
   open?: boolean
 }) {
   const nextState = DECISION_NEXT_STATE[kind]
+
   const triggerClass = cn(
     'h-9 text-xs',
     variant === 'default' &&
@@ -2337,6 +2400,7 @@ function DecisionDialog({
     variant === 'danger' &&
       'border-danger text-danger-text hover:bg-danger-wash',
   )
+
   return (
     <ConfirmDialog open={open} onOpenChange={onOpenChange}>
       <ConfirmDialogTrigger asChild>
@@ -2421,6 +2485,7 @@ export function buildApprovalSteps(
 ): ApprovalStepDef[] {
   if (!submission) return []
   const workflowSteps = workflowStepsFor(submission.workflow_definition_key)
+
   const steps: ApprovalStepDef[] = [
     {
       id: 'submission',
@@ -2446,6 +2511,7 @@ export function buildApprovalSteps(
         ]
       : []),
   ]
+
   return steps
 }
 
@@ -2456,6 +2522,7 @@ export function buildStepperState(
   { signers = [] }: { signers?: string[] } = {},
 ): Record<string, ApprovalStepStatus> {
   if (!submission) return {}
+
   // Each step names the person who did it, not whoever is looking at the page.
   const state: Record<string, ApprovalStepStatus> = {
     submission: {
@@ -2463,17 +2530,21 @@ export function buildStepperState(
       actor: { name: userLabel(submission.submitted_by_user_id) },
     },
   }
+
   const workflowSteps = workflowStepsFor(submission.workflow_definition_key)
   const activeStepKey = workflowSteps[0]?.key
+
   if (submission.state === 'submitted' && activeStepKey) {
     state[activeStepKey] = { state: 'active' }
   }
+
   const reviewDecision = decisions.find(
     (d) =>
       d.decision === 'approve' ||
       d.decision === 'reject' ||
       d.decision === 'request_changes',
   )
+
   if (reviewDecision && activeStepKey) {
     state[activeStepKey] = {
       state:
@@ -2485,6 +2556,7 @@ export function buildStepperState(
       actor: { name: userLabel(reviewDecision.actor_user_id) },
     }
   }
+
   if (submission.state === 'approved') {
     const approval = decisions.find((d) => d.decision === 'approve')
     state.approved = {
@@ -2504,6 +2576,7 @@ export function buildStepperState(
       state: 'unavailable',
     }
   }
+
   return state
 }
 
@@ -2567,22 +2640,35 @@ function MissingRevision() {
 export function renderError(err: unknown): string {
   if (err instanceof DataClientError) {
     if (err.code === 'SB004') return t('projects.revisionPage.errors.SB004')
+
     if (err.code === 'SB005') return t('projects.revisionPage.errors.SB005')
+
     if (err.code === 'SB006') return t('projects.revisionPage.errors.SB006')
+
     if (err.code === 'SB001') return t('projects.revisionPage.errors.SB001')
+
     if (err.code === 'SB002') return t('projects.revisionPage.errors.SB002')
+
     if (err.code === 'SB007') return t('projects.revisionPage.errors.SB007')
+
     if (err.code === 'SB008') return t('projects.revisionPage.errors.SB008')
+
     if (err.code === 'SB009') return t('projects.revisionPage.errors.SB009')
+
     if (err.code === 'SB010') return t('projects.revisionPage.errors.SB010')
+
     if (err.code === '42501' || err.code === 'permission_denied')
       return t('projects.revisionPage.errors.permission')
+
     return err.message
   }
+
   if (err && typeof err === 'object' && 'message' in err) {
     const message = (err as { message?: unknown }).message
+
     if (typeof message === 'string') return message
   }
+
   return t('projects.revisionPage.errors.failed')
 }
 
@@ -2624,6 +2710,7 @@ export function useSigningMeanings({
       fetchSignatureEligibility(reviewsDataClient, submission!, currentUserId),
     enabled: submission !== null,
   })
+
   // DEC-04 / ADR-0045: a signature requires a current certification. Read the
   // signer's own attestation so the panel states the requirement instead of
   // letting the step-up refuse the password attempt opaquely.
@@ -2638,9 +2725,11 @@ export function useSigningMeanings({
       ),
     enabled: submission !== null,
   })
+
   const certificationCurrent = isCurrentStatement(
     (certifications.data ?? []).find((row) => row.userId === currentUserId),
   )
+
   // The sign target requires the revision's checks to have passed for the
   // signed digest (SB008). Read them so the panel states the requirement
   // instead of letting the password attempt be refused opaquely.
@@ -2652,10 +2741,13 @@ export function useSigningMeanings({
       fetchReviewCheckResults(reviewsDataClient, submission!.revision_id),
     enabled: submission !== null,
   })
+
   const checksPassed = checksQuery.isSuccess
     ? signatureChecksPassed(checksQuery.data, integrityDigest)
     : true
+
   const { policy } = useSignaturePolicy(submission?.workspace_id)
+
   const meanings = availableSignatureMeanings({
     policy,
     submission,
@@ -2667,6 +2759,7 @@ export function useSigningMeanings({
     checksPassed,
     signatures,
   })
+
   return {
     eligibility,
     certifications,
@@ -2709,6 +2802,7 @@ export function SignaturePanel({
   const search = useSearch({ from: '/review/$revisionId' })
   const navigate = useNavigate()
   const { revisionId } = useParams({ from: '/review/$revisionId' })
+
   const {
     eligibility,
     certifications,
@@ -2724,6 +2818,7 @@ export function SignaturePanel({
     integrityDigest,
     currentUserId,
   })
+
   const members = useQuery({
     queryKey: ['signature-witness-candidates', submission.id],
     queryFn: () =>
@@ -2732,6 +2827,7 @@ export function SignaturePanel({
         : Promise.resolve([]),
     enabled: projectId !== null,
   })
+
   const canRequestWitness =
     signatureMeaningEnabled(policy, 'witnessed') &&
     projectId !== null &&
@@ -2741,12 +2837,16 @@ export function SignaturePanel({
     revision.superseded_by_revision_id === null &&
     (submission.submitted_by_user_id === currentUserId ||
       submission.assigned_reviewer_user_ids.includes(currentUserId))
+
   const witnesses = members.data ?? []
+
   const selectedWitness = witnesses.find(
     (member) => member.user_id === witnessUserId,
   )
+
   const isAssignedReviewer =
     submission.assigned_reviewer_user_ids.includes(currentUserId)
+
   const alreadySigned = signatures.some(
     (sig) => sig.signer_user_id === currentUserId,
   )
@@ -2776,10 +2876,13 @@ export function SignaturePanel({
   ) {
     if (!integrityDigest) {
       setError(t('projects.revisionPage.signing.noDigest'))
+
       return
     }
+
     setSigning(true)
     setError(null)
+
     try {
       const proof = await requestSignatureStepUp({
         workspaceId: submission.workspace_id,
@@ -2789,6 +2892,7 @@ export function SignaturePanel({
         revisionDigest: integrityDigest,
         signatureMeaning: meaning,
       })
+
       await signRevision(reviewsDataClient, {
         submissionId: submission.id,
         signatureMeaning: meaning,
@@ -2813,8 +2917,10 @@ export function SignaturePanel({
           to: '/sign-in',
           search: expiredSigningSignInSearch(`/review/${revisionId}`),
         })
+
         return
       }
+
       setError(renderError(err))
     } finally {
       setSigning(false)
@@ -2835,6 +2941,7 @@ export function SignaturePanel({
       return
     setRequestingWitness(true)
     setError(null)
+
     try {
       await requestSignatureWitness(reviewsDataClient, {
         submissionId: submission.id,
@@ -2906,12 +3013,14 @@ export function SignaturePanel({
                   viewedRevisionSupersededBy:
                     revision.superseded_by_revision_id,
                 })
+
                 const tone =
                   validity.applicability === 'current'
                     ? 'text-success-text'
                     : validity.applicability === 'superseded'
                       ? 'text-warning-text'
                       : 'text-destructive'
+
                 return (
                   <p className={`mt-1 text-xs ${tone}`}>
                     {validity.explanation}
@@ -2934,6 +3043,7 @@ export function SignaturePanel({
               open={open}
               onOpenChange={(next) => {
                 onOpenChange(next)
+
                 if (next) setError(null)
               }}
               revision={revision}
@@ -3122,6 +3232,7 @@ export function RevisionChainSection({
     () => buildAmendmentChain(revisionOptions),
     [revisionOptions],
   )
+
   if (chain.length < 2) return null
 
   return (
@@ -3132,6 +3243,7 @@ export function RevisionChainSection({
       <ol className="space-y-1">
         {chain.map((entry) => {
           const isCurrent = entry.id === currentRevisionId
+
           return (
             <li
               key={entry.id}
@@ -3199,6 +3311,7 @@ export function AmendmentSection({
   onAfterAmendment: () => Promise<void>
 }) {
   const [open, setOpen] = useState(false)
+
   const [result, setResult] = useState<{
     revisionId: string
     unlockedAt: string

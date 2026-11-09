@@ -16,6 +16,7 @@ export function AiExplainPanel({
 }) {
   const ai = usePageAi()
   const key = `${explanation.title}|${explanation.whatFailed}|${explanation.why.map((claim) => claim.text).join('|')}`
+
   const phrasing = useQuery({
     queryKey: ['page-ai', 'explain', ai.workspaceId, key],
     queryFn: () => phraseExplanation(explanation, ai.run),
@@ -23,6 +24,7 @@ export function AiExplainPanel({
     staleTime: Infinity,
     retry: false,
   })
+
   return (
     <ExplainPanel explanation={explanation} phrasing={phrasing.data ?? null} />
   )

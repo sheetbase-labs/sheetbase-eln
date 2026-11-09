@@ -14,13 +14,16 @@ import { holdRead, screenQueryClient } from './screen-stories'
  * story never reaches, so the viewer shows the state it holds while it waits.
  */
 const STATUS_KEY = ['office-editor', 'status'] as const
+
 const on = screenQueryClient({
   data: [
     { key: STATUS_KEY, value: { enabled: true } },
     { key: [...STATUS_KEY, 'live'], value: true },
   ],
 })
+
 holdRead(on, ['office-editor', 'view', 'file-1', 1])
+
 const off = screenQueryClient({
   data: [{ key: STATUS_KEY, value: { enabled: false } }],
 })
@@ -44,7 +47,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof OfficeEditButton>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The editor is switched on and the file is one it opens. */

@@ -42,8 +42,10 @@ export function sheetOrigin(
 ) {
   if (sheet.sourceDefinitionVersionId)
     return t('projects.projectSheets.origin.definition')
+
   if (sheet.duplicatedFromInstanceId)
     return t('projects.projectSheets.origin.copy')
+
   return t('projects.projectSheets.origin.working')
 }
 
@@ -57,14 +59,17 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
   const [showArchived, setShowArchived] = useState(false)
   const [renaming, setRenaming] = useState<SheetInstance | null>(null)
   const [name, setName] = useState('')
+
   const sheets = useQuery({
     queryKey: projectSheetsKey(projectId, showArchived),
     queryFn: () => fetchProjectSheets(projectId, { archived: showArchived }),
   })
+
   const rows = sheets.data ?? []
 
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ['ui-port', 'project-sheets'] })
+
   const failed = (title: string) => (error: unknown) =>
     toast.error(
       t('projects.projectSheets.failed', {
@@ -86,6 +91,7 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
     },
     onError: failed(t('projects.projectSheets.renameFailed')),
   })
+
   const archive = useMutation({
     mutationFn: (sheet: SheetInstance) =>
       archiveSheetInstance(sheet.id, sheet.revision),
@@ -97,6 +103,7 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
     },
     onError: failed(t('projects.projectSheets.archiveFailed')),
   })
+
   const restore = useMutation({
     mutationFn: (sheet: SheetInstance) =>
       restoreSheetInstance(sheet.id, sheet.revision),
@@ -106,6 +113,7 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
     },
     onError: failed(t('projects.projectSheets.restoreFailed')),
   })
+
   const busy = rename.isPending || archive.isPending || restore.isPending
 
   if (sheets.isError) {
@@ -121,6 +129,7 @@ export function ProjectSheets({ projectId }: { projectId: string }) {
   }
 
   const display = rows.map((s) => ({ key: s.id, sheet: s }))
+
   return (
     <>
       <ProjectList

@@ -49,6 +49,7 @@ export function HazardPictograms({
   className?: string
 }) {
   if (pictograms.length === 0) return null
+
   return (
     <span
       className={cn('inline-flex flex-wrap items-center gap-1', className)}
@@ -104,6 +105,7 @@ export function MaterialSafetySection({
   const [open, setOpen] = useState(false)
   const safety = query.data ?? null
   const hazardous = isHazardous(safety)
+
   return (
     <section
       aria-label={t('safety.panel.title')}
@@ -209,15 +211,19 @@ function SafetyEditDialog({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
+
   const [pictograms, setPictograms] = useState<GhsCode[]>(
     safety?.pictograms ?? [],
   )
+
   const [signalWord, setSignalWord] = useState<SignalWord | ''>(
     safety?.signalWord ?? '',
   )
+
   const [statements, setStatements] = useState<string[]>(
     safety?.hazardStatements ?? [],
   )
+
   const [search, setSearch] = useState('')
   const [allLots, setAllLots] = useState(true)
   // undefined: keep what is attached. null: remove it. A pick replaces it.
@@ -225,6 +231,7 @@ function SafetyEditDialog({
 
   const matches = useMemo(() => {
     const needle = search.trim().toLowerCase()
+
     return knownHazardCodes()
       .filter((code) => !statements.includes(code))
       .filter(
@@ -245,6 +252,7 @@ function SafetyEditDialog({
         hazardStatements: statements,
         allLots,
       })
+
       if (sheet !== undefined) {
         await setMaterialSds(notebookDataClient, {
           recordId,
@@ -252,6 +260,7 @@ function SafetyEditDialog({
           allLots,
         })
       }
+
       return lots
     },
     onSuccess: (lots) => {
@@ -291,6 +300,7 @@ function SafetyEditDialog({
             <div className="mt-1 grid grid-cols-3 gap-2 max-sm:grid-cols-2">
               {GHS_PICTOGRAMS.map((code) => {
                 const checked = pictograms.includes(code)
+
                 return (
                   <label
                     key={code}

@@ -9,6 +9,7 @@ const tones = {
   ok: 'bg-success-wash',
   warn: 'bg-warning-wash',
 } as const
+
 export type AvatarTone = keyof typeof tones
 
 /** The size scale. A stack's `+N` chip is drawn on the same one. */
@@ -18,6 +19,7 @@ const sizes = {
   md: 'size-7 text-[11px]',
   lg: 'size-14 text-[18px]',
 } as const
+
 export type AvatarSize = keyof typeof sizes
 
 /**
@@ -34,6 +36,7 @@ export function initialsFromName(name: string): string {
     .slice(0, 2)
     .map((word) => word.charAt(0).toUpperCase())
     .join('')
+
   return initials || '?'
 }
 
@@ -76,6 +79,7 @@ export function Avatar({
   const [failed, setFailed] = useState<string | null>(null)
   useEffect(() => setFailed(null), [photo])
   const showPhoto = photo !== undefined && failed !== photo
+
   return (
     <span
       role={name ? 'img' : undefined}
@@ -126,7 +130,9 @@ export function AvatarStack({
 }) {
   const visible = people.slice(0, Math.max(0, max))
   const overflow = people.length - visible.length
+
   if (people.length === 0) return null
+
   return (
     <span
       role={label ? 'group' : undefined}

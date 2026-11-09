@@ -19,6 +19,7 @@ export async function runExperimentAction(
         recordId: action.recordId,
         reason: action.reason ?? undefined,
       })
+
       return { openHref: `/experiments/${action.recordId}/summary` }
     case 'experiments.status':
       await setExperimentStatus(client, {
@@ -26,6 +27,7 @@ export async function runExperimentAction(
         status: action.status,
         reason: action.reason,
       })
+
       return
     case 'experiments.outcome':
       await client.rpc('set_experiment_decision', {
@@ -33,29 +35,34 @@ export async function runExperimentAction(
         p_decision: action.outcome,
         p_notes: action.notes,
       })
+
       return
     case 'experiments.delete_draft':
       await client.rpc('delete_experiment_draft', {
         p_record_id: action.recordId,
       })
+
       return
     case 'experiments.alias_add':
       await client.rpc('add_record_alias', {
         p_record_id: action.recordId,
         p_alias: action.alias,
       })
+
       return { openHref: recordPath(action.recordId) }
     case 'experiments.alias_remove':
       await client.rpc('remove_record_alias', {
         p_record_id: action.recordId,
         p_alias: action.alias,
       })
+
       return
     case 'experiments.label_archive':
       await client.rpc('set_label_template_archived', {
         p_template_id: action.templateId,
         p_archived: action.archived,
       })
+
       return
   }
 }

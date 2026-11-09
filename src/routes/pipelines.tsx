@@ -79,7 +79,9 @@ const tabs = [
   'drafts',
   'archived',
 ] as const
+
 type PipelineTab = (typeof tabs)[number]
+
 const tabLabel: Record<PipelineTab, string> = {
   all: t('data.pipelinesList.all'),
   mine: t('data.pipelinesList.mine'),
@@ -104,9 +106,11 @@ export const Route = createFileRoute('/pipelines')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: PipelinesRoute,
@@ -116,6 +120,7 @@ function PipelinesRoute() {
   const isIndex = useRouterState({
     select: (state) => state.location.pathname === '/pipelines',
   })
+
   return isIndex ? <PipelinesList /> : <Outlet />
 }
 
@@ -127,12 +132,18 @@ function inTab(
 ): boolean {
   // An archived pipeline is out of every working list.
   if (tab === 'archived') return p.lifecycle === 'retired'
+
   if (p.lifecycle === 'retired') return false
+
   if (tab === 'all') return true
+
   if (tab === 'mine') return p.created_by_user_id === currentUserId
+
   if (tab === 'needsattention')
     return p.lastRun?.status === 'failed' || p.lastRun?.status === 'waiting'
+
   if (tab === 'scheduled') return scheduledIds.has(p.id)
+
   return Boolean(p.draft)
 }
 
@@ -144,12 +155,14 @@ function PipelinesList() {
   const workspaceId = context.workspace?.id ?? ''
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+
   const dropNewFlag = useCallback(() => {
     void navigate({
       search: (current) => ({ ...current, new: undefined }),
       replace: true,
     })
   }, [navigate])
+
   const query = usePipelineRows()
   const rows = query.data ?? []
   const tab: PipelineTab = search.tab ?? 'all'
@@ -168,6 +181,7 @@ function PipelinesList() {
         '?enabled=eq.true&select=definition_id,enabled',
       ),
   })
+
   const scheduledIds = useMemo<Set<string>>(
     () =>
       new Set(
@@ -189,7 +203,9 @@ function PipelinesList() {
       ) as Record<PipelineTab, number>,
     [rows, scheduledIds, currentUserId],
   )
+
   const q = (search.q ?? '').trim().toLowerCase()
+
   const visible = sortByName(
     rows
       .filter((p) => inTab(p, tab, scheduledIds, currentUserId))
@@ -202,6 +218,7 @@ function PipelinesList() {
     (p) => p.name,
     (p) => p.display_id ?? p.key,
   )
+
   const sel = visible.find((p) => p.id === selectedId) ?? visible.at(0)
   // The footer claims a selection only when the URL names one that is on screen.
   const selectedRow = visible.find((p) => p.id === selectedId)
@@ -272,6 +289,7 @@ function PipelinesList() {
         cell: ({ row }) => {
           const last = row.original.lastRun
           const lastStatus = last ? runStatus(last.status) : null
+
           return lastStatus ? (
             <Status tone={lastStatus.tone}>{lastStatus.label}</Status>
           ) : (
@@ -287,6 +305,7 @@ function PipelinesList() {
             row.original.lifecycle,
             row.original.versions,
           )
+
           return <Status tone={status.tone}>{status.label}</Status>
         },
       },
@@ -314,6 +333,7 @@ function PipelinesList() {
   )
 
   const queryClient = useQueryClient()
+
   // Archiving a pipeline retires it: it leaves the working lists and its runs
   // and versions stay. Restoring puts it back; each is the other's Undo.
   const setArchived = useMutation({
@@ -326,6 +346,7 @@ function PipelinesList() {
     onSuccess: (_, { pipeline, archived }) => {
       const refresh = () =>
         queryClient.invalidateQueries({ queryKey: pipelineDataQueryKeys.list })
+
       void refresh()
       undoToast(
         t(
@@ -445,6 +466,7 @@ function PipelinesList() {
             label={t('data.pipelinesList.pipelines')}
             items={visible.map((p) => {
               const lastStatus = p.lastRun ? runStatus(p.lastRun.status) : null
+
               return {
                 key: p.id,
                 id: p.display_id ?? p.key,
@@ -672,8 +694,10 @@ function NewPipeline({
       : t('data.pipelinesList.startLowercaseLetterThen'),
     name: f.name.trim() ? null : t('data.pipelinesList.enterNamePeopleSee'),
   }
+
   const keyError = tried ? errors.key : null
   const nameError = tried ? errors.name : null
+
   const create = useMutation({
     mutationFn: () =>
       createPipelineDefinition(notebookDataClient, {
@@ -713,6 +737,7 @@ function NewPipeline({
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
+
         if (!next) {
           setF(empty)
           setKeyTouched(false)
@@ -786,6 +811,7 @@ function NewPipeline({
             disabled={create.isPending}
             onClick={() => {
               setTried(true)
+
               if (Object.values(errors).some(Boolean)) return
               create.mutate()
             }}

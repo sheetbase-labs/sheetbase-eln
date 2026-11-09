@@ -316,6 +316,7 @@ export function requiresExplicitApproval(
   proposal?: Pick<AgentOperationProposal, 'approval_policy'> | null,
 ): boolean {
   if (proposal) return proposal.approval_policy === 'human_required'
+
   return workflowStepRiskClass(step) === 'consequential_write'
 }
 
@@ -334,12 +335,18 @@ export function workflowStepGate(
 ): AgentWorkflowStepGate {
   if (!proposal) {
     if (step.status === 'failed') return 'failed'
+
     if (step.status === 'cancelled') return 'cancelled'
+
     if (step.status === 'succeeded') return 'succeeded'
+
     if (step.status === 'rejected') return 'rejected'
+
     if (step.status === 'waiting_approval') return 'pending-approval'
+
     return 'planned'
   }
+
   switch (proposal.status) {
     case 'pending':
       return proposal.approval_policy === 'human_required'
@@ -393,10 +400,12 @@ export function dryRunAgentWorkflow(
 ): AgentWorkflowStepDryRun[] {
   const lookup = (id: string): AgentOperationProposal | undefined =>
     proposalsById instanceof Map ? proposalsById.get(id) : proposalsById[id]
+
   return [...steps]
     .sort((a, b) => a.position - b.position)
     .map((step) => {
       const proposal = step.proposal_id ? lookup(step.proposal_id) : undefined
+
       return {
         position: step.position,
         stepKey: step.step_key,
@@ -448,8 +457,10 @@ export function summarizeWorkflowApprovals(
     planned: [],
     consequential: [],
   }
+
   for (const step of dryRun) {
     if (step.requiresExplicitApproval) summary.consequential.push(step.stepKey)
+
     switch (step.gate) {
       case 'pending-approval':
         summary.pendingApproval.push(step.stepKey)
@@ -468,6 +479,7 @@ export function summarizeWorkflowApprovals(
         break
     }
   }
+
   return summary
 }
 
@@ -589,10 +601,12 @@ export function summarizeWorkflowRunMetrics(
 ): AgentWorkflowRunMetrics {
   const count = (status: AgentWorkflowStep['status']) =>
     steps.filter((step) => step.status === status).length
+
   const latency =
     workflow.completed_at == null
       ? null
       : Date.parse(workflow.completed_at) - Date.parse(workflow.created_at)
+
   return {
     operations: {
       used: workflow.used_operations,

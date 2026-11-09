@@ -80,13 +80,16 @@ export function nativeCodeDecoder(
   formats: readonly string[] = SCAN_FORMATS,
 ): CodeDecoder | null {
   const Ctor = host?.BarcodeDetector
+
   if (!Ctor) return null
   const detector = new Ctor({ formats: [...formats] })
+
   return {
     name: 'BarcodeDetector',
     formats: [...formats],
     async detect(video) {
       const codes = await detector.detect(video)
+
       return codes.map((code) => code.rawValue)
     },
   }
@@ -102,7 +105,9 @@ export async function loadCodeDecoder(
   formats: readonly string[] = SCAN_FORMATS,
 ): Promise<CodeDecoder | null> {
   const native = nativeCodeDecoder(host, formats)
+
   if (native) return native
+
   try {
     return await (fallbackDecoderLoader ?? defaultFallbackDecoderLoader)()
   } catch {

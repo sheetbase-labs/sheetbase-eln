@@ -27,7 +27,9 @@ const meta = {
   title: 'Assistant/Chat primitives',
   parameters: { layout: 'fullscreen' },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const ANSWER = `Two of the three runs are within range.
@@ -90,6 +92,7 @@ export const ScrollsToLatest: Story = {
 
 function Box(props: { busy?: boolean; disabled?: boolean; initial?: string }) {
   const [value, setValue] = useState(props.initial ?? '')
+
   return (
     <div className="w-[420px]">
       <PromptBox

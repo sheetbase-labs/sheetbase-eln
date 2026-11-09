@@ -21,6 +21,7 @@ export function PluginHitsTable({
   label: string
 }) {
   const navigate = useNavigate()
+
   const columns = useMemo<RegistryColumn<PluginSearchHit>[]>(
     () => [
       {
@@ -102,6 +103,7 @@ export function PluginHitsTable({
     ],
     [],
   )
+
   return (
     <RegistryGrid
       label={label}

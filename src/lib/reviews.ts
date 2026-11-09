@@ -117,6 +117,7 @@ function labelFromKey(key: string): string {
 /** A workflow definition key as a name a person can read: "Default scientific review". */
 export function workflowLabel(workflowDefinitionKey: string): string {
   const words = workflowDefinitionKey.split(/[-_]/).filter(Boolean).join(' ')
+
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
@@ -124,7 +125,9 @@ export function workflowStepsFor(
   workflowDefinitionKey: string,
 ): ReviewWorkflowStep[] {
   const known = WORKFLOW_STEPS.get(workflowDefinitionKey)
+
   if (known) return known
+
   return [
     {
       key: workflowDefinitionKey,
@@ -145,8 +148,10 @@ export function currentStepFor(item: {
   workflowDefinitionKey: string
 }): ReviewWorkflowStep {
   const steps = workflowStepsFor(item.workflowDefinitionKey)
+
   // A withdrawn / completed review is not "on" a step.
   if (item.state !== 'submitted') return steps[0]
+
   return steps[0]
 }
 
@@ -182,12 +187,17 @@ export function isOverdueFor(
   dueAt: string | null = null,
 ): boolean {
   if (state !== 'submitted') return false
+
   if (dueAt) {
     const due = Date.parse(dueAt)
+
     if (!Number.isNaN(due)) return appNow().getTime() > due
   }
+
   const ts = Date.parse(submittedAt)
+
   if (Number.isNaN(ts)) return false
+
   return appNow().getTime() - ts > OVERDUE_MS
 }
 
@@ -195,8 +205,10 @@ export function isOverdueFor(
 export function isDueSoon(dueAt: string | null, days = 7): boolean {
   if (!dueAt) return false
   const due = Date.parse(dueAt)
+
   if (Number.isNaN(due)) return false
   const now = appNow().getTime()
+
   return due >= now && due - now <= days * 86_400_000
 }
 
@@ -214,12 +226,17 @@ export function priorityFor(
   dueAt: string | null = null,
 ): ReviewPriority {
   if (state !== 'submitted') return 'low'
+
   if (isOverdueFor(state, submittedAt, dueAt)) return 'high'
+
   if (dueAt && isDueSoon(dueAt)) return 'medium'
   const ts = Date.parse(submittedAt)
+
   if (Number.isNaN(ts)) return 'low'
   const age = appNow().getTime() - ts
+
   if (age > MEDIUM_MS) return 'medium'
+
   return 'low'
 }
 
@@ -234,6 +251,7 @@ export function toReviewItem(
   projectKey: string | null,
 ): ReviewItem {
   const state = submission.state
+
   return {
     id: submission.id,
     recordId: submission.record_id,
@@ -306,6 +324,7 @@ export async function fetchRecordsForReviews(
 ): Promise<RecordWire[]> {
   if (recordIds.length === 0) return []
   const idFilter = recordIds.join(',')
+
   return client.list<RecordWire>(
     'records',
     `?id=in.(${idFilter})&select=id,workspace_id,project_id,kind,identifier,title,status,created_at,updated_at,archived_at,deleted_at,created_by_user_id,structure_version,metadata_version,tags,properties,updated_by_user_id,locked_at,locked_by_revision_id`,
@@ -319,11 +338,14 @@ export async function fetchProjectsForReviews(
     'projects',
     '?select=id,key,title&order=created_at.desc',
   )
+
   const map = new Map<string, { key: string; title: string }>()
+
   for (const row of rows) {
     const project = toProject(row)
     map.set(project.id, { key: project.key, title: project.title })
   }
+
   return map
 }
 
@@ -354,13 +376,18 @@ export function filterReviews(
   userLabel: (id: string) => string = (id) => id,
 ): ReviewItem[] {
   const query = filters.search.trim().toLowerCase()
+
   return items.filter((item) => {
     if (filters.status && item.status !== filters.status) return false
+
     if (filters.type && item.recordKind !== filters.type) return false
+
     if (filters.assignee === 'mine') {
       if (!item.assignedReviewerUserIds.includes(currentUserId)) return false
     }
+
     if (filters.overdue === 'overdue' && !item.isOverdue) return false
+
     if (query) {
       const haystack = [
         item.recordIdentifier,
@@ -371,8 +398,10 @@ export function filterReviews(
       ]
         .join(' ')
         .toLowerCase()
+
       if (!haystack.includes(query)) return false
     }
+
     return true
   })
 }
@@ -385,6 +414,7 @@ export function sortReviews(
 ): ReviewItem[] {
   if (!sortId) return items
   const dir = desc ? -1 : 1
+
   const sorted = [...items].sort((a, b) => {
     switch (sortId) {
       case 'entry':
@@ -413,12 +443,15 @@ export function sortReviews(
           medium: 1,
           low: 2,
         }
+
         return (order[a.priority] - order[b.priority]) * dir
       }
+
       default:
         return 0
     }
   })
+
   return sorted
 }
 
@@ -428,5 +461,6 @@ export function paginateReviews(
   pageSize: number,
 ): ReviewItem[] {
   const start = pageIndex * pageSize
+
   return items.slice(start, start + pageSize)
 }

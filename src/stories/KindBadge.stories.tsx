@@ -13,7 +13,9 @@ const meta = {
   tags: ['autodocs'],
   args: { kind: 'modified' },
 } satisfies Meta<typeof KindBadge>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Modified: Story = {}

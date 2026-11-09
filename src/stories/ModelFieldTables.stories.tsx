@@ -77,6 +77,7 @@ const publishedFields = [
     validation: { min: 0, max: 80 },
   }),
 ]
+
 const draftFields = [
   ...publishedFields,
   versionField('f3', 'viability', 'Viability', {
@@ -175,7 +176,9 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const noop = () => {}

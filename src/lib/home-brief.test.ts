@@ -37,6 +37,7 @@ describe('home brief facts', () => {
         },
       ],
     }
+
     const facts = homeBriefFacts(input)
     expect(facts).toContain('EXP-7 Titer (Alpha)')
     expect(facts).toContain('MAT-2: expires in 3 days')
@@ -83,6 +84,7 @@ describe('linkBrief', () => {
       'MAT-0355 expired; EXP-0131 and EXP-9999 wait.',
       input,
     )
+
     expect(parts).toEqual([
       {
         kind: 'object',
@@ -106,6 +108,7 @@ describe('linkBrief', () => {
       'HEK293 cell bank: review the 3 experiments in review.',
       input,
     )
+
     expect(parts.filter((part) => part.kind !== 'text')).toEqual([
       {
         kind: 'object',

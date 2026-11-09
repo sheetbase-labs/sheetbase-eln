@@ -58,6 +58,7 @@ describe('StatusBadge', () => {
         icon: statusVocabularies.experiment['draft'].icon,
       },
     }
+
     render(<StatusBadge vocabulary={vocab} status="queued" />)
     expect(screen.getByText('Queued')).toBeTruthy()
   })

@@ -18,7 +18,9 @@ const meta = {
   tags: ['autodocs'],
   args: { children: 'Chip' },
 } satisfies Meta<typeof Chip>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Removable: Story = {
@@ -44,6 +46,7 @@ export const Removable: Story = {
 
 function ToggleDemo() {
   const [on, setOn] = useState(true)
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Chip variant="toggle" pressed={on} onClick={() => setOn((v) => !v)}>

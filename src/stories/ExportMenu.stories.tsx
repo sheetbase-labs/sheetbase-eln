@@ -12,7 +12,9 @@ const meta = {
   tags: ['autodocs'],
   args: { path: '/api/export/dataset/dataset-1' },
 } satisfies Meta<typeof ExportMenu>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Every tabular format. */

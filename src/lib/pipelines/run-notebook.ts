@@ -53,9 +53,12 @@ export function runCitation(
   },
 ): CitationParagraph[] {
   const { pipeline } = options
+
   const version =
     options.versionNumber === null ? '' : ` v${String(options.versionNumber)}`
+
   const started = formatNotebookDateTime(run.started_at, { zone: true })
+
   const paragraphs: CitationParagraph[] = [
     [
       plain('Pipeline '),
@@ -65,30 +68,37 @@ export function runCitation(
       plain(`: ${run.status}.`),
     ],
   ]
+
   if (options.inputs.length > 0) {
     const segments: CitationSegment[] = [plain('Inputs: ')]
     options.inputs.forEach((input, index) => {
       if (index > 0) segments.push(plain('; '))
       segments.push(plain(`${input.name} = `))
+
       const name =
         input.datasetName ?? `dataset ${shortId(input.datasetVersionId)}`
+
       segments.push(
         input.datasetId
           ? link(name, snapshotsPath(input.datasetId))
           : plain(name),
       )
+
       if (input.versionLabel) segments.push(plain(` (${input.versionLabel})`))
     })
     segments.push(plain('.'))
     paragraphs.push(segments)
   }
+
   if (options.outputs.length > 0) {
     const segments: CitationSegment[] = [plain('Kept: ')]
     options.outputs.forEach((output, index) => {
       if (index > 0) segments.push(plain('; '))
       segments.push(plain(`“${output.label}” in `))
+
       const name =
         output.datasetName ?? `dataset ${shortId(output.datasetVersionId)}`
+
       segments.push(
         output.datasetId
           ? link(name, snapshotsPath(output.datasetId))
@@ -98,6 +108,7 @@ export function runCitation(
     segments.push(plain('.'))
     paragraphs.push(segments)
   }
+
   return paragraphs
 }
 
@@ -136,5 +147,6 @@ export async function addRunToNotebook(
     payload: runCitationPayload(args.paragraphs),
     expectedStructureVersion: record?.structureVersion,
   })
+
   return { identifier: record?.identifier ?? null }
 }

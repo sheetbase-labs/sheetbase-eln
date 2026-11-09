@@ -26,6 +26,7 @@ export function describeGateBlock(report: ContractGateReport): string {
           rule: kindLabel(result.kind),
         }),
   )
+
   return t('contracts.pipeline.blocked', {
     contract: report.contractName ?? '',
     problems: problems.join(', '),

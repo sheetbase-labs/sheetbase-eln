@@ -96,6 +96,7 @@ export function documentFixtures(): DocumentFixtures {
     },
     richTextBlock('block-removed', 3, 'Remove after review.'),
   ])
+
   const after = envelope([
     richTextBlock('block-objective', 0, 'Measure virus stability at 4 °C.'),
     richTextBlock(
@@ -119,6 +120,7 @@ export function documentFixtures(): DocumentFixtures {
       'Harvest at 72 h and measure genome titre.',
     ),
   ])
+
   return { before, after }
 }
 

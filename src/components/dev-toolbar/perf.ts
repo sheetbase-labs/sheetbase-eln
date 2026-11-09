@@ -35,7 +35,9 @@ function observe(
     const observer = new PerformanceObserver((list) =>
       handle(list.getEntries()),
     )
+
     observer.observe({ type, buffered: true, ...options })
+
     return observer
   } catch {
     // The browser does not report this metric.
@@ -53,6 +55,7 @@ export function usePerf(enabled: boolean): PerfReadout {
 
   React.useEffect(() => {
     if (!enabled) return
+
     const state = {
       lcp: null as number | null,
       cls: 0,
@@ -60,9 +63,11 @@ export function usePerf(enabled: boolean): PerfReadout {
       longTasks: 0,
       longTaskMs: 0,
     }
+
     const observers = [
       observe('largest-contentful-paint', (entries) => {
         const last = entries.at(-1)
+
         if (last) state.lcp = Math.round(last.startTime)
       }),
       observe('layout-shift', (entries) => {
@@ -92,12 +97,15 @@ export function usePerf(enabled: boolean): PerfReadout {
     let frames = 0
     let last = performance.now()
     let raf = 0
+
     const tick = (now: number) => {
       frames += 1
+
       if (now - last >= 1000) {
         const memory = (
           performance as Performance & { memory?: { usedJSHeapSize: number } }
         ).memory
+
         setReadout({
           fps: Math.round((frames * 1000) / (now - last)),
           lcp: state.lcp,
@@ -111,9 +119,12 @@ export function usePerf(enabled: boolean): PerfReadout {
         frames = 0
         last = now
       }
+
       raf = requestAnimationFrame(tick)
     }
+
     raf = requestAnimationFrame(tick)
+
     return () => {
       cancelAnimationFrame(raf)
       observers.forEach((o) => o?.disconnect())
@@ -129,13 +140,16 @@ export function grade(
   value: number | null,
 ): 'good' | 'warn' | 'bad' | 'none' {
   if (value === null) return 'none'
+
   const bands = {
     lcp: [2500, 4000],
     cls: [0.1, 0.25],
     inp: [200, 500],
   } as const
+
   if (metric === 'fps')
     return value >= 50 ? 'good' : value >= 30 ? 'warn' : 'bad'
   const [good, poor] = bands[metric]
+
   return value <= good ? 'good' : value <= poor ? 'warn' : 'bad'
 }

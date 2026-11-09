@@ -59,6 +59,7 @@ export async function validateAndCommitImport(
       })),
     }
   }
+
   if (mapped.rows.length === 0) {
     return {
       ok: false,
@@ -66,10 +67,13 @@ export async function validateAndCommitImport(
       errors: [{ code: 'empty', message: 'No rows to import.' }],
     }
   }
+
   if (target.kind === 'dataset') {
     assertPinnedSchemaVersion(mapped.schemaVersionId, target.schemaVersionId)
+
     return commitDatasetImport(client, target, mapped, idempotencyKey)
   }
+
   return commitRecordImport(client, target, mapped)
 }
 
@@ -85,14 +89,17 @@ async function commitDatasetImport(
     values: row.values,
     ...(row.plannedKey ? { plannedKey: row.plannedKey } : {}),
   }))
+
   const validated = await validateDatasetRowBatch(client, {
     datasetId: target.datasetId,
     expectedRevision: target.expectedRevision,
     rows,
   })
+
   if (!validated.ok) {
     return datasetReport(validated, target.schemaVersionId, 0)
   }
+
   const committed = await client.rpc<DatasetCommitResult>(
     'commit_dataset_import',
     {
@@ -107,6 +114,7 @@ async function commitDatasetImport(
       p_outcome: { total: rows.length, added: rows.length },
     },
   )
+
   return datasetReport(
     committed,
     target.schemaVersionId,
@@ -128,6 +136,7 @@ function datasetReport(
       schemaVersionId,
     }
   }
+
   return {
     ok: false,
     committed: 0,
@@ -152,9 +161,11 @@ async function commitRecordImport(
     title: row.title?.trim() || '',
     values: row.values,
   }))
+
   const missingTitle = batchRows
     .map((row, index) => ({ row, index }))
     .filter((item) => !item.row.title)
+
   if (missingTitle.length > 0) {
     return {
       ok: false,
@@ -166,6 +177,7 @@ async function commitRecordImport(
       })),
     }
   }
+
   const validation = await validateSheetRecordBatch(
     {
       projectId: target.projectId,
@@ -174,20 +186,26 @@ async function commitRecordImport(
     },
     client,
   )
+
   const validationRecord = asRecord(validation)
+
   if (validationRecord && validationRecord.ok === false) {
     const rows = Array.isArray(validationRecord.rows)
       ? validationRecord.rows
       : []
+
     return {
       ok: false,
       committed: 0,
       errors: rows.flatMap((item) => {
         const row = asRecord(item)
+
         if (!row) return []
         const errors = Array.isArray(row.errors) ? row.errors : []
+
         return errors.map((error) => {
           const detail = asRecord(error)
+
           return {
             row: typeof row.rowIndex === 'number' ? row.rowIndex : undefined,
             code: String(detail?.code ?? 'invalid'),
@@ -197,10 +215,12 @@ async function commitRecordImport(
       }),
     }
   }
+
   let committed = 0
   // A registry with a plugin same-thing rule only takes entries that come with
   // the rule's key, so each row goes in that way and a repeat is named.
   const ruled = (await getSamenessRule(client, target.recordKind)) !== null
+
   for (const [index, row] of mapped.rows.entries()) {
     if (ruled) {
       try {
@@ -228,8 +248,10 @@ async function commitRecordImport(
           ],
         }
       }
+
       continue
     }
+
     await client.rpc('create_model_record', {
       p_project_id: target.projectId,
       p_kind: target.recordKind,
@@ -241,11 +263,13 @@ async function commitRecordImport(
     })
     committed += 1
   }
+
   return { ok: true, committed, errors: [] }
 }
 
 function defaultRecordStatus(kind: string): string {
   if (kind === 'sample' || kind === 'material') return 'available'
+
   return 'draft'
 }
 
@@ -253,6 +277,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   if (value && typeof value === 'object' && !Array.isArray(value)) {
     return value as Record<string, unknown>
   }
+
   return null
 }
 
@@ -289,22 +314,28 @@ export function describeRejectedImport(
   fields: ReadonlyArray<{ id: string; label: string }>,
 ): string {
   const prefix = 'Dataset import rejected:'
+
   if (!message.startsWith(prefix)) return message
   const body = message.slice(prefix.length)
+
   const codes = [
     ...new Set([...body.matchAll(/"code":\s*"(\w+)"/g)].map((m) => m[1])),
   ]
+
   const labels = [
     ...new Set(
       [...body.matchAll(/"fieldId":\s*"([0-9a-f-]+)"/g)].flatMap((m) => {
         const label = fields.find((field) => field.id === m[1])?.label
+
         return label ? [label] : []
       }),
     ),
   ]
+
   const what = codes.length
     ? codes.map((code) => describeImportRpcCode(code)).join(' ')
     : 'The rows do not fit the Dataset.'
+
   return labels.length
     ? `${REJECTED_ROWS_PREFIX} ${what} Check ${labels.join(', ')}.`
     : `${REJECTED_ROWS_PREFIX} ${what}`

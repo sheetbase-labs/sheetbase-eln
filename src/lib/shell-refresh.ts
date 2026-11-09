@@ -15,5 +15,6 @@ export function requestShellRefresh() {
 /** Run `refresh` whenever a pane asks for the shell to reload. */
 export function registerShellRefresh(refresh: () => void) {
   window.addEventListener(SHELL_REFRESH_EVENT, refresh)
+
   return () => window.removeEventListener(SHELL_REFRESH_EVENT, refresh)
 }

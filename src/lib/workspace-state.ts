@@ -16,6 +16,7 @@ import type { IconName } from '#/components/icons'
 export function workspaceHref(value: string, origin: string): string | null {
   try {
     const url = new URL(value, origin)
+
     if (
       url.origin !== origin ||
       !['http:', 'https:'].includes(url.protocol) ||
@@ -24,6 +25,7 @@ export function workspaceHref(value: string, origin: string): string | null {
       )
     )
       return null
+
     return `${url.pathname}${url.search}${url.hash}`
   } catch {
     return null
@@ -52,6 +54,7 @@ export interface WorkspacePane {
 }
 
 export type LinkLetter = 'a' | 'b' | 'c'
+
 export const linkLetters: readonly LinkLetter[] = ['a', 'b', 'c']
 
 /**
@@ -99,8 +102,11 @@ export interface WorkspaceState {
 
 export function pageTitle(href: string) {
   const part = href.split(/[?#]/)[0]?.split('/').filter(Boolean).at(-1)
+
   if (!part) return t('projects.workspaceState.home')
+
   if (/^[\da-f-]{36}$/i.test(part)) return t('projects.workspaceState.record')
+
   return part
     .replaceAll('-', ' ')
     .replace(/^./, (letter) => letter.toUpperCase())
@@ -479,6 +485,7 @@ const GENERIC_KIND: PaneKind = {
 /** What kind of page an address is, for the pane header's icon and rules. */
 export function paneKind(href: string): PaneKind {
   const path = href.split(/[?#]/)[0] ?? ''
+
   return KINDS.find((entry) => entry.match.test(path))?.kind ?? GENERIC_KIND
 }
 
@@ -495,11 +502,15 @@ export type PaneMode =
 /** The revision an address pins the page to, as the header names it. */
 export function revisionOf(href: string): string | undefined {
   const query = href.split('#')[0]?.split('?')[1]
+
   if (!query) return undefined
   const params = new URLSearchParams(query)
+
   const value =
     params.get('snapshot') ?? params.get('version') ?? params.get('revision')
+
   if (!value) return undefined
+
   return value.length > 14 ? `${value.slice(0, 8)}…` : value
 }
 
@@ -527,25 +538,34 @@ export function paneMode(
   missing = false,
 ): PaneMode {
   const path = href.split(/[?#]/)[0] ?? ''
+
   if (missing) return { kind: 'plain' }
+
   if (/^\/evidence\//.test(path)) return { kind: 'signed' }
+
   if (primary) {
     if (/^\/review\//.test(path)) return { kind: 'reviewing' }
+
     // Only pages with something to edit say so; Home and lists stay quiet.
     if (!EDITABLE_PAGE.test(path)) return { kind: 'plain' }
+
     if (frozen)
       return {
         kind: 'signed',
         why: frozen === true ? undefined : frozen,
       }
+
     return canWrite
       ? { kind: 'editing' }
       : { kind: 'read-only', revision: revisionOf(href) }
   }
+
   // Home, lists and tools have nothing to edit, so "read-only" would be noise
   // there; it is only news on a page that could be edited, or a pinned revision.
   const revision = revisionOf(href)
+
   if (!EDITABLE_PAGE.test(path) && !revision) return { kind: 'plain' }
+
   return { kind: 'read-only', revision }
 }
 
@@ -559,8 +579,10 @@ export function modeLabel(mode: PaneMode): string {
       return t('projects.workspaceState.reviewing')
     case 'signed':
       if (mode.why === 'review') return t('projects.workspaceState.inReview')
+
       if (mode.why === 'approved')
         return t('projects.workspaceState.approvedLocked')
+
       return mode.revision
         ? t('projects.workspaceState.signedAt', { revision: mode.revision })
         : t('projects.workspaceState.signed')
@@ -585,6 +607,7 @@ export function newTab(
   options: { id?: string; name?: string; paneId?: string } = {},
 ): WorkspaceTab {
   const pane = newPane(href, options.paneId ?? crypto.randomUUID())
+
   return {
     id: options.id ?? crypto.randomUUID(),
     name: options.name ?? t('projects.workspaceState.workspace'),
@@ -603,6 +626,7 @@ export function initialWorkspace(href: string): WorkspaceState {
     paneId: 'initial',
     name: t('projects.workspaceState.workspace'),
   })
+
   return {
     version: 2,
     tabs: [tab],
@@ -668,6 +692,7 @@ function validTab(
   origin: string,
 ): WorkspaceTab | null {
   const ids = tab.panes.map((pane) => pane.id)
+
   if (
     !tab.panes.length ||
     new Set(ids).size !== ids.length ||
@@ -680,18 +705,21 @@ function validTab(
   )
     return null
   const placed = listPaneIds(tab.tree)
+
   if (
     placed.length !== ids.length ||
     new Set(placed).size !== ids.length ||
     placed.some((id) => !ids.includes(id))
   )
     return null
+
   const links = tab.links.filter(
     (link) =>
       ids.includes(link.driverId) &&
       link.followerIds.length > 0 &&
       link.followerIds.every((id) => ids.includes(id) && id !== link.driverId),
   )
+
   return { ...tab, tree: tab.tree, links }
 }
 
@@ -702,16 +730,22 @@ export function restoreWorkspace(
   origin: string,
 ): WorkspaceState {
   if (!saved) return initialWorkspace(href)
+
   try {
     const parsed = savedWorkspace.safeParse(JSON.parse(saved))
+
     if (!parsed.success) return initialWorkspace(href)
     const tabs = parsed.data.tabs.map((tab) => validTab(tab, origin))
+
     if (tabs.some((tab) => tab === null)) return initialWorkspace(href)
     const valid = tabs as WorkspaceTab[]
+
     if (new Set(valid.map((tab) => tab.id)).size !== valid.length)
       return initialWorkspace(href)
     const active = valid.find((tab) => tab.id === parsed.data.activeTabId)
+
     if (!active) return initialWorkspace(href)
+
     // The address bar remains authoritative for the focused page on reload.
     const restoredTabs = valid.map((tab) =>
       tab.id === active.id
@@ -730,6 +764,7 @@ export function restoreWorkspace(
           }
         : tab,
     )
+
     return {
       version: 2,
       tabs: restoredTabs,
@@ -750,9 +785,12 @@ export function restoreShelf(
   origin: string,
 ): ShelfItem[] | null {
   if (!saved) return null
+
   try {
     const parsed = savedShelf.safeParse(JSON.parse(saved))
+
     if (!parsed.success) return null
+
     return parsed.data.filter(
       (item) => workspaceHref(item.href, origin) === item.href,
     )
@@ -787,11 +825,15 @@ export function restoreSavedLayouts(
   origin: string,
 ): SavedLayout[] {
   if (!saved) return []
+
   try {
     const parsed = z.array(layoutSchema).safeParse(JSON.parse(saved))
+
     if (!parsed.success) return []
+
     return parsed.data.flatMap((layout) => {
       const ids = layout.panes.map((pane) => pane.id)
+
       if (
         !layout.panes.length ||
         new Set(ids).size !== ids.length ||
@@ -804,6 +846,7 @@ export function restoreSavedLayouts(
         ids.some((id) => !hasPane(layout.tree as PaneTree, id))
       )
         return []
+
       return [{ ...layout, tree: layout.tree }]
     })
   } catch {
@@ -835,10 +878,12 @@ export function tabFromLayout(layout: SavedLayout): WorkspaceTab {
   const mapping = new Map(
     layout.panes.map((pane) => [pane.id, crypto.randomUUID()] as const),
   )
+
   const rename = (tree: PaneTree): PaneTree =>
     tree.type === 'pane'
       ? leaf(mapping.get(tree.id)!)
       : { ...tree, children: tree.children.map(rename) }
+
   const panes = layout.panes.map((pane) => ({
     id: mapping.get(pane.id)!,
     href: pane.href,
@@ -846,7 +891,9 @@ export function tabFromLayout(layout: SavedLayout): WorkspaceTab {
     trail: [],
     forward: [],
   }))
+
   const primaryId = mapping.get(layout.primaryId)!
+
   return {
     id: crypto.randomUUID(),
     name: layout.name,
@@ -870,6 +917,7 @@ export function arrangeTab(
   const byTree = listPaneIds(tab.tree)
   // Keep reading order stable; only the primary comes first for primary+context.
   const order = preset === 'primary-context' ? ordered : byTree
+
   return {
     ...tab,
     tree: applyPreset(preset, order, tab.primaryId),

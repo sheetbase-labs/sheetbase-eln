@@ -69,10 +69,12 @@ export function ColumnsEditor({
         position === index ? { ...column, ...change } : column,
       ),
     )
+
   return (
     <div className="flex flex-col gap-1.5">
       {columns.map((column, index) => {
         const n = index + 1
+
         return (
           <div key={index} className="flex flex-wrap items-center gap-2">
             <Input
@@ -149,20 +151,24 @@ export function PythonPackagesEditor({
   // not a requirement yet, and parsing on every keystroke would eat it.
   const [text, setText] = useState(requirements.join('\n'))
   const [lastSent, setLastSent] = useState(requirements)
+
   if (requirements !== lastSent && requirements.join('\n') !== text) {
     setText(requirements.join('\n'))
     setLastSent(requirements)
   }
+
   const problems = [
     ...requirementErrors(requirements),
     ...(runtime?.packages
       ? unmetRequirements(requirements, runtime.packages)
       : []),
   ]
+
   const preinstalled = Object.entries(runtime?.packages ?? {}).filter(
     ([name]) =>
       !['pip', 'setuptools', 'wheel'].includes(normalisePackageName(name)),
   )
+
   return (
     <div className="flex flex-col gap-2">
       <textarea
@@ -267,17 +273,21 @@ export function PythonStepEditor({
     () => analysePython(statement, { installed: runtime?.packages }),
     [statement, runtime?.packages],
   )
+
   const aliases = [
     ...inputs.map((input) => input.name).filter(Boolean),
     ...(hasPrevious ? ['previous'] : []),
   ]
+
   const outputColumns = contract?.output?.columns ?? []
+
   const declaredCount =
     outputColumns.length +
     Object.values(contract?.inputs ?? {}).reduce(
       (total, columns) => total + columns.length,
       0,
     )
+
   return (
     <div className="flex flex-col gap-2">
       <textarea
@@ -472,8 +482,10 @@ export function PythonTestRun({
 
   const run = async () => {
     const inputs: Record<string, Array<Record<string, unknown>>> = {}
+
     for (const alias of aliases) {
       const parsed = parseSample(samples[alias] ?? '')
+
       if ('error' in parsed)
         return setOutcome({
           state: 'refused',
@@ -481,12 +493,16 @@ export function PythonTestRun({
         })
       inputs[alias] = parsed.rows
     }
+
     const given: Record<string, unknown> = {}
+
     for (const parameter of parameters) {
       const text = values[parameter.name] ?? ''
+
       const value = text.trim()
         ? parseDefault(parameter.type, text)
         : parameter.default
+
       if (value === undefined) {
         if (parameter.required || text.trim())
           return setOutcome({
@@ -498,9 +514,12 @@ export function PythonTestRun({
           })
         continue
       }
+
       given[parameter.name] = value
     }
+
     setOutcome({ state: 'running' })
+
     try {
       const response = await fetch('/api/pipelines/python-test', {
         method: 'POST',
@@ -514,8 +533,10 @@ export function PythonTestRun({
           ...(contract ? { contract } : {}),
         }),
       })
+
       const body = (await response.json().catch(() => null)) as
         PythonTestRunSuccess | PythonTestRunFailure | { error?: string } | null
+
       if (body && 'ok' in body) setOutcome({ state: 'done', result: body })
       else
         setOutcome({
@@ -626,6 +647,7 @@ function TestOutcomeView({
   onUseOutputColumns: (columns: PythonColumn[]) => void
 }) {
   if (outcome.state === 'idle' || outcome.state === 'running') return null
+
   if (outcome.state === 'refused')
     return (
       <Notice tone="bad" title={t('data.pythonEditor.testRunDidStart')}>
@@ -633,6 +655,7 @@ function TestOutcomeView({
       </Notice>
     )
   const result = outcome.result
+
   const logs = result.logs.length ? (
     <CodeBlock
       code={result.logs.join('\n')}
@@ -640,6 +663,7 @@ function TestOutcomeView({
       maxHeight="md"
     />
   ) : null
+
   if (!result.ok)
     return (
       <div className="flex flex-col gap-2">
@@ -657,6 +681,7 @@ function TestOutcomeView({
       </div>
     )
   const columns = result.columns.map((column) => column.name)
+
   return (
     <div className="flex flex-col gap-2">
       <Notice tone="info" icon="check" role="status">
@@ -736,5 +761,6 @@ function TestOutcomeView({
 
 function cell(value: unknown): string {
   if (value === null || value === undefined) return '—'
+
   return typeof value === 'object' ? JSON.stringify(value) : String(value)
 }

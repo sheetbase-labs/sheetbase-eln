@@ -22,7 +22,9 @@ const meta = {
   ],
   args: { items },
 } satisfies Meta<typeof LinkToPills>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A zero count drops the count suffix but keeps the control. */

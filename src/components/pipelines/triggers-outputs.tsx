@@ -33,12 +33,15 @@ async function webhookRequest(
     headers: { 'content-type': 'application/json' },
     body: method === 'PUT' ? JSON.stringify({ action }) : undefined,
   })
+
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as {
       error?: string
     } | null
+
     throw new Error(body?.error ?? t('data.triggersOutputs.webhookCouldRead'))
   }
+
   return (await response.json()) as WebhookTriggerState
 }
 
@@ -47,10 +50,12 @@ async function webhookRequest(
 export function WebhookCard({ definitionId }: { definitionId: string }) {
   const queryClient = useQueryClient()
   const [issued, setIssued] = useState<string | null>(null)
+
   const state = useQuery({
     queryKey: webhookKey(definitionId),
     queryFn: () => webhookRequest(definitionId, 'GET'),
   })
+
   const change = useMutation({
     mutationFn: (action: 'rotate' | 'disable') =>
       webhookRequest(definitionId, 'PUT', action),
@@ -69,7 +74,9 @@ export function WebhookCard({ definitionId }: { definitionId: string }) {
             : t('data.triggersOutputs.serverRefused'),
       }),
   })
+
   const enabled = state.data?.enabled ?? false
+
   return (
     <div className="rounded border border-line">
       <div className="flex items-center gap-3 px-3 py-2.5">
@@ -195,10 +202,12 @@ export function RunKeeps({
   pipelineId: string
 }) {
   const mode = config.output?.mode ?? 'none'
+
   return (
     <div className="grid gap-2">
       {KEEPS.map((option) => {
         const selected = option.mode === mode
+
         return (
           <div
             key={option.mode}
@@ -243,10 +252,13 @@ export function RunKeeps({
 /** An extension step reads as its own name: `plugin.k.summarise-values` becomes “Summarise values”. */
 function actionLabel(operation: string): string {
   const known = ACTION_LABEL.get(operation)
+
   if (known) return known
   const parts = operation.split('.')
+
   if (parts[0] !== 'plugin' || parts.length < 3) return operation
   const words = parts.slice(2).join(' ').replace(/-/g, ' ')
+
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
@@ -257,6 +269,7 @@ const ACTION_LABEL = new Map(
 /** The ELN actions a run takes, and whether a person decides each one. */
 export function ElnActions({ config }: { config: Partial<PipelineConfig> }) {
   const actions = config.actions ?? []
+
   return (
     <div>
       <h3 className="mb-1 text-body font-semibold text-fg">
@@ -281,6 +294,7 @@ export function ElnActions({ config }: { config: Partial<PipelineConfig> }) {
             {actions.map((action) => {
               const target = action.arguments.p_record_id
               const propose = (action as { mode?: string }).mode === 'propose'
+
               return (
                 <tr key={action.name} className="border-t border-line">
                   <td className="py-1.5 pr-3 text-fg">
@@ -325,6 +339,7 @@ export function RunNotifications({
 }) {
   const targets = config.notifications ?? []
   const ids = targets.map((target) => target.subscriptionId)
+
   const destinations = useQuery({
     queryKey: ['ui-port', 'pipelines', 'notification-destinations', ids],
     enabled: ids.length > 0,
@@ -334,7 +349,9 @@ export function RunNotifications({
         `?id=in.(${ids.join(',')})&select=id,key,description,status`,
       ),
   })
+
   const byId = new Map((destinations.data ?? []).map((d) => [d.id, d]))
+
   return (
     <div>
       <h3 className="mb-1 text-body font-semibold text-fg">
@@ -358,6 +375,7 @@ export function RunNotifications({
           <tbody>
             {targets.map((target) => {
               const destination = byId.get(target.subscriptionId)
+
               return (
                 <tr
                   key={target.subscriptionId}

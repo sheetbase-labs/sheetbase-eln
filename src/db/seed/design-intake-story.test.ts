@@ -19,6 +19,7 @@ function parser(signature: Record<string, unknown>): ResolvedParser {
 }
 
 const COLUMNS = ['sample', 'turbidity', 'dilution']
+
 const LAYOUT = {
   delimiter: 'semicolon',
   headerStartsWith: 'Sample',
@@ -30,14 +31,17 @@ const LAYOUT = {
 describe('the TB-02 firmware story in the demo data', () => {
   it('has two files the old parser refuses and the firmware 4 parser reads', () => {
     expect(DEMO_FILES).toHaveLength(2)
+
     for (const file of DEMO_FILES) {
       expect(() =>
         readWithColumns(parser({ requiredHeaders: COLUMNS }), file.text),
       ).toThrow(/needs \(sample, turbidity, dilution\)/)
+
       const read = readWithColumns(
         parser({ requiredHeaders: COLUMNS, layout: LAYOUT }),
         file.text,
       )
+
       expect(read.headers).toEqual([
         'Sample',
         'Turbidity',
@@ -53,14 +57,17 @@ describe('the TB-02 firmware story in the demo data', () => {
 
   it('reads decimal commas as numbers and a footer can be left out', () => {
     const [first] = DEMO_FILES
+
     const read = readWithColumns(
       parser({ requiredHeaders: COLUMNS, layout: LAYOUT }),
       first.text,
     )
+
     expect(read.rows[0]).toMatchObject({
       Sample: 'SMP-2250',
       Turbidity: '12.4',
     })
+
     const withFooter = readWithColumns(
       parser({
         requiredHeaders: COLUMNS,
@@ -68,6 +75,7 @@ describe('the TB-02 firmware story in the demo data', () => {
       }),
       `${first.text}Summary;;;\nMean;12.8;;\n`,
     )
+
     expect(withFooter.rows).toHaveLength(3)
   })
 

@@ -58,13 +58,16 @@ import { ObjectLink } from '#/components/ui/object-link'
 export function lifecycleErrorText(message: string): string {
   if (/active Definition-backed Sheet Instance required/i.test(message))
     return t('notebook.canonicalSheetLifecyclePanel.thisSheetIsNot')
+
   if (/local row identity must be one declared reference/i.test(message))
     return t('notebook.canonicalSheetLifecyclePanel.aDefinitionNeedsOne')
+
   return message
 }
 
 function errorText(error: unknown) {
   if (error instanceof Error) return lifecycleErrorText(error.message)
+
   return null
 }
 
@@ -75,20 +78,24 @@ function defaultExtractionSelection(
   const localFieldIds = instance.state.localFields
     .filter((field) => field.lifecycle === 'active')
     .map((field) => field.fieldId)
+
   const identity =
     instance.state.localFields.find(
       (field) =>
         field.lifecycle === 'active' && field.logicalType === 'reference',
     )?.fieldId ?? localFieldIds[0]
+
   return {
     bindings: (configuration?.bindings ?? []).map((binding) => {
       const parameter = configuration?.parameters.find(
         (item) => item.id === binding.parameterId,
       )
+
       if (!parameter)
         throw new Error(
           t('notebook.canonicalSheetLifecyclePanel.theSourceBindingParameter'),
         )
+
       return { bindingId: binding.id, key: binding.key, parameter }
     }),
     columnIds: (configuration?.columns ?? [])
@@ -113,8 +120,11 @@ export function configurationDefinitionHref(
   instanceId?: string,
 ) {
   const search = new URLSearchParams()
+
   if (versionId) search.set('version', versionId)
+
   if (instanceId) search.set('returnTo', `/sheets/${instanceId}`)
+
   return `/sheet-definitions/${encodeURIComponent(definitionId)}${search.size ? `?${search}` : ''}`
 }
 
@@ -133,20 +143,25 @@ export function CanonicalSheetLifecyclePanel({
   const [extractKey, setExtractKey] = useState('')
   const [extractName, setExtractName] = useState('')
   const [materializeName, setMaterializeName] = useState('')
+
   // Adoption, upgrade, extract-and-publish and materialise all change governed
   // objects, so each one asks before it runs.
   const [confirming, setConfirming] = useState<
     'adopt' | 'upgrade' | 'extract-publish' | 'materialize' | null
   >(null)
+
   const [extractedDefinition, setExtractedDefinition] = useState<{
     id: string
     name: string
     versionId: string
   } | null>(null)
+
   const [status, setStatus] = useState<string | null>(null)
+
   const [materialisedDatasetId, setMaterialisedDatasetId] = useState<
     string | null
   >(null)
+
   const [preview, setPreview] = useState<string | null>(null)
 
   const definitions = useQuery({
@@ -154,15 +169,18 @@ export function CanonicalSheetLifecyclePanel({
     queryFn: () => fetchSheetDefinitions(sheetDefinitionDataClient),
     enabled: open,
   })
+
   const versions = useQuery({
     queryKey: ['sheet-definition-versions', definitionId],
     enabled: Boolean(open && definitionId),
     queryFn: () =>
       fetchSheetDefinitionVersions(definitionId, sheetDefinitionDataClient),
   })
+
   const published = (versions.data ?? []).filter(
     (item) => item.lifecycle === 'published',
   )
+
   // REUSE-03: governed pin vs published lineage. Badge-only: never
   // auto-applies, never an error style, silent unless a newer published
   // version exists.
@@ -175,6 +193,7 @@ export function CanonicalSheetLifecyclePanel({
         sheetDefinitionDataClient,
       ),
   })
+
   const pinnedLineage = useQuery({
     queryKey: ['sheet-definition-versions', pinnedVersion.data?.definitionId],
     enabled: Boolean(pinnedVersion.data?.definitionId),
@@ -184,12 +203,14 @@ export function CanonicalSheetLifecyclePanel({
         sheetDefinitionDataClient,
       ),
   })
+
   const upgradeAvailability = sheetDefinitionUpgradeAvailability(
     pinnedVersion.data
       ? { id: pinnedVersion.data.id, version: pinnedVersion.data.version }
       : null,
     pinnedLineage.data ?? [],
   )
+
   const datasets = useQuery({
     queryKey: ['dataset-explorer-summaries'],
     queryFn: () => fetchDatasetSummaries(),
@@ -198,9 +219,11 @@ export function CanonicalSheetLifecyclePanel({
 
   const selectedVersion =
     published.find((item) => item.id === definitionVersionId) ?? published.at(0)
+
   const datasetParameter = selectedVersion?.configuration.parameters.find(
     (parameter) => parameter.type.kind === 'dataset',
   )
+
   const parameterInputs: SheetParameterInput[] =
     datasetParameter && datasetId
       ? [{ parameterId: datasetParameter.id, kind: 'dataset', datasetId }]
@@ -212,6 +235,7 @@ export function CanonicalSheetLifecyclePanel({
         throw new Error(
           t('notebook.canonicalSheetLifecyclePanel.chooseAPublishedDefinition'),
         )
+
       return previewSheetInstanceCompositionAdoption({
         instanceId: instance.id,
         expectedRevision: instance.revision,
@@ -247,12 +271,14 @@ export function CanonicalSheetLifecyclePanel({
         throw new Error(
           t('notebook.canonicalSheetLifecyclePanel.chooseAPublishedDefinition'),
         )
+
       const adoptionPreview = await previewSheetInstanceCompositionAdoption({
         instanceId: instance.id,
         expectedRevision: instance.revision,
         targetDefinitionVersionId: selectedVersion.id,
         parameterInputs,
       })
+
       if (!adoptionPreview.compatible) {
         throw new Error(
           adoptionPreview.errorMessage ??
@@ -268,6 +294,7 @@ export function CanonicalSheetLifecyclePanel({
                 )),
         )
       }
+
       const applied = await applySheetInstanceCompositionAdoption({
         instanceId: instance.id,
         expectedRevision: instance.revision,
@@ -275,6 +302,7 @@ export function CanonicalSheetLifecyclePanel({
         parameterInputs,
         retryToken: crypto.randomUUID(),
       })
+
       if (applied.status !== 'applied') {
         throw new Error(
           t(
@@ -282,6 +310,7 @@ export function CanonicalSheetLifecyclePanel({
           ),
         )
       }
+
       return applied
     },
     onSuccess: (applied) => {
@@ -309,19 +338,23 @@ export function CanonicalSheetLifecyclePanel({
             sheetDefinitionDataClient,
           )
         : null
+
       if (instance.sourceDefinitionVersionId && !source)
         throw new Error(
           t('notebook.canonicalSheetLifecyclePanel.theSourceSheetDefinition'),
         )
+
       const selection = defaultExtractionSelection(
         instance,
         source?.configuration,
       )
+
       await previewSheetDefinitionExtraction(
         instance.id,
         instance.revision,
         selection,
       )
+
       return extractSheetDefinitionDraft({
         instanceId: instance.id,
         expectedInstanceRevision: instance.revision,
@@ -353,10 +386,12 @@ export function CanonicalSheetLifecyclePanel({
   const publishExtracted = useMutation({
     mutationFn: async () => {
       const result = await extract.mutateAsync()
+
       const version = await publishSheetDefinitionVersion(
         result.version.id,
         result.version.revision,
       )
+
       return { definition: result.definition, version }
     },
     onSuccess: ({ definition, version }) => {
@@ -380,6 +415,7 @@ export function CanonicalSheetLifecyclePanel({
         throw new Error(
           t('notebook.canonicalSheetLifecyclePanel.chooseAPublishedDefinition'),
         )
+
       return previewSheetInstanceDefinitionUpgrade(
         instance.id,
         instance.revision,
@@ -405,11 +441,13 @@ export function CanonicalSheetLifecyclePanel({
         throw new Error(
           t('notebook.canonicalSheetLifecyclePanel.chooseAPublishedDefinition'),
         )
+
       const upgradePreviewResult = await previewSheetInstanceDefinitionUpgrade(
         instance.id,
         instance.revision,
         selectedVersion.id,
       )
+
       if (upgradePreviewResult.conflicts.length > 0) {
         throw new Error(
           t('notebook.canonicalSheetLifecyclePanel.countUpgradeConflictS', {
@@ -417,6 +455,7 @@ export function CanonicalSheetLifecyclePanel({
           }),
         )
       }
+
       return applySheetInstanceDefinitionUpgrade({
         instanceId: instance.id,
         expectedRevision: instance.revision,
@@ -464,6 +503,7 @@ export function CanonicalSheetLifecyclePanel({
         instanceId: instance.id,
         expectedRevision: instance.revision,
       })
+
       return materializeSheetInstance({
         instanceId: instance.id,
         expectedRevision: instance.revision,
@@ -498,9 +538,11 @@ export function CanonicalSheetLifecyclePanel({
   const selectedDefinitionName = (definitions.data ?? []).find(
     (definition) => definition.id === selectedVersion?.definitionId,
   )?.name
+
   const target = selectedVersion
     ? `${selectedDefinitionName ?? t('notebook.canonicalSheetLifecyclePanel.theSelectedDefinition')} v${selectedVersion.version}`
     : t('notebook.canonicalSheetLifecyclePanel.theSelectedDefinition')
+
   const confirmation =
     confirming === null
       ? null

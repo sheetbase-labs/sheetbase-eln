@@ -29,11 +29,13 @@ const TASK = {
   metadata_version: 4,
   task_type: 'milestone',
 }
+
 const PROJECT = {
   id: TASK.project_id,
   title: 'Stability programme',
   key: 'STAB',
 }
+
 const REPORT = {
   id: '55555555-5555-4555-8555-555555555555',
   title: 'Quarterly stability',
@@ -41,6 +43,7 @@ const REPORT = {
   status: 'draft',
   version: 3,
 }
+
 const DESIGN = {
   id: '66666666-6666-4666-8666-666666666666',
   name: 'Dose response A',
@@ -55,9 +58,11 @@ function context(): LabToolContext {
     report_definitions: [REPORT],
     plate_designs: [DESIGN],
   }
+
   const client = {
     list: (resource: string) => Promise.resolve(rows[resource] ?? []),
   } as unknown as DataClient
+
   return { client, workspaceId: 'ws-1', userId: 'u', timeZone: 'UTC' }
 }
 
@@ -69,6 +74,7 @@ describe('planning and reporting assistant cards', () => {
       expect(ASSISTANT_PROPOSE_TOOL_NAMES).toContain(name)
       expect(isStudiesProposalTool(name)).toBe(true)
     }
+
     expect(studiesProposalDefs().map((d) => d.name)).toEqual(
       STUDIES_PROPOSE_TOOL_NAMES.map((n) => n.replaceAll('.', '__')),
     )
@@ -86,7 +92,9 @@ describe('planning and reporting assistant cards', () => {
       },
       context(),
     )
+
     expect(built.ok).toBe(true)
+
     if (!built.ok) return
     expect(built.proposal.action).toMatchObject({
       kind: 'study.task_add',
@@ -112,7 +120,9 @@ describe('planning and reporting assistant cards', () => {
       },
       context(),
     )
+
     expect(built.ok).toBe(true)
+
     if (!built.ok) return
     expect(built.proposal.action).toEqual({
       kind: 'study.task_update',
@@ -133,12 +143,15 @@ describe('planning and reporting assistant cards', () => {
       { ...base, task: 'stability data', dueOn: '2026-12-08' },
       context(),
     )
+
     expect(noReason.ok).toBe(false)
+
     const nothing = await buildStudiesProposal(
       STUDY_TASK_UPDATE_TOOL,
       { ...base, task: 'stability data' },
       context(),
     )
+
     expect(nothing.ok).toBe(false)
   })
 
@@ -148,6 +161,7 @@ describe('planning and reporting assistant cards', () => {
       { ...base, task: 'stability data', name: 'Stability report' },
       context(),
     )
+
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'study.deliverable_add',
       taskId: TASK.id,
@@ -162,16 +176,19 @@ describe('planning and reporting assistant cards', () => {
       { ...base, report: 'RPT-0004' },
       context(),
     )
+
     expect(report.ok && report.proposal.action).toEqual({
       kind: 'report.generate',
       workspaceId: 'ws-1',
       reportId: REPORT.id,
     })
+
     const design = await buildStudiesProposal(
       PLATE_DESIGN_ARCHIVE_TOOL,
       { ...base, design: 'dose response' },
       context(),
     )
+
     expect(design.ok && design.proposal.action).toEqual({
       kind: 'plate_design.archive',
       designId: DESIGN.id,
@@ -188,12 +205,15 @@ describe('planning and reporting assistant cards', () => {
         client: { list: () => Promise.resolve([]) } as unknown as DataClient,
       },
     )
+
     expect(none).toEqual({ ok: false, message: 'No report matches "nothing".' })
+
     const extra = await buildStudiesProposal(
       PLATE_DESIGN_ARCHIVE_TOOL,
       { ...base, design: 'x', surprise: true },
       context(),
     )
+
     expect(extra.ok).toBe(false)
   })
 })

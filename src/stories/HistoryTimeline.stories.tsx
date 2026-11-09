@@ -65,7 +65,9 @@ const meta = {
       'Events appear here as this object changes, newest first.',
   },
 } satisfies Meta<typeof HistoryTimeline>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

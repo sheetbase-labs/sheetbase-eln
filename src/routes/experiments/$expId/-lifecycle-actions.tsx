@@ -78,7 +78,9 @@ const AUTHOR_ACTIONS: ReadonlySet<string> = new Set([
 function groupOfOffered(action: RecordAction): 'do' | 'share' | 'manage' {
   if (['open-review', 'link-records', 'withdraw'].includes(action.id))
     return 'do'
+
   if (action.id === 'duplicate') return 'manage'
+
   return 'share'
 }
 
@@ -118,20 +120,24 @@ export function ExperimentLifecycleActions({
   reviewRevisionId?: string
 }) {
   const allOffered = useOfferedRecordActions()
+
   // A reviewer reads the submitted version: the author's own actions on the
   // notebook (link records, withdraw, duplicate) are not theirs.
   const offered = nextStep.authoring
     ? allOffered
     : allOffered.filter((action) => !AUTHOR_ACTIONS.has(action.id))
+
   const favourite = useFavouriteState('record', e.id)
   const hosted = useRecordMainActionsHosted()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [dialog, setDialog] = useState<DialogKind>(null)
   const [reason, setReason] = useState('')
+
   const [runTitle, setRunTitle] = useState(
     t('projects.lifecycle.runTitle', { title: e.title }),
   )
+
   const [moveTo, setMoveTo] = useState('')
   const membership = useSeriesMembership(e.id)
   const seriesHead = useIsSeriesHead(e.id)
@@ -161,6 +167,7 @@ export function ExperimentLifecycleActions({
       queryKey: ['ui-port', 'experiments'],
     })
   }
+
   const close = () => {
     setDialog(null)
     setReason('')
@@ -175,6 +182,7 @@ export function ExperimentLifecycleActions({
     },
     onError: (error) => toast.error(errorText(error)),
   })
+
   const hold = useMutation({
     mutationFn: (status: 'on_hold' | 'in_progress' | 'completed') =>
       setExperimentStatus(notebookDataClient, {
@@ -205,6 +213,7 @@ export function ExperimentLifecycleActions({
     },
     onError: (error) => toast.error(errorText(error)),
   })
+
   const run = useMutation({
     mutationFn: () =>
       createNewRun(notebookDataClient, {
@@ -219,6 +228,7 @@ export function ExperimentLifecycleActions({
       }),
     onSuccess: async (record) => {
       close()
+
       if (joinOnRun) await joinSeries(membership.data, record.id)
       toast(t('projects.lifecycle.created', { identifier: record.identifier }))
       await navigate({
@@ -228,6 +238,7 @@ export function ExperimentLifecycleActions({
     },
     onError: (error) => toast.error(errorText(error)),
   })
+
   const makeSeries = useMutation({
     mutationFn: () => startSeries(notebookDataClient, e.id),
     onSuccess: async () => {
@@ -240,6 +251,7 @@ export function ExperimentLifecycleActions({
     },
     onError: (error) => toast.error(errorText(error)),
   })
+
   const endSeries = useMutation({
     mutationFn: () => dissolveSeries(notebookDataClient, e.id),
     onSuccess: async () => {
@@ -253,6 +265,7 @@ export function ExperimentLifecycleActions({
     },
     onError: (error) => toast.error(errorText(error)),
   })
+
   const move = useMutation({
     mutationFn: () =>
       moveExperimentToProject(notebookDataClient, {
@@ -266,6 +279,7 @@ export function ExperimentLifecycleActions({
     },
     onError: (error) => toast.error(errorText(error)),
   })
+
   const archive = useMutation({
     mutationFn: () => archiveExperiment(notebookDataClient, e.id),
     onSuccess: async () => {
@@ -279,6 +293,7 @@ export function ExperimentLifecycleActions({
     },
     onError: (error) => toast.error(errorText(error)),
   })
+
   const remove = useMutation({
     mutationFn: () => deleteExperimentDraft(notebookDataClient, e.id),
     onSuccess: async () => {
@@ -297,11 +312,13 @@ export function ExperimentLifecycleActions({
   const isActive = e.status === 'in_progress'
   const locked = Boolean(e.locked_at)
   const { primary, secondary } = nextStep
+
   // Submit is the main step of a running experiment. The notebook owns the
   // dialog, so it puts the button here itself while it is open; on the other
   // tabs this one takes you to the notebook with the dialog open.
   const submitFromHere =
     !hosted && !locked && (primary === 'submit' || secondary.includes('submit'))
+
   if (archived || !canWrite) {
     return (
       <>
@@ -326,6 +343,7 @@ export function ExperimentLifecycleActions({
       <SubmitLabel status={e.status} />
     </Button>
   )
+
   const decideLink = (decide: 'approve' | 'request_changes') => (
     <Button
       variant={decide === 'approve' ? 'primary' : 'secondary'}
@@ -344,8 +362,10 @@ export function ExperimentLifecycleActions({
         : t('projects.lifecycle.requestChanges')}
     </Button>
   )
+
   const offeredIn = (group: 'do' | 'share' | 'manage') =>
     offered.filter((action) => groupOfOffered(action) === group)
+
   const items = (group: 'do' | 'share' | 'manage') => offeredIn(group)
   const author = nextStep.authoring
 

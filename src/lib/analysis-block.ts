@@ -74,6 +74,7 @@ export function frozenAnalysisMethodVersion(
   frozen: FrozenAnalysis,
 ): number | null {
   const recorded = frozen.methodVersion
+
   return typeof recorded === 'number' &&
     Number.isInteger(recorded) &&
     recorded > 0
@@ -92,7 +93,9 @@ export function frozenAnalysisMethodMismatch(
   currentMethodVersion: number = ANALYSIS_METHOD_VERSION,
 ): { recorded: number; current: number } | null {
   const recorded = frozenAnalysisMethodVersion(frozen)
+
   if (recorded === null || recorded === currentMethodVersion) return null
+
   return { recorded, current: currentMethodVersion }
 }
 
@@ -129,16 +132,19 @@ export function validateAnalysisBlockPayload(
   payload: unknown,
 ): AnalysisBlockError[] {
   if (!isObject(payload)) return [{ message: 'payload must be an object' }]
+
   if (Object.keys(payload).length === 0) return []
   const errors: AnalysisBlockError[] = []
 
   if (typeof payload.title !== 'string' || payload.title.trim() === '')
     errors.push({ field: 'title', message: 'title is required' })
+
   if (!isUuid(payload.definitionId))
     errors.push({
       field: 'definitionId',
       message: 'definitionId must be a saved analysis definition UUID',
     })
+
   if (
     payload.provenance !== undefined &&
     payload.provenance !== null &&
@@ -157,16 +163,19 @@ export function validateAnalysisBlockPayload(
       })
     } else {
       const f = payload.frozen
+
       if (typeof f.frozenAt !== 'string' || f.frozenAt === '')
         errors.push({
           field: 'frozen.frozenAt',
           message: 'frozen.frozenAt is required',
         })
+
       if (typeof f.frozenByUserId !== 'string' || f.frozenByUserId === '')
         errors.push({
           field: 'frozen.frozenByUserId',
           message: 'frozen.frozenByUserId is required',
         })
+
       if (!isObject(f.definition)) {
         errors.push({
           field: 'frozen.definition',
@@ -181,6 +190,7 @@ export function validateAnalysisBlockPayload(
           })),
         )
       }
+
       if (
         !Array.isArray(f.columns) ||
         f.columns.some((c) => !isObject(c) || !isUuid(c.fieldId))
@@ -190,6 +200,7 @@ export function validateAnalysisBlockPayload(
           message:
             'frozen.columns must carry fieldId metadata for each bound field',
         })
+
       if (
         !Array.isArray(f.datasetProvenance) ||
         f.datasetProvenance.length !== 1 ||
@@ -208,6 +219,7 @@ export function validateAnalysisBlockPayload(
           message:
             'frozen.datasetProvenance must pin exactly one Dataset Version with rowCount and checksum',
         })
+
       if (
         f.methodVersion !== undefined &&
         (typeof f.methodVersion !== 'number' ||
@@ -219,6 +231,7 @@ export function validateAnalysisBlockPayload(
           message:
             'frozen.methodVersion must be a positive integer when present',
         })
+
       // A frozen payload carries evidence references only; embedded source
       // rows are never accepted.
       if (f.data !== undefined)
@@ -229,5 +242,6 @@ export function validateAnalysisBlockPayload(
         })
     }
   }
+
   return errors
 }

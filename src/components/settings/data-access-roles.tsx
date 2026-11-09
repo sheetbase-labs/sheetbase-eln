@@ -30,13 +30,16 @@ export function DataAccessRoles({
   const queryClient = useQueryClient()
   const router = useRouter()
   const [draft, setDraft] = useState<string[] | null>(null)
+
   const query = useQuery({
     queryKey: dataAccessKeys.roles(workspaceId),
     queryFn: () => fetchDataAccessRoles(),
     enabled: Boolean(workspaceId),
   })
+
   const saved = query.data ?? [...DEFAULT_DATA_ACCESS_ROLES]
   const roles = draft ?? saved
+
   const save = useMutation({
     mutationFn: (next: string[]) => updateDataAccessRoles(workspaceId, next),
     onSuccess: async (_result, next) => {

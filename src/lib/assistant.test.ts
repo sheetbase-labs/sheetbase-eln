@@ -54,6 +54,7 @@ function fakeClient(): DataClient {
   return {
     list: vi.fn(async (resource: string) => {
       if (resource === 'records') return [recordRow]
+
       return []
     }),
     count: vi.fn(async () => 0),
@@ -79,16 +80,19 @@ function deps(overrides: Partial<AssistantDeps> = {}): AssistantDeps {
 describe('assistant policy', () => {
   it('serves nothing when the workspace has AI off', async () => {
     const client = fakeClient()
+
     const result = await askAssistant(
       { workspaceId: WORKSPACE_ID, question: 'What is this?', objectRefs: [] },
       deps({ settings: { ...enabledSettings, enabled: false }, client }),
     )
+
     expect(result).toMatchObject({ status: 'unavailable', reason: 'disabled' })
     expect(client.list).not.toHaveBeenCalled()
   })
 
   it('serves nothing when the assistant access flag is off', async () => {
     const client = fakeClient()
+
     const result = await askAssistant(
       { workspaceId: WORKSPACE_ID, question: 'What is this?', objectRefs: [] },
       deps({
@@ -96,6 +100,7 @@ describe('assistant policy', () => {
         featureFlags: { ...defaultAiFeatureFlags(), assistant: false },
       }),
     )
+
     expect(result).toMatchObject({
       status: 'unavailable',
       reason: 'feature_disabled',
@@ -120,6 +125,7 @@ describe('assistant policy', () => {
         ],
       }),
     )
+
     expect(result).toMatchObject({
       status: 'unavailable',
       reason: 'consent_required',
@@ -137,7 +143,9 @@ describe('assistant grounding', () => {
       },
       deps(),
     )
+
     expect(result.status).toBe('ok')
+
     if (result.status !== 'ok') return
     expect(result.mode).toBe('built-in')
     expect(result.generated).toBe(true)
@@ -174,7 +182,9 @@ describe('assistant grounding', () => {
       tokensUsed: 10,
       costMicrousd: 20,
     }))
+
     const provider: ModelProvider = { name: 'test-provider', complete }
+
     const result = await askAssistant(
       { workspaceId: WORKSPACE_ID, question: 'Question', objectRefs: [] },
       deps({
@@ -193,6 +203,7 @@ describe('assistant grounding', () => {
         pricing: 1,
       }),
     )
+
     expect(complete).toHaveBeenCalledTimes(1)
     expect(result).toMatchObject({
       status: 'ok',
@@ -219,6 +230,7 @@ describe('assistant grounding', () => {
         ],
       }),
     )
+
     expect(result).toMatchObject({
       status: 'error',
       code: 'provider_unavailable',
@@ -231,6 +243,7 @@ describe('assistant grounding', () => {
       tokensUsed: 1,
       costMicrousd: 1,
     }))
+
     const result = await askAssistant(
       { workspaceId: WORKSPACE_ID, question: 'Question', objectRefs: [] },
       deps({
@@ -238,6 +251,7 @@ describe('assistant grounding', () => {
         provider: { name: 'never', complete },
       }),
     )
+
     expect(result).toMatchObject({ status: 'error', code: 'gateway_error' })
     expect(complete).not.toHaveBeenCalled()
   })
@@ -264,6 +278,7 @@ describe('assistant chat', () => {
 
   it('sends earlier turns to the provider with the new question', async () => {
     const seen: Array<ModelRequest> = []
+
     const provider: ModelProvider = {
       name: 'fake',
       complete: vi.fn(),
@@ -274,6 +289,7 @@ describe('assistant chat', () => {
         yield { type: 'usage', tokensUsed: 40, costMicrousd: 3 }
       },
     }
+
     const started = await streamAssistant(
       chatInput([
         { role: 'user', content: 'What is this?' },
@@ -295,8 +311,10 @@ describe('assistant chat', () => {
         ],
       }),
     )
+
     if (started.status !== 'ok') throw new Error('expected a stream')
     const events = []
+
     for await (const event of started.events) events.push(event)
 
     expect(seen[0]?.messages?.map((turn) => turn.content)).toEqual([
@@ -316,6 +334,7 @@ describe('assistant chat', () => {
       chatInput([{ role: 'user', content: 'Hello' }]),
       deps({ settings: { ...enabledSettings, maxTokensPerCall: 1 } }),
     )
+
     expect(started).toMatchObject({ status: 'error', code: 'gateway_error' })
   })
 
@@ -331,6 +350,7 @@ describe('assistant chat', () => {
         yield { type: 'usage', tokensUsed: 10, costMicrousd: 0 }
       },
     }
+
     const started = await streamAssistant(
       chatInput([{ role: 'user', content: 'Do you know what this is?' }]),
       deps({
@@ -348,11 +368,14 @@ describe('assistant chat', () => {
         ],
       }),
     )
+
     if (started.status !== 'ok') throw new Error('expected a stream')
     let text = ''
+
     for await (const event of started.events) {
       if (event.type === 'text') text += event.delta
     }
+
     expect(text).not.toContain('tool_call')
     expect(text).toMatch(/could not put together an answer/i)
   })
@@ -367,11 +390,13 @@ describe('assistant tools', () => {
     dataClass: 'local' as const,
     keyAvailable: true,
   }
+
   const toolDef = {
     name: 'sheetbase__search',
     description: 'Search',
     parameters: { type: 'object', properties: {} },
   }
+
   const chat = {
     workspaceId: WORKSPACE_ID,
     messages: [{ role: 'user' as const, content: 'Find EXP-9' }],
@@ -385,9 +410,11 @@ describe('assistant tools', () => {
       complete: vi.fn(),
       async *stream(request) {
         requests.push(request)
+
         const sawResult = (request.messages ?? []).some(
           (turn) => turn.role === 'tool',
         )
+
         if (!sawResult) {
           yield { type: 'text', delta: 'Checking. ' }
           yield {
@@ -399,6 +426,7 @@ describe('assistant tools', () => {
         } else {
           yield { type: 'text', delta: 'Found EXP-9.' }
         }
+
         yield { type: 'usage', tokensUsed: 50, costMicrousd: 5 }
       },
     }
@@ -417,15 +445,19 @@ describe('assistant tools', () => {
         profiles: [localProfile],
       }),
     )
+
     if (started.status !== 'ok') throw new Error('expected a stream')
     const events = []
+
     for await (const event of started.events) events.push(event)
+
     return events
   }
 
   it('runs a lookup, feeds the result back and answers, sharing one budget', async () => {
     const run = vi.fn(async () => ({ text: '{"hits":1}', isError: false }))
     const requests: ModelRequest[] = []
+
     const events = await collect(
       { defs: [toolDef], instructions: 'Use tools.', run },
       requests,
@@ -455,12 +487,14 @@ describe('assistant tools', () => {
   it('stops looking things up after the step limit and forces an answer', async () => {
     const run = vi.fn(async () => ({ text: 'x', isError: false }))
     const requests: ModelRequest[] = []
+
     const provider: ModelProvider = {
       name: 'loop',
       supportsTools: true,
       complete: vi.fn(),
       async *stream(request) {
         requests.push(request)
+
         if (request.tools?.length) {
           yield {
             type: 'tool_call',
@@ -471,9 +505,11 @@ describe('assistant tools', () => {
         } else {
           yield { type: 'text', delta: 'Best I can say.' }
         }
+
         yield { type: 'usage', tokensUsed: 10, costMicrousd: 1 }
       },
     }
+
     const started = await streamAssistant(
       assistantChatSchema.parse(chat),
       deps({
@@ -483,11 +519,14 @@ describe('assistant tools', () => {
         profiles: [localProfile],
       }),
     )
+
     if (started.status !== 'ok') throw new Error('expected a stream')
     let text = ''
+
     for await (const event of started.events) {
       if (event.type === 'text') text += event.delta
     }
+
     expect(requests).toHaveLength(ASSISTANT_MAX_STEPS)
     expect(requests.at(-1)?.tools).toBeUndefined()
     expect(text).toBe('Best I can say.')
@@ -495,6 +534,7 @@ describe('assistant tools', () => {
 
   it('offers no tools to a provider that cannot call them', async () => {
     const requests: ModelRequest[] = []
+
     const provider: ModelProvider = {
       name: 'plain',
       complete: vi.fn(),
@@ -504,6 +544,7 @@ describe('assistant tools', () => {
         yield { type: 'usage', tokensUsed: 5, costMicrousd: 0 }
       },
     }
+
     const started = await streamAssistant(
       assistantChatSchema.parse(chat),
       deps({
@@ -517,7 +558,9 @@ describe('assistant tools', () => {
         profiles: [localProfile],
       }),
     )
+
     if (started.status !== 'ok') throw new Error('expected a stream')
+
     for await (const event of started.events) void event
     expect(requests[0]?.tools).toBeUndefined()
   })
@@ -536,6 +579,7 @@ describe('assistant tools', () => {
         profiles: [localProfile],
       }),
     )
+
     expect(started).toMatchObject({ status: 'error', code: 'gateway_error' })
   })
 })

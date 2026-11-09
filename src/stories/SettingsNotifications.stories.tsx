@@ -51,15 +51,18 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A story's read client: what it seeds, or the reads it answers with a refusal. */
 function provider(data: ReadSeed[], refused = false) {
   const client = screenQueryClient({ data })
+
   if (refused) {
     holdRead(client, notificationPreferencesQueryKeys.preferences(), 'denied')
     holdRead(client, notificationPreferencesQueryKeys.timing(), 'denied')
   }
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <Story />

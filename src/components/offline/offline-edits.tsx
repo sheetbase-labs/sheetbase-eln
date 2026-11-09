@@ -86,12 +86,15 @@ export function offlineEditTargetKey(edit: OfflineEdit): string {
 /** Clock time, e.g. "10:02", for the last-sync note and the edit list. */
 export function formatClockTime(iso: string): string {
   const date = new Date(iso)
+
   if (Number.isNaN(date.getTime())) return iso
+
   return formatTime(date)
 }
 
 function shortText(value: string, limit = 60): string {
   const collapsed = value.replace(/\s+/g, ' ').trim()
+
   return collapsed.length > limit
     ? `${collapsed.slice(0, limit - 1)}…`
     : collapsed
@@ -99,8 +102,11 @@ function shortText(value: string, limit = 60): string {
 
 function previewValue(value: unknown): string {
   if (value === null || value === undefined) return 'empty'
+
   if (typeof value === 'string') return shortText(value, 40)
+
   if (typeof value === 'object') return shortText(JSON.stringify(value), 40)
+
   return String(value)
 }
 
@@ -112,8 +118,10 @@ function blockTypeLabel(type: string): string {
 export function blockPayloadSummary(payload: unknown): string {
   if (isRichTextPayload(payload)) return richTextToPlainText(payload)
   const found: string[] = []
+
   const walk = (value: unknown, depth: number) => {
     if (found.length >= 4 || depth > 4) return
+
     if (typeof value === 'string') {
       if (value.trim() && !/^[0-9a-f-]{20,}$/i.test(value)) found.push(value)
     } else if (Array.isArray(value)) {
@@ -126,7 +134,9 @@ export function blockPayloadSummary(payload: unknown): string {
       }
     }
   }
+
   walk(payload, 0)
+
   return found.join(' · ')
 }
 
@@ -271,6 +281,7 @@ export function losslessPlainText(payload: unknown): string | null {
   if (!isRichTextPayload(payload)) return null
   const text = richTextToPlainText(payload)
   const rebuilt = richTextPayloadFromText(text)
+
   return JSON.stringify(rebuilt) === JSON.stringify(payload) ? text : null
 }
 
@@ -284,15 +295,19 @@ export function overlayQueuedBlocks<
   T extends { id: string; payload: Record<string, unknown> },
 >(blocks: T[], edits: readonly OfflineEdit[]): T[] {
   const queued = new Map<string, Record<string, unknown>>()
+
   for (const edit of edits) {
     if (edit.kind === 'block_payload') queued.set(edit.blockId, edit.payload)
     else if (edit.kind === 'block_text') {
       queued.set(edit.blockId, richTextPayloadFromText(edit.text))
     }
   }
+
   if (queued.size === 0) return blocks
+
   return blocks.map((block) => {
     const payload = queued.get(block.id)
+
     return payload ? { ...block, payload } : block
   })
 }
@@ -349,6 +364,7 @@ export function OfflineEditsProvider({
         setEdits([])
         setLoading(false)
       })
+
     return () => {
       active = false
     }
@@ -364,20 +380,25 @@ export function OfflineEditsProvider({
   >(
     async (block, payload) => {
       const text = losslessPlainText(payload)
+
       if (text === null) return false
       const scopeKey = { userId: scope.userId, recordId: scope.recordId }
+
       const earlier = (await store.listEdits(scopeKey)).filter(
         (edit) => edit.kind === 'block_text' && edit.blockId === block.id,
       )
+
       const expectedRevision = earlier.length
         ? Math.min(...earlier.map((edit) => edit.expectedRevision))
         : block.version
+
       if (earlier.length) {
         await store.removeEdits(
           scopeKey,
           earlier.map((edit) => edit.id),
         )
       }
+
       await store.putEdit(scopeKey, {
         kind: 'block_text',
         blockId: block.id,
@@ -385,6 +406,7 @@ export function OfflineEditsProvider({
         expectedRevision,
       })
       refresh()
+
       return true
     },
     [store, scope.userId, scope.recordId, refresh],
@@ -396,20 +418,24 @@ export function OfflineEditsProvider({
     async (block, payload) => {
       if (!canEditBlockOffline(block.type)) return false
       const scopeKey = { userId: scope.userId, recordId: scope.recordId }
+
       const earlier = (await store.listEdits(scopeKey)).filter(
         (edit) =>
           (edit.kind === 'block_text' || edit.kind === 'block_payload') &&
           edit.blockId === block.id,
       )
+
       const expectedRevision = earlier.length
         ? Math.min(...earlier.map((edit) => edit.expectedRevision))
         : block.version
+
       if (earlier.length) {
         await store.removeEdits(
           scopeKey,
           earlier.map((edit) => edit.id),
         )
       }
+
       await store.putEdit(scopeKey, {
         kind: 'block_payload',
         blockId: block.id,
@@ -422,6 +448,7 @@ export function OfflineEditsProvider({
         expectedRevision,
       })
       refresh()
+
       return true
     },
     [store, scope.userId, scope.recordId, refresh],
@@ -433,6 +460,7 @@ export function OfflineEditsProvider({
     async (sheet, cells) => {
       const scopeKey = { userId: scope.userId, recordId: scope.recordId }
       const existing = await store.listEdits(scopeKey)
+
       for (const cell of cells) {
         // A cell typed into a row that was itself added offline joins that
         // row's draft, so replay creates the row with its values in one write.
@@ -442,6 +470,7 @@ export function OfflineEditsProvider({
             edit.sheetInstanceId === sheet.instanceId &&
             edit.rowKey === cell.rowId,
         )
+
         if (row && row.kind === 'row') {
           await store.removeEdits(scopeKey, [row.id])
           await store.putEdit(scopeKey, {
@@ -455,6 +484,7 @@ export function OfflineEditsProvider({
           })
           continue
         }
+
         // The same cell edited again replaces the earlier draft but keeps the
         // revision the first one was based on, so a conflict is still seen.
         const earlier = existing.find(
@@ -464,6 +494,7 @@ export function OfflineEditsProvider({
             edit.rowId === cell.rowId &&
             edit.columnId === cell.columnId,
         )
+
         if (earlier) await store.removeEdits(scopeKey, [earlier.id])
         await store.putEdit(scopeKey, {
           kind: 'cell',
@@ -474,6 +505,7 @@ export function OfflineEditsProvider({
           expectedRevision: earlier?.expectedRevision ?? sheet.revision,
         })
       }
+
       refresh()
     },
     [store, scope.userId, scope.recordId, refresh],
@@ -536,6 +568,7 @@ export function useOfflineEdits(): OfflineEditsContextValue {
 /** Whether the text block `blockId` has an unsynced local edit. */
 export function useUnsyncedBlock(blockId: string): boolean {
   const { isUnsynced } = useOfflineEdits()
+
   return isUnsynced(blockEditTargetKey(blockId))
 }
 
@@ -548,6 +581,7 @@ export function useUnsyncedCellState(
   sheetInstanceId: string,
 ): (rowId: string, columnId: string) => 'unsynced' | undefined {
   const { isUnsynced } = useOfflineEdits()
+
   return React.useCallback(
     (rowId: string, columnId: string) =>
       isUnsynced(cellEditTargetKey(sheetInstanceId, rowId, columnId))
@@ -575,10 +609,13 @@ export function isConnectionDown(status: LiveStatus['status']): boolean {
 export function useIsOnline(status?: LiveStatus): boolean {
   const coordinator = useLiveCoordinator()
   const live = useLiveStatus()
+
   if (status) return !isConnectionDown(status.status)
+
   // Without a mounted stream (SSR, a public route, a test render) there is no
   // evidence the connection is down, so nothing is claimed offline.
   if (!coordinator) return true
+
   return !isConnectionDown(live.status)
 }
 
@@ -595,5 +632,6 @@ export function useLastSyncedAt(status: LiveStatus): string | null {
     if (!live && seq === 0) return
     setLastSyncedAt(new Date().toISOString())
   }, [live, seq])
+
   return lastSyncedAt
 }

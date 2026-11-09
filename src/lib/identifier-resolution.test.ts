@@ -13,10 +13,14 @@ const UUID = '4c0e6d8a-1f2b-4a3c-9d4e-5f60718293a4'
 /** Read the href off a TanStack Router redirect without an unchecked cast. */
 function redirectHref(value: unknown): string | undefined {
   if (!(value instanceof Response)) return undefined
+
   if (!('options' in value)) return undefined
   const options = value.options
+
   if (typeof options !== 'object' || options === null) return undefined
+
   if (!('href' in options)) return undefined
+
   return typeof options.href === 'string' ? options.href : undefined
 }
 
@@ -71,6 +75,7 @@ describe('resolveIdentifierParam', () => {
 
   it('redirects a resolved identifier to its canonical UUID URL', async () => {
     const resolve = vi.fn().mockResolvedValue(UUID)
+
     const thrown = await resolveIdentifierParam(
       {
         entity: 'project',
@@ -79,6 +84,7 @@ describe('resolveIdentifierParam', () => {
       },
       resolve,
     ).catch((error: unknown) => error)
+
     expect(resolve).toHaveBeenCalledWith({
       entity: 'project',
       identifier: 'PRJ-0217',
@@ -109,10 +115,12 @@ describe('redirectExperimentRecord', () => {
 
   it('sends an experiment record URL to the experiment page, keeping search and hash', async () => {
     const resolve = vi.fn().mockResolvedValue('experiment')
+
     const thrown = await redirectExperimentRecord(
       at(`/records/${UUID}/notebook`),
       resolve,
     ).catch((e: unknown) => e)
+
     expect(redirectHref(thrown)).toBe(
       `/experiments/${UUID}/notebook?revision=r1#b2`,
     )

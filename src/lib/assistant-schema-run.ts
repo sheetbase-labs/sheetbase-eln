@@ -28,11 +28,13 @@ export async function runSchemaAction(
           p_identifier_prefix: action.prefix,
           p_description: action.description,
         })
+
       return { openHref: `/models/${action.key}` }
     case 'schema.field_retire':
       await client.rpc('retire_model_field', {
         p_definition_id: action.fieldId,
       })
+
       return
     case 'schema.option_add':
       await client.rpc('create_model_field_option', {
@@ -41,6 +43,7 @@ export async function runSchemaAction(
         p_label: action.label,
         p_display_order: action.order,
       })
+
       return
     case 'schema.option_rename':
       await client.rpc('update_model_field_option', {
@@ -48,11 +51,13 @@ export async function runSchemaAction(
         p_label: action.label,
         p_display_order: action.order,
       })
+
       return
     case 'schema.option_retire':
       await client.rpc('retire_model_field_option', {
         p_option_id: action.optionId,
       })
+
       return
     case 'schema.rule_add':
       await client.rpc('create_model_rule', {
@@ -64,15 +69,18 @@ export async function runSchemaAction(
         p_effect: action.effect,
         p_message: action.message,
       })
+
       return
     case 'schema.rule_update':
       await client.rpc('update_model_rule', {
         p_rule_id: action.ruleId,
         p_patch: action.patch,
       })
+
       return
     case 'schema.rule_remove':
       await client.rpc('remove_model_rule', { p_rule_id: action.ruleId })
+
       return
     case 'schema.link_rule_set':
       await client.rpc('configure_model_relationship_rule', {
@@ -84,28 +92,33 @@ export async function runSchemaAction(
         p_max_links: action.max,
         p_label: action.label,
       })
+
       return
     case 'schema.link_rule_remove':
       await client.rpc('remove_model_relationship_rule', {
         p_rule_id: action.ruleId,
       })
+
       return
     case 'schema.model_version_start':
       await client.rpc('create_record_model_version', {
         p_model_id: action.modelId,
         p_reason: action.reason,
       })
+
       return
     case 'schema.model_version_publish':
       await client.rpc('publish_record_model_version', {
         p_version_id: action.versionId,
       })
+
       return
     case 'schema.sheet_definition_publish':
       await client.rpc('publish_sheet_definition_version', {
         p_version_id: action.versionId,
         p_expected_revision: action.revision,
       })
+
       return
     case 'schema.sheet_definition_lifecycle':
       await client.rpc(
@@ -115,6 +128,7 @@ export async function runSchemaAction(
           p_expected_revision: action.revision,
         },
       )
+
       return
     case 'schema.template_publish':
       await client.rpc('publish_notebook_template_version', {
@@ -122,6 +136,7 @@ export async function runSchemaAction(
         p_expected_revision: action.revision,
         p_reason: action.reason,
       })
+
       return
     case 'schema.sheet_rename':
       await client.rpc('rename_sheet_instance', {
@@ -129,6 +144,7 @@ export async function runSchemaAction(
         p_expected_revision: action.revision,
         p_name: action.name,
       })
+
       return { openHref: `/sheets/${action.instanceId}` }
   }
 }

@@ -33,7 +33,9 @@ const meta = {
   ],
   args: { onReload: () => {}, onMerge: () => {}, onKeepMine: () => {} },
 } satisfies Meta<typeof DraftConflictBanner>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /**

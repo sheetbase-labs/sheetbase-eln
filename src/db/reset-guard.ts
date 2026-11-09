@@ -16,6 +16,7 @@ export interface ResettableTarget {
 
 export function parseResettableDatabaseUrl(url: string): ResettableTarget {
   let parsed: URL
+
   try {
     parsed = new URL(url)
   } catch {
@@ -30,6 +31,7 @@ export function parseResettableDatabaseUrl(url: string): ResettableTarget {
   }
 
   const databaseName = parsed.pathname.replace(/^\//, '')
+
   if (!RESETTABLE_DATABASES.test(databaseName)) {
     throw new Error(
       `Refusing to reset database "${databaseName}". ` +

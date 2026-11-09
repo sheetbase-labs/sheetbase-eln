@@ -7,17 +7,21 @@ import {
 } from './pipeline-python.server'
 
 const runtime = `ghcr.io/example/python@sha256:${'a'.repeat(64)}`
+
 const job = {
   statement: 'def transform(inputs, parameters): return inputs["data"]',
   inputs: { data: [{ value: '0.000000001', time: '2026-01-01T00:00:00Z' }] },
   parameters: { scale: 2 },
 }
+
 const fetchMock = vi.fn()
+
 beforeEach(() => {
   vi.stubEnv('PIPELINE_PYTHON_RUNNER_URL', 'http://runner:8080')
   vi.stubEnv('PIPELINE_PYTHON_RUNNER_TOKEN', 'test-token-'.repeat(4))
   vi.stubGlobal('fetch', fetchMock)
 })
+
 afterEach(() => {
   vi.unstubAllEnvs()
   vi.unstubAllGlobals()
@@ -118,6 +122,7 @@ describe('isolated Python client', () => {
   })
   it('bounds streamed output even without Content-Length', async () => {
     let cancelled = false
+
     const body = new ReadableStream({
       start(controller) {
         controller.enqueue(new Uint8Array(32 * 1024 * 1024 + 1))
@@ -126,6 +131,7 @@ describe('isolated Python client', () => {
         cancelled = true
       },
     })
+
     fetchMock.mockResolvedValue(new Response(body))
     await expect(executePythonTransform(job)).rejects.toMatchObject({
       code: 'output_too_large',
@@ -169,19 +175,24 @@ describe('Python contract and environment', () => {
     fetchMock.mockResolvedValue(
       Response.json({ rows: [{ a: 1 }], logs: [], runtime, environment }),
     )
+
     const contract = {
       output: { columns: [{ name: 'a', type: 'integer' as const }] },
     }
+
     const result = await executePythonTransform({
       ...job,
       requirements: ['scipy==1.15.3'],
       contract,
     })
+
     expect(result.environment).toEqual(environment)
+
     const sent = JSON.parse(fetchMock.mock.calls[0][1].body as string) as {
       requirements: string[]
       contract: unknown
     }
+
     expect(sent.requirements).toEqual(['scipy==1.15.3'])
     expect(sent.contract).toEqual(contract)
   })
@@ -197,9 +208,11 @@ describe('Python contract and environment', () => {
         { status: 422 },
       ),
     )
+
     const error = await executePythonTransform(job).catch(
       (cause: unknown) => cause,
     )
+
     expect(error).toBeInstanceOf(PipelinePythonError)
     expect(error).toMatchObject({
       code: 'transform_failed',

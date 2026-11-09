@@ -11,6 +11,7 @@ export const Route = createFileRoute('/experiments/$expId/notebook_/$part')({
 function ExperimentNotebookPart() {
   const { context } = Route.useRouteContext()
   const { expId, part } = Route.useParams()
+
   return (
     <RecordNotebookPage
       context={context}

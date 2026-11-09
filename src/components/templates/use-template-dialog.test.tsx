@@ -21,9 +21,11 @@ const READ_ONLY = '00000000-0000-4000-8000-0000000000a2'
 const VERSION = '00000000-0000-4000-8000-000000000001'
 
 const nav = vi.hoisted(() => vi.fn())
+
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => nav,
 }))
+
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
@@ -33,8 +35,10 @@ const client = vi.hoisted(() => ({
   count: vi.fn(),
   rpc: vi.fn(),
 }))
+
 vi.mock('#/lib/notebook-template-data', async (importOriginal) => {
   const actual = await importOriginal<object>()
+
   return {
     ...actual,
     notebookTemplateDataClient: client,
@@ -150,6 +154,7 @@ describe('UseTemplateDialog', () => {
             can_edit: false,
           },
         ]
+
       return {
         record: { id: 'rec-1', project_id: PROJECT, identifier: 'EXP-9' },
         templateVersionId: VERSION,
@@ -176,9 +181,11 @@ describe('UseTemplateDialog', () => {
         params: { expId: 'rec-1' },
       }),
     )
+
     const call = client.rpc.mock.calls.find(
       ([name]) => name === 'instantiate_notebook_template_version',
     )
+
     expect(call?.[1]).toMatchObject({
       p_version_id: VERSION,
       p_target_project_id: PROJECT,

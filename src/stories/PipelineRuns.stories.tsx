@@ -52,7 +52,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const choices = [
@@ -63,6 +65,7 @@ const choices = [
     schemaName: 'Plate reader',
   },
 ]
+
 const aiLive = {
   workspaceId: 'ws-1',
   readiness: {
@@ -72,6 +75,7 @@ const aiLive = {
     dataClass: 'cloud',
   },
 }
+
 const client = screenQueryClient({
   data: [
     {
@@ -242,6 +246,7 @@ const run = {
     },
   },
 }
+
 const output: PipelineRunOutputWire = {
   id: 'o-1',
   workspace_id: 'ws-1',

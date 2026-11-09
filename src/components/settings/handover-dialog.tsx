@@ -56,10 +56,12 @@ export function HandoverDialog({
   const [recipient, setRecipient] = useState('')
   const [result, setResult] = useState<HandoverResult | null>(null)
   const bulk = useBulkSelection()
+
   const preview = useQuery({
     queryKey: handoverKeys.preview(workspaceId, userId),
     queryFn: () => fetchHandoverPreview(dataClient, { workspaceId, userId }),
   })
+
   const items = preview.data ?? []
 
   // Everything open starts ticked: handing over is usually all of it.
@@ -90,6 +92,7 @@ export function HandoverDialog({
 
   const recipientName =
     candidates.find((candidate) => candidate.id === recipient)?.label ?? ''
+
   const columns: RegistryColumn<HandoverItem>[] = [
     {
       id: 'work',
@@ -225,8 +228,11 @@ export function OpenWorkNotice({
     queryKey: handoverKeys.preview(workspaceId, userId),
     queryFn: () => fetchHandoverPreview(dataClient, { workspaceId, userId }),
   })
+
   const total = (preview.data ?? []).reduce((sum, item) => sum + item.count, 0)
+
   if (total === 0) return null
+
   return (
     <Notice
       tone="warn"

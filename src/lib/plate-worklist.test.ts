@@ -15,6 +15,7 @@ const dest: DestinationWell[] = [
   { wellCode: 'A2', sampleId: 's1', label: 'S-1', volumeUl: 5 },
   { wellCode: 'B2', sampleId: null, label: 'DMSO', volumeUl: null },
 ]
+
 const base = {
   sourcePlate: 'SRC',
   sourceFormat: '384_well' as const,
@@ -47,6 +48,7 @@ describe('buildWorklist', () => {
         maxVolumeUl: 8,
       },
     )
+
     const codes = p.issues.map((i) => i.code)
     expect(codes).toContain('no_volume')
     expect(codes).toContain('source_overdraw')
@@ -58,15 +60,18 @@ describe('buildWorklist', () => {
       mode: 'cherry_pick',
       sourceFormat: '6_well',
     })
+
     expect(p.issues.filter((i) => i.code === 'source_plate_full')).toHaveLength(
       0,
     )
+
     const many = Array.from({ length: 8 }, (_, i) => ({
       wellCode: `A${i + 1}`,
       sampleId: `x${i}`,
       label: `x${i}`,
       volumeUl: 1,
     }))
+
     expect(
       buildWorklist(many, {
         ...base,
@@ -80,10 +85,12 @@ describe('buildWorklist', () => {
 
 describe('writers', () => {
   const plan = buildWorklist(dest, { ...base, mode: 'cherry_pick' })
+
   const opts = {
     sourceFormat: '384_well' as const,
     destFormat: '96_well' as const,
   }
+
   it('counts positions down columns', () => {
     expect(wellPosition('A1', 8)).toBe(1)
     expect(wellPosition('B1', 8)).toBe(2)
@@ -103,10 +110,12 @@ describe('writers', () => {
     expect(writeWorklist('hamilton', plan.transfers, opts)).toContain(
       'SourcePosition',
     )
+
     const py = writeWorklist('opentrons', plan.transfers, {
       ...opts,
       title: 'My "run"',
     })
+
     expect(py).toContain('("A1", "A1", 10)')
     expect(py).toContain('apiLevel')
     expect(py).not.toContain('My "run"')
@@ -119,6 +128,7 @@ describe('run log', () => {
     const log = parseRunLog(
       'Source Well,Destination Well,Actual Volume,Status\nA1,A1,10,ok\nA1,A2,3,ok\nB1,B1,10,failed\n',
     )
+
     expect(log.entries).toHaveLength(3)
     const r = reconcileRunLog(plan.transfers, log.entries)
     const by = (w: string) => r.find((t) => t.destWell === w)!
@@ -135,6 +145,7 @@ describe('run log', () => {
       'Source Well,Destination Well,Actual Volume\nA1,A1,2500',
       { volumeUnit: 'nl' },
     )
+
     expect(log.entries[0].actualUl).toBe(2.5)
   })
   it('says when it cannot find the wells', () => {

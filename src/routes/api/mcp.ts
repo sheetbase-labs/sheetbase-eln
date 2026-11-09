@@ -57,27 +57,33 @@ function rpcFailure(
 
 function bearerToken(request: Request): string | null {
   const header = request.headers.get('authorization')
+
   if (!header) return null
   const match = /^Bearer\s+(\S+)$/i.exec(header.trim())
+
   return match?.[1] ?? null
 }
 
 function methodOf(body: unknown): string {
   if (body === null || typeof body !== 'object') return 'unknown'
   const method = (body as Record<string, unknown>).method
+
   return typeof method === 'string' ? method.slice(0, 80) : 'unknown'
 }
 
 function toolOf(body: unknown): string | null {
   if (body === null || typeof body !== 'object') return null
   const params = (body as Record<string, unknown>).params
+
   if (params === null || typeof params !== 'object') return null
   const name = (params as Record<string, unknown>).name
+
   return typeof name === 'string' ? name.slice(0, 120) : null
 }
 
 async function handleMcp(request: Request): Promise<Response> {
   const token = bearerToken(request)
+
   if (!token) {
     return rpcFailure(
       401,
@@ -88,28 +94,36 @@ async function handleMcp(request: Request): Promise<Response> {
   }
 
   let credential
+
   try {
     credential = await verifyCredential(db, token)
   } catch (error) {
     if (error instanceof CredentialError) {
       const status = error.code === 'rate_limited' ? 429 : 401
+
       return rpcFailure(status, JSON_RPC_ERRORS.invalidRequest, error.message, {
         'www-authenticate': 'Bearer realm="sheetbase"',
         ...(status === 429 ? { 'retry-after': '60' } : {}),
       })
     }
+
     throw error
   }
 
   const declaredLength = Number(request.headers.get('content-length') ?? '0')
+
   if (Number.isFinite(declaredLength) && declaredLength > MAX_BODY_BYTES) {
     return rpcFailure(413, JSON_RPC_ERRORS.invalidRequest, 'Request too large.')
   }
+
   const text = await request.text()
+
   if (text.length > MAX_BODY_BYTES) {
     return rpcFailure(413, JSON_RPC_ERRORS.invalidRequest, 'Request too large.')
   }
+
   let body: unknown
+
   try {
     body = JSON.parse(text) as unknown
   } catch {
@@ -154,6 +168,7 @@ async function handleMcp(request: Request): Promise<Response> {
 
   const client = createServerDataClient(postgrestToken)
   let flags: AiFeatureFlags
+
   try {
     flags = await readAiFeatureFlags(client, credential.workspaceId)
   } catch (error) {
@@ -183,16 +198,20 @@ async function handleMcp(request: Request): Promise<Response> {
   }
 
   const response = await handleMcpBody(body, context)
+
   if (response === null) {
     return new Response(null, {
       status: 202,
       headers: { 'cache-control': 'no-store' },
     })
   }
+
   const headers: Record<string, string> = {}
+
   if (method === 'initialize') {
     headers['mcp-session-id'] = crypto.randomUUID()
   }
+
   return jsonResponse(response, 200, headers)
 }
 

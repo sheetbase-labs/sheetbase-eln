@@ -64,9 +64,11 @@ async function loadInstance(
     `SELECT id, revision::text, state FROM api.sheet_instances WHERE id = $1`,
     [instanceId],
   )
+
   if (!loaded.rows[0]) {
     throw new Error(`Sheet Instance ${instanceId} was not found after insert`)
   }
+
   return asInstance(loaded.rows[0])
 }
 
@@ -79,10 +81,13 @@ async function insertSheetInstanceBlock(
     `SELECT api.insert_sheet_instance_block($1,NULL,NULL,$2) result`,
     [recordId, instanceId],
   )
+
   const createdId = created.rows[0]?.result?.instance?.id
+
   if (!createdId) {
     throw new Error('insert_sheet_instance_block did not return an Instance')
   }
+
   return loadInstance(client, createdId)
 }
 
@@ -103,6 +108,7 @@ export async function ensureNotebookSheetInstance(
       LIMIT 1`,
     [recordId],
   )
+
   if (fromBlock.rows[0]) return asInstance(fromBlock.rows[0])
 
   const owned = await client.query<{
@@ -117,9 +123,11 @@ export async function ensureNotebookSheetInstance(
       LIMIT 1`,
     [recordId],
   )
+
   if (owned.rows[0]) {
     return insertSheetInstanceBlock(client, recordId, owned.rows[0].id)
   }
+
   return insertSheetInstanceBlock(client, recordId, null)
 }
 
@@ -135,6 +143,7 @@ export async function seedAdHocSheetGrid(
     string,
     unknown
   >
+
   if (Object.keys(localValues).length >= input.rows.length) return
 
   const existingFields = (instance.state.localFields ?? []) as Array<{
@@ -142,23 +151,30 @@ export async function seedAdHocSheetGrid(
     key: string
     lifecycle: string
   }>
+
   const active = existingFields.filter((field) => field.lifecycle === 'active')
+
   if (active.length === 0) {
     throw new Error('ad-hoc Sheet Instance is missing its default local field')
   }
+
   const first = active[0]
 
   const existingKeys = new Set(active.map((field) => field.key))
+
   const alreadyConfigured = input.fields.every((field) =>
     existingKeys.has(field.key),
   )
+
   const [primary, ...extra] = input.fields
+
   const fieldChanges = alreadyConfigured
     ? []
     : [
         { operation: 'edit', field: { ...primary, fieldId: first.fieldId } },
         ...extra.map((field) => ({ operation: 'add', field })),
       ]
+
   const idByKey = Object.fromEntries(
     alreadyConfigured
       ? active.map((field) => [field.key, field.fieldId])
@@ -167,7 +183,9 @@ export async function seedAdHocSheetGrid(
           ...extra.map((field) => [field.key, field.fieldId]),
         ],
   )
+
   const rows = input.rows.map((row) => ({ kind: 'local', rowKey: row.rowKey }))
+
   const cells = input.rows.flatMap((row) =>
     input.fields.map((field) => ({
       rowKey: row.rowKey,
@@ -210,6 +228,7 @@ export function virusStabilitySheetRows(): Array<{
   values: Record<string, string | number>
 }> {
   const timePoints = [0, 3, 7, 14, 21, 28, 42, 56] as const
+
   const profiles = [
     {
       condition: 'Control',
@@ -236,16 +255,21 @@ export function virusStabilitySheetRows(): Array<{
       losses: [0, 0.02, 0.04, 0.08, 0.13, 0.19, 0.29, 0.41],
     },
   ] as const
+
   return profiles.flatMap((profile, profileIndex) =>
     timePoints.map((time, index) => {
       const logTiter = Number(
         (profile.start - profile.losses[index]).toFixed(2),
       )
+
       const recovery = Number((100 * 10 ** -profile.losses[index]).toFixed(1))
+
       const potency = Number(
         Math.max(0, 98 - profile.losses[index] * 48).toFixed(1),
       )
+
       const rowIndex = profileIndex * timePoints.length + index
+
       return {
         rowKey: seedUuid(0x1e0 + rowIndex),
         values: {
@@ -281,6 +305,7 @@ export function monthShowcaseSheetRows(): Array<{
 }> {
   const constructs = ['CD19-CAR', 'BCMA-CAR'] as const
   const mois = [1, 3, 5, 10] as const
+
   return constructs.flatMap((construct, constructIndex) =>
     mois.map((moi, index) => ({
       rowKey: seedUuid(0x5e0 + constructIndex * mois.length + index),

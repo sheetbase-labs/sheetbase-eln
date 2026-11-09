@@ -51,9 +51,11 @@ export function LoadMore({
 }) {
   const counted = loaded != null && total != null
   const failed = error != null
+
   // Nothing to say and nothing to do: a screen that has read everything and
   // prints no end label keeps its own footer rather than an empty landmark.
   if (!failed && !hasMore && !counted && endLabel == null) return null
+
   return (
     <nav
       aria-label={label}

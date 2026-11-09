@@ -57,7 +57,9 @@ const CLASHING: DataClientStub = {
 const meta = {
   title: 'Schedule/Book dialog',
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function Dialog({

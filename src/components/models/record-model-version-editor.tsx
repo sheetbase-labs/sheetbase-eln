@@ -47,11 +47,13 @@ export function RecordModelVersionEditor({
 }) {
   const [definition, setDefinition] = useState(version.definition)
   const [reason, setReason] = useState('')
+
   const [scope, setScope] = useState<ModelChangeScope>(
     version.definition.migrationScope === 'also-migrate-open-experiments'
       ? 'also-migrate-open-experiments'
       : 'new-records-only',
   )
+
   const [key, setKey] = useState('')
   const [label, setLabel] = useState('')
   const [logicalType, setLogicalType] = useState<FieldLogicalType>('text')
@@ -69,8 +71,10 @@ export function RecordModelVersionEditor({
 
   function updateValidation(id: string, bound: 'min' | 'max', raw: string) {
     const field = definition.fields.find((item) => item.id === id)
+
     if (!field) return
     const validation = { ...field.validation }
+
     if (raw === '') delete validation[bound]
     else validation[bound] = Number(raw)
     updateField(id, { validation })
@@ -82,7 +86,9 @@ export function RecordModelVersionEditor({
     value: string,
   ) {
     const field = definition.fields.find((item) => item.id === id)
+
     if (!field) return
+
     const quantity = {
       kind: '',
       dimension: '',
@@ -90,6 +96,7 @@ export function RecordModelVersionEditor({
       ...field.quantity,
       [property]: value.trim(),
     }
+
     updateField(id, {
       quantity:
         quantity.kind || quantity.dimension || quantity.storageUnit
@@ -106,6 +113,7 @@ export function RecordModelVersionEditor({
         // has been collapsed, so the browser can focus the actual control.
         if (event.target instanceof HTMLElement) {
           const details = event.target.closest('details')
+
           if (details) details.open = true
         }
       }}
@@ -133,15 +141,19 @@ export function RecordModelVersionEditor({
         ) : null}
         {definition.fields.map((field) => {
           const locked = publishedFieldNames.includes(field.field_name)
+
           const numeric =
             field.logical_type === 'integer' || field.logical_type === 'decimal'
+
           const quantity = field.quantity
+
           const unit =
             quantity &&
             typeof quantity === 'object' &&
             'storageUnit' in quantity
               ? quantity.storageUnit
               : undefined
+
           return (
             <details
               key={field.id}
@@ -364,6 +376,7 @@ export function RecordModelVersionEditor({
                           ...current,
                           [field.id]: event.target.value,
                         }))
+
                         const keys = [
                           ...new Set(
                             event.target.value
@@ -372,6 +385,7 @@ export function RecordModelVersionEditor({
                               .filter(Boolean),
                           ),
                         ]
+
                         const existing = field.options ?? []
                         updateField(field.id, {
                           category_source: { kind: 'embedded' },
@@ -548,8 +562,10 @@ export function RecordModelVersionEditor({
                   'library.models.recordModelVersionEditor.useAUniqueLowercaseField',
                 ),
               )
+
               return
             }
+
             setDefinition((current) => ({
               ...current,
               fields: [

@@ -89,9 +89,12 @@ export interface CodeCellDeps extends SessionAuthDeps {
 /** Stable JSON: object keys sorted, so the same rows always give the same digest. */
 export function canonicalJson(value: unknown): string {
   if (value === undefined) return 'null'
+
   if (value === null || typeof value !== 'object') return JSON.stringify(value)
+
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
   const record = value as Record<string, unknown>
+
   return `{${Object.keys(record)
     .sort()
     .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
@@ -123,9 +126,11 @@ function firstWord(sql: string): string {
 /** One read-only statement, without its trailing semicolon. */
 export function singleSelect(source: string): string {
   const statement = source.trim().replace(/;+\s*$/, '')
+
   if (statement === '') {
     throw new CodeCellError(400, 'invalid_request', 'Write a query to run.')
   }
+
   if (statement.includes(';')) {
     throw new CodeCellError(
       400,
@@ -133,6 +138,7 @@ export function singleSelect(source: string): string {
       'Run one query at a time: use a single SELECT.',
     )
   }
+
   if (!['select', 'with', 'values', 'table'].includes(firstWord(statement))) {
     throw new CodeCellError(
       400,
@@ -140,6 +146,7 @@ export function singleSelect(source: string): string {
       'A SQL cell reads data: start with SELECT or WITH.',
     )
   }
+
   return statement
 }
 
@@ -162,33 +169,41 @@ export async function runSandboxSql(input: {
   inputs: LoadedInput[]
 }): Promise<ExecutionResult> {
   const statement = singleSelect(input.source)
+
   const { connectPipelineSandbox, SandboxUnavailableError } =
     await import('../pipeline-sandbox.server')
+
   let conn
+
   try {
     conn = await connectPipelineSandbox()
   } catch (error) {
     if (error instanceof SandboxUnavailableError) {
       throw new CodeCellError(503, 'runner_unavailable', error.message)
     }
+
     throw new CodeCellError(
       503,
       'runner_unavailable',
       'The SQL sandbox is unavailable. Ask an administrator to check it.',
     )
   }
+
   try {
     await conn.query('BEGIN')
+
     for (const table of input.inputs) {
       const columns = table.columns.length
         ? table.columns
         : [{ key: 'value', label: 'value', type: 'text' }]
+
       const name = quote(table.alias)
       await conn.query(
         `CREATE TEMP TABLE ${name} (${columns
           .map((c) => `${quote(c.key)} ${SQL_TYPES[c.type] ?? 'text'}`)
           .join(', ')}) ON COMMIT DROP`,
       )
+
       for (let i = 0; i < table.rows.length; i += 2_000) {
         await conn.query(
           `INSERT INTO pg_temp.${name}
@@ -197,12 +212,16 @@ export async function runSandboxSql(input: {
         )
       }
     }
+
     await conn.query('SET TRANSACTION READ ONLY')
     await conn.query(`SET LOCAL statement_timeout = '${SQL_TIMEOUT_SECONDS}s'`)
+
     const result = await conn.query<{ doc: Record<string, unknown> }>(
       `SELECT to_jsonb(q) AS doc FROM (\n${statement}\n) q LIMIT ${SQL_ROW_LIMIT + 1}`,
     )
+
     await conn.query('ROLLBACK')
+
     return {
       rows: result.rows.slice(0, SQL_ROW_LIMIT).map((r) => r.doc),
       logs:
@@ -214,6 +233,7 @@ export async function runSandboxSql(input: {
     }
   } catch (error) {
     await conn.query('ROLLBACK').catch(() => {})
+
     if (error instanceof CodeCellError) throw error
     throw new CodeCellError(
       422,
@@ -232,12 +252,14 @@ export async function runPython(input: {
 }): Promise<ExecutionResult> {
   const { executePythonTransform, PipelinePythonError } =
     await import('../pipeline-python.server')
+
   try {
     const result = await executePythonTransform({
       statement: input.source,
       inputs: input.inputs,
       parameters: {},
     })
+
     return {
       rows: result.rows,
       logs: result.logs,
@@ -251,12 +273,14 @@ export async function runPython(input: {
       if (error.code === 'runner_unavailable') {
         throw new CodeCellError(503, 'runner_unavailable', error.message)
       }
+
       throw new CodeCellError(
         422,
         'code_failed',
         error.line ? `${error.message} (line ${error.line})` : error.message,
       )
     }
+
     throw error
   }
 }
@@ -282,8 +306,10 @@ async function loadInputs(
   inputs: Array<{ alias: string; datasetVersionId: string }>,
 ): Promise<LoadedInput[]> {
   const loaded: LoadedInput[] = []
+
   for (const input of inputs) {
     let doc: DatasetJson
+
     try {
       doc = await client.rpc<DatasetJson>('dataset_version_rows_json', {
         p_version_id: input.datasetVersionId,
@@ -298,6 +324,7 @@ async function loadInputs(
           : `${input.alias}: that dataset version is not available.`,
       )
     }
+
     if (doc.truncated) {
       throw new CodeCellError(
         413,
@@ -305,6 +332,7 @@ async function loadInputs(
         `${input.alias} has more than ${INPUT_ROW_LIMIT} rows, which is more than a code cell reads.`,
       )
     }
+
     loaded.push({
       alias: input.alias,
       datasetVersionId: input.datasetVersionId,
@@ -315,6 +343,7 @@ async function loadInputs(
       digest: digestRows(doc.rows),
     })
   }
+
   return loaded
 }
 
@@ -335,8 +364,10 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     throw new CodeCellError(400, 'invalid_request', 'Send a JSON object.')
   }
+
   const body = raw as Record<string, unknown>
   const action = body['action']
+
   if (action !== 'run' && action !== 'reproduce') {
     throw new CodeCellError(
       400,
@@ -344,7 +375,9 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
       'action must be run or reproduce.',
     )
   }
+
   const recordId = body['recordId']
+
   if (typeof recordId !== 'string' || !UUID.test(recordId)) {
     throw new CodeCellError(
       400,
@@ -352,7 +385,9 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
       'recordId must be an experiment id.',
     )
   }
+
   const blockId = body['blockId']
+
   if (
     blockId !== undefined &&
     blockId !== null &&
@@ -364,19 +399,25 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
       'blockId must be a block id.',
     )
   }
+
   const out: CodeCellRunRequest = {
     action,
     recordId,
     blockId: blockId ?? null,
   }
+
   if (action === 'reproduce') {
     const runId = body['runId']
+
     if (typeof runId !== 'string' || !UUID.test(runId)) {
       throw new CodeCellError(400, 'invalid_request', 'runId must be a run id.')
     }
+
     out.runId = runId
+
     return out
   }
+
   if (!isCodeCellLanguage(body['language'])) {
     throw new CodeCellError(
       400,
@@ -384,8 +425,10 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
       'language must be python or sql.',
     )
   }
+
   out.language = body['language']
   const source = body['source']
+
   if (
     typeof source !== 'string' ||
     source.trim() === '' ||
@@ -397,8 +440,10 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
       'Write some code to run (up to 50,000 characters).',
     )
   }
+
   out.source = source
   const inputs = body['inputs'] ?? []
+
   if (!Array.isArray(inputs) || inputs.length > MAX_CODE_CELL_INPUTS) {
     throw new CodeCellError(
       400,
@@ -406,11 +451,13 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
       `A cell reads up to ${MAX_CODE_CELL_INPUTS} datasets.`,
     )
   }
+
   const seen = new Set<string>()
   out.inputs = inputs.map((entry: unknown) => {
     const row = (entry ?? {}) as Record<string, unknown>
     const alias = row['alias']
     const versionId = row['datasetVersionId']
+
     if (typeof alias !== 'string' || !CODE_CELL_ALIAS.test(alias)) {
       throw new CodeCellError(
         400,
@@ -418,6 +465,7 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
         'Name each input with letters, digits and underscores.',
       )
     }
+
     if (seen.has(alias)) {
       throw new CodeCellError(
         400,
@@ -425,7 +473,9 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
         `The name ${alias} is used twice.`,
       )
     }
+
     seen.add(alias)
+
     if (typeof versionId !== 'string' || !UUID.test(versionId)) {
       throw new CodeCellError(
         400,
@@ -433,8 +483,10 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
         `${alias} needs a dataset version.`,
       )
     }
+
     return { alias, datasetVersionId: versionId }
   })
+
   return out
 }
 
@@ -450,15 +502,19 @@ export async function runCodeCell(
   let source = request.source
   let inputsRequested = request.inputs ?? []
   let blockId = request.blockId ?? null
+
   if (request.action === 'reproduce') {
     const rows = await client.list<RunRow>(
       'code_cell_runs',
       `select=id,number,block_id,record_id,language,source,inputs,output,output_digest,ran_at&id=eq.${request.runId}&limit=1`,
     )
+
     original = rows.at(0) ?? null
+
     if (!original) {
       throw new CodeCellError(404, 'not_found', 'That run is not here.')
     }
+
     language = original.language
     source = original.source
     inputsRequested = original.inputs.map((i) => ({
@@ -467,6 +523,7 @@ export async function runCodeCell(
     }))
     blockId = original.block_id
   }
+
   if (!language || source === undefined) {
     throw new CodeCellError(400, 'invalid_request', 'Nothing to run.')
   }
@@ -475,6 +532,7 @@ export async function runCodeCell(
   const started = now()
   let execution: ExecutionResult | null = null
   let failure: string | null = null
+
   try {
     execution =
       language === 'python'
@@ -490,6 +548,7 @@ export async function runCodeCell(
       throw error
     }
   }
+
   const duration = Math.max(0, now() - started)
   const rows = execution?.rows ?? []
   const columns = [...new Set(rows.flatMap((row) => Object.keys(row)))]
@@ -499,6 +558,7 @@ export async function runCodeCell(
 
   let matches: boolean | null = null
   let diff: ReproduceDiff | null = null
+
   if (original) {
     if (failure || !execution) {
       matches = false
@@ -592,20 +652,26 @@ export async function handleCodeCell(
   if (request.method !== 'POST') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
   }
+
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok) {
     return requestErrorResponse(auth.status, auth.code, auth.message)
   }
+
   try {
     const parsed = parseRequest(await request.json().catch(() => null))
+
     const client = (deps.createClient ?? createServerDataClient)(
       auth.context.token,
     )
+
     return Response.json(await runCodeCell(client, parsed, deps))
   } catch (error) {
     if (error instanceof CodeCellError) {
       return requestErrorResponse(error.status, error.code, error.message)
     }
+
     return requestErrorResponse(
       422,
       'code_failed',

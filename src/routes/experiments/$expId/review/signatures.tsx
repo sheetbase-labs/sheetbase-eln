@@ -22,14 +22,17 @@ function Signatures() {
   const { expId } = Route.useParams()
   const navigate = useNavigate()
   const { data: record } = useExperimentRecord(expId)
+
   const signatures = useQuery({
     queryKey: signatureQueryKeys.forRecord(expId),
     queryFn: () => fetchSignaturesForRecord(notebookDataClient, expId),
   })
+
   const revisions = useQuery({
     queryKey: notebookQueryKeys.revisions(expId),
     queryFn: () => fetchRevisionsForRecord(notebookDataClient, expId),
   })
+
   // Approval ends the review but is not the signature: say what is missing and
   // put the way to give it here, where the person is looking for it.
   const awaitingSignature =
@@ -37,6 +40,7 @@ function Signatures() {
     signatures.isSuccess &&
     signatures.data.length === 0 &&
     (revisions.data?.length ?? 0) > 0
+
   return (
     <div className="min-w-0 flex-1 px-4 md:px-8">
       {awaitingSignature ? (

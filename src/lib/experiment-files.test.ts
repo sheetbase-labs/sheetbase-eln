@@ -30,9 +30,11 @@ describe('uploadFileToExperiment', () => {
         ),
       )
       .mockResolvedValueOnce(new Response('{}', { status: 200 }))
+
     vi.stubGlobal('fetch', fetchMock)
     const rpc = vi.fn(async () => ({}))
     const file = new File(['x'], 'run.csv', { type: 'text/csv' })
+
     const result = await uploadFileToExperiment(
       { rpc } as unknown as DataClient,
       {
@@ -41,6 +43,7 @@ describe('uploadFileToExperiment', () => {
         file,
       },
     )
+
     expect(result.fileIdentifier).toBe('FILE-0009')
     expect(fetchMock.mock.calls[1][0]).toBe('/api/files/rec-1/upload')
     expect(rpc).toHaveBeenCalledWith('create_record_link', {
@@ -80,6 +83,7 @@ describe('uploadFileVersion', () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(Response.json({ version: 3 }, { status: 200 }))
+
     vi.stubGlobal('fetch', fetchMock)
     const file = new File(['a,b'], 'plates v2.csv', { type: 'text/csv' })
     const result = await uploadFileVersion({ fileId: 'f-1', file })

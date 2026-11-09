@@ -20,10 +20,12 @@ import { REFERENCE_COLORS } from './reference-colors'
 export function columnToLetter(col: number): string {
   let letter = ''
   let n = col
+
   while (n >= 0) {
     letter = String.fromCharCode(65 + (n % 26)) + letter
     n = Math.floor(n / 26) - 1
   }
+
   return letter
 }
 
@@ -33,8 +35,10 @@ export function columnToLetter(col: number): string {
  */
 export function letterToColumn(letters: string): number {
   let col = 0
+
   for (let i = 0; i < letters.length; i++)
     col = col * 26 + (letters.charCodeAt(i) - 64)
+
   return col - 1
 }
 
@@ -53,6 +57,7 @@ export function shiftFormulaReferences(
   colOffset: number,
 ): string {
   if (rowOffset === 0 && colOffset === 0) return formula
+
   return formula.replace(
     /(\$?)([A-Z]{1,3})(\$?)(\d+)(?![\d(])/g,
     (
@@ -66,7 +71,9 @@ export function shiftFormulaReferences(
       const row = parseInt(rowStr, 10) - 1 // convert to 0-indexed
       const newCol = colDollar ? col : col + colOffset
       const newRow = rowDollar ? row : row + rowOffset
+
       if (newCol < 0 || newRow < 0) return match // refuse negative refs
+
       return `${colDollar}${columnToLetter(newCol)}${rowDollar}${newRow + 1}`
     },
   )
@@ -116,8 +123,10 @@ export function toA1Range(
     rowB,
     colB,
   )
+
   if (startRow === endRow && startCol === endCol)
     return toA1(startRow, startCol)
+
   return `${toA1(startRow, startCol)}:${toA1(endRow, endCol)}`
 }
 
@@ -169,8 +178,10 @@ export function buildReference(
 
 /** The engine's rendered column-header element is not a data cell. */
 const GRID_CELL_SELECTOR = '[role="gridcell"]'
+
 /** The engine's absolutely positioned cell layer (`position: relative`). */
 const GRID_CANVAS_SELECTOR = '.grid-canvas'
+
 /** The engine's scrolling grid frame (`position: relative; overflow: auto`). */
 const GRID_ROOT_SELECTOR = '.spreadsheet'
 
@@ -201,6 +212,7 @@ export interface ReferenceGridHost {
 function gridCount(canvas: HTMLElement, attribute: string): number {
   const root = canvas.closest<HTMLElement>(GRID_ROOT_SELECTOR) ?? canvas
   const value = Number(root.getAttribute(attribute))
+
   return Number.isFinite(value) && value >= 0 ? value : 0
 }
 
@@ -218,14 +230,18 @@ export function createReferenceGridHost(
     rootDocument: canvas.ownerDocument,
     getCoords: (element) => {
       const cell = element.closest<HTMLElement>(GRID_CELL_SELECTOR)
+
       if (!cell) return null
       const row = Number(cell.getAttribute('aria-rowindex')) - 1
       const col = Number(cell.getAttribute('aria-colindex')) - 1
+
       if (!Number.isInteger(row) || !Number.isInteger(col)) return null
+
       return { row, col }
     },
     getCell: (row, col) => {
       if (row < 0 || col < 0) return null
+
       return canvas.querySelector<HTMLElement>(
         `${GRID_CELL_SELECTOR}[aria-rowindex="${row + 1}"][aria-colindex="${col + 1}"]`,
       )
@@ -324,6 +340,7 @@ export class ReferencePicker {
    */
   onPointerDown(event: PointerEvent): void {
     const target = event.target as HTMLElement | null
+
     // Only handle clicks within this cell layer. Clicks outside (formula bar,
     // page) fall through and the editor closes normally.
     if (!target || !this.hot.rootElement.contains(target)) return
@@ -334,6 +351,7 @@ export class ReferencePicker {
     // This is checked BEFORE stopPropagation/preventDefault so chrome events
     // are never suppressed.
     const coords = this.cellCoordsFromTarget(target)
+
     if (!coords) return
 
     // Prevent the grid from receiving the gesture on data cells: it would
@@ -346,6 +364,7 @@ export class ReferencePicker {
     // open but no reference is inserted and no drag begins.
     if (!event.isPrimary || event.button !== 0) {
       this.options.refocusEditor()
+
       return
     }
 
@@ -376,7 +395,9 @@ export class ReferencePicker {
    */
   suppressMouseDown(event: MouseEvent): boolean {
     const target = event.target as HTMLElement | null
+
     if (!target || !this.hot.rootElement.contains(target)) return false
+
     // Only suppress mousedowns on actual data cells. Grid chrome (fill handle,
     // headers, borders, etc.) must pass through to the grid so autofill and
     // other features work even with a stale-open editor.
@@ -384,6 +405,7 @@ export class ReferencePicker {
     event.stopPropagation()
     event.preventDefault()
     this.options.refocusEditor()
+
     return true
   }
 
@@ -398,6 +420,7 @@ export class ReferencePicker {
 
   onPointerMove(event: PointerEvent): void {
     if (!this._anchor) return
+
     // Ignore moves from a different pointer (e.g. a second touch).
     if (
       this._activePointerId !== null &&
@@ -405,6 +428,7 @@ export class ReferencePicker {
     )
       return
     const coords = this.cellCoordsFromPoint(event.clientX, event.clientY)
+
     if (!coords) return // pointer left the data area; keep the last preview
     this._current = coords
     this.showPreview(this._anchor.row, this._anchor.col, coords.row, coords.col)
@@ -421,6 +445,7 @@ export class ReferencePicker {
     const anchor = this._anchor
     const current = this._current
     this.abortDrag()
+
     if (!anchor) return
     const end = current ?? anchor
     this.commitRange(anchor.row, anchor.col, end.row, end.col)
@@ -459,6 +484,7 @@ export class ReferencePicker {
     colB: number,
   ): void {
     const colorIndex = this._references.length % REFERENCE_COLORS.length
+
     const ref = buildReference(
       this.options.getSheetName(),
       rowA,
@@ -467,6 +493,7 @@ export class ReferencePicker {
       colB,
       colorIndex,
     )
+
     this.applyHighlight(ref)
     this._references.push(ref)
     this.options.insertReference(ref.a1)
@@ -484,8 +511,11 @@ export class ReferencePicker {
   popLastReference(): PickedReference | null {
     const ref = this._references.pop() ?? null
     const overlay = this._overlays.pop()
+
     if (overlay) overlay.element.remove()
+
     if (this._overlays.length === 0) this.detachRepositionListeners()
+
     return ref
   }
 
@@ -515,11 +545,16 @@ export class ReferencePicker {
     col: number
   } | null {
     const cell = target.closest<HTMLElement>(GRID_CELL_SELECTOR)
+
     if (!cell || !this.hot.rootElement.contains(cell)) return null
     const coords = this.hot.getCoords(cell)
+
     if (!coords) return null
+
     if (coords.row === null || coords.row < 0) return null
+
     if (coords.col === null || coords.col < 0) return null
+
     return { row: coords.row, col: coords.col }
   }
 
@@ -533,16 +568,21 @@ export class ReferencePicker {
     y: number,
   ): { row: number; col: number } | null {
     const doc = this.hot.rootDocument
+
     const stack =
       typeof doc.elementsFromPoint === 'function'
         ? doc.elementsFromPoint(x, y)
         : [doc.elementFromPoint(x, y)]
+
     for (const el of stack) {
       if (!(el instanceof HTMLElement)) continue
+
       if (!this.hot.rootElement.contains(el)) continue
       const coords = this.cellCoordsFromTarget(el)
+
       if (coords) return coords
     }
+
     return null
   }
 
@@ -563,6 +603,7 @@ export class ReferencePicker {
     el.style.zIndex = '5'
     el.style.border = `2px dashed ${color}`
     el.style.background = `${color}1a` // ~10% alpha
+
     if (
       !this.positionOverlay(
         el,
@@ -576,6 +617,7 @@ export class ReferencePicker {
       // /resize brings it into view (see repositionHighlights).
       el.style.display = 'none'
     }
+
     root.appendChild(el)
     this._overlays.push({ ref, element: el })
     this.attachRepositionListeners()
@@ -607,6 +649,7 @@ export class ReferencePicker {
         ref.endRow,
         ref.endCol,
       )
+
       element.style.display = visible ? '' : 'none'
     }
   }
@@ -655,13 +698,17 @@ export class ReferencePicker {
       rowB,
       colB,
     )
+
     const startCell = this.hot.getCell(startRow, startCol)
     const endCell = this.hot.getCell(endRow, endCol)
+
     if (!startCell || !endCell) return false
     const root = this.hot.rootElement
+
     if (getComputedStyle(root).position === 'static') {
       root.style.position = 'relative'
     }
+
     const rootRect = root.getBoundingClientRect()
     const startRect = startCell.getBoundingClientRect()
     const endRect = endCell.getBoundingClientRect()
@@ -673,6 +720,7 @@ export class ReferencePicker {
     element.style.top = `${top}px`
     element.style.width = `${right - left}px`
     element.style.height = `${bottom - top}px`
+
     return true
   }
 
@@ -690,6 +738,7 @@ export class ReferencePicker {
     const color =
       REFERENCE_COLORS[this._references.length % REFERENCE_COLORS.length] ??
       REFERENCE_COLORS[0]
+
     if (!this._preview) {
       const root = this.hot.rootElement
       const el = root.ownerDocument.createElement('div')
@@ -703,6 +752,7 @@ export class ReferencePicker {
       root.appendChild(el)
       this._preview = el
     }
+
     this.positionOverlay(this._preview, rowA, colA, rowB, colB)
   }
 
@@ -776,16 +826,20 @@ export function FormulaReferenceEditorCell({
   const writeDraft = useCallback((next: string, cursor?: number) => {
     const el = inputRef.current
     valueRef.current = next
+
     if (el) {
       el.value = next
+
       if (cursor !== undefined) el.setSelectionRange(cursor, cursor)
     }
+
     setValue(next)
   }, [])
 
   const insertReference = useCallback(
     (a1: string) => {
       const el = inputRef.current
+
       if (!el) return
       const current = valueRef.current
       const start = el.selectionStart ?? current.length
@@ -808,6 +862,7 @@ export function FormulaReferenceEditorCell({
     (next: string | null) => {
       if (closedRef.current) return
       closedRef.current = true
+
       if (next === null) cancel()
       else commit(normalizeExponentiation(next))
     },
@@ -819,28 +874,35 @@ export function FormulaReferenceEditorCell({
   useEffect(() => {
     const el = inputRef.current
     const canvas = el?.closest<HTMLElement>(GRID_CANVAS_SELECTOR)
+
     if (!el || !canvas) return
     const host = createReferenceGridHost(canvas)
     hostRef.current = host
+
     const picker = new ReferencePicker(host, {
       getSheetName: () => '',
       insertReference,
       refocusEditor: refocus,
     })
+
     pickerRef.current = picker
+
     const onPointerDown = (event: PointerEvent) => {
       if (!valueRef.current.startsWith('=')) return
       picker.onPointerDown(event)
     }
+
     const onMouseDown = (event: MouseEvent) => {
       if (!valueRef.current.startsWith('=')) return
       picker.suppressMouseDown(event)
     }
+
     const doc = host.rootDocument
     doc.addEventListener('pointerdown', onPointerDown, true)
     doc.addEventListener('mousedown', onMouseDown, true)
     el.focus()
     el.setSelectionRange(el.value.length, el.value.length)
+
     return () => {
       doc.removeEventListener('pointerdown', onPointerDown, true)
       doc.removeEventListener('mousedown', onMouseDown, true)
@@ -865,18 +927,24 @@ export function FormulaReferenceEditorCell({
   const handleReferenceKeyDown = (event: React.KeyboardEvent) => {
     if (!valueRef.current.startsWith('=')) return
     const delta = ARROW_DELTAS[event.key]
+
     if (!delta) return
+
     // Ctrl/Alt/Meta arrows and IME composition keep their native behaviour.
     if (event.altKey || event.ctrlKey || event.metaKey) return
+
     if (event.nativeEvent.isComposing) return
+
     // The autocomplete dropdown owns Up/Down while it is open.
     if (autocomplete.isOpen) return
     const picker = pickerRef.current
     const host = hostRef.current
     const el = inputRef.current
+
     if (!picker || !host || !el) return
     const cursor = cursorRef.current
     const next = { row: cursor.row + delta.row, col: cursor.col + delta.col }
+
     // Bounds-check against the grid dimensions — do nothing at edges.
     if (
       next.row < 0 ||
@@ -896,6 +964,7 @@ export function FormulaReferenceEditorCell({
     // chain because selectionStart no longer equals textEnd.
     const lastRef = lastRefRef.current
     let insertPoint: number
+
     if (lastRef && el.selectionStart === lastRef.textEnd) {
       // Remove the old reference's highlight before inserting the new one.
       picker.popLastReference()
@@ -937,17 +1006,23 @@ export function FormulaReferenceEditorCell({
         }}
         onKeyDown={(event) => {
           autocomplete.handleKeyDown(event)
+
           if (event.defaultPrevented) return
+
           if (event.key === 'Enter' || event.key === 'Tab') {
             event.preventDefault()
             finish(valueRef.current)
+
             return
           }
+
           if (event.key === 'Escape') {
             event.preventDefault()
             finish(null)
+
             return
           }
+
           handleReferenceKeyDown(event)
         }}
         onBlur={(event) => {
@@ -955,6 +1030,7 @@ export function FormulaReferenceEditorCell({
           // while not in formula mode closes the edit. A blur into the
           // suggestion dropdown's own controls does not commit.
           const next = event.relatedTarget as Node | null
+
           if (next && event.currentTarget.parentElement?.contains(next)) return
           finish(valueRef.current)
         }}

@@ -63,7 +63,9 @@ const meta = {
   },
   args: { importId: 'file-1', receipt },
 } satisfies Meta<typeof ImportReceipt>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A committed import with its mapping and outcome. */

@@ -60,6 +60,7 @@ describe('resolving a parser version', () => {
       'ws',
       'k',
     )
+
     expect(resolved).toMatchObject({
       parserVersionId: 'v2',
       version: 2,
@@ -84,6 +85,7 @@ describe('resolving a parser version', () => {
       'ws',
       'k',
     )
+
     expect(resolved).toMatchObject({ parserVersionId: 'v1', version: 1 })
   })
 
@@ -143,6 +145,7 @@ describe('kinds of parser', () => {
           kind: 'builtin',
         }),
       )
+
       expect(reader, entry.key).not.toBeNull()
     }
   })
@@ -170,6 +173,7 @@ describe('a parser that lists the columns a file must have', () => {
     expect(() => readWithColumns(parser(), 'Well,OD\nA1,3\n')).toThrow(
       ParserResolutionError,
     )
+
     try {
       readWithColumns(parser(), 'Well,OD\nA1,3\n')
     } catch (error) {
@@ -188,10 +192,12 @@ describe('a parser that lists the columns a file must have', () => {
         },
       },
     })
+
     const parsed = readWithColumns(
       layout,
       'Serial: SP9-1\nSample;Conc (mg/mL)\nS1;1\n',
     )
+
     expect(parsed.rows).toEqual([{ Sample: 'S1', Conc: '1' }])
     expect(parsed.metadata).toMatchObject({
       Serial: 'SP9-1',
@@ -206,6 +212,7 @@ describe('a parser that lists the columns a file must have', () => {
         layout: { headerStartsWith: 'Sample' },
       },
     })
+
     expect(() => readWithColumns(layout, 'a,b\n1,2\n')).toThrow(
       /header line starting with/,
     )

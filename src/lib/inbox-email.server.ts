@@ -63,14 +63,18 @@ export async function sweepInboxEmails(
   options: { email?: boolean } = {},
 ): Promise<{ queued: number; digested: number }> {
   const sendEmail = options.email ?? true
+
   const subscribers = await client.query<Subscriber>(
     'SELECT * FROM internal.inbox_email_subscribers()',
   )
+
   let queued = 0
   let digested = 0
+
   for (const subscriber of subscribers.rows) {
     if (!subscriber.workspace_id) continue
     let items: WaitingItem[]
+
     try {
       items = await readWaitingItems(client, subscriber)
     } catch (error) {
@@ -80,6 +84,7 @@ export async function sweepInboxEmails(
       })
       continue
     }
+
     for (const item of items) {
       if (subscriber.email && sendEmail) {
         const sent = await client.query<{ queued: boolean }>(
@@ -96,8 +101,10 @@ export async function sweepInboxEmails(
             !subscriber.primed,
           ],
         )
+
         if (sent.rows[0]?.queued) queued += 1
       }
+
       // Like email, the first sweep only learns what is already waiting.
       if (subscriber.digest && subscriber.primed) {
         await client.query(
@@ -113,6 +120,7 @@ export async function sweepInboxEmails(
         digested += 1
       }
     }
+
     if (!subscriber.primed) {
       await client.query('SELECT internal.mark_inbox_email_primed($1, $2)', [
         subscriber.user_id,
@@ -120,6 +128,7 @@ export async function sweepInboxEmails(
       ])
     }
   }
+
   return { queued, digested }
 }
 
@@ -129,6 +138,7 @@ async function readWaitingItems(
   subscriber: Subscriber,
 ): Promise<WaitingItem[]> {
   await client.query('BEGIN')
+
   try {
     await client.query('SET LOCAL ROLE authenticated')
     await client.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
@@ -138,9 +148,11 @@ async function readWaitingItems(
         role: 'authenticated',
       }),
     ])
+
     const result = await client.query<WaitingItem>(WAITING_ITEMS, [
       subscriber.inbox_kinds,
     ])
+
     return result.rows
   } finally {
     await client.query('ROLLBACK')

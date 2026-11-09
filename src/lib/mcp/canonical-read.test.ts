@@ -36,6 +36,7 @@ describe('canonical MCP read', () => {
 
   it('builds a bounded page with fixed columns and equality filters', async () => {
     const client = fakeClient([{ id: 'ds-1', name: 'Growth' }])
+
     const result = await readCanonicalResource(
       {
         resource: 'datasets',
@@ -45,6 +46,7 @@ describe('canonical MCP read', () => {
       },
       client,
     )
+
     expect(client.list).toHaveBeenCalledWith(
       'datasets',
       expect.stringMatching(
@@ -83,6 +85,7 @@ describe('canonical MCP read', () => {
         detail: { password: 'hunter2', note: 'keep' },
       },
     ])
+
     const result = await readCanonicalResource(
       {
         resource: 'pipeline_run_logs',
@@ -93,6 +96,7 @@ describe('canonical MCP read', () => {
       },
       client,
     )
+
     expect(client.list).toHaveBeenCalledWith(
       'pipeline_run_logs',
       expect.stringMatching(
@@ -123,6 +127,7 @@ describe('canonical MCP read', () => {
         error_message: 'postgresql://user:pass@db/app refused',
       },
     ])
+
     const result = await readCanonicalResource(
       {
         resource: 'webhook_deliveries',
@@ -132,6 +137,7 @@ describe('canonical MCP read', () => {
       },
       client,
     )
+
     const item = (result.items as Array<Record<string, unknown>>)[0]
     expect(item.signature).toBe('[redacted]')
     expect(item.response_body).not.toContain('secret-token')

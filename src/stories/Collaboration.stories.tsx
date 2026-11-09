@@ -11,7 +11,9 @@ const meta = {
   title: 'Collaboration/Presence sync',
   tags: ['autodocs'],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Outside a room the presence sync renders nothing and does not throw. */

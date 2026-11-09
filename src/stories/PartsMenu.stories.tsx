@@ -34,7 +34,9 @@ const meta = {
     onSaved: () => {},
   },
 } satisfies Meta<typeof PartFormDialog>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A new part starts empty, after the last one. */

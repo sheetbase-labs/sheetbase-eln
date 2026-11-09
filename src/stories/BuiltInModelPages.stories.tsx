@@ -59,6 +59,7 @@ function seeded(withFields: boolean) {
     ],
   })
 }
+
 const withFields = seeded(true)
 const bare = seeded(false)
 
@@ -80,7 +81,9 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const noop = () => {}
@@ -213,6 +216,7 @@ export const AddedFieldInputsForm: Story = {
 
 function FormSection() {
   const draft = useAddedFieldDraft('experiment')
+
   return <AddedFieldsFormSection draft={draft} showErrors={false} />
 }
 

@@ -139,6 +139,7 @@ export function agentIsConnected(
   nowMs: number = Date.now(),
 ): boolean {
   if (!seenAt) return false
+
   return nowMs - Date.parse(seenAt) <= ROBOT_AGENT_SEEN_MINUTES * 60_000
 }
 
@@ -170,9 +171,12 @@ export function fetchInstrumentJobs(
     order: 'created_at.desc',
     limit: String(filter.limit ?? 50),
   })
+
   if (filter.instrumentId)
     query.set('instrument_id', `eq.${filter.instrumentId}`)
+
   if (filter.worklistId) query.set('worklist_id', `eq.${filter.worklistId}`)
+
   return client.list<InstrumentJobWire>(
     'instrument_jobs',
     `?${query.toString()}`,
@@ -248,6 +252,7 @@ function fileSlug(text: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+
   return slug.slice(0, 40) || 'worklist'
 }
 
@@ -282,13 +287,16 @@ export function robotFileFor(job: {
     label: t.label ?? '',
     sampleId: t.sampleId ?? null,
   }))
+
   const content = writeWorklist(job.format, transfers, {
     ...job.labware,
     sourceFormat: job.worklist.sourceFormat,
     destFormat: job.worklist.destFormat,
     title: `${jobReference(job.number)} ${job.worklist.name}`,
   })
+
   const extension = WORKLIST_FILE_EXTENSION[job.format]
+
   return {
     name: `${jobReference(job.number).toLowerCase()}-${fileSlug(job.worklist.name)}.${extension}`,
     content,
@@ -316,9 +324,12 @@ export function labwareFieldsFor(
       'opentronsMount',
     ]
   }
+
   if (format === 'tecan_gwl') {
     return ['liquidClass', 'tecanSourceType', 'tecanDestType']
   }
+
   if (format === 'echo') return ['echoSourceType']
+
   return []
 }

@@ -43,6 +43,7 @@ export function AnalysisFigureGuide({
   const compareConfigValid =
     compareConfig !== null &&
     validateComparativeViewConfig(compareConfig).length === 0
+
   const workflow = evaluateAnalysisToFigure({
     datasetId,
     columnCount,
@@ -58,8 +59,10 @@ export function AnalysisFigureGuide({
       onPromoteGuide?.(
         GUIDED_ACCEPTS.promoteToChartSpec(compareConfig, columns),
       )
+
       return
     }
+
     // No notebook record exists in studio context (datasets carry no
     // record link): navigate to the dashboard resumption surface, where
     // notebooks live and the canonical embed accept runs. Guidance only

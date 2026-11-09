@@ -33,6 +33,7 @@ export function useAnchoredPlacement<T extends HTMLElement>(options: {
   const { open, ref, maxHeight, prefer = 'bottom', gap } = options
   const getAnchorRef = React.useRef(options.getAnchor)
   getAnchorRef.current = options.getAnchor
+
   const [placement, setPlacement] = React.useState<FloatingPlacement | null>(
     null,
   )
@@ -40,7 +41,9 @@ export function useAnchoredPlacement<T extends HTMLElement>(options: {
   const place = React.useCallback(() => {
     const el = ref.current
     const anchor = getAnchorRef.current()
+
     if (!el || !anchor) return
+
     const next = placeBeside({
       anchor,
       size: {
@@ -51,6 +54,7 @@ export function useAnchoredPlacement<T extends HTMLElement>(options: {
       gap,
       prefer,
     })
+
     setPlacement((prev) =>
       prev &&
       Math.abs(prev.top - next.top) < 0.5 &&
@@ -65,20 +69,26 @@ export function useAnchoredPlacement<T extends HTMLElement>(options: {
   React.useLayoutEffect(() => {
     if (!open) {
       setPlacement(null)
+
       return
     }
+
     place()
     const stop = watchVisibleArea(place)
     const el = ref.current
+
     const observer =
       el && typeof ResizeObserver !== 'undefined'
         ? new ResizeObserver(place)
         : null
+
     if (el) {
       observer?.observe(el)
+
       // The content's own size (filtering the list) changes scrollHeight.
       for (const child of Array.from(el.children)) observer?.observe(child)
     }
+
     return () => {
       stop()
       observer?.disconnect()
@@ -103,6 +113,7 @@ export function useAnchoredPlacement<T extends HTMLElement>(options: {
       side: null,
     }
   }
+
   return {
     style: {
       position: 'fixed',

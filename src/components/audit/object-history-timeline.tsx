@@ -41,8 +41,11 @@ export interface ObjectHistoryTimelineProps {
 
 function actorLabel(event: AuditEventWire): string {
   if (event.actorCredentialId) return t('projects.objectHistory.apiCredential')
+
   if (event.actorName) return event.actorName
+
   if (event.actorUserId) return event.actorUserId.slice(0, 8)
+
   return t('projects.objectHistory.system')
 }
 
@@ -70,6 +73,7 @@ function toEntry(group: {
   related: AuditEventWire[]
 }): HistoryEntry {
   const described = describeAuditEvent(group.primary)
+
   const correlated =
     group.related.length > 0 && group.primary.entityType === 'api_credential'
 
@@ -104,6 +108,7 @@ function toEntry(group: {
     changes: described.changes,
     related: group.related.map((related) => {
       const relatedDescribed = describeAuditEvent(related)
+
       return {
         id: related.id,
         text: `${relatedDescribed.action} ${relatedDescribed.sentenceSubject}`,

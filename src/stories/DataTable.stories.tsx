@@ -12,6 +12,7 @@ interface SampleRow {
   storage: string
   status: 'In stock' | 'Low stock' | 'Expiring'
 }
+
 const data: SampleRow[] = [
   {
     id: 'SMP-LV-0001',
@@ -62,6 +63,7 @@ const data: SampleRow[] = [
     status: 'Low stock',
   },
 ]
+
 const columns: ColumnDef<DataTableFeatures, SampleRow>[] = [
   { accessorKey: 'id', header: 'Sample ID' },
   { accessorKey: 'type', header: 'Type' },
@@ -86,21 +88,27 @@ const columns: ColumnDef<DataTableFeatures, SampleRow>[] = [
     ),
   },
 ]
+
 const meta = {
   title: 'Scientific/DataTable',
   component: DataTable<SampleRow>,
   tags: ['autodocs'],
   args: { columns, data },
 } satisfies Meta<typeof DataTable<SampleRow>>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 export const Default: Story = {}
 export const WithSelection: Story = { args: { enableRowSelection: true } }
 export const Sortable: Story = { args: { enableSorting: true } }
 export const Empty: Story = { args: { data: [] } }
+
 export const WithRowClick: Story = {
   args: { onRowClick: (row) => console.log('Selected sample', row) },
 }
+
 export const RegistryControls: Story = {
   args: {
     variant: 'quiet',

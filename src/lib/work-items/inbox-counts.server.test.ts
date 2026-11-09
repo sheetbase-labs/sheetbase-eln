@@ -10,12 +10,14 @@ import { getInboxCounts } from './inbox-counts.server'
 const { query, release, connect } = vi.hoisted(() => {
   const queryMock = vi.fn()
   const releaseMock = vi.fn()
+
   return {
     query: queryMock,
     release: releaseMock,
     connect: vi.fn(async () => ({ query: queryMock, release: releaseMock })),
   }
 })
+
 vi.mock('#/db/client.server', () => ({ db: { $client: { connect } } }))
 
 const WORKSPACE = '00000000-0000-4000-8000-000000004a0a'
@@ -54,6 +56,7 @@ describe('getInboxCounts', () => {
   it('reports a failed read as unknown, never as a confident zero', async () => {
     query.mockImplementation(async (sql: string) => {
       if (sql.includes('inbox_needs_action_counts')) throw new Error('down')
+
       return { rows: [] }
     })
     expect(await getInboxCounts(WORKSPACE, USER)).toBeNull()

@@ -10,9 +10,11 @@ import {
 describe('canonical parser settings boundary', () => {
   it('reads persisted versions and linked instruments through the same-origin workspace boundary', async () => {
     const rows = [{ id: 'persisted-parser', parser_versions: [{ version: 4 }] }]
+
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
       Response.json(rows),
     )
+
     expect(
       await fetchParserSettings(createDataClient(fetch), 'workspace-a'),
     ).toEqual(rows)
@@ -32,6 +34,7 @@ describe('canonical parser settings boundary', () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
       Response.json({ status: 'draft' }),
     )
+
     await createParserDraft(createDataClient(fetch), {
       workspaceId: 'workspace-a',
       key: 'tb02',
@@ -63,6 +66,7 @@ describe('canonical parser settings boundary', () => {
         { status: 403 },
       ),
     )
+
     await expect(
       approveParserVersion(createDataClient(fetch), 'version-c'),
     ).rejects.toBeInstanceOf(DataClientError)

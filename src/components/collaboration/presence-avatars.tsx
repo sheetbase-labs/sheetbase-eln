@@ -27,9 +27,11 @@ export function PresenceStack({
   className?: string
 }) {
   const ready = useCollaborationRoomReady()
+
   // Stable across SSR and the first client paint: nothing renders until the
   // room is joined.
   if (!ready) return null
+
   return <PresenceStackInner max={max} className={className} />
 }
 
@@ -42,8 +44,10 @@ function PresenceStackInner({
 }) {
   const others = useOthers()
   const peers: readonly PresenceStackPeer[] = others
+
   if (peers.length === 0) return null
   const countLabel = `${peers.length} here`
+
   return (
     <AvatarStack
       label={countLabel}

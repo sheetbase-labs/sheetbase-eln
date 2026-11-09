@@ -30,22 +30,29 @@ vi.mock('@tanstack/react-router', () => ({
       (acc, [key, value]) => acc.replace(`$${key}`, value),
       to,
     )
+
     const query = new URLSearchParams(
       Object.entries(search ?? {}).filter(
         (entry): entry is [string, string] => entry[1] != null,
       ),
     ).toString()
+
     return <a href={query ? `${path}?${query}` : path}>{children}</a>
   },
 }))
+
 vi.mock('#/lib/data-client', () => ({ createDataClient: () => ({}) }))
+
 vi.mock('#/lib/import/data', () => ({ uploadImportFile: vi.fn() }))
+
 vi.mock('#/components/instruments/instruments-data', () => ({
   useInstruments: () => ({ data: [] }),
 }))
+
 vi.mock('./instrument-parser-table', () => ({
   InstrumentParserTable: () => null,
 }))
+
 vi.mock('#/lib/parser-settings', () => ({
   parserSettingsQueryKeys: {
     list: (id: string) => ['parsers', id],
@@ -145,6 +152,7 @@ describe('parser settings opened from a failed import', () => {
     const resume = await screen.findByRole('link', {
       name: 'Resume the import',
     })
+
     expect(resume.getAttribute('href')).toBe(
       '/import/file-1?step=map&parser=plate-export',
     )

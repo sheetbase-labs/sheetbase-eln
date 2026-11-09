@@ -37,6 +37,7 @@ vi.mock('@tanstack/react-router', () => ({
 vi.mock('#/components/projects/projects-page', () => ({
   ProjectsPage: (props: Record<string, unknown>) => {
     seen.props = props
+
     return <div data-testid="projects-page" />
   },
 }))
@@ -55,6 +56,7 @@ vi.mock('#/components/projects/project-data', async (importOriginal) => ({
 }))
 
 afterEach(cleanup)
+
 beforeEach(() => {
   vi.resetAllMocks()
   list.mockResolvedValue([])
@@ -63,6 +65,7 @@ beforeEach(() => {
 
 function renderRoute() {
   const Component = Route.options.component
+
   if (!Component) throw new Error('Projects route component required')
   render(
     <QueryClientProvider
@@ -78,6 +81,7 @@ function renderRoute() {
 describe('projects route', () => {
   it('turns a stalled project read into a stated failure the page can retry', async () => {
     vi.useFakeTimers()
+
     try {
       list.mockImplementation(() => new Promise(() => {}))
       renderRoute()
@@ -94,6 +98,7 @@ describe('projects route', () => {
     } finally {
       vi.useRealTimers()
     }
+
     expect(seen.props?.loading).toBe(false)
     expect(String(seen.props?.error)).toMatch(
       new RegExp(

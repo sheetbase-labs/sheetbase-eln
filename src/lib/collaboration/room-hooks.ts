@@ -29,26 +29,33 @@ export interface RoomPeer {
 /** Everyone else in the room, one entry per open tab. */
 export function useOthers(): readonly RoomPeer[] {
   const provider = useRoomProvider()
+
   const cache = React.useRef<{ key: string; peers: RoomPeer[] }>({
     key: '',
     peers: [],
   })
+
   const subscribe = React.useCallback(
     (notify: () => void) => {
       if (!provider) return () => {}
+
       provider.awareness.on('change', notify)
+
       return () => provider.awareness.off('change', notify)
     },
     [provider],
   )
+
   const getSnapshot = React.useCallback(() => {
     if (!provider) return cache.current.peers
     const peers: RoomPeer[] = []
     provider.awareness.getStates().forEach((state, clientId) => {
       if (clientId === provider.doc.clientID) return
+
       const user = state.user as
         | { id?: string; name?: string; avatar?: string | null; color?: string }
         | undefined
+
       if (!user?.id) return
       peers.push({
         connectionId: clientId,
@@ -63,10 +70,13 @@ export function useOthers(): readonly RoomPeer[] {
     })
     peers.sort((a, b) => a.connectionId - b.connectionId)
     const key = JSON.stringify(peers)
+
     if (key === cache.current.key) return cache.current.peers
     cache.current = { key, peers }
+
     return peers
   }, [provider])
+
   return React.useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
 
@@ -75,6 +85,7 @@ export function useUpdateMyPresence(): (
   patch: Partial<CollaborationPresence>,
 ) => void {
   const provider = useRoomProvider()
+
   return React.useCallback((patch) => provider?.setPresence(patch), [provider])
 }
 
@@ -94,18 +105,23 @@ const OFFLINE: RoomConnection = {
 export function useRoomConnection(): RoomConnection {
   const provider = useRoomProvider()
   const cache = React.useRef<RoomConnection>(OFFLINE)
+
   const subscribe = React.useCallback(
     (notify: () => void) => provider?.subscribe(notify) ?? (() => {}),
     [provider],
   )
+
   const getSnapshot = React.useCallback(() => {
     if (!provider) return OFFLINE
+
     const next = {
       status: provider.status,
       synced: provider.synced,
       canWrite: provider.canWrite,
     }
+
     const prev = cache.current
+
     if (
       prev.status === next.status &&
       prev.synced === next.synced &&
@@ -113,8 +129,11 @@ export function useRoomConnection(): RoomConnection {
     ) {
       return prev
     }
+
     cache.current = next
+
     return next
   }, [provider])
+
   return React.useSyncExternalStore(subscribe, getSnapshot, () => OFFLINE)
 }

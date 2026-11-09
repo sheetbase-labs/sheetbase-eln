@@ -13,6 +13,7 @@ config({ path: ['.env.local', '.env'] })
 
 async function main() {
   const databaseUrl = process.env.DATABASE_URL
+
   if (!databaseUrl) {
     throw new Error(
       'DATABASE_URL is required. Copy .env.example to .env.local.',
@@ -24,6 +25,7 @@ async function main() {
 
   const client = new Client({ connectionString: maintenanceUrl })
   await client.connect()
+
   try {
     await client.query(
       `DROP DATABASE IF EXISTS ${quoteIdent(databaseName)} WITH (FORCE)`,

@@ -36,7 +36,9 @@ const meta = {
     projectId: null,
   },
 } satisfies Meta<typeof ComposedSheetWorkspace>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const InstanceUnavailable: Story = {}

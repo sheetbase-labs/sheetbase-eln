@@ -11,14 +11,17 @@ export function odcsToYaml(document: Record<string, unknown>): string {
 /** Read a YAML or JSON ODCS file. Throws a plain message when it is neither. */
 export function parseOdcs(text: string): Record<string, unknown> {
   let parsed: unknown
+
   try {
     parsed = parse(text)
   } catch {
     throw new Error('The file is not valid YAML or JSON.')
   }
+
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     throw new Error('The file is not a data contract.')
   }
+
   return parsed as Record<string, unknown>
 }
 
@@ -28,5 +31,6 @@ export function odcsFileName(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
+
   return `${slug || 'data-contract'}.odcs.yaml`
 }

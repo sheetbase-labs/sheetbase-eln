@@ -26,10 +26,12 @@ const searchState = vi.hoisted((): { value: { code?: string } } => ({
 }))
 
 vi.mock('#/components/scan/scan-data', () => scanData)
+
 // Plugin barcode readers are tested on their own; here the plain lookup is what is under test.
 vi.mock('#/components/scan/plugin-scan', () => ({
   useScanCodeResolver: () => scanData.resolveScanCode,
 }))
+
 vi.mock('#/components/scan/scan-sample-actions', () => ({
   ScanSampleActions: ({
     sampleId,
@@ -57,10 +59,12 @@ vi.mock('@tanstack/react-router', () => ({
     children: React.ReactNode
   } & Record<string, unknown>) => {
     let href = typeof to === 'string' ? to : '#'
+
     if (params) {
       for (const [key, value] of Object.entries(params))
         href = href.replace(`$${key}`, encodeURIComponent(String(value)))
     }
+
     return (
       <a href={href} {...props}>
         {children}
@@ -167,11 +171,13 @@ describe('Scan route', () => {
   it('resolves a code read from the camera', async () => {
     vi.useFakeTimers()
     HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined)
+
     class Detector {
       async detect() {
         return [{ rawValue: 'SMP-2231' }]
       }
     }
+
     Object.defineProperty(window, 'BarcodeDetector', {
       configurable: true,
       writable: true,

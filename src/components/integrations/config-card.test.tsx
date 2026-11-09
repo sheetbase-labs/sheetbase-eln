@@ -19,6 +19,7 @@ vi.mock('#/lib/connectors/client', () => ({
     error instanceof Error ? error.message : 'Unknown error',
   updateConnector: update,
 }))
+
 vi.mock('#/lib/data-client', () => ({ createDataClient: () => ({}) }))
 
 const CONNECTOR = {
@@ -29,6 +30,7 @@ const CONNECTOR = {
 
 function renderCard(canManage: boolean) {
   const client = new QueryClient()
+
   return render(
     <QueryClientProvider client={client}>
       <ConnectorConfigCard

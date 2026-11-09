@@ -22,6 +22,7 @@ import {
 
 const previewExtraction = vi.fn()
 const extractDraft = vi.fn()
+
 const fetchPinnedVersion = vi.fn(
   async (
     ..._args: unknown[]
@@ -32,13 +33,16 @@ const fetchPinnedVersion = vi.fn(
     configuration?: SheetDefinitionConfiguration
   } | null> => null,
 )
+
 const fetchDefinitionVersions = vi.fn(
   async (
     ..._args: unknown[]
   ): Promise<Array<{ id: string; version: number; lifecycle: string }>> => [],
 )
+
 vi.mock('#/components/ui/object-link', async () => {
   const { objectPath } = await import('#/lib/navigation')
+
   return {
     ObjectLink: (props: { kind: string; id?: string; children?: string }) => (
       <a href={objectPath(props.kind, props.id ?? '') ?? undefined}>
@@ -104,6 +108,7 @@ function renderPanel() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <CanonicalSheetLifecyclePanel
@@ -118,6 +123,7 @@ function renderPanelWithInstance(overrides: Partial<SheetInstance>) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <CanonicalSheetLifecyclePanel
@@ -191,6 +197,7 @@ describe('CanonicalSheetLifecyclePanel', () => {
     const continueLink = await screen.findByRole('link', {
       name: 'Review sheet definition',
     })
+
     expect(continueLink.getAttribute('href')).toContain(
       '/sheet-definitions/definition-1?version=version-1&returnTo=%2Fsheets%2F',
     )
@@ -264,6 +271,7 @@ describe('CanonicalSheetLifecyclePanel', () => {
     const link = await screen.findByRole('link', {
       name: 'Open the new dataset',
     })
+
     expect(link.getAttribute('href')).toBe('/datasets/dataset-9')
   })
 

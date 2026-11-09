@@ -62,22 +62,28 @@ function shownVersion(
 
 function sectionKind(placement: { kind: string; blockType?: string }): string {
   if (placement.kind === 'narrative') return placement.blockType ?? 'narrative'
+
   if (placement.kind === 'sheet') return 'sheet'
+
   return 'section'
 }
 
 function placementName(placement: NotebookTemplatePlacement): string {
   if (placement.kind === 'section_placeholder') return placement.label
+
   if (placement.kind === 'sheet')
     return placement.title ?? t('library.templates.overview.sheet')
+
   return placement.blockType
 }
 
 function placementSource(placement: NotebookTemplatePlacement): string {
   if (placement.kind === 'sheet')
     return `definition version ${placement.definitionVersionId.slice(0, 8)}`
+
   if (placement.kind === 'section_placeholder')
     return `placeholder ${placement.key}`
+
   return 'narrative block'
 }
 
@@ -128,6 +134,7 @@ function sectionColumns(
       cell: ({ row }) => placementSource(row.original),
     },
   ]
+
   if (options.parts && options.parts.length > 0) {
     const parts = options.parts
     columns.splice(3, 0, {
@@ -135,14 +142,17 @@ function sectionColumns(
       header: t('library.templates.parts.sectionPart'),
       cell: ({ row }) => {
         const placement = row.original
+
         if (placement.kind === 'section_placeholder') return '—'
         const current = placement.partId ?? ''
+
         if (!options.withActions) {
           return (
             parts.find((part) => part.id === current)?.title ??
             t('library.templates.parts.noPart')
           )
         }
+
         return (
           <Select
             size="sm"
@@ -166,6 +176,7 @@ function sectionColumns(
       },
     })
   }
+
   if (options.withActions) {
     columns.push({
       id: 'actions',
@@ -212,6 +223,7 @@ function sectionColumns(
       ),
     })
   }
+
   return columns
 }
 
@@ -240,6 +252,7 @@ function parameterColumns(options: {
       cell: ({ row }) => row.original.label,
     },
   ]
+
   if (options.withActions) {
     columns.push(
       {
@@ -268,6 +281,7 @@ function parameterColumns(options: {
       },
     )
   }
+
   return columns
 }
 
@@ -302,6 +316,7 @@ function TemplateSections() {
         throw new Error(
           t('library.templates.overview.theTemplateIsStillLoading'),
         )
+
       return createNotebookTemplateVersion(templateId, revision, configuration)
     },
     onSuccess: (saved) => {
@@ -395,6 +410,7 @@ function TemplateSections() {
 
   const movePlacement = (index: number, delta: number) => {
     const target = index + delta
+
     if (target < 0 || target >= editPlacements.length) return
     const next = [...editPlacements]
     const moved = next[index]
@@ -404,6 +420,7 @@ function TemplateSections() {
   }
 
   const templateParts = draft ? (draft.parts ?? []) : (config.parts ?? [])
+
   const setParts = (next: TemplatePart[]) => {
     if (!draft) return
     const ids = new Set(next.map((part) => part.id))
@@ -421,6 +438,7 @@ function TemplateSections() {
       ),
     })
   }
+
   const setPlacementPart = (id: string, partId: string | null) => {
     if (!draft) return
     setDraft({
@@ -435,6 +453,7 @@ function TemplateSections() {
 
   const addSection = (key: string, label: string) => {
     if (!draft) return
+
     const placement: NotebookTemplatePlacement = {
       id: crypto.randomUUID(),
       kind: 'section_placeholder',
@@ -442,6 +461,7 @@ function TemplateSections() {
       key,
       label,
     }
+
     setDraft({
       ...draft,
       placements: withOrders([...editPlacements, placement]),
@@ -455,6 +475,7 @@ function TemplateSections() {
     valueType: ScalarValueType
   }) => {
     if (!draft) return
+
     const parameter: Parameter = {
       id: crypto.randomUUID(),
       key: input.key,
@@ -463,6 +484,7 @@ function TemplateSections() {
       type: { kind: 'scalar', valueType: input.valueType },
       constraints: {},
     }
+
     setDraft({ ...draft, parameters: [...draft.parameters, parameter] })
   }
 
@@ -479,13 +501,16 @@ function TemplateSections() {
   const saveDraft = () => {
     if (!draft) return
     const parsed = notebookTemplateConfigurationSchema.safeParse(draft)
+
     if (!parsed.success) {
       const issue = parsed.error.issues[0]
       setSaveError(
         `${issue.path.join('.') || t('library.templates.overview.configuration')}: ${issue.message}`,
       )
+
       return
     }
+
     setSaveError(null)
     save.mutate(parsed.data)
   }
@@ -687,6 +712,7 @@ function AddSectionForm({
 
   const trimmedKey = key.trim()
   const trimmedLabel = label.trim()
+
   const keyError =
     trimmedKey.length > 0 && !keyPattern.test(trimmedKey)
       ? t('library.templates.overview.lowercaseLettersDigitsAndUnderscore')
@@ -757,6 +783,7 @@ function AddParameterForm({
 
   const trimmedKey = key.trim()
   const trimmedLabel = label.trim()
+
   const keyError =
     trimmedKey.length > 0 && !keyPattern.test(trimmedKey)
       ? t('library.templates.overview.lowercaseLettersDigitsAndUnderscore')
@@ -796,6 +823,7 @@ function AddParameterForm({
             const picked = FIELD_LOGICAL_TYPES.find(
               (type) => type === event.target.value,
             )
+
             if (picked) setValueType(picked)
           }}
         >

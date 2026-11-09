@@ -99,8 +99,10 @@ export function proposalBoardGroups(
     waiting: [],
     decided: [],
   }
+
   for (const proposal of proposals) {
     const stage = proposalStage(proposal, me)
+
     if (
       stage === 'decided' &&
       now.getTime() - Date.parse(proposal.updated_at) > WEEK_MS
@@ -108,12 +110,15 @@ export function proposalBoardGroups(
       continue
     groups[stage].push(proposal)
   }
+
   const byNewest = (list: AgentOperationProposal[]) =>
     list.sort((a, b) => ordinal(b) - ordinal(a))
+
   // What needs you is two kinds of ask, so each gets its own heading rather
   // than rows saying "signature" under a heading that says "approval".
   const needsSignature = groups.needs.filter((p) => p.signature_required)
   const needsApproval = groups.needs.filter((p) => !p.signature_required)
+
   return [
     {
       stage: 'needs' as const,
@@ -245,10 +250,13 @@ function RenderedBlock({ rendered }: { rendered: RenderedChange }) {
 function policyLabel(proposal: AgentOperationProposal): string {
   if (proposal.signature_required)
     return t('data.proposalsBoard.needsESignature')
+
   if (proposal.approval_policy === 'automatic')
     return t('data.proposalsBoard.allowed')
+
   if (proposal.approval_policy === 'delegated')
     return t('data.proposalsBoard.delegated')
+
   return t('data.proposalsBoard.needsApproval2')
 }
 
@@ -289,14 +297,18 @@ export function AgentProposalsBoard({
 }) {
   const groups = proposalBoardGroups(proposals, me, now)
   const visible = groups.flatMap((g) => g.items)
+
   const selected =
     visible.find((p) => p.id === selectedId) ?? visible.at(0) ?? null
+
   const [rejecting, setRejecting] = useState(false)
   const [reason, setReason] = useState('')
   const [signing, setSigning] = useState(false)
+
   const [meaning, setMeaning] = useState(
     t('data.proposalsBoard.iApproveProposal'),
   )
+
   useEffect(() => {
     setRejecting(false)
     setReason('')
@@ -314,17 +326,21 @@ export function AgentProposalsBoard({
   }
 
   const stage = proposalStage(selected, me)
+
   const definition = definitions.find(
     (d) => d.id === selected.agent_definition_id,
   )
+
   const run = runs.find((r) => r.id === selected.agent_run_id)
   const subject = proposalSubject(selected)
   const evidence = proposalEvidence(selected)
   const rendered = proposalRendered(selected)
+
   const mayDecide =
     stage === 'needs' &&
     selected.status === 'pending' &&
     canApproveProposal(selected)
+
   const approverName = nameOf(selected.approver_user_id)
   const revision = /rev \d+/.exec(subject.label ?? '')?.[0]
   const busy = pendingAction !== null
@@ -344,10 +360,13 @@ export function AgentProposalsBoard({
               {group.items.map((p) => {
                 const rowStage = group.stage
                 const rowSubject = proposalSubject(p)
+
                 const rowDefinition = definitions.find(
                   (d) => d.id === p.agent_definition_id,
                 )
+
                 const active = p.id === selected.id
+
                 return (
                   <li key={p.id}>
                     <button

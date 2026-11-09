@@ -32,7 +32,9 @@ const submission: ReviewSubmissionWire = {
   created_at: '2026-10-04T12:00:00Z',
   updated_at: '2026-10-04T12:00:00Z',
 }
+
 const digest = 'a'.repeat(64)
+
 const signature: SignatureWire = {
   id: 'signature',
   workspace_id: 'workspace',
@@ -87,6 +89,7 @@ describe('signature meaning eligibility', () => {
     const policy = readSignaturePolicy({
       meanings: { Reviewed: false, Approved: true },
     })
+
     expect(
       meanings({ policy, submission: { ...submission, state: 'approved' } }),
     ).toEqual(['reviewed-and-approved'])
@@ -118,6 +121,7 @@ describe('signature meaning eligibility', () => {
         },
       ],
     }
+
     expect(meanings({ currentUserId: 'witness', eligibility })).toEqual([
       'witnessed',
     ])
@@ -184,6 +188,7 @@ describe('signature meaning eligibility', () => {
       idempotency_key: 'result-key',
       created_at: '2026-10-04T12:00:00Z',
     }
+
     expect(signatureChecksPassed([], digest)).toBe(false)
     expect(signatureChecksPassed([result], digest)).toBe(true)
     expect(signatureChecksPassed([result], null)).toBe(false)
@@ -229,10 +234,12 @@ describe('effective project witness candidates', () => {
         },
       ]),
     )
+
     const candidates = await fetchSignatureWitnessCandidates(
       createDataClient(fetchImpl),
       'submission-1',
     )
+
     expect(candidates).toEqual([
       {
         user_id: 'view-only',
@@ -266,6 +273,7 @@ describe('effective project witness candidates', () => {
         },
       ]),
     )
+
     await expect(
       fetchSignatureWitnessCandidates(client, 'submission-1'),
     ).rejects.toThrow()
@@ -286,7 +294,9 @@ function replyWith(status: number, body: unknown) {
   const fetchMock = vi
     .fn()
     .mockResolvedValue({ ok: status < 400, status, json: async () => body })
+
   vi.stubGlobal('fetch', fetchMock)
+
   return fetchMock
 }
 
@@ -301,18 +311,22 @@ describe('signature step-up error contract', () => {
 
   it('marks a 401 with the session_expired code as an ended session', async () => {
     replyWith(401, { code: 'session_expired', message: 'Sign in again.' })
+
     const error = await requestSignatureStepUp(stepUpInput).catch(
       (err: unknown) => err,
     )
+
     expect(isExpiredSigningSession(error)).toBe(true)
     expect((error as SignatureStepUpError).code).toBe('session_expired')
   })
 
   it('does not treat a refused password as an ended session', async () => {
     replyWith(401, { message: 'Signing password was not accepted.' })
+
     const error = await requestSignatureStepUp(stepUpInput).catch(
       (err: unknown) => err,
     )
+
     expect(error).toBeInstanceOf(SignatureStepUpError)
     expect(isExpiredSigningSession(error)).toBe(false)
     expect((error as SignatureStepUpError).status).toBe(401)
@@ -322,9 +336,11 @@ describe('signature step-up error contract', () => {
     replyWith(423, {
       message: 'Signing is locked for 15 minutes after three failed attempts.',
     })
+
     const error = await requestSignatureStepUp(stepUpInput).catch(
       (err: unknown) => err,
     )
+
     expect(error).toBeInstanceOf(SignatureStepUpError)
     expect((error as SignatureStepUpError).status).toBe(423)
     expect((error as Error).message).toContain('Signing is locked')

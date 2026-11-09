@@ -47,6 +47,7 @@ export function describeBulkOutcome(outcome: BulkUpgradeOutcome): string {
 export function summariseBulkUpgrade(results: readonly BulkUpgradeResult[]) {
   const count = (kind: BulkUpgradeOutcome['kind']) =>
     results.filter((r) => r.outcome.kind === kind).length
+
   return {
     updated: count('updated'),
     needsDecision: count('needs-decision'),
@@ -63,8 +64,11 @@ async function structureVersion(
     'records',
     `?id=eq.${encodeURIComponent(recordId)}&select=structure_version&limit=1`,
   )
+
   const version = rows.at(0)?.structure_version
+
   if (version === undefined) throw new Error('This notebook is not available.')
+
   return Number(version)
 }
 
@@ -82,6 +86,7 @@ export async function upgradeNotebooksInBulk(
   onProgress?: (done: number, total: number) => void,
 ): Promise<BulkUpgradeResult[]> {
   const results: BulkUpgradeResult[] = []
+
   for (const notebook of input.notebooks) {
     results.push({
       notebook,
@@ -89,6 +94,7 @@ export async function upgradeNotebooksInBulk(
     })
     onProgress?.(results.length, input.notebooks.length)
   }
+
   return results
 }
 
@@ -98,15 +104,18 @@ async function upgradeOne(
   targetVersionId: string,
 ): Promise<BulkUpgradeOutcome> {
   if (notebook.locked_at) return { kind: 'signed' }
+
   try {
     const preview = await previewNotebookTemplateUpgrade(
       notebook.id,
       targetVersionId,
       client,
     )
+
     if (preview.conflicts.length > 0) {
       return { kind: 'needs-decision', conflicts: preview.conflicts.length }
     }
+
     await applyNotebookTemplateUpgrade(
       {
         recordId: notebook.id,
@@ -116,6 +125,7 @@ async function upgradeOne(
       },
       client,
     )
+
     return { kind: 'updated' }
   } catch (cause) {
     return {

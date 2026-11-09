@@ -34,10 +34,13 @@ export async function runPlatesAction(
   action: PlatesAction,
 ): Promise<PlatesActionResult | undefined> {
   const run = await fetchPlateRun(client, action.runId)
+
   if (!run) throw new Error('That plate run could not be found.')
+
   switch (action.kind) {
     case 'plate.analyse':
       await analyseAndSavePlateRun(client, run)
+
       return { openHref: `/plates?run=${run.id}` }
     case 'worklist.create': {
       const plan = buildWorklist(destinationsOf(run.wells), {
@@ -48,6 +51,7 @@ export async function runPlatesAction(
         destPlate: `PLR-${String(run.number).padStart(4, '0')}`,
         ...(action.volumeUl ? { defaultVolumeUl: action.volumeUl } : {}),
       })
+
       if (plan.transfers.length === 0)
         throw new Error('No transfers to make: give the wells a volume.')
       await createPlateWorklist(client, {
@@ -62,6 +66,7 @@ export async function runPlatesAction(
         runId: run.id,
         recordId: run.record_id,
       })
+
       return { openHref: '/plates' }
     }
   }

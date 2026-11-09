@@ -113,6 +113,7 @@ describe('applyTransformations — aggregate', () => {
         },
       ],
     })
+
     const out = applyTransformations(rows, s.transformations, s)
     // Four (time, buffer) groups: (0,HEPES), (24,HEPES), (0,TRIS), (24,TRIS).
     expect(out).toHaveLength(4)
@@ -134,6 +135,7 @@ describe('applyTransformations — aggregate', () => {
         },
       ],
     })
+
     const out = applyTransformations(rows, s.transformations, s)
     const hepes0 = out.find((r) => r[F_TIME] === 0 && r[F_BUFFER] === 'HEPES')
     expect(hepes0?.[F_PH]).toBeCloseTo(14.1, 5)
@@ -153,6 +155,7 @@ describe('applyTransformations — aggregate', () => {
         },
       ],
     })
+
     const out = applyTransformations(rows, s.transformations, s)
     const hepes0 = out.find((r) => r[F_TIME] === 0 && r[F_BUFFER] === 'HEPES')
     expect(hepes0?.[F_PH]).toBe(2)
@@ -173,6 +176,7 @@ describe('applyTransformations — normalise', () => {
         },
       ],
     })
+
     const out = applyTransformations(rows, s.transformations, s)
     const trisRows = out.filter((r) => r[F_BUFFER] === 'TRIS')
     // TRIS max is 8.0; 7.9 / 8.0 * 100 = 98.75
@@ -198,6 +202,7 @@ describe('materialiseAnalysisChart', () => {
       columns.filter((c) => c.id !== F_PH),
       rows,
     )
+
     expect(result.state.kind).toBe('missing_field')
   })
 
@@ -206,6 +211,7 @@ describe('materialiseAnalysisChart', () => {
       ...rows,
       { [F_TIME]: 48, [F_PH]: 0, [F_BUFFER]: 'HEPES', [F_SD]: 0 },
     ]
+
     const s = spec({
       display: {
         ...spec().display,
@@ -215,8 +221,10 @@ describe('materialiseAnalysisChart', () => {
         },
       },
     })
+
     const result = materialiseAnalysisChart(s, columns, withZero)
     expect(result.state.kind).toBe('log_scale_invalid')
+
     if (result.state.kind === 'log_scale_invalid') {
       expect(result.state.axis).toBe('y')
       expect(result.state.invalidCount).toBeGreaterThan(0)
@@ -227,6 +235,7 @@ describe('materialiseAnalysisChart', () => {
     const s = spec({
       filters: [{ fieldId: F_BUFFER, op: 'eq', value: 'NONE' }],
     })
+
     const result = materialiseAnalysisChart(s, columns, rows)
     expect(result.state.kind).toBe('empty_dataset')
   })
@@ -245,13 +254,16 @@ describe('materialiseAnalysisChart', () => {
         },
       ],
     })
+
     const result = materialiseAnalysisChart(s, columns, rows)
     expect(result.state.kind).toBe('ok')
+
     // 4 aggregated (time, buffer) groups → 4 points across series.
     const totalPoints = result.series.reduce(
       (a, series) => a + series.points.length,
       0,
     )
+
     expect(totalPoints).toBe(4)
   })
 })
@@ -262,6 +274,7 @@ describe('captureSourceRevisions + detectStaleSources', () => {
       [source({ schemaVersionNumber: 3, revision: 2 })],
       spec(),
     )
+
     expect(revs).toEqual([
       {
         datasetId: DATASET_ID,
@@ -275,6 +288,7 @@ describe('captureSourceRevisions + detectStaleSources', () => {
     const stored: SourceRevision[] = [
       { datasetId: DATASET_ID, schemaVersionNumber: 1, revision: 1 },
     ]
+
     const live = [source({ revision: 2 })]
     expect(detectStaleSources(stored, live)).toContain('was revised')
   })
@@ -283,6 +297,7 @@ describe('captureSourceRevisions + detectStaleSources', () => {
     const stored: SourceRevision[] = [
       { datasetId: DATASET_ID, schemaVersionNumber: 1, revision: 1 },
     ]
+
     const live = [source({ schemaVersionNumber: 2 })]
     expect(detectStaleSources(stored, live)).toContain('schema v2')
   })
@@ -295,6 +310,7 @@ describe('captureSourceRevisions + detectStaleSources', () => {
         revision: 1,
       },
     ]
+
     expect(detectStaleSources(stored, [source()])).toContain(
       'no longer available',
     )
@@ -314,12 +330,14 @@ describe('validateAnalysisSpec', () => {
   it('rejects an unsupported chart type', () => {
     const r = validateAnalysisSpec({ ...spec(), type: 'pie' as unknown })
     expect(r.ok).toBe(false)
+
     if (!r.ok) expect(r.errors.some((e) => e.includes('type'))).toBe(true)
   })
 
   it('flags excessive result size', () => {
     const r = validateAnalysisSpec(spec(), ANALYSIS_MAX_RESULT_ROWS + 1)
     expect(r.ok).toBe(false)
+
     if (!r.ok) expect(r.errors.some((e) => e.includes('exceeds'))).toBe(true)
   })
 })
@@ -333,6 +351,7 @@ describe('saved-view writes', () => {
     ],
     export_settings: DEFAULT_EXPORT_SETTINGS,
   }
+
   const saved = {
     id: 'v-1',
     name: 'pH vs stability',
@@ -408,6 +427,7 @@ describe('export helpers', () => {
       [{ datasetId: DATASET_ID, schemaVersionNumber: 1, revision: 1 }],
       spec(),
     )
+
     const json = exportViewJson(spec(), DEFAULT_EXPORT_SETTINGS, prov)
     const parsed = JSON.parse(json)
     expect(parsed.format).toBe('sheetbase-analysis-view')
@@ -423,11 +443,13 @@ describe('export helpers', () => {
       [],
       spec(),
     )
+
     const json = exportViewJson(
       spec(),
       { ...DEFAULT_EXPORT_SETTINGS, includeProvenance: false },
       prov,
     )
+
     const parsed = JSON.parse(json)
     expect(parsed.provenance).toBeNull()
   })
@@ -444,6 +466,7 @@ describe('export helpers', () => {
     // An ad-hoc export has no stored view, so its header carries no id and no
     // version: a placeholder would read as a version that exists.
     const materialised = materialiseAnalysisChart(spec(), columns, rows)
+
     const stored = buildExportProvenance(
       {
         name: 'pH view',
@@ -454,6 +477,7 @@ describe('export helpers', () => {
       [{ datasetId: DATASET_ID, schemaVersionNumber: 1, revision: 1 }],
       spec(),
     )
+
     expect(exportDataCsv(materialised, stored).split('\n')[1]).toBe(
       '# view: pH view (abcdef12) v3',
     )
@@ -464,6 +488,7 @@ describe('export helpers', () => {
       [],
       spec(),
     )
+
     expect(exportDataCsv(materialised, adHoc).split('\n')[1]).toBe(
       '# view: Untitled analysis',
     )
@@ -514,6 +539,7 @@ describe('reproducibility — rebuild a saved chart from its stored spec', () =>
     expect(rebuilt.series.map((s) => s.identifier)).toEqual(
       original.series.map((s) => s.identifier),
     )
+
     for (let i = 0; i < original.series.length; i++) {
       expect(rebuilt.series[i].points).toEqual(original.series[i].points)
     }
@@ -541,6 +567,7 @@ describe('recordAnalysisCitation', () => {
       .mockRejectedValue(
         Object.assign(new Error('duplicate key'), { code: '23505' }),
       )
+
     await expect(
       recordAnalysisCitation({ rpc } as unknown as DataClient, 'rec-1', {
         display_id: 'AV-0007',
@@ -571,6 +598,7 @@ describe('figure caption in exports', () => {
     wrapper.innerHTML =
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="10" height="10"/></svg>'
     document.body.appendChild(wrapper)
+
     return wrapper.querySelector('svg')!
   }
 
@@ -579,6 +607,7 @@ describe('figure caption in exports', () => {
       'Titre by dilution across three plates, mean of duplicate wells, error bars are one standard deviation.',
       settings.width,
     )
+
     expect(lines.length).toBeGreaterThan(1)
     expect(lines.join(' ')).toContain('error bars are one standard deviation.')
   })
@@ -606,10 +635,12 @@ describe('figure caption in exports', () => {
 
   it('keeps the figure size when no caption is set', () => {
     const svg = exportChartSvg(chartSvg(), settings, null)
+
     const root = new DOMParser().parseFromString(
       svg,
       'image/svg+xml',
     ).documentElement
+
     expect(root.getAttribute('height')).toBe('300')
     expect(svg).not.toContain('data-figure-caption')
   })

@@ -33,7 +33,9 @@ interface Section {
 function asSection(value: unknown): Section | null {
   if (typeof value !== 'object' || value === null) return null
   const v = value as Record<string, unknown>
+
   if (typeof v.title !== 'string' || !v.title.trim()) return null
+
   return {
     title: v.title.trim().slice(0, 300),
     text: typeof v.text === 'string' ? v.text : '',
@@ -61,6 +63,7 @@ export function AddPluginSectionDialog({
   const [chosen, setChosen] = React.useState(0)
   const [result, setResult] = React.useState<Section | null>(null)
   const item = sections.at(Math.min(chosen, sections.length - 1))
+
   const add = useMutation({
     mutationFn: (section: Section) =>
       addTextSection(notebookDataClient, {
@@ -78,10 +81,13 @@ export function AddPluginSectionDialog({
     },
     onError: () => toast.error(t('projects.reports.addText.failed')),
   })
+
   const onEmit = React.useCallback((name: string, payload: unknown) => {
     if (name === 'section') setResult(asSection(payload))
   }, [])
+
   if (!item) return null
+
   return (
     <Dialog
       open={open}

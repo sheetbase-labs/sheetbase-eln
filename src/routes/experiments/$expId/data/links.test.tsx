@@ -46,6 +46,7 @@ function renderBookings() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <ExperimentBookings expId="exp-1" />
@@ -54,6 +55,7 @@ function renderBookings() {
 }
 
 beforeEach(() => dataClient.list.mockReset())
+
 afterEach(cleanup)
 
 describe('ExperimentBookings', () => {
@@ -95,9 +97,11 @@ describe('ExperimentBookings', () => {
 describe('LinksPanel samples', () => {
   it('offers to link a sample even when none is linked yet', async () => {
     dataClient.list.mockResolvedValue([])
+
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+
     render(
       <QueryClientProvider client={client}>
         <LinksPanel expId="exp-1" />

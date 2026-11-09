@@ -65,7 +65,9 @@ const meta = {
   },
   args: { citations },
 } satisfies Meta<typeof CitationList>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Draft, signed and locked citations in one list. */

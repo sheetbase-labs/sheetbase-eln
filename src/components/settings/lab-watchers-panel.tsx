@@ -61,6 +61,7 @@ const STATUS_TONE: Record<FindingStatus, Tone> = {
   dismissed: 'draft',
   resolved: 'ok',
 }
+
 const STATUS_LABEL: Record<FindingStatus, string> = {
   open: t('agents.watchers.statusOpen'),
   snoozed: t('agents.watchers.statusSnoozed'),
@@ -74,16 +75,19 @@ function messageOf(error: unknown, fallback: string): string {
 
 export function LabWatchersPanel({ workspaceId }: { workspaceId: string }) {
   const queryClient = useQueryClient()
+
   const watchers = useQuery({
     queryKey: watcherKeys.watchers,
     queryFn: () => fetchLabWatchers(client),
     enabled: Boolean(workspaceId),
   })
+
   const findings = useQuery({
     queryKey: watcherKeys.findings,
     queryFn: () => fetchWatcherFindings(client),
     enabled: Boolean(workspaceId),
   })
+
   const [showSetAside, setShowSetAside] = useState(false)
 
   const refresh = () => {
@@ -158,6 +162,7 @@ export function LabWatchersPanel({ workspaceId }: { workspaceId: string }) {
       .filter((row) => row.project_id === null)
       .map((row) => [row.kind, row] as const),
   )
+
   const shown = (findings.data ?? []).filter(
     (row) => showSetAside || row.status === 'open',
   )
@@ -288,8 +293,10 @@ function WatcherRow({
   const schedule = row?.schedule ?? 'daily'
   const paramKey = meta.param?.key
   const stored = paramKey ? row?.params[paramKey] : undefined
+
   const param =
     typeof stored === 'number' ? stored : (meta.param?.defaultValue ?? null)
+
   return (
     <TableRow>
       <TableCell>
@@ -322,6 +329,7 @@ function WatcherRow({
               defaultValue={param ?? undefined}
               onBlur={(event) => {
                 const next = Number(event.target.value)
+
                 if (
                   Number.isFinite(next) &&
                   next >= (meta.param?.min ?? 1) &&
@@ -390,6 +398,7 @@ function FindingRow({
 }) {
   const setAside =
     finding.status === 'snoozed' || finding.status === 'dismissed'
+
   return (
     <TableRow>
       <TableCell>

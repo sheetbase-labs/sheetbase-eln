@@ -31,6 +31,7 @@ export function isFeedToken(value: string): boolean {
 /** "20261105T093000Z" */
 function stamp(value: string | Date): string {
   const d = typeof value === 'string' ? new Date(value) : value
+
   return d
     .toISOString()
     .replace(/[-:]/g, '')
@@ -53,28 +54,35 @@ function escapeText(value: string): string {
 /** Lines longer than 75 octets continue on the next line after a space. */
 export function foldLine(line: string): string {
   const encoder = new TextEncoder()
+
   if (encoder.encode(line).length <= 75) return line
   const parts: string[] = []
   let current = ''
   let bytes = 0
+
   for (const char of line) {
     const size = encoder.encode(char).length
     const limit = parts.length === 0 ? 75 : 74
+
     if (bytes + size > limit) {
       parts.push(current)
       current = ''
       bytes = 0
     }
+
     current += char
     bytes += size
   }
+
   parts.push(current)
+
   return parts.join('\r\n ')
 }
 
 function eventLines(event: FeedEvent): string[] {
   const lines = ['BEGIN:VEVENT', `UID:${event.id}@sheetbase`]
   lines.push(`DTSTAMP:${stamp(event.updated_at)}`)
+
   if (event.all_day) {
     lines.push(`DTSTART;VALUE=DATE:${day(event.starts_at)}`)
     // An all-day end is exclusive: the day after the last day.
@@ -85,8 +93,11 @@ function eventLines(event: FeedEvent): string[] {
     lines.push(`DTSTART:${stamp(event.starts_at)}`)
     lines.push(`DTEND:${stamp(event.ends_at)}`)
   }
+
   lines.push(`SUMMARY:${escapeText(`${event.resource}: ${event.title}`)}`)
+
   if (event.location) lines.push(`LOCATION:${escapeText(event.location)}`)
+
   if (event.notes) lines.push(`DESCRIPTION:${escapeText(event.notes)}`)
   lines.push(
     `STATUS:${
@@ -98,6 +109,7 @@ function eventLines(event: FeedEvent): string[] {
     }`,
   )
   lines.push('TRANSP:OPAQUE', 'END:VEVENT')
+
   return lines
 }
 
@@ -116,5 +128,6 @@ export function buildIcs(feed: Feed): string {
     ...feed.events.flatMap(eventLines),
     'END:VCALENDAR',
   ]
+
   return lines.map(foldLine).join('\r\n') + '\r\n'
 }

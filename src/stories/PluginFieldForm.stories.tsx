@@ -28,6 +28,7 @@ function Demo({ masked }: { masked?: string[] }) {
     reactions: '24',
     per_reaction: '20',
   })
+
   return (
     <div className="max-w-md">
       <FieldForm
@@ -44,6 +45,7 @@ const meta: Meta<typeof Demo> = {
   title: 'Plugins/Field form',
   component: Demo,
 }
+
 export default meta
 
 type Story = StoryObj<typeof Demo>

@@ -67,10 +67,13 @@ export function readPromptFormSchema(
         if (entry === null || typeof entry !== 'object' || Array.isArray(entry))
           return []
         const field = entry as Record<string, unknown>
+
         if (typeof field.key !== 'string') return []
+
         const type = FIELD_TYPES.includes(field.type as PromptFieldType)
           ? (field.type as PromptFieldType)
           : 'text'
+
         return [
           {
             key: field.key,
@@ -84,22 +87,28 @@ export function readPromptFormSchema(
         ]
       })
     : []
+
   const proposal = raw.proposal
+
   const proposalRecord =
     proposal !== null &&
     typeof proposal === 'object' &&
     !Array.isArray(proposal)
       ? (proposal as Record<string, unknown>)
       : null
+
   const proposalRows: unknown[] =
     proposalRecord && Array.isArray(proposalRecord.rows)
       ? proposalRecord.rows
       : []
+
   const rows = proposalRows.filter(
     (row): row is Record<string, unknown> =>
       row !== null && typeof row === 'object' && !Array.isArray(row),
   )
+
   const columns = rows.length ? Object.keys(rows[0]) : []
+
   return {
     title: typeof raw.title === 'string' ? raw.title : null,
     description: typeof raw.description === 'string' ? raw.description : null,
@@ -127,9 +136,12 @@ export interface PromptAnswerView {
 
 function displayValue(value: unknown): string {
   if (value === null || value === undefined) return '—'
+
   if (typeof value === 'string') return value
+
   if (typeof value === 'number' || typeof value === 'boolean')
     return String(value)
+
   return JSON.stringify(value)
 }
 
@@ -139,16 +151,20 @@ export function readPromptAnswer(
   schema: PromptFormSchema,
 ): PromptAnswerView | null {
   const answer = prompt.answer
+
   if (!answer) return null
+
   const rawValues =
     answer.values !== null &&
     typeof answer.values === 'object' &&
     !Array.isArray(answer.values)
       ? (answer.values as Record<string, unknown>)
       : {}
+
   const labelByKey = Object.fromEntries(
     schema.fields.map((f) => [f.key, f.label]),
   )
+
   return {
     decision:
       typeof answer.decision === 'string'
@@ -179,6 +195,7 @@ export interface RunPromptPanelProps {
 
 function ProposalTable({ schema }: { schema: PromptFormSchema }) {
   if (!schema.proposalColumns.length) return null
+
   return (
     <TableBox>
       <Table aria-label={t('data.runPrompt.ariaWhatStepProposes')}>
@@ -218,14 +235,17 @@ export function RunPromptPanel({
 
   const title =
     schema.title ?? t('data.runPrompt.confirm', { stepId: prompt.step_id })
+
   const answer = readPromptAnswer(prompt, schema)
   const asked = prompt.asked_user_ids.map(nameOf)
 
   function submit(decision: PipelineRunPromptAnswer['decision']) {
     if (decision !== 'stop' && reason.trim() === '') {
       setReasonError(t('data.runPrompt.sayWhySoDecision'))
+
       return
     }
+
     setReasonError(null)
     onAnswer?.({ decision, values, reason: reason.trim() || undefined })
   }
@@ -296,6 +316,7 @@ export function RunPromptPanel({
                 ) : null}
               </span>
             )
+
             if (field.type === 'boolean') {
               return (
                 <label
@@ -312,6 +333,7 @@ export function RunPromptPanel({
                 </label>
               )
             }
+
             if (field.type === 'text' && field.options.length) {
               return (
                 <Field key={field.key} label={label} required={field.required}>
@@ -332,6 +354,7 @@ export function RunPromptPanel({
                 </Field>
               )
             }
+
             const inputType =
               field.type === 'integer' || field.type === 'decimal'
                 ? 'number'
@@ -340,6 +363,7 @@ export function RunPromptPanel({
                   : field.type === 'timestamp'
                     ? 'datetime-local'
                     : 'text'
+
             return (
               <Field key={field.key} label={label} required={field.required}>
                 <Input

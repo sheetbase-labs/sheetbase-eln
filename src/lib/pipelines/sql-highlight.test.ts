@@ -61,6 +61,7 @@ describe('tokenizeSql', () => {
       'select ü, 1e5, .5, a.b from `x` ; --',
       'SELECT\n\tx\r\nFROM y',
     ]
+
     for (const sql of samples)
       expect(
         tokenizeSql(sql)

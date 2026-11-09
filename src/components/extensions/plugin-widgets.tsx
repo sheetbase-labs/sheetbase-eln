@@ -9,7 +9,9 @@ import { operationAccess, usePluginPoints } from './use-plugin-points'
 
 export function PluginWidgets({ className }: { className?: string }) {
   const points = usePluginPoints()
+
   if (points.dashboardWidgets.length === 0) return null
+
   return (
     <section
       aria-label={t('plugins.widgets.label')}

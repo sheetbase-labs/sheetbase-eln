@@ -33,9 +33,11 @@ describe('session expiry', () => {
   it('a 401 from the data boundary marks the session as ended', async () => {
     const { result } = renderHook(() => useSessionExpired())
     expect(result.current).toBe(false)
+
     const client = createDataClient(
       async () => new Response('{}', { status: 401 }),
     )
+
     await act(async () => {
       await client.list('records').catch(() => undefined)
     })
@@ -44,9 +46,11 @@ describe('session expiry', () => {
 
   it('a 403 does not claim the session ended', async () => {
     const { result } = renderHook(() => useSessionExpired())
+
     const client = createDataClient(
       async () => new Response('{}', { status: 403 }),
     )
+
     await act(async () => {
       await client.list('records').catch(() => undefined)
     })

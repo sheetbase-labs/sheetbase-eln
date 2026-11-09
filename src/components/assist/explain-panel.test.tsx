@@ -24,7 +24,9 @@ function explanation(): AssistExplanation {
       },
     ],
   })
+
   if (!built) throw new Error('fixture explanation must build')
+
   return built
 }
 

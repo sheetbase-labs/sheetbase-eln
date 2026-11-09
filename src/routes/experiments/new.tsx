@@ -89,6 +89,7 @@ function withDeadline<T>(read: Promise<T>, label: string): Promise<T> {
       FORM_READ_TIMEOUT_MS,
     )
   })
+
   // The losing side is handled by `race`, so a late rejection is never
   // unhandled — and a settled read leaves only one idle timer behind.
   return Promise.race([read, deadline])
@@ -102,12 +103,15 @@ function withDeadline<T>(read: Promise<T>, label: string): Promise<T> {
  */
 function createErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : ''
+
   if (/project is archived/i.test(message)) {
     return t('projects.newExperiment.errors.archived')
   }
+
   if (/row-level security|permission_denied|permission denied/i.test(message)) {
     return t('projects.newExperiment.errors.permission')
   }
+
   return message || t('projects.newExperiment.errors.generic')
 }
 
@@ -130,6 +134,7 @@ export const Route = createFileRoute('/experiments/new')({
   } => {
     const text = (value: unknown) =>
       typeof value === 'string' && value ? value : undefined
+
     return {
       ...parseCreateContext(search),
       protocol: text(search.protocol),
@@ -139,9 +144,11 @@ export const Route = createFileRoute('/experiments/new')({
   },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: NewExperiment,
@@ -150,6 +157,7 @@ export const Route = createFileRoute('/experiments/new')({
 function NewExperiment() {
   const search = Route.useSearch()
   const navigate = useNavigate()
+
   const projects = useQuery({
     queryKey: ['ui-port', 'experiments', 'new', 'projects'],
     queryFn: () =>
@@ -163,7 +171,9 @@ function NewExperiment() {
     staleTime: 60_000,
     retry: false,
   })
+
   const rows = projects.data ?? []
+
   // Which of those projects the caller may write to. `api.projects` returns
   // every project the account can *view*; the create RPC inserts under
   // `records_live_insert`, so a view-only default fails with a raw RLS error.
@@ -177,27 +187,35 @@ function NewExperiment() {
     staleTime: 60_000,
     retry: false,
   })
+
   const [projectId, setProjectId] = useState(search.project ?? '')
   const [title, setTitle] = useState('')
   // null until the author chooses: until then the project's default reviewer
   // stands in, so the reviewer is chosen once and carried to Submit.
   const [reviewerId, setReviewerId] = useState<string | null>(null)
   const [plannedEnd, setPlannedEnd] = useState('')
+
   const [startFrom, setStartFrom] = useState<StartFrom>(
     search.template ? 'template' : search.protocol ? 'protocol' : 'blank',
   )
+
   const [protocolVersionId, setProtocolVersionId] = useState('')
   const [templateId, setTemplateId] = useState(search.template ?? '')
+
   const [templateValues, setTemplateValues] = useState<Record<string, string>>(
     {},
   )
+
   const [startNow, setStartNow] = useState(false)
   const [acknowledged, setAcknowledged] = useState(false)
   const [copyFromId, setCopyFromId] = useState('')
+
   const [copyFromOption, setCopyFromOption] = useState<PickerOption | null>(
     null,
   )
+
   const [touched, setTouched] = useState(false)
+
   const [idempotencyKey, setIdempotencyKey] = useState(() =>
     crypto.randomUUID(),
   )
@@ -211,6 +229,7 @@ function NewExperiment() {
       ),
     staleTime: 60_000,
   })
+
   const protocols = useQuery({
     queryKey: ['ui-port', 'experiments', 'new', 'protocols'],
     queryFn: () =>
@@ -224,6 +243,7 @@ function NewExperiment() {
       ),
     staleTime: 60_000,
   })
+
   const protocolVersions = useQuery({
     queryKey: ['ui-port', 'experiments', 'new', 'protocol-versions'],
     queryFn: () =>
@@ -237,6 +257,7 @@ function NewExperiment() {
       ),
     staleTime: 60_000,
   })
+
   // Published notebook templates, only once the author asks to start from one.
   const templates = useQuery({
     queryKey: ['ui-port', 'experiments', 'new', 'templates'],
@@ -246,12 +267,14 @@ function NewExperiment() {
         fetchNotebookTemplates(notebookDataClient, { limit: 200 }),
         fetchAllNotebookTemplateVersions(notebookDataClient),
       ])
+
       return buildTemplateRows(list, versions, []).filter(
         (row) => row.published && row.lifecycle !== 'retired',
       )
     },
     staleTime: 60_000,
   })
+
   // A sample handed over by the page that linked here: it is linked to the new
   // experiment, and named in the form so the author sees what will be linked.
   const sample = useQuery({
@@ -296,23 +319,30 @@ function NewExperiment() {
         (v) => v.protocol_record_id === search.protocol,
       )
     : undefined
+
   const effectiveProtocolVersionId =
     protocolVersionId || handedProtocolVersion?.id || ''
+
   const chosenProtocolVersion = (protocolVersions.data ?? []).find(
     (v) => v.id === effectiveProtocolVersionId,
   )
+
   const protocolId =
     startFrom === 'protocol'
       ? (chosenProtocolVersion?.protocol_record_id ?? '')
       : ''
+
   const chosenTemplate =
     startFrom === 'template'
       ? (templates.data ?? []).find((row) => row.id === templateId)
       : undefined
+
   const templateVersion = chosenTemplate?.published ?? null
+
   const askedTemplateParameters = templateVersion
     ? askedParameters(templateVersion)
     : []
+
   const missingTemplateParameters = askedTemplateParameters.filter(
     (p) => parameterInput(p, templateValues[p.id] ?? '') === null,
   )
@@ -330,39 +360,50 @@ function NewExperiment() {
       ),
     [assignments.data],
   )
+
   const accessPending = assignments.isLoading
   const accessKnown = assignments.isSuccess
+
   const isArchived = (project: ProjectOption) =>
     Boolean(project.archived_at) || project.status === 'archived'
+
   // A project can hold a new experiment when the account can edit it and the
   // project is not archived. Until the permission read answers we do not know,
   // so every project counts as usable: the create states its own refusal
   // inline, which beats an inert form.
   const canCreateIn = (project: ProjectOption) =>
     !accessKnown || (writableProjectIds.has(project.id) && !isArchived(project))
+
   const firstUsableId = rows.find((project) => canCreateIn(project))?.id ?? ''
   const chosenProject = rows.find((project) => project.id === projectId)
+
   const effectiveProjectId =
     chosenProject && canCreateIn(chosenProject)
       ? chosenProject.id
       : firstUsableId
+
   const effectiveProject = rows.find((p) => p.id === effectiveProjectId)
+
   // A hand-off project that cannot take the experiment is replaced by the first
   // one that can; say so rather than creating it somewhere unannounced.
   const handedProject = search.project
     ? rows.find((project) => project.id === search.project)
     : undefined
+
   const projectReplaced =
     handedProject !== undefined &&
     !canCreateIn(handedProject) &&
     effectiveProject !== undefined &&
     effectiveProject.id !== handedProject.id
+
   const effectiveReviewerId =
     reviewerId ?? effectiveProject?.default_reviewer_user_id ?? ''
+
   const titleError =
     touched && title.trim().length < 5
       ? t('projects.newExperiment.titleError')
       : undefined
+
   const projectError =
     touched && !effectiveProjectId
       ? rows.length === 0
@@ -386,10 +427,13 @@ function NewExperiment() {
           effectiveProtocolVersionId,
         )
       }
+
       let record: { id: string; identifier: string }
+
       if (startFrom === 'template') {
         if (!templateVersion)
           throw new Error(t('projects.newExperiment.chooseTemplate'))
+
         const instantiated = await instantiateNotebookTemplateVersion(
           {
             versionId: templateVersion.id,
@@ -398,12 +442,14 @@ function NewExperiment() {
             parameterInputs: askedTemplateParameters.flatMap((p) => {
               const input: NotebookTemplateParameterInput | null =
                 parameterInput(p, templateValues[p.id] ?? '')
+
               return input ? [input] : []
             }),
             idempotencyKey,
           },
           notebookDataClient,
         )
+
         record = instantiated.record
       } else {
         record = await createBlankExperiment(notebookDataClient, {
@@ -411,6 +457,7 @@ function NewExperiment() {
           title: title.trim(),
         })
       }
+
       if (effectiveReviewerId || plannedEnd) {
         await notebookDataClient.rpc('set_experiment_fields', {
           p_record_id: record.id,
@@ -418,6 +465,7 @@ function NewExperiment() {
           p_planned_end: plannedEnd || null,
         })
       }
+
       // The workspace's own Experiment fields go on before anything else
       // reads the record's version.
       await saveNewObjectFields(
@@ -436,6 +484,7 @@ function NewExperiment() {
       // so the notebook and the chosen protocol cannot disagree.
       let protocolInNotebook = false
       let protocolPinError: string | undefined
+
       if (protocolId) {
         try {
           await insertPinnedProtocol(notebookDataClient, record.id, protocolId)
@@ -447,9 +496,11 @@ function NewExperiment() {
               : t('projects.newExperiment.pinRefused')
         }
       }
+
       // The new experiment joins the series it was made from. The experiment
       // exists either way, so a refusal is said afterwards, not thrown.
       let seriesRefusal: string | undefined
+
       if (series.data) {
         try {
           await addSeriesMember(notebookDataClient, {
@@ -463,6 +514,7 @@ function NewExperiment() {
               : t('projects.series.tab.failed')
         }
       }
+
       if (startNow) {
         // Starting is a server decision: PROJ-03 and LAB-07 authority (effective
         // version, exact-version acknowledgement) are enforced by the RPC.
@@ -471,6 +523,7 @@ function NewExperiment() {
         const current = await notebookDataClient.list<{
           metadata_version: number
         }>('records', `?id=eq.${record.id}&select=metadata_version&limit=1`)
+
         await notebookDataClient.rpc('start_experiment', {
           p_record_id: record.id,
           p_expected_metadata_version: current.at(0)?.metadata_version ?? 1,
@@ -478,6 +531,7 @@ function NewExperiment() {
           p_reason: t('projects.newExperiment.startReason'),
         })
       }
+
       return {
         record,
         started: startNow,
@@ -528,9 +582,13 @@ function NewExperiment() {
 
   const submit = () => {
     setTouched(true)
+
     if (accessPending || title.trim().length < 5 || !effectiveProjectId) return
+
     if (needsAcknowledgement && !acknowledged) return
+
     if (!addedFields.valid) return
+
     if (
       startFrom === 'template' &&
       (!templateVersion || missingTemplateParameters.length > 0)
@@ -725,6 +783,7 @@ function NewExperiment() {
                 const record = (protocols.data ?? []).find(
                   (p) => p.id === v.protocol_record_id,
                 )
+
                 return {
                   id: v.id,
                   identifier: record?.identifier,

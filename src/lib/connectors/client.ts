@@ -191,10 +191,12 @@ export async function getConnector(
   idOrKey: string,
 ): Promise<ConnectorWire | undefined> {
   const column = UUID.test(idOrKey) ? 'id' : 'key'
+
   const rows = await client.list<ConnectorWire>(
     'connectors',
     `?select=${CONNECTOR_FIELDS}&${column}=eq.${encodeURIComponent(idOrKey)}`,
   )
+
   return rows[0]
 }
 
@@ -231,11 +233,14 @@ export function describeConnectorsError(cause: unknown): string {
     cause instanceof Error
       ? cause.message
       : t('data.connectorsClient.requestFailed')
+
   if (/capability required/i.test(message)) {
     return t('data.connectorsClient.doHavePermissionManage')
   }
+
   if (/connector key|invalid connector key/i.test(message)) {
     return t('data.connectorsClient.chooseDifferentLowercaseKey')
   }
+
   return message
 }

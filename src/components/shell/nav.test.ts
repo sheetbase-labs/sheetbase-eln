@@ -40,11 +40,13 @@ describe('Home selection', () => {
 describe('SHELL-01.2 main navigation', () => {
   it('keeps everyday scientific navigation visible to every member role', () => {
     const expected = [...primaryNav, ...recordNav].map((i) => i.label)
+
     for (const role of MEMBER_ROLES) {
       const visible = [
         ...filterNavForRole(primaryNav, role),
         ...filterNavForRole(recordNav, role),
       ].map((i) => i.label)
+
       expect(visible).toEqual(expected)
     }
   })
@@ -68,6 +70,7 @@ describe('SHELL-01.2 main navigation', () => {
       link: { to: '/settings' },
       roles: WORKSPACE_ADMIN_ROLES,
     }
+
     const items = [...primaryNav, restricted]
     expect(filterNavForRole(items, 'viewer').map((i) => i.label)).not.toContain(
       'Workspace admin',
@@ -105,6 +108,7 @@ describe('sidebar groups', () => {
       'templates',
       'projects',
     ])
+
     expect(groups.map((g) => g.key)).toEqual(['work', 'lab', 'data'])
     expect(groups[0].items.map((i) => i.key)).toContain('projects')
   })

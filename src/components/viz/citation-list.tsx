@@ -42,8 +42,10 @@ function citationState(citation: AnalysisViewCitation): {
 } {
   if (citation.signed)
     return { tone: 'ok', label: t('data.citationList.signed') }
+
   if (citation.locked)
     return { tone: 'warn', label: t('data.citationList.locked') }
+
   return { tone: 'draft', label: t('data.citationList.draft') }
 }
 
@@ -60,6 +62,7 @@ export function CitationList({
       </p>
     )
   }
+
   if (error) {
     return (
       <p role="alert" className="text-label text-warning-text">
@@ -67,6 +70,7 @@ export function CitationList({
       </p>
     )
   }
+
   if (citations.length === 0) {
     return (
       <p className="text-label text-fg-muted" data-citations-empty>
@@ -74,6 +78,7 @@ export function CitationList({
       </p>
     )
   }
+
   return (
     <Table
       aria-label={t('data.citationList.ariaRecordsCitingAnalysis')}
@@ -89,6 +94,7 @@ export function CitationList({
       <TableBody>
         {citations.map((citation) => {
           const state = citationState(citation)
+
           return (
             <TableRow key={citation.linkId} data-citation-id={citation.linkId}>
               <TableCell>

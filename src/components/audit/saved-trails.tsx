@@ -12,11 +12,15 @@ export function SavedTrails({ recordId }: { recordId: string }) {
     queryKey: ['ui-port', 'trail-evidence', recordId],
     queryFn: () => listTrailEvidence(notebookDataClient, recordId),
   })
+
   const rows = trails.data ?? []
+
   const { userLabel } = useUserNames(
     rows.flatMap((row) => (row.saved_by_user_id ? [row.saved_by_user_id] : [])),
   )
+
   if (rows.length === 0) return null
+
   return (
     <section
       aria-label={t('projects.savedTrails.title')}

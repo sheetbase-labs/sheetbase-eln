@@ -48,9 +48,12 @@ const DELIVERY_STATUS: Record<
 /** The destination the canvas shows: its description, else its key. */
 export function deliveryChannel(delivery: PipelineRunDeliveryWire): string {
   const description = delivery.destination?.description?.trim()
+
   if (description) return description
   const key = delivery.destination?.key.trim()
+
   if (key) return key
+
   return t('data.runDeliveries.destination2', {
     slice: delivery.subscription_id.slice(0, 8),
   })
@@ -61,12 +64,16 @@ export function deliveryFailureReason(
   delivery: PipelineRunDeliveryWire,
 ): string {
   const message = delivery.error_message?.trim()
+
   if (message) return message
+
   if (delivery.response_status != null)
     return t('data.runDeliveries.endpointReplied', {
       responseStatus: delivery.response_status,
     })
+
   if (delivery.error_code?.trim()) return delivery.error_code.trim()
+
   return t('data.runDeliveries.reasonRecorded')
 }
 
@@ -75,10 +82,12 @@ export function deliveryOutcome(delivery: PipelineRunDeliveryWire): string {
   switch (delivery.status) {
     case 'delivered': {
       const sentAt = delivery.delivered_at ?? delivery.created_at
+
       return t('data.runDeliveries.sent', {
         value: formatNotebookDateTime(sentAt, { zone: true }),
       })
     }
+
     case 'pending':
       return t('data.runDeliveries.queuedDelivery2')
     case 'retrying':
@@ -119,6 +128,7 @@ export function RunDeliveriesPanel({
   isLoading = false,
 }: RunDeliveriesPanelProps) {
   const missing = Math.max(0, queuedCount - deliveries.length)
+
   return (
     <section>
       <h2 className="mb-1.5 font-sans text-label font-semibold">
@@ -150,6 +160,7 @@ export function RunDeliveriesPanel({
               <TableBody>
                 {deliveries.map((delivery) => {
                   const state = DELIVERY_STATUS[delivery.status]
+
                   return (
                     <TableRow key={delivery.id}>
                       <TableCell>

@@ -6,6 +6,7 @@
  */
 
 export const LITERATURE_SOURCES = ['europepmc', 'pubmed', 'openalex'] as const
+
 export type LiteratureSource = (typeof LITERATURE_SOURCES)[number]
 
 export interface Paper {
@@ -67,6 +68,7 @@ function yearOf(value: unknown): number | null {
   const match = /(\d{4})/.exec(
     typeof value === 'number' ? `${value}` : text(value),
   )
+
   return match ? Number(match[1]) : null
 }
 
@@ -97,15 +99,18 @@ function clip(value: string, max = 1500): string {
 
 export function parseEuropePmc(body: unknown): Paper[] {
   const results = list(obj(obj(body).resultList).result)
+
   return results
     .map((raw): Paper | null => {
       const row = obj(raw)
       const title = stripTags(text(row.title))
+
       if (!title) return null
       const doi = cleanDoi(row.doi)
       const pmid = text(row.pmid)
       const id = text(row.id)
       const src = text(row.source)
+
       return {
         title,
         authors: text(row.authorString)
@@ -131,15 +136,19 @@ export function parseEuropePmc(body: unknown): Paper[] {
 export function parsePubMed(summary: unknown): Paper[] {
   const result = obj(obj(summary).result)
   const ids = list(result.uids).map(String)
+
   return ids
     .map((id): Paper | null => {
       const row = obj(result[id])
       const title = stripTags(text(row.title))
+
       if (!title) return null
       const articleIds = list(row.articleids).map(obj)
+
       const doi = cleanDoi(
         articleIds.find((entry) => text(entry.idtype) === 'doi')?.value,
       )
+
       return {
         title,
         authors: list(row.authors)
@@ -161,11 +170,13 @@ export function parsePubMed(summary: unknown): Paper[] {
 
 function openAlexAbstract(index: unknown): string {
   const words: string[] = []
+
   for (const [word, positions] of Object.entries(obj(index))) {
     for (const position of list(positions)) {
       if (typeof position === 'number') words[position] = word
     }
   }
+
   return clip(words.filter(Boolean).join(' '))
 }
 
@@ -174,10 +185,12 @@ export function parseOpenAlex(body: unknown): Paper[] {
     .map((raw): Paper | null => {
       const row = obj(raw)
       const title = stripTags(text(row.title) || text(row.display_name))
+
       if (!title) return null
       const doi = cleanDoi(row.doi)
       const ids = obj(row.ids)
       const pmid = text(ids.pmid).replace(/^.*\/(\d+)\/?$/, '$1')
+
       return {
         title,
         authors: list(row.authorships)
@@ -203,16 +216,19 @@ async function getJson(
 ): Promise<unknown> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+
   try {
     const response = await fetchFn(url, {
       headers: { accept: 'application/json' },
       signal: controller.signal,
     })
+
     if (!response.ok) {
       throw new LiteratureError(
         `${label} did not answer (HTTP ${response.status}). Try again in a moment or choose another source.`,
       )
     }
+
     return await response.json()
   } catch (error) {
     if (error instanceof LiteratureError) throw error
@@ -240,11 +256,14 @@ export async function searchLiterature(
   options: LiteratureOptions = {},
 ): Promise<Paper[]> {
   const phrase = query.trim().slice(0, 300)
+
   if (!phrase) throw new LiteratureError('Give a few words to search for.')
   const source = options.source ?? 'europepmc'
   const limit = Math.min(Math.max(options.limit ?? DEFAULT_LIMIT, 1), MAX_LIMIT)
+
   const fetchFn: FetchLike =
     options.fetch ?? ((input, init) => fetch(input, init))
+
   const q = encodeURIComponent(phrase)
 
   if (source === 'europepmc') {
@@ -253,6 +272,7 @@ export async function searchLiterature(
       `https://www.ebi.ac.uk/europepmc/webservices/rest/search?query=${q}&format=json&resultType=core&pageSize=${limit}&sort=RELEVANCE`,
       LABELS[source],
     )
+
     return parseEuropePmc(body)
   }
 
@@ -264,13 +284,17 @@ export async function searchLiterature(
         LABELS[source],
       ),
     )
+
     const ids = list(obj(found.esearchresult).idlist).map(String)
+
     if (ids.length === 0) return []
+
     const summary = await getJson(
       fetchFn,
       `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&retmode=json&id=${ids.join(',')}`,
       LABELS[source],
     )
+
     return parsePubMed(summary)
   }
 
@@ -280,11 +304,13 @@ export async function searchLiterature(
       : '',
     options.contact ? `&mailto=${encodeURIComponent(options.contact)}` : '',
   ].join('')
+
   const body = await getJson(
     fetchFn,
     `https://api.openalex.org/works?search=${q}&per-page=${limit}${extra}`,
     LABELS[source],
   )
+
   return parseOpenAlex(body)
 }
 

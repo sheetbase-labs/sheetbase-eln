@@ -46,12 +46,15 @@ const limiter = createRateLimiter({ maxRequests: 120, windowSeconds: 60 })
 
 function problem(status: number, code: string, message: string, extra = {}) {
   if (status >= 500) annotateRequest({ error: { code, message } })
+
   return Response.json({ error: { code, message, ...extra } }, { status })
 }
 
 function parseCursor(raw: string | null): number | null | 'bad' {
   if (raw == null || raw === '') return null
+
   if (!/^\d{1,15}$/.test(raw)) return 'bad'
+
   return Number(raw)
 }
 
@@ -60,6 +63,7 @@ export async function handleEventStream(
   deps: EventStreamDeps,
 ): Promise<Response> {
   const caller = await deps.authenticate(request.headers)
+
   if (caller === 'forbidden') {
     return problem(
       403,
@@ -67,10 +71,13 @@ export async function handleEventStream(
       'This token needs the admin:read scope to read the event stream.',
     )
   }
+
   if (!caller) {
     return problem(401, 'unauthenticated', 'Authentication is required.')
   }
+
   const decision = limiter.hit(`events-stream:${caller.workspaceId}`)
+
   if (!decision.allowed) {
     return problem(
       429,
@@ -78,26 +85,35 @@ export async function handleEventStream(
       `Too many requests. Try again in ${decision.retryAfterSeconds ?? 60} seconds.`,
     )
   }
+
   const url = new URL(request.url)
+
   const cursorParam = parseCursor(
     url.searchParams.get('after') ?? request.headers.get('last-event-id'),
   )
+
   if (cursorParam === 'bad') {
     return problem(400, 'invalid_request', 'after must be a whole number.')
   }
+
   const limitRaw = url.searchParams.get('limit')
   const limit = limitRaw === null ? 200 : Number(limitRaw)
+
   if (!Number.isInteger(limit) || limit < 1 || limit > 1000) {
     return problem(400, 'invalid_request', 'limit must be between 1 and 1000.')
   }
+
   const known = knownEventNames()
+
   const names = new Set(
     (url.searchParams.get('types') ?? '')
       .split(',')
       .map((name) => name.trim())
       .filter(Boolean),
   )
+
   const unknown = [...names].filter((name) => !known.has(name))
+
   if (unknown.length > 0) {
     return problem(
       400,
@@ -105,6 +121,7 @@ export async function handleEventStream(
       `Unknown event types: ${unknown.join(', ')}.`,
     )
   }
+
   annotateRequest({ workspace: { id: caller.workspaceId } })
 
   const wantsStream =
@@ -118,9 +135,12 @@ export async function handleEventStream(
       limit,
       entityTypesFor(names),
     )
+
     if (page.expired) return expired(page)
+
     return Response.json(shapePage(caller.workspaceId, page, names))
   }
+
   return stream(request, caller, cursorParam, limit, names, deps)
 }
 
@@ -148,6 +168,7 @@ function stream(
   const now = deps.now ?? Date.now
   const abort = new AbortController()
   request.signal.addEventListener('abort', () => abort.abort())
+
   const sleep =
     deps.sleep ??
     ((ms: number, signal: AbortSignal) =>
@@ -166,21 +187,26 @@ function stream(
       let wake: (() => void) | null = null
       const interrupt = new AbortController()
       abort.signal.addEventListener('abort', () => interrupt.abort())
+
       try {
         if (deps.subscribe) {
           unsubscribe = await deps.subscribe(caller.workspaceId, () => {
             wake?.()
           })
         }
+
         send('retry: 3000\n\n')
         let cursor = cursorParam
+
         if (cursor === null) {
           // A live stream with no cursor starts at the newest event.
           const probe = await deps.page(caller, 0, 1, [])
           cursor = probe.latest ?? 0
         }
+
         const startedAt = now()
         let lastSent = now()
+
         while (!abort.signal.aborted && now() - startedAt < maxMs) {
           const page = await deps.page(
             caller,
@@ -188,21 +214,28 @@ function stream(
             limit,
             entityTypesFor(names),
           )
+
           if (page.expired) {
             send(
               `event: cursor_expired\ndata: ${JSON.stringify({ earliest: page.earliest, retentionDays: page.retentionDays })}\n\n`,
             )
             break
           }
+
           const shaped: ShapedPage = shapePage(caller.workspaceId, page, names)
+
           for (const event of shaped.events) send(sseFrame(event))
+
           if (shaped.events.length > 0) lastSent = now()
           cursor = shaped.nextCursor
+
           if (shaped.hasMore) continue
+
           if (now() - lastSent >= heartbeatMs) {
             send(': keep-alive\n\n')
             lastSent = now()
           }
+
           const nap = new AbortController()
           wake = () => nap.abort()
           interrupt.signal.addEventListener('abort', () => nap.abort())
@@ -218,6 +251,7 @@ function stream(
         })
       } finally {
         unsubscribe?.()
+
         try {
           controller.close()
         } catch {
@@ -229,6 +263,7 @@ function stream(
       abort.abort()
     },
   })
+
   return new Response(body, {
     headers: {
       'content-type': 'text/event-stream; charset=utf-8',

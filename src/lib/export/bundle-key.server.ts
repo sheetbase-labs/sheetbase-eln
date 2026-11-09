@@ -16,6 +16,7 @@ export async function ensureWorkspaceKey(
   workspaceId: string,
 ): Promise<WorkspaceKey> {
   const pair = generateWorkspaceKeyPair()
+
   const result = await db.execute<{
     public_key_pem: string
     private_key_pem: string
@@ -26,8 +27,11 @@ export async function ensureWorkspaceKey(
       ${workspaceId}::uuid, ${pair.publicKeyPem}, ${pair.privateKeyPem},
       ${keyFingerprint(pair.publicKeyPem)})`,
   )
+
   const row = result.rows[0] as (typeof result.rows)[number] | undefined
+
   if (!row) throw new Error('could not read the workspace signing key')
+
   return {
     publicKeyPem: row.public_key_pem,
     privateKeyPem: row.private_key_pem,

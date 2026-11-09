@@ -59,9 +59,11 @@ describe('PythonStepEditor feedback', () => {
 
   it('offers a starter only while the code is still a starter', () => {
     const onStatementChange = vi.fn()
+
     const { rerender } = render(
       <PythonStepEditor {...props({ statement: '', onStatementChange })} />,
     )
+
     fireEvent.click(
       screen.getByRole('button', {
         name: 'Transform start from declared inputs',
@@ -93,9 +95,11 @@ describe('PythonStepEditor contract', () => {
 
   it('edits and removes columns, and drops an emptied contract', () => {
     const onContractChange = vi.fn()
+
     const contract: PythonContract = {
       output: { columns: [{ name: 'mean', type: 'decimal' }] },
     }
+
     render(<PythonStepEditor {...props({ contract, onContractChange })} />)
     fireEvent.change(screen.getByLabelText('Transform output column 1 type'), {
       target: { value: 'integer' },
@@ -173,10 +177,12 @@ describe('PythonStepEditor test run', () => {
     expect(
       screen.getByRole('group', { name: 'Transform test output' }).textContent,
     ).toBe('loaded')
+
     const [url, init] = fetchMock.mock.calls[0] as unknown as [
       string,
       RequestInit,
     ]
+
     expect(url).toBe('/api/pipelines/python-test')
     expect(JSON.parse(init.body as string)).toEqual({
       statement: CODE,

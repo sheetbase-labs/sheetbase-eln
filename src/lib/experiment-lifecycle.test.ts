@@ -22,6 +22,7 @@ describe('partsForNewRun', () => {
       { ...block('rich_text', 3), partId: 'b' },
       { ...block('chart', 4), partId: 'c' },
     ]
+
     const points = partsForNewRun(
       blocks,
       [
@@ -31,6 +32,7 @@ describe('partsForNewRun', () => {
       ],
       ['n1', 'n2'],
     )
+
     expect(points).toEqual([
       { title: 'Seed', first_block_id: 'n1', day_offset: 0 },
       { title: 'Dose', first_block_id: 'n2', day_offset: 3 },
@@ -46,6 +48,7 @@ describe('blocksForNewRun', () => {
       block('analysis', 4),
       block('rich_text', 1, { doc: 'aim' }),
     ])
+
     expect(kept.map((b) => b.payload)).toEqual([
       { doc: 'aim' },
       { doc: 'method' },
@@ -62,6 +65,7 @@ describe('blocksForNewRun', () => {
         ],
       }),
     ])
+
     expect(kept.payload.items).toEqual([
       { id: 'a', text: 'Thaw', checked: false },
       { id: 'b', text: 'Spin', checked: false },

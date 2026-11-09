@@ -18,6 +18,7 @@ describe('molarity', () => {
       concentration: { value: 1, unit: 'M' },
       resultUnit: 'g',
     })
+
     expect(r).toMatchObject({ ok: true, unit: 'g' })
     expect(r.ok && r.value).toBeCloseTo(58.44)
   })
@@ -28,6 +29,7 @@ describe('molarity', () => {
       volume: { value: 10, unit: 'mL' },
       concentration: { value: 5, unit: 'mM' },
     })
+
     expect(r.ok && r.unit).toBe('mg')
     expect(r.ok && r.value).toBeCloseTo(9.008)
   })
@@ -38,14 +40,17 @@ describe('molarity', () => {
       mass: { value: 1, unit: 'g' },
       concentration: { value: 100, unit: 'mM' },
     })
+
     expect(v.ok && v.unit).toBe('mL')
     expect(v.ok && v.value).toBeCloseTo(100)
+
     const c = solveMolarity({
       target: 'concentration',
       molecularWeight: 100,
       mass: { value: 1, unit: 'g' },
       volume: { value: 100, unit: 'mL' },
     })
+
     expect(c.ok && c.unit).toBe('mM')
     expect(c.ok && c.value).toBeCloseTo(100)
   })
@@ -73,6 +78,7 @@ describe('dilution', () => {
       c2: { value: 1, unit: 'mM' },
       v2: { value: 500, unit: 'uL' },
     })
+
     expect(r.ok && r.unit).toBe('uL')
     expect(r.ok && r.value).toBeCloseTo(50)
   })
@@ -83,21 +89,26 @@ describe('dilution', () => {
       v1: { value: 1, unit: 'mL' },
       v2: { value: 10, unit: 'mL' },
     })
+
     expect(c2.ok && c2.value).toBeCloseTo(100)
     expect(c2.ok && c2.unit).toBe('mM')
+
     const v2 = solveDilution({
       target: 'v2',
       c1: { value: 1, unit: 'M' },
       v1: { value: 1, unit: 'mL' },
       c2: { value: 100, unit: 'mM' },
     })
+
     expect(v2.ok && v2.value).toBeCloseTo(10)
+
     const c1 = solveDilution({
       target: 'c1',
       v1: { value: 1, unit: 'mL' },
       c2: { value: 100, unit: 'mM' },
       v2: { value: 10, unit: 'mL' },
     })
+
     expect(c1.ok && c1.value).toBeCloseTo(1)
   })
   it('gives a recipe with diluent, and flags a weak stock', () => {
@@ -106,6 +117,7 @@ describe('dilution', () => {
       target: { value: 1, unit: 'mM' },
       finalVolume: { value: 500, unit: 'uL' },
     })!
+
     expect(r.stock.value).toBeCloseTo(50)
     expect(r.diluent.value).toBeCloseTo(450)
     expect(r.feasible).toBe(true)
@@ -127,6 +139,7 @@ describe('conversion', () => {
       to: 'umol',
       molecularWeight: 58.44,
     })
+
     expect(r.ok && r.value).toBeCloseTo(100)
     expect(
       convertWithWeight({

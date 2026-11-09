@@ -23,6 +23,7 @@ export function keyFingerprint(publicKeyPem: string): string {
       Buffer.from(publicKeyPem.replace(/-----[A-Z ]+-----|\s/g, ''), 'base64'),
     )
     .digest('hex')
+
   return der.match(/.{2}/g)!.join(':')
 }
 
@@ -31,6 +32,7 @@ export function generateWorkspaceKeyPair(): {
   privateKeyPem: string
 } {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519')
+
   return {
     publicKeyPem: publicKey.export({ type: 'spki', format: 'pem' }).toString(),
     privateKeyPem: privateKey

@@ -49,9 +49,12 @@ const resolveIdentifierFn = createServerFn({ method: 'POST' })
     const { getRequestHeaders } = await import('@tanstack/react-start/server')
     const { getCurrentContext } = await import('#/lib/current-user')
     const context = await getCurrentContext(getRequestHeaders())
+
     if (!context?.workspace) return null
+
     const { resolveIdentifier } =
       await import('#/lib/identifier-resolution.server')
+
     return resolveIdentifier({
       entity: data.entity,
       identifier: data.identifier,
@@ -73,6 +76,7 @@ export function canonicaliseIdentifierPath(
     new RegExp(`/${escaped}(?=/|$)`),
     `/${to}`,
   )
+
   return `${url.pathname}${url.search}${url.hash}`
 }
 
@@ -95,6 +99,7 @@ export async function resolveIdentifierParam(
 ): Promise<void> {
   if (isUuid(input.ref)) return
   const id = await resolve({ entity: input.entity, identifier: input.ref })
+
   if (!id || id === input.ref) return
   throw redirect({
     href: canonicaliseIdentifierPath(input.href, input.ref, id),
@@ -108,9 +113,12 @@ const recordKindFn = createServerFn({ method: 'POST' })
     const { getRequestHeaders } = await import('@tanstack/react-start/server')
     const { getCurrentContext } = await import('#/lib/current-user')
     const context = await getCurrentContext(getRequestHeaders())
+
     if (!context?.workspace) return null
+
     const { resolveRecordKind } =
       await import('#/lib/identifier-resolution.server')
+
     return resolveRecordKind({
       ref: data.ref,
       workspaceId: context.workspace.id,
@@ -133,8 +141,10 @@ export function experimentPathForRecordPath(
 ): string | null {
   const base = `/records/${encodeURIComponent(ref)}`
   const rest = pathname.startsWith(base) ? pathname.slice(base.length) : null
+
   if (rest === null || !(rest === '' || rest === '/' || rest === '/notebook'))
     return null
+
   return `/experiments/${encodeURIComponent(ref)}/notebook${search}${hash}`
 }
 
@@ -154,7 +164,9 @@ export async function redirectExperimentRecord(
     input.hash,
     input.ref,
   )
+
   if (!to) return
+
   if ((await resolve(input.ref)) !== 'experiment') return
   throw redirect({ href: to, replace: true })
 }

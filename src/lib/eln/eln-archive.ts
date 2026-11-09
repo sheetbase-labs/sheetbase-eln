@@ -111,6 +111,7 @@ export function safeName(name: string, fallback: string): string {
     .replace(/^\.+/, '')
     .slice(0, 80)
     .trim()
+
   return cleaned || fallback
 }
 
@@ -121,34 +122,45 @@ function sha256(data: Uint8Array): string {
 /** Concatenate every string leaf named `text` in a document tree. */
 export function plainTextOf(payload: unknown): string {
   const lines: string[] = []
+
   const walk = (node: unknown): string => {
     if (!node || typeof node !== 'object') return ''
     const n = node as Json
+
     if (n.type === 'text' && typeof n.text === 'string') return n.text
     const children = Array.isArray(n.content) ? (n.content as unknown[]) : []
     const joined = children.map(walk)
+
     return n.type === 'paragraph' || n.type === 'heading'
       ? joined.join('')
       : joined.join('\n')
   }
+
   const root = (payload as Json | null)?.doc ?? payload
   const text = walk(root).trim()
+
   if (text) lines.push(text)
+
   return lines.join('\n')
 }
 
 function uniqueName(taken: Set<string>, name: string): string {
   if (!taken.has(name)) {
     taken.add(name)
+
     return name
   }
+
   const dot = name.lastIndexOf('.')
   const stem = dot > 0 ? name.slice(0, dot) : name
   const ext = dot > 0 ? name.slice(dot) : ''
+
   for (let n = 2; ; n++) {
     const candidate = `${stem}-${n}${ext}`
+
     if (!taken.has(candidate)) {
       taken.add(candidate)
+
       return candidate
     }
   }
@@ -176,10 +188,12 @@ export async function buildElnArchive(
 
   for (const exp of input.experiments) {
     const { record } = exp
+
     const dir = uniqueName(
       takenDirs,
       safeName(`${record.identifier} ${record.title}`, record.identifier),
     )
+
     const dirId = `./${dir}/`
     const parts: Json[] = []
     const entities: Json[] = []
@@ -199,6 +213,7 @@ export async function buildElnArchive(
       },
       blocks: exp.blocks,
     }
+
     add(`${dir}/experiment.json`, JSON.stringify(native, null, 2))
     entities.push({
       '@id': `${dirId}experiment.json`,
@@ -210,6 +225,7 @@ export async function buildElnArchive(
     parts.push({ '@id': `${dirId}experiment.json` })
 
     const takenFiles = new Set<string>()
+
     for (const file of exp.files) {
       if (!file.bytes) {
         missingFiles.push({
@@ -219,10 +235,12 @@ export async function buildElnArchive(
         })
         continue
       }
+
       const name = uniqueName(
         takenFiles,
         safeName(file.displayName, file.fileIdentifier),
       )
+
       const path = `${dir}/files/${name}`
       add(path, file.bytes)
       entities.push({
@@ -238,11 +256,13 @@ export async function buildElnArchive(
     }
 
     const takenSets = new Set<string>()
+
     for (const dataset of exp.datasets) {
       const name = uniqueName(
         takenSets,
         `${safeName(dataset.displayId ?? dataset.name, dataset.id)}.csv`,
       )
+
       const path = `${dir}/datasets/${name}`
       const bytes = new TextEncoder().encode(dataset.csv)
       add(path, bytes)
@@ -263,6 +283,7 @@ export async function buildElnArchive(
       const sigBytes = new TextEncoder().encode(
         JSON.stringify(exp.signatures, null, 2),
       )
+
       add(`${dir}/signatures.json`, sigBytes)
       entities.push({
         '@id': `${dirId}signatures.json`,
@@ -273,8 +294,10 @@ export async function buildElnArchive(
         sha256: sha256(sigBytes),
       })
       parts.push({ '@id': `${dirId}signatures.json` })
+
       for (const sig of exp.signatures) {
         const personId = `#person-${sig.signerUserId}`
+
         if (!persons.has(personId)) {
           persons.set(personId, {
             '@id': personId,
@@ -282,6 +305,7 @@ export async function buildElnArchive(
             name: sig.signerName ?? sig.signerUserId,
           })
         }
+
         entities.push({
           '@id': `#signature-${sig.id}`,
           '@type': ['Action', 'sheetbase:Signature'],
@@ -347,7 +371,9 @@ export async function buildElnArchive(
     identifier: input.doi ? `https://doi.org/${input.doi}` : undefined,
     hasPart: rootParts,
   }
+
   const publishing: Json[] = []
+
   if (input.license) {
     publishing.push({
       '@id': input.license.url,
@@ -356,6 +382,7 @@ export async function buildElnArchive(
       identifier: input.license.id,
     })
   }
+
   for (const [i, author] of (input.authors ?? []).entries()) {
     publishing.push({
       '@id': `#author-${i + 1}`,
@@ -363,6 +390,7 @@ export async function buildElnArchive(
       name: author.name,
     })
   }
+
   if (input.project) {
     rootEntity.identifier = input.project.key
     rootEntity.additionalProperty = [
@@ -397,6 +425,7 @@ export async function buildElnArchive(
       ...graph,
     ],
   }
+
   add('ro-crate-metadata.json', JSON.stringify(crate, null, 2))
 
   return { bytes: await writer.stream(), missingFiles }

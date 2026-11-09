@@ -30,8 +30,11 @@ export const WORKSPACE_ADMIN_ROLES = ['owner', 'admin'] as const
 
 export function canSeeNavItem(item: NavVisibility, viewer: NavViewer): boolean {
   const role = viewer.role ?? null
+
   if (item.capability && !hasCapability(role, item.capability)) return false
+
   if (item.roles && (role === null || !item.roles.includes(role))) return false
+
   return true
 }
 

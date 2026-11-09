@@ -69,6 +69,7 @@ const FILTER_FIELDS: FilterBuilderFieldInput[] = [
     options: ['Me', 'Sam Patel', 'Priya S.'],
   },
 ]
+
 const FILTER_NODE: GroupNode = {
   type: 'group',
   id: 'root',
@@ -94,6 +95,7 @@ const FILTER_NODE: GroupNode = {
 /** The grid's own dark preset follows `data-theme`; the ELN keeps it on `<html>`. */
 function resolvedGridTheme(): 'light' | 'dark' {
   if (typeof document === 'undefined') return 'light'
+
   return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
 }
 
@@ -103,6 +105,7 @@ export function SheetbaseComponentsDemo() {
     resolvedGridTheme,
     () => 'light',
   )
+
   return (
     <div className="min-h-svh bg-background text-foreground">
       <div className="mx-auto max-w-5xl px-6 py-10">

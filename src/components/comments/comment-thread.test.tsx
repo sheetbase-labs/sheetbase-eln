@@ -50,6 +50,7 @@ function renderThread(
       {...overrides}
     />,
   )
+
   return { onReply, onResolve, onReopen }
 }
 

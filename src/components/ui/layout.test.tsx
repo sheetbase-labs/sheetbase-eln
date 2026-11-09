@@ -15,6 +15,7 @@ afterEach(cleanup)
 it('opens and dismisses an inspector from an external toolbar trigger', async () => {
   function Workbench() {
     const [open, setOpen] = useState(false)
+
     return (
       <>
         <button onClick={() => setOpen(true)}>Open settings</button>
@@ -24,6 +25,7 @@ it('opens and dismisses an inspector from an external toolbar trigger', async ()
       </>
     )
   }
+
   render(<Workbench />)
   expect(screen.queryByRole('button', { name: 'Settings' })).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Open settings' }))

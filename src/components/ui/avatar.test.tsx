@@ -70,6 +70,7 @@ describe('AvatarStack', () => {
     const { container, rerender } = render(
       <AvatarStack people={people} label="5 here" />,
     )
+
     expect(screen.getByRole('group', { name: '5 here' })).toBeTruthy()
     rerender(<AvatarStack people={[]} label="nobody here" />)
     expect(container.querySelector('[role="group"]')).toBeNull()
@@ -79,12 +80,14 @@ describe('AvatarStack', () => {
 describe('Avatar photos', () => {
   it('shows a member’s photo when they have one', async () => {
     const { AvatarPhotosContext } = await import('#/lib/avatar-photos-context')
+
     const { container } = render(
       <AvatarPhotosContext.Provider value={new Map([['u1', '123']])}>
         <Avatar name="Gareth Price" userId="u1" />
         <Avatar name="Ada Lovelace" userId="u2" />
       </AvatarPhotosContext.Provider>,
     )
+
     const images = container.querySelectorAll('img')
     expect(images).toHaveLength(1)
     expect(images[0].getAttribute('src')).toBe('/api/avatars/u1?v=123')
@@ -93,9 +96,11 @@ describe('Avatar photos', () => {
 
   it('falls back to initials when the photo cannot load', async () => {
     const { fireEvent } = await import('@testing-library/react')
+
     const { container } = render(
       <Avatar name="Gareth Price" src="/broken.png" />,
     )
+
     const image = container.querySelector('img')
     expect(image).toBeTruthy()
     fireEvent.error(image!)

@@ -34,16 +34,20 @@ function join(who: string): CollabProvider {
   PersonSocket.who = who
   const original = globalThis.WebSocket
   globalThis.WebSocket = PersonSocket as unknown as typeof WebSocket
+
   const provider = new CollabProvider(
     `ws://127.0.0.1:${port}/api/collaboration/ws?room=${encodeURIComponent(ROOM)}`,
   )
+
   globalThis.WebSocket = original
   open.push(provider)
+
   return provider
 }
 
 async function until(check: () => boolean, ms = 3000) {
   const start = Date.now()
+
   while (!check()) {
     if (Date.now() - start > ms) throw new Error('timed out waiting')
     await new Promise((resolve) => setTimeout(resolve, 10))

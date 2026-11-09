@@ -62,7 +62,9 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function inside(queryClient: QueryClient, width = 640) {
@@ -94,6 +96,7 @@ const instrument: InstrumentRow = {
   position: 1,
   updatedAt: '2026-11-01T09:00:00Z',
 }
+
 const down: InstrumentRow = {
   ...instrument,
   outOfServiceAt: '2026-11-02T08:00:00Z',
@@ -101,6 +104,7 @@ const down: InstrumentRow = {
   expectedBackOn: '2026-11-09',
   outOfServiceBy: 'u-1',
 }
+
 const names = { userLabel: () => 'Ada Okafor' }
 
 // --- Delivery and parser notices -------------------------------------------
@@ -450,8 +454,10 @@ const feeds: FeedRow[] = [
 function seriesFor(feedId: string, base: number): ReadSeed {
   const until = Date.now()
   const since = until - 60 * 60_000
+
   const points: SeriesPoint[] = Array.from({ length: 60 }, (_, i) => {
     const avg = base + Math.sin(i / 6) * 0.8
+
     return {
       at: since + i * 60_000,
       min: avg - 0.3,
@@ -460,6 +466,7 @@ function seriesFor(feedId: string, base: number): ReadSeed {
       readings: 12,
     }
   })
+
   return {
     key: liveFeedQueryKeys.series(feedId, '1h'),
     value: { since, until, points },

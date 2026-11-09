@@ -38,6 +38,7 @@ const meta = {
 } satisfies Meta<typeof DoseResponsePlot>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

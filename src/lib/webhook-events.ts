@@ -33,6 +33,7 @@ interface WireProducer {
  */
 const WIRE_PRODUCERS: ReadonlyMap<string, readonly WireProducer[]> = (() => {
   const byEntity = new Map<string, WireProducer[]>()
+
   for (const entry of EVENT_CATALOGUE) {
     if (entry.producer === null || entry.wireName === null) continue
     const list = byEntity.get(entry.producer.entityType) ?? []
@@ -43,6 +44,7 @@ const WIRE_PRODUCERS: ReadonlyMap<string, readonly WireProducer[]> = (() => {
     })
     byEntity.set(entry.producer.entityType, list)
   }
+
   return byEntity
 })()
 
@@ -64,8 +66,11 @@ function conditionHolds(
 ): boolean {
   if (condition === undefined) return true
   const value = payload[condition.key]
+
   if (condition.equals !== undefined) return value === condition.equals
+
   if (condition.notEquals !== undefined) return value !== condition.notEquals
+
   return true
 }
 
@@ -82,6 +87,7 @@ export function mapEventType(
   payload: Record<string, unknown> = {},
 ): string | null {
   const producers = WIRE_PRODUCERS.get(entityType) ?? []
+
   for (const producer of producers) {
     if (
       producer.operation === operation &&
@@ -89,7 +95,9 @@ export function mapEventType(
     )
       return producer.wireName
   }
+
   if (!Object.hasOwn(DEFENSIVE_WIRE_MAP, entityType)) return null
+
   return DEFENSIVE_WIRE_MAP[entityType][operation] ?? null
 }
 
@@ -105,6 +113,7 @@ export function matchesFilter(
 ): boolean {
   if (filter.length === 0) return true
   const canonical = resolveEventAlias(eventType)
+
   return filter.some((entry) => resolveEventAlias(entry) === canonical)
 }
 

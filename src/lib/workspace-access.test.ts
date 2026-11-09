@@ -16,13 +16,16 @@ const requestId = '00000000-0000-4000-8000-000000009207'
 describe('workspace access boundary', () => {
   it('sends independent rule flags and exactly one principal to the canonical RPC', async () => {
     const requests: { path: string; body: unknown }[] = []
+
     const client = createDataClient(async (path, init) => {
       requests.push({
         path: String(path),
         body: JSON.parse(String(init?.body)),
       })
+
       return Response.json(null)
     })
+
     await setProjectAccessRule(client, {
       projectId,
       principal: { kind: 'group', groupId },
@@ -79,6 +82,7 @@ describe('workspace access boundary', () => {
         },
       ]),
     )
+
     await expect(fetchWorkspaceAccessRules(client)).rejects.toThrow(
       'A project rule must name exactly one user or group.',
     )
@@ -86,11 +90,13 @@ describe('workspace access boundary', () => {
 
   it('asks the canonical RPC for edit access and grants nothing', async () => {
     const requests: { path: string; body: unknown }[] = []
+
     const client = createDataClient(async (path, init) => {
       requests.push({
         path: String(path),
         body: JSON.parse(String(init?.body)),
       })
+
       // The RPC returns the created request; it starts pending, never granted.
       return Response.json({
         id: requestId,
@@ -98,6 +104,7 @@ describe('workspace access boundary', () => {
         status: 'pending',
       })
     })
+
     await requestProjectEditAccess(client, {
       projectId,
       reason: '  QA verification of the turbidity repeat  ',
@@ -125,6 +132,7 @@ describe('workspace access boundary', () => {
         { status: 403 },
       ),
     )
+
     await expect(
       requestProjectEditAccess(client, { projectId, reason: 'Need access' }),
     ).rejects.toThrow('Readable project and workspace writer required')
@@ -132,8 +140,10 @@ describe('workspace access boundary', () => {
 
   it('reads a decided request’s attribution from the requests table', async () => {
     let seen = ''
+
     const client = createDataClient(async (path) => {
       seen = String(path)
+
       return Response.json([
         {
           id: requestId,
@@ -147,6 +157,7 @@ describe('workspace access boundary', () => {
         },
       ])
     })
+
     const rows = await fetchProjectAccessRequests(client)
     expect(seen).toContain('/api/db/project_access_requests?select=')
     expect(seen).toContain('decided_by_user_id')

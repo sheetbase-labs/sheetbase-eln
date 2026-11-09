@@ -12,17 +12,21 @@ vi.mock('#/env.server', () => ({
 }))
 
 beforeEach(() => vi.useFakeTimers())
+
 afterEach(() => vi.useRealTimers())
 
 function hangingSandbox(): SandboxConnection & { queries: string[] } {
   const queries: string[] = []
+
   return {
     queries,
     backendPid: 4242,
     query: vi.fn(async (text: string) => {
       queries.push(text)
+
       if (text.startsWith('SET statement_timeout'))
         return { rows: [] as never[] }
+
       return new Promise<never>(() => {})
     }),
     end: vi.fn(async () => {}),
@@ -54,6 +58,7 @@ describe('SandboxSession', () => {
       query: vi.fn(async () => ({ rows: [{ one: 1 }] })) as never,
       end: vi.fn(async () => {}),
     }
+
     const terminate = vi.fn(async () => {})
     const session = new SandboxSession(async () => conn, terminate)
     await expect(session.run('select 1 as one', 60)).resolves.toEqual({
@@ -66,6 +71,7 @@ describe('SandboxSession', () => {
   it('drops the session after a failed statement so the next step starts clean', async () => {
     const end = vi.fn(async () => {})
     let calls = 0
+
     const session = new SandboxSession(async () => ({
       backendPid: 1,
       query: async (text: string) => {
@@ -75,6 +81,7 @@ describe('SandboxSession', () => {
       },
       end,
     }))
+
     await expect(session.run('select 1', 5)).rejects.toThrow('boom')
     expect(end).toHaveBeenCalledTimes(1)
     await expect(session.run('select 1', 5)).rejects.toThrow('boom')

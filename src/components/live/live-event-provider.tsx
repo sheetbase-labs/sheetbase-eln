@@ -40,6 +40,7 @@ const LiveEventContext = React.createContext<LiveCoordinator | null>(null)
  */
 function nativeEventSource(url: string): EventSourceLike {
   const es = new EventSource(url)
+
   return {
     readyState: es.readyState,
     onopen: null,
@@ -49,6 +50,7 @@ function nativeEventSource(url: string): EventSourceLike {
       const wrapped = (ev: MessageEvent) => {
         listener({ type, data: typeof ev.data === 'string' ? ev.data : '' })
       }
+
       es.addEventListener(type, wrapped as EventListener)
     },
     close: () => es.close(),
@@ -58,6 +60,7 @@ function nativeEventSource(url: string): EventSourceLike {
 export function LiveEventProvider({ children }: { children: React.ReactNode }) {
   const queryClient = useQueryClient()
   const coordinatorRef = React.useRef<LiveCoordinator | null>(null)
+
   if (coordinatorRef.current === null) {
     coordinatorRef.current = createLiveEventCoordinator({
       queryClient,
@@ -70,8 +73,10 @@ export function LiveEventProvider({ children }: { children: React.ReactNode }) {
   const streaming = useDevFlag('liveUpdates')
   React.useEffect(() => {
     const coord = coordinatorRef.current
+
     if (!coord || !streaming) return
     coord.connect()
+
     return () => {
       coord.disconnect()
     }
@@ -95,6 +100,7 @@ export function useLiveCoordinator(): LiveCoordinator | null {
  */
 export function useLiveStatus(): LiveStatus {
   const coord = useLiveCoordinator()
+
   const [status, setStatus] = React.useState<LiveStatus>(
     coord?.getStatus() ?? {
       status: 'offline',
@@ -103,10 +109,13 @@ export function useLiveStatus(): LiveStatus {
       lastResetReason: null,
     },
   )
+
   React.useEffect(() => {
     if (!coord) return
     setStatus(coord.getStatus())
+
     return coord.subscribe(setStatus)
   }, [coord])
+
   return status
 }

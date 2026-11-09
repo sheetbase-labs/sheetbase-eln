@@ -21,7 +21,9 @@ const meta = {
     meta: 'EXP-2026-0041',
   },
 } satisfies Meta<typeof Row>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {

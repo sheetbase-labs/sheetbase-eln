@@ -78,21 +78,26 @@ export function parsePersistedRecordReference(
         'Record reference is required.',
       )
     }
+
     return null
   }
+
   if (typeof value !== 'string') {
     throw new RecordReferenceCellError(
       'not-uuid',
       'Record reference must be a UUID string.',
     )
   }
+
   const parsed = uuid.safeParse(value)
+
   if (!parsed.success) {
     throw new RecordReferenceCellError(
       /^[A-Z]{2,4}-\d{4}-\d{4}$/.test(value) ? 'label-identity' : 'not-uuid',
       'Choose the record from the list instead of typing its ID or name.',
     )
   }
+
   return parsed.data
 }
 
@@ -102,12 +107,15 @@ export function resolveRecordReferenceState(input: {
   targetModelKey: string
 }): RecordReferenceCellState {
   if (input.persistedId === null) return { kind: 'empty' }
+
   if (!input.snapshot || input.snapshot.deleted) {
     return { kind: 'missing', recordId: input.persistedId }
   }
+
   if (input.snapshot.recordId !== input.persistedId) {
     return { kind: 'missing', recordId: input.persistedId }
   }
+
   if (input.snapshot.modelKey !== input.targetModelKey) {
     return {
       kind: 'invalid-model',
@@ -115,6 +123,7 @@ export function resolveRecordReferenceState(input: {
       snapshot: input.snapshot,
     }
   }
+
   if (input.snapshot.archived) {
     return {
       kind: 'archived',
@@ -122,6 +131,7 @@ export function resolveRecordReferenceState(input: {
       snapshot: input.snapshot,
     }
   }
+
   return {
     kind: 'present',
     recordId: input.persistedId,
@@ -133,7 +143,9 @@ export function formatRecordReferenceLabel(
   snapshot: Pick<RecordReferenceSnapshot, 'identifier' | 'title'>,
 ): string {
   const title = snapshot.title.trim()
+
   if (!title || title === snapshot.identifier) return snapshot.identifier
+
   return `${snapshot.identifier} · ${title}`
 }
 
@@ -150,18 +162,21 @@ export function selectRecordReference(input: {
       'Record reference is read-only.',
     )
   }
+
   if (input.record.deleted) {
     throw new RecordReferenceCellError(
       'invalid-model',
       'Deleted Records cannot be selected.',
     )
   }
+
   if (input.record.modelKey !== input.contract.targetModelKey) {
     throw new RecordReferenceCellError(
       'invalid-model',
       `Record must belong to Model ${input.contract.targetModelKey}.`,
     )
   }
+
   return parsePersistedRecordReference(input.record.recordId, {
     nullable: false,
   }) as string
@@ -176,7 +191,9 @@ export function clearRecordReference(
       'Record reference is read-only.',
     )
   }
+
   parsePersistedRecordReference(null, contract)
+
   return null
 }
 
@@ -184,7 +201,9 @@ export function recordReferenceWriteTargetFromColumnSource(
   sourceKind: 'bound-dataset' | 'bound-record' | 'declared',
 ): RecordReferenceWriteTarget {
   if (sourceKind === 'bound-dataset') return { kind: 'dataset' }
+
   if (sourceKind === 'bound-record') return { kind: 'model' }
+
   return { kind: 'local' }
 }
 

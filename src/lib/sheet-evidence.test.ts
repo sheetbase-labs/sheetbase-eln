@@ -16,6 +16,7 @@ describe('sheetEvidenceFromEnvelope', () => {
         },
       ],
     })
+
     expect(map.get('b1')?.instanceState).toEqual({
       localValues: { row: { field: 42 } },
     })

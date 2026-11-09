@@ -31,20 +31,26 @@ export function layoutGeometry(
 ): Geometry {
   const panes = new Map<string, Rect>()
   const dividers: Divider[] = []
+
   const walk = (node: PaneTree, box: Rect) => {
     if (node.type === 'pane') {
       panes.set(node.id, box)
+
       return
     }
+
     let offset = 0
     node.children.forEach((child, index) => {
       const size = node.sizes[index]
+
       const childBox: Rect =
         node.direction === 'row'
           ? { x: box.x + offset * box.w, y: box.y, w: size * box.w, h: box.h }
           : { x: box.x, y: box.y + offset * box.h, w: box.w, h: size * box.h }
+
       walk(child, childBox)
       offset += size
+
       if (index < node.children.length - 1) {
         dividers.push({
           splitId: node.id,
@@ -59,7 +65,9 @@ export function layoutGeometry(
       }
     })
   }
+
   walk(tree, rect)
+
   return { panes, dividers }
 }
 
@@ -73,6 +81,7 @@ export function dragFraction(
     divider.direction === 'row'
       ? divider.parent.w * stage.width
       : divider.parent.h * stage.height
+
   return extent > 0 ? deltaPx / extent : 0
 }
 
@@ -85,6 +94,7 @@ export function dropEdge(
 ): DropEdge {
   const dx = point.x / box.width - 0.5
   const dy = point.y / box.height - 0.5
+
   return Math.abs(dx) >= Math.abs(dy)
     ? dx < 0
       ? 'left'

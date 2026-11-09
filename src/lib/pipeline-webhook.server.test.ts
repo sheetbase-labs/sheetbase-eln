@@ -5,14 +5,18 @@ import type { PipelineWebhookDeps } from './pipeline-webhook.server'
 import type { ExecConnection } from './pipeline-execute.server'
 
 vi.mock('#/env.server', () => ({ env: {} }))
+
 vi.mock('#/lib/auth', () => ({ getAppSession: vi.fn() }))
+
 vi.mock('./pipeline-queue.server', () => ({
   enqueuePipelineRun: vi.fn(),
   wakePipelineWorker: vi.fn(),
 }))
+
 const definition = '00000000-0000-4000-8000-000000000001'
 const token = 'a'.repeat(43)
 const url = `http://localhost/api/pipelines/webhook/${definition}`
+
 function setup(
   options: {
     denied?: boolean
@@ -24,8 +28,10 @@ function setup(
   const query = vi.fn(async (sql: string) => {
     if (sql.includes('require_capability') && options.denied)
       throw new Error('42501')
+
     if (sql.includes('FROM api.pipeline_definitions '))
       return { rows: [{ workspace_id: definition }] }
+
     if (sql.includes('FROM internal.pipeline_webhook_triggers'))
       return {
         rows: [
@@ -36,17 +42,22 @@ function setup(
           },
         ],
       }
+
     if (sql.includes('FROM api.pipeline_runs'))
       return {
         rows: options.existing
           ? [{ id: 'existing-run', same_request: !options.mismatch }]
           : [],
       }
+
     if (sql.includes('FROM api.pipeline_definition_versions'))
       return { rows: [{ id: definition }] }
+
     if (sql.includes('start_pipeline_run')) return { rows: [{ id: 'new-run' }] }
+
     return { rows: [] }
   })
+
   const conn = {
     query,
     begin: vi.fn(),
@@ -54,13 +65,16 @@ function setup(
     rollback: vi.fn(),
     end: vi.fn(),
   } as unknown as ExecConnection
+
   const deps: PipelineWebhookDeps = {
     getSession: vi.fn(async () => ({ user: { id: 'owner' } })),
     connect: vi.fn(async () => conn),
     enqueue: vi.fn(async () => {}),
   }
+
   return { deps, query, conn }
 }
+
 function delivery(secret = token, payload = '{}') {
   return new Request(url, {
     method: 'POST',
@@ -71,6 +85,7 @@ function delivery(secret = token, payload = '{}') {
     body: payload,
   })
 }
+
 describe('pipeline webhook boundary', () => {
   it('rejects unauthenticated delivery before connecting', async () => {
     const { deps } = setup()
@@ -146,11 +161,13 @@ describe('pipeline webhook boundary', () => {
   })
   it('rejects cross-origin credential rotation', async () => {
     const { deps } = setup()
+
     const request = new Request(url, {
       method: 'PUT',
       headers: { origin: 'https://other.example' },
       body: '{"action":"rotate"}',
     })
+
     expect(
       (await handlePipelineWebhook(request, definition, deps)).status,
     ).toBe(403)
@@ -158,11 +175,13 @@ describe('pipeline webhook boundary', () => {
   })
   it('stores only a hash and returns a new token once', async () => {
     const { deps, query } = setup()
+
     const request = new Request(url, {
       method: 'PUT',
       headers: { origin: 'http://localhost' },
       body: '{"action":"rotate"}',
     })
+
     const response = await handlePipelineWebhook(request, definition, deps)
     const result = await response.json()
     expect(result.token).toHaveLength(43)

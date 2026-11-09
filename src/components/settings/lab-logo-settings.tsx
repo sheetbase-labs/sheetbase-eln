@@ -28,12 +28,14 @@ export function LabLogoSettings({ canEdit = true }: { canEdit?: boolean }) {
   async function send(method: 'PUT' | 'DELETE', file?: File) {
     setBusy(true)
     setError(null)
+
     try {
       const response = await fetch('/api/workspace-logo', {
         method,
         body: file,
         credentials: 'same-origin',
       })
+
       if (!response.ok) {
         setError(
           response.status === 413
@@ -44,8 +46,10 @@ export function LabLogoSettings({ canEdit = true }: { canEdit?: boolean }) {
                 ? t('account.logo.notAllowed')
                 : t('account.logo.couldNotSave'),
         )
+
         return
       }
+
       setChanged(method === 'PUT' ? String(Date.now()) : null)
       // The pages that show the logo read its version from the shell.
       requestShellRefresh()
@@ -63,8 +67,10 @@ export function LabLogoSettings({ canEdit = true }: { canEdit?: boolean }) {
 
   function choose(file: File | undefined) {
     if (!file) return
+
     if (!ACCEPTED.includes(file.type))
       return setError(t('account.logo.wrongType'))
+
     if (file.size > MAX_BYTES) return setError(t('account.logo.tooLarge'))
     void send('PUT', file)
   }

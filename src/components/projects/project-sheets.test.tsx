@@ -23,20 +23,24 @@ vi.mock('@tanstack/react-router', () => ({
     <a href={to}>{children}</a>
   ),
 }))
+
 vi.mock('#/lib/notebook-data', () => ({
   formatNotebookDateTime: (iso: string) => iso.slice(0, 10),
 }))
+
 vi.mock('#/lib/sheet-instance-data', () => ({
   fetchProjectSheets: (...args: unknown[]) => mocks.fetch(...args),
   renameSheetInstance: (...args: unknown[]) => mocks.rename(...args),
   archiveSheetInstance: (...args: unknown[]) => mocks.archive(...args),
   restoreSheetInstance: (...args: unknown[]) => mocks.restore(...args),
 }))
+
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 
 afterEach(cleanup)
+
 beforeEach(() => vi.resetAllMocks())
 
 const sheet = (over: Record<string, unknown> = {}) => ({

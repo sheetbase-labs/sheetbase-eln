@@ -69,11 +69,14 @@ export function useFunctionAutocomplete({
     const el = inputRef.current
     const cursor = el?.selectionStart ?? value.length
     const prefix = extractFunctionPrefix(value, cursor)
+
     if (!prefix) {
       setSuggestions([])
       setActiveIndex(-1)
+
       return
     }
+
     const matches = getFunctionSuggestions(prefix)
     setSuggestions(matches)
     setActiveIndex(matches.length > 0 ? 0 : -1)
@@ -87,8 +90,10 @@ export function useFunctionAutocomplete({
   // Scroll the active item into view when navigating.
   useEffect(() => {
     if (activeIndex < 0 || !listRef.current) return
+
     const item = listRef.current.children[activeIndex] as
       HTMLElement | undefined
+
     item?.scrollIntoView({ block: 'nearest' })
   }, [activeIndex])
 
@@ -101,9 +106,11 @@ export function useFunctionAutocomplete({
       const el = inputRef.current
       const cursor = el.selectionStart ?? value.length
       const prefix = extractFunctionPrefix(value, cursor)
+
       if (!prefix) return
       // Walk backwards to find the token span (same logic as extractFunctionPrefix).
       let start = cursor
+
       while (start > 0 && /[A-Za-z0-9_.]/.test(value[start - 1])) start--
       const insertText = `${suggestion.id}()`
       const newText = value.slice(0, start) + insertText + value.slice(cursor)
@@ -118,6 +125,7 @@ export function useFunctionAutocomplete({
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
       if (suggestions.length === 0) return
+
       switch (event.key) {
         case 'ArrowDown':
           event.preventDefault()
@@ -133,6 +141,7 @@ export function useFunctionAutocomplete({
             event.preventDefault()
             acceptSuggestion(activeIndex)
           }
+
           break
         case 'Escape':
           event.preventDefault()
@@ -170,6 +179,7 @@ export function FunctionAutocompleteDropdown({
   onSelect: (index: number) => void
 }) {
   if (suggestions.length === 0) return null
+
   return (
     <div
       ref={listRef}

@@ -69,7 +69,9 @@ const meta = {
     onSaveTrail: () => {},
   },
 } satisfies Meta<typeof PaneHeader>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Editing: Story = {}

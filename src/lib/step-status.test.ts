@@ -24,6 +24,7 @@ describe('stepProgress', () => {
       ],
       new Set(['d']),
     )
+
     expect(steps.map((s) => s.status)).toEqual([
       'done',
       'in_progress',
@@ -41,6 +42,7 @@ describe('stepProgress', () => {
       { id: 'x', type: 'procedure_step', payload: { text: '  ' } },
       { id: 'y', type: 'rich_text', payload: {} },
     ])
+
     expect(steps).toHaveLength(1)
     expect(currentStep(steps)).toBeNull()
   })
@@ -57,6 +59,7 @@ describe('instrumentNamedBy', () => {
     { id: '1', name: 'Plate reader', displayId: 'INS-0002' },
     { id: '2', name: 'pH', displayId: null },
   ]
+
   it('finds the one instrument a step names', () => {
     expect(instrumentNamedBy('Read on the plate reader', list)?.id).toBe('1')
     expect(instrumentNamedBy('Read on INS-0002', list)?.id).toBe('1')
@@ -89,6 +92,7 @@ describe('stepProgress with parts', () => {
         { id: 'p3', number: 3, state: 'later' },
       ],
     )
+
     expect(
       steps.map((s) => [s.partNumber, s.partStepIndex, s.partStepCount]),
     ).toEqual([
@@ -106,6 +110,7 @@ describe('stepProgress with parts', () => {
       { id: 'p2', number: 2, state: 'now' },
       { id: 'p3', number: 3, state: 'later' },
     ])
+
     expect(currentStep(steps)).toBeNull()
   })
 })

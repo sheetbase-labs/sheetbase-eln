@@ -44,12 +44,16 @@ export function teamsMessageCard(
       : typeof payload.result.outputDatasetId === 'string'
         ? payload.result.outputDatasetId
         : null
+
   const facts: Array<{ name: string; value: string }> = [
     { name: 'Run', value: payload.runId },
   ]
+
   if (label) facts.push({ name: 'Output', value: label })
+
   if (typeof payload.result.rowCount === 'number')
     facts.push({ name: 'Rows', value: String(payload.result.rowCount) })
+
   return {
     '@type': 'MessageCard',
     '@context': 'https://schema.org/extensions',
@@ -72,6 +76,7 @@ export function channelBody(
 ): string {
   if (channelType === 'teams')
     return JSON.stringify(teamsMessageCard(payload, options))
+
   return JSON.stringify(payload)
 }
 
@@ -82,15 +87,19 @@ export function emailMessage(
 ): { subject: string; body: string } {
   const subject = options.title ?? 'Pipeline run completed'
   const lines = [`Run ${payload.runId} completed.`]
+
   const label =
     typeof payload.result.outputLabel === 'string'
       ? payload.result.outputLabel
       : typeof payload.result.outputDatasetId === 'string'
         ? payload.result.outputDatasetId
         : null
+
   if (label) lines.push(`Output: ${label}`)
+
   if (typeof payload.result.rowCount === 'number')
     lines.push(`Rows: ${payload.result.rowCount}`)
+
   return { subject, body: lines.join('\n') }
 }
 
@@ -110,6 +119,7 @@ export function eventMessage(
 ): { title: string; body: string } {
   const title = eventLabel(event.eventType)
   const when = new Date(event.createdAt)
+
   const lines = [
     title,
     Number.isNaN(when.getTime())
@@ -117,6 +127,7 @@ export function eventMessage(
       : `When: ${when.toISOString().replace('T', ' ').slice(0, 16)} UTC`,
     `Open Sheetbase: ${appUrl}`,
   ]
+
   return { title, body: lines.filter(Boolean).join('\n') }
 }
 
@@ -126,6 +137,7 @@ export function eventTeamsCard(
   appUrl: string,
 ): Record<string, unknown> {
   const { title, body } = eventMessage(event, appUrl)
+
   return {
     '@type': 'MessageCard',
     '@context': 'https://schema.org/extensions',

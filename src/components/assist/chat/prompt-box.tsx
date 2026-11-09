@@ -33,6 +33,7 @@ export function PromptBox({
   // Grow with the text up to a cap, then scroll.
   useLayoutEffect(() => {
     const element = ref.current
+
     if (!element) return
     element.style.height = 'auto'
     element.style.height = `${Math.min(element.scrollHeight, 160)}px`
@@ -46,6 +47,7 @@ export function PromptBox({
     )
       return
     event.preventDefault()
+
     if (!busy && !disabled && value.trim() !== '') onSubmit()
   }
 
@@ -60,6 +62,7 @@ export function PromptBox({
       )}
       onSubmit={(event) => {
         event.preventDefault()
+
         if (canSend) onSubmit()
       }}
     >

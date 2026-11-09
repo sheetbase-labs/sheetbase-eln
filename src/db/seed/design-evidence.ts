@@ -151,6 +151,7 @@ async function recordId(db: Db, identifier: string): Promise<string | null> {
   const found = await db.execute(sql`
     select id from api.records
      where workspace_id = ${PROCESS} and identifier = ${identifier}`)
+
   return (found.rows[0] as { id: string } | undefined)?.id ?? null
 }
 
@@ -174,6 +175,7 @@ async function seedFiles(db: Db): Promise<void> {
   // The pressure log is the fourth upload on the board; the other three were
   // seeded by the project's files step and are renamed to the board's.
   const existing = await recordId(db, 'FILE-0005')
+
   if (!existing) {
     await withDesignClaims(db, GARETH, PROCESS, async (client) => {
       await client.query(
@@ -191,8 +193,10 @@ async function seedFiles(db: Db): Promise<void> {
       )
     })
   }
+
   for (const file of FILES) {
     const id = await recordId(db, file.identifier)
+
     if (!id) continue
     await db.execute(
       sql`alter table api.file_objects disable trigger change_event_file_objects`,
@@ -206,6 +210,7 @@ async function seedFiles(db: Db): Promise<void> {
     await db.execute(
       sql`alter table api.records disable trigger change_event_records`,
     )
+
     try {
       await db.execute(sql`
         update api.file_objects
@@ -234,11 +239,13 @@ async function seedFiles(db: Db): Promise<void> {
         sql`alter table api.records enable trigger change_event_records`,
       )
     }
+
     // The experiment holds the file.
     const held = await db.execute(sql`
       select 1 from api.record_links
        where source_record_id = ${EXP_0142} and target_record_id = ${id}
          and link_type = 'file' limit 1`)
+
     if (held.rows.length === 0) {
       await db.execute(sql`
         insert into api.record_links
@@ -246,12 +253,14 @@ async function seedFiles(db: Db): Promise<void> {
            link_type, created_by_user_id)
         values (${EXP_0142}, ${id}, 'file', ${file.identifier}, 'file', ${GARETH})`)
     }
+
     // What the file fed, with the parse receipt.
     for (const feed of file.feeds) {
       const targetId =
         feed.kind === 'protocol_template'
           ? await recordId(db, feed.identifier)
           : null
+
       await db.execute(sql`
         insert into api.record_links
           (source_record_id, target_record_id, target_kind, target_identifier,

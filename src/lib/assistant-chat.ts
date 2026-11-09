@@ -35,11 +35,14 @@ export function messageText(message: UIMessage): string {
  */
 export function toChatTurns(messages: UIMessage[]): ChatTurn[] {
   const turns: ChatTurn[] = []
+
   for (const message of messages) {
     if (message.role !== 'user' && message.role !== 'assistant') continue
     const content = messageText(message).trim()
+
     if (content === '') continue
     turns.push({ role: message.role, content })
   }
+
   return turns
 }

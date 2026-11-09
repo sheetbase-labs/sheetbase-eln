@@ -96,13 +96,16 @@ export interface ParserRecognition {
 
 function headerTokens(headers: string[]): Set<string> {
   const set = new Set<string>()
+
   for (const header of headers) {
     const normalised = header.trim().toLowerCase()
     set.add(normalised)
     // `OD450 (AU)` also matches the token `od450`.
     const first = normalised.split(/[\s(/[]/)[0]
+
     if (first) set.add(first)
   }
+
   return set
 }
 
@@ -120,27 +123,38 @@ export function recogniseImportParser(
   parsers: ImportParserDefinition[] = IMPORT_PARSERS,
 ): ParserRecognition | null {
   const present = headerTokens(input.headers)
+
   const hasMetadata = /^#\s*[A-Za-z][\w /.-]*\s*:/m.test(
     input.rawTextHint ?? '',
   )
+
   let best: ParserRecognition | null = null
+
   for (const parser of parsers) {
     if (parser.format !== input.format) continue
+
     // Only an approved parser recognises a file; a draft is offered on the
     // failure page as an experiment instead. DSET-06.1.
     if (parser.status !== 'approved') continue
+
     if (parser.signature.requiresMetadata && !hasMetadata) continue
+
     const required = parser.signature.requiredHeaders.map((header) =>
       header.trim().toLowerCase(),
     )
+
     if (!required.every((header) => present.has(header))) continue
+
     const optional = (parser.signature.optionalHeaders ?? []).map((header) =>
       header.trim().toLowerCase(),
     )
+
     const matchedOptional = optional.filter((header) => present.has(header))
+
     const confidence =
       (required.length + matchedOptional.length) /
       Math.max(required.length + optional.length, 1)
+
     if (!best || confidence > best.confidence) {
       best = {
         key: parser.key,
@@ -152,6 +166,7 @@ export function recogniseImportParser(
       }
     }
   }
+
   return best
 }
 
@@ -161,6 +176,7 @@ export function previewHeaderSample(preview: ImportPreview): {
   sheetNames: string[]
 } {
   const sheet = preview.sheets.at(0)
+
   return {
     headers: sheet?.headers ?? [],
     rowCount: preview.sheets.reduce(

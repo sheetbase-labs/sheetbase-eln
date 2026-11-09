@@ -58,6 +58,7 @@ export function BulkRegisterDialog({
     () => (text.trim() ? parseBulkSamples(text) : null),
     [text],
   )
+
   const rows = parsed?.rows ?? []
   const issues = parsed?.issues ?? []
   const duplicates = useMemo(() => duplicateTitles(rows), [rows])
@@ -85,6 +86,7 @@ export function BulkRegisterDialog({
 
   const close = (next: boolean) => {
     onOpenChange(next)
+
     if (!next) {
       setText('')
       setCreated(null)

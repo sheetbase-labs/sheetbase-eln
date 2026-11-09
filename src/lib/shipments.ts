@@ -21,7 +21,9 @@ export const SHIPMENT_STATUSES = [
   'received',
   'cancelled',
 ] as const
+
 export type ShipmentStatus = (typeof SHIPMENT_STATUSES)[number]
+
 export type ShipmentDirection = 'outbound' | 'inbound'
 
 export function asShipmentStatus(value: string): ShipmentStatus {
@@ -73,6 +75,7 @@ export async function fetchShipments(
     'shipments',
     `?select=${SHIPMENT_COLUMNS}&order=number.desc&limit=2000`,
   )
+
   return rows.map((r) => ({
     ...r,
     status: asShipmentStatus(r.status),
@@ -209,9 +212,12 @@ export async function fetchManifestCounts(
     'shipment_items',
     '?select=shipment_id&limit=50000',
   )
+
   const counts = new Map<string, number>()
+
   for (const row of rows) {
     counts.set(row.shipment_id, (counts.get(row.shipment_id) ?? 0) + 1)
   }
+
   return counts
 }

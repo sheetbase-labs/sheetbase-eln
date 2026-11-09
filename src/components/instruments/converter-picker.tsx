@@ -30,6 +30,7 @@ export function ConverterPicker({
 }) {
   const [open, setOpen] = useState(false)
   const [vendor, setVendor] = useState('')
+
   const converters = useQuery({
     queryKey: ['converters'],
     queryFn: fetchConverters,
@@ -37,6 +38,7 @@ export function ConverterPicker({
     staleTime: 10 * 60_000,
     retry: false,
   })
+
   const add = useMutation({
     mutationFn: () => addConverterParser({ vendor, instrumentId }),
     onSuccess: async (created) => {
@@ -54,6 +56,7 @@ export function ConverterPicker({
   })
 
   if (!canManage) return null
+
   if (!open) {
     return (
       <div>
@@ -67,6 +70,7 @@ export function ConverterPicker({
   const unavailable =
     converters.error instanceof ConverterClientError &&
     converters.error.code === 'converter_unavailable'
+
   const techniques = [
     ...new Set((converters.data ?? []).map((entry) => entry.technique)),
   ].sort()

@@ -24,6 +24,7 @@ export function sheetDescription(input: {
       input.worksheet,
     ),
   ]
+
   if (input.made.formulaColumns.length > 0) {
     lines.push(
       input.formulasNote(
@@ -33,6 +34,7 @@ export function sheetDescription(input: {
       ),
     )
   }
+
   return lines.join(' ').slice(0, DESCRIPTION_MAX)
 }
 

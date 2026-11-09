@@ -17,9 +17,11 @@ export type ProxyPath =
  */
 export function parseProxyPath(raw: string): ProxyPath | null {
   const segments = raw.split('/')
+
   if (segments.length === 1 && RESOURCE_SEGMENT.test(segments[0])) {
     return { kind: 'table', resource: segments[0] }
   }
+
   if (
     segments.length === 2 &&
     segments[0] === 'rpc' &&
@@ -27,6 +29,7 @@ export function parseProxyPath(raw: string): ProxyPath | null {
   ) {
     return { kind: 'rpc', resource: segments[1] }
   }
+
   return null
 }
 
@@ -38,13 +41,17 @@ export function parseProxyPath(raw: string): ProxyPath | null {
 export function sanitizeQuery(search: string): string {
   const incoming = new URLSearchParams(search)
   const safe = new URLSearchParams()
+
   for (const [key, value] of incoming) {
     if (!QUERY_KEY.test(key) || value.length > MAX_QUERY_VALUE_LENGTH) {
       throw new InvalidPostgrestQueryError()
     }
+
     safe.append(key, value)
   }
+
   const out = safe.toString()
+
   return out ? `?${out}` : ''
 }
 
@@ -57,6 +64,7 @@ export class InvalidPostgrestQueryError extends Error {
 
 const UUID_FILTER =
   /^eq\.[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 const VERSION_FILTER = /^eq\.[1-9][0-9]*$/
 
 /** DATA-003 row mutations require one stable identity and expected version. */
@@ -64,6 +72,7 @@ export function isValidScientificMutationQuery(search: string): boolean {
   const query = new URLSearchParams(search)
   const ids = query.getAll('id')
   const versions = query.getAll('version')
+
   return (
     [...query.keys()].every((key) => key === 'id' || key === 'version') &&
     ids.length === 1 &&
@@ -81,5 +90,6 @@ export function buildUpstreamUrl(
 ): string {
   const suffix =
     path.kind === 'rpc' ? `/rpc/${path.resource}` : `/${path.resource}`
+
   return `${baseUrl}${suffix}${sanitizeQuery(search)}`
 }

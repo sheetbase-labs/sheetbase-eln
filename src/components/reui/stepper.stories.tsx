@@ -34,6 +34,7 @@ function Row({ active }: { active: number }) {
       <StepperNav>
         {STEPS.map((label, index) => {
           const step = index + 1
+
           return (
             <StepperItem
               key={label}
@@ -63,7 +64,9 @@ const meta = {
   component: Stepper,
   tags: ['autodocs'],
 } satisfies Meta<typeof Stepper>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Part-way through: step one completed, step two active, step three inactive. */

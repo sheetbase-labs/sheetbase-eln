@@ -38,6 +38,7 @@ export function withPageAi(
       ...extraData,
     ],
   })
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <PageAiWorkspaceProvider value={AI_WORKSPACE_ID}>

@@ -17,6 +17,7 @@ export async function fetchHiddenNavPages(
     'workspace_settings',
     `?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=hidden_nav_pages&limit=1`,
   )
+
   return rows[0]?.hidden_nav_pages ?? []
 }
 

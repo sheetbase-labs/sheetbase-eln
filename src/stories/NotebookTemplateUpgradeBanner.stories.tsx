@@ -12,10 +12,12 @@ import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
  */
 const RECORD_ID = '0198d970-e266-4000-8000-0000000000a1'
 const TEMPLATE_ID = '0198d970-e266-4000-8000-0000000000t1'.replace('t', 'f')
+
 const PINNED_VERSION_ID = '0198d970-e266-4000-8000-0000000v0001'.replace(
   'v',
   'e',
 )
+
 const LATEST_VERSION_ID = '0198d970-e266-4000-8000-0000000e0002'
 
 function version(
@@ -44,6 +46,7 @@ function client(state: 'upgrade' | 'current' | 'unknown') {
   const instance = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+
   if (state === 'unknown') return instance
   instance.setQueryData(
     ['notebook-template-version', PINNED_VERSION_ID],
@@ -63,6 +66,7 @@ function client(state: 'upgrade' | 'current' | 'unknown') {
         ]
       : [version(PINNED_VERSION_ID, 2, 'published')],
   )
+
   return instance
 }
 
@@ -83,7 +87,9 @@ const meta = {
   decorators: [withClient('upgrade')],
   args: { recordId: RECORD_ID, pinnedVersionId: PINNED_VERSION_ID },
 } satisfies Meta<typeof NotebookTemplateUpgradeBanner>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A newer published Template Version exists for this record's pin. */

@@ -74,16 +74,19 @@ function key(binding: string) {
 
 export function PaneHeader(props: PaneHeaderProps) {
   const splitting = useRef(false)
+
   const split = (direction: 'row' | 'column') => {
     splitting.current = true
     props.onSplit(direction)
   }
+
   const { pane, mode, kind, link, newer } = props
   const title = pane.title
   // The page's path; the page's own name closes it, so drop a last crumb that
   // only repeats it.
   const path = props.crumbs ?? []
   const parents = path.at(-1)?.label === title ? path.slice(0, -1) : path
+
   return (
     <div className="mx-ph" data-pane-header>
       <button
@@ -265,6 +268,7 @@ export function PaneHeader(props: PaneHeaderProps) {
             finalFocus={() => {
               if (!splitting.current) return true
               splitting.current = false
+
               return false
             }}
           >
@@ -373,6 +377,7 @@ export function ModeBadge({ mode }: { mode: PaneMode }) {
   if (mode.kind === 'plain') return null
   const label = modeLabel(mode)
   const [lead, revision] = label.split(' · ')
+
   if (mode.kind === 'editing') {
     return (
       <span className="mx-mode is-edit" data-pane-mode="editing">
@@ -381,6 +386,7 @@ export function ModeBadge({ mode }: { mode: PaneMode }) {
       </span>
     )
   }
+
   if (mode.kind === 'reviewing') {
     return (
       <span className="mx-mode is-review" data-pane-mode="reviewing">
@@ -389,6 +395,7 @@ export function ModeBadge({ mode }: { mode: PaneMode }) {
       </span>
     )
   }
+
   if (mode.kind === 'signed') {
     return (
       <span className="mx-mode is-signed" data-pane-mode="signed">
@@ -397,6 +404,7 @@ export function ModeBadge({ mode }: { mode: PaneMode }) {
       </span>
     )
   }
+
   return (
     <span className="mx-mode is-ro" data-pane-mode="read-only">
       {lead}

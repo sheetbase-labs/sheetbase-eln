@@ -16,6 +16,7 @@ export function ReportDocument({ report }: { report: ReportDetail }) {
       />
     )
   }
+
   return (
     <article className="mx-auto flex w-full max-w-[860px] flex-col gap-6 rounded-md border border-border bg-surface px-8 py-8 max-md:px-4">
       <header className="flex flex-col gap-1 border-b border-border pb-4">
@@ -32,6 +33,7 @@ export function ReportDocument({ report }: { report: ReportDetail }) {
       {report.sections.map((section) => {
         const frozen =
           section.sourceType === 'free_text' ? null : frozenBlockOf(section)
+
         return (
           <section key={section.id} className="flex flex-col gap-2">
             <h3 className="font-heading text-doc font-semibold">

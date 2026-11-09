@@ -8,6 +8,7 @@ export const Route = createFileRoute('/api/pipelines/runtime')({
       GET: async ({ request }) => {
         if (!(await getAppSession(request.headers)))
           return new Response(null, { status: 401 })
+
         try {
           return Response.json({
             available: true,

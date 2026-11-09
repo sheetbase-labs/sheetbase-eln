@@ -10,6 +10,7 @@ import {
 import type { ThemePref } from '#/lib/theme-cookie'
 
 export { THEME_COOKIE, THEME_STORAGE_KEY }
+
 export type { ThemePref }
 
 /**
@@ -27,13 +28,16 @@ const listeners = new Set<() => void>()
 /** The stored preference, or `null` when this device has not chosen one. */
 export function readStoredThemePref(): ThemePref | null {
   if (typeof document === 'undefined') return null
+
   try {
     const fromCookie = parseThemeCookie(document.cookie)
+
     if (fromCookie) return fromCookie
     // A device that chose before the cookie existed: keep that choice rather
     // than silently reverting it to System. `applyThemePref` rewrites it as a
     // cookie on the next change, and `initTheme` migrates it on first mount.
     const legacy = localStorage.getItem(THEME_STORAGE_KEY)
+
     return isThemePref(legacy) ? legacy : null
   } catch {
     /* private mode / disabled storage */
@@ -57,17 +61,20 @@ function prefersDark(): boolean {
 /** Apply a preference everywhere and notify every subscriber. */
 export function applyThemePref(pref: ThemePref) {
   const dark = pref === 'dark' || (pref === 'system' && prefersDark())
+
   if (typeof document !== 'undefined') {
     const el = document.documentElement
     el.classList.toggle('dark', dark)
     el.dataset.theme = dark ? 'dark' : 'light'
     el.dataset.themePref = pref
+
     try {
       document.cookie = themeCookieString(pref)
     } catch {
       /* cookie writes can be blocked; the DOM still reflects the choice */
     }
   }
+
   // Write the cross-tab token *after* the cookie so another tab that reacts to
   // the token finds the new value already in the shared cookie jar.
   try {
@@ -75,6 +82,7 @@ export function applyThemePref(pref: ThemePref) {
   } catch {
     /* private mode / disabled storage */
   }
+
   listeners.forEach((l) => l())
 }
 
@@ -84,6 +92,7 @@ let installed = false
 export function initTheme() {
   if (installed || typeof window === 'undefined') return
   installed = true
+
   // Migrate a preference this device chose before the cookie existed, so the
   // server paints it correctly from the next request on.
   if (
@@ -92,11 +101,14 @@ export function initTheme() {
   ) {
     applyThemePref(readThemePref())
   }
+
   window.addEventListener('storage', (event) => {
     if (event.key !== THEME_STORAGE_KEY) return
     const stored = parseThemeCookie(document.cookie)
+
     if (stored) applyThemePref(stored)
   })
+
   if (typeof window.matchMedia === 'function') {
     window
       .matchMedia('(prefers-color-scheme: dark)')
@@ -110,6 +122,7 @@ export function initTheme() {
 export function subscribeTheme(cb: () => void) {
   initTheme()
   listeners.add(cb)
+
   return () => {
     listeners.delete(cb)
   }
@@ -121,6 +134,7 @@ export function useTheme() {
     readThemePref,
     () => 'system',
   )
+
   return {
     pref,
     setPref: applyThemePref,

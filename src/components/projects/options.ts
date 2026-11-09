@@ -8,6 +8,7 @@ export const clients = [
   'CL-021',
   'CL-022',
 ] as const
+
 export const modalities = [
   'AAV',
   'AAV9',
@@ -19,6 +20,7 @@ export const modalities = [
   'Plasmid',
   'Platform',
 ] as const
+
 export const stages = [
   'Feasibility',
   'Process development',
@@ -26,6 +28,7 @@ export const stages = [
   'Tech transfer',
   'QC',
 ] as const
+
 export const leads = [
   'Gareth P.',
   'Priya S.',

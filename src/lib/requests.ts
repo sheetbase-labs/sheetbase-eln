@@ -22,7 +22,9 @@ export const REQUEST_STATUSES = [
   'declined',
   'completed',
 ] as const
+
 export type RequestStatus = (typeof REQUEST_STATUSES)[number]
+
 export type RequestDecision = Exclude<RequestStatus, 'requested'>
 
 export function asRequestStatus(value: string): RequestStatus {
@@ -39,7 +41,9 @@ export function isOpenRequest(status: RequestStatus): boolean {
 /** What a handler can do next with a request in this state. */
 export function nextDecisions(status: RequestStatus): RequestDecision[] {
   if (status === 'requested') return ['accepted', 'declined', 'completed']
+
   if (status === 'accepted') return ['completed', 'declined']
+
   return []
 }
 
@@ -70,13 +74,17 @@ export async function fetchRequestForms(
     'request_forms',
     '?select=model_key,intro,handler_user_ids&order=model_key.asc',
   )
+
   if (forms.length === 0) return []
   const keys = forms.map((f) => encodeURIComponent(f.model_key)).join(',')
+
   const models = await client.list<ModelWire>(
     'record_models',
     `?key=in.(${keys})&select=key,name,identifier_prefix`,
   )
+
   const byKey = new Map(models.map((m) => [m.key, m] as const))
+
   return forms
     .map((f) => ({
       ...f,
@@ -133,18 +141,24 @@ export async function fetchRequests(
 ): Promise<RequestRow[]> {
   if (kinds.length === 0) return []
   const list = kinds.map((k) => encodeURIComponent(k)).join(',')
+
   const records = await client.list<RequestRecordWire>(
     'records',
     `?kind=in.(${list})&deleted_at=is.null&order=created_at.desc&limit=2000&select=id,identifier,title,kind,status,custom_fields,created_at,created_by_user_id,project_id`,
   )
+
   if (records.length === 0) return []
+
   const details = await client.list<RequestDetailWire>(
     'request_details',
     `?record_id=in.(${records.map((r) => r.id).join(',')})&select=record_id,note,decided_by,decided_at,decision_note`,
   )
+
   const byRecord = new Map(details.map((d) => [d.record_id, d] as const))
+
   return records.map((r) => {
     const d = byRecord.get(r.id)
+
     return {
       ...r,
       status: asRequestStatus(r.status),

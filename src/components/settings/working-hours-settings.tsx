@@ -33,11 +33,13 @@ export function WorkingHoursSettings({
   canManage?: boolean
 }) {
   const queryClient = useQueryClient()
+
   const query = useQuery({
     queryKey: scheduleQueryKeys.settings,
     queryFn: () => fetchSchedulerSettings(client),
     staleTime: 30_000,
   })
+
   const [timezone, setTimezone] = useState<string>(DEFAULT_HOURS.timezone)
   const [start, setStart] = useState(minuteToTime(DEFAULT_HOURS.startMinute))
   const [end, setEnd] = useState(minuteToTime(DEFAULT_HOURS.endMinute))
@@ -45,6 +47,7 @@ export function WorkingHoursSettings({
 
   useEffect(() => {
     if (query.data === undefined) return
+
     if (query.data) {
       setTimezone(query.data.timezone)
       setStart(minuteToTime(query.data.work_start_minute))
@@ -55,6 +58,7 @@ export function WorkingHoursSettings({
 
   const startMinute = timeToMinute(start)
   const endMinute = timeToMinute(end)
+
   const problem =
     startMinute === null || endMinute === null
       ? t('automation.schedule.hours.problemTime')

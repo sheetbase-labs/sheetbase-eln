@@ -35,8 +35,10 @@ export function AgentStatusLine({
     refetchInterval: 60_000,
     staleTime: 30_000,
   })
+
   if (!status.data) return <span className="text-fg-muted">—</span>
   const { downloaded, running, lastSeenAt } = status.data
+
   if (!downloaded) {
     return (
       <Status tone="none">
@@ -44,12 +46,15 @@ export function AgentStatusLine({
       </Status>
     )
   }
+
   if (!lastSeenAt) {
     return (
       <Status tone="draft">{t('library.instruments.agent.waiting')}</Status>
     )
   }
+
   const when = formatRelativeTime(lastSeenAt)
+
   return running ? (
     <Status tone="ok">
       {t('library.instruments.agent.running', { when })}
@@ -85,8 +90,10 @@ export function AgentDownload({
   const [system, setSystem] = useState<AgentSystem>('windows')
   const [folder, setFolder] = useState('')
   const [downloaded, setDownloaded] = useState<string | null>(null)
+
   const example =
     AGENT_SYSTEMS.find((entry) => entry.value === system)?.folderExample ?? ''
+
   const chosen = folder.trim() || example
 
   const run = useMutation({
@@ -106,6 +113,7 @@ export function AgentDownload({
       </p>
     )
   }
+
   return (
     <div className="flex flex-col gap-3">
       <p className="m-0 text-body text-fg-muted">

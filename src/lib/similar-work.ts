@@ -25,6 +25,7 @@ export async function fetchSimilarWork(
   options: { limit?: number; types?: readonly SearchResultType[] } = {},
 ): Promise<SemanticHit[]> {
   const limit = options.limit ?? 6
+
   const raw = await client.rpc<SemanticHitWire | SemanticHitWire[] | null>(
     'similar_work',
     {
@@ -34,7 +35,9 @@ export async function fetchSimilarWork(
       p_types: [...(options.types ?? SIMILAR_WORK_TYPES)],
     },
   )
+
   const rows = raw === null ? [] : Array.isArray(raw) ? raw : [raw]
+
   return rows
     .map(toSemanticHit)
     .filter(

@@ -84,26 +84,32 @@ export function validateDeploymentConfig(
         `${parsed.SHEETBASE_ENV} requires a managed secret source`,
       )
     }
+
     sha256Digest.parse(parsed.SHEETBASE_ARTIFACT_DIGEST)
     migrationVersion.parse(parsed.SHEETBASE_EXPECTED_MIGRATION)
+
     if (!parsed.BETTER_AUTH_URL.startsWith('https://')) {
       throw new Error(
         `${parsed.SHEETBASE_ENV} requires an HTTPS BETTER_AUTH_URL`,
       )
     }
+
     const github = Boolean(
       parsed.GITHUB_CLIENT_ID || parsed.GITHUB_CLIENT_SECRET,
     )
+
     const oidc = Boolean(
       parsed.OIDC_ISSUER_URL ||
       parsed.OIDC_CLIENT_ID ||
       parsed.OIDC_CLIENT_SECRET,
     )
+
     if (github && !(parsed.GITHUB_CLIENT_ID && parsed.GITHUB_CLIENT_SECRET)) {
       throw new Error(
         `${parsed.SHEETBASE_ENV} requires both GitHub OAuth credentials`,
       )
     }
+
     if (
       oidc &&
       !(
@@ -116,12 +122,14 @@ export function validateDeploymentConfig(
         `${parsed.SHEETBASE_ENV} requires OIDC_ISSUER_URL, OIDC_CLIENT_ID and OIDC_CLIENT_SECRET together`,
       )
     }
+
     const samlPartial = Boolean(
       parsed.SAML_IDP_METADATA ||
       parsed.SAML_IDP_ENTITY_ID ||
       parsed.SAML_IDP_SSO_URL ||
       parsed.SAML_IDP_CERT,
     )
+
     const saml = Boolean(
       (parsed.SAML_IDP_METADATA ||
         (parsed.SAML_IDP_ENTITY_ID &&
@@ -129,20 +137,24 @@ export function validateDeploymentConfig(
           parsed.SAML_IDP_CERT)) &&
       parseAllowedDomains(parsed.SAML_EMAIL_DOMAINS).length > 0,
     )
+
     if (samlPartial && !saml) {
       throw new Error(
         `${parsed.SHEETBASE_ENV} SAML needs SAML_IDP_METADATA (or SAML_IDP_ENTITY_ID, SAML_IDP_SSO_URL and SAML_IDP_CERT) together with SAML_EMAIL_DOMAINS`,
       )
     }
+
     // Email links need a mail server to send them from; without one the
     // button is not offered (see readAuthMethods), so it cannot count here.
     const emailLink =
       parsed.EMAIL_LOGIN_ENABLED === 'true' && Boolean(parsed.SMTP_HOST)
+
     if (!github && !oidc && !saml && !emailLink) {
       throw new Error(
         `${parsed.SHEETBASE_ENV} requires a way to sign in: GitHub OAuth, OIDC, SAML, or email links (EMAIL_LOGIN_ENABLED=true with SMTP_HOST)`,
       )
     }
+
     // A new address may only join from an allowed domain, so email links on
     // their own with no domain would leave nobody able to create an account.
     if (
@@ -156,6 +168,7 @@ export function validateDeploymentConfig(
         `${parsed.SHEETBASE_ENV} email sign-in without GitHub or OIDC requires EMAIL_LOGIN_ALLOWED_DOMAINS, so the first people can create accounts`,
       )
     }
+
     for (const [name, value] of [
       ['DATABASE_URL', parsed.DATABASE_URL],
       ['POSTGREST_URL', parsed.POSTGREST_URL],

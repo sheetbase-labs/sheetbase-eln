@@ -115,6 +115,7 @@ function toolDef(
   const { $schema: _ignored, ...parameters } = z.toJSONSchema(schema, {
     io: 'input',
   })
+
   return { name: name.replaceAll('.', '__'), description, parameters }
 }
 
@@ -171,6 +172,7 @@ export function gatesToolDefs(): ProviderToolDef[] {
 export function planningProposalDefs(): ProviderToolDef[] {
   const note =
     'The person sees a card and presses a button to do it; nothing changes until they do.'
+
   return [
     toolDef(
       EXPERIMENT_START_TOOL,
@@ -266,6 +268,7 @@ function hrefOf(link: WorkItemLink): string {
       link.to as string,
     )
   }
+
   return link.to
 }
 
@@ -274,14 +277,17 @@ export async function readInbox(
   context: LabToolContext,
 ): Promise<{ text: string; isError: boolean }> {
   const parsed = inboxReadSchema.safeParse(args)
+
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
   const limit = parsed.data.limit ?? 15
   let page: Awaited<ReturnType<typeof fetchInboxPage>>
+
   try {
     page = await fetchInboxPage(context.client, 'needs-action', undefined)
   } catch {
     return { text: 'The inbox could not be read just now.', isError: true }
   }
+
   const items = page.items.slice(0, limit).map((item) => ({
     what: item.kind.replaceAll('_', ' '),
     title: item.title,
@@ -291,6 +297,7 @@ export async function readInbox(
     overdue: item.state === 'overdue',
     open: hrefOf(itemLink(item)),
   }))
+
   return {
     text: JSON.stringify({
       waitingOnPerson: page.total,
@@ -340,9 +347,12 @@ function pickStep(
       message: `${recordName} has no protocol steps. Tell the person.`,
     }
   }
+
   const wanted = (words ?? '').toLowerCase().split(/\s+/).filter(Boolean)
+
   if (wanted.length === 0) {
     const current = rows.find((row) => row.is_current)
+
     return current
       ? { ok: true, value: current }
       : {
@@ -350,10 +360,13 @@ function pickStep(
           message: `Every step of ${recordName} is already done. Tell the person.`,
         }
   }
+
   const matches = rows.filter((row) =>
     wanted.every((word) => (row.step_text ?? '').toLowerCase().includes(word)),
   )
+
   if (matches.length === 1) return { ok: true, value: matches[0] }
+
   if (matches.length === 0) {
     return {
       ok: false,
@@ -363,6 +376,7 @@ function pickStep(
         .join('; ')}.`,
     }
   }
+
   return {
     ok: false,
     message: `More than one step fits: ${matches
@@ -377,19 +391,25 @@ export async function readSteps(
   context: LabToolContext,
 ): Promise<{ text: string; isError: boolean }> {
   const parsed = stepsReadSchema.safeParse(args)
+
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
   const record = await findRecord(context.client, parsed.data.record)
+
   if (!record.ok) return { text: record.message, isError: true }
   let rows: StepRow[]
+
   try {
     rows = await stepRows(context.client, record.value.id)
   } catch {
     return { text: 'The steps could not be read just now.', isError: true }
   }
+
   const names = await memberNames(context.client).catch(
     () => new Map<string, string>(),
   )
+
   const done = rows.filter((row) => row.status === 'done').length
+
   return {
     text: JSON.stringify({
       experiment: recordTarget(record.value),
@@ -449,16 +469,20 @@ export async function readSeries(
   context: LabToolContext,
 ): Promise<{ text: string; isError: boolean }> {
   const parsed = seriesReadSchema.safeParse(args)
+
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
   const { client } = context
   const record = await findRecord(client, parsed.data.record, ['experiment'])
+
   if (!record.ok) return { text: record.message, isError: true }
+
   try {
     const membership = (
       await client.rpc<RecordSeriesRow[]>('record_series', {
         p_record_id: record.value.id,
       })
     ).at(0)
+
     const head = membership
       ? {
           id: membership.series_record_id,
@@ -466,21 +490,26 @@ export async function readSeries(
           title: membership.series_title,
         }
       : record.value
+
     const members = await client.rpc<SeriesMemberRow[]>('series_members', {
       p_series_record_id: head.id,
     })
+
     if (!membership && members.length === 0) {
       return {
         text: `${recordTarget(record.value)} is not in a series and does not head one. Say so, and offer to add it to a series.`,
         isError: false,
       }
     }
+
     const rollup = await client.rpc<Record<string, unknown>>('series_rollup', {
       p_series_record_id: head.id,
     })
+
     const names = await memberNames(client).catch(
       () => new Map<string, string>(),
     )
+
     return {
       text: JSON.stringify({
         series: `${head.identifier} · ${head.title}`,
@@ -568,9 +597,12 @@ function pickPart(
       message: `${recordName} has no parts. Tell the person.`,
     }
   }
+
   const text = (words ?? '').trim().toLowerCase()
+
   if (!text) {
     const current = rows.find((row) => row.is_current)
+
     return current
       ? { ok: true, value: current }
       : {
@@ -578,18 +610,26 @@ function pickPart(
           message: `Every part of ${recordName} is already done. Tell the person.`,
         }
   }
+
   const number = /^(?:part\s*)?(\d{1,3})$/.exec(text)
+
   if (number) {
     const row = rows.find((part) => part.part_number === Number(number[1]))
+
     if (row) return { ok: true, value: row }
   }
+
   const wanted = text.split(/\s+/).filter(Boolean)
+
   const matches = rows.filter((row) =>
     wanted.every((word) => row.title.toLowerCase().includes(word)),
   )
+
   if (matches.length === 1) return { ok: true, value: matches[0] }
+
   const labels = (found: readonly PartRow[]) =>
     found.slice(0, 8).map(partLabel).join('; ')
+
   return matches.length === 0
     ? {
         ok: false,
@@ -609,6 +649,7 @@ async function partSignoffRows(
     const rows = await client.rpc<PartSignoffRow[]>('record_part_signoffs', {
       p_record_id: recordId,
     })
+
     return new Map(rows.map((row) => [row.part_id, row]))
   } catch {
     return new Map()
@@ -620,22 +661,29 @@ export async function readParts(
   context: LabToolContext,
 ): Promise<{ text: string; isError: boolean }> {
   const parsed = partsReadSchema.safeParse(args)
+
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
   const record = await findRecord(context.client, parsed.data.record)
+
   if (!record.ok) return { text: record.message, isError: true }
   let rows: PartRow[]
+
   try {
     rows = await partRows(context.client, record.value.id)
   } catch {
     return { text: 'The parts could not be read just now.', isError: true }
   }
+
   const names = await memberNames(context.client).catch(
     () => new Map<string, string>(),
   )
+
   const who = (id: string | null) => (id ? (names.get(id) ?? null) : null)
   const signoffs = await partSignoffRows(context.client, record.value.id)
+
   const whoAll = (ids: readonly string[] | null | undefined) =>
     (ids ?? []).map((id) => who(id) ?? 'Someone')
+
   return {
     text: JSON.stringify({
       experiment: recordTarget(record.value),
@@ -658,6 +706,7 @@ export async function readParts(
         signoffs.get(row.part_id)?.signed
           ? (() => {
               const s = signoffs.get(row.part_id)!
+
               return {
                 needsSignature: s.requires_sign_off,
                 waitingForSignature: s.awaiting_sign_off,
@@ -708,16 +757,21 @@ export async function readGates(
   context: LabToolContext,
 ): Promise<{ text: string; isError: boolean }> {
   const parsed = gatesReadSchema.safeParse(args)
+
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
   const record = await findRecord(context.client, parsed.data.record)
+
   if (!record.ok) return { text: record.message, isError: true }
   let rows: GateRow[]
+
   try {
     rows = await gateRows(context.client, record.value.id)
   } catch {
     return { text: 'The gates could not be read just now.', isError: true }
   }
+
   const wanted = parsed.data.part?.trim().toLowerCase()
+
   if (wanted) {
     const number = /^(?:part\s*)?(\d{1,3})$/.exec(wanted)
     rows = rows.filter((row) =>
@@ -726,10 +780,13 @@ export async function readGates(
         : row.label.toLowerCase().includes(wanted),
     )
   }
+
   const names = await memberNames(context.client).catch(
     () => new Map<string, string>(),
   )
+
   const who = (id: string | null) => (id ? (names.get(id) ?? null) : null)
+
   return {
     text: JSON.stringify({
       experiment: recordTarget(record.value),
@@ -773,11 +830,15 @@ function pick<T>(
   exact: (row: T) => boolean,
 ): Lookup<T> {
   const exacts = rows.filter(exact)
+
   if (exacts.length === 1) return { ok: true, value: exacts[0] }
+
   if (rows.length === 1) return { ok: true, value: rows[0] }
+
   if (rows.length === 0) {
     return { ok: false, message: `No ${what} matches "${wanted}".` }
   }
+
   return {
     ok: false,
     message: `More than one ${what} matches "${wanted}": ${rows
@@ -809,11 +870,14 @@ async function findRecord(
 ): Promise<Lookup<RecordRow>> {
   const like = likeValue(text)
   const kindFilter = kinds ? `&kind=in.(${kinds.join(',')})` : ''
+
   const rows = await client.list<RecordRow>(
     'records',
     `?deleted_at=is.null${kindFilter}&or=(identifier.ilike.${like},title.ilike.${like})&select=${RECORD_COLUMNS}&order=updated_at.desc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -830,11 +894,14 @@ async function findProject(
   text: string,
 ): Promise<Lookup<{ id: string; key: string; title: string }>> {
   const like = likeValue(text)
+
   const rows = await client.list<{ id: string; key: string; title: string }>(
     'projects',
     `?archived_at=is.null&or=(key.ilike.${like},title.ilike.${like},display_id.ilike.${like})&select=id,key,title&order=title.asc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -853,10 +920,13 @@ async function findPerson(
   const lower = text.trim().toLowerCase()
   const words = lower.split(/\s+/).filter(Boolean)
   const all = [...members.entries()].map(([id, name]) => ({ id, name }))
+
   const matches = all.filter((member) => {
     const name = member.name.toLowerCase()
+
     return words.every((word) => name.includes(word))
   })
+
   return pick(
     matches,
     text,
@@ -902,20 +972,26 @@ async function repeatProposal(
   const { client, workspaceId, timeZone } = context
   const now = context.now ?? new Date()
   const match = await resolveInstrument(client, workspaceId, input.instrument)
+
   if (!match.ok) return match
   const instrument = match.instrument
+
   if (instrument.out_of_service_at) {
     return {
       ok: false,
       message: `${instrumentLabel(instrument)} is out of service, so it cannot be booked until it is back. Tell the person.`,
     }
   }
+
   const today = localFromInstant(now, timeZone).slice(0, 10)
+
   if (input.firstDay < today) {
     return { ok: false, message: 'The first day has already passed.' }
   }
+
   const startsLocal = `${input.firstDay}T${input.startTime}`
   const first = instantFromLocal(startsLocal, timeZone)
+
   const length = input.endTime
     ? (instantFromLocal(
         `${input.firstDay}T${input.endTime}`,
@@ -924,15 +1000,18 @@ async function repeatProposal(
         first.getTime()) /
       60_000
     : (input.durationMinutes ?? 60)
+
   if (length <= 0) {
     return { ok: false, message: 'The end must be after the start.' }
   }
+
   const endTime =
     input.endTime ??
     localFromInstant(
       new Date(first.getTime() + length * 60_000),
       timeZone,
     ).slice(11)
+
   if (endTime <= input.startTime) {
     return {
       ok: false,
@@ -940,13 +1019,16 @@ async function repeatProposal(
         'A repeating booking has to finish on the day it starts. Shorten it, or book it day by day.',
     }
   }
+
   const weekdays =
     input.frequency === 'weekly'
       ? (input.weekdays ?? [
           ((new Date(`${input.firstDay}T12:00:00Z`).getUTCDay() + 6) % 7) + 1,
         ])
       : []
+
   const every = input.every ?? 1
+
   const dates = repeatDates({
     firstDay: input.firstDay,
     frequency: input.frequency,
@@ -955,14 +1037,18 @@ async function repeatProposal(
     count: input.count ?? null,
     until: input.until ?? null,
   })
+
   if (dates.length === 0) {
     return { ok: false, message: 'That pattern has no dates in it.' }
   }
+
   // Which of the dates the instrument is already taken on.
   const taken: string[] = []
+
   for (const date of dates.slice(0, 60)) {
     const start = instantFromLocal(`${date}T${input.startTime}`, timeZone)
     const end = new Date(start.getTime() + length * 60_000)
+
     const clashes = await bookingsBetween(
       client,
       workspaceId,
@@ -970,20 +1056,26 @@ async function repeatProposal(
       end,
       instrument.id,
     )
+
     if (clashes.length > 0) taken.push(date)
   }
+
   const dayText = (date: string) =>
     describeSlot(
       instantFromLocal(`${date}T12:00`, timeZone),
       instantFromLocal(`${date}T13:00`, timeZone),
       timeZone,
     ).split(',')[0]
+
   const shown = dates.slice(0, 12).map(dayText)
+
   const more =
     dates.length > shown.length
       ? ` and ${dates.length - shown.length} more`
       : ''
+
   const bookingTitle = input.bookingTitle ?? input.title
+
   const changes = [
     {
       label: 'Pattern',
@@ -1003,6 +1095,7 @@ async function repeatProposal(
     },
     { label: 'Booking', before: null, after: bookingTitle },
   ]
+
   if (taken.length > 0) {
     changes.push({
       label: 'Already booked',
@@ -1010,6 +1103,7 @@ async function repeatProposal(
       after: `${taken.map(dayText).join(', ')}: those will be skipped.`,
     })
   }
+
   return {
     ok: true,
     proposal: {
@@ -1047,24 +1141,32 @@ export async function buildPlanningProposal(
   context: LabToolContext,
 ): Promise<PlanningOutcome> {
   const { client } = context
+
   switch (name) {
     case EXPERIMENT_START_TOOL: {
       const parsed = proposeExperimentStartSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
+
       const template = await findRecord(client, input.template, [
         'protocol_template',
       ])
+
       if (!template.ok) return template
+
       if (template.value.archived_at || template.value.status !== 'active') {
         return {
           ok: false,
           message: `${recordTarget(template.value)} is not an active template, so experiments cannot be started from it yet. Tell the person.`,
         }
       }
+
       const project = await findProject(client, input.project)
+
       if (!project.ok) return project
       const experimentTitle = input.experimentTitle ?? null
+
       return {
         ok: true,
         proposal: {
@@ -1095,24 +1197,32 @@ export async function buildPlanningProposal(
         },
       }
     }
+
     case RECORD_ASSIGN_TOOL: {
       const parsed = proposeRecordAssignSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
       const record = await findRecord(client, input.record)
+
       if (!record.ok) return record
+
       if (record.value.archived_at) {
         return {
           ok: false,
           message: `${recordTarget(record.value)} is archived, so it cannot be handed on.`,
         }
       }
+
       const person = await findPerson(client, input.assignee)
+
       if (!person.ok) return person
       const members = await memberNames(client)
+
       const before = record.value.assignee_user_id
         ? (members.get(record.value.assignee_user_id) ?? 'Someone')
         : 'No one'
+
       return {
         ok: true,
         proposal: {
@@ -1131,27 +1241,36 @@ export async function buildPlanningProposal(
         },
       }
     }
+
     case RECORD_ASK_TOOL: {
       const parsed = proposeRecordAskSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
       const record = await findRecord(client, input.record)
+
       if (!record.ok) return record
       const people: Array<{ id: string; name: string }> = []
+
       for (const text of input.people) {
         const person = await findPerson(client, text)
+
         if (!person.ok) return person
+
         if (!people.some((existing) => existing.id === person.value.id)) {
           people.push(person.value)
         }
       }
+
       if (people.some((person) => person.id === context.userId)) {
         return {
           ok: false,
           message: 'The person cannot mention themselves. Ask who to ask.',
         }
       }
+
       const body = `${people.map((person) => `@${person.name}`).join(' ')} ${input.message.trim()}`
+
       return {
         ok: true,
         proposal: {
@@ -1177,17 +1296,24 @@ export async function buildPlanningProposal(
         },
       }
     }
+
     case BOOKING_REPEAT_TOOL: {
       const parsed = proposeBookingRepeatSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
+
       return repeatProposal(name, parsed.data, context)
     }
+
     case TIMER_START_TOOL: {
       const parsed = proposeTimerStartSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
       const record = await findRecord(client, input.record)
+
       if (!record.ok) return record
+
       const blocks = await client.list<{
         id: string
         payload: Record<string, unknown>
@@ -1195,21 +1321,27 @@ export async function buildPlanningProposal(
         'blocks',
         `?record_id=eq.${encodeURIComponent(record.value.id)}&type=eq.procedure_step&order=order.asc&select=id,payload&limit=200`,
       )
+
       const words = (input.step ?? '')
         .toLowerCase()
         .split(/\s+/)
         .filter(Boolean)
+
       const text = (block: { payload: Record<string, unknown> }) =>
         typeof block.payload.text === 'string' ? block.payload.text : ''
+
       let steps = blocks.filter((block) =>
         words.every((word) => text(block).toLowerCase().includes(word)),
       )
+
       if (!input.minutes) {
         const timed = steps.filter(
           (block) => stepDurationSeconds(block.payload) !== null,
         )
+
         if (timed.length > 0) steps = timed
       }
+
       if (steps.length === 0) {
         return {
           ok: false,
@@ -1218,6 +1350,7 @@ export async function buildPlanningProposal(
             : `${recordTarget(record.value)} has no steps to time.`,
         }
       }
+
       if (steps.length > 1) {
         return {
           ok: false,
@@ -1227,9 +1360,11 @@ export async function buildPlanningProposal(
             .join('; ')}. Ask the person which one, naming these.`,
         }
       }
+
       const step = steps[0]
       const seconds = input.minutes ? Math.round(input.minutes * 60) : null
       const length = seconds ?? stepDurationSeconds(step.payload)
+
       if (length === null) {
         return {
           ok: false,
@@ -1237,6 +1372,7 @@ export async function buildPlanningProposal(
             'That step has no length of its own. Ask the person how many minutes.',
         }
       }
+
       return {
         ok: true,
         proposal: {
@@ -1257,19 +1393,25 @@ export async function buildPlanningProposal(
         },
       }
     }
+
     case STEP_DONE_TOOL: {
       const parsed = proposeStepDoneSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
       const record = await findRecord(client, input.record)
+
       if (!record.ok) return record
+
       const step = pickStep(
         await stepRows(client, record.value.id),
         input.step,
         recordTarget(record.value),
       )
+
       if (!step.ok) return step
       const reopen = input.done === false
+
       const changes = [
         {
           label: 'Step',
@@ -1282,9 +1424,11 @@ export async function buildPlanningProposal(
           after: reopen ? 'Reopened' : 'Done',
         },
       ]
+
       if (input.note) {
         changes.push({ label: 'Note', before: null, after: input.note })
       }
+
       return {
         ok: true,
         proposal: {
@@ -1303,14 +1447,19 @@ export async function buildPlanningProposal(
         },
       }
     }
+
     case PART_ADD_TOOL: {
       const parsed = proposePartAddSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
       const record = await findRecord(client, input.record)
+
       if (!record.ok) return record
+
       const changes: { label: string; before: string | null; after: string }[] =
         [{ label: 'New part', before: null, after: input.part }]
+
       if (input.day !== undefined) {
         changes.push({
           label: 'Day',
@@ -1318,6 +1467,7 @@ export async function buildPlanningProposal(
           after: String(input.day),
         })
       }
+
       return {
         ok: true,
         proposal: {
@@ -1336,35 +1486,46 @@ export async function buildPlanningProposal(
         },
       }
     }
+
     case PART_SIGNOFF_REQUEST_TOOL: {
       const parsed = proposePartSignoffRequestSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
       const record = await findRecord(client, input.record)
+
       if (!record.ok) return record
+
       const part = pickPart(
         await partRows(client, record.value.id),
         input.part,
         recordTarget(record.value),
       )
+
       if (!part.ok) return part
+
       const status = (await partSignoffRows(client, record.value.id)).get(
         part.value.part_id,
       )
+
       if (!status?.requires_sign_off) {
         return {
           ok: false,
           message: `${partLabel(part.value)} does not need a signature. Tell the person it can be turned on from the part's menu.`,
         }
       }
+
       if (!status.signed && !status.awaiting_sign_off) {
         return {
           ok: false,
           message: `${partLabel(part.value)} is not finished yet, so nobody can be asked to sign it. Tell the person.`,
         }
       }
+
       const person = await findPerson(client, input.person)
+
       if (!person.ok) return person
+
       return {
         ok: true,
         proposal: {
@@ -1390,10 +1551,13 @@ export async function buildPlanningProposal(
         },
       }
     }
+
     case PART_UPDATE_TOOL: {
       const parsed = proposePartUpdateSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
+
       if (
         input.newTitle === undefined &&
         input.day === undefined &&
@@ -1405,19 +1569,26 @@ export async function buildPlanningProposal(
           message: 'Nothing to change. Ask the person what to change.',
         }
       }
+
       const record = await findRecord(client, input.record)
+
       if (!record.ok) return record
+
       const part = pickPart(
         await partRows(client, record.value.id),
         input.part,
         recordTarget(record.value),
       )
+
       if (!part.ok) return part
+
       const members = await memberNames(client).catch(
         () => new Map<string, string>(),
       )
+
       const changes: { label: string; before: string | null; after: string }[] =
         [{ label: 'Part', before: null, after: partLabel(part.value) }]
+
       if (input.newTitle !== undefined) {
         changes.push({
           label: 'Title',
@@ -1425,6 +1596,7 @@ export async function buildPlanningProposal(
           after: input.newTitle,
         })
       }
+
       if (input.day !== undefined) {
         changes.push({
           label: 'Day',
@@ -1432,9 +1604,12 @@ export async function buildPlanningProposal(
           after: String(input.day),
         })
       }
+
       let assigneeUserId: string | null = null
+
       if (input.assignee !== undefined) {
         const person = await findPerson(client, input.assignee)
+
         if (!person.ok) return person
         assigneeUserId = person.value.id
         changes.push({
@@ -1453,6 +1628,7 @@ export async function buildPlanningProposal(
           after: 'No one',
         })
       }
+
       return {
         ok: true,
         proposal: {
@@ -1473,25 +1649,33 @@ export async function buildPlanningProposal(
         },
       }
     }
+
     case PART_DONE_TOOL: {
       const parsed = proposePartDoneSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
       const record = await findRecord(client, input.record)
+
       if (!record.ok) return record
+
       const part = pickPart(
         await partRows(client, record.value.id),
         input.part,
         recordTarget(record.value),
       )
+
       if (!part.ok) return part
+
       if (part.value.step_count > 0) {
         return {
           ok: false,
           message: `${partLabel(part.value)} has steps, so it is done when its steps are. Use the step tool instead.`,
         }
       }
+
       const reopen = input.done === false
+
       return {
         ok: true,
         proposal: {
@@ -1516,23 +1700,30 @@ export async function buildPlanningProposal(
         },
       }
     }
+
     case GATE_GO_ON_TOOL: {
       const parsed = proposeGateGoOnSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
       const record = await findRecord(client, input.record)
+
       if (!record.ok) return record
+
       const closed = (await gateRows(client, record.value.id)).filter(
         (row) => !row.met && !row.overridden,
       )
+
       if (closed.length === 0) {
         return {
           ok: false,
           message: `Nothing is holding work back in ${record.value.identifier}. Tell the person.`,
         }
       }
+
       const words = (input.gate ?? input.part ?? '').trim().toLowerCase()
       const number = /^(?:part\s*)?(\d{1,3})$/.exec(words)
+
       const matches = words
         ? closed.filter((row) =>
             number
@@ -1540,6 +1731,7 @@ export async function buildPlanningProposal(
               : row.label.toLowerCase().includes(words),
           )
         : closed
+
       if (matches.length !== 1) {
         return {
           ok: false,
@@ -1549,13 +1741,16 @@ export async function buildPlanningProposal(
               : `More than one gate is closed: ${matches.map((row) => row.label).join(', ')}. Ask the person which one.`,
         }
       }
+
       const gate = matches[0]
+
       if (gate.mode === 'block') {
         return {
           ok: false,
           message: `${gate.label} blocks until it is met, so it cannot be gone past. It still needs: ${(gate.missing ?? []).join('; ')}. Tell the person.`,
         }
       }
+
       return {
         ok: true,
         proposal: {
@@ -1582,19 +1777,25 @@ export async function buildPlanningProposal(
         },
       }
     }
+
     case STEP_RESULT_TOOL: {
       const parsed = proposeStepResultSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
       const record = await findRecord(client, input.record)
+
       if (!record.ok) return record
+
       const step = pickStep(
         await stepRows(client, record.value.id),
         input.step,
         recordTarget(record.value),
       )
+
       if (!step.ok) return step
       const value = String(input.value)
+
       return {
         ok: true,
         proposal: {
@@ -1621,14 +1822,19 @@ export async function buildPlanningProposal(
         },
       }
     }
+
     case SERIES_ADD_TOOL: {
       const parsed = proposeSeriesAddSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
       const series = await findRecord(client, input.series, ['experiment'])
+
       if (!series.ok) return series
       const member = await findRecord(client, input.experiment, ['experiment'])
+
       if (!member.ok) return member
+
       if (series.value.id === member.value.id) {
         return {
           ok: false,
@@ -1636,21 +1842,25 @@ export async function buildPlanningProposal(
             'An experiment cannot be in its own series. Ask the person which experiment to add.',
         }
       }
+
       const already = (
         await client.rpc<RecordSeriesRow[]>('record_series', {
           p_record_id: member.value.id,
         })
       ).at(0)
+
       if (already) {
         return {
           ok: false,
           message: `${recordTarget(member.value)} is already in ${already.series_identifier}. An experiment is in one series at most; offer to take it out of that one first.`,
         }
       }
+
       const changes = [
         { label: 'Series', before: null, after: recordTarget(series.value) },
         { label: 'Add', before: null, after: recordTarget(member.value) },
       ]
+
       if (input.plannedOn) {
         changes.push({
           label: 'Planned for',
@@ -1658,6 +1868,7 @@ export async function buildPlanningProposal(
           after: input.plannedOn,
         })
       }
+
       return {
         ok: true,
         proposal: {
@@ -1676,23 +1887,29 @@ export async function buildPlanningProposal(
         },
       }
     }
+
     case SERIES_REMOVE_TOOL: {
       const parsed = proposeSeriesRemoveSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
       const member = await findRecord(client, input.experiment, ['experiment'])
+
       if (!member.ok) return member
+
       const membership = (
         await client.rpc<RecordSeriesRow[]>('record_series', {
           p_record_id: member.value.id,
         })
       ).at(0)
+
       if (!membership) {
         return {
           ok: false,
           message: `${recordTarget(member.value)} is not in a series. Tell the person.`,
         }
       }
+
       return {
         ok: true,
         proposal: {
@@ -1712,21 +1929,28 @@ export async function buildPlanningProposal(
         },
       }
     }
+
     case SHIPMENT_SEND_TOOL: {
       const parsed = proposeShipmentSendSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
       let projectId: string | null = null
+
       if (input.project) {
         const project = await findProject(client, input.project)
+
         if (!project.ok) return project
         projectId = project.value.id
       }
+
       const lines: ManifestLine[] = []
+
       for (const [index, item] of input.items.entries()) {
         let recordId: string | null = null
         let identifier: string | null = null
         let title = item.title ?? ''
+
         if (item.record) {
           const rows = await client.list<{
             id: string
@@ -1736,6 +1960,7 @@ export async function buildPlanningProposal(
             'records',
             `?deleted_at=is.null&identifier=ilike.${encodeURIComponent(item.record.trim().replaceAll(/[*,()"\\]/g, ' '))}&select=id,identifier,title&limit=2`,
           )
+
           if (rows.length === 1) {
             recordId = rows[0].id
             identifier = rows[0].identifier
@@ -1747,6 +1972,7 @@ export async function buildPlanningProposal(
             }
           }
         }
+
         lines.push({
           key: String(index),
           record_id: recordId,
@@ -1757,8 +1983,10 @@ export async function buildPlanningProposal(
           note: item.note ?? '',
         })
       }
+
       const direction = input.direction ?? 'outbound'
       const markSent = input.markSent ?? true
+
       const changes = [
         {
           label: direction === 'outbound' ? 'To' : 'From',
@@ -1779,6 +2007,7 @@ export async function buildPlanningProposal(
             (lines.length > 12 ? `\n…and ${lines.length - 12} more` : ''),
         },
       ]
+
       if (input.carrier || input.trackingReference) {
         changes.push({
           label: 'Carrier',
@@ -1788,6 +2017,7 @@ export async function buildPlanningProposal(
             .join(' · '),
         })
       }
+
       if (input.expectedOn) {
         changes.push({
           label: 'Expected',
@@ -1795,6 +2025,7 @@ export async function buildPlanningProposal(
           after: input.expectedOn,
         })
       }
+
       return {
         ok: true,
         proposal: {
@@ -1821,17 +2052,21 @@ export async function buildPlanningProposal(
         },
       }
     }
+
     case SHIPMENT_RECEIVE_TOOL: {
       const parsed = proposeShipmentReceiveSchema.safeParse(args)
+
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data
       const number = /^(?:shp-?)?0*(\d+)$/i.exec(input.shipment.trim())?.[1]
+
       const rows = await shipmentRows(
         client,
         number
           ? `number=eq.${number}`
           : `status=eq.in_transit&counterparty=ilike.${likeValue(input.shipment)}`,
       )
+
       const found = pick(
         rows,
         input.shipment,
@@ -1839,14 +2074,17 @@ export async function buildPlanningProposal(
         (row) => `${shipmentReference(row.number)} from ${row.counterparty}`,
         (row) => number !== undefined && row.number === Number(number),
       )
+
       if (!found.ok) return found
       const shipment = found.value
+
       if (shipment.status !== 'in_transit') {
         return {
           ok: false,
           message: `${shipmentReference(shipment.number)} is ${shipment.status.replaceAll('_', ' ')}, so it cannot be received. Tell the person.`,
         }
       }
+
       const items = await client.list<{
         id: string
         title: string
@@ -1855,15 +2093,18 @@ export async function buildPlanningProposal(
         'shipment_items',
         `?shipment_id=eq.${encodeURIComponent(shipment.id)}&order=position.asc&select=id,title,identifier`,
       )
+
       const missingWords = (input.missing ?? []).map((text) =>
         text.toLowerCase(),
       )
+
       const isMissing = (item: { title: string; identifier: string | null }) =>
         missingWords.some(
           (word) =>
             item.title.toLowerCase().includes(word) ||
             item.identifier?.toLowerCase() === word,
         )
+
       const unmatched = missingWords.filter(
         (word) =>
           !items.some(
@@ -1872,14 +2113,17 @@ export async function buildPlanningProposal(
               item.identifier?.toLowerCase() === word,
           ),
       )
+
       if (unmatched.length > 0) {
         return {
           ok: false,
           message: `Nothing on ${shipmentReference(shipment.number)} matches "${unmatched[0]}". Its items are: ${items.map((item) => item.title).join(', ')}.`,
         }
       }
+
       const label = (item: { title: string; identifier: string | null }) =>
         item.identifier ? `${item.identifier} · ${item.title}` : item.title
+
       const changes = [
         {
           label: `Arrived (${items.filter((item) => !isMissing(item)).length})`,
@@ -1892,6 +2136,7 @@ export async function buildPlanningProposal(
               .join('\n') || 'None',
         },
       ]
+
       if (missingWords.length > 0) {
         changes.push({
           label: 'Did not arrive',
@@ -1899,6 +2144,7 @@ export async function buildPlanningProposal(
           after: items.filter(isMissing).map(label).join('\n'),
         })
       }
+
       if (input.conditionNote) {
         changes.push({
           label: 'Condition',
@@ -1906,6 +2152,7 @@ export async function buildPlanningProposal(
           after: input.conditionNote,
         })
       }
+
       return {
         ok: true,
         proposal: {

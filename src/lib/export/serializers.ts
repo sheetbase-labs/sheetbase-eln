@@ -21,6 +21,7 @@ import type { ExportField, ExportRow } from './delimited'
 // The dependency-free delimited helpers live in `./delimited` so client code
 // can build a CSV without pulling `node:zlib` (via `./zip`) into the browser.
 export { delimitedHeaderLine, delimitedRowLine, formatCell } from './delimited'
+
 export type { ExportField, ExportRow } from './delimited'
 
 export const EXPORT_FORMATS = [
@@ -83,9 +84,12 @@ export function buildExportMeta(
     workspaceId: input.workspaceId,
     name: input.name,
   }
+
   if (input.sourceRevision !== undefined)
     meta.sourceRevision = input.sourceRevision
+
   if (input.datasetVersion) meta.datasetVersion = input.datasetVersion
+
   if (input.fields) {
     meta.schema = input.fields.map((f) => ({
       key: f.key,
@@ -95,13 +99,16 @@ export function buildExportMeta(
       unit: f.unit,
     }))
   }
+
   meta.notes = input.notes
+
   return meta
 }
 
 export const LIVE_STATE_NOTE =
   'Live export: reflects mutable workspace state as of the last queried page. ' +
   'This file is NOT immutable evidence.'
+
 export const VERSION_STATE_NOTE =
   'Dataset Version export: immutable snapshot evidence pinned at snapshot time.'
 
@@ -129,10 +136,12 @@ function xmlEscape(text: string): string {
 export function columnName(index: number): string {
   let name = ''
   let n = index
+
   while (n >= 0) {
     name = String.fromCharCode(65 + (n % 26)) + name
     n = Math.floor(n / 26) - 1
   }
+
   return name
 }
 
@@ -145,12 +154,16 @@ interface XlsxCell {
 function xlsxCellFor(value: unknown): XlsxCell {
   if (value === null || value === undefined)
     return { kind: 'inline', inline: '' }
+
   if (typeof value === 'number' && Number.isFinite(value))
     return { kind: 'number', number: value }
+
   if (typeof value === 'bigint')
     return { kind: 'number', number: Number(value) }
+
   if (value === true || value === false)
     return { kind: 'boolean', number: value ? 1 : 0 }
+
   return { kind: 'inline', inline: String(value) }
 }
 
@@ -169,8 +182,10 @@ function inlineCell(ref: string, text: string): string {
 
 function dataCell(ref: string, cell: XlsxCell): string {
   if (cell.kind === 'inline') return inlineCell(ref, cell.inline ?? '')
+
   if (cell.kind === 'boolean')
     return `<c r="${ref}" t="b"><v>${cell.number}</v></c>`
+
   return `<c r="${ref}"><v>${cell.number}</v></c>`
 }
 
@@ -189,13 +204,16 @@ export async function xlsxDocument(
       .map((f, i) => inlineCell(`${columnName(i)}1`, f.label))
       .join('')}</row>`,
   ]
+
   let rowIndex = 2
+
   for (const row of rows) {
     const cells = fields
       .map((f, i) =>
         dataCell(`${columnName(i)}${rowIndex}`, xlsxCellFor(row.values[f.id])),
       )
       .join('')
+
     dataRows.push(`<row r="${rowIndex}">${cells}</row>`)
     rowIndex += 1
   }
@@ -203,7 +221,9 @@ export async function xlsxDocument(
   const metaRows: string[] = [
     `<row r="1">${inlineCell('A1', 'Key')}${inlineCell('B1', 'Value')}</row>`,
   ]
+
   let metaIndex = 2
+
   for (const [key, value] of metaLines) {
     metaRows.push(
       `<row r="${metaIndex}">` +
@@ -226,7 +246,9 @@ export async function xlsxDocument(
 
   // XLSX is a ZIP of OOXML parts; reuse the deterministic ZIP container.
   const writer = new ZipWriter()
+
   for (const [name, content] of parts) writer.add(name, content)
+
   return writer.stream()
 }
 

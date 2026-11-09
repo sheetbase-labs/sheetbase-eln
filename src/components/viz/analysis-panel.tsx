@@ -146,14 +146,17 @@ export function AnalysisPanel({
 }: AnalysisPanelProps) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+
   const [selectedDatasetId, setSelectedDatasetId] = useState(
     initialDatasetId && datasets.some((d) => d.datasetId === initialDatasetId)
       ? initialDatasetId
       : '',
   )
+
   const [snapshotId, setSnapshotId] = useState<string | null>(
     initialSnapshotId ?? null,
   )
+
   const [citeOpen, setCiteOpen] = useState(false)
   const [draft, setDraft] = useState<DefinitionDraft>(emptyDraft)
   // Sources can arrive after a deep link, or change in the studio header.
@@ -162,8 +165,10 @@ export function AnalysisPanel({
   useEffect(() => {
     if (!initialDatasetId || adoptedInitialDataset.current === initialDatasetId)
       return
+
     if (!datasets.some((d) => d.datasetId === initialDatasetId)) return
     adoptedInitialDataset.current = initialDatasetId
+
     if (selectedDatasetId === initialDatasetId) return
     setSelectedDatasetId(initialDatasetId)
     setSnapshotId(initialSnapshotId ?? null)
@@ -175,6 +180,7 @@ export function AnalysisPanel({
     queryFn: () => fetchAnalysisDefinitions(),
     staleTime: 10_000,
   })
+
   const definitions = definitionsQuery.data ?? []
 
   // Dataset rows for execution — read-only canonical rows through the same
@@ -215,6 +221,7 @@ export function AnalysisPanel({
           ],
     [draft.definition],
   )
+
   const runnable =
     draft.definition !== null &&
     validation.length === 0 &&
@@ -224,10 +231,13 @@ export function AnalysisPanel({
 
   const execution = useMemo(() => {
     const resolved = rowsQuery.data
+
     if (!runnable || !draft.definition || !resolved) return null
+
     // Over-ceiling datasets refuse execution honestly instead of computing
     // statistics over a truncated sample.
     if (resolved.truncated) return null
+
     return runAnalysis(
       draft.definition,
       resolved.source.columns,
@@ -239,6 +249,7 @@ export function AnalysisPanel({
   function updateDefinition(patch: Partial<AnalysisDefinition>) {
     setDraft((prev) => {
       if (!prev.definition) return prev
+
       return {
         ...prev,
         definition: { ...prev.definition, ...patch } as AnalysisDefinition,
@@ -248,15 +259,20 @@ export function AnalysisPanel({
 
   function startDraft(kind: (typeof ANALYSIS_KINDS)[number]) {
     if (!selectedDataset) return
+
     const numeric = selectedDataset.columns.filter((c) =>
       ['decimal', 'integer'].includes(c.logicalType),
     )
+
     const category = selectedDataset.columns.filter((c) =>
       ['category', 'text', 'boolean'].includes(c.logicalType),
     )
+
     const bind = (column?: { id: string }) =>
       column ? { fieldId: column.id } : null
+
     const first = numeric[0]
+
     const base = {
       definitionVersion: 1 as const,
       datasets: [
@@ -266,6 +282,7 @@ export function AnalysisPanel({
         },
       ],
     }
+
     const definition: AnalysisDefinition =
       kind === 'descriptive'
         ? {
@@ -306,6 +323,7 @@ export function AnalysisPanel({
                   predictor: bind(first)!,
                   degree: 1,
                 }
+
     setDraft({ editingId: null, name: '', definition })
   }
 
@@ -330,6 +348,7 @@ export function AnalysisPanel({
     )
       return
     const saved = definitions.find((row) => row.id === initialDefinitionId)
+
     if (!saved) return
     openedDefinition.current = initialDefinitionId
     loadDefinition(saved)
@@ -339,6 +358,7 @@ export function AnalysisPanel({
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!draft.definition || !draft.name.trim()) return null
+
       return saveAnalysisDefinition(
         sciDataClient,
         {
@@ -386,6 +406,7 @@ export function AnalysisPanel({
   // SCI-02 → SCI-01 link: overlay the fitted curve on its observations.
   const fitChart = useMemo(() => {
     const resolved = rowsQuery.data
+
     if (
       !execution ||
       !execution.ok ||
@@ -400,9 +421,11 @@ export function AnalysisPanel({
       resolved.rows.length === 0
     )
       return null
+
     const fit: RegressionFitRow =
       execution.result.rows.find((row) => row.group === 'all') ??
       execution.result.rows[0]
+
     return buildRegressionFitChart({
       definition: draft.definition,
       fit,
@@ -415,6 +438,7 @@ export function AnalysisPanel({
   const curveCharts = useMemo(() => {
     if (!execution || !execution.ok || execution.result.kind !== 'curve')
       return []
+
     return execution.result.rows
       .map((row) => ({ group: row.group, chart: buildCurveFitChart(row) }))
       .filter(
@@ -431,7 +455,9 @@ export function AnalysisPanel({
   const staleDetail = useMemo(() => {
     if (!draft.editingId) return null
     const saved = definitions.find((d) => d.id === draft.editingId)
+
     if (!saved) return null
+
     return detectStaleSources(saved.source_revisions, datasets)
   }, [draft.editingId, definitions, datasets])
 
@@ -771,18 +797,21 @@ function AnalysisDefinitionControls({
   const numeric = table.columns.filter((c) =>
     ['decimal', 'integer'].includes(c.logicalType),
   )
+
   const category = table.columns.filter((c) =>
     ['category', 'text', 'boolean'].includes(c.logicalType),
   )
 
   function setBinding(key: string, fieldId: string, required: boolean) {
     const column = [...numeric, ...category].find((c) => c.id === fieldId)
+
     const value =
       column === undefined && !required
         ? null
         : column
           ? { fieldId: column.id }
           : undefined
+
     onChange({ [key]: value })
   }
 
@@ -794,6 +823,7 @@ function AnalysisDefinitionControls({
       value === '' || !(COLUMN_TRANSFORMS as readonly string[]).includes(value)
         ? undefined
         : (value as (typeof COLUMN_TRANSFORMS)[number])
+
     onChange({ [key]: transform })
   }
 
@@ -1142,6 +1172,7 @@ const CHECK_STATUS_CLASS: Record<AssumptionCheck['status'], string> = {
 function formatP(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value))
     return '—'
+
   return value < 0.001 ? '< 0.001' : formatScientific(value)
 }
 
@@ -1205,6 +1236,7 @@ function AssumptionCheckList({ checks }: { checks: AssumptionCheck[] }) {
         {t('data.analysisPanel.assumptionsCheckedModelFitted')}
       </p>
     )
+
   return (
     <div className="rounded-md border p-2">
       <p className="text-xs font-medium text-fg-muted">
@@ -1253,10 +1285,13 @@ function DescriptiveResultTables({ result }: { result: DescriptiveResult }) {
     ['q3', (r: (typeof result.rows)[number]) => formatScientific(r.stats.q3)],
     ['max', (r: (typeof result.rows)[number]) => formatScientific(r.stats.max)],
   ] as const
+
   const intervalByGroup = new Map(
     (result.anova?.groups ?? []).map((group) => [group.group, group.ci95]),
   )
+
   const anova = result.anova
+
   return (
     <div className="space-y-3">
       <div className="overflow-auto rounded-md border">
@@ -1284,6 +1319,7 @@ function DescriptiveResultTables({ result }: { result: DescriptiveResult }) {
           <TableBody>
             {result.rows.map((row) => {
               const interval = intervalByGroup.get(row.group)
+
               return (
                 <TableRow key={row.group}>
                   <TableCell className="font-medium">{row.group}</TableCell>
@@ -1522,6 +1558,7 @@ const READ_BACK_LABEL: Record<CurveReadBack['status'], string> = {
 
 function formatDose(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return '—'
+
   return Number(value.toPrecision(4)).toString()
 }
 
@@ -1547,6 +1584,7 @@ function CurveFitCard({
   grouped: boolean
 }) {
   const unknowns = row.readBack.filter((r) => r.role === 'unknown').length
+
   return (
     <div className="space-y-2 rounded-md border p-2">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -1745,12 +1783,14 @@ function SavedDefinitionsList({
         {t('data.analysisPanel.loadingSavedAnalyses')}
       </div>
     )
+
   if (definitions.length === 0)
     return (
       <div className="p-3 text-xs text-fg-muted" role="status">
         {t('data.analysisPanel.savedAnalysesYet')}
       </div>
     )
+
   return (
     <ul
       className="space-y-1 overflow-auto"
@@ -1818,34 +1858,43 @@ export function buildRegressionFitChart(input: FitChartSpecInput): {
   materialised: MaterialisedChart
 } | null {
   const { definition, fit } = input
+
   if (definition.group) return null
 
   const predictorTransform = definition.predictorTransform ?? 'none'
   const outcomeTransform = definition.outcomeTransform ?? 'none'
+
   const transformLabel: Record<
     Exclude<(typeof COLUMN_TRANSFORMS)[number], 'none'>,
     string
   > = { log10: 'log10', ln: 'ln' }
+
   const applyTransform = (
     value: number,
     kind: (typeof COLUMN_TRANSFORMS)[number],
   ): number | null => {
     if (kind === 'none') return value
+
     // A non-positive observation cannot exist in the fitted log space; the
     // execution kernel already refused these, so this is belt-and-braces.
     if (value <= 0) return null
+
     return TRANSFORM_FNS[kind](value)
   }
 
   const pairs: Array<{ x: number; y: number }> = []
+
   for (const row of input.rows) {
     const rawX = toNumberValue(row[definition.predictor.fieldId])
     const rawY = toNumberValue(row[definition.outcome.fieldId])
+
     if (rawX === null || rawY === null) continue
     const px = applyTransform(rawX, predictorTransform)
     const py = applyTransform(rawY, outcomeTransform)
+
     if (px !== null && py !== null) pairs.push({ x: px, y: py })
   }
+
   if (pairs.length === 0) return null
   const xs = pairs.map((p) => p.x)
   const min = Math.min(...xs)
@@ -1853,10 +1902,12 @@ export function buildRegressionFitChart(input: FitChartSpecInput): {
 
   const observed = 'var(--series-a)'
   const fitColor = 'var(--series-b)'
+
   const xLabel =
     predictorTransform === 'none'
       ? t('data.analysisPanel.predictor')
       : `${transformLabel[predictorTransform]}(Predictor)`
+
   const yLabel =
     outcomeTransform === 'none'
       ? t('data.analysisPanel.outcome')
@@ -1954,23 +2005,29 @@ export function buildCurveFitChart(row: CurveFitRow): {
 } | null {
   const estimate = (name: string) =>
     row.parameters.find((p) => p.name === name)?.estimate
+
   const A = estimate('A')
   const B = estimate('B')
   const C = estimate('C')
   const D = estimate('D')
+
   if (A === undefined || B === undefined || C === undefined || D === undefined)
     return null
   const params: CurveParameters = { A, B, C, D, G: estimate('G') ?? 1 }
 
   const standards = row.readBack.filter((r) => r.role === 'standard' && r.dose)
+
   const unknowns = row.readBack.filter(
     (r) => r.role === 'unknown' && r.concentration !== null,
   )
+
   if (standards.length === 0) return null
+
   const doses = [
     ...standards.map((r) => r.dose!),
     ...unknowns.map((r) => r.concentration!),
   ].filter((x) => x > 0)
+
   const range = { min: Math.min(...doses), max: Math.max(...doses) }
 
   const standardColor = 'var(--series-a)'
@@ -1980,6 +2037,7 @@ export function buildCurveFitChart(row: CurveFitRow): {
   const yLabel = t('data.analysisPanel.curveResponseAxis')
   const standardsLabel = t('data.analysisPanel.curveStandardsSeries')
   const unknownsLabel = t('data.analysisPanel.curveUnknownsSeries')
+
   const fitLabel = t('data.analysisPanel.curveFitSeries', {
     ecLabel: row.ecLabel,
     value: formatDose(row.ec50),
@@ -2085,10 +2143,13 @@ export function buildCurveFitChart(row: CurveFitRow): {
 
 function toNumberValue(v: unknown): number | null {
   if (typeof v === 'number') return Number.isFinite(v) ? v : null
+
   if (typeof v === 'string' && v.trim() !== '') {
     const n = Number(v)
+
     return Number.isFinite(n) ? n : null
   }
+
   return null
 }
 
@@ -2112,6 +2173,7 @@ function CiteDefinitionDialog({
 }) {
   const [title, setTitle] = useState(defaultTitle)
   const [picked, setPicked] = useState<PickerItem | null>(null)
+
   const handed = useQuery({
     queryKey: ['analysis-panel', 'cite-target', defaultExperimentId],
     enabled: Boolean(defaultExperimentId),
@@ -2123,23 +2185,28 @@ function CiteDefinitionDialog({
         )
       ).at(0) ?? null,
   })
+
   const target = picked
     ? { id: picked.id, identifier: picked.identifier }
     : (handed.data ?? null)
+
   const cite = useMutation({
     mutationFn: async () => {
       if (!target) throw new Error(t('data.analysisPanel.chooseExperiment'))
       const record = await fetchRecord(notebookDataClient, target.id)
+
       const inserted = await insertBlock(notebookDataClient, {
         recordId: target.id,
         type: 'analysis',
         payload: { title: title.trim(), definitionId },
         expectedStructureVersion: record?.structureVersion,
       })
+
       await freezeAnalysisBlock(notebookDataClient, {
         blockId: inserted.block.id,
         expectedVersion: inserted.block.version,
       })
+
       return target
     },
     onSuccess: (experiment) => onCited(experiment),
@@ -2151,6 +2218,7 @@ function CiteDefinitionDialog({
             : t('data.analysisPanel.databaseRefused'),
       }),
   })
+
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">

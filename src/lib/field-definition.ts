@@ -10,7 +10,9 @@ export const FIELD_LOGICAL_TYPES = [
 ] as const
 
 export type FieldLogicalType = (typeof FIELD_LOGICAL_TYPES)[number]
+
 export type FieldLifecycle = 'draft' | 'backfilling' | 'active' | 'retired'
+
 export type FieldCardinality = 'one' | 'many'
 
 /**
@@ -151,16 +153,19 @@ export function fieldQuantityFromPersistedUnit(
   if (!value) return null
 
   const symbol = typeof value.symbol === 'string' ? value.symbol : null
+
   const storageUnit =
     typeof value.storageUnit === 'string'
       ? value.storageUnit
       : typeof value.canonicalUnit === 'string'
         ? value.canonicalUnit
         : symbol
+
   if (!storageUnit) return null
 
   const dimension =
     typeof value.dimension === 'string' ? value.dimension : 'legacy-unspecified'
+
   const kind = typeof value.kind === 'string' ? value.kind : dimension
 
   const quantity: FieldQuantityDefinition = {
@@ -191,6 +196,7 @@ export function fieldQuantityFromPersistedUnit(
 function asValidation(value: Record<string, unknown>): FieldValidation {
   const validation: FieldValidation = {}
   const extensions: Record<string, unknown> = {}
+
   for (const [key, item] of Object.entries(value)) {
     if ((key === 'min' || key === 'max') && typeof item === 'number') {
       validation[key] = item
@@ -208,7 +214,9 @@ function asValidation(value: Record<string, unknown>): FieldValidation {
       extensions[key] = item
     }
   }
+
   if (Object.keys(extensions).length > 0) validation.extensions = extensions
+
   return validation
 }
 
@@ -218,6 +226,7 @@ export function fieldDefinitionFromModelField(
 ): FieldDefinition {
   const targetModelKey = field.validation.targetModelKey
   const cardinality = field.cardinality ?? 'one'
+
   return {
     fieldId: field.id,
     key: field.fieldName,
@@ -289,10 +298,13 @@ export function validateFieldDefinition(
   field: FieldDefinition,
 ): FieldContractIssue[] {
   const issues: FieldContractIssue[] = []
+
   if (!nonBlank(field.fieldId))
     issues.push({ path: 'fieldId', message: 'fieldId must be non-empty.' })
+
   if (!nonBlank(field.key))
     issues.push({ path: 'key', message: 'key must be non-empty.' })
+
   if (!nonBlank(field.label))
     issues.push({ path: 'label', message: 'label must be non-empty.' })
 
@@ -334,6 +346,7 @@ export function validateFieldDefinition(
       message: 'Category fields require embedded options or a vocabulary.',
     })
   }
+
   if (field.logicalType !== 'category' && field.category !== null) {
     issues.push({
       path: 'category',
@@ -344,6 +357,7 @@ export function validateFieldDefinition(
   if (field.category?.kind === 'embedded') {
     const optionIds = new Set<string>()
     const optionKeys = new Set<string>()
+
     for (const option of field.category.options) {
       if (
         !nonBlank(option.id) ||
@@ -356,6 +370,7 @@ export function validateFieldDefinition(
         })
         break
       }
+
       if (optionIds.has(option.id) || optionKeys.has(option.key)) {
         issues.push({
           path: 'category',
@@ -364,6 +379,7 @@ export function validateFieldDefinition(
         })
         break
       }
+
       optionIds.add(option.id)
       optionKeys.add(option.key)
     }
@@ -385,12 +401,14 @@ export function validateFieldDefinition(
       message: 'Reference fields require an explicit relationship target.',
     })
   }
+
   if (field.logicalType !== 'reference' && field.relationship !== null) {
     issues.push({
       path: 'relationship',
       message: 'Only reference fields may define a relationship target.',
     })
   }
+
   if (
     field.relationship !== null &&
     field.relationship.cardinality !== field.cardinality
@@ -413,10 +431,12 @@ export function validateFieldDefinition(
 
 export function assertFieldDefinition(field: FieldDefinition): FieldDefinition {
   const issues = validateFieldDefinition(field)
+
   if (issues.length > 0) {
     throw new Error(
       `Invalid FieldDefinition: ${issues.map(({ path, message }) => `${path}: ${message}`).join(' ')}`,
     )
   }
+
   return field
 }

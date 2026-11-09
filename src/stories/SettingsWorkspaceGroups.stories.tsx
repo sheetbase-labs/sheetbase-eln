@@ -57,7 +57,9 @@ const meta = {
     onClose: () => {},
   },
 } satisfies Meta<typeof WorkspaceGroups>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /**

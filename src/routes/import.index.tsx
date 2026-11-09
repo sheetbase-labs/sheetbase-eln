@@ -17,10 +17,12 @@ export const Route = createFileRoute('/import/')({
   } => {
     const text = (value: unknown) =>
       typeof value === 'string' && value ? value : undefined
+
     // The shared create-context params (project, experiment, dataset,
     // returnTo) travel with the instrument this screen also takes.
     const { project, experiment, dataset, returnTo } =
       parseCreateContext(search)
+
     return {
       instrument: text(search.instrument),
       experiment,
@@ -31,8 +33,10 @@ export const Route = createFileRoute('/import/')({
   },
   component: () => {
     const { context } = Route.useRouteContext()
+
     const { instrument, experiment, dataset, project, returnTo } =
       Route.useSearch()
+
     return (
       <ImportUploadFlow
         workspaceId={context.workspace?.id ?? ''}

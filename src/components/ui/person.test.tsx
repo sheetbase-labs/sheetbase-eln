@@ -20,6 +20,7 @@ describe('Person', () => {
         <Person userId="u1" name="Gareth Price" />
       </AvatarPhotosContext.Provider>,
     )
+
     expect(container.querySelector('img')?.getAttribute('src')).toBe(
       '/api/avatars/u1?v=v1',
     )

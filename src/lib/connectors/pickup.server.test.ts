@@ -16,6 +16,7 @@ import {
 import type { PickupDeps } from './pickup.server'
 
 const ingest = vi.fn()
+
 vi.mock('./instrument-ingestion', () => ({
   ingestInstrumentPayload: (...args: unknown[]) => ingest(...args),
 }))
@@ -55,6 +56,7 @@ function setup(options: {
   rpcFail?: string
 }) {
   const rpcCalls: Array<{ name: string; args: Record<string, unknown> }> = []
+
   const client: DataClient = {
     list: async <T>(resource: string): Promise<T[]> => {
       if (resource === 'connectors') {
@@ -62,6 +64,7 @@ function setup(options: {
           options.connector === null ? [] : [connector(options.connector ?? {})]
         ) as T[]
       }
+
       if (resource === 'dataset_schema_version_fields') {
         return [
           {
@@ -82,12 +85,16 @@ function setup(options: {
           },
         ] as T[]
       }
+
       return [] as T[]
     },
     rpc: async <T>(name: string, args: Record<string, unknown>) => {
       rpcCalls.push({ name, args })
+
       if (name === options.rpcFail) throw new Error('boom')
+
       if (name === 'create_instrument_run') return { id: 'run-9' } as T
+
       return {} as T
     },
     count: async () => 0,
@@ -95,17 +102,20 @@ function setup(options: {
     patch: async () => [],
     remove: async () => [],
   }
+
   const retain = vi.fn(async () => ({
     fileRecordId: 'rec-1',
     fileObjectId: 'obj-1',
     byteSize: 20,
     checksum: 'abcdef0123456789abcdef',
   }))
+
   const deps: PickupDeps = {
     verifyCredential: async () => options.claims ?? personal,
     createClient: () => client,
     retain,
   }
+
   return { deps, retain, rpcCalls }
 }
 
@@ -143,10 +153,12 @@ beforeEach(() => {
 describe('pickup request handling', () => {
   it('requires a bearer token', async () => {
     const { deps } = setup({})
+
     const res = await handlePickup(
       req('connector=c&fileName=a.csv', 'x', {}),
       deps,
     )
+
     expect(res.status).toBe(401)
   })
 
@@ -155,6 +167,7 @@ describe('pickup request handling', () => {
     deps.verifyCredential = async () => {
       throw new ExternalTokenError('revoked', 'Credential has been revoked.')
     }
+
     const res = await handlePickup(req('connector=c&fileName=a.csv'), deps)
     expect(res.status).toBe(401)
     expect((await json(res)).error.code).toBe('revoked')
@@ -167,6 +180,7 @@ describe('pickup request handling', () => {
       scopes: ['files:write', 'datasets:write'],
       role: 'api_client',
     } as ExternalClaims
+
     let { deps } = setup({ claims: service })
     let res = await handlePickup(req('connector=c&fileName=a.csv'), deps)
     expect(res.status).toBe(403)
@@ -196,17 +210,21 @@ describe('pickup request handling', () => {
 
   it('keeps a binary file and writes its reason down, and writes down one too large to keep', async () => {
     const { deps, retain, rpcCalls } = setup({})
+
     const binary = await handlePickup(
       req('connector=c&fileName=a.xlsx', new Uint8Array([80, 75, 0, 3])),
       deps,
     )
+
     expect(binary.status).toBe(415)
     expect(retain).toHaveBeenCalledTimes(1)
     deps.maxBytes = 4
+
     const big = await handlePickup(
       req('connector=c&fileName=a.csv', 'abcdefgh'),
       deps,
     )
+
     expect(big.status).toBe(413)
     expect(retain).toHaveBeenCalledTimes(1)
     const recorded = rpcCalls.filter((c) => c.name === 'record_intake_failure')
@@ -221,6 +239,7 @@ describe('pickup request handling', () => {
 
   it('reads an Excel workbook the way it reads the same rows as text', async () => {
     const { deps, retain } = setup({})
+
     const workbook = new Uint8Array(
       zipStore({
         'xl/workbook.xml':
@@ -235,10 +254,12 @@ describe('pickup request handling', () => {
         </sheetData></worksheet>`,
       }),
     )
+
     const res = await handlePickup(
       req('connector=qpcr-bench&fileName=run.xlsx', workbook),
       deps,
     )
+
     expect(res.status).toBe(201)
     expect(ingest.mock.calls[0]?.[1]).toMatchObject({
       text: 'Well,Sample\nA1,s1\n',
@@ -254,6 +275,7 @@ describe('pickup request handling', () => {
 
   it('keeps a workbook it can’t open and says so', async () => {
     const { deps, rpcCalls } = setup({})
+
     const res = await handlePickup(
       req(
         'connector=c&fileName=run.xlsx',
@@ -261,6 +283,7 @@ describe('pickup request handling', () => {
       ),
       deps,
     )
+
     expect(res.status).toBe(422)
     expect((await json(res)).error.code).toBe('unreadable_workbook')
     const recorded = rpcCalls.filter((c) => c.name === 'record_intake_failure')
@@ -269,10 +292,12 @@ describe('pickup request handling', () => {
 
   it('retains the file, ingests it and reports the run', async () => {
     const { deps, retain, rpcCalls } = setup({})
+
     const res = await handlePickup(
       req('connector=qpcr-bench&fileName=..%2F..%2Frun%2001.csv'),
       deps,
     )
+
     expect(res.status).toBe(201)
     const body = await json(res)
     expect(body).toMatchObject({
@@ -320,6 +345,7 @@ describe('pickup request handling', () => {
         },
       },
     })
+
     await handlePickup(
       req('connector=c&fileName=a.json', '[{"Well":"A1"}]'),
       deps,
@@ -334,10 +360,12 @@ describe('pickup request handling', () => {
     ingest.mockRejectedValueOnce(
       new ParserResolutionError('parser_unknown', 'no parser', 'nope'),
     )
+
     const bad = await handlePickup(
       req('connector=c&fileName=a.csv&parser=nope'),
       deps,
     )
+
     expect(bad.status).toBe(422)
     expect((await json(bad)).error.code).toBe('parser_unknown')
   })
@@ -354,6 +382,7 @@ describe('pickup request handling', () => {
         },
       },
     })
+
     const res = await handlePickup(req('connector=c&fileName=a.csv'), deps)
     expect((await json(res)).instrumentLink).toBe('linked')
     expect(rpcCalls.map((c) => c.name)).toEqual([
@@ -385,6 +414,7 @@ describe('pickup request handling', () => {
         },
       },
     })
+
     const res = await handlePickup(req('connector=c&fileName=a.csv'), deps)
     expect(res.status).toBe(201)
     expect((await json(res)).instrumentLink).toBe('failed')

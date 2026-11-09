@@ -96,25 +96,30 @@ export function buildModelRows(
   datasets: { schema_version_id: string }[],
 ): ModelRow[] {
   const bySchema = new Map<string, CanonicalDatasetSchemaVersion[]>()
+
   for (const v of versions) {
     const list = bySchema.get(v.schema_id) ?? []
     list.push(v)
     bySchema.set(v.schema_id, list)
   }
+
   for (const list of bySchema.values())
     list.sort((a, b) => b.version - a.version)
   const fieldCounts = new Map<string, number>()
+
   for (const f of fields)
     fieldCounts.set(
       f.schema_version_id,
       (fieldCounts.get(f.schema_version_id) ?? 0) + 1,
     )
   const datasetCounts = new Map<string, number>()
+
   for (const d of datasets)
     datasetCounts.set(
       d.schema_version_id,
       (datasetCounts.get(d.schema_version_id) ?? 0) + 1,
     )
+
   return definitions.map((d) => {
     const list = bySchema.get(d.id) ?? []
     // The board describes the in-service version: the highest published
@@ -123,6 +128,7 @@ export function buildModelRows(
     // a model whose datasets are pinned to a published version.
     const published = list.find((v) => v.lifecycle === 'active') ?? null
     const reported = published ?? list.at(0) ?? null
+
     return {
       ...d,
       parentName: d.parent_id
@@ -177,6 +183,7 @@ export function useModels(client: DataClient = notebookDataClient) {
           ),
         ),
       ])
+
       // Projects and instruments of a subtype pin its version, as records do.
       const typedHosts = (
         await Promise.all(
@@ -190,26 +197,34 @@ export function useModels(client: DataClient = notebookDataClient) {
           ),
         )
       ).flat()
+
       const pinned = [...records, ...typedHosts]
+
       const versions = await client.list<CanonicalDatasetSchemaVersion>(
         'dataset_schema_versions',
         '?select=id,schema_id,version,revision,lifecycle,published_at&order=version.desc',
       )
+
       // Fetch fields and datasets for the version the board reports on — the
       // highest published version, else the newest — matching buildModelRows.
       const reportedVersionIds = definitions
         .map((d) => {
           const own = versions.filter((v) => v.schema_id === d.id)
+
           const reported =
             own.find((v) => v.lifecycle === 'active') ?? own.at(0)
+
           return reported?.id
         })
         .filter((id): id is string => Boolean(id))
+
       // The proxy refuses a query value over 500 characters, so a long id list
       // is read in groups instead of one `in.(…)`.
       const groups: string[][] = []
+
       for (let i = 0; i < reportedVersionIds.length; i += 12)
         groups.push(reportedVersionIds.slice(i, i + 12))
+
       const [fieldGroups, datasetGroups] = await Promise.all([
         Promise.all(
           groups.map((ids) =>
@@ -228,30 +243,39 @@ export function useModels(client: DataClient = notebookDataClient) {
           ),
         ),
       ])
+
       const fields = fieldGroups.flat()
       const datasets = datasetGroups.flat()
+
       const rootOf = (key: string): string => {
         const seen = new Set<string>()
         let current = key
+
         for (;;) {
           const parent = recordModels.find((m) => m.key === current)?.parent_key
+
           if (!parent || seen.has(current)) return current
           seen.add(current)
           current = parent
         }
       }
+
       const modelRows = recordModels.map((model): ModelRow => {
         const own = recordVersions.filter(
           (version) => version.model_id === model.id,
         )
+
         const published = own.find(
           (version) => version.lifecycle === 'published',
         )
+
         const reported = published ?? own.at(0)
+
         const versionRows = own.map((version) => ({
           ...version,
           schema_id: model.id,
         }))
+
         return {
           ...model,
           id: model.key,
@@ -292,8 +316,10 @@ export function useModels(client: DataClient = notebookDataClient) {
             : records.filter((record) => record.kind === model.key).length,
         }
       })
+
       const builtInRows = BUILT_IN_MODELS.map((m, index): ModelRow => {
         const own = builtInFields.filter((field) => field.kind === m.key)
+
         return {
           id: m.key,
           key: m.key,
@@ -319,6 +345,7 @@ export function useModels(client: DataClient = notebookDataClient) {
           recordCount: builtInCounts[index] ?? 0,
         }
       })
+
       return [
         ...builtInRows,
         ...buildModelRows(definitions, versions, fields, datasets),
@@ -600,7 +627,9 @@ export function recordFieldValue(
   fieldName: string,
 ): unknown {
   const custom = record.custom_fields?.[fieldName]
+
   if (custom !== undefined) return custom
+
   return record.properties?.[fieldName]
 }
 
@@ -637,16 +666,21 @@ export function filterRecordModelRecords(
   const status = filters.status ?? ''
   const field = fields.find((f) => f.fieldName === filters.fieldName) ?? null
   const fieldValue = (filters.fieldValue ?? '').trim().toLowerCase()
+
   return records.filter((record) => {
     if (status && record.status !== status) return false
+
     if (field && fieldValue) {
       const shown = displayModelFieldValue(
         field,
         recordFieldValue(record, field.fieldName),
       ).toLowerCase()
+
       if (!shown.includes(fieldValue)) return false
     }
+
     if (q && !buildRecordSearchText(record, fields).includes(q)) return false
+
     return true
   })
 }
@@ -695,6 +729,7 @@ export function recordModelCsv(
       unit: null,
     })),
   ]
+
   const rows: ExportRow[] = records.map((record) => ({
     rowId: record.id,
     revision: '',
@@ -708,11 +743,13 @@ export function recordModelCsv(
             field,
             recordFieldValue(record, field.fieldName),
           )
+
           return [`field:${field.fieldName}`, shown === '—' ? '' : shown]
         }),
       ),
     },
   }))
+
   return [
     delimitedHeaderLine(exportFields, ','),
     ...rows.map((row) => delimitedRowLine(exportFields, row, ',')),
@@ -812,6 +849,7 @@ export function useRecordModelUsedBy(
         'record_links',
         `?target_record_id=eq.${encodeURIComponent(recordId)}&select=link_type,created_at,source:source_record_id(id,identifier,title,kind)&order=created_at.desc`,
       )
+
       return rows.map((row): RecordModelUsedBy => ({
         linkType: row.link_type,
         createdAt: row.created_at,
@@ -848,8 +886,10 @@ export function recordModelNextIdentifier(
 ): string {
   const highest = records.reduce((max, record) => {
     const match = /-(\d+)$/.exec(record.identifier)
+
     return match ? Math.max(max, Number(match[1])) : max
   }, 0)
+
   return `${prefix}-${String(highest + 1).padStart(4, '0')}`
 }
 
@@ -859,9 +899,11 @@ export function modelFieldInputErrors(
   values: Record<string, string | boolean>,
 ): Record<string, string> {
   const errors: Record<string, string> = {}
+
   for (const field of fields) {
     const fallback = field.logicalType === 'boolean' ? false : ''
     const raw = values[field.fieldName] ?? fallback
+
     // A blank value with a server default is valid: the RPC fills it in.
     if (
       raw === '' &&
@@ -871,8 +913,10 @@ export function modelFieldInputErrors(
       continue
     const parsed = parseModelFieldInput(field, raw)
     const error = validateModelFieldValue(field, parsed)
+
     if (error) errors[field.fieldName] = error
   }
+
   return errors
 }
 
@@ -891,6 +935,7 @@ const MODEL_FIELD_ERROR_MESSAGES: Record<string, string> = {
 export function modelFieldErrorMessage(code: string): string {
   // A plugin field type's own sentence arrives whole; a database code does not.
   if (code.includes(' ')) return code
+
   return MODEL_FIELD_ERROR_MESSAGES[code] ?? `Couldn’t save (${code}).`
 }
 
@@ -914,11 +959,15 @@ export function laterAddedModelFields(
   >,
 ): ModelFieldDefinition[] {
   const created = Date.parse(record.created_at)
+
   if (!Number.isFinite(created)) return []
+
   return fields.filter((field) => {
     if (!field.createdAt) return false
     const fieldCreated = Date.parse(field.createdAt)
+
     if (!Number.isFinite(fieldCreated) || fieldCreated <= created) return false
+
     return recordFieldValue(record, field.fieldName) === undefined
   })
 }

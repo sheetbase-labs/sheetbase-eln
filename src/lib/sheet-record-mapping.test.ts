@@ -138,6 +138,7 @@ describe('Sheet Record mapping', () => {
         },
       ],
     })
+
     expect(rows[0]).toMatchObject({
       classification: 'create',
       title: 'LV harvest',
@@ -198,6 +199,7 @@ describe('Sheet Record mapping', () => {
         },
       ],
     })
+
     expect(preview[0].errors[0].code).toBe('quantity-unconverted')
   })
 })

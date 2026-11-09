@@ -54,6 +54,7 @@ interface SampleRow extends SampleWire {
 
 function text(row: SampleWire, key: string): string | null {
   const value = row.properties?.[key]
+
   return typeof value === 'string' || typeof value === 'number'
     ? String(value)
     : null
@@ -62,7 +63,9 @@ function text(row: SampleWire, key: string): string | null {
 /** 4,600 and 15.0: whole numbers from a hundred up, one decimal below. */
 function volume(row: SampleWire): string {
   const quantity = Number(text(row, 'quantity'))
+
   if (!Number.isFinite(quantity) || text(row, 'quantity') === null) return '—'
+
   return quantity >= 100
     ? quantity.toLocaleString('en-GB')
     : quantity.toFixed(1)
@@ -76,6 +79,7 @@ function statusOf(row: SampleWire) {
  * the links between the samples themselves. */
 function useExperimentSamples(expId: string) {
   const links = useExperimentLinks(expId)
+
   const ids = [
     ...new Set(
       (links.data ?? [])
@@ -84,12 +88,14 @@ function useExperimentSamples(expId: string) {
         .filter((id): id is string => Boolean(id)),
     ),
   ]
+
   return useQuery({
     queryKey: ['ui-port', 'experiment-samples-table', expId, ids],
     enabled: links.isSuccess,
     queryFn: async (): Promise<SampleRow[]> => {
       if (ids.length === 0) return []
       const list = ids.join(',')
+
       const [samples, parents] = await Promise.all([
         notebookDataClient.list<SampleWire>(
           'records',
@@ -100,6 +106,7 @@ function useExperimentSamples(expId: string) {
           `?target_record_id=in.(${list})&link_type=eq.sample&target_kind=eq.sample&select=source_record_id,target_record_id,link_metadata`,
         ),
       ])
+
       const parentOf = new Map(
         // The experiment links its samples the same way, so a parent is a link
         // whose source is itself one of these samples.
@@ -117,9 +124,12 @@ function useExperimentSamples(expId: string) {
             : [],
         ),
       )
+
       const identifierOf = new Map(samples.map((s) => [s.id, s.identifier]))
+
       return samples.map((s) => {
         const parent = parentOf.get(s.id)
+
         return {
           ...s,
           parentId: parent?.id ?? null,
@@ -138,10 +148,12 @@ function chain(rows: readonly SampleRow[], id: string): SampleRow[] {
   const byId = new Map(rows.map((r) => [r.id, r]))
   const out: SampleRow[] = []
   let at = byId.get(id)
+
   while (at && out.length < 6) {
     out.unshift(at)
     at = at.parentId ? byId.get(at.parentId) : undefined
   }
+
   return out
 }
 
@@ -169,10 +181,13 @@ function SampleInspector({
   const status = statusOf(row)
   const ancestors = chain(rows, row.id)
   const usedIn = useQuery(usedInQuery(row.id))
+
   const { userLabel } = useUserNames(
     row.created_by_user_id ? [row.created_by_user_id] : [],
   )
+
   const type = text(row, 'sampleType')
+
   return (
     <Inspector
       aria-label={t('projects.expSamples.sample')}
@@ -284,11 +299,14 @@ export function ExperimentSamples({ expId }: { expId: string }) {
   const all = samples.data ?? []
   const links = useExperimentLinks(expId)
   const partsQuery = useRecordParts(expId)
+
   const partList = useMemo(
     () => partsProgress(partsQuery.data ?? [], []),
     [partsQuery.data],
   )
+
   const [partFilter, setPartFilter] = useState('all')
+
   const partOfSample = useMemo(
     () =>
       new Map(
@@ -298,11 +316,13 @@ export function ExperimentSamples({ expId }: { expId: string }) {
       ),
     [links.data],
   )
+
   const [status, setStatus] = useState('all')
   const [sort, setSort] = useState<SortKey>('id')
   const [picked, setPicked] = useState<string | null>(null)
   const [printOpen, setPrintOpen] = useState(false)
   const statuses = [...new Set(all.map((r) => statusOf(r).label))]
+
   const rows = useMemo(
     () =>
       all
@@ -315,12 +335,15 @@ export function ExperimentSamples({ expId }: { expId: string }) {
         ),
     [all, status, sort, partFilter, partOfSample],
   )
+
   const selectedId = picked ?? rows.at(0)?.id ?? null
   const selected = rows.find((r) => r.id === selectedId)
+
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     selectedId,
     setPicked,
   )
+
   const columns: RegistryColumn<SampleRow>[] = [
     {
       id: 'id',
@@ -377,6 +400,7 @@ export function ExperimentSamples({ expId }: { expId: string }) {
               const part = partList.find(
                 (candidate) => candidate.id === partOfSample.get(s.id),
               )
+
               return part ? String(part.number) : '—'
             },
           } satisfies RegistryColumn<SampleRow>,
@@ -387,6 +411,7 @@ export function ExperimentSamples({ expId }: { expId: string }) {
       header: t('projects.expSamples.status'),
       cell: ({ row }) => {
         const s = statusOf(row.original)
+
         return <Status tone={s.tone}>{s.label}</Status>
       },
     },
@@ -397,6 +422,7 @@ export function ExperimentSamples({ expId }: { expId: string }) {
       cell: ({ row }) => formatDate(row.original.created_at),
     },
   ]
+
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-[14px] overflow-auto px-4 py-[22px] md:px-8">

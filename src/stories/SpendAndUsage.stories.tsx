@@ -82,7 +82,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** An instrument with no recharge rate, and the button to set one. */

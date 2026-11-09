@@ -119,9 +119,12 @@ export const SESSION_CHECK_INTERVAL_MS = 30_000
  */
 export function parseLastEventId(headers: Headers): number {
   const raw = headers.get('last-event-id')
+
   if (raw === null) return 0
   const n = Number.parseInt(raw, 10)
+
   if (!Number.isFinite(n) || n < 0) return 0
+
   return n
 }
 
@@ -131,6 +134,7 @@ export function parseLastEventId(headers: Headers): number {
  */
 export function formatSseEvent(event: ChangeEventWire): string {
   const data = JSON.stringify(event)
+
   return `id: ${event.sequence}\nevent: change\ndata: ${data}\n\n`
 }
 
@@ -180,13 +184,16 @@ export function decideReplay(
       },
     }
   }
+
   if (replay.hasMore && replay.events.length > 0) {
     const lastSeq = replay.events[replay.events.length - 1].sequence
+
     return {
       events: replay.events,
       reset: { reason: 'replay_bound', resumeFrom: lastSeq },
     }
   }
+
   return { events: replay.events, reset: null }
 }
 
@@ -220,19 +227,24 @@ export async function handleSseRequest(
   options: SseHandlerOptions = {},
 ): Promise<Response> {
   const replayBound = options.replayBound ?? REPLAY_BOUND
+
   const heartbeatIntervalMs =
     options.heartbeatIntervalMs ?? HEARTBEAT_INTERVAL_MS
+
   const sessionCheckIntervalMs =
     options.sessionCheckIntervalMs ?? SESSION_CHECK_INTERVAL_MS
 
   const session = await deps.getSession(request.headers)
+
   if (!session) {
     return Response.json(
       { error: { category: 'unauthenticated', message: 'Sign in required.' } },
       { status: 401 },
     )
   }
+
   const workspace = await deps.getWorkspaceForUser(session.user.id)
+
   if (!workspace) {
     return Response.json(
       { error: { category: 'no_workspace', message: 'No active workspace.' } },
@@ -248,13 +260,16 @@ export async function handleSseRequest(
   // the header so the native EventSource auto-reconnect path is unchanged.
   const url = new URL(request.url)
   const afterParam = url.searchParams.get('after')
+
   const hasCursor =
     request.headers.get('last-event-id') !== null ||
     (afterParam !== null && /^\d+$/.test(afterParam))
+
   let afterSeq =
     afterParam !== null && /^\d+$/.test(afterParam)
       ? Number.parseInt(afterParam, 10)
       : lastSeen
+
   if (!hasCursor && deps.latestSequence) {
     try {
       afterSeq = await deps.latestSequence(workspace.id)
@@ -262,6 +277,7 @@ export async function handleSseRequest(
       // Fall back to replaying from the start; the client reconciles.
     }
   }
+
   const encoder = new TextEncoder()
   const controller = new ReadableStreamDefaultControllerHolder()
 
@@ -272,6 +288,7 @@ export async function handleSseRequest(
 
   function send(chunk: string): void {
     if (closed) return
+
     try {
       controller.enqueue(encoder.encode(chunk))
     } catch {
@@ -283,21 +300,27 @@ export async function handleSseRequest(
   function close(reason?: unknown): void {
     if (closed) return
     closed = true
+
     if (heartbeatTimer) clearInterval(heartbeatTimer)
+
     if (sessionTimer) clearInterval(sessionTimer)
+
     if (unsub) {
       try {
         unsub()
       } catch {
         /* best effort */
       }
+
       unsub = null
     }
+
     try {
       controller.close()
     } catch {
       /* already closed */
     }
+
     if (reason instanceof Error) {
       logger.info('sse connection closed', {
         workspace_id: workspace?.id,
@@ -339,6 +362,7 @@ export async function handleSseRequest(
 
       // Replay.
       let replay: ReplayResult
+
       try {
         replay = await deps.readEvents(workspace.id, afterSeq, replayBound)
       } catch (err) {
@@ -349,12 +373,16 @@ export async function handleSseRequest(
           }),
         )
         close(new Error('replay_failed'))
+
         return
       }
+
       const decision = decideReplay(afterSeq, replay)
+
       for (const event of decision.events) {
         send(formatSseEvent(event))
       }
+
       if (decision.reset) {
         send(
           formatControlEvent('reset', {
@@ -365,6 +393,7 @@ export async function handleSseRequest(
         // After a reset, stop streaming live for this connection; the
         // client refetches state and reconnects from resumeFrom.
         close(new Error(decision.reset.reason))
+
         return
       }
 
@@ -374,12 +403,14 @@ export async function handleSseRequest(
         decision.events.length > 0
           ? decision.events[decision.events.length - 1].sequence
           : afterSeq
+
       for (const buffered of liveBuffer) {
         if (buffered.sequence > lastDeliveredSeq) {
           lastDeliveredSeq = buffered.sequence
           send(formatSseEvent(buffered))
         }
       }
+
       replayDone = true
 
       // Heartbeats.
@@ -391,6 +422,7 @@ export async function handleSseRequest(
       sessionTimer = setInterval(async () => {
         try {
           const valid = await deps.isSessionValid(request.headers)
+
           if (!valid) {
             send(formatControlEvent('bye', { reason: 'session_expired' }))
             close(new Error('session_expired'))

@@ -36,7 +36,9 @@ export interface ReviewNextStep {
 
 function names(list: readonly string[], fallback: string): string {
   if (list.length === 0) return fallback
+
   if (list.length === 1) return list[0]
+
   return t('projects.reviewNextStep.listAnd', {
     list: list.slice(0, -1).join(', '),
     last: list.at(-1) ?? '',
@@ -48,20 +50,24 @@ export function reviewNextStep(input: ReviewNextStepInput): ReviewNextStep {
     input.reviewerNames,
     t('projects.reviewNextStep.theAssignedReviewers'),
   )
+
   const submitter =
     input.submitterName ?? t('projects.reviewNextStep.theAuthor')
+
   if (input.superseded) {
     return {
       headline: t('projects.reviewNextStep.replacedByANewerRevision'),
       detail: t('projects.reviewNextStep.thisRevisionStaysReadableAs'),
     }
   }
+
   if (input.locked && input.state === 'approved') {
     return {
       headline: t('projects.reviewNextStep.signedAndLocked'),
       detail: t('projects.reviewNextStep.theEvidenceIsFrozenTo'),
     }
   }
+
   switch (input.state) {
     case 'submitted':
       if (input.isAssignedReviewer) {
@@ -70,12 +76,14 @@ export function reviewNextStep(input: ReviewNextStepInput): ReviewNextStep {
           detail: t('projects.reviewNextStep.approveToGoOnTo'),
         }
       }
+
       if (input.isSubmitter) {
         return {
           headline: t('projects.reviewNextStep.waitingFor', { reviewers }),
           detail: t('projects.reviewNextStep.youWillGetAnInbox'),
         }
       }
+
       return {
         headline: t('projects.reviewNextStep.waitingFor', { reviewers }),
         detail: t('projects.reviewNextStep.theReviewersHaveBeenAsked'),
@@ -112,6 +120,7 @@ export function reviewNextStep(input: ReviewNextStepInput): ReviewNextStep {
           detail: t('projects.reviewNextStep.signToLockTheRecord'),
         }
       }
+
       return {
         headline: t('projects.reviewNextStep.approvedWaitingForSignatures'),
         detail: t('projects.reviewNextStep.recordLocksWhenSigned', {

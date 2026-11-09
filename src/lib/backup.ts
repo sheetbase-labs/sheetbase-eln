@@ -13,6 +13,7 @@ export const BACKUP_PREFIX_PATTERN = /^sheetbase-\d{8}T\d{6}Z$/
 /** `sheetbase-20260827T234901Z` style UTC prefix for one backup run. */
 export function backupPrefix(now: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
+
   return (
     `sheetbase-${now.getUTCFullYear()}${pad(now.getUTCMonth() + 1)}${pad(now.getUTCDate())}` +
     `T${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}${pad(now.getUTCSeconds())}Z`
@@ -24,15 +25,20 @@ export function parseBackupPrefix(
   name: string,
 ): { prefix: string; createdAt: Date } | null {
   const match = name.match(/^(sheetbase-\d{8}T\d{6}Z)/)
+
   if (!match) return null
   const prefix = match[1]
+
   const m = prefix.match(
     /^sheetbase-(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/,
   )
+
   if (!m) return null
+
   const createdAt = new Date(
     Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]),
   )
+
   return { prefix, createdAt }
 }
 
@@ -49,27 +55,37 @@ export function selectExpiredBackupPrefixes(
   if (retentionDays < 0) throw new Error('retention days must not be negative')
   const cutoff = now.getTime() - retentionDays * 24 * 60 * 60 * 1000
   const byPrefix = new Map<string, Date>()
+
   for (const file of files) {
     const parsed = parseBackupPrefix(file)
+
     if (!parsed) continue
     const known = byPrefix.get(parsed.prefix)
+
     if (!known || parsed.createdAt < known) {
       byPrefix.set(parsed.prefix, parsed.createdAt)
     }
   }
+
   let newest = 0
+
   for (const createdAt of byPrefix.values()) {
     newest = Math.max(newest, createdAt.getTime())
   }
+
   const expired: string[] = []
+
   for (const [prefix, createdAt] of byPrefix) {
     const t = createdAt.getTime()
+
     if (t <= cutoff && t < newest) expired.push(prefix)
   }
+
   return expired.sort()
 }
 
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/)
+
 export const backupManifestSchema = z.object({
   formatVersion: z.literal(2),
   permissions: z.literal('preserved'),
@@ -92,6 +108,7 @@ export const backupManifestSchema = z.object({
     .nullable(),
   retentionDays: z.number().int().nonnegative(),
 })
+
 export type BackupManifest = z.infer<typeof backupManifestSchema>
 
 /** True when a manifest proves the restore prerequisites for its components. */

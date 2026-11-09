@@ -64,6 +64,7 @@ import type { MetricsRegistry, ModelErrorCode, ModelName } from './metrics'
 
 /** Allowlisted models: the gateway rejects anything else fail-closed. */
 export const GATEWAY_MODELS = MODEL_NAMES
+
 export type GatewayModel = ModelName
 
 /**
@@ -72,6 +73,7 @@ export type GatewayModel = ModelName
  * request tools the workflow layer can actually execute.
  */
 export const GATEWAY_TOOLS = AGENT_OPERATION_TOOL_NAMES
+
 export type GatewayTool = (typeof GATEWAY_TOOLS)[number]
 
 /** Rejection codes. Each is also a bounded `sheetbase_model_errors_total` label. */
@@ -150,12 +152,15 @@ export function hashPrompt(prompt: string): string {
   // `node:crypto` is externalized and unusable. This is a log-join key,
   // not a security boundary — it only needs determinism, not SHA-256.
   let hash = 0xcbf29ce484222325n
+
   for (let i = 0; i < prompt.length; i++) {
     hash ^= BigInt(prompt.charCodeAt(i))
     hash = BigInt.asUintN(64, hash * 0x100000001b3n)
   }
+
   return hash.toString(16).padStart(16, '0')
 }
+
 /**
  * String-level scrub for the opt-in debug excerpt. The canonical `redact()`
  * only strips secret-shaped object keys — a raw prompt slice needs its own
@@ -171,6 +176,7 @@ function redactDebugExcerpt(prompt: string): string {
       '$1=[redacted]',
     )
     .replace(/(\btoken\b|\bbearer\b)\s*[:=]\s*[^\s,}]+/gi, '$1=[redacted]')
+
   return scrubbed.slice(0, GATEWAY_EXCERPT_CHARS)
 }
 
@@ -195,8 +201,10 @@ export class StubModelProvider implements ModelProvider {
   async complete(request: ModelRequest): Promise<ModelResponse> {
     const refs =
       request.citationIds.length > 0 ? request.citationIds.join(', ') : 'none'
+
     const text = `${this.cannedPrefix} from ${this.model} (citations: ${refs}).`
     const tokensUsed = estimateTokensFromChars(text.length)
+
     return {
       text,
       tokensUsed,
@@ -290,20 +298,25 @@ export function buildGatewayPrompt(
     `# Sheetbase model context (v${envelope.version})`,
     `workspace: ${envelope.workspace.id}`,
   ]
+
   for (const object of envelope.objects) {
     lines.push(
       `## [${object.kind}:${object.id}] ${object.title} (${object.freshness})`,
     )
+
     for (const section of object.sections) {
       lines.push(`### ${section.heading}`)
       lines.push(section.body)
     }
   }
+
   for (const omission of envelope.omissions) {
     lines.push(`- omitted ${omission.kind}:${omission.id} (${omission.reason})`)
   }
+
   const ids = citations.map((citation) => citation.stableId)
   lines.push(`citations: ${ids.length > 0 ? ids.join(', ') : 'none'}`)
+
   return lines.join('\n')
 }
 
@@ -315,6 +328,7 @@ export function buildGatewayPrompt(
 function providerFailureFields(cause: unknown): Record<string, unknown> {
   if (cause === null || typeof cause !== 'object') return {}
   const { code, providerId, status } = cause as Record<string, unknown>
+
   return {
     ...(typeof code === 'string' ? { providerCode: code } : {}),
     ...(typeof providerId === 'string' ? { providerId } : {}),
@@ -368,6 +382,7 @@ function prepareCall(
       'callModel requires a concrete actor',
     )
   }
+
   if (!isGatewayModel(input.model)) {
     reject(
       registry,
@@ -377,7 +392,9 @@ function prepareCall(
       actor,
     )
   }
+
   const model = input.model
+
   for (const tool of input.tools) {
     if (!isGatewayTool(tool)) {
       reject(
@@ -389,8 +406,10 @@ function prepareCall(
       )
     }
   }
+
   for (const def of input.toolDefs ?? []) {
     const original = fromWireToolName(def.name)
+
     if (
       !ASSISTANT_READ_TOOL_NAMES.includes(original) &&
       !ASSISTANT_PROPOSE_TOOL_NAMES.includes(original) &&
@@ -408,7 +427,9 @@ function prepareCall(
       )
     }
   }
+
   const envelope = input.contextEnvelope
+
   if (envelope.actor.kind !== actor.kind || envelope.actor.id !== actor.id) {
     reject(
       registry,
@@ -421,6 +442,7 @@ function prepareCall(
 
   const usedTokens = input.limits.usedTokens ?? 0
   const usedCostMicrousd = input.limits.usedCostMicrousd ?? 0
+
   const historyChars =
     (input.messages ?? []).reduce(
       (total, turn) =>
@@ -434,11 +456,14 @@ function prepareCall(
     // Tool definitions and standing instructions are sent every step.
     (input.toolDefs ? JSON.stringify(input.toolDefs).length : 0) +
     (input.instructions?.length ?? 0)
+
   const estimatedTokens = estimateTokensFromChars(
     envelope.budgets.usage.chars + historyChars,
   )
+
   const costPerToken = deps.pricing?.[model] ?? MODEL_MICROUSD_PER_TOKEN[model]
   const estimatedCostMicrousd = Math.ceil(estimatedTokens * costPerToken)
+
   if (usedTokens + estimatedTokens > input.limits.maxTokens) {
     reject(
       registry,
@@ -448,6 +473,7 @@ function prepareCall(
       actor,
     )
   }
+
   if (usedCostMicrousd + estimatedCostMicrousd > input.limits.maxCostMicrousd) {
     reject(
       registry,
@@ -461,6 +487,7 @@ function prepareCall(
   const prompt = buildGatewayPrompt(envelope, citations)
   const promptHash = hashPrompt(prompt)
   const citationIds = citations.map((citation) => citation.stableId)
+
   const callFields: Record<string, unknown> = {
     model,
     tools: input.tools,
@@ -472,18 +499,23 @@ function prepareCall(
     estimatedCostMicrousd,
     citationIds,
   }
+
   if (input.toolDefs && input.toolDefs.length > 0) {
     callFields['toolNames'] = input.toolDefs.map((def) => def.name)
   }
+
   if (input.messages && input.messages.length > 0) {
     // Counts only: the conversation text is never logged.
     callFields['historyTurns'] = input.messages.length
     callFields['historyChars'] = historyChars
   }
+
   if (input.includeDebugExcerpt === true) {
     callFields['debugPromptExcerpt'] = redactDebugExcerpt(prompt)
   }
+
   logger.info('ai.gateway.call', redact(callFields))
+
   return {
     model,
     registry,
@@ -520,6 +552,7 @@ export async function callModel(
   const provider = deps.provider ?? new StubModelProvider(model)
   const startedAt = Date.now()
   let response: ModelResponse
+
   try {
     response = await provider.complete({
       prompt,
@@ -545,6 +578,7 @@ export async function callModel(
       cause,
     })
   }
+
   const latencyMs = Date.now() - startedAt
   registry.modelDuration.observe({ model }, latencyMs / 1000)
   registry.modelCost.inc({ model }, response.costMicrousd)
@@ -577,6 +611,7 @@ export async function callModel(
       citationIds,
     }),
   )
+
   return {
     text: response.text,
     model,
@@ -622,6 +657,7 @@ export async function* streamModel(
   } = prepareCall(actor, input, deps)
 
   const provider: ModelProvider = deps.provider ?? new StubModelProvider(model)
+
   const request: ModelRequest = {
     prompt,
     maxTokens: input.limits.maxTokens - usedTokens,
@@ -634,6 +670,7 @@ export async function* streamModel(
         : undefined,
     signal: input.signal,
   }
+
   const startedAt = Date.now()
   let emittedChars = 0
   let usage: { tokensUsed: number; costMicrousd: number } | null = null
@@ -650,6 +687,7 @@ export async function* streamModel(
             costMicrousd: response.costMicrousd,
           } as const
         })()
+
     for await (const chunk of chunks) {
       if (chunk.type === 'text') {
         emittedChars += chunk.delta.length
@@ -678,8 +716,10 @@ export async function* streamModel(
           citationIds,
         }),
       )
+
       return
     }
+
     registry.modelCalls.inc({ model, outcome: 'error' })
     registry.modelErrors.inc({ model, code: 'provider_error' })
     logger.warn(
@@ -697,6 +737,7 @@ export async function* streamModel(
   }
 
   const latencyMs = Date.now() - startedAt
+
   const finalUsage = usage ?? {
     // A provider that reports nothing must not produce a zero-cost lie.
     tokensUsed:
@@ -704,8 +745,10 @@ export async function* streamModel(
       estimateTokensFromChars(emittedChars),
     costMicrousd: 0,
   }
+
   registry.modelDuration.observe({ model }, latencyMs / 1000)
   registry.modelCost.inc({ model }, finalUsage.costMicrousd)
+
   if (
     usedTokens + finalUsage.tokensUsed > input.limits.maxTokens ||
     usedCostMicrousd + finalUsage.costMicrousd > input.limits.maxCostMicrousd
@@ -721,6 +764,7 @@ export async function* streamModel(
       }),
     )
   }
+
   registry.modelCalls.inc({ model, outcome: 'ok' })
   logger.info(
     'ai.gateway.result',

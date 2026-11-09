@@ -14,8 +14,10 @@ export function demoWebhookSinkResponse(
   demo: boolean,
 ): Response {
   if (!demo) return new Response('Not found', { status: 404 })
+
   if (request.method !== 'POST')
     return Response.json({ message: 'POST required.' }, { status: 405 })
+
   return Response.json(
     { received: true, demo: true },
     { status: 200, headers: { 'cache-control': 'no-store' } },
@@ -28,16 +30,20 @@ export function demoWebhookSinkResponse(
  */
 export function demoWebhookSinkUrl(baseUrl: string | undefined): string | null {
   if (!baseUrl) return null
+
   try {
     const base = new URL(baseUrl)
+
     if (base.protocol !== 'https:') return null
     const host = base.hostname.toLowerCase()
+
     if (
       host === 'localhost' ||
       host.endsWith('.local') ||
       host.endsWith('.internal')
     )
       return null
+
     return new URL(DEMO_WEBHOOK_SINK_PATH, base.origin).toString()
   } catch {
     return null

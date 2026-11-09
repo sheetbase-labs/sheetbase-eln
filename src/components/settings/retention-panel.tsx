@@ -57,6 +57,7 @@ interface ModelOption {
   key: string
   name: string
 }
+
 interface ProjectOption {
   id: string
   title: string
@@ -82,6 +83,7 @@ export function RetentionPanel({
       ),
     enabled: on,
   })
+
   const projects = useQuery({
     queryKey: ['quality', 'projects'],
     queryFn: () =>
@@ -91,21 +93,25 @@ export function RetentionPanel({
       ),
     enabled: on,
   })
+
   const rules = useQuery({
     queryKey: qualityKeys.rules,
     queryFn: () => fetchRetentionRules(client),
     enabled: on,
   })
+
   const due = useQuery({
     queryKey: qualityKeys.due,
     queryFn: () => fetchDueRecords(client),
     enabled: on,
   })
+
   const holds = useQuery({
     queryKey: qualityKeys.holds,
     queryFn: () => fetchLegalHolds(client),
     enabled: on,
   })
+
   const counts = useQuery({
     queryKey: qualityKeys.holdCounts,
     queryFn: () => fetchHoldCounts(client),
@@ -136,7 +142,9 @@ export function RetentionPanel({
       </SettingsBody>
     )
   }
+
   const failed = rules.error ?? due.error ?? holds.error
+
   if (failed) {
     return (
       <SettingsBody>
@@ -149,14 +157,18 @@ export function RetentionPanel({
 
   const modelName = (key: string) =>
     models.data?.find((m) => m.key === key)?.name ?? key
+
   const projectName = (id: string | null) =>
     projects.data?.find((p) => p.id === id)?.title ?? ''
+
   const ruleOf = new Map((rules.data ?? []).map((r) => [r.kind, r] as const))
   const dueRows = due.data ?? []
   const dueByKind = new Map<string, number>()
+
   for (const row of dueRows) {
     dueByKind.set(row.kind, (dueByKind.get(row.kind) ?? 0) + 1)
   }
+
   const covers = (hold: LegalHold) => {
     if (hold.project_id && hold.kind) {
       return t('quality.retention.holds.coversModelInProject', {
@@ -164,16 +176,19 @@ export function RetentionPanel({
         project: projectName(hold.project_id),
       })
     }
+
     if (hold.project_id) {
       return t('quality.retention.holds.coversProject', {
         project: projectName(hold.project_id),
       })
     }
+
     if (hold.kind) {
       return t('quality.retention.holds.coversModel', {
         model: modelName(hold.kind),
       })
     }
+
     return t('quality.retention.holds.coversPicked')
   }
 
@@ -208,6 +223,7 @@ export function RetentionPanel({
             <TableBody>
               {(models.data ?? []).map((model) => {
                 const rule = ruleOf.get(model.key)
+
                 return (
                   <TableRow key={model.key}>
                     <TableCell>
@@ -436,6 +452,7 @@ function RuleDialog({
   const [note, setNote] = useState(rule?.note ?? '')
   const parsed = Number(months)
   const valid = Number.isInteger(parsed) && parsed >= 1 && parsed <= 1200
+
   const save = useMutation({
     mutationFn: (keep: number | null) =>
       saveRetentionRule(client, modelKey, keep, note),
@@ -451,6 +468,7 @@ function RuleDialog({
     onError: (e: unknown) =>
       toast.error(messageOf(e, t('quality.retention.rules.couldNotSave'))),
   })
+
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent className="w-[min(440px,calc(100vw-32px))]">
@@ -527,6 +545,7 @@ function PlaceHoldDialog({
   const [projectId, setProjectId] = useState('')
   const [kind, setKind] = useState('')
   const covered = projectId !== '' || kind !== ''
+
   const create = useMutation({
     mutationFn: () =>
       createLegalHold(client, {
@@ -543,6 +562,7 @@ function PlaceHoldDialog({
     onError: (e: unknown) =>
       toast.error(messageOf(e, t('quality.retention.holds.couldNotCreate'))),
   })
+
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
@@ -630,6 +650,7 @@ function ReleaseHoldDialog({
   onSaved: () => void
 }) {
   const [note, setNote] = useState('')
+
   const release = useMutation({
     mutationFn: () => releaseLegalHold(client, hold.id, note.trim()),
     onSuccess: () => {
@@ -640,6 +661,7 @@ function ReleaseHoldDialog({
     onError: (e: unknown) =>
       toast.error(messageOf(e, t('quality.retention.holds.couldNotRelease'))),
   })
+
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent className="w-[min(440px,calc(100vw-32px))]">

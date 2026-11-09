@@ -76,10 +76,12 @@ function Snapshots() {
   const versions = useDatasetVersions(datasetId)
   const rows = (versions.data ?? []) as unknown as SnapshotVersion[]
   const [selected, setSelected] = useState<string | null>(null)
+
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     selected,
     setSelected,
   )
+
   const columns: RegistryColumn<SnapshotVersion>[] = [
     {
       id: 'snapshot',
@@ -128,10 +130,12 @@ function Snapshots() {
       header: t('data.datasetSnapshots.retention'),
       cell: ({ row }) => {
         const view = describeSnapshotKeeping(row.original)
+
         return view ? <Status tone={view.tone}>{view.label}</Status> : null
       },
     },
   ]
+
   const [dialogOpen, setDialogOpen] = useState(false)
   const [compareWith, setCompareWith] = useState<string | null>(null)
   const [keepTarget, setKeepTarget] = useState<SnapshotVersion | null>(null)
@@ -145,6 +149,7 @@ function Snapshots() {
   const pruneWarning = mostUrgentPruneWarning(rows)
   const citations = countSnapshotCitations(current?.citedBy)
   const citationLines = describeSnapshotCitations(current?.citedBy)
+
   const citedCount =
     citations.signedRevisions + citations.pipelineRuns + citations.analyses
 
@@ -164,12 +169,16 @@ function Snapshots() {
         'datasets',
         `?id=eq.${encodeURIComponent(datasetId)}&select=id,revision,lifecycle`,
       )
+
       return found.at(0) ?? null
     },
   })
+
   const revision = datasetQuery.data ? Number(datasetQuery.data.revision) : null
+
   const canSnapshot =
     canWrite && revision !== null && datasetQuery.data?.lifecycle === 'active'
+
   // A failed read is not an archive state: say which it is, so the disabled
   // action does not blame the dataset's lifecycle for a broken request.
   const snapshotDisabledReason = !canWrite
@@ -246,6 +255,7 @@ function Snapshots() {
   }, [keepTarget])
 
   const others = rows.filter((v) => v.id !== current?.id)
+
   const compareTarget =
     compareWith && others.some((v) => v.id === compareWith)
       ? compareWith
@@ -266,6 +276,7 @@ function Snapshots() {
                     const target = rows.find(
                       (v) => v.id === pruneWarning.versionId,
                     )
+
                     if (target) setKeepTarget(target)
                   }}
                 >
@@ -622,6 +633,7 @@ function CreateSnapshotDialog({
           setLabel(defaultLabel)
           setTouched(false)
         }
+
         onOpenChange(next)
       }}
     >
@@ -639,6 +651,7 @@ function CreateSnapshotDialog({
             className="flex flex-col gap-3"
             onSubmit={(e) => {
               e.preventDefault()
+
               if (!invalid) onSubmit(trimmed)
             }}
           >
@@ -723,6 +736,7 @@ function KeepSnapshotDialog({
           setReason('')
           setTouched(false)
         }
+
         onOpenChange(next)
       }}
     >
@@ -744,6 +758,7 @@ function KeepSnapshotDialog({
             className="flex flex-col gap-3"
             onSubmit={(e) => {
               e.preventDefault()
+
               if (!invalid) onSubmit(trimmed)
             }}
           >

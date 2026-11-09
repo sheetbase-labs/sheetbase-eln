@@ -48,6 +48,7 @@ const TONE: Record<AgentActionRequestStatus, Tone> = {
   failed: 'bad',
   refused: 'draft',
 }
+
 const LABEL: Record<AgentActionRequestStatus, string> = {
   pending: t('agentRequests.statusPending'),
   approved: t('agentRequests.statusApproved'),
@@ -63,20 +64,24 @@ export function ActionRequestsBoard({
   nameOf: (userId: string | null) => string
 }) {
   const queryClient = useQueryClient()
+
   const requests = useQuery({
     queryKey: agentActionKeys.requests,
     queryFn: () => fetchAgentActionRequests(client),
   })
+
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: agentActionKeys.requests })
     void queryClient.invalidateQueries({ queryKey: ['work-items'] })
     requestShellRefresh()
   }
+
   const approve = useMutation({
     mutationFn: (request: AgentActionRequestRow) =>
       approveAndRunAgentAction(client, request),
     onSuccess: (row) => {
       refresh()
+
       if (row.status === 'failed') {
         toast.error(row.error ?? t('agentRequests.couldNotRun'))
       } else toast(t('agentRequests.doneToast'))
@@ -88,6 +93,7 @@ export function ActionRequestsBoard({
       )
     },
   })
+
   const reject = useMutation({
     mutationFn: (request: AgentActionRequestRow) =>
       rejectAgentAction(client, request.id),
@@ -100,6 +106,7 @@ export function ActionRequestsBoard({
         error instanceof Error ? error.message : t('agentRequests.couldNotRun'),
       ),
   })
+
   const busy = approve.isPending || reject.isPending
   const rows = requests.data ?? []
 
@@ -134,6 +141,7 @@ export function ActionRequestsBoard({
             <TableBody>
               {rows.map((row) => {
                 const text = describeAgentAction(row.action_key, row.arguments)
+
                 return (
                   <TableRow key={row.id}>
                     <TableCell>

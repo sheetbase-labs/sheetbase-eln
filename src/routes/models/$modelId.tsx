@@ -61,9 +61,11 @@ import { rich, t } from '#/copy'
 export const Route = createFileRoute('/models/$modelId')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: ModelLayout,
@@ -72,17 +74,22 @@ export const Route = createFileRoute('/models/$modelId')({
 function ModelLayout() {
   const { modelId } = Route.useParams()
   const matchRoute = useMatchRoute()
+
   const onEdit = Boolean(
     matchRoute({ to: '/models/$modelId/edit', fuzzy: true }),
   )
+
   // A record's page carries its own header: the model's tabs would sit above
   // a record they do not describe.
   const onRecord = Boolean(
     matchRoute({ to: '/models/$modelId/records/$recordId' }),
   )
+
   const { context } = Route.useRouteContext()
+
   if (onEdit || (onRecord && !isUuid(modelId))) return <Outlet />
   const builtIn = builtInModel(modelId)
+
   if (builtIn)
     return (
       <BuiltInModelLayout
@@ -91,6 +98,7 @@ function ModelLayout() {
         workspaceId={context.workspace?.id ?? null}
       />
     )
+
   // A dataset-schema model is addressed by uuid; a workspace record model by
   // its stable key. The two registries never share an identifier.
   return isUuid(modelId) ? (
@@ -123,6 +131,7 @@ function DatasetModelLayout({
   const contract = useContractForTarget({ kind: 'dataset_schema', id: modelId })
 
   const m = definition.data
+
   if (!m) {
     // A failed read is not a missing model: say which happened.
     if (definition.isError) {
@@ -152,6 +161,7 @@ function DatasetModelLayout({
         </div>
       )
     }
+
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
@@ -184,7 +194,9 @@ function DatasetModelLayout({
       </div>
     )
   }
+
   const params = { modelId: m.id }
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader
@@ -321,11 +333,14 @@ function RecordModelLayout({
   const recordCount = useRecordModelRecordCount(modelKey)
   const typed = useTypedObjects(modelKey)
   const recordVersions = useRecordModelVersionList(model.data?.id)
+
   const publishedVersion = recordVersions.data?.find(
     (v) => v.lifecycle === 'published',
   )
+
   const draftVersion = recordVersions.data?.find((v) => v.lifecycle === 'draft')
   const builtIn = useBuiltInModelKind(modelKey)
+
   const contract = useContractForTarget({
     kind: 'record_model',
     key: modelKey,
@@ -334,9 +349,12 @@ function RecordModelLayout({
   const trail: Crumb[] = [
     { label: t('library.models.overview.models'), link: { to: '/models' } },
   ]
+
   const m = model.data
+
   if (m) {
     const params = { modelId: m.key }
+
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader
@@ -544,8 +562,10 @@ function RecordModelLayout({
   }
 
   const kind = builtIn.data
+
   if (kind) {
     const surface = BUILT_IN_KIND_SURFACES[modelKey]
+
     return (
       <div className="flex min-w-0 flex-1 flex-col">
         <PageHeader

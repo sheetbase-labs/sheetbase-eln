@@ -40,11 +40,14 @@ function PipelineRuns() {
   const runs = useDefinitionRuns(list)
   const rows = runs.data ?? []
   const numbers = useRunNumbers(list)
+
   const reproductions = useLatestReproductions(
     rows.filter((run) => run.status === 'succeeded').map((run) => run.id),
   )
+
   const versionLabel = (versionId: string) => {
     const v = list.find((x) => x.id === versionId)
+
     return v ? `v${v.version}` : '—'
   }
 
@@ -80,6 +83,7 @@ function PipelineRuns() {
       header: t('data.pipelineRuns.status'),
       cell: ({ row }) => {
         const status = runStatus(row.original.status)
+
         return <Status tone={status.tone}>{status.label}</Status>
       },
     },
@@ -88,6 +92,7 @@ function PipelineRuns() {
       header: t('data.pipelineRuns.reproduced'),
       cell: ({ row }) => {
         const verdict = reproductions.data?.[row.original.id]
+
         return verdict ? (
           <Link
             to="/pipelines/$pipelineId/runs/$runId"

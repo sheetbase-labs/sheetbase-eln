@@ -18,7 +18,9 @@ const meta = {
   title: 'UI/Collapsible',
   tags: ['autodocs'],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {
@@ -80,6 +82,7 @@ export const Controlled: Story = {
   render: () => {
     function TwoDisclosures() {
       const [open, setOpen] = useState<'a' | 'b' | null>('a')
+
       return (
         <div className="flex w-96 flex-col gap-2">
           {(['a', 'b'] as const).map((id) => (
@@ -98,6 +101,7 @@ export const Controlled: Story = {
         </div>
       )
     }
+
     return <TwoDisclosures />
   },
 }

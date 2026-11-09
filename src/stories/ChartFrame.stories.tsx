@@ -12,8 +12,11 @@ const meta = {
     alt: 'Optical density rises from 0.05 to 0.82 over eight hours',
   },
 } satisfies Meta<typeof ChartFrame>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 export const Live: Story = {
   render: (args) => (
     <ChartFrame {...args}>
@@ -23,5 +26,6 @@ export const Live: Story = {
     </ChartFrame>
   ),
 }
+
 export const Snapshot: Story = { args: { mode: 'snapshot' } }
 export const Loading: Story = { args: { loading: true } }

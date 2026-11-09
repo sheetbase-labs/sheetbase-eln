@@ -22,7 +22,9 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const freezer: StorageNode = {
@@ -62,6 +64,7 @@ function inside(feeds: FeedRow[]) {
   const client = screenQueryClient({
     data: [{ key: liveFeedQueryKeys.feeds(freezer.id), value: feeds }],
   })
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <div className="w-[760px] max-w-full">

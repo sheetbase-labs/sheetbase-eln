@@ -64,13 +64,16 @@ const DEMO_STORAGE_IDS = {
  */
 function userSessionConnection(poolConnectionString: string): string {
   const url = new URL(poolConnectionString)
+
   const pgrst = process.env.PGRST_DB_URI
     ? new URL(process.env.PGRST_DB_URI)
     : null
+
   if (pgrst?.username) {
     url.username = pgrst.username
     url.password = pgrst.password
   }
+
   return url.toString()
 }
 
@@ -86,6 +89,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
   const FIXTURE_WORKSPACE_ID = scope.workspaceId
   const FIXTURE_USER_ID = scope.userId
   const DEV_USER = { id: scope.devUserId ?? scope.userId }
+
   return [
     {
       name: 'demo project: Lentivector Stability Study',
@@ -744,7 +748,9 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             lowStockThreshold: sample.lowStockThreshold,
             notes: sample.notes,
           }
+
           const createdAt = new Date(Date.now() - sample.daysAgo * 86400000)
+
           const updatedAt = new Date(
             Date.now() - Math.max(sample.daysAgo - 1, 0) * 86400000,
           )
@@ -986,6 +992,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             },
           ],
         ])
+
         for (let rowIndex = 0; rowIndex < 3; rowIndex += 1) {
           for (let colIndex = 0; colIndex < 4; colIndex += 1) {
             const special = specialPositions.get(`${rowIndex}:${colIndex}`)
@@ -1018,8 +1025,10 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
               })
           }
         }
+
         const path =
           'Cambridge site / Cold room 1 / Freezer FZ-80-01 / Shelf 2 / Rack 3 / BX-LVV-07 / A1'
+
         await db
           .insert(schema.storageMovements)
           .values({
@@ -1384,7 +1393,9 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
               threshold,
               expiry,
             ] = fixture
+
             const sequence = index + 2
+
             return {
               id: `00000000-0000-4000-8000-${(0x270 + index).toString(16).padStart(12, '0')}`,
               identifier: `RGT-2026-${String(sequence).padStart(4, '0')}`,
@@ -1438,6 +1449,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
           expiry: '2026-12-31',
           actorUserId: FIXTURE_USER_ID,
         }
+
         for (const movement of [
           {
             id: '00000000-0000-4000-8000-000000000289',
@@ -1525,6 +1537,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             },
           },
         ] as const
+
         for (const step of definitions)
           await db
             .insert(schema.blocks)
@@ -1608,9 +1621,11 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
               .from(schema.blocks)
               .where(eq(schema.blocks.id, id))
           ).at(0)
+
           if (existing && existing.type !== type)
             await db.delete(schema.blocks).where(eq(schema.blocks.id, id))
         }
+
         const blocks = [
           {
             id: DEMO_BLOCK_IDS.objective,
@@ -1924,11 +1939,14 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
         const storageRoot = resolve(
           process.env.FILE_STORAGE_DIR ?? './.storage/objects',
         )
+
         const activeCsv =
           'timepoint,temperature,log_titer\n0,4,7.2\n7,4,7.0\n14,4,6.6\n28,4,5.9\n'
+
         const activeChecksum = createHash('sha256')
           .update(activeCsv)
           .digest('hex')
+
         const activeStorageKey = `${FIXTURE_WORKSPACE_ID}/${DEMO_FILE_IDS.activeRecord}/a1b2c3d4e5f60718293a4b5c6d7e8f90`
         const activePath = join(storageRoot, activeStorageKey)
         await mkdir(dirname(activePath), { recursive: true })
@@ -2124,15 +2142,19 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
       name: 'demo SCI-004 Sheet Instance: Virus Stability',
       run: async (db) => {
         const poolCs = db.$client.options.connectionString
+
         if (!poolCs) {
           throw new Error(
             'drizzle pool connection string is required for SCI-004 seed',
           )
         }
+
         const client = new Client({
           connectionString: userSessionConnection(poolCs),
         })
+
         await client.connect()
+
         try {
           await client.query('SET ROLE authenticated')
           await client.query(
@@ -2159,6 +2181,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
       name: 'demo SCI-005 plate map: Virus Stability qPCR plate',
       run: async (db) => {
         const volume = { value: 20, unit: 'µL' }
+
         const payload = {
           title: 'qPCR titration plate',
           spec: {
@@ -2300,6 +2323,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
           .from(schema.blocks)
           .where(eq(schema.blocks.recordId, DEMO_VIRUS_STABILITY_RECORD_ID))
           .orderBy(asc(schema.blocks.order))
+
         await db
           .insert(schema.revisions)
           .values({
@@ -2472,6 +2496,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             order: 3,
           },
         ]
+
         for (const block of copiedBlocks) {
           await db
             .insert(schema.blocks)
@@ -2505,14 +2530,18 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
       name: 'demo OPS-007 report builder: reports and sections',
       run: async (db) => {
         const poolCs = db.$client.options.connectionString
+
         if (!poolCs)
           throw new Error(
             'drizzle pool connection string is required for OPS-007 seed',
           )
+
         const client = new Client({
           connectionString: userSessionConnection(poolCs),
         })
+
         await client.connect()
+
         try {
           await client.query('SET ROLE authenticated')
           await client.query(
@@ -2528,6 +2557,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
 
           const rpc = async (name: string, params: unknown[]) => {
             const args = params.map((_, i) => `$${i + 1}`).join(',')
+
             return client.query(`select * from api.${name}(${args})`, params)
           }
 
@@ -2656,7 +2686,9 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
               'select id from api.report_definitions where workspace_id=$1 and document_identifier=$2',
               [FIXTURE_WORKSPACE_ID, report.docId],
             )
+
             let reportId: string
+
             if (found.rowCount) {
               reportId = found.rows[0].id as string
             } else {
@@ -2666,6 +2698,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
                 report.subtitle,
                 report.projectId,
               ])
+
               reportId = res.rows[0].id as string
             }
 
@@ -2697,6 +2730,7 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
               'select count(*)::int as n from api.report_sections where report_id=$1',
               [reportId],
             )
+
             if (existing.rows[0].n === 0) {
               for (const sec of report.sections) {
                 await rpc('add_report_section', [
@@ -2717,8 +2751,10 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
               'select id, title from api.report_sections where report_id=$1 order by position',
               [reportId],
             )
+
             for (const [i, target] of report.sections.entries()) {
               const row = sections.rows[i]
+
               if (!row) break
               await client.query(
                 `update api.report_sections set

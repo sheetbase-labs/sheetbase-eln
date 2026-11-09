@@ -120,6 +120,7 @@ export function mergeDataGridI18n(
   overrides?: DataGridI18nOverrides,
 ): DataGridI18nConfig {
   if (!overrides?.labels) return DEFAULT_DATA_GRID_I18N
+
   return {
     labels: { ...DEFAULT_DATA_GRID_LABELS, ...overrides.labels },
   }

@@ -98,8 +98,10 @@ export interface ExperimentFile {
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return t('projects.expFiles.bytes', { value: bytes })
+
   if (bytes < 1024 * 1024)
     return t('projects.expFiles.kilobytes', { value: Math.round(bytes / 1024) })
+
   return t('projects.expFiles.megabytes', {
     value: (bytes / (1024 * 1024)).toFixed(1),
   })
@@ -107,6 +109,7 @@ function formatSize(bytes: number): string {
 
 function extension(name: string): string {
   const dot = name.lastIndexOf('.')
+
   return dot < 0 ? '' : name.slice(dot + 1).toUpperCase()
 }
 
@@ -120,6 +123,7 @@ function kindOf(file: ExperimentFile): string {
 
 export function useExperimentFiles(expId: string) {
   const links = useExperimentLinks(expId)
+
   const ids = [
     ...new Set(
       (links.data ?? [])
@@ -128,12 +132,14 @@ export function useExperimentFiles(expId: string) {
         .filter((id): id is string => Boolean(id)),
     ),
   ]
+
   return useQuery({
     queryKey: ['ui-port', 'experiment-files', expId, ids],
     enabled: links.isSuccess,
     queryFn: async (): Promise<ExperimentFile[]> => {
       if (ids.length === 0) return []
       const list = ids.map(encodeURIComponent).join(',')
+
       const [records, objects, feedRows] = await Promise.all([
         notebookDataClient.list<FileRecordWire>(
           'records',
@@ -148,8 +154,10 @@ export function useExperimentFiles(expId: string) {
           `?source_record_id=in.(${list})&link_type=in.(dataset,protocol)&select=source_record_id,target_kind,target_identifier,link_metadata`,
         ),
       ])
+
       // Oldest first, so the newest version is the one a record resolves to.
       const byRecord = new Map(objects.map((o) => [o.record_id, o]))
+
       const versionsOf = (id: string): FileVersion[] =>
         objects
           .filter((o) => o.record_id === id)
@@ -160,8 +168,10 @@ export function useExperimentFiles(expId: string) {
             checksum: o.checksum,
             at: o.created_at,
           }))
+
       return records.map((record) => {
         const object = byRecord.get(record.id)
+
         return {
           id: record.id,
           identifier: record.identifier,
@@ -189,6 +199,7 @@ export function useExperimentFiles(expId: string) {
 
 function FeedLinks({ feeds }: { feeds: FileFeed[] }) {
   if (feeds.length === 0) return <span className="text-fg-muted">—</span>
+
   return (
     <span className="flex flex-wrap gap-x-2">
       {feeds.map((feed) => (
@@ -209,10 +220,12 @@ function FeedLinks({ feeds }: { feeds: FileFeed[] }) {
 /** Retention as the board says it: the year it runs to and how long that is. */
 function retentionText(until: string | null, from: string): string {
   if (!until) return '—'
+
   const years = Math.round(
     (new Date(until).getTime() - new Date(from).getTime()) /
       (365.25 * 24 * 3600 * 1000),
   )
+
   return t('projects.expFiles.retention', {
     year: new Date(until).getUTCFullYear(),
     years,
@@ -230,6 +243,7 @@ function FileInspector({
 }) {
   const lines = previewLines(file.text)
   const dataset = file.feeds.find((f) => f.kind === 'dataset')
+
   return (
     <Inspector aria-label={t('projects.expFiles.file')} className="w-[300px]">
       <div className="flex flex-col gap-1">
@@ -260,6 +274,7 @@ function FileInspector({
             onChange={(event) => {
               const next = event.target.files?.[0]
               event.target.value = ''
+
               if (next) onNewVersion(next)
             }}
           />
@@ -380,13 +395,16 @@ export function ExperimentFiles({ expId }: { expId: string }) {
   const record = useExperimentRecord(expId)
   const queryClient = useQueryClient()
   const all = files.data ?? []
+
   const { userLabel } = useUserNames(
     all.flatMap((f) => (f.uploadedBy ? [f.uploadedBy] : [])),
   )
+
   const [kind, setKind] = useState('all')
   const [sort, setSort] = useState<SortKey>('uploaded')
   const [picked, setPicked] = useState<string | null>(null)
   const kinds = [...new Set(all.map(kindOf))]
+
   const rows = useMemo(
     () =>
       all
@@ -398,13 +416,17 @@ export function ExperimentFiles({ expId }: { expId: string }) {
         ),
     [all, kind, sort],
   )
+
   const selectedId = picked ?? rows.at(0)?.id ?? null
   const selected = rows.find((f) => f.id === selectedId)
+
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     selectedId,
     setPicked,
   )
+
   const projectId = record.data?.project_id ?? null
+
   const upload = useMutation({
     mutationFn: async (file: File | null) => {
       if (!file || !projectId) return
@@ -421,6 +443,7 @@ export function ExperimentFiles({ expId }: { expId: string }) {
       toast(t('projects.expFiles.fileUploaded'))
     },
   })
+
   const newVersion = useMutation({
     mutationFn: (next: File) =>
       uploadFileVersion({ fileId: selectedId!, file: next }),
@@ -438,6 +461,7 @@ export function ExperimentFiles({ expId }: { expId: string }) {
             : t('projects.expFiles.uploadFailed'),
       }),
   })
+
   const columns: RegistryColumn<ExperimentFile>[] = [
     {
       id: 'name',
@@ -480,6 +504,7 @@ export function ExperimentFiles({ expId }: { expId: string }) {
       cell: ({ row }) => formatDate(row.original.uploadedAt),
     },
   ]
+
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-[14px] overflow-auto px-4 py-[22px] md:px-8">

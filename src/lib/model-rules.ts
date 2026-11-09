@@ -97,10 +97,12 @@ export async function fetchModelRules(
   const filter = modelKey
     ? `?model_key=eq.${encodeURIComponent(modelKey)}&`
     : '?'
+
   const rows = await client.list<ModelRuleWire>(
     'model_rules',
     `${filter}order=model_key.asc,created_at.asc,id.asc`,
   )
+
   return rows.map(fromWire)
 }
 
@@ -127,6 +129,7 @@ export async function createModelRule(
     p_effect: input.effect,
     p_message: input.message,
   })
+
   return fromWire(row)
 }
 
@@ -147,6 +150,7 @@ export async function updateModelRule(
     p_rule_id: ruleId,
     p_patch: patch,
   })
+
   return fromWire(row)
 }
 
@@ -180,23 +184,29 @@ function isNullish(value: unknown): boolean {
 
 function asNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
+
   if (typeof value === 'string' && value.trim() !== '') {
     const parsed = Number(value)
+
     return Number.isFinite(parsed) ? parsed : null
   }
+
   return null
 }
 
 function looseEquals(left: unknown, right: unknown): boolean {
   const leftNumber = asNumber(left)
   const rightNumber = asNumber(right)
+
   if (leftNumber !== null && rightNumber !== null)
     return leftNumber === rightNumber
+
   return String(left) === String(right)
 }
 
 function inList(value: unknown, list: unknown): boolean {
   if (!Array.isArray(list)) return false
+
   return list.some((entry) => looseEquals(value, entry))
 }
 
@@ -206,27 +216,37 @@ export function modelRuleConditionMatches(
   values: Record<string, unknown>,
 ): boolean {
   if (!condition) return true
+
   if (Object.keys(condition).length === 0) return true
+
   if ('not' in condition)
     return !modelRuleConditionMatches(
       (condition as { not: ModelRuleCondition }).not,
       values,
     )
+
   if ('all' in condition) {
     const all = (condition as { all: ModelRuleCondition[] }).all
+
     return all.every((entry) => modelRuleConditionMatches(entry, values))
   }
+
   if ('any' in condition) {
     const any = (condition as { any: ModelRuleCondition[] }).any
+
     return any.some((entry) => modelRuleConditionMatches(entry, values))
   }
 
   const leaf = condition as ModelRuleLeafCondition
   const op = leaf.op ?? 'eq'
   const value = values[leaf.field]
+
   if (op === 'is_null') return isNullish(value)
+
   if (op === 'not_null') return !isNullish(value)
+
   if (isNullish(value)) return false
+
   switch (op) {
     case 'eq':
       return looseEquals(value, leaf.value)
@@ -246,6 +266,7 @@ export function modelRuleConditionMatches(
     case 'lte': {
       const left = asNumber(value)
       const right = asNumber(leaf.value)
+
       if (left !== null && right !== null) {
         return op === 'gt'
           ? left > right
@@ -255,8 +276,10 @@ export function modelRuleConditionMatches(
               ? left < right
               : left <= right
       }
+
       const a = String(value)
       const b = String(leaf.value)
+
       return op === 'gt'
         ? a > b
         : op === 'gte'
@@ -265,6 +288,7 @@ export function modelRuleConditionMatches(
             ? a < b
             : a <= b
     }
+
     default:
       return false
   }
@@ -282,8 +306,10 @@ export function evaluateModelRules(
       effect: rule.effect,
       message: rule.message,
     }))
+
   const byEffect = (effect: ModelRuleEffect) =>
     matches.filter((match) => match.effect === effect)
+
   return {
     blocked: byEffect('block').length > 0,
     blockSubmit: matches.some(

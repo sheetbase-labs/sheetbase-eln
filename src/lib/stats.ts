@@ -24,6 +24,7 @@ export function quantileSorted(sorted: number[], p: number): number {
   const h = (sorted.length - 1) * p
   const lo = Math.floor(h)
   const hi = Math.ceil(h)
+
   return sorted[lo] + (sorted[hi] - sorted[lo]) * (h - lo)
 }
 
@@ -53,10 +54,12 @@ export function summaryStats(values: number[]): SummaryStats | null {
   const sum = sorted.reduce((acc, v) => acc + v, 0)
   const mean = sum / n
   let sd: number | null = null
+
   if (n >= 2) {
     const ss = sorted.reduce((acc, v) => acc + (v - mean) ** 2, 0)
     sd = Math.sqrt(ss / (n - 1))
   }
+
   return {
     n,
     mean,
@@ -92,15 +95,19 @@ const LANCZOS_COEFFICIENTS = [
 /** Natural logarithm of the gamma function (Lanczos approximation). */
 export function logGamma(x: number): number {
   if (!(x > 0)) return Number.NaN
+
   if (x < 0.5) {
     // Reflection: Γ(x)Γ(1−x) = π / sin(πx).
     return Math.log(Math.PI / Math.sin(Math.PI * x)) - logGamma(1 - x)
   }
+
   const z = x - 1
   const t = z + 7.5
   let series = LANCZOS_COEFFICIENTS[0]
+
   for (let i = 1; i < LANCZOS_COEFFICIENTS.length; i++)
     series += LANCZOS_COEFFICIENTS[i] / (z + i)
+
   return (
     0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(series)
   )
@@ -116,28 +123,36 @@ function betaContinuedFraction(a: number, b: number, x: number): number {
   const qam = a - 1
   let c = 1
   let d = 1 - (qab * x) / qap
+
   if (Math.abs(d) < tiny) d = tiny
   d = 1 / d
   let h = d
+
   for (let m = 1; m <= maxIterations; m++) {
     const m2 = 2 * m
     let numerator = (m * (b - m) * x) / ((qam + m2) * (a + m2))
     d = 1 + numerator * d
+
     if (Math.abs(d) < tiny) d = tiny
     c = 1 + numerator / c
+
     if (Math.abs(c) < tiny) c = tiny
     d = 1 / d
     h *= d * c
     numerator = (-(a + m) * (qab + m) * x) / ((a + m2) * (qap + m2))
     d = 1 + numerator * d
+
     if (Math.abs(d) < tiny) d = tiny
     c = 1 + numerator / c
+
     if (Math.abs(c) < tiny) c = tiny
     d = 1 / d
     const delta = d * c
     h *= delta
+
     if (Math.abs(delta - 1) < epsilon) break
   }
+
   return h
 }
 
@@ -148,15 +163,20 @@ export function regularizedIncompleteBeta(
   x: number,
 ): number {
   if (!(a > 0) || !(b > 0) || !Number.isFinite(x)) return Number.NaN
+
   if (x <= 0) return 0
+
   if (x >= 1) return 1
+
   const logBeta =
     logGamma(a + b) -
     logGamma(a) -
     logGamma(b) +
     a * Math.log(x) +
     b * Math.log(1 - x)
+
   const front = Math.exp(logBeta)
+
   return x < (a + 1) / (a + b + 2)
     ? (front * betaContinuedFraction(a, b, x)) / a
     : 1 - (front * betaContinuedFraction(b, a, 1 - x)) / b
@@ -168,6 +188,7 @@ export function regularizedIncompleteBeta(
  */
 export function tTwoSidedP(t: number, df: number): number {
   if (!Number.isFinite(t) || !(df > 0)) return Number.NaN
+
   return regularizedIncompleteBeta(df / 2, 0.5, df / (df + t * t))
 }
 
@@ -175,7 +196,9 @@ export function tTwoSidedP(t: number, df: number): number {
 export function fUpperP(f: number, df1: number, df2: number): number {
   if (!(f >= 0) || !(df1 > 0) || !(df2 > 0) || !Number.isFinite(f))
     return Number.NaN
+
   if (f === 0) return 1
+
   return regularizedIncompleteBeta(df2 / 2, df1 / 2, df2 / (df2 + df1 * f))
 }
 
@@ -186,6 +209,7 @@ export function fUpperP(f: number, df1: number, df2: number): number {
  */
 export function chiSquare2UpperP(x: number): number {
   if (!Number.isFinite(x)) return Number.NaN
+
   return x <= 0 ? 1 : Math.exp(-x / 2)
 }
 
@@ -240,6 +264,7 @@ export function olsFitWithInference(
   if (xs.length !== ys.length) return null
   const n = xs.length
   const size = degree + 1
+
   if (n < size) return null
 
   // Centre and scale: t = (x − μ) / σ (population std). A constant
@@ -247,7 +272,9 @@ export function olsFitWithInference(
   const mean = xs.reduce((acc, v) => acc + v, 0) / n
   const variance = xs.reduce((acc, v) => acc + (v - mean) ** 2, 0) / n
   const scale = Math.sqrt(variance)
+
   if (!Number.isFinite(mean) || !Number.isFinite(scale)) return null
+
   if (size > 1 && scale < Number.EPSILON * Math.max(1, Math.abs(mean)))
     return null
   const ts = size > 1 ? xs.map((v) => (v - mean) / scale) : xs
@@ -256,12 +283,17 @@ export function olsFitWithInference(
   const ata: number[][] = Array.from({ length: size }, () =>
     Array.from({ length: size }, () => 0),
   )
+
   const atb: number[] = Array.from({ length: size }, () => 0)
+
   for (let i = 0; i < n; i++) {
     const power = [1]
+
     for (let d = 1; d < size; d++) power.push(power[d - 1] * ts[i])
+
     for (let r = 0; r < size; r++) {
       atb[r] += power[r] * ys[i]
+
       for (let cIdx = 0; cIdx < size; cIdx++) {
         ata[r][cIdx] += power[r] * power[cIdx]
       }
@@ -270,82 +302,103 @@ export function olsFitWithInference(
 
   // Gaussian elimination with partial pivoting on the augmented matrix.
   const aug: number[][] = ata.map((row, i) => [...row, atb[i]])
+
   for (let col = 0; col < size; col++) {
     let pivotRow = col
+
     for (let row = col + 1; row < size; row++) {
       if (Math.abs(aug[row][col]) > Math.abs(aug[pivotRow][col])) pivotRow = row
     }
+
     if (
       !Number.isFinite(aug[pivotRow][col]) ||
       Math.abs(aug[pivotRow][col]) < 1e-12
     )
       return null
     ;[aug[col], aug[pivotRow]] = [aug[pivotRow], aug[col]]
+
     for (let row = col + 1; row < size; row++) {
       const factor = aug[row][col] / aug[col][col]
+
       for (let k = col; k <= size; k++) aug[row][k] -= factor * aug[col][k]
     }
   }
+
   const betaT = Array.from({ length: size }, () => 0)
+
   for (let row = size - 1; row >= 0; row--) {
     let acc = aug[row][size]
+
     for (let k = row + 1; k < size; k++) acc -= aug[row][k] * betaT[k]
     betaT[row] = acc / aug[row][row]
   }
 
   let coefficients: number[]
+
   if (size === 1) {
     coefficients = betaT
   } else {
     // Expand p(t) with t = (x − μ)/σ back into raw-x coefficients:
     // β_k·((x−μ)/σ)^k = β_k·σ^(−k)·Σ_j C(k,j)·x^j·(−μ)^(k−j).
     const expanded = Array.from({ length: size }, () => 0)
+
     for (let k = 0; k < size; k++) {
       let binomial = 1
       const powerScale = scale ** k
+
       for (let j = 0; j <= k; j++) {
         expanded[j] += (betaT[k] * binomial * (-mean) ** (k - j)) / powerScale
         binomial = (binomial * (k - j)) / (j + 1)
       }
     }
+
     coefficients = expanded
   }
 
   // (TᵀT)⁻¹ supplies leverage and — through the same change of basis — the
   // covariance of the *reported* raw-x coefficients.
   const ataInverse = invertMatrix(ata)
+
   if (!ataInverse) return null
 
   const leverage = Array.from({ length: n }, (_, i) => {
     const power = [1]
+
     for (let d = 1; d < size; d++) power.push(power[d - 1] * ts[i])
     let h = 0
+
     for (let r = 0; r < size; r++) {
       let acc = 0
+
       for (let cIdx = 0; cIdx < size; cIdx++)
         acc += ataInverse[r][cIdx] * power[cIdx]
       h += power[r] * acc
     }
+
     return h
   })
 
   const residuals = xs.map((x, i) => ys[i] - polyEval(coefficients, x))
   let ssRes = 0
+
   for (const e of residuals) ssRes += e * e
   const meanY = ys.reduce((acc, v) => acc + v, 0) / n
   let ssTot = 0
+
   for (const y of ys) ssTot += (y - meanY) ** 2
 
   // fitQuality stays the single authority for R² and RMSE.
   const quality = fitQuality(xs, ys, coefficients)
   const dfResidual = n - size
   const sigma = dfResidual >= 1 ? Math.sqrt(ssRes / dfResidual) : null
+
   const adjR2 =
     dfResidual >= 1 ? 1 - (1 - quality.r2) * ((n - 1) / dfResidual) : null
 
   let f: number | null = null
   let fP: number | null = null
   const dfModel = size - 1
+
   if (dfModel >= 1 && dfResidual >= 1 && ssRes > 0 && ssTot > 0) {
     f = (ssTot - ssRes) / dfModel / (ssRes / dfResidual)
     fP = fUpperP(f, dfModel, dfResidual)
@@ -353,19 +406,26 @@ export function olsFitWithInference(
 
   const sigmaSquared = dfResidual >= 1 ? ssRes / dfResidual : null
   let maxCooksDistance: number | null = null
+
   if (sigmaSquared !== null && sigmaSquared > 0) {
     let worst = 0
+
     for (let i = 0; i < n; i++) {
       const h = leverage[i]
+
       if (!(h < 1)) continue
+
       const distance =
         (residuals[i] ** 2 / (size * sigmaSquared)) * (h / (1 - h) ** 2)
+
       if (distance > worst) worst = distance
     }
+
     maxCooksDistance = worst
   }
 
   let covariance: number[][]
+
   if (sigmaSquared === null) {
     covariance = Array.from({ length: size }, () =>
       Array.from({ length: size }, () => Number.NaN),
@@ -377,25 +437,31 @@ export function olsFitWithInference(
     const basis = Array.from({ length: size }, () =>
       Array.from({ length: size }, () => 0),
     )
+
     for (let k = 0; k < size; k++) {
       let binomial = 1
       const powerScale = scale ** k
+
       for (let j = 0; j <= k; j++) {
         basis[j][k] = (binomial * (-mean) ** (k - j)) / powerScale
         binomial = (binomial * (k - j)) / (j + 1)
       }
     }
+
     covariance = Array.from({ length: size }, () =>
       Array.from({ length: size }, () => 0),
     )
+
     for (let i = 0; i < size; i++) {
       for (let l = 0; l < size; l++) {
         let acc = 0
+
         for (let k = 0; k < size; k++) {
           for (let j = 0; j < size; j++) {
             acc += basis[i][k] * sigmaSquared * ataInverse[k][j] * basis[l][j]
           }
         }
+
         covariance[i][l] = acc
       }
     }
@@ -420,15 +486,19 @@ export function olsFitWithInference(
 /** Invert a square matrix by Gauss–Jordan elimination; null when singular. */
 function invertMatrix(matrix: number[][]): number[][] | null {
   const n = matrix.length
+
   const aug = matrix.map((row, i) => [
     ...row,
     ...Array.from({ length: n }, (_, j) => (i === j ? 1 : 0)),
   ])
+
   for (let col = 0; col < n; col++) {
     let pivotRow = col
+
     for (let row = col + 1; row < n; row++) {
       if (Math.abs(aug[row][col]) > Math.abs(aug[pivotRow][col])) pivotRow = row
     }
+
     if (
       !Number.isFinite(aug[pivotRow][col]) ||
       Math.abs(aug[pivotRow][col]) < 1e-12
@@ -436,14 +506,19 @@ function invertMatrix(matrix: number[][]): number[][] | null {
       return null
     ;[aug[col], aug[pivotRow]] = [aug[pivotRow], aug[col]]
     const pivot = aug[col][col]
+
     for (let k = col; k < 2 * n; k++) aug[col][k] /= pivot
+
     for (let row = 0; row < n; row++) {
       if (row === col) continue
       const factor = aug[row][col]
+
       if (factor === 0) continue
+
       for (let k = col; k < 2 * n; k++) aug[row][k] -= factor * aug[col][k]
     }
   }
+
   return aug.map((row) => row.slice(n))
 }
 
@@ -457,14 +532,17 @@ export function olsFit(
   degree: number,
 ): { coefficients: number[] } | null {
   const fit = olsFitWithInference(xs, ys, degree)
+
   return fit ? { coefficients: fit.coefficients } : null
 }
 
 export function polyEval(coefficients: number[], x: number): number {
   let acc = 0
+
   for (let d = coefficients.length - 1; d >= 0; d--) {
     acc = acc * x + coefficients[d]
   }
+
   return acc
 }
 
@@ -482,11 +560,13 @@ export function fitQuality(
   const meanY = ys.reduce((acc, v) => acc + v, 0) / n
   let ssRes = 0
   let ssTot = 0
+
   for (let i = 0; i < n; i++) {
     const predicted = polyEval(coefficients, xs[i])
     ssRes += (ys[i] - predicted) ** 2
     ssTot += (ys[i] - meanY) ** 2
   }
+
   return {
     r2: ssTot === 0 ? 1 : 1 - ssRes / ssTot,
     rmse: Math.sqrt(ssRes / n),
@@ -499,17 +579,29 @@ export function fitQuality(
  */
 export function tCritical95(df: number): number {
   if (df < 1) return Number.NaN
+
   if (df === 1) return 12.706
+
   if (df === 2) return 4.303
+
   if (df === 3) return 3.182
+
   if (df === 4) return 2.776
+
   if (df === 5) return 2.571
+
   if (df < 10) return 2.365
+
   if (df < 15) return 2.145
+
   if (df < 20) return 2.093
+
   if (df < 30) return 2.045
+
   if (df < 60) return 2.0
+
   if (df < 120) return 1.98
+
   return 1.96
 }
 
@@ -521,8 +613,10 @@ export function meanConfidenceInterval(values: number[]): {
   n: number
 } | null {
   const stats = summaryStats(values)
+
   if (!stats || stats.se === null) return null
   const t = tCritical95(stats.n - 1)
+
   return {
     mean: stats.mean,
     n: stats.n,
@@ -543,22 +637,27 @@ export function linearMeanConfidenceBand(
 ): Array<{ x: number; lo: number; hi: number; yHat: number }> | null {
   if (xs.length !== ys.length || xs.length < 3) return null
   const fit = olsFit(xs, ys, 1)
+
   if (!fit) return null
   const n = xs.length
   const meanX = xs.reduce((acc, v) => acc + v, 0) / n
   let sxx = 0
   let ssRes = 0
+
   for (let i = 0; i < n; i++) {
     sxx += (xs[i] - meanX) ** 2
     const predicted = polyEval(fit.coefficients, xs[i])
     ssRes += (ys[i] - predicted) ** 2
   }
+
   if (sxx <= 0) return null
   const sigma = Math.sqrt(ssRes / (n - 2))
   const t = tCritical95(n - 2)
+
   return sampleXs.map((x) => {
     const yHat = polyEval(fit.coefficients, x)
     const se = sigma * Math.sqrt(1 / n + (x - meanX) ** 2 / sxx)
+
     return { x, lo: yHat - t * se, hi: yHat + t * se, yHat }
   })
 }
@@ -613,10 +712,12 @@ export function oneWayAnova(
   groups: Array<{ group: string; values: number[] }>,
 ): OneWayAnovaResult | null {
   const used = groups.filter((entry) => entry.values.length > 0)
+
   if (used.length < 2) return null
   const k = used.length
   const n = used.reduce((acc, entry) => acc + entry.values.length, 0)
   const dfWithin = n - k
+
   if (dfWithin < 1) return null
 
   const grandMean =
@@ -628,9 +729,11 @@ export function oneWayAnova(
   let ssBetween = 0
   let ssWithin = 0
   const groupStats: OneWayAnovaGroupStat[] = []
+
   for (const entry of used) {
     const stats = summaryStats(entry.values)!
     ssBetween += stats.n * (stats.mean - grandMean) ** 2
+
     if (stats.sd !== null) ssWithin += (stats.n - 1) * stats.sd * stats.sd
     const interval = meanConfidenceInterval(entry.values)
     groupStats.push({
@@ -646,9 +749,11 @@ export function oneWayAnova(
   const dfBetween = k - 1
   const msBetween = ssBetween / dfBetween
   const msWithin = ssWithin / dfWithin
+
   if (!(msWithin > 0)) return null
   const f = msBetween / msWithin
   const ssTotal = ssBetween + ssWithin
+
   return {
     groups: groupStats,
     n,
@@ -682,24 +787,29 @@ export interface NormalityTestResult {
  */
 export function jarqueBeraTest(values: number[]): NormalityTestResult | null {
   const n = values.length
+
   if (n < 8) return null
   const mean = values.reduce((acc, v) => acc + v, 0) / n
   let m2 = 0
   let m3 = 0
   let m4 = 0
+
   for (const v of values) {
     const d = v - mean
     m2 += d * d
     m3 += d ** 3
     m4 += d ** 4
   }
+
   m2 /= n
   m3 /= n
   m4 /= n
+
   if (!(m2 > 0)) return null
   const skewness = m3 / m2 ** 1.5
   const excessKurtosis = m4 / (m2 * m2) - 3
   const statistic = (n / 6) * (skewness * skewness + excessKurtosis ** 2 / 4)
+
   return {
     statistic,
     p: chiSquare2UpperP(statistic),
@@ -727,15 +837,19 @@ export function breuschPaganTest(
   residuals: number[],
 ): HeteroscedasticityTestResult | null {
   const n = fitted.length
+
   if (n !== residuals.length || n < 3) return null
   const squared = residuals.map((e) => e * e)
   const min = Math.min(...squared)
   const max = Math.max(...squared)
+
   if (max === min) return null
   const auxiliary = olsFit(fitted, squared, 1)
+
   if (!auxiliary) return null
   const quality = fitQuality(fitted, squared, auxiliary.coefficients)
   const statistic = Math.max(0, n * quality.r2)
+
   return { statistic, df: 1, p: chiSquare2UpperP(statistic) }
 }
 
@@ -757,15 +871,21 @@ export function brownForsytheTest(
   groups: Array<{ group: string; values: number[] }>,
 ): VarianceTestResult | null {
   const used = groups.filter((entry) => entry.values.length > 0)
+
   if (used.length < 2) return null
+
   const deviations = used.map((entry) => {
     const median = quantileSorted(sortNumbers(entry.values), 0.5)
+
     return {
       group: entry.group,
       values: entry.values.map((v) => Math.abs(v - median)),
     }
   })
+
   const anova = oneWayAnova(deviations)
+
   if (!anova || !Number.isFinite(anova.f)) return null
+
   return { f: anova.f, df1: anova.dfBetween, df2: anova.dfWithin, p: anova.p }
 }

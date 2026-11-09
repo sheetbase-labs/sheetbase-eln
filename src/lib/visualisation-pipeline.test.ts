@@ -99,8 +99,10 @@ describe('stable field identity', () => {
       },
       { id: COL_Y, label: 'Response', logicalType: 'decimal' },
     ]
+
     const m = materialiseChart(spec(), impostor, ROWS)
     expect(m.state.kind).toBe('missing_field')
+
     if (m.state.kind === 'missing_field') expect(m.state.fields).toContain('x')
   })
 })
@@ -137,11 +139,13 @@ describe('plot types', () => {
             ? { errorBars: null, fit: null, references: [] }
             : spec().overlays,
       })
+
       if (type === 'heatmap') {
         next.fields.series = null
         next.fields.color = null
         next.fields.size = null
       }
+
       expect(validateChartSpec(next)).toEqual([])
     }
   })
@@ -162,6 +166,7 @@ describe('plot types', () => {
       COLUMNS,
       [...ROWS, { [COL_X]: 1, [COL_Y]: null, [COL_G]: 'A' }],
     )
+
     expect(m.droppedPoints).toBe(1)
   })
 
@@ -174,6 +179,7 @@ describe('plot types', () => {
       COLUMNS,
       ROWS,
     )
+
     expect(m.series[0].points[0].box?.n).toBe(3)
   })
 
@@ -196,6 +202,7 @@ describe('plot types', () => {
       COLUMNS,
       ROWS,
     )
+
     expect(m.state.kind).toBe('ok')
     expect(m.summaries?.every((row) => row.n === 1 || row.n === 3)).toBe(true)
   })
@@ -218,6 +225,7 @@ describe('plot types', () => {
       COLUMNS,
       ROWS,
     )
+
     expect(m.heatmap?.cells.reduce((a, c) => a + c.count, 0)).toBe(6)
   })
 })
@@ -226,9 +234,11 @@ describe('filters and transforms', () => {
   it('supports is_null / not_null without mutating source', () => {
     const rows = [...ROWS, { [COL_X]: 4, [COL_Y]: null, [COL_G]: 'A' }]
     const copy = rows.map((r) => ({ ...r }))
+
     const out = applyFiltersSci04(rows, [
       { fieldId: COL_Y, op: 'not_null', value: null },
     ])
+
     expect(out).toHaveLength(6)
     expect(rows).toEqual(copy)
   })
@@ -237,6 +247,7 @@ describe('filters and transforms', () => {
     const s = spec({
       transformations: [{ kind: 'log10', params: { fieldId: COL_Y } }],
     })
+
     const { rows, transformInvalid } = applyTransformations(
       [
         { [COL_X]: 1, [COL_Y]: 100, [COL_G]: 'A' },
@@ -245,6 +256,7 @@ describe('filters and transforms', () => {
       s.transformations,
       s,
     )
+
     expect(rows[0][COL_Y]).toBe(2)
     expect(rows[1][COL_Y]).toBeNull()
     expect(transformInvalid).toBe(1)
@@ -261,6 +273,7 @@ describe('filters and transforms', () => {
         { [COL_X]: 2, [COL_Y]: 0, [COL_G]: 'A' },
       ],
     )
+
     expect(m.transformInvalidCount).toBe(1)
     expect(m.transformInvalidReasons).toContain('log10 of non-positive value')
   })
@@ -279,6 +292,7 @@ describe('summaries and error bars', () => {
       COL_Y,
       COL_X,
     )
+
     expect(groups).toHaveLength(3)
     expect(groups[0].stats.n).toBe(1)
   })
@@ -298,6 +312,7 @@ describe('summaries and error bars', () => {
       COLUMNS,
       ROWS,
     )
+
     expect(m.series[0].points[0].yErrorLo).toBe(1.5)
     expect(m.series[0].points[0].yErrorHi).toBe(2.5)
   })
@@ -308,6 +323,7 @@ describe('fitting', () => {
     const fit = olsFit([1, 2, 3], [2, 4, 6], 1)!
     expect(fit.coefficients[0]).toBeCloseTo(0, 10)
     expect(fit.coefficients[1]).toBeCloseTo(2, 10)
+
     const m = materialiseChart(
       spec({
         fields: { ...spec().fields, series: null, color: null },
@@ -319,6 +335,7 @@ describe('fitting', () => {
       COLUMNS,
       ROWS.filter((r) => r[COL_G] === 'A'),
     )
+
     expect(m.fit?.r2).toBeCloseTo(1, 10)
     expect(m.fit?.n).toBe(3)
     expect(m.fit?.band?.length).toBeGreaterThan(2)
@@ -339,6 +356,7 @@ describe('fitting', () => {
         },
       ],
     )
+
     expect(overlay.fit?.error).toBe('insufficient_data')
   })
 })
@@ -358,7 +376,9 @@ describe('log scale', () => {
       COLUMNS,
       ROWS,
     )
+
     expect(ok.state.kind).toBe('ok')
+
     const bad = materialiseChart(
       spec({
         display: {
@@ -372,6 +392,7 @@ describe('log scale', () => {
       COLUMNS,
       [{ [COL_X]: 1, [COL_Y]: 0, [COL_G]: 'A' }],
     )
+
     expect(bad.state.kind).toBe('log_scale_invalid')
   })
 })
@@ -381,6 +402,7 @@ describe('point provenance', () => {
     const m = materialiseChart(spec(), COLUMNS, [
       { ...ROWS[0], __sheetbaseRowId: 'row-1' },
     ])
+
     expect(m.series[0].points[0].rowId).toBe('row-1')
   })
 })
@@ -399,6 +421,7 @@ describe('sampling', () => {
     expect(apportionRenderBudget([3000, 3000], SCI_RENDER_POINT_CAP)).toEqual([
       2000, 2000,
     ])
+
     const series: MaterialisedSeries[] = [
       {
         identifier: 'A',
@@ -432,6 +455,7 @@ describe('sampling', () => {
         })),
       },
     ]
+
     const sampled = sampleSeriesForRender(series)
     expect(sampled.sampling?.sampledCount).toBe(SCI_RENDER_POINT_CAP)
     expect(sampled.sampling?.analysisCount).toBe(6000)
@@ -439,9 +463,11 @@ describe('sampling', () => {
     expect(
       sampled.series.find((item) => item.identifier === '__fit')?.points,
     ).toHaveLength(200)
+
     const displayed = sampled.series
       .filter((item) => item.identifier !== '__fit')
       .reduce((n, item) => n + item.points.length, 0)
+
     expect(displayed).toBe(SCI_RENDER_POINT_CAP)
   })
 })
@@ -478,6 +504,7 @@ describe('live versus frozen rematerialisation', () => {
         },
       }),
     ]
+
     for (const chartSpec of cases) {
       const live = materialiseChart(chartSpec, COLUMNS, ROWS)
       const rematerialised = materialiseChart(chartSpec, COLUMNS, ROWS)
@@ -492,6 +519,7 @@ describe('live versus frozen rematerialisation', () => {
     const chartSpec = spec({
       transformations: [{ kind: 'log10', params: { fieldId: COL_Y } }],
     })
+
     const pinned = materialiseChart(chartSpec, COLUMNS, ROWS)
     const mutated = [...ROWS, { [COL_X]: 4, [COL_Y]: 16, [COL_G]: 'A' }]
     const live = materialiseChart(chartSpec, COLUMNS, mutated)
@@ -532,6 +560,7 @@ describe('formatting, recommendation, handoff, export', () => {
       ],
       selectedColumnIds: [COL_X, 'local-1'],
     })
+
     expect(handoff.yFieldId).toBe(COL_X)
     expect(handoff.localFieldIds).toEqual(['local-1'])
   })
@@ -545,6 +574,7 @@ describe('formatting, recommendation, handoff, export', () => {
       background: 'opaque',
       includeProvenance: false,
     })
+
     expect(svgContainsFigure(svg)).toBe(false)
   })
 })

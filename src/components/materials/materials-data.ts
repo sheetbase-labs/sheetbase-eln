@@ -73,6 +73,7 @@ function lotStatus(
 ): { tone: Tone; label: string } {
   if (reagent.status === 'quarantined') return STATUS.quarantined
   const expiry = reagent.expiry ? new Date(reagent.expiry) : null
+
   if (reagent.status === 'expired' || attention.expired) {
     return expiry && !Number.isNaN(expiry.getTime())
       ? {
@@ -81,6 +82,7 @@ function lotStatus(
         }
       : STATUS.expired
   }
+
   if (expiry && !Number.isNaN(expiry.getTime())) {
     if (attention.nearExpiry) {
       return {
@@ -94,11 +96,13 @@ function lotStatus(
           .replace('Sept', 'Sep')}`,
       }
     }
+
     return {
       tone: 'ok',
       label: `Expires ${shortMonth(expiry)} ${expiry.getUTCFullYear()}`,
     }
   }
+
   return (
     STATUS[reagent.status] ?? {
       tone: 'none',
@@ -141,16 +145,20 @@ function expiryNote(
 ): string | null {
   if (!reagent.expiry) return null
   const date = new Date(reagent.expiry)
+
   if (Number.isNaN(date.getTime())) return null
   const days = attention.daysToExpiry
+
   if (attention.expired) {
     return days != null && days < 0
       ? `Expired ${formatDay(reagent.expiry)} (${Math.abs(days)} days ago)`
       : `Expired ${formatDay(reagent.expiry)}`
   }
+
   if (attention.nearExpiry && days != null) {
     return `Expires ${formatDay(reagent.expiry)} (${days} ${days === 1 ? 'day' : 'days'})`
   }
+
   return null
 }
 
@@ -161,12 +169,15 @@ export function toMaterialListRow(reagent: Reagent): MaterialListRow {
   // tabs rather than members of the stock list. Expiring is a view over stock.
   const expired = attention.expired || reagent.status === 'expired'
   const tabs: string[] = []
+
   // An archived lot is out of every working list and found on Archived.
   if (reagent.archivedAt) tabs.push('archived')
   else if (reagent.status === 'quarantined') tabs.push('quarantine')
   else if (expired) tabs.push('expired')
   else tabs.push('instock')
+
   if (tabs.includes('instock') && attention.nearExpiry) tabs.push('expiring')
+
   return {
     uuid: reagent.id,
     id: reagent.identifier,
@@ -244,16 +255,21 @@ export function useReagentPage(
       const rows: Reagent[] = []
       // The Archived tab reads the lots the working lists leave out.
       const query = archived ? ARCHIVED_QUERY : EMPTY_QUERY
+
       for (;;) {
         const page = await fetchReagentsPage(client, {
           ...query,
           pageIndex: Math.floor(rows.length / REAGENT_PAGE_SIZE),
           pageSize: REAGENT_PAGE_SIZE,
         })
+
         rows.push(...page)
+
         if (page.length < REAGENT_PAGE_SIZE) break
       }
+
       const total = await fetchReagentsCount(client, query)
+
       return { rows, total }
     },
     staleTime: 15_000,

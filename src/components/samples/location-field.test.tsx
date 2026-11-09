@@ -18,6 +18,7 @@ describe('LocationInput', () => {
         />
       </QueryClientProvider>,
     )
+
     const input = container.querySelector('input')!
     const list = container.querySelector('datalist')!
     expect(input.getAttribute('list')).toBe(list.id)

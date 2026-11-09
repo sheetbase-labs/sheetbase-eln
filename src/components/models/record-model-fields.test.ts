@@ -44,6 +44,7 @@ describe('record model field helpers', () => {
       field({ id: 'a', display_order: 1, section: 'Identity' }),
       field({ id: 'c', display_order: 3, section: 'Identity' }),
     ])
+
     expect(groups.map((g) => [g.name, g.fields.length])).toEqual([
       ['Identity', 2],
       ['Storage', 1],
@@ -52,10 +53,12 @@ describe('record model field helpers', () => {
 
   it('diffs added and retired fields', () => {
     const before = definition([field({ id: 'a', label: 'Old' })])
+
     const after = definition([
       field({ id: 'a', label: 'Old', lifecycle: 'retired' }),
       field({ id: 'b', label: 'New' }),
     ])
+
     const changes = diffModelVersions(before, after)
     expect(changes.map((c) => `${c.kind} ${c.subject}`)).toEqual([
       'Removed Old',

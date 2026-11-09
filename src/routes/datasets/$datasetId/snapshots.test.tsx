@@ -23,9 +23,11 @@ const dataClient = vi.hoisted(() => ({
   list: vi.fn(),
   rpc: vi.fn(),
 }))
+
 const product = vi.hoisted(() => ({ snapshotDataset: vi.fn() }))
 const explorer = vi.hoisted(() => ({ keepDatasetVersion: vi.fn() }))
 const sonner = vi.hoisted(() => ({ toast: vi.fn() }))
+
 const routeContext = vi.hoisted(() => ({
   value: {
     workspace: { id: 'ws-1', name: 'Process Development', role: 'member' },
@@ -64,18 +66,22 @@ vi.mock('@tanstack/react-router', () => ({
     children: React.ReactNode
   } & Record<string, unknown>) => {
     let href = typeof to === 'string' ? to : '#'
+
     if (params) {
       for (const [k, v] of Object.entries(params))
         href = href.replace(`$${k}`, encodeURIComponent(String(v)))
     }
+
     if (search) {
       const qs = new URLSearchParams(
         Object.entries(search)
           .filter(([, v]) => v != null)
           .map(([k, v]) => [k, String(v)]),
       ).toString()
+
       if (qs) href += `?${qs}`
     }
+
     return (
       <a href={href} {...props}>
         {children}
@@ -168,6 +174,7 @@ function renderRoute() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <SnapshotsRoute />
@@ -299,6 +306,7 @@ describe('dataset snapshots route', () => {
     const compare = screen.getAllByRole('link', {
       name: 'Compare snapshots',
     })[0]
+
     expect(compare.getAttribute('href')).toBe(
       '/datasets/ds-1/compare?from=v-1&to=v-2',
     )
@@ -314,6 +322,7 @@ describe('dataset snapshots route', () => {
     const analyse = screen.getAllByRole('link', {
       name: 'Analyse this snapshot',
     })[0]
+
     expect(analyse.getAttribute('href')).toBe(
       '/analysis/new?dataset=ds-1&snapshot=v-1&mode=analyse',
     )

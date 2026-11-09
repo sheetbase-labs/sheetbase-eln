@@ -167,6 +167,7 @@ export function ProjectListFailure({
     (error.code === 'permission_denied' ||
       error.status === 401 ||
       error.status === 403)
+
   if (denied) {
     return (
       <Notice
@@ -178,6 +179,7 @@ export function ProjectListFailure({
       </Notice>
     )
   }
+
   return (
     <Notice
       tone="bad"

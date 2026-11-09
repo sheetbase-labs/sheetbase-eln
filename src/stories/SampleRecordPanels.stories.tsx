@@ -46,7 +46,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const sample = sampleFixture()
@@ -79,6 +81,7 @@ export const Inspector: Story = {
 }
 
 const loadingInspector = screenQueryClient()
+
 holdRead(loadingInspector, [
   'ui-port',
   'sample-inspector',
@@ -111,6 +114,7 @@ const run: WorkflowRun = {
     { id: 'st-4', name: 'Rejected', requiredFields: ['notes'] },
   ],
 }
+
 const events: WorkflowEvent[] = [
   {
     id: 'ev-2',
@@ -133,6 +137,7 @@ const events: WorkflowEvent[] = [
     ],
   },
 ]
+
 const workflowClient = screenQueryClient({
   data: [
     { key: ['sample-workflow-runs', SAMPLE_ID], value: [run] },
@@ -143,6 +148,7 @@ const workflowClient = screenQueryClient({
     },
   ],
 })
+
 const idleWorkflowClient = screenQueryClient({
   data: [
     { key: ['sample-workflow-runs', SAMPLE_ID], value: [] },
@@ -290,6 +296,7 @@ const labelRecords = [1, 2, 3].map((n) => ({
   id: `s-${n}`,
   identifier: `SMP-223${n}`,
 }))
+
 const labelClient = screenQueryClient({
   data: [{ key: ['label-templates', 'picker'], value: [] }],
 })

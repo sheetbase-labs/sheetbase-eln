@@ -19,9 +19,11 @@ const PROJECT = '00000000-0000-4000-8000-0000000000a1'
 const READ_ONLY = '00000000-0000-4000-8000-0000000000a2'
 
 const nav = vi.hoisted(() => vi.fn())
+
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => nav,
 }))
+
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
@@ -31,12 +33,14 @@ const client = vi.hoisted(() => ({
   count: vi.fn(),
   rpc: vi.fn(),
 }))
+
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   notebookDataClient: client,
 }))
 
 const createBlank = vi.hoisted(() => vi.fn())
+
 vi.mock('#/lib/notebook-create', () => ({
   createBlankExperiment: createBlank,
 }))

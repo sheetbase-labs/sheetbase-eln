@@ -12,6 +12,7 @@ import {
 } from './added-fields'
 
 const fields = vi.hoisted(() => ({ data: [] as unknown[] }))
+
 const values = vi.hoisted(() => ({
   data: {
     customFields: {},
@@ -19,6 +20,7 @@ const values = vi.hoisted(() => ({
     modelVersionId: null as string | null,
   },
 }))
+
 const family = vi.hoisted(() => ({
   types: [] as unknown[],
   options: [] as unknown[],
@@ -47,8 +49,10 @@ vi.mock('./built-in-model-data', () => ({
     isSuccess: true,
   }),
 }))
+
 vi.mock('@tanstack/react-query', async (importOriginal) => {
   const actual = await importOriginal()
+
   return {
     ...(actual as object),
     useQueryClient: () => ({ invalidateQueries: vi.fn() }),
@@ -95,6 +99,7 @@ describe('groupAddedFields', () => {
       ],
       'Experiment details',
     )
+
     expect(
       groups.map((g) => [g.heading, g.fields.map((f) => f.fieldName)]),
     ).toEqual([
@@ -113,10 +118,13 @@ describe('list columns', () => {
       ],
       () => ({ passage: 7 }),
     )
+
     expect(columns.map((c) => c.id)).toEqual(['custom:passage'])
+
     const base = [{ id: 'name' }, { id: 'status' }] as RegistryColumn<{
       id: string
     }>[]
+
     expect(withAddedColumns(base, columns).map((c) => c.id)).toEqual([
       'name',
       'custom:passage',
@@ -131,6 +139,7 @@ describe('AddedFields', () => {
     const { container } = render(
       <AddedFields modelKey="experiment" objectId="r1" />,
     )
+
     expect(container.innerHTML).toBe('')
   })
 
@@ -164,6 +173,7 @@ describe('AddedFields', () => {
 
   it('leaves out fields the page lays out itself', () => {
     fields.data = [field({ fieldName: 'certificate', label: 'Certificate' })]
+
     const { container } = render(
       <AddedFields
         modelKey="material"
@@ -171,6 +181,7 @@ describe('AddedFields', () => {
         exclude={['certificate']}
       />,
     )
+
     expect(container.innerHTML).toBe('')
   })
 
@@ -185,6 +196,7 @@ describe('AddedFields', () => {
       publishedVersionId: 'v1',
       versionIds: ['v1'],
     }
+
     family.types = [culture]
     family.options = [{ type: culture, depth: 1 }]
     family.groups = [

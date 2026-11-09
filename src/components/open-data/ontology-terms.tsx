@@ -40,14 +40,17 @@ export function OntologyTerms({
   canEdit: boolean
 }) {
   const queryClient = useQueryClient()
+
   const settings = useQuery({
     queryKey: openDataKeys.ontology(workspaceId),
     queryFn: () => fetchOntologySettings(dataClient, workspaceId),
   })
+
   const linked = useQuery({
     queryKey: openDataKeys.annotations(kind, targetId),
     queryFn: () => fetchAnnotations(dataClient, kind, targetId),
   })
+
   const [adding, setAdding] = useState(false)
   const [text, setText] = useState('')
   const [hits, setHits] = useState<OntologyTermHit[] | null>(null)
@@ -57,9 +60,12 @@ export function OntologyTerms({
   useEffect(() => {
     if (text.trim().length < 2) {
       setHits(null)
+
       return
     }
+
     const controller = new AbortController()
+
     const timer = setTimeout(() => {
       setSearching(true)
       setSearchError(null)
@@ -71,6 +77,7 @@ export function OntologyTerms({
         })
         .finally(() => setSearching(false))
     }, 300)
+
     return () => {
       clearTimeout(timer)
       controller.abort()
@@ -81,6 +88,7 @@ export function OntologyTerms({
     queryClient.invalidateQueries({
       queryKey: openDataKeys.annotations(kind, targetId),
     })
+
   const link = useMutation({
     mutationFn: (term: OntologyTermHit) =>
       linkOntologyTerm(dataClient, { workspaceId, kind, targetId, term }),
@@ -92,6 +100,7 @@ export function OntologyTerms({
     onError: (e) =>
       toast(`${t('openData.picker.failed')}: ${describeOpenDataError(e)}`),
   })
+
   const unlink = useMutation({
     mutationFn: (id: string) => unlinkOntologyTerm(dataClient, id),
     onSuccess: () => void invalidate(),
@@ -100,6 +109,7 @@ export function OntologyTerms({
 
   const rows = linked.data ?? []
   const lookupOn = settings.data?.enabled === true
+
   if (!lookupOn && rows.length === 0) return null
 
   return (

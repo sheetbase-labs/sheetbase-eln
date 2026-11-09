@@ -23,10 +23,13 @@ describe('data-client x-sheetbase-client-id header (LIVE-003)', () => {
 
   it('stamps a uuid client id on every request', async () => {
     let seen: Headers | null = null
+
     const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
       seen = new Headers(init.headers)
+
       return jsonResponse([])
     }) as unknown as typeof fetch
+
     const client = createDataClient(fetchImpl)
 
     await client.list('projects')
@@ -41,11 +44,14 @@ describe('data-client x-sheetbase-client-id header (LIVE-003)', () => {
 
   it('reuses the same client id across requests in the same tab', async () => {
     const ids: string[] = []
+
     const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
       const h = new Headers(init.headers)
       ids.push(h.get('x-sheetbase-client-id') ?? '')
+
       return jsonResponse([])
     }) as unknown as typeof fetch
+
     const client = createDataClient(fetchImpl)
 
     await client.list('projects')

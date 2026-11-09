@@ -158,6 +158,7 @@ function withLinks() {
         },
       },
     })
+
     client.setQueryData(relationshipQueryKeys.links(RECORD_ID), links)
     client.setQueryData(
       relationshipQueryKeys.endpoints(
@@ -199,6 +200,7 @@ function withLinks() {
         ],
       ]),
     )
+
     return (
       <QueryClientProvider client={client}>
         <div className="w-[360px] max-w-full">
@@ -215,7 +217,9 @@ const meta = {
   tags: ['autodocs'],
   args: { outgoing, incoming },
 } satisfies Meta<typeof RelationshipList>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Both directions, with counts, in the canonical entity row. */

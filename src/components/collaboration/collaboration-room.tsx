@@ -40,6 +40,7 @@ export function safeBuildRoomId(
   objectId: string | null | undefined,
 ): string | null {
   if (!workspaceId || !objectId) return null
+
   try {
     return buildRoomId(workspaceId, kind, objectId)
   } catch {
@@ -59,6 +60,7 @@ export function CollaborationRoom({
   React.useEffect(() => {
     if (!roomId) return
     let joined: CollabProvider | null = null
+
     try {
       joined = new CollabProvider(collabUrl(roomId, window.location))
       setProvider(joined)
@@ -67,6 +69,7 @@ export function CollaborationRoom({
       // must never break the scientific record surfaces around them.
       console.error('Collaboration room error', error)
     }
+
     return () => {
       joined?.destroy()
       setProvider(null)

@@ -11,6 +11,7 @@ import { SheetPasteData } from '#/components/sheet/sheet-paste-data'
  */
 function Harness({ busy = false }: { busy?: boolean }) {
   const [open, setOpen] = useState(true)
+
   return (
     <>
       <Button onClick={() => setOpen(true)}>Paste data</Button>
@@ -30,7 +31,9 @@ const meta = {
   tags: ['autodocs'],
   args: { open: true, onOpenChange: () => {}, onApply: () => {} },
 } satisfies Meta<typeof SheetPasteData>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Open with nothing pasted yet. */

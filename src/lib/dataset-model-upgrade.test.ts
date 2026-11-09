@@ -13,12 +13,14 @@ function client(responses: Record<string, unknown>) {
     async (url: string | URL | Request, _init?: RequestInit) => {
       const href = String(url)
       const hit = Object.entries(responses).find(([key]) => href.includes(key))
+
       return new Response(JSON.stringify(hit?.[1] ?? []), {
         status: 200,
         headers: { 'content-type': 'application/json' },
       })
     },
   )
+
   return { fetcher, data: createDataClient(fetcher) }
 }
 
@@ -29,6 +31,7 @@ describe('fetchDatasetModelPosition', () => {
       'id=eq.v1': [{ id: 'v1', schema_id: 's', version: 1 }],
       'version=gt.1': [{ id: 'v2', version: 2 }],
     })
+
     const position = await fetchDatasetModelPosition(data, 'd1')
     expect(position).toEqual({
       datasetRevision: 7,
@@ -80,11 +83,13 @@ describe('describeUpgradeEffects', () => {
     rowCount: 3,
     datasetRevision: 7,
   }
+
   it('names the added fields and that no value moves', () => {
     const lines = describeUpgradeEffects({
       ...base,
       added: [{ key: 'notes', label: 'Notes', type: 'text' }],
     })
+
     expect(lines[0]).toMatch(/Adds Notes/)
     expect(lines[1]).toMatch(/3 rows keep every value/)
     expect(lines[1]).toMatch(/stay on v1/)

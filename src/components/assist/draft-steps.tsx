@@ -41,15 +41,18 @@ export function DraftStepsButton({
   const [open, setOpen] = useState(false)
   const [brief, setBrief] = useState('')
   const [draft, setDraft] = useState('')
+
   const [state, setState] = useState<'idle' | 'working' | 'failed' | 'adding'>(
     'idle',
   )
+
   if (!ai.live) return null
 
   const steps = parseSteps(draft)
 
   async function write() {
     setState('working')
+
     const result = await ai
       .run({
         task: 'draft',
@@ -58,6 +61,7 @@ export function DraftStepsButton({
         objectRefs: [{ kind: 'record', id: recordId }],
       })
       .catch(() => null)
+
     if (result?.status === 'ok' && parseSteps(result.text).length > 0) {
       setDraft(parseSteps(result.text).join('\n'))
       setState('idle')
@@ -68,6 +72,7 @@ export function DraftStepsButton({
 
   async function add() {
     setState('adding')
+
     try {
       await onAdd(steps)
       setOpen(false)

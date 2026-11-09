@@ -42,11 +42,13 @@ export function BookingRulesSection({
   canManage: boolean
 }) {
   const [editing, setEditing] = useState(false)
+
   const query = useQuery({
     queryKey: bookingRuleKeys.forInstrument(instrument.id),
     queryFn: () => fetchBookingRules(client, instrument.id),
     staleTime: 15_000,
   })
+
   const rules = query.data ?? NO_RULES
 
   return (
@@ -123,15 +125,18 @@ function BookingRulesDialog({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
+
   const current = useQuery({
     queryKey: bookingRuleKeys.forInstrument(instrument.id),
     queryFn: () => fetchBookingRules(client, instrument.id),
   })
+
   const protocols = useQuery({
     queryKey: bookingRuleKeys.protocols,
     queryFn: () => fetchProtocolOptions(client),
     staleTime: 60_000,
   })
+
   const [ids, setIds] = useState<string[]>([])
   const [hours, setHours] = useState('')
   const [days, setDays] = useState('')
@@ -151,6 +156,7 @@ function BookingRulesDialog({
 
   const minutes = hours.trim() === '' ? null : Math.round(Number(hours) * 60)
   const ahead = days.trim() === '' ? null : Math.round(Number(days))
+
   const invalid =
     (minutes !== null && (!Number.isFinite(minutes) || minutes < 5)) ||
     (ahead !== null && (!Number.isFinite(ahead) || ahead < 1))

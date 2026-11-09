@@ -45,9 +45,11 @@ describe('PlateMap', () => {
   it('marks the selected well with aria-selected', () => {
     render(<PlateMap wells={wells} selectedIndex={1} />)
     const cells = screen.getAllByRole('gridcell')
+
     const selected = cells.find(
       (c) => c.getAttribute('aria-selected') === 'true',
     )
+
     expect(selected).toBeTruthy()
     // The selected gridcell's button should be the A2 well (index 1).
     expect(selected?.querySelector('button')?.getAttribute('aria-label')).toBe(

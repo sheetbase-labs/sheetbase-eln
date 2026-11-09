@@ -87,10 +87,12 @@ export function SheetPromote({
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
   const controlled = controlledOpen !== undefined
   const open = controlled ? controlledOpen : uncontrolledOpen
+
   const setOpen = (next: boolean) => {
     if (!controlled) setUncontrolledOpen(next)
     onOpenChange?.(next)
   }
+
   const [definitionId, setDefinitionId] = useState('')
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
@@ -105,14 +107,19 @@ export function SheetPromote({
   const submit = async () => {
     if (!definitionId) {
       setError(t('notebook.sheetPromote.chooseTheDatasetSchema'))
+
       return
     }
+
     if (!reason.trim()) {
       setError(t('notebook.sheetPromote.giveAReasonFor'))
+
       return
     }
+
     setBusy(true)
     setError(null)
+
     try {
       const result = await requestColumnPromotion(client, {
         instanceId,
@@ -123,6 +130,7 @@ export function SheetPromote({
         idempotencyKey: crypto.randomUUID(),
         expectedRevision,
       })
+
       onSubmitted?.(result)
       setOpen(false)
       setReason('')

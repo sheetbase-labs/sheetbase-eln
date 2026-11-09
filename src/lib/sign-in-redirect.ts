@@ -17,13 +17,19 @@
  */
 export function safeNextPath(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
+
   if (!value.startsWith('/')) return undefined
+
   if (value.startsWith('//') || value.includes('\\')) return undefined
+
   const control = [...value].some((char) => {
     const code = char.charCodeAt(0)
+
     return code < 0x20 || code === 0x7f
   })
+
   if (control) return undefined
+
   return value
 }
 
@@ -33,6 +39,7 @@ export function safeNextPath(value: unknown): string | undefined {
  */
 export function signInRedirect(location: { href: string }) {
   const next = safeNextPath(location.href)
+
   return {
     to: '/sign-in' as const,
     search:

@@ -106,14 +106,17 @@ const LOT_PAGE_FIELDS = [
 export const Route = createFileRoute('/materials/$lotId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     await resolveIdentifierParam({
       entity: 'record',
       ref: params.lotId,
       href: location.href,
     })
+
     return { context }
   },
   component: LotPage,
@@ -121,13 +124,16 @@ export const Route = createFileRoute('/materials/$lotId')({
 
 export const lotQueryKey = (lotId: string) =>
   ['ui-port', 'materials', 'lot', lotId] as const
+
 export const lotLedgerQueryKey = (lotId: string) =>
   ['ui-port', 'materials', 'ledger', lotId] as const
 
 function dayLabel(iso: string | null): string {
   if (!iso) return '—'
   const date = new Date(iso)
+
   if (Number.isNaN(date.getTime())) return '—'
+
   return date
     .toLocaleDateString('en-GB', {
       day: 'numeric',
@@ -140,7 +146,9 @@ function dayLabel(iso: string | null): string {
 
 function dateTimeLabel(iso: string): string {
   const date = new Date(iso)
+
   if (Number.isNaN(date.getTime())) return '—'
+
   return date
     .toLocaleString('en-GB', {
       day: 'numeric',
@@ -156,6 +164,7 @@ function dateTimeLabel(iso: string): string {
 function amount(value: number, unit: string | null): string {
   // "1 unit", "2 units": a unit stored in the plural reads as one at one.
   const shown = unit && value === 1 ? unit.replace(/s$/, '') : unit
+
   return `${value.toLocaleString('en-GB', { maximumFractionDigits: 3 })}${shown ? ` ${shown}` : ''}`
 }
 
@@ -163,8 +172,10 @@ function amount(value: number, unit: string | null): string {
 export function movementChange(movement: ReagentMovement): string {
   if (movement.operation === 'consume')
     return `−${amount(Math.abs(movement.quantityDelta), movement.unit)}`
+
   if (movement.operation === 'receive')
     return `+${amount(Math.abs(movement.quantityDelta), movement.unit)}`
+
   return '—'
 }
 
@@ -184,23 +195,28 @@ function LotPage() {
     queryKey: lotQueryKey(lotId),
     queryFn: () => fetchReagent(notebookDataClient, lotId),
   })
+
   const reagent = lot.data ?? null
   const canEdit = useHasCapability('record.create')
   const safety = useMaterialSafety(lotId)
   const labelChoice = useLabelTemplateChoice('material')
+
   const ledger = useQuery({
     queryKey: lotLedgerQueryKey(lotId),
     queryFn: () => fetchReagentMovements(notebookDataClient, lotId, 200),
   })
+
   const usage = useQuery({
     queryKey: ['ui-port', 'materials', 'usage', reagent?.identifier ?? ''],
     queryFn: () => fetchReagentUsage(notebookDataClient, reagent!.identifier),
     enabled: Boolean(reagent),
   })
+
   const certificate = useQuery({
     queryKey: ['ui-port', 'materials', 'certificate', lotId],
     queryFn: () => fetchCertificateFile(notebookDataClient, lotId),
   })
+
   const replacementLink = useQuery({
     queryKey: [
       'ui-port',
@@ -211,16 +227,19 @@ function LotPage() {
     queryFn: () => fetchReplacementLot(notebookDataClient, reagent!.identifier),
     enabled: Boolean(reagent),
   })
+
   const madeFrom = useQuery({
     queryKey: solutionQueryKeys.madeFrom(lotId),
     queryFn: () => fetchMadeFrom(notebookDataClient, lotId),
     enabled: Boolean(reagent),
   })
+
   const preparedWith = useQuery({
     queryKey: solutionQueryKeys.preparedWith(lotId),
     queryFn: () => fetchPreparedWith(notebookDataClient, lotId),
     enabled: Boolean(reagent),
   })
+
   const { userLabel } = useUserNames(
     (ledger.data ?? []).map((m) => m.actorUserId ?? '').filter(Boolean),
   )
@@ -255,6 +274,7 @@ function LotPage() {
       )
     },
   })
+
   // A quarantined lot is isolated, not gone: the same call restores it.
   const hold = useMutation({
     mutationFn: (input: {
@@ -286,6 +306,7 @@ function LotPage() {
       )
     },
   })
+
   const replacement = useMutation({
     mutationFn: (input: {
       lot: string
@@ -349,11 +370,13 @@ function LotPage() {
 
   const row = toMaterialListRow(reagent)
   const quarantined = reagent.status === 'quarantined'
+
   const usable =
     !quarantined &&
     !row.tabs.includes('expired') &&
     reagent.status !== 'consumed' &&
     (reagent.quantity ?? 0) > 0
+
   const certificateLabel = certificate.data ? (
     <Link
       to="/records/$recordId"
@@ -365,8 +388,10 @@ function LotPage() {
   ) : (
     (row.certificate ?? '—')
   )
+
   const usedCount = (usage.data?.length ?? 0) + (preparedWith.data?.length ?? 0)
   const ledgerCount = ledger.data?.length ?? 0
+
   // What the printed label states: lot, storage, use-by and the signal word.
   const labelSource = {
     lot: reagent.lot,
@@ -949,6 +974,7 @@ export function UseForm({
   const [quantity, setQuantity] = useState('')
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string | null>(null)
+
   return (
     <form
       id="use-lot-form"
@@ -956,10 +982,13 @@ export function UseForm({
       onSubmit={(e) => {
         e.preventDefault()
         const n = Number(quantity)
+
         if (quantity.trim() === '' || !Number.isFinite(n) || n <= 0) {
           setError(t('library.materials.lot.enterTheQuantityUsedGreater'))
+
           return
         }
+
         if (available != null && n > available) {
           setError(
             t('library.materials.lot.onlyIsLeftInThis', {
@@ -967,8 +996,10 @@ export function UseForm({
               n: amount(n, unit),
             }),
           )
+
           return
         }
+
         setError(null)
         onSubmit({ quantity: n, reason: reason.trim() || undefined })
       }}

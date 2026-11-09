@@ -10,6 +10,7 @@ import {
 
 const RECORD = '00000000-0000-4000-8000-00000000b701'
 const REVISION = '00000000-0000-4000-8000-00000000b702'
+
 const version = {
   id: REVISION,
   workspace_id: '00000000-0000-4000-8000-00000000b700',
@@ -30,6 +31,7 @@ function clientReturning(value: unknown) {
       headers: { 'Content-Type': 'application/json' },
     }),
   )
+
   return { client: createDataClient(fetcher), fetcher }
 }
 
@@ -57,6 +59,7 @@ describe('controlled protocol client boundary', () => {
       user_id: 'sam',
       acknowledged_at: '2026-10-04T12:00:00Z',
     }
+
     const { client, fetcher } = clientReturning([row])
     expect(await fetchProtocolAcknowledgements(client, REVISION)).toEqual([row])
     expect(String(fetcher.mock.calls[0]?.[0])).toContain(
@@ -70,6 +73,7 @@ describe('controlled protocol client boundary', () => {
       user_id: 'sam',
       acknowledged_at: '2026-10-04T12:00:00Z',
     }
+
     const { client, fetcher } = clientReturning(row)
     expect(await acknowledgeProtocolVersion(client, REVISION)).toEqual(row)
     expect(JSON.parse(fetcher.mock.calls[0]?.[1].body)).toEqual({

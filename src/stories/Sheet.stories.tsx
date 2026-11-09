@@ -22,7 +22,9 @@ const meta = {
   tags: ['autodocs'],
   parameters: { layout: 'padded' },
 } satisfies Meta<typeof Sheet>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const Rows = ({ count = 4 }: { count?: number }) => (

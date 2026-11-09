@@ -31,9 +31,11 @@ export function EvidenceSignatures({
     queryFn: () => fetchSignaturesForRecord(notebookDataClient, recordId),
     enabled: Boolean(recordId),
   })
+
   const mine = (signatures.data ?? []).filter(
     (s) => s.revision_id === revisionId,
   )
+
   return (
     <InspectorSection title={t('projects.evidence.signatures')}>
       <SignaturesTable
@@ -53,6 +55,7 @@ export function EvidenceSignatures({
 /** What a drift read says, in words a reader can act on. */
 export function driftSummary(drift: RevisionDrift): string[] {
   const lines: string[] = []
+
   if (drift.record.renamed)
     lines.push(
       t('projects.evidence.drift.recordRenamed', {
@@ -60,6 +63,7 @@ export function driftSummary(drift: RevisionDrift): string[] {
         to: drift.record.currentTitle,
       }),
     )
+
   for (const instrument of drift.instruments)
     if (instrument.renamed)
       lines.push(
@@ -68,6 +72,7 @@ export function driftSummary(drift: RevisionDrift): string[] {
           to: instrument.currentName ?? '—',
         }),
       )
+
   for (const dataset of drift.datasets)
     if (dataset.changed)
       lines.push(
@@ -76,12 +81,14 @@ export function driftSummary(drift: RevisionDrift): string[] {
           latest: dataset.latestLabel ?? t('projects.evidence.drift.latest'),
         }),
       )
+
   if (drift.commentsAfterSigning > 0)
     lines.push(
       t('projects.evidence.drift.commentsAfter', {
         count: drift.commentsAfterSigning,
       }),
     )
+
   return lines
 }
 
@@ -98,6 +105,7 @@ export function EvidenceDrift({
     queryKey: revisionEvidenceQueryKeys.drift(revisionId),
     queryFn: () => fetchRevisionDrift(notebookDataClient, revisionId),
   })
+
   return (
     <InspectorSection
       title={

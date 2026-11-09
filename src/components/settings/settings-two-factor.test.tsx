@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('./settings-two-factor-data', () => ({
   getTwoFactorStatusFn: mocks.status,
 }))
+
 vi.mock('#/lib/auth-client', () => ({
   authClient: {
     twoFactor: {
@@ -29,6 +30,7 @@ vi.mock('#/lib/auth-client', () => ({
     },
   },
 }))
+
 vi.mock('qrcode', () => ({
   default: {
     toDataURL: vi.fn().mockResolvedValue('data:image/png;base64,AAAA'),
@@ -39,6 +41,7 @@ function renderPanel() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <SettingsTwoFactor />
@@ -57,6 +60,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   mocks.status.mockResolvedValue(base)
 })
+
 afterEach(cleanup)
 
 describe('two-factor settings', () => {
@@ -140,9 +144,11 @@ describe('two-factor settings', () => {
       error: null,
     })
     renderPanel()
+
     const start = await screen.findByRole('button', {
       name: 'Set up two-factor',
     })
+
     expect((start as HTMLButtonElement).disabled).toBe(true)
     fireEvent.change(screen.getByLabelText(/Signing password/), {
       target: { value: 'pw' },

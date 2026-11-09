@@ -62,7 +62,9 @@ import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
 
 const tabs = ['all', 'active', 'retired'] as const
+
 type TemplateTab = (typeof tabs)[number]
+
 const tabLabel: Record<TemplateTab, string> = {
   all: t('library.templates.list.all'),
   active: t('library.templates.list.active'),
@@ -100,9 +102,11 @@ export const Route = createFileRoute('/templates')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: TemplatesRoute,
@@ -112,32 +116,40 @@ function TemplatesRoute() {
   const isIndex = useRouterState({
     select: (state) => state.location.pathname === '/templates',
   })
+
   return isIndex ? <TemplatesList /> : <Outlet />
 }
 
 function inTab(item: TemplateRow, tab: TemplateTab): boolean {
   if (tab === 'all') return true
+
   if (tab === 'active') return item.lifecycle === 'active'
+
   return item.lifecycle === 'retired'
 }
 
 function TemplatesList() {
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+
   const dropNewFlag = useCallback(() => {
     void navigate({
       search: (current) => ({ ...current, new: undefined }),
       replace: true,
     })
   }, [navigate])
+
   const query = useTemplateRows()
   const rows = query.data ?? []
   const members = useWorkspaceMemberNames()
+
   const ownerName = (id: string | null) =>
     id ? (members.data?.get(id) ?? '—') : '—'
+
   const tab: TemplateTab = search.tab ?? 'all'
   const [selected, setSelected] = useState<string | null>(null)
   const view = useListView('templates')
+
   const openTemplate = useOpenRow<TemplateRow>(
     navigate,
     (row) => `/templates/${encodeURIComponent(row.id)}`,
@@ -151,8 +163,10 @@ function TemplatesList() {
       ) as Record<TemplateTab, number>,
     [rows],
   )
+
   const queryText = (search.q ?? '').trim()
   const q = queryText.toLowerCase()
+
   const visible = sortByName(
     rows
       .filter((item) => inTab(item, tab))
@@ -163,7 +177,9 @@ function TemplatesList() {
     (item) => item.name,
     (item) => item.displayId ?? item.key,
   )
+
   const wanted = search.selected ?? search.template ?? search.protocol
+
   const sel =
     visible.find((item) => item.id === (selected ?? wanted)) ?? visible.at(0)
 
@@ -249,6 +265,7 @@ function TemplatesList() {
         accessorFn: (item) => templateLifecycle(item.lifecycle).label,
         cell: ({ row }) => {
           const status = templateLifecycle(row.original.lifecycle)
+
           return <Status tone={status.tone}>{status.label}</Status>
         },
       },
@@ -331,6 +348,7 @@ function TemplatesList() {
             label={t('library.templates.list.templates')}
             items={visible.map((item) => {
               const status = templateLifecycle(item.lifecycle)
+
               return {
                 key: item.id,
                 id: item.displayId ?? item.key,
@@ -561,6 +579,7 @@ function NewTemplateDialog({
   const trimmedKey = key.trim()
   const trimmedName = name.trim()
   const keyOk = templateKeyPattern.test(trimmedKey)
+
   const keyError =
     trimmedKey.length > 0 && !keyOk
       ? t('library.templates.list.lowercaseLettersDigitsAndUnderscore')
@@ -571,6 +590,7 @@ function NewTemplateDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
+
         if (!next) {
           setKey('')
           setName('')

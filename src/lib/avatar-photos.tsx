@@ -23,6 +23,7 @@ export async function fetchMemberPhotos(): Promise<Map<string, string>> {
   const rows = await client.list<{ user_id: string; photo_version: string }>(
     'rpc/workspace_member_photos',
   )
+
   return new Map(rows.map((row) => [row.user_id, row.photo_version]))
 }
 
@@ -33,22 +34,26 @@ export async function uploadMyPhoto(photo: Blob): Promise<void> {
     headers: { 'content-type': photo.type || 'application/octet-stream' },
     body: photo,
   })
+
   if (!response.ok) throw new Error(await errorMessage(response))
 }
 
 /** Removes your photo; your initials show again. */
 export async function removeMyPhoto(): Promise<void> {
   const response = await fetch('/api/avatars/me', { method: 'DELETE' })
+
   if (!response.ok) throw new Error(await errorMessage(response))
 }
 
 async function errorMessage(response: Response): Promise<string> {
   try {
     const body = (await response.json()) as { error?: { message?: string } }
+
     if (body.error?.message) return body.error.message
   } catch {
     // Fall through to the status text.
   }
+
   return response.statusText || `Request failed (${response.status})`
 }
 
@@ -62,10 +67,12 @@ export function AvatarPhotosProvider({
     queryFn: fetchMemberPhotos,
     staleTime: 5 * 60_000,
   })
+
   const photos = useMemo(
     () => query.data ?? new Map<string, string>(),
     [query.data],
   )
+
   return (
     <AvatarPhotosContext.Provider value={photos}>
       {children}

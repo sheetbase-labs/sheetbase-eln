@@ -15,7 +15,9 @@ const meta = {
   parameters: { layout: 'padded' },
   args: { tone: 'ok', children: 'Available' },
 } satisfies Meta<typeof Status>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const TONES = [

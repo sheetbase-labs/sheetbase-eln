@@ -44,9 +44,11 @@ import { t } from '#/copy'
 export const Route = createFileRoute('/saved-searches')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: SavedSearchesPage,
@@ -57,6 +59,7 @@ type Who = 'all' | 'shared' | 'mine'
 function SavedSearchesPage() {
   const { context } = Route.useRouteContext()
   const navigate = useNavigate()
+
   const {
     list,
     saved,
@@ -73,6 +76,7 @@ function SavedSearchesPage() {
     userId: context.user.id,
     role: context.workspace?.role,
   })
+
   const [q, setQ] = useState('')
   const [who, setWho] = useState<Who>('all')
   const [renaming, setRenaming] = useState<SavedQuery | null>(null)
@@ -81,6 +85,7 @@ function SavedSearchesPage() {
 
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase()
+
     return saved.filter(
       (s) =>
         (who === 'all' ||
@@ -178,8 +183,10 @@ function SavedSearchesPage() {
         meta: { headerClassName: 'w-10', cellClassName: 'w-10 text-right' },
         cell: ({ row }) => {
           const s = row.original
+
           if (!canChange(s)) return null
           const shared = s.visibility === 'workspace'
+
           return (
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -309,6 +316,7 @@ function SavedSearchesPage() {
           <form
             onSubmit={(e) => {
               e.preventDefault()
+
               if (!renaming || !newName.trim()) return
               rename.mutate(
                 { id: renaming.id, name: newName },

@@ -19,7 +19,9 @@ const meta = {
     will: 'Studies will be planned as a sequence of runs with their own timing, dependencies and approval points.',
   },
 } satisfies Meta<typeof CapabilityGap>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const INSTEAD = [

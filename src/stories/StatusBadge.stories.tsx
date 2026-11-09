@@ -13,12 +13,14 @@ const meta = {
 } satisfies Meta<typeof StatusBadge>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const InProgress: Story = {}
 export const Review: Story = { args: { status: 'review' } }
 export const Approved: Story = { args: { status: 'approved' } }
 export const Failed: Story = { args: { status: 'failed' } }
+
 export const EveryVocabulary: Story = {
   render: () => (
     <div className="space-y-5">
@@ -39,6 +41,7 @@ export const EveryVocabulary: Story = {
     </div>
   ),
 }
+
 export const SizesAndUnknown: Story = {
   render: () => (
     <div className="flex gap-2">

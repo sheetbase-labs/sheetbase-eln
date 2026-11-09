@@ -117,6 +117,7 @@ const resultKey = (result: SearchResult) =>
 /** Every option shares the design's three-column row: icon, text, ↵ hint. */
 const optionRow =
   'group grid grid-cols-[20px_1fr_auto] items-start gap-2.5 rounded-md px-2.5 py-1.5 text-body max-md:min-h-12 max-md:py-2'
+
 /** The ↵ hint only occupies a column on the active row, as the design draws it. */
 const optionHint = 'hidden group-aria-selected:inline-flex'
 
@@ -154,9 +155,11 @@ export function SearchPalette({
   const fields = useSearchFields()
   const [error, setError] = useState<unknown>(null)
   const [searching, setSearching] = useState(false)
+
   const [suggestion, setSuggestion] = useState<DidYouMeanSuggestion | null>(
     null,
   )
+
   const inputRef = useRef<HTMLInputElement>(null)
   const restoreFocusRef = useRef<HTMLElement | null>(null)
   // A response must not write into the palette once a newer search, or the
@@ -178,7 +181,9 @@ export function SearchPalette({
 
   const setOpen = (o: boolean) => {
     onOpenChange?.(o)
+
     if (openProp === undefined) setOpenState(o)
+
     if (!o) reset()
   }
 
@@ -234,15 +239,19 @@ export function SearchPalette({
   useEffect(() => {
     if (!open) return
     const term = q.trim()
+
     if (!term) {
       setRes(null)
       setError(null)
       setSearching(false)
+
       return
     }
+
     setSuggestion(null)
     setSearching(true)
     let live = true
+
     const timer = setTimeout(() => {
       void parseTypedSearch(term, fields)
         .catch((): TypedSearch => ({ q: term }))
@@ -252,6 +261,7 @@ export function SearchPalette({
           runSearch(term, scope, archived, parsed)
         })
     }, 120)
+
     return () => {
       live = false
       searchGeneration.current += 1
@@ -267,16 +277,21 @@ export function SearchPalette({
   useEffect(() => {
     if (!open) return
     const term = q.trim()
+
     if (!term || res === null || res.length > 0) {
       setSuggestion(null)
+
       return
     }
+
     let live = true
+
     const timer = setTimeout(() => {
       void searchDidYouMean(notebookDataClient, term, archived).then((rows) => {
         if (live) setSuggestion(rows[0] ?? null)
       })
     }, 150)
+
     return () => {
       live = false
       clearTimeout(timer)
@@ -284,10 +299,12 @@ export function SearchPalette({
   }, [q, open, res, archived])
 
   const items = res ?? []
+
   // The chosen project's name, so the empty state can name the scope rather
   // than the id it was chosen by.
   const scopeLabel =
     scope === SEARCH_SCOPE_ALL ? null : (projects.data?.get(scope) ?? null)
+
   const scoped = useMemo(
     () =>
       filterBySearchScope(
@@ -296,6 +313,7 @@ export function SearchPalette({
       ),
     [items, scope],
   )
+
   const buckets = useMemo(() => {
     // The palette is a jump list, so its rows follow relevance, not the results
     // page's fixed section order: grouping a weak sheet or dataset hit into the
@@ -308,32 +326,40 @@ export function SearchPalette({
     const sectionAt = new Map<SearchResultGroup, number>()
     ranked.forEach((result, index) => {
       const group = searchResultGroup(result)
+
       if (!sectionAt.has(group)) sectionAt.set(group, index)
     })
+
     return [...grouped].sort(
       (a, b) => (sectionAt.get(a.group) ?? 0) - (sectionAt.get(b.group) ?? 0),
     )
   }, [scoped, q, typed])
+
   const actions = useMemo(() => contextualSearchActions(scoped), [scoped])
+
   const commandMatch = useMemo(() => {
     const all = [...goToCommands(role), ...newCommands(pathname)]
     const match = matchCommands(all, q)
     // A plain word searches first: its commands join once the results are in,
     // so the first row the keyboard lands on is a result, not a page link.
     const settled = res !== null && !searching
+
     const limited =
       q.trim() && !match.leads
         ? settled
           ? match.commands.slice(0, MAX_TYPED_COMMANDS)
           : []
         : match.commands
+
     return {
       leads: match.leads,
       goTo: limited.filter((c) => c.group === 'Go to'),
       create: limited.filter((c) => c.group === 'New'),
     }
   }, [q, role, pathname, res, searching])
+
   const commandCount = commandMatch.goTo.length + commandMatch.create.length
+
   const entryCount =
     buckets.reduce((n, bucket) => n + bucket.results.length, 0) +
     actions.length +
@@ -354,14 +380,17 @@ export function SearchPalette({
         '_blank',
         'noopener,noreferrer',
       )
+
       return
     }
+
     setOpen(false)
     void navigate({
       to: command.to as never,
       search: command.search as never,
     })
   }
+
   const commandGroups = (heading: 'Go to' | 'New', list: PaletteCommand[]) =>
     list.length ? (
       <CommandGroup
@@ -398,17 +427,22 @@ export function SearchPalette({
     if (beside) {
       setOpen(false)
       requestOpenBeside(result.deepLink, result.title, below)
+
       return
     }
+
     if (newTab) {
       window.open(
         searchResultNewTabUrl(result.deepLink, window.location.origin),
         '_blank',
         'noopener,noreferrer',
       )
+
       return
     }
+
     setOpen(false)
+
     // A notebook found through an attached file opens at that file's block.
     if (result.matchedBlockId) void navigate({ href: result.deepLink })
     else void navigate({ to: result.deepLink as never })
@@ -421,8 +455,10 @@ export function SearchPalette({
         '_blank',
         'noopener,noreferrer',
       )
+
       return
     }
+
     setOpen(false)
     void navigate({
       to: action.to as never,
@@ -437,6 +473,7 @@ export function SearchPalette({
     below = false,
   ) => {
     if (!entry) return
+
     if (entry.type === 'result') go(entry.result, newTab, beside, below)
     else runAction(entry.action, newTab)
   }
@@ -480,10 +517,12 @@ export function SearchPalette({
   }
 
   const totalCount = items[0]?.totalCount
+
   const seeAllLabel =
     scope === SEARCH_SCOPE_ALL && totalCount
       ? t('projects.searchPalette.seeAllCount', { count: totalCount })
       : t('projects.searchPalette.seeAll')
+
   // QA3-palette-2 — the listbox only replaces the error and no-match states
   // when it is actually rendered; `aria-controls` must not point at an id the
   // document does not contain in those states (CommandInput reads whether a
@@ -707,6 +746,7 @@ export function SearchPalette({
               >
                 {bucket.results.map((result) => {
                   const label = searchResultLabel(result)
+
                   return (
                     <CommandItem
                       key={resultKey(result)}

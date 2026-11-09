@@ -66,8 +66,10 @@ function recordStatus(record: TemplateUsageRecord): {
       return { tone: 'review', label: t('library.templates.inUse.inReview') }
     default: {
       const key = record.status.toLowerCase()
+
       if (key.includes('draft'))
         return { tone: 'draft', label: t('library.templates.inUse.draft') }
+
       return {
         tone: 'progress',
         label: record.status || t('library.templates.inUse.inProgress'),
@@ -82,6 +84,7 @@ function updateCell(
   current: NotebookTemplateVersion | undefined,
 ) {
   if (!current || !version || version.id === current.id) return null
+
   if (record.locked_at) {
     return (
       <span className="text-label text-fg-muted">
@@ -89,6 +92,7 @@ function updateCell(
       </span>
     )
   }
+
   if (record.status.toLowerCase().includes('review')) {
     return (
       <span className="text-label text-fg-muted">
@@ -96,6 +100,7 @@ function updateCell(
       </span>
     )
   }
+
   return (
     <Link
       to="/templates/$templateId/update"
@@ -165,6 +170,7 @@ function inUseRecordColumns({
       header: t('library.templates.inUse.status'),
       cell: ({ row }) => {
         const status = recordStatus(row.original)
+
         return <Status tone={status.tone}>{status.label}</Status>
       },
     },
@@ -192,6 +198,7 @@ function inUseMatrixColumns(
 ): RegistryColumn<ReturnType<typeof buildInUseMatrix>[number]>[] {
   const right = () =>
     rightAligned<ReturnType<typeof buildInUseMatrix>[number]>().meta
+
   return [
     {
       id: 'version',
@@ -239,19 +246,23 @@ function inUseMatrixColumns(
 
 function TemplateInUse() {
   const { templateId } = Route.useParams()
+
   const {
     version: versionFilter,
     project: projectFilter,
     state,
   } = Route.useSearch()
+
   const navigate = useNavigate()
   const versions = useTemplateVersions(templateId)
   const list = [...(versions.data ?? [])].sort((a, b) => b.version - a.version)
   const current = publishedTemplateVersion(list)
   const users = useTemplateUsers(list.map((v) => v.id))
+
   const names = useUserNames(
     (users.data ?? []).map((r) => r.created_by_user_id ?? '').filter(Boolean),
   )
+
   const rows = users.data ?? []
 
   // Only the records in projects this viewer can open are listed, but the
@@ -260,13 +271,17 @@ function TemplateInUse() {
   // instead of guessing from the URL. Unknown count (still loading, or the
   // read failed) states nothing.
   const made = useTemplateMadeCount(list.map((v) => v.id))
+
   const unlistedCount =
     made.data === undefined ? 0 : Math.max(0, made.data - rows.length)
+
   const restrictedView = state === 'denied' || unlistedCount > 0
+
   const unlistedNotice =
     unlistedCount > 0
       ? t('library.templates.inUse.unlistedNotice', { count: unlistedCount })
       : t('library.templates.inUse.aRecordMadeFromThis')
+
   const unlistedEmptyBody = t('library.templates.inUse.unlistedEmptyBody', {
     count: unlistedCount,
   })
@@ -274,6 +289,7 @@ function TemplateInUse() {
   const projects = useTemplateProjects(
     rows.map((row) => row.project_id).filter((id): id is string => Boolean(id)),
   )
+
   const projectIds = useMemo(
     () =>
       [...new Set(rows.map((row) => row.project_id))]
@@ -293,12 +309,14 @@ function TemplateInUse() {
 
   const groups = useMemo(() => {
     const byVersion = new Map<string, TemplateUsageRecord[]>()
+
     for (const record of filtered) {
       const key = record.source_notebook_template_version_id ?? ''
       const bucket = byVersion.get(key) ?? []
       bucket.push(record)
       byVersion.set(key, bucket)
     }
+
     return list
       .map((version) => ({ version, records: byVersion.get(version.id) ?? [] }))
       .filter((group) => group.records.length)
@@ -308,6 +326,7 @@ function TemplateInUse() {
   const totals = useMemo(() => countTemplateUse(rows), [rows])
   const staleness = inUseStaleness(rows, current?.id)
   const filtersActive = Boolean(versionFilter || projectFilter)
+
   const versionFilterIsStale = Boolean(
     versionFilter && !list.some((v) => v.id === versionFilter),
   )

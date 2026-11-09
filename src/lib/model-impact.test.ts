@@ -27,12 +27,15 @@ function item(
 describe('model impact client', () => {
   it('calls discover_model_dependencies with the model key', async () => {
     const calls: Array<{ name: string; args: unknown }> = []
+
     const client = {
       rpc: async (name: string, args: Record<string, unknown>) => {
         calls.push({ name, args })
+
         return { kind: 'model', id: 'sample', dependencies: [] }
       },
     } as DataClient
+
     const report = await discoverModelImpact(client, 'sample')
     expect(calls).toEqual([
       { name: 'discover_model_dependencies', args: { p_model_key: 'sample' } },
@@ -61,6 +64,7 @@ describe('model impact client', () => {
       item('sheet_instance', 's1'),
       item('model_relationship_rule', 'rule1'),
     ])
+
     expect(groups.map((group) => group.group)).toEqual([
       'fields',
       'records',

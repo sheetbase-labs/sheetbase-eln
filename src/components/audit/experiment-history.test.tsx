@@ -10,6 +10,7 @@ import { ExperimentHistoryView } from './experiment-history'
 import type { AuditEventWire } from '#/lib/audit-history'
 
 afterEach(cleanup)
+
 function event(overrides: Partial<AuditEventWire>): AuditEventWire {
   return {
     id: 'source',
@@ -56,6 +57,7 @@ it('selects real captured details and only explicitly linked effects, in workspa
       payload: { name: 'Unrelated calculation' },
     }),
   ]
+
   render(
     <ExperimentHistoryView
       recordId="record-1"
@@ -71,17 +73,21 @@ it('selects real captured details and only explicitly linked effects, in workspa
       name: 'Inspect audit entry 12: updated Sheet Clarification runs',
     }),
   )
+
   const details = within(
     screen.getByRole('complementary', { name: 'Entry details' }),
   )
+
   expect(details.getByText('125')).toBeTruthy()
   expect(details.getByText('150')).toBeTruthy()
   expect(details.getByText('session-a')).toBeTruthy()
   expect(details.getByText('web-client')).toBeTruthy()
   expect(details.getByText('25 Sept 2026, 00:32:14 BST')).toBeTruthy()
+
   const effects = within(
     details.getByRole('region', { name: 'Knock-on changes' }),
   )
+
   expect(effects.getByText(/Meets criteria/)).toBeTruthy()
   expect(effects.queryByText(/Unrelated/)).toBeNull()
 })
@@ -161,9 +167,11 @@ it('renders a recorded protocol deviation with its frozen and recorded text', ()
       name: /Inspect audit entry 21/,
     }),
   )
+
   const details = within(
     screen.getByRole('complementary', { name: 'Entry details' }),
   )
+
   expect(details.getByText('Protocol step text')).toBeTruthy()
   expect(details.getByText('Hold at 2-8 C for 14 days.')).toBeTruthy()
   expect(details.getByText('Hold at 2-8 C for 21 days.')).toBeTruthy()

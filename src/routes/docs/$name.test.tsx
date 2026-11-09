@@ -23,6 +23,7 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 
 const DocPage = Route.options.component as React.ComponentType
+
 const loader = Route.options.loader as (args: {
   params: { name: string }
 }) => Promise<{ name: string; html: string | null; known: boolean }>

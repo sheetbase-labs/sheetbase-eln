@@ -71,27 +71,34 @@ export function TimestampsDialog({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
+
   const settings = useQuery({
     queryKey: timestampKeys.settings(workspaceId),
     queryFn: () => fetchTimestampSettings(dataClient, workspaceId),
   })
+
   const stamps = useQuery({
     queryKey: timestampKeys.list(workspaceId),
     queryFn: () => fetchSignatureTimestamps(dataClient),
   })
+
   const key = useQuery({
     queryKey: timestampKeys.key(workspaceId),
     queryFn: () => fetchSigningKey(dataClient, workspaceId),
   })
+
   const current: TimestampSettings | undefined = settings.data
+
   const currentChoice: Choice = current?.enabled
     ? (current.authority ?? 'off')
     : 'off'
+
   const [choice, setChoice] = useState<Choice | null>(null)
   const [url, setUrl] = useState<string | null>(null)
   const picked = choice ?? currentChoice
   const address = url ?? current?.url ?? ''
   const customReady = picked !== 'custom' || /^https?:\/\/\S+$/.test(address)
+
   const dirty =
     choice !== null ||
     (picked === 'custom' && url !== null && url !== current?.url)
@@ -113,6 +120,7 @@ export function TimestampsDialog({
       toast(t('settings.timestamps.saved'))
     },
   })
+
   const again = useMutation({
     mutationFn: (signatureId: string) =>
       requestSignatureTimestamp(dataClient, signatureId),
@@ -126,6 +134,7 @@ export function TimestampsDialog({
   })
 
   const rows = stamps.data ?? []
+
   const count = (status: TimestampStatus) =>
     rows.filter((r) => r.status === status).length
 

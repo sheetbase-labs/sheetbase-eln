@@ -67,16 +67,21 @@ async function findSeries(
     'qc_series',
     `?name=ilike.${likeValue(text)}&select=id,name,mean,sd,state&order=name.asc&limit=6`,
   )
+
   if (rows.length === 0)
     return {
       ok: false,
       message: `No quality control series matches "${text}".`,
     }
+
   const exact = rows.filter(
     (r) => r.name.toLowerCase() === text.trim().toLowerCase(),
   )
+
   if (exact.length === 1) return { ok: true, series: exact[0] }
+
   if (rows.length === 1) return { ok: true, series: rows[0] }
+
   return {
     ok: false,
     message: `More than one series matches "${text}": ${rows
@@ -96,13 +101,16 @@ export async function buildQcProposal(
   switch (name) {
     case QC_SET_BASELINE_TOOL: {
       const parsed = proposeQcBaselineSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const found = await findSeries(context, input.series)
+
       if (!found.ok) return fail(found.message)
       const series = found.series
       let limits: { mean: number; sd: number } | { firstN: number }
       let after: string
+
       if (input.mean !== undefined && input.sd !== undefined) {
         limits = { mean: input.mean, sd: input.sd }
         after = limitsText(limits)
@@ -114,10 +122,12 @@ export async function buildQcProposal(
           'Ask the person for the mean and SD, or how many of the first points to take them from.',
         )
       }
+
       const changes: ProposalChange[] = [
         { label: 'Series', before: null, after: series.name },
         { label: 'Limits', before: limitsText(series), after },
       ]
+
       return {
         ok: true,
         proposal: {
@@ -131,20 +141,26 @@ export async function buildQcProposal(
         },
       }
     }
+
     case QC_ACKNOWLEDGE_TOOL: {
       const parsed = proposeQcAcknowledgeSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const found = await findSeries(context, input.series)
+
       if (!found.ok) return fail(found.message)
       const series = found.series
+
       const open = await context.client.list<BreachRow>(
         'qc_points',
         `?series_id=eq.${series.id}&violations=neq.{}&acknowledged_at=is.null&excluded=eq.false&select=id,value,at,violations&order=at.desc&limit=50`,
       )
+
       if (open.length === 0)
         return fail(`${series.name} has no open breaches to acknowledge.`)
       const exclude = input.exclude ?? false
+
       const changes: ProposalChange[] = [
         { label: 'Series', before: null, after: series.name },
         {
@@ -154,12 +170,14 @@ export async function buildQcProposal(
         },
         { label: 'Note', before: null, after: input.note },
       ]
+
       if (exclude)
         changes.push({
           label: 'Limits',
           before: 'including these points',
           after: 'leaving these points out',
         })
+
       return {
         ok: true,
         proposal: {

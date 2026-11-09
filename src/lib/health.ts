@@ -32,6 +32,7 @@ export function evaluateMigrationCompatibility(
   if (expected === 'untracked') {
     return { status: 'not_checked', expected, applied }
   }
+
   return {
     status: expected === applied ? 'compatible' : 'incompatible',
     expected,
@@ -41,6 +42,7 @@ export function evaluateMigrationCompatibility(
 
 async function probeDatabase(expectedMigration: string): Promise<ProbeResult> {
   const start = Date.now()
+
   // Bounded: a hanging database must fail readiness within the probe window
   // (parity with the 2s PostgREST timeout), not stall the endpoint.
   const client = new Client({
@@ -48,27 +50,33 @@ async function probeDatabase(expectedMigration: string): Promise<ProbeResult> {
     connectionTimeoutMillis: 2000,
     statement_timeout: 2000,
   })
+
   try {
     // A short-lived connection keeps the probe independent of application
     // pools and is always closed, including migration-query failure paths.
     await client.connect()
     await client.query('SELECT 1')
     let appliedMigration: string | null = null
+
     if (expectedMigration !== 'untracked') {
       const result = await client.query<{ created_at: string }>(
         'SELECT created_at::text FROM drizzle.__drizzle_migrations ORDER BY created_at DESC LIMIT 1',
       )
+
       appliedMigration = result.rows[0]?.created_at ?? null
     }
+
     const migration = evaluateMigrationCompatibility(
       expectedMigration,
       appliedMigration,
     )
+
     if (migration.status === 'incompatible') {
       logger.error('database migration compatibility check failed', {
         expected_migration: migration.expected,
         applied_migration: migration.applied,
       })
+
       return {
         ok: false,
         latencyMs: Date.now() - start,
@@ -77,10 +85,12 @@ async function probeDatabase(expectedMigration: string): Promise<ProbeResult> {
         migration,
       }
     }
+
     return { ok: true, latencyMs: Date.now() - start, migration }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     logger.error('database readiness probe failed', { error: message })
+
     return { ok: false, latencyMs: Date.now() - start, error: message }
   } finally {
     await client.end().catch(() => undefined)
@@ -91,6 +101,7 @@ async function probePostgrest(): Promise<ProbeResult> {
   const start = Date.now()
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 2000)
+
   try {
     // PostgREST admin server exposes /ready (and /live). We probe /ready
     // because that is what tells us PostgREST can actually serve requests,
@@ -98,6 +109,7 @@ async function probePostgrest(): Promise<ProbeResult> {
     const response = await fetch(`${env.POSTGREST_ADMIN_URL}/ready`, {
       signal: controller.signal,
     })
+
     return {
       ok: response.ok,
       latencyMs: Date.now() - start,
@@ -108,6 +120,7 @@ async function probePostgrest(): Promise<ProbeResult> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     logger.error('postgrest readiness probe failed', { error: message })
+
     return { ok: false, latencyMs: Date.now() - start, error: message }
   } finally {
     clearTimeout(timeout)
@@ -129,10 +142,12 @@ export interface ReadinessReport {
  */
 export async function runReadiness(): Promise<ReadinessReport> {
   const deployment = getDeploymentConfig()
+
   const [database, postgrest] = await Promise.all([
     probeDatabase(deployment.expectedMigration),
     probePostgrest(),
   ])
+
   return {
     status: database.ok && postgrest.ok ? 'ready' : 'not_ready',
     artifact: deployment.artifact,
@@ -147,6 +162,7 @@ export async function runReadiness(): Promise<ReadinessReport> {
  */
 function stripErrorForBody(probe: ProbeResult): ProbeResult {
   if (probe.ok) return probe
+
   return {
     ok: false,
     latencyMs: probe.latencyMs,
@@ -157,6 +173,7 @@ function stripErrorForBody(probe: ProbeResult): ProbeResult {
 /** Builds the liveness response — process is up, no dependency checks. */
 export function livenessResponse(request: Request): Response {
   const requestId = resolveRequestId(request.headers)
+
   return stampSecurityHeaders(
     stampRequestId(
       Response.json({ status: 'live' }, { status: 200 }),
@@ -171,6 +188,7 @@ export function readinessResponse(
   report: ReadinessReport,
 ): Response {
   const requestId = resolveRequestId(request.headers)
+
   return stampSecurityHeaders(
     stampRequestId(
       Response.json(report, { status: report.status === 'ready' ? 200 : 503 }),

@@ -59,6 +59,7 @@ function mount(rpc: (...args: unknown[]) => Promise<unknown>, extra = {}) {
       {...extra}
     />,
   )
+
   return onSaved
 }
 
@@ -112,6 +113,7 @@ describe('EditBookingDialog', () => {
     const rpc = vi.fn(async (..._args: unknown[]) => {
       throw new DataClientError('SB020', 'overlaps', 409)
     })
+
     const onSaved = mount(rpc)
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     expect((await screen.findByRole('alert')).textContent).toBe(
@@ -145,9 +147,11 @@ describe('EditBookingDialog', () => {
     fireEvent.click(screen.getAllByRole('checkbox')[1])
     fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     await vi.waitFor(() => expect(rpc).toHaveBeenCalled())
+
     const args = rpc.mock.calls[0][1] as {
       p_samples: { sampleRecordId: string }[]
     }
+
     expect(args.p_samples.map((s) => s.sampleRecordId)).toEqual(['s-1', 's-2'])
   })
 })

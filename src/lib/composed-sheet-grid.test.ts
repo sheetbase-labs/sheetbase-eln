@@ -44,6 +44,7 @@ describe('composed Sheet grid matrix', () => {
         ],
       },
     } as unknown as ComposedSheetSnapshot
+
     const matrix = composedSheetGridMatrix(snapshot)
     expect(matrix.columns[0]).toMatchObject({
       label: 'Sample',

@@ -29,23 +29,29 @@ export function describeAnalysisChange(
   if (!before) return `${count(after.length)} saved`
   const changed: number[] = []
   const shared = Math.min(before.length, after.length)
+
   for (let i = 0; i < shared; i += 1) {
     if (JSON.stringify(before[i]) !== JSON.stringify(after[i]))
       changed.push(i + 1)
   }
+
   const parts: string[] = []
+
   if (after.length > before.length)
     parts.push(
       `Added ${count(after.length - before.length)} (now ${after.length})`,
     )
+
   if (after.length < before.length)
     parts.push(
       `Removed ${count(before.length - after.length)} (now ${after.length})`,
     )
+
   if (changed.length)
     parts.push(
       `Changed ${changed.length === 1 ? 'chart' : 'charts'} ${changed.join(', ')}`,
     )
+
   return parts.length ? parts.join('; ') : 'Re-saved, charts unchanged'
 }
 

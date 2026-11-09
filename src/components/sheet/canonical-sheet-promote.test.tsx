@@ -29,6 +29,7 @@ import type {
 const rpcMock = vi.hoisted(() => vi.fn())
 const listMock = vi.hoisted(() => vi.fn())
 const gridRender = vi.hoisted(() => vi.fn())
+
 /** Mutable so a test can state what `column_promotions` holds. */
 const promotionState = vi.hoisted(() => ({ rows: [] as ColumnPromotion[] }))
 
@@ -41,10 +42,13 @@ const ROW_B = '21000000-0000-4000-8000-000000000006'
 const RECORD = '21000000-0000-4000-8000-000000000007'
 const PROJECT = '21000000-0000-4000-8000-000000000009'
 const WORKSPACE = '21000000-0000-4000-8000-00000000000a'
+
 /** The Sheet's own stored column. */
 const LOCAL_FIELD = validSheetInstanceState().localFields[0].fieldId
+
 /** A derived column the Sheet also owns — but cannot give away. */
 const CALCULATED_FIELD = '21000000-0000-4000-8000-00000000000b'
+
 /** A bound column, from the same Definition the composition uses. */
 const BOUND_FIELD = validSheetDefinitionConfiguration().columns[0].id
 
@@ -67,9 +71,11 @@ const DEFINITION = {
 function composedWire() {
   const configuration = validSheetDefinitionConfiguration()
   const [columnA, columnB] = configuration.columns
+
   if (columnA.source.kind !== 'bound' || columnB.source.kind !== 'bound') {
     throw new Error('invalid test fixture')
   }
+
   return {
     instanceId: INSTANCE,
     definitionVersionId: DEFINITION_VERSION,
@@ -123,8 +129,11 @@ function fakeClient(): DataClient {
   return {
     list: (async (resource: string, query?: string) => {
       listMock(resource, query)
+
       if (resource === 'dataset_schema_definitions') return [DEFINITION]
+
       if (resource === 'column_promotions') return promotionState.rows
+
       return []
     }) as DataClient['list'],
     count: async () => 0,
@@ -158,6 +167,7 @@ vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
 vi.mock('./sheetbase-grid', () => ({
   SheetbaseTableGrid: (props: SheetbaseGridProps) => {
     gridRender(props)
+
     return (
       <table>
         <thead>
@@ -182,6 +192,7 @@ async function composedInstance(): Promise<SheetInstance> {
   const base = validSheetInstanceState()
   const stored = base.localFields[0]
   const snapshot = await fetchComposedSheetRows(INSTANCE, {}, fakeClient())
+
   return {
     id: INSTANCE,
     workspaceId: WORKSPACE,
@@ -226,6 +237,7 @@ function renderEditor(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
@@ -243,6 +255,7 @@ function visiblePromoteEntry(): SheetbaseGridMenuItem | undefined {
   const entries = (gridProps().columnMenuItems ?? []).filter(
     (entry): entry is SheetbaseGridMenuItem => typeof entry === 'object',
   )
+
   return enabledMenuActions(entries).find(
     (entry) => entry.id === 'promote-column',
   )
@@ -268,6 +281,7 @@ function choosePromote(columnId: string) {
     (candidate): candidate is SheetbaseGridMenuItem =>
       typeof candidate === 'object' && candidate.id === 'promote-column',
   )
+
   act(() =>
     entry?.onSelect?.({
       ranges: [{ rowStart: 0, rowEnd: 0, columnIds: [columnId] }],
@@ -279,6 +293,7 @@ async function renderComposedEditor() {
   const instance = await composedInstance()
   renderEditor(<CanonicalSheetEditor instance={instance} projectId={PROJECT} />)
   await waitFor(() => expect(gridRender).toHaveBeenCalled())
+
   return instance
 }
 

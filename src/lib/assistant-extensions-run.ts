@@ -23,5 +23,6 @@ export async function runExtensionToolAction(
     async () => true,
     'The plugin could not do that.',
   )
+
   return undefined
 }

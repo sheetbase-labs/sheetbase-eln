@@ -47,31 +47,39 @@ export function RegistrySettingsDialog({
 }) {
   const queryClient = useQueryClient()
   const fieldsQuery = useRecordModelFields(model.key)
+
   const fields = (fieldsQuery.data ?? []).filter(
     (f) => f.lifecycle === 'active',
   )
+
   const [isRegistry, setIsRegistry] = useState(Boolean(model.is_registry))
+
   const [keyFields, setKeyFields] = useState<string[]>(
     model.registry_key_fields ?? [],
   )
+
   const [sequenceField, setSequenceField] = useState(
     model.registry_sequence_field ?? '',
   )
+
   const [lotKind, setLotKind] = useState(model.registry_lot_kind ?? '')
   // A same-thing rule from a plugin: which plugin function names the key.
   const points = useExtensionPoints()
   const rules = points.data['sameness-keys']
+
   const savedRule = useQuery({
     queryKey: samenessKeys.rule(model.key),
     queryFn: () => getSamenessRule(notebookDataClient, model.key),
     enabled: open,
     staleTime: 10_000,
   })
+
   const [samenessItem, setSamenessItem] = useState('')
   useEffect(() => {
     if (open) setSamenessItem(savedRule.data ?? '')
   }, [open, savedRule.data])
   const chosenRule = rules.find((item) => item.name === samenessItem)
+
   const missingRuleFields = chosenRule
     ? chosenRule.declaration.fields.filter(
         (input) =>
@@ -81,6 +89,7 @@ export function RegistrySettingsDialog({
           ),
       )
     : []
+
   const otherModels = useQuery({
     queryKey: ['registry', 'lot-models'],
     queryFn: () =>
@@ -113,6 +122,7 @@ export function RegistrySettingsDialog({
         p_lot_kind: isRegistry && lotKind ? lotKind : null,
       })
       const wanted = isRegistry ? samenessItem || null : null
+
       if (wanted !== (savedRule.data ?? null))
         await setSamenessRule(notebookDataClient, model.key, wanted)
     },
@@ -171,6 +181,7 @@ export function RegistrySettingsDialog({
                     <span className="flex flex-col gap-1.5">
                       {fields.map((field) => {
                         const on = keyFields.includes(field.fieldName)
+
                         return (
                           <label
                             key={field.fieldName}

@@ -38,6 +38,7 @@ export function PluginPullPanel({
   const [missing, setMissing] = useState<string | null>(null)
   const active = connectors.find((c) => c.name === name) ?? connectors[0]
   const declaration = active.declaration
+
   const settingFields: ExtensionField[] = declaration.settings.map(
     (setting) => ({
       name: `setting_${setting.name}`,
@@ -46,20 +47,28 @@ export function PluginPullPanel({
       label: setting.label,
     }),
   )
+
   const parameterFields = declaration.parameters
+
   const pull = useMutation({
     mutationFn: async () => {
       const parameters = readFieldValues(parameterFields, values)
       const settings = readFieldValues(settingFields, values)
+
       if (!parameters.ok) {
         setMissing(parameters.missing[0])
+
         return undefined
       }
+
       if (!settings.ok) {
         setMissing(settings.missing[0])
+
         return undefined
       }
+
       setMissing(null)
+
       const file = await pullWithConnector({
         extensionKey: active.extensionKey,
         connectorId: active.id,
@@ -68,11 +77,14 @@ export function PluginPullPanel({
         settings: Object.fromEntries(
           declaration.settings.flatMap((setting) => {
             const value = settings.input[`setting_${setting.name}`]
+
             return typeof value === 'string' ? [[setting.name, value]] : []
           }),
         ),
       })
+
       await onFile(file)
+
       return file
     },
   })

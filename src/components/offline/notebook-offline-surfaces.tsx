@@ -40,9 +40,11 @@ export function NotebookOfflineSurfaces({
     queryFn: () => fetchWorkspaceGeneral(),
     staleTime: Infinity,
   })
+
   // Unknown (not loaded, or the read failed) is treated as allowed, so a
   // failed read never silently removes the offline safety net.
   const allowed = general.data?.offlineEditingAllowed !== false
+
   return (
     <>
       <OfflineStatusBanner

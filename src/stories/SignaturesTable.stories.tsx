@@ -69,7 +69,9 @@ const meta = {
   ],
   args: { signatures, revisionVersions },
 } satisfies Meta<typeof SignaturesTable>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

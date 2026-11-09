@@ -15,14 +15,17 @@ export async function withDesignClaims<T>(
 ): Promise<T> {
   const poolCs = db.$client.options.connectionString
   const pgrst = new URL(process.env.PGRST_DB_URI ?? '')
+
   if (!poolCs || !pgrst.username) {
     throw new Error('PGRST_DB_URI and the pool connection string are required')
   }
+
   const authUrl = new URL(poolCs)
   authUrl.username = pgrst.username
   authUrl.password = pgrst.password
   const client = new Client({ connectionString: authUrl.toString() })
   await client.connect()
+
   try {
     await client.query('SET ROLE authenticated')
     await client.query("SELECT set_config('request.jwt.claims',$1,false)", [
@@ -33,6 +36,7 @@ export async function withDesignClaims<T>(
         ...(sessionId ? { session_id: sessionId } : {}),
       }),
     ])
+
     return await fn(client)
   } finally {
     await client.query('RESET ROLE').catch(() => {})

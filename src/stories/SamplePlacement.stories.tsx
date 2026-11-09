@@ -58,7 +58,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function Picker({
@@ -71,6 +73,7 @@ function Picker({
   textLocations?: readonly string[]
 }) {
   const [value, setValue] = useState<PlaceChoice | null>(initial)
+
   return (
     <PositionPicker
       value={value}
@@ -98,6 +101,7 @@ export const PickerWithChoice: Story = {
   render: () => {
     const box = boxFixtures[0]
     const position = positionCells(BOX_ID)[3]
+
     return (
       <QueryClientProvider client={boxesClient}>
         <Picker initial={{ kind: 'position', box, position }} />
@@ -169,6 +173,7 @@ export const PlaceFieldTyped: Story = {
 
 function TypedLocation() {
   const [value, setValue] = useState('Cold')
+
   return (
     <LocationInput
       value={value}
@@ -219,6 +224,7 @@ const TEMPLATES = [
 
 function ChosenTemplate() {
   const [chosen, setChosen] = useState(TEMPLATES[0].id)
+
   return (
     <LabelTemplatePicker
       templates={TEMPLATES}

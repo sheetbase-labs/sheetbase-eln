@@ -55,13 +55,16 @@ describe('recordBatchPrints', () => {
   it('records every print and reports the ones that were refused', async () => {
     const rpc = vi.fn(async (_name: string, args: Record<string, unknown>) => {
       if (args.p_record_id === 's-2') throw new Error('stale')
+
       return { id: 'ev', operation: 'print', notes: null, created_at: '' }
     })
+
     const outcome = await recordBatchPrints({ rpc } as unknown as DataClient, [
       record(1),
       record(2),
       record(3),
     ])
+
     expect(rpc).toHaveBeenCalledTimes(3)
     expect(rpc).toHaveBeenCalledWith('record_sample_label_print', {
       p_record_id: 's-1',
@@ -98,6 +101,7 @@ describe('PrintLabelsDialog', () => {
     const many = Array.from({ length: LABEL_SHEET_LIMIT + 4 }, (_, i) =>
       record(i),
     )
+
     render(
       <PrintLabelsDialog
         open

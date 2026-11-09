@@ -78,25 +78,32 @@ export function buildTemplateRows(
   usedVersionIds: string[],
 ): TemplateRow[] {
   const byTemplate = new Map<string, NotebookTemplateVersion[]>()
+
   for (const v of versions) {
     const list = byTemplate.get(v.templateId) ?? []
     list.push(v)
     byTemplate.set(v.templateId, list)
   }
+
   const versionToTemplate = new Map(versions.map((v) => [v.id, v.templateId]))
   const inUseByTemplate = new Map<string, number>()
+
   for (const versionId of usedVersionIds) {
     const templateId = versionToTemplate.get(versionId)
+
     if (!templateId) continue
     inUseByTemplate.set(templateId, (inUseByTemplate.get(templateId) ?? 0) + 1)
   }
+
   return templates.map((t) => {
     const list = (byTemplate.get(t.id) ?? []).sort(
       (a, b) => a.version - b.version,
     )
+
     const latest = latestTemplateVersion(list) ?? null
     const published = publishedTemplateVersion(list) ?? null
     const shown = published ?? latest
+
     return {
       ...t,
       versions: list,
@@ -125,13 +132,16 @@ export function useTemplateRows(
         fetchNotebookTemplates(client, { limit: 200 }),
         fetchAllNotebookTemplateVersions(client),
       ])
+
       if (templates.length === 0) return []
+
       const used = await client.list<{
         source_notebook_template_version_id: string | null
       }>(
         'records',
         '?source_notebook_template_version_id=not.is.null&select=source_notebook_template_version_id&limit=1000',
       )
+
       return buildTemplateRows(
         templates,
         versions,
@@ -191,19 +201,24 @@ async function fetchTemplateUsers(
   client: DataClient,
 ): Promise<TemplateUser[]> {
   const rows: TemplateUser[] = []
+
   // A long list of versions is read in groups, each paged to its end, then
   // put back in the one order the page shows.
   for (const group of chunkIds([...new Set(versionIds)])) {
     const filter = `source_notebook_template_version_id=in.(${group.map(encodeURIComponent).join(',')})`
+
     for (let offset = 0; ; offset += TEMPLATE_USERS_PAGE_SIZE) {
       const page = await client.list<TemplateUser>(
         'records',
         `?${filter}&select=${TEMPLATE_USER_SELECT}&order=updated_at.desc,id.asc&limit=${TEMPLATE_USERS_PAGE_SIZE}&offset=${offset}`,
       )
+
       rows.push(...page)
+
       if (page.length < TEMPLATE_USERS_PAGE_SIZE) break
     }
   }
+
   return rows.sort(
     (a, b) =>
       b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id),
@@ -238,6 +253,7 @@ export function useTemplateMadeCount(
   client: DataClient = notebookTemplateDataClient,
 ) {
   const ids = [...new Set(versionIds.filter(Boolean))].sort()
+
   return useQuery({
     queryKey: ['ui-port', 'templates', 'made-count', ids.join(',')],
     queryFn: async () => {
@@ -249,6 +265,7 @@ export function useTemplateMadeCount(
           ),
         ),
       )
+
       return counts.reduce((sum, n) => sum + n, 0)
     },
     enabled: ids.length > 0,
@@ -266,6 +283,7 @@ export function useTemplateProjects(
   client: DataClient = notebookTemplateDataClient,
 ) {
   const ids = [...new Set(projectIds.filter(Boolean))].sort()
+
   return useQuery({
     queryKey: ['ui-port', 'templates', 'projects', ids.join(',')],
     queryFn: async () => {
@@ -275,6 +293,7 @@ export function useTemplateProjects(
           `?id=in.(${inList})&select=id,title`,
         ),
       )
+
       return new Map(rows.map((row) => [row.id, row.title]))
     },
     enabled: ids.length > 0,
@@ -353,6 +372,7 @@ export function useSheetDefinitions(
       ),
     ),
   ].sort()
+
   const versionResults = useQueries({
     queries: versionIds.map((id) => ({
       queryKey: ['ui-port', 'templates', 'sheet-version', id],
@@ -360,12 +380,16 @@ export function useSheetDefinitions(
       staleTime: 60_000,
     })),
   })
+
   const versionsById = new Map<string, SheetDefinitionVersion>()
+
   for (const result of versionResults)
     if (result.data) versionsById.set(result.data.id, result.data)
+
   const definitionIds = [
     ...new Set([...versionsById.values()].map((v) => v.definitionId)),
   ].sort()
+
   const definitionResults = useQueries({
     queries: definitionIds.map((id) => ({
       queryKey: ['ui-port', 'templates', 'sheet-definition', id],
@@ -373,9 +397,12 @@ export function useSheetDefinitions(
       staleTime: 60_000,
     })),
   })
+
   const definitionsById = new Map<string, SheetDefinition>()
+
   for (const result of definitionResults)
     if (result.data) definitionsById.set(result.data.id, result.data)
+
   return { versionsById, definitionsById }
 }
 
@@ -385,6 +412,7 @@ export function useTemplateApprovals(
   client: DataClient = notebookTemplateDataClient,
 ): Map<string, ApprovalRequest[]> {
   const ids = [...versionIds].sort()
+
   const results = useQueries({
     queries: ids.map((id) => ({
       queryKey: ['ui-port', 'templates', 'approvals', id],
@@ -393,7 +421,9 @@ export function useTemplateApprovals(
       staleTime: 30_000,
     })),
   })
+
   const map = new Map<string, ApprovalRequest[]>()
   ids.forEach((id, index) => map.set(id, results[index]?.data ?? []))
+
   return map
 }

@@ -19,6 +19,7 @@ function Harness({
   busy?: boolean
 }) {
   const [value, setValue] = useState(initialValue)
+
   return (
     <CameraScanner
       value={value}
@@ -42,7 +43,9 @@ const meta = {
   ],
   args: { value: '', onValueChange: () => {}, onScan: () => {} },
 } satisfies Meta<typeof CameraScanner>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Camera off: “Start camera” plus the always-available typed ID. */

@@ -48,18 +48,24 @@ function makeClient(
   options: { promotions?: ColumnPromotion[]; rpcError?: unknown } = {},
 ) {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+
   const client = {
     list: vi.fn(async (resource: string) => {
       if (resource === 'dataset_schema_definitions') return [DEFINITION]
+
       if (resource === 'column_promotions') return options.promotions ?? []
+
       return []
     }),
     rpc: vi.fn(async (name: string, args: Record<string, unknown>) => {
       calls.push({ name, args })
+
       if (options.rpcError) throw options.rpcError
+
       return { ok: true, promotionId: 'promo-1', state: 'pending' }
     }),
   } as unknown as DataClient
+
   return { client, calls }
 }
 
@@ -67,6 +73,7 @@ function renderWithQuery(ui: React.ReactElement) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
   )
@@ -82,6 +89,7 @@ async function openAndFill(user: UserEvent) {
   fireEvent.change(within(dialog).getByLabelText(/Reason/), {
     target: { value: 'Used in every batch' },
   })
+
   return dialog
 }
 
@@ -157,6 +165,7 @@ describe('SheetPromote', () => {
         400,
       ),
     })
+
     const onSubmitted = vi.fn()
     const user = userEvent.setup()
     renderWithQuery(
@@ -225,6 +234,7 @@ describe('PromoteRejected', () => {
     const { client } = makeClient({
       promotions: [{ ...RETURNED, state: 'pending', reason: null }],
     })
+
     const { container } = renderWithQuery(
       <PromoteRejected
         instanceId={INSTANCE}

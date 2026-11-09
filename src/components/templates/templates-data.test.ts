@@ -80,6 +80,7 @@ describe('buildTemplateRows', () => {
       ],
       ['v-1', 'v-1', 'v-2'],
     )
+
     expect(rows).toHaveLength(1)
     expect(rows[0].latest?.id).toBe('v-2')
     expect(rows[0].published?.id).toBe('v-1')
@@ -94,6 +95,7 @@ describe('buildTemplateRows', () => {
       [version({ id: 'v-1' })],
       ['v-from-another-template'],
     )
+
     expect(rows[0].inUse).toBe(0)
   })
 })
@@ -105,6 +107,7 @@ describe('latestTemplateVersion and publishedTemplateVersion', () => {
       version({ id: 'c', version: 3, lifecycle: 'draft' }),
       version({ id: 'b', version: 2 }),
     ]
+
     expect(latestTemplateVersion(versions)?.id).toBe('c')
     expect(publishedTemplateVersion(versions)?.id).toBe('b')
   })

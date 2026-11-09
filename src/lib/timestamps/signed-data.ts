@@ -53,6 +53,7 @@ export function authorityLabel(
   if (choice === 'dfn' || choice === 'digicert') {
     return TIMESTAMP_AUTHORITIES[choice].name
   }
+
   if (url) {
     try {
       return new URL(url).host
@@ -60,5 +61,6 @@ export function authorityLabel(
       return url
     }
   }
+
   return 'Custom authority'
 }

@@ -114,7 +114,9 @@ export function isTerminalSampleStatus(status: string): boolean {
 function formatDate(iso: string | null | undefined): string | null {
   if (!iso) return null
   const date = new Date(iso)
+
   if (Number.isNaN(date.getTime())) return null
+
   return formatHoldDate(date)
 }
 
@@ -132,22 +134,28 @@ function resolveHoldWindow(sample: SampleRecord): {
   condition: string | null
 } | null {
   const start = new Date(sample.holdStartedAt ?? sample.createdAt)
+
   if (Number.isNaN(start.getTime())) return null
 
   let expiry: Date | null = null
+
   if (sample.holdUntil) expiry = new Date(sample.holdUntil)
   else if (sample.holdDurationDays != null)
     expiry = new Date(start.getTime() + sample.holdDurationDays * DAY_MS)
   else {
     const fallback = sample.properties.expiryDate
+
     if (typeof fallback === 'string' && fallback.trim() !== '')
       expiry = new Date(fallback)
   }
+
   if (!expiry || Number.isNaN(expiry.getTime())) return null
 
   const windowMs = expiry.getTime() - start.getTime()
+
   const totalDays =
     windowMs > 0 ? Math.max(1, Math.round(windowMs / DAY_MS)) : 1
+
   return { expiry, totalDays, condition: sample.holdCondition ?? null }
 }
 
@@ -157,7 +165,9 @@ function allowedUseCount(sample: SampleRecord): number {
 
 function allowedUseSentence(sample: SampleRecord): string {
   const count = allowedUseCount(sample)
+
   if (count === 0) return 'Remaining volume can’t be withdrawn.'
+
   return `Remaining volume can only be used by ${count} explicitly allowed experiment${count === 1 ? '' : 's'}.`
 }
 
@@ -166,6 +176,7 @@ function latestEvent(
   operations: string[],
 ): SampleEvent | null {
   if (!events || events.length === 0) return null
+
   return events.find((event) => operations.includes(event.operation)) ?? null
 }
 
@@ -186,11 +197,13 @@ export function describeSampleState(
   options: DescribeSampleStateOptions = {},
 ): SampleStateBanner | null {
   const kind = sampleStateKind(sample)
+
   if (!kind) return null
 
   if (kind === 'quarantined') {
     const at = formatDate(sample.quarantinedAt)
     const reason = sample.quarantineReason?.trim()
+
     return {
       kind,
       tone: 'warn',
@@ -204,11 +217,13 @@ export function describeSampleState(
   if (kind === 'hold_exceeded') {
     const hold = resolveHoldWindow(sample)
     const at = hold ? formatHoldDate(hold.expiry) : formatDate(sample.holdUntil)
+
     const window = hold
       ? ` (${hold.totalDays} day${hold.totalDays === 1 ? '' : 's'}${
           hold.condition ? ` at ${hold.condition}` : ''
         })`
       : ''
+
     return {
       kind,
       tone: 'bad',
@@ -220,6 +235,7 @@ export function describeSampleState(
   if (kind === 'expired') {
     const hold = resolveHoldWindow(sample)
     const at = hold ? formatHoldDate(hold.expiry) : formatDate(sample.holdUntil)
+
     return {
       kind,
       tone: 'bad',
@@ -231,11 +247,14 @@ export function describeSampleState(
   if (kind === 'consumed') {
     const event = latestEvent(options.events, ['consume'])
     const at = event ? formatDate(event.createdAt) : null
+
     const actor =
       event?.actorUserId && options.userName
         ? options.userName(event.actorUserId)
         : null
+
     const detail = event?.notes?.trim() || null
+
     return {
       kind,
       tone: 'info',
@@ -248,6 +267,7 @@ export function describeSampleState(
 
   const at = formatDate(sample.disposedAt)
   const reason = sample.disposalReason?.trim()
+
   return {
     kind,
     tone: 'info',
@@ -268,9 +288,12 @@ export function describeReleaseChecks(
   if (!checks) return null
   const ruleCount = Number(checks.ruleCount)
   const failedCount = Number(checks.failedCount)
+
   if (!Number.isFinite(ruleCount) || ruleCount <= 0) return null
+
   if (!Number.isFinite(failedCount) || failedCount <= 0) {
     return `All ${ruleCount} check${ruleCount === 1 ? '' : 's'} passed`
   }
+
   return `${ruleCount - failedCount} of ${ruleCount} passed`
 }

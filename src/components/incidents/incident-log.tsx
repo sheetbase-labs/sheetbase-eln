@@ -73,18 +73,22 @@ export function IncidentLog({
     queryFn: () => fetchIncidentModels(client),
     staleTime: 10_000,
   })
+
   const logs = useMemo(() => models.data ?? [], [models.data])
   const keys = useMemo(() => logs.map((m) => m.key), [logs])
+
   const modelByKey = useMemo(
     () => new Map(logs.map((m) => [m.key, m] as const)),
     [logs],
   )
+
   const entries = useQuery({
     queryKey: qualityKeys.incidents(keys),
     queryFn: () => fetchIncidents(client, keys),
     enabled: models.isSuccess && keys.length > 0,
     staleTime: 10_000,
   })
+
   const all = useMemo(() => entries.data ?? [], [entries.data])
 
   const inStatus = all.filter(
@@ -92,7 +96,9 @@ export function IncidentLog({
       status === 'all' ||
       (status === 'archived' ? e.archived_at : !e.archived_at),
   )
+
   const needle = q.trim().toLowerCase()
+
   const visible = inStatus.filter(
     (e) =>
       (kind === 'all' || e.kind === kind) &&
@@ -183,6 +189,7 @@ export function IncidentLog({
 
   function report() {
     const only = kind !== 'all' ? kind : logs.length === 1 ? logs[0].key : null
+
     if (only) {
       void navigate({
         to: '/models/$modelId/records/new',
@@ -343,6 +350,7 @@ function ChooseLog({
   const navigate = useNavigate()
   const [choice, setChoice] = useState('')
   const selected = choice || logs[0]?.key || ''
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(420px,calc(100vw-32px))]">

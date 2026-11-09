@@ -83,8 +83,10 @@ export function captureSourceRevisions(
   spec: ChartSpec,
 ): SourceRevision[] {
   const byId = new Map(sources.map((s) => [s.datasetId, s]))
+
   return spec.datasets.map((ref) => {
     const source = byId.get(ref.datasetId)
+
     return {
       datasetId: ref.datasetId,
       schemaVersionNumber: source?.schemaVersionNumber ?? 0,
@@ -103,18 +105,23 @@ export function detectStaleSources(
   sources: CanonicalDatasetSource[],
 ): string | null {
   const byId = new Map(sources.map((s) => [s.datasetId, s]))
+
   for (const rev of stored) {
     const source = byId.get(rev.datasetId)
+
     if (!source) {
       return `Dataset ${rev.datasetId.slice(0, 8)} is no longer available.`
     }
+
     if (source.schemaVersionNumber !== rev.schemaVersionNumber) {
       return `Dataset "${source.name}" moved to schema v${source.schemaVersionNumber} (saved against v${rev.schemaVersionNumber}).`
     }
+
     if (source.revision !== rev.revision) {
       return `Dataset "${source.name}" was revised (r${rev.revision} → r${source.revision}) since this view was saved.`
     }
   }
+
   return null
 }
 
@@ -316,6 +323,7 @@ export async function createAnalysisView(
       export_settings: input.export_settings,
     },
   )
+
   return Array.isArray(created) ? created[0] : created
 }
 
@@ -343,6 +351,7 @@ export async function updateAnalysisView(
       export_settings: input.export_settings,
     },
   )
+
   if (updated.length === 0) {
     throw new DataClientError(
       'analysis_view_missing',
@@ -350,6 +359,7 @@ export async function updateAnalysisView(
       404,
     )
   }
+
   return updated[0]
 }
 
@@ -367,6 +377,7 @@ export async function saveAnalysisView(
   if (input.id) {
     return updateAnalysisView(client, input.id, input)
   }
+
   return createAnalysisView(client, input, workspaceId, userId)
 }
 
@@ -383,6 +394,7 @@ export async function recordAnalysisCitation(
   view: Pick<AnalysisViewWire, 'display_id'>,
 ): Promise<void> {
   if (!view.display_id) return
+
   try {
     await client.rpc('create_record_link', {
       p_source_record_id: sourceRecordId,
@@ -417,16 +429,20 @@ export function validateAnalysisSpec(
 ): { ok: true } | { ok: false; errors: string[] } {
   const specErrors = validateChartSpec(spec)
   const errors = specErrors.map((e) => `${e.field ?? 'spec'}: ${e.message}`)
+
   if (spec && typeof spec === 'object' && 'filters' in spec) {
     const filters = spec.filters
+
     if (Array.isArray(filters) && filters.length > ANALYSIS_MAX_FILTERS) {
       errors.push(
         `At most ${ANALYSIS_MAX_FILTERS} filters are allowed in an analysis view.`,
       )
     }
   }
+
   if (spec && typeof spec === 'object' && 'transformations' in spec) {
     const transformations = spec.transformations
+
     if (
       Array.isArray(transformations) &&
       transformations.length > ANALYSIS_MAX_TRANSFORMATIONS
@@ -436,11 +452,13 @@ export function validateAnalysisSpec(
       )
     }
   }
+
   if (resultRowCount > ANALYSIS_MAX_RESULT_ROWS) {
     errors.push(
       `Result set (${resultRowCount} rows) exceeds the ${ANALYSIS_MAX_RESULT_ROWS}-row analysis limit. Filter or aggregate the data before plotting.`,
     )
   }
+
   return errors.length > 0 ? { ok: false, errors } : { ok: true }
 }
 
@@ -469,6 +487,7 @@ export function materialiseAnalysisChart(
     flags.length === 0
       ? rows
       : filterRowsByFlags(rows, flags, chartUsedFieldIds(spec))
+
   return materialiseChart(spec, columns, chartRows)
 }
 
@@ -485,6 +504,7 @@ export function materialiseAnalysisFacets(
     flags.length === 0
       ? rows
       : filterRowsByFlags(rows, flags, chartUsedFieldIds(spec))
+
   return materialiseFacetedCharts(spec, columns, chartRows)
 }
 
@@ -545,6 +565,7 @@ export function exportViewJson(
     spec,
     provenance: settings.includeProvenance ? provenance : null,
   }
+
   return JSON.stringify(document, null, 2)
 }
 
@@ -561,18 +582,22 @@ export function exportDataCsv(
   provenance: ExportProvenance | null = null,
 ): string {
   const lines: string[] = []
+
   if (provenance) {
     // The version line states what was exported. An ad-hoc export has no
     // stored version, and the header says so by leaving it out rather than
     // printing a placeholder as if it were the version.
     const version =
       provenance.viewVersion === null ? '' : ` v${provenance.viewVersion}`
+
     const view = `${provenance.viewName}${
       provenance.viewId ? ` (${provenance.viewId.slice(0, 8)})` : ''
     }${version}`
+
     const sources = provenance.sourceRevisions
       .map((revision) => revision.datasetId.slice(0, 8))
       .join(', ')
+
     lines.push(
       '# Sheetbase Analysis Studio export',
       `# view: ${view.replace(/\s+/g, ' ')}`,
@@ -580,7 +605,9 @@ export function exportDataCsv(
       `# sources: ${sources || 'none'}`,
     )
   }
+
   lines.push(['series', 'x', 'y', 'yError'].join(','))
+
   for (const s of materialised.series) {
     for (const p of s.points) {
       lines.push(
@@ -597,14 +624,17 @@ export function exportDataCsv(
       )
     }
   }
+
   return lines.join('\n')
 }
 
 function csvField(value: string): string {
   if (value === '') return ''
+
   if (/[",\n]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`
   }
+
   return value
 }
 
@@ -620,6 +650,7 @@ function resolveThemeDeclarations(
 ): string {
   if (typeof document === 'undefined') return ''
   const names = new Set<string>(['--surface'])
+
   for (const match of svg.matchAll(/var\(\s*(--[a-z0-9-]+)/gi))
     names.add(match[1])
   const probe = document.createElement('div')
@@ -631,19 +662,24 @@ function resolveThemeDeclarations(
   const computed = getComputedStyle(probe)
   const rootComputed = getComputedStyle(document.documentElement)
   const declarations: string[] = []
+
   for (const name of names) {
     const value =
       computed.getPropertyValue(name).trim() ||
       rootComputed.getPropertyValue(name).trim()
+
     if (value) declarations.push(`${name}:${value}`)
   }
+
   probe.remove()
+
   return declarations.join(';')
 }
 
 const CAPTION_FONT_SIZE = 12
 const CAPTION_LINE_HEIGHT = 16
 const CAPTION_PADDING = 12
+
 /** Average glyph width of the caption face, as a share of its font size. */
 const CAPTION_GLYPH_RATIO = 0.55
 
@@ -655,9 +691,12 @@ export function wrapCaption(caption: string, width: number): string[] {
       (width - 2 * CAPTION_PADDING) / (CAPTION_FONT_SIZE * CAPTION_GLYPH_RATIO),
     ),
   )
+
   const lines: string[] = []
+
   for (const paragraph of caption.trim().split(/\r?\n/)) {
     let line = ''
+
     for (const word of paragraph.split(/\s+/).filter(Boolean)) {
       if (line && line.length + 1 + word.length > maxChars) {
         lines.push(line)
@@ -666,8 +705,10 @@ export function wrapCaption(caption: string, width: number): string[] {
         line = line ? `${line} ${word}` : word
       }
     }
+
     if (line) lines.push(line)
   }
+
   return lines
 }
 
@@ -678,6 +719,7 @@ export function captionBlockHeight(
 ): number {
   if (!caption?.trim()) return 0
   const lines = wrapCaption(caption, width).length
+
   return lines === 0 ? 0 : lines * CAPTION_LINE_HEIGHT + 2 * CAPTION_PADDING
 }
 
@@ -698,12 +740,14 @@ export function exportChartSvg(
   if (!svgEl) {
     return `<!-- Sheetbase Analysis Studio: no chart rendered at export time -->`
   }
+
   // The figure is drawn by sheetbase-explorer, so serialise it through the
   // package's export helper, then stamp the export preset's dimensions and
   // provenance on top of the returned document.
   const routed = svgEl.parentElement
     ? serializeDrawnChart(svgEl.parentElement)
     : undefined
+
   const base = routed ?? new XMLSerializer().serializeToString(svgEl)
   const parsed = new DOMParser().parseFromString(base, 'image/svg+xml')
   const root = parsed.documentElement
@@ -716,11 +760,13 @@ export function exportChartSvg(
   root.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
   const svgNamespace = 'http://www.w3.org/2000/svg'
   const declarations = resolveThemeDeclarations(base, settings.theme)
+
   if (declarations) {
     const style = parsed.createElementNS(svgNamespace, 'style')
     style.textContent = `:root{${declarations}}`
     root.insertBefore(style, root.firstChild)
   }
+
   // An opaque surface under the figure, so a dark export is not transparent
   // and the Light/Dark setting changes the background the rasteriser keeps.
   const background = parsed.createElementNS(svgNamespace, 'rect')
@@ -730,6 +776,7 @@ export function exportChartSvg(
   background.setAttribute('height', String(totalHeight))
   background.setAttribute('fill', 'var(--surface, #ffffff)')
   root.insertBefore(background, root.firstChild)
+
   if (extra > 0 && caption) {
     const text = parsed.createElementNS(svgNamespace, 'text')
     text.setAttribute('data-figure-caption', 'true')
@@ -753,11 +800,14 @@ export function exportChartSvg(
     })
     root.appendChild(text)
   }
+
   const serialised = new XMLSerializer().serializeToString(root)
+
   const comment =
     settings.includeProvenance && provenance
       ? `\n<!-- Sheetbase Analysis Studio export\nview: ${provenance.viewName}${provenance.viewId ? ` (${provenance.viewId.slice(0, 8)})` : ''} v${provenance.viewVersion ?? '?'}\nexported by ${provenance.exportedBy} at ${provenance.exportedAt}\nsources: ${provenance.sourceRevisions.map((r) => r.datasetId.slice(0, 8)).join(', ')}\n-->\n`
       : ''
+
   return `${comment}${serialised}`
 }
 

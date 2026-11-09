@@ -21,6 +21,7 @@ describe('built-in model field authoring', () => {
       askOnCreate: true,
       showInList: false,
     } as ModelFieldDefinition
+
     expect(fieldShowsOn(base)).toBe('Record page, create form')
     expect(
       fieldShowsOn({ ...base, askOnCreate: false, showInList: true }),

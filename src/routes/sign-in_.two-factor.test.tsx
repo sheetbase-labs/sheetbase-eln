@@ -84,6 +84,7 @@ describe('two-factor code prompt', () => {
     const validateSearch = Route.options.validateSearch as (s: {
       [key: string]: unknown
     }) => { next?: string }
+
     expect(validateSearch({ next: '//evil.example' }).next).toBeUndefined()
     expect(validateSearch({ next: '/inbox' }).next).toBe('/inbox')
   })

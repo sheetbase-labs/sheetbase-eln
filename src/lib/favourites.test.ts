@@ -37,6 +37,7 @@ describe('orderFavourites', () => {
       favourite('dataset', 'd-1', T1),
       favourite('project', 'p-1', T0),
     ])
+
     expect(ordered.map((f) => `${f.kind}:${f.id}`)).toEqual([
       'sheet:s-1',
       'dataset:d-1',
@@ -52,6 +53,7 @@ describe('orderFavourites', () => {
       favourite('dataset', 'd-1', T1),
       favourite('project', 'p-1', T1),
     ])
+
     expect(ordered.map((f) => `${f.kind}:${f.id}`)).toEqual([
       'dataset:d-1',
       'notebook_template:t-1',
@@ -68,6 +70,7 @@ describe('orderFavourites', () => {
         new Date(Date.parse(T0) + i * 1000).toISOString(),
       ),
     )
+
     const ordered = orderFavourites(rows, 12)
     expect(ordered).toHaveLength(12)
     expect(ordered[0].id).toBe('r-29')
@@ -98,6 +101,7 @@ describe('applyFavouriteChange', () => {
       favourite('record', 'r-1', T0),
       favourite('dataset', 'd-1', T1),
     ]
+
     const next = applyFavouriteChange(rows, 'record', 'r-1', false)
     expect(next).toEqual([favourite('dataset', 'd-1', T1)])
   })
@@ -129,9 +133,11 @@ describe('applyFavouriteChange', () => {
 describe('fetchFavourites', () => {
   it('reads RLS-scoped rows through the /api/db boundary, newest first', async () => {
     const queries: string[] = []
+
     const client = {
       list: (resource: string, query: string) => {
         queries.push(resource + query)
+
         return Promise.resolve([
           {
             user_id: 'user-1',
@@ -148,6 +154,7 @@ describe('fetchFavourites', () => {
         ])
       },
     } as unknown as DataClient
+
     const favourites = await fetchFavourites(client)
     expect(favourites.map((f) => `${f.kind}:${f.id}`)).toEqual([
       'sheet:s-1',
@@ -162,12 +169,15 @@ describe('fetchFavourites', () => {
 describe('setFavourite', () => {
   it('writes through the set_record_favourite RPC with stable identity', async () => {
     const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+
     const client = {
       rpc: (name: string, args: Record<string, unknown>) => {
         calls.push({ name, args })
+
         return Promise.resolve(T1)
       },
     } as unknown as DataClient
+
     const createdAt = await setFavourite(client, 'project', 'p-1', true)
     expect(createdAt).toBe(T1)
     expect(calls).toEqual([
@@ -186,10 +196,13 @@ describe('setFavourite', () => {
     const stringClient = {
       rpc: () => Promise.resolve(T2),
     } as unknown as DataClient
+
     expect(await setFavourite(stringClient, 'record', 'r-1', true)).toBe(T2)
+
     const nullClient = {
       rpc: () => Promise.resolve(null),
     } as unknown as DataClient
+
     expect(await setFavourite(nullClient, 'record', 'r-1', false)).toBeNull()
   })
 })
@@ -247,6 +260,7 @@ describe('resolveFavouriteItems', () => {
         favourite('notebook_template', 't-1', T1),
       ],
     )
+
     expect(items.map((i) => [i.kind, i.label, i.destination])).toEqual([
       ['sheet', 'Dose response', '/sheets/s-1'],
       ['record', 'Buffer lot A', '/samples/r-1'],
@@ -307,6 +321,7 @@ describe('resolveFavouriteItems', () => {
         favourite('notebook_template', 't-retired', T1),
       ],
     )
+
     // Hidden at read time — never deleted; unfavouriting is the only removal.
     expect(items).toEqual([])
   })
@@ -330,6 +345,7 @@ describe('resolveFavouriteItems', () => {
       }),
       [favourite('project', 'p-1', T0), favourite('record', 'r-1', T1)],
     )
+
     expect(items.map((i) => [i.kind, i.identifier])).toEqual([
       ['project', 'LV-1'],
       ['record', 'EXP-1'],
@@ -341,6 +357,7 @@ describe('resolveFavouriteItems', () => {
       favourite('record', 'r-gone', T0),
       favourite('sheet', 's-gone', T1),
     ])
+
     expect(items).toEqual([])
   })
 })
@@ -355,6 +372,7 @@ describe('fetchFavouriteItems', () => {
       list: (resource: string, query: string) => {
         if (resource === 'user_favourites') {
           expect(query).toContain('order=created_at.desc')
+
           return Promise.resolve([
             {
               user_id: 'u',
@@ -370,6 +388,7 @@ describe('fetchFavouriteItems', () => {
             },
           ])
         }
+
         if (resource === 'records') {
           return Promise.resolve([
             {
@@ -382,14 +401,17 @@ describe('fetchFavouriteItems', () => {
             },
           ])
         }
+
         if (resource === 'projects') {
           return Promise.resolve([
             { id: 'p-1', key: 'LV-1', title: 'Stability', archived_at: null },
           ])
         }
+
         return Promise.resolve([])
       },
     } as unknown as DataClient
+
     const items = await fetchFavouriteItems(client, 1)
     expect(items).toHaveLength(1)
     expect(items[0]).toMatchObject({
@@ -422,6 +444,7 @@ describe('fetchFavouriteItems', () => {
             },
           ])
         }
+
         if (resource === 'records') {
           return Promise.resolve([
             {
@@ -442,9 +465,11 @@ describe('fetchFavouriteItems', () => {
             },
           ])
         }
+
         return Promise.resolve([])
       },
     } as unknown as DataClient
+
     const items = await fetchFavouriteItems(client, 1)
     expect(items).toHaveLength(1)
     expect(items[0]).toMatchObject({

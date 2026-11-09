@@ -100,6 +100,7 @@ describe('findInstrumentConnector', () => {
         connector({ id: 'plain', config: {} }),
       ],
     } as unknown as DataClient
+
     expect((await findInstrumentConnector(client, INSTRUMENT))?.id).toBe('mine')
     expect(await findInstrumentConnector(client, 'nobody')).toBeNull()
   })
@@ -107,6 +108,7 @@ describe('findInstrumentConnector', () => {
 
 describe('saveIntakeSetup', () => {
   const instrument = { id: INSTRUMENT, name: 'qPCR bench', displayId: 'INS-3' }
+
   const values = {
     parserKey: 'sheetbase.qpcr-results-csv',
     projectId: PROJECT,
@@ -120,12 +122,14 @@ describe('saveIntakeSetup', () => {
       id: 'new',
       ...args,
     }))
+
     const result = await saveIntakeSetup({ rpc } as unknown as DataClient, {
       workspaceId: 'w1',
       instrument,
       existing: null,
       values,
     })
+
     expect(result.ok).toBe(true)
     const [name, args] = rpc.mock.calls[0]
     expect(name).toBe('register_connector')
@@ -160,22 +164,26 @@ describe('saveIntakeSetup', () => {
         p_clear_parser: true,
       }),
     )
+
     const sent = rpc.mock.calls[0] as unknown as [
       string,
       Record<string, unknown>,
     ]
+
     expect(sent[1]).not.toHaveProperty('p_parser_id')
     expect(sent[1].p_config).toMatchObject({ pickup: { autoDetect: true } })
   })
 
   it('asks for what’s missing before saving', async () => {
     const rpc = vi.fn()
+
     const missing = await saveIntakeSetup({ rpc } as unknown as DataClient, {
       workspaceId: 'w1',
       instrument,
       existing: null,
       values: { ...values, projectId: '', schemaVersionId: '' },
     })
+
     expect(missing).toMatchObject({
       ok: false,
       errors: {
@@ -200,6 +208,7 @@ describe('previewSample', () => {
       qpcr,
       parser('sheetbase.delimited', { engine: 'sheetbase.delimited@1' }),
     )
+
     expect(preview).toMatchObject({
       status: 'ok',
       headers: ['Well', 'Sample', 'Ct'],

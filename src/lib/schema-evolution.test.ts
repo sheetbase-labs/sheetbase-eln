@@ -17,12 +17,15 @@ import type { DataClient } from './data-client'
 describe('governed evolution client', () => {
   it('calls preview and apply RPCs with snake_case arguments', async () => {
     const calls: Array<{ name: string; args: unknown }> = []
+
     const client = {
       rpc: async (name: string, args: Record<string, unknown>) => {
         calls.push({ name, args })
+
         return { ok: true, classification: 'compatible' }
       },
     } as DataClient
+
     await previewDatasetSchemaEvolution(client, {
       schemaVersionId: 'ver-1',
       fields: [{ key: 'titre', label: 'Titre', logicalType: 'decimal' }],
@@ -81,13 +84,16 @@ describe('governed evolution client', () => {
   it('requests a promotion and reads its state without the direct promote path', async () => {
     const rpcCalls: Array<{ name: string; args: unknown }> = []
     const listCalls: Array<{ resource: string; query?: string }> = []
+
     const client = {
       rpc: async (name: string, args: Record<string, unknown>) => {
         rpcCalls.push({ name, args })
+
         return { ok: true, state: 'pending' }
       },
       list: async (resource: string, query?: string) => {
         listCalls.push({ resource, query })
+
         return []
       },
     } as unknown as DataClient

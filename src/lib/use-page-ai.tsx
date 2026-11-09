@@ -16,8 +16,10 @@ import type { PageAiInput, PageAiResult } from './page-ai'
 
 /** Used only where no query client is mounted (isolated component tests). */
 let idleClient: QueryClient | null = null
+
 function getIdleClient(): QueryClient {
   idleClient ??= new QueryClient()
+
   return idleClient
 }
 
@@ -47,26 +49,31 @@ export interface PageAi {
 export function usePageAi(): PageAi {
   const workspaceId = useContext(WorkspaceIdContext)
   const client = useContext(QueryClientContext) ?? getIdleClient()
+
   const settings = useQuery(
     {
       queryKey: ['ai-settings', workspaceId],
       queryFn: async () => {
         const { getAiSettingsFn } = await import('#/lib/ai-settings-actions')
+
         return getAiSettingsFn({ data: { workspaceId: workspaceId ?? '' } })
       },
       enabled: Boolean(workspaceId),
     },
     client,
   )
+
   const data = settings.data
   const ready = Boolean(workspaceId) && data?.readiness.ready === true
   const available = ready
+
   return {
     available,
     live: ready && data.readiness.ready && data.readiness.mode === 'provider',
     workspaceId,
     run: async (input) => {
       const { runPageAiFn } = await import('#/lib/assistant-actions')
+
       return runPageAiFn({
         data: {
           instruction: '',

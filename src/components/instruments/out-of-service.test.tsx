@@ -50,6 +50,7 @@ describe('out of service', () => {
         names={{ userLabel: () => 'Dana' }}
       />,
     )
+
     expect(html).toContain('Out of service since')
     expect(html).toContain('Lamp failed')
     expect(html).toContain('Expected back')
@@ -60,6 +61,7 @@ describe('out of service', () => {
     const message = describeCalendarError(
       new DataClientError('SB135', 'refused', 400),
     )
+
     expect(message).toMatch(/out of service/)
   })
 })

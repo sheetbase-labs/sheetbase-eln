@@ -23,6 +23,7 @@ const { dataClient, navigate } = vi.hoisted(() => ({
     rpc: vi.fn<() => Promise<unknown>>(async () => ({})),
   },
 }))
+
 vi.mock('./project-data', async (importOriginal) => ({
   ...(await importOriginal<typeof ProjectData>()),
   projectDataClient: dataClient,
@@ -31,6 +32,7 @@ vi.mock('./project-data', async (importOriginal) => ({
 const { assignments } = vi.hoisted(() => ({
   assignments: vi.fn<() => Promise<unknown[]>>(async () => []),
 }))
+
 vi.mock('#/lib/workspace-access', async (importOriginal) => ({
   ...(await importOriginal<typeof WorkspaceAccess>()),
   fetchMyProjectAssignments: assignments,
@@ -56,6 +58,7 @@ vi.mock('@tanstack/react-router', () => ({
 const { toast } = vi.hoisted(() => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
+
 vi.mock('#/components/ui/sonner', () => ({ toast }))
 
 afterEach(() => {
@@ -103,6 +106,7 @@ function renderPage(
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={queryClient}>
       <WorkspaceNavigationContext
@@ -164,9 +168,11 @@ describe('ProjectsPage', () => {
       beside: true,
       title: 'AAV9 process transfer',
     })
+
     for (const modifier of ['ctrlKey', 'metaKey', 'shiftKey']) {
       expect(fireEvent.click(name, { [modifier]: true })).toBe(true)
     }
+
     expect(open).toHaveBeenCalledTimes(1)
     expect(screen.queryByLabelText('Project details')).toBeNull()
   })
@@ -319,10 +325,12 @@ describe('ProjectsPage', () => {
       { sort: 'id' },
     )
     const table = screen.getByRole('table', { name: 'Projects' })
+
     const idCells = within(table)
       .getAllByRole('row')
       .slice(1)
       .map((tableRow) => within(tableRow).getAllByRole('cell')[0].textContent)
+
     expect(idCells).toEqual(['PRJ-0100', 'PRJ-0217', 'PRJ-0320'])
   })
 
@@ -332,11 +340,13 @@ describe('ProjectsPage', () => {
     })
     const table = screen.getByRole('table', { name: 'Projects' })
     const columnCount = within(table).getAllByRole('columnheader').length
+
     const band = screen.getByText((_, element) => {
       return (
         element?.tagName === 'TD' && element.textContent === 'Tech transfer 2'
       )
     })
+
     expect(Number(band.getAttribute('colspan'))).toBe(columnCount)
   })
 
@@ -349,6 +359,7 @@ describe('ProjectsPage', () => {
         name: 'Second project',
       }),
     ])
+
     // Known: the count is stated (header badge and the "All" tab agree).
     expect(screen.getAllByText('2').length).toBeGreaterThan(0)
     resolved.unmount()
@@ -453,9 +464,11 @@ describe('ProjectsPage', () => {
       {},
       'me',
     )
+
     const boxes = await screen.findAllByRole('checkbox', {
       name: /^Select PRJ-/,
     })
+
     fireEvent.click(boxes[0])
 
     fireEvent.click(screen.getByRole('button', { name: 'Archive 1' }))
@@ -483,12 +496,14 @@ describe('projects header reflows at 400 % zoom (QA4-zoom-projects)', () => {
     const titleRow = screen.getByText('Projects', {
       selector: 'h1',
     }).parentElement
+
     expect(titleRow).not.toBeNull()
     expect(titleRow!.className).toContain('max-md:flex-wrap')
 
     const tabRows = screen
       .getAllByRole('navigation', { name: 'Project views' })
       .map((nav) => nav.parentElement)
+
     expect(tabRows).toHaveLength(2)
     // The phone row (the one carrying the "More" menu) wraps; the desktop row
     // scrolls inside its own strip.

@@ -410,6 +410,7 @@ export async function fetchNotificationPreferences(
     'notification_preferences',
     '?select=event_type,in_app,email,digest,push',
   )
+
   const saved = new Map(
     rows
       .filter((row) => isEventType(row.event_type))
@@ -427,6 +428,7 @@ export async function fetchNotificationPreferences(
         },
       ]),
   )
+
   return NOTIFICATION_EVENT_TYPES.map(
     (eventType) => saved.get(eventType) ?? defaultPreference(eventType),
   )
@@ -439,6 +441,7 @@ export async function fetchNotificationTiming(
     'user_preferences',
     '?select=quiet_hours_start,quiet_hours_end,digest_time&limit=1',
   )
+
   return {
     quietHoursStart: rows[0]?.quiet_hours_start ?? null,
     quietHoursEnd: rows[0]?.quiet_hours_end ?? null,

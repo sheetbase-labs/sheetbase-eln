@@ -37,6 +37,7 @@ vi.mock('@tanstack/react-router', () => ({
  */
 
 afterEach(() => cleanup())
+
 beforeAll(() => {
   globalThis.ResizeObserver = class {
     observe() {}
@@ -53,6 +54,7 @@ async function expectNoViolations(container: HTMLElement) {
       'color-contrast': { enabled: false },
     },
   })
+
   if (results.violations.length > 0) {
     throw new Error(
       `axe violations:\n${JSON.stringify(
@@ -67,6 +69,7 @@ async function expectNoViolations(container: HTMLElement) {
       )}`,
     )
   }
+
   expect(results.violations).toHaveLength(0)
 }
 
@@ -117,6 +120,7 @@ describe('catalogue accessibility (UI-008)', () => {
         <AuditTrail events={[]} />
       </div>,
     )
+
     await expectNoViolations(container)
   })
 
@@ -149,6 +153,7 @@ describe('catalogue accessibility (UI-008)', () => {
         />
       </div>,
     )
+
     await expectNoViolations(container)
   })
 
@@ -190,6 +195,7 @@ describe('catalogue accessibility (UI-008)', () => {
         />
       </div>,
     )
+
     await expectNoViolations(container)
   })
 
@@ -199,6 +205,7 @@ describe('catalogue accessibility (UI-008)', () => {
       col: i % 12,
       value: ((i * 7 + (i % 5)) % 10) / 10,
     }))
+
     const { container } = render(
       <div>
         <NotebookBlock label="H2" title="Methods" state="selected">
@@ -227,6 +234,7 @@ describe('catalogue accessibility (UI-008)', () => {
         <PlateMap wells={wells} />
       </div>,
     )
+
     await expectNoViolations(container)
   })
 
@@ -241,6 +249,7 @@ describe('catalogue accessibility (UI-008)', () => {
         <Button variant="secondary">Retry</Button>
       </div>,
     )
+
     await expectNoViolations(container)
   })
 })

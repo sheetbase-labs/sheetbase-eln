@@ -61,6 +61,7 @@ describe('validateScheduleSpec', () => {
     ]) {
       expect(validateScheduleSpec('event', { eventType: alias })).toBeNull()
     }
+
     expect(normalizeTriggerEventName('dataset_version_created')).toBe(
       'dataset.versioned',
     )
@@ -125,7 +126,9 @@ describe('PIPELINE_TRIGGER_EVENTS', () => {
           : ['record', 'dataset', 'sheet', 'notebook'].includes(entry.family) ||
             entry.consumers.pipeline),
     ).map((entry) => entry.name)
+
     expect([...PIPELINE_TRIGGER_EVENTS].sort()).toEqual(expected.sort())
+
     // The ones that always start pipelines, whatever else changes.
     for (const name of [
       'record.created',
@@ -180,11 +183,13 @@ describe('nextRunAt', () => {
   it('honours an explicit IANA time zone independently of the server zone', () => {
     // 09:00 in Europe/London (UTC+1 in August) = 08:00 UTC.
     const from = new Date('2026-08-28T07:00:00Z')
+
     const next = nextRunAt(
       'daily',
       { dailyAt: '09:00', timeZone: 'Europe/London' },
       from,
     )
+
     expect(next?.toISOString()).toBe('2026-08-28T08:00:00.000Z')
   })
 
@@ -192,11 +197,13 @@ describe('nextRunAt', () => {
     // 30 March 2026 is after the spring forward (29 March): London is BST
     // (UTC+1). 09:00 BST = 08:00 UTC, and the rollover lands on the 31st.
     const from = new Date('2026-03-30T08:30:00Z')
+
     const next = nextRunAt(
       'daily',
       { dailyAt: '09:00', timeZone: 'Europe/London' },
       from,
     )
+
     expect(next?.toISOString()).toBe('2026-03-31T08:00:00.000Z')
   })
 

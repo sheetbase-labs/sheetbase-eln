@@ -48,19 +48,26 @@ type Ctx = {
   beside: React.RefObject<boolean>
   below: React.RefObject<boolean>
 }
+
 const CommandContext = createContext<Ctx | null>(null)
+
 const useCommand = () => {
   const c = useContext(CommandContext)
+
   if (!c) throw new Error('Command parts must be inside <Command>')
+
   return c
 }
 
 export const optionId = (listId: string, value: string) =>
   `${listId}-${value.replace(/[^\w-]/g, '_')}`
+
 const matches = (query: string, words: string[]) => {
   const q = query.trim().toLowerCase()
+
   if (!q) return true
   const hay = words.join(' ').toLowerCase()
+
   return q.split(/\s+/).every((term) => hay.includes(term))
 }
 
@@ -85,13 +92,16 @@ export function Command({
 }) {
   const [queryState, setQueryState] = useState('')
   const query = queryProp ?? queryState
+
   const setQuery = useCallback(
     (q: string) => {
       onQueryChange?.(q)
+
       if (queryProp === undefined) setQueryState(q)
     },
     [onQueryChange, queryProp],
   )
+
   const [active, setActive] = useState<string | null>(null)
   const [count, setCount] = useState(-1)
   const [busy, setBusy] = useState(false)
@@ -108,13 +118,17 @@ export function Command({
       '[data-command-item]:not([aria-disabled="true"])',
     ) ?? []),
   ]
+
   // After every render: keep the active item on a visible, enabled item, and count what is visible (for CommandEmpty).
   useLayoutEffect(() => {
     const els = items()
     const n = root.current?.querySelectorAll('[data-command-item]').length ?? 0
+
     if (n !== count) setCount(n)
+
     if (!els.some((e) => e.dataset.value === active)) {
       const first = els[0]?.dataset.value ?? null
+
       if (first !== active) setActive(first)
     }
   })
@@ -128,19 +142,24 @@ export function Command({
     setActive(to.dataset.value!)
     to.scrollIntoView({ block: 'nearest' })
   }
+
   const onKeyDown = (e: React.KeyboardEvent) => {
     const els = items()
     const i = els.findIndex((x) => x.dataset.value === active)
+
     if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
       e.preventDefault()
+
       if (!els.length) return
       const d = e.key === 'ArrowDown' ? 1 : -1
+
       const n =
         i < 0
           ? 0
           : loop
             ? (i + d + els.length) % els.length
             : Math.max(0, Math.min(els.length - 1, i + d))
+
       move(els[n])
     } else if (
       (e.key === 'Home' || e.key === 'End') &&
@@ -162,6 +181,7 @@ export function Command({
       }
     }
   }
+
   return (
     <CommandContext.Provider
       value={{
@@ -213,6 +233,7 @@ export function CommandInput({
   trailing?: React.ReactNode
 }) {
   const c = useCommand()
+
   return (
     <div
       className={cn(
@@ -258,8 +279,10 @@ export function CommandList({
   // document: the listbox can be replaced by an empty or error panel.
   useLayoutEffect(() => {
     c.setList(true)
+
     return () => c.setList(false)
   }, [])
+
   return (
     <div
       id={c.listId}
@@ -284,6 +307,7 @@ export function CommandGroup({
   children: React.ReactNode
 }) {
   const id = useId()
+
   return (
     <div
       role="group"
@@ -326,8 +350,10 @@ export function CommandItem({
   ) => void
 }) {
   const c = useCommand()
+
   if (c.shouldFilter && !matches(c.query, [value, ...keywords])) return null
   const on = c.active === value
+
   return (
     <div
       id={optionId(c.listId, value)}
@@ -368,7 +394,9 @@ export function CommandEmpty({
   children: React.ReactNode
 }) {
   const c = useCommand()
+
   if (c.count !== 0 || c.loading) return null
+
   return (
     <div
       role="status"
@@ -393,7 +421,9 @@ export function CommandLoading({
   useLayoutEffect(() => {
     c.setLoading(loading)
   }, [loading])
+
   if (!loading) return null
+
   return (
     <div
       role="status"

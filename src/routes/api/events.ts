@@ -30,8 +30,10 @@ const handler = ({ request }: { request: Request }) => {
       const membership = await db.query.workspaceMemberships.findFirst({
         where: eq(schema.workspaceMemberships.userId, userId),
       })
+
       if (membership)
         annotateRequest({ workspace: { id: membership.workspaceId } })
+
       return membership ? { id: membership.workspaceId } : null
     },
     readEvents: (workspaceId, afterSeq, limit) =>
@@ -41,6 +43,7 @@ const handler = ({ request }: { request: Request }) => {
       subscribeToChangeEvents(workspaceId, onEvent),
     isSessionValid: async (headers) => {
       const session = await getAppSession(headers)
+
       return !!session
     },
     now: () => Date.now(),

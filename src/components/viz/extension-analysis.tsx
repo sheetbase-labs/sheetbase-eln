@@ -46,10 +46,13 @@ const CATEGORY = ['category', 'text', 'boolean']
 
 function numberOrNull(value: unknown): number | null {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null
+
   if (typeof value === 'string' && value.trim() !== '') {
     const parsed = Number(value)
+
     return Number.isFinite(parsed) ? parsed : null
   }
+
   return null
 }
 
@@ -59,20 +62,26 @@ export function buildExtensionChart(outcome: Outcome): {
   materialised: MaterialisedChart
 } | null {
   const chart = outcome.chart
+
   if (!chart || outcome.rows.length === 0) return null
+
   const xIsText =
     outcome.columns.find((column) => column.name === chart.x)?.type === 'text'
+
   const groups = new Map<string, Array<Record<string, unknown>>>()
+
   for (const row of outcome.rows) {
     const key = chart.group ? String(row[chart.group] ?? '') : ''
     groups.set(key, [...(groups.get(key) ?? []), row])
   }
+
   const colours = [
     'var(--series-a)',
     'var(--series-b)',
     'var(--series-c)',
     'var(--series-d)',
   ]
+
   const series = [...groups.entries()].map(([group, rows], index) => ({
     identifier: group || 'result',
     label: group || chart.y,
@@ -84,6 +93,7 @@ export function buildExtensionChart(outcome: Outcome): {
       label: xIsText ? String(row[chart.x] ?? '') : group || chart.y,
     })),
   }))
+
   return {
     spec: {
       specVersion: 1,
@@ -147,10 +157,12 @@ export function ExtensionAnalysisSection({
     queryFn: () => listExtensions(sciDataClient),
     staleTime: 30_000,
   })
+
   const kinds = useMemo(
     () => resolveRunnerPoints(installs.data ?? []).analysisKinds,
     [installs.data],
   )
+
   const [activeName, setActiveName] = useState<string | null>(null)
   const [bindings, setBindings] = useState<Record<string, string>>({})
   const active: Kind | undefined = kinds.find((k) => k.name === activeName)
@@ -158,6 +170,7 @@ export function ExtensionAnalysisSection({
   const run = useMutation<Outcome, Error, void>({
     mutationFn: async () => {
       if (!active || !rows) throw new Error(t('plugins.analysis.needsDataset'))
+
       const body = {
         kind: 'analysis',
         extensionKey: active.extensionKey,
@@ -180,15 +193,19 @@ export function ExtensionAnalysisSection({
           ),
         ),
       }
+
       const response = await fetch('/api/plugins/run', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(body),
       })
+
       const answer = (await response.json().catch(() => null)) as
         (Outcome & { error?: string }) | null
+
       if (!response.ok || !answer)
         throw new Error(answer?.error ?? t('common.errors.generic'))
+
       return answer
     },
   })
@@ -196,6 +213,7 @@ export function ExtensionAnalysisSection({
   if (kinds.length === 0) return null
 
   const columns = dataset?.columns ?? []
+
   const ready =
     active !== undefined &&
     dataset !== null &&
@@ -204,6 +222,7 @@ export function ExtensionAnalysisSection({
     active.declaration.inputs.every(
       (input) => !input.required || Boolean(bindings[input.name]),
     )
+
   const chart = run.data ? buildExtensionChart(run.data) : null
 
   return (
@@ -248,7 +267,9 @@ export function ExtensionAnalysisSection({
                 column.logicalType,
               ),
             )
+
             const id = `extension-input-${input.name}`
+
             return (
               <div
                 key={input.name}

@@ -8,6 +8,7 @@ export async function withParserActor<T>(
   operation: (query: typeof db.$client.query) => Promise<T>,
 ): Promise<T> {
   const client = await db.$client.connect()
+
   try {
     await client.query('BEGIN')
     await client.query('SET LOCAL ROLE service_role')
@@ -21,6 +22,7 @@ export async function withParserActor<T>(
     ])
     const result = await operation(client.query.bind(client))
     await client.query('COMMIT')
+
     return result
   } catch (error) {
     await client.query('ROLLBACK')

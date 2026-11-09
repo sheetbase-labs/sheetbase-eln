@@ -22,6 +22,7 @@ export function SpecVerdictBadge({
   const label = short
     ? t(`quality.verdict.${verdict}Short`)
     : t(`quality.verdict.${verdict}`)
+
   return (
     <span title={title}>
       <Status tone={TONES[verdict]}>{label}</Status>

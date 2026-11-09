@@ -21,15 +21,18 @@ const row = (sequence: number): StreamRow => ({
 
 function deps(over: Partial<EventStreamDeps> = {}): EventStreamDeps {
   const all = [row(1), row(2), row(3)]
+
   return {
     authenticate: async () => ({ workspaceId: 'ws', claims: {} }),
     page: async (_c, after, limit): Promise<StreamPage> => {
       const events = all
         .filter((r) => Number(r.sequence) > after)
         .slice(0, limit)
+
       const last = events.length
         ? Number(events[events.length - 1].sequence)
         : after
+
       return {
         events,
         nextCursor: last,
@@ -86,6 +89,7 @@ describe('handleEventStream', () => {
     expect(
       (await handleEventStream(get('?types=nope.nope'), deps())).status,
     ).toBe(400)
+
     const gone = await handleEventStream(
       get('?after=1'),
       deps({
@@ -100,15 +104,18 @@ describe('handleEventStream', () => {
         }),
       }),
     )
+
     expect(gone.status).toBe(410)
   })
 
   it('streams frames after Last-Event-ID, then stops at the time limit', async () => {
     let t = 0
+
     const res = await handleEventStream(
       get('', { accept: 'text/event-stream', 'last-event-id': '1' }),
       deps({ now: () => (t += 400), maxStreamMs: 1000, sleep: async () => {} }),
     )
+
     expect(res.headers.get('content-type')).toContain('text/event-stream')
     const text = await res.text()
     expect(text).toContain('id: 2\n')

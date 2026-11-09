@@ -139,6 +139,7 @@ function OfflineHarness() {
   const { edits, refresh } = useOfflineEdits()
   const blockUnsynced = useUnsyncedBlock('block-1')
   const cellState = useUnsyncedCellState('sheet-1')
+
   return (
     <div>
       {blockUnsynced ? (

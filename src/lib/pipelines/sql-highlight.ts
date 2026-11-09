@@ -45,15 +45,20 @@ const NUMBER = /\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|\.\d+/y
 /** Split SQL into coloured stretches. `tokens.map(t => t.text).join('') === sql`. */
 export function tokenizeSql(sql: string): SqlToken[] {
   const tokens: SqlToken[] = []
+
   const push = (kind: SqlTokenKind, text: string) => {
     const last = tokens.at(-1)
+
     if (last && last.kind === kind && kind === 'plain') last.text += text
     else tokens.push({ kind, text })
   }
+
   let i = 0
+
   while (i < sql.length) {
     const char = sql[i]
     const rest = sql.slice(i)
+
     if (rest.startsWith('--')) {
       const end = sql.indexOf('\n', i)
       const stop = end === -1 ? sql.length : end
@@ -72,6 +77,7 @@ export function tokenizeSql(sql: string): SqlToken[] {
     } else if (char === "'" || char === '"') {
       // A doubled quote inside is an escaped quote, not the end.
       let j = i + 1
+
       while (j < sql.length) {
         if (sql[j] === char) {
           if (sql[j + 1] === char) j += 2
@@ -81,6 +87,7 @@ export function tokenizeSql(sql: string): SqlToken[] {
           }
         } else j += 1
       }
+
       push(char === "'" ? 'string' : 'identifier', sql.slice(i, j))
       i = j
     } else if (/[A-Za-z_]/.test(char)) {
@@ -108,5 +115,6 @@ export function tokenizeSql(sql: string): SqlToken[] {
       i += 1
     }
   }
+
   return tokens
 }

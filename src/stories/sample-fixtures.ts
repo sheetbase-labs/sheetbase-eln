@@ -114,11 +114,13 @@ export function positionCells(boxId: string): PositionCell[] {
     const rowIndex = Math.floor(index / 6)
     const colIndex = index % 6
     const identifier = OCCUPIED.get(index)
+
     const status: PositionStatus = identifier
       ? 'occupied'
       : index === 20
         ? 'missing'
         : 'available'
+
     return {
       id: `${boxId}-p${index}`,
       boxId,

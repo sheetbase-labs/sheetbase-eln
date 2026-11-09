@@ -43,6 +43,7 @@ export function TemplatePartsSection({
   onChange: (parts: TemplatePart[]) => void
 }) {
   const [ruleFor, setRuleFor] = useState<string | null>(null)
+
   const gateContext = {
     blocks: [],
     parts: parts.map((part, index) => ({
@@ -52,6 +53,7 @@ export function TemplatePartsSection({
       state: 'later' as const,
     })),
   }
+
   const ruleOf = (part: TemplatePart) =>
     [
       part.opensWhen?.length
@@ -64,17 +66,23 @@ export function TemplatePartsSection({
     ]
       .filter(Boolean)
       .join(' · ')
+
   const sectionCount = (partId: string) =>
     placements.filter(
       (placement) => 'partId' in placement && placement.partId === partId,
     ).length
+
   const move = (index: number, delta: number) => {
     const target = index + delta
+
     if (target < 0 || target >= parts.length) return
+
     const next = [...parts]
+
     ;[next[index], next[target]] = [next[target], next[index]]
     onChange(next)
   }
+
   const columns: RegistryColumn<TemplatePart>[] = [
     {
       id: 'number',
@@ -165,6 +173,7 @@ export function TemplatePartsSection({
         ]
       : []),
   ]
+
   return (
     <Section title={t('library.templates.parts.title')} count={parts.length}>
       <Muted>{t('library.templates.parts.hint')}</Muted>
@@ -198,13 +207,16 @@ export function TemplatePartsSection({
         ? (() => {
             const index = parts.findIndex((part) => part.id === ruleFor)
             const part = parts[index] as TemplatePart | undefined
+
             if (!part) return null
+
             const save = (patch: Partial<TemplatePart>) => {
               onChange(
                 parts.map((p) => (p.id === part.id ? { ...p, ...patch } : p)),
               )
               setRuleFor(null)
             }
+
             return (
               <GateDialog
                 part={index + 1}
@@ -269,11 +281,13 @@ function AddPartForm({
   const [day, setDay] = useState<string | null>(null)
   const shownDay = day ?? String(nextDay)
   const dayNumber = Number(shownDay)
+
   const valid =
     title.trim().length > 0 &&
     Number.isInteger(dayNumber) &&
     dayNumber >= 0 &&
     dayNumber <= 3650
+
   return (
     <div className="flex flex-wrap items-end gap-2">
       <Field

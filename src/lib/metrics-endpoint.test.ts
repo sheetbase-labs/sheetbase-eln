@@ -12,6 +12,7 @@ describe('metrics endpoint access model', () => {
       }),
       { token: TOKEN, environment: 'production' },
     )
+
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toContain('text/plain')
     const body = await response.text()
@@ -29,6 +30,7 @@ describe('metrics endpoint access model', () => {
       }),
       { token: TOKEN, environment: 'production' },
     )
+
     expect(response.status).toBe(401)
   })
 
@@ -38,6 +40,7 @@ describe('metrics endpoint access model', () => {
         new Request('http://localhost/api/metrics'),
         { environment },
       )
+
       expect(response.status).toBe(404)
     }
   })
@@ -47,6 +50,7 @@ describe('metrics endpoint access model', () => {
       new Request('http://localhost/api/metrics'),
       { environment: 'development' },
     )
+
     expect(response.status).toBe(200)
   })
 })

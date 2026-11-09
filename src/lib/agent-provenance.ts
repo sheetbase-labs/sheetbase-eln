@@ -38,6 +38,7 @@ function ref(
   source: AgentOutputReference['source'],
 ): AgentOutputReference | null {
   if (typeof id !== 'string' || !UUID_RE.test(id)) return null
+
   return { kind, id, source }
 }
 
@@ -83,14 +84,18 @@ export function extractAgentOutputReferences(
   result: unknown,
 ): AgentOutputReference[] {
   const refs: AgentOutputReference[] = []
+
   // Fail closed on partial rows (e.g. test stubs or older clients): no
   // operation identity means no references, never a crash or a guess.
   if (!isRecord(operation) || typeof operation.kind !== 'string') return refs
+
   const push = (maybe: AgentOutputReference | null) => {
     if (maybe && !refs.some((r) => r.kind === maybe.kind && r.id === maybe.id))
       refs.push(maybe)
   }
+
   const op = operation as unknown as Record<string, unknown>
+
   switch (operation.kind) {
     case 'dataset_rows.commit':
       push(ref('dataset', op.datasetId, 'operation'))
@@ -113,14 +118,17 @@ export function extractAgentOutputReferences(
       if (isRecord(result) && isRecord(result.record)) {
         push(ref('record', result.record.id, 'result'))
       }
+
       break
     default:
       break
   }
+
   if (isRecord(result)) {
     for (const { key, kind } of RESULT_ID_KEYS[operation.kind] ?? [])
       push(ref(kind, result[key], 'result'))
   }
+
   return refs
 }
 
@@ -191,6 +199,7 @@ function lookupProposals(
   id: string,
 ): AgentOperationProposal | null {
   if (proposalsById instanceof Map) return proposalsById.get(id) ?? null
+
   return proposalsById[id] ?? null
 }
 
@@ -200,6 +209,7 @@ export function buildWorkflowProvenanceRecord(
   proposalsById: ProposalMap,
 ): AgentWorkflowProvenanceRecord {
   const ordered = [...steps].sort((a, b) => a.position - b.position)
+
   return {
     formatVersion: 1,
     agentProduced: true,
@@ -232,7 +242,9 @@ export function buildWorkflowProvenanceRecord(
       const proposal = step.proposal_id
         ? lookupProposals(proposalsById, step.proposal_id)
         : null
+
       const succeeded = proposal?.status === 'succeeded'
+
       return {
         position: step.position,
         stepKey: step.step_key,
@@ -303,13 +315,16 @@ export function markProposalEvidence(
     proposal.operation,
     proposal.status === 'succeeded' ? proposal.result : null,
   )
+
   const inputPins: AgentWorkflowInputReference[] = []
+
   const base = {
     agentProduced: true as const,
     provenance: proposal.provenance,
     versionPins: inputPins,
     outputReferences,
   }
+
   switch (proposal.status) {
     case 'succeeded':
       return {
@@ -352,22 +367,26 @@ export function markWorkflowStepEvidence(
   proposal?: AgentOperationProposal | null,
 ): AgentEvidenceMarking {
   const resolved = proposal ?? null
+
   const provenance: AgentProvenance = resolved?.provenance ?? {
     agentId: 'unknown',
     tool: { name: step.tool_name },
     model: { provider: 'unknown', name: 'unknown' },
     invocationId: 'unknown',
   }
+
   const outputReferences = extractAgentOutputReferences(
     step.operation,
     resolved?.status === 'succeeded' ? resolved.result : null,
   )
+
   const base = {
     agentProduced: true as const,
     provenance,
     versionPins: step.input_references,
     outputReferences,
   }
+
   if (step.status === 'succeeded' && resolved?.status === 'succeeded') {
     return {
       ...base,
@@ -376,6 +395,7 @@ export function markWorkflowStepEvidence(
         'Step succeeded with a canonical result; pins above may enter submitted work after human review.',
     }
   }
+
   if (!resolved) {
     return {
       ...base,
@@ -383,7 +403,9 @@ export function markWorkflowStepEvidence(
       qualification: 'Not submittable: step has no proposal yet.',
     }
   }
+
   const proposalMarking = markProposalEvidence(resolved)
+
   return {
     ...base,
     outputReferences,

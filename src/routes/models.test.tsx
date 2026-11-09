@@ -22,6 +22,7 @@ import { DataClientError } from '#/lib/data-client'
 const { navigate, toast, createDatasetSchemaDefinition, ctx, seen, rows } =
   vi.hoisted(() => {
     const searchDefault: { create?: true; returnTo?: string } = {}
+
     return {
       navigate: vi.fn(async () => undefined),
       toast: Object.assign(vi.fn(), { error: vi.fn() }),
@@ -87,6 +88,7 @@ vi.mock('#/components/models/model-create-dialog', async (importOriginal) => ({
   ...(await importOriginal<typeof ModelCreate>()),
   ModelCreateDialog: (props: Record<string, unknown>) => {
     seen.dialog = props
+
     return props.open ? <div data-testid="model-create-dialog" /> : null
   },
 }))
@@ -115,6 +117,7 @@ function model(overrides: Partial<ModelRow> = {}): ModelRow {
 }
 
 afterEach(cleanup)
+
 beforeEach(() => {
   vi.resetAllMocks()
   ctx.value.workspace.role = 'owner'
@@ -125,6 +128,7 @@ beforeEach(() => {
 
 function renderRoute(workspace: WorkspaceNavigation | null = null) {
   const Component = Route.options.component
+
   if (!Component) throw new Error('Models route component required')
   render(
     <QueryClientProvider
@@ -152,9 +156,11 @@ describe('models route create flow', () => {
       beside: true,
       title: 'Cell bank',
     })
+
     for (const modifier of ['ctrlKey', 'metaKey', 'shiftKey']) {
       expect(fireEvent.click(link, { [modifier]: true })).toBe(true)
     }
+
     expect(open).toHaveBeenCalledTimes(1)
     expect(screen.queryByLabelText('Model details')).toBeNull()
   })
@@ -206,6 +212,7 @@ describe('models route create flow', () => {
       'Model “Cell bank reading” created',
       expect.objectContaining({ description: expect.any(String) }),
     )
+
     // The new definition is a draft: the board lands on All with its row
     // selected, so the row it just created is the one on screen.
     const [target] = navigate.mock.calls[0] as unknown as [
@@ -214,6 +221,7 @@ describe('models route create flow', () => {
         search: (s: Record<string, unknown>) => Record<string, unknown>
       },
     ]
+
     expect(target.to).toBe('/models')
     expect(target.search({ q: 'cell' })).toEqual({
       q: 'cell',
@@ -276,9 +284,11 @@ describe('models route detours (Phase 4)', () => {
       onCreate({ key: 'reading', name: 'Reading', description: null })
     })
     await waitFor(() => expect(toast).toHaveBeenCalled())
+
     const options = toast.mock.calls[0][1] as {
       action: { label: string; onClick: () => void }
     }
+
     expect(options.action.label).toBe('Back to what you were doing')
     options.action.onClick()
     expect(navigate).toHaveBeenLastCalledWith({

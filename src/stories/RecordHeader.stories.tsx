@@ -13,9 +13,13 @@ const meta = {
     identifier: 'EXP-2026-014',
   },
 } satisfies Meta<typeof RecordHeader>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 export const Minimal: Story = {}
+
 export const Complete: Story = {
   args: {
     status: <Badge variant="add">Active</Badge>,
@@ -37,6 +41,7 @@ export const Complete: Story = {
     actions: <Button size="sm">Edit</Button>,
   },
 }
+
 export const LongTitle: Story = {
   args: {
     title:

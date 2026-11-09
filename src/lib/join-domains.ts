@@ -15,6 +15,7 @@ export const JOIN_ROLES = [
   'reviewer',
   'viewer',
 ] as const
+
 export type JoinRole = (typeof JOIN_ROLES)[number]
 
 export interface JoinDomainRow {
@@ -74,6 +75,7 @@ export const joinDomainKeys = {
 /** `dana@Acme-Bio.com` → `acme-bio.com`; empty when there is no domain. */
 export function emailDomainOf(email: string | null | undefined): string {
   const at = (email ?? '').lastIndexOf('@')
+
   return at < 0
     ? ''
     : (email ?? '')
@@ -126,7 +128,9 @@ export async function fetchJoinOffer(
     'my_join_offer',
     {},
   )
+
   if (!rows) return null
+
   return Array.isArray(rows) ? (rows[0] ?? null) : rows
 }
 
@@ -141,6 +145,7 @@ export function describeJoinDomainError(error: unknown): string {
   if (!(error instanceof DataClientError)) {
     return t('settings.joinDomains.errorGeneric')
   }
+
   switch (error.code) {
     case 'SB210':
       return t('settings.joinDomains.errorPublic')

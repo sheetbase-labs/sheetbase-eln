@@ -131,14 +131,17 @@ const intakeDataClient = createDataClient()
 export const Route = createFileRoute('/instruments/$instrumentId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     await resolveIdentifierParam({
       entity: 'instrument',
       ref: params.instrumentId,
       href: location.href,
     })
+
     return { context }
   },
   validateSearch: (search: Record<string, unknown>): { record?: '1' } => ({
@@ -150,6 +153,7 @@ export const Route = createFileRoute('/instruments/$instrumentId')({
 function isoDay(offsetDays = 0): string {
   const d = appNow()
   d.setUTCDate(d.getUTCDate() + offsetDays)
+
   return d.toISOString().slice(0, 10)
 }
 
@@ -185,28 +189,34 @@ function InstrumentPage() {
   const [performed, setPerformed] = useState(isoDay())
   const [due, setDue] = useState(isoDay(182))
   const [notes, setNotes] = useState('')
+
   const [certificate, setCertificate] = useState<{
     fileObjectId: string
     displayName: string
   } | null>(null)
+
   const [certificateProject, setCertificateProject] = useState('')
   const [setupStep, setSetupStep] = useState<1 | 3 | null>(null)
   const [grantOpen, setGrantOpen] = useState(false)
   const [grantUser, setGrantUser] = useState('')
   const [grantUntil, setGrantUntil] = useState(isoDay(365))
   const [grantScope, setGrantScope] = useState('')
+
   const [revokeTarget, setRevokeTarget] = useState<QualificationRow | null>(
     null,
   )
+
   const i = instrument.data
   const rows = runs.data ?? []
   const calibrationRows = calibrations.data ?? []
   const latest = calibrationRows.at(0) ?? null
   const canRecord = hasCapability(context.workspace?.role, 'record.create')
+
   const canCalibrate = hasCapability(
     context.workspace?.role,
     'calibration.record',
   )
+
   // The qualification RPCs are workspace-admin (owner) actions.
   const canQualify = hasCapability(context.workspace?.role, 'workspace.admin')
   const workspaceId = context.workspace?.id ?? ''
@@ -216,6 +226,7 @@ function InstrumentPage() {
   useEffect(() => {
     if (recordParam === '1' && canCalibrate) setRecordOpen(true)
   }, [recordParam, canCalibrate])
+
   const projects = useQuery({
     queryKey: ['ui-port', 'instrument-certificate-projects'],
     enabled: canCalibrate && recordOpen,
@@ -226,19 +237,23 @@ function InstrumentPage() {
       ),
     staleTime: 60_000,
   })
+
   const projectOptions = projects.data ?? []
   const canSetUpIntake = canManageSettings(context.workspace, 'integrations')
+
   const intakeConnector = useQuery({
     queryKey: intakeSetupQueryKeys.connector(instrumentId),
     enabled: instrumentId.length > 0 && workspaceId.length > 0,
     queryFn: () => findInstrumentConnector(intakeDataClient, instrumentId),
     staleTime: 15_000,
   })
+
   const intakeParsers = useQuery({
     queryKey: parserSettingsQueryKeys.list(workspaceId),
     enabled: workspaceId.length > 0 && Boolean(intakeConnector.data?.parser_id),
     queryFn: () => fetchParserSettings(intakeDataClient, workspaceId),
   })
+
   const certificateProjectId = certificateProject || projectOptions[0]?.id || ''
 
   const qualifications = useQuery({
@@ -251,6 +266,7 @@ function InstrumentPage() {
       ),
     staleTime: 15_000,
   })
+
   const qualificationRows = qualifications.data ?? []
 
   const calibrationColumns: RegistryColumn<(typeof calibrationRows)[number]>[] =
@@ -311,6 +327,7 @@ function InstrumentPage() {
       header: 'Status',
       cell: ({ row }) => {
         const run = runStatus(row.original.status)
+
         return <Status tone={run.tone}>{run.label}</Status>
       },
     },
@@ -442,9 +459,11 @@ function InstrumentPage() {
         ]
       : []),
   ]
+
   // The scope lives on the instrument; the read model reports it on each row.
   const scope =
     qualificationRows.find((row) => row.qualified_for)?.qualified_for ?? null
+
   const members = useQuery({
     queryKey: ['ui-port', 'workspace-operators', workspaceId],
     enabled: canQualify && workspaceId.length > 0,
@@ -455,6 +474,7 @@ function InstrumentPage() {
       ),
     staleTime: 60_000,
   })
+
   // People who have asked to be qualified: an owner sees everyone's open
   // requests, anyone else only their own (the table's policy decides).
   const openRequests = useQuery({
@@ -464,12 +484,16 @@ function InstrumentPage() {
       fetchOpenQualificationRequests(notebookDataClient, instrumentId),
     staleTime: 15_000,
   })
+
   const requestRows = openRequests.data ?? []
   const myUserId = context.user.id
+
   const iAmQualified = qualificationRows.some(
     (row) => row.user_id === myUserId && row.current,
   )
+
   const iHaveAsked = requestRows.some((row) => row.user_id === myUserId)
+
   const names = useUserNames([
     ...(i?.ownerId ? [i.ownerId] : []),
     ...(i?.createdByUserId ? [i.createdByUserId] : []),
@@ -486,6 +510,7 @@ function InstrumentPage() {
     ...qualificationRows.map((row) => row.user_id),
     ...(members.data ?? []).map((member) => member.user_id),
   ])
+
   const personLabel = (row: QualificationRow) =>
     row.user_name ?? names.userLabel(row.user_id)
 
@@ -615,16 +640,21 @@ function InstrumentPage() {
       </div>
     )
   }
+
   const parserRows = parsers.data ?? []
+
   const parserReady =
     parserRows.length > 0 && parserRows.some((parser) => parser.validated)
+
   const needsParser = intakeMethodNeedsParser(i.intakeMethod)
   // Once data intake is set up here the instrument reads files through that
   // setup, so a parser attached by hand isn't what it waits on.
   const connector = intakeConnector.data ?? null
+
   const followUp = connector
     ? null
     : parserFollowUp(i.id, i.intakeMethod, parsers.data)
+
   const health = intakeHealth(i.intakeMethod, {
     parserReady: connector
       ? undefined
@@ -633,9 +663,12 @@ function InstrumentPage() {
         : undefined,
     lastImport: lastImport.data ?? null,
   })
+
   const deliveryProblem = intakeDeliveryProblem(health.label)
+
   const lastDataAt =
     lastImport.data?.status === 'committed' ? lastImport.data.createdAt : null
+
   const nextBooking = !booking.isSuccess
     ? '—'
     : !booking.data.bookable
@@ -643,12 +676,14 @@ function InstrumentPage() {
       : booking.data.next
         ? `${formatDate(booking.data.next.startsAt, { time: true })} · ${booking.data.next.title}`
         : 'None'
+
   const connectorParserLabel = connector
     ? connector.parser_id
       ? (intakeParsers.data?.find((p) => p.key === connector.parser_id)?.name ??
         '—')
       : t('library.instruments.intakeStatus.workItOut')
     : null
+
   const parserLabel = connectorParserLabel
     ? connectorParserLabel
     : !needsParser
@@ -661,6 +696,7 @@ function InstrumentPage() {
             )
             .join(', ')
         : t('library.instruments.record.noParserAttached')
+
   const status = calibrationStatus(latest?.dueAt ?? null)
   const down = isOutOfService(i)
 

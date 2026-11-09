@@ -40,6 +40,7 @@ export function InstrumentParserTable({
   const lastImports = useLastImportsByInstrument()
   const readiness = useParserReadinessByInstrument()
   const rows = (instruments.data ?? []).filter((i) => !i.retiredAt)
+
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     selectedInstrumentId,
     onSelect,
@@ -64,11 +65,13 @@ export function InstrumentParserTable({
       header: 'Parser',
       cell: ({ row }) => {
         const own = parsers.filter((p) => p.instrument_id === row.original.id)
+
         if (!own.length)
           return (
             <span className="text-fg-muted">{t('common.states.none')}</span>
           )
         const names = own.map((p) => p.name).join(', ')
+
         return (
           <span className="block max-w-56 truncate" title={names}>
             {names}
@@ -86,6 +89,7 @@ export function InstrumentParserTable({
             : undefined,
           lastImport: lastImports.data?.get(row.original.id) ?? null,
         })
+
         return (
           <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
             <Dot tone={health.tone} />
@@ -100,6 +104,7 @@ export function InstrumentParserTable({
       cell: ({ row }) => {
         const dueAt = calibrations.data?.get(row.original.id)?.dueAt ?? null
         const { tone, label } = calibrationStatus(dueAt)
+
         return (
           <span
             className={cn(
@@ -121,6 +126,7 @@ export function InstrumentParserTable({
       header: t('settings.instrumentParserTable.lastImport'),
       cell: ({ row }) => {
         const last = lastImports.data?.get(row.original.id)
+
         return last ? formatDate(last.createdAt) : '—'
       },
     },
@@ -130,12 +136,14 @@ export function InstrumentParserTable({
     return (
       <Muted>{t('settings.instrumentParserTable.loadingInstruments')}</Muted>
     )
+
   if (!rows.length)
     return (
       <Muted>
         {t('settings.instrumentParserTable.instrumentsRegisteredYet')}
       </Muted>
     )
+
   return (
     <TableBox>
       <RegistryGrid

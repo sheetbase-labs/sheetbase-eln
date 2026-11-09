@@ -26,7 +26,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof PreSignSummary>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A revision with changes and three warnings. */

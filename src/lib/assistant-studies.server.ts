@@ -113,7 +113,9 @@ async function findTask(
     'study_tasks',
     `?title=ilike.${likeValue(text)}&select=id,title,status,priority,progress_percent,due_at,project_id,metadata_version,task_type&order=due_at.asc.nullslast&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -134,14 +136,18 @@ export async function buildStudiesProposal(
   context: LabToolContext,
 ): Promise<StudiesOutcome> {
   const { client } = context
+
   switch (name) {
     case STUDY_TASK_ADD_TOOL: {
       const parsed = proposeStudyTaskAddSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       let project: { id: string; title: string } | null = null
+
       if (input.project) {
         const like = likeValue(input.project)
+
         const rows = await client.list<{
           id: string
           title: string
@@ -150,7 +156,9 @@ export async function buildStudiesProposal(
           'projects',
           `?or=(title.ilike.${like},key.ilike.${like})&select=id,title,key&limit=6`,
         )
+
         const lower = input.project.trim().toLowerCase()
+
         const found = pick(
           rows,
           input.project,
@@ -160,10 +168,13 @@ export async function buildStudiesProposal(
             row.title.toLowerCase() === lower ||
             row.key.toLowerCase() === lower,
         )
+
         if (!found.ok) return fail(found.message)
         project = found.value
       }
+
       const taskType = input.type ?? 'task'
+
       const changes: ProposalChange[] = [
         {
           label: taskType === 'milestone' ? 'Milestone' : 'Task',
@@ -171,12 +182,16 @@ export async function buildStudiesProposal(
           after: input.task.trim(),
         },
       ]
+
       if (project)
         changes.push({ label: 'Project', before: null, after: project.title })
+
       if (input.dueOn)
         changes.push({ label: 'Due', before: null, after: input.dueOn })
+
       if (input.priority)
         changes.push({ label: 'Priority', before: null, after: input.priority })
+
       return {
         ok: true,
         proposal: {
@@ -202,52 +217,65 @@ export async function buildStudiesProposal(
 
     case STUDY_TASK_UPDATE_TOOL: {
       const parsed = proposeStudyTaskUpdateSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
+
       if (input.dueOn && !input.reason)
         return fail(
           'Ask the person why the due date is moving; the reason is kept in the task’s history.',
         )
+
       const edit: {
         status?: (typeof input)['status']
         priority?: (typeof input)['priority']
         progressPercent?: number
       } = {}
+
       if (input.status) edit.status = input.status
+
       if (input.priority) edit.priority = input.priority
+
       if (input.progressPercent) edit.progressPercent = input.progressPercent
+
       if (Object.keys(edit).length === 0 && !input.dueOn)
         return fail(
           'Ask the person what to change: the status, priority, progress or due date.',
         )
       const found = await findTask(context, input.task)
+
       if (!found.ok) return fail(found.message)
       const task = found.value
       const changes: ProposalChange[] = []
+
       if (input.status)
         changes.push({
           label: 'Status',
           before: task.status,
           after: input.status,
         })
+
       if (input.priority)
         changes.push({
           label: 'Priority',
           before: task.priority,
           after: input.priority,
         })
+
       if (input.progressPercent)
         changes.push({
           label: 'Progress',
           before: `${task.progress_percent}%`,
           after: `${input.progressPercent}%`,
         })
+
       if (input.dueOn)
         changes.push({
           label: 'Due',
           before: dayText(task.due_at),
           after: input.dueOn,
         })
+
       return {
         ok: true,
         proposal: {
@@ -273,16 +301,21 @@ export async function buildStudiesProposal(
 
     case STUDY_DELIVERABLE_ADD_TOOL: {
       const parsed = proposeStudyDeliverableAddSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const found = await findTask(context, input.task)
+
       if (!found.ok) return fail(found.message)
       const task = found.value
+
       const changes: ProposalChange[] = [
         { label: 'Deliverable', before: null, after: input.name.trim() },
       ]
+
       if (input.dueOn)
         changes.push({ label: 'Due', before: null, after: input.dueOn })
+
       return {
         ok: true,
         proposal: {
@@ -304,9 +337,11 @@ export async function buildStudiesProposal(
 
     case REPORT_GENERATE_TOOL: {
       const parsed = proposeReportGenerateSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const like = likeValue(input.report)
+
       const rows = await client.list<{
         id: string
         title: string
@@ -317,7 +352,9 @@ export async function buildStudiesProposal(
         'report_definitions',
         `?or=(title.ilike.${like},document_identifier.ilike.${like})&select=id,title,document_identifier,status,version&order=updated_at.desc&limit=6`,
       )
+
       const lower = input.report.trim().toLowerCase()
+
       const found = pick(
         rows,
         input.report,
@@ -327,8 +364,10 @@ export async function buildStudiesProposal(
           row.title.toLowerCase() === lower ||
           row.document_identifier.toLowerCase() === lower,
       )
+
       if (!found.ok) return fail(found.message)
       const report = found.value
+
       return {
         ok: true,
         proposal: {
@@ -355,8 +394,10 @@ export async function buildStudiesProposal(
 
     case PLATE_DESIGN_ARCHIVE_TOOL: {
       const parsed = proposePlateDesignArchiveSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
+
       const rows = await client.list<{
         id: string
         name: string
@@ -366,7 +407,9 @@ export async function buildStudiesProposal(
         'plate_designs',
         `?name=ilike.${likeValue(input.design)}&status=neq.archived&select=id,name,status,metadata_version&order=updated_at.desc&limit=6`,
       )
+
       const lower = input.design.trim().toLowerCase()
+
       const found = pick(
         rows,
         input.design,
@@ -374,8 +417,10 @@ export async function buildStudiesProposal(
         (row) => row.name,
         (row) => row.name.toLowerCase() === lower,
       )
+
       if (!found.ok) return fail(found.message)
       const design = found.value
+
       return {
         ok: true,
         proposal: {
@@ -398,11 +443,14 @@ export async function buildStudiesProposal(
 
     case STUDY_TASK_DELETE_TOOL: {
       const parsed = proposeStudyTaskDeleteSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const found = await findTask(context, input.task)
+
       if (!found.ok) return fail(found.message)
       const task = found.value
+
       return {
         ok: true,
         proposal: {
@@ -425,13 +473,17 @@ export async function buildStudiesProposal(
 
     case ANALYSIS_VIEW_DELETE_TOOL: {
       const parsed = proposeAnalysisViewDeleteSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
+
       const rows = await client.list<{ id: string; name: string }>(
         'analysis_views',
         `?name=ilike.${likeValue(input.view)}&select=id,name&order=updated_at.desc&limit=6`,
       )
+
       const lower = input.view.trim().toLowerCase()
+
       const found = pick(
         rows,
         input.view,
@@ -439,8 +491,10 @@ export async function buildStudiesProposal(
         (row) => row.name,
         (row) => row.name.toLowerCase() === lower,
       )
+
       if (!found.ok) return fail(found.message)
       const view = found.value
+
       return {
         ok: true,
         proposal: {
@@ -459,13 +513,17 @@ export async function buildStudiesProposal(
 
     case ANALYSIS_DEFINITION_DELETE_TOOL: {
       const parsed = proposeAnalysisDefinitionDeleteSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
+
       const rows = await client.list<{ id: string; name: string }>(
         'analysis_definitions',
         `?name=ilike.${likeValue(input.definition)}&select=id,name&order=updated_at.desc&limit=6`,
       )
+
       const lower = input.definition.trim().toLowerCase()
+
       const found = pick(
         rows,
         input.definition,
@@ -473,8 +531,10 @@ export async function buildStudiesProposal(
         (row) => row.name,
         (row) => row.name.toLowerCase() === lower,
       )
+
       if (!found.ok) return fail(found.message)
       const definition = found.value
+
       return {
         ok: true,
         proposal: {

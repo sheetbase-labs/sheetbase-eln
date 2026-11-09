@@ -119,25 +119,33 @@ export function ScheduleReportDialog({
 
   const kinds = REPORT_KINDS.filter((k) => canScheduleKind(role, k))
   const [name, setName] = useState(report?.name ?? '')
+
   const [kind, setKind] = useState<ReportKind>(
     report?.kind ?? initial?.kind ?? kinds.at(0) ?? 'spend',
   )
+
   const [projectId, setProjectId] = useState(
     report?.projectId ?? initial?.projectId ?? '',
   )
+
   const [period, setPeriod] = useState<ScheduledPeriod>(
     report?.period ?? 'previous_week',
   )
+
   const [openHours, setOpenHours] = useState(String(report?.openHours ?? 10))
+
   const [frequency, setFrequency] = useState<Frequency>(
     report?.frequency ?? 'weekly',
   )
+
   const [weekday, setWeekday] = useState(report?.weekday ?? 1)
   const [monthDay, setMonthDay] = useState(report?.monthDay ?? 1)
   const [sendHour, setSendHour] = useState(report?.sendHour ?? 8)
+
   const [recipients, setRecipients] = useState<string[]>(
     report?.recipientUserIds ?? (auth?.user.id ? [auth.user.id] : []),
   )
+
   const [error, setError] = useState<string | null>(null)
 
   const members = useQuery({
@@ -145,6 +153,7 @@ export function ScheduleReportDialog({
     queryFn: fetchWorkspaceMemberIdentities,
     staleTime: 60_000,
   })
+
   const projects = useQuery({
     queryKey: PROJECTS_KEY,
     queryFn: () =>
@@ -204,10 +213,13 @@ export function ScheduleReportDialog({
             className="flex flex-col gap-4"
             onSubmit={(event) => {
               event.preventDefault()
+
               if (recipients.length === 0) {
                 setError(t('spend.schedule.form.noRecipients'))
+
                 return
               }
+
               setError(null)
               save.mutate()
             }}
@@ -404,12 +416,15 @@ function resultLabel(report: ScheduledReport): string {
   if (!report.lastRunAt) return t('spend.schedule.neverSent')
   const when = formatDate(report.lastRunAt, { time: true })
   const result = report.lastResult ?? ''
+
   if (result.startsWith('failed:')) {
     return `${when} · ${t('spend.schedule.lastResult.failed', { reason: result.slice(7).trim() })}`
   }
+
   if ((report.lastRecipientCount ?? 0) === 0) {
     return `${when} · ${t('spend.schedule.lastResult.nobody')}`
   }
+
   return `${when} · ${t('spend.schedule.lastResult.sent', { count: report.lastRecipientCount ?? 0 })}`
 }
 
@@ -430,7 +445,9 @@ export function ScheduledReportsPanel({
     queryFn: () => fetchScheduledReports(client),
     staleTime: 10_000,
   })
+
   const canSchedule = REPORT_KINDS.some((kind) => canScheduleKind(role, kind))
+
   const refresh = () =>
     void queryClient.invalidateQueries({ queryKey: scheduledReportKeys.all })
 
@@ -440,8 +457,11 @@ export function ScheduledReportsPanel({
       what: 'now' | 'pause' | 'resume' | 'delete'
     }) => {
       const { report, what } = action
+
       if (what === 'now') return sendScheduledReportNow(client, report.id)
+
       if (what === 'delete') return deleteScheduledReport(client, report.id)
+
       return setScheduledReportActive(client, report.id, what === 'resume')
     },
     onSuccess: (_result, action) => {
@@ -508,6 +528,7 @@ export function ScheduledReportsPanel({
             <TableBody>
               {rows.map((report) => {
                 const manage = canScheduleKind(role, report.kind)
+
                 return (
                   <TableRow key={report.id}>
                     <TableCell>

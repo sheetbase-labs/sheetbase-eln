@@ -11,7 +11,9 @@ import { t } from '#/copy'
 import type { DataClient } from './data-client'
 
 export type RepeatKind = 'booking' | 'experiment'
+
 export type RepeatStatus = 'active' | 'paused' | 'ended'
+
 export type RepeatFrequency = 'daily' | 'weekly' | 'monthly' | 'offsets'
 
 export interface RepeatScheduleWire {
@@ -139,6 +141,7 @@ export const NO_REPEAT: RepeatForm = {
 /** ISO weekday (1 = Monday … 7 = Sunday) of a `YYYY-MM-DD` day. */
 export function isoWeekday(day: string): number {
   const d = new Date(`${day}T12:00:00Z`).getUTCDay()
+
   return d === 0 ? 7 : d
 }
 
@@ -148,20 +151,24 @@ export function repeatFormError(
   firstDay: string,
 ): string | null {
   if (form.frequency === 'none') return null
+
   if (
     !Number.isInteger(form.interval) ||
     form.interval < 1 ||
     form.interval > 52
   )
     return t('projects.recurring.errors.interval')
+
   if (form.frequency === 'weekly' && form.weekdays.length === 0)
     return t('projects.recurring.errors.weekdays')
+
   if (form.endMode === 'count') {
     if (!Number.isInteger(form.count) || form.count < 1 || form.count > 400)
       return t('projects.recurring.errors.count')
   } else if (!form.until || form.until < firstDay) {
     return t('projects.recurring.errors.until')
   }
+
   return null
 }
 
@@ -219,6 +226,7 @@ export async function createRepeat(
     p_project_id: input.projectId ?? null,
     p_notes: input.notes ?? null,
   })
+
   return { schedule: toRepeatSchedule(made.schedule), result: made.result }
 }
 
@@ -230,6 +238,7 @@ export function repeatFormToRule(
   'frequency' | 'interval' | 'weekdays' | 'endsOn' | 'maxOccurrences'
 > {
   if (form.frequency === 'none') throw new Error('not a repeat')
+
   return {
     frequency: form.frequency,
     interval: form.interval,
@@ -247,6 +256,7 @@ export async function fetchRepeatSchedules(
     'recurring_schedules',
     `?kind=eq.${kind}&order=created_at.desc&limit=100`,
   )
+
   return rows.map(toRepeatSchedule)
 }
 
@@ -292,6 +302,7 @@ export function describeRepeatRule(schedule: {
   startsOn: string
 }): string {
   const every = schedule.intervalCount
+
   switch (schedule.frequency) {
     case 'daily':
       return every === 1
@@ -305,16 +316,20 @@ export function describeRepeatRule(schedule: {
           ),
         ),
       )
+
       return every === 1
         ? t('projects.recurring.summary.weekly', { days })
         : t('projects.recurring.summary.weeklyEvery', { count: every, days })
     }
+
     case 'monthly': {
       const day = Number(schedule.startsOn.slice(8, 10))
+
       return every === 1
         ? t('projects.recurring.summary.monthly', { day })
         : t('projects.recurring.summary.monthlyEvery', { count: every, day })
     }
+
     case 'offsets':
       return t('projects.recurring.summary.offsets', {
         days: listWords(schedule.offsetsDays.map(String)),
@@ -331,7 +346,9 @@ export function describeRepeat(
   formatDate: (day: string) => string = (day) => day,
 ): string {
   const rule = describeRepeatRule(schedule)
+
   if (schedule.frequency === 'offsets') return rule
+
   const ends =
     schedule.maxOccurrences != null
       ? schedule.maxOccurrences === 1
@@ -344,6 +361,7 @@ export function describeRepeat(
             date: formatDate(schedule.endsOn),
           })
         : null
+
   return ends
     ? t('projects.recurring.summary.joined', { repeat: rule, ends })
     : rule
@@ -352,6 +370,7 @@ export function describeRepeat(
 /** Why an occurrence wasn't made, in a scientist's words. */
 export function describeNotMade(message: string | null): string {
   const code = message?.split(':', 1)[0]?.trim()
+
   switch (code) {
     case 'SB020':
       return t('projects.recurring.dialog.reasons.clash')
@@ -381,6 +400,7 @@ export function describeRepeatResult(
 ): string {
   const notMade = result.skipped + result.failed
   const parts: string[] = []
+
   if (kind === 'booking') {
     parts.push(
       t('projects.recurring.result.bookings', { count: result.created }),
@@ -392,7 +412,9 @@ export function describeRepeatResult(
   } else {
     parts.push(t('projects.recurring.result.scheduled'))
   }
+
   if (notMade > 0)
     parts.push(t('projects.recurring.result.notMade', { count: notMade }))
+
   return parts.join(' ')
 }

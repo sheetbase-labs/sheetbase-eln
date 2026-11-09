@@ -172,12 +172,15 @@ async function readRunError(
   fallback: string,
 ): Promise<Error> {
   let message = `${fallback} (${response.status})`
+
   try {
     const body = (await response.json()) as { error?: { message?: string } }
+
     if (body.error?.message) message = body.error.message
   } catch {
     // keep the generic message
   }
+
   return new Error(message)
 }
 
@@ -188,20 +191,25 @@ async function readRunError(
 async function followRun(runId: string): Promise<PipelineRunWire> {
   const deadline = Date.now() + RUN_FOLLOW_LIMIT_MS
   let delay = 750
+
   for (;;) {
     const response = await fetch(
       `/api/pipelines/execute?runId=${encodeURIComponent(runId)}`,
     )
+
     if (!response.ok)
       throw await readRunError(
         response,
         t('data.pipelineData.followingRunFailed'),
       )
+
     const state = (await response.json()) as {
       run: PipelineRunWire
       job: { state: string; lastError: string | null } | null
     }
+
     const open = state.job?.state === 'queued' || state.job?.state === 'claimed'
+
     if (!open) {
       if (state.job?.state === 'dead')
         throw new Error(
@@ -209,8 +217,10 @@ async function followRun(runId: string): Promise<PipelineRunWire> {
             state.job.lastError ??
             t('data.pipelineData.pipelineRunCouldExecuted'),
         )
+
       return state.run
     }
+
     if (Date.now() > deadline)
       throw new Error(t('data.pipelineData.runStillQueuedRunning'))
     await new Promise((resolve) => setTimeout(resolve, delay))
@@ -231,11 +241,13 @@ export async function executePipelineRun(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ runId }),
   })
+
   if (!response.ok)
     throw await readRunError(
       response,
       t('data.pipelineData.pipelineExecutionFailed'),
     )
+
   return followRun(runId)
 }
 
@@ -254,8 +266,10 @@ export async function tryPipelineDraft(input: {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
   })
+
   if (!response.ok)
     throw await readRunError(response, t('data.pipelineData.tryingDraftFailed'))
+
   return (await response.json()) as PipelineTrialWire
 }
 
@@ -277,8 +291,10 @@ export async function reproducePipelineRun(input: {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
   })
+
   if (!response.ok)
     throw await readRunError(response, t('data.reproduce.couldNotReproduce'))
+
   return (await response.json()) as PipelineReproductionWire
 }
 
@@ -302,14 +318,18 @@ export async function listLatestReproductions(
   runIds: string[],
 ): Promise<Record<string, PipelineReproductionWire['status']>> {
   if (runIds.length === 0) return {}
+
   const rows = await client.list<
     Pick<PipelineReproductionWire, 'source_run_id' | 'status'>
   >(
     'pipeline_reproductions',
     `?select=source_run_id,status&source_run_id=in.(${runIds.map(encodeURIComponent).join(',')})&order=created_at.desc&limit=500`,
   )
+
   const latest: Record<string, PipelineReproductionWire['status']> = {}
+
   for (const row of rows) latest[row.source_run_id] ??= row.status
+
   return latest
 }
 
@@ -407,6 +427,7 @@ export async function getPipelineDefinition(
     'pipeline_definitions',
     `?select=${DEFINITION_FIELDS}&id=eq.${encodeURIComponent(definitionId)}`,
   )
+
   return rows[0]
 }
 
@@ -428,6 +449,7 @@ export async function getPipelineDefinitionVersion(
     'pipeline_definition_versions',
     `?select=${VERSION_FIELDS}&id=eq.${encodeURIComponent(versionId)}`,
   )
+
   return rows[0]
 }
 
@@ -461,6 +483,7 @@ export async function getPipelineRun(
     'pipeline_runs',
     `?select=${RUN_FIELDS}&id=eq.${encodeURIComponent(runId)}`,
   )
+
   return rows[0]
 }
 
@@ -498,34 +521,46 @@ export async function getRunForDatasetVersion(
     'pipeline_run_outputs',
     `?select=run_id&dataset_version_id=eq.${encodeURIComponent(datasetVersionId)}&order=created_at.desc&limit=1`,
   )
+
   const runId = outputs.at(0)?.run_id
+
   if (!runId) return null
+
   const runs = await client.list<{ definition_version_id: string }>(
     'pipeline_runs',
     `?select=definition_version_id&id=eq.${encodeURIComponent(runId)}&limit=1`,
   )
+
   const versionId = runs.at(0)?.definition_version_id
+
   if (!versionId) return null
+
   const versions = await client.list<{ definition_id: string }>(
     'pipeline_definition_versions',
     `?select=definition_id&id=eq.${encodeURIComponent(versionId)}&limit=1`,
   )
+
   const pipelineId = versions.at(0)?.definition_id
+
   if (!pipelineId) return null
+
   const definitions = await client.list<{ name: string }>(
     'pipeline_definitions',
     `?select=name&id=eq.${encodeURIComponent(pipelineId)}&limit=1`,
   )
+
   const siblings = await client.list<{ id: string }>(
     'pipeline_definition_versions',
     `?select=id&definition_id=eq.${encodeURIComponent(pipelineId)}`,
   )
+
   const everyRun = siblings.length
     ? await client.list<{ id: string; started_at: string }>(
         'pipeline_runs',
         `?select=id,started_at&definition_version_id=in.(${siblings.map((v) => v.id).join(',')})&order=started_at.asc&limit=5000`,
       )
     : []
+
   return {
     runId,
     pipelineId,
@@ -582,11 +617,13 @@ export async function answerPipelineRunPrompt(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ runId, answer }),
   })
+
   if (!response.ok)
     throw await readRunError(
       response,
       t('data.pipelineData.answeringRunFailed'),
     )
+
   return followRun(runId)
 }
 
@@ -597,6 +634,7 @@ export async function listPipelineSchedules(
   const filter = definitionId
     ? `&definition_id=eq.${encodeURIComponent(definitionId)}`
     : ''
+
   return client.list<PipelineScheduleWire>(
     'pipeline_schedules',
     `?select=${SCHEDULE_FIELDS}${filter}&order=created_at.asc`,
@@ -621,16 +659,20 @@ export async function listLatestScheduleRuns(
   scheduleIds: string[],
 ): Promise<Map<string, PipelineRunWire>> {
   const latest = new Map<string, PipelineRunWire>()
+
   if (scheduleIds.length === 0) return latest
+
   const runs = await client.list<PipelineRunWire>(
     'pipeline_runs',
     `?select=${RUN_FIELDS}&schedule_id=in.(${scheduleIds.map(encodeURIComponent).join(',')})&order=started_at.desc&limit=200`,
   )
+
   for (const run of runs) {
     if (run.schedule_id && !latest.has(run.schedule_id)) {
       latest.set(run.schedule_id, run)
     }
   }
+
   return latest
 }
 
@@ -680,17 +722,22 @@ export async function listRunCompatiblePipelines(
       `?select=${VERSION_FIELDS}&lifecycle=eq.published&order=version.desc`,
     ),
   ])
+
   const definitionById = new Map(definitions.map((d) => [d.id, d]))
   const latestByDefinition = new Map<string, PipelineDefinitionVersionWire>()
+
   for (const version of versions) {
     if (!latestByDefinition.has(version.definition_id)) {
       latestByDefinition.set(version.definition_id, version)
     }
   }
+
   const result: RunCompatiblePipeline[] = []
+
   for (const version of latestByDefinition.values()) {
     const definition = definitionById.get(version.definition_id)
     const config = version.configuration
+
     if (
       !definition ||
       typeof config !== 'object' ||
@@ -699,6 +746,7 @@ export async function listRunCompatiblePipelines(
     ) {
       continue
     }
+
     const first = config.inputs[0] as { name?: unknown }
     result.push({
       definitionId: definition.id,
@@ -711,6 +759,7 @@ export async function listRunCompatiblePipelines(
         Array.isArray(config.parameters) && config.parameters.length > 0,
     })
   }
+
   return result
 }
 

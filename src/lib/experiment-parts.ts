@@ -248,32 +248,43 @@ export function partsProgress(
   const ordered = [...parts].sort(
     (a, b) => a.position - b.position || a.id.localeCompare(b.id),
   )
+
   const byPart = new Map<
     string,
     { steps: number; done: number; blocks: number }
   >()
+
   for (const block of blocks) {
     if (!block.partId) continue
     const entry = byPart.get(block.partId) ?? { steps: 0, done: 0, blocks: 0 }
     entry.blocks += 1
+
     if (block.type === 'procedure_step') {
       entry.steps += 1
+
       if (block.payload.completed === true) entry.done += 1
     }
+
     byPart.set(block.partId, entry)
   }
+
   let currentTaken = false
+
   return ordered.map((part, index) => {
     const counts = byPart.get(part.id) ?? { steps: 0, done: 0, blocks: 0 }
+
     const workDone =
       counts.steps > 0 ? counts.done === counts.steps : part.completedAt != null
+
     const signed = part.signedOffAt != null
     const done = workDone && (!part.requiresSignOff || signed)
+
     const state: PartState = done
       ? 'done'
       : !currentTaken
         ? ((currentTaken = true), 'now')
         : 'later'
+
     return {
       ...part,
       number: index + 1,
@@ -300,10 +311,13 @@ export function shownPart(
   requestedNumber: number | null,
 ): PartProgress | null {
   if (parts.length === 0) return null
+
   if (requestedNumber != null) {
     const asked = parts.find((part) => part.number === requestedNumber)
+
     if (asked) return asked
   }
+
   return currentPart(parts) ?? parts[parts.length - 1]
 }
 
@@ -313,6 +327,7 @@ export function blocksOfPart<T extends { partId?: string | null }>(
   part: Pick<ExperimentPart, 'id'> | null,
 ): T[] {
   if (!part) return [...blocks]
+
   return blocks.filter((block) => block.partId === part.id)
 }
 
@@ -320,6 +335,7 @@ export function blocksOfPart<T extends { partId?: string | null }>(
 export function partNumberFromParam(param: string | undefined): number | null {
   if (!param || !/^[0-9]{1,3}$/.test(param)) return null
   const value = Number(param)
+
   return value >= 1 ? value : null
 }
 
@@ -328,6 +344,7 @@ const DAY_MS = 86_400_000
 /** The calendar date a part falls on: the day the experiment started plus its offset. */
 export function partDate(startedAt: string, dayOffset: number): Date {
   const start = new Date(startedAt)
+
   return new Date(
     Date.UTC(
       start.getUTCFullYear(),
@@ -343,18 +360,22 @@ export function daysSinceStart(
   now: Date = new Date(),
 ): number {
   const start = new Date(startedAt)
+
   const from = Date.UTC(
     start.getUTCFullYear(),
     start.getUTCMonth(),
     start.getUTCDate(),
   )
+
   const to = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
+
   return Math.max(0, Math.round((to - from) / DAY_MS))
 }
 
 /** The last day of the experiment: its latest part, or null with no parts. */
 export function lastDayOffset(parts: readonly ExperimentPart[]): number | null {
   if (parts.length === 0) return null
+
   return Math.max(...parts.map((part) => part.dayOffset))
 }
 
@@ -400,6 +421,7 @@ export function splitPointsAtHeadings(
 ): SplitPoint[] {
   const seen = new Set<string>()
   const points: SplitPoint[] = []
+
   for (const entry of notebookOutline(blocks)) {
     if (entry.level !== 2 || seen.has(entry.blockId)) continue
     seen.add(entry.blockId)
@@ -408,6 +430,7 @@ export function splitPointsAtHeadings(
       firstBlockId: entry.blockId,
     })
   }
+
   return points
 }
 

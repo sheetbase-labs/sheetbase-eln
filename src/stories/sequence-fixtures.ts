@@ -7,15 +7,19 @@ import { parseGenBank } from '#/lib/sequence'
  */
 function origin(length: number): string {
   const bases = 'atgcgtacctgagtcaggtcaactgcatgcca'
+
   const residues = Array.from(
     { length },
     (_, i) => bases[(i * 7) % bases.length],
   ).join('')
+
   const lines: string[] = []
+
   for (let i = 0; i < length; i += 60) {
     const chunk = residues.slice(i, i + 60).match(/.{1,10}/g) ?? []
     lines.push(`${String(i + 1).padStart(9)} ${chunk.join(' ')}`)
   }
+
   return lines.join('\n')
 }
 

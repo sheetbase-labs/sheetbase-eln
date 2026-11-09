@@ -22,13 +22,17 @@ export const mySessionsQueryKey = ['my-sessions'] as const
 
 export function describeDevice(userAgent: string | null | undefined): string {
   if (!userAgent) return 'Unknown device'
+
   const browser =
     /(Edg|Chrome|Firefox|Safari)\/[\d.]+/.exec(userAgent)?.[1] ??
     t('settings.sessions.browser')
+
   const os = /(Macintosh|Windows|Linux|iPhone|iPad|Android)/.exec(
     userAgent,
   )?.[1]
+
   const osLabel = os === 'Macintosh' ? 'macOS' : os
+
   return osLabel ? `${browser} · ${osLabel}` : browser
 }
 
@@ -47,6 +51,7 @@ export function SettingsSessions() {
   const revoke = useMutation({
     mutationFn: async (token: string) => {
       const { error } = await authClient.revokeSession({ token })
+
       if (error) {
         throw new Error(error.message ?? t('settings.sessions.couldEndSession'))
       }
@@ -96,6 +101,7 @@ export function SettingsSessions() {
           {sessions.map((entry) => {
             const current = entry.current
             const token = entry.token
+
             return (
               <li
                 key={entry.id}

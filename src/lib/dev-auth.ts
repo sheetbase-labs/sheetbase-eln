@@ -19,6 +19,7 @@ import {
 
 /** Stable identity used by the disposable auth-free development environment. */
 export { DEV_SESSION_ID }
+
 export { DEFAULT_DEV_USER_EMAIL as DEV_USER_EMAIL, DEV_USER_NAME }
 
 export interface AppSession {
@@ -54,6 +55,7 @@ async function devIdentity(
     where: eq(user.id, userId),
     columns: { name: true, email: true },
   })
+
   return {
     name: row?.name.trim() || DEV_USER_NAME,
     email: row?.email || devUserEmail(userId),
@@ -66,6 +68,7 @@ async function devIdentity(
  */
 async function demoWorkspaceId(): Promise<string | null> {
   const id = env.SHEETBASE_DEV_USER_ID
+
   const [preference, memberships] = await Promise.all([
     db.query.userPreferences.findFirst({
       where: eq(userPreferences.userId, id),
@@ -75,6 +78,7 @@ async function demoWorkspaceId(): Promise<string | null> {
       .from(workspaceMemberships)
       .where(eq(workspaceMemberships.userId, id)),
   ])
+
   return (
     pickActiveMembership(memberships, preference?.activeWorkspaceId)
       ?.workspaceId ?? null
@@ -91,9 +95,12 @@ async function resolveViewAs(
   headers: Headers | undefined,
 ): Promise<{ userId: string; workspaceId: string } | null> {
   const chosen = parseViewAsCookie(headers?.get('cookie'))
+
   if (!chosen || chosen === env.SHEETBASE_DEV_USER_ID) return null
   const workspaceId = await demoWorkspaceId()
+
   if (!workspaceId) return null
+
   const member = await db
     .select({ id: workspaceMemberships.userId })
     .from(workspaceMemberships)
@@ -105,6 +112,7 @@ async function resolveViewAs(
       ),
     )
     .limit(1)
+
   return member.length > 0 ? { userId: chosen, workspaceId } : null
 }
 
@@ -122,6 +130,7 @@ async function ensurePersonaSession(
   workspaceId: string,
 ): Promise<string> {
   const id = personaSessionId(userId)
+
   if (personaSessions.has(id)) return id
   const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
   await db
@@ -139,12 +148,14 @@ async function ensurePersonaSession(
       set: { activeWorkspaceId: workspaceId, updatedAt: new Date() },
     })
   personaSessions.add(id)
+
   return id
 }
 
 export async function getDevSession(headers?: Headers): Promise<AppSession> {
   const viewAs = await resolveViewAs(headers)
   const id = viewAs?.userId ?? env.SHEETBASE_DEV_USER_ID
+
   return {
     user: { id, ...(await devIdentity(id)) },
     session: {

@@ -3,11 +3,13 @@ import type { DataClient } from '#/lib/data-client'
 import type { FieldLogicalType } from '#/lib/field-definition'
 
 export type ScientificLogicalType = FieldLogicalType
+
 export interface ScientificOptionWire {
   id: string
   label: string
   display_order: number
 }
+
 export interface ScientificColumnWire {
   id: string
   created_at?: string
@@ -24,6 +26,7 @@ export interface ScientificColumnWire {
   format?: string | null
   options: ScientificOptionWire[]
 }
+
 export interface ScientificDatasetSchemaBinding {
   id: string
   slug: string
@@ -32,6 +35,7 @@ export interface ScientificDatasetSchemaBinding {
   status: string
   latest_published_revision: number | null
 }
+
 export interface ScientificTableWire {
   id: string
   created_at?: string
@@ -47,17 +51,20 @@ export interface ScientificTableWire {
   dataset_schema_revision?: number | null
   dataset_schema?: ScientificDatasetSchemaBinding | null
 }
+
 export interface ScientificRowWire {
   id: string
   created_at?: string
   version: number
   [field: string]: unknown
 }
+
 export interface ScientificEdit {
   rowId: string
   expectedVersion: number
   values: Record<string, unknown>
 }
+
 export type ScientificEditResult =
   | { ok: true; schemaVersion: number; rows: ScientificRowWire[] }
   | {
@@ -71,6 +78,7 @@ export type ScientificEditResult =
     }
 
 export const SCIENTIFIC_PAGE_SIZE = 200
+
 export const scientificQueryKeys = {
   table: (id: string) => ['scientific-table', id] as const,
   rows: (id: string, page: number) => ['scientific-rows', id, page] as const,
@@ -80,6 +88,7 @@ export const scientificQueryKeys = {
   calculationResults: (id: string) =>
     ['scientific-calculation-results', id] as const,
 }
+
 export const scientificDataClient = createDataClient()
 
 export interface ScientificColumnInput {
@@ -112,8 +121,10 @@ export async function fetchScientificTable(
     'scientific_table_metadata',
     { p_table_id: tableId },
   )
+
   return result.length > 0 ? result[0] : null
 }
+
 export async function fetchScientificRows(
   client: DataClient,
   table: ScientificTableWire,
@@ -121,6 +132,7 @@ export async function fetchScientificRows(
 ) {
   const offset = Math.max(0, Math.trunc(page)) * SCIENTIFIC_PAGE_SIZE
   const query = `?select=*&order=created_at.asc,id.asc&limit=${SCIENTIFIC_PAGE_SIZE}&offset=${offset}`
+
   return client.list<ScientificRowWire>(
     encodeURIComponent(table.resource_name),
     query,
@@ -188,12 +200,15 @@ export async function fetchScientificCalculationResults(
 ) {
   const result: FormulaResultWire[] = []
   const pageSize = 1000
+
   for (let offset = 0; ; offset += pageSize) {
     const page = await client.list<FormulaResultWire>(
       'formula_results',
       `?target_table_id=eq.${encodeURIComponent(tableId)}&order=formula_id.asc&limit=${pageSize}&offset=${offset}`,
     )
+
     result.push(...page)
+
     if (page.length < pageSize) return result
   }
 }
@@ -207,11 +222,14 @@ export async function requestScientificCalculation(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ recordId }),
   })
+
   const body = (await response.json().catch(() => null)) as {
     error?: { message?: string }
   } | null
+
   if (!response.ok)
     throw new Error(body?.error?.message ?? 'Trusted calculation failed.')
+
   return body
 }
 
@@ -221,12 +239,15 @@ export async function fetchScientificDependencies(
 ) {
   const result: FormulaDependencyWire[] = []
   const pageSize = 1000
+
   for (let offset = 0; ; offset += pageSize) {
     const page = await client.list<FormulaDependencyWire>(
       'formula_dependencies',
       `?source_table_id=eq.${encodeURIComponent(tableId)}&order=formula_id.asc,source_row_id.asc,source_column_id.asc&limit=${pageSize}&offset=${offset}`,
     )
+
     result.push(...page)
+
     if (page.length < pageSize) return result
   }
 }
@@ -237,12 +258,15 @@ export async function fetchScientificFormulas(
 ) {
   const result: FormulaDefinitionWire[] = []
   const pageSize = 1000
+
   for (let offset = 0; ; offset += pageSize) {
     const page = await client.list<FormulaDefinitionWire>(
       'formula_definitions',
       `?target_table_id=eq.${encodeURIComponent(tableId)}&order=created_at.asc,id.asc&limit=${pageSize}&offset=${offset}`,
     )
+
     result.push(...page)
+
     if (page.length < pageSize) return result
   }
 }
@@ -293,17 +317,21 @@ export async function mutateScientificFormula(
     headers: { 'content-type': 'application/json', accept: 'application/json' },
     body: JSON.stringify(input),
   })
+
   const body = (await response.json().catch(() => null)) as {
     error?: { code?: string; message?: string }
   } | null
+
   if (!response.ok)
     throw new FormulaMutationError(
       body?.error?.code ?? 'formula_write_failed',
       response.status,
       body?.error?.message ?? 'Could not save the formula.',
     )
+
   return body
 }
+
 export function applyScientificRowChanges(
   client: DataClient,
   tableId: string,
@@ -380,6 +408,7 @@ export async function deleteScientificRows(
   rowIds: string[],
 ) {
   const query = `?id=in.(${rowIds.map((id) => encodeURIComponent(id)).join(',')})`
+
   return client.remove(encodeURIComponent(resource), query)
 }
 
@@ -412,11 +441,13 @@ export function addScientificColumn(
     p_validation: input.validation,
     p_options: input.options ?? null,
   }
+
   // Undefined means no default. The SQL contract deliberately also treats
   // JSON null as omitted; required defaults therefore cannot be null.
   args.p_default = Object.hasOwn(input, 'defaultValue')
     ? input.defaultValue
     : null
+
   return client.rpc('add_scientific_column', args)
 }
 
@@ -482,20 +513,25 @@ export function decodeScientificValue(
 ): unknown {
   if (input === '' || input === null || input === undefined) {
     if (!column.nullable) throw new Error(`${column.label} is required.`)
+
     return null
   }
+
   let value: unknown
   const text = typeof input === 'string' ? input : String(input)
+
   switch (column.logical_type) {
     case 'integer':
       if (!/^[+-]?\d+$/.test(text))
         throw new Error(`${column.label} must be an integer.`)
       value = Number(text)
+
       if (!Number.isSafeInteger(value))
         throw new Error(`${column.label} is outside the integer range.`)
       break
     case 'decimal':
       value = typeof input === 'number' ? input : Number(text)
+
       if (!Number.isFinite(value))
         throw new Error(`${column.label} must be a finite number.`)
       break
@@ -515,49 +551,64 @@ export function decodeScientificValue(
       const option = column.options.find(
         (o) => o.id === input || o.label === input,
       )
+
       if (!option) throw new Error(`${column.label} must be a known category.`)
       value = option.id
       break
     }
+
     case 'date': {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(text))
         throw new Error(`${column.label} must be YYYY-MM-DD.`)
       const d = new Date(`${text}T00:00:00Z`)
+
       if (Number.isNaN(d.valueOf()) || d.toISOString().slice(0, 10) !== text)
         throw new Error(`${column.label} is not a valid date.`)
       value = text
       break
     }
+
     case 'timestamp': {
       const d = new Date(text)
+
       if (!/^\d{4}-\d{2}-\d{2}T/.test(text) || Number.isNaN(d.valueOf()))
         throw new Error(`${column.label} must be a valid timestamp.`)
       value = text
       break
     }
+
     default:
       value = text
   }
+
   const v = column.validation
   const n = typeof value === 'number' ? value : null
   const s = typeof value === 'string' ? value : null
+
   if (n !== null && typeof v.min === 'number' && n < v.min)
     throw new Error(`${column.label} is below its minimum.`)
+
   if (n !== null && typeof v.max === 'number' && n > v.max)
     throw new Error(`${column.label} is above its maximum.`)
+
   if (s !== null && typeof v.minLength === 'number' && s.length < v.minLength)
     throw new Error(`${column.label} is too short.`)
+
   if (s !== null && typeof v.maxLength === 'number' && s.length > v.maxLength)
     throw new Error(`${column.label} is too long.`)
+
   if (s !== null && typeof v.pattern === 'string') {
     let regex: RegExp
+
     try {
       regex = new RegExp(v.pattern)
     } catch {
       throw new Error(`${column.label} has invalid validation metadata.`)
     }
+
     if (!regex.test(s))
       throw new Error(`${column.label} has an invalid format.`)
   }
+
   return value
 }

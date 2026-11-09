@@ -20,7 +20,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof SignedOutSurface>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Nothing was waiting: a plain sign-out. */

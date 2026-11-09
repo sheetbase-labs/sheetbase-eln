@@ -71,6 +71,7 @@ describe('toExperimentListRow', () => {
       new Map(),
       new Map(),
     )
+
     expect(row.status).toEqual({ tone: 'warn', label: 'On hold' })
     expect(row.statusTab).toBe('onhold')
   })
@@ -90,6 +91,7 @@ describe('toExperimentListRow', () => {
       'paused',
       'on_hold',
     ]
+
     expect(
       statuses.map(
         (status) =>
@@ -114,11 +116,13 @@ describe('toExperimentListRow', () => {
 describe('useExperimentRecords', () => {
   it('reads the page the caller asked for, not a fixed cap', async () => {
     list.mockResolvedValue([])
+
     const { result } = renderHook(
       () =>
         useExperimentRecords('ws-1', { tab: 'all' }, 'updated', 600, client),
       { wrapper },
     )
+
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     const query = list.mock.calls[0]?.[1] as string
@@ -128,6 +132,7 @@ describe('useExperimentRecords', () => {
 
   it('asks the database for the open tab, project, date window and search', async () => {
     list.mockResolvedValue([])
+
     const { result } = renderHook(
       () =>
         useExperimentRecords(
@@ -146,6 +151,7 @@ describe('useExperimentRecords', () => {
         ),
       { wrapper },
     )
+
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     const query = decodeURIComponent(list.mock.calls[0]?.[1] as string)
@@ -160,10 +166,12 @@ describe('useExperimentRecords', () => {
 
   it('lists archived experiments only on the archived tab', async () => {
     list.mockResolvedValue([])
+
     const { result } = renderHook(
       () => useExperimentRecords('ws-1', { tab: 'archived' }, 'id', 50, client),
       { wrapper },
     )
+
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     const query = list.mock.calls[0]?.[1] as string
@@ -194,6 +202,7 @@ describe('useExperimentTabCounts', () => {
         wrapper,
       },
     )
+
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     // `all` is the live workspace total; archived experiments leave every
@@ -216,6 +225,7 @@ describe('useExperimentTabCounts', () => {
 
   it('counts under the same filters the list reads with', async () => {
     list.mockResolvedValue([])
+
     const { result } = renderHook(
       () =>
         useExperimentTabCounts(
@@ -231,6 +241,7 @@ describe('useExperimentTabCounts', () => {
         ),
       { wrapper },
     )
+
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     const query = decodeURIComponent(list.mock.calls[0]?.[1] as string)
@@ -244,12 +255,14 @@ describe('useExperimentTabCounts', () => {
     list.mockResolvedValue([
       { status: 'mystery', archived: false, total: 2, mine: 2 },
     ])
+
     const { result } = renderHook(
       () => useExperimentTabCounts('u-1', {}, true, client),
       {
         wrapper,
       },
     )
+
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data?.all).toBe(2)
     expect(result.current.data?.mine).toBe(2)

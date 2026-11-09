@@ -139,6 +139,7 @@ function namesSeed(requests: ApprovalRequest[], decisions: ApprovalDecision[]) {
 
 function provider(seeds: ReadSeed[] = []) {
   const client = screenQueryClient({ data: seeds })
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <div className="w-[900px] max-w-full">
@@ -180,7 +181,9 @@ const meta = {
   title: 'Models/Approval panel',
   decorators: [provider()],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A draft nobody has submitted yet: a steward can name approvers and submit. */

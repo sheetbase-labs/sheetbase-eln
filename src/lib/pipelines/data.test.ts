@@ -28,11 +28,13 @@ function capturedClient(): {
   calls: Array<{ name: string; args: Record<string, unknown> }>
 } {
   const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+
   return {
     calls,
     client: {
       rpc: async (name: string, args: Record<string, unknown>) => {
         calls.push({ name, args })
+
         return { id: 'row-1' }
       },
       list: async () => [],
@@ -136,12 +138,15 @@ describe('pipeline data client', () => {
 
   it('builds PostgREST read queries with the expected filters', async () => {
     const queries: string[] = []
+
     const client = {
       list: async (_resource: string, query: string) => {
         queries.push(query)
+
         return []
       },
     } as unknown as DataClient
+
     await listPipelineDefinitions(client)
     await getPipelineDefinition(client, 'def-1')
     await listPipelineDefinitionVersions(client, 'def-1')
@@ -182,20 +187,26 @@ describe('pipeline data client', () => {
         },
       },
     ]
+
     const definitions = [
       { id: 'def-1', name: 'Scale', key: 'scale', lifecycle: 'active' },
       { id: 'def-2', name: 'Join', key: 'join', lifecycle: 'active' },
       { id: 'def-3', name: 'Draft', key: 'draft', lifecycle: 'active' },
     ]
+
     let index = 0
+
     const client = {
       list: async (resource: string) => {
         if (resource === 'pipeline_definitions') return definitions
+
         if (resource === 'pipeline_definition_versions') return published
         index += 1
+
         return []
       },
     } as unknown as DataClient
+
     const compatible = await listRunCompatiblePipelines(client)
     expect(compatible).toHaveLength(1)
     expect(compatible[0]).toMatchObject({
@@ -219,6 +230,7 @@ describe('following a queued run', () => {
 
   it('queues the run, then polls until its job settles and returns the run', async () => {
     vi.useFakeTimers()
+
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(Response.json({ id: 'run-1' }, { status: 202 }))
@@ -227,6 +239,7 @@ describe('following a queued run', () => {
       .mockResolvedValueOnce(
         state({ state: 'done', lastError: null }, 'succeeded'),
       )
+
     vi.stubGlobal('fetch', fetchMock)
     const pending = executePipelineRun('run-1')
     await vi.runAllTimersAsync()
@@ -273,6 +286,7 @@ describe('following a queued run', () => {
         { status: 404 },
       ),
     )
+
     vi.stubGlobal('fetch', fetchMock)
     await expect(executePipelineRun('run-1')).rejects.toThrow(
       'Pipeline run not found.',

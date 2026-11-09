@@ -46,10 +46,12 @@ export function OfflineStatusBanner({
   const { unsyncedCount, refresh } = useOfflineEdits()
   const [mounted, setMounted] = React.useState(false)
   const [retrying, setRetrying] = React.useState(false)
+
   // The global session banner owns the "session ended" message; this one
   // would wrongly say "keep working" and offer a Retry that cannot succeed.
   const sessionExpired =
     useSessionExpired() || status.lastResetReason === 'session_expired'
+
   const offline = isConnectionDown(status.status) && !sessionExpired
 
   React.useEffect(() => {
@@ -95,6 +97,8 @@ export function OfflineStatusBanner({
  */
 export function UnsyncedChangesSection({ className }: { className?: string }) {
   const { edits, loading } = useOfflineEdits()
+
   if (loading || edits.length === 0) return null
+
   return <UnsyncedChangesList edits={edits} className={className} />
 }

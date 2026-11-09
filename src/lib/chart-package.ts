@@ -42,8 +42,10 @@ import type {
 export const PACKAGE_X_COLUMN = '__x'
 export const PACKAGE_Y_COLUMN = '__y'
 export const PACKAGE_SERIES_COLUMN = '__series'
+
 /** Box-plot category (the ELN's series label); a band axis. */
 export const PACKAGE_CATEGORY_COLUMN = '__category'
+
 /** Heatmap cell value (the ELN's already-aggregated cell value). */
 export const PACKAGE_VALUE_COLUMN = '__value'
 
@@ -66,6 +68,7 @@ const BAR: Partial<Record<ChartType, true>> = {
 
 const BOX: Partial<Record<ChartType, true>> = { box: true }
 const HEATMAP: Partial<Record<ChartType, true>> = { heatmap: true }
+
 /** Distribution kinds with their own v3 primitives (0.4.0). */
 const HISTOGRAM: Partial<Record<ChartType, true>> = { histogram: true }
 const VIOLIN: Partial<Record<ChartType, true>> = { violin: true }
@@ -103,16 +106,22 @@ export function supportsPackageFigure(type: ChartType): boolean {
  */
 export function packageFigureKind(type: ChartType): PackageChartKind {
   if (BAR[type]) return 'bar'
+
   if (BOX[type]) return 'box'
+
   if (HISTOGRAM[type]) return 'histogram'
+
   if (VIOLIN[type]) return 'violin'
+
   if (HEATMAP[type]) return 'heatmap'
+
   if (
     type === 'line' ||
     type === 'scatter_line' ||
     type === 'connected_scatter'
   )
     return 'line'
+
   return 'scatter'
 }
 
@@ -121,17 +130,23 @@ export function packageBarLayout(
   spec: ChartSpec,
 ): NonNullable<PackageChartSpec['barLayout']> {
   if (spec.type === 'stacked_bar') return 'stacked'
+
   if (spec.typeParams.bar?.stacking === 'stacked') return 'stacked'
+
   return 'grouped'
 }
 
 function numeric(value: unknown): number | null {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null
+
   if (typeof value === 'string' && value.trim() !== '') {
     const parsed = Number(value)
+
     return Number.isFinite(parsed) ? parsed : null
   }
+
   if (typeof value === 'boolean') return value ? 1 : 0
+
   return null
 }
 
@@ -167,10 +182,14 @@ export function buildPackageDataset(
   materialised: MaterialisedChart,
 ): PackageDataset {
   if (spec.type === 'heatmap') return buildHeatmapDataset(materialised)
+
   if (spec.type === 'box') return buildBoxDataset(spec, materialised)
+
   if (spec.type === 'histogram')
     return buildHistogramDataset(spec, materialised)
+
   if (spec.type === 'violin') return buildViolinDataset(spec, materialised)
+
   return buildSeriesDataset(spec, materialised)
 }
 
@@ -181,14 +200,18 @@ function buildSeriesDataset(
   const dedupe = BAR[spec.type] === true
   const rows: Record<string, unknown>[] = []
   const seen = new Set<string>()
+
   for (const series of materialised.series) {
     for (const point of series.points) {
       if (point.x === null || point.y === null) continue
+
       if (dedupe) {
         const key = `${series.identifier}\u0000${point.x}`
+
         if (seen.has(key)) continue
         seen.add(key)
       }
+
       rows.push({
         [PACKAGE_X_COLUMN]: point.x,
         [PACKAGE_Y_COLUMN]: point.y,
@@ -196,6 +219,7 @@ function buildSeriesDataset(
       })
     }
   }
+
   // Bars order their category bands by first appearance, so sort the rows by
   // category — the ELN's own bar renderer always plotted categories ascending.
   if (dedupe) {
@@ -203,6 +227,7 @@ function buildSeriesDataset(
       (a, b) => Number(a[PACKAGE_X_COLUMN]) - Number(b[PACKAGE_X_COLUMN]),
     )
   }
+
   return {
     name: materialised.yLabel,
     source: 'eln-materialised-chart',
@@ -230,17 +255,22 @@ function buildBoxDataset(
   const yFieldId = spec.fields.y.fieldId
   const seriesFieldId = spec.fields.series?.fieldId ?? null
   const valuesByKey = new Map<string, number[]>()
+
   for (const row of materialised.rows) {
     const value = numeric(row[yFieldId])
+
     if (value === null) continue
     const key = seriesFieldId ? String(row[seriesFieldId] ?? '—') : 'all'
     const values = valuesByKey.get(key)
+
     if (values) values.push(value)
     else valuesByKey.set(key, [value])
   }
+
   // Iterate the materialised series so the boxes keep the ELN's series order
   // and labels; the category bands then follow first appearance.
   const rows: Record<string, unknown>[] = []
+
   for (const series of materialised.series) {
     for (const value of valuesByKey.get(series.identifier) ?? []) {
       rows.push({
@@ -249,6 +279,7 @@ function buildBoxDataset(
       })
     }
   }
+
   return {
     name: materialised.yLabel,
     source: 'eln-materialised-chart',
@@ -275,8 +306,10 @@ function buildHistogramDataset(
   const yFieldId = spec.fields.y.fieldId
   const seriesFieldId = spec.fields.series?.fieldId ?? null
   const rows: Record<string, unknown>[] = []
+
   for (const row of materialised.rows) {
     const value = numeric(row[yFieldId])
+
     if (value === null) continue
     rows.push({
       [PACKAGE_X_COLUMN]: value,
@@ -285,6 +318,7 @@ function buildHistogramDataset(
         : 'all',
     })
   }
+
   return {
     name: materialised.yLabel,
     source: 'eln-materialised-chart',
@@ -310,14 +344,18 @@ function buildViolinDataset(
 ): PackageDataset {
   const yFieldId = spec.fields.y.fieldId
   const seriesFieldId = spec.fields.series?.fieldId ?? null
+
   // The package band label is the category value, so carry the ELN's resolved
   // series label; the identifier stays the grouping key for colour + selection.
   const labelByIdentifier = new Map(
     materialised.series.map((s) => [s.identifier, s.label]),
   )
+
   const rows: Record<string, unknown>[] = []
+
   for (const row of materialised.rows) {
     const value = numeric(row[yFieldId])
+
     if (value === null) continue
     const key = seriesFieldId ? String(row[seriesFieldId] ?? '—') : 'all'
     rows.push({
@@ -326,6 +364,7 @@ function buildViolinDataset(
       [PACKAGE_SERIES_COLUMN]: key,
     })
   }
+
   return {
     name: materialised.yLabel,
     source: 'eln-materialised-chart',
@@ -353,16 +392,20 @@ function buildViolinDataset(
 function buildHeatmapDataset(materialised: MaterialisedChart): PackageDataset {
   const heatmap = materialised.heatmap
   const rows: Record<string, unknown>[] = []
+
   if (heatmap) {
     const yLabels = heatmap.yLabels ?? ['']
+
     const cellByPosition = new Map(
       heatmap.cells.map((cell) => [`${cell.x},${cell.y}`, cell]),
     )
+
     // Iterate the grid in its own label order so the package's first-seen
     // band order matches the ELN's sorted labels.
     for (let y = 0; y < yLabels.length; y++) {
       for (let x = 0; x < heatmap.xLabels.length; x++) {
         const cell = cellByPosition.get(`${x},${y}`)
+
         if (!cell || cell.value === null) continue
         rows.push({
           [PACKAGE_X_COLUMN]: heatmap.xLabels[x],
@@ -372,6 +415,7 @@ function buildHeatmapDataset(materialised: MaterialisedChart): PackageDataset {
       }
     }
   }
+
   return {
     name: materialised.yLabel,
     source: 'eln-materialised-chart',
@@ -419,6 +463,7 @@ export function toPackageReferenceLines(
       })
     }
   })
+
   return lines.length ? lines : undefined
 }
 
@@ -440,6 +485,7 @@ export function buildPackageChartSpec(
   // A categorical x axis (box, violin) has no numeric domain or scale.
   const bandX = isHeatmap || isBox || isViolin
   const grouped = isBar || isHistogram || POINT_LINE[spec.type] === true
+
   return {
     kind,
     // Histogram bins the y-field values, so its numeric x is the value column;
@@ -517,14 +563,17 @@ export function buildPackageFigure(
 ): FigureModel | null {
   if (!supportsPackageFigure(spec.type)) return null
   const dataset = buildPackageDataset(spec, materialised)
+
   if (dataset.rows.length === 0) return null
   const pointLine = POINT_LINE[spec.type] === true
+
   const packageSpec: PackageChartSpec = {
     ...buildPackageChartSpec(spec, materialised),
     // Build point/line types with `line` so every series carries polyline
     // geometry; the per-series render semantics below drop or keep it.
     ...(pointLine ? { kind: 'line' as const } : {}),
   }
+
   const figure = buildFigure(dataset, packageSpec, {
     width: options.width ?? FIGURE_LAYOUT.width,
     height: options.height ?? FIGURE_LAYOUT.height,
@@ -534,12 +583,16 @@ export function buildPackageFigure(
       options.showXAxisTitle ?? (spec.type !== 'box' && spec.type !== 'violin'),
     showYAxisTitle: options.showYAxisTitle ?? true,
   })
+
   if (!figure) return null
+
   if (!pointLine) return applyDisplayOptions(figure, spec)
+
   const model = applyDisplayOptions(
     applyRenderSemantics(figure, spec, materialised.series),
     spec,
   )
+
   return { ...model, ariaLabel: pointLineAriaLabel(spec, materialised) }
 }
 
@@ -557,11 +610,14 @@ function pointLineAriaLabel(
 ): string {
   const withUnit = (label: string, unit: string | undefined) => {
     const trimmed = (unit ?? '').trim()
+
     return trimmed && !label.includes(`(${trimmed})`)
       ? `${label} (${trimmed})`
       : label
   }
+
   const axes = `${withUnit(materialised.yLabel, materialised.yUnit)} against ${withUnit(materialised.xLabel, materialised.xUnit)}`
+
   return `${CHART_TYPE_LABELS[spec.type]} chart of ${axes}`
 }
 
@@ -572,10 +628,12 @@ function applyRenderSemantics(
 ): FigureModel {
   const byId = new Map(series.map((s) => [s.identifier, s]))
   const connectAll = spec.type === 'line' || spec.type === 'connected_scatter'
+
   const modelSeries = figure.series.map((model) => {
     const source = byId.get(model.id)
     const asLine = connectAll || source?.renderAs === 'line'
     const points: FigurePoint[] = model.points.map((point) => ({ ...point }))
+
     return {
       ...model,
       points,
@@ -583,6 +641,7 @@ function applyRenderSemantics(
       markers: source?.renderAs === 'line' ? false : true,
     }
   })
+
   return { ...figure, series: modelSeries }
 }
 
@@ -599,6 +658,7 @@ function applyDisplayOptions(
   if (spec.display.gridlines === false && figure.gridlines.length > 0) {
     return { ...figure, gridlines: [] }
   }
+
   return figure
 }
 
@@ -616,16 +676,20 @@ export function figureValueToPx(
 ): number {
   const domain = axis === 'x' ? figure.x.domain : figure.y.domain
   const [v0, v1] = domain
+
   const [p0, p1] =
     axis === 'x'
       ? [figure.plot.x, figure.plot.x + figure.plot.width]
       : [figure.plot.y + figure.plot.height, figure.plot.y]
+
   if (scale === 'log') {
     const lv = Math.log10(Math.max(value, Number.MIN_VALUE))
     const l0 = Math.log10(Math.max(v0, Number.MIN_VALUE))
     const l1 = Math.log10(Math.max(v1, Number.MIN_VALUE))
+
     return p0 + ((lv - l0) / (l1 - l0 || 1)) * (p1 - p0)
   }
+
   return p0 + ((value - v0) / (v1 - v0 || 1)) * (p1 - p0)
 }
 
@@ -637,11 +701,14 @@ export function figureValueToPx(
  */
 export function figureCategoryToPx(figure: FigureModel, value: number): number {
   const bands = figure.x.bands
+
   if (!bands?.length) return figureValueToPx(figure, 'x', 'linear', value)
+
   if (bands.length === 1) return bands[0].px
   const parsed = bands.map((band) => Number(band.value))
   const first = parsed[0]
   const last = parsed[parsed.length - 1]
+
   if (Number.isFinite(first) && Number.isFinite(last) && last !== first) {
     return (
       bands[0].px +
@@ -649,14 +716,17 @@ export function figureCategoryToPx(figure: FigureModel, value: number): number {
         (bands[bands.length - 1].px - bands[0].px)
     )
   }
+
   let nearest = bands[0]
   let nearestDistance = Number.POSITIVE_INFINITY
   bands.forEach((band, index) => {
     const distance = Math.abs((parsed[index] ?? 0) - value)
+
     if (distance < nearestDistance) {
       nearestDistance = distance
       nearest = band
     }
   })
+
   return nearest.px
 }

@@ -20,12 +20,14 @@ export interface VisibleArea {
 
 /** iOS floats a previous / next / done bar over the top of the keyboard. */
 export const IOS_ACCESSORY_BAR_PX = 56
+
 /** A visual viewport this much shorter than the window means a keyboard. */
 export const KEYBOARD_OPEN_PX = 100
 
 export function isIos(): boolean {
   if (typeof navigator === 'undefined') return false
   const ua = navigator.userAgent
+
   return (
     /iPhone|iPad|iPod/.test(ua) ||
     (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
@@ -35,12 +37,16 @@ export function isIos(): boolean {
 /** The keyboard's height (0 when closed) and the room its accessory bar takes. */
 export function keyboardInset(): { inset: number; accessory: number } {
   const viewport = typeof window === 'undefined' ? null : window.visualViewport
+
   if (!viewport) return { inset: 0, accessory: 0 }
+
   const inset = Math.max(
     0,
     window.innerHeight - viewport.height - viewport.offsetTop,
   )
+
   const open = inset > KEYBOARD_OPEN_PX
+
   return {
     inset,
     accessory: open && isIos() ? IOS_ACCESSORY_BAR_PX : 0,
@@ -53,6 +59,7 @@ let probe: HTMLDivElement | null = null
 export function safeAreaInsets(): VisibleArea {
   if (typeof document === 'undefined')
     return { top: 0, bottom: 0, left: 0, right: 0 }
+
   if (!probe || !probe.isConnected) {
     probe = document.createElement('div')
     probe.setAttribute('aria-hidden', 'true')
@@ -61,7 +68,9 @@ export function safeAreaInsets(): VisibleArea {
       'padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)'
     document.body.appendChild(probe)
   }
+
   const style = getComputedStyle(probe)
+
   return {
     top: parseFloat(style.paddingTop) || 0,
     right: parseFloat(style.paddingRight) || 0,
@@ -84,6 +93,7 @@ export function readVisibleArea(): VisibleArea {
   // With the keyboard open the home indicator is under it, so the bottom
   // safe area no longer applies; the accessory bar does.
   const bottomInset = inset > KEYBOARD_OPEN_PX ? accessory : safe.bottom
+
   return {
     top: offsetTop + safe.top,
     bottom: offsetTop + height - bottomInset,
@@ -104,21 +114,25 @@ export function watchVisibleArea(onChange: () => void): () => void {
   const viewport = window.visualViewport
   let timers: Array<ReturnType<typeof setTimeout>> = []
   let frame = 0
+
   const update = () => {
     cancelAnimationFrame(frame)
     frame = requestAnimationFrame(onChange)
   }
+
   const settle = () => {
     update()
     timers.forEach(clearTimeout)
     timers = SETTLE_DELAYS_MS.map((ms) => setTimeout(update, ms))
   }
+
   viewport?.addEventListener('resize', update)
   viewport?.addEventListener('scroll', update)
   window.addEventListener('resize', settle)
   // Capture, so scrolling any pane (not only the window) re-places menus.
   window.addEventListener('scroll', update, true)
   document.addEventListener('focusin', settle)
+
   return () => {
     cancelAnimationFrame(frame)
     timers.forEach(clearTimeout)
@@ -146,15 +160,20 @@ export function useVisibleArea(active: boolean): VisibleArea | null {
   useEffect(() => {
     if (!active) {
       setArea(null)
+
       return
     }
+
     const update = () => {
       const next = readVisibleArea()
       setArea((prev) => (sameArea(prev, next) ? prev : next))
     }
+
     update()
+
     return watchVisibleArea(update)
   }, [active])
+
   return area
 }
 
@@ -187,16 +206,19 @@ export function placeBeside(options: {
   // An anchor the keyboard has covered (or scrolled above the status bar) is
   // treated as sitting on that edge, so the surface still lands on screen.
   const clamp = (y: number) => Math.min(Math.max(y, area.top), area.bottom)
+
   const anchor = {
     top: clamp(options.anchor.top),
     bottom: clamp(options.anchor.bottom),
     left: options.anchor.left,
   }
+
   const below = area.bottom - EDGE_GAP_PX - (anchor.bottom + gap)
   const above = anchor.top - gap - (area.top + EDGE_GAP_PX)
   const fitsBelow = size.height <= below
   const fitsAbove = size.height <= above
   const roomier = below >= above ? 'bottom' : 'top'
+
   const side: 'top' | 'bottom' =
     prefer === 'bottom'
       ? fitsBelow
@@ -209,12 +231,16 @@ export function placeBeside(options: {
         : fitsBelow
           ? 'bottom'
           : roomier
+
   const room = Math.max(0, side === 'bottom' ? below : above)
   const height = Math.min(size.height, room)
+
   const top =
     side === 'bottom' ? anchor.bottom + gap : anchor.top - gap - height
+
   const maxLeft = area.right - EDGE_GAP_PX - size.width
   const left = Math.max(area.left + EDGE_GAP_PX, Math.min(anchor.left, maxLeft))
+
   return { top, left, maxHeight: room, side }
 }
 
@@ -230,7 +256,9 @@ export function useFloatingBoundary(): {
   collisionPadding: number
 } {
   const area = useVisibleArea(true)
+
   if (!area) return { collisionPadding: EDGE_GAP_PX }
+
   return {
     collisionBoundary: {
       x: area.left,

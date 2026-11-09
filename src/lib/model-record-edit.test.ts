@@ -24,11 +24,13 @@ function field(over: Partial<ModelFieldDefinition>): ModelFieldDefinition {
 
 describe('model record edit', () => {
   const passage = field({ fieldName: 'passage' })
+
   const note = field({
     fieldName: 'note',
     logicalType: 'text',
     nullable: false,
   })
+
   const flag = field({ fieldName: 'ok', logicalType: 'boolean' })
 
   it('starts from the stored values', () => {

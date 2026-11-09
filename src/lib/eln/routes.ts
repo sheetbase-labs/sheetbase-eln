@@ -43,8 +43,10 @@ import { ElnImportError, parseElnArchive } from './eln-import'
 
 /** Per-export ceiling on attached-file bytes held in memory. */
 export const ELN_EXPORT_FILE_BYTES = 256 * 1024 * 1024
+
 /** Per-export ceiling on experiments in a project archive. */
 export const ELN_EXPORT_MAX_EXPERIMENTS = 200
+
 /** Per-export ceiling on Dataset rows written to a CSV. */
 const DATASET_ROW_CAP = 100_000
 
@@ -106,7 +108,9 @@ async function select<T>(
   token: string,
 ): Promise<T[]> {
   const res = await postgrestSelect<T[]>(resource, query, token)
+
   if (res.status >= 400) throw new UpstreamError(`${resource} unavailable`)
+
   return rows<T>(res.body)
 }
 
@@ -116,44 +120,56 @@ async function readAll(
   const chunks: Uint8Array[] = []
   let total = 0
   const reader = stream.getReader()
+
   for (;;) {
     const { done, value } = await reader.read()
+
     if (done) break
     chunks.push(value)
     total += value.length
   }
+
   const out = new Uint8Array(total)
   let at = 0
+
   for (const chunk of chunks) {
     out.set(chunk, at)
     at += chunk.length
   }
+
   return out
 }
 
 async function auditCsvFor(recordId: string, token: string): Promise<string> {
   const events: AuditEventWire[] = []
   let beforeSequence: number | undefined
+
   for (;;) {
     const result = await postgrestRpc(
       'audit_events',
       auditEventsRpcArgs({ object: recordId, beforeSequence, limit: 200 }),
       token,
     )
+
     if (result.status >= 400) throw new UpstreamError('audit unavailable')
     const parsed = auditEventsPageSchema.safeParse(result.body)
+
     if (!parsed.success) throw new UpstreamError('invalid audit page')
     events.push(...parsed.data.events)
     const { hasMore, nextCursor } = parsed.data
+
     if (!hasMore) break
+
     if (
       nextCursor === null ||
       (beforeSequence !== undefined && nextCursor >= beforeSequence)
     ) {
       throw new UpstreamError('invalid audit cursor')
     }
+
     beforeSequence = nextCursor
   }
+
   return auditEventsCsv(events)
 }
 
@@ -175,10 +191,12 @@ async function datasetCsv(
       token,
     )
   ).at(0)
+
   if (!dataset) return null
   let schemaVersionId = dataset.schema_version_id
   let rpcName = 'query_dataset_rows'
   let rpcArgs: Record<string, unknown> = { p_dataset_id: dataset.id }
+
   if (versionId) {
     const version = (
       await select<{ id: string; schema_version_id: string }>(
@@ -187,19 +205,23 @@ async function datasetCsv(
         token,
       )
     ).at(0)
+
     if (version) {
       schemaVersionId = version.schema_version_id
       rpcName = 'query_dataset_version_rows'
       rpcArgs = { p_dataset_version_id: version.id }
     }
   }
+
   const fields = await loadDatasetFields(token, schemaVersionId)
   const lines = [delimitedHeaderLine(fields, ',')]
   let count = 0
+
   for await (const row of pagedRows(rpcName, rpcArgs, token).rows) {
     if (count++ >= DATASET_ROW_CAP) break
     lines.push(delimitedRowLine(fields, row, ','))
   }
+
   return {
     id: dataset.id,
     displayId: dataset.display_id,
@@ -215,13 +237,17 @@ function citedDatasets(
 ): Array<{ datasetId: string; versionId: string | null }> {
   const seen = new Map<string, string | null>()
   const uuid = z.uuid()
+
   for (const block of blocks) {
     if (block.type !== 'linked_record') continue
     const p = block.payload as Record<string, unknown> | null
+
     if (!p || p.targetKind !== 'dataset') continue
     const id = uuid.safeParse(p.targetId)
+
     if (!id.success) continue
     const version = uuid.safeParse(p.datasetVersionId)
+
     if (!seen.has(id.data) || version.success) {
       seen.set(
         id.data,
@@ -229,6 +255,7 @@ function citedDatasets(
       )
     }
   }
+
   return [...seen].map(([datasetId, versionId]) => ({ datasetId, versionId }))
 }
 
@@ -243,6 +270,7 @@ export async function collectExperiment(
   budget: ExportBudget,
 ): Promise<ElnExperiment> {
   const token = context.token
+
   const blocks = await select<BlockWire>(
     'blocks',
     `record_id=eq.${record.id}&select=id,type,payload,payload_schema_version,order&order=order.asc`,
@@ -259,14 +287,18 @@ export async function collectExperiment(
         .filter((id): id is string => z.uuid().safeParse(id).success),
     ),
   ]
+
   const files: ElnFile[] = []
+
   if (fileIds.length > 0) {
     const list = fileIds.join(',')
+
     const objects = await select<FileObjectWire>(
       'file_objects',
       `record_id=in.(${list})&select=record_id,storage_key,display_name,media_type,byte_size,status`,
       token,
     )
+
     const identifiers = new Map(
       (
         await select<{ id: string; identifier: string }>(
@@ -276,6 +308,7 @@ export async function collectExperiment(
         )
       ).map((r) => [r.id, r.identifier]),
     )
+
     for (const object of objects) {
       const base = {
         fileRecordId: object.record_id,
@@ -283,14 +316,17 @@ export async function collectExperiment(
         displayName: object.display_name,
         mediaType: object.media_type,
       }
+
       if (object.status !== 'active') {
         files.push({ ...base, bytes: null, missingReason: object.status })
         continue
       }
+
       if (Number(object.byte_size) > budget.remainingFileBytes) {
         files.push({ ...base, bytes: null, missingReason: 'size_limit' })
         continue
       }
+
       try {
         const { stream } = await storage.getStream(object.storage_key)
         const bytes = await readAll(stream)
@@ -303,8 +339,10 @@ export async function collectExperiment(
   }
 
   const datasets: ElnDataset[] = []
+
   for (const cited of citedDatasets(blocks)) {
     const dataset = await datasetCsv(cited.datasetId, cited.versionId, token)
+
     if (dataset) datasets.push(dataset)
   }
 
@@ -366,6 +404,7 @@ function failure(error: unknown): Response {
   if (error instanceof UpstreamError) {
     return requestErrorResponse(502, 'upstream_error', 'Export is unavailable.')
   }
+
   throw error
 }
 
@@ -396,9 +435,11 @@ export async function handleRecordElnExport(
   storage: ObjectStorage = getObjectStorage(),
 ): Promise<Response> {
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
+
   if (!z.uuid().safeParse(recordId).success)
     return requestErrorResponse(404, 'not_found', 'Experiment not found.')
 
@@ -410,19 +451,25 @@ export async function handleRecordElnExport(
         context.token,
       )
     ).at(0)
+
     if (!record)
       return requestErrorResponse(404, 'not_found', 'Experiment not found.')
+
     const experiment = await collectExperiment(record, context, storage, {
       remainingFileBytes: ELN_EXPORT_FILE_BYTES,
     })
+
     const name = `${record.identifier} ${record.title}`
+
     const { bytes } = await buildElnArchive({
       name,
       workspaceId: record.workspace_id,
       exportedAt: new Date().toISOString(),
       experiments: [experiment],
     })
+
     await receipts(context, [experiment], record.workspace_id, bytes.length)
+
     return archiveResponse(bytes, name)
   } catch (error) {
     return failure(error)
@@ -436,9 +483,11 @@ export async function handleProjectElnExport(
   storage: ObjectStorage = getObjectStorage(),
 ): Promise<Response> {
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
+
   if (!z.uuid().safeParse(projectId).success)
     return requestErrorResponse(404, 'not_found', 'Project not found.')
 
@@ -456,6 +505,7 @@ export async function handleProjectElnExport(
         context.token,
       )
     ).at(0)
+
     if (!project)
       return requestErrorResponse(404, 'not_found', 'Project not found.')
 
@@ -464,6 +514,7 @@ export async function handleProjectElnExport(
       `project_id=eq.${projectId}&kind=eq.experiment&archived_at=is.null&order=identifier.asc&limit=${ELN_EXPORT_MAX_EXPERIMENTS + 1}&select=${RECORD_SELECT}`,
       context.token,
     )
+
     if (records.length > ELN_EXPORT_MAX_EXPERIMENTS) {
       return requestErrorResponse(
         413,
@@ -471,13 +522,16 @@ export async function handleProjectElnExport(
         `A project archive holds at most ${ELN_EXPORT_MAX_EXPERIMENTS} experiments; export them individually.`,
       )
     }
+
     const budget = { remainingFileBytes: ELN_EXPORT_FILE_BYTES }
     const experiments: ElnExperiment[] = []
+
     for (const record of records) {
       experiments.push(
         await collectExperiment(record, context, storage, budget),
       )
     }
+
     const { bytes } = await buildElnArchive({
       name: `${project.key} ${project.title}`,
       project: {
@@ -490,7 +544,9 @@ export async function handleProjectElnExport(
       exportedAt: new Date().toISOString(),
       experiments,
     })
+
     await receipts(context, experiments, project.workspace_id, bytes.length)
+
     return archiveResponse(bytes, `${project.key} ${project.title}`)
   } catch (error) {
     return failure(error)
@@ -504,11 +560,13 @@ export async function handleElnImport(
   if (request.method !== 'POST')
     return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
 
   const projectId = new URL(request.url).searchParams.get('projectId') ?? ''
+
   if (!z.uuid().safeParse(projectId).success)
     return requestErrorResponse(
       400,
@@ -517,19 +575,23 @@ export async function handleElnImport(
     )
 
   const declared = Number(request.headers.get('content-length') ?? 0)
+
   if (declared > IMPORT_LIMITS.bytes)
     return requestErrorResponse(413, 'too_large', 'The archive is too large.')
   const body = new Uint8Array(await request.arrayBuffer())
+
   if (body.length === 0)
     return requestErrorResponse(
       400,
       'empty_body',
       'Send the .eln file as the request body.',
     )
+
   if (body.length > IMPORT_LIMITS.bytes)
     return requestErrorResponse(413, 'too_large', 'The archive is too large.')
 
   let plan
+
   try {
     plan = parseElnArchive(body)
   } catch (error) {
@@ -544,6 +606,7 @@ export async function handleElnImport(
       `id=eq.${projectId}&select=id&limit=1`,
       context.token,
     )
+
     if (projects.length === 0)
       return requestErrorResponse(404, 'not_found', 'Project not found.')
   } catch (error) {
@@ -551,8 +614,10 @@ export async function handleElnImport(
   }
 
   const created: Array<{ id: string; identifier: string; title: string }> = []
+
   for (const exp of plan.experiments) {
     const provenance = `Imported from a .eln archive${exp.sourceIdentifier ? ` (original identifier ${exp.sourceIdentifier})` : ''}.`
+
     const blocks = [
       ...exp.blocks,
       {
@@ -572,6 +637,7 @@ export async function handleElnImport(
         order: exp.blocks.length + 1,
       },
     ]
+
     const result = await postgrestRpc<{
       record: { id: string; identifier: string; title: string }
     }>(
@@ -587,11 +653,13 @@ export async function handleElnImport(
       },
       context.token,
     )
+
     const record = (
       result.body as {
         record?: { id: string; identifier: string; title: string }
       }
     ).record
+
     if (result.status >= 400 || !record) {
       return Response.json(
         {
@@ -605,11 +673,13 @@ export async function handleElnImport(
         { status: result.status >= 500 ? 502 : 422 },
       )
     }
+
     created.push({
       id: record.id,
       identifier: record.identifier,
       title: record.title,
     })
   }
+
   return Response.json({ created, warnings: plan.warnings }, { status: 201 })
 }

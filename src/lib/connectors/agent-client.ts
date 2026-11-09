@@ -27,6 +27,7 @@ async function failure(response: Response): Promise<Error> {
   const body = (await response.json().catch(() => null)) as {
     error?: { message?: string }
   } | null
+
   return new Error(
     body?.error?.message ?? t('library.instruments.agent.cantDownload'),
   )
@@ -40,7 +41,9 @@ export async function fetchAgentStatus(
     `/api/connectors/agent?connector=${encodeURIComponent(connectorId)}`,
     { credentials: 'same-origin' },
   )
+
   if (!response.ok) throw await failure(response)
+
   return (await response.json()) as AgentStatus
 }
 
@@ -53,7 +56,9 @@ export async function fetchLiveAgentStatus(
     `/api/connectors/agent?instrument=${encodeURIComponent(instrumentId)}`,
     { credentials: 'same-origin' },
   )
+
   if (!response.ok) throw await failure(response)
+
   return (await response.json()) as AgentStatus
 }
 
@@ -66,7 +71,9 @@ export async function fetchRobotAgentStatus(
     `/api/connectors/agent?robot=${encodeURIComponent(instrumentId)}`,
     { credentials: 'same-origin' },
   )
+
   if (!response.ok) throw await failure(response)
+
   return (await response.json()) as AgentStatus
 }
 
@@ -108,11 +115,14 @@ async function downloadZip(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
   })
+
   if (!response.ok) throw await failure(response)
+
   const fileName =
     /filename="([^"]+)"/.exec(
       response.headers.get('content-disposition') ?? '',
     )?.[1] ?? 'sheetbase-agent.zip'
+
   const url = URL.createObjectURL(await response.blob())
   const link = document.createElement('a')
   link.href = url
@@ -121,5 +131,6 @@ async function downloadZip(
   link.click()
   link.remove()
   URL.revokeObjectURL(url)
+
   return fileName
 }

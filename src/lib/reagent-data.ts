@@ -55,14 +55,17 @@ function asString(value: unknown): string | null {
 
 function asNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
+
   if (
     typeof value === 'string' &&
     value !== '' &&
     /^-?[0-9]+(\.[0-9]+)?$/.test(value)
   ) {
     const n = Number(value)
+
     return Number.isFinite(n) ? n : null
   }
+
   return null
 }
 
@@ -113,6 +116,7 @@ export function toReagent(record: NotebookRecord): Reagent {
   // Lot-block detail is declared as model fields, so it arrives in custom_fields
   // rather than in the legacy properties allow-list.
   const custom = record.customFields ?? {}
+
   return {
     ...props,
     initialQuantity: asNumber(custom.initial_quantity),
@@ -324,12 +328,15 @@ export const REAGENT_FILTER_CAPABILITIES = {
   catalogNo: ['contains'],
   lot: ['contains'],
 } as const
+
 const FILTER_IDS = Object.keys(REAGENT_FILTER_CAPABILITIES) as Array<
   keyof typeof REAGENT_FILTER_CAPABILITIES
 >
+
 export type ReagentFilterId = (typeof FILTER_IDS)[number]
 
 const STORAGE_OPTIONS = ['-80 °C', '-20 °C', '4 °C', 'ambient']
+
 const STATUS_OPTIONS = [
   'available',
   'reserved',
@@ -344,6 +351,7 @@ export const REAGENT_STATUS_OPTIONS = STATUS_OPTIONS.map((value) => ({
     .replace('_', ' ')
     .replace(/^./, (letter) => letter.toUpperCase()),
 }))
+
 export const REAGENT_STORAGE_OPTIONS = STORAGE_OPTIONS.map((value) => ({
   value,
   label: value,
@@ -359,6 +367,7 @@ function escapePostgrest(value: string): string {
 
 function postgrestLogicPattern(value: string): string {
   const escaped = value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')
+
   return encodeURIComponent(`"${escaped}*"`)
 }
 
@@ -373,6 +382,7 @@ export function reagentListQuery(query: RegistryQuery): string {
   const archived = query.filters.find(
     (f) => f.fieldId === 'status' && f.values[0] === 'archived',
   )
+
   parts.push(archived ? 'archived_at=not.is.null' : 'archived_at=is.null')
 
   for (const filter of query.filters) {
@@ -381,15 +391,20 @@ export function reagentListQuery(query: RegistryQuery): string {
         `Unsupported reagent filter: ${filter.fieldId}/${filter.operator}`,
       )
     }
+
     const capabilities =
       REAGENT_FILTER_CAPABILITIES[filter.fieldId as ReagentFilterId]
+
     if (!(capabilities as readonly string[]).includes(filter.operator)) {
       throw new Error(
         `Unsupported reagent filter: ${filter.fieldId}/${filter.operator}`,
       )
     }
+
     const raw = filter.values[0]
+
     if (typeof raw !== 'string' || !raw) continue
+
     if (filter.fieldId === 'status') {
       if (raw !== 'archived') parts.push(`status=eq.${escapePostgrest(raw)}`)
     } else if (filter.fieldId === 'storage') {
@@ -407,6 +422,7 @@ export function reagentListQuery(query: RegistryQuery): string {
         catalogNo: 'catalog_no',
         lot: 'lot',
       }[filter.fieldId]
+
       if (!property)
         throw new Error(`Unsupported reagent filter field: ${filter.fieldId}`)
       parts.push(`properties->>${property}=ilike.${postgrestLogicPattern(raw)}`)
@@ -414,16 +430,21 @@ export function reagentListQuery(query: RegistryQuery): string {
   }
 
   const order: string[] = []
+
   for (const group of query.grouping) {
     const col = GROUPABLE_COLUMNS[group]
+
     if (col) order.push(`${col}.asc`)
   }
+
   for (const sort of query.sorting) {
     const col = SORTABLE_COLUMNS[sort.id]
+
     if (col && !order.some((item) => item.startsWith(`${col}.`))) {
       order.push(`${col}.${sort.desc ? 'desc' : 'asc'}`)
     }
   }
+
   // Deterministic secondary sort so pagination is stable.
   order.push('identifier.asc')
   parts.push(`order=${order.join(',')}`)
@@ -438,10 +459,12 @@ export function reagentListQuery(query: RegistryQuery): string {
 /** Query string for the count path (no limit/order, same filters). */
 export function reagentCountQuery(query: RegistryQuery): string {
   const full = reagentListQuery(query)
+
   const without = full
     .replace(/&?limit=\d+/, '')
     .replace(/&?offset=\d+/, '')
     .replace(/&?order=[^&]+/, '')
+
   return without
 }
 
@@ -549,19 +572,23 @@ export async function fetchReagentUsage(
     `?target_identifier=eq.${encodeURIComponent(identifier)}&link_type=eq.material&order=created_at.desc&limit=${limit}` +
       `&select=id,source_record_id,link_type,link_metadata,created_at`,
   )
+
   if (links.length === 0) return []
 
   const sourceIds = [...new Set(links.map((link) => link.source_record_id))]
+
   const sources = await listByIds(sourceIds, (inList) =>
     client.list<UsageSourceWire>(
       'records',
       `?id=in.(${inList})&select=id,kind,identifier`,
     ),
   )
+
   const sourceById = new Map(sources.map((source) => [source.id, source]))
 
   return links.flatMap((link) => {
     const source = sourceById.get(link.source_record_id)
+
     return source
       ? [
           {
@@ -606,7 +633,9 @@ export async function fetchReplacementLot(
       `?identifier=eq.${encodeURIComponent(identifier)}&select=id&limit=1`,
     )
   ).at(0)
+
   if (!source) return null
+
   const links = await client.list<{
     id: string
     target_record_id: string | null
@@ -617,11 +646,13 @@ export async function fetchReplacementLot(
     `?source_record_id=eq.${encodeURIComponent(source.id)}` +
       `&link_type=eq.material&limit=25&select=id,target_record_id,target_identifier,link_metadata`,
   )
+
   const replacement = links.find(
     (link) =>
       (link.link_metadata as Record<string, unknown> | null)?.relation ===
       'replacement',
   )
+
   return replacement
     ? {
         id: replacement.id,
@@ -656,21 +687,27 @@ export async function fetchCertificateFile(
     `?source_record_id=eq.${encodeURIComponent(recordId)}&link_type=eq.file&limit=5` +
       `&select=target_record_id`,
   )
+
   const target = links.find((link) => link.target_record_id)?.target_record_id
+
   if (!target) return null
+
   const record = (
     await client.list<{ id: string; identifier: string }>(
       'records',
       `?id=eq.${encodeURIComponent(target)}&select=id,identifier`,
     )
   ).at(0)
+
   if (!record) return null
+
   const object = (
     await client.list<{ display_name: string; media_type: string | null }>(
       'file_objects',
       `?record_id=eq.${encodeURIComponent(target)}&select=display_name,media_type&limit=1`,
     )
   ).at(0)
+
   return {
     fileRecordId: record.id,
     identifier: record.identifier,
@@ -793,20 +830,30 @@ function reagentPropertiesPayload(
   properties: Partial<ReagentProperties>,
 ): Record<string, unknown> {
   const payload: Record<string, unknown> = {}
+
   if (properties.supplier !== undefined) payload.supplier = properties.supplier
+
   if (properties.catalogNo !== undefined)
     payload.catalog_no = properties.catalogNo
+
   if (properties.lot !== undefined) payload.lot = properties.lot
+
   if (properties.expiry !== undefined) payload.expiry = properties.expiry
+
   if (properties.quantity !== undefined) payload.quantity = properties.quantity
+
   if (properties.unit !== undefined) payload.unit = properties.unit
+
   if (properties.storage !== undefined) payload.storage = properties.storage
+
   if (properties.lowStockThreshold !== undefined) {
     payload.low_stock_threshold = properties.lowStockThreshold
   }
+
   if (properties.expiryWarningDays !== undefined) {
     payload.expiry_warning_days = properties.expiryWarningDays
   }
+
   return payload
 }
 
@@ -823,6 +870,7 @@ export async function createReagent(
     p_properties: reagentPropertiesPayload(input.properties),
     p_custom_fields: input.customFields ?? {},
   })
+
   return toReagentFromWire(row)
 }
 
@@ -840,17 +888,23 @@ export async function editReagent(
   input: EditReagentInput,
 ): Promise<Reagent> {
   const patch: Record<string, unknown> = {}
+
   if (input.title !== undefined) patch.title = input.title
+
   if (input.tags !== undefined) patch.tags = input.tags
+
   if (input.properties !== undefined) {
     patch.properties = reagentPropertiesPayload(input.properties)
   }
+
   const rows = await client.patch<RecordWire>(
     'records',
     `?id=eq.${encodeURIComponent(input.recordId)}&metadata_version=eq.${input.expectedMetadataVersion}`,
     patch,
   )
+
   const row = rows[0]
+
   if (input.customFields) {
     const updated = await client.rpc<RecordWire>(
       'update_record_custom_fields',
@@ -860,7 +914,9 @@ export async function editReagent(
         p_values: input.customFields,
       },
     )
+
     return toReagentFromWire(updated)
   }
+
   return toReagentFromWire(row)
 }

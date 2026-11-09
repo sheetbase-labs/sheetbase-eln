@@ -129,11 +129,13 @@ const chainRecords = [
   makeRecord('c', 'dataset', 'DS-C'),
   makeRecord('d', 'experiment', 'EXP-D'),
 ]
+
 const chainLinks = [
   makeLink('l-ab', 'a', 'b', 'EXP-B'),
   makeLink('l-bc', 'b', 'c', 'DS-C'),
   makeLink('l-cd', 'c', 'd', 'EXP-D'),
 ]
+
 const NONE_REVIEWS: ReviewSubmissionWire[] = []
 const NONE_DECISIONS: ReviewDecisionWire[] = []
 const NONE_SIGNATURES: SignatureWire[] = []
@@ -151,6 +153,7 @@ describe('buildLineageGraph seeded scope', () => {
       'b',
       1,
     )
+
     const ids = new Set(graph.nodes.map((n) => n.id))
     expect(ids.has('a')).toBe(true)
     expect(ids.has('b')).toBe(true)
@@ -160,6 +163,7 @@ describe('buildLineageGraph seeded scope', () => {
 
   it('bounds the per-object miniature at LINEAGE_MINI_DEPTH', () => {
     expect(LINEAGE_MINI_DEPTH).toBe(2)
+
     const graph = buildLineageGraph(
       chainRecords,
       chainLinks,
@@ -170,6 +174,7 @@ describe('buildLineageGraph seeded scope', () => {
       'a',
       LINEAGE_MINI_DEPTH,
     )
+
     const ids = new Set(graph.nodes.map((n) => n.id))
     expect(ids.has('a')).toBe(true)
     expect(ids.has('b')).toBe(true)
@@ -189,6 +194,7 @@ describe('buildLineageGraph seeded scope', () => {
       null,
       4,
     )
+
     expect(new Set(graph.nodes.map((n) => n.id))).toEqual(
       new Set(['a', 'b', 'c', 'd']),
     )
@@ -207,6 +213,7 @@ describe('buildLineageGraph evidence plumbing', () => {
       'b',
       1,
     )
+
     const review = graph.nodes.find((n) => n.id === 'review:sub-1')
     expect(review?.revisionId).toBe('rev-9')
     expect(review?.recordId).toBe('b')
@@ -317,8 +324,10 @@ describe('parseLineageSeedParam', () => {
 function capturingClient(queries: string[]): DataClient {
   const list = async <T>(resource: string, query = ''): Promise<T[]> => {
     queries.push(`${resource}${query}`)
+
     return [] as T[]
   }
+
   return {
     list,
     count: async () => 0,
@@ -339,6 +348,7 @@ describe('seeded fetch filter syntax', () => {
   it('traverses canonical Dataset citations in both directions without companion Records', async () => {
     const datasetId = '00000000-0000-4000-8000-000000000122'
     const experiment = makeRecord(SEED, 'experiment', 'EXP-1')
+
     const dataset = {
       id: datasetId,
       workspace_id: 'ws-1',
@@ -350,34 +360,43 @@ describe('seeded fetch filter syntax', () => {
       updated_at: '',
       created_by_user_id: 'user-1',
     }
+
     const link = {
       ...makeLink('citation', SEED, null, 'DS-1'),
       target_kind: 'dataset',
       link_type: 'dataset',
     }
+
     for (const visible of [true, false]) {
       const client: DataClient = {
         ...capturingClient([]),
         list: async <T>(resource: string, query = ''): Promise<T[]> => {
           let rows: unknown[] = []
+
           if (resource === 'datasets')
             rows =
               visible && !query.includes(encodeURIComponent(SEED))
                 ? [dataset]
                 : []
+
           if (resource === 'record_links') rows = [link]
+
           if (resource === 'records' && !query.includes(`id=eq.${datasetId}`))
             rows = [experiment]
+
           return rows as T[]
         },
       }
+
       const graph = await fetchLineageGraph(client, SEED, 2)
       const target = graph.nodes.find((node) => node.entityType === 'dataset')!
       expect(target.accessible).toBe(visible)
       expect(lineageNodeDestination(target)).toBe(
         visible ? `/datasets/${datasetId}` : null,
       )
+
       if (!visible) expect(target.title).not.toContain('Assay results')
+
       if (visible) {
         const reverse = await fetchLineageGraph(client, datasetId, 2)
         expect(
@@ -399,6 +418,7 @@ describe('seeded fetch filter syntax', () => {
     await fetchLineageSignatures(client, [SEED])
     await fetchLineageEvents(client, [SEED])
     expect(queries).toHaveLength(5)
+
     for (const q of queries) {
       expect(q).toContain(`in.(${SEED})`)
       expect(q).not.toContain('eq.')
@@ -411,6 +431,7 @@ describe('seeded fetch filter syntax', () => {
     const seed = makeRecord(SEED, 'experiment', 'EXP-2025-0001')
     const other = '00000000-0000-4000-8000-000000000122'
     const link = makeLink('link-1', SEED, other, 'SMP-2025-0002')
+
     const routes: Array<{ prefix: string; rows: unknown[] }> = [
       { prefix: 'records?id=eq.', rows: [seed] },
       { prefix: 'record_links', rows: [link] },
@@ -419,16 +440,20 @@ describe('seeded fetch filter syntax', () => {
         rows: [makeRecord(other, 'sample', 'SMP-2025-0002')],
       },
     ]
+
     const routed: DataClient = {
       ...client,
       list: <T>(resource: string, query = ''): Promise<T[]> => {
         queries.push(`${resource}${query}`)
+
         const route = routes.find((r) =>
           `${resource}${query}`.startsWith(r.prefix),
         )
+
         return Promise.resolve((route ? route.rows : []) as T[])
       },
     }
+
     const graph = await fetchLineageGraph(routed, SEED, 2)
     const expansion = queries.find((q) => q.startsWith('records?id=in.'))
     expect(expansion).toBe(`records?id=in.(${other})`)

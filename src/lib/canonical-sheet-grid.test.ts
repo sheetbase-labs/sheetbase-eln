@@ -57,6 +57,7 @@ describe('canonicalSheetGridMatrix', () => {
       instance: instance(),
       composition: null,
     })
+
     expect(matrix.columns.map((column) => column.label)).toEqual([
       'Observation',
     ])
@@ -75,6 +76,7 @@ describe('canonicalSheetGridMatrix', () => {
     // and the composed rows carry the snapshot revisions the header cites.
     const configuration = validSheetDefinitionConfiguration()
     const [bindingA, bindingB] = configuration.bindings
+
     const snapshot = {
       definitionConfiguration: configuration,
       rows: [
@@ -133,6 +135,7 @@ describe('canonicalSheetGridMatrix', () => {
 
     const composedInstance = instance()
     composedInstance.state.localValues[composedRow] = {}
+
     const matrix = canonicalSheetGridMatrix({
       instance: composedInstance,
       composition: snapshot,
@@ -183,10 +186,12 @@ describe('parseSheetCellInput', () => {
       ...instance().state.localFields[0],
       logicalType: 'integer' as const,
     }
+
     const flag = {
       ...instance().state.localFields[0],
       logicalType: 'boolean' as const,
     }
+
     expect(parseSheetCellInput(integer, '12')).toBe(12)
     expect(parseSheetCellInput(flag, 'true')).toBe(true)
     expect(parseSheetCellInput(integer, '')).toBeNull()
@@ -228,6 +233,7 @@ const editableNumeric: CanonicalSheetGridColumn = {
   editable: true,
   group: 'Results',
 }
+
 const readOnly: CanonicalSheetGridColumn = {
   id: 'col-readonly',
   label: 'Recovery',
@@ -237,6 +243,7 @@ const readOnly: CanonicalSheetGridColumn = {
   editable: false,
   group: SHEET_DERIVED_GROUP,
 }
+
 const bulkColumns = [editableNumeric, readOnly]
 
 const categoryField: FieldDefinition = {
@@ -325,6 +332,7 @@ describe('typed editing coercion (GRID-03)', () => {
       ...editableNumeric.field!,
       logicalType: 'timestamp' as const,
     }
+
     expect(parseSheetCellInput(timestamp, '2026-01-05 14:30')).toBe(
       '2026-01-05T14:30:00Z',
     )
@@ -350,6 +358,7 @@ describe('typed editing coercion (GRID-03)', () => {
       ...editableNumeric.field!,
       logicalType: 'integer' as const,
     }
+
     const decimal = editableNumeric.field!
     expect(parseSheetCellInput(decimal, '1,200.5')).toBe(1200.5)
     expect(parseSheetCellInput(integer, '1,200')).toBe(1200)
@@ -410,12 +419,14 @@ describe('clear contents updates (GRID-02 review fixes)', () => {
       [{ from: { row: 0, col: 0 }, to: { row: 1, col: 1 } }],
       (row, col) => (row === 0 && col === 0 ? 1.2e9 : 'filled'),
     )
+
     // Row 0 col 0 is editable and filled; col 1 is derived (skipped);
     // row 1 col 0 is editable and filled; row 1 col 1 derived (skipped).
     expect(updates).toEqual([
       [0, 0, null],
       [1, 0, null],
     ])
+
     for (const [, , newValue] of updates) expect(newValue).toBeNull()
   })
 
@@ -425,6 +436,7 @@ describe('clear contents updates (GRID-02 review fixes)', () => {
       [{ from: { row: 0, col: 0 }, to: { row: 2, col: 0 } }],
       (row) => (row === 0 ? 5 : row === 1 ? undefined : null),
     )
+
     expect(updates).toEqual([[0, 0, null]])
   })
 
@@ -451,6 +463,7 @@ describe('resolveCanonicalCellChanges (GRID-03)', () => {
       [3, 0, null, '8,000'],
       [4, 0, null, '12'],
     ])
+
     expect(result.rejection).toBeNull()
     expect(result.changes).toEqual([
       [3, 0, null, 8000],
@@ -462,6 +475,7 @@ describe('resolveCanonicalCellChanges (GRID-03)', () => {
     const result = resolveCanonicalCellChanges(bulkColumns, [
       [0, 0, 1.2, 'not-a-number'],
     ])
+
     expect(result.rejection).toEqual({
       kind: 'invalid_value',
       label: 'Titer',
@@ -480,6 +494,7 @@ describe('resolveCanonicalCellChanges (GRID-03)', () => {
       [categoryColumn],
       [[0, 0, null, 'Paused']],
     )
+
     expect(result.rejection).toBeNull()
     expect(result.changes[0]?.[3]).toBe('40000000-0000-4000-8000-000000000002')
   })
@@ -488,6 +503,7 @@ describe('resolveCanonicalCellChanges (GRID-03)', () => {
 describe('column header and category display (GRID-03)', () => {
   it('surfaces the quantity storage unit in the header, display only', () => {
     expect(canonicalSheetColumnHeader(editableNumeric)).toBe('Titer')
+
     const quantified: CanonicalSheetGridColumn = {
       ...editableNumeric,
       field: {
@@ -499,6 +515,7 @@ describe('column header and category display (GRID-03)', () => {
         },
       },
     }
+
     expect(canonicalSheetColumnHeader(quantified)).toBe('Titer (IU/mL)')
     expect(canonicalSheetColumnHeader(readOnly)).toBe('Recovery')
   })
@@ -525,12 +542,14 @@ describe('applySheetPresentation (GRID-04)', () => {
     id: 'col-third',
     label: 'Notes',
   }
+
   const baseMatrix = {
     columns: bulkColumns,
     rowKeys: [rowId],
     rowKinds: ['local' as const],
     data: [[12, 'derived']],
   }
+
   const fullPresentation = {
     columnOrder: [],
     hiddenColumnIds: [],
@@ -546,6 +565,7 @@ describe('applySheetPresentation (GRID-04)', () => {
       ...fullPresentation,
       columnOrder: ['col-readonly', 'col-editable'],
     })
+
     expect(matrix.columns.map((column) => column.label)).toEqual([
       'Recovery',
       'Titer',
@@ -560,6 +580,7 @@ describe('applySheetPresentation (GRID-04)', () => {
       ...fullPresentation,
       hiddenColumnIds: ['col-readonly'],
     })
+
     expect(matrix.columns.map((column) => column.id)).toEqual(['col-editable'])
     expect(matrix.data).toEqual([[12]])
   })
@@ -572,6 +593,7 @@ describe('applySheetPresentation (GRID-04)', () => {
         columnOrder: ['col-third', 'col-third', 'unknown-column'],
       },
     )
+
     expect(matrix.columns.map((column) => column.id)).toEqual([
       'col-third',
       'col-editable',
@@ -600,6 +622,7 @@ describe('clear contents with visual→physical columns (GRID-04)', () => {
       () => 'filled',
       (visual) => (visual === 0 ? 1 : 0),
     )
+
     expect(updates).toEqual([[0, 1, null]])
   })
 })
@@ -607,6 +630,7 @@ describe('clear contents with visual→physical columns (GRID-04)', () => {
 describe('grid filter ⇄ presentation.filters mapping (GRID-04)', () => {
   const columns = [{ id: 'col-a' }, { id: 'col-b' }, { id: 'col-c' }]
   const columnIds = new Set(columns.map((column) => column.id))
+
   const emptyPresentation = {
     columnOrder: [],
     hiddenColumnIds: [],
@@ -693,6 +717,7 @@ describe('grid filter ⇄ presentation.filters mapping (GRID-04)', () => {
       conditions: [{ name: 'eq', args: [index] }],
       operation: 'conjunction',
     }))
+
     expect(hotFiltersToPresentationFilters(stack, columns)).toHaveLength(32)
   })
 
@@ -723,29 +748,36 @@ describe('grid filter ⇄ presentation.filters mapping (GRID-04)', () => {
       // Session-visual: dropped on capture, so it must not resurrect.
       { column: 1, conditions: [{ name: 'begins_with', args: ['S'] }] },
     ]
+
     const captured = hotFiltersToPresentationFilters(stack, columns)
     expect(captured).toHaveLength(2)
+
     const sanitized = sanitizeSheetPresentation(
       { ...emptyPresentation, filters: captured },
       columnIds,
     )
+
     const additions = presentationFiltersToHotAdditions(
       sanitized?.filters ?? [],
       columns,
     )
+
     // Re-capturing what was applied reproduces exactly the persisted shape.
     const reStack = new Map<
       number,
       { column: number; conditions: Array<{ name: string; args: unknown[] }> }
     >()
+
     for (const addition of additions) {
       const entry = reStack.get(addition.column) ?? {
         column: addition.column,
         conditions: [],
       }
+
       entry.conditions.push({ name: addition.name, args: addition.args })
       reStack.set(addition.column, entry)
     }
+
     expect(
       hotFiltersToPresentationFilters([...reStack.values()], columns),
     ).toEqual(sanitized?.filters)
@@ -760,6 +792,7 @@ describe('grid filter ⇄ presentation.filters mapping (GRID-04)', () => {
     // [col-a, col-b]. col-x remains a restorable canonical column.
     const canonicalColumns = [{ id: 'col-a' }, { id: 'col-x' }, { id: 'col-b' }]
     const displayColumns = [{ id: 'col-a' }, { id: 'col-b' }]
+
     const savedFilters: SheetPresentation['filters'] = [
       { columnId: 'col-x', operator: 'equals', value: 5 },
     ]
@@ -768,12 +801,14 @@ describe('grid filter ⇄ presentation.filters mapping (GRID-04)', () => {
     expect(
       presentationFiltersToHotAdditions(savedFilters, displayColumns),
     ).toEqual([])
+
     // Through the canonical list the condition survives as a plugin
     // addition at the canonical index even though the column is hidden.
     const additions = presentationFiltersToHotAdditions(
       savedFilters,
       canonicalColumns,
     )
+
     expect(additions).toEqual([{ column: 1, name: 'eq', args: [5] }])
     // The plugin can only hold conditions for columns the grid contains
     // (an out-of-range condition trims every row), so the projection
@@ -791,14 +826,17 @@ describe('grid filter ⇄ presentation.filters mapping (GRID-04)', () => {
   it('keeps a hidden column’s saved filter when another column is captured (#113)', () => {
     const canonicalColumns = [{ id: 'col-a' }, { id: 'col-x' }]
     const displayColumns = [{ id: 'col-a' }]
+
     const previous: SheetPresentation['filters'] = [
       // Hidden while col-x is concealed — the plugin cannot express it.
       { columnId: 'col-x', operator: 'equals', value: 5 },
     ]
+
     // The user now filters col-a; the capture must not evict col-x.
     const captured: SheetPresentation['filters'] = [
       { columnId: 'col-a', operator: 'is-empty' },
     ]
+
     expect(
       preserveHiddenColumnFilters(
         captured,
@@ -815,15 +853,18 @@ describe('grid filter ⇄ presentation.filters mapping (GRID-04)', () => {
   it('drops retired-column filters and dedupes on capture (#113)', () => {
     const canonicalColumns = [{ id: 'col-a' }]
     const displayColumns = [{ id: 'col-a' }]
+
     const previous: SheetPresentation['filters'] = [
       // Retired column — not restorable, must not resurrect.
       { columnId: 'col-gone', operator: 'is-empty' },
       // Still applied through the plugin — already in the capture.
       { columnId: 'col-a', operator: 'equals', value: 1 },
     ]
+
     const captured: SheetPresentation['filters'] = [
       { columnId: 'col-a', operator: 'equals', value: 1 },
     ]
+
     expect(
       preserveHiddenColumnFilters(
         captured,

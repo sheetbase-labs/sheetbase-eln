@@ -88,7 +88,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof ColumnPromotionsPanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A steward who did not ask for it: they can approve or return it. */

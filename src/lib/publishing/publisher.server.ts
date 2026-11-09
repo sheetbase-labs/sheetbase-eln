@@ -31,6 +31,7 @@ import type { RepoFetch, RepositoryTarget } from './repositories'
 
 export const PUBLISH_SWEEP_INTERVAL_MS = 30_000
 const BATCH = 5
+
 /** The one place a package is held in memory. */
 const PACKAGE_FILE_BYTES = 256 * 1024 * 1024
 
@@ -83,7 +84,9 @@ async function selectAll<T>(
   token: string,
 ): Promise<T[]> {
   const res = await postgrestSelect<T[]>(resource, query, token)
+
   if (res.status >= 400) throw new Error(`${resource} could not be read`)
+
   return Array.isArray(res.body) ? res.body : []
 }
 
@@ -107,10 +110,12 @@ async function buildExperimentPackage(
       token,
     )
   ).at(0)
+
   if (!record)
     throw new Error(
       'The experiment is no longer visible to the person who asked.',
     )
+
   const experiment = await collectExperiment(
     record,
     {
@@ -122,7 +127,9 @@ async function buildExperimentPackage(
     getObjectStorage(),
     { remainingFileBytes: PACKAGE_FILE_BYTES },
   )
+
   const license = licenseById(row.license)
+
   const { bytes } = await buildElnArchive({
     name: `${record.identifier} ${record.title}`,
     workspaceId: row.workspace_id,
@@ -131,6 +138,7 @@ async function buildExperimentPackage(
     license,
     authors: [author],
   })
+
   return {
     name: `${record.identifier}.eln`,
     bytes,
@@ -161,10 +169,12 @@ async function buildDatasetPackage(
       token,
     )
   ).at(0)
+
   if (!version)
     throw new Error(
       'The dataset version is no longer visible to the person who asked.',
     )
+
   const dataset = (
     await selectAll<{
       id: string
@@ -177,20 +187,26 @@ async function buildDatasetPackage(
       token,
     )
   ).at(0)
+
   const fields = await loadDatasetFields(token, version.schema_version_id)
   const rows: ExportRow[] = []
+
   const paged = pagedRows(
     'query_dataset_version_rows',
     { p_dataset_version_id: version.id },
     token,
   )
+
   for await (const r of paged.rows) {
     rows.push(r)
+
     if (rows.length > 500_000)
       throw new Error('This dataset version is too big to package.')
   }
+
   // Ontology terms on the columns.
   const terms: Record<string, CrateOntologyTerm[]> = {}
+
   if (fields.length > 0) {
     const annotations = await selectAll<{
       target_id: string
@@ -202,8 +218,10 @@ async function buildDatasetPackage(
       `target_kind=eq.schema_field&target_id=in.(${fields.map((f) => f.id).join(',')})&select=target_id,iri,label,ontology`,
       token,
     ).catch(() => [])
+
     for (const a of annotations) {
       const field = fields.find((f) => f.id === a.target_id)
+
       if (!field) continue
       ;(terms[field.key] ??= []).push({
         iri: a.iri,
@@ -212,8 +230,10 @@ async function buildDatasetPackage(
       })
     }
   }
+
   // The pipeline run that produced this version, if one did.
   let run: CrateRun | null = null
+
   const output = (
     await selectAll<{ run_id: string }>(
       'pipeline_run_outputs',
@@ -221,6 +241,7 @@ async function buildDatasetPackage(
       token,
     ).catch(() => [])
   ).at(0)
+
   if (output) {
     const pr = (
       await selectAll<{
@@ -240,6 +261,7 @@ async function buildDatasetPackage(
         token,
       )
     ).at(0)
+
     if (pr) {
       const dv = (
         await selectAll<{
@@ -253,6 +275,7 @@ async function buildDatasetPackage(
           token,
         )
       ).at(0)
+
       const def = dv
         ? (
             await selectAll<{ key: string; name: string }>(
@@ -262,6 +285,7 @@ async function buildDatasetPackage(
             )
           ).at(0)
         : undefined
+
       const manifest = (
         await selectAll<{ manifest_digest: string }>(
           'pipeline_run_manifests',
@@ -269,6 +293,7 @@ async function buildDatasetPackage(
           token,
         ).catch(() => [])
       ).at(0)
+
       if (dv && def) {
         run = {
           id: pr.id,
@@ -291,6 +316,7 @@ async function buildDatasetPackage(
       }
     }
   }
+
   const crate = await buildDatasetCrate({
     name: dataset?.name ?? row.title,
     description: dataset?.description ?? null,
@@ -308,6 +334,7 @@ async function buildDatasetPackage(
     doi: null,
     run,
   })
+
   return {
     name: crate.fileName,
     bytes: crate.bytes,
@@ -324,6 +351,7 @@ async function buildDatasetPackage(
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const { createHash } = await import('node:crypto')
+
   return createHash('sha256').update(bytes).digest('hex')
 }
 
@@ -332,26 +360,33 @@ export async function sweepPublications(
 ): Promise<{ drafted: number; published: number; failed: number }> {
   const conn = await deps.connect()
   const result = { drafted: 0, published: 0, failed: 0 }
+
   try {
     const { rows } = await conn.query<PublicationJob>(
       `SELECT * FROM internal.publications_due($1)`,
       [BATCH],
     )
+
     for (const row of rows) {
       const stage = row.status === 'publishing' ? 'publish' : 'send'
+
       try {
         if (!row.ciphertext) throw new Error('The repository has no token yet.')
+
         const target: RepositoryTarget = {
           kind: row.kind,
           baseUrl: row.base_url,
           collection: row.collection,
           token: deps.openToken(row.ciphertext),
         }
+
         if (stage === 'publish') {
           if (!row.remote_id) throw new Error('There is no draft to publish.')
+
           const record = await publishDraft(target, row.remote_id, {
             fetch: deps.fetch,
           })
+
           await conn.query(
             `SELECT internal.record_publication_published($1, $2, $3)`,
             [row.id, record.doi, record.recordUrl],
@@ -359,27 +394,34 @@ export async function sweepPublications(
           result.published++
           continue
         }
+
         const claimed = await conn.query<{ ok: boolean }>(
           `SELECT internal.mark_publication_sending($1) AS ok`,
           [row.id],
         )
+
         if (!claimed.rows.at(0)?.ok) continue
+
         const user = (
           await conn.query<{ name: string | null; email: string | null }>(
             `SELECT name, email FROM internal."user" WHERE id = $1`,
             [row.requested_by_user_id],
           )
         ).rows.at(0)
+
         const author = { name: user?.name || user?.email || 'Sheetbase author' }
+
         const token = await deps.tokenFor(
           row.requested_by_user_id,
           row.workspace_id,
         )
+
         const built = deps.buildPackage
           ? await deps.buildPackage(row, token, author)
           : row.object_kind === 'experiment'
             ? await buildExperimentPackage(row, token, author)
             : await buildDatasetPackage(row, token, author)
+
         const draft = await createDraft(
           target,
           {
@@ -397,6 +439,7 @@ export async function sweepPublications(
           { name: built.name, bytes: built.bytes },
           { fetch: deps.fetch },
         )
+
         await conn.query(
           `SELECT internal.record_publication_draft($1, $2, $3, $4, $5, $6, $7, $8)`,
           [
@@ -413,10 +456,12 @@ export async function sweepPublications(
         result.drafted++
       } catch (error) {
         result.failed++
+
         const message =
           error instanceof RepositoryError || error instanceof Error
             ? error.message
             : String(error)
+
         logger.warn('publication step failed', {
           publicationId: row.id,
           stage,
@@ -428,6 +473,7 @@ export async function sweepPublications(
         )
       }
     }
+
     return result
   } finally {
     await conn.end()
@@ -439,6 +485,7 @@ export function realPublisherDeps(): PublisherDeps {
     connect: async () => {
       const client = new PooledClient({ connectionString: env.DATABASE_URL })
       await client.connect()
+
       return client
     },
     tokenFor: (userId, workspaceId) =>
@@ -459,8 +506,10 @@ const startedGlobalKey = '__sheetbasePublisherStarted'
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
@@ -468,15 +517,20 @@ export function startPublisher(
   options: { deps?: PublisherDeps; intervalMs?: number } = {},
 ): void {
   if (typeof window !== 'undefined') return
+
   if (schedulerDisabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
+
   const tick = async () => {
     if (running) return
     running = true
+
     try {
       const r = await sweepPublications(options.deps ?? realPublisherDeps())
+
       if (r.drafted || r.published || r.failed)
         logger.info('publications swept', r)
     } catch (error) {
@@ -487,6 +541,7 @@ export function startPublisher(
       running = false
     }
   }
+
   bootTimer = setTimeout(() => void tick(), 25_000)
   bootTimer.unref()
   timer = setInterval(
@@ -498,6 +553,7 @@ export function startPublisher(
 
 export function stopPublisher(): void {
   if (bootTimer) clearTimeout(bootTimer)
+
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null

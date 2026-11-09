@@ -19,6 +19,7 @@ import type {
 } from './notebook-action-blocks'
 
 let seq = 0
+
 function block(
   type: string,
   payload: Record<string, unknown>,
@@ -165,6 +166,7 @@ describe('corrective actions payload', () => {
         },
       ],
     }
+
     expect(validateCorrectiveActions(payload)).toEqual([])
     expect(isCorrectiveActionsPayload(payload)).toBe(true)
     expect(validateCorrectiveActions({ items: 'nope' })).toHaveLength(1)
@@ -256,6 +258,7 @@ describe('outline projections from the same blocks', () => {
         },
       }),
     ]
+
     expect(requiredSectionChecklist(blocks, ['result summary'])).toEqual([
       { label: 'result summary', state: 'present' },
     ])
@@ -281,10 +284,12 @@ describe('outline projections from the same blocks', () => {
       }),
       block('rich_text', { title: 'Not a request' }),
     ]
+
     const rows = requestedSignatureRows(blocks, {
       revisionId: 'rev-1',
       signatures: [],
     })
+
     expect(rows).toEqual([
       {
         blockId: rows[0].blockId,

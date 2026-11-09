@@ -15,7 +15,9 @@ const meta = {
   parameters: { layout: 'padded' },
   args: { children: null },
 } satisfies Meta<typeof Tree>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The project outline as the left rail renders it, one folder current. */

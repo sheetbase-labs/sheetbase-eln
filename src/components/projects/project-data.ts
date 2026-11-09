@@ -83,6 +83,7 @@ export function withReadDeadline<T>(
         ),
       )
     }, deadlineMs)
+
     read.then(
       (value) => {
         clearTimeout(timer)
@@ -124,15 +125,20 @@ export async function fetchProjectSummaries(
   workspaceId: string | undefined,
 ): Promise<ProjectSummary[]> {
   const rows: SummaryWire[] = []
+
   for (;;) {
     const page = await projectDataClient.list<SummaryWire>(
       'rpc/project_list_summary',
       `?order=updated_at.desc,id.asc&limit=200&offset=${rows.length}`,
     )
+
     rows.push(...page)
+
     if (page.length < 200) break
   }
+
   void workspaceId
+
   return rows.map(toProjectSummary)
 }
 
@@ -141,7 +147,9 @@ export function useProjectSummary(projectId: string) {
     queryKey: [...PROJECTS_KEY, 'summary'],
     queryFn: () => fetchProjectSummaries(undefined),
   })
+
   const project = query.data?.find((p) => p.id === projectId) ?? null
+
   return { project, query }
 }
 
@@ -183,9 +191,11 @@ export async function fetchProjectActivity(
     'change_events',
     `?project_id=eq.${encodeURIComponent(projectId)}&order=sequence.desc&limit=3&select=id,sequence,entity_type,entity_uuid,operation,record_id,actor_user_id,payload,created_at`,
   )
+
   const recordIds = events
     .filter((event) => event.entity_type === 'record')
     .map((event) => event.entity_uuid)
+
   const [actors, records] = await Promise.all([
     events.some((event) => event.actor_user_id)
       ? fetchWorkspaceMemberIdentities()
@@ -203,6 +213,7 @@ export async function fetchProjectActivity(
         )
       : Promise.resolve([]),
   ])
+
   return events.map((event) => ({
     id: event.id,
     sequence: Number(event.sequence),
@@ -288,6 +299,7 @@ export function useWorkspaceMemberNames() {
     queryKey: workspaceMemberQueryKeys.identities,
     queryFn: async () => {
       const members = await fetchWorkspaceMemberIdentities()
+
       return new Map(members.map((m) => [m.user_id, m.name]))
     },
     staleTime: 60_000,
@@ -405,6 +417,7 @@ function evidenceOf(
   taskId: string,
 ): { linkedRecordId: string | null; linkedRecordIdentifier: string | null } {
   const cited = rows.find((r) => r.task_id === taskId && r.linked_record_id)
+
   return {
     linkedRecordId: cited?.linked_record_id ?? null,
     linkedRecordIdentifier: cited?.linked_record_identifier ?? null,
@@ -428,20 +441,25 @@ export function useProjectMilestones(projectId: string) {
         'study_tasks',
         `?project_id=eq.${encodeURIComponent(projectId)}&select=id,task_type,title,status,due_at,timezone&order=due_at.asc.nullslast,id.asc`,
       )
+
       if (tasks.length === 0) return []
       const ids = tasks.map((task) => task.id)
       const rows: MilestoneWire[] = []
+
       for (let i = 0; i < ids.length; i += 12) {
         const chunk = ids
           .slice(i, i + 12)
           .map((id) => encodeURIComponent(id))
           .join(',')
+
         const part = await projectDataClient.list<MilestoneWire>(
           'study_deliverables',
           `?task_id=in.(${chunk})&select=id,task_id,name,status,due_at,linked_record_id,linked_record_identifier&order=due_at.asc.nullslast,id.asc`,
         )
+
         rows.push(...part)
       }
+
       return [
         ...tasks
           .filter((task) => task.task_type === 'milestone')

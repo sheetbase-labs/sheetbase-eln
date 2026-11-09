@@ -20,6 +20,7 @@ import type * as router from '@tanstack/react-router'
 
 const mocks = vi.hoisted(() => {
   const search: Record<string, unknown> = {}
+
   return {
     rpc: vi.fn(async (_name?: string): Promise<unknown> => []),
     list: vi.fn(
@@ -32,6 +33,7 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
+
   return {
     ...actual,
     // The route object the module holds: `useSearch`/`useNavigate` read the
@@ -90,15 +92,19 @@ const RECORD_ROW = {
 function mountSearch(search: Record<string, unknown> = {}) {
   mocks.search = search
   const SearchPage = Route.options.component as React.ComponentType
+
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   const element = () => (
     <QueryClientProvider client={client}>
       <SearchPage />
     </QueryClientProvider>
   )
+
   const view = render(element())
+
   return {
     view,
     setUrl: (next: Record<string, unknown>) => {
@@ -141,10 +147,12 @@ describe('Search results page (SRCH-02)', () => {
     })
 
     expect((await screen.findAllByText('EXP-0142')).length).toBeGreaterThan(0)
+
     const calls = mocks.rpc.mock.calls as unknown as [
       string,
       Record<string, unknown>,
     ][]
+
     const searchCall = calls.find(([name]) => name === 'search')
     expect(searchCall?.[1]).toMatchObject({
       p_owner_id: 'user-1',
@@ -162,9 +170,11 @@ describe('Search results page (SRCH-02)', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Remove the date range' }),
     )
+
     const call = mocks.navigate.mock.calls.at(-1)?.[0] as {
       search: (previous: Record<string, unknown>) => Record<string, unknown>
     }
+
     expect(
       call.search({ q: 'plate', from: '2026-09-01', to: '2026-09-30' }),
     ).toEqual({ q: 'plate', from: undefined, to: undefined })
@@ -177,11 +187,13 @@ describe('Search results page (SRCH-02)', () => {
     fireEvent.submit(input.closest('form') as HTMLFormElement)
 
     await waitFor(() => expect(mocks.navigate).toHaveBeenCalledTimes(1))
+
     const call = mocks.navigate.mock.calls[0][0] as {
       to: string
       replace?: boolean
       search: (previous: Record<string, unknown>) => Record<string, unknown>
     }
+
     expect(call.to).toBe('/search')
     expect(call.replace).toBeUndefined()
     expect(call.search({ q: 'earlier' })).toEqual({ q: 'plate' })
@@ -201,9 +213,11 @@ describe('Search results page (SRCH-02)', () => {
     fireEvent.submit(input.closest('form') as HTMLFormElement)
 
     await waitFor(() => expect(mocks.navigate).toHaveBeenCalledTimes(1))
+
     const call = mocks.navigate.mock.calls[0][0] as {
       search: (previous: Record<string, unknown>) => Record<string, unknown>
     }
+
     expect(call.search({})).toEqual({
       q: 'buffer',
       filter: {
@@ -330,9 +344,11 @@ describe('Search count and no-results state (QA3-search-1, QA3-search-2)', () =>
       await screen.findByText('Nothing matches with these filters.'),
     ).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }))
+
     const call = mocks.navigate.mock.calls.at(-1)?.[0] as {
       search: (previous: Record<string, unknown>) => Record<string, unknown>
     }
+
     expect(call.search({ type: ['Records'] })).toEqual({
       type: undefined,
       project: undefined,

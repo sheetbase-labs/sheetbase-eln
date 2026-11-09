@@ -39,7 +39,9 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function inside(queryClient: QueryClient, width = 720) {
@@ -51,6 +53,7 @@ function inside(queryClient: QueryClient, width = 720) {
     </QueryClientProvider>
   )
 }
+
 const seeded = (data: ReadSeed[]) => screenQueryClient({ data })
 
 const spec: ChartSpec = {
@@ -140,6 +143,7 @@ export const RendererError: Story = {
 
 function FigureHarness({ initial }: { initial: ChartSpec }) {
   const [value, setValue] = useState(initial)
+
   return <FigureControls spec={value} onSpecChange={setValue} />
 }
 

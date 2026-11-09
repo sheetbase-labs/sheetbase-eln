@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SnapshotSourceBanner } from './snapshot-source-banner'
 
 vi.mock('#/lib/chart-data', () => ({ sciDataClient: {} }))
+
 vi.mock('#/lib/dataset-explorer-data', () => ({
   listDatasetVersionSummaries: async () => [
     {
@@ -23,6 +24,7 @@ function renderBanner(onUseLive = vi.fn()) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   render(
     <QueryClientProvider client={client}>
       <SnapshotSourceBanner
@@ -32,6 +34,7 @@ function renderBanner(onUseLive = vi.fn()) {
       />
     </QueryClientProvider>,
   )
+
   return onUseLive
 }
 

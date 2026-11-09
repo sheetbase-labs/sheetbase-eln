@@ -46,6 +46,7 @@ export function createRateLimiter(options: RateLimitOptions): RateLimiter {
     hit(key: string, now: number = Date.now()): RateLimitDecision {
       const window = Math.floor(now / 1000 / windowSeconds)
       const entry = counters.get(key)
+
       if (!entry || entry.window !== window) {
         // Bound memory: drop stale entries opportunistically. One sweep per
         // window removes everything stale; sweeping again within the same
@@ -53,14 +54,19 @@ export function createRateLimiter(options: RateLimitOptions): RateLimiter {
         // for every new principal.
         if (counters.size > PRUNE_THRESHOLD && prunedWindow !== window) {
           prunedWindow = window
+
           for (const [k, v] of counters) {
             if (v.window < window) counters.delete(k)
           }
         }
+
         counters.set(key, { window, count: 1 })
+
         return { allowed: true }
       }
+
       entry.count += 1
+
       if (entry.count > maxRequests) {
         return {
           allowed: false,
@@ -68,6 +74,7 @@ export function createRateLimiter(options: RateLimitOptions): RateLimiter {
             windowSeconds - Math.floor((now / 1000) % windowSeconds),
         }
       }
+
       return { allowed: true }
     },
   }

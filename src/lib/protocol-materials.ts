@@ -60,18 +60,24 @@ export function materialAlerts(
   if (!record || record.deletedAt) {
     return [{ kind: 'unavailable', label: 'Unavailable' }]
   }
+
   const alerts: MaterialAlert[] = []
+
   if (record.archivedAt) alerts.push({ kind: 'archived', label: 'Archived' })
   const expiry = record.properties.expiry
+
   const expiredByDate =
     typeof expiry === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(expiry)
       ? expiry < today.toISOString().slice(0, 10)
       : false
+
   if (record.status === 'expired' || expiredByDate) {
     alerts.push({ kind: 'expired', label: 'Expired' })
   }
+
   const quantity = record.properties.quantity
   const threshold = record.properties.low_stock_threshold
+
   if (
     record.status === 'low_stock' ||
     (typeof quantity === 'number' &&
@@ -80,9 +86,11 @@ export function materialAlerts(
   ) {
     alerts.push({ kind: 'low_stock', label: 'Low stock' })
   }
+
   if (['consumed', 'quarantined'].includes(record.status)) {
     alerts.push({ kind: 'unavailable', label: 'Unavailable' })
   }
+
   return alerts
 }
 
@@ -91,10 +99,12 @@ export async function fetchMaterialRecords(
   ids: string[],
 ): Promise<Map<string, NotebookRecord>> {
   if (ids.length === 0) return new Map()
+
   const rows = await client.list<RecordWire>(
     'records',
     `?id=in.(${ids.join(',')})`,
   )
+
   return new Map(rows.map((row) => [row.id, toRecord(row)]))
 }
 
@@ -123,6 +133,7 @@ export async function pinProtocolReference(
     p_expected_block_version: args.expectedBlockVersion,
     p_expected_structure_version: args.expectedStructureVersion,
   })
+
   return {
     block: toBlock(result.block),
     copiedSteps: result.copied_steps.map(toBlock),

@@ -33,14 +33,19 @@ async function loadSession(
   const headers =
     requestHeaders ??
     (await import('@tanstack/react-start/server')).getRequestHeaders()
+
   const context = await getCurrentContext(headers)
+
   if (!context?.workspace || context.workspace.id !== workspaceId) {
     throw new Error('You do not have access to this workspace.')
   }
+
   const auth = await resolveSessionAuth(headers)
+
   if (!auth.ok || auth.context.workspaceId !== workspaceId) {
     throw new Error('You do not have access to this workspace.')
   }
+
   return {
     userId: context.user.id,
     workspaceId,
@@ -54,18 +59,23 @@ async function readSettings(
 ): Promise<WorkspaceAiSettingsRow | null> {
   const { createServerDataClient } =
     await import('#/lib/server-data-client.server')
+
   const client = createServerDataClient(token)
+
   const rows = await client.list<WorkspaceAiSettingsRow>(
     'workspace_settings',
     `?select=workspace_id,ai_enabled,ai_provider_profile,ai_model,ai_cloud_egress_enabled,ai_max_tokens_per_call,ai_max_cost_microusd_per_call,ai_feature_flags,ai_updated_by_user_id,updated_at&workspace_id=eq.${encodeURIComponent(workspaceId)}`,
   )
+
   return rows.at(0) ?? null
 }
 
 function usableTimeZone(zone: string | undefined): string | undefined {
   if (!zone) return undefined
+
   try {
     new Intl.DateTimeFormat('en-GB', { timeZone: zone })
+
     return zone
   } catch {
     return undefined
@@ -97,10 +107,13 @@ export async function resolveAssistantRuntime(
   options: { timeZone?: string } = {},
 ): Promise<AssistantRuntime> {
   const session = await loadSession(workspaceId, requestHeaders)
+
   const { getPublicProviderProfiles } =
     await import('#/lib/ai-providers/config.server')
+
   const { profiles, error } = getPublicProviderProfiles()
   const row = await readSettings(session.token, workspaceId)
+
   if (!row) {
     return {
       ok: false,
@@ -111,9 +124,11 @@ export async function resolveAssistantRuntime(
       },
     }
   }
+
   const settings = toWorkspaceAiSettings(row)
   const featureFlags = resolveAiFeatureFlags(row.ai_feature_flags)
   const readiness = aiReadiness(settings, profiles, error, featureFlags)
+
   if (!readiness.ready) {
     return {
       ok: false,
@@ -127,8 +142,10 @@ export async function resolveAssistantRuntime(
 
   let provider: ModelProvider | undefined
   let pricing: number | undefined
+
   if (readiness.mode === 'provider') {
     const { resolveProvider } = await import('#/lib/ai-providers/config.server')
+
     try {
       const resolved = resolveProvider(readiness.profileId)
       provider = resolved.provider
@@ -142,6 +159,7 @@ export async function resolveAssistantRuntime(
           code: cause instanceof AiProviderError ? cause.code : 'unknown',
         }),
       )
+
       return {
         ok: false,
         result: {
@@ -155,10 +173,14 @@ export async function resolveAssistantRuntime(
 
   const { createServerDataClient } =
     await import('#/lib/server-data-client.server')
+
   const client = createServerDataClient(session.token)
+
   const { createAssistantToolkit } =
     await import('#/lib/assistant-tools.server')
+
   const actor = { kind: 'user' as const, id: session.userId }
+
   const toolkit = await createAssistantToolkit({
     client,
     actor,
@@ -166,6 +188,7 @@ export async function resolveAssistantRuntime(
     flags: featureFlags,
     timeZone: usableTimeZone(options.timeZone),
   })
+
   return {
     ok: true,
     session,
@@ -190,6 +213,7 @@ export const askAssistantFn = createServerFn({ method: 'POST' })
   .validator((input: unknown) => askAssistantSchema.parse(input))
   .handler(async ({ data }): Promise<AskAssistantResult> => {
     const runtime = await resolveAssistantRuntime(data.workspaceId)
+
     if (!runtime.ok) return runtime.result
     const result = await askAssistant(data, runtime.deps)
 
@@ -206,6 +230,7 @@ export const askAssistantFn = createServerFn({ method: 'POST' })
         outcome: result.status,
       }),
     )
+
     return result
   })
 
@@ -217,6 +242,7 @@ export const runPageAiFn = createServerFn({ method: 'POST' })
   .validator((input: unknown) => pageAiSchema.parse(input))
   .handler(async ({ data }): Promise<PageAiResult> => {
     const runtime = await resolveAssistantRuntime(data.workspaceId)
+
     if (!runtime.ok) return runtime.result
     const result = await runPageAi(data, runtime.deps)
     logger.info(
@@ -233,5 +259,6 @@ export const runPageAiFn = createServerFn({ method: 'POST' })
         outcome: result.status,
       }),
     )
+
     return result
   })

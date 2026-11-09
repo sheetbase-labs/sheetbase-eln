@@ -39,6 +39,7 @@ const TONE: Record<EvalStatus, Tone> = {
   failed: 'bad',
   skipped: 'draft',
 }
+
 const STATUS_LABEL: Record<EvalStatus, string> = {
   passed: t('agents.checks.statusPassed'),
   failed: t('agents.checks.statusFailed'),
@@ -52,12 +53,15 @@ async function startRun(toolsOnly: boolean): Promise<AiEvalRunRow> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ toolsOnly }),
   })
+
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as {
       message?: string
     } | null
+
     throw new Error(body?.message ?? t('agents.checks.couldNotRun'))
   }
+
   return (await response.json()) as AiEvalRunRow
 }
 
@@ -71,6 +75,7 @@ export function AiChecksPanel({
   aiOn: boolean
 }) {
   const queryClient = useQueryClient()
+
   const runs = useQuery({
     queryKey: aiEvalKeys.runs,
     queryFn: () =>
@@ -80,6 +85,7 @@ export function AiChecksPanel({
       ),
     enabled: Boolean(workspaceId),
   })
+
   const [open, setOpen] = useState<string | null>(null)
 
   const run = useMutation({
@@ -145,6 +151,7 @@ export function AiChecksPanel({
             <TableBody>
               {(runs.data ?? []).flatMap((row) => {
                 const expanded = open === row.id
+
                 return [
                   <TableRow key={row.id}>
                     <TableCell className="text-fg-muted">
@@ -216,7 +223,9 @@ function RunResults({
         `?select=*&run_id=eq.${encodeURIComponent(runId)}&order=area.asc,title.asc`,
       ),
   })
+
   if (results.isLoading) return <Skeleton className="h-16 w-full" />
+
   return (
     <div className="flex flex-col gap-2">
       {message ? <Muted>{message}</Muted> : null}

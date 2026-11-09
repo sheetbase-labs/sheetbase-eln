@@ -8,20 +8,26 @@ import { generateVapidKeys } from './web-push.server'
 function fakeConnection(deliveries: Array<Record<string, unknown>>) {
   const keys = generateVapidKeys()
   const calls: Array<{ text: string; values?: unknown[] }> = []
+
   const conn: PushConnection = {
     query: (async (text: string, values?: unknown[]) => {
       calls.push({ text, values })
+
       if (text.includes('FROM internal.push_vapid_keys'))
         return {
           rows: [{ public_key: keys.publicKey, private_jwk: keys.privateJwk }],
         }
+
       if (text.includes('sweep_booking_reminders')) return { rows: [{ n: 2 }] }
+
       if (text.includes('claim_due_push_deliveries'))
         return { rows: deliveries }
+
       return { rows: [] }
     }) as PushConnection['query'],
     end: vi.fn(async () => undefined),
   }
+
   return { conn, calls }
 }
 
@@ -29,6 +35,7 @@ function fakeConnection(deliveries: Array<Record<string, unknown>>) {
 function device() {
   const ecdh = createECDH('prime256v1')
   ecdh.generateKeys()
+
   return {
     p256dh: ecdh.getPublicKey().toString('base64url'),
     auth: 'BTBZMqHH6r4Tts7J_aSIgg',
@@ -38,6 +45,7 @@ function device() {
 describe('runPushWorker', () => {
   it('sends what is due, records each outcome and writes the reminders', async () => {
     const outcomes = ['sent', 'gone', 'retry'] as const
+
     const { conn, calls } = fakeConnection(
       outcomes.map((_, i) => ({
         id: `d${i}`,
@@ -46,18 +54,24 @@ describe('runPushWorker', () => {
         payload: { title: 'T', body: '', url: '/', tag: 't', badge: 1 },
       })),
     )
+
     let n = 0
+
     const result = await runPushWorker({
       connect: async () => conn,
       send: async () => {
         const kind = outcomes[n++]
+
         return kind === 'retry' ? { kind, error: 'down' } : { kind }
       },
     })
+
     expect(result).toEqual({ reminders: 2, sent: 1, gone: 1, failed: 1 })
+
     const finished = calls.filter((c) =>
       c.text.includes('finish_push_delivery'),
     )
+
     expect(finished.map((c) => c.values)).toEqual([
       ['d0', 'sent', null],
       ['d1', 'gone', null],
@@ -76,6 +90,7 @@ describe('runPushWorker', () => {
         payload: {},
       },
     ])
+
     const send = vi.fn()
     const result = await runPushWorker({ connect: async () => conn, send })
     expect(send).not.toHaveBeenCalled()

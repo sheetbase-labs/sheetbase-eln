@@ -65,6 +65,7 @@ export function validateSheet(payload: unknown): FieldErrors {
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
   const keys = Object.keys(payload)
+
   if (keys.some((key) => !['instanceId', 'presentation'].includes(key))) {
     return [
       {
@@ -73,6 +74,7 @@ export function validateSheet(payload: unknown): FieldErrors {
       },
     ]
   }
+
   if (payload.instanceId === undefined) {
     return [
       {
@@ -82,6 +84,7 @@ export function validateSheet(payload: unknown): FieldErrors {
       },
     ]
   }
+
   if (!isUuid(payload.instanceId)) {
     return [
       {
@@ -91,6 +94,7 @@ export function validateSheet(payload: unknown): FieldErrors {
       },
     ]
   }
+
   if (payload.presentation !== undefined && !isObject(payload.presentation)) {
     return [
       {
@@ -100,6 +104,7 @@ export function validateSheet(payload: unknown): FieldErrors {
       },
     ]
   }
+
   return []
 }
 
@@ -128,11 +133,13 @@ export function validateRichText(payload: unknown): FieldErrors {
 
 export function validateChecklist(payload: unknown): FieldErrors {
   const errors: FieldErrors = []
+
   if (!isObject(payload))
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
   const items = payload.items
+
   if (!Array.isArray(items)) {
     return [
       {
@@ -142,6 +149,7 @@ export function validateChecklist(payload: unknown): FieldErrors {
       },
     ]
   }
+
   items.forEach((item, i) => {
     if (!isObject(item)) {
       errors.push({
@@ -149,8 +157,10 @@ export function validateChecklist(payload: unknown): FieldErrors {
         field: `items[${i}]`,
         message: 'each item must be an object',
       })
+
       return
     }
+
     if (!isString(item.text)) {
       errors.push({
         code: 'missing_required_field',
@@ -158,6 +168,7 @@ export function validateChecklist(payload: unknown): FieldErrors {
         message: 'item.text is required',
       })
     }
+
     if (typeof item.checked !== 'boolean') {
       errors.push({
         code: 'invalid_field_value',
@@ -166,15 +177,18 @@ export function validateChecklist(payload: unknown): FieldErrors {
       })
     }
   })
+
   return errors
 }
 
 export function validateLinkedRecord(payload: unknown): FieldErrors {
   const errors: FieldErrors = []
+
   if (!isObject(payload))
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
+
   if (!isNonEmptyString(payload.targetKind)) {
     errors.push({
       code: 'missing_required_field',
@@ -182,6 +196,7 @@ export function validateLinkedRecord(payload: unknown): FieldErrors {
       message: 'targetKind is required',
     })
   }
+
   if (!isNonEmptyString(payload.targetIdentifier)) {
     errors.push({
       code: 'missing_required_field',
@@ -189,6 +204,7 @@ export function validateLinkedRecord(payload: unknown): FieldErrors {
       message: 'targetIdentifier is required',
     })
   }
+
   if (!isNonEmptyString(payload.linkType)) {
     errors.push({
       code: 'missing_required_field',
@@ -196,6 +212,7 @@ export function validateLinkedRecord(payload: unknown): FieldErrors {
       message: 'linkType is required',
     })
   }
+
   // NOTE-03: targetId is optional — the stable UUID of the linked canonical
   // object (Dataset UUID for targetKind 'dataset', Record UUID otherwise).
   // It is captured when the link is picked from search; older payloads
@@ -211,6 +228,7 @@ export function validateLinkedRecord(payload: unknown): FieldErrors {
       message: 'targetId must be a UUID when present',
     })
   }
+
   // label is optional. Empty string is treated as "no label"; only a
   // whitespace-only label (present but blank) is rejected.
   if (
@@ -224,15 +242,18 @@ export function validateLinkedRecord(payload: unknown): FieldErrors {
       message: 'label must not be blank when present',
     })
   }
+
   return errors
 }
 
 export function validateCallout(payload: unknown): FieldErrors {
   const errors: FieldErrors = []
+
   if (!isObject(payload))
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
+
   if (!isNonEmptyString(payload.text)) {
     errors.push({
       code: 'missing_required_field',
@@ -240,7 +261,9 @@ export function validateCallout(payload: unknown): FieldErrors {
       message: 'text is required',
     })
   }
+
   const variant = payload.variant
+
   if (
     !isString(variant) ||
     !['info', 'warning', 'note', 'danger'].includes(variant)
@@ -251,15 +274,18 @@ export function validateCallout(payload: unknown): FieldErrors {
       message: 'variant must be one of info, warning, note, danger',
     })
   }
+
   return errors
 }
 
 export function validateConclusion(payload: unknown): FieldErrors {
   const errors: FieldErrors = []
+
   if (!isObject(payload))
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
+
   // A new conclusion starts empty, like a new callout draft: the text is
   // written after the block is inserted, so it is typed but not required.
   if (payload.text !== undefined && !isString(payload.text)) {
@@ -269,6 +295,7 @@ export function validateConclusion(payload: unknown): FieldErrors {
       message: 'text must be a string',
     })
   }
+
   if (
     payload.verdict !== undefined &&
     !CONCLUSION_VERDICTS.some((verdict) => verdict === payload.verdict)
@@ -279,6 +306,7 @@ export function validateConclusion(payload: unknown): FieldErrors {
       message: `verdict must be one of ${CONCLUSION_VERDICTS.join(', ')}`,
     })
   }
+
   if (payload.basis !== undefined && !isString(payload.basis)) {
     errors.push({
       code: 'invalid_field_value',
@@ -286,16 +314,19 @@ export function validateConclusion(payload: unknown): FieldErrors {
       message: 'basis must be a string',
     })
   }
+
   return errors
 }
 
 export function validateTable(payload: unknown): FieldErrors {
   const errors: FieldErrors = []
+
   if (!isObject(payload))
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
   const columns = payload.columns
+
   if (!Array.isArray(columns) || !columns.every(isString)) {
     errors.push({
       code: 'invalid_field_value',
@@ -303,7 +334,9 @@ export function validateTable(payload: unknown): FieldErrors {
       message: 'columns must be an array of strings',
     })
   }
+
   const rows = payload.rows
+
   if (!Array.isArray(rows)) {
     errors.push({
       code: 'invalid_field_value',
@@ -321,6 +354,7 @@ export function validateTable(payload: unknown): FieldErrors {
       }
     })
   }
+
   return errors
 }
 
@@ -329,6 +363,7 @@ export function validateChart(payload: unknown): FieldErrors {
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
+
   // SCI-004 (decision 0029): delegate to the real ChartSpec validator. An
   // empty draft `{}` is valid. Dataset reference integrity is enforced by
   // the database trigger; this gate checks structural validity, palette and
@@ -348,6 +383,7 @@ export function validateAnalysis(payload: unknown): FieldErrors {
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
+
   return validateAnalysisBlockPayload(payload).map((e) => ({
     code:
       e.field === 'title'
@@ -406,6 +442,7 @@ export function validatePlateMap(payload: unknown): FieldErrors {
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
+
   // SCI-005 (decision 0030): delegate to the real PlateMapSpec validator. An
   // empty draft `{}` is valid. Sample reference integrity is enforced by the
   // database trigger; this gate checks structural validity, well codes,
@@ -419,16 +456,19 @@ export function validatePlateMap(payload: unknown): FieldErrors {
 
 export function validateFile(payload: unknown): FieldErrors {
   const errors: FieldErrors = []
+
   if (!isObject(payload))
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
+
   // SCI-003 (decision 0028): a file block is either an empty draft `{}` (no
   // file attached yet) or a reference to a file record. The DB trigger
   // (former migration 0025) verifies the referenced file record, workspace match, and
   // exact file_objects metadata; status is intentionally NOT cached in the
   // payload so the preview always reflects the live file_objects row.
   if (Object.keys(payload).length === 0) return errors
+
   if (!isNonEmptyString(payload.fileRecordId)) {
     errors.push({
       code: 'missing_required_field',
@@ -436,6 +476,7 @@ export function validateFile(payload: unknown): FieldErrors {
       message: 'fileRecordId is required when a file is attached',
     })
   }
+
   if (!isNonEmptyString(payload.fileIdentifier)) {
     errors.push({
       code: 'missing_required_field',
@@ -443,6 +484,7 @@ export function validateFile(payload: unknown): FieldErrors {
       message: 'fileIdentifier is required when a file is attached',
     })
   }
+
   if (!isNonEmptyString(payload.displayName)) {
     errors.push({
       code: 'missing_required_field',
@@ -450,6 +492,7 @@ export function validateFile(payload: unknown): FieldErrors {
       message: 'displayName is required when a file is attached',
     })
   }
+
   if (!isNonEmptyString(payload.mediaType)) {
     errors.push({
       code: 'missing_required_field',
@@ -457,6 +500,7 @@ export function validateFile(payload: unknown): FieldErrors {
       message: 'mediaType is required when a file is attached',
     })
   }
+
   if (!isInteger(payload.byteSize) || payload.byteSize < 0) {
     errors.push({
       code: 'invalid_field_value',
@@ -465,6 +509,7 @@ export function validateFile(payload: unknown): FieldErrors {
         'byteSize must be a non-negative integer when a file is attached',
     })
   }
+
   if (
     payload.fileVersion !== undefined &&
     (!isInteger(payload.fileVersion) || payload.fileVersion < 1)
@@ -475,6 +520,7 @@ export function validateFile(payload: unknown): FieldErrors {
       message: 'fileVersion must be a positive whole number when present',
     })
   }
+
   if (!annotationsAreValid(payload)) {
     errors.push({
       code: 'invalid_field_value',
@@ -482,15 +528,18 @@ export function validateFile(payload: unknown): FieldErrors {
       message: 'annotations must be a list of arrows, labels and lane names',
     })
   }
+
   return errors
 }
 
 export function validateMetric(payload: unknown): FieldErrors {
   const errors: FieldErrors = []
+
   if (!isObject(payload))
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
+
   if (!isNonEmptyString(payload.label)) {
     errors.push({
       code: 'missing_required_field',
@@ -498,6 +547,7 @@ export function validateMetric(payload: unknown): FieldErrors {
       message: 'label is required',
     })
   }
+
   if (payload.value === undefined || payload.value === null) {
     errors.push({
       code: 'missing_required_field',
@@ -505,6 +555,7 @@ export function validateMetric(payload: unknown): FieldErrors {
       message: 'value is required',
     })
   }
+
   if (payload.unit !== undefined && !isString(payload.unit)) {
     errors.push({
       code: 'invalid_field_value',
@@ -512,6 +563,7 @@ export function validateMetric(payload: unknown): FieldErrors {
       message: 'unit must be a string when present',
     })
   }
+
   if (payload.provenance !== undefined && !isString(payload.provenance)) {
     errors.push({
       code: 'invalid_field_value',
@@ -519,15 +571,18 @@ export function validateMetric(payload: unknown): FieldErrors {
       message: 'provenance must be a string when present',
     })
   }
+
   return errors
 }
 
 export function validateProcedureStep(payload: unknown): FieldErrors {
   const errors: FieldErrors = []
+
   if (!isObject(payload))
     return [
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
+
   if (!isNonEmptyString(payload.text)) {
     errors.push({
       code: 'missing_required_field',
@@ -535,6 +590,7 @@ export function validateProcedureStep(payload: unknown): FieldErrors {
       message: 'text is required',
     })
   }
+
   if (payload.stepNumber !== undefined && !isInteger(payload.stepNumber)) {
     errors.push({
       code: 'invalid_field_value',
@@ -542,6 +598,7 @@ export function validateProcedureStep(payload: unknown): FieldErrors {
       message: 'stepNumber must be an integer when present',
     })
   }
+
   if (
     payload.durationSeconds !== undefined &&
     !(
@@ -557,6 +614,7 @@ export function validateProcedureStep(payload: unknown): FieldErrors {
         'durationSeconds must be a whole number of seconds, up to a week',
     })
   }
+
   const executionFields = [
     'sourceProtocolRevisionId',
     'sourceStepBlockId',
@@ -565,7 +623,9 @@ export function validateProcedureStep(payload: unknown): FieldErrors {
     'completedAt',
     'completedByUserId',
   ]
+
   const hasExecution = executionFields.some((field) => field in payload)
+
   if (hasExecution) {
     if (!isUuid(payload.sourceProtocolRevisionId)) {
       errors.push({
@@ -574,6 +634,7 @@ export function validateProcedureStep(payload: unknown): FieldErrors {
         message: 'sourceProtocolRevisionId must be a UUID',
       })
     }
+
     if (!isUuid(payload.sourceStepBlockId)) {
       errors.push({
         code: 'invalid_field_value',
@@ -581,6 +642,7 @@ export function validateProcedureStep(payload: unknown): FieldErrors {
         message: 'sourceStepBlockId must be a UUID',
       })
     }
+
     if (typeof payload.completed !== 'boolean') {
       errors.push({
         code: 'invalid_field_value',
@@ -588,6 +650,7 @@ export function validateProcedureStep(payload: unknown): FieldErrors {
         message: 'completed must be a boolean',
       })
     }
+
     if (!isString(payload.note)) {
       errors.push({
         code: 'invalid_field_value',
@@ -595,6 +658,7 @@ export function validateProcedureStep(payload: unknown): FieldErrors {
         message: 'note must be a string',
       })
     }
+
     if (payload.completedAt !== null && !isTimestamp(payload.completedAt)) {
       errors.push({
         code: 'invalid_field_value',
@@ -602,6 +666,7 @@ export function validateProcedureStep(payload: unknown): FieldErrors {
         message: 'completedAt must be a timestamp or null',
       })
     }
+
     if (
       payload.completedByUserId !== null &&
       !isNonEmptyString(payload.completedByUserId)
@@ -613,6 +678,7 @@ export function validateProcedureStep(payload: unknown): FieldErrors {
       })
     }
   }
+
   return errors
 }
 
@@ -622,8 +688,10 @@ export function validateProtocolReference(payload: unknown): FieldErrors {
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
   }
+
   if (Object.keys(payload).length === 0) return []
   const errors: FieldErrors = []
+
   for (const field of ['protocolRecordId', 'protocolRevisionId'] as const) {
     if (!isUuid(payload[field])) {
       errors.push({
@@ -633,6 +701,7 @@ export function validateProtocolReference(payload: unknown): FieldErrors {
       })
     }
   }
+
   for (const field of [
     'protocolIdentifier',
     'protocolTitle',
@@ -648,6 +717,7 @@ export function validateProtocolReference(payload: unknown): FieldErrors {
       })
     }
   }
+
   if (!isTimestamp(payload.pinnedAt)) {
     errors.push({
       code: 'invalid_field_value',
@@ -655,6 +725,7 @@ export function validateProtocolReference(payload: unknown): FieldErrors {
       message: 'pinnedAt must be a timestamp',
     })
   }
+
   return errors
 }
 
@@ -664,6 +735,7 @@ export function validateMaterials(payload: unknown): FieldErrors {
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
   }
+
   if (!Array.isArray(payload.items)) {
     return [
       {
@@ -673,18 +745,22 @@ export function validateMaterials(payload: unknown): FieldErrors {
       },
     ]
   }
+
   const errors: FieldErrors = []
   const ids = new Set<string>()
   payload.items.forEach((value, index) => {
     const field = `items[${index}]`
+
     if (!isObject(value)) {
       errors.push({
         code: 'invalid_field_value',
         field,
         message: 'each material must be an object',
       })
+
       return
     }
+
     if (!isNonEmptyString(value.id) || ids.has(value.id)) {
       errors.push({
         code: 'invalid_field_value',
@@ -692,6 +768,7 @@ export function validateMaterials(payload: unknown): FieldErrors {
         message: 'material id must be nonblank and unique',
       })
     } else ids.add(value.id)
+
     if (!isUuid(value.materialRecordId)) {
       errors.push({
         code: 'invalid_field_value',
@@ -699,6 +776,7 @@ export function validateMaterials(payload: unknown): FieldErrors {
         message: 'materialRecordId must be a UUID',
       })
     }
+
     if (value.kind !== 'sample' && value.kind !== 'material') {
       errors.push({
         code: 'invalid_field_value',
@@ -706,6 +784,7 @@ export function validateMaterials(payload: unknown): FieldErrors {
         message: 'kind must be sample or material',
       })
     }
+
     for (const name of ['identifier', 'title'] as const) {
       if (!isNonEmptyString(value[name])) {
         errors.push({
@@ -715,6 +794,7 @@ export function validateMaterials(payload: unknown): FieldErrors {
         })
       }
     }
+
     if (
       typeof value.quantity !== 'number' ||
       !Number.isFinite(value.quantity) ||
@@ -726,6 +806,7 @@ export function validateMaterials(payload: unknown): FieldErrors {
         message: 'quantity must be a positive finite number',
       })
     }
+
     if (
       !isObject(value.unit) ||
       !isNonEmptyString(value.unit.code) ||
@@ -737,6 +818,7 @@ export function validateMaterials(payload: unknown): FieldErrors {
         message: 'unit must have nonblank code and symbol',
       })
     }
+
     if (value.note !== undefined && !isString(value.note)) {
       errors.push({
         code: 'invalid_field_value',
@@ -744,6 +826,7 @@ export function validateMaterials(payload: unknown): FieldErrors {
         message: 'note must be a string when present',
       })
     }
+
     if (!isTimestamp(value.observedAt)) {
       errors.push({
         code: 'invalid_field_value',
@@ -752,6 +835,7 @@ export function validateMaterials(payload: unknown): FieldErrors {
       })
     }
   })
+
   return errors
 }
 
@@ -784,7 +868,9 @@ export function validateGate(payload: unknown): FieldErrors {
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
   }
+
   const errors: FieldErrors = []
+
   if (payload.mode !== 'warn' && payload.mode !== 'block') {
     errors.push({
       code: 'invalid_field_value',
@@ -792,6 +878,7 @@ export function validateGate(payload: unknown): FieldErrors {
       message: 'mode must be warn or block',
     })
   }
+
   if (
     payload.label !== undefined &&
     (!isString(payload.label) || payload.label.length > 200)
@@ -802,7 +889,9 @@ export function validateGate(payload: unknown): FieldErrors {
       message: 'label must be text of at most 200 characters',
     })
   }
+
   const conditions = payload.conditions
+
   if (
     !Array.isArray(conditions) ||
     conditions.length < 1 ||
@@ -824,12 +913,15 @@ export function validateGate(payload: unknown): FieldErrors {
           field: `conditions[${i}]`,
           message: `kind must be one of ${GATE_KINDS.join(', ')}`,
         })
+
         return
       }
+
       const needsBlock =
         condition.kind === 'table_filled' ||
         condition.kind === 'step_done' ||
         condition.kind === 'plugin_check'
+
       if (needsBlock && !isUuid(condition.blockId)) {
         errors.push({
           code: 'invalid_field_value',
@@ -837,6 +929,7 @@ export function validateGate(payload: unknown): FieldErrors {
           message: 'blockId must be a UUID',
         })
       }
+
       if (
         condition.kind === 'plugin_flag' &&
         !(
@@ -850,6 +943,7 @@ export function validateGate(payload: unknown): FieldErrors {
           message: 'extensionKey must be the plugin key',
         })
       }
+
       if (condition.kind === 'part_done' && !isUuid(condition.partId)) {
         errors.push({
           code: 'invalid_field_value',
@@ -857,6 +951,7 @@ export function validateGate(payload: unknown): FieldErrors {
           message: 'partId must be a UUID',
         })
       }
+
       if (
         condition.kind === 'qc_in_control' &&
         condition.seriesId !== undefined &&
@@ -868,6 +963,7 @@ export function validateGate(payload: unknown): FieldErrors {
           message: 'seriesId must be a UUID',
         })
       }
+
       if (
         condition.kind === 'date_reached' &&
         !(
@@ -882,6 +978,7 @@ export function validateGate(payload: unknown): FieldErrors {
       }
     })
   }
+
   return errors
 }
 
@@ -893,11 +990,15 @@ export function validateDatasetImport(payload: unknown): FieldErrors {
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
   }
+
   const errors: FieldErrors = []
+
   const uploaded =
     payload.fileId !== undefined || payload.datasetId !== undefined
+
   const committed =
     payload.importId !== undefined || payload.datasetVersionId !== undefined
+
   for (const field of [
     'fileId',
     'datasetId',
@@ -908,6 +1009,7 @@ export function validateDatasetImport(payload: unknown): FieldErrors {
       field === 'fileId' || field === 'datasetId'
         ? uploaded || committed
         : committed
+
     if (required && !isUuid(payload[field])) {
       errors.push({
         code: 'invalid_field_value',
@@ -916,6 +1018,7 @@ export function validateDatasetImport(payload: unknown): FieldErrors {
       })
     }
   }
+
   if (
     payload.sheetName !== undefined &&
     (!uploaded || !isString(payload.sheetName))
@@ -926,6 +1029,7 @@ export function validateDatasetImport(payload: unknown): FieldErrors {
       message: 'sheetName requires upload pins and must be a string',
     })
   }
+
   if (payload.search !== undefined) {
     if (
       committed ||
@@ -947,6 +1051,7 @@ export function validateDatasetImport(payload: unknown): FieldErrors {
       })
     }
   }
+
   return errors
 }
 
@@ -960,6 +1065,7 @@ export function validatePipelineOutput(payload: unknown): FieldErrors {
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
   const errors: FieldErrors = []
+
   if (
     payload.runId !== undefined &&
     payload.runId !== null &&
@@ -971,6 +1077,7 @@ export function validatePipelineOutput(payload: unknown): FieldErrors {
       message: 'runId must be a Pipeline run UUID',
     })
   }
+
   for (const key of ['datasetId', 'datasetVersionId'] as const) {
     if (
       payload[key] !== undefined &&
@@ -984,6 +1091,7 @@ export function validatePipelineOutput(payload: unknown): FieldErrors {
       })
     }
   }
+
   // PIPE-03: the proposal this block renders, when a run's propose-mode action
   // pins one here.
   if (
@@ -997,6 +1105,7 @@ export function validatePipelineOutput(payload: unknown): FieldErrors {
       message: 'proposalId must be an agent-operation proposal UUID',
     })
   }
+
   if (
     payload.label !== undefined &&
     payload.label !== null &&
@@ -1008,6 +1117,7 @@ export function validatePipelineOutput(payload: unknown): FieldErrors {
       message: 'label must be a short string',
     })
   }
+
   return errors
 }
 
@@ -1020,6 +1130,7 @@ export function validateCodeCell(payload: unknown): FieldErrors {
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
   const errors: FieldErrors = []
+
   if (payload.language !== undefined && !isCodeCellLanguage(payload.language)) {
     errors.push({
       code: 'invalid_field_value',
@@ -1027,6 +1138,7 @@ export function validateCodeCell(payload: unknown): FieldErrors {
       message: 'language must be python or sql',
     })
   }
+
   if (
     payload.source !== undefined &&
     (typeof payload.source !== 'string' ||
@@ -1038,6 +1150,7 @@ export function validateCodeCell(payload: unknown): FieldErrors {
       message: 'source must be text of up to 50,000 characters',
     })
   }
+
   if (payload.inputs !== undefined) {
     if (
       !Array.isArray(payload.inputs) ||
@@ -1053,6 +1166,7 @@ export function validateCodeCell(payload: unknown): FieldErrors {
       payload.inputs.forEach((input: unknown, index: number) => {
         const entry = isObject(input) ? input : {}
         const alias = entry.alias
+
         if (typeof alias !== 'string' || !CODE_CELL_ALIAS.test(alias)) {
           errors.push({
             code: 'invalid_field_value',
@@ -1067,6 +1181,7 @@ export function validateCodeCell(payload: unknown): FieldErrors {
             message: 'input names must be different',
           })
         } else aliases.add(alias)
+
         if (!isUuid(entry.datasetVersionId)) {
           errors.push({
             code: 'invalid_field_value',
@@ -1077,6 +1192,7 @@ export function validateCodeCell(payload: unknown): FieldErrors {
       })
     }
   }
+
   if (
     payload.output !== undefined &&
     payload.output !== null &&
@@ -1091,13 +1207,16 @@ export function validateCodeCell(payload: unknown): FieldErrors {
       message: 'output must be the result of a run, with at most 100 rows',
     })
   }
+
   return errors
 }
 
 export const validateStructure = (payload: unknown): FieldErrors =>
   chemistryErrors(structureIssues(payload))
+
 export const validateReaction = (payload: unknown): FieldErrors =>
   chemistryErrors(reactionIssues(payload))
+
 export { validateCorrectiveActions, validateSignatureRequest }
 
 /**
@@ -1113,27 +1232,33 @@ export function validatePluginBlock(payload: unknown): FieldErrors {
       { code: 'invalid_payload_shape', message: 'payload must be an object' },
     ]
   }
+
   const errors: FieldErrors = []
   const key = /^[a-z][a-z0-9-]{0,48}$/
+
   if (typeof payload.plugin !== 'string' || !key.test(payload.plugin))
     errors.push({
       code: 'invalid_field_value',
       field: 'plugin',
       message: 'plugin must be the key of an installed plugin',
     })
+
   if (typeof payload.block !== 'string' || !key.test(payload.block))
     errors.push({
       code: 'invalid_field_value',
       field: 'block',
       message: 'block must be the id of one of the plugin’s blocks',
     })
+
   if (payload.state !== undefined) {
     let size = Infinity
+
     try {
       size = new TextEncoder().encode(JSON.stringify(payload.state)).length
     } catch {
       /* not JSON */
     }
+
     if (size > PLUGIN_BLOCK_STATE_MAX_BYTES)
       errors.push({
         code: 'invalid_field_value',
@@ -1141,6 +1266,7 @@ export function validatePluginBlock(payload: unknown): FieldErrors {
         message: 'state must be data of at most 16 MiB',
       })
   }
+
   for (const extra of Object.keys(payload))
     if (!['plugin', 'block', 'state'].includes(extra))
       errors.push({
@@ -1148,5 +1274,6 @@ export function validatePluginBlock(payload: unknown): FieldErrors {
         field: extra,
         message: 'unknown field',
       })
+
   return errors
 }

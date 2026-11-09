@@ -54,10 +54,12 @@ export function SequencePanel({
   const add = useMutation({
     mutationFn: async (file: File) => {
       if (!projectId) throw new Error('This record is not in a project.')
+
       if (!isSequenceFileName(file.name))
         throw new Error(t('sequences.notSequence', { name: file.name }))
       // Browsers do not know these extensions; plain text is what they are.
       const asText = new File([file], file.name, { type: 'text/plain' })
+
       return uploadFileToExperiment(notebookDataClient, {
         projectId,
         experimentId: recordId,
@@ -87,6 +89,7 @@ export function SequencePanel({
         onChange={(e) => {
           const file = e.target.files?.[0]
           e.target.value = ''
+
           if (file) add.mutate(file)
         }}
       />

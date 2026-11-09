@@ -31,4 +31,5 @@ export function Badge({
     />
   )
 }
+
 export const Tag = Badge

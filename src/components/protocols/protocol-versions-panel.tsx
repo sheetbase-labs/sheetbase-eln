@@ -106,22 +106,28 @@ export function ProtocolVersionsPanel({
   const client = notebookDataClient
   const queryClient = useQueryClient()
   const [dialog, setDialog] = useState<RowDialog | null>(null)
+
   const versions = useQuery({
     queryKey: protocolVersionsKey(protocolRecordId),
     queryFn: () => fetchProtocolVersions(client, protocolRecordId),
   })
+
   const rows = versions.data ?? []
+
   const approvals = useModelApprovalIndex(
     rows.map((v) => v.id),
     client,
     PROTOCOL_REVISION_KIND,
   )
+
   const names = useUserNames(
     rows.map((v) => v.created_by_user_id),
     user ?? undefined,
   )
+
   const writer = isWorkspaceWriter(role)
   const effective = rows.find((v) => v.status === 'effective')
+
   const inFlight = rows.find(
     (v) => v.status === 'draft' || v.status === 'in_review',
   )
@@ -137,6 +143,7 @@ export function ProtocolVersionsPanel({
       queryKey: ['ui-port', 'protocol-acknowledgements'],
     })
   }
+
   const failed = (title: string) => (cause: unknown) =>
     toast(title, {
       description:
@@ -166,6 +173,7 @@ export function ProtocolVersionsPanel({
       t('library.protocols.protocolVersionsPanel.couldNotSubmitTheVersion'),
     ),
   })
+
   const approve = useMutation({
     mutationFn: (input: {
       version: ProtocolVersion
@@ -180,6 +188,7 @@ export function ProtocolVersionsPanel({
     onSuccess: (result, input) => {
       setDialog(null)
       refresh()
+
       if (result.effective) {
         toast(
           t('library.protocols.protocolVersionsPanel.vIsNowEffective', {
@@ -215,6 +224,7 @@ export function ProtocolVersionsPanel({
       t('library.protocols.protocolVersionsPanel.couldNotApprove'),
     ),
   })
+
   const returnBack = useMutation({
     mutationFn: (input: { requestId: string; reason: string }) =>
       returnApprovalRequest(client, input.requestId, input.reason),
@@ -227,6 +237,7 @@ export function ProtocolVersionsPanel({
       t('library.protocols.protocolVersionsPanel.couldNotReturnTheVersion'),
     ),
   })
+
   const withdraw = useMutation({
     mutationFn: (input: { requestId: string; reason: string }) =>
       withdrawApprovalRequest(
@@ -245,6 +256,7 @@ export function ProtocolVersionsPanel({
       ),
     ),
   })
+
   const release = useMutation({
     mutationFn: (version: ProtocolVersion) =>
       makeProtocolVersionEffective(client, version.id),
@@ -270,11 +282,14 @@ export function ProtocolVersionsPanel({
 
   function approvalFor(version: ProtocolVersion) {
     const requests = approvals.data?.byVersion.get(version.id) ?? []
+
     const decisions = requests.flatMap(
       (r) => approvals.data?.byRequest.get(r.id) ?? [],
     )
+
     const pending = pendingRequest(requests)
     const latest = latestRequest(requests)
+
     return { requests, decisions, pending, latest }
   }
 
@@ -293,6 +308,7 @@ export function ProtocolVersionsPanel({
       header: t('library.protocols.protocolVersionsPanel.status'),
       cell: ({ row }) => {
         const s = STATUS[row.original.status]
+
         return <Status tone={s.tone}>{s.label}</Status>
       },
     },
@@ -309,6 +325,7 @@ export function ProtocolVersionsPanel({
       cell: ({ row }) => {
         const v = row.original
         const a = approvalFor(v)
+
         if (v.status === 'effective' || v.status === 'superseded') {
           return (
             <span className="text-fg-muted">
@@ -320,6 +337,7 @@ export function ProtocolVersionsPanel({
             </span>
           )
         }
+
         if (v.status !== 'in_review' && v.status !== 'draft') {
           return (
             <span className="text-fg-muted">
@@ -327,8 +345,10 @@ export function ProtocolVersionsPanel({
             </span>
           )
         }
+
         if (a.pending) {
           const stage = chainStage(a.decisions, false)
+
           return (
             <span className="text-fg-muted">
               {stage === 'technical'
@@ -341,6 +361,7 @@ export function ProtocolVersionsPanel({
             </span>
           )
         }
+
         if (a.latest?.state === 'returned') {
           return (
             <span className="text-fg-muted">
@@ -349,6 +370,7 @@ export function ProtocolVersionsPanel({
             </span>
           )
         }
+
         if (a.latest?.state === 'approved') {
           return (
             <span className="text-fg-muted">
@@ -358,6 +380,7 @@ export function ProtocolVersionsPanel({
             </span>
           )
         }
+
         return (
           <span className="text-fg-muted">
             {t('library.protocols.protocolVersionsPanel.notSubmitted')}
@@ -382,10 +405,12 @@ export function ProtocolVersionsPanel({
         const v = row.original
         const a = approvalFor(v)
         const stage = chainStage(a.decisions, false)
+
         const myTurn =
           a.pending !== null &&
           canDecide(a.pending, user?.id, role) &&
           Boolean(role && stageRoles(stage).includes(role))
+
         return (
           <span className="flex flex-wrap justify-end gap-1.5">
             {myTurn && a.pending ? (
@@ -477,6 +502,7 @@ export function ProtocolVersionsPanel({
 
   const dialogVersion =
     dialog && dialog.kind !== 'submit' ? dialog.version : null
+
   const dialogRequest = dialogVersion
     ? approvalFor(dialogVersion).pending
     : null
@@ -662,6 +688,7 @@ function SubmitDialog({
 }) {
   const [summary, setSummary] = useState('')
   const text = summary.trim() || resume?.change_summary || ''
+
   return (
     <Dialog
       open={open}

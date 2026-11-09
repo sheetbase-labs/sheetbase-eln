@@ -34,8 +34,10 @@ export const RELATIONSHIP_RENDER_LIMIT = 25
 /** Hover detail for one edge: link creation time and folded-dupe count. */
 function rowDetail(row: RelationshipRow): string {
   const createdBy = row.createdByUserId ? ` by ${row.createdByUserId}` : ''
+
   const dupes =
     row.duplicateCount > 1 ? ` · ${row.duplicateCount} identical links` : ''
+
   return t('settings.knowledgeRelationshipPanel.linked', {
     createdAt: row.createdAt,
     createdBy,
@@ -81,6 +83,7 @@ function DirectionSection({
   rows: RelationshipRow[]
 }) {
   if (rows.length === 0) return null
+
   return (
     <div className="space-y-1">
       <h4 className="text-xs font-semibold text-fg">{heading}</h4>
@@ -135,11 +138,13 @@ export function RelationshipPanel({
   sourceModelKey?: string
 }) {
   const typeLabels = useRelationshipTypeLabels(sourceModelKey)
+
   const { outgoing, incoming, isLoading } = useRelationships(
     recordId,
     true,
     typeLabels,
   )
+
   if (isLoading) {
     return (
       <InspectorSection
@@ -151,7 +156,9 @@ export function RelationshipPanel({
       </InspectorSection>
     )
   }
+
   if (outgoing.length === 0 && incoming.length === 0) return null
+
   return (
     <InspectorSection
       title={t('settings.knowledgeRelationshipPanel.relationships')}
@@ -170,6 +177,7 @@ export function RelationshipPanel({
  */
 export function PinnedRelationshipPanel({ links }: { links: NotebookLink[] }) {
   if (links.length === 0) return null
+
   return (
     <InspectorSection
       title={t('settings.knowledgeRelationshipPanel.relationships')}

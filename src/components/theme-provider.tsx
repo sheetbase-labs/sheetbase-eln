@@ -37,10 +37,12 @@ export function ThemeProvider({
   authenticated?: boolean
 }) {
   const { pref, setPref } = useThemeStore()
+
   const client = React.useMemo(
     () => (typeof window === 'undefined' ? null : createDataClient()),
     [],
   )
+
   const adopted = React.useRef(false)
 
   React.useEffect(() => {
@@ -52,20 +54,25 @@ export function ThemeProvider({
   // a server default must never silently overwrite what this device stored.
   React.useEffect(() => {
     if (!authenticated || !client || adopted.current) return
+
     if (readStoredThemePref() !== null) {
       adopted.current = true
+
       return
     }
+
     let cancelled = false
     void fetchUserPreferences(client)
       .then((preferences) => {
         if (cancelled || !preferences) return
         adopted.current = true
+
         if (preferences.appearance !== pref) setPref(preferences.appearance)
       })
       .catch(() => {
         /* offline or signed out: keep the cached theme */
       })
+
     return () => {
       cancelled = true
     }
@@ -74,6 +81,7 @@ export function ThemeProvider({
   const setTheme = React.useCallback(
     (next: Theme) => {
       setPref(next)
+
       if (authenticated && client) {
         void setUserAppearance(client, next).catch(() => {
           /* keep the local choice even if the write fails */
@@ -93,9 +101,11 @@ export function ThemeProvider({
 
 export function useTheme() {
   const value = React.useContext(ThemeContext)
+
   if (!value) {
     throw new Error('useTheme must be used within ThemeProvider')
   }
+
   return value
 }
 

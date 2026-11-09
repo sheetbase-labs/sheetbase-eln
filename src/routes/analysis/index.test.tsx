@@ -31,7 +31,9 @@ const mocks = vi.hoisted(() => {
     updated_at: '2026-09-02T00:00:00.000Z',
     ...over,
   })
+
   const search: Record<string, string | undefined> = {}
+
   return {
     search,
     citations: [] as { target_identifier: string }[],
@@ -57,6 +59,7 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
+
   return {
     ...actual,
     createFileRoute: () => (options: unknown) => ({
@@ -98,6 +101,7 @@ vi.mock('#/lib/notebook-data', () => ({
       await new Promise<void>((resolve) => {
         setTimeout(resolve, 25)
       })
+
       return mocks.citations
     },
   },
@@ -128,9 +132,11 @@ const DEFAULT_VIEWS = [...mocks.views]
 function renderHome(citations: { target_identifier: string }[]) {
   mocks.citations = citations
   const AnalysisHome = Route.options.component as React.ComponentType
+
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <AnalysisHome />
@@ -242,6 +248,7 @@ describe('analysis list tab strip reflows at 400 % zoom (QA4-zoom-analysis)', ()
     const strip = screen.getByRole('navigation', {
       name: 'Analysis lists',
     }).parentElement
+
     expect(strip).not.toBeNull()
     expect(strip!.className).toContain('overflow-x-auto')
   })

@@ -42,9 +42,11 @@ export const Route = createFileRoute('/sheets/new')({
     parseCreateContext(search),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: NewSheet,
@@ -106,10 +108,12 @@ function NewSheet() {
   const search = Route.useSearch()
   const workspaceId = context.workspace?.id ?? ''
   const navigate = useNavigate()
+
   const projects = useQuery({
     queryKey: ['ui-port', 'sheets', 'new', 'projects'],
     queryFn: () => fetchProjectSummaries(undefined),
   })
+
   const experiment = useQuery({
     queryKey: ['ui-port', 'sheets', 'new', 'experiment', search.experiment],
     enabled: Boolean(search.experiment),
@@ -127,6 +131,7 @@ function NewSheet() {
         )
         .then((rows) => rows[0] ?? null),
   })
+
   const dataset = useQuery({
     queryKey: ['ui-port', 'sheets', 'new', 'dataset', search.dataset],
     enabled: Boolean(search.dataset),
@@ -143,6 +148,7 @@ function NewSheet() {
         )
         .then((rows) => rows[0] ?? null),
   })
+
   const options = useQuery({
     queryKey: [
       'ui-port',
@@ -162,12 +168,14 @@ function NewSheet() {
     experiment.data?.project_id ??
     dataset.data?.primary_project_id ??
     ''
+
   const [chosenProject, setChosenProject] = useState<string | null>(null)
   const projectId = chosenProject ?? impliedProject
   const [name, setName] = useState('Untitled sheet')
   // Set by the Paste a table start: the new sheet opens its Paste data dialog.
   const [pasteFirst, setPasteFirst] = useState(false)
   const [optionId, setOptionId] = useState('')
+
   const option =
     (options.data ?? []).find(
       (o) =>
@@ -178,9 +186,11 @@ function NewSheet() {
     (options.data ?? []).find(
       (o) => o.datasetParameterId && !o.unavailableReason,
     )
+
   const datasetLabel = dataset.data
     ? (dataset.data.display_id ?? dataset.data.name)
     : null
+
   const experimentLocked = Boolean(experiment.data?.locked_at)
 
   const land = (sheetId: string) =>
@@ -197,8 +207,10 @@ function NewSheet() {
     mutationFn: async () => {
       const notebook = experiment.data?.id ?? null
       const sheetName = name.trim() || t('notebook.sheetsNew.untitledSheet')
+
       if (search.dataset && !option)
         throw new Error(t('notebook.sheetsNew.chooseACompatibleSheet'))
+
       if (search.dataset && option) {
         return openDatasetInSheet(notebookDataClient, {
           workspaceId,
@@ -209,6 +221,7 @@ function NewSheet() {
           notebookRecordId: notebook,
         })
       }
+
       const instance = await createAdHocSheetInstance({
         workspaceId,
         name: sheetName,
@@ -216,10 +229,12 @@ function NewSheet() {
         notebookRecordId: notebook,
         state: blankState(),
       })
+
       return instance
     },
     onSuccess: async (instance) => {
       let inNotebook = false
+
       if (experiment.data) {
         try {
           await insertSheetInstanceBlock(notebookDataClient, {
@@ -231,6 +246,7 @@ function NewSheet() {
           inNotebook = false
         }
       }
+
       toast(t('notebook.sheetsNew.sheetCreated'), {
         description: experiment.data
           ? inNotebook
@@ -259,6 +275,7 @@ function NewSheet() {
 
   const datasetBlocked = Boolean(search.dataset) && options.isSuccess && !option
   const cancelTo = cancelTarget(search, '/sheets/new')
+
   const hasContext = Boolean(
     search.project || search.experiment || search.dataset,
   )

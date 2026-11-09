@@ -29,12 +29,14 @@ import { cn } from '#/lib/utils'
 /** Boxes grouped by the freezer (or shelf, or room) that holds them. */
 function groupBoxes(boxes: readonly BoxChoice[]) {
   const groups = new Map<string, { heading: string; boxes: BoxChoice[] }>()
+
   for (const box of boxes) {
     const heading = box.above.slice(0, 3).join(' / ')
     const group = groups.get(heading) ?? { heading, boxes: [] }
     group.boxes.push(box)
     groups.set(heading, group)
   }
+
   return [...groups.values()]
 }
 
@@ -72,10 +74,13 @@ export function PositionPicker({
     staleTime: 15_000,
     retry: false,
   })
+
   const [query, setQuery] = useState('')
+
   const [boxId, setBoxId] = useState<string | null>(
     value?.kind === 'position' ? value.box.id : null,
   )
+
   const [typing, setTyping] = useState(value?.kind === 'text')
 
   const list = boxes.data ?? []
@@ -85,6 +90,7 @@ export function PositionPicker({
   const showText = allowText && (typing || textOnly)
 
   const needle = query.trim().toLowerCase()
+
   const shown = useMemo(
     () =>
       needle
@@ -94,6 +100,7 @@ export function PositionPicker({
         : list,
     [list, needle],
   )
+
   const box = list.find((candidate) => candidate.id === boxId) ?? null
 
   // Open on the box the sample is in, else the first box with room.
@@ -250,6 +257,7 @@ export function PositionPicker({
           onClick={() => {
             const next = !typing
             setTyping(next)
+
             if (next) onChange({ kind: 'text', text: '' })
             else onChange(null)
           }}
@@ -298,6 +306,7 @@ function BoxGrid({
     enabled: Boolean(box),
     staleTime: 5_000,
   })
+
   const cells = positions.data ?? []
   const next = firstFreePosition(cells)
 
@@ -308,6 +317,7 @@ function BoxGrid({
       </div>
     )
   }
+
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <div className="flex items-center gap-2">
@@ -418,10 +428,12 @@ function PositionRow({
       </span>
       {Array.from({ length: cols }, (_, col) => {
         const cell = cells.find((c) => c.rowIndex === row && c.colIndex === col)
+
         if (!cell) return <span key={col} />
         const here = cell.id === currentPositionId
         const chosen = cell.id === value
         const blocked = cell.status !== 'available'
+
         const reason = here
           ? t('library.samples.positionPicker.here')
           : cell.status === 'occupied'
@@ -433,6 +445,7 @@ function PositionRow({
               : cell.status === 'missing'
                 ? t('library.samples.positionPicker.missing')
                 : cell.label
+
         return (
           <Tooltip key={col} content={reason}>
             <button

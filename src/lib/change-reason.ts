@@ -25,10 +25,13 @@ export function registerChangeReasonAsker(next: Asker | null): void {
 /** The reason given a moment ago, if it still covers new edits. */
 export function rememberedChangeReason(now = Date.now()): string | null {
   if (!remembered) return null
+
   if (now - remembered.at > CHANGE_REASON_WINDOW_MS) {
     remembered = null
+
     return null
   }
+
   return remembered.reason
 }
 
@@ -46,19 +49,25 @@ export function forgetChangeReason(): void {
  */
 export function askForChangeReason(): Promise<string | null> {
   const known = rememberedChangeReason()
+
   if (known) return Promise.resolve(known)
+
   if (!asker) return Promise.resolve(null)
+
   if (!pending) {
     pending = asker()
       .then((reason) => {
         const trimmed = reason?.trim() ?? ''
+
         if (!trimmed) return null
         rememberChangeReason(trimmed)
+
         return trimmed
       })
       .finally(() => {
         pending = null
       })
   }
+
   return pending
 }

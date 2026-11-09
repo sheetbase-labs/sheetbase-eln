@@ -27,6 +27,7 @@ export function PotencyPanel({ runs }: { runs: PlateRunRow[] }) {
     () => runs.filter((r) => r.results && r.results.curves.length > 0),
     [runs],
   )
+
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [includeFailed, setIncludeFailed] = useState(false)
   const [onlyReliable, setOnlyReliable] = useState(false)
@@ -47,9 +48,11 @@ export function PotencyPanel({ runs }: { runs: PlateRunRow[] }) {
       ),
     [analysed, picked, includeFailed, onlyReliable],
   )
+
   const relative = useMemo(() => {
     if (!reference) return new Map<string, number>()
     const list = relativePotency(summaries, reference) ?? []
+
     return new Map(list.map((r) => [r.key, r.ratio]))
   }, [summaries, reference])
 
@@ -118,6 +121,7 @@ export function PotencyPanel({ runs }: { runs: PlateRunRow[] }) {
         size: 120,
         cell: ({ row }) => {
           const v = relative.get(row.original.key)
+
           return <span className="num">{v ? `${fmt(v, 3)}×` : ''}</span>
         },
       },
@@ -159,8 +163,10 @@ export function PotencyPanel({ runs }: { runs: PlateRunRow[] }) {
                   onCheckedChange={(v) =>
                     setPicked((cur) => {
                       const next = new Set(cur)
+
                       if (v === true) next.add(r.id)
                       else next.delete(r.id)
+
                       return next
                     })
                   }

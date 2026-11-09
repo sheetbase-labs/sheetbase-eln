@@ -33,6 +33,7 @@ function clientReturning(value: unknown) {
       headers: { 'Content-Type': 'application/json' },
     }),
   )
+
   return { client: createDataClient(fetcher), fetcher }
 }
 

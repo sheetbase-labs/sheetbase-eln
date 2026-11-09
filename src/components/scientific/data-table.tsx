@@ -130,8 +130,10 @@ function DataTable<TData extends RowData>({
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [rowSelection, setRowSelection] = React.useState<RowSelectionState>({})
+
   const [columnVisibility, setColumnVisibility] =
     React.useState<ColumnVisibilityState>(initialColumnVisibility)
+
   const table = useTable({
     features: dataTableFeatures,
     data,
@@ -156,10 +158,13 @@ function DataTable<TData extends RowData>({
   const lastSelected = React.useRef<TData[]>([])
   React.useEffect(() => {
     if (!onSelectionChange) return
+
     const chosen = getRowId
       ? data.filter((row) => getRowId(row) in rowSelection)
       : data.filter((_, index) => String(index) in rowSelection)
+
     const before = lastSelected.current
+
     if (
       chosen.length === before.length &&
       chosen.every((row, index) => row === before[index])

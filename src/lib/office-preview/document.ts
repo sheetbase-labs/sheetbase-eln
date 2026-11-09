@@ -44,11 +44,14 @@ export function sanitiseDocumentHtml(html: string): string {
     ALLOWED_ATTR: ['href', 'src', 'alt', 'colspan', 'rowspan'],
     ALLOW_DATA_ATTR: false,
   })
+
   const doc = new DOMParser().parseFromString(clean, 'text/html')
+
   for (const link of Array.from(doc.querySelectorAll('a'))) {
     link.setAttribute('target', '_blank')
     link.setAttribute('rel', 'noopener noreferrer')
   }
+
   return doc.body.innerHTML
 }
 
@@ -56,6 +59,7 @@ export async function readDocxHtml(bytes: Uint8Array): Promise<string> {
   const mammoth = (await import('mammoth')).default
   const arrayBuffer = bytes.slice().buffer
   const { value } = await mammoth.convertToHtml({ arrayBuffer })
+
   return sanitiseDocumentHtml(value)
 }
 
@@ -76,16 +80,20 @@ function odfBlock(node: Element): string {
         Math.max(Number(node.getAttributeNS(TEXT_NS, 'outline-level') ?? 1), 1),
         4,
       )
+
       return `<h${level}>${escapeHtml(node.textContent)}</h${level}>`
     }
+
     case 'p':
       return `<p>${escapeHtml(node.textContent)}</p>`
     case 'list': {
       const items = Array.from(node.getElementsByTagNameNS(TEXT_NS, 'p'))
         .map((p) => `<li>${escapeHtml(p.textContent)}</li>`)
         .join('')
+
       return `<ul>${items}</ul>`
     }
+
     case 'table': {
       const rows = Array.from(
         node.getElementsByTagNameNS(TABLE_NS, 'table-row'),
@@ -96,11 +104,14 @@ function odfBlock(node: Element): string {
           )
             .map((c) => `<td>${escapeHtml(c.textContent)}</td>`)
             .join('')
+
           return `<tr>${cells}</tr>`
         })
         .join('')
+
       return `<table><tbody>${rows}</tbody></table>`
     }
+
     default:
       return ''
   }
@@ -109,15 +120,19 @@ function odfBlock(node: Element): string {
 export function readOdtHtml(bytes: Uint8Array): string {
   const archive = openArchive(bytes, (n) => n === 'content.xml')
   const xml = partText(archive, 'content.xml')
+
   if (!xml) throw new Error('The document has no content.')
   const doc = parseXml(xml)
+
   const body = doc
     .getElementsByTagNameNS(
       'urn:oasis:names:tc:opendocument:xmlns:office:1.0',
       'text',
     )
     .item(0)
+
   if (!body) throw new Error('The document has no text.')
   const html = Array.from(body.children).map(odfBlock).join('')
+
   return sanitiseDocumentHtml(html)
 }

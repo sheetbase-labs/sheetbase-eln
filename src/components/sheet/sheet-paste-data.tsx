@@ -74,6 +74,7 @@ export function SheetPasteData({
               disabled={busy}
               onChange={(event) => {
                 const file = event.target.files?.[0]
+
                 if (file) void file.text().then(setText)
               }}
             />

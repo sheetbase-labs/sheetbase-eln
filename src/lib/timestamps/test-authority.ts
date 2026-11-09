@@ -51,8 +51,10 @@ export interface TestAuthority {
 
 export function createTestAuthority(): TestAuthority {
   const dir = mkdtempSync(join(tmpdir(), 'sheetbase-tsa-'))
+
   const run = (args: string[]) =>
     execFileSync('openssl', args, { cwd: dir, stdio: 'pipe' })
+
   writeFileSync(join(dir, 'tsa.cnf'), CONFIG)
   writeFileSync(join(dir, 'serial'), '01\n')
   run([
@@ -108,6 +110,7 @@ export function createTestAuthority(): TestAuthority {
     'v3_tsa',
   ])
   writeFileSync(join(dir, 'chain.pem'), readFileSync(join(dir, 'ca.pem')))
+
   const reply = (request: Uint8Array): Uint8Array => {
     writeFileSync(join(dir, 'q.tsq'), request)
     run([
@@ -122,12 +125,16 @@ export function createTestAuthority(): TestAuthority {
       '-out',
       'r.tsr',
     ])
+
     return new Uint8Array(readFileSync(join(dir, 'r.tsr')))
   }
+
   const fakeFetch = (async (_url: unknown, init?: RequestInit) => {
     const body = init?.body as Uint8Array
+
     return new Response(reply(body) as unknown as BodyInit, { status: 200 })
   }) as unknown as typeof fetch
+
   return {
     dir,
     rootPem: readFileSync(join(dir, 'ca.pem'), 'utf8'),

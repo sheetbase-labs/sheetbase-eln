@@ -14,6 +14,7 @@ import {
 import type * as DataClient from '#/lib/data-client'
 
 const { rpc, list } = vi.hoisted(() => ({ rpc: vi.fn(), list: vi.fn() }))
+
 vi.mock('#/lib/data-client', async (importOriginal) => ({
   ...(await importOriginal<typeof DataClient>()),
   createDataClient: () => ({ rpc, list }),
@@ -31,6 +32,7 @@ const details = {
   agreementReference: 'AGR-017',
   startedOn: '2026-08-03',
 }
+
 const expected = {
   p_title: 'AAV5 capsid screening',
   p_client_id: 'client-21',
@@ -80,9 +82,11 @@ describe('canonical typed project callers', () => {
           due_at: due,
         },
       ])
+
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+
     const { result, unmount } = renderHook(
       () => useProjectMilestones('project-1'),
       {
@@ -90,6 +94,7 @@ describe('canonical typed project callers', () => {
           createElement(QueryClientProvider, { client }, children),
       },
     )
+
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data).toEqual(
       expect.arrayContaining([
@@ -171,6 +176,7 @@ describe('canonical typed project callers', () => {
       title: 'Historical title',
       changes: { status: { to: 'done' } },
     }
+
     const event = {
       id: 'event-1',
       sequence: '17',
@@ -182,6 +188,7 @@ describe('canonical typed project callers', () => {
       payload,
       created_at: '2026-10-04T10:00:00Z',
     }
+
     list
       .mockResolvedValueOnce([
         event,
@@ -258,17 +265,20 @@ describe('canonical typed project callers', () => {
 describe('withReadDeadline', () => {
   it('turns a read the data layer never answers into a stated failure', async () => {
     vi.useFakeTimers()
+
     try {
       // Executor form: tsconfig lib predates Promise.withResolvers (ES2024).
       const stalled = withReadDeadline(
         new Promise(() => {}),
         'The project list',
       )
+
       const failed = expect(stalled).rejects.toMatchObject({
         code: 'read_timeout',
         status: 504,
         message: `The project list didn’t answer within ${PROJECT_READ_DEADLINE_MS / 1000} s.`,
       })
+
       await vi.advanceTimersByTimeAsync(PROJECT_READ_DEADLINE_MS)
       await failed
     } finally {

@@ -25,9 +25,11 @@ export function describeSampleDataFailure(
 /** Adds the sample project, then refreshes everything it appears in. */
 export function useAddSampleData(workspaceId: string) {
   const queryClient = useQueryClient()
+
   return useMutation({
     mutationFn: async () => {
       const result = await addSampleDataFn({ data: { workspaceId } })
+
       if (!result.ok)
         throw new SampleDataError(describeSampleDataFailure(result))
     },
@@ -58,7 +60,9 @@ export function SettingsSampleData({ workspaceId }: { workspaceId: string }) {
     queryFn: () => fetchSampleDataStatusFn({ data: { workspaceId } }),
     enabled: Boolean(workspaceId),
   })
+
   const add = useAddSampleData(workspaceId)
+
   // An area the role can't open has nothing to offer.
   if (!status.data) return null
 

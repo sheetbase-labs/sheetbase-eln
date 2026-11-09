@@ -408,6 +408,7 @@ class GridBoundary extends Component<GridBoundaryProps, GridBoundaryState> {
     if (this.state.failed) {
       return <GridFailure message={t('notebook.sheetbaseGrid.couldNotStart')} />
     }
+
     return this.props.children
   }
 }
@@ -466,8 +467,10 @@ function SheetbaseGridShell({
           'Sheetbase table grid client bundle failed to load.',
           error,
         )
+
         if (active) setLoadFailed(true)
       })
+
     return () => {
       active = false
     }

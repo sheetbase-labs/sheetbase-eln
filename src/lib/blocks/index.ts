@@ -23,11 +23,13 @@ export {
   isRichTextPayload,
   richTextToPlainText,
 } from './rich-text'
+
 export type {
   RichTextDocument,
   RichTextMark,
   RichTextPayload,
 } from './rich-text'
+
 export {
   CHART_PALETTE,
   CHART_SPEC_VERSION,
@@ -35,12 +37,14 @@ export {
   validateChartPayload,
   validateChartSpec,
 } from '../chart-spec'
+
 export type {
   ChartBlockPayload,
   ChartSpec,
   ChartType,
   FrozenChart,
 } from '../chart-spec'
+
 export {
   ASSIGNMENT_ROLES,
   PLATE_FORMATS,
@@ -54,6 +58,7 @@ export {
   validatePlateMapSpec,
   wellCode,
 } from '../plate-map'
+
 export type {
   AssignmentRole,
   PlateFormat,
@@ -64,6 +69,7 @@ export type {
   Volume as PlateVolume,
   WellAssignment as PlateWellAssignment,
 } from '../plate-map'
+
 // R5-NOTE-02: the sign-and-attach block kinds (signature request, corrective
 // actions). Payload shapes, boundary validators and the pure reference-state
 // derivations live in the module so the reading surface and the outline share
@@ -86,6 +92,7 @@ export {
   validateCorrectiveActions,
   validateSignatureRequest,
 } from '../notebook-action-blocks'
+
 export type {
   ActionBlockContext,
   CorrectiveActionItem,
@@ -180,9 +187,11 @@ export function validateBlock(input: BlockInput): BlockValidationResult {
   }
 
   const errors = blockDescriptor(input.type)!.validate(input.payload)
+
   if (errors.length > 0) {
     return fail(input.type, payloadSchemaVersion, errors)
   }
+
   return ok(input.type, payloadSchemaVersion)
 }
 

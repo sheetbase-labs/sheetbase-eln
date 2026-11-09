@@ -45,7 +45,9 @@ import { useListView } from '#/lib/list-views'
 import { formatDate } from '#/lib/format-date'
 
 const tabs = ['all', 'mine', 'issues', 'locked', 'archived'] as const
+
 type DatasetTab = (typeof tabs)[number]
+
 const tabLabel: Record<DatasetTab, string> = {
   all: t('data.datasetsList.all'),
   mine: t('data.datasetsList.mine'),
@@ -82,9 +84,11 @@ export const Route = createFileRoute('/datasets')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: DatasetsRoute,
@@ -94,6 +98,7 @@ function DatasetsRoute() {
   const isIndex = useRouterState({
     select: (state) => state.location.pathname === '/datasets',
   })
+
   return isIndex ? <DatasetsList /> : <Outlet />
 }
 
@@ -103,13 +108,16 @@ function DatasetsList() {
   const canConnect = useHasCapability('instrument.manage')
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+
   const openDataset = useOpenRow<DatasetListRow>(
     navigate,
     (row) => datasetPath(row.uuid),
     (row) => row.name,
   )
+
   const query = useDatasetSummaries()
   const rows = query.data ?? []
+
   const tab: DatasetTab =
     search.tab === 'mine' ||
     search.tab === 'issues' ||
@@ -117,6 +125,7 @@ function DatasetsList() {
     search.tab === 'archived'
       ? search.tab
       : 'all'
+
   const [selected, setSelected] = useState<string | null>(null)
   const view = useListView('datasets')
 
@@ -133,6 +142,7 @@ function DatasetsList() {
             : tabId === 'issues'
               ? r.issues > 0
               : r.reviewState === 'locked'
+
   const counts = useMemo(
     () =>
       Object.fromEntries(
@@ -152,12 +162,14 @@ function DatasetsList() {
 
   const q = (search.q ?? '').trim().toLowerCase()
   const hasProjectAccess = useHasProjectAccess()
+
   const visible = sorted
     .filter((r) => inTab(r, tab))
     .filter(
       (r) =>
         !q || [r.id, r.name, r.model].some((v) => v.toLowerCase().includes(q)),
     )
+
   const columns = useMemo<RegistryColumn<DatasetListRow>[]>(
     () => [
       {
@@ -225,6 +237,7 @@ function DatasetsList() {
         accessorFn: (d) => datasetValidation(d).label,
         cell: ({ row }) => {
           const v = datasetValidation(row.original)
+
           return <Status tone={v.tone}>{v.label}</Status>
         },
       },
@@ -233,6 +246,7 @@ function DatasetsList() {
   )
 
   const selectedRow = visible.find((d) => d.uuid === selected)
+
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     selected,
     setSelected,
@@ -323,6 +337,7 @@ function DatasetsList() {
             label={t('data.datasetsList.datasets')}
             items={visible.map((d) => {
               const v = datasetValidation(d)
+
               return {
                 key: d.uuid,
                 id: d.id,

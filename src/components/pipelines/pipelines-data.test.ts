@@ -102,6 +102,7 @@ describe('buildPipelineRows', () => {
         }),
       ],
     )
+
     expect(rows[0].current?.id).toBe('v-2')
     expect(rows[0].draft?.id).toBe('v-3')
     expect(rows[0].runCount).toBe(2)
@@ -115,6 +116,7 @@ describe('buildPipelineRows', () => {
       [version({ id: 'v-1', lifecycle: 'draft' })],
       [],
     )
+
     expect(rows[0].draft?.id).toBe('v-1')
     expect(rows[0].runCount).toBe(0)
     expect(rows[0].lastRun).toBeUndefined()
@@ -128,6 +130,7 @@ describe('currentVersion and draftVersion', () => {
       version({ id: 'published', version: 2, lifecycle: 'published' }),
       version({ id: 'retired', version: 1, lifecycle: 'retired' }),
     ]
+
     expect(currentVersion(versions)?.id).toBe('published')
     expect(draftVersion(versions)?.id).toBe('draft')
   })
@@ -160,6 +163,7 @@ describe('resolveRunForWorkItem', () => {
       { kind: 'run_waiting', sourceId: 'prompt-1', identifier: 'glucose' },
       client({ pipeline_run_prompts: [{ run_id: 'run-7' }] }),
     )
+
     expect(run).toBe('run-7')
   })
 
@@ -169,10 +173,12 @@ describe('resolveRunForWorkItem', () => {
       pipeline_definition_versions: [{ id: 'v-1' }, { id: 'v-2' }],
       pipeline_runs: [{ id: 'run-9' }],
     })
+
     const run = await resolveRunForWorkItem(
       { kind: 'run_failed', sourceId: null, identifier: 'glucose' },
       c,
     )
+
     expect(run).toBe('run-9')
     expect(vi.mocked(c.list).mock.calls.at(-1)?.[1]).toContain(
       'definition_version_id=in.(v-1,v-2)&status=eq.failed',
@@ -214,6 +220,7 @@ describe('pipeline output targets', () => {
         },
       ],
     })
+
     const targets = await fetchPipelineOutputTargets(c)
     expect(targets.schemaVersions).toEqual([
       { id: 'sv-1', label: 'Viability v2' },
@@ -243,6 +250,7 @@ describe('pipeline output targets', () => {
         { key: 'od', label: 'OD', logical_type: 'decimal', nullable: true },
       ],
     })
+
     expect(await fetchSchemaVersionFields(c, 'sv-1')).toEqual([
       { key: 'sample', label: 'Sample', type: 'text', required: true },
       { key: 'od', label: 'OD', type: 'decimal', required: false },

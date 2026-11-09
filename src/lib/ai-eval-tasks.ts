@@ -8,6 +8,7 @@
  */
 
 export type EvalArea = 'find' | 'summarise' | 'propose' | 'guardrails'
+
 export type EvalStatus = 'passed' | 'failed' | 'skipped'
 
 /**

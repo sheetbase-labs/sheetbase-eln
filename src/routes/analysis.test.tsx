@@ -46,6 +46,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('@tanstack/react-query', () => {
   const actual = vi.importActual('@tanstack/react-query')
+
   return {
     ...actual,
     useQuery: vi.fn(),
@@ -53,6 +54,7 @@ vi.mock('@tanstack/react-query', () => {
     useQueryClient: () => ({ invalidateQueries: vi.fn() }),
   }
 })
+
 vi.mock('#/lib/use-page-ai', () => ({
   usePageAi: () => ({ available: false, live: false, workspaceId: null }),
 }))
@@ -88,6 +90,7 @@ function source(
     label,
     logicalType,
   })
+
   return {
     datasetId: '11111111-1111-1111-8111-111111111111',
     name: 'Stability',
@@ -494,6 +497,7 @@ describe('ExportPanel', () => {
     const download = vi
       .spyOn(downloads, 'downloadTextFile')
       .mockImplementation(() => {})
+
     const chartRoot = createRef<HTMLDivElement>()
     render(
       <>
@@ -532,6 +536,7 @@ describe('ExportPanel', () => {
       </>,
     )
     const preview = chartRoot.current?.querySelector('[data-analysis-chart]')
+
     if (!preview) throw new Error('Missing test preview')
     // Match the export helper's existing SVG fixtures, including namespace
     // parsing; JSX's xmlns attribute has different namespace metadata in jsdom.
@@ -540,6 +545,7 @@ describe('ExportPanel', () => {
     await userEvent
       .setup()
       .click(screen.getByRole('button', { name: /Export SVG/ }))
+
     try {
       const output = download.mock.calls[0]?.[1]
       expect(output).toContain('Own pane figure')
@@ -561,6 +567,7 @@ describe('DataTableAlternative', () => {
         datasetId="d-1"
       />,
     )
+
     // The v3 Skeleton renders as a div with the skeleton surface token.
     expect(container.querySelector('.bg-skeleton')).toBeTruthy()
   })

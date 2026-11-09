@@ -2408,6 +2408,7 @@ export const modelFieldOptions = api.table(
     ),
   ],
 )
+
 /**
  * MODEL-03: per-workspace, per-model typed-relationship rules. A rule
  * declares that records of `sourceModelKey` accept `link_type` edges to

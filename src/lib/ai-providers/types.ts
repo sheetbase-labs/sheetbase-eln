@@ -195,8 +195,10 @@ export function computeCostMicrousd(
 ): number {
   const input =
     (inputTokens * pricing.inputMicrousdPerMillionTokens) / 1_000_000
+
   const output =
     (outputTokens * pricing.outputMicrousdPerMillionTokens) / 1_000_000
+
   return Math.ceil(input + output)
 }
 

@@ -295,13 +295,17 @@ async function loadAdminSession(workspaceId: string): Promise<AdminSession> {
   const { isWorkspaceMember } = await import('#/lib/api-credentials')
 
   const context = await getCurrentContext(getRequestHeaders())
+
   if (!context) throw new Error(t('settings.adminPlatform.mustSigned'))
+
   if (!context.workspace || context.workspace.id !== workspaceId) {
     throw new Error(t('settings.adminPlatform.accessWorkspace'))
   }
+
   if (!(await isWorkspaceMember(db, context.user.id, workspaceId))) {
     throw new Error(t('settings.adminPlatform.accessWorkspace'))
   }
+
   return { context }
 }
 
@@ -328,7 +332,9 @@ export async function getScopedClient(
     const { db } = await import('#/db/client.server')
     pool = db.$client
   }
+
   const client = await pool.connect()
+
   try {
     await client.query('BEGIN')
     await client.query('SET LOCAL ROLE authenticated')
@@ -343,6 +349,7 @@ export async function getScopedClient(
     client.release()
     throw err
   }
+
   return {
     userId,
     client,
@@ -372,11 +379,13 @@ export async function requireCapability(
 ): Promise<ScopedAdminSession> {
   const session = await loadAdminSession(workspaceId)
   const scoped = await getScopedClient(workspaceId, session.context.user.id)
+
   try {
     const { rows } = await scoped.client.query(
       'SELECT api.has_capability($1::uuid, $2) AS ok',
       [workspaceId, capability],
     )
+
     if (!rows[0]?.ok) {
       await scoped.release()
       throw new Error(
@@ -388,9 +397,11 @@ export async function requireCapability(
     if (err instanceof Error && err.message.startsWith('permission_denied')) {
       throw err
     }
+
     await scoped.release()
     throw err
   }
+
   return scoped
 }
 
@@ -409,8 +420,10 @@ export async function requireSettingsArea(
     workspaceId,
     `settings.${area}.${level}`,
   )
+
   const { userId } = session
   await session.release()
+
   return { userId }
 }
 
@@ -431,6 +444,7 @@ async function withTimeout<T>(
   timeoutMs = 2_000,
 ): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined
+
   try {
     return await Promise.race([
       operation,
@@ -463,14 +477,18 @@ async function readGoLiveWithBackups(
   const { env } = await import('#/env.server')
   const backups = await import('#/lib/workspace-export/backup.server')
   const { staleAfterMs } = await import('#/lib/workspace-export/schedule')
+
   try {
     const pool = getPool(env.DATABASE_URL)
+
     const [settings, status] = await Promise.all([
       backups.readBackupSettings(pool, workspaceId),
       backups.latestBackupStatus(pool, workspaceId),
     ])
+
     if (!settings.enabled && !status.lastSucceeded) return goLive
     const lastAt = status.lastSucceeded?.finishedAt ?? null
+
     return {
       ...goLive,
       backup: {
@@ -502,8 +520,10 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
     // Static imports of `*.server.*` are denied in the client bundle, and this
     // module is reached from the settings routes; read them here instead.
     const { env, getDeploymentConfig } = await import('#/env.server')
+
     const { DATASET_RETENTION_INTERVAL_MS } =
       await import('#/lib/dataset-retention-scheduler.server')
+
     const deployment = getDeploymentConfig()
     // R5-CONFIG-01 — the timestamp the live probes below are evaluated at, so
     // each probe-backed check can show when it was last checked.
@@ -515,6 +535,7 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
     const probeDatabase = async () => {
       const startedAt = Date.now()
       let ok = false
+
       try {
         const { db } = await import('#/db/client.server')
         await withTimeout(db.execute(sql`SELECT 1`))
@@ -522,25 +543,31 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
       } catch {
         ok = false
       }
+
       return { ok, latencyMs: Date.now() - startedAt }
     }
+
     const probePostgrest = async () => {
       const startedAt = Date.now()
       let ok = false
       const controller = new AbortController()
       const abortTimer = setTimeout(() => controller.abort(), 2_000)
+
       try {
         const response = await fetch(`${env.POSTGREST_ADMIN_URL}/ready`, {
           signal: controller.signal,
         })
+
         ok = response.ok
       } catch {
         ok = false
       } finally {
         clearTimeout(abortTimer)
       }
+
       return { ok, latencyMs: Date.now() - startedAt }
     }
+
     const [database, postgrest] = await Promise.all([
       probeDatabase(),
       probePostgrest(),
@@ -548,6 +575,7 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
 
     // Scheduler / pipeline run stats
     const { db } = await import('#/db/client.server')
+
     const [schedRes, runRes, pruneRes, lastRunRes] = await Promise.all([
       db.execute(sql`
         SELECT count(*) FILTER (WHERE enabled)::int AS enabled_count,
@@ -589,8 +617,10 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
 
     // Migration state
     let applied: string | null = null
+
     let migrationStatus: 'compatible' | 'incompatible' | 'not_checked' =
       'not_checked'
+
     if (deployment.expectedMigration !== 'untracked') {
       try {
         const migRes = await db.execute(sql`
@@ -598,6 +628,7 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
           FROM drizzle.__drizzle_migrations
           ORDER BY created_at DESC LIMIT 1
         `)
+
         applied = str(migRes.rows[0]?.created_at)
         migrationStatus =
           applied === deployment.expectedMigration
@@ -612,11 +643,13 @@ export const fetchDiagnosticsFn = createServerFn({ method: 'POST' })
       appliedCount: 0,
       latestAppliedAt: null,
     }
+
     try {
       const schemaRes = await db.execute(sql`
         SELECT count(*)::int AS applied, max(created_at)::text AS latest
         FROM drizzle.__drizzle_migrations
       `)
+
       schema = {
         appliedCount: num(schemaRes.rows[0]?.applied),
         latestAppliedAt: str(schemaRes.rows[0]?.latest ?? null),
@@ -701,6 +734,7 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<UsageResult> => {
     await requireSettingsArea(data.workspaceId, 'usage')
     const { db } = await import('#/db/client.server')
+
     const [res, trendRes] = await Promise.all([
       db.execute(sql`
       SELECT
@@ -734,6 +768,7 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
         ORDER BY m
       `),
     ])
+
     const row = res.rows[0] as Record<string, unknown> | undefined
     const fileBytes = num(row?.file_bytes)
     const members = num(row?.members)
@@ -741,15 +776,18 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
     const plan = await workspacePlanLimits()
     const quota = plan.quota
     const seatLimit = plan.seats.seatLimit
+
     const trend: UsageTrendPoint[] = trendRes.rows.map((r) => ({
       month: String(r.month),
       pipelineRuns: num(r.pipeline_runs),
       connectorRuns: num(r.connector_runs),
     }))
+
     // Warnings come from configured limits where one exists; otherwise the
     // figure is labelled observed usage and never shown as a quota. The
     // schedule threshold is validated-scale guidance, not a quota.
     const capacityWarnings: CapacityWarning[] = []
+
     if (enabledSchedules > SCHEDULE_VALIDATED_SCALE) {
       capacityWarnings.push({
         level: 'warning',
@@ -762,7 +800,9 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
         runbook: 'observability',
       })
     }
+
     const storageLevel = usageWarnLevel(fileBytes, quota.byteLimit)
+
     if (quota.byteLimit != null && storageLevel) {
       const percent = Math.round((fileBytes / quota.byteLimit) * 100)
       capacityWarnings.push({
@@ -786,7 +826,9 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
         runbook: 'administration',
       })
     }
+
     const seatLevel = usageWarnLevel(members, seatLimit)
+
     if (seatLimit != null && seatLevel) {
       const percent = Math.round((members / seatLimit) * 100)
       capacityWarnings.push({
@@ -801,6 +843,7 @@ export const fetchUsageFn = createServerFn({ method: 'POST' })
         link: '/settings/workspace/members',
       })
     }
+
     return {
       members,
       records: num(row?.records),
@@ -833,6 +876,7 @@ export const fetchStorageOverviewFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<StorageOverviewResult> => {
     await requireSettingsArea(data.workspaceId, 'usage')
     const { db } = await import('#/db/client.server')
+
     const [countRes, largestRes, recentRes] = await Promise.all([
       db.execute(sql`
         SELECT
@@ -858,7 +902,9 @@ export const fetchStorageOverviewFn = createServerFn({ method: 'POST' })
         LIMIT 10
       `),
     ])
+
     const countRow = countRes.rows[0] as Record<string, unknown> | undefined
+
     const mapFiles = (rows: typeof largestRes.rows) =>
       rows.map((r) => ({
         id: String(r.id),
@@ -870,6 +916,7 @@ export const fetchStorageOverviewFn = createServerFn({ method: 'POST' })
         createdAt: String(r.created_at),
         recordId: str(r.record_id),
       }))
+
     return {
       fileCount: num(countRow?.file_count),
       fileBytes: num(countRow?.file_bytes),
@@ -892,6 +939,7 @@ export const fetchRunHealthFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<RunHealthResult> => {
     await requireSettingsArea(data.workspaceId, 'diagnostics')
     const { db } = await import('#/db/client.server')
+
     // Webhook delivery health comes from EVENT-02 delivery state directly:
     // dead_letter rows are the failed jobs of the webhook plane, and
     // pending/retrying rows are its retry debt. Read here (any-member
@@ -937,6 +985,7 @@ export const fetchRunHealthFn = createServerFn({ method: 'POST' })
           (SELECT count(*)::int FROM api.webhook_subscriptions WHERE workspace_id = ${data.workspaceId}::uuid AND status = 'disabled' AND failure_threshold > 0 AND consecutive_failures >= failure_threshold) AS auto_disabled
       `),
     ])
+
     const all: RunHealthItem[] = [
       ...pipeRes.rows,
       ...connRes.rows,
@@ -954,16 +1003,21 @@ export const fetchRunHealthFn = createServerFn({ method: 'POST' })
       subscriptionId: str(r.subscription_id),
       label: str(r.label),
     }))
+
     const running = all.filter((r) => r.status === 'running')
+
     const failed = all
       .filter((r) => r.status === 'failed' || r.status === 'dead_letter')
       .sort((a, b) => (a.startedAt < b.startedAt ? 1 : -1))
       .slice(0, 20)
+
     const recentlySucceeded = all
       .filter((r) => r.status === 'succeeded')
       .slice(0, 10)
+
     const summaryRow = hookSummaryRes.rows[0] as
       Record<string, unknown> | undefined
+
     return {
       running,
       failed,
@@ -1025,8 +1079,11 @@ export function usageWarnLevel(
 ): 'warning' | 'danger' | null {
   if (limit == null || limit <= 0) return null
   const percent = (used / limit) * 100
+
   if (percent >= 90) return 'danger'
+
   if (percent >= 80) return 'warning'
+
   return null
 }
 
@@ -1046,6 +1103,7 @@ export async function workspacePlanLimits(): Promise<{
   // Server-only: a static import would be denied in the client bundle, so the
   // limits are read when the server handler asks for them.
   const { env } = await import('#/env.server')
+
   return {
     quota: resolveQuotaContext(
       env.SHEETBASE_WORKSPACE_STORAGE_QUOTA_BYTES ?? null,
@@ -1086,6 +1144,7 @@ export function buildAttentionItems(
   incompatibleExtensionKeys: string[],
 ): AttentionItem[] {
   const items: AttentionItem[] = []
+
   if (counts.failedPipelineRuns > 0) {
     items.push({
       level: 'warning',
@@ -1097,6 +1156,7 @@ export function buildAttentionItems(
       runbook: 'observability',
     })
   }
+
   if (counts.failedConnectorRuns > 0) {
     items.push({
       level: 'warning',
@@ -1108,6 +1168,7 @@ export function buildAttentionItems(
       runbook: 'observability',
     })
   }
+
   if (counts.deadLetterDeliveries > 0) {
     items.push({
       level: 'warning',
@@ -1119,6 +1180,7 @@ export function buildAttentionItems(
       runbook: 'observability',
     })
   }
+
   if (counts.webhookRetryDebt > 0) {
     items.push({
       level: 'warning',
@@ -1130,6 +1192,7 @@ export function buildAttentionItems(
       runbook: 'observability',
     })
   }
+
   if (counts.autoDisabledEndpoints > 0) {
     items.push({
       level: 'warning',
@@ -1141,6 +1204,7 @@ export function buildAttentionItems(
       runbook: 'observability',
     })
   }
+
   if (counts.failingEndpoints > 0) {
     items.push({
       level: 'warning',
@@ -1152,6 +1216,7 @@ export function buildAttentionItems(
       runbook: 'observability',
     })
   }
+
   if (counts.staleRunningRuns > 0) {
     items.push({
       level: 'warning',
@@ -1163,6 +1228,7 @@ export function buildAttentionItems(
       runbook: 'observability',
     })
   }
+
   if (counts.connectorsMissingSecrets > 0) {
     items.push({
       level: 'warning',
@@ -1174,6 +1240,7 @@ export function buildAttentionItems(
       runbook: 'administration',
     })
   }
+
   if (counts.overdueSchedules > 0) {
     items.push({
       level: 'warning',
@@ -1185,6 +1252,7 @@ export function buildAttentionItems(
       runbook: 'observability',
     })
   }
+
   if (counts.expiredCredentials > 0) {
     items.push({
       level: 'warning',
@@ -1196,6 +1264,7 @@ export function buildAttentionItems(
       runbook: 'security',
     })
   }
+
   if (counts.expiringCredentials > 0) {
     items.push({
       level: 'warning',
@@ -1207,6 +1276,7 @@ export function buildAttentionItems(
       runbook: 'security',
     })
   }
+
   if (counts.staleCredentials > 0) {
     items.push({
       level: 'info',
@@ -1218,6 +1288,7 @@ export function buildAttentionItems(
       runbook: 'security',
     })
   }
+
   if (counts.disabledConnectors > 0) {
     items.push({
       level: 'info',
@@ -1228,6 +1299,7 @@ export function buildAttentionItems(
       link: '/admin/connectors',
     })
   }
+
   if (incompatibleExtensionKeys.length > 0) {
     items.push({
       level: 'warning',
@@ -1240,6 +1312,7 @@ export function buildAttentionItems(
       runbook: 'administration',
     })
   }
+
   if (counts.disabledExtensions > 0) {
     items.push({
       level: 'info',
@@ -1250,6 +1323,7 @@ export function buildAttentionItems(
       link: '/admin/extensions',
     })
   }
+
   return items
 }
 
@@ -1286,6 +1360,7 @@ export const fetchAttentionFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<AttentionItem[]> => {
     await requireSettingsArea(data.workspaceId, 'diagnostics')
     const { db } = await import('#/db/client.server')
+
     // Every warning below derives from existing state — no new tracking
     // tables. Each carries a corrective-action link (an /admin section) and,
     // where an operational runbook exists, a runbook slug (a /docs/$name
@@ -1314,7 +1389,9 @@ export const fetchAttentionFn = createServerFn({ method: 'POST' })
         WHERE workspace_id = ${data.workspaceId}::uuid
       `),
     ])
+
     const row = res.rows[0] as Record<string, unknown> | undefined
+
     const counts: AttentionCounts = {
       failedPipelineRuns: num(row?.failed_pipeline_runs),
       failedConnectorRuns: num(row?.failed_connector_runs),
@@ -1331,15 +1408,18 @@ export const fetchAttentionFn = createServerFn({ method: 'POST' })
       disabledConnectors: num(row?.disabled_connectors),
       disabledExtensions: num(row?.disabled_extensions),
     }
+
     // Incompatible extensions (EXT-03): computed against the running app
     // version via the shared compat check — unknown never warns.
     // Server-only module: a static import would be denied in the client bundle.
     const { getDeploymentConfig } = await import('#/env.server')
     const appVersion = getDeploymentConfig().artifact.version
+
     const incompatibleKeys = findIncompatibleExtensionKeys(
       extRes.rows as Array<{ key: unknown; compatible_with: unknown }>,
       appVersion,
     )
+
     return buildAttentionItems(counts, incompatibleKeys)
   })
 
@@ -1354,6 +1434,7 @@ export const fetchConnectorDiagnosticsFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'integrations.manage',
     )
+
     try {
       const { rows } = await session.client.query(
         `SELECT
@@ -1375,6 +1456,7 @@ export const fetchConnectorDiagnosticsFn = createServerFn({ method: 'POST' })
         ORDER BY c.name ASC`,
         [data.workspaceId],
       )
+
       const connectors: ConnectorDiagnosticsResult['connectors'] = rows.map(
         (r: Record<string, unknown>) => ({
           id: String(r.id),
@@ -1388,22 +1470,28 @@ export const fetchConnectorDiagnosticsFn = createServerFn({ method: 'POST' })
           recentFailureCount: num(r.recent_failure_count),
         }),
       )
+
       const activeConnectors = connectors.filter(
         (c) => c.status === 'active',
       ).length
+
       const pausedConnectors = connectors.filter(
         (c) => c.status === 'paused',
       ).length
+
       const recentFailures = connectors.reduce(
         (sum, c) => sum + c.recentFailureCount,
         0,
       )
+
       const missingSecrets = connectors.filter(
         (c) => c.status === 'active' && !c.hasSecrets,
       ).length
+
       const repeatedFailures = connectors.filter(
         (c) => c.recentFailureCount >= 3,
       ).length
+
       return {
         activeConnectors,
         pausedConnectors,
@@ -1431,6 +1519,7 @@ export const togglePipelineScheduleFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'pipelines.manage',
     )
+
     try {
       // Call the canonical RPC exactly once. Project both fields from the
       // single returned composite row to avoid double mutation.
@@ -1445,10 +1534,13 @@ export const togglePipelineScheduleFn = createServerFn({ method: 'POST' })
          )`,
         [data.workspaceId, data.scheduleId, data.enabled],
       )
+
       const row = rows[0] as Record<string, unknown> | undefined
+
       if (!row?.id) {
         throw new Error(t('settings.adminPlatform.scheduleFoundUpdate'))
       }
+
       return {
         scheduleId: String(row.id),
         enabled: Boolean(row.enabled),
@@ -1469,6 +1561,7 @@ export const retryConnectorRunFn = createServerFn({ method: 'POST' })
       data.workspaceId,
       'integrations.manage',
     )
+
     try {
       // Look up the failed run to get its connector_id and retry lineage.
       const { rows: runRows } = await session.client.query(
@@ -1479,11 +1572,15 @@ export const retryConnectorRunFn = createServerFn({ method: 'POST' })
            AND status = 'failed'`,
         [data.runId, data.workspaceId],
       )
+
       const runRow = runRows[0] as Record<string, unknown> | undefined
+
       if (!runRow) {
         throw new Error(t('settings.adminPlatform.failedRunFound'))
       }
+
       const connectorId = String(runRow.connector_id)
+
       // Start a retry run through the canonical RPC.
       const { rows } = await session.client.query(
         `SELECT (api.start_connector_run(
@@ -1496,10 +1593,13 @@ export const retryConnectorRunFn = createServerFn({ method: 'POST' })
          )).id AS id`,
         [data.workspaceId, connectorId, data.runId],
       )
+
       const row = rows[0] as Record<string, unknown> | undefined
+
       if (!row?.id) {
         throw new Error(t('settings.adminPlatform.retryCouldStarted'))
       }
+
       return { runId: String(row.id) }
     } finally {
       await session.release()
@@ -1520,18 +1620,22 @@ export const fetchMemberNamesFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     await loadAdminSession(data.workspaceId)
     const { db } = await import('#/db/client.server')
+
     const result = await db.execute(sql`
       SELECT m.user_id, u.name, u.email
       FROM api.workspace_memberships m
       JOIN internal."user" u ON u.id = m.user_id
       WHERE m.workspace_id = ${data.workspaceId}::uuid
     `)
+
     const names: Record<string, { name: string; email: string }> = {}
+
     for (const row of result.rows) {
       names[String(row.user_id)] = {
         name: String(row.name ?? ''),
         email: String(row.email ?? ''),
       }
     }
+
     return names
   })

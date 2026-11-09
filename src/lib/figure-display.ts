@@ -11,14 +11,17 @@ export type FigureAxis = 'x' | 'y'
 /** Text from a field: blank means "unset", so the default title returns. */
 function textOrUndefined(value: string): string | undefined {
   const trimmed = value.trim()
+
   return trimmed ? trimmed : undefined
 }
 
 /** A number from a field, or undefined when blank or not a finite number. */
 export function parseRangeBound(value: string): number | undefined {
   const trimmed = value.trim()
+
   if (!trimmed) return undefined
   const parsed = Number(trimmed)
+
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
@@ -53,10 +56,13 @@ export function axisRangeProblem(
   axis: FigureAxis,
 ): string | null {
   const { min, max, scale } = spec.display.axes[axis]
+
   if (min !== undefined && max !== undefined && min >= max)
     return 'The minimum must be below the maximum.'
+
   if (scale === 'log' && ((min ?? 1) <= 0 || (max ?? 1) <= 0))
     return 'A logarithmic axis needs a positive range.'
+
   return null
 }
 
@@ -93,6 +99,7 @@ export function setCaption(spec: ChartSpec, caption: string): ChartSpec {
 /** Whether the figure's legend is shown: on unless the spec says it is not. */
 export function legendShown(spec: ChartSpec | null | undefined): boolean {
   const legend = spec?.display.legend
+
   return legend?.visible !== false && legend?.position !== 'hidden'
 }
 

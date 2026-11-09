@@ -31,8 +31,10 @@ const views = ['Dose response', 'Growth curve', 'Plate heatmap'].map(
 const withCharts = screenQueryClient({
   data: [{ key: VIEWS_KEY, value: views }],
 })
+
 const noCharts = screenQueryClient({ data: [{ key: VIEWS_KEY, value: [] }] })
 const loading = screenQueryClient()
+
 holdRead(loading, VIEWS_KEY)
 
 const meta = {
@@ -52,7 +54,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof AnalysisChartPicker>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** No statistic yet: the chosen chart becomes the whole analysis. */

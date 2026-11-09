@@ -29,6 +29,7 @@ function timer(id: string, blockId: string, label: string, endsInMs: number) {
 }
 
 const idle = screenQueryClient({ data: [{ key: KEY, value: [] }] })
+
 const running = screenQueryClient({
   data: [
     {
@@ -37,11 +38,13 @@ const running = screenQueryClient({
     },
   ],
 })
+
 const finished = screenQueryClient({
   data: [
     { key: KEY, value: [timer('t1', 'block-1', 'Incubate cells', -1000)] },
   ],
 })
+
 const tray = screenQueryClient({
   data: [
     {
@@ -81,7 +84,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof StepTimerControl>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** No timer on this step: it offers to start one for its duration. */

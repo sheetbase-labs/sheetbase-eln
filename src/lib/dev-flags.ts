@@ -27,6 +27,7 @@ export const devFlags = [
 ] as const
 
 export type DevFlagKey = (typeof devFlags)[number]['key']
+
 export type DevFlagOverrides = Partial<Record<DevFlagKey, boolean>>
 
 const STORAGE_KEY = 'sb-dev-flags'
@@ -38,12 +39,15 @@ let loaded = false
 
 export function parseOverrides(raw: string | null): DevFlagOverrides {
   if (!raw) return {}
+
   try {
     const value = JSON.parse(raw) as Record<string, unknown>
     const out: DevFlagOverrides = {}
+
     for (const { key } of devFlags) {
       if (typeof value[key] === 'boolean') out[key] = value[key]
     }
+
     return out
   } catch {
     return {}
@@ -53,6 +57,7 @@ export function parseOverrides(raw: string | null): DevFlagOverrides {
 function load() {
   if (loaded || typeof window === 'undefined') return
   loaded = true
+
   try {
     overrides = parseOverrides(localStorage.getItem(STORAGE_KEY))
   } catch {
@@ -67,6 +72,7 @@ function emit() {
 function subscribe(cb: () => void) {
   load()
   listeners.add(cb)
+
   return () => {
     listeners.delete(cb)
   }
@@ -75,6 +81,7 @@ function subscribe(cb: () => void) {
 /** The flag's value: on unless the toolbar is active and switched it off. */
 export function devFlagValue(key: DevFlagKey): boolean {
   load()
+
   return active ? (overrides[key] ?? true) : true
 }
 
@@ -92,6 +99,7 @@ export function useDevFlagOverrides(): DevFlagOverrides {
     subscribe,
     () => {
       load()
+
       return overrides
     },
     () => ({}),
@@ -101,6 +109,7 @@ export function useDevFlagOverrides(): DevFlagOverrides {
 /** The toolbar calls this when it shows or hides, so overrides only count while it is up. */
 export function setDevFlagsActive(next: boolean) {
   load()
+
   if (active === next) return
   active = next
   emit()
@@ -109,9 +118,11 @@ export function setDevFlagsActive(next: boolean) {
 export function setDevFlag(key: DevFlagKey, value: boolean | undefined) {
   load()
   const next = { ...overrides }
+
   if (value === undefined) delete next[key]
   else next[key] = value
   overrides = next
+
   try {
     if (Object.keys(next).length) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
@@ -121,5 +132,6 @@ export function setDevFlag(key: DevFlagKey, value: boolean | undefined) {
   } catch {
     /* the change lasts for this page */
   }
+
   emit()
 }

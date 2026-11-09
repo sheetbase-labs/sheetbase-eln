@@ -13,7 +13,9 @@ const meta = {
   tags: ['autodocs'],
   args: { text: 'Repeat of EXP-0142, see DS-0311 for the raw reads.' },
 } satisfies Meta<typeof LinkedText>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

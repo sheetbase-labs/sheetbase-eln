@@ -191,6 +191,7 @@ export function labRpcsFromOperations(
   operations: readonly OperationDescriptor[],
 ): Record<string, LabRpc> {
   const out: Record<string, LabRpc> = {}
+
   for (const op of operations) {
     if (!op.summary || op.api === 'elsewhere') continue
     out[operationRpc(op)] = {
@@ -205,6 +206,7 @@ export function labRpcsFromOperations(
       result: op.result ?? 'json',
     }
   }
+
   return out
 }
 
@@ -213,10 +215,12 @@ export function paramNotesFromOperations(
   operations: readonly OperationDescriptor[],
 ): Record<string, string> {
   const out: Record<string, string> = {}
+
   for (const op of operations)
     for (const field of op.inputs)
       if (field.description && !(field.name in out))
         out[field.name] = field.description
+
   return out
 }
 
@@ -241,6 +245,7 @@ export function pipelineActionsFrom(
   operations: readonly OperationDescriptor[],
 ): PipelineActionDefinition[] {
   const out: PipelineActionDefinition[] = []
+
   for (const op of operations) {
     if (!op.pipeline) continue
     out.push({
@@ -250,10 +255,12 @@ export function pipelineActionsFrom(
       description: op.pipeline.description ?? op.description,
       arguments: op.inputs.map((field): PipelineActionArgument => {
         const type = PIPELINE_TYPES[field.type]
+
         if (!type)
           throw new Error(
             `${op.name}.${field.name}: a pipeline action cannot take ${field.type}.`,
           )
+
         return {
           name: field.name,
           type,
@@ -268,6 +275,7 @@ export function pipelineActionsFrom(
         : {}),
     })
   }
+
   return out
 }
 
@@ -309,9 +317,11 @@ export function operationDocStub(op: OperationDescriptor): string {
         `| \`${field.name}\` | ${field.type} | ${field.required ? 'yes' : 'no'} | ${field.description ?? ''} |`,
     )
     .join('\n')
+
   const events = (op.events ?? [])
     .map((event) => `- \`${event.name}\`: ${event.summary}`)
     .join('\n')
+
   return [
     `### \`${operationRpc(op)}\``,
     '',

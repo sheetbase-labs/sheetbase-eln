@@ -34,6 +34,7 @@ import { t } from '#/copy'
 
 function useRefreshLineage(workspaceId: string) {
   const queryClient = useQueryClient()
+
   return () =>
     queryClient.invalidateQueries({
       queryKey: lineageAdminKeys.settings(workspaceId),
@@ -55,8 +56,10 @@ export function LineageSection({
     queryKey: lineageAdminKeys.settings(workspaceId),
     queryFn: () => listLineageSettingsFn({ data: { workspaceId } }),
   })
+
   const refresh = useRefreshLineage(workspaceId)
   const [editing, setEditing] = useState<LineageTargetWire | 'new' | null>(null)
+
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(
     null,
   )
@@ -72,6 +75,7 @@ export function LineageSection({
       await refresh()
     },
   })
+
   const retry = useMutation({
     mutationFn: (id: string) =>
       retryLineageDeliveriesFn({ data: { workspaceId, id } }),
@@ -83,6 +87,7 @@ export function LineageSection({
       await refresh()
     },
   })
+
   const remove = useMutation({
     mutationFn: (id: string) =>
       deleteLineageTargetFn({ data: { workspaceId, id } }),
@@ -121,6 +126,7 @@ export function LineageSection({
       header: t('settings.lineage.status'),
       cell: ({ row }) => {
         const { failed, pending } = row.original
+
         if (failed > 0) {
           return (
             <Status tone="bad">
@@ -128,6 +134,7 @@ export function LineageSection({
             </Status>
           )
         }
+
         if (pending > 0) {
           return (
             <Status tone="warn">
@@ -135,6 +142,7 @@ export function LineageSection({
             </Status>
           )
         }
+
         return <Status tone="ok">{t('settings.lineage.allSent')}</Status>
       },
     },
@@ -144,9 +152,11 @@ export function LineageSection({
       header: t('settings.lineage.lastTest'),
       cell: ({ row }) => {
         const target = row.original
+
         if (target.lastTestOk == null || !target.lastTestAt) {
           return <Muted>{t('settings.lineage.testNever')}</Muted>
         }
+
         return (
           <span title={target.lastTestMessage ?? undefined}>
             <Status tone={target.lastTestOk ? 'ok' : 'bad'}>
@@ -198,6 +208,7 @@ export function LineageSection({
   ]
 
   const targets = settings.data?.targets ?? []
+
   return (
     <>
       <SettingsBody className="gap-1 border-t border-border-subtle pb-0">
@@ -288,6 +299,7 @@ function RetentionField({
   onSaved: () => Promise<unknown>
 }) {
   const [value, setValue] = useState(String(days))
+
   const save = useMutation({
     mutationFn: () =>
       setEventStreamRetentionFn({
@@ -295,10 +307,12 @@ function RetentionField({
       }),
     onSuccess: onSaved,
   })
+
   const valid =
     Number.isInteger(Number(value)) &&
     Number(value) >= 1 &&
     Number(value) <= 3650
+
   return (
     <SettingsBody className="gap-2 border-t border-border-subtle pb-4">
       <h2 className="text-section">{t('settings.lineage.streamTitle')}</h2>
@@ -351,11 +365,14 @@ function TargetDialog({
   const [name, setName] = useState(target?.name ?? '')
   const [url, setUrl] = useState(target?.endpointUrl ?? '')
   const [namespace, setNamespace] = useState(target?.namespace ?? 'sheetbase')
+
   const [headerName, setHeaderName] = useState(
     target?.authHeaderName ?? 'Authorization',
   )
+
   const [headerValue, setHeaderValue] = useState('')
   const [enabled, setEnabled] = useState(target?.enabled ?? false)
+
   const save = useMutation({
     mutationFn: () =>
       saveLineageTargetFn({
@@ -375,7 +392,9 @@ function TargetDialog({
       onClose()
     },
   })
+
   const ready = name.trim().length > 0 && /^https?:\/\/\S+$/.test(url.trim())
+
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent>

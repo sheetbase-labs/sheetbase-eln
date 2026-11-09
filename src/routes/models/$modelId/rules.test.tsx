@@ -70,6 +70,7 @@ function renderScreen() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <ModelRules />

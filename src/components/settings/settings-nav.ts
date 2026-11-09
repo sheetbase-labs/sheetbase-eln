@@ -297,7 +297,9 @@ export function canOpenSettingsItem(
   access: SettingsAccessMap,
 ): boolean {
   if (!item.area && !item.alwaysFor) return true
+
   if (item.alwaysFor && role && item.alwaysFor.includes(role)) return true
+
   return item.area ? access[item.area] !== 'none' : false
 }
 
@@ -319,6 +321,7 @@ export function settingsNavForRole(
 ): Record<SettingsPlace, SettingsNavItem[]> {
   const open = (items: SettingsNavItem[]) =>
     items.filter((i) => canOpenSettingsItem(i, role, access))
+
   return {
     lab: open(settingsLabNav),
     workspace: open(settingsWorkspaceNav),
@@ -334,9 +337,11 @@ export function settingsHomePath(
   access: SettingsAccessMap = resolveSettingsAccess(role),
 ): string {
   const nav = settingsNavForRole(role, access)
+
   // Only a section inside Settings: Models opens its own page.
   const first = [...nav.workspace, ...nav.lab, ...nav.account].find((i) =>
     String(i.link.to).startsWith('/settings'),
   )
+
   return (first?.link.to as string | undefined) ?? '/settings/account/profile'
 }

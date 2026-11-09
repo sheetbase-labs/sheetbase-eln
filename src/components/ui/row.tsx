@@ -108,8 +108,10 @@ export function Row({
   const inList = useContext(RowListContext)
   const density = densityProp ?? inList ?? 'list'
   const scale = densities[density]
+
   const interactive =
     to !== undefined || href !== undefined || onClick !== undefined
+
   const frame = cn(
     'flex w-full items-center text-left',
     scale.row,
@@ -141,6 +143,7 @@ export function Row({
   // A row inside a RowList carries its tooltip on the list item, so the whole
   // item behaves as one row; a row that stands alone carries it itself.
   const tooltip = inList === null ? detail : undefined
+
   const element = to ? (
     <Link
       to={to as never}

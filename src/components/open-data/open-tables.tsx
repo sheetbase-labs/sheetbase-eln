@@ -65,8 +65,11 @@ const dataClient = createDataClient()
 
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`
+
   if (n < 1024 ** 2) return `${(n / 1024).toFixed(1)} KB`
+
   if (n < 1024 ** 3) return `${(n / 1024 ** 2).toFixed(1)} MB`
+
   return `${(n / 1024 ** 3).toFixed(2)} GB`
 }
 
@@ -76,6 +79,7 @@ const TABLE_TONE = {
   failed: 'bad',
   retired: 'draft',
 } as const
+
 const tableStatus = (s: LakeTable['status']) =>
   s === 'ready'
     ? t('openData.tables.statusReady')
@@ -98,17 +102,20 @@ export function OpenTablesSection({
   dataAccess: boolean
 }) {
   const queryClient = useQueryClient()
+
   const settings = useQuery({
     queryKey: openDataKeys.lake(workspaceId),
     queryFn: () => fetchLakeSettings(dataClient, workspaceId),
     refetchInterval: (q) => (q.state.data?.enabled ? 15_000 : false),
   })
+
   const tables = useQuery({
     queryKey: openDataKeys.lakeTables(workspaceId),
     queryFn: () => fetchLakeTables(dataClient),
     enabled: settings.data?.enabled === true,
     refetchInterval: 15_000,
   })
+
   const refreshAll = () => {
     void queryClient.invalidateQueries({
       queryKey: openDataKeys.lake(workspaceId),
@@ -117,6 +124,7 @@ export function OpenTablesSection({
       queryKey: openDataKeys.lakeTables(workspaceId),
     })
   }
+
   const toggle = useMutation({
     mutationFn: (enabled: boolean) =>
       setLakeSettings(dataClient, workspaceId, enabled),
@@ -127,6 +135,7 @@ export function OpenTablesSection({
     onError: (e) =>
       toast(`${t('openData.tables.failed')}: ${describeOpenDataError(e)}`),
   })
+
   const refresh = useMutation({
     mutationFn: () => requestLakeRefresh(dataClient, workspaceId),
     onSuccess: () => {
@@ -286,9 +295,11 @@ function LakeLogins({
   const [createOpen, setCreateOpen] = useState(false)
   const [name, setName] = useState('')
   const [expiry, setExpiry] = useState('90')
+
   const [revealed, setRevealed] = useState<
     (LakeLoginSecret & { name: string }) | null
   >(null)
+
   const [revoking, setRevoking] = useState<LakeLogin | null>(null)
   const [engine, setEngine] = useState<'duckdb' | 'polars' | 'spark'>('duckdb')
 
@@ -296,11 +307,13 @@ function LakeLogins({
     queryKey: sqlConnectionQueryKey,
     queryFn: () => getSqlConnectionFn(),
   })
+
   const logins = useQuery({
     queryKey: openDataKeys.lakeLogins(workspaceId),
     queryFn: () => fetchLakeLogins(dataClient, workspaceId),
     enabled: hasTables,
   })
+
   const invalidate = () =>
     queryClient.invalidateQueries({
       queryKey: openDataKeys.lakeLogins(workspaceId),
@@ -321,6 +334,7 @@ function LakeLogins({
       void invalidate()
     },
   })
+
   const revoke = useMutation({
     mutationFn: (login: LakeLogin) =>
       revokeLakeLogin(dataClient, workspaceId, login.id),
@@ -476,6 +490,7 @@ function LakeLogins({
           <form
             onSubmit={(event) => {
               event.preventDefault()
+
               if (name.trim()) create.mutate()
             }}
           >

@@ -185,6 +185,7 @@ describe('TPL-001 buildTemplateExport', () => {
       sampleBlocks,
       1_700_000_000_000,
     )
+
     expect(exported.schema).toBe('sheetbase-template-export')
     expect(exported.schemaVersion).toBe(1)
     expect(exported.template.identifier).toBe('PRT-2026-0001')
@@ -267,6 +268,7 @@ describe('TPL-001 fetchTemplateUsage', () => {
         created_at: '2026-01-03T00:00:00Z',
       },
     ])
+
     const items = await fetchTemplateUsage({ list } as never, 't-1')
     expect(list).toHaveBeenCalledWith(
       'record_links',
@@ -284,6 +286,7 @@ describe('TPL-001 fetchTemplateUsage', () => {
       link_metadata: null,
       created_at: '2026-01-04T00:00:00Z',
     })
+
     expect(item.templateRevisionId).toBeNull()
   })
 })
@@ -341,6 +344,7 @@ describe('TPL-001 createTemplateFavouritesStore', () => {
     const storage = new Map<string, string>([
       [templateFavouritesStorageKey('ws-1', 'u-1'), JSON.stringify(initial)],
     ])
+
     const mockStorage = {
       getItem: (k: string) => storage.get(k) ?? null,
       setItem: (k: string, v: string) => storage.set(k, v),
@@ -349,6 +353,7 @@ describe('TPL-001 createTemplateFavouritesStore', () => {
       key: () => null,
       length: storage.size,
     } as unknown as Storage
+
     return createTemplateFavouritesStore({
       workspaceId: 'ws-1',
       userId: 'u-1',
@@ -382,6 +387,7 @@ describe('TPL-001 createTemplateFavouritesStore', () => {
     const storage = new Map<string, string>([
       [templateFavouritesStorageKey('ws-1', 'u-1'), 'not-json'],
     ])
+
     const mockStorage = {
       getItem: (k: string) => storage.get(k) ?? null,
       setItem: (k: string, v: string) => storage.set(k, v),
@@ -390,11 +396,13 @@ describe('TPL-001 createTemplateFavouritesStore', () => {
       key: () => null,
       length: storage.size,
     } as unknown as Storage
+
     const store = createTemplateFavouritesStore({
       workspaceId: 'ws-1',
       userId: 'u-1',
       storage: mockStorage,
     })
+
     expect(store.list()).toEqual([])
   })
 

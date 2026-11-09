@@ -178,7 +178,9 @@ const meta = {
     projectName: 'TB-02 stability',
   },
 } satisfies Meta<typeof ExperimentOverview>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** In progress, with one open comment before submission. */

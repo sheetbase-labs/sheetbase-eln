@@ -20,6 +20,7 @@
 
 /** What a connection may do in a room. */
 export type RoomScope = 'room:read' | 'room:write'
+
 export type RoomPermissions = readonly RoomScope[]
 
 export type WorkspaceRole =
@@ -65,10 +66,13 @@ export function roomPermissionsForRole(
   if (objectState === 'read_only') {
     return READ_ONLY_ROOM_SCOPES
   }
+
   if (role === 'viewer') {
     return READ_ONLY_ROOM_SCOPES
   }
+
   if (!WRITER_ROLES.has(role)) return []
+
   return ['room:write']
 }
 
@@ -86,11 +90,14 @@ export function accessForMembership(
   membership: CollaborationMembership | null,
 ): CollaborationAccessResult {
   if (!membership) return { ok: false, reason: 'no_membership' }
+
   if (membership.suspendedAt) return { ok: false, reason: 'suspended' }
   const permissions = roomPermissionsForRole(membership.role)
+
   if (permissions.length === 0) {
     return { ok: false, reason: 'unknown_role' }
   }
+
   return { ok: true, permissions, role: membership.role }
 }
 

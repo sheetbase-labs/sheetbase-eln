@@ -91,7 +91,9 @@ export async function resolveParserVersion(
     'parsers',
     `?workspace_id=eq.${encodeURIComponent(workspaceId)}&key=eq.${encodeURIComponent(key)}&select=id,key,name,format,parser_versions(id,version,status,signature)&limit=1`,
   )
+
   const parser = rows.at(0)
+
   if (!parser) {
     throw new ParserResolutionError(
       'parser_unknown',
@@ -99,12 +101,14 @@ export async function resolveParserVersion(
       key,
     )
   }
+
   // Approval is only required where the data is regulated, and the database
   // enforces that when the file is committed. Here an approved version wins,
   // and otherwise the newest one that hasn't been retired is used.
   const usable = parser.parser_versions.filter(
     (version) => version.status !== 'retired',
   )
+
   const approved = (
     usable.filter((version) => version.status === 'approved').length
       ? usable.filter((version) => version.status === 'approved')
@@ -112,6 +116,7 @@ export async function resolveParserVersion(
   )
     .sort((a, b) => b.version - a.version)
     .at(0)
+
   if (!approved) {
     throw new ParserResolutionError(
       'parser_not_approved',
@@ -119,6 +124,7 @@ export async function resolveParserVersion(
       key,
     )
   }
+
   return {
     parserId: parser.id,
     parserVersionId: approved.id,
@@ -138,12 +144,17 @@ export function builtinReader(parser: ResolvedParser) {
     typeof parser.signature['engine'] === 'string'
       ? parser.signature['engine']
       : null
+
   const reader = getParser(engine ? engine.split('@')[0] : parser.key)
+
   if (!reader) return null
+
   // An engine reference names its version; a built-in key means the reader's
   // own. Either way a reader that has moved on is never run as the old version.
   if (engine && `${reader.parserId}@${reader.version}` !== engine) return null
+
   if (!engine && reader.version !== parser.version) return null
+
   return reader
 }
 
@@ -155,6 +166,7 @@ export function readWithColumns(
   const layout = layoutOf(parser.signature)
   let preview
   let layoutRead: ParsedInstrumentPayload | null = null
+
   try {
     if (layout) {
       layoutRead = readWithLayout(text, layout)
@@ -176,10 +188,13 @@ export function readWithColumns(
     if (error instanceof ImportParseError) {
       throw new ParserResolutionError('parse_failed', error.message, parser.key)
     }
+
     throw error
   }
+
   const sheet = preview.sheets[0]
   const signature = parser.signature as Partial<ImportParserSignature>
+
   if (!Array.isArray(signature.requiredHeaders)) {
     throw new ParserResolutionError(
       'parser_unsupported',
@@ -187,6 +202,7 @@ export function readWithColumns(
       parser.key,
     )
   }
+
   const recognised = recogniseImportParser(
     { format: preview.format, headers: sheet.headers, rawTextHint: text },
     [
@@ -202,6 +218,7 @@ export function readWithColumns(
       },
     ],
   )
+
   if (!recognised) {
     throw new ParserResolutionError(
       'parser_unrecognised',
@@ -209,7 +226,9 @@ export function readWithColumns(
       parser.key,
     )
   }
+
   if (layoutRead) return layoutRead
+
   return {
     headers: sheet.headers,
     rows: sheet.rows,

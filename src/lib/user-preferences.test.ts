@@ -5,6 +5,7 @@ import { fetchUserPreferences } from './user-preferences'
 
 function clientReturning(rows: unknown[]) {
   const list = vi.fn(async () => rows)
+
   return { client: { list } as unknown as DataClient, list }
 }
 
@@ -13,10 +14,12 @@ describe('fetchUserPreferences', () => {
     const { client, list } = clientReturning([
       { appearance: 'dark', nav_collapsed: true },
     ])
+
     const [theme, sidebar] = await Promise.all([
       fetchUserPreferences(client),
       fetchUserPreferences(client),
     ])
+
     expect(list).toHaveBeenCalledTimes(1)
     expect(theme).toEqual({
       appearance: 'dark',

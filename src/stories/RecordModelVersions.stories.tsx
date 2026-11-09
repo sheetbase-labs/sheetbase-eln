@@ -245,6 +245,7 @@ function Screen({
 /** The query cache the screen's reads land in, seeded for a story that needs it. */
 function provider(seeds: ReadSeed[] = []) {
   const client = screenQueryClient({ data: seeds })
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <div className="h-[760px] w-[1180px] max-w-full">
@@ -258,7 +259,9 @@ const meta = {
   title: 'Models/Record model versions',
   decorators: [provider()],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /**

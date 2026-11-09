@@ -74,6 +74,7 @@ export function RepeatingDialog({
   const [open, setOpen] = useState(false)
   const rows = useRepeatRows(workspaceId, kind, open)
   const queryClient = useQueryClient()
+
   const noun = t(
     kind === 'booking'
       ? 'projects.recurring.dialog.bookings'
@@ -168,6 +169,7 @@ export function RepeatingDialog({
                           row.schedule.id,
                           paused,
                         )
+
                         return t(
                           paused
                             ? 'projects.recurring.dialog.paused'
@@ -182,6 +184,7 @@ export function RepeatingDialog({
                           row.schedule.id,
                           cancelUpcoming,
                         )
+
                         return cancelUpcoming
                           ? t('projects.recurring.dialog.stoppedCancelled', {
                               count: cancelled,
@@ -219,11 +222,14 @@ function RepeatTableRow({
 }) {
   const { schedule } = row
   const live = schedule.status !== 'ended'
+
   const clock =
     schedule.startTime && schedule.endTime
       ? `${schedule.startTime}–${schedule.endTime}`
       : null
+
   const hidden = row.notMade.length - SHOWN_NOT_MADE
+
   return (
     <>
       <TableRow>

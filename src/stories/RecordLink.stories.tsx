@@ -15,9 +15,13 @@ const meta = {
     icon: 'flask',
   },
 } satisfies Meta<typeof RecordLink>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 export const Available: Story = {}
+
 export const States: Story = {
   render: () => (
     <div className="grid max-w-lg gap-2">

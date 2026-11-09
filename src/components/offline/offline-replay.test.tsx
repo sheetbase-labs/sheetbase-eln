@@ -48,10 +48,12 @@ function fakePort(
   behaviour: (edit: OfflineEdit) => 'commit' | 'overlap',
 ): OfflineReplayPort & { commits: string[] } {
   const commits: string[] = []
+
   return {
     commits,
     async commit(edit) {
       commits.push(edit.id)
+
       if (behaviour(edit) === 'overlap') throw new OfflineReplayOverlapError()
     },
     async raiseCellConflict() {
@@ -89,6 +91,7 @@ describe('OfflineReplayRunner', () => {
       expectedRevision: 1,
     })
     await store.putEdit(SCOPE, cell())
+
     const port = fakePort((edit) =>
       edit.kind === 'cell' ? 'overlap' : 'commit',
     )
@@ -137,15 +140,18 @@ describe('OfflineReplayRunner', () => {
     })
     let refuse = true
     const commits: string[] = []
+
     const port: OfflineReplayPort = {
       async commit(edit) {
         commits.push(edit.id)
+
         if (refuse) throw new Error('permission denied')
       },
       async raiseCellConflict() {
         return null
       },
     }
+
     const { findByText, getByRole, queryByText } = render(
       <OfflineEditsProvider store={store} scope={SCOPE}>
         <OfflineReplayRunner
@@ -177,6 +183,7 @@ describe('OfflineReplayRunner', () => {
       text: 'unwanted',
       expectedRevision: 1,
     })
+
     const port: OfflineReplayPort = {
       async commit() {
         throw new Error('permission denied')
@@ -185,6 +192,7 @@ describe('OfflineReplayRunner', () => {
         return null
       },
     }
+
     const { findByText, getByRole, queryByText } = render(
       <OfflineEditsProvider store={store} scope={SCOPE}>
         <OfflineReplayRunner
@@ -195,6 +203,7 @@ describe('OfflineReplayRunner', () => {
         />
       </OfflineEditsProvider>,
     )
+
     await findByText(/Edited text: unwanted/)
     fireEvent.click(getByRole('button', { name: 'Discard' }))
     expect(await store.listEdits(SCOPE)).toHaveLength(1)

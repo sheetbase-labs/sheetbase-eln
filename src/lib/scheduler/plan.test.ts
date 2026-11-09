@@ -15,6 +15,7 @@ const ANNA = 'anna'
 
 const at = (date: string, hhmm: string, tz = 'UTC') => {
   const [h, m] = hhmm.split(':').map(Number)
+
   return localToEpoch(date, h * 60 + m, tz)
 }
 
@@ -100,6 +101,7 @@ describe('placing parts', () => {
         }),
       ]),
     )
+
     const booked = plan.items.filter((i) => i.kind === 'instrument')
     expect(booked.map((i) => [i.partId, i.startsAt, i.endsAt])).toEqual([
       ['a', '2026-11-02T09:00:00.000Z', '2026-11-02T10:00:00.000Z'],
@@ -116,6 +118,7 @@ describe('placing parts', () => {
         hours: { ...DEFAULT_HOURS, timezone: 'Europe/London' },
       }),
     )
+
     expect(plan.items[0].startsAt).toBe('2026-07-01T08:00:00.000Z')
   })
 
@@ -130,6 +133,7 @@ describe('placing parts', () => {
         }),
       ]),
     )
+
     // Day 5 is Saturday 7 November: the next working day is Monday.
     expect(plan.items[0].plannedOn).toBe('2026-11-09')
     expect(plan.items[0].conflicts.map((c) => c.code)).toContain(
@@ -154,6 +158,7 @@ describe('placing parts', () => {
         },
       ),
     )
+
     expect(plan.items[0].startsAt).toBe('2026-11-02T13:10:00.000Z')
   })
 
@@ -174,9 +179,11 @@ describe('placing parts', () => {
         }),
       ]),
     )
+
     const b = plan.items.find(
       (i) => i.partId === 'b' && i.kind === 'instrument',
     )!
+
     // Part a (an hour of hands-on time) ends 10:00 Monday; a day later is 10:00 Tuesday.
     expect(b.startsAt).toBe('2026-11-03T10:00:00.000Z')
   })
@@ -191,6 +198,7 @@ describe('placing parts', () => {
         }),
       ]),
     )
+
     const [first, second] = plan.items.filter((i) => i.kind === 'instrument')
     expect(first.startsAt).toBe('2026-11-02T09:00:00.000Z')
     expect(second.startsAt).toBe('2026-11-02T09:45:00.000Z')
@@ -203,6 +211,7 @@ describe('placing parts', () => {
         [{ start: at('2026-11-02', '09:00'), end: at('2026-11-02', '11:00') }],
       ],
     ])
+
     const plan = planSchedule(
       input(
         [
@@ -212,6 +221,7 @@ describe('placing parts', () => {
         { busy },
       ),
     )
+
     const [a, b] = plan.items.filter((i) => i.kind === 'instrument')
     expect(a.startsAt).toBe('2026-11-02T11:00:00.000Z')
     expect(b.startsAt).toBe('2026-11-02T12:00:00.000Z')
@@ -224,16 +234,19 @@ describe('placing parts', () => {
         [{ start: at('2026-11-02', '09:00'), end: at('2026-11-02', '16:30') }],
       ],
     ])
+
     const plan = planSchedule(
       input([part({ partId: 'a', number: 1, needs: [need(READER, 60)] })], {
         busy,
       }),
     )
+
     expect(plan.items[0].plannedOn).toBe('2026-11-03')
   })
 
   it('does not plan a part on a day its owner is away', () => {
     const absences = new Map([[ANNA, [['2026-11-02', '2026-11-03'] as const]]])
+
     const plan = planSchedule(
       input(
         [
@@ -247,6 +260,7 @@ describe('placing parts', () => {
         { absences },
       ),
     )
+
     expect(plan.items[0].plannedOn).toBe('2026-11-04')
   })
 
@@ -261,6 +275,7 @@ describe('placing parts', () => {
         }),
       ]),
     )
+
     const item = plan.items.find((i) => i.kind === 'instrument')!
     expect(item.startsAt).toBe('2026-11-02T09:00:00.000Z')
     expect(item.endsAt).toBe('2026-11-03T01:00:00.000Z')
@@ -271,6 +286,7 @@ describe('placing parts', () => {
     const plan = planSchedule(
       input([part({ partId: 'a', number: 1, handsOnMinutes: 90 })]),
     )
+
     expect(plan.items).toHaveLength(1)
     expect(plan.items[0]).toMatchObject({
       kind: 'hands_on',
@@ -309,6 +325,7 @@ describe('what stands in the way', () => {
         },
       ),
     )
+
     expect(plan.items[0].conflicts[0]).toMatchObject({
       code: 'max_booking_exceeded',
     })
@@ -332,6 +349,7 @@ describe('what stands in the way', () => {
         },
       ),
     )
+
     expect(plan.items[0].conflicts.map((c) => c.code).sort()).toEqual([
       'out_of_service',
       'too_far_ahead',
@@ -342,11 +360,13 @@ describe('what stands in the way', () => {
     const gaps = new Map([
       [`${READER}:${ANNA}`, 'Anna needs training on SOP-12 first.'],
     ])
+
     const plan = planSchedule(
       input([part({ partId: 'a', number: 1, needs: [need(READER, 30)] })], {
         gaps,
       }),
     )
+
     expect(plan.items[0].conflicts[0]).toMatchObject({
       code: 'not_qualified',
       message: 'Anna needs training on SOP-12 first.',
@@ -360,6 +380,7 @@ describe('what stands in the way', () => {
         [{ start: at('2026-11-02', '00:00'), end: at('2027-06-01', '00:00') }],
       ],
     ])
+
     const plan = planSchedule(
       input(
         [
@@ -372,6 +393,7 @@ describe('what stands in the way', () => {
         { busy: forever },
       ),
     )
+
     expect(plan.items).toHaveLength(1)
     expect(plan.items[0]).toMatchObject({ startsAt: null, plannedOn: null })
     expect(plan.items[0].conflicts[0].code).toBe('no_slot')

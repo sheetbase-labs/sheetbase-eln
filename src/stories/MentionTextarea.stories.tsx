@@ -16,6 +16,7 @@ const candidates = [
 
 function Box({ initial = '' }: { initial?: string }) {
   const [value, setValue] = useState(initial)
+
   return (
     <MentionTextarea
       value={value}
@@ -34,7 +35,9 @@ const meta = {
   tags: ['autodocs'],
   args: { value: '', onChange: () => {}, candidates },
 } satisfies Meta<typeof MentionTextarea>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Empty: nothing is offered until someone types an `@`. */

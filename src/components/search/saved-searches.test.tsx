@@ -33,6 +33,7 @@ beforeEach(() => {
   mocks.list.mockImplementation(async () => mocks.rows)
   mocks.rpc.mockImplementation(async (name: string, args: any) => {
     if (name === 'workspace_members_list') return mocks.members
+
     if (name === 'save_search') {
       mocks.rows = [
         {
@@ -55,9 +56,11 @@ beforeEach(() => {
     } else if (name === 'delete_saved_search') {
       mocks.rows = mocks.rows.filter((r) => r.id !== args.p_id)
     }
+
     return null
   })
 })
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
@@ -81,6 +84,7 @@ function failSave(message: string) {
   const answer = mocks.rpc.getMockImplementation()!
   mocks.rpc.mockImplementation(async (name: string, args: unknown) => {
     if (name === 'save_search') throw new Error(message)
+
     return answer(name, args)
   })
 }
@@ -93,6 +97,7 @@ function mount(
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   render(
     <QueryClientProvider client={client}>
       <SavedSearches
@@ -104,6 +109,7 @@ function mount(
       />
     </QueryClientProvider>,
   )
+
   return onApply
 }
 
@@ -155,9 +161,11 @@ describe('SavedSearches', () => {
     expect(screen.getByText('Everyone in the workspace')).toBeTruthy()
     expect(screen.getByText('Recently used')).toBeTruthy()
     expect(screen.queryByRole('button', { name: /Search 0/ })).toBeNull()
+
     const all = screen.getByRole('link', {
       name: 'View all 8 saved searches',
     })
+
     expect(all.getAttribute('href')).toBe('/saved-searches')
   })
 
@@ -309,9 +317,11 @@ describe('SavedSearches', () => {
       row('s-2', 'Newest saved', '2026-10-30T12:00:00Z'),
     ]
     mount({ q: '' })
+
     const buttons = await screen.findAllByRole('button', {
       name: /Old favourite|Newest saved/,
     })
+
     expect(buttons[0].textContent).toContain('Old favourite')
     fireEvent.click(buttons[1])
     expect(mocks.rpc).toHaveBeenCalledWith('touch_saved_search', {

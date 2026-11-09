@@ -27,10 +27,12 @@ class FakeEventSource implements EventSourceLike {
 
   addEventListener(type: string, listener: EventListener): void {
     let set = this.listeners.get(type)
+
     if (!set) {
       set = new Set()
       this.listeners.set(type, set)
     }
+
     set.add(listener)
   }
 
@@ -40,8 +42,10 @@ class FakeEventSource implements EventSourceLike {
 
   dispatch(type: string, data: unknown): void {
     const set = this.listeners.get(type)
+
     if (!set) return
     const payload = typeof data === 'string' ? data : JSON.stringify(data)
+
     for (const l of set) l({ type, data: payload })
   }
 
@@ -68,16 +72,20 @@ function makeDeps(
 } {
   const qc = opts.queryClient ?? new QueryClient()
   const sources: FakeEventSource[] = []
+
   const factory = (url: string): FakeEventSource => {
     const es = new FakeEventSource(url)
     sources.push(es)
+
     return es
   }
+
   const coordinator = createLiveEventCoordinator({
     queryClient: qc,
     eventSourceFactory: factory,
     getClientId: opts.getClientId ?? (() => 'self-tab'),
   })
+
   return { coordinator, qc, sources }
 }
 
@@ -233,11 +241,13 @@ describe('createLiveEventCoordinator', () => {
       spy.mockClear()
       sources[0].dispatch('change', changeEvent(1, { entityType }))
       vi.advanceTimersByTime(100)
+
       const keys = spy.mock.calls
         .map(([options]) => options?.queryKey)
         .filter(
           (key) => typeof key?.[0] === 'string' && key[0].startsWith('home-'),
         )
+
       expect(keys).toEqual(prefixes.map((prefix) => [prefix, 'ws-1']))
     },
   )
@@ -297,12 +307,14 @@ describe('createLiveEventCoordinator', () => {
     coordinator.connect()
     sources[0].dispatch('hello', { workspaceId: 'ws-1', resumeFrom: 0 })
     spy.mockClear()
+
     for (let sequence = 1; sequence <= 120; sequence++) {
       sources[0].dispatch(
         'change',
         changeEvent(sequence, { entityType: 'instrument_run' }),
       )
     }
+
     expect(spy).not.toHaveBeenCalled()
     vi.advanceTimersByTime(99)
     expect(spy).not.toHaveBeenCalled()
@@ -325,6 +337,7 @@ describe('createLiveEventCoordinator', () => {
     const { coordinator, qc, sources } = makeDeps({
       getClientId: () => 'self-tab',
     })
+
     const spy = vi.spyOn(qc, 'invalidateQueries')
     coordinator.connect()
     sources[0].dispatch('hello', { workspaceId: 'ws-1', resumeFrom: 0 })
@@ -404,11 +417,14 @@ describe('createLiveEventCoordinator', () => {
     coordinator.connect()
     sources[0].dispatch('hello', { workspaceId: 'ws-1', resumeFrom: 0 })
     let sequence = 0
+
     const keysFor = (overrides: Parameters<typeof changeEvent>[1]) => {
       spy.mockClear()
       sources[0].dispatch('change', changeEvent(++sequence, overrides))
+
       return spy.mock.calls.map((call) => call[0]!.queryKey)
     }
+
     expect(
       keysFor({
         entityType: 'scientific_table',
@@ -429,6 +445,7 @@ describe('createLiveEventCoordinator', () => {
         payload: { operation: 'display' },
       }),
     ).toContainEqual(['scientific-rows', 'table-1'])
+
     for (const operation of ['add_column', 'convert_column', 'retire_column']) {
       expect(
         keysFor({
@@ -438,6 +455,7 @@ describe('createLiveEventCoordinator', () => {
         }),
       ).toContainEqual(['scientific-rows', 'table-1'])
     }
+
     expect(
       keysFor({
         entityType: 'scientific_row',
@@ -487,6 +505,7 @@ describe('createLiveEventCoordinator', () => {
     expect(keys).toContainEqual(['home-reviews', 'ws-1'])
     expect(keys).toContainEqual(['workspace-access', 'ws-1'])
     expect(keys).toContainEqual(notebookQueryKeys.projectsList())
+
     for (const prefix of [
       'scientific-table',
       'scientific-tables',
@@ -545,24 +564,29 @@ describe('createLiveEventCoordinator', () => {
     const qc = new QueryClient()
     const aSources: FakeEventSource[] = []
     const bSources: FakeEventSource[] = []
+
     const tabA = createLiveEventCoordinator({
       queryClient: qc,
       eventSourceFactory: (url: string) => {
         const es = new FakeEventSource(url)
         aSources.push(es)
+
         return es
       },
       getClientId: () => 'tab-a',
     })
+
     const tabB = createLiveEventCoordinator({
       queryClient: qc,
       eventSourceFactory: (url: string) => {
         const es = new FakeEventSource(url)
         bSources.push(es)
+
         return es
       },
       getClientId: () => 'tab-b',
     })
+
     const spy = vi.spyOn(qc, 'invalidateQueries')
 
     tabA.connect()
@@ -617,6 +641,7 @@ describe('createLiveEventCoordinator', () => {
     const spy = vi.spyOn(qc, 'invalidateQueries')
     coordinator.connect()
     sources[0].dispatch('hello', { workspaceId: 'ws-1', resumeFrom: 0 })
+
     for (const [index, entityType] of [
       'parser_version',
       'dataset_import_file',
@@ -625,6 +650,7 @@ describe('createLiveEventCoordinator', () => {
       spy.mockClear()
       sources[0].dispatch('change', changeEvent(index + 1, { entityType }))
       expect(spy).toHaveBeenCalledWith({ queryKey: ['work-items'] })
+
       if (entityType !== 'connector_run') {
         expect(spy).toHaveBeenCalledWith({
           queryKey: ['parser-settings', 'ws-1'],
@@ -638,6 +664,7 @@ describe('createLiveEventCoordinator', () => {
 
   it('tells subscribers once about a backlog of hundreds of events', () => {
     vi.useFakeTimers()
+
     try {
       const { coordinator, sources } = makeDeps()
       coordinator.connect()
@@ -645,9 +672,11 @@ describe('createLiveEventCoordinator', () => {
       let notified = 0
       coordinator.subscribe(() => (notified += 1))
       notified = 0
+
       for (let seq = 1; seq <= 500; seq++) {
         sources[0].dispatch('change', changeEvent(seq))
       }
+
       expect(notified).toBe(0)
       vi.advanceTimersByTime(100)
       expect(notified).toBe(1)

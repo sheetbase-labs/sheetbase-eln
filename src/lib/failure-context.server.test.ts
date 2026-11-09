@@ -15,9 +15,11 @@ describe('annotateFailure', () => {
     const spy = vi
       .spyOn(requestLog, 'annotateRequest')
       .mockImplementation(() => undefined)
+
     const response = json(401, {
       error: { code: 'invalid_token', message: 'No.' },
     })
+
     await annotateFailure(response)
     expect(spy).toHaveBeenCalledWith({
       failure: { code: 'invalid_token', message: 'No.' },
@@ -33,6 +35,7 @@ describe('annotateFailure', () => {
     const spy = vi
       .spyOn(requestLog, 'annotateRequest')
       .mockImplementation(() => undefined)
+
     await annotateFailure(json(400, { error: 'Bad input.' }))
     expect(spy).toHaveBeenCalledWith({ failure: { message: 'Bad input.' } })
     spy.mockRestore()
@@ -42,6 +45,7 @@ describe('annotateFailure', () => {
     const spy = vi
       .spyOn(requestLog, 'annotateRequest')
       .mockImplementation(() => undefined)
+
     await annotateFailure(json(200, { ok: true }))
     await annotateFailure(new Response('nope', { status: 500 }))
     expect(spy).not.toHaveBeenCalled()
@@ -54,6 +58,7 @@ describe('annotateSummary', () => {
     const spy = vi
       .spyOn(requestLog, 'annotateRequest')
       .mockImplementation(() => undefined)
+
     const request = new Request('http://x.test/api/db/records?select=id')
     vi.stubEnv('NODE_ENV', 'production')
     annotateSummary(request, new Response('', { status: 200 }))

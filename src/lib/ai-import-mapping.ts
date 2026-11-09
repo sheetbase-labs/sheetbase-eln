@@ -57,6 +57,7 @@ export function buildMappingInstruction(
     (field) =>
       `- ${field.id} | ${field.label} | ${field.logicalType}${field.unit ? ` | stored in ${field.unit}` : ''}${field.nullable ? '' : ' | required'}`,
   )
+
   const columnLines = columns.slice(0, AI_MAPPING_MAX_COLUMNS).map(
     (column) =>
       `- ${JSON.stringify(column.header)}: ${
@@ -68,6 +69,7 @@ export function buildMappingInstruction(
           : '(no values)'
       }`,
   )
+
   return [
     'Target fields (id | label | type | unit):',
     ...fieldLines,
@@ -84,7 +86,9 @@ export function buildMappingInstruction(
 export function extractJsonObject(text: string): unknown {
   const start = text.indexOf('{')
   const end = text.lastIndexOf('}')
+
   if (start < 0 || end <= start) return null
+
   try {
     return JSON.parse(text.slice(start, end + 1)) as unknown
   } catch {
@@ -104,18 +108,21 @@ export function parseMappingAnswer(
 ): AiMappingSuggestion[] {
   const json = extractJsonObject(text)
   const parsed = answerSchema.safeParse(json)
+
   if (!parsed.success) return []
   const knownHeaders = new Set(headers)
   const byId = new Map(fields.map((field) => [field.id, field]))
   const usedFields = new Set<string>()
   const seenHeaders = new Set<string>()
   const out: AiMappingSuggestion[] = []
+
   for (const column of parsed.data.columns) {
     if (!knownHeaders.has(column.header) || seenHeaders.has(column.header))
       continue
     seenHeaders.add(column.header)
     const fieldId = column.field_id ?? ''
     const field = byId.get(fieldId)
+
     if (!field || usedFields.has(field.id)) continue
     usedFields.add(field.id)
     const unit = column.unit?.trim() || null
@@ -130,6 +137,7 @@ export function parseMappingAnswer(
       reason: (column.reason ?? '').trim().slice(0, 200),
     })
   }
+
   return out
 }
 

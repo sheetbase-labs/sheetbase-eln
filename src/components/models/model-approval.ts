@@ -74,14 +74,18 @@ export function roleLabel(role: string): string {
 
 export function roleList(roles: readonly string[]): string {
   const labels = roles.map(roleLabel)
+
   if (labels.length <= 1) return labels[0] ?? 'an approver'
+
   return `${labels.slice(0, -1).join(', ')} or ${labels.at(-1)}`
 }
 
 function byNewest(a: ApprovalRequest, b: ApprovalRequest): number {
   const at = Date.parse(a.submitted_at)
   const bt = Date.parse(b.submitted_at)
+
   if (Number.isNaN(at) || Number.isNaN(bt)) return 0
+
   // PostgREST timestamps share a format and retain PostgreSQL microseconds.
   return (
     bt - at ||
@@ -142,6 +146,7 @@ export function approvalStatus(
   revision?: number,
 ): ApprovalStatus {
   const request = pendingRequest(requests) ?? latestRequest(requests)
+
   if (!request) {
     return {
       tone: 'none',
@@ -149,6 +154,7 @@ export function approvalStatus(
       detail: 'No approval request yet',
     }
   }
+
   if (
     request.state === 'approved' &&
     revision !== undefined &&
@@ -160,6 +166,7 @@ export function approvalStatus(
       detail: 'The draft changed after approval',
     }
   }
+
   return STATE_STATUS[request.state]
 }
 
@@ -179,6 +186,7 @@ export function isRequiredApprover(
   role: string | null | undefined,
 ): boolean {
   if (!request || !role) return false
+
   return request.required_approver_roles.includes(role)
 }
 
@@ -193,12 +201,17 @@ export function canDecide(
   role: string | null | undefined,
 ): boolean {
   if (!request || request.state !== 'pending') return false
+
   if (!isWorkspaceWriter(role)) return false
+
   if (!isRequiredApprover(request, role)) return false
+
   if (request.approved_by_user_ids.includes(userId ?? '')) return false
+
   if (request.require_independence && request.submitted_by_user_id === userId) {
     return false
   }
+
   return true
 }
 
@@ -209,7 +222,9 @@ export function canWithdraw(
   role: string | null | undefined,
 ): boolean {
   if (!request || request.state !== 'pending') return false
+
   if (!isWorkspaceWriter(role)) return false
+
   return (
     request.submitted_by_user_id !== null &&
     request.submitted_by_user_id === userId
@@ -227,8 +242,10 @@ export function canPublishDraft(
   revision?: number,
 ): boolean {
   if (pendingRequest(requests)) return false
+
   if (requests.length === 0) return !approvalRequired
   const latest = latestRequest(requests)
+
   return (
     latest?.state === 'approved' &&
     (revision === undefined || latest.object_revision === revision)
@@ -278,9 +295,11 @@ export function buildApprovalTrail(
       at: decision.created_at,
       reason: decision.reason,
     }))
+
   entries.push(...own)
 
   const terminal = request.state
+
   if (terminal === 'approved' && !own.some((e) => e.kind === 'approved')) {
     entries.push({
       id: `${request.id}:approved`,
@@ -291,6 +310,7 @@ export function buildApprovalTrail(
       reason: request.decision_reason,
     })
   }
+
   if (terminal === 'returned' && !own.some((e) => e.kind === 'returned')) {
     entries.push({
       id: `${request.id}:returned`,
@@ -301,6 +321,7 @@ export function buildApprovalTrail(
       reason: request.decision_reason,
     })
   }
+
   if (terminal === 'withdrawn') {
     entries.push({
       id: `${request.id}:withdrawn`,
@@ -315,7 +336,9 @@ export function buildApprovalTrail(
   return entries.sort((a, b) => {
     const at = Date.parse(a.at)
     const bt = Date.parse(b.at)
+
     if (Number.isNaN(at) || Number.isNaN(bt)) return 0
+
     return at - bt
   })
 }
@@ -326,18 +349,25 @@ export function approvalActorIds(
   decisions: readonly ApprovalDecision[],
 ): string[] {
   const ids = new Set<string>()
+
   for (const request of requests) {
     if (request.submitted_by_user_id) ids.add(request.submitted_by_user_id)
+
     if (request.decided_by_user_id) ids.add(request.decided_by_user_id)
+
     for (const id of request.approved_by_user_ids) ids.add(id)
   }
+
   for (const decision of decisions) ids.add(decision.user_id)
+
   return [...ids]
 }
 
 /** Trimmed reason within 1..500, or null when invalid. */
 export function normaliseReason(value: string): string | null {
   const reason = value.trim()
+
   if (reason.length < 1 || reason.length > APPROVAL_REASON_MAX) return null
+
   return reason
 }

@@ -46,12 +46,15 @@ describe('ontology search', () => {
 
   it('does not call the service for a one-letter query', async () => {
     let called = false
+
     const terms = await searchOntologyTerms('a', ['obi'], {
       fetch: async () => {
         called = true
+
         return { ok: true, status: 200, json: async () => body }
       },
     })
+
     expect(terms).toEqual([])
     expect(called).toBe(false)
   })

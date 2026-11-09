@@ -20,6 +20,7 @@ describe('fetchLabSetupSkipped', () => {
     const client = clientReturning([
       { preferences: { labSetupSkipped: { [WS]: true } } },
     ])
+
     expect(await fetchLabSetupSkipped(client, WS)).toBe(true)
   })
 
@@ -27,6 +28,7 @@ describe('fetchLabSetupSkipped', () => {
     const other = clientReturning([
       { preferences: { labSetupSkipped: { 'other-ws': true } } },
     ])
+
     expect(await fetchLabSetupSkipped(other, WS)).toBe(false)
     expect(
       await fetchLabSetupSkipped(clientReturning([{ preferences: {} }]), WS),

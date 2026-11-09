@@ -30,6 +30,7 @@ const lastLinks = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }))
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
+
   return {
     ...actual,
     Link: ({
@@ -43,6 +44,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       'aria-current'?: 'page'
     } & Record<string, unknown>) => {
       lastLinks.props.push({ ...rest, className, ariaCurrent })
+
       return (
         <a href="#" className={className} aria-current={ariaCurrent}>
           {children}
@@ -78,6 +80,7 @@ function StateStrip({
 
 function ControlledStrip() {
   const [value, setValue] = useState('chart')
+
   return <StateStrip value={value} onValueChange={setValue} />
 }
 
@@ -183,6 +186,7 @@ describe('Tabs — url mode is a nav of links', () => {
 
   it('styles the current tab from aria-current, so it beats the resting tokens', () => {
     render(<Tabs mode="url" label="Dataset lists" value="mine" items={items} />)
+
     // An unprefixed `border-link` loses to the item's own `border-transparent`
     // (Tailwind orders same-property utilities, not the class attribute), and
     // the strip showed no current tab on the experiment page. The variant

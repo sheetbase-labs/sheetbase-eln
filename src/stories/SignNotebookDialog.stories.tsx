@@ -24,9 +24,11 @@ function client(state: 'ready' | 'loading' | 'error') {
       },
     })
   }
+
   const instance = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+
   if (state === 'ready') {
     instance.setQueryData(
       reviewWorkspaceQueryKeys.submissionForRevision(REVISION_ID),
@@ -45,11 +47,13 @@ function client(state: 'ready' | 'loading' | 'error') {
       created_by_user_id: 'user-1',
     })
   }
+
   return instance
 }
 
 function Harness({ initiallyOpen }: { initiallyOpen?: boolean }) {
   const [open, setOpen] = useState(Boolean(initiallyOpen))
+
   return (
     <div className="space-y-2">
       <button
@@ -93,7 +97,9 @@ const meta = {
     currentUserName: 'Ava Chen',
   },
 } satisfies Meta<typeof SignNotebookDialog>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Closed: the dialog renders nothing until the writer asks to sign. */

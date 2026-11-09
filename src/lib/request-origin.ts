@@ -7,6 +7,7 @@
  */
 function originOf(value: string | null | undefined): string | null {
   if (!value) return null
+
   try {
     return new URL(value).origin
   } catch {
@@ -23,19 +24,27 @@ export function isSameOriginRequest(
   publicUrl?: string | null,
 ): boolean {
   const origin = request.headers.get('origin')
+
   if (!origin) return false
   const accepted = new Set<string>()
   const own = originOf(request.url)
+
   if (own) accepted.add(own)
   const proto = firstValue(request.headers.get('x-forwarded-proto'))
+
   const host =
     firstValue(request.headers.get('x-forwarded-host')) ??
     request.headers.get('host')
+
   if ((proto === 'https' || proto === 'http') && host) {
     const forwarded = originOf(`${proto}://${host}`)
+
     if (forwarded) accepted.add(forwarded)
   }
+
   const configured = originOf(publicUrl)
+
   if (configured) accepted.add(configured)
+
   return accepted.has(origin)
 }

@@ -21,6 +21,7 @@ export function useInstrumentGateMode(
     queryFn: () => fetchWorkspaceSettings(dataClient, workspaceId ?? ''),
     enabled: Boolean(workspaceId),
   })
+
   return settings.data?.instrumentGateMode ?? 'warn'
 }
 
@@ -42,7 +43,9 @@ export type InstrumentFinding =
 export function instrumentWarningsOf(outcome: unknown): InstrumentFinding[] {
   if (!outcome || typeof outcome !== 'object') return []
   const found = (outcome as { instrumentWarnings?: unknown }).instrumentWarnings
+
   if (!Array.isArray(found)) return []
+
   return found.filter(
     (f): f is InstrumentFinding =>
       f === 'retired' || f === 'unqualified' || f === 'calibration_overdue',

@@ -21,6 +21,7 @@ export function shouldRetryQuery(
   ) {
     return false
   }
+
   return failureCount < 3
 }
 
@@ -73,6 +74,7 @@ export function refreshAfterWrites(
   let timer: ReturnType<typeof setTimeout> | null = null
   let shellTimer: ReturnType<typeof setTimeout> | null = null
   let shellWanted = false
+
   const stop = onRowsChanged((path) => {
     // The sidebar's counts, pinned items and bell come from the shell, which is
     // loaded separately from the queries. Writes from a notebook or a grid
@@ -80,6 +82,7 @@ export function refreshAfterWrites(
     // screen shows them, so they skip the refresh altogether.
     if (EDITING_PATHS.test(path)) return
     shellWanted = true
+
     if (timer !== null) return
     const wait = Math.max(delayMs, lastRun + minIntervalMs - Date.now())
     timer = setTimeout(() => {
@@ -88,12 +91,14 @@ export function refreshAfterWrites(
       void queryClient.invalidateQueries({
         predicate: (query) => !isEditingCache(String(query.queryKey[0])),
       })
+
       if (shellWanted && shellTimer === null) {
         shellWanted = false
         requestShellRefresh()
         // At most one shell reload every few seconds.
         shellTimer = setTimeout(() => {
           shellTimer = null
+
           if (shellWanted) {
             shellWanted = false
             requestShellRefresh()
@@ -102,9 +107,12 @@ export function refreshAfterWrites(
       }
     }, wait)
   })
+
   return () => {
     stop()
+
     if (timer !== null) clearTimeout(timer)
+
     if (shellTimer !== null) clearTimeout(shellTimer)
     timer = null
     shellTimer = null

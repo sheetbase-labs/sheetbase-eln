@@ -50,11 +50,13 @@ export function JoinDomainsSection({
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState('')
   const [error, setError] = useState<string | null>(null)
+
   const stored = useQuery({
     queryKey: joinDomainKeys.list(workspaceId),
     enabled: Boolean(workspaceId),
     queryFn: () => fetchJoinDomains(client),
   })
+
   const domains = (stored.data ?? []).map((row) => row.domain)
   const role: JoinRole = stored.data?.[0]?.role ?? 'scientist'
 
@@ -73,6 +75,7 @@ export function JoinDomainsSection({
   })
 
   const ownDomain = emailDomainOf(ownEmail)
+
   const suggestion =
     ownDomain && !isPublicEmailDomain(ownDomain) && !domains.includes(ownDomain)
       ? ownDomain
@@ -80,15 +83,21 @@ export function JoinDomainsSection({
 
   function add(raw: string) {
     const domain = normaliseDomainInput(raw)
+
     if (!domain) return
+
     if (!isDomainShaped(domain)) {
       setError(t('settings.joinDomains.invalid', { domain }))
+
       return
     }
+
     if (domains.includes(domain)) {
       setDraft('')
+
       return
     }
+
     save.mutate({ domains: [...domains, domain], role })
   }
 

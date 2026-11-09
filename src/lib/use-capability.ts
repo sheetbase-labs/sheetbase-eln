@@ -6,5 +6,6 @@ import type { Capability } from '#/lib/capability'
  * screen that decides which write controls to offer. */
 export function useHasCapability(capability: Capability): boolean {
   const { auth } = useRouteContext({ from: '__root__' })
+
   return hasCapability(auth?.workspace?.role, capability)
 }

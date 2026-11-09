@@ -39,12 +39,15 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A story's read client: what it seeds, and the read it answers with a failure. */
 function provider(data: ReadSeed[], failed?: FailedRead) {
   const client = screenQueryClient({ data })
+
   if (failed) holdRead(client, failed.key, failed.kind, failed.message)
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <Story />

@@ -41,10 +41,12 @@ export async function fetchProtocolVersions(
   protocolRecordId: string,
 ): Promise<ProtocolVersion[]> {
   const id = z.uuid().parse(protocolRecordId)
+
   const rows = await client.list<unknown>(
     'protocol_versions',
     `?protocol_record_id=eq.${id}&order=version.desc`,
   )
+
   return z.array(protocolVersionSchema).parse(rows)
 }
 
@@ -53,10 +55,12 @@ export async function fetchProtocolAcknowledgements(
   protocolVersionId: string,
 ): Promise<ProtocolAcknowledgement[]> {
   const id = z.uuid().parse(protocolVersionId)
+
   const rows = await client.list<unknown>(
     'protocol_acknowledgements',
     `?protocol_version_id=eq.${id}&order=acknowledged_at.asc,user_id.asc`,
   )
+
   return z.array(protocolAcknowledgementSchema).parse(rows)
 }
 
@@ -70,6 +74,7 @@ export async function acknowledgeProtocolVersion(
     // p_protocol_version_id: naming it wrong makes PostgREST answer 404.
     p_version_id: z.uuid().parse(protocolVersionId),
   })
+
   return protocolAcknowledgementSchema.parse(row)
 }
 
@@ -88,6 +93,7 @@ export async function fetchProtocolAcknowledgeWriter(
   const writer = await client.rpc('is_workspace_writer', {
     p_workspace_id: z.uuid().parse(workspaceId),
   })
+
   return z.boolean().parse(writer)
 }
 
@@ -104,6 +110,7 @@ export async function createProtocolVersion(
     p_change_summary: input.changeSummary,
     p_reason: input.reason ?? null,
   })
+
   return protocolVersionSchema.parse(row)
 }
 
@@ -123,6 +130,7 @@ export async function setProtocolVersionStatus(
     p_reason: input.reason,
     p_effective_at: input.effectiveAt ?? null,
   })
+
   return protocolVersionSchema.parse(row)
 }
 
@@ -158,10 +166,12 @@ export async function fetchProtocolTrainingStatus(
   protocolRecordId: string,
 ): Promise<ProtocolTrainingStatus[]> {
   const id = z.uuid().parse(protocolRecordId)
+
   const rows = await client.list<unknown>(
     'protocol_training_status',
     `?protocol_record_id=eq.${id}&order=user_id.asc`,
   )
+
   return z.array(protocolTrainingStatusSchema).parse(rows)
 }
 

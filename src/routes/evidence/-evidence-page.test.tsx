@@ -60,6 +60,7 @@ const mocks = vi.hoisted(() => {
     created_by_user_id: 'user-1',
     frozenSheetEvidence: [],
   }
+
   const record = {
     id: 'rec-0001',
     projectId: null,
@@ -80,6 +81,7 @@ const mocks = vi.hoisted(() => {
     lockedAt: '2026-09-19T06:00:00.000Z',
     lockedByRevisionId: 'rev-0001',
   }
+
   return {
     revision,
     record,
@@ -108,8 +110,10 @@ vi.mock('@tanstack/react-router', () => ({
     children: React.ReactNode
   } & Record<string, unknown>) => {
     let href = to
+
     for (const [key, value] of Object.entries(params ?? {}))
       href = href.replace(`$${key}`, encodeURIComponent(String(value)))
+
     return (
       <a href={href} {...props}>
         {children}
@@ -144,6 +148,7 @@ function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <EvidencePage />
@@ -170,6 +175,7 @@ describe('evidence page — phone rendering (MOB-02.4)', () => {
     const table = screen.getByRole('table', {
       name: 'Frozen revision content',
     })
+
     // The grid owns the breakpoint, so the hidden-at-phone class sits on its
     // wrapper rather than the table's immediate parent.
     expect(table.closest('[class*="max-md:hidden"]')).not.toBeNull()
@@ -178,7 +184,9 @@ describe('evidence page — phone rendering (MOB-02.4)', () => {
     const phoneColumn = screen.getByRole('list', {
       name: 'Frozen revision content',
     })
+
     expect(phoneColumn.className).toContain('md:hidden')
+
     for (const item of within(phoneColumn).getAllByRole('listitem'))
       expect(item.className).toContain('min-h-14')
     within(phoneColumn).getByText('Harvest timing: 48, 72 and 96 h')
@@ -202,10 +210,13 @@ describe('evidence page — phone rendering (MOB-02.4)', () => {
     const inspector = document.querySelector(
       'aside[aria-label="Evidence package"]',
     )
+
     expect(inspector).not.toBeNull()
+
     const inspectorHash = within(inspector as HTMLElement).getByText(
       'Verified when signed',
     )
+
     expect(inspectorHash.closest('div')?.className).toContain('max-md:hidden')
   })
 
@@ -216,6 +227,7 @@ describe('evidence page — phone rendering (MOB-02.4)', () => {
     const amend = await screen.findByRole('button', {
       name: 'Create amendment',
     })
+
     expect(amend.className).toContain('max-md:hidden')
     expect(
       screen.getByText(/Creating an amendment needs a desktop/),
@@ -261,6 +273,7 @@ describe('evidence page — package export (DATA-02)', () => {
   it('reports a refused package instead of replacing the page with the error body', async () => {
     const fetchMock = vi.fn(async () => new Response('nope', { status: 404 }))
     vi.stubGlobal('fetch', fetchMock)
+
     try {
       renderPage()
       await screen.findByRole('table', { name: 'Frozen revision content' })
@@ -292,6 +305,7 @@ describe('evidence page — PDF export', () => {
   it('fetches the internal PDF and reports a refusal beside the button', async () => {
     const fetchMock = vi.fn(async () => new Response('nope', { status: 404 }))
     vi.stubGlobal('fetch', fetchMock)
+
     try {
       renderPage()
       await screen.findByRole('table', { name: 'Frozen revision content' })
@@ -316,11 +330,13 @@ describe('evidence page — heading outline (frames a11y)', () => {
     const levels = screen
       .getAllByRole('heading')
       .map((heading) => Number(heading.tagName.slice(1)))
+
     expect(levels[0]).toBe(1)
     expect(levels.filter((level) => level === 1)).toHaveLength(1)
     levels.slice(1).forEach((level, index) => {
       expect(level - levels[index]).toBeLessThanOrEqual(1)
     })
+
     for (const name of ['Integrity', 'Revision', 'Amendments']) {
       expect(
         screen.getAllByRole('heading', { level: 2, name }).length,

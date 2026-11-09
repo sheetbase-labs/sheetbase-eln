@@ -7,9 +7,11 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 export const Route = createFileRoute('/stocktake_/$stocktakeId')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: StocktakeCountPage,
@@ -18,6 +20,7 @@ export const Route = createFileRoute('/stocktake_/$stocktakeId')({
 function StocktakeCountPage() {
   const { context } = Route.useRouteContext()
   const { stocktakeId } = Route.useParams()
+
   return (
     <StocktakeCount
       stocktakeId={stocktakeId}

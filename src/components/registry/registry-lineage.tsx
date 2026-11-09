@@ -45,26 +45,31 @@ function useRegistryGraph() {
     queryFn: () => fetchRegistryModels(client),
     staleTime: 10_000,
   })
+
   const keys = useMemo(
     () => (models.data ?? []).map((m) => m.key),
     [models.data],
   )
+
   const entries = useQuery({
     queryKey: registryKeys.entries(keys),
     queryFn: () => fetchRegistryEntries(client, keys),
     enabled: keys.length > 0,
     staleTime: 10_000,
   })
+
   const ids = useMemo(
     () => (entries.data ?? []).map((e) => e.id),
     [entries.data],
   )
+
   const links = useQuery({
     queryKey: [...registryKeys.lineage, ids.length],
     queryFn: () => fetchLineageLinks(client, ids),
     enabled: ids.length > 0,
     staleTime: 10_000,
   })
+
   return {
     models: models.data ?? [],
     entries: entries.data ?? [],
@@ -84,14 +89,17 @@ export function RegistryLineage({
   const queryClient = useQueryClient()
   const graph = useRegistryGraph()
   const [adding, setAdding] = useState(false)
+
   const modelName = useMemo(
     () => new Map(graph.models.map((m) => [m.key, m.name] as const)),
     [graph.models],
   )
+
   const up = useMemo(
     () => walkLineage(entryId, 'up', graph.entries, graph.links),
     [entryId, graph.entries, graph.links],
   )
+
   const down = useMemo(
     () => walkLineage(entryId, 'down', graph.entries, graph.links),
     [entryId, graph.entries, graph.links],
@@ -270,6 +278,7 @@ function AddParentDialog({
   const [parent, setParent] = useState('')
   const [role, setRole] = useState<ParentRole>('parent')
   const selected = parent || candidates[0]?.id || ''
+
   const add = useMutation({
     mutationFn: () => addParent(client, entryId, selected, role),
     onSuccess: () => {
@@ -280,6 +289,7 @@ function AddParentDialog({
     onError: (e: unknown) =>
       toast.error(messageOf(e, t('registry.entry.couldNotLink'))),
   })
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
@@ -353,6 +363,7 @@ export function RegistryRetireButton({
 }) {
   const queryClient = useQueryClient()
   const [confirming, setConfirming] = useState(false)
+
   const change = useMutation({
     mutationFn: () =>
       client.rpc(retired ? 'restore_record' : 'archive_record', {
@@ -372,6 +383,7 @@ export function RegistryRetireButton({
     onError: (e: unknown) =>
       toast.error(messageOf(e, t('registry.entry.couldNotChange'))),
   })
+
   return (
     <>
       <Button

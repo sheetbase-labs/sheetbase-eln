@@ -16,8 +16,11 @@ export function statusTone(status: RequestStatus): Tone {
 
 function asText(value: unknown): string {
   if (typeof value === 'string') return value.trim()
+
   if (typeof value === 'number') return String(value)
+
   if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+
   return ''
 }
 

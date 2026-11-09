@@ -74,6 +74,7 @@ async function decideRetiredReviews(db: Db): Promise<void> {
       JOIN api.projects p ON p.id = r.project_id AND p.archived_at IS NOT NULL
       JOIN api.revisions v ON v.id = rs.revision_id
      WHERE rs.state = 'submitted'`)
+
   for (const item of waiting.rows) {
     await whileProjectOpen(db, item.project_id, async () => {
       await withDesignClaims(
@@ -107,11 +108,14 @@ async function whileProjectOpen(
   const before = await db.execute<{ archived_at: Date | null }>(
     sql`SELECT archived_at FROM api.projects WHERE id = ${projectId}`,
   )
+
   const archivedAt = before.rows[0]?.archived_at
+
   if (!archivedAt) return fn()
   await db.execute(
     sql`UPDATE api.projects SET archived_at = NULL WHERE id = ${projectId}`,
   )
+
   try {
     await fn()
   } finally {
@@ -194,6 +198,7 @@ async function signApprovedRecords(db: Db): Promise<void> {
        AND rs.submitted_by_user_id <> d.actor_user_id
        AND NOT EXISTS (SELECT 1 FROM api.signatures s WHERE s.submission_id = rs.id)
      ORDER BY d.created_at DESC, rs.id`)
+
   const pending: Pending[] = rows.rows.map((r) => ({
     submissionId: r.submission_id,
     workspaceId: r.workspace_id,
@@ -203,15 +208,19 @@ async function signApprovedRecords(db: Db): Promise<void> {
     decidedAt: new Date(r.decided_at),
     projectId: r.project_id,
   }))
+
   const kept = new Map<string, number>()
   const skipped: string[] = []
+
   for (const item of pending) {
     // Newest first: the ones left for the viewer are the freshest approvals.
     const left = kept.get(item.approverName) ?? 0
+
     if (left < (LEAVE_UNSIGNED[item.approverName] ?? 0)) {
       kept.set(item.approverName, left + 1)
       continue
     }
+
     try {
       await whileProjectOpen(db, item.projectId, () => signAsDemo(db, item))
     } catch (error) {
@@ -219,6 +228,7 @@ async function signApprovedRecords(db: Db): Promise<void> {
       skipped.push((error as Error).message)
     }
   }
+
   if (skipped.length)
     console.log(`seed: ${skipped.length} approved records left unsigned`)
 }
@@ -253,6 +263,7 @@ async function signAsDemo(db: Db, item: Pending): Promise<void> {
   const signedBy = item.decidedAt.toISOString()
   await db.execute(sql`ALTER TABLE api.signatures DISABLE TRIGGER USER`)
   await db.execute(sql`ALTER TABLE api.records DISABLE TRIGGER USER`)
+
   try {
     await db.execute(sql`
       UPDATE api.signatures SET

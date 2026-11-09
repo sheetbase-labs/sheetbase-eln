@@ -33,7 +33,9 @@ vi.mock('@tanstack/react-router', () => ({
       (acc, [key, value]) => acc.replace(`$${key}`, value),
       to,
     )
+
     const query = search ? `?${new URLSearchParams(search).toString()}` : ''
+
     return <a href={`${path}${query}`}>{children}</a>
   },
 }))
@@ -43,6 +45,7 @@ vi.mock('@tanstack/react-router', () => ({
 // answers the workspace settings read the dialog makes to learn the workspace
 // time zone a booking's wall clock means.
 const { rpc, list } = vi.hoisted(() => ({ rpc: vi.fn(), list: vi.fn() }))
+
 // The dialog only reads the training notice through the query cache.
 vi.mock('@tanstack/react-query', () => ({
   useQuery: () => ({ data: [] }),
@@ -115,6 +118,7 @@ function renderDialog(onBooked = vi.fn()) {
       onBooked={onBooked}
     />,
   )
+
   return { onBooked, rerender: view.rerender }
 }
 
@@ -138,6 +142,7 @@ async function openAndFill(
   fireEvent.change(within(dialog).getByLabelText(/To/), {
     target: { value: '16:00' },
   })
+
   return dialog
 }
 
@@ -301,9 +306,11 @@ describe('BookDialog', () => {
     // ADR-0054 — the picker is the registry: every option is an instrument with
     // its display id and name.
     const dialogs = screen.getAllByRole('dialog')
+
     const options = within(dialogs[dialogs.length - 1])
       .getAllByRole('option')
       .map((option) => option.textContent)
+
     expect(options).toEqual([
       'INS-0007Plate reader PR-01',
       'INS-0009Thermocycler PCR-02',

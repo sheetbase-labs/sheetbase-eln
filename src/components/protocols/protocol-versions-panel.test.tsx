@@ -94,6 +94,7 @@ function pendingIndex(decisions: { role: string }[] = []) {
     submitted_by_user_id: 'sam',
     submitted_at: '2026-09-01T00:00:00+00:00',
   }
+
   const rows = decisions.map((d, i) => ({
     id: `d${i}`,
     request_id: REQ,
@@ -101,6 +102,7 @@ function pendingIndex(decisions: { role: string }[] = []) {
     role: d.role,
     user_id: `u${i}`,
   }))
+
   return {
     data: {
       requests: [request],
@@ -125,6 +127,7 @@ function renderPanel(role: string, userId = 'me') {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <ProtocolVersionsPanel

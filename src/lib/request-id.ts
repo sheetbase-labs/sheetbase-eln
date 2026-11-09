@@ -15,9 +15,11 @@ const ID_PATTERN = /^[a-z0-9-]{1,128}$/i
 /** Reads or generates the request id for the incoming request. */
 export function resolveRequestId(headers: Headers): string {
   const incoming = headers.get(REQUEST_ID_HEADER)
+
   if (incoming && ID_PATTERN.test(incoming)) {
     return incoming
   }
+
   // 16 random bytes as 32 hex chars — unique enough for correlation without
   // being a tracking surface.
   return randomBytes(16).toString('hex')
@@ -29,5 +31,6 @@ export function stampRequestId(
   requestId: string,
 ): Response {
   response.headers.set(REQUEST_ID_HEADER, requestId)
+
   return response
 }

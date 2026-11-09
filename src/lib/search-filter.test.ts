@@ -75,8 +75,10 @@ describe('filter URL value', () => {
 
   it('keeps to the depth and size the server accepts', () => {
     let deep: unknown = { f: 'status', o: 'eq', v: 'x' }
+
     for (let i = 0; i < 6; i += 1) deep = { g: 'AND', k: [deep] }
     expect(decodeFilter(deep)).toBeUndefined()
+
     const many = {
       g: 'AND',
       k: Array.from({ length: 60 }, (_, i) => ({
@@ -85,6 +87,7 @@ describe('filter URL value', () => {
         v: `t${i}`,
       })),
     }
+
     expect(countConditions(decodeFilter(many) as GroupNode)).toBe(50)
   })
 })
@@ -95,6 +98,7 @@ describe('filter tree helpers', () => {
       g: 'AND',
       k: [{ f: 'tags', o: 'contains', v: 'x' }],
     })
+
     expect(countConditions(andFilters(tree, other) as GroupNode)).toBe(3)
     expect(andFilters(undefined, other)).toBe(other)
     expect(andFilters(undefined, undefined)).toBeUndefined()
@@ -123,6 +127,7 @@ describe('filter sent to the search service', () => {
       g: 'AND',
       k: [{ f: 'type', o: 'eq', v: 'sample' }],
     })
+
     expect(filterToRpc(typed)).toEqual({
       type: 'group',
       combinator: 'AND',
@@ -137,6 +142,7 @@ describe('filter sent to the search service', () => {
       g: 'AND',
       k: [{ f: 'type', o: 'in', v: ['sample', 'dataset'] }],
     })
+
     const sent = filterToRpc(typed)
     const or = sent?.type === 'group' ? sent.children[0] : undefined
     expect(or).toMatchObject({ type: 'group', combinator: 'OR' })
@@ -147,6 +153,7 @@ describe('filter sent to the search service', () => {
       g: 'AND',
       k: [{ f: 'type', o: 'neq', v: 'sample' }],
     })
+
     const sent = filterToRpc(typed)
     expect(sent?.type === 'group' && sent.children[0]).toMatchObject({
       type: 'group',
@@ -159,6 +166,7 @@ describe('filter sent to the search service', () => {
       g: 'AND',
       k: [{ f: 'model:sample:concentration', o: 'gt', v: 2 }],
     })
+
     expect(filterToRpc(typed)).toEqual({
       type: 'group',
       combinator: 'AND',
@@ -195,7 +203,9 @@ describe('filter sent to the search service', () => {
         { f: 'model:cell_bank:location', o: 'eq', v: '12' },
       ],
     })
+
     const wire = filterToRpc(typed)
+
     const values =
       wire?.type === 'group'
         ? wire.children.map((c) =>
@@ -204,6 +214,7 @@ describe('filter sent to the search service', () => {
               : undefined,
           )
         : []
+
     expect(values).toEqual([10, [5, 9], '2026-01-01', '12'])
   })
 
@@ -261,6 +272,7 @@ describe('completeFilter', () => {
         },
       ],
     }
+
     const done = completeFilter(next)
     expect(done?.children.map((c) => c.id)).toEqual(['tags', 'ok'])
   })

@@ -114,6 +114,7 @@ function plateSpec(): PlateMapSpec {
 function frozenChart(): FrozenChart {
   const spec = chartSpec()
   const materialised = materialiseChart(spec, COLUMNS, ROWS)
+
   return {
     revisionId: null,
     frozenAt: '2026-01-01T00:00:00.000Z',
@@ -187,6 +188,7 @@ describe('representation read-only boundary', () => {
         config: chartSpec(),
       },
     })
+
     const sheet = createRepresentationHandle({
       source: { datasetId: null, versionId: null },
       config: {
@@ -195,6 +197,7 @@ describe('representation read-only boundary', () => {
         config: { instanceId: INSTANCE_ID },
       },
     })
+
     expect(chart.readOnly).toBe(true)
     expect(sheet.readOnly).toBe(false)
   })
@@ -220,6 +223,7 @@ describe('chart representation', () => {
       frozen: null,
       title: 'Trend',
     })!
+
     expect(handle.source.datasetId).toBe(DATASET_ID)
     expect(pinnedVersionId(handle)).toBeNull()
     expect(isFrozenRepresentation(handle)).toBe(false)
@@ -232,6 +236,7 @@ describe('chart representation', () => {
       frozen: frozenChart(),
       title: 'Trend',
     })!
+
     expect(handle.source.datasetId).toBe(DATASET_ID)
     expect(pinnedVersionId(handle)).toBe(VERSION_ID)
     expect(isFrozenRepresentation(handle)).toBe(true)
@@ -240,11 +245,13 @@ describe('chart representation', () => {
 
   it('marks a frozen snapshot without a pin as frozen, not live', () => {
     const frozen = { ...frozenChart(), datasetProvenance: [] }
+
     const handle = chartToRepresentationHandle({
       spec: chartSpec(),
       frozen,
       title: 'Legacy',
     })!
+
     expect(isFrozenRepresentation(handle)).toBe(true)
     expect(pinnedVersionId(handle)).toBeNull()
     expect(handle.provenance.summary).toContain('snapshot')
@@ -270,11 +277,13 @@ describe('chart representation', () => {
         },
       ],
     }
+
     const handle = chartToRepresentationHandle({
       spec: chartSpec(),
       frozen,
       title: 'Multi',
     })!
+
     expect(isFrozenRepresentation(handle)).toBe(true)
     expect(pinnedVersionId(handle)).toBeNull()
     expect(handle.source.datasetId).toBe(DATASET_ID)
@@ -291,11 +300,14 @@ describe('chart representation', () => {
       spec: chartSpec(),
       frozen: null,
     })!
+
     const out = materialiseRepresentation(handle, {
       columns: COLUMNS,
       rows: ROWS,
     })
+
     expect(out.kind).toBe('chart')
+
     if (out.kind !== 'chart') throw new Error('unreachable')
     expect(out.materialised).toEqual(
       materialiseChart(chartSpec(), COLUMNS, ROWS),
@@ -306,17 +318,22 @@ describe('chart representation', () => {
   it('reconstructs frozen evidence with parity to the frozen path', () => {
     const frozen = frozenChart()
     const handle = chartToRepresentationHandle({ spec: chartSpec(), frozen })!
+
     const out = reconstructFrozenRepresentation(handle, frozen, {
       columns: COLUMNS,
       rows: ROWS,
     })
+
     expect(out.kind).toBe('chart')
+
     if (out.kind !== 'chart') throw new Error('unreachable')
+
     const direct = reconstructFrozenVisualisation({
       spec: chartSpec(),
       frozen,
       rows: ROWS,
     })
+
     expect(out.materialised).toEqual(direct.chart)
     expect(out.facets).toEqual(direct.facets)
   })
@@ -326,6 +343,7 @@ describe('chart representation', () => {
     const handle = chartToRepresentationHandle({ spec: chartSpec(), frozen })!
     const out = reconstructFrozenRepresentation(handle, frozen)
     expect(out.kind).toBe('chart')
+
     if (out.kind !== 'chart') throw new Error('unreachable')
     expect(out.materialised).toEqual(materialiseFrozenChart(frozen))
   })
@@ -354,6 +372,7 @@ describe('analysis representation', () => {
       columns: COLUMNS,
       rows: ROWS,
     })
+
     expect(out).toEqual({
       kind: 'analysis',
       outcome: runAnalysis(descriptiveDefinition(), COLUMNS, ROWS),
@@ -376,15 +395,19 @@ describe('analysis representation', () => {
         } satisfies AnalysisDefinition,
       },
     })
+
     const frozen = frozenAnalysis()
+
     const out = reconstructFrozenRepresentation(liveDiverged, frozen, {
       columns: COLUMNS,
       rows: ROWS,
     })
+
     expect(out).toEqual({
       kind: 'analysis',
       outcome: runAnalysis(frozen.definition, COLUMNS, ROWS),
     })
+
     if (out.kind !== 'analysis' || !out.outcome.ok)
       throw new Error('unreachable')
     // Grouped snapshot yields one row per condition.
@@ -431,12 +454,14 @@ describe('plate_map representation', () => {
       errors: validatePlateMapSpec(spec),
       wellCount: 1,
     })
+
     if (out.kind !== 'plate_map') throw new Error('unreachable')
     expect(out.errors).toEqual([])
   })
 
   it('surfaces invalid specs with parity to the direct validator', () => {
     const bad = { ...plateSpec(), rows: 6 }
+
     const h = createRepresentationHandle({
       source: { datasetId: null, versionId: null },
       config: {
@@ -445,12 +470,14 @@ describe('plate_map representation', () => {
         config: bad,
       },
     })
+
     const out = materialiseRepresentation(h, { columns: [], rows: [] })
     expect(out).toEqual({
       kind: 'plate_map',
       errors: validatePlateMapSpec(bad),
       wellCount: bad.wells.length,
     })
+
     if (out.kind !== 'plate_map') throw new Error('unreachable')
     expect(out.errors.length).toBeGreaterThan(0)
   })
@@ -471,6 +498,7 @@ describe('plateMapToRepresentationHandle', () => {
       spec: plateSpec(),
       title: 'qPCR plate',
     })!
+
     expect(handle.config.kind).toBe('plate_map')
     expect(handle.source).toEqual({
       datasetId: null,
@@ -495,6 +523,7 @@ describe('plateMapToRepresentationHandle', () => {
       title: 'qPCR plate',
       frozen: true,
     })!
+
     expect(isFrozenRepresentation(handle)).toBe(true)
     expect(pinnedVersionId(handle)).toBeNull()
     // The pinned spec reconstructs through the frozen path with no payload.
@@ -551,12 +580,14 @@ describe('dispatcher guards', () => {
       spec: chartSpec(),
       frozen: null,
     })!
+
     expect(() =>
       reconstructFrozenRepresentation(chartHandle, frozenAnalysis(), {
         columns: COLUMNS,
         rows: ROWS,
       }),
     ).toThrow(/FrozenChart/)
+
     const analysisHandle = createRepresentationHandle({
       source: { datasetId: DATASET_ID, versionId: VERSION_ID },
       config: {
@@ -565,6 +596,7 @@ describe('dispatcher guards', () => {
         config: descriptiveDefinition(),
       },
     })
+
     expect(() =>
       reconstructFrozenRepresentation(analysisHandle, frozenChart(), {
         columns: COLUMNS,

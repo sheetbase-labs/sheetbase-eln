@@ -48,6 +48,7 @@ export function ComposedSheetRoute() {
     queryKey: ['sheet-instance', sheetId],
     queryFn: () => fetchSheetInstance(sheetId, sheetInstanceDataClient),
   })
+
   const instance = instanceQuery.data ?? null
   const instanceProjectId = instance?.projectId ?? projectIdParam ?? null
   const owningRecordId = instance?.notebookRecordId ?? null
@@ -57,6 +58,7 @@ export function ComposedSheetRoute() {
     queryFn: () => fetchProject(notebookDataClient, instanceProjectId!),
     enabled: Boolean(instanceProjectId),
   })
+
   const owningRecordQuery = useQuery({
     queryKey: notebookQueryKeys.record(owningRecordId ?? 'none'),
     queryFn: () => fetchRecord(notebookDataClient, owningRecordId!),
@@ -67,6 +69,7 @@ export function ComposedSheetRoute() {
   // carries presence only — thread anchoring on sheet rows waits for a
   // canonical per-row identity (queued follow-up task).
   const collaborationEnabled = useCollaborationEnabled()
+
   const collaborationRoomId = collaborationEnabled
     ? safeBuildRoomId(context.workspace?.id, 'sheet', sheetId)
     : null
@@ -74,6 +77,7 @@ export function ComposedSheetRoute() {
   // The sheet's location: its project and the record that owns it, when it has
   // them, then the sheet itself.
   const trail: Crumb[] = []
+
   if (instanceProjectId) {
     trail.push({
       label: projectQuery.data?.title ?? t('notebook.sheetPage.label'),
@@ -83,6 +87,7 @@ export function ComposedSheetRoute() {
       },
     })
   }
+
   if (owningRecordId && owningRecordQuery.data) {
     // An experiment has one page; any other owner keeps its notebook.
     trail.push({
@@ -96,6 +101,7 @@ export function ComposedSheetRoute() {
             },
     })
   }
+
   trail.push({
     label: instance?.displayId ?? t('notebook.sheetPage.sheetLabel'),
     mono: true,

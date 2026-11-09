@@ -42,15 +42,18 @@ export function OfflineBanner({
   className,
 }: OfflineBannerProps) {
   if (!offline) return null
+
   const syncNote = lastSyncedAt
     ? t('notebook.offlineBanner.lastSyncedClocktime', {
         clockTime: formatClockTime(lastSyncedAt),
       })
     : t('notebook.offlineBanner.notSyncedYetOn')
+
   const pending =
     unsyncedCount > 0
       ? t('notebook.offlineBanner.unsyncedChanges', { count: unsyncedCount })
       : null
+
   return (
     <div
       role="status"

@@ -36,6 +36,7 @@ export async function getInboxCounts(
 ): Promise<InboxCounts | null> {
   const client = db.$client
   const connection = await client.connect()
+
   try {
     await connection.query('begin')
     await connection.query('set local role authenticated')
@@ -49,16 +50,20 @@ export async function getInboxCounts(
         }),
       ],
     )
+
     const { rows } = await connection.query<InboxCounts>(
       'select total, reviews from api.inbox_needs_action_counts()',
     )
+
     await connection.query('commit')
     // The function aggregates unconditionally, so it always answers one row: an
     // answer with none raises here and the catch below states it as unknown.
     const [counts] = rows
+
     return { total: counts.total, reviews: counts.reviews }
   } catch {
     await connection.query('rollback').catch(() => {})
+
     // Unknown, not zero: the badge renders no number for `null`, where a zero
     // would be stated as one.
     return null

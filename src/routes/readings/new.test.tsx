@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
+
   return {
     ...actual,
     createFileRoute: () => (options: unknown) => ({
@@ -48,9 +49,11 @@ vi.mock('#/lib/readings-data', async (importOriginal) => ({
 
 function renderForm() {
   const Form = Route.options.component as React.ComponentType
+
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <Form />
@@ -200,6 +203,7 @@ describe('Record reading — blocked states', () => {
         validateSearch: (search: Record<string, unknown>) => unknown
       }
     ).validateSearch
+
     expect(
       validate({
         sample: 's1',

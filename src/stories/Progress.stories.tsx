@@ -12,7 +12,9 @@ const meta = {
   tags: ['autodocs'],
   args: { label: 'Hold time used', value: 45, className: 'w-96' },
 } satisfies Meta<typeof Progress>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

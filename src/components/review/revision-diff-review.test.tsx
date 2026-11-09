@@ -30,9 +30,11 @@ describe('RevisionDiffReview', () => {
         after={structuredClone(snapshot)}
       />,
     )
+
     const unavailable = screen
       .getByText('Cell comparison unavailable')
       .closest('[role="status"]')
+
     expect(unavailable?.textContent).toContain('Cell comparison unavailable')
     expect(unavailable?.textContent).toContain('can’t be compared cell by cell')
     expect(
@@ -148,15 +150,18 @@ describe('RevisionDiffReview', () => {
   it('batches large table details and navigates individual cell changes', () => {
     const before = revisionFixture()
     const after = revisionFixture()
+
     const beforeRows = Array.from({ length: 150 }, (_, index) => ({
       id: `row-large-${index}`,
       timepoint: String(index),
       titer: `1.${String(index).padStart(4, '0')}E+06`,
     }))
+
     const afterRows = beforeRows.map((row, index) => ({
       ...row,
       titer: `2.${String(index).padStart(4, '0')}E+06`,
     }))
+
     before.scientificTables[0].rows = beforeRows
     after.scientificTables[0].rows = afterRows
 

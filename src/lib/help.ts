@@ -54,12 +54,14 @@ export function releaseFromEnv(
   const version = env.SHEETBASE_ARTIFACT_VERSION || '0.0.0-dev'
   const digest = env.SHEETBASE_ARTIFACT_DIGEST || ''
   const environment = env.SHEETBASE_ENV || 'development'
+
   // A deployed environment is only called validated when the operator says a
   // change-control process stands behind its releases; a site that updates on
   // every push to main is not.
   const validated =
     (environment === 'staging' || environment === 'production') &&
     env.SHEETBASE_VALIDATED_RELEASE === 'true'
+
   return {
     version,
     build: digest ? digest.replace(/^sha256:/, '').slice(0, 12) : version,
@@ -92,5 +94,6 @@ export function useHelp() {
     queryFn: () => getHelpFn(),
     staleTime: Infinity,
   })
+
   return query.data
 }

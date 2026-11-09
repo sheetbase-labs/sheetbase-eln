@@ -103,12 +103,14 @@ export function FileColumnsStep({
   onCreated: (result: FileColumnsResult) => Promise<void>
 }) {
   const [sheetName, setSheetName] = useState(initialSheet.name)
+
   const sheetQuery = useQuery({
     queryKey: [...importQueryKeys.file(fileId), 'columns', sheetName],
     enabled: sheetName !== initialSheet.name,
     staleTime: Infinity,
     queryFn: () => fetchImportFile({ fileId, sheetName }),
   })
+
   const sheet =
     sheetName === initialSheet.name
       ? initialSheet
@@ -193,32 +195,42 @@ function ColumnsEditor({
 }) {
   const queryClient = useQueryClient()
   const [datasetName, setDatasetName] = useState(datasetNameFromFile(filename))
+
   const [rows, setRows] = useState<Row[]>(() =>
     columnsOf(sheet).map((column) => ({
       ...column,
       unitText: column.unit ?? '',
     })),
   )
+
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const kept = rows.filter((row) => row.keep)
+
   const problem = useMemo(() => {
     if (!datasetName.trim()) return t('data.importFlow.fileColumns.needName')
+
     if (kept.length === 0) return t('data.importFlow.fileColumns.needColumn')
+
     if (kept.some((row) => !row.name.trim())) {
       return t('data.importFlow.fileColumns.needColumnName')
     }
+
     const seen = new Set<string>()
+
     for (const row of kept) {
       const name = row.name.trim().toLowerCase()
+
       if (seen.has(name)) {
         return t('data.importFlow.fileColumns.nameClash', {
           name: row.name.trim(),
         })
       }
+
       seen.add(name)
     }
+
     return null
   }, [datasetName, kept])
 
@@ -234,12 +246,15 @@ function ColumnsEditor({
     if (problem) return
     setBusy(true)
     setError(null)
+
     try {
       const taken = new Set<string>()
+
       const fields = kept.map((row) => {
         const key = columnKeyFromName(row.name, taken)
         taken.add(key)
         const numeric = row.type === 'integer' || row.type === 'decimal'
+
         return {
           source: row.source,
           fieldId: crypto.randomUUID(),
@@ -249,11 +264,13 @@ function ColumnsEditor({
           unit: numeric && row.unitText.trim() ? row.unitText.trim() : null,
         }
       })
+
       const structure = await createStructureFromFile(client, {
         workspaceId,
         name: datasetName,
         fields,
       })
+
       const dataset = await createDataset(client, {
         workspaceId,
         schemaVersionId: structure.schemaVersionId,
@@ -261,6 +278,7 @@ function ColumnsEditor({
         createdByUserId,
         primaryProjectId: projectId,
       })
+
       void queryClient.invalidateQueries({ queryKey: ['ui-port', 'import'] })
       await onCreated({
         datasetId: dataset.id,
@@ -323,6 +341,7 @@ function ColumnsEditor({
           <TableBody>
             {rows.map((row) => {
               const numeric = row.type === 'integer' || row.type === 'decimal'
+
               return (
                 <TableRow key={row.source}>
                   <TableCell className="font-mono text-label">

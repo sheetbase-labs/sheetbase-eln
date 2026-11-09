@@ -113,7 +113,9 @@ function flagSourceLabel(flag: DatasetValueFlag): string {
 /** A rule's evaluated value, rendered compactly for the inspector. */
 export function formatProvenanceValue(value: unknown): string {
   if (value == null) return t('data.valueActions.noValue')
+
   if (typeof value === 'object') return JSON.stringify(value)
+
   return String(value)
 }
 
@@ -127,19 +129,29 @@ export function formatRuleThreshold(
 ): string | null {
   if (!threshold || typeof threshold !== 'object') return null
   const th = threshold as Record<string, unknown>
+
   if (rule === 'out_of_range') {
     const { min, max } = th
+
     if (min != null && max != null) return `expected ${min}–${max}`
+
     if (max != null) return `expected at most ${max}`
+
     if (min != null) return `expected at least ${min}`
+
     return null
   }
+
   if (rule === 'missing_unit') return t('data.valueActions.fieldRequiresUnit')
   // Only `high_cv` remains in the union here.
   const parts: string[] = []
+
   if (th.cvPercent != null) parts.push(`CV ${th.cvPercent}%`)
+
   if (th.replicateCount != null) parts.push(`${th.replicateCount} replicates`)
+
   if (th.maxCvPercent != null) parts.push(`limit ${th.maxCvPercent}%`)
+
   return parts.length ? parts.join(' · ') : null
 }
 
@@ -210,10 +222,12 @@ export function ValueActions({
       }),
     onSuccess: (result) => {
       onChanged?.()
+
       const identifier =
         typeof result.sample.identifier === 'string'
           ? result.sample.identifier
           : t('data.valueActions.derivedSample')
+
       const planned = result.plannedRowIds.length
       toast(t('data.valueActions.requestRepeatQueued', { identifier }), {
         description: t('data.valueActions.plannedAddedDatasetValues', {
@@ -238,9 +252,11 @@ export function ValueActions({
         <div className="flex flex-col gap-2">
           {flags.map((flag) => {
             const provenance = systemFlagProvenance(flag)
+
             const threshold = provenance
               ? formatRuleThreshold(provenance.rule, provenance.threshold)
               : null
+
             return (
               <div
                 key={flag.id}
@@ -398,9 +414,11 @@ export function MarkOutOfRangeDialog({
 }: MarkOutOfRangeDialogProps) {
   const groupName = useId()
   const formId = useId()
+
   const [reason, setReason] = useState<FlagReasonCategory>(
     FLAG_REASON_CATEGORIES[0],
   )
+
   const [comment, setComment] = useState('')
 
   const submit = () => {
@@ -415,6 +433,7 @@ export function MarkOutOfRangeDialog({
           setReason(FLAG_REASON_CATEGORIES[0])
           setComment('')
         }
+
         onOpenChange(next)
       }}
     >
@@ -525,6 +544,7 @@ export function ClearSystemFlagDialog({
             className="flex flex-col gap-3"
             onSubmit={(e) => {
               e.preventDefault()
+
               if (reason.trim()) onSubmit(reason.trim())
             }}
           >

@@ -32,6 +32,7 @@ function deps(authenticated = true, crossSheet = false) {
     version: 1,
     status: 'supported',
   })
+
   const query = vi
     .fn()
     .mockResolvedValueOnce({
@@ -67,10 +68,12 @@ function deps(authenticated = true, crossSheet = false) {
     })
     .mockResolvedValueOnce({ rows: [{ id: columnId }] })
     .mockResolvedValueOnce({ rows: [{ id: rowId }] })
+
   if (crossSheet) {
     query.mockResolvedValueOnce({ rows: [{ id: sourceColumnId }] })
     query.mockResolvedValueOnce({ rows: [{ id: sourceRowId }] })
   }
+
   return {
     value: {
       getSession: vi
@@ -95,6 +98,7 @@ describe('formula write route contract', () => {
 
   it('rejects extra fields and client-supplied artifacts', async () => {
     const mock = deps()
+
     const response = await handleFormulaWrite(
       request({
         operation: 'create',
@@ -106,12 +110,14 @@ describe('formula write route contract', () => {
       }),
       mock.value,
     )
+
     expect(response.status).toBe(400)
     expect(mock.trustedWrite).not.toHaveBeenCalled()
   })
 
   it('derives the persisted artifact and actor on the server', async () => {
     const mock = deps()
+
     const response = await handleFormulaWrite(
       request({
         operation: 'create',
@@ -122,6 +128,7 @@ describe('formula write route contract', () => {
       }),
       mock.value,
     )
+
     expect(response.status).toBe(200)
     expect(mock.trustedWrite).toHaveBeenCalledWith(
       'server-actor',
@@ -138,6 +145,7 @@ describe('formula write route contract', () => {
 
   it('returns formula syntax errors as safe validation responses', async () => {
     const mock = deps()
+
     const response = await handleFormulaWrite(
       request({
         operation: 'create',
@@ -148,6 +156,7 @@ describe('formula write route contract', () => {
       }),
       mock.value,
     )
+
     expect(response.status).toBe(422)
     expect(await response.json()).toMatchObject({
       error: { code: 'syntax' },
@@ -157,6 +166,7 @@ describe('formula write route contract', () => {
 
   it('resolves friendly cross-sheet names into stable dependency identities', async () => {
     const mock = deps(true, true)
+
     const response = await handleFormulaWrite(
       request({
         operation: 'create',
@@ -167,6 +177,7 @@ describe('formula write route contract', () => {
       }),
       mock.value,
     )
+
     expect(response.status).toBe(200)
     expect(mock.trustedWrite).toHaveBeenCalledWith(
       'server-actor',

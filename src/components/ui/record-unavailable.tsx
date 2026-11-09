@@ -28,7 +28,9 @@ export function RecordUnavailable({
   back: { to: LinkProps['to']; label: string }
 }) {
   useReportMissing(!query.isLoading)
+
   if (query.isLoading) return null
+
   return (
     <div className="px-4 py-4 md:px-6" data-testid="record-unavailable">
       {query.isError ? (

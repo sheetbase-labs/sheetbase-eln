@@ -36,6 +36,7 @@ const meta = {
 } satisfies Meta<typeof Tabs>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The list screens' section row: an underline strip with counts. */
@@ -147,6 +148,7 @@ function Strip({ children }: { children: React.ReactNode }) {
 
 function SegmentDemo() {
   const [view, setView] = useState('week')
+
   return (
     <div className="flex items-center gap-2">
       <span className="text-label text-fg-muted">View</span>
@@ -167,6 +169,7 @@ function SegmentDemo() {
 
 function ChipDemo() {
   const [section, setSection] = useState('projects')
+
   return (
     <div className="w-[390px]">
       <Tabs

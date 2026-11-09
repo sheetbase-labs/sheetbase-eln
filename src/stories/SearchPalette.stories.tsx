@@ -173,6 +173,7 @@ function provider(stub: DataClientStub) {
   const client = screenQueryClient({
     data: [{ key: ['ui-port', 'experiments', 'projects'], value: PROJECTS }],
   })
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <StubDataClient stub={stub}>
@@ -198,7 +199,9 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Open with no query: the palette's hint, before anything is searched. */

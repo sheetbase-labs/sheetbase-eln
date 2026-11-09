@@ -14,6 +14,7 @@ const { rpc, select, resolve, parserFailure } = vi.hoisted(() => ({
   resolve: vi.fn(),
   parserFailure: vi.fn(),
 }))
+
 vi.mock('#/lib/request-auth', () => ({
   postgrestRpc: rpc,
   postgrestSelect: select,
@@ -22,6 +23,7 @@ vi.mock('#/lib/request-auth', () => ({
   requestErrorResponse: (status: number, code: string, message: string) =>
     Response.json({ error: { code, message } }, { status }),
 }))
+
 vi.mock('./parser-governance.server', () => ({
   recordParserFailure: parserFailure,
 }))
@@ -40,6 +42,7 @@ function fixture(
 ) {
   const bytes = typeof csv === 'string' ? new TextEncoder().encode(csv) : csv
   const checksum = createHash('sha256').update(bytes).digest('hex')
+
   const storage: ObjectStorage = {
     putStream: vi.fn(),
     getStream: vi.fn(async () => ({
@@ -54,9 +57,11 @@ function fixture(
     head: vi.fn(),
     delete: vi.fn(),
   }
+
   select.mockImplementation(async (resource: string) => {
     if (resource === 'parser_versions')
       return { status: 200, body: parserVersions }
+
     if (resource === 'dataset_import_files')
       return {
         status: 200,
@@ -76,6 +81,7 @@ function fixture(
           },
         ],
       }
+
     if (resource === 'datasets')
       return {
         status: 200,
@@ -89,6 +95,7 @@ function fixture(
           },
         ],
       }
+
     return {
       status: 200,
       body: [
@@ -108,6 +115,7 @@ function fixture(
         status: 200,
         body: { parserId: PARSER_ID, parserVersionId: PARSER_VERSION_ID },
       }
+
     if (name === 'preview_dataset_import_rows')
       return {
         status: 200,
@@ -127,8 +135,10 @@ function fixture(
           ],
         },
       }
+
     return { status: 400, body: {} }
   })
+
   return storage
 }
 
@@ -169,7 +179,9 @@ it('selects measurements after a workbook cover through resume, review and commi
     'xl/worksheets/sheet2.xml':
       '<worksheet><row><c t="inlineStr"><is><t>sample</t></is></c></row><row><c t="inlineStr"><is><t>MEASURED-17</t></is></c></row></worksheet>',
   })
+
   const storage = fixture(new Uint8Array(workbook), [], 'instrument.xlsx')
+
   const read = await handleImportFileRead(
     new Request(
       `http://app.invalid/api/import/files?fileId=${FILE_ID}&sheetName=Measurements`,
@@ -177,6 +189,7 @@ it('selects measurements after a workbook cover through resume, review and commi
     undefined,
     storage,
   )
+
   expect(await read.json()).toMatchObject({
     fileId: FILE_ID,
     checksum: createHash('sha256')
@@ -193,17 +206,21 @@ it('selects measurements after a workbook cover through resume, review and commi
   expect(await missing.json()).toMatchObject({
     error: { code: 'worksheet_required' },
   })
+
   const invalid = await handleImportCommit(
     request({ sheetName: 'Missing' }),
     undefined,
     storage,
   )
+
   expect(invalid.status).toBe(422)
+
   const review = await handleImportReview(
     request({ sheetName: 'Measurements' }),
     undefined,
     storage,
   )
+
   expect(await review.json()).toMatchObject({
     ok: true,
     rows: expect.arrayContaining([
@@ -215,9 +232,11 @@ it('selects measurements after a workbook cover through resume, review and commi
     undefined,
     storage,
   )
+
   const args = rpc.mock.calls.find(
     ([name]) => name === 'commit_dataset_import',
   )?.[1]
+
   expect(args).toMatchObject({
     p_file_id: FILE_ID,
     p_mapping: { sheetName: 'Measurements' },
@@ -233,6 +252,7 @@ it('reports the cause the commit RPC raised, not a canned regulated sentence', a
         status: 200,
         body: { parserId: PARSER_ID, parserVersionId: PARSER_VERSION_ID },
       }
+
     if (name === 'preview_dataset_import_rows')
       return {
         status: 200,
@@ -248,6 +268,7 @@ it('reports the cause the commit RPC raised, not a canned regulated sentence', a
           rows: [{ index: 1, outcome: 'new', plannedKey: null, flags: [] }],
         },
       }
+
     return {
       status: 400,
       body: {
@@ -278,6 +299,7 @@ it('records the parser receipt the SB107 message names, not always approval', as
         status: 200,
         body: { parserId: PARSER_ID, parserVersionId: PARSER_VERSION_ID },
       }
+
     if (name === 'preview_dataset_import_rows')
       return {
         status: 200,
@@ -293,6 +315,7 @@ it('records the parser receipt the SB107 message names, not always approval', as
           rows: [{ index: 1, outcome: 'new', plannedKey: null, flags: [] }],
         },
       }
+
     return {
       status: 400,
       body: {
@@ -329,6 +352,7 @@ it('describes structured row rejections instead of echoing the bare code', async
         status: 200,
         body: { parserId: PARSER_ID, parserVersionId: PARSER_VERSION_ID },
       }
+
     if (name === 'preview_dataset_import_rows')
       return {
         status: 200,
@@ -344,6 +368,7 @@ it('describes structured row rejections instead of echoing the bare code', async
           rows: [{ index: 1, outcome: 'new', plannedKey: null, flags: [] }],
         },
       }
+
     return {
       status: 200,
       body: { ok: false, errors: [{ code: 'required_value', rowIndex: 1 }] },
@@ -365,6 +390,7 @@ it('describes structured row rejections instead of echoing the bare code', async
 
 it('names the draft parser instead of repeating the found headers', async () => {
   const csv = 'sample,ntu,dil,timestamp\nS1,1,2,2026-01-01T00:00:00Z\n'
+
   const storage = fixture(csv, [
     {
       id: PARSER_VERSION_ID,
@@ -380,19 +406,23 @@ it('names the draft parser instead of repeating the found headers', async () => 
       },
     },
   ])
+
   rpc.mockImplementation(async () => ({
     status: 200,
     body: { parserId: PARSER_ID, parserVersionId: PARSER_VERSION_ID },
   }))
+
   const response = await handleImportFileRead(
     new Request(`http://app.invalid/api/import/files?fileId=${FILE_ID}`),
     undefined,
     storage,
   )
+
   const body = (await response.json()) as {
     parser: unknown
     recognitionMessage: string
   }
+
   expect(body.parser).toBeNull()
   expect(body.recognitionMessage).toContain('match no approved parser')
   expect(body.recognitionMessage).toContain('TB-02 CSV v4 is a draft')

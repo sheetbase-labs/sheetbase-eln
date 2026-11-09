@@ -48,11 +48,13 @@ const state = vi.hoisted((): RunPageState => ({
   refetch: () => {},
   versions: [{ id: 'v-1', version: 5 }],
 }))
+
 const dataLayer = vi.hoisted(() => ({
   answer: vi.fn(),
   cancel: vi.fn(),
   launch: vi.fn(),
 }))
+
 const notifications = vi.hoisted(() => ({
   toast: vi.fn(),
   error: vi.fn(),

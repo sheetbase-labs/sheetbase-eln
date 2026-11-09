@@ -72,7 +72,9 @@ const FORMAT_LABEL: Record<string, string> = {
 /** "QR codes", "Data Matrix or Code 128" — for prose about the formats. */
 function formatList(formats: readonly string[]): string {
   const labels = formats.map((format) => FORMAT_LABEL[format] ?? format)
+
   if (labels.length < 2) return labels[0] ?? ''
+
   return `${labels.slice(0, -1).join(', ')} or ${labels[labels.length - 1]}`
 }
 
@@ -82,7 +84,9 @@ function cameraFailureState(error: unknown): CameraScannerState {
     typeof error === 'object' && error !== null && 'name' in error
       ? String(error.name)
       : ''
+
   if (name === 'NotAllowedError' || name === 'SecurityError') return 'denied'
+
   if (
     name === 'NotFoundError' ||
     name === 'DevicesNotFoundError' ||
@@ -90,6 +94,7 @@ function cameraFailureState(error: unknown): CameraScannerState {
   ) {
     return 'unavailable'
   }
+
   return 'error'
 }
 
@@ -106,11 +111,13 @@ export function CameraScanner({
   const video = useRef<HTMLVideoElement>(null)
   const [state, setState] = useState<CameraScannerState>('idle')
   const [lastScan, setLastScan] = useState<string | null>(null)
+
   // Formats the active decoder can read; `null` until a session loads one, or
   // when the decoder reads everything requested.
   const [decoderFormats, setDecoderFormats] = useState<
     readonly string[] | null
   >(null)
+
   // Bumped by "Start camera"; the session effect is keyed on it so the state
   // changes a session makes never restart or cancel the scanning loop.
   const [session, setSession] = useState(0)
@@ -134,29 +141,41 @@ export function CameraScanner({
     void (async () => {
       const mediaDevices =
         typeof navigator === 'undefined' ? undefined : navigator.mediaDevices
+
       if (!mediaDevices?.getUserMedia) {
         setState('no-camera-api')
+
         return
       }
+
       const decoder = await loadCodeDecoder(window, latest.current.formats)
+
       if (!decoder) {
         setState('unsupported')
+
         return
       }
+
       setDecoderFormats(decoder.formats ?? null)
+
       try {
         stream = await mediaDevices.getUserMedia({
           video: { facingMode: 'environment' },
         })
       } catch (error) {
         setState(cameraFailureState(error))
+
         return
       }
+
       if (stopped.current) {
         stream.getTracks().forEach((track) => track.stop())
+
         return
       }
+
       const element = video.current
+
       if (!element) return
       element.srcObject = stream
       // Autoplay can be refused on some browsers; the label is still readable
@@ -167,15 +186,18 @@ export function CameraScanner({
       // Re-report only when the code in frame changes, so holding a label
       // steady does not resolve it several times a second.
       let reported: string | null = null
+
       // `stopped` is set by the unmount cleanup below; the rule's control-flow
       // analysis cannot see that assignment, so it falsely narrows it to false.
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       while (!stopped.current) {
         const codes = await decoder.detect(element).catch(() => [])
+
         const code =
           codes
             .map((candidate) => candidate.trim())
             .find((c) => c.length > 0) ?? null
+
         if (code === null) reported = null
         else if (code !== reported) {
           reported = code
@@ -183,6 +205,7 @@ export function CameraScanner({
           setLastScan(code)
           latest.current.onScan(code, 'camera')
         }
+
         await sleep(intervalMs)
       }
     })()
@@ -198,9 +221,12 @@ export function CameraScanner({
   // Keep the screen on while the camera is reading, so it does not dim mid-scan.
   useWakeLock(scanning)
   const message = STATE_MESSAGE[state]
+
   const retryable =
     state === 'denied' || state === 'unavailable' || state === 'error'
+
   const showStart = state === 'idle' || state === 'starting' || retryable
+
   // Formats the active decoder cannot read, so the message can name them. The
   // shipped jsQR fallback reads QR only, unlike the native detector.
   const limitedFormats = decoderFormats
@@ -280,6 +306,7 @@ export function CameraScanner({
         onSubmit={(e) => {
           e.preventDefault()
           const trimmed = value.trim()
+
           if (trimmed) onScan(trimmed, 'typed')
         }}
       >

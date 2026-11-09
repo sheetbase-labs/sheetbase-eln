@@ -27,6 +27,7 @@ function Shortcuts() {
   // Open on the tab for the keyboard the reader actually has.
   const { os = platform === 'mac' ? 'mac' : 'windows' } = Route.useSearch()
   const { registry } = useShortcuts()
+
   return (
     <div className="grid grid-cols-1 gap-8 px-4 pb-10 pt-5 md:px-8 lg:grid-cols-[minmax(0,1fr)_260px]">
       <div className="flex min-w-0 flex-col gap-5">

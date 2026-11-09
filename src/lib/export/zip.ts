@@ -10,26 +10,33 @@ import { deflateRawSync } from 'node:zlib'
 
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256)
+
   for (let n = 0; n < 256; n++) {
     let c = n
+
     for (let k = 0; k < 8; k++) {
       c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
     }
+
     table[n] = c >>> 0
   }
+
   return table
 })()
 
 function crc32(data: Uint8Array): number {
   let crc = 0xffffffff
+
   for (const byte of data) {
     crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8)
   }
+
   return (crc ^ 0xffffffff) >>> 0
 }
 
 /** Fixed DOS timestamp: 1980-01-01, keeps archives byte-deterministic. */
 const DOS_TIME = 0
+
 /** DOS date word for 1980-01-01: (yearOffset << 9) | (month << 5) | day. */
 const DOS_DATE = (1 << 5) | 1
 
@@ -46,6 +53,7 @@ export class ZipWriter {
   add(name: string, content: string | Uint8Array): void {
     const data =
       typeof content === 'string' ? new TextEncoder().encode(content) : content
+
     this.staged.push({
       name: new TextEncoder().encode(name),
       data,
@@ -74,7 +82,9 @@ export class ZipWriter {
       crc: number
       method: number
     }
+
     const prepared: Prepared[] = []
+
     for (const entry of this.staged) {
       const compressed = deflateRawSync(entry.data)
       const useDeflate = compressed.length < entry.data.length
@@ -90,6 +100,7 @@ export class ZipWriter {
     const chunks: Uint8Array[] = []
     const offsets: number[] = []
     let offset = 0
+
     for (const p of prepared) {
       offsets.push(offset)
       const header = new Uint8Array(30 + p.name.length)
@@ -109,6 +120,7 @@ export class ZipWriter {
     }
 
     const centralStart = offset
+
     for (let i = 0; i < prepared.length; i++) {
       const p = prepared[i]
       const central = new Uint8Array(46 + p.name.length)
@@ -142,10 +154,12 @@ export class ZipWriter {
     const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0)
     const out = new Uint8Array(total)
     let position = 0
+
     for (const chunk of chunks) {
       out.set(chunk, position)
       position += chunk.length
     }
+
     return out
   }
 }

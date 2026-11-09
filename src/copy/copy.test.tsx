@@ -49,6 +49,7 @@ describe('rich', () => {
         })}
       </>,
     )
+
     expect(html).toBe(
       'You don’t have access. An admin can add you in <a href="/settings/workspace/members">Settings → Members</a>.',
     )
@@ -75,6 +76,7 @@ describe('the English catalogue', () => {
     for (const [key, value] of all) {
       const texts =
         typeof value === 'string' ? [value] : Object.values(value as object)
+
       for (const text of texts) expect(text, key).not.toBe('')
     }
   })
@@ -82,6 +84,7 @@ describe('the English catalogue', () => {
   it('uses {count} in every plural form', () => {
     for (const [key, value] of all) {
       if (typeof value === 'string') continue
+
       for (const text of Object.values(value as object)) {
         expect(text, key).toContain('{count}')
       }
@@ -92,6 +95,7 @@ describe('the English catalogue', () => {
     for (const [key, value] of all) {
       const texts =
         typeof value === 'string' ? [value] : Object.values(value as object)
+
       for (const text of texts as Array<string>) {
         const open = [...text.matchAll(/<(\w+)>/g)].map((m) => m[1])
         const close = [...text.matchAll(/<\/(\w+)>/g)].map((m) => m[1])

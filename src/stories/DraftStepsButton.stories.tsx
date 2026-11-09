@@ -20,7 +20,9 @@ const meta = {
   },
   decorators: [withPageAi('live')],
 } satisfies Meta<typeof DraftStepsButton>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

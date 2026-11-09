@@ -19,8 +19,11 @@ export function ContextHelp() {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+
   const topic = contextHelpFor(pathname)
+
   if (!topic) return null
+
   return (
     <Popover>
       <PopoverTrigger

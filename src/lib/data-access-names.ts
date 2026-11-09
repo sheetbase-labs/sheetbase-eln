@@ -35,6 +35,7 @@ export const dataAccessKeys = {
  */
 export function useReportingNames(): ReportingNames {
   const enabled = useDataAccess()
+
   const models = useQuery({
     queryKey: dataAccessKeys.models,
     queryFn: () =>
@@ -42,6 +43,7 @@ export function useReportingNames(): ReportingNames {
     enabled,
     staleTime: 60_000,
   })
+
   const columns = useQuery({
     queryKey: dataAccessKeys.columns,
     queryFn: () =>
@@ -49,16 +51,19 @@ export function useReportingNames(): ReportingNames {
     enabled,
     staleTime: 60_000,
   })
+
   return useMemo(() => {
     const views = new Map(
       (models.data ?? []).map((row) => [row.model_key, row.view_name]),
     )
+
     const names = new Map(
       (columns.data ?? []).map((row) => [
         `${row.model_key}\u0000${row.field_key}`,
         row.column_name,
       ]),
     )
+
     return {
       viewName: (modelKey) => views.get(modelKey),
       columnName: (modelKey, fieldKey) =>

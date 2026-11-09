@@ -31,6 +31,7 @@ const NOTE: Record<RunStepState, string> = {
 
 function humanise(name: string): string {
   const words = name.replace(/_/g, ' ')
+
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
@@ -39,6 +40,7 @@ function declared(
   config: Partial<PipelineConfig>,
 ): Array<{ name: string; kind: RunStep['kind'] }> {
   const transform = config.transform
+
   const first =
     transform && transform.language !== 'none'
       ? [
@@ -51,6 +53,7 @@ function declared(
           },
         ]
       : []
+
   return [
     ...first,
     ...(config.steps ?? []).map((step) => ({
@@ -77,30 +80,39 @@ export function runSteps(
   prompt?: Pick<PipelineRunPromptWire, 'step_id'>,
 ): RunStep[] {
   const steps = declared(config)
+
   const named = (name: string) =>
     steps.findIndex((step) => step.name.toLowerCase() === name.toLowerCase())
+
   let reached = steps.length
   let state: RunStepState = 'done'
+
   if (run.status === 'waiting') {
     reached = Math.max(prompt ? named(prompt.step_id) : -1, 0)
     state = 'waiting'
   } else if (run.status === 'failed' || run.status === 'cancelled') {
     const error = [...logs].reverse().find((entry) => entry.level === 'error')
+
     const fromDetail =
       typeof error?.detail.step === 'string' ? named(error.detail.step) : -1
+
     const fromMessage = error
       ? steps.findIndex((step) => error.message.includes(step.name))
       : -1
+
     reached = Math.max(fromDetail, fromMessage, 0)
     state = run.status === 'failed' ? 'failed' : 'not_started'
   } else if (run.status === 'running') {
     reached = 0
     state = 'running'
   }
+
   return steps.map((step, position) => {
     const stepState: RunStepState =
       position < reached ? 'done' : position === reached ? state : 'not_started'
+
     const tail = NOTE[stepState]
+
     return {
       index: position + 1,
       name: step.name,

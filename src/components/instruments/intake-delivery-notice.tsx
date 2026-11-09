@@ -8,8 +8,11 @@ type Problem = 'failed' | 'stale' | 'waiting'
 /** Which delivery problem an `intakeHealth` label describes, if any. */
 export function intakeDeliveryProblem(label: string): Problem | null {
   if (label === 'Last import failed') return 'failed'
+
   if (label.startsWith('No data for')) return 'stale'
+
   if (label === 'Waiting for first data') return 'waiting'
+
   return null
 }
 
@@ -52,6 +55,7 @@ export function IntakeDeliveryNotice({
   onSetUp?: () => void
 }) {
   const copy = COPY[problem]
+
   return (
     <Notice
       tone={problem === 'failed' ? 'bad' : 'warn'}

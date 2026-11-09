@@ -77,7 +77,9 @@ export interface FileItem {
  */
 function fileTypeFor(file: FileItem): string {
   const fromName = getFileType(file.name)
+
   if (fromName !== 'empty') return fromName
+
   return getFileType(file.mediaType ?? file.meta ?? '')
 }
 
@@ -150,6 +152,7 @@ export function CheckList({ items }: { items: CheckItem[] }) {
     >
       {items.map((c) => {
         const badge = checkBadge[c.state]
+
         return (
           <Row
             key={c.id}
@@ -191,6 +194,7 @@ export function ActivityFeed({ items }: { items: ActivityItem[] }) {
     return (
       <EmptyHint>{t('notebook.inspectorSections.noActivityYet')}</EmptyHint>
     )
+
   return (
     <ol className="space-y-3">
       {items.map((a) => (
@@ -233,6 +237,7 @@ export interface CommentItem {
 export function CommentList({ items }: { items: CommentItem[] }) {
   if (items.length === 0)
     return <EmptyHint>{t('notebook.inspectorSections.noComments')}</EmptyHint>
+
   return (
     <ul className="space-y-3">
       {items.map((c) => (
@@ -324,6 +329,7 @@ export function TagPills({
   onAdd?: () => void
 }) {
   if (tags.length === 0 && !onAdd) return null
+
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {tags.map((tag) => (
@@ -358,10 +364,12 @@ export function LinkToPills({ items }: { items: LinkToItem[] }) {
     return (
       <EmptyHint>{t('notebook.inspectorSections.noLinkedRecords')}</EmptyHint>
     )
+
   return (
     <div className="flex flex-wrap gap-1.5">
       {items.map((item, i) => {
         const iconName = item.icon ?? 'link'
+
         return (
           <Button
             key={i}

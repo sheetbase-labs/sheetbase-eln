@@ -67,6 +67,7 @@ function mount(
       includeArchived={overrides.includeArchived}
     />,
   )
+
   return { onSelect, onSearch }
 }
 
@@ -117,6 +118,7 @@ describe('RecordPicker', () => {
       status: 'consumed',
       archivedAt: '2026-02-01T00:00:00Z',
     })
+
     // Without includeArchived: archived record is not listed.
     mount({ results: [archived] })
     expect(screen.queryByText('SMP-2026-0099')).toBeNull()
@@ -165,9 +167,11 @@ describe('RecordPicker', () => {
 
   it('exposes an accessible search input with an aria-label', () => {
     mount({ results: [] })
+
     const input = screen.getByPlaceholderText(
       /search samples by identifier or title/i,
     )
+
     expect(input).toBeTruthy()
     expect(input.getAttribute('aria-label')).toMatch(
       /search samples by identifier or title/i,

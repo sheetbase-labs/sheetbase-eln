@@ -38,6 +38,7 @@ describe('ExtensionObjectActions', () => {
     const { container } = render(
       <ExtensionObjectActions actions={[]} onSelect={() => {}} />,
     )
+
     expect(container.innerHTML).toBe('')
   })
 
@@ -59,6 +60,7 @@ describe('ExtensionCommandGroup', () => {
     const { container } = render(
       <ExtensionCommandGroup commands={[]} onSelect={() => {}} />,
     )
+
     expect(screen.queryByText('Extensions')).toBeNull()
     expect(container.innerHTML).toBe('')
   })
@@ -79,9 +81,11 @@ describe('toExtensionPanelTabs', () => {
         key: 'stranger:panels:other',
       }),
     ]
+
     const tabs = toExtensionPanelTabs(panels, (panel) =>
       panel.extensionKey === 'sample' ? <div>Sample body</div> : null,
     )
+
     expect(tabs.map((tab) => tab.id)).toEqual(['extension-sample-sample-panel'])
     expect(tabs[0].label).toBe('Open sample panel')
   })

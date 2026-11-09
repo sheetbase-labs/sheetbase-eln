@@ -40,6 +40,7 @@ function Harness({
   showLabel?: boolean
 }) {
   const [value, setValue] = useState<string | boolean>(initial)
+
   return (
     <ModelFieldInput
       definition={definition}
@@ -63,7 +64,9 @@ const meta = {
   ],
   args: { definition: field(), value: '', onChange: () => {} },
 } satisfies Meta<typeof ModelFieldInput>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Text: Story = {

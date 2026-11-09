@@ -19,12 +19,15 @@ describe('lake Parquet', () => {
         [3, 1.5, null, null, null, null],
       ],
     )
+
     expect(file.recordCount).toBe(3)
     // Parquet files start and end with PAR1.
     const head = Buffer.from(file.bytes.subarray(0, 4)).toString()
+
     const tail = Buffer.from(
       file.bytes.subarray(file.bytes.length - 4),
     ).toString()
+
     expect([head, tail]).toEqual(['PAR1', 'PAR1'])
     expect(file.footerSize).toBeGreaterThan(0)
     expect(file.stats[1]).toMatchObject({

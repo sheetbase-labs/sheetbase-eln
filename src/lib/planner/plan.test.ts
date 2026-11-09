@@ -92,6 +92,7 @@ describe('parsePlanAnswer', () => {
       'Test compound X',
       context,
     )!
+
     expect(plan.experiment).toMatchObject({
       title: 'Dose response of X',
       templateRecordId: 'p-1',
@@ -138,6 +139,7 @@ describe('parsePlanAnswer', () => {
       'Test compound X',
       context,
     )!
+
     expect(plan.warnings).toContain('Assumed 24 hour incubation.')
     expect(
       plan.warnings.some((w) =>
@@ -153,11 +155,13 @@ describe('parsePlanAnswer', () => {
     expect(
       plan.warnings.some((w) => w.startsWith('SAM-0002 has 2 mL left')),
     ).toBe(true)
+
     const unknownProtocol = parsePlanAnswer(
       JSON.stringify({ ...answer, protocol: 't9' }),
       'g',
       context,
     )!
+
     expect(unknownProtocol.experiment.templateRecordId).toBeUndefined()
     expect(unknownProtocol.warnings.some((w) => w.includes('protocol'))).toBe(
       true,
@@ -176,6 +180,7 @@ describe('parsePlanAnswer', () => {
       'g',
       context,
     )!
+
     expect(plan.schedule).toBe(false)
     expect(plan.plate).toBeNull()
   })
@@ -190,6 +195,7 @@ describe('parsePlanAnswer', () => {
       'g',
       context,
     )!
+
     expect(odd.plate?.format).toBe('96_well')
     expect(odd.worklist?.format).toBe('csv')
     expect(odd.warnings.some((w) => w.includes('not supported'))).toBe(true)
@@ -206,6 +212,7 @@ describe('parsePlanAnswer', () => {
       'g',
       context,
     )!
+
     expect(tooBig.plate).toBeNull()
     expect(tooBig.warnings.some((w) => w.includes('needs'))).toBe(true)
   })

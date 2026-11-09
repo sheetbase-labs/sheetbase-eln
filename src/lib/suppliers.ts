@@ -28,6 +28,7 @@ export async function fetchSupplierModelKeys(
     'supplier_models',
     '?select=model_key&order=model_key.asc',
   )
+
   return rows.map((row) => row.model_key)
 }
 
@@ -38,6 +39,7 @@ export async function fetchSuppliers(
 ): Promise<SupplierRecord[]> {
   if (modelKeys.length === 0) return []
   const list = modelKeys.map((key) => encodeURIComponent(key)).join(',')
+
   return client.list<SupplierRecord>(
     'records',
     `?kind=in.(${list})&deleted_at=is.null&archived_at=is.null&order=title.asc&limit=2000&select=id,identifier,title,kind`,

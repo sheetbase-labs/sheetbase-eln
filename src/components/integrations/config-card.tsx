@@ -42,9 +42,11 @@ export function ConnectorConfigCard({
   canManage: boolean
 }) {
   const queryClient = useQueryClient()
+
   const [values, setValues] = useState<ConnectorConfigValues>(() =>
     configFormValues(adapter, connector.config),
   )
+
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saved, setSaved] = useState(false)
   const missing = missingConfigLabels(adapter, connector.config)
@@ -91,25 +93,31 @@ export function ConnectorConfigCard({
           onSubmit={(event) => {
             event.preventDefault()
             setSaved(false)
+
             const built = buildConnectorConfig(
               adapter,
               connector.config,
               values,
             )
+
             if (!built.ok) {
               setErrors(built.errors)
+
               return
             }
+
             setErrors({})
             save.mutate(built.config)
           }}
         >
           {fields.map((field) => {
             const value = values[field.name]
+
             const set = (next: string | boolean) => {
               setSaved(false)
               setValues((prev) => ({ ...prev, [field.name]: next }))
             }
+
             if (field.kind === 'boolean') {
               return (
                 <label
@@ -129,6 +137,7 @@ export function ConnectorConfigCard({
                 </label>
               )
             }
+
             return (
               <Field
                 key={field.name}

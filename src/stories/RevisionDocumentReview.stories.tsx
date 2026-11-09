@@ -52,7 +52,9 @@ const meta = {
     comparisonRevisionId: EARLIER_REVISION_ID,
   },
 } satisfies Meta<typeof RevisionDocumentReview>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Insertions and deletions marked against the previous revision. */

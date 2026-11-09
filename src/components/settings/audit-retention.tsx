@@ -39,6 +39,7 @@ export function retentionYears(days: number): number {
 
 export function formatRetention(days: number): string {
   const years = retentionYears(days)
+
   return `${years} ${years === 1 ? 'year' : 'years'}`
 }
 
@@ -50,6 +51,7 @@ export function AuditIntegrityLine({ workspaceId }: { workspaceId: string }) {
     queryFn: () => fetchWorkspaceSettings(dataClient, workspaceId),
     enabled: Boolean(workspaceId),
   })
+
   // The nightly check writes a System entry carrying its result.
   const check = useQuery({
     queryKey: auditVerificationKeys.status,
@@ -57,8 +59,10 @@ export function AuditIntegrityLine({ workspaceId }: { workspaceId: string }) {
     enabled: Boolean(workspaceId),
     staleTime: 60_000,
   })
+
   const last = check.data
   const time = last ? formatDate(last.checkedAt, { time: true }) : ''
+
   const parts = [
     check.isSuccess
       ? !last
@@ -72,6 +76,7 @@ export function AuditIntegrityLine({ workspaceId }: { workspaceId: string }) {
       ? `Kept ${formatRetention(settings.data.auditRetentionDays)}`
       : null,
   ].filter(Boolean)
+
   return <>{parts.join(' · ')}</>
 }
 
@@ -79,9 +84,11 @@ export function AuditIntegrityLine({ workspaceId }: { workspaceId: string }) {
  * daily check, and says what it found. */
 export function CheckNowButton({ workspaceId }: { workspaceId: string }) {
   const queryClient = useQueryClient()
+
   const run = useMutation({
     mutationFn: async () => {
       await runAuditVerificationNow(dataClient, workspaceId)
+
       return fetchAuditVerificationStatus(dataClient)
     },
     onSuccess: async (status) => {
@@ -89,7 +96,9 @@ export function CheckNowButton({ workspaceId }: { workspaceId: string }) {
         queryKey: auditVerificationKeys.status,
       })
       await queryClient.invalidateQueries({ queryKey: ['audit-events'] })
+
       if (!status) return
+
       if (status.ok) {
         toast(
           t('settings.audit.checkNowOk', {
@@ -101,6 +110,7 @@ export function CheckNowButton({ workspaceId }: { workspaceId: string }) {
     },
     onError: () => toast(t('settings.audit.checkNowFailed')),
   })
+
   return (
     <Button disabled={run.isPending} onClick={() => run.mutate()}>
       {run.isPending
@@ -121,17 +131,22 @@ export function RetentionDialog({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
+
   const settings = useQuery({
     queryKey: adminQueryKeys.settings(workspaceId),
     queryFn: () => fetchWorkspaceSettings(dataClient, workspaceId),
   })
+
   const [years, setYears] = useState<string | null>(null)
+
   const current = settings.data
     ? String(retentionYears(settings.data.auditRetentionDays))
     : ''
+
   const value = years ?? current
   const parsed = Number(value)
   const valid = Number.isInteger(parsed) && parsed >= 1 && parsed <= 100
+
   const save = useMutation({
     mutationFn: () =>
       updateWorkspaceSettings(dataClient, {
@@ -145,6 +160,7 @@ export function RetentionDialog({
       onClose()
     },
   })
+
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent>

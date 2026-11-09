@@ -3,6 +3,7 @@ import { cn } from '#/lib/utils'
 import { useFloatingBoundary } from '#/lib/visible-area'
 
 export const TooltipProvider = TooltipPrimitive.Provider
+
 export function Tooltip({
   content,
   children,

@@ -72,6 +72,7 @@ export const HTTP_METHODS = [
 ] as const
 
 export const FILE_OPERATIONS = ['upload', 'download'] as const
+
 export type FileOperation = (typeof FILE_OPERATIONS)[number]
 
 /** Bounded Dataset RPC operations observed at the same-origin proxy. */
@@ -82,6 +83,7 @@ export const DATASET_RPC_OPERATIONS = [
   'snapshot_dataset',
   'search',
 ] as const
+
 export type DatasetRpcOperation = (typeof DATASET_RPC_OPERATIONS)[number]
 
 /** Bounded Pipeline stage vocabulary for duration histograms. */
@@ -93,6 +95,7 @@ export const PIPELINE_STAGES = [
   'dataset_snapshot',
   'total',
 ] as const
+
 export type PipelineStage = (typeof PIPELINE_STAGES)[number]
 
 export const PIPELINE_OUTCOMES = ['succeeded', 'failed', 'cancelled'] as const
@@ -104,10 +107,12 @@ export const MODEL_NAMES = [
   'sheetbase-assist-1',
   'sheetbase-summarise-1',
 ] as const
+
 export type ModelName = (typeof MODEL_NAMES)[number]
 
 /** Bounded gateway call outcomes: ok, policy rejection, or provider error. */
 export const MODEL_OUTCOMES = ['ok', 'rejected', 'error'] as const
+
 export type ModelOutcome = (typeof MODEL_OUTCOMES)[number]
 
 /** Bounded gateway error codes for the error series. */
@@ -118,17 +123,22 @@ export const MODEL_ERROR_CODES = [
   'budget_exhausted',
   'provider_error',
 ] as const
+
 export type ModelErrorCode = (typeof MODEL_ERROR_CODES)[number]
 
 /** Bounded row-count buckets for Dataset write/snapshot durations. */
 export const SIZE_BUCKETS = ['small', 'medium', 'large', 'xlarge'] as const
+
 export type SizeBucket = (typeof SIZE_BUCKETS)[number]
 
 /** Map a row count onto the bounded size-bucket vocabulary. */
 export function sizeBucketFor(rows: number): SizeBucket {
   if (rows < 1_000) return 'small'
+
   if (rows < 10_000) return 'medium'
+
   if (rows < 50_000) return 'large'
+
   return 'xlarge'
 }
 
@@ -143,6 +153,7 @@ export const FILE_OUTCOMES = [
   'rate_limited',
   'error',
 ] as const
+
 export type FileOutcome = (typeof FILE_OUTCOMES)[number]
 
 interface Labels {
@@ -156,13 +167,16 @@ function foldBounded(allowed: readonly string[], value: string): string {
 function labelKey(names: readonly string[], values: Labels): string | null {
   if (names.length === 0) return ''
   const parts: string[] = []
+
   for (const name of names) {
     const value: string | undefined = (
       values as Record<string, string | undefined>
     )[name]
+
     if (value === undefined) return null
     parts.push(`${name}="${escapeLabel(value)}"`)
   }
+
   return parts.join(',')
 }
 
@@ -198,14 +212,17 @@ export class Counter {
   /** Increments the counter; unknown bounded label values fold to 'other'. */
   inc(values: Labels = {}, by = 1): void {
     const bounded: Labels = {}
+
     for (const name of this.labelNames) {
       const raw: string | undefined = (
         values as Record<string, string | undefined>
       )[name]
+
       const allowed = bounderFor(this.bounders, name)
       bounded[name] =
         raw === undefined ? 'other' : allowed ? foldBounded(allowed, raw) : raw
     }
+
     const key = labelKey(this.labelNames, bounded) ?? ''
     this.values.set(key, (this.values.get(key) ?? 0) + by)
   }
@@ -215,6 +232,7 @@ export class Counter {
       `# HELP ${this.name} ${this.help}`,
       `# TYPE ${this.name} counter`,
     ]
+
     if (this.values.size === 0) {
       // Prometheus requires at least a series or nothing; emit the zero
       // series for the unlabelled case so the metric always exists.
@@ -224,6 +242,7 @@ export class Counter {
         lines.push(`${this.name}${key ? `{${key}}` : ''} ${value}`)
       }
     }
+
     return lines.join('\n')
   }
 }
@@ -252,16 +271,20 @@ export class Histogram {
   /** Observes one value in seconds; unknown bounded label values fold. */
   observe(values: Labels, seconds: number): void {
     const bounded: Labels = {}
+
     for (const name of this.labelNames) {
       const raw: string | undefined = (
         values as Record<string, string | undefined>
       )[name]
+
       const allowed = bounderFor(this.bounders, name)
       bounded[name] =
         raw === undefined ? 'other' : allowed ? foldBounded(allowed, raw) : raw
     }
+
     const key = labelKey(this.labelNames, bounded) ?? ''
     let series = this.series.get(key)
+
     if (!series) {
       series = {
         buckets: new Array(this.buckets.length).fill(0),
@@ -270,9 +293,11 @@ export class Histogram {
       }
       this.series.set(key, series)
     }
+
     for (let i = 0; i < this.buckets.length; i += 1) {
       if (seconds <= this.buckets[i]) series.buckets[i] += 1
     }
+
     series.sum += seconds
     series.count += 1
   }
@@ -282,18 +307,22 @@ export class Histogram {
       `# HELP ${this.name} ${this.help}`,
       `# TYPE ${this.name} histogram`,
     ]
+
     for (const [key, series] of this.series) {
       for (let i = 0; i < this.buckets.length; i += 1) {
         const labels = key
           ? `${key},le="${this.buckets[i]}"`
           : `le="${this.buckets[i]}"`
+
         lines.push(`${this.name}{${labels}} ${series.buckets[i]}`)
       }
+
       const infLabels = key ? `${key},le="+Inf"` : 'le="+Inf"'
       lines.push(`${this.name}{${infLabels}} ${series.count}`)
       lines.push(`${this.name}_sum${key ? `{${key}}` : ''} ${series.sum}`)
       lines.push(`${this.name}_count${key ? `{${key}}` : ''} ${series.count}`)
     }
+
     return lines.join('\n')
   }
 }
@@ -317,14 +346,17 @@ export class Gauge {
 
   set(value: number, values: Labels = {}): void {
     const bounded: Labels = {}
+
     for (const name of this.labelNames) {
       const raw: string | undefined = (
         values as Record<string, string | undefined>
       )[name]
+
       const allowed = bounderFor(this.bounders, name)
       bounded[name] =
         raw === undefined ? 'other' : allowed ? foldBounded(allowed, raw) : raw
     }
+
     const key = labelKey(this.labelNames, bounded) ?? ''
     this.values.set(key, value)
   }
@@ -344,6 +376,7 @@ export class Gauge {
       `# HELP ${this.name} ${this.help}`,
       `# TYPE ${this.name} gauge`,
     ]
+
     if (this.values.size === 0) {
       if (this.labelNames.length === 0) lines.push(`${this.name} 0`)
     } else {
@@ -351,6 +384,7 @@ export class Gauge {
         lines.push(`${this.name}${key ? `{${key}}` : ''} ${value}`)
       }
     }
+
     return lines.join('\n')
   }
 }
@@ -366,12 +400,14 @@ export function createMetricsRegistry() {
     ['route', 'method', 'status'],
     { route: HTTP_ROUTES, method: HTTP_METHODS },
   )
+
   const httpDuration = new Histogram(
     'sheetbase_http_request_duration_seconds',
     'HTTP request duration by route and method.',
     ['route', 'method'],
     { route: HTTP_ROUTES, method: HTTP_METHODS },
   )
+
   const dbUpstreamRequests = new Counter(
     'sheetbase_db_upstream_requests_total',
     'PostgREST upstream responses by public error category.',
@@ -390,12 +426,14 @@ export function createMetricsRegistry() {
       ],
     },
   )
+
   const dbUpstreamDuration = new Histogram(
     'sheetbase_db_upstream_duration_seconds',
     'PostgREST upstream duration by HTTP method.',
     ['method'],
     { method: HTTP_METHODS },
   )
+
   const connectorRuns = new Counter(
     'sheetbase_connector_runs_total',
     'Connector run outcomes by connector type.',
@@ -405,12 +443,14 @@ export function createMetricsRegistry() {
       outcome: ['started', 'succeeded', 'failed', 'stale_reconciled'],
     },
   )
+
   const connectorRunFailures = new Counter(
     'sheetbase_connector_run_failures_total',
     'Connector run failures by bounded error code.',
     ['connector_type', 'error_code'],
     { connector_type: CONNECTOR_TYPES, error_code: CONNECTOR_ERROR_CODES },
   )
+
   const connectorRunDuration = new Histogram(
     'sheetbase_connector_run_duration_seconds',
     'Connector run duration by connector type and outcome.',
@@ -418,24 +458,28 @@ export function createMetricsRegistry() {
     { connector_type: CONNECTOR_TYPES, outcome: ['succeeded', 'failed'] },
     [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 15, 60, 300],
   )
+
   const fileOperations = new Counter(
     'sheetbase_file_operations_total',
     'File upload/download outcomes.',
     ['operation', 'outcome'],
     { operation: FILE_OPERATIONS, outcome: FILE_OUTCOMES },
   )
+
   const fileBytes = new Counter(
     'sheetbase_file_bytes_total',
     'Bytes transferred through file byte routes.',
     ['operation'],
     { operation: FILE_OPERATIONS },
   )
+
   const fileDuration = new Histogram(
     'sheetbase_file_operation_duration_seconds',
     'File operation duration.',
     ['operation'],
     { operation: FILE_OPERATIONS },
   )
+
   // PLAT-05 — Dataset/Pipeline/Scheduler scale observability.
   const datasetRpcDuration = new Histogram(
     'sheetbase_dataset_rpc_duration_seconds',
@@ -444,6 +488,7 @@ export function createMetricsRegistry() {
     { operation: DATASET_RPC_OPERATIONS },
     [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30],
   )
+
   const datasetCommitDuration = new Histogram(
     'sheetbase_dataset_commit_duration_seconds',
     'Dataset row-batch commit duration by bounded row-count bucket.',
@@ -451,6 +496,7 @@ export function createMetricsRegistry() {
     { size_bucket: SIZE_BUCKETS },
     [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60],
   )
+
   const datasetSnapshotDuration = new Histogram(
     'sheetbase_dataset_snapshot_duration_seconds',
     'Dataset Version snapshot duration by bounded row-count bucket.',
@@ -458,6 +504,7 @@ export function createMetricsRegistry() {
     { size_bucket: SIZE_BUCKETS },
     [0.1, 0.5, 1, 2.5, 5, 10, 30, 60, 120, 300],
   )
+
   const pipelineStageDuration = new Histogram(
     'sheetbase_pipeline_stage_duration_seconds',
     'Pipeline execution stage duration.',
@@ -465,16 +512,19 @@ export function createMetricsRegistry() {
     { stage: PIPELINE_STAGES },
     [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 15, 30, 60, 120],
   )
+
   const pipelineRuns = new Counter(
     'sheetbase_pipeline_runs_total',
     'Pipeline run outcomes by trigger kind.',
     ['trigger_kind', 'outcome'],
     { trigger_kind: PIPELINE_TRIGGER_KINDS, outcome: PIPELINE_OUTCOMES },
   )
+
   const pipelineActiveRuns = new Gauge(
     'sheetbase_pipeline_active_runs',
     'Pipeline runs currently executing in this process.',
   )
+
   const schedulerSweepDuration = new Histogram(
     'sheetbase_scheduler_sweep_duration_seconds',
     'Pipeline scheduler sweep duration.',
@@ -482,18 +532,22 @@ export function createMetricsRegistry() {
     {},
     [0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 15, 60],
   )
+
   const schedulerDueOccurrences = new Counter(
     'sheetbase_scheduler_due_occurrences_total',
     'Due occurrences started by the pipeline scheduler sweep.',
   )
+
   const schedulerRecoveredOccurrences = new Counter(
     'sheetbase_scheduler_recovered_occurrences_total',
     'Stale crashed occurrences recovered by the pipeline scheduler sweep.',
   )
+
   const schedulerEventsProcessed = new Counter(
     'sheetbase_scheduler_events_processed_total',
     'Change events consumed by event-trigger pipeline schedules.',
   )
+
   const searchDuration = new Histogram(
     'sheetbase_search_duration_seconds',
     'Global search RPC duration observed at the same-origin proxy.',
@@ -501,6 +555,7 @@ export function createMetricsRegistry() {
     {},
     [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
   )
+
   // AI-03 — Governed model-call boundary telemetry. `model` folds unknown
   // values to `other`, so fail-closed rejections never widen cardinality.
   const modelCalls = new Counter(
@@ -509,18 +564,21 @@ export function createMetricsRegistry() {
     ['model', 'outcome'],
     { model: MODEL_NAMES, outcome: MODEL_OUTCOMES },
   )
+
   const modelCost = new Counter(
     'sheetbase_model_cost_microusd_total',
     'Estimated model cost in micro-USD by model.',
     ['model'],
     { model: MODEL_NAMES },
   )
+
   const modelErrors = new Counter(
     'sheetbase_model_errors_total',
     'Governed model-call failures by model and bounded error code.',
     ['model', 'code'],
     { model: MODEL_NAMES, code: MODEL_ERROR_CODES },
   )
+
   const modelDuration = new Histogram(
     'sheetbase_model_duration_seconds',
     'Governed model-call provider latency by model.',
@@ -544,6 +602,7 @@ export function createMetricsRegistry() {
     modelCost,
     modelErrors,
   ]
+
   const histograms = [
     httpDuration,
     dbUpstreamDuration,
@@ -557,6 +616,7 @@ export function createMetricsRegistry() {
     searchDuration,
     modelDuration,
   ]
+
   const gauges = [pipelineActiveRuns]
 
   return {
@@ -588,6 +648,7 @@ export function createMetricsRegistry() {
     /** Renders the Prometheus text exposition format. */
     render(): string {
       const all = [...metrics, ...histograms, ...gauges]
+
       return all.map((m) => m.render()).join('\n\n') + '\n'
     },
   }
@@ -603,5 +664,6 @@ export function boundedConnectorErrorCode(
   code: string | null | undefined,
 ): string {
   if (!code) return 'unexpected_error'
+
   return foldBounded(CONNECTOR_ERROR_CODES, code)
 }

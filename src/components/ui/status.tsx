@@ -13,6 +13,7 @@ const tones = {
   analysis: 'bg-analysis',
   lab: 'bg-lab',
 } as const
+
 export type Tone = keyof typeof tones
 
 export function Dot({ tone, className }: { tone: Tone; className?: string }) {

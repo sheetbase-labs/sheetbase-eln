@@ -17,15 +17,19 @@ export interface TwoFactorStatus {
 export const getTwoFactorStatusFn = createServerFn({ method: 'GET' }).handler(
   async (): Promise<TwoFactorStatus> => {
     const { getRequestHeaders } = await import('@tanstack/react-start/server')
+
     const { getAppSession, getAuthMethods, isDevAuthFreeEnabled } =
       await import('#/lib/auth')
+
     const { and, eq, isNotNull } = await import('drizzle-orm')
     const { db } = await import('#/db/client.server')
     const { account, user } = await import('#/db/schema')
 
     const appSession = await getAppSession(getRequestHeaders())
+
     if (!appSession) throw new Error('Your session has ended. Sign in again.')
     const emailLinkEnabled = getAuthMethods().emailLink
+
     if (isDevAuthFreeEnabled()) {
       return {
         available: false,
@@ -34,6 +38,7 @@ export const getTwoFactorStatusFn = createServerFn({ method: 'GET' }).handler(
         emailLinkEnabled,
       }
     }
+
     const [[row], credentials] = await Promise.all([
       db
         .select({ enabled: user.twoFactorEnabled })
@@ -52,6 +57,7 @@ export const getTwoFactorStatusFn = createServerFn({ method: 'GET' }).handler(
         )
         .limit(1),
     ])
+
     return {
       available: true,
       enabled: row.enabled,

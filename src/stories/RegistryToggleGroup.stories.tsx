@@ -19,7 +19,9 @@ const meta = {
   tags: ['autodocs'],
   args: { type: 'single' },
 } satisfies Meta<typeof ToggleGroup>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const KINDS = ['Experiment', 'Dataset', 'Sample', 'Instrument']

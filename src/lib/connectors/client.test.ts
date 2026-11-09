@@ -5,12 +5,15 @@ import type { DataClient } from '#/lib/data-client'
 
 function recording() {
   const queries: string[] = []
+
   const client = {
     list: async (_table: string, query: string) => {
       queries.push(query)
+
       return [{ id: 'c-1', key: 'document-management' }]
     },
   } as unknown as DataClient
+
   return { client, queries }
 }
 

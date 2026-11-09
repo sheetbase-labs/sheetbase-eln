@@ -79,6 +79,7 @@ export const Route = createFileRoute('/foundations')({
 
 function FoundationsPage() {
   const { theme, setTheme } = useTheme()
+
   return (
     <div className="min-h-svh bg-background text-foreground">
       <div className="mx-auto max-w-5xl px-6 py-10">
@@ -764,6 +765,7 @@ function NotebookVizPreview() {
     col: i % 12,
     value: ((i * 7 + (i % 5)) % 10) / 10,
   }))
+
   return (
     <div className="grid gap-6 lg:grid-cols-2">
       <div className="space-y-4">
@@ -947,6 +949,7 @@ const PREVIEW_TAB_BODIES: Record<string, string> = {
 
 function TabsPreview() {
   const [tab, setTab] = useState<string>('properties')
+
   return (
     <div>
       <Tabs
@@ -1048,6 +1051,7 @@ function ContrastGrid() {
         // test is the authoritative check for both themes.
         const ratio = contrastRatio(oklchToSrgb(p.fg), oklchToSrgb(p.bg))
         const aa: 'pass' | 'fail' = ratio >= 4.5 ? 'pass' : 'fail'
+
         return (
           <div
             key={p.label}

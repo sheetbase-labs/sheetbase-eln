@@ -90,6 +90,7 @@ const OUTCOME: Record<
 function ModelVersions() {
   const { modelId } = Route.useParams()
   const { context } = Route.useRouteContext()
+
   return isUuid(modelId) ? (
     <DatasetModelVersions />
   ) : (
@@ -112,14 +113,17 @@ function DatasetModelVersions() {
   const versionFields = useModelVersionFields(versionIds)
   const datasets = useModelDatasets(versionIds)
   const approval = useModelApprovalIndex(versionIds)
+
   const policy = useQuery({
     queryKey: workspaceGeneralQueryKey,
     queryFn: () => fetchWorkspaceGeneral(),
   })
+
   const loading = versionFields.isLoading || datasets.isLoading
 
   const requestsFor = (versionId: string) =>
     approval.data?.byVersion.get(versionId) ?? []
+
   const draft = rows.find((v) => v.lifecycle === 'draft') ?? null
   const latestPublished = rows.find((v) => v.lifecycle !== 'draft') ?? null
   const panelVersion = draft ?? rows.at(0) ?? null
@@ -129,11 +133,13 @@ function DatasetModelVersions() {
 
   const fieldsByVersion = useMemo(() => {
     const map = new Map<string, CanonicalDatasetSchemaField[]>()
+
     for (const field of versionFields.data ?? []) {
       const list = map.get(field.schema_version_id) ?? []
       list.push(field)
       map.set(field.schema_version_id, list)
     }
+
     return map
   }, [versionFields.data])
 
@@ -196,6 +202,7 @@ function DatasetModelVersions() {
       header: t('library.models.versions.status'),
       cell: ({ row }) => {
         const status = modelStatus(row.original.version.lifecycle)
+
         return <Status tone={status.tone}>{status.label}</Status>
       },
       meta: { cellClassName: 'align-top!' },
@@ -205,10 +212,12 @@ function DatasetModelVersions() {
       header: t('library.models.versions.approval'),
       cell: ({ row }) => {
         if (approval.isLoading) return <span className="text-fg-muted">…</span>
+
         const status = approvalStatus(
           requestsFor(row.original.version.id),
           row.original.version.revision,
         )
+
         return <Status tone={status.tone}>{status.label}</Status>
       },
       meta: { cellClassName: 'align-top!' },
@@ -250,6 +259,7 @@ function DatasetModelVersions() {
       header: t('library.models.versions.recordImpact'),
       cell: ({ row }) => {
         const outcome = OUTCOME[row.original.outcome]
+
         return (
           <div className="flex flex-col gap-0.5">
             <Status tone={outcome.tone}>{outcome.label}</Status>
@@ -272,6 +282,7 @@ function DatasetModelVersions() {
       ),
       cell: ({ row }) => {
         const v = row.original.version
+
         return v.lifecycle === 'draft' &&
           hasCapability(role, 'schema.publish') &&
           policy.isSuccess &&
@@ -366,12 +377,14 @@ function VersionChanges({
   isFirstVersion: boolean
 }) {
   if (loading) return <span className="text-fg-muted">…</span>
+
   if (isFirstVersion && diff.total === 0)
     return (
       <span className="text-fg-muted">
         {t('library.models.versions.initialVersion')}
       </span>
     )
+
   if (diff.total === 0)
     return (
       <span className="text-fg-muted">
@@ -382,6 +395,7 @@ function VersionChanges({
   const changes = [...diff.added, ...diff.changed, ...diff.removed]
   const shown = changes.slice(0, MAX_CHANGES_SHOWN)
   const hidden = changes.length - shown.length
+
   return (
     <ul className="m-0 flex list-none flex-col gap-1 p-0">
       {shown.map((change) => (

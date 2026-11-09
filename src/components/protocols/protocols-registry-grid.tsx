@@ -142,6 +142,7 @@ export function ProtocolsRegistryGrid({
           compareRegistryText(rowA.getValue(columnId), rowB.getValue(columnId)),
         cell: ({ row }) => {
           const status = protocolStatus(row.original.status)
+
           return <Status tone={status.tone}>{status.label}</Status>
         },
       },
@@ -168,6 +169,7 @@ export function ProtocolsRegistryGrid({
     ],
     [ownerLabel, onOpen],
   )
+
   const columns = useMemo(
     () =>
       addedColumns?.length

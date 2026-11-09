@@ -72,6 +72,7 @@ export const realCollaborationAuthDeps: CollaborationAuthDeps = {
         eq(schema.workspaceMemberships.workspaceId, workspaceId),
       ),
     })
+
     return row ? { role: row.role, suspendedAt: row.suspendedAt } : null
   },
   objectState: collaborationObjectState,
@@ -80,6 +81,7 @@ export const realCollaborationAuthDeps: CollaborationAuthDeps = {
       where: eq(schema.workspaces.id, workspaceId),
       columns: { status: true },
     })
+
     return row?.status ?? null
   },
   getUserAvatar: lookupAvatar,
@@ -93,12 +95,15 @@ export async function collaborationObjectState(
   userId: string,
 ): Promise<'writable' | 'read_only' | 'denied'> {
   const { client, release } = await getScopedClient(workspaceId, userId)
+
   try {
     const { rows } = await client.query<{ state: string }>(
       'select api.collaboration_object_state($1, $2) as state',
       [kind, objectId],
     )
+
     const state = rows[0]?.state
+
     return state === 'writable' || state === 'read_only' ? state : 'denied'
   } finally {
     await release()
@@ -130,6 +135,7 @@ export async function resolveRoomAccess(
       message: 'Live collaboration is turned off on this deployment.',
     }
   }
+
   if (typeof room !== 'string') {
     return {
       ok: false,
@@ -140,6 +146,7 @@ export async function resolveRoomAccess(
   }
 
   const parsed = parseRoomId(room)
+
   if (!parsed.ok) {
     return {
       ok: false,
@@ -150,6 +157,7 @@ export async function resolveRoomAccess(
   }
 
   const session = await deps.getSession(headers)
+
   if (!session) {
     return {
       ok: false,
@@ -158,7 +166,9 @@ export async function resolveRoomAccess(
       message: 'Sign in to collaborate.',
     }
   }
+
   const workspaceStatus = await deps.getWorkspaceStatus(parsed.workspaceId)
+
   if (workspaceStatus !== 'active') {
     return {
       ok: false,
@@ -175,6 +185,7 @@ export async function resolveRoomAccess(
     parsed.objectId,
     session.user.id,
   )
+
   if (state === 'denied') {
     return {
       ok: false,
@@ -188,7 +199,9 @@ export async function resolveRoomAccess(
     session.user.id,
     parsed.workspaceId,
   )
+
   const access = accessForMembership(membership)
+
   if (!access.ok) {
     return {
       ok: false,
@@ -229,5 +242,6 @@ async function lookupAvatar(userId: string): Promise<string | null> {
     where: eq(schema.user.id, userId),
     columns: { image: true },
   })
+
   return row?.image ?? null
 }

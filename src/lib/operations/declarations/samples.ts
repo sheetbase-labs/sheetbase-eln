@@ -11,6 +11,7 @@ const record = (): OperationInput[] => [
   input('p_record_id', 'uuid'),
   input('p_expected_metadata_version', 'int'),
 ]
+
 const notes = () => input('p_notes', 'text', false, true)
 
 export const SAMPLE_OPERATIONS = defineOperations([

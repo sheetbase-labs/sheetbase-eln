@@ -55,10 +55,12 @@ export function MobileList({
             ) : null}
           </>
         )
+
         const cls = cn(
           'flex min-h-14 w-full items-center gap-3 border-0 border-b border-border-subtle bg-transparent px-4 py-2 text-left text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline',
           r.selected && 'bg-selection',
         )
+
         return (
           <li key={r.key}>
             {r.link ? (
@@ -85,8 +87,10 @@ export function MobileList({
 /** Sticky first column for tables that scroll sideways below desktop width. */
 export const stickyCol =
   'max-xl:sticky max-xl:left-0 max-xl:z-[1] max-xl:bg-surface max-xl:shadow-[1px_0_0_var(--border-subtle)]'
+
 /** Same, applied to whichever cell is first in its row (for header/cell helpers). */
 export const stickyFirstCell =
   'max-xl:first:sticky max-xl:first:left-0 max-xl:first:z-[1] max-xl:first:bg-surface max-xl:first:shadow-[1px_0_0_var(--border-subtle)]'
+
 export const stickyFirstHead =
   'max-xl:first:sticky max-xl:first:left-0 max-xl:first:z-[1] max-xl:first:bg-surface-muted max-xl:first:shadow-[1px_0_0_var(--border-subtle)]'

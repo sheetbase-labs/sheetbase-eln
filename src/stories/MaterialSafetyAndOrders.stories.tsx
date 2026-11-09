@@ -111,6 +111,7 @@ const ordersClient = screenQueryClient({
     { key: solutionQueryKeys.candidates(''), value: [] },
   ],
 })
+
 const emptyOrdersClient = screenQueryClient({
   data: [
     { key: reagentOrderQueryKeys.all, value: [] },
@@ -129,7 +130,9 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** All nine GHS pictograms, drawn as the standard red-bordered diamond. */

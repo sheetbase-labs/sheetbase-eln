@@ -65,9 +65,11 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 export const Route = createFileRoute('/pipelines/$pipelineId/steps')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: PipelineSteps,
@@ -119,46 +121,57 @@ function PipelineSteps() {
   const versions = usePipelineVersions(pipelineId)
   const list = versions.data ?? []
   const draft = draftVersion(list)
+
   const current =
     list.find((v) => v.lifecycle === 'published') ?? list.at(0) ?? undefined
+
   const source = draft ?? current
 
   const [description, setDescription] = useState('')
   const [statement, setStatement] = useState('')
   const [language, setLanguage] = useState('sql')
+
   const [transformContract, setTransformContract] = useState<
     PythonContract | undefined
   >()
+
   const [requirements, setRequirements] = useState<string[]>([])
   const [datasetName, setDatasetName] = useState('')
   const [inputs, setInputs] = useState<PipelineInput[]>([])
   const [parameters, setParameters] = useState<PipelineParameter[]>([])
   const [extraSteps, setExtraSteps] = useState<PipelineStep[]>([])
   const [actions, setActions] = useState<PipelineActionConfig[]>([])
+
   const [selected, setSelected] = useState<
     'inputs' | 'transform' | 'output' | 'plugins' | number
   >('transform')
+
   const active =
     typeof selected === 'number' && !extraSteps[selected]
       ? 'transform'
       : selected
+
   const workAreaRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (workAreaRef.current) workAreaRef.current.scrollTop = 0
   }, [active])
+
   const addFurtherStep = () => {
     setExtraSteps(addStep(extraSteps))
     setSelected(extraSteps.length)
   }
+
   const members = useWorkspaceMemberNames()
   const [outputMode, setOutputMode] = useState<OutputMode>('none')
   const [schemaVersionId, setSchemaVersionId] = useState('')
   const [datasetId, setDatasetId] = useState('')
   const [datasetLabel, setDatasetLabel] = useState('')
+
   const [fieldMapping, setFieldMapping] = useState<Record<
     string,
     string
   > | null>(null)
+
   const definition = usePipelineDefinition(pipelineId)
   const runs = useDefinitionRuns(list)
   const transformRef = useRef<HTMLTextAreaElement>(null)
@@ -204,13 +217,16 @@ function PipelineSteps() {
   // the editor supplies it: the one installed now, or the version's existing pin
   // when the runner cannot be reached.
   const runtime = usePythonRuntime()
+
   const usesPython =
     language === 'python' || extraSteps.some((s) => s.language === 'python')
+
   const pythonRuntime = usesPython
     ? runtime.data?.available
       ? runtime.data.runtime
       : sourceConfig.pythonRuntime
     : undefined
+
   const pythonUnavailable =
     usesPython && !pythonRuntime && !runtime.isLoading
       ? (runtime.data?.message ?? t('data.pipelineSteps.pythonAvailableYetAsk'))
@@ -301,6 +317,7 @@ function PipelineSteps() {
     statement.trim().length > 0 &&
     configErrors.length === 0 &&
     !pythonUnavailable
+
   const outputDraft: OutputDraft = {
     mode: outputMode,
     datasetName,
@@ -309,43 +326,58 @@ function PipelineSteps() {
     datasetLabel,
     fieldMapping,
   }
+
   const updateOutput = (patch: Partial<OutputDraft>) => {
     if (patch.mode !== undefined) {
       setOutputMode(patch.mode)
+
       // A new dataset starts with the pipeline's own name and a label to match.
       if (patch.mode !== 'none' && !datasetLabel.trim()) {
         setDatasetLabel(definition.data?.name ?? '')
       }
+
       if (patch.mode === 'create' && !datasetName.trim()) {
         setDatasetName(definition.data?.name ?? '')
       }
     }
+
     if (patch.datasetName !== undefined) setDatasetName(patch.datasetName)
+
     if (patch.schemaVersionId !== undefined)
       setSchemaVersionId(patch.schemaVersionId)
+
     if (patch.datasetId !== undefined) setDatasetId(patch.datasetId)
+
     if (patch.datasetLabel !== undefined) setDatasetLabel(patch.datasetLabel)
+
     if (patch.fieldMapping !== undefined) setFieldMapping(patch.fieldMapping)
   }
+
   // Errors the contract reports for the output, shown beside their control.
   const outputErrors = useMemo(() => {
     const byField: Record<string, string> = {}
+
     for (const error of configErrors) {
       if (error.field.startsWith('output.')) {
         byField[error.field.slice('output.'.length)] ??= error.message
       }
     }
+
     return byField
   }, [configErrors])
+
   // The columns of the newest successful run: suggestions and a fit check.
   const lastResultColumns = useMemo(() => {
     for (const run of runs.data ?? []) {
       if (run.status !== 'succeeded') continue
       const preview = readResultPreview(run.result)
+
       if (preview) return preview.columns
     }
+
     return []
   }, [runs.data])
+
   // Put a column reference into the SQL where the cursor is.
   const insertIntoTransform = (text: string) => {
     const el = transformRef.current
@@ -379,6 +411,7 @@ function PipelineSteps() {
   // and only if the shared contract accepts it. Publishing stays a person's step.
   const applyAiDraft = async (proposal: PipelineDraftProposal) => {
     const d = proposal.config
+
     const next: PipelineConfiguration = {
       ...builtConfig,
       description: d.description ?? builtConfig.description,
@@ -398,7 +431,9 @@ function PipelineSteps() {
         fieldMapping: undefined,
       },
     }
+
     const problem = validatePipelineConfig(next).at(0)
+
     if (problem) throw new Error(problem.message)
     await writeDraft(next)
     await invalidate()
@@ -425,11 +460,14 @@ function PipelineSteps() {
   // Try draft: run what is on screen, unsaved, and show the result inline.
   const [trialDialog, setTrialDialog] = useState(false)
   const [trialDetails, setTrialDetails] = useState<RunDetails | null>(null)
+
   const [trialResult, setTrialResult] = useState<{
     report: PipelineTrialWire
     ranWith: string
   } | null>(null)
+
   const configKey = JSON.stringify(builtConfig)
+
   const tryDraft = useMutation({
     mutationFn: (details: RunDetails) =>
       tryPipelineDraft({
@@ -451,20 +489,26 @@ function PipelineSteps() {
       )
     },
   })
+
   const startTrial = () => {
     const { inputs: declared, parameters: declaredParameters } = builtConfig
+
     if (!declared?.length && !declaredParameters?.length) {
       const empty = { inputVersions: {}, parameters: {} }
       setTrialDetails(empty)
       tryDraft.mutate(empty)
+
       return
     }
+
     setTrialDialog(true)
   }
+
   const submitTrial = (details: RunDetails) => {
     setTrialDetails(details)
     tryDraft.mutate(details)
   }
+
   // The dialog reads what the draft declares, not what was last saved.
   const draftAsVersion = {
     id: draft?.id ?? 'draft',
@@ -475,6 +519,7 @@ function PipelineSteps() {
   const publish = useMutation({
     mutationFn: () => {
       if (!draft) throw new Error(t('data.pipelineSteps.draftPublish'))
+
       return notebookDataClient.rpc('publish_pipeline_definition_version', {
         p_workspace_id: workspaceId,
         p_version_id: draft.id,
@@ -830,6 +875,7 @@ function PipelineSteps() {
                             : 'transform',
                       )
                     }
+
                     setExtraSteps(next)
                   }}
                   python={{

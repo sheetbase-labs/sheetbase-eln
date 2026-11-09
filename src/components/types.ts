@@ -10,6 +10,7 @@ export type Notification = {
   html: string
   when: string
 }
+
 export type NotificationTarget =
   | { kind: 'review'; id: string }
   | { kind: 'dataset'; id: string }
@@ -60,6 +61,7 @@ export type FieldDef = {
   rule: string
   since: string
 }
+
 export type ModelVersion = {
   version: string
   publishedAt: string
@@ -68,6 +70,7 @@ export type ModelVersion = {
   approvedBy: string
   current: boolean
 }
+
 export type RecordRow = {
   id: string
   name: string

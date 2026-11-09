@@ -28,11 +28,13 @@ const READY = {
 function client(readiness: unknown | 'pending' | 'error', workspaceId: string) {
   const instance = screenQueryClient()
   const key = ['ai-settings', workspaceId]
+
   if (readiness === 'pending' || readiness === 'error') {
     holdRead(instance, key, readiness === 'pending' ? 'pending' : 'error')
   } else {
     instance.setQueryData(key, { readiness })
   }
+
   return instance
 }
 
@@ -40,6 +42,7 @@ function sse(chunks: unknown[]): Response {
   const body =
     chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join('') +
     'data: [DONE]\n\n'
+
   return new Response(body, {
     headers: {
       'content-type': 'text/event-stream',
@@ -108,13 +111,17 @@ function ChatEndpoint({
           : input instanceof URL
             ? input.pathname
             : input.url
+
       if (url.startsWith(ASSISTANT_CHAT_PATH)) return Promise.resolve(respond())
+
       return original.call(window, input, init)
     }
+
     return () => {
       window.fetch = original
     }
   }, [original, respond])
+
   return <>{children}</>
 }
 
@@ -124,6 +131,7 @@ function frame(
   respond: () => Response = () => sse(ANSWER),
 ) {
   const instance = client(readiness, workspaceId)
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={instance}>
       <ChatEndpoint respond={respond}>
@@ -156,7 +164,9 @@ const meta = {
     context: { kind: 'dataset', id: '0198d970-e266-4000-8000-000000000d01' },
   },
 } satisfies Meta<typeof AssistantChat>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Ready on a dataset page: suggested questions that name what the page is. */

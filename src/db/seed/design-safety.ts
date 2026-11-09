@@ -59,6 +59,7 @@ const PROTOCOL_USES = [
 export async function seedDesignSafety(db: Db): Promise<void> {
   const present = await db.execute(sql`
     select 1 from api.material_safety where workspace_id = ${PROCESS} limit 1`)
+
   if (present.rows.length) return
 
   await withDesignClaims(
@@ -71,16 +72,19 @@ export async function seedDesignSafety(db: Db): Promise<void> {
           `select id from api.records where identifier = $1 and workspace_id = $2`,
           [identifier, PROCESS],
         )
+
         return found.rows.at(0)?.id ?? null
       }
 
       for (const material of MATERIALS) {
         const id = await idOf(material.identifier)
+
         if (!id) continue
         await client.query(
           'select api.set_material_safety($1,$2::text[],$3,$4::text[],false)',
           [id, material.pictograms, material.signalWord, material.statements],
         )
+
         if (material.sheet) {
           // The sheet is a file in the lot's project, uploaded through the same
           // RPC the app uses; its bytes arrive with the demo file step.
@@ -107,6 +111,7 @@ export async function seedDesignSafety(db: Db): Promise<void> {
       for (const [protocol, material] of PROTOCOL_USES) {
         const source = await idOf(protocol)
         const target = await idOf(material)
+
         if (!source || !target) continue
         await client.query(
           `insert into api.record_links

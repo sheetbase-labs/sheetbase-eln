@@ -18,6 +18,7 @@ export function useRegulatedLab(workspaceId: string | undefined): {
     queryFn: () => fetchWorkspaceGeneral(),
     enabled: Boolean(workspaceId),
   })
+
   return {
     regulated: general.data?.regulatedLab ?? false,
     loaded: general.isSuccess,

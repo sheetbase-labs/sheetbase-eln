@@ -80,10 +80,12 @@ export function ComparisonControls({
   const { numeric, category } = columnsOf(table)
   const test = definition.test ?? 'welch'
   const postHoc = definition.postHoc ?? 'tukey'
+
   const bind = (key: 'value' | 'group' | 'pair', fieldId: string) =>
     onChange({
       [key]: fieldId ? { fieldId } : key === 'pair' ? null : undefined,
     })
+
   return (
     <>
       <Control id="cmp-value" label={t('data.analysisPanel.measuredValue')}>
@@ -180,6 +182,7 @@ export function ComparisonControls({
           value={String(definition.alpha ?? 0.05)}
           onChange={(e) => {
             const n = Number(e.target.value)
+
             if (n > 0 && n < 1) onChange({ alpha: n })
           }}
         />
@@ -198,6 +201,7 @@ export function SurvivalControls({
   onChange: (patch: Partial<AnalysisDefinition>) => void
 }) {
   const { numeric, category } = columnsOf(table)
+
   return (
     <>
       <Control id="surv-time" label={t('data.analysisPanel.survivalTime')}>
@@ -259,6 +263,7 @@ export function ComparisonResultTables({
 }) {
   const showDiff = result.pairs.some((p) => p.difference !== null)
   const effectLabel = result.pairs.find((p) => p.effectLabel)?.effectLabel
+
   return (
     <div className="space-y-3">
       <div className="overflow-auto rounded-md border">
@@ -425,6 +430,7 @@ export function SurvivalPlot({ result }: { result: SurvivalResult }) {
   const max = result.maxTime > 0 ? result.maxTime : 1
   const px = (x: number) => PAD.left + (x / max) * (W - PAD.left - PAD.right)
   const py = (y: number) => PAD.top + (1 - y) * (H - PAD.top - PAD.bottom)
+
   return (
     <svg
       role="img"
@@ -475,6 +481,7 @@ export function SurvivalPlot({ result }: { result: SurvivalResult }) {
         let prevLo = 1
         const upper: string[] = [`${px(0)},${py(1)}`]
         const lower: string[] = [`${px(0)},${py(1)}`]
+
         for (const step of curve.steps) {
           d += ` L${px(step.time)},${py(prev)} L${px(step.time)},${py(step.survival)}`
           upper.push(
@@ -489,8 +496,10 @@ export function SurvivalPlot({ result }: { result: SurvivalResult }) {
           prevHi = step.hi
           prevLo = step.lo
         }
+
         d += ` L${px(max)},${py(prev)}`
         band = `M${upper.join(' L')} L${px(max)},${py(curve.steps.at(-1)?.hi ?? 1)} L${px(max)},${py(curve.steps.at(-1)?.lo ?? 1)} L${lower.reverse().join(' L')} Z`
+
         return (
           <g key={curve.group}>
             <path d={band} fill={colour} fillOpacity={0.12} stroke="none" />

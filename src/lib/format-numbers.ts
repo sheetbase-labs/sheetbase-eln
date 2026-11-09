@@ -20,13 +20,18 @@
  */
 export function formatCount(value: number): string {
   if (!Number.isFinite(value)) return '—'
+
   if (value === 0) return '0'
+
   if (Number.isInteger(value)) return value.toLocaleString('en-US')
   const abs = Math.abs(value)
+
   if (abs >= 1e6 || abs < 1e-3) {
     return value.toExponential(2).replace('e+', 'e').replace('e-0', 'e-')
   }
+
   if (abs >= 100) return value.toFixed(1)
+
   return Number(value.toPrecision(3)).toString()
 }
 
@@ -41,14 +46,19 @@ export function formatMetricValue(value: unknown): string {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? formatCount(value) : '—'
   }
+
   if (typeof value === 'string') {
     const trimmed = value.trim()
+
     if (trimmed !== '') {
       const parsed = Number(trimmed)
+
       if (Number.isFinite(parsed)) return formatCount(parsed)
     }
+
     return value
   }
+
   return value == null ? '' : String(value)
 }
 
@@ -59,9 +69,11 @@ export function formatMetricValue(value: unknown): string {
  */
 export function formatCellValue(value: unknown): string {
   if (value === null || value === undefined) return ''
+
   if (typeof value === 'number') {
     return Number.isFinite(value) ? formatCount(value) : '—'
   }
+
   return String(value)
 }
 
@@ -72,11 +84,15 @@ export function formatCellValue(value: unknown): string {
  */
 export function formatFileSize(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return '—'
+
   if (bytes < 1024) return `${bytes} B`
+
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+
   if (bytes < 1024 * 1024 * 1024) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
+
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`
 }
 
@@ -107,14 +123,19 @@ export function formatMagnitude(value: unknown): string | undefined {
       : typeof value === 'string' && value.trim() !== ''
         ? Number(value)
         : Number.NaN
+
   if (!Number.isFinite(numeric) || numeric === 0) return undefined
   const abs = Math.abs(numeric)
+
   if (abs < 1e9 && abs >= 1e-4) return undefined
+
   const [mantissa, exponent] = numeric
     .toExponential(2)
     .replace(/\.?0+e/, 'e')
     .split('e')
+
   const power = String(Number(exponent))
   const superscript = [...power].map((c) => SUPERSCRIPT[c] ?? c).join('')
+
   return `${mantissa} × 10${superscript}`
 }

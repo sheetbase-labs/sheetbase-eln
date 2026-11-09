@@ -42,7 +42,9 @@ export function describeMinutes(minutes: number): string {
   const rest = minutes % 60
   const h = hours === 1 ? '1 hour' : `${hours} hours`
   const m = rest === 1 ? '1 minute' : `${rest} minutes`
+
   if (hours === 0) return m
+
   return rest === 0 ? h : `${h} ${m}`
 }
 
@@ -50,9 +52,11 @@ interface RulesWire {
   max_booking_minutes: number | null
   max_advance_days: number | null
 }
+
 interface TrainingWire {
   protocol_record_id: string
 }
+
 interface ProtocolWire {
   id: string
   identifier: string
@@ -79,6 +83,7 @@ export async function fetchBookingRules(
   instrumentId: string,
 ): Promise<BookingRules> {
   const id = encodeURIComponent(instrumentId)
+
   const [rules, required] = await Promise.all([
     client.list<RulesWire>(
       'instrument_booking_rules',
@@ -89,18 +94,22 @@ export async function fetchBookingRules(
       `?instrument_id=eq.${id}&select=protocol_record_id`,
     ),
   ])
+
   let training: BookingRules['training'] = []
+
   if (required.length > 0) {
     const protocols = await client.list<ProtocolWire>(
       'records',
       `?id=in.(${required.map((r) => r.protocol_record_id).join(',')})&select=id,identifier,title&order=identifier.asc`,
     )
+
     training = protocols.map((p) => ({
       protocolId: p.id,
       identifier: p.identifier,
       title: p.title,
     }))
   }
+
   return {
     maxBookingMinutes: rules[0]?.max_booking_minutes ?? null,
     maxAdvanceDays: rules[0]?.max_advance_days ?? null,

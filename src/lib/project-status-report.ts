@@ -71,6 +71,7 @@ export function projectStatusCsv(rows: readonly ProjectStatusRow[]): string {
     'Started in the period',
     'Orders still open',
   ]
+
   const lines = rows.map((r) => [
     r.title,
     r.code ?? '',
@@ -84,6 +85,7 @@ export function projectStatusCsv(rows: readonly ProjectStatusRow[]): string {
     String(r.started),
     String(r.openOrders),
   ])
+
   return (
     [header, ...lines]
       .map((row) => row.map((cell) => csvEscape(cell, ',')).join(','))

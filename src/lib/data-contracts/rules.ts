@@ -24,7 +24,9 @@ export function worseStatus(
   b: ContractStatus | null | undefined,
 ): ContractStatus | null {
   if (!a) return b ?? null
+
   if (!b) return a
+
   return RANK[a] >= RANK[b] ? a : b
 }
 
@@ -32,8 +34,10 @@ export function worseStatus(
 export function describeMinutes(minutes: number): string {
   if (minutes % 1440 === 0)
     return t('contracts.duration.days', { count: minutes / 1440 })
+
   if (minutes % 60 === 0)
     return t('contracts.duration.hours', { count: minutes / 60 })
+
   return t('contracts.duration.minutes', { count: minutes })
 }
 
@@ -44,8 +48,11 @@ export function describeLimits(
 ): string {
   if (min !== undefined && max !== undefined)
     return t('contracts.limits.between', { min, max })
+
   if (min !== undefined) return t('contracts.limits.atLeast', { min })
+
   if (max !== undefined) return t('contracts.limits.atMost', { max })
+
   return ''
 }
 
@@ -98,11 +105,15 @@ export function describeFinding(
   if (result.status === 'skipped') {
     if (result.reason === 'field_missing')
       return t('contracts.finding.fieldMissing', { field: fieldLabel })
+
     if (result.reason === 'no_rows') return t('contracts.finding.noRows')
+
     return t('contracts.finding.batch')
   }
+
   const failed = result.failed ?? 0
   const checked = result.checked ?? 0
+
   switch (result.kind) {
     case 'required':
       return t('contracts.finding.required', { count: failed, total: checked })
@@ -167,8 +178,10 @@ const UNIT_MINUTES = { minutes: 1, hours: 60, days: 1440 } as const
 
 function num(text: string): number | undefined {
   const trimmed = text.trim()
+
   if (trimmed === '') return undefined
   const n = Number(trimmed)
+
   return Number.isFinite(n) ? n : Number.NaN
 }
 
@@ -178,13 +191,17 @@ export function draftProblem(draft: RuleDraft): string | null {
     return t('contracts.problem.needsField')
   const min = num(draft.min)
   const max = num(draft.max)
+
   if (Number.isNaN(min) || Number.isNaN(max))
     return t('contracts.problem.notNumbers')
+
   if (draft.kind === 'range' || draft.kind === 'row_count') {
     if (min === undefined && max === undefined)
       return t('contracts.problem.needsLimit')
+
     if (min !== undefined && max !== undefined && min > max)
       return t('contracts.problem.order')
+
     if (draft.kind === 'row_count') {
       if (
         (min !== undefined && (min < 0 || !Number.isInteger(min))) ||
@@ -193,10 +210,13 @@ export function draftProblem(draft: RuleDraft): string | null {
         return t('contracts.problem.wholeRows')
     }
   }
+
   if (draft.kind === 'units' && splitUnits(draft.units).length === 0)
     return t('contracts.problem.needsUnits')
+
   if (draft.kind === 'completeness') {
     const threshold = num(draft.threshold)
+
     if (
       threshold === undefined ||
       Number.isNaN(threshold) ||
@@ -205,8 +225,10 @@ export function draftProblem(draft: RuleDraft): string | null {
     )
       return t('contracts.problem.percent')
   }
+
   if (draft.kind === 'freshness') {
     const age = num(draft.maxAge)
+
     if (
       age === undefined ||
       Number.isNaN(age) ||
@@ -215,6 +237,7 @@ export function draftProblem(draft: RuleDraft): string | null {
     )
       return t('contracts.problem.age')
   }
+
   return null
 }
 
@@ -232,19 +255,27 @@ export function draftToRule(draft: RuleDraft, id?: string): ContractRule {
     kind: draft.kind,
     mode: draft.mode,
   }
+
   if (isFieldRule(draft.kind)) rule.field = draft.field
+
   if (draft.kind === 'range' || draft.kind === 'row_count') {
     const min = num(draft.min)
     const max = num(draft.max)
+
     if (min !== undefined) rule.min = min
+
     if (max !== undefined) rule.max = max
   }
+
   if (draft.kind === 'units') rule.units = splitUnits(draft.units)
+
   if (draft.kind === 'completeness') rule.threshold = num(draft.threshold)
+
   if (draft.kind === 'freshness')
     rule.maxAgeMinutes = Math.round(
       (num(draft.maxAge) ?? 0) * UNIT_MINUTES[draft.maxAgeUnit],
     )
+
   return rule
 }
 
@@ -259,8 +290,10 @@ export function ruleToDraft(rule: ContractRule): RuleDraft {
     units: (rule.units ?? []).join(', '),
     threshold: rule.threshold === undefined ? '' : String(rule.threshold),
   }
+
   if (rule.maxAgeMinutes !== undefined) {
     const minutes = rule.maxAgeMinutes
+
     if (minutes % 1440 === 0) {
       draft.maxAge = String(minutes / 1440)
       draft.maxAgeUnit = 'days'
@@ -272,6 +305,7 @@ export function ruleToDraft(rule: ContractRule): RuleDraft {
       draft.maxAgeUnit = 'minutes'
     }
   }
+
   return draft
 }
 

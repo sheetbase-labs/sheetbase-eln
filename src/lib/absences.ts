@@ -54,6 +54,7 @@ export function absenceState(
   on: string = today(),
 ): AbsenceState {
   if (absence.endsOn < on) return 'over'
+
   return absence.startsOn > on ? 'coming' : 'away'
 }
 
@@ -66,6 +67,7 @@ export async function fetchAbsences(
     'member_absences',
     `?workspace_id=eq.${encodeURIComponent(workspaceId)}&cancelled_at=is.null&ends_on=gte.${today()}&order=starts_on.asc&select=id,workspace_id,user_id,starts_on,ends_on,delegate_user_id,note,cancelled_at,created_at`,
   )
+
   return rows.map(toAbsence)
 }
 

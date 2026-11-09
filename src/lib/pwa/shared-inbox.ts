@@ -16,21 +16,29 @@ interface LaunchParamsLike {
 /** Files the service worker parked for this page, oldest share first. */
 export async function readSharedFiles(): Promise<File[]> {
   if (typeof caches === 'undefined') return []
+
   try {
     const cache = await caches.open(SHARE_CACHE)
+
     const keys = [...(await cache.keys())].sort((a, b) =>
       a.url.localeCompare(b.url, undefined, { numeric: true }),
     )
+
     const files: File[] = []
+
     for (const key of keys) {
       const response = await cache.match(key)
+
       if (!response) continue
+
       const name = decodeURIComponent(
         response.headers.get('x-file-name') ?? 'shared-file',
       )
+
       const type = response.headers.get('content-type') ?? ''
       files.push(new File([await response.blob()], name, { type }))
     }
+
     return files
   } catch {
     return []
@@ -39,6 +47,7 @@ export async function readSharedFiles(): Promise<File[]> {
 
 export async function clearSharedFiles(): Promise<void> {
   if (typeof caches === 'undefined') return
+
   try {
     await caches.delete(SHARE_CACHE)
   } catch {
@@ -61,10 +70,12 @@ export function onLaunchedWithFiles(
       }
     }
   ).launchQueue
+
   if (!queue) return () => undefined
   let live = true
   queue.setConsumer((params) => {
     const handles = params.files ?? []
+
     if (!live || handles.length === 0) return
     void Promise.all(handles.map((handle) => handle.getFile())).then(
       (files) => {
@@ -72,6 +83,7 @@ export function onLaunchedWithFiles(
       },
     )
   })
+
   return () => {
     live = false
   }

@@ -25,7 +25,9 @@ export function PluginChannels() {
     queryFn: listChannels,
     staleTime: 0,
   })
+
   if (!channels.data || channels.data.length === 0) return null
+
   return (
     <section
       aria-label={t('settings.notifications.channels.heading')}
@@ -47,18 +49,23 @@ export function PluginChannels() {
 function ChannelCard({ channel }: { channel: ChannelWire }) {
   const queryClient = useQueryClient()
   const on = channel.mine !== null
+
   const [destination, setDestination] = useState(
     channel.mine?.destination ?? '',
   )
+
   const [scope, setScope] = useState<'phone' | 'all'>(
     channel.mine?.scope ?? 'phone',
   )
+
   const apply = useMutation({
     mutationFn: changeChannel,
     onSuccess: (next, input) => {
       queryClient.setQueryData(channelsQueryKey, next)
+
       if (input.action === 'test')
         toast(t('settings.notifications.channels.testSent'))
+
       if (input.action === 'save')
         toast(t('settings.notifications.channels.saved'))
     },
@@ -69,14 +76,17 @@ function ChannelCard({ channel }: { channel: ChannelWire }) {
           : t('settings.notifications.channels.couldNotChange'),
       ),
   })
+
   const base = {
     extensionKey: channel.extensionKey,
     channelId: channel.channelId,
   }
+
   const changed =
     !on ||
     destination.trim() !== channel.mine?.destination ||
     scope !== channel.mine.scope
+
   return (
     <div className="flex flex-col gap-3 rounded-md border border-border-subtle p-3">
       <div className="flex flex-col gap-0.5">

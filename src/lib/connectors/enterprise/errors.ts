@@ -17,9 +17,11 @@ export class ConnectorExecutionError extends Error {
 /** Format any thrown error into a bounded, safe message for run failures. */
 export function boundedErrorMessage(error: unknown): string {
   if (error instanceof ConnectorExecutionError) return error.message
+
   if (error instanceof Error) {
     // Never surface raw driver/SDK stacks; keep the first line only.
     return error.message.split('\n')[0].slice(0, 500)
   }
+
   return 'The connector operation failed.'
 }

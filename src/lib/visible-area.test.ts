@@ -12,6 +12,7 @@ describe('placeBeside', () => {
       size: { width: 288, height: 200 },
       area: screen,
     })
+
     expect(placed.side).toBe('bottom')
     expect(placed.top).toBe(126)
     expect(placed.top + 200).toBeLessThanOrEqual(screen.bottom)
@@ -23,6 +24,7 @@ describe('placeBeside', () => {
       size: { width: 288, height: 320 },
       area: screen,
     })
+
     expect(placed.side).toBe('top')
     expect(placed.top).toBeGreaterThanOrEqual(screen.top + EDGE_GAP_PX)
     expect(placed.top + Math.min(320, placed.maxHeight)).toBe(394)
@@ -34,6 +36,7 @@ describe('placeBeside', () => {
       size: { width: 288, height: 320 },
       area: screen,
     })
+
     expect(placed.side).toBe('top')
     expect(placed.maxHeight).toBe(300 - 6 - (screen.top + EDGE_GAP_PX))
     expect(placed.top).toBe(screen.top + EDGE_GAP_PX)
@@ -46,6 +49,7 @@ describe('placeBeside', () => {
       area: screen,
       prefer: 'top',
     })
+
     expect(placed.side).toBe('bottom')
     expect(placed.top).toBe(116)
   })
@@ -56,6 +60,7 @@ describe('placeBeside', () => {
       size: { width: 288, height: 320 },
       area: screen,
     })
+
     expect(placed.side).toBe('top')
     expect(placed.top + Math.min(320, placed.maxHeight)).toBeLessThanOrEqual(
       screen.bottom,
@@ -68,6 +73,7 @@ describe('placeBeside', () => {
       size: { width: 288, height: 100 },
       area: screen,
     })
+
     expect(placed.left).toBe(393 - EDGE_GAP_PX - 288)
   })
 })

@@ -64,9 +64,11 @@ export function LabSetupDialog({
   const [name, setName] = useState(workspaceName)
   const [timeZone, setTimeZone] = useState(currentTimeZone || browserTimeZone())
   const [allowDomain, setAllowDomain] = useState(domainOffered)
+
   const [starters, setStarters] = useState<ReadonlySet<StarterTableKey>>(
     new Set(STARTER_TABLE_KEYS),
   )
+
   const [withSample, setWithSample] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -83,18 +85,21 @@ export function LabSetupDialog({
           throw new SetupStepError(describeJoinDomainError(failure))
         }
       }
+
       await completeWorkspaceSetup(client, {
         workspaceId,
         name,
         timeZone,
         starterKeys: STARTER_TABLE_KEYS.filter((key) => starters.has(key)),
       })
+
       if (withSample) {
         // Setup is done by now, so a sample that can't be added must not look
         // like a failed setup; it is offered again in Settings.
         const sample = await addSampleDataFn({ data: { workspaceId } }).catch(
           () => null,
         )
+
         if (!sample) toast.error(t('settings.sampleData.error'))
         else if (!sample.ok) toast.error(describeSampleDataFailure(sample))
       }
@@ -108,6 +113,7 @@ export function LabSetupDialog({
         queryKey: joinDomainKeys.list(workspaceId),
       })
       await queryClient.invalidateQueries({ queryKey: ['ui-port', 'import'] })
+
       if (withSample) await queryClient.invalidateQueries()
       await router.invalidate()
       onClose()
@@ -181,8 +187,10 @@ export function LabSetupDialog({
                   onCheckedChange={(checked) =>
                     setStarters((current) => {
                       const next = new Set(current)
+
                       if (checked) next.add(key)
                       else next.delete(key)
+
                       return next
                     })
                   }

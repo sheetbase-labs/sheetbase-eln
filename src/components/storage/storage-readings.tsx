@@ -43,20 +43,26 @@ export function readingKind(node: StorageNode): StoragePlaceKind | null {
 /** How many out-of-range measurements sit in each location or below it. */
 export function useOutOfRangeCounts(tree: StorageTree | undefined) {
   const feeds = useOutOfRangeStorageFeeds()
+
   return useMemo(() => {
     const counts = new Map<string, number>()
     const own = new Map<string, FeedRow[]>()
+
     if (!tree) return { counts, own, feeds: feeds.data ?? [] }
+
     for (const feed of feeds.data ?? []) {
       const placeId = feed.storageUnitId ?? feed.storageRoomId
+
       if (!placeId) continue
       own.set(placeId, [...(own.get(placeId) ?? []), feed])
       let node = tree.byId.get(placeId)
+
       while (node) {
         counts.set(node.id, (counts.get(node.id) ?? 0) + 1)
         node = node.parentId ? tree.byId.get(node.parentId) : undefined
       }
     }
+
     return { counts, own, feeds: feeds.data ?? [] }
   }, [feeds.data, tree])
 }
@@ -71,12 +77,15 @@ export function OutOfRangeNotice({
 }) {
   const { own } = useOutOfRangeCounts(tree)
   const now = Date.now()
+
   const places = [...own.entries()]
     .map(([id, feeds]) => ({ node: tree.byId.get(id), feeds }))
     .filter((p): p is { node: StorageNode; feeds: FeedRow[] } =>
       Boolean(p.node),
     )
+
   if (places.length === 0) return null
+
   return (
     <Notice tone="bad">
       <span className="font-semibold">
@@ -118,12 +127,16 @@ function LogReadingDialog({
   const [name, setName] = useState('Temperature')
   const [value, setValue] = useState('')
   const [unit, setUnit] = useState('')
+
   const existing = feeds.find(
     (f) => f.name.toLowerCase() === name.trim().toLowerCase(),
   )
+
   const number = value.trim() === '' ? null : Number(value)
+
   const ready =
     name.trim().length > 0 && number !== null && Number.isFinite(number)
+
   const mutation = useMutation({
     mutationFn: () =>
       logStorageReading({
@@ -148,6 +161,7 @@ function LogReadingDialog({
       })
     },
   })
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
@@ -221,8 +235,10 @@ export function StorageReadingsSection({
   const kind = readingKind(node)
   const feeds = useStorageFeeds(kind ?? 'unit', kind ? node.id : '')
   const [logging, setLogging] = useState(false)
+
   if (!kind) return null
   const rows = feeds.data ?? []
+
   return (
     <>
       <ReadingsSection

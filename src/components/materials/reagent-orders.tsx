@@ -115,6 +115,7 @@ function todayISO(): string {
   const now = appNow()
   const month = `${now.getMonth() + 1}`.padStart(2, '0')
   const day = `${now.getDate()}`.padStart(2, '0')
+
   return `${now.getFullYear()}-${month}-${day}`
 }
 
@@ -122,11 +123,13 @@ function quantityLabel(order: ReagentOrder): string {
   const amount = order.quantity.toLocaleString('en-GB', {
     maximumFractionDigits: 2,
   })
+
   return order.unit ? `${amount} ${order.unit}` : amount
 }
 
 function useRefreshOrders() {
   const queryClient = useQueryClient()
+
   return () => {
     void queryClient.invalidateQueries({
       queryKey: reagentOrderQueryKeys.all,
@@ -207,10 +210,13 @@ export function RequestReorderDialog({
             onSubmit={(event) => {
               event.preventDefault()
               const n = Number(quantity)
+
               if (quantity.trim() === '' || !Number.isFinite(n) || n <= 0) {
                 setError(t('library.materials.orders.enterAQuantity'))
+
                 return
               }
+
               setError(null)
               request.mutate()
             }}
@@ -336,6 +342,7 @@ function PriceFields({
 function parsePrice(text: string): number | null | 'invalid' {
   if (text.trim() === '') return null
   const value = Number(text)
+
   return Number.isFinite(value) && value >= 0 ? value : 'invalid'
 }
 
@@ -359,6 +366,7 @@ function MarkOrderedDialog({
   const [priceError, setPriceError] = useState<string | null>(null)
 
   const hasList = list.suppliers.length > 0
+
   // With a supplier list the order starts on the supplier whose name matches
   // what the material says; without one it is a plain name.
   const matching = hasList
@@ -368,11 +376,13 @@ function MarkOrderedDialog({
           (order?.supplier ?? '').trim().toLowerCase(),
       )
     : undefined
+
   const choice =
     supplierChoice ??
     (hasList
       ? (matching?.id ?? (order?.supplier ? OTHER_SUPPLIER : ''))
       : OTHER_SUPPLIER)
+
   const typedName = supplierName ?? order?.supplier ?? ''
 
   const reset = () => {
@@ -387,6 +397,7 @@ function MarkOrderedDialog({
   const mark = useMutation({
     mutationFn: () => {
       const parsed = parsePrice(price)
+
       return markReagentOrdered(client, {
         orderId: order!.id,
         orderReference: reference.trim() || null,
@@ -399,6 +410,7 @@ function MarkOrderedDialog({
     },
     onSuccess: () => {
       refresh()
+
       if (parsePrice(price) !== null) rememberCurrency(currency)
       toast(
         t('library.materials.orders.markedOrdered', {
@@ -428,10 +440,13 @@ function MarkOrderedDialog({
             onSubmit={(event) => {
               event.preventDefault()
               const parsed = parsePrice(price)
+
               if (parsed === 'invalid') {
                 setPriceError(t('spend.price.enterAPrice'))
+
                 return
               }
+
               setPriceError(null)
               mark.mutate()
             }}
@@ -557,6 +572,7 @@ export function OrderPriceDialog({
       }),
     onSuccess: (_result, value) => {
       refresh()
+
       if (value !== null) rememberCurrency(shownCurrency)
       toast(value === null ? t('spend.price.removed') : t('spend.price.saved'))
       setPrice(null)
@@ -582,14 +598,19 @@ export function OrderPriceDialog({
             onSubmit={(event) => {
               event.preventDefault()
               const parsed = parsePrice(shownPrice)
+
               if (parsed === null || parsed === 'invalid') {
                 setError(t('spend.price.enterAPrice'))
+
                 return
               }
+
               if (!isCurrencyCode(shownCurrency)) {
                 setError(t('spend.price.enterACurrency'))
+
                 return
               }
+
               setError(null)
               save.mutate(parsed)
             }}
@@ -651,6 +672,7 @@ function ReceiveOrderDialog({
   const [lot, setLot] = useState('')
   const [expiry, setExpiry] = useState('')
   const [quantity, setQuantity] = useState<string | null>(null)
+
   const [errors, setErrors] = useState<{
     lot?: string
     expiry?: string
@@ -698,6 +720,7 @@ function ReceiveOrderDialog({
             onSubmit={(event) => {
               event.preventDefault()
               const n = Number(quantity ?? order?.quantity)
+
               const next = {
                 lot: lot.trim()
                   ? undefined
@@ -712,7 +735,9 @@ function ReceiveOrderDialog({
                     ? undefined
                     : t('library.materials.orders.enterAQuantity'),
               }
+
               setErrors(next)
+
               if (next.lot || next.expiry || next.quantity) return
               receive.mutate()
             }}
@@ -794,6 +819,7 @@ function CancelOrderDialog({
 }) {
   const refresh = useRefreshOrders()
   const [reason, setReason] = useState('')
+
   const cancel = useMutation({
     mutationFn: () => cancelReagentOrder(client, order!.id, reason.trim()),
     onSuccess: () => {
@@ -809,6 +835,7 @@ function CancelOrderDialog({
     onError: (e: unknown) =>
       toast(messageOf(e, t('library.materials.orders.couldNotCancel'))),
   })
+
   return (
     <ConfirmDialog
       open={order !== null}
@@ -853,6 +880,7 @@ function CancelOrderDialog({
 // ---------------------------------------------------------------------------
 
 type OrderFilter = 'open' | ReagentOrderStatus | 'all'
+
 const FILTERS: readonly OrderFilter[] = [
   'open',
   'requested',
@@ -864,7 +892,9 @@ const FILTERS: readonly OrderFilter[] = [
 
 function matches(order: ReagentOrder, filter: OrderFilter): boolean {
   if (filter === 'all') return true
+
   if (filter === 'open') return isOpenOrder(order.status)
+
   return order.status === filter
 }
 
@@ -887,6 +917,7 @@ export function ReagentOrdersPanel({
   const [cancelling, setCancelling] = useState<ReagentOrder | null>(null)
 
   const all = orders.data ?? []
+
   const visible = useMemo(
     () => all.filter((order) => matches(order, filter)),
     [all, filter],
@@ -906,6 +937,7 @@ export function ReagentOrdersPanel({
         header: t('library.materials.orders.columns.material'),
         cell: ({ row }) => {
           const order = row.original
+
           return order.materialRecordId ? (
             <Link
               to="/materials/$lotId"
@@ -937,6 +969,7 @@ export function ReagentOrdersPanel({
               header: t('spend.price.column'),
               accessorFn: (order: ReagentOrder) => {
                 const price = prices.data?.get(order.id)
+
                 return price
                   ? formatMoney(price.totalPrice, price.currency)
                   : ''
@@ -944,6 +977,7 @@ export function ReagentOrdersPanel({
               cell: ({ row }: { row: { original: ReagentOrder } }) => {
                 const order = row.original
                 const price = prices.data?.get(order.id)
+
                 if (price) {
                   return (
                     <span className="num">
@@ -951,12 +985,14 @@ export function ReagentOrdersPanel({
                     </span>
                   )
                 }
+
                 if (
                   order.status === 'requested' ||
                   order.status === 'cancelled'
                 ) {
                   return <span className="text-fg-muted">—</span>
                 }
+
                 return (
                   <Button
                     size="sm"
@@ -1008,6 +1044,7 @@ export function ReagentOrdersPanel({
         header: t('library.materials.orders.columns.actions'),
         cell: ({ row }) => {
           const order = row.original
+
           if (!isOpenOrder(order.status)) {
             return order.status === 'received' && order.receivedRecordId ? (
               <Link
@@ -1019,7 +1056,9 @@ export function ReagentOrdersPanel({
               </Link>
             ) : null
           }
+
           const mine = order.requestedBy === currentUserId
+
           return (
             <span className="flex gap-1.5">
               {canPlace && order.status === 'requested' ? (

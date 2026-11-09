@@ -13,8 +13,10 @@ import { useContractForTarget } from './contract-data'
 export function storageUnitOf(quantity: unknown): string | null {
   if (quantity && typeof quantity === 'object' && 'storageUnit' in quantity) {
     const unit = (quantity as { storageUnit?: unknown }).storageUnit
+
     return typeof unit === 'string' && unit !== '' ? unit : null
   }
+
   return null
 }
 
@@ -32,9 +34,12 @@ export function ContractImpactNotice({
   modelId: string
 }) {
   const contract = useContractForTarget(target)
+
   if (!contract.data || contract.data.lifecycle === 'retired') return null
   const impacts = contractImpact(contract.data.rules, nextFields)
+
   if (impacts.length === 0) return null
+
   return (
     <Notice
       tone="warn"

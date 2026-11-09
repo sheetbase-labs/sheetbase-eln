@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
+
   return {
     ...actual,
     createFileRoute: () => (options: unknown) => ({
@@ -83,11 +84,14 @@ beforeEach(() => {
   mocks.rpc.mockImplementation(async (name: string, args: any) => {
     if (name === 'workspace_members_list')
       return [{ user_id: 'u-ana', name: 'Ana', role: 'member' }]
+
     if (name === 'delete_saved_search')
       mocks.rows = mocks.rows.filter((r) => r.id !== args.p_id)
+
     return null
   })
 })
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
@@ -97,6 +101,7 @@ function mount() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   render(
     <QueryClientProvider client={client}>
       <Page />

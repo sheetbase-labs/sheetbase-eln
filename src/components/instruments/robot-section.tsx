@@ -107,13 +107,17 @@ function AgentLine({ instrumentId }: { instrumentId: string }) {
     refetchInterval: 30_000,
     staleTime: 15_000,
   })
+
   if (!status.data) return <span className="text-fg-muted">—</span>
   const { downloaded, running, lastSeenAt } = status.data
+
   if (!downloaded)
     return <Status tone="none">{t('automation.robot.agentNone')}</Status>
+
   if (!lastSeenAt)
     return <Status tone="draft">{t('automation.robot.agentWaiting')}</Status>
   const when = formatRelativeTime(lastSeenAt)
+
   return running ? (
     <Status tone="ok">{t('automation.robot.agentRunning', { when })}</Status>
   ) : (
@@ -160,6 +164,7 @@ export function RobotSection({
   })
 
   if (settings.isPending) return null
+
   if (!robot && !canManage) return null
 
   return (
@@ -280,11 +285,13 @@ export function RobotSection({
 
 function LabwareSummary({ robot }: { robot: RobotSettingsWire }) {
   const fields = labwareFieldsFor(robot.driver, robot.worklist_format)
+
   const values = fields
     .map((key) => robot.labware[key])
     .filter(
       (value): value is string => typeof value === 'string' && value !== '',
     )
+
   return (
     <span className="text-fg-muted">
       {values.length > 0 ? (
@@ -306,8 +313,10 @@ function RobotJobsTable({
   canRun: boolean
 }) {
   const queryClient = useQueryClient()
+
   const refresh = () =>
     void queryClient.invalidateQueries({ queryKey: ['robots', 'jobs'] })
+
   const start = useMutation({
     mutationFn: (job: InstrumentJobWire) => startJob(client, job.id),
     onSuccess: (job) => {
@@ -325,6 +334,7 @@ function RobotJobsTable({
           : t('automation.robot.jobs.couldNotStart'),
       ),
   })
+
   const stop = useMutation({
     mutationFn: (job: InstrumentJobWire) => cancelJob(client, job.id),
     onSuccess: (job) => {
@@ -376,6 +386,7 @@ function RobotJobsTable({
         size: 190,
         cell: ({ row }) => {
           const job = row.original
+
           if (job.error_message)
             return (
               <Tooltip content={job.error_message}>
@@ -384,8 +395,10 @@ function RobotJobsTable({
                 </span>
               </Tooltip>
             )
+
           if (!job.result) return <span className="text-fg-muted">—</span>
           const failed = job.result.byStatus['failed'] ?? 0
+
           return (
             <span className="text-fg-muted">
               {failed > 0
@@ -413,7 +426,9 @@ function RobotJobsTable({
         size: 150,
         cell: ({ row }) => {
           const job = row.original
+
           if (!canRun || !isOpenJob(job.status)) return null
+
           return (
             <span className="flex items-center justify-end gap-1">
               {job.status === 'staged' ? (
@@ -498,28 +513,36 @@ function RobotSetupDialog({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
+
   const [driver, setDriver] = useState<RobotDriver>(
     current?.driver ?? 'opentrons',
   )
+
   const [format, setFormat] = useState<WorklistFormat>(
     current?.worklist_format ?? 'opentrons',
   )
+
   const [labware, setLabware] = useState<RobotLabware>(current?.labware ?? {})
 
   useEffect(() => {
     const wanted = ROBOT_DRIVERS.find((d) => d.key === driver)?.worklistFormat
+
     if (driver === 'opentrons' && wanted) setFormat(wanted)
     else if (!FILE_ROBOT_FORMATS.includes(format)) setFormat('csv')
   }, [driver, format])
 
   const fields = labwareFieldsFor(driver, format)
+
   const save = useMutation({
     mutationFn: () => {
       const kept: RobotLabware = {}
+
       for (const key of fields) {
         const value = labware[key]
+
         if (value) (kept as Record<string, string>)[key] = value
       }
+
       return saveRobotSettings(client, {
         instrumentId: instrument.id,
         driver,
@@ -556,6 +579,7 @@ function RobotSetupDialog({
                 value={driver}
                 onChange={(event) => {
                   const value = event.target.value
+
                   if (isRobotDriver(value)) setDriver(value)
                 }}
               >
@@ -649,8 +673,10 @@ function RobotAgentDialog({
   const [system, setSystem] = useState<AgentSystem>('windows')
   const [address, setAddress] = useState('')
   const [dir, setDir] = useState('')
+
   const example =
     AGENT_SYSTEMS.find((entry) => entry.value === system)?.folderExample ?? ''
+
   const missing =
     robot.driver === 'opentrons' ? address.trim() === '' : dir.trim() === ''
 
@@ -754,7 +780,9 @@ export function useRobotInstruments() {
     queryKey: [...robotQueryKeys.allSettings, 'with-names'],
     queryFn: async () => {
       const settings = await fetchRobotSettings(client)
+
       if (settings.length === 0) return []
+
       const names = await client.list<{
         id: string
         name: string
@@ -766,7 +794,9 @@ export function useRobotInstruments() {
           .map((row) => row.instrument_id)
           .join(',')})`,
       )
+
       const byId = new Map(names.map((row) => [row.id, row]))
+
       return settings
         .map((row) => ({
           settings: row,
@@ -807,8 +837,10 @@ export function SendToRobotDialog({
       queueJob(client, { instrumentId: robotId, worklistId, note }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['robots'] })
+
       const name = options.find((o) => o.instrument.id === robotId)?.instrument
         .name
+
       toast.success(
         t('automation.robot.send.sent', { reference, robot: name ?? '' }),
       )
@@ -884,16 +916,20 @@ export function useWorklistOpenJob(worklistId: string | undefined) {
     refetchInterval: 5_000,
     staleTime: 2_000,
   })
+
   return (jobs.data ?? []).find((j) => isOpenJob(j.status)) ?? null
 }
 
 export function WorklistJobLine({ worklistId }: { worklistId: string }) {
   const robots = useRobotInstruments()
   const job = useWorklistOpenJob(worklistId)
+
   if (!job) return null
+
   const name =
     robots.data?.find((o) => o.instrument.id === job.instrument_id)?.instrument
       .name ?? ''
+
   return (
     <p className="m-0 flex items-center gap-2 text-label text-fg-muted">
       <span className="mono">{jobReference(job.number)}</span>

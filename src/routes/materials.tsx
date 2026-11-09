@@ -27,9 +27,11 @@ export const Route = createFileRoute('/materials')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: lazyRouteComponent(

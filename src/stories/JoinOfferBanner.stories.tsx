@@ -30,6 +30,7 @@ function withOffer(offer: typeof OFFER | null) {
   const client = screenQueryClient({
     data: [{ key: joinDomainKeys.offer, value: offer }],
   })
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <div className="w-[640px]">
@@ -48,7 +49,9 @@ const meta = {
   },
   decorators: [withOffer(OFFER)],
 } satisfies Meta<typeof JoinOfferBanner>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Offered: Story = {}

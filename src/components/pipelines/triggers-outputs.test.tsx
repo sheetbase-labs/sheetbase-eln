@@ -21,6 +21,7 @@ function wrap(node: React.ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>{node}</QueryClientProvider>,
   )
@@ -43,6 +44,7 @@ describe('WebhookCard', () => {
           token: 'tok-123',
         }),
       )
+
     vi.stubGlobal('fetch', fetchMock)
     wrap(<WebhookCard definitionId="d" />)
     fireEvent.click(await screen.findByText('Turn on'))
@@ -60,9 +62,11 @@ describe('RunKeeps', () => {
         config={{ output: { mode: 'none', datasetLabel: 'x' } }}
       />,
     )
+
     const selected = screen
       .getAllByRole('radio')
       .filter((el) => el.getAttribute('aria-checked') === 'true')
+
     expect(selected).toHaveLength(1)
     expect(selected[0]?.textContent).toContain('Keep nothing')
   })

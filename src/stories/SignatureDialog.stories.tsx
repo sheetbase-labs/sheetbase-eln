@@ -26,6 +26,7 @@ const revision: RevisionWire = {
 
 function Harness({ initiallyOpen }: { initiallyOpen?: boolean }) {
   const [open, setOpen] = useState(Boolean(initiallyOpen))
+
   return (
     <SignatureDialog
       open={open}
@@ -64,7 +65,9 @@ const meta = {
     onConfirm: () => {},
   },
 } satisfies Meta<typeof SignatureDialog>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The panel's trigger; clicking it opens the signing dialog. */

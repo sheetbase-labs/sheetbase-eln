@@ -79,11 +79,13 @@ describe('configuration vocabularies', () => {
         sorts: [],
       },
     }
+
     const items = collectDefinitionVocabularies(
       'def-1',
       'Stability sheet',
       configuration,
     )
+
     expect(items).toEqual([
       {
         id: 'definition:col-1',
@@ -127,6 +129,7 @@ describe('configuration vocabularies', () => {
         terms: [],
       },
     ]
+
     expect(
       normalizeConfigurationVocabularies(items).map((item) => item.label),
     ).toEqual(['Alpha', 'Zebra'])
@@ -149,6 +152,7 @@ describe('configuration vocabularies', () => {
       ],
       hasMore: true,
     })
+
     const page = await loadConfigurationVocabularies(
       { rpc } as unknown as DataClient,
       'workspace-1',

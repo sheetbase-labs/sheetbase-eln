@@ -80,8 +80,10 @@ export interface PickerSearchResult {
 
 /** Beyond this many local matches the list says so and asks for a narrower query. */
 const RENDER_CAP = 100
+
 const humanise = (key: string) => {
   const text = key.replace(/[_-]+/g, ' ').trim()
+
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
@@ -103,6 +105,7 @@ function ValueList({
 }) {
   const [vq, setVq] = useState('')
   const shown = field.values.filter(([v]) => norm(v).includes(norm(vq)))
+
   return (
     <div className="flex w-[260px] max-w-[calc(100vw-32px)] flex-col">
       {field.values.length > 8 ? (
@@ -201,12 +204,15 @@ function AddFilter({
 }) {
   const [open, setOpen] = useState(false)
   const [field, setField] = useState<FilterField | null>(null)
+
   if (!fields.length) return null
+
   return (
     <Popover
       open={open}
       onOpenChange={(o) => {
         setOpen(o)
+
         if (!o) setField(null)
       }}
     >
@@ -268,14 +274,19 @@ export function filterPickerOptions(
   active: Record<string, string[]>,
 ): PickerOption[] {
   const terms = norm(query).split(/\s+/).filter(Boolean)
+
   return options.filter((o) => {
     // A value list is an OR within one field; fields combine with AND.
     for (const [key, values] of Object.entries(active)) {
       const v = o.facets?.[key]
+
       if (!values.length) continue
+
       if (!v || !values.includes(v)) return false
     }
+
     if (!terms.length) return true
+
     const hay = norm(
       [
         o.identifier,
@@ -287,6 +298,7 @@ export function filterPickerOptions(
         .filter(Boolean)
         .join(' '),
     )
+
     return terms.every((term) => hay.includes(term))
   })
 }
@@ -294,10 +306,13 @@ export function filterPickerOptions(
 /** Distinct values of a facet with how many options carry each, biggest first. */
 function facetValues(options: PickerOption[], key: string) {
   const counts = new Map<string, number>()
+
   for (const o of options) {
     const v = o.facets?.[key]
+
     if (v) counts.set(v, (counts.get(v) ?? 0) + 1)
   }
+
   return [...counts.entries()].sort(
     (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
   )
@@ -407,12 +422,14 @@ function EntityPicker({
   onCancel?: () => void
 }) {
   const [q, setQ] = useState('')
+
   const [picked, setPicked] = useState<Map<string, PickerOption | null>>(
     () =>
       new Map(
         values.map((id) => [id, localOptions.find((o) => o.id === id) ?? null]),
       ),
   )
+
   const [active, setActive] = useState<Record<string, string[]>>({})
   const [remote, setRemote] = useState<PickerSearchResult | null>(null)
   const [busy, setBusy] = useState(Boolean(search))
@@ -422,6 +439,7 @@ function EntityPicker({
     if (!search) return
     let live = true
     setBusy(true)
+
     const timer = setTimeout(
       () => {
         void search(q).then(
@@ -441,6 +459,7 @@ function EntityPicker({
       },
       q ? 150 : 0,
     )
+
     return () => {
       live = false
       clearTimeout(timer)
@@ -450,6 +469,7 @@ function EntityPicker({
   // The pool the facet chips count from: every local option, or what the last
   // search returned.
   const pool = search ? (remote?.options ?? []) : localOptions
+
   // Any field the options carry can be filtered on. A caller names and orders
   // the ones it knows; the rest are listed under their own key.
   const fieldKeys = [
@@ -458,6 +478,7 @@ function EntityPicker({
       (k) => !facets.some((f) => f.key === k),
     ),
   ]
+
   const fields = fieldKeys
     .map((key) => ({
       key,
@@ -465,6 +486,7 @@ function EntityPicker({
       values: facetValues(pool, key),
     }))
     .filter((f) => f.values.length > 1 || f.key in active)
+
   const matched = useMemo(
     () =>
       search
@@ -472,21 +494,26 @@ function EntityPicker({
         : filterPickerOptions(pool, q, active),
     [pool, q, active, search],
   )
+
   const visible = matched.slice(0, RENDER_CAP)
   const total = search ? (remote?.total ?? matched.length) : matched.length
   const loading = (search ? busy : false) || Boolean(loadingProp)
 
   const groups = useMemo(() => {
     const out: { key: string; items: PickerOption[] }[] = []
+
     const heading = (o: PickerOption) =>
       o.group ??
       (remote?.recent && search ? t('notebook.entityPicker.recent') : '')
+
     for (const o of visible) {
       const key = heading(o)
       const g = out.find((x) => x.key === key)
+
       if (g) g.items.push(o)
       else out.push({ key, items: [o] })
     }
+
     return out
   }, [visible, remote?.recent, search])
 
@@ -495,32 +522,43 @@ function EntityPicker({
       const next = { ...a }
       const cur = next[key] ?? []
       const vals = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v]
+
       if (vals.length) next[key] = vals
       else delete next[key]
+
       return next
     })
+
   const clearField = (key: string) =>
     setActive((a) => {
       const next = { ...a }
       delete next[key]
+
       return next
     })
+
   const anyFilter = Object.keys(active).length > 0
 
   const choose = (o: PickerOption) => {
     if (!multiple) {
       onPick(o.id, o)
+
       return
     }
+
     setPicked((p) => {
       const next = new Map(p)
+
       if (next.has(o.id)) next.delete(o.id)
       else next.set(o.id, o)
+
       return next
     })
   }
+
   const renderItem = (o: PickerOption) => {
     const chosen = multiple ? picked.has(o.id) : o.id === value
+
     return (
       <CommandItem
         key={o.id}
@@ -789,11 +827,14 @@ export function PickerSelect({
   ...picker
 }: PickerSelectProps) {
   const [open, setOpen] = useState(false)
+
   const current =
     selected ??
     picker.options?.find((o) => o.id === value) ??
     (picker.footerOption?.id === value ? picker.footerOption : undefined)
+
   const empty = !value || !current
+
   const text = current
     ? current.label
     : value === '' && clearLabel
@@ -901,9 +942,11 @@ export function PickerMultiSelect({
 }: PickerMultiSelectProps) {
   const [open, setOpen] = useState(false)
   const known = new Map<string, PickerOption>()
+
   for (const o of [...(picker.options ?? []), ...(selected ?? [])])
     known.set(o.id, o)
   const chosen = values.map((v) => known.get(v) ?? { id: v, label: v })
+
   const remove = (removed: string) => {
     const ids = values.filter((v) => v !== removed)
     onChange(
@@ -911,6 +954,7 @@ export function PickerMultiSelect({
       ids.map((v) => known.get(v)).filter((o): o is PickerOption => !!o),
     )
   }
+
   return (
     <>
       <div

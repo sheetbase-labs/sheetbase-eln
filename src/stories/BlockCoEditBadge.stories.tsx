@@ -31,7 +31,9 @@ const meta = {
   ],
   args: { blockId: BLOCK_ID, active: true },
 } satisfies Meta<typeof BlockCoEditBadge>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Editing locally, but no room: awareness stays silent. */

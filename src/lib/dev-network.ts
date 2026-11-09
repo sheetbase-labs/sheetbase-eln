@@ -43,8 +43,10 @@ let snapshot = { log, inFlight }
 
 export function parseNetworkSettings(raw: string | null): DevNetworkSettings {
   if (!raw) return noSimulation
+
   try {
     const v = JSON.parse(raw) as Partial<DevNetworkSettings>
+
     return {
       latencyMs:
         typeof v.latencyMs === 'number' && v.latencyMs >= 0 ? v.latencyMs : 0,
@@ -62,6 +64,7 @@ export function parseNetworkSettings(raw: string | null): DevNetworkSettings {
 function load() {
   if (loaded || typeof window === 'undefined') return
   loaded = true
+
   try {
     settings = parseNetworkSettings(localStorage.getItem(STORAGE_KEY))
   } catch {
@@ -77,6 +80,7 @@ function emit() {
 function subscribe(cb: () => void) {
   load()
   listeners.add(cb)
+
   return () => {
     listeners.delete(cb)
   }
@@ -90,6 +94,7 @@ export function setDevNetworkActive(next: boolean) {
 export function setDevNetwork(patch: Partial<DevNetworkSettings>) {
   load()
   settings = { ...settings, ...patch }
+
   try {
     if (isQuiet(settings)) {
       localStorage.removeItem(STORAGE_KEY)
@@ -99,6 +104,7 @@ export function setDevNetwork(patch: Partial<DevNetworkSettings>) {
   } catch {
     /* lasts for this page */
   }
+
   emit()
 }
 
@@ -116,6 +122,7 @@ export function useDevNetworkSettings(): DevNetworkSettings {
     subscribe,
     () => {
       load()
+
       return settings
     },
     () => noSimulation,
@@ -133,6 +140,7 @@ export function useDevRequests() {
 /** Summary numbers over the logged requests. */
 export function summariseRequests(requests: readonly DevRequest[]) {
   const total = requests.reduce((sum, r) => sum + r.ms, 0)
+
   return {
     count: requests.length,
     failed: requests.filter((r) => r.status === 0 || r.status >= 400).length,
@@ -160,6 +168,7 @@ export async function devFetch(
   inFlight += 1
   emit()
   let settled = false
+
   const finish = (status: number, simulated: boolean) => {
     if (settled) return
     settled = true
@@ -173,14 +182,18 @@ export async function devFetch(
     })
     emit()
   }
+
   try {
     if (settings.latencyMs > 0) await wait(settings.latencyMs)
+
     if (settings.offline) {
       finish(0, true)
       throw new TypeError('Failed to fetch')
     }
+
     if (settings.failRate > 0 && Math.random() < settings.failRate) {
       finish(503, true)
+
       return new Response(
         JSON.stringify({
           error: {
@@ -191,8 +204,10 @@ export async function devFetch(
         { status: 503, headers: { 'content-type': 'application/json' } },
       )
     }
+
     const response = await fetchImpl(url, init)
     finish(response.status, false)
+
     return response
   } catch (error) {
     finish(0, false)

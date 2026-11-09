@@ -68,16 +68,20 @@ export function olsSearchUrl(
     obsoletes: 'false',
     fieldList: 'iri,label,ontology_name,short_form,description',
   })
+
   if (ontologies.length > 0) params.set('ontology', ontologies.join(','))
+
   return `${OLS_SEARCH_URL}?${params.toString()}`
 }
 
 export function parseOlsResponse(body: unknown): OntologyTerm[] {
   const docs = (body as { response?: { docs?: unknown } } | null)?.response
     ?.docs
+
   if (!Array.isArray(docs)) return []
   const out: OntologyTerm[] = []
   const seen = new Set<string>()
+
   for (const raw of docs as OlsDoc[]) {
     if (
       typeof raw.iri !== 'string' ||
@@ -88,12 +92,15 @@ export function parseOlsResponse(body: unknown): OntologyTerm[] {
     ) {
       continue
     }
+
     seen.add(raw.iri)
+
     const description = Array.isArray(raw.description)
       ? raw.description.find((d): d is string => typeof d === 'string')
       : typeof raw.description === 'string'
         ? raw.description
         : undefined
+
     out.push({
       iri: raw.iri,
       label: raw.label,
@@ -102,6 +109,7 @@ export function parseOlsResponse(body: unknown): OntologyTerm[] {
       description: description ? description.slice(0, 400) : null,
     })
   }
+
   return out
 }
 
@@ -111,16 +119,20 @@ export async function searchOntologyTerms(
   deps: { fetch?: OlsFetch; timeoutMs?: number } = {},
 ): Promise<OntologyTerm[]> {
   const text = query.trim()
+
   if (text.length < 2) return []
   const fetcher: OlsFetch = deps.fetch ?? ((url, init) => fetch(url, init))
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), deps.timeoutMs ?? 8000)
+
   try {
     const res = await fetcher(olsSearchUrl(text, ontologies), {
       signal: controller.signal,
       headers: { accept: 'application/json' },
     })
+
     if (!res.ok) throw new Error(`The ontology service answered ${res.status}`)
+
     return parseOlsResponse(await res.json())
   } finally {
     clearTimeout(timer)

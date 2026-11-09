@@ -14,7 +14,9 @@ const meta = {
   title: 'Notebook/Chemistry blocks',
   parameters: { layout: 'padded' },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const molfile = `

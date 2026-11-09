@@ -113,6 +113,7 @@ function renderScreen() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <ProtocolPage />
@@ -146,9 +147,11 @@ describe('protocol training tab', () => {
   it('offers acknowledgement to a writer and records it against the exact version', async () => {
     const user = userEvent.setup()
     renderScreen()
+
     const button = await screen.findByRole('button', {
       name: 'Read and acknowledge',
     })
+
     expect(button.hasAttribute('disabled')).toBe(false)
     await user.click(button)
     await waitFor(() =>
@@ -168,9 +171,11 @@ describe('protocol training tab', () => {
         '00000000-0000-4000-8000-000000000001',
       ),
     )
+
     const button = await screen.findByRole('button', {
       name: 'Read and acknowledge',
     })
+
     expect(button.hasAttribute('disabled')).toBe(true)
     expect(
       screen.getByText(
@@ -219,9 +224,11 @@ describe('protocol training tab', () => {
       },
     ])
     renderScreen()
+
     const picker = await screen.findByRole('combobox', {
       name: 'Protocol version',
     })
+
     await user.selectOptions(picker, olderId)
     expect(await screen.findByText('Training on v2')).toBeTruthy()
     await waitFor(() =>

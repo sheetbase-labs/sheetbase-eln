@@ -109,6 +109,7 @@ function renderPanel(canManage: boolean, c = client()) {
       />
     </QueryClientProvider>,
   )
+
   return c
 }
 
@@ -130,20 +131,26 @@ describe('StorageLocationsPanel', () => {
     await user.click(screen.getByRole('button', { name: 'Expand Shelf 1' }))
     await user.click(screen.getByRole('button', { name: 'Expand Rack A' }))
     await user.click(screen.getByRole('treeitem', { name: /Box 3/ }))
+
     const details = screen.getByRole('complementary', {
       name: 'Location details',
     })
+
     expect(details.textContent).toContain('2 samples stored here')
+
     const archive = screen.getByRole('button', {
       name: 'Archive box',
     })
+
     expect(archive.matches(':disabled')).toBe(true)
     expect(details.textContent).toContain('can’t be archived')
 
     await user.click(screen.getByRole('treeitem', { name: /Box 4/ }))
+
     const empty = screen.getByRole('button', {
       name: 'Archive box',
     })
+
     expect(empty.matches(':disabled')).toBe(false)
     await user.click(empty)
     await waitFor(() =>
@@ -191,6 +198,7 @@ describe('StorageLocationsPanel', () => {
       ...client(),
       list: vi.fn(async () => []),
     } as unknown as DataClient
+
     renderPanel(true, empty as never)
     expect(await screen.findByText('No storage locations yet')).toBeTruthy()
   })

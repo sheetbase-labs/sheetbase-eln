@@ -251,9 +251,12 @@ export function getColumnHeaderLabel<TData extends RowData, TValue>(
   column: Column<DataGridFeatures, TData, TValue>,
 ): string {
   const meta = column.columnDef.meta as { headerTitle?: string } | undefined
+
   if (typeof meta?.headerTitle === 'string') return meta.headerTitle
   const defHeader = column.columnDef.header
+
   if (typeof defHeader === 'string') return defHeader
+
   return String(column.id)
 }
 
@@ -267,6 +270,7 @@ export function getDataGridHeaderSpans<TData extends object>(
   table: DataGridTableInstance<TData>,
 ) {
   const spans = new Map<string, Column<DataGridFeatures, TData, unknown>[]>()
+
   const families = [
     table.getStartVisibleLeafColumns(),
     table.getCenterVisibleLeafColumns(),
@@ -277,24 +281,30 @@ export function getDataGridHeaderSpans<TData extends object>(
     for (let index = 0; index < family.length; index++) {
       const owner = family[index]!
       const span = Math.floor(owner.columnDef.meta?.headerColSpan ?? 1)
+
       if (span < 2) continue
 
       // The next span - 1 siblings in definition order, so a span never
       // leaves its parent group; a hidden one is skipped, not a gap.
       const siblings = owner.parent?.columns ?? table.getAllColumns()
       const at = siblings.findIndex((sibling) => sibling.id === owner.id)
+
       const intended =
         at < 0
           ? []
           : siblings
               .slice(at + 1, at + span)
               .filter((sibling) => sibling.getIsVisible())
+
       const covered: Column<DataGridFeatures, TData, unknown>[] = []
+
       for (const sibling of intended) {
         const next = family[index + 1 + covered.length]
+
         if (next?.id !== sibling.id) break
         covered.push(next)
       }
+
       if (!covered.length) continue
 
       spans.set(owner.id, covered)
@@ -325,6 +335,7 @@ export function getDataGridCellSelectionCellAttrs<TData extends object>(
 } {
   const selected = cell.getIsSelected()
   const edges = cell.getSelectionEdges()
+
   return {
     'aria-selected': selected,
     'data-col-id': cell.column.id,
@@ -537,6 +548,7 @@ const dataGridAutoSizeStates = new WeakMap<
 
 function getDataGridAutoSizeState(store: object): DataGridAutoSizeReflowState {
   let state = dataGridAutoSizeStates.get(store)
+
   if (!state) {
     state = {
       applied: null,
@@ -546,6 +558,7 @@ function getDataGridAutoSizeState(store: object): DataGridAutoSizeReflowState {
     }
     dataGridAutoSizeStates.set(store, state)
   }
+
   return state
 }
 
@@ -576,25 +589,31 @@ function createDataGridAutoSizeController<TData extends object>(
   const resolveReflow = (freeSpace: number) => {
     const table = getTable()
     const state = getDataGridAutoSizeState(table.store)
+
     // LIVE state, never the render snapshot: a measurement can run between
     // our own sizing commit and React's re-render, and the stale snapshot
     // would hide the width this controller just wrote.
     const columnSizing =
       table.atoms.columnSizing?.get() ?? table.state.columnSizing
+
     if (!state.applied) return null
+
     const autoSizeColumn = table
       .getVisibleLeafColumns()
       .find(
         (column) => column.columnDef.meta?.autoSize && column.getCanResize(),
       )
+
     if (!autoSizeColumn || autoSizeColumn.id !== state.applied.columnId)
       return null
     // A width this coordinator did not write belongs to the user's drag;
     // reflow stands down until a reset re-arms the column.
     const currentSize = columnSizing[state.applied.columnId]
+
     if (currentSize !== undefined && currentSize !== state.applied.grown) {
       return null
     }
+
     // The free space as it would measure with our growth removed; the
     // target re-absorbs exactly that, floored at minSize so a narrow
     // window hands space back without ever crushing the column (no
@@ -604,14 +623,18 @@ function createDataGridAutoSizeController<TData extends object>(
     // counts as one the consumer set.
     const freeAtBase = freeSpace + (state.applied.grown - state.applied.base)
     const resolvedMinSize = autoSizeColumn.columnDef.minSize
+
     const hasConsumerMinSize =
       table.options.defaultColumn?.minSize !== undefined ||
       resolvedMinSize !== table.getDefaultColumnDef().minSize
+
     const floor =
       hasConsumerMinSize && resolvedMinSize !== undefined
         ? resolvedMinSize
         : state.applied.base
+
     const target = Math.max(floor, state.applied.base + freeAtBase)
+
     return {
       table,
       state,
@@ -624,20 +647,24 @@ function createDataGridAutoSizeController<TData extends object>(
 
   const reflow = (freeSpace: number): boolean => {
     const resolved = resolveReflow(freeSpace)
+
     if (!resolved) return false
     const { table, state, applied, target } = resolved
+
     if (Math.abs(target - applied.grown) < 1) return false
     state.applied = { ...applied, grown: target }
     table.setColumnSizing((old) => ({
       ...old,
       [applied.columnId]: target,
     }))
+
     return true
   }
 
   return {
     preview(freeSpace: number) {
       const resolved = resolveReflow(freeSpace)
+
       // In rendered pixels: getSize() clamps to maxSize, so an unclamped
       // preview painted a capped column past its cap until the release.
       return resolved
@@ -650,6 +677,7 @@ function createDataGridAutoSizeController<TData extends object>(
     },
     adopt(columnId: string, size: number) {
       const state = getDataGridAutoSizeState(getTable().store)
+
       if (state.applied?.columnId === columnId) {
         state.applied = { ...state.applied, grown: size }
       }
@@ -657,6 +685,7 @@ function createDataGridAutoSizeController<TData extends object>(
     apply(freeSpace: number) {
       const table = getTable()
       const state = getDataGridAutoSizeState(table.store)
+
       // Same live read as `reflow`; the snapshot race is what made the
       // re-arm check clear the bookkeeping right after the first absorb.
       const columnSizing =
@@ -678,20 +707,25 @@ function createDataGridAutoSizeController<TData extends object>(
       if (autoSizeColumn && state.applied?.columnId === autoSizeColumn.id) {
         state.pendingFreeSpace = freeSpace
         const now = Date.now()
+
         if (now - state.lastCommitAt > SETTLE_MS) {
           state.lastCommitAt = now
+
           return reflow(freeSpace)
         }
+
         if (state.settleTimer !== null) clearTimeout(state.settleTimer)
         state.settleTimer = setTimeout(() => {
           state.settleTimer = null
           state.lastCommitAt = Date.now()
           reflow(state.pendingFreeSpace)
         }, SETTLE_MS)
+
         return false
       }
 
       const fillWidth = Math.max(0, freeSpace)
+
       if (fillWidth <= 0) return false
 
       if (!autoSizeColumn) {
@@ -710,6 +744,7 @@ function createDataGridAutoSizeController<TData extends object>(
       // to survive that. An explicit reset clears the entry and re-arms the
       // fill, which is what makes double-click-to-reset still work.
       const currentSize = columnSizing[autoSizeColumn.id]
+
       if (currentSize !== undefined && currentSize !== state.applied?.grown) {
         return false
       }
@@ -723,15 +758,18 @@ function createDataGridAutoSizeController<TData extends object>(
         columnSizing[state.applied.columnId] === state.applied.grown
           ? state.applied
           : null
+
       const base = columnSizing[autoSizeColumn.id] ?? autoSizeColumn.getSize()
       const grown = base + fillWidth
 
       state.applied = { columnId: autoSizeColumn.id, base, grown }
       table.setColumnSizing((old) => {
         const next = { ...old, [autoSizeColumn.id]: grown }
+
         if (revert && next[revert.columnId] === revert.grown) {
           next[revert.columnId] = revert.base
         }
+
         return next
       })
 
@@ -1002,9 +1040,11 @@ function useDataGrid<
 >(): DataGridContextProps<TData> {
   const context = useContext(DataGridContext) as
     DataGridContextProps<TData> | undefined
+
   if (!context) {
     throw new Error('useDataGrid must be used within a DataGridProvider')
   }
+
   return context
 }
 
@@ -1032,11 +1072,14 @@ function useDataGridAtom<TValue, TSelected = TValue | undefined>(
     (onChange: () => void) => {
       if (!atom) return noopUnsubscribe
       const subscription = atom.subscribe(onChange)
+
       return () => subscription.unsubscribe()
     },
     [atom],
   )
+
   const getSnapshot = () => select(atom?.get())
+
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 }
 
@@ -1054,7 +1097,9 @@ const isDataGridPropNode = (value: unknown) =>
 // callback input.
 function dataGridPropsSignatureReplacer(_key: string, value: unknown) {
   if (typeof value === 'function') return 'fn'
+
   if (isDataGridPropNode(value)) return 'node'
+
   return value
 }
 
@@ -1071,9 +1116,11 @@ function getDataGridStateInputs<TData extends object>(
     table.options.columns,
     JSON.stringify(props, dataGridPropsSignatureReplacer),
   ]
+
   for (const [key, slice] of Object.entries(table.state)) {
     if (!DATA_GRID_UNPUBLISHED_STATE.has(key)) inputs.push(key, slice)
   }
+
   return inputs
 }
 
@@ -1124,6 +1171,7 @@ function DataGridProvider<TData extends object>({
 
   useEffect(() => {
     if (!resizeMode) return
+
     if (table.options.columnResizeMode === resizeMode) return
     table.setOptions((old) => ({ ...old, columnResizeMode: resizeMode }))
   }, [table, resizeMode])
@@ -1136,6 +1184,7 @@ function DataGridProvider<TData extends object>({
   const cellSelectionOn = !!props.tableLayout?.cellSelection
   useEffect(() => {
     if (!cellSelectionOn || table.atoms.cellSelection == null) return
+
     if (table.options.autoResetCellSelection === false) return
     table.setOptions((old) => ({ ...old, autoResetCellSelection: false }))
   }, [table, cellSelectionOn])
@@ -1149,6 +1198,7 @@ function DataGridProvider<TData extends object>({
   useEffect(() => {
     if (previousPageKeyRef.current === pageKey) return
     previousPageKeyRef.current = pageKey
+
     if (!cellSelectionOn || table.atoms.cellSelection == null) return
     tableRef.current.resetCellSelection(true)
   }, [pageKey, cellSelectionOn])
@@ -1182,20 +1232,26 @@ function DataGridProvider<TData extends object>({
     committedOptionsRef.current = table.options
   })
   const isResizing = !!table.state.columnResizing?.isResizingColumn
+
   const publishedRef = useRef<{
     stateInputs: unknown[]
     callbackInputs: unknown[]
     value: DataGridContextProps<TData>
   } | null>(null)
+
   let published = publishedRef.current
+
   if (!published || !isResizing) {
     const stateInputs = getDataGridStateInputs(table, props, autoSize)
     const callbackInputs = getDataGridCallbackInputs(props)
+
     const stateChanged =
       !published || !isSameDataGridInputs(published.stateInputs, stateInputs)
+
     const callbacksChanged =
       !published ||
       !isSameDataGridInputs(published.callbackInputs, callbackInputs)
+
     if (published && !stateChanged && callbacksChanged && !hasMemoizedOptions) {
       published.callbackInputs = callbackInputs
     } else if (stateChanged || callbacksChanged) {
@@ -1221,6 +1277,7 @@ function DataGridProvider<TData extends object>({
       publishedRef.current = published
     }
   }
+
   const value = published!.value
 
   return (

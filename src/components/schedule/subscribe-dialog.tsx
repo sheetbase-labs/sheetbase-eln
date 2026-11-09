@@ -63,6 +63,7 @@ export function SubscribeDialog({
     enabled: open,
     staleTime: 10_000,
   })
+
   const instrumentName = new Map(instruments.map((i) => [i.id, i.name]))
   const chosenInstrument = resourceId || instruments[0]?.id || ''
 
@@ -85,6 +86,7 @@ export function SubscribeDialog({
           : t('calendarFeed.couldNotCreate'),
       ),
   })
+
   const revoke = useMutation({
     mutationFn: (id: string) => revokeCalendarFeed(client, id),
     onSuccess: () => {
@@ -104,6 +106,7 @@ export function SubscribeDialog({
         ? (instrumentName.get(feed.resource_id ?? '') ??
           t('calendarFeed.scopes.instrument'))
         : t(`calendarFeed.scopes.${feed.scope}`)
+
     return feed.label ? `${feed.label} · ${what}` : what
   }
 
@@ -112,6 +115,7 @@ export function SubscribeDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
+
         if (!next) setLink(null)
       }}
     >

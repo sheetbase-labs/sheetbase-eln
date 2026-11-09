@@ -26,6 +26,7 @@ const versionRow = (status: string) => ({
   created_by_user_id: 'author',
   created_at: '2026-08-28T12:00:00Z',
 })
+
 const requestRow = (state: string) => ({
   id: REQUEST,
   workspace_id: WS,
@@ -37,23 +38,27 @@ const requestRow = (state: string) => ({
 /** A fetcher that answers each RPC by name and records the call order. */
 function rpcClient(answers: Record<string, unknown>) {
   const calls: { name: string; body: Record<string, unknown> }[] = []
+
   const fetcher = vi.fn(
     async (input: RequestInfo | URL, init?: RequestInit) => {
       const name = String(input).split('/rpc/')[1] ?? ''
       calls.push({ name, body: JSON.parse(String(init?.body ?? '{}')) })
       const answer = answers[name]
+
       if (answer instanceof Error) {
         return new Response(JSON.stringify({ message: answer.message }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' },
         })
       }
+
       return new Response(JSON.stringify(answer), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
     },
   )
+
   return { client: createDataClient(fetcher), calls }
 }
 
@@ -64,11 +69,13 @@ describe('submitProtocolRevision', () => {
       set_protocol_version_status: versionRow('in_review'),
       submit_approval_request: requestRow('pending'),
     })
+
     const out = await submitProtocolRevision(client, {
       workspaceId: WS,
       protocolRecordId: RECORD,
       changeSummary: '  Tighter hold  ',
     })
+
     expect(out.versionId).toBe(VERSION)
     expect(calls.map((c) => c.name)).toEqual([
       'create_protocol_version',
@@ -94,6 +101,7 @@ describe('submitProtocolRevision', () => {
       set_protocol_version_status: versionRow('in_review'),
       submit_approval_request: requestRow('pending'),
     })
+
     await submitProtocolRevision(client, {
       workspaceId: WS,
       protocolRecordId: RECORD,
@@ -124,10 +132,12 @@ describe('approveProtocolRevision', () => {
     const { client, calls } = rpcClient({
       approve_approval_request: requestRow('pending'),
     })
+
     const out = await approveProtocolRevision(client, {
       requestId: REQUEST,
       versionId: VERSION,
     })
+
     expect(out.effective).toBe(false)
     expect(calls.map((c) => c.name)).toEqual(['approve_approval_request'])
   })
@@ -137,10 +147,12 @@ describe('approveProtocolRevision', () => {
       approve_approval_request: requestRow('approved'),
       set_protocol_version_status: versionRow('effective'),
     })
+
     const out = await approveProtocolRevision(client, {
       requestId: REQUEST,
       versionId: VERSION,
     })
+
     expect(out.effective).toBe(true)
     expect(calls[1]?.body).toMatchObject({
       p_version_id: VERSION,
@@ -153,10 +165,12 @@ describe('approveProtocolRevision', () => {
       approve_approval_request: requestRow('approved'),
       set_protocol_version_status: new Error('not allowed'),
     })
+
     const out = await approveProtocolRevision(client, {
       requestId: REQUEST,
       versionId: VERSION,
     })
+
     expect(out.request.state).toBe('approved')
     expect(out.effective).toBe(false)
     expect(out.releaseError).toBeTruthy()

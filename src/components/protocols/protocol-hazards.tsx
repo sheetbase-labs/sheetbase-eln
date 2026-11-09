@@ -42,6 +42,7 @@ export function ProtocolHazards({
         .filter((id): id is string => Boolean(id)),
     ),
   ]
+
   const names = useQuery({
     queryKey: ['protocol-hazards', 'names', ids.join(',')],
     queryFn: () =>
@@ -53,11 +54,13 @@ export function ProtocolHazards({
       ),
     enabled: ids.length > 0,
   })
+
   const safety = useQuery({
     queryKey: materialSafetyKeys.many(ids),
     queryFn: () => fetchMaterialSafetyFor(notebookDataClient, ids),
     enabled: ids.length > 0,
   })
+
   if (ids.length === 0 || !names.data || !safety.data) return null
 
   const rows = names.data
@@ -66,6 +69,7 @@ export function ProtocolHazards({
     .sort((a, b) => a.material.title.localeCompare(b.material.title))
 
   const all: GhsPictogram[] = []
+
   for (const { safety: s } of rows) {
     for (const code of s?.pictograms ?? [])
       if (!all.includes(code)) all.push(code)

@@ -6,6 +6,7 @@ import { BlockPreview } from '#/components/notebook/block-preview'
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, staleTime: Infinity } },
 })
+
 const payloads: any = {
   rich_text: {
     doc: {
@@ -36,6 +37,7 @@ const payloads: any = {
   metric: { label: 'Final concentration', value: 7.42, unit: 'ng/µL' },
   materials: { items: [] },
 }
+
 const meta = {
   title: 'Notebook/Notebook block',
   component: NotebookBlock,
@@ -54,9 +56,13 @@ const meta = {
     draggable: true,
   },
 } satisfies Meta<typeof NotebookBlock>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 export const Default: Story = {}
+
 export const Types: Story = {
   render: () => (
     <div className="divide-y rounded border">
@@ -76,6 +82,7 @@ export const Types: Story = {
     </div>
   ),
 }
+
 export const States: Story = {
   render: () => (
     <div className="divide-y rounded border">

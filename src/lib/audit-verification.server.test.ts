@@ -29,8 +29,10 @@ function fakeDb(workspaces: string[], outcomes: Record<string, boolean>) {
     if (text.includes('from api.workspaces'))
       return { rows: workspaces.map((slug) => ({ id: `id-${slug}`, slug })) }
     const slug = String(values?.[0]).replace('id-', '')
+
     return { rows: [{ result: result(outcomes[slug] ?? true) }] }
   })
+
   return {
     query: query as unknown as VerificationQueryable['query'],
     end: vi.fn(async () => {}),

@@ -57,6 +57,7 @@ const REVIEW_SAMPLE_LIMIT = 20
 
 function asRow<T>(body: T | { error: unknown }): T | undefined {
   if (Array.isArray(body)) return (body as T[])[0]
+
   return body as T
 }
 
@@ -70,12 +71,16 @@ function raisedRpcError(
   body: unknown,
 ): { code: string; message: string } | undefined {
   const record = Array.isArray(body) ? body[0] : body
+
   if (!record || typeof record !== 'object') return undefined
   const value = record as Record<string, unknown>
+
   if (typeof value.code === 'string' && typeof value.message === 'string')
     return { code: value.code, message: value.message }
+
   if (typeof value.error === 'string' && value.error.trim())
     return { code: 'rpc_error', message: value.error }
+
   return undefined
 }
 
@@ -89,18 +94,21 @@ function parserFailureForRaisedError(error: {
   message: string
 }): { code: string; message: string } | undefined {
   if (error.code !== 'SB107') return undefined
+
   if (error.message.includes('approved parser version'))
     return {
       code: 'parser_not_approved',
       message:
         'The regulated Dataset requires an approved matching parser version. Validate and approve this version before retrying.',
     }
+
   if (error.message.includes('format does not match'))
     return {
       code: 'parser_format_mismatch',
       message:
         'The parser does not match the retained file format. Choose a parser for this format before retrying.',
     }
+
   return {
     code: 'parser_unrecognised',
     message:
@@ -152,8 +160,10 @@ export function mappingsFromDocument(
   fields: ImportTargetField[],
 ): ImportColumnMapping[] {
   const byId = new Map(fields.map((field) => [field.id, field]))
+
   return document.sources.map((entry) => {
     const field = entry.fieldId ? byId.get(entry.fieldId) : undefined
+
     return field
       ? {
           source: entry.source,
@@ -171,9 +181,11 @@ export function plannedKeyFromRow(
   row: Record<string, string>,
 ): string | undefined {
   if (!parser || parser.plannedKeyHeaders.length === 0) return undefined
+
   const parts = parser.plannedKeyHeaders
     .map((header) => (row[header] ?? '').trim())
     .filter((value) => value.length > 0)
+
   return parts.length > 0 ? parts.join('/').slice(0, 200) : undefined
 }
 
@@ -181,6 +193,7 @@ function fieldUnit(quantity: unknown): string | null {
   if (!quantity || typeof quantity !== 'object') return null
   const record = quantity as Record<string, unknown>
   const unit = record.storageUnit ?? record.symbol ?? record.unit
+
   return typeof unit === 'string' && unit.trim() ? unit.trim() : null
 }
 
@@ -205,13 +218,17 @@ export function buildColumnViews(
   fieldQuantity: Map<string, unknown>,
 ): ImportColumnView[] {
   const byId = new Map(fields.map((field) => [field.id, field]))
+
   return document.sources.map((entry) => {
     const field = entry.fieldId ? byId.get(entry.fieldId) : undefined
+
     const values = sheet.rows
       .slice(0, 6)
       .map((row) => (row[entry.source] ?? '').trim())
       .filter((value) => value.length > 0)
+
     const matched = values.length
+
     return {
       source: entry.source,
       fieldId: field?.id ?? null,
@@ -243,8 +260,10 @@ export function sampleReviewRows(
 ): Array<ReviewRpcRow & { values: Record<string, string> }> {
   const ranked = [...rows].sort((a, b) => {
     const weight = (row: ReviewRpcRow) => (row.flags.length > 0 ? 0 : 1)
+
     return weight(a) - weight(b) || a.index - b.index
   })
+
   return ranked.slice(0, limit).map((row) => ({
     ...row,
     values: sheet.rows[row.index - 1] ?? {},
@@ -263,9 +282,11 @@ export async function loadDataset(
     `id=eq.${encodeURIComponent(datasetId)}&select=id,workspace_id,schema_version_id,revision,lifecycle&limit=1`,
     token,
   )
+
   const dataset = Array.isArray(datasetRes.body)
     ? datasetRes.body[0]
     : undefined
+
   if (datasetRes.status >= 400 || !dataset) {
     return {
       ok: false,
@@ -274,12 +295,15 @@ export async function loadDataset(
       message: 'Dataset not found.',
     }
   }
+
   const fieldsRes = await postgrestSelect<FieldWire[]>(
     'dataset_schema_version_fields',
     `schema_version_id=eq.${encodeURIComponent(dataset.schema_version_id)}&lifecycle=eq.active&select=field_id,label,logical_type,nullable,quantity&order=display_order.asc`,
     token,
   )
+
   const fields = Array.isArray(fieldsRes.body) ? fieldsRes.body : []
+
   return { ok: true, dataset, fields }
 }
 
@@ -292,6 +316,7 @@ async function loadStoredFile(
     `id=eq.${encodeURIComponent(fileId)}&select=id,workspace_id,dataset_id,filename,media_type,byte_size,checksum,storage_key,format,status,parse_error&limit=1`,
     token,
   )
+
   return Array.isArray(result.body) ? (result.body[0] ?? null) : null
 }
 
@@ -306,11 +331,14 @@ async function readAndParse(
       'Retained file storage identity does not match the workspace.',
     )
   const { stream, byteSize } = await storage.getStream(file.storage_key)
+
   if (byteSize > IMPORT_LIMITS.bytes || byteSize !== Number(file.byte_size)) {
     await stream.cancel()
     throw new Error('Retained file size does not match its recorded evidence.')
   }
+
   const bytes = await new Response(stream).arrayBuffer()
+
   if (
     bytes.byteLength !== Number(file.byte_size) ||
     createHash('sha256').update(new Uint8Array(bytes)).digest('hex') !==
@@ -319,14 +347,17 @@ async function readAndParse(
     throw new Error(
       'Retained file checksum does not match its recorded evidence.',
     )
+
   if (layout && file.format !== 'xlsx') {
     // A parser that describes its file's layout reads the text itself.
     const read = readWithLayout(new TextDecoder().decode(bytes), layout)
+
     const sheet: ImportSheet = {
       name: 'Sheet 1',
       headers: read.headers,
       rows: read.rows,
     }
+
     return {
       sheet,
       preview: {
@@ -336,11 +367,14 @@ async function readAndParse(
       },
     }
   }
+
   const preview = await parseImportBytes(bytes, {
     fileName: file.filename,
     format: sniffImportFormat(file.filename),
   })
+
   const sheet = selectImportSheet(preview, sheetName ?? undefined)
+
   return { sheet, preview }
 }
 
@@ -348,6 +382,7 @@ function parserByKey(
   key: string | null | undefined,
 ): ImportParserDefinition | null {
   if (!key) return null
+
   return IMPORT_PARSERS.find((parser) => parser.key === key) ?? null
 }
 
@@ -378,8 +413,10 @@ async function canonicalReaders(token: string, versionId?: string) {
     `${versionId ? `id=eq.${encodeURIComponent(versionId)}&` : ''}status=neq.retired&select=id,parser_id,version,status,signature,parsers(id,key,name,format)&order=version.desc`,
     token,
   )
+
   return (Array.isArray(response.body) ? response.body : []).flatMap((row) => {
     const parsed = canonicalReaderSchema.safeParse(row)
+
     if (
       !parsed.success ||
       (typeof row === 'object' &&
@@ -392,6 +429,7 @@ async function canonicalReaders(token: string, versionId?: string) {
       return []
     const version = parsed.data
     const base = parserByKey(version.parsers.key)
+
     const definition: ImportParserDefinition = {
       ...(base ?? { plannedKeyHeaders: [], controlPattern: '' }),
       key: version.parsers.key,
@@ -401,6 +439,7 @@ async function canonicalReaders(token: string, versionId?: string) {
       status: 'approved',
       signature: version.signature,
     }
+
     const summary: ImportParserSummary = {
       key: definition.key,
       label: definition.label,
@@ -411,6 +450,7 @@ async function canonicalReaders(token: string, versionId?: string) {
       parserId: version.parser_id,
       parserVersionId: version.id,
     }
+
     return [{ definition, summary, layout: version.signature.layout ?? null }]
   })
 }
@@ -428,6 +468,7 @@ async function ensureParsers(
     { p_workspace_id: workspaceId },
     token,
   )
+
   for (const parser of IMPORT_PARSERS) {
     const result = await postgrestRpc<{
       parserId: string
@@ -447,7 +488,9 @@ async function ensureParsers(
       },
       token,
     )
+
     const body = asRow(result.body)
+
     if (result.status >= 400 || !body || !('parserId' in body)) continue
     summaries.set(parser.key, {
       key: parser.key,
@@ -460,6 +503,7 @@ async function ensureParsers(
       status: body.status,
     })
   }
+
   return summaries
 }
 
@@ -487,9 +531,11 @@ async function buildFileView(
     format: file.format,
     datasetId,
   }
+
   let sheet: ImportSheet | null = null
   let preview: ImportPreview | null = null
   let parseError: string | undefined
+
   try {
     const parsed = await readAndParse(storage, file, options.sheetName)
     sheet = parsed.sheet
@@ -497,6 +543,7 @@ async function buildFileView(
   } catch (error) {
     parseError =
       error instanceof Error ? error.message : 'Could not parse file.'
+
     if (options.record) {
       await postgrestRpc(
         'record_dataset_import_file_parse',
@@ -526,28 +573,36 @@ async function buildFileView(
 
   const parsers = await ensureParsers(context.token, context.workspaceId)
   const canonical = await canonicalReaders(context.token)
+
   const rawTextHint =
     file.format === 'xlsx' ? null : await readHeadText(storage, file)
+
   const recognitionInput = {
     format: sniffImportFormat(file.filename),
     headers: sheet.headers,
     rawTextHint,
   }
+
   const recognisedCanonical = canonical.find(
     (reader) =>
       reader.summary.status === 'approved' &&
       recogniseImportParser(recognitionInput, [reader.definition]),
   )
+
   const recognition = recognisedCanonical
     ? null
     : recogniseImportParser(recognitionInput)
+
   let parser: ImportParserSummary | null = null
+
   if (recognisedCanonical) {
     parser = recognisedCanonical.summary
   } else if (recognition) {
     const summary = parsers.get(recognition.key)
+
     if (summary) parser = { ...summary, confidence: recognition.confidence }
   }
+
   if (!parser) {
     // A parser that describes its file's layout may read a file the plain
     // table reader sees as noise (details above the header, a plate grid).
@@ -560,8 +615,10 @@ async function buildFileView(
         reader.definition.format !== sniffImportFormat(file.filename)
       )
         continue
+
       try {
         const read = await readAndParse(storage, file, null, reader.layout)
+
         if (
           recogniseImportParser(
             {
@@ -582,6 +639,7 @@ async function buildFileView(
       }
     }
   }
+
   if (!parser && options.record)
     await recordParserFailure(
       context,
@@ -601,6 +659,7 @@ async function buildFileView(
   const savedMapping = parser
     ? await loadSavedMapping(context.token, parser.parserId, datasetId)
     : null
+
   const approvedParsers = canonical
     .filter(
       (reader) =>
@@ -609,6 +668,7 @@ async function buildFileView(
         reader.summary.key !== parser?.key,
     )
     .map((reader) => reader.summary)
+
   const draftParsers = canonical
     .filter(
       (reader) =>
@@ -616,17 +676,21 @@ async function buildFileView(
         reader.summary.status !== 'approved',
     )
     .map((reader) => reader.summary)
+
   const shippedDrafts = IMPORT_PARSERS.filter(
     (item) => item.format === file.format && item.status === 'draft',
   ).flatMap((item) => {
     const summary = parsers.get(item.key)
+
     return summary ? [summary] : []
   })
+
   const draftOptions = draftParsers.length ? draftParsers : shippedDrafts
   // Never print the found headers as the expected example: that is the reason
   // recognition failed, not guidance. Name the drafts a matching file would
   // need approved, or say that only approved versions recognise a file.
   const foundHeaders = sheet.headers.slice(0, 6).join(', ')
+
   const draftReason = draftOptions.length
     ? ` ${draftOptions
         .map((item) => `${item.label} v${item.version}`)
@@ -675,21 +739,28 @@ export async function handleImportFileRead(
   if (request.method !== 'GET') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use GET.')
   }
+
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
 
   const params = new URL(request.url).searchParams
   const fileId = params.get('fileId')
+
   if (!fileId) {
     return requestErrorResponse(400, 'invalid_request', 'fileId is required.')
   }
+
   const file = await loadStoredFile(context.token, fileId)
+
   if (!file || file.workspace_id !== context.workspaceId) {
     return requestErrorResponse(404, 'not_found', 'Import not found.')
   }
+
   const datasetId = params.get('datasetId') ?? file.dataset_id
+
   return Response.json(
     await buildFileView(context, storage, file, datasetId, {
       record: false,
@@ -707,13 +778,16 @@ export async function handleImportFileUpload(
   if (request.method !== 'POST') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
   }
+
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
 
   let filename = 'import'
   const rawName = request.headers.get('x-import-filename')
+
   if (rawName) {
     try {
       filename = decodeURIComponent(rawName)
@@ -721,6 +795,7 @@ export async function handleImportFileUpload(
       filename = rawName
     }
   }
+
   filename = filename.slice(0, 400) || 'import'
   const mediaType = request.headers.get('content-type')
   const datasetId = new URL(request.url).searchParams.get('datasetId')
@@ -728,6 +803,7 @@ export async function handleImportFileUpload(
 
   const storageKey = generateStorageKey(context.workspaceId, newFileObjectId())
   let stored: { byteSize: bigint; checksum: string }
+
   try {
     stored = await storage.putStream(
       storageKey,
@@ -742,6 +818,7 @@ export async function handleImportFileUpload(
         `The file exceeds the ${Math.round(IMPORT_LIMITS.bytes / (1024 * 1024))} MB import cap.`,
       )
     }
+
     throw error
   }
 
@@ -759,9 +836,12 @@ export async function handleImportFileUpload(
     },
     context.token,
   )
+
   const file = asRow(created.body)
+
   if (created.status >= 400 || !file || !('id' in file)) {
     await storage.delete(storageKey)
+
     return requestErrorResponse(
       created.status >= 400 ? created.status : 502,
       'file_record_failed',
@@ -783,24 +863,31 @@ async function readHeadText(
   const chunks: Uint8Array[] = []
   let size = 0
   const cap = 256 * 1024
+
   for (;;) {
     const { done, value } = await reader.read()
+
     if (done) break
     chunks.push(value)
     size += value.byteLength
+
     if (size >= cap) {
       await reader.cancel()
       break
     }
   }
+
   const buffer = new Uint8Array(Math.min(size, cap))
   let offset = 0
+
   for (const chunk of chunks) {
     const room = buffer.byteLength - offset
+
     if (room <= 0) break
     buffer.set(chunk.subarray(0, Math.min(chunk.byteLength, room)), offset)
     offset += Math.min(chunk.byteLength, room)
   }
+
   return new TextDecoder().decode(buffer)
 }
 
@@ -810,6 +897,7 @@ async function loadSavedMapping(
   datasetId: string | null,
 ): Promise<ImportMappingDocument | null> {
   if (!parserId || !datasetId) return null
+
   const result = await postgrestSelect<
     Array<{ mapping: ImportMappingDocument }>
   >(
@@ -817,7 +905,9 @@ async function loadSavedMapping(
     `parser_id=eq.${encodeURIComponent(parserId)}&target_key=eq.${encodeURIComponent(`dataset:${datasetId}`)}&is_default=eq.true&select=mapping&limit=1`,
     token,
   )
+
   if (!Array.isArray(result.body) || result.body.length === 0) return null
+
   return result.body[0]?.mapping ?? null
 }
 
@@ -853,18 +943,23 @@ async function prepareImport(
   },
 ): Promise<PreparedImport | { error: Response }> {
   const file = await loadStoredFile(context.token, input.fileId)
+
   if (!file || file.workspace_id !== context.workspaceId) {
     return {
       error: requestErrorResponse(404, 'not_found', 'Import file not found.'),
     }
   }
+
   const loaded = await loadDataset(context.token, input.datasetId)
+
   if (!loaded.ok) {
     return {
       error: requestErrorResponse(loaded.status, loaded.code, loaded.message),
     }
   }
+
   const parsedMapping = mappingSchema.safeParse(input.mapping)
+
   if (!parsedMapping.success)
     return {
       error: requestErrorResponse(
@@ -873,6 +968,7 @@ async function prepareImport(
         'Choose valid source columns, fields and units.',
       ),
     }
+
   if (
     input.sheetName &&
     parsedMapping.data.sheetName &&
@@ -886,10 +982,13 @@ async function prepareImport(
       ),
     }
   }
+
   let sheet: ImportSheet
+
   try {
     const selected = input.sheetName ?? parsedMapping.data.sheetName
     const parsed = await readAndParse(storage, file, selected, input.layout)
+
     if (!selected && parsed.preview.sheets.length > 1) {
       return {
         error: requestErrorResponse(
@@ -899,6 +998,7 @@ async function prepareImport(
         ),
       }
     }
+
     sheet = parsed.sheet
   } catch (error) {
     return {
@@ -911,7 +1011,9 @@ async function prepareImport(
       ),
     }
   }
+
   const fields = new Set(loaded.fields.map((field) => field.field_id))
+
   if (
     parsedMapping.data.sources.some(
       (entry) =>
@@ -927,6 +1029,7 @@ async function prepareImport(
       ),
     }
   }
+
   return {
     file,
     dataset: loaded.dataset,
@@ -953,25 +1056,31 @@ function buildRows(
 ): { mapped: MappedImport; controlFieldId: string | null } {
   const targetFields = toTargetFields(prepared.fields)
   const mappings = mappingsFromDocument(prepared.mapping, targetFields)
+
   const mapped = mapImportSheet(
     prepared.sheet,
     mappings,
     prepared.dataset.schema_version_id,
   )
+
   mapped.rows = mapped.rows.map((row, index) => {
     const plannedKey = plannedKeyFromRow(
       parser,
       prepared.sheet.rows[index] ?? {},
     )
+
     return plannedKey ? { ...row, plannedKey } : row
   })
   let controlFieldId: string | null = null
+
   if (parser?.controlHeader) {
     const entry = prepared.mapping.sources.find(
       (source) => source.source === parser.controlHeader,
     )
+
     controlFieldId = entry?.fieldId ?? null
   }
+
   return { mapped, controlFieldId }
 }
 
@@ -993,7 +1102,9 @@ export async function handleImportReview(
   if (request.method !== 'POST') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
   }
+
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
@@ -1006,6 +1117,7 @@ export async function handleImportReview(
     parserVersionId?: string | null
     sheetName?: string | null
   }
+
   try {
     body = (await request.json()) as typeof body
   } catch {
@@ -1015,6 +1127,7 @@ export async function handleImportReview(
       'Request body must be JSON.',
     )
   }
+
   if (!body.fileId || !body.datasetId || !body.mapping) {
     return requestErrorResponse(
       400,
@@ -1022,9 +1135,11 @@ export async function handleImportReview(
       'fileId, datasetId and mapping are required.',
     )
   }
+
   const selectedReader = body.parserVersionId
     ? (await canonicalReaders(context.token, body.parserVersionId)).at(0)
     : undefined
+
   const prepared = await prepareImport(context, storage, {
     layout: selectedReader?.layout ?? null,
     fileId: body.fileId,
@@ -1032,10 +1147,12 @@ export async function handleImportReview(
     mapping: body.mapping,
     sheetName: body.sheetName,
   })
+
   if ('error' in prepared) return prepared.error
 
   const parser = selectedReader?.definition ?? parserByKey(body.parserKey)
   const { mapped, controlFieldId } = buildRows(prepared, parser)
+
   if (mapped.errors.length > 0) {
     return Response.json({
       ok: false,
@@ -1080,7 +1197,9 @@ export async function handleImportReview(
     },
     context.token,
   )
+
   const previewBody = asRow(preview.body)
+
   if (preview.status >= 400 || !previewBody || !('rows' in previewBody)) {
     return requestErrorResponse(
       preview.status >= 400 ? preview.status : 502,
@@ -1123,7 +1242,9 @@ export async function handleImportCommit(
   if (request.method !== 'POST') {
     return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
   }
+
   const auth = await resolveSessionAuth(request.headers, deps)
+
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth
@@ -1140,6 +1261,7 @@ export async function handleImportCommit(
     sheetName?: string | null
     idempotencyKey?: string
   }
+
   try {
     body = (await request.json()) as typeof body
   } catch {
@@ -1149,6 +1271,7 @@ export async function handleImportCommit(
       'Request body must be JSON.',
     )
   }
+
   if (
     !body.fileId ||
     !body.datasetId ||
@@ -1161,9 +1284,11 @@ export async function handleImportCommit(
       'fileId, datasetId, mapping and idempotencyKey are required.',
     )
   }
+
   const selectedReader = body.parserVersionId
     ? (await canonicalReaders(context.token, body.parserVersionId)).at(0)
     : undefined
+
   const prepared = await prepareImport(context, storage, {
     layout: selectedReader?.layout ?? null,
     fileId: body.fileId,
@@ -1171,9 +1296,11 @@ export async function handleImportCommit(
     mapping: body.mapping,
     sheetName: body.sheetName,
   })
+
   if ('error' in prepared) return prepared.error
 
   const parser = selectedReader?.definition ?? parserByKey(body.parserKey)
+
   if (
     (body.parserKey && !parser) ||
     (selectedReader &&
@@ -1186,6 +1313,7 @@ export async function handleImportCommit(
       'Choose a registered parser version.',
     )
   }
+
   // Manual mapping is a parser too: the generic format reader plus the
   // mapping frozen in the receipt. It never bypasses regulated approval.
   const registered = selectedReader
@@ -1208,7 +1336,9 @@ export async function handleImportCommit(
         },
         context.token,
       )
+
   const registeredBody = asRow(registered.body)
+
   if (
     registered.status >= 400 ||
     !registeredBody ||
@@ -1220,7 +1350,9 @@ export async function handleImportCommit(
       'Could not register the parser. The file is kept for retry.',
     )
   }
+
   const { parserId, parserVersionId } = registeredBody
+
   if (
     (body.parserId && body.parserId !== parserId) ||
     (body.parserVersionId && body.parserVersionId !== parserVersionId)
@@ -1231,7 +1363,9 @@ export async function handleImportCommit(
       'The parser attribution does not match the reader used. The file is kept for retry.',
     )
   }
+
   const { mapped, controlFieldId } = buildRows(prepared, parser)
+
   if (mapped.errors.length > 0 || mapped.rows.length === 0) {
     return Response.json({
       ok: false,
@@ -1260,17 +1394,21 @@ export async function handleImportCommit(
     },
     context.token,
   )
+
   const previewBody = asRow(preview.body)
   const outcome = previewBody?.summary
+
   // Controls (skipped) are shown in the review but never written: "skipped
   // (controls); nothing dropped silently" (DSET-05.4). The outcome index is
   // the 1-based position in the row list.
   const skipped = (previewBody?.rows ?? [])
     .filter((row) => row.outcome === 'skipped')
     .map((row) => row.index)
+
   const rowsToCommit = commitRows(mapped).filter(
     (_row, index) => !skipped.includes(index + 1),
   )
+
   if (rowsToCommit.length === 0) {
     return Response.json({
       ok: false,
@@ -1305,7 +1443,9 @@ export async function handleImportCommit(
     },
     context.token,
   )
+
   const result = asRow(committed.body)
+
   if (committed.status >= 400 || !result || result.ok !== true) {
     // A raised RPC names the cause that actually applied; collapsing every
     // failure into one sentence reports a cause that may be false for this
@@ -1313,8 +1453,10 @@ export async function handleImportCommit(
     // receipt in step with the cause that was actually raised.
     const raised =
       committed.status >= 400 ? raisedRpcError(committed.body) : undefined
+
     if (raised) {
       const failure = parserFailureForRaisedError(raised)
+
       if (failure) {
         await recordParserFailure(
           context,
@@ -1324,17 +1466,20 @@ export async function handleImportCommit(
           failure.message,
         )
       }
+
       return Response.json({
         ok: false,
         committed: 0,
         errors: [{ code: 'commit_failed', message: raised.message }],
       })
     }
+
     const errors = (result?.errors ?? []).map((error) => ({
       row: error.rowIndex,
       code: error.code,
       message: describeImportRpcCode(error.code),
     }))
+
     return Response.json({
       ok: false,
       committed: 0,

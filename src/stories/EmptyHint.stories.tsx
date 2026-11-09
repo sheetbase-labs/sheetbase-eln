@@ -12,7 +12,9 @@ const meta = {
   tags: ['autodocs'],
   args: { children: 'No linked records' },
 } satisfies Meta<typeof EmptyHint>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

@@ -67,11 +67,14 @@ function client(
       },
     },
   })
+
   // 'loading' seeds nothing, so the Dataset read stays in flight.
   if (datasets !== 'loading') {
     instance.setQueryData(DATASETS_QUERY_KEY, datasets)
   }
+
   instance.setQueryData(SCHEMAS_QUERY_KEY, publishedSchemas)
+
   return instance
 }
 
@@ -90,7 +93,9 @@ const meta = {
   ],
   args: { workspaceId: WORKSPACE_ID, createdByUserId: 'user-1' },
 } satisfies Meta<typeof ImportUploadFlow>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Datasets exist, so the append-or-create choice is offered. */
@@ -152,7 +157,9 @@ export const DatasetReadRefused: Story = {
           },
         },
       })
+
       refused.setQueryData(SCHEMAS_QUERY_KEY, schemas)
+
       return (
         <QueryClientProvider client={refused}>
           <div className="w-[900px] max-w-full">

@@ -29,11 +29,14 @@ function usedFieldIds(spec: ChartSpec): string[] {
 function roles(columnId: string, charts: readonly ChartSpec[]): string[] {
   const found: string[] = []
   const first = charts.at(0)
+
   if (first?.fields.series?.fieldId === columnId) found.push('series')
+
   if (first?.fields.x?.fieldId === columnId) found.push('x')
   charts.forEach((chart, i) => {
     if (chart.fields.y.fieldId === columnId) found.push(`y${i + 1}`)
   })
+
   return found
 }
 
@@ -54,6 +57,7 @@ export function FieldsPane({
   charts: readonly ChartSpec[]
 }) {
   const columns = dataset?.source.columns ?? []
+
   return (
     <aside
       aria-label={t('data.analysisDocument.ariaSourceFields')}
@@ -85,6 +89,7 @@ export function FieldsPane({
           <ul className="m-0 flex list-none flex-col p-0">
             {columns.map((column) => {
               const used = roles(column.id, charts)
+
               return (
                 <li
                   key={column.id}
@@ -138,6 +143,7 @@ export function ChartStack({
       {charts.map((spec, i) => {
         const materialised = materialiseLiveChart(spec, dataset)
         const chartFactsText = chartFacts(chartTitle(spec), materialised)
+
         return (
           <div
             key={i}
@@ -196,9 +202,11 @@ export function ChartSettings({
   onRemove: (() => void) | null
 }) {
   const spec = charts.at(selected)
+
   if (!spec) return null
   const x = columns.find((c) => c.id === spec.fields.x?.fieldId)
   const references = spec.overlays.references ?? []
+
   return (
     <InspectorSection
       title={t('data.analysisDocument.chart', {
@@ -270,6 +278,7 @@ export function exclusionCounts(
   if (!dataset?.flags?.length) return { values: 0, rows: 0 }
   const used = new Set(charts.flatMap((c) => usedFieldIds(c)))
   const hit = dataset.flags.filter((f) => used.has(f.fieldId))
+
   return {
     values: new Set(hit.map((f) => `${f.rowId}:${f.fieldId}`)).size,
     rows: new Set(hit.map((f) => f.rowId)).size,
@@ -302,22 +311,28 @@ export function AnalysisTabs({
   onRestore?: (charts: ChartSpec[]) => void
 }) {
   const [tab, setTab] = useState<Tab>('data')
+
   const used = useMemo(
     () => [...new Set(charts.flatMap((c) => usedFieldIds(c)))],
     [charts],
   )
+
   const columns = (dataset?.source.columns ?? []).filter((c) =>
     used.includes(c.id),
   )
+
   const rows = dataset?.rows ?? []
+
   const flagFor = (row: Record<string, unknown>) => {
     const rowId = row[CHART_ROW_ID_KEY]
+
     return typeof rowId === 'string'
       ? (dataset?.flags ?? []).find(
           (f) => f.rowId === rowId && used.includes(f.fieldId),
         )
       : undefined
   }
+
   return (
     <div className="flex min-w-0 flex-col">
       <Tabs
@@ -361,6 +376,7 @@ export function AnalysisTabs({
                 <tbody>
                   {rows.map((row, i) => {
                     const flag = flagFor(row)
+
                     return (
                       <tr
                         key={i}

@@ -376,17 +376,22 @@ function chunkIdsForQuery(
   const chunks: string[][] = []
   let current: string[] = []
   let length = prefixLength
+
   for (const id of ids) {
     const piece = (encodeURIComponent(id).length + 1) * weight
+
     if (current.length > 0 && length + piece > QUERY_VALUE_BUDGET) {
       chunks.push(current)
       current = []
       length = prefixLength
     }
+
     current.push(id)
     length += piece
   }
+
   if (current.length > 0) chunks.push(current)
+
   return chunks
 }
 
@@ -406,6 +411,7 @@ export async function fetchLineageRecords(
       `?id=eq.${encodeURIComponent(seedRecordId)}&select=id,workspace_id,project_id,kind,identifier,title,status,properties,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id`,
     )
   }
+
   return client.list<RecordWire>(
     'records',
     `?deleted_at=is.null&order=updated_at.desc&limit=${LINEAGE_MAX_NODES}&select=id,workspace_id,project_id,kind,identifier,title,status,properties,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id`,
@@ -424,21 +430,27 @@ export async function fetchLineageLinks(
   if (recordIds && recordIds.length > 0) {
     const select =
       'id,source_record_id,target_record_id,target_kind,target_identifier,link_type,link_metadata,created_at,created_by_user_id'
+
     const pages = await Promise.all(
       chunkIdsForQuery(recordIds, 60, 2).map((chunk) => {
         const filter = chunk.map((id) => encodeURIComponent(id)).join(',')
+
         return client.list<RecordLinkWire>(
           'record_links',
           `?or=(source_record_id.in.(${filter}),target_record_id.in.(${filter}))&order=created_at.desc&limit=${LINEAGE_MAX_NODES * 4}&select=${select}`,
         )
       }),
     )
+
     const byId = new Map<string, RecordLinkWire>()
+
     for (const page of pages) for (const link of page) byId.set(link.id, link)
+
     return [...byId.values()].sort((a, b) =>
       String(b.created_at).localeCompare(String(a.created_at)),
     )
   }
+
   return client.list<RecordLinkWire>(
     'record_links',
     `?order=created_at.desc&limit=${LINEAGE_MAX_NODES * 4}&select=id,source_record_id,target_record_id,target_kind,target_identifier,link_type,link_metadata,created_at,created_by_user_id`,
@@ -455,17 +467,21 @@ export async function fetchLineageReviews(
   if (recordIds && recordIds.length > 0) {
     const select =
       'id,workspace_id,record_id,revision_id,state,workflow_definition_key,workflow_definition_version,assigned_reviewer_user_ids,submitted_by_user_id,submitted_at,created_at,updated_at'
+
     const pages = await Promise.all(
       chunkIdsForQuery(recordIds, 30).map((chunk) => {
         const filter = chunk.map((id) => encodeURIComponent(id)).join(',')
+
         return client.list<ReviewSubmissionWire>(
           'review_submissions',
           `?record_id=in.(${filter})&order=submitted_at.desc&select=${select}`,
         )
       }),
     )
+
     return pages.flat()
   }
+
   return client.list<ReviewSubmissionWire>(
     'review_submissions',
     `?order=submitted_at.desc&select=id,workspace_id,record_id,revision_id,state,workflow_definition_key,workflow_definition_version,assigned_reviewer_user_ids,submitted_by_user_id,submitted_at,created_at,updated_at`,
@@ -482,17 +498,21 @@ export async function fetchLineageDecisions(
   if (recordIds && recordIds.length > 0) {
     const select =
       'id,workspace_id,submission_id,revision_id,record_id,decision,note,actor_user_id,created_at'
+
     const pages = await Promise.all(
       chunkIdsForQuery(recordIds, 30).map((chunk) => {
         const filter = chunk.map((id) => encodeURIComponent(id)).join(',')
+
         return client.list<ReviewDecisionWire>(
           'review_decisions',
           `?record_id=in.(${filter})&order=created_at.desc&select=${select}`,
         )
       }),
     )
+
     return pages.flat()
   }
+
   return client.list<ReviewDecisionWire>(
     'review_decisions',
     `?order=created_at.desc&select=id,workspace_id,submission_id,revision_id,record_id,decision,note,actor_user_id,created_at`,
@@ -510,16 +530,19 @@ export async function fetchLineageSignatures(
     const pages = await Promise.all(
       chunkIdsForQuery(recordIds, 30).map((chunk) => {
         const filter = chunk.map((id) => encodeURIComponent(id)).join(',')
+
         return client.list<SignatureWire>(
           'signatures',
           `?record_id=in.(${filter})&order=created_at.desc&select=id,workspace_id,record_id,revision_id,signer_user_id,signature_meaning,assurance_level,created_at`,
         )
       }),
     )
+
     return pages
       .flat()
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
   }
+
   return client.list<SignatureWire>(
     'signatures',
     `?order=created_at.desc&select=id,workspace_id,record_id,revision_id,signer_user_id,signature_meaning,assurance_level,created_at`,
@@ -538,17 +561,20 @@ export async function fetchLineageEvents(
     const pages = await Promise.all(
       chunkIdsForQuery(recordIds, 30).map((chunk) => {
         const filter = chunk.map((id) => encodeURIComponent(id)).join(',')
+
         return client.list<ChangeEventWire>(
           'change_events',
           `?record_id=in.(${filter})&order=created_at.desc&limit=${LINEAGE_MAX_EVENTS}&select=id,workspace_id,sequence,entity_type,entity_uuid,operation,record_id,project_id,actor_user_id,actor_credential_id,client_id,payload,created_at`,
         )
       }),
     )
+
     return pages
       .flat()
       .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
       .slice(0, LINEAGE_MAX_EVENTS)
   }
+
   return client.list<ChangeEventWire>(
     'change_events',
     `?order=created_at.desc&limit=${LINEAGE_MAX_EVENTS}&select=id,workspace_id,sequence,entity_type,entity_uuid,operation,record_id,project_id,actor_user_id,actor_credential_id,client_id,payload,created_at`,
@@ -590,15 +616,18 @@ export function buildLineageGraph(
   maxNodes: number = LINEAGE_MAX_NODES,
 ): LineageGraph {
   const recordMap = new Map<string, RecordWire>()
+
   for (const r of records) recordMap.set(r.id, r)
 
   // Build adjacency from links.
   const outgoing = new Map<string, RecordLinkWire[]>() // source → links
   const incoming = new Map<string, RecordLinkWire[]>() // target → links
+
   for (const link of links) {
     const out = outgoing.get(link.source_record_id) ?? []
     out.push(link)
     outgoing.set(link.source_record_id, out)
+
     if (link.target_record_id) {
       const inc = incoming.get(link.target_record_id) ?? []
       inc.push(link)
@@ -609,6 +638,7 @@ export function buildLineageGraph(
   // BFS from seed (or all records if no seed).
   const visited = new Set<string>()
   const nodeQueue: BFSNode[] = []
+
   const nodeRecords = new Map<
     string,
     { record: RecordWire; depth: number; direction: LineageDirection }
@@ -616,6 +646,7 @@ export function buildLineageGraph(
 
   if (seedRecordId) {
     const seed = recordMap.get(seedRecordId)
+
     if (seed) {
       nodeRecords.set(seedRecordId, {
         record: seed,
@@ -635,6 +666,7 @@ export function buildLineageGraph(
   // BFS traversal — follow links up to maxDepth, detecting cycles.
   while (nodeQueue.length > 0 && nodeRecords.size < maxNodes) {
     const current = nodeQueue.shift()!
+
     if (visited.has(current.recordId)) continue
     visited.add(current.recordId)
 
@@ -642,10 +674,13 @@ export function buildLineageGraph(
 
     // Downstream: follow outgoing links (source → target).
     const outLinks = outgoing.get(current.recordId) ?? []
+
     for (const link of outLinks) {
       if (nodeRecords.size >= maxNodes) break
+
       if (link.target_record_id) {
         const target = recordMap.get(link.target_record_id)
+
         if (target && !nodeRecords.has(link.target_record_id)) {
           nodeRecords.set(link.target_record_id, {
             record: target,
@@ -657,6 +692,7 @@ export function buildLineageGraph(
                   ? 'bidirectional'
                   : current.direction,
           })
+
           if (nodeRecords.size < maxNodes) {
             nodeQueue.push({
               recordId: link.target_record_id,
@@ -670,9 +706,11 @@ export function buildLineageGraph(
 
     // Upstream: follow incoming links (target ← source).
     const inLinks = incoming.get(current.recordId) ?? []
+
     for (const link of inLinks) {
       if (nodeRecords.size >= maxNodes) break
       const source = recordMap.get(link.source_record_id)
+
       if (source && !nodeRecords.has(link.source_record_id)) {
         nodeRecords.set(link.source_record_id, {
           record: source,
@@ -684,6 +722,7 @@ export function buildLineageGraph(
                 ? 'bidirectional'
                 : current.direction,
         })
+
         if (nodeRecords.size < maxNodes) {
           nodeQueue.push({
             recordId: link.source_record_id,
@@ -699,6 +738,7 @@ export function buildLineageGraph(
 
   // Build nodes.
   const nodes: LineageNode[] = []
+
   for (const [, { record, depth, direction }] of nodeRecords) {
     nodes.push({
       id: record.id,
@@ -731,6 +771,7 @@ export function buildLineageGraph(
 
   for (const link of links) {
     const sourceInGraph = nodeRecords.has(link.source_record_id)
+
     const targetInGraph = link.target_record_id
       ? nodeRecords.has(link.target_record_id)
       : false
@@ -741,12 +782,14 @@ export function buildLineageGraph(
 
     // Handle missing/restricted target.
     let targetId: string
+
     if (link.target_record_id && targetInGraph) {
       targetId = link.target_record_id
     } else if (link.target_record_id && !targetInGraph) {
       // Target record exists in DB but is not in our fetched set — could be
       // permission-restricted or beyond the node limit. Create a restricted node.
       const restrictedId = `restricted:${link.target_record_id}`
+
       if (!restrictedNodes.has(restrictedId)) {
         restrictedNodes.set(restrictedId, {
           id: restrictedId,
@@ -766,10 +809,12 @@ export function buildLineageGraph(
           deletedAt: null,
         })
       }
+
       targetId = restrictedId
     } else {
       // target_record_id is null — target was hard-purged or never existed.
       const missingId = `missing:${link.target_identifier}`
+
       if (!restrictedNodes.has(missingId)) {
         restrictedNodes.set(missingId, {
           id: missingId,
@@ -795,10 +840,12 @@ export function buildLineageGraph(
           deletedAt: null,
         })
       }
+
       targetId = missingId
     }
 
     const sourceRecord = nodeRecords.get(link.source_record_id)
+
     const edgeDirection: LineageDirection = sourceRecord
       ? sourceRecord.direction === 'seed'
         ? 'downstream'
@@ -831,6 +878,7 @@ export function buildLineageGraph(
 
   // Add review nodes and edges.
   const graphRecordIds = new Set(nodeRecords.keys())
+
   for (const review of reviews) {
     if (!graphRecordIds.has(review.record_id)) continue
     const reviewNodeId = `review:${review.id}`
@@ -948,9 +996,11 @@ export function buildLineageGraph(
 
   // Filter events to those related to graph records.
   const graphNodeRecordIds = new Set<string>()
+
   for (const node of nodes) {
     if (node.recordId) graphNodeRecordIds.add(node.recordId)
   }
+
   const filteredEvents: LineageEvent[] = events
     .filter((e) => e.record_id !== null && graphNodeRecordIds.has(e.record_id))
     .map((e) => ({
@@ -993,11 +1043,14 @@ export function filterLineageGraph(
   const keepNode = (node: LineageNode): boolean => {
     // Always keep the seed node.
     if (graph.seedRecordId && node.id === graph.seedRecordId) return true
+
     // Entity type filter.
     if (entityTypeSet.size > 0 && !entityTypeSet.has(node.entityType))
       return false
+
     // External filter: hide restricted/missing nodes.
     if (!filters.showExternal && !node.accessible) return false
+
     return true
   }
 
@@ -1010,15 +1063,19 @@ export function filterLineageGraph(
     // Both endpoints must be in the kept node set.
     if (!keptNodeIds.has(edge.sourceId) || !keptNodeIds.has(edge.targetId))
       return false
+
     // Relationship type filter.
     if (relTypeSet.size > 0 && !relTypeSet.has(edge.relationshipType))
       return false
+
     // Direction filter.
     if (filters.direction === 'both') return true
+
     if (filters.direction === 'upstream') {
       // Keep edges where the source is upstream of the seed (incoming).
       return edge.direction === 'upstream' || edge.direction === 'bidirectional'
     }
+
     // filters.direction === 'downstream' (both already returned above).
     // Keep edges where the target is downstream of the seed (outgoing).
     return edge.direction !== 'upstream' && edge.direction !== 'seed'
@@ -1030,12 +1087,15 @@ export function filterLineageGraph(
   // orphaned non-seed nodes when the graph is seed-centred.
   let finalNodes = keptNodes
   let finalEdges = keptEdges
+
   if (graph.seedRecordId) {
     const connectedNodeIds = new Set<string>([graph.seedRecordId])
+
     for (const edge of keptEdges) {
       connectedNodeIds.add(edge.sourceId)
       connectedNodeIds.add(edge.targetId)
     }
+
     finalNodes = keptNodes.filter(
       (n) => connectedNodeIds.has(n.id) || n.id === graph.seedRecordId,
     )
@@ -1064,6 +1124,7 @@ export function filterLineageGraph(
  */
 export function detectCycles(graph: LineageGraph): string[] | null {
   const adjacency = new Map<string, string[]>()
+
   for (const edge of graph.edges) {
     const neighbors = adjacency.get(edge.sourceId) ?? []
     neighbors.push(edge.targetId)
@@ -1073,7 +1134,9 @@ export function detectCycles(graph: LineageGraph): string[] | null {
   const WHITE = 0,
     GRAY = 1,
     BLACK = 2
+
   const color = new Map<string, number>()
+
   for (const node of graph.nodes) color.set(node.id, WHITE)
 
   let cycle: string[] | null = null
@@ -1082,21 +1145,27 @@ export function detectCycles(graph: LineageGraph): string[] | null {
     color.set(nodeId, GRAY)
     path.push(nodeId)
     const neighbors = adjacency.get(nodeId) ?? []
+
     for (const neighbor of neighbors) {
       if (!color.has(neighbor)) continue
       const neighborColor = color.get(neighbor)
+
       if (neighborColor === GRAY) {
         // Found a cycle — extract it from the path.
         const cycleStart = path.indexOf(neighbor)
         cycle = path.slice(cycleStart)
+
         return true
       }
+
       if (neighborColor === WHITE) {
         if (dfs(neighbor, path)) return true
       }
     }
+
     path.pop()
     color.set(nodeId, BLACK)
+
     return false
   }
 
@@ -1190,6 +1259,7 @@ export function buildTableData(graph: LineageGraph): LineageTableRow[] {
 
   for (const node of graph.nodes) {
     const edges = nodeEdges.get(node.id) ?? []
+
     if (edges.length === 0) {
       rows.push({
         id: node.id,
@@ -1255,11 +1325,14 @@ export function getLineageSummary(
     if (edge.sourceId === nodeId) {
       downstreamCount++
       const targetNode = graph.nodes.find((n) => n.id === edge.targetId)
+
       if (targetNode && !targetNode.accessible) externalLinks++
     }
+
     if (edge.targetId === nodeId) {
       upstreamCount++
       const sourceNode = graph.nodes.find((n) => n.id === edge.sourceId)
+
       if (sourceNode && !sourceNode.accessible) externalLinks++
     }
   }
@@ -1288,20 +1361,25 @@ export function getLinkedRecordsByType(
   nodeId: string,
 ): LinkedRecordGroup[] {
   const linkedNodeIds = new Set<string>()
+
   for (const edge of graph.edges) {
     if (edge.sourceId === nodeId) linkedNodeIds.add(edge.targetId)
+
     if (edge.targetId === nodeId) linkedNodeIds.add(edge.sourceId)
   }
 
   const groups = new Map<LineageEntityType, LinkedRecordGroup>()
+
   for (const node of graph.nodes) {
     if (!linkedNodeIds.has(node.id)) continue
+
     const group = groups.get(node.entityType) ?? {
       entityType: node.entityType,
       entityTypeLabel: ENTITY_TYPE_LABELS[node.entityType],
       count: 0,
       records: [],
     }
+
     group.count++
     group.records.push({
       id: node.id,
@@ -1337,12 +1415,14 @@ export function getTransformationHistory(
     entityType: LineageEntityType
     relationshipLabel: string
   }[] = []
+
   const visited = new Set<string>()
 
   function walk(currentId: string, label: string) {
     if (visited.has(currentId)) return
     visited.add(currentId)
     const node = graph.nodes.find((n) => n.id === currentId)
+
     if (!node) return
     chain.push({
       id: node.id,
@@ -1351,6 +1431,7 @@ export function getTransformationHistory(
       entityType: node.entityType,
       relationshipLabel: label,
     })
+
     for (const edge of graph.edges) {
       if (edge.sourceId === currentId && edge.relationshipType === 'dataset') {
         walk(edge.targetId, edge.label)
@@ -1359,6 +1440,7 @@ export function getTransformationHistory(
   }
 
   walk(nodeId, 'Source')
+
   return chain
 }
 
@@ -1385,6 +1467,7 @@ export async function fetchLineageGraph(
   // to wait for the record fetch. This saves one serial round-trip.
   let records: RecordWire[]
   let links: RecordLinkWire[]
+
   const seedDatasets = await fetchDatasetLinkTargets(
     client,
     seedRecordId ? [seedRecordId] : [],
@@ -1395,9 +1478,11 @@ export async function fetchLineageGraph(
       fetchLineageRecords(client, seedRecordId),
       fetchLineageLinks(client, [seedRecordId]),
     ])
+
     records = seedRecords
     links = seedLinks
     const dataset = seedDatasets.get(seedRecordId)
+
     if (dataset) {
       const incoming = await client.list<RecordLinkWire>(
         'record_links',
@@ -1409,9 +1494,11 @@ export async function fetchLineageGraph(
           .map((id) => encodeURIComponent(JSON.stringify(id)))
           .join(',')})&order=created_at.desc&limit=${LINEAGE_MAX_NODES * 4}`,
       )
+
       const byId = new Map(
         [...links, ...incoming].map((link) => [link.id, link]),
       )
+
       links = [...byId.values()]
     }
   } else {
@@ -1428,14 +1515,18 @@ export async function fetchLineageGraph(
   // weren't in the initial fetch.
   if (seedRecordId && maxDepth > 0) {
     const knownIds = new Set<string>(records.map((r) => r.id))
+
     for (let round = 0; round < maxDepth; round++) {
       const newIds = new Set<string>()
+
       for (const link of links) {
         for (const id of [link.source_record_id, link.target_record_id]) {
           if (id && !knownIds.has(id)) newIds.add(id)
         }
       }
+
       if (newIds.size === 0 || knownIds.size + newIds.size > maxNodes) break
+
       const newRecords = (
         await Promise.all(
           chunkIdsForQuery([...newIds], 5).map((chunk) =>
@@ -1446,6 +1537,7 @@ export async function fetchLineageGraph(
           ),
         )
       ).flat()
+
       for (const id of newIds) knownIds.add(id)
       records = [...records, ...newRecords]
       // Re-fetch links including the expanded record set.
@@ -1458,6 +1550,7 @@ export async function fetchLineageGraph(
 
   // Step 4: fetch reviews, decisions, signatures and events for all records.
   const allRecordIds = records.map((r) => r.id)
+
   const [reviews, decisions, signatures, events] = await Promise.all([
     fetchLineageReviews(client, allRecordIds),
     fetchLineageDecisions(client, allRecordIds),
@@ -1473,7 +1566,9 @@ export async function fetchLineageGraph(
       .filter((link) => link.target_kind === 'dataset')
       .map((link) => link.target_record_id ?? link.target_identifier),
   ])
+
   const seenDatasets = new Set<string>()
+
   for (const dataset of datasetTargets.values()) {
     if (seenDatasets.has(dataset.id)) continue
     seenDatasets.add(dataset.id)
@@ -1497,11 +1592,14 @@ export async function fetchLineageGraph(
       updated_by_user_id: null,
     })
   }
+
   links = links.map((link) => {
     if (link.target_kind !== 'dataset') return link
+
     const target = datasetTargets.get(
       link.target_record_id ?? link.target_identifier,
     )
+
     return { ...link, target_record_id: target?.id ?? null }
   })
 
@@ -1545,9 +1643,11 @@ const EVIDENCE_ENTITY_TYPES: Partial<Record<LineageEntityType, true>> = {
  */
 export function lineageNodeDestination(node: LineageNode): string | null {
   if (!node.accessible || !node.recordId) return null
+
   if (node.revisionId && EVIDENCE_ENTITY_TYPES[node.entityType]) {
     return `/review/${encodeURIComponent(node.revisionId)}`
   }
+
   return recordDestination(node.kind, node.recordId)
 }
 
@@ -1559,18 +1659,24 @@ export function lineageNodeDestination(node: LineageNode): string | null {
  */
 export function parseLineageSeedParam(search: unknown): string | null {
   let raw: unknown
+
   if (typeof search === 'string') {
     const params = new URLSearchParams(
       search.startsWith('?') ? search.slice(1) : search,
     )
+
     raw = params.get('seed')
   } else if (search && typeof search === 'object' && 'seed' in search) {
     const seedValue: unknown = search.seed
     raw = seedValue
   }
+
   if (typeof raw !== 'string') return null
   const seed = raw.trim()
+
   if (seed.length === 0) return null
+
   if (/[\s/?#]/.test(seed)) return null
+
   return seed
 }

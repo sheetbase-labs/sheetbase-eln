@@ -31,6 +31,7 @@ function ModelDatasets() {
   const list = versions.data ?? []
   const datasets = useModelDatasets(list.map((v) => v.id))
   const rows = datasets.data ?? []
+
   const versionNumber = (versionId: string) =>
     list.find((v) => v.id === versionId)?.version
 
@@ -62,6 +63,7 @@ function ModelDatasets() {
         header: t('library.models.datasets.version'),
         cell: ({ row }) => {
           const version = versionNumber(row.original.schema_version_id)
+
           return version ? `v${version}` : '—'
         },
       },

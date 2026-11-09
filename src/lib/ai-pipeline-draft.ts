@@ -129,6 +129,7 @@ function describeSchema(option: DraftSchemaOption, index: number): string {
     .slice(0, MAX_FIELDS_PER_SCHEMA)
     .map((f) => `${f.key} (${f.type})`)
     .join(', ')
+
   return `- ${schemaKey(index)} | ${option.name} | columns: ${fields || 'none'}`
 }
 
@@ -136,17 +137,22 @@ function describeCurrent(current: CurrentPipelineDraft | undefined): string[] {
   if (!current) return []
   const lines: string[] = []
   const steps: string[] = []
+
   if (current.statement && !isStarterStatement(current.statement))
     steps.push(current.statement.trim())
+
   for (const step of current.steps ?? [])
     if (!isStarterStatement(step.statement)) steps.push(step.statement.trim())
+
   if (steps.length === 0 && !(current.inputs ?? []).length) return []
   lines.push(
     'The pipeline as it stands now (revise it rather than start over):',
   )
+
   if ((current.inputs ?? []).length)
     lines.push(`Inputs: ${current.inputs?.map((i) => i.name).join(', ')}`)
   steps.forEach((sql, index) => lines.push(`Step ${index + 1}: ${sql}`))
+
   return lines
 }
 
@@ -165,6 +171,7 @@ export function pipelineDraftInstruction(
       const schemaIndex = context.schemas.findIndex(
         (s) => s.versionId === dataset.schemaVersionId,
       )
+
       return `- ${datasetKey(index)} | ${dataset.name} | ${
         schemaIndex >= 0 ? schemaKey(schemaIndex) : 'unknown'
       }`
@@ -181,6 +188,7 @@ export function pipelineDraftInstruction(
 
 function cleanText(value: string | null | undefined, max: number) {
   const text = (value ?? '').trim().replace(/\s+/g, ' ')
+
   return text ? text.slice(0, max) : undefined
 }
 
@@ -205,20 +213,26 @@ function cleanSql(raw: string): string {
 
 function coerceDefault(type: ParameterType, value: unknown): unknown {
   if (value === undefined || value === null || value === '') return undefined
+
   if (type === 'integer') {
     const n = Number(value)
+
     return Number.isInteger(n) ? n : undefined
   }
+
   if (type === 'decimal') {
     const n = Number(value)
+
     return Number.isFinite(n) ? n : undefined
   }
+
   if (type === 'boolean')
     return value === true || value === 'true'
       ? true
       : value === false || value === 'false'
         ? false
         : undefined
+
   return typeof value === 'string' ? value : undefined
 }
 
@@ -232,6 +246,7 @@ export function parsePipelineDraftAnswer(
   context: PipelineDraftContext,
 ): PipelineDraftProposal | null {
   const parsed = answerSchema.safeParse(extractJsonObject(text))
+
   if (!parsed.success) return null
   const answer = parsed.data
   const skipped: string[] = []
@@ -239,18 +254,22 @@ export function parsePipelineDraftAnswer(
   const schemaByKey = new Map(
     context.schemas.slice(0, MAX_SCHEMAS).map((s, i) => [schemaKey(i), s]),
   )
+
   const datasetByKey = new Map(
     context.datasets.slice(0, MAX_DATASETS).map((d, i) => [datasetKey(i), d]),
   )
 
   const takenNames = new Set<string>()
   const inputs: PipelineInput[] = []
+
   for (const raw of answer.inputs) {
     const name = snakeName(raw.name)
+
     if (!name || name === 'previous' || takenNames.has(name)) {
       skipped.push(`input ${raw.name}`)
       continue
     }
+
     takenNames.add(name)
     const schema = raw.schema ? schemaByKey.get(raw.schema) : undefined
     inputs.push({
@@ -264,9 +283,11 @@ export function parsePipelineDraftAnswer(
   }
 
   const parameters: PipelineParameter[] = []
+
   for (const raw of answer.parameters) {
     const name = snakeName(raw.name)
     const type = (raw.type ?? 'text') as ParameterType
+
     if (
       !name ||
       name === 'previous' ||
@@ -276,6 +297,7 @@ export function parsePipelineDraftAnswer(
       skipped.push(`parameter ${raw.name}`)
       continue
     }
+
     takenNames.add(name)
     const value = coerceDefault(type, raw.default)
     parameters.push({
@@ -293,21 +315,27 @@ export function parsePipelineDraftAnswer(
     .map((step) => ({ name: snakeName(step.name), sql: cleanSql(step.sql) }))
     .filter((step) => step.sql.length > 0)
     .slice(0, MAX_STEPS)
+
   if (sqlSteps.length === 0) return null
   const [first, ...rest] = sqlSteps
   const stepNames = new Set<string>()
+
   const steps: PipelineStep[] = rest.map((step, index) => {
     let name = step.name || `step_${index + 2}`
+
     while (stepNames.has(name)) name = `${name}_x`
     stepNames.add(name)
+
     return { name, language: 'sql', statement: step.sql }
   })
 
   const out = answer.output
   let output: PipelineDraftConfig['output'] = { mode: 'none' }
+
   if (out?.mode === 'create') {
     const schema = out.schema ? schemaByKey.get(out.schema) : undefined
     const datasetName = cleanText(out.datasetName, 120)
+
     if (schema && datasetName) {
       output = {
         mode: 'create',
@@ -318,6 +346,7 @@ export function parsePipelineDraftAnswer(
     } else skipped.push('where to save the result')
   } else if (out?.mode === 'append') {
     const dataset = out.dataset ? datasetByKey.get(out.dataset) : undefined
+
     if (dataset) {
       output = {
         mode: 'append',
@@ -329,6 +358,7 @@ export function parsePipelineDraftAnswer(
   }
 
   const summary = cleanText(answer.summary, 500) ?? ''
+
   const config: PipelineDraftConfig = {
     description: summary || null,
     inputs,
@@ -340,6 +370,7 @@ export function parsePipelineDraftAnswer(
 
   // A placeholder for a parameter nobody declared would fail on the first run.
   const declared = new Set(parameters.map((p) => p.name))
+
   for (const sql of sqlSteps.map((step) => step.sql)) {
     for (const match of sql.matchAll(/\{\{([a-z][a-z0-9_]*)\}\}/g))
       if (!declared.has(match[1])) return null
@@ -358,10 +389,13 @@ export function parsePipelineDraftAnswer(
       datasetLabel: config.output.datasetLabel ?? 'Result',
     },
   })
+
   if (errors.length > 0) return null
 
   const lines: string[] = []
+
   if (inputs.length) lines.push(`Reads ${inputs.map((i) => i.name).join(', ')}`)
+
   if (parameters.length)
     lines.push(`Asks for ${parameters.map((p) => p.name).join(', ')} when run`)
   lines.push(

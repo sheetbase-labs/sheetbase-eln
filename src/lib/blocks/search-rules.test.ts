@@ -19,13 +19,17 @@ function latestBlockSearchText(): string {
     .filter((name) => /^(\d{4}|\d{14})_.*\.sql$/.test(name))
     .sort()
     .reverse()
+
   for (const name of files) {
     const sql = readFileSync(join(DRIZZLE, name), 'utf8')
     const start = sql.indexOf('FUNCTION internal.block_search_text(')
+
     if (start === -1) continue
     const end = sql.indexOf('--> statement-breakpoint', start)
+
     return sql.slice(start, end === -1 ? undefined : end)
   }
+
   throw new Error('internal.block_search_text is not defined in any migration')
 }
 

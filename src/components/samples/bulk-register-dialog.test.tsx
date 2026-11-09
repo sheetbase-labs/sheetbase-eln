@@ -32,6 +32,7 @@ function mount(rpc: ReturnType<typeof vi.fn>, onRegistered = vi.fn()) {
     rpc,
     list: vi.fn(async () => []),
   } as unknown as DataClient
+
   const root = createRootRoute({
     component: () => (
       <BulkRegisterDialog
@@ -43,15 +44,18 @@ function mount(rpc: ReturnType<typeof vi.fn>, onRegistered = vi.fn()) {
       />
     ),
   })
+
   const router = createRouter({
     routeTree: root,
     history: createMemoryHistory({ initialEntries: ['/'] }),
   })
+
   render(
     <QueryClientProvider client={new QueryClient()}>
       <RouterProvider router={router} />
     </QueryClientProvider>,
   )
+
   return { onRegistered }
 }
 
@@ -117,6 +121,7 @@ describe('BulkRegisterDialog', () => {
     const rpc = vi.fn(async () => {
       throw new Error('boom')
     })
+
     mount(rpc)
     await choose(userEvent.setup(), /^Project/, /Gene therapy/)
     fireEvent.change(screen.getByLabelText(/^Samples/), {

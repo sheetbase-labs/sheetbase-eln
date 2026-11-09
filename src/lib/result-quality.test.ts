@@ -111,6 +111,7 @@ describe('incident lines', () => {
         root_cause: 'Tired',
       },
     }
+
     expect(incidentSummary(entry)).toBe('Deviation · Major · Door left open')
   })
 })

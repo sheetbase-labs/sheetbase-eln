@@ -15,19 +15,23 @@ describe('Home project-view authority', () => {
   function setup(objectId: string | null) {
     const client = new QueryClient()
     const invalidate = vi.spyOn(client, 'invalidateQueries')
+
     const hook = renderHook(() => useRecentViewTracking('project', objectId), {
       wrapper: ({ children }: { children: ReactNode }) => (
         <QueryClientProvider client={client}>{children}</QueryClientProvider>
       ),
     })
+
     return { ...hook, invalidate }
   }
 
   it('invalidates personal Home state only after the canonical view is recorded', async () => {
     let complete: (value: string) => void = () => {}
+
     const recorded = new Promise<string>((resolve) => {
       complete = resolve
     })
+
     const rpc = vi.spyOn(notebookDataClient, 'rpc').mockReturnValue(recorded)
     const { invalidate } = setup('00000000-0000-4000-8000-000000000320')
     expect(rpc).toHaveBeenCalledWith('record_recent_view', {
@@ -46,6 +50,7 @@ describe('Home project-view authority', () => {
     'does not infer an open when tracking is %s',
     async (outcome) => {
       const rpc = vi.spyOn(notebookDataClient, 'rpc')
+
       if (outcome === 'ignored') rpc.mockResolvedValue(null)
       else rpc.mockRejectedValue(new Error('permission denied'))
       const { invalidate } = setup('00000000-0000-4000-8000-000000000320')

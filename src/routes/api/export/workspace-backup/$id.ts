@@ -6,8 +6,10 @@ export const Route = createFileRoute('/api/export/workspace-backup/$id')({
       GET: async ({ request, params }) => {
         const { handleBackupDownload } =
           await import('#/lib/workspace-export/routes.server')
+
         const { realWorkspaceExportDeps } =
           await import('#/lib/workspace-export/real-deps.server')
+
         return handleBackupDownload(request, params.id, realWorkspaceExportDeps)
       },
     },

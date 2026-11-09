@@ -13,6 +13,7 @@ import {
 const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0])
 const JPEG = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0])
 const WEBP = new TextEncoder().encode('RIFF\0\0\0\0WEBPVP8 ')
+
 const SVG = new TextEncoder().encode(
   '<svg xmlns="http://www.w3.org/2000/svg"/>',
 )
@@ -43,6 +44,7 @@ vi.mock('#/lib/request-auth', () => ({
   requestErrorResponse: (status: number, code: string, message: string) =>
     new Response(JSON.stringify({ code, message }), { status }),
 }))
+
 vi.mock('#/lib/logger', () => ({
   logger: { warn: () => undefined, info: () => undefined },
 }))
@@ -90,6 +92,7 @@ describe('handleLogoWrite', () => {
       signedIn,
       storage,
     )
+
     expect(response.status).toBe(405)
   })
   it('refuses a file that is not PNG or JPEG', async () => {
@@ -112,6 +115,7 @@ describe('handleLogoDownload', () => {
       storage,
       () => Promise.resolve(null),
     )
+
     expect(response.status).toBe(404)
   })
 })

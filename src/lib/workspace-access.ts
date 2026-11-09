@@ -9,12 +9,14 @@ const permissionsSchema = z.object({
   client_portal: z.boolean(),
   can_manage: z.boolean(),
 })
+
 export type ProjectPermissions = z.infer<typeof permissionsSchema>
 
 const assignmentSchema = permissionsSchema.extend({
   project_id: z.uuid(),
   access_level: z.enum(['owner', 'editor', 'reviewer', 'viewer']),
 })
+
 export type ProjectAssignment = z.infer<typeof assignmentSchema>
 
 const onboardingSchema = z.object({
@@ -23,6 +25,7 @@ const onboardingSchema = z.object({
   joined_at: z.string(),
   invitation_accepted_at: z.string().nullable(),
 })
+
 export type MyOnboardingState = z.infer<typeof onboardingSchema>
 
 const defaultsSchema = z.object({
@@ -42,6 +45,7 @@ const ruleSchema = permissionsSchema
   .refine((rule) => (rule.user_id === null) !== (rule.group_id === null), {
     message: 'A project rule must name exactly one user or group.',
   })
+
 export type ProjectAccessRule = z.infer<typeof ruleSchema>
 
 const groupSchema = z.object({
@@ -49,6 +53,7 @@ const groupSchema = z.object({
   name: z.string(),
   member_ids: z.array(z.string()),
 })
+
 export type WorkspaceGroup = z.infer<typeof groupSchema>
 
 const memberStatusSchema = z.object({
@@ -57,6 +62,7 @@ const memberStatusSchema = z.object({
   training_required: z.number().int().nonnegative(),
   training_overdue: z.number().int().nonnegative(),
 })
+
 export type WorkspaceMemberStatus = z.infer<typeof memberStatusSchema>
 
 /**
@@ -76,6 +82,7 @@ const accessRequestSchema = z.object({
   updated_at: z.string(),
   decided_by_user_id: z.string().nullable(),
 })
+
 export type ProjectAccessRequest = z.infer<typeof accessRequestSchema>
 
 export const workspaceAccessKeys = {
@@ -119,6 +126,7 @@ export async function fetchMyOnboardingState(
     .array(onboardingSchema)
     .max(1)
     .parse(await client.rpc('my_onboarding_state', {}))
+
   return rows[0] ?? null
 }
 
@@ -179,6 +187,7 @@ export async function fetchProjectPermissions(
         p_project_id: projectId,
       }),
     )
+
   return rows[0]
 }
 

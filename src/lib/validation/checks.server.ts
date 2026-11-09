@@ -64,11 +64,13 @@ const pass = (detail: string, evidence: Record<string, unknown> = {}) => ({
   detail,
   evidence,
 })
+
 const fail = (detail: string, evidence: Record<string, unknown> = {}) => ({
   status: 'failed' as const,
   detail,
   evidence,
 })
+
 const skip = (detail: string, evidence: Record<string, unknown> = {}) => ({
   status: 'skipped' as const,
   detail,
@@ -88,6 +90,7 @@ async function mustBeRefused(
   values: unknown[],
 ): Promise<{ refused: boolean; unable?: boolean; message: string }> {
   await db.query('BEGIN')
+
   try {
     await db.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
       JSON.stringify({
@@ -96,13 +99,16 @@ async function mustBeRefused(
         workspace_id: as.workspaceId,
       }),
     ])
+
     try {
       await db.query('SET LOCAL ROLE authenticated')
     } catch {
       return { refused: false, unable: true, message: 'cannot act as a person' }
     }
+
     try {
       await db.query(statement, values)
+
       return { refused: false, message: 'the change was accepted' }
     } catch (error) {
       return {
@@ -133,19 +139,24 @@ export const CHECKS: readonly CheckDefinition[] = [
         `SELECT count(*)::int AS n, max(created_at)::text AS latest
            FROM drizzle.__drizzle_migrations`,
       )
+
       const { n, latest } = rows[0] ?? { n: 0, latest: null }
+
       if (n === 0) return fail('No migrations are recorded as applied.')
+
       const evidence = {
         applied: n,
         latest,
         expected: config.expectedMigration,
       }
+
       if (config.expectedMigration === 'untracked') {
         return pass(
           `${n} migrations applied. This build does not name an expected migration, so only the count is recorded.`,
           evidence,
         )
       }
+
       return latest === config.expectedMigration
         ? pass(
             `${n} migrations applied; the newest is the one expected.`,
@@ -168,8 +179,10 @@ export const CHECKS: readonly CheckDefinition[] = [
       const { rows } = await db.query<{ v: string }>(
         `SELECT current_setting('server_version') AS v`,
       )
+
       const version = rows[0]?.v ?? ''
       const major = Number.parseInt(version, 10)
+
       return major >= 18
         ? pass(`PostgreSQL ${version}.`, { version })
         : fail(`PostgreSQL ${version || 'unknown'} is older than 18.`, {
@@ -188,12 +201,15 @@ export const CHECKS: readonly CheckDefinition[] = [
     requirements: ['VAL-IQ-01', 'VAL-ACC-01'],
     async run({ db }) {
       const wanted = ['anon', 'authenticated', 'api_client', 'authenticator']
+
       const { rows } = await db.query<{ rolname: string }>(
         `SELECT rolname FROM pg_roles WHERE rolname = ANY($1::text[])`,
         [wanted],
       )
+
       const present = rows.map((r) => r.rolname).sort()
       const missing = wanted.filter((w) => !present.includes(w))
+
       return missing.length === 0
         ? pass('All four roles exist.', { present })
         : fail(`Missing: ${missing.join(', ')}.`, { present, missing })
@@ -211,6 +227,7 @@ export const CHECKS: readonly CheckDefinition[] = [
         const res = await doFetch(config.postgrestUrl, {
           signal: AbortSignal.timeout(4000),
         })
+
         return res.status < 500
           ? pass(`Answered with status ${res.status}.`, { status: res.status })
           : fail(`Answered with status ${res.status}.`, { status: res.status })
@@ -230,18 +247,22 @@ export const CHECKS: readonly CheckDefinition[] = [
     requirements: ['VAL-IQ-01', 'VAL-TS-01'],
     async run({ db, now }) {
       const before = now()
+
       const { rows } = await db.query<{ t: string }>(
         `SELECT to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS t`,
       )
+
       const after = now()
       const database = Date.parse(rows[0]?.t ?? '')
       const middle = (before.getTime() + after.getTime()) / 2
       const skew = Math.abs(database - middle)
+
       const evidence = {
         application: after.toISOString(),
         database: rows[0]?.t,
         skewMs: Math.round(skew),
       }
+
       return skew < 5000
         ? pass(`They differ by ${Math.round(skew)} ms.`, evidence)
         : fail(`They differ by ${Math.round(skew)} ms.`, evidence)
@@ -256,6 +277,7 @@ export const CHECKS: readonly CheckDefinition[] = [
     requirements: ['VAL-IQ-01', 'VAL-ID-01'],
     async run({ config }) {
       const url = config.publicUrl
+
       return url.startsWith('https://')
         ? pass(`${url} is encrypted.`, { url })
         : fail(
@@ -282,13 +304,17 @@ export const CHECKS: readonly CheckDefinition[] = [
            FROM api.workspace_settings WHERE workspace_id = $1`,
         [workspaceId],
       )
+
       const s = rows[0] as (typeof rows)[number] | undefined
+
       if (!s) return fail('The workspace has no settings.')
+
       const off = [
         s.regulated_lab ? null : 'Regulated lab',
         s.lock_on_sign ? null : 'Lock records on signing',
         s.require_change_reason ? null : 'Require a reason for changes',
       ].filter(Boolean)
+
       return off.length === 0
         ? pass('All three are on.', { ...s })
         : fail(`Off: ${off.join(', ')}.`, { ...s })
@@ -304,6 +330,7 @@ export const CHECKS: readonly CheckDefinition[] = [
     requirements: ['VAL-ID-01'],
     async run({ idleSecondsFor, userId }) {
       const seconds = await idleSecondsFor(userId)
+
       return seconds <= REGULATED_IDLE_SECONDS
         ? pass(`${seconds / 60} minutes.`, { seconds })
         : fail(`${seconds / 60} minutes.`, { seconds })
@@ -322,9 +349,12 @@ export const CHECKS: readonly CheckDefinition[] = [
         `SELECT api.run_audit_verification($1) AS result`,
         [workspaceId],
       )
+
       const r = (rows[0] as (typeof rows)[number] | undefined)?.result
+
       if (!r) return fail('The check returned nothing.')
       auditResults.set(workspaceId, r)
+
       return r.chain.ok
         ? pass(`${r.chain.entriesChecked} entries checked.`, { ...r.chain })
         : fail(`The chain breaks at sequence ${r.chain.firstBadSequence}.`, {
@@ -342,13 +372,16 @@ export const CHECKS: readonly CheckDefinition[] = [
     requirements: ['VAL-SIG-01', 'VAL-REV-01'],
     async run({ workspaceId }) {
       const r = auditResults.get(workspaceId)
+
       if (!r)
         return skip(
           'The audit check did not run, so there is no result to read.',
         )
+
       if (r.signedRevisions.checked === 0) {
         return skip('There are no signed revisions yet.')
       }
+
       return r.signedRevisions.ok
         ? pass(`${r.signedRevisions.checked} signed revisions checked.`, {
             ...r.signedRevisions,
@@ -372,14 +405,18 @@ export const CHECKS: readonly CheckDefinition[] = [
         `SELECT id FROM api.change_events WHERE workspace_id = $1 LIMIT 1`,
         [workspaceId],
       )
+
       if (!rows[0]) return skip('There are no audit entries yet.')
+
       const attempt = await mustBeRefused(
         db,
         { userId, workspaceId },
         `UPDATE api.change_events SET payload = payload WHERE id = $1`,
         [rows[0].id],
       )
+
       if (attempt.unable) return skip(UNABLE)
+
       return attempt.refused
         ? pass('The change was refused.', { message: attempt.message })
         : fail('The change was accepted (and rolled back).')
@@ -398,14 +435,18 @@ export const CHECKS: readonly CheckDefinition[] = [
         `SELECT id FROM api.signatures WHERE workspace_id = $1 LIMIT 1`,
         [workspaceId],
       )
+
       if (!rows[0]) return skip('There are no signatures yet.')
+
       const attempt = await mustBeRefused(
         db,
         { userId, workspaceId },
         `UPDATE api.signatures SET confirmation_phrase = confirmation_phrase WHERE id = $1`,
         [rows[0].id],
       )
+
       if (attempt.unable) return skip(UNABLE)
+
       return attempt.refused
         ? pass('The change was refused.', { message: attempt.message })
         : fail('The change was accepted (and rolled back).')
@@ -424,8 +465,10 @@ export const CHECKS: readonly CheckDefinition[] = [
         `SELECT count(*)::int AS n FROM api.change_events WHERE workspace_id = $1`,
         [workspaceId],
       )
+
       if (!own[0]?.n) return skip('There are no audit entries to look for yet.')
       await db.query('BEGIN')
+
       try {
         await db.query(`SELECT set_config('request.jwt.claims', $1, true)`, [
           JSON.stringify({
@@ -434,16 +477,20 @@ export const CHECKS: readonly CheckDefinition[] = [
             workspace_id: workspaceId,
           }),
         ])
+
         try {
           await db.query('SET LOCAL ROLE authenticated')
         } catch {
           return skip(UNABLE)
         }
+
         const seen = await db.query<{ events: number; records: number }>(
           `SELECT (SELECT count(*) FROM api.change_events)::int AS events,
                   (SELECT count(*) FROM api.records)::int AS records`,
         )
+
         const { events, records } = seen.rows[0] ?? { events: -1, records: -1 }
+
         return events === 0 && records === 0
           ? pass('The stranger saw nothing.', { events, records })
           : fail(
@@ -473,11 +520,13 @@ export const CHECKS: readonly CheckDefinition[] = [
            FROM api.workspace_settings WHERE workspace_id = $1`,
         [workspaceId],
       )
+
       if (!settings[0]?.enabled) {
         return skip(
           'Trusted timestamps are not switched on for this workspace.',
         )
       }
+
       const { rows: counts } = await db.query<{
         stamped: number
         pending: number
@@ -494,12 +543,14 @@ export const CHECKS: readonly CheckDefinition[] = [
           WHERE s.workspace_id = $1`,
         [workspaceId],
       )
+
       const c = counts[0] ?? {
         stamped: 0,
         pending: 0,
         failed: 0,
         unstamped_old: 0,
       }
+
       const { rows: newest } = await db.query<{
         signed_data: string
         response_b64: string
@@ -509,7 +560,9 @@ export const CHECKS: readonly CheckDefinition[] = [
           WHERE workspace_id = $1 AND status = 'stamped' ORDER BY gen_time DESC LIMIT 1`,
         [workspaceId],
       )
+
       const evidence: Record<string, unknown> = { ...c }
+
       if (newest[0]) {
         try {
           const info = verifyTimestampResponse(
@@ -520,6 +573,7 @@ export const CHECKS: readonly CheckDefinition[] = [
                 .digest('hex'),
             },
           )
+
           evidence.newestGenTime = info.genTime
           evidence.newestSigner = info.signer
         } catch (error) {
@@ -529,12 +583,14 @@ export const CHECKS: readonly CheckDefinition[] = [
           )
         }
       }
+
       if (c.failed > 0 || c.unstamped_old > 0) {
         return fail(
           `${c.failed} signatures gave up and ${c.unstamped_old} have waited over an hour.`,
           evidence,
         )
       }
+
       return c.stamped === 0
         ? skip(
             'Timestamps are on but no signature has been stamped yet.',
@@ -557,16 +613,20 @@ export const CHECKS: readonly CheckDefinition[] = [
     requirements: ['VAL-EXP-01', 'VAL-TS-02'],
     async run({ exportKey }) {
       const key = await exportKey()
+
       const challenge = createHash('sha256')
         .update(`${Date.now()}:${Math.random()}`)
         .digest()
+
       const signature = key.sign(challenge)
+
       const ok = verify(
         null,
         challenge,
         createPublicKey(key.publicKeyPem),
         signature,
       )
+
       return ok
         ? pass(`Verified with key ${key.fingerprint}.`, {
             fingerprint: key.fingerprint,
@@ -591,15 +651,18 @@ interface AuditResult {
     firstBadRevisionId: string | null
   }
 }
+
 /** The audit check feeds the signed-revision check in the same run. */
 const auditResults = new Map<string, AuditResult>()
 
 export async function runChecks(deps: CheckDeps): Promise<CheckResult[]> {
   auditResults.delete(deps.workspaceId)
   const results: CheckResult[] = []
+
   for (const check of CHECKS) {
     const started = Date.now()
     let outcome: Awaited<ReturnType<CheckDefinition['run']>>
+
     try {
       outcome = await check.run(deps)
     } catch (error) {
@@ -607,6 +670,7 @@ export async function runChecks(deps: CheckDeps): Promise<CheckResult[]> {
         `The check could not finish: ${error instanceof Error ? error.message : String(error)}.`,
       )
     }
+
     results.push({
       id: check.id,
       kind: check.kind,
@@ -620,6 +684,8 @@ export async function runChecks(deps: CheckDeps): Promise<CheckResult[]> {
       durationMs: Date.now() - started,
     })
   }
+
   auditResults.delete(deps.workspaceId)
+
   return results
 }

@@ -70,6 +70,7 @@ describe('canonical navigation destinations', () => {
   it('keeps comment identity separate from its visible live or frozen owner', () => {
     const comment = '56000000-0000-4000-8000-000000000041'
     const owner = '56000000-0000-4000-8000-000000000042'
+
     for (const destination of [
       `/sheets/${owner}?commentId=${comment}`,
       `/review/${owner}?tab=comments&commentId=${comment}`,
@@ -83,6 +84,7 @@ describe('canonical navigation destinations', () => {
   it('rejects comment links with missing, foreign, mismatched or invented context', () => {
     const comment = '56000000-0000-4000-8000-000000000041'
     const owner = '56000000-0000-4000-8000-000000000042'
+
     for (const destination of [
       undefined,
       `https://example.test/sheets/${owner}?commentId=${comment}`,

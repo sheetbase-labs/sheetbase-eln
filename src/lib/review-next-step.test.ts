@@ -35,6 +35,7 @@ describe('reviewNextStep', () => {
     const step = reviewNextStep(
       input({ isSubmitter: true, reviewerNames: ['A', 'B', 'C'] }),
     )
+
     expect(step.headline).toBe('Waiting for A, B and C')
   })
 
@@ -61,6 +62,7 @@ describe('reviewNextStep', () => {
     const step = reviewNextStep(
       input({ state: 'approved', isAssignedReviewer: true }),
     )
+
     expect(step.headline).toBe('Approved, waiting for your signature')
     expect(step.detail).toMatch(/Sign later/)
   })
@@ -69,6 +71,7 @@ describe('reviewNextStep', () => {
     const step = reviewNextStep(
       input({ state: 'approved', isAssignedReviewer: true, hasSigned: true }),
     )
+
     expect(step.headline).toBe('Approved, waiting for signatures')
   })
 
@@ -114,6 +117,7 @@ describe('nextReviewItem', () => {
       ],
       'current',
     )
+
     expect(next?.revisionId).toBe('rev-2')
   })
 

@@ -56,16 +56,21 @@ async function loadSession(
 
   const headers = getRequestHeaders()
   const context = await getCurrentContext(headers)
+
   if (!context?.workspace || context.workspace.id !== workspaceId) {
     throw new Error('You do not have access to this workspace.')
   }
+
   if (options.requireOwner && !canManageSettings(context.workspace, 'ai')) {
     throw new Error('Your role cannot change AI settings.')
   }
+
   const auth = await resolveSessionAuth(headers)
+
   if (!auth.ok || auth.context.workspaceId !== workspaceId) {
     throw new Error('You do not have access to this workspace.')
   }
+
   return {
     userId: context.user.id,
     workspaceId,
@@ -81,11 +86,14 @@ async function readRow(
 ): Promise<WorkspaceAiSettingsRow | null> {
   const { createServerDataClient } =
     await import('#/lib/server-data-client.server')
+
   const client = createServerDataClient(token)
+
   const rows = await client.list<WorkspaceAiSettingsRow>(
     'workspace_settings',
     `?select=${AI_SETTINGS_COLUMNS}&workspace_id=eq.${encodeURIComponent(workspaceId)}`,
   )
+
   return rows.at(0) ?? null
 }
 
@@ -98,7 +106,9 @@ async function buildView(
   const settings = row
     ? toWorkspaceAiSettings(row)
     : defaultWorkspaceAiSettings()
+
   const featureFlags = resolveAiFeatureFlags(row?.ai_feature_flags)
+
   return {
     workspaceId: session.workspaceId,
     settings,
@@ -121,10 +131,13 @@ export const getAiSettingsFn = createServerFn({ method: 'POST' })
     const session = await loadSession(data.workspaceId, {
       requireOwner: false,
     })
+
     const { getPublicProviderProfiles } =
       await import('#/lib/ai-providers/config.server')
+
     const { profiles, error } = getPublicProviderProfiles()
     const row = await readRow(session.token, data.workspaceId)
+
     return buildView(session, row, error, profiles)
   })
 
@@ -134,17 +147,22 @@ export const updateAiSettingsFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }): Promise<AiSettingsView> => {
     const session = await loadSession(data.workspaceId, { requireOwner: true })
+
     const { getPublicProviderProfiles } =
       await import('#/lib/ai-providers/config.server')
+
     const { profiles, error } = getPublicProviderProfiles()
+
     if (error) throw new Error(error)
 
     const profile = data.providerProfile
       ? profiles.find((entry) => entry.id === data.providerProfile)
       : undefined
+
     if (data.providerProfile && !profile) {
       throw new Error('That provider profile is not configured here.')
     }
+
     if (
       data.enabled &&
       profile?.dataClass === 'cloud' &&
@@ -157,8 +175,10 @@ export const updateAiSettingsFn = createServerFn({ method: 'POST' })
 
     const { createServerDataClient } =
       await import('#/lib/server-data-client.server')
+
     const client = createServerDataClient(session.token)
     const before = await readRow(session.token, data.workspaceId)
+
     const updated = await client.rpc<WorkspaceAiSettingsRow | null>(
       'update_workspace_ai_settings',
       {
@@ -171,6 +191,7 @@ export const updateAiSettingsFn = createServerFn({ method: 'POST' })
         p_max_cost: data.maxCostMicrousdPerCall,
       },
     )
+
     if (!updated || !updated.workspace_id) {
       throw new Error('The AI settings update was not applied.')
     }
@@ -194,6 +215,7 @@ export const updateAiSettingsFn = createServerFn({ method: 'POST' })
     const changed =
       (before?.ai_provider_profile ?? null) !== data.providerProfile ||
       (before?.ai_model ?? null) !== data.model
+
     if (data.enabled && changed) {
       const { getRequestHeaders } = await import('@tanstack/react-start/server')
       const headers = new Headers(getRequestHeaders())
@@ -226,14 +248,19 @@ export const updateAiFeatureFlagsFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }): Promise<AiSettingsView> => {
     const session = await loadSession(data.workspaceId, { requireOwner: true })
+
     const { getPublicProviderProfiles } =
       await import('#/lib/ai-providers/config.server')
+
     const { profiles, error } = getPublicProviderProfiles()
+
     if (error) throw new Error(error)
 
     const { createServerDataClient } =
       await import('#/lib/server-data-client.server')
+
     const client = createServerDataClient(session.token)
+
     const updated = await client.rpc<WorkspaceAiSettingsRow | null>(
       'update_workspace_ai_feature_flags',
       {
@@ -241,6 +268,7 @@ export const updateAiFeatureFlagsFn = createServerFn({ method: 'POST' })
         p_feature_flags: data.featureFlags,
       },
     )
+
     if (!updated || !updated.workspace_id) {
       throw new Error('The AI access flags update was not applied.')
     }

@@ -29,6 +29,7 @@ function snapshot(source = '=A1*2'): CalculationSnapshot {
     }),
     tableId,
   )
+
   return {
     recordId,
     inputRevision: 7,
@@ -67,6 +68,7 @@ function snapshot(source = '=A1*2'): CalculationSnapshot {
 describe('trusted calculation server', () => {
   it('calculates the whole snapshot and submits typed revision-bound values', async () => {
     const value = snapshot()
+
     const finalize = vi
       .fn()
       .mockImplementation(
@@ -82,6 +84,7 @@ describe('trusted calculation server', () => {
           formulaCount: results.length,
         }),
       )
+
     await expect(
       executeCalculation('user', recordId, {
         loadSnapshot: vi.fn().mockResolvedValue(value),
@@ -101,12 +104,14 @@ describe('trusted calculation server', () => {
 
   it('preserves structured calculation errors as current results', async () => {
     const value = snapshot('=1/0')
+
     const finalize = vi.fn().mockResolvedValue({
       recordId,
       inputRevision: 7,
       status: 'completed',
       formulaCount: 1,
     })
+
     await executeCalculation('user', recordId, {
       loadSnapshot: vi.fn().mockResolvedValue(value),
       finalize,
@@ -121,12 +126,14 @@ describe('trusted calculation server', () => {
   it('keeps unsupported definitions visible but unavailable', async () => {
     const value = snapshot('=RAND()')
     value.formulas[0].status = 'unsupported'
+
     const finalize = vi.fn().mockResolvedValue({
       recordId,
       inputRevision: 7,
       status: 'completed',
       formulaCount: 1,
     })
+
     await executeCalculation('user', recordId, {
       loadSnapshot: vi.fn().mockResolvedValue(value),
       finalize,
@@ -158,6 +165,7 @@ describe('trusted calculation server', () => {
         ],
       },
     ]
+
     const finalize = vi
       .fn()
       .mockImplementation(async (_actor, _snapshot, outcome) => ({
@@ -166,6 +174,7 @@ describe('trusted calculation server', () => {
         status: outcome,
         formulaCount: 1,
       }))
+
     await expect(
       executeCalculation('user', recordId, {
         loadSnapshot: vi.fn().mockResolvedValue(value),
@@ -185,6 +194,7 @@ describe('trusted calculation server', () => {
     const finalize = vi
       .fn()
       .mockRejectedValue(Object.assign(new Error('changed'), { code: 'SB001' }))
+
     await expect(
       executeCalculation('user', recordId, {
         loadSnapshot: vi.fn().mockResolvedValue(snapshot()),
@@ -201,11 +211,13 @@ describe('trusted calculation server', () => {
       loadSnapshot: vi.fn(),
       finalize: vi.fn(),
     }
+
     const request = (body: unknown) =>
       new Request('http://sheetbase.test/api/calculations', {
         method: 'POST',
         body: JSON.stringify(body),
       })
+
     expect(await handleCalculation(request({ recordId }), base)).toMatchObject({
       status: 401,
     })

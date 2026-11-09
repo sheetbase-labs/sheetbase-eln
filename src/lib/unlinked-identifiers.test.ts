@@ -23,10 +23,14 @@ const SHAPE =
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
     const path = join(dir, name)
+
     if (statSync(path).isDirectory()) return sourceFiles(path)
+
     if (!path.endsWith('.tsx')) return []
+
     if (/\.(test|stories)\.tsx$/.test(path) || path.includes('/stories/'))
       return []
+
     return [path]
   })
 }
@@ -40,6 +44,7 @@ describe('identifiers shown as plain text', () => {
           SHAPE.test(line) ? [`${file}:${index + 1}`] : [],
         ),
     )
+
     expect(
       found.length,
       `Plain-text identifiers went from ${BASELINE} to ${found.length}. Link the new one with ObjectLink:\n${found.join('\n')}`,

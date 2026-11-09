@@ -90,6 +90,7 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
   const capabilities = capabilitiesFromEnv()
   const context = await getCurrentContext(headers)
   const { labLogoVersion } = await import('#/lib/lab-logo.server')
+
   if (!context?.workspace)
     return {
       context,
@@ -102,8 +103,10 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
       labLogo: await labLogoVersion(null),
     }
   const { getShellCounts } = await import('#/lib/shell-counts.server')
+
   const { getShellPinned, getShellNotifications, getShellHiddenPages } =
     await import('#/lib/shell-chrome.server')
+
   const [counts, pinned, notifications, hiddenPages, labLogo] =
     await Promise.all([
       getShellCounts(context.workspace.id, context.user.id),
@@ -112,6 +115,7 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
       getShellHiddenPages(context.workspace.id),
       labLogoVersion(context.workspace.id),
     ])
+
   return {
     context,
     capabilities,
@@ -204,6 +208,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   shellComponent: RootDocument,
   beforeLoad: async ({ context, location }) => {
     if (context.workspacePane) return context
+
     const {
       context: auth,
       capabilities,
@@ -220,13 +225,17 @@ export const Route = createRootRouteWithContext<RouterContext>()({
           queryFn: () => getAuthContextFn(),
           staleTime: ROOT_CONTEXT_STALE_MS,
         })
+
     setDisplayTimeZone(auth?.timeZone)
     setDisplayClock(auth?.clock)
+
     const toPortal = clientPortalRedirect(
       auth?.workspace?.role,
       location.pathname,
     )
+
     if (toPortal) throw redirect(toPortal)
+
     return {
       auth,
       capabilities,
@@ -251,11 +260,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
  */
 function RootRouteComponent() {
   const context = Route.useRouteContext()
+
   return context.workspacePane ? <Outlet /> : <AppRoot />
 }
 
 function AppRoot() {
   const resolvedRootContext = Route.useRouteContext()
+
   const {
     auth,
     shellCounts,
@@ -263,6 +274,7 @@ function AppRoot() {
     shellHiddenPages,
     shellNotifications,
   } = resolvedRootContext
+
   // Hydration restores the dehydrated route context without re-running
   // `beforeLoad`, so the first browser render sets the display zone here. It
   // is a no-op when `beforeLoad` already did.
@@ -280,6 +292,7 @@ function AppRoot() {
       if (cancelled) cleanup()
       else stop = cleanup
     })
+
     return () => {
       cancelled = true
       stop?.()
@@ -306,6 +319,7 @@ function AppRoot() {
     // carries no business data.
     '/sheetbase-components',
   ]
+
   // Routes with their own chrome (the client portal, ADR-0049) render without
   // either shell: no internal navigation and no workspace data.
   const bareRouteIds = [
@@ -315,13 +329,17 @@ function AppRoot() {
     '/accept-invitation',
     '/confirm-email-change',
   ]
+
   const matches = useMatches()
+
   const bareRoute = matches.some((match) =>
     bareRouteIds.includes(match.routeId),
   )
+
   const legacyShell = matches.some((match) =>
     legacyShellRouteIds.includes(match.routeId),
   )
+
   const appShellData = auth
     ? {
         me: {
@@ -426,6 +444,7 @@ function initialsOf(name: string): string {
  */
 function RootDocument({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+
   return router.options.context.workspacePane ? (
     children
   ) : (
@@ -439,6 +458,7 @@ function AppDocument({ children }: { children: React.ReactNode }) {
   // server (the device setting is not sent), so it is left unclassed here and
   // the inline script fills it in before paint.
   const { themePref, auth, queryClient } = Route.useRouteContext()
+
   return (
     <html
       lang="en"

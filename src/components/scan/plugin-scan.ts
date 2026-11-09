@@ -18,12 +18,16 @@ export function useScanCodeResolver(): (
   const readers = useExtensionPoints().data['barcode-formats'].filter(
     (item) => item.declaration.parse,
   )
+
   return useCallback(
     async (code: string) => {
       const plain = await resolveScanCode(code)
+
       if (plain.found || readers.length === 0) return plain
+
       for (const reader of readers) {
         let value: string | null = null
+
         try {
           value = await parseWithPluginBarcode({
             extensionKey: reader.extensionKey,
@@ -34,10 +38,13 @@ export function useScanCodeResolver(): (
           // A reader that can't run is skipped; the person still gets the plain miss.
           continue
         }
+
         if (!value || value === code.trim()) continue
         const resolved = await resolveScanCode(value)
+
         if (resolved.found) return { ...resolved, code: code.trim() }
       }
+
       return plain
     },
     [readers],

@@ -54,6 +54,7 @@ const TestRouterContext = createContext<{
 vi.mock('#/components/sheet/sheetbase-grid', () => ({
   SheetbaseTableGrid: (props: SheetbaseGridProps) => {
     gridRender(props)
+
     return (
       <div
         data-testid="sheet-grid"
@@ -85,6 +86,7 @@ vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ recordId: 'r1', projectId: 'p1' }),
   useRouterState: (options?: { select?: (state: unknown) => unknown }) => {
     const state = useContext(TestRouterContext)
+
     return options?.select ? options.select(state) : state
   },
   // The Sheet workspace reads the root auth context; this Notebook renders
@@ -103,11 +105,13 @@ vi.mock('@tanstack/react-router', () => ({
     children?: ReactNode
   } & Record<string, unknown>) => {
     let href = typeof to === 'string' ? to : '#'
+
     if (params) {
       for (const [key, value] of Object.entries(params)) {
         href = href.replace(`$${key}`, encodeURIComponent(value))
       }
     }
+
     return (
       <a href={href} {...rest}>
         {children}
@@ -121,7 +125,9 @@ vi.mock('#/components/notebook/submit-notebook-dialog', () => ({
     <div role="dialog" aria-label={`Submit ${recordId}`} />
   ),
 }))
+
 const signatureToGive = vi.hoisted(() => ({ value: true }))
+
 vi.mock('#/components/notebook/sign-notebook-dialog', () => ({
   useHasSignatureToGive: () => signatureToGive.value,
   SignNotebookDialog: ({ revisionId }: { revisionId: string }) => (
@@ -268,6 +274,7 @@ const fakeClient = {
  */
 function NotebookSurfaces({ queryClient }: { queryClient: QueryClient }) {
   const { cell, onCellSelectionChange } = useNotebookCellFacts()
+
   return (
     <>
       <NotebookCanvas
@@ -298,11 +305,13 @@ function renderSurfaces() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+
   queryClient.setQueryData(['sheet-instance', INSTANCE], sheetInstance())
   queryClient.setQueryData(['sheet-instance-embeddings', INSTANCE], {
     embeddings: [],
     count: 0,
   })
+
   return render(
     <QueryClientProvider client={queryClient}>
       <NotebookSurfaces queryClient={queryClient} />
@@ -313,12 +322,15 @@ function renderSurfaces() {
 describe('NotebookInspector — selected Sheet cell (EXP-04.4)', () => {
   it('describes the cell the grid selected while Comments and History keep their panels', async () => {
     const user = userEvent.setup()
+
     const comments = vi
       .spyOn(commentsData, 'fetchCommentsForRecord')
       .mockResolvedValue([])
+
     const timeline = vi
       .spyOn(notebookExperience, 'fetchRecordTimeline')
       .mockResolvedValue([])
+
     const revisions = vi
       .spyOn(notebookExperience, 'fetchRevisionsForRecord')
       .mockResolvedValue([])
@@ -373,6 +385,7 @@ describe('NotebookInspector — selected Sheet cell (EXP-04.4)', () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+
     render(
       <QueryClientProvider client={queryClient}>
         <NotebookInspector record={record} links={[]} linksLoading={false} />
@@ -392,16 +405,19 @@ describe('StickyRecordHeader — notebook title', () => {
       window.history.replaceState(null, '', '?reopen=submit&returnTo=%2Factive')
       const activeNavigate = vi.fn()
       const backgroundNavigate = vi.fn()
+
       const activeSearch = {
         reopen: 'submit',
         returnTo: '/active',
         tab: 'notebook',
       }
+
       const backgroundSearch = {
         reopen: backgroundTask,
         returnTo: '/background',
         revision: 'revision-b',
       }
+
       const mount = (
         search: Record<string, unknown>,
         navigate: ReturnType<typeof vi.fn>,
@@ -434,6 +450,7 @@ describe('StickyRecordHeader — notebook title', () => {
             </TestRouterContext.Provider>
           </QueryClientProvider>,
         )
+
       try {
         const active = mount(activeSearch, activeNavigate, false)
         const background = mount(backgroundSearch, backgroundNavigate, true)
@@ -442,6 +459,7 @@ describe('StickyRecordHeader — notebook title', () => {
             name: 'Submit rA',
           }),
         ).toBeTruthy()
+
         if (backgroundTask) {
           expect(
             await within(background.container).findByRole('dialog', {
@@ -456,6 +474,7 @@ describe('StickyRecordHeader — notebook title', () => {
           expect(within(background.container).queryByRole('dialog')).toBeNull()
           expect(backgroundNavigate).not.toHaveBeenCalled()
         }
+
         expect(activeNavigate).toHaveBeenCalledTimes(1)
         expect(activeNavigate.mock.calls[0][0].search(activeSearch)).toEqual({
           ...activeSearch,
@@ -474,6 +493,7 @@ describe('StickyRecordHeader — notebook title', () => {
       lockedAt: '2026-10-22',
       lockedByRevisionId: 'revision-b',
     }
+
     const mount = () =>
       render(
         <QueryClientProvider client={new QueryClient()}>
@@ -494,6 +514,7 @@ describe('StickyRecordHeader — notebook title', () => {
           </TestRouterContext.Provider>
         </QueryClientProvider>,
       )
+
     try {
       signatureToGive.value = true
       const first = mount()
@@ -515,12 +536,14 @@ describe('StickyRecordHeader — notebook title', () => {
     const update = vi
       .spyOn(notebookExperience, 'updateExperimentMetadata')
       .mockRejectedValue(new Error('The record is locked.'))
+
     const queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
         mutations: { retry: false },
       },
     })
+
     render(
       <QueryClientProvider client={queryClient}>
         <StickyRecordHeader
@@ -535,9 +558,11 @@ describe('StickyRecordHeader — notebook title', () => {
     )
 
     const user = userEvent.setup()
+
     const title = screen.getByRole<HTMLInputElement>('textbox', {
       name: 'Notebook title',
     })
+
     await user.clear(title)
     await user.type(title, 'Renamed record')
     await user.tab()

@@ -39,6 +39,7 @@ describe('resolvePeriod', () => {
       new Date('2027-01-10T12:00:00Z'),
       'UTC',
     )
+
     expect(range.from.toISOString()).toBe('2026-12-01T00:00:00.000Z')
     expect(range.to.toISOString()).toBe('2027-01-01T00:00:00.000Z')
   })
@@ -64,6 +65,7 @@ describe('resolvePeriod', () => {
       new Date('2026-09-15T12:00:00Z'),
       'Europe/London',
     )
+
     expect(range.from.toISOString()).toBe('2026-07-31T23:00:00.000Z')
     expect(range.to.toISOString()).toBe('2026-08-31T23:00:00.000Z')
   })
@@ -116,11 +118,14 @@ describe('days and months', () => {
       from: new Date('2026-11-09T00:00:00Z'),
       to: new Date('2026-11-16T00:00:00Z'),
     }
+
     expect(weekdaysIn(week, 'UTC')).toBe(5)
+
     const weekend = {
       from: new Date('2026-11-14T00:00:00Z'),
       to: new Date('2026-11-16T00:00:00Z'),
     }
+
     expect(weekdaysIn(weekend, 'UTC')).toBe(0)
   })
 
@@ -129,6 +134,7 @@ describe('days and months', () => {
       from: new Date('2026-11-01T00:00:00Z'),
       to: new Date('2026-12-01T00:00:00Z'),
     }
+
     expect(formatRange(range, 'UTC')).toBe('1 Nov 2026 to 30 Nov 2026')
     expect(
       formatRange(

@@ -1,4 +1,5 @@
 export type CheckKind = 'iq' | 'oq'
+
 export type CheckStatus = 'passed' | 'failed' | 'skipped'
 
 export interface CheckResult {

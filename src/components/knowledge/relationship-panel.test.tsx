@@ -33,10 +33,13 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('#/lib/relationships', async (importOriginal) => {
   const actual = await importOriginal<typeof Relationships>()
+
   return { ...actual, useRelationships: vi.fn() }
 })
+
 vi.mock('#/lib/model-relationships', async (importOriginal) => {
   const actual = await importOriginal<typeof ModelRelationships>()
+
   return { ...actual, useRelationshipTypeLabels: vi.fn(() => undefined) }
 })
 
@@ -243,6 +246,7 @@ describe('RelationshipList windowing and metadata', () => {
     const { container } = render(
       <RelationshipList outgoing={[outgoing[0]]} incoming={[]} />,
     )
+
     const item = container.querySelector('li[title]')
     expect(item?.getAttribute('title')).toContain('2026-08-03T00:00:00Z')
     expect(item?.getAttribute('title')).toContain('user-1')

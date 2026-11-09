@@ -36,10 +36,12 @@ describe('assistant toolkit proposals', () => {
 
   it('answers a bad proposal with a message and no card', async () => {
     const kit = await toolkit({ mcp_draft: true })
+
     const result = await kit!.run(
       'sheetbase__notebook_block__insert',
       JSON.stringify({ title: 'x' }),
     )
+
     expect(result.isError).toBe(true)
     expect(result.proposal).toBeUndefined()
   })
@@ -59,11 +61,13 @@ describe('assistant toolkit lab tools', () => {
     const off = await toolkit({ mcp_draft: false })
     const on = await toolkit({ mcp_draft: true })
     const names = (kit: typeof on) => kit?.defs.map((def) => def.name) ?? []
+
     for (const kit of [off, on]) {
       expect(names(kit)).toContain('sheetbase__schedule__read')
       expect(names(kit)).toContain('sheetbase__schedule__free_time')
       expect(names(kit)).toContain('sheetbase__lab__list')
     }
+
     expect(names(off)).not.toContain('sheetbase__booking__create')
     expect(names(on)).toContain('sheetbase__booking__create')
     expect(names(on)).toContain('sheetbase__booking__move')

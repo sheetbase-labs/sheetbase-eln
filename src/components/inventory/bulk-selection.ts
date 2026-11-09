@@ -24,6 +24,7 @@ export interface BulkSelection {
 export function useBulkSelection(): BulkSelection {
   const [selected, setSelected] = useState<readonly string[]>([])
   const has = useCallback((id: string) => selected.includes(id), [selected])
+
   const toggle = useCallback(
     (id: string) =>
       setSelected((current) =>
@@ -35,6 +36,7 @@ export function useBulkSelection(): BulkSelection {
       ),
     [],
   )
+
   const setMany = useCallback((ids: readonly string[], on: boolean) => {
     setSelected((current) =>
       on
@@ -42,6 +44,7 @@ export function useBulkSelection(): BulkSelection {
         : current.filter((id) => !ids.includes(id)),
     )
   }, [])
+
   const retain = useCallback((ids: readonly string[]) => {
     const keep = new Set(ids)
     setSelected((current) =>
@@ -50,8 +53,10 @@ export function useBulkSelection(): BulkSelection {
         : current.filter((id) => keep.has(id)),
     )
   }, [])
+
   const replace = useCallback((ids: readonly string[]) => setSelected(ids), [])
   const clear = useCallback(() => setSelected([]), [])
+
   return useMemo(
     () => ({
       ids: selected,

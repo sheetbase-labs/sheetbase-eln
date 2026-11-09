@@ -17,6 +17,7 @@ export function loadOcl(): Promise<Ocl> {
   loading ??= import('openchemlib').then(
     (module) => (module as { default?: Ocl }).default ?? module,
   )
+
   return loading
 }
 
@@ -31,8 +32,10 @@ export interface MoleculeFacts {
 
 export function parseMolfile(ocl: Ocl, molfile: string): Molecule | null {
   if (!molfile.trim()) return null
+
   try {
     const molecule = ocl.Molecule.fromMolfile(molfile)
+
     return molecule.getAllAtoms() > 0 ? molecule : null
   } catch {
     return null
@@ -45,10 +48,12 @@ export function parseMolfile(ocl: Ocl, molfile: string): Molecule | null {
  */
 export function parseReaction(ocl: Ocl, drawing: string): Reaction | null {
   if (!drawing.trim()) return null
+
   try {
     const reaction = ocl.ReactionEncoder.decode(drawing, {
       mode: ocl.ReactionEncoder.INCLUDE_ALL,
     })
+
     return reaction && !reaction.isEmpty() ? reaction : null
   } catch {
     return null
@@ -66,6 +71,7 @@ export function encodeReaction(ocl: Ocl, reaction: Reaction): string {
 
 export function factsOf(molecule: Molecule): MoleculeFacts {
   const formula = molecule.getMolecularFormula()
+
   return {
     formula: formula.formula,
     mw: Number(formula.relativeWeight.toFixed(3)),
@@ -76,6 +82,7 @@ export function factsOf(molecule: Molecule): MoleculeFacts {
 
 export function moleculeFacts(ocl: Ocl, molfile: string): MoleculeFacts | null {
   const molecule = parseMolfile(ocl, molfile)
+
   return molecule ? factsOf(molecule) : null
 }
 
@@ -84,6 +91,7 @@ function listOf(count: number, at: (i: number) => Molecule): Molecule[] {
   return Array.from({ length: count }, (_, i) => at(i))
     .flatMap((m) => {
       const pieces = m.getFragments()
+
       return pieces.length > 1 ? pieces : [m]
     })
     .filter((m) => m.getAllAtoms() > 0)
@@ -101,14 +109,17 @@ export function reactionParts(reaction: Reaction) {
 /** What the table needs from a drawn reaction, in the order it is drawn. */
 export function drawnComponents(ocl: Ocl, drawing: string): DrawnComponent[] {
   const reaction = parseReaction(ocl, drawing)
+
   if (!reaction) return []
   const parts = reactionParts(reaction)
+
   const describe = (
     role: DrawnComponent['role'],
     molecules: Molecule[],
   ): DrawnComponent[] =>
     molecules.map((molecule) => {
       const facts = factsOf(molecule)
+
       return {
         role,
         structureCode: facts.code,
@@ -116,6 +127,7 @@ export function drawnComponents(ocl: Ocl, drawing: string): DrawnComponent[] {
         mw: facts.mw,
       }
     })
+
   return [
     ...describe('reactant', parts.reactants),
     ...describe('reagent', parts.reagents),
@@ -126,6 +138,7 @@ export function drawnComponents(ocl: Ocl, drawing: string): DrawnComponent[] {
 /** The reaction as reaction SMILES, kept with the block so it can be found. */
 export function reactionSmiles(ocl: Ocl, drawing: string): string {
   const reaction = parseReaction(ocl, drawing)
+
   return reaction ? reaction.toSmiles() : ''
 }
 
@@ -154,8 +167,10 @@ function pictureOf(molecule: Molecule, height: number): Picture {
       suppressChiralText: true,
     }),
   )
+
   const width = Number(/width="([\d.]+)px"/.exec(markup)?.[1] ?? height)
   const h = Number(/height="([\d.]+)px"/.exec(markup)?.[1] ?? height)
+
   return { markup, width, height: h }
 }
 
@@ -166,6 +181,7 @@ export function structureSvg(
   height = 180,
 ): string | null {
   const molecule = parseMolfile(ocl, molfile)
+
   return molecule ? pictureOf(molecule, height).markup : null
 }
 
@@ -186,17 +202,20 @@ function place(picture: Picture, x: number, y: number): string {
  */
 export function schemeSvg(ocl: Ocl, drawing: string): string | null {
   const reaction = parseReaction(ocl, drawing)
+
   if (!reaction) return null
   const { reactants, reagents, products } = reactionParts(reaction)
   const main = (list: Molecule[]) => list.map((m) => pictureOf(m, 130))
   const left = main(reactants)
   const right = main(products)
   const over = reagents.map((m) => pictureOf(m, 64))
+
   const rowHeight = Math.max(
     60,
     ...left.map((p) => p.height),
     ...right.map((p) => p.height),
   )
+
   const reagentWidth = over.reduce((sum, p) => sum + p.width + GAP, 0)
   const arrowLength = Math.max(ARROW_MIN, reagentWidth)
   const overHeight = Math.max(0, ...over.map((p) => p.height))
@@ -206,6 +225,7 @@ export function schemeSvg(ocl: Ocl, drawing: string): string | null {
   const height = above + rowHeight / 2 + 8
   let x = 4
   const parts: string[] = []
+
   const row = (pictures: Picture[]) => {
     pictures.forEach((picture, index) => {
       if (index > 0) {
@@ -214,10 +234,12 @@ export function schemeSvg(ocl: Ocl, drawing: string): string | null {
         )
         x += GAP
       }
+
       parts.push(place(picture, x, mid - picture.height / 2))
       x += picture.width
     })
   }
+
   row(left)
   x += GAP
   const arrowStart = x
@@ -226,12 +248,15 @@ export function schemeSvg(ocl: Ocl, drawing: string): string | null {
     `<polygon points="${arrowStart + arrowLength},${mid} ${arrowStart + arrowLength - 9},${mid - 5} ${arrowStart + arrowLength - 9},${mid + 5}" fill="currentColor"/>`,
   )
   let reagentX = arrowStart + (arrowLength - reagentWidth + GAP) / 2
+
   for (const picture of over) {
     parts.push(place(picture, reagentX, mid - 6 - picture.height))
     reagentX += picture.width + GAP
   }
+
   x = arrowStart + arrowLength + GAP
   row(right)
   const width = x + 4
+
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width.toFixed(0)} ${height.toFixed(0)}" width="${width.toFixed(0)}" height="${height.toFixed(0)}" role="img">${parts.join('')}</svg>`
 }

@@ -10,8 +10,10 @@ export function useLabLogoVersion(): string | null {
   // context re-resolves on a shell refresh, which re-renders these pages.
   const router = useRouter({ warn: false }) as
     { state?: { matches?: { context?: unknown }[] } } | undefined
+
   const context = router?.state?.matches?.[0]?.context as
     { labLogo?: string | null } | undefined
+
   return context?.labLogo ?? null
 }
 
@@ -35,11 +37,13 @@ export function LabLogo({
   fallback?: 'mark' | 'none'
 }) {
   const version = useLabLogoVersion()
+
   if (!version) {
     return fallback === 'mark' ? (
       <BrandMark size={height} className={className} />
     ) : null
   }
+
   return (
     <img
       src={labLogoUrl(version)}

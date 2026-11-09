@@ -122,7 +122,9 @@ function FixtureGrid({
         meta: { cellClassName: 'text-fg-muted' },
       },
     ]
+
     if (!withSelection) return base
+
     return [
       {
         id: 'select',
@@ -226,7 +228,9 @@ const meta = {
   tags: ['autodocs'],
   args: { withSelection: false, withPagination: false },
 } satisfies Meta<typeof FixtureGrid>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The default state: rows, sorting by header, and the frame's footer. */

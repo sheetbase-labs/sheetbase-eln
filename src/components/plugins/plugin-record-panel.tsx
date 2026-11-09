@@ -32,11 +32,14 @@ export function PluginRecordList({
     <RowList>
       {state.flags.map((flag) => {
         const isStep = flag.kind === 'sign_off'
+
         const madeIt =
           flag.independent &&
           myUserId !== null &&
           flag.raised_by_user_id === myUserId
+
         const canSign = isStep && onSignOff && !flag.signedByMe && !madeIt
+
         return (
           <Fragment key={flag.id}>
             <Row
@@ -110,6 +113,7 @@ export function PluginRecordPanel({
   const query = usePluginRecordState(recordId, myUserId)
   const sign = useSignOffPluginStep(recordId)
   const state = query.data
+
   if (query.isError)
     return (
       <InspectorSection title={t('plugins.recordPanel.title')}>
@@ -118,8 +122,10 @@ export function PluginRecordPanel({
         </p>
       </InspectorSection>
     )
+
   if (!state || (state.flags.length === 0 && state.summaries.length === 0))
     return null
+
   return (
     <InspectorSection title={t('plugins.recordPanel.title')}>
       <PluginRecordList

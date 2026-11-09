@@ -141,10 +141,12 @@ export class GridOperationCoordinator {
   /** Enqueue cell edits from `afterChange`. Applies optimistic drafts via the caller. */
   enqueue(cells: PendingCell[]): void {
     if (this.destroyed || this.config.isReadOnly() || cells.length === 0) return
+
     for (const cell of cells) {
       const key = `${cell.rowId ?? `new:${cell.rowIndex}`}:${cell.columnId}`
       this.pendingCells.set(key, cell)
     }
+
     this.scheduleFlush()
   }
 
@@ -154,6 +156,7 @@ export class GridOperationCoordinator {
       clearTimeout(this.flushTimer)
       this.flushTimer = null
     }
+
     await this.doFlush(0)
   }
 
@@ -167,6 +170,7 @@ export class GridOperationCoordinator {
   /** Cleanup timers on unmount. Prevents in-flight flushes from calling back. */
   destroy(): void {
     this.destroyed = true
+
     if (this.flushTimer) {
       clearTimeout(this.flushTimer)
       this.flushTimer = null
@@ -189,7 +193,9 @@ export class GridOperationCoordinator {
 
   private async doFlush(attempt: number): Promise<void> {
     if (this.destroyed || this.config.isReadOnly()) return
+
     if (this.isFlushing) return
+
     if (
       this.pendingCells.size === 0 &&
       this.provisionalInserts.size === 0 &&
@@ -198,10 +204,12 @@ export class GridOperationCoordinator {
       return
 
     const table = this.config.getTable()
+
     if (!table) return
 
     this.isFlushing = true
     const cells = [...this.pendingCells.values()]
+
     if (attempt === 0) this.pendingCells.clear()
 
     const batchGeneration = ++this.generation
@@ -209,6 +217,7 @@ export class GridOperationCoordinator {
 
     try {
       const changedRows = await this.processBatch(table, cells, batchGeneration)
+
       // The destroyed flag can be set during the async processBatch await
       // (e.g., component unmount). Check before calling React state setters.
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -216,6 +225,7 @@ export class GridOperationCoordinator {
       this.config.onRowsUpdated(changedRows)
       this.config.onDraftsCleared(cells)
       this.config.onIssues([])
+
       // Only reconcile rows if there were actual row changes (literal
       // edits or inserts). Formula-only writes change row versions on the
       // server but don't change the row data that gridData uses. Avoiding
@@ -233,18 +243,22 @@ export class GridOperationCoordinator {
               .getFormulaByCell()
               .has(`${cell.rowId}/${cell.columnId}`)),
       )
+
       this.config.onCalculationNeeded(formulaChanged && changedRows.length > 0)
       this.setStatus('saved')
     } catch (error) {
       const isLocalValidation = (error as { localValidation?: boolean })
         .localValidation
+
       // stale_version is a deterministic conflict, not a transient failure —
       // do NOT retry. Surface it immediately so the user sees the conflict.
       const isStaleVersion =
         error instanceof DataClientError && error.code === 'stale_version'
+
       if (isStaleVersion) {
         this.config.onRefetchRows()
         const affected = new Map<string, { key: string; message: string }>()
+
         for (const cell of cells) {
           const rowKey = cell.rowId ?? `new:${cell.rowIndex}`
           affected.set(rowKey, {
@@ -252,10 +266,13 @@ export class GridOperationCoordinator {
             message: `Row ${cell.rowIndex + 1} changed elsewhere. Your entered values remain in the grid.`,
           })
         }
+
         this.config.onIssues([...affected.values()])
         this.setStatus('error')
+
         return
       }
+
       // Permission errors (401/403) and bad requests (400) are not
       // transient — don't retry. 400 typically means a validation or
       // constraint error from PostgREST/PostgreSQL that won't resolve
@@ -263,6 +280,7 @@ export class GridOperationCoordinator {
       const isNonRetryableError =
         error instanceof DataClientError &&
         (error.status === 400 || error.status === 401 || error.status === 403)
+
       if (isNonRetryableError) {
         this.config.onIssues(
           cells.map((cell) => ({
@@ -271,30 +289,39 @@ export class GridOperationCoordinator {
           })),
         )
         this.setStatus('error')
+
         return
       }
+
       if (!isLocalValidation) {
         // Network or server error — retry with backoff.
         if (attempt < this.maxRetries) {
           this.setStatus('retrying')
           this.isFlushing = false
+
           // Put cells back for retry.
           for (const cell of cells) {
             const key = `${cell.rowId ?? `new:${cell.rowIndex}`}:${cell.columnId}`
+
             if (!this.pendingCells.has(key)) this.pendingCells.set(key, cell)
           }
+
           await new Promise((resolve) =>
             setTimeout(resolve, 500 * (attempt + 1)),
           )
           await this.doFlush(attempt + 1)
+
           return
         }
+
         // Max retries exhausted — refetch and surface error.
         this.config.onRefetchRows()
       }
+
       this.setStatus('error')
     } finally {
       this.isFlushing = false
+
       // If more cells accumulated during flush, schedule another.
       if (this.pendingCells.size > 0) this.scheduleFlush()
     }
@@ -323,6 +350,7 @@ export class GridOperationCoordinator {
         values: Record<string, unknown>
       }
     >()
+
     // Ordered insert entries so we can match returned rows to their source
     // key. For spare-row inserts the key is `rowIndex:N`; for provisional
     // rows (Add Row button) the key is the provisional ID itself.
@@ -330,14 +358,17 @@ export class GridOperationCoordinator {
       key: string
       values: Record<string, unknown>
     }> = []
+
     const insertByKey = new Map<string, number>()
     const formulaWrites: PendingFormulaWrite[] = []
+
     // Formulas pending on new/provisional rows — applied after the insert
     // returns UUIDs. Keyed by the same insert key.
     const insertFormulas = new Map<
       string,
       { columnId: string; source: string }
     >()
+
     const errors: Array<{ key: string; message: string }> = []
 
     const isProvisional = (id: string | null): boolean =>
@@ -345,25 +376,31 @@ export class GridOperationCoordinator {
 
     const ensureInsert = (key: string): Record<string, unknown> => {
       let idx = insertByKey.get(key)
+
       if (idx === undefined) {
         idx = insertEntries.length
         insertEntries.push({ key, values: {} })
         insertByKey.set(key, idx)
       }
+
       return insertEntries[idx].values
     }
 
     for (const cell of cells) {
       const { rowIndex, rowId, columnId, raw } = cell
       const column = table.columns.find((c) => c.id === columnId)
+
       if (!column) continue
+
       // Provisional rows are in the cache but must be treated as inserts,
       // not edits — the server doesn't know about them yet.
       const row =
         rowId && !isProvisional(rowId) ? canonicalById.get(rowId) : undefined
+
       const existingFormula = row
         ? formulaByCell.get(`${row.id}/${column.id}`)
         : undefined
+
       const insertKey = isProvisional(rowId) ? rowId! : `rowIndex:${rowIndex}`
 
       if (typeof raw === 'string' && raw.startsWith('=')) {
@@ -383,10 +420,12 @@ export class GridOperationCoordinator {
             existing: existingFormula,
           })
         }
+
         continue
       }
 
       let value: unknown
+
       try {
         value = decodeScientificValue(column, raw)
       } catch (error) {
@@ -407,6 +446,7 @@ export class GridOperationCoordinator {
           })
           continue
         }
+
         const edit = edits.get(row.id) ?? {
           rowId: row.id,
           expectedVersion: Math.max(
@@ -415,6 +455,7 @@ export class GridOperationCoordinator {
           ),
           values: {},
         }
+
         edit.values[columnId] = value
         edits.set(row.id, edit)
       } else {
@@ -438,6 +479,7 @@ export class GridOperationCoordinator {
     }
 
     let changedRows: ScientificRowWire[] = []
+
     if (edits.size || insertEntries.length) {
       const result = await applyScientificRowChanges(
         this.config.client,
@@ -446,6 +488,7 @@ export class GridOperationCoordinator {
         [...edits.values()],
         insertEntries.map((e) => e.values),
       )
+
       if (!result.ok) {
         this.config.onIssues(
           result.errors.map((e) => ({
@@ -457,6 +500,7 @@ export class GridOperationCoordinator {
           validation: true,
         })
       }
+
       changedRows = result.rows
     }
 
@@ -470,21 +514,26 @@ export class GridOperationCoordinator {
         ),
       ]),
     )
+
     for (const row of changedRows) rowVersions.set(row.id, Number(row.version))
 
     // Match newly created rows to insert entries so we can apply
     // pending formulas on provisional rows and swap provisional IDs.
     const canonicalIds = new Set(canonical.map((r) => r.id))
     const newRows = changedRows.filter((r) => !canonicalIds.has(r.id))
+
     for (let i = 0; i < insertEntries.length && i < newRows.length; i++) {
       const entry = insertEntries[i]
       const createdRow = newRows[i]
+
       // Swap provisional IDs for real UUIDs in the caller's cache.
       if (entry.key.startsWith('prov:')) {
         this.provisionalInserts.delete(entry.key)
         this.config.onProvisionalRowReplaced(entry.key, createdRow.id)
       }
+
       const pendingFormula = insertFormulas.get(entry.key)
+
       if (pendingFormula) {
         formulaWrites.push({
           rowId: createdRow.id,
@@ -497,6 +546,7 @@ export class GridOperationCoordinator {
     // Formula writes: each advances the target row's version by 1.
     for (const formula of formulaWrites) {
       const expectedRowVersion = rowVersions.get(formula.rowId)
+
       if (expectedRowVersion === undefined) continue
       await mutateScientificFormula(
         formula.source

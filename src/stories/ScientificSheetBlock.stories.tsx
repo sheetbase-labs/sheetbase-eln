@@ -80,22 +80,27 @@ function client(behaviour: 'loaded' | 'pending' | 'refused') {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+
   if (behaviour === 'loaded') {
     queryClient.setQueryData(scientificQueryKeys.table(TABLE_ID), table)
     queryClient.setQueryData(scientificQueryKeys.allRows(TABLE_ID), rows)
     queryClient.setQueryData(scientificQueryKeys.formulas(TABLE_ID), [])
+
     return queryClient
   }
+
   const run =
     behaviour === 'pending'
       ? () => new Promise<never>(() => {})
       : () => Promise.reject(new Error('offline'))
+
   // Starting the read without awaiting it leaves the cache in the state the
   // block's own `useQuery` joins: pending on first paint, refused on failure.
   void queryClient.fetchQuery({
     queryKey: scientificQueryKeys.table(TABLE_ID),
     queryFn: run,
   })
+
   return queryClient
 }
 
@@ -118,7 +123,9 @@ const meta = {
   decorators: [withClient('loaded')],
   args: { block },
 } satisfies Meta<typeof ScientificSheetBlock>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The loaded block: a two-column plate-reading table the writer can edit. */

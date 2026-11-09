@@ -119,7 +119,9 @@ function kindOf(field: ModelVersionField): FieldKind {
 
 function decimalPlaces(field: ModelVersionField): number {
   const stored = (field as { decimal_places?: unknown }).decimal_places
+
   if (typeof stored === 'number') return stored
+
   return field.logical_type === 'decimal' ? 1 : 0
 }
 
@@ -140,6 +142,7 @@ function newId(): string {
 export function fieldIssues(fields: ModelVersionField[]): Map<string, string> {
   const issues = new Map<string, string>()
   const live = fields.filter((f) => f.lifecycle !== 'retired')
+
   for (const field of live) {
     if (!field.label.trim()) {
       issues.set(
@@ -148,6 +151,7 @@ export function fieldIssues(fields: ModelVersionField[]): Map<string, string> {
       )
       continue
     }
+
     if (!KEY_PATTERN.test(field.field_name)) {
       issues.set(
         field.id,
@@ -157,9 +161,11 @@ export function fieldIssues(fields: ModelVersionField[]): Map<string, string> {
       )
       continue
     }
+
     const other = fields.find(
       (f) => f.id !== field.id && f.field_name === field.field_name,
     )
+
     if (other)
       issues.set(
         field.id,
@@ -169,6 +175,7 @@ export function fieldIssues(fields: ModelVersionField[]): Map<string, string> {
         }),
       )
   }
+
   return issues
 }
 
@@ -180,11 +187,13 @@ function reorder(
 ): ModelVersionField[] {
   const ordered = [...fields].sort((a, b) => a.display_order - b.display_order)
   const moving = ordered.find((f) => f.id === id)
+
   if (!moving) return fields
   const rest = ordered.filter((f) => f.id !== id)
   const at = targetId ? rest.findIndex((f) => f.id === targetId) : -1
   const placed = { ...moving, section }
   rest.splice(at < 0 ? rest.length : at, 0, placed)
+
   return rest.map((f, i) => ({ ...f, display_order: i + 1 }))
 }
 
@@ -197,9 +206,12 @@ function nudge(
   const live = groupFieldsBySection(
     fields.filter((f) => f.lifecycle !== 'retired'),
   ).flatMap((g) => g.fields)
+
   const index = live.findIndex((f) => f.id === id)
   const neighbour = live.find((_, i) => i === index + delta)
+
   if (!neighbour) return fields
+
   return delta < 0
     ? reorder(fields, id, neighbour.id, fieldSection(neighbour))
     : reorder(fields, id, live[index + 2]?.id ?? null, fieldSection(neighbour))
@@ -230,10 +242,12 @@ export function RecordModelEdit({
   const published = versions.data?.find((v) => v.lifecycle === 'published')
   const queryClient = useQueryClient()
   const [reason, setReason] = useState('')
+
   const startDraft = useMutation({
     mutationFn: () => {
       if (!model.data)
         throw new Error(t('library.models.recordModelEdit.modelNotFound'))
+
       return createRecordModelVersion(notebookDataClient, {
         modelId: model.data.id,
         reason: reason.trim(),
@@ -266,6 +280,7 @@ export function RecordModelEdit({
       </div>
     )
   }
+
   if (versions.isLoading)
     return (
       <div className="flex min-w-0 flex-1 flex-col">
@@ -282,6 +297,7 @@ export function RecordModelEdit({
         />
       </div>
     )
+
   if (!draft)
     return (
       <div className="flex min-w-0 flex-1 flex-col">
@@ -394,23 +410,31 @@ function DraftEditor({
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const inherited = useInheritedFieldGroups(modelKey)
+
   const [fields, setFields] = useState<ModelVersionField[]>(
     draft.definition.fields,
   )
+
   const [extraSections, setExtraSections] = useState<string[]>([])
+
   const [selectedId, setSelectedId] = useState<string | null>(() => {
     const publishedIds = new Set(
       (published?.definition.fields ?? []).map((f) => f.id),
     )
+
     const live = draft.definition.fields.filter(
       (f) => f.lifecycle !== 'retired',
     )
+
     return (live.find((f) => !publishedIds.has(f.id)) ?? live.at(0))?.id ?? null
   })
+
   const [revision, setRevision] = useState(draft.revision)
+
   const [savedAt, setSavedAt] = useState<string | null>(
     typeof draft.updated_at === 'string' ? draft.updated_at : null,
   )
+
   const [dirty, setDirty] = useState(false)
   const [conflict, setConflict] = useState(false)
   const [discardOpen, setDiscardOpen] = useState(false)
@@ -425,23 +449,29 @@ function DraftEditor({
     queryKey: workspaceMemberQueryKeys.identities,
     queryFn: () => fetchWorkspaceMemberIdentities(),
   })
+
   const usage = useRecordModelVersionUsage(draft.model_id)
+
   const approvals = useModelApprovalIndex(
     [draft.id],
     notebookDataClient,
     RECORD_MODEL_VERSION_KIND,
   )
+
   const requests = approvals.data?.byVersion.get(draft.id) ?? []
   const pending = pendingRequest(requests)
   const locked = !canEdit || Boolean(pending) || conflict
+
   const nameOf = (id: string | null | undefined) =>
     (id && members.data?.find((m) => m.user_id === id)?.name) || 'someone'
 
   const issues = useMemo(() => fieldIssues(fields), [fields])
+
   const publishedIds = useMemo(
     () => new Set((published?.definition.fields ?? []).map((f) => f.id)),
     [published],
   )
+
   const changes = useMemo(
     () =>
       diffModelVersions(published?.definition ?? null, {
@@ -450,8 +480,10 @@ function DraftEditor({
       }),
     [published, draft.definition, fields],
   )
+
   const changeKindByLabel = useMemo(() => {
     const byLabel = new Map<string, string>()
+
     for (const c of changes)
       if (c.kind !== 'Removed' && !c.subject.endsWith(' option'))
         byLabel.set(
@@ -460,15 +492,18 @@ function DraftEditor({
             ? t('library.models.recordModelEdit.added')
             : t('library.models.recordModelEdit.changed'),
         )
+
     return byLabel
   }, [changes])
 
   const live = fields.filter((f) => f.lifecycle !== 'retired')
   const groups = groupFieldsBySection(live)
+
   const sections = [
     ...groups.map((g) => g.name),
     ...extraSections.filter((s) => !groups.some((g) => g.name === s)),
   ]
+
   const selected = live.find((f) => f.id === selectedId) ?? null
 
   const save = useMutation({
@@ -506,6 +541,7 @@ function DraftEditor({
   useEffect(() => {
     if (!dirty || locked || issues.size > 0 || save.isPending) return
     const timer = setTimeout(() => save.mutate(fields), 700)
+
     return () => clearTimeout(timer)
   }, [dirty, locked, issues.size, fields, save.isPending])
 
@@ -537,21 +573,26 @@ function DraftEditor({
     setFields(next)
     setDirty(true)
   }
+
   function patch(id: string, patchFields: Partial<ModelVersionField>) {
     change(fields.map((f) => (f.id === id ? { ...f, ...patchFields } : f)))
   }
+
   function patchValidation(
     field: ModelVersionField,
     bound: 'min' | 'max',
     raw: string,
   ) {
     const validation = { ...field.validation }
+
     if (raw === '') delete validation[bound]
     else validation[bound] = Number(raw)
     patch(field.id, { validation })
   }
+
   function setKind(field: ModelVersionField, kind: FieldKind) {
     const base: Partial<ModelVersionField> = {}
+
     if (kind === 'number')
       base.logical_type = decimalPlaces(field) > 0 ? 'decimal' : 'integer'
     else if (kind === 'choice') base.logical_type = 'category'
@@ -559,21 +600,25 @@ function DraftEditor({
     else base.logical_type = kind
     patch(field.id, base)
   }
+
   function setDecimalPlaces(field: ModelVersionField, places: number) {
     patch(field.id, {
       decimal_places: places,
       logical_type: places > 0 ? 'decimal' : 'integer',
     })
   }
+
   function setRequired(field: ModelVersionField, value: string) {
     const next = { ...field } as Record<string, unknown>
     delete next.required_for
     next.nullable = value !== 'yes'
+
     if (value === 'release') next.required_for = 'release'
     change(
       fields.map((f) => (f.id === field.id ? (next as ModelVersionField) : f)),
     )
   }
+
   function setChoices(field: ModelVersionField, text: string) {
     const labels = [
       ...new Set(
@@ -583,13 +628,16 @@ function DraftEditor({
           .filter(Boolean),
       ),
     ]
+
     const existing = field.options ?? []
     patch(field.id, {
       options: labels.map((label, i) => {
         const key = slug(label) || `choice_${i + 1}`
+
         const match =
           existing.find((o) => o.label === label) ??
           existing.find((o) => o.key === key)
+
         return {
           id: match?.id ?? newId(),
           key: match?.key ?? key,
@@ -600,11 +648,14 @@ function DraftEditor({
       }),
     })
   }
+
   function addField(section: string) {
     const label = t('library.models.recordModelEdit.newField')
     let key = 'new_field'
+
     for (let n = 2; fields.some((f) => f.field_name === key); n += 1)
       key = `new_field_${n}`
+
     const field = {
       id: newId(),
       field_name: key,
@@ -620,9 +671,11 @@ function DraftEditor({
       section,
       source: t('library.models.recordModelEdit.byHand'),
     } as ModelVersionField
+
     change([...fields, field])
     setSelectedId(field.id)
   }
+
   function removeField(field: ModelVersionField) {
     if (publishedIds.has(field.id)) patch(field.id, { lifecycle: 'retired' })
     else change(fields.filter((f) => f.id !== field.id))
@@ -812,10 +865,12 @@ function DraftEditor({
               onSubmit={(event) => {
                 event.preventDefault()
                 const name = sectionName.trim()
+
                 if (name && !sections.includes(name)) {
                   setExtraSections([...extraSections, name])
                   addField(name)
                 }
+
                 setSectionName('')
                 setAddingSection(false)
               }}
@@ -914,6 +969,7 @@ function DraftEditor({
                 {sections.flatMap((section) => {
                   const group = groups.find((g) => g.name === section)
                   const rows = group?.fields ?? []
+
                   return [
                     <TableRow
                       key={`band-${section}`}
@@ -939,10 +995,13 @@ function DraftEditor({
                     ...rows.flatMap((field) => {
                       const issue = issues.get(field.id)
                       const added = !publishedIds.has(field.id)
+
                       const chip = added
                         ? t('library.models.recordModelEdit.added')
                         : changeKindByLabel.get(field.label)
+
                       const isSelected = selectedId === field.id
+
                       return [
                         <TableRow
                           key={field.id}
@@ -1238,10 +1297,13 @@ function FieldInspector({
   onRemove: () => void
 }) {
   const kind = kindOf(field)
+
   const bound = (b: 'min' | 'max') => {
     const v = field.validation[b]
+
     return typeof v === 'number' ? String(v) : ''
   }
+
   return (
     <fieldset
       disabled={locked}

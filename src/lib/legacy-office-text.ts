@@ -13,6 +13,7 @@
 const CFB_SIGNATURE = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]
 const END_OF_CHAIN = 0xfffffffe
 const FREE_SECTOR = 0xffffffff
+
 /** A directory with this many entries is not a spreadsheet. */
 const MAX_DIRECTORY_ENTRIES = 10_000
 const MAX_SECTORS = 1 << 20
@@ -36,48 +37,64 @@ export function readCompoundFile(bytes: Uint8Array): Map<string, Uint8Array> {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   const sectorShift = view.getUint16(30, true)
   const miniShift = view.getUint16(32, true)
+
   if (sectorShift !== 9 && sectorShift !== 12) {
     throw new Error('unsupported compound file sector size')
   }
+
   const sectorSize = 1 << sectorShift
   const miniSize = 1 << miniShift
   const sectorCount = Math.floor((bytes.length - 512) / sectorSize)
+
   if (sectorCount > MAX_SECTORS) throw new Error('compound file is too large')
   const sectorOffset = (sector: number) => (sector + 1) * sectorSize
+
   const readSector = (sector: number): Uint8Array => {
     const start = sectorOffset(sector)
+
     if (sector < 0 || start + sectorSize > bytes.length + sectorSize) {
       throw new Error('compound file sector is out of range')
     }
+
     return bytes.subarray(start, Math.min(start + sectorSize, bytes.length))
   }
 
   // The FAT: the header lists the first 109 FAT sectors, DIFAT sectors list the rest.
   const fatSectors: number[] = []
+
   for (let i = 0; i < 109; i++) {
     const sector = view.getUint32(76 + i * 4, true)
+
     if (sector !== FREE_SECTOR && sector !== END_OF_CHAIN) {
       fatSectors.push(sector)
     }
   }
+
   let difat = view.getUint32(68, true)
   const difatCount = view.getUint32(72, true)
+
   for (let n = 0; n < difatCount && difat < END_OF_CHAIN; n++) {
     const sector = readSector(difat)
     const dv = new DataView(sector.buffer, sector.byteOffset, sector.length)
     const perSector = sectorSize / 4 - 1
+
     for (let i = 0; i < perSector; i++) {
       const value = dv.getUint32(i * 4, true)
+
       if (value !== FREE_SECTOR && value !== END_OF_CHAIN) {
         fatSectors.push(value)
       }
     }
+
     difat = dv.getUint32(perSector * 4, true)
   }
+
   const fat: number[] = []
+
   for (const fatSector of fatSectors) {
     const sector = readSector(fatSector)
     const dv = new DataView(sector.buffer, sector.byteOffset, sector.length)
+
     for (let i = 0; i + 4 <= sector.length; i += 4) {
       fat.push(dv.getUint32(i, true))
     }
@@ -86,42 +103,53 @@ export function readCompoundFile(bytes: Uint8Array): Map<string, Uint8Array> {
   const chain = (start: number, table: number[]): number[] => {
     const out: number[] = []
     let sector = start
+
     while (sector < END_OF_CHAIN) {
       if (out.length > MAX_SECTORS || sector >= table.length) {
         throw new Error('compound file chain is malformed')
       }
+
       out.push(sector)
       sector = table[sector]
     }
+
     return out
   }
+
   const joinSectors = (sectors: number[], size?: number): Uint8Array => {
     const total = sectors.length * sectorSize
     const out = new Uint8Array(total)
     sectors.forEach((sector, i) => out.set(readSector(sector), i * sectorSize))
+
     return size === undefined ? out : out.subarray(0, Math.min(size, total))
   }
 
   // Directory.
   const directoryStart = view.getUint32(48, true)
   const directoryBytes = joinSectors(chain(directoryStart, fat))
+
   const dir = new DataView(
     directoryBytes.buffer,
     directoryBytes.byteOffset,
     directoryBytes.length,
   )
+
   const entries: DirectoryEntry[] = []
+
   const entryCount = Math.min(
     directoryBytes.length / 128,
     MAX_DIRECTORY_ENTRIES,
   )
+
   for (let i = 0; i < entryCount; i++) {
     const base = i * 128
     const nameLength = dir.getUint16(base + 64, true)
     let name = ''
+
     for (let c = 0; c + 2 <= Math.max(0, nameLength - 2); c += 2) {
       name += String.fromCharCode(dir.getUint16(base + c, true))
     }
+
     entries.push({
       name,
       type: directoryBytes[base + 66],
@@ -135,6 +163,7 @@ export function readCompoundFile(bytes: Uint8Array): Map<string, Uint8Array> {
   const miniCutoff = view.getUint32(56, true)
   let miniStream: Uint8Array | null = null
   let miniFat: number[] = []
+
   const loadMini = () => {
     if (miniStream) return
     miniStream =
@@ -142,45 +171,57 @@ export function readCompoundFile(bytes: Uint8Array): Map<string, Uint8Array> {
         ? joinSectors(chain(root.start, fat), root.size)
         : new Uint8Array()
     const miniFatStart = view.getUint32(60, true)
+
     const bytesOfMiniFat = joinSectors(
       miniFatStart < END_OF_CHAIN ? chain(miniFatStart, fat) : [],
     )
+
     const mv = new DataView(
       bytesOfMiniFat.buffer,
       bytesOfMiniFat.byteOffset,
       bytesOfMiniFat.length,
     )
+
     miniFat = []
+
     for (let i = 0; i + 4 <= bytesOfMiniFat.length; i += 4) {
       miniFat.push(mv.getUint32(i, true))
     }
   }
 
   const streams = new Map<string, Uint8Array>()
+
   for (const entry of entries) {
     if (entry.type !== 2 || !entry.name) continue
+
     if (entry.size < miniCutoff) {
       loadMini()
       const out = new Uint8Array(entry.size)
       let written = 0
+
       for (const sector of chain(entry.start, miniFat)) {
         const from = sector * miniSize
+
         const piece = (miniStream as unknown as Uint8Array).subarray(
           from,
           from + miniSize,
         )
+
         out.set(
           piece.subarray(0, Math.min(piece.length, entry.size - written)),
           written,
         )
         written += Math.min(piece.length, entry.size - written)
+
         if (written >= entry.size) break
       }
+
       streams.set(entry.name, out)
     } else {
       streams.set(entry.name, joinSectors(chain(entry.start, fat), entry.size))
     }
   }
+
   return streams
 }
 
@@ -210,10 +251,12 @@ interface Record {
 function* records(stream: Uint8Array): Generator<Record> {
   const view = new DataView(stream.buffer, stream.byteOffset, stream.length)
   let pos = 0
+
   while (pos + 4 <= stream.length) {
     const id = view.getUint16(pos, true)
     const length = view.getUint16(pos + 2, true)
     const start = pos + 4
+
     if (start + length > stream.length) return
     yield { id, data: stream.subarray(start, start + length) }
     pos = start + length
@@ -242,7 +285,9 @@ class ChunkReader {
 
   u8(): number {
     this.advance()
+
     if (this.done) throw new Error('unexpected end of shared strings')
+
     return this.chunks[this.chunk][this.offset++]
   }
 
@@ -256,8 +301,10 @@ class ChunkReader {
 
   skip(count: number) {
     let left = count
+
     while (left > 0) {
       this.advance()
+
       if (this.done) return
       const take = Math.min(left, this.chunks[this.chunk].length - this.offset)
       this.offset += take
@@ -270,24 +317,30 @@ class ChunkReader {
     let out = ''
     let remaining = count
     let isWide = wide
+
     while (remaining > 0) {
       const atEnd = this.offset >= this.chunks[this.chunk]?.length
+
       if (atEnd) {
         this.advance()
+
         if (this.done) throw new Error('unexpected end of shared strings')
         // A new record carrying the rest of a string starts with its width flag.
         isWide = (this.chunks[this.chunk][this.offset++] & 1) === 1
         continue
       }
+
       const chunk = this.chunks[this.chunk]
       const unit = isWide ? 2 : 1
       const available = Math.floor((chunk.length - this.offset) / unit)
       const take = Math.min(available, remaining)
+
       if (take === 0) {
         // Half a wide character at a boundary: treat as end of this chunk.
         this.offset = chunk.length
         continue
       }
+
       for (let i = 0; i < take; i++) {
         if (isWide) {
           out += String.fromCharCode(
@@ -298,8 +351,10 @@ class ChunkReader {
           out += String.fromCharCode(chunk[this.offset++])
         }
       }
+
       remaining -= take
     }
+
     return out
   }
 }
@@ -309,6 +364,7 @@ function parseSharedStrings(chunks: Uint8Array[]): string[] {
   reader.u32() // total references
   const unique = reader.u32()
   const strings: string[] = []
+
   for (let i = 0; i < unique && !reader.done; i++) {
     try {
       const length = reader.u16()
@@ -322,6 +378,7 @@ function parseSharedStrings(chunks: Uint8Array[]): string[] {
       break
     }
   }
+
   return strings
 }
 
@@ -329,6 +386,7 @@ function decodeRk(raw: number): number {
   const isInteger = (raw & 2) !== 0
   const div100 = (raw & 1) !== 0
   let value: number
+
   if (isInteger) {
     value = raw >> 2
   } else {
@@ -336,11 +394,13 @@ function decodeRk(raw: number): number {
     buffer.setUint32(4, (raw & 0xfffffffc) >>> 0, true)
     value = buffer.getFloat64(0, true)
   }
+
   return div100 ? value / 100 : value
 }
 
 function formatNumber(value: number): string {
   if (!Number.isFinite(value)) return ''
+
   return Number.isInteger(value)
     ? String(value)
     : String(Number(value.toPrecision(12)))
@@ -353,11 +413,13 @@ function ansiString(
   wide: boolean,
 ) {
   let out = ''
+
   for (let i = 0; i < length; i++) {
     out += wide
       ? String.fromCharCode(data[from + i * 2] | (data[from + i * 2 + 1] << 8))
       : String.fromCharCode(data[from + i])
   }
+
   return out
 }
 
@@ -370,6 +432,7 @@ export function extractXlsText(bytes: Uint8Array): string {
   if (!isCompoundFile(bytes)) return ''
   const streams = readCompoundFile(bytes)
   const book = streams.get('Workbook') ?? streams.get('Book')
+
   if (!book) return ''
 
   // Gather records, joining SST with its CONTINUE records.
@@ -394,17 +457,22 @@ export function extractXlsText(bytes: Uint8Array): string {
       sstChunks.push(data)
       continue
     }
+
     if (sstChunks) {
       shared = parseSharedStrings(sstChunks)
       sstChunks = null
     }
+
     const view = new DataView(data.buffer, data.byteOffset, data.length)
+
     switch (id) {
       case REC_BOF: {
         if (data.length >= 4) {
           const version = view.getUint16(0, true)
           const kind = view.getUint16(2, true)
+
           if (version !== 0x0600) biff8 = false
+
           if (kind === 0x0010) {
             // Worksheet substream: the n-th BOF of this kind follows BOUNDSHEET order.
             sheetIndex++
@@ -414,8 +482,10 @@ export function extractXlsText(bytes: Uint8Array): string {
             current = null
           }
         }
+
         break
       }
+
       case REC_EOF:
         pendingFormulaCell = null
         break
@@ -426,6 +496,7 @@ export function extractXlsText(bytes: Uint8Array): string {
         sheetNames.push(ansiString(data, 8, length, wide))
         break
       }
+
       case REC_SST:
         sstChunks = [data]
         break
@@ -433,6 +504,7 @@ export function extractXlsText(bytes: Uint8Array): string {
         if (data.length >= 10) {
           put(view.getUint16(0, true), shared[view.getUint32(6, true)] ?? '')
         }
+
         break
       case REC_LABEL:
         if (data.length >= 8) {
@@ -440,11 +512,13 @@ export function extractXlsText(bytes: Uint8Array): string {
           const wide = (data[8] & 1) === 1
           put(view.getUint16(0, true), ansiString(data, 9, length, wide))
         }
+
         break
       case REC_NUMBER:
         if (data.length >= 14) {
           put(view.getUint16(0, true), formatNumber(view.getFloat64(6, true)))
         }
+
         break
       case REC_RK:
         if (data.length >= 10) {
@@ -453,23 +527,29 @@ export function extractXlsText(bytes: Uint8Array): string {
             formatNumber(decodeRk(view.getUint32(6, true))),
           )
         }
+
         break
       case REC_MULRK: {
         if (data.length < 6) break
         const row = view.getUint16(0, true)
+
         for (let at = 4; at + 6 <= data.length - 2; at += 6) {
           put(row, formatNumber(decodeRk(view.getUint32(at + 2, true))))
         }
+
         break
       }
+
       case REC_BOOLERR:
         if (data.length >= 8 && data[7] === 0) {
           put(view.getUint16(0, true), data[6] ? 'TRUE' : 'FALSE')
         }
+
         break
       case REC_FORMULA: {
         if (data.length < 14) break
         const row = view.getUint16(0, true)
+
         // A string result is flagged 0xFFFF in the last two bytes of the 8 and
         // arrives in the STRING record that follows.
         if (view.getUint16(12, true) === 0xffff && data[6] === 0) {
@@ -477,33 +557,41 @@ export function extractXlsText(bytes: Uint8Array): string {
         } else if (view.getUint16(12, true) !== 0xffff) {
           put(row, formatNumber(view.getFloat64(6, true)))
         }
+
         break
       }
+
       case REC_STRING:
         if (pendingFormulaCell && data.length >= 3) {
           const length = view.getUint16(0, true)
           const wide = (data[2] & 1) === 1
           put(pendingFormulaCell.row, ansiString(data, 3, length, wide))
         }
+
         pendingFormulaCell = null
         break
       default:
         break
     }
   }
+
   if (sstChunks) shared = parseSharedStrings(sstChunks)
+
   if (!biff8) return ''
 
   // LABELSST cells above were resolved against `shared` at the time they were
   // read; the SST precedes every worksheet in a BIFF8 file, so that holds.
   const lines: string[] = []
   const names = sheetNames.filter((name) => name.trim() !== '')
+
   if (names.length) lines.push(names.join('\n'))
+
   for (const sheet of sheets) {
     for (const row of [...sheet.keys()].sort((a, b) => a - b)) {
       lines.push((sheet.get(row) ?? []).join(' '))
     }
   }
+
   return lines.join('\n')
 }
 
@@ -516,12 +604,14 @@ export async function extractDocText(bytes: Uint8Array): Promise<string> {
   if (!isCompoundFile(bytes)) return ''
   const { default: WordExtractor } = await import('word-extractor')
   const document = await new WordExtractor().extract(Buffer.from(bytes))
+
   const parts = [
     document.getBody(),
     document.getHeaders({ includeFooters: true }),
     document.getFootnotes(),
     document.getEndnotes(),
   ]
+
   return parts
     .join('\n')
     .split(/\r\n|\r|\n/)

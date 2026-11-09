@@ -17,8 +17,10 @@ export type CanonicalSheetColumnOrigin = 'bound' | 'local' | 'calculation'
 
 /** EXP-04.2 — group header for columns that exist only in this Sheet. */
 export const SHEET_LOCAL_GROUP = 'This experiment'
+
 /** EXP-04.2 — group header for derived columns. */
 export const SHEET_DERIVED_GROUP = 'Derived'
+
 /** EXP-04.2 — fallback group header when a bound source cannot be named. */
 const SHEET_BOUND_GROUP_FALLBACK = 'Dataset'
 
@@ -58,6 +60,7 @@ function activeLocalFields(instance: SheetInstance) {
 
 function localColumn(field: FieldDefinition): CanonicalSheetGridColumn {
   const calculation = field.computation.mode === 'computed'
+
   return {
     id: field.fieldId,
     label: field.label,
@@ -99,10 +102,13 @@ function bindingSourceName(
 ): string | undefined {
   if (!configuration) return undefined
   const binding = configuration.bindings.find((item) => item.id === bindingId)
+
   if (!binding) return undefined
+
   const parameter = configuration.parameters.find(
     (item) => item.id === binding.parameterId,
   )
+
   return parameter?.label ?? binding.key
 }
 
@@ -120,6 +126,7 @@ function bindingSnapshotRevision(
         return source.datasetRevision
     }
   }
+
   return undefined
 }
 
@@ -133,9 +140,11 @@ const timestampInput =
 
 function canonicalTimestampInput(raw: string): string | null {
   const match = timestampInput.exec(raw)
+
   if (!match) return null
   const [, date, time, seconds = '00', fraction = ''] = match
   const offset = match.at(5) ?? 'Z'
+
   return `${date}T${time}:${seconds}${fraction}${offset}`
 }
 
@@ -149,6 +158,7 @@ function canonicalCategoryOption(
 ): FieldOption | undefined {
   if (field.category?.kind !== 'embedded') return undefined
   const options = field.category.options
+
   return (
     options.find((option) => option.id === raw) ??
     options.find(
@@ -165,32 +175,47 @@ export function parseSheetCellInput(
   raw: unknown,
 ): unknown {
   if (raw === '' || raw === undefined) return null
+
   if (!field) return raw
+
   if (field.logicalType === 'boolean') {
     if (typeof raw === 'boolean') return raw
+
     if (raw === 'true' || raw === 'TRUE' || raw === 1 || raw === '1')
       return true
+
     if (raw === 'false' || raw === 'FALSE' || raw === 0 || raw === '0')
       return false
+
     return raw
   }
+
   if (field.logicalType === 'integer' || field.logicalType === 'decimal') {
     // MODEL-02: one numeric coercion (quantity-unit suffixes, thousands
     // separators) shared with Record input; unparseable input fails closed.
     const parsed = parseQuantityNumericValue(field, raw)
+
     if (typeof parsed === 'number') return parsed
+
     return raw
   }
+
   if (field.logicalType === 'timestamp' && typeof raw === 'string') {
     const coerced = canonicalTimestampInput(raw)
+
     if (coerced) return coerced
+
     return raw
   }
+
   if (field.logicalType === 'category' && typeof raw === 'string') {
     const option = canonicalCategoryOption(field, raw)
+
     if (option) return option.id
+
     return raw
   }
+
   return raw
 }
 
@@ -201,12 +226,14 @@ export function canonicalSheetGridMatrix(input: {
 }): CanonicalSheetGridMatrix {
   const localFields = activeLocalFields(input.instance)
   const calculations = input.instance.state.instanceCalculations ?? []
+
   const calculationColumns = calculations
     .filter((item) => item.lifecycle === 'active')
     .map((item) => localColumn(item.outputField))
 
   if (input.composition) {
     const composed = composedSheetGridMatrix(input.composition)
+
     // GRID-05: the definition-column lookup is hoisted out of the per-column
     // loop (was an O(C^2) `find` per wide sheet) and the per-column bound
     // source index is precomputed once (was a Map.get per cell).
@@ -215,31 +242,39 @@ export function canonicalSheetGridMatrix(input: {
         (item) => [item.id, item.field] as const,
       ),
     )
+
     // EXP-04.2: a bound column's header group and `Source` badge name the
     // Dataset its binding resolves to, plus the snapshot revision the
     // composition read. Both are column-stable properties of the pinned
     // Definition and its displayed rows.
     const configuration = input.composition.definitionConfiguration
     const definitionBindings = new Map<string, string>()
+
     for (const item of configuration?.columns ?? []) {
       if (item.source.kind === 'bound')
         definitionBindings.set(item.id, item.source.bindingId)
     }
+
     const boundSource = (columnId: string) => {
       const bindingId = definitionBindings.get(columnId)
+
       if (!bindingId) return { group: SHEET_BOUND_GROUP_FALLBACK }
       const name = bindingSourceName(configuration, bindingId)
+
       const revision = bindingSnapshotRevision(
         input.composition!.rows,
         bindingId,
       )
+
       const group = name ?? SHEET_BOUND_GROUP_FALLBACK
+
       return {
         group,
         sourceLabel:
           revision === undefined ? name : `${group} · rev ${revision}`,
       }
     }
+
     const bound = composed.columns.map((column) =>
       boundColumn(
         column,
@@ -247,44 +282,60 @@ export function canonicalSheetGridMatrix(input: {
         boundSource(column.id),
       ),
     )
+
     const boundIds = new Set(bound.map((column) => column.id))
+
     const extraLocal = localFields
       .filter((field) => !boundIds.has(field.fieldId))
       .map(localColumn)
+
     const extraCalc = calculationColumns.filter(
       (column) => !boundIds.has(column.id),
     )
+
     const columns = [...bound, ...extraLocal, ...extraCalc]
     const composedKeys = new Set(composed.rowKeys)
+
     const unmatchedLocal = Object.keys(input.instance.state.localValues).filter(
       (rowKey) => !composedKeys.has(rowKey),
     )
+
     const rowKeys = [...composed.rowKeys, ...unmatchedLocal]
+
     const boundIndex = new Map(
       composed.columns.map((column, index) => [column.id, index]),
     )
+
     const boundSourceIndex = columns.map((column) =>
       column.origin === 'bound' ? (boundIndex.get(column.id) ?? -1) : -1,
     )
+
     const data = rowKeys.map((rowKey, index) => {
       const composedRow =
         index < composed.rowKeys.length ? composed.data[index] : null
+
       // GRID-05: a composed row without a local entry has no local values —
       // read them safely instead of throwing (mirrors frozen-sheet-grid).
       const localRow = input.instance.state.localValues[rowKey] as
         Record<string, unknown> | undefined
+
       const calculatedRow = input.calculationResults?.[rowKey]
+
       return columns.map((column, columnIndex) => {
         if (column.origin === 'bound' && composedRow) {
           const sourceIndex = boundSourceIndex[columnIndex]
+
           return sourceIndex < 0 ? null : (composedRow[sourceIndex] ?? null)
         }
+
         if (column.origin === 'calculation') {
           return calculatedRow?.[column.id] ?? localRow?.[column.id] ?? null
         }
+
         return localRow?.[column.id] ?? null
       })
     })
+
     return {
       columns,
       rowKeys,
@@ -297,6 +348,7 @@ export function canonicalSheetGridMatrix(input: {
 
   const columns = [...localFields.map(localColumn), ...calculationColumns]
   const rowKeys = Object.keys(input.instance.state.localValues)
+
   return {
     columns,
     rowKeys,
@@ -304,10 +356,12 @@ export function canonicalSheetGridMatrix(input: {
       // GRID-05: same safe local-row read as the composed branch above.
       const localRow = input.instance.state.localValues[rowKey]
       const calculatedRow = input.calculationResults?.[rowKey]
+
       return columns.map((column) => {
         if (column.origin === 'calculation') {
           return calculatedRow?.[column.id] ?? localRow[column.id] ?? null
         }
+
         return localRow[column.id] ?? null
       })
     }),
@@ -320,6 +374,7 @@ export function validateCanonicalCell(
   value: unknown,
 ): string | null {
   if (!field) return null
+
   return sheetLocalValueError(field, value)
 }
 
@@ -338,32 +393,41 @@ export function applySheetPresentation(
   presentation: SheetPresentation,
 ): CanonicalSheetGridMatrix {
   const byId = new Map(matrix.columns.map((column) => [column.id, column]))
+
   const hidden = new Set(
     presentation.hiddenColumnIds.filter((id) => byId.has(id)),
   )
+
   const ordered: CanonicalSheetGridColumn[] = []
   const seen = new Set<string>()
+
   for (const id of presentation.columnOrder) {
     if (hidden.has(id) || seen.has(id)) continue
     const column = byId.get(id)
+
     if (!column) continue
     seen.add(id)
     ordered.push(column)
   }
+
   for (const column of matrix.columns) {
     if (hidden.has(column.id) || seen.has(column.id)) continue
     seen.add(column.id)
     ordered.push(column)
   }
+
   // GRID-05: resolve the display order to source indexes once (was a Map.get
   // per cell over R x C).
   const sourceIndexById = new Map(
     matrix.columns.map((column, index) => [column.id, index]),
   )
+
   const orderIndex = ordered.map(
     (column) => sourceIndexById.get(column.id) as number,
   )
+
   const data = matrix.data.map((row) => orderIndex.map((index) => row[index]))
+
   return {
     columns: ordered,
     rowKeys: matrix.rowKeys,
@@ -397,23 +461,29 @@ export function resolveCanonicalCellChanges(
   changes: Array<[number, string | number, unknown, unknown]>,
 ): CanonicalCellChangeResult {
   const resolved: Array<[number, string | number, unknown, unknown]> = []
+
   for (const change of changes) {
     const columnIndex =
       typeof change[1] === 'number' ? change[1] : Number(change[1])
+
     const column = columns.at(columnIndex)
+
     // Columns outside the canonical matrix (row headers etc.) are not writes.
     if (!column) {
       resolved.push([change[0], change[1], change[2], change[3]])
       continue
     }
+
     if (!column.editable) {
       return {
         changes: resolved,
         rejection: { kind: 'read_only_column', label: column.label },
       }
     }
+
     const value = parseSheetCellInput(column.field, change[3])
     const invalid = validateCanonicalCell(column.field, value)
+
     if (invalid) {
       return {
         changes: resolved,
@@ -424,8 +494,10 @@ export function resolveCanonicalCellChanges(
         },
       }
     }
+
     resolved.push([change[0], change[1], change[2], value])
   }
+
   return { changes: resolved, rejection: null }
 }
 
@@ -458,6 +530,7 @@ export function clearContentsUpdates(
   toPhysicalColumn: (visualColumn: number) => number = (col) => col,
 ): Array<[number, number, unknown]> {
   const updates: Array<[number, number, unknown]> = []
+
   for (const range of ranges) {
     const fromRow = range.from.row ?? 0
     const toRow = range.to.row ?? 0
@@ -467,16 +540,20 @@ export function clearContentsUpdates(
     const endRow = Math.max(fromRow, toRow)
     const startCol = Math.max(0, Math.min(fromCol, toCol))
     const endCol = Math.max(fromCol, toCol)
+
     for (let row = startRow; row <= endRow; row += 1) {
       for (let col = startCol; col <= endCol; col += 1) {
         const column = columns.at(toPhysicalColumn(col))
+
         if (!column || !column.editable) continue
         const current = readCell(row, col)
+
         if (current == null || current === '') continue
         updates.push([row, col, null])
       }
     }
   }
+
   return updates
 }
 
@@ -489,6 +566,7 @@ export function canonicalSheetColumnHeader(
   column: CanonicalSheetGridColumn,
 ): string {
   const unit = column.field?.quantity?.storageUnit
+
   return unit ? `${column.label} (${unit})` : column.label
 }
 
@@ -502,12 +580,15 @@ export function categoryCellDisplayText(
   value: unknown,
 ): string {
   if (value == null) return ''
+
   if (field?.category?.kind === 'embedded') {
     const option =
       field.category.options.find((item) => item.id === value) ??
       field.category.options.find((item) => item.key === value)
+
     if (option) return option.label
   }
+
   return String(value)
 }
 
@@ -564,11 +645,13 @@ export function hotFiltersToPresentationFilters(
   columns: ReadonlyArray<{ id: string }>,
 ): SheetPresentation['filters'] {
   const filters: SheetPresentation['filters'] = []
+
   for (const entry of conditionsStack) {
     // The schema has no per-column OR: a disjunction group cannot be restored
     // faithfully, so the whole group stays session-visual.
     if (entry.operation !== undefined && entry.operation !== 'conjunction')
       continue
+
     if (
       !Number.isInteger(entry.column) ||
       entry.column < 0 ||
@@ -576,28 +659,36 @@ export function hotFiltersToPresentationFilters(
     )
       continue
     const columnId = columns[entry.column]?.id
+
     if (!columnId) continue
+
     for (const condition of entry.conditions) {
       if (filters.length >= CAPTURED_FILTER_CAP) return filters
       const name = condition.name
+
       if (name === 'true') {
         filters.push({ columnId, operator: 'equals', value: true })
         continue
       }
+
       if (name === 'false') {
         filters.push({ columnId, operator: 'equals', value: false })
         continue
       }
+
       if (name === 'empty') {
         filters.push({ columnId, operator: 'is-empty' })
         continue
       }
+
       if (name === 'not_empty') {
         filters.push({ columnId, operator: 'is-not-empty' })
         continue
       }
+
       if (name === 'eq' || name === 'neq') {
         const value = condition.args?.at(0)
+
         if (!isFilterValue(value)) continue
         filters.push({
           columnId,
@@ -608,6 +699,7 @@ export function hotFiltersToPresentationFilters(
       // Any other condition name has no canonical counterpart — omit it.
     }
   }
+
   return filters
 }
 
@@ -625,12 +717,16 @@ export function presentationFiltersToHotAdditions(
   columns: ReadonlyArray<{ id: string }>,
 ): HotFilterAddition[] {
   const additions: HotFilterAddition[] = []
+
   const visualByColumnId = new Map(
     columns.map((column, index) => [column.id, index]),
   )
+
   for (const filter of filters) {
     const column = visualByColumnId.get(filter.columnId)
+
     if (column === undefined) continue
+
     if (filter.operator === 'equals') {
       if (filter.value === true) {
         additions.push({ column, name: 'true', args: [] })
@@ -647,6 +743,7 @@ export function presentationFiltersToHotAdditions(
       additions.push({ column, name: 'not_empty', args: [] })
     }
   }
+
   return additions
 }
 
@@ -668,14 +765,19 @@ export function filterAdditionsToDisplayColumns(
   const displayByColumnId = new Map(
     displayColumns.map((column, index) => [column.id, index]),
   )
+
   const projected: HotFilterAddition[] = []
+
   for (const addition of additions) {
     const columnId = canonicalColumns.at(addition.column)?.id
+
     if (!columnId) continue
     const display = displayByColumnId.get(columnId)
+
     if (display === undefined) continue
     projected.push({ ...addition, column: display })
   }
+
   return projected
 }
 
@@ -700,11 +802,13 @@ export function preserveHiddenColumnFilters(
   const capturedIds = new Set(captured.map((filter) => filter.columnId))
   // GRID-05: set membership (was `some` per previous filter, O(F x C)).
   const canonicalIds = new Set(canonicalColumns.map((column) => column.id))
+
   const preserved = previous.filter(
     (filter) =>
       !displayIds.has(filter.columnId) &&
       !capturedIds.has(filter.columnId) &&
       canonicalIds.has(filter.columnId),
   )
+
   return [...preserved, ...captured].slice(0, CAPTURED_FILTER_CAP)
 }

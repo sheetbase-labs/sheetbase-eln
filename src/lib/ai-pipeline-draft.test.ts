@@ -61,6 +61,7 @@ describe('pipelineDraftInstruction', () => {
       statement: 'select 1 as x',
       inputs: [],
     })
+
     expect(text).toContain('Step 1: select 1 as x')
   })
 })
@@ -104,6 +105,7 @@ describe('parsePipelineDraftAnswer', () => {
       }),
       context,
     )
+
     expect(out?.config.steps).toEqual([
       { name: 'more', language: 'sql', statement: 'select * from previous' },
     ])
@@ -121,6 +123,7 @@ describe('parsePipelineDraftAnswer', () => {
       }),
       context,
     )
+
     expect(out?.config.output.mode).toBe('none')
     expect(out?.skipped).toContain('where to save the result')
   })
@@ -146,6 +149,7 @@ describe('parsePipelineDraftAnswer', () => {
       }),
       context,
     )
+
     expect(out?.config.inputs.map((i) => i.name)).toEqual(['a'])
     expect(out?.skipped).toHaveLength(2)
   })

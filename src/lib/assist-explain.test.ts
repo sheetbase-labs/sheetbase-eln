@@ -106,15 +106,18 @@ describe('assist-explain block validation', () => {
         },
       ],
     })
+
     expect(explanation).not.toBeNull()
     expect(explanation?.title).toContain('chart')
     expect(explanation?.whatFailed).toContain('Nothing was written')
     expect(explanation?.why).toHaveLength(2)
+
     for (const claim of explanation?.why ?? []) {
       expect(claim.text.length).toBeGreaterThan(0)
       expect(claim.citation.label).toContain('Block rule')
       expect(claim.citation.detail).toContain('chart')
     }
+
     expect(explanation?.citations).toHaveLength(2)
     expect(explanation?.howTo.length).toBeGreaterThan(0)
     expect(explanation?.groundedFrom).toContain('validateBlock')
@@ -134,6 +137,7 @@ describe('assist-explain property validation', () => {
       errors: [{ field: 'organism', message: 'Organism is required.' }],
       definitions: [fieldDef()],
     })
+
     expect(explanation?.why[0]?.citation.label).toBe('Field rule organism')
     expect(explanation?.why[0]?.citation.detail).toContain('Organism')
     expect(explanation?.why[0]?.text).toContain('Organism is required.')
@@ -148,6 +152,7 @@ describe('assist-explain property validation', () => {
       ],
       definitions: [fieldDef()],
     })
+
     expect(explanation?.why[0]?.citation.detail).toContain(
       'no active field definition',
     )
@@ -169,6 +174,7 @@ describe('assist-explain sheet write-back', () => {
     const explanation = explainSheetWriteBack({
       errors: [{ code: 'revision_mismatch', rowId: 'row-1', fieldId: 'col-a' }],
     })
+
     expect(explanation?.whatFailed).toContain('revision_mismatch')
     expect(explanation?.whatFailed).toContain('Nothing was written')
     expect(explanation?.why[0]?.text).toContain('row-1')
@@ -181,6 +187,7 @@ describe('assist-explain sheet write-back', () => {
       errors: [],
       mixedAuthority: true,
     })
+
     expect(explanation?.whatFailed).toContain(
       'more than one authoritative target',
     )
@@ -204,6 +211,7 @@ describe('assist-explain plate validation', () => {
         },
       ],
     })
+
     expect(explanation?.why[0]?.citation.detail).toContain('B2')
     expect(explanation?.why[0]?.text).toContain('B2')
     expect(explanation?.groundedFrom).toContain('validatePlateDesign')
@@ -237,6 +245,7 @@ describe('assist-explain grounding', () => {
         citation({ stableId: 'ds-9', kind: 'dataset', title: 'Assay' }),
       ],
     })
+
     expect(merged.citations).toHaveLength(3)
     expect(merged.citations[1]?.label).toContain('Visible experiment')
     expect(merged.citations[1]?.deepLink).toBe('/records/rec-1')
@@ -271,6 +280,7 @@ describe('assist-explain model phrasing', () => {
       usage: { tokensUsed: 1, costMicrousd: 1, latencyMs: 1 },
       generated: true as const,
     }))
+
     const phrasing = await phraseExplanation(explanation(), run)
     expect(phrasing).toEqual({
       text: 'The chart has no spec yet.',
@@ -293,12 +303,15 @@ describe('assist-explain model phrasing', () => {
       usage: { tokensUsed: 1, costMicrousd: 1, latencyMs: 1 },
       generated: true,
     }))
+
     expect(builtIn).toBeNull()
+
     const off = await phraseExplanation(explanation(), async () => ({
       status: 'unavailable',
       reason: 'disabled',
       message: 'AI is off for this workspace.',
     }))
+
     expect(off).toBeNull()
   })
 })

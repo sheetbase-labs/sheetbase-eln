@@ -80,13 +80,16 @@ export function ReleaseRulesPanel({
   client?: DataClient
 }) {
   const queryClient = useQueryClient()
+
   const sets = useQuery({
     queryKey: releaseRuleKeys.all(workspaceId),
     queryFn: () => fetchReleaseRuleSets(client),
     enabled: Boolean(workspaceId),
   })
+
   const [selected, setSelected] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+
   const refresh = () =>
     queryClient.invalidateQueries({
       queryKey: releaseRuleKeys.all(workspaceId),
@@ -102,6 +105,7 @@ export function ReleaseRulesPanel({
       </SettingsBody>
     )
   }
+
   if (!sets.data) {
     return (
       <SettingsBody>
@@ -109,7 +113,9 @@ export function ReleaseRulesPanel({
       </SettingsBody>
     )
   }
+
   const byType = new Map(sets.data.map((set) => [set.sampleType, set]))
+
   // The row for every type is always there, so the fallback is visible.
   const types = [
     ALL_TYPES,
@@ -117,6 +123,7 @@ export function ReleaseRulesPanel({
       .map((set) => set.sampleType)
       .filter((type) => type !== ALL_TYPES),
   ]
+
   const active = selected && types.includes(selected) ? selected : null
 
   return (
@@ -147,6 +154,7 @@ export function ReleaseRulesPanel({
               {types.map((type) => {
                 const set = byType.get(type)
                 const rules = set?.rules ?? [...BUILT_IN_RULES]
+
                 return (
                   <TableRow
                     key={type}
@@ -246,9 +254,12 @@ function RuleEditor({
   const [rules, setRules] = useState<ReleaseRule[]>(
     () => saved ?? [...BUILT_IN_RULES],
   )
+
   const problem = rules.map(validateRule).find(Boolean) ?? null
+
   const dirty =
     JSON.stringify(rules) !== JSON.stringify(saved ?? BUILT_IN_RULES)
+
   const save = useMutation({
     mutationFn: () => saveReleaseRules(client, workspaceId, sampleType, rules),
     onSuccess: () => {
@@ -257,6 +268,7 @@ function RuleEditor({
     },
     onError: (error) => toast.error(errorMessage(error)),
   })
+
   const reset = useMutation({
     mutationFn: () => resetReleaseRules(client, sampleType),
     onSuccess: () => {
@@ -265,12 +277,14 @@ function RuleEditor({
     },
     onError: (error) => toast.error(errorMessage(error)),
   })
+
   const update = (index: number, patch: Partial<ReleaseRule>) =>
     setRules(
       rules.map((rule, i) =>
         i === index ? ({ ...rule, ...patch } as ReleaseRule) : rule,
       ),
     )
+
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -455,15 +469,19 @@ function AddTypeDialog({
   onAdd: (type: string) => void
 }) {
   const [name, setName] = useState('')
+
   const types = useQuery({
     queryKey: ['release-rules', 'sample-types'],
     queryFn: () => fetchSampleTypes(client),
     retry: false,
   })
+
   const trimmed = name.trim()
+
   const taken = existing.some(
     (type) => type.toLowerCase() === trimmed.toLowerCase(),
   )
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="w-[min(420px,calc(100vw-32px))]">

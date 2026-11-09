@@ -29,6 +29,7 @@ const ids = {
   calculation: 'e1000000-0000-4000-8000-000000000001',
   schemaVersion: 'f1000000-0000-4000-8000-000000000001',
 }
+
 const WORKSPACE = 'workspace-1'
 const ROW_KEY = `sb-row-v1:${'a'.repeat(64)}`
 const quantity = { kind: 'mass', dimension: 'mass', storageUnit: 'mg' }
@@ -138,6 +139,7 @@ function snapshot(flags: DatasetValueFlag[]) {
     configuration,
     rows: [compositionRow],
   })
+
   return {
     instanceId: ids.instance,
     workspaceId: WORKSPACE,
@@ -194,6 +196,7 @@ describe('ƒx calculation exclusion of flagged Dataset values', () => {
     const { results, exclusions } = calculateSheetSnapshotReport(
       snapshot([activeFlag]),
     )
+
     expect(results).toHaveLength(1)
     expect(results[0]).toMatchObject({
       calculationId: ids.calculation,

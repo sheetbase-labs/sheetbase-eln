@@ -205,6 +205,7 @@ export const demoSteps: Array<SeedStep> = buildDemoSteps({
 
 async function main() {
   const databaseUrl = process.env.DATABASE_URL
+
   if (!databaseUrl) {
     throw new Error(
       'DATABASE_URL is required. Copy .env.example to .env.local.',
@@ -215,6 +216,7 @@ async function main() {
   const withMonth = process.argv.includes('--month')
   const withDesign = process.argv.includes('--design')
   const withScale = process.argv.includes('--scale')
+
   const steps = [
     ...fixtureSteps,
     ...(withDesign
@@ -280,16 +282,19 @@ async function main() {
               const workspaceId = withDesign
                 ? DESIGN_WORKSPACE_IDS.processDevelopment
                 : FIXTURE_WORKSPACE_ID
+
               const projects = await db.$client.query<{ id: string }>(
                 `SELECT id FROM api.projects
                   WHERE workspace_id = $1 AND archived_at IS NULL`,
                 [workspaceId],
               )
+
               const members = await db.$client.query<{ user_id: string }>(
                 `SELECT user_id FROM api.workspace_memberships
                   WHERE workspace_id = $1 AND role <> 'client_viewer'`,
                 [workspaceId],
               )
+
               if (!projects.rows.length || !members.rows.length)
                 throw new Error('--scale needs a workspace with a project')
               await seedScale(db.$client, {
@@ -304,6 +309,7 @@ async function main() {
   ]
 
   const db = createDb(databaseUrl)
+
   try {
     for (const step of steps) {
       await step.run(db)

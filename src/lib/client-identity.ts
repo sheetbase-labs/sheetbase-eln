@@ -31,8 +31,10 @@ export function getOrCreateClientId(
 ): string | null {
   if (!storage) return null
   const existing = storage.getItem(STORAGE_KEY)
+
   if (existing) return existing
   const id = newClientId()
+
   try {
     storage.setItem(STORAGE_KEY, id)
   } catch {
@@ -41,6 +43,7 @@ export function getOrCreateClientId(
     // reconciliation still works within the tab's lifetime.
     return id
   }
+
   return id
 }
 
@@ -52,6 +55,7 @@ export function getClientId(
   storage: Storage | null = safeSessionStorage(),
 ): string | null {
   if (!storage) return null
+
   return storage.getItem(STORAGE_KEY)
 }
 
@@ -63,6 +67,7 @@ function newClientId(): string {
   ) {
     return crypto.randomUUID()
   }
+
   // Fallback for very old browsers; sufficient for tab-scoped identity.
   return `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
@@ -70,6 +75,7 @@ function newClientId(): string {
 /** Safely access `sessionStorage`; returns null when blocked or undefined. */
 function safeSessionStorage(): Storage | null {
   if (typeof window === 'undefined') return null
+
   try {
     return window.sessionStorage
   } catch {

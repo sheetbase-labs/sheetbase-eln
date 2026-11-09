@@ -31,7 +31,9 @@ const meta = {
     linkFor,
   },
 } satisfies Meta<typeof Pager>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Page 1: "Previous" is rendered and inert rather than missing. */

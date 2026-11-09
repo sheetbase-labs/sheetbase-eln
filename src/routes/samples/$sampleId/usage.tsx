@@ -77,10 +77,12 @@ function SampleUsage() {
     queryKey: sampleQueryKeys.balances(sampleId),
     queryFn: () => fetchSampleQuantityBalances(notebookDataClient, sampleId),
   })
+
   const reservations = useQuery({
     queryKey: sampleQueryKeys.reservations(sampleId),
     queryFn: () => fetchSampleReservations(notebookDataClient, sampleId),
   })
+
   const events = useQuery({
     queryKey: sampleEventsQueryKey(sampleId),
     queryFn: () => fetchSampleEvents(notebookDataClient, sampleId),
@@ -89,12 +91,14 @@ function SampleUsage() {
   const withdrawalEvents = (events.data ?? []).filter(
     (event) => event.operation === 'consume',
   )
+
   // QA-121: the list and its count are live usage — consumptions plus the
   // reservations that still hold volume. A cancelled reservation holds none, so
   // it belongs in the record's history, not in this list or its count.
   const reservationRows = (reservations.data ?? []).filter(
     (reservation) => reservation.state !== 'cancelled',
   )
+
   const rowCount = withdrawalEvents.length + reservationRows.length
 
   const experimentIds = Array.from(
@@ -105,6 +109,7 @@ function SampleUsage() {
       ].filter((id): id is string => Boolean(id)),
     ),
   )
+
   const experiments = useQuery({
     queryKey: [
       'ui-port',
@@ -124,9 +129,11 @@ function SampleUsage() {
           ),
         )
       ).flat()
+
       return new Map(rows.map((row) => [row.id, row]))
     },
   })
+
   const experimentById = experiments.data ?? new Map<string, RecordWire>()
 
   // The experiments that name this sample, from their side of the link: an
@@ -139,11 +146,14 @@ function SampleUsage() {
         'record_links',
         `?target_record_id=eq.${sampleId}&link_type=eq.sample&select=source_record_id&order=created_at.desc`,
       )
+
       const ids = [...new Set(links.map((l) => l.source_record_id))].slice(
         0,
         12,
       )
+
       if (!ids.length) return []
+
       return notebookDataClient.list<{
         id: string
         identifier: string
@@ -376,7 +386,9 @@ function ExperimentLabel({
 }) {
   if (!experimentId) return <span className="text-fg-muted">—</span>
   const experiment = byId.get(experimentId)
+
   if (!experiment) return <span className="text-fg-muted">—</span>
+
   return (
     <Link
       to="/experiments/$expId"

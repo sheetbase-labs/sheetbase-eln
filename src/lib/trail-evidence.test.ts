@@ -18,6 +18,7 @@ describe('trailEvidenceSteps', () => {
       { href: '/datasets/DS-0311', title: 'DS-0311', identifier: 'DS-0311' },
       now,
     )
+
     expect(steps).toEqual([
       { href: '/datasets', title: 'Datasets', at: '2026-10-26T09:30:00.000Z' },
       {
@@ -35,6 +36,7 @@ describe('trailEvidenceSteps', () => {
       { href: '/experiments', title: 'Experiments' },
       now,
     )
+
     expect(steps.map((step) => step.href)).toEqual(['/experiments'])
   })
 })

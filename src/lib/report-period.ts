@@ -22,6 +22,7 @@ export const SCHEDULED_PERIODS = [
   'last_7_days',
   'last_30_days',
 ] as const
+
 export type ScheduledPeriod = (typeof SCHEDULED_PERIODS)[number]
 
 export interface DateRange {
@@ -42,8 +43,10 @@ function localDay(instant: Date, timeZone: string): LocalDay {
     month: '2-digit',
     day: '2-digit',
   }).formatToParts(instant)
+
   const pick = (type: string) =>
     Number(parts.find((p) => p.type === type)?.value ?? 0)
+
   return { year: pick('year'), month: pick('month'), day: pick('day') }
 }
 
@@ -59,8 +62,10 @@ function zoneOffsetMs(instant: Date, timeZone: string): number {
     minute: '2-digit',
     second: '2-digit',
   }).formatToParts(instant)
+
   const pick = (type: string) =>
     Number(parts.find((p) => p.type === type)?.value ?? 0)
+
   const asUtc = Date.UTC(
     pick('year'),
     pick('month') - 1,
@@ -69,6 +74,7 @@ function zoneOffsetMs(instant: Date, timeZone: string): number {
     pick('minute'),
     pick('second'),
   )
+
   return asUtc - Math.floor(instant.getTime() / 1000) * 1000
 }
 
@@ -76,12 +82,14 @@ function zoneOffsetMs(instant: Date, timeZone: string): number {
 export function startOfDay(day: LocalDay, timeZone: string): Date {
   const guess = Date.UTC(day.year, day.month - 1, day.day)
   const first = guess - zoneOffsetMs(new Date(guess), timeZone)
+
   // One more pass settles the days the clocks change on.
   return new Date(guess - zoneOffsetMs(new Date(first), timeZone))
 }
 
 function addDays(day: LocalDay, days: number): LocalDay {
   const moved = new Date(Date.UTC(day.year, day.month - 1, day.day + days))
+
   return {
     year: moved.getUTCFullYear(),
     month: moved.getUTCMonth() + 1,
@@ -92,6 +100,7 @@ function addDays(day: LocalDay, days: number): LocalDay {
 /** Monday is 0. */
 function weekdayIndex(day: LocalDay): number {
   const dow = new Date(Date.UTC(day.year, day.month - 1, day.day)).getUTCDay()
+
   return (dow + 6) % 7
 }
 
@@ -103,6 +112,7 @@ export function resolvePeriod(
 ): DateRange {
   const today = localDay(now, timeZone)
   const tomorrow = startOfDay(addDays(today, 1), timeZone)
+
   switch (period) {
     case 'this_month':
       return {
@@ -112,15 +122,18 @@ export function resolvePeriod(
     case 'last_month':
     case 'previous_month': {
       const first = { year: today.year, month: today.month, day: 1 }
+
       const prev =
         today.month === 1
           ? { year: today.year - 1, month: 12, day: 1 }
           : { year: today.year, month: today.month - 1, day: 1 }
+
       return {
         from: startOfDay(prev, timeZone),
         to: startOfDay(first, timeZone),
       }
     }
+
     case 'last_7_days':
       return {
         from: startOfDay(addDays(today, -7), timeZone),
@@ -133,6 +146,7 @@ export function resolvePeriod(
       }
     case 'previous_week': {
       const monday = addDays(today, -weekdayIndex(today))
+
       return {
         from: startOfDay(addDays(monday, -7), timeZone),
         to: startOfDay(monday, timeZone),
@@ -144,7 +158,9 @@ export function resolvePeriod(
 /** A `YYYY-MM-DD` day from a person's date field, as the start of that day. */
 export function dayStart(value: string, timeZone: string): Date | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+
   if (!match) return null
+
   return startOfDay(
     { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) },
     timeZone,
@@ -154,7 +170,9 @@ export function dayStart(value: string, timeZone: string): Date | null {
 /** The end of a `YYYY-MM-DD` day, as the start of the next. */
 export function dayEnd(value: string, timeZone: string): Date | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value)
+
   if (!match) return null
+
   return startOfDay(
     addDays(
       {
@@ -171,6 +189,7 @@ export function dayEnd(value: string, timeZone: string): Date | null {
 /** `YYYY-MM-DD` for an instant in a time zone. */
 export function isoDay(instant: Date, timeZone: string): string {
   const d = localDay(instant, timeZone)
+
   return `${d.year}-${String(d.month).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`
 }
 
@@ -180,6 +199,7 @@ export function monthKey(instant: Date | string, timeZone: string): string {
     typeof instant === 'string' ? new Date(instant) : instant,
     timeZone,
   )
+
   return `${d.year}-${String(d.month).padStart(2, '0')}`
 }
 
@@ -189,11 +209,14 @@ export function weekdaysIn(range: DateRange, timeZone: string): number {
   const last = localDay(new Date(range.to.getTime() - 1), timeZone)
   const end = Date.UTC(last.year, last.month - 1, last.day)
   let count = 0
+
   for (let guard = 0; guard < 4000; guard++) {
     if (Date.UTC(day.year, day.month - 1, day.day) > end) break
+
     if (weekdayIndex(day) < 5) count += 1
     day = addDays(day, 1)
   }
+
   return count
 }
 
@@ -254,16 +277,20 @@ export function formatRange(range: DateRange, timeZone: string): string {
     })
       .format(instant)
       .replace('Sept', 'Sep')
+
   const last = new Date(range.to.getTime() - 1)
   const from = day(range.from)
   const to = day(last)
+
   return from === to ? from : `${from} to ${to}`
 }
 
 /** "Nov 2026" for a `YYYY-MM` month key. */
 export function formatMonthKey(key: string): string {
   const match = /^(\d{4})-(\d{2})$/.exec(key)
+
   if (!match) return key
+
   return new Intl.DateTimeFormat('en-GB', {
     timeZone: 'UTC',
     month: 'short',

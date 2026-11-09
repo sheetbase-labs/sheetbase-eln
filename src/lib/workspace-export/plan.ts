@@ -82,6 +82,7 @@ const USER_TABLE = 'internal.user'
 const WORKSPACE_TABLE = 'api.workspaces'
 
 const identifier = (name: string) => `"${name.replace(/"/g, '""')}"`
+
 const qualified = (schema: string, table: string) =>
   `${identifier(schema)}.${identifier(table)}`
 
@@ -100,9 +101,12 @@ export function buildExportPlan(
   // Conditions are built up in passes: a table is scoped once one of its
   // parents is. `scope` maps a table to a condition written against alias `t`.
   const scope = new Map<string, string>()
+
   for (const table of tables) {
     const name = `${table.schema}.${table.name}`
+
     if (NEVER_EXPORTED[name]) continue
+
     if (name === WORKSPACE_TABLE) {
       scope.set(name, `t.id = '${workspaceId}'`)
     } else if (name === USER_TABLE) {
@@ -117,11 +121,15 @@ export function buildExportPlan(
 
   let counter = 0
   let progressed = true
+
   while (progressed) {
     progressed = false
+
     for (const table of tables) {
       const name = `${table.schema}.${table.name}`
+
       if (scope.has(name) || NEVER_EXPORTED[name]) continue
+
       const parents = foreignKeys.filter(
         (fk) =>
           fk.schema === table.schema &&
@@ -131,7 +139,9 @@ export function buildExportPlan(
           // person is not thereby in this one.
           `${fk.refSchema}.${fk.refTable}` !== USER_TABLE,
       )
+
       if (parents.length === 0) continue
+
       // Every parent a row can have places it in the workspace; a nullable
       // link alone would drop rows where it is empty, so all links are OR'd.
       const conditions = parents.map((fk) => {
@@ -139,11 +149,14 @@ export function buildExportPlan(
         const parentName = `${fk.refSchema}.${fk.refTable}`
         const parentScope = scope.get(parentName) ?? 'false'
         const own = fk.columns.map((c) => `t.${identifier(c)}`).join(', ')
+
         const theirs = fk.refColumns
           .map((c) => `${alias}.${identifier(c)}`)
           .join(', ')
+
         return `(${own}) IN (SELECT ${theirs} FROM ${qualified(fk.refSchema, fk.refTable)} ${alias} WHERE ${rebase(parentScope, alias)})`
       })
+
       scope.set(
         name,
         conditions.length === 1
@@ -155,13 +168,17 @@ export function buildExportPlan(
   }
 
   const planned: ExportTablePlan[] = []
+
   for (const table of tables) {
     const name = `${table.schema}.${table.name}`
+
     if (NEVER_EXPORTED[name]) {
       skipped.push({ name, reason: NEVER_EXPORTED[name] })
       continue
     }
+
     const where = scope.get(name)
+
     if (!where) {
       skipped.push({
         name,
@@ -169,16 +186,19 @@ export function buildExportPlan(
       })
       continue
     }
+
     const wanted =
       name === USER_TABLE
         ? table.columns.filter((c) =>
             (USER_COLUMNS as readonly string[]).includes(c),
           )
         : table.columns.filter((c) => !SECRET_COLUMNS.has(c))
+
     const droppedColumns =
       name === USER_TABLE
         ? table.columns.filter((c) => !wanted.includes(c))
         : table.columns.filter((c) => SECRET_COLUMNS.has(c))
+
     planned.push({
       name,
       schema: table.schema,
@@ -188,8 +208,10 @@ export function buildExportPlan(
       where,
     })
   }
+
   planned.sort((a, b) => a.name.localeCompare(b.name))
   skipped.sort((a, b) => a.name.localeCompare(b.name))
+
   return { tables: planned, skipped }
 }
 
@@ -205,5 +227,6 @@ export function selectForTable(plan: ExportTablePlan): string {
   const dropped = plan.droppedColumns.length
     ? ` - ARRAY[${plan.droppedColumns.map((c) => `'${c.replace(/'/g, "''")}'`).join(', ')}]::text[]`
     : ''
+
   return `SELECT (to_jsonb(t)${dropped})::text AS row FROM ${qualified(plan.schema, plan.table)} t WHERE ${plan.where}`
 }

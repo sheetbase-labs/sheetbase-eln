@@ -59,6 +59,7 @@ describe('filterPickerOptions', () => {
   it('ORs the values of one field and ANDs different fields', () => {
     const got = (active: Record<string, string[]>) =>
       filterPickerOptions(options, '', active).map((o) => o.id)
+
     expect(got({ stage: ['Discovery', 'Clinical'] })).toEqual([
       'p1',
       'p2',
@@ -70,6 +71,7 @@ describe('filterPickerOptions', () => {
 
 function Single({ onChange = vi.fn() }: { onChange?: (id: string) => void }) {
   const [value, setValue] = useState('')
+
   return (
     <label>
       Project
@@ -127,9 +129,11 @@ describe('PickerSelect', () => {
     render(<Single onChange={onChange} />)
     await user.click(screen.getByRole('button', { name: /Project/ }))
     const dialogs = await screen.findAllByRole('dialog')
+
     const row = within(dialogs[dialogs.length - 1]).getByRole('option', {
       name: /Retired work/,
     })
+
     expect(row.getAttribute('aria-disabled')).toBe('true')
     expect(row.textContent).toContain('Archived')
     await user.click(row)
@@ -138,10 +142,12 @@ describe('PickerSelect', () => {
 
   it('searches on the server when given a search function', async () => {
     const user = userEvent.setup()
+
     const search = vi.fn(async (q: string) => ({
       options: options.filter((o) => o.label.toLowerCase().includes(q)),
       total: 3,
     }))
+
     render(
       <PickerSelect
         noun="project"
@@ -166,8 +172,10 @@ describe('PickerMultiSelect', () => {
   it('chooses several records at once and removes one from the field', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
+
     function Multi() {
       const [values, setValues] = useState<string[]>(['p1'])
+
       return (
         <PickerMultiSelect
           noun="project"
@@ -181,6 +189,7 @@ describe('PickerMultiSelect', () => {
         />
       )
     }
+
     render(<Multi />)
     await user.click(screen.getByRole('button', { name: 'Related projects' }))
     const dialogs = await screen.findAllByRole('dialog')

@@ -84,7 +84,9 @@ const SECTIONS: Record<string, Section> = {
 /** The section a pathname implies, for the not-found screen's next step. */
 export function sectionForPath(pathname: string): Section | null {
   const segment = pathname.split('/').filter(Boolean)[0]
+
   if (!segment) return null
+
   return SECTIONS[segment] ?? null
 }
 
@@ -92,10 +94,13 @@ export function sectionForPath(pathname: string): Section | null {
 // it renders without its own h1, since the layout already shows one.
 export function NotFound() {
   const { pathname } = useLocation()
+
   const nested = useMatches().some(
     (m) => LAYOUTS.includes(m.routeId) && m.status === 'success',
   )
+
   const section = sectionForPath(pathname)
+
   const body = (
     <EmptyState
       icon="search"
@@ -142,8 +147,10 @@ export function NotFound() {
       }
     />
   )
+
   if (nested)
     return <div className="flex-1 overflow-auto px-8 py-2">{body}</div>
+
   return (
     <div className="flex-1 overflow-auto px-8 py-6">
       <h1 className="text-title">{t('common.errors.notFound')}</h1>

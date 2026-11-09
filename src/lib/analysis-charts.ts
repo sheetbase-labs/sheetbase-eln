@@ -18,6 +18,7 @@ export function numericColumns(columns: readonly ChartColumn[]): ChartColumn[] {
 /** "Step yield (%)": a column's label with its unit, as an axis title. */
 export function axisTitle(column: ChartColumn): string {
   const unit = chartUnitSymbol(column.unit)
+
   return unit ? `${column.label} (${unit})` : column.label
 }
 
@@ -32,6 +33,7 @@ export function chartTitle(spec: ChartSpec): string {
  */
 export function withYColumn(spec: ChartSpec, column: ChartColumn): ChartSpec {
   const unit = chartUnitSymbol(column.unit)
+
   return {
     ...spec,
     fields: { ...spec.fields, y: { fieldId: column.id } },
@@ -56,7 +58,9 @@ export function nextChart(
 ): ChartSpec | null {
   const used = new Set(charts.map((c) => c.fields.y.fieldId))
   const x = charts.at(0)?.fields.x?.fieldId
+
   if (x) used.add(x)
   const free = numericColumns(columns).find((c) => !used.has(c.id))
+
   return free && charts[0] ? withYColumn(charts[0], free) : null
 }

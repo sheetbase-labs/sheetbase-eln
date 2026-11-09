@@ -199,10 +199,13 @@ export function formatPortalDate(
 ): string {
   if (!iso) return '—'
   const parsed = Date.parse(iso)
+
   if (Number.isNaN(parsed)) return '—'
+
   if (displayDayKey(new Date(parsed)) === displayDayKey(now)) {
     return t('projects.clientPortal.today')
   }
+
   return formatPortalDay(iso)
 }
 
@@ -218,6 +221,7 @@ export async function fetchClientPortalMessages(
   const rows = await client.rpc<MessageWire[]>('client_portal_messages', {
     p_client_id: null,
   })
+
   return rows.map((r) => ({
     id: r.id,
     clientId: r.client_id,
@@ -246,6 +250,7 @@ export async function fetchClientPortalProjects(
   client: DataClient = clientPortalDataClient,
 ): Promise<ClientPortalProject[]> {
   const rows = await client.rpc<ProjectWire[]>('client_portal_projects', {})
+
   return rows.map((r) => ({
     projectId: r.project_id,
     displayId: r.display_id,
@@ -264,6 +269,7 @@ export async function fetchClientPortalRecords(
   client: DataClient = clientPortalDataClient,
 ): Promise<ClientPortalRecord[]> {
   const rows = await client.rpc<RecordWire[]>('client_portal_records', {})
+
   return rows.map((r) => ({
     recordId: r.record_id,
     identifier: r.identifier,
@@ -284,6 +290,7 @@ export async function fetchClientPortalMilestones(
   const rows = await client.rpc<MilestoneWire[]>('client_portal_milestones', {
     p_project_id: projectId,
   })
+
   return rows.map((r) => ({
     milestoneId: r.milestone_id,
     title: r.title,
@@ -296,6 +303,7 @@ export async function fetchClientPortalReports(
   client: DataClient = clientPortalDataClient,
 ): Promise<ClientPortalReport[]> {
   const rows = await client.rpc<ReportWire[]>('client_portal_reports', {})
+
   return rows.map((r) => ({
     recordId: r.record_id,
     identifier: r.identifier,

@@ -81,15 +81,18 @@ async function retainInstrumentFile(
       byteSize: file.size,
     }),
   })
+
   if (authorizeRes.status >= 400) {
     const body = (await authorizeRes.json().catch(() => null)) as {
       error?: { message?: string }
     } | null
+
     throw new RetentionError(
       body?.error?.message ??
         t('settings.integrations.ingestPanel.fileRetentionRejected'),
     )
   }
+
   const meta = (await authorizeRes.json()) as {
     fileRecordId: string
     uploadUrl: string
@@ -102,15 +105,18 @@ async function retainInstrumentFile(
     headers: { 'content-type': file.type || 'application/octet-stream' },
     body: file,
   })
+
   if (uploadRes.status >= 400) {
     const body = (await uploadRes.json().catch(() => null)) as {
       error?: { message?: string }
     } | null
+
     throw new RetentionError(
       body?.error?.message ??
         t('settings.integrations.ingestPanel.fileRetentionFailed'),
     )
   }
+
   const receipt = (await uploadRes.json()) as {
     checksum: string
     byteSize: string
@@ -143,7 +149,9 @@ export function IngestPanel({
     queryKey: ['connectors', 'ingest', 'schemas'],
     queryFn: () => listPublishedDatasetSchemas(dataClient),
   })
+
   const [schemaVersionId, setSchemaVersionId] = useState<string>('')
+
   const selectedSchema = (schemasQuery.data ?? []).find(
     (option) => option.schemaVersionId === schemaVersionId,
   )
@@ -164,6 +172,7 @@ export function IngestPanel({
       ),
     enabled: Boolean(schemaVersionId),
   })
+
   const [datasetId, setDatasetId] = useState<string>('')
   const [newDatasetName, setNewDatasetName] = useState('')
 
@@ -177,6 +186,7 @@ export function IngestPanel({
         '?select=id,title&order=title.asc',
       ),
   })
+
   const [projectId, setProjectId] = useState<string>('')
 
   const parser = getParser(parserKey)
@@ -202,6 +212,7 @@ export function IngestPanel({
         throw new Error(
           t('settings.integrations.ingestPanel.chooseInstrumentFile'),
         )
+
       if (!selectedSchema)
         throw new Error(
           t('settings.integrations.ingestPanel.chooseTargetSchema'),
@@ -210,6 +221,7 @@ export function IngestPanel({
       // The original is kept first, so a file that can't be read stays on
       // record and can be tried again from the list of problems.
       const retained = await retainInstrumentFile(projectId, file)
+
       return postIntake({
         kind: 'upload',
         connectorId,
@@ -418,6 +430,7 @@ function MappingPreview({
     let cancelled = false
     void file.text().then((text) => {
       if (cancelled) return
+
       try {
         const parsed = parser.parse(text)
         setState({ headers: parsed.headers, rows: parsed.rows })
@@ -425,6 +438,7 @@ function MappingPreview({
         setState({ headers: [], rows: [] })
       }
     })
+
     return () => {
       cancelled = true
     }
@@ -432,11 +446,13 @@ function MappingPreview({
 
   const mappings = useMemo(() => {
     if (!state) return []
+
     return suggestImportMappings(state.headers, targetFields)
   }, [state, targetFields])
 
   const previewRows = useMemo(() => {
     if (!state) return []
+
     const mapped = mapImportSheet(
       {
         name: file.name,
@@ -446,10 +462,12 @@ function MappingPreview({
       mappings,
       schemaVersionId,
     )
+
     return mapped.rows
   }, [state, mappings, schemaVersionId, file.name])
 
   if (!state) return null
+
   if (mappings.length === 0) return null
 
   return (

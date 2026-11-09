@@ -60,14 +60,18 @@ const REVIEW_KINDS: ReadonlySet<string> = new Set([
 /** The Inbox type filter a kind belongs to. */
 export function workItemType(kind: string): WorkItemType {
   if (REVIEW_KINDS.has(kind)) return 'reviews'
+
   if (kind === 'data_issue' || kind === 'cell_conflict') return 'data'
+
   if (kind === 'run_failed' || kind === 'run_waiting') return 'runs'
+
   if (
     kind === 'material_expiring' ||
     kind === 'reorder_requested' ||
     kind === 'reorder_incoming'
   )
     return 'materials'
+
   if (
     kind === 'sample_awaiting_release' ||
     kind === 'sample_hold_exceeded' ||
@@ -81,6 +85,7 @@ export function workItemType(kind: string): WorkItemType {
     kind === 'plugin_note'
   )
     return 'lab'
+
   if (
     kind === 'access_requested' ||
     kind === 'access_decided' ||
@@ -90,8 +95,10 @@ export function workItemType(kind: string): WorkItemType {
     kind === 'qualification_requested'
   )
     return 'admin'
+
   if (kind === 'agent_proposal' || kind === 'agent_action_request')
     return 'agents'
+
   return 'following'
 }
 
@@ -102,8 +109,10 @@ export function itemTab(
 ): InboxTab {
   if (item.state === 'following' || item.kind === 'following')
     return 'following'
+
   if (seen.has(itemKey(item)) || item.state === 'done_today')
     return 'done-today'
+
   return 'needs-action'
 }
 

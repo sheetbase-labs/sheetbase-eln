@@ -1,6 +1,7 @@
 // Renders fixture text where [[…]] marks a match; also marks plain occurrences of the query when there are no explicit marks.
 export function Highlight({ text, q }: { text: string; q?: string }) {
   const parts = text.split(/(\[\[[^\]]+\]\])/g).filter(Boolean)
+
   if (parts.length > 1 || text.startsWith('[[')) {
     return (
       <>
@@ -16,10 +17,14 @@ export function Highlight({ text, q }: { text: string; q?: string }) {
       </>
     )
   }
+
   const needle = q?.trim()
+
   if (!needle) return <>{text}</>
   const i = text.toLowerCase().indexOf(needle.toLowerCase())
+
   if (i < 0) return <>{text}</>
+
   return (
     <>
       {text.slice(0, i)}

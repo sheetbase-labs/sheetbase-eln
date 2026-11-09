@@ -101,6 +101,7 @@ export function isLinkerKindAllowed(
   rules: ModelRelationshipRule[] | undefined,
 ): boolean {
   if (!sourceModelKey || !rules) return true
+
   return isLinkAllowed(rules, {
     sourceModelKey,
     linkType: linkTypeForKind(kind),
@@ -120,22 +121,28 @@ export function ScientificRecordLinker({
   const pickerId = useId()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+
   const allowedKinds = KIND_OPTIONS.filter((opt) =>
     isLinkerKindAllowed(opt.kind, sourceModelKey, rules),
   )
+
   const [kind, setKind] = useState<ScientificRecordKind>(() =>
     allowedKinds.some((opt) => opt.kind === 'sample')
       ? 'sample'
       : (allowedKinds[0]?.kind ?? 'sample'),
   )
+
   const [query, setQuery] = useState('')
   const restricted = allowedKinds.length < KIND_OPTIONS.length
+
   // Rules can arrive after mount (async fetch); never strand the picker on
   // a tab the Model does not accept.
   const activeKind = allowedKinds.some((opt) => opt.kind === kind)
     ? kind
     : (allowedKinds[0]?.kind ?? 'sample')
+
   const activeLinkType = linkTypeForKind(activeKind)
+
   // Capacity context for the active tab, from the declared rule and the
   // current outgoing edges (target kinds address model keys by seed).
   const activeRule =
@@ -144,6 +151,7 @@ export function ScientificRecordLinker({
           (rule) => rule.targetModelKey === activeKind,
         )
       : undefined
+
   const activeStatus =
     activeRule?.maxLinks != null
       ? relationshipRuleStatus(
@@ -169,6 +177,7 @@ export function ScientificRecordLinker({
     enabled: open,
     staleTime: 60_000,
   })
+
   const linkMutation = useMutation({
     mutationFn: (target: {
       id: string
@@ -189,6 +198,7 @@ export function ScientificRecordLinker({
   const scientificLinks = links.filter((l) =>
     isScientificRecordKind(l.targetKind),
   )
+
   const summaryQueries = useQueries({
     queries: scientificLinks.map((l) => ({
       queryKey: scientificRecordQueryKeys.record(l.targetRecordId ?? ''),
@@ -323,6 +333,7 @@ export function ScientificRecordLinker({
         <div className="space-y-3">
           {scientificLinks.map((link, i) => {
             const record = summaryQueries[i]?.data
+
             return record ? (
               <ScientificRecordSummary
                 key={link.id}

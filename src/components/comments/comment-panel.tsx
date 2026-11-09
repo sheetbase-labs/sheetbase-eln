@@ -128,6 +128,7 @@ export function CommentPanel({
     : recordId !== undefined
       ? commentsQueryKeys.forRecord(recordId)
       : commentsQueryKeys.forRevision(revisionId)
+
   const commentsQuery = useQuery({
     queryKey,
     queryFn: () =>
@@ -145,6 +146,7 @@ export function CommentPanel({
     const all = commentsQuery.data
       ? groupCommentsIntoThreads(commentsQuery.data)
       : []
+
     return blockId === undefined
       ? all
       : all.filter(
@@ -161,13 +163,16 @@ export function CommentPanel({
     queryFn: () => fetchWorkspaceMembers(notebookDataClient, workspaceId!),
     enabled: Boolean(workspaceId) && canComment,
   })
+
   const peopleIds = workspaceId
     ? [
         ...(commentsQuery.data ?? []).map((c) => c.author_user_id ?? ''),
         ...(members.data ?? []).map((member) => member.userId),
       ]
     : []
+
   const { names } = useUserNames(peopleIds)
+
   const mentionCandidates = React.useMemo<MentionCandidate[]>(
     () =>
       (members.data ?? []).flatMap((member) =>
@@ -184,13 +189,17 @@ export function CommentPanel({
   React.useEffect(() => {
     if (focusedRequest.current.key !== focusRequest)
       focusedRequest.current = { key: focusRequest, applied: false }
+
     if (!focusCommentId || focusedRequest.current.applied) return
+
     if (!commentsQuery.data?.some((comment) => comment.id === focusCommentId))
       return
+
     const hit = Array.from(
       panelRef.current?.querySelectorAll<HTMLElement>('[data-comment-id]') ??
         [],
     ).find((element) => element.dataset.commentId === focusCommentId)
+
     if (hit) {
       hit.focus()
       focusedRequest.current.applied = true
@@ -200,6 +209,7 @@ export function CommentPanel({
   const createMutation = useMutation({
     mutationFn: (body: string) => {
       const mentions = extractMentions(body, mentionCandidates)
+
       if (recordId !== undefined) {
         return createRecordComment(notebookDataClient, {
           recordId,
@@ -208,6 +218,7 @@ export function CommentPanel({
           mentions,
         })
       }
+
       return sheet
         ? createSheetComment(notebookDataClient, { ...sheet, body, mentions })
         : createComment(notebookDataClient, {
@@ -267,21 +278,26 @@ export function CommentPanel({
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault()
     const body = newBody.trim()
+
     if (!body) return
     setError(null)
+
     // REV-01.3: a reviewer's new comment is a private draft, not a sent
     // comment, until it is published with the return decision.
     if (onDraftComment && revisionId !== undefined) {
       onDraftComment({ targetKind, target, body })
       setNewBody('')
+
       return
     }
+
     await createMutation.mutateAsync(body)
     setNewBody('')
   }
 
   const loading = commentsQuery.isLoading
   const loadError = commentsQuery.error
+
   const openCount = threads.filter(
     (thread) => threadState(thread) === 'open',
   ).length
@@ -421,7 +437,9 @@ export function CommentPanel({
 function renderError(err: unknown): string {
   if (err && typeof err === 'object' && 'message' in err) {
     const message = (err as { message?: unknown }).message
+
     if (typeof message === 'string') return message
   }
+
   return t('notebook.commentPanel.actionFailed')
 }

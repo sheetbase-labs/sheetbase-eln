@@ -36,12 +36,15 @@ export function MentionTextarea({
   const listId = React.useId()
 
   const active = activeMention(value, caret)
+
   const options =
     active && !dismissed ? matchMentions(active.query, candidates) : []
+
   const open = options.length > 0
 
   function choose(candidate: MentionCandidate) {
     const next = insertMention(value, caret, candidate.name)
+
     if (!next) return
     onChange(next.text)
     setCaret(next.caret)
@@ -55,8 +58,10 @@ export function MentionTextarea({
   const [place, setPlace] = React.useState<React.CSSProperties | null>(null)
   React.useLayoutEffect(() => {
     if (!open) return
+
     const update = () => {
       const box = ref.current?.getBoundingClientRect()
+
       if (!box) return
       const below = window.innerHeight - box.bottom
       const flip = below < 200 && box.top > below
@@ -70,9 +75,11 @@ export function MentionTextarea({
           : { top: box.bottom + 4 }),
       })
     }
+
     update()
     window.addEventListener('resize', update)
     window.addEventListener('scroll', update, true)
+
     return () => {
       window.removeEventListener('resize', update)
       window.removeEventListener('scroll', update, true)
@@ -85,6 +92,7 @@ export function MentionTextarea({
   React.useLayoutEffect(() => {
     if (pendingCaret.current === null) return
     const textarea = ref.current
+
     if (!textarea || textarea.value !== value) return
     textarea.focus()
     textarea.setSelectionRange(pendingCaret.current, pendingCaret.current)
@@ -115,6 +123,7 @@ export function MentionTextarea({
         onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
         onKeyDown={(event) => {
           if (!open) return
+
           if (event.key === 'ArrowDown') {
             event.preventDefault()
             setIndex((current) => (current + 1) % options.length)

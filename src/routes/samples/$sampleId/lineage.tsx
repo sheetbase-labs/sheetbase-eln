@@ -53,19 +53,23 @@ const INDENT_PX = 22
 function SampleLineage() {
   const { sampleId } = Route.useParams()
   const sample = useSampleRecord(sampleId)
+
   const query = useQuery({
     queryKey: lineageQueryKeys.graphFor(sampleId, LINEAGE_MINI_DEPTH),
     queryFn: () =>
       fetchLineageGraph(lineageDataClient, sampleId, LINEAGE_MINI_DEPTH),
     staleTime: 15_000,
   })
+
   const events = useQuery({
     queryKey: sampleEventsQueryKey(sampleId),
     queryFn: () => fetchSampleEvents(notebookDataClient, sampleId),
   })
+
   const graph = query.data
   const summary = graph ? sampleLineageSummary(graph, sampleId) : null
   const rows = graph ? sampleLineageRows(graph, sampleId) : []
+
   const volume = sample.data
     ? deriveSampleVolumeSummary(sample.data, events.data ?? [])
     : null
@@ -94,6 +98,7 @@ function SampleLineage() {
                     status: sampleStatus(row.node.status).label,
                   })),
                 )
+
                 if (!wrote)
                   toast(t('library.samples.lineage.nothingToExportNoLineage'))
               } catch (error) {
@@ -133,9 +138,11 @@ function SampleLineage() {
             </div>
             {rows.map((row) => {
               const status = sampleStatus(row.node.status)
+
               const destination = row.group
                 ? null
                 : lineageNodeDestination(row.node)
+
               return (
                 <div
                   key={row.node.id}
@@ -206,6 +213,7 @@ function WhereThisLotWent({
   const remaining = volume?.current
   const used = volume?.used
   const unit = volume?.unit ? ` ${volume.unit}` : ''
+
   const cards = [
     used != null
       ? {
@@ -225,6 +233,7 @@ function WhereThisLotWent({
   ].filter((card): card is { label: string; value: string; note: string } =>
     Boolean(card),
   )
+
   return (
     <div className="grid gap-4 md:grid-cols-3">
       {cards.map((card) => (

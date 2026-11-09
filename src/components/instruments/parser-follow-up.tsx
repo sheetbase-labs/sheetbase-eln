@@ -40,6 +40,7 @@ export function ParserFollowUpNotice({
   canEdit: boolean
 }) {
   const copy = COPY[followUp.kind]
+
   return (
     <Notice tone="warn" title={copy.title}>
       <div className="flex flex-col items-start gap-2">

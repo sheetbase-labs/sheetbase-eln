@@ -42,25 +42,32 @@ export async function loadConnectorSecrets(input: {
         eq(connectorSecrets.connectorId, input.connectorId),
       ),
     )
+
   const values: Record<string, string> = {}
+
   for (const row of rows) {
     values[row.secretName] = openSecret(
       Buffer.from(row.ciphertext).toString('utf8'),
       secretKey(),
     )
   }
+
   const missing = input.required.filter((name) => !values[name])
+
   if (missing.length > 0) {
     throw new ConnectorExecutionError(
       'secret_missing',
       `This connector is missing required credentials: ${missing.join(', ')}. A steward must set them.`,
     )
   }
+
   // Only the declared names are ever decrypted/kept — nothing else leaks.
   const allowed = new Set([...input.required, ...(input.optional ?? [])])
+
   for (const name of Object.keys(values)) {
     if (!allowed.has(name)) delete values[name]
   }
+
   return values
 }
 
@@ -73,6 +80,7 @@ export function redactSecrets(
   secrets: Record<string, string>,
 ): Record<string, unknown> {
   const secretValues = Object.values(secrets).filter((v) => v.length >= 4)
+
   const redact = (value: unknown): unknown => {
     if (typeof value === 'string') {
       for (const secret of secretValues) {
@@ -80,15 +88,20 @@ export function redactSecrets(
           return value.split(secret).join('[redacted]')
         }
       }
+
       return value
     }
+
     if (Array.isArray(value)) return value.map(redact)
+
     if (value && typeof value === 'object') {
       return Object.fromEntries(
         Object.entries(value).map(([key, inner]) => [key, redact(inner)]),
       )
     }
+
     return value
   }
+
   return redact(payload) as Record<string, unknown>
 }

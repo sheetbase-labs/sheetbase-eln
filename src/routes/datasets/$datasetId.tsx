@@ -64,14 +64,17 @@ export const Route = createFileRoute('/datasets/$datasetId')({
   }),
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     await resolveIdentifierParam({
       entity: 'dataset',
       ref: params.datasetId,
       href: location.href,
     })
+
     return { context }
   },
   component: DatasetLayout,
@@ -103,9 +106,11 @@ function DatasetLayout() {
   const { datasetId } = Route.useParams()
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
+
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+
   const navigate = useNavigate()
   const summaries = useDatasetSummaries()
   const versions = useDatasetVersions(datasetId)
@@ -114,19 +119,24 @@ function DatasetLayout() {
   // Other systems that plugins can send the rows to.
   const pluginPublishers = useExtensionPoints().data.publishers
   const [publishing, setPublishing] = useState<PublisherItem | null>(null)
+
   const latestVersionId =
     [...(versions.data ?? [])].sort((a, b) =>
       b.createdAt.localeCompare(a.createdAt),
     )[0]?.id ?? null
+
   const dataset = summaries.data?.find((d) => d.uuid === datasetId)
   const projectId = dataset?.projectId ?? null
+
   const project = useQuery({
     queryKey: ['ui-port', 'dataset-project', projectId ?? ''],
     queryFn: () =>
       projectId ? fetchProject(notebookDataClient, projectId) : null,
     enabled: Boolean(projectId),
   })
+
   useRecentViewTracking('dataset', dataset?.uuid)
+
   const pipelineRuns = useDatasetPipelineRuns({
     workspaceId: context.workspace?.id ?? '',
     latestVersionId,
@@ -136,6 +146,7 @@ function DatasetLayout() {
         params: { runId: started.id },
       }),
   })
+
   const [archiveOpen, setArchiveOpen] = useState(false)
   const canArchive = hasCapability(context.workspace?.role, 'record.create')
 
@@ -172,12 +183,15 @@ function DatasetLayout() {
   // from the search parameter, and the index — whose screen is the Overview —
   // as Overview.
   const section = pathname.split('/').filter(Boolean).pop()
+
   const current =
     search.view ??
     (section === 'rows' || section === 'snapshots' || section === 'compare'
       ? section
       : 'overview')
+
   const exportable = !dataset.archived && current !== 'compare'
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <PageHeader

@@ -50,7 +50,9 @@ import { t } from '#/copy'
 import { hasCapability } from '#/lib/capability'
 
 const tabs = ['effective', 'mine', 'inreview', 'reviewdue', 'archived'] as const
+
 type ProtocolTab = (typeof tabs)[number]
+
 /** The orderings the list offers. These template records carry no effective
  * date — the reference's Effective column has no model behind it, and
  * controlled versions with one are a later capability — so the menu offers the
@@ -60,7 +62,9 @@ const sorts: string[] = [
   'ID',
   t('library.protocols.list.protocol'),
 ]
+
 type ProtocolSort = string
+
 const tabLabel: Record<ProtocolTab, string> = {
   effective: t('library.protocols.list.effective'),
   mine: t('library.protocols.list.mine'),
@@ -82,9 +86,12 @@ const SORTS: Record<ProtocolSort, SortingState> = {
  * by a column the menu does not list. */
 function sortKeyOf(sorting: SortingState): ProtocolSort | undefined {
   const first = sorting.at(0)
+
   if (!first) return undefined
+
   return Object.keys(SORTS).find((key) => {
     const entry = SORTS[key].at(0)
+
     return (
       entry !== undefined && entry.id === first.id && entry.desc === first.desc
     )
@@ -107,9 +114,11 @@ export const Route = createFileRoute('/protocols')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: ProtocolsRoute,
@@ -119,6 +128,7 @@ function ProtocolsRoute() {
   const isIndex = useRouterState({
     select: (state) => state.location.pathname === '/protocols',
   })
+
   return isIndex ? <ProtocolsList /> : <Outlet />
 }
 
@@ -134,14 +144,18 @@ function inTab(
   currentUserId: string,
 ): boolean {
   if (tab === 'effective') return r.status === 'active'
+
   if (tab === 'mine') return r.ownerId === currentUserId
+
   if (tab === 'inreview') return r.status === 'under_review'
+
   if (tab === 'reviewdue')
     return (
       r.status === 'under_review' &&
       r.reviewDueAt !== null &&
       Date.parse(r.reviewDueAt) <= appNow().getTime()
     )
+
   return r.status === 'archived'
 }
 
@@ -150,12 +164,14 @@ function ProtocolsList() {
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+
   const dropNewFlag = useCallback(() => {
     void navigate({
       search: (current) => ({ ...current, new: undefined }),
       replace: true,
     })
   }, [navigate])
+
   // The person's own sorting (a header click, or the Sort menu) is remembered;
   // with none, the newest-updated protocols lead.
   const view = useListView('protocols')
@@ -163,32 +179,40 @@ function ProtocolsList() {
   const setSorting = view.setSorting
   const queryClient = useQueryClient()
   const bulk = useBulkSelection()
+
   const [selectedId, setSelectedId] = useState<string | null>(
     search.selected ?? null,
   )
+
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     selectedId,
     setSelectedId,
   )
+
   const openProtocol = useOpenRow<NotebookRecord>(
     navigate,
     (row) => `/protocols/${encodeURIComponent(row.id)}`,
     (row) => row.title,
   )
+
   const query = useQuery({
     queryKey: ['ui-port', 'protocols'],
     queryFn: () =>
       fetchTemplates(notebookDataClient, { kind: 'protocol_template' }),
     staleTime: 15_000,
   })
+
   const rows = query.data ?? []
   const names = useUserNames(rows.map((r) => r.createdByUserId).filter(Boolean))
+
   const addedColumns = useAddedFieldListColumns<NotebookRecord>(
     'protocol_template',
     'id',
   )
+
   const currentUserId = context.user.id
   const tab: ProtocolTab = search.tab ?? 'effective'
+
   const tabInput = useMemo(
     () =>
       rows.map((r) => ({
@@ -198,6 +222,7 @@ function ProtocolsList() {
       })),
     [rows],
   )
+
   const counts = useMemo(
     () =>
       Object.fromEntries(
@@ -208,7 +233,9 @@ function ProtocolsList() {
       ) as Record<ProtocolTab, number>,
     [tabInput, currentUserId],
   )
+
   const q = (search.q ?? '').trim().toLowerCase()
+
   // The table orders the rows; the tab and the search decide which ones.
   const visible = rows
     .map((r, i) => ({ r, input: tabInput[i] }))
@@ -315,6 +342,7 @@ function ProtocolsList() {
             label={t('library.protocols.list.protocols')}
             items={visible.map((p) => {
               const status = protocolStatus(p.status)
+
               return {
                 key: p.id,
                 id: p.identifier,

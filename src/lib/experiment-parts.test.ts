@@ -55,6 +55,7 @@ describe('partsProgress', () => {
         step('s5', 'c', false),
       ],
     )
+
     expect(progress.map((p) => [p.number, p.state])).toEqual([
       [1, 'done'],
       [2, 'now'],
@@ -68,6 +69,7 @@ describe('partsProgress', () => {
       [part('a', 1, { completedAt: '2026-11-06T09:00:00Z' }), part('b', 2)],
       [{ id: 't', type: 'rich_text', partId: 'b', payload: {} }],
     )
+
     expect(progress.map((p) => p.state)).toEqual(['done', 'now'])
     expect(progress[1].blockCount).toBe(1)
   })
@@ -77,6 +79,7 @@ describe('partsProgress', () => {
       [part('b', 2), part('a', 1, { completedAt: '2026-11-06T09:00:00Z' })],
       [step('s1', 'a', false)],
     )
+
     expect(progress.map((p) => p.id)).toEqual(['a', 'b'])
     expect(progress[0].state).toBe('now')
   })
@@ -86,6 +89,7 @@ describe('partsProgress', () => {
       [part('a', 1, { completedAt: '2026-11-06T09:00:00Z' })],
       [],
     )
+
     expect(currentPart(progress)).toBeNull()
     expect(shownPart(progress, null)?.id).toBe('a')
   })
@@ -98,6 +102,7 @@ describe('a part that needs a signature', () => {
       step('s2', 'a', true),
       step('s3', 'b', false),
     ]
+
     const unsigned = partsProgress(
       [
         part('a', 1, { requiresSignOff: true }),
@@ -105,6 +110,7 @@ describe('a part that needs a signature', () => {
       ],
       blocks,
     )
+
     expect(unsigned.map((p) => [p.state, p.awaitingSignOff, p.signed])).toEqual(
       [
         ['now', true, false],
@@ -124,6 +130,7 @@ describe('a part that needs a signature', () => {
       ],
       blocks,
     )
+
     expect(signed.map((p) => [p.state, p.awaitingSignOff, p.signed])).toEqual([
       ['done', false, true],
       ['now', false, false],
@@ -136,10 +143,12 @@ describe('a part that needs a signature', () => {
       step('s2', 'a', false),
       step('s3', 'b', false),
     ]
+
     const progress = partsProgress(
       [part('a', 1, { requiresSignOff: true }), part('b', 2)],
       blocks,
     )
+
     expect(progress[0]).toMatchObject({ state: 'now', awaitingSignOff: false })
     expect(progress[1]).toMatchObject({
       state: 'later',
@@ -159,6 +168,7 @@ describe('a part that needs a signature', () => {
       ],
       [],
     )
+
     expect(progress[0]).toMatchObject({ state: 'now', awaitingSignOff: true })
   })
 })
@@ -180,6 +190,7 @@ describe('blocksOfPart and partNumberFromParam', () => {
       { id: '1', partId: 'a' },
       { id: '2', partId: 'b' },
     ]
+
     expect(blocksOfPart(blocks, { id: 'b' })).toEqual([blocks[1]])
     expect(blocksOfPart(blocks, null)).toEqual(blocks)
   })
@@ -248,6 +259,7 @@ describe('splitPointsAtHeadings', () => {
       heading('b', 2, 'Notes', 3),
       heading('c', 3, 'Dose'),
     ])
+
     expect(points).toEqual([
       { title: 'Seed cells', firstBlockId: 'a' },
       { title: 'Dose', firstBlockId: 'c' },

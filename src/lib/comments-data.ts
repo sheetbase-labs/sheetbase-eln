@@ -142,6 +142,7 @@ export function createSheetComment(
   },
 ): Promise<CommentMutationResult> {
   const anchor = sheetCommentAnchorSchema.parse(input.anchor)
+
   return client.rpc('create_sheet_comment', {
     p_instance_id: anchor.target.instanceId,
     p_expected_instance_revision: input.expectedRevision,
@@ -249,6 +250,7 @@ export function groupCommentsIntoThreads(rows: CommentWire[]): CommentThread[] {
   }
 
   roots.sort((a, b) => a.created_at.localeCompare(b.created_at))
+
   return roots.map((root) => ({
     root: normaliseComment(root),
     replies: (repliesByRoot.get(root.id) ?? [])

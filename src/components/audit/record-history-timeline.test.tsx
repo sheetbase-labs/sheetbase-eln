@@ -15,10 +15,12 @@ function render(ui: ReactElement) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return plainRender(
     <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
   )
 }
+
 beforeAll(() => {
   globalThis.ResizeObserver = class {
     observe() {}
@@ -159,6 +161,7 @@ describe('mapTimelineEvents names', () => {
       'Me',
       (id) => (id === 'abcdef0123456789' ? 'Mei L.' : undefined),
     )
+
     expect(event.actor?.name).toBe('Mei L.')
     expect(event.actor?.userId).toBe('abcdef0123456789')
   })
@@ -253,6 +256,7 @@ describe('captured change facts', () => {
         payload: { title: 'Renamed' },
       },
     ])
+
     expect(mapped[0].target).toBe('Protocol step text')
     // A payload without captured facts has no detail: the title says it.
     expect(mapped[1].target).toBeUndefined()
@@ -284,6 +288,7 @@ describe('duplicate create entries', () => {
         title: 'record create',
       },
     ])
+
     expect(mapped.map((e) => e.title)).toEqual(['Incident created'])
   })
 })

@@ -139,15 +139,20 @@ function isNumericType(type: ReadingFieldType): boolean {
 
 function targetModelKey(field: ReadingFieldWire): string | null {
   const relationship = field.relationship
+
   if (relationship) {
     const target = relationship.target
+
     if (target && typeof target === 'object') {
       const modelKey = (target as Record<string, unknown>).modelKey
+
       if (typeof modelKey === 'string' && modelKey.length > 0) return modelKey
     }
   }
+
   const validation = field.validation
   const fromValidation = validation?.targetModelKey
+
   return typeof fromValidation === 'string' && fromValidation.length > 0
     ? fromValidation
     : null
@@ -161,7 +166,9 @@ export function sampleBindingField(
     (field) =>
       field.logical_type === 'reference' && targetModelKey(field) === 'sample',
   )
+
   if (reference) return reference
+
   return (
     fields.find(
       (field) =>
@@ -196,8 +203,10 @@ export function numericReadingFields(
 
 function quantityUnit(field: ReadingFieldWire): string | null {
   const quantity = field.quantity
+
   if (!quantity || typeof quantity !== 'object') return null
   const unit = quantity.symbol ?? quantity.storageUnit
+
   return typeof unit === 'string' && unit.length > 0 ? unit : null
 }
 
@@ -219,15 +228,20 @@ export interface OutOfRangeRule {
  */
 export function outOfRangeRule(field: ReadingFieldWire): OutOfRangeRule | null {
   const extensions = field.validation?.extensions
+
   if (!extensions || typeof extensions !== 'object') return null
   const systemFlags = (extensions as Record<string, unknown>).systemFlags
+
   if (!systemFlags || typeof systemFlags !== 'object') return null
   const rule = (systemFlags as Record<string, unknown>).out_of_range
+
   if (!rule || typeof rule !== 'object') return null
   const wire = rule as Record<string, unknown>
   const min = typeof wire.min === 'number' ? wire.min : undefined
   const max = typeof wire.max === 'number' ? wire.max : undefined
+
   if (min === undefined && max === undefined) return null
+
   return { min, max }
 }
 
@@ -240,9 +254,13 @@ export function isReadingOutOfRange(
   value: number,
 ): boolean {
   const rule = outOfRangeRule(field)
+
   if (!rule || !Number.isFinite(value)) return false
+
   if (rule.min !== undefined && value < rule.min) return true
+
   if (rule.max !== undefined && value > rule.max) return true
+
   return false
 }
 
@@ -252,8 +270,10 @@ export function reportedConcentration(
   dilutionFactor: number | null | undefined,
 ): number | null {
   if (!Number.isFinite(rawValue)) return null
+
   if (dilutionFactor == null || !Number.isFinite(dilutionFactor))
     return rawValue
+
   return rawValue * dilutionFactor
 }
 
@@ -279,17 +299,21 @@ export function buildReadingValues(
   const measurement = input.fields.find(
     (field) => field.field_id === input.measurementFieldId,
   )
+
   if (!measurement || !isNumericType(measurement.logical_type)) {
     throw new Error('Choose a numeric measurement field for this dataset.')
   }
+
   if (!Number.isFinite(input.measurementValue)) {
     throw new Error('Enter a numeric value.')
   }
+
   const values: Record<string, unknown> = {
     [measurement.field_id]: input.measurementValue,
   }
 
   const binding = sampleBindingField(input.fields)
+
   if (binding) {
     values[binding.field_id] =
       binding.logical_type === 'reference'
@@ -301,25 +325,31 @@ export function buildReadingValues(
     if (input.dilutionFieldId === measurement.field_id) {
       throw new Error('The measurement and dilution must be different fields.')
     }
+
     const dilution = input.fields.find(
       (field) => field.field_id === input.dilutionFieldId,
     )
+
     if (!dilution || !isNumericType(dilution.logical_type)) {
       throw new Error('Choose a numeric dilution field for this dataset.')
     }
+
     if (!Number.isFinite(input.dilutionFactor) || input.dilutionFactor <= 0) {
       throw new Error('Dilution factor must be greater than zero.')
     }
+
     if (
       dilution.logical_type === 'integer' &&
       !Number.isInteger(input.dilutionFactor)
     ) {
       throw new Error('This dataset stores dilution as a whole number.')
     }
+
     values[dilution.field_id] = input.dilutionFactor
   }
 
   const note = input.note?.trim()
+
   if (input.noteFieldId && note) {
     values[input.noteFieldId] = note
   }
@@ -340,9 +370,11 @@ export interface BuildReadingRowInput extends BuildReadingValuesInput {
  */
 export function buildReadingRow(input: BuildReadingRowInput): DatasetCommitRow {
   const plannedKey = input.plannedKey.trim()
+
   if (plannedKey.length < 1 || plannedKey.length > 200) {
     throw new Error('This planned row has no usable key.')
   }
+
   return {
     operation: 'create',
     rowId: input.rowId ?? crypto.randomUUID(),
@@ -396,12 +428,16 @@ export function readingCommitErrorMessage(
 ): string | null {
   if (result.ok) return null
   const byId = new Map(fields.map((field) => [field.field_id, field]))
+
   const messages = (result.errors ?? []).map((error) => {
     const base =
       READING_ERROR_MESSAGES[error.code] ?? `Couldn’t save (${error.code}).`
+
     const field = error.fieldId ? byId.get(error.fieldId) : undefined
+
     return field ? `${field.label}: ${base}` : base
   })
+
   return messages.length > 0
     ? Array.from(new Set(messages)).join(' ')
     : 'The reading did not pass validation.'
@@ -436,6 +472,7 @@ export async function attachPhotoToSample(
   input: AttachPhotoInput,
 ): Promise<AttachedPhoto> {
   const checked = validateFileForUpload(input.file)
+
   if (!checked.ok) throw new AttachFileError(checked.message, checked.code)
   const mediaType = checked.mediaType
 
@@ -449,6 +486,7 @@ export async function attachPhotoToSample(
       byteSize: input.file.size,
     }),
   })
+
   if (authorizeRes.status >= 400) {
     throw new AttachFileError(
       `Upload was refused (${authorizeRes.status}).`,
@@ -457,6 +495,7 @@ export async function attachPhotoToSample(
         : 'server_error',
     )
   }
+
   const meta = (await authorizeRes.json()) as {
     fileRecordId: string
     fileIdentifier: string
@@ -467,6 +506,7 @@ export async function attachPhotoToSample(
     headers: { 'content-type': mediaType },
     body: input.file,
   })
+
   if (uploadRes.status >= 400) {
     throw new AttachFileError(
       `Upload failed (${uploadRes.status}).`,

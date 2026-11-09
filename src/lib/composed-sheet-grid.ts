@@ -24,16 +24,19 @@ export function composedSheetGridMatrix(
     presentation: column.presentation,
     editable: column.permission.editability === 'editable',
   }))
+
   const rows = snapshot.boundProjection?.rows ?? []
   // GRID-05: column ids hoisted out of the per-row loop; a missing value
   // entry reads as null instead of throwing (unmatched provenance shape).
   const columnIds = columns.map((column) => column.id)
+
   return {
     columns,
     rowKeys: rows.map((row) => row.rowKey),
     data: rows.map((row) =>
       columnIds.map((id) => {
         const value = row.values[id] as BoundValueState | undefined
+
         return value && value.kind === 'present' ? value.value : null
       }),
     ),

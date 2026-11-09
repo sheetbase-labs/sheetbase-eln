@@ -25,6 +25,7 @@ const fixtures = vi.hoisted(() => {
     params: { datasetId: 'ds-1' },
     context: { context: { user: { id: 'user-1', name: 'Priya' } } },
   }
+
   return {
     datasetRow: {
       id: 'DS-0001',
@@ -109,11 +110,13 @@ vi.mock('#/components/datasets/dataset-imports-tab', () => ({
     <div data-testid="imports-panel">{datasetId}</div>
   ),
 }))
+
 vi.mock('#/components/datasets/dataset-used-by-tab', () => ({
   DatasetUsedByTab: ({ datasetId }: { datasetId: string }) => (
     <div data-testid="used-by-panel">{datasetId}</div>
   ),
 }))
+
 vi.mock('#/components/datasets/dataset-run-pipeline', () => ({
   DatasetRunPipeline: () => null,
   DatasetPipelineMenuItems: () => null,
@@ -124,6 +127,7 @@ vi.mock('#/components/datasets/dataset-run-pipeline', () => ({
     dialog: null,
   }),
 }))
+
 vi.mock('#/components/datasets/dataset-history-tab', () => ({
   DatasetHistoryTab: ({ datasetId }: { datasetId: string }) => (
     <div data-testid="history-panel">{datasetId}</div>
@@ -141,6 +145,7 @@ function renderRoute(component: React.ComponentType) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       {React.createElement(component)}
@@ -199,11 +204,14 @@ describe('dataset detail tab search parameter', () => {
 
   it('names the experiment that made the dataset as a link, and climbs through it', () => {
     fixtures.datasetRow.experimentId = 'EXP-0142'
+
     try {
       renderRoute(DetailLayout)
+
       const links = screen
         .getAllByText('EXP-0142')
         .map((node) => node.closest('a')?.getAttribute('data-to'))
+
       expect(links).toContain('/experiments/$expId')
       expect(links).toContain('/experiments/EXP-0142')
     } finally {

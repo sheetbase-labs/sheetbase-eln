@@ -83,7 +83,9 @@ const meta = {
     ),
   },
 } satisfies Meta<typeof RepresentationFrame>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Live: Story = {}

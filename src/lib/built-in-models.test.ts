@@ -17,6 +17,7 @@ function fakeClient(rows: unknown[] = []) {
     patch: vi.fn(async () => []),
     remove: vi.fn(),
   }
+
   return client as typeof client & DataClient
 }
 
@@ -73,6 +74,7 @@ describe('saveAddedFieldValues', () => {
     const client = fakeClient([
       { metadata_version: 4, locked_at: '2026-10-01T00:00:00Z' },
     ])
+
     await expect(
       saveAddedFieldValues(client, requireBuiltInModel('experiment'), 'r1', {
         cell_passage: 3,

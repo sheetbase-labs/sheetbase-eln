@@ -15,6 +15,7 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 export const Route = createFileRoute('/records/$recordId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
+
     if (!context) throw redirect(signInRedirect(location))
     await resolveIdentifierParam({
       entity: 'record',
@@ -27,6 +28,7 @@ export const Route = createFileRoute('/records/$recordId')({
       search: location.searchStr,
       hash: location.hash ? `#${location.hash.replace(/^#/, '')}` : '',
     })
+
     return { context }
   },
   component: RecordLayout,

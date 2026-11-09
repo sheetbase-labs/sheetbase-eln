@@ -65,6 +65,7 @@ export function exampleRecordId(
   next = 1,
 ): string {
   const width = kind === 'protocol_template' ? 3 : 4
+
   return `${prefix || DEFAULT_ID_PREFIXES[kind]}-${String(next).padStart(width, '0')}`
 }
 
@@ -78,6 +79,7 @@ export async function fetchRecordIdCounters(
     'record_id_counters',
     { p_workspace_id: workspaceId },
   )
+
   return Object.fromEntries(rows.map((r) => [r.kind, Number(r.next_number)]))
 }
 
@@ -118,8 +120,10 @@ export async function fetchWorkspaceGeneral(
     'workspace_settings',
     '?select=site,timezone,date_format,number_format,publication_approval_required,allow_offline_editing,require_change_reason,lock_on_sign,regulated_lab,spec_limits_enabled,retention_enabled,id_prefixes,setup_completed_at,workspaces(name)&limit=1',
   )
+
   if (rows.length === 0) return null
   const row = rows[0]
+
   return {
     name: row.workspaces?.name ?? null,
     site: row.site,

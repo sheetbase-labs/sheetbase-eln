@@ -6,6 +6,7 @@ import { handleParserValidation } from './parser-validation.server'
 const { select, resolve, query, release, connect } = vi.hoisted(() => {
   const queryMock = vi.fn()
   const releaseMock = vi.fn()
+
   return {
     select: vi.fn(),
     resolve: vi.fn(),
@@ -14,8 +15,11 @@ const { select, resolve, query, release, connect } = vi.hoisted(() => {
     connect: vi.fn(async () => ({ query: queryMock, release: releaseMock })),
   }
 })
+
 vi.mock('#/db/client.server', () => ({ db: { $client: { connect } } }))
+
 vi.mock('#/lib/file-storage', () => ({ getObjectStorage: vi.fn() }))
+
 vi.mock('#/lib/request-auth', () => ({
   postgrestSelect: select,
   resolveSessionAuth: resolve,
@@ -27,10 +31,13 @@ vi.mock('#/lib/request-auth', () => ({
 const VERSION = '00000000-0000-4000-8000-000000000123'
 const FILE = '00000000-0000-4000-8000-000000000456'
 const WORKSPACE = 'workspace-a'
+
 const bytes = new TextEncoder().encode(
   '# Instrument: TB-02\nsample,ntu\nA,17.25\nB,8.5\n',
 )
+
 const checksum = createHash('sha256').update(bytes).digest('hex')
+
 const version = {
   id: VERSION,
   workspace_id: WORKSPACE,
@@ -40,6 +47,7 @@ const version = {
   mapping: {},
   parsers: { key: 'tb02', name: 'Turbidity', format: 'csv' },
 }
+
 const file = {
   id: FILE,
   workspace_id: WORKSPACE,
@@ -49,6 +57,7 @@ const file = {
   checksum,
   byte_size: String(bytes.length),
 }
+
 const getStream = vi.fn()
 const storage = { getStream } as unknown as ObjectStorage
 
@@ -86,6 +95,7 @@ beforeEach(() => {
   query.mockImplementation(async (sql: string, args: unknown[]) => {
     if (sql.includes('record_parser_validation')) {
       const result = JSON.parse(String(args[4]))
+
       return {
         rows: [
           {
@@ -98,6 +108,7 @@ beforeEach(() => {
         ],
       }
     }
+
     return { rows: [] }
   })
 })
@@ -112,6 +123,7 @@ describe('server-authoritative retained parser validation', () => {
         ],
       }),
     )
+
     const digest = createHash('sha256').update(workbookBytes).digest('hex')
     getStream.mockImplementation(async () => ({
       byteSize: workbookBytes.length,
@@ -188,6 +200,7 @@ describe('server-authoritative retained parser validation', () => {
           .status,
       ).toBe(400)
     }
+
     expect(select).not.toHaveBeenCalled()
     expect(getStream).not.toHaveBeenCalled()
     expect(connect).not.toHaveBeenCalled()
@@ -210,17 +223,21 @@ describe('server-authoritative retained parser validation', () => {
     )
     expect(getStream).toHaveBeenCalledWith(`${WORKSPACE}/retained-key`)
     expect(query).toHaveBeenCalledWith('SET LOCAL ROLE service_role')
+
     const claims = query.mock.calls.find((call) =>
       call[0].includes('request.jwt.claims'),
     )
+
     expect(JSON.parse(claims![1][0])).toMatchObject({
       sub: 'writer-a',
       workspace_id: WORKSPACE,
       session_id: 'session-a',
     })
+
     const recorded = query.mock.calls.find((call) =>
       call[0].includes('record_parser_validation'),
     )
+
     expect(recorded![1].slice(0, 3)).toEqual([VERSION, FILE, checksum])
     expect(JSON.parse(recorded![1][3])).toEqual({
       signature: version.signature,
@@ -247,9 +264,11 @@ describe('server-authoritative retained parser validation', () => {
       status: 'draft',
       validation: { rowCount: 2 },
     })
+
     const recorded = query.mock.calls.find((call) =>
       call[0].includes('record_parser_validation'),
     )
+
     expect(JSON.parse(recorded![1][4]).errors).toHaveLength(1)
   })
 
@@ -275,7 +294,9 @@ describe('server-authoritative retained parser validation', () => {
         validation: { headers: ['sample', 'ntu'], rowCount: 2 },
       })
     }
+
     connect.mockClear()
+
     for (const engine of [
       'sheetbase.postgres-table@1',
       'sheetbase.plate-reader-csv@2',
@@ -299,6 +320,7 @@ describe('server-authoritative retained parser validation', () => {
         (await handleParserValidation(request(), undefined, storage)).status,
       ).toBe(422)
     }
+
     expect(connect).not.toHaveBeenCalled()
   })
 
@@ -377,9 +399,11 @@ describe('server-authoritative retained parser validation', () => {
                   },
                 ],
     }))
+
     const result = await (
       await handleParserValidation(request(), undefined, storage)
     ).json()
+
     expect(result).toMatchObject({ ok: false, status: 'draft' })
     expect(result.validation.errors).toHaveLength(2)
     expect(result.validation.errors[0]).toContain('Row 1, sample')
@@ -426,6 +450,7 @@ describe('server-authoritative retained parser validation', () => {
     query.mockImplementation(async (sql: string) => {
       if (sql.includes('record_parser_validation'))
         throw new Error('function does not exist')
+
       return { rows: [] }
     })
     await expect(

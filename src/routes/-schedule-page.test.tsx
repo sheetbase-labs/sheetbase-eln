@@ -46,10 +46,12 @@ const fake = vi.hoisted(() => {
       retired_at: '2026-09-01T00:00:00.000Z',
     },
   ]
+
   const state = {
     instruments: [...instruments],
     bookings: [] as Record<string, unknown>[],
   }
+
   const list = async (resource: string) => {
     switch (resource) {
       case 'instruments':
@@ -60,6 +62,7 @@ const fake = vi.hoisted(() => {
         return []
     }
   }
+
   return {
     list,
     rpc: vi.fn(async (_name?: string, _args?: unknown) => [] as unknown[]),
@@ -74,8 +77,10 @@ vi.mock('#/lib/notebook-data', async (importOriginal) => ({
 }))
 
 const clock = vi.hoisted(() => ({ now: null as Date | null }))
+
 vi.mock('#/lib/clock', async (importOriginal) => {
   const actual = await importOriginal<typeof clockModule>()
+
   return { ...actual, now: () => clock.now ?? actual.now() }
 })
 
@@ -85,6 +90,7 @@ vi.mock('#/components/ui/sonner', () => ({
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
+
   return {
     ...actual,
     getRouteApi: () => ({
@@ -115,6 +121,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
           : typeof to === 'string'
             ? to
             : '#'
+
       return (
         <a href={href} {...rest}>
           {children}
@@ -173,6 +180,7 @@ describe('ADR-0054 Schedule', () => {
       }),
     )
     const dialogs = screen.getAllByRole('dialog')
+
     const options = within(dialogs[dialogs.length - 1])
       .getAllByRole('option')
       .map((option) => option.textContent)
@@ -184,6 +192,7 @@ describe('ADR-0054 Schedule', () => {
 /** A calendar_bookings row as the PostgREST boundary returns it. */
 function bookingRow(overrides: Record<string, unknown>) {
   const day = new Date().toISOString().slice(0, 10)
+
   return {
     id: 'b-1',
     workspace_id: 'ws-1',
@@ -224,8 +233,10 @@ describe('Schedule grid bounds, empty state and phone navigation', () => {
     const bar = screen.getByTitle(
       '19:00–20:30 · A colleague · Overnight digest',
     ).parentElement!
+
     const percent = (value: string) =>
       Number(/calc\((-?[\d.]+)%/.exec(value)?.[1])
+
     const left = percent(bar.style.left)
     const width = percent(bar.style.width)
     expect(left).toBeGreaterThanOrEqual(0)
@@ -236,12 +247,15 @@ describe('Schedule grid bounds, empty state and phone navigation', () => {
   it('shows each booking in the week with its times, title and who booked it', async () => {
     fake.state.bookings = [bookingRow({})]
     renderSchedule()
+
     const grid = await screen.findByRole('region', {
       name: 'Instrument schedule',
     })
+
     const chip = await within(grid).findByTitle(
       '19:00–20:30 · A colleague · Overnight digest',
     )
+
     expect(chip.textContent).toContain('19:00–20:30')
     expect(chip.textContent).toContain('Overnight digest')
   })
@@ -259,9 +273,11 @@ describe('Schedule grid bounds, empty state and phone navigation', () => {
     renderSchedule()
     await user.click(await screen.findByRole('tab', { name: 'Day' }))
     const line = await screen.findByTestId('schedule-now')
+
     const left = Number(
       /([\d.]+)%/.exec((line.firstChild as HTMLElement).style.left)?.[1],
     )
+
     // 08:00–18:00 window: 10:30 is a quarter of the way along.
     expect(left).toBeCloseTo(25, 0)
 
@@ -288,6 +304,7 @@ describe('Schedule grid bounds, empty state and phone navigation', () => {
       screen
         .getByRole('region', { name: /^Bookings,/ })
         .getAttribute('aria-label')
+
     const before = shownDay()
     await user.click(screen.getByRole('button', { name: 'Next week' }))
     expect(shownDay()).not.toBe(before)
@@ -329,6 +346,7 @@ describe('Schedule booking cancellation', () => {
           409,
         )
       }
+
       return []
     })
     const user = userEvent.setup()

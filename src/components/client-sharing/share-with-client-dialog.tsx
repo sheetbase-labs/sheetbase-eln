@@ -41,17 +41,20 @@ export function ShareWithClientDialog({
   recordId: string
 }) {
   const queryClient = useQueryClient()
+
   const sharing = useQuery({
     queryKey: recordSharingKey(recordId),
     queryFn: () => fetchRecordSharing(dataClient, recordId),
     enabled: open,
   })
+
   const info = sharing.data
   const clientName = info?.clientName ?? ''
   const shared = info?.sharedAt != null
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: recordSharingKey(recordId) })
+
     if (info?.clientId) {
       void queryClient.invalidateQueries({
         queryKey: clientSharingKeys.shares(info.clientId),
@@ -61,10 +64,12 @@ export function ShareWithClientDialog({
       })
     }
   }
+
   const change = useMutation({
     mutationFn: async (share: boolean) => {
       if (!info?.clientId) return
       const input = { clientId: info.clientId, recordId }
+
       if (share) await shareRecordWithClient(dataClient, input)
       else await unshareRecordWithClient(dataClient, input)
     },
@@ -85,6 +90,7 @@ export function ShareWithClientDialog({
   })
 
   const approved = info?.recordStatus === 'approved'
+
   const canShare =
     info?.canManage === true &&
     info.clientId !== null &&

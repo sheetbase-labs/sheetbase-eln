@@ -13,6 +13,7 @@ vi.mock('#/lib/auth', () => ({ getAppSession: vi.fn() }))
 type ExecuteInput = Parameters<PythonTestRunDeps['execute']>[0]
 
 const runtime = `ghcr.io/example/python@sha256:${'a'.repeat(64)}`
+
 const good = {
   statement: 'def transform(inputs, parameters): return inputs["r"]',
   inputs: { r: [{ v: 1 }] },
@@ -78,16 +79,19 @@ describe('testRunRequestError', () => {
 describe('handlePythonTestRun', () => {
   it('runs the step and returns rows, columns, logs and timing', async () => {
     let tick = 1_000
+
     const execute = vi.fn(async (_input: ExecuteInput) => ({
       rows: [{ n: 1, day: '2026-01-01' }],
       logs: ['hello'],
       runtime,
       environment: { python: '3.12.8', packages: {} },
     }))
+
     const response = await handlePythonTestRun(
       post({ ...good, requirements: ['numpy==2.2.6'] }),
       deps({ execute, now: () => (tick += 40) }),
     )
+
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({
       ok: true,
@@ -113,15 +117,18 @@ describe('handlePythonTestRun', () => {
     const rows = Array.from({ length: TEST_RESULT_ROWS + 50 }, (_, i) => ({
       i,
     }))
+
     const response = await handlePythonTestRun(
       post(good),
       deps({ execute: async () => ({ rows, logs: [], runtime }) }),
     )
+
     const body = (await response.json()) as {
       rows: unknown[]
       rowCount: number
       truncated: boolean
     }
+
     expect(body.rows).toHaveLength(TEST_RESULT_ROWS)
     expect(body.rowCount).toBe(TEST_RESULT_ROWS + 50)
     expect(body.truncated).toBe(true)
@@ -139,6 +146,7 @@ describe('handlePythonTestRun', () => {
         },
       }),
     )
+
     expect(response.status).toBe(200)
     expect(await response.json()).toMatchObject({
       ok: false,
@@ -158,6 +166,7 @@ describe('handlePythonTestRun', () => {
         },
       }),
     )
+
     expect(response.status).toBe(503)
   })
 
@@ -201,6 +210,7 @@ describe('handlePythonTestRun', () => {
   it('limits how often one person can run tests', async () => {
     const d = deps({ getSession: async () => ({ user: { id: 'u-busy' } }) })
     let last = 200
+
     for (let i = 0; i < 25; i += 1)
       last = (await handlePythonTestRun(post(good), d)).status
     expect(last).toBe(429)

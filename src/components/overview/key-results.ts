@@ -33,10 +33,13 @@ export function keyResultsFrom(
   const ordered = [...blocks].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   const metrics: KeyMetric[] = []
   const conclusions: KeyConclusion[] = []
+
   for (const block of ordered) {
     const p = block.payload
+
     if (block.type === 'metric') {
       const value = text(p.value)
+
       if (!value) continue
       metrics.push({
         id: block.id,
@@ -47,6 +50,7 @@ export function keyResultsFrom(
       })
     } else if (block.type === 'conclusion') {
       const body = text(p.text)
+
       if (!body) continue
       conclusions.push({
         id: block.id,
@@ -56,5 +60,6 @@ export function keyResultsFrom(
       })
     }
   }
+
   return { metrics, conclusions }
 }

@@ -26,12 +26,15 @@ const BLOCK = (n: number) =>
 function text(value: string) {
   return { type: 'text', text: value }
 }
+
 function heading(value: string) {
   return { type: 'heading', attrs: { level: 2 }, content: [text(value)] }
 }
+
 function paragraph(value: string) {
   return { type: 'paragraph', content: [text(value)] }
 }
+
 function bullets(items: string[]) {
   return {
     type: 'bulletList',
@@ -41,6 +44,7 @@ function bullets(items: string[]) {
     })),
   }
 }
+
 function doc(...content: unknown[]) {
   return { doc: { type: 'doc', content } }
 }
@@ -134,6 +138,7 @@ async function writeWorkingDocument(db: Db, spec: VersionSpec) {
       ),
     },
   ]
+
   for (const block of blocks) {
     await db
       .insert(schema.blocks)
@@ -173,6 +178,7 @@ async function approveAndMakeEffective(
   const reviewAt = new Date(at.getTime() + 2 * 86_400_000)
   const qaAt = new Date(at.getTime() + 4 * 86_400_000)
   const effectiveAt = new Date(at.getTime() + 5 * 86_400_000)
+
   const [request] = await db
     .insert(schema.approvalRequests)
     .values({
@@ -197,6 +203,7 @@ async function approveAndMakeEffective(
       decidedAt: qaAt,
     })
     .returning({ id: schema.approvalRequests.id })
+
   await db.insert(schema.approvalRequestDecisions).values([
     {
       requestId: request.id,
@@ -245,6 +252,7 @@ async function createProtocolVersions(db: Db) {
     .from(schema.protocolVersions)
     .where(eq(schema.protocolVersions.protocolRecordId, PROTOCOL))
     .limit(1)
+
   if (existing.length) return
 
   // The procedure steps keep their ids (the EXP-0142 story pins them) and move
@@ -258,6 +266,7 @@ async function createProtocolVersions(db: Db) {
         eq(schema.blocks.type, 'procedure_step'),
       ),
     )
+
   if (!steps.length) return
   await db.execute(
     sql`update api.blocks set "order" = "order" + 100 where record_id = ${PROTOCOL} and type = 'procedure_step'`,
@@ -268,6 +277,7 @@ async function createProtocolVersions(db: Db) {
 
   for (const spec of VERSIONS) {
     await writeWorkingDocument(db, spec)
+
     const created = await withDesignClaims(
       db,
       GARETH,
@@ -280,6 +290,7 @@ async function createProtocolVersions(db: Db) {
           )
         ).rows[0],
     )
+
     await approveAndMakeEffective(db, created.id, spec)
   }
 }
@@ -424,7 +435,9 @@ async function seedActiveProtocolVersions(db: Db) {
         )
         .limit(1)
     ).at(0)
+
     if (!protocol || protocol.status !== 'active') continue
+
     const versions = await db
       .select({
         id: schema.protocolVersions.id,
@@ -432,15 +445,18 @@ async function seedActiveProtocolVersions(db: Db) {
       })
       .from(schema.protocolVersions)
       .where(eq(schema.protocolVersions.protocolRecordId, protocol.id))
+
     if (versions.some((v) => v.status === 'effective')) continue
 
     let versionId = versions.at(0)?.id
+
     if (!versionId) {
       const blocks = await db
         .select({ id: schema.blocks.id })
         .from(schema.blocks)
         .where(eq(schema.blocks.recordId, protocol.id))
         .limit(1)
+
       if (!blocks.length) {
         await db.insert(schema.blocks).values({
           recordId: protocol.id,
@@ -457,6 +473,7 @@ async function seedActiveProtocolVersions(db: Db) {
           createdByUserId: GARETH,
         })
       }
+
       const summary = 'First controlled version.'
       versionId = await withDesignClaims(
         db,
@@ -471,6 +488,7 @@ async function seedActiveProtocolVersions(db: Db) {
           ).rows[0].id,
       )
     }
+
     await approveAndMakeEffective(db, versionId, {
       summary: 'First controlled version.',
       at: spec.at,
@@ -482,6 +500,7 @@ async function seedActiveProtocolVersions(db: Db) {
 
 export async function seedDesignProtocolStory(db: Db) {
   await createProtocolVersions(db)
+
   // Who runs which version: EXP-0142 and EXP-0145 on the effective v3, two
   // older experiments on v2. Direct writes: the version is chosen when an
   // experiment starts, and these experiments were started on past dates.
@@ -492,8 +511,10 @@ export async function seedDesignProtocolStory(db: Db) {
     })
     .from(schema.protocolVersions)
     .where(eq(schema.protocolVersions.protocolRecordId, PROTOCOL))
+
   const idOf = (version: number) =>
     versionIds.find((v) => v.version === version)?.id
+
   for (const [identifier, version] of [
     ['EXP-0142', 3],
     ['EXP-0145', 3],
@@ -501,6 +522,7 @@ export async function seedDesignProtocolStory(db: Db) {
     ['EXP-0137', 2],
   ] as const) {
     const protocolVersionId = idOf(version)
+
     if (!protocolVersionId) continue
     await db.execute(
       sql`update api.records set protocol_version_id = ${protocolVersionId}
@@ -516,5 +538,6 @@ export async function seedDesignProtocolStory(db: Db) {
           on conflict do nothing`,
     )
   }
+
   await seedActiveProtocolVersions(db)
 }

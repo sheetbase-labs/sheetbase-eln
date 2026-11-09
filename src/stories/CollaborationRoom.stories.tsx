@@ -30,7 +30,9 @@ const meta = {
     ),
   },
 } satisfies Meta<typeof CollaborationRoom>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** No room id: children render unchanged, nothing connects. */

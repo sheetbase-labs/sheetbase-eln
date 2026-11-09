@@ -11,6 +11,7 @@ export function formatDate(
   options: { time?: boolean; year?: boolean } = {},
 ): string {
   if (!value) return '—'
+
   // A bare day ("2026-09-25") is a calendar date, not an instant: read it at
   // noon so no time zone moves it to the neighbouring day.
   const iso =
@@ -19,7 +20,9 @@ export function formatDate(
         ? `${value}T12:00:00Z`
         : value
       : value.toISOString()
+
   const { time = false, year = true } = options
+
   return formatInstant(iso, {
     day: 'numeric',
     month: 'short',
@@ -35,5 +38,6 @@ export function formatDate(
 export function formatTime(value: string | Date | null | undefined): string {
   if (!value) return '—'
   const iso = typeof value === 'string' ? value : value.toISOString()
+
   return formatInstant(iso, { hour: '2-digit', minute: '2-digit' })
 }

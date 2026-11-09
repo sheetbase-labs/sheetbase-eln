@@ -63,13 +63,16 @@ export function OntologySection({
   canManage: boolean
 }) {
   const queryClient = useQueryClient()
+
   const settings = useQuery({
     queryKey: openDataKeys.ontology(workspaceId),
     queryFn: () => fetchOntologySettings(dataClient, workspaceId),
   })
+
   const [list, setList] = useState<string | null>(null)
   const current = settings.data?.ontologies.join(', ') ?? ''
   const shown = list ?? current
+
   const save = useMutation({
     mutationFn: (input: { enabled: boolean; ontologies?: string[] }) =>
       setOntologySettings(dataClient, workspaceId, input),
@@ -83,7 +86,9 @@ export function OntologySection({
     onError: (e) =>
       toast(`${t('openData.ontology.failed')}: ${describeOpenDataError(e)}`),
   })
+
   const enabled = settings.data?.enabled === true
+
   const parsed = shown
     .split(/[\s,]+/)
     .map((s) => s.trim().toLowerCase())
@@ -166,12 +171,15 @@ export function RepositoriesSection({
   canManage: boolean
 }) {
   const queryClient = useQueryClient()
+
   const targets = useQuery({
     queryKey: openDataKeys.targets(workspaceId),
     queryFn: () => fetchPublicationTargets(dataClient),
   })
+
   const [draft, setDraft] = useState<Draft | null>(null)
   const [removing, setRemoving] = useState<PublicationTarget | null>(null)
+
   const invalidate = () =>
     queryClient.invalidateQueries({
       queryKey: openDataKeys.targets(workspaceId),
@@ -189,11 +197,13 @@ export function RepositoriesSection({
         license: d.license,
         enabled: d.enabled,
       })
+
       if (d.token.trim()) {
         await setPublicationTokenFn({
           data: { targetId: saved.id, token: d.token },
         })
       }
+
       return saved
     },
     onSuccess: async () => {
@@ -202,6 +212,7 @@ export function RepositoriesSection({
       toast(t('openData.repos.saved'))
     },
   })
+
   const remove = useMutation({
     mutationFn: (target: PublicationTarget) =>
       deletePublicationTarget(dataClient, target.id),
@@ -213,6 +224,7 @@ export function RepositoriesSection({
   })
 
   const rows = targets.data ?? []
+
   return (
     <Section
       title={t('openData.repos.title')}

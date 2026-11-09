@@ -23,6 +23,7 @@ export async function getSamenessRule(
     'registry_sameness_rules',
     `?select=plugin_item&model_key=eq.${encodeURIComponent(modelKey)}`,
   )
+
   return rows[0]?.plugin_item ?? null
 }
 
@@ -82,17 +83,22 @@ export function samenessInputs(
       value,
     ]),
   )
+
   const values: Record<string, unknown> = {}
   const missing: string[] = []
+
   for (const field of declared) {
     const name = field.name.toLowerCase()
     const value = name === 'title' ? title : byName.get(name)
+
     if (value === undefined || value === null || value === '') {
       if (field.required) missing.push(field.label ?? field.name)
       continue
     }
+
     values[field.name] = value
   }
+
   return { values, missing }
 }
 
@@ -111,24 +117,30 @@ export async function samenessKeyFor(
   },
 ): Promise<string | null> {
   const ruleName = await getSamenessRule(client, input.modelKey)
+
   if (!ruleName) return null
   const installs = await listExtensions(client)
+
   const rule = resolveRunnerPoints(installs).data['sameness-keys'].find(
     (item) => item.name === ruleName,
   )
+
   if (!rule)
     throw new Error(
       'This registry uses a same-thing rule from a plugin that is not switched on. Switch the plugin on, or choose another rule in the model’s registry settings.',
     )
+
   const inputs = samenessInputs(
     rule.declaration.fields,
     input.title,
     input.customFields,
   )
+
   if (inputs.missing.length > 0)
     throw new Error(
       `The same-thing rule needs ${inputs.missing.join(', ')}. Fill it in to add this entry.`,
     )
+
   return runSamenessKey({
     extensionKey: rule.extensionKey,
     keyId: rule.id,

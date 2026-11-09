@@ -45,11 +45,13 @@ export function SignInGroupsSection({
   const [group, setGroup] = useState('')
   const [role, setRole] = useState<GroupRole>('scientist')
   const [error, setError] = useState<string | null>(null)
+
   const stored = useQuery({
     queryKey: groupRoleKeys.all(workspaceId),
     enabled: Boolean(workspaceId),
     queryFn: () => fetchGroupMappings(client, workspaceId),
   })
+
   const rows = stored.data ?? []
 
   const refresh = () =>
@@ -66,6 +68,7 @@ export function SignInGroupsSection({
     },
     onError: (failure) => setError(describeAdminError(failure)),
   })
+
   const remove = useMutation({
     mutationFn: (id: string) => removeGroupMapping(client, id),
     onSuccess: refresh,
@@ -74,6 +77,7 @@ export function SignInGroupsSection({
         description: describeAdminError(failure),
       }),
   })
+
   const adopt = useMutation({
     mutationFn: () => adoptGroupRoles(client, workspaceId),
     onSuccess: async (count) => {
@@ -152,6 +156,7 @@ export function SignInGroupsSection({
             className="flex flex-wrap items-end gap-2"
             onSubmit={(event) => {
               event.preventDefault()
+
               if (group.trim()) add.mutate()
             }}
           >

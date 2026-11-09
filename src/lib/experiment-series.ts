@@ -94,6 +94,7 @@ export async function fetchSeriesMembership(
   const rows = await client.rpc<SeriesMembership[]>('record_series', {
     p_record_id: recordId,
   })
+
   return rows[0] ?? null
 }
 
@@ -106,6 +107,7 @@ export async function fetchIsSeriesHead(
     'experiment_series',
     `?record_id=eq.${recordId}&select=record_id&limit=1`,
   )
+
   return rows.length > 0
 }
 
@@ -205,9 +207,13 @@ export function positionForMove(
   const others = positions.filter((_, index) => index !== from)
   const before = to > 0 ? others.at(to - 1) : undefined
   const after = others.at(to)
+
   if (before === undefined && after === undefined) return 1
+
   if (before === undefined) return (after ?? 0) - 1
+
   if (after === undefined) return before + 1
+
   return (before + after) / 2
 }
 
@@ -232,7 +238,9 @@ export function memberProgress(
   previous: SeriesMember | undefined,
 ): MemberProgress {
   if (member.status === 'approved') return { kind: 'approved' }
+
   if (member.status === 'in_review') return { kind: 'review' }
+
   if (member.status === 'in_progress') {
     return member.steps_total > 0
       ? {
@@ -242,6 +250,7 @@ export function memberProgress(
         }
       : { kind: 'active' }
   }
+
   if (
     (member.status === 'draft' || member.status === 'planned') &&
     previous &&
@@ -253,5 +262,6 @@ export function memberProgress(
       waitingTitle: previous.title,
     }
   }
+
   return { kind: 'plain' }
 }

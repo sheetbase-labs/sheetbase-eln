@@ -27,10 +27,12 @@ function install(options: {
   existing?: ReturnType<typeof fakeSubscription> | null
 }) {
   const created = fakeSubscription()
+
   const pushManager = {
     getSubscription: vi.fn(async () => options.existing ?? null),
     subscribe: vi.fn(async () => created),
   }
+
   const registration = { pushManager }
   Object.defineProperty(navigator, 'serviceWorker', {
     configurable: true,
@@ -41,11 +43,14 @@ function install(options: {
     },
   })
   vi.stubGlobal('PushManager', class {})
+
   const notification = {
     permission: options.permission,
     requestPermission: vi.fn(async () => options.request ?? options.permission),
   }
+
   vi.stubGlobal('Notification', notification)
+
   return { pushManager, created, notification }
 }
 
@@ -53,12 +58,14 @@ function client(publicKey: string | null = KEY) {
   const rpc = vi.fn(async (name: string) =>
     name === 'get_push_public_key' ? publicKey : null,
   )
+
   return { client: { rpc } as unknown as DataClient, rpc }
 }
 
 beforeEach(() => {
   vi.unstubAllGlobals()
 })
+
 afterEach(() => {
   vi.unstubAllGlobals()
 })
@@ -90,6 +97,7 @@ describe('enablePush', () => {
       permission: 'default',
       request: 'granted',
     })
+
     const { client: data, rpc } = client()
     expect(await enablePush(data)).toBe('on')
     expect(notification.requestPermission).toHaveBeenCalled()
@@ -109,6 +117,7 @@ describe('enablePush', () => {
       permission: 'default',
       request: 'denied',
     })
+
     expect(await enablePush(client().client)).toBe('blocked')
     expect(pushManager.subscribe).not.toHaveBeenCalled()
   })

@@ -20,6 +20,7 @@ export function useSignaturePolicy(workspaceId: string | undefined): {
     queryFn: () => fetchWorkspaceSettings(dataClient, workspaceId ?? ''),
     enabled: Boolean(workspaceId),
   })
+
   return {
     policy: readSignaturePolicy(settings.data?.signaturePolicy),
     reviewWorkflow: readReviewWorkflow(settings.data),
@@ -38,7 +39,9 @@ export function readReviewWorkflow(
     typeof settings.reviewWorkflowConfig === 'object'
       ? (settings.reviewWorkflowConfig as Record<string, unknown>)
       : {}
+
   const minReviewers = Number(config.minReviewers)
+
   return {
     enabled: settings?.reviewWorkflowEnabled ?? false,
     workflow:

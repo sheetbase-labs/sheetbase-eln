@@ -79,6 +79,7 @@ export function TrialPanel({
 
 function FailedTrial({ code, message }: { code: string; message: string }) {
   const guidance = explainRunError(code)
+
   return (
     <Notice tone="bad" title={guidance.title}>
       <p className="m-0 whitespace-pre-wrap">{message}</p>

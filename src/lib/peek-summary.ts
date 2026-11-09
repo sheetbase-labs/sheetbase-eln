@@ -34,6 +34,7 @@ export interface PeekSummary {
 export function peekRef(href: string): string | null {
   const path = href.split(/[?#]/)[0] ?? ''
   const match = /^\/[^/]+\/([^/]+)/.exec(path)
+
   return match?.[1] ? decodeURIComponent(match[1]) : null
 }
 
@@ -44,6 +45,7 @@ export function humanise(value: string): string {
     .replace(/[_-]+/g, ' ')
     .trim()
     .toLowerCase()
+
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
 
@@ -57,6 +59,7 @@ const present = (fact: PeekFact | null): fact is PeekFact => fact !== null
 const fact = (label: string, value: unknown): PeekFact | null => {
   if (value === null || value === undefined) return null
   const text = typeof value === 'string' ? value.trim() : String(value)
+
   return text ? { label, value: text } : null
 }
 
@@ -75,6 +78,7 @@ async function memberNames(client: DataClient): Promise<Map<string, string>> {
     'rpc/workspace_members_list',
     '?select=user_id,name',
   )
+
   return new Map(rows.map((row) => [row.user_id, row.name]))
 }
 
@@ -83,11 +87,13 @@ async function projectTitle(
   projectId: string | null | undefined,
 ): Promise<string | null> {
   if (!projectId) return null
+
   const row = await first<{ title: string; display_id: string | null }>(
     client,
     'projects',
     `id=eq.${projectId}&select=title,display_id`,
   )
+
   return row ? row.title : null
 }
 
@@ -123,11 +129,14 @@ async function loadRecord(
     'records',
     `${filter(ref, 'identifier')}&deleted_at=is.null&select=id,identifier,title,kind,status,project_id,tags,planned_end,reviewer_user_id,created_by_user_id,updated_at,locked_at,properties`,
   )
+
   if (!row) return null
+
   const [project, names] = await Promise.all([
     projectTitle(client, row.project_id),
     memberNames(client).catch(() => new Map<string, string>()),
   ])
+
   const properties = Object.entries(row.properties ?? {})
     .filter(
       ([, value]) =>
@@ -138,6 +147,7 @@ async function loadRecord(
     .map(([key, value]) =>
       fact(humanise(key), propertyText(value as string | number)),
     )
+
   const summary: PeekSummary = {
     identifier: row.identifier,
     title: row.title,
@@ -158,6 +168,7 @@ async function loadRecord(
         : when('Updated', row.updated_at),
     ].filter(present),
   }
+
   return { id: row.id, summary }
 }
 
@@ -173,8 +184,10 @@ async function readProtocol(
   ref: string,
 ): Promise<PeekSummary | null> {
   const loaded = await loadRecord(client, ref)
+
   if (!loaded) return null
   const base = loaded.summary
+
   const version = await first<{
     version: number
     status: string
@@ -185,7 +198,9 @@ async function readProtocol(
     'protocol_versions',
     `protocol_record_id=eq.${loaded.id}&order=version.desc&select=version,status,effective_at,review_due_at`,
   )
+
   if (!version) return base
+
   return {
     ...base,
     facts: [
@@ -217,7 +232,9 @@ async function readProject(
     experiment_count: number
     last_activity_at: string | null
   }>(client, 'rpc/project_list_summary', filter(ref, 'display_id'))
+
   if (!row) return null
+
   return {
     identifier: row.display_id ?? undefined,
     title: row.title,
@@ -253,7 +270,9 @@ async function readDataset(
     experiment_display_id: string | null
     updated_at: string
   }>(client, 'rpc/dataset_list_summary', filter(ref, 'display_id'))
+
   if (!row) return null
+
   return {
     identifier: row.display_id,
     title: row.name,
@@ -284,8 +303,10 @@ async function readAnalysis(
     'analysis_views',
     `${filter(ref, 'display_id')}&select=display_id,name,version,charts,source_revisions,updated_at`,
   )
+
   if (!row) return null
   const count = (value: unknown) => (Array.isArray(value) ? value.length : 0)
+
   return {
     identifier: row.display_id ?? undefined,
     title: row.name,
@@ -317,7 +338,9 @@ async function readInstrument(
     'instruments',
     `${filter(ref, 'display_id')}&select=display_id,name,instrument_type,model,vendor,serial_number,connection_status,location,retired_at`,
   )
+
   if (!row) return null
+
   return {
     identifier: row.display_id ?? undefined,
     title: row.name,
@@ -350,7 +373,9 @@ async function readSheet(
     'sheet_instances',
     `${filter(ref, 'display_id')}&select=display_id,name,description,lifecycle,project_id,updated_at`,
   )
+
   if (!row) return null
+
   return {
     identifier: row.display_id ?? undefined,
     title: row.name,
@@ -379,7 +404,9 @@ async function readPipeline(
     'pipeline_definitions',
     `${filter(ref, 'display_id')}&select=display_id,name,description,lifecycle,revision,updated_at`,
   )
+
   if (!row) return null
+
   return {
     identifier: row.display_id ?? undefined,
     title: row.name,
@@ -408,7 +435,9 @@ async function readTemplate(
     'notebook_templates',
     `${filter(ref, 'display_id')}&select=display_id,name,description,lifecycle,revision,updated_at`,
   )
+
   if (!row) return null
+
   return {
     identifier: row.display_id ?? undefined,
     title: row.name,
@@ -437,7 +466,9 @@ async function readModel(
       'dataset_schema_definitions',
       `id=eq.${ref}&select=key,name,description,lifecycle,updated_at`,
     )
+
     if (!row) return null
+
     return {
       identifier: row.key,
       title: row.name,
@@ -447,6 +478,7 @@ async function readModel(
       facts: [when('Updated', row.updated_at)].filter(present),
     }
   }
+
   const row = await first<{
     key: string
     name: string
@@ -459,7 +491,9 @@ async function readModel(
     'record_models',
     `key=eq.${encodeURIComponent(ref)}&select=key,name,description,lifecycle,current_version,updated_at`,
   )
+
   if (!row) return null
+
   return {
     identifier: row.key,
     title: row.name,
@@ -478,6 +512,7 @@ async function readReview(
   ref: string,
 ): Promise<PeekSummary | null> {
   if (!isUuid(ref)) return null
+
   const revision = await first<{
     record_id: string
     reason: string
@@ -488,7 +523,9 @@ async function readReview(
     'revisions',
     `id=eq.${ref}&select=record_id,reason,created_at,created_by_user_id`,
   )
+
   if (!revision) return null
+
   const [record, names] = await Promise.all([
     first<{ identifier: string; title: string }>(
       client,
@@ -497,6 +534,7 @@ async function readReview(
     ),
     memberNames(client).catch(() => new Map<string, string>()),
   ])
+
   return {
     identifier: record?.identifier,
     title: record?.title,
@@ -537,6 +575,8 @@ export async function fetchPeekSummary(
 ): Promise<PeekSummary | null> {
   const read = READERS[paneKind(href).key]
   const ref = peekRef(href)
+
   if (!read || !ref) return null
+
   return read(client, ref)
 }

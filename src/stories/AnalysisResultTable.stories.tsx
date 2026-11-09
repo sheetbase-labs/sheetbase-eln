@@ -53,7 +53,9 @@ const regression: AnalysisDefinition = {
 
 function resultOf(definition: AnalysisDefinition) {
   const outcome = runAnalysis(definition, columns, rows)
+
   if (!outcome.ok) throw new Error(`fixture did not run: ${outcome.error.code}`)
+
   return outcome.result
 }
 
@@ -63,7 +65,9 @@ const meta = {
   tags: ['autodocs'],
   args: { result: resultOf(descriptive) },
 } satisfies Meta<typeof AnalysisResultTable>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Grouped descriptive statistics — one block per condition, plus ANOVA. */

@@ -52,6 +52,7 @@ function baseEnvelope(
       usage: { chars: 400, sections: 1, rows: 0, objects: 1 },
     },
   }
+
   return Object.assign(envelope, overrides)
 }
 
@@ -92,8 +93,11 @@ async function gatewayError(
     () => null,
     (error: unknown) => error,
   )
+
   expect(outcome).toBeInstanceOf(ModelGatewayError)
+
   if (!(outcome instanceof ModelGatewayError)) throw new Error('unreachable')
+
   return outcome
 }
 
@@ -129,19 +133,23 @@ describe('ai-gateway allowlist', () => {
   it('rejects an unknown model fail-closed without touching the provider', async () => {
     const registry = createMetricsRegistry()
     let providerCalls = 0
+
     const provider: ModelProvider = {
       name: 'counting',
       async complete() {
         providerCalls += 1
+
         return { text: 'x', tokensUsed: 1, costMicrousd: 1 }
       },
     }
+
     const error = await gatewayError(
       callModel(ACTOR, baseInput({ model: 'gpt-evil-9' }), {
         registry,
         provider,
       }),
     )
+
     expect(error.code).toBe('model_not_allowed')
     expect(providerCalls).toBe(0)
     expect(registry.render()).toContain(
@@ -152,13 +160,16 @@ describe('ai-gateway allowlist', () => {
   it('rejects an unknown tool fail-closed', async () => {
     const registry = createMetricsRegistry()
     let providerCalls = 0
+
     const provider: ModelProvider = {
       name: 'counting',
       async complete() {
         providerCalls += 1
+
         return { text: 'x', tokensUsed: 1, costMicrousd: 1 }
       },
     }
+
     const error = await gatewayError(
       callModel(
         ACTOR,
@@ -169,26 +180,31 @@ describe('ai-gateway allowlist', () => {
         },
       ),
     )
+
     expect(error.code).toBe('tool_not_allowed')
     expect(providerCalls).toBe(0)
   })
 
   it('accepts every canonical workflow tool', async () => {
     const registry = createMetricsRegistry()
+
     const result = await callModel(
       ACTOR,
       baseInput({ tools: ['sheetbase.dataset_rows.commit'] }),
       { registry },
     )
+
     expect(result.model).toBe('sheetbase-assist-1')
   })
 
   it('rejects context assembled for a different actor', async () => {
     const registry = createMetricsRegistry()
     const envelope = baseEnvelope({ actor: { kind: 'user', id: 'user-2' } })
+
     const error = await gatewayError(
       callModel(ACTOR, baseInput({ contextEnvelope: envelope }), { registry }),
     )
+
     expect(error.code).toBe('actor_mismatch')
   })
 })
@@ -198,6 +214,7 @@ describe('ai-gateway budgets', () => {
     const registry = createMetricsRegistry()
     const envelope = baseEnvelope()
     envelope.budgets.usage.chars = 40_000 // ~10k tokens
+
     const error = await gatewayError(
       callModel(
         ACTOR,
@@ -210,11 +227,13 @@ describe('ai-gateway budgets', () => {
         },
       ),
     )
+
     expect(error.code).toBe('budget_exhausted')
   })
 
   it('counts prior usage against the caps', async () => {
     const registry = createMetricsRegistry()
+
     const error = await gatewayError(
       callModel(
         ACTOR,
@@ -228,11 +247,13 @@ describe('ai-gateway budgets', () => {
         { registry },
       ),
     )
+
     expect(error.code).toBe('budget_exhausted')
   })
 
   it('rejects estimated cost beyond the call cap', async () => {
     const registry = createMetricsRegistry()
+
     const error = await gatewayError(
       callModel(
         ACTOR,
@@ -240,17 +261,20 @@ describe('ai-gateway budgets', () => {
         { registry },
       ),
     )
+
     expect(error.code).toBe('budget_exhausted')
   })
 
   it('rejects actual provider usage that overruns the budget', async () => {
     const registry = createMetricsRegistry()
+
     const greedy: ModelProvider = {
       name: 'greedy',
       async complete() {
         return { text: 'oversized', tokensUsed: 50_000, costMicrousd: 50 }
       },
     }
+
     const error = await gatewayError(
       callModel(
         ACTOR,
@@ -258,6 +282,7 @@ describe('ai-gateway budgets', () => {
         { registry, provider: greedy },
       ),
     )
+
     expect(error.code).toBe('budget_exhausted')
   })
 })
@@ -266,6 +291,7 @@ describe('ai-gateway logging policy', () => {
   it('logs hashes, sizes and citation IDs by default — never prompt text, excerpts or secrets', async () => {
     const registry = createMetricsRegistry()
     const info = vi.spyOn(logger, 'info')
+
     try {
       // Secret material in a known prompt field (section body) plus
       // secret-shaped keys where free-form content could carry them.
@@ -285,6 +311,7 @@ describe('ai-gateway logging policy', () => {
       const logged = info.mock.calls
         .map((call) => JSON.stringify(call[1] ?? null))
         .join('\n')
+
       expect(logged).not.toContain(SECRET)
 
       const fullPrompt = buildGatewayPrompt(envelope, citations)
@@ -299,6 +326,7 @@ describe('ai-gateway logging policy', () => {
       const callRecord = info.mock.calls.find(
         (call) => call[0] === 'ai.gateway.call',
       )
+
       expect(callRecord).toBeDefined()
       const fields = callRecord?.[1] as Record<string, unknown>
       expect(Object.keys(fields).sort()).toEqual(
@@ -325,6 +353,7 @@ describe('ai-gateway logging policy', () => {
       const resultRecord = info.mock.calls.find(
         (call) => call[0] === 'ai.gateway.result',
       )
+
       expect(resultRecord).toBeDefined()
       const resultFields = resultRecord?.[1] as Record<string, unknown>
       expect(resultFields['promptHash']).toBe(hashPrompt(fullPrompt))
@@ -357,6 +386,7 @@ describe('ai-gateway logging policy', () => {
     for (const includeDebugExcerpt of [undefined, false] as const) {
       const registry = createMetricsRegistry()
       const info = vi.spyOn(logger, 'info')
+
       try {
         await callModel(
           ACTOR,
@@ -367,15 +397,19 @@ describe('ai-gateway logging policy', () => {
           }),
           { registry },
         )
+
         const callRecord = info.mock.calls.find(
           (call) => call[0] === 'ai.gateway.call',
         )
+
         const fields = callRecord?.[1] as Record<string, unknown>
         expect(fields).not.toHaveProperty('debugPromptExcerpt')
         expect(fields).not.toHaveProperty('promptExcerpt')
+
         const logged = info.mock.calls
           .map((call) => JSON.stringify(call[1] ?? null))
           .join('\n')
+
         expect(logged).not.toContain(SECRET)
       } finally {
         info.mockRestore()
@@ -386,6 +420,7 @@ describe('ai-gateway logging policy', () => {
     {
       const registry = createMetricsRegistry()
       const info = vi.spyOn(logger, 'info')
+
       try {
         await callModel(
           ACTOR,
@@ -396,9 +431,11 @@ describe('ai-gateway logging policy', () => {
           }),
           { registry },
         )
+
         const callRecord = info.mock.calls.find(
           (call) => call[0] === 'ai.gateway.call',
         )
+
         const fields = callRecord?.[1] as Record<string, unknown>
         const excerpt = fields['debugPromptExcerpt']
         expect(typeof excerpt).toBe('string')
@@ -407,9 +444,11 @@ describe('ai-gateway logging policy', () => {
         )
         expect(String(excerpt)).toContain('[redacted]')
         expect(String(excerpt)).not.toContain(SECRET)
+
         const logged = info.mock.calls
           .map((call) => JSON.stringify(call[1] ?? null))
           .join('\n')
+
         expect(logged).not.toContain(SECRET)
       } finally {
         info.mockRestore()
@@ -437,15 +476,18 @@ describe('ai-gateway telemetry', () => {
 
   it('emits the error series when the provider fails', async () => {
     const registry = createMetricsRegistry()
+
     const failing: ModelProvider = {
       name: 'failing',
       async complete() {
         throw new Error('boom')
       },
     }
+
     const error = await gatewayError(
       callModel(ACTOR, baseInput(), { registry, provider: failing }),
     )
+
     expect(error.code).toBe('provider_error')
     const rendered = registry.render()
     expect(rendered).toContain(
@@ -458,6 +500,7 @@ describe('ai-gateway telemetry', () => {
 
   it('logs the provider status, never a message body, on provider failure', async () => {
     const warn = vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
+
     const failing: ModelProvider = {
       name: 'failing',
       async complete() {
@@ -468,15 +511,18 @@ describe('ai-gateway telemetry', () => {
         })
       },
     }
+
     await gatewayError(
       callModel(ACTOR, baseInput(), {
         registry: createMetricsRegistry(),
         provider: failing,
       }),
     )
+
     const [, fields] = warn.mock.calls.find(
       ([event]) => event === 'ai.gateway.rejected',
     )!
+
     expect(fields).toMatchObject({
       code: 'provider_error',
       providerCode: 'http',
@@ -491,16 +537,19 @@ describe('ai-gateway telemetry', () => {
 describe('StubModelProvider', () => {
   it('charges fixture pricing deterministically', async () => {
     const stub = new StubModelProvider('sheetbase-summarise-1')
+
     const first = await stub.complete({
       prompt: 'hello',
       maxTokens: 100,
       citationIds: ['a'],
     })
+
     const second = await stub.complete({
       prompt: 'hello',
       maxTokens: 100,
       citationIds: ['a'],
     })
+
     expect(second).toEqual(first)
     expect(first.costMicrousd).toBe(
       first.tokensUsed * MODEL_MICROUSD_PER_TOKEN['sheetbase-summarise-1'],

@@ -12,7 +12,9 @@ const meta = {
   component: LocationPath,
   tags: ['autodocs'],
 } satisfies Meta<typeof LocationPath>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const FULL =

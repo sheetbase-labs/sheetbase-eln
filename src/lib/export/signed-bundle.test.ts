@@ -59,12 +59,14 @@ describe.skipIf(!haveTools)('signed export bundle', () => {
   let dir: string
   let rootFile: string
   let fingerprint: string
+
   const run = (cmd: string, args: string[]) =>
     spawnSync(cmd, args, { cwd: dir, encoding: 'utf8' })
 
   async function extract(mutate?: (dir: string) => void) {
     const key = generateWorkspaceKeyPair()
     fingerprint = keyFingerprint(key.publicKeyPem)
+
     const signedData = canonicalSignedData({
       signatureId: 'sig-1',
       workspaceId: 'ws-1',
@@ -75,7 +77,9 @@ describe.skipIf(!haveTools)('signed export bundle', () => {
       meaning: 'reviewed-and-approved',
       signedAt: '2026-11-06T10:00:00.123456Z',
     })
+
     const request = buildTimestampRequest(sha256Hex(signedData))
+
     const zip = await buildSignedBundle({
       evidence,
       timestamps: [
@@ -97,6 +101,7 @@ describe.skipIf(!haveTools)('signed export bundle', () => {
       sign: (manifest) => signWithKey(key.privateKeyPem, manifest),
       generatedAt: '2026-11-06T10:05:00Z',
     })
+
     dir = mkdtempSync(join(tmpdir(), 'sheetbase-bundle-'))
     writeFileSync(join(dir, 'bundle.zip'), zip)
     execFileSync('unzip', ['-q', 'bundle.zip', '-d', 'out'], { cwd: dir })
@@ -111,6 +116,7 @@ describe.skipIf(!haveTools)('signed export bundle', () => {
 
   it('verifies offline with node and with openssl', async () => {
     await extract()
+
     const node = run('node', [
       'verify.mjs',
       '--tsa-ca',
@@ -118,6 +124,7 @@ describe.skipIf(!haveTools)('signed export bundle', () => {
       '--key-fingerprint',
       fingerprint,
     ])
+
     expect(node.stdout).toContain('Bundle verified.')
     expect(node.status).toBe(0)
     expect(node.stdout).toContain('manifest.json is signed by public-key.pem')
@@ -157,11 +164,13 @@ describe.skipIf(!haveTools)('signed export bundle', () => {
   it('fails against the wrong authority root or the wrong key', async () => {
     await extract()
     const other = createTestAuthority()
+
     const wrongRoot = run('node', [
       'verify.mjs',
       '--tsa-ca',
       join(other.dir, 'ca.pem'),
     ])
+
     expect(wrongRoot.status).toBe(1)
     const wrongKey = run('node', ['verify.mjs', '--key-fingerprint', 'aa:bb'])
     expect(wrongKey.status).toBe(1)

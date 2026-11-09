@@ -27,6 +27,7 @@ import type { ReadSeed } from './screen-stories'
  */
 const TEMPLATE_ID = '0198d970-e266-4000-8000-000000000f01'
 const PROJECT_ID = '0198d970-e266-4000-8000-000000000009'
+
 const uuid = (n: number) =>
   `0198d970-e266-4000-8000-0000000000${String(n).padStart(2, '0')}`
 
@@ -48,7 +49,9 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function inside(queryClient: QueryClient, width = 900) {
@@ -60,6 +63,7 @@ function inside(queryClient: QueryClient, width = 900) {
     </QueryClientProvider>
   )
 }
+
 const seeded = (data: ReadSeed[]) => screenQueryClient({ data })
 
 const config = (parameters: unknown[], withProtocol = true) =>
@@ -185,6 +189,7 @@ export const BulkUpgradeNothingToDo: Story = {
 
 const boardUsers = (versions: NotebookTemplateVersion[]): ReadSeed => {
   const ids = versions.map((v) => v.id)
+
   return {
     key: [...templateDataQueryKeys.users(ids.join(',')), ids],
     value: [
@@ -197,6 +202,7 @@ const boardUsers = (versions: NotebookTemplateVersion[]): ReadSeed => {
     ],
   }
 }
+
 const adaName: ReadSeed = {
   key: ['user-names', ['u-1', 'u-1']],
   value: { 'u-1': 'Ada Okafor' },

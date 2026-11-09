@@ -6,6 +6,7 @@ import { t } from '#/copy'
  */
 export function SubmitLabel({ status }: { status: string }) {
   if (status === 'returned') return <>{t('projects.lifecycle.resubmit')}</>
+
   return (
     <>
       <span className="max-md:hidden">

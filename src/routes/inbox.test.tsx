@@ -19,6 +19,7 @@ const { navigate, items, state, invalidate, seen, listeners } = vi.hoisted(
     const invalidateMock = vi.fn()
     const seenKeys: string[] = []
     const seenSearch: { item?: string; tab?: string; type?: string } = {}
+
     const workItems: WorkItem[] = [
       {
         kind: 'review_requested',
@@ -43,6 +44,7 @@ const { navigate, items, state, invalidate, seen, listeners } = vi.hoisted(
         createdAt: null,
       },
     ]
+
     return {
       navigate: navigateMock,
       invalidate: invalidateMock,
@@ -61,14 +63,17 @@ const { navigate, items, state, invalidate, seen, listeners } = vi.hoisted(
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
   const { useSyncExternalStore } = await import('react')
+
   const locationRouter = actual.createRouter({
     routeTree: actual.createRootRoute(),
     history: actual.createMemoryHistory({ initialEntries: ['/inbox'] }),
   })
+
   const inboxRouter = {
     invalidate,
     buildLocation: locationRouter.buildLocation,
   }
+
   return {
     ...actual,
     Link: ({ to, children }: { to?: unknown; children?: React.ReactNode }) => (
@@ -80,6 +85,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       useSyncExternalStore(
         (listener) => {
           listeners.add(listener)
+
           return () => listeners.delete(listener)
         },
         () => state.search,
@@ -100,26 +106,31 @@ vi.mock('#/lib/notebook-data', () => ({
 
 vi.mock('#/lib/work-items/data', async (importOriginal) => {
   const actual = await importOriginal<typeof workItems>()
+
   return {
     ...actual,
     useInboxPage: (tab: string, type?: string) => {
       const seenKeys = new Set(seen)
       const inTab = items.filter((item) => itemTab(item, seenKeys) === tab)
+
       const visible = inTab.filter(
         (item) => !type || workItemType(item.kind) === type,
       )
+
       const tabs = Object.fromEntries(
         ['needs-action', 'following', 'done-today'].map((t) => [
           t,
           items.filter((item) => itemTab(item, seenKeys) === t).length,
         ]),
       )
+
       const types = Object.fromEntries(
         ['reviews', 'data', 'runs', 'materials', 'lab', 'admin'].map((t) => [
           t,
           inTab.filter((item) => workItemType(item.kind) === t).length,
         ]),
       )
+
       return state.error
         ? {
             data: undefined,
@@ -190,7 +201,9 @@ afterEach(() => {
 
 function renderInbox(workspace: WorkspaceNavigation | null = null) {
   const Inbox = Route.options.component
+
   if (!Inbox) throw new Error('inbox route has no component')
+
   return render(
     <QueryClientProvider
       client={
@@ -348,6 +361,7 @@ describe('Inbox list shortcuts (SHELL-03.3)', () => {
       sourceId: 'file-one',
       parserVersionId: 'version-one',
     }
+
     expect(itemKey(fileFailure)).not.toEqual(
       itemKey({ ...fileFailure, sourceId: 'file-two' }),
     )
@@ -374,12 +388,14 @@ describe('Inbox list shortcuts (SHELL-03.3)', () => {
       to: '/pipelines/runs/$runId',
       params: { runId: 'run-7' },
     })
+
     const failed: WorkItem = {
       ...items[1],
       kind: 'run_failed',
       recordId: null,
       identifier: 'glucose_trend',
     }
+
     expect(itemLink(failed)).toEqual({
       to: '/pipelines',
       search: { q: 'glucose_trend' },
@@ -497,6 +513,7 @@ describe('Inbox list matches the active filter (QA3-lists-inbox-1)', () => {
     state: 'needs_action',
     createdAt: null,
   }
+
   // Twelve live data issues share one dataset identifier, so `rowKey` alone is
   // not unique among the rendered siblings.
   const duplicateKeyIssues: WorkItem[] = Array.from({ length: 12 }, (_, n) => ({
@@ -515,6 +532,7 @@ describe('Inbox list matches the active filter (QA3-lists-inbox-1)', () => {
     const base = items.slice(0, 2)
     items.length = 0
     items.push(...duplicateKeyIssues, laterReview)
+
     try {
       const { getByRole, queryByRole } = renderInbox()
       // Every row is undated, so the Later bucket is the tab's only group and
@@ -539,6 +557,7 @@ describe('Inbox Later bucket default (QA3-lists-inbox-2)', () => {
     const base = items.slice(0, 2)
     items.length = 0
     items.push(...base.map((i) => ({ ...i, dueAt: null })))
+
     try {
       const { getByRole, queryByRole } = renderInbox()
       expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(2)
@@ -568,6 +587,7 @@ describe('Inbox Later bucket default (QA3-lists-inbox-2)', () => {
       state: 'needs_action',
       createdAt: null,
     })
+
     try {
       const { getByRole } = renderInbox()
       // Today holds the due-dated pair; the undated flag stays behind the
@@ -598,6 +618,7 @@ describe('Inbox Later bucket default (QA3-lists-inbox-2)', () => {
         createdAt: null,
       })),
     )
+
     try {
       const { getByRole } = renderInbox()
       fireEvent.click(getByRole('tab', { name: /^Done today/ }))
@@ -690,10 +711,12 @@ describe('Inbox URL and tab keyboard (QA3-inbox-3, QA3-inbox-4)', () => {
   it('writes the tab into the URL so a reload follows the list', () => {
     const { getByRole } = renderInbox()
     fireEvent.click(getByRole('tab', { name: /^Following/ }))
+
     const tabCall = navigate.mock.calls[0][0] as {
       to: string
       search: (previous: Record<string, unknown>) => Record<string, unknown>
     }
+
     expect(tabCall.to).toBe('/inbox')
     expect(tabCall.search({ type: 'reviews' })).toEqual({
       type: undefined,
@@ -704,9 +727,11 @@ describe('Inbox URL and tab keyboard (QA3-inbox-3, QA3-inbox-4)', () => {
   it('writes the type chip into the URL', () => {
     const { getByRole } = renderInbox()
     fireEvent.click(getByRole('button', { name: /^Reviews 1$/ }))
+
     const typeCall = navigate.mock.calls[0][0] as {
       search: (previous: Record<string, unknown>) => Record<string, unknown>
     }
+
     expect(typeCall.search({ type: undefined })).toEqual({ type: 'reviews' })
   })
 
@@ -743,9 +768,11 @@ describe('Inbox header fits the phone width (QA4-inbox-phone)', () => {
     // reference's desktop header shows. The header is the shared one now, so
     // the wrap is the header's guarantee rather than this screen's.
     expect(row!.className).toContain('flex-wrap')
+
     const actions = row!.parentElement!.querySelector(
       '[class*="max-md:w-full"]',
     )
+
     expect(actions).not.toBeNull()
     // Both actions stay in the header: "Mark all seen" is a real button,
     // "Notification settings" is a Link-based button (its role comes from Base
@@ -771,14 +798,18 @@ describe('Inbox selection lives in the URL', () => {
   it('writes the chosen row to the address without adding history entries', () => {
     const { getByRole } = renderInbox()
     fireEvent.click(getByRole('button', { name: /Second review/ }))
+
     const call = navigate.mock.calls.find(
       ([arg]) => arg && typeof arg === 'object' && 'replace' in arg,
     )
+
     expect(call).toBeTruthy()
+
     const arg = call![0] as {
       replace: boolean
       search: (previous: object) => object
     }
+
     expect(arg.replace).toBe(true)
     expect(arg.search({ tab: 'following' })).toEqual({
       tab: 'following',
@@ -829,8 +860,10 @@ describe('Inbox repeats', () => {
   it('folds items that repeat one another into one row that opens', () => {
     addRepeats()
     const { getAllByRole, getByRole } = renderInbox()
+
     const rows = () =>
       getAllByRole('button', { name: /Import failed: TB-02 results folder/ })
+
     expect(rows()).toHaveLength(1)
     fireEvent.click(getByRole('button', { name: 'Show all 2 of these' }))
     expect(rows()).toHaveLength(2)

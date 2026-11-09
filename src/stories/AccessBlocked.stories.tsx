@@ -29,7 +29,9 @@ const meta = {
     onSignOut: async () => {},
   },
 } satisfies Meta<typeof AccessBlockedSurface>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Membership suspended, with the people who can reinstate it. */

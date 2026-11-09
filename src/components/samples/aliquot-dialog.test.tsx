@@ -55,7 +55,9 @@ const SAMPLE = {
   quantityUnit: 'µL',
   storageLocation: 'Freezer 1',
 }
+
 const EXPERIMENTS = [{ id: 'e-1', identifier: 'EXP-1', title: 'Titration' }]
+
 const BALANCES = {
   sampleRecordId: 's-1',
   unit: 'µL',
@@ -82,6 +84,7 @@ function mount(props: Partial<React.ComponentProps<typeof AliquotDialog>>) {
       </QueryClientProvider>
     ),
   })
+
   render(
     <RouterProvider
       router={createRouter({
@@ -105,9 +108,11 @@ describe('AliquotDialog', () => {
     expect(screen.getByRole('status').textContent).toContain(
       '80 µL in total; 20 µL stays in SMP-1.',
     )
+
     const submit = screen.getByRole<HTMLButtonElement>('button', {
       name: 'Make 4 tubes',
     })
+
     // The experiment is still to choose.
     expect(submit.disabled).toBe(true)
     await choose(userEvent.setup(), /For experiment/, /Titration/)
@@ -149,6 +154,7 @@ describe('AliquotDialog', () => {
       { id: 't-1', identifier: 'SMP-2', title: 'Master stock aliquot 1 of 2' },
       { id: 't-2', identifier: 'SMP-3', title: 'Master stock aliquot 2 of 2' },
     ] as SampleRecord[]
+
     mount({ created })
     expect(await screen.findByText('Made 2 tubes from SMP-1')).toBeTruthy()
     expect(

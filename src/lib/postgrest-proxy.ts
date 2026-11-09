@@ -98,6 +98,7 @@ const proxyRateLimiter: RateLimiter = createRateLimiter(
 
 function envPositiveInt(value: string | undefined): number | undefined {
   const parsed = Number(value)
+
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
 }
 
@@ -118,8 +119,10 @@ function enforceProxyRateLimit(
   method: string,
 ): Response | null {
   const limiter = deps.rateLimiter ?? proxyRateLimiter
+
   try {
     const decision = limiter.hit(rateLimitKey(principal), Date.now())
+
     if (decision.allowed) return null
     logger.warn('proxy request rate limited', { request_id: requestId })
     metrics.httpRequests.inc({
@@ -128,6 +131,7 @@ function enforceProxyRateLimit(
       status: '429',
     })
     metrics.dbUpstreamRequests.inc({ category: 'rate_limited' })
+
     const response = stampRequestId(
       errorEnvelope({
         ...categoriseProxyError('rate_limited'),
@@ -135,10 +139,12 @@ function enforceProxyRateLimit(
       }),
       requestId,
     )
+
     response.headers.set(
       'retry-after',
       String(decision.retryAfterSeconds ?? 60),
     )
+
     return response
   } catch {
     // Fail open: bounding abuse must never take the API down.
@@ -148,6 +154,7 @@ function enforceProxyRateLimit(
 
 function proxyErrorResponse(code: ProxyErrorCode, requestId: string): Response {
   const categorised = categoriseProxyError(code)
+
   return stampRequestId(errorEnvelope({ ...categorised, requestId }), requestId)
 }
 
@@ -191,10 +198,12 @@ function observeRpcLatency(resource: string, startedAt: number): void {
   )
     ? (resource as DatasetRpcOperation)
     : 'other'
+
   metrics.datasetRpcDuration.observe(
     { operation },
     (Date.now() - startedAt) / 1000,
   )
+
   if (resource === 'search') {
     metrics.searchDuration.observe({}, (Date.now() - startedAt) / 1000)
   }
@@ -214,6 +223,7 @@ function externalTokenErrorResponse(
       error.code === 'insufficient_scope' || error.code === 'revoked'
         ? 403
         : 401
+
     return stampRequestId(
       errorEnvelope({
         category:
@@ -229,6 +239,7 @@ function externalTokenErrorResponse(
       requestId,
     )
   }
+
   return proxyErrorResponse('unauthenticated', requestId)
 }
 
@@ -240,8 +251,10 @@ export async function handleProxyRequest(
   const startedAt = Date.now()
   const requestId = resolveRequestId(request.headers)
   const path = parseProxyPath(rawPath)
+
   if (!path) {
     recordProxyRequest(request.method, 400, startedAt, 'validation_error')
+
     return proxyErrorResponse('invalid_path', requestId)
   }
 
@@ -249,12 +262,15 @@ export async function handleProxyRequest(
     db: { kind: path.kind, resource: safePathLog(path) },
   })
   const requestUrl = new URL(request.url)
+
   const generatedMutation =
     path.kind === 'table' &&
     /^sheet_[a-z2-7]{26}$/.test(path.resource) &&
     (request.method === 'PATCH' || request.method === 'DELETE')
+
   if (generatedMutation && !isValidScientificMutationQuery(requestUrl.search)) {
     recordProxyRequest(request.method, 400, startedAt, 'validation_error')
+
     return proxyErrorResponse('invalid_path', requestId)
   }
 
@@ -267,11 +283,14 @@ export async function handleProxyRequest(
   const authorization = request.headers.get('authorization')
   const bearer = readBearerToken(request.headers)
   let token: string
+
   if (authorization !== null) {
     if (!bearer || !deps.resolveExternalToken) {
       recordProxyRequest(request.method, 401, startedAt, 'unauthenticated')
+
       return proxyErrorResponse('unauthenticated', requestId)
     }
+
     try {
       await deps.resolveExternalToken(bearer, request.method, path)
       token = bearer
@@ -283,8 +302,10 @@ export async function handleProxyRequest(
         startedAt,
         response.status === 401 ? 'unauthenticated' : 'permission_denied',
       )
+
       return response
     }
+
     // PLAT-03 — principal is the credential identity, hashed: the raw token
     // never enters limiter memory.
     const blocked = enforceProxyRateLimit(
@@ -293,42 +314,57 @@ export async function handleProxyRequest(
       requestId,
       request.method,
     )
+
     annotateRequest({ auth: 'api_token' })
+
     if (blocked) {
       recordProxyRequest(request.method, 429, startedAt, 'rate_limited')
+
       return blocked
     }
   } else {
     const session = await deps.getSession(request.headers)
+
     if (!session) {
       recordProxyRequest(request.method, 401, startedAt, 'unauthenticated')
+
       return proxyErrorResponse('unauthenticated', requestId)
     }
+
     const workspace = await deps.getWorkspaceForUser(session.user.id)
+
     if (!workspace) {
       recordProxyRequest(request.method, 403, startedAt, 'permission_denied')
+
       return proxyErrorResponse('no_workspace', requestId)
     }
+
     annotateRequest({
       auth: 'session',
       user: { id: session.user.id },
       workspace: { id: workspace.id },
     })
     const requestedWorkspace = request.headers.get('x-sheetbase-workspace')
+
     if (requestedWorkspace && requestedWorkspace !== workspace.id) {
       recordProxyRequest(request.method, 403, startedAt, 'permission_denied')
+
       return proxyErrorResponse('workspace_mismatch', requestId)
     }
+
     const blocked = enforceProxyRateLimit(
       deps,
       session.session.id,
       requestId,
       request.method,
     )
+
     if (blocked) {
       recordProxyRequest(request.method, 429, startedAt, 'rate_limited')
+
       return blocked
     }
+
     token = await deps.mintToken({
       userId: session.user.id,
       workspaceId: workspace.id,
@@ -340,13 +376,16 @@ export async function handleProxyRequest(
   }
 
   let upstream: string
+
   try {
     upstream = buildUpstreamUrl(deps.upstreamBaseUrl, path, requestUrl.search)
   } catch (error) {
     if (error instanceof InvalidPostgrestQueryError) {
       recordProxyRequest(request.method, 400, startedAt, 'validation_error')
+
       return proxyErrorResponse('invalid_path', requestId)
     }
+
     throw error
   }
 
@@ -355,8 +394,10 @@ export async function handleProxyRequest(
   headers.set('accept', 'application/json')
   headers.set(REQUEST_ID_HEADER, requestId)
   const contentType = request.headers.get('content-type')
+
   if (contentType) headers.set('content-type', contentType)
   const prefer = request.headers.get('prefer')
+
   if (generatedMutation) {
     headers.set(
       'prefer',
@@ -364,15 +405,19 @@ export async function handleProxyRequest(
     )
   } else if (prefer) headers.set('prefer', prefer)
   const range = request.headers.get('range')
+
   if (range) headers.set('range', range)
   const rangeUnit = request.headers.get('range-unit')
+
   if (rangeUnit) headers.set('range-unit', rangeUnit)
 
   let requestBody =
     request.method === 'GET' || request.method === 'HEAD'
       ? undefined
       : await request.text()
+
   let pluginWarnings: string[] = []
+
   if (deps.guardWrite && requestBody !== undefined) {
     const guard = await deps.guardWrite({
       method: request.method,
@@ -382,8 +427,10 @@ export async function handleProxyRequest(
       body: requestBody,
       token,
     })
+
     if (guard.kind === 'refused') {
       recordProxyRequest(request.method, 422, startedAt, 'validation_error')
+
       return stampRequestId(
         errorEnvelope({
           category: 'validation_error',
@@ -394,17 +441,20 @@ export async function handleProxyRequest(
         requestId,
       )
     }
+
     requestBody = guard.body
     pluginWarnings = guard.warnings
   }
 
   let response: Response
+
   try {
     response = await (deps.fetchFn ?? fetch)(upstream, {
       method: request.method,
       headers,
       body: requestBody,
     })
+
     if (path.kind === 'rpc') observeRpcLatency(path.resource, startedAt)
   } catch (error) {
     logger.error('postgrest proxy upstream fetch failed', {
@@ -415,6 +465,7 @@ export async function handleProxyRequest(
       duration_ms: Date.now() - startedAt,
     })
     recordProxyRequest(request.method, 503, startedAt, 'service_unavailable')
+
     return proxyErrorResponse('upstream_unavailable', requestId)
   }
 
@@ -426,11 +477,13 @@ export async function handleProxyRequest(
     requestId,
     startedAt,
   )
+
   if (pluginWarnings.length > 0)
     finalResponse.headers.set(
       PLUGIN_WARNINGS_HEADER,
       encodeURIComponent(pluginWarnings.join(' | ')),
     )
+
   return stampRequestId(finalResponse, requestId)
 }
 
@@ -460,14 +513,17 @@ async function normaliseUpstreamResponse(
 
   if (response.status < 400) {
     let successfulBody: BodyInit | null = response.body
+
     if (generatedMutation) {
       const text = await response.text()
       let rows: unknown
+
       try {
         rows = JSON.parse(text)
       } catch {
         rows = null
       }
+
       if (Array.isArray(rows) && rows.length === 0) {
         return errorEnvelope({
           category: 'stale_version',
@@ -476,14 +532,17 @@ async function normaliseUpstreamResponse(
           requestId,
         })
       }
+
       successfulBody = text
     }
+
     // Routine successes are covered by the per-request wide event; only slow
     // ones get their own line.
     annotateRequest({
       request_id: requestId,
       upstream: { status: response.status, ms: durationMs },
     })
+
     if (durationMs >= SLOW_REQUEST_MS) {
       logger.info('postgrest proxy slow request', {
         request_id: requestId,
@@ -493,16 +552,21 @@ async function normaliseUpstreamResponse(
         duration_ms: durationMs,
       })
     }
+
     recordProxyRequest(method, response.status, startedAt, 'ok')
     const passthroughHeaders = new Headers()
     const upstreamContentType = response.headers.get('content-type')
+
     if (upstreamContentType) {
       passthroughHeaders.set('content-type', upstreamContentType)
     }
+
     for (const name of ['content-range', 'range-unit', 'preference-applied']) {
       const value = response.headers.get(name)
+
       if (value) passthroughHeaders.set(name, value)
     }
+
     return new Response(successfulBody, {
       status: response.status,
       headers: passthroughHeaders,
@@ -512,6 +576,7 @@ async function normaliseUpstreamResponse(
   // Upstream error: read the body once, categorise, re-wrap.
   let body: { code?: string; message?: string } | null = null
   let rawBody: string | null
+
   try {
     rawBody = await response.text()
     body = rawBody

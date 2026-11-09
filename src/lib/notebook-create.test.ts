@@ -32,10 +32,12 @@ describe('createBlankExperiment', () => {
       },
       blocks: [],
     })
+
     const record = await createBlankExperiment({ rpc } as never, {
       projectId: 'p1',
       title: 'Blank run',
     })
+
     expect(rpc).toHaveBeenCalledWith(
       'create_record_with_blocks',
       expect.objectContaining({

@@ -21,23 +21,29 @@ const COMPLEMENT: Record<string, string> = {
 
 export function reverseComplement(seq: string): string {
   let out = ''
+
   for (let i = seq.length - 1; i >= 0; i--) {
     const ch = seq[i]
     const up = ch.toUpperCase()
     const c = COMPLEMENT[up] ?? up
     out += ch === up ? c : c.toLowerCase()
   }
+
   return out
 }
 
 export function gcPercent(seq: string): number | null {
   let gc = 0
   let acgt = 0
+
   for (const ch of seq) {
     const u = ch.toUpperCase()
+
     if (u === 'G' || u === 'C') gc++
+
     if ('ACGTU'.includes(u)) acgt++
   }
+
   return acgt === 0 ? null : Math.round((gc / acgt) * 1000) / 10
 }
 
@@ -48,6 +54,7 @@ export function featureResidues(
   strand: 1 | -1,
 ): string {
   const joined = parts.map((p) => residues.slice(p.start - 1, p.end)).join('')
+
   return strand === -1 ? reverseComplement(joined) : joined
 }
 
@@ -56,16 +63,20 @@ const CODONS: Record<string, string> = (() => {
   const aa = 'FFLLSSSSYY**CC*WLLLLPPPPHHQQRRRRIIIMTTTTNNKKSSRRVVVVAAAADDEEGGGG'
   const table: Record<string, string> = {}
   let i = 0
+
   for (const a of bases)
     for (const b of bases) for (const c of bases) table[a + b + c] = aa[i++]
+
   return table
 })()
 
 export function translate(dna: string): string {
   const up = dna.toUpperCase().replace(/U/g, 'T')
   let out = ''
+
   for (let i = 0; i + 3 <= up.length; i += 3)
     out += CODONS[up.slice(i, i + 3)] ?? 'X'
+
   return out.replace(/\*$/, '')
 }
 

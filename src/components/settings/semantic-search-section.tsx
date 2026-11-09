@@ -50,6 +50,7 @@ export function SemanticSearchSection({
   assistantOn: boolean
 }) {
   const queryClient = useQueryClient()
+
   const query = useQuery({
     queryKey: semanticKey(workspaceId),
     queryFn: () => getSemanticSettingsFn({ data: { workspaceId } }),
@@ -58,6 +59,7 @@ export function SemanticSearchSection({
     refetchInterval: (state) =>
       state.state.data?.settings.enabled ? 15_000 : false,
   })
+
   const view = query.data
   const [form, setForm] = useState<FormState | null>(null)
   useEffect(() => {
@@ -68,6 +70,7 @@ export function SemanticSearchSection({
     queryClient.setQueryData(semanticKey(workspaceId), next)
     setForm(toForm(next))
   }
+
   const save = useMutation({
     mutationFn: (next: FormState) =>
       updateSemanticSettingsFn({
@@ -89,6 +92,7 @@ export function SemanticSearchSection({
           : t('settings.semanticSearch.couldNotSave'),
       ),
   })
+
   const reread = useMutation({
     mutationFn: () => reindexEmbeddingsFn({ data: { workspaceId } }),
     onSuccess: (next) => {
@@ -99,21 +103,26 @@ export function SemanticSearchSection({
   })
 
   if (query.isPending) return <Skeleton className="h-24 w-full" />
+
   if (!view || !form) return null
 
   const chosen = view.profiles.find((profile) => profile.id === form.profile)
+
   const dirty =
     form.enabled !== view.settings.enabled ||
     form.profile !== view.settings.profile ||
     form.literatureEnabled !== view.settings.literatureEnabled
+
   const blockedByConsent =
     form.enabled && chosen?.dataClass === 'cloud' && !cloudAllowed
+
   const canSave =
     view.canManage &&
     dirty &&
     !save.isPending &&
     !blockedByConsent &&
     (!form.enabled || form.profile !== null)
+
   const { indexedDocuments, totalDocuments } = view.settings
 
   return (

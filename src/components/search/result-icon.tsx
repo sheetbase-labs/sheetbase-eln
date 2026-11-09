@@ -37,6 +37,7 @@ export function searchResultIconName(
   result: Pick<SearchResult, 'resultType' | 'kind' | 'matchedField'>,
 ): IconName {
   if (result.resultType === 'record') return BY_KIND[result.kind] ?? 'box'
+
   return BY_TYPE[result.resultType] ?? 'box'
 }
 

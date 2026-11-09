@@ -67,6 +67,7 @@ const ROLE_ROWS: Array<{ label: string; key: string }> = [
 
 const workLabel = (permission: WorkPermission) =>
   t(`settings.rolesAndPermissions.work_${permission}`)
+
 const workHint = (permission: WorkPermission) =>
   t(`settings.rolesAndPermissions.work_${permission}_hint`)
 
@@ -79,6 +80,7 @@ export function RolesAndPermissions({
   canEdit: boolean
 }) {
   const queryClient = useQueryClient()
+
   const stored = useQuery({
     queryKey: queryKey(workspaceId),
     enabled: Boolean(workspaceId),
@@ -88,6 +90,7 @@ export function RolesAndPermissions({
         '?select=area,role,level',
       ),
   })
+
   const rows = stored.data ?? []
 
   const save = useMutation({
@@ -234,6 +237,7 @@ export function RolesAndPermissions({
             <TableBody>
               {WORK_PERMISSIONS.map((permission) => {
                 const label = workLabel(permission)
+
                 return (
                   <TableRow key={permission}>
                     <TableCell className="whitespace-nowrap">

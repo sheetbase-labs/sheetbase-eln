@@ -12,6 +12,7 @@ import { validSheetInstanceState } from './sheet-instance.test'
 
 const WS = '20000000-0000-4000-8000-000000000001'
 const ACTOR: AiContextActor = { kind: 'user', id: 'user-1' }
+
 function recordWire(overrides: Record<string, unknown> = {}) {
   return {
     id: 'rec-1',
@@ -48,6 +49,7 @@ function mockClient(
     async (name: string, args: Record<string, unknown>) =>
       rpcImpl?.(name, args) ?? null,
   )
+
   const client = {
     list: vi.fn(async (resource: string) => tables[resource] ?? []),
     count: vi.fn(async () => 0),
@@ -62,6 +64,7 @@ function mockClient(
     patch: ReturnType<typeof vi.fn>
     remove: ReturnType<typeof vi.fn>
   }
+
   return client
 }
 
@@ -114,14 +117,17 @@ describe('ai-context envelope', () => {
       updated_at: '2026-01-02T00:00:00Z',
       archived_at: null,
     }
+
     const seen = await assemble(mockClient({ projects: [project] }), [], {
       projectId: 'proj-1',
     })
+
     expect(seen.workspace.project).toEqual({ id: 'proj-1', title: 'Kinetics' })
 
     const missing = await assemble(mockClient({ projects: [] }), [], {
       projectId: 'proj-1',
     })
+
     expect(missing.workspace.project).toBeNull()
     expect(missing.omissions).toHaveLength(1)
     expect(missing.omissions[0]).toMatchObject({
@@ -176,6 +182,7 @@ describe('record summaries', () => {
         }),
       ],
     })
+
     const envelope = await assemble(client, [{ kind: 'record', id: 'rec-1' }])
     const body = envelope.objects[0].sections[2].body
     expect(body).toContain('[redacted]')
@@ -234,6 +241,7 @@ describe('notebook summaries', () => {
       version: 1,
     },
   ]
+
   const links = [
     {
       id: 'link-1',
@@ -252,6 +260,7 @@ describe('notebook summaries', () => {
       blocks,
       record_links: links,
     })
+
     const envelope = await assemble(client, [{ kind: 'notebook', id: 'rec-1' }])
     const object = envelope.objects[0]
 
@@ -276,6 +285,7 @@ describe('permission isolation', () => {
   it('marks RLS-invisible objects with an explicit omission marker', async () => {
     // Empty tables simulate RLS hiding every row from this actor.
     const client = mockClient({})
+
     const envelope = await assemble(client, [
       { kind: 'record', id: 'rec-hidden' },
       { kind: 'dataset', id: 'ds-hidden' },
@@ -283,6 +293,7 @@ describe('permission isolation', () => {
 
     expect(envelope.objects).toEqual([])
     expect(envelope.omissions).toHaveLength(2)
+
     for (const omission of envelope.omissions) {
       expect(omission.reason).toBe('not_visible')
       expect(omission.detail).toContain('omitted without material')
@@ -300,6 +311,7 @@ describe('permission isolation', () => {
         }),
       ],
     })
+
     const envelope = await assemble(client, [
       { kind: 'record', id: 'rec-foreign' },
     ])
@@ -313,9 +325,11 @@ describe('permission isolation', () => {
 
   it('rejects unknown ref kinds at runtime with an explicit omission', async () => {
     const client = mockClient({})
+
     const envelope = await assemble(client, [
       { kind: 'starship', id: 'x' } as unknown as AiObjectRef,
     ])
+
     expect(envelope.objects).toEqual([])
     expect(envelope.omissions[0].reason).toBe('unsupported_kind')
     expect(envelope.omissions[0].detail).toContain('starship')
@@ -327,11 +341,14 @@ describe('budget enforcement', () => {
     const client = mockClient({
       records: [recordWire({ title: 'A very long title '.repeat(50) })],
     })
+
     const envelope = await assemble(client, [{ kind: 'record', id: 'rec-1' }], {
       budgets: { maxCharsPerSection: 120 },
     })
+
     const truncated = envelope.objects[0].sections.filter((s) => s.truncated)
     expect(truncated.length).toBeGreaterThan(0)
+
     for (const section of truncated) {
       expect(section.body).toContain('[truncated:')
       expect(section.body).toContain(section.heading)
@@ -341,9 +358,11 @@ describe('budget enforcement', () => {
 
   it('drops trailing sections over the per-object cap and names them', async () => {
     const client = mockClient({ records: [recordWire()] })
+
     const envelope = await assemble(client, [{ kind: 'record', id: 'rec-1' }], {
       budgets: { maxSectionsPerObject: 1 },
     })
+
     const object = envelope.objects[0]
     expect(object.truncated).toBe(true)
     const tail = object.sections.at(-1)
@@ -355,9 +374,11 @@ describe('budget enforcement', () => {
 
   it('drops objects over the total budget as explicit omissions', async () => {
     const client = mockClient({ records: [recordWire()] })
+
     const envelope = await assemble(client, [{ kind: 'record', id: 'rec-1' }], {
       budgets: { maxCharsTotal: 10 },
     })
+
     expect(envelope.objects).toEqual([])
     expect(envelope.omissions[0]).toMatchObject({
       kind: 'record',
@@ -369,6 +390,7 @@ describe('budget enforcement', () => {
 
   it('caps requested refs at maxObjects and names the dropped refs', async () => {
     const client = mockClient({ records: [recordWire()] })
+
     const envelope = await assemble(
       client,
       [
@@ -378,11 +400,14 @@ describe('budget enforcement', () => {
       ],
       { budgets: { maxObjects: 1 } },
     )
+
     expect(envelope.objects).toHaveLength(1)
     expect(envelope.budgets.usage.objects).toBe(1)
+
     const dropped = envelope.omissions.filter(
       (o) => o.reason === 'budget_exceeded',
     )
+
     expect(dropped).toHaveLength(2)
     expect(dropped[0].detail).toContain('rec-2')
     expect(dropped[1].detail).toContain('rec-3')
@@ -424,6 +449,7 @@ describe('dataset summaries', () => {
     const rpcImpl = (name: string, args: Record<string, unknown>) => {
       expect(name).toBe('query_dataset_rows')
       expect(args.p_limit).toBe(2)
+
       return {
         rows: [
           { rowId: 'row-1', revision: 1, values: { od600: 0.42 } },
@@ -432,12 +458,15 @@ describe('dataset summaries', () => {
         totalCount: 120,
       }
     }
+
     const client = mockClient(datasetTables(), rpcImpl)
+
     const envelope = await assemble(
       client,
       [{ kind: 'dataset', id: 'ds-1', includeSampleRows: true }],
       { budgets: { maxRowsPerDataset: 2 } },
     )
+
     const object = envelope.objects[0]
 
     expect(object.freshness).toBe('live')
@@ -456,11 +485,14 @@ describe('dataset summaries', () => {
       async <T>(..._args: unknown[]): Promise<T> =>
         ({ rows: [], totalCount: 0 }) as T,
     )
+
     const base = mockClient(datasetTables())
+
     const client: DataClient = {
       ...base,
       rpc: rpc as unknown as DataClient['rpc'],
     }
+
     const envelope = await assemble(client, [
       {
         kind: 'dataset',
@@ -469,6 +501,7 @@ describe('dataset summaries', () => {
         pinnedVersionId: 'dsv-1',
       },
     ])
+
     const object = envelope.objects[0]
 
     expect(object.freshness).toBe('pinned')
@@ -485,6 +518,7 @@ describe('dataset summaries', () => {
 describe('sheet and analysis summaries', () => {
   it('summarises a live sheet instance with its source definition pin', async () => {
     const sheetId = '30000000-0000-4000-8000-000000000011'
+
     const client = mockClient({
       sheet_instances: [
         {
@@ -506,6 +540,7 @@ describe('sheet and analysis summaries', () => {
         },
       ],
     })
+
     const envelope = await assemble(client, [{ kind: 'sheet', id: sheetId }])
     const object = envelope.objects[0]
 
@@ -556,9 +591,11 @@ describe('sheet and analysis summaries', () => {
         },
       ],
     })
+
     const envelope = await assemble(client, [
       { kind: 'sheet', id: 'sdef-1', pinnedVersionId: 'sdv-3' },
     ])
+
     const object = envelope.objects[0]
 
     expect(object.freshness).toBe('pinned')
@@ -587,6 +624,7 @@ describe('sheet and analysis summaries', () => {
         },
       ],
     })
+
     const envelope = await assemble(client, [{ kind: 'analysis', id: 'def-1' }])
     const object = envelope.objects[0]
 
@@ -610,6 +648,7 @@ describe('sheet and analysis summaries', () => {
       updated_at: '2026-01-02T00:00:00Z',
       archived_at: null,
     }
+
     const client = mockClient({
       projects: [project],
       records: [recordWire()],
@@ -622,6 +661,7 @@ describe('sheet and analysis summaries', () => {
         },
       ],
     })
+
     const envelope = await assemble(client, [{ kind: 'project', id: 'proj-1' }])
     const object = envelope.objects[0]
     expect(envelope.omissions).toEqual([])
@@ -638,12 +678,14 @@ describe('sheet and analysis summaries', () => {
       mockClient({ projects: [{ ...project, workspace_id: 'other' }] }),
       [{ kind: 'project', id: 'proj-1' }],
     )
+
     expect(foreign.objects).toEqual([])
     expect(foreign.omissions[0]).toMatchObject({ reason: 'wrong_workspace' })
 
     const hidden = await assemble(mockClient({ projects: [] }), [
       { kind: 'project', id: 'proj-1' },
     ])
+
     expect(hidden.omissions[0]).toMatchObject({ reason: 'not_visible' })
   })
 })

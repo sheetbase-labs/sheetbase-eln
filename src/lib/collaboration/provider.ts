@@ -42,26 +42,33 @@ type Listener = () => void
  */
 export function colorForUser(userId: string): string {
   let hash = 0
+
   for (let i = 0; i < userId.length; i++) {
     hash = (hash * 31 + userId.charCodeAt(i)) | 0
   }
+
   const hue = Math.abs(hash) % 360
   const saturation = 0.62
   const lightness = 0.4
   const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation
+
   const channel = (n: number) => {
     const k = (n + hue / 30) % 12
+
     const value =
       lightness - (chroma / 2) * Math.max(-1, Math.min(k - 3, 9 - k, 1))
+
     return Math.round(value * 255)
       .toString(16)
       .padStart(2, '0')
   }
+
   return `#${channel(0)}${channel(8)}${channel(4)}`
 }
 
 export function collabUrl(roomId: string, location: Location): string {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
+
   return `${protocol}//${location.host}/api/collaboration/ws?room=${encodeURIComponent(roomId)}`
 }
 
@@ -104,6 +111,7 @@ export class CollabProvider {
       syncProtocol.writeUpdate(encoder, update)
       this.send(encoding.toUint8Array(encoder))
     }
+
     this.onAwarenessUpdate = ({ added, updated, removed }, origin) => {
       if (origin === this) return
       const encoder = encoding.createEncoder()
@@ -117,6 +125,7 @@ export class CollabProvider {
       )
       this.send(encoding.toUint8Array(encoder))
     }
+
     doc.on('update', this.onDocUpdate)
     this.awareness.on('update', this.onAwarenessUpdate)
     this.connect()
@@ -125,6 +134,7 @@ export class CollabProvider {
   /** Subscribe to status / sync / identity changes. Returns the unsubscribe. */
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener)
+
     return () => this.listeners.delete(listener)
   }
 
@@ -154,18 +164,22 @@ export class CollabProvider {
     ws.onmessage = (event) => {
       const decoder = decoding.createDecoder(new Uint8Array(event.data))
       const type = decoding.readVarUint(decoder)
+
       if (type === MESSAGE_SYNC) {
         const encoder = encoding.createEncoder()
         encoding.writeVarUint(encoder, MESSAGE_SYNC)
+
         const syncType = syncProtocol.readSyncMessage(
           decoder,
           encoder,
           this.doc,
           this,
         )
+
         if (encoding.length(encoder) > 1) {
           this.send(encoding.toUint8Array(encoder))
         }
+
         // Step 2 is the server's reply to our step 1: its copy is now merged.
         if (syncType === syncProtocol.messageYjsSyncStep2 && !this.synced) {
           this.synced = true
@@ -189,6 +203,7 @@ export class CollabProvider {
           avatar: string | null
           canWrite: boolean
         }
+
         this.canWrite = access.canWrite
         this.identity = {
           id: access.userId,
@@ -208,6 +223,7 @@ export class CollabProvider {
       encoding.writeVarUint(encoder, MESSAGE_SYNC)
       syncProtocol.writeSyncStep1(encoder, this.doc)
       this.send(encoding.toUint8Array(encoder))
+
       // The server forgot us when the last connection dropped; say who we are.
       if (this.awareness.getLocalState()) {
         const aware = encoding.createEncoder()
@@ -227,22 +243,32 @@ export class CollabProvider {
       const wasSynced = this.synced
       this.synced = false
       this.canWrite = false
+
       for (const resolve of this.seedClaims.values()) resolve(false)
       this.seedClaims.clear()
+
       // Everyone else's presence is stale until we are back.
       const others = [...this.awareness.getStates().keys()].filter(
         (id) => id !== this.doc.clientID,
       )
+
       awarenessProtocol.removeAwarenessStates(this.awareness, others, this)
+
       if (this.destroyed) return
+
       if (FINAL_CLOSE_CODES.has(event.code)) {
         this.setStatus('denied')
+
         return
       }
+
       this.setStatus('disconnected')
+
       if (wasSynced) this.emit()
+
       const delay =
         Math.min(10_000, 500 * 2 ** this.retry) * (0.75 + Math.random() / 2)
+
       this.retry += 1
       this.retryTimer = setTimeout(() => this.connect(), delay)
     }
@@ -279,11 +305,13 @@ export class CollabProvider {
     if (this.ws?.readyState !== WebSocket.OPEN || !this.canWrite) {
       return Promise.resolve(false)
     }
+
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         this.seedClaims.delete(blockId)
         resolve(false)
       }, 5000)
+
       this.seedClaims.set(blockId, (granted) => {
         clearTimeout(timer)
         resolve(granted)
@@ -306,6 +334,7 @@ export class CollabProvider {
 
   destroy() {
     this.destroyed = true
+
     if (this.retryTimer) clearTimeout(this.retryTimer)
     this.doc.off('update', this.onDocUpdate)
     this.awareness.off('update', this.onAwarenessUpdate)

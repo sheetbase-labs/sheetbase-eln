@@ -43,6 +43,7 @@ import { t } from '#/copy'
 import { hasCapability } from '#/lib/capability'
 
 const tabs = ['all', 'mine', 'draft', 'review', 'approved', 'archived'] as const
+
 type ReportTab = (typeof tabs)[number]
 
 const tabLabel: Record<ReportTab, string> = {
@@ -59,13 +60,17 @@ const SORTS: Record<string, SortingState> = {
   ID: [{ id: 'identifier', desc: false }],
   [t('projects.reports.grid.report')]: [{ id: 'title', desc: false }],
 }
+
 const sorts = Object.keys(SORTS)
 
 function sortKeyOf(sorting: SortingState): string | undefined {
   const first = sorting.at(0)
+
   if (!first) return undefined
+
   return sorts.find((key) => {
     const entry = SORTS[key].at(0)
+
     return entry?.id === first.id && entry.desc === first.desc
   })
 }
@@ -83,9 +88,11 @@ export const Route = createFileRoute('/reports')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: ReportsRoute,
@@ -95,6 +102,7 @@ function ReportsRoute() {
   const isIndex = useRouterState({
     select: (state) => state.location.pathname === '/reports',
   })
+
   return isIndex ? <ReportsList /> : <Outlet />
 }
 
@@ -120,40 +128,50 @@ function ReportsList() {
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
   const search = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
+
   const dropNewFlag = useCallback(() => {
     void navigate({
       search: (current) => ({ ...current, new: undefined }),
       replace: true,
     })
   }, [navigate])
+
   // The person's own sorting (a header click, or the Sort menu) is remembered;
   // with none, the newest-updated reports lead.
   const view = useListView('reports')
+
   const sorting = view.sorting.length
     ? view.sorting
     : SORTS[t('library.protocols.list.updated')]
+
   const setSorting = view.setSorting
+
   const [selectedId, setSelectedId] = useState<string | null>(
     search.selected ?? null,
   )
+
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     selectedId,
     setSelectedId,
   )
+
   const openReport = useOpenRow<ReportListRow>(
     navigate,
     (row) => `/reports/${encodeURIComponent(row.recordId)}`,
     (row) => row.title,
   )
+
   const query = useQuery({
     queryKey: reportKeys.list,
     queryFn: () => fetchReports(notebookDataClient),
     staleTime: 15_000,
   })
+
   const rows = query.data ?? []
   const names = useUserNames(rows.map((r) => r.createdByUserId))
   const userId = context.user.id
   const tab: ReportTab = search.tab ?? 'all'
+
   const counts = useMemo(
     () =>
       Object.fromEntries(
@@ -164,14 +182,18 @@ function ReportsList() {
       ) as Record<ReportTab, number>,
     [rows, userId],
   )
+
   const q = (search.q ?? '').trim().toLowerCase()
+
   const visible = rows
     .filter((r) => inTab(r, tab, userId))
     .filter((r) => !q || `${r.identifier} ${r.title}`.toLowerCase().includes(q))
+
   const sel =
     visible.find((r) => r.recordId === selectedId) ??
     visible.find((r) => r.recordId === search.selected) ??
     visible.at(0)
+
   const workspaceId = context.workspace?.id ?? ''
 
   return (
@@ -252,6 +274,7 @@ function ReportsList() {
             label={t('projects.reports.page.title')}
             items={visible.map((r) => {
               const status = reportStatus(r.status)
+
               return {
                 key: r.recordId,
                 id: r.identifier,

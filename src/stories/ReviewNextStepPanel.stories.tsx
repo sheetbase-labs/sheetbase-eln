@@ -26,8 +26,11 @@ const waiting = {
 const withNext = screenQueryClient({
   data: [{ key: workItemsQueryKeys.list(), value: [waiting] }],
 })
+
 const loading = screenQueryClient()
+
 holdRead(loading, workItemsQueryKeys.list())
+
 const none = screenQueryClient({
   data: [{ key: workItemsQueryKeys.list(), value: [] }],
 })
@@ -70,7 +73,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof ReviewNextStepPanel>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** With an action for the reader and another review waiting. */

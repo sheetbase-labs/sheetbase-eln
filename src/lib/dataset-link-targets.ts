@@ -20,6 +20,7 @@ export async function fetchDatasetLinkTargets(
 ): Promise<Map<string, DatasetLinkTarget>> {
   const unique = [...new Set(references)].filter(Boolean)
   const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
   const [byId, byIdentifier] = await Promise.all(
     ['id', 'display_id'].map((column) =>
       listByIds(
@@ -34,10 +35,14 @@ export async function fetchDatasetLinkTargets(
       ),
     ),
   )
+
   const targets = new Map<string, DatasetLinkTarget>()
+
   for (const target of [...byId, ...byIdentifier]) {
     targets.set(target.id, target)
+
     if (target.display_id) targets.set(target.display_id, target)
   }
+
   return targets
 }

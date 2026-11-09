@@ -49,6 +49,7 @@ export function createCredentialRateLimiter(
   function sweep(now: number) {
     if (buckets.size <= sweepAbove || now - lastSweepAt < sweepEveryMs) return
     lastSweepAt = now
+
     for (const [prefix, bucket] of buckets) {
       if (expired(bucket, now)) buckets.delete(prefix)
     }
@@ -57,20 +58,27 @@ export function createCredentialRateLimiter(
   return {
     isLocked(prefix, now = Date.now()) {
       const bucket = buckets.get(prefix)
+
       if (!bucket) return false
+
       if (bucket.lockedUntil > now) return true
+
       if (bucket.lastFailureAt < now - windowMs) buckets.delete(prefix)
+
       return false
     },
     recordFailure(prefix, now = Date.now()) {
       sweep(now)
+
       const bucket = buckets.get(prefix) ?? {
         failures: 0,
         lastFailureAt: now,
         lockedUntil: 0,
       }
+
       bucket.failures += 1
       bucket.lastFailureAt = now
+
       if (bucket.failures >= maxFailures) bucket.lockedUntil = now + lockMs
       buckets.set(prefix, bucket)
     },

@@ -13,6 +13,7 @@ const datasetVersionId = '10000000-0000-4000-8000-000000000005'
 const materializationId = '10000000-0000-4000-8000-000000000006'
 const retry = '10000000-0000-4000-8000-000000000007'
 const digest = 'a'.repeat(64)
+
 const field = {
   fieldId: '10000000-0000-4000-8000-000000000008',
   key: 'sample',
@@ -32,6 +33,7 @@ const field = {
   computation: { mode: 'stored' },
   lifecycle: 'active',
 }
+
 const sourceVersion = {
   bindingId: '10000000-0000-4000-8000-000000000009',
   datasetId,
@@ -74,12 +76,14 @@ describe('Sheet materialization data contract', () => {
         sourceVersions: [sourceVersion],
         idempotent: false,
       })
+
     const client = { rpc } as never
 
     const preview = await previewSheetMaterialization(
       { instanceId, expectedRevision: 2 },
       client,
     )
+
     const result = await materializeSheetInstance(
       {
         instanceId,
@@ -114,6 +118,7 @@ describe('Sheet materialization data contract', () => {
         previewDigest: digest,
       }),
     } as never
+
     await expect(
       previewSheetMaterialization({ instanceId, expectedRevision: 2 }, client),
     ).rejects.toThrow()

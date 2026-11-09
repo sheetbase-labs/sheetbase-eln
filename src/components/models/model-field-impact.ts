@@ -45,6 +45,7 @@ export function buildModelFieldImpact(
       recordCount:
         usage.find((row) => row.version_id === version.id)?.record_count ?? 0,
     }))
+
   // Newest first: everything after the head is pinned to an earlier version.
   const migratableRecords = recordsOnEachVersion
     .slice(1)
@@ -55,6 +56,7 @@ export function buildModelFieldImpact(
           ?.migratable_record_count ?? 0),
       0,
     )
+
   return {
     recordsOnEachVersion,
     migratableRecords,

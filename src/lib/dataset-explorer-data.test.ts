@@ -110,6 +110,7 @@ describe('buildDatasetRowQuery', () => {
       },
       table().columns,
     )
+
     expect(q).toContain('order=created_at.asc,id.asc')
     expect(q).toContain('limit=25')
     expect(q).toContain('offset=0')
@@ -125,6 +126,7 @@ describe('buildDatasetRowQuery', () => {
       },
       table().columns,
     )
+
     expect(q).toContain('order=col_beta.desc,id.asc')
     expect(q).toContain('limit=50')
     expect(q).toContain('offset=100')
@@ -136,6 +138,7 @@ describe('buildDatasetRowQuery', () => {
       operator: 'eq' as const,
       values: [`v${i}`],
     }))
+
     const q = buildDatasetRowQuery(
       {
         pageIndex: 0,
@@ -147,6 +150,7 @@ describe('buildDatasetRowQuery', () => {
         column({ field_name: `col_${i}` }),
       ),
     )
+
     // Only the first DATASET_MAX_FILTERS filters are emitted.
     const matches = q.match(/col_\d+=eq\./g) ?? []
     expect(matches.length).toBe(DATASET_MAX_FILTERS)
@@ -162,6 +166,7 @@ describe('buildDatasetRowQuery', () => {
       },
       table().columns,
     )
+
     expect(q).toContain(
       `limit=${DATASET_PAGE_SIZES[DATASET_PAGE_SIZES.length - 1]}`,
     )
@@ -171,9 +176,11 @@ describe('buildDatasetRowQuery', () => {
 describe('canonical Dataset Explorer reads', () => {
   it('lists api.datasets and attaches stable schema-version field UUIDs', async () => {
     const calls: string[] = []
+
     const client = {
       list: async (resource: string) => {
         calls.push(resource)
+
         if (resource === 'datasets')
           return [
             {
@@ -186,6 +193,7 @@ describe('canonical Dataset Explorer reads', () => {
               revision: 2,
             },
           ]
+
         return [
           {
             field_id: 'f1',
@@ -202,6 +210,7 @@ describe('canonical Dataset Explorer reads', () => {
         ]
       },
     } as unknown as DataClient
+
     const result = await fetchDatasetSummaries(client)
     expect(calls).toEqual([
       'datasets',
@@ -218,20 +227,25 @@ describe('canonical Dataset Explorer reads', () => {
 
   it('keeps every lookup query short enough for the proxy when there are many datasets', async () => {
     const queries: string[] = []
+
     const client = {
       list: async (name: string, query = '') => {
         queries.push(query)
+
         if (name === 'datasets')
           return Array.from({ length: 40 }, (_, i) => ({
             id: `d${i}`,
             name: `Dataset ${i}`,
             schema_version_id: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
           }))
+
         return []
       },
     } as unknown as DataClient
+
     await fetchDatasetSummaries(client)
     expect(queries.length).toBeGreaterThan(4)
+
     for (const q of queries)
       for (const [, value] of new URLSearchParams(q.slice(1)))
         expect(value.length).toBeLessThanOrEqual(500)
@@ -239,25 +253,30 @@ describe('canonical Dataset Explorer reads', () => {
 
   it('pages, filters and sorts only through query_dataset_rows', async () => {
     let call: { name: string; args: Record<string, unknown> } | undefined
+
     const client = {
       rpc: async (name: string, args: Record<string, unknown>) => {
         call = { name, args }
+
         return {
           totalCount: 1,
           rows: [{ rowId: 'r1', revision: 3, values: { f1: 7.2 } }],
         }
       },
     } as unknown as DataClient
+
     const canonical = table({
       id: 'd1',
       columns: [column({ id: 'f1', field_name: 'f1' })],
     })
+
     const page = await fetchDatasetRowPage(client, canonical, {
       pageIndex: 2,
       pageSize: 25,
       sorting: [{ id: 'f1', desc: true }],
       filters: [{ fieldId: 'f1', operator: 'eq', values: [7.2] }],
     })
+
     expect(call).toEqual({
       name: 'query_dataset_rows',
       args: {
@@ -328,6 +347,7 @@ describe('sanitizeDatasetView', () => {
     const t = table({
       columns: [column({ id: 'col-2', field_name: 'col_beta', label: 'pH' })],
     })
+
     // Default view sorts by col_beta (still present), filters by col_alpha
     // (gone) and hides col_alpha (gone): only the filter and hidden field
     // are stripped.
@@ -339,6 +359,7 @@ describe('sanitizeDatasetView', () => {
 
   it('resets page index and clamps page size to an allowed value', () => {
     const t = table()
+
     const safe = sanitizeDatasetView(
       view({
         query: {
@@ -350,6 +371,7 @@ describe('sanitizeDatasetView', () => {
       }),
       t.columns,
     )
+
     expect(safe.spec.query.pageIndex).toBe(0)
     expect(DATASET_PAGE_SIZES).toContain(safe.spec.query.pageSize)
   })
@@ -376,6 +398,7 @@ describe('validateTransformations', () => {
       { length: DATASET_MAX_TRANSFORMATIONS + 1 },
       () => ({ kind: 'aggregate' as const, params: {} }),
     )
+
     const result = validateTransformations(tooMany)
     expect(result.ok).toBe(false)
     expect(result.ok === false && result.errors.length).toBeGreaterThan(0)
@@ -389,7 +412,9 @@ describe('validateTransformations', () => {
         params: 'not-an-object',
       },
     ])
+
     expect(result.ok).toBe(false)
+
     if (!result.ok) {
       expect(result.errors.some((e) => e.includes('Unsupported'))).toBe(true)
       expect(result.errors.some((e) => e.includes('params'))).toBe(true)
@@ -419,6 +444,7 @@ describe('buildDefaultChartSpec', () => {
         }),
       ],
     })
+
     const spec = buildDefaultChartSpec(t)
     expect(spec).not.toBeNull()
     expect(spec!.fields.y.fieldId).toBe('col-num')
@@ -431,6 +457,7 @@ describe('buildDefaultChartSpec', () => {
 describe('createDatasetSavedViewStore', () => {
   function memoryStorage(): Storage {
     const map = new Map<string, string>()
+
     return {
       getItem: (k) => map.get(k) ?? null,
       setItem: (k, v) => void map.set(k, v),
@@ -449,6 +476,7 @@ describe('createDatasetSavedViewStore', () => {
       userId: 'u-1',
       storage: memoryStorage(),
     })
+
     store.save({
       id: 'v-1',
       name: 'Default',
@@ -473,11 +501,13 @@ describe('createDatasetSavedViewStore', () => {
   it('ignores corrupt persisted JSON', () => {
     const storage = memoryStorage()
     storage.setItem('sheetbase-dataset-views-v1:ws-1:u-1', 'not-json')
+
     const store = createDatasetSavedViewStore({
       workspaceId: 'ws-1',
       userId: 'u-1',
       storage,
     })
+
     expect(store.list('t-1')).toEqual([])
   })
 })
@@ -485,12 +515,15 @@ describe('createDatasetSavedViewStore', () => {
 describe('fetchDatasetLifecycleById', () => {
   it('reads one Dataset lifecycle by stable ID regardless of archive state', async () => {
     const queries: string[] = []
+
     const client = {
       list: async (_resource: string, query: string) => {
         queries.push(query)
+
         return [{ lifecycle: 'archived' }]
       },
     } as unknown as DataClient
+
     const lifecycle = await fetchDatasetLifecycleById(client, 'd-archived')
     expect(lifecycle).toBe('archived')
     expect(queries[0]).toBe('?id=eq.d-archived&select=lifecycle')
@@ -500,6 +533,7 @@ describe('fetchDatasetLifecycleById', () => {
     const client = {
       list: async () => [],
     } as unknown as DataClient
+
     await expect(
       fetchDatasetLifecycleById(client, 'd-missing'),
     ).resolves.toBeNull()
@@ -592,9 +626,11 @@ describe('resolveDatasetDeepLinkSelection', () => {
 describe('snapshot version reads and keeps (DSET-04.3)', () => {
   it('lists snapshots through dataset_version_list', async () => {
     let call: { name: string; args: Record<string, unknown> } | undefined
+
     const client = {
       rpc: async (name: string, args: Record<string, unknown>) => {
         call = { name, args }
+
         return []
       },
     } as unknown as DataClient
@@ -608,9 +644,11 @@ describe('snapshot version reads and keeps (DSET-04.3)', () => {
 
   it('keeps a snapshot through keep_dataset_version with a trimmed reason', async () => {
     let call: { name: string; args: Record<string, unknown> } | undefined
+
     const client = {
       rpc: async (name: string, args: Record<string, unknown>) => {
         call = { name, args }
+
         return {}
       },
     } as unknown as DataClient

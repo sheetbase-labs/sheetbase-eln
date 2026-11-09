@@ -61,6 +61,7 @@ vi.mock('#/components/sheets/column-promotions-panel', () => ({
 vi.mock('#/components/sheet/canonical-sheet-workspace', () => ({
   CanonicalSheetWorkspace: (props: Record<string, unknown>) => {
     mocks.workspaceProps = props
+
     return <div data-testid="sheet-workspace" />
   },
 }))
@@ -79,6 +80,7 @@ vi.mock('#/lib/collaboration/collaboration-enabled', () => ({
 vi.mock('#/lib/use-page-ai', () => ({
   usePageAi: () => ({ available: false, live: false, workspaceId: null }),
 }))
+
 vi.mock('#/lib/recents', () => ({ useRecentViewTracking: () => undefined }))
 
 vi.mock('#/components/ui/layout', () => ({
@@ -185,6 +187,7 @@ describe('sheet Share (QA2-sheets-2)', () => {
       configurable: true,
       value: { writeText: mock },
     })
+
     return mock
   }
 

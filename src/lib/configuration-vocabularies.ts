@@ -38,13 +38,16 @@ type SchemaCategoryWire =
 function parseCategory(value: unknown): SchemaCategoryWire | null {
   if (!value || typeof value !== 'object') return null
   const record = value as Record<string, unknown>
+
   if (record.kind === 'vocabulary' && typeof record.vocabularyId === 'string') {
     return { kind: 'vocabulary', vocabularyId: record.vocabularyId }
   }
+
   if (record.kind === 'embedded' && Array.isArray(record.options)) {
     const options = record.options.flatMap((option) => {
       if (!option || typeof option !== 'object') return []
       const item = option as Record<string, unknown>
+
       if (
         typeof item.id !== 'string' ||
         typeof item.key !== 'string' ||
@@ -52,6 +55,7 @@ function parseCategory(value: unknown): SchemaCategoryWire | null {
       ) {
         return []
       }
+
       return [
         {
           id: item.id,
@@ -66,8 +70,10 @@ function parseCategory(value: unknown): SchemaCategoryWire | null {
         },
       ]
     })
+
     return { kind: 'embedded', options }
   }
+
   return null
 }
 
@@ -88,9 +94,11 @@ export function collectModelVocabularies(
   fields: Awaited<ReturnType<typeof fetchModelFields>>,
 ): ConfigurationVocabulary[] {
   const items: ConfigurationVocabulary[] = []
+
   for (const field of fields) {
     if (field.logicalType !== 'category') continue
     const categorySource = field.categorySource
+
     if (categorySource?.kind === 'vocabulary') {
       items.push({
         id: `model:${field.id}`,
@@ -105,6 +113,7 @@ export function collectModelVocabularies(
       })
       continue
     }
+
     if (field.options.length > 0) {
       items.push({
         id: `model:${field.id}`,
@@ -119,6 +128,7 @@ export function collectModelVocabularies(
       })
     }
   }
+
   return items
 }
 
@@ -128,9 +138,11 @@ export function collectSchemaVocabularies(
   fields: CanonicalDatasetSchemaField[],
 ): ConfigurationVocabulary[] {
   const items: ConfigurationVocabulary[] = []
+
   for (const field of fields) {
     if (field.logical_type !== 'category') continue
     const category = parseCategory(field.category)
+
     if (category?.kind === 'vocabulary') {
       items.push({
         id: `schema:${field.field_id}`,
@@ -145,6 +157,7 @@ export function collectSchemaVocabularies(
       })
       continue
     }
+
     if (category?.kind === 'embedded' && category.options.length > 0) {
       items.push({
         id: `schema:${field.field_id}`,
@@ -159,6 +172,7 @@ export function collectSchemaVocabularies(
       })
     }
   }
+
   return items
 }
 
@@ -168,10 +182,13 @@ export function collectDefinitionVocabularies(
   configuration: SheetDefinitionConfiguration,
 ): ConfigurationVocabulary[] {
   const items: ConfigurationVocabulary[] = []
+
   for (const column of configuration.columns) {
     const field = column.field
+
     if (field.logicalType !== 'category') continue
     const category = field.category
+
     if (category?.kind === 'vocabulary') {
       items.push({
         id: `definition:${column.id}`,
@@ -186,6 +203,7 @@ export function collectDefinitionVocabularies(
       })
       continue
     }
+
     if (category?.kind === 'embedded' && category.options.length > 0) {
       items.push({
         id: `definition:${column.id}`,
@@ -200,6 +218,7 @@ export function collectDefinitionVocabularies(
       })
     }
   }
+
   return items
 }
 
@@ -221,10 +240,13 @@ export async function loadConfigurationVocabularies(
     p_limit: 200,
     p_offset: offset,
   })
+
   const wire = page as Record<string, unknown>
   const rows = Array.isArray(wire.items) ? wire.items : []
+
   const items = rows.map((row) => {
     const item = row as Record<string, unknown>
+
     return {
       id: String(item.id),
       label: String(item.label),
@@ -238,6 +260,7 @@ export async function loadConfigurationVocabularies(
       terms: Array.isArray(item.terms)
         ? item.terms.map((term) => {
             const value = term as Record<string, unknown>
+
             return {
               id: String(value.id),
               key: String(value.key),
@@ -248,5 +271,6 @@ export async function loadConfigurationVocabularies(
         : [],
     }
   })
+
   return { items, hasMore: wire.hasMore === true }
 }

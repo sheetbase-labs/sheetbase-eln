@@ -34,6 +34,7 @@ function drop(canvasElement: HTMLElement, file: File) {
   const transfer = new DataTransfer()
   transfer.items.add(file)
   const zone = canvasElement.querySelector('[data-slot="file-drop"]')
+
   if (!zone) throw new Error('no drop target')
   zone.dispatchEvent(
     new DragEvent('drop', {
@@ -57,7 +58,9 @@ const meta = {
     className: 'max-w-[420px]',
   },
 } satisfies Meta<typeof FileDrop>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** At rest: the drop target, with nothing picked yet. */
@@ -118,9 +121,11 @@ export const Failed: Story = {
   },
   play: async ({ canvasElement }) => {
     await pick(canvasElement)
+
     const retry = await within(canvasElement).findByRole('button', {
       name: 'Retry plate-01.csv',
     })
+
     await expect(
       within(canvasElement).getByText('The file store refused this file.'),
     ).toBeInTheDocument()

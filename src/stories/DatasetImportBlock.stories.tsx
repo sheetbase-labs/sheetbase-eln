@@ -52,12 +52,17 @@ const receipt = {
 const withReceipt = screenQueryClient({
   data: [{ key: importQueryKeys.imports(DATASET_ID), value: [receipt] }],
 })
+
 holdRead(withReceipt, notebookQueryKeys.record('record-1'))
+
 const missingReceipt = screenQueryClient({
   data: [{ key: importQueryKeys.imports(DATASET_ID), value: [] }],
 })
+
 const loading = screenQueryClient()
+
 holdRead(loading, importQueryKeys.imports(DATASET_ID))
+
 holdRead(loading, notebookQueryKeys.record('record-1'))
 
 const meta = {
@@ -93,7 +98,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof DatasetImportBlockPreview>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The committed receipt the block pins, with the ways to use the data. */

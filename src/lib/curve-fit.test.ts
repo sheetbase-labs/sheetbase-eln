@@ -26,6 +26,7 @@ describe('curveValue and curveInverse', () => {
 
   it('inverts the curve it evaluates, for both models', () => {
     const asym: CurveParameters = { ...rising, G: 0.6 }
+
     for (const [params, model] of [
       [rising, '4pl'],
       [asym, '5pl'],
@@ -54,11 +55,13 @@ describe('curveValue and curveInverse', () => {
 describe('fitCurve', () => {
   it('recovers a noise-free rising 4PL exactly', () => {
     const truth: CurveParameters = { A: 0.05, B: 1.4, C: 20, D: 2.4, G: 1 }
+
     const fit = fitCurve(
       DOSES,
       DOSES.map((x) => curveValue(truth, x)),
       '4pl',
     )!
+
     expect(fit.converged).toBe(true)
     expect(fit.params.A).toBeCloseTo(0.05, 4)
     expect(fit.params.B).toBeCloseTo(1.4, 4)
@@ -87,11 +90,13 @@ describe('fitCurve', () => {
   it('recovers an asymmetric 5PL and its half-way dose', () => {
     const truth: CurveParameters = { A: 0.1, B: 1.8, C: 40, D: 3, G: 0.55 }
     const doses = [0.05, 0.15, 0.5, 1.5, 5, 15, 50, 150, 500, 1500]
+
     const fit = fitCurve(
       doses,
       doses.map((x) => curveValue(truth, x, '5pl')),
       '5pl',
     )!
+
     expect(fit.r2).toBeCloseTo(1, 6)
     expect(fit.ec50).toBeCloseTo(curveEc50(truth, '5pl'), 1)
     expect(fit.estimates.map((e) => e.name)).toEqual(['A', 'B', 'C', 'D', 'G'])
@@ -108,11 +113,13 @@ describe('fitCurve', () => {
   it('has no standard errors when the points just fit the parameters', () => {
     const truth: CurveParameters = { A: 0, B: 1, C: 10, D: 5, G: 1 }
     const xs = [1, 5, 20, 100]
+
     const fit = fitCurve(
       xs,
       xs.map((x) => curveValue(truth, x)),
       '4pl',
     )!
+
     expect(fit.dfResidual).toBe(0)
     expect(fit.sigma).toBeNull()
     expect(fit.estimates.every((e) => e.se === null)).toBe(true)
@@ -125,6 +132,7 @@ describe('fitCurve', () => {
       { min: 1, max: 1000 },
       40,
     )
+
     expect(points).toHaveLength(40)
     expect(points[0].x).toBeCloseTo(1)
     expect(points[39].x).toBeCloseTo(1000)

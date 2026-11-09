@@ -54,6 +54,7 @@ export function PlatesPage({
   const [tab, setTab] = useState<PlatesTab>('runs')
   const [q, setQ] = useState('')
   const [creating, setCreating] = useState(false)
+
   const [openWorklist, setOpenWorklist] = useState<PlateWorklistRow | null>(
     null,
   )
@@ -63,16 +64,20 @@ export function PlatesPage({
     queryFn: () => fetchPlateRuns(notebookDataClient),
     staleTime: 10_000,
   })
+
   const worklists = useQuery({
     queryKey: plateRunKeys.worklists,
     queryFn: () => fetchPlateWorklists(notebookDataClient),
     staleTime: 10_000,
   })
+
   const all = useMemo(() => runs.data ?? [], [runs.data])
   const needle = q.trim().toLowerCase()
+
   const visibleRuns = all.filter(
     (r) => needle === '' || runText(r).includes(needle),
   )
+
   const visibleWorklists = (worklists.data ?? []).filter(
     (w) =>
       needle === '' ||
@@ -124,6 +129,7 @@ export function PlatesPage({
         size: 130,
         cell: ({ row }) => {
           const s = row.original.results?.summary
+
           return (
             <span className="num text-fg-muted">
               {s

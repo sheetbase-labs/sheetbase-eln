@@ -45,12 +45,14 @@ const formFrom = (overrides: PluginLimitOverrides): Form =>
   Object.fromEntries(
     PLUGIN_LIMIT_KEYS.map((key) => {
       const value = overrides[key]
+
       return [key, typeof value === 'number' ? String(value) : '']
     }),
   ) as Form
 
 const shown = (key: keyof PluginLimits) => {
   const value = DEFAULT_PLUGIN_LIMITS[key]
+
   return value === null ? t('plugins.admin.runtime.noLimit') : String(value)
 }
 
@@ -61,11 +63,14 @@ function parseForm(form: Form): {
 } {
   const overrides: Record<string, number> = {}
   const invalid: Partial<Record<keyof PluginLimits, string>> = {}
+
   for (const key of PLUGIN_LIMIT_KEYS) {
     const text = form[key].trim()
+
     if (text === '') continue
     const value = Number(text)
     const whole = key !== 'cpus'
+
     if (
       !Number.isFinite(value) ||
       value <= 0 ||
@@ -76,10 +81,12 @@ function parseForm(form: Form): {
         : t('plugins.admin.runtime.invalidDecimal')
       continue
     }
+
     // Same as the default: nothing to remember.
     if (value === DEFAULT_PLUGIN_LIMITS[key]) continue
     overrides[key] = value
   }
+
   return { overrides, invalid }
 }
 
@@ -164,11 +171,14 @@ function RuntimeForm({
   })
 
   const { environment } = info
+
   const packageVersion = (requirement: string) => {
     if (!environment.packages) return null
     const base = /^[A-Za-z0-9._-]+/.exec(requirement)?.[0]
+
     if (!base) return null
     const key = base.toLowerCase().replace(/[-_.]+/g, '-')
+
     return environment.packages[key] ?? null
   }
 
@@ -198,6 +208,7 @@ function RuntimeForm({
               <ul className="flex flex-col gap-0.5 text-body text-fg">
                 {info.requirements.map((requirement) => {
                   const version = packageVersion(requirement)
+
                   return (
                     <li key={requirement} className="flex flex-wrap gap-x-2">
                       <span className="font-mono text-label">
@@ -292,6 +303,7 @@ function RuntimeForm({
                 unit: t(`plugins.admin.runtime.fields.${key}.unit`),
                 hint: t(`plugins.admin.runtime.fields.${key}.hint`),
               }
+
               return (
                 <Field
                   key={key}

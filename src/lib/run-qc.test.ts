@@ -47,12 +47,14 @@ describe('chartRange', () => {
 describe('openBreaches', () => {
   it('keeps broken, unacknowledged, included points', () => {
     const broken = point({ violations: ['1-3s'] })
+
     const rows = [
       broken,
       point({ violations: ['1-3s'], acknowledged_at: '2026-11-07T00:00:00Z' }),
       point({ violations: ['1-3s'], excluded: true }),
       point({}),
     ]
+
     expect(openBreaches(rows)).toEqual([broken])
   })
 })

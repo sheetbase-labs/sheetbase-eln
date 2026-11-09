@@ -26,14 +26,18 @@ const events = [
     timestamp: '29 Jul 2026, 14:03',
   },
 ]
+
 const meta = {
   title: 'Audit/Audit trail',
   component: AuditTrail,
   tags: ['autodocs'],
   args: { events, totalCount: 12, onLoadMore: () => {} },
 } satisfies Meta<typeof AuditTrail>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 export const Default: Story = {}
 export const Loading: Story = { args: { loading: true } }
 export const Empty: Story = { args: { events: [], totalCount: 0 } }

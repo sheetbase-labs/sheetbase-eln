@@ -37,6 +37,7 @@ function Scene({
   readOnly?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
+
   return (
     <div ref={containerRef}>
       <SheetKeyboardShortcuts

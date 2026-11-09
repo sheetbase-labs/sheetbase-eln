@@ -18,6 +18,7 @@ const noticeVariants = cva(
     defaultVariants: { tone: 'info' },
   },
 )
+
 const defaultIcon: Record<string, IconName> = {
   info: 'info',
   warn: 'warn',
@@ -41,6 +42,7 @@ export function Notice({
     children?: React.ReactNode
   }) {
   const t = tone ?? 'info'
+
   return (
     <div
       role={t === 'bad' ? 'alert' : undefined}
@@ -85,6 +87,7 @@ const bannerVariants = cva(
     defaultVariants: { tone: 'info' },
   },
 )
+
 export function Banner({
   tone,
   icon,
@@ -101,6 +104,7 @@ export function Banner({
     children?: React.ReactNode
   }) {
   const t = tone ?? 'info'
+
   return (
     <div
       role={t === 'bad' ? 'alert' : 'status'}

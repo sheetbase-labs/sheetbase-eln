@@ -77,7 +77,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const WS = 'ws-1'
@@ -85,6 +87,7 @@ const WS = 'ws-1'
 /** A story's cache: the seeds, stamped fresh for an hour past any hook staleTime. */
 function provider(data: ReadSeed[]) {
   const client = screenQueryClient({ data })
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <Story />
@@ -110,6 +113,7 @@ const settings = {
   createdAt: '2026-01-01T00:00:00.000Z',
   updatedAt: '2026-01-01T00:00:00.000Z',
 }
+
 const auditSeeds: ReadSeed[] = [
   { key: adminQueryKeys.settings(WS), value: settings },
   {
@@ -152,6 +156,7 @@ export const AuditRetentionViewOnly: Story = {
 const cells = Array.from({ length: 4 }, (_row, row) =>
   Array.from({ length: 6 }, (_col, col) => {
     const n = row * 6 + col
+
     return {
       id: `pos-${n}`,
       boxId: 'box-1',
@@ -289,9 +294,11 @@ function instrumentProvider() {
       },
     ],
   })
+
   client.setQueryData(instrumentQueryKeys.list, instruments, {
     updatedAt: Date.now() + 60 * 60 * 1000,
   })
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <Story />

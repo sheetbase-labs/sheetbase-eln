@@ -100,6 +100,7 @@ function readFolded(): string[] {
   try {
     const raw = localStorage.getItem(SIDEBAR_FOLDED_KEY)
     const parsed: unknown = raw ? JSON.parse(raw) : []
+
     return Array.isArray(parsed)
       ? parsed.filter((g): g is string => typeof g === 'string')
       : []
@@ -172,9 +173,11 @@ export function AppShell({
   const navigate = useNavigate()
   const router = useRouter()
   const theme = useTheme()
+
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+
   const [search, setSearch] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -183,6 +186,7 @@ export function AppShell({
   const [navOpen, setNavOpen] = useState(false)
   /** SHELL-01/03: a toggle the user has already made outranks the slower fetch. */
   const collapseTouched = useRef(false)
+
   /**
    * SHELL-02: the ids marked read in this session. The bell's rows come from the
    * server snapshot, so the action has to be remembered here until the shell
@@ -203,6 +207,7 @@ export function AppShell({
   const primaryItems = useMemo(() => filterNavForRole(primaryNav, role), [role])
   const hiddenPages = data.hiddenPages
   const pluginPages = usePluginPoints().pages
+
   const groups = useMemo(() => {
     const shown = visibleNavGroups(
       navGroups.map((g) => ({
@@ -211,8 +216,10 @@ export function AppShell({
       })),
       hiddenPages ?? [],
     )
+
     // Pages the lab's plugins add, under a group of their own.
     if (pluginPages.length === 0) return shown
+
     return [
       ...shown,
       {
@@ -230,18 +237,22 @@ export function AppShell({
       },
     ]
   }, [role, hiddenPages, pluginPages])
+
   /** The sidebar groups this person folded; follows them between devices. */
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set())
   const foldTouched = useRef(false)
+
   const toggleFold = useCallback((group: string) => {
     foldTouched.current = true
     setFolded((current) => {
       const next = new Set(current)
+
       if (next.has(group)) next.delete(group)
       else next.add(group)
       const list = [...next].sort()
       writeFolded(list)
       void setNavFolded(createDataClient(), list).catch(() => undefined)
+
       return next
     })
   }, [])
@@ -259,28 +270,33 @@ export function AppShell({
   // SHELL-01/03: the sidebar collapse is a per-user preference.
   useEffect(() => {
     let saved = false
+
     try {
       saved = localStorage.getItem(SIDEBAR_COLLAPSE_KEY) === '1'
     } catch {
       /* private mode / disabled storage */
     }
+
     setCollapsed(saved)
     setFolded(new Set(readFolded()))
     let cancelled = false
     void fetchUserPreferences(createDataClient())
       .then((preferences) => {
         if (cancelled || !preferences) return
+
         if (!foldTouched.current) {
           const stored = preferences.navFolded
           setFolded(new Set(stored))
           writeFolded(stored)
         }
+
         // SHELL-01/03: the stored preference is the source of truth, but it must
         // not overwrite a toggle the user has already made while it was in
         // flight. Applying it also reconciles the local mirror, so the next load
         // starts from the same value.
         if (collapseTouched.current) return
         setCollapsed(preferences.navCollapsed)
+
         try {
           localStorage.setItem(
             SIDEBAR_COLLAPSE_KEY,
@@ -291,6 +307,7 @@ export function AppShell({
         }
       })
       .catch(() => undefined)
+
     return () => {
       cancelled = true
     }
@@ -300,15 +317,18 @@ export function AppShell({
     collapseTouched.current = true
     setCollapsed((current) => {
       const next = !current
+
       try {
         localStorage.setItem(SIDEBAR_COLLAPSE_KEY, next ? '1' : '0')
       } catch {
         /* ignore */
       }
+
       void setUserPreference(createDataClient(), {
         appearance: theme.pref,
         navCollapsed: next,
       }).catch(() => undefined)
+
       return next
     })
   }, [theme.pref])
@@ -384,6 +404,7 @@ export function AppShell({
   useEffect(() => {
     const onOpen = () => setHelpOpen(true)
     window.addEventListener(OPEN_SHORTCUTS_EVENT, onOpen)
+
     return () => window.removeEventListener(OPEN_SHORTCUTS_EVENT, onOpen)
   }, [])
 
@@ -498,10 +519,12 @@ function NavRail({
   const homeSelected = useRouterState({
     select: (state) => isHomePage(state.location.pathname),
   })
+
   const selectedProps = {
     className: 'bg-selection text-fg!',
     'aria-current': 'page' as const,
   }
+
   return (
     <nav
       aria-label={t('settings.shell.appShell.mainAria')}
@@ -557,12 +580,15 @@ function NavRail({
  */
 function PhoneBackButton() {
   const router = useRouter()
+
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+
   // A top-level destination (Home, Inbox, Experiments, ...) is one segment deep
   // and reached from the drawer, so there is nowhere to go back to.
   if (pathname.split('/').filter(Boolean).length <= 1) return null
+
   return (
     <IconButton
       variant="quiet"
@@ -600,6 +626,7 @@ function TopBar({
   onOpenNav: () => void
 }) {
   const platform = usePlatform()
+
   return (
     // WCAG 1.4.10: below `md` the controls must all fit the 44px row at 320.
     // The brand link gives way to the menu button, help and the assistant sit
@@ -724,6 +751,7 @@ function WorkspaceSwitcher({
   async function choose(workspaceId: string) {
     setError(null)
     setPending(true)
+
     try {
       await onSwitch(workspaceId)
       setOpen(false)
@@ -740,6 +768,7 @@ function WorkspaceSwitcher({
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
+
         if (!next) setError(null)
       }}
     >
@@ -799,8 +828,10 @@ function WorkspaceSwitcher({
                 // a switch.
                 if (item.id === workspace?.id) {
                   setOpen(false)
+
                   return
                 }
+
                 void choose(item.id)
               }}
             >
@@ -825,10 +856,12 @@ export function workspaceInitials(name: string): string {
     .trim()
     .split(/[\s\-_/]+/)
     .filter(Boolean)
+
   const letters =
     words.length > 1
       ? [words[0], words[words.length - 1]].map((word) => [...word][0])
       : [...(words[0] ?? '')].slice(0, 2)
+
   return letters.join('').toUpperCase()
 }
 
@@ -843,7 +876,9 @@ function NewMenu({
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+
   const search = createMenuSearch(pathname)
+
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger
@@ -1001,11 +1036,14 @@ function Notifications({
   async function markRead(ids: string[]): Promise<boolean> {
     setError(null)
     setPending(true)
+
     try {
       await onMarkRead(ids)
+
       return true
     } catch {
       setError(t('settings.shell.appShell.notificationsCouldMarked'))
+
       return false
     } finally {
       setPending(false)
@@ -1026,6 +1064,7 @@ function Notifications({
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
+
         if (!next) setError(null)
       }}
     >
@@ -1078,6 +1117,7 @@ function Notifications({
           <div className="max-h-80 overflow-y-auto">
             {items.map((n) => {
               const isUnread = unreadIds.has(n.id)
+
               return (
                 <Link
                   key={n.id}
@@ -1126,8 +1166,10 @@ const appearanceClient = createDataClient()
  * must never clear it, because the drafts are what survives.
  */
 let deviceOfflineStore: ReturnType<typeof createOfflineEditStore> | null = null
+
 function offlineEditStore() {
   deviceOfflineStore ??= createOfflineEditStore(createIndexedDbStorage())
+
   return deviceOfflineStore
 }
 
@@ -1138,7 +1180,9 @@ function ViewAsSection({ currentId }: { currentId: string }) {
     queryFn: () => listDemoPersonasFn(),
     staleTime: 60_000,
   })
+
   if (!people.data || people.data.length < 2) return null
+
   return (
     <>
       <DropdownMenuSeparator />
@@ -1179,28 +1223,36 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
     enabled: Boolean(me.id),
     staleTime: 5 * 60_000,
   })
+
   const initials = profile.data?.initials || me.initials
   const { pref, setPref } = useTheme()
   const navigate = useNavigate()
   const router = useRouter()
   const [signingOut, setSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState<string | null>(null)
+
   async function signOut() {
     setSignOutError(null)
     // Reuse the editors' native leave guard before terminating their session.
     const leaving = new Event('beforeunload', { cancelable: true })
     window.dispatchEvent(leaving)
+
     // EXP-05.5: unsynced edits survive sign-out, so being offline is no longer a
     // reason to refuse it. Only an editor with work it has not saved blocks it.
     if (leaving.defaultPrevented) {
       setSignOutError(t('settings.shell.appShell.savePendingEdits'))
+
       return
     }
+
     if (!(await requestWorkspaceLeave())) {
       setSignOutError(t('settings.shell.appShell.signOutCancelled'))
+
       return
     }
+
     setSigningOut(true)
+
     try {
       // Record that this device is holding drafts for this user, before the
       // session ends. It never deletes: the drafts are the point.
@@ -1216,6 +1268,7 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
       await disablePush().catch(() => undefined)
       applyAppBadge(0)
       const result = await authClient.signOut()
+
       if (result.error || !result.data.success)
         throw new Error(t('settings.shell.appShell.signOutFailed'))
       await router.options.context.queryClient.cancelQueries()
@@ -1232,17 +1285,20 @@ function AccountMenu({ me }: { me: ShellData['me'] }) {
       setSigningOut(false)
     }
   }
+
   // Cache locally for an instant switch and persist the per-user preference;
   // the server value is the source of truth on the next load.
   const choose = (value: ThemePref) => {
     setPref(value)
     void setUserAppearance(appearanceClient, value).catch(() => undefined)
   }
+
   const opts: [ThemePref, string][] = [
     ['system', t('settings.shell.appShell.themeSystem')],
     ['light', t('settings.shell.appShell.themeLight')],
     ['dark', t('settings.shell.appShell.themeDark')],
   ]
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -1364,10 +1420,12 @@ function NavLink({ item }: { item: NavItem }) {
   const homeSelected = useRouterState({
     select: (state) => isHomePage(state.location.pathname),
   })
+
   const selectedProps = {
     className: 'bg-nav-selected font-medium hover:bg-nav-selected',
     'aria-current': 'page' as const,
   }
+
   return (
     <Link
       {...item.link}
@@ -1405,6 +1463,7 @@ function NavEntry({
   onToggle: () => void
 }) {
   if (!pins.length) return <NavLink item={item} />
+
   return (
     <div className="flex shrink-0 flex-col gap-px">
       <div className="group/pins relative flex">
@@ -1477,19 +1536,25 @@ function SideNav({
       counts?.[
         item.label.toLowerCase() as keyof NonNullable<ShellData['counts']>
       ]
+
     // Only a number is a number: an unknown count (`null` — the read failed,
     // see `shell-counts.server.ts`) renders no number at all, rather than a
     // zero the server could not back, while the counts that did read still show.
     return typeof live === 'string' ? { ...item, count: live } : item
   }
+
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   })
+
   const pinsByPage = (page: string) => pinned.filter((pin) => pin.page === page)
+
   const isOpen = (item: NavItem) => {
     const to = String(item.link.to)
+
     return pathname === to || pathname.startsWith(`${to}/`)
   }
+
   return (
     <nav
       aria-label={t('settings.shell.appShell.mainAria')}
@@ -1506,6 +1571,7 @@ function SideNav({
         // A folded group still shows the page you are on, so the sidebar
         // never loses track of where you are.
         const items = isFolded ? g.items.filter(isOpen) : g.items
+
         return (
           <div
             key={g.key}

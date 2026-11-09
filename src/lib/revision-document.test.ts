@@ -36,12 +36,14 @@ describe('buildRevisionDocument', () => {
     const unchanged = document.blocks.find(
       (block) => block.id === 'block-objective',
     )
+
     expect(unchanged?.changes).toEqual([])
     expect(unchanged?.inline).toEqual([])
 
     const modified = document.blocks.find(
       (block) => block.id === 'block-method',
     )
+
     expect(modified?.inline).toHaveLength(1)
     expect(modified?.inline[0].before).toBe(
       'Cells were seeded at 2.0 × 10⁶ cells/mL.',
@@ -54,6 +56,7 @@ describe('buildRevisionDocument', () => {
     const removed = document.blocks.find(
       (block) => block.id === 'block-removed',
     )
+
     expect(removed?.block.id).toBe('block-removed')
     expect(removed?.before).toBeUndefined()
     expect(removed?.changes[0].kind).toBe('removed')
@@ -95,6 +98,7 @@ describe('placeDocumentComments', () => {
     const textChange = document.diff.changes.find(
       (change) => change.area === 'text',
     )!
+
     const anchors = place([
       commentFixture({
         id: 'comment-block',
@@ -139,6 +143,7 @@ describe('placeDocumentComments', () => {
     const textChange = document.diff.changes.find(
       (change) => change.area === 'text',
     )!
+
     const anchors = place([
       commentFixture({
         id: 'comment-earlier-round',

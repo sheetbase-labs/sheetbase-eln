@@ -23,7 +23,9 @@ const meta = {
   },
   args: { to: '/records/record-1', children: 'Open experiment' },
 } satisfies Meta<typeof OpenLink>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

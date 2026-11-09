@@ -23,12 +23,15 @@ export function pythonLogDetail(
   const lines = Array.isArray(detail.logs)
     ? detail.logs.filter((line): line is string => typeof line === 'string')
     : []
+
   const environment =
     detail.environment !== null && typeof detail.environment === 'object'
       ? (detail.environment as Record<string, unknown>)
       : null
+
   const python =
     typeof environment?.python === 'string' ? environment.python : undefined
+
   const packages =
     environment?.packages !== null && typeof environment?.packages === 'object'
       ? Object.entries(environment.packages as Record<string, unknown>).flatMap(
@@ -36,12 +39,15 @@ export function pythonLogDetail(
             typeof version === 'string' ? [[name, version]] : [],
         )
       : []
+
   const line =
     typeof detail.line === 'number' && Number.isInteger(detail.line)
       ? detail.line
       : undefined
+
   if (!lines.length && !python && !packages.length && line === undefined)
     return null
+
   return {
     step: typeof detail.step === 'string' ? detail.step : undefined,
     lines,
@@ -54,10 +60,12 @@ export function pythonLogDetail(
 /** The run's log: one line per entry, with a Python step's output under its entry. */
 export function RunLog({ logs }: { logs: PipelineRunLogWire[] }) {
   if (!logs.length) return <Muted>{t('data.runLog.logLinesRecorded')}</Muted>
+
   return (
     <ol className="m-0 flex list-none flex-col gap-1 rounded-md border border-border bg-surface p-3 font-mono text-caption">
       {logs.map((entry) => {
         const python = pythonLogDetail(entry.detail)
+
         return (
           <li key={entry.id} className="flex flex-col gap-1">
             <div className="flex gap-2">

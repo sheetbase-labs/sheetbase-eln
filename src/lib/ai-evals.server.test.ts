@@ -31,10 +31,12 @@ describe('checks for the assistant', () => {
         yield { type: 'usage', tokensUsed: 5, costMicrousd: 0 }
       },
     }
+
     const results = await runEvalTasks({
       mode: 'model',
       harness: { deps: modelDeps(lazy) },
     })
+
     const byKey = new Map(results.map((r) => [r.taskKey, r]))
     expect(byKey.get('find.open-orders')?.status).toBe('failed')
     expect(byKey.get('propose.reagent-order')?.status).toBe('failed')
@@ -49,6 +51,7 @@ describe('checks for the assistant', () => {
       complete: vi.fn(),
       async *stream(request) {
         const last = request.messages?.at(-1)
+
         if (last?.role === 'tool') {
           yield { type: 'text', delta: last.content }
         } else {
@@ -57,8 +60,10 @@ describe('checks for the assistant', () => {
               .reverse()
               .find((m) => m.role === 'user')?.content,
           )
+
           const key = EVAL_TASK_META.find((t) => t.prompt === question)?.key
           const tool = key ? evalTaskTool(key) : undefined
+
           if (tool) {
             yield {
               type: 'tool_call',
@@ -68,13 +73,16 @@ describe('checks for the assistant', () => {
             }
           }
         }
+
         yield { type: 'usage', tokensUsed: 5, costMicrousd: 0 }
       },
     }
+
     const results = await runEvalTasks({
       mode: 'model',
       harness: { deps: modelDeps(careful) },
     })
+
     expect(results.filter((r) => r.status !== 'passed')).toEqual([])
   })
 })

@@ -51,6 +51,7 @@ export const Route = createFileRoute('/readings/new')({
     search: Record<string, unknown>,
   ): CreateContextSearch & { plannedKey?: string } => {
     const { sample, dataset, returnTo } = parseCreateContext(search)
+
     return {
       ...(sample ? { sample } : {}),
       ...(dataset ? { dataset } : {}),
@@ -62,9 +63,11 @@ export const Route = createFileRoute('/readings/new')({
   },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: NewReading,
@@ -85,11 +88,13 @@ function NewReading() {
     queryFn: () => listReadingSamples(notebookDataClient, search.sample),
     staleTime: 30_000,
   })
+
   const datasets = useQuery({
     queryKey: [...readingQueryKeys.datasets, search.dataset],
     queryFn: () => listReadingDatasets(notebookDataClient, search.dataset),
     staleTime: 30_000,
   })
+
   const plannedRows = useQuery({
     queryKey: [
       ...readingQueryKeys.plannedRows,
@@ -123,19 +128,24 @@ function NewReading() {
   // empty selection can never pretend a reading will land somewhere.
   const datasetsWithPlans = useMemo(() => {
     const withPlan = new Set(allPlannedRows.map((row) => row.dataset_id))
+
     return datasetRows.filter((dataset) => withPlan.has(dataset.id))
   }, [datasetRows, allPlannedRows])
 
   const effectiveDatasetId = datasetId || datasetsWithPlans.at(0)?.id || ''
   const dataset = datasetRows.find((d) => d.id === effectiveDatasetId)
+
   const datasetPlannedRows = allPlannedRows.filter(
     (row) => row.dataset_id === effectiveDatasetId,
   )
+
   const effectivePlannedKey =
     plannedKey || datasetPlannedRows.at(0)?.planned_key || ''
+
   const selectedPlan = datasetPlannedRows.find(
     (row) => row.planned_key === effectivePlannedKey,
   )
+
   const planSample = useQuery({
     queryKey: ['readings', 'plan-sample', selectedPlan?.sample_id],
     queryFn: () =>
@@ -145,11 +155,14 @@ function NewReading() {
       !listedSamples.some((s) => s.id === selectedPlan?.sample_id),
     staleTime: 30_000,
   })
+
   const sampleRows = listedSamples.some((s) => s.id === selectedPlan?.sample_id)
     ? listedSamples
     : [...listedSamples, ...(planSample.data ?? [])]
+
   const effectiveSampleId =
     selectedPlan?.sample_id || sampleId || sampleRows.at(0)?.id || ''
+
   const sample = sampleRows.find((s) => s.id === effectiveSampleId)
 
   const fieldsQuery = useQuery({
@@ -158,6 +171,7 @@ function NewReading() {
       listReadingFields(notebookDataClient, dataset!.schema_version_id),
     enabled: Boolean(dataset?.schema_version_id),
   })
+
   const fields = fieldsQuery.data ?? []
 
   const numericFields = useMemo(
@@ -168,7 +182,9 @@ function NewReading() {
       ),
     [fields],
   )
+
   const dilutionField = useMemo(() => dilutionReadingField(fields), [fields])
+
   const noteField = useMemo(
     () =>
       fields.find(
@@ -178,26 +194,33 @@ function NewReading() {
       ) ?? null,
     [fields],
   )
+
   const measurementOptions = numericFields.filter(
     (field) => field.field_id !== dilutionField?.field_id,
   )
+
   const sampleBinding = useMemo(() => sampleBindingField(fields), [fields])
+
   const effectiveMeasurementFieldId =
     measurementFieldId ||
     selectedPlan?.measurement_field_id ||
     measurementOptions.at(0)?.field_id ||
     ''
+
   const measurementField = fields.find(
     (field) => field.field_id === effectiveMeasurementFieldId,
   )
 
   const parsed = Number.parseFloat(value.replace(',', '.'))
   const parsedDilution = Number.parseFloat(dilutionValue.replace(',', '.'))
+
   const valueValid =
     value.trim() !== '' && Number.isFinite(parsed) && parsed >= 0
+
   const dilutionValid =
     dilutionValue.trim() === '' ||
     (Number.isFinite(parsedDilution) && parsedDilution > 0)
+
   const canSubmit =
     Boolean(sample) &&
     Boolean(selectedPlan) &&
@@ -206,10 +229,12 @@ function NewReading() {
     dilutionValid
 
   const unit = measurementField ? readingFieldUnit(measurementField) : null
+
   const willFlag =
     measurementField && valueValid
       ? isReadingOutOfRange(measurementField, parsed)
       : false
+
   const reported =
     measurementField && valueValid
       ? reportedConcentration(
@@ -235,16 +260,19 @@ function NewReading() {
         noteFieldId: noteField?.field_id ?? null,
         note: note.trim() || null,
       })
+
       if (!result.ok) {
         throw new Error(
           readingCommitErrorMessage(result, fields) ??
             t('data.newReading.validationFailed'),
         )
       }
+
       return result
     },
     onSuccess: async (_result, input) => {
       let photoWarning: string | null = null
+
       if (input.file) {
         try {
           await attachPhotoToSample(notebookDataClient, {
@@ -259,6 +287,7 @@ function NewReading() {
               : t('data.newReading.photoDidAttach2')
         }
       }
+
       toast(t('data.newReading.readingSaved'), {
         description: [
           `${measurementField?.label ?? t('data.newReading.reading')} ${parsed}${
@@ -276,11 +305,13 @@ function NewReading() {
       void queryClient.invalidateQueries({
         queryKey: readingQueryKeys.datasets,
       })
+
       if (effectiveDatasetId) {
         void queryClient.invalidateQueries({
           queryKey: ['dataset-value-flags', 'active', effectiveDatasetId],
         })
       }
+
       if (search.returnTo) {
         void navigate({ to: search.returnTo })
       } else {
@@ -303,6 +334,7 @@ function NewReading() {
   // is empty, so the warning waits for them instead of flashing before data.
   const plansLoading = datasets.isLoading || plannedRows.isLoading
   const noPlans = !plansLoading && datasetsWithPlans.length === 0
+
   const noFields =
     Boolean(dataset) &&
     !fieldsQuery.isLoading &&
@@ -311,15 +343,22 @@ function NewReading() {
   // Why Save is disabled, in the order the user can fix it.
   const saveBlockedReason = (() => {
     if (canSubmit || save.isPending) return null
+
     if (!sample) return t('data.newReading.chooseSampleRecordAgainst')
+
     if (plannedKey && !selectedPlan && !plannedRows.isLoading)
       return t('data.newReading.plannedRowLongerAvailable')
+
     if (noPlans || !effectivePlannedKey)
       return t('data.newReading.saveUnavailableUntilDataset')
+
     if (!measurementField)
       return t('data.newReading.saveUnavailableUntilDataset2')
+
     if (!valueValid) return t('data.newReading.enterNumber0More')
+
     if (!dilutionValid) return t('data.newReading.enterDilutionFactorGreater')
+
     return null
   })()
 
@@ -331,6 +370,7 @@ function NewReading() {
         onSubmit={(e) => {
           e.preventDefault()
           setTouched(true)
+
           if (!canSubmit) return
           save.mutate({
             file: photo,

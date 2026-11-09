@@ -65,7 +65,9 @@ function clientFor(pinned: number | null) {
 }
 
 const previewLoading = screenQueryClient()
+
 holdRead(previewLoading, ['notebook', 'file-preview', 'file-9', null, 'inline'])
+
 const latest = clientFor(null)
 const pinnedOld = clientFor(1)
 
@@ -95,7 +97,9 @@ const meta = {
     ),
   ],
 } satisfies Meta<typeof OfficeFileBlock>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Following the latest version of the file. */

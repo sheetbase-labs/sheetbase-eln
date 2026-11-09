@@ -37,12 +37,16 @@ function fakeClient(
   return {
     rpc: async (name: string) => {
       if (name === 'start_connector_run') return startResult
+
       if (name === 'complete_connector_run')
         return { ...startResult, status: 'succeeded', finished_at: 'x' }
+
       if (name === 'fail_connector_run') {
         if (!failShouldSucceed) throw new Error('rpc down')
+
         return { ...startResult, status: 'failed', finished_at: 'x' }
       }
+
       if (name === 'append_connector_run_log') return { id: 'log' }
       throw new Error(`unexpected rpc ${name}`)
     },
@@ -54,6 +58,7 @@ function recordingObservability(): ConnectorRunObservability & {
 } {
   const events: { event: string; connectorType: string; errorCode?: string }[] =
     []
+
   return {
     events,
     onStarted: (_run, connectorType) =>
@@ -70,6 +75,7 @@ function recordingObservability(): ConnectorRunObservability & {
 describe('executeConnectorRun observability', () => {
   it('emits started and succeeded with the bounded connector type', async () => {
     const obs = recordingObservability()
+
     const report = await executeConnectorRun(
       fakeClient(wire({})),
       {
@@ -80,6 +86,7 @@ describe('executeConnectorRun observability', () => {
       },
       async () => 'value',
     )
+
     expect(report.status).toBe('succeeded')
     expect(obs.events.map((e) => e.event)).toEqual(['started', 'succeeded'])
     expect(obs.events.every((e) => e.connectorType === 'instrument')).toBe(true)
@@ -87,6 +94,7 @@ describe('executeConnectorRun observability', () => {
 
   it('emits failure with the raw error code (bounding happens server-side)', async () => {
     const obs = recordingObservability()
+
     const report = await executeConnectorRun(
       fakeClient(wire({})),
       {
@@ -99,6 +107,7 @@ describe('executeConnectorRun observability', () => {
         throw new ConnectorStepError('download_failed', 'source read broke')
       },
     )
+
     expect(report.status).toBe('failed')
     expect(report.errorCode).toBe('download_failed')
     expect(obs.events).toContainEqual({
@@ -110,6 +119,7 @@ describe('executeConnectorRun observability', () => {
 
   it('still reports failure when the fail RPC itself dies (run stays running server-side)', async () => {
     const obs = recordingObservability()
+
     const report = await executeConnectorRun(
       fakeClient(wire({}), false),
       {
@@ -122,6 +132,7 @@ describe('executeConnectorRun observability', () => {
         throw new Error('boom')
       },
     )
+
     expect(report.status).toBe('failed')
     expect(report.errorCode).toBe('unexpected_error')
     // The dead-RPC path must not claim a server-acknowledged failure.
@@ -168,6 +179,7 @@ describe('executeConnectorRun observability', () => {
       { workspaceId: 'ws', connectorId: 'conn' },
       async () => 'value',
     )
+
     expect(report.status).toBe('succeeded')
   })
 })

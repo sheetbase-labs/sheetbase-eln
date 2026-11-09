@@ -24,6 +24,7 @@ function producerPayload(
   when: { key: string; equals?: string; notEquals?: string } | undefined,
 ): Record<string, unknown> {
   if (!when) return { key: 'value' }
+
   return {
     key: 'value',
     [when.key]: when.equals ?? `not-${when.notEquals}`,
@@ -60,12 +61,15 @@ describe('catalogue integrity', () => {
 
   it('wire aliases never collide with a canonical name', () => {
     const canonical = EVENT_CATALOGUE.map((entry) => entry.name)
+
     const aliases = EVENT_CATALOGUE.map((entry) => entry.wireName).filter(
       (name): name is string => name !== null && !canonical.includes(name),
     )
+
     for (const alias of aliases) {
       expect(canonical.includes(alias)).toBe(false)
     }
+
     // The catalogue actually carries table-name-leak aliases today.
     expect(aliases).toContain('sheet_instance.updated')
   })
@@ -73,6 +77,7 @@ describe('catalogue integrity', () => {
     const families = EVENT_CATALOGUE.map((entry) => entry.family)
       .filter((f, i, all) => all.indexOf(f) === i)
       .sort()
+
     expect(families).toEqual([
       'administration',
       'approval',
@@ -98,6 +103,7 @@ describe('catalogue integrity', () => {
       baseInput('record', 'create'),
       'record.created',
     )
+
     expect(envelope.id).toBe(baseInput('record', 'create').id)
     expect(envelope.workspaceId).toBe(baseInput('record', 'create').workspaceId)
     expect(envelope.actor).toEqual({
@@ -147,6 +153,7 @@ describe('catalogue == webhook map drift pin', () => {
       if (entry.status !== 'reserved') continue
       expect(entry.producer).toBeNull()
     }
+
     // notebook.amended stays mapped defensively but nothing produces it.
     expect(mapEventType('review_submission', 'amend')).toBe('notebook.amended')
   })
@@ -256,6 +263,7 @@ describe('canonical envelope per family', () => {
         baseInput(entityType, operation),
         event,
       )
+
       expect(envelope.event).toBe(event)
       expect(envelope.schemaVersion).toBe(CATALOGUE_SCHEMA_VERSION)
       expect(envelope.id).toBe('00000000-0000-4000-8000-000000000001')
@@ -283,12 +291,14 @@ describe('buildEventPayload validates for every produced catalogue entry', () =>
         entry.producer!.operation,
         producerPayload(entry.producer!.when),
       )
+
       // Surfaced entries go through the real wire mapping; provisional ones
       // pin the envelope shape the wire will carry when EVENT-03 surfaces them.
       const eventType =
         wire !== null
           ? mapEventType(input.entityType, input.operation, input.payload)
           : entry.name
+
       expect(eventType).toBe(wire ?? entry.name)
       const payload = buildEventPayload(input, eventType!)
       expect(payload.schemaVersion).toBe('1')
@@ -1203,11 +1213,13 @@ describe('lab feature events', () => {
     const pinned = [...LAB_EVENTS, ...DATASET_EVENT_FIXTURES]
       .map((event) => event.name)
       .sort()
+
     const catalogued = EVENT_CATALOGUE.filter(
       (entry) => entry.introducedIn === 'lab-01',
     )
       .map((entry) => entry.name)
       .sort()
+
     expect(catalogued).toEqual(pinned)
   })
 
@@ -1290,11 +1302,13 @@ describe('directory sync events', () => {
 
   it('lists every scim-01 catalogue entry here, so none is added unpinned', () => {
     const pinned = SCIM_EVENTS.map((event) => event.name).sort()
+
     const catalogued = EVENT_CATALOGUE.filter(
       (entry) => entry.introducedIn === 'scim-01',
     )
       .map((entry) => entry.name)
       .sort()
+
     expect(catalogued).toEqual(pinned)
   })
 

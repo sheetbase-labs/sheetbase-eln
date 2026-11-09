@@ -28,6 +28,7 @@ const { rpc, list, navigate } = vi.hoisted(() => ({
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
+
   return {
     ...actual,
     useNavigate: () => navigate,
@@ -44,11 +45,13 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       search?: Record<string, unknown>
     }) => {
       const path = typeof to === 'string' ? to : '#'
+
       const query = new URLSearchParams(
         Object.entries(search ?? {})
           .filter(([, value]) => value != null)
           .map(([key, value]) => [key, String(value)]),
       ).toString()
+
       return <a href={query ? `${path}?${query}` : path}>{children}</a>
     },
   }
@@ -154,6 +157,7 @@ describe('R5-CONFIG-02 register instrument', () => {
     ]) {
       expect(within(dialog).getByText(title)).toBeTruthy()
     }
+
     expect(
       within(dialog).getAllByText(/Needs a validated parser/).length,
     ).toBeGreaterThan(0)

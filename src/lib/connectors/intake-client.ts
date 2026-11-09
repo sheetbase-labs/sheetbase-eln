@@ -69,12 +69,14 @@ export async function postIntake(
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
+
   const payload = (await response.json().catch(() => null)) as
     | (Partial<IntakeResultWire> & {
         error?: { code?: string; message?: string }
         failureId?: string | null
       })
     | null
+
   if (!response.ok || !payload || payload.error) {
     throw new IntakeClientError(
       payload?.error?.code ?? 'intake_failed',
@@ -82,6 +84,7 @@ export async function postIntake(
       payload?.failureId ?? null,
     )
   }
+
   return payload as IntakeResultWire
 }
 
@@ -98,6 +101,7 @@ export function fetchIntakeProblems(
     : scope.connectorId
       ? `connector_id=eq.${encodeURIComponent(scope.connectorId)}`
       : ''
+
   return client.list<IntakeProblem>(
     'intake_failures',
     `?status=eq.open${filter ? `&${filter}` : ''}&select=${PROBLEM_COLUMNS}&order=last_attempt_at.desc&limit=50`,

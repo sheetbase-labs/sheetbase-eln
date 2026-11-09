@@ -31,6 +31,7 @@ describe('import parsers', () => {
     const preview = parseImportText('Sample,Note\n"A,1",ok\n', {
       format: 'csv',
     })
+
     expect(preview.sheets[0]?.headers).toEqual(['Sample', 'Note'])
     expect(preview.sheets[0]?.rows[0]).toEqual({ Sample: 'A,1', Note: 'ok' })
   })
@@ -40,6 +41,7 @@ describe('import parsers', () => {
       'Sample,Note,Blank\r\nA,"said ""yes""\r\nnext",\r\nB,"",end',
       { format: 'csv' },
     )
+
     expect(preview.sheets[0]?.rows).toEqual([
       { Sample: 'A', Note: 'said "yes"\r\nnext', Blank: '' },
       { Sample: 'B', Note: '', Blank: 'end' },
@@ -52,6 +54,7 @@ describe('import parsers', () => {
     const text =
       'sample,value\n' +
       Array.from({ length: 100_000 }, (_, i) => `S${i},${i + 0.25}\n`).join('')
+
     const preview = parseImportText(text, { format: 'csv' })
     expect(preview.sheets[0]?.rows).toHaveLength(100_000)
     expect(preview.sheets[0]?.rows.at(-1)).toEqual({
@@ -67,6 +70,7 @@ describe('import parsers', () => {
     const preview = parseImportText('Sample\tpH\nB\t7.1', {
       format: 'clipboard',
     })
+
     expect(preview.sheets[0]?.headers).toEqual(['Sample', 'pH'])
     expect(preview.sheets[0]?.rows[0]).toEqual({ Sample: 'B', pH: '7.1' })
   })
@@ -76,6 +80,7 @@ describe('import parsers', () => {
       JSON.stringify([{ Sample: 'C', pH: 7.2 }]),
       { format: 'json' },
     )
+
     expect(preview.format).toBe('json')
     expect(preview.sheets[0]?.rows[0]).toEqual({ Sample: 'C', pH: '7.2' })
   })
@@ -84,6 +89,7 @@ describe('import parsers', () => {
     const preview = await parseImportBytes(xlsxFixture(), {
       fileName: 'assay.xlsx',
     })
+
     expect(preview.format).toBe('xlsx')
     expect(preview.sheets[0]?.name).toBe('Assay')
     expect(preview.sheets[0]?.rows[0]).toEqual({ Sample: 'A1', pH: '7.4' })
@@ -94,6 +100,7 @@ describe('import parsers', () => {
       '# Instrument: PR-01\n# Exported: 2026-09-25T08:40:00Z\nsample,well\nSMP-2231,A1\n',
       { format: 'csv' },
     )
+
     expect(preview.sheets[0]?.headers).toEqual(['sample', 'well'])
     expect(preview.sheets[0]?.rows).toEqual([
       { sample: 'SMP-2231', well: 'A1' },
@@ -104,6 +111,7 @@ describe('import parsers', () => {
     const preview = parseImportText('sample,note\nA,#N/A\n', {
       format: 'csv',
     })
+
     expect(preview.sheets[0]?.rows[0]).toEqual({ sample: 'A', note: '#N/A' })
   })
 

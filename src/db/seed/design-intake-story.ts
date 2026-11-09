@@ -48,6 +48,7 @@ export function demoFileKey(file: { id: string }): string {
 const DAY = (n: number, time: string) => {
   const d = new Date('2026-09-25T00:00:00+01:00')
   d.setDate(d.getDate() - n)
+
   return new Date(`${d.toISOString().slice(0, 10)}T${time}+01:00`)
 }
 
@@ -70,12 +71,15 @@ export async function seedDesignIntakeStory(db: Db): Promise<void> {
       ),
     )
     .then((rows) => rows.at(0))
+
   const instrument = await db
     .select({ id: schema.instruments.id })
     .from(schema.instruments)
     .where(eq(schema.instruments.id, TB02))
     .then((rows) => rows.at(0))
+
   if (!oldParser || !instrument) return
+
   const done = await db
     .select({ id: schema.connectors.id })
     .from(schema.connectors)
@@ -86,6 +90,7 @@ export async function seedDesignIntakeStory(db: Db): Promise<void> {
       ),
     )
     .then((rows) => rows.at(0))
+
   if (done) return
 
   // Where TB-02 readings go: a small schema, with a dataset made on first read.
@@ -129,10 +134,12 @@ export async function seedDesignIntakeStory(db: Db): Promise<void> {
           ]),
         ],
       )
+
       const versionId = created.rows[0].result.schema_version_id as string
       await client.query('select api.publish_dataset_schema_version($1)', [
         versionId,
       ])
+
       return versionId
     },
   )
@@ -154,10 +161,12 @@ export async function seedDesignIntakeStory(db: Db): Promise<void> {
       createdByUserId: GARETH,
     })
     .returning({ id: schema.parsers.id })
+
   const signature = {
     requiredHeaders: ['sample', 'turbidity', 'dilution'],
     layout: FW4_LAYOUT,
   }
+
   const [v1] = await db
     .insert(schema.parserVersions)
     .values({
@@ -179,6 +188,7 @@ export async function seedDesignIntakeStory(db: Db): Promise<void> {
       createdAt: DAY(0, '10:18:00'),
     })
     .returning({ id: schema.parserVersions.id })
+
   await db.insert(schema.parserVersions).values({
     workspaceId: PROCESS,
     parserId: parser.id,
@@ -226,7 +236,9 @@ export async function seedDesignIntakeStory(db: Db): Promise<void> {
   const storageRoot = resolve(
     process.env.FILE_STORAGE_DIR ?? './.storage/objects',
   )
+
   const kept: Array<{ recordId: string; checksum: string; size: number }> = []
+
   for (const [n, file] of DEMO_FILES.entries()) {
     const bytes = Buffer.from(file.text, 'utf8')
     const checksum = createHash('sha256').update(bytes).digest('hex')
@@ -267,12 +279,14 @@ export async function seedDesignIntakeStory(db: Db): Promise<void> {
   const reason = describeIntakeFailure('parser_unrecognised', {
     parser: 'TB-02 CSV',
   })
+
   const target = {
     projectId: PROJECT,
     schemaVersionId,
     datasetId: null,
     newDatasetName: 'TB-02 turbidity readings',
   }
+
   const failedRun = async (n: number, at: Date) => {
     const [run] = await db
       .insert(schema.connectorRuns)
@@ -292,10 +306,13 @@ export async function seedDesignIntakeStory(db: Db): Promise<void> {
         createdAt: at,
       })
       .returning({ id: schema.connectorRuns.id })
+
     return run.id
   }
+
   const firstFailed = await failedRun(0, DAY(0, '09:58:20'))
   const secondFailed = await failedRun(1, DAY(0, '10:03:10'))
+
   // The admin tried the first file again once the new parser was approved.
   const [retried] = await db
     .insert(schema.connectorRuns)
@@ -346,6 +363,7 @@ export async function seedDesignIntakeStory(db: Db): Promise<void> {
          ${status === 'resolved' ? DAY(0, '10:34:07').toISOString() : null},
          ${status === 'resolved' ? GARETH : null},
          ${status === 'resolved' ? retried.id : null})`)
+
   await insertProblem(0, firstFailed, 'resolved')
   await insertProblem(1, secondFailed, 'open')
   void v1

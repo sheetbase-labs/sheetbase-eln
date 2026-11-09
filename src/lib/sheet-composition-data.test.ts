@@ -15,9 +15,11 @@ const ROW = '20000000-0000-4000-8000-000000000002'
 describe('fetchComposedSheetRows', () => {
   it('maps the bounded RPC response and derives the existing sb-row-v1 key', async () => {
     const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+
     const client = {
       rpc: async (name: string, args: Record<string, unknown>) => {
         calls.push({ name, args })
+
         return {
           instanceId: ID,
           revision: 2,
@@ -90,10 +92,12 @@ describe('mergeComposedSheetSnapshots', () => {
           rows: [{ rowKey: `sb-row-v1:row-${offset}`, values: {} }],
         },
       }) as unknown as ComposedSheetSnapshot
+
     const merged = mergeComposedSheetSnapshots([
       page(0, true),
       page(200, false),
     ])
+
     expect(merged?.rows.map((row) => row.rowKey)).toEqual([
       'sb-row-v1:row-0',
       'sb-row-v1:row-200',
@@ -140,9 +144,11 @@ describe('fetchComposedSheetPaged', () => {
 
   it('fetches only the missing window per page — 3 pages cost exactly 3 fetches', async () => {
     const offsets: number[] = []
+
     const fetchPage = async (offset: number) => {
       offsets.push(offset)
       const page = offset / 2
+
       return stubPage(offset, {
         revision: 7,
         hasMore: page < 2,
@@ -155,6 +161,7 @@ describe('fetchComposedSheetPaged', () => {
       pageSize: 2,
       fetchPage,
     })
+
     expect(first.fetchedPages).toBe(1)
     expect(first.restarted).toBe(false)
     expect(first.notice).toBeNull()
@@ -167,6 +174,7 @@ describe('fetchComposedSheetPaged', () => {
       previousPageCount: 1,
       fetchPage,
     })
+
     expect(second.fetchedPages).toBe(1)
     expect(second.restarted).toBe(false)
 
@@ -177,6 +185,7 @@ describe('fetchComposedSheetPaged', () => {
       previousPageCount: 2,
       fetchPage,
     })
+
     expect(third.fetchedPages).toBe(1)
 
     // Linear, never triangular: one fetch per page at the next offset.
@@ -201,12 +210,15 @@ describe('fetchComposedSheetPaged', () => {
     const fetchPage = vi.fn(async () =>
       stubPage(0, { revision: 7, hasMore: false, keys: ['k'] }),
     )
+
     const first = await fetchComposedSheetPaged(ID, {
       pageCount: 1,
       pageSize: 2,
       fetchPage,
     })
+
     expect(fetchPage).toHaveBeenCalledTimes(1)
+
     const again = await fetchComposedSheetPaged(ID, {
       pageCount: 2,
       pageSize: 2,
@@ -214,6 +226,7 @@ describe('fetchComposedSheetPaged', () => {
       previousPageCount: 1,
       fetchPage,
     })
+
     expect(again.fetchedPages).toBe(0)
     expect(again.snapshot).toBe(first.snapshot)
     expect(fetchPage).toHaveBeenCalledTimes(1)
@@ -225,8 +238,10 @@ describe('fetchComposedSheetPaged', () => {
     // serves revision 8.
     const offsets: number[] = []
     let moved = false
+
     const fetchPage = async (offset: number) => {
       offsets.push(offset)
+
       if (!moved) {
         if (offset === 0) {
           return stubPage(0, {
@@ -235,13 +250,16 @@ describe('fetchComposedSheetPaged', () => {
             keys: ['old-a', 'old-b'],
           })
         }
+
         moved = true
+
         return stubPage(offset, {
           revision: 8,
           hasMore: true,
           keys: ['new-c', 'new-d'],
         })
       }
+
       return stubPage(offset, {
         revision: 8,
         hasMore: true,
@@ -276,18 +294,23 @@ describe('fetchComposedSheetPaged', () => {
       hasMore: true,
       keys: ['old-a', 'old-b'],
     })
+
     const offsets: number[] = []
     let servedRestart = false
+
     const fetchPage = async (offset: number) => {
       offsets.push(offset)
+
       if (!servedRestart && offset !== 0) {
         servedRestart = true
+
         return stubPage(offset, {
           revision: 8,
           hasMore: true,
           keys: ['new-c', 'new-d'],
         })
       }
+
       return stubPage(offset, {
         revision: 8,
         hasMore: true,
@@ -318,9 +341,11 @@ describe('fetchComposedSheetPaged', () => {
   it('falls back to a coherent first window when the revision keeps moving', async () => {
     const offsets: number[] = []
     let revision = 7
+
     const fetchPage = async (offset: number) => {
       offsets.push(offset)
       revision += 1
+
       return stubPage(offset, {
         revision,
         hasMore: true,

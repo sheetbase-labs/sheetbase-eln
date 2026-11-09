@@ -75,8 +75,10 @@ export function useNow(): number {
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), NOW_TICK_MS)
+
     return () => clearInterval(id)
   }, [])
+
   return now
 }
 
@@ -87,22 +89,26 @@ export function unitSuffix(feed: Pick<FeedRow, 'unit'>): string {
 export function limitsLabel(feed: FeedRow): string {
   const { lowLimit: low, highLimit: high } = feed
   const unit = unitSuffix(feed)
+
   if (low !== null && high !== null) {
     return t('library.instruments.live.limitRange', {
       low: formatReadingValue(low),
       high: `${formatReadingValue(high)}${unit}`,
     })
   }
+
   if (low !== null) {
     return t('library.instruments.live.limitLowOnly', {
       low: `${formatReadingValue(low)}${unit}`,
     })
   }
+
   if (high !== null) {
     return t('library.instruments.live.limitHighOnly', {
       high: `${formatReadingValue(high)}${unit}`,
     })
   }
+
   return t('library.instruments.live.noLimits')
 }
 
@@ -110,9 +116,11 @@ export function FeedState({ feed, now }: { feed: FeedRow; now: number }) {
   if (feed.limitState === 'low') {
     return <Status tone="bad">{t('library.instruments.live.stateLow')}</Status>
   }
+
   if (feed.limitState === 'high') {
     return <Status tone="bad">{t('library.instruments.live.stateHigh')}</Status>
   }
+
   return feedIsLive(feed, now) ? (
     <Status tone="ok">{t('library.instruments.live.stateLive')}</Status>
   ) : (
@@ -134,6 +142,7 @@ export function LiveChart({
   const [hover, setHover] = useState<SeriesPoint | null>(null)
   const frame = useRef<HTMLDivElement>(null)
   const data = series.data
+
   const geometry = useMemo(
     () =>
       data && data.points.length
@@ -144,7 +153,9 @@ export function LiveChart({
         : null,
     [data, feed.lowLimit, feed.highLimit],
   )
+
   const windowName = t(`library.instruments.live.window${windowId}`)
+
   if (!data || !geometry) {
     return (
       <div className="flex h-[200px] items-center justify-center rounded-md border border-border text-body text-fg-muted">
@@ -152,20 +163,28 @@ export function LiveChart({
       </div>
     )
   }
+
   const pick = (clientX: number) => {
     const box = frame.current?.getBoundingClientRect()
+
     if (!box || box.width === 0) return
+
     const at =
       data.since +
       ((clientX - box.left) / box.width) * (data.until - data.since)
+
     let best = data.points[0]
+
     for (const p of data.points) {
       if (Math.abs(p.at - at) < Math.abs(best.at - at)) best = p
     }
+
     setHover(best)
   }
+
   const shown = hover && data.points.includes(hover) ? hover : null
   const marker = shown ?? data.points.at(-1)!
+
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex flex-wrap items-baseline gap-x-3 text-label text-fg-muted">
@@ -308,11 +327,14 @@ export function LimitsDialog({
   const [unit, setUnit] = useState(feed.unit ?? '')
   const lowNumber = low.trim() === '' ? null : Number(low)
   const highNumber = high.trim() === '' ? null : Number(high)
+
   const invalid =
     (lowNumber !== null && !Number.isFinite(lowNumber)) ||
     (highNumber !== null && !Number.isFinite(highNumber))
+
   const backwards =
     lowNumber !== null && highNumber !== null && lowNumber > highNumber
+
   const mutation = useMutation({
     mutationFn: () =>
       setFeedLimits({
@@ -335,6 +357,7 @@ export function LimitsDialog({
       })
     },
   })
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(480px,calc(100vw-32px))]">
@@ -412,6 +435,7 @@ export function LiveSetupDialog({
   const [feed, setFeed] = useState('')
   const [unit, setUnit] = useState('')
   const portNumber = Number(port)
+
   const ready =
     kind === 'file'
       ? path.trim().length > 0
@@ -419,16 +443,19 @@ export function LiveSetupDialog({
         Number.isInteger(portNumber) &&
         portNumber >= 1 &&
         portNumber <= 65535
+
   const mutation = useMutation({
     mutationFn: () => {
       const extra = {
         ...(feed.trim() ? { feed: feed.trim() } : {}),
         ...(unit.trim() ? { unit: unit.trim() } : {}),
       }
+
       const source: LiveSourceInput =
         kind === 'file'
           ? { kind: 'file', path: path.trim(), ...extra }
           : { kind: 'network', host: host.trim(), port: portNumber, ...extra }
+
       return downloadLiveAgent({
         instrumentId: instrument.id,
         system,
@@ -448,6 +475,7 @@ export function LiveSetupDialog({
       })
     },
   })
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(560px,calc(100vw-32px))]">
@@ -577,8 +605,10 @@ function AgentLine({ instrumentId }: { instrumentId: string }) {
     staleTime: 30_000,
     retry: false,
   })
+
   if (!status.data) return null
   const { downloaded, running, lastSeenAt } = status.data
+
   if (!downloaded) {
     return (
       <Status tone="none">
@@ -586,6 +616,7 @@ function AgentLine({ instrumentId }: { instrumentId: string }) {
       </Status>
     )
   }
+
   return running ? (
     <Status tone="ok">
       {t('library.instruments.live.agentRunning', {
@@ -622,6 +653,7 @@ export function LiveReadingsSection({
   const feeds = useInstrumentFeeds(instrument.id)
   const [setupOpen, setSetupOpen] = useState(false)
   const rows = feeds.data ?? []
+
   return (
     <>
       <ReadingsSection
@@ -695,6 +727,7 @@ export function ReadingsSection({
   const [removing, setRemoving] = useState(false)
   const feed = rows.find((row) => row.id === selected) ?? rows.at(0) ?? null
   const series = useFeedSeries(feed?.id ?? null, windowId)
+
   const remove = useMutation({
     mutationFn: (target: FeedRow) => removeFeed(target.id),
     onSuccess: (_data, target) => {
@@ -712,6 +745,7 @@ export function ReadingsSection({
       })
     },
   })
+
   const columns: RegistryColumn<FeedRow>[] = [
     {
       id: 'name',

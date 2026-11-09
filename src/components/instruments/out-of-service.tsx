@@ -104,6 +104,7 @@ function useServiceStateMutation(
   onDone: () => void,
 ) {
   const queryClient = useQueryClient()
+
   return useMutation({
     mutationFn: (input: {
       outOfService: boolean
@@ -147,11 +148,13 @@ export function MarkOutOfServiceDialog({
 }) {
   const [reason, setReason] = useState('')
   const [expected, setExpected] = useState('')
+
   const mutation = useServiceStateMutation(instrument, () => {
     onOpenChange(false)
     setReason('')
     setExpected('')
   })
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
@@ -228,6 +231,7 @@ export function BackInServiceDialog({
 }) {
   const queryClient = useQueryClient()
   const [work, setWork] = useState('')
+
   const mutation = useServiceStateMutation(instrument, () => {
     void queryClient.invalidateQueries({
       queryKey: instrumentQueryKeys.serviceLog(instrument.id),
@@ -235,6 +239,7 @@ export function BackInServiceDialog({
     onOpenChange(false)
     setWork('')
   })
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
@@ -300,6 +305,7 @@ function LogVisitDialog({
   const [summary, setSummary] = useState('')
   const [performedBy, setPerformedBy] = useState('')
   const [details, setDetails] = useState('')
+
   const mutation = useMutation({
     mutationFn: () =>
       logInstrumentService({
@@ -326,6 +332,7 @@ function LogVisitDialog({
       })
     },
   })
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
@@ -432,6 +439,7 @@ export function ServiceLogSection({
   const log = useInstrumentServiceLog(instrument.id)
   const [open, setOpen] = useState(false)
   const rows = log.data ?? []
+
   const columns: RegistryColumn<ServiceLogRow>[] = [
     {
       id: 'date',
@@ -470,6 +478,7 @@ export function ServiceLogSection({
       meta: { cellClassName: 'text-fg-muted' },
     },
   ]
+
   return (
     <Section
       className="border-t border-border pt-4"

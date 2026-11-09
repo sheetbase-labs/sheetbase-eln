@@ -16,6 +16,7 @@ const MEI = '00000000-0000-4000-8000-000000000312'
 
 const PROTOCOL_REVISION = '00000000-0000-4000-8000-000000000790'
 const EXP_0142 = '00000000-0000-4000-8000-000000000351'
+
 const STORY_BLOCK = (n: number) =>
   `00000000-0000-4000-8000-0000000007${String(n).padStart(2, '0')}`
 
@@ -32,6 +33,7 @@ async function recordId(db: Db, identifier: string): Promise<string | null> {
       ),
     )
     .limit(1)
+
   return rows[0]?.id ?? null
 }
 
@@ -88,6 +90,7 @@ export async function seedDesignExperimentStory(db: Db): Promise<void> {
   await db.execute(
     sql`alter table api.blocks disable trigger change_event_blocks`,
   )
+
   try {
     await writeStory(db)
   } finally {
@@ -104,23 +107,28 @@ async function linkStorySamples(db: Db): Promise<void> {
     'SMP-2231',
     ...Array.from({ length: 11 }, (_, i) => `SMP-${2240 + i}`),
   ]
+
   // They were made on the dates the design shows, not on the day of seeding.
   const made: Record<string, string> = {
     'SMP-2231': '2026-09-20T16:30:00Z',
     'SMP-2249': '2026-09-25T09:34:00Z',
     'SMP-2250': '2026-09-21T10:02:00Z',
   }
+
   for (const identifier of identifiers) {
     const targetId = await recordId(db, identifier)
+
     if (!targetId) continue
     await db.execute(sql`
       update api.records
          set created_at = ${made[identifier] ?? '2026-09-23T09:15:00Z'}
        where id = ${targetId}`)
+
     const existing = await db.execute(sql`
       select 1 from api.record_links
        where source_record_id = ${EXP_0142} and target_record_id = ${targetId}
          and link_type = 'sample' limit 1`)
+
     if (existing.rows.length) continue
     await db.execute(sql`
       insert into api.record_links
@@ -135,11 +143,14 @@ async function linkStorySamples(db: Db): Promise<void> {
 async function linkStoryFiles(db: Db): Promise<void> {
   for (const identifier of ['FILE-0002', 'FILE-0003', 'FILE-0004']) {
     const targetId = await recordId(db, identifier)
+
     if (!targetId) continue
+
     const existing = await db.execute(sql`
       select 1 from api.record_links
        where source_record_id = ${EXP_0142} and target_record_id = ${targetId}
          and link_type = 'file' limit 1`)
+
     if (existing.rows.length) continue
     await db.execute(sql`
       insert into api.record_links
@@ -152,11 +163,13 @@ async function linkStoryFiles(db: Db): Promise<void> {
 async function writeStory(db: Db): Promise<void> {
   await linkStorySamples(db)
   await linkStoryFiles(db)
+
   const exists = await db
     .select({ id: schema.blocks.id })
     .from(schema.blocks)
     .where(eq(schema.blocks.id, STORY_BLOCK(1)))
     .limit(1)
+
   if (exists.length) return
 
   // Who and when: the overview inspector reads the reviewer and planned end
@@ -170,10 +183,12 @@ async function writeStory(db: Db): Promise<void> {
 
   // What it follows and what follows it.
   const protocolId = await recordId(db, 'PRT-021')
+
   const upstream = [
     ['EXP-0138', 'upstream'],
     ['EXP-0133', 'upstream'],
   ] as const
+
   if (protocolId) {
     await db.execute(sql`
       insert into api.record_links
@@ -183,8 +198,10 @@ async function writeStory(db: Db): Promise<void> {
               ${GARETH})
       on conflict do nothing`)
   }
+
   for (const [identifier, linkType] of upstream) {
     const targetId = await recordId(db, identifier)
+
     if (!targetId) continue
     await db.execute(sql`
       insert into api.record_links
@@ -194,7 +211,9 @@ async function writeStory(db: Db): Promise<void> {
               ${linkType}, ${GARETH})
       on conflict do nothing`)
   }
+
   const nextId = await recordId(db, 'EXP-0145')
+
   if (nextId) {
     await db.execute(sql`
       insert into api.record_links
@@ -328,6 +347,7 @@ async function writeStory(db: Db): Promise<void> {
       order: index + 1,
       payload: { text: step.text, stepNumber: index + 1 },
     }))
+
     for (const step of definitions) {
       await db
         .insert(schema.blocks)
@@ -339,6 +359,7 @@ async function writeStory(db: Db): Promise<void> {
         })
         .onConflictDoNothing()
     }
+
     await db
       .insert(schema.revisions)
       .values({
@@ -372,6 +393,7 @@ async function writeStory(db: Db): Promise<void> {
     await tx.execute(
       sql`select set_config('request.jwt.claims', ${JSON.stringify({ sub: GARETH, workspace_id: PROCESS })}, true)`,
     )
+
     for (const block of blocks) {
       await tx
         .insert(schema.blocks)
@@ -392,6 +414,7 @@ async function writeStory(db: Db): Promise<void> {
   await db.execute(
     sql`alter table api.blocks disable trigger validate_scientific_block`,
   )
+
   try {
     for (const [index, step] of PROTOCOL_STEPS.entries()) {
       if (!step.completedAt) continue

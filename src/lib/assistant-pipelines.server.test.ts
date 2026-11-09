@@ -30,13 +30,16 @@ const PIPELINE = {
   name: 'Nightly QC',
   lifecycle: 'active',
 }
+
 const PUBLISHED = {
   id: '22222222-2222-4222-8222-222222222222',
   version: 3,
   lifecycle: 'published',
   configuration: { inputs: [{ name: 'plates' }] },
 }
+
 const DRAFT = { ...PUBLISHED, id: 'draft-4', version: 4, lifecycle: 'draft' }
+
 const FAILED_RUN = {
   id: 'run-1',
   status: 'failed',
@@ -44,6 +47,7 @@ const FAILED_RUN = {
   started_at: '2026-11-09T06:00:00Z',
   error_message: 'Input empty',
 }
+
 const PLUGIN = {
   id: 'ext-1',
   key: 'sequence-tools',
@@ -66,18 +70,23 @@ function context(
     dataset_versions: [{ id: 'dv-9', label: 'v9' }],
     ...overrides,
   }
+
   const client = {
     list: (resource: string, query = '') => {
       if (resource === 'pipeline_definition_versions') {
         if (query.includes('lifecycle=eq.published'))
           return Promise.resolve(rows.published ?? [PUBLISHED])
+
         if (query.includes('lifecycle=eq.draft'))
           return Promise.resolve(rows.draft ?? [DRAFT])
+
         return Promise.resolve([PUBLISHED, DRAFT])
       }
+
       return Promise.resolve(rows[resource] ?? [])
     },
   } as unknown as DataClient
+
   return {
     client,
     workspaceId: 'ws-1',
@@ -94,6 +103,7 @@ describe('pipeline and plugin assistant cards', () => {
       expect(ASSISTANT_PROPOSE_TOOL_NAMES).toContain(name)
       expect(isPipelinesProposalTool(name)).toBe(true)
     }
+
     expect(pipelinesProposalDefs().map((d) => d.name)).toEqual(
       PIPELINES_PROPOSE_TOOL_NAMES.map((n) => n.replaceAll('.', '__')),
     )
@@ -110,7 +120,9 @@ describe('pipeline and plugin assistant cards', () => {
       },
       context(),
     )
+
     expect(built.ok).toBe(true)
+
     if (!built.ok) return
     expect(built.proposal.action).toEqual({
       kind: 'pipeline.run',
@@ -128,13 +140,17 @@ describe('pipeline and plugin assistant cards', () => {
       { ...base, pipeline: 'Nightly QC' },
       context(),
     )
+
     expect(missing).toMatchObject({ ok: false })
+
     if (!missing.ok) expect(missing.message).toContain('plates')
+
     const unknown = await buildPipelinesProposal(
       PIPELINE_RUN_TOOL,
       { ...base, pipeline: 'Nightly QC', inputs: { wells: 'Plate reads' } },
       context(),
     )
+
     expect(unknown).toMatchObject({ ok: false })
   })
 
@@ -146,12 +162,15 @@ describe('pipeline and plugin assistant cards', () => {
         pipeline_definitions: [{ ...PIPELINE, lifecycle: 'retired' }],
       }),
     )
+
     expect(retired).toMatchObject({ ok: false })
+
     const unpublished = await buildPipelinesProposal(
       PIPELINE_RUN_TOOL,
       { ...base, pipeline: 'Nightly QC' },
       context({ published: [] }),
     )
+
     expect(unpublished).toMatchObject({ ok: false })
   })
 
@@ -161,16 +180,19 @@ describe('pipeline and plugin assistant cards', () => {
       { ...base, pipeline: 'Nightly QC' },
       context(),
     )
+
     expect(retry.ok && retry.proposal.action).toEqual({
       kind: 'pipeline.retry',
       definitionId: PIPELINE.id,
       runId: 'run-1',
     })
+
     const cancel = await buildPipelinesProposal(
       PIPELINE_CANCEL_TOOL,
       { ...base, pipeline: 'Nightly QC' },
       context({ pipeline_runs: [{ ...FAILED_RUN, status: 'running' }] }),
     )
+
     expect(cancel.ok && cancel.proposal.action).toMatchObject({
       kind: 'pipeline.cancel',
       runId: 'run-1',
@@ -183,23 +205,28 @@ describe('pipeline and plugin assistant cards', () => {
       { ...base, pipeline: 'nightly_qc' },
       context(),
     )
+
     expect(publish.ok && publish.proposal.changes).toEqual([
       { label: 'Published version', before: 'v3', after: 'v4' },
     ])
+
     const retire = await buildPipelinesProposal(
       PIPELINE_RETIRE_TOOL,
       { ...base, pipeline: 'Nightly QC', retire: true },
       context(),
     )
+
     expect(retire.ok && retire.proposal.action).toMatchObject({
       kind: 'pipeline.retire',
       lifecycle: 'retired',
     })
+
     const again = await buildPipelinesProposal(
       PIPELINE_RETIRE_TOOL,
       { ...base, pipeline: 'Nightly QC', retire: false },
       context(),
     )
+
     expect(again).toMatchObject({ ok: false })
   })
 
@@ -209,22 +236,27 @@ describe('pipeline and plugin assistant cards', () => {
       { ...base, pipeline: 'Nightly QC', dailyAt: '06:30' },
       context(),
     )
+
     expect(daily.ok && daily.proposal.action).toMatchObject({
       kind: 'pipeline.schedule_add',
       scheduleKind: 'daily',
       spec: { dailyAt: '06:30', timeZone: 'Europe/London' },
     })
+
     const both = await buildPipelinesProposal(
       PIPELINE_SCHEDULE_ADD_TOOL,
       { ...base, pipeline: 'Nightly QC', dailyAt: '06:30', everyMinutes: 60 },
       context(),
     )
+
     expect(both).toMatchObject({ ok: false })
+
     const event = await buildPipelinesProposal(
       PIPELINE_SCHEDULE_ADD_TOOL,
       { ...base, pipeline: 'Nightly QC', onEvent: 'not.an.event' },
       context(),
     )
+
     expect(event).toMatchObject({ ok: false })
   })
 
@@ -234,26 +266,32 @@ describe('pipeline and plugin assistant cards', () => {
       { ...base, pipeline: 'Nightly QC', on: false },
       context(),
     )
+
     expect(pause.ok && pause.proposal.action).toMatchObject({
       kind: 'pipeline.schedule_switch',
       scheduleId: 'sch-1',
       enabled: false,
     })
+
     const already = await buildPipelinesProposal(
       PIPELINE_SCHEDULE_SWITCH_TOOL,
       { ...base, pipeline: 'Nightly QC', on: true },
       context(),
     )
+
     expect(already).toMatchObject({ ok: false })
+
     const remove = await buildPipelinesProposal(
       PIPELINE_SCHEDULE_DELETE_TOOL,
       { ...base, pipeline: 'Nightly QC' },
       context(),
     )
+
     expect(remove.ok && remove.proposal.action).toMatchObject({
       kind: 'pipeline.schedule_delete',
       scheduleId: 'sch-1',
     })
+
     const several = await buildPipelinesProposal(
       PIPELINE_SCHEDULE_DELETE_TOOL,
       { ...base, pipeline: 'Nightly QC' },
@@ -264,7 +302,9 @@ describe('pipeline and plugin assistant cards', () => {
         ],
       }),
     )
+
     expect(several).toMatchObject({ ok: false })
+
     if (!several.ok) expect(several.message).toContain('which one')
   })
 
@@ -274,17 +314,20 @@ describe('pipeline and plugin assistant cards', () => {
       { ...base, plugin: 'sequence tools', on: false },
       context(),
     )
+
     expect(off.ok && off.proposal.action).toEqual({
       kind: 'plugin.switch',
       workspaceId: 'ws-1',
       extensionId: 'ext-1',
       enabled: false,
     })
+
     const remove = await buildPipelinesProposal(
       PLUGIN_REMOVE_TOOL,
       { ...base, plugin: 'sequence-tools' },
       context(),
     )
+
     expect(remove.ok && remove.proposal.action).toMatchObject({
       kind: 'plugin.remove',
       extensionId: 'ext-1',

@@ -34,9 +34,11 @@ const TimelineContext = createContext<TimelineContextValue | undefined>(
 
 const useTimeline = () => {
   const context = useContext(TimelineContext)
+
   if (!context) {
     throw new Error('useTimeline must be used within a Timeline')
   }
+
   return context
 }
 
@@ -65,6 +67,7 @@ function Timeline({
       if (value === undefined) {
         setInternalStep(step)
       }
+
       onValueChange?.(step)
     },
     [value, onValueChange],

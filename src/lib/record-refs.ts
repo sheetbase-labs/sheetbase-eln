@@ -43,27 +43,36 @@ export type RefPart = { text: string; ref: boolean }
 export function splitRefs(text: string): RefPart[] {
   const parts: RefPart[] = []
   let last = 0
+
   for (const match of text.matchAll(RECORD_REF)) {
     const at = match.index
+
     if (at > last) parts.push({ text: text.slice(last, at), ref: false })
     parts.push({ text: match[0], ref: true })
     last = at + match[0].length
   }
+
   if (last < text.length) parts.push({ text: text.slice(last), ref: false })
+
   return parts
 }
 
 /** The object kind of a known identifier, or null when no record has it. */
 async function lookUp(ref: string): Promise<string | null> {
   const source = SOURCES[ref.slice(0, ref.indexOf('-'))]
+
   if (!source) return null
   const select = source.kind ? source.column : `${source.column},kind`
+
   const rows = await notebookDataClient.list<{ kind?: string }>(
     source.table,
     `?select=${select}&${source.column}=eq.${encodeURIComponent(ref)}&limit=1`,
   )
+
   const row = rows.at(0)
+
   if (!row) return null
+
   return source.kind ?? row.kind ?? 'record'
 }
 
@@ -73,7 +82,9 @@ const pending = new Map<string, Promise<void>>()
 
 function resolve(ref: string): Promise<void> {
   const existing = pending.get(ref)
+
   if (existing) return existing
+
   const task = lookUp(ref)
     .then((kind) => {
       resolved.set(ref, kind)
@@ -84,7 +95,9 @@ function resolve(ref: string): Promise<void> {
     .finally(() => {
       pending.delete(ref)
     })
+
   pending.set(ref, task)
+
   return task
 }
 
@@ -100,21 +113,27 @@ export function useRecordRefs(refs: readonly string[]): Map<string, string> {
   const [, setVersion] = useState(0)
   useEffect(() => {
     let live = true
+
     const missing = key
       .split(' ')
       .filter((ref) => ref !== '' && !resolved.has(ref))
+
     if (missing.length === 0) return
     void Promise.all(missing.map(resolve)).then(() => {
       if (live) setVersion((version) => version + 1)
     })
+
     return () => {
       live = false
     }
   }, [key])
   const known = new Map<string, string>()
+
   for (const ref of unique) {
     const kind = resolved.get(ref)
+
     if (kind) known.set(ref, kind)
   }
+
   return known
 }

@@ -43,6 +43,7 @@ export function toListViewChoice(
   row: ListViewWire | undefined,
 ): ListViewChoice {
   if (!row) return EMPTY
+
   const sorting = Array.isArray(row.sorting)
     ? row.sorting.flatMap((entry): SortingState => {
         if (
@@ -57,12 +58,15 @@ export function toListViewChoice(
             },
           ]
         }
+
         return []
       })
     : []
+
   const hidden = Array.isArray(row.hidden_columns)
     ? row.hidden_columns.filter((id): id is string => typeof id === 'string')
     : []
+
   return { sorting: sorting.slice(0, 4), hidden }
 }
 
@@ -82,6 +86,7 @@ export function useListView(
 ): ListView {
   const queryClient = useQueryClient()
   const queryKey = useMemo(() => listViewQueryKey(key), [key])
+
   const query = useQuery({
     queryKey,
     queryFn: async (): Promise<ListViewChoice> => {
@@ -89,6 +94,7 @@ export function useListView(
         'list_views',
         `?list_key=eq.${encodeURIComponent(key)}&select=sorting,hidden_columns&limit=1`,
       )
+
       return toListViewChoice(rows[0])
     },
     staleTime: Infinity,
@@ -98,9 +104,11 @@ export function useListView(
 
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const pending = useRef<ListViewChoice | undefined>(undefined)
+
   const flush = useCallback(() => {
     const choice = pending.current
     pending.current = undefined
+
     if (!choice) return
     // Remembering a view is a convenience: when it cannot be saved the table
     // still shows what was chosen for now.
@@ -114,6 +122,7 @@ export function useListView(
       )
       .catch(() => undefined)
   }, [client, key])
+
   // A choice still waiting is written when the list is left.
   useEffect(
     () => () => {
@@ -127,6 +136,7 @@ export function useListView(
     (change: (current: ListViewChoice) => ListViewChoice) => {
       const current =
         queryClient.getQueryData<ListViewChoice>(queryKey) ?? EMPTY
+
       const next = change(current)
       // A read still in flight must not answer over a choice made meanwhile.
       void queryClient.cancelQueries({ queryKey })
@@ -143,14 +153,17 @@ export function useListView(
       update((c) => ({ ...c, sorting: resolve(updater, c.sorting) })),
     [update],
   )
+
   const setHidden = useCallback(
     (updater: Updater<string[]>) =>
       update((c) => ({ ...c, hidden: resolve(updater, c.hidden) })),
     [update],
   )
+
   const reset = useCallback(() => update(() => EMPTY), [update])
 
   const choice = query.data ?? EMPTY
+
   return useMemo(
     () => ({
       ...choice,

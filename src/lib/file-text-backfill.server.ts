@@ -87,15 +87,18 @@ export async function backfillFileTextBatch(
       options.limit ?? FILE_TEXT_BACKFILL_BATCH,
     ],
   )
+
   const result: BackfillResult = {
     scanned: rows.length,
     stored: 0,
     empty: 0,
     failed: 0,
   }
+
   for (const file of rows) {
     if (!isSearchableMediaType(file.media_type)) continue
     let text: string | null = null
+
     try {
       const { stream } = await storage.getStream(file.storage_key)
       text = await extractDocumentText(stream, file.media_type)
@@ -106,11 +109,14 @@ export async function backfillFileTextBatch(
         error: error instanceof Error ? error.message : String(error),
       })
     }
+
     const found = text !== null && text.trim().length > 0
+
     if (text !== null) {
       if (found) result.stored += 1
       else result.empty += 1
     }
+
     await conn.query(
       `UPDATE api.file_objects
           SET extracted_text = CASE WHEN $2::boolean THEN $3 ELSE extracted_text END,
@@ -119,6 +125,7 @@ export async function backfillFileTextBatch(
       [file.id, found, found ? text : null],
     )
   }
+
   return { ...result, last: rows.at(-1)?.id ?? null }
 }
 
@@ -130,21 +137,25 @@ export async function backfillFileText(
 ): Promise<BackfillResult> {
   const total: BackfillResult = { scanned: 0, stored: 0, empty: 0, failed: 0 }
   let after: string | undefined
+
   for (;;) {
     const batch = await backfillFileTextBatch(conn, storage, {
       ...options,
       after,
     })
+
     total.scanned += batch.scanned
     total.stored += batch.stored
     total.empty += batch.empty
     total.failed += batch.failed
+
     if (
       batch.last === null ||
       batch.scanned < (options.limit ?? FILE_TEXT_BACKFILL_BATCH)
     ) {
       return total
     }
+
     after = batch.last
   }
 }
@@ -152,6 +163,7 @@ export async function backfillFileText(
 export async function connectForBackfill(): Promise<BackfillConnection> {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   return {
     query: async (text, values = []) => client.query(text, values),
     end: () => client.end(),
@@ -162,8 +174,10 @@ const startedGlobalKey = '__sheetbaseFileTextBackfillStarted'
 
 function disabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
@@ -173,16 +187,21 @@ function disabled(): boolean {
  */
 export function startFileTextBackfill(): void {
   if (typeof window !== 'undefined') return
+
   if (disabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
+
   const timer = setTimeout(() => {
     void (async () => {
       const startedAt = Date.now()
       const conn = await connectForBackfill()
+
       try {
         const result = await backfillFileText(conn)
+
         if (result.scanned > 0) {
           logger.info('file text backfill complete', {
             ...result,
@@ -198,5 +217,6 @@ export function startFileTextBackfill(): void {
       })
     })
   }, 20_000)
+
   timer.unref()
 }

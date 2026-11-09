@@ -205,6 +205,7 @@ describe('allowedTargetModels / allowedLinkTypes', () => {
         targetModelKey: 'protocol_template',
       }),
     ]
+
     expect(allowedTargetModels(rules, 'experiment', 'sample')).toEqual([
       'sample',
     ])
@@ -336,6 +337,7 @@ describe('rulesForLinkType', () => {
         targetModelKey: 'protocol_template',
       }),
     ]
+
     expect(rulesForLinkType(rules, 'experiment', 'sample')).toHaveLength(1)
     expect(rulesForLinkType(rules, 'experiment', 'material')).toHaveLength(0)
   })
@@ -353,6 +355,7 @@ describe('MODEL-04 migration guidance', () => {
       },
       0,
     )
+
     expect(guidance.join(' ')).toMatch(/closes the world/)
     expect(guidance.join(' ')).toMatch(/never rewrites existing links/)
   })
@@ -368,6 +371,7 @@ describe('MODEL-04 migration guidance', () => {
       },
       3,
     )
+
     expect(guidance.join(' ')).not.toMatch(/closes the world/)
     expect(guidance.join(' ')).toMatch(/maximum of 2/)
     expect(guidance.join(' ')).toMatch(/never enforced/)

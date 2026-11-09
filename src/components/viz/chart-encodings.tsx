@@ -54,10 +54,12 @@ type Notice = { tone: 'info' | 'refused'; message: string }
 /** The unit recorded on a field, whether the schema stores a symbol or text. */
 function unitLabel(unit: unknown): string | null {
   if (typeof unit === 'string' && unit.trim() !== '') return unit
+
   if (unit && typeof unit === 'object' && 'symbol' in unit) {
     if (typeof unit.symbol === 'string' && unit.symbol !== '')
       return unit.symbol
   }
+
   return null
 }
 
@@ -68,9 +70,11 @@ export function ChartEncodingEditor({
   onAssign,
 }: ChartEncodingEditorProps) {
   const type = spec.type
+
   const roles = CHART_ROLES.filter(
     (role) => roleAvailableForType(role, type).ok,
   )
+
   const [dragging, setDragging] = useState<string | null>(null)
   const [over, setOver] = useState<ChartRole | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
@@ -80,15 +84,20 @@ export function ChartEncodingEditor({
     setOver(null)
     setDragging(null)
     const fieldId = event.dataTransfer.getData(FIELD_DRAG_TYPE)
+
     const column = fieldId
       ? columns.find((candidate) => candidate.id === fieldId)
       : undefined
+
     if (!column) return
     const verdict = checkAssignment(role, column, type)
+
     if (!verdict.ok) {
       setNotice({ tone: 'refused', message: verdict.reason })
+
       return
     }
+
     onAssign(role, column.id)
     setNotice({
       tone: 'info',
@@ -134,12 +143,15 @@ export function ChartEncodingEditor({
                   const assignable = roles.filter(
                     (role) => checkAssignment(role, column, type).ok,
                   )
+
                   const unit = isMeasuredColumn(column)
                     ? unitLabel(column.unit)
                     : null
+
                   const filled = CHART_ROLES.filter(
                     (role) => boundFieldId(spec, role) === column.id,
                   )
+
                   return (
                     <li
                       key={column.id}
@@ -269,6 +281,7 @@ export function ChartEncodingEditor({
           {roles.map((role) => {
             const options = columnsForRole(role, columns, type)
             const value = boundFieldId(spec, role) ?? ''
+
             return (
               <div
                 key={role}

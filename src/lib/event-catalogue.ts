@@ -30,6 +30,7 @@ import type { ChangeEventInput } from './webhook-events'
 
 /** Payload schema version pinned by this catalogue revision. */
 export const CATALOGUE_SCHEMA_VERSION = '1' as const
+
 export type CatalogueSchemaVersion = typeof CATALOGUE_SCHEMA_VERSION
 
 /** Domain families covered by the catalogue. */
@@ -146,11 +147,13 @@ const sseOnly: EventConsumerMap = Object.freeze({
   sse: true,
   pipeline: false,
 })
+
 const webhookSse: EventConsumerMap = Object.freeze({
   webhook: true,
   sse: true,
   pipeline: false,
 })
+
 const webhookSsePipeline: EventConsumerMap = Object.freeze({
   webhook: true,
   sse: true,
@@ -4079,8 +4082,10 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
 export function eventLabel(name: string): string {
   const canonical = resolveEventAlias(name)
   const known = EVENT_LABELS[canonical]
+
   if (known) return known
   const words = canonical.replace(/[._]+/g, ' ').trim()
+
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : canonical
 }
 
@@ -4155,6 +4160,7 @@ export function eventByName(name: string): EventCatalogueEntry | undefined {
  */
 export function resolveEventAlias(name: string): string {
   const entry = EVENT_CATALOGUE.find((candidate) => candidate.wireName === name)
+
   return entry ? entry.name : name
 }
 

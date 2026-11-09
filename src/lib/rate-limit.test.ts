@@ -52,6 +52,7 @@ describe('rate limiter memory bound', () => {
     const limiter = createRateLimiter({ maxRequests: 1, windowSeconds: 60 })
     const first = 0
     const second = 61_000
+
     // Enough principals in one window to cross the sweep threshold.
     for (let i = 0; i <= 10_001; i += 1) limiter.hit(`old-${i}`, first)
     expect(limiter.hit('old-0', first).allowed).toBe(false)
@@ -62,6 +63,7 @@ describe('rate limiter memory bound', () => {
     // Swept principals start a fresh window.
     expect(limiter.hit('old-0', second).allowed).toBe(true)
     expect(limiter.hit('old-0', second).allowed).toBe(false)
+
     // Further new principals in the same window are still counted.
     for (let i = 1; i <= 10_001; i += 1) limiter.hit(`new-${i}`, second)
     expect(limiter.hit('new-10001', second).allowed).toBe(false)

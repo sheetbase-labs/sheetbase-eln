@@ -122,7 +122,9 @@ export function outgoingLinkReason(
       return `Linked to ${identifier}`
     default: {
       const label = relationshipLabel(linkType)
+
       if (!label || label === linkType) return `Linked to ${identifier}`
+
       return `${label.charAt(0).toUpperCase()}${label.slice(1)} ${identifier}`
     }
   }
@@ -196,6 +198,7 @@ export function relatedKindLabel(
   recordKind: string | null = null,
 ): string {
   if (kind === 'record') return recordKindLabel(recordKind ?? 'record')
+
   switch (kind) {
     case 'dataset':
       return 'Dataset'
@@ -219,13 +222,17 @@ export function assembleRelatedWork(
   candidates: RelatedWorkCandidate[],
 ): RelatedWorkItem[] {
   const strongest = new Map<string, RelatedWorkCandidate>()
+
   for (const candidate of candidates) {
     if (!candidate.id || !candidate.label) continue
+
     if (candidate.kind === seedKind && candidate.id === seedId) continue
     const key = `${candidate.kind}:${candidate.id}`
     const prev = strongest.get(key)
+
     if (!prev || candidate.rank < prev.rank) strongest.set(key, candidate)
   }
+
   return [...strongest.values()]
     .sort(
       (a, b) =>
@@ -314,7 +321,9 @@ async function resolveRecordLabels(
   ids: readonly string[],
 ): Promise<Map<string, { kind: string; identifier: string; title: string }>> {
   const unique = [...new Set(ids)].filter(Boolean)
+
   if (unique.length === 0) return new Map()
+
   const rows = await quiet(
     listByIds(unique, (inList) =>
       client.list<RecordLabelWire>(
@@ -324,10 +333,12 @@ async function resolveRecordLabels(
     ),
     [],
   )
+
   const byId = new Map<
     string,
     { kind: string; identifier: string; title: string }
   >()
+
   for (const row of rows) {
     if (row.archived_at !== null || row.deleted_at !== null) continue
     byId.set(row.id, {
@@ -336,6 +347,7 @@ async function resolveRecordLabels(
       title: row.title,
     })
   }
+
   return byId
 }
 
@@ -345,6 +357,7 @@ async function resolveDatasetByName(
   name: string,
 ): Promise<{ id: string; name: string } | null> {
   if (!name) return null
+
   const rows = await quiet(
     client.list<DatasetIdentityWire>(
       'datasets',
@@ -352,8 +365,11 @@ async function resolveDatasetByName(
     ),
     [],
   )
+
   const row = rows.at(0)
+
   if (!row || row.lifecycle !== 'active') return null
+
   return { id: row.id, name: row.name }
 }
 
@@ -369,6 +385,7 @@ export async function fetchRelatedWork(
   client: DataClient = notebookDataClient,
 ): Promise<RelatedWorkItem[]> {
   if (!id) return []
+
   try {
     switch (kind) {
       case 'record':
@@ -394,11 +411,14 @@ async function fetchRelatedForRecord(
   recordId: string,
 ): Promise<RelatedWorkItem[]> {
   const seed = await quiet(fetchRecord(client, recordId), null)
+
   if (!seed || seed.archivedAt !== null || seed.deletedAt !== null) return []
 
   const encodedId = encodeURIComponent(recordId)
+
   const linkSelect =
     'select=id,source_record_id,target_kind,target_identifier,link_type,created_at'
+
   const [outgoing, incoming, lineageLinks, incomingByIdentifier, sheets] =
     await Promise.all([
       quiet(fetchLinksForRecord(client, recordId), []),
@@ -436,6 +456,7 @@ async function fetchRelatedForRecord(
   // name and resolve separately below.
   const outRecords: { id: string; recordKind: string; reason: string }[] = []
   const outDatasets: { name: string; reason: string }[] = []
+
   const pushOutgoing = (
     targetRecordId: string | null,
     targetKind: string,
@@ -443,6 +464,7 @@ async function fetchRelatedForRecord(
     linkType: string,
   ) => {
     const reason = outgoingLinkReason(linkType, targetIdentifier)
+
     if (targetRecordId && targetRecordId !== recordId) {
       outRecords.push({ id: targetRecordId, recordKind: targetKind, reason })
     } else if (
@@ -453,6 +475,7 @@ async function fetchRelatedForRecord(
       outDatasets.push({ name: targetIdentifier, reason })
     }
   }
+
   for (const link of outgoing) {
     pushOutgoing(
       link.targetRecordId,
@@ -461,6 +484,7 @@ async function fetchRelatedForRecord(
       link.linkType,
     )
   }
+
   for (const link of lineageLinks) {
     if (link.source_record_id === recordId) {
       pushOutgoing(
@@ -475,18 +499,23 @@ async function fetchRelatedForRecord(
   // Incoming sources always carry a source record id; first-seen link type
   // wins so the direct incoming query outranks the by-identifier fallback.
   const incomingLinkType = new Map<string, string>()
+
   const noteIncoming = (sourceId: string, linkType: string) => {
     if (!sourceId || sourceId === recordId) return
+
     if (!incomingLinkType.has(sourceId))
       incomingLinkType.set(sourceId, linkType)
   }
+
   for (const link of incoming)
     noteIncoming(link.source_record_id, link.link_type)
+
   for (const link of lineageLinks) {
     if (link.target_record_id === recordId) {
       noteIncoming(link.source_record_id, link.link_type)
     }
   }
+
   for (const link of incomingByIdentifier) {
     noteIncoming(link.source_record_id, link.link_type)
   }
@@ -511,6 +540,7 @@ async function fetchRelatedForRecord(
 
   for (const target of outRecords) {
     const resolved = recordLabels.get(target.id)
+
     if (!resolved) continue
     candidates.push({
       kind: 'record',
@@ -525,6 +555,7 @@ async function fetchRelatedForRecord(
 
   for (const [sourceId, linkType] of incomingLinkType) {
     const resolved = recordLabels.get(sourceId)
+
     if (!resolved) continue
     candidates.push({
       kind: 'record',
@@ -563,6 +594,7 @@ async function fetchRelatedForRecord(
   // cannot crowd out direct links (the final cap keeps the strongest).
   for (const record of projectRecords.slice(0, RELATED_WORK_SOURCE_LIMIT)) {
     if (record.id === recordId) continue
+
     if (record.archivedAt !== null || record.deletedAt != null) continue
     candidates.push({
       kind: 'record',
@@ -585,6 +617,7 @@ async function fetchRelatedForDataset(
   datasetId: string,
 ): Promise<RelatedWorkItem[]> {
   const encodedId = encodeURIComponent(datasetId)
+
   const [seedRows, incoming] = await Promise.all([
     quiet(
       client.list<DatasetIdentityWire>(
@@ -602,12 +635,15 @@ async function fetchRelatedForDataset(
       [],
     ),
   ])
+
   const seed = seedRows.at(0)
+
   if (!seed || seed.lifecycle !== 'active') return []
 
   // Schema-mediated sibling datasets: dataset → schema version → schema →
   // relationships → sibling schemas → sibling datasets (all existing reads).
   const siblingCandidates: RelatedWorkCandidate[] = []
+
   if (seed.schema_version_id) {
     const versions = await quiet(
       client.list<{ id: string; schema_id: string }>(
@@ -616,12 +652,15 @@ async function fetchRelatedForDataset(
       ),
       [],
     )
+
     const schemaId = versions[0]?.schema_id ?? null
+
     if (schemaId) {
       const relationships = await quiet(
         fetchDatasetRelationshipsFor(client, schemaId),
         [],
       )
+
       const siblingSchemaIds = [
         ...new Set(
           relationships.flatMap((rel) => [
@@ -630,6 +669,7 @@ async function fetchRelatedForDataset(
           ]),
         ),
       ].filter((id) => id !== schemaId)
+
       if (siblingSchemaIds.length > 0) {
         const siblingVersions = await quiet(
           listByIds(siblingSchemaIds, (inList) =>
@@ -640,7 +680,9 @@ async function fetchRelatedForDataset(
           ),
           [],
         )
+
         const versionIds = siblingVersions.map((v) => v.id)
+
         if (versionIds.length > 0) {
           const siblings = (
             await quiet(
@@ -653,6 +695,7 @@ async function fetchRelatedForDataset(
               [],
             )
           ).slice(0, RELATED_WORK_SOURCE_LIMIT)
+
           for (const sibling of siblings) {
             if (sibling.id === datasetId || sibling.lifecycle !== 'active')
               continue
@@ -675,10 +718,13 @@ async function fetchRelatedForDataset(
       .map((link) => link.source_record_id)
       .filter((id) => id !== datasetId),
   )
+
   const candidates: RelatedWorkCandidate[] = [...siblingCandidates]
+
   for (const link of incoming) {
     if (link.source_record_id === datasetId) continue
     const resolved = sourceLabels.get(link.source_record_id)
+
     if (!resolved) continue
     candidates.push({
       kind: 'record',
@@ -690,6 +736,7 @@ async function fetchRelatedForDataset(
       rank: 0,
     })
   }
+
   return assembleRelatedWork('dataset', datasetId, candidates)
 }
 
@@ -700,11 +747,13 @@ async function fetchRelatedForSheet(
   sheetId: string,
 ): Promise<RelatedWorkItem[]> {
   const seed = await quiet(fetchSheetInstance(sheetId, client), null)
+
   if (!seed || seed.lifecycle !== 'active') return []
   const candidates: RelatedWorkCandidate[] = []
 
   if (seed.notebookRecordId) {
     const record = await quiet(fetchRecord(client, seed.notebookRecordId), null)
+
     if (record && record.archivedAt === null && record.deletedAt === null) {
       candidates.push({
         kind: 'record',
@@ -723,6 +772,7 @@ async function fetchRelatedForSheet(
       fetchSheetInstance(seed.duplicatedFromInstanceId, client),
       null,
     )
+
     if (origin && origin.lifecycle === 'active') {
       candidates.push({
         kind: 'sheet',
@@ -744,6 +794,7 @@ async function fetchRelatedForSheet(
       ),
       [],
     )
+
     for (const sibling of siblings) {
       if (sibling.id === sheetId || sibling.lifecycle !== 'active') continue
       candidates.push({
@@ -766,6 +817,7 @@ async function fetchRelatedForTemplate(
   templateId: string,
 ): Promise<RelatedWorkItem[]> {
   const encodedId = encodeURIComponent(templateId)
+
   const [usage, outgoing, incoming, templateRows] = await Promise.all([
     quiet(fetchTemplateUsage(client, templateId), []),
     quiet(fetchLinksForRecord(client, templateId), []),
@@ -785,18 +837,23 @@ async function fetchRelatedForTemplate(
       [],
     ),
   ])
+
   const template = templateRows.at(0)
+
   if (template && template.lifecycle !== 'active') return []
 
   const usageIds = new Set(
     usage.map((u) => u.recordId).filter((id) => id !== templateId),
   )
+
   const incomingIds = incoming
     .map((link) => link.source_record_id)
     .filter((id) => id !== templateId && !usageIds.has(id))
+
   const outgoingIds = outgoing
     .map((link) => link.targetRecordId)
     .filter((id): id is string => Boolean(id) && id !== templateId)
+
   const labels = await resolveRecordLabels(client, [
     ...usageIds,
     ...incomingIds,
@@ -806,9 +863,12 @@ async function fetchRelatedForTemplate(
   const incomingLinkType = new Map(
     incoming.map((link) => [link.source_record_id, link.link_type] as const),
   )
+
   const candidates: RelatedWorkCandidate[] = []
+
   for (const recordId of usageIds) {
     const resolved = labels.get(recordId)
+
     if (!resolved) continue
     candidates.push({
       kind: 'record',
@@ -820,8 +880,10 @@ async function fetchRelatedForTemplate(
       rank: 0,
     })
   }
+
   for (const sourceId of incomingIds) {
     const resolved = labels.get(sourceId)
+
     if (!resolved) continue
     candidates.push({
       kind: 'record',
@@ -836,9 +898,11 @@ async function fetchRelatedForTemplate(
       rank: 0,
     })
   }
+
   for (const link of outgoing) {
     if (!link.targetRecordId || link.targetRecordId === templateId) continue
     const resolved = labels.get(link.targetRecordId)
+
     if (!resolved) continue
     candidates.push({
       kind: 'record',
@@ -850,6 +914,7 @@ async function fetchRelatedForTemplate(
       rank: 0,
     })
   }
+
   return assembleRelatedWork('template', templateId, candidates)
 }
 
@@ -863,8 +928,10 @@ async function fetchRelatedForProject(
     quiet(fetchProject(client, projectId), null),
     quiet(fetchRecordsForProject(client, projectId), []),
   ])
+
   if (!project) return []
   const candidates: RelatedWorkCandidate[] = []
+
   for (const record of records.slice(0, RELATED_WORK_SOURCE_LIMIT)) {
     if (record.archivedAt !== null || record.deletedAt != null) continue
     candidates.push({
@@ -877,6 +944,7 @@ async function fetchRelatedForProject(
       rank: 1,
     })
   }
+
   return assembleRelatedWork('project', projectId, candidates)
 }
 

@@ -40,8 +40,10 @@ function useDebounced<T>(value: T, delay: number): T {
   const [settled, setSettled] = useState(value)
   useEffect(() => {
     const timer = setTimeout(() => setSettled(value), delay)
+
     return () => clearTimeout(timer)
   }, [value, delay])
+
   return settled
 }
 
@@ -80,6 +82,7 @@ export function MakeSolutionDialog({
 }) {
   const queryClient = useQueryClient()
   const projects = useProjectNames()
+
   const mutation = useMutation({
     mutationFn: (input: PrepareSolutionInput) =>
       prepareSolution(notebookDataClient, input),
@@ -107,6 +110,7 @@ export function MakeSolutionDialog({
       )
     },
   })
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(640px,calc(100vw-32px))]">
@@ -163,9 +167,11 @@ function SolutionForm({
   const [storage, setStorage] = useState('')
   const [expiry, setExpiry] = useState('')
   const [note, setNote] = useState('')
+
   const [ingredients, setIngredients] = useState<Ingredient[]>(
     initialLot ? [{ lot: initialLot, quantity: '' }] : [],
   )
+
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const earliest = useMemo(
@@ -188,17 +194,24 @@ function SolutionForm({
         event.preventDefault()
         const next: Record<string, string> = {}
         const made = Number(quantity)
+
         if (!projectId)
           next.project = t('library.materials.solution.chooseProject')
+
         if (!title.trim())
           next.title = t('library.materials.solution.enterName')
+
         if (!lot.trim()) next.lot = t('library.materials.solution.enterLot')
+
         if (quantity.trim() === '' || !Number.isFinite(made) || made <= 0)
           next.quantity = t('library.materials.solution.enterQuantity')
+
         if (ingredients.length === 0)
           next.ingredients = t('library.materials.solution.addIngredient')
+
         for (const row of ingredients) {
           const used = Number(row.quantity)
+
           if (row.quantity.trim() === '' || !Number.isFinite(used) || used <= 0)
             next[row.lot.id] = t('library.materials.solution.enterAmount', {
               name: row.lot.title,
@@ -209,7 +222,9 @@ function SolutionForm({
               name: row.lot.title,
             })
         }
+
         setErrors(next)
+
         if (Object.keys(next).length) return
         onSubmit({
           projectId,
@@ -412,16 +427,20 @@ function expiryHint(
   hasIngredients: boolean,
 ): string | undefined {
   if (!hasIngredients) return undefined
+
   if (!earliest)
     return expiry ? undefined : t('library.materials.solution.expiryNone')
+
   if (!expiry)
     return t('library.materials.solution.expiryEarliest', {
       date: formatDate(earliest),
     })
+
   if (expiry > earliest)
     return t('library.materials.solution.expiryLater', {
       date: formatDate(earliest),
     })
+
   return undefined
 }
 
@@ -437,14 +456,17 @@ function IngredientSearch({
   const [text, setText] = useState('')
   const [focused, setFocused] = useState(false)
   const query = useDebounced(text.trim(), 200)
+
   const results = useQuery({
     queryKey: solutionQueryKeys.candidates(query),
     queryFn: () => searchIngredientLots(notebookDataClient, query),
     enabled: focused || query.length > 0,
     staleTime: 10_000,
   })
+
   const shown = (results.data ?? []).filter((lot) => !taken.has(lot.id))
   const showList = focused || text.length > 0
+
   return (
     <div className="flex flex-col gap-1">
       <Input

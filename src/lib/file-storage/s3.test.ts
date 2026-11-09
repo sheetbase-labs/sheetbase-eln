@@ -17,6 +17,7 @@ const config = {
 function fakeService() {
   const objects = new Map<string, Buffer>()
   const calls: string[] = []
+
   const client = {
     async send(command: {
       constructor: { name: string }
@@ -25,23 +26,31 @@ function fakeService() {
       const name = command.constructor.name
       const key = `${command.input.Bucket}/${command.input.Key}`
       calls.push(`${name} ${key}`)
+
       if (name === 'PutObjectCommand') {
         const chunks: Buffer[] = []
+
         for await (const c of command.input.Body as Readable) chunks.push(c)
         const body = Buffer.concat(chunks)
+
         if (body.length !== command.input.ContentLength) {
           throw new Error('length mismatch')
         }
+
         objects.set(key, body)
+
         return {}
       }
+
       const found = objects.get(key)
+
       if (!found) {
         throw Object.assign(new Error('missing'), {
           name: name === 'HeadObjectCommand' ? 'NotFound' : 'NoSuchKey',
           $metadata: { httpStatusCode: 404 },
         })
       }
+
       if (name === 'GetObjectCommand') {
         return {
           ContentLength: found.length,
@@ -50,14 +59,19 @@ function fakeService() {
           },
         }
       }
+
       if (name === 'HeadObjectCommand') return { ContentLength: found.length }
+
       if (name === 'DeleteObjectCommand') {
         objects.delete(key)
+
         return {}
       }
+
       throw new Error(`unexpected ${name}`)
     },
   }
+
   return { client: client as unknown as S3Client, objects, calls }
 }
 
@@ -72,11 +86,14 @@ const streamOf = (bytes: Uint8Array) =>
 async function readAll(stream: ReadableStream<Uint8Array>) {
   const out: Buffer[] = []
   const reader = stream.getReader()
+
   for (;;) {
     const { done, value } = await reader.read()
+
     if (done) break
     out.push(Buffer.from(value))
   }
+
   return Buffer.concat(out)
 }
 

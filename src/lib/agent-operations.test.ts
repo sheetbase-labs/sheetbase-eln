@@ -27,6 +27,7 @@ describe('agent operation client contract', () => {
   it('submits the typed operation and complete provenance to one proposal RPC', async () => {
     const rpc = vi.fn().mockResolvedValue({ id: 'proposal-1' })
     const client = clientWithRpc(rpc)
+
     const operation: AgentOperation = {
       kind: 'dataset_rows.commit',
       datasetId: 'dataset-1',

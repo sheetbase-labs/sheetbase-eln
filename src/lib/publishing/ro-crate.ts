@@ -94,7 +94,9 @@ export async function buildDatasetCrate(
     `${input.datasetDisplayId ?? 'dataset'} ${input.versionLabel}`,
     'dataset',
   )
+
   const writer = new ZipWriter()
+
   const add = (path: string, content: string | Uint8Array) =>
     writer.add(`${base}/${path}`, content)
 
@@ -105,6 +107,7 @@ export async function buildDatasetCrate(
       .map((row) => delimitedRowLine(input.fields, row, ','))
       .join('\r\n') +
     (input.rows.length > 0 ? '\r\n' : '')
+
   const csvBytes = new TextEncoder().encode(csv)
   const csvPath = `data/${base}.csv`
   add(csvPath, csvBytes)
@@ -115,6 +118,7 @@ export async function buildDatasetCrate(
   // The table and its columns.
   const columns = input.fields.map((field) => {
     const terms = input.terms[field.key] ?? []
+
     return {
       '@id': `#column-${field.key}`,
       '@type': 'PropertyValue',
@@ -132,6 +136,7 @@ export async function buildDatasetCrate(
       })),
     }
   })
+
   graph.push({
     '@id': csvPath,
     '@type': 'File',
@@ -143,6 +148,7 @@ export async function buildDatasetCrate(
     'sheetbase:rowCount': input.rows.length,
   })
   graph.push(...columns)
+
   for (const term of Object.values(input.terms).flat()) {
     if (graph.some((e) => e['@id'] === term.iri)) continue
     graph.push({
@@ -180,6 +186,7 @@ export async function buildDatasetCrate(
     )
     const run = input.run
     const workflowPath = `workflow/${safeName(run.pipeline.key, 'pipeline')}-v${run.pipeline.version}.json`
+
     const workflowBytes = new TextEncoder().encode(
       JSON.stringify(
         {
@@ -192,8 +199,10 @@ export async function buildDatasetCrate(
         2,
       ),
     )
+
     add(workflowPath, workflowBytes)
     const runPath = `workflow/run-${run.id}.json`
+
     const runBytes = new TextEncoder().encode(
       JSON.stringify(
         {
@@ -211,6 +220,7 @@ export async function buildDatasetCrate(
         2,
       ),
     )
+
     add(runPath, runBytes)
     rootParts.push({ '@id': workflowPath }, { '@id': runPath })
     graph.push(
@@ -264,6 +274,7 @@ export async function buildDatasetCrate(
         url: 'https://sheetbase.io',
       },
     )
+
     if (run.actorName) {
       graph.push({
         '@id': '#run-agent',
@@ -271,12 +282,15 @@ export async function buildDatasetCrate(
         name: run.actorName,
       })
     }
+
     // The run itself.
     const paramEntities: Json[] = []
+
     const asRecord = (v: unknown): Record<string, unknown> =>
       v && typeof v === 'object' && !Array.isArray(v)
         ? (v as Record<string, unknown>)
         : {}
+
     for (const [key, value] of Object.entries(asRecord(run.parameters))) {
       const id = `#param-${safeName(key, 'p')}`
       paramEntities.push({
@@ -286,7 +300,9 @@ export async function buildDatasetCrate(
         value: typeof value === 'object' ? JSON.stringify(value) : value,
       })
     }
+
     graph.push(...paramEntities)
+
     const inputs = Object.entries(asRecord(run.inputVersions)).map(
       ([key, value]) => {
         const id = `#input-${safeName(key, 'i')}`
@@ -297,9 +313,11 @@ export async function buildDatasetCrate(
           value:
             typeof value === 'object' ? JSON.stringify(value) : String(value),
         })
+
         return { '@id': id }
       },
     )
+
     graph.push({
       '@id': `#run-${run.id}`,
       '@type': 'CreateAction',
@@ -327,6 +345,7 @@ export async function buildDatasetCrate(
       url: 'https://sheetbase.io',
     })
     const action = graph.find((e) => e['@id'] === `#run-${run.id}`)
+
     if (action)
       action.instrument = [
         { '@id': workflowPath },
@@ -370,6 +389,7 @@ export async function buildDatasetCrate(
         : []),
     ],
   }
+
   const crate = {
     '@context': [
       'https://w3id.org/ro/crate/1.1/context',
@@ -399,7 +419,9 @@ export async function buildDatasetCrate(
       ...graph,
     ],
   }
+
   add('ro-crate-metadata.json', JSON.stringify(crate, null, 2))
+
   return {
     bytes: await writer.stream(),
     includesRunCrate,

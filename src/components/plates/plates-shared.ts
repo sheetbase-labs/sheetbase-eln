@@ -38,6 +38,7 @@ export function qcTone(status: QcStatus | null): Tone {
 export function qualityLabel(run: Pick<PlateRunRow, 'status' | 'qc_status'>) {
   if (run.status === 'draft' || run.qc_status === null)
     return t('plates.quality.draft')
+
   return t(`plates.quality.${run.qc_status}`)
 }
 
@@ -45,10 +46,13 @@ export function qualityLabel(run: Pick<PlateRunRow, 'status' | 'qc_status'>) {
 export function fmt(value: number | null | undefined, digits = 3): string {
   if (value === null || value === undefined || !Number.isFinite(value))
     return ''
+
   if (value === 0) return '0'
   const abs = Math.abs(value)
+
   if (abs >= 1e5 || abs < 1e-3)
     return value.toExponential(Math.max(digits - 1, 1))
+
   return Number(value.toPrecision(digits)).toString()
 }
 
@@ -107,38 +111,49 @@ export function mapModel(
   const dims = FORMAT_DIMENSIONS[format]
   const byCode = new Map(wells.map((w) => [w.wellCode, w]))
   const results = new Map((analysis?.wells ?? []).map((w) => [w.wellCode, w]))
+
   const effective: MapView =
     view === 'normalised' && !analysis
       ? 'raw'
       : view === 'hits' && !analysis
         ? 'roles'
         : view
+
   const numeric = (code: string): number | null => {
     if (effective === 'normalised') return results.get(code)?.normalised ?? null
+
     return readout[code] ?? null
   }
+
   let min = Infinity
   let max = -Infinity
+
   if (effective === 'normalised' || effective === 'raw') {
     for (const code of allWellCodes(format)) {
       const v = numeric(code)
+
       if (v === null || !Number.isFinite(v)) continue
       min = Math.min(min, v)
       max = Math.max(max, v)
     }
   }
+
   const range = min <= max ? { min, max } : null
   const out: PlateWell[] = []
+
   for (const code of allWellCodes(format)) {
     const pos = parseWellCode(code)
+
     if (!pos) continue
     const well = byCode.get(code)
+
     const base: PlateWell = {
       row: pos.row,
       col: pos.col,
       wellCode: code,
       label: code,
     }
+
     if (effective === 'roles') {
       out.push({
         ...base,
@@ -163,12 +178,14 @@ export function mapModel(
       })
     } else {
       const v = numeric(code)
+
       const scaled =
         v === null || !range
           ? null
           : range.max === range.min
             ? 0.5
             : (v - range.min) / (range.max - range.min)
+
       out.push({
         ...base,
         value: scaled,
@@ -179,6 +196,7 @@ export function mapModel(
       })
     }
   }
+
   return {
     wells: out,
     rows: dims.rows,

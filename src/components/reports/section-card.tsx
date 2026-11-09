@@ -57,8 +57,10 @@ export function SectionCard({
   const [title, setTitle] = useState(section.title)
   const [body, setBody] = useState(section.description ?? '')
   const [confirmRemove, setConfirmRemove] = useState(false)
+
   const dirty =
     title.trim() !== section.title || body !== (section.description ?? '')
+
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: reportKeys.detail(recordId) })
 
@@ -76,6 +78,7 @@ export function SectionCard({
     },
     onError: () => toast.error(t('projects.reports.section.saveFailed')),
   })
+
   const remove = useMutation({
     mutationFn: () =>
       removeSection(notebookDataClient, {
@@ -92,6 +95,7 @@ export function SectionCard({
 
   const frozen = isText ? null : frozenBlockOf(section)
   const check = validationLabel(section.validationStatus)
+
   const ref = section.sourceRef as {
     recordIdentifier?: string
     revisionVersion?: number

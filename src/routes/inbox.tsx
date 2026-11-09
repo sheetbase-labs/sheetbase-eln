@@ -42,6 +42,7 @@ import type { InboxTab, WorkItemType } from '#/lib/work-items/predicate'
 import { rich, t } from '#/copy'
 
 type InboxType = WorkItemType
+
 type InboxGroup = 'overdue' | 'today' | 'nextSevenDays' | 'later'
 
 const tabs: [InboxTab, string][] = [
@@ -49,6 +50,7 @@ const tabs: [InboxTab, string][] = [
   ['following', t('projects.inbox.tabs.following')],
   ['done-today', t('projects.inbox.tabs.doneToday')],
 ]
+
 const types: [InboxType, string, Tone, WorkItemKind][] = [
   ['reviews', t('projects.inbox.types.reviews'), 'review', 'review_requested'],
   ['data', t('projects.inbox.types.data'), 'bad', 'data_issue'],
@@ -99,19 +101,25 @@ export const Route = createFileRoute('/inbox')({
 function toneFor(kind: WorkItemKind): Tone {
   if (kind === 'review_requested' || kind === 'witness_requested')
     return 'review'
+
   if (kind === 'data_issue') return 'bad'
+
   if (kind === 'run_failed') return 'bad'
+
   // A run waiting for a person is actionable, not broken.
   if (kind === 'run_waiting') return 'warn'
+
   if (
     kind === 'material_expiring' ||
     kind === 'reorder_requested' ||
     kind === 'reorder_incoming'
   )
     return 'warn'
+
   // A returned review, an unsigned approval and an overdue calibration are
   // waiting on the person, not broken.
   if (kind === 'review_returned' || kind === 'approval_unsigned') return 'warn'
+
   // Lab items share the Lab filter's own colour, apart from Materials.
   if (
     kind === 'sample_awaiting_release' ||
@@ -121,12 +129,17 @@ function toneFor(kind: WorkItemKind): Tone {
     kind === 'qualification_granted'
   )
     return 'lab'
+
   if (kind === 'agent_proposal' || kind === 'agent_action_request')
     return 'progress'
+
   if (kind === 'watcher_finding' || kind === 'qc_violation') return 'warn'
+
   if (kind === 'witness_signed') return 'review'
+
   // A conflict is actionable: two edits need a person to choose between them.
   if (kind === 'cell_conflict') return 'warn'
+
   return 'stored'
 }
 
@@ -223,6 +236,7 @@ export function moveListSelection(
   const index = current ? keys.indexOf(current) : -1
   const base = index === -1 ? 0 : index
   const next = Math.min(keys.length - 1, Math.max(0, base + delta))
+
   return keys[next]
 }
 
@@ -246,10 +260,13 @@ function Inbox() {
   // instead of its count over an empty list, and the group's Collapse control
   // still wins once the person has chosen.
   const [later, setLater] = useState<boolean | null>(null)
+
   const [selectedKey, setSelectedKeyState] = useState<string | null>(
     search.item ?? null,
   )
+
   const [selection, setSelection] = useState<Set<string>>(() => new Set())
+
   // Repeat groups the person has opened to see each item.
   const [expandedRepeats, setExpandedRepeats] = useState<Set<string>>(
     () => new Set(),
@@ -266,20 +283,26 @@ function Inbox() {
 
   const groups = useMemo(() => groupWorkItems(items), [items])
   const visible = items
+
   const visibleKeys = useMemo(
     () => new Set(visible.map((i) => itemKey(i))),
     [visible],
   )
+
   // The Later bucket is the tab's only group when every visible row lives in
   // it (in this workspace every needs-action item is undated, so that is the
   // whole tab).
   const laterHoldsEveryRow =
     visible.length > 0 && visible.every((i) => groups.later.includes(i))
+
   const laterExpanded = later ?? laterHoldsEveryRow
+
   const shown = visible.filter(
     (i) => laterExpanded || !groups.later.includes(i),
   )
+
   const hiddenLater = groups.later.length
+
   const dueSections: [InboxGroup | null, WorkItem[]][] = useMemo(
     () =>
       tab === 'needs-action'
@@ -303,6 +326,7 @@ function Inbox() {
         : [[null, shown]],
     [tab, groups, laterExpanded, shown, visibleKeys],
   )
+
   // Items that repeat one another fold into one row per section.
   const sections: [InboxGroup | null, WorkItem[], InboxEntry[]][] = useMemo(
     () =>
@@ -313,12 +337,15 @@ function Inbox() {
       ]),
     [dueSections, expandedRepeats],
   )
+
   const orderedRows = useMemo(
     () => sections.flatMap(([, , entries]) => entries.map((e) => e.item)),
     [sections],
   )
+
   const selected =
     orderedRows.find((i) => rowKey(i) === selectedKey) ?? orderedRows[0]
+
   // A folded repeat is still selected with its group, so the counts and the
   // bulk action read every listed item, not only the rows on screen.
   const selectedCount = visible.filter((item) =>
@@ -337,6 +364,7 @@ function Inbox() {
 
   const tabCount = (name: InboxTab) => page?.tabs[name] ?? 0
   const typeCount = (name: InboxType) => page?.types[name] ?? 0
+
   const typeLabel = type
     ? (types.find(([name]) => name === type)?.[1] ?? type)
     : undefined
@@ -380,9 +408,11 @@ function Inbox() {
     },
     [navigate],
   )
+
   // Choosing a row writes it to the URL; a replace keeps J/K from filling the
   // history with one entry per row.
   const selectedKeyRef = useRef<string | null>(selectedKey)
+
   const setSelectedKey = useCallback(
     (key: string | null) => {
       if (key === selectedKeyRef.current) return
@@ -400,6 +430,7 @@ function Inbox() {
     },
     [navigate],
   )
+
   const selectTab = (next: InboxTab) => {
     setLater(null)
     updateSearch({
@@ -408,6 +439,7 @@ function Inbox() {
       item: undefined,
     })
   }
+
   const selectType = (next: InboxType | undefined) => {
     updateSearch({ type: next })
   }
@@ -418,6 +450,7 @@ function Inbox() {
     rowsRef.current = orderedRows
     selectedKeyRef.current = selectedKey
   }, [orderedRows, selectedKey])
+
   const move = useCallback(
     (delta: number) => {
       setSelectedKey(
@@ -430,6 +463,7 @@ function Inbox() {
     },
     [setSelectedKey],
   )
+
   const openItem = useCallback(
     // Like any other link an item opens in this pane; Alt-click opens beside
     // and Alt+Shift-click below.
@@ -438,7 +472,9 @@ function Inbox() {
         item.kind === 'run_failed' || item.kind === 'run_waiting'
           ? await resolveRunForWorkItem(item).catch(() => null)
           : null
+
       const destination = runId ? runLink(runId) : itemLink(item)
+
       if (workspace && where) {
         const { href } = router.buildLocation(destination)
         workspace.open(href, {
@@ -450,19 +486,24 @@ function Inbox() {
     },
     [navigate, router, workspace],
   )
+
   const openSelected = useCallback(() => {
     const item =
       rowsRef.current.find((i) => rowKey(i) === selectedKeyRef.current) ??
       rowsRef.current.at(0)
+
     if (item) void openItem(item)
   }, [openItem])
+
   const selectCurrent = useCallback((add: boolean) => {
     const item =
       rowsRef.current.find((i) => rowKey(i) === selectedKeyRef.current) ??
       rowsRef.current.at(0)
+
     if (!item) return
     setSelection((current) => new Set([...(add ? current : []), rowKey(item)]))
   }, [])
+
   useShortcutScope('list')
   useRegisterShortcuts(
     useMemo(
@@ -662,6 +703,7 @@ function Inbox() {
             <div role="list" aria-label={t('projects.inbox.items')}>
               {sections.map(([g, rows, entries]) => {
                 if (!rows.length) return null
+
                 return (
                   <div key={g ?? 'all'}>
                     <div
@@ -691,13 +733,16 @@ function Inbox() {
                     {entries.map((entry, index) => {
                       const i = entry.item
                       const key = rowKey(i)
+
                       // The row standing for a folded group selects all of it.
                       const keys =
                         entry.count > 1 && !expandedRepeats.has(entry.group)
                           ? entry.members.map(rowKey)
                           : [key]
+
                       const checked = keys.every((k) => selection.has(k))
                       const open = expandedRepeats.has(entry.group)
+
                       return (
                         <div
                           // QA3-lists-inbox-1 — `rowKey` mirrors the boundary
@@ -725,10 +770,12 @@ function Inbox() {
                             onCheckedChange={(next) =>
                               setSelection((current) => {
                                 const updated = new Set(current)
+
                                 for (const k of keys) {
                                   if (next) updated.add(k)
                                   else updated.delete(k)
                                 }
+
                                 return updated
                               })
                             }
@@ -739,6 +786,7 @@ function Inbox() {
                             onFocus={() => setSelectedKey(key)}
                             onClick={(event) => {
                               setSelectedKey(key)
+
                               if (
                                 !event.ctrlKey &&
                                 !event.metaKey &&
@@ -752,8 +800,10 @@ function Inbox() {
                                       : 'beside'
                                     : undefined,
                                 )
+
                                 return
                               }
+
                               setSelection(
                                 (current) =>
                                   new Set([
@@ -813,8 +863,10 @@ function Inbox() {
                               onClick={() =>
                                 setExpandedRepeats((current) => {
                                   const next = new Set(current)
+
                                   if (open) next.delete(entry.group)
                                   else next.add(entry.group)
+
                                   return next
                                 })
                               }

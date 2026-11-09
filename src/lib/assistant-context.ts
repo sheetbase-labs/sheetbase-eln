@@ -55,8 +55,10 @@ export function contextFromPathname(
 ): AssistantPageContext | null {
   for (const { pattern, kind } of PATTERNS) {
     const match = pattern.exec(pathname)
+
     if (match?.[1]) return { kind, id: match[1] }
   }
+
   return null
 }
 

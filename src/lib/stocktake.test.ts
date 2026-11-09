@@ -80,6 +80,7 @@ describe('stocktake helpers', () => {
       item({ id: 'e', state: 'missing' }),
       item({ id: 'f', state: 'expected' }),
     ])
+
     expect(summary).toMatchObject({
       total: 6,
       confirmed: 2,
@@ -120,6 +121,7 @@ describe('stocktake helpers', () => {
       item({ id: 'c', identifier: 'SMP-0010', state: 'misplaced' }),
       item({ id: 'd', identifier: 'SMP-0003', state: 'misplaced' }),
     ]).map((i) => i.id)
+
     expect(order).toEqual(['b', 'd', 'c', 'a'])
   })
 
@@ -135,6 +137,7 @@ describe('stocktake helpers', () => {
       node('rack', 'rk2', 'sh', 'Rack B'),
       node('box', 'b3', 'rk2', 'Box 3', 'B3'),
     ])
+
     const rackA = boxesInScope(tree, { scopeId: 'rk', scopeLevel: 'rack' })
     expect(rackA.map((b) => b.id)).toEqual(['b1', 'b2'])
     expect(rackA[0].path).toBe(

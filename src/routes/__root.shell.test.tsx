@@ -32,12 +32,15 @@ vi.mock('#/components/workspace/workspace-host', () => ({
 }))
 
 vi.mock('@tanstack/react-devtools', () => ({ TanStackDevtools: () => null }))
+
 vi.mock('@tanstack/react-router-devtools', () => ({
   TanStackRouterDevtoolsPanel: () => null,
 }))
+
 vi.mock('../integrations/tanstack-query/devtools', () => ({
   default: () => null,
 }))
+
 vi.mock('../components/live', () => ({
   LiveEventProvider: ({ children }: { children?: React.ReactNode }) => children,
 }))
@@ -69,6 +72,7 @@ vi.mock('@tanstack/react-start', () => ({
 }))
 
 vi.mock('#/lib/current-user', () => ({ getCurrentContext: () => null }))
+
 vi.mock('@tanstack/react-start/server', () => ({
   getRequestHeaders: () => new Headers(),
 }))
@@ -80,6 +84,7 @@ vi.mock('#/components/shell/app-shell', () => ({
     <div data-testid="v3-shell">{children}</div>
   ),
 }))
+
 vi.mock('../components/shell', () => ({
   ShellProvider: ({ children }: { children?: React.ReactNode }) => (
     <div data-testid="legacy-shell">{children}</div>
@@ -101,16 +106,19 @@ function buildRouter(idTemplate: string) {
     // Capture this segment's parent: `getParentRoute` is called later, after
     // `parent` has moved on to the next segment.
     const routeParent = parent
+
     const route = createRoute({
       getParentRoute: () => routeParent,
       path: `/${segment}`,
       component: index === segments.length - 1 ? Leaf : () => <Outlet />,
     })
+
     chain.push(route)
     parent = route
   })
 
   let tree = chain[chain.length - 1]
+
   for (let index = chain.length - 2; index >= 0; index -= 1) {
     tree = chain[index].addChildren([tree])
   }
@@ -140,7 +148,9 @@ async function renderRoute(idTemplate: string) {
       <RouterProvider router={buildRouter(idTemplate)} />
     </QueryClientProvider>,
   )
+
   await waitFor(() => expect(view.queryByTestId('leaf')).toBeTruthy())
+
   return view
 }
 

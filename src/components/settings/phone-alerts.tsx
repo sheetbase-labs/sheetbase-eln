@@ -18,11 +18,13 @@ import {
  */
 export function PhoneAlerts() {
   const queryClient = useQueryClient()
+
   const state = useQuery({
     queryKey: pushQueryKeys.state(),
     queryFn: () => readPushState(),
     staleTime: 0,
   })
+
   const change = useMutation({
     mutationFn: (turnOn: boolean) => (turnOn ? enablePush() : disablePush()),
     onSuccess: (next) => queryClient.setQueryData(pushQueryKeys.state(), next),
@@ -38,6 +40,7 @@ export function PhoneAlerts() {
       </Notice>
     )
   }
+
   if (current === 'blocked') {
     return (
       <Notice tone="warn" icon="bell">
@@ -45,7 +48,9 @@ export function PhoneAlerts() {
       </Notice>
     )
   }
+
   const on = current === 'on'
+
   return (
     <div className="flex flex-col gap-2">
       <Notice

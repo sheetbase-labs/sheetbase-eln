@@ -63,6 +63,7 @@ describe('removePane', () => {
       leaf('a'),
       split('column', [leaf('b'), leaf('c')]),
     ])
+
     const next = removePane(tree, 'c') as PaneSplit
     expect(next.children.map((child) => child.type)).toEqual(['pane', 'pane'])
     expect(listPaneIds(next)).toEqual(['a', 'b'])
@@ -83,6 +84,7 @@ describe('resizeSplit', () => {
 describe('presets', () => {
   it('tiles every pane and never drops one', () => {
     const ids = ['a', 'b', 'c', 'd']
+
     for (const preset of [
       'columns-2',
       'columns-3',
@@ -99,6 +101,7 @@ describe('presets', () => {
       ['a', 'b', 'c'],
       'b',
     ) as PaneSplit
+
     expect(tree.sizes).toEqual([0.6, 0.4])
     expect(tree.children[0]).toEqual(leaf('b'))
     expect((tree.children[1] as PaneSplit).direction).toBe('column')

@@ -46,6 +46,7 @@ describe('PluginRecordList', () => {
         onSignOff={vi.fn()}
       />,
     )
+
     expect(screen.queryByRole('button', { name: 'Sign off' })).toBeNull()
     rerender(
       <PluginRecordList

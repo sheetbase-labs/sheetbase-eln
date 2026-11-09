@@ -22,8 +22,10 @@ vi.mock('@tanstack/react-router', () => ({
     children: React.ReactNode
   } & Record<string, unknown>) => {
     let href = to
+
     for (const [key, value] of Object.entries(params ?? {}))
       href = href.replace(`$${key}`, encodeURIComponent(String(value)))
+
     return (
       <a href={href} {...props}>
         {children}
@@ -40,6 +42,7 @@ vi.mock('./model-subtype-data', () => ({
 
 vi.mock('./models-data', async (importOriginal) => {
   const actual = await importOriginal<typeof modelsData>()
+
   return {
     ...actual,
     useWorkspaceRecordModel: () => ({

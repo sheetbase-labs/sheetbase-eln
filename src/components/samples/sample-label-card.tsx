@@ -44,6 +44,7 @@ export interface SampleLabelRecord {
 
 function batchOf(record: SampleLabelRecord): string | null {
   const batch = record.customFields?.batch
+
   return typeof batch === 'string' && batch.trim() !== '' ? batch : null
 }
 
@@ -53,11 +54,13 @@ function qrPath(payload: string): { d: string; size: number } {
   const size = qr.modules.size
   const data = qr.modules.data
   let d = ''
+
   for (let y = 0; y < size; y += 1) {
     for (let x = 0; x < size; x += 1) {
       if (data[y * size + x]) d += `M${x} ${y}h1v1h-1z`
     }
   }
+
   return { d, size }
 }
 
@@ -82,9 +85,11 @@ export type LabelLook = Partial<
 /** A plugin's bars (a string of 1s and 0s) as one SVG path. */
 function modulesPath(bits: string): { d: string; modules: number } {
   let d = ''
+
   for (let i = 0; i < bits.length; i += 1) {
     if (bits[i] === '1') d += `M${i} 0h1v1h-1z`
   }
+
   return { d, modules: bits.length }
 }
 
@@ -96,6 +101,7 @@ function gridPath(rows: readonly string[]): { d: string; size: number } {
       if (row[x] === '1') d += `M${x} ${y}h1v1h-1z`
     }
   })
+
   return { d, size: Math.max(rows.length, rows[0]?.length ?? 0) }
 }
 
@@ -104,9 +110,11 @@ function barcodePath(text: string): { d: string; modules: number } | null {
   if (!isCode128Text(text)) return null
   const bits = encodeCode128(text)
   let d = ''
+
   for (let i = 0; i < bits.length; i += 1) {
     if (bits[i] === '1') d += `M${i} 0h1v1h-1z`
   }
+
   return { d, modules: bits.length }
 }
 
@@ -140,8 +148,10 @@ function LabelCardView({
   fit?: 'natural' | 'mm' | number
 }) {
   const look = { ...DEFAULT_LABEL_TEMPLATE, ...template }
+
   const resolvedHost =
     host ?? (typeof window !== 'undefined' ? window.location.host : '')
+
   const lines: Array<{ kind: string; text: string; bold?: boolean }> =
     fromPlugin.lines.data
       ? fromPlugin.lines.data.map((line, index) => ({
@@ -150,40 +160,51 @@ function LabelCardView({
           bold: line.bold,
         }))
       : buildLabelLines(facts, look)
+
   const payload = resolvedHost
     ? labelQrPayload(resolvedHost, record.identifier)
     : null
+
   const pluginCode = fromPlugin.code.data
   const pluginCodePending = isPluginItem(look.barcodeType) && !pluginCode
+
   const isBarcode =
     look.barcodeType === 'code128' || pluginCode?.kind === 'bars'
+
   const plain = !isPluginItem(look.barcodeType)
+
   const code =
     plain && !isBarcode && payload
       ? qrPath(payload)
       : pluginCode?.kind === 'grid'
         ? gridPath(pluginCode.rows)
         : null
+
   const bars =
     pluginCode?.kind === 'bars'
       ? modulesPath(pluginCode.modules)
       : plain && isBarcode
         ? barcodePath(record.identifier.trim())
         : null
+
   // Pixels per millimetre when the card is drawn to a real or scaled size.
   const ppm = fit === 'mm' ? PX_PER_MM : typeof fit === 'number' ? fit : null
+
   const style =
     fit === 'mm'
       ? { width: `${look.widthMm}mm`, height: `${look.heightMm}mm` }
       : ppm
         ? { width: look.widthMm * ppm, height: look.heightMm * ppm }
         : undefined
+
   const sized = ppm !== null
   const pad = sized ? 5 : 10
+
   // A small label shrinks its code to fit rather than clipping it.
   const codePx = ppm
     ? Math.max(16, Math.min(56, Math.round(look.heightMm * ppm - 2 * pad)))
     : 56
+
   const barsPx = ppm
     ? Math.max(12, Math.min(40, Math.round(look.heightMm * ppm * 0.36)))
     : 36
@@ -213,6 +234,7 @@ function LabelCardView({
       ) : null}
     </div>
   )
+
   // Pictograms stack beside the lines on a roomy label and sit in a row under the
   // bars on a barcode label; they shrink with a small label rather than clip.
   const pictogramPx = ppm
@@ -221,6 +243,7 @@ function LabelCardView({
         Math.min(28, Math.round((look.heightMm * ppm - 2 * pad) / 2)),
       )
     : 28
+
   const hazardBlock =
     hazards && hazards.length > 0 ? (
       <div
@@ -233,6 +256,7 @@ function LabelCardView({
         ))}
       </div>
     ) : null
+
   return (
     <div
       data-slot="sample-label"
@@ -319,11 +343,13 @@ function labelFacts(
   source: Omit<LabelSource, 'identifier'> | undefined,
 ): LabelSource {
   if (source) return { identifier: record.identifier, ...source }
+
   const hold = computeSampleHold({
     createdAt: record.createdAt ?? new Date().toISOString(),
     properties: record.properties,
     customFields: record.customFields,
   })
+
   return {
     identifier: record.identifier,
     sampleType: record.sampleType,
@@ -346,6 +372,7 @@ const NO_PLUGIN: PluginLabel = {
 /** Asks the plugins for a layout and a code; only mounted when the template names one. */
 function PluginLabelCard(props: CardProps & { facts: LabelSource }) {
   const look = { ...DEFAULT_LABEL_TEMPLATE, ...props.template }
+
   const fromPlugin = usePluginLabel({
     layout: look.layout,
     barcodeType: look.barcodeType,
@@ -355,11 +382,13 @@ function PluginLabelCard(props: CardProps & { facts: LabelSource }) {
     widthMm: look.widthMm,
     heightMm: look.heightMm,
   })
+
   return <LabelCardView {...props} fromPlugin={fromPlugin} />
 }
 
 export function SampleLabelCard(props: CardProps) {
   const facts = labelFacts(props.record, props.source)
+
   // A plugin may lay the label out and draw its code; both arrive as data. Most
   // labels use neither, and those never wait on (or need) the plugin lookup.
   if (
@@ -367,5 +396,6 @@ export function SampleLabelCard(props: CardProps) {
     isPluginItem(props.template?.barcodeType)
   )
     return <PluginLabelCard {...props} facts={facts} />
+
   return <LabelCardView {...props} facts={facts} fromPlugin={NO_PLUGIN} />
 }

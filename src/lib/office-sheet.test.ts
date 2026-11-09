@@ -19,6 +19,7 @@ const fixture = (name: string) =>
 
 function sequentialIds() {
   let n = 0
+
   return () => `00000000-0000-4000-8000-${String(++n).padStart(12, '0')}`
 }
 
@@ -78,6 +79,7 @@ describe('reading a workbook', () => {
         '<row r="3"><c r="A3"><v>3</v></c><c r="B3"><f t="shared" si="0"/><v>9</v></c></row>' +
         '<row r="4"><c r="A4"><v>4</v></c><c r="B4"><f t="shared" si="0"/><v>12</v></c></row>',
     )
+
     const [sheet] = readOfficeSheets(bytes, XLSX_MEDIA_TYPE)
     expect(sheet.rows[2]?.[1]).toEqual({ value: 9, formula: 'A3*3' })
     expect(sheet.rows[3]?.[1]).toEqual({ value: 12, formula: 'A4*3' })
@@ -89,6 +91,7 @@ describe('reading a workbook', () => {
         '<workbook><sheets><sheet name="Hidden" state="hidden" r:id="rId1"/></sheets></workbook>',
       ),
     })
+
     expect(readOfficeSheets(bytes, XLSX_MEDIA_TYPE)).toEqual([])
     expect(() =>
       readOfficeSheets(strToU8('not a zip'), XLSX_MEDIA_TYPE),
@@ -109,6 +112,7 @@ describe('making a sheet', () => {
     fixture('titration.xlsx'),
     XLSX_MEDIA_TYPE,
   )
+
   const made = buildSheetState(titration, { newId: sequentialIds() })
 
   it('produces state the sheet accepts', () => {
@@ -121,6 +125,7 @@ describe('making a sheet', () => {
     const types = Object.fromEntries(
       made.state.localFields.map((f) => [f.label, f.logicalType]),
     )
+
     expect(types).toMatchObject({
       Sample: 'text',
       'Absorbance (AU)': 'decimal',
@@ -145,9 +150,11 @@ describe('making a sheet', () => {
 
   it('keeps the first row as headers and the original column order', () => {
     expect(made.state.presentation.columnOrder).toHaveLength(7)
+
     const byId = new Map(
       made.state.localFields.map((f) => [f.fieldId, f.label] as const),
     )
+
     expect(
       made.state.presentation.columnOrder.map((id) => byId.get(id)),
     ).toEqual([
@@ -175,6 +182,7 @@ describe('making a sheet', () => {
       fixture('titration.xlsx'),
       XLSX_MEDIA_TYPE,
     )
+
     const result = buildSheetState(notes, { newId: sequentialIds() })
     expect(result.state.localFields.map((f) => f.logicalType)).toEqual([
       'text',
@@ -195,6 +203,7 @@ describe('making a sheet', () => {
       },
       { newId: sequentialIds() },
     )
+
     expect(result.state.localFields.map((f) => f.label)).toEqual([
       'Name',
       'Name',

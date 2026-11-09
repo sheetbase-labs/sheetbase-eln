@@ -57,6 +57,7 @@ const dayFmt = (timeZone: string) =>
     month: '2-digit',
     day: '2-digit',
   })
+
 const timeFmt = (timeZone: string) =>
   dateTimeFormat('en-GB', {
     timeZone,
@@ -72,6 +73,7 @@ const timeFmt = (timeZone: string) =>
  */
 export function toScheduleBooking(wire: CalendarBookingWire): ScheduleBooking {
   const tz = getDisplayTimeZone() ?? (wire.timezone || 'UTC')
+
   return {
     id: wire.id,
     resourceId: wire.resource_id,
@@ -119,6 +121,7 @@ export function useScheduleInstruments(
     queryKey: scheduleQueryKeys.instruments(workspaceId ?? 'none'),
     queryFn: async (): Promise<ScheduleInstrument[]> => {
       const instruments = await fetchCalendarInstruments(client, workspaceId!)
+
       return instruments
         .filter((i) => i.retiredAt === null)
         .map((i) => ({
@@ -142,6 +145,7 @@ export function useRangeBookings(
     queryKey: scheduleQueryKeys.bookings(workspaceId ?? 'none', from, to),
     queryFn: async (): Promise<ScheduleBooking[]> => {
       const rows = await fetchCalendarBookings(client, workspaceId!, from, to)
+
       return rows
         .filter((b) => !b.cancelled_at)
         .map(toScheduleBooking)
@@ -166,6 +170,7 @@ export function useBookingSamples(
   client: DataClient = notebookDataClient,
 ) {
   const key = bookingIds.join(',')
+
   return useQuery({
     queryKey: ['schedule', 'booking-samples', key],
     enabled: bookingIds.length > 0,
@@ -173,6 +178,7 @@ export function useBookingSamples(
       const lists = await Promise.all(
         bookingIds.map((id) => fetchBookingSamples(client, id)),
       )
+
       return lists
         .flat()
         .filter((s: CalendarBookingSample) => Boolean(s.sampleIdentifier))
@@ -226,6 +232,7 @@ export async function bookInstrument(
       sampleTitle: sample.title,
     })),
   })
+
   return toScheduleBooking(wire)
 }
 
@@ -250,6 +257,7 @@ export async function fetchExperimentSamples(
     'record_links',
     `?source_record_id=eq.${encodeURIComponent(experimentId)}&link_type=eq.sample&select=target_record_id,target_identifier`,
   )
+
   const ids = [
     ...new Set(
       links.flatMap((link) =>
@@ -257,7 +265,9 @@ export async function fetchExperimentSamples(
       ),
     ),
   ]
+
   if (ids.length === 0) return []
+
   const rows = await listByIds(ids, (inList) =>
     client.list<{
       id: string
@@ -268,6 +278,7 @@ export async function fetchExperimentSamples(
       `?id=in.(${inList})&kind=eq.sample&deleted_at=is.null&select=id,identifier,title&order=identifier.asc`,
     ),
   )
+
   return rows.sort((a, b) => a.identifier.localeCompare(b.identifier))
 }
 

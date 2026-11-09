@@ -32,11 +32,14 @@ export interface CopyReport {
 async function sha256Of(stream: ReadableStream<Uint8Array>): Promise<string> {
   const hash = createHash('sha256')
   const reader = stream.getReader()
+
   for (;;) {
     const { done, value } = await reader.read()
+
     if (done) break
     hash.update(value)
   }
+
   return hash.digest('hex')
 }
 
@@ -52,12 +55,15 @@ export async function copyStoredFiles(
     missingFromSource: [],
     failed: [],
   }
+
   for (const file of files) {
     const log = (message: string) =>
       options.onProgress?.(`${file.storageKey} ${message}`)
+
     try {
       const existing = await to.head(file.storageKey)
       let verified = false
+
       if (existing && existing.byteSize === file.byteSize) {
         // Present at the destination: trust it only if it matches the record.
         if (file.checksum) {
@@ -66,13 +72,16 @@ export async function copyStoredFiles(
         } else {
           verified = true
         }
+
         if (verified) {
           report.alreadyThere++
           log('already there')
         }
       }
+
       if (!verified) {
         let source
+
         try {
           source = await from.getStream(file.storageKey)
         } catch (error) {
@@ -81,19 +90,24 @@ export async function copyStoredFiles(
             log('missing from the source')
             continue
           }
+
           throw error
         }
+
         if (options.dryRun) {
           report.copied++
           log('would copy')
           continue
         }
+
         if (existing) await to.delete(file.storageKey)
+
         const put = await to.putStream(
           file.storageKey,
           source.stream,
           options.maxBytes,
         )
+
         if (file.checksum && put.checksum !== file.checksum) {
           await to.delete(file.storageKey)
           report.failed.push({
@@ -103,9 +117,11 @@ export async function copyStoredFiles(
           log('checksum mismatch, copy removed')
           continue
         }
+
         report.copied++
         log('copied')
       }
+
       if (options.deleteSource && !options.dryRun) {
         await from.delete(file.storageKey)
         log('removed from the source')
@@ -118,5 +134,6 @@ export async function copyStoredFiles(
       log(`failed: ${report.failed.at(-1)?.reason}`)
     }
   }
+
   return report
 }

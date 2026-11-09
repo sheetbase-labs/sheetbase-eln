@@ -42,6 +42,7 @@ export function TreeItem({
     'flex h-7 w-full cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent pr-2 text-left text-body text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline [&_svg]:text-fg-muted',
     current && 'bg-selection font-medium hover:bg-selection',
   )
+
   const inner = (
     <>
       <Icon name={icon} size={14} />
@@ -51,7 +52,9 @@ export function TreeItem({
       ) : null}
     </>
   )
+
   const style = { paddingLeft: 8 + depth * 16 }
+
   return link ? (
     <Link
       {...link}

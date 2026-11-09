@@ -19,6 +19,7 @@ globalThis.ResizeObserver = class {
   unobserve() {}
   disconnect() {}
 }
+
 Element.prototype.scrollIntoView = () => {}
 
 const gridRender = vi.hoisted(() => vi.fn())
@@ -46,6 +47,7 @@ vi.mock('./sheetbase-grid', () => {
       beforeCellsChange,
       onCellsChange,
     })
+
     return (
       <table>
         <thead>
@@ -60,6 +62,7 @@ vi.mock('./sheetbase-grid', () => {
       </table>
     )
   }
+
   return { SheetbaseTableGrid: Recorder }
 })
 
@@ -90,6 +93,7 @@ const refFieldId = '15000000-0000-4000-8000-000000000001'
 const textFieldId = '15000000-0000-4000-8000-000000000002'
 const rowId = '10000000-0000-4000-8000-000000000005'
 const recordUuid = '50000000-0000-4000-8000-000000000001'
+
 const hit: SheetRecordSearchHit = {
   id: recordUuid,
   kind: 'sample',
@@ -118,7 +122,9 @@ function refInstance(): SheetInstance {
     createdByUserId: 'u1',
     updatedByUserId: 'u1',
   }
+
   const observation = base.state.localFields[0]
+
   return {
     ...base,
     state: {
@@ -148,6 +154,7 @@ function renderWorkspace(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
@@ -201,9 +208,11 @@ describe('GRID-03 canonical Record picker editor', () => {
         { commit, cancel },
       )
     })
+
     const combobox = await screen.findByRole('combobox', {
       name: /Search sample records by ID or name/,
     })
+
     act(() => {
       combobox.focus()
     })
@@ -234,6 +243,7 @@ describe('GRID-03 canonical Record picker editor', () => {
   it('accepts a canonical UUID edit through the validation pipeline', () => {
     renderWorkspace(<AdHocSheetWorkspace instance={refInstance()} />)
     const props = captureProps()
+
     const changes: SheetbaseGridCellChange[] = [
       {
         rowIndex: 0,
@@ -243,6 +253,7 @@ describe('GRID-03 canonical Record picker editor', () => {
         next: recordUuid,
       },
     ]
+
     act(() => {
       expect(props.beforeCellsChange?.(changes, 'edit')).toBeUndefined()
     })
@@ -269,10 +280,12 @@ describe('GRID-03 canonical Record picker editor', () => {
         ),
       ).toBe(false)
     })
+
     const statuses = screen
       .getAllByRole('status')
       .map((element) => element.textContent)
       .join(' ')
+
     expect(statuses).toContain('Edit rejected: invalid_value in Sample')
     expect(statuses).toContain('kept its previous value')
   })
@@ -281,6 +294,7 @@ describe('GRID-03 canonical Record picker editor', () => {
     vi.mocked(mutateSheetLocalState).mockResolvedValue(refInstance())
     renderWorkspace(<AdHocSheetWorkspace instance={refInstance()} />)
     const props = captureProps()
+
     const changes: SheetbaseGridCellChange[] = [
       {
         rowIndex: 0,
@@ -290,6 +304,7 @@ describe('GRID-03 canonical Record picker editor', () => {
         next: null,
       },
     ]
+
     act(() => {
       // Clearing passes validation (nullable field)…
       expect(props.beforeCellsChange?.(changes, 'edit')).toBeUndefined()

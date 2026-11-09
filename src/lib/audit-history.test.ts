@@ -47,6 +47,7 @@ describe('describeAuditEvent', () => {
         payload: { signatureMeaning: 'reviewed_and_approved' },
       }),
     )
+
     expect(signed.action).toBe('signed')
     expect(signed.sentenceSubject).toBe('as reviewed and approved')
     expect(signed.readableSubject).toBe('Signature (Reviewed And Approved)')
@@ -54,6 +55,7 @@ describe('describeAuditEvent', () => {
     const locked = describeAuditEvent(
       event({ entityType: 'record', operation: 'lock', payload: {} }),
     )
+
     expect(locked.sentenceSubject.charAt(0)).toBe(
       locked.sentenceSubject.charAt(0).toLowerCase(),
     )
@@ -73,6 +75,7 @@ describe('describeAuditEvent', () => {
           payload: { ok, chain: { ok, entriesChecked: 35 } },
         }),
       )
+
     expect(check(true)).toMatchObject({
       action: 'verified',
       readableSubject: 'the audit trail',
@@ -87,7 +90,9 @@ describe('describeAuditEvent', () => {
         content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
       },
     })
+
     const reference = '12000000-0000-4000-8000-000000000091'
+
     const captured = event({
       entityType: 'block',
       payload: {
@@ -98,6 +103,7 @@ describe('describeAuditEvent', () => {
         },
       },
     })
+
     expect(describeAuditEvent(captured).changes).toEqual([
       {
         label: 'Text',
@@ -128,6 +134,7 @@ describe('describeAuditEvent', () => {
         },
       }),
     )
+
     expect(described.action).toBe('updated')
     const title = described.changes.find((c) => c.label === 'Title')
     expect(title).toMatchObject({
@@ -153,6 +160,7 @@ describe('describeAuditEvent', () => {
         },
       }),
     )
+
     expect(described.action).toBe('upgraded definition')
     expect(described.changes[0]).toMatchObject({
       label: 'Definition version',
@@ -177,6 +185,7 @@ describe('describeAuditEvent', () => {
         },
       }),
     )
+
     expect(described.changes).toEqual([
       { label: 'Load (L/m²)', kind: 'changed', from: '125.000', to: '150.000' },
       {
@@ -197,6 +206,7 @@ describe('describeAuditEvent', () => {
         payload: { title: 'Some Notebook', changedMetadata: true },
       }),
     )
+
     expect(described.changes).toHaveLength(0)
     expect(described.subject).toBe('Record Some Notebook')
   })
@@ -214,6 +224,7 @@ describe('describeAuditEvent', () => {
         },
       }),
     )
+
     expect(described.subject).toBe('Notebook block (Text)')
     expect(described.subject).not.toContain('3b0d350e')
   })
@@ -225,6 +236,7 @@ describe('describeAuditEvent', () => {
         payload: { decision: 'request_changes', revisionId: 'r-1' },
       }),
     )
+
     expect(described.action).toBe('requested changes on review')
   })
 
@@ -235,6 +247,7 @@ describe('describeAuditEvent', () => {
         payload: { reason: 'amend', revisionId: 'r-2' },
       }),
     )
+
     expect(described.action).toBe('opened amendment revision')
   })
 })
@@ -243,6 +256,7 @@ describe('groupAuditEvents correlation', () => {
   it('groups credential rotation halves through explicit payload ids only', () => {
     const oldId = '20000000-0000-4000-8000-000000000001'
     const newId = '20000000-0000-4000-8000-000000000002'
+
     const revoke = event({
       id: oldId,
       sequence: 7,
@@ -251,6 +265,7 @@ describe('groupAuditEvents correlation', () => {
       operation: 'revoke',
       payload: { name: 'svc', rotatedToCredentialId: newId },
     })
+
     const create = event({
       id: newId,
       sequence: 8,
@@ -259,6 +274,7 @@ describe('groupAuditEvents correlation', () => {
       operation: 'create',
       payload: { name: 'svc', rotatedFromCredentialId: oldId },
     })
+
     const unrelated = event({
       sequence: 9,
       entityType: 'record',
@@ -284,6 +300,7 @@ describe('groupAuditEvents correlation', () => {
 describe('experiment history presentation', () => {
   it('loads a descending immutable prefix across pages without losing older entries', async () => {
     const args: unknown[] = []
+
     const pages = [
       {
         formatVersion: 1,
@@ -298,10 +315,13 @@ describe('experiment history presentation', () => {
         nextCursor: 7,
       },
     ]
+
     const client = createDataClient(async (_request, init) => {
       args.push(JSON.parse(String(init?.body)))
+
       return Response.json(pages.shift())
     })
+
     const result = await fetchRecordAuditHistory(client, 'record-1')
     expect(result.snapshotBefore).toBe(13)
     expect(result.events.map((entry) => entry.id)).toEqual(['newer', 'older'])
@@ -335,6 +355,7 @@ describe('experiment history presentation', () => {
 
   it('walks a whole selection to its end, sending the search term to the server', async () => {
     const args: unknown[] = []
+
     const pages = [
       {
         formatVersion: 1,
@@ -349,8 +370,10 @@ describe('experiment history presentation', () => {
         nextCursor: 7,
       },
     ]
+
     const client = createDataClient(async (_request, init) => {
       args.push(JSON.parse(String(init?.body)))
+
       return Response.json(pages.shift())
     })
 
@@ -395,6 +418,7 @@ describe('experiment history presentation', () => {
       hasMore: true,
       nextCursor: 12,
     })
+
     const client = createDataClient(async () => Response.json(stalled()))
 
     await expect(fetchAllAuditEvents(client)).rejects.toThrow(
@@ -407,11 +431,14 @@ describe('experiment history presentation', () => {
       id: 'source',
       payload: { sessionId: 'same-session', inputRevision: 4 },
     })
+
     const linked = event({ id: 'linked', payload: { sourceEventId: 'source' } })
+
     const multipleInputs = event({
       id: 'batch',
       payload: { sourceEventIds: ['other', 'source'] },
     })
+
     const unrelated = event({ id: 'unrelated', payload: source.payload })
     expect(
       auditKnockOnEvents(source, [source, unrelated, linked, multipleInputs]),
@@ -444,6 +471,7 @@ describe('experiment history presentation', () => {
         payload: { name: 'Signed file' },
       }),
     ]
+
     expect(
       Object.fromEntries(
         auditHistoryCategories.map((category) => [
@@ -479,6 +507,7 @@ describe('experiment history presentation', () => {
       hasMore: false,
       nextCursor: 1,
     }
+
     expect(auditEventsPageSchema.parse(page)).toEqual(page)
     expect(
       auditEventsPageSchema.safeParse({
@@ -501,6 +530,7 @@ describe('experiment history presentation', () => {
       event({ id: 'previous-utc-day', createdAt: '2026-09-24T23:15:00Z' }),
       event({ id: 'earlier', createdAt: '2026-09-24T22:55:00Z' }),
     ]
+
     expect(groupAuditEventsByDay(events, 'Europe/London')).toEqual([
       {
         label: 'Friday 25 September 2026',
@@ -522,6 +552,7 @@ describe('experiment history presentation', () => {
         reason: 'Run sheet says "150"\nnot 125',
       },
     })
+
     expect(auditEventsCsv([selected])).toBe(
       'time,sequence,actor,action,object,field,old_value,new_value,reason,client_id,payload\r\n' +
         '2026-08-26T10:00:00.000000Z,29,"Ada, Scientist",updated,Record 00000000,Load (L/m²),125.000,150.000,"Run sheet says ""150""\nnot 125",,"{""changes"":{""Load (L/m²)"":{""from"":""125.000"",""to"":""150.000""}},""reason"":""Run sheet says \\""150\\""\\nnot 125""}"\r\n',
@@ -537,6 +568,7 @@ describe('auditLinkFor deep links', () => {
     const link = auditLinkFor(
       event({ entityType: 'record', entityUuid: 'record-1', projectId: null }),
     )
+
     expect(link).toEqual({ href: '/records/record-1', label: 'Open record' })
   })
 
@@ -547,6 +579,7 @@ describe('auditLinkFor deep links', () => {
         payload: { revisionId: 'rev-9' },
       }),
     )
+
     expect(link).toEqual({ href: '/review/rev-9', label: 'Open review' })
   })
 
@@ -554,6 +587,7 @@ describe('auditLinkFor deep links', () => {
     const link = auditLinkFor(
       event({ entityType: 'sheet_instance', entityUuid: 'sheet-1' }),
     )
+
     expect(link?.href).toBe('/sheets/sheet-1')
   })
 
@@ -587,6 +621,7 @@ describe('timelineToAuditEvents adapter', () => {
         integrityDigest: 'ab'.repeat(32),
       },
     ])
+
     expect(mapped[0].entityType).toBe('record')
     expect(mapped[0].operation).toBe('lock')
     expect(mapped[0].payload.revisionId).toBe('r-1')
@@ -617,6 +652,7 @@ describe('collapseActivity', () => {
       signed('e2', '00000000-0000-4000-8000-000000000102'),
       signed('e3', '00000000-0000-4000-8000-000000000103'),
     ])
+
     expect(rows).toHaveLength(1)
     expect(rows[0].event.id).toBe('e1')
     expect(rows[0].others).toBe(2)
@@ -628,6 +664,7 @@ describe('collapseActivity', () => {
       describeAuditEvent(event({ id: 'e1' })),
       describeAuditEvent(event({ id: 'e2' })),
     ])
+
     expect(rows).toHaveLength(1)
     expect(rows[0]).toMatchObject({ count: 2, others: 0 })
   })
@@ -650,6 +687,7 @@ describe('collapseActivity', () => {
         event({ id: 'e3', entityUuid: '00000000-0000-4000-8000-000000000103' }),
       ),
     ])
+
     expect(rows.map((row) => row.event.id)).toEqual(['e1', 'e2', 'e3'])
   })
 })
@@ -662,6 +700,7 @@ describe('isRoutineAuditCheck', () => {
         actorUserId: null,
         payload: { chain: 'audit', ok },
       })
+
     expect(isRoutineAuditCheck(check(true))).toBe(true)
     expect(isRoutineAuditCheck(check(false))).toBe(false)
     expect(isRoutineAuditCheck(event({}))).toBe(false)

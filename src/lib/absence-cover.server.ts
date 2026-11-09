@@ -30,10 +30,12 @@ export async function sweepAbsenceCover(
   deps: AbsenceCoverDeps,
 ): Promise<number> {
   const conn = await deps.connect()
+
   try {
     const { rows } = await conn.query(
       'SELECT internal.sync_absence_cover(NULL) AS changed',
     )
+
     return rows[0]?.changed ?? 0
   } finally {
     await conn.end()
@@ -46,14 +48,17 @@ const startedGlobalKey = '__sheetbaseAbsenceCoverSchedulerStarted'
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
 async function defaultConnect(): Promise<AbsenceCoverConnection> {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   return client
 }
 
@@ -61,15 +66,19 @@ export function startAbsenceCoverScheduler(
   options: { deps?: AbsenceCoverDeps; intervalMs?: number } = {},
 ): void {
   if (typeof window !== 'undefined') return
+
   if (schedulerDisabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
 
   const deps = options.deps ?? { connect: defaultConnect }
+
   const tick = async () => {
     try {
       const changed = await sweepAbsenceCover(deps)
+
       if (changed > 0) logger.info('absence cover swept', { changed })
     } catch (error) {
       logger.warn('absence cover sweep failed', {
@@ -77,6 +86,7 @@ export function startAbsenceCoverScheduler(
       })
     }
   }
+
   bootTimer = setTimeout(() => void tick(), 7_000)
   bootTimer.unref()
   timer = setInterval(
@@ -89,6 +99,7 @@ export function startAbsenceCoverScheduler(
 /** Clear the timers and the per-process guard (tests and shutdown). */
 export function stopAbsenceCoverScheduler(): void {
   if (bootTimer) clearTimeout(bootTimer)
+
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null

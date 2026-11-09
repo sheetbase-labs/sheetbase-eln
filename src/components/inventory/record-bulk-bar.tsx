@@ -90,6 +90,7 @@ export function RecordBulkBar({
 }) {
   const [dialog, setDialog] = useState<DialogName | null>(null)
   const [restoring, setRestoring] = useState(false)
+
   if (selection.count === 0) return null
 
   const report = (action: ActionName, outcome: BulkOutcome) => {
@@ -97,15 +98,18 @@ export function RecordBulkBar({
       const message = t(`library.bulk.done.${action}`, {
         count: outcome.done.length,
       })
+
       // Archiving and restoring are each other's undo.
       if (action === 'archive' || action === 'restore') {
         undoToast(
           message,
           async () => {
             const targets = await fetchBulkTargets(client, outcome.doneIds)
+
             const undone = await (action === 'archive'
               ? bulkRestore(client, targets)
               : bulkArchive(client, targets))
+
             if (undone.failed.length > 0) {
               throw new Error(undone.failed[0].message)
             }
@@ -132,6 +136,7 @@ export function RecordBulkBar({
         },
       )
     }
+
     // What was refused stays ticked, so it can be put right and tried again.
     selection.replace(outcome.failed.map((failure) => failure.id))
     setDialog(null)
@@ -240,6 +245,7 @@ export function RecordBulkBar({
         client={client}
         run={async (destination) => {
           const targets = await fetchBulkTargets(client, selection.ids)
+
           return move === 'location'
             ? bulkMoveToLocation(client, targets, destination)
             : bulkMoveToProject(client, targets, destination)
@@ -366,6 +372,7 @@ function ArchiveDialog({
   onDone: (outcome: BulkOutcome) => void
 }) {
   const archive = useBulkRun(run, onDone)
+
   return (
     <ActionDialog
       open={open}
@@ -399,15 +406,18 @@ function MoveDialog({
   onDone: (outcome: BulkOutcome) => void
 }) {
   const [destination, setDestination] = useState('')
+
   const projects = useQuery({
     queryKey: ['bulk', 'projects'],
     queryFn: () => fetchProjectSummaries(undefined),
     enabled: open && how === 'project',
     staleTime: 30_000,
   })
+
   const locations = useStorageLocations(client, open && how === 'location')
   const move = useBulkRun(run, onDone)
   const trimmed = destination.trim()
+
   return (
     <ActionDialog
       open={open}
@@ -474,6 +484,7 @@ function AssignDialog({
   onDone: (outcome: BulkOutcome) => void
 }) {
   const [person, setPerson] = useState('')
+
   // Its own key: the shared member-name key holds a map in some screens and a
   // list in others.
   const members = useQuery({
@@ -482,7 +493,9 @@ function AssignDialog({
     enabled: open,
     staleTime: 60_000,
   })
+
   const assign = useBulkRun(run, onDone)
+
   return (
     <ActionDialog
       open={open}
@@ -542,21 +555,26 @@ function SetFieldDialog({
 }) {
   const [fieldName, setFieldName] = useState('')
   const [value, setValue] = useState<string | boolean>('')
+
   const fields = useQuery({
     queryKey: ['bulk', 'fields', kind],
     queryFn: () => fetchModelFields(client, kind),
     enabled: open,
     staleTime: 30_000,
   })
+
   const choices = (fields.data ?? []).filter(
     (field) => field.lifecycle === 'active',
   )
+
   const field: ModelFieldDefinition | undefined = choices.find(
     (candidate) => candidate.fieldName === fieldName,
   )
+
   const parsed = field ? parseModelFieldInput(field, value) : undefined
   const problem = field ? validateModelFieldValue(field, parsed) : null
   const set = useBulkRun(run, onDone)
+
   return (
     <ActionDialog
       open={open}
@@ -580,9 +598,11 @@ function SetFieldDialog({
               value={fieldName}
               onChange={(event) => {
                 setFieldName(event.target.value)
+
                 const next = choices.find(
                   (candidate) => candidate.fieldName === event.target.value,
                 )
+
                 setValue(next?.logicalType === 'boolean' ? false : '')
               }}
             >
@@ -639,7 +659,9 @@ function BulkLabels({
     enabled: open,
     staleTime: 0,
   })
+
   if (!open) return null
+
   return (
     <PrintLabelsDialog
       open

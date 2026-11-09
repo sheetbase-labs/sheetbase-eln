@@ -33,6 +33,7 @@ const exchange = createServerFn({ method: 'POST' }).handler(async () => {
   const request = getRequest()
 
   let body: unknown
+
   try {
     body = await request.json()
   } catch {
@@ -43,6 +44,7 @@ const exchange = createServerFn({ method: 'POST' }).handler(async () => {
   }
 
   const parsed = exchangeSchema.safeParse(body)
+
   if (!parsed.success) {
     return Response.json(
       {
@@ -79,6 +81,7 @@ const exchange = createServerFn({ method: 'POST' }).handler(async () => {
             workspace: { id: input.workspaceId },
             credential: { id: input.credentialId, kind: input.kind },
           })
+
           return input.kind === 'personal'
             ? mintPersonalApiToken(env.PGRST_JWT_SECRET, {
                 workspaceId: input.workspaceId,
@@ -94,6 +97,7 @@ const exchange = createServerFn({ method: 'POST' }).handler(async () => {
         },
       },
     )
+
     return Response.json({ token }, { status: 200 })
   } catch (error) {
     if (error instanceof CredentialError) {
@@ -107,11 +111,13 @@ const exchange = createServerFn({ method: 'POST' }).handler(async () => {
               : error.code === 'invalid_scope'
                 ? 400
                 : 401
+
       return Response.json(
         { error: { code: error.code, message: error.message } },
         { status },
       )
     }
+
     return Response.json(
       { error: { code: 'server_error', message: 'Token exchange failed.' } },
       { status: 500 },

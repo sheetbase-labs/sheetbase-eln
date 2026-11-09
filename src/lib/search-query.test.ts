@@ -5,6 +5,7 @@ import { countConditions } from './search-filter'
 import { parseTypedSearch } from './search-query'
 
 const projects = [{ value: 'p-1', label: 'AAV8 TFF' }]
+
 const fields: SheetbaseField[] = [
   {
     id: 'type',
@@ -31,6 +32,7 @@ describe('typed search', () => {
       'buffer type:sample -project:"AAV8 TFF" -tris',
       fields,
     )
+
     expect(typed.q).toBe('buffer -tris')
     expect(typed.filter && countConditions(typed.filter)).toBe(2)
   })

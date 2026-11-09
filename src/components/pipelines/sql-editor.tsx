@@ -29,8 +29,10 @@ export const SqlEditor = forwardRef<
 >(function SqlEditorField({ value, className, rows = 6, ...props }, ref) {
   // One spare line so a trailing newline in the textarea has height underneath too.
   const behind = value.endsWith('\n') ? `${value} ` : value
+
   const box =
     'col-start-1 row-start-1 m-0 w-full min-w-0 rounded-md border p-2 font-mono text-body whitespace-pre-wrap break-words'
+
   return (
     <div className={cn('grid', className)}>
       <pre

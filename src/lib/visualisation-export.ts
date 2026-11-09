@@ -39,11 +39,14 @@ export function serialiseChartSvg(
   clone.setAttribute('height', String(settings.height))
   clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
   clone.setAttribute('viewBox', `0 0 ${settings.width} ${settings.height}`)
+
   if (settings.background === 'opaque') {
     clone.style.background = '#ffffff'
   }
+
   const serialised = new XMLSerializer().serializeToString(clone)
   const prefix = comment ? `${comment}\n` : ''
+
   return `${prefix}${serialised}`
 }
 
@@ -58,6 +61,7 @@ export async function rasteriseSvgToPng(
 ): Promise<Blob> {
   const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
   const url = URL.createObjectURL(blob)
+
   try {
     const image = await new Promise<HTMLImageElement>((resolve, reject) => {
       const img = new Image()
@@ -65,16 +69,21 @@ export async function rasteriseSvgToPng(
       img.onerror = () => reject(new Error('SVG rasterisation failed'))
       img.src = url
     })
+
     const canvas = document.createElement('canvas')
     canvas.width = Math.round(settings.width * settings.scale)
     canvas.height = Math.round(settings.height * settings.scale)
     const ctx = canvas.getContext('2d')
+
     if (!ctx) throw new Error('Canvas is unavailable')
+
     if (settings.background === 'opaque') {
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, canvas.width, canvas.height)
     }
+
     ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
+
     const png = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
         (result) =>
@@ -82,6 +91,7 @@ export async function rasteriseSvgToPng(
         'image/png',
       )
     })
+
     return png
   } finally {
     URL.revokeObjectURL(url)
@@ -91,6 +101,7 @@ export async function rasteriseSvgToPng(
 export async function copySvgToClipboard(svg: string): Promise<boolean> {
   try {
     await globalThis.navigator.clipboard.writeText(svg)
+
     return true
   } catch {
     return false
@@ -157,13 +168,18 @@ export function buildFigureProvenanceLine(
   stamp: FigureProvenanceStamp,
 ): string {
   const parts: string[] = ['Sheetbase']
+
   if (stamp.datasetId) parts.push(`Dataset ${stamp.datasetId.slice(0, 8)}`)
+
   if (stamp.versionId) parts.push(`Version ${stamp.versionId.slice(0, 8)}`)
   else if (stamp.datasetId) parts.push('live')
+
   if (!stamp.datasetId && !stamp.versionId) parts.push(stamp.kind)
   parts.push(`config v${stamp.configVersion}`)
+
   if (stamp.method) parts.push(`${stamp.method.id} v${stamp.method.version}`)
   parts.push(`Exported ${stamp.exportedAt}`)
+
   return parts.join(' · ')
 }
 
@@ -173,6 +189,7 @@ export function presetFigureExport(
   overrides?: Partial<FigureExportSettings>,
 ): FigureExportSettings {
   const dims = EXPORT_PRESETS[preset]
+
   return {
     ...DEFAULT_FIGURE_EXPORT,
     width: dims.width,
@@ -196,12 +213,16 @@ export function stampFigureSvg(
   if (opts?.includeProvenance === false) return svg
   const line = buildFigureProvenanceLine(stamp)
   const comment = `<!-- ${escapeXmlComment(line)} -->`
+
   const footer =
     `<text x="12" y="20" font-size="11" fill="#5D646F" ` +
     `font-family="Inter, sans-serif" data-sheetbase-provenance="true">${escapeXml(line)}</text>`
+
   const withComment = `${comment}\n${svg}`
   const closeAt = withComment.lastIndexOf('</svg>')
+
   if (closeAt < 0) return withComment
+
   return `${withComment.slice(0, closeAt)}${footer}${withComment.slice(closeAt)}`
 }
 
@@ -217,20 +238,24 @@ export function buildDataExportHeaderLines(
     `# config_version: ${stamp.configVersion}`,
     `# exported_at: ${stamp.exportedAt}`,
   ]
+
   if (stamp.method) {
     lines.push(
       `# method: ${stamp.method.id} v${stamp.method.version} — ${stamp.method.label}`,
     )
     lines.push(`# method_runner: ${stamp.method.runner}`)
   }
+
   for (const check of stamp.checks ?? [])
     lines.push(`# check: ${check.id} ${check.status} — ${check.detail}`)
+
   return lines
 }
 
 function csvEscapeCell(value: string | number | null): string {
   if (value === null) return ''
   const text = String(value)
+
   return /[",\n#]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
@@ -244,9 +269,11 @@ export function serialiseRepresentationCsv(input: {
   stamp: FigureProvenanceStamp
 }): string {
   const header = buildDataExportHeaderLines(input.stamp).join('\n')
+
   const body = [
     input.columns.map(csvEscapeCell).join(','),
     ...input.rows.map((row) => row.map(csvEscapeCell).join(',')),
   ].join('\n')
+
   return `${header}\n${body}\n`
 }

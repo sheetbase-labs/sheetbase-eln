@@ -36,19 +36,24 @@ export function proseRunMembers(
 ): Partial<Record<string, ProseRunPosition>> {
   const members: Partial<Record<string, ProseRunPosition>> = {}
   let runStart = 0
+
   while (runStart < blocks.length) {
     if (blocks[runStart].type !== 'rich_text') {
       runStart += 1
       continue
     }
+
     let runEnd = runStart
+
     while (
       runEnd + 1 < blocks.length &&
       blocks[runEnd + 1].type === 'rich_text'
     ) {
       runEnd += 1
     }
+
     const size = runEnd - runStart + 1
+
     if (size > 1) {
       for (let i = runStart; i <= runEnd; i += 1) {
         const indexInRun = i - runStart
@@ -60,8 +65,10 @@ export function proseRunMembers(
         }
       }
     }
+
     runStart = runEnd + 1
   }
+
   return members
 }
 
@@ -69,7 +76,9 @@ export function proseRunMembers(
 function isEmptyParagraph(node: unknown): boolean {
   if (typeof node !== 'object' || node === null) return false
   const paragraph = node as { type?: unknown; content?: unknown }
+
   if (paragraph.type !== 'paragraph') return false
+
   return !Array.isArray(paragraph.content) || paragraph.content.length === 0
 }
 
@@ -93,6 +102,7 @@ export function proseBackspaceAction(input: {
   joined: Record<string, unknown> | null
 }): ProseBackspaceAction {
   if (input.joined) return 'join'
+
   return input.currentIsEmpty ? 'delete-row' : 'none'
 }
 
@@ -120,7 +130,9 @@ export function joinProsePayloads(
   if (!isRichTextPayload(previous) || !isRichTextPayload(next)) return null
   const [first, ...rest] = next.doc.content
   const carried = isEmptyParagraph(first) ? rest : next.doc.content
+
   if (carried.length === 0) return null
+
   return {
     doc: {
       ...previous.doc,

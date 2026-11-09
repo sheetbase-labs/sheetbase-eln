@@ -12,6 +12,7 @@ import {
 import { t } from '#/copy'
 
 const client = createDataClient()
+
 const dismissedKey = (workspaceId: string, userId: string) =>
   `sheetbase.joined-welcome.dismissed.${workspaceId}.${userId}`
 
@@ -51,16 +52,20 @@ export function JoinedWelcome({
   role: string | undefined
 }) {
   const [hidden, setHidden] = useState(false)
+
   const domains = useQuery({
     queryKey: joinDomainKeys.list(workspaceId),
     queryFn: () => fetchJoinDomains(client),
     enabled: role !== undefined && role !== 'owner' && role !== 'admin',
   })
+
   const domain = emailDomainOf(email)
   const covered = (domains.data ?? []).some((row) => row.domain === domain)
+
   if (hidden || !covered || !role || wasDismissed(workspaceId, userId)) {
     return null
   }
+
   return (
     <Banner
       tone="info"
@@ -81,6 +86,7 @@ export function JoinedWelcome({
             } catch {
               // Hidden for this visit even when the browser won't remember.
             }
+
             setHidden(true)
           }}
         >

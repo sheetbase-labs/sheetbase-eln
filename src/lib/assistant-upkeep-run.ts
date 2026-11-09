@@ -46,10 +46,13 @@ export async function runUpkeepAction(
         p_agreement_reference: null,
         p_started_on: action.startedOn,
       })
+
       return { openHref: `/projects/${made.id}` }
     }
+
     case 'follow.set':
       await setFollowing(client, action.target, action.id, action.following)
+
       return {
         openHref:
           action.target === 'project'
@@ -64,6 +67,7 @@ export async function runUpkeepAction(
         delegateUserId: action.delegateUserId,
         note: action.note ?? '',
       })
+
       return { openHref: '/settings/account/away' }
     case 'handover.run':
       await handOverWork(client, {
@@ -72,6 +76,7 @@ export async function runUpkeepAction(
         toUserId: action.toUserId,
         selection: action.selection,
       })
+
       return { openHref: '/settings/workspace/members' }
     case 'group_role.set':
       await setGroupMapping(client, {
@@ -79,12 +84,15 @@ export async function runUpkeepAction(
         groupName: action.groupName,
         role: action.role as GroupRole,
       })
+
       return { openHref: '/settings/workspace/members' }
     case 'group_role.remove':
       await removeGroupMapping(client, action.mappingId)
+
       return { openHref: '/settings/workspace/members' }
     case 'scim_token.revoke':
       await client.rpc('revoke_scim_token', { p_id: action.tokenId })
+
       return { openHref: '/settings/workspace/members' }
     case 'timestamps.set':
       await setTimestampSettings(client, {
@@ -93,18 +101,23 @@ export async function runUpkeepAction(
         authority: action.service === 'off' ? null : action.service,
         url: action.address,
       })
+
       return { openHref: '/settings/workspace/audit' }
     case 'timestamps.retry':
       await requestSignatureTimestamp(client, action.signatureId)
+
       return { openHref: '/settings/workspace/audit' }
     case 'contract.check':
       await runCheck(client, action.contractId)
+
       return { openHref: '/models' }
     case 'contract.rule_add':
       await addRule(client, action.contractId, action.rule)
+
       return { openHref: '/models' }
     case 'open_tables.set':
       await setLakeSettings(client, action.workspaceId, action.enabled)
+
       return { openHref: '/settings/workspace/open-data' }
     case 'publication.request':
       await requestPublication(client, {
@@ -114,6 +127,7 @@ export async function runUpkeepAction(
         title: action.title,
         license: action.license,
       })
+
       return {
         openHref:
           action.objectKind === 'experiment'
@@ -122,17 +136,21 @@ export async function runUpkeepAction(
       }
     case 'validation.run':
       await startValidationRun()
+
       return { openHref: '/settings/workspace/validation' }
     case 'pipeline.reproduce':
       await reproducePipelineRun({ runId: action.runId })
+
       return {
         openHref: `/pipelines/${action.definitionId}/runs/${action.runId}#reproduce`,
       }
     case 'absence.cancel':
       await cancelAbsence(client, action.absenceId)
+
       return { openHref: '/settings/account/away' }
     case 'notifications.read':
       await markNotificationsRead(client, null)
+
       return { openHref: '/inbox' }
     case 'reagent.ordered':
       await markReagentOrdered(client, {
@@ -141,12 +159,15 @@ export async function runUpkeepAction(
         orderReference: action.orderReference,
         expectedOn: action.expectedOn,
       })
+
       return { openHref: '/materials' }
     case 'reagent.cancel':
       await cancelReagentOrder(client, action.orderId, action.reason)
+
       return { openHref: '/materials' }
     case 'shipment.cancel':
       await cancelShipment(client, action.shipmentId, action.reason)
+
       return { openHref: '/shipments' }
     case 'sample.reserve':
       await createSampleReservation(client, {
@@ -156,6 +177,7 @@ export async function runUpkeepAction(
         unit: action.unit ?? undefined,
         notes: action.notes ?? undefined,
       })
+
       return { openHref: `/records/${action.recordId}` }
     case 'sample.quarantine':
       await quarantineSample(client, {
@@ -164,6 +186,7 @@ export async function runUpkeepAction(
         reason: action.reason,
         notes: action.notes ?? undefined,
       })
+
       return { openHref: `/records/${action.recordId}` }
     case 'sample.dispose':
       await disposeSample(client, {
@@ -172,6 +195,7 @@ export async function runUpkeepAction(
         reason: action.reason,
         notes: action.notes ?? undefined,
       })
+
       return { openHref: `/records/${action.recordId}` }
     case 'sample.receive':
       await receiveSample(client, {
@@ -182,6 +206,7 @@ export async function runUpkeepAction(
         location: action.location ?? undefined,
         notes: action.notes ?? undefined,
       })
+
       return { openHref: `/records/${action.recordId}` }
     case 'sample.archive': {
       const input = {
@@ -189,14 +214,18 @@ export async function runUpkeepAction(
         expectedMetadataVersion: action.expectedMetadataVersion,
         notes: action.notes ?? undefined,
       }
+
       if (action.archived) await archiveSample(client, input)
       else await restoreSample(client, input)
+
       return { openHref: `/records/${action.recordId}` }
     }
+
     case 'sample.reservation_cancel':
       await cancelSampleReservation(client, {
         reservationId: action.reservationId,
       })
+
       return { openHref: '/samples' }
     case 'storage.place':
       if (action.positionId) {
@@ -213,6 +242,7 @@ export async function runUpkeepAction(
           p_notes: action.notes ?? null,
         })
       }
+
       return { openHref: `/records/${action.recordId}` }
     case 'storage.add_location':
       if (action.level === 'box') {
@@ -234,6 +264,7 @@ export async function runUpkeepAction(
           p_unit_type: action.unitType,
         })
       }
+
       return { openHref: '/settings/lab/storage' }
     case 'instrument.log':
       await logInstrumentService(
@@ -247,6 +278,7 @@ export async function runUpkeepAction(
         },
         client,
       )
+
       return { openHref: '/instruments' }
   }
 }

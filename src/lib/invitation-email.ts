@@ -19,26 +19,32 @@ export const emailInvitationFn = createServerFn({ method: 'POST' })
   )
   .handler(async ({ data }): Promise<EmailInvitationResult> => {
     const { requireSettingsArea } = await import('#/lib/admin-platform')
+
     const { userId } = await requireSettingsArea(
       data.workspaceId,
       'members',
       'manage',
     )
+
     const { env } = await import('#/env.server')
     const { getPool } = await import('#/db/pool.server')
     const { logger } = await import('#/lib/logger')
+
     const { createSmtpTransport, readSmtpConfig } =
       await import('#/lib/email-delivery.server')
+
     const { composeInvitationEmail } =
       await import('#/lib/invitation-email.server')
 
     const config = readSmtpConfig()
+
     if (!config) return { sent: false, reason: 'no_mail_server' }
 
     // Only the token's holder may have it mailed: it must match a pending
     // invitation of this workspace, so the endpoint cannot be used to send
     // arbitrary text to arbitrary addresses.
     const pool = getPool(env.DATABASE_URL)
+
     const { rows } = await pool.query<{
       email: string
       role: string
@@ -54,7 +60,9 @@ export const emailInvitationFn = createServerFn({ method: 'POST' })
           AND i.token_hash = encode(sha256(convert_to($3, 'UTF8')), 'hex')`,
       [data.invitationId, data.workspaceId, data.token, userId],
     )
+
     const invitation = rows.at(0)
+
     if (!invitation) return { sent: false, reason: 'send_failed' }
 
     const message = composeInvitationEmail({
@@ -65,13 +73,16 @@ export const emailInvitationFn = createServerFn({ method: 'POST' })
       workspaceName: invitation.workspace_name,
       inviterName: invitation.inviter_name,
     })
+
     try {
       await (await createSmtpTransport(config)).send(message)
+
       return { sent: true }
     } catch (error) {
       logger.warn('invitation email failed', {
         error: error instanceof Error ? error.message : String(error),
       })
+
       return { sent: false, reason: 'send_failed' }
     }
   })

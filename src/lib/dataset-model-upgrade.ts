@@ -41,19 +41,24 @@ export async function fetchDatasetModelPosition(
       `?id=eq.${encodeURIComponent(datasetId)}&select=revision,schema_version_id`,
     )
   ).at(0)
+
   if (!dataset) return null
+
   const current = (
     await client.list<{ id: string; schema_id: string; version: number }>(
       'dataset_schema_versions',
       `?id=eq.${dataset.schema_version_id}&select=id,schema_id,version`,
     )
   ).at(0)
+
   if (!current) return null
+
   const newer = await client.list<ModelVersionOption>(
     'dataset_schema_versions',
     `?schema_id=eq.${current.schema_id}&lifecycle=eq.active` +
       `&version=gt.${current.version}&select=id,version&order=version.asc`,
   )
+
   return {
     datasetRevision: Number(dataset.revision),
     currentVersionId: current.id,
@@ -93,12 +98,14 @@ export function describeUpgradeEffects(
   preview: DatasetModelUpgradePreview,
 ): string[] {
   const lines: string[] = []
+
   if (preview.added.length)
     lines.push(
       `Adds ${preview.added.map((f) => f.label).join(', ')}. Existing rows leave ${
         preview.added.length === 1 ? 'it' : 'them'
       } empty until filled in.`,
     )
+
   if (
     !preview.added.length &&
     !preview.removed.length &&
@@ -109,5 +116,6 @@ export function describeUpgradeEffects(
   lines.push(
     `${preview.rowCount} ${preview.rowCount === 1 ? 'row keeps' : 'rows keep'} every value. Snapshots already taken stay on v${preview.fromVersion}.`,
   )
+
   return lines
 }

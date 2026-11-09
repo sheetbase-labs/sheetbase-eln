@@ -244,6 +244,7 @@ describe('reagentAttention', () => {
       makeReagent({ expiry: '2026-08-10', expiryWarningDays: 30 }),
       now,
     )
+
     expect(attention.kind).toBe('near_expiry')
     expect(attention.nearExpiry).toBe(true)
     expect(attention.daysToExpiry).toBe(15)
@@ -254,6 +255,7 @@ describe('reagentAttention', () => {
       makeReagent({ expiry: '2026-08-20' }),
       now,
     )
+
     expect(attention.nearExpiry).toBe(true)
     expect(attention.daysToExpiry).toBe(25)
   })
@@ -272,6 +274,7 @@ describe('reagentAttention', () => {
       makeReagent({ expiry: '2026-07-01' }),
       now,
     )
+
     expect(attention.kind).toBe('expired')
     expect(attention.expired).toBe(true)
     expect(attention.daysToExpiry).toBe(-25)
@@ -310,6 +313,7 @@ describe('reagentAttention', () => {
       }),
       now,
     )
+
     expect(attention.kind).toBe('expired')
   })
 
@@ -322,6 +326,7 @@ describe('reagentAttention', () => {
       }),
       now,
     )
+
     expect(attention.kind).toBe('near_expiry')
     expect(attention.lowStock).toBe(true)
   })
@@ -365,10 +370,12 @@ describe('reagentListQuery / reagentCountQuery', () => {
         { fieldId: 'lot', operator: 'contains' as const, values: ['LOT-1'] },
       ],
     }
+
     const listFilters = reagentListQuery(query).replace(
       /&(?:order|limit|offset)=[^&]+/g,
       '',
     )
+
     expect(reagentCountQuery(query)).toBe(listFilters)
   })
   it('scopes to non-archived, non-deleted reagents by default', () => {
@@ -386,6 +393,7 @@ describe('reagentListQuery / reagentCountQuery', () => {
       ...baseQuery,
       filters: [{ fieldId: 'status', operator: 'eq', values: ['archived'] }],
     })
+
     expect(q).toContain('archived_at=not.is.null')
     expect(q).not.toContain('status=eq.archived')
   })
@@ -399,6 +407,7 @@ describe('reagentListQuery / reagentCountQuery', () => {
         { fieldId: 'q', operator: 'contains', values: ['acetonitrile'] },
       ],
     })
+
     expect(q).toContain('status=eq.available')
     expect(q).toContain('properties->>storage=eq.-20 °C')
     expect(q).toContain('or=(identifier.ilike.%22acetonitrile*%22')
@@ -427,6 +436,7 @@ describe('reagentListQuery / reagentCountQuery', () => {
       ...baseQuery,
       sorting: [{ id: 'expiry', desc: true }],
     })
+
     expect(q).toContain('order=properties->>expiry.desc,identifier.asc')
   })
 
@@ -436,6 +446,7 @@ describe('reagentListQuery / reagentCountQuery', () => {
       grouping: ['category'],
       sorting: [{ id: 'updatedAt', desc: true }],
     })
+
     expect(q).toContain('order=tags->>0.asc,updated_at.desc,identifier.asc')
   })
 
@@ -445,6 +456,7 @@ describe('reagentListQuery / reagentCountQuery', () => {
       pageIndex: 3,
       pageSize: 50,
     })
+
     expect(q).toContain('limit=50')
     expect(q).toContain('offset=150')
   })
@@ -457,6 +469,7 @@ describe('reagentListQuery / reagentCountQuery', () => {
       sorting: [{ id: 'title', desc: false }],
       filters: [{ fieldId: 'status', operator: 'eq', values: ['available'] }],
     })
+
     expect(q).not.toMatch(/limit=/)
     expect(q).not.toMatch(/offset=/)
     expect(q).not.toMatch(/order=/)
@@ -494,12 +507,14 @@ describe('createReagent and editReagent', () => {
       locked_at: null,
       locked_by_revision_id: null,
     }))
+
     const created = await createReagent({ rpc } as unknown as DataClient, {
       projectId: 'p1',
       title: 'Acetonitrile',
       tags: ['solvent'],
       properties: { supplier: 'Sigma', catalogNo: 'A123' },
     })
+
     expect(rpc).toHaveBeenCalledWith('create_model_record', {
       p_project_id: 'p1',
       p_kind: 'material',

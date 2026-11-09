@@ -27,11 +27,15 @@ export function sampleEventAction(operation: string): string {
 /** The event's free text, falling back to a location transition where useful. */
 export function sampleEventDetail(event: SampleEvent): string | null {
   if (event.notes) return event.notes
+
   if (event.fromLocation && event.toLocation) {
     return `${event.fromLocation} → ${event.toLocation}`
   }
+
   if (event.toLocation) return event.toLocation
+
   if (event.fromLocation) return event.fromLocation
+
   return null
 }
 
@@ -42,12 +46,16 @@ export function sampleEventDetail(event: SampleEvent): string | null {
  */
 export function sampleEventSummary(event: SampleEvent): string {
   const action = sampleEventAction(event.operation).toLowerCase()
+
   if (event.operation === 'transfer') {
     const to = event.toLocation ?? event.notes
+
     return to ? `moved to ${to}` : 'moved the sample'
   }
+
   if (event.quantityDelta == null) return action
   const unit = event.quantityUnit ? ` ${event.quantityUnit}` : ''
+
   return `${action} ${formatQuantity(Math.abs(event.quantityDelta))}${unit}`
 }
 
@@ -62,6 +70,7 @@ function formatQuantity(value: number): string {
 export function sampleEventChange(event: SampleEvent): string | null {
   if (event.quantityBefore == null || event.quantityAfter == null) return null
   const unit = event.quantityUnit ? ` ${event.quantityUnit}` : ''
+
   return `Volume ${formatQuantity(event.quantityBefore)} → ${formatQuantity(event.quantityAfter)}${unit}`
 }
 
@@ -89,21 +98,27 @@ function pad(value: number): string {
 /** Design "When" cell: "23 Sep 09:15". Deterministic UTC to avoid SSR drift. */
 export function formatSampleEventTime(iso: string): string {
   const date = new Date(iso)
+
   if (Number.isNaN(date.getTime())) return iso
+
   return `${pad(date.getUTCDate())} ${MONTHS[date.getUTCMonth()]} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`
 }
 
 /** Design day cell for Recent history, e.g. "23 Sep". */
 export function formatSampleEventDay(iso: string): string {
   const date = new Date(iso)
+
   if (Number.isNaN(date.getTime())) return iso
+
   return `${pad(date.getUTCDate())} ${MONTHS[date.getUTCMonth()]}`
 }
 
 /** Full timestamp for the cell `title`, e.g. "23 Sep 2026, 09:15 UTC". */
 export function formatSampleEventTimestamp(iso: string): string {
   const date = new Date(iso)
+
   if (Number.isNaN(date.getTime())) return iso
+
   return `${pad(date.getUTCDate())} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}, ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`
 }
 

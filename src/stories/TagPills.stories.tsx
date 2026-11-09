@@ -8,7 +8,9 @@ const meta = {
   tags: ['autodocs'],
   args: { tags: ['stability', 'lentivector', '4 °C'] },
 } satisfies Meta<typeof TagPills>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Default: Story = {}

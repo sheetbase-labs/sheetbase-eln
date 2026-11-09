@@ -31,12 +31,15 @@ function canPush(): boolean {
 /** The subscription this device already holds, if any. */
 async function currentSubscription(): Promise<PushSubscription | null> {
   const registration = await navigator.serviceWorker.getRegistration('/sw.js')
+
   return (await registration?.pushManager.getSubscription()) ?? null
 }
 
 export async function readPushState(): Promise<PushState> {
   if (!canPush()) return 'unsupported'
+
   if (Notification.permission === 'denied') return 'blocked'
+
   try {
     return (await currentSubscription()) ? 'on' : 'off'
   } catch {
@@ -48,7 +51,9 @@ function applicationServerKey(publicKey: string): Uint8Array<ArrayBuffer> {
   const padded = publicKey.replace(/-/g, '+').replace(/_/g, '/')
   const raw = atob(padded + '='.repeat((4 - (padded.length % 4)) % 4))
   const bytes = new Uint8Array(new ArrayBuffer(raw.length))
+
   for (let i = 0; i < raw.length; i += 1) bytes[i] = raw.charCodeAt(i)
+
   return bytes
 }
 
@@ -80,29 +85,37 @@ export async function enablePush(
   client: DataClient = createDataClient(),
 ): Promise<PushState> {
   if (!canPush()) return 'unsupported'
+
   const permission =
     Notification.permission === 'default'
       ? await Notification.requestPermission()
       : Notification.permission
+
   if (permission === 'denied') return 'blocked'
+
   if (permission !== 'granted') return 'off'
 
   const publicKey = await client.rpc<string | null>('get_push_public_key', {})
+
   if (!publicKey) {
     throw new PushUnavailableError(
       'The server is not ready to send alerts yet.',
     )
   }
+
   const registration = await navigator.serviceWorker.register('/sw.js')
   await navigator.serviceWorker.ready
   const existing = await registration.pushManager.getSubscription()
+
   const subscription =
     existing ??
     (await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: applicationServerKey(publicKey),
     }))
+
   await saveSubscription(subscription, client)
+
   return 'on'
 }
 
@@ -112,12 +125,14 @@ export async function disablePush(
 ): Promise<PushState> {
   if (!canPush()) return 'unsupported'
   const subscription = await currentSubscription()
+
   if (subscription) {
     await client
       .rpc('remove_push_subscription', { p_endpoint: subscription.endpoint })
       .catch(() => undefined)
     await subscription.unsubscribe().catch(() => undefined)
   }
+
   return Notification.permission === 'denied' ? 'blocked' : 'off'
 }
 
@@ -131,6 +146,7 @@ export async function syncPushSubscription(
   try {
     if (!canPush() || Notification.permission !== 'granted') return
     const subscription = await currentSubscription()
+
     if (subscription) await saveSubscription(subscription, client)
   } catch {
     // Alerts keep working with what the server already has.
@@ -141,8 +157,10 @@ export async function syncPushSubscription(
 export function applyAppBadge(count: number): void {
   try {
     if (!('setAppBadge' in navigator)) return
+
     const result =
       count > 0 ? navigator.setAppBadge(count) : navigator.clearAppBadge()
+
     void result.catch(() => undefined)
   } catch {
     // Not every browser has badges.

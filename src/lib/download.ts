@@ -22,15 +22,19 @@ export function downloadTextFile(
   type = 'text/plain',
 ): void {
   const anchor = document.createElement('a')
+
   if (!('download' in anchor)) {
     throw new Error('This browser cannot save files.')
   }
+
   const blob =
     contents instanceof Blob ? contents : new Blob([contents], { type })
+
   const url = URL.createObjectURL(blob)
   anchor.href = url
   anchor.download = filename
   document.body.appendChild(anchor)
+
   try {
     anchor.click()
   } catch (error) {
@@ -39,5 +43,6 @@ export function downloadTextFile(
   } finally {
     anchor.remove()
   }
+
   window.setTimeout(() => URL.revokeObjectURL(url), BLOB_URL_LIFETIME_MS)
 }

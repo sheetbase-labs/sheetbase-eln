@@ -20,6 +20,7 @@ describe('hmacKey', () => {
     const signed = await new SignJWT({ sub: 'u' })
       .setProtectedHeader({ alg: 'HS256' })
       .sign(await hmacKey(SECRET, 'sign'))
+
     await expect(
       jwtVerify(signed, new TextEncoder().encode(SECRET)),
     ).resolves.toBeDefined()
@@ -27,6 +28,7 @@ describe('hmacKey', () => {
     const external = await new SignJWT({ sub: 'u' })
       .setProtectedHeader({ alg: 'HS256' })
       .sign(new TextEncoder().encode(SECRET))
+
     await expect(
       jwtVerify(external, await hmacKey(SECRET, 'verify')),
     ).resolves.toBeDefined()
@@ -39,6 +41,7 @@ describe('hmacKey', () => {
     const hs512 = await new SignJWT({ sub: 'u' })
       .setProtectedHeader({ alg: 'HS512' })
       .sign(new TextEncoder().encode(SECRET))
+
     await expect(
       jwtVerify(hs512, await hmacKey(SECRET, 'verify')),
     ).rejects.toThrow()

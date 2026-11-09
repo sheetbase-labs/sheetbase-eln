@@ -67,6 +67,7 @@ export async function fetchBulkTargets(
   ids: readonly string[],
 ): Promise<BulkTarget[]> {
   const rows: TargetWire[] = []
+
   for (let i = 0; i < ids.length; i += 50) {
     const chunk = ids.slice(i, i + 50)
     rows.push(
@@ -76,7 +77,9 @@ export async function fetchBulkTargets(
       )),
     )
   }
+
   const order = new Map(ids.map((id, index) => [id, index]))
+
   return rows
     .map((row) => ({
       id: row.id,
@@ -116,6 +119,7 @@ export function describeBulkError(error: unknown): string {
         return error.message || t('library.bulk.errors.generic')
     }
   }
+
   return error instanceof Error && error.message
     ? error.message
     : t('library.bulk.errors.generic')
@@ -129,10 +133,12 @@ export async function runBulk(
 ): Promise<BulkOutcome> {
   const outcome: BulkOutcome = { doneIds: [], done: [], failed: [] }
   let next = 0
+
   const worker = async () => {
     while (next < targets.length) {
       const target = targets[next++]
       const reason = skip?.(target) ?? null
+
       if (reason) {
         outcome.failed.push({
           id: target.id,
@@ -141,6 +147,7 @@ export async function runBulk(
         })
         continue
       }
+
       try {
         await act(target)
         outcome.doneIds.push(target.id)
@@ -154,7 +161,9 @@ export async function runBulk(
       }
     }
   }
+
   await Promise.all(Array.from({ length: Math.min(4, targets.length) }, worker))
+
   return outcome
 }
 
@@ -320,6 +329,7 @@ export async function fetchBulkLabelRecords(
   ids: readonly string[],
 ): Promise<BulkLabelRecord[]> {
   const rows: LabelWire[] = []
+
   for (let i = 0; i < ids.length; i += 50) {
     rows.push(
       ...(await client.list<LabelWire>(
@@ -328,7 +338,9 @@ export async function fetchBulkLabelRecords(
       )),
     )
   }
+
   const order = new Map(ids.map((id, index) => [id, index]))
+
   return rows
     .map((row) => ({
       id: row.id,

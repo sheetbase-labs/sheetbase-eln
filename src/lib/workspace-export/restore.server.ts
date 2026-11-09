@@ -27,6 +27,7 @@ import { ARCHIVE_FORMAT_VERSION } from './archive.server'
 import type { ArchiveConnection } from './archive.server'
 
 const INSERT_BATCH = 500
+
 /** Ceiling on one restored file, matching the largest the product accepts. */
 const FILE_MAX_BYTES = 1024 * 1024 * 1024
 
@@ -79,11 +80,14 @@ export async function extractArchive(
   unzip.onfile = (file) => {
     if (file.name.endsWith('/')) return
     const target = resolve(root, file.name)
+
     // An archive is untrusted input: refuse a path that leaves the folder.
     if (!target.startsWith(root + sep)) {
       failure = new RestoreError(`unsafe path in archive: ${file.name}`)
+
       return
     }
+
     const done = (async () => {
       await mkdir(dirname(target), { recursive: true })
       const out = createWriteStream(target, { flags: 'wx', mode: 0o600 })
@@ -91,31 +95,42 @@ export async function extractArchive(
         file.ondata = (error, chunk, final) => {
           if (error) {
             reject(error)
+
             return
           }
+
           out.write(chunk)
+
           if (final) out.end(() => resolveFile())
         }
+
         out.on('error', reject)
         file.start()
       })
     })()
+
     writers.push(done)
   }
+
   for await (const chunk of createReadStream(zipPath)) {
     unzip.push(chunk as Uint8Array)
+
     if (failure) throw failure
   }
+
   unzip.push(new Uint8Array(0), true)
   await Promise.all(writers)
+
   if (failure) throw failure
 }
 
 async function sha256Of(path: string): Promise<string> {
   const hash = createHash('sha256')
+
   for await (const chunk of createReadStream(path)) {
     hash.update(chunk as Uint8Array)
   }
+
   return hash.digest('hex')
 }
 
@@ -128,6 +143,7 @@ async function insertTable(
 ): Promise<number> {
   const [schema, table] = name.split('.')
   const target = `${identifier(schema)}.${identifier(table)}`
+
   const { rows: columnRows } = await conn.query(
     `SELECT a.attname::text AS name
        FROM pg_attribute a
@@ -135,20 +151,24 @@ async function insertTable(
         AND a.attgenerated = ''`,
     [target],
   )
+
   const columns = new Set(columnRows.map((r) => r.name as string))
   const readable = Readable.from(createReadStream(path, 'utf8'))
   let carry = ''
   let batch: string[] = []
   let total = 0
+
   const flush = async () => {
     if (batch.length === 0) return
     // Only the columns the archive has: the rest take their defaults.
     const present = new Set<string>()
+
     for (const line of batch) {
       for (const key of Object.keys(JSON.parse(line) as object)) {
         if (columns.has(key)) present.add(key)
       }
     }
+
     const list = [...present].map(identifier).join(', ')
     await conn.query(
       `INSERT INTO ${target} (${list})
@@ -159,18 +179,23 @@ async function insertTable(
     total += batch.length
     batch = []
   }
+
   for await (const piece of readable) {
     carry += piece as string
     const lines = carry.split('\n')
     carry = lines.pop() ?? ''
+
     for (const line of lines) {
       if (!line) continue
       batch.push(line)
+
       if (batch.length >= INSERT_BATCH) await flush()
     }
   }
+
   if (carry) batch.push(carry)
   await flush()
+
   return total
 }
 
@@ -182,11 +207,14 @@ export async function restoreWorkspaceArchive(input: {
 }): Promise<RestoreReport> {
   const dryRun = input.dryRun ?? false
   const directory = await mkdtemp(join(tmpdir(), 'sheetbase-restore-'))
+
   try {
     await extractArchive(input.zipPath, directory)
+
     const manifest = JSON.parse(
       await readFile(join(directory, 'manifest.json'), 'utf8'),
     ) as Manifest
+
     if (
       manifest.kind !== 'sheetbase-workspace-export' ||
       manifest.formatVersion !== ARCHIVE_FORMAT_VERSION
@@ -196,15 +224,18 @@ export async function restoreWorkspaceArchive(input: {
 
     for (const table of manifest.tables) {
       if (!table.path || !table.sha256) continue
+
       if ((await sha256Of(join(directory, table.path))) !== table.sha256) {
         throw new RestoreError(
           `${table.name} does not match its recorded hash.`,
         )
       }
     }
+
     const restorableFiles = manifest.files.filter(
       (f) => f.status === 'ok' && f.path,
     )
+
     for (const file of restorableFiles) {
       if (
         (await sha256Of(join(directory, file.path as string))) !== file.sha256
@@ -216,8 +247,10 @@ export async function restoreWorkspaceArchive(input: {
     }
 
     const skippedTables: RestoreReport['skippedTables'] = []
+
     const plan = manifest.tables.filter((table) => {
       if (!table.path || table.rows === 0) return false
+
       // A table that lost a secret column cannot be rebuilt without it.
       if (table.droppedColumns.length > 0 && table.name !== 'internal.user') {
         skippedTables.push({
@@ -225,8 +258,10 @@ export async function restoreWorkspaceArchive(input: {
           reason:
             'holds secrets, which are not in an archive: create them again',
         })
+
         return false
       }
+
       return true
     })
 
@@ -238,22 +273,27 @@ export async function restoreWorkspaceArchive(input: {
       missingFiles: manifest.files.length - restorableFiles.length,
       dryRun,
     }
+
     if (dryRun) return report
 
     const conn = await input.connect()
+
     try {
       const { rows: superRows } = await conn.query(
         'SELECT rolsuper FROM pg_roles WHERE rolname = current_user',
       )
+
       if (superRows[0]?.rolsuper !== true) {
         throw new RestoreError(
           'Restoring needs a database login that can switch triggers off (a superuser).',
         )
       }
+
       const { rows: existing } = await conn.query(
         'SELECT 1 FROM api.workspaces WHERE id = $1::uuid',
         [manifest.workspace.id],
       )
+
       if (existing.length > 0) {
         throw new RestoreError(
           'This workspace already exists here. Restore into an empty database.',
@@ -263,6 +303,7 @@ export async function restoreWorkspaceArchive(input: {
       // Files first: if they fail nothing has touched the database yet.
       for (const file of restorableFiles) {
         const storageKey = (file.path as string).replace(/^files\//, '')
+
         if (await input.storage.head(storageKey)) continue
         const bytes = createReadStream(join(directory, file.path as string))
         await input.storage.putStream(
@@ -273,8 +314,10 @@ export async function restoreWorkspaceArchive(input: {
       }
 
       await conn.query('BEGIN')
+
       try {
         await conn.query('SET LOCAL session_replication_role = replica')
+
         for (const table of plan) {
           await insertTable(
             conn,
@@ -282,6 +325,7 @@ export async function restoreWorkspaceArchive(input: {
             join(directory, table.path as string),
           )
         }
+
         await conn.query('COMMIT')
       } catch (error) {
         await conn.query('ROLLBACK').catch(() => undefined)
@@ -290,6 +334,7 @@ export async function restoreWorkspaceArchive(input: {
     } finally {
       await conn.end().catch(() => undefined)
     }
+
     return report
   } finally {
     await rm(directory, { recursive: true, force: true })

@@ -20,6 +20,7 @@ function makeDevice() {
   const ecdh = createECDH('prime256v1')
   ecdh.generateKeys()
   const auth = Buffer.from('BTBZMqHH6r4Tts7J_aSIgg', 'base64url')
+
   return {
     p256dh: ecdh.getPublicKey().toString('base64url'),
     auth: auth.toString('base64url'),
@@ -30,6 +31,7 @@ function makeDevice() {
       const serverKey = body.subarray(21, 21 + idLength)
       const encrypted = body.subarray(21 + idLength)
       const shared = ecdh.computeSecret(serverKey)
+
       const ikm = Buffer.from(
         hkdfSync(
           'sha256',
@@ -43,6 +45,7 @@ function makeDevice() {
           32,
         ),
       )
+
       const cek = Buffer.from(
         hkdfSync(
           'sha256',
@@ -52,6 +55,7 @@ function makeDevice() {
           16,
         ),
       )
+
       const nonce = Buffer.from(
         hkdfSync(
           'sha256',
@@ -61,13 +65,17 @@ function makeDevice() {
           12,
         ),
       )
+
       const decipher = createDecipheriv('aes-128-gcm', cek, nonce)
       decipher.setAuthTag(encrypted.subarray(encrypted.length - 16))
+
       const padded = Buffer.concat([
         decipher.update(encrypted.subarray(0, encrypted.length - 16)),
         decipher.final(),
       ])
+
       expect(padded[padded.length - 1]).toBe(0x02)
+
       return padded.subarray(0, padded.length - 1).toString('utf8')
     },
   }
@@ -103,12 +111,14 @@ describe('encryptPayload', () => {
 describe('vapidAuthorization', () => {
   it('signs a token for the push service origin that the public key verifies', () => {
     const keys = generateVapidKeys()
+
     const header = vapidAuthorization(
       'https://push.example.test/send/abc',
       'mailto:lab@example.test',
       keys,
       1_000_000,
     )
+
     const match = /^vapid t=([^.]+)\.([^.]+)\.([^,]+), k=(.+)$/.exec(header)!
     expect(match[4]).toBe(keys.publicKey)
     const claims = JSON.parse(Buffer.from(match[2], 'base64url').toString())
@@ -118,6 +128,7 @@ describe('vapidAuthorization', () => {
       sub: 'mailto:lab@example.test',
     })
     const point = Buffer.from(keys.publicKey, 'base64url')
+
     const publicKey = createPublicKey({
       key: {
         kty: 'EC',
@@ -127,6 +138,7 @@ describe('vapidAuthorization', () => {
       },
       format: 'jwk',
     })
+
     expect(
       verify(
         'sha256',
@@ -151,17 +163,21 @@ describe('sendWebPush', () => {
     const device = makeDevice()
     const keys = generateVapidKeys()
     const fetchImpl = vi.fn(async () => new Response(null, { status: 201 }))
+
     const outcome = await sendWebPush(
       { endpoint: 'https://push.example.test/send/abc', ...device },
       message,
       keys,
       { subject: 'mailto:lab@example.test', fetchImpl },
     )
+
     expect(outcome).toEqual({ kind: 'sent' })
+
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [
       string,
       RequestInit,
     ]
+
     expect(url).toBe('https://push.example.test/send/abc')
     const headers = init.headers as Record<string, string>
     expect(headers['Content-Encoding']).toBe('aes128gcm')
@@ -187,6 +203,7 @@ describe('sendWebPush', () => {
         fetchImpl: vi.fn(async () => new Response(null, { status })),
       },
     )
+
     expect(outcome.kind).toBe(kind)
   })
 
@@ -202,6 +219,7 @@ describe('sendWebPush', () => {
         }),
       },
     )
+
     expect(outcome).toEqual({ kind: 'retry', error: 'offline' })
   })
 })

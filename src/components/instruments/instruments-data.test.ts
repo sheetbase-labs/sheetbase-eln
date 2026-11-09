@@ -67,9 +67,11 @@ describe('registry calibration standing', () => {
 
   it('uses one due-soon window, the one the registry list and its filter share', () => {
     const now = new Date('2026-10-13T00:00:00.000Z')
+
     const inside = new Date(
       now.getTime() + CALIBRATION_DUE_SOON_DAYS * 86_400_000,
     ).toISOString()
+
     const beyond = new Date(
       now.getTime() + (CALIBRATION_DUE_SOON_DAYS + 1) * 86_400_000,
     ).toISOString()

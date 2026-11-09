@@ -50,15 +50,19 @@ export function parameterInput(
 ): NotebookTemplateParameterInput | null {
   if (parameter.type.kind !== 'scalar') return null
   const text = raw.trim()
+
   if (text === '') return null
+
   switch (parameter.type.valueType) {
     case 'integer':
     case 'decimal': {
       const value = Number(text)
+
       return Number.isFinite(value)
         ? { parameterId: parameter.id, kind: 'scalar', value }
         : null
     }
+
     case 'boolean':
       return {
         parameterId: parameter.id,
@@ -72,12 +76,15 @@ export function parameterInput(
 
 function startErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : ''
+
   if (/project is archived/i.test(message)) {
     return t('library.templates.useTemplateDialog.thatProjectIsArchivedSo')
   }
+
   if (/row-level security|permission_denied|permission denied/i.test(message)) {
     return t('library.templates.useTemplateDialog.youDontHavePermissionTo')
   }
+
   return (
     message || t('library.templates.useTemplateDialog.couldNotStartTheNotebook')
   )
@@ -108,6 +115,7 @@ export function UseTemplateDialog({
   const [title, setTitle] = useState('')
   const [values, setValues] = useState<Record<string, string>>({})
   const [touched, setTouched] = useState(false)
+
   const [idempotencyKey, setIdempotencyKey] = useState(() =>
     crypto.randomUUID(),
   )
@@ -122,12 +130,14 @@ export function UseTemplateDialog({
     enabled: open,
     staleTime: 60_000,
   })
+
   const assignments = useQuery({
     queryKey: ['ui-port', 'templates', 'use', 'project-access'],
     queryFn: () => fetchMyProjectAssignments(notebookTemplateDataClient),
     enabled: open,
     staleTime: 60_000,
   })
+
   const writable = useMemo(
     () =>
       new Set(
@@ -137,13 +147,17 @@ export function UseTemplateDialog({
       ),
     [assignments.data],
   )
+
   const usable = (projects.data ?? []).filter(
     (p) => writable.has(p.id) && !p.archived_at && p.status !== 'archived',
   )
+
   const effectiveProjectId = usable.some((p) => p.id === projectId)
     ? projectId
     : (usable.at(0)?.id ?? '')
+
   const asked = version ? askedParameters(version) : []
+
   const missing = asked.filter(
     (p) => parameterInput(p, values[p.id] ?? '') === null,
   )
@@ -154,12 +168,14 @@ export function UseTemplateDialog({
         throw new Error(
           t('library.templates.useTemplateDialog.thisTemplateHasNoPublished'),
         )
+
       return instantiateNotebookTemplateVersion({
         versionId: version.id,
         targetProjectId: effectiveProjectId,
         title: title.trim() || undefined,
         parameterInputs: asked.flatMap((p) => {
           const input = parameterInput(p, values[p.id] ?? '')
+
           return input ? [input] : []
         }),
         idempotencyKey,
@@ -194,6 +210,7 @@ export function UseTemplateDialog({
 
   const submit = () => {
     setTouched(true)
+
     if (!effectiveProjectId || missing.length > 0) return
     start.mutate()
   }
@@ -201,6 +218,7 @@ export function UseTemplateDialog({
   // A version with no sections would start an empty notebook.
   const empty =
     version !== null && version.configuration.placements.length === 0
+
   if (!version || empty) {
     return (
       <Button
@@ -223,6 +241,7 @@ export function UseTemplateDialog({
       open={open}
       onOpenChange={(next) => {
         setOpen(next)
+
         if (next) {
           setIdempotencyKey(crypto.randomUUID())
         } else {

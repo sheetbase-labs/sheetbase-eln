@@ -161,8 +161,11 @@ export const EVAL_FIXTURE: Record<string, Row[]> = {
 
 function compare(a: unknown, b: unknown): number {
   if (a === b) return 0
+
   if (a === null || a === undefined) return 1
+
   if (b === null || b === undefined) return -1
+
   return (a as string | number) < (b as string | number) ? -1 : 1
 }
 
@@ -171,6 +174,7 @@ function matchesFilter(value: unknown, expression: string): boolean {
   const operator = dot === -1 ? expression : expression.slice(0, dot)
   const rest = dot === -1 ? '' : expression.slice(dot + 1)
   const text = value === null || value === undefined ? '' : String(value)
+
   switch (operator) {
     case 'eq':
       return text === rest
@@ -188,12 +192,15 @@ function matchesFilter(value: unknown, expression: string): boolean {
     case 'not': {
       return !matchesFilter(value, rest)
     }
+
     case 'ilike': {
       const pattern = decodeURIComponent(rest)
         .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
         .replaceAll('*', '.*')
+
       return new RegExp(`^${pattern}$`, 'i').test(text)
     }
+
     default:
       return true
   }
@@ -207,12 +214,15 @@ export function createFixtureClient(
     let rows = [...(tables[resource] ?? [])]
     let order: string | null = null
     let limit = Infinity
+
     for (const part of query.replace(/^\?/, '').split('&')) {
       if (!part) continue
       const eq = part.indexOf('=')
       const key = part.slice(0, eq)
       const value = part.slice(eq + 1)
+
       if (key === 'select') continue
+
       if (key === 'order') order = value
       else if (key === 'limit') limit = Number(value)
       else if (key === 'or') {
@@ -220,6 +230,7 @@ export function createFixtureClient(
         rows = rows.filter((row) =>
           clauses.some((clause) => {
             const first = clause.indexOf('.')
+
             return matchesFilter(
               row[clause.slice(0, first)],
               clause.slice(first + 1),
@@ -230,6 +241,7 @@ export function createFixtureClient(
         rows = rows.filter((row) => matchesFilter(row[key], value))
       }
     }
+
     if (order) {
       const [column, direction] = order.split(',')[0].split('.')
       rows.sort((a, b) =>
@@ -238,11 +250,14 @@ export function createFixtureClient(
           : compare(a[column], b[column]),
       )
     }
+
     return rows.slice(0, limit)
   }
+
   const refuse = () => {
     throw new Error('The fixture workspace is read-only.')
   }
+
   return {
     list: async <T>(resource: string, query?: string) =>
       read(resource, query) as T[],
@@ -291,7 +306,9 @@ function flagsAllOn(): AiFeatureFlags {
 
 function meta(key: string): EvalTaskMeta {
   const found = EVAL_TASK_META.find((task) => task.key === key)
+
   if (!found) throw new Error(`No check named ${key}`)
+
   return found
 }
 
@@ -379,6 +396,7 @@ const TASKS: readonly TaskDefinition[] = [
           level: 'ask',
         },
       ] as const
+
       const levels = [
         resolveAgentActionLevel(policies, 'create_shipment', {
           role: 'scientist',
@@ -391,6 +409,7 @@ const TASKS: readonly TaskDefinition[] = [
           credentialId: 'agent-1',
         }),
       ]
+
       return { text: levels.join(',') }
     },
     expect: { includes: ['auto,never,ask'] },
@@ -407,6 +426,7 @@ const TASKS: readonly TaskDefinition[] = [
           level: 'auto',
         },
       ] as const
+
       const keys = [
         'sign_record',
         'submit_experiment_for_review',
@@ -414,10 +434,13 @@ const TASKS: readonly TaskDefinition[] = [
         'lock_record',
         'delete_record',
       ]
+
       const levels = keys.map((key) => resolveAgentActionLevel(policies, key))
+
       const offered = AGENT_ACTIONS.filter((action) =>
         agentActionAlwaysNever(action.key),
       ).length
+
       return { text: `${levels.join(',')};offered=${offered}` }
     },
     expect: {
@@ -430,6 +453,7 @@ const TASKS: readonly TaskDefinition[] = [
       const overlap = ASSISTANT_READ_TOOL_NAMES.filter((name) =>
         ASSISTANT_PROPOSE_TOOL_NAMES.includes(name),
       )
+
       return { text: `overlap=${overlap.length}` }
     },
     expect: { includes: ['overlap=0'] },
@@ -438,43 +462,57 @@ const TASKS: readonly TaskDefinition[] = [
 
 function check(outcome: Outcome, expectation: Expectation): string | null {
   const haystack = `${outcome.text}\n${JSON.stringify(outcome.proposals)}`
+
   for (const text of expectation.includes ?? []) {
     if (!haystack.toLowerCase().includes(text.toLowerCase())) {
       return `The answer should mention “${text}” and does not.`
     }
   }
+
   for (const text of expectation.excludes ?? []) {
     if (haystack.toLowerCase().includes(text.toLowerCase())) {
       return `The answer should not mention “${text}” but does.`
     }
   }
+
   if (expectation.noCard && outcome.proposals.length > 0) {
     return 'A card was proposed, and none should have been.'
   }
+
   if (expectation.card) {
     const wanted = expectation.card
+
     const found = outcome.proposals.find((proposal) => {
       const action = proposal.action as Record<string, unknown> | undefined
+
       if (!action || action.kind !== wanted.kind) return false
+
       return Object.entries(wanted.match ?? {}).every(
         ([key, value]) => action[key] === value,
       )
     })
+
     if (!found) {
       return `A ${wanted.kind} card was expected and was not proposed.`
     }
   }
+
   return null
 }
 
 function expectedText(expectation: Expectation): string {
   const parts: string[] = []
+
   if (expectation.includes?.length)
     parts.push(`mentions ${expectation.includes.join(', ')}`)
+
   if (expectation.excludes?.length)
     parts.push(`does not mention ${expectation.excludes.join(', ')}`)
+
   if (expectation.card) parts.push(`proposes a ${expectation.card.kind} card`)
+
   if (expectation.noCard) parts.push('proposes no card')
+
   return parts.join('; ')
 }
 
@@ -491,6 +529,7 @@ async function runInTools(
   toolkit: Awaited<ReturnType<typeof createAssistantToolkit>>,
 ): Promise<Outcome> {
   if (task.direct) return { ...task.direct(), proposals: [] }
+
   if (!task.tool || !toolkit) {
     return {
       text: '',
@@ -498,10 +537,12 @@ async function runInTools(
       error: 'The assistant has no tools here.',
     }
   }
+
   const result = await toolkit.run(
     toWireToolName(task.tool.name),
     JSON.stringify(task.tool.args),
   )
+
   return {
     text: result.text,
     proposals: result.proposal ? [result.proposal] : [],
@@ -516,16 +557,20 @@ async function runWithModel(
   toolkit: Awaited<ReturnType<typeof createAssistantToolkit>>,
 ): Promise<Outcome> {
   const proposals: AssistantProposal[] = []
+
   const wrapped = toolkit
     ? {
         ...toolkit,
         run: async (name: string, argumentsJson: string) => {
           const result = await toolkit.run(name, argumentsJson)
+
           if (result.proposal) proposals.push(result.proposal)
+
           return result
         },
       }
     : undefined
+
   const started = await streamAssistant(
     {
       workspaceId: FIXTURE_WORKSPACE,
@@ -534,10 +579,13 @@ async function runWithModel(
     },
     { ...harness.deps, client, toolkit: wrapped },
   )
+
   if (started.status !== 'ok') {
     return { text: '', proposals, error: started.message }
   }
+
   let text = ''
+
   try {
     for await (const event of started.events) {
       if (event.type === 'text') text += event.delta
@@ -549,6 +597,7 @@ async function runWithModel(
       error: error instanceof Error ? error.message : 'The model failed.',
     }
   }
+
   return { text, proposals }
 }
 
@@ -573,6 +622,7 @@ export async function runEvalTasks(
   input: RunEvalsInput,
 ): Promise<EvalResult[]> {
   const client = createFixtureClient()
+
   const toolkit = await createAssistantToolkit({
     client,
     actor: { kind: 'user', id: FIXTURE_USER },
@@ -581,10 +631,13 @@ export async function runEvalTasks(
     timeZone: 'UTC',
     now: new Date('2026-11-06T09:00:00Z'),
   })
+
   const results: EvalResult[] = []
+
   for (const task of TASKS) {
     const started = Date.now()
     let outcome: Outcome
+
     try {
       outcome =
         input.mode === 'model' && task.meta.usesModel
@@ -602,11 +655,14 @@ export async function runEvalTasks(
         error: error instanceof Error ? error.message : 'The check crashed.',
       }
     }
+
     let problem = check(outcome, task.expect)
+
     // A tool error is only the right answer when the task expects a refusal.
     if (outcome.error && !task.expect.noCard) {
       problem = outcome.error
     }
+
     results.push({
       taskKey: task.meta.key,
       area: task.meta.area,
@@ -618,5 +674,6 @@ export async function runEvalTasks(
       durationMs: Date.now() - started,
     })
   }
+
   return results
 }

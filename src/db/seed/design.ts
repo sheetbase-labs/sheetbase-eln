@@ -194,6 +194,7 @@ export const designSteps: Array<SeedStep> = [
         { userId: DESIGN_USER_IDS.clientAna, role: 'viewer' },
         { userId: DESIGN_USER_IDS.clientBen, role: 'viewer' },
       ]
+
       for (const membership of roles) {
         const workspaceId = membership.workspaceId ?? PROCESS
         await db
@@ -211,6 +212,7 @@ export const designSteps: Array<SeedStep> = [
             set: { role: membership.role, clientId: null },
           })
       }
+
       await withDesignClaims(
         db,
         DESIGN_USER_IDS.gareth,
@@ -220,6 +222,7 @@ export const designSteps: Array<SeedStep> = [
             'select 1 from api.workspace_settings where workspace_id=$1',
             [PROCESS],
           )
+
           if (!existing.rowCount) {
             // The settings authority supplies Europe/London. Do not rewrite an
             // existing workspace's timezone or signature policy on reseed.
@@ -243,6 +246,7 @@ export const designSteps: Array<SeedStep> = [
         const details = DESIGN_PROJECT_DETAILS.find(
           (detail) => detail.id === project.id,
         )
+
         await db
           .insert(schema.projects)
           .values({
@@ -259,6 +263,7 @@ export const designSteps: Array<SeedStep> = [
             set: { title: project.title },
           })
       }
+
       await seedDesignProjectAccess(db)
     },
   },
@@ -272,6 +277,7 @@ export const designSteps: Array<SeedStep> = [
         '00000000-0000-4000-8000-000000000321',
         '00000000-0000-4000-8000-000000000322',
       ]
+
       for (const [index, projectId] of pinned.entries()) {
         await db
           .insert(schema.userFavourites)
@@ -331,6 +337,7 @@ export const designSteps: Array<SeedStep> = [
       for (const sample of DESIGN_SAMPLES) {
         const properties =
           'properties' in sample ? sample.properties : undefined
+
         await db
           .insert(schema.records)
           .values({
@@ -425,6 +432,7 @@ export const designSteps: Array<SeedStep> = [
               ...(field.createdAt ? { createdAt: field.createdAt } : {}),
             },
           })
+
         for (const [index, option] of (field.options ?? []).entries()) {
           await db
             .insert(schema.modelFieldOptions)
@@ -519,6 +527,7 @@ export const designSteps: Array<SeedStep> = [
           includeMycoplasma: true,
         },
       ] as const
+
       for (const version of versions) {
         const definition = {
           fields: allVersionFields
@@ -530,12 +539,15 @@ export const designSteps: Array<SeedStep> = [
             .map((field) => {
               const rules =
                 DESIGN_CELL_BANK_FIELD_META[field.field_name]?.validation
+
               const rule = rules
                 ?.filter(([from]) => from <= version.version)
                 .at(-1)?.[1]
+
               return rule ? { ...field, validation: rule } : field
             }),
         }
+
         await db
           .insert(schema.recordModelVersions)
           .values({
@@ -569,8 +581,10 @@ export const designSteps: Array<SeedStep> = [
           .select({ id: schema.approvalRequests.id })
           .from(schema.approvalRequests)
           .where(eq(schema.approvalRequests.objectId, version.id))
+
         if (existing.length) continue
         const approver = DESIGN_USER_IDS.anna
+
         const [request] = await db
           .insert(schema.approvalRequests)
           .values({
@@ -588,6 +602,7 @@ export const designSteps: Array<SeedStep> = [
             decidedAt: version.publishedAt,
           })
           .returning({ id: schema.approvalRequests.id })
+
         await db.insert(schema.approvalRequestDecisions).values({
           requestId: request.id,
           workspaceId: PROCESS,
@@ -603,6 +618,7 @@ export const designSteps: Array<SeedStep> = [
       // row so "Edit fields" has something to continue and the diff has
       // something to show; v4 stays the version records use.
       const v4Fields = versions.find((v) => v.version === 4)!
+
       const publishedFields = (
         (
           await db
@@ -611,6 +627,7 @@ export const designSteps: Array<SeedStep> = [
             .where(eq(schema.recordModelVersions.id, v4Fields.id))
         ).at(0)?.definition as { fields: Array<Record<string, unknown>> }
       ).fields
+
       const draftFields = [
         ...publishedFields.map((field) => {
           if (field.field_name === 'cell_line')
@@ -620,8 +637,10 @@ export const designSteps: Array<SeedStep> = [
                 (option) => option.key !== 'cho_k1',
               ),
             }
+
           if (field.field_name === 'vials')
             return { ...field, validation: { min: 1 } }
+
           return field
         }),
         {
@@ -642,6 +661,7 @@ export const designSteps: Array<SeedStep> = [
           options: [],
         },
       ]
+
       await db
         .insert(schema.recordModelVersions)
         .values({
@@ -711,6 +731,7 @@ export const designSteps: Array<SeedStep> = [
           message: "Vials left can't go below 0",
         },
       ]
+
       for (const rule of rules) {
         await db
           .insert(schema.modelRules)
@@ -744,6 +765,7 @@ export const designSteps: Array<SeedStep> = [
           Number(record.identifier.split('-')[1]),
         ),
       )
+
       await db.execute(sql`
         INSERT INTO internal.id_sequences (workspace_id, kind, last_number)
         VALUES (${PROCESS}, ${'model:cb'}, ${lastNumber})
@@ -826,6 +848,7 @@ export const designSteps: Array<SeedStep> = [
             },
           })
       }
+
       // The fixture set is the whole truth for this project: a material the design
       // no longer lists is retired here, so a reseed cannot leave a stale lot
       // behind (an upsert alone never removes one).
@@ -837,6 +860,7 @@ export const designSteps: Array<SeedStep> = [
              `ARRAY[${DESIGN_MATERIALS.map((material) => `'${material.identifier}'`).join(',')}]`,
            )})
       `)
+
       // Continue the MAT- sequence after the seeded lots: the design's workspace
       // settings show MAT-0421 as the next material, so a new lot is 0421 rather
       // than re-issuing an existing identifier.
@@ -845,6 +869,7 @@ export const designSteps: Array<SeedStep> = [
           Number(material.identifier.split('-')[1]),
         ),
       )
+
       await db.execute(sql`
         INSERT INTO internal.id_sequences (workspace_id, kind, last_number)
         VALUES (${PROCESS}, ${'material'}, ${lastMaterial})
@@ -907,7 +932,9 @@ export const designSteps: Array<SeedStep> = [
           })
           .onConflictDoNothing()
           .returning({ id: schema.records.id })
+
         if (insertedRecord.length === 0) continue
+
         for (const block of experiment.blocks ?? []) {
           await db
             .insert(schema.blocks)
@@ -936,6 +963,7 @@ export const designSteps: Array<SeedStep> = [
             })
             .onConflictDoNothing()
         }
+
         if (experiment.status === 'approved') {
           await db
             .update(schema.records)
@@ -986,6 +1014,7 @@ export const designSteps: Array<SeedStep> = [
               where r.project_id = $1 and f.display_name = $2`,
             ['00000000-0000-4000-8000-000000000320', 'CoA_L-77310.pdf'],
           )
+
           // create_file_upload returns a record composite, which the client sees as
           // an opaque string; select its fields in the same statement instead.
           // The upload RPC returns a record composite, which the client sees as an
@@ -1006,6 +1035,7 @@ export const designSteps: Array<SeedStep> = [
               ],
             )
           }
+
           const created = await client.query<{
             id: string
             identifier: string
@@ -1015,7 +1045,9 @@ export const designSteps: Array<SeedStep> = [
               where f.id = $1`,
             ['00000000-0000-4000-8000-0000000007a0'],
           )
+
           const file = created.rows.at(0) ?? existing.rows.at(0)
+
           if (!file) throw new Error('certificate file not created')
           await client.query(
             `insert into api.record_links
@@ -1072,6 +1104,7 @@ export const designSteps: Array<SeedStep> = [
               description: template.description ?? null,
             },
           })
+
         const existingVersion = await db
           .select({
             id: schema.notebookTemplateVersions.id,
@@ -1080,6 +1113,7 @@ export const designSteps: Array<SeedStep> = [
           .from(schema.notebookTemplateVersions)
           .where(eq(schema.notebookTemplateVersions.templateId, template.id))
           .limit(1)
+
         if (existingVersion.length === 0) {
           await db.insert(schema.notebookTemplateVersions).values({
             id: template.versionId,
@@ -1091,6 +1125,7 @@ export const designSteps: Array<SeedStep> = [
             createdByUserId: DESIGN_USER_IDS.gareth,
           })
         }
+
         if (existingVersion[0]?.lifecycle !== 'published') {
           await db
             .update(schema.notebookTemplateVersions)
@@ -1192,6 +1227,7 @@ export const designSteps: Array<SeedStep> = [
       const performedAt = new Date(now - 30 * 86_400_000)
       const dueAt = new Date(now + 180 * 86_400_000)
       const validUntil = new Date(now + 365 * 86_400_000)
+
       for (const instrument of DESIGN_INSTRUMENTS) {
         const current = await db
           .select({ id: schema.instrumentCalibrations.id })
@@ -1203,6 +1239,7 @@ export const designSteps: Array<SeedStep> = [
             ),
           )
           .limit(1)
+
         if (!current.length) {
           await db.insert(schema.instrumentCalibrations).values({
             workspaceId: PROCESS,
@@ -1213,6 +1250,7 @@ export const designSteps: Array<SeedStep> = [
             createdByUserId: DESIGN_USER_IDS.gareth,
           })
         }
+
         for (const userId of [
           DESIGN_USER_IDS.gareth,
           DESIGN_USER_IDS.priya,
@@ -1630,6 +1668,7 @@ const DESIGN_EXPERIMENTS: ReadonlyArray<{
 /** A stable `manual:<uuid>` run identity derived from a seed key. */
 function manualOccurrence(seed: string): string {
   const hex = createHash('sha1').update(seed).digest('hex')
+
   return `manual:${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
 }
 
@@ -1763,6 +1802,7 @@ async function seedDesignMaterialLedger(
 ): Promise<void> {
   const processId = DESIGN_WORKSPACE_IDS.processDevelopment
   const gareth = DESIGN_USER_IDS.gareth
+
   for (const material of DESIGN_MATERIALS) {
     const current = Number(material.properties.quantity ?? 0)
     const initial = Number(material.customFields?.initial_quantity ?? current)
@@ -1770,6 +1810,7 @@ async function seedDesignMaterialLedger(
     const received = String(material.customFields?.received ?? '2026-06-01')
     const receivedAt = `${received}T09:30:00+01:00`
     const used = Math.max(0, initial - current)
+
     // MAT-0420 is the design's worked example: earlier screening runs, then one
     // unit for EXP-0142 on 23 Sep.
     const uses: Array<{ quantity: number; at: string; reason: string }> =
@@ -1795,6 +1836,7 @@ async function seedDesignMaterialLedger(
               },
             ]
           : []
+
     const movements = [
       {
         operation: 'receive',
@@ -1811,7 +1853,9 @@ async function seedDesignMaterialLedger(
           reason: use.reason,
         })),
     ]
+
     let balance = 0
+
     for (const [index, movement] of movements.entries()) {
       balance += movement.delta
       await db.execute(sql`
@@ -3136,6 +3180,7 @@ const STANDARD_CURVE_FIELDS: ReadonlyArray<DesignDatasetField> = [
 function standardCurveRows(): Array<Record<string, unknown>> {
   const od = (x: number, wobble: number) =>
     Number((2.35 + (0.06 - 2.35) / (1 + (x / 22) ** 1.15) + wobble).toFixed(3))
+
   const doses = [200, 66.7, 22.2, 7.41, 2.47, 0.82, 0.27]
   const wobble = [0.006, -0.004, 0.005, -0.006, 0.004, -0.003, 0.003]
   const rows: Array<Record<string, unknown>> = []
@@ -3153,6 +3198,7 @@ function standardCurveRows(): Array<Record<string, unknown>> {
     }
   })
   rows.push({ well: 'A9', sample: 'Blank', concentration: 0, od450: 0.054 })
+
   const unknowns: Array<[string, string, number]> = [
     ['C1', 'SMP-2250', 9],
     ['C2', 'SMP-2251', 31],
@@ -3161,8 +3207,10 @@ function standardCurveRows(): Array<Record<string, unknown>> {
     ['C5', 'SMP-2254', 330],
     ['C6', 'SMP-2255', 60],
   ]
+
   for (const [well, sample, dose] of unknowns)
     rows.push({ well, sample, concentration: null, od450: od(dose, 0.004) })
+
   return rows
 }
 
@@ -3426,15 +3474,18 @@ const AMBR_DAY = {
 function ambrRows(): Array<Record<string, unknown>> {
   const vessels = ['V01', 'V02', 'V03', 'V04'] as const
   const rows: Array<Record<string, unknown>> = []
+
   for (let day = 1; day <= 21; day += 1) {
     vessels.forEach((vessel, vesselIndex) => {
       const exact = day === 5 || day === 6 ? AMBR_DAY[day][vessel] : undefined
       const minute = day >= 5 ? day * 2 - 2 : day
+
       const time = exact
         ? day === 5
           ? `08:${50 + vesselIndex * 2}`
           : `09:0${6 + vesselIndex * 2}`
         : `08:${String(40 + minute).padStart(2, '0')}`
+
       const [
         vcd,
         viability,
@@ -3452,6 +3503,7 @@ function ambrRows(): Array<Record<string, unknown>> {
         Number((7.11 - day * 0.005 + vesselIndex * 0.005).toFixed(2)),
         38 + ((day + vesselIndex) % 4),
       ]
+
       rows.push({
         vessel,
         day,
@@ -3466,6 +3518,7 @@ function ambrRows(): Array<Record<string, unknown>> {
       })
     })
   }
+
   return rows
 }
 
@@ -3508,7 +3561,9 @@ function elisaRows(): Array<Record<string, unknown>> {
     { sample: 'STD-4', condition: null, turbidity: null, capsid_titre: 10 },
     { sample: 'STD-4', condition: null, turbidity: null, capsid_titre: 10 },
   ]
+
   const plates = ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7', 'P8']
+
   const wells = [
     'A1',
     'A2',
@@ -3523,12 +3578,15 @@ function elisaRows(): Array<Record<string, unknown>> {
     'B5',
     'B6',
   ]
+
   const rows: Array<Record<string, unknown>> = []
   plates.forEach((plate, plateIndex) => {
     wells.forEach((well, wellIndex) => {
       const rowNumber = plateIndex * 12 + wellIndex + 1
+
       const reading =
         rowNumber >= 88 ? comparedReadings[rowNumber - 88] : undefined
+
       // The design's SampleDetail cites "DS-0311 rows 1-2" for SMP-2231's capsid
       // titre, and the sample binding runs through the schema's sample text field,
       // so the dataset's first two rows carry that sample identifier.
@@ -3537,7 +3595,9 @@ function elisaRows(): Array<Record<string, unknown>> {
         (rowNumber <= 2
           ? 'SMP-2231'
           : `S-${String(rowNumber).padStart(3, '0')}`)
+
       const dilution = [10, 100, 1000][wellIndex % 3]
+
       const capsidTitre = reading
         ? reading.capsid_titre
         : rowNumber <= 2
@@ -3546,11 +3606,13 @@ function elisaRows(): Array<Record<string, unknown>> {
           : Number(
               (3.4 + ((plateIndex * 12 + wellIndex) % 17) * 0.18).toFixed(2),
             )
+
       // DatasetCompare identifies these exact readings. They are measurement
       // inputs to the real row-batch validation, not manufactured flag rows.
       const turbidity = reading
         ? reading.turbidity
         : Number((4.2 + ((plateIndex * 7 + wellIndex) % 9) * 0.9).toFixed(1))
+
       const a260 = Number((0.52 + (wellIndex % 5) * 0.03).toFixed(3))
       const a280 = Number((0.31 + (wellIndex % 4) * 0.02).toFixed(3))
       const outOfRange = turbidity !== null && turbidity > 50
@@ -3570,6 +3632,7 @@ function elisaRows(): Array<Record<string, unknown>> {
       })
     })
   })
+
   return rows
 }
 
@@ -3587,6 +3650,7 @@ function clarificationRows(): Array<Record<string, unknown>> {
     ['C', 100, 72.3, 24.3, 1.35],
     ['C', 150, 62.8, 61.5, 1.86],
   ]
+
   return runs.map(([train, load, stepYield, turbidity, maxDp]) => ({
     train,
     load,
@@ -3631,6 +3695,7 @@ function aucRows(count: number): Array<Record<string, unknown>> {
 
 function chromatographyRows(count: number): Array<Record<string, unknown>> {
   const letters = 'ABCDEFGH'
+
   return Array.from({ length: count }, (_, i) => ({
     fraction: `${letters[Math.floor(i / 8)]}${(i % 8) + 1}`,
     volume_ml: Number((12 + (i % 7) * 3.5).toFixed(1)),
@@ -3672,6 +3737,7 @@ async function seedDesignDatasets(
           'select id from api.datasets where id = $1',
           [dataset.id],
         )
+
         if ((existing.rowCount ?? 0) > 0) return
 
         // Schema stewardship is workspace authority, not the dataset creator's
@@ -3686,18 +3752,23 @@ async function seedDesignDatasets(
               'select id from api.dataset_schema_definitions where workspace_id = $1 and key = $2',
               [dataset.workspaceId, dataset.schemaKey],
             )
+
             let versionId: string
+
             if ((definition.rowCount ?? 0) > 0) {
               const version = await schemaClient.query(
                 'select id, lifecycle from api.dataset_schema_versions where schema_id = $1 order by version desc limit 1',
                 [definition.rows[0].id],
               )
+
               if (!(version.rowCount ?? 0)) {
                 throw new Error(
                   `schema version missing for ${dataset.schemaKey}`,
                 )
               }
+
               versionId = version.rows[0].id
+
               if (version.rows[0].lifecycle !== 'active') {
                 await schemaClient.query(
                   'select api.replace_dataset_schema_version_fields($1,$2::jsonb)',
@@ -3719,12 +3790,14 @@ async function seedDesignDatasets(
                   JSON.stringify(datasetFieldsWire(dataset)),
                 ],
               )
+
               versionId = created.rows[0].result.schema_version_id
               await schemaClient.query(
                 'select api.publish_dataset_schema_version($1)',
                 [versionId],
               )
             }
+
             return versionId
           },
         )
@@ -3751,6 +3824,7 @@ async function seedDesignDatasets(
           'select field_id, key from api.dataset_schema_version_fields where schema_version_id = $1',
           [schemaVersionId],
         )
+
         const fieldIdByKey = new Map<string, string>(
           fields.rows.map((row: { field_id: string; key: string }) => [
             row.key,
@@ -3768,11 +3842,13 @@ async function seedDesignDatasets(
             ]),
           ),
         }))
+
         if (rows.length > 0) {
           const revision = await client.query(
             'select revision from api.datasets where id = $1',
             [dataset.id],
           )
+
           await client.query(
             'select api.commit_dataset_row_batch($1,$2,$3::jsonb,$4)',
             [
@@ -3790,6 +3866,7 @@ async function seedDesignDatasets(
             [dataset.id],
           )
         ).rows[0].revision
+
         for (const label of dataset.snapshotLabels) {
           await client.query('select api.snapshot_dataset($1,$2,$3)', [
             dataset.id,
@@ -3828,7 +3905,9 @@ async function seedDesignBenchReadingRows(
       'select id from api.datasets where workspace_id = $1 and display_id = $2 and lifecycle = $3',
       [workspaceId, 'DS-0320', 'active'],
     )
+
     const datasetId = dataset.rows.at(0)?.id
+
     if (!datasetId) return
 
     for (const plannedKey of BENCH_READING_PLANNED_KEYS) {
@@ -3836,6 +3915,7 @@ async function seedDesignBenchReadingRows(
         'select 1 from api.dataset_rows where dataset_id = $1 and planned_key = $2 limit 1',
         [datasetId, plannedKey],
       )
+
       if ((existing.rowCount ?? 0) > 0) continue
       await client.query('select api.plan_dataset_row($1,$2,$3)', [
         datasetId,
@@ -3877,12 +3957,16 @@ async function seedDesignWorkItems(
           "select id from api.records where workspace_id=$1 and identifier=$2 and kind='experiment'",
           [PROCESS, identifier],
         )
+
         const recordId = record.rows.at(0)?.id
+
         if (!recordId) throw new Error(`record ${identifier} missing`)
+
         const existing = await client.query(
           'select 1 from api.work_item_follows where user_id=$1 and record_id=$2',
           [DESIGN_USER_IDS.gareth, recordId],
         )
+
         if (!existing.rowCount)
           await client.query('select api.follow_record($1)', [recordId])
       }
@@ -3965,8 +4049,10 @@ async function seedDesignBookings(
   const at = (hours: number, minutes: number) => {
     const date = new Date(DESIGN_CLOCK)
     date.setHours(hours, minutes, 0, 0)
+
     return date
   }
+
   const bookings = [
     {
       id: '00000000-0000-4000-8000-000000000501',
@@ -3999,6 +4085,7 @@ async function seedDesignBookings(
       linked: null,
     },
   ]
+
   for (const booking of bookings) {
     await db
       .insert(schema.calendarBookings)
@@ -4384,6 +4471,7 @@ const DESIGN_EXPERIMENT_PROJECTS: Record<string, string> = {
 
 function designPaddingId(projectIndex: number, run: number): string {
   const n = 0x900000 + projectIndex * 100 + run
+
   return `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`
 }
 
@@ -4391,6 +4479,7 @@ async function seedDesignProjectDetails(
   db: Parameters<SeedStep['run']>[0],
 ): Promise<void> {
   const clientIds = new Map<string, string>()
+
   for (const client of DESIGN_CLIENTS) {
     const inserted = await db
       .insert(schema.clients)
@@ -4405,13 +4494,16 @@ async function seedDesignProjectDetails(
         set: { name: client.name },
       })
       .returning({ id: schema.clients.id, code: schema.clients.code })
+
     for (const row of inserted) clientIds.set(row.code, row.id)
   }
+
   // Continue the CL- sequence after the seeded codes, so a new client is not
   // issued a code the seed already took.
   const lastClient = Math.max(
     ...DESIGN_CLIENTS.map((client) => Number(client.code.split('-')[1])),
   )
+
   await db.execute(sql`
     INSERT INTO internal.id_sequences (workspace_id, kind, last_number)
     VALUES (${PROCESS}, ${'display:client'}, ${lastClient})
@@ -4426,6 +4518,7 @@ async function seedDesignProjectDetails(
     const clientId = project.clientCode
       ? (clientIds.get(project.clientCode) ?? null)
       : null
+
     await db
       .insert(schema.projects)
       .values({
@@ -4482,11 +4575,14 @@ async function seedDesignProjectDetails(
           eq(schema.records.kind, 'experiment'),
         ),
       )
+
     let missing = project.experiments - existing.length
     let run = 0
+
     while (missing > 0) {
       run += 1
       missing -= 1
+
       const status =
         project.status === 'complete'
           ? 'approved'
@@ -4495,6 +4591,7 @@ async function seedDesignProjectDetails(
             : project.status === 'archived'
               ? 'approved'
               : 'in_progress'
+
       await db
         .insert(schema.records)
         .values({
@@ -4545,8 +4642,11 @@ async function seedDesignProjectDetails(
         "select *,started_on::text from api.projects where workspace_id=$1 and key='aav9-process-transfer'",
         [PROCESS],
       )
+
       const current = project.rows.at(0)
+
       if (!current) throw new Error('AAV9 project details missing')
+
       if (
         // Once set, the start date is left alone: the clock sweep moves it.
         current.started_on === null ||
@@ -4679,6 +4779,7 @@ async function applyDesignProjectRule(
 ) {
   const principalUser = rule.user ?? null
   const principalGroup = rule.group ? groupIds[rule.group] : null
+
   const matches = await client.query(
     `select 1 from api.project_access
        where project_id=$1 and user_id is not distinct from $2
@@ -4694,6 +4795,7 @@ async function applyDesignProjectRule(
       rule.review,
     ],
   )
+
   if (!matches.rowCount)
     await client.query(
       'select api.set_project_access_rule($1,$2,$3,$4,$5,$6,false,false)',
@@ -4754,21 +4856,26 @@ async function seedDesignProjectsBoardAccess(
     't-cell-activation-reagent-comparison',
     'plasmid-lot-release-panel',
   ] as const
+
   await withDesignClaims(
     db,
     DESIGN_USER_IDS.gareth,
     PROCESS,
     async (client) => {
       const groupIds: Record<string, string> = {}
+
       for (const [key, name] of Object.entries(DESIGN_ACCESS_GROUPS)) {
         const found = await client.query<{ id: string }>(
           'select id from api.workspace_groups_list() where name=$1',
           [name],
         )
+
         if (found.rows.at(0)?.id) groupIds[key] = found.rows.at(0)!.id
       }
+
       for (const key of boardRows) {
         const detail = DESIGN_PROJECT_DETAILS.find((d) => d.key === key)
+
         if (!detail) throw new Error(`Design project ${key} is not declared`)
         await withDesignClaims(db, detail.lead, PROCESS, async (lead) => {
           // Once a project has explicit rules its lead needs one to manage
@@ -4795,16 +4902,20 @@ async function seedDesignProjectsBoardAccess(
 
   for (const [key, rules] of Object.entries(DESIGN_DETAIL_PROJECT_ACCESS)) {
     const detail = DESIGN_PROJECT_DETAILS.find((d) => d.key === key)
+
     if (!detail) throw new Error(`Design project ${key} is not declared`)
     await withDesignClaims(db, detail.lead, PROCESS, async (lead) => {
       const groupIds: Record<string, string> = {}
+
       for (const [group, name] of Object.entries(DESIGN_ACCESS_GROUPS)) {
         const found = await lead.query<{ id: string }>(
           'select id from api.workspace_groups_list() where name=$1',
           [name],
         )
+
         if (found.rows.at(0)?.id) groupIds[group] = found.rows.at(0)!.id
       }
+
       for (const rule of rules) {
         await applyDesignProjectRule(lead, detail.id, rule, groupIds)
       }
@@ -4817,6 +4928,7 @@ async function seedDesignProjectsBoardAccess(
   const orderedRows = DESIGN_PROJECT_DETAILS.filter(
     (detail) => !detail.archived,
   ).sort((a, b) => b.displayId.localeCompare(a.displayId))
+
   await withDesignClaims(
     db,
     DESIGN_USER_IDS.gareth,
@@ -4838,7 +4950,9 @@ async function seedDesignProjectAccess(db: Parameters<SeedStep['run']>[0]) {
   // cannot yet see is not visible through the claimed project read, and access
   // is exactly what this step is establishing.
   const byKey: Record<string, string> = {}
+
   for (const project of DESIGN_PROJECTS) byKey[project.key] = project.id
+
   // HEK293's "all workspace" view covers the design's workspace staff, not the
   // later auth-free development member or the client viewers.
   const allWorkspaceUsers = [
@@ -4862,6 +4976,7 @@ async function seedDesignProjectAccess(db: Parameters<SeedStep['run']>[0]) {
           'select id from api.workspace_groups_list() where name=$1',
           [name],
         )
+
         const id =
           found.rows.at(0)?.id ??
           (
@@ -4870,17 +4985,21 @@ async function seedDesignProjectAccess(db: Parameters<SeedStep['run']>[0]) {
               [name],
             )
           ).rows[0].id
+
         groupIds[key] = id
       }
+
       for (const [key, members] of Object.entries(
         DESIGN_ACCESS_GROUP_MEMBERS,
       )) {
         const groupId = groupIds[key]
+
         for (const userId of members) {
           const member = await client.query(
             'select 1 from api.workspace_group_memberships where group_id=$1 and user_id=$2',
             [groupId, userId],
           )
+
           if (!member.rowCount)
             await client.query(
               'select api.set_workspace_group_member($1,$2,true)',
@@ -4903,14 +5022,18 @@ async function seedDesignProjectAccess(db: Parameters<SeedStep['run']>[0]) {
   // rules are written as its declared lead.
   for (const [key, rules] of Object.entries(DESIGN_PROJECT_ACCESS)) {
     const projectId = byKey[key]
+
     if (!projectId)
       throw new Error(`Design project ${key} missing before access seeding`)
+
     const lead = DESIGN_PROJECT_DETAILS.find(
       (detail) => detail.key === key,
     )?.lead
+
     if (!lead) throw new Error(`Design project ${key} has no declared lead`)
     await withDesignClaims(db, lead, PROCESS, async (client) => {
       for (const rule of rules) await ensureRule(client, projectId, rule)
+
       // HEK293 is visible to every workspace member. Never overwrite an
       // existing lead or explicit reviewer rule for the same principal.
       if (key === 'hek293-cell-bank-characterisation') {
@@ -4919,6 +5042,7 @@ async function seedDesignProjectAccess(db: Parameters<SeedStep['run']>[0]) {
             'select 1 from api.project_access where project_id=$1 and user_id=$2',
             [projectId, user_id],
           )
+
           if (!existing.rowCount)
             await client.query(
               'select api.set_project_access_rule($1,$2,null,true,false,false,false,false)',
@@ -4939,8 +5063,10 @@ async function seedDesignProjectAccess(db: Parameters<SeedStep['run']>[0]) {
 async function designSigningFixture(db: Parameters<SeedStep['run']>[0]) {
   // Load after the seed runner has loaded its environment.
   const { createAuth } = await import('#/lib/auth')
+
   const { handleSignatureStepUp } =
     await import('#/lib/signature-step-up.server')
+
   const authentication = createAuth(db)
   const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
   const actorId = DESIGN_USER_IDS.gareth
@@ -4968,17 +5094,22 @@ async function designSigningFixture(db: Parameters<SeedStep['run']>[0]) {
     })
     .onConflictDoNothing()
   const secret = process.env.BETTER_AUTH_SECRET
+
   if (!secret) throw new Error('BETTER_AUTH_SECRET required for design signing')
+
   const origin = new URL(process.env.BETTER_AUTH_URL ?? 'http://localhost:3000')
     .origin
+
   const cookieSignature = createHmac('sha256', secret)
     .update(sessionId)
     .digest('base64')
+
   const headers = new Headers({
     origin,
     'content-type': 'application/json',
     cookie: `__Secure-better-auth.session_token=${encodeURIComponent(`${sessionId}.${cookieSignature}`)}`,
   })
+
   const credential = await db
     .select({ id: schema.account.id })
     .from(schema.account)
@@ -4989,12 +5120,14 @@ async function designSigningFixture(db: Parameters<SeedStep['run']>[0]) {
       ),
     )
     .limit(1)
+
   if (!credential.length) {
     await authentication.api.setPassword({
       headers,
       body: { newPassword: fixturePassword },
     })
   }
+
   const proof = async (
     input:
       | { purpose: 'certify' }
@@ -5017,14 +5150,17 @@ async function designSigningFixture(db: Parameters<SeedStep['run']>[0]) {
       }),
       { database: db, authentication },
     )
+
     if (!response.ok)
       throw new Error(
         `Design fixture password step-up refused (${response.status})`,
       )
+
     return z
       .object({ token: z.string().min(32), authMethod: z.literal('password') })
       .parse(await response.json()).token
   }
+
   const certification = (
     await db
       .select()
@@ -5036,6 +5172,7 @@ async function designSigningFixture(db: Parameters<SeedStep['run']>[0]) {
         ),
       )
   ).at(0)
+
   if (
     !certification?.identityVerifiedAt ||
     certification.verifiedEmail !== 'gareth.p@design.sheetbase.dev' ||
@@ -5080,6 +5217,7 @@ async function designSigningFixture(db: Parameters<SeedStep['run']>[0]) {
       sessionId,
     )
   }
+
   return proof
 }
 
@@ -5100,31 +5238,41 @@ async function designCredential(
   const credentials = await import('#/lib/api-credentials')
   const { emitCredentialAuditEvent } = await import('#/lib/credential-audit')
   const secret = process.env.BETTER_AUTH_SECRET
+
   if (!secret)
     throw new Error('BETTER_AUTH_SECRET required for fixture session')
+
   const signature = createHmac('sha256', secret)
     .update(input.sessionId)
     .digest('base64')
+
   const headers = new Headers({
     cookie: `__Secure-better-auth.session_token=${encodeURIComponent(`${input.sessionId}.${signature}`)}`,
   })
+
   const authentication = createAuth(db)
+
   return db.transaction(async (tx) => {
     const session = await authentication.api.getSession({ headers })
+
     if (!session || session.user.id !== input.actorId)
       throw new Error('Current native credential fixture session required')
+
     if (!(await credentials.isWorkspaceMember(tx, session.user.id, PROCESS)))
       throw new Error('Credential fixture workspace membership required')
+
     if (
       input.kind === 'service' &&
       !(await credentials.isWorkspaceOwner(tx, session.user.id, PROCESS))
     )
       throw new Error('Only workspace owners can issue service credentials')
+
     // Use the normal workspace-switch authority before resolving the selected
     // context. In particular, Mei also belongs to Analytical Development.
     const preference = await tx.query.userPreferences.findFirst({
       where: eq(schema.userPreferences.userId, session.user.id),
     })
+
     if (preference?.activeWorkspaceId !== PROCESS) {
       await tx.execute(
         sql`select set_config('request.jwt.claims',${JSON.stringify({
@@ -5136,6 +5284,7 @@ async function designCredential(
       )
       await tx.execute(sql`select api.set_active_workspace(${PROCESS}::uuid)`)
     }
+
     const existing = await tx.query.apiCredentials.findFirst({
       where: and(
         eq(schema.apiCredentials.workspaceId, PROCESS),
@@ -5144,6 +5293,7 @@ async function designCredential(
         eq(schema.apiCredentials.name, input.name),
       ),
     })
+
     if (existing) {
       if (
         !/^[a-f0-9]{64}$/.test(existing.secretHash) ||
@@ -5152,8 +5302,10 @@ async function designCredential(
         throw new Error(
           `Legacy fabricated credential ${input.name} requires a fresh fixture database`,
         )
+
       return existing.id
     }
+
     const created = await credentials.createCredential(tx, {
       workspaceId: PROCESS,
       createdByUserId: session.user.id,
@@ -5162,6 +5314,7 @@ async function designCredential(
       kind: input.kind,
       expiresAt: input.expiresAt,
     })
+
     await emitCredentialAuditEvent(tx, {
       actorUserId: session.user.id,
       workspaceId: PROCESS,
@@ -5173,6 +5326,7 @@ async function designCredential(
         kind: created.kind,
       },
     })
+
     return created.id
   })
 }
@@ -5189,6 +5343,7 @@ async function seedDesignAgents(
   const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
   const actorId = DESIGN_USER_IDS.gareth
   await designSigningFixture(db)
+
   const credentialId = await designCredential(db, {
     actorId,
     sessionId: DESIGN_SESSION_IDS.gareth,
@@ -5203,6 +5358,7 @@ async function seedDesignAgents(
         `select 1 from api.agent_operation_policies where workspace_id = $1 and name = 'Dataset schema drafting' limit 1`,
         [workspaceId],
       )
+
       if ((hasPolicy.rowCount ?? 0) === 0) {
         await client.query(
           `select api.create_agent_operation_policy($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9)`,
@@ -5234,12 +5390,16 @@ async function seedDesignProtocolTraining(
   const actorId = DESIGN_USER_IDS.gareth
   await withDesignClaims(db, actorId, workspaceId, async (client) => {
     const protocol = DESIGN_PROTOCOLS.at(0)
+
     if (!protocol) return
+
     const protocolRecord = await client.query<{ id: string }>(
       'select id from api.records where identifier = $1 and kind = $2',
       [protocol.identifier, 'protocol_template'],
     )
+
     const protocolId = protocolRecord.rows[0]?.id
+
     if (!protocolId) throw new Error(`protocol ${protocol.identifier} missing`)
 
     // A controlled document: the record's rich-text blocks.
@@ -5247,6 +5407,7 @@ async function seedDesignProtocolTraining(
       'select 1 from api.blocks where record_id = $1 limit 1',
       [protocolId],
     )
+
     if ((hasDoc.rowCount ?? 0) === 0) {
       const doc = {
         type: 'doc',
@@ -5295,6 +5456,7 @@ async function seedDesignProtocolTraining(
           },
         ],
       }
+
       await client.query(`select api.insert_block($1,'rich_text',$2::jsonb)`, [
         protocolId,
         JSON.stringify({ doc }),
@@ -5313,6 +5475,7 @@ async function seedDesignProtocolTraining(
         where protocol_record_id = $1 order by version desc limit 1`,
       [protocolId],
     )
+
     const frozen = existing.rows.length
       ? existing.rows[0]
       : (
@@ -5325,6 +5488,7 @@ async function seedDesignProtocolTraining(
             ],
           )
         ).rows[0]
+
     if (frozen.status === 'draft') {
       await client.query('select api.set_protocol_version_status($1,$2)', [
         frozen.id,
@@ -5342,10 +5506,12 @@ async function seedDesignProtocolTraining(
         'Walked through at the bench.',
       ])
     }
+
     const onRoster = await client.query(
       'select 1 from api.protocol_training where protocol_record_id = $1 and user_id = $2',
       [protocolId, DESIGN_USER_IDS.tom],
     )
+
     if ((onRoster.rowCount ?? 0) === 0) {
       await client.query('select api.assign_protocol_training($1,$2,$3)', [
         protocolId,
@@ -5368,12 +5534,14 @@ async function seedDesignResults(
   const actorId = DESIGN_USER_IDS.gareth
   await withDesignClaims(db, actorId, workspaceId, async (client) => {
     const experiment = DESIGN_EXPERIMENTS.at(0)
+
     if (!experiment) return
 
     const hasDecision = await client.query(
       'select decision from api.records where id = $1',
       [experiment.id],
     )
+
     if (hasDecision.rows[0]?.decision == null) {
       await client.query(
         `select api.set_experiment_decision($1,'supported','Titre met the release criterion across all three trains.')`,
@@ -5383,19 +5551,23 @@ async function seedDesignResults(
 
     const figureExperiment =
       DESIGN_EXPERIMENTS.find((e) => e.identifier === 'EXP-0142') ?? experiment
+
     const hasFigure = await client.query(
       `select 1 from api.record_links where source_record_id = $1 and link_type = 'analysis' limit 1`,
       [figureExperiment.id],
     )
+
     if ((hasFigure.rowCount ?? 0) === 0) {
       const analysis = await client.query<{ display_id: string }>(
         `select display_id from api.analysis_views
           where workspace_id = $1 and owner_user_id = $2 and display_id = $3`,
         [workspaceId, actorId, 'AN-0057'],
       )
+
       if (!analysis.rows[0]) {
         throw new Error('Design Results analysis view is not readable')
       }
+
       await client.query('select api.create_record_link($1,$2,$3,$4)', [
         figureExperiment.id,
         'analysis',
@@ -5427,6 +5599,7 @@ async function seedDesignSampleCustody(
     .from(schema.sampleEvents)
     .where(eq(schema.sampleEvents.recordId, sampleId))
     .limit(1)
+
   if (existing.length > 0) return
 
   await withDesignClaims(
@@ -5514,6 +5687,7 @@ async function seedDesignSampleLineage(
     .from(schema.sampleEvents)
     .where(eq(schema.sampleEvents.recordId, harvestId))
     .limit(1)
+
   if (existing.length === 0) {
     await withDesignClaims(
       db,
@@ -5638,6 +5812,7 @@ async function seedDesignSampleLineage(
   const identifierById = new Map(
     DESIGN_SAMPLES.map((sample) => [sample.id, sample.identifier]),
   )
+
   await withDesignClaims(
     db,
     DESIGN_USER_IDS.gareth,
@@ -5645,6 +5820,7 @@ async function seedDesignSampleLineage(
     async (client) => {
       for (const link of derived) {
         const identifier = identifierById.get(link.target)
+
         if (!identifier) continue
         await client.query(
           `insert into api.record_links
@@ -5671,6 +5847,7 @@ async function seedDesignSampleLineage(
           where sample_record_id = $1 and experiment_record_id = $2 limit 1`,
         [harvestId, '00000000-0000-4000-8000-0000000003c5'], // EXP-0145
       )
+
       if ((reserved.rowCount ?? 0) === 0) {
         await client.query(
           `select api.create_sample_reservation($1,$2,$3,$4,$5,$6)`,
@@ -5705,18 +5882,23 @@ async function seedDesignMeasurements(
       { name: 'Viability', value: 92.4, unit: '%', method: 'Vi-CELL' },
       { name: 'Turbidity', value: 14.2, unit: 'NTU', method: 'Benedict' },
     ]
+
     for (const sample of DESIGN_SAMPLES.slice(0, 5)) {
       const record = await client.query<{ id: string }>(
         "select id from api.records where workspace_id=$1 and identifier=$2 and kind='sample'",
         [workspaceId, sample.identifier],
       )
+
       const sampleId = record.rows.at(0)?.id
+
       if (!sampleId) throw new Error(`sample ${sample.identifier} missing`)
+
       for (const d of defs.slice(0, 2)) {
         const existing = await client.query(
           'select 1 from api.sample_measurements where sample_record_id = $1 and name = $2 limit 1',
           [sampleId, d.name],
         )
+
         if ((existing.rowCount ?? 0) > 0) continue
         await client.query(
           'select api.record_sample_measurement($1,$2,$3,$4,$5)',
@@ -5914,34 +6096,44 @@ async function seedDesignMilestones(
         "select id from api.projects where workspace_id=$1 and key='aav9-process-transfer'",
         [workspaceId],
       )
+
       const projectId = project.rows.at(0)?.id
+
       if (!projectId) throw new Error('AAV9 milestone project missing')
 
       const phaseIds = new Map<string, string>()
+
       for (const [position, name] of DESIGN_PHASES.entries()) {
         const existing = await client.query<{ id: string }>(
           'select id from api.study_workstreams where workspace_id=$1 and project_id=$2 and name=$3',
           [workspaceId, projectId, name],
         )
+
         let id = existing.rows.at(0)?.id
+
         if (!id) {
           const created = await client.query<{ id: string }>(
             'select id from api.create_study_workstream($1,$2,$3,null,$4)',
             [workspaceId, name, projectId, position],
           )
+
           id = created.rows.at(0)?.id
         }
+
         if (!id) throw new Error(`phase ${name} missing`)
         phaseIds.set(name, id)
       }
 
       const taskIds = new Map<string, string>()
+
       for (const [position, milestone] of DESIGN_MILESTONES.entries()) {
         const existing = await client.query<{ id: string }>(
           "select id from api.study_tasks where workspace_id=$1 and project_id=$2 and task_type='milestone' and title=$3",
           [workspaceId, projectId, milestone.title],
         )
+
         let id = existing.rows.at(0)?.id
+
         if (!id) {
           const experiment = milestone.experiment
             ? await client.query<{ id: string }>(
@@ -5949,16 +6141,20 @@ async function seedDesignMilestones(
                 [workspaceId, milestone.experiment],
               )
             : null
+
           const experimentId = experiment?.rows.at(0)?.id ?? null
+
           if (milestone.experiment && !experimentId)
             throw new Error(
               `milestone experiment ${milestone.experiment} missing`,
             )
+
           // Born with the due date it had before its one recorded change.
           const dueAt =
             milestone.title === 'Clarification train selected'
               ? '2026-09-22T00:00:00+01:00'
               : milestone.dueAt
+
           const created = await client.query<{ id: string }>(
             `select id from api.create_study_task(p_workspace_id=>$1,p_title=>$2,p_task_type=>'milestone',
           p_project_id=>$3,p_workstream_id=>$4,p_status=>$5,p_due_at=>$6,p_timezone=>'Europe/London',
@@ -5982,32 +6178,43 @@ async function seedDesignMilestones(
               ]),
             ],
           )
+
           id = created.rows.at(0)?.id
         }
+
         if (!id) throw new Error(`milestone ${milestone.title} missing`)
         taskIds.set(milestone.title, id)
       }
 
       for (const milestone of DESIGN_MILESTONES) {
         const taskId = taskIds.get(milestone.title)!
+
         const have = await client.query<{ name: string }>(
           'select name from api.study_deliverables where task_id=$1',
           [taskId],
         )
+
         const names = new Set(have.rows.map((r) => r.name))
+
         for (const [name, delivered, evidence] of milestone.conditions) {
           if (names.has(name)) continue
+
           const created = await client.query<{ r: { id: string } }>(
             'select api.create_study_deliverable($1,$2,null,$3,null) as r',
             [taskId, name, delivered ? 'delivered' : 'planned'],
           )
+
           const deliverableId = created.rows.at(0)?.r.id
+
           if (!evidence || !deliverableId) continue
+
           const record = await client.query<{ id: string }>(
             'select id from api.records where workspace_id=$1 and identifier=$2',
             [workspaceId, evidence],
           )
+
           const recordId = record.rows.at(0)?.id
+
           if (recordId)
             await client.query(
               'select api.link_study_deliverable_evidence($1,$2)',
@@ -6017,10 +6224,12 @@ async function seedDesignMilestones(
 
         if (milestone.after) {
           const before = taskIds.get(milestone.after)!
+
           const dep = await client.query(
             'select 1 from api.study_task_dependencies where predecessor_id=$1 and successor_id=$2',
             [before, taskId],
           )
+
           if (!dep.rowCount)
             await client.query('select api.create_dependency($1,$2,$3)', [
               workspaceId,
@@ -6037,7 +6246,9 @@ async function seedDesignMilestones(
             'select client_visible, metadata_version from api.study_tasks where id=$1',
             [taskId],
           )
+
           const row = task.rows.at(0)
+
           if (row && !row.client_visible)
             await client.query(
               'select api.set_study_task_client_visible($1,$2,true,null)',
@@ -6049,15 +6260,18 @@ async function seedDesignMilestones(
       // The one recorded date change: CL-017 asked for Train C, so the
       // clarification decision moved from 22 to 29 Sep.
       const train = taskIds.get('Clarification train selected')!
+
       const changes = await client.query(
         'select 1 from api.study_task_due_changes where task_id=$1',
         [train],
       )
+
       if (!changes.rowCount) {
         const task = await client.query<{ metadata_version: number }>(
           'select metadata_version from api.study_tasks where id=$1',
           [train],
         )
+
         await client.query('select api.move_study_task_due($1,$2,$3,$4,true)', [
           train,
           task.rows[0]?.metadata_version,
@@ -6118,6 +6332,7 @@ async function seedDesignDatasetFlags(
   db: Parameters<SeedStep['run']>[0],
 ): Promise<void> {
   const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+
   const experimentIdByIdentifier = new Map<string, string>(
     DESIGN_EXPERIMENTS.map((e) => [e.identifier, e.id]),
   )
@@ -6126,8 +6341,10 @@ async function seedDesignDatasetFlags(
     DESIGN_DATASET_EXPERIMENTS,
   )) {
     const dataset = DESIGN_DATASETS.find((d) => d.displayId === displayId)
+
     if (!dataset) continue
     const experimentId = experimentIdByIdentifier.get(experimentIdentifier)
+
     if (!experimentId) continue
 
     await withDesignClaims(db, dataset.actorId, workspaceId, async (client) => {
@@ -6136,6 +6353,7 @@ async function seedDesignDatasetFlags(
         'select locked_at from api.records where id = $1',
         [experimentId],
       )
+
       if (!lockState.rows[0]?.locked_at) {
         const existing = await client.query(
           `select 1 from api.record_links
@@ -6143,6 +6361,7 @@ async function seedDesignDatasetFlags(
               and target_identifier = $2 and link_type = 'dataset'`,
           [experimentId, displayId],
         )
+
         if ((existing.rowCount ?? 0) === 0) {
           await client.query('select api.create_record_link($1,$2,$3,$4)', [
             experimentId,
@@ -6154,13 +6373,16 @@ async function seedDesignDatasetFlags(
       }
 
       const flags = DESIGN_DATASET_FLAGS[displayId] ?? []
+
       if (flags.length === 0) return
 
       const rows = await client.query(
         'select id from api.dataset_rows where dataset_id = $1 order by id limit 1',
         [dataset.id],
       )
+
       const rowId: string | undefined = rows.rows[0]?.id
+
       if (!rowId) return
 
       const fields = await client.query(
@@ -6170,6 +6392,7 @@ async function seedDesignDatasetFlags(
           where s.workspace_id = $1 and s.key = $2`,
         [workspaceId, dataset.schemaKey],
       )
+
       const fieldIdByKey = new Map<string, string>(
         fields.rows.map((r: { field_id: string; key: string }) => [
           r.key,
@@ -6179,13 +6402,16 @@ async function seedDesignDatasetFlags(
 
       for (const flag of flags) {
         const fieldId = fieldIdByKey.get(flag.fieldKey)
+
         if (!fieldId) continue
+
         const existing = await client.query(
           `select 1 from api.dataset_value_flags
             where dataset_id = $1 and row_id = $2 and field_id = $3
               and cleared_at is null`,
           [dataset.id, rowId, fieldId],
         )
+
         if ((existing.rowCount ?? 0) > 0) continue
         await client.query('select api.flag_dataset_value($1,$2,$3,$4,$5,$6)', [
           dataset.id,
@@ -6218,21 +6444,25 @@ async function seedDesignAnalyses(
         where d.workspace_id = $1 and d.key = $2`,
       [workspaceId, 'ambr_250_daily_reading'],
     )
+
     const fieldId = new Map<string, string>(
       fields.rows.map((r: { key: string; field_id: string }) => [
         r.key,
         r.field_id,
       ]),
     )
+
     const datasetId = DESIGN_DATASETS.find(
       (d) => d.schemaKey === 'ambr_250_daily_reading',
     )?.id
+
     const x = fieldId.get('day')
     const y = fieldId.get('vcd')
     const viability = fieldId.get('viability')
     const glucose = fieldId.get('glucose')
     const lactate = fieldId.get('lactate')
     const series = fieldId.get('vessel')
+
     if (!datasetId || !x || !y || !series) return
 
     const view = (
@@ -6303,6 +6533,7 @@ async function seedDesignAnalyses(
     const clarification = DESIGN_DATASETS.find(
       (d) => d.schemaKey === 'clarification_step_yield',
     )
+
     if (clarification) {
       const clarificationFields = await client.query(
         `select f.field_id, f.key from api.dataset_schema_version_fields f
@@ -6311,12 +6542,14 @@ async function seedDesignAnalyses(
           where d.workspace_id = $1 and d.key = $2`,
         [workspaceId, clarification.schemaKey],
       )
+
       const id = new Map<string, string>(
         clarificationFields.rows.map((r: { key: string; field_id: string }) => [
           r.key,
           r.field_id,
         ]),
       )
+
       if (
         id.get('load') &&
         id.get('step_yield') &&
@@ -6355,14 +6588,17 @@ async function seedDesignAnalyses(
             references: [{ kind: 'hline', ...reference }],
           },
         })
+
         const spec = chart('step_yield', 'Step yield (%)', '%', {
           value: 80,
           label: 'Target ≥ 80 %',
         })
+
         const turbidity = chart('turbidity_out', 'Turbidity out (NTU)', 'NTU', {
           value: 20,
           label: 'Limit ≤ 20 NTU',
         })
+
         const name = 'Step yield and turbidity by filter load'
         await client.query(
           `delete from api.analysis_views
@@ -6393,6 +6629,7 @@ async function seedDesignAnalyses(
     const curve = DESIGN_DATASETS.find(
       (d) => d.schemaKey === 'elisa_standard_curve',
     )
+
     if (curve) {
       const curveFields = await client.query(
         `select f.field_id, f.key from api.dataset_schema_version_fields f
@@ -6401,12 +6638,14 @@ async function seedDesignAnalyses(
           where d.workspace_id = $1 and d.key = $2`,
         [workspaceId, curve.schemaKey],
       )
+
       const id = new Map<string, string>(
         curveFields.rows.map((r: { key: string; field_id: string }) => [
           r.key,
           r.field_id,
         ]),
       )
+
       if (id.get('concentration') && id.get('od450') && id.get('sample')) {
         const definition = {
           definitionVersion: 1,
@@ -6417,6 +6656,7 @@ async function seedDesignAnalyses(
           label: { fieldId: id.get('sample') },
           model: '4pl',
         }
+
         await client.query(
           `insert into api.analysis_definitions
              (workspace_id, owner_user_id, name, definition, source_revisions)
@@ -6446,6 +6686,7 @@ async function seedDesignPipelines(
 ): Promise<void> {
   const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
   const actorId = DESIGN_USER_IDS.gareth
+
   const seeded = await withDesignClaims(
     db,
     actorId,
@@ -6458,7 +6699,9 @@ async function seedDesignPipelines(
         order by v.version desc limit 1`,
         [workspaceId, 'ambr_250_daily_reading'],
       )
+
       const schemaVersionId: string | undefined = sv.rows[0]?.id
+
       if (!schemaVersionId) return null
 
       const dv = await client.query(
@@ -6468,6 +6711,7 @@ async function seedDesignPipelines(
         order by v.created_at desc limit 1`,
         [workspaceId],
       )
+
       const inputVersionId: string | undefined = dv.rows[0]?.id
 
       const pipelines = [
@@ -6607,12 +6851,15 @@ async function seedDesignPipelines(
           'select id from api.pipeline_definitions where workspace_id = $1 and key = $2',
           [workspaceId, p.key],
         )
+
         let definitionId: string = existing.rows[0]?.id
+
         if (!definitionId) {
           const created = await client.query(
             'select * from api.create_pipeline_definition($1,$2,$3,$4)',
             [workspaceId, p.key, p.name, p.description],
           )
+
           definitionId = created.rows[0].id
         }
 
@@ -6620,11 +6867,13 @@ async function seedDesignPipelines(
           'select id, lifecycle from api.pipeline_definition_versions where definition_id = $1 order by version desc',
           [definitionId],
         )
+
         let versionId: string | undefined = versions.rows.find(
           (r) =>
             r.lifecycle === 'published' ||
             ('draftOnly' in p && r.lifecycle === 'draft'),
         )?.id
+
         if (!versionId) {
           const configuration = {
             configVersion: 1,
@@ -6640,11 +6889,14 @@ async function seedDesignPipelines(
               fieldMapping: null,
             },
           }
+
           const created = await client.query(
             'select * from api.create_pipeline_definition_version($1,$2,$3::jsonb)',
             [workspaceId, definitionId, JSON.stringify(configuration)],
           )
+
           versionId = created.rows[0].id
+
           // A draft-only pipeline is registered but never published.
           if (!('draftOnly' in p)) {
             await client.query(
@@ -6658,6 +6910,7 @@ async function seedDesignPipelines(
           'select count(*)::int as n from api.pipeline_runs where definition_version_id = $1',
           [versionId],
         )
+
         if (runCount.rows[0].n === 0 && inputVersionId) {
           for (let i = 0; i < p.runs; i++) {
             const started = await client.query(
@@ -6672,7 +6925,9 @@ async function seedDesignPipelines(
                 i === 0 ? null : manualOccurrence(`${p.key}:${i}`),
               ],
             )
+
             const runId = started.rows[0].id
+
             if (i >= p.runs - p.failed) {
               await client.query('select api.fail_pipeline_run($1,$2,$3,$4)', [
                 workspaceId,
@@ -6709,7 +6964,9 @@ async function seedDesignPipelines(
             order by r.started_at desc nulls last limit 1`,
             [definitionId],
           )
+
           const previous = latest.rows.at(0)
+
           // Older design seeds manufactured this failure. Preserve that attempt
           // and its pinned inputs, but make PR-01's latest state match the design
           // through a linked retry. Other failures are not seed corrections.
@@ -6732,6 +6989,7 @@ async function seedDesignPipelines(
                 previous.schedule_id,
               ],
             )
+
             await client.query(
               'select api.complete_pipeline_run($1,$2,$3::jsonb)',
               [workspaceId, retry.rows[0].id, '{}'],
@@ -6745,6 +7003,7 @@ async function seedDesignPipelines(
             'select 1 from api.pipeline_schedules where definition_id = $1 limit 1',
             [definitionId],
           )
+
           if ((hasSchedule.rowCount ?? 0) === 0) {
             await client.query(
               `select api.create_pipeline_schedule($1,$2,'daily',$3::jsonb,true)`,
@@ -6761,6 +7020,7 @@ async function seedDesignPipelines(
       return pipelines
     },
   )
+
   if (!seeded) return
 
   // The design names its pipelines PL-0003 ... PL-0016. Ids are assigned in
@@ -6773,6 +7033,7 @@ async function seedDesignPipelines(
        where workspace_id = ${workspaceId} and key = ${p.key}
          and display_id is distinct from ${p.displayId}`)
   }
+
   for (const p of seeded) {
     await db.execute(sql`
       update api.pipeline_definitions set display_id = ${p.displayId}
@@ -6801,7 +7062,9 @@ async function seedDesignSessions(
     { id: DESIGN_SESSION_IDS.sam, userId: DESIGN_USER_IDS.sam },
     { id: DESIGN_SESSION_IDS.tom, userId: DESIGN_USER_IDS.tom },
   ]
+
   const expiresAt = new Date(DESIGN_CLOCK.getTime() + 90 * 86_400_000)
+
   for (const session of sessions) {
     await db
       .insert(schema.session)
@@ -6920,15 +7183,20 @@ function designSheetState(input: {
   rows: ReadonlyArray<Partial<Record<string, string | number | null>>>
 }): Record<string, unknown> {
   const localValues: Record<string, Record<string, unknown>> = {}
+
   for (const row of input.rows) {
     const rowKey = randomUUID()
     const values: Record<string, unknown> = {}
+
     for (const field of input.fields) {
       const value = row[field.key]
+
       if (value !== undefined && value !== null) values[field.fieldId] = value
     }
+
     localValues[rowKey] = values
   }
+
   return {
     bindings: [],
     localFields: input.fields,
@@ -6965,6 +7233,7 @@ async function seedDesignSheets(
     .select({ name: schema.sheetInstances.name })
     .from(schema.sheetInstances)
     .where(eq(schema.sheetInstances.workspaceId, workspaceId))
+
   if (existing.some((row) => row.name === 'Clarification working sheet')) return
 
   // Pin the SHT sequence so the first design sheet is SHT-0019.
@@ -6984,6 +7253,7 @@ async function seedDesignSheets(
     adj_yield: row[6],
     keep: row[7],
   }))
+
   await withDesignClaims(
     db,
     actorId,
@@ -7106,6 +7376,7 @@ async function seedDesignReviewLifecycle(
   // gets the review that status stands for, so no record claims a review that
   // never happened and the reviewer's inbox matches the Experiments list.
   const handled = new Set(targets.map((target) => target.recordId))
+
   const orphans = await db.execute<{
     id: string
     identifier: string
@@ -7125,6 +7396,7 @@ async function seedDesignReviewLifecycle(
          SELECT 1 FROM api.review_submissions s WHERE s.record_id = r.id)
      ORDER BY r.identifier
   `)
+
   for (const row of orphans.rows) {
     if (handled.has(row.id)) continue
     const approved = row.status === 'approved'
@@ -7151,13 +7423,17 @@ async function seedDesignReviewLifecycle(
 
   const sessionFor = (userId: string): string => {
     if (userId === DESIGN_USER_IDS.gareth) return DESIGN_SESSION_IDS.gareth
+
     if (userId === DESIGN_USER_IDS.mei) return DESIGN_SESSION_IDS.mei
+
     if (userId === DESIGN_USER_IDS.sam) return DESIGN_SESSION_IDS.sam
+
     if (userId === DESIGN_USER_IDS.priya) return DESIGN_SESSION_IDS.priya
     throw new Error(`no design session for ${userId}`)
   }
 
   const skippedReviews: string[] = []
+
   for (const target of targets) {
     try {
       const key = `design-review-${target.identifier.toLowerCase()}`
@@ -7182,6 +7458,7 @@ async function seedDesignReviewLifecycle(
             limit 1`,
             [target.recordId, key],
           )
+
           if (existing.rows[0]) {
             return {
               submissionId: existing.rows[0].submission_id,
@@ -7195,9 +7472,12 @@ async function seedDesignReviewLifecycle(
             "select api.preview_submission_digest($1)->>'sourceDigest' as source_digest",
             [target.recordId],
           )
+
           const sourceDigest = preview.rows[0]?.source_digest
+
           if (!sourceDigest)
             throw new Error(`no digest for ${target.identifier}`)
+
           const submitted = await client.query<{
             result: {
               revision: { id: string; integrityDigest: string }
@@ -7209,8 +7489,11 @@ async function seedDesignReviewLifecycle(
            ) as result`,
             [target.recordId, sourceDigest, target.reviewerIds, key, null],
           )
+
           const result = submitted.rows.at(0)?.result
+
           if (!result) throw new Error(`submit failed for ${target.identifier}`)
+
           return {
             submissionId: result.submission.id,
             state: result.submission.state,
@@ -7249,6 +7532,7 @@ async function seedDesignReviewLifecycle(
         submission.state === 'submitted'
       ) {
         const reviewerId = target.reviewerIds[0]
+
         if (!reviewerId) throw new Error(`no reviewer for ${target.identifier}`)
         await withDesignClaims(
           db,
@@ -7259,6 +7543,7 @@ async function seedDesignReviewLifecycle(
               `select api.run_revision_checks($1,'default-scientific-checks',1,true,$2)`,
               [submission.revisionId, `${key}-checks`],
             )
+
             if (target.outcome === 'request-changes') {
               await client.query(
                 'select api.request_changes_on_review($1,$2,$3,$4) as result',
@@ -7269,8 +7554,10 @@ async function seedDesignReviewLifecycle(
                   submission.digest,
                 ],
               )
+
               return
             }
+
             const approved = await client.query(
               'select api.approve_review($1,$2,$3,$4) as result',
               [
@@ -7280,9 +7567,11 @@ async function seedDesignReviewLifecycle(
                 submission.digest,
               ],
             )
+
             if (!approved.rows[0]?.result) {
               throw new Error(`approve failed for ${target.identifier}`)
             }
+
             submission.state = 'approved'
           },
           sessionFor(reviewerId),
@@ -7296,6 +7585,7 @@ async function seedDesignReviewLifecycle(
         submission.state === 'approved'
       ) {
         const reviewerId = target.reviewerIds[0]
+
         if (reviewerId !== DESIGN_USER_IDS.gareth)
           throw new Error('No signing fixture for reviewer')
         await withDesignClaims(
@@ -7307,14 +7597,17 @@ async function seedDesignReviewLifecycle(
               'select 1 from api.signatures where submission_id=$1 and signer_user_id=$2',
               [submission.submissionId, reviewerId],
             )
+
             if (existing.rowCount) return
             const proof = await designSigningFixture(db)
+
             const signingToken = await proof({
               purpose: 'sign',
               submissionId: submission.submissionId,
               revisionDigest: submission.digest,
               signatureMeaning: 'reviewed-and-approved',
             })
+
             const signed = await client.query(
               'select api.sign_revision($1,$2,$3,$4,$5) as result',
               [
@@ -7325,6 +7618,7 @@ async function seedDesignReviewLifecycle(
                 signingToken,
               ],
             )
+
             if (!signed.rows[0]?.result) {
               throw new Error(`sign failed for ${target.identifier}`)
             }
@@ -7345,12 +7639,15 @@ async function seedDesignReviewLifecycle(
               'select locked_at from api.records where id = $1',
               [target.recordId],
             )
+
             if (!locked.rows[0]?.locked_at) return
+
             const existingAmend = await client.query(
               `select 1 from api.revisions
               where record_id = $1 and reason = 'amend' limit 1`,
               [target.recordId],
             )
+
             if ((existingAmend.rowCount ?? 0) > 0) return
             await client.query('select api.create_amendment($1,$2)', [
               target.recordId,
@@ -7370,6 +7667,7 @@ async function seedDesignReviewLifecycle(
       `)
     }
   }
+
   if (skippedReviews.length) {
     console.log(
       `seed: ${skippedReviews.length} experiments left In progress, their projects have no second person to review`,
@@ -7392,6 +7690,7 @@ export async function prepareDesignScenario(
     SettingsSignature: 'sheetbase_parity_settings_signature',
     HomeFirstRun: 'sheetbase_parity_home_first_run',
   }[screen]
+
   const urls = [
     db.$client.options.connectionString,
     process.env.DATABASE_URL,
@@ -7405,6 +7704,7 @@ export async function prepareDesignScenario(
       return null
     }
   })
+
   if (
     process.env.SHEETBASE_ENV !== 'test' ||
     process.env.SHEETBASE_DEV_AUTH_FREE !== 'false' ||
@@ -7420,7 +7720,9 @@ export async function prepareDesignScenario(
       'Design scenarios require every role URL to target the exact isolated local scenario database in test mode without auth-free sessions',
     )
   }
+
   const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+
   const project = await db
     .select({ id: schema.projects.id })
     .from(schema.projects)
@@ -7430,12 +7732,15 @@ export async function prepareDesignScenario(
         eq(schema.projects.key, 'aav9-process-transfer'),
       ),
     )
+
   const projectId = project[0]?.id
+
   if (!projectId)
     throw new Error('Seed the design baseline before preparing a scenario')
 
   if (screen === 'ReviewSign') {
     const key = 'design-scenario-review-sign-round-2'
+
     const submission = await withDesignClaims(
       db,
       DESIGN_USER_IDS.priya,
@@ -7448,8 +7753,11 @@ export async function prepareDesignScenario(
           "select id, locked_at from api.records where project_id=$1 and identifier='EXP-0138'",
           [projectId],
         )
+
         const current = record.rows.at(0)
+
         if (!current) throw new Error('EXP-0138 missing')
+
         const existing = await client.query<{
           id: string
           revision_id: string
@@ -7460,17 +7768,21 @@ export async function prepareDesignScenario(
            join api.revisions r on r.id=s.revision_id where s.record_id=$1 and s.idempotency_key=$2`,
           [current.id, key],
         )
+
         if (existing.rows[0]) return existing.rows[0]
+
         if (current.locked_at) {
           await client.query('select api.create_amendment($1,$2)', [
             current.id,
             'Isolated ReviewSign scenario: prepare a new review round.',
           ])
         }
+
         const preview = await client.query<{ digest: string }>(
           "select api.preview_submission_digest($1)->>'sourceDigest' as digest",
           [current.id],
         )
+
         const submitted = await client.query<{
           result: {
             revision: { id: string; integrityDigest: string }
@@ -7480,9 +7792,12 @@ export async function prepareDesignScenario(
           "select api.submit_record_revision($1,$2,'default-scientific-review',1,$3::text[],true,$4,null) as result",
           [current.id, preview.rows[0]?.digest, [DESIGN_USER_IDS.gareth], key],
         )
+
         const result = submitted.rows.at(0)?.result
+
         if (!result)
           throw new Error('Scenario submission did not return a revision')
+
         return {
           id: result.submission.id,
           revision_id: result.revision.id,
@@ -7492,6 +7807,7 @@ export async function prepareDesignScenario(
       },
       DESIGN_SESSION_IDS.priya,
     )
+
     await withDesignClaims(
       db,
       DESIGN_USER_IDS.gareth,
@@ -7511,11 +7827,13 @@ export async function prepareDesignScenario(
             ],
           )
         }
+
         const ready = await client.query(
           `select 1 from api.review_submissions s where s.id=$1 and s.state='approved'
           and not exists(select 1 from api.signatures sig where sig.submission_id=s.id)`,
           [submission.id],
         )
+
         if (!ready.rowCount)
           throw new Error(
             'ReviewSign requires an approved unsigned submission; reset the scenario database',
@@ -7523,6 +7841,7 @@ export async function prepareDesignScenario(
       },
       DESIGN_SESSION_IDS.gareth,
     )
+
     return {
       screen,
       workspaceId,
@@ -7539,6 +7858,7 @@ export async function prepareDesignScenario(
   if (screen === 'SettingsSignature') {
     const userId = DESIGN_USER_IDS.sam
     const sessionId = DESIGN_SESSION_IDS.sam
+
     const certification = (
       await db
         .select()
@@ -7550,26 +7870,32 @@ export async function prepareDesignScenario(
           ),
         )
     ).at(0)
+
     if (certification?.certifiedAt)
       throw new Error(
         'SettingsSignature requires an uncertified Sam; reset the scenario database',
       )
     const { createAuth } = await import('#/lib/auth')
     const secret = process.env.BETTER_AUTH_SECRET
+
     if (!secret)
       throw new Error(
         'BETTER_AUTH_SECRET required for native fixture credentials',
       )
+
     const origin = new URL(
       process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
     ).origin
+
     const signature = createHmac('sha256', secret)
       .update(sessionId)
       .digest('base64')
+
     const headers = new Headers({
       origin,
       cookie: `__Secure-better-auth.session_token=${encodeURIComponent(`${sessionId}.${signature}`)}`,
     })
+
     const credential = await db
       .select({ id: schema.account.id })
       .from(schema.account)
@@ -7580,12 +7906,14 @@ export async function prepareDesignScenario(
         ),
       )
       .limit(1)
+
     if (!credential.length) {
       await createAuth(db).api.setPassword({
         headers,
         body: { newPassword: 'design-fixture-only-signing-password' },
       })
     }
+
     if (!certification?.identityVerifiedAt) {
       await withDesignClaims(
         db,
@@ -7618,6 +7946,7 @@ export async function prepareDesignScenario(
         'SettingsSignature has different existing verification; reset the scenario database',
       )
     }
+
     const verified = (
       await db
         .select()
@@ -7629,6 +7958,7 @@ export async function prepareDesignScenario(
           ),
         )
     ).at(0)
+
     if (
       !verified?.identityVerifiedAt ||
       verified.certifiedAt ||
@@ -7636,6 +7966,7 @@ export async function prepareDesignScenario(
       verified.verifiedEmail !== 'sam.r@design.sheetbase.dev'
     )
       throw new Error('Sam must be independently verified but uncertified')
+
     return {
       screen,
       workspaceId,
@@ -7668,6 +7999,7 @@ export async function prepareDesignScenario(
       expiresAt: sql`now() + interval '90 days'`,
     })
     .onConflictDoNothing()
+
   const membership = await db
     .select({ id: schema.workspaceMemberships.id })
     .from(schema.workspaceMemberships)
@@ -7677,6 +8009,7 @@ export async function prepareDesignScenario(
         eq(schema.workspaceMemberships.userId, userId),
       ),
     )
+
   if (!membership.length) {
     const token = await withDesignClaims(
       db,
@@ -7687,13 +8020,17 @@ export async function prepareDesignScenario(
           "select api.create_invitation($1,$2,'member') as result",
           [workspaceId, email],
         )
+
         const result = invitation.rows.at(0)?.result
+
         if (!result?.token)
           throw new Error('Scenario invitation did not return a token')
+
         return result.token
       },
       DESIGN_SESSION_IDS.gareth,
     )
+
     await withDesignClaims(
       db,
       userId,
@@ -7707,6 +8044,7 @@ export async function prepareDesignScenario(
       sessionId,
     )
   }
+
   await withDesignClaims(
     db,
     DESIGN_USER_IDS.gareth,
@@ -7716,6 +8054,7 @@ export async function prepareDesignScenario(
         'select 1 from api.project_access where project_id=$1 and user_id=$2 and access_level=$3',
         [projectId, userId, 'editor'],
       )
+
       if (!access.rowCount)
         await client.query(
           "select api.grant_project_access($1,$2,$3,'editor')",
@@ -7724,6 +8063,7 @@ export async function prepareDesignScenario(
     },
     DESIGN_SESSION_IDS.gareth,
   )
+
   const activity = await db.$client.query(
     `select 1 from api.recently_viewed where user_id=$1
      union all select 1 from api.records where created_by_user_id=$1
@@ -7731,10 +8071,12 @@ export async function prepareDesignScenario(
      union all select 1 from api.change_events where actor_user_id=$1 and entity_type in ('record','block','record_link','dataset','sheet_instance','project','notebook_template','review_submission') limit 1`,
     [userId],
   )
+
   if (activity.rowCount)
     throw new Error(
       'HomeFirstRun has personal activity; reset the scenario database',
     )
+
   return {
     screen,
     workspaceId,
@@ -7773,7 +8115,9 @@ async function seedDesignFoldersAndFiles(
   const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
   const actorId = DESIGN_USER_IDS.gareth
   const project = DESIGN_PROJECTS.at(0)
+
   if (!project) return
+
   const projectRow = await db
     .select({ id: schema.projects.id })
     .from(schema.projects)
@@ -7783,13 +8127,16 @@ async function seedDesignFoldersAndFiles(
         eq(schema.projects.key, project.key),
       ),
     )
+
   const projectId = projectRow[0]?.id
+
   if (!projectId) throw new Error(`project ${project.key} missing`)
 
   const existingFolders = await db
     .select({ id: schema.folders.id, name: schema.folders.name })
     .from(schema.folders)
     .where(eq(schema.folders.projectId, projectId))
+
   const byName = new Map(existingFolders.map((f) => [f.name, f.id]))
 
   await withDesignClaims(
@@ -7802,15 +8149,20 @@ async function seedDesignFoldersAndFiles(
         parentName?: string,
       ): Promise<string> => {
         const cached = byName.get(name)
+
         if (cached) return cached
         const parentId = parentName ? byName.get(parentName) : null
+
         const created = await client.query<{ id: string }>(
           'select * from api.create_project_folder($1,$2,$3)',
           [projectId, name, parentId ?? null],
         )
+
         const id = created.rows[0]?.id
+
         if (!id) throw new Error(`folder ${name} not created`)
         byName.set(name, id)
+
         return id
       }
 
@@ -7836,9 +8188,12 @@ async function seedDesignFoldersAndFiles(
         ['EXP-0142', DESIGN_FOLDER_NAMES.clarification],
         ['EXP-0145', DESIGN_FOLDER_NAMES.clarification],
       ]
+
       for (const [identifier, folderName] of moves) {
         const folderId = byName.get(folderName)
+
         if (!folderId) throw new Error(`folder ${folderName} missing`)
+
         const record = await client.query<{
           id: string
           folder_id: string | null
@@ -7847,8 +8202,11 @@ async function seedDesignFoldersAndFiles(
           'select id, folder_id, locked_at from api.records where project_id = $1 and identifier = $2',
           [projectId, identifier],
         )
+
         const current = record.rows.at(0)
+
         if (!current) throw new Error(`record ${identifier} missing`)
+
         if (current.locked_at || current.folder_id === folderId) continue
         await client.query(
           'select api.move_records_to_folder($1,$2::uuid[],$3)',
@@ -7885,6 +8243,7 @@ async function seedDesignFoldersAndFiles(
           storageKey: `${workspaceId}/00000000-0000-4000-8000-000000000722/${'3'.padStart(32, '0')}`,
         },
       ]
+
       for (const file of files) {
         const existing = await client.query(
           `select f.id from api.file_objects f
@@ -7892,6 +8251,7 @@ async function seedDesignFoldersAndFiles(
             where r.project_id = $1 and (f.display_name = $2 or f.id = $3)`,
           [projectId, file.name, file.id],
         )
+
         if ((existing.rowCount ?? 0) > 0) continue
         await client.query(
           'select * from api.create_file_upload($1,$2,$3,$4,$5,$6,$7,$8)',
@@ -7971,11 +8331,13 @@ async function seedDesignConnectorsAndTokens(
           config: { description: 'Controlled copies of signed PDFs' },
         },
       ]
+
       for (const connector of connectors) {
         const existing = await client.query(
           'select 1 from api.connectors where workspace_id = $1 and key = $2',
           [workspaceId, connector.key],
         )
+
         if ((existing.rowCount ?? 0) > 0) continue
         await client.query(
           'select * from api.register_connector($1,$2,$3,$4,$5,$6::jsonb,$7)',
@@ -8012,6 +8374,7 @@ async function seedDesignConnectorsAndTokens(
   ]) {
     await designCredential(db, { ...token, kind: 'personal' })
   }
+
   // Stability export's Sep24 expiry/refusal history cannot be issued at the
   // native Oct clock. It remains an explicit unmet fixture, not a fake hash.
   console.warn(
@@ -8145,6 +8508,7 @@ async function seedDesignWebhookDeliveries(
         version: delivery.version,
       },
     }
+
     await db
       .insert(schema.webhookDeliveries)
       .values({
@@ -8197,6 +8561,7 @@ async function seedDesignClock(
   // updated_at still differs on it - and signed records are refused outright by
   // internal.prevent_locked_record_mutation, so those are left alone.
   await db.execute(sql`alter table api.records disable trigger set_updated_at`)
+
   try {
     await db.execute(sql`
       update api.records
@@ -8239,6 +8604,7 @@ async function seedDesignClientPortal(
       )
       .limit(1)
   ).at(0)
+
   if (!clientRow) return
 
   // The client users are portal viewers, not internal viewers.
@@ -8261,6 +8627,7 @@ async function seedDesignClientPortal(
   }
 
   const projectId = DESIGN_PROJECTS[0]?.id
+
   if (!projectId) return
 
   await withDesignClaims(
@@ -8286,14 +8653,17 @@ async function seedDesignClientPortal(
           body: 'Two experiments were approved this month and the transfection ratio report went to the client.',
         },
       ]
+
       for (const report of reports) {
         const existing = await client.query(
           `select d.id, d.record_id from api.report_definitions d
             where d.workspace_id = $1 and d.title = $2 limit 1`,
           [workspaceId, report.title],
         )
+
         let reportId: string
         let recordId: string
+
         if (existing.rows[0]) {
           reportId = existing.rows[0].id
           recordId = existing.rows[0].record_id
@@ -8302,6 +8672,7 @@ async function seedDesignClientPortal(
             'select * from api.create_report_definition($1,$2,$3,$4,$5)',
             [workspaceId, report.title, null, projectId, null],
           )
+
           reportId = created.rows[0].id
           recordId = created.rows[0].record_id
           await client.query(
@@ -8316,16 +8687,19 @@ async function seedDesignClientPortal(
             ],
           )
         }
+
         await client.query(
           'select * from api.update_report_definition($1,$2,$3,$4,$5)',
           [workspaceId, reportId, null, null, 'approved'],
         )
+
         // An approved report has been generated at least once, so its page
         // does not read "Last generated: Never".
         const generated = await client.query(
           'select 1 from api.report_generations where report_id = $1 limit 1',
           [reportId],
         )
+
         if ((generated.rowCount ?? 0) === 0) {
           await client.query('select * from api.generate_report($1,$2,$3)', [
             workspaceId,
@@ -8333,6 +8707,7 @@ async function seedDesignClientPortal(
             'html',
           ])
         }
+
         await client.query('select api.share_record_with_client($1,$2)', [
           clientRow.id,
           recordId,
@@ -8342,10 +8717,12 @@ async function seedDesignClientPortal(
       // A draft in progress, with text and a block of evidence frozen from an
       // approved experiment, so the builder has something to show.
       const draftTitle = 'Harvest timing, draft'
+
       const draftExists = await client.query(
         'select 1 from api.report_definitions where workspace_id = $1 and title = $2',
         [workspaceId, draftTitle],
       )
+
       if ((draftExists.rowCount ?? 0) === 0) {
         const created = await client.query<{ id: string }>(
           'select * from api.create_report_definition($1,$2,$3,$4,$5)',
@@ -8357,6 +8734,7 @@ async function seedDesignClientPortal(
             null,
           ],
         )
+
         const draftId = created.rows[0].id
         await client.query(
           'select * from api.add_report_section($1,$2,$3,$4,$5,$6)',
@@ -8369,6 +8747,7 @@ async function seedDesignClientPortal(
             'free_text',
           ],
         )
+
         const evidence = await client.query<{
           revision_id: string
           block_id: string
@@ -8386,7 +8765,9 @@ async function seedDesignClientPortal(
               and b->>'type' = 'rich_text'
             order by rv.created_at desc limit 1`,
         )
+
         const e = evidence.rows.at(0)
+
         if (e) {
           const section = await client.query<{ id: string }>(
             'select * from api.add_report_section($1,$2,$3,$4,$5,$6)',
@@ -8399,6 +8780,7 @@ async function seedDesignClientPortal(
               'revision_block',
             ],
           )
+
           await client.query(
             'select * from api.bind_report_section_source($1,$2,$3,$4)',
             [
@@ -8433,12 +8815,14 @@ async function seedDesignClientPortal(
           body: 'Transfection ratio report is approved and attached. Clarification results expected 29 Sep.',
         },
       ]
+
       for (const message of messages) {
         const existing = await client.query(
           `select 1 from api.client_portal_messages
             where client_id = $1 and body = $2 limit 1`,
           [clientRow.id, message.body],
         )
+
         if ((existing.rowCount ?? 0) > 0) continue
         await client.query('select api.post_client_portal_message($1,$2,$3)', [
           clientRow.id,
@@ -8469,6 +8853,7 @@ async function seedDesignClientPortal(
     ['EXP-0138', new Date('2026-09-20T09:00:00+01:00')],
     ['EXP-0133', new Date('2026-09-20T09:00:00+01:00')],
   ]
+
   for (const [identifier, sharedAt] of sharedAtByIdentifier) {
     await db.execute(sql`
       update api.client_portal_shares s
@@ -8478,6 +8863,7 @@ async function seedDesignClientPortal(
          and s.client_id = ${clientRow.id}
          and r.identifier = ${identifier}`)
   }
+
   await db.execute(sql`
     update api.client_portal_messages
        set created_at = ${new Date('2026-09-25T09:40:00+01:00')}

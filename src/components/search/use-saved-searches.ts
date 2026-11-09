@@ -34,6 +34,7 @@ export function useSavedSearches({
 }) {
   const queryClient = useQueryClient()
   const key = savedSearchQueryKey(workspaceId)
+
   const list = useQuery({
     queryKey: key,
     queryFn: async () => {
@@ -41,9 +42,11 @@ export function useSavedSearches({
       await moveBrowserSavedSearches(notebookDataClient, workspaceId).catch(
         () => 0,
       )
+
       return fetchSavedSearches(notebookDataClient)
     },
   })
+
   const members = useQuery({
     queryKey: ['ui-port', 'workspace-members'],
     queryFn: () =>
@@ -53,11 +56,13 @@ export function useSavedSearches({
       ),
     staleTime: 60_000,
   })
+
   const memberNames: Record<string, string> = Object.fromEntries(
     (members.data ?? []).map((m) => [m.user_id, m.name]),
   )
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: key })
+
   const save = useMutation({
     mutationFn: (v: {
       name: string
@@ -72,16 +77,19 @@ export function useSavedSearches({
       ),
     onSuccess: refresh,
   })
+
   const remove = useMutation({
     mutationFn: (id: string) =>
       deleteSavedSearchOnAccount(notebookDataClient, id),
     onSuccess: refresh,
   })
+
   const setVisibility = useMutation({
     mutationFn: (v: { id: string; visibility: 'private' | 'workspace' }) =>
       setSavedSearchVisibility(notebookDataClient, v.id, v.visibility),
     onSuccess: refresh,
   })
+
   const rename = useMutation({
     mutationFn: (v: { id: string; name: string }) =>
       renameSavedSearch(notebookDataClient, v.id, v.name),
@@ -98,6 +106,7 @@ export function useSavedSearches({
   const failure = [save, remove, setVisibility, rename]
     .map((m) => (m.isError ? m.error : null))
     .find(Boolean)
+
   const failureText = failure
     ? /already exists/i.test(String(failure.message))
       ? t('projects.savedSearches.nameTaken')
@@ -107,6 +116,7 @@ export function useSavedSearches({
   // Anyone who can add records can share; viewers keep searches to themselves.
   const canShare = hasCapability(role, 'record.create')
   const isManager = hasCapability(role, 'schema.edit')
+
   const canChange = (s: SavedQuery) =>
     s.visibility !== 'workspace' || s.savedBy === userId || isManager
 

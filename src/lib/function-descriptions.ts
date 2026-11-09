@@ -274,29 +274,40 @@ export function extractFunctionPrefix(
   // Walk backwards from the cursor collecting identifier characters.
   const end = cursor
   let start = end
+
   while (start > 0) {
     const ch = text[start - 1]
+
     if (/[A-Za-z0-9_.]/.test(ch)) {
       start--
     } else {
       break
     }
   }
+
   const token = text.slice(start, end)
+
   if (token.length < 1) return null
+
   // Must start with a letter or underscore (not a digit).
   if (!/[A-Za-z_]/.test(token[0])) return null
+
   // Must contain at least one letter — a pure-numeric or ".5" token is not a
   // function name.
   if (!/[A-Za-z]/.test(token)) return null
   // The character before the token must be a trigger or whitespace after one.
   // Skip whitespace backwards to find the real preceding character.
   let p = start
+
   while (p > 0 && /\s/.test(text[p - 1])) p--
+
   if (p === 0) return null // formula must start with '='
   const preceding = text[p - 1]
+
   if (!FUNCTION_NAME_TRIGGERS.has(preceding)) return null
+
   // If the token is immediately followed by '(' it is already a complete call.
   if (cursor < text.length && text[cursor] === '(') return null
+
   return token.toUpperCase()
 }

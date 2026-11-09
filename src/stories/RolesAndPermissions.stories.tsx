@@ -24,12 +24,14 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function provider(rows: Array<{ area: string; role: string; level: string }>) {
   const client = screenQueryClient({
     data: [{ key: ['settings-access', WORKSPACE_ID], value: rows }],
   })
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <Story />

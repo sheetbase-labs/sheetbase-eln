@@ -15,6 +15,7 @@ describe('computeSampleHold', () => {
       { createdAt: CREATED, properties: { expiryDate: EXPIRY } },
       NOW,
     )
+
     expect(state).not.toBeNull()
     expect(state!.totalDays).toBe(14)
     expect(state!.daysUsed).toBe(5)
@@ -28,6 +29,7 @@ describe('computeSampleHold', () => {
       { createdAt: CREATED, customFields: { expiryDate: EXPIRY } },
       NOW,
     )
+
     expect(state?.daysLeft).toBe(9)
   })
 
@@ -36,6 +38,7 @@ describe('computeSampleHold', () => {
       { createdAt: CREATED, properties: { expiryDate: EXPIRY } },
       new Date('2026-10-10T00:00:00.000Z'),
     )
+
     expect(state?.expired).toBe(true)
     expect(state?.daysLeft).toBe(0)
     expect(state?.daysAgo).toBe(6)

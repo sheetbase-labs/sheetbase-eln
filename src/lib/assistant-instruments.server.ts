@@ -105,23 +105,30 @@ async function findInstrument(
   { ok: true; instrument: InstrumentRow } | { ok: false; message: string }
 > {
   const like = likeValue(text)
+
   const rows = await context.client.list<InstrumentRow>(
     'instruments',
     `?workspace_id=eq.${encodeURIComponent(context.workspaceId)}&retired_at=${retired ? 'not.is.null' : 'is.null'}&or=(name.ilike.${like},display_id.ilike.${like})&select=id,name,display_id,retired_at&order=name.asc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   const exact = rows.filter(
     (row) =>
       row.name.toLowerCase() === lower ||
       row.display_id?.toLowerCase() === lower,
   )
+
   if (exact.length === 1) return { ok: true, instrument: exact[0] }
+
   if (rows.length === 1) return { ok: true, instrument: rows[0] }
+
   if (rows.length === 0)
     return {
       ok: false,
       message: `No ${retired ? 'retired ' : ''}instrument matches "${text}".`,
     }
+
   return {
     ok: false,
     message: `More than one instrument matches "${text}": ${rows
@@ -140,27 +147,34 @@ export async function buildInstrumentsProposal(
   switch (name) {
     case INSTRUMENT_ADD_TOOL: {
       const parsed = proposeInstrumentAddSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
+
       const changes: ProposalChange[] = [
         { label: 'Instrument', before: null, after: input.name.trim() },
       ]
+
       if (input.instrumentType)
         changes.push({
           label: 'Kind',
           before: null,
           after: input.instrumentType,
         })
+
       if (input.model)
         changes.push({ label: 'Model', before: null, after: input.model })
+
       if (input.serialNumber)
         changes.push({
           label: 'Serial number',
           before: null,
           after: input.serialNumber,
         })
+
       if (input.location)
         changes.push({ label: 'Where', before: null, after: input.location })
+
       return {
         ok: true,
         proposal: {
@@ -183,13 +197,17 @@ export async function buildInstrumentsProposal(
         },
       }
     }
+
     case INSTRUMENT_RETIRE_TOOL: {
       const parsed = proposeInstrumentRetireSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const retire = input.retire ?? true
       const found = await findInstrument(context, input.instrument, !retire)
+
       if (!found.ok) return fail(found.message)
+
       return {
         ok: true,
         proposal: {
@@ -213,22 +231,29 @@ export async function buildInstrumentsProposal(
         },
       }
     }
+
     case INSTRUMENT_CALIBRATE_TOOL: {
       const parsed = proposeInstrumentCalibrateSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
+
       if (input.dueOn <= input.performedOn)
         return fail(
           'The next calibration must be due after this one. Ask the person.',
         )
       const found = await findInstrument(context, input.instrument, false)
+
       if (!found.ok) return fail(found.message)
+
       const changes: ProposalChange[] = [
         { label: 'Calibrated', before: null, after: input.performedOn },
         { label: 'Next due', before: null, after: input.dueOn },
       ]
+
       if (input.notes)
         changes.push({ label: 'Notes', before: null, after: input.notes })
+
       return {
         ok: true,
         proposal: {
@@ -248,26 +273,35 @@ export async function buildInstrumentsProposal(
         },
       }
     }
+
     case INSTRUMENT_QUALIFY_TOOL: {
       const parsed = proposeInstrumentQualifySchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const revoke = input.revoke ?? false
+
       if (!revoke && !input.validUntil)
         return fail('Ask the person until when the qualification lasts.')
       const found = await findInstrument(context, input.instrument, false)
+
       if (!found.ok) return fail(found.message)
       const people = await memberNames(context.client)
       const wanted = input.person.trim().toLowerCase()
+
       const matches = [...people.entries()].filter(([, personName]) =>
         personName.toLowerCase().includes(wanted),
       )
+
       const exact = matches.filter(
         ([, personName]) => personName.toLowerCase() === wanted,
       )
+
       const chosen = exact.length === 1 ? exact : matches
+
       if (chosen.length === 0)
         return fail(`No one in the workspace is called "${input.person}".`)
+
       if (chosen.length > 1)
         return fail(
           `More than one person matches "${input.person}": ${chosen
@@ -275,6 +309,7 @@ export async function buildInstrumentsProposal(
             .join(', ')}. Ask the person which one, naming these.`,
         )
       const [userId, personName] = chosen[0]
+
       return {
         ok: true,
         proposal: {
@@ -308,23 +343,31 @@ export async function buildInstrumentsProposal(
         },
       }
     }
+
     case RUN_CREATE_TOOL: {
       const parsed = proposeRunCreateSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const found = await findInstrument(context, input.instrument, false)
+
       if (!found.ok) return fail(found.message)
+
       const stamp = (context.now ?? new Date())
         .toISOString()
         .slice(0, 16)
         .replace(/[-:T]/g, '')
+
       const runIdentifier = input.runIdentifier?.trim() || `RUN-${stamp}`
+
       const changes: ProposalChange[] = [
         { label: 'Run', before: null, after: input.name.trim() },
         { label: 'Identifier', before: null, after: runIdentifier },
       ]
+
       if (input.protocol)
         changes.push({ label: 'Protocol', before: null, after: input.protocol })
+
       return {
         ok: true,
         proposal: {
@@ -346,11 +389,14 @@ export async function buildInstrumentsProposal(
         },
       }
     }
+
     case RUN_UPDATE_TOOL: {
       const parsed = proposeRunUpdateSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const like = likeValue(input.run)
+
       const rows = await context.client.list<{
         id: string
         name: string
@@ -360,30 +406,38 @@ export async function buildInstrumentsProposal(
         'instrument_runs',
         `?workspace_id=eq.${encodeURIComponent(context.workspaceId)}&status=in.(queued,running)&or=(name.ilike.${like},run_identifier.ilike.${like})&select=id,name,run_identifier,status&order=created_at.desc&limit=6`,
       )
+
       if (rows.length === 0) return fail(`No open run matches "${input.run}".`)
+
       const exact = rows.filter(
         (row) =>
           row.run_identifier.toLowerCase() === input.run.trim().toLowerCase(),
       )
+
       const run =
         exact.length === 1 ? exact[0] : rows.length === 1 ? rows[0] : null
+
       if (!run)
         return fail(
           `More than one open run matches "${input.run}": ${rows
             .map((row) => `${row.name} (${row.run_identifier})`)
             .join(', ')}. Ask the person which one, naming these.`,
         )
+
       if (input.status === 'running' && run.status === 'running')
         return fail(`${run.name} is already running.`)
+
       const changes: ProposalChange[] = [
         { label: 'Status', before: run.status, after: input.status },
       ]
+
       if (input.status === 'failed' && input.error)
         changes.push({
           label: 'What went wrong',
           before: null,
           after: input.error,
         })
+
       return {
         ok: true,
         proposal: {
@@ -403,11 +457,14 @@ export async function buildInstrumentsProposal(
         },
       }
     }
+
     case CONNECTOR_SET_TOOL: {
       const parsed = proposeConnectorSetSchema.safeParse(args)
+
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
       const like = likeValue(input.connector)
+
       const rows = await context.client.list<{
         id: string
         name: string
@@ -416,22 +473,28 @@ export async function buildInstrumentsProposal(
         'connectors',
         `?workspace_id=eq.${encodeURIComponent(context.workspaceId)}&or=(name.ilike.${like},key.ilike.${like})&select=id,name,status&order=name.asc&limit=6`,
       )
+
       if (rows.length === 0)
         return fail(`No connector matches "${input.connector}".`)
+
       const exact = rows.filter(
         (row) =>
           row.name.toLowerCase() === input.connector.trim().toLowerCase(),
       )
+
       const connector =
         exact.length === 1 ? exact[0] : rows.length === 1 ? rows[0] : null
+
       if (!connector)
         return fail(
           `More than one connector matches "${input.connector}": ${rows
             .map((row) => row.name)
             .join(', ')}. Ask the person which one, naming these.`,
         )
+
       if (connector.status === input.status)
         return fail(`${connector.name} is already ${input.status}.`)
+
       return {
         ok: true,
         proposal: {

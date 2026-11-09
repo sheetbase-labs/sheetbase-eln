@@ -32,7 +32,9 @@ export function specFieldIds(spec: ChartSpec): string[] {
 
 function replaceIds(value: unknown, map: ReadonlyMap<string, string>): unknown {
   if (typeof value === 'string') return map.get(value) ?? value
+
   if (Array.isArray(value)) return value.map((item) => replaceIds(item, map))
+
   if (typeof value === 'object' && value !== null) {
     return Object.fromEntries(
       Object.entries(value).map(([key, inner]) => [
@@ -41,6 +43,7 @@ function replaceIds(value: unknown, map: ReadonlyMap<string, string>): unknown {
       ]),
     )
   }
+
   return value
 }
 
@@ -57,9 +60,11 @@ export function rebindSpec(
 ): RebindResult {
   const matches: FieldMatch[] = []
   const unmatched: string[] = []
+
   for (const fieldId of specFieldIds(spec)) {
     const from = sourceColumns.find((c) => c.id === fieldId)
     const same = target.columns.find((c) => c.id === fieldId)
+
     const byLabel = from
       ? target.columns.find(
           (c) =>
@@ -67,11 +72,14 @@ export function rebindSpec(
             c.logicalType === from.logicalType,
         )
       : undefined
+
     const to = same ?? byLabel
+
     if (!to) {
       unmatched.push(from?.label ?? fieldId)
       continue
     }
+
     matches.push({
       fromFieldId: fieldId,
       fromLabel: from?.label ?? fieldId,
@@ -80,9 +88,11 @@ export function rebindSpec(
       by: same ? 'same' : 'label',
     })
   }
+
   if (unmatched.length > 0) return { spec: null, matches, unmatched }
   const map = new Map(matches.map((m) => [m.fromFieldId, m.toFieldId]))
   const moved = replaceIds(spec, map) as ChartSpec
+
   return {
     spec: { ...moved, datasets: [{ datasetId: target.datasetId }] },
     matches,

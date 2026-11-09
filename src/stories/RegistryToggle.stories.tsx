@@ -23,7 +23,9 @@ const meta = {
     size: { control: 'inline-radio', options: ['sm', 'default', 'lg'] },
   },
 } satisfies Meta<typeof Toggle>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Unpressed and pressed, which is the whole of the item's state model. */

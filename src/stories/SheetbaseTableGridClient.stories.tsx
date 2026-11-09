@@ -53,7 +53,9 @@ const meta = {
   ],
   args: { columns, rows, ariaLabel: 'Plate reader kinetics', height: 320 },
 } satisfies Meta<typeof SheetbaseTableGridClient>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Bound, local and derived-style columns in one sheet. */

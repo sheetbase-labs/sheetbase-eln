@@ -15,6 +15,7 @@ vi.mock('#/lib/parser-settings', () => ({
   parserSettingsQueryKeys: { list: (id: string) => ['parsers', id] },
   createWebhookParser: mocks.create,
 }))
+
 vi.mock('#/components/instruments/instruments-data', () => ({
   useInstruments: () => ({ data: [] }),
 }))
@@ -30,6 +31,7 @@ function renderDialog(onCreated = vi.fn()) {
       />
     </QueryClientProvider>,
   )
+
   return onCreated
 }
 

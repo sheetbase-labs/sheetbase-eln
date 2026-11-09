@@ -76,9 +76,13 @@ function fromDatabase(error: unknown): never {
   if (error instanceof ScimError) throw error
   const code = (error as { code?: string } | null)?.code
   const message = error instanceof Error ? error.message : 'Request failed.'
+
   if (code === '23505') throw new ScimError(409, 'uniqueness', message)
+
   if (code === '22023') throw new ScimError(400, 'invalidValue', message)
+
   if (code === 'P0002') throw new ScimError(404, null, message)
+
   if (code === 'SB052') throw new ScimError(403, 'mutability', message)
   throw error
 }
@@ -88,7 +92,9 @@ const connectDatabase = async () => {
     connectionString: env.DATABASE_URL,
     query_timeout: 15000,
   })
+
   await client.connect()
+
   return client
 }
 
@@ -96,6 +102,7 @@ async function withDatabase<T>(
   run: (query: PooledClient['query']) => Promise<T>,
 ): Promise<T> {
   const client = await connectDatabase()
+
   try {
     return await run(client.query.bind(client))
   } catch (error) {
@@ -108,6 +115,7 @@ async function withDatabase<T>(
 async function one<T>(sql: string, values: unknown[]): Promise<T | null> {
   return withDatabase(async (query) => {
     const { rows } = await query(sql, values)
+
     return (rows[0]?.doc ?? null) as T | null
   })
 }
@@ -119,6 +127,7 @@ export const databaseScimStore: ScimStore = {
         'SELECT token_id, workspace_id, actor_user_id FROM internal.scim_authenticate($1)',
         [secretHash],
       )
+
       const row = rows[0] as
         | {
             token_id: string
@@ -126,6 +135,7 @@ export const databaseScimStore: ScimStore = {
             actor_user_id: string | null
           }
         | undefined
+
       return row
         ? {
             tokenId: row.token_id,
@@ -146,6 +156,7 @@ export const databaseScimStore: ScimStore = {
         count,
       ],
     )
+
     return page ?? { total: 0, rows: [] }
   },
   getUser: (p, id) =>
@@ -158,7 +169,9 @@ export const databaseScimStore: ScimStore = {
       'SELECT internal.scim_provision_user($1::uuid, $2, $3::jsonb) AS doc',
       [p.workspaceId, p.actorUserId, JSON.stringify(changes)],
     )
+
     if (!doc) throw new ScimError(500, null, 'The user was not created.')
+
     return doc
   },
   async updateUser(p, id, changes) {
@@ -166,7 +179,9 @@ export const databaseScimStore: ScimStore = {
       'SELECT internal.scim_update_user($1::uuid, $2, $3::uuid, $4::jsonb) AS doc',
       [p.workspaceId, p.actorUserId, id, JSON.stringify(changes)],
     )
+
     if (!doc) throw new ScimError(404, null, 'User not found.')
+
     return doc
   },
   async deleteUser(p, id) {
@@ -180,6 +195,7 @@ export const databaseScimStore: ScimStore = {
       'SELECT internal.scim_list_groups($1::uuid, $2, $3, $4) AS doc',
       [p.workspaceId, filter.displayName ?? null, start, count],
     )
+
     return page ?? { total: 0, rows: [] }
   },
   getGroup: (p, id) =>
@@ -192,7 +208,9 @@ export const databaseScimStore: ScimStore = {
       'SELECT internal.scim_set_group($1::uuid, $2, $3::uuid, $4::jsonb) AS doc',
       [p.workspaceId, p.actorUserId, id, JSON.stringify(changes)],
     )
+
     if (!doc) throw new ScimError(500, null, 'The group was not saved.')
+
     return doc
   },
   async deleteGroup(p, id) {
@@ -235,21 +253,28 @@ function failure(error: ScimError, headers: HeadersInit = {}) {
 
 async function readBody(request: Request): Promise<unknown> {
   const reader = request.body?.getReader()
+
   if (!reader) return {}
   const chunks: Uint8Array[] = []
   let size = 0
+
   for (;;) {
     const part = await reader.read()
+
     if (part.done) break
     size += part.value.length
+
     if (size > MAX_BODY) {
       await reader.cancel()
       throw new ScimError(413, 'tooMany', 'The request is larger than 1 MB.')
     }
+
     chunks.push(part.value)
   }
+
   try {
     const text = Buffer.concat(chunks).toString('utf8')
+
     return text.trim() === '' ? {} : JSON.parse(text)
   } catch {
     throw new ScimError(400, 'invalidSyntax', 'The body is not valid JSON.')
@@ -267,43 +292,53 @@ export async function handleScimRequest(
   deps: ScimDeps = defaults(),
 ): Promise<Response> {
   const base = `${deps.baseUrl}/api/scim/v2`
+
   const presented = /^Bearer (\S+)$/i.exec(
     request.headers.get('authorization') ?? '',
   )?.[1]
+
   annotateRequest({
     auth: 'scim_token',
     scim: { method: request.method, path },
   })
   const challenge = { 'WWW-Authenticate': 'Bearer realm="scim"' }
+
   if (!presented) {
     return failure(
       new ScimError(401, null, 'Send the SCIM token as a bearer token.'),
       challenge,
     )
   }
+
   try {
     const principal = await deps.store.authenticate(hash(presented))
+
     if (!principal) {
       if (!failedLimit.hit('scim-bad-token').allowed) {
         return failure(new ScimError(429, null, 'Too many failed attempts.'))
       }
+
       return failure(
         new ScimError(401, null, 'That token is not valid or was revoked.'),
         challenge,
       )
     }
+
     annotateRequest({ scim: { workspace_id: principal.workspaceId } })
     const limited = callLimit.hit(principal.tokenId)
+
     if (!limited.allowed) {
       return failure(
         new ScimError(429, null, 'Slow down and try again shortly.'),
         { 'Retry-After': String(limited.retryAfterSeconds ?? 60) },
       )
     }
+
     return await route(request, path, principal, deps, base)
   } catch (error) {
     if (error instanceof ScimError) return failure(error)
     annotateRequest({ error })
+
     return failure(
       new ScimError(500, null, 'The identity provider call failed.'),
     )
@@ -322,6 +357,7 @@ async function route(
   const segments = rawPath.split('/').filter(Boolean)
   const [resource, id, ...extra] = segments
   const method = request.method
+
   const noMethod = () =>
     failure(new ScimError(405, null, 'That method is not supported here.'))
 
@@ -335,19 +371,27 @@ async function route(
     case 'ResourceTypes': {
       if (method !== 'GET') return noMethod()
       const all = resourceTypes(base)
+
       if (!id) return reply(listResponse(all, all.length, 1))
       const found = all.find((type) => type.id === id)
+
       if (!found) throw new ScimError(404, null, 'Not found.')
+
       return reply(found)
     }
+
     case 'Schemas': {
       if (method !== 'GET') return noMethod()
       const all = schemas(base)
+
       if (!id) return reply(listResponse(all, all.length, 1))
       const found = all.find((schema) => schema.id === id)
+
       if (!found) throw new ScimError(404, null, 'Not found.')
+
       return reply(found)
     }
+
     case 'Users':
       return users(request, id, principal, store, base, url)
     case 'Groups':
@@ -366,6 +410,7 @@ async function users(
   url: URL,
 ): Promise<Response> {
   const method = request.method
+
   if (!id) {
     if (method === 'GET') {
       const filter = parseFilter(url.searchParams.get('filter'), [
@@ -373,7 +418,9 @@ async function users(
         'externalId',
         'emails.value',
       ])
+
       const { start, count } = parsePaging(url.searchParams)
+
       const page = await store.listUsers(
         principal,
         {
@@ -388,6 +435,7 @@ async function users(
         start,
         count,
       )
+
       return reply(
         listResponse(
           page.rows.map((row) => toScimUser(row, base)),
@@ -396,42 +444,57 @@ async function users(
         ),
       )
     }
+
     if (method === 'POST') {
       const changes = readUser(await readBody(request))
       const doc = await store.createUser(principal, changes)
+
       return reply(toScimUser(doc, base), 201, {
         Location: `${base}/Users/${doc.id}`,
       })
     }
+
     return failure(
       new ScimError(405, null, 'That method is not supported here.'),
     )
   }
+
   checkId(id)
+
   if (method === 'GET') {
     const doc = await store.getUser(principal, id)
+
     if (!doc) throw new ScimError(404, null, 'User not found.')
+
     return reply(toScimUser(doc, base))
   }
+
   if (method === 'PUT') {
     const changes = readUser(await readBody(request))
+
     // PUT replaces the user; a missing active means still active.
     const doc = await store.updateUser(principal, id, {
       ...changes,
       externalId: changes.externalId ?? null,
       active: changes.active ?? true,
     })
+
     return reply(toScimUser(doc, base))
   }
+
   if (method === 'PATCH') {
     const changes = userChangesFromPatch(await readBody(request))
     const doc = await store.updateUser(principal, id, changes)
+
     return reply(toScimUser(doc, base))
   }
+
   if (method === 'DELETE') {
     await store.deleteUser(principal, id)
+
     return reply(null, 204)
   }
+
   return failure(new ScimError(405, null, 'That method is not supported here.'))
 }
 
@@ -444,18 +507,22 @@ async function groups(
   url: URL,
 ): Promise<Response> {
   const method = request.method
+
   if (!id) {
     if (method === 'GET') {
       const filter = parseFilter(url.searchParams.get('filter'), [
         'displayName',
       ])
+
       const { start, count } = parsePaging(url.searchParams)
+
       const page = await store.listGroups(
         principal,
         { displayName: filter?.value },
         start,
         count,
       )
+
       return reply(
         listResponse(
           page.rows.map((row) => toScimGroup(row, base)),
@@ -464,44 +531,62 @@ async function groups(
         ),
       )
     }
+
     if (method === 'POST') {
       const changes = readGroup(await readBody(request))
       const doc = await store.setGroup(principal, null, changes)
+
       return reply(toScimGroup(doc, base), 201, {
         Location: `${base}/Groups/${doc.id}`,
       })
     }
+
     return failure(
       new ScimError(405, null, 'That method is not supported here.'),
     )
   }
+
   checkId(id)
+
   if (method === 'GET') {
     const doc = await store.getGroup(principal, id)
+
     if (!doc) throw new ScimError(404, null, 'Group not found.')
+
     return reply(toScimGroup(doc, base))
   }
+
   if (method === 'PUT') {
     const changes = readGroup(await readBody(request))
+
     const doc = await store.setGroup(principal, id, {
       ...changes,
       members: changes.members ?? [],
     })
+
     return reply(toScimGroup(doc, base))
   }
+
   if (method === 'PATCH') {
     const current = await store.getGroup(principal, id)
+
     if (!current) throw new ScimError(404, null, 'Group not found.')
+
     const changes = groupChangesFromPatch(
       await readBody(request),
       current.members.map((member) => member.value),
     )
+
     const doc = await store.setGroup(principal, id, changes)
+
     return reply(toScimGroup(doc, base))
   }
+
   if (method === 'DELETE') {
     await store.deleteGroup(principal, id)
+
     return reply(null, 204)
   }
+
   return failure(new ScimError(405, null, 'That method is not supported here.'))
 }

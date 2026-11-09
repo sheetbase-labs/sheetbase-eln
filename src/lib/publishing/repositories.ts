@@ -125,12 +125,15 @@ const joinUrl = (base: string, path: string) =>
  */
 export function assertRepositoryUrl(url: string): void {
   let parsed: URL
+
   try {
     parsed = new URL(url)
   } catch {
     throw new RepositoryError('That repository address is not a web address.')
   }
+
   const host = parsed.hostname.toLowerCase()
+
   if (
     !/^https?:$/.test(parsed.protocol) ||
     parsed.username !== '' ||
@@ -151,29 +154,35 @@ async function call(
 ): Promise<Json> {
   const fetcher: RepoFetch =
     deps.fetch ?? ((u, i) => fetch(u, i as RequestInit))
+
   const res = await fetcher(url, init)
   const raw = await res.text()
   let body: unknown = null
+
   try {
     body = raw ? JSON.parse(raw) : null
   } catch {
     body = null
   }
+
   if (!res.ok) {
     const detail =
       (body as { message?: unknown; errors?: unknown; status?: unknown } | null)
         ?.message ?? (body as { errors?: unknown } | null)?.errors
+
     const text =
       typeof detail === 'string'
         ? detail
         : detail
           ? JSON.stringify(detail)
           : raw
+
     throw new RepositoryError(
       `${what} failed (${res.status})${text ? `: ${text.slice(0, 300)}` : ''}`,
       res.status,
     )
   }
+
   return (body ?? {}) as Json
 }
 
@@ -196,14 +205,17 @@ async function zenodoDraft(
     ...bearer(target.token),
     'content-type': 'application/json',
   }
+
   const created = await call(
     deps,
     joinUrl(target.baseUrl, '/api/deposit/depositions'),
     { method: 'POST', headers, body: '{}' },
     'Creating the Zenodo deposit',
   )
+
   const id = String(created.id ?? '')
   const bucket = asString((created.links as Json | undefined)?.bucket)
+
   if (!id || !bucket)
     throw new RepositoryError('Zenodo did not return a deposit to upload to.')
   await call(
@@ -219,6 +231,7 @@ async function zenodoDraft(
     },
     'Uploading the package to Zenodo',
   )
+
   const updated = await call(
     deps,
     joinUrl(target.baseUrl, `/api/deposit/depositions/${id}`),
@@ -240,10 +253,12 @@ async function zenodoDraft(
     },
     'Describing the Zenodo deposit',
   )
+
   const doi = asString(
     ((updated.metadata as Json | undefined)?.prereserve_doi as Json | undefined)
       ?.doi,
   )
+
   return {
     remoteId: id,
     draftUrl:
@@ -267,10 +282,13 @@ async function zenodoPublish(
     { method: 'POST', headers: bearer(target.token) },
     'Publishing on Zenodo',
   )
+
   const doi =
     asString(done.doi) ?? asString((done.metadata as Json | undefined)?.doi)
+
   if (!doi)
     throw new RepositoryError('Zenodo published the record but gave no DOI.')
+
   return {
     doi,
     recordUrl:
@@ -284,13 +302,16 @@ async function zenodoPublish(
 
 function personName(name: string): { family_name: string; given_name: string } {
   const comma = name.indexOf(',')
+
   if (comma > 0) {
     return {
       family_name: name.slice(0, comma).trim(),
       given_name: name.slice(comma + 1).trim(),
     }
   }
+
   const parts = name.trim().split(/\s+/)
+
   return {
     family_name: parts.at(-1) ?? name,
     given_name: parts.slice(0, -1).join(' '),
@@ -307,6 +328,7 @@ async function invenioDraft(
     ...bearer(target.token),
     'content-type': 'application/json',
   }
+
   const created = await call(
     deps,
     joinUrl(target.baseUrl, '/api/records'),
@@ -332,7 +354,9 @@ async function invenioDraft(
     },
     'Creating the InvenioRDM draft',
   )
+
   const id = asString(created.id)
+
   if (!id) throw new RepositoryError('The repository did not return a draft.')
   const files = joinUrl(target.baseUrl, `/api/records/${id}/draft/files`)
   const key = encodeURIComponent(pkg.name)
@@ -362,6 +386,7 @@ async function invenioDraft(
     'Finishing the upload',
   )
   let doi: string | null = null
+
   try {
     const reserved = await call(
       deps,
@@ -369,6 +394,7 @@ async function invenioDraft(
       { method: 'POST', headers: bearer(target.token) },
       'Reserving a DOI',
     )
+
     doi = asString(
       ((reserved.pids as Json | undefined)?.doi as Json | undefined)
         ?.identifier,
@@ -382,6 +408,7 @@ async function invenioDraft(
     )
       throw error
   }
+
   return {
     remoteId: id,
     draftUrl: joinUrl(target.baseUrl, `/uploads/${id}`),
@@ -400,13 +427,16 @@ async function invenioPublish(
     { method: 'POST', headers: bearer(target.token) },
     'Publishing the record',
   )
+
   const doi = asString(
     ((done.pids as Json | undefined)?.doi as Json | undefined)?.identifier,
   )
+
   if (!doi)
     throw new RepositoryError(
       'The record is public but this repository gave it no DOI.',
     )
+
   return {
     doi,
     recordUrl:
@@ -427,7 +457,9 @@ async function figshareDraft(
     ...bearer(target.token),
     'content-type': 'application/json',
   }
+
   const licenses = await fetchFigshareLicenses(target, deps)
+
   const license =
     licenses.find(
       (l) => l.url.replace(/\/+$/, '') === meta.license.url.replace(/\/+$/, ''),
@@ -437,15 +469,18 @@ async function figshareDraft(
         .toLowerCase()
         .includes(meta.license.id.split('-').slice(0, 2).join(' ')),
     )
+
   if (!license) {
     throw new RepositoryError(
       `Figshare does not offer the licence ${meta.license.name}. Pick another.`,
     )
   }
+
   const categories = (target.collection ?? '')
     .split(',')
     .map((c) => Number(c.trim()))
     .filter((n) => Number.isInteger(n) && n > 0)
+
   const created = await call(
     deps,
     joinUrl(target.baseUrl, '/account/articles'),
@@ -465,12 +500,15 @@ async function figshareDraft(
     },
     'Creating the Figshare item',
   )
+
   const location = asString(created.location)
   const id = location?.match(/(\d+)\/?$/)?.[1]
+
   if (!id)
     throw new RepositoryError('Figshare did not return an item to upload to.')
   const article = joinUrl(target.baseUrl, `/account/articles/${id}`)
   const md5 = createHash('md5').update(pkg.bytes).digest('hex')
+
   const file = await call(
     deps,
     `${article}/files`,
@@ -481,23 +519,30 @@ async function figshareDraft(
     },
     'Registering the package',
   )
+
   const fileUrl = asString(file.location)
+
   if (!fileUrl) throw new RepositoryError('Figshare did not return an upload.')
+
   const info = await call(
     deps,
     fileUrl,
     { headers: bearer(target.token) },
     'Reading the upload',
   )
+
   const uploadUrl = asString(info.upload_url)
+
   if (!uploadUrl)
     throw new RepositoryError('Figshare did not return an upload address.')
+
   const plan = await call(
     deps,
     uploadUrl,
     { headers: bearer(target.token) },
     'Planning the upload',
   )
+
   for (const part of (plan.parts as
     | Array<{
         partNo: number
@@ -516,6 +561,7 @@ async function figshareDraft(
       'Uploading the package',
     )
   }
+
   await call(
     deps,
     fileUrl,
@@ -523,6 +569,7 @@ async function figshareDraft(
     'Finishing the upload',
   )
   let doi: string | null = null
+
   try {
     const reserved = await call(
       deps,
@@ -530,6 +577,7 @@ async function figshareDraft(
       { method: 'POST', headers: bearer(target.token) },
       'Reserving a DOI',
     )
+
     doi = asString(reserved.doi)
   } catch (error) {
     if (
@@ -539,6 +587,7 @@ async function figshareDraft(
     )
       throw error
   }
+
   return {
     remoteId: id,
     draftUrl: `https://figshare.com/account/articles/${id}`,
@@ -552,19 +601,23 @@ async function fetchFigshareLicenses(
 ): Promise<Array<{ value: number; name: string; url: string }>> {
   const fetcher: RepoFetch =
     deps.fetch ?? ((u, i) => fetch(u, i as RequestInit))
+
   const res = await fetcher(joinUrl(target.baseUrl, '/account/licenses'), {
     headers: bearer(target.token),
   })
+
   if (!res.ok)
     throw new RepositoryError(
       `Reading Figshare's licences failed (${res.status})`,
       res.status,
     )
+
   const list = (await res.json()) as Array<{
     value: number
     name: string
     url: string
   }>
+
   return Array.isArray(list) ? list : []
 }
 
@@ -580,15 +633,19 @@ async function figsharePublish(
     { method: 'POST', headers: bearer(target.token) },
     'Publishing on Figshare',
   )
+
   const pub = await call(
     deps,
     joinUrl(target.baseUrl, `/articles/${remoteId}`),
     { headers: bearer(target.token) },
     'Reading the published item',
   )
+
   const doi = asString(pub.doi)
+
   if (!doi)
     throw new RepositoryError('Figshare published the item but gave no DOI.')
+
   return {
     doi,
     recordUrl: asString(pub.url_public_html) ?? `https://doi.org/${doi}`,
@@ -617,10 +674,12 @@ async function dataverseDraft(
       'This Dataverse needs the alias of the collection to deposit into.',
     )
   }
+
   const headers = {
     'x-dataverse-key': target.token,
     'content-type': 'application/json',
   }
+
   const created = await call(
     deps,
     joinUrl(
@@ -693,8 +752,10 @@ async function dataverseDraft(
     },
     'Creating the Dataverse dataset',
   )
+
   const data = created.data as Json | undefined
   const persistentId = asString(data?.persistentId)
+
   if (!persistentId)
     throw new RepositoryError('Dataverse did not return a dataset identifier.')
   const form = new FormData()
@@ -723,6 +784,7 @@ async function dataverseDraft(
     },
     'Uploading the package to Dataverse',
   )
+
   return {
     remoteId: persistentId,
     draftUrl: joinUrl(
@@ -751,7 +813,9 @@ async function dataversePublish(
     { method: 'POST', headers: { 'x-dataverse-key': target.token } },
     'Publishing on Dataverse',
   )
+
   const doi = await dataverseDoi(remoteId)
+
   return {
     doi,
     recordUrl:

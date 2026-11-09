@@ -11,9 +11,11 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 export const Route = createFileRoute('/registry')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: RegistryPage,
@@ -21,6 +23,7 @@ export const Route = createFileRoute('/registry')({
 
 function RegistryPage() {
   const { context } = Route.useRouteContext()
+
   return (
     <RegistryList
       canWrite={hasCapability(context.workspace?.role, 'record.create')}

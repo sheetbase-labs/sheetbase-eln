@@ -16,6 +16,7 @@ export interface FillField {
 }
 
 export const FILL_PDF_MAX_BYTES = 6 * 1024 * 1024
+
 export const FILL_INSTRUCTION =
   'Read the source and give a value for each listed field that the source states. Reply with one JSON object only, whose keys are the field keys and whose values are strings. Leave out any field the source does not state. Never guess or invent a value.'
 
@@ -30,8 +31,10 @@ export function buildFillText(
         `- ${field.key}: ${field.label}${field.hint ? ` (${field.hint})` : ''}`,
     )
     .join('\n')
+
   const head = `Fields:\n${list}\n\nSource:\n`
   const room = Math.max(0, PAGE_AI_MAX_TEXT_CHARS - head.length)
+
   return head + source.trim().slice(0, room)
 }
 
@@ -46,23 +49,30 @@ export function parseFillResponse(
 ): Record<string, string> {
   const start = answer.indexOf('{')
   const end = answer.lastIndexOf('}')
+
   if (start === -1 || end <= start) return {}
   let parsed: unknown
+
   try {
     parsed = JSON.parse(answer.slice(start, end + 1))
   } catch {
     return {}
   }
+
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
   const known = new Set(fields.map((field) => field.key))
   const values: Record<string, string> = {}
+
   for (const [key, raw] of Object.entries(parsed as Record<string, unknown>)) {
     if (!known.has(key)) continue
+
     if (typeof raw !== 'string' && typeof raw !== 'number') continue
     const value = String(raw).trim()
+
     if (value === '' || value.length > 500) continue
     values[key] = value
   }
+
   return values
 }
 

@@ -42,7 +42,9 @@ export function ExperimentBookings({ expId }: { expId: string }) {
     queryKey: ['ui-port', 'experiment-bookings', expId],
     queryFn: () => fetchExperimentBookings(notebookDataClient, expId),
   })
+
   const rows = bookings.data ?? []
+
   const columns: RegistryColumn<CalendarBookingWire>[] = [
     {
       id: 'booking',
@@ -62,6 +64,7 @@ export function ExperimentBookings({ expId }: { expId: string }) {
       cell: ({ row }) => row.original.status,
     },
   ]
+
   return (
     <Section
       title={t('projects.expLinks.bookings')}
@@ -117,6 +120,7 @@ export function ExperimentBookings({ expId }: { expId: string }) {
 export function LinkSamplesAction({ expId }: { expId: string }) {
   const [open, setOpen] = useState(false)
   const queryClient = useQueryClient()
+
   const link = useMutation({
     mutationFn: async (
       items: { id: string; identifier: string }[],
@@ -127,6 +131,7 @@ export function LinkSamplesAction({ expId }: { expId: string }) {
           recordId: item.id,
         })
       }
+
       return items.length
     },
     onSuccess: (count) => {
@@ -147,6 +152,7 @@ export function LinkSamplesAction({ expId }: { expId: string }) {
             : t('projects.expLinks.refused'),
       }),
   })
+
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}>
@@ -180,6 +186,7 @@ interface LinkedSampleWire {
 
 function propertyText(sample: LinkedSampleWire, key: string): string {
   const value = sample.properties?.[key]
+
   return typeof value === 'string' || typeof value === 'number'
     ? String(value)
     : '—'
@@ -191,6 +198,7 @@ function LinkedSamplesTable({ rows }: { rows: RecordLinkWire[] }) {
   const ids = [
     ...new Set(rows.map((l) => l.target_record_id).filter(Boolean)),
   ] as string[]
+
   const samples = useQuery({
     queryKey: ['ui-port', 'experiment-samples', ids],
     queryFn: () =>
@@ -201,6 +209,7 @@ function LinkedSamplesTable({ rows }: { rows: RecordLinkWire[] }) {
           )
         : Promise.resolve([]),
   })
+
   const columns: RegistryColumn<LinkedSampleWire>[] = [
     {
       id: 'id',
@@ -229,6 +238,7 @@ function LinkedSamplesTable({ rows }: { rows: RecordLinkWire[] }) {
       meta: { cellClassName: 'num' },
       cell: ({ row }) => {
         const quantity = propertyText(row.original, 'quantity')
+
         return quantity === '—'
           ? quantity
           : `${quantity} ${propertyText(row.original, 'quantityUnit')}`.trim()
@@ -249,6 +259,7 @@ function LinkedSamplesTable({ rows }: { rows: RecordLinkWire[] }) {
             ? null
             : propertyText(row.original, 'releasedAt'),
         )
+
         return <Status tone={status.tone}>{status.label}</Status>
       },
     },
@@ -259,6 +270,7 @@ function LinkedSamplesTable({ rows }: { rows: RecordLinkWire[] }) {
       cell: ({ row }) => formatDate(row.original.created_at),
     },
   ]
+
   return (
     <TableBox>
       <RegistryGrid
@@ -286,6 +298,7 @@ export function LinksPanel({
   const links = useExperimentLinks(expId)
   const all = links.data ?? []
   const named = new Set(LINK_SECTIONS.map((section) => section.kind))
+
   const sections = [
     ...LINK_SECTIONS.map((section) => ({
       ...section,
@@ -303,6 +316,7 @@ export function LinksPanel({
         section.kind === 'dataset' ||
         section.kind === 'sample',
   )
+
   const columns: RegistryColumn<RecordLinkWire>[] = [
     {
       id: 'record',
@@ -327,6 +341,7 @@ export function LinksPanel({
       cell: ({ row }) => row.original.link_type,
     },
   ]
+
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
       {sections.map((section) => (

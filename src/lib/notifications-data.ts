@@ -59,6 +59,7 @@ export async function fetchMyNotifications(
     'my_notifications',
     `?select=id,event_type,title,body,record_id,project_id,link,created_at,read_at&order=created_at.desc&limit=${limit}`,
   )
+
   return rows.map((row) => toItem(row))
 }
 
@@ -102,8 +103,11 @@ export async function fetchLatestReviews(
         .filter((id): id is string => id !== null),
     ),
   ]
+
   const latest = new Map<string, LatestReview>()
+
   if (recordIds.length === 0) return latest
+
   const rows = await client.list<{
     record_id: string
     revision_id: string
@@ -112,6 +116,7 @@ export async function fetchLatestReviews(
     'review_submissions',
     `?record_id=in.(${recordIds.map(encodeURIComponent).join(',')})&select=record_id,revision_id,state&order=submitted_at.desc`,
   )
+
   // Newest first: keep the first row seen for each record.
   for (const row of rows) {
     if (!latest.has(row.record_id)) {
@@ -121,6 +126,7 @@ export async function fetchLatestReviews(
       })
     }
   }
+
   return latest
 }
 
@@ -135,13 +141,16 @@ export function notificationDestination(
   latestReviews: ReadonlyMap<string, LatestReview> = new Map(),
 ): string | undefined {
   if (!item.recordId) return item.link ?? undefined
+
   if (REVIEW_EVENTS.has(item.eventType)) {
     const review = latestReviews.get(item.recordId)
+
     if (review && review.state !== 'returned') {
       return (
         objectPath('review', review.revisionId) ?? recordPath(item.recordId)
       )
     }
   }
+
   return recordPath(item.recordId)
 }

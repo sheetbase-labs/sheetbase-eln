@@ -55,9 +55,11 @@ function authorLabel(
   names?: Record<string, string>,
 ): string {
   if (authorUserId === null) return t('notebook.commentThread.deletedUser')
+
   if (currentUserId !== null && authorUserId === currentUserId) {
     return currentUserName
   }
+
   return names?.[authorUserId] ?? t('notebook.commentThread.reviewer')
 }
 
@@ -66,36 +68,49 @@ function describeTarget(
   target: CommentWire['target'],
 ): string {
   if (kind === 'revision') return TARGET_KIND_LABEL.revision
+
   if (kind === 'record') return TARGET_KIND_LABEL.record
+
   if (kind === 'block')
     return `${TARGET_KIND_LABEL.block} ${target.blockId ?? ''}`.trim()
+
   if (kind === 'sheet_cell' || kind === 'sheet_row' || kind === 'sheet_range') {
     const rows = t('common.counts.rows', { count: target.rowKeys?.length ?? 0 })
+
     const fields = t('notebook.commentThread.fields', {
       count: target.fieldIds?.length ?? 0,
     })
+
     return `${TARGET_KIND_LABEL[kind]} · ${rows}${kind === 'sheet_row' ? '' : ` · ${fields}`}`
   }
+
   if (kind === 'table_region') {
     const parts = [target.tableId, target.rowId, target.columnId].filter(
       (value): value is string => typeof value === 'string' && value.length > 0,
     )
+
     return `${TARGET_KIND_LABEL.table_region} ${parts.join(' · ')}`.trim()
   }
+
   return `${TARGET_KIND_LABEL.diff} ${target.changeId ?? ''}`.trim()
 }
 
 function formatRelative(iso: string): string {
   const then = new Date(iso).getTime()
+
   if (Number.isNaN(then)) return iso
   const seconds = Math.max(0, Math.round((appNow().getTime() - then) / 1000))
+
   if (seconds < 60) return t('notebook.commentThread.justNow')
   const minutes = Math.round(seconds / 60)
+
   if (minutes < 60)
     return t('notebook.commentThread.minutesAgo', { count: minutes })
   const hours = Math.round(minutes / 60)
+
   if (hours < 24) return t('notebook.commentThread.hoursAgo', { count: hours })
   const days = Math.round(hours / 24)
+
   return t('notebook.commentThread.daysAgo', { count: days })
 }
 
@@ -116,7 +131,9 @@ function CommentRow({
     currentUserName,
     names,
   )
+
   const deleted = comment.author_user_id === null
+
   return (
     <article
       data-comment-id={comment.id}
@@ -167,6 +184,7 @@ export function CommentThread({
   async function handleReply(event: React.FormEvent) {
     event.preventDefault()
     const body = replyBody.trim()
+
     if (!body) return
     await onReply(root.id, body)
     setReplyBody('')

@@ -62,9 +62,12 @@ export async function processEmailDeliveries(
     'SELECT * FROM internal.claim_due_email_deliveries($1)',
     [limit],
   )
+
   const result: EmailWorkerResult = { processed: 0, sent: 0, failed: 0 }
+
   for (const delivery of claimed.rows) {
     result.processed += 1
+
     try {
       await transport.send({
         to: delivery.to_email,
@@ -87,6 +90,7 @@ export async function processEmailDeliveries(
       result.failed += 1
     }
   }
+
   return result
 }
 
@@ -108,7 +112,9 @@ export function readSmtpConfig(
   env: Record<string, string | undefined> = process.env,
 ): SmtpConfig | null {
   const host = env.SMTP_HOST
+
   if (!host) return null
+
   return {
     host,
     port: Number(env.SMTP_PORT ?? 587),
@@ -123,6 +129,7 @@ export async function createSmtpTransport(
   config: SmtpConfig,
 ): Promise<EmailTransport> {
   const { createTransport } = await import('nodemailer')
+
   const transport = createTransport({
     host: config.host,
     port: config.port,
@@ -134,6 +141,7 @@ export async function createSmtpTransport(
       ? { user: config.user, pass: config.pass ?? undefined }
       : undefined,
   })
+
   return {
     send: async (message) => {
       await transport.sendMail({

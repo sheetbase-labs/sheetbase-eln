@@ -17,12 +17,14 @@ vi.mock('#/lib/request-auth', () => ({
     },
   ) => {
     const session = await deps.getSession(headers)
+
     return session
       ? { ok: true, context: { userId: session.user.id, token: 'token' } }
       : { ok: false, status: 401, code: 'unauthenticated', message: '' }
   },
   postgrestRpc: (...args: unknown[]) => rpc(...args),
 }))
+
 vi.mock('#/lib/file-storage', () => {
   class OversizeError extends Error {
     constructor(
@@ -32,8 +34,10 @@ vi.mock('#/lib/file-storage', () => {
       super(message)
     }
   }
+
   return { OversizeError, getObjectStorage: () => undefined }
 })
+
 vi.mock('#/lib/logger', () => ({ logger: { warn: vi.fn() } }))
 
 const {
@@ -45,9 +49,11 @@ const {
 } = await import('./avatar-routes')
 
 const ME = 'user-1'
+
 const signedIn = {
   getSession: async () => ({ user: { id: ME } }),
 } as unknown as SessionAuthDeps
+
 const signedOut = { getSession: async () => null } as unknown as SessionAuthDeps
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1])
@@ -56,30 +62,36 @@ const WEBP = new TextEncoder().encode('RIFF\0\0\0\0WEBPVP8 ')
 
 function memoryStorage() {
   const objects = new Map<string, Uint8Array>()
+
   const storage: ObjectStorage = {
     async putStream(key, body) {
       const bytes = new Uint8Array(await new Response(body).arrayBuffer())
       objects.set(key, bytes)
+
       return { byteSize: BigInt(bytes.byteLength), checksum: '0'.repeat(64) }
     },
     async getStream(key) {
       const bytes = objects.get(key) ?? new Uint8Array()
+
       const stream = new ReadableStream<Uint8Array>({
         start(controller) {
           controller.enqueue(bytes)
           controller.close()
         },
       })
+
       return { stream, byteSize: bytes.byteLength }
     },
     async head(key) {
       const bytes = objects.get(key)
+
       return bytes ? { byteSize: bytes.byteLength } : null
     },
     async delete(key) {
       objects.delete(key)
     },
   }
+
   return { storage, objects }
 }
 
@@ -125,10 +137,12 @@ describe('handleMyAvatar', () => {
     const response = await handleMyAvatar(put(WEBP), signedIn, storage)
 
     expect(response.status).toBe(200)
+
     const [name, args] = rpc.mock.calls[0] as [
       string,
       { p_storage_key: string; p_media_type: string },
     ]
+
     expect(name).toBe('set_my_photo')
     expect(args.p_media_type).toBe('image/webp')
     expect([...objects.keys()]).toEqual([args.p_storage_key])
@@ -162,11 +176,13 @@ describe('handleMyAvatar', () => {
     const { storage, objects } = memoryStorage()
     objects.set('avatars/user-1/old', PNG)
     rpc.mockResolvedValue({ status: 200, body: 'avatars/user-1/old' })
+
     const response = await handleMyAvatar(
       new Request('http://x/api/avatars/me', { method: 'DELETE' }),
       signedIn,
       storage,
     )
+
     expect(response.status).toBe(204)
     expect(rpc).toHaveBeenCalledWith('clear_my_photo', {}, 'token')
     expect(objects.size).toBe(0)
@@ -181,12 +197,14 @@ describe('handleAvatarDownload', () => {
       status: 200,
       body: [{ storage_key: 'avatars/user-2/abc', media_type: 'image/jpeg' }],
     })
+
     const response = await handleAvatarDownload(
       new Request('http://x/api/avatars/user-2'),
       'user-2',
       signedIn,
       storage,
     )
+
     expect(response.status).toBe(200)
     expect(response.headers.get('content-type')).toBe('image/jpeg')
     expect(response.headers.get('x-content-type-options')).toBe('nosniff')
@@ -196,12 +214,14 @@ describe('handleAvatarDownload', () => {
   it('answers 404 for someone without a photo or outside the workspace', async () => {
     const { storage } = memoryStorage()
     rpc.mockResolvedValue({ status: 200, body: [] })
+
     const response = await handleAvatarDownload(
       new Request('http://x/api/avatars/user-9'),
       'user-9',
       signedIn,
       storage,
     )
+
     expect(response.status).toBe(404)
   })
 })

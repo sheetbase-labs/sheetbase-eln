@@ -16,6 +16,7 @@ export const STORAGE_LEVELS = [
   'rack',
   'box',
 ] as const
+
 export type StorageLevel = (typeof STORAGE_LEVELS)[number]
 
 export const UNIT_TYPES = [
@@ -27,6 +28,7 @@ export const UNIT_TYPES = [
   'dewar',
   'cabinet',
 ] as const
+
 export type UnitType = (typeof UNIT_TYPES)[number]
 
 export const UNIT_TYPE_LABELS: Record<UnitType, string> = {
@@ -148,12 +150,14 @@ interface RawNode {
 function num(value: string | number | null | undefined): number | null {
   if (value === null || value === undefined || value === '') return null
   const n = Number(value)
+
   return Number.isFinite(n) ? n : null
 }
 
 export function nodeFromRow(level: StorageLevel, row: RawNode): StorageNode {
   const parentColumn = LEVEL_META[level].parentColumn
   const parent = parentColumn ? row[parentColumn] : null
+
   return {
     level,
     id: row.id,
@@ -182,6 +186,7 @@ export interface StorageTree {
 function byOrder(a: StorageNode, b: StorageNode): number {
   if (a.position !== null && b.position !== null && a.position !== b.position)
     return a.position - b.position
+
   return a.name.localeCompare(b.name, undefined, { numeric: true })
 }
 
@@ -192,19 +197,25 @@ export function buildStorageTree(
 ): StorageTree {
   const byId = new Map(nodes.map((n) => [n.id, { ...n }]))
   const children = new Map<string | null, StorageNode[]>()
+
   for (const node of byId.values()) {
     const list = children.get(node.parentId) ?? []
     list.push(node)
     children.set(node.parentId, list)
   }
+
   for (const list of children.values()) list.sort(byOrder)
+
   const roll = (node: StorageNode): number => {
     const own = node.level === 'box' ? (heldByBox.get(node.id) ?? 0) : 0
     node.held =
       own + (children.get(node.id) ?? []).reduce((s, c) => s + roll(c), 0)
+
     return node.held
   }
+
   for (const site of children.get(null) ?? []) roll(site)
+
   return {
     nodes: [...byId.values()],
     byId,
@@ -216,10 +227,12 @@ export function buildStorageTree(
 export function nodePath(tree: StorageTree, node: StorageNode): string[] {
   const names: string[] = []
   let cursor: StorageNode | undefined = node
+
   while (cursor) {
     names.unshift(cursor.name)
     cursor = cursor.parentId ? tree.byId.get(cursor.parentId) : undefined
   }
+
   return names
 }
 
@@ -230,10 +243,12 @@ export function formatNodePath(tree: StorageTree, node: StorageNode): string {
 /** True when the node or anything above it is archived. */
 export function isArchived(tree: StorageTree, node: StorageNode): boolean {
   let cursor: StorageNode | undefined = node
+
   while (cursor) {
     if (cursor.archivedAt) return true
     cursor = cursor.parentId ? tree.byId.get(cursor.parentId) : undefined
   }
+
   return false
 }
 
@@ -260,13 +275,17 @@ export function suggestCode(name: string): string {
 
 export function describeTemperature(node: StorageNode): string | null {
   const { temperatureMinC: lo, temperatureMaxC: hi } = node
+
   if (lo === null && hi === null) return null
+
   if (lo !== null && hi !== null) return `${lo} to ${hi} °C`
+
   return lo !== null ? `from ${lo} °C` : `up to ${hi} °C`
 }
 
 export function describeBoxGrid(node: StorageNode): string | null {
   if (node.rows === null || node.cols === null) return null
+
   return `${node.rows} × ${node.cols}`
 }
 
@@ -310,34 +329,43 @@ export function validateNodeInput(
 ): string | null {
   if (!input.name.trim())
     return `Give the ${LEVEL_META[level].label.toLowerCase()} a name.`
+
   if (input.name.trim().length > 200)
     return 'Use 200 characters or fewer for the name.'
+
   if (LEVEL_META[level].hasCode && !input.code.trim())
     return 'Give it a short code.'
+
   if (level === 'unit' || level === 'room' || level === 'site') {
     const lo = input.temperatureMinC.trim()
     const hi = input.temperatureMaxC.trim()
+
     if ((lo && Number.isNaN(Number(lo))) || (hi && Number.isNaN(Number(hi))))
       return 'Temperatures are numbers in °C.'
+
     if (lo && hi && Number(lo) > Number(hi))
       return 'The lowest temperature is above the highest.'
   }
+
   if (level === 'box' && !editing) {
     for (const [label, raw] of [
       ['rows', input.rows],
       ['columns', input.cols],
     ] as const) {
       const n = Number(raw)
+
       if (!Number.isInteger(n) || n < 1 || n > 26)
         return `A box has 1 to 26 ${label}.`
     }
   }
+
   return null
 }
 
 function temperatureColumns(input: NodeInput): Record<string, number | null> {
   const lo = input.temperatureMinC.trim()
   const hi = input.temperatureMaxC.trim()
+
   return {
     temperature_min_c: lo ? Number(lo) : null,
     temperature_max_c: hi ? Number(hi) : null,
@@ -368,6 +396,7 @@ export async function fetchStorageTree(
           LEVEL_META[level].table,
           `?select=${SELECT[level]}&limit=5000`,
         )
+
         return rows.map((row) => nodeFromRow(level, row))
       }),
     ),
@@ -378,9 +407,12 @@ export async function fetchStorageTree(
         )
       : Promise.resolve([] as { box_id: string }[]),
   ])
+
   const held = new Map<string, number>()
+
   for (const { box_id } of occupied)
     held.set(box_id, (held.get(box_id) ?? 0) + 1)
+
   return buildStorageTree(levels.flat(), held)
 }
 
@@ -394,6 +426,7 @@ export async function createStorageNode(
 ): Promise<void> {
   const meta = LEVEL_META[level]
   const name = input.name.trim()
+
   if (level === 'box') {
     await client.rpc('create_storage_box', {
       p_workspace_id: workspaceId,
@@ -403,13 +436,20 @@ export async function createStorageNode(
       p_rows: Number(input.rows),
       p_cols: Number(input.cols),
     })
+
     return
   }
+
   const row: Record<string, unknown> = { workspace_id: workspaceId, name }
+
   if (meta.parentColumn) row[meta.parentColumn] = parent?.id
+
   if (meta.hasCode) row.code = input.code.trim()
+
   if (level === 'shelf' || level === 'rack') row.position = nextPosition
+
   if (level === 'unit') row.unit_type = input.unitType
+
   if (level === 'site' || level === 'room' || level === 'unit')
     Object.assign(row, temperatureColumns(input))
   await client.insert(meta.table, row)
@@ -422,8 +462,11 @@ export async function updateStorageNode(
 ): Promise<void> {
   const meta = LEVEL_META[node.level]
   const row: Record<string, unknown> = { name: input.name.trim() }
+
   if (meta.hasCode) row.code = input.code.trim()
+
   if (node.level === 'unit') row.unit_type = input.unitType
+
   if (node.level === 'site' || node.level === 'room' || node.level === 'unit')
     Object.assign(row, temperatureColumns(input))
   await client.patch(meta.table, `?id=eq.${node.id}`, row)

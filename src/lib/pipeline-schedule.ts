@@ -63,6 +63,7 @@ export const MISSED_RUN_GRACE_MINUTES = 5
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 const INPUT_NAME_RE = /^[a-z][a-z0-9_]{0,47}$/
 
 /** Pre-catalogue name for `dataset.versioned`, accepted at the intake boundary. */
@@ -85,6 +86,7 @@ const TRIGGERABLE_FAMILY: Record<string, true | undefined> = {
  */
 function isTriggerable(entry: EventCatalogueEntry): boolean {
   if (entry.producer?.when !== undefined) return entry.consumers.pipeline
+
   return TRIGGERABLE_FAMILY[entry.family] === true || entry.consumers.pipeline
 }
 
@@ -138,14 +140,20 @@ export interface EventSpec extends ScheduleSpecCommon {
  */
 export function normalizeTriggerEventName(name: unknown): string | null {
   if (typeof name !== 'string' || name.length === 0) return null
+
   const canonical =
     name === LEGACY_DATASET_VERSION_EVENT
       ? 'dataset.versioned'
       : resolveEventAlias(name)
+
   const entry = eventByName(canonical)
+
   if (!entry || entry.name !== canonical) return null
+
   if (entry.status !== 'stable' || entry.producer === null) return null
+
   if (!isTriggerable(entry)) return null
+
   return entry.name
 }
 
@@ -171,9 +179,12 @@ export function producerForTriggerEvent(name: unknown): {
   when?: PayloadCondition
 } | null {
   const canonical = normalizeTriggerEventName(name)
+
   if (canonical === null) return null
   const producer = eventByName(canonical)?.producer
+
   if (!producer) return null
+
   return {
     entityType: producer.entityType,
     operation: producer.operation,
@@ -192,9 +203,12 @@ export function validateScheduleSpec(
   if (spec === null || typeof spec !== 'object' || Array.isArray(spec)) {
     return { message: 'schedule spec must be an object' }
   }
+
   const record = spec as Record<string, unknown>
   const common = validateCommonSpec(kind, record)
+
   if (common) return common
+
   if (kind === 'interval') {
     if (
       typeof record.intervalMinutes !== 'number' ||
@@ -206,12 +220,15 @@ export function validateScheduleSpec(
         message: 'intervalMinutes must be an integer between 1 and 525600',
       }
     }
+
     return null
   }
+
   if (kind === 'daily') {
     if (typeof record.dailyAt !== 'string' || !DAILY_RE.test(record.dailyAt)) {
       return { message: 'dailyAt must be an HH:MM time' }
     }
+
     if (
       record.timeZone !== undefined &&
       record.timeZone !== null &&
@@ -219,8 +236,10 @@ export function validateScheduleSpec(
     ) {
       return { message: 'timeZone must be a valid IANA time zone name' }
     }
+
     return null
   }
+
   if (kind === 'cron') {
     if (parseCron(record.cron) === null) {
       return {
@@ -228,6 +247,7 @@ export function validateScheduleSpec(
           'cron must be five fields: minute hour day-of-month month day-of-week',
       }
     }
+
     if (
       record.timeZone !== undefined &&
       record.timeZone !== null &&
@@ -235,19 +255,23 @@ export function validateScheduleSpec(
     ) {
       return { message: 'timeZone must be a valid IANA time zone name' }
     }
+
     if (
       nextCronAfter(record.cron as string, zoneOf(record), new Date()) === null
     ) {
       return { message: 'cron never fires' }
     }
+
     return null
   }
+
   // kind === 'event' (the only remaining kind). Canonical catalogue names
   // are stored; wire aliases and the legacy dataset_version_created name are
   // accepted here and normalized by the writer (the RPC rewrites the spec).
   if (normalizeTriggerEventName(record.eventType) === null) {
     return { message: 'eventType must be a triggerable catalogue event name' }
   }
+
   if (
     record.datasetId !== undefined &&
     record.datasetId !== null &&
@@ -255,6 +279,7 @@ export function validateScheduleSpec(
   ) {
     return { message: 'datasetId must be a Dataset id or null' }
   }
+
   if (
     record.instrumentId !== undefined &&
     record.instrumentId !== null &&
@@ -265,6 +290,7 @@ export function validateScheduleSpec(
   ) {
     return { message: 'instrumentId must be an instrument id or null' }
   }
+
   if (
     record.inputName !== undefined &&
     record.inputName !== null &&
@@ -273,6 +299,7 @@ export function validateScheduleSpec(
   ) {
     return { message: 'inputName must be a valid input identifier' }
   }
+
   return null
 }
 
@@ -300,6 +327,7 @@ function validateCommonSpec(
   ) {
     return { message: 'missedRunPolicy must be run_once or skip' }
   }
+
   if (
     record.parameters !== undefined &&
     record.parameters !== null &&
@@ -307,18 +335,24 @@ function validateCommonSpec(
   ) {
     return { message: 'parameters must be an object' }
   }
+
   if (record.inputs === undefined || record.inputs === null) return null
+
   if (typeof record.inputs !== 'object' || Array.isArray(record.inputs)) {
     return { message: 'inputs must be an object' }
   }
+
   for (const [name, raw] of Object.entries(record.inputs)) {
     if (!INPUT_NAME_RE.test(name)) {
       return { message: `input ${name} is not a valid input identifier` }
     }
+
     if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) {
       return { message: `input ${name} needs a binding` }
     }
+
     const binding = raw as Record<string, unknown>
+
     if (binding.mode === 'pinned') {
       if (
         typeof binding.versionId !== 'string' ||
@@ -333,6 +367,7 @@ function validateCommonSpec(
       ) {
         return { message: `input ${name} needs a Dataset` }
       }
+
       if (binding.mode === 'incremental' && kind === 'event') {
         return {
           message: `input ${name}: an event trigger already runs only on new data`,
@@ -342,6 +377,7 @@ function validateCommonSpec(
       return { message: `input ${name} has an unknown mode` }
     }
   }
+
   return null
 }
 
@@ -350,11 +386,13 @@ export function specBindings(
   spec: ScheduleSpecCommon,
 ): Record<string, InputBinding> {
   const bindings: Record<string, InputBinding> = {}
+
   for (const [name, versionId] of Object.entries(spec.inputVersions ?? {})) {
     if (typeof versionId === 'string') {
       bindings[name] = { mode: 'pinned', versionId }
     }
   }
+
   return { ...bindings, ...(spec.inputs ?? {}) }
 }
 
@@ -370,20 +408,28 @@ export function nextRunAt(
   from: Date,
 ): Date | null {
   const error = validateScheduleSpec(kind, spec)
+
   if (error) return null
+
   if (kind === 'cron') {
     const cron = spec as CronSpec
     const zone = cron.timeZone ?? 'UTC'
+
     return isIanaTimeZone(zone) ? nextCronAfter(cron.cron, zone, from) : null
   }
+
   if (kind === 'interval') {
     const minutes = (spec as IntervalSpec).intervalMinutes
+
     return new Date(from.getTime() + minutes * 60_000)
   }
+
   // daily — next wall-clock occurrence in the explicit IANA zone
   const daily = spec as DailySpec
   const zone = daily.timeZone ?? 'UTC'
+
   if (!isIanaTimeZone(zone)) return null
+
   return nextDailyInZone(from, daily.dailyAt, zone)
 }
 
@@ -406,9 +452,12 @@ function zonedParts(at: Date, zone: string): ZonedClock {
     second: '2-digit',
     hour12: false,
   }).formatToParts(at)
+
   const get = (type: string) =>
     Number(parts.find((p) => p.type === type)?.value ?? 0)
+
   const hour = get('hour') % 24
+
   const asUtc = Date.UTC(
     get('year'),
     get('month') - 1,
@@ -417,6 +466,7 @@ function zonedParts(at: Date, zone: string): ZonedClock {
     get('minute'),
     get('second'),
   )
+
   return {
     y: get('year'),
     mo: get('month'),
@@ -428,16 +478,20 @@ function zonedParts(at: Date, zone: string): ZonedClock {
 function nextDailyInZone(from: Date, dailyAt: string, zone: string): Date {
   const [hour, minute] = dailyAt.split(':').map(Number)
   const now = zonedParts(from, zone)
+
   const candidate =
     Date.UTC(now.y, now.mo - 1, now.d, hour, minute) - now.offsetMs
+
   if (candidate <= from.getTime()) {
     // Tomorrow, with the offset re-probed so DST transitions are respected.
     const tomorrow = zonedParts(new Date(from.getTime() + 86_400_000), zone)
+
     return new Date(
       Date.UTC(tomorrow.y, tomorrow.mo - 1, tomorrow.d, hour, minute) -
         tomorrow.offsetMs,
     )
   }
+
   return new Date(candidate)
 }
 
@@ -450,12 +504,15 @@ export function upcomingRuns(
 ): Date[] {
   const runs: Date[] = []
   let cursor = from
+
   for (let i = 0; i < count; i += 1) {
     const next = nextRunAt(kind, spec, cursor)
+
     if (!next) break
     runs.push(next)
     cursor = next
   }
+
   return runs
 }
 
@@ -463,8 +520,10 @@ const IANA_TZ_RE = /^(?:[A-Za-z_]+(?:\/[A-Za-z0-9_+.-]+)+|UTC|GMT)$/
 
 export function isIanaTimeZone(value: string): boolean {
   if (!IANA_TZ_RE.test(value)) return false
+
   try {
     new Intl.DateTimeFormat('en-US', { timeZone: value })
+
     return true
   } catch {
     return false

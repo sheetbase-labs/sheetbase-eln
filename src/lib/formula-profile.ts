@@ -15,14 +15,17 @@
 
 /** Persisted syntax profile id. Frozen by the `chk_formula_profiles` constraint. */
 export const SHEETBASE_SYNTAX_PROFILE = 'sheetbase-hf-en-us-v1' as const
+
 /** Persisted function profile id. Frozen by the `chk_formula_profiles` constraint. */
 export const SHEETBASE_FUNCTION_PROFILE = 'scientific-core-v2' as const
+
 /**
  * Persisted engine identity. Frozen by the result-cache and sheet-calculation
  * profile constraints; it still records the engine that first produced the
  * stored values, not the engine now evaluating them.
  */
 export const SHEETBASE_ENGINE_VERSION = '3.3.0' as const
+
 /**
  * Persisted semantic profile fingerprint. Frozen because
  * `internal.apply_trusted_calculation` compares it literally; a new engine must
@@ -229,19 +232,24 @@ export const SCIENTIFIC_CORE_FUNCTIONS = Object.freeze([
 
 function canonical(value: unknown): string {
   if (typeof value === 'function') return value.name
+
   if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`
+
   if (value && typeof value === 'object')
     return `{${Object.entries(value)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`)
       .join(',')}}`
+
   return JSON.stringify(value)
 }
 
 function hash(value: string) {
   let h = 0x811c9dc5
+
   for (let i = 0; i < value.length; i++)
     h = Math.imul(h ^ value.charCodeAt(i), 0x01000193)
+
   return `fnv1a32-${(h >>> 0).toString(16).padStart(8, '0')}`
 }
 
@@ -269,5 +277,6 @@ export function sheetbaseRuntimeFingerprint() {
           tz:
             process.env.TZ ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
         }
+
   return hash(canonical({ ...semanticProfile, runtime }))
 }

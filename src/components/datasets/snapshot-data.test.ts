@@ -261,6 +261,7 @@ describe('snapshot prune warning (DSET-04.3)', () => {
       summary(),
       new Date('2026-11-01T00:00:00.000Z'),
     )
+
     expect(warning?.overdue).toBe(true)
     expect(warning?.title).toBe(
       'S-5 is overdue for row removal (was due 3 Oct 2026).',
@@ -304,6 +305,7 @@ describe('snapshot prune warning (DSET-04.3)', () => {
       ],
       now,
     )
+
     expect(warning?.versionId).toBe('v-sooner')
   })
 
@@ -329,6 +331,7 @@ describe('snapshot tombstone (DSET-04.3)', () => {
     const tombstone = describeSnapshotTombstone(
       summary({ rowsRemovedAt: '2026-09-12T00:00:00.000Z' }),
     )
+
     expect(tombstone).toMatchObject({
       label: 'Rows removed',
       tone: 'stored',
@@ -343,6 +346,7 @@ describe('snapshot tombstone (DSET-04.3)', () => {
     const keeping = describeSnapshotKeeping(
       summary({ rowsRemovedAt: '2026-09-12T00:00:00.000Z' }),
     )
+
     expect(keeping).toMatchObject({ label: 'Rows removed', tone: 'stored' })
     expect(keeping?.detail).toContain('history are kept')
   })

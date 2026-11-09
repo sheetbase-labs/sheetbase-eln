@@ -59,6 +59,7 @@ export function SignatureDialog({
       : meanings.includes('reviewed-and-approved')
         ? 'reviewed-and-approved'
         : (meanings[0] ?? 'reviewed-and-approved')
+
   return (
     <>
       <Button className="w-full" onClick={() => onOpenChange(true)}>

@@ -72,11 +72,13 @@ export function AgentPermissionsPanel({
   canManage: boolean
 }) {
   const queryClient = useQueryClient()
+
   const policies = useQuery({
     queryKey: agentActionKeys.policies,
     queryFn: () => fetchAgentActionPolicies(client),
     enabled: Boolean(workspaceId),
   })
+
   const credentials = useQuery({
     queryKey: ['agent-actions', 'credentials', workspaceId],
     queryFn: async () => {
@@ -88,6 +90,7 @@ export function AgentPermissionsPanel({
     },
     enabled: Boolean(workspaceId) && canManage,
   })
+
   const [adding, setAdding] = useState(false)
 
   const save = useMutation({
@@ -110,12 +113,15 @@ export function AgentPermissionsPanel({
   })
 
   const rows = policies.data ?? []
+
   const everyone = new Map(
     rows
       .filter((row) => row.subject_kind === 'everyone')
       .map((row) => [row.action_key, row.level] as const),
   )
+
   const exceptions = rows.filter((row) => row.subject_kind !== 'everyone')
+
   const credentialName = (id: string | null) =>
     credentials.data?.find((credential) => credential.id === id)?.name ??
     'Service credential'
@@ -145,7 +151,9 @@ export function AgentPermissionsPanel({
                   const inArea = AGENT_ACTIONS.filter(
                     (entry) => entry.area === area,
                   )
+
                   if (inArea.length === 0) return null
+
                   return [
                     <TableRow key={`area-${area}`}>
                       <TableCell
@@ -158,6 +166,7 @@ export function AgentPermissionsPanel({
                     ...inArea.map((entry) => {
                       const level =
                         everyone.get(entry.key) ?? AGENT_ACTION_DEFAULT_LEVEL
+
                       return (
                         <TableRow key={entry.key}>
                           <TableCell>
@@ -336,8 +345,10 @@ function AddException({
   const [role, setRole] = useState('')
   const [credentialId, setCredentialId] = useState('')
   const [level, setLevel] = useState<AgentActionLevel>('auto')
+
   const ready =
     actionKey !== '' && (kind === 'role' ? role !== '' : credentialId !== '')
+
   return (
     <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
       <DialogContent>
@@ -348,6 +359,7 @@ function AddException({
               value={actionKey}
               onChange={(event) => {
                 setActionKey(event.target.value)
+
                 if (
                   level === 'auto' &&
                   agentActionAlwaysAsk(event.target.value)

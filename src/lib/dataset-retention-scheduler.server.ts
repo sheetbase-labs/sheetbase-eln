@@ -27,6 +27,7 @@ import { logger } from './logger'
 
 /** Retention changes are year-scale; a few hours of latency is irrelevant. */
 export const DATASET_RETENTION_INTERVAL_MS = 6 * 60 * 60 * 1000
+
 /** Bounded batch per sweep, within the RPC's 1..1000 validated range. */
 export const DATASET_PRUNE_BATCH_LIMIT = 100
 
@@ -75,11 +76,13 @@ export async function sweepDatasetRetention(
   limit: number = DATASET_PRUNE_BATCH_LIMIT,
 ): Promise<number> {
   const conn = await deps.connect()
+
   try {
     const { rows } = await conn.query<PruneRow>(
       `SELECT api.prune_dataset_versions($1) AS result`,
       [limit],
     )
+
     return rows.at(0)?.result.prunedCount ?? 0
   } finally {
     await conn.end()
@@ -97,6 +100,7 @@ export function createDatasetRetentionTick(
 ): () => Promise<void> {
   return async () => {
     const startedAt = Date.now()
+
     try {
       const prunedCount = await sweepDatasetRetention(deps, limit)
       log.info('dataset retention sweep complete', {
@@ -124,8 +128,10 @@ const startedGlobalKey = '__sheetbaseDatasetRetentionSchedulerStarted'
  */
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
+
   const inTest =
     process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
+
   return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
 }
 
@@ -139,13 +145,16 @@ export function startDatasetRetentionScheduler(
   options: StartDatasetRetentionOptions = {},
 ): void {
   if (typeof window !== 'undefined') return
+
   if (schedulerDisabled()) return
   const g = globalThis as unknown as Record<string, unknown>
+
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
 
   const deps = options.deps ?? { connect: defaultConnect }
   const intervalMs = options.intervalMs ?? DATASET_RETENTION_INTERVAL_MS
+
   const tick = createDatasetRetentionTick(
     deps,
     DATASET_PRUNE_BATCH_LIMIT,
@@ -165,10 +174,12 @@ export function stopDatasetRetentionScheduler(): void {
     clearTimeout(retentionBootTimer)
     retentionBootTimer = null
   }
+
   if (retentionTimer) {
     clearInterval(retentionTimer)
     retentionTimer = null
   }
+
   const g = globalThis as unknown as Record<string, unknown>
   delete g[startedGlobalKey]
 }
@@ -176,6 +187,7 @@ export function stopDatasetRetentionScheduler(): void {
 async function defaultConnect(): Promise<RetentionConnection> {
   const client = new PooledClient({ connectionString: env.DATABASE_URL })
   await client.connect()
+
   return {
     query: async (text, values = []) => client.query(text, values),
     end: () => client.end(),

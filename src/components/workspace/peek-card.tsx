@@ -20,16 +20,20 @@ export interface PeekTarget {
 /** The dot beside a status: green when settled, amber when waiting, red when wrong. */
 function statusTone(status: string): 'good' | 'wait' | 'bad' | 'none' {
   const value = status.toLowerCase()
+
   if (/fail|error|reject|retire|overdue|expired|quarantine|issue/.test(value))
     return 'bad'
+
   if (/hold|review|draft|pending|waiting|returned|submitted/.test(value))
     return 'wait'
+
   if (
     /progress|active|complete|signed|approved|publish|available|connect|effective|current|ready/.test(
       value,
     )
   )
     return 'good'
+
   return 'none'
 }
 
@@ -57,23 +61,28 @@ export function PeekCard({
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const kind = paneKind(target.href)
+
   const summary = useQuery({
     queryKey: ['workspace', 'peek', target.href],
     queryFn: () => fetchPeekSummary(target.href),
     staleTime: 30_000,
     retry: 0,
   })
+
   const [height, setHeight] = useState(190)
   const width = 400
+
   const left = Math.max(
     8,
     Math.min(target.rect.left, window.innerWidth - width - 8),
   )
+
   // Below the link it hangs from, so the row being peeked stays readable;
   // above it when the card would run off the bottom and there is room.
   const below = target.rect.bottom + 8
   const above = target.rect.top - 8 - height
   const flip = below + height > window.innerHeight - 8 && above >= 8
+
   const top = flip
     ? above
     : Math.max(8, Math.min(below, window.innerHeight - 8 - height))
@@ -81,11 +90,13 @@ export function PeekCard({
   // The card grows once the summary arrives, so place it by what it measures.
   useLayoutEffect(() => {
     const node = ref.current
+
     if (!node) return
     const measure = () => setHeight(node.getBoundingClientRect().height)
     measure()
     const observer = new ResizeObserver(measure)
     observer.observe(node)
+
     return () => observer.disconnect()
   }, [])
 
@@ -100,14 +111,17 @@ export function PeekCard({
         onClose()
       }
     }
+
     const onPointer = (event: PointerEvent) => {
       if (ref.current && !ref.current.contains(event.target as Node)) onClose()
     }
+
     window.addEventListener('keydown', onKey, true)
     window.addEventListener('pointerdown', onPointer, true)
     ref.current
       ?.querySelector<HTMLButtonElement>('[data-peek-default]')
       ?.focus()
+
     return () => {
       window.removeEventListener('keydown', onKey, true)
       window.removeEventListener('pointerdown', onPointer, true)

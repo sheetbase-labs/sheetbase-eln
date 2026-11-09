@@ -12,13 +12,16 @@ vi.mock('@tanstack/react-router', () => ({
     <a href={to}>{children}</a>
   ),
 }))
+
 vi.mock('#/lib/notebook-template-data', () => ({
   notebookTemplateDataClient: {},
 }))
+
 vi.mock('#/lib/notebook-template-bulk-upgrade', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   upgradeNotebooksInBulk: (...args: unknown[]) => mocks.upgrade(...args),
 }))
+
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign((...args: unknown[]) => mocks.toast(...args), {
     error: vi.fn(),
@@ -26,6 +29,7 @@ vi.mock('#/components/ui/sonner', () => ({
 }))
 
 afterEach(cleanup)
+
 beforeEach(() => vi.resetAllMocks())
 
 const notebooks = [

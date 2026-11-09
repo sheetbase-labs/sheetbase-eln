@@ -25,8 +25,10 @@ export async function runAndRecordValidation(input: {
   const client = new PooledClient({
     connectionString: process.env.MIGRATION_DATABASE_URL ?? env.DATABASE_URL,
   })
+
   await client.connect()
   const startedAt = new Date()
+
   try {
     const results = await runChecks({
       db: client,
@@ -36,6 +38,7 @@ export async function runAndRecordValidation(input: {
       idleSecondsFor: (userId) => sessionIdleSeconds(db, userId),
       exportKey: async () => {
         const key = await ensureWorkspaceKey(input.workspaceId)
+
         return {
           publicKeyPem: key.publicKeyPem,
           fingerprint: key.fingerprint,
@@ -49,11 +52,13 @@ export async function runAndRecordValidation(input: {
         expectedMigration: env.SHEETBASE_EXPECTED_MIGRATION,
       },
     })
+
     const migration = (
       await client.query<{ latest: string | null }>(
         'SELECT max(created_at)::text AS latest FROM drizzle.__drizzle_migrations',
       )
     ).rows[0]?.latest
+
     const { rows } = await client.query<ValidationRunRecord>(
       `SELECT * FROM internal.record_validation_run($1, $2, $3, $4, $5::jsonb, $6)`,
       [
@@ -65,6 +70,7 @@ export async function runAndRecordValidation(input: {
         startedAt,
       ],
     )
+
     return rows[0]
   } finally {
     await client.end()

@@ -27,6 +27,7 @@ describe('buildModelFieldImpact', () => {
       ],
       [],
     )
+
     expect(impact.recordsOnEachVersion).toEqual([
       { versionId: 'v-2', version: 2, recordCount: 5 },
       { versionId: 'v-1', version: 1, recordCount: 2 },
@@ -46,6 +47,7 @@ describe('buildModelFieldImpact', () => {
         dependency('record'),
       ],
     )
+
     expect(impact.templates).toBe(1)
     expect(impact.sheets).toBe(2)
     expect(impact.migratableRecords).toBe(0)

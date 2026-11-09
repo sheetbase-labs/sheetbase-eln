@@ -18,6 +18,7 @@ import { PrintLabelButton, SampleLabelPrint } from './sample-label-print'
  */
 
 const sonner = vi.hoisted(() => ({ toast: vi.fn(), error: vi.fn() }))
+
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(sonner.toast, { error: sonner.error }),
   Toaster: () => null,
@@ -72,6 +73,7 @@ function renderWithQuery(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
@@ -98,6 +100,7 @@ describe('SampleLabelPrint', () => {
     const { container } = render(
       <SampleLabelPrint record={LABEL_RECORD} host={HOST} />,
     )
+
     const css = container.querySelector('style')?.textContent ?? ''
     expect(css).toContain('@media print')
     expect(css).toContain('@page')
@@ -110,12 +113,15 @@ describe('PrintLabelButton', () => {
   it('opens the browser print for the label document and records the print through the sample event path', async () => {
     const print = vi.spyOn(window, 'print').mockImplementation(() => {})
     const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+
     const client = {
       rpc: (name: string, args: Record<string, unknown>) => {
         calls.push({ name, args })
+
         return Promise.resolve(EDITED_ROW)
       },
     } as unknown as DataClient
+
     const onPrinted = vi.fn()
     const user = userEvent.setup()
 
@@ -152,9 +158,11 @@ describe('PrintLabelButton', () => {
 
   it('surfaces a refused print instead of an unhandled error', async () => {
     vi.spyOn(window, 'print').mockImplementation(() => {})
+
     const client = {
       rpc: () => Promise.reject(new Error('record not found')),
     } as unknown as DataClient
+
     const user = userEvent.setup()
 
     renderWithQuery(<PrintLabelButton record={SAMPLE} client={client} />)

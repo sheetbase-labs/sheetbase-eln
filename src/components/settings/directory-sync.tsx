@@ -52,16 +52,19 @@ export function DirectorySyncSection({
   const [error, setError] = useState<string | null>(null)
   const [secret, setSecret] = useState<string | null>(null)
   const [revoking, setRevoking] = useState<ScimToken | null>(null)
+
   const tokens = useQuery({
     queryKey: directorySyncKeys.tokens(workspaceId),
     enabled: Boolean(workspaceId) && canManage,
     queryFn: () => fetchScimTokens(client, workspaceId),
   })
+
   const status = useQuery({
     queryKey: directorySyncKeys.status(workspaceId),
     enabled: Boolean(workspaceId) && canManage,
     queryFn: () => fetchDirectorySyncStatus(client, workspaceId),
   })
+
   const rows = tokens.data ?? []
 
   const refresh = () =>
@@ -77,6 +80,7 @@ export function DirectorySyncSection({
     },
     onError: (failure) => setError(describeAdminError(failure)),
   })
+
   const revoke = useMutation({
     mutationFn: (id: string) => revokeScimToken(client, id),
     onSuccess: async () => {
@@ -174,6 +178,7 @@ export function DirectorySyncSection({
         className="flex flex-wrap items-end gap-2"
         onSubmit={(event) => {
           event.preventDefault()
+
           if (label.trim()) create.mutate()
         }}
       >

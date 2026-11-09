@@ -14,6 +14,7 @@ const base = {
   formulas: [],
   files: [],
 } as unknown as CanonicalRevisionEnvelope
+
 const changed = {
   ...base,
   record: { id: 'record', title: 'Protein stability assay', status: 'active' },
@@ -27,6 +28,7 @@ const changed = {
     { id: 'block-2', type: 'text', order: 1, content: 'New results' },
   ],
 } as unknown as CanonicalRevisionEnvelope
+
 const meta = {
   title: 'Features/RevisionDiffReview',
   component: RevisionDiffReview,
@@ -38,8 +40,11 @@ const meta = {
     afterLabel: 'Revision 2',
   },
 } satisfies Meta<typeof RevisionDiffReview>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
+
 export const Changes: Story = {}
 export const Unchanged: Story = { args: { after: base } }
 
@@ -51,6 +56,7 @@ export const Unchanged: Story = { args: { after: base } }
 export const FiltersHideEverything: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+
     for (const kind of ['added', 'removed', 'modified', 'moved']) {
       await userEvent.click(
         canvas.getByRole('button', { name: `Hide ${kind} changes` }),
@@ -70,6 +76,7 @@ export const FiltersHideEverything: Story = {
 export const ClearFiltersRestoresChanges: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
+
     for (const kind of ['added', 'removed', 'modified', 'moved']) {
       await userEvent.click(
         canvas.getByRole('button', { name: `Hide ${kind} changes` }),

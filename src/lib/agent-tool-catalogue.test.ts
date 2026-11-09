@@ -26,6 +26,7 @@ describe('agent tool catalogue', () => {
     const kinds = AGENT_TOOL_CATALOGUE.map((entry) => entry.operationKind)
       .filter(Boolean)
       .sort()
+
     expect(kinds).toEqual(
       [
         'dataset_rows.commit',
@@ -80,6 +81,7 @@ describe('agent tool catalogue', () => {
     const operations = AGENT_TOOL_CATALOGUE.filter(
       (entry) => entry.operationKind,
     )
+
     expect(
       operations
         .filter((entry) => entry.mode === 'mutate')
@@ -203,6 +205,7 @@ describe('agent tool catalogue', () => {
 
   it('lists human-only attestation as explicitly unavailable with reasons', () => {
     const names = UNAVAILABLE_AGENT_OPERATIONS.map((entry) => entry.name)
+
     for (const name of [
       'decide_agent_operation',
       'execute_agent_operation',
@@ -213,6 +216,7 @@ describe('agent tool catalogue', () => {
       expect(names, name).toContain(name)
       expect(unavailableReason(name)?.length ?? 0, name).toBeGreaterThan(0)
     }
+
     // Unavailable operations never leak into discovery.
     for (const name of names.filter(
       (entry) =>
@@ -222,6 +226,7 @@ describe('agent tool catalogue', () => {
     )) {
       expect(describeAgentTool(name), name).toBeNull()
     }
+
     expect(unavailableReason('sheetbase.search')).toBeNull()
   })
 })
@@ -230,6 +235,7 @@ describe('agent tool allowlist drift', () => {
   it('gateway, workflow, and catalogue operation tools agree (single authority)', () => {
     expect([...GATEWAY_TOOLS]).toEqual([...AGENT_OPERATION_TOOL_NAMES])
     expect([...AGENT_WORKFLOW_TOOLS]).toEqual([...AGENT_OPERATION_TOOL_NAMES])
+
     const shared = AGENT_TOOL_CATALOGUE.filter(
       (entry) =>
         entry.operationKind &&
@@ -237,6 +243,7 @@ describe('agent tool allowlist drift', () => {
           entry.name,
         ),
     )
+
     expect(shared.map((entry) => entry.name).sort()).toEqual(
       [...AGENT_OPERATION_TOOL_NAMES].sort(),
     )

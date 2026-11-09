@@ -20,12 +20,14 @@ import type { SeedStep } from './run'
 type Db = Parameters<SeedStep['run']>[0]
 
 const PROCESS = '00000000-0000-4000-8000-000000000300'
+
 const USERS = {
   gareth: '00000000-0000-4000-8000-000000000310',
   priya: '00000000-0000-4000-8000-000000000311',
   mei: '00000000-0000-4000-8000-000000000312',
   tom: '00000000-0000-4000-8000-000000000313',
 } as const
+
 const PROJECTS = {
   aav9: 'aav9-process-transfer',
   ambr: 'ambr-250-perfusion-scale-down',
@@ -285,10 +287,12 @@ export async function seedDesignListData(db: Db): Promise<void> {
     'change_event_records',
     'assert_record_project_active',
   ]
+
   for (const trigger of triggers)
     await db.execute(
       sql.raw(`alter table api.records disable trigger ${trigger}`),
     )
+
   try {
     await correctExperiments(db)
     await correctProtocols(db)
@@ -334,6 +338,7 @@ async function correctExperiments(db: Db): Promise<void> {
        using api.records r
        where l.source_record_id = r.id and l.link_type = 'protocol'
          and r.workspace_id = ${PROCESS} and r.identifier = ${e.identifier}`)
+
     if (!e.protocol) continue
     const [protocol, version] = e.protocol
     await db.execute(sql`
@@ -382,12 +387,17 @@ export async function seedDesignDatasetModels(db: Db): Promise<void> {
     const definition = await db.execute(sql`
       select id from api.dataset_schema_definitions
        where workspace_id = ${PROCESS} and key = ${key}`)
+
     const definitionId = (definition.rows[0] as { id: string } | undefined)?.id
+
     if (!definitionId) continue
+
     const latest = await db.execute(sql`
       select id, version from api.dataset_schema_versions
        where schema_id = ${definitionId} order by version desc limit 1`)
+
     const current = latest.rows[0] as { id: string; version: number }
+
     const nextId =
       Number(current.version) >= 2
         ? current.id
@@ -397,13 +407,16 @@ export async function seedDesignDatasetModels(db: Db): Promise<void> {
             }>('select api.create_next_dataset_schema_version($1) as result', [
               definitionId,
             ])
+
             const id = created.rows[0].result.schema_version_id
             await client.query(
               'select api.publish_dataset_schema_version($1)',
               [id],
             )
+
             return id
           })
+
     await db.execute(sql`
       update api.datasets
          set schema_version_id = ${nextId}

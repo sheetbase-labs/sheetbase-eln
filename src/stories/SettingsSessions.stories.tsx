@@ -33,19 +33,23 @@ const meta = {
   ],
   parameters: { layout: 'centered' },
 } satisfies Meta<typeof SettingsSessions>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A story's client: the sessions read either seeded, or held in a state. */
 function provider(read: 'loading' | 'error' | ReadSeed) {
   const seeded = typeof read === 'object' && 'key' in read
   const client = screenQueryClient({ data: seeded ? [read] : [] })
+
   if (!seeded)
     holdRead(
       client,
       mySessionsQueryKey,
       read === 'loading' ? 'pending' : 'error',
     )
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <Story />

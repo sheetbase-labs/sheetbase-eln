@@ -48,6 +48,7 @@ export function getRouter() {
   const invalidate = router.invalidate.bind(router)
   router.invalidate = (...args: Parameters<typeof router.invalidate>) => {
     context.queryClient.removeQueries({ queryKey: ROOT_CONTEXT_QUERY_KEY })
+
     return invalidate(...args)
   }
 
@@ -58,6 +59,7 @@ export function getRouter() {
 export function getPaneRouter(context: RouterContext, href: string) {
   const history = createMemoryHistory({ initialEntries: [href] })
   history.replace(href, { __hashScrollIntoViewOptions: false })
+
   const router = createTanStackRouter({
     routeTree,
     history,
@@ -69,9 +71,11 @@ export function getPaneRouter(context: RouterContext, href: string) {
     defaultPreload: 'intent',
     defaultPreloadStaleTime: 30_000,
   })
+
   // TanStack still scrolls the document on the first render when restoration
   // is false. Panes must not move another pane's document or hash target.
   router._scroll.n = false
+
   return router
 }
 

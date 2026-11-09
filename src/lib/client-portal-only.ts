@@ -11,8 +11,10 @@ export function clientPortalRedirect(
   pathname: string,
 ): { to: '/client-portal' } | null {
   if (role !== 'client_viewer') return null
+
   const allowed = CLIENT_PATHS.some(
     (path) => pathname === path || pathname.startsWith(`${path}/`),
   )
+
   return allowed ? null : { to: '/client-portal' }
 }

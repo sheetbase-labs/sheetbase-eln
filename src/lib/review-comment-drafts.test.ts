@@ -31,6 +31,7 @@ const DIGEST = 'a'.repeat(64)
 
 function fakeStorage(): DraftStorage & { values: Map<string, string> } {
   const values = new Map<string, string>()
+
   return {
     values,
     getItem: (key) => values.get(key) ?? null,
@@ -65,6 +66,7 @@ function fakeClient(overrides?: {
             })
           : Promise.resolve({ id: 'comment-1' })),
   )
+
   return { list: vi.fn(async () => []), rpc } as unknown as DataClient
 }
 
@@ -80,11 +82,13 @@ describe('draft list operations', () => {
   it('counts drafts and drops an empty draft', () => {
     const draft = newDraft({ targetKind: 'revision', target: {}, body: '  ' })
     expect(addDraft([], draft)).toEqual([])
+
     const real = newDraft({
       targetKind: 'block',
       target: { blockId: 'b1' },
       body: 'tighten the method',
     })
+
     const drafts = addDraft([], real)
     expect(draftCommentCount(drafts)).toBe(1)
     expect(removeDraft(drafts, real.id)).toEqual([])
@@ -99,11 +103,13 @@ describe('draft list operations', () => {
 describe('draft persistence', () => {
   it('round-trips drafts per revision and reviewer, and clears them', () => {
     const storage = fakeStorage()
+
     const draft = newDraft({
       targetKind: 'revision',
       target: {},
       body: 'private note',
     })
+
     saveDrafts(storage, 'rev-1', 'reviewer-a', [draft])
     expect(loadDrafts(storage, 'rev-1', 'reviewer-a')).toEqual([draft])
     // A different reviewer or revision must never see these drafts.
@@ -126,6 +132,7 @@ describe('returnWithDraftComments', () => {
   it('keeps drafts private until the return, then publishes them together', async () => {
     const client = fakeClient()
     const rpc = client.rpc as unknown as ReturnType<typeof vi.fn>
+
     const draft = newDraft({
       targetKind: 'revision',
       target: {},
@@ -172,7 +179,9 @@ describe('returnWithDraftComments', () => {
       rpc: () =>
         Promise.reject(new Error('revision integrity digest mismatch')),
     })
+
     const rpc = client.rpc as unknown as ReturnType<typeof vi.fn>
+
     const draft = newDraft({
       targetKind: 'revision',
       target: {},
@@ -195,16 +204,20 @@ describe('returnWithDraftComments', () => {
   it('carries every draft in one return, in order', async () => {
     const client = fakeClient()
     const rpc = client.rpc as unknown as ReturnType<typeof vi.fn>
+
     const drafts = ['first', 'second', 'third'].map((body) =>
       newDraft({ targetKind: 'revision', target: {}, body }),
     )
+
     const result = await returnWithDraftComments(client, {
       revisionId: 'rev-1',
       drafts,
       decision: { submissionId: 'sub-1', expectedRevisionDigest: DIGEST },
     })
+
     const payload = (rpc.mock.calls[0][1] as { p_comments: { body: string }[] })
       .p_comments
+
     expect(payload.map((comment) => comment.body)).toEqual([
       'first',
       'second',
@@ -217,6 +230,7 @@ describe('returnWithDraftComments', () => {
 describe('useReviewCommentDrafts', () => {
   it('holds drafts privately per reviewer and restores them on reload', () => {
     window.localStorage.clear()
+
     const reviewer = renderHook(() =>
       useReviewCommentDrafts({
         revisionId: 'rev-1',
@@ -224,6 +238,7 @@ describe('useReviewCommentDrafts', () => {
         enabled: true,
       }),
     )
+
     act(() => {
       reviewer.result.current.addDraft({
         targetKind: 'revision',
@@ -241,9 +256,11 @@ describe('useReviewCommentDrafts', () => {
         enabled: false,
       }),
     )
+
     expect(author.result.current.drafts).toEqual([])
 
     reviewer.unmount()
+
     const reloaded = renderHook(() =>
       useReviewCommentDrafts({
         revisionId: 'rev-1',
@@ -251,6 +268,7 @@ describe('useReviewCommentDrafts', () => {
         enabled: true,
       }),
     )
+
     expect(reloaded.result.current.drafts[0]?.body).toBe('private note')
 
     act(() => reloaded.result.current.clear())

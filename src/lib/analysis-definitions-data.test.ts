@@ -95,6 +95,7 @@ describe('save/delete wrappers', () => {
       'ws-1',
       'user-1',
     )
+
     expect(saved).toEqual({ id: 'new-id', version: 1 })
     expect(client.insert).toHaveBeenCalledWith('analysis_definitions', {
       workspace_id: 'ws-1',
@@ -117,6 +118,7 @@ describe('save/delete wrappers', () => {
       created_at: '',
       updated_at: '',
     }
+
     const updated = await updateAnalysisDefinition(client, saved.id, {
       id: saved.id,
       name: 'New name',
@@ -125,6 +127,7 @@ describe('save/delete wrappers', () => {
         { datasetId: DATASET_ID, schemaVersionNumber: 3, revision: 2 },
       ],
     })
+
     expect(updated.version).toBe(7)
     expect(client.patch).toHaveBeenCalledWith(
       'analysis_definitions',
@@ -190,6 +193,7 @@ describe('composeAnalysisDefinition', () => {
       .fn()
       .mockRejectedValueOnce(clash)
       .mockResolvedValueOnce({ id: 'def-2' })
+
     await composeAnalysisDefinition({ rpc } as unknown as DataClient, {
       chartViewId: 'v',
       name: 'Dose response',

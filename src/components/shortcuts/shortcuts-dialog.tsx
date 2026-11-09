@@ -50,6 +50,7 @@ export function ShortcutKeys({
           {bindingIndex > 0 ? ' ' : null}
           {sequenceSteps(binding).map((step, stepIndex) => {
             const parsed = parseBinding(step, platform)
+
             const keys = [
               ...(parsed.meta ? ['⌘'] : []),
               ...(parsed.ctrl ? ['Ctrl'] : []),
@@ -57,6 +58,7 @@ export function ShortcutKeys({
               ...(parsed.shift ? [platform === 'mac' ? '⇧' : 'Shift'] : []),
               formatShortcut(parsed.key, platform),
             ]
+
             return (
               <span key={step}>
                 {stepIndex > 0 ? ' then ' : null}
@@ -88,12 +90,14 @@ export function ShortcutGroups({
   const id = useId()
   const Heading = headingLevel === 2 ? 'h2' : 'h3'
   const scopes = ['global', 'panes', 'list', 'notebook', 'review'] as const
+
   const groups = scopes
     .map((scope) => ({
       scope,
       items: definitions.filter((d) => d.scope === scope),
     }))
     .filter((group) => group.items.length > 0)
+
   return (
     <div
       className={cn(
@@ -149,6 +153,7 @@ export function ShortcutsDialog({
   definitions: ShortcutDefinition[]
 }): ReactNode {
   const platform = currentPlatform()
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="top-[10vh] w-[min(840px,calc(100vw-32px))]">
@@ -207,6 +212,7 @@ export function RegistryShortcutsDialog({
   onOpenChange: (open: boolean) => void
 }): ReactNode {
   const { registry } = useShortcuts()
+
   return (
     <ShortcutsDialog
       open={open}

@@ -37,9 +37,11 @@ describe('refreshAfterWrites', () => {
     qc.setQueryData(['notebook', 'blocks', 'r'], [1])
     qc.setQueryData(['sheet-instance', 'i'], [1])
     const stop = refreshAfterWrites(qc, 50, 0)
+
     const rows = createDataClient(
       async () => new Response('[]', { status: 200 }),
     )
+
     await rows.patch('records', 'id=eq.1', { title: 'x' })
     await vi.advanceTimersByTimeAsync(60)
     expect(
@@ -60,9 +62,11 @@ describe('refreshAfterWrites', () => {
     const heard = vi.fn()
     window.addEventListener('sheetbase:shell-refresh', heard)
     const stop = refreshAfterWrites(qc, 50, 0)
+
     const rows = createDataClient(
       async () => new Response('[]', { status: 200 }),
     )
+
     await rows.patch('blocks', 'id=eq.1', { content: 'x' })
     await vi.advanceTimersByTimeAsync(60)
     expect(heard).not.toHaveBeenCalled()

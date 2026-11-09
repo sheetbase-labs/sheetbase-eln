@@ -8,7 +8,9 @@ const meta = {
   tags: ['autodocs'],
   args: { label: 'Edit', icon: 'edit' },
 } satisfies Meta<typeof IconButton>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Hover or focus the button to see its label. */

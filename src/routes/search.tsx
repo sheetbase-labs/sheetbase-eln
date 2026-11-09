@@ -145,9 +145,11 @@ export const Route = createFileRoute('/search')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: SearchPage,
@@ -191,6 +193,7 @@ function statusTone(status: string): Tone {
 
 function statusLabel(status: string, kind?: string): string {
   if (kind === 'sample') return sampleStatus(status).label
+
   return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
@@ -241,12 +244,14 @@ function SearchPage() {
   }, [search.builder, navigate])
   const [draftTree, setDraftTree] = useState<GroupNode | null>(null)
   const ai = usePageAi()
+
   const [aiState, setAiState] = useState<
     | { phase: 'idle' }
     | { phase: 'running' }
     | { phase: 'done'; count: number; skipped: string[] }
     | { phase: 'failed'; message: string }
   >({ phase: 'idle' })
+
   const projectNames = useProjectNameMap()
 
   // The RPC filters are derived from the URL on every render; TanStack Query
@@ -272,15 +277,19 @@ function SearchPage() {
   // per-person switch. It adds what the words missed; it never hides a result.
   const workspaceId = context.workspace?.id ?? ''
   const [meaningOn, setMeaningOn] = useState(readMeaningPreference)
+
   const semanticSettings = useQuery({
     queryKey: ['semantic-settings', workspaceId],
     queryFn: () => getSemanticSettingsFn({ data: { workspaceId } }),
     enabled: Boolean(workspaceId),
     staleTime: 60_000,
   })
+
   const meaningAvailable = semanticSettings.data?.settings.enabled === true
+
   const showMeaning =
     meaningAvailable && meaningOn && q.trim().length > 0 && filterCount === 0
+
   const meaningQuery = useQuery({
     queryKey: ['semantic-hits', workspaceId, q.trim()],
     queryFn: () =>
@@ -288,12 +297,15 @@ function SearchPage() {
     enabled: showMeaning,
     staleTime: 30_000,
   })
+
   // Search tools that plugins add. Shown only where one is switched on.
   const pluginPoints = useExtensionPoints()
+
   const showPlugins =
     pluginPoints.data['search-providers'].length > 0 &&
     q.trim().length > 0 &&
     filterCount === 0
+
   const pluginQuery = useQuery({
     queryKey: ['plugin-search-hits', workspaceId, q.trim()],
     queryFn: () => pluginSearchFn({ data: { workspaceId, query: q.trim() } }),
@@ -301,6 +313,7 @@ function SearchPage() {
     staleTime: 30_000,
     retry: false,
   })
+
   const meaningExtras = useMemo<SemanticHit[]>(
     () =>
       (meaningQuery.data?.hits ?? [])
@@ -333,6 +346,7 @@ function SearchPage() {
       // final page ends pagination without an unsafe index read.
       const total = lastPage.at(0)?.totalCount
       const loaded = allPages.reduce((sum, page) => sum + page.length, 0)
+
       return total !== undefined && loaded < total ? loaded : undefined
     },
     enabled: active,
@@ -343,6 +357,7 @@ function SearchPage() {
   // QA3-search-2 — the service's own total, not just the page in hand, is the
   // number of matches the heading and the "All" facet state.
   const totalCount = query.data?.pages.at(-1)?.at(0)?.totalCount
+
   // Archived is pushed to the RPC as p_include_archived (via
   // urlFiltersToSearchFilters); the remaining facets are still applied here as
   // the authoritative client filter because the RPC narrowing may be a
@@ -355,7 +370,9 @@ function SearchPage() {
     from: search.from,
     to: search.to,
   })
+
   const matchCount = searchMatchCount(loaded.length, results.length, totalCount)
+
   // The server counts every match by type and project, whatever page is
   // loaded. Until that answer arrives (or if it fails) the page falls back to
   // counting the rows it holds, which is a floor while more are waiting.
@@ -367,12 +384,14 @@ function SearchPage() {
     limit: undefined,
     offset: undefined,
   }
+
   const facetQuery = useQuery({
     queryKey: ['search-facets', ...searchQueryKeys.search(facetFilters)],
     queryFn: () => fetchSearchFacets(notebookDataClient, facetFilters),
     enabled: active,
     staleTime: 10_000,
   })
+
   const serverFacets = useMemo(
     () =>
       facetQuery.data
@@ -383,7 +402,9 @@ function SearchPage() {
         : null,
     [facetQuery.data, search.type, search.project],
   )
+
   const morePending = Boolean(query.hasNextPage)
+
   const partial = (count: number) =>
     morePending && !serverFacets ? `${count}+` : String(count)
 
@@ -403,28 +424,36 @@ function SearchPage() {
   const loadedFacets = useMemo(() => {
     const types = new Map<SearchResultGroup, number>()
     const projects = new Map<string, number>()
+
     for (const r of results) {
       const g = searchResultGroup(r)
       types.set(g, (types.get(g) ?? 0) + 1)
+
       if (r.projectId)
         projects.set(r.projectId, (projects.get(r.projectId) ?? 0) + 1)
     }
+
     return { types, projects }
   }, [results])
+
   const facets = serverFacets ?? loadedFacets
 
   const typeFilter = search.type ?? []
+
   // Fields only one kind of thing carries are offered once the search is
   // narrowed to that kind, from the values its results returned.
   const onlyGroup =
     typeFilter.length === 1 ? (typeFilter[0] as SearchResultGroup) : undefined
+
   const typeFields = useMemo(
     () => typeSearchFields(loaded, onlyGroup),
     [loaded, onlyGroup],
   )
+
   const filterFields = useSearchFields(typeFields)
   const draftComplete = draftTree ? completeFilter(draftTree) : undefined
   const draftEncoded = draftComplete ? encodeFilter(draftComplete) : undefined
+
   const draftCount = useQuery({
     queryKey: [
       'search-draft-count',
@@ -436,12 +465,15 @@ function SearchPage() {
         ...facetFilters,
         filter: draftComplete,
       })
+
       return rows.reduce((sum, row) => sum + row.count, 0)
     },
     enabled: builderOpen && Boolean(draftEncoded),
     staleTime: 10_000,
   })
+
   const projectFilter = search.project ?? []
+
   const members = useQuery({
     queryKey: ['ui-port', 'workspace-members'],
     queryFn: () =>
@@ -452,6 +484,7 @@ function SearchPage() {
     enabled: active,
     staleTime: 60_000,
   })
+
   const updatedFilter = search.updated ?? 'any'
 
   // A query or facet change is a new place in the history: Back returns to the
@@ -461,11 +494,13 @@ function SearchPage() {
       to: '/search',
       search: (s) => ({ ...s, ...patch }),
     })
+
   // QA3-search-1 — only the type, project and updated facets narrow the
   // results. "Include archived" widens the *query*, so ticking it alone must
   // not make the empty state blame filters (nor offer a Clear filters button
   // that resets facets which are already unset).
   const dateRangeSet = Boolean(search.from || search.to)
+
   const facetFilterCount =
     filterCount +
     typeFilter.length +
@@ -547,6 +582,7 @@ function SearchPage() {
   /** Plain English in, editable filters out: the builder opens on what the model understood. */
   const askAi = async () => {
     setAiState({ phase: 'running' })
+
     const result = await ai.run({
       task: 'search_filters',
       instruction: searchInstruction(
@@ -555,10 +591,12 @@ function SearchPage() {
         new Date().toISOString().slice(0, 10),
       ),
     })
+
     const proposal =
       result.status === 'ok'
         ? await parseSearchAnswer(result.text, filterFields)
         : null
+
     if (!proposal || (!proposal.filter && !proposal.q)) {
       setAiState({
         phase: 'failed',
@@ -567,13 +605,16 @@ function SearchPage() {
             ? t('projects.searchAi.noFilters')
             : result.message,
       })
+
       return
     }
+
     setDraft(proposal.q)
     setSearch({
       q: proposal.q || undefined,
       filter: proposal.filter ? encodeFilter(proposal.filter) : undefined,
     })
+
     if (proposal.filter) setBuilderOpen(true)
     setAiState({
       phase: 'done',
@@ -813,6 +854,7 @@ function SearchPage() {
   // The type tabs replace the old sidebar's Type facet: one kind at a time,
   // with how many of each the search found.
   const activeType = typeFilter.length === 1 ? typeFilter[0] : undefined
+
   const typeTabs = active ? (
     <Tabs
       mode="url"
@@ -1050,7 +1092,9 @@ function SearchPage() {
 function MatchText({ result }: { result: SearchResult }) {
   const context = searchResultContext(result, result.matchedContext)
   const parentLine = searchResultParentLine(result)
+
   if (!context.length && !parentLine) return null
+
   return (
     <span className="block max-w-[300px] truncate text-fg-muted">
       {parentLine ? <span>{parentLine} · </span> : null}
@@ -1086,6 +1130,7 @@ function SearchResultsTable({
 }) {
   const navigate = useNavigate()
   const open = (r: SearchResult) => void navigate({ href: r.deepLink })
+
   const columns = useMemo<RegistryColumn<SearchResult>[]>(
     () => [
       {
@@ -1182,6 +1227,7 @@ function SearchResultsTable({
     ],
     [q, projectNames],
   )
+
   return (
     <>
       <MobileList

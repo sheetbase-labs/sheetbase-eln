@@ -83,6 +83,7 @@ export function SampleLabelPrintStyles({
     widthMm && heightMm
       ? `size: ${widthMm}mm ${heightMm}mm;\n    margin: 0;`
       : 'margin: 12mm;'
+
   return (
     <style>{`
 @media print {

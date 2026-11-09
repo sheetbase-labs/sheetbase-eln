@@ -49,7 +49,9 @@ describe('figure display controls', () => {
       'max',
       '2',
     )
+
     expect(axisRangeProblem(inverted, 'y')).toMatch(/minimum must be below/)
+
     const log = setAxisBound(
       {
         ...spec,
@@ -62,6 +64,7 @@ describe('figure display controls', () => {
       'min',
       '0',
     )
+
     expect(axisRangeProblem(log, 'y')).toMatch(/positive range/)
     expect(axisRangeProblem(spec, 'y')).toBeNull()
   })

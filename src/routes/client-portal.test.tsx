@@ -22,8 +22,10 @@ const portal = vi.hoisted(() => ({
   fetchClientPortalReports: vi.fn(),
   postClientPortalMessage: vi.fn(),
 }))
+
 const navigate = vi.hoisted(() => vi.fn())
 const signOutMock = vi.hoisted(() => vi.fn())
+
 const routerMock = vi.hoisted(() => ({
   invalidate: vi.fn(async () => {}),
   options: {
@@ -32,10 +34,13 @@ const routerMock = vi.hoisted(() => ({
     },
   },
 }))
+
 const search = vi.hoisted(() => {
   const state: { value: { tab?: string } } = { value: {} }
+
   return state
 })
+
 const routeContext = vi.hoisted(() => ({
   value: {
     workspace: { id: 'ws-1', name: 'Process Development', role: 'viewer' },
@@ -67,6 +72,7 @@ function renderPortal() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       {React.createElement(ClientPortalRoute)}

@@ -157,6 +157,7 @@ export function describeIntakeFailure(
 ): string {
   const parser = context.parser ?? t('data.intake.reasons.thisParser')
   const detail = (context.detail ?? '').trim()
+
   switch (code) {
     case 'unsupported_format':
       return t('data.intake.reasons.unsupportedFormat')
@@ -229,14 +230,17 @@ async function readIntakeText(bytes: Uint8Array): Promise<string> {
           describeIntakeFailure('unreadable_workbook'),
         )
       })
+
     if (!sheet)
       throw new IntakeError(
         422,
         'empty_file',
         describeIntakeFailure('empty_file'),
       )
+
     return matrixToCsv(sheet.matrix)
   }
+
   // A NUL byte in the first block means a binary format no text parser can read.
   if (bytes.subarray(0, 4096).includes(0)) {
     throw new IntakeError(
@@ -245,6 +249,7 @@ async function readIntakeText(bytes: Uint8Array): Promise<string> {
       describeIntakeFailure('unsupported_format'),
     )
   }
+
   return new TextDecoder('utf-8').decode(bytes)
 }
 
@@ -260,6 +265,7 @@ async function linkToInstrument(
   },
 ): Promise<string> {
   const identifier = `pickup-${input.retained.checksum.slice(0, 16)}`
+
   const run = await client.rpc<{ id: string }>('create_instrument_run', {
     p_workspace_id: input.workspaceId,
     p_name: input.fileName.slice(0, 200),
@@ -268,6 +274,7 @@ async function linkToInstrument(
     p_project_id: input.projectId,
     p_tags: ['pickup'],
   })
+
   await client.rpc('start_instrument_run', {
     p_workspace_id: input.workspaceId,
     p_run_id: run.id,
@@ -291,6 +298,7 @@ async function linkToInstrument(
     p_workspace_id: input.workspaceId,
     p_run_id: run.id,
   })
+
   return run.id
 }
 
@@ -335,6 +343,7 @@ export async function recordIntakeFailure(
         p_connector_run_id: input.runId,
       },
     )
+
     return row.id
   } catch {
     return null
@@ -357,6 +366,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
       parser: parserName ?? parserKey,
       detail,
     })
+
     const failureId = await recordIntakeFailure({
       ...input,
       code,
@@ -366,6 +376,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
       byteSize: input.retained?.byteSize ?? input.bytes.byteLength,
       runId,
     })
+
     throw new IntakeError(status, code, message, failureId)
   }
 
@@ -374,11 +385,13 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
     // format is fine), so only a parser that reads text needs the text.
     const chosenKey =
       parserKey || (!input.autoDetect ? connector.parser_id : null)
+
     const converterChosen = chosenKey
       ? await resolveParserVersion(client, workspaceId, chosenKey)
           .then((resolved) => resolved.kind === 'converter')
           .catch(() => false)
       : false
+
     const text = converterChosen ? '' : await readIntakeText(input.bytes)
     parserKey ??=
       input.autoDetect || !connector.parser_id
@@ -389,6 +402,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
       client,
       target.schemaVersionId,
     )
+
     const fields: ImportTargetField[] = fieldRows
       .filter((field) => field.lifecycle === 'active')
       .map((field) => ({
@@ -399,6 +413,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
         nullable: field.nullable,
         kind: 'dataset-field',
       }))
+
     if (fields.length === 0) {
       throw new IntakeError(
         422,
@@ -408,11 +423,13 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
     }
 
     let expectedRevision: number | null = null
+
     if (target.datasetId) {
       const datasets = await client.list<{
         id: string
         revision: number | string
       }>('datasets', `?id=eq.${target.datasetId}&select=id,revision&limit=1`)
+
       if (!datasets[0]) {
         throw new IntakeError(
           422,
@@ -420,6 +437,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
           t('data.intake.reasons.datasetGone'),
         )
       }
+
       expectedRevision = Number(datasets[0].revision)
     }
 
@@ -444,6 +462,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
         fields,
       },
     })
+
     parserName = result.parser.label
 
     // Read: close whatever was open for this same file.
@@ -457,6 +476,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
 
     let instrumentRunId: string | null = null
     let instrumentLink: IntakeResult['instrumentLink'] = 'skipped'
+
     if (input.instrumentId && input.retained) {
       try {
         instrumentRunId = await linkToInstrument(client, {
@@ -471,29 +491,36 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
         instrumentLink = 'failed'
       }
     }
+
     // The samples the file names get a link to the run and a result per
     // reading, so their release checks can pass from this data.
     let samples: IntakeResult['samples'] = null
+
     if (instrumentRunId && result.parsed) {
       try {
         const named = sampleResultsFromPayload(result.parsed)
+
         if (named.length > 0) {
           const outcome = await recordRunSampleResults(client, {
             workspaceId,
             runId: instrumentRunId,
             results: named,
           })
+
           samples = { linked: outcome.linked, unknown: outcome.unknown }
         }
       } catch {
         samples = null
       }
     }
+
     // A converted file keeps its Allotrope document with the instrument run.
     let asm: IntakeResult['asm'] = null
     const converted = result.parsed?.asm
+
     if (converted) {
       let kept = false
+
       if (instrumentRunId) {
         try {
           await client.rpc('record_instrument_run_document', {
@@ -513,6 +540,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
           kept = false
         }
       }
+
       asm = {
         kept,
         measurements: converted.measurements,
@@ -520,10 +548,12 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
           `${converted.converter} ${converted.converterVersion}`.trim(),
       }
     }
+
     // The dataset gets its project and owner, and, when the samples already
     // belong to one open experiment, that experiment. Reading the file has
     // succeeded, so none of this may fail the intake.
     let experiment: IntakeResult['experiment'] = null
+
     try {
       const linked = await client.rpc<{
         experimentId: string | null
@@ -535,6 +565,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
         p_run_id: instrumentRunId,
         p_connector_run_id: result.runId,
       })
+
       if (linked.experimentId && linked.experimentIdentifier)
         experiment = {
           id: linked.experimentId,
@@ -543,6 +574,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
     } catch {
       experiment = null
     }
+
     return {
       runId: result.runId,
       alreadyCompleted: result.alreadyCompleted,
@@ -561,12 +593,16 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
   } catch (error) {
     if (error instanceof IntakeError) {
       if (error.failureId || error.code === 'pickup_not_configured') throw error
+
       return fail(error.status, error.code, error.message)
     }
+
     if (error instanceof ParserResolutionError) {
       parserKey = error.parserKey ?? parserKey
+
       return fail(422, error.code, error.message)
     }
+
     if (error instanceof WebhookParserError) {
       return fail(
         TRANSIENT.has(error.code) ? 502 : 422,
@@ -574,6 +610,7 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
         error.message,
       )
     }
+
     if (error instanceof ConverterError) {
       return fail(
         TRANSIENT.has(error.code) ? 502 : 422,
@@ -581,23 +618,28 @@ export async function runIntake(input: IntakeInput): Promise<IntakeResult> {
         error.message,
       )
     }
+
     if (error instanceof TabularIngestionError) {
       runId = error.runId
+
       return fail(
         TRANSIENT.has(error.code) ? 502 : 422,
         error.code,
         error.message,
       )
     }
+
     if (error instanceof ConnectorExecutionError) {
       return fail(422, error.code, boundedErrorMessage(error))
     }
+
     if (
       error instanceof DataClientError &&
       (error.status === 401 || error.status === 403)
     ) {
       throw error
     }
+
     return fail(422, 'ingestion_failed', boundedErrorMessage(error))
   }
 }

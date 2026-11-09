@@ -41,8 +41,10 @@ export function previewKindOf(
   name: string,
 ): PreviewKind | null {
   const byType = lookup(BY_MEDIA_TYPE, mediaType.trim().toLowerCase())
+
   if (byType) return byType
   const extension = name.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]
+
   return (extension ? lookup(BY_EXTENSION, extension) : undefined) ?? null
 }
 

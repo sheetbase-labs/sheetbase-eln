@@ -103,6 +103,7 @@ function renderResults() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       {React.createElement(ResultsRoute)}
@@ -113,19 +114,24 @@ function renderResults() {
 beforeEach(() => {
   dataClient.list.mockImplementation(async (resource: string, query = '') => {
     if (resource === 'record_links') return LINKS
+
     if (resource === 'records')
       return [{ decision: null, decision_notes: null }]
+
     if (resource === 'analysis_views') {
       return [
         { id: 'an-7', display_id: 'AN-0007', name: 'VCD by day', charts: [] },
       ]
     }
+
     if (resource === 'rpc/dataset_list_summary') {
       const wanted = DATASET_ROWS.filter((row) =>
         query.includes(row.display_id),
       )
+
       return wanted
     }
+
     return []
   })
 })
@@ -146,6 +152,7 @@ describe('experiment results', () => {
     const datasetReads = dataClient.list.mock.calls.filter(
       ([resource]) => resource === 'rpc/dataset_list_summary',
     )
+
     expect(datasetReads).toHaveLength(1)
     const query = String(datasetReads[0][1])
     expect(query).toContain('display_id=in.(DS-0320,DS-0311)')

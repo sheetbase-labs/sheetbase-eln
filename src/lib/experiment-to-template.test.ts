@@ -13,12 +13,16 @@ import { fetchSheetInstance } from './sheet-instance-data'
 import { notebookTemplateConfigurationSchema } from './notebook-template'
 
 vi.mock('./notebook-data', () => ({ fetchBlocksForRecord: vi.fn() }))
+
 vi.mock('./notebook-template-data', () => ({ createNotebookTemplate: vi.fn() }))
+
 vi.mock('./sheet-instance-data', () => ({ fetchSheetInstance: vi.fn() }))
 
 let counter = 0
+
 const newId = () => {
   counter += 1
+
   return `00000000-0000-4000-8000-${String(counter).padStart(12, '0')}`
 }
 
@@ -29,6 +33,7 @@ const DEFINITION = '00000000-0000-4000-8000-0000000000cc'
 describe('templateConfigurationFromBlocks with parts', () => {
   it('carries the parts and tags each placement with its part', () => {
     counter = 0
+
     const draft = templateConfigurationFromBlocks(
       [
         { type: 'rich_text', payload: {}, order: 1, partId: 'p1' },
@@ -41,6 +46,7 @@ describe('templateConfigurationFromBlocks with parts', () => {
         { id: 'p2', title: 'Dose', dayOffset: 2 },
       ],
     )
+
     const config = draft.configuration
     expect(config.parts?.map((part) => [part.title, part.dayOffset])).toEqual([
       ['Seed', 0],
@@ -70,6 +76,7 @@ describe('templateConfigurationFromBlocks with parts', () => {
         },
       ],
     })
+
     expect(result.success).toBe(false)
   })
 })
@@ -77,6 +84,7 @@ describe('templateConfigurationFromBlocks with parts', () => {
 describe('templateConfigurationFromBlocks', () => {
   it('keeps the method, unchecks checklists and drops results', () => {
     counter = 0
+
     const draft = templateConfigurationFromBlocks(
       [
         { type: 'rich_text', payload: { doc: 'a' }, order: 1 },
@@ -94,6 +102,7 @@ describe('templateConfigurationFromBlocks', () => {
       new Map([[INSTANCE, DEFINITION]]),
       newId,
     )
+
     expect(draft.configuration.placements.map((p) => p.kind)).toEqual([
       'narrative',
       'narrative',
@@ -120,6 +129,7 @@ describe('templateConfigurationFromBlocks', () => {
 
   it('orders by the notebook order, renumbering placements from one', () => {
     counter = 0
+
     const draft = templateConfigurationFromBlocks(
       [
         { type: 'callout', payload: { text: 'b' }, order: 9 },
@@ -128,6 +138,7 @@ describe('templateConfigurationFromBlocks', () => {
       new Map(),
       newId,
     )
+
     expect(draft.configuration.placements.map((p) => p.order)).toEqual([1, 2])
     expect(draft.configuration.placements[0]).toMatchObject({
       blockType: 'rich_text',
@@ -139,6 +150,7 @@ describe('templateConfigurationFromBlocks', () => {
 describe('templateKeyFromName', () => {
   it('makes a key the server accepts', () => {
     const pattern = /^[a-z][a-z0-9_]{0,59}$/
+
     for (const name of [
       'Harvest clarification',
       '2-step purification!',
@@ -147,6 +159,7 @@ describe('templateKeyFromName', () => {
     ]) {
       expect(templateKeyFromName(name)).toMatch(pattern)
     }
+
     expect(templateKeyFromName('Harvest clarification')).toBe(
       'harvest_clarification',
     )
@@ -159,6 +172,7 @@ describe('templateKeyFromName', () => {
 describe('saveExperimentAsTemplate', () => {
   it('reads each Sheet once, all at the same time', async () => {
     const OTHER = '00000000-0000-4000-8000-0000000000dd'
+
     const sheetBlock = (instanceId: string, order: number): NotebookBlock => ({
       id: `block-${order}`,
       recordId: 'exp',
@@ -168,6 +182,7 @@ describe('saveExperimentAsTemplate', () => {
       order,
       version: 1,
     })
+
     vi.mocked(fetchBlocksForRecord).mockResolvedValue([
       sheetBlock(INSTANCE, 1),
       sheetBlock(OTHER, 2),
@@ -180,6 +195,7 @@ describe('saveExperimentAsTemplate', () => {
       peak = Math.max(peak, inFlight)
       await new Promise((resolve) => setTimeout(resolve, 5))
       inFlight -= 1
+
       return {
         sourceDefinitionVersionId: id === INSTANCE ? DEFINITION : null,
       } as Awaited<ReturnType<typeof fetchSheetInstance>>

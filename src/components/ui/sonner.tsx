@@ -19,4 +19,5 @@ export function Toaster() {
     />
   )
 }
+
 export { toast }

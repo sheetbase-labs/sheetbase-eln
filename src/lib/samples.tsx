@@ -93,6 +93,7 @@ function asString(value: unknown): string | null {
 function asNumber(value: unknown): number | null {
   if (value === null || value === undefined || value === '') return null
   const n = typeof value === 'number' ? value : Number(value)
+
   return Number.isFinite(n) ? n : null
 }
 
@@ -130,9 +131,11 @@ function asObject(value: unknown): Record<string, unknown> | undefined {
 
 function asStringArray(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) return undefined
+
   const out = value.filter(
     (item): item is string => typeof item === 'string' && item !== '',
   )
+
   return out.length > 0 ? out : undefined
 }
 
@@ -162,6 +165,7 @@ export interface SampleRecord extends NotebookRecord {
 export function toSampleRecord(row: RecordWire): SampleRecord {
   const base = toRecord(row)
   const props = parseSampleProperties(row.properties ?? {})
+
   return {
     ...base,
     customFields: row.custom_fields ?? {},
@@ -191,28 +195,47 @@ export function samplePropertiesPayload(
   props: SampleProperties,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {}
+
   if (props.sampleType != null) out.sampleType = props.sampleType
+
   if (props.quantity != null) out.quantity = props.quantity
+
   if (props.quantityUnit != null) out.quantityUnit = props.quantityUnit
+
   if (props.storageLocation != null) out.storageLocation = props.storageLocation
+
   if (props.barcode != null) out.barcode = props.barcode
+
   if (props.lowStockThreshold != null)
     out.lowStockThreshold = props.lowStockThreshold
+
   if (props.notes != null) out.notes = props.notes
+
   if (props.holdCondition != null) out.holdCondition = props.holdCondition
+
   if (props.holdStartedAt != null) out.holdStartedAt = props.holdStartedAt
+
   if (props.holdDurationDays != null)
     out.holdDurationDays = props.holdDurationDays
+
   if (props.holdUntil != null) out.holdUntil = props.holdUntil
+
   if (props.allowedUseExperimentIds != null)
     out.allowedUseExperimentIds = props.allowedUseExperimentIds
+
   if (props.quarantineReason != null)
     out.quarantineReason = props.quarantineReason
+
   if (props.quarantinedAt != null) out.quarantinedAt = props.quarantinedAt
+
   if (props.disposalReason != null) out.disposalReason = props.disposalReason
+
   if (props.disposedAt != null) out.disposedAt = props.disposedAt
+
   if (props.releasedAt != null) out.releasedAt = props.releasedAt
+
   if (props.releaseChecks != null) out.releaseChecks = props.releaseChecks
+
   return out
 }
 
@@ -230,6 +253,7 @@ export function isLowStock(sample: {
   lowStockThreshold: number | null
 }): boolean {
   if (sample.quantity == null || sample.lowStockThreshold == null) return false
+
   return sample.quantity > 0 && sample.quantity <= sample.lowStockThreshold
 }
 
@@ -257,6 +281,7 @@ export function computeSampleSummaries(
   const lowStock = rows.filter((r) => isLowStock(r)).length
   const consumed = rows.filter((r) => r.status === 'consumed').length
   const pct = totalCount > 0 ? Math.round((available / totalCount) * 100) : 0
+
   return [
     {
       label: 'Total samples',
@@ -354,15 +379,20 @@ function escapeIlike(value: string): string {
 export function buildSamplesFilter(filters: RegistryFilterValue[]): string[] {
   const clauses: string[] = ['kind=eq.sample', 'deleted_at=is.null']
   let includeArchived = false
+
   for (const filter of filters) {
     const raw = filter.values[0]
     const value = typeof raw === 'string' ? raw.trim() : ''
+
     if (!value && typeof raw !== 'boolean') continue
+
     if (filter.fieldId.startsWith('custom:')) {
       const key = filter.fieldId.slice('custom:'.length)
+
       if (!/^[a-z][a-z0-9_]{0,62}$/.test(key)) {
         throw new Error(`Unsupported model field: ${key}`)
       }
+
       if (filter.operator === 'eq') {
         clauses.push(`custom_fields->>${key}=eq.${escapeIlike(String(raw))}`)
       } else if (filter.operator === 'contains') {
@@ -370,16 +400,20 @@ export function buildSamplesFilter(filters: RegistryFilterValue[]): string[] {
       } else {
         throw new Error(`Unsupported model-field filter: ${filter.operator}`)
       }
+
       continue
     }
+
     const expected =
       filter.fieldId === 'status' || filter.fieldId === 'archived'
         ? 'eq'
         : 'contains'
+
     if (filter.operator !== expected)
       throw new Error(
         `Unsupported sample filter: ${filter.fieldId}/${filter.operator}`,
       )
+
     switch (filter.fieldId) {
       case 'status':
         clauses.push(`status=eq.${value}`)
@@ -402,6 +436,7 @@ export function buildSamplesFilter(filters: RegistryFilterValue[]): string[] {
         )
         break
       }
+
       case 'archived':
         if (value === 'included') includeArchived = true
         break
@@ -409,23 +444,30 @@ export function buildSamplesFilter(filters: RegistryFilterValue[]): string[] {
         throw new Error(`Unsupported sample filter field: ${filter.fieldId}`)
     }
   }
+
   if (!includeArchived) clauses.push('archived_at=is.null')
+
   return clauses
 }
 
 /** Map a RegistryQuery sort to a PostgREST `order=` clause. */
 export function buildSamplesOrder(query: RegistryQuery): string {
   const parts: string[] = []
+
   // Grouping is a display concern; ordering by the group column first keeps
   // clustered rows together under manual grouping.
   for (const group of query.grouping) {
     const field = sampleSortField(group)
+
     if (field) parts.push(`${field}.asc`)
   }
+
   for (const sort of query.sorting) {
     const field = sampleSortField(sort.id)
+
     if (field) parts.push(`${field}.${sort.desc ? 'desc' : 'asc'}`)
   }
+
   if (parts.length === 0) parts.push('identifier.asc')
   // Stable secondary sort so pagination is deterministic, but only when the
   // primary order is something other than identifier (otherwise it would
@@ -433,16 +475,19 @@ export function buildSamplesOrder(query: RegistryQuery): string {
   else if (!parts.some((p) => p.startsWith('identifier.'))) {
     parts.push('identifier.asc')
   }
+
   return `order=${parts.join(',')}`
 }
 
 function sampleSortField(id: string): string | undefined {
   if (id.startsWith('custom:')) {
     const key = id.slice('custom:'.length)
+
     return /^[a-z][a-z0-9_]{0,62}$/.test(key)
       ? `custom_fields->${key}`
       : undefined
   }
+
   return SAMPLE_SORT_FIELDS[id]
 }
 
@@ -455,6 +500,7 @@ export function buildSamplesQuery(query: RegistryQuery): string {
   clauses.push(
     'select=id,workspace_id,project_id,kind,identifier,title,status,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id,properties,custom_fields',
   )
+
   return `?${clauses.join('&')}`
 }
 
@@ -596,6 +642,7 @@ export interface SampleQuantityBalances {
 
 function toNumber(value: unknown): number {
   const n = typeof value === 'number' ? value : Number(value)
+
   return Number.isFinite(n) ? n : 0
 }
 
@@ -677,6 +724,7 @@ export async function fetchSamplesPage(
       .then((rs) => rs.map(toSampleRecord)),
     client.count('records', buildSamplesCountQuery(query)),
   ])
+
   return { rows, totalCount }
 }
 
@@ -689,6 +737,7 @@ export async function fetchSample(
     'records',
     `?id=eq.${recordId}&kind=eq.sample&select=id,workspace_id,project_id,kind,identifier,title,status,tags,structure_version,metadata_version,created_at,updated_at,archived_at,deleted_at,created_by_user_id,updated_by_user_id,properties,custom_fields`,
   )
+
   return rows.length > 0 ? toSampleRecord(rows[0]) : null
 }
 
@@ -731,6 +780,7 @@ export async function fetchSampleQuantityBalances(
     'sample_quantity_balances',
     { p_record_id: recordId },
   )
+
   return toSampleQuantityBalances(raw ?? {})
 }
 
@@ -780,20 +830,26 @@ export function deriveSampleVolumeSummary(
     sample.quantityUnit ??
     events.find((event) => event.quantityUnit)?.quantityUnit ??
     null
+
   const consumes = events.filter((event) => event.operation === 'consume')
+
   const used = consumes.length
     ? consumes.reduce(
         (total, event) => total + Math.abs(event.quantityDelta ?? 0),
         0,
       )
     : null
+
   // Newest-first, so the oldest create is the last matching event.
   const creates = events.filter((event) => event.operation === 'create')
   const created = creates.at(-1)
+
   const registered =
     created?.quantityAfter ??
     (sample.quantity != null && used != null ? sample.quantity + used : null)
+
   const latest = consumes.at(0) ?? null
+
   const lastWithdrawal: SampleLastWithdrawal | null = latest
     ? {
         at: latest.createdAt,
@@ -803,6 +859,7 @@ export function deriveSampleVolumeSummary(
         remaining: latest.quantityAfter,
       }
     : null
+
   return { registered, current: sample.quantity, unit, used, lastWithdrawal }
 }
 
@@ -831,15 +888,19 @@ export function derivationRelation(
   metadata: Record<string, unknown> | undefined,
 ): string | null {
   if (!metadata) return null
+
   if (
     typeof metadata.relation === 'string' &&
     metadata.relation.trim() !== ''
   ) {
     return metadata.relation.trim()
   }
+
   const origin = metadata.origin
+
   if (typeof origin === 'string')
     return DERIVATION_ORIGIN_LABELS[origin] ?? null
+
   return null
 }
 
@@ -863,6 +924,7 @@ export async function fetchSampleParentCount(
     'record_links',
     `?target_record_id=eq.${sampleRecordId}&link_type=eq.sample&target_kind=eq.sample&select=id`,
   )
+
   return links.length
 }
 
@@ -877,12 +939,14 @@ async function fetchSampleLinks(
   sourceIds: string[],
 ): Promise<SampleLinkWire[]> {
   if (sourceIds.length === 0) return []
+
   const links = await listByIds(sourceIds, (inList) =>
     client.list<SampleLinkWire>(
       'record_links',
       `?source_record_id=in.(${inList})&link_type=eq.sample&target_kind=eq.sample&select=${DERIVED_LINK_SELECT}&order=created_at.asc`,
     ),
   )
+
   return links.sort((a, b) => a.created_at.localeCompare(b.created_at))
 }
 
@@ -899,18 +963,24 @@ export async function fetchSampleDerivedSamples(
   sampleRecordId: string,
 ): Promise<DerivedSample[]> {
   const direct = await fetchSampleLinks(client, [sampleRecordId])
+
   if (direct.length === 0) return []
+
   const directTargets = direct
     .map((link) => link.target_record_id)
     .filter((id): id is string => Boolean(id))
+
   const nested = await fetchSampleLinks(client, directTargets)
+
   const links: Array<{ link: SampleLinkWire; depth: number }> = [
     ...direct.map((link) => ({ link, depth: 0 })),
     ...nested.map((link) => ({ link, depth: 1 })),
   ]
+
   const targetIds = links
     .map(({ link }) => link.target_record_id)
     .filter((id): id is string => Boolean(id))
+
   const records = targetIds.length
     ? await listByIds(targetIds, (inList) =>
         client.list<RecordWire>(
@@ -919,11 +989,14 @@ export async function fetchSampleDerivedSamples(
         ),
       )
     : []
+
   const byId = new Map(records.map((record) => [record.id, record]))
+
   return links.map(({ link, depth }) => {
     const record = link.target_record_id
       ? byId.get(link.target_record_id)
       : undefined
+
     return {
       linkId: link.id,
       recordId: link.target_record_id,
@@ -967,6 +1040,7 @@ export function groupDerivedSamples(
   const direct = samples
     .filter((sample) => sample.depth === 0)
     .sort((a, b) => a.identifier.localeCompare(b.identifier))
+
   const childrenOf = (recordId: string | null) =>
     samples.filter(
       (sample) => sample.depth === 1 && sample.parentRecordId === recordId,
@@ -985,8 +1059,10 @@ export function groupDerivedSamples(
 
   const entries: DerivedDisplayEntry[] = []
   let index = 0
+
   while (index < direct.length) {
     const run: DerivedSample[] = [direct[index]]
+
     while (
       index + 1 < direct.length &&
       childrenOf(direct[index].recordId).length === 0 &&
@@ -996,8 +1072,10 @@ export function groupDerivedSamples(
       run.push(direct[index + 1])
       index++
     }
+
     const first = run[0]
     const last = run[run.length - 1]
+
     if (run.length > 1) {
       entries.push({
         identifier: `${first.identifier} … ${last.identifier}`,
@@ -1012,6 +1090,7 @@ export function groupDerivedSamples(
     } else {
       entries.push(single(first))
     }
+
     for (const child of childrenOf(first.recordId)) {
       entries.push({
         identifier: child.identifier,
@@ -1024,8 +1103,10 @@ export function groupDerivedSamples(
         linkIds: [child.linkId],
       })
     }
+
     index++
   }
+
   return entries
 }
 
@@ -1076,6 +1157,7 @@ export async function fetchSampleMeasurements(
     'sample_measurement_provenance',
     { p_sample_record_id: sampleRecordId },
   )
+
   return rows ?? []
 }
 
@@ -1091,10 +1173,13 @@ export async function fetchLinkedExperiments(
     'record_links',
     `?target_record_id=eq.${sampleRecordId}&link_type=eq.sample&order=created_at.desc`,
   )
+
   if (links.length === 0) return []
+
   const sourceIds = links
     .map((l) => l.source_record_id)
     .filter((id): id is string => Boolean(id))
+
   if (sourceIds.length === 0) {
     return links.map((l) => ({
       linkId: l.id,
@@ -1104,15 +1189,19 @@ export async function fetchLinkedExperiments(
       status: 'unknown',
     }))
   }
+
   const records = await listByIds(sourceIds, (inList) =>
     client.list<RecordWire>(
       'records',
       `?id=in.(${inList})&select=id,identifier,title,status`,
     ),
   )
+
   const byId = new Map(records.map((r) => [r.id, r]))
+
   return links.map((l) => {
     const rec = l.source_record_id ? byId.get(l.source_record_id) : undefined
+
     return {
       linkId: l.id,
       recordId: l.source_record_id,
@@ -1135,10 +1224,13 @@ export async function fetchLinkedFiles(
     'record_links',
     `?source_record_id=eq.${sampleRecordId}&link_type=eq.file&order=created_at.desc`,
   )
+
   if (links.length === 0) return []
+
   const targetIds = links
     .map((l) => l.target_record_id)
     .filter((id): id is string => Boolean(id))
+
   if (targetIds.length === 0) {
     return links.map((l) => ({
       linkId: l.id,
@@ -1149,6 +1241,7 @@ export async function fetchLinkedFiles(
       status: null,
     }))
   }
+
   const [records, fileObjects] = await Promise.all([
     listByIds(targetIds, (inList) =>
       client.list<RecordWire>(
@@ -1168,12 +1261,15 @@ export async function fetchLinkedFiles(
       ),
     ),
   ])
+
   const fileByRecord = new Map(fileObjects.map((f) => [f.record_id, f]))
   const recById = new Map(records.map((r) => [r.id, r]))
+
   return links.map((l) => {
     const fileId = l.target_record_id
     const file = fileId ? fileByRecord.get(fileId) : undefined
     const rec = fileId ? recById.get(fileId) : undefined
+
     return {
       linkId: l.id,
       recordId: fileId,
@@ -1211,6 +1307,7 @@ export async function createSample(
     p_properties: samplePropertiesPayload(input.properties),
     p_custom_fields: input.customFields ?? {},
   })
+
   return toSampleRecord(row)
 }
 
@@ -1235,6 +1332,7 @@ export async function receiveSample(
     p_location: input.location ?? null,
     p_notes: input.notes ?? null,
   })
+
   return toSampleRecord(row)
 }
 
@@ -1265,6 +1363,7 @@ export async function consumeSample(
     p_experiment_id: input.experimentId ?? null,
     p_purpose_record_id: input.purposeRecordId ?? null,
   })
+
   return toSampleRecord(row)
 }
 
@@ -1319,6 +1418,7 @@ export async function withdrawSample(
     p_notes: input.notes ?? null,
     p_new_container: input.newContainer ?? null,
   })
+
   return {
     sample: toSampleRecord(result.sample),
     derivedSampleId: result.derivedSampleId ?? null,
@@ -1360,6 +1460,7 @@ export async function createSampleReservation(
       p_notes: input.notes ?? null,
     },
   )
+
   return toSampleReservation(row)
 }
 
@@ -1383,6 +1484,7 @@ export async function cancelSampleReservation(
       p_notes: input.notes ?? null,
     },
   )
+
   return toSampleReservation(row)
 }
 
@@ -1403,6 +1505,7 @@ export async function transferSample(
     p_expected_metadata_version: input.expectedMetadataVersion,
     p_notes: input.notes ?? null,
   })
+
   return toSampleRecord(row)
 }
 
@@ -1431,6 +1534,7 @@ export async function editSample(
     p_notes: input.notes ?? null,
     p_custom_fields: input.customFields ?? null,
   })
+
   return toSampleRecord(row)
 }
 
@@ -1488,6 +1592,7 @@ export async function archiveSample(
     p_expected_metadata_version: input.expectedMetadataVersion,
     p_notes: input.notes ?? null,
   })
+
   return toSampleRecord(row)
 }
 
@@ -1506,6 +1611,7 @@ export async function restoreSample(
     p_expected_metadata_version: input.expectedMetadataVersion,
     p_notes: input.notes ?? null,
   })
+
   return toSampleRecord(row)
 }
 
@@ -1532,6 +1638,7 @@ export async function quarantineSample(
     p_reason: input.reason,
     p_notes: input.notes ?? null,
   })
+
   return toSampleRecord(row)
 }
 
@@ -1557,6 +1664,7 @@ export async function disposeSample(
     p_reason: input.reason,
     p_notes: input.notes ?? null,
   })
+
   return toSampleRecord(row)
 }
 
@@ -1581,6 +1689,7 @@ export async function releaseSample(
     p_expected_metadata_version: input.expectedMetadataVersion,
     p_notes: input.notes ?? null,
   })
+
   return toSampleRecord(row)
 }
 
@@ -1608,6 +1717,7 @@ export async function registerSamples(
     p_project_id: input.projectId,
     p_samples: input.samples,
   })
+
   return rows.map(toSampleRecord)
 }
 
@@ -1654,6 +1764,7 @@ export async function aliquotSample(
     p_notes: input.notes ?? null,
     p_new_container: input.newContainer ?? null,
   })
+
   return {
     sample: toSampleRecord(result.sample),
     derivedSamples: result.derivedSamples.map(toSampleRecord),
@@ -1710,6 +1821,7 @@ export async function poolSamples(
       p_new_container: input.newContainer ?? null,
     },
   )
+
   return {
     pool: toSampleRecord(result.pool),
     sources: result.sources.map(toSampleRecord),
@@ -1740,7 +1852,9 @@ export async function fetchSampleReleaseCheckStatus(
     'sample_release_check_status',
     { p_record_id: recordId },
   )
+
   const checks = Array.isArray(raw?.checks) ? raw.checks : []
+
   return {
     passed: raw?.passed === true,
     ruleCount: Number(raw?.ruleCount ?? checks.length),
@@ -1763,11 +1877,15 @@ export async function fetchSampleReleaseCheckStatus(
 export function releaseFailedChecks(error: unknown): string[] | null {
   if (!(error instanceof DataClientError)) return null
   const match = /release checks failed:\s*(\[.*\])/s.exec(error.message)
+
   if (!match) return null
+
   try {
     const labels: unknown = JSON.parse(match[1])
+
     if (!Array.isArray(labels)) return null
     const names = labels.map((label) => String(label)).filter(Boolean)
+
     return names.length ? names : null
   } catch {
     return null
@@ -1795,18 +1913,22 @@ export function describeSampleError(error: unknown): string {
         return t('library.samples.errors.thisSampleWasEditedBy')
       case 'SB093': {
         const failed = releaseFailedChecks(error)
+
         if (failed)
           return t('library.samples.errors.releaseChecksFailed', {
             checks: failed.join(', '),
           })
+
         return t('library.samples.errors.theReleaseQuarantineOrDisposal')
       }
+
       case '42501':
         return t('library.samples.errors.youDoNotHaveAccess')
       default:
         return error.message
     }
   }
+
   return t('library.samples.errors.couldNotCompleteTheSample')
 }
 
@@ -1854,7 +1976,9 @@ export function sampleColumns<T extends SampleRecord & RowData>(
       cell: ({ row }) => {
         const q = row.original.quantity
         const unit = row.original.quantityUnit
+
         if (q == null) return <span className="text-muted-foreground">—</span>
+
         return (
           <span className="tabular-nums">
             {q}
@@ -1897,6 +2021,7 @@ export function sampleColumns<T extends SampleRecord & RowData>(
       meta: { dataGridFormat: { kind: 'date' } },
     },
   ]
+
   for (const definition of modelFields) {
     columns.push({
       id: modelFieldColumnId(definition.fieldName),
@@ -1914,5 +2039,6 @@ export function sampleColumns<T extends SampleRecord & RowData>(
           : undefined,
     })
   }
+
   return columns
 }

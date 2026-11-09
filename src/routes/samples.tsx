@@ -106,7 +106,9 @@ const tabs = [
   'consumed',
   'archived',
 ] as const
+
 type SampleTab = (typeof tabs)[number]
+
 const tabLabel: Record<SampleTab, string> = {
   instock: t('library.samples.list.inStock'),
   mine: t('library.samples.list.mine'),
@@ -118,6 +120,7 @@ const tabLabel: Record<SampleTab, string> = {
 
 function pickSampleContext(search: Record<string, unknown>) {
   const { project, experiment, returnTo } = parseCreateContext(search)
+
   return { project, experiment, returnTo }
 }
 
@@ -160,9 +163,11 @@ export const Route = createFileRoute('/samples')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: SamplesRoute,
@@ -172,6 +177,7 @@ function SamplesRoute() {
   const isIndex = useRouterState({
     select: (state) => state.location.pathname === '/samples',
   })
+
   return isIndex ? <SamplesList /> : <Outlet />
 }
 
@@ -179,11 +185,13 @@ function SamplesList() {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+
   const openSample = useOpenRow<SampleListRow>(
     navigate,
     (row) => samplePath(row.uuid),
     (row) => row.name,
   )
+
   const projects = useProjectNames()
   const queryClient = useQueryClient()
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
@@ -196,6 +204,7 @@ function SamplesList() {
   // The database applies the open tab and the search, so the list and the tab
   // numbers cover every sample, not just the ones loaded.
   const view = useListView('samples')
+
   const page = useSampleList(
     tab,
     context.user.id,
@@ -204,6 +213,7 @@ function SamplesList() {
     undefined,
     view.sorting,
   )
+
   const tabCounts = useSampleTabCounts(context.user.id, q || undefined)
   const counts = tabCounts.data
 
@@ -215,17 +225,22 @@ function SamplesList() {
       ),
     [page.data, projects.data, context.user.id],
   )
+
   const visible = rows
   const hasProjectAccess = useHasProjectAccess()
+
   const recordsById = useMemo(
     () => new Map((page.data ?? []).map((r) => [r.id, r])),
     [page.data],
   )
+
   const addedFields = useBuiltInModelFields('sample')
   const printable = visible.flatMap((r) => recordsById.get(r.uuid) ?? [])
+
   const projectOptions = [...(projects.data ?? new Map()).entries()].map(
     ([id, title]) => ({ id, title }),
   )
+
   const locationsQuery = useStorageLocations()
   const locations = locationsQuery.data ?? []
   const sel = visible.find((r) => r.uuid === (selected ?? search.selected))
@@ -239,6 +254,7 @@ function SamplesList() {
     enabled: Boolean(search.selected),
     staleTime: 15_000,
   })
+
   const linked = linkedQuery.data
     ? toSampleListRow(
         linkedQuery.data,
@@ -246,10 +262,12 @@ function SamplesList() {
         context.user.id,
       )
     : undefined
+
   const linkedTab =
     linked && !linked.tabs.includes(tab)
       ? tabs.find((item) => linked.tabs.includes(item))
       : undefined
+
   useEffect(() => {
     if (!linkedTab) return
     void navigate({
@@ -346,6 +364,7 @@ function SamplesList() {
         .then((found) => found[0] ?? null),
     enabled: Boolean(search.experiment),
   })
+
   const defaultProjectId =
     search.project ?? forExperiment.data?.project_id ?? undefined
 
@@ -375,6 +394,7 @@ function SamplesList() {
               : undefined,
         },
       })
+
       if (input.place?.kind === 'position') {
         // A new tube goes straight into its position, so its first line of
         // history already says where it is.
@@ -383,8 +403,10 @@ function SamplesList() {
           positionId: input.place.position.id,
           expectedMetadataVersion: created.metadataVersion,
         })
+
         created = { ...created, metadataVersion: placed.metadata_version }
       }
+
       if (input.typeKey) {
         // A subtype gives the sample its own ID, so the link below uses it.
         const typed = await saveNewObjectFields(
@@ -394,12 +416,15 @@ function SamplesList() {
           input.typeKey,
           input.typeFields ?? {},
         )
+
         created = {
           ...created,
           identifier: typed.identifier ?? created.identifier,
         }
       }
+
       let linkError: string | null = null
+
       if (search.experiment) {
         try {
           await linkExperimentToSample(notebookDataClient, search.experiment, {
@@ -413,15 +438,18 @@ function SamplesList() {
               : t('library.samples.list.theLinkWasRefused')
         }
       }
+
       return { created, linkError }
     },
     onSuccess: ({ created, linkError }) => {
       void queryClient.invalidateQueries({ queryKey: sampleListQueryKeys.page })
+
       if (search.experiment) {
         void queryClient.invalidateQueries({
           queryKey: ['ui-port', 'experiment-links', search.experiment],
         })
       }
+
       toast(
         linkError
           ? t('library.samples.list.sampleRegisteredNotLinked')
@@ -443,6 +471,7 @@ function SamplesList() {
               }
             : undefined,
       )
+
       // Registered for an experiment: go back to its samples, where the new
       // sample now sits. Otherwise land on the new sample, not back on the
       // list it was registered from.
@@ -452,8 +481,10 @@ function SamplesList() {
             search.returnTo ??
             `/experiments/${encodeURIComponent(search.experiment)}/samples`,
         })
+
         return
       }
+
       void navigate({
         to: '/samples/$sampleId',
         params: { sampleId: created.id },
@@ -719,11 +750,14 @@ function SamplesList() {
         canManageStorage={canManageSettings(context.workspace, 'storage')}
         onOpenChange={(open) => {
           if (open) return
+
           // Cancel goes back to the page the dialog was opened from.
           if (search.returnTo) {
             void navigate({ href: search.returnTo })
+
             return
           }
+
           void navigate({
             to: '/samples',
             search: (s) => ({ ...s, new: undefined }),
@@ -811,6 +845,7 @@ function RegisterSampleDialog({
   const [quantity, setQuantity] = useState('')
   const [quantityUnit, setQuantityUnit] = useState('mL')
   const [place, setPlace] = useState<PlaceChoice | null>(null)
+
   const fillFields = [
     { key: 'name', label: t('library.samples.list.name') },
     { key: 'type', label: t('library.samples.list.type') },
@@ -826,6 +861,7 @@ function RegisterSampleDialog({
     },
     ...addedFillFields(addedFields.fields),
   ]
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">
@@ -835,14 +871,18 @@ function RegisterSampleDialog({
             fields={fillFields}
             onFill={(values) => {
               if (values.name) setTitle(values.name)
+
               if (values.type) setSampleType(values.type)
+
               if (values.quantity && Number.isFinite(Number(values.quantity)))
                 setQuantity(values.quantity)
+
               if (
                 values.unit &&
                 ['mL', 'µL', 'mg', 'µg', 'vial'].includes(values.unit)
               )
                 setQuantityUnit(values.unit)
+
               for (const [key, value] of Object.entries(values)) {
                 if (key.startsWith('field:'))
                   addedFields.setValue(key.slice(6), value)
@@ -914,6 +954,7 @@ function RegisterSampleDialog({
             disabled={busy || !title.trim() || !projectId}
             onClick={() => {
               setTried(true)
+
               if (!addedFields.valid) return
               onRegister({
                 projectId,

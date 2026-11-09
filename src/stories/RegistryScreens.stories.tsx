@@ -97,12 +97,14 @@ const client = screenQueryClient({
     { key: [...registryKeys.lineage, entries.length], value: links },
   ],
 })
+
 const emptyClient = screenQueryClient({
   data: [
     { key: registryKeys.models, value: [] },
     { key: registryKeys.entries([]), value: [] },
   ],
 })
+
 const settingsClient = screenQueryClient({
   data: [
     {
@@ -131,7 +133,9 @@ const meta = {
     },
   },
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const noop = () => {}
@@ -235,6 +239,7 @@ const matches: DuplicateMatch[] = [
 
 function Duplicate({ list }: { list: DuplicateMatch[] }) {
   const [acknowledged, setAcknowledged] = useState(false)
+
   return (
     <div className="w-[520px] max-w-full">
       <DuplicateNotice
@@ -263,6 +268,7 @@ export const DuplicateNameOnly: Story = {
 
 function Reader({ initial }: { initial: ReadSequence | null }) {
   const [value, setValue] = useState<ReadSequence | null>(initial)
+
   return (
     <div className="w-[420px] max-w-full">
       <SequenceReader value={value} onChange={setValue} />

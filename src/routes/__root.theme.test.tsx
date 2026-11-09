@@ -56,7 +56,9 @@ vi.mock('#/lib/current-user', () => ({
 vi.mock('@tanstack/react-start/server', () => ({
   getRequestHeaders: () => {
     const headers = new Headers()
+
     if (request.cookie) headers.set('cookie', request.cookie)
+
     return headers
   },
 }))

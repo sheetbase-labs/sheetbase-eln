@@ -139,19 +139,26 @@ export function intakeHealth(
   now: Date = appNow(),
 ): { tone: Tone; label: string } {
   if (method === 'manual') return { tone: 'none', label: 'Manual entry' }
+
   if (method === 'none' || !intakeMethodNeedsParser(method))
     return { tone: 'none', label: 'Not connected' }
+
   if (evidence.parserReady === false)
     return { tone: 'warn', label: 'Parser not validated' }
   const last = evidence.lastImport
+
   if (!last) return { tone: 'draft', label: 'Waiting for first data' }
+
   if (last.status === 'failed')
     return { tone: 'bad', label: 'Last import failed' }
+
   if (last.status !== 'committed')
     return { tone: 'draft', label: 'Waiting for first data' }
   const ageDays = (now.getTime() - Date.parse(last.createdAt)) / 86_400_000
+
   if (!Number.isFinite(ageDays) || ageDays <= INTAKE_STALE_DAYS)
     return { tone: 'ok', label: 'Healthy' }
+
   return { tone: 'warn', label: `No data for ${Math.floor(ageDays)} days` }
 }
 
@@ -164,12 +171,15 @@ export function intakeHealth(
 export function formatInstrumentDay(iso: string | null | undefined): string {
   if (!iso) return '—'
   const parsed = Date.parse(iso)
+
   if (Number.isNaN(parsed)) return '—'
   const date = new Date(parsed)
+
   // `en-GB` gives the four-letter "Sept"; the design uses three-letter months.
   const month = date
     .toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })
     .slice(0, 3)
+
   return `${date.getUTCDate()} ${month} ${date.getUTCFullYear()}`
 }
 
@@ -301,6 +311,7 @@ export function useLastImportsByInstrument(
         )
         .then((rows) => {
           const latest = new Map<string, InstrumentLastImport>()
+
           for (const row of rows) {
             if (!row.instrument_id || latest.has(row.instrument_id)) continue
             latest.set(row.instrument_id, {
@@ -308,6 +319,7 @@ export function useLastImportsByInstrument(
               createdAt: row.created_at,
             })
           }
+
           return latest
         }),
     staleTime: 15_000,
@@ -342,8 +354,10 @@ export function parserFollowUp(
   parsers: readonly InstrumentParserRow[] | undefined,
 ): ParserFollowUp | null {
   if (!intakeMethodNeedsParser(method) || !parsers) return null
+
   if (parsers.some((parser) => parser.validated)) return null
   const draft = parsers.find((parser) => parser.draftVersionId)
+
   return draft
     ? {
         kind: 'draft',
@@ -381,6 +395,7 @@ export function parserReadinessByInstrument(
   validatedParserIds: ReadonlySet<string>,
 ): Map<string, boolean> {
   const ready = new Map<string, boolean>()
+
   for (const parser of parsers) {
     ready.set(
       parser.instrumentId,
@@ -388,6 +403,7 @@ export function parserReadinessByInstrument(
         validatedParserIds.has(parser.id),
     )
   }
+
   return ready
 }
 
@@ -402,7 +418,9 @@ export function useParserReadinessByInstrument(
         'parsers',
         '?select=id,instrument_id&instrument_id=not.is.null&limit=500',
       )
+
       if (!parsers.length) return new Map()
+
       const versions = await listByIds(
         parsers.map((parser) => parser.id),
         (ids) =>
@@ -411,6 +429,7 @@ export function useParserReadinessByInstrument(
             `?select=parser_id,status&parser_id=in.(${ids})&status=in.(validated,approved)&limit=500`,
           ),
       )
+
       return parserReadinessByInstrument(
         parsers.map((parser) => ({
           id: parser.id,
@@ -436,7 +455,9 @@ export function useInstrumentParsers(
         'parsers',
         `?select=id,name&instrument_id=eq.${encodeURIComponent(instrumentId)}&order=name.asc&limit=50`,
       )
+
       if (!parsers.length) return []
+
       const versions = await listByIds(
         parsers.map((parser) => parser.id),
         (ids) =>
@@ -445,10 +466,12 @@ export function useInstrumentParsers(
             `?select=id,parser_id,status&parser_id=in.(${ids})&status=in.(draft,validated,approved)&order=version.desc&limit=200`,
           ),
       )
+
       return parsers.map((parser) => {
         const own = versions.filter(
           (version) => version.parser_id === parser.id,
         )
+
         return {
           name: parser.name,
           validated: own.some((version) => version.status !== 'draft'),
@@ -491,8 +514,10 @@ export function useInstrumentNextBooking(
         'instruments',
         `?select=id,retired_at&id=eq.${encodeURIComponent(instrumentId)}&limit=1`,
       )
+
       if (!instrument.length || instrument[0].retired_at !== null)
         return { bookable: false, next: null }
+
       const bookings = await client.list<{
         id: string
         title: string
@@ -501,6 +526,7 @@ export function useInstrumentNextBooking(
         'calendar_bookings',
         `?select=id,title,starts_at&resource_id=eq.${encodeURIComponent(instrumentId)}&status=neq.cancelled&starts_at=gt.${encodeURIComponent(appNow().toISOString())}&order=starts_at.asc&limit=1`,
       )
+
       return {
         bookable: true,
         next: bookings[0]
@@ -591,10 +617,13 @@ async function runOutcomes(
     string,
     Pick<InstrumentRunRow, 'sampleCount' | 'experiment' | 'dataset'>
   >()
+
   for (const id of runIds)
     outcomes.set(id, { sampleCount: 0, experiment: null, dataset: null })
+
   if (runIds.length === 0) return outcomes
   const ids = runIds.map(encodeURIComponent).join(',')
+
   const [links, imports] = await Promise.all([
     client
       .list<RunLinkWire>(
@@ -609,9 +638,12 @@ async function runOutcomes(
       )
       .catch(() => [] as RunImportWire[]),
   ])
+
   for (const link of links) {
     const outcome = outcomes.get(link.run_id)
+
     if (!outcome) continue
+
     if (link.link_type === 'sample') outcome.sampleCount += 1
     else if (link.linked_record_id && link.linked_record_identifier)
       outcome.experiment = {
@@ -619,13 +651,18 @@ async function runOutcomes(
         identifier: link.linked_record_identifier,
       }
   }
+
   const datasetByRun = new Map<string, string>()
+
   for (const row of imports) {
     const runId = row.source_provenance?.instrumentRunId
+
     if (runId && outcomes.has(runId) && !datasetByRun.has(runId))
       datasetByRun.set(runId, row.dataset_id)
   }
+
   const datasetIds = [...new Set(datasetByRun.values())]
+
   if (datasetIds.length > 0) {
     const datasets = await client
       .list<RunDatasetWire>(
@@ -633,9 +670,12 @@ async function runOutcomes(
         `?id=in.(${datasetIds.map(encodeURIComponent).join(',')})&select=id,display_id,name`,
       )
       .catch(() => [] as RunDatasetWire[])
+
     const byId = new Map(datasets.map((d) => [d.id, d]))
+
     for (const [runId, datasetId] of datasetByRun) {
       const dataset = byId.get(datasetId)
+
       if (dataset)
         outcomes.get(runId)!.dataset = {
           id: dataset.id,
@@ -644,6 +684,7 @@ async function runOutcomes(
         }
     }
   }
+
   return outcomes
 }
 
@@ -658,11 +699,13 @@ export function useInstrumentRuns(
         'instrument_runs',
         `?select=id,name,run_identifier,status,progress_percent,plate_format,started_at,completed_at,operator,error_message&instrument_id=eq.${encodeURIComponent(instrumentId)}&order=created_at.desc&limit=100`,
       )
+
       const outcomes = await runOutcomes(
         client,
         instrumentId,
         rows.map((r) => r.id),
       )
+
       return rows.map((r) => ({
         id: r.id,
         name: r.name,
@@ -733,12 +776,16 @@ export function calibrationStatus(
   now: Date = appNow(),
 ): { tone: Tone; label: string } {
   if (!dueAt) return { tone: 'none', label: 'Not calibrated' }
+
   if (Number.isNaN(Date.parse(dueAt)))
     return { tone: 'none', label: 'Not calibrated' }
   const days = daysUntilDate(dueAt, now) ?? 0
+
   if (days < 0) return { tone: 'bad', label: 'Overdue' }
+
   if (days <= CALIBRATION_DUE_SOON_DAYS)
     return { tone: 'warn', label: 'Due soon' }
+
   return { tone: 'ok', label: 'Valid' }
 }
 
@@ -780,6 +827,7 @@ export async function recordInstrumentCalibration(
       p_notes: input.notes ?? null,
     },
   )
+
   return toCalibration(row)
 }
 
@@ -812,6 +860,7 @@ export async function createInstrument(
     p_location: input.location ?? null,
     p_owner_id: input.ownerId ?? null,
   })
+
   return toInstrument(row)
 }
 
@@ -828,6 +877,7 @@ export async function setInstrumentIntakeMethod(
     p_instrument_id: instrumentId,
     p_intake_method: intakeMethod,
   })
+
   return toInstrument(row)
 }
 
@@ -841,6 +891,7 @@ export async function setInstrumentRetired(
     p_instrument_id: instrumentId,
     p_retired: retired,
   })
+
   return toInstrument(row)
 }
 
@@ -868,6 +919,7 @@ export async function setInstrumentOutOfService(
       p_work_done: input.workDone ?? null,
     },
   )
+
   return toInstrument(row)
 }
 
@@ -959,6 +1011,7 @@ export async function logInstrumentService(
     p_details: input.details ?? null,
     p_performed_by: input.performedBy ?? null,
   })
+
   return toServiceLog(row)
 }
 
@@ -971,8 +1024,10 @@ export function latestCalibrationByInstrument(
   rows: InstrumentCalibrationRow[],
 ): Map<string, InstrumentCalibrationRow> {
   const latest = new Map<string, InstrumentCalibrationRow>()
+
   for (const row of rows) {
     const current = latest.get(row.instrumentId)
+
     if (
       !current ||
       row.performedAt > current.performedAt ||
@@ -981,6 +1036,7 @@ export function latestCalibrationByInstrument(
       latest.set(row.instrumentId, row)
     }
   }
+
   return latest
 }
 
@@ -1072,6 +1128,7 @@ export function useInstrumentUsedBy(
     enabled: instrumentId.length > 0,
     queryFn: async (): Promise<InstrumentUsedBy[]> => {
       const id = encodeURIComponent(instrumentId)
+
       const [imports, parsers] = await Promise.all([
         client.list<{ dataset_id: string | null; created_at: string }>(
           'dataset_imports',
@@ -1082,14 +1139,18 @@ export function useInstrumentUsedBy(
           `?select=id,name,created_at&instrument_id=eq.${id}&order=name.asc&limit=50`,
         ),
       ])
+
       const firstImport = new Map<string, string>()
       const counts = new Map<string, number>()
+
       for (const row of imports) {
         if (!row.dataset_id) continue
         counts.set(row.dataset_id, (counts.get(row.dataset_id) ?? 0) + 1)
+
         if (!firstImport.has(row.dataset_id))
           firstImport.set(row.dataset_id, row.created_at)
       }
+
       const datasets = counts.size
         ? await listByIds([...counts.keys()], (ids) =>
             client.list<{
@@ -1099,6 +1160,7 @@ export function useInstrumentUsedBy(
             }>('datasets', `?select=id,name,display_id&id=in.(${ids})`),
           )
         : []
+
       return [
         ...datasets.map((d): InstrumentUsedBy => ({
           key: d.id,
@@ -1133,6 +1195,7 @@ export function useInstrumentWeek(
     queryFn: () => {
       const now = appNow()
       const until = new Date(now.getTime() + 7 * 86_400_000)
+
       return client.list<{
         id: string
         title: string

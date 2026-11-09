@@ -24,20 +24,27 @@ export function usePluginFieldTypeErrors(
 ): Record<string, string> {
   const points = usePluginPoints()
   const links = useFieldPluginTypes(modelKey)
+
   return React.useMemo(() => {
     const errors: Record<string, string> = {}
+
     for (const link of links.data ?? []) {
       const field = fields.find((f) => f.fieldName === link.field_name)
       const raw = values[link.field_name]
+
       if (!field || typeof raw !== 'string') continue
+
       const type = points.fieldTypes.find(
         (item) =>
           item.extensionKey === link.plugin_key && item.id === link.type_id,
       )
+
       if (!type) continue
       const problem = checkFieldTypeValue(type.declaration, raw)
+
       if (problem) errors[link.field_name] = problem
     }
+
     return errors
   }, [links.data, points.fieldTypes, fields, values])
 }
@@ -48,15 +55,19 @@ export function usePluginFieldPlaceholders(
 ): Record<string, string> {
   const points = usePluginPoints()
   const links = useFieldPluginTypes(modelKey)
+
   return React.useMemo(() => {
     const out: Record<string, string> = {}
+
     for (const link of links.data ?? []) {
       const example = points.fieldTypes.find(
         (item) =>
           item.extensionKey === link.plugin_key && item.id === link.type_id,
       )?.declaration.placeholder
+
       if (example) out[link.field_name] = example
     }
+
     return out
   }, [links.data, points.fieldTypes])
 }
@@ -67,13 +78,16 @@ export function usePluginFieldInputs(
 ): Record<string, PluginFieldInputSource> {
   const points = usePluginPoints()
   const links = useFieldPluginTypes(modelKey)
+
   return React.useMemo(() => {
     const out: Record<string, PluginFieldInputSource> = {}
+
     for (const link of links.data ?? []) {
       const type = points.fieldTypes.find(
         (item) =>
           item.extensionKey === link.plugin_key && item.id === link.type_id,
       )
+
       if (type?.declaration.input)
         out[link.field_name] = {
           extensionKey: type.extensionKey,
@@ -83,6 +97,7 @@ export function usePluginFieldInputs(
           operations: operationAccess(points, type.extensionKey),
         }
     }
+
     return out
   }, [links.data, points])
 }
@@ -105,12 +120,15 @@ export function FieldPluginTypePicker({
   const links = useFieldPluginTypes(modelKey)
   const queryClient = useQueryClient()
   const current = links.data?.find((l) => l.field_name === fieldName)
+
   const offered = points.fieldTypes.filter(
     (item) => item.declaration.base === logicalType,
   )
+
   const apply = useMutation({
     mutationFn: (value: string) => {
       const [key, id] = value ? value.split('/') : [null, null]
+
       return notebookDataClient.rpc('set_field_plugin_type', {
         p_kind: modelKey,
         p_field_name: fieldName,
@@ -135,8 +153,10 @@ export function FieldPluginTypePicker({
     onError: (error) =>
       toast.error(error instanceof Error ? error.message : String(error)),
   })
+
   if (offered.length === 0 && !current) return null
   const value = current ? `${current.plugin_key}/${current.type_id}` : ''
+
   return (
     <label className="flex flex-col gap-1">
       <span className="sr-only">{t('plugins.hooks.fieldTypeLabel')}</span>

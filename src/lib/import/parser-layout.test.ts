@@ -16,6 +16,7 @@ describe('readWithLayout', () => {
       'S2,0.61,1.4',
       'Total,,',
     ].join('\n')
+
     const out = readWithLayout(file, {
       headerStartsWith: 'sample',
       readDetails: true,
@@ -23,6 +24,7 @@ describe('readWithLayout', () => {
       stopAt: 'Total',
       units: 'header',
     })
+
     expect(out.headers).toEqual(['Sample', 'Abs 280', 'Conc'])
     expect(out.rows).toEqual([
       { Sample: 'S1', 'Abs 280': '0.52', Conc: '1.1' },
@@ -42,6 +44,7 @@ describe('readWithLayout', () => {
       units: 'row',
       decimalComma: true,
     })
+
     expect(out.rows).toEqual([{ Sample: 'S1', Conc: '1.25', Temp: '37.0' }])
     expect(out.metadata).toEqual({ 'Conc unit': 'mg/mL', 'Temp unit': 'C' })
   })
@@ -56,6 +59,7 @@ describe('readWithLayout', () => {
     const out = readWithLayout('Plate 1\n,1,2,3\nA,0.1,0.2,0.3\nB,0.4,,0.6\n', {
       plateGrid: { valueName: 'OD450' },
     })
+
     expect(out.headers).toEqual(['Well', 'Row', 'Column', 'OD450'])
     expect(out.rows).toHaveLength(5)
     expect(out.rows[0]).toEqual({
@@ -70,6 +74,7 @@ describe('readWithLayout', () => {
     const out = readWithLayout('Day 1\n,1,2\nA,1,2\nDay 2\n,1,2\nA,3,4\n', {
       plateGrid: { valueName: 'OD' },
     })
+
     expect(out.headers[0]).toBe('Plate')
     expect(out.rows.map((r) => r.Plate)).toEqual([
       'Day 1',

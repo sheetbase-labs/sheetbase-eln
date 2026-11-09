@@ -10,6 +10,7 @@ import { z } from 'zod'
  * membership are checked server-side.
  */
 export const SIGNATURE_STATEMENT_VERSION = 1
+
 export const SIGNATURE_STATEMENT =
   'I understand that my electronic signature in Sheetbase is the legally binding equivalent of my handwritten signature. I will not share my password, and I will report any suspected misuse to QA.'
 
@@ -37,7 +38,9 @@ export async function fetchSignatureStatement(
     'workspace_settings',
     `?workspace_id=eq.${encodeURIComponent(workspaceId)}&select=signature_statement,signature_statement_version`,
   )
+
   const row = rows.at(0)
+
   return {
     text: row?.signature_statement?.trim() || SIGNATURE_STATEMENT,
     version: row?.signature_statement_version ?? SIGNATURE_STATEMENT_VERSION,
@@ -100,6 +103,7 @@ export async function fetchWorkspaceCertifications(
     'workspace_signature_certifications',
     {},
   )
+
   return rows.map((r) => ({
     userId: r.user_id,
     name: r.name,
@@ -149,6 +153,7 @@ export async function certifySignature(
     purpose: 'certify',
     password,
   })
+
   await client.rpc('certify_signature', {
     p_workspace_id: workspaceId,
     p_statement_version: statementVersion,
@@ -166,6 +171,7 @@ export async function practiceSignature(
     purpose: 'practice',
     password,
   })
+
   await client.rpc('practice_signature', { p_signing_token: proof.token })
 }
 
@@ -221,7 +227,9 @@ export function readSignaturePolicy(policy: unknown): SignaturePolicy {
         .optional(),
     })
     .safeParse(policy)
+
   const meanings = parsed.success ? parsed.data.meanings : undefined
+
   return {
     meanings: {
       Authored: true,

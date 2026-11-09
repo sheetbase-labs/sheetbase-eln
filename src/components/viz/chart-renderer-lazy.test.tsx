@@ -35,6 +35,7 @@ describe('ChartRenderer (lazy wrapper)', () => {
         plotHeight={180}
       />,
     )
+
     const placeholder = container.querySelector('[aria-hidden="true"]')
     expect(placeholder).not.toBeNull()
     expect((placeholder as HTMLElement).style.height).toBe('180px')

@@ -14,21 +14,25 @@ describe('stable row identity', () => {
       columnIds: [sample],
       logicalTypes: ['reference'] as const,
     }
+
     const composite = {
       kind: 'composite' as const,
       columnIds: [sample, timepoint],
       logicalTypes: ['reference', 'integer'] as const,
     }
+
     const rows = [
       { [sample]: 'a0000000-0000-4000-8000-000000000001', [timepoint]: 1 },
       { [sample]: 'a0000000-0000-4000-8000-000000000002', [timepoint]: 2 },
     ]
+
     const first = resolveRowIdentityBatch(source, rows)
     const reordered = resolveRowIdentityBatch(source, [...rows].reverse())
     const combined = resolveRowIdentityBatch(composite, rows)
     expect(first).toMatchObject({ ok: true })
     expect(reordered).toMatchObject({ ok: true })
     expect(combined).toMatchObject({ ok: true })
+
     if (first.ok && reordered.ok && combined.ok) {
       expect(new Set(first.rows.map((row) => row.key))).toEqual(
         new Set(reordered.rows.map((row) => row.key)),
@@ -43,12 +47,15 @@ describe('stable row identity', () => {
       columnIds: [local],
       logicalTypes: ['reference'] as const,
     }
+
     const first = resolveRowIdentityBatch(spec, [
       { localId: 'a0000000-0000-4000-8000-000000000001' },
     ])
+
     const reload = resolveRowIdentityBatch(spec, [
       { localId: 'a0000000-0000-4000-8000-000000000001' },
     ])
+
     const typed = resolveRowIdentityBatch(
       {
         kind: 'composite' as const,
@@ -60,8 +67,10 @@ describe('stable row identity', () => {
         { [sample]: '2', [timepoint]: true },
       ],
     )
+
     expect(first).toEqual(reload)
     expect(typed).toMatchObject({ ok: true })
+
     if (typed.ok) expect(typed.rows[0].key).not.toBe(typed.rows[1].key)
   })
 
@@ -71,12 +80,14 @@ describe('stable row identity', () => {
       columnIds: [sample],
       logicalTypes: ['text'] as const,
     }
+
     const result = resolveRowIdentityBatch(spec, [
       { [sample]: null },
       { [sample]: [] },
       { [sample]: 'x' },
       { [sample]: 'x' },
     ])
+
     expect(result).toEqual({
       ok: false,
       errors: expect.arrayContaining([
@@ -89,24 +100,30 @@ describe('stable row identity', () => {
 
   it('uses declared types rather than runtime shapes and rejects invalid declared values', () => {
     const value = 'a0000000-0000-4000-8000-000000000001'
+
     const text = resolveRowIdentityBatch(
       { kind: 'source', columnIds: [sample], logicalTypes: ['text'] },
       [{ [sample]: value }],
     )
+
     const reference = resolveRowIdentityBatch(
       { kind: 'source', columnIds: [sample], logicalTypes: ['reference'] },
       [{ [sample]: value }],
     )
+
     const textDate = resolveRowIdentityBatch(
       { kind: 'source', columnIds: [sample], logicalTypes: ['text'] },
       [{ [sample]: '2026-08-15' }],
     )
+
     const date = resolveRowIdentityBatch(
       { kind: 'source', columnIds: [sample], logicalTypes: ['date'] },
       [{ [sample]: '2026-08-15' }],
     )
+
     expect(text).not.toEqual(reference)
     expect(textDate).not.toEqual(date)
+
     for (const [logicalType, value] of [
       ['reference', 'not-a-uuid'],
       ['date', '2026-02-30'],
@@ -146,8 +163,10 @@ describe('stable row identity', () => {
       columnIds: [sample],
       logicalTypes: ['text'] as const,
     }
+
     const values = ['hello']
     const key = rowIdentityKey(spec, values)
+
     const canonical = JSON.stringify({
       v: 1,
       kind: spec.kind,
@@ -155,6 +174,7 @@ describe('stable row identity', () => {
       types: spec.logicalTypes,
       values,
     })
+
     expect(key).toBe(
       `sb-row-v1:${createHash('sha256').update(canonical).digest('hex')}`,
     )

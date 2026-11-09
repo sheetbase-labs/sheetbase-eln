@@ -77,24 +77,31 @@ export function templateConfigurationFromBlocks(
 ): TemplateDraft {
   const placements: NotebookTemplateConfiguration['placements'] = []
   const templatePartIds = new Map(parts.map((part) => [part.id, newId()]))
+
   const partOf = (block: { partId?: string | null }) => {
     const id = block.partId ? templatePartIds.get(block.partId) : undefined
+
     return id ? { partId: id } : {}
   }
+
   const skipped = new Map<string, number>()
   let adHocSheets = 0
+
   const note = (label: string) =>
     skipped.set(label, (skipped.get(label) ?? 0) + 1)
 
   for (const block of [...blocks].sort((a, b) => a.order - b.order)) {
     const order = placements.length + 1
+
     if (block.type === 'sheet') {
       const instanceId = sheetBlockInstanceId(block.payload)
       const definition = instanceId ? sheetDefinitions.get(instanceId) : null
+
       if (!definition) {
         adHocSheets += 1
         continue
       }
+
       placements.push({
         id: newId(),
         kind: 'sheet',
@@ -105,10 +112,12 @@ export function templateConfigurationFromBlocks(
       })
       continue
     }
+
     if (!isStructural(block.type)) {
       note(LEFT_OUT_LABEL[block.type] ?? block.type.replace(/_/g, ' '))
       continue
     }
+
     placements.push({
       id: newId(),
       kind: 'narrative',
@@ -128,11 +137,13 @@ export function templateConfigurationFromBlocks(
   }
 
   const leftOut = [...skipped].map(([label, count]) => plural(count, label))
+
   if (adHocSheets > 0) {
     leftOut.push(
       `${plural(adHocSheets, 'sheet')} not made from a sheet definition`,
     )
   }
+
   return {
     configuration: {
       formatVersion: 1,
@@ -158,7 +169,9 @@ export function templateKeyFromName(name: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '')
+
   const withLetter = /^[a-z]/.test(slug) ? slug : `t_${slug}`
+
   return (withLetter === 't_' ? 'template' : withLetter).slice(0, 60)
 }
 
@@ -176,29 +189,38 @@ export async function saveExperimentAsTemplate(
   // Each Sheet's definition is an independent read, so they run together
   // rather than one round trip per Sheet.
   const instanceIds = new Set<string>()
+
   for (const block of blocks) {
     const instanceId =
       block.type === 'sheet' ? sheetBlockInstanceId(block.payload) : null
+
     if (instanceId) instanceIds.add(instanceId)
   }
+
   const instances = await Promise.all(
     [...instanceIds].map((instanceId) =>
       fetchSheetInstance(instanceId, client),
     ),
   )
+
   const sheetDefinitions = new Map<string, string>()
+
   for (const [index, instanceId] of [...instanceIds].entries()) {
     const definitionVersionId = instances[index]?.sourceDefinitionVersionId
+
     if (definitionVersionId)
       sheetDefinitions.set(instanceId, definitionVersionId)
   }
+
   const parts = await fetchPartsForRecord(client, input.experimentId)
+
   const draft = templateConfigurationFromBlocks(
     blocks,
     sheetDefinitions,
     undefined,
     parts,
   )
+
   const created = await createNotebookTemplate(
     {
       workspaceId: input.workspaceId,
@@ -209,5 +231,6 @@ export async function saveExperimentAsTemplate(
     },
     client,
   )
+
   return { ...created, leftOut: draft.leftOut }
 }

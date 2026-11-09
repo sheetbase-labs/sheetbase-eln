@@ -77,6 +77,7 @@ export const NOT_EXPOSED_PATTERNS: readonly {
 export function notExposedReason(name: string): string | undefined {
   const own: Readonly<Record<string, string | undefined>> = NOT_EXPOSED
   const pending: Readonly<Record<string, string | undefined>> = PENDING_EXPOSURE
+
   return (
     own[name] ??
     pending[name] ??

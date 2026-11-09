@@ -87,11 +87,15 @@ function stepSentence(
       ? t('projects.approvalStepper.someone')
       : status.actor.name
     : null
+
   const by = actor ? t('projects.approvalStepper.by', { actor }) : ''
+
   const at = status.at
     ? t('projects.approvalStepper.at', { at: status.at })
     : ''
+
   const title = def.title
+
   switch (status.state) {
     case 'completed':
       return t('projects.approvalStepper.sentence.completed', { title, by, at })
@@ -130,8 +134,10 @@ export function ApprovalStepper({
         const status = reviewState[def.id] ?? {
           state: 'pending',
         }
+
         const meta = stateMeta[status.state]
         const isLast = i === steps.length - 1
+
         return (
           <li
             key={def.id}

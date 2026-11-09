@@ -40,11 +40,13 @@ export function ExplainThis({
 }) {
   const ai = usePageAi()
   const [state, setState] = useState<State>({ phase: 'idle' })
+
   if (!ai.live) return null
   const name = t(`notebook.explainThis.subjects.${subject}`)
 
   const run = async () => {
     setState({ phase: 'working' })
+
     const result = await ai.run({
       task: 'explain_data',
       instruction: explainInstruction(
@@ -53,6 +55,7 @@ export function ExplainThis({
       ),
       objectRefs,
     })
+
     setState(
       result.status === 'ok'
         ? { phase: 'done', text: result.text }

@@ -50,15 +50,18 @@ type Rows = Partial<
 
 function context(rows: Rows): { ctx: LabToolContext; calls: string[] } {
   const calls: string[] = []
+
   const client = {
     list: (resource: string, query = '') => {
       calls.push(`${resource}${query}`)
       const source = rows[resource]
+
       return Promise.resolve(
         typeof source === 'function' ? source(query) : (source ?? []),
       )
     },
   } as unknown as DataClient
+
   return {
     ctx: { client, workspaceId: WS, userId: 'me', timeZone: 'Europe/London' },
     calls,
@@ -72,6 +75,7 @@ const tris = {
   metadata_version: 1,
   properties: { quantityUnit: 'bottles' },
 }
+
 const s142 = {
   id: 's1',
   identifier: 'S-0142',
@@ -79,17 +83,20 @@ const s142 = {
   metadata_version: 4,
   properties: { quantity: 200, quantityUnit: 'µl', storageLocation: 'Bench' },
 }
+
 const exp12 = { id: 'e1', identifier: 'EXP-12', title: 'ELISA plate 4' }
 const base = { title: 'T', summary: 'S' }
 
 describe('reagent bench cards', () => {
   it('proposes a reorder with the material’s own unit', async () => {
     const { ctx } = context({ records: [tris], reagent_orders: [] })
+
     const out = await buildBenchProposal(
       'sheetbase.reagent.order',
       { ...base, material: 'Tris', quantity: 2 },
       ctx,
     )
+
     expect(out).toMatchObject({
       ok: true,
       proposal: {
@@ -108,11 +115,13 @@ describe('reagent bench cards', () => {
       records: [tris],
       reagent_orders: [{ number: 7, status: 'ordered' }],
     })
+
     const out = await buildBenchProposal(
       'sheetbase.reagent.order',
       { ...base, material: 'Tris', quantity: 2 },
       ctx,
     )
+
     expect(out).toMatchObject({ ok: false })
     expect(JSON.stringify(out)).toContain('RO-0007')
   })
@@ -130,11 +139,13 @@ describe('reagent bench cards', () => {
         },
       ],
     })
+
     const out = await buildBenchProposal(
       'sheetbase.reagent.receive',
       { ...base, order: 'RO-0007', lot: 'L9', expiry: '2027-01-31' },
       ctx,
     )
+
     expect(calls[0]).toContain('number=eq.7')
     expect(out).toMatchObject({
       ok: true,
@@ -150,6 +161,7 @@ describe('sample bench cards', () => {
     const { ctx } = context({
       projects: [{ id: P1, title: 'Vaccine' }],
     })
+
     const out = await buildBenchProposal(
       'sheetbase.sample.log',
       {
@@ -159,6 +171,7 @@ describe('sample bench cards', () => {
       },
       ctx,
     )
+
     expect(out).toMatchObject({
       ok: true,
       proposal: {
@@ -173,22 +186,26 @@ describe('sample bench cards', () => {
 
   it('refuses to use more than is left', async () => {
     const { ctx } = context({ records: [s142] })
+
     const out = await buildBenchProposal(
       'sheetbase.sample.use',
       { ...base, sample: 'S-0142', quantity: 500 },
       ctx,
     )
+
     expect(out).toMatchObject({ ok: false })
     expect(JSON.stringify(out)).toContain('200 µl')
   })
 
   it('shows the amount left after use', async () => {
     const { ctx } = context({ records: [s142] })
+
     const out = await buildBenchProposal(
       'sheetbase.sample.use',
       { ...base, sample: 'S-0142', quantity: 50 },
       ctx,
     )
+
     expect(out).toMatchObject({
       ok: true,
       proposal: {
@@ -203,6 +220,7 @@ describe('sample bench cards', () => {
       records: (q: string) =>
         q.includes('kind=eq.experiment') ? [exp12] : [s142],
     })
+
     const out = await buildBenchProposal(
       'sheetbase.sample.split',
       {
@@ -214,6 +232,7 @@ describe('sample bench cards', () => {
       },
       ctx,
     )
+
     expect(out).toMatchObject({
       ok: true,
       proposal: {
@@ -229,11 +248,13 @@ describe('sample bench cards', () => {
 
   it('moves a sample to a place typed in words', async () => {
     const { ctx } = context({ records: [s142] })
+
     const out = await buildBenchProposal(
       'sheetbase.sample.move',
       { ...base, samples: ['S-0142'], place: '-80 freezer, shelf 2' },
       ctx,
     )
+
     expect(out).toMatchObject({
       ok: true,
       proposal: {
@@ -267,11 +288,13 @@ describe('sample bench cards', () => {
         },
       ],
     })
+
     const ok = await buildBenchProposal(
       'sheetbase.sample.advance',
       { ...base, sample: 'S-0142' },
       ctx,
     )
+
     expect(ok).toMatchObject({
       ok: true,
       proposal: {
@@ -279,11 +302,13 @@ describe('sample bench cards', () => {
         action: { kind: 'sample.advance', runId: 'r1', toStageId: 'st2' },
       },
     })
+
     const bad = await buildBenchProposal(
       'sheetbase.sample.advance',
       { ...base, sample: 'S-0142', toStage: 'Archive' },
       ctx,
     )
+
     expect(bad).toMatchObject({ ok: false })
   })
 })
@@ -315,6 +340,7 @@ describe('forms from chat', () => {
       lifecycle: 'active',
     },
   ]
+
   const rows: Rows = {
     model_incident_logs: [{ model_key: 'near_miss' }],
     record_models: (q: string) =>
@@ -337,6 +363,7 @@ describe('forms from chat', () => {
 
   it('files an incident from what the person said', async () => {
     const { ctx } = context(rows)
+
     const out = await buildBenchProposal(
       'sheetbase.incident.report',
       {
@@ -346,6 +373,7 @@ describe('forms from chat', () => {
       },
       ctx,
     )
+
     expect(out).toMatchObject({
       ok: true,
       proposal: {
@@ -363,22 +391,26 @@ describe('forms from chat', () => {
 
   it('asks for what the form still needs instead of inventing it', async () => {
     const { ctx } = context(rows)
+
     const out = await buildBenchProposal(
       'sheetbase.incident.report',
       { ...base, incidentTitle: 'Lid', fields: { severity: 'minor' } },
       ctx,
     )
+
     expect(out).toMatchObject({ ok: false })
     expect(JSON.stringify(out)).toContain('What happened')
   })
 
   it('refuses a choice the form does not offer', async () => {
     const { ctx } = context(rows)
+
     const out = await buildBenchProposal(
       'sheetbase.incident.report',
       { ...base, incidentTitle: 'Lid', fields: { severity: 'catastrophic' } },
       ctx,
     )
+
     expect(JSON.stringify(out)).toContain('Minor')
   })
 
@@ -387,6 +419,7 @@ describe('forms from chat', () => {
       ...rows,
       request_forms: [{ model_key: 'near_miss' }],
     })
+
     const out = await buildBenchProposal(
       'sheetbase.request.send',
       {
@@ -398,6 +431,7 @@ describe('forms from chat', () => {
       },
       ctx,
     )
+
     expect(out).toMatchObject({
       ok: true,
       proposal: {
@@ -422,17 +456,21 @@ describe('instrument out of service card', () => {
 
   it('needs a reason, then shows the status change', async () => {
     const { ctx } = context({ instruments })
+
     const none = await buildBenchProposal(
       'sheetbase.instrument.out_of_service',
       { ...base, instrument: 'plate reader' },
       ctx,
     )
+
     expect(none).toMatchObject({ ok: false })
+
     const out = await buildBenchProposal(
       'sheetbase.instrument.out_of_service',
       { ...base, instrument: 'plate reader', reason: 'Lamp has gone' },
       ctx,
     )
+
     expect(out).toMatchObject({
       ok: true,
       proposal: {
@@ -456,6 +494,7 @@ describe('storage reading cards', () => {
 
   it('finds the freezer and shows the reading', async () => {
     const { ctx } = context({ storage_units: units, storage_rooms: rooms })
+
     const out = await buildBenchProposal(
       'sheetbase.storage.log_reading',
       {
@@ -467,6 +506,7 @@ describe('storage reading cards', () => {
       },
       ctx,
     )
+
     expect(out).toMatchObject({
       ok: true,
       proposal: {
@@ -484,22 +524,27 @@ describe('storage reading cards', () => {
 
   it('says what exists when nothing matches', async () => {
     const { ctx } = context({ storage_units: units, storage_rooms: rooms })
+
     const out = await buildBenchProposal(
       'sheetbase.storage.log_reading',
       { ...base, place: 'Incubator 9', value: 37 },
       ctx,
     )
+
     expect(out).toMatchObject({ ok: false })
   })
 
   it('logs it through the readings RPC', async () => {
     const calls: Array<[string, Record<string, unknown>]> = []
+
     const client = {
       rpc: (name: string, args: Record<string, unknown>) => {
         calls.push([name, args])
+
         return Promise.resolve({ stored: 1 })
       },
     } as unknown as DataClient
+
     await runBenchAction(client, {
       kind: 'storage.reading',
       placeKind: 'room',
@@ -516,12 +561,15 @@ describe('storage reading cards', () => {
 describe('running a card', () => {
   it('calls the ordinary RPCs as the person', async () => {
     const calls: Array<[string, Record<string, unknown>]> = []
+
     const client = {
       rpc: (name: string, args: Record<string, unknown>) => {
         calls.push([name, args])
+
         return Promise.resolve({ id: 'x' })
       },
     } as unknown as DataClient
+
     await runBenchAction(client, {
       kind: 'instrument.service',
       instrumentId: 'i1',
@@ -561,6 +609,7 @@ describe('running a card', () => {
         { id: 'sup2', identifier: 'SUP-2', title: 'Fisher', kind: 'supplier' },
       ],
     })
+
     const result = await buildBenchProposal(
       'sheetbase.reagent.mark_ordered',
       {
@@ -573,7 +622,9 @@ describe('running a card', () => {
       },
       ctx,
     )
+
     expect(result.ok).toBe(true)
+
     if (!result.ok) return
     expect(result.proposal.action).toMatchObject({
       kind: 'reagent.place',
@@ -583,11 +634,13 @@ describe('running a card', () => {
       price: 120.5,
       currency: 'GBP',
     })
+
     const missing = await buildBenchProposal(
       'sheetbase.reagent.mark_ordered',
       { title: 't', summary: 's', order: 'RO-0007', price: 5 },
       ctx,
     )
+
     expect(missing.ok).toBe(false)
   })
 
@@ -606,6 +659,7 @@ describe('running a card', () => {
       ],
       instrument_rates: [{ rate_per_hour: '18', currency: 'GBP' }],
     })
+
     const ok = await buildBenchProposal(
       'sheetbase.instrument.set_rate',
       {
@@ -617,7 +671,9 @@ describe('running a card', () => {
       },
       ctx,
     )
+
     expect(ok.ok).toBe(true)
+
     if (ok.ok) {
       expect(ok.proposal.changes[0]).toMatchObject({ label: 'Rate' })
       expect(ok.proposal.action).toMatchObject({
@@ -626,22 +682,27 @@ describe('running a card', () => {
         ratePerHour: 24,
       })
     }
+
     const none = await buildBenchProposal(
       'sheetbase.instrument.set_rate',
       { title: 't', summary: 's', instrument: 'Plate reader', ratePerHour: 24 },
       ctx,
     )
+
     expect(none.ok).toBe(false)
   })
 
   it('runs the new cards through the same calls the pages make', async () => {
     const calls: Array<[string, Record<string, unknown>]> = []
+
     const client = {
       rpc: (name: string, args: Record<string, unknown>) => {
         calls.push([name, args])
+
         return Promise.resolve({ id: 'x' })
       },
     } as unknown as DataClient
+
     await runBenchAction(client, {
       kind: 'reagent.place',
       orderId: 'o1',

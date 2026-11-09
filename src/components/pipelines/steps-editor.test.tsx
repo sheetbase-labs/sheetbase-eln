@@ -17,9 +17,11 @@ afterEach(cleanup)
 describe('ParametersEditor', () => {
   it('adds a parameter and locks the default of a required one', () => {
     const onChange = vi.fn()
+
     const { rerender } = render(
       <ParametersEditor parameters={[]} onChange={onChange} />,
     )
+
     fireEvent.click(screen.getByRole('button', { name: 'Add parameter' }))
     expect(onChange.mock.calls[0][0]).toHaveLength(1)
 
@@ -68,6 +70,7 @@ describe('StepsEditor', () => {
 
   it('gives a Python step the editor, and keeps its contract on that step', () => {
     const onChange = vi.fn()
+
     const python: PipelineStep[] = [
       {
         name: 'tidy',
@@ -75,6 +78,7 @@ describe('StepsEditor', () => {
         statement: 'def transform(inputs, parameters):\n    return []\n',
       },
     ]
+
     render(
       <StepsEditor
         steps={python}

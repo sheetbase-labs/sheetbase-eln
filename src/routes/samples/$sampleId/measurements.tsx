@@ -29,10 +29,12 @@ export const Route = createFileRoute('/samples/$sampleId/measurements')({
 
 function MeasurementsTab() {
   const { sampleId } = Route.useParams()
+
   const measurements = useQuery({
     queryKey: ['ui-port', 'sample-measurements', sampleId],
     queryFn: () => fetchSampleMeasurements(notebookDataClient, sampleId),
   })
+
   const rows = measurements.data ?? []
 
   const columns: RegistryColumn<SampleMeasurement>[] = [
@@ -48,6 +50,7 @@ function MeasurementsTab() {
       header: t('library.samples.measurements.value'),
       cell: ({ row }) => {
         const m = row.original
+
         return m.valueText ?? (m.value != null ? String(m.value) : '—')
       },
       meta: {

@@ -134,10 +134,12 @@ export function ChartRenderer({
   const mode = frozen ? 'snapshot' : 'live'
   const alt = describeChart(spec, materialised, frozen)
   const explainFacts = chartFacts(title, materialised)
+
   const legend =
     materialised.series.length && legendShown(spec) ? (
       <ChartLegend series={materialised.series} />
     ) : null
+
   return (
     <ChartFrame
       title={title}
@@ -280,17 +282,24 @@ function MeasuredPlotHeight({
   const [height, setHeight] = React.useState(fallback)
   React.useLayoutEffect(() => {
     const node = ref.current
+
     if (!node) return
+
     const apply = () => {
       const next = Math.floor(node.getBoundingClientRect().height)
+
       if (next > 0) setHeight(Math.max(160, next))
     }
+
     apply()
+
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(apply)
     observer.observe(node)
+
     return () => observer.disconnect()
   }, [])
+
   return (
     <div ref={ref} className="h-full min-h-0 w-full">
       {children(height)}
@@ -389,22 +398,30 @@ function PackageFigurePlot({
   const [width, setWidth] = React.useState(640)
   React.useLayoutEffect(() => {
     const node = containerRef.current
+
     if (!node) return
+
     const apply = () => {
       const next = Math.floor(node.getBoundingClientRect().width)
+
       if (next > 0) setWidth(Math.max(240, next))
     }
+
     apply()
+
     if (typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(apply)
     observer.observe(node)
+
     return () => observer.disconnect()
   }, [])
+
   const figure = React.useMemo(
     () =>
       spec ? buildPackageFigure(spec, materialised, { width, height }) : null,
     [spec, materialised, width, height],
   )
+
   if (!figure)
     return (
       <ChartStateMessage tone="muted">
@@ -422,24 +439,30 @@ function PackageFigurePlot({
   // A band x axis (bar/box/heatmap) has no numeric scale; its categories sit at
   // band centres.
   const bandX = (figure.x.bands?.length ?? 0) > 0
+
   const yPx = (value: number) => {
     const px = figureValueToPx(figure, 'y', yScale, value)
+
     return Math.min(plot.y + plot.height, Math.max(plot.y, px))
   }
+
   const xPx = (value: number) =>
     bandX
       ? figureCategoryToPx(figure, value)
       : figureValueToPx(figure, 'x', xScale, value)
+
   const references = spec?.overlays.references ?? []
   const annotations = spec?.display.annotations ?? []
   // Bar categories are numeric (so x guides are meaningful); box and heatmap
   // categories are labels, and a heatmap has no numeric y either.
   const numericX = type !== 'heatmap' && type !== 'box'
   const numericY = type !== 'heatmap'
+
   // The package figure draws reference lines itself on numeric axes (x and y)
   // and on bar/box (y only); only the remainder needs an overlay.
   const packageRefLines: 'both' | 'y' | 'none' =
     type === 'heatmap' ? 'none' : bandX ? 'y' : 'both'
+
   const errorPoints = materialised.series.flatMap((series) =>
     series.points
       .filter(
@@ -447,6 +470,7 @@ function PackageFigurePlot({
       )
       .map((point) => ({ series, point })),
   )
+
   return (
     <div
       ref={containerRef}
@@ -471,7 +495,9 @@ function PackageFigurePlot({
           {references.map((overlay, index) => {
             if (overlay.kind === 'band') {
               if (overlay.axis === 'y' && !numericY) return null
+
               if (overlay.axis === 'x' && !numericX) return null
+
               return overlay.axis === 'y' ? (
                 <rect
                   key={`band-${index}`}
@@ -494,9 +520,11 @@ function PackageFigurePlot({
                 />
               )
             }
+
             if (overlay.kind === 'identity') {
               if (!numericX || !numericY) return null
               const [d0, d1] = figure.x.domain
+
               return (
                 <line
                   key={`identity-${index}`}
@@ -509,12 +537,14 @@ function PackageFigurePlot({
                 />
               )
             }
+
             if (
               overlay.kind === 'hline' &&
               packageRefLines === 'none' &&
               numericY
             ) {
               const y = yPx(overlay.value)
+
               return (
                 <line
                   key={`hline-${index}`}
@@ -527,12 +557,14 @@ function PackageFigurePlot({
                 />
               )
             }
+
             if (
               overlay.kind === 'vline' &&
               packageRefLines !== 'both' &&
               numericX
             ) {
               const x = xPx(overlay.value)
+
               return (
                 <line
                   key={`vline-${index}`}
@@ -545,12 +577,14 @@ function PackageFigurePlot({
                 />
               )
             }
+
             return null
           })}
           {errorPoints.map(({ series, point }, index) => {
             const cx = xPx(point.x as number)
             const hi = yPx((point.y as number) + (point.yError as number))
             const lo = yPx((point.y as number) - (point.yError as number))
+
             return (
               <g
                 key={`error-${series.identifier}-${index}`}
@@ -567,6 +601,7 @@ function PackageFigurePlot({
             if (!numericX || !numericY) return null
             const cx = xPx(annotation.x)
             const cy = yPx(annotation.y)
+
             return (
               <g key={`annotation-${index}`}>
                 <circle
@@ -629,20 +664,25 @@ function plotHitTargets(
       )
     })
   })
+
   // Histogram bars carry a bin label ("0–10") as their category, not a point
   // x, so map the label back to the per-series bin index the selection uses.
   const binIndexByLabel = new Map(
     (figure.bins ?? []).map((bin) => [bin.label, bin.index]),
   )
+
   figure.bars?.forEach((bar) => {
     const series = materialised.series.find(
       (item) => item.identifier === bar.seriesId,
     )
+
     const pointIndex = series
       ? series.points.findIndex((point) => String(point.x) === bar.category)
       : -1
+
     const index =
       pointIndex >= 0 ? pointIndex : (binIndexByLabel.get(bar.category) ?? -1)
+
     targets.push(
       <rect
         key={`hit-bar-${bar.seriesId}-${bar.category}`}
@@ -672,6 +712,7 @@ function plotHitTargets(
     const series = materialised.series.find(
       (item) => item.identifier === box.seriesId || item.label === box.seriesId,
     )
+
     targets.push(
       <rect
         key={`hit-box-${box.seriesId}-${box.category}`}
@@ -709,6 +750,7 @@ function plotHitTargets(
       (item) =>
         item.identifier === violin.seriesId || item.label === violin.category,
     )
+
     targets.push(
       <rect
         key={`hit-violin-${violin.seriesId}-${violin.category}`}
@@ -746,6 +788,7 @@ function plotHitTargets(
     if (!heatmap) return
     const xIndex = heatmap.xLabels.indexOf(cell.x)
     const yIndex = (heatmap.yLabels ?? ['']).indexOf(cell.y)
+
     if (xIndex < 0 || yIndex < 0) return
     const index = yIndex * heatmap.xLabels.length + xIndex
     targets.push(
@@ -768,6 +811,7 @@ function plotHitTargets(
       </rect>,
     )
   })
+
   return targets
 }
 
@@ -777,16 +821,21 @@ function handlePlotKeyDown(
   selectionProps: PlotSelectionProps,
 ) {
   const series = materialised.series.at(0)
+
   if (series === undefined || series.points.length === 0) return
+
   if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
   event.preventDefault()
   const current = selectionProps.selection
+
   const index =
     current?.seriesIdentifier === series.identifier ? current.index : 0
+
   const next =
     event.key === 'ArrowRight'
       ? Math.min(series.points.length - 1, index + 1)
       : Math.max(0, index - 1)
+
   selectionProps.onSelect({ seriesIdentifier: series.identifier, index: next })
 }
 
@@ -799,6 +848,7 @@ function ChartLegend({ series }: { series: MaterialisedSeries[] }) {
     <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
       {series.map((s, i) => {
         const { marker, colour } = seriesStyle(i)
+
         return (
           <li key={s.identifier} className="flex items-center gap-1.5">
             <svg width={10} height={10} viewBox="0 0 10 10" aria-hidden="true">
@@ -829,6 +879,7 @@ function ChartTableAlternative({
     { key: 'y', label: materialised.yLabel },
     { key: 'yError', label: t('data.chartRenderer.error') },
   ]
+
   const rows = materialised.series.flatMap((s) =>
     s.points.map((p) => ({
       series: s.label,
@@ -837,6 +888,7 @@ function ChartTableAlternative({
       yError: p.yError,
     })),
   )
+
   return (
     <details className="group mt-3">
       <summary className="cursor-pointer text-xs text-muted-foreground">
@@ -899,8 +951,10 @@ function HeatmapTableAlternative({
   const cellByPosition = new Map(
     heatmap.cells.map((cell) => [`${cell.x},${cell.y}`, cell]),
   )
+
   const yLabels = heatmap.yLabels ?? ['']
   const cellCount = heatmap.cells.filter((cell) => cell.value !== null).length
+
   return (
     <details className="group mt-3">
       <summary className="cursor-pointer text-xs text-muted-foreground">
@@ -943,9 +997,11 @@ function HeatmapTableAlternative({
                   const cell = cellByPosition.get(`${x},${y}`)
                   const value = cell?.value ?? null
                   const index = y * heatmap.xLabels.length + x
+
                   const selected =
                     selection?.seriesIdentifier === 'heatmap' &&
                     selection.index === index
+
                   return (
                     <td key={xLabel} className="p-0">
                       <button
@@ -1035,6 +1091,7 @@ function describeSeries(materialised: MaterialisedChart): string {
       count: s.points.length,
     }),
   )
+
   return t('data.chartRenderer.seriesSummary', {
     count: materialised.series.length,
     parts: parts.join('; '),
@@ -1048,6 +1105,7 @@ function describeSeries(materialised: MaterialisedChart): string {
  */
 function describeNoNumericValues(materialised: MaterialisedChart): string {
   const dropped = materialised.droppedPoints
+
   return t('data.chartRenderer.numericValuesPlot', {
     yLabel: materialised.yLabel,
     value:
@@ -1063,8 +1121,10 @@ function describeNoSeries(
   materialised: MaterialisedChart,
 ): string {
   if (!spec) return t('data.chartRenderer.chooseXYField')
+
   if (MEASURED_FIELD_TYPES.includes(spec.type))
     return describeNoNumericValues(materialised)
+
   return t('data.chartRenderer.plottablePointsAfterFiltering')
 }
 
@@ -1078,6 +1138,7 @@ function describeState(
     case 'missing_field':
       if (spec?.type === 'heatmap' && materialised.state.fields.includes('x'))
         return t('data.chartRenderer.heatmapNeedsX')
+
       return t('data.chartRenderer.datasetMissingFieldS', {
         join: materialised.state.fields.join(', '),
       })
@@ -1107,12 +1168,14 @@ function describeChart(
 ): string {
   const type = spec?.type ?? 'chart'
   const state = materialised.state
+
   if (state.kind !== 'ok')
     return t('data.chartRenderer.chartState', {
       type,
       state: describeState(materialised, spec),
     })
   const seriesPart = describeSeries(materialised)
+
   const provenancePart = frozen
     ? frozen.datasetProvenance
         .map((p) =>
@@ -1124,12 +1187,14 @@ function describeChart(
         )
         .join(', ')
     : ''
+
   const frozenPart = frozen
     ? t('data.chartRenderer.frozenSnapshotTakenProvenance', {
         frozenAt: frozen.frozenAt,
         provenancePart,
       })
     : t('data.chartRenderer.liveReReadsCurrent')
+
   return t('data.chartRenderer.chartSummary', {
     type,
     yLabel: materialised.yLabel,

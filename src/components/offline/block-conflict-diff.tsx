@@ -26,19 +26,24 @@ export function BlockConflictDiff({
   React.useEffect(() => {
     let active = true
     const read = port.readServerBlockPayload
+
     if (!read) {
       setSaved(null)
+
       return
     }
+
     void read(edit).then((payload) => {
       if (active) setSaved(payload ? blockPayloadSummary(payload) : null)
     })
+
     return () => {
       active = false
     }
   }, [edit, port])
 
   if (saved === undefined) return null
+
   if (saved === null) {
     return (
       <span className="text-fg-muted">
@@ -46,7 +51,9 @@ export function BlockConflictDiff({
       </span>
     )
   }
+
   const parts = diffWords(saved, blockPayloadSummary(edit.payload))
+
   return (
     <span className="flex flex-col gap-1">
       <span

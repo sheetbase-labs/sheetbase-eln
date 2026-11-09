@@ -106,24 +106,33 @@ export interface ExperimentOverviewProps {
 function objectiveText(blocks: readonly ReadinessBlock[]): string {
   const objective = blocks.find((block) => {
     const first = firstNode(block.payload)
+
     return first?.type === 'heading' && proseText(first).trim() === 'Objective'
   })
+
   if (objective) {
     const content = docContent(objective.payload)
     const text = content.slice(1).map(proseText).join('\n').trim()
+
     if (text) return text
   }
+
   const parts: string[] = []
+
   for (const block of blocks) {
     const text = blockDocText(block.payload)
+
     if (text) parts.push(text)
   }
+
   return parts.join('\n\n')
 }
 
 function docContent(payload: Record<string, unknown>): unknown[] {
   const doc = payload.doc
+
   if (!doc || typeof doc !== 'object' || !('content' in doc)) return []
+
   return Array.isArray(doc.content) ? doc.content : []
 }
 
@@ -131,22 +140,27 @@ function firstNode(
   payload: Record<string, unknown>,
 ): { type?: unknown } | undefined {
   const [first] = docContent(payload)
+
   return first && typeof first === 'object' ? first : undefined
 }
 
 function blockDocText(payload: Record<string, unknown>): string {
   if (!('doc' in payload)) return ''
   const doc = payload.doc
+
   if (!doc || typeof doc !== 'object' || !('content' in doc)) return ''
   const content = doc.content
+
   return Array.isArray(content) ? content.map(proseText).join('\n').trim() : ''
 }
 
 function proseText(node: unknown): string {
   if (!node || typeof node !== 'object') return ''
   const text = 'text' in node ? node.text : undefined
+
   if (typeof text === 'string') return text
   const content = 'content' in node ? node.content : undefined
+
   return Array.isArray(content) ? content.map(proseText).join('') : ''
 }
 
@@ -156,7 +170,9 @@ function propertyIds(
   key: string,
 ): string[] {
   const value = properties[key]
+
   if (!Array.isArray(value)) return []
+
   return value.filter((entry): entry is string => typeof entry === 'string')
 }
 
@@ -165,6 +181,7 @@ function propertyText(
   key: string,
 ): string | null {
   const value = properties[key]
+
   return typeof value === 'string' && value.length > 0 ? value : null
 }
 
@@ -252,6 +269,7 @@ function PartsSection({
   userLabel: (userId: string) => string
 }) {
   const done = parts.filter((part) => part.status === 'done').length
+
   return (
     <Section
       title={t('projects.overview.parts.title')}
@@ -373,13 +391,16 @@ export function ExperimentOverview({
   // them, and grouped under it.
   const numberInPart = new Map<string, number>()
   const seenInPart = new Map<string | null, number>()
+
   for (const step of protocolSteps) {
     const next = (seenInPart.get(step.partId) ?? 0) + 1
     seenInPart.set(step.partId, next)
     numberInPart.set(step.blockId, next)
   }
+
   const partHeading = (partId: string | null) => {
     const part = parts.find((candidate) => candidate.partId === partId)
+
     return part
       ? t('projects.overview.parts.partHeading', {
           number: String(part.number),
@@ -387,15 +408,19 @@ export function ExperimentOverview({
         })
       : t('projects.overview.parts.noPart')
   }
+
   // Status comes from the evidence: a step with a note or a result is in progress.
   const stepStatus = new Map(
     stepProgress(blocks).map((step) => [step.blockId, step.status]),
   )
+
   const items = readinessItems(readiness, blocks, (userId) =>
     userId ? userLabel(userId) : t('projects.overview.someone'),
   )
+
   const objective = objectiveText(blocks)
   const status = experimentStatus(record.status)
+
   // Once a record has been submitted the list of what to close before
   // submitting no longer applies; the review is what the page is about.
   const pastSubmission = ['in_review', 'returned', 'approved'].includes(
@@ -411,6 +436,7 @@ export function ExperimentOverview({
   // same page counted.
   const datasetLinks = links.filter((link) => link.targetKind === 'dataset')
   const analysisLinks = links.filter((link) => link.targetKind === 'analysis')
+
   const upstream = links.filter(
     (link) =>
       (link.linkType === 'upstream' || link.linkType === 'follows') &&
@@ -419,6 +445,7 @@ export function ExperimentOverview({
 
   const properties = record.properties
   const collaboratorIds = propertyIds(properties, 'collaboratorIds')
+
   const reviewerNames = [
     ...new Set([
       propertyText(properties, 'reviewerId'),
@@ -427,6 +454,7 @@ export function ExperimentOverview({
   ]
     .filter((id): id is string => Boolean(id))
     .map((id) => userLabel(id))
+
   const plannedEnd = propertyText(properties, 'plannedEnd')
   const decision = propertyText(properties, 'decision')
   const decisionNotes = propertyText(properties, 'decisionNotes')

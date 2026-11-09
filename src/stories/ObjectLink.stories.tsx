@@ -13,7 +13,9 @@ const meta = {
   tags: ['autodocs'],
   args: { kind: 'experiment', identifier: 'EXP-0142' },
 } satisfies Meta<typeof ObjectLink>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 export const Experiment: Story = {}

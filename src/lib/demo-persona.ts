@@ -21,13 +21,17 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function parseViewAsCookie(header: string | null | undefined) {
   if (!header) return null
+
   for (const part of header.split(';')) {
     const [name, ...rest] = part.trim().split('=')
+
     if (name === VIEW_AS_COOKIE) {
       const value = decodeURIComponent(rest.join('='))
+
       return UUID.test(value) ? value.toLowerCase() : null
     }
   }
+
   return null
 }
 

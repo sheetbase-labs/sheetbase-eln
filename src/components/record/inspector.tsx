@@ -84,10 +84,12 @@ export function Inspector({
 }: InspectorProps) {
   const initial = defaultTab ?? tabs[0]?.id
   const [chosenTab, setActiveTab] = React.useState(initial)
+
   const activeTab =
     tabs.length === 0
       ? ''
       : (tabs.find((tab) => tab.id === chosenTab) ?? tabs[0]).id
+
   const showTabs = state === 'loaded' && tabs.length > 0
 
   return (

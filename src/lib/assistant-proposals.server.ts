@@ -41,11 +41,13 @@ function clip(text: string): string {
     .replaceAll(/[ \t]+/g, ' ')
     .replaceAll(/\n{3,}/g, '\n\n')
     .trim()
+
   return tidy.length <= MAX_SHOWN ? tidy : `${tidy.slice(0, MAX_SHOWN)}…`
 }
 
 function show(value: unknown): string | null {
   if (value === undefined || value === null || value === '') return null
+
   return clip(typeof value === 'string' ? value : JSON.stringify(value))
 }
 
@@ -54,6 +56,7 @@ async function fetchBlock(client: DataClient, blockId: string) {
     'blocks',
     `?id=eq.${encodeURIComponent(blockId)}`,
   )
+
   return rows.at(0) ? toBlock(rows[0]) : null
 }
 
@@ -100,7 +103,9 @@ function applyPipelineArgs(
     parameters: (base as Partial<PipelineConfig>).parameters ?? [],
     inputs: (base as Partial<PipelineConfig>).inputs ?? [],
   }
+
   if (args.description !== undefined) next.description = args.description
+
   if (args.inputs) {
     next.inputs = args.inputs.map((input): PipelineInput => ({
       name: input.name,
@@ -108,9 +113,11 @@ function applyPipelineArgs(
       ...(input.description ? { description: input.description } : {}),
     }))
   }
+
   if (args.parameters) {
     next.parameters = args.parameters.map((parameter): PipelineParameter => {
       const required = parameter.required ?? false
+
       return {
         name: parameter.name,
         type: parameter.type,
@@ -124,16 +131,20 @@ function applyPipelineArgs(
       }
     })
   }
+
   if (args.statement !== undefined) {
     next.transform = { ...base.transform, statement: args.statement }
   }
+
   if (args.steps) {
     const existing = base.steps ?? []
     next.steps = args.steps.map((step): PipelineStep => {
       const kept = existing.find((entry) => entry.name === step.name)
+
       // A plugin step has no code: it is the plugin step and what it is given.
       if (step.plugin) {
         const { contract: _contract, ...rest } = kept ?? {}
+
         return {
           ...rest,
           name: step.name,
@@ -142,18 +153,24 @@ function applyPipelineArgs(
           plugin: step.plugin,
         }
       }
+
       const statement = step.statement ?? ''
+
       if (kept?.language === 'plugin') {
         // Naming a plugin step with SQL turns it into a SQL step on purpose.
         const { plugin: _plugin, ...rest } = kept
+
         return { ...rest, language: 'sql', statement }
       }
+
       return kept
         ? { ...kept, statement }
         : { name: step.name, language: 'sql', statement }
     })
+
     if (next.steps.length === 0) delete next.steps
   }
+
   return next
 }
 
@@ -183,8 +200,10 @@ function pipelineChanges(
   const changes: ProposalChange[] = []
   const was = new Map(before ? pipelineStatements(before) : [])
   const now = pipelineStatements(after)
+
   for (const [label, statement] of now) {
     const previous = was.get(label) ?? null
+
     if (previous === statement) continue
     changes.push({
       label,
@@ -192,13 +211,16 @@ function pipelineChanges(
       after: show(statement) ?? '(empty)',
     })
   }
+
   for (const [label, statement] of was) {
     if (!now.some(([name]) => name === label)) {
       changes.push({ label, before: show(statement), after: '(removed)' })
     }
   }
+
   const beforeInputs = listNames(before?.inputs)
   const afterInputs = listNames(after.inputs)
+
   if (beforeInputs !== afterInputs) {
     changes.push({
       label: 'Inputs',
@@ -206,8 +228,10 @@ function pipelineChanges(
       after: afterInputs ?? '(none)',
     })
   }
+
   const beforeParameters = listNames(before?.parameters)
   const afterParameters = listNames(after.parameters)
+
   if (beforeParameters !== afterParameters) {
     changes.push({
       label: 'Parameters',
@@ -215,6 +239,7 @@ function pipelineChanges(
       after: afterParameters ?? '(none)',
     })
   }
+
   return changes
 }
 
@@ -223,6 +248,7 @@ function configProblem(config: PipelineConfig): string | null {
     // A draft may be incomplete about where its result goes; a person sets that.
     (error) => !error.field.startsWith('output'),
   )
+
   return errors.length > 0
     ? `That pipeline is not valid: ${errors
         .map((error) => `${error.field} ${error.message}`)
@@ -239,7 +265,9 @@ export async function buildAssistantProposal(
   if (!isProposalTool(name)) {
     return { ok: false, message: 'That tool is not available.' }
   }
+
   const parsed = PROPOSAL_TOOLS[name].schema.safeParse(args)
+
   if (!parsed.success) {
     return {
       ok: false,
@@ -250,6 +278,7 @@ export async function buildAssistantProposal(
         .join('; ')}`,
     }
   }
+
   const input = parsed.data as Record<string, unknown>
   const title = String(input.title)
   const summary = String(input.summary)
@@ -258,13 +287,17 @@ export async function buildAssistantProposal(
     case 'sheetbase.notebook_block.insert': {
       const recordId = String(input.recordId)
       const record = await fetchRecordById(client, recordId)
+
       if (!record) return { ok: false, message: 'That record was not found.' }
       const payload = plainTextToRichText(String(input.text))
+
       if (!validateBlock({ type: 'rich_text', payload }).ok) {
         return { ok: false, message: 'That text could not be made a block.' }
       }
+
       const afterBlockId =
         typeof input.afterBlockId === 'string' ? input.afterBlockId : null
+
       return {
         ok: true,
         proposal: {
@@ -294,17 +327,22 @@ export async function buildAssistantProposal(
         },
       }
     }
+
     case 'sheetbase.notebook_block.update': {
       const block = await fetchBlock(client, String(input.blockId))
+
       if (!block) return { ok: false, message: 'That block was not found.' }
+
       if (block.type !== 'rich_text' || !isRichTextPayload(block.payload)) {
         return {
           ok: false,
           message: 'Only text blocks can be changed this way.',
         }
       }
+
       const record = await fetchRecordById(client, block.recordId)
       const payload = plainTextToRichText(String(input.text))
+
       return {
         ok: true,
         proposal: {
@@ -332,11 +370,14 @@ export async function buildAssistantProposal(
         },
       }
     }
+
     case 'sheetbase.record.custom_fields.update': {
       const record = await fetchRecordById(client, String(input.recordId))
+
       if (!record) return { ok: false, message: 'That record was not found.' }
       const values = input.values as Record<string, unknown>
       const current = record.customFields ?? {}
+
       return {
         ok: true,
         proposal: {
@@ -359,25 +400,31 @@ export async function buildAssistantProposal(
         },
       }
     }
+
     case 'sheetbase.sheet_instance.update': {
       const rows = await client.list<unknown>(
         'sheet_instances',
         `?id=eq.${encodeURIComponent(String(input.instanceId))}&limit=1`,
       )
+
       if (rows.length === 0) {
         return { ok: false, message: 'That sheet was not found.' }
       }
+
       const instance = sheetInstanceFromWire(rows[0])
       const patch = input.localValues as Record<string, Record<string, unknown>>
       const localValues = { ...instance.state.localValues }
       const changes: AssistantProposal['changes'] = []
+
       for (const [rowId, cells] of Object.entries(patch)) {
         localValues[rowId] = { ...localValues[rowId], ...cells } as never
+
         for (const [fieldId, value] of Object.entries(cells)) {
           const label =
             instance.state.localFields.find(
               (field) => field.fieldId === fieldId,
             )?.label ?? fieldId
+
           changes.push({
             label: `${label} · ${rowId}`,
             before: show(
@@ -392,8 +439,10 @@ export async function buildAssistantProposal(
           })
         }
       }
+
       const state = { ...instance.state, localValues }
       const checked = sheetInstanceStateSchema.safeParse(state)
+
       if (!checked.success) {
         return {
           ok: false,
@@ -402,6 +451,7 @@ export async function buildAssistantProposal(
             .join('; ')}`,
         }
       }
+
       return {
         ok: true,
         proposal: {
@@ -420,14 +470,18 @@ export async function buildAssistantProposal(
         },
       }
     }
+
     case 'sheetbase.pipeline_definition.draft': {
       const spec = input as unknown as PipelineArgs & {
         key: string
         name: string
       }
+
       const configuration = applyPipelineArgs(blankPipelineConfig(), spec)
       const problem = configProblem(configuration)
+
       if (problem) return { ok: false, message: problem }
+
       return {
         ok: true,
         proposal: {
@@ -455,34 +509,45 @@ export async function buildAssistantProposal(
         },
       }
     }
+
     case 'sheetbase.pipeline_definition.update_draft': {
       const spec = input as unknown as PipelineArgs & { pipelineId: string }
       const definition = await getPipelineDefinition(client, spec.pipelineId)
+
       if (!definition) {
         return { ok: false, message: 'That pipeline was not found.' }
       }
+
       if (definition.lifecycle !== 'active') {
         return { ok: false, message: 'That pipeline is retired.' }
       }
+
       const versions = await listPipelineDefinitionVersions(
         client,
         definition.id,
       )
+
       const draft = versions.find((version) => version.lifecycle === 'draft')
       const latest = draft ?? versions.find((v) => v.lifecycle === 'published')
+
       const current = latest
         ? (latest.configuration as unknown as PipelineConfig)
         : null
+
       const configuration = applyPipelineArgs(
         current ?? blankPipelineConfig(),
         spec,
       )
+
       const problem = configProblem(configuration)
+
       if (problem) return { ok: false, message: problem }
       const changes = pipelineChanges(current, configuration)
+
       if (changes.length === 0) {
         return { ok: false, message: 'That would not change anything.' }
       }
+
       return {
         ok: true,
         proposal: {

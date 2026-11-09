@@ -19,7 +19,9 @@ export function useAvatarPhotoUrl(
   userId: string | null | undefined,
 ): string | undefined {
   const photos = useContext(AvatarPhotosContext)
+
   if (!userId) return undefined
   const version = photos.get(userId)
+
   return version ? avatarPhotoUrl(userId, version) : undefined
 }

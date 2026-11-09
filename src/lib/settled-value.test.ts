@@ -39,6 +39,7 @@ describe('useSettledValue', () => {
   it('adopts a change made elsewhere and drops what was still queued', () => {
     vi.useFakeTimers()
     const onSettle = vi.fn()
+
     const { result, rerender } = renderHook(
       ({ value }) => useSettledValue(value, 200, onSettle),
       { initialProps: { value: 'old' } },
@@ -60,6 +61,7 @@ describe('useSettledValue', () => {
   it('ignores the echo of its own report', () => {
     vi.useFakeTimers()
     const onSettle = vi.fn()
+
     const { result, rerender } = renderHook(
       ({ value }) => useSettledValue(value, 200, onSettle),
       { initialProps: { value: '' } },

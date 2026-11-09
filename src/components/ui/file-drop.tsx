@@ -125,16 +125,23 @@ export function FileDrop({
   const hand = useCallback(
     async (entry: FileEntry) => {
       const refusal = validate?.(entry.file)
+
       if (refusal && !refusal.ok) {
         patch(entry.id, { status: 'refused', message: refusal.message })
+
         return
       }
+
       const handed = onFile(entry.file)
+
       if (!isTransported(handed)) {
         patch(entry.id, { status: 'done', message: undefined })
+
         return
       }
+
       patch(entry.id, { status: 'busy', message: undefined })
+
       try {
         await handed
         patch(entry.id, { status: 'done', uploaded: true })
@@ -159,10 +166,12 @@ export function FileDrop({
             ]
           : [],
       )
+
       if (picked.length === 0) return
       // This field holds one file at a time, which is what every screen that
       // picks one needs; the registry hook holds the queue behind it.
       setEntries(picked)
+
       for (const entry of picked) void hand(entry)
     },
     [hand],
@@ -181,8 +190,10 @@ export function FileDrop({
     handleDragLeave,
     handleDragOver,
   } = actions
+
   const busy = entries.some((entry) => entry.status === 'busy')
   const off = Boolean(disabled) || busy
+
   const inputName =
     inputLabel ?? (typeof label === 'string' ? label : undefined)
 
@@ -252,8 +263,10 @@ export function FileDrop({
                   : entry.status === 'refused'
                     ? t('settings.uiKit.fileDrop.notUploaded')
                     : t('common.states.failed')
+
             const failure =
               entry.status === 'refused' || entry.status === 'failed'
+
             return (
               <li
                 key={entry.id}

@@ -38,6 +38,7 @@ const MODEL_ID = '00000000-0000-4000-8000-00000000c001'
 const VERSION_ID = '00000000-0000-4000-8000-00000000c002'
 const WORKSPACE_ID = '00000000-0000-4000-8000-00000000c003'
 const FIELD_ID = '00000000-0000-4000-8000-00000000c004'
+
 const version: RecordModelVersion = {
   id: VERSION_ID,
   model_id: MODEL_ID,
@@ -69,6 +70,7 @@ const version: RecordModelVersion = {
     ],
   },
 }
+
 const pending: ApprovalRequest = {
   id: '00000000-0000-4000-8000-00000000c005',
   workspace_id: WORKSPACE_ID,
@@ -114,6 +116,7 @@ describe('Record Model version client contract', () => {
     const fetcher = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(JSON.stringify(version)))
+
     const client = createDataClient(fetcher)
     await createRecordModelVersion(client, {
       modelId: MODEL_ID,
@@ -150,6 +153,7 @@ describe('Record Model version client contract', () => {
     const fetcher = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(JSON.stringify(version)))
+
     const client = createDataClient(fetcher)
     await replaceRecordModelVersionDefinition(client, {
       versionId: VERSION_ID,
@@ -180,12 +184,15 @@ describe('Record Model version client contract', () => {
           JSON.stringify({ migrated: 2, recordIds: ['r-1', 'r-2'] }),
         ),
       )
+
     const client = createDataClient(fetcher)
+
     const result = await migrateOpenExperimentsToModelVersion(client, {
       modelId: 'model-1',
       versionId: VERSION_ID,
       reason: 'Extend the range after service',
     })
+
     expect(fetcher.mock.calls[0]?.[0]).toBe(
       '/api/db/rpc/migrate_open_experiments_to_model_version',
     )
@@ -246,9 +253,11 @@ describe('Record Model version client contract', () => {
 
   it('locks pending native drafts and queries approvals for Record Models, not Dataset schemas', async () => {
     const requests: string[] = []
+
     const client = createDataClient(async (url) => {
       const path = String(url)
       requests.push(path)
+
       const data = path.includes('record_models?')
         ? [{ id: MODEL_ID, key: 'test_bank', name: 'Test bank' }]
         : path.includes('/record_model_versions?')
@@ -268,14 +277,17 @@ describe('Record Model version client contract', () => {
                     },
                   ]
                 : []
+
       return new Response(JSON.stringify(data))
     })
+
     const queryClient = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
         mutations: { retry: false },
       },
     })
+
     render(
       <QueryClientProvider client={queryClient}>
         <RecordModelVersions
@@ -310,9 +322,11 @@ describe('Record Model version client contract', () => {
     const fetcher = vi
       .fn<typeof fetch>()
       .mockResolvedValue(new Response(JSON.stringify(pending)))
+
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
+
     render(
       <QueryClientProvider client={queryClient}>
         <ModelApprovalPanel
@@ -330,9 +344,11 @@ describe('Record Model version client contract', () => {
     )
     fireEvent.click(screen.getByRole('button', { name: 'Submit for approval' }))
     const dialog = await screen.findByRole('dialog')
+
     const independence = within(dialog).getByRole('checkbox', {
       name: /Require an independent approver/,
     })
+
     expect(independence).toHaveProperty('disabled', true)
     expect(independence).toHaveProperty('checked', true)
     fireEvent.change(within(dialog).getByRole('textbox', { name: 'Reason' }), {

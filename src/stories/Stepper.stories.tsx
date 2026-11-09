@@ -20,7 +20,9 @@ const meta = {
   tags: ['autodocs'],
   args: { steps: ['Upload', 'Map columns', 'Review and import'], current: 1 },
 } satisfies Meta<typeof Stepper>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The default state: the first step is current and nothing is done yet. */

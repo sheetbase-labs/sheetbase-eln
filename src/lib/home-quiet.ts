@@ -46,8 +46,11 @@ export type HomePace = 'quiet' | 'near-quiet' | 'busy'
 export function homePace(counts: HomeWaitingCounts): HomePace {
   const waiting =
     counts.inbox + counts.datasetsWithErrors + counts.unreadNotifications
+
   if (waiting === 0) return 'quiet'
+
   if (waiting === 1) return 'near-quiet'
+
   return 'busy'
 }
 
@@ -76,6 +79,7 @@ export function homeWaitingItem(input: {
   datasetIssues: { id: string; identifier: string; label: string }[]
 }): HomeWaitingItem | null {
   const review = input.reviews.at(0)
+
   if (review) {
     return {
       text: `Review ${review.identifier ?? 'a submitted record'} is due`,
@@ -84,7 +88,9 @@ export function homeWaitingItem(input: {
       to: `/review/${review.revisionId}`,
     }
   }
+
   const material = input.materials.at(0)
+
   if (material) {
     return {
       text: `${material.identifier ?? 'A material lot'} — ${material.reason}`,
@@ -95,7 +101,9 @@ export function homeWaitingItem(input: {
         : '/materials',
     }
   }
+
   const dataset = input.datasetIssues.at(0)
+
   if (dataset) {
     return {
       text: `${dataset.identifier} — ${dataset.label}`,
@@ -104,6 +112,7 @@ export function homeWaitingItem(input: {
       to: `/datasets?dataset=${dataset.id}&archived=false`,
     }
   }
+
   if (input.counts.unreadNotifications === 1) {
     return {
       text: 'One unread notification',
@@ -112,6 +121,7 @@ export function homeWaitingItem(input: {
       to: '/inbox',
     }
   }
+
   return {
     text: 'One item in your inbox',
     why: 'It needs action from you',
@@ -143,7 +153,9 @@ export function homeIsoDay(date: Date, timeZone: string): string {
     month: '2-digit',
     day: '2-digit',
   }).formatToParts(date)
+
   const part = (type: string) => parts.find((p) => p.type === type)?.value ?? ''
+
   return `${part('year')}-${part('month')}-${part('day')}`
 }
 
@@ -152,6 +164,7 @@ export function homeUpcomingWindow(
   timeZone: string,
 ): HomeUpcomingWindow {
   const end = addDays(now, HOME_UPCOMING_DAYS)
+
   return {
     start: now.toISOString(),
     end: end.toISOString(),
@@ -233,6 +246,7 @@ export function buildComingUp(input: {
 
   for (const booking of input.bookings) {
     const at = Date.parse(booking.startsAt)
+
     if (Number.isNaN(at) || at < startMs || at > endMs) continue
     const resource = input.resourceNames.get(booking.resourceId)
     entries.push({
@@ -253,6 +267,7 @@ export function buildComingUp(input: {
 
   for (const review of input.reviews) {
     const at = Date.parse(review.dueAt)
+
     if (Number.isNaN(at) || at < startMs || at > endMs) continue
     entries.push({
       key: `review:${review.revisionId}`,
@@ -268,6 +283,7 @@ export function buildComingUp(input: {
   for (const material of input.materials) {
     if (!material.dueAt) continue
     const at = Date.parse(material.dueAt)
+
     if (Number.isNaN(at) || at < startMs || at > endMs) continue
     entries.push({
       key: `expiry:${material.recordId ?? material.identifier ?? material.title}`,
@@ -284,6 +300,7 @@ export function buildComingUp(input: {
 
   for (const milestone of input.milestones) {
     const at = Date.parse(milestone.dueAt)
+
     if (Number.isNaN(at) || at < startMs || at > endMs) continue
     const project = input.projectNames.get(milestone.projectId)
     entries.push({
@@ -303,9 +320,11 @@ export function buildComingUp(input: {
       record.plannedEnd > window.endDate
     )
       continue
+
     const project = record.projectId
       ? input.projectNames.get(record.projectId)
       : undefined
+
     entries.push({
       key: `planned-end:${record.id}`,
       kind: 'planned-end',
@@ -319,6 +338,7 @@ export function buildComingUp(input: {
 
   return entries.sort((a, b) => {
     const order = a.at.localeCompare(b.at)
+
     return order !== 0 ? order : a.key.localeCompare(b.key)
   })
 }
@@ -332,8 +352,10 @@ export function groupComingUp(
   const today = homeIsoDay(now, timeZone)
   const tomorrow = homeIsoDay(addDays(now, 1), timeZone)
   const groups = new Map<string, ComingUpGroup>()
+
   for (const entry of entries) {
     const day = homeIsoDay(new Date(entry.at), timeZone)
+
     const group = groups.get(day) ?? {
       day,
       label:
@@ -351,9 +373,11 @@ export function groupComingUp(
                 .replace('Sept', 'Sep'),
       entries: [],
     }
+
     group.entries.push(entry)
     groups.set(day, group)
   }
+
   return [...groups.values()].sort((a, b) => a.day.localeCompare(b.day))
 }
 
@@ -388,10 +412,12 @@ export async function fetchProjectApprovalProgress(
       const scope =
         `?project_id=eq.${encodeURIComponent(project.id)}` +
         '&kind=eq.experiment&archived_at=is.null'
+
       const [approved, inReview] = await Promise.all([
         client.count('records', `${scope}&status=eq.approved`),
         client.count('records', `${scope}&status=eq.in_review`),
       ])
+
       return {
         id: project.id,
         title: project.title,
@@ -437,8 +463,10 @@ export function pickUpItems(
   limit = 4,
 ): PickUpItem[] {
   const items: PickUpItem[] = []
+
   for (const recent of recents) {
     if (recent.kind !== 'record') continue
+
     if (!recent.status || !(recent.status in UNFINISHED_RECORD_STATUS)) continue
     const label = statusLabel(recent)
     items.push({
@@ -452,8 +480,10 @@ export function pickUpItems(
           : 'Open experiment',
       to: recent.destination,
     })
+
     if (items.length === limit) break
   }
+
   return items
 }
 
@@ -464,6 +494,7 @@ export function continueWorkingItems(
   limit = 3,
 ): RecentItem[] {
   const picked = new Set(pickUp.map((item) => item.key))
+
   return recents
     .filter((recent) => !picked.has(`pick-up:${recent.kind}:${recent.id}`))
     .slice(0, limit)
@@ -496,21 +527,27 @@ export function freeInstruments(
 ): FreeInstrument[] {
   const nowMs = now.getTime()
   const today = homeIsoDay(now, timeZone)
+
   const active = bookings.filter(
     (booking) =>
       booking.status !== 'cancelled' &&
       booking.cancelledAt === null &&
       Date.parse(booking.endsAt) > nowMs,
   )
+
   const free: FreeInstrument[] = []
+
   for (const instrument of instruments) {
     if (instrument.retiredAt !== null || instrument.outOfService) continue
+
     const covering = active.some(
       (booking) =>
         booking.resourceId === instrument.id &&
         Date.parse(booking.startsAt) <= nowMs,
     )
+
     if (covering) continue
+
     const next = active
       .filter(
         (booking) =>
@@ -519,9 +556,11 @@ export function freeInstruments(
       )
       .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
       .at(0)
+
     const startsToday = next
       ? homeIsoDay(new Date(next.startsAt), timeZone) === today
       : false
+
     free.push({
       id: instrument.id,
       displayId: instrument.displayId,
@@ -536,8 +575,10 @@ export function freeInstruments(
             })}`
           : 'Free all day',
     })
+
     if (free.length === limit) break
   }
+
   return free
 }
 
@@ -572,6 +613,7 @@ export async function fetchUpcomingRecordEnds(
       '&select=id,identifier,title,project_id,planned_end' +
       '&order=planned_end.asc,id.asc&limit=50',
   )
+
   return rows.map((row) => ({
     id: row.id,
     identifier: row.identifier,
@@ -588,6 +630,7 @@ export async function fetchUpcomingMilestones(
   window: HomeUpcomingWindow,
 ): Promise<UpcomingMilestone[]> {
   if (!projectIds.length) return []
+
   const rows = await client.list<{
     id: string
     project_id: string
@@ -603,6 +646,7 @@ export async function fetchUpcomingMilestones(
       '&select=id,project_id,title,status,due_at' +
       '&order=due_at.asc,id.asc&limit=50',
   )
+
   return rows.map((row) => ({
     id: row.id,
     projectId: row.project_id,

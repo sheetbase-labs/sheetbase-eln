@@ -109,6 +109,7 @@ export function CapabilityGap({
       </div>
     )
   }
+
   return (
     <section
       data-slot="capability-gap"

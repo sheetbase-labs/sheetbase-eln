@@ -175,8 +175,10 @@ export function builtInModel(key: string): BuiltInModel | undefined {
 /** A model the code names directly, so its absence is a programming error. */
 export function requireBuiltInModel(key: string): BuiltInModel {
   const model = builtInModel(key)
+
   if (!model)
     throw new Error(t('library.models.shared.unknownBuiltInModel', { key }))
+
   return model
 }
 
@@ -187,8 +189,10 @@ export function countBuiltInModelObjects(
 ): Promise<number> {
   if (model.host === 'project')
     return client.count('projects', '?archived_at=is.null')
+
   if (model.host === 'instrument')
     return client.count('instruments', '?retired_at=is.null')
+
   return client.count(
     'records',
     `?kind=eq.${encodeURIComponent(model.key)}&deleted_at=is.null`,
@@ -212,9 +216,12 @@ export function fieldKeyFromLabel(
       .replace(/^_+|_+$/g, '')
       .replace(/^([0-9])/, 'f_$1')
       .slice(0, 50) || 'field'
+
   if (!taken.has(base)) return base
+
   for (let n = 2; ; n += 1) {
     const candidate = `${base}_${n}`
+
     if (!taken.has(candidate)) return candidate
   }
 }
@@ -241,6 +248,7 @@ export async function fetchAddedFieldValues(
     model.host === 'record'
       ? 'custom_fields,locked_at,model_version_id'
       : 'custom_fields,model_version_id'
+
   const row = (
     await client.list<{
       custom_fields: Record<string, unknown> | null
@@ -252,7 +260,9 @@ export async function fetchAddedFieldValues(
       `?${model.host === 'record' && !isUuid(objectId) ? 'identifier' : 'id'}=eq.${encodeURIComponent(objectId)}&select=${select}`,
     )
   ).at(0)
+
   if (!row) throw new Error('Not found.')
+
   return {
     customFields: row.custom_fields ?? {},
     locked: Boolean(row.locked_at),
@@ -273,6 +283,7 @@ export async function saveAddedFieldValues(
   values: Record<string, unknown>,
 ): Promise<void> {
   if (Object.keys(values).length === 0) return
+
   if (model.host === 'record') {
     const current = (
       await client.list<{ metadata_version: number; locked_at: string | null }>(
@@ -280,7 +291,9 @@ export async function saveAddedFieldValues(
         `?id=eq.${encodeURIComponent(objectId)}&select=metadata_version,locked_at`,
       )
     ).at(0)
+
     if (!current) throw new Error('Not found.')
+
     if (current.locked_at)
       throw Object.assign(new Error('locked'), { code: 'SB011' })
     await updateRecordModelFieldValues(
@@ -289,8 +302,10 @@ export async function saveAddedFieldValues(
       current.metadata_version,
       values,
     )
+
     return
   }
+
   const { customFields } = await fetchAddedFieldValues(client, model, objectId)
   await client.patch(
     hostTable[model.host],

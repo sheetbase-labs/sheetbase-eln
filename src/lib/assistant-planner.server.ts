@@ -54,6 +54,7 @@ interface NamedRecord {
   identifier: string
   title: string
 }
+
 const label = (row: NamedRecord) => `${row.identifier} · ${row.title}`
 
 async function findRecord(
@@ -64,11 +65,14 @@ async function findRecord(
   extra = '',
 ): Promise<Lookup<NamedRecord>> {
   const like = likeValue(text)
+
   const rows = await context.client.list<NamedRecord>(
     'records',
     `?kind=eq.${kind}&deleted_at=is.null${extra}&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title&order=updated_at.desc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -86,6 +90,7 @@ export async function buildPlannerProposal(
   context: LabToolContext,
 ): Promise<PlannerOutcome> {
   const parsed = proposePlanSchema.safeParse(args)
+
   if (!parsed.success) return fail(invalid(parsed.error))
   const input = parsed.data
 
@@ -97,7 +102,9 @@ export async function buildPlannerProposal(
     'projects',
     `?archived_at=is.null&or=(title.ilike.${likeValue(input.project)},key.ilike.${likeValue(input.project)})&select=id,title,key&limit=6`,
   )
+
   const lowerProject = input.project.trim().toLowerCase()
+
   const project = pick(
     projects,
     input.project,
@@ -107,6 +114,7 @@ export async function buildPlannerProposal(
       p.title.toLowerCase() === lowerProject ||
       p.key.toLowerCase() === lowerProject,
   )
+
   if (!project.ok) return fail(project.message)
 
   // The keys the plan parser reads are positions in these short lists, so
@@ -116,7 +124,9 @@ export async function buildPlannerProposal(
     instruments: [],
     samples: [],
   }
+
   let protocolKey: string | null = null
+
   if (input.protocol) {
     const found = await findRecord(
       context,
@@ -125,22 +135,28 @@ export async function buildPlannerProposal(
       'protocol',
       '&status=eq.active',
     )
+
     if (!found.ok) return fail(found.message)
     planContext.protocols.push(found.value)
     protocolKey = 't1'
   }
+
   const instrumentKeys = new Map<string, string>()
   const partsAnswer = []
+
   for (const part of input.parts ?? []) {
     const instruments = []
+
     for (const need of part.instruments ?? []) {
       const robot = await resolveInstrument(
         context.client,
         context.workspaceId,
         need.name,
       )
+
       if (!robot.ok) return fail(robot.message)
       let key = instrumentKeys.get(robot.instrument.id)
+
       if (!key) {
         planContext.instruments.push({
           id: robot.instrument.id,
@@ -149,8 +165,10 @@ export async function buildPlannerProposal(
         key = `i${planContext.instruments.length}`
         instrumentKeys.set(robot.instrument.id, key)
       }
+
       instruments.push({ key, minutes: need.minutes ?? 30 })
     }
+
     partsAnswer.push({
       title: part.title,
       day: part.day ?? 0,
@@ -160,13 +178,18 @@ export async function buildPlannerProposal(
       instruments,
     })
   }
+
   const samplesAnswer = []
+
   for (const wanted of input.samples ?? []) {
     const found = await findRecord(context, 'sample', wanted.sample, 'sample')
+
     if (!found.ok) return fail(found.message)
+
     const props = await context.client.list<{
       properties: Record<string, unknown> | null
     }>('records', `?id=eq.${found.value.id}&select=properties&limit=1`)
+
     const quantity = Number(props[0]?.properties?.['quantity'])
     const unit = props[0]?.properties?.['quantityUnit']
     planContext.samples.push({
@@ -195,12 +218,14 @@ export async function buildPlannerProposal(
     input.goal,
     planContext,
   )
+
   if (!plan)
     return fail(
       'The plan could not be put together from those details. Check the plate, worklist and samples and try again.',
     )
 
   const counts = plateCounts(plan)
+
   const changes: ProposalChange[] = [
     { label: 'Experiment', before: null, after: plan.experiment.title },
     {
@@ -223,18 +248,21 @@ export async function buildPlannerProposal(
           : 'One piece',
     },
   ]
+
   if (plan.plate)
     changes.push({
       label: 'Plate',
       before: null,
       after: `${plan.plate.format.replace('_well', '-well')}: ${counts.samples} sample wells, ${counts.controls} control wells`,
     })
+
   if (plan.worklist)
     changes.push({
       label: 'Worklist',
       before: null,
       after: `${plan.worklist.transfers.length} transfers (${plan.worklist.format})`,
     })
+
   if (plan.samples.length > 0)
     changes.push({
       label: 'Samples set aside',
@@ -248,8 +276,10 @@ export async function buildPlannerProposal(
       ? 'Asked for on the instruments; nothing is booked until you accept it'
       : 'Not asked for',
   })
+
   for (const warning of plan.warnings)
     changes.push({ label: 'Check', before: null, after: warning })
+
   return {
     ok: true,
     proposal: {

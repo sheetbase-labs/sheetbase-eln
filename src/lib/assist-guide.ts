@@ -122,6 +122,7 @@ function evaluate<TState>(
   state: TState,
 ): GuidedWorkflow {
   const done = defs.map((def) => def.isDone(state))
+
   const steps: GuideStep[] = defs.map((def, index) => {
     if (done[index]) {
       return {
@@ -135,10 +136,13 @@ function evaluate<TState>(
         nextActions: [],
       }
     }
+
     const missing = defs.slice(0, index).filter((_, prior) => !done[prior])
+
     if (missing.length > 0) {
       const first = missing[0]
       const firstObjects = defs[defs.indexOf(first)].objects(state)
+
       return {
         id: def.id,
         title: def.title,
@@ -171,6 +175,7 @@ function evaluate<TState>(
           : [],
       }
     }
+
     return {
       id: def.id,
       title: def.title,
@@ -182,7 +187,9 @@ function evaluate<TState>(
       nextActions: def.nextActions(state),
     }
   })
+
   const current = steps.find((step) => step.state === 'current') ?? null
+
   return {
     workflowId,
     title,
@@ -382,6 +389,7 @@ function readinessDetails(
     digestPending: state.digestPending,
     digestError: state.digestError,
   })
+
   return new Map(
     checks.map((check) => [
       check.id,
@@ -397,6 +405,7 @@ function readinessDetails(
  */
 function tracked(detail: string | null | undefined): string | null {
   if (!detail) return null
+
   return t('notebook.assistGuide.detailGuidanceReChecks', { detail })
 }
 
@@ -503,7 +512,9 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
     isDone: (s) => s.submissionId !== null,
     waitingDetail: (s) => {
       const notebookState = readinessDetails(s).get('notebook-state')
+
       if (notebookState?.state === 'fail') return tracked(notebookState.detail)
+
       return t('notebook.assistGuide.snapshotVerifiedAndReviewers')
     },
     explanation: () => null,

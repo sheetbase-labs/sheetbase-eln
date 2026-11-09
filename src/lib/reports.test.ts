@@ -80,6 +80,7 @@ describe('frozenBlockOf', () => {
         block: { id: 'b1', type: 'rich_text', payload: { a: 1 }, order: 2 },
       }),
     )
+
     expect(block).toMatchObject({
       id: 'b1',
       recordId: 'rec-1',
@@ -116,11 +117,13 @@ describe('labels', () => {
 describe('calls', () => {
   it('creates a report with the project and a trimmed title', async () => {
     const rpc = vi.fn(async () => ({ id: 'def-1', record_id: 'rec-1' }))
+
     const result = await createReport(stub({ rpc }), {
       workspaceId: 'ws',
       title: '  Yield  ',
       projectId: 'p1',
     })
+
     expect(result).toEqual({ recordId: 'rec-1', definitionId: 'def-1' })
     expect(rpc).toHaveBeenCalledWith('create_report_definition', {
       p_workspace_id: 'ws',
@@ -134,6 +137,7 @@ describe('calls', () => {
     const rpc = vi.fn(async (name: string) =>
       name === 'add_report_section' ? { id: 'sec-1' } : {},
     )
+
     await addEvidenceSection(stub({ rpc }), {
       workspaceId: 'ws',
       definitionId: 'def-1',

@@ -8,6 +8,7 @@ import type { GroupDoc, UserDoc } from './scim'
 const SECRET = 'sbscim_test'
 const ID = '11111111-1111-4111-8111-111111111111'
 const GID = '22222222-2222-4222-8222-222222222222'
+
 const principal: ScimPrincipal = {
   tokenId: 't1',
   workspaceId: 'w1',
@@ -26,6 +27,7 @@ const user: UserDoc = {
   updated: '2026-11-06T00:00:00Z',
   groups: [],
 }
+
 const group: GroupDoc = {
   id: GID,
   display_name: 'Admins',
@@ -64,9 +66,11 @@ function call(
   const headers: Record<string, string> = {
     'content-type': 'application/scim+json',
   }
+
   if (options.token !== null) {
     headers.authorization = `Bearer ${options.token ?? SECRET}`
   }
+
   return handleScimRequest(
     new Request(`https://eln.test/api/scim/v2/${path}${options.query ?? ''}`, {
       method,
@@ -98,9 +102,11 @@ describe('the SCIM endpoint', () => {
 
   it('describes itself', async () => {
     const s = store()
+
     const config = await (
       await call(deps(s), 'GET', 'ServiceProviderConfig')
     ).json()
+
     expect(config.patch.supported).toBe(true)
     const types = await (await call(deps(s), 'GET', 'ResourceTypes')).json()
     expect(types.totalResults).toBe(2)
@@ -110,9 +116,11 @@ describe('the SCIM endpoint', () => {
 
   it('lists and looks people up by userName', async () => {
     const s = store()
+
     const res = await call(deps(s), 'GET', 'Users', {
       query: '?filter=userName%20eq%20%22ada%40lab.org%22&count=10',
     })
+
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toContain('scim+json')
     const body = await res.json()
@@ -128,9 +136,11 @@ describe('the SCIM endpoint', () => {
 
   it('creates a user and answers 201 with a Location', async () => {
     const s = store()
+
     const res = await call(deps(s), 'POST', 'Users', {
       body: { userName: 'ada@lab.org', active: true },
     })
+
     expect(res.status).toBe(201)
     expect(res.headers.get('location')).toBe(
       `https://eln.test/api/scim/v2/Users/${ID}`,
@@ -143,9 +153,11 @@ describe('the SCIM endpoint', () => {
 
   it('switches a person off with a PATCH', async () => {
     const s = store()
+
     const res = await call(deps(s), 'PATCH', `Users/${ID}`, {
       body: { Operations: [{ op: 'Replace', path: 'active', value: 'False' }] },
     })
+
     expect(res.status).toBe(200)
     expect(s.updateUser).toHaveBeenCalledWith(principal, ID, { active: false })
   })
@@ -165,6 +177,7 @@ describe('the SCIM endpoint', () => {
 
   it('answers with the SCIM error the store raises', async () => {
     const { ScimError } = await import('./scim')
+
     const s = store({
       createUser: vi.fn(async () => {
         throw new ScimError(
@@ -174,9 +187,11 @@ describe('the SCIM endpoint', () => {
         )
       }),
     })
+
     const res = await call(deps(s), 'POST', 'Users', {
       body: { userName: 'a@b.co' },
     })
+
     expect(res.status).toBe(409)
     expect(await res.json()).toMatchObject({
       status: '409',
@@ -190,6 +205,7 @@ describe('the SCIM endpoint', () => {
         throw new Error('connection refused at 10.0.0.5')
       }),
     })
+
     const res = await call(deps(s), 'GET', 'Users')
     expect(res.status).toBe(500)
     expect(JSON.stringify(await res.json())).not.toContain('10.0.0.5')
@@ -197,6 +213,7 @@ describe('the SCIM endpoint', () => {
 
   it('rejects unreadable JSON', async () => {
     const s = store()
+
     const res = await handleScimRequest(
       new Request('https://eln.test/api/scim/v2/Users', {
         method: 'POST',
@@ -206,11 +223,13 @@ describe('the SCIM endpoint', () => {
       'Users',
       deps(s),
     )
+
     expect(res.status).toBe(400)
   })
 
   it('patches group members from what the group has now', async () => {
     const s = store()
+
     const res = await call(deps(s), 'PATCH', `Groups/${GID}`, {
       body: {
         Operations: [
@@ -219,6 +238,7 @@ describe('the SCIM endpoint', () => {
         ],
       },
     })
+
     expect(res.status).toBe(200)
     expect(s.setGroup).toHaveBeenCalledWith(principal, GID, { members: [GID] })
   })

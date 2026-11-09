@@ -22,9 +22,11 @@ export async function createBlankExperiment(
   },
 ): Promise<NotebookRecord> {
   const kind = input.kind ?? 'experiment'
+
   const title =
     input.title.trim() ||
     (kind === 'protocol_template' ? 'Untitled protocol' : 'Untitled experiment')
+
   const result = await client.rpc<{ record: RecordWire; blocks: BlockWire[] }>(
     'create_record_with_blocks',
     {
@@ -44,6 +46,7 @@ export async function createBlankExperiment(
       p_properties: input.properties ?? {},
     },
   )
+
   return toRecord(result.record)
 }
 
@@ -70,6 +73,7 @@ export async function applyExperimentSetup(
         `?id=eq.${encodeURIComponent(input.protocolRecordId)}&select=identifier`,
       )
     ).at(0)
+
     if (protocol) {
       await client.rpc('create_record_link', {
         p_source_record_id: recordId,
@@ -89,6 +93,7 @@ export async function applyExperimentSetup(
         `?id=eq.${encodeURIComponent(input.sampleRecordId)}&select=identifier`,
       )
     ).at(0)
+
     if (sample) {
       await client.rpc('create_record_link', {
         p_source_record_id: recordId,
@@ -111,6 +116,7 @@ export async function applyExperimentSetup(
       'record_links',
       `?source_record_id=eq.${encodeURIComponent(input.copyFromRecordId)}&link_type=in.(sample,material)&select=target_kind,target_identifier,link_type,target_record_id`,
     )
+
     for (const link of links) {
       await client.rpc('create_record_link', {
         p_source_record_id: recordId,
@@ -140,6 +146,7 @@ export async function insertPinnedProtocol(
     type: 'protocol_reference',
     payload: {},
   })
+
   await pinProtocolReference(client, {
     blockId: inserted.block.id,
     protocolRecordId,

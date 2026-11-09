@@ -55,6 +55,7 @@ const ident = (name: string): string => {
   if (!/^[a-z][a-z0-9_]{0,62}$/.test(name)) {
     throw new Error(`unsafe lake identifier: ${name}`)
   }
+
   return `"${name}"`
 }
 
@@ -73,17 +74,20 @@ export async function commitLakeTable(
   commit: LakeCommit,
 ): Promise<LakeCommitResult> {
   const s = ident(commit.schema)
+
   const q = <T extends QueryResultRow = QueryResultRow>(
     text: string,
     values?: unknown[],
   ) => conn.query<T>(text, values)
 
   await q('BEGIN')
+
   try {
     // One writer at a time per catalogue.
     await q(`SELECT pg_advisory_xact_lock(hashtextextended($1, 1))`, [
       commit.schema,
     ])
+
     const last = (
       await q<{
         snapshot_id: string
@@ -95,6 +99,7 @@ export async function commitLakeTable(
            FROM ${s}.ducklake_snapshot ORDER BY snapshot_id DESC LIMIT 1`,
       )
     ).rows.at(0)
+
     if (!last) throw new Error('the lake catalogue has no first snapshot')
     const snapshot = Number(last.snapshot_id) + 1
     let schemaVersion = Number(last.schema_version)
@@ -112,8 +117,10 @@ export async function commitLakeTable(
     let tableId: number
     let created = false
     let sameShape = false
+
     if (existing) {
       tableId = Number(existing.table_id)
+
       const current = (
         await q<{ column_name: string; column_type: string }>(
           `SELECT column_name, column_type FROM ${s}.ducklake_column
@@ -121,6 +128,7 @@ export async function commitLakeTable(
           [tableId],
         )
       ).rows
+
       sameShape =
         current.length === commit.columns.length &&
         current.every(
@@ -134,6 +142,7 @@ export async function commitLakeTable(
 
     const changes: string[] = []
     let rowIdStart = 0
+
     if (existing && sameShape) {
       // The old files stop being current but stay for time travel.
       await q(
@@ -141,12 +150,14 @@ export async function commitLakeTable(
           WHERE table_id = $2 AND end_snapshot IS NULL`,
         [snapshot, tableId],
       )
+
       const stats = (
         await q<{ next_row_id: string }>(
           `SELECT next_row_id FROM ${s}.ducklake_table_stats WHERE table_id = $1`,
           [tableId],
         )
       ).rows.at(0)
+
       rowIdStart = stats ? Number(stats.next_row_id) : 0
       await q(`DELETE FROM ${s}.ducklake_table_stats WHERE table_id = $1`, [
         tableId,
@@ -182,6 +193,7 @@ export async function commitLakeTable(
         )
         changes.push(`dropped_table:${tableId}`)
       }
+
       tableId = nextCatalog++
       created = true
       schemaVersion += 1
@@ -191,6 +203,7 @@ export async function commitLakeTable(
          VALUES ($1, gen_random_uuid(), $2, NULL, 0, $3, $4, true)`,
         [tableId, snapshot, commit.tableName, `${commit.tableName}/`],
       )
+
       for (const [i, column] of commit.columns.entries()) {
         await q(
           `INSERT INTO ${s}.ducklake_column
@@ -200,6 +213,7 @@ export async function commitLakeTable(
           [i + 1, snapshot, tableId, i + 1, column.name, column.type],
         )
       }
+
       await q(
         `INSERT INTO ${s}.ducklake_schema_versions (begin_snapshot, schema_version, table_id)
          VALUES ($1, $2, $3)`,
@@ -210,6 +224,7 @@ export async function commitLakeTable(
 
     let rowCount = 0
     let byteSize = 0
+
     const bounds = commit.columns.map(() => ({
       min: null as string | null,
       max: null as string | null,
@@ -217,6 +232,7 @@ export async function commitLakeTable(
       nan: null as boolean | null,
       unbounded: false,
     }))
+
     for (const [order, file] of commit.files.entries()) {
       const fileId = nextFile++
       await q(
@@ -237,6 +253,7 @@ export async function commitLakeTable(
           rowIdStart + rowCount,
         ],
       )
+
       for (const [i, st] of file.stats.entries()) {
         await q(
           `INSERT INTO ${s}.ducklake_file_column_stats
@@ -257,24 +274,32 @@ export async function commitLakeTable(
           ],
         )
         const b = bounds[i]
+
         if (st.nullCount > 0) b.nulls = true
+
         if (st.containsNaN) b.nan = true
         else if (b.nan === null && st.containsNaN === false) b.nan = false
+
         if (st.valueCount > 0 && (st.min === null || st.max === null)) {
           b.unbounded = true
         } else if (st.min !== null && st.max !== null) {
           const type = commit.columns[i].type
+
           const lt = (a: string, c: string) =>
             type === 'int64' || type === 'float64' || type === 'boolean'
               ? Number(a) < Number(c)
               : a < c
+
           if (b.min === null || lt(st.min, b.min)) b.min = st.min
+
           if (b.max === null || lt(b.max, st.max)) b.max = st.max
         }
       }
+
       rowCount += file.recordCount
       byteSize += file.fileSizeBytes
     }
+
     changes.push(`inserted_into_table:${tableId}`)
 
     await q(
@@ -282,6 +307,7 @@ export async function commitLakeTable(
        VALUES ($1, $2, $3, $4)`,
       [tableId, rowCount, rowIdStart + rowCount, byteSize],
     )
+
     for (const [i, b] of bounds.entries()) {
       await q(
         `INSERT INTO ${s}.ducklake_table_column_stats
@@ -312,6 +338,7 @@ export async function commitLakeTable(
       [snapshot, changes.join(','), commit.author, commit.message],
     )
     await q('COMMIT')
+
     return { snapshotId: snapshot, tableId, created, rowCount, byteSize }
   } catch (error) {
     await q('ROLLBACK').catch(() => undefined)
@@ -327,10 +354,12 @@ export async function dropLakeTable(
 ): Promise<void> {
   const s = ident(schema)
   await conn.query('BEGIN')
+
   try {
     await conn.query(`SELECT pg_advisory_xact_lock(hashtextextended($1, 1))`, [
       schema,
     ])
+
     const found = (
       await conn.query<{ table_id: string }>(
         `SELECT table_id FROM ${s}.ducklake_table
@@ -338,10 +367,13 @@ export async function dropLakeTable(
         [tableName],
       )
     ).rows.at(0)
+
     if (!found) {
       await conn.query('COMMIT')
+
       return
     }
+
     const last = (
       await conn.query<{
         snapshot_id: string
@@ -353,6 +385,7 @@ export async function dropLakeTable(
            FROM ${s}.ducklake_snapshot ORDER BY snapshot_id DESC LIMIT 1`,
       )
     ).rows.at(0)
+
     if (!last) throw new Error('the lake catalogue has no first snapshot')
     const snapshot = Number(last.snapshot_id) + 1
     const tableId = Number(found.table_id)

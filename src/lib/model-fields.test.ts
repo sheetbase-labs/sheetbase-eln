@@ -83,6 +83,7 @@ describe('model field values', () => {
     })
   })
 })
+
 describe('model field semantics flow', () => {
   it('parses quantity-unit input with the shared numeric coercion', () => {
     const definition = field('decimal', {
@@ -93,6 +94,7 @@ describe('model field semantics flow', () => {
         allowedInputUnits: ['mg/mL', 'µg/mL'],
       },
     })
+
     expect(parseModelFieldInput(definition, '2.5 mg/mL')).toBe(2.5)
     expect(parseModelFieldInput(definition, '2.5 µg/mL')).toBe('2.5 µg/mL')
     expect(parseModelFieldInput(definition, 'nope')).toBe('nope')
@@ -117,13 +119,17 @@ describe('model field semantics flow', () => {
 
   it('drafts, configures, options and activates using only existing RPCs', async () => {
     const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+
     const client = {
       rpc: async (name: string, args: Record<string, unknown>) => {
         calls.push({ name, args })
+
         if (name === 'create_model_field') return { id: 'definition-1' }
+
         return { id: 'definition-1' }
       },
     } as unknown as DataClient
+
     await createModelFieldWithSemantics(client, {
       workspaceId: 'workspace-1',
       modelKey: 'sample',
@@ -186,6 +192,7 @@ describe('model field display values', () => {
         },
       ],
     })
+
     expect(displayModelFieldValue(definition, 'clinical')).toBe(
       'Clinical material',
     )
@@ -208,14 +215,17 @@ describe('model field display values', () => {
 describe('fetchModelFields', () => {
   it('reads a built-in model straight from its definitions', async () => {
     const tables: string[] = []
+
     const client = {
       list: async (table: string) => {
         tables.push(table)
+
         // A built-in model has no record model, and a version lookup without
         // an id must not loop back into the record-model branch.
         return table === 'record_models' ? [{}] : []
       },
     } as unknown as DataClient
+
     await expect(fetchModelFields(client, 'instrument')).resolves.toEqual([])
     expect(tables).toEqual(['record_models', 'record_field_definitions'])
   })

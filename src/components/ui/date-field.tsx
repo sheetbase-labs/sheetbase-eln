@@ -16,11 +16,13 @@ import { cn } from '#/lib/utils'
  * moves it to the neighbouring day. */
 function parseDay(day: string | undefined): Date | undefined {
   const match = day && /^(\d{4})-(\d{2})-(\d{2})$/.exec(day)
+
   return match ? new Date(+match[1], +match[2] - 1, +match[3]) : undefined
 }
 
 function toDay(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
+
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
@@ -53,6 +55,7 @@ export function DateField({
   const selected = parseDay(value)
   const earliest = parseDay(min)
   const latest = parseDay(max)
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger

@@ -40,6 +40,7 @@ function Controlled(props: {
   initiallyOpen: boolean
 }) {
   const [open, setOpen] = useState(props.initiallyOpen)
+
   return (
     <HomeBrief
       input={props.input}
@@ -58,7 +59,9 @@ const meta = {
   args: { input: INPUT, ready: true, open: false, onOpenChange: () => {} },
   decorators: [withPageAi('live')],
 } satisfies Meta<typeof HomeBrief>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The "Brief me" button, as it sits on Home. */

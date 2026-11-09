@@ -36,13 +36,18 @@ vi.mock('@tanstack/react-router', () => ({
     </a>
   ),
 }))
+
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
+
 vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
+
 vi.mock('#/lib/use-capability', () => ({ useHasCapability: () => true }))
+
 vi.mock('#/lib/material-safety', async (importOriginal) => {
   const actual = await importOriginal<typeof MaterialSafetyLib>()
+
   return {
     ...actual,
     fetchMaterialSafety: vi.fn(async () => ({
@@ -55,14 +60,18 @@ vi.mock('#/lib/material-safety', async (importOriginal) => {
     })),
   }
 })
+
 vi.mock('#/lib/identifier-resolution', () => ({
   resolveIdentifierParam: vi.fn(),
 }))
+
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ names: {}, userLabel: () => 'Ada L.' }),
 }))
+
 vi.mock('#/lib/reagent-data', async (importOriginal) => {
   const actual = await importOriginal<typeof ReagentData>()
+
   return {
     ...actual,
     fetchReagent: vi.fn(async () => ({
@@ -136,6 +145,7 @@ function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <LotPage />

@@ -70,6 +70,7 @@ export function PluginConnectionsDialog({
 function ConnectionForm({ connection }: { connection: ConnectionWire }) {
   const queryClient = useQueryClient()
   const [values, setValues] = useState<Record<string, string>>({})
+
   const save = useMutation({
     mutationFn: (typed: Record<string, string>) =>
       saveConnection({
@@ -91,7 +92,9 @@ function ConnectionForm({ connection }: { connection: ConnectionWire }) {
           : t('plugins.admin.couldNotChange'),
       ),
   })
+
   const needs = connectionNeedsSetup(connection)
+
   return (
     <section
       aria-label={connection.title}

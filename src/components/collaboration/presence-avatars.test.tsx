@@ -146,6 +146,7 @@ describe('remoteSelectionChips', () => {
       info: { name: 'Ada Lovelace' },
       selection: { rowKey: 'sb-row-v1:abc', fieldId: 'conc' },
     }
+
     const chips = remoteSelectionChips([ada, selecting])
     expect(chips).toEqual([
       {
@@ -161,6 +162,7 @@ describe('remoteSelectionChips', () => {
       info: {},
       selection: { rowKey: 'a', endRowKey: 'b' },
     }
+
     const chips = remoteSelectionChips([range])
     expect(chips).toEqual([
       { key: 'peer-0', name: 'Someone', rowsLabel: 'multiple rows' },
@@ -173,6 +175,7 @@ describe('remoteSelectionChips', () => {
       info: { name: 'Alan Turing' },
       selection: { fieldId: 'conc' },
     }
+
     expect(remoteSelectionChips([fieldOnly])).toEqual([])
   })
 })
@@ -197,6 +200,7 @@ describe('coEditingPeerNames', () => {
       },
       edsger,
     ]
+
     expect(coEditingPeerNames(peers, 'block-1')).toEqual(['Ada Lovelace'])
   })
 
@@ -207,6 +211,7 @@ describe('coEditingPeerNames', () => {
         presence: { activeBlockId: 'b', mode: 'editing' as const },
       },
     ]
+
     expect(coEditingPeerNames(peers, 'b')).toEqual(['Someone'])
   })
 })
@@ -241,9 +246,11 @@ describe('BlockCoEditBadge', () => {
 
   it('renders nothing when I am not editing this block', () => {
     h.others = [editor]
+
     const { container } = render(
       <BlockCoEditBadge blockId="block-1" active={false} />,
     )
+
     expect(container.textContent).toBe('')
   })
 
@@ -264,6 +271,7 @@ describe('BlockCoEditBadge', () => {
 describe('useSetPresence', () => {
   function HookProbe({ fields }: { fields: Record<string, unknown> }) {
     useSetPresence(fields)
+
     return null
   }
 
@@ -271,6 +279,7 @@ describe('useSetPresence', () => {
     const { unmount } = render(
       <HookProbe fields={{ activeBlockId: 'block-1', mode: 'editing' }} />,
     )
+
     expect(h.updateMyPresence).toHaveBeenCalledWith({
       activeBlockId: 'block-1',
       mode: 'editing',
@@ -287,6 +296,7 @@ describe('useSetPresence', () => {
     const { rerender } = render(
       <HookProbe fields={{ activeBlockId: 'block-1', mode: 'editing' }} />,
     )
+
     // Same semantics via a fresh literal: no extra report.
     rerender(
       <HookProbe fields={{ activeBlockId: 'block-1', mode: 'editing' }} />,

@@ -132,6 +132,7 @@ function pad(value: number): string {
 
 function splitTime(time: string): [number, number] | null {
   const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(time.trim())
+
   return match ? [Number(match[1]), Number(match[2])] : null
 }
 
@@ -139,13 +140,17 @@ function cronFor(draft: ScheduleDraft): string {
   const at = splitTime(draft.time)
   const minute = at ? at[1] : 0
   const hour = at ? at[0] : 0
+
   if (draft.repeat === 'weekdays') return `${minute} ${hour} * * 1-5`
+
   if (draft.repeat === 'weekly') {
     return `${minute} ${hour} * * ${draft.weekday}`
   }
+
   if (draft.repeat === 'monthly') {
     return `${minute} ${hour} ${Number(draft.monthDay)} * *`
   }
+
   return draft.cron.trim()
 }
 
@@ -158,6 +163,7 @@ export function draftToSchedule(
   const spec: Record<string, unknown> = {}
   let kind: PipelineScheduleKind
   const zone = draft.timeZone.trim() || 'UTC'
+
   if (draft.repeat === 'interval') {
     kind = 'interval'
     spec.intervalMinutes =
@@ -169,12 +175,15 @@ export function draftToSchedule(
   } else if (draft.repeat === 'event') {
     kind = 'event'
     spec.eventType = draft.eventType
+
     if (draft.datasetId && draft.eventType === 'dataset.versioned') {
       spec.datasetId = draft.datasetId
     }
+
     if (draft.instrumentId && draft.eventType === 'dataset.versioned') {
       spec.instrumentId = draft.instrumentId
     }
+
     if (draft.inputName && draft.eventType === 'dataset.versioned') {
       spec.inputName = draft.inputName
     }
@@ -185,18 +194,24 @@ export function draftToSchedule(
   }
 
   const inputs: Record<string, InputBinding> = {}
+
   for (const name of declaredInputs) {
     const input: InputDraft | undefined = draft.inputs[name]
+
     if (!input || input.mode === 'event') continue
+
     if (input.mode === 'pinned') {
       inputs[name] = { mode: 'pinned', versionId: input.versionId }
     } else {
       inputs[name] = { mode: input.mode, datasetId: input.datasetId }
     }
   }
+
   if (Object.keys(inputs).length > 0) spec.inputs = inputs
+
   if (Object.keys(parameterValues).length > 0) spec.parameters = parameterValues
   spec.missedRunPolicy = draft.missedRunPolicy
+
   return { kind, spec }
 }
 
@@ -208,6 +223,7 @@ export function draftError(
   if (draft.repeat === 'interval') {
     const minutes =
       Number(draft.intervalValue) * UNIT_MINUTES[draft.intervalUnit]
+
     if (
       !Number.isInteger(Number(draft.intervalValue)) ||
       minutes < 1 ||
@@ -216,42 +232,54 @@ export function draftError(
       return 'Enter a whole number for how often it runs, up to a year.'
     }
   }
+
   if (
     ['daily', 'weekdays', 'weekly', 'monthly'].includes(draft.repeat) &&
     !splitTime(draft.time)
   ) {
     return 'Enter the time of day as HH:MM.'
   }
+
   if (draft.repeat === 'monthly') {
     const day = Number(draft.monthDay)
+
     if (!Number.isInteger(day) || day < 1 || day > 31) {
       return 'Choose a day of the month from 1 to 31.'
     }
   }
+
   if (draft.repeat === 'cron' && parseCron(draft.cron) === null) {
     return 'A cron expression has five fields: minute, hour, day of month, month, day of week.'
   }
+
   if (draft.repeat !== 'event' && draft.repeat !== 'interval') {
     // Zone is checked through the same validator the database mirrors.
     const { kind, spec } = draftToSchedule(draft, declaredInputs, {})
     const problem = validateScheduleSpec(kind, spec)
+
     if (problem && /timeZone/.test(problem.message)) {
       return 'Enter a valid time zone, e.g. Europe/London.'
     }
+
     if (problem && /never fires/.test(problem.message)) {
       return 'That cron expression never fires.'
     }
   }
+
   for (const name of declaredInputs) {
     const input: InputDraft | undefined = draft.inputs[name]
+
     if (!input || input.mode === 'event') continue
+
     if (input.mode === 'pinned' && !input.versionId) {
       return `Choose which Dataset Version ${name} reads.`
     }
+
     if (input.mode !== 'pinned' && !input.datasetId) {
       return `Choose which Dataset ${name} follows.`
     }
   }
+
   return null
 }
 
@@ -262,14 +290,17 @@ export function scheduleToDraft(
   fallbackZone: string,
 ): ScheduleDraft {
   const { kind, spec } = schedule
+
   const draft = emptyDraft(
     typeof spec.timeZone === 'string' && spec.timeZone
       ? spec.timeZone
       : fallbackZone,
   )
+
   if (kind === 'interval') {
     draft.repeat = 'interval'
     const minutes = Number(spec.intervalMinutes)
+
     if (minutes % 1440 === 0) {
       draft.intervalUnit = 'days'
       draft.intervalValue = String(minutes / 1440)
@@ -291,6 +322,7 @@ export function scheduleToDraft(
     draft.repeat = 'cron'
     draft.cron = cron
     const fields = parseCron(cron)
+
     if (
       fields &&
       fields.minutes.length === 1 &&
@@ -298,6 +330,7 @@ export function scheduleToDraft(
       fields.months.length === 12
     ) {
       const time = `${pad(fields.hours[0])}:${pad(fields.minutes[0])}`
+
       if (fields.anyDayOfMonth && fields.daysOfWeek.join() === '1,2,3,4,5') {
         draft.repeat = 'weekdays'
         draft.time = time
@@ -320,11 +353,14 @@ export function scheduleToDraft(
       typeof spec.instrumentId === 'string' ? spec.instrumentId : ''
     draft.inputName = typeof spec.inputName === 'string' ? spec.inputName : ''
   }
+
   const bound =
     kind === 'event' && draft.eventType === 'dataset.versioned'
       ? draft.inputName || declaredInputs[0]
       : undefined
+
   const bindings = specBindings(spec)
+
   for (const name of declaredInputs) {
     if (name === bound) {
       draft.inputs[name] = { mode: 'event', datasetId: '', versionId: '' }
@@ -338,12 +374,15 @@ export function scheduleToDraft(
           : { mode: binding.mode, datasetId: binding.datasetId, versionId: '' }
     }
   }
+
   if (spec.parameters && typeof spec.parameters === 'object') {
     for (const [name, value] of Object.entries(spec.parameters)) {
       draft.parameters[name] = String(value)
     }
   }
+
   draft.missedRunPolicy = spec.missedRunPolicy === 'skip' ? 'skip' : 'run_once'
+
   return draft
 }
 
@@ -355,29 +394,43 @@ export function describeSchedule(
 ): string {
   if (kind === 'interval') {
     const minutes = spec.intervalMinutes
+
     if (typeof minutes !== 'number' || !Number.isFinite(minutes)) return '—'
+
     if (minutes >= 1440 && minutes % 1440 === 0) {
       return minutes === 1440 ? 'Every day' : `Every ${minutes / 1440} days`
     }
+
     if (minutes >= 60 && minutes % 60 === 0) {
       return minutes === 60 ? 'Every hour' : `Every ${minutes / 60} hours`
     }
+
     return minutes === 1 ? 'Every minute' : `Every ${minutes} minutes`
   }
+
   if (kind === 'daily') {
     const at = spec.dailyAt
+
     if (typeof at !== 'string' || !at) return '—'
+
     return `Daily at ${at} (${specTimeZone(spec)})`
   }
+
   if (kind === 'cron') {
     const cron = spec.cron
+
     if (typeof cron !== 'string' || parseCron(cron) === null) return '—'
+
     return `${describeCron(cron)} (${specTimeZone(spec)})`
   }
+
   const eventType = spec.eventType
+
   if (typeof eventType !== 'string' || !eventType) return '—'
   const datasetId = typeof spec.datasetId === 'string' ? spec.datasetId : null
+
   if (!datasetId) return eventLabel(eventType)
+
   return `${eventLabel(eventType)} · ${datasetNames.get(datasetId) ?? 'Dataset no longer readable'}`
 }
 
@@ -390,11 +443,13 @@ export function describeInputs(
   datasetNames: Map<string, string>,
 ): string[] {
   const phrases: string[] = []
+
   for (const [name, binding] of Object.entries(specBindings(spec))) {
     if (binding.mode === 'pinned') {
       phrases.push(`${name}: a fixed Dataset Version`)
       continue
     }
+
     const dataset = datasetNames.get(binding.datasetId) ?? 'a Dataset'
     phrases.push(
       binding.mode === 'latest'
@@ -402,13 +457,16 @@ export function describeInputs(
         : `${name}: new versions of ${dataset} only`,
     )
   }
+
   return phrases
 }
 
 /** Parameter values a trigger passes, as `name=value` pairs. */
 export function describeParameters(spec: Record<string, unknown>): string {
   const parameters = spec.parameters
+
   if (!parameters || typeof parameters !== 'object') return ''
+
   return Object.entries(parameters as Record<string, unknown>)
     .map(([name, value]) => `${name}=${String(value)}`)
     .join(', ')
@@ -417,13 +475,17 @@ export function describeParameters(spec: Record<string, unknown>): string {
 /** "in 3 h", "2 d ago": how far an instant is from now, for a quick read. */
 export function relativeTime(iso: string, now: Date = appNow()): string {
   const diff = Date.parse(iso) - now.getTime()
+
   if (Number.isNaN(diff)) return ''
   const abs = Math.abs(diff)
   const minutes = Math.round(abs / 60_000)
   let amount: string
+
   if (minutes < 1) return diff >= 0 ? 'any moment' : 'just now'
+
   if (minutes < 60) amount = `${minutes} min`
   else if (minutes < 60 * 48) amount = `${Math.round(minutes / 60)} h`
   else amount = `${Math.round(minutes / 1440)} d`
+
   return diff >= 0 ? `in ${amount}` : `${amount} ago`
 }

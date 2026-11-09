@@ -43,12 +43,14 @@ describe('chunkDocument', () => {
     const sentence = 'The membrane was blocked in five percent milk. '
     const chunks = chunkDocument(doc(sentence.repeat(200)))
     expect(chunks.length).toBeGreaterThan(5)
+
     for (const chunk of chunks) {
       expect(chunk.text.startsWith('EXP-12 · Western blot transfer\n')).toBe(
         true,
       )
       expect(chunk.text.length).toBeLessThanOrEqual(CHUNK_TARGET_CHARS + 50)
     }
+
     expect(chunks.map((c) => c.chunkNo)).toEqual(chunks.map((_, i) => i))
   })
 
@@ -71,6 +73,7 @@ describe('fuseRankings', () => {
       ],
       10,
     )
+
     expect(fused[0].item).toEqual(b)
     expect(fused[0].sources).toBe(2)
   })
@@ -80,6 +83,7 @@ describe('fuseRankings', () => {
       [[{ type: 'file', id: 'a' }], [{ type: 'record', id: 'a' }]],
       10,
     )
+
     expect(fused).toHaveLength(2)
   })
 
@@ -106,6 +110,7 @@ describe('toSemanticHit', () => {
       chunk_no: 0,
       similarity: 1.0000001,
     })
+
     expect(hit.passage).toBe('line one line two')
     expect(hit.similarity).toBe(1)
   })

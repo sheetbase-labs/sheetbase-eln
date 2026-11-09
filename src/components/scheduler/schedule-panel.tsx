@@ -91,6 +91,7 @@ export function SchedulePanel({
     queryFn: () => fetchPartPlans(client, partIds),
     staleTime: 10_000,
   })
+
   const proposals = useQuery({
     queryKey: scheduleQueryKeys.proposals(recordId),
     queryFn: () => fetchProposals(client, recordId),
@@ -112,8 +113,10 @@ export function SchedulePanel({
 
   const names = instruments.data ?? []
   const nameOf = (id: string) => names.find((n) => n.id === id)?.name ?? '—'
+
   const planOf = (partId: string) =>
     plans.data?.plans.find((p) => p.part_id === partId)
+
   const needsOf = (partId: string) =>
     (plans.data?.needs ?? []).filter((n) => n.part_id === partId)
 
@@ -146,6 +149,7 @@ export function SchedulePanel({
         size: 110,
         cell: ({ row }) => {
           const wait = planOf(row.original.partId)?.wait_after_minutes ?? 0
+
           return (
             <span className="num text-fg-muted">
               {wait > 0
@@ -160,6 +164,7 @@ export function SchedulePanel({
         header: t('automation.schedule.plans.instruments'),
         cell: ({ row }) => {
           const list = needsOf(row.original.partId)
+
           return (
             <span className="truncate text-fg-muted">
               {list.length === 0
@@ -283,6 +288,7 @@ export function SchedulePanel({
 
 function conflictText(conflict: Conflict): string {
   const key = `automation.schedule.conflicts.${conflict.code}` as const
+
   return t(key)
 }
 
@@ -296,11 +302,13 @@ function ProposalView({
   onChanged: () => void
 }) {
   const reference = proposalReference(proposal.number)
+
   const { userLabel } = useUserNames(
     proposal.items.map((item) => item.assigneeUserId ?? ''),
   )
 
   const queryClient = useQueryClient()
+
   const accept = useMutation({
     mutationFn: () => acceptProposal(client, proposal.id),
     onSuccess: (result) => {
@@ -312,6 +320,7 @@ function ProposalView({
           reference,
         }),
       )
+
       if (result.skipped.length > 0) {
         toast.warning(
           t('automation.schedule.proposal.acceptedSkipped', {
@@ -328,6 +337,7 @@ function ProposalView({
         messageOf(e, t('automation.schedule.proposal.couldNotAccept')),
       ),
   })
+
   const dismiss = useMutation({
     mutationFn: () => dismissProposal(client, proposal.id),
     onSuccess: () => {
@@ -420,6 +430,7 @@ function ProposalView({
       </Notice>
     )
   }
+
   if (proposal.status === 'failed') {
     return (
       <Notice tone="bad">
@@ -430,7 +441,9 @@ function ProposalView({
       </Notice>
     )
   }
+
   const open = proposal.status === 'proposed'
+
   const summary =
     proposal.conflict_count > 0
       ? t('automation.schedule.proposal.summaryConflicts', {
@@ -515,6 +528,7 @@ function PartPlanDialog({
   const queryClient = useQueryClient()
   const [handsOn, setHandsOn] = useState(String(plan?.hands_on_minutes ?? 60))
   const [wait, setWait] = useState(String(plan?.wait_after_minutes ?? 0))
+
   const [rows, setRows] = useState<
     Array<{ resourceId: string; minutes: string }>
   >(
@@ -526,14 +540,18 @@ function PartPlanDialog({
 
   const whole = (text: string, min: number) => {
     const n = Number(text)
+
     return text.trim() !== '' && Number.isInteger(n) && n >= min ? n : null
   }
+
   const handsOnValue = whole(handsOn, 0)
   const waitValue = whole(wait, 0)
+
   const needValues = rows.map((r) => ({
     resourceId: r.resourceId,
     minutes: whole(r.minutes, 5),
   }))
+
   const invalid =
     handsOnValue === null ||
     waitValue === null ||

@@ -134,6 +134,7 @@ export function useRowFocus(
     () => (selectedId ? { [selectedId]: true } : {}),
     [selectedId],
   )
+
   const onRowSelectionChange = useCallback<OnChangeFn<RowSelectionState>>(
     (next) => {
       const value = typeof next === 'function' ? next(rowSelection) : next
@@ -143,6 +144,7 @@ export function useRowFocus(
     },
     [rowSelection, setSelectedId],
   )
+
   return { rowSelection, onRowSelectionChange }
 }
 
@@ -156,6 +158,7 @@ const VIEW_COLUMN = '__view'
  */
 export function compareCells(a: unknown, b: unknown): number {
   if (typeof a === 'number' && typeof b === 'number') return a - b
+
   return String(a ?? '').localeCompare(String(b ?? ''), 'en-GB', {
     numeric: true,
     sensitivity: 'base',
@@ -173,6 +176,7 @@ function SortHeader({
   children: ReactNode
 }) {
   const dir = column.getIsSorted()
+
   return (
     <button
       type="button"
@@ -265,14 +269,18 @@ function sortingFor<T extends RowData>(
   const hasValue = 'accessorFn' in column || 'accessorKey' in column
   const canSort = sortable && hasValue && column.enableSorting !== false
   const label = typeof column.header === 'string' ? column.header : undefined
+
   const meta = label
     ? { ...column.meta, headerTitle: column.meta?.headerTitle ?? label }
     : column.meta
+
   if (!canSort) {
     return { enableSorting: false, ...(label ? { meta } : {}) }
   }
+
   const right = Boolean(column.meta?.headerClassName?.includes('text-right'))
   const header = column.header
+
   return {
     sortFn:
       column.sortFn ??
@@ -309,18 +317,23 @@ export function RegistryGrid<T extends RowData>({
   isLoading = false,
 }: RegistryGridProps<T>) {
   const sorting = sortingProp ?? view?.sorting
+
   const onSortingChange: OnChangeFn<SortingState> | undefined =
     onSortingChangeProp ?? view?.setSorting
+
   // A grouped list's bands are headings between records; ordering the rows
   // would scatter them, so a grouped table keeps the route's order.
   const grouped = rows.some((row) => isBand(row))
   const sortable = sortableProp && sorting !== undefined && !grouped
   const hidden = view?.hidden
+
   const columnVisibility = useMemo<ColumnVisibilityState>(
     () => Object.fromEntries((hidden ?? []).map((id) => [id, false])),
     [hidden],
   )
+
   const setVisibility = view?.setHidden
+
   const onColumnVisibilityChange = useCallback<
     OnChangeFn<ColumnVisibilityState>
   >(
@@ -330,7 +343,9 @@ export function RegistryGrid<T extends RowData>({
         const was: ColumnVisibilityState = Object.fromEntries(
           current.map((id) => [id, false]),
         )
+
         const value = typeof next === 'function' ? next(was) : next
+
         return Object.entries(value)
           .filter(([, shown]) => shown === false)
           .map(([id]) => id)
@@ -338,6 +353,7 @@ export function RegistryGrid<T extends RowData>({
     },
     [setVisibility],
   )
+
   const nameRef = useRef(exportName ?? label)
   nameRef.current = exportName ?? label
   const gridRef = useRef<HTMLDivElement>(null)
@@ -372,45 +388,59 @@ export function RegistryGrid<T extends RowData>({
    */
   useEffect(() => {
     const root = gridRef.current
+
     if (!root || !selectable) return
+
     const rowOf = (target: EventTarget | null) =>
       target instanceof Element
         ? target.closest<HTMLTableRowElement>('tbody tr[data-index]')
         : null
+
     const sync = () => {
       const rows = [
         ...root.querySelectorAll<HTMLTableRowElement>('tbody tr[data-index]'),
       ]
+
       const selected = rows.find((tr) => tr.dataset.state === 'selected')
+
       for (const tr of rows) {
         tr.tabIndex = tr === (selected ?? rows[0]) ? 0 : -1
       }
     }
+
     const observer = new MutationObserver(sync)
     observer.observe(root, { childList: true, subtree: true })
+
     const onKeyDown = (event: KeyboardEvent) => {
       const tr = rowOf(event.target)
+
       if (!tr) return
+
       // Enter opens the row. Space is the peek key everywhere, so it is left
       // to the workspace shortcut rather than selecting here.
       if (event.key === 'Enter') {
         event.preventDefault()
         tr.click()
+
         return
       }
+
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         const next =
           event.key === 'ArrowDown'
             ? tr.nextElementSibling
             : tr.previousElementSibling
+
         if (next instanceof HTMLTableRowElement && next.dataset.index) {
           event.preventDefault()
           next.focus()
         }
       }
     }
+
     root.addEventListener('keydown', onKeyDown)
     sync()
+
     return () => {
       observer.disconnect()
       root.removeEventListener('keydown', onKeyDown)
@@ -420,14 +450,17 @@ export function RegistryGrid<T extends RowData>({
   // The ids a header tick covers: every record row, never a band.
   const getRowIdRef = useRef(getRowId)
   getRowIdRef.current = getRowId
+
   const recordIdKey = rows
     .filter((row) => !isBand(row))
     .map((row) => getRowIdRef.current(row as T))
     .join('\u0000')
+
   const recordIds = useMemo(
     () => (recordIdKey ? recordIdKey.split('\u0000') : []),
     [recordIdKey],
   )
+
   // The header tick reads these when clicked, so new rows do not rebuild the
   // columns (which would remount every cell).
   const recordIdsRef = useRef(recordIds)
@@ -443,6 +476,7 @@ export function RegistryGrid<T extends RowData>({
 
   const allColumns = useMemo<RegistryColumn<RegistryRow<T>>[]>(() => {
     const body = columns as unknown as RegistryColumn<RegistryRow<T>>[]
+
     // The menu sits at the end of the header, where it stays put as the
     // table scrolls sideways.
     const tools: RegistryColumn<RegistryRow<T>>[] = view
@@ -470,7 +504,9 @@ export function RegistryGrid<T extends RowData>({
           },
         ]
       : []
+
     if (!bulk) return [...body, ...tools]
+
     const tick: RegistryColumn<RegistryRow<T>> = {
       id: '__bulk',
       enableSorting: false,
@@ -502,6 +538,7 @@ export function RegistryGrid<T extends RowData>({
         />
       ),
     }
+
     return [tick, ...body, ...tools]
     // `ticked.length` and `allTicked` change the header; the row cells read
     // `bulk.has`, which changes with `bulk`.
@@ -515,6 +552,7 @@ export function RegistryGrid<T extends RowData>({
    */
   // The tick column carries no label, so a band's label sits in the next one.
   const labelIndex = bulk ? 1 : 0
+
   const decorated = useMemo<RegistryColumn<RegistryRow<T>>[]>(
     () =>
       allColumns.map(
@@ -525,20 +563,26 @@ export function RegistryGrid<T extends RowData>({
             // Spreading a column definition widens its accessor union.
             cell: (context) => {
               const original = context.row.original
+
               if (!isBand(original)) {
                 const cell = column.cell
+
                 return typeof cell === 'function'
                   ? cell(context)
                   : ((context.getValue() as ReactNode) ?? null)
               }
+
               // Every cell paints the strip, so it reads as one band across the
               // row; the first data column carries the label.
               // The strip reaches over the cell's own padding: 24px at the table's
               // outer edges, 10px between cells.
               const left = index === 0 ? '-ml-6 pl-6' : '-ml-2.5'
+
               const right =
                 index === allColumns.length - 1 ? '-mr-6' : '-mr-2.5'
+
               const paint = `block h-[33px] bg-surface-muted ${left} ${right}`
+
               if (index === labelIndex) {
                 return (
                   <span
@@ -553,6 +597,7 @@ export function RegistryGrid<T extends RowData>({
                   </span>
                 )
               }
+
               if (index === allColumns.length - 1 && original.__action) {
                 return (
                   <span
@@ -562,6 +607,7 @@ export function RegistryGrid<T extends RowData>({
                   </span>
                 )
               }
+
               return <span className={paint} />
             },
           }) as RegistryColumn<RegistryRow<T>>,
@@ -580,6 +626,7 @@ export function RegistryGrid<T extends RowData>({
     // The menu column is always the last; Status holds the edge before it.
     const ids = all.filter((id) => id !== VIEW_COLUMN)
     const last = ids.at(-1)
+
     return {
       start: first.filter((id): id is string => Boolean(id)),
       end: [

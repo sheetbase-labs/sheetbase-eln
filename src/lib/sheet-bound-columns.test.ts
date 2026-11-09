@@ -201,6 +201,7 @@ describe('projectBoundColumns', () => {
         field: { ...column.field, label: `renamed ${column.id}` },
       })),
     } as SheetDefinitionConfiguration
+
     const projection = projectBoundColumns({
       definitionVersionId: ids.version,
       configuration: renamed,

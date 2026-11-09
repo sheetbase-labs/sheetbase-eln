@@ -54,6 +54,7 @@ function PipelineOverview() {
   const version = currentVersion(list)
   const draft = draftVersion(list)
   const shown = draft ?? version
+
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     shown?.id ?? null,
     () => {},
@@ -97,6 +98,7 @@ function PipelineOverview() {
   }
 
   type ConfigInput = NonNullable<ConfigShape['inputs']>[number]
+
   type ConfigParameter = NonNullable<ConfigShape['parameters']>[number]
 
   const inputColumns: RegistryColumn<ConfigInput>[] = [
@@ -145,6 +147,7 @@ function PipelineOverview() {
       header: t('data.pipelineOverview.status'),
       cell: ({ row }) => {
         const status = versionStatus(row.original.lifecycle)
+
         return <Status tone={status.tone}>{status.label}</Status>
       },
     },
@@ -166,6 +169,7 @@ function PipelineOverview() {
   const output = config.output
   const keepsArtefact = Boolean(output && output.mode !== 'none')
   const keptDatasetId = output?.mode === 'append' ? output.datasetId : undefined
+
   return (
     <div className="@container/overview min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
       <div className="flex flex-col gap-5">

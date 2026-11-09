@@ -324,6 +324,7 @@ type RecordRouteContext = ReturnType<typeof Route.useRouteContext>['context']
 function RoutedNotebookDocument(props: NotebookDocumentProps) {
   const hash = useRouterState({ select: (state) => state.location.hash })
   const navigate = useNavigate()
+
   return (
     <NotebookDocument
       {...props}
@@ -352,10 +353,12 @@ export function RecordNotebookRoute() {
   const { context } = Route.useRouteContext()
   const { recordId } = Route.useParams()
   const navigate = useNavigate()
+
   const kind = useQuery({
     queryKey: notebookQueryKeys.record(recordId),
     queryFn: () => fetchRecord(notebookDataClient, recordId),
   })
+
   const search = useRouterState({ select: (state) => state.location.search })
   const hash = useRouterState({ select: (state) => state.location.hash })
   const isExperiment = kind.data?.kind === 'experiment'
@@ -369,7 +372,9 @@ export function RecordNotebookRoute() {
       replace: true,
     })
   }, [isExperiment, navigate, recordId, search, hash])
+
   if (isExperiment) return <NotebookSkeleton />
+
   return <RecordNotebookPage context={context} recordId={recordId} />
 }
 
@@ -378,12 +383,16 @@ function historicalRevisionFromSearch(search: unknown): string | undefined {
     const value = new URLSearchParams(
       search.startsWith('?') ? search.slice(1) : search,
     ).get('revision')
+
     return value || undefined
   }
+
   if (search && typeof search === 'object' && 'revision' in search) {
     const value = (search as { revision?: unknown }).revision
+
     return typeof value === 'string' && value.length > 0 ? value : undefined
   }
+
   return undefined
 }
 
@@ -399,10 +408,12 @@ function historicalRevisionFromSearch(search: unknown): string | undefined {
 export function useNotebookCellFacts(options: { enabled?: boolean } = {}) {
   const { enabled = true } = options
   const [selection, setSelection] = useState<SheetCellSelection | null>(null)
+
   const onCellSelectionChange = useCallback(
     (next: SheetCellSelection | null) => setSelection(next),
     [],
   )
+
   const cell = useMemo(
     () =>
       enabled && selection
@@ -418,6 +429,7 @@ export function useNotebookCellFacts(options: { enabled?: boolean } = {}) {
         : null,
     [enabled, selection],
   )
+
   return { cell, onCellSelectionChange }
 }
 
@@ -446,12 +458,15 @@ export function RecordNotebookPage({
   // COLLAB-02: one record room per experiment page; null when the
   // deployment has collaboration disabled or there is no workspace.
   const collaborationEnabled = useCollaborationEnabled()
+
   const collaborationRoomId = collaborationEnabled
     ? safeBuildRoomId(context.workspace?.id, 'record', recordId)
     : null
+
   const historicalRevisionId = useRouterState({
     select: (state) => historicalRevisionFromSearch(state.location.search),
   })
+
   // EXP-04.4: historical views are pinned to frozen evidence, so they never
   // surface live selected-cell facts.
   const { cell: selectedCell, onCellSelectionChange } = useNotebookCellFacts({
@@ -466,46 +481,56 @@ export function RecordNotebookPage({
     queryFn: () => fetchRecord(notebookDataClient, recordId),
     enabled: true,
   })
+
   const projectId = recordQuery.data?.projectId ?? null
+
   const projectQuery = useQuery({
     queryKey: notebookQueryKeys.project(projectId ?? 'none'),
     queryFn: () => fetchProject(notebookDataClient, projectId!),
     enabled: Boolean(projectId),
   })
+
   const projectFoldersQuery = useQuery({
     queryKey: notebookQueryKeys.folders(projectId ?? 'none'),
     queryFn: () => fetchFoldersForProject(notebookDataClient, projectId!),
     enabled: Boolean(projectId),
   })
+
   const projectRecordsQuery = useQuery({
     queryKey: notebookQueryKeys.records(projectId ?? 'none'),
     queryFn: () => fetchRecordsForProject(notebookDataClient, projectId!),
     enabled: Boolean(projectId),
   })
+
   const blocksQuery = useQuery({
     queryKey: notebookQueryKeys.blocks(recordId),
     queryFn: () => fetchBlocksForRecord(notebookDataClient, recordId),
     enabled: !historicalRevisionId,
   })
+
   const linksQuery = useQuery({
     queryKey: notebookQueryKeys.links(recordId),
     queryFn: () => fetchLinksForRecord(notebookDataClient, recordId),
     enabled: !historicalRevisionId,
   })
+
   const revisionsQuery = useQuery({
     queryKey: notebookQueryKeys.revisions(recordId),
     queryFn: () => fetchRevisionsForRecord(notebookDataClient, recordId),
     enabled: !historicalRevisionId,
   })
+
   const signaturesQuery = useQuery({
     queryKey: signatureQueryKeys.forRecord(recordId),
     queryFn: () => fetchSignaturesForRecord(notebookDataClient, recordId),
     enabled: !historicalRevisionId,
   })
+
   // R5-NOTE-02: the sections the record type requires, named by the notebook
   // template the record was instantiated from. Read here so the inspector
   // stays a pure projection of its props.
   const templateVersionId = recordQuery.data?.sourceNotebookTemplateVersionId
+
   const templateConfigurationQuery = useQuery({
     queryKey: ['notebook-template-version', templateVersionId ?? 'none'],
     enabled: Boolean(templateVersionId),
@@ -515,38 +540,46 @@ export function RecordNotebookPage({
         notebookTemplateDataClient,
       ),
   })
+
   const requiredSectionLabels = namedSectionsOfTemplate(
     templateConfigurationQuery.data?.configuration,
   )
+
   const activityQuery = useQuery({
     queryKey: notebookQueryKeys.activity(recordId),
     queryFn: () => fetchChangeEventsForRecord(notebookDataClient, recordId),
     enabled: !historicalRevisionId,
   })
+
   const historicalRevisionQuery = useQuery({
     queryKey: notebookQueryKeys.revision(historicalRevisionId ?? 'none'),
     queryFn: () => fetchRevision(notebookDataClient, historicalRevisionId!),
     enabled: Boolean(historicalRevisionId),
   })
+
   const reviewQuery = useQuery({
     queryKey: notebookQueryKeys.review(recordId),
     queryFn: () => fetchNotebookReviewContext(notebookDataClient, recordId),
     enabled: true,
   })
+
   // EXT-02: enabled-install contributions for this caller. The hook reads
   // the workspace installs through the public client surface and resolves
   // them through the single registry; loading/failure degrades to empty
   // points, never an error surface.
   const workspaceId = context.workspace?.id ?? null
   const workspaceRole = context.workspace?.role ?? null
+
   const extensionPoints = useExtensionPoints(
     notebookDataClient,
     workspaceId,
     workspaceRole,
   )
+
   const pluginPoints = usePluginPoints()
   const [samplePanelOpen, setSamplePanelOpen] = useState(false)
   const [extensionError, setExtensionError] = useState<string | null>(null)
+
   // EXT-02 invocation: the server-side assert gates execution (fail-closed);
   // the sample's read-only affordance then opens its data panel. The
   // returned audit fragment has no durable write to stamp here — writers
@@ -575,23 +608,29 @@ export function RecordNotebookPage({
   useEffect(() => {
     setHasUnsavedWork(false)
   }, [recordId, historicalRevisionId])
+
   // NOTE-02: section collapse is presentation state owned by the route so
   // the inspector's Outline tab and the canvas stay in sync. It resets when
   // the record or the viewed revision changes — never persisted.
   const [collapsedSections, setCollapsedSections] = useState<
     ReadonlySet<string>
   >(() => new Set<string>())
+
   useEffect(() => {
     setCollapsedSections(new Set())
   }, [recordId, historicalRevisionId])
+
   const toggleSection = (anchorId: string) => {
     setCollapsedSections((current) => {
       const next = new Set(current)
+
       if (next.has(anchorId)) next.delete(anchorId)
       else next.add(anchorId)
+
       return next
     })
   }
+
   // EXT-02 sample panel content, bound to the ordinary public contract
   // reads this route already performs (record/activity/links queries).
   // The panel receives only this loader — no data import of its own.
@@ -600,6 +639,7 @@ export function RecordNotebookPage({
   // transitions never change the hook count.
   const loadSampleSummary = useCallback(async () => {
     const base = recordQuery.data ?? null
+
     const summaryRecord =
       base && historicalRevisionId && historicalRevisionQuery.data
         ? recordFromRevisionSnapshot(
@@ -607,8 +647,10 @@ export function RecordNotebookPage({
             historicalRevisionQuery.data.metadata_snapshot,
           )
         : base
+
     const summaryActivity = activityQuery.data ?? []
     const summaryLinks = linksQuery.data ?? []
+
     return {
       heading: summaryRecord?.title ?? '',
       subheading: summaryRecord
@@ -649,6 +691,7 @@ export function RecordNotebookPage({
   const record = recordQuery.data ?? null
   const sequences = useLinkedSequences(record?.id ?? null)
   const blocks = blocksQuery.data ?? []
+
   // Parts: when the experiment is split, the page shows one part at a time and
   // the rest of the notebook stays a click away. With none it is one page.
   const partsView = useRecordPartsProgress(
@@ -656,29 +699,36 @@ export function RecordNotebookPage({
     blocks,
     !historicalRevisionId,
   )
+
   const partsList = partsView.parts
+
   const hashedBlockId = useRouterState({
     select: (state) =>
       /block-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/.exec(
         state.location.hash,
       )?.[1] ?? null,
   })
+
   const partOfHashedBlock = hashedBlockId
     ? (blocks.find((block) => block.id === hashedBlockId)?.partId ?? null)
     : null
+
   const requestedPart =
     partNumberFromParam(partParam) ??
     (partOfHashedBlock
       ? (partsList.find((part) => part.id === partOfHashedBlock)?.number ??
         null)
       : null)
+
   const partNames = useUserNames(
     partsList
       .map((part) => part.completedByUserId)
       .filter((id): id is string => Boolean(id)),
   )
+
   const userLabelForParts = partNames.userLabel
   const navigate = useNavigate()
+
   const gatesHost = useNotebookGates({
     recordId,
     blocks,
@@ -693,7 +743,9 @@ export function RecordNotebookPage({
     enabled: !historicalRevisionId,
     describeOnly: record?.kind === 'protocol_template',
   })
+
   const shownPartNow = shownPart(partsList, requestedPart)
+
   const lockedPartGate =
     gatesHost.state?.gates.find(
       (gate) =>
@@ -702,27 +754,37 @@ export function RecordNotebookPage({
         !gate.met &&
         !gate.overridden,
     ) ?? null
+
   const nowPart = currentPart(partsList)
+
   const partSignoffs = usePartSignoffs(
     recordId,
     partsList.some((part) => part.requiresSignOff),
   )
+
   const partRequests = usePartRequests(recordId, context.user.id)
+
   const shownSignoff = shownPartNow
     ? partSignoffs.find((row) => row.partId === shownPartNow.id)
     : undefined
+
   const canvasBlocks = shownPartNow
     ? blocksOfPart(blocks, shownPartNow)
     : blocks
+
   const stepNumbers = useMemo(() => {
     const numbers = new Map<string, number>()
+
     if (partsList.length === 0) return numbers
+
     for (const step of stepProgress(blocks, undefined, partsList)) {
       if (step.partStepIndex != null)
         numbers.set(step.blockId, step.partStepIndex)
     }
+
     return numbers
   }, [blocks, partsList])
+
   const links = linksQuery.data ?? []
   const revisions = revisionsQuery.data ?? []
   const activity = activityQuery.data ?? []
@@ -742,6 +804,7 @@ export function RecordNotebookPage({
           notebookOutline(canvasBlocks)
             .filter((entry) => {
               const span = spans.get(entry.anchorId)
+
               return !!span && sectionSpanHidesContent(span)
             })
             .map((entry) => entry.anchorId),
@@ -813,6 +876,7 @@ export function RecordNotebookPage({
   const isArchived = record.archivedAt !== null
   const review = reviewQuery.data ?? null
   const reviewActivity = notebookReviewActivity(review)
+
   if (historicalRevisionId && historicalRevisionQuery.isLoading) {
     return (
       <RouteShell
@@ -870,8 +934,10 @@ export function RecordNotebookPage({
         context.user.id,
       ),
     )
+
   const canWrite =
     hasCapability(workspaceRole, 'record.create') && !readingForReview
+
   const displayRecord =
     historicalRevisionId && historicalRevisionQuery.data
       ? recordFromRevisionSnapshot(
@@ -879,6 +945,7 @@ export function RecordNotebookPage({
           historicalRevisionQuery.data.metadata_snapshot,
         )
       : record
+
   const historicalEvidence = historicalRevisionQuery.data
     ? inspectorEvidenceFromRevision(historicalRevisionQuery.data)
     : undefined
@@ -894,6 +961,7 @@ export function RecordNotebookPage({
           <SampleExtensionPanel loadSummary={loadSampleSummary} />
         ) : null,
       )
+
   // Panels from code plugins: a screen or a UI bundle, for this kind of
   // record, drawn live (never beside a historical revision).
   if (!historicalRevisionId)
@@ -921,6 +989,7 @@ export function RecordNotebookPage({
         ),
       })
     }
+
   const notices = (
     <>
       {historicalRevisionId ? (
@@ -972,6 +1041,7 @@ export function RecordNotebookPage({
       ) : null}
     </>
   )
+
   const partsNoticesInHeader =
     embedded &&
     !historicalRevisionId &&
@@ -1144,6 +1214,7 @@ export function RecordNotebookPage({
                                 g.kind === 'part' &&
                                 g.partId === shownPartNow.id,
                             )
+
                             gatesHost.state?.edit(
                               gate ?? partGateStub(shownPartNow),
                             )
@@ -1369,6 +1440,7 @@ export function RecordTitleInput({
 }) {
   const queryClient = useQueryClient()
   const [titleDraft, setTitleDraft] = useState(title)
+
   const saveTitle = useMutation({
     mutationFn: (next: string) =>
       updateExperimentMetadata(notebookDataClient, {
@@ -1406,6 +1478,7 @@ export function RecordTitleInput({
   const field = useRef<HTMLTextAreaElement>(null)
   useLayoutEffect(() => {
     const el = field.current
+
     if (!el) return
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
@@ -1433,10 +1506,13 @@ export function RecordTitleInput({
       }}
       onBlur={() => {
         const next = titleDraft.trim()
+
         if (!next || next === title) {
           setTitleDraft(title)
+
           return
         }
+
         saveTitle.mutate(next)
       }}
     />
@@ -1526,17 +1602,20 @@ export function StickyRecordHeader({
   // dialog only opens from a submittable header, but an active review that
   // appears between render and confirm is surfaced honestly.
   const activeReview = reviewActivity !== 'none'
+
   const lifecycle = notebookLifecycleLabel({
     lockedAt,
     archivedAt: record.archivedAt,
     reviewActivity,
     isHistorical: Boolean(historicalRevisionId),
   })
+
   const reviewRevisionId = notebookReviewRevisionId({
     lockedByRevisionId,
     review,
     historicalRevisionId,
   })
+
   const canSubmit =
     canWrite &&
     Boolean(projectId && currentUserId) &&
@@ -1544,11 +1623,14 @@ export function StickyRecordHeader({
     !record.archivedAt &&
     !historicalRevisionId &&
     reviewActivity === 'none'
+
   const canEditTitle =
     canWrite && !lockedAt && !record.archivedAt && !historicalRevisionId
+
   // On the experiment page a draft has one main action, Start experiment, in
   // the page header. Submit joins it once the experiment is running.
   const showSubmit = canSubmit && !(embedded && record.status === 'draft')
+
   // A running experiment with protocol steps leads with the current step. Its
   // card carries Submit too, so the header's own Submit steps aside.
   const stepCardOn =
@@ -1558,11 +1640,14 @@ export function StickyRecordHeader({
     !historicalRevisionId &&
     !record.archivedAt &&
     (hasParts || stepProgress(blocks).length > 0)
+
   const canOpenReview = Boolean(reviewRevisionId)
+
   const hasSignatureToGive = useHasSignatureToGive({
     revisionId: reviewRevisionId,
     currentUserId,
   })
+
   const canSign =
     Boolean(currentUserId && currentUserName) &&
     !historicalRevisionId &&
@@ -1570,7 +1655,9 @@ export function StickyRecordHeader({
     (reviewActivity === 'approved' ||
       Boolean(lockedAt && lockedByRevisionId)) &&
     hasSignatureToGive
+
   const evidenceRevisionId = reviewRevisionId
+
   // The submitter can take the notebook back out of review from here, under the
   // same rule the review page applies.
   const canWithdraw =
@@ -1590,11 +1677,16 @@ export function StickyRecordHeader({
   const reopenTask = useRouterState({
     select: (state) => reopenTaskFromSearch(state.location.search),
   })
+
   useEffect(() => {
     const task = reopenTask
+
     if (!task) return
+
     if (task === 'submit' && !canSubmit) return
+
     if (task === 'sign' && !canSign) return
+
     if (task === 'submit') setSubmitOpen(true)
     else setSignOpen(true)
     void navigate({
@@ -1737,7 +1829,9 @@ export function StickyRecordHeader({
         ]
       : []),
   ]
+
   const offered = useOfferRecordActions(recordActions, embedded)
+
   const submitButton = (variant: 'primary' | 'secondary') => (
     <ConnectionRequired
       online={online}
@@ -2003,14 +2097,19 @@ export function StickyRecordHeader({
 
 function pickerRecordKind(kind: PickerItem['kind']): string {
   if (kind === 'Sample') return 'sample'
+
   if (kind === 'Material') return 'material'
+
   if (kind === 'Experiment') return 'experiment'
+
   return 'dataset'
 }
 
 function pickerLinkType(kind: PickerItem['kind']): string {
   if (kind === 'Sample') return 'sample'
+
   if (kind === 'Material') return 'material'
+
   return 'general'
 }
 
@@ -2047,6 +2146,7 @@ function RecordNotebookTabs({
     revisions: revisionCount,
     signatures: signatureCount,
   }
+
   return (
     <nav
       aria-label={t('notebook.notebookPage.notebookSectionsAriaLabel')}
@@ -2104,6 +2204,7 @@ function RecordNotebookPanel({
       ...revisions.map((r) => r.created_by_user_id),
     ].filter(Boolean),
   )
+
   const linkColumns = useMemo<RegistryColumn<NotebookLink>[]>(
     () => [
       {
@@ -2139,6 +2240,7 @@ function RecordNotebookPanel({
     ],
     [],
   )
+
   if (tab === 'sequences') {
     return (
       <SequencePanel
@@ -2148,6 +2250,7 @@ function RecordNotebookPanel({
       />
     )
   }
+
   if (tab === 'links') {
     return (
       <section
@@ -2170,6 +2273,7 @@ function RecordNotebookPanel({
       </section>
     )
   }
+
   if (tab === 'signatures') {
     return (
       <SignaturesTable
@@ -2185,6 +2289,7 @@ function RecordNotebookPanel({
       />
     )
   }
+
   return <RevisionsTable revisions={revisions} names={names} />
 }
 
@@ -2228,6 +2333,7 @@ export function RevisionsTable({
     ],
     [names],
   )
+
   return (
     <section
       aria-label={t('notebook.notebookPage.revisionsLabel')}
@@ -2273,14 +2379,17 @@ export function HistoricalEvidenceBanner({ recordId }: { recordId: string }) {
 /** Why a restore attempt failed, in words that name who can fix it. */
 function restoreErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : ''
+
   if (
     /row-level security|permission_denied|permission denied|42501/i.test(
       message,
     )
   )
     return t('notebook.notebookPage.youCanTRestore')
+
   if (/metadata version mismatch|stale/i.test(message))
     return t('notebook.notebookPage.thisNotebookChangedSince')
+
   return message || t('notebook.notebookPage.couldNotRestoreThe')
 }
 
@@ -2297,10 +2406,12 @@ export function ArchivedBanner({
 }) {
   const [restoring, setRestoring] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
   async function restore() {
     if (!onRestore) return
     setRestoring(true)
     setError(null)
+
     try {
       await onRestore()
     } catch (err) {
@@ -2309,6 +2420,7 @@ export function ArchivedBanner({
       setRestoring(false)
     }
   }
+
   return (
     <div
       role="status"
@@ -2373,6 +2485,7 @@ export function LockedBanner({
   onAmended?: () => void
 }) {
   const [amendOpen, setAmendOpen] = useState(false)
+
   return (
     <>
       <Notice
@@ -2483,6 +2596,7 @@ export function NotebookCanvas({
       </div>
     )
   }
+
   if (error) {
     return (
       <div className="space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
@@ -2495,6 +2609,7 @@ export function NotebookCanvas({
       </div>
     )
   }
+
   if (
     record.archivedAt ||
     record.lockedAt ||
@@ -2507,6 +2622,7 @@ export function NotebookCanvas({
     // anchors match the editable state. SIGN-002: a locked record's
     // scientific evidence is frozen until an amendment unlocks it.
     if (blocks.length === 0) return <EmptyNotebook record={record} />
+
     if ((record.archivedAt || record.lockedAt) && client && queryClient) {
       return (
         <LockedNotebook
@@ -2519,6 +2635,7 @@ export function NotebookCanvas({
         />
       )
     }
+
     return (
       <RoutedNotebookDocument
         record={record}
@@ -2535,6 +2652,7 @@ export function NotebookCanvas({
       />
     )
   }
+
   return (
     <EditableNotebook
       record={record}
@@ -2593,21 +2711,27 @@ function EditableNotebook({
   const liveStatus = useLiveStatus()
   const offline = liveStatus.status === 'offline'
   const offlineEdits = useOfflineEdits()
+
   const shownBlocks = useMemo(
     () => overlayQueuedBlocks(blocks, offlineEdits.edits),
     [blocks, offlineEdits.edits],
   )
+
   const [hasUnsavedWork, setHasUnsavedWork] = useState(false)
   const [embedOpen, setEmbedOpen] = useState(false)
+
   const [embedAfterBlockId, setEmbedAfterBlockId] = useState<
     string | undefined
   >()
+
   const [embedInstanceId, setEmbedInstanceId] = useState('')
+
   const embedCandidates = useQuery({
     queryKey: ['sheet-instances', 'embed-picker', record.id],
     queryFn: () => fetchSheetInstances(sheetInstanceDataClient),
     enabled: embedOpen,
   })
+
   const blocker = useBlocker({
     shouldBlockFn: () => hasUnsavedWork,
     enableBeforeUnload: false,
@@ -2638,6 +2762,7 @@ function EditableNotebook({
       const without = prev.filter((b) => b.id !== block.id)
       const next = [...without, block]
       next.sort((a, b) => a.order - b.order)
+
       return next
     })
   }
@@ -2660,12 +2785,16 @@ function EditableNotebook({
       if (!prev) return prev
       const byId = new Map(prev.map((b) => [b.id, b]))
       const next: NotebookBlockDomain[] = []
+
       for (const entry of order) {
         const block = byId.get(entry.id)
+
         if (!block) continue
         next.push({ ...block, order: entry.order })
       }
+
       next.sort((a, b) => a.order - b.order)
+
       return next
     })
   }
@@ -2686,6 +2815,7 @@ function EditableNotebook({
   >(inserted: T): Promise<T> {
     if (!partId || inserted.block.partId === partId) return inserted
     const placed = await setBlockPart(client, inserted.block.id, partId)
+
     return {
       ...inserted,
       structureVersion: placed.structure_version ?? inserted.structureVersion,
@@ -2714,6 +2844,7 @@ function EditableNotebook({
       }
     }) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
+
       if (type === 'sheet' || type === 'sheet_shared') {
         return placeInPart(
           await insertSheetInstanceBlock(client, {
@@ -2725,7 +2856,9 @@ function EditableNotebook({
           }),
         )
       }
+
       const payload = options?.payload ?? defaultPayloadFor(type)
+
       const inserted = await insertBlock(client, {
         recordId: record.id,
         type,
@@ -2734,6 +2867,7 @@ function EditableNotebook({
         expectedStructureVersion:
           current?.structureVersion ?? record.structureVersion,
       })
+
       return placeInPart(inserted)
     },
     onSuccess: (res) => {
@@ -2746,10 +2880,12 @@ function EditableNotebook({
       }
     },
   })
+
   // --- Duplicate ---------------------------------------------------------
   const duplicateMutation = useMutation({
     mutationFn: async (block: NotebookBlockDomain) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
+
       return duplicateBlock(client, {
         block,
         expectedStructureVersion:
@@ -2771,6 +2907,7 @@ function EditableNotebook({
   const deleteMutation = useMutation({
     mutationFn: async (block: NotebookBlockDomain) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
+
       return deleteBlock(client, {
         blockId: block.id,
         expectedStructureVersion:
@@ -2808,6 +2945,7 @@ function EditableNotebook({
       }
     }) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
+
       // NOTE-01 atomic undo: insert_block positions against both anchors and
       // returns the full (id, order) list (migration 0154), so the cache
       // reconciles from the insert alone — no second move. The historical
@@ -2822,10 +2960,12 @@ function EditableNotebook({
         expectedStructureVersion:
           current?.structureVersion ?? record.structureVersion,
       })
+
       return { ...inserted, order: inserted.order ?? null }
     },
     onSuccess: (res) => {
       upsertBlock(res.block)
+
       if (res.order) reorderBlocks(res.order)
       setRecordStructureVersion(res.structureVersion)
     },
@@ -2854,6 +2994,7 @@ function EditableNotebook({
       destination: { afterBlockId: string | null; beforeBlockId: string | null }
     }) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
+
       return moveBlock(client, {
         blockId: block.id,
         afterBlockId: destination.afterBlockId,
@@ -2883,7 +3024,9 @@ function EditableNotebook({
     // `createDataClient` (LIVE-003); no explicit argument is needed here.
     const cached =
       queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+
     const current = cached.find((b) => b.id === block.id) ?? block
+
     // Offline (or behind an edit still waiting to send): keep the block's
     // payload on the device and send it on reconnect, in order. Blocks that
     // need the server (files, imports, signatures) fall through and say so.
@@ -2893,11 +3036,13 @@ function EditableNotebook({
       if (!offlineEdits.canQueue || !canEditBlockOffline(current.type)) {
         return null
       }
+
       const checked = validateBlock({
         type: current.type,
         payload,
         payloadSchemaVersion: current.payloadSchemaVersion,
       })
+
       if (!checked.ok) {
         return {
           ok: false,
@@ -2905,25 +3050,32 @@ function EditableNotebook({
           message: checked.errors.map((e) => e.message).join('; '),
         }
       }
+
       if (await offlineEdits.queueBlockPayload(current, payload)) {
         void requestBackgroundSync()
+
         return { ok: true }
       }
+
       return null
     }
+
     if (
       offline ||
       (typeof navigator !== 'undefined' && !navigator.onLine) ||
       offlineEdits.isUnsynced(blockEditTargetKey(current.id))
     ) {
       const kept = await keepOnDevice()
+
       if (kept) return kept
     }
+
     const result = validateBlock({
       type: current.type,
       payload,
       payloadSchemaVersion: current.payloadSchemaVersion,
     })
+
     if (!result.ok) {
       return {
         ok: false,
@@ -2931,6 +3083,7 @@ function EditableNotebook({
         message: result.errors.map((e) => e.message).join('; '),
       }
     }
+
     try {
       const updated = await updateBlockPayload(client, {
         blockId: current.id,
@@ -2938,16 +3091,21 @@ function EditableNotebook({
         expectedVersion: current.version,
         payloadSchemaVersion: current.payloadSchemaVersion,
       })
+
       upsertBlock({ ...current, ...updated })
+
       return { ok: true }
     } catch (err) {
       if (err instanceof DataClientError && err.code === 'stale_version') {
         // Refetch the canonical block so we can offer the server value as
         // the conflict alternative; never silently overwrite the draft.
         await queryClient.refetchQueries({ queryKey: blocksKey })
+
         const refreshed =
           queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? []
+
         const serverBlock = refreshed.find((b) => b.id === block.id)
+
         return {
           ok: false,
           kind: 'conflict',
@@ -2955,15 +3113,19 @@ function EditableNotebook({
           serverValue: serverBlock?.payload ?? block.payload,
         }
       }
+
       if (err instanceof DataClientError && err.code === 'validation_error') {
         return { ok: false, kind: 'validation', message: err.message }
       }
+
       // A request that never reached the server (no signal) is not a failed
       // save: keep the text on the device instead.
       if (!(err instanceof DataClientError)) {
         const kept = await keepOnDevice()
+
         if (kept?.ok) return kept
       }
+
       return {
         ok: false,
         kind: 'transient',
@@ -2974,6 +3136,7 @@ function EditableNotebook({
       }
     }
   }
+
   // ASSIST-02: insert an accepted text draft; the document owns the
   async function handleInsert(
     type: string,
@@ -2988,13 +3151,16 @@ function EditableNotebook({
       setEmbedAfterBlockId(afterBlockId)
       setEmbedInstanceId('')
       setEmbedOpen(true)
+
       return undefined
     }
+
     const res = await insertMutation.mutateAsync({
       type,
       afterBlockId,
       options,
     })
+
     return res.block.id
   }
 
@@ -3008,6 +3174,7 @@ function EditableNotebook({
     if (!collaborationWorkspaceId) {
       throw new Error(t('notebook.notebookPage.noWorkspaceForSheet'))
     }
+
     const instance = await createSheetFromWorksheet({
       workspaceId: collaborationWorkspaceId,
       projectId: record.projectId,
@@ -3016,6 +3183,7 @@ function EditableNotebook({
       description: request.description,
       made: request.made,
     })
+
     await handleInsert('sheet', block.id, { instanceId: instance.id })
   }
 
@@ -3025,10 +3193,13 @@ function EditableNotebook({
   ) {
     const currentRecord =
       queryClient.getQueryData<NotebookRecord | null>(recordKey) ?? record
+
     const currentBlocks =
       queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+
     const currentBlock =
       currentBlocks.find((item) => item.id === block.id) ?? block
+
     await pinProtocolReference(client, {
       blockId: currentBlock.id,
       protocolRecordId,
@@ -3047,8 +3218,10 @@ function EditableNotebook({
   async function handleAttachFile(block: NotebookBlockDomain, file: File) {
     const currentBlocks =
       queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+
     const currentBlock =
       currentBlocks.find((item) => item.id === block.id) ?? block
+
     try {
       await attachFileToBlock(client, {
         blockId: currentBlock.id,
@@ -3067,6 +3240,7 @@ function EditableNotebook({
         'server_error',
       )
     }
+
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: blocksKey }),
       queryClient.invalidateQueries({
@@ -3084,8 +3258,10 @@ function EditableNotebook({
   async function handleFreezeChart(block: NotebookBlockDomain) {
     const currentBlocks =
       queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+
     const currentBlock =
       currentBlocks.find((item) => item.id === block.id) ?? block
+
     await freezeChart(client, {
       blockId: currentBlock.id,
       expectedVersion: currentBlock.version,
@@ -3096,8 +3272,10 @@ function EditableNotebook({
   async function handleUnfreezeChart(block: NotebookBlockDomain) {
     const currentBlocks =
       queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+
     const currentBlock =
       currentBlocks.find((item) => item.id === block.id) ?? block
+
     await unfreezeChart(client, {
       blockId: currentBlock.id,
       expectedVersion: currentBlock.version,
@@ -3108,8 +3286,10 @@ function EditableNotebook({
   async function handleFreezeAnalysis(block: NotebookBlockDomain) {
     const currentBlocks =
       queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+
     const currentBlock =
       currentBlocks.find((item) => item.id === block.id) ?? block
+
     await freezeAnalysisBlock(client, {
       blockId: currentBlock.id,
       expectedVersion: currentBlock.version,
@@ -3120,8 +3300,10 @@ function EditableNotebook({
   async function handleUnfreezeAnalysis(block: NotebookBlockDomain) {
     const currentBlocks =
       queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+
     const currentBlock =
       currentBlocks.find((item) => item.id === block.id) ?? block
+
     await unfreezeAnalysisBlock(client, {
       blockId: currentBlock.id,
       expectedVersion: currentBlock.version,
@@ -3131,6 +3313,7 @@ function EditableNotebook({
 
   async function handleDuplicate(block: NotebookBlockDomain) {
     const duplicated = await duplicateMutation.mutateAsync(block)
+
     return duplicated.block.id
   }
 
@@ -3155,6 +3338,7 @@ function EditableNotebook({
   ): Promise<string | undefined> {
     const newId = await handleInsert(type, block.id, options)
     await deleteMutation.mutateAsync(block)
+
     return newId
   }
 
@@ -3171,6 +3355,7 @@ function EditableNotebook({
       payload,
       destination,
     })
+
     return { id: restored.block.id, moved: true }
   }
 
@@ -3185,11 +3370,14 @@ function EditableNotebook({
   async function handleAddSteps(steps: string[]) {
     const existing =
       queryClient.getQueryData<NotebookBlockDomain[]>(blocksKey) ?? blocks
+
     let stepNumber = existing.filter((b) => b.type === 'procedure_step').length
     let afterBlockId = existing.at(-1)?.id
+
     for (const text of steps) {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
       stepNumber += 1
+
       const res = await insertBlock(client, {
         recordId: record.id,
         type: 'procedure_step',
@@ -3198,6 +3386,7 @@ function EditableNotebook({
         expectedStructureVersion:
           current?.structureVersion ?? record.structureVersion,
       })
+
       upsertBlock(res.block)
       setRecordStructureVersion(res.structureVersion)
       afterBlockId = res.block.id
@@ -3311,10 +3500,12 @@ function HistoricalNotebookCanvas({
     queryKey: notebookQueryKeys.revision(revisionId),
     queryFn: () => fetchRevision(client, revisionId),
   })
+
   const storedEvidence = useQuery({
     queryKey: ['revision-sheet-evidence-rows', revisionId],
     queryFn: () => fetchRevisionSheetEvidence(client, revisionId),
   })
+
   if (revision.isLoading) {
     return (
       <div className="space-y-3" aria-busy="true">
@@ -3327,6 +3518,7 @@ function HistoricalNotebookCanvas({
       </div>
     )
   }
+
   if (revision.error || !revision.data) {
     return (
       <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
@@ -3336,9 +3528,11 @@ function HistoricalNotebookCanvas({
       </div>
     )
   }
+
   const frozenSheetEvidence = storedEvidence.data?.length
     ? sheetEvidenceFromRevisionRows(storedEvidence.data)
     : sheetEvidenceFromEnvelope(toCanonicalEnvelope(revision.data))
+
   return (
     <RoutedNotebookDocument
       record={record}
@@ -3383,17 +3577,21 @@ function LockedNotebook({
         ? fetchRevision(client, record.lockedByRevisionId)
         : fetchLatestRevisionForRecord(client, record.id),
   })
+
   const revisionId = revision.data?.id ?? record.lockedByRevisionId
+
   const storedEvidence = useQuery({
     queryKey: ['revision-sheet-evidence-rows', revisionId],
     enabled: Boolean(revisionId),
     queryFn: () => fetchRevisionSheetEvidence(client, revisionId!),
   })
+
   const frozenSheetEvidence = storedEvidence.data?.length
     ? sheetEvidenceFromRevisionRows(storedEvidence.data)
     : sheetEvidenceFromEnvelope(
         revision.data ? toCanonicalEnvelope(revision.data) : null,
       )
+
   return (
     <RoutedNotebookDocument
       record={record}
@@ -3450,6 +3648,7 @@ export function NotebookErrorState({
     error instanceof DataClientError && error.code === 'permission_denied'
       ? t('notebook.notebookPage.youDoNotHave2')
       : t('notebook.notebookPage.couldNotLoadThe3')
+
   return (
     <div className="space-y-2">
       <p role="alert" className="text-sm text-destructive">
@@ -3543,16 +3742,21 @@ function fileItemsFromBlocks(
   href?: string
 }[] {
   const includeDownloadHref = options.includeDownloadHref ?? true
+
   return blocks.map((b) => {
     const p = b.payload
+
     const displayName =
       typeof p.displayName === 'string'
         ? p.displayName
         : t('notebook.notebookPage.file')
+
     const mediaType = typeof p.mediaType === 'string' ? p.mediaType : ''
     const byteSize = typeof p.byteSize === 'number' ? p.byteSize : 0
+
     const fileRecordId =
       typeof p.fileRecordId === 'string' ? p.fileRecordId : ''
+
     return {
       id: b.id,
       name: displayName,
@@ -3579,11 +3783,14 @@ function activityItemsFromEvents(
 }[] {
   return activity.map((event) => {
     const isSelf = currentUserId && event.actorUserId === currentUserId
+
     const actor = isSelf
       ? { name: 'You', initials: 'Y', userId: event.actorUserId }
       : { name: 'A collaborator', initials: '••', userId: event.actorUserId }
+
     const action = OPERATION_LABELS[event.operation] ?? event.operation
     const target = ENTITY_LABELS[event.entityType] ?? event.entityType
+
     return {
       id: event.id,
       actor,
@@ -3617,6 +3824,7 @@ function contributorsFromActivity(
 
   // The author is the first contributor.
   const authorName = authorUserId ? nameOf(authorUserId) : null
+
   if (authorUserId && authorName) {
     contributors.push({
       id: authorUserId,
@@ -3629,6 +3837,7 @@ function contributorsFromActivity(
   // Add unique actors from activity.
   for (const event of activity) {
     const actorId = event.actorUserId ?? 'unknown'
+
     if (seen.has(actorId)) continue
     seen.add(actorId)
     const isSelf = currentUserId != null && actorId === currentUserId
@@ -3666,11 +3875,13 @@ function namedSectionsOfTemplate(
 ): string[] {
   if (!configuration) return []
   const labels: string[] = []
+
   for (const placement of configuration.placements) {
     if (placement.kind === 'section_placeholder') labels.push(placement.label)
     else if (placement.kind === 'sheet' && placement.title)
       labels.push(placement.title)
   }
+
   return [...new Set(labels)]
 }
 
@@ -3678,10 +3889,12 @@ function linkCountsByKind(
   links: NotebookLink[],
 ): { label: string; count: number; kind: string }[] {
   const counts = new Map<string, number>()
+
   for (const link of links) {
     const kind = link.targetKind
     counts.set(kind, (counts.get(kind) ?? 0) + 1)
   }
+
   return Array.from(counts.entries()).map(([kind, count]) => ({
     label: LINK_KIND_LABELS[kind] ?? `${recordKindLabel(kind)}s`,
     count,
@@ -3696,6 +3909,7 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
     queryFn: () =>
       fetchNotebookTemplateVersion(versionId, notebookTemplateDataClient),
   })
+
   const template = useQuery({
     queryKey: ['notebook-template', version.data?.templateId],
     enabled: Boolean(version.data?.templateId),
@@ -3707,6 +3921,7 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
         notebookTemplateDataClient,
       ),
   })
+
   const versions = useQuery({
     queryKey: ['notebook-template-versions', version.data?.templateId],
     enabled: Boolean(version.data?.templateId),
@@ -3716,6 +3931,7 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
         notebookTemplateDataClient,
       ),
   })
+
   // REUSE-03: governed pin vs published lineage. Badge-only: never
   // auto-applies, never an error style, silent unless a newer published
   // version exists.
@@ -3725,6 +3941,7 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
       : null,
     versions.data ?? [],
   )
+
   if (version.isLoading || template.isLoading) {
     return (
       <span className="text-xs text-muted-foreground" role="status">
@@ -3732,6 +3949,7 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
       </span>
     )
   }
+
   if (!version.data) {
     return (
       <span className="text-xs">
@@ -3739,8 +3957,10 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
       </span>
     )
   }
+
   const name =
     template.data?.name ?? t('notebook.notebookPage.notebookTemplate')
+
   return (
     <span className="inline-flex items-center gap-2 text-right text-xs">
       <span>
@@ -3764,6 +3984,7 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
 function NotebookTagsEditor({ record }: { record: NotebookRecord }) {
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState(record.tags.join(', '))
+
   const save = useMutation({
     mutationFn: (tags: string[]) =>
       updateExperimentMetadata(notebookDataClient, {
@@ -3777,6 +3998,7 @@ function NotebookTagsEditor({ record }: { record: NotebookRecord }) {
       })
     },
   })
+
   return (
     <div className="space-y-1">
       <Input
@@ -3788,6 +4010,7 @@ function NotebookTagsEditor({ record }: { record: NotebookRecord }) {
             .split(',')
             .map((tag) => tag.trim())
             .filter(Boolean)
+
           save.mutate(tags)
         }}
       />
@@ -3887,13 +4110,17 @@ export function NotebookInspector({
   const evidenceBlocks = isHistorical
     ? (revisionEvidence?.blocks ?? [])
     : (blocks ?? [])
+
   const evidenceLinks = isHistorical ? (revisionEvidence?.links ?? []) : links
   const evidenceActivity = isHistorical ? [] : (activity ?? [])
   const fileBlocks = evidenceBlocks.filter((b) => b.type === 'file')
+
   const fileItems = fileItemsFromBlocks(fileBlocks, {
     includeDownloadHref: !isHistorical,
   })
+
   const activityItems = activityItemsFromEvents(evidenceActivity, currentUserId)
+
   // The author comes from the record itself, never from whoever is looking.
   const peopleIds = useMemo(
     () => [
@@ -3902,22 +4129,27 @@ export function NotebookInspector({
     ],
     [record.createdByUserId, evidenceActivity],
   )
+
   const people = useUserNames(
     peopleIds,
     currentUserId && currentUserName
       ? { id: currentUserId, name: currentUserName }
       : undefined,
   )
+
   const nameOf = (userId: string) => people.names[userId] ?? null
   const ownerName = nameOf(record.createdByUserId)
+
   const contributors = contributorsFromActivity(
     evidenceActivity,
     record.createdByUserId,
     nameOf,
     currentUserId,
   )
+
   const linkCounts = linkCountsByKind(evidenceLinks)
   const fmtDateTime = (iso: string) => formatNotebookDateTime(iso)
+
   const lifecycle = notebookLifecycleLabel({
     lockedAt: record.lockedAt,
     archivedAt: record.archivedAt,
@@ -4263,12 +4495,14 @@ function firstMissingPart(
   const missing = gate.conditions.find(
     (condition) => !condition.met && condition.kind === 'part_done',
   )
+
   const target = missing?.partId
     ? parts.find(
         (part) =>
           part.id === missing.partId || part.sourcePartId === missing.partId,
       )
     : null
+
   return target
     ? { number: target.number, onClick: () => go(target.number) }
     : null

@@ -20,9 +20,12 @@ export function useCanManageProject(
     staleTime: 60_000,
     retry: false,
   })
+
   const isLead = Boolean(leadUserId) && leadUserId === userId
+
   const assigned = (assignments.data ?? []).some(
     (row) => row.project_id === projectId && row.can_manage,
   )
+
   return { canManage: isLead || assigned, isLoading: assignments.isLoading }
 }

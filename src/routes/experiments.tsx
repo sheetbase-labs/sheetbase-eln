@@ -88,7 +88,9 @@ const tabs = [
   'drafts',
   'archived',
 ] as const satisfies readonly ExperimentTabKey[]
+
 type Tab = (typeof tabs)[number]
+
 const tabLabel: Record<Tab, string> = {
   all: t('projects.experimentsList.tabs.all'),
   mine: t('projects.experimentsList.tabs.mine'),
@@ -100,6 +102,7 @@ const tabLabel: Record<Tab, string> = {
   drafts: t('projects.experimentsList.tabs.drafts'),
   archived: t('projects.experimentsList.tabs.archived'),
 }
+
 /** Empty-state titles. Interpolating the tab label read "No all experiments". */
 const tabEmptyTitle: Record<Tab, string> = {
   all: t('projects.experimentsList.empty.all'),
@@ -142,9 +145,11 @@ export const Route = createFileRoute('/experiments')({
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
+
     if (!context) {
       throw redirect(signInRedirect(location))
     }
+
     return { context }
   },
   component: ExperimentsRoute,
@@ -154,6 +159,7 @@ function ExperimentsRoute() {
   const isIndex = useRouterState({
     select: (state) => state.location.pathname === '/experiments',
   })
+
   return isIndex ? <Experiments /> : <Outlet />
 }
 
@@ -165,12 +171,15 @@ function Experiments() {
   const queryClient = useQueryClient()
   const bulk = useBulkSelection()
   const workspace = useWorkspaceNavigation()
+
   // Like every other registry list: an experiment opens in this pane, and
   // Alt-click opens it beside.
   const openExperiment = useCallback(
     (row: ExperimentListRow, event?: React.MouseEvent) => {
       const href = `/experiments/${encodeURIComponent(row.uuid)}`
+
       if (openBesideOnAlt(workspace, href, event, row.title)) return
+
       if (!event)
         void navigate({
           to: '/experiments/$expId',
@@ -179,6 +188,7 @@ function Experiments() {
     },
     [workspace, navigate],
   )
+
   const tab: Tab = search.tab ?? 'all'
   const [limit, setLimit] = useState(EXPERIMENT_LIST_PAGE_SIZE)
   const [sort, setSort] = useState<'updated' | 'id'>('updated')
@@ -200,6 +210,7 @@ function Experiments() {
         : [],
     [projects.data, q],
   )
+
   const matchOwnerIds = useMemo(
     () =>
       q
@@ -209,7 +220,9 @@ function Experiments() {
         : [],
     [members.data, q],
   )
+
   const since = search.older ? undefined : recentSince()
+
   const scope: ExperimentListScope = {
     projectId: search.project,
     since,
@@ -217,27 +230,33 @@ function Experiments() {
     matchProjectIds,
     matchOwnerIds,
   }
+
   const records = useExperimentRecords(
     context.workspace?.id,
     { ...scope, tab, userId: context.user.id },
     sort,
     limit,
   )
+
   // Counted under the same filters as the list, so every tab's number is the
   // length of the list behind it.
   const tabCounts = useExperimentTabCounts(context.user.id, scope)
+
   // The same counts with the date window lifted say how many are older.
   const allTimeCounts = useExperimentTabCounts(
     context.user.id,
     { ...scope, since: undefined },
     !search.older,
   )
+
   const openIssues = useExperimentOpenIssues(context.workspace?.id)
   const issueCount = (recordId: string) => openIssues.data?.get(recordId) ?? 0
+
   const experimentIds = useMemo(
     () => (records.data ?? []).map((r) => r.id),
     [records.data],
   )
+
   const protocols = useExperimentProtocols(experimentIds)
 
   // Owners and the people experiments are assigned to are named together.
@@ -250,13 +269,17 @@ function Experiments() {
       ),
     [records.data],
   )
+
   const { userLabel } = useUserNames(ownerIds, {
     id: context.user.id,
     name: context.user.name,
   })
+
   const ownerNames = useMemo(() => {
     const map = new Map<string, string>()
+
     for (const id of ownerIds) map.set(id, userLabel(id))
+
     return map
   }, [ownerIds, userLabel])
 
@@ -268,7 +291,9 @@ function Experiments() {
           projects.data ?? new Map(),
           ownerNames,
         )
+
         const protocol = protocols.data?.get(r.id)
+
         return protocol
           ? {
               ...row,
@@ -286,9 +311,11 @@ function Experiments() {
   const hasProjectAccess = useHasProjectAccess()
   // The database already applied the tab, project, date window and search.
   const visible = rows
+
   const hiddenOld = search.older
     ? 0
     : Math.max(0, (allTimeCounts.data?.[tab] ?? 0) - total)
+
   const groups: [string | null, ExperimentListRow[]][] = search.group
     ? [
         ...new Set(
@@ -311,6 +338,7 @@ function Experiments() {
     'experiment',
     'uuid',
   )
+
   const baseColumns = useMemo<RegistryColumn<ExperimentListRow>[]>(
     () => [
       {
@@ -472,10 +500,12 @@ function Experiments() {
     ],
     [issueCount, openExperiment, protocols.isPending, openIssues.isPending],
   )
+
   const columns = useMemo(
     () => withAddedColumns(baseColumns, addedColumns),
     [baseColumns, addedColumns],
   )
+
   const view = useListView('experiments')
 
   // A grouped list draws its groups as bands in the one table.
@@ -599,6 +629,7 @@ function Experiments() {
               ).map(([value, label]) => {
                 const active =
                   value === 'none' ? !search.group : search.group === value
+
                 return (
                   <DropdownMenuItem
                     key={value}
@@ -650,6 +681,7 @@ function Experiments() {
             className="h-7 pl-7 max-lg:h-9"
             onChange={(e) => {
               setDraftQ(e.target.value)
+
               if (!e.target.value) setSearch({ q: undefined })
             }}
           />

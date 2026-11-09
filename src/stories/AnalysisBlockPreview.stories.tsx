@@ -40,7 +40,9 @@ const meta = {
   ],
   args: {},
 } satisfies Meta<typeof AnalysisBlockPreview>
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Nothing configured yet: the block says what to do. */
@@ -122,9 +124,11 @@ function FrozenPreview({
       ? 'include_flagged'
       : 'exclude_bound_fields',
   }
+
   const queryClient = new QueryClient({
     defaultOptions: { queries: { staleTime: Infinity, retry: false } },
   })
+
   queryClient.setQueryData(
     ['analysis-frozen-version-rows', 'snapshot-1', 3, evidence.exclusionPolicy],
     {
@@ -151,6 +155,7 @@ function FrozenPreview({
           ],
     },
   )
+
   return (
     <QueryClientProvider client={queryClient}>
       <AnalysisBlockPreview payload={{ title: 'Recovery', frozen: evidence }} />
@@ -162,6 +167,7 @@ export const FrozenExclusions: Story = {
   args: { payload: {} },
   render: () => <FrozenPreview />,
 }
+
 export const FrozenAllValues: Story = {
   args: { payload: {} },
   render: () => <FrozenPreview includeFlagged />,

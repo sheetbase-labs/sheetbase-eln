@@ -27,6 +27,7 @@ describe('typeSearchFields', () => {
     const results = [
       result({ vendor: 'Thermo', lead: 'user-1', reviewer: 'user-2' }),
     ]
+
     const fields = typeSearchFields(results, searchResultGroup(results[0]))
     expect(fields.map((f) => [f.id, f.label])).toEqual([
       ['fields.vendor', 'Vendor'],

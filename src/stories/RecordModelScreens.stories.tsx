@@ -387,9 +387,11 @@ function provider(
   held: { keys: readonly (readonly unknown[])[]; read: UnseededRead }[] = [],
 ) {
   const client = screenQueryClient({ data: seeds })
+
   for (const group of held) {
     for (const key of group.keys) holdRead(client, key, group.read)
   }
+
   return (Story: () => React.ReactNode) => (
     <QueryClientProvider client={client}>
       <Story />
@@ -400,6 +402,7 @@ function provider(
 const modelSeeds: ReadSeed[] = [
   { key: recordModelQueryKeys.model(MODEL_KEY), value: model },
 ]
+
 const fieldSeeds: ReadSeed[] = [
   { key: recordModelQueryKeys.fields(MODEL_KEY), value: fields },
 ]
@@ -474,7 +477,9 @@ const meta = {
     ),
   ],
 } satisfies Meta
+
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 // --- Records list -----------------------------------------------------------

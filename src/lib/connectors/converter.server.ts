@@ -36,11 +36,13 @@ export class ConverterError extends Error {
 }
 
 let pythonSource: Promise<string> | null = null
+
 function converterSource(): Promise<string> {
   pythonSource ??=
     import('../../../docker/pipeline-python/converters/allotropy_convert.py?raw').then(
       (module: { default: string }) => module.default,
     )
+
   return pythonSource
 }
 
@@ -56,16 +58,19 @@ function text(value: unknown): string {
 
 function fail(error: unknown): never {
   if (error instanceof ConverterError) throw error
+
   if (error instanceof PipelinePythonError) {
     if (
       error.code === 'runner_unavailable' ||
       error.code === 'transform_timed_out'
     )
       throw new ConverterError('converter_unavailable', error.message)
+
     if (error.code === 'input_too_large' || error.code === 'output_too_large')
       throw new ConverterError('converter_too_large', error.message)
     throw new ConverterError('converter_failed', cleanMessage(error.message))
   }
+
   throw error
 }
 
@@ -86,6 +91,7 @@ export async function listConverters(
 ): Promise<ConverterVendor[]> {
   if (vendorCache && now() - vendorCache.at < 10 * 60_000)
     return vendorCache.vendors
+
   try {
     const result = await executePythonTransform({
       statement: await converterSource(),
@@ -93,6 +99,7 @@ export async function listConverters(
       inputs: {},
       parameters: { mode: 'vendors' },
     })
+
     const vendors = result.rows.map((row) => ({
       key: text(row['key']),
       name: text(row['name']),
@@ -100,7 +107,9 @@ export async function listConverters(
       extensions: text(row['extensions']),
       releaseState: text(row['release_state']),
     }))
+
     vendorCache = { at: now(), vendors }
+
     return vendors
   } catch (error) {
     return fail(error)
@@ -119,6 +128,7 @@ export async function convertFile(input: {
   vendor: string | null
 }): Promise<ConvertedFile> {
   let result
+
   try {
     result = await executePythonTransform({
       statement: await converterSource(),
@@ -136,21 +146,26 @@ export async function convertFile(input: {
   } catch (error) {
     return fail(error)
   }
+
   const row = result.rows.at(0)
   const document = asRecord(row?.['asm'])
+
   if (!row || Object.keys(document).length === 0)
     throw new ConverterError(
       'converter_failed',
       'The converter did not return a document.',
     )
+
   if (Buffer.byteLength(JSON.stringify(document)) > ASM_DOCUMENT_BYTE_LIMIT)
     throw new ConverterError(
       'converter_too_large',
       'The converted document is too large to keep.',
     )
+
   const columns = Array.isArray(row['columns'])
     ? (row['columns'] as unknown[]).map(text)
     : []
+
   const table = Array.isArray(row['table'])
     ? (row['table'] as unknown[]).map((entry) =>
         Object.fromEntries(
@@ -158,7 +173,9 @@ export async function convertFile(input: {
         ),
       )
     : []
+
   const device = asRecord(row['device'])
+
   const asm: AsmCapture = {
     document,
     technique: text(row['technique']),
@@ -170,6 +187,7 @@ export async function convertFile(input: {
     measurements: Number(row['measurements']) || 0,
     device,
   }
+
   return {
     asm,
     payload: {
@@ -197,16 +215,19 @@ export function converterReader(input: {
 }): (parser: ResolvedParser) => Promise<ParsedInstrumentPayload> {
   return async (parser) => {
     const target = converterTarget(parser.signature)
+
     if (!target)
       throw new ConverterError(
         'converter_unknown',
         'This parser does not name a converter.',
       )
+
     const converted = await (input.convert ?? convertFile)({
       fileName: input.fileName,
       bytes: input.bytes,
       vendor: target.vendor,
     })
+
     return converted.payload
   }
 }

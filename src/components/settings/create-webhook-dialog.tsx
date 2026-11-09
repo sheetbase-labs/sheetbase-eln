@@ -36,8 +36,10 @@ const eventGroups = WEBHOOK_EVENT_OPTIONS.reduce<
   }>
 >((groups, option) => {
   const group = groups.find((g) => g.name === option.group)
+
   if (group) group.options.push(option)
   else groups.push({ name: option.group, options: [option] })
+
   return groups
 }, [])
 
@@ -60,17 +62,21 @@ export function CreateWebhookDialog({
   const [created, setCreated] = useState<CreatedWebhookWire | null>(null)
 
   const isEmail = channelType === 'email'
+
   const recipients = useQuery({
     queryKey: webhookRecipientKeys.list(workspaceId),
     queryFn: () => listWebhookRecipientsFn({ data: { workspaceId } }),
     enabled: isEmail,
   })
+
   const validUrl = /^https:\/\/\S+$/.test(url.trim())
   const destinationReady = isEmail ? recipientUserId !== '' : validUrl
+
   const ready =
     destinationReady &&
     name.trim().length > 0 &&
     (allEvents || events.length > 0)
+
   const create = useMutation({
     mutationFn: () =>
       createWebhookSubscriptionFn({

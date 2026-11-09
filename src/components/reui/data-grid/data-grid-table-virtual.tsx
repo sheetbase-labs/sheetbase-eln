@@ -201,6 +201,7 @@ function getDataGridTableHeaderOffset({
   const scrollRect = scrollElement.getBoundingClientRect()
   const headerRect = headerElement.getBoundingClientRect()
   const headerBottomOffset = headerRect.bottom - scrollRect.top
+
   const overlapsViewportTop =
     headerRect.top <= scrollRect.top + 0.5 && headerBottomOffset > 0
 
@@ -258,13 +259,16 @@ function scrollDataGridTableRowIntoView({
 
   const scrollRect = scrollElement.getBoundingClientRect()
   const rowRect = rowElement.getBoundingClientRect()
+
   const viewportTopOffset = getDataGridTableHeaderOffset({
     containerElement,
     headerSticky,
     scrollElement,
   })
+
   const rowTop = scrollElement.scrollTop + rowRect.top - scrollRect.top
   const rowBottom = scrollElement.scrollTop + rowRect.bottom - scrollRect.top
+
   const targetTop = getDataGridTableScrollTarget({
     align,
     clientHeight: scrollElement.clientHeight,
@@ -370,8 +374,10 @@ function DataGridTableVirtualPinnedPlaceholderCell<TData extends object>({
 }) {
   const { props } = useDataGrid()
   const isPinned = column.getIsPinned()
+
   const isLastStartPinned =
     isPinned === 'start' && column.getIsLastColumn('start')
+
   const isFirstEndPinned = isPinned === 'end' && column.getIsFirstColumn('end')
 
   return (
@@ -553,10 +559,12 @@ function DataGridTableVirtualBody<TData extends object>({
   const showFetchingRow = isInfiniteMode && isFetchingMore
   const showCompleteRow = isInfiniteMode && hasMore === false && totalRows > 0
   const hasMiddleSection = hasCenterRows || showFetchingRow || showCompleteRow
+
   const leadingSpacerHeight =
     isVirtualizationEnabled && hasCenterRows && virtualItems.length > 0
       ? (virtualItems[0]?.start ?? 0)
       : 0
+
   const trailingSpacerHeight =
     isVirtualizationEnabled && hasCenterRows && virtualItems.length > 0
       ? Math.max(
@@ -708,6 +716,7 @@ function DataGridTableVirtual<TData extends object>({
   const mergedHeaderGroups = getDataGridTableMergedHeaderGroups(table)
   const hasRightPinnedColumns = hasDataGridTableRightPinnedColumns(table)
   const centerVisibleColumns = table.getCenterVisibleLeafColumns()
+
   // Column windows only where the geometry is provable: a fixed table
   // layout (undefined defaults to fixed; the colgroup then owns every
   // width, so colSpan spacers cannot drift) and a single ungrouped header
@@ -721,11 +730,14 @@ function DataGridTableVirtual<TData extends object>({
     (mergedHeaderGroups[0]?.headers.every((header) => header.colSpan <= 1) ??
       false) &&
     !mergedHeaderGroups[0]?.coveredHeaders.size
+
   const { topRows, centerRows, bottomRows } = getDataGridTableRowSections(
     table,
     props.tableLayout?.rowsPinnable,
   )
+
   const isInfiniteMode = typeof onFetchMore === 'function'
+
   const [viewportElements, setViewportElements] =
     useState<DataGridTableVirtualScrollElements>({
       containerElement: null,
@@ -742,8 +754,10 @@ function DataGridTableVirtual<TData extends object>({
   } = virtualizerOptions ?? {}
 
   const isVirtualizationEnabled = virtualizerOptions?.enabled !== false
+
   const loadingMoreMessage =
     props.fetchingMoreMessage || props.loadingMessage || i18n.labels.loading
+
   const allRowsLoadedMessage =
     props.allRowsLoadedMessage || i18n.labels.allRowsLoaded
 
@@ -847,6 +861,7 @@ function DataGridTableVirtual<TData extends object>({
   const virtualColumns = columnVirtualizationActive
     ? columnVirtualizer.getVirtualItems()
     : []
+
   // The window is a contiguous inclusive [start, end] over the center
   // columns; before the scroll element resolves the item list is empty and
   // the grid renders full-width for that first frame.
@@ -861,29 +876,38 @@ function DataGridTableVirtual<TData extends object>({
   const virtualItems = isVirtualizationEnabled
     ? virtualizer.getVirtualItems()
     : []
+
   const totalSize = isVirtualizationEnabled ? virtualizer.getTotalSize() : 0
+
   const measureRowRef =
     isVirtualizationEnabled && customMeasureElement
       ? virtualizer.measureElement
       : undefined
+
   const resolvedFetchMoreOffset = Math.max(0, fetchMoreOffset)
+
   const scrollToRowId =
     scrollToRowIndex !== undefined
       ? centerRows[scrollToRowIndex]?.id
       : undefined
+
   const scrollToRowVirtualItem =
     isVirtualizationEnabled && scrollToRowIndex !== undefined
       ? virtualItems.find((item) => item.index === scrollToRowIndex)
       : undefined
+
   const pendingScrollToRowIndexRef = useRef<number | null>(null)
+
   const lastScrollRequestRef = useRef<DataGridTableVirtualScrollRequest | null>(
     null,
   )
+
   // Latch onFetchMore per row count: virtualItems gets a new identity every
   // scroll frame, so without it the effect fires duplicate page requests
   // before the consumer flips isFetchingMore, and loops at end-of-data when
   // hasMore is never set.
   const fetchMoreFiredAtCountRef = useRef<number | null>(null)
+
   const lastColumnScrollRequestRef =
     useRef<DataGridTableColumnScrollRequest | null>(null)
 
@@ -900,6 +924,7 @@ function DataGridTableVirtual<TData extends object>({
     ) {
       return
     }
+
     const request: DataGridTableColumnScrollRequest = {
       align: scrollToColumnAlign,
       behavior: scrollBehavior,
@@ -907,6 +932,7 @@ function DataGridTableVirtual<TData extends object>({
       columnIndex: scrollToColumnIndex,
       scrollElement: viewportElements.scrollElement,
     }
+
     if (
       isSameDataGridTableColumnScrollRequest(
         lastColumnScrollRequestRef.current,
@@ -915,6 +941,7 @@ function DataGridTableVirtual<TData extends object>({
     ) {
       return
     }
+
     lastColumnScrollRequestRef.current = request
     columnVirtualizer.scrollToIndex(scrollToColumnIndex, {
       align: scrollToColumnAlign,
@@ -961,9 +988,11 @@ function DataGridTableVirtual<TData extends object>({
 
     const scrollElement = resolveScrollElement()
     const containerElement = viewportElements.containerElement
+
     if (!containerElement || !scrollElement) return
 
     const headerSticky = renderHeader && !!props.tableLayout?.headerSticky
+
     const nextRequest: DataGridTableVirtualScrollRequest = {
       align: scrollToRowAlign,
       behavior: scrollBehavior,
@@ -992,6 +1021,7 @@ function DataGridTableVirtual<TData extends object>({
 
     if (rowWasHandled) {
       lastScrollRequestRef.current = nextRequest
+
       return
     }
 
@@ -1052,6 +1082,7 @@ function DataGridTableVirtual<TData extends object>({
     }
 
     const lastItem = virtualItems[virtualItems.length - 1]
+
     if (!lastItem) return
 
     if (fetchMoreFiredAtCountRef.current === centerRows.length) return
@@ -1088,10 +1119,12 @@ function DataGridTableVirtual<TData extends object>({
                   rowSpan={mergedHeaderGroups.length}
                 />
               ) : null
+
             const renderHeadCell = (
               header: (typeof headerGroup.startHeaders)[number],
             ) => {
               const coveredHeaders = headerGroup.coveredHeaders.get(header.id)
+
               const resizeHeader = getDataGridHeadCellResizeHeader(
                 header,
                 coveredHeaders,
@@ -1228,6 +1261,7 @@ function DataGridTableVirtual<TData extends object>({
 }
 
 export { DataGridTableVirtual }
+
 export type {
   DataGridTableVirtualScrollAlignment,
   DataGridTableVirtualProps,

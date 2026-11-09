@@ -211,6 +211,7 @@ export const GATE_REASON_MAX = 2000
 /** The trimmed reason, or null when it is empty or too long. */
 export function normaliseGateReason(value: string): string | null {
   const reason = value.trim()
+
   return reason.length >= 1 && reason.length <= GATE_REASON_MAX ? reason : null
 }
 
@@ -221,7 +222,9 @@ export function overrideGate(
   reason: string,
 ): Promise<unknown> {
   const clean = normaliseGateReason(reason)
+
   if (!clean) return Promise.reject(new Error('Say why you are going on.'))
+
   return client.rpc('override_gate', {
     p_gate_block_id: 'blockId' in target ? target.blockId : null,
     p_gate_part_id: 'partId' in target ? target.partId : null,
@@ -313,16 +316,21 @@ export interface MirroredCondition {
 
 function isBlank(value: unknown): boolean {
   if (value == null) return true
+
   if (typeof value === 'string') return value.trim() === ''
+
   return false
 }
 
 /** "P3", "P3 and P4", "P3, P4 and P5", "P3, P4, P5 and 2 more". */
 export function nameList(names: readonly string[]): string {
   if (names.length === 0) return ''
+
   if (names.length === 1) return names[0]
+
   if (names.length <= 3)
     return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+
   return `${names.slice(0, 3).join(', ')} and ${names.length - 3} more`
 }
 
@@ -342,10 +350,12 @@ function tableCondition(
   ctx: GateContext,
 ): MirroredCondition {
   const block = ctx.blocks.find((b) => b.id === condition.blockId)
+
   const label =
     condition.label?.trim() ||
     (typeof block?.payload.title === 'string' && block.payload.title.trim()) ||
     'The table'
+
   if (!block || (block.type !== 'table' && block.type !== 'sheet')) {
     return {
       known: true,
@@ -354,24 +364,30 @@ function tableCondition(
       text: 'A table this gate waits on has been removed',
     }
   }
+
   // The cells of a sheet live in its own instance, which the page reads
   // elsewhere: leave it to the database.
   if (block.type === 'sheet') return unknown
   const column = condition.column?.trim() || null
   const min = condition.minRows ?? 0
+
   const columns = Array.isArray(block.payload.columns)
     ? (block.payload.columns as unknown[]).map((c) => String(c))
     : []
+
   const rows = (
     Array.isArray(block.payload.rows) ? block.payload.rows : []
   ).filter((row): row is unknown[] => Array.isArray(row))
+
   const index = column
     ? columns.findIndex((c) => c.trim().toLowerCase() === column.toLowerCase())
     : -1
+
   const total = rows.length
   const nonEmpty = rows.filter((row) => row.some((cell) => !isBlank(cell)))
   const cellOf = (row: unknown[]) => (index >= 0 ? row[index] : undefined)
   const filled = rows.filter((row) => !isBlank(cellOf(row)))
+
   const missingNames = rows
     .map((row, i) => ({
       row,
@@ -379,29 +395,36 @@ function tableCondition(
     }))
     .filter(({ row }) => isBlank(cellOf(row)))
     .map(({ name }) => name)
+
   const done = (met: boolean, text: string): MirroredCondition => ({
     known: true,
     met,
     soft: false,
     text: met ? '' : text,
   })
+
   if (column && index < 0) {
     return done(false, `${label} has no ${column} column`)
   }
+
   if (column && min > 0) {
     return done(
       filled.length >= min,
       `${label} needs ${plural(min, 'row')} with ${column} (${filled.length} so far)`,
     )
   }
+
   if (column) {
     if (total === 0) return done(false, `${label} has no rows yet`)
+
     return done(
       filled.length === total,
       `${nameList(missingNames)} ${missingNames.length === 1 ? 'has' : 'have'} no ${column}`,
     )
   }
+
   const need = min > 0 ? min : 1
+
   return done(
     nonEmpty.length >= need,
     `${label} needs at least ${plural(need, 'row')} filled (${nonEmpty.length} so far)`,
@@ -418,6 +441,7 @@ function stepCondition(
       (b.id === condition.blockId ||
         b.payload.sourceStepBlockId === condition.blockId),
   )
+
   if (!block) {
     return {
       known: true,
@@ -426,18 +450,23 @@ function stepCondition(
       text: 'A step this gate waits on has been removed',
     }
   }
+
   const met = block.payload.completed === true
+
   if (met) return { known: true, met, soft: false, text: '' }
+
   const number = ctx.blocks.filter(
     (s) =>
       s.type === 'procedure_step' &&
       (s.partId ?? null) === (block.partId ?? null) &&
       s.order <= block.order,
   ).length
+
   const text =
     typeof block.payload.text === 'string'
       ? block.payload.text.slice(0, 40)
       : ''
+
   return {
     known: true,
     met,
@@ -453,6 +482,7 @@ function partCondition(
   const part = ctx.parts.find(
     (p) => p.id === condition.partId || p.sourcePartId === condition.partId,
   )
+
   if (!part) {
     return {
       known: true,
@@ -461,7 +491,9 @@ function partCondition(
       text: 'A part this gate waits on has been removed',
     }
   }
+
   const met = part.state === 'done'
+
   return {
     known: true,
     met,
@@ -472,10 +504,12 @@ function partCondition(
 
 function formatDate(iso: string): string {
   const date = new Date(`${iso}T00:00:00Z`)
+
   const month = date.toLocaleString('en-GB', {
     month: 'short',
     timeZone: 'UTC',
   })
+
   return `${date.getUTCDate()} ${month} ${date.getUTCFullYear()}`
 }
 
@@ -495,6 +529,7 @@ export function evaluateGateCondition(
     case 'date_reached': {
       const todayIso = today.toISOString().slice(0, 10)
       const met = todayIso >= condition.date
+
       return {
         known: true,
         met,
@@ -502,6 +537,7 @@ export function evaluateGateCondition(
         text: met ? '' : `Not before ${formatDate(condition.date)}`,
       }
     }
+
     default:
       return unknown
   }
@@ -531,14 +567,18 @@ export function liveGate(
 ): RecordGate {
   if (!conditions || conditions.length !== gate.conditions.length) return gate
   const mirrored = evaluateGateConditions(conditions, ctx, today)
+
   const merged: GateConditionStatus[] = gate.conditions.map((server, i) => {
     const mine = mirrored[i]
+
     return mine.known
       ? { ...server, met: mine.met, soft: mine.soft, text: mine.text }
       : server
   })
+
   const met = merged.every((c) => c.met)
   const blocking = merged.some((c) => !c.met && !c.soft)
+
   return {
     ...gate,
     conditions: merged,
@@ -566,6 +606,7 @@ export function blocksBehindGates(
   const held = new Map<string, RecordGate>()
   const ordered = [...blocks].sort((a, b) => a.order - b.order)
   const closed = gates.filter(isGateClosed)
+
   for (const gate of closed) {
     if (gate.kind === 'part') {
       for (const block of ordered) {
@@ -573,10 +614,14 @@ export function blocksBehindGates(
           held.set(block.id, gate)
         }
       }
+
       continue
     }
+
     const own = ordered.find((b) => b.id === gate.blockId)
+
     if (!own) continue
+
     for (const block of ordered) {
       if (
         block.order > own.order &&
@@ -588,6 +633,7 @@ export function blocksBehindGates(
       }
     }
   }
+
   return held
 }
 
@@ -598,13 +644,17 @@ export function stepWaitsOnStep(
 ): Map<string, number> {
   const waits = new Map<string, number>()
   const byPart = new Map<string, GateBlockLike[]>()
+
   for (const block of [...blocks].sort((a, b) => a.order - b.order)) {
     if (block.type !== 'procedure_step' || !block.partId) continue
+
     if (!stepsInOrderPartIds.has(block.partId)) continue
     byPart.set(block.partId, [...(byPart.get(block.partId) ?? []), block])
   }
+
   for (const steps of byPart.values()) {
     const firstOpen = steps.findIndex((s) => s.payload.completed !== true)
+
     if (firstOpen < 0) continue
     steps.forEach((step, index) => {
       if (index > firstOpen && step.payload.completed !== true) {
@@ -612,6 +662,7 @@ export function stepWaitsOnStep(
       }
     })
   }
+
   return waits
 }
 
@@ -632,6 +683,7 @@ export function gateModeOf(payload: Record<string, unknown>): GateMode {
 function isCondition(value: unknown): value is GateCondition {
   if (typeof value !== 'object' || value === null) return false
   const kind = (value as { kind?: unknown }).kind
+
   return (
     typeof kind === 'string' &&
     (GATE_CONDITION_KINDS as readonly string[]).includes(kind)
@@ -659,11 +711,14 @@ export function gateRefusal(error: unknown): {
   if (typeof error !== 'object' || error === null) return null
   const { code, message } = error as { code?: unknown; message?: unknown }
   const text = typeof message === 'string' ? message : ''
+
   if (code === 'SB150' || code === 'SB151' || code === 'SB152') {
     return { code, message: text }
   }
+
   for (const [pattern, known] of REFUSAL_WORDS) {
     if (pattern.test(text)) return { code: known, message: text }
   }
+
   return null
 }

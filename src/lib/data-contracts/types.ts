@@ -12,6 +12,7 @@ export const CONTRACT_RULE_KINDS = [
   'row_count',
   'freshness',
 ] as const
+
 export type ContractRuleKind = (typeof CONTRACT_RULE_KINDS)[number]
 
 /** Rules about one field; the rest are about the whole dataset. */
@@ -24,8 +25,11 @@ export const FIELD_RULE_KINDS: readonly ContractRuleKind[] = [
 ]
 
 export type ContractMode = 'warn' | 'block'
+
 export type ContractStatus = 'pass' | 'warning' | 'fail'
+
 export type ContractLifecycle = 'draft' | 'active' | 'retired'
+
 export type ContractTrigger = 'import' | 'pipeline' | 'manual' | 'schedule'
 
 export interface ContractRule {

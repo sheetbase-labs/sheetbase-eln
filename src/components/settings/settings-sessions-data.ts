@@ -28,13 +28,16 @@ export const listMySessionsFn = createServerFn({ method: 'GET' }).handler(
     const { getAppSession, isDevAuthFreeEnabled } = await import('#/lib/auth')
     const headers = getRequestHeaders()
     const appSession = await getAppSession(headers)
+
     if (!appSession) {
       throw new Error('Your session has ended. Sign in to manage your devices.')
     }
+
     if (isDevAuthFreeEnabled()) {
       // The fixed development identity has exactly one session and no sign-out
       // target, so it is reported as this device rather than invented history.
       const now = new Date()
+
       return [
         {
           id: appSession.session.id,
@@ -47,8 +50,10 @@ export const listMySessionsFn = createServerFn({ method: 'GET' }).handler(
         },
       ]
     }
+
     const { auth } = await import('#/lib/auth')
     const sessions = await auth.api.listSessions({ headers })
+
     return sessions.map((session) => ({
       id: session.id,
       token: session.token,

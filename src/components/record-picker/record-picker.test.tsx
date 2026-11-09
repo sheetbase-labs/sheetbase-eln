@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => {
     status: { tone: 'ok', label: 'In stock' },
     project: '',
   }
+
   const dataset: PickerItem = {
     id: 'ds-1',
     identifier: 'DS-0311',
@@ -26,6 +27,7 @@ const mocks = vi.hoisted(() => {
     status: { tone: 'none', label: '—' },
     project: '',
   }
+
   const searchPickerRecords = vi.fn(
     async (_input: { q: string; kinds?: string[] }): Promise<PickerResult> => ({
       recent: false,
@@ -34,6 +36,7 @@ const mocks = vi.hoisted(() => {
       total: 2,
     }),
   )
+
   return { sample, dataset, searchPickerRecords }
 })
 
@@ -41,6 +44,7 @@ vi.mock('./record-picker-data', async () => {
   const actual = await vi.importActual<typeof PickerData>(
     './record-picker-data',
   )
+
   return { ...actual, searchPickerRecords: mocks.searchPickerRecords }
 })
 
@@ -210,6 +214,7 @@ describe('fetchPickerRecents', () => {
         ],
       }),
     )
+
     // View order is preserved; the report is dropped.
     expect(items.map((i) => i.id)).toEqual(['r-1', 'd-1'])
     expect(items[0]).toMatchObject({

@@ -52,6 +52,7 @@ export function ChangeEmailDialog({
 }) {
   const [value, setValue] = useState('')
   const forOther = Boolean(userId)
+
   const request = useMutation({
     mutationFn: () =>
       requestEmailChangeFn({
@@ -63,8 +64,10 @@ export function ChangeEmailDialog({
       }
     },
   })
+
   const result = request.data
   const sent = result && result.status !== 'refused'
+
   const refusal =
     result?.status === 'refused'
       ? REFUSALS[result.reason]()

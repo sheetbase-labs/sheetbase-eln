@@ -59,6 +59,7 @@ export const MessageResponse = memo(
   (prev, next) =>
     prev.children === next.children && next.isAnimating === prev.isAnimating,
 )
+
 MessageResponse.displayName = 'MessageResponse'
 
 export function MessageActions({

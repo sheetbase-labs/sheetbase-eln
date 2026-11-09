@@ -14,6 +14,7 @@ describe('diffResultRows', () => {
         { id: 'a', v: 1.5 },
       ],
     )
+
     expect(diffMatches(diff)).toBe(true)
     expect(diff.matchedRows).toBe(2)
   })
@@ -23,6 +24,7 @@ describe('diffResultRows', () => {
       [{ id: 'a', v: 1 }],
       [{ id: 'a', v: 1 + 1e-12 }],
     )
+
     expect(diffMatches(near)).toBe(true)
     const far = diffResultRows([{ id: 'a', v: 1 }], [{ id: 'a', v: 1.01 }])
     expect(diffMatches(far)).toBe(false)
@@ -46,6 +48,7 @@ describe('diffResultRows', () => {
         { id: 'b', group: 'x', v: 3 },
       ],
     )
+
     expect(diff).toMatchObject({
       matchedRows: 1,
       changedRows: 1,
@@ -59,6 +62,7 @@ describe('diffResultRows', () => {
       [{ id: 'a' }, { id: 'b' }],
       [{ id: 'a' }, { id: 'c' }, { id: 'd' }],
     )
+
     expect(diff.matchedRows).toBe(1)
     expect(diff.removedRows).toBe(1)
     expect(diff.addedRows).toBe(2)
@@ -88,6 +92,7 @@ describe('diffResultRows', () => {
       id: `r${i}`,
       v: i,
     }))
+
     const after = before.map((row) => ({ ...row, v: row.v + 5 }))
     const diff = diffResultRows(before, after)
     expect(diff.changedRows).toBe(300)

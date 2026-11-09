@@ -91,11 +91,13 @@ export function RecordPicker({
   className,
 }: RecordPickerProps) {
   const prefix = KIND_PREFIX[kind]
+
   const label =
     searchLabel ??
     t('notebook.recordPicker.searchLabel', {
       kind: KIND_LABEL[kind],
     })
+
   const active = results.filter((r) => !r.archivedAt)
   const archived = results.filter((r) => r.archivedAt)
 
@@ -210,6 +212,7 @@ function RecordPickerItem({
     status: record.status,
     archived: Boolean(record.archivedAt),
   }
+
   return (
     <CommandItem
       value={`${record.identifier} ${record.title}`}

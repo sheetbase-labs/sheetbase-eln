@@ -40,6 +40,7 @@ export async function loadExtensionToolset(
   client: DataClient,
 ): Promise<ExtensionToolset> {
   let items: ExtensionToolItem[] = []
+
   try {
     const installs = await listExtensions(client)
     items = resolveRunnerPoints(installs).operations.filter(
@@ -49,6 +50,7 @@ export async function loadExtensionToolset(
   } catch {
     // The lookup failing leaves the assistant without extension tools, never broken.
   }
+
   return {
     items,
     defs: (allowWrites) =>
@@ -88,12 +90,15 @@ export async function runExtensionTool(
   },
 ): Promise<ExtensionToolOutcome> {
   const item = toolset.find(name)
+
   if (!item) return { ok: false, message: 'That tool is not available.' }
   const { declaration } = item
+
   if (declaration.access === 'write') {
     if (!context.allowWrites)
       return { ok: false, message: 'That tool is not available.' }
     let input: Record<string, unknown>
+
     try {
       input = checkDeclaredValues(declaration.inputs, args, 'input')
     } catch (error) {
@@ -102,6 +107,7 @@ export async function runExtensionTool(
         message: error instanceof Error ? error.message : 'Invalid input.',
       }
     }
+
     const changes: ProposalChange[] = declaration.inputs
       .filter((field) => input[field.name] !== undefined)
       .map((field) => ({
@@ -109,12 +115,14 @@ export async function runExtensionTool(
         before: null,
         after: describeFieldValue(field, input[field.name]),
       }))
+
     const action: ExtensionToolAction = {
       kind: 'plugin.run',
       extensionKey: item.extensionKey,
       operationId: item.id,
       input,
     }
+
     return {
       ok: true,
       text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
@@ -133,6 +141,7 @@ export async function runExtensionTool(
       },
     }
   }
+
   try {
     const call = {
       workspaceId: context.workspaceId,
@@ -141,6 +150,7 @@ export async function runExtensionTool(
       itemId: item.id,
       input: args,
     }
+
     // A read may call into the app (`host_call`) for what it needs to read.
     const outcome = context.client
       ? await invokeWithHostCalls(call, {
@@ -150,11 +160,13 @@ export async function runExtensionTool(
           approve: 'none',
         })
       : ({ kind: 'done', result: await invokeExtension(call) } as const)
+
     if (outcome.kind === 'confirm')
       return {
         ok: false,
         message: 'That tool tried to change something; it can only read.',
       }
+
     return { ok: true, text: JSON.stringify(outcome.result.output) }
   } catch (error) {
     return {

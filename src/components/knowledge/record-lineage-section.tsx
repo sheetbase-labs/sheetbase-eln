@@ -41,9 +41,12 @@ export function RecordLineageList({
   const items = useMemo(() => {
     const nodeForRow = (rowId: string): LineageNode | null => {
       const direct = graph.nodes.find((node) => rowId === node.id)
+
       if (direct) return direct
+
       return graph.nodes.find((node) => rowId.startsWith(`${node.id}:`)) ?? null
     }
+
     // The seed's own row (direction `seed`, no relationship) describes the
     // viewed object itself, not its lineage — exclude it from the miniature.
     const listed = buildTableData(graph)
@@ -52,6 +55,7 @@ export function RecordLineageList({
         (item): item is { row: (typeof item)['row']; node: LineageNode } =>
           item.node !== null && item.node.id !== seedRecordId,
       )
+
     // One row per object: an experiment joined to this record by twenty links
     // of five kinds is one line naming the kinds, not twenty near-identical
     // lines.
@@ -63,14 +67,17 @@ export function RecordLineageList({
         labels: string[]
       }
     >()
+
     for (const item of listed) {
       const key = `${item.node.id}|${item.row.direction}`
       const existing = merged.get(key)
+
       if (!existing)
         merged.set(key, { ...item, labels: [item.row.relationshipLabel] })
       else if (!existing.labels.includes(item.row.relationshipLabel))
         existing.labels.push(item.row.relationshipLabel)
     }
+
     return [...merged.values()]
   }, [graph, seedRecordId])
 
@@ -84,6 +91,7 @@ export function RecordLineageList({
     >
       {items.map(({ row, node, labels }) => {
         const destination = lineageNodeDestination(node)
+
         return (
           <Row
             key={`${node.id}|${row.direction}`}
@@ -120,6 +128,7 @@ export function RecordLineageList({
     </RowList>
   )
 }
+
 /**
  * Live per-object lineage section for the record inspector. Silent while
  * loading via a hint; honest on error; empty hint when the seed has no

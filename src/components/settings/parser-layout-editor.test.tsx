@@ -17,6 +17,7 @@ const FILE = [
 
 function Harness({ onUseColumns }: { onUseColumns?: (h: string[]) => void }) {
   const [layout, setLayout] = useState<ParserLayout>({})
+
   return (
     <>
       <ParserLayoutEditor

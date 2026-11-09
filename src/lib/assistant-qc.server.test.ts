@@ -36,6 +36,7 @@ function context(
             : [],
       ),
   } as unknown as DataClient
+
   return { client, workspaceId: 'w', userId: 'u', timeZone: 'UTC' }
 }
 
@@ -47,6 +48,7 @@ describe('quality control assistant cards', () => {
       expect(ASSISTANT_PROPOSE_TOOL_NAMES).toContain(name)
       expect(isQcProposalTool(name)).toBe(true)
     }
+
     expect(qcProposalDefs().map((d) => d.name)).toEqual(
       QC_PROPOSE_TOOL_NAMES.map((n) => n.replaceAll('.', '__')),
     )
@@ -58,7 +60,9 @@ describe('quality control assistant cards', () => {
       { ...base, series: 'qubit 4', mean: 102, sd: 3 },
       context(),
     )
+
     expect(built.ok).toBe(true)
+
     if (!built.ok) return
     expect(built.proposal.action).toEqual({
       kind: 'qc.set_baseline',
@@ -74,6 +78,7 @@ describe('quality control assistant cards', () => {
       { ...base, series: 'qubit 4', firstN: 20 },
       context(),
     )
+
     expect(built.ok && built.proposal.action).toMatchObject({
       limits: { firstN: 20 },
     })
@@ -85,6 +90,7 @@ describe('quality control assistant cards', () => {
       { ...base, series: 'qubit 4' },
       context(),
     )
+
     expect(built.ok).toBe(false)
   })
 
@@ -97,6 +103,7 @@ describe('quality control assistant cards', () => {
         { id: 'p2', value: 119, at: '2026-11-02', violations: ['2-2s'] },
       ]),
     )
+
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'qc.acknowledge',
       pointIds: ['p1', 'p2'],
@@ -111,6 +118,7 @@ describe('quality control assistant cards', () => {
       { ...base, series: 'qubit 4', note: 'ok' },
       context([]),
     )
+
     expect(built.ok).toBe(false)
   })
 })

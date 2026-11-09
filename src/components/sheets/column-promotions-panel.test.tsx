@@ -23,24 +23,30 @@ vi.mock('@tanstack/react-router', () => ({
   ),
   useNavigate: () => mocks.navigate,
 }))
+
 vi.mock('#/lib/schema-evolution', () => ({
   listOpenColumnPromotions: (...a: unknown[]) => mocks.list(...a),
   applyColumnPromotion: (...a: unknown[]) => mocks.apply(...a),
 }))
+
 vi.mock('#/lib/approval-requests', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   approveApprovalRequest: (...a: unknown[]) => mocks.approve(...a),
 }))
+
 vi.mock('#/components/models/model-approval-data', () => ({
   useModelApprovalIndex: () => ({ data: mocks.index.data }),
 }))
+
 vi.mock('#/lib/notebook-data', () => ({
   notebookDataClient: {},
   formatNotebookDateTime: (iso: string) => iso.slice(0, 10),
 }))
+
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ userLabel: () => 'Ada' }),
 }))
+
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
@@ -100,6 +106,7 @@ function mount(user: string, role: string) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   render(
     <QueryClientProvider client={client}>
       <ColumnPromotionsPanel role={role} user={{ id: user, name: user }} />
@@ -110,6 +117,7 @@ function mount(user: string, role: string) {
 beforeEach(() => {
   mocks.list.mockResolvedValue([promotion()])
 })
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()

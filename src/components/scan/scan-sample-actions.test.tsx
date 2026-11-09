@@ -77,12 +77,16 @@ function mount(opts: {
           }
         : {},
   )
+
   const list = vi.fn(async (table: string, query: string) => {
     if (table === 'records' && query.includes('kind=eq.sample&select'))
       return opts.sample === null ? [] : [opts.sample ?? sampleWire()]
+
     return []
   })
+
   const client = { rpc, list } as unknown as DataClient
+
   const root = createRootRoute({
     component: () => (
       <QueryClientProvider client={new QueryClient()}>
@@ -95,6 +99,7 @@ function mount(opts: {
       </QueryClientProvider>
     ),
   })
+
   render(
     <RouterProvider
       router={createRouter({
@@ -103,6 +108,7 @@ function mount(opts: {
       })}
     />,
   )
+
   return { rpc, list }
 }
 

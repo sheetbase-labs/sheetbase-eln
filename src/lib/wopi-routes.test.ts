@@ -5,8 +5,11 @@ import { WopiLocks, signWopiToken } from './office-editor'
 
 const select = vi.fn()
 const store = vi.fn()
+
 vi.mock('#/lib/request-auth', () => ({ postgrestSelect: select }))
+
 vi.mock('#/lib/file-routes', () => ({ storeFileVersion: store }))
+
 vi.mock('#/lib/file-storage', () => ({ getObjectStorage: vi.fn() }))
 
 const {
@@ -17,6 +20,7 @@ const {
 } = await import('./wopi-routes')
 
 const SECRET = 's'.repeat(40)
+
 const FILE = {
   id: 'fo1',
   storage_key: 'k',
@@ -29,6 +33,7 @@ const FILE = {
   created_at: '2026-11-04T10:00:00Z',
   workspace_id: 'w1',
 }
+
 const base = {
   fileRecordId: 'f1',
   userId: 'u1',
@@ -37,6 +42,7 @@ const base = {
   sessionId: 's1',
   canWrite: true,
 }
+
 const storage = {
   head: vi.fn(async () => ({})),
   getStream: vi.fn(async () => ({
@@ -54,12 +60,14 @@ function deps(locks = new WopiLocks()) {
     mintToken: async () => 'pg-token',
   }
 }
+
 async function req(
   claims: Partial<typeof base> & { hostRecordId?: string } = {},
   init: RequestInit = {},
   path = '',
 ) {
   const token = await signWopiToken(SECRET, { ...base, ...claims })
+
   return new Request(
     `http://x/api/wopi/files/f1${path}?access_token=${token}`,
     init,
@@ -83,6 +91,7 @@ describe('WOPI host', () => {
       'f1',
       deps(),
     )
+
     expect(none.status).toBe(401)
     const other = await handleCheckFileInfo(await req(), 'f2', deps())
     expect(other.status).toBe(401)
@@ -106,6 +115,7 @@ describe('WOPI host', () => {
       'f1',
       deps(),
     )
+
     expect((await view.json()).UserCanWrite).toBe(false)
     select.mockImplementation(async (resource: string) =>
       resource === 'file_objects'
@@ -115,11 +125,13 @@ describe('WOPI host', () => {
             body: [{ locked_at: '2026-11-04', archived_at: null }],
           },
     )
+
     const signed = await handleCheckFileInfo(
       await req({ hostRecordId: 'r1' }),
       'f1',
       deps(),
     )
+
     expect((await signed.json()).UserCanWrite).toBe(false)
   })
 
@@ -129,6 +141,7 @@ describe('WOPI host', () => {
       'f1',
       deps(),
     )
+
     expect(await res.text()).toBe('hello')
     expect(res.headers.get('x-wopi-itemversion')).toBe('3')
   })
@@ -141,11 +154,13 @@ describe('WOPI host', () => {
       checksum: 'c',
       id: 'fo2',
     })
+
     const res = await handlePutFile(
       await req({}, { method: 'POST', body: 'new' }, '/contents'),
       'f1',
       deps(),
     )
+
     expect(res.status).toBe(200)
     expect(res.headers.get('x-wopi-itemversion')).toBe('4')
     expect(store.mock.calls[0][0]).toMatchObject({
@@ -164,10 +179,12 @@ describe('WOPI host', () => {
       'f1',
       deps(),
     )
+
     expect(view.status).toBe(401)
 
     const locks = new WopiLocks()
     locks.lock('fo1', 'theirs')
+
     const locked = await handlePutFile(
       await req(
         {},
@@ -177,6 +194,7 @@ describe('WOPI host', () => {
       'f1',
       deps(locks),
     )
+
     expect(locked.status).toBe(409)
     expect(locked.headers.get('x-wopi-lock')).toBe('theirs')
 
@@ -188,6 +206,7 @@ describe('WOPI host', () => {
             body: [{ locked_at: '2026-11-04', archived_at: null }],
           },
     )
+
     const signed = await handlePutFile(
       await req(
         { hostRecordId: 'r1' },
@@ -197,12 +216,14 @@ describe('WOPI host', () => {
       'f1',
       deps(),
     )
+
     expect(signed.status).toBe(401)
     expect(store).not.toHaveBeenCalled()
   })
 
   it('handles lock, refresh, get and unlock', async () => {
     const locks = new WopiLocks()
+
     const call = async (override: string, lock: string) =>
       handleLockOperation(
         await req(
@@ -215,6 +236,7 @@ describe('WOPI host', () => {
         'f1',
         deps(locks),
       )
+
     expect((await call('LOCK', 'a')).status).toBe(200)
     const clash = await call('LOCK', 'b')
     expect(clash.status).toBe(409)

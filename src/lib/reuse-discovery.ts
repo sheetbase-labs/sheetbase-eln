@@ -35,11 +35,13 @@ export function derivePurposeFacets(
   templates: ReadonlyArray<Pick<NotebookRecord, 'tags'>>,
 ): PurposeFacetOption[] {
   const counts = new Map<string, number>()
+
   for (const template of templates) {
     for (const tag of new Set(template.tags)) {
       counts.set(tag, (counts.get(tag) ?? 0) + 1)
     }
   }
+
   return [...counts.entries()]
     .map(([tag, count]) => ({ tag, count }))
     .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag))
@@ -51,6 +53,7 @@ export function matchesPurposeFacet(
   purpose: string,
 ): boolean {
   if (purpose === 'all') return true
+
   return tags.includes(purpose)
 }
 
@@ -84,8 +87,11 @@ export function protocolLifecycleState(
   template: Pick<NotebookRecord, 'status' | 'archivedAt'>,
 ): ProtocolLifecycleState {
   if (template.archivedAt) return 'archived'
+
   if (template.status === 'under_review') return 'under_review'
+
   if (template.status === 'active') return 'active'
+
   return 'draft'
 }
 
@@ -94,6 +100,7 @@ export function matchesProtocolLifecycle(
   filter: 'all' | ProtocolLifecycleState,
 ): boolean {
   if (filter === 'all') return true
+
   return protocolLifecycleState(template) === filter
 }
 
@@ -117,7 +124,9 @@ export function versionLifecycleBadgeVariant(
   lifecycle: string,
 ): ReuseBadgeVariant {
   if (lifecycle === 'published') return 'success'
+
   if (lifecycle === 'retired') return 'warning'
+
   return 'outline'
 }
 
@@ -126,7 +135,9 @@ export function parentLifecycleBadgeVariant(
   lifecycle: string,
 ): ReuseBadgeVariant {
   if (lifecycle === 'active') return 'success'
+
   if (lifecycle === 'retired') return 'warning'
+
   return 'outline'
 }
 
@@ -166,14 +177,18 @@ export function parameterKindDetail(type: {
   contract?: { mode?: string }
 }): string {
   if (type.kind === 'scalar') return `scalar · ${type.valueType ?? 'value'}`
+
   if (type.kind === 'record') return `record · ${type.modelKey ?? 'record'}`
+
   if (type.kind === 'dataset' || type.kind === 'dataset-version') {
     const mode =
       type.contract && typeof type.contract.mode === 'string'
         ? ` · ${type.contract.mode}`
         : ''
+
     return `${type.kind}${mode}`
   }
+
   return type.kind
 }
 
@@ -203,19 +218,23 @@ export function summarizeNotebookTemplateRequirements(
       ),
       hasDefault: parameter.defaultValue !== undefined,
     }))
+
   let narrative = 0
   let sheet = 0
   let placeholder = 0
   const mapped = new Set<string>()
+
   for (const placement of configuration.placements) {
     if (placement.kind === 'narrative') narrative += 1
     else if (placement.kind === 'sheet') {
       sheet += 1
+
       for (const mapping of placement.parameterMappings) {
         mapped.add(mapping.templateParameterId)
       }
     } else placeholder += 1
   }
+
   return {
     parameterCount: configuration.parameters.length,
     requiredCount: requiredParameters.length,
@@ -255,6 +274,7 @@ export function notebookTemplateNeedsLine(
         ]
           .filter((part): part is string => part !== null)
           .join(' · ')
+
   return `${parameterPart} · ${pluralise(summary.placements.total, 'placement')}`
 }
 
@@ -269,9 +289,12 @@ export function matchesNotebookTemplateNeeds(
   filter: NotebookTemplateNeedsFilter,
 ): boolean {
   if (filter === 'all') return true
+
   if (filter === 'none') return summary.parameterCount === 0
+
   if (filter === 'optional-only')
     return summary.parameterCount > 0 && summary.requiredCount === 0
+
   return summary.requiredCount > 0
 }
 // ---------------------------------------------------------------------------
@@ -320,6 +343,7 @@ export function sheetDefinitionNeedsLine(
       : summary.requiredCount > 0
         ? pluralise(summary.requiredCount, 'required', 'required')
         : pluralise(summary.parameterCount, 'optional parameter')
+
   return `${parameterPart} · ${pluralise(summary.bindingCount, 'binding')} · identity: ${summary.rowIdentityKind}`
 }
 // ---------------------------------------------------------------------------
@@ -342,11 +366,14 @@ export function protocolTemplateNeedsLine(options: {
     options.blockCount === undefined
       ? 'Blocks unknown'
       : pluralise(options.blockCount, 'block')
+
   const uses = pluralise(options.usageCount, 'use')
+
   const readiness = options.archived
     ? 'Archived — cannot be used'
     : options.instantiable
       ? 'Ready — needs a title and target project'
       : 'Not ready — requires active status'
+
   return `${blocks} · ${uses} · ${readiness}`
 }

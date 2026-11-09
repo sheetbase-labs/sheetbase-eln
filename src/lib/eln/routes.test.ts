@@ -38,6 +38,7 @@ vi.mock('../request-auth', () => ({
   postgrestRpc: mocks.rpc,
   recordDataExportReceipt: mocks.receipt,
 }))
+
 vi.mock('../file-storage', () => ({ getObjectStorage: () => null }))
 
 const REC = '11111111-1111-4111-8111-111111111111'
@@ -45,6 +46,7 @@ const PROJ = '22222222-2222-4222-8222-222222222222'
 const FILE = '33333333-3333-4333-8333-333333333333'
 const deps = {} as never
 const asUser = { 'x-test-user': 'u1' }
+
 const get = (path: string, headers: Record<string, string> = asUser) =>
   new Request(`http://t/api/${path}`, { headers })
 
@@ -61,6 +63,7 @@ const record = {
   custom_fields: {},
   created_at: '2026-10-01T00:00:00Z',
 }
+
 const textBlock = {
   id: 'b1',
   type: 'rich_text',
@@ -73,6 +76,7 @@ const textBlock = {
     },
   },
 }
+
 const fileBlock = {
   id: 'b2',
   type: 'file',
@@ -113,6 +117,7 @@ beforeEach(() => {
               },
             ],
           }
+
         return {
           status: 200,
           body: [record, { id: FILE, identifier: 'FIL-001' }],
@@ -164,6 +169,7 @@ beforeEach(() => {
           ],
         }
     }
+
     return { status: 200, body: [] }
   })
   mocks.rpc.mockImplementation(async (name: string) =>
@@ -189,6 +195,7 @@ describe('handleRecordElnExport', () => {
       deps,
       storage as never,
     )
+
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toBe('application/vnd.eln+zip')
     expect(res.headers.get('content-disposition')).toContain('.eln"')
@@ -208,12 +215,14 @@ describe('handleRecordElnExport', () => {
 
   it('404s on a record the caller cannot see, with no receipt', async () => {
     mocks.select.mockResolvedValue({ status: 200, body: [] })
+
     const res = await handleRecordElnExport(
       get(`export/record/${REC}/eln`),
       REC,
       deps,
       storage as never,
     )
+
     expect(res.status).toBe(404)
     expect(mocks.receipt).not.toHaveBeenCalled()
   })
@@ -229,12 +238,14 @@ describe('handleRecordElnExport', () => {
 
   it('fails with 502 when audit history is unavailable', async () => {
     mocks.rpc.mockResolvedValue({ status: 500, body: {} })
+
     const res = await handleRecordElnExport(
       get('x'),
       REC,
       deps,
       storage as never,
     )
+
     expect(res.status).toBe(502)
     expect(mocks.receipt).not.toHaveBeenCalled()
   })
@@ -245,6 +256,7 @@ describe('handleRecordElnExport', () => {
         throw new Error('gone')
       },
     } as never)
+
     expect(res.status).toBe(200)
     const names = [...readZip(new Uint8Array(await res.arrayBuffer())).keys()]
     expect(names.some((n) => n.includes('/files/'))).toBe(false)
@@ -259,6 +271,7 @@ describe('handleProjectElnExport', () => {
       deps,
       storage as never,
     )
+
     expect(res.status).toBe(200)
     expect(res.headers.get('content-disposition')).toContain('P1 Proj.eln')
     expect(mocks.receipt).toHaveBeenCalledTimes(2)
@@ -303,8 +316,10 @@ describe('handleElnImport', () => {
         },
       ],
     })
+
     return bytes
   }
+
   const post = (body: Uint8Array | null, project = PROJ) =>
     new Request(`http://t/api/import/eln?projectId=${project}`, {
       method: 'POST',

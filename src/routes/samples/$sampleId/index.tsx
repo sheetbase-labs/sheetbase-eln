@@ -69,11 +69,13 @@ function formatVolume(
 ): string {
   if (value == null) return '—'
   const amount = value.toLocaleString('en-GB', { maximumFractionDigits: 2 })
+
   return unit ? `${amount} ${unit}` : amount
 }
 
 function usePurposeRecords(purposeIds: string[]) {
   const ids = Array.from(new Set(purposeIds.filter(Boolean)))
+
   return useQuery({
     queryKey: ['ui-port', 'sample-purpose-records', ids.join(',')],
     enabled: ids.length > 0,
@@ -88,6 +90,7 @@ function usePurposeRecords(purposeIds: string[]) {
           ),
         )
       ).flat()
+
       return new Map(rows.map((row) => [row.id, row]))
     },
   })
@@ -96,7 +99,9 @@ function usePurposeRecords(purposeIds: string[]) {
 function SampleDetails() {
   const { sampleId } = Route.useParams()
   const { data: sample } = useSampleRecord(sampleId)
+
   if (!sample) return null
+
   return isTerminalSampleStatus(sample.status) ? (
     <ConsumedDetails sample={sample} />
   ) : (
@@ -110,17 +115,21 @@ function ConsumedDetails({ sample }: { sample: SampleRecord }) {
     queryKey: sampleEventsQueryKey(sample.id),
     queryFn: () => fetchSampleEvents(notebookDataClient, sample.id),
   })
+
   const derived = useQuery({
     queryKey: sampleDerivedQueryKey(sample.id),
     queryFn: () => fetchSampleDerivedSamples(notebookDataClient, sample.id),
   })
+
   const purposes = usePurposeRecords(
     (events.data ?? [])
       .filter((event) => event.operation === 'consume')
       .map((event) => event.purposeRecordId ?? ''),
   )
+
   const volume = deriveSampleVolumeSummary(sample, events.data ?? [])
   const last = volume.lastWithdrawal
+
   const purpose = last?.purposeRecordId
     ? purposes.data?.get(last.purposeRecordId)
     : undefined
@@ -180,6 +189,7 @@ function DerivedSummary({ derived }: { derived: DerivedSample[] }) {
   if (derived.length === 0) return '—'
   const first = derived[0]?.identifier
   const last = derived[derived.length - 1]?.identifier
+
   return derived.length === 1
     ? `${derived[0]?.title ?? first}`
     : `${derived.length} samples (${first} … ${last})`
@@ -188,14 +198,17 @@ function DerivedSummary({ derived }: { derived: DerivedSample[] }) {
 /** The design's full detail for a released/available sample. */
 function ReleasedDetails({ sample }: { sample: SampleRecord }) {
   const labelChoice = useLabelTemplateChoice()
+
   const events = useQuery({
     queryKey: sampleEventsQueryKey(sample.id),
     queryFn: () => fetchSampleEvents(notebookDataClient, sample.id),
   })
+
   const derived = useQuery({
     queryKey: sampleDerivedQueryKey(sample.id),
     queryFn: () => fetchSampleDerivedSamples(notebookDataClient, sample.id),
   })
+
   // The design states the capsid titre with the dataset row that produced it
   // ("8.6 x 10^11 cp/mL - DS-0311 rows 1-2"). That value is a dataset reading
   // aggregated by api.sample_measurement_provenance, not a field on the sample.
@@ -203,32 +216,41 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
     queryKey: sampleMeasurementsQueryKey(sample.id),
     queryFn: () => fetchSampleMeasurements(notebookDataClient, sample.id),
   })
+
   const capsid = measurements.data?.find((row) =>
     /capsid/i.test(row.measurement),
   )
+
   const eventsList = events.data ?? []
+
   const withdrawals = eventsList.filter(
     (event) => event.operation === 'consume',
   )
+
   const purposes = usePurposeRecords(
     eventsList.map((event) => event.purposeRecordId ?? ''),
   )
+
   const names = useUserNames(
     withdrawals.map((event) => event.actorUserId ?? '').filter(Boolean),
   )
+
   const volume = deriveSampleVolumeSummary(sample, eventsList)
   const created = eventsList.find((event) => event.operation === 'create')
   const hold = computeSampleHold(sample)
+
   const holdLimit = hold
     ? t('library.samples.summary.daysFromHarvest', {
         expiry: formatHoldDate(hold.expiry),
         count: hold.totalDays,
       })
     : '—'
+
   const releaseChecks = describeReleaseChecks(sample.releaseChecks) ?? '—'
   const params = { sampleId: sample.id }
   // Most properties start empty, so they sit behind a toggle instead of a column of dashes.
   const [showEmpty, setShowEmpty] = useState(false)
+
   const hideEmpty = (items: [React.ReactNode, React.ReactNode][]) =>
     showEmpty ? items : items.filter(([, value]) => value !== '—')
 
@@ -285,6 +307,7 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
           : '—',
     ],
   ]
+
   const storageItems: [React.ReactNode, React.ReactNode][] = [
     [t('library.samples.summary.location'), sample.storageLocation ?? '—'],
     [t('library.samples.summary.condition'), sample.holdCondition ?? '—'],
@@ -295,6 +318,7 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
     ],
     [t('library.samples.summary.releaseBasis'), releaseChecks],
   ]
+
   const emptyCount = [...propertyItems, ...storageItems].filter(
     ([, value]) => value === '—',
   ).length
@@ -390,6 +414,7 @@ function ReleasedDetails({ sample }: { sample: SampleRecord }) {
         const status = row.original.status
           ? sampleStatus(row.original.status)
           : null
+
         return status ? <Status tone={status.tone}>{status.label}</Status> : '—'
       },
     },
@@ -496,7 +521,9 @@ function PurposeLink({
   fallback?: string
 }) {
   const record = recordId ? purposes?.get(recordId) : undefined
+
   if (!record) return <>{fallback}</>
+
   if (record.kind === 'sample') {
     return (
       <Link
@@ -508,6 +535,7 @@ function PurposeLink({
       </Link>
     )
   }
+
   return (
     <Link
       to="/experiments/$expId"
@@ -534,7 +562,9 @@ function WithdrawalPurpose({
   purposes: Map<string, RecordWire> | undefined
 }) {
   const record = recordId ? purposes?.get(recordId) : undefined
+
   if (!notes && !record) return <>—</>
+
   return (
     <>
       {notes}

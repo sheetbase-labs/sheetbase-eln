@@ -95,14 +95,17 @@ describe('reading field resolution', () => {
         logical_type: 'text',
       }),
     ]
+
     expect(sampleBindingField(byLabel)?.field_id).toBe(SAMPLE_TEXT)
   })
 
   it('finds the numeric dilution field and ignores non-numeric matches', () => {
     expect(dilutionReadingField(fields)?.field_id).toBe(DILUTION)
+
     const textDilution = [
       field({ field_id: 'x', key: 'dilution', label: 'Dilution' }),
     ]
+
     expect(dilutionReadingField(textDilution)).toBeNull()
   })
 
@@ -115,10 +118,12 @@ describe('reading field resolution', () => {
 describe('out-of-range detection', () => {
   it('reads only the soft systemFlags rule, not hard validation bounds', () => {
     expect(outOfRangeRule(titreField)).toEqual({ min: 2, max: 4 })
+
     const hardOnly = field({
       logical_type: 'decimal',
       validation: { min: 0, max: 1 },
     })
+
     expect(outOfRangeRule(hardOnly)).toBeNull()
   })
 
@@ -149,6 +154,7 @@ describe('buildReadingValues', () => {
       noteFieldId: NOTE,
       note: '  bench 4  ',
     })
+
     expect(values).toEqual({
       [TITRE]: 3.2,
       [SAMPLE_REF]: 'sample-uuid',
@@ -166,6 +172,7 @@ describe('buildReadingValues', () => {
       dilutionFieldId: null,
       dilutionFactor: null,
     })
+
     expect(values[SAMPLE_TEXT]).toBe('SMP-0001')
     expect(values[SAMPLE_REF]).toBeUndefined()
   })
@@ -220,6 +227,7 @@ describe('buildReadingRow', () => {
       dilutionFieldId: DILUTION,
       dilutionFactor: 10,
     })
+
     expect(row).toEqual({
       operation: 'create',
       rowId: '00000000-0000-4000-8000-0000000000aa',
@@ -254,6 +262,7 @@ describe('readingCommitErrorMessage', () => {
       },
       fields,
     )
+
     expect(message).toContain('Capsid titre')
     expect(message).toContain('outside')
   })

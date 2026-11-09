@@ -55,8 +55,10 @@ import { shipmentStatusLabel, shipmentTone } from './shipments-shared'
 const client = notebookDataClient
 
 let lineCounter = 0
+
 function blankLine(): ManifestLine {
   lineCounter += 1
+
   return {
     key: `line-${lineCounter}`,
     record_id: null,
@@ -117,6 +119,7 @@ export function NewShipmentDialog({
         projectId: projectId || null,
         lines,
       })
+
       if (send) {
         await markShipmentInTransit(client, {
           shipmentId: created.id,
@@ -126,6 +129,7 @@ export function NewShipmentDialog({
           expectedOn: '',
         })
       }
+
       return created
     },
     onSuccess: (created) => {
@@ -144,6 +148,7 @@ export function NewShipmentDialog({
 
   function submit(send: boolean) {
     setInteracted(true)
+
     if (counterpartyError || save.isPending) return
     save.mutate(send)
   }
@@ -396,12 +401,14 @@ export function ShipmentDialog({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
+
   const items = useQuery({
     queryKey: shipmentKeys.items(shipment?.id ?? ''),
     queryFn: () => fetchShipmentItems(client, shipment?.id ?? ''),
     enabled: shipment !== null,
     staleTime: 5_000,
   })
+
   const [receiving, setReceiving] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [arrived, setArrived] = useState<Record<string, boolean>>({})
@@ -424,6 +431,7 @@ export function ShipmentDialog({
     toast.success(t('shipments.detail.saved'))
     onClose()
   }
+
   const failed = (e: unknown) =>
     toast.error(messageOf(e, t('shipments.detail.couldNotSave')))
 
@@ -439,6 +447,7 @@ export function ShipmentDialog({
     onSuccess: done,
     onError: failed,
   })
+
   const receive = useMutation({
     mutationFn: () =>
       receiveShipment(client, {
@@ -453,6 +462,7 @@ export function ShipmentDialog({
     onSuccess: done,
     onError: failed,
   })
+
   const cancel = useMutation({
     mutationFn: () => cancelShipment(client, shipment?.id ?? '', reason),
     onSuccess: done,
@@ -460,6 +470,7 @@ export function ShipmentDialog({
   })
 
   const s = shipment
+
   const facts: Array<[string, string]> = s
     ? [
         [t('shipments.detail.with'), s.counterparty],

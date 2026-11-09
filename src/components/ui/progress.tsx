@@ -156,5 +156,6 @@ function clampPercent(value: number): number {
 function drawable(value: number | null): number | null {
   if (value === null || !Number.isFinite(value)) return null
   const rounded = Number(value.toFixed(3))
+
   return Object.is(rounded, -0) ? 0 : rounded
 }

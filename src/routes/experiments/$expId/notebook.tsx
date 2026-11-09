@@ -11,5 +11,6 @@ export const Route = createFileRoute('/experiments/$expId/notebook')({
 function ExperimentNotebookTab() {
   const { context } = Route.useRouteContext()
   const { expId } = Route.useParams()
+
   return <RecordNotebookPage context={context} recordId={expId} embedded />
 }

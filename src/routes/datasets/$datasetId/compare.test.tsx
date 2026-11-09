@@ -51,6 +51,7 @@ const versions = [
 
 function page(offset: number) {
   const size = Math.min(100, Math.max(TOTAL - offset, 0))
+
   return {
     versionA: 'v-1',
     versionB: 'v-2',
@@ -71,6 +72,7 @@ function renderRoute() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
   return render(
     <QueryClientProvider client={client}>
       <CompareRoute />
@@ -83,9 +85,11 @@ beforeEach(() => {
   dataClient.rpc.mockImplementation(
     (name: string, args: Record<string, unknown>) => {
       if (name === 'dataset_version_list') return Promise.resolve(versions)
+
       if (name === 'compare_dataset_versions') {
         return Promise.resolve(page(Number(args.p_offset ?? 0)))
       }
+
       return Promise.resolve([])
     },
   )
@@ -104,6 +108,7 @@ describe('dataset compare route paging', () => {
     const loadMore = await screen.findByRole('button', {
       name: /Load more/,
     })
+
     // The count the button used to carry ("Load more (150 left)") is the
     // control's own line now, and one format across every growing-window list.
     expect(screen.getByText('Showing 100 of 250 changes')).toBeTruthy()
@@ -138,6 +143,7 @@ describe('dataset compare route paging', () => {
   it('shows no differences and no paging for identical snapshots', async () => {
     dataClient.rpc.mockImplementation((name: string) => {
       if (name === 'dataset_version_list') return Promise.resolve(versions)
+
       if (name === 'compare_dataset_versions') {
         return Promise.resolve({
           versionA: 'v-1',
@@ -149,6 +155,7 @@ describe('dataset compare route paging', () => {
           rows: [],
         })
       }
+
       return Promise.resolve([])
     })
     renderRoute()
@@ -160,6 +167,7 @@ describe('dataset compare route paging', () => {
   it('does not report an empty comparison or zero counts before the diff loads', async () => {
     dataClient.rpc.mockImplementation((name: string) => {
       if (name === 'dataset_version_list') return Promise.resolve(versions)
+
       // Executor form: tsconfig lib predates Promise.withResolvers (ES2024).
       return new Promise(() => {})
     })

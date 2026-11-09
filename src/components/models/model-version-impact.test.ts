@@ -52,6 +52,7 @@ describe('diffVersionFields', () => {
       ],
       [field('kept'), field('grown'), field('gone', { label: 'Gone' })],
     )
+
     expect(diff.added.map((c) => c.key)).toEqual(['fresh'])
     expect(diff.removed.map((c) => c.key)).toEqual(['gone'])
     expect(diff.changed.map((c) => c.key)).toEqual(['grown'])
@@ -72,12 +73,14 @@ describe('diffVersionFields', () => {
       validation: { min: 0, max: 10 },
       default_value: 0,
     })
+
     const after = {
       ...before,
       quantity: { storageUnit: 'g', dimension: 'mass', kind: 'mass' },
       validation: { min: 1, max: 10 },
       default_value: 2,
     }
+
     expect(diffVersionFields([after], [before]).changed[0].detail).toBe(
       'quantity / units changed · validation constraints changed · default value changed',
     )
@@ -92,6 +95,7 @@ describe('diffVersionFields', () => {
         [before],
       ).total,
     ).toBe(0)
+
     const reference = field('sample', {
       logical_type: 'reference',
       relationship: {
@@ -100,6 +104,7 @@ describe('diffVersionFields', () => {
       },
       cardinality: 'many',
     })
+
     expect(
       diffVersionFields(
         [
@@ -135,6 +140,7 @@ describe('buildVersionImpacts', () => {
       ['v-1', [field('a')]],
       ['v-2', [field('a'), field('b')]],
     ])
+
     const rows = buildVersionImpacts(
       [version({ id: 'v-2', version: 2 }), version({ id: 'v-1', version: 1 })],
       fields,
@@ -144,6 +150,7 @@ describe('buildVersionImpacts', () => {
         { schema_version_id: 'v-2' },
       ],
     )
+
     expect(rows.map((r) => r.version.version)).toEqual([2, 1])
     expect(rows[0].recordCount).toBe(1)
     expect(rows[0].olderRecordCount).toBe(2)

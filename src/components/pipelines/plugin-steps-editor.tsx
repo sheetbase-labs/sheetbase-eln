@@ -26,8 +26,10 @@ function freeName(base: string, taken: readonly string[]): string {
   const stem = base.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
   const start = /^[a-z]/.test(stem) ? stem : `p_${stem}`
   let name = start.slice(0, 44)
+
   for (let n = 2; taken.includes(name); n += 1)
     name = `${start.slice(0, 44)}_${n}`
+
   return name
 }
 
@@ -50,21 +52,26 @@ export function PluginStepsEditor({
   const points = useExtensionPoints()
   const [choice, setChoice] = useState('')
   const plugin = actions.filter(isPlugin)
+
   const byName = useMemo(
     () => new Map(points.descriptors.map((d) => [d.name, d])),
     [points.descriptors],
   )
+
   const set = (name: string, patch: Partial<PipelineActionConfig>) =>
     onChange(
       actions.map((action) =>
         action.name === name ? { ...action, ...patch } : action,
       ),
     )
+
   const add = (operation: string) => {
     const descriptor = byName.get(operation)
+
     if (!descriptor) return
     const callable = points.callables.get(operation)
     const args: Record<string, unknown> = {}
+
     // A table the plugin reads starts as the result so far, the usual case.
     for (const name of callable?.tableNames ?? [])
       args[name] = { $ref: 'previous' }
@@ -81,9 +88,11 @@ export function PluginStepsEditor({
     ])
     setChoice('')
   }
+
   const addable = points.descriptors.filter(
     (d) => d.pipeline && actions.length < 20,
   )
+
   return (
     <div className="flex flex-col gap-4">
       {plugin.length === 0 ? (
@@ -96,6 +105,7 @@ export function PluginStepsEditor({
           const descriptor = byName.get(action.operation)
           const callable = points.callables.get(action.operation)
           const tables = callable?.tableNames ?? []
+
           const earlierSteps = plugin
             .slice(0, index)
             .filter(
@@ -103,6 +113,7 @@ export function PluginStepsEditor({
                 points.callables.get(earlier.operation)?.point ===
                 'pipeline-steps',
             )
+
           return (
             <li
               key={action.name}
@@ -128,10 +139,13 @@ export function PluginStepsEditor({
                   aria-label={t('data.pluginSteps.moveUp', { n: index + 1 })}
                   onClick={() => {
                     const at = actions.findIndex((a) => a.name === action.name)
+
                     const before = actions.findIndex(
                       (a) => a.name === plugin[index - 1].name,
                     )
+
                     const next = [...actions]
+
                     ;[next[at], next[before]] = [next[before], next[at]]
                     onChange(next)
                   }}
@@ -182,6 +196,7 @@ export function PluginStepsEditor({
                     ]}
                     onChange={(value) => {
                       const next = { ...action.arguments }
+
                       if (value === undefined) delete next[input.name]
                       else next[input.name] = value
                       set(action.name, { arguments: next })
@@ -287,10 +302,12 @@ export function ArgumentField({
 }) {
   const label = input.name.replaceAll('_', ' ')
   const caption = label.charAt(0).toUpperCase() + label.slice(1)
+
   if (isTable) {
     const current = isRef(value)
       ? value.$ref
       : (tableSources.at(0)?.ref ?? 'previous')
+
     return (
       <Field label={caption} hint={input.description} required={input.required}>
         <Select
@@ -307,13 +324,16 @@ export function ArgumentField({
       </Field>
     )
   }
+
   const matching = parameters.filter((parameter) =>
     input.type === 'num' || input.type === 'int'
       ? ['number', 'integer', 'decimal'].includes(parameter.type as string)
       : true,
   )
+
   const ref = isRef(value) ? value.$ref : null
   const mode = ref?.startsWith('parameters.') ? ref : 'typed'
+
   if (input.type === 'bool')
     return (
       <label className="flex items-center gap-2 text-body text-fg">
@@ -324,6 +344,7 @@ export function ArgumentField({
         {caption}
       </label>
     )
+
   return (
     <Field label={caption} hint={input.description} required={input.required}>
       <div className="flex flex-col gap-1.5">
@@ -365,11 +386,15 @@ export function ArgumentField({
             }
             onChange={(event) => {
               const text = event.target.value
+
               if (text === '') return onChange(undefined)
+
               if (input.type === 'num' || input.type === 'int') {
                 const n = Number(text)
+
                 return onChange(Number.isFinite(n) ? n : text)
               }
+
               onChange(text)
             }}
           />

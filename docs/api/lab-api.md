@@ -144,6 +144,16 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `plate_designs`                | Plate designs: a plate layout drawn ahead of the run.                                                                                                                                                                                                                                                                                           |
 | `plate_layout_templates`       | Reusable plate layouts.                                                                                                                                                                                                                                                                                                                         |
 | `plate_wells`                  | The wells of a plate design: role, sample and amounts.                                                                                                                                                                                                                                                                                          |
+| `comments`                     | A comment on a notebook, a block, a sheet or a submitted revision. `root_id` is the thread; `state` is open or resolved. Personal tokens only: you see what you can see in the app.                                                                                                                                                             |
+| `file_objects`                 | An uploaded file and each of its versions: name, type, size, checksum and `status` (active, quarantined, deleted or missing). Upload and download the bytes with `POST /api/files/upload-authorize`, `PUT /api/files/{recordId}/upload` and `GET /api/files/{recordId}/download`, using a personal token with `files:write` or `files:read`.    |
+| `protocol_versions`            | A frozen version of a protocol. `status` is draft, in_review, effective, superseded or retired. Personal tokens only.                                                                                                                                                                                                                           |
+| `protocol_training`            | A person asked to be trained on a protocol, with the date it is due.                                                                                                                                                                                                                                                                            |
+| `protocol_training_status`     | Where each person stands on each protocol they were given to train on: the version they were trained on, the current version, whether they are trained or out of date, and whether it is overdue. Personal tokens only.                                                                                                                         |
+| `protocol_acknowledgements`    | Someone recorded as trained on, or as having read, a version of a protocol. Personal tokens only.                                                                                                                                                                                                                                               |
+| `protocol_deviations`          | A step done differently from the protocol: the text as it was frozen, the text as it was recorded and the reason given. Personal tokens only.                                                                                                                                                                                                   |
+| `project_protocols`            | Which version of a protocol a project is pinned to. Personal tokens only.                                                                                                                                                                                                                                                                       |
+| `approval_requests`            | A request for approval of something, such as a dataset schema version. `state` is pending, approved, returned or withdrawn. Personal tokens only.                                                                                                                                                                                               |
+| `approval_request_decisions`   | Each person’s decision on an approval request: who, in which role, approved or returned, and why. Personal tokens only.                                                                                                                                                                                                                         |
 
 ## Actions
 
@@ -2414,3 +2424,403 @@ Scope: `lab:write`.
 | ---------------------- | ---- | --------------------------------------------------- |
 | `p_block_id` *         | uuid | The protocol step block (a `procedure_step` block). |
 | `p_expected_version` * | int  |                                                     |
+
+### `create_record_comment`
+
+Comment on a notebook
+
+Starts a comment thread on a notebook or on one block of it. `p_target_kind` is `record` or `block` and `p_target` names the block. Returns the comment.
+
+Scope: `lab:write`. Returns `json`.
+
+| Parameter       | Type   | Required | Notes                          |
+| --------------- | ------ | -------- | ------------------------------ |
+| `p_record_id`   | uuid   | yes      |                                |
+| `p_target_kind` | text   | yes      |                                |
+| `p_target`      | json   | yes      |                                |
+| `p_body`        | text   | yes      |                                |
+| `p_mentions`    | text[] | no       | People to notify, as user ids. |
+
+Events:
+
+- `comment.created`: A comment or a reply was added.
+
+### `create_sheet_comment`
+
+Comment on a sheet
+
+Starts a comment thread on a sheet or on a cell, row or column of it. Returns the comment.
+
+Scope: `lab:write`. Returns `json`.
+
+| Parameter                      | Type   | Required | Notes                          |
+| ------------------------------ | ------ | -------- | ------------------------------ |
+| `p_instance_id`                | uuid   | yes      |                                |
+| `p_expected_instance_revision` | bigint | yes      |                                |
+| `p_target_kind`                | text   | yes      |                                |
+| `p_target`                     | json   | yes      |                                |
+| `p_body`                       | text   | yes      |                                |
+| `p_mentions`                   | text[] | no       | People to notify, as user ids. |
+
+### `create_comment`
+
+Comment on a submitted revision
+
+Starts a comment thread on a revision that was submitted for review. Returns the comment.
+
+Scope: `lab:write`. Returns `json`.
+
+| Parameter       | Type   | Required | Notes                          |
+| --------------- | ------ | -------- | ------------------------------ |
+| `p_revision_id` | uuid   | yes      |                                |
+| `p_target_kind` | text   | yes      |                                |
+| `p_target`      | json   | yes      |                                |
+| `p_body`        | text   | yes      |                                |
+| `p_mentions`    | text[] | no       | People to notify, as user ids. |
+
+### `reply_to_comment`
+
+Reply to a comment
+
+Adds a reply to a comment thread. Returns the reply.
+
+Scope: `lab:write`. Returns `json`.
+
+| Parameter     | Type   | Required | Notes                          |
+| ------------- | ------ | -------- | ------------------------------ |
+| `p_parent_id` | uuid   | yes      |                                |
+| `p_body`      | text   | yes      |                                |
+| `p_mentions`  | text[] | no       | People to notify, as user ids. |
+
+### `resolve_comment_thread`
+
+Resolve a comment thread
+
+Marks a comment thread as resolved. Returns the thread.
+
+Scope: `lab:write`. Returns `json`.
+
+| Parameter      | Type | Required | Notes |
+| -------------- | ---- | -------- | ----- |
+| `p_comment_id` | uuid | yes      |       |
+
+Events:
+
+- `comment.resolved`: A comment thread was resolved.
+
+### `reopen_comment_thread`
+
+Reopen a comment thread
+
+Opens a resolved comment thread again. Returns the thread.
+
+Scope: `lab:write`. Returns `json`.
+
+| Parameter      | Type | Required | Notes |
+| -------------- | ---- | -------- | ----- |
+| `p_comment_id` | uuid | yes      |       |
+
+Events:
+
+- `comment.reopened`: A resolved comment thread was opened again.
+
+### `record_comments`
+
+List the comments on a notebook
+
+Every comment on a notebook, in order, with who wrote it and whether its thread is resolved.
+
+Scope: `lab:read`. Returns `row:comments`.
+
+| Parameter     | Type | Required | Notes |
+| ------------- | ---- | -------- | ----- |
+| `p_record_id` | uuid | yes      |       |
+
+### `search_comments`
+
+Search comments
+
+Finds comments by the words in them, best match first. Only comments on notebooks the person can see.
+
+Scope: `lab:read`. Returns `rows:comment_id=uuid,record_id=uuid,identifier=text,target_kind=text,anchor=json,body=text,author_user_id=text,created_at=ts,rank=num`.
+
+| Parameter | Type | Required | Notes                        |
+| --------- | ---- | -------- | ---------------------------- |
+| `p_query` | text | yes      |                              |
+| `p_limit` | int  | no       | Most to return (default 20). |
+
+### `search_file_contents`
+
+Search inside files
+
+Finds words inside uploaded text, PDF and Office files, with the line they are on. Only files the person can see.
+
+Scope: `lab:read`. Returns `rows:file_id=uuid,record_id=uuid,identifier=text,display_name=text,line_number=int,line_text=text,snippet=text,rank=num`.
+
+| Parameter | Type | Required | Notes                        |
+| --------- | ---- | -------- | ---------------------------- |
+| `p_query` | text | yes      |                              |
+| `p_limit` | int  | no       | Most to return (default 20). |
+
+### `file_version_chain`
+
+List the versions of a file
+
+Every version of a file, newest first, with its name, size and checksum. Download one with `GET /api/files/{recordId}/download?version=N`.
+
+Scope: `lab:read`. Returns `rows:id=uuid,version=int,display_name=text,media_type=text,byte_size=bigint,checksum=text,storage_key=text,created_at=ts,retention_until=ts,current=bool`.
+
+| Parameter   | Type | Required | Notes |
+| ----------- | ---- | -------- | ----- |
+| `p_file_id` | uuid | yes      |       |
+
+### `quarantine_file`
+
+Quarantine a file
+
+Takes a file out of use, for example after a virus warning. A quarantined file cannot be downloaded until it is restored. Returns the file.
+
+Scope: `lab:write`. Returns `row:file_objects`.
+
+| Parameter            | Type | Required | Notes                          |
+| -------------------- | ---- | -------- | ------------------------------ |
+| `p_file_id`          | uuid | yes      |                                |
+| `p_expected_version` | int  | yes      | The file version you last saw. |
+| `p_reason`           | text | no       | Why, in a sentence.            |
+
+Events:
+
+- `file.quarantined`: A file was quarantined.
+
+### `restore_file`
+
+Restore a file
+
+Brings a quarantined file back into use. Returns the file.
+
+Scope: `lab:write`. Returns `row:file_objects`.
+
+| Parameter            | Type | Required | Notes                          |
+| -------------------- | ---- | -------- | ------------------------------ |
+| `p_file_id`          | uuid | yes      |                                |
+| `p_expected_version` | int  | yes      | The file version you last saw. |
+
+Events:
+
+- `file.restored`: A quarantined or deleted file was restored.
+
+### `delete_file`
+
+Delete a file
+
+Marks a file deleted. The bytes are kept for the retention period and a deleted file can be restored. Returns the file.
+
+Scope: `lab:write`. Returns `row:file_objects`.
+
+| Parameter            | Type | Required | Notes                          |
+| -------------------- | ---- | -------- | ------------------------------ |
+| `p_file_id`          | uuid | yes      |                                |
+| `p_expected_version` | int  | yes      | The file version you last saw. |
+| `p_reason`           | text | no       | Why, in a sentence.            |
+
+### `create_protocol_version`
+
+Start a new protocol version
+
+Freezes the protocol as it is now into a new draft version, with a summary of what changed. Returns the version.
+
+Scope: `lab:write`. Returns `row:protocol_versions`.
+
+| Parameter              | Type | Required | Notes           |
+| ---------------------- | ---- | -------- | --------------- |
+| `p_protocol_record_id` | uuid | yes      |                 |
+| `p_change_summary`     | text | yes      |                 |
+| `p_reason`             | text | no       | Why it changed. |
+
+Events:
+
+- `protocol.version.created`: A new version of a protocol was started.
+
+### `confirm_protocol_version_current`
+
+Confirm a protocol version is still current
+
+Records that an effective version was reviewed and is still right, and when the next review is due. Needs the right to edit schemas. Returns the version.
+
+Scope: `lab:write`. Returns `row:protocol_versions`.
+
+| Parameter              | Type | Required | Notes                           |
+| ---------------------- | ---- | -------- | ------------------------------- |
+| `p_version_id`         | uuid | yes      |                                 |
+| `p_next_review_due_at` | ts   | no       | When it is next due for review. |
+| `p_reason`             | text | no       | Why, in a sentence.             |
+
+Events:
+
+- `protocol.version.updated`: A protocol version changed status or was confirmed current.
+
+### `set_protocol_version_status`
+
+Change a protocol version’s status
+
+Moves a version between `draft`, `in_review`, `effective`, `superseded` and `retired`. A version cannot become effective until its approvals are in; the database refuses it. Returns the version.
+
+Scope: `lab:write`. Returns `row:protocol_versions`.
+
+| Parameter        | Type | Required | Notes                               |
+| ---------------- | ---- | -------- | ----------------------------------- |
+| `p_version_id`   | uuid | yes      |                                     |
+| `p_status`       | text | yes      |                                     |
+| `p_reason`       | text | no       | Why, in a sentence.                 |
+| `p_effective_at` | ts   | no       | When it takes effect (default now). |
+
+Events:
+
+- `protocol.version.updated`: A protocol version changed status or was confirmed current.
+
+### `assign_protocol_training`
+
+Give someone a protocol to train on
+
+Asks a person to be trained on a protocol, with an optional due date. Returns the assignment.
+
+Scope: `lab:write`. Returns `row:protocol_training`.
+
+| Parameter              | Type | Required | Notes                     |
+| ---------------------- | ---- | -------- | ------------------------- |
+| `p_protocol_record_id` | uuid | yes      |                           |
+| `p_user_id`            | text | yes      | The person, as a user id. |
+| `p_due_at`             | ts   | no       | When it is due.           |
+| `p_notes`              | text | no       |                           |
+
+Events:
+
+- `protocol.training.assigned`: Someone was given a protocol to train on.
+
+### `unassign_protocol_training`
+
+Take someone off a protocol’s training
+
+Removes a person from a protocol’s training list.
+
+Scope: `lab:write`. Returns `void`.
+
+| Parameter              | Type | Required | Notes                     |
+| ---------------------- | ---- | -------- | ------------------------- |
+| `p_protocol_record_id` | uuid | yes      |                           |
+| `p_user_id`            | text | yes      | The person, as a user id. |
+
+Events:
+
+- `protocol.training.removed`: Someone was taken off a protocol’s training.
+
+### `record_protocol_trained`
+
+Record someone as trained on a protocol
+
+Records that a person was trained on a version of a protocol, by the person who trained them. Returns the record.
+
+Scope: `lab:write`. Returns `row:protocol_acknowledgements`.
+
+| Parameter      | Type | Required | Notes                             |
+| -------------- | ---- | -------- | --------------------------------- |
+| `p_version_id` | uuid | yes      |                                   |
+| `p_user_id`    | text | yes      | The person trained, as a user id. |
+| `p_notes`      | text | no       |                                   |
+
+Events:
+
+- `protocol.acknowledged`: Someone was recorded as trained on, or as having read, a protocol version.
+
+### `record_protocol_deviation_reason`
+
+Give the reason for a protocol deviation
+
+Records why a step was done differently from the protocol. Returns the deviation.
+
+Scope: `lab:write`. Returns `row:protocol_deviations`.
+
+| Parameter        | Type | Required | Notes |
+| ---------------- | ---- | -------- | ----- |
+| `p_deviation_id` | uuid | yes      |       |
+| `p_reason`       | text | yes      |       |
+
+Events:
+
+- `protocol.deviation.updated`: A step deviation was recorded, or its reason was given.
+
+### `protocol_version_usage`
+
+See where a protocol version is used
+
+Which experiments use a protocol version, and who has acknowledged it.
+
+Scope: `lab:read`. Returns `rows:protocol_version_id=uuid,used_by_count=int,used_by=json,acknowledged_count=int,acknowledged_by=json`.
+
+| Parameter      | Type | Required | Notes |
+| -------------- | ---- | -------- | ----- |
+| `p_version_id` | uuid | yes      |       |
+
+### `submit_approval_request`
+
+Ask for an approval
+
+Asks people in the named roles to approve something, such as a dataset schema version. Deciding it stays with them in the app. Returns the request.
+
+Scope: `lab:write`. Returns `row:approval_requests`.
+
+| Parameter                   | Type   | Required | Notes                                                     |
+| --------------------------- | ------ | -------- | --------------------------------------------------------- |
+| `p_workspace_id`            | uuid   | yes      |                                                           |
+| `p_object_kind`             | text   | yes      | What is to be approved, such as `dataset_schema_version`. |
+| `p_object_id`               | uuid   | yes      |                                                           |
+| `p_required_approver_roles` | text[] | yes      | Roles that may approve.                                   |
+| `p_reason`                  | text   | yes      |                                                           |
+| `p_require_independence`    | bool   | no       | The person who asks may not approve (default true).       |
+| `p_required_approvals`      | int    | no       | How many approvals are needed (default 1).                |
+| `p_object_revision`         | bigint | no       |                                                           |
+
+### `withdraw_approval_request`
+
+Withdraw an approval request
+
+Takes back a request that is still waiting. Returns the request.
+
+Scope: `lab:write`. Returns `row:approval_requests`.
+
+| Parameter      | Type | Required | Notes               |
+| -------------- | ---- | -------- | ------------------- |
+| `p_request_id` | uuid | yes      |                     |
+| `p_reason`     | text | no       | Why, in a sentence. |
+
+## Uploading and downloading files
+
+File bytes do not go through `/api/db`. A **personal token** with `files:write`
+(to upload) or `files:read` (to download) works on the same file routes the app
+uses, and acts as the person it belongs to, with their access to the project.
+
+```bash
+# 1. Ask for an upload. Returns fileRecordId and uploadUrl.
+curl -X POST "$SHEETBASE/api/files/upload-authorize" \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"projectId":"<project id>","displayName":"gel.png","mediaType":"image/png","byteSize":48211,"checksum":"<sha-256 hex>"}'
+
+# 2. Send the bytes.
+curl -X PUT "$SHEETBASE/api/files/<fileRecordId>/upload" \
+  -H "Authorization: Bearer $TOKEN" --data-binary @gel.png
+
+# A new version of the same file.
+curl -X PUT "$SHEETBASE/api/files/<fileRecordId>/version" \
+  -H "Authorization: Bearer $TOKEN" --data-binary @gel-v2.png
+
+# Download the newest version, or an earlier one with ?version=N.
+curl -H "Authorization: Bearer $TOKEN" -o gel.png \
+  "$SHEETBASE/api/files/<fileRecordId>/download"
+```
+
+Read file details from `file_objects`, versions with `file_version_chain` and
+words inside files with `search_file_contents`. Over MCP, `sheetbase.file.upload`
+and `sheetbase.file.read` carry small files as text or base64. Uploads send
+`file.uploaded` and `file.version.added`; quarantining and restoring send
+`file.quarantined` and `file.restored`. Deleting a file stays with a person in
+the app.

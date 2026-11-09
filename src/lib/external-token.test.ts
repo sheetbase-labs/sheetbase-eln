@@ -224,7 +224,6 @@ describe('requiredScopes', () => {
       'create_notebook_template',
       'publish_notebook_template_version',
       'finalize_file_upload',
-      'create_comment',
       'sign_revision',
       'submit_record_revision',
       'run_revision_checks',

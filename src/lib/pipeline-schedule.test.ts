@@ -130,10 +130,13 @@ describe('PIPELINE_TRIGGER_EVENTS', () => {
           // Reports, plate designs and analysis views.
           /^(report\.(created|updated|generated)|plate_design\.|plate_layout_template\.|analysis_view\.)/.test(
             entry.name,
-          )),
+          ) ||
+          // Protocol changes and training, and a request for approval.
+          entry.name.startsWith('protocol.') ||
+          entry.name === 'approval.requested'),
     ).map((entry) => entry.name)
     expect([...PIPELINE_TRIGGER_EVENTS].sort()).toEqual(expected.sort())
-    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(78)
+    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(93)
   })
 
   it('normalizes every triggerable name to itself', () => {

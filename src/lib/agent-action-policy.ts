@@ -60,6 +60,7 @@ export const AGENT_ACTION_AREAS = [
   'Studies and planning',
   'Reports and analysis',
   'Compliance',
+  'Notebook',
   'Other',
 ] as const
 export type AgentActionArea = (typeof AGENT_ACTION_AREAS)[number]
@@ -78,6 +79,7 @@ export function agentActionArea(key: string): AgentActionArea {
   if (/shipment|request/.test(key)) return 'Shipments and requests'
   if (/registry/.test(key)) return 'Registry'
   if (/legal_hold|retention|field_spec/.test(key)) return 'Compliance'
+  if (/comment|file|protocol|approval/.test(key)) return 'Notebook'
   return 'Other'
 }
 

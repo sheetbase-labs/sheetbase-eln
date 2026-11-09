@@ -70,7 +70,7 @@ describe('operation declarations', () => {
 
   it('generate the pipeline action list the app uses', () => {
     expect(PIPELINE_ACTIONS).toEqual(pipelineActionsFrom(CORE_OPERATIONS))
-    expect(PIPELINE_ACTIONS).toHaveLength(63)
+    expect(PIPELINE_ACTIONS).toHaveLength(79)
     const next = PIPELINE_ACTIONS.find((a) => a.operation === 'archive_record')
     expect(next?.arguments).toEqual([
       { name: 'p_record_id', type: 'uuid', required: true, nullable: false },

@@ -143,7 +143,7 @@ describe('approveProtocolRevision', () => {
     })
     expect(out.effective).toBe(true)
     expect(calls[1]?.body).toMatchObject({
-      p_protocol_version_id: VERSION,
+      p_version_id: VERSION,
       p_status: 'effective',
     })
   })

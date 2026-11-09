@@ -4,6 +4,7 @@
  * webhooks.
  */
 import { PROJECTS_LAB_TABLES } from './api-tables'
+import { PROJECTS_READ_TOOL_NAMES } from './cards'
 import { PROJECTS_EVENTS, PROJECTS_EVENT_LABELS } from './events'
 import { PROJECTS_OPERATIONS } from './operations'
 import { defineFeature } from '../define'
@@ -22,4 +23,5 @@ export const feature = defineFeature({
   // A folder that holds records cannot be deleted, so deleting one only
   // removes an empty grouping, behind a confirmation like any other write.
   agentMayDelete: ['delete_project_folder'],
+  assistantReadTools: PROJECTS_READ_TOOL_NAMES,
 })

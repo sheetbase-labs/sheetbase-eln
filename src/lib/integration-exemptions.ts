@@ -21,10 +21,6 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
     'Database trigger that checks notebook blocks as they are saved.',
   pipeline_config_errors:
     'Checks a pipeline configuration as it is saved; rewritten only to accept plugin steps. Saving a version through the pipeline API runs it.',
-  create_plate_design:
-    'Plate designs are authored in the app; rewritten in 0104 only to accept the larger plate formats.',
-  save_plate_layout_template:
-    'Plate layout templates are authored in the app; rewritten in 0104 only to accept the larger plate formats.',
   can_run_validation:
     'Tells the Validation page whether this person may start a run; starting one is for a signed-in person in the app, and finished runs are on validation_runs.',
   // Robots, the scheduler and code cells.

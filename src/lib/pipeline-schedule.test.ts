@@ -126,10 +126,14 @@ describe('PIPELINE_TRIGGER_EVENTS', () => {
           entry.name === 'qc.violation' ||
           // A worklist queued for a robot and a schedule asked for.
           entry.name === 'instrument.job.queued' ||
-          entry.name === 'schedule.proposed'),
+          entry.name === 'schedule.proposed' ||
+          // Reports, plate designs and analysis views.
+          /^(report\.(created|updated|generated)|plate_design\.|plate_layout_template\.|analysis_view\.)/.test(
+            entry.name,
+          )),
     ).map((entry) => entry.name)
     expect([...PIPELINE_TRIGGER_EVENTS].sort()).toEqual(expected.sort())
-    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(58)
+    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(78)
   })
 
   it('normalizes every triggerable name to itself', () => {

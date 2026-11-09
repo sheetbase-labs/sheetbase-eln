@@ -69,6 +69,24 @@
       "typescript": "generic"
     },
     {
+      "resource": "analysis_definitions",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "analysis_view_versions",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "analysis_views",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "blocks",
       "methods": ["GET", "HEAD", "POST", "PATCH"],
       "python": "generic",
@@ -213,6 +231,12 @@
       "typescript": "generic"
     },
     {
+      "resource": "milestone_risks",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "model_incident_logs",
       "methods": ["GET", "HEAD"],
       "python": "generic",
@@ -267,7 +291,25 @@
       "typescript": "generic"
     },
     {
+      "resource": "plate_designs",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "plate_layout_templates",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "plate_runs",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "plate_wells",
       "methods": ["GET", "HEAD"],
       "python": "generic",
       "typescript": "generic"
@@ -352,6 +394,24 @@
     },
     {
       "resource": "recurring_schedules",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "report_definitions",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "report_generations",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "report_sections",
       "methods": ["GET", "HEAD"],
       "python": "generic",
       "typescript": "generic"
@@ -495,6 +555,66 @@
       "typescript": "generic"
     },
     {
+      "resource": "study_deliverables",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "study_experiments",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "study_plan_snapshots",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "study_projects",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "study_task_assignments",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "study_task_dependencies",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "study_task_due_changes",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "study_task_resources",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "study_tasks",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "resource": "study_workstreams",
+      "methods": ["GET", "HEAD"],
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "resource": "supplier_models",
       "methods": ["GET", "HEAD"],
       "python": "generic",
@@ -533,6 +653,12 @@
       "typescript": "generic"
     },
     {
+      "name": "add_report_section",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "add_series_member",
       "resource": "lab",
       "python": "generic",
@@ -563,6 +689,18 @@
       "typescript": "generic"
     },
     {
+      "name": "analysis_view_citations",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "analysis_view_source_status",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "apply_notebook_template_upgrade",
       "resource": "catalogues",
       "python": "resource",
@@ -587,6 +725,12 @@
       "typescript": "resource"
     },
     {
+      "name": "archive_plate_design",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "archive_plate_run",
       "resource": "lab",
       "python": "generic",
@@ -606,6 +750,24 @@
     },
     {
       "name": "assign_record",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "assign_task_resource",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "bind_chart_revision",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "bind_report_section_source",
       "resource": "lab",
       "python": "generic",
       "typescript": "generic"
@@ -671,6 +833,12 @@
       "typescript": "generic"
     },
     {
+      "name": "compose_analysis_definition",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "create_agent_workflow",
       "resource": "agentOperations",
       "python": "resource",
@@ -683,6 +851,12 @@
       "typescript": "resource"
     },
     {
+      "name": "create_dependency",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "create_legal_hold",
       "resource": "lab",
       "python": "generic",
@@ -693,6 +867,12 @@
       "resource": "pipelines",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "create_plate_design",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "create_plate_run",
@@ -749,6 +929,12 @@
       "typescript": "generic"
     },
     {
+      "name": "create_report_definition",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "create_sheet_instance",
       "resource": "sheets",
       "python": "resource",
@@ -767,6 +953,30 @@
       "typescript": "generic"
     },
     {
+      "name": "create_study",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "create_study_deliverable",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "create_study_task",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "create_study_workstream",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "create_supplier_model",
       "resource": "facility",
       "python": "resource",
@@ -779,10 +989,28 @@
       "typescript": "resource"
     },
     {
+      "name": "delete_analysis_definition",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "delete_analysis_view",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "delete_block",
       "resource": "records",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "delete_dependency",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "delete_qc_series",
@@ -801,6 +1029,12 @@
       "resource": "facility",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "delete_study_task",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "delete_webhook_subscription",
@@ -833,6 +1067,18 @@
       "typescript": "resource"
     },
     {
+      "name": "edit_study",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "edit_study_task",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "end_recurring_schedule",
       "resource": "lab",
       "python": "generic",
@@ -852,6 +1098,24 @@
     },
     {
       "name": "follow_project",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "freeze_analysis_block",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "freeze_chart",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "generate_report",
       "resource": "lab",
       "python": "generic",
       "typescript": "generic"
@@ -900,6 +1164,24 @@
     },
     {
       "name": "leave_sample_workflow",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "link_study_deliverable_evidence",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "link_study_experiment",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "link_study_project",
       "resource": "lab",
       "python": "generic",
       "typescript": "generic"
@@ -954,6 +1236,12 @@
     },
     {
       "name": "move_series_member",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "move_study_task_due",
       "resource": "lab",
       "python": "generic",
       "typescript": "generic"
@@ -1151,7 +1439,25 @@
       "typescript": "generic"
     },
     {
+      "name": "remove_report_section",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "remove_series_member",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "reorder_report_sections",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "reorder_study_deliverables",
       "resource": "lab",
       "python": "generic",
       "typescript": "generic"
@@ -1194,6 +1500,12 @@
     },
     {
       "name": "request_reagent_order",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "resolve_analysis_view_sources",
       "resource": "lab",
       "python": "generic",
       "typescript": "generic"
@@ -1251,6 +1563,30 @@
       "resource": "search",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "save_analysis_definition",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "save_analysis_view",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "save_plate_design",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "save_plate_layout_template",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "save_plate_run_analysis",
@@ -1409,10 +1745,22 @@
       "typescript": "generic"
     },
     {
+      "name": "set_study_task_client_visible",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "snapshot_dataset",
       "resource": "datasets",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "snapshot_study_plan",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "start_experiment_series",
@@ -1457,6 +1805,18 @@
       "typescript": "generic"
     },
     {
+      "name": "unfreeze_analysis_block",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "unfreeze_chart",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "update_block_payload",
       "resource": "records",
       "python": "resource",
@@ -1487,6 +1847,18 @@
       "typescript": "resource"
     },
     {
+      "name": "update_report_definition",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
+      "name": "update_report_section",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "update_saved_search",
       "resource": "search",
       "python": "resource",
@@ -1505,6 +1877,12 @@
       "typescript": "generic"
     },
     {
+      "name": "update_study_deliverable",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
+    },
+    {
       "name": "update_webhook_subscription",
       "resource": "webhooks",
       "python": "resource",
@@ -1515,6 +1893,12 @@
       "resource": "datasets",
       "python": "resource",
       "typescript": "resource"
+    },
+    {
+      "name": "validate_report",
+      "resource": "lab",
+      "python": "generic",
+      "typescript": "generic"
     },
     {
       "name": "validate_sheet_record_batch",

@@ -119,6 +119,47 @@ describe('MCP lab actions', () => {
     )
   })
 
+  it('offers the core actions under the scope the API already asks for', async () => {
+    const rpc = guarded('approved')
+    // archive_record needs projects:write, which lab scopes alone do not give.
+    const refused = await call(
+      {
+        action: 'archive_record',
+        arguments: { p_record_id: ORDER_ID, p_expected_metadata_version: 1 },
+      },
+      ctx({ client: client(rpc) }),
+    )
+    expect(refused.isError).toBe(true)
+    expect(refused.content[0].text).toContain('projects:write')
+    const archived = await call(
+      {
+        action: 'archive_record',
+        arguments: { p_record_id: ORDER_ID, p_expected_metadata_version: 1 },
+      },
+      ctx({ client: client(rpc), scopes: ['projects:write'] }),
+    )
+    expect(archived.isError).toBeUndefined()
+    expect(rpc).toHaveBeenCalledWith('archive_record', {
+      p_record_id: ORDER_ID,
+      p_expected_metadata_version: 1,
+    })
+    // A token with only projects:write is offered the tool too.
+    expect(await toolNames(ctx({ scopes: ['projects:write'] }))).toContain(
+      LAB_ACT_TOOL_NAME,
+    )
+  })
+
+  it('starts a pipeline run through the permission step, needing pipelines:write', async () => {
+    const rpc = guarded('pending')
+    const result = await call(
+      { action: 'run_pipeline', arguments: { p_pipeline_key: 'scale_values' } },
+      ctx({ client: client(rpc), scopes: ['pipelines:write'] }),
+    )
+    expect(result.isError).toBeUndefined()
+    expect(result.content[0].text).toContain('waiting_for_approval')
+    expect(rpc).not.toHaveBeenCalledWith('run_pipeline', expect.anything())
+  })
+
   it('leaves an Ask action waiting for a person and does not run it', async () => {
     const rpc = guarded('pending')
     const result = await call(

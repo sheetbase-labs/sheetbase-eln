@@ -119,6 +119,7 @@ const RPC_ARG_TYPES: Record<string, string[]> = {
   update_pipeline_definition_version_draft: ['uuid', 'uuid', 'bigint', 'jsonb'],
   publish_pipeline_definition_version: ['uuid', 'uuid'],
   retire_pipeline_definition_version: ['uuid', 'uuid'],
+  run_pipeline: ['text', 'jsonb', 'jsonb'],
   start_pipeline_run: [
     'uuid',
     'uuid',
@@ -507,6 +508,44 @@ describe('Pipeline Definition lifecycle', () => {
         },
       }),
     ).rejects.toMatchObject({ code: 'SB070' })
+  })
+
+  it('starts a run by pipeline key on the latest published version, queued for a worker', async () => {
+    const owner = await actor(OWNER, WS)
+    const run = await rpc<{
+      id: string
+      status: string
+      trigger_kind: string
+      definition_version_id: string
+    }>(owner, 'run_pipeline', {
+      p_pipeline_key: 'scale_values',
+      p_parameters: { factor: 11 },
+      p_input_versions: { measurements: inputDatasetVersionId },
+    })
+    expect(run.status).toBe('running')
+    expect(run.trigger_kind).toBe('manual')
+    expect(run.definition_version_id).toBe(pipelineVersionId)
+    const { rows } = await migrator.query(
+      `select state from internal.pipeline_run_jobs where run_id = $1`,
+      [run.id],
+    )
+    expect(rows).toHaveLength(1)
+    await expect(
+      rpc(owner, 'run_pipeline', {
+        p_pipeline_key: 'no_such_pipeline',
+        p_parameters: {},
+        p_input_versions: {},
+      }),
+    ).rejects.toThrow(/pipeline not found/)
+    // Leave nothing running for the tests that follow.
+    await migrator.query(
+      `update api.pipeline_runs set status = 'failed', error_code = 'test', error_message = 'test', finished_at = now() where id = $1`,
+      [run.id],
+    )
+    await migrator.query(
+      `delete from internal.pipeline_run_jobs where run_id = $1`,
+      [run.id],
+    )
   })
 
   it('refuses to run an unpublished version', async () => {

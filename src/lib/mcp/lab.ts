@@ -106,7 +106,7 @@ export function labActTool() {
 const ACT_SCOPES: ReadonlySet<string> = new Set(
   Object.values(LAB_RPCS)
     .map((rpc) => rpc.scope)
-    .filter((scope) => scope.startsWith('lab:') || scope.endsWith(':write')),
+    .filter((scope) => scope.startsWith('lab:') || isWriteScope(scope)),
 )
 
 /** True when the credential could run at least one lab action. */

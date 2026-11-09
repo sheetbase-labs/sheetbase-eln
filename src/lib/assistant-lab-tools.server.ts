@@ -958,6 +958,7 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'started_at.desc',
     search: ['error_message'],
     page: '/settings/workspace/integrations',
+  },
   measurement_tables: {
     table: 'dataset_schema_definitions',
     select: 'id,display_id,key,name,description,lifecycle,parent_id,updated_at',

@@ -17,7 +17,10 @@
  * here on purpose (see `integration-exemptions.ts`).
  */
 import { defineOperations, input } from '#/lib/operations/descriptor'
-import type { OperationEvent, OperationInput } from '#/lib/operations/descriptor'
+import type {
+  OperationEvent,
+  OperationInput,
+} from '#/lib/operations/descriptor'
 
 /** The workspace of the call: a pipeline step fills it in itself. */
 const workspace = (): OperationInput => ({
@@ -774,6 +777,116 @@ export const DATASET_OPERATIONS = defineOperations([
           'Payload is the raw file as stored, without its storage key: runId, fileId, filename, mediaType, sizeBytes, checksum and ingestionStatus.',
       },
     ],
+    docsPage: 'datasets-api.md',
+  },
+  // -- Promoting a sheet column: requests, calculations and applying ----------
+  // (`preview_local_field_promotion` and `promote_local_field` are declared
+  // with record types, in `src/features/schema`.)
+  {
+    name: 'preview_calculation_promotion',
+    label: 'Check a sheet calculation can be promoted',
+    summary: 'Check whether a sheet calculation can become a shared one',
+    description:
+      'Says whether calculation `p_calculation_id` of sheet `p_instance_id` can move to its sheet definition or a measurement table (`p_target`), and why not when it cannot. Changes nothing.',
+    kind: 'read',
+    scope: 'schema:read',
+    inputs: [
+      input('p_instance_id', 'uuid'),
+      input('p_calculation_id', 'uuid'),
+      input('p_target', 'text'),
+    ],
+    docsPage: 'datasets-api.md',
+  },
+  {
+    name: 'promote_calculation',
+    label: 'Promote a sheet calculation',
+    summary:
+      'Move a sheet calculation to its definition or a measurement table',
+    description:
+      'Moves calculation `p_calculation_id` of sheet `p_instance_id` to its sheet definition or to a draft of measurement table `p_schema_definition_id` (`p_target`). Returns what changed.',
+    kind: 'write',
+    scope: 'schema:write',
+    inputs: [
+      input('p_instance_id', 'uuid'),
+      input('p_calculation_id', 'uuid'),
+      input('p_target', 'text'),
+      input('p_schema_definition_id', 'uuid', true, true),
+      {
+        ...input('p_idempotency_key', 'text'),
+        server: 'idempotency',
+        description:
+          'Any unique string; a retry with the same key returns the first result.',
+      },
+      input('p_schema_version_id', 'uuid', false),
+      input('p_expected_revision', 'bigint', false),
+    ],
+    pipeline: {},
+    docsPage: 'datasets-api.md',
+  },
+  {
+    name: 'request_column_promotion',
+    label: 'Ask for a sheet column to be promoted',
+    summary: 'Ask for a sheet column to become a shared field, for approval',
+    description:
+      'Asks for column `p_field_id` of sheet `p_instance_id` to become a field of a measurement table or record type, with `p_reason`, when the workspace wants promotions approved. The approval is a person’s; once approved, `apply_column_promotion` makes the change. Returns the promotion.',
+    kind: 'write',
+    scope: 'schema:write',
+    inputs: [
+      input('p_instance_id', 'uuid'),
+      input('p_field_id', 'uuid'),
+      input('p_target', 'text'),
+      input('p_schema_definition_id', 'uuid', true, true),
+      input('p_model_key', 'text', true, true),
+      input('p_reason', 'text', true, true),
+      {
+        ...input('p_idempotency_key', 'text'),
+        server: 'idempotency',
+        description:
+          'Any unique string; a retry with the same key returns the first result.',
+      },
+      input('p_expected_revision', 'bigint', false),
+    ],
+    pipeline: {},
+    docsPage: 'datasets-api.md',
+  },
+  {
+    name: 'apply_column_promotion',
+    label: 'Apply an approved column promotion',
+    summary: 'Make the change an approved column promotion asked for',
+    description:
+      'Applies promotion `p_promotion_id` once it has been approved: the column joins the measurement table and its values move with it. `p_idempotency_key` (a uuid) makes a retry return the first result. Returns what changed.',
+    kind: 'write',
+    scope: 'schema:write',
+    inputs: [
+      input('p_promotion_id', 'uuid'),
+      {
+        ...input('p_idempotency_key', 'uuid'),
+        description:
+          'Any new uuid; a retry with the same key returns the first result.',
+      },
+    ],
+    pipeline: {},
+    docsPage: 'datasets-api.md',
+  },
+  // -- Plate readings ---------------------------------------------------------
+  {
+    name: 'create_plate_snapshot',
+    label: 'Keep a plate reading',
+    summary: 'Keep a snapshot of a plate read on an instrument run',
+    description:
+      'Keeps the wells of a plate read during instrument run `p_run_id`: `p_wells` maps well names to values, `p_plate_format` is the number of wells (`96` by default), with an optional cycle number and time. Returns the snapshot.',
+    kind: 'write',
+    inputs: [
+      workspace(),
+      input('p_run_id', 'uuid'),
+      input('p_wells', 'json'),
+      input('p_plate_format', 'text', false),
+      input('p_cycle_number', 'int', false),
+      input('p_captured_at', 'ts', false),
+      input('p_observation_id', 'uuid', false),
+    ],
+    result: 'row:instrument_plate_snapshots',
+    pipeline: {},
     docsPage: 'datasets-api.md',
   },
 ])

@@ -12,15 +12,15 @@ are in the OpenAPI document under the **Lab** tag.
 
 ## Scopes and who may do what
 
-| Scope            | Lets you                                                                        |
-| ---------------- | ------------------------------------------------------------------------------- |
-| `datasets:read`  | Read the dataset tables below and call the dataset lookups.                     |
-| `datasets:write` | Flag values, plan rows, keep snapshots, commit large batches, add files.        |
-| `schema:read`    | Preview a change to a measurement table.                                        |
-| `schema:write`   | Build measurement tables: create, start a version, change a draft.              |
-| `schema:publish` | Publish or retire a measurement table, change a dataset's unit or use.          |
-| `lab:read`       | Read intake problems, raw instrument files and the export log.                  |
-| `lab:write`      | Record and close intake problems, file a connector's dataset, attach raw files. |
+| Scope            | Lets you                                                                                             |
+| ---------------- | ---------------------------------------------------------------------------------------------------- |
+| `datasets:read`  | Read the dataset tables below and call the dataset lookups.                                          |
+| `datasets:write` | Flag values, plan rows, keep snapshots, commit large batches, add files.                             |
+| `schema:read`    | Preview a change to a measurement table or a column promotion; read promotions.                      |
+| `schema:write`   | Build measurement tables: create, start a version, change a draft, promote.                          |
+| `schema:publish` | Publish or retire a measurement table, change a dataset's unit or use.                               |
+| `lab:read`       | Read intake problems, raw instrument files and the export log.                                       |
+| `lab:write`      | Record and close intake problems, file a connector's dataset, attach raw files, keep plate readings. |
 
 - Actions run as the person a **personal token** belongs to. The database
   still checks that person's own rights in the workspace: building a
@@ -32,8 +32,9 @@ are in the OpenAPI document under the **Lab** tag.
 - Files are uploaded with the files API first; `add_dataset_import_file` and
   `attach_instrument_raw_file` then take the uploaded file's id. Neither takes
   a storage key from the caller.
-- Approving a measurement table version (where the workspace asks for
-  approval) stays with a person in the app; publishing waits for it.
+- Approving a measurement table version or a column promotion (where the
+  workspace asks for approval) stays with a person in the app; publishing and
+  `apply_column_promotion` wait for it.
 
 ```bash
 # Open flags on a dataset
@@ -58,6 +59,8 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `intake_failures`        | `lab:read`      | Files a connector (`source` `agent`) or an upload could not bring in, and why: `code` and `message`, the parser it tried and how many attempts. `status` is `open`, `resolved` or `dismissed`. Record one with `record_intake_failure`; close one with `resolve_intake_failure`.                                                       |
 | `instrument_raw_files`   | `lab:read`      | The raw files an instrument run produced, kept as they came off the instrument. `file_id` is the stored file (download it from the files API); `ingestion_status` is `pending`, `complete`, `partial` or `failed`. Attach one with `attach_instrument_raw_file`.                                                                       |
 | `data_exports`           | `lab:read`      | A log of data taken out of Sheetbase: what was exported (`object_type`, `object_id`), in which format, how many rows and by whom.                                                                                                                                                                                                      |
+| `column_promotions`      | `schema:read`   | A sheet column asked to become a field of a measurement table (`target` `dataset_schema`) or of a record type (`model_field`). `state` is pending, approved, returned, applied or withdrawn.                                                                                                                                           |
+| `reading_planned_rows`   | `datasets:read` | Planned dataset rows waiting for a reading, with the sample each is for and the column it measures when a repeat was asked for.                                                                                                                                                                                                        |
 
 ## Actions and lookups
 
@@ -72,7 +75,7 @@ Scope: `schema:write`. Also a pipeline action.
 | Argument           | Type |                                                                                                                                                                                                                                                                                                                                                               |
 | ------------------ | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `p_workspace_id` * | uuid | Your workspace id; a pipeline step fills it in.                                                                                                                                                                                                                                                                                                               |
-| `p_key` *          | text |                                                                                                                                                                                                                                                                                                                                                               |
+| `p_key` *          | text | A short unique key.                                                                                                                                                                                                                                                                                                                                           |
 | `p_name` *         | text | Name.                                                                                                                                                                                                                                                                                                                                                         |
 | `p_description`    | text | A description.                                                                                                                                                                                                                                                                                                                                                |
 | `p_fields`         | json | JSON array of fields, each `{ key, label, logical_type, nullable?, description?, quantity?, category?, validation?, default_value?, relationship? }`. `logical_type` is `text`, `integer`, `decimal`, `boolean`, `date`, `timestamp`, `category`, `quantity` or `reference`. Give an existing field its `field_id` to keep it the same field across versions. |
@@ -83,12 +86,12 @@ Create a measurement table that extends another. Creates a measurement table und
 
 Scope: `schema:write`. Also a pipeline action.
 
-| Argument        | Type |                  |
-| --------------- | ---- | ---------------- |
-| `p_parent_id` * | uuid | Parent entry id. |
-| `p_key` *       | text |                  |
-| `p_name` *      | text | Name.            |
-| `p_description` | text | A description.   |
+| Argument        | Type |                     |
+| --------------- | ---- | ------------------- |
+| `p_parent_id` * | uuid | Parent entry id.    |
+| `p_key` *       | text | A short unique key. |
+| `p_name` *      | text | Name.               |
+| `p_description` | text | A description.      |
 
 #### `create_dataset_structure_from_file`
 
@@ -221,6 +224,64 @@ Scope: `schema:write`. Also a pipeline action.
 | `p_dataset_id` *        | uuid   | Dataset id.                                                                                     |
 | `p_target_version_id` * | uuid   |                                                                                                 |
 | `p_expected_revision` * | bigint | The revision of the draft you last read. A change made since is refused instead of overwritten. |
+
+### Promoting sheet columns
+
+#### `preview_calculation_promotion`
+
+Check whether a sheet calculation can become a shared one. Says whether calculation `p_calculation_id` of sheet `p_instance_id` can move to its sheet definition or a measurement table (`p_target`), and why not when it cannot. Changes nothing.
+
+Scope: `schema:read`.
+
+| Argument             | Type |     |
+| -------------------- | ---- | --- |
+| `p_instance_id` *    | uuid |     |
+| `p_calculation_id` * | uuid |     |
+| `p_target` *         | text |     |
+
+#### `promote_calculation`
+
+Move a sheet calculation to its definition or a measurement table. Moves calculation `p_calculation_id` of sheet `p_instance_id` to its sheet definition or to a draft of measurement table `p_schema_definition_id` (`p_target`). Returns what changed.
+
+Scope: `schema:write`. Also a pipeline action.
+
+| Argument                   | Type   |                                                                                                 |
+| -------------------------- | ------ | ----------------------------------------------------------------------------------------------- |
+| `p_instance_id` *          | uuid   |                                                                                                 |
+| `p_calculation_id` *       | uuid   |                                                                                                 |
+| `p_target` *               | text   |                                                                                                 |
+| `p_schema_definition_id` * | uuid   |                                                                                                 |
+| `p_idempotency_key` *      | text   | Any unique string; a retry with the same key returns the first result.                          |
+| `p_schema_version_id`      | uuid   |                                                                                                 |
+| `p_expected_revision`      | bigint | The revision of the draft you last read. A change made since is refused instead of overwritten. |
+
+#### `request_column_promotion`
+
+Ask for a sheet column to become a shared field, for approval. Asks for column `p_field_id` of sheet `p_instance_id` to become a field of a measurement table or record type, with `p_reason`, when the workspace wants promotions approved. The approval is a person’s; once approved, `apply_column_promotion` makes the change. Returns the promotion.
+
+Scope: `schema:write`. Also a pipeline action.
+
+| Argument                   | Type   |                                                                                                 |
+| -------------------------- | ------ | ----------------------------------------------------------------------------------------------- |
+| `p_instance_id` *          | uuid   |                                                                                                 |
+| `p_field_id` *             | uuid   |                                                                                                 |
+| `p_target` *               | text   |                                                                                                 |
+| `p_schema_definition_id` * | uuid   |                                                                                                 |
+| `p_model_key` *            | text   | Record model key.                                                                               |
+| `p_reason` *               | text   | Why, in a sentence.                                                                             |
+| `p_idempotency_key` *      | text   | Any unique string; a retry with the same key returns the first result.                          |
+| `p_expected_revision`      | bigint | The revision of the draft you last read. A change made since is refused instead of overwritten. |
+
+#### `apply_column_promotion`
+
+Make the change an approved column promotion asked for. Applies promotion `p_promotion_id` once it has been approved: the column joins the measurement table and its values move with it. `p_idempotency_key` (a uuid) makes a retry return the first result. Returns what changed.
+
+Scope: `schema:write`. Also a pipeline action.
+
+| Argument              | Type |                                                                   |
+| --------------------- | ---- | ----------------------------------------------------------------- |
+| `p_promotion_id` *    | uuid |                                                                   |
+| `p_idempotency_key` * | uuid | Any new uuid; a retry with the same key returns the first result. |
 
 ### Dataset values and snapshots
 
@@ -379,11 +440,11 @@ Add a planned row to a dataset. Adds a row that is waiting for its measurement, 
 
 Scope: `datasets:write`. Also a pipeline action.
 
-| Argument         | Type |             |
-| ---------------- | ---- | ----------- |
-| `p_dataset_id` * | uuid | Dataset id. |
-| `p_scheduled_at` | ts   |             |
-| `p_planned_key`  | text |             |
+| Argument         | Type |                                                        |
+| ---------------- | ---- | ------------------------------------------------------ |
+| `p_dataset_id` * | uuid | Dataset id.                                            |
+| `p_scheduled_at` | ts   | When the repeat is planned.                            |
+| `p_planned_key`  | text | A key that makes asking again return the same request. |
 
 #### `commit_dataset_row_batch_atomic`
 
@@ -394,7 +455,7 @@ Scope: `datasets:write`. Also a pipeline action.
 | Argument                        | Type   |                                                                                                                                |
 | ------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------ |
 | `p_dataset_id` *                | uuid   | Dataset id.                                                                                                                    |
-| `p_expected_dataset_revision` * | bigint |                                                                                                                                |
+| `p_expected_dataset_revision` * | bigint | The dataset revision the rows were prepared against.                                                                           |
 | `p_rows` *                      | json   | JSON array of rows, each `{ op: "insert" \| "update" \| "delete", rowId?, expectedRevision?, values: { <field id>: value } }`. |
 | `p_idempotency_key` *           | text   | Any unique string; a retry with the same key and rows returns the first result.                                                |
 
@@ -410,7 +471,7 @@ Scope: `lab:write`. Also a pipeline action.
 | `p_dataset_id` *       | uuid | Dataset id.                                      |
 | `p_project_id` *       | uuid | Project id.                                      |
 | `p_run_id` *           | uuid | Run id: the workflow run, or the instrument run. |
-| `p_connector_run_id` * | uuid |                                                  |
+| `p_connector_run_id` * | uuid | The running connector run the data came in on.   |
 
 ### Imports and intake
 
@@ -422,7 +483,7 @@ Scope: `datasets:write`. Also a pipeline action.
 
 | Argument       | Type |                                                                           |
 | -------------- | ---- | ------------------------------------------------------------------------- |
-| `p_file_id` *  | uuid |                                                                           |
+| `p_file_id` *  | uuid | Import file id.                                                           |
 | `p_format` *   | text | Plate format, such as `96_well` or `384_well`; or a worklist file format. |
 | `p_dataset_id` | uuid | Dataset id.                                                               |
 
@@ -435,17 +496,17 @@ Scope: `lab:write`. Also a pipeline action.
 | Argument             | Type   |                                                 |
 | -------------------- | ------ | ----------------------------------------------- |
 | `p_workspace_id` *   | uuid   | Your workspace id; a pipeline step fills it in. |
-| `p_connector_id` *   | uuid   |                                                 |
+| `p_connector_id` *   | uuid   | Connector id.                                   |
 | `p_file_name` *      | text   |                                                 |
 | `p_source` *         | text   |                                                 |
-| `p_code` *           | text   |                                                 |
-| `p_message` *        | text   |                                                 |
+| `p_code` *           | text   | A short code, such as `F2`.                     |
+| `p_message` *        | text   | Message.                                        |
 | `p_file_record_id`   | uuid   |                                                 |
 | `p_checksum`         | text   |                                                 |
 | `p_byte_size`        | bigint |                                                 |
 | `p_parser_key`       | text   |                                                 |
 | `p_target`           | json   |                                                 |
-| `p_connector_run_id` | uuid   |                                                 |
+| `p_connector_run_id` | uuid   | The running connector run the data came in on.  |
 
 #### `resolve_intake_failure`
 
@@ -467,7 +528,7 @@ Scope: `lab:write`. Also a pipeline action.
 
 | Argument           | Type |                                                  |
 | ------------------ | ---- | ------------------------------------------------ |
-| `p_connector_id` * | uuid |                                                  |
+| `p_connector_id` * | uuid | Connector id.                                    |
 | `p_checksum` *     | text |                                                  |
 | `p_run_id` *       | uuid | Run id: the workflow run, or the instrument run. |
 
@@ -480,14 +541,38 @@ Scope: `lab:write`. Also a pipeline action.
 | Argument             | Type |                                                  |
 | -------------------- | ---- | ------------------------------------------------ |
 | `p_run_id` *         | uuid | Run id: the workflow run, or the instrument run. |
-| `p_file_id` *        | uuid |                                                  |
+| `p_file_id` *        | uuid | Import file id.                                  |
 | `p_ingestion_status` | text |                                                  |
 | `p_error_detail`     | text |                                                  |
+
+### Plate readings
+
+#### `create_plate_snapshot`
+
+Keep a snapshot of a plate read on an instrument run. Keeps the wells of a plate read during instrument run `p_run_id`: `p_wells` maps well names to values, `p_plate_format` is the number of wells (`96` by default), with an optional cycle number and time. Returns the snapshot.
+
+Scope: `lab:write`. Also a pipeline action.
+
+| Argument           | Type |                                                                                                        |
+| ------------------ | ---- | ------------------------------------------------------------------------------------------------------ |
+| `p_workspace_id` * | uuid | Your workspace id; a pipeline step fills it in.                                                        |
+| `p_run_id` *       | uuid | Run id: the workflow run, or the instrument run.                                                       |
+| `p_wells` *        | json | JSON array of `{ wellCode, role, sampleId, sampleLabel, concentration, concentrationUnit, volumeUl }`. |
+| `p_plate_format`   | text | Plate format of the run.                                                                               |
+| `p_cycle_number`   | int  |                                                                                                        |
+| `p_captured_at`    | ts   |                                                                                                        |
+| `p_observation_id` | uuid |                                                                                                        |
 
 ## Not on the API
 
 - The older schema registry and scientific tables (`dataset_schemas`,
-  `scientific_tables` and their calls) are a compatibility layer the app is
-  moving off. Use measurement tables and datasets instead.
+  `scientific_tables`, schema relationships and their calls) are a
+  compatibility layer the app is moving off. Use measurement tables and
+  datasets instead.
+- Recording a stored file's storage key (`create_dataset_import_file`,
+  `record_dataset_import_file_parse`, `register_raw_file`) is the server's job
+  after an upload; add an uploaded file by its id instead.
 - Pruning old snapshots runs in the background for every workspace; keep one
   with `keep_dataset_version`.
+- Seeding parsers (`ensure_builtin_parsers`, `ensure_parser`) runs when a
+  workspace starts; add one with `create_parser_version`.

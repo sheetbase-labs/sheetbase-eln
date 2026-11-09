@@ -41,9 +41,9 @@ export const HUMAN_SESSION_ONLY_RPCS = [
   'create_amendment',
 ] as const
 
-// Dataset schema authoring is not on the API yet. Record types, sheet
-// definitions and templates are (behind schema:write and schema:publish).
-const SCHEMA_AUTHORING_RPCS = ['create_dataset_schema_definition'] as const
+// Schema authoring is on the API behind schema:write and schema:publish:
+// record types, sheet definitions, templates and measurement tables.
+const SCHEMA_AUTHORING_RPCS: readonly string[] = []
 
 type OpenApiOperation = Record<string, unknown>
 type OpenApiPathItem = Record<string, unknown>

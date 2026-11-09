@@ -548,22 +548,6 @@ Scope: `schema:read`. Returns `rows:id=uuid,model_key=text,name=text,field_keys=
 | `p_workspace_id` | uuid | yes      | Your workspace id.                     |
 | `p_model_key`    | text | no       | One record type, or leave out for all. |
 
-### `reporting_models`
-
-List the SQL views for record types
-
-For data stewards: the SQL view that holds each record type, with its kind and parent type. Empty for anyone without data access.
-
-Scope: `schema:read`. Returns `rows:model_key=text,model_name=text,view_name=text,kind=text,parent_key=text`. No parameters.
-
-### `reporting_columns`
-
-List the columns of the record type SQL views
-
-For data stewards: each column of the record type SQL views, with the field it comes from, its label, SQL type and unit. Empty for anyone without data access.
-
-Scope: `schema:read`. Returns `rows:model_key=text,view_name=text,field_key=text,column_name=text,label=text,sql_type=text,unit=text,ordinal=int`. No parameters.
-
 ### `create_model_rule`
 
 Add a rule to a record type

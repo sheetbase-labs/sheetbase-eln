@@ -1,4 +1,4 @@
-/** Experiment, alias, plan and label template cards the model can propose. */
+/** Experiment, alias and label template cards the model can propose. */
 import {
   buildExperimentProposal,
   experimentProposalDefs,

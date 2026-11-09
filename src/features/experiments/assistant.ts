@@ -1,4 +1,4 @@
-/** Experiment, alias, plan and label template cards in the browser: which actions are ours, how they run, their words. */
+/** Experiment, alias and label template cards in the browser: which actions are ours, how they run, their words. */
 import { isExperimentAction } from '#/lib/assistant-experiments'
 import type {
   ExperimentAction,
@@ -24,7 +24,6 @@ export const assistant = defineAssistant<
     'experiments.status': words('setExperimentStatus'),
     'experiments.outcome': words('recordOutcome'),
     'experiments.delete_draft': words('deleteDraft'),
-    'experiments.plan_from': words('planFromProject'),
     'experiments.alias_add': words('addAlias'),
     'experiments.alias_remove': words('removeAlias'),
     'experiments.label_archive': words('archiveLabelTemplate'),

@@ -1,8 +1,7 @@
 import type { LabTable } from '#/lib/lab-api-surface'
 
 /**
- * Experiments and reviews on the external API: record aliases, saved trails,
- * formulas, label templates and the review history. Read only; changes go
+ * Experiments and reviews on the external API: record aliases, formulas, label templates and the review history. Read only; changes go
  * through the actions in `operations/declarations/experiments.ts`. Spread
  * into `LAB_TABLES`.
  */
@@ -19,21 +18,6 @@ export const EXPERIMENT_LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['created_at', 'ts', 1],
       ['updated_at', 'ts', 1],
       ['created_by_user_id', 'text', 0],
-    ],
-  },
-  trail_evidence: {
-    summary:
-      'Trails of steps saved as evidence on a record with `save_trail_evidence`. A saved trail cannot be changed.',
-    scope: 'projects:read',
-    personal: true,
-    columns: [
-      ['id', 'uuid', 1],
-      ['workspace_id', 'uuid', 1],
-      ['record_id', 'uuid', 1],
-      ['steps', 'json', 1],
-      ['note', 'text', 0],
-      ['saved_by_user_id', 'text', 0],
-      ['created_at', 'ts', 1],
     ],
   },
   formula_definitions: {

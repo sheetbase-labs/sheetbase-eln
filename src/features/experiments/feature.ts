@@ -1,6 +1,6 @@
 /**
- * Experiments, reviews, record aliases, saved trails, the record timeline,
- * formulas and label templates, on the API, MCP, the assistant, pipelines and
+ * Experiments, reviews, record aliases, formulas and label templates, on the
+ * API, MCP, the assistant, pipelines and
  * webhooks. Actions fall into the built-in Experiments, Compliance and other
  * groups on the agent permissions page.
  */

@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -98,10 +98,10 @@ describe('operation declarations', () => {
   })
 
   it('put every operation with a summary on the API allowlist and docs', () => {
-    const doc = ['lab-api.md', 'people-api.md']
-      .map((file) =>
-        readFileSync(join(process.cwd(), 'docs/api', file), 'utf8'),
-      )
+    const dir = join(process.cwd(), 'docs/api')
+    const doc = readdirSync(dir)
+      .filter((file) => file.endsWith('.md'))
+      .map((file) => readFileSync(join(dir, file), 'utf8'))
       .join('\n')
     for (const name of Object.keys(labRpcsFromOperations(CORE_OPERATIONS))) {
       expect(name in LAB_RPCS, name).toBe(true)

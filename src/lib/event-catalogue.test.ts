@@ -412,6 +412,24 @@ const LAB_EVENTS: ReadonlyArray<{
     payload: { operation: 'restore' },
   },
   {
+    name: 'sample.label_printed',
+    entityType: 'sample_event',
+    operation: 'create',
+    payload: { operation: 'print' },
+  },
+  {
+    name: 'storage.position.quarantined',
+    entityType: 'storage_position',
+    operation: 'update',
+    payload: { status: 'quarantined' },
+  },
+  {
+    name: 'storage.position.missing',
+    entityType: 'storage_position',
+    operation: 'update',
+    payload: { status: 'missing' },
+  },
+  {
     name: 'sample.reserved',
     entityType: 'sample_reservation',
     operation: 'create',

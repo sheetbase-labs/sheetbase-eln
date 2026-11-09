@@ -455,7 +455,7 @@ export const SAMPLE_LAB_RPCS: Readonly<Record<string, LabRpc>> = {
   record_sample_label_print: {
     summary: 'Record that a sample label was printed',
     description:
-      'Adds a print to the sample’s history, so there is a trace of who labelled what.',
+      'Adds a print to the sample’s history, so there is a trace of who labelled what. Sends `sample.label_printed`.',
     scope: 'lab:write',
     params: [
       ['p_record_id', 'uuid', 1],
@@ -520,7 +520,7 @@ export const SAMPLE_LAB_RPCS: Readonly<Record<string, LabRpc>> = {
   set_position_status: {
     summary: 'Mark a box position available, quarantined or missing',
     description:
-      'Changes a position that holds no sample. `p_status` is `available`, `quarantined` or `missing`.',
+      'Changes a position that holds no sample. `p_status` is `available`, `quarantined` or `missing`. Blocking it sends `storage.position.quarantined` or `storage.position.missing`.',
     scope: 'lab:write',
     params: [
       ['p_position_id', 'uuid', 1],

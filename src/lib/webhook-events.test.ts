@@ -86,7 +86,7 @@ describe('mapEventType with a payload', () => {
     ).toBe('sample.moved')
     expect(
       mapEventType('sample_event', 'create', { operation: 'print' }),
-    ).toBeNull()
+    ).toBe('sample.label_printed')
     expect(
       mapEventType('sample_event', 'create', { operation: 'archive' }),
     ).toBe('sample.archived')

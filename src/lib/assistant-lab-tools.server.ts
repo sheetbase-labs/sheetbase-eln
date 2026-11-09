@@ -127,6 +127,10 @@ export const LAB_AREAS = {
   reagent_orders: 'Reagent orders and their status',
   recurring_work: 'Recurring experiments and bookings',
   stocktakes: 'Stocktakes of storage',
+  sample_history:
+    'The history of samples: every receive, use, move, release, quarantine and disposal, newest first',
+  freezers:
+    'Freezers, fridges and other storage units: where they are kept and their temperature limits',
   instrument_service: 'Instrument service and repair visits',
   label_templates: 'Label templates for printing',
   legal_holds: 'Legal holds keeping records from deletion',
@@ -1051,6 +1055,22 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'title.asc',
     search: ['title'],
     page: '/schedule',
+  },
+  sample_history: {
+    table: 'sample_events',
+    select:
+      'id,operation,quantity_delta,quantity_after,quantity_unit,from_location,to_location,notes,created_at,sample:records!sample_events_record_id_records_id_fk(identifier,title)',
+    order: 'created_at.desc',
+    search: ['operation', 'notes', 'to_location'],
+    page: '/samples',
+  },
+  freezers: {
+    table: 'storage_units',
+    select:
+      'id,name,code,unit_type,temperature_min_c,temperature_max_c,room:storage_rooms(name)',
+    order: 'name.asc',
+    search: ['name', 'code', 'unit_type'],
+    page: '/settings/lab/storage',
   },
   stocktakes: {
     table: 'stocktakes',

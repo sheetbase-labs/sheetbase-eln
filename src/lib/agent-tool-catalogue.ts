@@ -174,6 +174,11 @@ const ASSISTANT_PROPOSE_TOOLS_UNDECLARED = [
   'sheetbase.sample.reserve',
   'sheetbase.sample.quarantine',
   'sheetbase.sample.dispose',
+  'sheetbase.sample.receive',
+  'sheetbase.sample.archive',
+  'sheetbase.sample.reservation_cancel',
+  'sheetbase.storage.place',
+  'sheetbase.storage.add_location',
   'sheetbase.instrument.log_service',
   // Plates: analyse a plate run again, make a liquid handler worklist
   // (assistant-plates.ts).

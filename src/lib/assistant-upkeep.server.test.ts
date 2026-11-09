@@ -863,3 +863,234 @@ describe('reproduce run card', () => {
     ).toMatchObject({ ok: false })
   })
 })
+
+describe('sample stock and storage cards', () => {
+  it('adds stock to a sample, with where it is kept', async () => {
+    const { ctx } = context({ records: [s142] })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.sample.receive',
+        { ...base, sample: 'S-0142', quantity: 50, location: 'Freezer 2' },
+        ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: {
+        action: {
+          kind: 'sample.receive',
+          recordId: 's1',
+          expectedMetadataVersion: 4,
+          quantity: 50,
+          location: 'Freezer 2',
+        },
+      },
+    })
+    const gone = context({ records: [{ ...s142, status: 'disposed' }] })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.sample.receive',
+        { ...base, sample: 'S-0142', quantity: 5 },
+        gone.ctx,
+      ),
+    ).toMatchObject({ ok: false })
+  })
+
+  it('archives a sample, and finds an archived one to restore', async () => {
+    const active = context({ records: [s142] })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.sample.archive',
+        { ...base, sample: 'S-0142', archived: true },
+        active.ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: { action: { kind: 'sample.archive', archived: true } },
+    })
+    const old = context({ records: [s142] })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.sample.archive',
+        { ...base, sample: 'S-0142', archived: false },
+        old.ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: { action: { kind: 'sample.archive', archived: false } },
+    })
+    expect(old.calls.at(-1)).toContain('archived_at=not.is.null')
+  })
+
+  it('cancels the one reservation a sample has, and asks which when there are two', async () => {
+    const one = context({
+      records: [s142],
+      sample_reservations: [
+        {
+          id: 'v1',
+          quantity: 20,
+          unit: 'µl',
+          experiment: { identifier: 'EXP-12', title: 'ELISA plate 4' },
+        },
+      ],
+    })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.sample.reservation_cancel',
+        { ...base, sample: 'S-0142' },
+        one.ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: {
+        action: { kind: 'sample.reservation_cancel', reservationId: 'v1' },
+      },
+    })
+    const two = context({
+      records: [s142],
+      sample_reservations: [
+        {
+          id: 'v1',
+          quantity: 20,
+          unit: 'µl',
+          experiment: { identifier: 'EXP-12', title: 'a' },
+        },
+        {
+          id: 'v2',
+          quantity: 10,
+          unit: 'µl',
+          experiment: { identifier: 'EXP-13', title: 'b' },
+        },
+      ],
+    })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.sample.reservation_cancel',
+        { ...base, sample: 'S-0142' },
+        two.ctx,
+      ),
+    ).toMatchObject({ ok: false })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.sample.reservation_cancel',
+        { ...base, sample: 'S-0142', experiment: 'EXP-13' },
+        two.ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: { action: { reservationId: 'v2' } },
+    })
+  })
+
+  it('puts a sample in a free position, refuses a taken one, and takes it out', async () => {
+    const box = { id: 'b1', name: 'Box 7', code: 'B7' }
+    const free = context({
+      records: [s142],
+      storage_boxes: [box],
+      storage_positions: [{ id: 'p4', label: 'B4', status: 'available' }],
+    })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.storage.place',
+        { ...base, sample: 'S-0142', box: 'Box 7', position: 'B4' },
+        free.ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: { action: { kind: 'storage.place', positionId: 'p4' } },
+    })
+    const taken = context({
+      records: [s142],
+      storage_boxes: [box],
+      storage_positions: [{ id: 'p4', label: 'B4', status: 'occupied' }],
+    })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.storage.place',
+        { ...base, sample: 'S-0142', box: 'Box 7', position: 'B4' },
+        taken.ctx,
+      ),
+    ).toMatchObject({ ok: false })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.storage.place',
+        { ...base, sample: 'S-0142' },
+        free.ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: { action: { kind: 'storage.place', positionId: null } },
+    })
+  })
+
+  it('adds a freezer inside a room, and asks for what is missing', async () => {
+    const { ctx } = context({ storage_rooms: [{ id: 'r1', name: 'Room 1' }] })
+    expect(
+      await buildUpkeepProposal(
+        'sheetbase.storage.add_location',
+        {
+          ...base,
+          level: 'unit',
+          name: 'Freezer 3',
+          code: 'F3',
+          inside: 'Room 1',
+          unitType: 'freezer',
+        },
+        ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: {
+        action: {
+          kind: 'storage.add_location',
+          level: 'unit',
+          parentId: 'r1',
+          workspaceId: WS,
+        },
+      },
+    })
+    for (const args of [
+      { level: 'unit', name: 'Freezer 3', code: 'F3' },
+      { level: 'unit', name: 'Freezer 3', inside: 'Room 1' },
+    ]) {
+      expect(
+        await buildUpkeepProposal(
+          'sheetbase.storage.add_location',
+          { ...base, ...args },
+          ctx,
+        ),
+      ).toMatchObject({ ok: false })
+    }
+  })
+
+  it('runs the cards by calling the sample and storage functions', async () => {
+    const calls: Array<[string, unknown]> = []
+    const client = {
+      rpc: (name: string, args: unknown) => {
+        calls.push([name, args])
+        return Promise.resolve({ id: 'x', metadata_version: 5 })
+      },
+    } as unknown as DataClient
+    await runUpkeepAction(client, {
+      kind: 'storage.place',
+      recordId: 's1',
+      expectedMetadataVersion: 4,
+      positionId: null,
+      notes: null,
+    })
+    await runUpkeepAction(client, {
+      kind: 'storage.add_location',
+      workspaceId: WS,
+      level: 'room',
+      parentId: 'site1',
+      name: 'Room 2',
+      code: 'R2',
+      unitType: null,
+      rows: null,
+      cols: null,
+    })
+    expect(calls.map(([name]) => name)).toEqual([
+      'remove_sample_from_position',
+      'create_storage_location',
+    ])
+  })
+})

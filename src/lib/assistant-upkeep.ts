@@ -27,6 +27,12 @@ export const SHIPMENT_CANCEL_TOOL = 'sheetbase.shipment.cancel'
 export const SAMPLE_RESERVE_TOOL = 'sheetbase.sample.reserve'
 export const SAMPLE_QUARANTINE_TOOL = 'sheetbase.sample.quarantine'
 export const SAMPLE_DISPOSE_TOOL = 'sheetbase.sample.dispose'
+export const SAMPLE_RECEIVE_TOOL = 'sheetbase.sample.receive'
+export const SAMPLE_ARCHIVE_TOOL = 'sheetbase.sample.archive'
+export const SAMPLE_RESERVATION_CANCEL_TOOL =
+  'sheetbase.sample.reservation_cancel'
+export const STORAGE_PLACE_TOOL = 'sheetbase.storage.place'
+export const STORAGE_ADD_LOCATION_TOOL = 'sheetbase.storage.add_location'
 export const INSTRUMENT_LOG_TOOL = 'sheetbase.instrument.log_service'
 export const ABSENCE_SET_TOOL = 'sheetbase.absence.set'
 export const ABSENCE_CANCEL_TOOL = 'sheetbase.absence.cancel'
@@ -52,6 +58,11 @@ export const UPKEEP_PROPOSE_TOOL_NAMES = [
   SAMPLE_RESERVE_TOOL,
   SAMPLE_QUARANTINE_TOOL,
   SAMPLE_DISPOSE_TOOL,
+  SAMPLE_RECEIVE_TOOL,
+  SAMPLE_ARCHIVE_TOOL,
+  SAMPLE_RESERVATION_CANCEL_TOOL,
+  STORAGE_PLACE_TOOL,
+  STORAGE_ADD_LOCATION_TOOL,
   INSTRUMENT_LOG_TOOL,
   ABSENCE_SET_TOOL,
   ABSENCE_CANCEL_TOOL,
@@ -184,6 +195,104 @@ export const proposeSampleRetireSchema = z
       .max(400)
       .describe('Why, in the person’s words. Ask if they have not said.'),
     notes: z.string().max(400).optional(),
+  })
+  .strict()
+
+export const proposeSampleReceiveSchema = z
+  .object({
+    title,
+    summary,
+    sample: sampleRef,
+    quantity: z.number().positive().describe('How much arrived or was added.'),
+    location: z
+      .string()
+      .max(200)
+      .optional()
+      .describe('Where it is kept, in words, if the person says.'),
+    notes: z.string().max(400).optional(),
+  })
+  .strict()
+
+export const proposeSampleArchiveSchema = z
+  .object({
+    title,
+    summary,
+    sample: sampleRef,
+    archived: z
+      .boolean()
+      .describe('true to archive the sample, false to bring it back.'),
+    notes: z.string().max(400).optional(),
+  })
+  .strict()
+
+export const proposeSampleReservationCancelSchema = z
+  .object({
+    title,
+    summary,
+    sample: sampleRef,
+    experiment: z
+      .string()
+      .max(200)
+      .optional()
+      .describe(
+        'The experiment the reservation is for, when the sample has more than one.',
+      ),
+    notes: z.string().max(400).optional(),
+  })
+  .strict()
+
+export const proposeStoragePlaceSchema = z
+  .object({
+    title,
+    summary,
+    sample: sampleRef,
+    box: z
+      .string()
+      .max(200)
+      .optional()
+      .describe('The box by name or code. Leave out to take the sample out.'),
+    position: z
+      .string()
+      .max(8)
+      .optional()
+      .describe(
+        'The position in the box, such as B4. Leave out to take it out.',
+      ),
+    notes: z.string().max(400).optional(),
+  })
+  .strict()
+
+export const proposeStorageAddLocationSchema = z
+  .object({
+    title,
+    summary,
+    level: z.enum(['site', 'room', 'unit', 'shelf', 'rack', 'box']),
+    name: z.string().min(1).max(200),
+    code: z
+      .string()
+      .max(64)
+      .optional()
+      .describe('A short code, needed for a site, room, unit and box.'),
+    inside: z
+      .string()
+      .max(200)
+      .optional()
+      .describe(
+        'The location it goes inside, by name (the room for a freezer, the rack for a box). Not for a site.',
+      ),
+    unitType: z
+      .enum([
+        'freezer',
+        'fridge',
+        'cryo',
+        'incubator',
+        'ambient',
+        'dewar',
+        'cabinet',
+      ])
+      .optional(),
+    rows: z.number().int().min(1).max(26).optional().describe('For a box.'),
+    cols: z.number().int().min(1).max(26).optional().describe('For a box.'),
   })
   .strict()
 
@@ -484,6 +593,41 @@ export type UpkeepAction =
       notes: string | null
     }
   | {
+      kind: 'sample.receive'
+      recordId: string
+      expectedMetadataVersion: number
+      quantity: number
+      unit: string | null
+      location: string | null
+      notes: string | null
+    }
+  | {
+      kind: 'sample.archive'
+      recordId: string
+      expectedMetadataVersion: number
+      archived: boolean
+      notes: string | null
+    }
+  | { kind: 'sample.reservation_cancel'; reservationId: string }
+  | {
+      kind: 'storage.place'
+      recordId: string
+      expectedMetadataVersion: number
+      positionId: string | null
+      notes: string | null
+    }
+  | {
+      kind: 'storage.add_location'
+      workspaceId: string
+      level: 'site' | 'room' | 'unit' | 'shelf' | 'rack' | 'box'
+      parentId: string | null
+      name: string
+      code: string | null
+      unitType: string | null
+      rows: number | null
+      cols: number | null
+    }
+  | {
       kind: 'instrument.log'
       instrumentId: string
       serviceKind: 'repair' | 'service' | 'inspection' | 'other'
@@ -549,6 +693,11 @@ const KINDS: readonly string[] = [
   'sample.reserve',
   'sample.quarantine',
   'sample.dispose',
+  'sample.receive',
+  'sample.archive',
+  'sample.reservation_cancel',
+  'storage.place',
+  'storage.add_location',
   'instrument.log',
   'absence.set',
   'absence.cancel',

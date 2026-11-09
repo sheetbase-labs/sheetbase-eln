@@ -7,10 +7,15 @@ import { setFollowing } from './follows'
 import { markNotificationsRead } from './notifications-data'
 import { cancelReagentOrder, markReagentOrdered } from './reagent-orders'
 import {
+  archiveSample,
+  cancelSampleReservation,
   createSampleReservation,
   disposeSample,
   quarantineSample,
+  receiveSample,
+  restoreSample,
 } from './samples'
+import { moveSampleToPosition } from './storage-positions'
 import { cancelShipment } from './shipments'
 import { addRule, runCheck } from './data-contracts/client'
 import { startValidationRun } from './validation/client'
@@ -168,6 +173,68 @@ export async function runUpkeepAction(
         notes: action.notes ?? undefined,
       })
       return { openHref: `/records/${action.recordId}` }
+    case 'sample.receive':
+      await receiveSample(client, {
+        recordId: action.recordId,
+        expectedMetadataVersion: action.expectedMetadataVersion,
+        quantity: action.quantity,
+        unit: action.unit ?? undefined,
+        location: action.location ?? undefined,
+        notes: action.notes ?? undefined,
+      })
+      return { openHref: `/records/${action.recordId}` }
+    case 'sample.archive': {
+      const input = {
+        recordId: action.recordId,
+        expectedMetadataVersion: action.expectedMetadataVersion,
+        notes: action.notes ?? undefined,
+      }
+      if (action.archived) await archiveSample(client, input)
+      else await restoreSample(client, input)
+      return { openHref: `/records/${action.recordId}` }
+    }
+    case 'sample.reservation_cancel':
+      await cancelSampleReservation(client, {
+        reservationId: action.reservationId,
+      })
+      return { openHref: '/samples' }
+    case 'storage.place':
+      if (action.positionId) {
+        await moveSampleToPosition(client, {
+          recordId: action.recordId,
+          positionId: action.positionId,
+          expectedMetadataVersion: action.expectedMetadataVersion,
+          notes: action.notes ?? undefined,
+        })
+      } else {
+        await client.rpc('remove_sample_from_position', {
+          p_record_id: action.recordId,
+          p_expected_metadata_version: action.expectedMetadataVersion,
+          p_notes: action.notes ?? null,
+        })
+      }
+      return { openHref: `/records/${action.recordId}` }
+    case 'storage.add_location':
+      if (action.level === 'box') {
+        await client.rpc('create_storage_box', {
+          p_workspace_id: action.workspaceId,
+          p_rack_id: action.parentId,
+          p_name: action.name,
+          p_code: action.code ?? action.name,
+          p_rows: action.rows ?? 9,
+          p_cols: action.cols ?? 9,
+        })
+      } else {
+        await client.rpc('create_storage_location', {
+          p_workspace_id: action.workspaceId,
+          p_level: action.level,
+          p_parent_location_id: action.parentId,
+          p_name: action.name,
+          p_code: action.code,
+          p_unit_type: action.unitType,
+        })
+      }
+      return { openHref: '/settings/lab/storage' }
     case 'instrument.log':
       await logInstrumentService(
         {

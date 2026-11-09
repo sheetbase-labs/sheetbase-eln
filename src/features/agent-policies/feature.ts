@@ -27,6 +27,9 @@ export const AGENT_PERMISSION_ACTIONS: readonly string[] = Object.freeze([
   'update_workspace_ai_settings',
 ])
 
+/** Lists agents, their settings and policies; answers in the reply. */
+export const AGENTS_READ_TOOL = 'sheetbase.agents.list'
+
 export function agentActionAlwaysAsk(key: string): boolean {
   return AGENT_PERMISSION_ACTIONS.includes(key)
 }
@@ -70,4 +73,5 @@ export const feature = defineFeature({
     match: /(^|_)agents?(_|$)|watcher|^update_workspace_ai_/,
     beforeCore: true,
   },
+  assistantReadTools: [AGENTS_READ_TOOL],
 })

@@ -6,7 +6,6 @@ import type { EventCatalogueEntry } from '#/lib/event-catalogue'
 
 import { WEBHOOK_SSE_PIPELINE } from '../define'
 
-
 const event = (
   entry: Pick<EventCatalogueEntry, 'name' | 'summary' | 'producer' | 'notes'>,
 ): EventCatalogueEntry => ({

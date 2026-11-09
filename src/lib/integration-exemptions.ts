@@ -194,14 +194,6 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
   set_retention_enabled: 'Turns retention on for the workspace; admin setting.',
   set_spec_limits_enabled:
     'Turns result limits on for the workspace; admin setting.',
-  // Agent permissions (agent guardrails): the guardrails are a person's to set
-  // and decide, never an agent's.
-  set_agent_action_policy:
-    'Sets what agents may do on their own (Auto, Ask or Never); an admin setting that an agent must not be able to change for itself.',
-  decide_agent_action:
-    'Approving or rejecting what an agent asked to do is a person’s decision made in the app; credentials are refused.',
-  can_run_ai_evals:
-    'Tells the AI settings page whether this person may run the assistant checks; finished runs are on ai_eval_runs.',
   // Helpers.
   normalize_pipeline_event_type:
     'Checks the event name on a pipeline schedule; the schedule calls already take it.',

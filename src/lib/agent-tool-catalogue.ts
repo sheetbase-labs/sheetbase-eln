@@ -1673,10 +1673,6 @@ export const UNAVAILABLE_AGENT_OPERATIONS: readonly UnavailableOperation[] = [
       'Delegation policies are created by workspace owners/stewards in a human session.',
   },
   {
-    name: 'disable_agent_operation_policy',
-    reason: 'Disabling delegation is an owner/steward human-session act.',
-  },
-  {
     name: 'submit_record_revision',
     reason:
       'Submission is human attestation; denied to external credentials of either kind.',

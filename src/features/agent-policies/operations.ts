@@ -97,6 +97,38 @@ export const AGENT_POLICY_OPERATIONS = defineOperations([
     assistant: card('sheetbase.agent_operation_policy.disable'),
     pipeline: {},
   },
+  // Cards only. Deciding stays a person's act: the button runs in their own
+  // browser session, and tokens and pipelines are refused.
+  {
+    name: 'decide_agent_action',
+    label: 'Approve or reject what an agent asked to do',
+    description:
+      'Approves a waiting request and runs it as you, or rejects it with a reason.',
+    kind: 'write',
+    api: 'elsewhere',
+    inputs: [
+      note('p_request_id', 'uuid', 'The request.'),
+      note('p_decision', 'text', '`approve` or `reject`.'),
+      note('p_reason', 'text', 'Why, for a rejection.', false, true),
+    ],
+    result: 'row:agent_action_requests',
+    assistant: card('sheetbase.agent_request.decide'),
+  },
+  {
+    name: 'set_ai_features',
+    rpc: 'update_workspace_ai_feature_flags',
+    label: 'Switch AI features on or off',
+    description:
+      'Switches the assistant, and what outside tools may do over MCP, on or off. Switching one on is done by a person in the app.',
+    kind: 'write',
+    api: 'elsewhere',
+    inputs: [
+      note('p_workspace_id', 'uuid', 'Your workspace id.'),
+      note('p_feature_flags', 'json', 'Every switch, true or false.'),
+    ],
+    result: 'row:workspace_settings',
+    assistant: card('sheetbase.ai_features.set'),
+  },
   // Already on the API (lab-api-surface.ts); declared here for the pipeline
   // action and the assistant card.
   {

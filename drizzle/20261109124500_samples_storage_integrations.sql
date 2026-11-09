@@ -258,161 +258,58 @@ BEGIN
 END $$;
 --> statement-breakpoint
 
--- ---------------------------------------------------------------------------
--- Steward SQL: sample history, reservations, storage positions and movements
--- ---------------------------------------------------------------------------
--- Read through definer functions owned by reporting_owner, like the model
--- views, so a SQL login needs nothing but SELECT on data. Row security still
--- applies: a login sees only what its member may see in its own workspace.
-CREATE FUNCTION internal.ensure_operational_views() RETURNS void
-    LANGUAGE plpgsql SECURITY DEFINER
-    SET search_path TO ''
-    AS $_$
-BEGIN
-  IF NOT internal.reporting_ready() THEN RETURN; END IF;
-
-  IF to_regprocedure('data._sample_history()') IS NULL THEN
-    EXECUTE $f$
-      CREATE FUNCTION data._sample_history()
-      RETURNS TABLE(event_id uuid, sample_id uuid, sample_identifier text, sample_title text,
-                    operation text, quantity_delta numeric, quantity_before numeric,
-                    quantity_after numeric, quantity_unit text, from_location text,
-                    to_location text, purpose_id uuid, purpose_identifier text,
-                    actor_user_id text, notes text, occurred_at timestamptz)
-      LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
-      AS $b$
-        SELECT e.id, e.record_id, r.identifier, r.title, e.operation, e.quantity_delta,
-               e.quantity_before, e.quantity_after, e.quantity_unit, e.from_location,
-               e.to_location, e.purpose_record_id, p.identifier, e.actor_user_id, e.notes,
-               e.created_at
-          FROM api.sample_events e
-          JOIN api.records r ON r.id = e.record_id
-          LEFT JOIN api.records p ON p.id = e.purpose_record_id
-         WHERE e.workspace_id = (api.claim_probe()->>'workspace_id')::uuid
-      $b$ $f$;
-    EXECUTE 'REVOKE ALL ON FUNCTION data._sample_history() FROM PUBLIC';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION data._sample_history() TO reporting_reader';
-    EXECUTE 'ALTER FUNCTION data._sample_history() OWNER TO reporting_owner';
-  END IF;
-
-  IF to_regprocedure('data._sample_reservations()') IS NULL THEN
-    EXECUTE $f$
-      CREATE FUNCTION data._sample_reservations()
-      RETURNS TABLE(reservation_id uuid, sample_id uuid, sample_identifier text,
-                    experiment_id uuid, experiment_identifier text, quantity numeric,
-                    unit text, planned boolean, state text, notes text,
-                    created_by_user_id text, created_at timestamptz, cancelled_at timestamptz)
-      LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
-      AS $b$
-        SELECT v.id, v.sample_record_id, s.identifier, v.experiment_record_id, x.identifier,
-               v.quantity, v.unit, v.planned, v.state, v.notes, v.created_by_user_id,
-               v.created_at, v.cancelled_at
-          FROM api.sample_reservations v
-          JOIN api.records s ON s.id = v.sample_record_id
-          JOIN api.records x ON x.id = v.experiment_record_id
-         WHERE v.workspace_id = (api.claim_probe()->>'workspace_id')::uuid
-      $b$ $f$;
-    EXECUTE 'REVOKE ALL ON FUNCTION data._sample_reservations() FROM PUBLIC';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION data._sample_reservations() TO reporting_reader';
-    EXECUTE 'ALTER FUNCTION data._sample_reservations() OWNER TO reporting_owner';
-  END IF;
-
-  IF to_regprocedure('data._storage_positions()') IS NULL THEN
-    EXECUTE $f$
-      CREATE FUNCTION data._storage_positions()
-      RETURNS TABLE(position_id uuid, path text, site text, room text, unit text, unit_type text,
-                    shelf text, rack text, box text, box_code text, label text, status text,
-                    sample_id uuid, sample_identifier text, sample_title text)
-      LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
-      AS $b$
-        SELECT p.id,
-               concat_ws(' / ', si.name, ro.name, un.name, sh.name, ra.name, bx.name, p.label),
-               si.name, ro.name, un.name, un.unit_type, sh.name, ra.name, bx.name, bx.code,
-               p.label, p.status, p.occupied_record_id, r.identifier, r.title
-          FROM api.storage_positions p
-          JOIN api.storage_boxes bx ON bx.id = p.box_id
-          JOIN api.storage_racks ra ON ra.id = bx.rack_id
-          JOIN api.storage_shelves sh ON sh.id = ra.shelf_id
-          JOIN api.storage_units un ON un.id = sh.unit_id
-          JOIN api.storage_rooms ro ON ro.id = un.room_id
-          JOIN api.storage_sites si ON si.id = ro.site_id
-          LEFT JOIN api.records r ON r.id = p.occupied_record_id
-         WHERE p.workspace_id = (api.claim_probe()->>'workspace_id')::uuid
-      $b$ $f$;
-    EXECUTE 'REVOKE ALL ON FUNCTION data._storage_positions() FROM PUBLIC';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION data._storage_positions() TO reporting_reader';
-    EXECUTE 'ALTER FUNCTION data._storage_positions() OWNER TO reporting_owner';
-  END IF;
-
-  IF to_regprocedure('data._storage_movements()') IS NULL THEN
-    EXECUTE $f$
-      CREATE FUNCTION data._storage_movements()
-      RETURNS TABLE(movement_id uuid, sample_id uuid, sample_identifier text, operation text,
-                    from_path text, to_path text, actor_user_id text, notes text,
-                    occurred_at timestamptz)
-      LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO ''
-      AS $b$
-        SELECT m.id, m.record_id, r.identifier, m.operation, m.from_path, m.to_path,
-               m.actor_user_id, m.notes, m.created_at
-          FROM api.storage_movements m
-          JOIN api.records r ON r.id = m.record_id
-         WHERE m.workspace_id = (api.claim_probe()->>'workspace_id')::uuid
-      $b$ $f$;
-    EXECUTE 'REVOKE ALL ON FUNCTION data._storage_movements() FROM PUBLIC';
-    EXECUTE 'GRANT EXECUTE ON FUNCTION data._storage_movements() TO reporting_reader';
-    EXECUTE 'ALTER FUNCTION data._storage_movements() OWNER TO reporting_owner';
-  END IF;
-
-  IF to_regclass('data.sample_history') IS NULL THEN
-    EXECUTE 'CREATE VIEW data.sample_history AS SELECT * FROM data._sample_history()';
-    EXECUTE 'GRANT SELECT ON data.sample_history TO reporting_reader';
-    EXECUTE $c$COMMENT ON VIEW data.sample_history IS 'Every receive, use, move, release, quarantine and disposal of a sample'$c$;
-    EXECUTE 'ALTER VIEW data.sample_history OWNER TO reporting_owner';
-  END IF;
-  IF to_regclass('data.sample_reservations') IS NULL THEN
-    EXECUTE 'CREATE VIEW data.sample_reservations AS SELECT * FROM data._sample_reservations()';
-    EXECUTE 'GRANT SELECT ON data.sample_reservations TO reporting_reader';
-    EXECUTE $c$COMMENT ON VIEW data.sample_reservations IS 'Volume of a sample held for an experiment, and whether it is still active'$c$;
-    EXECUTE 'ALTER VIEW data.sample_reservations OWNER TO reporting_owner';
-  END IF;
-  IF to_regclass('data.storage_positions') IS NULL THEN
-    EXECUTE 'CREATE VIEW data.storage_positions AS SELECT * FROM data._storage_positions()';
-    EXECUTE 'GRANT SELECT ON data.storage_positions TO reporting_reader';
-    EXECUTE $c$COMMENT ON VIEW data.storage_positions IS 'Every position in every box, with where it is and which sample is in it'$c$;
-    EXECUTE 'ALTER VIEW data.storage_positions OWNER TO reporting_owner';
-  END IF;
-  IF to_regclass('data.storage_movements') IS NULL THEN
-    EXECUTE 'CREATE VIEW data.storage_movements AS SELECT * FROM data._storage_movements()';
-    EXECUTE 'GRANT SELECT ON data.storage_movements TO reporting_reader';
-    EXECUTE $c$COMMENT ON VIEW data.storage_movements IS 'Every time a sample was placed in, moved between or taken out of a storage position'$c$;
-    EXECUTE 'ALTER VIEW data.storage_movements OWNER TO reporting_owner';
-  END IF;
-END
-$_$;
+-- Steward SQL: sample history, reservations and the storage tree, through the
+-- shared reporting view registry.
+SELECT internal.register_reporting_view('sample_history', 'sample_history', 'Sample history',
+  'Every receive, use, move, release, quarantine and disposal of a sample.',
+  'sample_events',
+  ARRAY['id','record_id','operation','quantity_delta','quantity_before','quantity_after','quantity_unit','from_location','to_location','purpose_record_id','actor_user_id','notes','created_at']);
 --> statement-breakpoint
-ALTER FUNCTION internal.ensure_operational_views() OWNER TO migrator;
+SELECT internal.register_reporting_view('sample_reservations', 'sample_reservations', 'Sample reservations',
+  'Volume of a sample held for an experiment, and whether it is still active.',
+  'sample_reservations',
+  ARRAY['id','sample_record_id','experiment_record_id','quantity','unit','planned','state','notes','created_by_user_id','cancelled_by_user_id','cancelled_at','created_at','updated_at']);
 --> statement-breakpoint
-
--- Built wherever model views are built, so an install that gets SQL access
--- later gets these too. (Patched in place so any later change is kept.)
-DO $$
-DECLARE
-  v_def text;
-BEGIN
-  SELECT pg_get_functiondef('internal.regenerate_reporting_views(uuid)'::regprocedure) INTO v_def;
-  IF position('PERFORM internal.ensure_reporting_functions();' IN v_def) = 0 THEN
-    RAISE EXCEPTION 'unexpected shape for internal.regenerate_reporting_views';
-  END IF;
-  IF position('internal.ensure_operational_views' IN v_def) = 0 THEN
-    v_def := replace(v_def, 'PERFORM internal.ensure_reporting_functions();',
-      'PERFORM internal.ensure_reporting_functions(); PERFORM internal.ensure_operational_views();');
-    EXECUTE v_def;
-  END IF;
-END $$;
+SELECT internal.register_reporting_view('storage_movements', 'storage_movements', 'Storage movements',
+  'Every time a sample was placed in, moved between or taken out of a storage position.',
+  'storage_movements',
+  ARRAY['id','record_id','operation','from_position_id','to_position_id','from_path','to_path','actor_user_id','notes','created_at']);
 --> statement-breakpoint
-
-SELECT internal.ensure_operational_views();
-
+SELECT internal.register_reporting_view('storage_positions', 'storage_positions', 'Storage positions',
+  'Every position in every box, with its status and the sample in it.',
+  'storage_positions',
+  ARRAY['id','box_id','row_index','col_index','label','status','occupied_record_id','created_at','updated_at']);
+--> statement-breakpoint
+SELECT internal.register_reporting_view('storage_boxes', 'storage_boxes', 'Storage boxes',
+  'Boxes in the storage tree.',
+  'storage_boxes',
+  ARRAY['id','rack_id','name','code','rows','cols','capacity','created_at','updated_at','archived_at']);
+--> statement-breakpoint
+SELECT internal.register_reporting_view('storage_racks', 'storage_racks', 'Storage racks',
+  'Racks on each shelf.',
+  'storage_racks',
+  ARRAY['id','shelf_id','name','position','capacity','created_at','updated_at','archived_at']);
+--> statement-breakpoint
+SELECT internal.register_reporting_view('storage_shelves', 'storage_shelves', 'Storage shelves',
+  'Shelves in each freezer or unit.',
+  'storage_shelves',
+  ARRAY['id','unit_id','name','position','capacity','created_at','updated_at','archived_at']);
+--> statement-breakpoint
+SELECT internal.register_reporting_view('storage_units', 'storage_units', 'Storage units',
+  'Freezers, fridges and cabinets.',
+  'storage_units',
+  ARRAY['id','room_id','name','code','unit_type','temperature_min_c','temperature_max_c','capacity','created_at','updated_at','archived_at']);
+--> statement-breakpoint
+SELECT internal.register_reporting_view('storage_rooms', 'storage_rooms', 'Storage rooms',
+  'Rooms in each site.',
+  'storage_rooms',
+  ARRAY['id','site_id','name','code','temperature_min_c','temperature_max_c','capacity','created_at','updated_at','archived_at']);
+--> statement-breakpoint
+SELECT internal.register_reporting_view('storage_sites', 'storage_sites', 'Storage sites',
+  'Sites that hold storage.',
+  'storage_sites',
+  ARRAY['id','name','code','description','temperature_min_c','temperature_max_c','capacity','created_at','updated_at','archived_at']);
+--> statement-breakpoint
 --> statement-breakpoint
 -- The pipeline action check knows the sample and storage actions too.
 DO $$

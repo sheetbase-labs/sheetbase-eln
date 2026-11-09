@@ -1942,7 +1942,7 @@ Scope: `lab:write`.
 Create a planner task. Adds a task or milestone to the study planner. `p_task_type` is `task` (default) or `milestone`; `p_status` is `not_started` by default and `p_priority` `medium`. Returns the task. Sends `study.task.created`.
 ## Samples and storage
 
-Receive, use, move, split, reserve and dispose of samples, and manage the freezers, boxes and positions they sit in. Releasing a sample is a person's decision in the app (it is checked against the release rules), so it is not here. Every sample action sends the webhook event named in its description, and the assistant, MCP and pipelines can run the same actions. Stewards can query the history and storage with SQL in `data.sample_history`, `data.sample_reservations`, `data.storage_positions` and `data.storage_movements`.
+Receive, use, move, split, reserve and dispose of samples, and manage the freezers, boxes and positions they sit in. Releasing a sample is a person's decision in the app (it is checked against the release rules), so it is not here. Every sample action sends the webhook event named in its description, and the assistant, MCP and pipelines can run the same actions. Stewards can query the history and storage with SQL in `data.sample_history`, `data.sample_reservations`, `data.storage_movements` and one view for each level of the storage tree (`data.storage_sites`, `data.storage_rooms`, `data.storage_units`, `data.storage_shelves`, `data.storage_racks`, `data.storage_boxes`, `data.storage_positions`).
 
 ### Sample and storage tables
 

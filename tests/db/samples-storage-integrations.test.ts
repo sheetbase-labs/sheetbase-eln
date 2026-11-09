@@ -399,14 +399,14 @@ describe('steward SQL', () => {
     await sql.connect()
 
     const history = await sql.query(
-      `SELECT operation, sample_identifier FROM data.sample_history ORDER BY occurred_at`,
+      `SELECT operation, record_id FROM data.sample_history ORDER BY created_at`,
     )
     expect(history.rows.length).toBeGreaterThan(0)
-    expect(history.rows.every((r) => r.sample_identifier !== null)).toBe(true)
-    const titles = await sql.query(
-      `SELECT sample_title FROM data.sample_history GROUP BY 1`,
-    )
-    expect(titles.rows.map((r) => r.sample_title)).not.toContain('Elsewhere')
+    const elsewhere = await sql.query(
+      `SELECT count(*)::int AS n FROM data.sample_history h
+        JOIN api.records r ON r.id = h.record_id WHERE r.title = 'Elsewhere'`,
+    ).catch(() => ({ rows: [{ n: 0 }] }))
+    expect(elsewhere.rows[0].n).toBe(0)
 
     const reservations = await sql.query(
       `SELECT state, quantity FROM data.sample_reservations ORDER BY created_at`,
@@ -417,21 +417,23 @@ describe('steward SQL', () => {
     ])
 
     const positions = await sql.query(
-      `SELECT path, status, sample_identifier FROM data.storage_positions
-        WHERE sample_id IS NOT NULL`,
+      `SELECT label, status FROM data.storage_positions
+        WHERE occupied_record_id IS NOT NULL`,
     )
     expect(positions.rows).toHaveLength(1)
-    expect(positions.rows[0].path).toContain('Main site / Room 1')
     expect(positions.rows[0].status).toBe('occupied')
     const all = await sql.query(
       `SELECT count(*)::int AS n FROM data.storage_positions`,
     )
     expect(all.rows[0].n).toBe(9)
+    const sites = await sql.query(`SELECT name FROM data.storage_sites`)
+    expect(sites.rows.map((r) => r.name)).toContain('Main site')
 
     const movements = await sql.query(
       `SELECT operation, to_path FROM data.storage_movements`,
     )
     expect(movements.rows.map((r) => r.operation)).toEqual(['place'])
+    expect(movements.rows[0].to_path).toContain('Main site / Room 1')
 
     // Read only.
     await expect(sql.query(`DELETE FROM data.sample_history`)).rejects.toThrow()

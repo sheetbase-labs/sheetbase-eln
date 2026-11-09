@@ -38,17 +38,19 @@ export type PipelineActionArgumentType =
   | 'text'
   | 'boolean'
   | 'date'
+  | 'timestamptz'
   | 'integer'
   | 'bigint'
   | 'numeric'
   | 'jsonb'
   | 'text[]'
+  | 'uuid[]'
 export interface PipelineActionArgument {
   name: string
   type: PipelineActionArgumentType
   required: boolean
   nullable?: boolean
-  server?: 'idempotency'
+  server?: 'idempotency' | 'workspace'
 }
 export interface PipelineActionDefinition {
   operation: string

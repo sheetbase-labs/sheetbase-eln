@@ -183,6 +183,27 @@ describe('requiredScopes', () => {
     }
   })
 
+  it('puts sheet definition and template authoring behind schema scopes, not sheets:write', () => {
+    for (const resource of [
+      'create_sheet_definition',
+      'create_sheet_definition_version',
+      'extract_sheet_definition_draft',
+      'create_notebook_template',
+      'create_and_activate_model_field',
+    ])
+      expect(requiredScopes('POST', { kind: 'rpc', resource })).toEqual([
+        'schema:write',
+      ])
+    for (const resource of [
+      'publish_sheet_definition_version',
+      'publish_notebook_template_version',
+      'publish_record_model_version',
+    ])
+      expect(requiredScopes('POST', { kind: 'rpc', resource })).toEqual([
+        'schema:publish',
+      ])
+  })
+
   it('does not let datasets:* or sheets:write author governed schema', () => {
     const stewardship = [
       'create_dataset_schema_definition',
@@ -190,9 +211,6 @@ describe('requiredScopes', () => {
       'publish_dataset_schema_version',
       'create_next_dataset_schema_version',
       'retire_dataset_schema_definition',
-      'create_sheet_definition',
-      'create_sheet_definition_version',
-      'extract_sheet_definition_draft',
     ]
     for (const resource of stewardship) {
       expect(() => requiredScopes('POST', { kind: 'rpc', resource })).toThrow(
@@ -221,8 +239,8 @@ describe('requiredScopes', () => {
 
   it('keeps still-private RPCs fail-closed', () => {
     const privateRpcs = [
-      'create_notebook_template',
-      'publish_notebook_template_version',
+      'retire_notebook_template_version',
+      'next_record_model_identifier',
       'finalize_file_upload',
       'sign_revision',
       'submit_record_revision',
@@ -233,7 +251,6 @@ describe('requiredScopes', () => {
       'query_dataset',
       'discover_object_dependencies',
       'record_cell_conflict',
-      'create_and_activate_model_field',
     ]
     for (const resource of privateRpcs) {
       expect(() => requiredScopes('POST', { kind: 'rpc', resource })).toThrow(
@@ -339,13 +356,11 @@ describe('requiredScopes', () => {
     ).toThrow(ExternalTokenError)
   })
 
-  it('does not grant scientific:* scopes access to vestigial metadata tables', () => {
-    expect(() =>
-      requiredScopes('GET', {
-        kind: 'table',
-        resource: 'formula_results',
-      }),
-    ).toThrow(ExternalTokenError)
+  it('reads formulas and their results with projects:read', () => {
+    for (const resource of ['formula_results', 'formula_definitions'])
+      expect(requiredScopes('GET', { kind: 'table', resource })).toEqual([
+        'projects:read',
+      ])
   })
 })
 

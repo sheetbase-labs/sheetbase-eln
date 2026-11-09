@@ -71,7 +71,7 @@ export const SCOPE_GROUPS: ReadonlyArray<{
   {
     title: t('settings.apiScopes.governedSchema'),
     description: t('settings.apiScopes.catalogueGetGatedDescription'),
-    effective: false,
+    effective: true,
     scopes: ['schema:read', 'schema:write', 'schema:publish'],
   },
   {

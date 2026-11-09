@@ -6,6 +6,8 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { DATASET_OPERATIONS } from '../../src/features/datasets/operations'
+import { PIPELINE_ACTIONS } from '../../src/lib/pipelines/actions'
 import { prepareTestDatabase } from './helpers'
 
 const WS = '00000000-0000-4000-8000-0000000d1a0a'
@@ -164,6 +166,52 @@ describe('measurement table events', () => {
     ])
   })
 
+  it('builds a table that extends another the way the assistant card does', async () => {
+    const owner = await actor(OWNER)
+    const parent = await makeTable(owner)
+    await owner.query(`select api.publish_dataset_schema_version($1)`, [
+      parent.schema_version_id,
+    ])
+    counter += 1
+    const child = (
+      await owner.query(
+        `select api.create_dataset_schema_subtype($1,$2,'Plate child',null) result`,
+        [parent.schema_definition_id, `dsi_child_${counter}`],
+      )
+    ).rows[0].result as { schema_version_id: string }
+    // The card reads the inherited fields as the API returns them, then adds its own.
+    const inherited = (
+      await owner.query(
+        `select to_jsonb(f) as f from api.dataset_schema_version_fields f
+          where schema_version_id = $1 order by display_order`,
+        [child.schema_version_id],
+      )
+    ).rows.map((row: { f: unknown }) => row.f)
+    expect(inherited).toHaveLength(1)
+    await owner.query(
+      `select api.replace_dataset_schema_version_fields($1, $2::jsonb, null)`,
+      [
+        child.schema_version_id,
+        JSON.stringify([
+          ...inherited,
+          {
+            field_id: null,
+            key: 'od',
+            label: 'OD',
+            description: null,
+            logical_type: 'decimal',
+            nullable: true,
+          },
+        ]),
+      ],
+    )
+    const { rows } = await owner.query<{ key: string }>(
+      `select key from api.dataset_schema_version_fields where schema_version_id = $1 order by display_order`,
+      [child.schema_version_id],
+    )
+    expect(rows.map((r) => r.key)).toEqual(['well', 'od'])
+  })
+
   it('records a discarded draft as a delete', async () => {
     const owner = await actor(OWNER)
     const table = await makeTable(owner)
@@ -251,5 +299,89 @@ describe('intake problems', () => {
       'intake_failure/create',
       'intake_failure/resolve',
     ])
+  })
+})
+
+describe('registries', () => {
+  const mine = new Set(DATASET_OPERATIONS.map((op) => op.name))
+
+  it('accepts every datasets pipeline action', async () => {
+    const actions = PIPELINE_ACTIONS.filter((a) => mine.has(a.operation))
+    expect(actions.length).toBeGreaterThan(20)
+    for (const action of actions) {
+      const args = Object.fromEntries(
+        action.arguments
+          .filter((field) => field.required && !field.server)
+          .map((field) => [field.name, 'x']),
+      )
+      const { rows } = await migrator.query(
+        `SELECT internal.pipeline_action_errors($1::jsonb) AS errors`,
+        [
+          JSON.stringify([
+            { name: 'step', operation: action.operation, arguments: args },
+          ]),
+        ],
+      )
+      expect(rows[0].errors, action.operation).toEqual([])
+    }
+  })
+
+  it('lets every datasets event start a pipeline', async () => {
+    const names = DATASET_OPERATIONS.flatMap((op) =>
+      (op.events ?? []).map((event) => event.name),
+    )
+    for (const name of names) {
+      const { rows } = await migrator.query(
+        `SELECT api.normalize_pipeline_event_type($1) AS name`,
+        [name],
+      )
+      expect(rows[0].name, name).toBe(name)
+    }
+  })
+
+  it('lets agents discard a draft measurement table version, with a confirmation', async () => {
+    const { rows } = await migrator.query(
+      `SELECT internal.agent_action_always_never('delete_dataset_schema_version') AS never`,
+    )
+    expect(rows[0].never).toBe(false)
+  })
+
+  it('gives stewards the datasets views, without storage keys', async () => {
+    const ready = (
+      await migrator.query<{ ok: boolean }>(
+        `SELECT internal.reporting_ready() AS ok`,
+      )
+    ).rows[0]!.ok
+    if (!ready) return
+    const names = await migrator.query<{ view_key: string; view_name: string }>(
+      `SELECT view_key, view_name FROM internal.reporting_fixed_view_names WHERE workspace_id=$1`,
+      [WS],
+    )
+    const keys = names.rows.map((r) => r.view_key)
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        'datasets',
+        'dataset_snapshots',
+        'measurement_tables',
+        'dataset_value_flags',
+        'dataset_import_files',
+        'intake_failures',
+        'instrument_raw_files',
+        'data_exports',
+        'column_promotions',
+      ]),
+    )
+    for (const key of ['dataset_import_files', 'instrument_raw_files']) {
+      const view = names.rows.find((r) => r.view_key === key)!
+      const columns = await migrator.query<{ column_name: string }>(
+        `SELECT attname AS column_name FROM pg_attribute
+          WHERE attrelid = format('data.%I', $1::text)::regclass AND attnum > 0 AND NOT attisdropped`,
+        [view.view_name],
+      )
+      expect(columns.rows.length).toBeGreaterThan(0)
+      expect(columns.rows.map((c) => c.column_name)).not.toContain(
+        'storage_key',
+      )
+    }
   })
 })

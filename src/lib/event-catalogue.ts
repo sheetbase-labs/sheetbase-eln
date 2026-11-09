@@ -84,8 +84,12 @@ export interface PayloadCondition {
  */
 export type CatalogueStatus = 'stable' | 'provisional' | 'reserved'
 
-/** Which introduction introduced (shipped or pinned) the entry. */
+/**
+ * Which introduction introduced (shipped or pinned) the entry. A feature folder
+ * may use a tag of its own (`projects-01`) without adding it here.
+ */
 export type CatalogueIntroducedIn =
+  | (string & {})
   | 'api-06'
   | 'event-01'
   | 'notify-01'

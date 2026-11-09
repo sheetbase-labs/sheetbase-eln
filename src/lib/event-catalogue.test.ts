@@ -970,6 +970,42 @@ const LAB_EVENTS: ReadonlyArray<{
     payload: {},
   },
   {
+    name: 'model.created',
+    entityType: 'record_model',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'model.updated',
+    entityType: 'record_model',
+    operation: 'update',
+    payload: {},
+  },
+  {
+    name: 'model.field.created',
+    entityType: 'record_field_definition',
+    operation: 'create',
+    payload: { change: 'definition' },
+  },
+  {
+    name: 'model.field.updated',
+    entityType: 'record_field_definition',
+    operation: 'update',
+    payload: { change: 'definition' },
+  },
+  {
+    name: 'model.version.created',
+    entityType: 'record_model_version',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'model.version.published',
+    entityType: 'record_model_version',
+    operation: 'update',
+    payload: { effect: 'published' },
+  },
+  {
     name: 'comment.created',
     entityType: 'comment',
     operation: 'create',

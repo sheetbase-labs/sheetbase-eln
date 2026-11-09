@@ -96,6 +96,11 @@ Both are in the stack deliberately. Choose per surface, not per preference.
 
 ## Formatting and linting
 
-Prettier owns formatting, ESLint owns code rules. `pnpm format` applies both;
-`pnpm check` verifies formatting in CI and in `pnpm validate`. Do not hand-tune
-formatting that Prettier will revert.
+Prettier owns formatting. Type-aware Oxlint, the generic anti-slop rules and
+React Doctor check code quality. `pnpm lint` runs both strict code checks and
+fails on warnings or errors. `pnpm format` applies Prettier and safe Oxlint
+fixes. `pnpm check` verifies formatting in CI and in `pnpm validate`.
+Do not hand-tune formatting that Prettier will revert. See
+`tools/oxlint/README.md` for rule coverage, scan scope and diagnostic commands.
+That file sits outside this manual's content root, so it is named rather than
+linked here.

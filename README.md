@@ -29,7 +29,7 @@ Self-hosted: you run it on your own server and your data stays in your own Postg
 - PostgreSQL with Drizzle ORM and migrations.
 - PostgREST for the primary data API with PostgreSQL row-level security.
 - Tailwind CSS 4 and shadcn/ui's source-owned component convention.
-- Vitest, Testing Library, ESLint, Prettier, and strict TypeScript.
+- Vitest, Testing Library, Oxlint with anti-slop, React Doctor, Prettier, and strict TypeScript.
 
 ## Local development
 

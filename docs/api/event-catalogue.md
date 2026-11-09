@@ -185,6 +185,32 @@ Fields carry `kind` (the key of the record type), `fieldName`, `label`, `logical
 and `lifecycle`. Every way of changing a type fires them: the settings page, the API,
 the assistant and plugins. Changing a field's spec limits is not part of these events.
 
+### Choices, rules and published versions (`stable`, webhook, SSE and pipeline triggers)
+
+| Event                                              | Produced by                                               |
+| -------------------------------------------------- | --------------------------------------------------------- |
+| `model.field.option.created` / `.updated`          | `model_field_option` + `create` / `update` (retiring too) |
+| `model.rule.created` / `.updated` / `.removed`     | `model_rule` + `create` / `update` / `delete`             |
+| `model.link_rule.set` / `.removed`                 | `model_relationship_rule` + `update` / `delete`           |
+| `model.version.discarded`                          | `record_model_version` + `delete`                         |
+| `sheet.definition.version.published` / `.retired`  | `sheet_definition_version` + `update` (`lifecycle`)       |
+| `notebook.template.version.published` / `.retired` | `notebook_template_version` + `update` (`lifecycle`)      |
+
+Rules carry `modelKey`, `name`, `effect` and `fieldKeys` (and `changes` on update);
+link rules carry `sourceModelKey`, `linkType`, `targetModelKey`, `minLinks` and
+`maxLinks`. See [models, sheets and templates](models-sheets-templates-api.md).
+
+### Record aliases and label templates (`stable`, webhook, SSE and pipeline triggers)
+
+| Event                                         | Produced by                            |
+| --------------------------------------------- | -------------------------------------- |
+| `record.alias.added` / `record.alias.removed` | `record_alias` + `create` / `delete`   |
+| `label.template.created` / `.updated`         | `label_template` + `create` / `update` |
+
+Aliases carry `recordId` and `alias`. Label templates carry `name`,
+`recordKind`, `isDefault` and `archived` (and `changes` on update). See
+[experiments, reviews and records](experiments-reviews-api.md).
+
 ### Orders, prices, rates and scheduled reports (`stable`, webhook and SSE)
 
 | Event                                               | Produced by                                         |

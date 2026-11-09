@@ -1089,6 +1089,102 @@ const LAB_EVENTS: ReadonlyArray<{
     operation: 'restore',
     payload: {},
   },
+  {
+    name: 'model.field.option.created',
+    entityType: 'model_field_option',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'model.field.option.updated',
+    entityType: 'model_field_option',
+    operation: 'update',
+    payload: {},
+  },
+  {
+    name: 'model.rule.created',
+    entityType: 'model_rule',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'model.rule.updated',
+    entityType: 'model_rule',
+    operation: 'update',
+    payload: {},
+  },
+  {
+    name: 'model.rule.removed',
+    entityType: 'model_rule',
+    operation: 'delete',
+    payload: {},
+  },
+  {
+    name: 'model.link_rule.set',
+    entityType: 'model_relationship_rule',
+    operation: 'update',
+    payload: {},
+  },
+  {
+    name: 'model.link_rule.removed',
+    entityType: 'model_relationship_rule',
+    operation: 'delete',
+    payload: {},
+  },
+  {
+    name: 'model.version.discarded',
+    entityType: 'record_model_version',
+    operation: 'delete',
+    payload: {},
+  },
+  {
+    name: 'sheet.definition.version.published',
+    entityType: 'sheet_definition_version',
+    operation: 'update',
+    payload: { lifecycle: 'published' },
+  },
+  {
+    name: 'sheet.definition.version.retired',
+    entityType: 'sheet_definition_version',
+    operation: 'update',
+    payload: { lifecycle: 'retired' },
+  },
+  {
+    name: 'notebook.template.version.published',
+    entityType: 'notebook_template_version',
+    operation: 'update',
+    payload: { lifecycle: 'published' },
+  },
+  {
+    name: 'notebook.template.version.retired',
+    entityType: 'notebook_template_version',
+    operation: 'update',
+    payload: { lifecycle: 'retired' },
+  },
+  {
+    name: 'record.alias.added',
+    entityType: 'record_alias',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'record.alias.removed',
+    entityType: 'record_alias',
+    operation: 'delete',
+    payload: {},
+  },
+  {
+    name: 'label.template.created',
+    entityType: 'label_template',
+    operation: 'create',
+    payload: {},
+  },
+  {
+    name: 'label.template.updated',
+    entityType: 'label_template',
+    operation: 'update',
+    payload: {},
+  },
 ]
 
 describe('lab feature events', () => {

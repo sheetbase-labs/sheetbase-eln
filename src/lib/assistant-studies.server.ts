@@ -1,14 +1,20 @@
 import {
+  ANALYSIS_DEFINITION_DELETE_TOOL,
+  ANALYSIS_VIEW_DELETE_TOOL,
   PLATE_DESIGN_ARCHIVE_TOOL,
   REPORT_GENERATE_TOOL,
   STUDIES_PROPOSE_TOOL_NAMES,
   STUDY_DELIVERABLE_ADD_TOOL,
   STUDY_TASK_ADD_TOOL,
+  STUDY_TASK_DELETE_TOOL,
   STUDY_TASK_UPDATE_TOOL,
+  proposeAnalysisDefinitionDeleteSchema,
+  proposeAnalysisViewDeleteSchema,
   proposePlateDesignArchiveSchema,
   proposeReportGenerateSchema,
   proposeStudyDeliverableAddSchema,
   proposeStudyTaskAddSchema,
+  proposeStudyTaskDeleteSchema,
   proposeStudyTaskUpdateSchema,
 } from './assistant-studies'
 import type { StudiesProposeToolName } from './assistant-studies'
@@ -63,6 +69,21 @@ export function studiesProposalDefs(): ProviderToolDef[] {
       PLATE_DESIGN_ARCHIVE_TOOL,
       `Propose archiving a plate design so it no longer shows in lists. List the plate_designs area first for the name. ${NOTE}`,
       proposePlateDesignArchiveSchema,
+    ),
+    toolDef(
+      STUDY_TASK_DELETE_TOOL,
+      `Propose deleting a planner task or milestone, with its deliverables and dependencies. Deleting cannot be undone, so only propose it when the person clearly asked. List the planner_tasks area first for the name. ${NOTE}`,
+      proposeStudyTaskDeleteSchema,
+    ),
+    toolDef(
+      ANALYSIS_VIEW_DELETE_TOOL,
+      `Propose deleting one of the person’s saved analysis views. A view a notebook cites cannot be deleted. Only propose it when the person clearly asked. List the analysis_views area first for the name. ${NOTE}`,
+      proposeAnalysisViewDeleteSchema,
+    ),
+    toolDef(
+      ANALYSIS_DEFINITION_DELETE_TOOL,
+      `Propose deleting one of the person’s saved analysis definitions. Only propose it when the person clearly asked. ${NOTE}`,
+      proposeAnalysisDefinitionDeleteSchema,
     ),
   ]
 }
@@ -370,6 +391,108 @@ export async function buildStudiesProposal(
             kind: 'plate_design.archive',
             designId: design.id,
             expectedMetadataVersion: design.metadata_version,
+          },
+        },
+      }
+    }
+
+    case STUDY_TASK_DELETE_TOOL: {
+      const parsed = proposeStudyTaskDeleteSchema.safeParse(args)
+      if (!parsed.success) return fail(invalid(parsed.error))
+      const input = parsed.data
+      const found = await findTask(context, input.task)
+      if (!found.ok) return fail(found.message)
+      const task = found.value
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: `${task.title} · Planner`,
+          deepLink: taskLink(task),
+          changes: [
+            {
+              label: 'Task',
+              before: `${task.title} (${task.status})`,
+              after: 'Deleted, with its deliverables and dependencies',
+            },
+          ],
+          action: { kind: 'study.task_delete', taskId: task.id },
+        },
+      }
+    }
+
+    case ANALYSIS_VIEW_DELETE_TOOL: {
+      const parsed = proposeAnalysisViewDeleteSchema.safeParse(args)
+      if (!parsed.success) return fail(invalid(parsed.error))
+      const input = parsed.data
+      const rows = await client.list<{ id: string; name: string }>(
+        'analysis_views',
+        `?name=ilike.${likeValue(input.view)}&select=id,name&order=updated_at.desc&limit=6`,
+      )
+      const lower = input.view.trim().toLowerCase()
+      const found = pick(
+        rows,
+        input.view,
+        'analysis view',
+        (row) => row.name,
+        (row) => row.name.toLowerCase() === lower,
+      )
+      if (!found.ok) return fail(found.message)
+      const view = found.value
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: `${view.name} · Analysis`,
+          deepLink: '/analysis',
+          changes: [
+            { label: 'Analysis view', before: view.name, after: 'Deleted' },
+          ],
+          action: { kind: 'analysis_view.delete', viewId: view.id },
+        },
+      }
+    }
+
+    case ANALYSIS_DEFINITION_DELETE_TOOL: {
+      const parsed = proposeAnalysisDefinitionDeleteSchema.safeParse(args)
+      if (!parsed.success) return fail(invalid(parsed.error))
+      const input = parsed.data
+      const rows = await client.list<{ id: string; name: string }>(
+        'analysis_definitions',
+        `?name=ilike.${likeValue(input.definition)}&select=id,name&order=updated_at.desc&limit=6`,
+      )
+      const lower = input.definition.trim().toLowerCase()
+      const found = pick(
+        rows,
+        input.definition,
+        'analysis definition',
+        (row) => row.name,
+        (row) => row.name.toLowerCase() === lower,
+      )
+      if (!found.ok) return fail(found.message)
+      const definition = found.value
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: `${definition.name} · Analysis`,
+          deepLink: '/analysis',
+          changes: [
+            {
+              label: 'Analysis definition',
+              before: definition.name,
+              after: 'Deleted',
+            },
+          ],
+          action: {
+            kind: 'analysis_definition.delete',
+            definitionId: definition.id,
           },
         },
       }

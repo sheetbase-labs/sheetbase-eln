@@ -323,7 +323,7 @@ describe('ELN pipeline actions', () => {
       ).toHaveLength(2)
     })
 
-    it('refuses a list that is not rows, and an import that is too large', async () => {
+    it('refuses a list that is not rows', async () => {
       await expect(
         executePipelineActions(
           connection().conn,
@@ -332,17 +332,6 @@ describe('ELN pipeline actions', () => {
           { ...context, previous: [1, 2] as unknown as [] },
         ),
       ).rejects.toThrow('not a list of rows')
-      await expect(
-        executePipelineActions(
-          connection().conn,
-          { workspaceId, runId },
-          [loop],
-          {
-            ...context,
-            previous: Array.from({ length: 501 }, () => ({})),
-          },
-        ),
-      ).rejects.toThrow('the most is 500')
     })
 
     it('gives each row its own idempotency key and proposal', async () => {

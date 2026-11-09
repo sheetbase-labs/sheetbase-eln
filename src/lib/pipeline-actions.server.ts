@@ -3,7 +3,6 @@ import { parsePluginName } from './extensions/points'
 import { ExtensionRunError } from './extensions/runtime.server'
 import type { ExecConnection } from './pipeline-execute.server'
 import {
-  PIPELINE_ACTION_ROW_LIMIT,
   validatePipelineActions,
 } from './pipelines/actions'
 import type {
@@ -360,10 +359,6 @@ export async function executePipelineActions(
       if (!Array.isArray(rows) || !rows.every(isObject))
         throw new Error(
           `Action ${action.name} repeats for each row, but its list is not a list of rows.`,
-        )
-      if (rows.length > PIPELINE_ACTION_ROW_LIMIT)
-        throw new Error(
-          `Action ${action.name} would run for ${rows.length} rows; the most is ${PIPELINE_ACTION_ROW_LIMIT}. Split the import into smaller runs.`,
         )
       const each: unknown[] = []
       for (const [index, row] of rows.entries()) {

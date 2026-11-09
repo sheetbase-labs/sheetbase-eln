@@ -23,9 +23,6 @@ export interface PipelineAction {
   forEach?: { $ref: string }
 }
 
-/** The most rows one action may run for. A larger import is split into several runs. */
-export const PIPELINE_ACTION_ROW_LIMIT = 500
-
 /** Where a row loop may take its rows from. */
 export const PIPELINE_ACTION_ROW_SOURCES = [
   'previous',

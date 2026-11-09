@@ -118,7 +118,7 @@ export const AGENT_ACTIONS: readonly AgentActionEntry[] = Object.freeze(
   Object.entries(LAB_RPCS)
     .filter(
       ([key, rpc]) =>
-        rpc.scope === 'lab:write' &&
+        rpc.scope.endsWith(':write') &&
         !REQUEST_PLUMBING.has(key) &&
         !agentActionAlwaysNever(key),
     )

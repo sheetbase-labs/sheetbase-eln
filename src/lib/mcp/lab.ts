@@ -75,7 +75,8 @@ function describeActions(): string {
     const params = rpc.params
       .map(([p, type, required]) => `${p}${required ? '' : '?'}: ${type}`)
       .join(', ')
-    return `- ${name}(${params}): ${rpc.summary}.`
+    const needs = rpc.scope.startsWith('lab:') ? '' : ` Needs ${rpc.scope}.`
+    return `- ${name}(${params}): ${rpc.summary}.${needs}`
   }).join('\n')
 }
 
@@ -89,7 +90,7 @@ export const labActSchema = z
 export function labActTool() {
   return {
     name: LAB_ACT_TOOL_NAME,
-    description: `Run a lab action as the person this token belongs to, within what they are allowed to do. An action that changes something follows the workspace's agent permissions: it may run now, wait for a person to approve it, or be refused. Needs a personal token with lab:write (lab:read for lookups) and the workspace's "Agents can act in the lab" setting. Arguments use the p_ names of the matching API call; optional ones are marked ?. Read lab lists with sheetbase.canonical.read. Actions:\n${describeActions()}`,
+    description: `Run a lab action as the person this token belongs to, within what they are allowed to do. An action that changes something follows the workspace's agent permissions: it may run now, wait for a person to approve it, or be refused. Needs a personal token with the scope each action lists (lab:write for lab actions, lab:read for lookups) and the workspace's "Agents can act in the lab" setting. Arguments use the p_ names of the matching API call; optional ones are marked ?. Read lab lists with sheetbase.canonical.read. Actions:\n${describeActions()}`,
     inputSchema: z.toJSONSchema(labActSchema, { io: 'input' }),
     annotations: {
       title: 'Run a lab action',
@@ -101,9 +102,16 @@ export function labActTool() {
   }
 }
 
+/** Every scope an action needs, so a credential with any of them is offered the tool. */
+const ACT_SCOPES: ReadonlySet<string> = new Set(
+  Object.values(LAB_RPCS)
+    .map((rpc) => rpc.scope)
+    .filter((scope) => scope.startsWith('lab:') || scope.endsWith(':write')),
+)
+
 /** True when the credential could run at least one lab action. */
 export function hasLabActScope(scopes: readonly Scope[]): boolean {
-  return scopes.includes('lab:write') || scopes.includes('lab:read')
+  return scopes.some((scope) => ACT_SCOPES.has(scope))
 }
 
 export type LabActOutcome =
@@ -203,7 +211,7 @@ export async function runGuardedLabAct(
   if ('ok' in checked) return checked
   const { action, rpc, args } = checked
   if (
-    rpc.scope !== 'lab:write' ||
+    !rpc.scope.endsWith(':write') ||
     action === 'request_agent_action' ||
     action === 'finish_agent_action'
   ) {

@@ -2611,7 +2611,10 @@ export const RPC_CONTRACTS: Record<string, RpcContract> = {
   },
 }
 
-Object.assign(RPC_CONTRACTS, labRpcContracts())
+// Core actions that are also lab actions keep the fuller contract written here.
+for (const [name, contract] of Object.entries(labRpcContracts())) {
+  if (!Object.hasOwn(RPC_CONTRACTS, name)) RPC_CONTRACTS[name] = contract
+}
 
 const missing = Object.keys(EXTERNAL_RPC_SCOPES).filter(
   (name) => !Object.hasOwn(RPC_CONTRACTS, name),

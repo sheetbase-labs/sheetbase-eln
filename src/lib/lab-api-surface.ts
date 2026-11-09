@@ -13,6 +13,7 @@
  * can read the workspace-wide tables.
  */
 
+import type { Scope } from './api-credential-scopes'
 import {
   labRpcsFromOperations,
   paramNotesFromOperations,
@@ -59,7 +60,12 @@ export interface LabTable {
 export interface LabRpc {
   readonly summary: string
   readonly description: string
-  readonly scope: 'lab:read' | 'lab:write'
+  /**
+   * Most actions need `lab:write` (`lab:read` for a lookup). The few that
+   * were on the API before the lab surface (records, searches, webhooks,
+   * pipeline runs) keep the scope they always had.
+   */
+  readonly scope: Scope
   readonly params: readonly LabField[]
   /** `row:<table>`, `rows:<col>=<type>,…`, `list:text`, `json`, `void` or a scalar type. */
   readonly result: string
@@ -2099,6 +2105,146 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
 
 const LAB_RPCS_HAND_WRITTEN: Readonly<Record<string, LabRpc>> = {
   ...SAMPLE_LAB_RPCS,
+  // -- Core actions, so agents, plugins and MCP can do what the API can. ------
+  // These were on the API from the start under their own scopes; listing them
+  // here puts them on `sheetbase.lab.act` and in the agent permissions too.
+  archive_record: {
+    summary: 'Archive a record',
+    description:
+      'Soft-archives a record (an experiment, sample, material or any record type). `p_expected_metadata_version` is the current `records.metadata_version`. Returns the record.',
+    scope: 'projects:write',
+    params: [
+      ['p_record_id', 'uuid', 1],
+      ['p_expected_metadata_version', 'int', 1],
+    ],
+    result: 'row:records',
+  },
+  restore_record: {
+    summary: 'Restore an archived record',
+    description:
+      'Brings an archived record back. `p_expected_metadata_version` is the current `records.metadata_version`. Returns the record.',
+    scope: 'projects:write',
+    params: [
+      ['p_record_id', 'uuid', 1],
+      ['p_expected_metadata_version', 'int', 1],
+    ],
+    result: 'row:records',
+  },
+  transition_record_status: {
+    summary: 'Change a record’s status',
+    description:
+      'Moves a record to another status, such as `in_progress` or `complete`. Which moves are allowed depends on the kind of record; a move that is not allowed is refused. `p_expected_metadata_version` is the current `records.metadata_version`. Returns the record.',
+    scope: 'projects:write',
+    params: [
+      ['p_record_id', 'uuid', 1],
+      ['p_target_status', 'text', 1],
+      ['p_expected_metadata_version', 'int', 1],
+    ],
+    result: 'row:records',
+  },
+  create_record_link: {
+    summary: 'Link two records',
+    description:
+      'Links a source record to a target in the workspace. The target is named by kind and public identifier (`p_target_kind`, `p_target_identifier`), with `p_target_record_id` when it is already known. `p_link_type` says how they relate, such as `protocol`. Returns the link.',
+    scope: 'projects:write',
+    params: [
+      ['p_source_record_id', 'uuid', 1],
+      ['p_target_kind', 'text', 1],
+      ['p_target_identifier', 'text', 1],
+      ['p_link_type', 'text', 1],
+      ['p_target_record_id', 'uuid', 0],
+      ['p_label', 'text', 0],
+    ],
+    result: 'row:record_links',
+  },
+  save_search: {
+    summary: 'Save a search',
+    description:
+      'Saves a search for the person the token belongs to. `p_visibility` is `private` (default) or `workspace`. Saving the same search again replaces it. `p_arguments` takes the inputs `search` takes. Returns the saved search.',
+    scope: 'projects:write',
+    params: [
+      ['p_name', 'text', 1],
+      ['p_query', 'text', 1],
+      ['p_facets', 'json', 0],
+      ['p_visibility', 'text', 0],
+      ['p_arguments', 'json', 0],
+    ],
+    result: 'row:saved_searches',
+  },
+  update_saved_search: {
+    summary: 'Rename or share a saved search',
+    description:
+      'Renames a saved search or moves it between private and shared. Leave a field out to keep it. Returns the saved search.',
+    scope: 'projects:write',
+    params: [
+      ['p_id', 'uuid', 1],
+      ['p_name', 'text', 0],
+      ['p_visibility', 'text', 0],
+    ],
+    result: 'row:saved_searches',
+  },
+  run_saved_search: {
+    summary: 'Run a saved search',
+    description:
+      'Runs a saved search the person can see and returns its results as `search` would. `p_limit` is clamped to 1–100 (default 20).',
+    scope: 'projects:read',
+    params: [
+      ['p_id', 'uuid', 1],
+      ['p_limit', 'int', 0],
+      ['p_offset', 'int', 0],
+    ],
+    result: 'json',
+  },
+  create_webhook_subscription: {
+    summary: 'Add a webhook subscription',
+    description:
+      'Sends the chosen events to a URL (or, for `p_channel_type` `email`, to a person). `p_event_types` is a JSON array of event names; empty means all. The signing secret is in the result and is shown only once. Needs the right to manage webhooks.',
+    scope: 'webhooks:write',
+    params: [
+      ['p_workspace_id', 'uuid', 1],
+      ['p_key', 'text', 1],
+      ['p_url', 'text', 0],
+      ['p_channel_type', 'text', 0],
+      ['p_recipient_user_id', 'text', 0],
+      ['p_event_types', 'json', 0],
+      ['p_description', 'text', 0],
+      ['p_max_retries', 'int', 0],
+      ['p_failure_threshold', 'int', 0],
+      ['p_signing_secret', 'text', 0],
+      ['p_rate_limit_per_minute', 'int', 0],
+    ],
+    result: 'json',
+  },
+  update_webhook_subscription: {
+    summary: 'Change a webhook subscription',
+    description:
+      'Changes a subscription’s URL, events, description, status (`active`, `paused`, `disabled`, `archived`) or retry settings. Leave a field out to keep it. Returns the subscription.',
+    scope: 'webhooks:write',
+    params: [
+      ['p_workspace_id', 'uuid', 1],
+      ['p_subscription_id', 'uuid', 1],
+      ['p_url', 'text', 0],
+      ['p_event_types', 'json', 0],
+      ['p_description', 'text', 0],
+      ['p_status', 'text', 0],
+      ['p_max_retries', 'int', 0],
+      ['p_failure_threshold', 'int', 0],
+      ['p_rate_limit_per_minute', 'int', 0],
+    ],
+    result: 'row:webhook_subscriptions',
+  },
+  run_pipeline: {
+    summary: 'Start a pipeline run',
+    description:
+      'Starts a run of a pipeline, by its key, on its latest published version, as the person the token belongs to. `p_parameters` sets the pipeline’s parameters and `p_input_versions` maps each input name to the dataset version to read. Returns the run straight away; it is queued for a worker, and you follow it on `pipeline_runs` (its `status` goes from `running` to `succeeded`, `failed` or `waiting`). Asking again with the same parameters and inputs after a run succeeded returns that run.',
+    scope: 'pipelines:write',
+    params: [
+      ['p_pipeline_key', 'text', 1],
+      ['p_parameters', 'json', 0],
+      ['p_input_versions', 'json', 0],
+    ],
+    result: 'row:pipeline_runs',
+  },
   request_reagent_order: {
     summary: 'Request a reagent order',
     description:

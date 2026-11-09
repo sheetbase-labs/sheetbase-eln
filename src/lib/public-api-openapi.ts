@@ -205,7 +205,8 @@ function tagForTable(resource: string): string {
 }
 
 function tagForRpc(resource: string, scopes: readonly Scope[]): string {
-  if (resource in LAB_RPCS) return 'Lab'
+  if (resource in LAB_RPCS && LAB_RPCS[resource].scope.startsWith('lab:'))
+    return 'Lab'
   if (resource.includes('pipeline')) return 'Pipelines'
   if (resource.startsWith('query_dataset') || resource.includes('dataset')) {
     return 'Datasets'

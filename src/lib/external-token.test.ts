@@ -232,7 +232,7 @@ describe('requiredScopes', () => {
       'approve_parser_version',
       'query_dataset',
       'discover_object_dependencies',
-      'list_capabilities',
+      'record_cell_conflict',
       'create_and_activate_model_field',
     ]
     for (const resource of privateRpcs) {

@@ -9,6 +9,7 @@
  */
 import { AGENT_OPERATIONS } from './declarations/agent'
 import { NOTEBOOK_OPERATIONS } from './declarations/notebook'
+import { PEOPLE_OPERATIONS } from './declarations/people'
 import { PIPELINE_OPERATIONS } from './declarations/pipeline'
 import { PLANNING_OPERATIONS } from './declarations/planning'
 import {
@@ -25,6 +26,7 @@ export const CORE_OPERATIONS: readonly OperationDescriptor[] = Object.freeze([
   ...PLANNING_OPERATIONS,
   ...NOTEBOOK_OPERATIONS,
   ...AGENT_OPERATIONS,
+  ...PEOPLE_OPERATIONS,
 ])
 
 const OPERATION_NAME = /^[a-z][a-z0-9_]{0,63}$/

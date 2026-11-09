@@ -104,11 +104,15 @@ describe('API integration guard', () => {
   })
 
   it('documents every lab table and action in docs/api/lab-api.md', () => {
-    const doc = readFileSync(join(process.cwd(), 'docs/api/lab-api.md'), 'utf8')
+    const dir = join(process.cwd(), 'docs/api')
+    const doc = ['lab-api.md', 'people-api.md']
+      .map((file) => readFileSync(join(dir, file), 'utf8'))
+      .join('\n')
     for (const name of [...Object.keys(LAB_TABLES), ...Object.keys(LAB_RPCS)]) {
-      expect(doc, `${name} is missing from docs/api/lab-api.md`).toContain(
-        `\`${name}\``,
-      )
+      expect(
+        doc,
+        `${name} is missing from docs/api/lab-api.md or people-api.md`,
+      ).toContain(`\`${name}\``)
     }
   })
 

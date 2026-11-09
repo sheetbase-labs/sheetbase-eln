@@ -358,7 +358,7 @@ describe('EVENT-03 trigger configuration', () => {
         p_workspace_id: WS_A,
         p_definition_id: pipeDefByWs[WS_A],
         p_kind: 'event',
-        p_spec: { eventType: 'project.created' },
+        p_spec: { eventType: 'workspace.credential.created' },
         p_enabled: false,
       }),
     ).rejects.toMatchObject({ code: 'SB034' })

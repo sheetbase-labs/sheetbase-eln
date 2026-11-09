@@ -142,16 +142,17 @@ describe('API integration guard', () => {
     }
   })
 
-  it('documents every lab table and action in docs/api/lab-api.md', () => {
+  it('documents every lab table and action in a page of docs/api', () => {
+    // Any page: a feature documents its own in a page of its own.
     const dir = join(process.cwd(), 'docs/api')
-    const doc = ['lab-api.md', 'people-api.md']
+    const doc = readdirSync(dir)
+      .filter((file) => file.endsWith('.md'))
       .map((file) => readFileSync(join(dir, file), 'utf8'))
       .join('\n')
     for (const name of [...Object.keys(LAB_TABLES), ...Object.keys(LAB_RPCS)]) {
-      expect(
-        doc,
-        `${name} is missing from docs/api/lab-api.md or people-api.md`,
-      ).toContain(`\`${name}\``)
+      expect(doc, `${name} is missing from the pages in docs/api`).toContain(
+        `\`${name}\``,
+      )
     }
   })
 

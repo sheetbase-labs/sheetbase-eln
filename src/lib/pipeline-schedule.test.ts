@@ -111,7 +111,9 @@ describe('validateScheduleSpec', () => {
 })
 
 describe('PIPELINE_TRIGGER_EVENTS', () => {
-  it('covers exactly the stable record/dataset/sheet/notebook, storage alarm and watcher events with producers', () => {
+  it('covers exactly the stable core-family events and those marked for pipelines', () => {
+    // A feature opts an event in with `consumers.pipeline` on its catalogue
+    // entry (or by declaring it on an operation), so no list here names it.
     const expected = EVENT_CATALOGUE.filter(
       (entry) =>
         entry.status === 'stable' &&
@@ -121,27 +123,21 @@ describe('PIPELINE_TRIGGER_EVENTS', () => {
         (entry.producer.when !== undefined
           ? entry.consumers.pipeline
           : ['record', 'dataset', 'sheet', 'notebook'].includes(entry.family) ||
-            entry.name.startsWith('storage.alarm.') ||
-            entry.name === 'watcher.finding.created' ||
-            // Instrument data and run quality control start pipelines too.
-            entry.name === 'instrument.run.converted' ||
-            entry.name === 'qc.violation' ||
-            // A worklist queued for a robot and a schedule asked for.
-            entry.name === 'instrument.job.queued' ||
-            entry.name === 'schedule.proposed' ||
-            // Reports, plate designs and analysis views.
-            /^(report\.(created|updated|generated)|plate_design\.|plate_layout_template\.|analysis_view\.)/.test(
-              entry.name,
-            ) ||
-            // Protocol changes and training, and a request for approval.
-            entry.name.startsWith('protocol.') ||
-            entry.name === 'approval.requested' ||
-            // Bookings, imports, instruments, connectors and parsers, and
-            // people, access and client changes.
             entry.consumers.pipeline),
     ).map((entry) => entry.name)
     expect([...PIPELINE_TRIGGER_EVENTS].sort()).toEqual(expected.sort())
-    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(expected.length)
+    // The ones that always start pipelines, whatever else changes.
+    for (const name of [
+      'record.created',
+      'dataset.versioned',
+      'storage.alarm.raised',
+      'watcher.finding.created',
+      'instrument.run.converted',
+      'qc.violation',
+      'approval.requested',
+      'file.uploaded',
+    ])
+      expect(PIPELINE_TRIGGER_EVENTS, name).toContain(name)
   })
 
   it('normalizes every triggerable name to itself', () => {

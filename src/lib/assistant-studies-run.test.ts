@@ -4,7 +4,10 @@ import { runStudiesAction } from './assistant-studies-run'
 import type { DataClient } from './data-client'
 
 function client(answers: Record<string, unknown> = {}) {
-  const rpc = vi.fn(async (name: string) => answers[name] ?? {})
+  const rpc = vi.fn(
+    async (name: string, _args?: Record<string, unknown>) =>
+      answers[name] ?? {},
+  )
   return { client: { rpc } as unknown as DataClient, rpc }
 }
 
@@ -20,7 +23,7 @@ describe('running a planning card', () => {
       edit: { status: 'in_progress' },
       move: { dueAt: '2026-12-08T12:00:00Z', reason: 'Rerun' },
     })
-    expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+    expect(rpc.mock.calls.map((call) => call[0])).toEqual([
       'edit_study_task',
       'move_study_task_due',
     ])
@@ -81,7 +84,7 @@ describe('running a planning card', () => {
       designId: 'd1',
       expectedMetadataVersion: 2,
     })
-    expect(rpc.mock.calls.map(([name]) => name)).toEqual([
+    expect(rpc.mock.calls.map((call) => call[0])).toEqual([
       'generate_report',
       'archive_plate_design',
     ])

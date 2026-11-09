@@ -237,7 +237,8 @@ CREATE TRIGGER change_event_sample_reservations
 -- Webhook event names, and the events a pipeline may be started by
 -- ---------------------------------------------------------------------------
 INSERT INTO internal.webhook_event_names (name) VALUES
-  ('sample.edited'), ('sample.archived'), ('sample.restored'),
+  ('sample.edited'), ('sample.archived'), ('sample.restored'), ('sample.label_printed'),
+  ('storage.position.quarantined'), ('storage.position.missing'),
   ('sample.reserved'), ('sample.reservation_cancelled'),
   ('storage.site.created'), ('storage.room.created'), ('storage.unit.created'),
   ('storage.shelf.created'), ('storage.rack.created'), ('storage.box.created')
@@ -253,7 +254,7 @@ BEGIN
     RAISE EXCEPTION 'unexpected shape for api.normalize_pipeline_event_type';
   END IF;
   v_def := replace(v_def, '''watcher.finding.created''',
-    '''sample.received'', ''sample.moved'', ''sample.consumed'', ''sample.quarantined'', ''sample.released'', ''sample.disposed'', ''sample.hold_exceeded'', ''sample.edited'', ''sample.archived'', ''sample.restored'', ''sample.reserved'', ''sample.reservation_cancelled'', ''storage.placed'', ''storage.moved'', ''storage.removed'', ''storage.site.created'', ''storage.room.created'', ''storage.unit.created'', ''storage.shelf.created'', ''storage.rack.created'', ''storage.box.created'', ''watcher.finding.created''');
+    '''sample.received'', ''sample.moved'', ''sample.consumed'', ''sample.quarantined'', ''sample.released'', ''sample.disposed'', ''sample.hold_exceeded'', ''sample.edited'', ''sample.archived'', ''sample.restored'', ''sample.label_printed'', ''sample.reserved'', ''sample.reservation_cancelled'', ''storage.placed'', ''storage.moved'', ''storage.removed'', ''storage.position.quarantined'', ''storage.position.missing'', ''storage.site.created'', ''storage.room.created'', ''storage.unit.created'', ''storage.shelf.created'', ''storage.rack.created'', ''storage.box.created'', ''watcher.finding.created''');
   EXECUTE v_def;
 END $$;
 --> statement-breakpoint

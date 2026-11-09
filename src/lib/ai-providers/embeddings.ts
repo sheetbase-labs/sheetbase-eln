@@ -24,16 +24,43 @@ export interface EmbeddingResult {
 }
 
 /**
- * Pad a vector with zeros to the stored width and scale it to unit length.
- * Zero padding leaves cosine similarity unchanged, so a 768-wide local model
- * and a 1024-wide one both fit the same column. A vector wider than the column
- * cannot be shortened without losing meaning, so it is refused.
+ * Shrink a wider vector to the stored width with a fixed random projection
+ * (every output value is a signed sum of a few inputs, the same way every
+ * time). Random projection keeps the angles between vectors close to what they
+ * were, so cosine ranking holds for any model, not only ones trained to be cut
+ * short.
+ */
+function projectVector(vector: readonly number[]) {
+  const out = new Array<number>(EMBEDDING_DIMENSIONS).fill(0)
+  let state = 0x9e3779b9
+  const next = () => {
+    state = (state + 0x6d2b79f5) | 0
+    let t = Math.imul(state ^ (state >>> 15), 1 | state)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return (t ^ (t >>> 14)) >>> 0
+  }
+  for (let i = 0; i < vector.length; i += 1) {
+    for (let k = 0; k < 3; k += 1) {
+      const bits = next()
+      out[bits % EMBEDDING_DIMENSIONS] +=
+        (bits & 0x80000000 ? -1 : 1) * vector[i]
+    }
+  }
+  return out
+}
+
+/**
+ * Fit a vector to the stored width and scale it to unit length. A narrower
+ * vector is padded with zeros, which leaves cosine similarity unchanged, so a
+ * 768-wide local model and a 1024-wide one share the same column. A wider one
+ * is projected down. The column is a fixed width because the index needs one;
+ * that is the only reason it is fixed.
  */
 export function fitVector(vector: readonly number[], providerId: string) {
-  if (vector.length === 0 || vector.length > EMBEDDING_DIMENSIONS) {
+  if (vector.length === 0) {
     throw new AiProviderError(
       'response_invalid',
-      `The embedding model returned ${vector.length} values; at most ${EMBEDDING_DIMENSIONS} are supported`,
+      'The embedding model returned no values',
       { providerId },
     )
   }
@@ -48,10 +75,17 @@ export function fitVector(vector: readonly number[], providerId: string) {
     }
     norm += value * value
   }
+  let fitted: number[]
+  if (vector.length > EMBEDDING_DIMENSIONS) {
+    fitted = projectVector(vector)
+    norm = 0
+    for (const value of fitted) norm += value * value
+  } else {
+    fitted = new Array<number>(EMBEDDING_DIMENSIONS).fill(0)
+    for (let i = 0; i < vector.length; i += 1) fitted[i] = vector[i]
+  }
   const scale = norm > 0 ? 1 / Math.sqrt(norm) : 1
-  const out = new Array<number>(EMBEDDING_DIMENSIONS).fill(0)
-  for (let i = 0; i < vector.length; i += 1) out[i] = vector[i] * scale
-  return out
+  return fitted.map((value) => value * scale)
 }
 
 export function buildEmbeddingRequest(

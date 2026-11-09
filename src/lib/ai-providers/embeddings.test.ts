@@ -31,10 +31,18 @@ describe('fitVector', () => {
     expect(out[2]).toBe(0)
   })
 
-  it('refuses a vector wider than the column', () => {
-    expect(() =>
-      fitVector(new Array(EMBEDDING_DIMENSIONS + 1).fill(1), 'p'),
-    ).toThrow(/at most/)
+  it('projects a wider vector to the stored width, keeping similarity', () => {
+    const base = Array.from({ length: 3072 }, (_, i) => Math.sin(i * 0.37))
+    const near = base.map((v, i) => v + 0.05 * Math.cos(i))
+    const far = Array.from({ length: 3072 }, (_, i) => Math.cos(i * 1.91 + 1))
+    const [a, b, c] = [base, near, far].map((v) => fitVector(v, 'p'))
+    expect(a).toHaveLength(EMBEDDING_DIMENSIONS)
+    const dot = (x: number[], y: number[]) =>
+      x.reduce((sum, v, i) => sum + v * y[i], 0)
+    expect(dot(a, a)).toBeCloseTo(1)
+    expect(dot(a, b)).toBeGreaterThan(0.9)
+    expect(dot(a, b)).toBeGreaterThan(dot(a, c))
+    expect(fitVector(base, 'p')).toEqual(a)
   })
 
   it('refuses values that are not numbers', () => {

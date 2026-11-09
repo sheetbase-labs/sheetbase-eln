@@ -633,7 +633,7 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
   },
   plugin_notes: {
     summary:
-      'Notes a plugin left in someone\u2019s Inbox in answer to an event. Each person sees their own; they stay for 14 days.',
+      'Notes a plugin left in someone\u2019s Inbox in answer to an event. Each person sees their own.',
     columns: [
       ['id', 'uuid', 1],
       ['workspace_id', 'uuid', 1],

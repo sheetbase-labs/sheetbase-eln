@@ -28,9 +28,14 @@ import {
   NOTIFICATIONS_READ_TOOL,
   PROJECT_CREATE_TOOL,
   REAGENT_UPDATE_TOOL,
+  SAMPLE_ARCHIVE_TOOL,
   SAMPLE_DISPOSE_TOOL,
   SAMPLE_QUARANTINE_TOOL,
+  SAMPLE_RECEIVE_TOOL,
+  SAMPLE_RESERVATION_CANCEL_TOOL,
   SAMPLE_RESERVE_TOOL,
+  STORAGE_ADD_LOCATION_TOOL,
+  STORAGE_PLACE_TOOL,
   SHIPMENT_CANCEL_TOOL,
   UPKEEP_PROPOSE_TOOL_NAMES,
   proposeAbsenceCancelSchema,
@@ -44,9 +49,14 @@ import {
   proposeNotificationsReadSchema,
   proposeProjectCreateSchema,
   proposeReagentUpdateSchema,
+  proposeSampleArchiveSchema,
+  proposeSampleReceiveSchema,
+  proposeSampleReservationCancelSchema,
   proposeSampleReserveSchema,
   proposeSampleRetireSchema,
   proposeShipmentCancelSchema,
+  proposeStorageAddLocationSchema,
+  proposeStoragePlaceSchema,
 } from './assistant-upkeep'
 import type {
   ContractRuleInput,
@@ -140,6 +150,31 @@ export function upkeepProposalDefs(): ProviderToolDef[] {
       SAMPLE_DISPOSE_TOOL,
       `Propose recording that a sample was disposed of, with the reason. This cannot be undone, so ask first if the person has not clearly said so. ${NOTE}`,
       proposeSampleRetireSchema,
+    ),
+    toolDef(
+      SAMPLE_RECEIVE_TOOL,
+      `Propose adding stock to a sample, such as a delivery or a top-up, and where it is kept. ${NOTE}`,
+      proposeSampleReceiveSchema,
+    ),
+    toolDef(
+      SAMPLE_ARCHIVE_TOOL,
+      `Propose archiving a sample so it leaves the active list, or bringing an archived one back. Its history stays. ${NOTE}`,
+      proposeSampleArchiveSchema,
+    ),
+    toolDef(
+      SAMPLE_RESERVATION_CANCEL_TOOL,
+      `Propose cancelling the quantity held back from a sample for an experiment, so it is free again. ${NOTE}`,
+      proposeSampleReservationCancelSchema,
+    ),
+    toolDef(
+      STORAGE_PLACE_TOOL,
+      `Propose putting a sample in a position of a box (such as B4 in a named box), or taking it out of the position it is in. ${NOTE}`,
+      proposeStoragePlaceSchema,
+    ),
+    toolDef(
+      STORAGE_ADD_LOCATION_TOOL,
+      `Propose adding a site, room, freezer, shelf, rack or box to the storage tree. ${NOTE}`,
+      proposeStorageAddLocationSchema,
     ),
     toolDef(
       INSTRUMENT_LOG_TOOL,
@@ -1419,6 +1454,304 @@ export async function buildUpkeepProposal(
           expectedMetadataVersion: row.metadata_version,
           reason: input.reason.trim(),
           notes: input.notes?.trim() || null,
+        },
+      })
+    }
+
+    case SAMPLE_RECEIVE_TOOL: {
+      const parsed = parse(proposeSampleReceiveSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const sample = await findSample(client, input.sample)
+      if (!sample.ok) return fail(sample.message)
+      const row = sample.value
+      if (['disposed', 'released'].includes(row.status)) {
+        return fail(
+          `${sampleLabel(row)} is ${row.status.replaceAll('_', ' ')}, so stock cannot be added.`,
+        )
+      }
+      const { unit } = amountOf(row)
+      const changes: ProposalChange[] = [
+        { label: 'Add', before: null, after: withUnit(input.quantity, unit) },
+      ]
+      if (input.location?.trim()) {
+        changes.push({
+          label: 'Kept at',
+          before: null,
+          after: input.location.trim(),
+        })
+      }
+      return card(name, input, {
+        target: sampleLabel(row),
+        deepLink: `/records/${row.id}`,
+        changes,
+        action: {
+          kind: 'sample.receive',
+          recordId: row.id,
+          expectedMetadataVersion: row.metadata_version,
+          quantity: input.quantity,
+          unit: unit || null,
+          location: input.location?.trim() || null,
+          notes: input.notes?.trim() || null,
+        },
+      })
+    }
+
+    case SAMPLE_ARCHIVE_TOOL: {
+      const parsed = parse(proposeSampleArchiveSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      let row: SampleRow
+      if (input.archived) {
+        const sample = await findSample(client, input.sample)
+        if (!sample.ok) return fail(sample.message)
+        row = sample.value
+      } else {
+        const like = likeValue(input.sample)
+        const found = await client.list<SampleRow>(
+          'records',
+          `?kind=eq.sample&deleted_at=is.null&archived_at=not.is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title,status,metadata_version,properties&limit=6`,
+        )
+        const lower = input.sample.trim().toLowerCase()
+        const picked = pick(
+          found,
+          input.sample,
+          'archived sample',
+          (r) => `${r.identifier} ${r.title}`,
+          (r) => r.identifier.toLowerCase() === lower,
+        )
+        if (!picked.ok) return fail(picked.message)
+        row = picked.value
+      }
+      return card(name, input, {
+        target: sampleLabel(row),
+        deepLink: `/records/${row.id}`,
+        changes: [
+          {
+            label: 'Sample',
+            before: input.archived ? 'Active' : 'Archived',
+            after: input.archived ? 'Archived' : 'Active',
+          },
+        ],
+        action: {
+          kind: 'sample.archive',
+          recordId: row.id,
+          expectedMetadataVersion: row.metadata_version,
+          archived: input.archived,
+          notes: input.notes?.trim() || null,
+        },
+      })
+    }
+
+    case SAMPLE_RESERVATION_CANCEL_TOOL: {
+      const parsed = parse(proposeSampleReservationCancelSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const sample = await findSample(client, input.sample)
+      if (!sample.ok) return fail(sample.message)
+      const row = sample.value
+      const held = await client.list<{
+        id: string
+        quantity: number
+        unit: string | null
+        experiment: { identifier: string; title: string } | null
+      }>(
+        'sample_reservations',
+        `?sample_record_id=eq.${row.id}&state=eq.active&select=id,quantity,unit,experiment:records!sample_reservations_experiment_record_id_records_id_fk(identifier,title)&order=created_at.desc&limit=20`,
+      )
+      const wanted = input.experiment?.trim().toLowerCase()
+      const matching = wanted
+        ? held.filter((r) =>
+            `${r.experiment?.identifier ?? ''} ${r.experiment?.title ?? ''}`
+              .toLowerCase()
+              .includes(wanted),
+          )
+        : held
+      const picked = pick(
+        matching,
+        input.experiment ?? row.identifier,
+        'reservation',
+        (r) =>
+          `${withUnit(Number(r.quantity), r.unit ?? '')} for ${r.experiment?.identifier ?? 'an experiment'}`,
+        () => false,
+      )
+      if (!picked.ok) return fail(picked.message)
+      const reservation = picked.value
+      return card(name, input, {
+        target: sampleLabel(row),
+        deepLink: `/records/${row.id}`,
+        changes: [
+          {
+            label: 'Reservation',
+            before: `${withUnit(Number(reservation.quantity), reservation.unit ?? '')} for ${reservation.experiment?.identifier ?? 'an experiment'}`,
+            after: 'Cancelled',
+          },
+        ],
+        action: {
+          kind: 'sample.reservation_cancel',
+          reservationId: reservation.id,
+        },
+      })
+    }
+
+    case STORAGE_PLACE_TOOL: {
+      const parsed = parse(proposeStoragePlaceSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const sample = await findSample(client, input.sample)
+      if (!sample.ok) return fail(sample.message)
+      const row = sample.value
+      if (!input.box?.trim() || !input.position?.trim()) {
+        return card(name, input, {
+          target: sampleLabel(row),
+          deepLink: `/records/${row.id}`,
+          changes: [
+            {
+              label: 'Position',
+              before: 'Where it is now',
+              after: 'Taken out',
+            },
+          ],
+          action: {
+            kind: 'storage.place',
+            recordId: row.id,
+            expectedMetadataVersion: row.metadata_version,
+            positionId: null,
+            notes: input.notes?.trim() || null,
+          },
+        })
+      }
+      const boxLike = likeValue(input.box)
+      const boxes = await client.list<{
+        id: string
+        name: string
+        code: string
+      }>(
+        'storage_boxes',
+        `?archived_at=is.null&or=(name.ilike.${boxLike},code.ilike.${boxLike})&select=id,name,code&limit=6`,
+      )
+      const boxLower = input.box.trim().toLowerCase()
+      const box = pick(
+        boxes,
+        input.box,
+        'box',
+        (b) => `${b.name} (${b.code})`,
+        (b) =>
+          b.name.toLowerCase() === boxLower ||
+          b.code.toLowerCase() === boxLower,
+      )
+      if (!box.ok) return fail(box.message)
+      const positions = await client.list<{
+        id: string
+        label: string
+        status: string
+      }>(
+        'storage_positions',
+        `?box_id=eq.${box.value.id}&label=ilike.${likeValue(input.position.trim())}&select=id,label,status&limit=4`,
+      )
+      const position = positions.find(
+        (p) => p.label.toLowerCase() === input.position!.trim().toLowerCase(),
+      )
+      if (!position) {
+        return fail(
+          `Box ${box.value.name} has no position ${input.position}. Tell the person.`,
+        )
+      }
+      if (position.status !== 'available') {
+        return fail(
+          `${box.value.name} ${position.label} is ${position.status}, so a sample cannot go there. Tell the person.`,
+        )
+      }
+      return card(name, input, {
+        target: sampleLabel(row),
+        deepLink: `/records/${row.id}`,
+        changes: [
+          {
+            label: 'Position',
+            before: null,
+            after: `${box.value.name} · ${position.label}`,
+          },
+        ],
+        action: {
+          kind: 'storage.place',
+          recordId: row.id,
+          expectedMetadataVersion: row.metadata_version,
+          positionId: position.id,
+          notes: input.notes?.trim() || null,
+        },
+      })
+    }
+
+    case STORAGE_ADD_LOCATION_TOOL: {
+      const parsed = parse(proposeStorageAddLocationSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const PARENT: Record<string, string | null> = {
+        site: null,
+        room: 'storage_sites',
+        unit: 'storage_rooms',
+        shelf: 'storage_units',
+        rack: 'storage_shelves',
+        box: 'storage_racks',
+      }
+      const parentTable = PARENT[input.level]
+      let parentId: string | null = null
+      let parentName: string | null = null
+      if (parentTable) {
+        if (!input.inside?.trim()) {
+          return fail(
+            `A ${input.level} goes inside another location. Ask the person where.`,
+          )
+        }
+        const like = likeValue(input.inside)
+        const parents = await client.list<{ id: string; name: string }>(
+          parentTable,
+          `?archived_at=is.null&name=ilike.${like}&select=id,name&limit=6`,
+        )
+        const lower = input.inside.trim().toLowerCase()
+        const parent = pick(
+          parents,
+          input.inside,
+          'location',
+          (p) => p.name,
+          (p) => p.name.toLowerCase() === lower,
+        )
+        if (!parent.ok) return fail(parent.message)
+        parentId = parent.value.id
+        parentName = parent.value.name
+      }
+      if (
+        ['site', 'room', 'unit', 'box'].includes(input.level) &&
+        !input.code?.trim()
+      ) {
+        return fail(
+          `A ${input.level} needs a short code. Ask the person for one.`,
+        )
+      }
+      const changes: ProposalChange[] = [
+        {
+          label: 'Add',
+          before: null,
+          after: `${input.level}: ${input.name.trim()}`,
+        },
+      ]
+      if (parentName) {
+        changes.push({ label: 'Inside', before: null, after: parentName })
+      }
+      return card(name, input, {
+        target: input.name.trim(),
+        deepLink: '/settings/lab/storage',
+        changes,
+        action: {
+          kind: 'storage.add_location',
+          workspaceId,
+          level: input.level,
+          parentId,
+          name: input.name.trim(),
+          code: input.code?.trim() || null,
+          unitType: input.unitType ?? null,
+          rows: input.rows ?? null,
+          cols: input.cols ?? null,
         },
       })
     }

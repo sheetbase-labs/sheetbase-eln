@@ -536,6 +536,31 @@ export const notebook = {
         applying: 'Saving…',
         applied: 'Done',
       },
+      receiveSample: {
+        apply: 'Add stock',
+        applying: 'Adding…',
+        applied: 'Added',
+      },
+      archiveSample: {
+        apply: 'Save',
+        applying: 'Saving…',
+        applied: 'Saved',
+      },
+      cancelReservation: {
+        apply: 'Cancel reservation',
+        applying: 'Cancelling…',
+        applied: 'Cancelled',
+      },
+      placeSample: {
+        apply: 'Move',
+        applying: 'Moving…',
+        applied: 'Moved',
+      },
+      addLocation: {
+        apply: 'Add',
+        applying: 'Adding…',
+        applied: 'Added',
+      },
       logVisit: {
         apply: 'Add to history',
         applying: 'Saving…',

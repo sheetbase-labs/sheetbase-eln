@@ -153,8 +153,6 @@ export const NOT_EXPOSED: Readonly<Record<string, string>> = {
     'Removes one browser or phone from push notifications.',
   get_push_public_key:
     'Browser push set-up value, only used by the app itself.',
-  save_notification_preference:
-    'A person’s notification settings, changed in their own account.',
   set_display_preferences:
     'A person’s display settings, such as theme and date format.',
   set_hidden_nav_pages: 'A person’s sidebar layout.',

@@ -228,7 +228,7 @@ describe('requiredScopes', () => {
       'submit_record_revision',
       'run_revision_checks',
       'create_amendment',
-      'export_audit_log',
+      'create_sql_login',
       'approve_parser_version',
       'query_dataset',
       'discover_object_dependencies',

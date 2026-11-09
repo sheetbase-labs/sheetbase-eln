@@ -6,6 +6,7 @@
  * pipelines and webhooks.
  */
 import { WORKSPACE_LAB_TABLES } from './api-tables'
+import { WORKSPACE_EVENTS, WORKSPACE_EVENT_LABELS } from './events'
 import { WORKSPACE_NOT_EXPOSED } from './exemptions'
 import { WORKSPACE_OPERATIONS } from './operations'
 import { defineFeature } from '../define'
@@ -13,6 +14,8 @@ import { defineFeature } from '../define'
 export const feature = defineFeature({
   name: 'workspace',
   operations: WORKSPACE_OPERATIONS,
+  events: WORKSPACE_EVENTS,
+  eventLabels: WORKSPACE_EVENT_LABELS,
   labTables: WORKSPACE_LAB_TABLES,
   notExposed: WORKSPACE_NOT_EXPOSED,
   agentArea: {

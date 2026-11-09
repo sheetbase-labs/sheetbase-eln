@@ -57,7 +57,6 @@ import {
   setExtensionPointEnabled,
 } from '#/lib/extensions/client'
 import type { ExtensionWire } from '#/lib/extensions/client'
-import { PLUGIN_MAX_ARCHIVE_BYTES } from '#/lib/extensions/package'
 import {
   connectionsQueryKey,
   listConnections,
@@ -536,13 +535,6 @@ function InstallDialog({
 
   async function pick(file: File | undefined) {
     if (!file) return
-    if (file.size > PLUGIN_MAX_ARCHIVE_BYTES) {
-      setStep({
-        kind: 'problems',
-        problems: [t('plugins.admin.install.chooseHint')],
-      })
-      return
-    }
     setStep({ kind: 'reading', file: file.name })
     setTrusted(false)
     const result = await sendPlugin(file, 'check').catch(() => ({

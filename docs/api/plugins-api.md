@@ -87,8 +87,8 @@ built-in operations use):
 
 A plugin is a `.sbplugin` zip: `plugin.json`, a `python/` folder, optional
 `README.md` and `LICENSE`. `ui/` is refused (reserved). A package is bounded only
-to keep a malformed zip from exhausting the server: 2,000 files, 16 MiB each,
-64 MiB in all, 32 MiB for the zip. The same rules are checked on an author's
+to keep a malformed zip from exhausting the server: by default 2,000 files, 16 MiB each,
+64 MiB in all, 32 MiB for the zip. Each is an environment setting (`SHEETBASE_PLUGIN_MAX_FILES`, `SHEETBASE_PLUGIN_MAX_FILE_MB`, `SHEETBASE_PLUGIN_MAX_TOTAL_MB`, `SHEETBASE_PLUGIN_MAX_ARCHIVE_MB`) and `0` removes the bound. The same goes for what a connector or importer may handle: `SHEETBASE_PLUGIN_IMPORT_MAX_MB`, `SHEETBASE_PLUGIN_CONNECTOR_MAX_RESPONSE_MB`, `SHEETBASE_PLUGIN_CONNECTOR_MAX_REQUESTS` and `SHEETBASE_PLUGIN_SEARCH_MAX_DOCUMENTS`. The same rules are checked on an author's
 machine by `sheetbase-plugin validate` (see
 [Build a plugin](../development/build-a-plugin.md)) and on upload, from shared
 test cases, so they cannot drift.
@@ -356,7 +356,7 @@ called by the server itself:
 - A reaction runs when the event is first seen in a workspace that has one
   switched on (a cursor per workspace; switching one on never replays old
   events). A note is written to `api.plugin_notes` once per event, for the
-  person whose change it was, and is visible to them for 14 days.
+  person whose change it was, and stays visible to them.
 - `api.set_registry_sameness_rule`, `api.registry_sameness_matches` and
   `api.set_registry_sameness_value` keep a model's rule, find entries with the
   same key and store an entry's key. A model with a rule only takes new entries

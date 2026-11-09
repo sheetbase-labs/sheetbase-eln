@@ -16,6 +16,8 @@ import { isPlannerAction } from './assistant-planner'
 import type { PlannerAction } from './assistant-planner'
 import { isStudiesAction } from './assistant-studies'
 import type { StudiesAction } from './assistant-studies'
+import { isInstrumentsAction } from './assistant-instruments'
+import type { InstrumentsAction } from './assistant-instruments'
 import { isQcAction } from './assistant-qc'
 import type { QcAction } from './assistant-qc'
 import { isNotebookAction } from './assistant-notebook'
@@ -154,6 +156,7 @@ export type AssistantAction =
   | PlatesAction
   | QcAction
   | StudiesAction
+  | InstrumentsAction
   | AutomationAction
   | PlannerAction
   | LabworkAction
@@ -223,6 +226,11 @@ export async function runAssistantAction(
         // Planning and reporting jobs load only when a card's button is pressed.
         const { runStudiesAction } = await import('./assistant-studies-run')
         return runStudiesAction(client, action)
+      }
+      if (isInstrumentsAction(action)) {
+        const { runInstrumentsAction } =
+          await import('./assistant-instruments-run')
+        return runInstrumentsAction(client, action)
       }
       if (isQcAction(action)) {
         const { runQcAction } = await import('./assistant-qc-run')

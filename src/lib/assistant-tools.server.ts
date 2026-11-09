@@ -86,6 +86,11 @@ import {
   qcProposalDefs,
 } from './assistant-qc.server'
 import {
+  buildInstrumentsProposal,
+  instrumentsProposalDefs,
+  isInstrumentsProposalTool,
+} from './assistant-instruments.server'
+import {
   automationProposalDefs,
   buildAutomationProposal,
   isAutomationProposalTool,
@@ -347,6 +352,7 @@ export async function createAssistantToolkit(deps: {
       ...platesProposalDefs(),
       ...qcProposalDefs(),
       ...studiesProposalDefs(),
+      ...instrumentsProposalDefs(),
       ...automationProposalDefs(),
       ...plannerProposalDefs(),
       ...labworkProposalDefs(),
@@ -533,6 +539,16 @@ export async function createAssistantToolkit(deps: {
           : { text: built.message, isError: true }
       }
 
+      if (isInstrumentsProposalTool(name)) {
+        const built = await buildInstrumentsProposal(name, args, labContext)
+        return built.ok
+          ? {
+              text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
+              isError: false,
+              proposal: built.proposal,
+            }
+          : { text: built.message, isError: true }
+      }
       if (isQcProposalTool(name)) {
         const built = await buildQcProposal(name, args, labContext)
         return built.ok

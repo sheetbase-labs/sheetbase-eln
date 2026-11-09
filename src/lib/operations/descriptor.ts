@@ -221,6 +221,7 @@ const PIPELINE_TYPES: Partial<
   text: 'text',
   bool: 'boolean',
   date: 'date',
+  ts: 'timestamptz',
   int: 'integer',
   bigint: 'bigint',
   num: 'numeric',

@@ -3070,6 +3070,40 @@ export const data = {
     finishStep: 'Finish or reopen a step',
     finishStepDescription:
       'Tick a protocol step as done, or reopen it, with an optional note. Records who finished it and when.',
+    addInstrument: 'Add an instrument',
+    addInstrumentDescription:
+      'Add an instrument to the workspace. Needs the right to manage instruments.',
+    retireInstrument: 'Retire an instrument, or bring it back',
+    retireInstrumentDescription:
+      'A retired instrument cannot be booked or used for new runs; its history stays.',
+    calibrateInstrument: 'Record a calibration',
+    calibrateInstrumentDescription:
+      'Record that an instrument was calibrated and when the next calibration is due.',
+    qualifyOnInstrument: 'Qualify a person on an instrument',
+    qualifyOnInstrumentDescription:
+      'Say a person may use an instrument until a date. Needs the right to manage instruments.',
+    removeQualification: 'Take away a qualification',
+    removeQualificationDescription:
+      'End a person’s qualification on an instrument.',
+    bookInstrument: 'Book an instrument',
+    bookInstrumentDescription:
+      'Book an instrument or room for a time, as the person the pipeline runs as. Its booking rules and training checks apply.',
+    cancelBooking: 'Cancel a booking',
+    cancelBookingDescription: 'Cancel a booking; it stays on record.',
+    startRunRecord: 'Start recording an instrument run',
+    startRunRecordDescription:
+      'Record a new run on an instrument, waiting to start.',
+    markRunRunning: 'Mark an instrument run as running',
+    markRunRunningDescription: 'Move a queued instrument run to running.',
+    markRunCompleted: 'Mark an instrument run as completed',
+    markRunCompletedDescription:
+      'Finish an instrument run. Pipelines that start when a run completes will run.',
+    markRunFailed: 'Mark an instrument run as failed',
+    markRunFailedDescription:
+      'End an instrument run as failed, with what went wrong.',
+    linkRunToRecord: 'Link a run to an experiment',
+    linkRunToRecordDescription:
+      'Say which experiment or record an instrument run belongs to.',
     finishPart: 'Finish or reopen a part',
     finishPartDescription:
       'Mark a part of an experiment that has no steps as done, or reopen it. A part with steps is done when its steps are.',

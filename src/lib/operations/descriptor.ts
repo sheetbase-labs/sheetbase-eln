@@ -24,6 +24,7 @@
  * This module is browser safe and imports no application code at runtime, so
  * the surfaces it feeds can all import it without a cycle.
  */
+import type { Scope } from '../api-credential-scopes'
 import type { EventCatalogueEntry, EventFamily } from '../event-catalogue'
 import type { LabField, LabRpc, LabType } from '../lab-api-surface'
 import type {
@@ -33,22 +34,8 @@ import type {
 } from '../pipelines/actions'
 
 /** The token scopes an operation can need. */
-export type OperationScope =
-  | 'lab:read'
-  | 'lab:write'
-  | 'pipelines:read'
-  | 'pipelines:write'
-  | 'admin:read'
-  | 'admin:write'
-  | 'schema:read'
-  | 'schema:write'
-  | 'schema:publish'
-  | 'sheets:read'
-  | 'sheets:write'
-  | 'models:write'
-  | 'projects:read'
-  | 'projects:write'
-  | 'reviews:read'
+/** Any token scope; `*:read` marks a lookup. */
+export type OperationScope = Scope
 
 /** Input types, the same vocabulary the lab API and OpenAPI use. */
 export type OperationInputType = LabType
@@ -121,10 +108,12 @@ export interface OperationDescriptor {
   /** `write` changes something; `read` only looks. */
   kind: 'read' | 'write'
   /**
-   * The token scope that may run it. Defaults from `kind`. Pipelines and
-   * plugins keep the scopes their tables are read with.
+   * The token scope that may run it. Defaults from `kind` to `lab:read` or
+   * `lab:write`; dataset and measurement-table operations name their own
+   * (`datasets:*`, `schema:write`, `schema:publish`). A `*:read` scope must
+   * go with `kind: 'read'`.
    */
-  scope?: OperationScope
+  scope?: Scope
   inputs: readonly OperationInput[]
   /**
    * What it returns: `row:<table>`, `rows:<col>=<type>,…`, `list:text`,
@@ -179,7 +168,7 @@ export const input = (
 export const operationRpc = (op: OperationDescriptor): string =>
   op.rpc ?? op.name
 
-export const operationScope = (op: OperationDescriptor): OperationScope =>
+export const operationScope = (op: OperationDescriptor): Scope =>
   op.scope ?? (op.kind === 'read' ? 'lab:read' : 'lab:write')
 
 export const operationPresentation = (

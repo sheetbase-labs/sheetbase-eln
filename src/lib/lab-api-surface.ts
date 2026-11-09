@@ -50,6 +50,9 @@ export type LabType =
 /** name, type, required (not null / no default). */
 export type LabField = readonly [name: string, type: LabType, required: 0 | 1]
 
+/** Whether a scope lets a call change something (anything but `*:read`). */
+export const isWriteScope = (scope: Scope): boolean => !scope.endsWith(':read')
+
 export interface LabTable {
   readonly summary: string
   /** Personal tokens only: the rows are one person's own, or a view service credentials cannot read. */

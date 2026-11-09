@@ -7,7 +7,7 @@
  * Pure: shared by the screen host (to ask the person) and the server (to check
  * again before anything runs).
  */
-import { LAB_RPCS } from '../lab-api-surface'
+import { isWriteScope, LAB_RPCS } from '../lab-api-surface'
 import type { LabRpc } from '../lab-api-surface'
 import { argumentSchema, summariseArguments } from '../mcp/lab'
 
@@ -45,7 +45,7 @@ export function checkAppAction(
     action,
     rpc,
     args: parsed.data,
-    writes: rpc.scope.endsWith(':write'),
+    writes: isWriteScope(rpc.scope),
     summary: `${rpc.summary}${summariseArguments(parsed.data)}`.slice(0, 500),
   }
 }

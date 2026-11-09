@@ -55,6 +55,10 @@ export function validateOperation(op: OperationDescriptor): string[] {
       errors.push(`${op.name}: input ${field.name} is not a unique name`)
     seen.add(field.name)
   }
+  if (op.scope && op.scope.endsWith(':read') !== (op.kind === 'read'))
+    errors.push(
+      `${op.name}: a read needs a :read scope, a write one that is not`,
+    )
   if (
     op.assistant &&
     op.assistant.presentation === 'answer' &&

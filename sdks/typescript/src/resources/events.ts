@@ -297,6 +297,12 @@ export const EVENT_NAMES = [
   'analysis_view.created',
   'analysis_view.updated',
   'analysis_view.deleted',
+  'model.created',
+  'model.updated',
+  'model.field.created',
+  'model.field.updated',
+  'model.version.created',
+  'model.version.published',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]

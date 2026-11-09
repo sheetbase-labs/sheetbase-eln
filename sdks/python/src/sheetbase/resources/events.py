@@ -304,6 +304,12 @@ EVENT_NAMES: tuple[str, ...] = (
     "analysis_view.created",
     "analysis_view.updated",
     "analysis_view.deleted",
+    "model.created",
+    "model.updated",
+    "model.field.created",
+    "model.field.updated",
+    "model.version.created",
+    "model.version.published",
 )
 
 #: Shipped wire aliases (table-name leaks kept for compatibility) mapped to

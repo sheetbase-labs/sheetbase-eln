@@ -3567,6 +3567,99 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     consumers: webhookSsePipeline,
     notes: 'Payload is the version row.',
   },
+  {
+    name: 'model.created',
+    family: 'administration',
+    summary: 'A record type (a model) was added to the workspace.',
+    producer: {
+      entityType: 'record_model',
+      operation: 'create',
+    },
+    wireName: 'model.created',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries key, name, identifierPrefix and lifecycle.',
+  },
+  {
+    name: 'model.updated',
+    family: 'administration',
+    summary: 'The name, description or switches of a record type were changed.',
+    producer: {
+      entityType: 'record_model',
+      operation: 'update',
+    },
+    wireName: 'model.updated',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries key, name, lifecycle and changes (each changed column as { from, to }).',
+  },
+  {
+    name: 'model.field.created',
+    family: 'administration',
+    summary: 'A field was added to a record type.',
+    producer: {
+      entityType: 'record_field_definition',
+      operation: 'create',
+      when: { key: 'change', equals: 'definition' },
+    },
+    wireName: 'model.field.created',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries kind (the key of the record type), fieldName, label, logicalType, lifecycle and changes.',
+  },
+  {
+    name: 'model.field.updated',
+    family: 'administration',
+    summary: 'A field of a record type was changed or retired.',
+    producer: {
+      entityType: 'record_field_definition',
+      operation: 'update',
+      when: { key: 'change', equals: 'definition' },
+    },
+    wireName: 'model.field.updated',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries kind (the key of the record type), fieldName, label, lifecycle and changes (each changed column as { from, to }). Spec-limit changes are not part of this event.',
+  },
+  {
+    name: 'model.version.created',
+    family: 'administration',
+    summary: 'A new draft version of a record type was started.',
+    producer: {
+      entityType: 'record_model_version',
+      operation: 'create',
+    },
+    wireName: 'model.version.created',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries modelId and version.',
+  },
+  {
+    name: 'model.version.published',
+    family: 'administration',
+    summary: 'A version of a record type was published; its fields are now the live ones.',
+    producer: {
+      entityType: 'record_model_version',
+      operation: 'update',
+      when: { key: 'effect', equals: 'published' },
+    },
+    wireName: 'model.version.published',
+    status: 'stable',
+    introducedIn: 'lab-01',
+    consumers: webhookSsePipeline,
+    notes:
+      'Payload carries modelId and version.',
+  },
   // -- declared with their operations (`#/lib/operations`) ---------------
   ...eventEntriesFrom(CORE_OPERATIONS, webhookSsePipeline),
 ])
@@ -3863,6 +3956,12 @@ const EVENT_LABELS: Readonly<Record<string, string>> = Object.freeze({
   'experiment.part_countersigned': 'A part of an experiment is countersigned',
   'experiment.part_amended':
     'A signed part of an experiment is reopened to amend it',
+  'model.created': 'A record type is added',
+  'model.updated': 'A record type is changed',
+  'model.field.created': 'A field is added to a record type',
+  'model.field.updated': 'A field of a record type is changed',
+  'model.version.created': 'A new version of a record type is started',
+  'model.version.published': 'A version of a record type is published',
 })
 
 /**

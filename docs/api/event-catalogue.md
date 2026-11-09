@@ -170,6 +170,21 @@ are also pipeline trigger events (they sit in the `record` family, like `record.
 Booking rules, calendar feeds, step timers, solution preparation and display
 settings are personal or configuration changes and are not events.
 
+### Record types and their fields (`stable`, webhook, SSE and pipeline triggers)
+
+| Event                     | Produced by                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------------- |
+| `model.created`           | `record_model` + `create`                                                             |
+| `model.updated`           | `record_model` + `update`; `changes` lists each changed column as `{ from, to }`      |
+| `model.field.created`     | `record_field_definition` + `create`                                                  |
+| `model.field.updated`     | `record_field_definition` + `update` (`change` = `definition`); also retiring a field |
+| `model.version.created`   | `record_model_version` + `create`                                                     |
+| `model.version.published` | `record_model_version` + `update` (`effect` = `published`)                            |
+
+Fields carry `kind` (the key of the record type), `fieldName`, `label`, `logicalType`
+and `lifecycle`. Every way of changing a type fires them: the settings page, the API,
+the assistant and plugins. Changing a field's spec limits is not part of these events.
+
 ### Orders, prices, rates and scheduled reports (`stable`, webhook and SSE)
 
 | Event                                               | Produced by                                         |

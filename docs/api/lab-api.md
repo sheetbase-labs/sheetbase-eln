@@ -9,10 +9,32 @@ the **Lab** tag.
 
 ## Scopes and tokens
 
-| Scope       | Lets you                                         |
-| ----------- | ------------------------------------------------ |
-| `lab:read`  | Read the tables below, and call the lookup RPCs. |
-| `lab:write` | Call the action RPCs below.                      |
+| Scope                               | Lets you                                                                                                                                                                                                 |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `instruments`                       | An instrument: its name, type, model, serial number, where it is, who owns it, whether it is retired or out of service, and how its data arrives (`intake_method`).                                      |
+| `calendar_resources`                | Something that can be booked on the calendar, such as an instrument or a room.                                                                                                                           |
+| `calendar_bookings`                 | A booking of an instrument or other resource. `status` is `tentative`, `confirmed` or `cancelled`; times are UTC instants with the booking’s own time zone beside them.                                  |
+| `calendar_booking_participants`     | A person on a booking.                                                                                                                                                                                   |
+| `calendar_booking_samples`          | A sample a booking is for, with the amount.                                                                                                                                                              |
+| `instrument_runs`                   | A run on an instrument. `status` goes `queued`, `running`, then `completed`, `failed` or `cancelled`.                                                                                                    |
+| `instrument_run_stages`             | A stage of an instrument run (for example a PCR step), with its progress.                                                                                                                                |
+| `instrument_run_links`              | The experiments and records a run is linked to.                                                                                                                                                          |
+| `instrument_observations`           | A reading an instrument sent during a run, as the instrument reported it.                                                                                                                                |
+| `instrument_calibrations`           | A calibration of an instrument: when it was done, when the next is due and any notes.                                                                                                                    |
+| `instrument_qualifications`         | A person qualified to use an instrument, and until when.                                                                                                                                                 |
+| `instrument_qualification_requests` | A person’s request to be qualified on an instrument, and whether it is still open.                                                                                                                       |
+| `instrument_qc_checks`              | A check the run’s data was put through, and what it found.                                                                                                                                               |
+| `instrument_plate_snapshots`        | The wells of a plate at one moment of a run.                                                                                                                                                             |
+| `dataset_imports`                   | An import of instrument or file data into a dataset: which dataset version it made, which parser read it and what was imported.                                                                          |
+| `parsers`                           | A way of reading an instrument’s files into rows.                                                                                                                                                        |
+| `parser_versions`                   | A version of a parser. `status` is `draft`, `approved` or `retired`; regulated datasets only take approved versions.                                                                                     |
+| `parser_mappings`                   | How a parser’s columns map onto a dataset or model’s fields.                                                                                                                                             |
+| `connectors`                        | A connector that brings data in from, or sends it to, another system. Its `config` holds only non-secret settings.                                                                                       |
+| `connector_runs`                    | One run of a connector: how it started, whether it worked and what it did.                                                                                                                               |
+| `calendar_feeds`                    | Your calendar subscription links: what each covers (`scope`), the label, when it was last used and whether it is revoked. The link itself is never kept; it comes back once from `create_calendar_feed`. |
+| `connector_run_logs`                | The log lines of a connector run.                                                                                                                                                                        |
+| `lab:read`                          | Read the tables below, and call the lookup RPCs.                                                                                                                                                         |
+| `lab:write`                         | Call the action RPCs below.                                                                                                                                                                              |
 
 - **Reads** work with a service credential (it sees the whole workspace) or a
   personal token (it sees what that person sees). Step timers, follows, the
@@ -2824,3 +2846,573 @@ and `sheetbase.file.read` carry small files as text or base64. Uploads send
 `file.uploaded` and `file.version.added`; quarantining and restoring send
 `file.quarantined` and `file.restored`. Deleting a file stays with a person in
 the app.
+
+### `create_instrument`
+
+Add an instrument. Adds an instrument to the workspace. Needs permission to manage instruments. Returns the instrument. Sends `instrument.created`.
+
+Scope: `lab:write`.
+
+| Argument            | Type |                                                                                   |
+| ------------------- | ---- | --------------------------------------------------------------------------------- |
+| `p_workspace_id` *  | uuid | Your workspace id.                                                                |
+| `p_name` *          | text | Name.                                                                             |
+| `p_instrument_type` | text | Kind of instrument: `qpcr`, `sequencer`, `spectrophotometer` or `other`.          |
+| `p_model`           | text | Model name.                                                                       |
+| `p_serial_number`   | text | Serial number.                                                                    |
+| `p_vendor`          | text | The instrument software the file came from.                                       |
+| `p_location`        | text | Where it is.                                                                      |
+| `p_owner_id`        | text | The person who looks after it.                                                    |
+| `p_config`          | json | JSON analysis settings: normalisation, hit rule, QC limits and curve model.       |
+| `p_position`        | int  | Where it sits in the series. Omit for the end.                                    |
+| `p_intake_method`   | text | How its data arrives: `filedrop` (a folder agent), `webhook`, `manual` or `none`. |
+
+### `set_instrument_retired`
+
+Retire an instrument, or bring it back. A retired instrument cannot be booked or used for new runs; its history stays. Needs permission to manage instruments. Sends `instrument.retired` or `instrument.reinstated`.
+
+Scope: `lab:write`.
+
+| Argument            | Type |                                                        |
+| ------------------- | ---- | ------------------------------------------------------ |
+| `p_instrument_id` * | uuid | Instrument id.                                         |
+| `p_retired` *       | bool | `true` retires the instrument, `false` brings it back. |
+
+### `record_instrument_calibration`
+
+Record a calibration. Records that an instrument was calibrated and when the next calibration is due. Sends `instrument.calibrated`.
+
+Scope: `lab:write`.
+
+| Argument                | Type |                                                         |
+| ----------------------- | ---- | ------------------------------------------------------- |
+| `p_instrument_id` *     | uuid | Instrument id.                                          |
+| `p_performed_at` *      | ts   | When the calibration was done.                          |
+| `p_due_at` *            | ts   | When it is wanted by (an ISO date and time). Optional.  |
+| `p_certificate_file_id` | uuid | A file already in Sheetbase that holds the certificate. |
+| `p_notes`               | text | Notes.                                                  |
+
+### `set_instrument_qualification`
+
+Qualify a person on an instrument. Says a person may use an instrument until a date. Needs permission to manage instruments. Sends `instrument.qualification_set`.
+
+Scope: `lab:write`.
+
+| Argument            | Type |                                           |
+| ------------------- | ---- | ----------------------------------------- |
+| `p_instrument_id` * | uuid | Instrument id.                            |
+| `p_user_id` *       | text | The person (their user id).               |
+| `p_valid_until` *   | ts   | When the qualification ends.              |
+| `p_qualified_for`   | text | What the person is qualified to do on it. |
+
+### `revoke_instrument_qualification`
+
+Take a person’s qualification away. Ends a person’s qualification on an instrument. Sends `instrument.qualification_revoked`.
+
+Scope: `lab:write`.
+
+| Argument            | Type |                             |
+| ------------------- | ---- | --------------------------- |
+| `p_instrument_id` * | uuid | Instrument id.              |
+| `p_user_id` *       | text | The person (their user id). |
+
+### `request_instrument_qualification`
+
+Ask to be qualified on an instrument. Adds a request for the caller to be qualified. Sends `instrument.qualification_requested`.
+
+Scope: `lab:write`.
+
+| Argument            | Type |                |
+| ------------------- | ---- | -------------- |
+| `p_instrument_id` * | uuid | Instrument id. |
+| `p_note`            | text | A note.        |
+
+### `dismiss_instrument_qualification_request`
+
+Dismiss a qualification request. Closes the request without qualifying the person.
+
+Scope: `lab:write`.
+
+| Argument         | Type |                           |
+| ---------------- | ---- | ------------------------- |
+| `p_request_id` * | uuid | Qualification request id. |
+
+### `instrument_qualification_list`
+
+List who is qualified on an instrument. Each person with a qualification: until when, whether it is current and what for.
+
+Scope: `lab:read`.
+
+| Argument            | Type |                |
+| ------------------- | ---- | -------------- |
+| `p_instrument_id` * | uuid | Instrument id. |
+
+### `instrument_history`
+
+The history of an instrument. Renames, moves and qualification changes of an instrument, newest first.
+
+Scope: `lab:read`.
+
+| Argument            | Type |                |
+| ------------------- | ---- | -------------- |
+| `p_instrument_id` * | uuid | Instrument id. |
+
+### `update_instrument_connection`
+
+Report whether an instrument is connected. Sets the connection status and when it last connected.
+
+Scope: `lab:write`.
+
+| Argument                | Type |                                                            |
+| ----------------------- | ---- | ---------------------------------------------------------- |
+| `p_workspace_id` *      | uuid | Your workspace id.                                         |
+| `p_instrument_id` *     | uuid | Instrument id.                                             |
+| `p_connection_status` * | text | Connection status: `connected`, `disconnected` or `error`. |
+| `p_last_connected_at`   | ts   | When it last connected.                                    |
+
+### `set_instrument_intake_method`
+
+Choose how an instrument’s data arrives. Sets who writes the instrument’s data into Sheetbase. Needs permission to manage instruments.
+
+Scope: `lab:write`.
+
+| Argument            | Type |                                                                                   |
+| ------------------- | ---- | --------------------------------------------------------------------------------- |
+| `p_instrument_id` * | uuid | Instrument id.                                                                    |
+| `p_intake_method` * | text | How its data arrives: `filedrop` (a folder agent), `webhook`, `manual` or `none`. |
+
+### `set_instrument_gate_mode`
+
+Choose what happens when someone books without training. Workspace setting: `off`, `warn` or `block` for people who book an instrument they are not trained or qualified on. Returns the workspace settings.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                          |
+| ------------------ | ---- | ---------------------------------------- |
+| `p_workspace_id` * | uuid | Your workspace id.                       |
+| `p_mode` *         | text | `stamp` (well to well) or `cherry_pick`. |
+
+### `create_calendar_resource`
+
+Add something that can be booked. Adds a bookable resource, such as an instrument, a room or a bench. Needs permission to manage instruments.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                   |
+| ------------------ | ---- | ------------------------------------------------- |
+| `p_workspace_id` * | uuid | Your workspace id.                                |
+| `p_name` *         | text | Name.                                             |
+| `p_code` *         | text | Short code the resource goes by.                  |
+| `p_resource_type`  | text | Kind of resource, such as `instrument` or `room`. |
+| `p_location`       | text | Where it is.                                      |
+| `p_capacity`       | int  | How many can use it at once.                      |
+| `p_timezone`       | text | IANA time zone, such as `Europe/London`.          |
+| `p_project_id`     | uuid | Project id.                                       |
+| `p_metadata`       | json | JSON metadata.                                    |
+
+### `create_booking`
+
+Book an instrument. Books a resource for a time. Checks the instrument’s booking rules, training and anything already booked, as the person the token belongs to. Sends `booking.created`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                                                            |
+| ------------------------------- | ---- | ------------------------------------------------------------------------------------------ |
+| `p_workspace_id` *              | uuid | Your workspace id.                                                                         |
+| `p_resource_id` *               | uuid | The instrument to book.                                                                    |
+| `p_title` *                     | text | Title.                                                                                     |
+| `p_starts_at` *                 | ts   | Start, as a timestamp.                                                                     |
+| `p_ends_at` *                   | ts   | End, as a timestamp.                                                                       |
+| `p_timezone`                    | text | IANA time zone, such as `Europe/London`.                                                   |
+| `p_status`                      | text | New status.                                                                                |
+| `p_all_day`                     | bool | Whole-day booking.                                                                         |
+| `p_location`                    | text | Where it is.                                                                               |
+| `p_color`                       | text | Colour on the calendar.                                                                    |
+| `p_notes`                       | text | Notes.                                                                                     |
+| `p_project_id`                  | uuid | Project id.                                                                                |
+| `p_linked_experiment_record_id` | uuid | The experiment the booking is for.                                                         |
+| `p_participants`                | json | JSON array of `{ userId, displayName, role }` for the people on the booking.               |
+| `p_samples`                     | json | JSON array of `{ sampleRecordId, quantityValue, quantityUnit }` for the samples it is for. |
+
+### `edit_booking`
+
+Change a booking. Moves or edits a booking. Leave a parameter out to keep what it is. Sends `booking.updated`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type |                                                                                            |
+| ------------------------------- | ---- | ------------------------------------------------------------------------------------------ |
+| `p_booking_id` *                | uuid | Booking id.                                                                                |
+| `p_title`                       | text | Title.                                                                                     |
+| `p_starts_at`                   | ts   | Start, as a timestamp.                                                                     |
+| `p_ends_at`                     | ts   | End, as a timestamp.                                                                       |
+| `p_timezone`                    | text | IANA time zone, such as `Europe/London`.                                                   |
+| `p_status`                      | text | New status.                                                                                |
+| `p_all_day`                     | bool | Whole-day booking.                                                                         |
+| `p_location`                    | text | Where it is.                                                                               |
+| `p_color`                       | text | Colour on the calendar.                                                                    |
+| `p_notes`                       | text | Notes.                                                                                     |
+| `p_project_id`                  | uuid | Project id.                                                                                |
+| `p_linked_experiment_record_id` | uuid | The experiment the booking is for.                                                         |
+| `p_participants`                | json | JSON array of `{ userId, displayName, role }` for the people on the booking.               |
+| `p_samples`                     | json | JSON array of `{ sampleRecordId, quantityValue, quantityUnit }` for the samples it is for. |
+| `p_expected_metadata_version`   | int  | The `metadata_version` last read; refused if it moved.                                     |
+
+### `cancel_booking`
+
+Cancel a booking. Cancels a booking; it stays on record. Sends `booking.cancelled`.
+
+Scope: `lab:write`.
+
+| Argument                      | Type |                                                        |
+| ----------------------------- | ---- | ------------------------------------------------------ |
+| `p_booking_id` *              | uuid | Booking id.                                            |
+| `p_expected_metadata_version` | int  | The `metadata_version` last read; refused if it moved. |
+
+### `duplicate_booking`
+
+Copy a booking to another time. Makes a new booking like an existing one. Sends `booking.created`.
+
+Scope: `lab:write`.
+
+| Argument         | Type |                        |
+| ---------------- | ---- | ---------------------- |
+| `p_booking_id` * | uuid | Booking id.            |
+| `p_starts_at` *  | ts   | Start, as a timestamp. |
+| `p_ends_at` *    | ts   | End, as a timestamp.   |
+| `p_title`        | text | Title.                 |
+
+### `create_instrument_run`
+
+Start recording a run on an instrument. Creates a run in `queued`. Sends `instrument.run.created`.
+
+Scope: `lab:write`.
+
+| Argument                       | Type   |                                                                                       |
+| ------------------------------ | ------ | ------------------------------------------------------------------------------------- |
+| `p_workspace_id` *             | uuid   | Your workspace id.                                                                    |
+| `p_name` *                     | text   | Name.                                                                                 |
+| `p_run_identifier` *           | text   | The run’s own number or barcode.                                                      |
+| `p_instrument_id` *            | uuid   | Instrument id.                                                                        |
+| `p_protocol_name`              | text   | Name of the protocol or method the run follows.                                       |
+| `p_project_id`                 | uuid   | Project id.                                                                           |
+| `p_plate_format`               | text   | Plate format of the run.                                                              |
+| `p_operator`                   | text   | Who is running it.                                                                    |
+| `p_estimated_duration_seconds` | int    | How long it should take.                                                              |
+| `p_tags`                       | text[] | Tags.                                                                                 |
+| `p_stages`                     | json   | JSON array of the run’s stages: `{ name, stageType, cycleCount, targetTemperature }`. |
+
+### `start_instrument_run`
+
+Mark a run as running. Moves a queued run to `running`.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                  |
+| ------------------ | ---- | ------------------------------------------------ |
+| `p_workspace_id` * | uuid | Your workspace id.                               |
+| `p_run_id` *       | uuid | Run id: the workflow run, or the instrument run. |
+
+### `complete_instrument_run`
+
+Mark a run as completed. Finishes a run. Sends `instrument.run.completed`, which can start a pipeline.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                  |
+| ------------------ | ---- | ------------------------------------------------ |
+| `p_workspace_id` * | uuid | Your workspace id.                               |
+| `p_run_id` *       | uuid | Run id: the workflow run, or the instrument run. |
+
+### `fail_instrument_run`
+
+Mark a run as failed. Ends a run as failed. Sends `instrument.run.failed`.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                  |
+| ------------------ | ---- | ------------------------------------------------ |
+| `p_workspace_id` * | uuid | Your workspace id.                               |
+| `p_run_id` *       | uuid | Run id: the workflow run, or the instrument run. |
+| `p_error_message`  | text | What went wrong.                                 |
+
+### `link_run_record`
+
+Link a run to an experiment or record. Says which experiment or record a run belongs to.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                                  |
+| ---------------------- | ---- | ------------------------------------------------ |
+| `p_workspace_id` *     | uuid | Your workspace id.                               |
+| `p_run_id` *           | uuid | Run id: the workflow run, or the instrument run. |
+| `p_linked_record_id` * | uuid | The record to link.                              |
+| `p_link_type`          | text | How it is linked, such as `experiment`.          |
+
+### `ingest_observation`
+
+Send a reading from a run. Adds one reading the instrument reported during a run.
+
+Scope: `lab:write`.
+
+| Argument               | Type |                                                  |
+| ---------------------- | ---- | ------------------------------------------------ |
+| `p_workspace_id` *     | uuid | Your workspace id.                               |
+| `p_run_id` *           | uuid | Run id: the workflow run, or the instrument run. |
+| `p_source_id` *        | text | The instrument’s own id for the reading.         |
+| `p_observation_type` * | text | Kind of reading.                                 |
+| `p_source_timestamp` * | ts   | When the instrument took it.                     |
+| `p_payload`            | json |                                                  |
+| `p_stage_id`           | uuid | Stage of the run it belongs to.                  |
+
+### `record_run_sample_results`
+
+Record per-sample results for a run. Attaches each sample’s result to the run.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                  |
+| ------------------ | ---- | ------------------------------------------------ |
+| `p_workspace_id` * | uuid | Your workspace id.                               |
+| `p_run_id` *       | uuid | Run id: the workflow run, or the instrument run. |
+| `p_results` *      | json | JSON array of `{ item_id, received, note }`.     |
+
+### `dataset_import_list`
+
+List the imports into a dataset. Each import: what read it, when and what came in.
+
+Scope: `lab:read`.
+
+| Argument         | Type |             |
+| ---------------- | ---- | ----------- |
+| `p_dataset_id` * | uuid | Dataset id. |
+
+### `preview_dataset_import_rows`
+
+Check rows before importing them. Runs the dataset’s checks over the rows and reports problems. Writes nothing.
+
+Scope: `lab:read`.
+
+| Argument             | Type |                                           |
+| -------------------- | ---- | ----------------------------------------- |
+| `p_dataset_id` *     | uuid | Dataset id.                               |
+| `p_rows` *           | json | JSON array of rows about to be committed. |
+| `p_control_field_id` | uuid | Field that tells controls from samples.   |
+| `p_control_pattern`  | text | Pattern that marks a control.             |
+
+### `commit_dataset_import`
+
+Import rows into a dataset. Commits parsed rows as a new dataset version, with a receipt. Over the API the rows arrive on a running connector run (`start_connector_run`) rather than an uploaded file, and `p_source_provenance` carries the source’s `checksum`. Regulated datasets need an approved parser version. Sends `import.committed`.
+
+Scope: `lab:write`.
+
+| Argument                        | Type   |                                                                                 |
+| ------------------------------- | ------ | ------------------------------------------------------------------------------- |
+| `p_dataset_id` *                | uuid   | Dataset id.                                                                     |
+| `p_expected_dataset_revision` * | bigint | The dataset revision the rows were prepared against.                            |
+| `p_rows` *                      | json   | JSON array of rows about to be committed.                                       |
+| `p_idempotency_key` *           | text   | Sending the same key again returns the first result instead of importing twice. |
+| `p_file_id`                     | uuid   | Import file id.                                                                 |
+| `p_mapping` *                   | json   | JSON mapping from the source’s columns to fields.                               |
+| `p_outcome` *                   | json   | JSON summary of how the file was read.                                          |
+| `p_parser_id`                   | uuid   | Parser id.                                                                      |
+| `p_parser_version_id`           | uuid   | Parser version id.                                                              |
+| `p_experiment_record_id`        | uuid   | The experiment the data belongs to.                                             |
+| `p_instrument_id`               | uuid   | Instrument id.                                                                  |
+| `p_connector_run_id`            | uuid   | The running connector run the data came in on.                                  |
+| `p_source_provenance`           | json   | JSON describing where the data came from, with its `checksum`.                  |
+
+### `import_scientific_rows`
+
+Import rows into a scientific table. Imports rows into a table, with a duplicate strategy.
+
+Scope: `lab:write`.
+
+| Argument                      | Type |                                                            |
+| ----------------------------- | ---- | ---------------------------------------------------------- |
+| `p_table_id` *                | uuid | Table id.                                                  |
+| `p_expected_schema_version` * | int  | The table schema version you read.                         |
+| `p_file` *                    | json |                                                            |
+| `p_mappings` *                | json |                                                            |
+| `p_rows` *                    | json | JSON array of rows about to be committed.                  |
+| `p_duplicate_strategy`        | text | What to do with rows already there, such as `reject_file`. |
+
+### `request_parser_update`
+
+Ask for a parser to be updated for a file. Marks an import file as needing a new parser version.
+
+Scope: `lab:write`.
+
+| Argument      | Type |                 |
+| ------------- | ---- | --------------- |
+| `p_file_id` * | uuid | Import file id. |
+
+### `create_parser_version`
+
+Add a parser version. Adds a draft version of a parser. Approving it for regulated data is a person’s act in the app and is not offered here.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                                           |
+| ------------------ | ---- | ------------------------------------------------------------------------- |
+| `p_workspace_id` * | uuid | Your workspace id.                                                        |
+| `p_key` *          | text | A short unique key.                                                       |
+| `p_name` *         | text | Name.                                                                     |
+| `p_format` *       | text | Plate format, such as `96_well` or `384_well`; or a worklist file format. |
+| `p_version` *      | int  | Version number.                                                           |
+| `p_signature` *    | json | JSON description of the files the parser reads.                           |
+| `p_mapping`        | json | JSON mapping from the source’s columns to fields.                         |
+| `p_instrument_id`  | uuid | Instrument id.                                                            |
+
+### `create_calendar_feed`
+
+Make a calendar subscription link. Makes a link a calendar app can subscribe to: `mine` (your bookings), `instrument` (one instrument, give `p_resource_id`) or `all`. The link secret comes back once as `token` and is not kept, so store it. Up to 20 live links per person.
+
+Scope: `lab:write`.
+
+| Argument        | Type |                                                             |
+| --------------- | ---- | ----------------------------------------------------------- |
+| `p_scope` *     | text | What a calendar link covers: `mine`, `instrument` or `all`. |
+| `p_resource_id` | uuid | The instrument to book.                                     |
+| `p_label`       | text | What was measured.                                          |
+
+### `revoke_calendar_feed`
+
+Revoke a calendar subscription link. Stops one of your calendar links working. `p_feed_id` is the id of the link from `calendar_feeds`.
+
+Scope: `lab:write`.
+
+| Argument      | Type |                     |
+| ------------- | ---- | ------------------- |
+| `p_feed_id` * | uuid | Instrument feed id. |
+
+### `create_converter_parser`
+
+Add a parser that uses a vendor converter. Adds a parser that reads an instrument’s files with a built-in vendor converter. Needs integrations access.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                     |
+| ------------------ | ---- | ------------------- |
+| `p_workspace_id` * | uuid | Workspace id.       |
+| `p_key` *          | text | A short unique key. |
+| `p_name` *         | text | Name.               |
+| `p_format` *       | text | File format.        |
+| `p_version` *      | int  | Version number.     |
+| `p_vendor` *       | text | Maker.              |
+| `p_instrument_id`  | uuid | Instrument id.      |
+
+### `create_webhook_parser`
+
+Add a parser that is an address elsewhere. Adds a parser that sends files to an outside http or https address to be read. Needs integrations access.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                           |
+| ------------------ | ---- | ------------------------- |
+| `p_workspace_id` * | uuid | Workspace id.             |
+| `p_key` *          | text | A short unique key.       |
+| `p_name` *         | text | Name.                     |
+| `p_format` *       | text | File format.              |
+| `p_version` *      | int  | Version number.           |
+| `p_url` *          | text | An http or https address. |
+| `p_instrument_id`  | uuid | Instrument id.            |
+
+### `save_parser_mapping`
+
+Save how a parser maps to a model. Saves the mapping a parser uses for a target.
+
+Scope: `lab:write`.
+
+| Argument         | Type |                                                   |
+| ---------------- | ---- | ------------------------------------------------- |
+| `p_parser_id` *  | uuid | Parser id.                                        |
+| `p_target_key` * | text | The model or dataset the mapping is for.          |
+| `p_mapping` *    | json | JSON mapping from the source’s columns to fields. |
+
+### `register_connector`
+
+Add a connector. Adds a connector to bring data in from another system. `config` holds non-secret settings only.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                                                |
+| ------------------ | ---- | ------------------------------------------------------------------------------ |
+| `p_workspace_id` * | uuid | Your workspace id.                                                             |
+| `p_key` *          | text | A short unique key.                                                            |
+| `p_name` *         | text | Name.                                                                          |
+| `p_connector_type` | text | Kind of connector: `instrument`, `storage`, `webhook`, `database` or `custom`. |
+| `p_direction`      | text | `inbound` or `outbound`.                                                       |
+| `p_config`         | json | JSON analysis settings: normalisation, hit rule, QC limits and curve model.    |
+| `p_parser_id`      | text | Parser id.                                                                     |
+
+### `update_connector`
+
+Change, pause or archive a connector. Changes a connector’s name, status (`active`, `paused`, `archived`), settings or parser. `config` replaces the old settings as a whole.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                                             |
+| ------------------ | ---- | --------------------------------------------------------------------------- |
+| `p_workspace_id` * | uuid | Your workspace id.                                                          |
+| `p_connector_id` * | uuid | Connector id.                                                               |
+| `p_name`           | text | Name.                                                                       |
+| `p_status`         | text | New status.                                                                 |
+| `p_config`         | json | JSON analysis settings: normalisation, hit rule, QC limits and curve model. |
+| `p_parser_id`      | text | Parser id.                                                                  |
+| `p_clear_parser`   | bool | `true` removes the connector’s parser.                                      |
+
+### `start_connector_run`
+
+Start a connector run. Opens a run that data can be imported on. Finish it with `complete_connector_run` or `fail_connector_run`.
+
+Scope: `lab:write`.
+
+| Argument            | Type |                                               |
+| ------------------- | ---- | --------------------------------------------- |
+| `p_workspace_id` *  | uuid | Your workspace id.                            |
+| `p_connector_id` *  | uuid | Connector id.                                 |
+| `p_trigger_kind`    | text | `manual`, `scheduled` or `event`.             |
+| `p_request_digest`  | text | Fingerprint of the request, for safe retries. |
+| `p_retry_of_run_id` | uuid | The run this retries.                         |
+| `p_selector_digest` | text | Fingerprint of what the run will read.        |
+
+### `complete_connector_run`
+
+Finish a connector run. Marks the run as having worked, with its result.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                  |
+| ------------------ | ---- | ------------------------------------------------ |
+| `p_workspace_id` * | uuid | Your workspace id.                               |
+| `p_run_id` *       | uuid | Run id: the workflow run, or the instrument run. |
+| `p_result`         | json | JSON result.                                     |
+
+### `fail_connector_run`
+
+Mark a connector run as failed. Ends the run with an error.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                  |
+| ------------------ | ---- | ------------------------------------------------ |
+| `p_workspace_id` * | uuid | Your workspace id.                               |
+| `p_run_id` *       | uuid | Run id: the workflow run, or the instrument run. |
+| `p_error_code` *   | text | Short error code.                                |
+| `p_error_message`  | text | What went wrong.                                 |
+
+### `append_connector_run_log`
+
+Add a line to a connector run’s log. Appends a log line.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                  |
+| ------------------ | ---- | ------------------------------------------------ |
+| `p_workspace_id` * | uuid | Your workspace id.                               |
+| `p_run_id` *       | uuid | Run id: the workflow run, or the instrument run. |
+| `p_level` *        | text | `debug`, `info`, `warn` or `error`.              |
+| `p_stage` *        | text | Stage of the run.                                |
+| `p_message` *      | text | Message.                                         |
+| `p_detail`         | json | JSON detail.                                     |

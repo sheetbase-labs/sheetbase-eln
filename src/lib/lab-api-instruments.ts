@@ -5,10 +5,8 @@
  * these in, so every surface reads one list).
  *
  * Left out on purpose, each with its reason in `integration-exemptions.ts`:
- * approving a parser version (an attestation), subscription links to the
- * calendar and the converter and webhook parsers (they hand out or hold
- * secrets and have their own admin routes), uploading import files (file
- * uploads), and the folder agent's own calls.
+ * approving a parser version (an attestation), uploading import files (file
+ * uploads) and the folder agent's own calls.
  */
 import type { LabRpc, LabTable } from './lab-api-surface'
 
@@ -394,6 +392,22 @@ export const INSTRUMENT_TABLES: Readonly<Record<string, LabTable>> = {
       ['selector_digest', 'text', 0],
     ],
   },
+  calendar_feeds: {
+    summary:
+      'Your calendar subscription links: what each covers (`scope`), the label, when it was last used and whether it is revoked. The link itself is never kept; it comes back once from `create_calendar_feed`.',
+    personal: true,
+    columns: [
+      ['id', 'uuid', 1],
+      ['workspace_id', 'uuid', 1],
+      ['user_id', 'text', 1],
+      ['scope', 'text', 1],
+      ['resource_id', 'uuid', 0],
+      ['label', 'text', 0],
+      ['created_at', 'ts', 1],
+      ['last_used_at', 'ts', 0],
+      ['revoked_at', 'ts', 0],
+    ],
+  },
   connector_run_logs: {
     summary: 'The log lines of a connector run.',
     columns: [
@@ -490,6 +504,8 @@ export const INSTRUMENT_PARAM_NOTES: Readonly<Record<string, string>> = {
   p_key: 'A short unique key.',
   p_format: 'File format, such as `csv`.',
   p_version: 'Version number.',
+  p_scope: 'What a calendar link covers: `mine`, `instrument` or `all`.',
+  p_url: 'An http or https address.',
   p_signature: 'JSON description of the files the parser reads.',
   p_target_key: 'The model or dataset the mapping is for.',
   p_connector_id: 'Connector id.',
@@ -908,6 +924,58 @@ export const INSTRUMENT_RPCS: Readonly<Record<string, LabRpc>> = {
       ['p_version', 'int', 1],
       ['p_signature', 'json', 1],
       ['p_mapping', 'json', 0],
+      ['p_instrument_id', 'uuid', 0],
+    ],
+    result: 'json',
+  },
+  create_calendar_feed: {
+    summary: 'Make a calendar subscription link',
+    description:
+      'Makes a link a calendar app can subscribe to: `mine` (your bookings), `instrument` (one instrument, give `p_resource_id`) or `all`. The link secret comes back once as `token` and is not kept, so store it. Up to 20 live links per person.',
+    scope: write,
+    params: [
+      ['p_scope', 'text', 1],
+      ['p_resource_id', 'uuid', 0],
+      ['p_label', 'text', 0],
+    ],
+    result: 'json',
+  },
+  revoke_calendar_feed: {
+    summary: 'Revoke a calendar subscription link',
+    description:
+      'Stops one of your calendar links working. `p_feed_id` is the id of the link from `calendar_feeds`.',
+    scope: write,
+    params: [['p_feed_id', 'uuid', 1]],
+    result: 'void',
+  },
+  create_converter_parser: {
+    summary: 'Add a parser that uses a vendor converter',
+    description:
+      'Adds a parser that reads an instrument’s files with a built-in vendor converter. Needs integrations access.',
+    scope: write,
+    params: [
+      ['p_workspace_id', 'uuid', 1],
+      ['p_key', 'text', 1],
+      ['p_name', 'text', 1],
+      ['p_format', 'text', 1],
+      ['p_version', 'int', 1],
+      ['p_vendor', 'text', 1],
+      ['p_instrument_id', 'uuid', 0],
+    ],
+    result: 'json',
+  },
+  create_webhook_parser: {
+    summary: 'Add a parser that is an address elsewhere',
+    description:
+      'Adds a parser that sends files to an outside http or https address to be read. Needs integrations access.',
+    scope: write,
+    params: [
+      ['p_workspace_id', 'uuid', 1],
+      ['p_key', 'text', 1],
+      ['p_name', 'text', 1],
+      ['p_format', 'text', 1],
+      ['p_version', 'int', 1],
+      ['p_url', 'text', 1],
       ['p_instrument_id', 'uuid', 0],
     ],
     result: 'json',

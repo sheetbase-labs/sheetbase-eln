@@ -439,8 +439,7 @@ a repeat made by editing is not caught.
 
 **Event reactions** run when something happens (see the event catalogue for
 names). They answer the same way a hook that runs after a save does (see below):
-notes go to the Inbox of the person whose change set them off and stay for 14
-days, and they can also write a summary, add search entries, raise flags, ask for
+notes go to the Inbox of the person whose change set them off and stay until they deal with them, and they can also write a summary, add search entries, raise flags, ask for
 sign-offs and change fields on records. A plugin's own changes never set
 reactions or hooks off again.
 
@@ -561,8 +560,8 @@ plugin off until an administrator has looked at it again.
 ## Limits
 
 None that are yours to plan around. A package is checked for size only so a
-malformed zip can't exhaust the server (2,000 files, 16 MiB each, 64 MiB in all, 32
-MiB zipped), and declarations are bounded far above what a real plugin has (1,000
+malformed zip can't exhaust the server (by default 2,000 files, 16 MiB each, 64 MiB in all, 32
+MiB zipped; an administrator changes or removes each with `SHEETBASE_PLUGIN_MAX_FILES`, `_MAX_FILE_MB`, `_MAX_TOTAL_MB` and `_MAX_ARCHIVE_MB`, where `0` means no bound), and declarations are bounded far above what a real plugin has (1,000
 per point, 500 fields each). How much one call may use is the administrator's
 setting per plugin (see above), not a limit of the platform. What a deployment
 has to provide for packages and hosts is in

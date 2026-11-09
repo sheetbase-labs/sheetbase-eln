@@ -31,6 +31,7 @@ import {
 import type { ExtensionRuntimeDeps, ResolvedInstall } from './runtime.server'
 import type { DataItemPoint } from './runner-points'
 import { INDEX_NAME_RE, afterAnswer, beforeAnswer } from './hook-answers'
+import { pluginLimit } from './limits'
 import type { AfterAnswer, BeforeAnswer, RecordSnapshot } from './hook-answers'
 import type {
   ExtensionCheckDeclaration,
@@ -52,13 +53,21 @@ import type {
 
 type Row = Record<string, unknown>
 
-export const IMPORT_MAX_CONTENT_BYTES = 6 * 1024 * 1024
+export const IMPORT_MAX_CONTENT_BYTES =
+  pluginLimit('SHEETBASE_PLUGIN_IMPORT_MAX_MB', 6) * 1024 * 1024
 export const PREVIEW_MAX_ROWS = 200
 export const PREVIEW_MAX_TEXT = 20_000
-export const SEARCH_MAX_DOCUMENTS = 5_000
+export const SEARCH_MAX_DOCUMENTS = pluginLimit(
+  'SHEETBASE_PLUGIN_SEARCH_MAX_DOCUMENTS',
+  5_000,
+)
 export const SEARCH_MAX_HITS = 100
-export const CONNECTOR_MAX_REQUESTS = 20
-export const CONNECTOR_MAX_RESPONSE_BYTES = 5 * 1024 * 1024
+export const CONNECTOR_MAX_REQUESTS = pluginLimit(
+  'SHEETBASE_PLUGIN_CONNECTOR_MAX_REQUESTS',
+  20,
+)
+export const CONNECTOR_MAX_RESPONSE_BYTES =
+  pluginLimit('SHEETBASE_PLUGIN_CONNECTOR_MAX_RESPONSE_MB', 5) * 1024 * 1024
 export const CONNECTOR_TIMEOUT_MS = 30_000
 
 interface Caller {

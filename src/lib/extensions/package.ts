@@ -27,6 +27,7 @@ import { validateExtensionManifest } from './manifest'
 import type { ExtensionManifest } from './manifest'
 import { EXTENSION_ENTRY_RE, EXTENSION_SWITCH_POINTS } from './points'
 import { PLUGIN_UI_ENTRY_RE } from './hooks'
+import { pluginLimit } from './limits'
 import { parsePythonDeclaration } from './runtime-config'
 
 /**
@@ -35,11 +36,15 @@ import { parsePythonDeclaration } from './runtime-config'
  * plugin's runtime limits (time, memory, data) are separate, per-plugin
  * settings.
  */
-export const PLUGIN_MAX_FILES = 2000
-export const PLUGIN_MAX_FILE_BYTES = 16 * 1024 * 1024
-export const PLUGIN_MAX_TOTAL_BYTES = 64 * 1024 * 1024
+const MIB = 1024 * 1024
+export const PLUGIN_MAX_FILES = pluginLimit('SHEETBASE_PLUGIN_MAX_FILES', 2000)
+export const PLUGIN_MAX_FILE_BYTES =
+  pluginLimit('SHEETBASE_PLUGIN_MAX_FILE_MB', 16) * MIB
+export const PLUGIN_MAX_TOTAL_BYTES =
+  pluginLimit('SHEETBASE_PLUGIN_MAX_TOTAL_MB', 64) * MIB
 /** The zip itself. */
-export const PLUGIN_MAX_ARCHIVE_BYTES = 32 * 1024 * 1024
+export const PLUGIN_MAX_ARCHIVE_BYTES =
+  pluginLimit('SHEETBASE_PLUGIN_MAX_ARCHIVE_MB', 32) * MIB
 
 const ROOT_FILES = [
   'plugin.json',

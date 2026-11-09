@@ -63,6 +63,11 @@ import {
   platesProposalDefs,
 } from './assistant-plates.server'
 import {
+  buildStudiesProposal,
+  isStudiesProposalTool,
+  studiesProposalDefs,
+} from './assistant-studies.server'
+import {
   buildQcProposal,
   isQcProposalTool,
   qcProposalDefs,
@@ -325,6 +330,7 @@ export async function createAssistantToolkit(deps: {
       ...upkeepProposalDefs(),
       ...platesProposalDefs(),
       ...qcProposalDefs(),
+      ...studiesProposalDefs(),
       ...automationProposalDefs(),
       ...plannerProposalDefs(),
       ...labworkProposalDefs(),
@@ -475,6 +481,17 @@ export async function createAssistantToolkit(deps: {
 
       if (isPlannerProposalTool(name)) {
         const built = await buildPlannerProposal(name, args, labContext)
+        return built.ok
+          ? {
+              text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
+              isError: false,
+              proposal: built.proposal,
+            }
+          : { text: built.message, isError: true }
+      }
+
+      if (isStudiesProposalTool(name)) {
+        const built = await buildStudiesProposal(name, args, labContext)
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',

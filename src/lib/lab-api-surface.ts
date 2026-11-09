@@ -54,6 +54,8 @@ export interface LabTable {
   readonly summary: string
   /** Personal tokens only: the rows are one person's own, or a view service credentials cannot read. */
   readonly personal?: true
+  /** The scope that reads it, when not `lab:read` (pipelines, plugins). */
+  readonly scope?: Scope
   readonly columns: readonly LabField[]
 }
 

@@ -165,9 +165,12 @@ export function labRpcContracts(): Record<string, LabRpcContract> {
 }
 
 /** Table access (scope) for the lab tables, for EXTERNAL_TABLE_ACCESS. */
-export const LAB_TABLE_ACCESS: Record<string, { read: 'lab:read' }> =
+export const LAB_TABLE_ACCESS: Record<string, { read: Scope }> =
   Object.fromEntries(
-    Object.keys(LAB_TABLES).map((t) => [t, { read: 'lab:read' }]),
+    Object.entries(LAB_TABLES).map(([t, def]) => [
+      t,
+      { read: def.scope ?? 'lab:read' },
+    ]),
   )
 
 /** RPC scopes for the lab RPCs, for EXTERNAL_RPC_SCOPES. */

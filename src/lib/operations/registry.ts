@@ -9,6 +9,7 @@
  */
 import { AGENT_OPERATIONS } from './declarations/agent'
 import { PIPELINE_OPERATIONS } from './declarations/pipeline'
+import { PLANNING_OPERATIONS } from './declarations/planning'
 import {
   assistantToolsFrom,
   operationRpc,
@@ -20,6 +21,7 @@ import type { PipelineActionDefinition } from '../pipelines/actions'
 /** The operations that ship with Sheetbase, in declaration order. */
 export const CORE_OPERATIONS: readonly OperationDescriptor[] = Object.freeze([
   ...PIPELINE_OPERATIONS,
+  ...PLANNING_OPERATIONS,
   ...AGENT_OPERATIONS,
 ])
 

@@ -508,4 +508,62 @@ describe('ELN pipeline actions', () => {
       ),
     ).rejects.toThrow('Invalid p_done')
   })
+
+  describe('planning actions', () => {
+    it('fills in the workspace itself and binds a due date as a timestamp', async () => {
+      const { conn, query } = connection([{ id: runId }])
+      await executePipelineActions(
+        conn,
+        { workspaceId, runId },
+        [
+          {
+            name: 'task',
+            operation: 'create_study_task',
+            arguments: {
+              p_title: 'Submit the data',
+              p_due_at: '2026-12-01T12:00:00Z',
+            },
+          },
+        ],
+        context,
+      )
+      const calls = query.mock.calls.filter(([sql]) =>
+        sql.startsWith('SELECT to_jsonb'),
+      )
+      expect(calls[0][0]).toContain('p_workspace_id => $1::uuid')
+      expect(calls[0][0]).toContain('p_due_at => $3::timestamptz')
+      expect(calls[0][1]).toEqual([
+        workspaceId,
+        'Submit the data',
+        '2026-12-01T12:00:00Z',
+      ])
+    })
+
+    it('refuses a workspace the step supplies, and a date that is not one', async () => {
+      expect(
+        validatePipelineActions([
+          {
+            name: 'task',
+            operation: 'create_study_task',
+            arguments: { p_title: 'x', p_workspace_id: workspaceId },
+          },
+        ]),
+      ).not.toEqual([])
+      const { conn } = connection()
+      await expect(
+        executePipelineActions(
+          conn,
+          { workspaceId, runId },
+          [
+            {
+              name: 'task',
+              operation: 'create_study_task',
+              arguments: { p_title: 'x', p_due_at: 'next Tuesday' },
+            },
+          ],
+          context,
+        ),
+      ).rejects.toThrow('Invalid p_due_at')
+    })
+  })
 })

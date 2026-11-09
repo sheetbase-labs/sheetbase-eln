@@ -174,7 +174,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'project.created',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'project.updated',
@@ -184,7 +184,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'project.updated',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'project.deleted',
@@ -194,7 +194,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'project.deleted',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'project.archived',
@@ -204,7 +204,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'project.archived',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   {
     name: 'project.restored',
@@ -214,7 +214,7 @@ export const EVENT_CATALOGUE: readonly EventCatalogueEntry[] = Object.freeze([
     wireName: 'project.restored',
     status: 'stable',
     introducedIn: 'api-06',
-    consumers: webhookSse,
+    consumers: webhookSsePipeline,
   },
   // -- record ---------------------------------------------------------------
   {
@@ -3676,11 +3676,6 @@ export const INTENTIONALLY_EXCLUDED: readonly ExcludedProducer[] =
       operation: 'update',
       reason:
         'Version rows are append-only snapshots; lifecycle transitions are read from the latest version, not update events.',
-    },
-    {
-      entityType: 'folder',
-      operation: '*',
-      reason: 'Project-hierarchy churn stays on SSE/live sync.',
     },
     {
       entityType: 'block',

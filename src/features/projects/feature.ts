@@ -4,12 +4,15 @@
  * webhooks.
  */
 import { PROJECTS_LAB_TABLES } from './api-tables'
+import { PROJECTS_EVENTS, PROJECTS_EVENT_LABELS } from './events'
 import { PROJECTS_OPERATIONS } from './operations'
 import { defineFeature } from '../define'
 
 export const feature = defineFeature({
   name: 'projects',
   operations: PROJECTS_OPERATIONS,
+  events: PROJECTS_EVENTS,
+  eventLabels: PROJECTS_EVENT_LABELS,
   labTables: PROJECTS_LAB_TABLES,
   agentArea: {
     area: 'Projects, folders and audit',

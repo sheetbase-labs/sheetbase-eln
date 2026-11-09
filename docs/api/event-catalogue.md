@@ -277,7 +277,7 @@ See [`pipelines.md`](../subsystems/pipelines.md) for the trigger model
 ### Administration (`stable` for projects, `provisional` for the rest, SSE only for provisional)
 
 `project.created` / `project.updated` / `project.deleted` / `project.archived` /
-`project.restored` (`stable`, webhook-surfaced),
+`project.restored` (`stable`, webhook-surfaced and pipeline triggers),
 `workspace.invitation.created` / `.updated` / `.deleted`,
 `workspace.settings.created` / `.updated`,
 `project.access.granted` / `.updated` / `.revoked`,
@@ -298,6 +298,18 @@ metadata only, never secrets).
 `ai.eval.completed` (a Checks run finished, with how many passed) and
 `watcher.finding.created` (a watcher found something; payload carries the
 finding kind, title and record, and starts a pipeline set to that event).
+
+### Folders, the audit check and SQL logins (`stable`, webhook and SSE)
+
+| Event                                                  | Produced by                                                                                                           |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `folder.created` / `folder.updated` / `folder.deleted` | `folder` + `create` / `update` / `delete`. Pipeline triggers.                                                         |
+| `folder.items_moved`                                   | `folder` + `move` (datasets, sheets, analysis views or pipelines filed). Pipeline trigger.                            |
+| `audit.verified`                                       | `system` + `create`, from the nightly check or `run_audit_verification`; `ok` false when it failed. Pipeline trigger. |
+| `sql_login.created` / `sql_login.revoked`              | `api_credential` + `create` / `revoke` with `kind` `sql_login`. Never carries the password.                           |
+
+A record that changes project or folder produces `record.moved` (`record` +
+`move`), with `fromProjectId` when it changed project.
 
 ### People and sign-in (`stable`, webhook and SSE)
 
@@ -394,7 +406,7 @@ Every event below, and the booking, import and `instrument.run.*` events above, 
 
 Present in `change_events` but not stable events: `dataset`/`sheet_instance`/
 `sheet_definition`/`notebook_template` deletes, `*_version` lifecycle-update
-rows, `folder`/`block`/`record_link` live-sync churn,
+rows, `block`/`record_link` live-sync churn,
 booking deletes, and
 `webhook_subscription`/`webhook_delivery` self-observation (delivery
 machinery must not fan out to itself). The full closed list with reasons is

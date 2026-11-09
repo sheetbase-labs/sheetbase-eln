@@ -51,8 +51,8 @@ describe('mapEventType', () => {
   })
 
   it('returns null for unmapped entity types', () => {
-    expect(mapEventType('folder', 'create')).toBeNull()
-    expect(mapEventType('folder', 'update')).toBeNull()
+    expect(mapEventType('block', 'create')).toBeNull()
+    expect(mapEventType('record_link', 'update')).toBeNull()
   })
 
   it('returns null for unmapped operations', () => {

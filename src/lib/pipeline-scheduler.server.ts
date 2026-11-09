@@ -542,6 +542,26 @@ async function sweepEventSchedule(
                    AND di.instrument_id = $6::uuid))
           AND ($7::text IS NULL OR payload->>$7::text = $8::text)
           AND ($9::text IS NULL OR payload->>$9::text IS DISTINCT FROM $10::text)
+          -- A run event never starts its own pipeline again, directly or
+          -- through other pipelines it started: the chain of runs that led to
+          -- this one (each started by the run event before it) must not
+          -- include this schedule's pipeline, or it would loop for ever.
+          AND (api.change_events.entity_type <> 'pipeline_run' OR NOT EXISTS (
+                WITH RECURSIVE chain(run_id, depth) AS (
+                  SELECT api.change_events.entity_uuid, 0
+                  UNION ALL
+                  SELECT parent.entity_uuid, chain.depth + 1
+                    FROM chain
+                    JOIN api.pipeline_runs r ON r.id = chain.run_id
+                    JOIN api.change_events parent
+                      ON r.trigger_occurrence_id = 'evt:' || parent.id::text
+                     AND parent.entity_type = 'pipeline_run'
+                   WHERE chain.depth < 50)
+                SELECT 1 FROM chain
+                  JOIN api.pipeline_runs r ON r.id = chain.run_id
+                  JOIN api.pipeline_definition_versions v
+                    ON v.id = r.definition_version_id
+                 WHERE v.definition_id = $11::uuid))
         ORDER BY sequence
         LIMIT ${MAX_EVENTS_PER_SWEEP}`,
       [
@@ -555,6 +575,7 @@ async function sweepEventSchedule(
         producer.when?.equals ?? null,
         producer.when?.notEquals !== undefined ? producer.when.key : null,
         producer.when?.notEquals ?? null,
+        locked.definition_id,
       ],
     )
     // Only `dataset.versioned` supplies an input version (the created

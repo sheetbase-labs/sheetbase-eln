@@ -252,24 +252,50 @@ The full results are on the `validation_runs` resource; see
 findings of each check are on the `data_contract_runs` resource; see
 [`data-contracts-api.md`](data-contracts-api.md).
 
-### Pipeline (`provisional`, SSE only)
+### Pipeline (`stable`, webhooks and pipeline triggers)
 
-`pipeline.created` / `pipeline.updated` / `pipeline.deleted`
-(from `pipeline_definition`),
-`pipeline.version.created` / `pipeline.version.updated`
-(from `pipeline_definition_version`; publish/retire arrive as `updated`),
-`pipeline.run.created` / `pipeline.run.updated`
-(from `pipeline_run`; fine-grained outcomes live in the run rows),
-`pipeline.schedule.created` / `pipeline.schedule.updated`
-(from `pipeline_schedule`),
-`pipeline.run.reproduced` (from `pipeline_reproduction`; stable, delivered to webhooks),
+| Event                        | Produced from                                                   | Payload (the row)                                                                                |
+| ---------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `pipeline.created`           | `pipeline_definition` + `create`                                | `id`, `key`, `name`, `description`, `lifecycle`                                                  |
+| `pipeline.updated`           | `pipeline_definition` + `update`                                | the same; `lifecycle` is `active` or `retired`                                                   |
+| `pipeline.deleted`           | `pipeline_definition` + `delete`                                | the same                                                                                         |
+| `pipeline.version.created`   | `pipeline_definition_version` + `create`                        | `id`, `definition_id`, `version`, `lifecycle`, `configuration`                                   |
+| `pipeline.version.published` | `pipeline_definition_version` + `update`, `lifecycle=published` | the same                                                                                         |
+| `pipeline.version.retired`   | `pipeline_definition_version` + `update`, `lifecycle=retired`   | the same                                                                                         |
+| `pipeline.version.updated`   | `pipeline_definition_version` + `update` (a draft changed)      | the same                                                                                         |
+| `pipeline.run.created`       | `pipeline_run` + `create`                                       | `id`, `definition_version_id`, `trigger_kind`, `retry_of_run_id`, `parameters`, `input_versions` |
+| `pipeline.run.succeeded`     | `pipeline_run` + `update`, `status=succeeded`                   | the run, with `result` (`rowCount`, output dataset and version)                                  |
+| `pipeline.run.failed`        | `pipeline_run` + `update`, `status=failed`                      | the run, with `error_code` and `error_message`                                                   |
+| `pipeline.run.cancelled`     | `pipeline_run` + `update`, `status=cancelled`                   | the run                                                                                          |
+| `pipeline.run.waiting`       | `pipeline_run` + `update`, `status=waiting`                     | the run; the prompt is on `pipeline_run_prompts` and a person answers it in the app              |
+| `pipeline.run.updated`       | `pipeline_run` + `update` (it resumed)                          | the run                                                                                          |
+| `pipeline.schedule.created`  | `pipeline_schedule` + `create`                                  | `id`, `definition_id`, `kind`, `spec`, `enabled`                                                 |
+| `pipeline.schedule.updated`  | `pipeline_schedule` + `update`                                  | the same; bookkeeping (next and last run times) sends nothing                                    |
+| `pipeline.schedule.deleted`  | `pipeline_schedule` + `delete`                                  | the same                                                                                         |
+
+`pipeline.run.completed` is sent by the pipeline engine itself when a run
+finishes, to subscriptions that ask for it.
+`pipeline.run.reproduced` (from `pipeline_reproduction`; stable, delivered to
+webhooks, not a trigger),
 `lineage.endpoint.created` / `lineage.endpoint.updated` / `lineage.delivery_failed`
 (from `lineage_target`; the last two are stable and delivered to webhooks).
 
-Pipeline lifecycle events are intentionally not pipeline triggers (triggers
-must not fan out to themselves). The triggerable set is the stable
-record/dataset/sheet/review events above — pinned in code by
-`PIPELINE_TRIGGER_EVENTS` (`src/lib/pipeline-schedule.ts`).
+Every event above can start a pipeline. A run event never starts its own
+pipeline again, directly or through other pipelines it started: the scheduler
+follows the chain of runs back (each started by the run event before it) and
+skips the event when this pipeline is in it. So "run B when A succeeds" works,
+and so does A then B then C, but A then B then A does not loop. The triggerable
+set is pinned in code by `PIPELINE_TRIGGER_EVENTS` (`src/lib/pipeline-schedule.ts`).
+
+### Plugins (`stable`, webhooks and pipeline triggers)
+
+`extension.installed` (`change=installed`), `extension.updated`
+(`change=updated`: a new version was installed and comes back switched off;
+payload carries `previousVersion`), `extension.enabled` and
+`extension.disabled` (`change=enabled` / `disabled`) and `extension.removed`
+(`change=removed`), all from `extension`. Payloads carry `extensionKey`,
+`name`, `version` and `status`, never the manifest; the install is on the
+`extensions` resource.
 
 See [`pipelines.md`](../subsystems/pipelines.md) for the trigger model
 (manual / schedule / event) and at-least-once cursor semantics.

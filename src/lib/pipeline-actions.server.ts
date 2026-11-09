@@ -2,9 +2,7 @@ import { pipelineActions } from './operations/registry'
 import { parsePluginName } from './extensions/points'
 import { ExtensionRunError } from './extensions/runtime.server'
 import type { ExecConnection } from './pipeline-execute.server'
-import {
-  validatePipelineActions,
-} from './pipelines/actions'
+import { validatePipelineActions } from './pipelines/actions'
 import type {
   PipelineAction,
   PipelineActionArgument,

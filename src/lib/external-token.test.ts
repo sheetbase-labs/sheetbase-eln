@@ -229,7 +229,7 @@ describe('requiredScopes', () => {
       'run_revision_checks',
       'create_amendment',
       'export_audit_log',
-      'create_booking',
+      'approve_parser_version',
       'query_dataset',
       'discover_object_dependencies',
       'list_capabilities',

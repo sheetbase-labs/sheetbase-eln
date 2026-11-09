@@ -540,6 +540,8 @@ async function sweepEventSchedule(
                  WHERE di.workspace_id = api.change_events.workspace_id
                    AND di.snapshot_version_id = api.change_events.entity_uuid
                    AND di.instrument_id = $6::uuid))
+          AND ($7::text IS NULL OR payload->>$7::text = $8::text)
+          AND ($9::text IS NULL OR payload->>$9::text IS DISTINCT FROM $10::text)
         ORDER BY sequence
         LIMIT ${MAX_EVENTS_PER_SWEEP}`,
       [
@@ -549,6 +551,10 @@ async function sweepEventSchedule(
         cursor,
         datasetFilter,
         instrumentFilter,
+        producer.when?.equals !== undefined ? producer.when.key : null,
+        producer.when?.equals ?? null,
+        producer.when?.notEquals !== undefined ? producer.when.key : null,
+        producer.when?.notEquals ?? null,
       ],
     )
     // Only `dataset.versioned` supplies an input version (the created

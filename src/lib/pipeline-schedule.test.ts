@@ -116,26 +116,29 @@ describe('PIPELINE_TRIGGER_EVENTS', () => {
       (entry) =>
         entry.status === 'stable' &&
         entry.producer !== null &&
-        // A producer that needs a payload test can never be a trigger.
-        entry.producer.when === undefined &&
-        (['record', 'dataset', 'sheet', 'notebook'].includes(entry.family) ||
-          entry.name.startsWith('storage.alarm.') ||
-          entry.name === 'watcher.finding.created' ||
-          // Instrument data and run quality control start pipelines too.
-          entry.name === 'instrument.run.converted' ||
-          entry.name === 'qc.violation' ||
-          // A worklist queued for a robot and a schedule asked for.
-          entry.name === 'instrument.job.queued' ||
-          entry.name === 'schedule.proposed' ||
-          // Reports, plate designs and analysis views.
-          /^(report\.(created|updated|generated)|plate_design\.|plate_layout_template\.|analysis_view\.)/.test(
-            entry.name,
-          ) ||
-          // Protocol changes and training, and a request for approval.
-          entry.name.startsWith('protocol.') ||
-          entry.name === 'approval.requested' ||
-          // People, access and client changes start pipelines too.
-          (entry.introducedIn === 'people-01' && entry.consumers.pipeline)),
+        // A producer that needs a payload test is a trigger only when the
+        // catalogue marks it a pipeline consumer; the sweep applies the test.
+        (entry.producer.when !== undefined
+          ? entry.consumers.pipeline
+          : ['record', 'dataset', 'sheet', 'notebook'].includes(entry.family) ||
+            entry.name.startsWith('storage.alarm.') ||
+            entry.name === 'watcher.finding.created' ||
+            // Instrument data and run quality control start pipelines too.
+            entry.name === 'instrument.run.converted' ||
+            entry.name === 'qc.violation' ||
+            // A worklist queued for a robot and a schedule asked for.
+            entry.name === 'instrument.job.queued' ||
+            entry.name === 'schedule.proposed' ||
+            // Reports, plate designs and analysis views.
+            /^(report\.(created|updated|generated)|plate_design\.|plate_layout_template\.|analysis_view\.)/.test(
+              entry.name,
+            ) ||
+            // Protocol changes and training, and a request for approval.
+            entry.name.startsWith('protocol.') ||
+            entry.name === 'approval.requested' ||
+            // Bookings, imports, instruments, connectors and parsers, and
+            // people, access and client changes.
+            entry.consumers.pipeline),
     ).map((entry) => entry.name)
     expect([...PIPELINE_TRIGGER_EVENTS].sort()).toEqual(expected.sort())
     expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(expected.length)

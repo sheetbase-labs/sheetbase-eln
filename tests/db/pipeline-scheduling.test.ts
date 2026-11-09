@@ -541,6 +541,44 @@ describe('input bindings', () => {
   })
 })
 
+describe('events told apart by their payload', () => {
+  it('starts a pipeline when an instrument run completes, and not when one is queued or fails', async () => {
+    const schedule = await createSchedule('event', {
+      eventType: 'instrument.run.completed',
+      inputs: { readings: { mode: 'latest', datasetId } },
+    })
+    await isolate(schedule.id)
+    const instrument = await owner.query<{ id: string }>(
+      `select id from api.create_instrument($1, 'Sweep reader')`,
+      [WS],
+    )
+    const makeRun = async (identifier: string) =>
+      (
+        await owner.query<{ id: string }>(
+          `select id from api.create_instrument_run($1, $2, $2, $3)`,
+          [WS, identifier, instrument.rows[0]!.id],
+        )
+      ).rows[0]!.id
+    const failed = await makeRun('sweep-failed')
+    await owner.query(`select api.fail_instrument_run($1, $2, 'boom')`, [
+      WS,
+      failed,
+    ])
+    expect(await sweepSweeps()).toBe(0)
+
+    const finished = await makeRun('sweep-done')
+    await owner.query(`select api.start_instrument_run($1, $2)`, [WS, finished])
+    expect(await sweepSweeps()).toBe(0)
+    await owner.query(`select api.complete_instrument_run($1, $2)`, [
+      WS,
+      finished,
+    ])
+    expect(await sweepSweeps()).toBe(1)
+    expect(await runsOf(schedule.id)).toHaveLength(1)
+    await settleRuns()
+  })
+})
+
 describe('missed runs, overlap and pausing', () => {
   it('runs once on recovery by default', async () => {
     const schedule = await createSchedule('interval', {

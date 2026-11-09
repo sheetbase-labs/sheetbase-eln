@@ -192,6 +192,21 @@ export const LAB_AREAS = {
     'Requests for edit access to a project: who asked, why and how each was decided (openOnly: only those waiting)',
   clients:
     'Client organisations with their code (openOnly: only those not archived)',
+  instrument_runs:
+    'Runs on instruments: name, instrument, status (queued, running, completed, failed), operator and when they started and finished (openOnly: only runs that are queued or running)',
+  calibrations:
+    'Instrument calibrations: when each was done and when the next is due',
+  qualifications: 'Who is qualified on which instrument, and until when',
+  qualification_requests:
+    'Requests to be qualified on an instrument (openOnly: only those waiting)',
+  imports:
+    'Data imports into datasets: which dataset, which instrument, whether it was committed or failed and when (openOnly: only those that failed)',
+  parsers:
+    'Parsers that read instrument files into rows: name, format and instrument',
+  connectors:
+    'Connectors that bring data in from other systems: type, direction and whether each is active, paused or archived (openOnly: only active ones)',
+  connector_runs:
+    'Runs of connectors: whether each is running, succeeded or failed, and any error (openOnly: only failed runs)',
 } as const
 
 export type LabArea = keyof typeof LAB_AREAS
@@ -772,6 +787,11 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   invitations: 'status=eq.pending',
   access_requests: 'status=eq.pending',
   clients: 'archived_at=is.null',
+  instrument_runs: 'status=in.(queued,running)',
+  qualification_requests: 'status=eq.pending',
+  imports: 'status=eq.failed',
+  connectors: 'status=eq.active',
+  connector_runs: 'status=eq.failed',
 }
 
 interface PlainArea {
@@ -848,6 +868,68 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'checked_at.desc',
     search: [],
     page: '/datasets',
+  },
+  instrument_runs: {
+    table: 'instrument_runs',
+    select:
+      'id,name,run_identifier,status,protocol_name,operator,started_at,completed_at,error_message,instrument:instruments(name,display_id)',
+    order: 'created_at.desc',
+    search: ['name', 'run_identifier', 'protocol_name', 'operator'],
+    page: '/instruments',
+  },
+  calibrations: {
+    table: 'instrument_calibrations',
+    select:
+      'id,instrument_id,performed_at,due_at,notes,instrument:instruments(name,display_id)',
+    order: 'due_at.asc',
+    search: ['notes'],
+    page: '/instruments',
+  },
+  qualifications: {
+    table: 'instrument_qualifications',
+    select:
+      'id,instrument_id,user_id,valid_until,instrument:instruments(name,display_id)',
+    order: 'valid_until.asc',
+    search: [],
+    page: '/instruments',
+  },
+  qualification_requests: {
+    table: 'instrument_qualification_requests',
+    select:
+      'id,instrument_id,user_id,note,status,created_at,instrument:instruments(name,display_id)',
+    order: 'created_at.desc',
+    search: ['note'],
+    page: '/instruments',
+  },
+  imports: {
+    table: 'dataset_imports',
+    select:
+      'id,dataset_id,instrument_id,status,error_detail,created_at,outcome',
+    order: 'created_at.desc',
+    search: [],
+    page: '/datasets',
+  },
+  parsers: {
+    table: 'parsers',
+    select: 'id,key,name,format,instrument_id,created_at',
+    order: 'name.asc',
+    search: ['name', 'key'],
+    page: '/settings/workspace/integrations',
+  },
+  connectors: {
+    table: 'connectors',
+    select: 'id,key,name,connector_type,direction,status,updated_at',
+    order: 'name.asc',
+    search: ['name', 'key'],
+    page: '/settings/workspace/integrations',
+  },
+  connector_runs: {
+    table: 'connector_runs',
+    select:
+      'id,connector_id,trigger_kind,status,error_code,error_message,started_at,finished_at',
+    order: 'started_at.desc',
+    search: ['error_message'],
+    page: '/settings/workspace/integrations',
   },
   directory_sync: {
     table: 'scim_tokens',

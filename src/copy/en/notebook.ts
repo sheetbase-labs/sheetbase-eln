@@ -501,6 +501,41 @@ export const notebook = {
         applying: 'Saving…',
         applied: 'Disposed',
       },
+      addInstrument: {
+        apply: 'Add instrument',
+        applying: 'Adding…',
+        applied: 'Added',
+      },
+      retireInstrument: {
+        apply: 'Confirm',
+        applying: 'Saving…',
+        applied: 'Done',
+      },
+      calibrateInstrument: {
+        apply: 'Record calibration',
+        applying: 'Saving…',
+        applied: 'Recorded',
+      },
+      qualifyPerson: {
+        apply: 'Confirm',
+        applying: 'Saving…',
+        applied: 'Done',
+      },
+      recordRun: {
+        apply: 'Record run',
+        applying: 'Saving…',
+        applied: 'Recorded',
+      },
+      updateRun: {
+        apply: 'Update run',
+        applying: 'Saving…',
+        applied: 'Updated',
+      },
+      setConnector: {
+        apply: 'Confirm',
+        applying: 'Saving…',
+        applied: 'Done',
+      },
       logVisit: {
         apply: 'Add to history',
         applying: 'Saving…',

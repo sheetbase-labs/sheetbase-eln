@@ -486,6 +486,13 @@ function lookupLabel(
     case 'sheetbase.sample.advance':
     case 'sheetbase.instrument.out_of_service':
     case 'sheetbase.storage.log_reading':
+    case 'sheetbase.instrument.add':
+    case 'sheetbase.instrument.retire':
+    case 'sheetbase.instrument.calibrate':
+    case 'sheetbase.instrument.qualify':
+    case 'sheetbase.run.create':
+    case 'sheetbase.run.update':
+    case 'sheetbase.connector.set_status':
       return t(`notebook.assistantPanel.lookup.bench.${phase}`)
     case 'sheetbase.inbox.read':
       return t(`notebook.assistantPanel.lookup.inbox.${phase}`)

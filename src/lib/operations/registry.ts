@@ -10,6 +10,7 @@
 import { AGENT_OPERATIONS } from './declarations/agent'
 import { NOTEBOOK_OPERATIONS } from './declarations/notebook'
 import { PEOPLE_OPERATIONS } from './declarations/people'
+import { INSTRUMENT_OPERATIONS } from './declarations/instruments'
 import { PIPELINE_OPERATIONS } from './declarations/pipeline'
 import { PLANNING_OPERATIONS } from './declarations/planning'
 import {
@@ -25,6 +26,7 @@ export const CORE_OPERATIONS: readonly OperationDescriptor[] = Object.freeze([
   ...PIPELINE_OPERATIONS,
   ...PLANNING_OPERATIONS,
   ...NOTEBOOK_OPERATIONS,
+  ...INSTRUMENT_OPERATIONS,
   ...AGENT_OPERATIONS,
   ...PEOPLE_OPERATIONS,
 ])

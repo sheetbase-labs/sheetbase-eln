@@ -57,6 +57,8 @@ export const AGENT_ACTION_AREAS = [
   'Plates',
   'Shipments and requests',
   'Registry',
+  'Studies and planning',
+  'Reports and analysis',
   'Compliance',
   'Other',
 ] as const
@@ -68,6 +70,9 @@ export function agentActionArea(key: string): AgentActionArea {
   if (/sample|pool_/.test(key)) return 'Samples'
   if (/instrument|storage_reading|feed|recurring/.test(key))
     return 'Instruments'
+  if (/study|dependency|task_resource|deliverable|workstream/.test(key))
+    return 'Studies and planning'
+  if (/report|analysis|chart/.test(key)) return 'Reports and analysis'
   if (/step|series|experiment/.test(key)) return 'Experiments'
   if (/plate/.test(key)) return 'Plates'
   if (/shipment|request/.test(key)) return 'Shipments and requests'

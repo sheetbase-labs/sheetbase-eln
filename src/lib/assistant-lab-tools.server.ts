@@ -134,6 +134,16 @@ export const LAB_AREAS = {
   timers: 'The person’s running step timers, with when each ends',
   readings:
     'Instrument live feeds (temperature, CO2 and so on): latest reading and whether it is inside its limits (openOnly: only those outside)',
+  planner_tasks:
+    'Study planner tasks and milestones: status, priority, due date and progress (openOnly: only those not finished or cancelled)',
+  planner_deliverables:
+    'Deliverables of planner tasks: what each task must produce and whether it is delivered (openOnly: only those not yet delivered)',
+  reports:
+    'Reports: title, document number, status and version (openOnly: only those not yet published or archived)',
+  plate_designs:
+    'Plate designs: the layouts drawn ahead of a run (openOnly: only those not archived)',
+  analysis_views:
+    'Saved analysis views: the chart sets people made in Analysis Studio, with their version',
   plate_runs:
     'Plate runs: readings checked against their own controls, with quality (Z-prime), hits and status',
   worklists:
@@ -730,6 +740,10 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   legal_holds: 'released_at=is.null',
   recurring_work: 'status=eq.active',
   readings: 'limit_state=neq.ok',
+  planner_tasks: 'status=not.in.(completed,cancelled)',
+  planner_deliverables: 'status=neq.delivered',
+  reports: 'status=not.in.(published,archived)',
+  plate_designs: 'status=neq.archived',
   plate_runs: 'status=neq.archived',
   worklists: 'status=eq.planned',
   qc: 'state=eq.out_of_control',
@@ -816,6 +830,43 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'number.desc',
     search: ['counterparty', 'carrier', 'tracking_reference', 'notes'],
     page: '/shipments',
+  },
+  planner_tasks: {
+    table: 'study_tasks',
+    select:
+      'id,title,task_type,status,priority,due_at,progress_percent,project_id,linked_experiment_identifier,client_visible',
+    order: 'due_at.asc.nullslast',
+    search: ['title'],
+    page: '/projects',
+  },
+  planner_deliverables: {
+    table: 'study_deliverables',
+    select: 'id,task_id,name,status,due_at,linked_record_identifier',
+    order: 'due_at.asc.nullslast',
+    search: ['name'],
+    page: '/projects',
+  },
+  reports: {
+    table: 'report_definitions',
+    select:
+      'id,title,subtitle,document_identifier,status,version,last_saved_at,project_id',
+    order: 'updated_at.desc',
+    search: ['title', 'document_identifier'],
+    page: '/reports',
+  },
+  plate_designs: {
+    table: 'plate_designs',
+    select: 'id,name,format,rows,cols,status,project_id,updated_at',
+    order: 'updated_at.desc',
+    search: ['name'],
+    page: '/plates',
+  },
+  analysis_views: {
+    table: 'analysis_views',
+    select: 'id,display_id,name,version,updated_at',
+    order: 'updated_at.desc',
+    search: ['name', 'display_id'],
+    page: '/analysis',
   },
   plate_runs: {
     table: 'plate_runs',

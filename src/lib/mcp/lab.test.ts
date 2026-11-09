@@ -149,6 +149,27 @@ describe('MCP lab actions', () => {
     )
   })
 
+  it('never returns or stores a webhook signing secret', async () => {
+    const rpc = guarded('approved', {
+      subscription: { id: ORDER_ID },
+      signing_secret: 'whsec_secret',
+    })
+    const result = await call(
+      {
+        action: 'create_webhook_subscription',
+        arguments: {
+          p_workspace_id: ORDER_ID,
+          p_key: 'sink',
+          p_url: 'https://example.test/hook',
+        },
+      },
+      ctx({ client: client(rpc), scopes: ['webhooks:write'] }),
+    )
+    expect(result.isError).toBeUndefined()
+    expect(result.content[0].text).not.toContain('whsec_secret')
+    expect(JSON.stringify(rpc.mock.calls)).not.toContain('whsec_secret')
+  })
+
   it('starts a pipeline run through the permission step, needing pipelines:write', async () => {
     const rpc = guarded('pending')
     const result = await call(

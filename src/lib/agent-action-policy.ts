@@ -52,6 +52,27 @@ export function agentActionAlwaysNever(key: string): boolean {
   )
 }
 
+/**
+ * What an agent may see and the request may keep of an action's result. A
+ * signing secret is shown once, to a person in the app; it never goes to an
+ * agent or into the stored request.
+ */
+export function agentActionResult(action: string, result: unknown): unknown {
+  if (
+    action === 'create_webhook_subscription' &&
+    result !== null &&
+    typeof result === 'object' &&
+    !Array.isArray(result)
+  ) {
+    const { signing_secret: _secret, ...rest } = result as Record<
+      string,
+      unknown
+    >
+    return rest
+  }
+  return result
+}
+
 /** Which part of the lab an action belongs to, for grouping the list. */
 export const AGENT_ACTION_AREAS = [
   'Orders and stock',
@@ -392,7 +413,10 @@ export async function runApprovedAgentAction(
   try {
     result = isExtensionActionKey(request.action_key)
       ? await runExtensionRequest(request.arguments)
-      : await client.rpc(request.action_key, request.arguments)
+      : agentActionResult(
+          request.action_key,
+          await client.rpc(request.action_key, request.arguments),
+        )
   } catch (error) {
     return client.rpc<AgentActionRequestRow>('finish_agent_action', {
       p_request_id: request.id,

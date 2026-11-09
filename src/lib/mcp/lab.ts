@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import type { Scope } from '../api-credential-scopes'
 import type { DataClient } from '../data-client'
-import { recordableResult } from '../agent-action-policy'
+import { agentActionResult, recordableResult } from '../agent-action-policy'
 import { LAB_RPCS } from '../lab-api-surface'
 import type { LabRpc, LabType } from '../lab-api-surface'
 
@@ -185,7 +185,10 @@ export async function runLabAct(
 ): Promise<LabActOutcome> {
   const checked = await checkLabAct(input, scopes)
   if ('ok' in checked) return checked
-  const result = await client.rpc<unknown>(checked.action, checked.args)
+  const result = agentActionResult(
+    checked.action,
+    await client.rpc<unknown>(checked.action, checked.args),
+  )
   return { ok: true, action: checked.action, result }
 }
 
@@ -274,7 +277,10 @@ export async function runGuardedLabAct(
   }
   // Auto: run now, then record how it ended.
   try {
-    const result = await context.client.rpc<unknown>(action, args)
+    const result = agentActionResult(
+      action,
+      await context.client.rpc<unknown>(action, args),
+    )
     await context.client.rpc('finish_agent_action', {
       p_request_id: request.id,
       p_ok: true,

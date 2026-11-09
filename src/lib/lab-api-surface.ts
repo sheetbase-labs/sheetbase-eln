@@ -2198,7 +2198,7 @@ const LAB_RPCS_HAND_WRITTEN: Readonly<Record<string, LabRpc>> = {
   create_webhook_subscription: {
     summary: 'Add a webhook subscription',
     description:
-      'Sends the chosen events to a URL (or, for `p_channel_type` `email`, to a person). `p_event_types` is a JSON array of event names; empty means all. The signing secret is in the result and is shown only once. Needs the right to manage webhooks.',
+      'Sends the chosen events to a URL (or, for `p_channel_type` `email`, to a person). `p_event_types` is a JSON array of event names; empty means all. Needs the right to manage webhooks. Over MCP the signing secret is never returned or stored (it is made on the server); a person reads it once by rotating it in Settings > Integrations.',
     scope: 'webhooks:write',
     params: [
       ['p_workspace_id', 'uuid', 1],
@@ -2210,7 +2210,6 @@ const LAB_RPCS_HAND_WRITTEN: Readonly<Record<string, LabRpc>> = {
       ['p_description', 'text', 0],
       ['p_max_retries', 'int', 0],
       ['p_failure_threshold', 'int', 0],
-      ['p_signing_secret', 'text', 0],
       ['p_rate_limit_per_minute', 'int', 0],
     ],
     result: 'json',

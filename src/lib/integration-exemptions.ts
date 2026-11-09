@@ -40,13 +40,13 @@ export const NOT_EXPOSED_PATTERNS: readonly {
   },
   {
     pattern:
-      /^(create_sql_login|rotate_sql_login|revoke_sql_login|list_sql_logins|sql_access_ready|agent_admin_credentials|api_credential_status)$/,
+      /^(create_sql_login|rotate_sql_login|agent_admin_credentials|api_credential_status)$/,
     reason:
       'Hands out or manages a login or token secret, shown once to the person who makes it; secrets are never taken or returned over the API.',
   },
   {
     pattern:
-      /^(set_user_appearance|set_user_preference|set_user_profile|my_profile|my_onboarding_state|my_join_offer|join_my_domain_workspace|set_active_workspace|save_team_layout|delete_team_layout|set_notification_timing|mark_notifications_read|mark_work_items_seen|touch_saved_search|user_preferences|user_favourites|recently_viewed|record_recent_view|workspace_layouts|notification_preferences|work_item_views|saved_search_uses)$/,
+      /^(set_user_appearance|set_user_preference|set_user_profile|my_profile|my_onboarding_state|my_join_offer|join_my_domain_workspace|set_active_workspace|save_team_layout|delete_team_layout|touch_saved_search|user_preferences|workspace_layouts|saved_search_uses)$/,
     reason:
       'A person’s own settings, layout, bell list or reading position, kept for their own account in the app.',
   },

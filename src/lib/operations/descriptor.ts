@@ -32,6 +32,15 @@ import type {
   PipelineActionDefinition,
 } from '../pipelines/actions'
 
+/** The token scopes an operation can need. */
+export type OperationScope =
+  | 'lab:read'
+  | 'lab:write'
+  | 'pipelines:read'
+  | 'pipelines:write'
+  | 'admin:read'
+  | 'admin:write'
+
 /** Input types, the same vocabulary the lab API and OpenAPI use. */
 export type OperationInputType = LabType
 
@@ -102,8 +111,11 @@ export interface OperationDescriptor {
   description: string
   /** `write` changes something; `read` only looks. */
   kind: 'read' | 'write'
-  /** The token scope that may run it. Defaults from `kind`. */
-  scope?: 'lab:read' | 'lab:write'
+  /**
+   * The token scope that may run it. Defaults from `kind`. Pipelines and
+   * plugins keep the scopes their tables are read with.
+   */
+  scope?: OperationScope
   inputs: readonly OperationInput[]
   /**
    * What it returns: `row:<table>`, `rows:<col>=<type>,…`, `list:text`,
@@ -158,9 +170,7 @@ export const input = (
 export const operationRpc = (op: OperationDescriptor): string =>
   op.rpc ?? op.name
 
-export const operationScope = (
-  op: OperationDescriptor,
-): 'lab:read' | 'lab:write' =>
+export const operationScope = (op: OperationDescriptor): OperationScope =>
   op.scope ?? (op.kind === 'read' ? 'lab:read' : 'lab:write')
 
 export const operationPresentation = (

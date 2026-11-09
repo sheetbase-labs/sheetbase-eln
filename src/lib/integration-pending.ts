@@ -206,35 +206,6 @@ export const PENDING_MODELS: readonly string[] = [
   'upgrade_record_model_record',
 ]
 
-/** Pipeline definitions, schedules and runs, and extensions: opened by the pipelines and extensions thread. */
-export const PENDING_PIPELINES: readonly string[] = [
-  'answer_pipeline_run_prompt',
-  'cancel_pipeline_run',
-  'create_pipeline_definition',
-  'create_pipeline_schedule',
-  'delete_pipeline_schedule',
-  'disable_extension',
-  'enable_extension',
-  'extension_capabilities',
-  'extensions',
-  'install_extension',
-  'pipeline_artefact_releases',
-  'pipeline_run_manifests',
-  'pipeline_run_prompts',
-  'pipeline_run_request_errors',
-  'pipeline_schedule_activity',
-  'pipeline_schedule_next_run',
-  'pipeline_schedules',
-  'pipeline_trigger_failures',
-  'publish_pipeline_definition_version',
-  'remove_extension',
-  'retire_pipeline_definition_version',
-  'start_pipeline_run',
-  'update_extension',
-  'update_pipeline_definition',
-  'update_pipeline_schedule',
-]
-
 /** Projects, folders, access, follow, notifications, search, files and audit: opened by the projects and workspace thread. */
 export const PENDING_WORKSPACE: readonly string[] = [
   'accept_invitation',
@@ -319,10 +290,6 @@ export const PENDING_EXPOSURE: Readonly<Record<string, string>> =
     ...PENDING_MODELS.map((n) => [
       n,
       'Being opened with the sheets and record types area.',
-    ]),
-    ...PENDING_PIPELINES.map((n) => [
-      n,
-      'Being opened with the pipelines and extensions area.',
     ]),
     ...PENDING_WORKSPACE.map((n) => [
       n,

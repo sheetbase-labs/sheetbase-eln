@@ -1,3 +1,4 @@
+import type { CellDisplaySpec } from '#/lib/extensions/cell-display'
 import { t } from '#/copy'
 import type { ComponentType, ErrorInfo, ReactNode } from 'react'
 import { Component, useEffect, useId, useState } from 'react'
@@ -247,6 +248,8 @@ export interface SheetbaseGridHandle {
 
 export interface SheetbaseGridProps {
   columns: readonly SheetbaseGridColumn[]
+  /** How plugins ask for a column's cells to be drawn, by column id. */
+  cellDisplays?: Readonly<Record<string, CellDisplaySpec>>
   rows: readonly SheetbaseGridRow[]
   annotations?: readonly SheetbaseGridAnnotation[]
   ariaLabel?: string

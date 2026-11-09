@@ -28,6 +28,7 @@ import type {
 } from '@sheetbase-labs/sheetbase-table'
 import { memo, useEffect, useMemo, useReducer, useRef } from 'react'
 
+import { sanitizeSvg } from '#/lib/extensions/screens'
 import { createFormulaReferenceEditor } from './formula-reference-editor'
 import type {
   SheetbaseGridCellChange,
@@ -385,6 +386,7 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
     sorts,
     filters,
     onOpenRecordPicker,
+    cellDisplays,
   } = props
 
   // Volatile props read by engine callbacks; a ref keeps the callbacks stable
@@ -889,6 +891,8 @@ function SheetbaseTableGridClientBase(props: SheetbaseGridProps) {
       contextMenuActions={contextMenuActions}
       columnMenuItems={columnMenuActions}
       customEditors={customEditors}
+      cellDisplays={cellDisplays}
+      sanitizeSvg={sanitizeSvg}
       clipboard={clipboardConfig}
       query={query}
       onReady={handleReady}

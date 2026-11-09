@@ -211,6 +211,14 @@ export const LAB_AREAS = {
     'Connectors that bring data in from other systems: type, direction and whether each is active, paused or archived (openOnly: only active ones)',
   connector_runs:
     'Runs of connectors: whether each is running, succeeded or failed, and any error (openOnly: only failed runs)',
+  pipelines:
+    'Pipelines: key, name, what each does and whether it is active or retired (openOnly: only active ones)',
+  pipeline_runs:
+    'Pipeline runs, newest first: running, waiting for a person, succeeded, failed or cancelled, with the error when one failed (openOnly: only runs still running or waiting)',
+  pipeline_schedules:
+    'When pipelines run by themselves: every so many minutes, daily, on a cron or on an event, and whether each is switched on (openOnly: only those switched on)',
+  plugins:
+    'Plugins installed in the workspace: name, version, whether each is switched on and which parts are switched off (openOnly: only those switched on)',
 } as const
 
 export type LabArea = keyof typeof LAB_AREAS
@@ -786,6 +794,10 @@ const CLOSED: Partial<Record<LabArea, string>> = {
   directory_sync: 'revoked_at=is.null',
   watcher_findings: 'status=eq.open',
   agent_requests: 'status=eq.pending',
+  pipelines: 'lifecycle=eq.active',
+  pipeline_runs: 'status=in.(running,waiting)',
+  pipeline_schedules: 'enabled=is.true',
+  plugins: 'status=eq.enabled',
   contracts: 'last_status=in.(warning,fail)',
   dataset_contracts: 'status=neq.pass',
   invitations: 'status=eq.pending',
@@ -1191,6 +1203,35 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'name.asc',
     search: ['name'],
     page: '/settings/workspace/integrations',
+  },
+  pipelines: {
+    table: 'pipeline_definitions',
+    select: 'id,key,name,description,lifecycle,updated_at',
+    order: 'name.asc',
+    search: ['name', 'key'],
+    page: '/pipelines',
+  },
+  pipeline_runs: {
+    table: 'pipeline_runs',
+    select:
+      'id,definition_version_id,status,trigger_kind,attempt,retry_of_run_id,error_code,error_message,started_at,finished_at',
+    order: 'started_at.desc',
+    search: [],
+    page: '/pipelines',
+  },
+  pipeline_schedules: {
+    table: 'pipeline_schedules',
+    select: 'id,definition_id,kind,spec,enabled,last_run_at,next_run_at',
+    order: 'created_at.desc',
+    search: [],
+    page: '/pipelines',
+  },
+  plugins: {
+    table: 'extensions',
+    select: 'id,key,name,version,status,disabled_points,updated_at',
+    order: 'name.asc',
+    search: ['name', 'key'],
+    page: '/settings/workspace/plugins',
   },
   retention_rules: {
     table: 'retention_rules',

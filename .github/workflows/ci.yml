@@ -132,6 +132,7 @@ jobs:
         run: |
           test -s docs/api/openapi/external-api-v0.json
           test -s sdks/python/src/sheetbase/_generated/rpc.py
+          test -s sdks/python/src/sheetbase/_generated/events.py
       - name: Tests (Python 3.10)
         working-directory: sdks/python
         run: >-

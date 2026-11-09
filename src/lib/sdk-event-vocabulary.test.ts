@@ -16,8 +16,8 @@ import { EVENT_CATALOGUE, EVENT_NAMES } from './event-catalogue'
  * EVENT-03 — catalogue == SDK vocabulary drift pin.
  *
  * The canonical catalogue (`src/lib/event-catalogue.ts`) is authoritative;
- * the SDK event modules hand-mirror it. This suite fails when the two drift
- * apart so the mirror is updated in the same change as the catalogue.
+ * `pnpm generate` writes the SDKs' event vocabulary from it. This suite
+ * fails when the generated lists are stale or the generator drops anything.
  */
 describe('catalogue == SDK vocabulary', () => {
   it('TypeScript SDK mirrors every canonical catalogue name', () => {
@@ -36,7 +36,7 @@ describe('catalogue == SDK vocabulary', () => {
 
   it('Python SDK mirrors every canonical catalogue name and alias', () => {
     const source = readFileSync(
-      resolve(process.cwd(), 'sdks/python/src/sheetbase/resources/events.py'),
+      resolve(process.cwd(), 'sdks/python/src/sheetbase/_generated/events.py'),
       'utf8',
     )
     for (const name of EVENT_NAMES) {
@@ -57,7 +57,7 @@ describe('catalogue == SDK vocabulary', () => {
     ).map((entry) => entry.name)
     expect(lab.length).toBeGreaterThan(0)
     const python = readFileSync(
-      resolve(process.cwd(), 'sdks/python/src/sheetbase/resources/events.py'),
+      resolve(process.cwd(), 'sdks/python/src/sheetbase/_generated/events.py'),
       'utf8',
     )
     for (const name of lab) {

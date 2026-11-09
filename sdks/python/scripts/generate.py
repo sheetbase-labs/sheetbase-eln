@@ -30,6 +30,9 @@ HERE = Path(__file__).resolve().parent
 SDK_ROOT = HERE.parent
 REPO_ROOT = SDK_ROOT.parent.parent
 DEFAULT_SPEC = REPO_ROOT / "docs" / "api" / "openapi" / "external-api-v0.json"
+# The webhook event vocabulary, written next to the contract from the event
+# catalogue by scripts/generate-public-openapi.ts.
+EVENTS_FILE = "events.json"
 OUT_DIR = SDK_ROOT / "src" / "sheetbase" / "_generated"
 
 HEADER = (
@@ -540,7 +543,24 @@ def render_init(spec: dict[str, Any]) -> str:
     )
 
 
-def render(spec: dict[str, Any]) -> dict[str, str]:
+def render_events(spec: dict[str, Any], events: dict[str, Any]) -> str:
+    names = "".join(f"    {py_string(name)},\n" for name in events["names"])
+    aliases = "".join(
+        f"    {py_string(wire)}: {py_string(name)},\n" for wire, name in events["aliases"].items()
+    )
+    return (
+        HEADER.format(version=spec["info"]["version"]).replace(
+            "docs/api/openapi/external-api-v0.json", "docs/api/openapi/events.json"
+        )
+        + "\nfrom __future__ import annotations\n\n"
+        + "#: Every canonical event name, in catalogue order.\n"
+        + f"EVENT_NAMES: tuple[str, ...] = (\n{names})\n\n"
+        + "#: Wire aliases still on the wire, mapped to their canonical names.\n"
+        + f"EVENT_ALIASES: dict[str, str] = {{\n{aliases}}}\n"
+    )
+
+
+def render(spec: dict[str, Any], events: dict[str, Any] | None = None) -> dict[str, str]:
     tables, rpcs = collect(spec)
     mapper = TypeMapper(spec["components"]["schemas"])
     files = {
@@ -549,6 +569,8 @@ def render(spec: dict[str, Any]) -> dict[str, str]:
         "rpc.py": render_rpc(spec, rpcs, mapper),
         "__init__.py": render_init(spec),
     }
+    if events is not None:
+        files["events.py"] = render_events(spec, events)
     return {name: text.rstrip() + "\n" for name, text in files.items()}
 
 
@@ -560,7 +582,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     spec = json.loads(args.spec.read_text(encoding="utf-8"))
-    files = render(spec)
+    events_path = args.spec.parent / EVENTS_FILE
+    events = json.loads(events_path.read_text(encoding="utf-8")) if events_path.exists() else None
+    files = render(spec, events)
     if args.check:
         stale = [
             name

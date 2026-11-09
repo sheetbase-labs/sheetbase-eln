@@ -2,7 +2,7 @@
 
 import hashlib
 import hmac
-import re
+import json
 from pathlib import Path
 
 from sheetbase.resources.events import (
@@ -17,35 +17,20 @@ from sheetbase.resources.events import (
 REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
-def _catalogue_names() -> set[str]:
-    text = (REPO_ROOT / "src" / "lib" / "event-catalogue.ts").read_text()
-    names = set(re.findall(r"^\s*name: '([^']+)',", text, re.M))
-    # Events declared with their operation (src/lib/operations/declarations).
-    # Event names always contain a dot; operation names never do.
-    for path in (REPO_ROOT / "src" / "lib" / "operations" / "declarations").glob(
-        "*.ts"
-    ):
-        names |= set(
-            re.findall(r"^\s*name: '([a-z_]+(?:\.[a-z_]+)+)',", path.read_text(), re.M)
-        )
-    return names
+def _catalogue() -> dict:
+    # Written from the event catalogue by `pnpm generate`
+    # (scripts/generate-public-openapi.ts), with the contract.
+    path = REPO_ROOT / "docs" / "api" / "openapi" / "events.json"
+    return json.loads(path.read_text())
 
 
 def test_vocabulary_matches_catalogue() -> None:
-    assert set(EVENT_NAMES) == _catalogue_names()
+    assert list(EVENT_NAMES) == _catalogue()["names"]
+    assert len(set(EVENT_NAMES)) == len(EVENT_NAMES)
 
 
 def test_aliases_match_catalogue_wire_names() -> None:
-    text = (REPO_ROOT / "src" / "lib" / "event-catalogue.ts").read_text()
-    expected = {}
-    # One catalogue entry at a time, so an entry without a string wireName
-    # can't borrow the next entry's.
-    for entry in re.split(r"\n  \{", text):
-        name = re.search(r"^\s*name: '([^']+)',\s+family:", entry)
-        wire = re.search(r"\n\s+wireName: '([^']+)'", entry)
-        if name and wire and wire.group(1) != name.group(1):
-            expected[wire.group(1)] = name.group(1)
-    assert EVENT_ALIASES == expected
+    assert EVENT_ALIASES == _catalogue()["aliases"]
 
 
 def test_alias_resolution() -> None:

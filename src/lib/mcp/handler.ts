@@ -25,6 +25,13 @@ import {
   semanticMcpTools,
 } from './semantic'
 import {
+  FILE_READ_TOOL,
+  FILE_UPLOAD_TOOL,
+  fileMcpTools,
+  runFileRead,
+  runFileUpload,
+} from './files'
+import {
   LAB_ACT_TOOL_NAME,
   hasLabActScope,
   labActTool,
@@ -90,6 +97,8 @@ export interface McpContext {
   flags: AiFeatureFlags
   client: DataClient
   credentialId: string
+  /** The person's database token for this request, for tools that call the file routes. Never logged. */
+  token?: string
 }
 
 export interface McpTool {
@@ -288,6 +297,14 @@ function listTools(context: McpContext): McpTool[] {
     context.flags.mcp_read && context.scopes.includes('projects:read')
       ? [...semanticMcpTools(), pluginSearchMcpTool()]
       : []
+  const files =
+    context.actor.kind === 'user' && context.token
+      ? fileMcpTools(
+          context.scopes,
+          context.flags.mcp_read,
+          context.flags.mcp_lab,
+        )
+      : []
   return [
     ...(hasAnyReadScope(context.scopes) && context.flags.mcp_read
       ? [contextTool()]
@@ -295,6 +312,7 @@ function listTools(context: McpContext): McpTool[] {
     ...canonical,
     ...meaning,
     ...lab,
+    ...files,
     ...admin,
     ...catalogue,
   ]
@@ -690,6 +708,34 @@ async function callTool(
     return outcome.isError
       ? toolError(outcome.text)
       : { content: [{ type: 'text', text: outcome.text }] }
+  }
+
+  if (name === FILE_READ_TOOL || name === FILE_UPLOAD_TOOL) {
+    if (context.actor.kind !== 'user' || !context.token) {
+      return toolError('File tools require a personal token.')
+    }
+    const upload = name === FILE_UPLOAD_TOOL
+    if (upload ? !context.flags.mcp_lab : !context.flags.mcp_read) {
+      return toolError(
+        upload
+          ? 'File uploads are off: an owner turns on "Agents can act in the lab" in Settings > AI.'
+          : 'MCP read access is disabled by a workspace flag.',
+      )
+    }
+    const needed = upload ? 'files:write' : 'files:read'
+    if (!context.scopes.includes(needed)) {
+      return toolError(`This credential lacks the required scope: ${needed}.`)
+    }
+    const fileContext = {
+      workspaceId: context.workspaceId,
+      userId: context.actor.id,
+      credentialId: context.credentialId,
+      token: context.token,
+    }
+    const outcome = upload
+      ? await runFileUpload(args, fileContext)
+      : await runFileRead(args, fileContext)
+    return outcome.ok ? textResult(outcome.value) : toolError(outcome.message)
   }
 
   if (name === CANONICAL_READ_TOOL_NAME) {

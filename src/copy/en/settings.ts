@@ -2249,7 +2249,8 @@ export const settings = {
     mintableNowSubmitDescription:
       'Available. Submitting, signing, amending and revision checks stay with people.',
     files: 'Files',
-    mintableNowFileDescription: 'Available. File access isn’t switched on yet.',
+    mintableNowFileDescription:
+      'Upload and download files. Personal tokens only: files go in and out as the person.',
     webhooks: 'Webhooks',
     webhookSubscriptionManagementDescription:
       'Manage webhook subscriptions and see delivery history. Needs permission to manage integrations.',

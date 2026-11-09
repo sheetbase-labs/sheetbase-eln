@@ -6,6 +6,7 @@ import {
   CLIENT_SHARE_TOOL,
   CLIENT_UNSHARE_TOOL,
   GROUP_CREATE_TOOL,
+  GROUP_DELETE_TOOL,
   GROUP_MEMBER_TOOL,
   INVITATION_REVOKE_TOOL,
   MEMBER_INVITE_TOOL,
@@ -22,6 +23,7 @@ import {
   proposeClientCreateSchema,
   proposeClientShareSchema,
   proposeGroupCreateSchema,
+  proposeGroupDeleteSchema,
   proposeGroupMemberSchema,
   proposeInvitationRevokeSchema,
   proposeMemberInviteSchema,
@@ -110,6 +112,11 @@ export function peopleProposalDefs(): ProviderToolDef[] {
       GROUP_CREATE_TOOL,
       `Propose making a group of people, which can then be given access to projects. ${NOTE}`,
       proposeGroupCreateSchema,
+    ),
+    toolDef(
+      GROUP_DELETE_TOOL,
+      `Propose deleting a group. The access rules that named it go too, and people lose the access they had only through it. Ask first if the person has not clearly said so. ${NOTE}`,
+      proposeGroupDeleteSchema,
     ),
     toolDef(
       GROUP_MEMBER_TOOL,
@@ -590,6 +597,26 @@ export async function buildPeopleProposal(
         deepLink: '/settings/workspace/members',
         changes: [{ label: 'Group', before: null, after: input.name.trim() }],
         action: { kind: 'group.create', name: input.name.trim() },
+      })
+    }
+
+    case GROUP_DELETE_TOOL: {
+      const parsed = parse(proposeGroupDeleteSchema, args)
+      if (!parsed.ok) return fail(parsed.message)
+      const input = parsed.data
+      const group = await findGroup(client, input.group)
+      if (!group.ok) return fail(group.message)
+      return card(name, input, {
+        target: group.value.name,
+        deepLink: '/settings/workspace/members',
+        changes: [
+          {
+            label: 'Group',
+            before: group.value.name,
+            after: 'Deleted, with the access rules that named it',
+          },
+        ],
+        action: { kind: 'group.delete', groupId: group.value.id },
       })
     }
 

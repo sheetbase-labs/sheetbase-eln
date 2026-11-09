@@ -211,6 +211,22 @@ describe('people cards', () => {
     ).toMatchObject({ ok: false })
   })
 
+  it('proposes deleting a group behind a card', async () => {
+    const { ctx } = context({
+      workspace_groups: [{ id: 'g1', name: 'Assay team' }],
+    })
+    expect(
+      await buildPeopleProposal(
+        'sheetbase.group.delete',
+        { ...base, group: 'Assay team' },
+        ctx,
+      ),
+    ).toMatchObject({
+      ok: true,
+      proposal: { action: { kind: 'group.delete', groupId: 'g1' } },
+    })
+  })
+
   it('shows only what changes in general settings', async () => {
     const { ctx } = context({
       workspace_settings: [

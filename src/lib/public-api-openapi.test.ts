@@ -52,8 +52,11 @@ function rpcRequestSchema(name: string): {
 
 /** The parameters of a lab RPC, or undefined for one declared elsewhere. */
 function labParams(name: string): number | undefined {
-  return (LAB_RPCS as Record<string, { params: unknown[] } | undefined>)[name]
-    ?.params.length
+  return (
+    LAB_RPCS as Readonly<
+      Record<string, { params: readonly unknown[] } | undefined>
+    >
+  )[name]?.params.length
 }
 
 describe('API-03 external OpenAPI', () => {

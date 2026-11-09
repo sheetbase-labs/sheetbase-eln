@@ -511,6 +511,7 @@ export const PEOPLE_OPERATIONS = defineOperations([
     kind: 'write',
     inputs: [note('p_group_id', 'uuid', 'Group id.')],
     result: 'void',
+    assistant: people('sheetbase.group.delete'),
     pipeline: {},
   },
   {

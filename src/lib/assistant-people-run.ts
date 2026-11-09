@@ -82,6 +82,9 @@ export async function runPeopleAction(
     case 'group.create':
       await client.rpc('create_workspace_group', { p_name: action.name })
       return { openHref: MEMBERS }
+    case 'group.delete':
+      await client.rpc('delete_workspace_group', { p_group_id: action.groupId })
+      return { openHref: MEMBERS }
     case 'group.member':
       await client.rpc('set_workspace_group_member', {
         p_group_id: action.groupId,

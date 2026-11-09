@@ -533,3 +533,56 @@ describe('EXT-01 per-extension credentials', () => {
     })
   })
 })
+
+describe('Plugin change events say what changed', () => {
+  it('sends installed, enabled, disabled, updated and removed, without the manifest', async () => {
+    const owner = await actor(OWNER_A, WS_A)
+    const extension = await install(owner, { key: 'retest-events' })
+    await owner.query(`select * from api.enable_extension($1,$2)`, [
+      WS_A,
+      extension.id,
+    ])
+    await owner.query(`select * from api.disable_extension($1,$2)`, [
+      WS_A,
+      extension.id,
+    ])
+    const next = { ...manifestFixture(), version: '1.1.0' }
+    await owner.query(
+      `select * from api.update_extension($1,$2,$3,$4,$5,$6::jsonb)`,
+      [
+        WS_A,
+        extension.id,
+        next.name,
+        next.version,
+        next.source,
+        JSON.stringify(next),
+      ],
+    )
+    await owner.query(`select api.remove_extension($1,$2)`, [
+      WS_A,
+      extension.id,
+    ])
+    const { rows } = await owner.query<{
+      operation: string
+      payload: Record<string, unknown>
+    }>(
+      `select operation, payload from api.change_events
+        where workspace_id=$1 and entity_type='extension' and entity_uuid=$2
+        order by sequence asc`,
+      [WS_A, extension.id],
+    )
+    expect(rows.map((row) => [row.operation, row.payload.change])).toEqual([
+      ['create', 'installed'],
+      ['update', 'enabled'],
+      ['update', 'disabled'],
+      ['update', 'updated'],
+      ['delete', 'removed'],
+    ])
+    expect(rows[3].payload).toMatchObject({
+      extensionKey: 'retest-events',
+      version: '1.1.0',
+      previousVersion: '1.0.0',
+    })
+    for (const row of rows) expect(row.payload).not.toHaveProperty('manifest')
+  })
+})

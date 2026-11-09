@@ -10,33 +10,33 @@ for it). A plugin brings its own pip packages (RDKit, Biopython and so on), and 
 much time, memory and data one call may use is a per-plugin setting an administrator
 controls.
 
-| Point                   | What it adds                                                                                         | Where it shows                                                            |
-| ----------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `operations`            | Something the plugin can do: named inputs in, named outputs back                                     | Assistant, MCP, pipelines and the API, all generated from one declaration |
-| `calculators`           | The same shape as an operation, read-only, shown as a form                                           | The bench calculator's "More" tab, and everywhere an operation shows      |
-| `pipeline-steps`        | Combines or reshapes tables (DataFrames in, one DataFrame out)                                       | Pipelines, as an action `plugin.<key>.<id>`                               |
-| `analysis-kinds`        | A Python analysis with a declared result shape (columns, optional chart)                             | The analysis block, beside the built-in kinds                             |
-| `checks`                | Reads a table, answers `pass`, `warn` or `fail` with a message                                       | The `plugin_check` gate condition                                         |
-| `search-providers`      | Finds records the built-in search cannot                                                             | "Found by plugins" on Search, the assistant and MCP semantic search       |
-| `connectors`            | Pulls data in from a host it declared, as a table                                                    | Import → "Pull data in from another tool"                                 |
-| `publishers`            | Sends a table to another system, to a host it declared (POST, PUT or PATCH)                          | Dataset menu "Send to…", pipeline plugin steps, assistant card, MCP, API  |
-| `notification-channels` | Another way for a notification to reach a person, such as a Slack message                            | Settings → Notifications, "Other places to get notifications"             |
-| `importers`             | Reads a file type Sheetbase does not, into a table                                                   | Import                                                                    |
-| `exporters`             | Writes a dataset as a file type Sheetbase does not                                                   | Dataset menu and `?format=plugin.<key>.<id>`                              |
-| `previews`              | Shows what is inside a file                                                                          | Notebook file blocks                                                      |
-| `sameness-keys`         | Turns an entry's fields into a key; the same key means the same thing                                | Registry models: warning before a repeat is added                         |
-| `event-hooks`           | Reacts to an event: notes, summaries, flags, sign-offs, field changes                                | Inbox (`plugin_note`), record panel, record fields                        |
-| `record-hooks`          | Checks, fills in or follows up a save, an edit, a status change or a file upload                     | Saves and uploads (`422` on refusal), record panel, gates, search         |
-| `instrument-parsers`    | Reads an instrument's own file into a table, matched by extension and optionally by text it contains | Import, and the list under Settings → Instruments                         |
-| `label-formats`         | Lays out a label's text lines for the kinds it declares                                              | Label templates (Layout), sample labels and printing                      |
-| `barcode-formats`       | Draws a code as bars (`1d`) or a grid (`2d`); an optional `parse` reads a scanned value back         | Label templates (Code), Scan and stocktake                                |
-| `storage-rules`         | Sees a sample and where it is going, answers `ok`, `warn` or `refuse` with a reason                  | Every move into a position or a free-text place (`422` on refusal)        |
-| `blocks`                | A notebook block drawn by a Python screen or by the plugin's own page (`ui`)                         | The insert menu, under Plugin blocks                                      |
-| `panels`                | A tab on record pages, drawn the same way, optionally only for some models                           | The record page's side tabs                                               |
-| `table-cells`           | How a value is drawn: text, number, badge, bar, sparkline or svg. Data only, never code in a cell    | Model record lists                                                        |
-| `columns`               | A computed column (one value per row) with entries in its header menu                                | Model record lists                                                        |
-| `row-actions`           | An action for the chosen rows (`one` or `many`)                                                      | Model record lists, above the table when rows are chosen                  |
-| `field-types`           | A type for a model field: a base (text, integer, decimal), rules and a display                       | The Fields tab, record forms and lists                                    |
+| Point                   | What it adds                                                                                         | Where it shows                                                                  |
+| ----------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `operations`            | Something the plugin can do: named inputs in, named outputs back                                     | Assistant, MCP, pipelines and the API, all generated from one declaration       |
+| `calculators`           | The same shape as an operation, read-only, shown as a form                                           | The bench calculator's "More" tab, and everywhere an operation shows            |
+| `pipeline-steps`        | Combines or reshapes tables (DataFrames in, one DataFrame out)                                       | Pipelines, as an action `plugin.<key>.<id>`                                     |
+| `analysis-kinds`        | A Python analysis with a declared result shape (columns, optional chart)                             | The analysis block, beside the built-in kinds                                   |
+| `checks`                | Reads a table, answers `pass`, `warn` or `fail` with a message                                       | The `plugin_check` gate condition                                               |
+| `search-providers`      | Finds records the built-in search cannot                                                             | "Found by plugins" on Search, the assistant and MCP semantic search             |
+| `connectors`            | Pulls data in from a host it declared, as a table                                                    | Import → "Pull data in from another tool"                                       |
+| `publishers`            | Sends a table to another system, to a host it declared (POST, PUT or PATCH)                          | Dataset menu "Send to…", pipeline plugin steps, assistant card, MCP, API        |
+| `notification-channels` | Another way for a notification to reach a person, such as a Slack message                            | Settings → Notifications, "Other places to get notifications"                   |
+| `importers`             | Reads a file type Sheetbase does not, into a table                                                   | Import                                                                          |
+| `exporters`             | Writes a dataset as a file type Sheetbase does not                                                   | Dataset menu and `?format=plugin.<key>.<id>`                                    |
+| `previews`              | Shows what is inside a file                                                                          | Notebook file blocks                                                            |
+| `sameness-keys`         | Turns an entry's fields into a key; the same key means the same thing                                | Registry models: warning before a repeat is added                               |
+| `event-hooks`           | Reacts to an event: notes, summaries, flags, sign-offs, field changes                                | Inbox (`plugin_note`), record panel, record fields                              |
+| `record-hooks`          | Checks, fills in or follows up a save, an edit, a status change or a file upload                     | Saves and uploads (`422` on refusal), record panel, gates, search               |
+| `instrument-parsers`    | Reads an instrument's own file into a table, matched by extension and optionally by text it contains | Import, and the list under Settings → Instruments                               |
+| `label-formats`         | Lays out a label's text lines for the kinds it declares                                              | Label templates (Layout), sample labels and printing                            |
+| `barcode-formats`       | Draws a code as bars (`1d`) or a grid (`2d`); an optional `parse` reads a scanned value back         | Label templates (Code), Scan and stocktake                                      |
+| `storage-rules`         | Sees a sample and where it is going, answers `ok`, `warn` or `refuse` with a reason                  | Every move into a position or a free-text place (`422` on refusal)              |
+| `blocks`                | A notebook block drawn by a Python screen or by the plugin's own page (`ui`)                         | The insert menu, under Plugin blocks                                            |
+| `panels`                | A tab on record pages, drawn the same way, optionally only for some models                           | The record page's side tabs                                                     |
+| `table-cells`           | How a value is drawn: text, number, badge, bar, sparkline or svg. Data only, never code in a cell    | Model record lists and sheet grids (a sheet column matches on its key and type) |
+| `columns`               | A computed column (one value per row) with entries in its header menu                                | Model record lists                                                              |
+| `row-actions`           | An action for the chosen rows (`one` or `many`)                                                      | Model record lists, above the table when rows are chosen                        |
+| `field-types`           | A type for a model field: a base (text, integer, decimal), rules and a display                       | The Fields tab, record forms and lists                                          |
 
 Every point has its own switch (`api.set_extension_point_enabled`), and a point
 that is off resolves to nothing.

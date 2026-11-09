@@ -1,3 +1,4 @@
+import { usePluginGridCellDisplays } from '#/components/extensions/table-hooks'
 import { t } from '#/copy'
 import { usePaneReadOnly } from '#/components/workspace/workspace-navigation'
 import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
@@ -1500,6 +1501,22 @@ export function CanonicalSheetEditor({
       ),
     [matrix, canWrite],
   )
+  const columnKeys = useMemo(
+    () =>
+      matrix.columns.flatMap((column) =>
+        column.field
+          ? [
+              {
+                id: column.id,
+                key: column.field.key,
+                logicalType: column.field.logicalType,
+              },
+            ]
+          : [],
+      ),
+    [matrix],
+  )
+  const cellDisplays = usePluginGridCellDisplays(columnKeys)
   const sheetRows = useMemo(
     () =>
       matrix.rowKeys.map((rowKey, index) => ({
@@ -2469,6 +2486,7 @@ export function CanonicalSheetEditor({
           <SheetbaseTableGrid
             ariaLabel={t('notebook.canonicalSheetWorkspace.sheetAriaLabel')}
             columns={sheetColumns}
+            cellDisplays={cellDisplays}
             rows={sheetRows}
             annotations={commentAnnotations}
             rowHeaders

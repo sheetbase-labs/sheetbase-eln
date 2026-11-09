@@ -182,7 +182,6 @@ export const PENDING_MODELS: readonly string[] = [
   'set_experiment_status',
   'set_label_template_archived',
   'set_model_type',
-  'sheet_cell_conflicts',
   'sheet_cell_search',
   'sheet_instance_calculation_mutations',
   'sheet_instance_composition_adoptions',
@@ -233,32 +232,8 @@ export const PENDING_PIPELINES: readonly string[] = [
 
 /** Projects, folders, access, follow, notifications, search, files and audit: opened by the projects and workspace thread. */
 export const PENDING_WORKSPACE: readonly string[] = [
-  'accept_invitation',
-  'analysis_evidence_source',
-  'assign_planner_item_to_study',
-  'complete_workspace_setup',
-  'configuration_change_log',
-  'create_file_upload',
   'create_schema_relationship',
   'delete_schema_relationship',
-  'finalize_file_upload',
-  'install_starter_structures',
-  'list_capabilities',
-  'list_configuration_vocabularies',
-  'record_cell_conflict',
-  'register_file_version',
-  'resolve_cell_conflict',
-  'sample_storage_locations',
-  'search_cells',
-  'search_did_you_mean',
-  'search_documents',
-  'search_facets',
-  'set_join_domains',
-  'set_regulated_lab',
-  'studies',
-  'sweep_sample_hold_limits',
-  'transition_file_status',
-  'workspace_join_domains',
 ]
 
 /** Agent definitions, policies and runs: opened by the agent policies thread. */

@@ -37,17 +37,12 @@ env:
 
 jobs:
   build:
-    name: Build and push development images
+    name: Build development images without publish credentials
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      # `write` includes read of the private @sheetbase-labs/* packages.
-      packages: write
-    env:
-      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      packages: read
     outputs:
-      app_image_ref: ${{ steps.app_digest.outputs.ref }}
-      postgrest_image_ref: ${{ steps.postgrest_digest.outputs.ref }}
       artifact_version: ${{ steps.version.outputs.version }}
       expected_migration: ${{ steps.migration.outputs.version }}
     steps:
@@ -56,6 +51,7 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Set artifact version
         id: version
@@ -66,13 +62,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Resolve Node image digest
         id: node_image
@@ -91,11 +80,10 @@ jobs:
         with:
           version: 11.9.0
 
-      - name: GitHub Packages auth
-        run: echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
-
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        uses: ./.github/actions/install-private
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Read expected migration
         id: migration
@@ -110,20 +98,62 @@ jobs:
           SHEETBASE_ARTIFACT_TAG: ${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:dev-${{ steps.version.outputs.version }}
         run: pnpm artifact:build
 
-      - name: Push app image to GHCR
-        id: app_digest
-        run: |
-          TAG="${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:dev-${{ steps.version.outputs.version }}"
-          docker push "$TAG"
-          REF="$(docker inspect --format '{{index .RepoDigests 0}}' "$TAG")"
-          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
-
       - name: Build PostgREST image
         run: |
           docker build \
             --build-arg POSTGREST_VERSION=v14.5 \
             --tag ${{ env.REGISTRY }}/${{ env.POSTGREST_IMAGE_NAME }}:v14.5 \
             docker/postgrest
+
+      - name: Export built images
+        run: |
+          docker save \
+            "${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:dev-${{ steps.version.outputs.version }}" \
+            "${{ env.REGISTRY }}/${{ env.POSTGREST_IMAGE_NAME }}:v14.5" \
+            -o "$RUNNER_TEMP/development-images.tar"
+
+      - name: Transfer images to the isolated publisher
+        uses: actions/upload-artifact@v4
+        with:
+          name: development-images
+          path: ${{ runner.temp }}/development-images.tar
+          compression-level: 0
+          retention-days: 1
+          if-no-files-found: error
+
+  publish:
+    name: Publish development images without running repository code
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    outputs:
+      app_image_ref: ${{ steps.app_digest.outputs.ref }}
+      postgrest_image_ref: ${{ steps.postgrest_digest.outputs.ref }}
+    steps:
+      - name: Download built images
+        uses: actions/download-artifact@v4
+        with:
+          name: development-images
+          path: ${{ runner.temp }}/images
+
+      - name: Load images without executing them
+        run: docker load -i "$RUNNER_TEMP/images/development-images.tar"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push app image to GHCR
+        id: app_digest
+        run: |
+          TAG="${{ env.REGISTRY }}/${{ env.APP_IMAGE_NAME }}:dev-${{ needs.build.outputs.artifact_version }}"
+          docker push "$TAG"
+          REF="$(docker inspect --format '{{index .RepoDigests 0}}' "$TAG")"
+          echo "ref=${REF}" >> "$GITHUB_OUTPUT"
 
       - name: Push PostgREST image to GHCR
         id: postgrest_digest
@@ -135,7 +165,7 @@ jobs:
 
   deploy:
     name: Deploy to development VPS
-    needs: build
+    needs: [build, publish]
     if: inputs.confirm == 'deploy-dev'
     runs-on: ubuntu-latest
     environment: development
@@ -175,13 +205,17 @@ jobs:
             export SHEETBASE_ARTIFACT_DIGEST="${APP_IMAGE_REF##*@}"
             export SHEETBASE_EXPECTED_MIGRATION="$EXPECTED_MIGRATION"
 
+            export DOCKER_CONFIG="$(mktemp -d)"
+            trap 'rm -rf "$DOCKER_CONFIG"' EXIT
             printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USERNAME" --password-stdin
             docker compose -f compose.dev.yaml --env-file /opt/sheetbase-dev/.env.development pull
+            rm -rf "$DOCKER_CONFIG"
+            trap - EXIT
+            unset DOCKER_CONFIG GHCR_TOKEN
             docker compose -f compose.dev.yaml --env-file /opt/sheetbase-dev/.env.development up -d postgres
             docker compose -f compose.dev.yaml --env-file /opt/sheetbase-dev/.env.development --profile deployment run --rm migrate
             docker compose -f compose.dev.yaml --env-file /opt/sheetbase-dev/.env.development --profile deployment run --rm seed
             docker compose -f compose.dev.yaml --env-file /opt/sheetbase-dev/.env.development up -d postgrest app
-            unset GHCR_TOKEN
 
             for attempt in $(seq 1 30); do
               if curl -fsS http://127.0.0.1:3100/api/health/ready >/dev/null; then
@@ -193,8 +227,8 @@ jobs:
             docker compose -f compose.dev.yaml --env-file /opt/sheetbase-dev/.env.development ps
             exit 1
         env:
-          APP_IMAGE_REF: ${{ needs.build.outputs.app_image_ref }}
-          POSTGREST_IMAGE_REF: ${{ needs.build.outputs.postgrest_image_ref }}
+          APP_IMAGE_REF: ${{ needs.publish.outputs.app_image_ref }}
+          POSTGREST_IMAGE_REF: ${{ needs.publish.outputs.postgrest_image_ref }}
           ARTIFACT_VERSION: ${{ needs.build.outputs.artifact_version }}
           EXPECTED_MIGRATION: ${{ needs.build.outputs.expected_migration }}
           DEPLOY_REF: ${{ inputs.ref }}

@@ -260,6 +260,31 @@ export const notebook = {
         applying: 'Making…',
         applied: 'Made',
       },
+      addStudyTask: {
+        apply: 'Add task',
+        applying: 'Adding…',
+        applied: 'Task added',
+      },
+      updateStudyTask: {
+        apply: 'Update task',
+        applying: 'Updating…',
+        applied: 'Task updated',
+      },
+      addStudyDeliverable: {
+        apply: 'Add deliverable',
+        applying: 'Adding…',
+        applied: 'Deliverable added',
+      },
+      generateReport: {
+        apply: 'Generate report',
+        applying: 'Generating…',
+        applied: 'Report generated',
+      },
+      archivePlateDesign: {
+        apply: 'Archive design',
+        applying: 'Archiving…',
+        applied: 'Design archived',
+      },
       setQcBaseline: {
         apply: 'Set limits',
         applying: 'Setting…',

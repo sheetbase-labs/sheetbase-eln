@@ -149,7 +149,7 @@ afterAll(async () => {
 })
 
 describe('MDL-01 record_models public API exposure', () => {
-  it('allowlists a read-only record_models and keeps model authoring denied', () => {
+  it('allowlists a read-only record_models and opens model authoring behind schema:write', () => {
     expect(
       requiredScopes('GET', { kind: 'table', resource: 'record_models' }),
     ).toEqual(['projects:read'])
@@ -161,7 +161,9 @@ describe('MDL-01 record_models public API exposure', () => {
       requiredScopes('PATCH', { kind: 'table', resource: 'record_models' }),
     ).toThrow()
 
-    expect(EXTERNAL_RPC_SCOPES).not.toHaveProperty('create_workspace_model')
+    // The table is read-only; record types are made and changed through the
+    // schema actions, behind schema:write.
+    expect(EXTERNAL_RPC_SCOPES.create_workspace_model).toEqual(['schema:write'])
     expect(EXTERNAL_RPC_SCOPES).not.toHaveProperty(
       'next_record_model_identifier',
     )

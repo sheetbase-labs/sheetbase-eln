@@ -17,6 +17,11 @@ import {
   labRpcsFromOperations,
   paramNotesFromOperations,
 } from './operations/descriptor'
+import {
+  INSTRUMENT_PARAM_NOTES,
+  INSTRUMENT_RPCS,
+  INSTRUMENT_TABLES,
+} from './lab-api-instruments'
 import { CORE_OPERATIONS } from './operations/registry'
 
 /** Column or parameter type. */
@@ -295,6 +300,7 @@ const LAB_PARAM_NOTES_BASE: Readonly<Record<string, string>> = {
 }
 
 export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
+  ...INSTRUMENT_TABLES,
   gate_check_results: {
     summary:
       'What a plugin check answered for a table on an experiment: `pass`, `warn` or `fail` with its message, and a fingerprint of the table when it ran. A gate reads this; when the table has changed since, the answer is out of date and the gate is not met. Written only by the app when someone runs the check.',
@@ -3115,11 +3121,13 @@ const LAB_RPCS_HAND_WRITTEN: Readonly<Record<string, LabRpc>> = {
  * with a summary needs no entry here.
  */
 export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
+  ...INSTRUMENT_PARAM_NOTES,
   ...paramNotesFromOperations(CORE_OPERATIONS),
   ...LAB_PARAM_NOTES_BASE,
 }
 
 export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
+  ...INSTRUMENT_RPCS,
   ...LAB_RPCS_HAND_WRITTEN,
   ...labRpcsFromOperations(CORE_OPERATIONS),
 }

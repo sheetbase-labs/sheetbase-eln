@@ -351,6 +351,25 @@ secret). A role that changes because of the provider's groups is announced as
   `webhooks:read` / `webhooks:write` (see [`external-api.md`](external-api.md));
   `change_events` itself is never externally readable.
 
+## Instruments, connectors and parsers (`stable`, webhook, live feed and pipelines)
+
+Every event below, and the booking, import and `instrument.run.*` events above, can also start a pipeline. The pipeline sweep applies the payload test shown, so `instrument.run.completed` fires only for a run that completed.
+
+| Event                                                                  | Produced by                                                                                                       | `data`                                             |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `instrument.created`                                                   | `instrument` + `create`                                                                                           | `name`, `location`, `qualifiedFor`                 |
+| `instrument.updated`                                                   | `instrument` + `update`, when `effect` is `renamed_or_moved`                                                      | `effect`, `changes`                                |
+| `instrument.retired` / `.reinstated`                                   | `instrument_state` + `update`, by `effect`                                                                        | `instrumentId`, `name`, `effect`                   |
+| `instrument.out_of_service` / `.back_in_service`                       | `instrument_state` + `update`, by `effect`                                                                        | `instrumentId`, `name`, `reason`, `expectedBackOn` |
+| `instrument.calibrated`                                                | `instrument_calibration` + `create`                                                                               | `instrumentId`, `performedAt`, `dueAt`             |
+| `instrument.qualification_set` / `.qualification_revoked`              | `instrument_qualification` + `update` / `delete`                                                                  | `instrumentId`, `userId`, `validUntil`             |
+| `instrument.qualification_requested` / `.qualification_request_closed` | `instrument_qualification_request` + `create` / `update` (closed when `status` is not `pending`)                  | `instrumentId`, `userId`, `status`                 |
+| `resource.created`                                                     | `calendar_resource` + `create`, when `resource_type` is not `instrument` (an instrument has `instrument.created`) | the resource row                                   |
+| `connector.created` / `.updated`                                       | `connector` + `create` / `update`                                                                                 | the connector row                                  |
+| `connector.run.started` / `.completed` / `.failed`                     | `connector_run` + `create` / `update`, by `status` (`succeeded`, `failed`)                                        | the run row                                        |
+| `parser.created`                                                       | `parser` + `create`                                                                                               | the parser row                                     |
+| `parser.version.created` / `.approved`                                 | `parser_version` + `create` / `update`, when `status` is `approved`                                               | the version row                                    |
+
 ## Intentionally excluded
 
 Present in `change_events` but not stable events: `dataset`/`sheet_instance`/

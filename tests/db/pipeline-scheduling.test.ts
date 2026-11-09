@@ -735,3 +735,87 @@ describe('missed runs, overlap and pausing', () => {
     await settleRuns()
   })
 })
+
+describe('a run event never starts its own pipeline again', () => {
+  /** A schedule on a run event, written straight in: the catalogue's SQL list arrives with the feature registries. */
+  async function onRunSucceeded(defId: string): Promise<string> {
+    const { rows } = await migrator.query<{ id: string }>(
+      `insert into api.pipeline_schedules
+         (workspace_id, definition_id, kind, spec, enabled, last_evaluated_sequence, created_by_user_id)
+       values ($1, $2, 'event', $3::jsonb, true, $4::bigint, $5) returning id`,
+      [
+        WS,
+        defId,
+        JSON.stringify({
+          eventType: 'pipeline.run.succeeded',
+          inputs: { readings: { mode: 'pinned', versionId: versionIds[0] } },
+        }),
+        await changeHead(),
+        OWNER,
+      ],
+    )
+    return rows[0].id
+  }
+
+  /** Finishes the running runs as the worker does, so each says so in an event. */
+  async function succeedRuns() {
+    await migrator.query('BEGIN')
+    await migrator.query(`select set_config('request.jwt.claims', $1, true)`, [
+      JSON.stringify({ role: 'authenticated', sub: OWNER, workspace_id: WS }),
+    ])
+    await settleRuns()
+    await migrator.query('COMMIT')
+  }
+
+  it('lets A start B, but not A start A, nor B start A again', async () => {
+    const other = await owner.query<{ id: string }>(
+      `select * from api.create_pipeline_definition($1::uuid, 'after_summary', 'After summary', null)`,
+      [WS],
+    )
+    const otherId = other.rows[0].id
+    const { rows: source } = await migrator.query<{ configuration: unknown }>(
+      `select configuration from api.pipeline_definition_versions
+        where definition_id = $1 and lifecycle = 'published'`,
+      [definitionId],
+    )
+    const draft = await owner.query<{ id: string }>(
+      `select * from api.create_pipeline_definition_version($1::uuid, $2::uuid, $3::jsonb)`,
+      [WS, otherId, JSON.stringify(source[0].configuration)],
+    )
+    await owner.query(
+      `select api.publish_pipeline_definition_version($1::uuid, $2::uuid)`,
+      [WS, draft.rows[0].id],
+    )
+
+    await settleRuns()
+    const onA = await onRunSucceeded(definitionId)
+    const onB = await onRunSucceeded(otherId)
+    await migrator.query(
+      `update api.pipeline_schedules set enabled = (id in ($1, $2))`,
+      [onA, onB],
+    )
+
+    // A runs by hand and succeeds.
+    const { rows: published } = await migrator.query<{ id: string }>(
+      `select id from api.pipeline_definition_versions
+        where definition_id = $1 and lifecycle = 'published'`,
+      [definitionId],
+    )
+    await owner.query(
+      `select * from api.run_pipeline_version($1::uuid, '{}'::jsonb, $2::jsonb)`,
+      [published[0].id, JSON.stringify({ readings: versionIds[0] })],
+    )
+    await succeedRuns()
+
+    // B starts on A's success; A does not start itself.
+    expect(await sweepSweeps()).toBe(1)
+    expect(await runsOf(onB)).toHaveLength(1)
+    expect(await runsOf(onA)).toHaveLength(0)
+
+    // B's success would start A (A led to B) and B (itself): neither runs.
+    await succeedRuns()
+    expect(await sweepSweeps()).toBe(0)
+    expect(await runsOf(onA)).toHaveLength(0)
+    expect(await runsOf(onB)).toHaveLength(1)
+  })
+})

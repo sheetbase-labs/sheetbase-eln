@@ -15,7 +15,7 @@
  */
 import { agentActionAlwaysAsk } from '../features/agent-policies/feature'
 import { featureAgentAreas, featureAgentDeletes } from '../features/collect'
-import { LAB_RPCS } from './lab-api-surface'
+import { isWriteScope, LAB_RPCS } from './lab-api-surface'
 import type { LabRpc } from './lab-api-surface'
 import type { DataClient } from './data-client'
 
@@ -173,7 +173,7 @@ export const AGENT_ACTIONS: readonly AgentActionEntry[] = Object.freeze(
   Object.entries(LAB_RPCS)
     .filter(
       ([key, rpc]) =>
-        rpc.scope.endsWith(':write') &&
+        isWriteScope(rpc.scope) &&
         !REQUEST_PLUMBING.has(key) &&
         !agentActionAlwaysNever(key),
     )

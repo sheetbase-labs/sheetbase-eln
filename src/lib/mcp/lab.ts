@@ -3,7 +3,7 @@ import { z } from 'zod'
 import type { Scope } from '../api-credential-scopes'
 import type { DataClient } from '../data-client'
 import { agentActionResult, recordableResult } from '../agent-action-policy'
-import { LAB_RPCS } from '../lab-api-surface'
+import { isWriteScope, LAB_RPCS } from '../lab-api-surface'
 import type { LabRpc, LabType } from '../lab-api-surface'
 
 /**
@@ -214,7 +214,7 @@ export async function runGuardedLabAct(
   if ('ok' in checked) return checked
   const { action, rpc, args } = checked
   if (
-    !rpc.scope.endsWith(':write') ||
+    !isWriteScope(rpc.scope) ||
     action === 'request_agent_action' ||
     action === 'finish_agent_action'
   ) {

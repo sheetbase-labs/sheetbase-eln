@@ -10,16 +10,18 @@
  *   updates the existing install, which comes back switched off until it is
  *   reviewed again), and stores the code.
  *
- * Signed-in; `api.extensions.manage` (owners and admins) is checked by the
- * database before anything is read or written, exactly as for enabling and
- * removing. The code is stored by the server and never readable through the API.
+ * Signed in, or a personal API token with `admin:write` (a script or CI job
+ * that ships a plugin); `api.extensions.manage` (owners and admins) is checked
+ * by the database before anything is read or written, exactly as for enabling
+ * and removing. The code is stored by the server and never readable through
+ * the API.
  */
 import { createServerDataClient } from '../connectors/enterprise/execution.server'
 import type { DataClient } from '../data-client'
 import {
   realSessionAuthDeps,
   requestErrorResponse,
-  resolveSessionAuth,
+  resolvePersonalAuth,
 } from '../request-auth'
 import type { SessionAuthDeps } from '../request-auth'
 import { installExtension, listExtensions, updateExtension } from './client'
@@ -134,7 +136,11 @@ export async function handlePluginInstall(
 ): Promise<Response> {
   if (request.method !== 'POST')
     return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
-  const auth = await resolveSessionAuth(request.headers, deps.auth)
+  const auth = await resolvePersonalAuth(
+    request.headers,
+    'admin:write',
+    deps.auth,
+  )
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth

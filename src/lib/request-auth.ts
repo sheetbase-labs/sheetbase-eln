@@ -189,6 +189,20 @@ export async function resolveFileAuth(
   scope: Extract<Scope, 'files:read' | 'files:write'>,
   deps: SessionAuthDeps = realSessionAuthDeps,
 ): Promise<SessionAuthResult> {
+  return resolvePersonalAuth(headers, scope, deps)
+}
+
+/**
+ * A signed-in session, or a personal API token holding `scope`. For the few
+ * routes that take a body the `/api/db` proxy cannot (file bytes, a plugin
+ * package): the token acts as its owner, and the database checks what that
+ * person may do, exactly as for a session.
+ */
+export async function resolvePersonalAuth(
+  headers: Headers,
+  scope: Scope,
+  deps: SessionAuthDeps = realSessionAuthDeps,
+): Promise<SessionAuthResult> {
   const bearer = readBearerToken(headers)
   if (!bearer) return resolveSessionAuth(headers, deps)
   const verified = deps.verifyBearer

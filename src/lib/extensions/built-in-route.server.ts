@@ -8,7 +8,7 @@ import type { DataClient } from '../data-client'
 import {
   realSessionAuthDeps,
   requestErrorResponse,
-  resolveSessionAuth,
+  resolvePersonalAuth,
 } from '../request-auth'
 import type { SessionAuthDeps } from '../request-auth'
 import { ensureBuiltInPlugins } from './built-in.server'
@@ -27,7 +27,11 @@ export async function handleBuiltInPlugins(
 ): Promise<Response> {
   if (request.method !== 'POST')
     return requestErrorResponse(405, 'method_not_allowed', 'Use POST.')
-  const auth = await resolveSessionAuth(request.headers, deps.auth)
+  const auth = await resolvePersonalAuth(
+    request.headers,
+    'admin:write',
+    deps.auth,
+  )
   if (!auth.ok)
     return requestErrorResponse(auth.status, auth.code, auth.message)
   const { context } = auth

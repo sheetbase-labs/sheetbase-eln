@@ -24,7 +24,7 @@ vi.mock('../request-auth', () => ({
   realSessionAuthDeps: {},
   requestErrorResponse: (status: number, code: string, message: string) =>
     Response.json({ error: { code, message } }, { status }),
-  resolveSessionAuth: async () => ({
+  resolvePersonalAuth: async () => ({
     ok: true,
     context: { token: 't', workspaceId: 'w', userId: 'u' },
   }),

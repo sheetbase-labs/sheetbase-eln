@@ -45,7 +45,7 @@ export function checkAppAction(
     action,
     rpc,
     args: parsed.data,
-    writes: rpc.scope === 'lab:write',
+    writes: rpc.scope.endsWith(':write'),
     summary: `${rpc.summary}${summariseArguments(parsed.data)}`.slice(0, 500),
   }
 }

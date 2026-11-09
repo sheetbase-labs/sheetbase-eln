@@ -3922,7 +3922,7 @@ Scope: `projects:read`.
 
 ### `create_webhook_subscription`
 
-Add a webhook subscription. The signing secret is in the result and shown once. Also on `sheetbase.lab.act`.
+Add a webhook subscription. Over the API the signing secret is in the result and shown once. Through `sheetbase.lab.act` the secret is made on the server and never returned or stored (there is no `p_signing_secret` argument); a person reads one by rotating it in Settings > Integrations.
 
 Scope: `webhooks:write`.
 

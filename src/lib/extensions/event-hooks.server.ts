@@ -1,7 +1,7 @@
 /**
  * Plugin reactions to events. When something happens in the workspace, every
  * enabled plugin reaction listening for that event runs. What it answers is
- * done as the person whose change set it off: notes in their Inbox (14 days),
+ * done as the person whose change set it off: notes in their Inbox (until dealt with),
  * flags a gate waits on, sign-offs for people to press, summaries, search index
  * entries and changes to fields on the record concerned (see `hook-answers.ts`).
  *

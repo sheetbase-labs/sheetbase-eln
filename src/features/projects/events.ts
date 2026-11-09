@@ -13,17 +13,20 @@ const entry = (
   summary: string,
   producer: EventCatalogueEntry['producer'],
   notes?: string,
-): EventCatalogueEntry => ({
-  name,
-  family: 'administration',
-  summary,
-  producer,
-  wireName: name,
-  status: 'stable',
-  introducedIn: 'projects-01',
-  consumers: everywhere,
-  ...(notes ? { notes } : {}),
-})
+): EventCatalogueEntry => {
+  const result: EventCatalogueEntry = {
+    name,
+    family: 'administration',
+    summary,
+    producer,
+    wireName: name,
+    status: 'stable',
+    introducedIn: 'projects-01',
+    consumers: everywhere,
+  }
+
+  return notes ? { ...result, notes } : result
+}
 
 export const PROJECTS_EVENTS: readonly EventCatalogueEntry[] = Object.freeze([
   entry(

@@ -183,17 +183,21 @@ async function findProject(
   archived: 'active' | 'archived' | 'any' = 'active',
 ): Promise<Lookup<ProjectRow>> {
   const like = likeValue(text)
+
   const state =
     archived === 'active'
       ? 'archived_at=is.null&'
       : archived === 'archived'
         ? 'archived_at=not.is.null&'
         : ''
+
   const rows = await client.list<ProjectRow>(
     'projects',
     `?${state}or=(title.ilike.${like},key.ilike.${like},display_id.ilike.${like})&select=${PROJECT_COLUMNS}&order=title.asc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -225,11 +229,14 @@ async function findRecord(
 ): Promise<Lookup<RecordRow>> {
   const like = likeValue(text)
   const inProject = projectId ? `project_id=eq.${projectId}&` : ''
+
   const rows = await client.list<RecordRow>(
     'records',
     `?${inProject}deleted_at=is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title,project_id,folder_id,metadata_version&order=updated_at.desc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -256,7 +263,9 @@ async function findFolder(
     'folders',
     `?project_id=eq.${projectId}&archived_at=is.null&name=ilike.${likeValue(text)}&select=id,name,identifier&order=name.asc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -278,6 +287,7 @@ async function findMember(
   const members = await client.rpc<MemberRow[]>('workspace_members_list', {})
   const lower = text.trim().toLowerCase()
   const words = lower.split(/\s+/).filter(Boolean)
+
   return pick(
     members.filter((member) =>
       words.every((word) => member.name.toLowerCase().includes(word)),
@@ -294,11 +304,14 @@ async function findClient(
   text: string,
 ): Promise<Lookup<{ id: string; code: string; name: string }>> {
   const like = likeValue(text)
+
   const rows = await client.list<{ id: string; code: string; name: string }>(
     'clients',
     `?archived_at=is.null&or=(name.ilike.${like},code.ilike.${like})&select=id,code,name&order=name.asc&limit=6`,
   )
+
   const lower = text.trim().toLowerCase()
+
   return pick(
     rows,
     text,
@@ -333,20 +346,26 @@ async function resolveDetails(
 > {
   const fields: Record<string, string | null> = {}
   const changes: ProposalChange[] = []
+
   if (input.client) {
     const found = await findClient(client, input.client)
+
     if (!found.ok) return found
     fields.p_client_id = found.value.id
     changes.push({ label: 'Client', before: null, after: found.value.name })
   }
+
   if (input.lead) {
     const found = await findMember(client, input.lead)
+
     if (!found.ok) return found
     fields.p_lead_user_id = found.value.user_id
     changes.push({ label: 'Lead', before: null, after: found.value.name })
   }
+
   if (input.reviewer) {
     const found = await findMember(client, input.reviewer)
+
     if (!found.ok) return found
     fields.p_default_reviewer_user_id = found.value.user_id
     changes.push({
@@ -355,18 +374,22 @@ async function resolveDetails(
       after: found.value.name,
     })
   }
+
   const plain: Array<[keyof Details, string, string]> = [
     ['modality', 'p_modality', 'Modality'],
     ['stage', 'p_stage', 'Stage'],
     ['agreement', 'p_agreement_reference', 'Agreement'],
     ['startedOn', 'p_started_on', 'Started'],
   ]
+
   for (const [key, arg, label] of plain) {
     const value = input[key]
+
     if (value === undefined) continue
     fields[arg] = value
     changes.push({ label, before: null, after: value })
   }
+
   return { ok: true, fields, changes }
 }
 
@@ -379,21 +402,27 @@ const ITEM_TABLES = {
 
 export async function buildProjectsProposal(
   name: ProjectsProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Each tool case parses raw input before using it or accessing data.
   args: unknown,
   context: LabToolContext,
 ): Promise<ProjectsOutcome> {
   const { client, workspaceId } = context
+
   switch (name) {
     case PROJECT_UPDATE_TOOL: {
       const parsed = parse(proposeProjectUpdateSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const project = await findProject(client, input.project, 'any')
+
       if (!project.ok) return fail(project.message)
       const details = await resolveDetails(client, input)
+
       if (!details.ok) return fail(details.message)
       const fields = { ...details.fields }
       const changes: ProposalChange[] = []
+
       if (input.name && input.name !== project.value.title) {
         fields.p_title = input.name
         changes.push({
@@ -402,9 +431,12 @@ export async function buildProjectsProposal(
           after: input.name,
         })
       }
+
       changes.push(...details.changes)
+
       if (changes.length === 0)
         return fail('Nothing to change. Ask what should change.')
+
       return card(name, input, {
         target: projectLabel(project.value),
         deepLink: `/projects/${project.value.id}`,
@@ -421,15 +453,19 @@ export async function buildProjectsProposal(
     case PROJECT_ARCHIVE_TOOL:
     case PROJECT_RESTORE_TOOL: {
       const parsed = parse(proposeProjectStateSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const archive = name === PROJECT_ARCHIVE_TOOL
+
       const project = await findProject(
         client,
         input.project,
         archive ? 'active' : 'archived',
       )
+
       if (!project.ok) return fail(project.message)
+
       return card(name, input, {
         target: projectLabel(project.value),
         deepLink: `/projects/${project.value.id}`,
@@ -449,12 +485,16 @@ export async function buildProjectsProposal(
 
     case PROJECT_COPY_TOOL: {
       const parsed = parse(proposeProjectCopySchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const source = await findProject(client, input.source, 'any')
+
       if (!source.ok) return fail(source.message)
       const details = await resolveDetails(client, input)
+
       if (!details.ok) return fail(details.message)
+
       return card(name, input, {
         target: input.name,
         deepLink: '/projects',
@@ -479,14 +519,19 @@ export async function buildProjectsProposal(
 
     case PROJECT_COPY_PLAN_TOOL: {
       const parsed = parse(proposeProjectCopyPlanSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const source = await findProject(client, input.source, 'any')
+
       if (!source.ok) return fail(source.message)
       const target = await findProject(client, input.target)
+
       if (!target.ok) return fail(target.message)
+
       if (source.value.id === target.value.id)
         return fail('A plan cannot be copied into its own project.')
+
       return card(name, input, {
         target: projectLabel(target.value),
         deepLink: `/projects/${target.value.id}`,
@@ -509,16 +554,21 @@ export async function buildProjectsProposal(
 
     case RECORD_MOVE_PROJECT_TOOL: {
       const parsed = parse(proposeRecordMoveProjectSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const record = await findRecord(client, input.record)
+
       if (!record.ok) return fail(record.message)
       const project = await findProject(client, input.project)
+
       if (!project.ok) return fail(project.message)
+
       if (record.value.project_id === project.value.id)
         return fail(
           `${record.value.identifier} is already in ${project.value.title}.`,
         )
+
       const from = await client.list<{
         title: string
         display_id: string | null
@@ -526,6 +576,7 @@ export async function buildProjectsProposal(
         'projects',
         `?id=eq.${record.value.project_id}&select=title,display_id&limit=1`,
       )
+
       return card(name, input, {
         target: `${record.value.identifier} ${record.value.title}`,
         deepLink: `/records/${record.value.id}`,
@@ -547,16 +598,21 @@ export async function buildProjectsProposal(
 
     case FOLDER_CREATE_TOOL: {
       const parsed = parse(proposeFolderCreateSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const project = await findProject(client, input.project)
+
       if (!project.ok) return fail(project.message)
       let parentId: string | null = null
+
       const changes: ProposalChange[] = [
         { label: 'New folder', before: null, after: input.name },
       ]
+
       if (input.parent) {
         const parent = await findFolder(client, project.value.id, input.parent)
+
         if (!parent.ok) return fail(parent.message)
         parentId = parent.value.id
         changes.push({
@@ -565,6 +621,7 @@ export async function buildProjectsProposal(
           after: parent.value.name,
         })
       }
+
       return card(name, input, {
         target: projectLabel(project.value),
         deepLink: `/projects/${project.value.id}`,
@@ -580,12 +637,16 @@ export async function buildProjectsProposal(
 
     case FOLDER_RENAME_TOOL: {
       const parsed = parse(proposeFolderRenameSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const project = await findProject(client, input.project)
+
       if (!project.ok) return fail(project.message)
       const folder = await findFolder(client, project.value.id, input.folder)
+
       if (!folder.ok) return fail(folder.message)
+
       return card(name, input, {
         target: projectLabel(project.value),
         deepLink: `/projects/${project.value.id}`,
@@ -603,20 +664,26 @@ export async function buildProjectsProposal(
 
     case FOLDER_DELETE_TOOL: {
       const parsed = parse(proposeFolderDeleteSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const project = await findProject(client, input.project)
+
       if (!project.ok) return fail(project.message)
       const folder = await findFolder(client, project.value.id, input.folder)
+
       if (!folder.ok) return fail(folder.message)
+
       const inside = await client.list<{ id: string }>(
         'records',
         `?folder_id=eq.${folder.value.id}&deleted_at=is.null&select=id&limit=1`,
       )
+
       if (inside.length > 0)
         return fail(
           `${folder.value.name} still holds records. Move them out first, or ask where they should go.`,
         )
+
       return card(name, input, {
         target: projectLabel(project.value),
         deepLink: `/projects/${project.value.id}`,
@@ -633,23 +700,32 @@ export async function buildProjectsProposal(
 
     case FOLDER_MOVE_RECORDS_TOOL: {
       const parsed = parse(proposeFolderMoveRecordsSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const project = await findProject(client, input.project)
+
       if (!project.ok) return fail(project.message)
       let folder: FolderRow | null = null
+
       if (input.folder) {
         const found = await findFolder(client, project.value.id, input.folder)
+
         if (!found.ok) return fail(found.message)
         folder = found.value
       }
+
       const records: RecordRow[] = []
+
       for (const wanted of input.records) {
         const found = await findRecord(client, wanted, project.value.id)
+
         if (!found.ok) return fail(found.message)
+
         if (!records.some((row) => row.id === found.value.id))
           records.push(found.value)
       }
+
       return card(name, input, {
         target: projectLabel(project.value),
         deepLink: `/projects/${project.value.id}`,
@@ -669,28 +745,38 @@ export async function buildProjectsProposal(
 
     case FOLDER_MOVE_ITEMS_TOOL: {
       const parsed = parse(proposeFolderMoveItemsSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const project = await findProject(client, input.project)
+
       if (!project.ok) return fail(project.message)
       let folder: FolderRow | null = null
+
       if (input.folder) {
         const found = await findFolder(client, project.value.id, input.folder)
+
         if (!found.ok) return fail(found.message)
         folder = found.value
       }
+
       const items: Array<{
         kind: (typeof input.items)[number]['kind']
         id: string
       }> = []
+
       const changes: ProposalChange[] = []
+
       for (const wanted of input.items) {
         const { table, what } = ITEM_TABLES[wanted.kind]
+
         const rows = await client.list<{ id: string; name: string }>(
           table,
           `?name=ilike.${likeValue(wanted.name)}&select=id,name&order=name.asc&limit=6`,
         )
+
         const lower = wanted.name.trim().toLowerCase()
+
         const found = pick(
           rows,
           wanted.name,
@@ -698,6 +784,7 @@ export async function buildProjectsProposal(
           (row) => row.name,
           (row) => row.name.toLowerCase() === lower,
         )
+
         if (!found.ok) return fail(found.message)
         items.push({ kind: wanted.kind, id: found.value.id })
         changes.push({
@@ -706,6 +793,7 @@ export async function buildProjectsProposal(
           after: folder ? folder.name : 'No folder',
         })
       }
+
       return card(name, input, {
         target: projectLabel(project.value),
         deepLink: `/projects/${project.value.id}`,
@@ -722,21 +810,26 @@ export async function buildProjectsProposal(
     case RECORD_FOLLOW_TOOL:
     case RECORD_UNFOLLOW_TOOL: {
       const parsed = parse(proposeRecordFollowSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const follow = name === RECORD_FOLLOW_TOOL
       const record = await findRecord(client, input.record)
+
       if (!record.ok) return fail(record.message)
+
       const following = await client.list<{ id: string }>(
         'work_item_follows',
         `?record_id=eq.${record.value.id}&select=id&limit=1`,
       )
+
       if (follow === following.length > 0)
         return fail(
           follow
             ? `You already follow ${record.value.identifier}.`
             : `You do not follow ${record.value.identifier}.`,
         )
+
       return card(name, input, {
         target: `${record.value.identifier} ${record.value.title}`,
         deepLink: `/records/${record.value.id}`,
@@ -756,11 +849,14 @@ export async function buildProjectsProposal(
 
     case AUDIT_VERIFY_TOOL: {
       const parsed = parse(proposeAuditVerifySchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
+
       const last = await client.rpc<{
         ok: boolean
         checkedAt: string
       } | null>('audit_verification_status', {})
+
       return card(name, parsed.data, {
         target: 'Audit log',
         deepLink: '/settings/workspace/audit',
@@ -779,12 +875,16 @@ export async function buildProjectsProposal(
 
     case SQL_LOGIN_REVOKE_TOOL: {
       const parsed = parse(proposeSqlLoginRevokeSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const logins = await client.rpc<
         Array<{ id: string; name: string; username: string; status: string }>
       >('list_sql_logins', { p_workspace_id: workspaceId })
+
       const lower = input.login.trim().toLowerCase()
+
       const found = pick(
         logins.filter(
           (row) =>
@@ -799,7 +899,9 @@ export async function buildProjectsProposal(
           row.name.toLowerCase() === lower ||
           row.username.toLowerCase() === lower,
       )
+
       if (!found.ok) return fail(found.message)
+
       return card(name, input, {
         target: found.value.name,
         deepLink: '/settings/account/api',

@@ -20,24 +20,24 @@ export function featureEvents(): EventCatalogueEntry[] {
 }
 
 export function featureEventLabels(): Record<string, string> {
-  return Object.assign(
+  return features.reduce<Record<string, string>>(
+    (labels, feature) => Object.assign(labels, feature.eventLabels),
     {},
-    ...features.map((feature) => feature.eventLabels ?? {}),
-  ) as Record<string, string>
+  )
 }
 
 export function featureLabTables(): Record<string, LabTable> {
-  return Object.assign(
+  return features.reduce<Record<string, LabTable>>(
+    (tables, feature) => Object.assign(tables, feature.labTables),
     {},
-    ...features.map((feature) => feature.labTables ?? {}),
-  ) as Record<string, LabTable>
+  )
 }
 
 export function featureNotExposed(): Record<string, string> {
-  return Object.assign(
+  return features.reduce<Record<string, string>>(
+    (exemptions, feature) => Object.assign(exemptions, feature.notExposed),
     {},
-    ...features.map((feature) => feature.notExposed ?? {}),
-  ) as Record<string, string>
+  )
 }
 
 export function featureAgentAreas(): FeatureAgentArea[] {

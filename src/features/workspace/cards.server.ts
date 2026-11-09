@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import {
   JOIN_DOMAINS_TOOL,
   REGULATED_LAB_TOOL,
@@ -89,12 +91,13 @@ function card(
   }
 }
 
-const show = (value: unknown): string =>
-  value === null || value === undefined
-    ? 'Empty'
-    : typeof value === 'string'
-      ? value
-      : JSON.stringify(value)
+const show = (value: z.core.util.JSONType | undefined): string => {
+  if (value === null || value === undefined) return 'Empty'
+
+  const text = z.string().safeParse(value)
+
+  return text.success ? text.data : JSON.stringify(value)
+}
 
 const TABLE_LABELS: Record<(typeof STARTER_TABLE_KEYS)[number], string> = {
   plate_reader: 'Plate reader',
@@ -106,16 +109,20 @@ const TABLE_LABELS: Record<(typeof STARTER_TABLE_KEYS)[number], string> = {
 
 export async function buildWorkspaceProposal(
   name: WorkspaceProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Each tool case parses raw input before using it or accessing data.
   args: unknown,
   context: LabToolContext,
 ): Promise<WorkspaceOutcome> {
   const { client, workspaceId } = context
+
   switch (name) {
     case STARTER_TABLES_TOOL: {
       const parsed = parse(proposeStarterTablesSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
       const keys = input.tables ?? [...STARTER_TABLE_KEYS]
+
       return card(name, input, {
         target: 'Starter tables',
         deepLink: '/models',
@@ -136,16 +143,21 @@ export async function buildWorkspaceProposal(
 
     case JOIN_DOMAINS_TOOL: {
       const parsed = parse(proposeJoinDomainsSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const domains = [
         ...new Set(input.domains.map((d) => d.trim().toLowerCase())),
       ].filter(Boolean)
+
       const current = await client.list<{ domain: string; role: string }>(
         'workspace_join_domains',
         '?select=domain,role&order=domain.asc',
       )
+
       const role = input.role ?? 'scientist'
+
       return card(name, input, {
         target: 'Joining by email domain',
         deepLink: '/settings/workspace/members',
@@ -169,17 +181,22 @@ export async function buildWorkspaceProposal(
 
     case REGULATED_LAB_TOOL: {
       const parsed = parse(proposeRegulatedLabSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const rows = await client.list<{ regulated_lab: boolean | null }>(
         'workspace_settings',
         '?select=regulated_lab&limit=1',
       )
+
       const before = rows[0]?.regulated_lab === true
+
       if (before === input.regulated)
         return fail(
           `The regulated-lab rules are already ${before ? 'on' : 'off'}.`,
         )
+
       return card(name, input, {
         target: 'Regulated-lab rules',
         deepLink: '/settings/workspace',
@@ -200,35 +217,44 @@ export async function buildWorkspaceProposal(
 
     case RESOLVE_CONFLICT_TOOL: {
       const parsed = parse(proposeResolveConflictSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       const rows = await client.list<{
         id: string
         sheet_instance_id: string
         row_key: string
         state: string
-        local_value: unknown
-        remote_value: unknown
+        local_value: z.core.util.JSONType
+        remote_value: z.core.util.JSONType
       }>(
         'sheet_cell_conflicts',
         `?id=eq.${encodeURIComponent(input.conflict)}&select=id,sheet_instance_id,row_key,state,local_value,remote_value&limit=1`,
       )
+
       const conflict = rows.at(0)
+
       if (!conflict) return fail('No conflict has that id.')
+
       if (conflict.state !== 'open')
         return fail('That conflict is already settled.')
+
       if (input.keep === 'other' && input.value === undefined)
         return fail('Say which value to keep.')
+
       const value =
         input.keep === 'mine'
           ? conflict.local_value
           : input.keep === 'theirs'
             ? conflict.remote_value
             : input.value
+
       const sheets = await client.list<{ name: string }>(
         'sheet_instances',
         `?id=eq.${conflict.sheet_instance_id}&select=name&limit=1`,
       )
+
       return card(name, input, {
         target: `${sheets[0]?.name ?? 'Sheet'}, row ${conflict.row_key}`,
         deepLink: `/sheets/${conflict.sheet_instance_id}`,
@@ -258,17 +284,23 @@ export async function buildWorkspaceProposal(
 
     case STUDY_ASSIGN_TOOL: {
       const parsed = parse(proposeStudyAssignSchema, args)
+
       if (!parsed.ok) return fail(parsed.message)
       const input = parsed.data
+
       if (Boolean(input.workstream) === Boolean(input.task))
         return fail('Name one workstream or one task, not both.')
+
       const studies = await client.list<{ record_id: string }>(
         'studies',
         '?select=record_id&limit=500',
       )
+
       const ids = studies.map((row) => row.record_id)
+
       if (ids.length === 0) return fail('There are no studies yet.')
       const like = likeValue(input.study)
+
       const records = await client.list<{
         id: string
         identifier: string
@@ -277,7 +309,9 @@ export async function buildWorkspaceProposal(
         'records',
         `?id=in.(${ids.join(',')})&deleted_at=is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=id,identifier,title&limit=6`,
       )
+
       const lower = input.study.trim().toLowerCase()
+
       const study = pick(
         records,
         input.study,
@@ -287,14 +321,18 @@ export async function buildWorkspaceProposal(
           row.identifier.toLowerCase() === lower ||
           row.title.toLowerCase() === lower,
       )
+
       if (!study.ok) return fail(study.message)
       const studyLabel = `${study.value.identifier} ${study.value.title}`
+
       if (input.workstream) {
         const wanted = input.workstream
+
         const rows = await client.list<{ id: string; name: string }>(
           'study_workstreams',
           `?name=ilike.${likeValue(wanted)}&select=id,name&limit=6`,
         )
+
         const found = pick(
           rows,
           wanted,
@@ -302,7 +340,9 @@ export async function buildWorkspaceProposal(
           (row) => row.name,
           (row) => row.name.toLowerCase() === wanted.trim().toLowerCase(),
         )
+
         if (!found.ok) return fail(found.message)
+
         return card(name, input, {
           target: found.value.name,
           deepLink: `/records/${study.value.id}`,
@@ -315,11 +355,14 @@ export async function buildWorkspaceProposal(
           },
         })
       }
+
       const wanted = input.task ?? ''
+
       const rows = await client.list<{ id: string; title: string }>(
         'study_tasks',
         `?title=ilike.${likeValue(wanted)}&select=id,title&limit=6`,
       )
+
       const found = pick(
         rows,
         wanted,
@@ -327,7 +370,9 @@ export async function buildWorkspaceProposal(
         (row) => row.title,
         (row) => row.title.toLowerCase() === wanted.trim().toLowerCase(),
       )
+
       if (!found.ok) return fail(found.message)
+
       return card(name, input, {
         target: found.value.title,
         deepLink: `/records/${study.value.id}`,

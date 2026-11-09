@@ -46,14 +46,17 @@ const definitionId = () =>
     'uuid',
     'The pipeline, from `pipeline_definitions`.',
   )
+
 const versionId = () =>
   described(
     'p_version_id',
     'uuid',
     'The version, from `pipeline_definition_versions`.',
   )
+
 const scheduleId = () =>
   described('p_schedule_id', 'uuid', 'The schedule, from `pipeline_schedules`.')
+
 const parameters = () =>
   described(
     'p_parameters',
@@ -61,6 +64,7 @@ const parameters = () =>
     'The pipeline’s parameters, by name. Leave out for the defaults.',
     false,
   )
+
 const inputVersions = () =>
   described(
     'p_input_versions',

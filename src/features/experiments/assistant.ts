@@ -17,6 +17,7 @@ export const assistant = defineAssistant<
     // Experiment jobs load only when a card's button is pressed.
     const { runExperimentAction } =
       await import('#/lib/assistant-experiments-run')
+
     return runExperimentAction(client, action)
   },
   cardWords: {

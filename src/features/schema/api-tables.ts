@@ -7,7 +7,7 @@ import type { LabTable } from '#/lib/lab-api-surface'
  * through the actions in `operations/declarations/schema.ts`. Spread into
  * `LAB_TABLES`.
  */
-export const SCHEMA_LAB_TABLES: Readonly<Record<string, LabTable>> = {
+export const SCHEMA_LAB_TABLES = {
   model_kinds: {
     summary:
       'The families record types belong to (records, projects, instruments): what each holds and what it can do. Fixed by Sheetbase.',
@@ -269,4 +269,4 @@ export const SCHEMA_LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['composed_grid', 'json', 1],
     ],
   },
-}
+} as const satisfies Readonly<Record<string, LabTable>>

@@ -26,18 +26,21 @@ export async function runAgentPolicyAction(
         p_role: action.role,
         p_credential_id: null,
       })
+
       return { openHref: '/settings/workspace/ai' }
     case 'agent.switch':
       await client.rpc('set_agent_definition_enabled', {
         p_definition_id: action.definitionId,
         p_enabled: action.enabled,
       })
+
       return { openHref: '/pipelines/agents' }
     case 'agent_operation_policy.disable':
       await client.rpc('disable_agent_operation_policy', {
         p_workspace_id: action.workspaceId,
         p_policy_id: action.policyId,
       })
+
       return { openHref: '/pipelines/agents' }
     case 'agent_request.decide':
       if (action.approve) {
@@ -46,6 +49,7 @@ export async function runAgentPolicyAction(
           action_key: action.actionKey,
           arguments: action.arguments,
         })
+
         if (done.status === 'failed') {
           throw new Error(done.error ?? 'The action failed.')
         }
@@ -56,12 +60,14 @@ export async function runAgentPolicyAction(
           action.reason ?? undefined,
         )
       }
+
       return { openHref: '/inbox' }
     case 'ai_features.set':
       await client.rpc('update_workspace_ai_feature_flags', {
         p_workspace_id: action.workspaceId,
         p_feature_flags: action.features,
       })
+
       return { openHref: '/settings/workspace/ai' }
   }
 }

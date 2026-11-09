@@ -25,11 +25,13 @@ const workspace = () => note('p_workspace_id', 'uuid', 'Your workspace id.')
 const project = () => note('p_project_id', 'uuid', 'Project id.')
 const record = () => note('p_record_id', 'uuid', 'Record id.')
 const folder = () => note('p_folder_id', 'uuid', 'Folder id.')
+
 const card = (tool: string) => ({
   tool,
   presentation: 'card' as const,
   vocabulary: 'propose' as const,
 })
+
 const DOCS = 'projects-api.md'
 
 /** Optional project details, shared by editing a project and copying one. */

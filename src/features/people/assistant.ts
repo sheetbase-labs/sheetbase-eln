@@ -14,6 +14,7 @@ export const assistant = defineAssistant<PeopleAction, PeopleProposeToolName>()(
     async run(client, action) {
       // People and workspace jobs load only when a card's button is pressed.
       const { runPeopleAction } = await import('#/lib/assistant-people-run')
+
       return runPeopleAction(client, action)
     },
     cardWords: {

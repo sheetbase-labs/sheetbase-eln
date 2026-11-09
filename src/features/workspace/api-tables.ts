@@ -4,7 +4,7 @@
  */
 import type { LabTable } from '#/lib/lab-api-surface'
 
-export const WORKSPACE_LAB_TABLES: Readonly<Record<string, LabTable>> = {
+export const WORKSPACE_LAB_TABLES = {
   workspace_join_domains: {
     summary:
       'Email domains whose people can join the workspace themselves, and the role they join as. Change them with `set_join_domains`.',
@@ -94,4 +94,4 @@ export const WORKSPACE_LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['updated_at', 'ts', 1],
     ],
   },
-}
+} as const satisfies Readonly<Record<string, LabTable>>

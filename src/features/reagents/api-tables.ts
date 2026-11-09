@@ -1,7 +1,7 @@
 import type { LabTable } from '#/lib/lab-api-surface'
 
 /** Material stock tables tokens may read (`lab:read`). */
-export const REAGENT_LAB_TABLES: Readonly<Record<string, LabTable>> = {
+export const REAGENT_LAB_TABLES = {
   reagent_movements: {
     summary:
       'The stock ledger of a material: each receipt, use, quarantine or restore, with the change, the quantity after it and why. Write with `record_reagent_movement`.',
@@ -22,4 +22,4 @@ export const REAGENT_LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['created_at', 'ts', 1],
     ],
   },
-}
+} as const satisfies Readonly<Record<string, LabTable>>

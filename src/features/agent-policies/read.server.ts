@@ -72,22 +72,21 @@ const SPECS: Record<
   },
 }
 
-const agentsReadSchema = z
-  .object({
-    area: z.enum(Object.keys(AREAS) as [Area, ...Area[]]).describe(
-      Object.entries(AREAS)
-        .map(([key, text]) => `${key}: ${text}`)
-        .join('. '),
-    ),
-    query: z
-      .string()
-      .max(120)
-      .optional()
-      .describe('Words in the name, number or action to narrow the list.'),
-    openOnly: z.boolean().optional(),
-    limit: z.number().int().min(1).max(50).optional(),
-  })
-  .strict()
+// SAFETY: AREAS is a non-empty literal with exactly the keys in Area.
+const agentsReadSchema = z.strictObject({
+  area: z.enum(Object.keys(AREAS) as [Area, ...Area[]]).describe(
+    Object.entries(AREAS)
+      .map(([key, text]) => `${key}: ${text}`)
+      .join('. '),
+  ),
+  query: z
+    .string()
+    .max(120)
+    .optional()
+    .describe('Words in the name, number or action to narrow the list.'),
+  openOnly: z.boolean().optional(),
+  limit: z.number().int().min(1).max(50).optional(),
+})
 
 export function agentsReadDefs(): ProviderToolDef[] {
   return [
@@ -105,31 +104,39 @@ export function isAgentsReadTool(name: string): boolean {
 
 export async function runAgentsReadTool(
   _name: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool input is immediately checked by agentsReadSchema before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<{ text: string; isError: boolean }> {
   const parsed = agentsReadSchema.safeParse(args)
+
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
   const input = parsed.data
   const spec = SPECS[input.area]
+
   const params = [
     `select=${spec.select}`,
     `order=${spec.order}`,
     `limit=${input.limit ?? 20}`,
   ]
+
   if (input.query) {
     const like = likeValue(input.query)
     params.push(
       `or=(${spec.search.map((column) => `${column}.ilike.${like}`).join(',')})`,
     )
   }
+
   const open = OPEN_ONLY[input.area]
+
   if (input.openOnly && open) params.push(open)
+
   try {
-    const items = await context.client.list<Record<string, unknown>>(
+    const items = await context.client.list<z.core.util.JSONType>(
       spec.table,
       `?${params.join('&')}`,
     )
+
     return {
       text: JSON.stringify({
         area: input.area,

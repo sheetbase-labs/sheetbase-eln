@@ -119,6 +119,7 @@ export function defineAssistant<
 }
 
 type ActionOf<T> = T extends FeatureAssistant<infer A, string> ? A : never
+
 type ToolOf<T> =
   T extends FeatureAssistant<{ kind: string }, infer N> ? N : never
 
@@ -126,6 +127,7 @@ type ToolOf<T> =
 export type FeatureActions<TList extends readonly unknown[]> = ActionOf<
   TList[number]
 >
+
 /** The proposing tool names of every feature in `list`. */
 export type FeatureProposeTools<TList extends readonly unknown[]> = ToolOf<
   TList[number]

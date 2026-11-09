@@ -21,7 +21,7 @@ const VALUE_COLUMNS = [
   ['reference_id', 'uuid', 0],
 ] as const
 
-export const DATASET_LAB_TABLES: Readonly<Record<string, LabTable>> = {
+export const DATASET_LAB_TABLES = {
   dataset_rows: {
     summary:
       'The rows of a dataset as they are now. `revision` goes up with every change; `status` is `recorded`, or `planned` for a row waiting for its measurement (see `plan_dataset_row`).',
@@ -231,4 +231,4 @@ export const DATASET_LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['measurement_field_id', 'uuid', 0],
     ],
   },
-}
+} as const satisfies Readonly<Record<string, LabTable>>

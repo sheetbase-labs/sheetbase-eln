@@ -18,6 +18,7 @@ describe('agents and AI on the permissions list', () => {
     ]) {
       expect(agentActionArea(key)).toBe('Agents and AI')
     }
+
     expect(agentActionArea('request_reagent_order')).toBe('Orders and stock')
     expect(agentActionArea('cancel_reagent_order')).toBe('Orders and stock')
   })
@@ -27,6 +28,7 @@ describe('agents and AI on the permissions list', () => {
       'auto',
     )
     expect(agentActionLevelsFor('start_stocktake')).toContain('auto')
+
     const auto = [
       {
         action_key: 'set_agent_action_policy',
@@ -36,6 +38,7 @@ describe('agents and AI on the permissions list', () => {
         level: 'auto' as const,
       },
     ]
+
     expect(resolveAgentActionLevel(auto, 'set_agent_action_policy')).toBe('ask')
   })
 })

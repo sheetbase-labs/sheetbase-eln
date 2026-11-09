@@ -23,55 +23,69 @@ const note = (field: OperationInput, description: string): OperationInput => ({
 })
 
 const WORKSPACE = note(input('p_workspace_id', 'uuid'), 'Your workspace id.')
+
 const MODEL_KEY = note(
   input('p_model_key', 'text'),
   'Key of the record type (model), such as `cell_line`.',
 )
+
 const FIELD_ID = note(
   input('p_definition_id', 'uuid'),
   'The field (`record_field_definitions.id`).',
 )
+
 const OPTION_ID = note(
   input('p_option_id', 'uuid'),
   'The option (`model_field_options.id`).',
 )
+
 const RULE_ID = note(input('p_rule_id', 'uuid'), 'The rule id.')
+
 const MODEL_ID = note(
   input('p_model_id', 'uuid'),
   'The record type (`record_models.id`).',
 )
+
 const MODEL_VERSION_ID = note(
   input('p_version_id', 'uuid'),
   'The record type version (`record_model_versions.id`).',
 )
+
 const SHEET_DEFINITION_ID = note(
   input('p_definition_id', 'uuid'),
   'The sheet definition (`sheet_definitions.id`).',
 )
+
 const SHEET_VERSION_ID = note(
   input('p_version_id', 'uuid'),
   'The sheet definition version (`sheet_definition_versions.id`).',
 )
+
 const TEMPLATE_VERSION_ID = note(
   input('p_version_id', 'uuid'),
   'The notebook template version (`notebook_template_versions.id`).',
 )
+
 const INSTANCE_ID = note(
   input('p_instance_id', 'uuid'),
   'The sheet (`sheet_instances.id`).',
 )
+
 const EXPECTED_REVISION = note(
   input('p_expected_revision', 'bigint'),
   'The `revision` you last read. A stale one is refused with `SB001`.',
 )
+
 const SHEET_CONFIGURATION = note(
   input('p_configuration', 'json'),
   'The sheet layout as JSON: `{ columns, parameters, calculations, … }`, the same shape `sheet_definition_versions.configuration` holds.',
 )
+
 const TEMPLATE_CONFIGURATION = note(
   input('p_configuration', 'json'),
   'The template as JSON: `{ blocks, sheetPlacements, … }`, the same shape `notebook_template_versions.configuration` holds.',
 )
+
 const DESCRIPTION = note(
   input('p_description', 'text', false, true),
   'A description.',

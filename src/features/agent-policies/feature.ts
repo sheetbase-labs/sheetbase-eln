@@ -38,7 +38,7 @@ export function agentActionAlwaysAsk(key: string): boolean {
  * What stays off the token API, and why. Each is a person's own act in the
  * app: an approval or a signature.
  */
-const NOT_EXPOSED: Readonly<Record<string, string>> = {
+const NOT_EXPOSED = {
   decide_agent_action:
     'Approving or rejecting what an agent asked to do is a person’s decision in the app; tokens and pipelines are refused, so an agent never approves its own request. The assistant offers it as a card the person presses.',
   decide_agent_operation:
@@ -57,7 +57,7 @@ const NOT_EXPOSED: Readonly<Record<string, string>> = {
     'Tells the AI settings page whether this person may run the assistant checks; finished runs are on ai_eval_runs.',
   agent_admin_credentials:
     'Lists service credentials with their prefixes for the admin MCP tool, which is gated on its own; tokens read agent permissions per credential on agent_action_policies.',
-}
+} as const satisfies Readonly<Record<string, string>>
 
 export const feature = defineFeature({
   name: 'agent-policies',

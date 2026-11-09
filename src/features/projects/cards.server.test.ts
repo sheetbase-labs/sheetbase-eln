@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { core } from 'zod'
 
 import { PROJECTS_PROPOSE_TOOL_NAMES } from './cards'
 import { runProjectsAction } from './cards-run'
@@ -7,15 +8,20 @@ import {
   isProjectsProposalTool,
   projectsProposalDefs,
 } from './cards.server'
-import { PROJECTS_LAB_AREAS, listProjectsArea } from './reads.server'
+import {
+  PROJECTS_LAB_AREAS,
+  listProjectsArea,
+  runProjectsReadTool,
+} from './reads.server'
 import type { LabToolContext } from '#/lib/assistant-lab-tools.server'
 import type { DataClient } from '#/lib/data-client'
+import { createDataClient } from '#/lib/data-client'
 
 const WS = '44444444-4444-4444-8444-444444444444'
 const base = { title: 'T', summary: 'S' }
 
 type Rows = Partial<
-  Record<string, Array<Record<string, unknown>> | ((q: string) => unknown[])>
+  Record<string, core.util.JSONType[] | ((q: string) => core.util.JSONType[])>
 >
 
 const project = {
@@ -27,41 +33,76 @@ const project = {
   archived_at: null,
 }
 
-function context(
-  rows: Rows,
-  rpcs: Record<string, unknown> = {},
-): { ctx: LabToolContext; calls: string[] } {
+function context(rows: Rows, rpcs: Record<string, core.util.JSONType> = {}) {
   const calls: string[] = []
-  const client = {
-    list: (resource: string, query = '') => {
-      calls.push(`${resource}${query}`)
-      const source = rows[resource]
-      return Promise.resolve(
-        typeof source === 'function' ? source(query) : (source ?? []),
-      )
-    },
-    rpc: (name: string) =>
-      Promise.resolve(
+
+  const fetchFixture: typeof fetch = async (input) => {
+    const target = input instanceof Request ? input.url : input
+    const url = new URL(target, 'http://localhost')
+    const name = url.pathname.split('/').at(-1) ?? ''
+
+    if (url.pathname.includes('/rpc/')) {
+      return Response.json(
         name in rpcs
           ? rpcs[name]
           : name === 'workspace_members_list'
             ? [{ user_id: 'u2', name: 'Ada Lovelace', role: 'scientist' }]
             : [],
-      ),
-  } as unknown as DataClient
+      )
+    }
+
+    calls.push(`${name}${url.search}`)
+    const source = rows[name]
+
+    return Response.json(
+      Array.isArray(source) ? source : (source?.(url.search) ?? []),
+    )
+  }
+
+  const client = createDataClient(fetchFixture)
+
   return {
-    ctx: { client, workspaceId: WS, userId: 'me', timeZone: 'Europe/London' },
+    ctx: {
+      client,
+      workspaceId: WS,
+      userId: 'me',
+      timeZone: 'Europe/London',
+    } satisfies LabToolContext,
     calls,
   }
 }
 
 describe('project and folder cards', () => {
+  it('rejects malformed proposal input for every tool', async () => {
+    for (const name of PROJECTS_PROPOSE_TOOL_NAMES) {
+      if (!isProjectsProposalTool(name)) throw new Error(`Unknown tool ${name}`)
+      expect(
+        (await buildProjectsProposal(name, null, context({}).ctx)).ok,
+      ).toBe(false)
+    }
+  })
+
+  it('rejects malformed project read input without querying', async () => {
+    const { ctx, calls } = context({})
+
+    const result = await runProjectsReadTool(
+      'sheetbase.projects.read',
+      { area: 42 },
+      ctx,
+    )
+
+    expect(result.isError).toBe(true)
+    expect(calls).toEqual([])
+  })
+
   it('offers a definition for every tool the operations declare', () => {
     const defs = projectsProposalDefs().map((def) =>
       def.name.replaceAll('__', '.'),
     )
+
     expect([...defs].sort()).toEqual([...PROJECTS_PROPOSE_TOOL_NAMES].sort())
     expect(PROJECTS_PROPOSE_TOOL_NAMES).toHaveLength(15)
+
     for (const name of PROJECTS_PROPOSE_TOOL_NAMES) {
       expect(isProjectsProposalTool(name)).toBe(true)
     }
@@ -145,6 +186,7 @@ describe('project and folder cards', () => {
           ? [{ title: 'Old', display_id: 'PRJ-0' }]
           : [project],
     })
+
     expect(
       await buildProjectsProposal(
         'sheetbase.record.move_project',
@@ -173,6 +215,7 @@ describe('project and folder cards', () => {
       folders: [{ id: 'f1', name: 'Assays', identifier: 'FLD-1' }],
       records: [{ id: 'r1' }],
     })
+
     expect(
       await buildProjectsProposal(
         'sheetbase.folder.delete',
@@ -180,11 +223,13 @@ describe('project and folder cards', () => {
         full.ctx,
       ),
     ).toMatchObject({ ok: false })
+
     const empty = context({
       projects: [project],
       folders: [{ id: 'f1', name: 'Assays', identifier: 'FLD-1' }],
       records: [],
     })
+
     expect(
       await buildProjectsProposal(
         'sheetbase.folder.delete',
@@ -211,6 +256,7 @@ describe('project and folder cards', () => {
         },
       ],
     })
+
     expect(
       await buildProjectsProposal(
         'sheetbase.folder.move_records',
@@ -229,6 +275,7 @@ describe('project and folder cards', () => {
       },
     })
     expect(calls.some((call) => call.includes('project_id=eq.p1'))).toBe(true)
+
     const out = context({
       projects: [project],
       records: [
@@ -241,6 +288,7 @@ describe('project and folder cards', () => {
         },
       ],
     })
+
     expect(
       await buildProjectsProposal(
         'sheetbase.folder.move_records',
@@ -259,6 +307,7 @@ describe('project and folder cards', () => {
       folders: [{ id: 'f1', name: 'Assays', identifier: 'FLD-1' }],
       datasets: [{ id: 'd1', name: 'Plate reads' }],
     })
+
     expect(
       await buildProjectsProposal(
         'sheetbase.folder.move_items',
@@ -292,6 +341,7 @@ describe('project and folder cards', () => {
         metadata_version: 1,
       },
     ]
+
     const following = context({ records, work_item_follows: [{ id: 'w1' }] })
     expect(
       await buildProjectsProposal(
@@ -322,6 +372,7 @@ describe('project and folder cards', () => {
         ],
       },
     )
+
     expect(
       await buildProjectsProposal(
         'sheetbase.sql_login.revoke',
@@ -346,6 +397,7 @@ describe('project and folder cards', () => {
         },
       },
     )
+
     expect(
       await buildProjectsProposal('sheetbase.audit.verify', base, ctx),
     ).toMatchObject({
@@ -361,7 +413,7 @@ describe('project and folder cards', () => {
 describe('running project and folder cards', () => {
   it('calls the ordinary RPCs as the person', async () => {
     const rpc = vi.fn().mockResolvedValue({ id: 'p9' })
-    const client = { rpc } as unknown as DataClient
+    const client: DataClient = { ...createDataClient(), rpc }
     expect(
       await runProjectsAction(client, {
         kind: 'project.copy',
@@ -427,9 +479,11 @@ describe('project reads for the assistant', () => {
         ],
       },
     )
+
     const answer = JSON.parse(
       (await listProjectsArea({ area: 'projects', openOnly: true }, ctx))!,
     )
+
     expect(answer.items).toHaveLength(1)
     expect(answer.items[0]).toMatchObject({ id: 'p1', records: 3 })
   })

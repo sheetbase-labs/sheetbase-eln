@@ -5,7 +5,7 @@ import type { LabTable } from '#/lib/lab-api-surface'
  * through the actions in `operations/declarations/experiments.ts`. Spread
  * into `LAB_TABLES`.
  */
-export const EXPERIMENT_LAB_TABLES: Readonly<Record<string, LabTable>> = {
+export const EXPERIMENT_LAB_TABLES = {
   record_aliases: {
     summary:
       'Other names a record is known by, such as a supplier code. Add and remove them with `add_record_alias` and `remove_record_alias`.',
@@ -165,4 +165,4 @@ export const EXPERIMENT_LAB_TABLES: Readonly<Record<string, LabTable>> = {
       ['created_at', 'ts', 1],
     ],
   },
-}
+} as const satisfies Readonly<Record<string, LabTable>>

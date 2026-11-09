@@ -26,11 +26,13 @@ const workspace = (): OperationInput => ({
   ...note('p_workspace_id', 'uuid', 'Your workspace id.'),
   server: 'workspace',
 })
+
 const card = (tool: string) => ({
   tool,
   presentation: 'card' as const,
   vocabulary: 'propose' as const,
 })
+
 const DOCS = 'workspace-api.md'
 
 export const WORKSPACE_OPERATIONS = defineOperations([

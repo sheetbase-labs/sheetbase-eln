@@ -31,10 +31,8 @@ export const AUDIT_VERIFY_TOOL = 'sheetbase.audit.verify'
 export const SQL_LOGIN_REVOKE_TOOL = 'sheetbase.sql_login.revoke'
 
 /** The tool names come from the operation declarations, so they cannot drift. */
-export const PROJECTS_PROPOSE_TOOL_NAMES = assistantToolsFrom(
-  PROJECTS_OPERATIONS,
-  'propose',
-) as readonly string[]
+export const PROJECTS_PROPOSE_TOOL_NAMES: readonly string[] =
+  assistantToolsFrom(PROJECTS_OPERATIONS, 'propose')
 
 export type ProjectsProposeToolName =
   | typeof PROJECT_UPDATE_TOOL
@@ -55,22 +53,27 @@ export type ProjectsProposeToolName =
 
 const title = z.string().min(1).max(120)
 const summary = z.string().min(1).max(400)
+
 const projectRef = z
   .string()
   .min(1)
   .max(200)
   .describe('The project, by name, key or ID such as PRJ-3.')
+
 const recordRef = z
   .string()
   .min(1)
   .max(200)
   .describe('The record, by its ID such as EXP-12 or its title.')
+
 const folderRef = z.string().min(1).max(200).describe('The folder, by name.')
+
 const person = z
   .string()
   .min(1)
   .max(200)
   .describe('The person, by the name people use for them.')
+
 const date = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -94,84 +97,75 @@ const details = {
   startedOn: date.optional().describe('When the work started.'),
 }
 
-export const proposeProjectUpdateSchema = z
-  .object({
-    title,
-    summary,
-    project: projectRef,
-    name: z.string().min(1).max(200).optional().describe('A new name.'),
-    ...details,
-  })
-  .strict()
+export const proposeProjectUpdateSchema = z.strictObject({
+  title,
+  summary,
+  project: projectRef,
+  name: z.string().min(1).max(200).optional().describe('A new name.'),
+  ...details,
+})
 
-export const proposeProjectStateSchema = z
-  .object({ title, summary, project: projectRef })
-  .strict()
+export const proposeProjectStateSchema = z.strictObject({
+  title,
+  summary,
+  project: projectRef,
+})
 
-export const proposeProjectCopySchema = z
-  .object({
-    title,
-    summary,
-    source: projectRef.describe('The project whose plan is copied.'),
-    name: z.string().min(1).max(200).describe('The new project’s name.'),
-    ...details,
-  })
-  .strict()
+export const proposeProjectCopySchema = z.strictObject({
+  title,
+  summary,
+  source: projectRef.describe('The project whose plan is copied.'),
+  name: z.string().min(1).max(200).describe('The new project’s name.'),
+  ...details,
+})
 
-export const proposeProjectCopyPlanSchema = z
-  .object({
-    title,
-    summary,
-    source: projectRef.describe('The project whose plan is copied.'),
-    target: projectRef.describe('The project the plan goes into.'),
-    startDate: date.describe('When the copied plan starts.'),
-  })
-  .strict()
+export const proposeProjectCopyPlanSchema = z.strictObject({
+  title,
+  summary,
+  source: projectRef.describe('The project whose plan is copied.'),
+  target: projectRef.describe('The project the plan goes into.'),
+  startDate: date.describe('When the copied plan starts.'),
+})
 
-export const proposeRecordMoveProjectSchema = z
-  .object({
-    title,
-    summary,
-    record: recordRef,
-    project: projectRef.describe('The project it moves to.'),
-  })
-  .strict()
+export const proposeRecordMoveProjectSchema = z.strictObject({
+  title,
+  summary,
+  record: recordRef,
+  project: projectRef.describe('The project it moves to.'),
+})
 
-export const proposeFolderCreateSchema = z
-  .object({
-    title,
-    summary,
-    project: projectRef,
-    name: z.string().min(1).max(200).describe('The folder’s name.'),
-    parent: folderRef.optional().describe('The folder it goes in, if any.'),
-  })
-  .strict()
+export const proposeFolderCreateSchema = z.strictObject({
+  title,
+  summary,
+  project: projectRef,
+  name: z.string().min(1).max(200).describe('The folder’s name.'),
+  parent: folderRef.optional().describe('The folder it goes in, if any.'),
+})
 
-export const proposeFolderRenameSchema = z
-  .object({
-    title,
-    summary,
-    project: projectRef,
-    folder: folderRef,
-    name: z.string().min(1).max(200).describe('The new name.'),
-  })
-  .strict()
+export const proposeFolderRenameSchema = z.strictObject({
+  title,
+  summary,
+  project: projectRef,
+  folder: folderRef,
+  name: z.string().min(1).max(200).describe('The new name.'),
+})
 
-export const proposeFolderDeleteSchema = z
-  .object({ title, summary, project: projectRef, folder: folderRef })
-  .strict()
+export const proposeFolderDeleteSchema = z.strictObject({
+  title,
+  summary,
+  project: projectRef,
+  folder: folderRef,
+})
 
-export const proposeFolderMoveRecordsSchema = z
-  .object({
-    title,
-    summary,
-    project: projectRef,
-    records: z.array(recordRef).min(1).max(50),
-    folder: folderRef
-      .optional()
-      .describe('The folder. Leave it out to take them out of their folder.'),
-  })
-  .strict()
+export const proposeFolderMoveRecordsSchema = z.strictObject({
+  title,
+  summary,
+  project: projectRef,
+  records: z.array(recordRef).min(1).max(50),
+  folder: folderRef
+    .optional()
+    .describe('The folder. Leave it out to take them out of their folder.'),
+})
 
 export const FOLDER_ITEM_KINDS = [
   'dataset',
@@ -180,49 +174,45 @@ export const FOLDER_ITEM_KINDS = [
   'pipeline_definition',
 ] as const
 
-export const proposeFolderMoveItemsSchema = z
-  .object({
-    title,
-    summary,
-    project: projectRef,
-    items: z
-      .array(
-        z
-          .object({
-            kind: z
-              .enum(FOLDER_ITEM_KINDS)
-              .describe(
-                'dataset, sheet_instance (a sheet), analysis_view or pipeline_definition (a pipeline).',
-              ),
-            name: z.string().min(1).max(200),
-          })
-          .strict(),
-      )
-      .min(1)
-      .max(50),
-    folder: folderRef
-      .optional()
-      .describe('The folder. Leave it out to take them out of their folder.'),
-  })
-  .strict()
+export const proposeFolderMoveItemsSchema = z.strictObject({
+  title,
+  summary,
+  project: projectRef,
+  items: z
+    .array(
+      z.strictObject({
+        kind: z
+          .enum(FOLDER_ITEM_KINDS)
+          .describe(
+            'dataset, sheet_instance (a sheet), analysis_view or pipeline_definition (a pipeline).',
+          ),
+        name: z.string().min(1).max(200),
+      }),
+    )
+    .min(1)
+    .max(50),
+  folder: folderRef
+    .optional()
+    .describe('The folder. Leave it out to take them out of their folder.'),
+})
 
-export const proposeRecordFollowSchema = z
-  .object({ title, summary, record: recordRef })
-  .strict()
+export const proposeRecordFollowSchema = z.strictObject({
+  title,
+  summary,
+  record: recordRef,
+})
 
-export const proposeAuditVerifySchema = z.object({ title, summary }).strict()
+export const proposeAuditVerifySchema = z.strictObject({ title, summary })
 
-export const proposeSqlLoginRevokeSchema = z
-  .object({
-    title,
-    summary,
-    login: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The login, by its name or username.'),
-  })
-  .strict()
+export const proposeSqlLoginRevokeSchema = z.strictObject({
+  title,
+  summary,
+  login: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The login, by its name or username.'),
+})
 
 export type ProjectsAction =
   | {

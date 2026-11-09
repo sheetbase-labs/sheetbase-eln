@@ -3,7 +3,7 @@
  * technical reason. Everything else in the area is declared in
  * `operations.ts` or `api-tables.ts`.
  */
-export const PROJECTS_NOT_EXPOSED: Readonly<Record<string, string>> = {
+export const PROJECTS_NOT_EXPOSED = {
   change_events:
     'The raw audit log, which can hold session addresses. Read it through audit_events, export_audit_log and event_stream_page, which leave those out and apply who may read admin entries.',
   workspace_change_seq:
@@ -18,4 +18,4 @@ export const PROJECTS_NOT_EXPOSED: Readonly<Record<string, string>> = {
     'Hands out a database password, shown once to the person who makes it in Settings; it is never stored or returned again. Listing and revoking logins are on the API.',
   rotate_sql_login:
     'Hands out a new database password, shown once to the person who rotates it in Settings. Listing and revoking logins are on the API.',
-}
+} as const satisfies Readonly<Record<string, string>>

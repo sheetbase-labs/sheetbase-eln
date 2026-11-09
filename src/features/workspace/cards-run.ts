@@ -13,6 +13,7 @@ export async function runWorkspaceAction(
         p_workspace_id: action.workspaceId,
         p_keys: action.keys,
       })
+
       return { openHref: '/models' }
     case 'workspace.join_domains':
       await client.rpc('set_join_domains', {
@@ -20,12 +21,14 @@ export async function runWorkspaceAction(
         p_domains: action.domains,
         p_role: action.role,
       })
+
       return { openHref: '/settings/workspace/members' }
     case 'workspace.regulated_lab':
       await client.rpc('set_regulated_lab', {
         p_workspace_id: action.workspaceId,
         p_regulated: action.regulated,
       })
+
       return { openHref: '/settings/workspace' }
     case 'sheet.resolve_conflict':
       await client.rpc('resolve_cell_conflict', {
@@ -33,6 +36,7 @@ export async function runWorkspaceAction(
         p_value: action.value,
         p_reason: action.reason,
       })
+
       return { openHref: `/sheets/${action.sheetId}` }
     case 'study.assign_item':
       await client.rpc('assign_planner_item_to_study', {
@@ -40,6 +44,7 @@ export async function runWorkspaceAction(
         p_workstream_id: action.workstreamId,
         p_task_id: action.taskId,
       })
+
       return { openHref: `/records/${action.studyRecordId}` }
   }
 }

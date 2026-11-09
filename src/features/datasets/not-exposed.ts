@@ -37,7 +37,7 @@ const SCI_010_NAMES = [
 const STORAGE_KEY =
   'Records a storage key the server chose after it stored the bytes; taking a key from a caller would let it point at another object. Callers add a file they uploaded by its id instead (`add_dataset_import_file`, `attach_instrument_raw_file`).'
 
-export const DATASET_NOT_EXPOSED: Readonly<Record<string, string>> = {
+export const DATASET_NOT_EXPOSED = {
   ...Object.fromEntries(SCI_010_NAMES.map((name) => [name, SCI_010])),
   create_dataset_import_file: STORAGE_KEY,
   record_dataset_import_file_parse: STORAGE_KEY,
@@ -56,4 +56,4 @@ export const DATASET_NOT_EXPOSED: Readonly<Record<string, string>> = {
     'Seeds the built-in parsers when a workspace starts; `create_parser_version` is the way to add one.',
   ensure_parser:
     'A seeding upsert that can mark a parser approved, which stays with a person; `create_parser_version` is the way to add one.',
-}
+} as const satisfies Readonly<Record<string, string>>

@@ -18,10 +18,8 @@ export const RESOLVE_CONFLICT_TOOL = 'sheetbase.sheet.resolve_conflict'
 export const STUDY_ASSIGN_TOOL = 'sheetbase.study.assign_item'
 
 /** The tool names come from the operation declarations, so they cannot drift. */
-export const WORKSPACE_PROPOSE_TOOL_NAMES = assistantToolsFrom(
-  WORKSPACE_OPERATIONS,
-  'propose',
-) as readonly string[]
+export const WORKSPACE_PROPOSE_TOOL_NAMES: readonly string[] =
+  assistantToolsFrom(WORKSPACE_OPERATIONS, 'propose')
 
 export type WorkspaceProposeToolName =
   | typeof STARTER_TABLES_TOOL
@@ -52,88 +50,74 @@ export const JOIN_ROLES = [
 const title = z.string().min(1).max(120)
 const summary = z.string().min(1).max(400)
 
-export const proposeStarterTablesSchema = z
-  .object({
-    title,
-    summary,
-    tables: z
-      .array(z.enum(STARTER_TABLE_KEYS))
-      .min(1)
-      .max(STARTER_TABLE_KEYS.length)
-      .optional()
-      .describe('Which starter tables. Leave out for all of them.'),
-  })
-  .strict()
+export const proposeStarterTablesSchema = z.strictObject({
+  title,
+  summary,
+  tables: z
+    .array(z.enum(STARTER_TABLE_KEYS))
+    .min(1)
+    .max(STARTER_TABLE_KEYS.length)
+    .optional()
+    .describe('Which starter tables. Leave out for all of them.'),
+})
 
-export const proposeJoinDomainsSchema = z
-  .object({
-    title,
-    summary,
-    domains: z
-      .array(z.string().min(3).max(200))
-      .max(20)
-      .describe(
-        'The whole list of email domains, such as example.com. An empty list turns joining by domain off.',
-      ),
-    role: z
-      .enum(JOIN_ROLES)
-      .optional()
-      .describe('The role people join as. Scientist if left out.'),
-  })
-  .strict()
+export const proposeJoinDomainsSchema = z.strictObject({
+  title,
+  summary,
+  domains: z
+    .array(z.string().min(3).max(200))
+    .max(20)
+    .describe(
+      'The whole list of email domains, such as example.com. An empty list turns joining by domain off.',
+    ),
+  role: z
+    .enum(JOIN_ROLES)
+    .optional()
+    .describe('The role people join as. Scientist if left out.'),
+})
 
-export const proposeRegulatedLabSchema = z
-  .object({
-    title,
-    summary,
-    regulated: z.boolean().describe('True turns the rules on.'),
-  })
-  .strict()
+export const proposeRegulatedLabSchema = z.strictObject({
+  title,
+  summary,
+  regulated: z.boolean().describe('True turns the rules on.'),
+})
 
-export const proposeResolveConflictSchema = z
-  .object({
-    title,
-    summary,
-    conflict: z
-      .string()
-      .uuid()
-      .describe('The conflict id, from the cell_conflicts area.'),
-    keep: z
-      .enum(['mine', 'theirs', 'other'])
-      .describe(
-        'mine keeps the edit made offline, theirs the one already saved, other the value given.',
-      ),
-    value: z
-      .union([z.string().max(2000), z.number(), z.boolean(), z.null()])
-      .optional()
-      .describe('The value to keep, when keep is other.'),
-    reason: z.string().min(1).max(2000).describe('Why this value.'),
-  })
-  .strict()
+export const proposeResolveConflictSchema = z.strictObject({
+  title,
+  summary,
+  conflict: z
+    .string()
+    .uuid()
+    .describe('The conflict id, from the cell_conflicts area.'),
+  keep: z
+    .enum(['mine', 'theirs', 'other'])
+    .describe(
+      'mine keeps the edit made offline, theirs the one already saved, other the value given.',
+    ),
+  value: z
+    .union([z.string().max(2000), z.number(), z.boolean(), z.null()])
+    .optional()
+    .describe('The value to keep, when keep is other.'),
+  reason: z.string().min(1).max(2000).describe('Why this value.'),
+})
 
-export const proposeStudyAssignSchema = z
-  .object({
-    title,
-    summary,
-    study: z
-      .string()
-      .min(1)
-      .max(200)
-      .describe('The study, by its ID or title.'),
-    workstream: z
-      .string()
-      .min(1)
-      .max(200)
-      .optional()
-      .describe('A workstream, by name. Give this or a task.'),
-    task: z
-      .string()
-      .min(1)
-      .max(200)
-      .optional()
-      .describe('A planner task, by title. Give this or a workstream.'),
-  })
-  .strict()
+export const proposeStudyAssignSchema = z.strictObject({
+  title,
+  summary,
+  study: z.string().min(1).max(200).describe('The study, by its ID or title.'),
+  workstream: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('A workstream, by name. Give this or a task.'),
+  task: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('A planner task, by title. Give this or a workstream.'),
+})
 
 export type WorkspaceAction =
   | {

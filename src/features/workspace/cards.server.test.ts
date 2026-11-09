@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { core } from 'zod'
 
 import { WORKSPACE_PROPOSE_TOOL_NAMES } from './cards'
 import { runWorkspaceAction } from './cards-run'
@@ -10,29 +11,60 @@ import {
 import { runWorkspaceReadTool } from './reads.server'
 import type { LabToolContext } from '#/lib/assistant-lab-tools.server'
 import type { DataClient } from '#/lib/data-client'
+import { createDataClient } from '#/lib/data-client'
 
 const WS = '44444444-4444-4444-8444-444444444444'
 const CONFLICT = '55555555-5555-4555-8555-555555555555'
 const base = { title: 'T', summary: 'S' }
 
 function context(
-  rows: Record<string, Array<Record<string, unknown>>>,
-  rpcs: Record<string, unknown> = {},
+  rows: Record<string, core.util.JSONType[]>,
+  rpcs: Record<string, core.util.JSONType> = {},
 ): LabToolContext {
-  const client = {
-    list: (resource: string) => Promise.resolve(rows[resource] ?? []),
-    rpc: (name: string) => Promise.resolve(rpcs[name] ?? []),
-  } as unknown as DataClient
+  const fetchFixture: typeof fetch = async (input) => {
+    const target = input instanceof Request ? input.url : input
+    const path = new URL(target, 'http://localhost').pathname
+    const name = path.split('/').at(-1) ?? ''
+
+    return Response.json(
+      path.includes('/rpc/') ? (rpcs[name] ?? []) : (rows[name] ?? []),
+    )
+  }
+
+  const client = createDataClient(fetchFixture)
+
   return { client, workspaceId: WS, userId: 'me', timeZone: 'Europe/London' }
 }
 
 describe('workspace cards', () => {
+  it('rejects malformed proposal input for every tool', async () => {
+    for (const name of WORKSPACE_PROPOSE_TOOL_NAMES) {
+      if (!isWorkspaceProposalTool(name))
+        throw new Error(`Unknown tool ${name}`)
+      expect((await buildWorkspaceProposal(name, null, context({}))).ok).toBe(
+        false,
+      )
+    }
+  })
+
+  it('rejects malformed workspace read input', async () => {
+    const result = await runWorkspaceReadTool(
+      'sheetbase.workspace.read',
+      { area: 42 },
+      context({}),
+    )
+
+    expect(result.isError).toBe(true)
+  })
+
   it('offers a definition for every tool the operations declare', () => {
     const defs = workspaceProposalDefs().map((def) =>
       def.name.replaceAll('__', '.'),
     )
+
     expect([...defs].sort()).toEqual([...WORKSPACE_PROPOSE_TOOL_NAMES].sort())
     expect(WORKSPACE_PROPOSE_TOOL_NAMES).toHaveLength(5)
+
     for (const name of WORKSPACE_PROPOSE_TOOL_NAMES)
       expect(isWorkspaceProposalTool(name)).toBe(true)
   })
@@ -45,6 +77,7 @@ describe('workspace cards', () => {
         workspace_join_domains: [{ domain: 'old.org', role: 'scientist' }],
       }),
     )
+
     expect(outcome).toMatchObject({
       ok: true,
       proposal: {
@@ -67,6 +100,7 @@ describe('workspace cards', () => {
       { ...base, regulated: true },
       context({ workspace_settings: [{ regulated_lab: true }] }),
     )
+
     expect(outcome.ok).toBe(false)
   })
 
@@ -88,11 +122,47 @@ describe('workspace cards', () => {
         sheet_instances: [{ name: 'Plate 1' }],
       }),
     )
+
     expect(outcome).toMatchObject({
       ok: true,
       proposal: {
         target: 'Plate 1, row 3',
         action: { kind: 'sheet.resolve_conflict', value: 4.2 },
+      },
+    })
+  })
+
+  it('preserves JSON conflict values and displays strings without quotes', async () => {
+    const outcome = await buildWorkspaceProposal(
+      'sheetbase.sheet.resolve_conflict',
+      { ...base, conflict: CONFLICT, keep: 'mine', reason: 'Checked' },
+      context({
+        sheet_cell_conflicts: [
+          {
+            id: CONFLICT,
+            sheet_instance_id: 's1',
+            row_key: '3',
+            state: 'open',
+            local_value: { concentrations: [1, 2] },
+            remote_value: 'saved',
+          },
+        ],
+      }),
+    )
+
+    expect(outcome).toMatchObject({
+      ok: true,
+      proposal: {
+        changes: [
+          { after: '{"concentrations":[1,2]}' },
+          { after: 'saved' },
+          { after: '{"concentrations":[1,2]}' },
+          { after: 'Checked' },
+        ],
+        action: {
+          kind: 'sheet.resolve_conflict',
+          value: { concentrations: [1, 2] },
+        },
       },
     })
   })
@@ -103,12 +173,13 @@ describe('workspace cards', () => {
       { ...base, study: 'STU-1' },
       context({}),
     )
+
     expect(outcome.ok).toBe(false)
   })
 
   it('runs a card as the person, through the ordinary call', async () => {
     const rpc = vi.fn().mockResolvedValue({})
-    const client = { rpc } as unknown as DataClient
+    const client: DataClient = { ...createDataClient(), rpc }
     expect(
       await runWorkspaceAction(client, {
         kind: 'workspace.regulated_lab',
@@ -128,6 +199,7 @@ describe('workspace cards', () => {
       { area: 'capabilities' },
       context({}, { list_capabilities: ['schema.edit'] }),
     )
+
     expect(result.isError).toBe(false)
     expect(JSON.parse(result.text).items).toEqual(['schema.edit'])
   })

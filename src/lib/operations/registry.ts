@@ -13,6 +13,7 @@ import { PEOPLE_OPERATIONS } from './declarations/people'
 import { INSTRUMENT_OPERATIONS } from './declarations/instruments'
 import { PIPELINE_OPERATIONS } from './declarations/pipeline'
 import { PLANNING_OPERATIONS } from './declarations/planning'
+import { SAMPLE_OPERATIONS } from './declarations/samples'
 import {
   assistantToolsFrom,
   operationRpc,
@@ -27,6 +28,7 @@ export const CORE_OPERATIONS: readonly OperationDescriptor[] = Object.freeze([
   ...PLANNING_OPERATIONS,
   ...NOTEBOOK_OPERATIONS,
   ...INSTRUMENT_OPERATIONS,
+  ...SAMPLE_OPERATIONS,
   ...AGENT_OPERATIONS,
   ...PEOPLE_OPERATIONS,
 ])

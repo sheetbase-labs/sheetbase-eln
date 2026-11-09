@@ -79,7 +79,8 @@ export function agentActionArea(key: string): AgentActionArea {
     return 'People and workspace'
   if (/reagent|stocktake|material|solution|replacement_lot/.test(key))
     return 'Orders and stock'
-  if (/sample|pool_/.test(key)) return 'Samples'
+  if (/sample|pool_|storage_location|storage_box|position/.test(key))
+    return 'Samples'
   if (/instrument|storage_reading|feed|recurring/.test(key))
     return 'Instruments'
   if (/study|dependency|task_resource|deliverable|workstream/.test(key))

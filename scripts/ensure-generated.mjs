@@ -1,6 +1,7 @@
 /**
  * Make sure the derived files exist: the feature indexes, the route tree,
- * the public OpenAPI contract and the Python SDK's generated layer.
+ * the public OpenAPI contract, the SDKs' event vocabulary and the Python
+ * SDK's generated layer.
  *
  * They are not committed (see .gitignore), because two PRs that each added a
  * route or an endpoint conflicted on them and every merge made the rest
@@ -20,6 +21,12 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const ROUTE_TREE = `${ROOT}src/routeTree.gen.ts`
 const OPENAPI = `${ROOT}docs/api/openapi/external-api-v0.json`
 const SDK = `${ROOT}sdks/python/src/sheetbase/_generated/rpc.py`
+// The webhook event vocabulary for the SDKs, written with the contract.
+const EVENTS = [
+  `${ROOT}docs/api/openapi/events.json`,
+  `${ROOT}sdks/typescript/src/resources/event-names.gen.ts`,
+  `${ROOT}sdks/python/src/sheetbase/_generated/events.py`,
+]
 
 const run = (cmd, args) =>
   execFileSync(cmd, args, { cwd: ROOT, stdio: 'inherit' })
@@ -31,7 +38,12 @@ export function ensureGenerated({ force = false } = {}) {
   if (force || !existsSync(ROUTE_TREE)) {
     run('node', ['scripts/generate-routes.mjs'])
   }
-  if (force || !existsSync(OPENAPI) || !existsSync(SDK)) {
+  if (
+    force ||
+    !existsSync(OPENAPI) ||
+    !existsSync(SDK) ||
+    EVENTS.some((path) => !existsSync(path))
+  ) {
     run('node_modules/.bin/tsx', ['scripts/generate-public-openapi.ts'])
     // The file is git-ignored, which prettier would otherwise honour and skip.
     run('node_modules/.bin/prettier', [

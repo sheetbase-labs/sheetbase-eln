@@ -169,21 +169,6 @@ export const PIPELINE_OPERATIONS = defineOperations([
     pipeline: {},
   },
   {
-    name: 'record_reagent_movement',
-    label: t('data.pipelineActions.recordMaterialMovement'),
-    description: t('data.pipelineActions.receiveConsumeAdjustMaterial'),
-    kind: 'write',
-    api: 'elsewhere',
-    inputs: [
-      input('p_reagent_record_id', 'uuid'),
-      input('p_expected_metadata_version', 'int'),
-      input('p_operation', 'text'),
-      input('p_quantity_delta', 'num', false),
-      input('p_reason', 'text', false, true),
-    ],
-    pipeline: {},
-  },
-  {
     name: 'mark_reagent_ordered',
     label: t('data.pipelineActions.markOrderPlaced'),
     description: t('data.pipelineActions.markOrderPlacedWithPrice'),

@@ -51,6 +51,7 @@
     "db:migrate": "node scripts/migrate-once.mjs",
     "db:new": "node scripts/new-migration.mjs",
     "db:check-order": "node scripts/check-migrations.mjs",
+    "check:commits": "node scripts/check-commits.mjs",
     "db:upgrade": "node --import tsx scripts/upgrade.ts",
     "db:seed": "tsx src/db/seed/run.ts",
     "db:seed:demo": "tsx src/db/seed/run.ts --demo",
@@ -79,7 +80,8 @@
     "test:screens": "node tests/browser-scripts/screens.mjs",
     "test:phone": "node tests/browser-scripts/phone.mjs",
     "test:areas": "for f in tests/browser-scripts/areas/*.mjs; do node $f || exit 1; done",
-    "test:interactions": "node tests/browser-scripts/interactions.mjs"
+    "test:interactions": "node tests/browser-scripts/interactions.mjs",
+    "prepare": "git config core.hooksPath .githooks 2>/dev/null || true"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.163",

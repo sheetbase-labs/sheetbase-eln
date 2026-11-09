@@ -1,0 +1,12 @@
+#!/bin/sh
+# Drops assistant credit (Co-Authored-By: Claude, Claude-Session, "Generated
+# with Claude Code") from the message, then refuses a subject that is not a
+# Conventional Commit. Installed by `pnpm install` (core.hooksPath).
+command -v node >/dev/null 2>&1 || exit 0
+node --input-type=module -e "
+import { readFileSync, writeFileSync } from 'node:fs'
+import { stripAttribution } from './scripts/lib/commit-rules.mjs'
+const file = process.argv[1]
+writeFileSync(file, stripAttribution(readFileSync(file, 'utf8')))
+" "$1" || exit 1
+exec node scripts/check-commits.mjs --message "$1"

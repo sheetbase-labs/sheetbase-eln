@@ -8,8 +8,8 @@
  * Every call acts as the person the token belongs to, and the database still
  * decides what that person may do (members access, project lead, writer).
  */
-import { defineOperations, input } from '../descriptor'
-import type { OperationInput } from '../descriptor'
+import { defineOperations, input } from '#/lib/operations/descriptor'
+import type { OperationInput } from '#/lib/operations/descriptor'
 
 const note = (
   name: string,

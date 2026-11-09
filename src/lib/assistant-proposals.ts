@@ -12,9 +12,9 @@ import type { QcProposeToolName } from './assistant-qc'
 import type { StudiesProposeToolName } from './assistant-studies'
 import type { AutomationProposeToolName } from './assistant-automation'
 import type { PlannerProposeToolName } from './assistant-planner'
-import type { NotebookProposeToolName } from './assistant-notebook'
-import type { PeopleProposeToolName } from './assistant-people'
 import type { UpkeepProposeToolName } from './assistant-upkeep'
+import type { FEATURE_ASSISTANTS } from '../features/assistant.gen'
+import type { FeatureProposeTools } from '../features/define'
 import {
   INPUT_NAME_RE,
   MAX_INPUTS,
@@ -298,8 +298,7 @@ export interface AssistantProposal {
     | BenchProposeToolName
     | PlanningProposeToolName
     | UpkeepProposeToolName
-    | NotebookProposeToolName
-    | PeopleProposeToolName
+    | FeatureProposeTools<typeof FEATURE_ASSISTANTS>
     | LabworkProposeToolName
     | PlatesProposeToolName
     | QcProposeToolName

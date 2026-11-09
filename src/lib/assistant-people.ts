@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-import { PEOPLE_OPERATIONS } from './operations/declarations/people'
+import { PEOPLE_OPERATIONS } from '#/features/people/operations'
 import { assistantToolsFrom } from './operations/descriptor'
 
 /**

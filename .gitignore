@@ -50,5 +50,7 @@ __pycache__/
 # conflict with every other one, so each merge forced a rebase and a full CI
 # run. Never commit these.
 src/routeTree.gen.ts
+# Feature indexes (scripts/generate-features.mjs): every feature folder in src/features.
+src/features/*.gen.ts
 docs/api/openapi/external-api-v0.json
 sdks/python/src/sheetbase/_generated/

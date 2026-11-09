@@ -1,6 +1,6 @@
 /**
- * Make sure the derived files exist: the route tree, the public OpenAPI
- * contract and the Python SDK's generated layer.
+ * Make sure the derived files exist: the feature indexes, the route tree,
+ * the public OpenAPI contract and the Python SDK's generated layer.
  *
  * They are not committed (see .gitignore), because two PRs that each added a
  * route or an endpoint conflicted on them and every merge made the rest
@@ -14,6 +14,8 @@ import { execFileSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
+import { generateFeatures } from './generate-features.mjs'
+
 const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const ROUTE_TREE = `${ROOT}src/routeTree.gen.ts`
 const OPENAPI = `${ROOT}docs/api/openapi/external-api-v0.json`
@@ -23,6 +25,9 @@ const run = (cmd, args) =>
   execFileSync(cmd, args, { cwd: ROOT, stdio: 'inherit' })
 
 export function ensureGenerated({ force = false } = {}) {
+  // Cheap, and a new feature folder must show up at once: always rewritten
+  // (only when it changes).
+  generateFeatures()
   if (force || !existsSync(ROUTE_TREE)) {
     run('node', ['scripts/generate-routes.mjs'])
   }

@@ -18,7 +18,7 @@ import {
   labRpcsFromOperations,
   paramNotesFromOperations,
 } from './operations/descriptor'
-import { NOTEBOOK_LAB_TABLES } from './lab-api-notebook-tables'
+import { featureLabTables } from '../features/collect'
 import {
   INSTRUMENT_PARAM_NOTES,
   INSTRUMENT_RPCS,
@@ -314,7 +314,8 @@ const LAB_PARAM_NOTES_BASE: Readonly<Record<string, string>> = {
 }
 
 export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
-  ...NOTEBOOK_LAB_TABLES,
+  // Each feature folder's tables (`src/features/<name>/feature.ts`).
+  ...featureLabTables(),
   client_portal_messages: {
     summary:
       'Messages between staff and a client in its portal. `author_kind` says which side wrote it.',

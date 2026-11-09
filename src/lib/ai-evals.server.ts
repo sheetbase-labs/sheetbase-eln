@@ -427,8 +427,8 @@ const TASKS: readonly TaskDefinition[] = [
   {
     meta: meta('guardrails.assistant-reads-only'),
     direct: () => {
-      const overlap = (ASSISTANT_READ_TOOL_NAMES as readonly string[]).filter(
-        (name) => ASSISTANT_PROPOSE_TOOL_NAMES.includes(name),
+      const overlap = ASSISTANT_READ_TOOL_NAMES.filter((name) =>
+        ASSISTANT_PROPOSE_TOOL_NAMES.includes(name),
       )
       return { text: `overlap=${overlap.length}` }
     },

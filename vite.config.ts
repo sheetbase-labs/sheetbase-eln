@@ -9,6 +9,11 @@ import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 import { createCollabHost } from './scripts/lib/collab-host.mjs'
+import { generateFeatures } from './scripts/generate-features.mjs'
+
+// The feature indexes are not committed (src/features/*.gen.ts): write them
+// before anything imports them, for the dev server and the build alike.
+generateFeatures()
 
 /**
  * The pinned clock, exposed to the browser bundle so client-rendered,

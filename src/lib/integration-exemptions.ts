@@ -1,3 +1,4 @@
+import { featureNotExposed } from '../features/collect'
 import { PENDING_EXPOSURE } from './integration-pending'
 
 /**
@@ -81,6 +82,8 @@ export function notExposedReason(name: string): string | undefined {
 }
 
 export const NOT_EXPOSED: Readonly<Record<string, string>> = {
+  // Each feature folder's own (`notExposed` in `src/features/<name>/feature.ts`).
+  ...featureNotExposed(),
   // Plate formats (migration 0104): existing functions rewritten to accept the
   // 6 to 1536-well formats. Nothing new is added to them.
   validate_scientific_block:

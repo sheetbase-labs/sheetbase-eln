@@ -13,6 +13,7 @@
  * wiring. The database makes the same decision (`api.request_agent_action`);
  * this module is the copy the screens and the MCP tool read.
  */
+import { featureAgentAreas, featureAgentDeletes } from '../features/collect'
 import { LAB_RPCS } from './lab-api-surface'
 import type { LabRpc } from './lab-api-surface'
 import type { DataClient } from './data-client'
@@ -34,14 +35,20 @@ export const AGENT_ACTION_ROLES = [
 ] as const
 export type AgentActionRole = (typeof AGENT_ACTION_ROLES)[number]
 
-/** Same rule as `internal.agent_action_always_never` in the database. */
+/**
+ * Deletes agents may do behind a confirmation although their key looks like
+ * one they never may: each feature lists its own (`agentMayDelete`).
+ */
+const AGENT_MAY_DELETE: ReadonlySet<string> = new Set(featureAgentDeletes())
+
+/**
+ * Same rule as `internal.agent_action_always_never` in the database, which
+ * reads the allowed deletes from `internal.agent_allowed_deletes`.
+ */
 export function agentActionAlwaysNever(key: string): boolean {
   return (
     (/(^|_)(sign|amend|lock|unlock|delete|destroy|purge)(_|$)/.test(key) &&
-      // Deleting a group or a file is allowed, behind a confirmation like any
-      // other write (a deleted file can be restored).
-      key !== 'delete_workspace_group' &&
-      key !== 'delete_file') ||
+      !AGENT_MAY_DELETE.has(key)) ||
     /^submit_(experiment|record|review|notebook|for_review)/.test(key) ||
     [
       'submit_for_review',
@@ -74,7 +81,7 @@ export function agentActionResult(action: string, result: unknown): unknown {
 }
 
 /** Which part of the lab an action belongs to, for grouping the list. */
-export const AGENT_ACTION_AREAS = [
+const CORE_AGENT_ACTION_AREAS = [
   'Orders and stock',
   'Samples',
   'Instruments',
@@ -85,19 +92,37 @@ export const AGENT_ACTION_AREAS = [
   'Studies and planning',
   'Reports and analysis',
   'Compliance',
-  'Notebook',
-  'People and workspace',
-  'Other',
 ] as const
-export type AgentActionArea = (typeof AGENT_ACTION_AREAS)[number]
+
+/** Groups a feature folder adds (`agentArea` in `src/features/<name>/feature.ts`). */
+const FEATURE_AREAS = featureAgentAreas()
+
+/**
+ * Which part of the lab an action belongs to, for grouping the list: the
+ * built-in groups, then each feature's, then Other.
+ */
+export const AGENT_ACTION_AREAS: readonly string[] = [
+  ...CORE_AGENT_ACTION_AREAS,
+  ...new Set(FEATURE_AREAS.map((entry) => entry.area)),
+  'Other',
+]
+export type AgentActionArea = string
 
 export function agentActionArea(key: string): AgentActionArea {
-  if (
-    /invitation|(change|suspend|reinstate|remove)_member|set_member_|member_absence|hand_over_member|project_access|project_member|workspace_|client|settings_access|project_settings|user_session|study_task_client/.test(
-      key,
-    )
-  )
-    return 'People and workspace'
+  for (const entry of FEATURE_AREAS)
+    if (entry.beforeCore && entry.match.test(key)) return entry.area
+  return coreAgentActionArea(key) ?? featureAgentActionArea(key) ?? 'Other'
+}
+
+function featureAgentActionArea(key: string): string | undefined {
+  for (const entry of FEATURE_AREAS)
+    if (!entry.beforeCore && entry.match.test(key)) return entry.area
+  return undefined
+}
+
+function coreAgentActionArea(
+  key: string,
+): (typeof CORE_AGENT_ACTION_AREAS)[number] | undefined {
   if (/reagent|stocktake|material|solution|replacement_lot/.test(key))
     return 'Orders and stock'
   if (/sample|pool_|storage_location|storage_box|position/.test(key))
@@ -112,8 +137,7 @@ export function agentActionArea(key: string): AgentActionArea {
   if (/shipment|request/.test(key)) return 'Shipments and requests'
   if (/registry/.test(key)) return 'Registry'
   if (/legal_hold|retention|field_spec/.test(key)) return 'Compliance'
-  if (/comment|file|protocol|approval/.test(key)) return 'Notebook'
-  return 'Other'
+  return undefined
 }
 
 export interface AgentActionEntry {

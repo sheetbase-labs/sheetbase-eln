@@ -737,12 +737,10 @@ describe('missed runs, overlap and pausing', () => {
 })
 
 describe('a run event never starts its own pipeline again', () => {
-  /** A schedule on a run event, written straight in: the catalogue's SQL list arrives with the feature registries. */
+  /** A schedule on a pipeline's runs succeeding, added as a person adds one. */
   async function onRunSucceeded(defId: string): Promise<string> {
-    const { rows } = await migrator.query<{ id: string }>(
-      `insert into api.pipeline_schedules
-         (workspace_id, definition_id, kind, spec, enabled, last_evaluated_sequence, created_by_user_id)
-       values ($1, $2, 'event', $3::jsonb, true, $4::bigint, $5) returning id`,
+    const { rows } = await owner.query<{ id: string }>(
+      `select (api.create_pipeline_schedule($1::uuid, $2::uuid, 'event', $3::jsonb, true)).id`,
       [
         WS,
         defId,
@@ -750,8 +748,6 @@ describe('a run event never starts its own pipeline again', () => {
           eventType: 'pipeline.run.succeeded',
           inputs: { readings: { mode: 'pinned', versionId: versionIds[0] } },
         }),
-        await changeHead(),
-        OWNER,
       ],
     )
     return rows[0].id

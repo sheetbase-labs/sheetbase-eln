@@ -261,22 +261,6 @@ export const PENDING_WORKSPACE: readonly string[] = [
   'workspace_join_domains',
 ]
 
-/** Agent definitions, policies and runs: opened by the agent policies thread. */
-export const PENDING_AGENTS: readonly string[] = [
-  'agent_definitions',
-  'agent_operation_policies',
-  'agent_policy_revisions',
-  'agent_runs',
-  'change_agent_policy',
-  'create_agent_operation_policy',
-  'disable_agent_operation_policy',
-  'reagent_attention_summary',
-  'reagent_movements',
-  'record_reagent_movement',
-  'resume_agent_workflow',
-  'set_agent_definition_enabled',
-]
-
 /** Every pending name with the reason the guard shows for it. */
 export const PENDING_EXPOSURE: Readonly<Record<string, string>> =
   Object.fromEntries([
@@ -295,9 +279,5 @@ export const PENDING_EXPOSURE: Readonly<Record<string, string>> =
     ...PENDING_WORKSPACE.map((n) => [
       n,
       'Being opened with the projects and workspace area.',
-    ]),
-    ...PENDING_AGENTS.map((n) => [
-      n,
-      'Being opened with the agent policies area.',
     ]),
   ])

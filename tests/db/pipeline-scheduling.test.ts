@@ -13,7 +13,12 @@ import type {
   PipelineSchedulerDeps,
   SchedulerConnection,
 } from '#/lib/pipeline-scheduler.server'
-import { prepareTestDatabase, setActorJwt, testDatabaseName } from './helpers'
+import {
+  grantProjectAccess,
+  prepareTestDatabase,
+  setActorJwt,
+  testDatabaseName,
+} from './helpers'
 
 const WS = '0e010000-0000-4000-8000-000000000501'
 const OWNER = 'scheduling-owner-a'
@@ -419,6 +424,61 @@ async function changeHead(): Promise<number> {
 async function sweepSweeps(): Promise<number> {
   return sweepPipelines(sweepDeps())
 }
+
+describe('sample events as triggers', () => {
+  it('starts a run for the one kind of sample event it names, and not for the others', async () => {
+    const project = '0e010000-0000-4000-8000-000000000511'
+    await migrator.query(
+      `insert into api.projects(id, workspace_id, key, title) values ($1, $2, 'samples', 'Samples')`,
+      [project, WS],
+    )
+    await grantProjectAccess(migrator, {
+      workspaceId: WS,
+      projectId: project,
+      userId: OWNER,
+      canManage: true,
+    })
+    const { rows } = await owner.query<{
+      id: string
+      metadata_version: number
+    }>(
+      `select * from api.create_record($1::uuid, 'sample', 'Trigger sample', 'available', array[]::text[], $2::jsonb)`,
+      [
+        project,
+        JSON.stringify({
+          quantity: 5,
+          quantityUnit: 'mL',
+          storageLocation: 'Bench 1',
+        }),
+      ],
+    )
+    const schedule = await createSchedule('event', {
+      eventType: 'sample.received',
+      inputs: { readings: { mode: 'latest', datasetId } },
+    })
+    await isolate(schedule.id)
+
+    // A move is a different sample event on the same producer pair.
+    await owner.query(
+      `select api.transfer_sample($1::uuid, 'Fridge 1', $2::int, null)`,
+      [rows[0].id, rows[0].metadata_version],
+    )
+    expect(await sweepSweeps()).toBe(0)
+    expect(await runsOf(schedule.id)).toHaveLength(0)
+
+    const moved = await migrator.query<{ metadata_version: number }>(
+      `select metadata_version from api.records where id = $1`,
+      [rows[0].id],
+    )
+    await owner.query(
+      `select api.receive_sample($1::uuid, 3, $2::int, 'mL', null, null)`,
+      [rows[0].id, moved.rows[0].metadata_version],
+    )
+    expect(await sweepSweeps()).toBe(1)
+    expect(await runsOf(schedule.id)).toHaveLength(1)
+    await settleRuns()
+  })
+})
 
 describe('input bindings', () => {
   it('reads the Dataset latest version when the run starts, not a pinned one', async () => {

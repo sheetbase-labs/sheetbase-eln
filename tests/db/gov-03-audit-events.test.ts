@@ -493,7 +493,7 @@ describe('api.audit_events permissions and isolation', () => {
     ).toBe(true)
   })
 
-  it('denies callers without human session claims', async () => {
+  it('answers a personal token but denies a service credential', async () => {
     const client = await asRole('authenticator')
     clients.push(client)
     await client.query('SET ROLE authenticated')
@@ -502,12 +502,10 @@ describe('api.audit_events permissions and isolation', () => {
         sub: MEMBER,
         workspace_id: WS,
         role: 'authenticated',
-        // no session_id — service/credential style caller
+        // no session_id: a personal token acts as its person
       }),
     ])
-    await expect(callAuditEvents(client, {})).rejects.toMatchObject({
-      code: DENIED,
-    })
+    await expect(callAuditEvents(client, {})).resolves.toBeDefined()
 
     await client.query('SET ROLE api_client')
     await client.query("SELECT set_config('request.jwt.claims', $1, false)", [

@@ -285,6 +285,21 @@ export const notebook = {
         applying: 'Archiving…',
         applied: 'Design archived',
       },
+      deleteStudyTask: {
+        apply: 'Delete task',
+        applying: 'Deleting…',
+        applied: 'Task deleted',
+      },
+      deleteAnalysisView: {
+        apply: 'Delete view',
+        applying: 'Deleting…',
+        applied: 'View deleted',
+      },
+      deleteAnalysisDefinition: {
+        apply: 'Delete definition',
+        applying: 'Deleting…',
+        applied: 'Definition deleted',
+      },
       setQcBaseline: {
         apply: 'Set limits',
         applying: 'Setting…',

@@ -219,6 +219,8 @@ export const PLANNING_OPERATIONS = defineOperations([
     kind: 'write',
     inputs: [input('p_task_id', 'uuid')],
     result: 'void',
+    assistant: { tool: 'sheetbase.study.task_delete' },
+    pipeline: {},
     events: [
       {
         name: 'study.task.deleted',
@@ -285,6 +287,7 @@ export const PLANNING_OPERATIONS = defineOperations([
     kind: 'write',
     inputs: [input('p_dependency_id', 'uuid')],
     result: 'void',
+    pipeline: {},
   },
   {
     name: 'assign_task_resource',
@@ -724,6 +727,8 @@ export const PLANNING_OPERATIONS = defineOperations([
     kind: 'write',
     inputs: [input('p_id', 'uuid')],
     result: 'void',
+    assistant: { tool: 'sheetbase.analysis_view.delete' },
+    pipeline: {},
   },
   {
     name: 'save_analysis_definition',
@@ -748,6 +753,8 @@ export const PLANNING_OPERATIONS = defineOperations([
     kind: 'write',
     inputs: [input('p_id', 'uuid')],
     result: 'void',
+    assistant: { tool: 'sheetbase.analysis_definition.delete' },
+    pipeline: {},
   },
   {
     name: 'compose_analysis_definition',

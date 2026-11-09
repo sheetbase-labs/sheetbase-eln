@@ -3,10 +3,13 @@ import { generateReport } from './reports'
 import {
   createStudyDeliverable,
   createStudyTask,
+  deleteStudyTask,
   editStudyTask,
   moveStudyTaskDue,
 } from './planner'
 import { archivePlateDesign } from './plate-designer'
+import { deleteAnalysisDefinition } from './analysis-definitions-data'
+import { deleteAnalysisView } from './analysis-studio-data'
 import type { StudiesAction, StudiesActionResult } from './assistant-studies'
 
 /** Runs a planning or reporting card's action. Loaded only in the browser, when a button is pressed. */
@@ -69,5 +72,14 @@ export async function runStudiesAction(
         expectedMetadataVersion: action.expectedMetadataVersion,
       })
       return { openHref: '/plates' }
+    case 'study.task_delete':
+      await deleteStudyTask(client, action.taskId)
+      return undefined
+    case 'analysis_view.delete':
+      await deleteAnalysisView(client, action.viewId)
+      return { openHref: '/analysis' }
+    case 'analysis_definition.delete':
+      await deleteAnalysisDefinition(client, action.definitionId)
+      return { openHref: '/analysis' }
   }
 }

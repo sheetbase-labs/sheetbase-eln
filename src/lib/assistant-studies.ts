@@ -3,7 +3,8 @@ import { z } from 'zod'
 /**
  * Planning and reporting from the assistant: add a task or deliverable to the
  * study planner, change a task or move its due date, generate a report and
- * archive a plate design. Reading planner tasks, deliverables, reports, plate
+ * archive a plate design. Deleting a task, an analysis view or an analysis
+ * definition is a card too; the button is the confirmation. Reading planner tasks, deliverables, reports, plate
  * designs and analysis views is the lab list tool's job (`planner_tasks`,
  * `planner_deliverables`, `reports`, `plate_designs` and `analysis_views`).
  *
@@ -19,6 +20,10 @@ export const STUDY_TASK_UPDATE_TOOL = 'sheetbase.study.task_update'
 export const STUDY_DELIVERABLE_ADD_TOOL = 'sheetbase.study.deliverable_add'
 export const REPORT_GENERATE_TOOL = 'sheetbase.report.generate'
 export const PLATE_DESIGN_ARCHIVE_TOOL = 'sheetbase.plate_design.archive'
+export const STUDY_TASK_DELETE_TOOL = 'sheetbase.study.task_delete'
+export const ANALYSIS_VIEW_DELETE_TOOL = 'sheetbase.analysis_view.delete'
+export const ANALYSIS_DEFINITION_DELETE_TOOL =
+  'sheetbase.analysis_definition.delete'
 
 export const STUDIES_PROPOSE_TOOL_NAMES = [
   STUDY_TASK_ADD_TOOL,
@@ -26,6 +31,9 @@ export const STUDIES_PROPOSE_TOOL_NAMES = [
   STUDY_DELIVERABLE_ADD_TOOL,
   REPORT_GENERATE_TOOL,
   PLATE_DESIGN_ARCHIVE_TOOL,
+  STUDY_TASK_DELETE_TOOL,
+  ANALYSIS_VIEW_DELETE_TOOL,
+  ANALYSIS_DEFINITION_DELETE_TOOL,
 ] as const
 
 export type StudiesProposeToolName = (typeof STUDIES_PROPOSE_TOOL_NAMES)[number]
@@ -138,6 +146,42 @@ export const proposePlateDesignArchiveSchema = z
   })
   .strict()
 
+export const proposeStudyTaskDeleteSchema = z
+  .object({
+    title,
+    summary,
+    task: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe('The planner task or milestone to delete, by its name.'),
+  })
+  .strict()
+
+export const proposeAnalysisViewDeleteSchema = z
+  .object({
+    title,
+    summary,
+    view: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe('The saved analysis view to delete, by its name.'),
+  })
+  .strict()
+
+export const proposeAnalysisDefinitionDeleteSchema = z
+  .object({
+    title,
+    summary,
+    definition: z
+      .string()
+      .min(1)
+      .max(200)
+      .describe('The saved analysis definition to delete, by its name.'),
+  })
+  .strict()
+
 /** What a planning or reporting card does when its button is pressed. */
 export type StudiesAction =
   | {
@@ -173,6 +217,9 @@ export type StudiesAction =
       designId: string
       expectedMetadataVersion: number
     }
+  | { kind: 'study.task_delete'; taskId: string }
+  | { kind: 'analysis_view.delete'; viewId: string }
+  | { kind: 'analysis_definition.delete'; definitionId: string }
 
 export type StudiesActionKind = StudiesAction['kind']
 
@@ -182,6 +229,9 @@ const KINDS: readonly string[] = [
   'study.deliverable_add',
   'report.generate',
   'plate_design.archive',
+  'study.task_delete',
+  'analysis_view.delete',
+  'analysis_definition.delete',
 ]
 
 export function isStudiesAction(action: {

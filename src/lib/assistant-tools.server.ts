@@ -14,14 +14,8 @@ import type { Scope } from './api-credential-scopes'
 import type { AssistantToolkit } from './assistant'
 import { isProposalTool, proposalToolDefs } from './assistant-proposals'
 import { buildAssistantProposal } from './assistant-proposals.server'
-import {
-  buildNotebookProposal,
-  isNotebookProposalTool,
-  isNotebookReadTool,
-  notebookProposalDefs,
-  notebookReadDefs,
-  runNotebookReadTool,
-} from './assistant-notebook.server'
+import { FEATURE_ASSISTANT_SERVERS } from '../features/assistant.server.gen'
+import type { FeatureAssistantServer } from '../features/define.server'
 import {
   bookingProposalDefs,
   buildBookingProposal,
@@ -65,11 +59,6 @@ import {
   isUpkeepProposalTool,
   upkeepProposalDefs,
 } from './assistant-upkeep.server'
-import {
-  buildPeopleProposal,
-  isPeopleProposalTool,
-  peopleProposalDefs,
-} from './assistant-people.server'
 import {
   buildPlatesProposal,
   isPlatesProposalTool,
@@ -125,6 +114,10 @@ import {
 import { handleMcpMessage } from './mcp/handler'
 import type { McpContext } from './mcp/handler'
 
+/** Each feature folder's assistant tools (`src/features/<name>/assistant.server.ts`). */
+const FEATURE_SERVERS: readonly FeatureAssistantServer[] =
+  FEATURE_ASSISTANT_SERVERS
+
 /**
  * The assistant's tools: the MCP server's read tools, called in-process.
  *
@@ -140,7 +133,6 @@ import type { McpContext } from './mcp/handler'
  * it: the core model and the output rules are always in the instructions, and
  * the rest is one `sheetbase.guide` call away.
  */
-
 export const GUIDE_TOOL_NAME = 'sheetbase.guide'
 
 /** Longest tool result handed back to the model. */
@@ -316,7 +308,7 @@ export async function createAssistantToolkit(deps: {
       (tool) =>
         tool.annotations?.readOnlyHint === true &&
         !isSemanticReadTool(tool.name) &&
-        (ASSISTANT_READ_TOOL_NAMES as readonly string[]).includes(tool.name),
+        ASSISTANT_READ_TOOL_NAMES.includes(tool.name),
     )
     .map((tool) => ({
       name: toWireToolName(tool.name),
@@ -332,7 +324,7 @@ export async function createAssistantToolkit(deps: {
     ...seriesToolDefs(),
     ...partsToolDefs(),
     ...gatesToolDefs(),
-    ...notebookReadDefs(),
+    ...FEATURE_SERVERS.flatMap((feature) => feature.readDefs?.() ?? []),
     ...semanticToolDefs(await literatureAllowed(deps.client, deps.workspaceId)),
   )
   // Tools an administrator-installed extension adds. Reads run as the person;
@@ -347,8 +339,7 @@ export async function createAssistantToolkit(deps: {
       ...benchProposalDefs(),
       ...planningProposalDefs(),
       ...upkeepProposalDefs(),
-      ...notebookProposalDefs(),
-      ...peopleProposalDefs(),
+      ...FEATURE_SERVERS.flatMap((feature) => feature.proposalDefs?.() ?? []),
       ...platesProposalDefs(),
       ...qcProposalDefs(),
       ...studiesProposalDefs(),
@@ -427,20 +418,22 @@ export async function createAssistantToolkit(deps: {
           : { text: outcome.message, isError: true }
       }
 
-      if (isNotebookReadTool(name)) {
-        const result = await runNotebookReadTool(name, args, labContext)
-        return { text: clip(result.text), isError: result.isError }
-      }
-
-      if (isNotebookProposalTool(name)) {
-        const built = await buildNotebookProposal(name, args, labContext)
-        return built.ok
-          ? {
-              text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
-              isError: false,
-              proposal: built.proposal,
-            }
-          : { text: built.message, isError: true }
+      // Each feature folder's tools (`src/features/<name>/assistant.server.ts`).
+      for (const feature of FEATURE_SERVERS) {
+        if (feature.runReadTool && feature.isReadTool?.(name)) {
+          const result = await feature.runReadTool(name, args, labContext)
+          return { text: clip(result.text), isError: result.isError }
+        }
+        if (feature.buildProposal && feature.isProposalTool?.(name)) {
+          const built = await feature.buildProposal(name, args, labContext)
+          return built.ok
+            ? {
+                text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
+                isError: false,
+                proposal: built.proposal,
+              }
+            : { text: built.message, isError: true }
+        }
       }
 
       if (isLabReadTool(name)) {
@@ -561,17 +554,6 @@ export async function createAssistantToolkit(deps: {
       }
       if (isPlatesProposalTool(name)) {
         const built = await buildPlatesProposal(name, args, labContext)
-        return built.ok
-          ? {
-              text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',
-              isError: false,
-              proposal: built.proposal,
-            }
-          : { text: built.message, isError: true }
-      }
-
-      if (isPeopleProposalTool(name)) {
-        const built = await buildPeopleProposal(name, args, labContext)
         return built.ok
           ? {
               text: 'The person now sees this as a card with a button to do it. Nothing has changed yet. Say in one sentence what you proposed, then stop.',

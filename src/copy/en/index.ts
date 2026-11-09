@@ -29,9 +29,12 @@ import { sequences } from './sequences'
 import { shipments } from './shipments'
 import { settings } from './settings'
 import { spend } from './spend'
+import { featureCopy } from '../../features/copy.gen'
 
 export const en = {
   common,
+  /** Each feature folder's copy (`src/features/<name>/copy.ts`). */
+  features: featureCopy,
   account,
   agents,
   agentRequests,

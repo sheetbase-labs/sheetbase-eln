@@ -8,12 +8,11 @@
  * snapshot for code that runs at module load and cannot depend on a workspace.
  */
 import { AGENT_OPERATIONS } from './declarations/agent'
-import { NOTEBOOK_OPERATIONS } from './declarations/notebook'
-import { PEOPLE_OPERATIONS } from './declarations/people'
 import { INSTRUMENT_OPERATIONS } from './declarations/instruments'
 import { PIPELINE_OPERATIONS } from './declarations/pipeline'
 import { PLANNING_OPERATIONS } from './declarations/planning'
 import { SAMPLE_OPERATIONS } from './declarations/samples'
+import { featureOperations } from '../../features/collect'
 import {
   assistantToolsFrom,
   operationRpc,
@@ -22,15 +21,18 @@ import {
 import type { OperationDescriptor } from './descriptor'
 import type { PipelineActionDefinition } from '../pipelines/actions'
 
-/** The operations that ship with Sheetbase, in declaration order. */
+/**
+ * The operations that ship with Sheetbase, in declaration order: the built-in
+ * declarations here, then each feature folder's (`src/features/*`), so a new
+ * feature never edits this list.
+ */
 export const CORE_OPERATIONS: readonly OperationDescriptor[] = Object.freeze([
   ...PIPELINE_OPERATIONS,
   ...PLANNING_OPERATIONS,
-  ...NOTEBOOK_OPERATIONS,
   ...INSTRUMENT_OPERATIONS,
   ...SAMPLE_OPERATIONS,
   ...AGENT_OPERATIONS,
-  ...PEOPLE_OPERATIONS,
+  ...featureOperations(),
 ])
 
 const OPERATION_NAME = /^[a-z][a-z0-9_]{0,63}$/

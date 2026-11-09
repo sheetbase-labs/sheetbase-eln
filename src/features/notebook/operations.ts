@@ -9,7 +9,7 @@
  * confirming a review, approving or returning an approval request, and deleting
  * a file are not operations.
  */
-import { defineOperations, input } from '../descriptor'
+import { defineOperations, input } from '#/lib/operations/descriptor'
 
 const MENTIONS = 'People to notify, as user ids.'
 

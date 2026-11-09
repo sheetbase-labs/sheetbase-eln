@@ -392,7 +392,7 @@ function prepareCall(
   for (const def of input.toolDefs ?? []) {
     const original = fromWireToolName(def.name)
     if (
-      !(ASSISTANT_READ_TOOL_NAMES as readonly string[]).includes(original) &&
+      !ASSISTANT_READ_TOOL_NAMES.includes(original) &&
       !ASSISTANT_PROPOSE_TOOL_NAMES.includes(original) &&
       // A tool an administrator-installed extension declares. The toolkit
       // builds these definitions from the workspace's enabled installs and

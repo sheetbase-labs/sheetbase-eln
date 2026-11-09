@@ -20,10 +20,8 @@ import { isInstrumentsAction } from './assistant-instruments'
 import type { InstrumentsAction } from './assistant-instruments'
 import { isQcAction } from './assistant-qc'
 import type { QcAction } from './assistant-qc'
-import { isNotebookAction } from './assistant-notebook'
-import type { NotebookAction } from './assistant-notebook'
-import { isPeopleAction } from './assistant-people'
-import type { PeopleAction } from './assistant-people'
+import { FEATURE_ASSISTANTS } from '../features/assistant.gen'
+import type { FeatureActions, FeatureAssistant } from '../features/define'
 import { isUpkeepAction } from './assistant-upkeep'
 import type { UpkeepAction } from './assistant-upkeep'
 import type { PlanningAction, PlanningActionResult } from './assistant-planning'
@@ -151,8 +149,7 @@ export type AssistantAction =
     }
   | PlanningAction
   | UpkeepAction
-  | NotebookAction
-  | PeopleAction
+  | FeatureActions<typeof FEATURE_ASSISTANTS>
   | PlatesAction
   | QcAction
   | StudiesAction
@@ -163,6 +160,8 @@ export type AssistantAction =
   | ExtensionToolAction
 
 export type AssistantActionKind = AssistantAction['kind']
+
+const FEATURES_WITH_CARDS: readonly FeatureAssistant[] = FEATURE_ASSISTANTS
 
 /** Run a card's action through the ordinary booking RPCs. */
 export async function runAssistantAction(
@@ -241,23 +240,21 @@ export async function runAssistantAction(
         const { runPlatesAction } = await import('./assistant-plates-run')
         return runPlatesAction(client, action)
       }
-      if (isNotebookAction(action)) {
-        const { runNotebookAction } = await import('./assistant-notebook-run')
-        return runNotebookAction(client, action)
-      }
-      if (isPeopleAction(action)) {
-        // People and workspace jobs load only when a card's button is pressed.
-        const { runPeopleAction } = await import('./assistant-people-run')
-        return runPeopleAction(client, action)
+      // Each feature folder's cards (`src/features/<name>/assistant.ts`).
+      for (const feature of FEATURES_WITH_CARDS) {
+        if (feature.isAction(action)) {
+          return (await feature.run(client, action)) ?? undefined
+        }
       }
       if (isUpkeepAction(action)) {
         // Upkeep jobs load only when a card's button is pressed.
         const { runUpkeepAction } = await import('./assistant-upkeep-run')
         return runUpkeepAction(client, action)
       }
-      // Bench jobs load only when a card's button is pressed.
+      // Bench jobs load only when a card's button is pressed. Every other
+      // kind was handled above, feature cards included.
       const { runBenchAction } = await import('./assistant-bench-run')
-      await runBenchAction(client, action)
+      await runBenchAction(client, action as BenchAction)
     }
   }
 }

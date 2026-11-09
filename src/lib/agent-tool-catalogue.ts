@@ -39,6 +39,7 @@ import type { Scope } from './api-credential-scopes'
 import type { AgentOperationKind } from './agent-operations'
 import { assistantToolsFrom } from './operations/descriptor'
 import { CORE_OPERATIONS } from './operations/registry'
+import { featureAssistantReadTools } from '../features/collect'
 import { parameterUuidSchema } from './parameter'
 
 /**
@@ -65,7 +66,7 @@ export const AGENT_OPERATION_TOOL_NAMES = assistantToolsFrom(
  * under the signed-in person's own access. Kept apart from the operation
  * vocabulary above so the assistant can never be handed a draft or write.
  */
-export const ASSISTANT_READ_TOOL_NAMES = [
+const CORE_ASSISTANT_READ_TOOL_NAMES = [
   'sheetbase.context.assemble',
   'sheetbase.canonical.read',
   'sheetbase.search',
@@ -97,14 +98,19 @@ export const ASSISTANT_READ_TOOL_NAMES = [
   // Search by meaning over the lab's own work, and (when the workspace allows it) published papers (semantic-tools.server.ts).
   'sheetbase.search.semantic',
   'sheetbase.literature.search',
-  // Comments, protocols, files and approvals, read only (assistant-notebook.server.ts).
-  'sheetbase.comments.read',
-  'sheetbase.protocols.read',
-  'sheetbase.files.read',
-  'sheetbase.approvals.read',
 ] as const
 
-export type AssistantReadToolName = (typeof ASSISTANT_READ_TOOL_NAMES)[number]
+/**
+ * Every read-only tool the assistant may use: the built-in ones above, then
+ * each feature folder's (`assistantReadTools` in `src/features/<name>/feature.ts`).
+ */
+export const ASSISTANT_READ_TOOL_NAMES: readonly string[] = [
+  ...CORE_ASSISTANT_READ_TOOL_NAMES,
+  ...featureAssistantReadTools(),
+]
+
+export type AssistantReadToolName =
+  (typeof CORE_ASSISTANT_READ_TOOL_NAMES)[number] | (string & {})
 
 /**
  * Draft tools the in-app assistant may offer a model when the workspace lets

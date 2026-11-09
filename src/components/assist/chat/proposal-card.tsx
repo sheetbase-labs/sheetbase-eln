@@ -3,6 +3,8 @@ import { Link, useRouter } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 
 import { t } from '#/copy'
+import { FEATURE_ASSISTANTS } from '#/features/assistant.gen'
+import type { FeatureActions } from '#/features/define'
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { DataClientError, createDataClient } from '#/lib/data-client'
@@ -147,41 +149,24 @@ const ACTION_COPY = {
   'schedule.accept': 'acceptSchedule',
   'plan.apply': 'applyPlan',
   'plugin.run': 'runExtension',
-  'notebook.comment_add': 'addComment',
-  'notebook.comment_reply': 'replyToComment',
-  'notebook.comment_resolve': 'resolveComment',
-  'notebook.file_status': 'setFileStatus',
-  'notebook.protocol_new_version': 'newProtocolVersion',
-  'notebook.protocol_set_status': 'setProtocolStatus',
-  'notebook.protocol_confirm_current': 'confirmProtocolCurrent',
-  'notebook.protocol_assign_training': 'assignTraining',
-  'notebook.protocol_unassign_training': 'unassignTraining',
-  'notebook.protocol_record_trained': 'recordTrained',
-  'notebook.deviation_reason': 'setDeviationReason',
-  'notebook.approval_request': 'requestApproval',
-  'notebook.approval_withdraw': 'withdrawApproval',
-  'member.invite': 'inviteMember',
-  'invitation.revoke': 'revokeInvitation',
-  'member.role': 'changeRole',
-  'member.suspend': 'suspendMember',
-  'member.reinstate': 'reinstateMember',
-  'member.remove': 'removeMember',
-  'access.grant': 'grantAccess',
-  'access.revoke': 'revokeAccess',
-  'access.decide': 'decideAccess',
-  'group.create': 'createGroup',
-  'group.delete': 'deleteGroup',
-  'group.member': 'groupMember',
-  'workspace.rename': 'renameWorkspace',
-  'workspace.general': 'saveGeneral',
-  'client.create': 'createClient',
-  'client.share': 'shareWithClient',
-} as const satisfies Record<AssistantActionKind, string>
+} as const satisfies Record<
+  Exclude<
+    AssistantActionKind,
+    FeatureActions<typeof FEATURE_ASSISTANTS>['kind']
+  >,
+  string
+>
+
+/** The copy key of each feature card's words (`src/features/<name>/assistant.ts`). */
+const FEATURE_CARD_WORDS: Readonly<Record<string, string>> = Object.assign(
+  {},
+  ...FEATURE_ASSISTANTS.map((feature) => feature.cardWords),
+)
 
 /** Button and done words for an everyday action: "Book", "Booked". */
 function actionWords(kind: AssistantActionKind | undefined) {
-  const key = kind ? ACTION_COPY[kind] : null
-  if (key === null) {
+  const prefix = kind ? cardWordsKey(kind) : null
+  if (prefix === null) {
     return {
       label: t('notebook.assistantPanel.proposal.label'),
       apply: t('notebook.assistantPanel.proposal.apply'),
@@ -194,10 +179,23 @@ function actionWords(kind: AssistantActionKind | undefined) {
       kind?.startsWith('booking.') && kind !== 'booking.repeat'
         ? t('notebook.assistantPanel.proposal.bookingLabel')
         : t('notebook.assistantPanel.proposal.actionLabel'),
-    apply: t(`notebook.assistantPanel.proposal.${key}.apply`),
-    applying: t(`notebook.assistantPanel.proposal.${key}.applying`),
-    applied: t(`notebook.assistantPanel.proposal.${key}.applied`),
+    apply: cardWord(`${prefix}.apply`),
+    applying: cardWord(`${prefix}.applying`),
+    applied: cardWord(`${prefix}.applied`),
   }
+}
+
+/**
+ * A card's button word, by a key put together at run time; the copy tests
+ * check that every card's words are in the catalogue.
+ */
+const cardWord = t as (key: string) => string
+
+/** Where the card's words are in the copy catalogue. */
+function cardWordsKey(kind: AssistantActionKind): string {
+  const own = FEATURE_CARD_WORDS[kind]
+  if (own) return own
+  return `notebook.assistantPanel.proposal.${ACTION_COPY[kind as keyof typeof ACTION_COPY]}`
 }
 
 function failureReason(error: unknown): string {

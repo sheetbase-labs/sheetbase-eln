@@ -1,9 +1,9 @@
-import type { LabTable } from './lab-api-surface'
+import type { LabTable } from '#/lib/lab-api-surface'
 
 /**
  * Notebook work on the external API: comments, files, protocols and approval
  * requests. Read with `lab:read`; `personal` tables are for personal tokens
- * only. Spread into `LAB_TABLES`.
+ * only. Collected into `LAB_TABLES` by the feature index.
  */
 export const NOTEBOOK_LAB_TABLES: Readonly<Record<string, LabTable>> = {
   comments: {

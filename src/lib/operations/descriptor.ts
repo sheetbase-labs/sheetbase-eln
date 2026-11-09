@@ -189,7 +189,7 @@ export const operationVocabulary = (
 /** The public API entries for operations that declare `api: 'lab'`. */
 export function labRpcsFromOperations(
   operations: readonly OperationDescriptor[],
-): Record<string, LabRpc> {
+) {
   const out: Record<string, LabRpc> = {}
 
   for (const op of operations) {
@@ -213,7 +213,7 @@ export function labRpcsFromOperations(
 /** Parameter notes the operations add to the shared notes the API docs use. */
 export function paramNotesFromOperations(
   operations: readonly OperationDescriptor[],
-): Record<string, string> {
+) {
   const out: Record<string, string> = {}
 
   for (const op of operations)
@@ -248,7 +248,8 @@ export function pipelineActionsFrom(
 
   for (const op of operations) {
     if (!op.pipeline) continue
-    out.push({
+
+    const action: PipelineActionDefinition = {
       operation: op.name,
       rpc: operationRpc(op),
       label: op.pipeline.label ?? op.label,
@@ -261,19 +262,23 @@ export function pipelineActionsFrom(
             `${op.name}.${field.name}: a pipeline action cannot take ${field.type}.`,
           )
 
-        return {
+        const argument: PipelineActionArgument = {
           name: field.name,
           type,
           required: field.required,
           nullable: field.nullable ?? false,
-          ...(field.server ? { server: field.server } : {}),
         }
+
+        if (field.server) argument.server = field.server
+
+        return argument
       }),
       proposalKind: op.pipeline.proposalKind,
-      ...(op.pipeline.omitFromResult
-        ? { omitFromResult: op.pipeline.omitFromResult }
-        : {}),
-    })
+    }
+
+    if (op.pipeline.omitFromResult)
+      action.omitFromResult = op.pipeline.omitFromResult
+    out.push(action)
   }
 
   return out
@@ -284,9 +289,11 @@ export function assistantToolsFrom(
   operations: readonly OperationDescriptor[],
   vocabulary: 'propose' | 'read' | 'operation',
 ): string[] {
-  return operations
-    .filter((op) => op.assistant && operationVocabulary(op) === vocabulary)
-    .map((op) => (op.assistant as OperationAssistant).tool)
+  return operations.flatMap((op) =>
+    op.assistant && operationVocabulary(op) === vocabulary
+      ? [op.assistant.tool]
+      : [],
+  )
 }
 
 /** Catalogue entries for the events operations produce. */
@@ -295,17 +302,22 @@ export function eventEntriesFrom(
   consumers: EventCatalogueEntry['consumers'],
 ): EventCatalogueEntry[] {
   return operations.flatMap((op) =>
-    (op.events ?? []).map((event): EventCatalogueEntry => ({
-      name: event.name,
-      family: event.family,
-      summary: event.summary,
-      producer: event.producer,
-      wireName: event.name,
-      status: 'stable',
-      introducedIn: 'lab-01',
-      consumers,
-      ...(event.notes ? { notes: event.notes } : {}),
-    })),
+    (op.events ?? []).map((event): EventCatalogueEntry => {
+      const entry = {
+        name: event.name,
+        family: event.family,
+        summary: event.summary,
+        producer: event.producer,
+        wireName: event.name,
+        status: 'stable',
+        introducedIn: 'lab-01',
+        consumers,
+      } satisfies EventCatalogueEntry
+
+      if (event.notes) return { ...entry, notes: event.notes }
+
+      return entry
+    }),
   )
 }
 

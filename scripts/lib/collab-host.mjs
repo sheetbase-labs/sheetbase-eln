@@ -22,13 +22,17 @@ export function createCollabHost({ fetchApp, log }) {
       const forwardedProto = String(incoming.headers['x-forwarded-proto'] ?? '')
         .split(',')[0]
         .trim()
+
       const scheme = forwardedProto === 'https' ? 'https' : 'http'
       const host = String(incoming.headers.host ?? 'localhost')
+
       const url = new URL(
         `/api/collaboration/ticket?room=${encodeURIComponent(room)}`,
         `${scheme}://${host}`,
       )
+
       const headers = new Headers()
+
       for (const name of [
         'cookie',
         'authorization',
@@ -37,11 +41,16 @@ export function createCollabHost({ fetchApp, log }) {
         'x-forwarded-proto',
       ]) {
         const value = incoming.headers[name]
-        if (typeof value === 'string') headers.set(name, value)
+
+        if (value !== undefined && !Array.isArray(value))
+          headers.set(name, value)
       }
+
       const response = await fetchApp(new Request(url, { headers }))
+
       if (!response.ok) return { ok: false, status: response.status }
       const ticket = await response.json()
+
       return {
         ok: true,
         user: {

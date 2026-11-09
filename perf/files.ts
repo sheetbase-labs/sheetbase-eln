@@ -28,11 +28,14 @@ function mb(bytes: number): string {
 /** Deterministic payload bytes (no crypto overhead in the hot path). */
 function payload(bytes: number): Uint8Array {
   const chunk = new Uint8Array(64 * 1024)
+
   for (let i = 0; i < chunk.length; i += 1) chunk[i] = (i * 31) % 251
   const out = new Uint8Array(bytes)
+
   for (let offset = 0; offset < bytes; offset += chunk.length) {
     out.set(chunk.subarray(0, Math.min(chunk.length, bytes - offset)), offset)
   }
+
   return out
 }
 
@@ -42,40 +45,51 @@ async function main(): Promise<void> {
   const scenarios: ScenarioReport[] = []
   const sizes = [10 * 1024 * 1024, 50 * 1024 * 1024, 100 * 1024 * 1024]
   const admin = await adminClient(env.migrationDatabaseUrl)
+
   try {
     for (const size of sizes) {
       const bytes = payload(size)
       const writeSamples: number[] = []
       const keys: string[] = []
+
       for (let i = 0; i < 3; i += 1) {
         const key = `perf-bench/${Date.now()}-${Math.random().toString(36).slice(2)}`
         keys.push(key)
         const t0 = Date.now()
+
         const body = new ReadableStream<Uint8Array>({
           start(controller) {
             controller.enqueue(bytes)
             controller.close()
           },
         })
+
         await storage.putStream(key, body, size)
         writeSamples.push(Date.now() - t0)
       }
+
       const readSamples: number[] = []
       let checksumOk = true
+
       for (const key of keys) {
         const t0 = Date.now()
         const { stream, byteSize } = await storage.getStream(key)
         const reader = stream.getReader()
         let received = 0
+
         for (;;) {
           const { done, value } = await reader.read()
+
           if (done) break
           received += value.length
         }
+
         readSamples.push(Date.now() - t0)
+
         if (received !== byteSize || received !== bytes.length)
           checksumOk = false
       }
+
       const writeStats = statsFor(writeSamples)
       const readStats = statsFor(readSamples)
       scenarios.push(
@@ -102,10 +116,12 @@ async function main(): Promise<void> {
           notes: { operation: 'read', kind: 'streamed', checksumOk },
         }),
       )
+
       for (const key of keys) {
         await storage.delete(key)
       }
     }
+
     const environment = await environmentSnapshot(admin)
     writeReport('files', scenarios, environment, {
       backend: process.env.FILE_STORAGE_BACKEND ?? 'local',
@@ -117,8 +133,8 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1]?.endsWith('perf/files.ts')) {
-  void main().catch((error: unknown) => {
-    console.error(error)
+  void main().catch((cause: unknown) => {
+    console.error(cause)
     process.exitCode = 1
   })
 }

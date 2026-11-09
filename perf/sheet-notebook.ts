@@ -88,10 +88,12 @@ async function setup(): Promise<Ctx> {
      on conflict (id) do nothing`,
     [versionId, schemaId, SHEET_USER],
   )
+
   const fieldsExist = await admin.query<{ n: string }>(
     `select count(*)::text n from api.dataset_schema_version_fields where schema_version_id=$1`,
     [versionId],
   )
+
   if (Number(fieldsExist.rows[0].n) === 0) {
     await admin.query(
       `insert into api.dataset_schema_version_fields(
@@ -111,6 +113,7 @@ async function setup(): Promise<Ctx> {
       [versionId],
     )
   }
+
   const datasetId = uuidFor(PREFIX.dataset, 3)
   await admin.query(
     `insert into api.datasets(id,workspace_id,schema_version_id,name,created_by_user_id)
@@ -118,6 +121,7 @@ async function setup(): Promise<Ctx> {
      on conflict (id) do nothing`,
     [datasetId, SHEET_WS, versionId, SHEET_USER],
   )
+
   // Records for reference targets (kind 'sample' per the relationship model).
   const recordCount = (
     await admin.query<{ n: string }>(
@@ -125,6 +129,7 @@ async function setup(): Promise<Ctx> {
       [SHEET_WS],
     )
   ).rows[0].n
+
   if (Number(recordCount) < 1000) {
     await admin.query(
       `insert into api.records(id,workspace_id,kind,identifier,title,created_by_user_id)
@@ -135,6 +140,7 @@ async function setup(): Promise<Ctx> {
       [SHEET_WS, SHEET_USER],
     )
   }
+
   // Deterministic rows + reference values. Both are idempotent (ON CONFLICT
   // on stable PKs), so a rerun converges without duplicating.
   await admin.query(
@@ -151,6 +157,7 @@ async function setup(): Promise<Ctx> {
      on conflict (row_id, field_id, ordinal) do nothing`,
     [datasetId, SAMPLE_FIELD],
   )
+
   return { admin, actor, env, schemaVersionId: versionId, datasetId }
 }
 
@@ -159,6 +166,7 @@ function sheetConfig(schemaVersionId: string, sampleFieldId: string) {
   const parameterId = uuidFor(PREFIX.def, 100)
   const bindingId = uuidFor(PREFIX.def, 200)
   const columnId = uuidFor(PREFIX.def, 300)
+
   return {
     formatVersion: 1,
     parameters: [
@@ -221,6 +229,7 @@ function sheetConfig(schemaVersionId: string, sampleFieldId: string) {
 
 async function setupSheet(ctx: Ctx): Promise<string> {
   const config = sheetConfig(ctx.schemaVersionId, SAMPLE_FIELD)
+
   const definition = (
     await ctx.actor.query(
       `select api.create_sheet_definition($1,$2,$3,null,$4::jsonb) result`,
@@ -232,10 +241,12 @@ async function setupSheet(ctx: Ctx): Promise<string> {
       ],
     )
   ).rows[0].result
+
   await ctx.actor.query(`select api.publish_sheet_definition_version($1,$2)`, [
     definition.version.id,
     1,
   ])
+
   const state = {
     bindings: [],
     localFields: [],
@@ -250,6 +261,7 @@ async function setupSheet(ctx: Ctx): Promise<string> {
     },
     provenance: { createdFrom: 'ad_hoc' },
   }
+
   const inputs = [
     {
       parameterId: definition.version.configuration.parameters[0].id,
@@ -257,6 +269,7 @@ async function setupSheet(ctx: Ctx): Promise<string> {
       datasetId: ctx.datasetId,
     },
   ]
+
   const created = (
     await ctx.actor.query(
       `select to_jsonb(api.create_sheet_instance_from_definition($1,$2,null,$3,null,null,$4::jsonb,$5::jsonb)) result`,
@@ -269,12 +282,14 @@ async function setupSheet(ctx: Ctx): Promise<string> {
       ],
     )
   ).rows[0].result
+
   const resolved = (
     await ctx.actor.query(
       `select to_jsonb(api.resolve_sheet_instance_row_identity($1,$2)) result`,
       [created.id, 1],
     )
   ).rows[0].result
+
   return resolved.id
 }
 
@@ -287,23 +302,31 @@ async function benchmarkSheet(
   await ctx.actor.query(`select api.query_sheet_instance_rows($1,200,0)`, [
     instanceId,
   ])
+
   for (const pageSize of [100, 200]) {
     const samples: number[] = []
     let errors = 0
+
     for (let i = 0; i < 7; i += 1) {
       try {
         const t0 = Date.now()
-        const { rows } = await ctx.actor.query(
-          `select api.query_sheet_instance_rows($1,$2,0) result`,
-          [instanceId, pageSize],
-        )
+
+        const { rows } = await ctx.actor.query<{
+          result: { rows?: unknown[] }
+        }>(`select api.query_sheet_instance_rows($1,$2,0) result`, [
+          instanceId,
+          pageSize,
+        ])
+
         samples.push(Date.now() - t0)
-        const result = rows[0].result as { rows?: unknown[] }
+        const result = rows[0].result
+
         if (!result.rows) errors += 1
       } catch {
         errors += 1
       }
     }
+
     scenarios.push(
       recordScenario({
         scenario: `sheet-bound-load-${pageSize}`,
@@ -335,6 +358,7 @@ async function benchmarkNotebook(
      on conflict (id) do nothing`,
     [recordId, SHEET_WS, projectId, SHEET_USER],
   )
+
   for (const blockCount of [50, 200, 500]) {
     const existing = (
       await ctx.admin.query(
@@ -342,6 +366,7 @@ async function benchmarkNotebook(
         [recordId],
       )
     ).rows[0].n
+
     for (let i = existing; i < blockCount; i += 1) {
       await ctx.admin.query(
         `insert into api.blocks(id,record_id,type,payload,"order",created_by_user_id)
@@ -358,23 +383,29 @@ async function benchmarkNotebook(
         ],
       )
     }
+
     await ctx.admin.query('analyze api.blocks')
     const samples: number[] = []
     let errors = 0
+
     for (let i = 0; i < 7; i += 1) {
       try {
         const t0 = Date.now()
+
         const { rows } = await ctx.actor.query(
           `select id, type, payload, "order" from api.blocks
             where record_id = $1 order by "order", id`,
           [recordId],
         )
+
         samples.push(Date.now() - t0)
+
         if (rows.length !== blockCount) errors += 1
       } catch {
         errors += 1
       }
     }
+
     scenarios.push(
       recordScenario({
         scenario: `notebook-blocks-load-${blockCount}`,
@@ -394,11 +425,13 @@ async function benchmarkNotebook(
 export async function runSheetNotebookBenchmarks(): Promise<ScenarioReport[]> {
   const ctx = await setup()
   const scenarios: ScenarioReport[] = []
+
   try {
     await benchmarkSheet(ctx, scenarios)
     await benchmarkNotebook(ctx, scenarios)
     const environment = await environmentSnapshot(ctx.admin)
     writeReport('sheet-notebook', scenarios, environment)
+
     return scenarios
   } finally {
     // Notebook records/blocks/projects are deletable; the Sheet Instance is
@@ -418,8 +451,8 @@ export async function runSheetNotebookBenchmarks(): Promise<ScenarioReport[]> {
 }
 
 if (process.argv[1]?.endsWith('perf/sheet-notebook.ts')) {
-  void runSheetNotebookBenchmarks().catch((error: unknown) => {
-    console.error(error)
+  void runSheetNotebookBenchmarks().catch((cause: unknown) => {
+    console.error(cause)
     process.exitCode = 1
   })
 }

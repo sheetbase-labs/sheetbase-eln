@@ -1,6 +1,9 @@
 /** The agent is a standalone plain-JavaScript script; its shape is declared here for its tests. */
+import type { z } from 'zod'
+
 export declare const SCOPES: string[]
 export declare const DEFAULT_EXTENSIONS: string[]
+
 export interface AgentOptions {
   url: string
   credential: string
@@ -15,6 +18,7 @@ export interface AgentOptions {
   live: LiveSource[]
   robot: RobotOptions | null
 }
+
 export interface RobotOptions {
   driver: 'opentrons' | 'file'
   address?: string
@@ -22,6 +26,7 @@ export interface RobotOptions {
   intervalSeconds?: number
   logVolumeUnit?: 'ul' | 'nl' | 'ml'
 }
+
 export type LiveSource = {
   kind: 'file' | 'network'
   path?: string
@@ -31,22 +36,25 @@ export type LiveSource = {
   unit?: string
   fromStart?: boolean
 }
+
 export interface LiveReading {
   feed: string
   value: number
   unit?: string
   at?: string
 }
+
 export declare const CONFIG_FILE_NAME: string
+
 export declare function parseArgs(
   argv: string[],
   env?: Record<string, string | undefined>,
-  fileConfig?: Record<string, unknown>,
+  fileConfig?: Record<string, z.infer<ReturnType<typeof z.json>>>,
 ): AgentOptions
 export declare function loadConfigFile(
   argv: string[],
   scriptDir: string,
-): Promise<Record<string, unknown>>
+): Promise<Record<string, z.infer<ReturnType<typeof z.json>>>>
 export declare function tokenExpiry(token: string): number
 export declare function contentTypeFor(fileName: string): string
 export declare function createAgent(
@@ -77,7 +85,9 @@ export declare function createTail(
   path: string,
   options?: { fromStart?: boolean },
 ): { poll: () => Promise<{ lines: string[]; header: string | null }> }
+
 export declare const LIVE_BUFFER_LIMIT: number
+
 export declare function createLiveSender(
   options: { url: string; instrumentId: string },
   deps: {
@@ -92,6 +102,7 @@ export declare function createLiveSender(
 }
 
 export declare const ROBOT_DRIVERS: string[]
+
 export interface RobotJob {
   id: string
   number: number
@@ -100,22 +111,32 @@ export interface RobotJob {
   cancelRequested?: boolean
   file?: { name: string; content: string }
 }
+
 export interface RobotDriver {
   name: string
-  stage(job: RobotJob): Promise<{ remoteRef: string; message?: string }>
-  start(job: RobotJob): Promise<{ message?: string }>
-  poll(job: RobotJob): Promise<{
+  stage: (job: RobotJob) => Promise<{ remoteRef: string; message?: string }>
+  start: (job: RobotJob) => Promise<{ message?: string }>
+  poll: (job: RobotJob) => Promise<{
     status: string
     message?: string
     entries?: unknown[]
     runLog?: string
     volumeUnit?: string
   }>
-  stop(job: RobotJob): Promise<void>
+  stop: (job: RobotJob) => Promise<void>
 }
+
 export declare function opentronsEntries(
-  run: unknown,
-  commands: unknown[] | undefined,
+  run:
+    | { labware?: Array<{ id: string; location?: { slotName?: string } }> }
+    | undefined,
+  commands:
+    | Array<{
+        commandType: string
+        status: string
+        params?: { wellName?: string; labwareId?: string; volume?: number }
+      }>
+    | undefined,
 ): Array<{
   sourceWell: string
   destWell: string
@@ -135,4 +156,4 @@ export declare function createRobotRunner(
     ensureToken: (force?: boolean) => Promise<string>
     driver?: RobotDriver
   },
-): { pass(): Promise<number> }
+): { pass: () => Promise<number> }

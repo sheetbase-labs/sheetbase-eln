@@ -17,10 +17,12 @@ import {
 
 const { values } = parseArgs({ options: { force: { type: 'boolean' } } })
 const conn = await connectForBackfill()
+
 try {
   const result = await backfillFileText(conn, undefined, {
     force: values.force ?? false,
   })
+
   console.log(JSON.stringify(result))
 } finally {
   await conn.end()

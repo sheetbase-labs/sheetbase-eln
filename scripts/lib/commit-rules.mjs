@@ -43,12 +43,15 @@ export const isAttributionLine = (line) =>
 /** Drops attribution lines and the blank lines left trailing behind them. */
 export function stripAttribution(message) {
   const kept = message.split('\n').filter((line) => !isAttributionLine(line))
+
   while (kept.length && /^\s*(---)?\s*$/.test(kept[kept.length - 1])) kept.pop()
+
   return kept.length ? `${kept.join('\n')}\n` : ''
 }
 
 export function checkSubject(subject, what = 'Subject') {
   if (CONVENTIONAL_SUBJECT.test(subject)) return []
+
   return [
     `${what} is not a Conventional Commit ("type(scope): summary", type one of ${CONVENTIONAL_TYPES.join(', ')}): ${subject}`,
   ]
@@ -73,13 +76,17 @@ export function checkCommit({
 }) {
   const subject = message.split('\n')[0] ?? ''
   const problems = []
+
   if (parents > 1) problems.push('Merge commit: rebase on main instead')
   problems.push(...checkSubject(subject))
   problems.push(...checkAttribution(message, 'Message'))
+
   if (ASSISTANT_IDENTITY.test(author))
     problems.push(`Author is an assistant: ${author}`)
+
   if (ASSISTANT_IDENTITY.test(committer))
     problems.push(`Committer is an assistant: ${committer}`)
+
   return problems
 }
 
@@ -88,9 +95,11 @@ export function checkPullRequest({ title = '', body = '', head = '' }) {
     ...checkSubject(title, 'PR title'),
     ...checkAttribution(body, 'PR body'),
   ]
+
   if (/^claude\//i.test(head))
     problems.push(
       `Branch name starts with claude/: ${head} (use feat/, fix/ ...)`,
     )
+
   return problems
 }

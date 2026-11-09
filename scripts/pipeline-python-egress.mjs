@@ -28,6 +28,7 @@ import { connect, isIP } from 'node:net'
 /** Mirrors `hostAllowed` in src/lib/extensions/runtime-config.ts. */
 export function hostAllowed(allowed, host) {
   const name = String(host).toLowerCase().replace(/\.$/, '')
+
   return allowed.some((entry) =>
     entry.startsWith('*.')
       ? name.endsWith(entry.slice(1)) && name.length > entry.length - 1
@@ -38,8 +39,10 @@ export function hostAllowed(allowed, host) {
 /** Whether an address belongs to the lab's own network rather than the internet. */
 export function isPrivateAddress(address) {
   const kind = isIP(address)
+
   if (kind === 4) {
     const [a, b] = address.split('.').map(Number)
+
     return (
       a === 0 ||
       a === 10 ||
@@ -51,10 +54,13 @@ export function isPrivateAddress(address) {
       a >= 224
     )
   }
+
   if (kind === 6) {
     const lower = address.toLowerCase()
     const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(lower)
+
     if (mapped) return isPrivateAddress(mapped[1])
+
     return (
       lower === '::' ||
       lower === '::1' ||
@@ -63,12 +69,14 @@ export function isPrivateAddress(address) {
       /^fe[89ab]/.test(lower)
     )
   }
+
   return true
 }
 
 const safeEqual = (a, b) => {
   const left = Buffer.from(a)
   const right = Buffer.from(b)
+
   return left.length === right.length && timingSafeEqual(left, right)
 }
 
@@ -84,11 +92,14 @@ export function createEgressProxy({
   const grants = new Map()
 
   const grantFor = (header) => {
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Standalone bare-Node proxy decodes untrusted HTTP authorization before accessing credentials.
     if (typeof header !== 'string' || !header.startsWith('Basic ')) return null
     const decoded = Buffer.from(header.slice(6), 'base64').toString('utf8')
     const token = decoded.split(':').slice(1).join(':')
+
     for (const [known, grant] of grants)
       if (safeEqual(known, token)) return grant
+
     return null
   }
 
@@ -96,14 +107,18 @@ export function createEgressProxy({
   async function target(grant, host) {
     if (!hostAllowed(grant.hosts, host)) return { error: 'host_not_approved' }
     let addresses
+
     try {
       addresses = isIP(host) ? [{ address: host }] : await resolve(host)
     } catch {
       return { error: 'not_found' }
     }
+
     if (addresses.length === 0) return { error: 'not_found' }
+
     if (!allowPrivate && addresses.some((a) => isPrivateAddress(a.address)))
       return { error: 'private_address' }
+
     return { address: addresses[0].address }
   }
 
@@ -117,30 +132,40 @@ export function createEgressProxy({
   const server = createServer((request, response) => {
     // Plain http:// through the proxy: the request line carries the full URL.
     const grant = grantFor(request.headers['proxy-authorization'])
+
     if (!grant) {
       response.writeHead(407, { 'Proxy-Authenticate': 'Basic realm="plugin"' })
+
       return response.end()
     }
+
     let url
+
     try {
       url = new URL(request.url)
+
       if (url.protocol !== 'http:') throw new Error('not http')
     } catch {
       response.writeHead(400)
+
       return response.end()
     }
+
     void target(grant, url.hostname).then((found) => {
       if (found.error) {
         response.writeHead(found.error === 'not_found' ? 502 : 403)
+
         return response.end(
           found.error === 'host_not_approved'
             ? 'This plugin is not approved to reach that host.'
             : '',
         )
       }
+
       const headers = { ...request.headers }
       delete headers['proxy-authorization']
       delete headers['proxy-connection']
+
       const upstream = httpRequest(
         {
           host: found.address,
@@ -154,6 +179,7 @@ export function createEgressProxy({
           answer.pipe(response)
         },
       )
+
       grant.sockets.add(upstream)
       upstream.on('error', () => {
         if (!response.headersSent) response.writeHead(502)
@@ -165,13 +191,17 @@ export function createEgressProxy({
 
   server.on('connect', (request, client, head) => {
     const grant = grantFor(request.headers['proxy-authorization'])
+
     if (!grant) {
       client.end(
         'HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm="plugin"\r\nContent-Length: 0\r\n\r\n',
       )
+
       return
     }
+
     const match = /^(.+):(\d{1,5})$/.exec(request.url ?? '')
+
     if (!match) return refuse(client, 400, 'Bad Request')
     const [, rawHost, port] = match
     const host = rawHost.replace(/^\[|\]$/g, '')
@@ -182,18 +212,23 @@ export function createEgressProxy({
           found.error === 'not_found' ? 502 : 403,
           found.error === 'not_found' ? 'Bad Gateway' : 'Forbidden',
         )
+
       const upstream = connect(Number(port), found.address, () => {
         client.write('HTTP/1.1 200 Connection Established\r\n\r\n')
+
         if (head.length) upstream.write(head)
         upstream.pipe(client)
         client.pipe(upstream)
       })
+
       grant.sockets.add(client)
       grant.sockets.add(upstream)
+
       const close = () => {
         upstream.destroy()
         client.destroy()
       }
+
       upstream.on('error', () => {
         if (client.writable && !client.destroyed && upstream.connecting)
           refuse(client, 502, 'Bad Gateway')
@@ -212,10 +247,12 @@ export function createEgressProxy({
       const token = randomBytes(24).toString('hex')
       const grant = { hosts: [...hosts], sockets: new Set() }
       grants.set(token, grant)
+
       return {
         token,
         release() {
           grants.delete(token)
+
           for (const socket of grant.sockets) socket.destroy()
           grant.sockets.clear()
         },

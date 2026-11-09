@@ -131,8 +131,10 @@ export function summarizeCoverage(
   requiredValues: ReadonlyArray<string>,
 ): CoverageSummary {
   const seededValues = new Set(seeded)
+
   const seededMatch = (token: string) =>
     STORED_PREFIXES.has(prefixOf(token)) && seededValues.has(token)
+
   let total = 0
   let unmatched = 0
   const unmatchedByScreen: Array<{ screen: string; tokens: string[] }> = []
@@ -142,14 +144,17 @@ export function summarizeCoverage(
     const tokens = Array.from(
       new Set(screen.text.match(ID_PATTERN) ?? []),
     ).filter((token) => !ALLOWLIST.has(token))
+
     for (const token of tokens) {
       if (!STORED_PREFIXES.has(prefixOf(token))) {
         displayFamilies.add(prefixOf(token))
       }
     }
+
     total += tokens.length
     const miss = tokens.filter((token) => !seededMatch(token))
     unmatched += miss.length
+
     if (miss.length > 0) {
       unmatchedByScreen.push({
         screen: screen.name.replace('.txt', ''),
@@ -161,6 +166,7 @@ export function summarizeCoverage(
   const missingFamilies = requiredFamilies.filter(
     (prefix) => !seeded.some((value) => value.startsWith(`${prefix}-`)),
   )
+
   const missingValues = requiredValues.filter((value) => !seededMatch(value))
 
   return {
@@ -178,9 +184,11 @@ export function parseListArg(
   name: string,
 ): string[] {
   const out: string[] = []
+
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i] ?? ''
     const inline = `--${name}=`
+
     if (arg.startsWith(inline)) {
       out.push(
         ...arg
@@ -191,6 +199,7 @@ export function parseListArg(
       )
     } else if (arg === `--${name}`) {
       const next = argv[i + 1]
+
       if (next && !next.startsWith('--')) {
         out.push(
           ...next
@@ -202,14 +211,17 @@ export function parseListArg(
       }
     }
   }
+
   return out
 }
 
 export async function seededStrings(): Promise<string[]> {
   const client = new Client({ connectionString: process.env.DATABASE_URL })
   await client.connect()
+
   try {
     const values: string[] = []
+
     const queries: Array<[string, string]> = [
       [
         'records',
@@ -257,8 +269,13 @@ export async function seededStrings(): Promise<string[]> {
         "select display_id from api.dataset_schema_definitions where display_id like 'MDL-%'",
       ],
     ]
+
     for (const [, sql] of queries) {
-      const { rows } = await client.query<Record<string, unknown>>(
+      const { rows } = await client.query<{
+        identifier?: string | null
+        display_id?: string | null
+        code?: string | null
+      }>(
         `${sql} and workspace_id in
           (select id from api.workspaces where slug = any($1::text[]))`,
         [
@@ -270,12 +287,14 @@ export async function seededStrings(): Promise<string[]> {
           ],
         ],
       )
+
       for (const row of rows) {
-        for (const value of Object.values(row)) {
-          if (typeof value === 'string') values.push(value)
-        }
+        const value = row.identifier ?? row.display_id ?? row.code
+
+        if (value !== undefined && value !== null) values.push(value)
       }
     }
+
     return values
   } finally {
     await client.end()
@@ -287,12 +306,15 @@ async function main() {
   const reportOnly = argv.includes('--report-only')
   const extraFamilies = parseListArg(argv, 'require')
   const extraValues = parseListArg(argv, 'expect')
+
   const requiredFamilies = [
     ...new Set([...REQUIRED_FAMILIES, ...extraFamilies]),
   ].sort()
+
   const requiredValues = [...new Set([...REQUIRED_VALUES, ...extraValues])]
 
   const seeded = await seededStrings()
+
   const screens = readdirSync(SCREEN_TEXT_DIR)
     .filter((name) => name.endsWith('.txt'))
     .map((name) => ({
@@ -319,14 +341,17 @@ async function main() {
   )
 
   const problems: string[] = []
+
   if (summary.unmatched > 0) {
     problems.push(`${summary.unmatched} unmatched screen identifiers`)
   }
+
   if (summary.missingFamilies.length > 0) {
     problems.push(
       `missing required families: ${summary.missingFamilies.join(', ')}`,
     )
   }
+
   if (summary.missingValues.length > 0) {
     problems.push(
       `missing required values: ${summary.missingValues.join(', ')}`,
@@ -340,6 +365,7 @@ async function main() {
       `design-seed coverage gate passed: ${requiredFamilies.length} families, ${requiredValues.length} required values`,
     )
   }
+
   process.exitCode = coverageExitCode(summary, reportOnly)
 }
 

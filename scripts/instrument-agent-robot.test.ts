@@ -14,6 +14,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import {
   createFileDriver,
@@ -29,9 +30,11 @@ import type {
 } from './instrument-agent.mjs'
 
 let dir: string
+
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), 'robot-'))
 })
+
 afterEach(async () => {
   await rm(dir, { recursive: true, force: true })
 })
@@ -42,6 +45,7 @@ const run = {
     { id: 'lw-dst', location: { slotName: '2' } },
   ],
 }
+
 const cmd = (
   commandType: string,
   wellName: string,
@@ -64,6 +68,7 @@ describe('reading an Opentrons run back', () => {
       cmd('aspirate', 'A2', 50),
       cmd('dispense', 'B2', 50, 'succeeded', 'lw-dst'),
     ])
+
     expect(entries).toEqual([
       { sourceWell: 'A1', destWell: 'B1', actualUl: 300, status: 'ok' },
       { sourceWell: 'A2', destWell: 'B2', actualUl: 50, status: 'ok' },
@@ -75,6 +80,7 @@ describe('reading an Opentrons run back', () => {
       cmd('aspirate', 'A1', 50, 'failed'),
       cmd('dispense', 'B1', 50, 'failed', 'lw-dst'),
     ])
+
     expect(entries).toEqual([
       { sourceWell: 'A1', destWell: 'B1', actualUl: 0, status: 'failed' },
     ])
@@ -94,29 +100,45 @@ describe('reading an Opentrons run back', () => {
 function fakeRobot(initialStatus = 'idle') {
   const calls: Array<{ method: string; path: string; body?: unknown }> = []
   const state = { status: initialStatus }
-  const fetchImpl = (async (url: string, init: RequestInit = {}) => {
-    const path = new URL(url).pathname + new URL(url).search
+
+  const fetchImpl: typeof fetch = async (input, init: RequestInit = {}) => {
+    const request = new Request(input, init)
+    const url = new URL(request.url)
+    const path = url.pathname + url.search
     const method = init.method ?? 'GET'
+
+    const body: unknown =
+      request.body &&
+      request.headers.get('content-type')?.includes('application/json')
+        ? await request.json()
+        : undefined
+
     calls.push({
       method,
       path,
-      body: typeof init.body === 'string' ? JSON.parse(init.body) : init.body,
+      body,
     })
-    const json = (data: unknown, status = 200) =>
-      new Response(JSON.stringify(data), { status })
+    const json = Response.json.bind(Response)
+
     if (method === 'POST' && path === '/protocols')
-      return json({ data: { id: 'proto-1' } }, 201)
+      return json({ data: { id: 'proto-1' } }, { status: 201 })
+
     if (method === 'POST' && path === '/runs')
-      return json({ data: { id: 'run-1' } }, 201)
+      return json({ data: { id: 'run-1' } }, { status: 201 })
+
     if (method === 'POST' && path.endsWith('/actions')) {
-      const action = (
-        JSON.parse(init.body as string) as { data: { actionType: string } }
-      ).data.actionType
+      const action = z
+        .object({ data: z.object({ actionType: z.string() }) })
+        .parse(body).data.actionType
+
       state.status = action === 'play' ? 'running' : 'stopped'
-      return json({ data: {} }, 201)
+
+      return json({ data: {} }, { status: 201 })
     }
+
     if (method === 'GET' && path === '/runs/run-1')
       return json({ data: { status: state.status, ...run } })
+
     if (method === 'GET' && path.startsWith('/runs/run-1/commands'))
       return json({
         data: [
@@ -124,26 +146,30 @@ function fakeRobot(initialStatus = 'idle') {
           cmd('dispense', 'B1', 20, 'succeeded', 'lw-dst'),
         ],
       })
-    return json({ errors: [{ detail: 'no such thing' }] }, 404)
-  }) as unknown as typeof fetch
+
+    return json({ errors: [{ detail: 'no such thing' }] }, { status: 404 })
+  }
+
   return { calls, state, fetchImpl }
 }
 
 describe('the Opentrons driver', () => {
-  const job = {
+  const job: RobotJob = {
     id: 'j1',
     number: 3,
     status: 'queued',
     remoteRef: null,
     file: { name: 'ij-0003-plate.py', content: 'print(1)' },
-  } as RobotJob
+  }
 
   it('uploads the protocol, makes a run and does not start it', async () => {
     const robot = fakeRobot()
+
     const driver = createOpentronsDriver(
       { driver: 'opentrons', address: 'http://ot2:31950/' },
       { fetch: robot.fetchImpl },
     )
+
     const staged = await driver.stage(job)
     expect(staged.remoteRef).toBe('run-1')
     expect(robot.calls.map((c) => `${c.method} ${c.path}`)).toEqual([
@@ -155,10 +181,12 @@ describe('the Opentrons driver', () => {
 
   it('plays only when told to, and reads the finished run back', async () => {
     const robot = fakeRobot()
+
     const driver = createOpentronsDriver(
       { driver: 'opentrons', address: 'http://ot2:31950' },
       { fetch: robot.fetchImpl },
     )
+
     const staged = { ...job, status: 'staged', remoteRef: 'run-1' }
     expect((await driver.poll(staged)).status).toBe('staged')
     await driver.start({ ...staged, status: 'starting' })
@@ -175,15 +203,18 @@ describe('the Opentrons driver', () => {
 
   it('reports a failed run with the robot’s reason', async () => {
     const robot = fakeRobot('failed')
+
     const driver = createOpentronsDriver(
       { driver: 'opentrons', address: 'http://ot2:31950' },
       { fetch: robot.fetchImpl },
     )
+
     const seen = await driver.poll({
       ...job,
       status: 'running',
       remoteRef: 'run-1',
     })
+
     expect(seen.status).toBe('failed')
   })
 })
@@ -191,13 +222,15 @@ describe('the Opentrons driver', () => {
 describe('the file driver', () => {
   it('keeps the worklist in staging until Start, then reads the log the software writes', async () => {
     const driver = createFileDriver({ driver: 'file', dir })
-    const job = {
+
+    const job: RobotJob = {
       id: 'j',
       number: 1,
       status: 'queued',
       remoteRef: null,
       file: { name: 'ij-0001-a.csv', content: 'a,b' },
-    } as RobotJob
+    }
+
     const staged = await driver.stage(job)
     expect(staged.remoteRef).toBe('ij-0001-a.csv')
     expect(await readdir(dir)).toEqual(['staging'])
@@ -223,17 +256,27 @@ describe('the file driver', () => {
   })
 })
 
-function sheetbase(jobs: Array<Record<string, unknown>>) {
-  const reports: Array<Record<string, unknown>> = []
-  const fetchImpl = (async (_url: string, init: RequestInit) => {
-    const body = JSON.parse(init.body as string) as Record<string, unknown>
+function sheetbase(
+  jobs: Array<Omit<RobotJob, 'remoteRef'> & { remoteRef?: string | null }>,
+) {
+  const reportSchema = z
+    .object({ action: z.string(), jobId: z.string().optional() })
+    .catchall(z.json())
+
+  const reports: Array<z.infer<typeof reportSchema>> = []
+
+  const fetchImpl: typeof fetch = async (input, init) => {
+    const body = reportSchema.parse(await new Request(input, init).json())
+
     if (body.action === 'list')
       return new Response(JSON.stringify({ jobs }), { status: 200 })
     reports.push(body)
+
     return new Response(JSON.stringify({ job: { id: body.jobId } }), {
       status: 200,
     })
-  }) as unknown as typeof fetch
+  }
+
   return { reports, fetchImpl }
 }
 
@@ -241,12 +284,14 @@ function fakeDriver(
   overrides: Partial<RobotDriver> = {},
 ): RobotDriver & { started: string[] } {
   const started: string[] = []
+
   return {
     name: 'fake',
     started,
     stage: async () => ({ remoteRef: 'r1', message: 'On the robot' }),
     start: async (job) => {
       started.push(job.id)
+
       return { message: 'Started' }
     },
     poll: async (job) => ({
@@ -257,11 +302,20 @@ function fakeDriver(
   }
 }
 
-const robotOptions = {
+const robotOptions: AgentOptions = {
   url: 'http://eln.test',
   instrumentId: '11111111-1111-4111-8111-111111111111',
   robot: { driver: 'file', dir: '/x' },
-} as unknown as AgentOptions
+  credential: '',
+  connector: '',
+  dir: '',
+  extensions: [],
+  settleSeconds: 3,
+  intervalSeconds: 5,
+  once: true,
+  parser: '',
+  live: [],
+}
 
 describe('working through the jobs', () => {
   it('stages a queued job and leaves it waiting for a person', async () => {
@@ -273,13 +327,16 @@ describe('working through the jobs', () => {
         file: { name: 'a.csv', content: '' },
       },
     ])
+
     const driver = fakeDriver()
+
     const runner = createRobotRunner(robotOptions, {
       fetch: sb.fetchImpl,
       log: () => {},
       ensureToken: async () => 't',
       driver,
     })
+
     await runner.pass()
     expect(sb.reports).toMatchObject([
       { jobId: 'j1', status: 'staged', remoteRef: 'r1' },
@@ -292,13 +349,16 @@ describe('working through the jobs', () => {
       { id: 'j1', number: 1, status: 'staged', remoteRef: 'r1' },
       { id: 'j2', number: 2, status: 'starting', remoteRef: 'r2' },
     ])
+
     const driver = fakeDriver()
+
     const runner = createRobotRunner(robotOptions, {
       fetch: sb.fetchImpl,
       log: () => {},
       ensureToken: async () => 't',
       driver,
     })
+
     await runner.pass()
     expect(driver.started).toEqual(['j2'])
     expect(sb.reports).toMatchObject([{ jobId: 'j2', status: 'running' }])
@@ -308,6 +368,7 @@ describe('working through the jobs', () => {
     const sb = sheetbase([
       { id: 'j1', number: 1, status: 'running', remoteRef: 'r1' },
     ])
+
     const driver = fakeDriver({
       poll: async () => ({
         status: 'complete',
@@ -316,12 +377,14 @@ describe('working through the jobs', () => {
         ],
       }),
     })
+
     const runner = createRobotRunner(robotOptions, {
       fetch: sb.fetchImpl,
       log: () => {},
       ensureToken: async () => 't',
       driver,
     })
+
     await runner.pass()
     expect(sb.reports[0]).toMatchObject({
       status: 'complete',
@@ -338,17 +401,20 @@ describe('working through the jobs', () => {
         file: { name: 'a.csv', content: '' },
       },
     ])
+
     const driver = fakeDriver({
       stage: async () => {
         throw new Error('The robot could not read the protocol.')
       },
     })
+
     const runner = createRobotRunner(robotOptions, {
       fetch: sb.fetchImpl,
       log: () => {},
       ensureToken: async () => 't',
       driver,
     })
+
     await runner.pass()
     expect(sb.reports).toMatchObject([
       { status: 'failed', message: 'The robot could not read the protocol.' },
@@ -365,18 +431,22 @@ describe('working through the jobs', () => {
         cancelRequested: true,
       },
     ])
+
     let stopped = false
+
     const driver = fakeDriver({
       stop: async () => {
         stopped = true
       },
     })
+
     const runner = createRobotRunner(robotOptions, {
       fetch: sb.fetchImpl,
       log: () => {},
       ensureToken: async () => 't',
       driver,
     })
+
     await runner.pass()
     expect(stopped).toBe(true)
     expect(sb.reports).toMatchObject([{ status: 'cancelled' }])

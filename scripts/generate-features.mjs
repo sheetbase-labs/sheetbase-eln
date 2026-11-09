@@ -31,6 +31,7 @@ const ident = (folder) =>
 
 function features() {
   if (!existsSync(DIR)) return []
+
   return readdirSync(DIR, { withFileTypes: true })
     .filter(
       (entry) => entry.isDirectory() && /^[a-z][a-z0-9-]*$/.test(entry.name),
@@ -41,6 +42,7 @@ function features() {
 
 function write(path, contents) {
   const current = existsSync(path) ? readFileSync(path, 'utf8') : null
+
   if (current !== contents) writeFileSync(path, contents)
 }
 
@@ -52,17 +54,21 @@ function index({ file, exported, name, type }) {
   const typeImport = type
     ? `import type { ${type.name} } from '${type.from}'\n`
     : ''
+
   const found = features().filter((folder) =>
     existsSync(`${DIR}/${folder}/${file}.ts`),
   )
+
   const imports = found
     .map(
       (folder) =>
         `import { ${exported} as ${ident(folder)} } from './${folder}/${file}'`,
     )
     .join('\n')
+
   const list = found.map(ident).join(', ')
   const check = type ? ` satisfies readonly ${type.name}[]` : ''
+
   return `${HEADER}${typeImport}${imports}${imports ? '\n\n' : ''}export const ${name} = [${list}] as const${check}\n`
 }
 
@@ -93,9 +99,11 @@ export function generateFeatures() {
       type: { name: 'FeatureAssistantServer', from: './define.server' },
     }),
   )
+
   const withCopy = features().filter((folder) =>
     existsSync(`${DIR}/${folder}/copy.ts`),
   )
+
   write(
     `${DIR}/copy.gen.ts`,
     `${HEADER}${withCopy

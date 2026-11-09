@@ -15,7 +15,6 @@ import { spawnSync } from 'node:child_process'
 import { getPool } from '#/db/pool.server'
 import { env } from '#/env.server'
 import { backupBeforeUpgrade } from '#/lib/workspace-export/upgrade-backup.server'
-import type { MigrationJournal } from '#/lib/workspace-export/upgrade-backup.server'
 import { defaultBackupDeps } from '#/lib/workspace-export/backup.server'
 import { readJournal } from './lib/migrations.mjs'
 
@@ -26,10 +25,12 @@ function say(level: 'info' | 'error', message: string, extra = {}) {
 if (process.env.SHEETBASE_UPGRADE_BACKUP === 'off') {
   say('info', 'upgrade backup switched off by SHEETBASE_UPGRADE_BACKUP=off')
 } else {
-  const journal = readJournal() as MigrationJournal
+  const journal = readJournal()
   const pool = getPool(env.DATABASE_URL)
+
   try {
     const outcome = await backupBeforeUpgrade(defaultBackupDeps(), journal)
+
     if (outcome.status === 'failed') {
       say(
         'error',
@@ -37,6 +38,7 @@ if (process.env.SHEETBASE_UPGRADE_BACKUP === 'off') {
       )
       process.exit(1)
     }
+
     say('info', `before upgrade: ${outcome.status}`, outcome)
   } finally {
     await pool.end().catch(() => undefined)
@@ -46,4 +48,5 @@ if (process.env.SHEETBASE_UPGRADE_BACKUP === 'off') {
 const migrate = spawnSync(process.execPath, ['scripts/migrate-once.mjs'], {
   stdio: 'inherit',
 })
+
 process.exit(migrate.status ?? 1)

@@ -23,9 +23,11 @@ function walk(dir: string, out: string[] = []): string[] {
   for (const name of readdirSync(dir)) {
     if (name === 'node_modules' || name.startsWith('.')) continue
     const path = join(dir, name)
+
     if (statSync(path).isDirectory()) walk(path, out)
     else if (/\.test\.tsx?$/.test(name)) out.push(path)
   }
+
   return out
 }
 
@@ -39,29 +41,36 @@ export interface TraceEntry {
 export function buildTrace(): TraceEntry[] {
   const known = new Set(REQUIREMENTS.map((r) => r.id))
   const entries: TraceEntry[] = []
+
   for (const root of ['tests', 'src']) {
     for (const file of walk(join(ROOT, root))) {
       const text = readFileSync(file, 'utf8')
       const head = text.split('\n').slice(0, 60).join('\n')
       const tag = TAG.exec(head)
+
       if (!tag) continue
       const rel = relative(ROOT, file)
+
       const title =
         /(?:describe|test)(?:\.\w+)?\(\s*['"`]([^'"`]+)['"`]/.exec(text)?.[1] ??
         rel
+
       const layer = rel.startsWith('tests/db/')
         ? 'database'
         : rel.startsWith('tests/browser/')
           ? 'browser'
           : 'unit'
+
       for (const id of tag[1].split(',').map((s) => s.trim())) {
         if (!known.has(id)) {
           throw new Error(`${rel} names an unknown requirement: ${id}`)
         }
+
         entries.push({ requirement: id, file: rel, layer, title })
       }
     }
   }
+
   return entries.sort(
     (a, b) =>
       a.requirement.localeCompare(b.requirement) ||
@@ -71,19 +80,23 @@ export function buildTrace(): TraceEntry[] {
 
 if (process.argv[1]?.endsWith('validation-trace.ts')) {
   const next = JSON.stringify({ entries: buildTrace() }, null, 2) + '\n'
+
   if (process.argv.includes('--check')) {
     let current = ''
+
     try {
       current = readFileSync(OUT, 'utf8')
     } catch {
       // Missing counts as out of date.
     }
+
     if (current !== next) {
       console.error(
         'src/lib/validation/trace.generated.json is out of date: run `pnpm validation:trace`.',
       )
       process.exit(1)
     }
+
     console.log('validation trace is current')
   } else {
     writeFileSync(OUT, next)

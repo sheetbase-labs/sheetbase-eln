@@ -20,6 +20,7 @@ import { migrationObjects, sharedObjects } from './lib/migration-objects.mjs'
 import { TIMESTAMP_NAME } from './lib/migrations.mjs'
 
 const base = process.argv[2] ?? 'origin/main'
+
 const git = (...args) =>
   execFileSync('git', args, { encoding: 'utf8' })
     .trim()
@@ -31,14 +32,18 @@ const onBase = new Set(
     p.replace('drizzle/', ''),
   ),
 )
+
 const here = new Set(
   git('ls-files', 'drizzle/').map((p) => p.replace('drizzle/', '')),
 )
+
 const added = [...here].filter(
   (name) => name.endsWith('.sql') && !onBase.has(name),
 )
+
 const problems = []
 const notices = []
+
 const read = (ref, name) =>
   execFileSync('git', ['show', `${ref}:drizzle/${name}`], { encoding: 'utf8' })
 
@@ -55,10 +60,12 @@ if (
     'drizzle/meta/_journal.json is frozen (it lists migrations 0000 to 0108 only). New migrations are timestamp-named files with no journal entry.',
   )
 }
+
 const latestOnBase = [...onBase]
   .filter((name) => TIMESTAMP_NAME.test(name))
   .sort()
   .at(-1)
+
 for (const name of added) {
   if (!TIMESTAMP_NAME.test(name)) {
     problems.push(
@@ -66,13 +73,23 @@ for (const name of added) {
     )
   } else if (latestOnBase && name <= latestOnBase) {
     const mine = migrationObjects(readFileSync(`drizzle/${name}`, 'utf8'))
+
     const clashes = [...onBase]
-      .filter((other) => TIMESTAMP_NAME.test(other) && other > name)
-      .map((other) => ({
-        other,
-        shared: sharedObjects(mine, migrationObjects(read(base, other))),
-      }))
+      .flatMap((other) =>
+        TIMESTAMP_NAME.test(other) && other > name
+          ? [
+              {
+                other,
+                shared: sharedObjects(
+                  mine,
+                  migrationObjects(read(base, other)),
+                ),
+              },
+            ]
+          : [],
+      )
       .filter((clash) => clash.shared.length)
+
     if (clashes.length) {
       const first = clashes[0]
       problems.push(
@@ -85,12 +102,14 @@ for (const name of added) {
     }
   }
 }
+
 for (const notice of notices) process.stdout.write(`ℹ ${notice}\n`)
 
 if (problems.length) {
   process.stderr.write(problems.map((p) => `✗ ${p}`).join('\n') + '\n')
   process.exit(1)
 }
+
 process.stdout.write(
   added.length
     ? `✓ ${added.length} new migration(s) are safe to merge in any order.\n`

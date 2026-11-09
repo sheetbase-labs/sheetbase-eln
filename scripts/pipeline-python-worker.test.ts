@@ -5,29 +5,44 @@
  */
 import { spawnSync } from 'node:child_process'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 const WORKER = 'docker/pipeline-python/worker.py'
 
 const available =
   spawnSync('python3', ['-c', 'import pandas, numpy']).status === 0
 
-function run(job: Record<string, unknown>) {
+function run(job: Record<string, z.infer<ReturnType<typeof z.json>>>) {
   const result = spawnSync('python3', ['-I', WORKER], {
     input: JSON.stringify(job),
     encoding: 'utf8',
     maxBuffer: 256 * 1024 * 1024,
   })
+
   return {
     status: result.status,
-    body: JSON.parse(result.stdout) as Record<string, unknown>,
+    body: z
+      .object({
+        rows: z.array(z.record(z.string(), z.json())).optional(),
+        logs: z.array(z.string()).optional(),
+        error: z.string().optional(),
+        line: z.number().optional(),
+        environment: z
+          .object({
+            python: z.string(),
+            packages: z.record(z.string(), z.string()),
+          })
+          .optional(),
+      })
+      .parse(JSON.parse(result.stdout)),
   }
 }
 
 const installed = () => {
-  const out = run({ mode: 'inspect' }).body.environment as {
-    python: string
-    packages: Record<string, string>
-  }
+  const out = run({ mode: 'inspect' }).body.environment
+
+  if (!out) throw new Error('Worker did not report its environment')
+
   return out
 }
 
@@ -37,12 +52,14 @@ const frame = (body: string) =>
 describe.skipIf(!available)('pipeline Python worker', () => {
   it('returns rows, logs and the environment of the declared packages', () => {
     const numpy = installed().packages.numpy
+
     const { status, body } = run({
       statement: frame('    print("hello")\n    return [{"a": 1}]'),
       inputs: {},
       parameters: {},
       requirements: [`numpy==${numpy}`],
     })
+
     expect(status).toBe(0)
     expect(body.rows).toEqual([{ a: 1 }])
     expect(body.logs).toEqual(['hello'])
@@ -55,6 +72,7 @@ describe.skipIf(!available)('pipeline Python worker', () => {
       inputs: {},
       parameters: {},
     })
+
     expect(status).toBe(1)
     expect(body.error).toBe('ZeroDivisionError: division by zero')
     expect(body.logs).toEqual(['before'])
@@ -67,6 +85,7 @@ describe.skipIf(!available)('pipeline Python worker', () => {
       inputs: {},
       parameters: {},
     })
+
     expect(body.line).toBe(1)
   })
 
@@ -76,8 +95,9 @@ describe.skipIf(!available)('pipeline Python worker', () => {
       inputs: {},
       parameters: {},
     })
+
     expect(status).toBe(0)
-    const logs = body.logs as string[]
+    const logs = z.array(z.string()).parse(body.logs)
     expect(logs.join('\n').length).toBeLessThan(64 * 1024)
     expect(logs.at(-1)).toBe('[log truncated at 64 KiB]')
   })
@@ -89,6 +109,7 @@ describe.skipIf(!available)('pipeline Python worker', () => {
       parameters: {},
       requirements: ['numpy==0.0.1', 'no-such-package==1.0'],
     })
+
     expect(status).toBe(1)
     expect(body.error).toContain('numpy==0.0.1 was requested')
     expect(body.error).toContain('no-such-package==1.0 is not in this runtime')
@@ -109,8 +130,9 @@ describe.skipIf(!available)('pipeline Python worker', () => {
         },
       },
     })
+
     expect(status).toBe(1)
-    const message = body.error as string
+    const message = z.string().parse(body.error)
     expect(message).toContain('Output column "c" is missing')
     expect(message).toContain(
       'Output column "a" expects integer but row 1 has "x"',
@@ -135,6 +157,7 @@ describe.skipIf(!available)('pipeline Python worker', () => {
         },
       },
     })
+
     expect(status).toBe(0)
     expect(body.rows).toHaveLength(2)
   })
@@ -146,7 +169,9 @@ describe.skipIf(!available)('pipeline Python worker', () => {
       parameters: {},
       contract: { output: { columns: [{ name: 'b', type: 'text' }] } },
     })
+
     expect(empty.body.error).toContain('Output column "b" is missing')
+
     const extras = run({
       statement: frame('    return [{"a": 1, "b": 2}]'),
       inputs: {},
@@ -158,6 +183,7 @@ describe.skipIf(!available)('pipeline Python worker', () => {
         },
       },
     })
+
     expect(extras.status).toBe(0)
   })
 
@@ -170,6 +196,7 @@ describe.skipIf(!available)('pipeline Python worker', () => {
         inputs: { readings: [{ name: 'value', type: 'integer' }] },
       },
     })
+
     expect(status).toBe(1)
     expect(body.error).toContain(
       'Input "readings" column "value" expects integer but row 1 has "abc"',
@@ -186,6 +213,7 @@ describe.skipIf(!available)('pipeline Python worker', () => {
         output: { columns: [{ name: 'a', type: 'text', nullable: false }] },
       },
     })
+
     expect(body.error).toContain('declared not null')
   })
 
@@ -195,6 +223,7 @@ describe.skipIf(!available)('pipeline Python worker', () => {
       inputs: {},
       parameters: {},
     })
+
     expect(status).toBe(1)
     expect(String(body.error)).toContain('ValueError')
   })
@@ -213,6 +242,7 @@ describe.skipIf(!available)('pipeline Python worker for a plugin call', () => {
       inputs: {},
       parameters: {},
     })
+
     expect(status).toBe(1)
     expect(String(body.error)).toContain('at most 100000 rows')
   })
@@ -224,8 +254,9 @@ describe.skipIf(!available)('pipeline Python worker for a plugin call', () => {
       parameters: {},
       limits,
     })
+
     expect(status).toBe(0)
-    expect((body.rows as unknown[]).length).toBe(150_000)
+    expect(body.rows).toHaveLength(150_000)
   })
 
   it('has no width limit on a row', () => {
@@ -235,8 +266,11 @@ describe.skipIf(!available)('pipeline Python worker for a plugin call', () => {
       parameters: {},
       limits,
     })
+
     expect(status).toBe(0)
-    expect(Object.keys((body.rows as object[])[0])).toHaveLength(1000)
+    expect(
+      Object.keys(z.record(z.string(), z.json()).parse(body.rows?.[0])),
+    ).toHaveLength(1000)
   })
 
   it('names the plugin’s own row limit when it is passed', () => {
@@ -246,6 +280,7 @@ describe.skipIf(!available)('pipeline Python worker for a plugin call', () => {
       parameters: {},
       limits: { ...limits, rows: 10 },
     })
+
     expect(status).toBe(1)
     expect(String(body.error)).toContain('at most 10 rows')
   })
@@ -257,6 +292,7 @@ describe.skipIf(!available)('pipeline Python worker for a plugin call', () => {
       parameters: {},
       limits: { ...limits, bytes: 1024 * 1024 },
     })
+
     expect(status).toBe(1)
     expect(String(body.error)).toContain('exceeds 1 MiB')
   })
@@ -268,6 +304,9 @@ describe.skipIf(!available)('pipeline Python worker for a plugin call', () => {
       parameters: {},
       limits,
     })
-    expect((body.logs as string[]).join('').length).toBeGreaterThan(64 * 1024)
+
+    expect(
+      z.array(z.string()).parse(body.logs).join('').length,
+    ).toBeGreaterThan(64 * 1024)
   })
 })

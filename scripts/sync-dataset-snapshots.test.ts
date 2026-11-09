@@ -5,6 +5,7 @@ import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { syncDatasetSnapshots } from './sync-dataset-snapshots'
 
@@ -14,6 +15,7 @@ const unavailableVersion = '30000000-0000-4000-8000-000000000000'
 const version = '30000000-0000-4000-8000-000000000001'
 const hash = (value: string) => createHash('sha256').update(value).digest('hex')
 const cleanups: Array<() => Promise<void>> = []
+
 afterEach(async () => {
   for (const cleanup of cleanups.splice(0).reverse()) await cleanup()
 })
@@ -21,6 +23,7 @@ afterEach(async () => {
 it('publishes complete exact snapshots atomically and reconciles idempotently after a failed page', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'sheetbase-snapshot-sync-'))
   cleanups.push(() => rm(dir, { recursive: true, force: true }))
+
   const metadataJson = JSON.stringify({
     workspaceId: workspace,
     datasetId: dataset,
@@ -28,9 +31,12 @@ it('publishes complete exact snapshots atomically and reconciles idempotently af
     totalCount: '1001',
     schema: [{ fieldId: 'amount', logicalType: 'decimal' }],
   })
+
   const metadataChecksum = hash(metadataJson)
+
   const rows = Array.from({ length: 1001 }, (_, index) => {
     const rowId = `40000000-0000-4000-8000-${String(index).padStart(12, '0')}`
+
     const canonicalJson = JSON.stringify({
       rowId,
       revision: '9007199254740993',
@@ -39,20 +45,28 @@ it('publishes complete exact snapshots atomically and reconciles idempotently af
       },
       flags: [],
     })
+
     return { rowId, canonicalJson, sha256: hash(canonicalJson) }
   })
+
   const snapshotChecksum = hash(
     `${metadataChecksum}\n${rows.map((row) => `${row.sha256}\n`).join('')}`,
   )
+
   let fault = 'page'
   let transfers = 0
+
   const server = createServer(async (request, response) => {
     response.setHeader('content-type', 'application/json')
+
     if (request.url === '/api/token') {
       response.end(JSON.stringify({ token: 'test-token' }))
+
       return
     }
+
     expect(request.headers.authorization).toBe('Bearer test-token')
+
     if (request.url?.startsWith('/api/db/dataset_versions?')) {
       response.end(
         JSON.stringify(
@@ -65,15 +79,20 @@ it('publishes complete exact snapshots atomically and reconciles idempotently af
               })),
         ),
       )
+
       return
     }
+
     const chunks: Buffer[] = []
+
     for await (const chunk of request) chunks.push(chunk)
+
     const {
       p_dataset_version_id: requestedVersion,
       p_offset: offset,
       p_limit: limit,
     } = JSON.parse(Buffer.concat(chunks).toString())
+
     if (requestedVersion === unavailableVersion) {
       response.writeHead(400)
       response.end(
@@ -85,10 +104,13 @@ it('publishes complete exact snapshots atomically and reconciles idempotently af
           },
         }),
       )
+
       return
     }
+
     transfers += 1
     const pageRows = rows.slice(offset, offset + limit)
+
     if (offset > 0 && fault === 'permission') {
       response.writeHead(403)
       response.end(
@@ -100,9 +122,12 @@ it('publishes complete exact snapshots atomically and reconciles idempotently af
           },
         }),
       )
+
       return
     }
+
     if (offset > 0 && fault === 'order') pageRows[0] = rows[0]
+
     if (offset > 0 && fault === 'row') {
       pageRows[0] = {
         ...pageRows[0],
@@ -112,6 +137,7 @@ it('publishes complete exact snapshots atomically and reconciles idempotently af
         ),
       }
     }
+
     response.end(
       JSON.stringify({
         format: 'sheetbase.dataset-version-transfer/1',
@@ -137,19 +163,20 @@ it('publishes complete exact snapshots atomically and reconciles idempotently af
       }),
     )
   })
+
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   cleanups.push(
     () => new Promise<void>((resolve) => server.close(() => resolve())),
   )
-  const address = server.address()
-  if (!address || typeof address === 'string')
-    throw new Error('No test listener')
+  const address = z.object({ port: z.number() }).parse(server.address())
+
   const options = {
     baseUrl: `http://127.0.0.1:${address.port}`,
     credential: 'fixture',
     workspaceId: workspace,
     outputDirectory: dir,
   }
+
   for (const [failure, expected] of [
     ['page', /checksum/i],
     ['row', /checksum/i],
@@ -161,6 +188,7 @@ it('publishes complete exact snapshots atomically and reconciles idempotently af
     await expect(syncDatasetSnapshots(options)).rejects.toThrow(expected)
     expect(await readdir(join(dir, workspace, dataset))).toEqual([])
   }
+
   fault = 'none'
   expect(await syncDatasetSnapshots(options)).toEqual({
     published: 1,
@@ -169,10 +197,12 @@ it('publishes complete exact snapshots atomically and reconciles idempotently af
   })
   expect(await readdir(join(dir, workspace, dataset))).toEqual([version])
   const published = join(dir, workspace, dataset, version)
+
   const savedRows = (await readFile(join(published, 'rows.ndjson'), 'utf8'))
     .trim()
     .split('\n')
     .map((line) => JSON.parse(line))
+
   expect(savedRows).toHaveLength(1001)
   expect(savedRows[1000].revision).toBe('9007199254740993')
   expect(savedRows[1000].values.amount).toEqual([

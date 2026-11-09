@@ -19,9 +19,14 @@ export function dynamicEncoding({
   acceptEncoding,
 }) {
   if (contentEncoding) return null
+
   if (!contentType || !COMPRESSIBLE.test(contentType)) return null
+
   if (contentLength != null && Number(contentLength) < MIN_BYTES) return null
+
   if (acceptsEncoding(acceptEncoding, 'br')) return 'br'
+
   if (acceptsEncoding(acceptEncoding, 'gzip')) return 'gzip'
+
   return null
 }

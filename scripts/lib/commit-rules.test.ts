@@ -36,6 +36,7 @@ describe('commit rules', () => {
       committer: me,
       parents: 2,
     })
+
     expect(problems).toHaveLength(4)
   })
 

@@ -9,7 +9,9 @@ import { readJournal } from './lib/migrations.mjs'
 
 function required(name: string): string {
   const value = process.env[name]
+
   if (!value) throw new Error(`${name} is required`)
+
   return value
 }
 
@@ -18,30 +20,36 @@ function run(command: string, args: string[]): string {
     encoding: 'utf8',
     stdio: ['inherit', 'pipe', 'inherit'],
   })
+
   if (result.status !== 0) {
     throw new Error(
       `${command} failed with exit code ${result.status ?? 'unknown'}`,
     )
   }
+
   return result.stdout.trim()
 }
 
 const nodeImage = assertImmutableImageReference(
   required('SHEETBASE_NODE_IMAGE'),
 )
+
 const artifactVersion = required('SHEETBASE_ARTIFACT_VERSION')
 const imageTag = required('SHEETBASE_ARTIFACT_TAG')
+
 if (imageTag.endsWith(':latest'))
   throw new Error('SHEETBASE_ARTIFACT_TAG must not use latest')
 
 const journal = readJournal()
 const migration = latestMigrationVersion(journal)
 const sourceRevision = run('git', ['rev-parse', 'HEAD'])
+
 const sourceStatus = run('git', [
   'status',
   '--porcelain',
   '--untracked-files=all',
 ])
+
 assertCleanBuildSource(sourceStatus)
 
 run('docker', [
@@ -66,6 +74,7 @@ const imageId = run('docker', [
   '{{.Id}}',
   imageTag,
 ])
+
 if (!/^sha256:[a-f0-9]{64}$/.test(imageId)) {
   throw new Error(`Docker returned an invalid immutable image id: ${imageId}`)
 }

@@ -14,7 +14,9 @@ import { readJournal } from './lib/migrations.mjs'
 
 function required(name: string): string {
   const value = process.env[name]
+
   if (!value) throw new Error(`${name} is required`)
+
   return value
 }
 
@@ -23,22 +25,27 @@ function capture(command: string, args: string[]): string {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'inherit'],
   })
+
   if (result.status !== 0) {
     throw new Error(`${command} ${args.join(' ')} failed`)
   }
+
   return result.stdout.trim()
 }
 
 const applicationImage = assertImmutableImageReference(
   required('SHEETBASE_APP_IMAGE'),
 )
+
 const postgrestImage = assertImmutableImageReference(
   required('SHEETBASE_POSTGREST_IMAGE'),
 )
+
 const pythonEnabled = Boolean(
   process.env.SHEETBASE_PYTHON_RUNNER_IMAGE ||
   process.env.SHEETBASE_PYTHON_IMAGE,
 )
+
 const pythonImages = pythonEnabled
   ? {
       runner: assertImmutableImageReference(
@@ -49,9 +56,11 @@ const pythonImages = pythonEnabled
       ),
     }
   : undefined
+
 if (pythonImages) {
   if (required('PIPELINE_PYTHON_RUNNER_TOKEN').length < 32)
     throw new Error('Python runner token must contain at least 32 characters')
+
   if (!/^\d+$/.test(required('PIPELINE_DOCKER_SOCKET_GID')))
     throw new Error('Python Docker socket group must be numeric')
   // Plan mode remains read-only. Images must be installed through the reviewed delivery flow.
@@ -64,36 +73,48 @@ if (pythonImages) {
     pythonImages.runtime,
   ])
 }
+
 const composeFiles = [
   '-f',
   'compose.deploy.yaml',
   ...(pythonImages ? ['-f', 'compose.pipeline-python.yaml'] : []),
 ]
+
 const imageDigest = applicationImage.split('@').at(-1)
+
 if (!imageDigest) throw new Error('application image has no digest')
 
-const imageLabels = JSON.parse(
-  capture('docker', [
-    'image',
-    'inspect',
-    '--format',
-    '{{json .Config.Labels}}',
-    applicationImage,
-  ]),
-) as Record<string, unknown>
+const imageLabels = z
+  .record(z.string(), z.string())
+  .parse(
+    JSON.parse(
+      capture('docker', [
+        'image',
+        'inspect',
+        '--format',
+        '{{json .Config.Labels}}',
+        applicationImage,
+      ]),
+    ),
+  )
+
 const imageMetadata = validateArtifactImageMetadata(imageLabels)
+
 // These names resolve on the private Compose network. They are deployment
 // topology, not host-level secrets, so keep the controller aligned with
 // compose.deploy.yaml when they are not present in .env.production.
 const postgrestUrl = process.env.POSTGREST_URL ?? 'http://postgrest:3000'
+
 const postgrestAdminUrl =
   process.env.POSTGREST_ADMIN_URL ?? 'http://postgrest:3001'
 
 const deployment = validateDeploymentConfig({
-  SHEETBASE_ENV: required('SHEETBASE_ENV') as 'staging' | 'production',
-  SHEETBASE_SECRET_SOURCE: required(
-    'SHEETBASE_SECRET_SOURCE',
-  ) as 'secret-manager',
+  SHEETBASE_ENV: z
+    .enum(['staging', 'production'])
+    .parse(required('SHEETBASE_ENV')),
+  SHEETBASE_SECRET_SOURCE: z
+    .literal('secret-manager')
+    .parse(required('SHEETBASE_SECRET_SOURCE')),
   SHEETBASE_ARTIFACT_VERSION: imageMetadata.version,
   SHEETBASE_ARTIFACT_DIGEST: imageDigest,
   SHEETBASE_EXPECTED_MIGRATION: imageMetadata.expectedMigration,
@@ -107,6 +128,7 @@ const deployment = validateDeploymentConfig({
   OIDC_CLIENT_ID: process.env.OIDC_CLIENT_ID || undefined,
   OIDC_CLIENT_SECRET: process.env.OIDC_CLIENT_SECRET || undefined,
 })
+
 if (
   deployment.environment !== 'staging' &&
   deployment.environment !== 'production'
@@ -116,6 +138,7 @@ if (
 
 const journal = readJournal()
 const repositoryMigration = latestMigrationVersion(journal)
+
 if (repositoryMigration.version !== deployment.expectedMigration) {
   throw new Error(
     `artifact expects migration ${deployment.expectedMigration}, but this checkout ends at ${repositoryMigration.version} (${repositoryMigration.tag})`,
@@ -138,11 +161,13 @@ const plan = buildDeploymentPlan({
 })
 
 const mode = process.argv[2] ?? '--plan'
+
 if (mode !== '--plan' && mode !== '--apply') {
   throw new Error('usage: deploy.ts [--plan|--apply]')
 }
 
 process.stdout.write(`${JSON.stringify({ mode, plan }, null, 2)}\n`)
+
 if (mode === '--plan') process.exit(0)
 
 // Keep the database container, object volume and Compose rollout on one project.
@@ -156,6 +181,7 @@ function compose(args: string[]) {
     stdio: 'inherit',
     env: process.env,
   })
+
   if (result.status !== 0) {
     throw new Error(`docker compose ${args.join(' ')} failed`)
   }
@@ -167,6 +193,7 @@ function isolateFailedRollout() {
     ['compose', ...composeFiles, 'rm', '-sf', 'app'],
     { stdio: 'inherit', env: process.env },
   )
+
   if (result.status !== 0) {
     process.stderr.write(
       `${JSON.stringify({ level: 'error', message: 'failed to isolate rejected application rollout' })}\n`,
@@ -177,6 +204,7 @@ function isolateFailedRollout() {
 // A fresh complete set is mandatory, not an age check of an unrelated nightly
 // backup. Plan stays read-only; release.sh and manual Actions share this gate.
 const backupStarted = Date.now()
+
 const backup = spawnSync(
   process.execPath,
   ['--import', 'tsx', 'scripts/backup.ts'],
@@ -190,17 +218,22 @@ const backup = spawnSync(
     },
   },
 )
+
 if (backup.status !== 0)
   throw new Error('pre-migration backup failed; migration was not started')
+
 const backupResult = z
   .object({ manifestPath: z.string() })
   .parse(JSON.parse(backup.stdout.trim()))
+
 const backupSet = await verifyBackupSet(backupResult.manifestPath)
+
 if (
   Date.parse(backupSet.manifest.startedAt) < backupStarted ||
   Date.parse(backupSet.manifest.finishedAt) > Date.now()
 )
   throw new Error('pre-migration backup was not produced by this deployment')
+
 if (
   resolve(backupResult.manifestPath) !==
   join(
@@ -211,7 +244,9 @@ if (
   throw new Error(
     'pre-migration backup manifest is outside the configured store',
   )
+
 compose(['run', '--rm', 'migrate'])
+
 try {
   compose([
     'up',
@@ -220,6 +255,7 @@ try {
     ...(pythonImages ? ['pipeline-python-runner'] : []),
     'app',
   ])
+
   if (pythonImages) {
     const runtime = capture('docker', [
       'compose',
@@ -231,6 +267,7 @@ try {
       '-e',
       "fetch(process.env.PIPELINE_PYTHON_RUNNER_URL + '/runtime', {headers: {authorization: 'Bearer ' + process.env.PIPELINE_PYTHON_RUNNER_TOKEN}, signal: AbortSignal.timeout(10000)}).then(async r => {if (!r.ok) process.exit(1); process.stdout.write((await r.json()).runtime)}).catch(() => process.exit(1))",
     ])
+
     if (runtime !== pythonImages.runtime)
       throw new Error(
         'Python runtime identity did not match the deployment plan',
@@ -244,11 +281,14 @@ try {
 const readinessUrl =
   process.env.SHEETBASE_LOCAL_READINESS_URL ??
   required('SHEETBASE_READINESS_URL')
+
 let evidence: unknown
+
 for (let attempt = 1; attempt <= 12; attempt += 1) {
   try {
     const response = await fetch(readinessUrl)
     const body = await response.json()
+
     if (
       response.ok &&
       body.status === 'ready' &&
@@ -263,8 +303,10 @@ for (let attempt = 1; attempt <= 12; attempt += 1) {
   } catch {
     // Retry during the bounded rollout window; final failure is explicit.
   }
+
   await new Promise((done) => setTimeout(done, 5000))
 }
+
 if (!evidence) {
   isolateFailedRollout()
   throw new Error(

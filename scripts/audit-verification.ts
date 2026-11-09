@@ -35,6 +35,7 @@ async function main() {
   const checked = await verifyWorkspaces(client, 0)
 
   let failures = 0
+
   for (const { slug, result } of checked) {
     const summary = [
       `workspace=${slug}`,
@@ -42,6 +43,7 @@ async function main() {
       `chainEntries=${result.chain.entriesChecked}`,
       `signedRevisions=${result.signedRevisions.checked}`,
     ]
+
     if (!result.ok) {
       failures += 1
       summary.push(
@@ -49,6 +51,7 @@ async function main() {
         `firstBadRevision=${result.signedRevisions.firstBadRevisionId ?? '-'}`,
       )
     }
+
     console.log(summary.join(' '))
   }
 
@@ -61,8 +64,8 @@ async function main() {
 }
 
 main()
-  .catch((error: unknown) => {
-    console.error('audit:verify failed:', error)
+  .catch((cause: unknown) => {
+    console.error('audit:verify failed:', cause)
     process.exitCode = 1
   })
   .finally(() => client.end())

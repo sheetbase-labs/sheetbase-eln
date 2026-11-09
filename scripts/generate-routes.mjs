@@ -18,6 +18,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 
 const ROUTE_TREE = 'src/routeTree.gen.ts'
 const MARKER = "declare module '@tanstack/react-start'"
+
 const BLOCK = `
 import type { getRouter } from './router.tsx'
 import type { startInstance } from './start.ts'
@@ -31,10 +32,13 @@ declare module '@tanstack/react-start' {
 `
 
 const generator = 'node_modules/.bin/tsr'
+
 console.log(`$ ${generator} generate`)
+
 execFileSync(generator, ['generate'], { stdio: 'inherit' })
 
 const generated = readFileSync(ROUTE_TREE, 'utf8')
+
 if (generated.includes(MARKER)) {
   console.log('route tree already carries the SSR registration block')
 } else {

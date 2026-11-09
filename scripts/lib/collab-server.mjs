@@ -87,6 +87,7 @@ export function createCollabServer({
     noServer: true,
     maxPayload: 4 * 1024 * 1024,
   })
+
   /** @type {Map<string, Room>} */
   const rooms = new Map()
 
@@ -112,16 +113,21 @@ export function createCollabServer({
         encoding.writeVarUint(encoder, MESSAGE_SYNC)
         syncProtocol.writeUpdate(encoder, update)
         const message = encoding.toUint8Array(encoder)
+
         for (const ws of this.conns.keys()) {
           if (ws !== origin) send(ws, message)
         }
+
         // Once the seeding client has written the block, its claim is spent.
         const seeded = this.doc.getMap('seeded')
-        for (const blockId of [...this.pendingSeeds.keys()]) {
+
+        for (const blockId of this.pendingSeeds.keys()) {
           if (seeded.has(blockId)) this.pendingSeeds.delete(blockId)
         }
+
         if (this.bytes > maxRoomBytes) {
           log('warn', 'collab room exceeded its size limit', { room: this.id })
+
           for (const ws of this.conns.keys()) ws.close(1009, 'room too large')
         }
       })
@@ -138,23 +144,29 @@ export function createCollabServer({
         ) => {
           const changed = added.concat(updated, removed)
           const conn = origin && this.conns.get(origin)
+
           if (conn) {
             for (const clientId of added) conn.clientIds.add(clientId)
+
             for (const clientId of removed) conn.clientIds.delete(clientId)
+
             // A connection may only speak for the signed-in user it belongs
             // to. Anything else is an attempt to appear as someone else.
             for (const clientId of added.concat(updated)) {
               const state = this.awareness.getStates().get(clientId)
+
               if (state?.user?.id !== conn.user.id) {
                 log('warn', 'collab awareness identity mismatch', {
                   room: this.id,
                   userId: conn.user.id,
                 })
                 origin.close(CLOSE_FORBIDDEN, 'identity mismatch')
+
                 return
               }
             }
           }
+
           const encoder = encoding.createEncoder()
           encoding.writeVarUint(encoder, MESSAGE_AWARENESS)
           encoding.writeVarUint8Array(
@@ -162,6 +174,7 @@ export function createCollabServer({
             awarenessProtocol.encodeAwarenessUpdate(this.awareness, changed),
           )
           const message = encoding.toUint8Array(encoder)
+
           for (const ws of this.conns.keys()) send(ws, message)
         },
       )
@@ -201,10 +214,12 @@ export function createCollabServer({
   function onMessage(room, ws, conn, data) {
     const decoder = decoding.createDecoder(data)
     const type = decoding.readVarUint(decoder)
+
     if (type === MESSAGE_SYNC) {
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, MESSAGE_SYNC)
       const syncType = decoding.readVarUint(decoder)
+
       if (syncType === syncProtocol.messageYjsSyncStep1) {
         syncProtocol.readSyncStep1(decoder, encoder, room.doc)
       } else if (conn.canWrite) {
@@ -214,6 +229,7 @@ export function createCollabServer({
           syncProtocol.readUpdate(decoder, room.doc, ws)
         }
       }
+
       // A read-only connection's document changes are dropped here: the
       // server, not the client, decides who may write.
       if (encoding.length(encoder) > 1) send(ws, encoding.toUint8Array(encoder))
@@ -225,17 +241,21 @@ export function createCollabServer({
       )
     } else if (type === MESSAGE_SEED && conn.canWrite) {
       const blockId = decoding.readVarString(decoder)
+
       // A second field of 0 hands a claim back (the editor closed first).
       if (decoding.hasContent(decoder) && decoding.readVarUint(decoder) === 0) {
         if (room.pendingSeeds.get(blockId) === ws) {
           room.pendingSeeds.delete(blockId)
         }
+
         return
       }
+
       const taken =
         room.doc.getMap('seeded').has(blockId) ||
         (room.pendingSeeds.has(blockId) &&
           room.pendingSeeds.get(blockId) !== ws)
+
       if (!taken) room.pendingSeeds.set(blockId, ws)
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, MESSAGE_SEED)
@@ -252,10 +272,12 @@ export function createCollabServer({
    */
   function onOpen(room, ws, conn) {
     room.conns.set(ws, conn)
+
     if (room.idleTimer) {
       clearTimeout(room.idleTimer)
       room.idleTimer = null
     }
+
     ws.binaryType = 'nodebuffer'
     ws.on('message', (raw) => {
       try {
@@ -264,6 +286,7 @@ export function createCollabServer({
           : raw instanceof ArrayBuffer
             ? new Uint8Array(raw)
             : raw
+
         onMessage(room, ws, conn, new Uint8Array(data))
       } catch (error) {
         log('warn', 'collab message rejected', {
@@ -283,14 +306,16 @@ export function createCollabServer({
         [...conn.clientIds],
         null,
       )
+
       for (const [blockId, owner] of room.pendingSeeds) {
         if (owner === ws) room.pendingSeeds.delete(blockId)
       }
+
       if (room.conns.size === 0 && !room.idleTimer) {
         // Keep the document briefly so a dropped connection or a page reload
         // rejoins the same session instead of re-seeding from the database.
         room.idleTimer = setTimeout(() => room.destroy(), idleMs)
-        room.idleTimer.unref?.()
+        room.idleTimer.unref()
       }
     })
 
@@ -312,6 +337,7 @@ export function createCollabServer({
     syncProtocol.writeSyncStep1(sync, room.doc)
     send(ws, encoding.toUint8Array(sync))
     const states = room.awareness.getStates()
+
     if (states.size > 0) {
       const aware = encoding.createEncoder()
       encoding.writeVarUint(aware, MESSAGE_AWARENESS)
@@ -332,12 +358,14 @@ export function createCollabServer({
           ws.terminate()
           continue
         }
+
         conn.alive = false
         ws.ping()
       }
     }
   }, pingMs)
-  heartbeat.unref?.()
+
+  heartbeat.unref()
 
   /**
    * Handles an HTTP upgrade. Returns false when the request is not for this
@@ -349,6 +377,7 @@ export function createCollabServer({
    */
   function handleUpgrade(request, socket, head) {
     const url = new URL(request.url ?? '/', 'http://localhost')
+
     if (url.pathname !== COLLAB_PATH) return false
 
     const refuse = (
@@ -365,11 +394,15 @@ export function createCollabServer({
     // must be checked or any web page could join a room as the signed-in user.
     if (!allowedOrigin(request.headers.origin, request)) {
       refuse(403, 'Forbidden')
+
       return true
     }
+
     const roomId = url.searchParams.get('room') ?? ''
+
     if (!ROOM_ID.test(roomId)) {
       refuse(400, 'Bad Request')
+
       return true
     }
 
@@ -381,17 +414,23 @@ export function createCollabServer({
               result.status === 401 ? CLOSE_UNAUTHENTICATED : CLOSE_FORBIDDEN,
               'access denied',
             )
+
             return
           }
+
           let room = rooms.get(roomId)
+
           if (!room) {
             room = new Room(roomId)
             rooms.set(roomId, room)
           }
+
           if (room.conns.size >= maxConnectionsPerRoom) {
             ws.close(CLOSE_ROOM_FULL, 'room full')
+
             return
           }
+
           onOpen(room, ws, {
             user: result.user,
             canWrite: result.canWrite,
@@ -413,6 +452,7 @@ export function createCollabServer({
         refuse(503, 'Service Unavailable')
       },
     )
+
     return true
   }
 
@@ -421,15 +461,19 @@ export function createCollabServer({
     /** Live counts for the diagnostics page. */
     stats() {
       let connections = 0
+
       for (const room of rooms.values()) connections += room.conns.size
+
       return { rooms: rooms.size, connections }
     },
     close() {
       clearInterval(heartbeat)
+
       for (const room of rooms.values()) {
         for (const ws of room.conns.keys()) ws.close(1001, 'server stopping')
         room.destroy()
       }
+
       wss.close()
     },
   }
@@ -445,11 +489,14 @@ export function createCollabServer({
  */
 export function sameOrigin(origin, request) {
   if (!origin) return true
+
   try {
     const forwardedHost = String(request.headers['x-forwarded-host'] ?? '')
       .split(',')[0]
       .trim()
+
     const host = forwardedHost || request.headers.host
+
     return new URL(origin).host === host
   } catch {
     return false

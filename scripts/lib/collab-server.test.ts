@@ -1,7 +1,6 @@
 // @vitest-environment node
 import { createServer } from 'node:http'
 import type { Server } from 'node:http'
-import type { AddressInfo } from 'node:net'
 import WebSocket from 'ws'
 import * as Y from 'yjs'
 import * as awarenessProtocol from 'y-protocols/awareness'
@@ -9,6 +8,7 @@ import * as syncProtocol from 'y-protocols/sync'
 import * as decoding from 'lib0/decoding'
 import * as encoding from 'lib0/encoding'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { createCollabServer } from './collab-server.mjs'
 import type { Authorization } from './collab-server.mjs'
@@ -16,13 +16,22 @@ import type { Authorization } from './collab-server.mjs'
 const ROOM =
   'workspace:11111111-1111-4111-8111-111111111111:record:22222222-2222-4222-8222-222222222222'
 
-const people: Record<string, Authorization> = {
-  writer: { ok: true, user: { id: 'u-writer', name: 'Wren' }, canWrite: true },
-  writer2: { ok: true, user: { id: 'u-writer2', name: 'Wes' }, canWrite: true },
-  reader: { ok: true, user: { id: 'u-reader', name: 'Rae' }, canWrite: false },
-  stranger: { ok: false, status: 403 },
-  signedOut: { ok: false, status: 401 },
-}
+const people = new Map<string, Authorization>([
+  [
+    'writer',
+    { ok: true, user: { id: 'u-writer', name: 'Wren' }, canWrite: true },
+  ],
+  [
+    'writer2',
+    { ok: true, user: { id: 'u-writer2', name: 'Wes' }, canWrite: true },
+  ],
+  [
+    'reader',
+    { ok: true, user: { id: 'u-reader', name: 'Rae' }, canWrite: false },
+  ],
+  ['stranger', { ok: false, status: 403 }],
+  ['signedOut', { ok: false, status: 401 }],
+])
 
 let server: Server
 let collab: ReturnType<typeof createCollabServer>
@@ -32,7 +41,7 @@ beforeEach(async () => {
   collab = createCollabServer({
     // The test "cookie" is just the name of the person.
     authorize: async (request) =>
-      people[String(request.headers.cookie)] ?? { ok: false, status: 401 },
+      people.get(String(request.headers.cookie)) ?? { ok: false, status: 401 },
     idleMs: 50,
   })
   server = createServer()
@@ -40,7 +49,8 @@ beforeEach(async () => {
     if (!collab.handleUpgrade(request, socket, head)) socket.destroy()
   })
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  port = (server.address() as AddressInfo).port
+  const address = z.object({ port: z.number() }).parse(server.address())
+  port = address.port
 })
 
 afterEach(async () => {
@@ -61,10 +71,8 @@ class Client {
     this.ws = new WebSocket(
       `ws://127.0.0.1:${port}/api/collaboration/ws?room=${encodeURIComponent(options.room ?? ROOM)}`,
       {
-        headers: {
-          cookie: who,
-          ...(options.origin ? { origin: options.origin } : {}),
-        },
+        headers: { cookie: who },
+        origin: options.origin,
       },
     )
     this.closed = new Promise((resolve) => this.ws.on('close', resolve))
@@ -72,17 +80,21 @@ class Client {
       this.ws.on('message', (raw: Buffer) => {
         const decoder = decoding.createDecoder(new Uint8Array(raw))
         const type = decoding.readVarUint(decoder)
+
         if (type === 0) {
           const encoder = encoding.createEncoder()
           encoding.writeVarUint(encoder, 0)
+
           const syncType = syncProtocol.readSyncMessage(
             decoder,
             encoder,
             this.doc,
             this,
           )
+
           if (encoding.length(encoder) > 1)
             this.ws.send(encoding.toUint8Array(encoder))
+
           if (syncType === 1) resolve()
         } else if (type === 1) {
           awarenessProtocol.applyAwarenessUpdate(
@@ -106,11 +118,12 @@ class Client {
       syncProtocol.writeSyncStep1(encoder, this.doc)
       this.ws.send(encoding.toUint8Array(encoder))
     })
-    this.doc.on('update', (update: Uint8Array, origin: unknown) => {
+    this.doc.on('update', (update: Uint8Array, origin: Client | null) => {
       if (origin === this) return
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, 0)
       syncProtocol.writeUpdate(encoder, update)
+
       if (this.ws.readyState === WebSocket.OPEN)
         this.ws.send(encoding.toUint8Array(encoder))
     })
@@ -146,6 +159,7 @@ class Client {
 
 async function until(check: () => boolean, ms = 2000) {
   const start = Date.now()
+
   while (!check()) {
     if (Date.now() - start > ms) throw new Error('timed out waiting')
     await new Promise((resolve) => setTimeout(resolve, 10))
@@ -158,9 +172,9 @@ describe('co-editing server', () => {
     const b = new Client('writer2')
     await Promise.all([a.synced, b.synced])
     a.doc.getText('t').insert(0, 'hello')
-    await until(() => b.doc.getText('t').toString() === 'hello')
+    await until(() => b.doc.getText('t').toJSON() === 'hello')
     b.doc.getText('t').insert(5, ' world')
-    await until(() => a.doc.getText('t').toString() === 'hello world')
+    await until(() => a.doc.getText('t').toJSON() === 'hello world')
     a.close()
     b.close()
   })
@@ -179,8 +193,8 @@ describe('co-editing server', () => {
     await Promise.all([writer.synced, reader.synced])
     reader.doc.getText('t').insert(0, 'vandalism')
     writer.doc.getText('t').insert(0, 'honest')
-    await until(() => reader.doc.getText('t').toString().includes('honest'))
-    expect(writer.doc.getText('t').toString()).toBe('honest')
+    await until(() => reader.doc.getText('t').toJSON().includes('honest'))
+    expect(writer.doc.getText('t').toJSON()).toBe('honest')
     writer.close()
     reader.close()
   })
@@ -210,9 +224,11 @@ describe('co-editing server', () => {
     a.claim('block-1')
     b.claim('block-1')
     await until(() => a.seedReplies.length + b.seedReplies.length === 2)
+
     const granted = [...a.seedReplies, ...b.seedReplies].filter(
       (r) => r.granted,
     )
+
     expect(granted).toHaveLength(1)
     a.close()
     b.close()
@@ -271,7 +287,7 @@ describe('co-editing server', () => {
     await until(() => collab.stats().connections === 0)
     const b = new Client('writer2')
     await b.synced
-    await until(() => b.doc.getText('t').toString() === 'kept')
+    await until(() => b.doc.getText('t').toJSON() === 'kept')
     b.close()
     await until(() => collab.stats().rooms === 0, 3000)
   })

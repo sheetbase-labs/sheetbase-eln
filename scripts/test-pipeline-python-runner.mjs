@@ -12,14 +12,16 @@ import {
 } from './pipeline-python-runner.mjs'
 
 const image = `ghcr.io/example/python@sha256:${'a'.repeat(64)}`
+
 const job = {
   statement: 'def transform(inputs, parameters): return []',
   inputs: {},
   parameters: {},
 }
 
-test('container boundary cannot accept caller-selected executable, network, mounts or privilege', () => {
+await test('container boundary cannot accept caller-selected executable, network, mounts or privilege', () => {
   const args = containerArguments(image, 'fixture')
+
   for (const flag of [
     '--network=none',
     '--read-only',
@@ -45,14 +47,18 @@ test('container boundary cannot accept caller-selected executable, network, moun
   )
 })
 
-test('always removes container after a timed-out attached Docker client', async () => {
+await test('always removes container after a timed-out attached Docker client', async () => {
   const calls = []
+
   const command = async (args) => {
     calls.push(args)
+
     if (args[0] === 'start')
       throw new RunnerError('timed out', 504, 'transform_timed_out')
+
     return { code: 0, stdout: '' }
   }
+
   await assert.rejects(runDockerJob(job, image, command), /timed out/)
   assert.deepEqual(
     calls.map((call) => call[0]),
@@ -62,10 +68,12 @@ test('always removes container after a timed-out attached Docker client', async 
   assert.equal(calls[2][2], calls[0][2])
 })
 
-test('passes code only on stdin and records trusted runtime identity', async () => {
+await test('passes code only on stdin and records trusted runtime identity', async () => {
   const calls = []
+
   const command = async (args, options) => {
     calls.push({ args, options })
+
     return {
       code: 0,
       stdout:
@@ -78,6 +86,7 @@ test('passes code only on stdin and records trusted runtime identity', async () 
           : '',
     }
   }
+
   assert.deepEqual(await runDockerJob(job, image, command), {
     rows: [{ n: 3 }],
     logs: ['done'],
@@ -89,7 +98,7 @@ test('passes code only on stdin and records trusted runtime identity', async () 
   assert.ok(!calls[0].args.includes(job.statement))
 })
 
-test('row, field, cell and log limits fail instead of truncating evidence', () => {
+await test('row, field, cell and log limits fail instead of truncating evidence', () => {
   assert.throws(
     () =>
       validateJob({
@@ -116,26 +125,31 @@ test('row, field, cell and log limits fail instead of truncating evidence', () =
   )
 })
 
-test('HTTP endpoint rejects unauthorized/other routes and runs a correctly authenticated job', async () => {
+await test('HTTP endpoint rejects unauthorized/other routes and runs a correctly authenticated job', async () => {
   let calls = 0
   const token = 'test-token-'.repeat(4)
+
   const server = createRunnerServer({
     token,
     image,
     execute: async () => {
       calls++
+
       return { rows: [{ value: '1.25' }], logs: [] }
     },
   })
+
   server.listen(0, '127.0.0.1')
   await once(server, 'listening')
   const url = `http://127.0.0.1:${server.address().port}`
+
   try {
     assert.equal(
       (await fetch(`${url}/execute`, { method: 'POST' })).status,
       401,
     )
     assert.equal((await fetch(`${url}/other`)).status, 404)
+
     const response = await fetch(`${url}/execute`, {
       method: 'POST',
       headers: {
@@ -144,6 +158,7 @@ test('HTTP endpoint rejects unauthorized/other routes and runs a correctly authe
       },
       body: JSON.stringify(job),
     })
+
     assert.equal(response.status, 200)
     assert.deepEqual(await response.json(), {
       rows: [{ value: '1.25' }],
@@ -157,7 +172,7 @@ test('HTTP endpoint rejects unauthorized/other routes and runs a correctly authe
   }
 })
 
-test('expected image mismatch fails before creating any container', async () => {
+await test('expected image mismatch fails before creating any container', async () => {
   let calls = 0
   await assert.rejects(
     runDockerJob(
@@ -172,12 +187,14 @@ test('expected image mismatch fails before creating any container', async () => 
   assert.equal(calls, 0)
 })
 
-test('cleanup transport failures poison the runner, including runtime discovery', async () => {
+await test('cleanup transport failures poison the runner, including runtime discovery', async () => {
   const token = 'test-token-'.repeat(4)
+
   const headers = {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
   }
+
   const server = createRunnerServer({
     token,
     image,
@@ -186,9 +203,11 @@ test('cleanup transport failures poison the runner, including runtime discovery'
       throw new RunnerError('cleanup failed', 503, 'cleanup_failed')
     },
   })
+
   server.listen(0, '127.0.0.1')
   await once(server, 'listening')
   const url = `http://127.0.0.1:${server.address().port}`
+
   try {
     assert.equal((await fetch(`${url}/runtime`, { headers })).status, 200)
     assert.equal(

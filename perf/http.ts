@@ -9,6 +9,7 @@
  */
 import './lib/loadenv'
 import type { Client } from 'pg'
+import { z } from 'zod'
 
 import {
   adminClient,
@@ -36,10 +37,13 @@ const WORKLOAD: WorkloadOp[] = [
 function pickKind(): WorkloadOp['kind'] {
   const total = WORKLOAD.reduce((acc, op) => acc + op.weight, 0)
   let roll = Math.random() * total
+
   for (const op of WORKLOAD) {
     roll -= op.weight
+
     if (roll <= 0) return op.kind
   }
+
   return WORKLOAD[0].kind
 }
 
@@ -62,6 +66,7 @@ async function context(): Promise<HttpContext> {
   const admin = await adminClient(env.migrationDatabaseUrl)
   const medium = datasetFixtures().find((f) => f.rows === 10_000)!
   const fields = fieldsFor('medium')
+
   return {
     admin,
     env,
@@ -100,6 +105,7 @@ async function mintToken(secret: string, ctx: HttpContext): Promise<string> {
     .setExpirationTime('120s')
     .sign(new TextEncoder().encode(secret))
 }
+
 // Unique per process so a rerun never collides with a prior run's rows.
 let writeSerial = Math.floor(Math.random() * 1_000_000) + 1
 
@@ -109,6 +115,7 @@ async function oneRequest(ctx: HttpContext, secret: string): Promise<number> {
   const kind = pickKind()
   const startedAt = Date.now()
   const url = ctx.postgrestUrl
+
   if (kind === 'read_dataset') {
     const q = {
       filters: [
@@ -119,6 +126,7 @@ async function oneRequest(ctx: HttpContext, secret: string): Promise<number> {
         },
       ],
     }
+
     const res = await fetch(`${url}/rpc/query_dataset_rows`, {
       method: 'POST',
       headers: {
@@ -133,6 +141,7 @@ async function oneRequest(ctx: HttpContext, secret: string): Promise<number> {
         p_offset: 0,
       }),
     })
+
     if (!res.ok) throw new Error(`read_dataset ${res.status}`)
     await res.arrayBuffer()
   } else if (kind === 'list_records') {
@@ -146,6 +155,7 @@ async function oneRequest(ctx: HttpContext, secret: string): Promise<number> {
         },
       },
     )
+
     if (!res.ok) throw new Error(`list_records ${res.status}`)
     await res.arrayBuffer()
   } else if (kind === 'search') {
@@ -162,10 +172,12 @@ async function oneRequest(ctx: HttpContext, secret: string): Promise<number> {
         p_offset: 0,
       }),
     })
+
     if (!res.ok) throw new Error(`search ${res.status}`)
     await res.arrayBuffer()
   } else {
     writeSerial += 1
+
     // The canonical commit RPC requires the expected Dataset revision; read it
     // fresh so concurrent writers exercise real optimistic-concurrency
     // behaviour (a stale reader conflicts, exactly like the product).
@@ -179,10 +191,16 @@ async function oneRequest(ctx: HttpContext, secret: string): Promise<number> {
         },
       },
     )
+
     if (!revRes.ok) throw new Error(`read_revision ${revRes.status}`)
-    const revJson = (await revRes.json()) as Array<{ revision: number }>
+
+    const revJson = z
+      .array(z.object({ revision: z.number().int() }))
+      .parse(await revRes.json())
+
     const expectedRevision = revJson[0]?.revision ?? 1
     const rowId = `0f05f000-0000-4000-8000-${String(writeSerial).padStart(12, '0')}`
+
     const rows = [
       {
         operation: 'create',
@@ -195,6 +213,7 @@ async function oneRequest(ctx: HttpContext, secret: string): Promise<number> {
         },
       },
     ]
+
     const res = await fetch(`${url}/rpc/commit_dataset_row_batch`, {
       method: 'POST',
       headers: {
@@ -209,12 +228,15 @@ async function oneRequest(ctx: HttpContext, secret: string): Promise<number> {
         p_idempotency_key: `perf-http-${writeSerial}`,
       }),
     })
+
     if (!res.ok) {
       const body = await res.text()
       throw new Error(`write_rows ${res.status} ${body.slice(0, 200)}`)
     }
+
     await res.arrayBuffer()
   }
+
   return Date.now() - startedAt
 }
 
@@ -230,9 +252,11 @@ async function concurrencyLevel(
   let completed = 0
   const deadline = startedAt + durationSeconds * 1000
   const workers = Array.from({ length: concurrency }, () => 0)
+
   const runWorker = async (workerIndex: number) => {
     while (Date.now() < deadline) {
       workers[workerIndex] += 1
+
       try {
         samples.push(await oneRequest(ctx, secret))
         completed += 1
@@ -241,13 +265,16 @@ async function concurrencyLevel(
       }
     }
   }
+
   const startWorkers = async () => {
     await Promise.all(workers.map((_, i) => runWorker(i)))
   }
+
   await startWorkers()
   const wallMs = Date.now() - startedAt
   const elapsedSec = wallMs / 1000
   const stats = statsFor(samples, errors)
+
   return recordScenario({
     scenario: `api-concurrency-${concurrency}`,
     rows: undefined,
@@ -262,18 +289,22 @@ async function concurrencyLevel(
 export async function runHttpBenchmarks(): Promise<ScenarioReport[]> {
   const ctx = await context()
   const scenarios: ScenarioReport[] = []
+
   try {
     const secret = ctx.env.pgrstJwtSecret
     // Warm the filter/sort paths + search once.
     await oneRequest(ctx, secret).catch(() => {})
+
     for (const concurrency of [1, 5, 20]) {
       scenarios.push(await concurrencyLevel(ctx, secret, concurrency, 10))
     }
+
     const environment = await environmentSnapshot(ctx.admin)
     writeReport('http', scenarios, environment, {
       target: ctx.postgrestUrl,
       workload: WORKLOAD.map((op) => `${op.kind}:${op.weight}`).join(','),
     })
+
     return scenarios
   } finally {
     await closeContext(ctx)
@@ -285,8 +316,8 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1]?.endsWith('perf/http.ts')) {
-  void main().catch((error: unknown) => {
-    console.error(error)
+  void main().catch((cause: unknown) => {
+    console.error(cause)
     process.exitCode = 1
   })
 }

@@ -67,7 +67,7 @@ const SCHEMA_KEYS = {
   wide: 'plat_05_wide',
 } as const
 
-export type SchemaShape = 'narrow' | 'medium' | 'wide'
+export type SchemaProfile = 'narrow' | 'medium' | 'wide'
 
 export interface BenchField {
   id: string
@@ -293,6 +293,7 @@ function wideFields(): BenchField[] {
       relationship: REFERENCE_FIELD,
     },
   ]
+
   WIDE_TYPES.forEach((logicalType, index) => {
     const ordinal = index + 2
     fields.push({
@@ -302,12 +303,15 @@ function wideFields(): BenchField[] {
       logicalType,
     })
   })
+
   return fields
 }
 
-export function fieldsFor(shape: SchemaShape): BenchField[] {
-  if (shape === 'narrow') return narrowFields()
-  if (shape === 'medium') return mediumFields()
+export function fieldsFor(profile: SchemaProfile): BenchField[] {
+  if (profile === 'narrow') return narrowFields()
+
+  if (profile === 'medium') return mediumFields()
+
   return wideFields()
 }
 
@@ -341,6 +345,7 @@ function valueExpr(
   recordCap: number,
 ): string {
   const i = 'i'
+
   switch (field.logicalType) {
     case 'reference':
       return `('${FIXTURE.recordsPrefix}'||lpad(((${i} % ${recordCap}) + 1)::text,12,'0'))::uuid`
@@ -364,9 +369,9 @@ function valueExpr(
 
 export async function seedSchema(
   admin: Client,
-  shape: SchemaShape,
+  profile: SchemaProfile,
 ): Promise<void> {
-  const schemaIds: Record<SchemaShape, { def: string; version: string }> = {
+  const schemaIds: Record<SchemaProfile, { def: string; version: string }> = {
     narrow: {
       def: FIXTURE.schemas.narrowDef,
       version: FIXTURE.schemas.narrowVersion,
@@ -380,14 +385,15 @@ export async function seedSchema(
       version: FIXTURE.schemas.wideVersion,
     },
   }
-  const defId = schemaIds[shape].def
-  const versionId = schemaIds[shape].version
-  const key = SCHEMA_KEYS[shape]
-  const fields = fieldsFor(shape)
+
+  const defId = schemaIds[profile].def
+  const versionId = schemaIds[profile].version
+  const key = SCHEMA_KEYS[profile]
+  const fields = fieldsFor(profile)
   await admin.query(
     `insert into api.dataset_schema_definitions(id,workspace_id,key,name,created_by_user_id)
      values($1,$2,$3,$4,$5)`,
-    [defId, FIXTURE.workspace, key, `PLAT-05 ${shape} schema`, FIXTURE.user],
+    [defId, FIXTURE.workspace, key, `PLAT-05 ${profile} schema`, FIXTURE.user],
   )
   await admin.query(
     `insert into api.dataset_schema_versions(id,schema_id,version,lifecycle,created_by_user_id)
@@ -421,7 +427,7 @@ export async function seedSchema(
 export interface DatasetFixture {
   id: string
   versionId: string
-  shape: SchemaShape
+  profile: SchemaProfile
   rows: number
   schemaVersionId: string
   rowPrefix: string
@@ -430,11 +436,12 @@ export interface DatasetFixture {
 export function datasetFixtures(): DatasetFixture[] {
   const versions = FIXTURE.versions
   const schemas = FIXTURE.schemas
+
   return [
     {
       id: FIXTURE.datasets.medium1k,
       versionId: versions.medium1k,
-      shape: 'medium',
+      profile: 'medium',
       rows: 1_000,
       schemaVersionId: schemas.mediumVersion,
       rowPrefix: '0f05b000-0000-4000-8000-',
@@ -442,7 +449,7 @@ export function datasetFixtures(): DatasetFixture[] {
     {
       id: FIXTURE.datasets.medium10k,
       versionId: versions.medium10k,
-      shape: 'medium',
+      profile: 'medium',
       rows: 10_000,
       schemaVersionId: schemas.mediumVersion,
       rowPrefix: '0f05b001-0000-4000-8000-',
@@ -450,7 +457,7 @@ export function datasetFixtures(): DatasetFixture[] {
     {
       id: FIXTURE.datasets.medium50k,
       versionId: versions.medium50k,
-      shape: 'medium',
+      profile: 'medium',
       rows: 50_000,
       schemaVersionId: schemas.mediumVersion,
       rowPrefix: '0f05b002-0000-4000-8000-',
@@ -458,7 +465,7 @@ export function datasetFixtures(): DatasetFixture[] {
     {
       id: FIXTURE.datasets.medium100k,
       versionId: versions.medium100k,
-      shape: 'medium',
+      profile: 'medium',
       rows: 100_000,
       schemaVersionId: schemas.mediumVersion,
       rowPrefix: '0f05b003-0000-4000-8000-',
@@ -466,7 +473,7 @@ export function datasetFixtures(): DatasetFixture[] {
     {
       id: FIXTURE.datasets.narrow50k,
       versionId: versions.narrow50k,
-      shape: 'narrow',
+      profile: 'narrow',
       rows: 50_000,
       schemaVersionId: schemas.narrowVersion,
       rowPrefix: '0f05b100-0000-4000-8000-',
@@ -474,7 +481,7 @@ export function datasetFixtures(): DatasetFixture[] {
     {
       id: FIXTURE.datasets.wide10k,
       versionId: versions.wide10k,
-      shape: 'wide',
+      profile: 'wide',
       rows: 10_000,
       schemaVersionId: schemas.wideVersion,
       rowPrefix: '0f05b200-0000-4000-8000-',
@@ -496,7 +503,7 @@ async function seedDataset(
   admin: Client,
   fixture: DatasetFixture,
 ): Promise<void> {
-  const fields = fieldsFor(fixture.shape)
+  const fields = fieldsFor(fixture.profile)
   const { id: datasetId } = fixture
   await admin.query(
     `insert into api.datasets(id,workspace_id,schema_version_id,name,created_by_user_id)
@@ -505,7 +512,7 @@ async function seedDataset(
       datasetId,
       FIXTURE.workspace,
       fixture.schemaVersionId,
-      `PLAT-05 ${fixture.shape} ${fixture.rows}`,
+      `PLAT-05 ${fixture.profile} ${fixture.rows}`,
       FIXTURE.user,
     ],
   )
@@ -515,25 +522,29 @@ async function seedDataset(
      from generate_series(1,$4::integer) i`,
     [fixture.rowPrefix, datasetId, FIXTURE.workspace, fixture.rows],
   )
+
   // One INSERT with per-typed-column CASE expressions, keyed by display order.
   const ordinalExpr = (matching: Array<[number, string]>) => {
     if (matching.length === 0) return 'NULL'
+
     return `CASE f.display_order ${matching
       .map(([ord, expr]) => `WHEN ${ord} THEN ${expr}`)
       .join(' ')} END`
   }
-  const text = [] as Array<[number, string]>
-  const integer = [] as Array<[number, string]>
-  const numeric = [] as Array<[number, string]>
-  const boolean = [] as Array<[number, string]>
-  const date = [] as Array<[number, string]>
-  const timestamp = [] as Array<[number, string]>
-  const category = [] as Array<[number, string]>
-  const reference = [] as Array<[number, string]>
+
+  const text: Array<[number, string]> = []
+  const integer: Array<[number, string]> = []
+  const numeric: Array<[number, string]> = []
+  const boolean: Array<[number, string]> = []
+  const date: Array<[number, string]> = []
+  const timestamp: Array<[number, string]> = []
+  const category: Array<[number, string]> = []
+  const reference: Array<[number, string]> = []
   const recordCap = FIXTURE.recordCount
   fields.forEach((field, index) => {
     const ordinal = index + 1
     const expr = valueExpr(field, ordinal, recordCap)
+
     const bucket =
       field.logicalType === 'text'
         ? text
@@ -550,8 +561,10 @@ async function seedDataset(
                   : field.logicalType === 'category'
                     ? category
                     : reference
+
     bucket.push([ordinal, expr])
   })
+
   const sql = `
     insert into api.dataset_row_values(
       row_id,field_id,ordinal,text_value,integer_value,numeric_value,boolean_value,
@@ -571,14 +584,18 @@ async function seedDataset(
     cross join api.dataset_schema_version_fields f
     where r.dataset_id = $1 and f.schema_version_id = $2 and f.lifecycle = 'active'
       and f.cardinality = 'one'`
+
   await admin.query(sql, [datasetId, fixture.schemaVersionId])
   // Single-value rows for `many` fields (v1 pipelines expose the first value).
   const manyFields = fields.filter((f) => f.cardinality === 'many')
+
   if (manyFields.length > 0) {
     const many = manyFields.map((f) => {
       const col = valueColumn(f.logicalType)
+
       return `('${f.id}'::uuid, '${f.key}', '${col}')`
     })
+
     await admin.query(
       `insert into api.dataset_row_values(row_id,field_id,ordinal,text_value)
        select r.id,f.field_id,0,
@@ -603,7 +620,7 @@ async function seedVersion(
      )
      select $1,d.id,d.workspace_id,d.schema_version_id,d.revision,$2,$3
      from api.datasets d where d.id = $4`,
-    [versionId, `PLAT-05 ${fixture.shape} version`, FIXTURE.user, datasetId],
+    [versionId, `PLAT-05 ${fixture.profile} version`, FIXTURE.user, datasetId],
   )
   await admin.query(
     `insert into api.dataset_version_rows(dataset_version_id,row_id,revision)
@@ -638,6 +655,7 @@ async function seedPipeline(admin: Client): Promise<void> {
       FIXTURE.user,
     ],
   )
+
   const configuration = {
     configVersion: 1,
     description: 'PLAT-05 benchmark transform',
@@ -658,6 +676,7 @@ async function seedPipeline(admin: Client): Promise<void> {
       fieldMapping: { scaled: 'concentration' },
     },
   }
+
   await admin.query(
     `insert into api.pipeline_definition_versions(
        id,definition_id,workspace_id,version,lifecycle,configuration,created_by_user_id
@@ -685,12 +704,15 @@ export async function seedSchedules(
   eventCount = 3,
 ): Promise<SchedulePopulation> {
   const spec = { intervalMinutes: 60 }
+
   const eventSpec = {
     eventType: 'dataset_version_created',
     inputName: 'measurements',
     parameters: { factor: 1 },
   }
+
   const scheduleIds: string[] = []
+
   for (let index = 0; index < count; index += 1) {
     const id = `${FIXTURE.pipeline.schedulePrefix}${String(index + 1).padStart(8, '0')}`
     scheduleIds.push(id)
@@ -707,7 +729,9 @@ export async function seedSchedules(
       ],
     )
   }
+
   const eventScheduleIds: string[] = []
+
   for (let index = 0; index < eventCount; index += 1) {
     const id = `${FIXTURE.pipeline.schedulePrefix}${String(count + index + 1).padStart(8, '0')}`
     eventScheduleIds.push(id)
@@ -724,6 +748,7 @@ export async function seedSchedules(
       ],
     )
   }
+
   return { count, scheduleIds, eventScheduleIds }
 }
 
@@ -773,6 +798,7 @@ export async function cleanup(admin: Client): Promise<void> {
   await admin.query(
     `alter table api.dataset_version_values disable trigger prevent_dataset_version_value_mutation`,
   )
+
   try {
     // Leftover snapshot/benchmark versions may exist; clear children for EVERY
     // workspace version before any version row is deleted (the RI constraint
@@ -810,6 +836,7 @@ export async function cleanup(admin: Client): Promise<void> {
       `alter table api.dataset_versions enable trigger prevent_dataset_version_mutation`,
     )
   }
+
   const datasetIds = Object.values(FIXTURE.datasets)
   await admin.query(
     `delete from api.dataset_rows where dataset_id = any($1::uuid[])`,
@@ -819,6 +846,7 @@ export async function cleanup(admin: Client): Promise<void> {
     FIXTURE.workspace,
   ])
   await admin.query(`begin`)
+
   try {
     await admin.query(
       `alter table api.dataset_schema_versions disable trigger prevent_published_dataset_schema_version_mutation`,
@@ -861,6 +889,7 @@ export async function cleanup(admin: Client): Promise<void> {
     await admin.query(`rollback`)
     throw error
   }
+
   await admin.query(`delete from api.records where workspace_id=$1`, [
     FIXTURE.workspace,
   ])
@@ -876,6 +905,7 @@ export async function cleanup(admin: Client): Promise<void> {
   await admin.query(
     `alter table api.sheet_definitions disable trigger guard_sheet_definition`,
   )
+
   try {
     await admin.query(`delete from api.sheet_instances where workspace_id=$1`, [
       FIXTURE.workspace,
@@ -900,6 +930,7 @@ export async function cleanup(admin: Client): Promise<void> {
       `alter table api.sheet_instances enable trigger guard_sheet_instance`,
     )
   }
+
   await admin.query(`delete from api.projects where workspace_id=$1`, [
     FIXTURE.workspace,
   ])
@@ -910,13 +941,16 @@ export async function cleanup(admin: Client): Promise<void> {
 async function main(): Promise<void> {
   const env = assertPerfEnvironment()
   const admin = await adminClient(env.migrationDatabaseUrl)
+
   try {
     const rawSizes = process.argv
       .find((arg) => arg.startsWith('--sizes='))
       ?.split('=')[1]
+
     const requested = rawSizes
       ? new Set(rawSizes.split(',').map((s) => s.trim()))
       : new Set(['1k', '10k', '50k', '100k'])
+
     await cleanup(admin)
     const startedAt = process.hrtime.bigint()
     await admin.query(
@@ -940,18 +974,21 @@ async function main(): Promise<void> {
     await seedSchema(admin, 'narrow')
     await seedSchema(admin, 'medium')
     await seedSchema(admin, 'wide')
+
     for (const fixture of datasetFixtures()) {
       const label =
         fixture.rows >= 1000
           ? `${Math.round(fixture.rows / 1000)}k`
           : String(fixture.rows)
+
       if (!requested.has(label)) continue
       await seedDataset(admin, fixture)
       await seedVersion(admin, fixture)
       console.log(
-        `seeded dataset=${fixture.shape} rows=${fixture.rows} values=${fixture.rows * fieldsFor(fixture.shape).length}`,
+        `seeded dataset=${fixture.profile} rows=${fixture.rows} values=${fixture.rows * fieldsFor(fixture.profile).length}`,
       )
     }
+
     await seedPipeline(admin)
     await admin.query(
       `analyze api.records; analyze api.dataset_rows; analyze api.dataset_row_values;
@@ -968,8 +1005,8 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1]?.endsWith('perf/fixtures.ts')) {
-  void main().catch((error: unknown) => {
-    console.error(error)
+  void main().catch((cause: unknown) => {
+    console.error(cause)
     process.exitCode = 1
   })
 }

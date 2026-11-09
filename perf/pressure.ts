@@ -17,6 +17,8 @@
  */
 import './lib/loadenv'
 import { Client } from 'pg'
+import { z } from 'zod'
+import { createDataClient } from '#/lib/data-client'
 
 import { runPipelineExecution } from '#/lib/pipeline-execute.server'
 import { sweepPipelines } from '#/lib/pipeline-scheduler.server'
@@ -44,15 +46,19 @@ async function connectionExhaustion(
   const clients: Client[] = []
   let opened = 0
   let refusedCode = ''
+
   try {
     for (let i = 0; i < 200; i += 1) {
       const client = new Client({ connectionString: env.databaseUrl })
+
       try {
         await client.connect()
         clients.push(client)
         opened += 1
       } catch (error) {
-        refusedCode = (error as { code?: string }).code ?? 'unknown'
+        refusedCode =
+          z.object({ code: z.string().optional() }).safeParse(error).data
+            ?.code ?? 'unknown'
         await client.end().catch(() => {})
         break
       }
@@ -61,7 +67,9 @@ async function connectionExhaustion(
     // Release everything before probing recovery.
     await Promise.all(clients.map((client) => client.end().catch(() => {})))
   }
+
   let recovered = false
+
   try {
     const probe = new Client({ connectionString: env.databaseUrl })
     await probe.connect()
@@ -71,6 +79,7 @@ async function connectionExhaustion(
   } catch {
     recovered = false
   }
+
   scenarios.push(
     recordScenario({
       scenario: 'pressure-connection-exhaustion',
@@ -99,9 +108,11 @@ async function pipelineSaturation(
     FIXTURE.user,
     FIXTURE.workspace,
   )
+
   const fixture = datasetFixtures().find((f) => f.rows === 10_000)!
   const inputVersionId = fixture.versionId
   const startedAt = Date.now()
+
   const results = await Promise.all(
     Array.from({ length: 8 }, async (_, index) => {
       const run = (
@@ -116,8 +127,10 @@ async function pipelineSaturation(
           ],
         )
       ).rows[0]
+
       const conn = new Client({ connectionString: env.databaseUrl })
       await conn.connect()
+
       try {
         return await runPipelineExecution(FIXTURE.user, run.id, {
           getSession: async () => ({ user: { id: FIXTURE.user } }),
@@ -135,6 +148,7 @@ async function pipelineSaturation(
       }
     }),
   )
+
   await actor.end()
   const wallMs = Date.now() - startedAt
   const succeeded = results.filter((r) => r.ok).length
@@ -144,9 +158,16 @@ async function pipelineSaturation(
   const admin = await adminClient(env.migrationDatabaseUrl)
   let outputRowsIntact = true
   const checks: Array<{ rowCount: number; versionRows: number }> = []
+
   for (const report of results) {
-    const result = report.run?.result as
-      { rowCount?: number; outputDatasetVersionId?: string } | undefined
+    const result = z
+      .object({
+        rowCount: z.number().optional(),
+        outputDatasetVersionId: z.string().optional(),
+      })
+      .optional()
+      .parse(report.run?.result)
+
     if (result?.outputDatasetVersionId) {
       const count = (
         await admin.query<{ n: string }>(
@@ -155,15 +176,18 @@ async function pipelineSaturation(
           [result.outputDatasetVersionId],
         )
       ).rows[0].n
+
       checks.push({
         rowCount: result.rowCount ?? 0,
         versionRows: Number(count),
       })
+
       if (Number(count) !== (result.rowCount ?? 0)) outputRowsIntact = false
     } else {
       checks.push({ rowCount: -1, versionRows: -1 })
     }
   }
+
   await admin.end()
   scenarios.push(
     recordScenario({
@@ -194,18 +218,22 @@ async function slowConnectorSource(
   // A TCP listener that accepts but never responds: the source read stalls
   // until the connector's connection timeout fires a bounded failure.
   const net = await import('node:net')
+
   const server = net.createServer(() => {
     // Hold the socket open without responding.
   })
+
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const port = (server.address() as { port: number }).port
+  const { port } = z.object({ port: z.number() }).parse(server.address())
 
   const actor = await actorClient(
     env.pgrstDatabaseUrl,
     FIXTURE.user,
     FIXTURE.workspace,
   )
+
   const admin = await adminClient(env.migrationDatabaseUrl)
+
   try {
     const connector = (
       await actor.query(
@@ -227,11 +255,15 @@ async function slowConnectorSource(
         ],
       )
     ).rows[0]
+
     const sealSecret = (await import('#/lib/connector-secrets.server'))
       .sealSecret
+
     const derive = (await import('#/lib/connector-secrets.server'))
       .deriveConnectorSecretKey
+
     const key = derive(process.env.BETTER_AUTH_SECRET!)
+
     const putSecret = async (name: string, value: string) => {
       const sealed = sealSecret(value, key)
       await admin.query(
@@ -240,18 +272,26 @@ async function slowConnectorSource(
         [FIXTURE.workspace, connector.id, name, Buffer.from(sealed, 'utf8')],
       )
     }
+
     await putSecret('username', 'u')
     await putSecret('password', 'p')
+
     // Drive the adapter's testConnection path directly (source read attempt).
     const { postgresAdapter } =
       await import('#/lib/connectors/enterprise/postgres.server')
+
     const source = postgresAdapter.parseConfig(connector.config)
     const t0 = Date.now()
     let code = ''
+
     try {
       await postgresAdapter.testConnection(
         {
-          client: null as never,
+          client: createDataClient(async () => {
+            throw new Error(
+              'Connection probe must not access the application API',
+            )
+          }),
           workspaceId: FIXTURE.workspace,
           connector,
           limits: {
@@ -267,8 +307,11 @@ async function slowConnectorSource(
       )
       code = 'no_error'
     } catch (error) {
-      code = (error as { code?: string }).code ?? 'unknown'
+      code =
+        z.object({ code: z.string().optional() }).safeParse(error).data?.code ??
+        'unknown'
     }
+
     const elapsedMs = Date.now() - t0
     scenarios.push(
       recordScenario({
@@ -306,10 +349,13 @@ async function schedulerBacklog(
 ): Promise<void> {
   const admin = await adminClient(env.migrationDatabaseUrl)
   const count = 40
+
   const inputVersionId = datasetFixtures().find(
     (f) => f.rows === 10_000,
   )!.versionId
+
   const scheduleIds: string[] = []
+
   for (let i = 0; i < count; i += 1) {
     const id = `0f07e000-0000-4000-8000-0000${String(i + 1).padStart(8, '0')}`
     scheduleIds.push(id)
@@ -330,7 +376,9 @@ async function schedulerBacklog(
       ],
     )
   }
+
   const startedOccurrences = new Set<string>()
+
   const deps: PipelineSchedulerDeps = {
     connect: async () => ({
       query: async (text: string, values: unknown[] = []) =>
@@ -347,15 +395,19 @@ async function schedulerBacklog(
           [runId],
         )
       ).rows
+
       const occurrence = rows[0]?.trigger_occurrence_id
+
       if (occurrence) {
         if (startedOccurrences.has(occurrence)) {
           throw new Error(`duplicate occurrence ${occurrence}`)
         }
+
         startedOccurrences.add(occurrence)
       }
     },
   }
+
   const t0 = Date.now()
   const started = await sweepPipelines(deps)
   const sweepMs = Date.now() - t0
@@ -390,6 +442,7 @@ async function schedulerBacklog(
 export async function runPressureBenchmarks(): Promise<ScenarioReport[]> {
   const env = assertPerfEnvironment()
   const scenarios: ScenarioReport[] = []
+
   try {
     await connectionExhaustion(env, scenarios)
     await pipelineSaturation(env, scenarios)
@@ -399,6 +452,7 @@ export async function runPressureBenchmarks(): Promise<ScenarioReport[]> {
     const environment = await environmentSnapshot(admin)
     await admin.end()
     writeReport('pressure', scenarios, environment)
+
     return scenarios
   } catch (error) {
     console.error('pressure benchmark error:', error)
@@ -407,8 +461,8 @@ export async function runPressureBenchmarks(): Promise<ScenarioReport[]> {
 }
 
 if (process.argv[1]?.endsWith('perf/pressure.ts')) {
-  void runPressureBenchmarks().catch((error: unknown) => {
-    console.error(error)
+  void runPressureBenchmarks().catch((cause: unknown) => {
+    console.error(cause)
     process.exitCode = 1
   })
 }

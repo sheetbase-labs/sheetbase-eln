@@ -7,6 +7,7 @@
 import './lib/loadenv'
 import { Client } from 'pg'
 import type { QueryResultRow } from 'pg'
+import { z } from 'zod'
 
 import { runPipelineExecution } from '#/lib/pipeline-execute.server'
 import { sweepPipelines } from '#/lib/pipeline-scheduler.server'
@@ -31,52 +32,7 @@ import {
 import type { ScenarioReport } from './lib/common'
 import { FIXTURE, datasetFixtures, seedSchedules } from './fixtures'
 
-const RPC_ARG_TYPES: Record<string, string[]> = {
-  start_pipeline_run: [
-    'uuid',
-    'uuid',
-    'text',
-    'jsonb',
-    'jsonb',
-    'uuid',
-    'text',
-    'uuid',
-  ],
-}
-
-async function rpc<T>(
-  client: Client,
-  name: string,
-  args: Record<string, unknown>,
-): Promise<T> {
-  const types = RPC_ARG_TYPES[name]
-  const values = Object.values(args).map((value, index) =>
-    value !== null && types[index] === 'jsonb' ? JSON.stringify(value) : value,
-  )
-  while (values.length < types.length) values.push(null)
-  const placeholders = types
-    .map((type, index) => `$${index + 1}::${type}`)
-    .join(',')
-  const { rows } = await client.query(
-    `select * from api.${name}(${placeholders})`,
-    values,
-  )
-  const row = rows[0]
-  if (!row) return undefined as T
-  const keys = Object.keys(row)
-  if (keys.length === 1) {
-    const value = row[keys[0]]
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
-      return value as T
-    }
-  }
-  return row as T
-}
-
-function execDeps(conn: Client): {
-  deps: PipelineExecuteDeps
-  close: () => Promise<void>
-} {
+function execDeps(conn: Client) {
   return {
     deps: {
       getSession: async () => ({ user: { id: FIXTURE.user } }),
@@ -91,15 +47,14 @@ function execDeps(conn: Client): {
         // The caller owns the connection lifecycle.
         end: () => Promise.resolve(),
       }),
-    },
+    } satisfies PipelineExecuteDeps,
     close: async () => undefined,
   }
 }
 
 function schedulerDeps(
   conn: Client,
-  runStub: (actor: string, runId: string) => Promise<unknown> = async () =>
-    undefined,
+  runStub: PipelineSchedulerDeps['run'] = async () => undefined,
 ): PipelineSchedulerDeps {
   return {
     connect: async (): Promise<SchedulerConnection> => ({
@@ -129,31 +84,42 @@ async function runOne(
   rowCount?: number
   errorMessage?: string
 }> {
-  const run = await rpc<{ id: string; status: string }>(
-    actor,
-    'start_pipeline_run',
-    {
-      p_workspace_id: FIXTURE.workspace,
-      p_definition_version_id: FIXTURE.pipeline.version,
-      p_trigger_kind: 'manual',
-      p_parameters: { factor },
-      p_input_versions: { measurements: inputVersionId },
-    },
+  const { rows } = await actor.query<{ id: string; status: string }>(
+    `select * from api.start_pipeline_run($1::uuid,$2::uuid,'manual'::text,$3::jsonb,$4::jsonb,null::uuid,null::text,null::uuid)`,
+    [
+      FIXTURE.workspace,
+      FIXTURE.pipeline.version,
+      JSON.stringify({ factor }),
+      JSON.stringify({ measurements: inputVersionId }),
+    ],
   )
+
+  const run = rows.at(0)
+
+  if (!run) throw new Error('start_pipeline_run returned no run')
+
   if (run.status !== 'running') {
     // Digest replay of a prior identical run: not a fresh execution.
     return { ok: true, totalMs: 0 }
   }
+
   const conn = new Client({ connectionString: databaseUrl })
   await conn.connect()
+
   try {
     const startedAt = Date.now()
     const { deps, close } = execDeps(conn)
     const report = await runPipelineExecution(FIXTURE.user, run.id, deps)
     await close()
-    const result = report.run?.result as
-      | { stageDurationsMs?: Record<string, number>; rowCount?: number }
-      | undefined
+
+    const result = z
+      .object({
+        stageDurationsMs: z.record(z.string(), z.number()).optional(),
+        rowCount: z.number().optional(),
+      })
+      .optional()
+      .parse(report.run?.result)
+
     return {
       ok: report.ok,
       totalMs: Date.now() - startedAt,
@@ -176,12 +142,15 @@ interface PipelineContext {
 async function context(): Promise<PipelineContext> {
   const env = assertPerfEnvironment()
   const admin = await adminClient(env.migrationDatabaseUrl)
+
   const actor = await actorClient(
     env.pgrstDatabaseUrl,
     FIXTURE.user,
     FIXTURE.workspace,
   )
+
   const fixture = datasetFixtures().find((f) => f.rows === 10_000)!
+
   return { admin, actor, inputVersionId: fixture.versionId, env }
 }
 
@@ -197,8 +166,10 @@ async function stageBenchmark(
   inputRows: number,
 ): Promise<void> {
   const fixture = datasetFixtures().find((f) => f.rows === inputRows)
+
   if (!fixture) return
   const inputVersionId = fixture.versionId
+
   const runs: Array<{
     total: number
     materialize: number
@@ -209,25 +180,31 @@ async function stageBenchmark(
     overhead: number
     rows: number
   }> = []
+
   // Warm run first (creates + populates the output schema path).
   await runOne(ctx.actor, ctx.env.databaseUrl, 1.001, inputVersionId)
+
   for (let index = 0; index < 3; index += 1) {
     const factor = 1.1 + index * 0.1
+
     const result = await runOne(
       ctx.actor,
       ctx.env.databaseUrl,
       factor,
       inputVersionId,
     )
+
     if (!result.ok) {
       throw new Error(
         `pipeline run failed: ${result.errorMessage ?? 'unknown'}`,
       )
     }
+
     if (!result.stages) {
       // Digest replay (same input+params as an earlier run): skip.
       continue
     }
+
     runs.push({
       total: result.totalMs,
       materialize: result.stages.materializeInputs,
@@ -239,7 +216,9 @@ async function stageBenchmark(
       rows: result.rowCount ?? 0,
     })
   }
+
   if (runs.length === 0) return
+
   const pick = (
     key:
       | 'materialize'
@@ -250,7 +229,9 @@ async function stageBenchmark(
       | 'overhead'
       | 'total',
   ) => runs.map((r) => r[key])
+
   const label = `${Math.round(inputRows / 1000)}k`
+
   for (const [stage, values] of Object.entries({
     materialize_inputs: pick('materialize'),
     transform: pick('transform'),
@@ -275,42 +256,53 @@ async function stageBenchmark(
 
 /** Parallel manual runs at a given concurrency; reports wall-clock + tail. */
 let concurrencySerial = 0
+
 async function concurrencyBenchmark(
   ctx: PipelineContext,
   scenarios: ScenarioReport[],
   concurrency: number,
 ): Promise<void> {
   const inputVersionId = ctx.inputVersionId
+
   const workers = await Promise.all(
     Array.from({ length: concurrency }, () =>
       actorClient(ctx.env.pgrstDatabaseUrl, FIXTURE.user, FIXTURE.workspace),
     ),
   )
+
   try {
     const runOneBatch = async () => {
       const factors = Array.from({ length: concurrency }, () => {
         concurrencySerial += 1
+
         return 5 + concurrencySerial * 0.019
       })
+
       const startedAt = Date.now()
+
       const results = await Promise.all(
         factors.map((factor, index) =>
           runOne(workers[index], ctx.env.databaseUrl, factor, inputVersionId),
         ),
       )
+
       const wallMs = Date.now() - startedAt
       const failed = results.filter((r) => !r.ok)
+
       return { wallMs, failed: failed.length }
     }
+
     // Warm pass.
     await runOneBatch()
     const samples: number[] = []
     let errors = 0
+
     for (let i = 0; i < 3; i += 1) {
       const { wallMs, failed } = await runOneBatch()
       samples.push(wallMs)
       errors += failed
     }
+
     scenarios.push(
       recordScenario({
         scenario: `pipeline-concurrency-${concurrency}`,
@@ -337,11 +329,13 @@ async function schedulerScaleBenchmark(
     await sweepPipelines(deps)
     const samples: number[] = []
     const errors = 0
+
     for (let i = 0; i < 3; i += 1) {
       const startedAt = Date.now()
       await sweepPipelines(deps)
       samples.push(Date.now() - startedAt)
     }
+
     scenarios.push(
       recordScenario({
         scenario: `scheduler-sweep-${count}`,
@@ -373,6 +367,7 @@ async function eventBurstBenchmark(
       `delete from api.change_events where workspace_id = $1 and entity_type = 'dataset_version'`,
       [FIXTURE.workspace],
     )
+
     // Seed deterministic change_events with fresh per-workspace sequences,
     // then re-sync the workspace_change_seq allocator so the product's next
     // legitimate emit does not collide with the seeded rows.
@@ -380,7 +375,9 @@ async function eventBurstBenchmark(
       `select coalesce(max(sequence), 0) + 1 as n from api.change_events where workspace_id = $1`,
       [FIXTURE.workspace],
     )
+
     let seq = Number(nextSeq.rows[0]?.n ?? 1)
+
     for (let index = 0; index < eventCount; index += 1) {
       await ctx.admin.query(
         `insert into api.change_events(
@@ -397,6 +394,7 @@ async function eventBurstBenchmark(
       )
       seq += 1
     }
+
     await ctx.admin.query(
       `insert into api.workspace_change_seq(workspace_id, last_seq)
        values ($1, $2)
@@ -410,13 +408,16 @@ async function eventBurstBenchmark(
     let consumed = 0
     let sweeps = 0
     let guard = 0
+
     while (guard < 200) {
       guard += 1
       const started = await sweepPipelines(deps)
       consumed += started
       sweeps += 1
+
       if (started === 0) break
     }
+
     const totalMs = Date.now() - startedAt
     scenarios.push(
       recordScenario({
@@ -465,6 +466,7 @@ async function cleanupBenchmarkOutputs(ctx: PipelineContext): Promise<void> {
   await ctx.admin.query(
     `alter table api.dataset_version_values disable trigger prevent_dataset_version_value_mutation`,
   )
+
   try {
     await ctx.admin.query(
       `delete from api.dataset_version_values where dataset_version_id in (
@@ -494,6 +496,7 @@ async function cleanupBenchmarkOutputs(ctx: PipelineContext): Promise<void> {
       `alter table api.dataset_versions enable trigger prevent_dataset_version_mutation`,
     )
   }
+
   await ctx.admin.query(
     `delete from api.datasets where workspace_id = $1
      and name = 'PLAT-05 pipeline output'`,
@@ -511,19 +514,24 @@ export async function runPipelineBenchmarks(
 ): Promise<ScenarioReport[]> {
   const ctx = await context()
   const scenarios: ScenarioReport[] = []
+
   try {
     // Start clean: replay of a prior benchmark's successful digest would
     // short-circuit manual runs instead of executing fresh work.
     await cleanupBenchmarkOutputs(ctx)
     await stageBenchmark(ctx, scenarios, 10_000)
+
     if (includeLarge) await stageBenchmark(ctx, scenarios, 100_000)
+
     for (const concurrency of [1, 2, 5]) {
       await concurrencyBenchmark(ctx, scenarios, concurrency)
     }
+
     await schedulerScaleBenchmark(ctx, scenarios)
     await eventBurstBenchmark(ctx, scenarios)
     const environment = await environmentSnapshot(ctx.admin)
     writeReport('pipelines', scenarios, environment)
+
     return scenarios
   } finally {
     await cleanupBenchmarkOutputs(ctx).catch(() => {})
@@ -536,8 +544,8 @@ async function main(): Promise<void> {
 }
 
 if (process.argv[1]?.endsWith('perf/pipelines.ts')) {
-  void main().catch((error: unknown) => {
-    console.error(error)
+  void main().catch((cause: unknown) => {
+    console.error(cause)
     process.exitCode = 1
   })
 }

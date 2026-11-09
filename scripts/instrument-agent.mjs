@@ -77,7 +77,9 @@ export const ROBOT_DRIVERS = ['opentrons', 'file']
  * then flags. `fileConfig` is the parsed `sheetbase-agent.json`.
  */
 export function parseArgs(argv, env = process.env, fileConfig = {}) {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Downloadable dependency-free agent must decode untrusted settings JSON itself.
   const text = (value) => (typeof value === 'string' ? value : '')
+
   const options = {
     url: env.SHEETBASE_URL ?? text(fileConfig.url),
     credential: env.SHEETBASE_CREDENTIAL ?? text(fileConfig.credential),
@@ -92,22 +94,30 @@ export function parseArgs(argv, env = process.env, fileConfig = {}) {
     parser: text(fileConfig.parser),
     instrumentId: env.SHEETBASE_INSTRUMENT ?? text(fileConfig.instrumentId),
     live: Array.isArray(fileConfig.live)
-      ? fileConfig.live.filter((source) => source && typeof source === 'object')
+      ? // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Validate untrusted live-source settings in the standalone distributed agent without dependencies.
+        fileConfig.live.filter((source) => source && typeof source === 'object')
       : [],
     robot:
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Validate untrusted robot settings before enabling a driver in the dependency-free agent.
       fileConfig.robot && typeof fileConfig.robot === 'object'
         ? { ...fileConfig.robot }
         : null,
   }
+
   const adHoc = { feed: '', unit: '' }
   const robotFlags = {}
+
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i]
+
     const next = () => {
       const value = argv[(i += 1)]
+
       if (value === undefined) throw new Error(`${flag} needs a value.`)
+
       return value
     }
+
     if (flag === '--url') options.url = next()
     else if (flag === '--connector') options.connector = next()
     else if (flag === '--dir') options.dir = next()
@@ -135,27 +145,35 @@ export function parseArgs(argv, env = process.env, fileConfig = {}) {
       next() // read before parsing, see main()
     else throw new Error(`Unknown option ${flag}.`)
   }
+
   for (const source of options.live) {
     if (adHoc.feed && !source.feed) source.feed = adHoc.feed
+
     if (adHoc.unit && !source.unit) source.unit = adHoc.unit
   }
+
   if (Object.keys(robotFlags).length > 0) {
-    options.robot = { ...(options.robot ?? {}), ...robotFlags }
+    options.robot = { ...options.robot, ...robotFlags }
   }
+
   if (options.robot) {
     if (!ROBOT_DRIVERS.includes(options.robot.driver)) {
       throw new Error(
         `The robot driver must be one of: ${ROBOT_DRIVERS.join(', ')}.`,
       )
     }
+
     if (options.robot.driver === 'opentrons' && !options.robot.address) {
       throw new Error('An Opentrons robot needs its address (robot.address).')
     }
+
     if (options.robot.driver === 'file' && !options.robot.dir) {
       throw new Error('A file robot needs its folder (robot.dir).')
     }
   }
+
   const live = options.live.length > 0 || Boolean(options.robot)
+
   for (const [name, value] of [
     ['the Sheetbase address (url)', options.url],
     ['the access token (credential)', options.credential],
@@ -172,21 +190,26 @@ export function parseArgs(argv, env = process.env, fileConfig = {}) {
       )
     }
   }
+
   for (const source of options.live) {
     if (source.kind === 'file' && !source.path) {
       throw new Error('A live file needs a path.')
     }
+
     if (
       source.kind === 'network' &&
       (!source.host || !Number.isInteger(source.port) || source.port < 1)
     ) {
       throw new Error('A live network source needs a host and a port.')
     }
+
     if (source.kind !== 'file' && source.kind !== 'network') {
       throw new Error('A live source is a file or a network port.')
     }
   }
+
   options.url = options.url.replace(/\/+$/, '')
+
   return options
 }
 
@@ -196,6 +219,8 @@ export function tokenExpiry(token) {
     const payload = JSON.parse(
       Buffer.from(token.split('.')[1], 'base64url').toString('utf8'),
     )
+
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Decode an unverified JWT expiry at the token boundary in the dependency-free distributed agent.
     return typeof payload.exp === 'number' ? payload.exp : 0
   } catch {
     return 0
@@ -223,12 +248,14 @@ async function uniqueTarget(dir, name) {
   await mkdir(dir, { recursive: true })
   let target = join(dir, name)
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+
   try {
     await stat(target)
     target = join(dir, `${stamp}-${name}`)
   } catch {
     // no clash
   }
+
   return target
 }
 
@@ -247,32 +274,40 @@ export function createAgent(options, deps = {}) {
 
   async function ensureToken(force = false) {
     if (!force && token && tokenExp - 60 > now() / 1000) return token
+
     const response = await fetchImpl(`${options.url}/api/token`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ credential: options.credential, scopes: SCOPES }),
     })
+
     const body = await response.json().catch(() => null)
+
     if (!response.ok || !body?.token) {
       const message = body?.error?.message ?? `HTTP ${response.status}`
       const error = new Error(`Credential exchange failed: ${message}`)
       error.permanent = response.status === 400 || response.status === 403
       throw error
     }
+
     token = body.token
     tokenExp = tokenExpiry(token) || now() / 1000 + 600
+
     return token
   }
 
   async function send(path) {
     const name = basename(path)
     const bytes = await readFile(path)
+
     const query = new URLSearchParams({
       connector: options.connector,
       fileName: name,
     })
+
     if (options.parser) query.set('parser', options.parser)
     const url = `${options.url}/api/connectors/pickup?${query}`
+
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const response = await fetchImpl(url, {
         method: 'POST',
@@ -282,17 +317,21 @@ export function createAgent(options, deps = {}) {
         },
         body: bytes,
       })
+
       if (response.status === 401 && attempt === 0) continue
+
       return {
         status: response.status,
         body: await response.json().catch(() => null),
       }
     }
+
     throw new Error('Unreachable')
   }
 
   async function settle(path, info) {
     const previous = seen.get(path)
+
     if (
       previous &&
       previous.size === info.size &&
@@ -300,38 +339,49 @@ export function createAgent(options, deps = {}) {
     ) {
       return now() - previous.since >= options.settleSeconds * 1000
     }
+
     seen.set(path, { size: info.size, mtimeMs: info.mtimeMs, since: now() })
+
     return options.settleSeconds === 0
   }
 
   async function handle(path) {
     const name = basename(path)
     let outcome
+
     try {
       outcome = await send(path)
     } catch (error) {
       if (error.permanent) throw error
+
       return retryLater(path, `${name}: ${error.message}`)
     }
+
     const { status, body } = outcome
+
     if (status >= 200 && status < 300) {
       const target = await uniqueTarget(join(options.dir, 'processed'), name)
       await rename(path, target)
       log(
         `sent ${name}: ${body?.rowCount ?? '?'} rows → dataset ${body?.datasetId ?? '?'} (${body?.parser ?? 'parser n/a'})`,
       )
+
       return 'sent'
     }
+
     const detail = body?.error
       ? `${body.error.code}: ${body.error.message}`
       : `HTTP ${status}`
+
     if (status >= 500 || RETRYABLE.has(status)) {
       return retryLater(path, `${name}: ${detail}`)
     }
+
     const target = await uniqueTarget(join(options.dir, 'failed'), name)
     await rename(path, target)
     await writeFile(`${target}.error.txt`, `${detail}\n`)
     log(`refused ${name}: ${detail} (moved to failed/)`)
+
     return 'failed'
   }
 
@@ -342,6 +392,7 @@ export function createAgent(options, deps = {}) {
     state.until = now() + delay * 1000
     backoff.set(path, state)
     log(`will retry ${message} (in ${delay}s)`)
+
     return 'retry'
   }
 
@@ -350,35 +401,45 @@ export function createAgent(options, deps = {}) {
     const counts = { sent: 0, failed: 0, retry: 0, waiting: 0 }
     const entries = await readdir(options.dir, { withFileTypes: true })
     const live = new Set()
+
     for (const entry of entries) {
       // Excel keeps a `~$name.xlsx` lock file beside a workbook that is open.
       if (!entry.isFile() || /^(\.|~\$)/.test(entry.name)) continue
       const ext = extname(entry.name).slice(1).toLowerCase()
+
       if (!options.extensions.includes(ext)) continue
       const path = join(options.dir, entry.name)
       live.add(path)
       const info = await stat(path)
+
       if (info.size === 0) {
         counts.waiting += 1
         continue
       }
+
       if (!(await settle(path, info))) {
         counts.waiting += 1
         continue
       }
+
       const wait = backoff.get(path)
+
       if (wait && wait.until > now()) {
         counts.waiting += 1
         continue
       }
+
       const result = await handle(path)
       counts[result] += 1
+
       if (result !== 'retry') {
         seen.delete(path)
         backoff.delete(path)
       }
     }
+
     for (const path of seen.keys()) if (!live.has(path)) seen.delete(path)
+
     return counts
   }
 
@@ -388,6 +449,7 @@ export function createAgent(options, deps = {}) {
 /** "Temperature (°C)" or "Weight [g]" → the name and its unit. */
 export function splitFeedLabel(label) {
   const match = /^(.*?)\s*[([]\s*([^)\]]{1,20}?)\s*[)\]]\s*$/.exec(label.trim())
+
   return match && match[1]
     ? { feed: match[1].trim(), unit: match[2].trim() }
     : { feed: label.trim(), unit: '' }
@@ -399,13 +461,17 @@ const TIME_LABEL = /^(date|time|timestamp|date.?time)\b/i
 function readTime(token, nowMs) {
   if (!token || NUMBER.test(token)) return undefined
   const parsed = Date.parse(token)
+
   if (!Number.isNaN(parsed)) return new Date(parsed).toISOString()
   const clock = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(token)
+
   if (clock) {
     const at = new Date(nowMs)
-    at.setHours(Number(clock[1]), Number(clock[2]), Number(clock[3] ?? 0), 0)
+    at.setHours(Number(clock[1]), Number(clock[2]), Number(clock.at(3) ?? 0), 0)
+
     return at.toISOString()
   }
+
   return undefined
 }
 
@@ -420,22 +486,30 @@ export function createLineParser(
   now = () => Date.now(),
 ) {
   let header = null
+
   return {
     parse(line) {
       const text = line.replace(/\r$/, '').trim()
+
       if (!text) return []
+
       const single =
         /^(?:[A-Za-z]{1,3}[,\s]+)*([+-]?\s*(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)\s*([^\d\s,;\t][^\s,;\t]{0,19})?$/.exec(
           text,
         )
+
       if (single && !/[,;\t]/.test(text.replace(/^(?:[A-Za-z]{1,3},)+/, ''))) {
         const value = Number(single[1].replace(/\s/g, ''))
+
         if (!Number.isFinite(value)) return []
         const reading = { feed: feed || 'Reading', value }
         const readUnit = unit || single[2] || ''
+
         if (readUnit) reading.unit = readUnit
+
         return [reading]
       }
+
       const delimiter = text.includes('\t')
         ? '\t'
         : text.includes(';')
@@ -443,15 +517,20 @@ export function createLineParser(
           : text.includes(',')
             ? ','
             : /\s+/
+
       const tokens = text
         .split(delimiter)
         .map((token) => token.trim().replace(/^"|"$/g, ''))
+
       const numeric = tokens.filter((token) => NUMBER.test(token)).length
+
       if (!header) {
         if (numeric === 0 || tokens.every((token) => !NUMBER.test(token))) {
           header = tokens
+
           return []
         }
+
         const timeFirst = readTime(tokens[0], now()) !== undefined
         header = tokens.map((_, index) =>
           timeFirst && index === 0
@@ -461,6 +540,7 @@ export function createLineParser(
               : `${feed || 'Channel'} ${index + (timeFirst ? 0 : 1)}`,
         )
       }
+
       const readings = []
       let at
       header.forEach((label, index) => {
@@ -468,6 +548,7 @@ export function createLineParser(
       })
       header.forEach((label, index) => {
         const token = tokens[index]
+
         if (
           token === undefined ||
           TIME_LABEL.test(label) ||
@@ -475,15 +556,20 @@ export function createLineParser(
         )
           return
         const split = splitFeedLabel(label)
+
         const reading = {
           feed: split.feed || feed || 'Reading',
           value: Number(token),
         }
+
         const readUnit = split.unit || unit
+
         if (readUnit) reading.unit = readUnit
+
         if (at) reading.at = at
         readings.push(reading)
       })
+
       return readings
     },
   }
@@ -499,43 +585,55 @@ export function createLineParser(
 export function createTail(path, { fromStart = false } = {}) {
   let offset = null
   let rest = ''
+
   async function readRange(handle, start, end) {
     const buffer = Buffer.alloc(end - start)
     const { bytesRead } = await handle.read(buffer, 0, buffer.length, start)
+
     return buffer.subarray(0, bytesRead).toString('utf8')
   }
+
   return {
     async poll() {
       let handle
+
       try {
         handle = await open(path, 'r')
       } catch (error) {
         if (error.code === 'ENOENT') return { lines: [], header: null }
         throw error
       }
+
       try {
         const { size } = await handle.stat()
         let header = null
+
         if (offset === null) {
           if (!fromStart && size > 0) {
             const top = await readRange(handle, 0, Math.min(size, 4096))
             header = top.split('\n')[0] || null
           }
+
           offset = fromStart ? 0 : size
         }
+
         if (size < offset) {
           offset = 0
           rest = ''
         }
+
         if (size === offset) return { lines: [], header }
+
         const chunk = await readRange(
           handle,
           offset,
           Math.min(size, offset + 1024 * 1024),
         )
+
         offset += Buffer.byteLength(chunk, 'utf8')
         const parts = (rest + chunk).split('\n')
         rest = parts.pop() ?? ''
+
         return { lines: parts, header }
       } finally {
         await handle.close()
@@ -557,11 +655,14 @@ export function createLiveSender(
   { ensureToken, fetchImpl = fetch, log },
 ) {
   let queue = []
+
   async function flush() {
     if (queue.length === 0) return 'idle'
     const batch = queue.slice(0, 2000)
+
     for (let attempt = 0; attempt < 2; attempt += 1) {
       let response
+
       try {
         response = await fetchImpl(`${options.url}/api/connectors/stream`, {
           method: 'POST',
@@ -577,35 +678,49 @@ export function createLiveSender(
       } catch (error) {
         if (error.permanent) throw error
         log(`will retry readings: ${error.message}`)
+
         return 'retry'
       }
+
       if (response.status === 401 && attempt === 0) continue
+
       if (response.ok) {
         queue = queue.slice(batch.length)
+
         return 'sent'
       }
+
       const body = await response.json().catch(() => null)
+
       const detail = body?.error
         ? `${body.error.code}: ${body.error.message}`
         : `HTTP ${response.status}`
+
       if (response.status >= 500 || LIVE_RETRYABLE.has(response.status)) {
         log(`will retry readings: ${detail}`)
+
         return 'retry'
       }
+
       if (response.status === 403) {
         const error = new Error(`Readings refused: ${detail}`)
         error.permanent = true
         throw error
       }
+
       queue = queue.slice(batch.length)
       log(`dropped ${batch.length} readings the server refused: ${detail}`)
+
       return 'dropped'
     }
+
     return 'retry'
   }
+
   return {
     push(readings) {
       queue.push(...readings)
+
       if (queue.length > LIVE_BUFFER_LIMIT) {
         queue = queue.slice(queue.length - LIVE_BUFFER_LIMIT)
       }
@@ -620,7 +735,8 @@ export function createLiveSender(
 /** Reads lines from a network port, reconnecting when it drops. */
 function followNetwork(source, onLine, log, stopped) {
   let buffered = ''
-  const open = () => {
+
+  const reconnect = () => {
     if (stopped()) return
     const socket = connect({ host: source.host, port: source.port })
     socket.setEncoding('utf8')
@@ -631,6 +747,7 @@ function followNetwork(source, onLine, log, stopped) {
       buffered += data
       const parts = buffered.split(/\r?\n/)
       buffered = parts.pop() ?? ''
+
       for (const line of parts) onLine(line)
     })
     socket.on('error', (error) =>
@@ -638,10 +755,11 @@ function followNetwork(source, onLine, log, stopped) {
     )
     socket.on('close', () => {
       buffered = ''
-      setTimeout(open, 5000)
+      setTimeout(reconnect, 5000)
     })
   }
-  open()
+
+  reconnect()
 }
 
 // ---------------------------------------------------------------------------
@@ -658,16 +776,21 @@ function followNetwork(source, onLine, log, stopped) {
  */
 export function opentronsEntries(run, commands) {
   const slotOf = new Map()
+
   for (const item of run?.labware ?? []) {
     const slot = item?.location?.slotName
+
     if (item?.id && slot !== undefined) slotOf.set(item.id, String(slot))
   }
+
   const entries = []
   let pending = null
+
   for (const command of commands ?? []) {
     const type = command?.commandType
     const params = command?.params ?? {}
     const ok = command?.status === 'succeeded'
+
     if (type === 'aspirate') {
       pending = {
         well: String(params.wellName ?? '').toUpperCase(),
@@ -679,12 +802,14 @@ export function opentronsEntries(run, commands) {
       const destWell = String(params.wellName ?? '').toUpperCase()
       const last = entries.at(-1)
       const moved = ok && pending.ok ? Number(params.volume ?? 0) : 0
+
       if (
         last &&
         last.sourceWell === pending.well &&
         last.destWell === destWell
       ) {
         last.actualUl += moved
+
         if (!(ok && pending.ok)) last.status = 'failed'
       } else {
         entries.push({
@@ -694,9 +819,11 @@ export function opentronsEntries(run, commands) {
           status: ok && pending.ok ? 'ok' : 'failed',
         })
       }
+
       pending = null
     }
   }
+
   return entries
 }
 
@@ -705,6 +832,7 @@ export function createOpentronsDriver(config, deps = {}) {
   const fetchImpl = deps.fetch ?? fetch
   const base = String(config.address).replace(/\/+$/, '')
   const headers = { 'Opentrons-Version': '3' }
+
   async function call(method, path, body) {
     const response = await fetchImpl(`${base}${path}`, {
       method,
@@ -719,24 +847,31 @@ export function createOpentronsDriver(config, deps = {}) {
             ? body
             : JSON.stringify(body),
     })
+
     const text = await response.text()
     let json = null
+
     try {
       json = text ? JSON.parse(text) : null
     } catch {
       // not JSON
     }
+
     if (!response.ok) {
       const detail =
         json?.errors?.[0]?.detail ?? json?.message ?? text.slice(0, 200)
+
       const failure = new Error(
         `The robot answered ${response.status}: ${detail}`,
       )
+
       failure.robotStatus = response.status
       throw failure
     }
+
     return json
   }
+
   return {
     name: 'opentrons',
     /** Put the protocol on the robot and create the run. */
@@ -749,14 +884,19 @@ export function createOpentronsDriver(config, deps = {}) {
       )
       const protocol = await call('POST', '/protocols', form)
       const protocolId = protocol?.data?.id
+
       if (!protocolId) throw new Error('The robot did not accept the protocol.')
       const analysis = protocol?.data?.analysisSummaries?.[0]
+
       if (analysis?.status === 'not-ok') {
         throw new Error('The robot could not read the protocol.')
       }
+
       const run = await call('POST', '/runs', { data: { protocolId } })
       const runId = run?.data?.id
+
       if (!runId) throw new Error('The robot did not create a run.')
+
       return { remoteRef: runId, message: 'On the robot, waiting for Start' }
     },
     async start(job) {
@@ -768,30 +908,37 @@ export function createOpentronsDriver(config, deps = {}) {
         // Already playing: an earlier attempt got through before the news did.
         if (error.robotStatus !== 409) throw error
       }
+
       return { message: 'Started' }
     },
     /** 'staged' | 'running' | 'complete' | 'failed' | 'cancelled' | 'paused' */
     async poll(job) {
       const run = await call('GET', `/runs/${job.remoteRef}`)
       const status = run?.data?.status
+
       if (status === 'succeeded') {
         const commands = await call(
           'GET',
           `/runs/${job.remoteRef}/commands?pageLength=20000`,
         )
+
         return {
           status: 'complete',
           entries: opentronsEntries(run.data, commands?.data),
         }
       }
+
       if (status === 'failed') {
         return {
           status: 'failed',
           message: run?.data?.errors?.[0]?.detail ?? 'The run failed.',
         }
       }
+
       if (status === 'stopped') return { status: 'cancelled' }
+
       if (status === 'idle') return { status: 'staged' }
+
       return { status: 'running', message: status }
     },
     async stop(job) {
@@ -810,29 +957,36 @@ export function createOpentronsDriver(config, deps = {}) {
 export function createFileDriver(config) {
   const dir = resolve(config.dir)
   const staging = join(dir, 'staging')
+
   const logNames = (name) => {
     const stem = name.replace(/\.[^.]+$/, '')
+
     return ['csv', 'txt', 'tsv'].flatMap((ext) => [
       join(dir, `${stem}.log.${ext}`),
       join(dir, 'logs', `${stem}.log.${ext}`),
     ])
   }
+
   return {
     name: 'file',
     async stage(job) {
       await mkdir(staging, { recursive: true })
       await writeFile(join(staging, job.file.name), job.file.content)
+
       return { remoteRef: job.file.name, message: 'Worklist is ready to start' }
     },
     async start(job) {
       await copyFile(join(staging, job.remoteRef), join(dir, job.remoteRef))
+
       return { message: 'Worklist given to the robot software' }
     },
     async poll(job) {
       for (const path of logNames(job.remoteRef)) {
         try {
           const info = await stat(path)
+
           if (info.size === 0) continue
+
           return {
             status: 'complete',
             runLog: await readFile(path, 'utf8'),
@@ -842,6 +996,7 @@ export function createFileDriver(config) {
           // not there yet
         }
       }
+
       return { status: job.status === 'staged' ? 'staged' : 'running' }
     },
     async stop() {
@@ -859,11 +1014,13 @@ export function createRobotRunner(options, deps = {}) {
   const fetchImpl = deps.fetch ?? fetch
   const log = deps.log ?? ((line) => console.log(line))
   const ensureToken = deps.ensureToken
+
   const driver =
     deps.driver ??
     (options.robot.driver === 'opentrons'
       ? createOpentronsDriver(options.robot, { fetch: fetchImpl })
       : createFileDriver(options.robot))
+
   // Last status told to Sheetbase per job, so the same news is not sent twice.
   const told = new Map()
 
@@ -876,13 +1033,16 @@ export function createRobotRunner(options, deps = {}) {
       },
       body: JSON.stringify({ instrumentId: options.instrumentId, ...body }),
     })
+
     if (response.status === 401 && attempt === 0) return post(body, 1)
     const json = await response.json().catch(() => null)
+
     if (!response.ok) {
       const error = new Error(json?.error?.message ?? `HTTP ${response.status}`)
       error.status = response.status
       throw error
     }
+
     return json
   }
 
@@ -896,24 +1056,32 @@ export function createRobotRunner(options, deps = {}) {
 
   async function step(job) {
     const label = `IJ-${String(job.number).padStart(4, '0')}`
+
     try {
       if (job.cancelRequested && job.status !== 'queued') {
         if (job.remoteRef) await driver.stop(job).catch(() => {})
         await report(job, 'cancelled', { message: 'Stopped on request' })
+
         return
       }
+
       if (job.status === 'queued') {
         const staged = await driver.stage(job)
         await report(job, 'staged', staged)
+
         return
       }
+
       if (job.status === 'starting') {
         const started = await driver.start(job)
         await report(job, 'running', { message: started?.message })
+
         return
       }
+
       if (job.status === 'staged' || job.status === 'running') {
         const seen = await driver.poll(job)
+
         if (seen.status === 'complete') {
           await report(job, 'complete', {
             message: 'The robot finished',
@@ -931,8 +1099,10 @@ export function createRobotRunner(options, deps = {}) {
     } catch (error) {
       if (error.status >= 400 && error.status < 500 && error.status !== 429) {
         log(`${label}: ${error.message}`)
+
         return
       }
+
       if (job.status === 'queued') {
         // The robot would not take it. Say so, so the person is not left waiting.
         try {
@@ -940,17 +1110,22 @@ export function createRobotRunner(options, deps = {}) {
         } catch (inner) {
           log(`${label}: ${inner.message}`)
         }
+
         return
       }
+
       log(`${label}: ${error.message}`)
     }
   }
 
   async function pass() {
     const { jobs } = await post({ action: 'list' })
+
     for (const job of jobs ?? []) await step(job)
+
     return (jobs ?? []).length
   }
+
   return { pass }
 }
 
@@ -960,13 +1135,16 @@ async function runRobot(options, agent, stopped) {
     `driving the ${options.robot.driver} robot for instrument ${options.instrumentId} → ${options.url}`,
   )
   const seconds = Math.max(2, Number(options.robot.intervalSeconds ?? 3))
+
   while (!stopped()) {
     try {
       await runner.pass()
     } catch (error) {
       console.error(`robot: ${error.message}`)
+
       if (error.permanent) process.exit(1)
     }
+
     await new Promise((done) => setTimeout(done, seconds * 1000))
   }
 }
@@ -975,47 +1153,63 @@ async function runRobot(options, agent, stopped) {
 export async function loadConfigFile(argv, scriptDir) {
   const at = argv.indexOf('--config')
   const explicit = at >= 0 ? argv[at + 1] : undefined
+
   if (at >= 0 && !explicit) throw new Error('--config needs a value.')
   const path = explicit ? resolve(explicit) : join(scriptDir, CONFIG_FILE_NAME)
   let raw
+
   try {
     raw = await readFile(path, 'utf8')
   } catch (error) {
     if (!explicit && error.code === 'ENOENT') return {}
     throw new Error(`Can't read ${path}: ${error.message}`)
   }
+
   try {
     const parsed = JSON.parse(raw)
+
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Standalone distributed agent has no schema dependency; reject non-object settings at the file boundary.
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       return parsed
     }
   } catch {
     // fall through to the error below
   }
+
   throw new Error(`${path} is not a valid settings file.`)
 }
 
 async function main() {
   const argv = process.argv.slice(2)
   const scriptDir = dirname(fileURLToPath(import.meta.url))
+
   const options = parseArgs(
     argv,
     process.env,
     await loadConfigFile(argv, scriptDir),
   )
+
   const agent = createAgent(options)
   let stopping = false
+
   for (const signal of ['SIGINT', 'SIGTERM']) {
     process.on(signal, () => {
       stopping = true
     })
   }
+
   const pause = (seconds) =>
-    new Promise((resolve) => setTimeout(resolve, seconds * 1000))
+    new Promise((done) => setTimeout(done, seconds * 1000))
+
+  const stopped = () => stopping
+
   const jobs = []
+
   if (options.live.length > 0)
     jobs.push(runLive(options, agent, () => stopping))
+
   if (options.robot) jobs.push(runRobot(options, agent, () => stopping))
+
   if (options.connector && options.dir) {
     await mkdir(options.dir, { recursive: true })
     console.log(
@@ -1029,60 +1223,80 @@ async function main() {
             await agent.scan()
           } catch (error) {
             console.error(`scan failed: ${error.message}`)
+
             if (error.permanent) process.exit(1)
           }
+
           if (options.once) break
           await pause(options.intervalSeconds)
-        } while (!stopping)
+        } while (!stopped())
       })(),
     )
   }
+
   await Promise.all(jobs)
 }
 
 async function runLive(options, agent, stopped) {
   const log = (line) => console.log(line)
+
   const sender = createLiveSender(options, {
     ensureToken: agent.ensureToken,
     log,
   })
+
+  const followers = []
+
   for (const source of options.live) {
     const parser = createLineParser(source)
+
     const take = (line) => {
       const readings = parser.parse(line)
+
       if (readings.length) sender.push(readings)
     }
+
     if (source.kind === 'file') {
       const tail = createTail(resolve(source.path), {
         fromStart: source.fromStart === true,
       })
+
       log(`following ${source.path} → ${options.url}`)
-      ;(async () => {
-        while (!stopped()) {
-          try {
-            const { lines, header } = await tail.poll()
-            if (header) parser.parse(header)
-            lines.forEach(take)
-          } catch (error) {
-            log(`${source.path}: ${error.message}`)
+      followers.push(
+        (async () => {
+          while (!stopped()) {
+            try {
+              const { lines, header } = await tail.poll()
+
+              if (header) parser.parse(header)
+              lines.forEach(take)
+            } catch (error) {
+              log(`${source.path}: ${error.message}`)
+            }
+
+            await new Promise((done) => setTimeout(done, 1000))
           }
-          await new Promise((done) => setTimeout(done, 1000))
-        }
-      })()
+        })(),
+      )
     } else {
       log(`reading from ${source.host}:${source.port} → ${options.url}`)
       followNetwork(source, take, log, stopped)
     }
   }
+
   while (!stopped()) {
     try {
       await sender.flush()
     } catch (error) {
       console.error(error.message)
+
       if (error.permanent) process.exit(1)
     }
+
     await new Promise((done) => setTimeout(done, 1000))
   }
+
+  await Promise.all(followers)
 }
 
 if (

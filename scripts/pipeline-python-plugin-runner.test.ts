@@ -8,7 +8,7 @@
  */
 import { createServer, request as httpRequest } from 'node:http'
 import { connect } from 'node:net'
-import type { AddressInfo } from 'node:net'
+import { z } from 'zod'
 import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 
@@ -36,6 +36,7 @@ import {
   hostProblem,
   requirementProblem,
 } from '../src/lib/extensions/runtime-config'
+import type { DockerCommand } from './pipeline-python-runner.mjs'
 
 const BASE = `python@sha256:${'a'.repeat(64)}`
 const ENV_IMAGE_ID = `sha256:${'b'.repeat(64)}`
@@ -50,7 +51,9 @@ const limits = {
   rows: 5_000_000,
 }
 
-const job = (extra: Record<string, unknown> = {}) => ({
+const job = (
+  extra: Record<string, z.infer<ReturnType<typeof z.json>>> = {},
+) => ({
   statement: 'def transform(i, p):\n    return []\n',
   inputs: {},
   parameters: {},
@@ -137,6 +140,7 @@ describe('containerArguments', () => {
     const args = containerArguments(BASE, 'c1', {
       limits: limitsOf(job({ limits })),
     })
+
     expect(args).toEqual(
       expect.arrayContaining([
         '--memory=8192m',
@@ -167,6 +171,7 @@ describe('containerArguments', () => {
         url: 'http://job:tok@runner:3128',
       },
     })
+
     expect(args).toContain('--network=sheetbase-egress')
     expect(args).toContain('--env=HTTPS_PROXY=http://job:tok@runner:3128')
     expect(args).toContain('--env=http_proxy=http://job:tok@runner:3128')
@@ -197,6 +202,7 @@ describe('environments', () => {
 
   it('writes only pip requirement lines, never an option', () => {
     expect(() => validateRequirements(['rdkit>=2024.3'])).not.toThrow()
+
     for (const bad of [
       '--index-url https://evil.example',
       '-r other.txt',
@@ -224,10 +230,12 @@ describe('environments', () => {
       'x @ git+https://example.org/x.git',
       '',
     ]
+
     for (const line of lines)
       expect(PLUGIN_REQUIREMENT.test(line.trim()), line).toBe(
         requirementProblem(line) === null,
       )
+
     const hosts = [
       'eutils.ncbi.nlm.nih.gov',
       '*.ebi.ac.uk',
@@ -239,14 +247,16 @@ describe('environments', () => {
       '*.org',
       'a..b.org',
     ]
+
     for (const host of hosts)
       expect(PLUGIN_HOST.test(host), host).toBe(hostProblem(host) === null)
   })
 
   it('builds from the worker image with the plugin’s packages, with network', async () => {
     const written: Record<string, string> = {}
+
     const command = vi.fn(
-      async (args: string[], options?: Record<string, unknown>) => {
+      async (args: string[], options?: Parameters<DockerCommand>[1]) => {
         const folder = args.at(-1)!
         written.requirements = readFileSync(
           `${folder}/requirements.txt`,
@@ -254,15 +264,18 @@ describe('environments', () => {
         )
         written.dockerfile = readFileSync(`${folder}/Dockerfile`, 'utf8')
         written.options = JSON.stringify(options)
+
         return { code: 0, stdout: '', stderr: '' }
       },
     )
+
     const id = await buildEnvironment(
       ['rdkit>=2024.3', 'biopython==1.84'],
       BASE,
       command,
       { pipIndexUrl: undefined },
     )
+
     expect(id).toBe(environmentId(BASE, ['rdkit>=2024.3', 'biopython==1.84']))
     const args = command.mock.calls[0][0]
     expect(args[0]).toBe('build')
@@ -282,6 +295,7 @@ describe('environments', () => {
       stdout: '',
       stderr: '',
     }))
+
     await buildEnvironment(['rdkit'], BASE, command, {
       pipIndexUrl: 'https://pypi.example.org/simple',
     })
@@ -300,6 +314,7 @@ describe('environments', () => {
       '#7 3.9 ERROR: Could not find a version that satisfies the requirement not-a-real-package (from versions: none)',
       '#7 3.9 ERROR: No matching distribution found for not-a-real-package',
     ].join('\n')
+
     await expect(
       buildEnvironment(['not-a-real-package'], BASE, async () => ({
         code: 1,
@@ -312,18 +327,23 @@ describe('environments', () => {
 
   it('builds in the background and reports where it stands', async () => {
     let built = false
+
     const command = vi.fn(async (args: string[]) => {
       if (args[0] === 'image') {
         return built
           ? { code: 0, stdout: `${ENV_IMAGE_ID}\n`, stderr: '' }
           : { code: 1, stdout: '', stderr: 'No such image' }
       }
+
       if (args[0] === 'build') {
         built = true
+
         return { code: 0, stdout: '', stderr: '' }
       }
+
       return { code: 0, stdout: '', stderr: '' }
     })
+
     const environments = createEnvironments({
       image: BASE,
       command,
@@ -332,6 +352,7 @@ describe('environments', () => {
         packages: { rdkit: '2024.9.1', numpy: '2.2.6' },
       }),
     })
+
     const first = await environments.ensure(['rdkit>=2024.3'])
     expect(first.state).toBe('building')
     await environments.idle()
@@ -350,9 +371,11 @@ describe('environments', () => {
 
   it('keeps a failed build’s reason, and builds again when asked again', async () => {
     let attempt = 0
+
     const command = vi.fn(async (args: string[]) => {
       if (args[0] === 'image') return { code: 1, stdout: '', stderr: '' }
       attempt += 1
+
       return attempt === 1
         ? {
             code: 1,
@@ -361,11 +384,13 @@ describe('environments', () => {
           }
         : { code: 0, stdout: '', stderr: '' }
     })
+
     const environments = createEnvironments({
       image: BASE,
       command,
       inspect: async () => undefined,
     })
+
     const first = await environments.ensure(['x'])
     await environments.idle()
     expect(await environments.status(first.id)).toMatchObject({
@@ -380,28 +405,34 @@ describe('environments', () => {
 
 describe('runDockerJob for a plugin', () => {
   function docker(options: { environmentBuilt?: boolean } = {}) {
-    return vi.fn(async (args: string[], _options?: Record<string, unknown>) => {
-      if (args[0] === 'image')
-        return options.environmentBuilt === false
-          ? { code: 1, stdout: '', stderr: 'No such image' }
-          : { code: 0, stdout: `${ENV_IMAGE_ID}\n`, stderr: '' }
-      if (args[0] === 'start')
-        return {
-          code: 0,
-          stdout: JSON.stringify({ rows: [{ a: 1 }], logs: ['hi'] }),
-          stderr: '',
-        }
-      return { code: 0, stdout: '', stderr: '' }
-    })
+    return vi.fn(
+      async (args: string[], _options?: Parameters<DockerCommand>[1]) => {
+        if (args[0] === 'image')
+          return options.environmentBuilt === false
+            ? { code: 1, stdout: '', stderr: 'No such image' }
+            : { code: 0, stdout: `${ENV_IMAGE_ID}\n`, stderr: '' }
+
+        if (args[0] === 'start')
+          return {
+            code: 0,
+            stdout: JSON.stringify({ rows: [{ a: 1 }], logs: ['hi'] }),
+            stderr: '',
+          }
+
+        return { code: 0, stdout: '', stderr: '' }
+      },
+    )
   }
 
   it('runs from the plugin’s own image with its limits and reports that image', async () => {
     const command = docker()
+
     const result = await runDockerJob(
       job({ limits, environment: 'pe-0123456789abcdef' }),
       BASE,
       command,
     )
+
     const create = command.mock.calls.find(([args]) => args[0] === 'create')![0]
     expect(create).toContain(ENV_IMAGE_ID)
     expect(create).toContain('--memory=8192m')
@@ -436,12 +467,15 @@ describe('runDockerJob for a plugin', () => {
     const command = docker()
     const proxy = createEgressProxy()
     let during = -1
+
     const spied = vi.fn(
-      async (args: string[], options?: Record<string, unknown>) => {
+      async (args: string[], options?: Parameters<DockerCommand>[1]) => {
         if (args[0] === 'start') during = proxy.activeGrants
+
         return command(args, options)
       },
     )
+
     await runDockerJob(
       job({ limits, network: ['eutils.ncbi.nlm.nih.gov'] }),
       BASE,
@@ -463,8 +497,10 @@ describe('runDockerJob for a plugin', () => {
   it('names the limit that was hit', async () => {
     const command = vi.fn(async (args: string[]) => {
       if (args[0] === 'start') return { code: 137, stdout: '', stderr: '' }
+
       return { code: 0, stdout: '', stderr: '' }
     })
+
     await expect(runDockerJob(job({ limits }), BASE, command)).rejects.toThrow(
       /run out of memory.*Settings → Plugins/,
     )
@@ -474,19 +510,24 @@ describe('runDockerJob for a plugin', () => {
 describe('the egress proxy', () => {
   async function listen(server: ReturnType<typeof createServer>) {
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-    return (server.address() as AddressInfo).port
+
+    return z.object({ port: z.number() }).parse(server.address()).port
   }
 
   async function setup(allowPrivate = true) {
     const target = createServer((request, response) => {
       response.end(`hello from ${request.headers.host}`)
     })
+
     const targetPort = await listen(target)
+
     const proxy = createEgressProxy({
       allowPrivate,
       resolve: async () => [{ address: '127.0.0.1' }],
     })
+
     const proxyPort = await listen(proxy.server)
+
     return {
       proxy,
       targetPort,
@@ -514,9 +555,11 @@ describe('the egress proxy', () => {
           `CONNECT ${target} HTTP/1.1\r\nHost: ${target}\r\n${token ? `Proxy-Authorization: ${auth(token)}\r\n` : ''}\r\n`,
         )
       })
+
       let received = ''
       socket.on('data', (chunk) => {
         received += chunk.toString()
+
         if (received.includes('200 Connection Established')) {
           socket.write(
             'GET / HTTP/1.1\r\nHost: api.example.org\r\nConnection: close\r\n\r\n',
@@ -531,11 +574,13 @@ describe('the egress proxy', () => {
   it('tunnels HTTPS-style CONNECT to an approved host', async () => {
     const { proxy, targetPort, proxyPort, close } = await setup()
     const grant = proxy.register(['api.example.org'])
+
     const answer = await connectThrough(
       proxyPort,
       `api.example.org:${targetPort}`,
       grant.token,
     )
+
     expect(answer).toContain('200 Connection Established')
     expect(answer).toContain('hello from api.example.org')
     grant.release()
@@ -545,6 +590,7 @@ describe('the egress proxy', () => {
   it('forwards plain http requests to an approved host', async () => {
     const { proxy, targetPort, proxyPort, close } = await setup()
     const grant = proxy.register(['*.example.org'])
+
     const body = await new Promise<{ status: number; text: string }>(
       (resolve) => {
         const req = httpRequest(
@@ -561,9 +607,11 @@ describe('the egress proxy', () => {
             res.on('end', () => resolve({ status: res.statusCode ?? 0, text }))
           },
         )
+
         req.end()
       },
     )
+
     expect(body.status).toBe(200)
     expect(body.text).toContain('hello from data.example.org')
     grant.release()
@@ -573,11 +621,13 @@ describe('the egress proxy', () => {
   it('refuses a host the administrator did not approve', async () => {
     const { proxy, targetPort, proxyPort, close } = await setup()
     const grant = proxy.register(['api.example.org'])
+
     const answer = await connectThrough(
       proxyPort,
       `other.example.net:${targetPort}`,
       grant.token,
     )
+
     expect(answer).toContain('403 Forbidden')
     grant.release()
     close()
@@ -634,6 +684,7 @@ describe('the egress proxy', () => {
       '::ffff:10.0.0.1',
     ])
       expect(isPrivateAddress(inside), inside).toBe(true)
+
     for (const outside of [
       '8.8.8.8',
       '130.14.29.110',

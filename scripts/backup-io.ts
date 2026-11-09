@@ -34,6 +34,7 @@ export async function run(
       'inherit',
     ],
   })
+
   const exited = new Promise<void>((resolve, reject) => {
     child.on('error', reject)
     child.on('close', (code) =>
@@ -42,6 +43,7 @@ export async function run(
         : reject(new Error(`${command} exited with status ${code}`)),
     )
   })
+
   await Promise.all([
     exited,
     ...(options.input && child.stdin
@@ -56,6 +58,7 @@ export async function run(
 export async function sha256File(path: string): Promise<string> {
   const hash = createHash('sha256')
   await pipeline(createReadStream(path), hash)
+
   return hash.digest('hex')
 }
 
@@ -77,13 +80,16 @@ export async function verifyBackupSet(
   const manifest = backupManifestSchema.parse(
     JSON.parse(await readFile(manifestPath, 'utf8')),
   )
+
   if (requireObjects && !manifest.objects)
     throw new Error('backup set has no object archive')
   const directory = dirname(manifestPath)
   const dump = join(directory, `${manifest.prefix}-db.sql.gz`)
+
   const objects = manifest.objects
     ? join(directory, `${manifest.prefix}-objects.tar.gz`)
     : undefined
+
   for (const [path, bytes, hash] of [
     [dump, manifest.database.dumpBytes, manifest.database.dumpSha256],
     ...(objects && manifest.objects
@@ -99,6 +105,7 @@ export async function verifyBackupSet(
     if ((await stat(path)).size !== bytes || (await sha256File(path)) !== hash)
       throw new Error('backup artifact size or sha256 does not match manifest')
   }
+
   return { manifest, dump, objects }
 }
 
@@ -106,18 +113,22 @@ export async function verifyBackupSet(
 export async function extractObjects(archive: string, directory: string) {
   // Inspect before extraction, so tar cannot follow an archive symlink or write outside the store.
   const { execFileSync } = await import('node:child_process')
+
   const listing = execFileSync('tar', ['-tzf', archive], {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   })
+
   for (const name of listing.trimEnd().split('\n')) {
     if (name.startsWith('/') || name.split('/').includes('..'))
       throw new Error('unsafe object archive path')
   }
+
   const types = execFileSync('tar', ['-tvzf', archive], {
     encoding: 'utf8',
     maxBuffer: 64 * 1024 * 1024,
   })
+
   if (
     types
       .trimEnd()
@@ -135,10 +146,12 @@ export async function extractObjects(archive: string, directory: string) {
     directory,
   ])
   const entries: { name: string; size: number; sha256: string }[] = []
+
   async function walk(dir: string): Promise<void> {
     for (const name of await readdir(dir)) {
       const full = join(dir, name)
       const info = await lstat(full)
+
       if (info.isDirectory()) await walk(full)
       else if (info.isFile())
         entries.push({
@@ -149,6 +162,8 @@ export async function extractObjects(archive: string, directory: string) {
       else throw new Error('object store contains a non-regular file')
     }
   }
+
   await walk(directory)
+
   return entries
 }

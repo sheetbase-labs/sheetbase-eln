@@ -17,29 +17,35 @@ const run = (args, options = {}) => {
     maxBuffer: 256 * 1024 * 1024,
     ...options,
   })
+
   if (result.status !== 0 && !options.allowFailure)
     throw new Error(
       `docker ${args.slice(0, 3).join(' ')} failed:\n${result.stderr}${result.stdout}`.slice(
         -3000,
       ),
     )
+
   return result
 }
+
 const out = (args, options) => run(args, options).stdout.trim()
 
 const suffix = randomBytes(3).toString('hex')
+
 const names = {
   registry: `sbci-registry-${suffix}`,
   runner: `sbci-runner-${suffix}`,
   bridge: `sbci-net-${suffix}`,
   egress: `sbci-egress-${suffix}`,
 }
+
 const token = randomBytes(24).toString('hex')
 const port = Number(process.env.RUNNER_PORT ?? 18080)
 const registryPort = Number(process.env.REGISTRY_PORT ?? 15000)
 const base = `http://127.0.0.1:${port}`
 
 const passed = []
+
 const check = (name, ok, detail = '') => {
   if (!ok) throw new Error(`FAILED: ${name}${detail ? `\n${detail}` : ''}`)
   passed.push(name)
@@ -48,31 +54,37 @@ const check = (name, ok, detail = '') => {
 
 const digestOf = (image) => {
   run(['pull', '--quiet', image])
+
   const id = out([
     'image',
     'inspect',
     '--format={{index .RepoDigests 0}}',
     image,
   ])
+
   return id
 }
 
 async function api(method, path, body) {
+  const headers = { Authorization: `Bearer ${token}` }
+
+  if (body) headers['Content-Type'] = 'application/json'
+
   const response = await fetch(`${base}${path}`, {
     method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(body ? { 'Content-Type': 'application/json' } : {}),
-    },
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   })
+
   const text = await response.text()
   let json
+
   try {
     json = JSON.parse(text)
   } catch {
     json = { raw: text }
   }
+
   return { status: response.status, body: json }
 }
 
@@ -82,12 +94,15 @@ async function waitForEnvironment(requirements, minutes) {
   const started = await api('POST', '/environments', { requirements })
   const id = started.body.id
   const deadline = Date.now() + minutes * 60_000
+
   while (Date.now() < deadline) {
     const status = await api('GET', `/environments/${id}`)
+
     if (status.body.state === 'ready' || status.body.state === 'failed')
       return status.body
     await sleep(5_000)
   }
+
   throw new Error(`Environment ${id} did not finish in ${minutes} minutes.`)
 }
 
@@ -183,12 +198,14 @@ async function main() {
     '.',
   ])
   run(['push', '--quiet', worker])
+
   const workerDigest = out([
     'image',
     'inspect',
     '--format={{index .RepoDigests 0}}',
     worker,
   ])
+
   check('the worker image builds from the pinned Python image', true)
 
   run([
@@ -242,15 +259,19 @@ async function main() {
   ])
   run(['network', 'connect', names.egress, names.runner])
   run(['start', names.runner])
+
   for (let attempt = 0; ; attempt++) {
     const runtime = await api('GET', '/runtime').catch(() => undefined)
+
     if (runtime?.status === 200) break
+
     if (attempt > 30)
       throw new Error(
         `The runner did not come up:\n${out(['logs', names.runner], { allowFailure: true })}`,
       )
     await sleep(1_000)
   }
+
   check('the runner starts and sees the worker image', true)
 
   // 1. Packages: a failing install says why, a good one is built once.
@@ -267,9 +288,11 @@ async function main() {
     environment.state === 'ready',
     JSON.stringify(environment),
   )
+
   const again = await api('POST', '/environments', {
     requirements: ['rdkit>=2024.3'],
   })
+
   check(
     'the same package list reuses the built image',
     again.status === 200 &&
@@ -283,6 +306,7 @@ async function main() {
     '/execute',
     job(rdkit, { environment: environment.id }),
   )
+
   check(
     'a sandboxed call that uses RDKit returns its answer',
     chemistry.status === 200 &&
@@ -303,6 +327,7 @@ async function main() {
     '/execute',
     job(probe, { network: ['pypi.org', '*.pythonhosted.org'] }),
   )
+
   check(
     'a call with approved hosts runs',
     probed.status === 200,
@@ -370,11 +395,13 @@ async function main() {
       },
     ),
   )
+
   check(
     'a call over its time limit is stopped',
     slow.status === 504 && slow.body.code === 'transform_timed_out',
     JSON.stringify(slow.body),
   )
+
   const hungry = await api(
     'POST',
     '/execute',
@@ -382,6 +409,7 @@ async function main() {
       'def transform(i, p):\n    data = bytearray(900 * 1024 * 1024)\n    for n in range(0, len(data), 4096):\n        data[n] = 1\n    return [{"n": len(data)}]',
     ),
   )
+
   check(
     'a call over its memory limit is stopped',
     hungry.status !== 200,
@@ -394,6 +422,7 @@ async function main() {
     inputs: {},
     parameters: {},
   })
+
   check(
     'a call with no limits of its own keeps the fixed pipeline limits',
     fixed.status === 200 &&
@@ -406,11 +435,13 @@ async function main() {
 async function cleanup() {
   for (const name of [names.runner, names.registry])
     run(['rm', '--force', name], { allowFailure: true })
+
   for (const name of [names.bridge, names.egress])
     run(['network', 'rm', name], { allowFailure: true })
 }
 
 let failed = false
+
 try {
   await main()
 } catch (error) {
@@ -421,5 +452,7 @@ try {
 } finally {
   await cleanup()
 }
+
 console.log(`${passed.length} checks passed`)
+
 process.exit(failed ? 1 : 0)

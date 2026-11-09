@@ -21,6 +21,7 @@ const ROOT = fileURLToPath(new URL('..', import.meta.url))
 const ROUTE_TREE = `${ROOT}src/routeTree.gen.ts`
 const OPENAPI = `${ROOT}docs/api/openapi/external-api-v0.json`
 const SDK = `${ROOT}sdks/python/src/sheetbase/_generated/rpc.py`
+
 // The webhook event vocabulary for the SDKs, written with the contract.
 const EVENTS = [
   `${ROOT}docs/api/openapi/events.json`,
@@ -35,9 +36,11 @@ export function ensureGenerated({ force = false } = {}) {
   // Cheap, and a new feature folder must show up at once: always rewritten
   // (only when it changes).
   generateFeatures()
+
   if (force || !existsSync(ROUTE_TREE)) {
     run('node', ['scripts/generate-routes.mjs'])
   }
+
   if (
     force ||
     !existsSync(OPENAPI) ||

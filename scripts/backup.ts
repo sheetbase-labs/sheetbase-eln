@@ -14,30 +14,38 @@ import {
 import { atomicWrite, run, sha256File, verifyBackupSet } from './backup-io'
 
 process.umask(0o077)
+
 const composeProject =
   process.env.SHEETBASE_COMPOSE_PROJECT ??
   process.env.COMPOSE_PROJECT_NAME ??
   'sheetbase-deploy'
+
 const backupDir = resolve(
   process.env.SHEETBASE_BACKUP_DIR ?? '/opt/sheetbase/backups',
 )
+
 const local = process.env.SHEETBASE_BACKUP_LOCAL === 'true'
 const includeObjects = process.env.SHEETBASE_BACKUP_INCLUDE_OBJECTS !== 'false'
+
 const retentionDays = Number(
   process.env.SHEETBASE_BACKUP_RETENTION_DAYS ?? '14',
 )
+
 const postgresImage = process.env.SHEETBASE_DRILL_IMAGE ?? 'postgres:18-alpine'
 const postgresContainer = `${composeProject}-postgres-1`
 
 function required(name: string): string {
   const value = process.env[name]
+
   if (!value) throw new Error(`${name} is required for backup`)
+
   return value
 }
 
 async function main(): Promise<void> {
   const postgresUser = required('POSTGRES_USER')
   const postgresDb = required('POSTGRES_DB')
+
   if (!Number.isInteger(retentionDays) || retentionDays < 0)
     throw new Error('invalid backup retention')
   const startedAt = new Date()
@@ -47,6 +55,7 @@ async function main(): Promise<void> {
   // Serialise the store so an older, slower run cannot replace a newer pointer.
   const lock = join(backupDir, '.backup.lock')
   await mkdir(lock, { mode: 0o700 })
+
   try {
     const dumpPath = join(backupDir, `${prefix}-db.sql.gz`)
     const gzip = createGzip()
@@ -69,8 +78,10 @@ async function main(): Promise<void> {
       pipeline(gzip, createWriteStream(dumpPath, { flags: 'wx', mode: 0o600 })),
     ])
     let objects: BackupManifest['objects'] = null
+
     if (includeObjects) {
       const objectsPath = join(backupDir, `${prefix}-objects.tar.gz`)
+
       if (local) {
         await run('tar', [
           '-czf',
@@ -102,13 +113,16 @@ async function main(): Promise<void> {
           '.',
         ])
       }
+
       await chmod(objectsPath, 0o600)
       objects = {
         archiveBytes: (await stat(objectsPath)).size,
         archiveSha256: await sha256File(objectsPath),
       }
     }
+
     const finishedAt = new Date()
+
     const manifest = backupManifestSchema.parse({
       formatVersion: 2,
       permissions: 'preserved',
@@ -126,6 +140,7 @@ async function main(): Promise<void> {
       objects,
       retentionDays,
     })
+
     const manifestPath = join(backupDir, `${prefix}-manifest.json`)
     await atomicWrite(manifestPath, JSON.stringify(manifest, null, 2) + '\n')
     await verifyBackupSet(manifestPath, includeObjects)
@@ -134,6 +149,7 @@ async function main(): Promise<void> {
       JSON.stringify({ prefix, finishedAt: manifest.finishedAt }) + '\n',
     )
     const files = await readdir(backupDir)
+
     for (const expired of selectExpiredBackupPrefixes(
       files,
       finishedAt,
@@ -147,7 +163,9 @@ async function main(): Promise<void> {
           await rm(join(backupDir, file), { force: true })
       }
     }
+
     const metrics = process.env.SHEETBASE_METRICS_TEXTFILE_DIR
+
     if (metrics)
       await atomicWrite(
         join(metrics, 'sheetbase_backup.prom'),

@@ -3,7 +3,7 @@
  * fails, the packages its image provides, and the environment a run used. It also
  * refuses a requirement it could be talked into fetching.
  */
-import type { AddressInfo } from 'node:net'
+import { z } from 'zod'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -17,6 +17,7 @@ import type { DockerCommand } from './pipeline-python-runner.mjs'
 
 const IMAGE = `registry.example/sheetbase-python@sha256:${'b'.repeat(64)}`
 const TOKEN = 'x'.repeat(40)
+
 const job = {
   statement: 'def transform(i, p): return []',
   inputs: {},
@@ -56,9 +57,45 @@ describe('validateJob', () => {
     expect(() => validateJob({ ...job, mode: 'inspect' })).toThrow(RunnerError)
     expect(() => validateJob({ ...job, contract: [] })).toThrow(RunnerError)
   })
+
+  it.each([
+    null,
+    [],
+    { ...job, statement: 42 },
+    { ...job, inputs: [] },
+    { ...job, inputs: { data: [null] } },
+    { ...job, parameters: [] },
+    { ...job, limits: { timeoutSeconds: '60' } },
+    { ...job, network: [42] },
+  ])('rejects malformed untrusted job payload %j', (payload) => {
+    expect(() => validateJob(payload)).toThrow(RunnerError)
+  })
 })
 
 describe('runDockerJob', () => {
+  it.each(['transport', 'exit-code'])(
+    'fails closed when cleanup fails by %s',
+    async (failure) => {
+      const command: DockerCommand = async (args) => {
+        if (args[0] === 'rm') {
+          if (failure === 'transport') throw new Error('Docker unavailable')
+
+          return { code: 1, stdout: '', stderr: 'permission denied' }
+        }
+
+        if (args[0] === 'start')
+          throw new RunnerError('timed out', 504, 'transform_timed_out')
+
+        return { code: 0, stdout: '', stderr: '' }
+      }
+
+      await expect(runDockerJob(job, IMAGE, command)).rejects.toMatchObject({
+        status: 503,
+        code: 'cleanup_failed',
+      })
+    },
+  )
+
   it('keeps the logs and failing line of a step that failed', async () => {
     const command = docker(
       JSON.stringify({
@@ -68,11 +105,15 @@ describe('runDockerJob', () => {
       }),
       1,
     )
+
     const error = await runDockerJob(job, IMAGE, command).catch(
       (cause: unknown) => cause,
     )
+
     expect(error).toBeInstanceOf(RunnerError)
-    expect((error as RunnerError).details).toEqual({
+
+    if (!(error instanceof RunnerError)) throw error
+    expect(error.details).toEqual({
       logs: ['a', 'b'],
       line: 7,
     })
@@ -83,9 +124,12 @@ describe('runDockerJob', () => {
       JSON.stringify({ error: 'boom', logs: [1, 2], line: -3 }),
       1,
     )
-    const error = (await runDockerJob(job, IMAGE, command).catch(
+
+    const error = await runDockerJob(job, IMAGE, command).catch(
       (cause: unknown) => cause,
-    )) as RunnerError
+    )
+
+    if (!(error instanceof RunnerError)) throw error
     expect(error.details).toEqual({})
   })
 
@@ -97,6 +141,7 @@ describe('runDockerJob', () => {
         environment: { python: '3.12.8', packages: { numpy: '2.2.6' } },
       }),
     )
+
     const result = await runDockerJob(job, IMAGE, command)
     expect(result.environment).toEqual({
       python: '3.12.8',
@@ -112,6 +157,7 @@ describe('inspectRuntime', () => {
         environment: { python: '3.12.8', packages: { pandas: '2.2.3' } },
       }),
     )
+
     expect(await inspectRuntime(IMAGE, command)).toEqual({
       python: '3.12.8',
       packages: { pandas: '2.2.3' },
@@ -133,7 +179,8 @@ describe('runner server', () => {
     const server = createRunnerServer(options)
     servers.push(server)
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-    const { port } = server.address() as AddressInfo
+    const { port } = z.object({ port: z.number() }).parse(server.address())
+
     return (path: string, init: RequestInit = {}) =>
       fetch(`http://127.0.0.1:${port}${path}`, {
         ...init,
@@ -151,10 +198,8 @@ describe('runner server', () => {
       checkRuntime: async () => undefined,
       inspect: async () => ({ python: '3.12.8', packages: { numpy: '2.2.6' } }),
     })
-    const body = (await (await call('/runtime')).json()) as Record<
-      string,
-      unknown
-    >
+
+    const body: unknown = await (await call('/runtime')).json()
     expect(body).toEqual({
       runtime: IMAGE,
       python: '3.12.8',
@@ -169,6 +214,7 @@ describe('runner server', () => {
       checkRuntime: async () => undefined,
       inspect: async () => undefined,
     })
+
     expect(await (await call('/runtime')).json()).toEqual({ runtime: IMAGE })
   })
 
@@ -183,10 +229,12 @@ describe('runner server', () => {
         })
       },
     })
+
     const response = await call('/execute', {
       method: 'POST',
       body: JSON.stringify(job),
     })
+
     expect(response.status).toBe(422)
     expect(await response.json()).toMatchObject({
       error: 'ValueError: bad',
@@ -205,10 +253,12 @@ describe('runner server', () => {
         environment: { python: '3.12.8', packages: { scipy: '1.15.3' } },
       }),
     })
+
     const response = await call('/execute', {
       method: 'POST',
       body: JSON.stringify(job),
     })
+
     expect(await response.json()).toMatchObject({
       rows: [{ a: 1 }],
       environment: { python: '3.12.8', packages: { scipy: '1.15.3' } },

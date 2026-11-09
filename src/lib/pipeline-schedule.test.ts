@@ -97,7 +97,7 @@ describe('validateScheduleSpec', () => {
       'notebook.amended',
       'project.created',
       'record.amended',
-      'workspace.settings.updated',
+      'workspace.settings_access.changed',
       'storage_movement',
       'future.unknown',
     ]) {
@@ -126,10 +126,12 @@ describe('PIPELINE_TRIGGER_EVENTS', () => {
           entry.name === 'qc.violation' ||
           // A worklist queued for a robot and a schedule asked for.
           entry.name === 'instrument.job.queued' ||
-          entry.name === 'schedule.proposed'),
+          entry.name === 'schedule.proposed' ||
+          // People, access and client changes start pipelines too.
+          (entry.introducedIn === 'people-01' && entry.consumers.pipeline)),
     ).map((entry) => entry.name)
     expect([...PIPELINE_TRIGGER_EVENTS].sort()).toEqual(expected.sort())
-    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(58)
+    expect(PIPELINE_TRIGGER_EVENTS).toHaveLength(expected.length)
   })
 
   it('normalizes every triggerable name to itself', () => {

@@ -1,7 +1,7 @@
 /**
  * Words for the experiments feature, read as `t('features.experiments.…')`.
- * `cards` holds the buttons on the assistant's experiment, alias, plan and
- * label template cards.
+ * `cards` holds the buttons on the assistant's experiment, alias and label
+ * template cards.
  */
 export const copy = {
   cards: {
@@ -24,11 +24,6 @@ export const copy = {
       apply: 'Delete draft',
       applying: 'Deleting…',
       applied: 'Draft deleted',
-    },
-    planFromProject: {
-      apply: 'Copy plan',
-      applying: 'Copying…',
-      applied: 'Plan copied',
     },
     addAlias: {
       apply: 'Add name',

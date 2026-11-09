@@ -7,8 +7,7 @@ import {
 import { recordPath } from './navigation'
 
 /**
- * Runs an experiment, alias, project plan or label template card's action as
- * the person. Loaded only in the browser, when a button is pressed.
+ * Runs an experiment, alias or label template card's action as the person. Loaded only in the browser, when a button is pressed.
  */
 export async function runExperimentAction(
   client: DataClient,
@@ -40,13 +39,6 @@ export async function runExperimentAction(
         p_record_id: action.recordId,
       })
       return
-    case 'experiments.plan_from':
-      await client.rpc('create_plan_from_project', {
-        p_target_project_id: action.targetProjectId,
-        p_source_project_id: action.sourceProjectId,
-        p_start_date: action.startDate,
-      })
-      return { openHref: `/projects/${action.targetProjectId}` }
     case 'experiments.alias_add':
       await client.rpc('add_record_alias', {
         p_record_id: action.recordId,

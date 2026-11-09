@@ -1,6 +1,6 @@
 /**
- * Experiments, reviews, record aliases, formulas, label templates and the
- * record timeline on the token API, MCP, the assistant and pipelines. One
+ * Experiments, reviews, record aliases, formulas and label templates on the
+ * token API, MCP, the assistant and pipelines. One
  * declaration each (see `docs/development/adding-an-operation.md`).
  *
  * What stays in the app: the review steps that run in a signed-in session
@@ -157,24 +157,7 @@ export const EXPERIMENT_OPERATIONS = defineOperations([
     ],
     result: 'rows:status=text,archived=bool,total=int,mine=int',
   },
-  {
-    name: 'create_plan_from_project',
-    label: 'Plan a project from another',
-    summary: 'Copy a project’s plan into another project',
-    description:
-      'Copies the planned experiments and tasks of one project into another, starting on a date, with their gaps kept.',
-    kind: 'write',
-    scope: 'projects:write',
-    inputs: [
-      note(input('p_target_project_id', 'uuid'), 'The project to plan.'),
-      note(input('p_source_project_id', 'uuid'), 'The project to copy.'),
-      note(input('p_start_date', 'date'), 'When the copied plan starts.'),
-    ],
-    result: 'json',
-    assistant: { tool: 'sheetbase.project.plan_from' },
-    pipeline: {},
-  },
-  // -- Records: aliases, timeline, trail, delete preview -----------------------
+  // -- Records: aliases and the delete preview ---------------------------------
   {
     name: 'add_record_alias',
     label: 'Add another name to a record',
@@ -214,36 +197,6 @@ export const EXPERIMENT_OPERATIONS = defineOperations([
     inputs: [RECORD_ID, ALIAS],
     result: 'void',
     assistant: { tool: 'sheetbase.record.remove_alias' },
-    pipeline: {},
-  },
-  {
-    name: 'record_timeline',
-    label: 'Read a record’s timeline',
-    summary: 'Everything that happened to a record',
-    description:
-      'A record’s history in order: edits, status changes, links, reviews and signatures.',
-    kind: 'read',
-    scope: 'projects:read',
-    inputs: [RECORD_ID],
-    result: 'json',
-  },
-  {
-    name: 'save_trail_evidence',
-    label: 'Save a trail of steps on a record',
-    summary: 'Keep a trail of steps as evidence on a record',
-    description:
-      'Saves the steps that led to a result, such as the records and datasets followed, as evidence on the record. Saved trails cannot be changed.',
-    kind: 'write',
-    scope: 'projects:write',
-    inputs: [
-      RECORD_ID,
-      note(
-        input('p_steps', 'json'),
-        'The steps, as a JSON list of `{ kind, id, label }`.',
-      ),
-      note(input('p_note', 'text', false, true), 'A note.'),
-    ],
-    result: 'row:trail_evidence',
     pipeline: {},
   },
   {

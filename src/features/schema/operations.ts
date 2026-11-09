@@ -628,30 +628,6 @@ export const SCHEMA_OPERATIONS = defineOperations([
       'rows:id=uuid,model_key=text,name=text,field_keys=text[],condition=json,effect=text,message=text,created_at=ts,updated_at=ts',
   },
   {
-    name: 'reporting_models',
-    label: 'List the record type SQL views',
-    summary: 'List the SQL views for record types',
-    description:
-      'For data stewards: the SQL view that holds each record type, with its kind and parent type. Empty for anyone without data access.',
-    kind: 'read',
-    scope: SCHEMA_READ,
-    inputs: [],
-    result:
-      'rows:model_key=text,model_name=text,view_name=text,kind=text,parent_key=text',
-  },
-  {
-    name: 'reporting_columns',
-    label: 'List the record type SQL columns',
-    summary: 'List the columns of the record type SQL views',
-    description:
-      'For data stewards: each column of the record type SQL views, with the field it comes from, its label, SQL type and unit. Empty for anyone without data access.',
-    kind: 'read',
-    scope: SCHEMA_READ,
-    inputs: [],
-    result:
-      'rows:model_key=text,view_name=text,field_key=text,column_name=text,label=text,sql_type=text,unit=text,ordinal=int',
-  },
-  {
     name: 'create_model_rule',
     label: 'Add a rule to a record type',
     summary: 'Add a rule to a record type',

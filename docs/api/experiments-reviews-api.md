@@ -1,20 +1,20 @@
 # Experiments, reviews and records API
 
-Starting and moving experiments, recording what they showed, planning a
-project from another, other names for records, saved trails, the timeline,
-formulas, label templates and the review history. For a token, over MCP
+Starting and moving experiments, recording what they showed, other names for
+records, formulas, label templates and the review history. Planning a project
+from another, saved trails and the timeline are in the projects pages. For a token, over MCP
 (`sheetbase.lab.act`, `sheetbase.canonical.read`), from a pipeline step and,
 for the everyday changes, from the assistant as a confirm card.
 
 ## Scopes
 
-| Scope            | What it covers                                                                                                   |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `projects:read`  | Experiment readiness and counts, the timeline, aliases, saved trails, formulas, a hard delete preview.           |
-| `projects:write` | Starting an experiment, changing its status, recording its outcome, aliases, trails, planning, deleting a draft. |
-| `reviews:read`   | Review workflows, submissions, check results, a revision's evidence and what moved since.                        |
-| `lab:read`       | Label templates.                                                                                                 |
-| `lab:write`      | Archiving a label template, recording a QC check on an instrument run.                                           |
+| Scope            | What it covers                                                                                 |
+| ---------------- | ---------------------------------------------------------------------------------------------- |
+| `projects:read`  | Experiment readiness and counts, aliases, formulas, a hard delete preview.                     |
+| `projects:write` | Starting an experiment, changing its status, recording its outcome, aliases, deleting a draft. |
+| `reviews:read`   | Review workflows, submissions, check results, a revision's evidence and what moved since.      |
+| `lab:read`       | Label templates.                                                                               |
+| `lab:write`      | Archiving a label template, recording a QC check on an instrument run.                         |
 
 These run as the person a personal token belongs to, so the person still
 needs the right to do them.
@@ -40,12 +40,6 @@ instrument events.
 Other names a record is known by, such as a supplier code. Add and remove them with `add_record_alias` and `remove_record_alias`.
 
 Scope: `projects:read`. Columns: `id`, `workspace_id`, `record_id`, `alias`, `created_at`, `updated_at`, `created_by_user_id`.
-
-### `trail_evidence`
-
-Trails of steps saved as evidence on a record with `save_trail_evidence`. A saved trail cannot be changed.
-
-Scope: `projects:read`, personal tokens only. Columns: `id`, `workspace_id`, `record_id`, `steps`, `note`, `saved_by_user_id`, `created_at`.
 
 ### `formula_definitions`
 
@@ -181,20 +175,6 @@ Scope: `projects:read`. Returns `rows:status=text,archived=bool,total=int,mine=i
 | `p_match_project_ids` | uuid[] | no       | Projects to match. |
 | `p_match_owner_ids`   | text[] | no       | Owners to match.   |
 
-### `create_plan_from_project`
-
-Copy a project’s plan into another project
-
-Copies the planned experiments and tasks of one project into another, starting on a date, with their gaps kept.
-
-Scope: `projects:write`. Returns `json`.
-
-| Parameter             | Type | Required | Notes                        |
-| --------------------- | ---- | -------- | ---------------------------- |
-| `p_target_project_id` | uuid | yes      | The project to plan.         |
-| `p_source_project_id` | uuid | yes      | The project to copy.         |
-| `p_start_date`        | date | yes      | When the copied plan starts. |
-
 ### `add_record_alias`
 
 Add an alias to a record
@@ -225,32 +205,6 @@ Scope: `projects:write`. Returns `void`.
 | ------------- | ---- | -------- | ------------------------------------------------------------- |
 | `p_record_id` | uuid | yes      | The record id.                                                |
 | `p_alias`     | text | yes      | Another name the record is known by, such as a supplier code. |
-
-### `record_timeline`
-
-Everything that happened to a record
-
-A record’s history in order: edits, status changes, links, reviews and signatures.
-
-Scope: `projects:read`. Returns `json`.
-
-| Parameter     | Type | Required | Notes          |
-| ------------- | ---- | -------- | -------------- |
-| `p_record_id` | uuid | yes      | The record id. |
-
-### `save_trail_evidence`
-
-Keep a trail of steps as evidence on a record
-
-Saves the steps that led to a result, such as the records and datasets followed, as evidence on the record. Saved trails cannot be changed.
-
-Scope: `projects:write`. Returns `row:trail_evidence`.
-
-| Parameter     | Type | Required | Notes                                               |
-| ------------- | ---- | -------- | --------------------------------------------------- |
-| `p_record_id` | uuid | yes      | The record id.                                      |
-| `p_steps`     | json | yes      | The steps, as a JSON list of `{ kind, id, label }`. |
-| `p_note`      | text | no       | A note.                                             |
 
 ### `preview_hard_delete`
 

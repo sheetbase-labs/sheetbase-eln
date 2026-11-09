@@ -9,7 +9,6 @@ import {
   EXPERIMENT_START_TOOL,
   EXPERIMENT_STATUS_TOOL,
   LABEL_TEMPLATE_ARCHIVE_TOOL,
-  PLAN_FROM_PROJECT_TOOL,
   proposeAliasAddSchema,
   proposeAliasRemoveSchema,
   proposeExperimentDeleteDraftSchema,
@@ -17,7 +16,6 @@ import {
   proposeExperimentStartSchema,
   proposeExperimentStatusSchema,
   proposeLabelTemplateArchiveSchema,
-  proposePlanFromProjectSchema,
 } from './assistant-experiments'
 import type {
   ExperimentAction,
@@ -31,7 +29,7 @@ import type { DataClient } from './data-client'
 import { recordPath } from './navigation'
 
 /**
- * Experiments, record aliases, project plans and label templates from the
+ * Experiments, record aliases and label templates from the
  * assistant (see `assistant-experiments.ts`). Each builder finds what the
  * person named under their own access and returns a card saying exactly what
  * will change. Nothing is written here.
@@ -71,11 +69,6 @@ export function experimentProposalDefs(): ProviderToolDef[] {
       EXPERIMENT_DELETE_DRAFT_TOOL,
       `Propose deleting a draft experiment that was never submitted. Only its author or an admin can. ${NOTE}`,
       proposeExperimentDeleteDraftSchema,
-    ),
-    toolDef(
-      PLAN_FROM_PROJECT_TOOL,
-      `Propose copying the planned experiments and tasks of one project into another, starting on a date. ${NOTE}`,
-      proposePlanFromProjectSchema,
     ),
     toolDef(
       ALIAS_ADD_TOOL,
@@ -148,26 +141,6 @@ async function findRecord(
     (row) =>
       row.identifier.toLowerCase() === lower ||
       row.title.toLowerCase() === lower,
-  )
-}
-
-async function findProject(
-  client: DataClient,
-  text: string,
-): Promise<Lookup<{ id: string; key: string; title: string }>> {
-  const like = likeValue(text)
-  const rows = await client.list<{ id: string; key: string; title: string }>(
-    'projects',
-    `?archived_at=is.null&or=(key.ilike.${like},title.ilike.${like})&select=id,key,title&order=title.asc&limit=6`,
-  )
-  const lower = text.trim().toLowerCase()
-  return pick(
-    rows,
-    text,
-    'project',
-    (row) => row.title,
-    (row) =>
-      row.key.toLowerCase() === lower || row.title.toLowerCase() === lower,
   )
 }
 
@@ -338,34 +311,6 @@ export async function buildExperimentProposal(
           { label: 'Experiment', before: label(row), after: 'Deleted' },
         ],
         action: { kind: 'experiments.delete_draft', recordId: row.id },
-      })
-    }
-    case PLAN_FROM_PROJECT_TOOL: {
-      const input = parse(proposePlanFromProjectSchema, args)
-      if (!input.ok) return fail(input.message)
-      const target = await findProject(client, input.data.project)
-      if (!target.ok) return fail(target.message)
-      const source = await findProject(client, input.data.from)
-      if (!source.ok) return fail(source.message)
-      if (target.value.id === source.value.id)
-        return fail('Name two different projects.')
-      return card(name, input.data, {
-        target: target.value.title,
-        deepLink: `/projects/${target.value.id}`,
-        changes: [
-          {
-            label: 'Plan copied from',
-            before: null,
-            after: source.value.title,
-          },
-          { label: 'Starts', before: null, after: input.data.startDate },
-        ],
-        action: {
-          kind: 'experiments.plan_from',
-          targetProjectId: target.value.id,
-          sourceProjectId: source.value.id,
-          startDate: input.data.startDate,
-        },
       })
     }
     case ALIAS_ADD_TOOL:

@@ -229,6 +229,11 @@ export const notebook = {
         applying: 'Making…',
         applied: 'Group made',
       },
+      deleteGroup: {
+        apply: 'Delete group',
+        applying: 'Deleting…',
+        applied: 'Group deleted',
+      },
       groupMember: {
         apply: 'Update group',
         applying: 'Saving…',

@@ -169,3 +169,13 @@ describe('people events', () => {
     expect(events.rows.length).toBeGreaterThan(0)
   })
 })
+
+describe('agent guardrails', () => {
+  it('lets agents delete a group but not a record', async () => {
+    const rows = await migrator.query<{ g: boolean; r: boolean }>(
+      `SELECT internal.agent_action_always_never('delete_workspace_group') AS g,
+              internal.agent_action_always_never('delete_record') AS r`,
+    )
+    expect(rows.rows[0]).toEqual({ g: false, r: true })
+  })
+})

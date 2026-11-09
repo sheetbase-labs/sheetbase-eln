@@ -158,6 +158,7 @@ const ACTION_COPY = {
   'access.revoke': 'revokeAccess',
   'access.decide': 'decideAccess',
   'group.create': 'createGroup',
+  'group.delete': 'deleteGroup',
   'group.member': 'groupMember',
   'workspace.rename': 'renameWorkspace',
   'workspace.general': 'saveGeneral',

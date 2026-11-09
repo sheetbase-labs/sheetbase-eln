@@ -26,6 +26,7 @@ export const ACCESS_GRANT_TOOL = 'sheetbase.project_access.grant'
 export const ACCESS_REVOKE_TOOL = 'sheetbase.project_access.revoke'
 export const ACCESS_DECIDE_TOOL = 'sheetbase.project_access.decide'
 export const GROUP_CREATE_TOOL = 'sheetbase.group.create'
+export const GROUP_DELETE_TOOL = 'sheetbase.group.delete'
 export const GROUP_MEMBER_TOOL = 'sheetbase.group.set_member'
 export const WORKSPACE_RENAME_TOOL = 'sheetbase.workspace.rename'
 export const WORKSPACE_GENERAL_TOOL = 'sheetbase.workspace.general'
@@ -50,6 +51,7 @@ export type PeopleProposeToolName =
   | typeof ACCESS_REVOKE_TOOL
   | typeof ACCESS_DECIDE_TOOL
   | typeof GROUP_CREATE_TOOL
+  | typeof GROUP_DELETE_TOOL
   | typeof GROUP_MEMBER_TOOL
   | typeof WORKSPACE_RENAME_TOOL
   | typeof WORKSPACE_GENERAL_TOOL
@@ -158,6 +160,10 @@ export const proposeGroupCreateSchema = z
   })
   .strict()
 
+export const proposeGroupDeleteSchema = z
+  .object({ title, summary, group: z.string().min(1).max(120) })
+  .strict()
+
 export const proposeGroupMemberSchema = z
   .object({
     title,
@@ -259,6 +265,7 @@ export type PeopleAction =
       projectId: string
     }
   | { kind: 'group.create'; name: string }
+  | { kind: 'group.delete'; groupId: string }
   | { kind: 'group.member'; groupId: string; userId: string; isMember: boolean }
   | { kind: 'workspace.rename'; workspaceId: string; name: string }
   | {
@@ -285,6 +292,7 @@ const KINDS: readonly string[] = [
   'access.revoke',
   'access.decide',
   'group.create',
+  'group.delete',
   'group.member',
   'workspace.rename',
   'workspace.general',

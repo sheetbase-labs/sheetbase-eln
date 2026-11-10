@@ -367,12 +367,12 @@ export function LinkToPills({ items }: { items: LinkToItem[] }) {
 
   return (
     <div className="flex flex-wrap gap-1.5">
-      {items.map((item, i) => {
+      {items.map((item) => {
         const iconName = item.icon ?? 'link'
 
         return (
           <Button
-            key={i}
+            key={item.label}
             type="button"
             size="sm"
             variant="secondary"

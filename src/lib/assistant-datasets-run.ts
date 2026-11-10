@@ -153,13 +153,14 @@ export async function runDatasetsAction(
 
       return { openHref: `/datasets/${action.datasetId}/snapshots` }
     case 'dataset.plan_rows':
-      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each planned key is its own write; they stay one at a time so a refusal stops the loop and the keys after it stay unplanned.
-      for (const key of action.keys)
+      for (const key of action.keys) {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each planned key is its own write; they stay one at a time so a refusal stops the loop and the keys after it stay unplanned.
         await client.rpc('plan_dataset_row', {
           p_dataset_id: action.datasetId,
           p_scheduled_at: action.scheduledAt,
           p_planned_key: key,
         })
+      }
 
       return { openHref: datasetHref(action.datasetId) }
     case 'intake.resolve':

@@ -3,6 +3,7 @@
  * never import into client-only modules.
  */
 import { and, eq, inArray, sql } from 'drizzle-orm'
+import { z } from 'zod'
 
 import { db } from '#/db/client.server'
 import * as schema from '#/db/schema'
@@ -88,21 +89,23 @@ export async function listAccessContacts(
     .map(({ name, email, role }) => ({ name, email, role }))
 }
 
-/** The display choices kept in the person's `preferences` document. */
-function displayPreferencesOf(preferences: unknown): {
-  clock: '12h' | '24h'
-  alwaysShowLayout: boolean
-} {
-  const value =
-    preferences && typeof preferences === 'object'
-      ? (preferences as Record<string, unknown>)
-      : {}
+/**
+ * The display choices kept in the person's `preferences` document. The column
+ * is JSONB, so anything that is not one of these choices reads as the default.
+ */
+const DISPLAY_PREFERENCES = z
+  .object({
+    clock: z.enum(['12h', '24h']).catch('24h'),
+    alwaysShowLayout: z.boolean().catch(false),
+  })
+  .catch({ clock: '24h', alwaysShowLayout: false })
 
-  return {
-    clock: value.clock === '12h' ? '12h' : '24h',
-    alwaysShowLayout: value.alwaysShowLayout === true,
-  }
-}
+/** One `api.settings_access` row, as the query below selects it. */
+const SETTINGS_ACCESS_ROW = z.object({
+  area: z.string(),
+  role: z.string(),
+  level: z.string(),
+})
 
 /** Returns the signed-in user and their active workspace, or null. */
 export async function getCurrentContext(
@@ -152,14 +155,7 @@ export async function getCurrentContext(
                AND role = ${membership.role}
           `,
             )
-            .then(
-              (result) =>
-                result.rows as Array<{
-                  area: string
-                  role: string
-                  level: string
-                }>,
-            )
+            .then((result) => z.array(SETTINGS_ACCESS_ROW).parse(result.rows))
         : undefined,
       membership && suspended ? listAccessContacts(membership.workspaceId) : [],
     ])
@@ -168,6 +164,8 @@ export async function getCurrentContext(
     membership && settingsAccessRows
       ? resolveSettingsAccess(membership.role, settingsAccessRows)
       : undefined
+
+  const displayPreferences = DISPLAY_PREFERENCES.parse(preference?.preferences)
 
   return {
     user: {
@@ -188,9 +186,8 @@ export async function getCurrentContext(
       : null,
     accessContacts,
     timeZone: preference?.timezone ?? workspaceSettings?.timezone ?? 'UTC',
-    clock: displayPreferencesOf(preference?.preferences).clock,
-    alwaysShowLayout: displayPreferencesOf(preference?.preferences)
-      .alwaysShowLayout,
+    clock: displayPreferences.clock,
+    alwaysShowLayout: displayPreferences.alwaysShowLayout,
     workspaces: memberships.map((item) => ({
       id: item.workspace.id,
       slug: item.workspace.slug,

@@ -94,7 +94,7 @@ describe('sectionForBlockType', () => {
     ]
 
     for (const type of knownTypes) {
-      expect(BLOCK_SECTION_MAP[type]).toBeDefined()
+      expect(BLOCK_SECTION_MAP.get(type)).toBeDefined()
     }
   })
 })

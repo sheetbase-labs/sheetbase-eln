@@ -83,18 +83,18 @@ export function relationships(
   return map
 }
 
-const IMAGE_TYPES: Record<string, string> = {
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  gif: 'image/gif',
-  webp: 'image/webp',
-  bmp: 'image/bmp',
-}
+const IMAGE_TYPES: ReadonlyMap<string, string> = new Map([
+  ['png', 'image/png'],
+  ['jpg', 'image/jpeg'],
+  ['jpeg', 'image/jpeg'],
+  ['gif', 'image/gif'],
+  ['webp', 'image/webp'],
+  ['bmp', 'image/bmp'],
+])
 
 /** Media type of an embedded picture a browser can draw, else null. */
 export function imageTypeOf(part: string): string | null {
   const extension = part.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1]
 
-  return extension ? (IMAGE_TYPES[extension] ?? null) : null
+  return extension ? (IMAGE_TYPES.get(extension) ?? null) : null
 }

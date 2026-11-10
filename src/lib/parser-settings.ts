@@ -1,15 +1,18 @@
 import type { DataClient } from './data-client'
-import type { z } from 'zod'
+import { z } from 'zod'
 
 export type ParserVersionStatus = 'draft' | 'validated' | 'approved' | 'retired'
+
+/** A stored parser definition box: header names, layout and field mapping. */
+export type ParserDefinition = Record<string, z.core.util.JSONType>
 
 export interface ParserSettingsVersion {
   id: string
   version: number
   status: ParserVersionStatus
-  signature: Record<string, z.core.util.JSONType>
-  mapping: Record<string, unknown>
-  test_result: Record<string, unknown> | null
+  signature: ParserDefinition
+  mapping: ParserDefinition
+  test_result: ParserDefinition | null
   validated_at: string | null
   approved_at: string | null
   approved_by_user_id: string | null
@@ -47,8 +50,8 @@ export function createParserDraft(
     format: string
     version: number
     instrumentId: string | null
-    signature: Record<string, unknown>
-    mapping: Record<string, unknown>
+    signature: ParserDefinition
+    mapping: ParserDefinition
   },
 ) {
   return client.rpc<{
@@ -101,27 +104,56 @@ export async function fetchParserTestFiles(
   return [...target, ...recent]
 }
 
+/** The reply `/api/parsers/validate` answers with. */
+const parserValidationReplySchema = z.object({
+  ok: z.boolean(),
+  validation: z.object({ errors: z.array(z.string()).optional() }).nullish(),
+  error: z.object({ message: z.string() }).optional(),
+})
+
+export type ParserValidationReply = z.infer<typeof parserValidationReplySchema>
+
+/** The error envelope `requestErrorResponse` answers with. */
+const requestErrorEnvelopeSchema = z.object({
+  error: z.object({ code: z.string(), message: z.string() }),
+})
+
 export async function validateParserVersion(
   parserVersionId: string,
   fileId: string,
-) {
+): Promise<ParserValidationReply> {
   const response = await fetch('/api/parsers/validate', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ parserVersionId, fileId }),
   })
 
-  const body = (await response.json()) as {
-    ok: boolean
-    validation?: { errors?: string[] }
-    error?: { message: string }
+  if (!response.ok) {
+    const refusal = requestErrorEnvelopeSchema.safeParse(
+      await response.json().catch(() => null),
+    )
+
+    throw new Error(
+      refusal.success
+        ? refusal.data.error.message
+        : 'Parser validation failed.',
+    )
   }
 
-  if (!response.ok)
-    throw new Error(body.error?.message ?? 'Parser validation failed.')
+  const body = parserValidationReplySchema.safeParse(
+    await response.json().catch(() => null),
+  )
 
-  return body
+  if (!body.success) throw new Error('Parser validation failed.')
+
+  return body.data
 }
+
+/** The reply `/api/parsers/request-update` answers with. */
+const parserUpdateReplySchema = z.object({
+  ok: z.boolean(),
+  error: z.object({ message: z.string() }).optional(),
+})
 
 export async function requestParserUpdate(fileId: string) {
   const response = await fetch('/api/parsers/request-update', {
@@ -130,17 +162,29 @@ export async function requestParserUpdate(fileId: string) {
     body: JSON.stringify({ fileId }),
   })
 
-  const body = (await response.json()) as {
-    ok: boolean
-    error?: { message: string }
-  }
-
-  if (!response.ok || body.ok !== true)
-    throw new Error(
-      body.error?.message ?? 'The parser update request was not recorded.',
+  if (!response.ok) {
+    const refusal = requestErrorEnvelopeSchema.safeParse(
+      await response.json().catch(() => null),
     )
 
-  return body
+    throw new Error(
+      refusal.success
+        ? refusal.data.error.message
+        : 'The parser update request was not recorded.',
+    )
+  }
+
+  const body = parserUpdateReplySchema.safeParse(
+    await response.json().catch(() => null),
+  )
+
+  if (!body.success || body.data.ok !== true)
+    throw new Error(
+      (body.success ? body.data.error?.message : undefined) ??
+        'The parser update request was not recorded.',
+    )
+
+  return body.data
 }
 
 export interface CreatedWebhookParser {
@@ -152,20 +196,59 @@ export interface CreatedWebhookParser {
   secret: string | null
 }
 
-async function postWebhookParserAction<T>(body: unknown, fallback: string) {
+/** One request to the webhook parser endpoint. */
+export type WebhookParserAction =
+  | {
+      action: 'create'
+      name: string
+      format: string
+      url: string
+      instrumentId: string | null
+    }
+  | { action: 'rotate'; parserId: string }
+
+const createdWebhookParserSchema: z.ZodType<CreatedWebhookParser> = z.object({
+  parserId: z.string(),
+  parserVersionId: z.string(),
+  version: z.number(),
+  key: z.string(),
+  secret: z.string().nullable(),
+})
+
+const rotatedWebhookKeySchema = z.object({
+  parserId: z.string(),
+  secret: z.string(),
+})
+
+async function postWebhookParserAction<T>(
+  body: WebhookParserAction,
+  replySchema: z.ZodType<T>,
+  fallback: string,
+): Promise<T> {
   const response = await fetch('/api/parsers/webhook', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
 
-  const payload = (await response.json().catch(() => null)) as
-    (T & { error?: { message?: string } }) | null
+  if (!response.ok) {
+    const refusal = requestErrorEnvelopeSchema.safeParse(
+      await response.json().catch(() => null),
+    )
 
-  if (!response.ok || !payload || payload.error)
-    throw new Error(payload?.error?.message ?? fallback)
+    throw new Error(refusal.success ? refusal.data.error.message : fallback)
+  }
 
-  return payload
+  const reply: unknown = await response.json().catch(() => null)
+  const refusal = requestErrorEnvelopeSchema.safeParse(reply)
+
+  if (refusal.success) throw new Error(refusal.data.error.message)
+
+  const parsed = replySchema.safeParse(reply)
+
+  if (!parsed.success) throw new Error(fallback)
+
+  return parsed.data
 }
 
 /** A parser that lives at an address elsewhere; Sheetbase sends it each file. */
@@ -177,14 +260,16 @@ export function createWebhookParser(input: {
 }) {
   return postWebhookParserAction<CreatedWebhookParser>(
     { action: 'create', ...input },
+    createdWebhookParserSchema,
     'The parser couldn’t be added.',
   )
 }
 
 /** A new signing key; the old one stops working at once. */
 export function rotateWebhookParserKey(parserId: string) {
-  return postWebhookParserAction<{ parserId: string; secret: string }>(
+  return postWebhookParserAction(
     { action: 'rotate', parserId },
+    rotatedWebhookKeySchema,
     'The signing key couldn’t be changed.',
   )
 }

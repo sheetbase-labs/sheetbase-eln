@@ -12,6 +12,8 @@
  * placeholders, preserving decision 0015's forward-compatibility guarantee.
  */
 
+import { z } from 'zod'
+
 import type {
   NotebookBlock,
   NotebookRecord,
@@ -56,28 +58,31 @@ export const SECTION_LABELS: Record<SectionId, string> = {
  * Maps a block type to its overview section. Derived from the block model
  * (decision 0015) and the overview mockup — not user-configured.
  */
-export const BLOCK_SECTION_MAP: Record<string, SectionId> = {
-  rich_text: 'notes',
-  callout: 'notes',
-  materials: 'materials',
-  protocol_reference: 'procedures',
-  procedure_step: 'procedures',
-  table: 'tables',
-  sheet: 'tables',
-  chart: 'visualizations',
-  plate_map: 'visualizations',
-  structure: 'visualizations',
-  reaction: 'visualizations',
-  code_cell: 'visualizations',
-  sequence: 'visualizations',
-  metric: 'metrics',
-  file: 'files',
-  linked_record: 'links',
-  checklist: 'tasks',
-}
+export const BLOCK_SECTION_MAP: ReadonlyMap<string, SectionId> = new Map<
+  string,
+  SectionId
+>([
+  ['rich_text', 'notes'],
+  ['callout', 'notes'],
+  ['materials', 'materials'],
+  ['protocol_reference', 'procedures'],
+  ['procedure_step', 'procedures'],
+  ['table', 'tables'],
+  ['sheet', 'tables'],
+  ['chart', 'visualizations'],
+  ['plate_map', 'visualizations'],
+  ['structure', 'visualizations'],
+  ['reaction', 'visualizations'],
+  ['code_cell', 'visualizations'],
+  ['sequence', 'visualizations'],
+  ['metric', 'metrics'],
+  ['file', 'files'],
+  ['linked_record', 'links'],
+  ['checklist', 'tasks'],
+])
 
 export function sectionForBlockType(type: string): SectionId {
-  return BLOCK_SECTION_MAP[type] ?? 'other'
+  return BLOCK_SECTION_MAP.get(type) ?? 'other'
 }
 
 // ---------------------------------------------------------------------------
@@ -154,25 +159,34 @@ export interface OverviewConfig {
   excludedBlockIds: string[]
 }
 
+/** A value a record's properties can hold before it is decoded: JSON. */
+type StoredJson =
+  | string
+  | number
+  | boolean
+  | null
+  | StoredJson[]
+  | { [key: string]: StoredJson }
+
+/** The stored overview section of a record's properties. */
+const storedOverviewSchema = z.object({
+  overview: z
+    .object({ excludedBlockIds: z.array(z.string()) })
+    .optional()
+    .catch(undefined),
+})
+
 /** Extract the overview config from a record's properties. */
 export function getOverviewConfig(
-  properties: Record<string, unknown>,
+  properties: NotebookRecord['properties'],
 ): OverviewConfig {
-  const overview = properties.overview
+  const stored = storedOverviewSchema.safeParse(properties)
 
-  if (
-    typeof overview === 'object' &&
-    overview !== null &&
-    !Array.isArray(overview)
-  ) {
-    const raw = (overview as Record<string, unknown>).excludedBlockIds
-
-    if (Array.isArray(raw) && raw.every((id) => typeof id === 'string')) {
-      return { excludedBlockIds: raw }
-    }
+  return {
+    excludedBlockIds: stored.success
+      ? (stored.data.overview?.excludedBlockIds ?? [])
+      : [],
   }
-
-  return { excludedBlockIds: [] }
 }
 
 /**
@@ -181,7 +195,7 @@ export function getOverviewConfig(
  * blocks must not block the update or pollute the persisted array.
  */
 export function normaliseOverviewConfig(
-  excludedBlockIds: unknown,
+  excludedBlockIds: StoredJson | undefined,
   knownBlockIds: readonly string[],
 ): OverviewConfig {
   if (!Array.isArray(excludedBlockIds)) {
@@ -189,10 +203,13 @@ export function normaliseOverviewConfig(
   }
 
   const known = new Set(knownBlockIds)
+  const valid: string[] = []
 
-  const valid = excludedBlockIds.filter(
-    (id): id is string => typeof id === 'string' && known.has(id),
-  )
+  for (const id of excludedBlockIds) {
+    const blockId = z.string().safeParse(id)
+
+    if (blockId.success && known.has(blockId.data)) valid.push(blockId.data)
+  }
 
   return { excludedBlockIds: Array.from(new Set(valid)) }
 }
@@ -202,9 +219,9 @@ export function normaliseOverviewConfig(
  * other property keys. Returns a new properties object suitable for PATCH.
  */
 export function mergeOverviewConfig(
-  properties: Record<string, unknown>,
+  properties: NotebookRecord['properties'],
   config: OverviewConfig,
-): Record<string, unknown> {
+): NotebookRecord['properties'] {
   return {
     ...properties,
     overview: { excludedBlockIds: config.excludedBlockIds },
@@ -296,7 +313,7 @@ export interface OverviewRevision {
   createdByUserId: string
   superseded: boolean
   blocks: NotebookBlock[]
-  metadata: Record<string, unknown>
+  metadata: RevisionWire['metadata_snapshot']
 }
 
 /**

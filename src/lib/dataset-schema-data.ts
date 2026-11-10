@@ -5,6 +5,8 @@
  * Do not add new governed version semantics here.
  */
 
+import { z } from 'zod'
+
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import {
@@ -19,6 +21,18 @@ import type {
 
 // --- Wire types (PostgREST snake_case) ----------------------------------
 
+/** A JSONB column that should hold an object, or nothing. */
+const storedJsonObject = z.record(z.string(), z.unknown()).nullable()
+
+/** A JSONB column's value, as PostgREST hands it back. */
+export type DatasetJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | DatasetJsonValue[]
+  | { [key: string]: DatasetJsonValue }
+
 export interface DatasetSchemaFieldWire {
   id: string
   schema_id: string
@@ -31,7 +45,7 @@ export interface DatasetSchemaFieldWire {
   nullable: boolean
   default_value: unknown
   unit: unknown
-  validation: Record<string, unknown>
+  validation: Record<string, DatasetJsonValue>
   lifecycle: 'active' | 'retired'
   created_at: string
   updated_at: string
@@ -60,7 +74,7 @@ export interface DatasetSchemaWithFields {
  * field slugs as their stable shape keys; physical storage is intentionally
  * outside this registry contract and belongs to CORE-02.
  */
-export interface DatasetRowShape {
+export interface DatasetRowKeyMap {
   kind: 'dataset-row'
   fieldsByKey: Record<string, string>
 }
@@ -71,14 +85,14 @@ export interface DatasetSchemaDefinition {
   revision: number
   lifecycle: 'draft' | 'active' | 'retired'
   fields: FieldDefinition[]
-  rowShape: DatasetRowShape
+  rowKeys: DatasetRowKeyMap
 }
 
 export interface DatasetQueryRow {
   row_id: string
   table_id: string
   record_id: string
-  field_values: Record<string, unknown>
+  field_values: Record<string, DatasetJsonValue>
 }
 
 export type RelationshipType = 'references' | 'derives_from' | 'composed_of'
@@ -120,8 +134,8 @@ export interface DatasetSchemaFieldInput {
   logical_type: FieldLogicalType
   nullable?: boolean
   default_value?: unknown
-  unit?: Record<string, unknown>
-  validation?: Record<string, unknown>
+  unit?: Record<string, DatasetJsonValue>
+  validation?: Record<string, DatasetJsonValue>
   description?: string
   /** SCI-011: for `reference` fields, the target schema to link to. */
   target_schema_id?: string | null
@@ -185,10 +199,7 @@ export function datasetFieldDefinitionFromWire(
     logicalType: field.logical_type,
     nullable: field.nullable,
     defaultValue: field.default_value,
-    unit:
-      field.unit !== null && typeof field.unit === 'object'
-        ? (field.unit as Record<string, unknown>)
-        : null,
+    unit: storedJsonObject.catch(null).parse(field.unit),
     validation: field.validation,
     relationship,
     lifecycle: field.lifecycle,
@@ -234,7 +245,7 @@ export function datasetSchemaDefinitionFromWire(
     revision: schema.revision,
     lifecycle: schemaLifecycle(schema.status),
     fields: definitions,
-    rowShape: { kind: 'dataset-row', fieldsByKey },
+    rowKeys: { kind: 'dataset-row', fieldsByKey },
   }
 }
 
@@ -343,7 +354,7 @@ export async function instantiateDatasetSchema(
   _schemaId: string,
   _name?: string,
   _description?: string,
-): Promise<unknown> {
+): Promise<never> {
   throw new Error(
     'SCI-010 sheet instantiation is closed. Use insertSheetInstanceBlock.',
   )
@@ -379,7 +390,7 @@ export async function queryDataset(
   _client: DataClient,
   _schemaId: string,
   _revision: number,
-  _filters?: Record<string, unknown>,
+  _filters?: Record<string, DatasetJsonValue>,
   _limit?: number,
   _offset?: number,
   _expand?: Record<string, { depth: number }>,

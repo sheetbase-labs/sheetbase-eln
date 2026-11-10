@@ -1,4 +1,7 @@
-import { Toaster as Sonner, toast } from 'sonner'
+import { Toaster as Sonner } from 'sonner'
+
+/** The toast entry point, re-exported so callers keep one import. */
+export { toast } from './toast'
 
 // Feedback for an action you just took: bottom centre, 6 s, inverse surface, Undo when reversible.
 export function Toaster() {
@@ -19,5 +22,3 @@ export function Toaster() {
     />
   )
 }
-
-export { toast }

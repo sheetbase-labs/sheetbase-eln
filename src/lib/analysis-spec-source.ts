@@ -1,4 +1,14 @@
+import { z } from 'zod'
+
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
+
+/** The part of a stored chart spec the source lookup reads. */
+const storedChartSourceSchema = z.object({
+  datasets: z
+    .array(z.object({ datasetId: z.string().optional() }))
+    .optional()
+    .nullable(),
+})
 
 /**
  * The first source dataset of a saved spec. Stored specs are untyped JSON, so
@@ -7,7 +17,7 @@ import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
 export function specSourceDatasetId(
   spec: AnalysisViewWire['charts'][number],
 ): string | undefined {
-  const datasets = (spec as { datasets?: { datasetId?: string }[] }).datasets
+  const parsed = storedChartSourceSchema.safeParse(spec)
 
-  return datasets?.[0]?.datasetId
+  return parsed.success ? parsed.data.datasets?.[0]?.datasetId : undefined
 }

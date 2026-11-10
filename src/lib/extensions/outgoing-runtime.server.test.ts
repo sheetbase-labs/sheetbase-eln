@@ -20,7 +20,7 @@ import {
 const files = readExample('outbound-tools')
 const pkg = buildPluginPackage(files)
 
-const answer = (status: number, body: unknown) => ({
+const answer = <T>(status: number, body: T) => ({
   status,
   headers: {},
   body: new TextEncoder().encode(JSON.stringify(body)),
@@ -76,11 +76,17 @@ describe.skipIf(!pythonAvailable)('publishers', () => {
     expect(out.message).toBe('Sent 2 results as batch B9.')
     expect(out.link).toBe('https://lims.example.org/b/B9')
     expect(out.requests).toBe(1)
-    const [url, init] = fetchUrl.mock.calls[0] as unknown as [URL, any]
+
+    // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: the mock records exactly the URL and request the runner passed, so the recorded tuple is the call.
+    const [url, init] = fetchUrl.mock.calls[0] as unknown as [
+      URL,
+      { headers: Headers; body: string },
+    ]
+
     expect(url.toString()).toBe(
       'https://lims.example.org/api/projects/P1/batches',
     )
-    expect(init.headers.Authorization).toBe('Bearer sekret')
+    expect(new Headers(init.headers).get('authorization')).toBe('Bearer sekret')
     expect(JSON.parse(init.body)).toEqual({
       name: 'Run 7',
       results: [{ a: 1 }, { a: 2 }],
@@ -91,6 +97,7 @@ describe.skipIf(!pythonAvailable)('publishers', () => {
   it('says what is missing when the connection is not set up', async () => {
     const { deps } = setup()
     const fetchUrl = vi.fn()
+    // SAFETY: a configured connection never reaches fetch, so the mock is only there to be asserted uncalled.
     await expect(
       runExtensionPublisher(args, deps, fetchUrl as never),
     ).rejects.toMatchObject({ code: 'not_set_up' })
@@ -100,6 +107,7 @@ describe.skipIf(!pythonAvailable)('publishers', () => {
   it('turns the plugin’s reading of a refusal into a plain error', async () => {
     const { deps } = setup({ token: 'x' })
     const fetchUrl = vi.fn(async () => answer(401, {}))
+    // SAFETY: this mock records the refusal the runner reads; it is never asked to look like a full fetch.
     await expect(
       runExtensionPublisher(args, deps, fetchUrl as never),
     ).rejects.toThrow(/did not accept the API token/)
@@ -107,6 +115,7 @@ describe.skipIf(!pythonAvailable)('publishers', () => {
 
   it('refuses rows that are not a list of objects', async () => {
     const { deps } = setup({ token: 'x' })
+    // SAFETY: bad rows are refused before any request, so this fetch is never called.
     await expect(
       runExtensionPublisher({ ...args, rows: [1] }, deps, vi.fn() as never),
     ).rejects.toMatchObject({ code: 'bad_input' })
@@ -131,8 +140,15 @@ describe.skipIf(!pythonAvailable)('notification channels', () => {
     const { deps } = setup({ bot_token: 'xoxb' })
     const fetchUrl = vi.fn(async () => answer(200, { ok: true }))
     await runChannelDelivery(args, deps, fetchUrl)
-    const [url, init] = fetchUrl.mock.calls[0] as unknown as [URL, any]
+
+    // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: the mock records exactly the URL and request the runner passed, so the recorded tuple is the call.
+    const [url, init] = fetchUrl.mock.calls[0] as unknown as [
+      URL,
+      { headers: Headers; body: string },
+    ]
+
     expect(url.hostname).toBe('slack.com')
+
     expect(JSON.parse(init.body).channel).toBe('U01ABC')
   })
 
@@ -143,6 +159,7 @@ describe.skipIf(!pythonAvailable)('notification channels', () => {
       answer(200, { ok: false, error: 'channel_not_found' }),
     )
 
+    // SAFETY: this mock answers the 200-with-error body the delivery code decodes; it is never asked to look like a full fetch.
     await expect(
       runChannelDelivery(args, deps, fetchUrl as never),
     ).rejects.toThrow(/channel_not_found/)

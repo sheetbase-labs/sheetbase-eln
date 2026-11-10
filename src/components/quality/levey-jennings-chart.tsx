@@ -5,8 +5,11 @@
  */
 import { t } from '#/copy'
 import { chartRange, zoneOf } from '#/lib/run-qc'
-import type { QcPointRow, QcRule, QcSeriesRow } from '#/lib/run-qc'
+import type { QcPointRow, QcSeriesRow } from '#/lib/run-qc'
 import { formatDate } from '#/lib/format-date'
+
+/** Rule labels, for the chips and checkboxes that name a QC rule. */
+export { ruleLabel } from './run-qc-labels'
 
 const W = 760
 const H = 260
@@ -213,9 +216,4 @@ export function LeveyJenningsChart({
       ) : null}
     </svg>
   )
-}
-
-/** Rules in the order the catalogue lists them, for chips and checkboxes. */
-export function ruleLabel(rule: QcRule): string {
-  return t(`quality.runQc.rules.${rule}`)
 }

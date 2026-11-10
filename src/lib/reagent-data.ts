@@ -27,6 +27,8 @@ import { toRecord } from '#/lib/notebook-data'
 import type { NotebookRecord, RecordWire } from '#/lib/notebook-data'
 import type { RegistryQuery } from '#/lib/registry'
 import { listByIds } from '#/lib/chunk-ids'
+import { z } from 'zod'
+
 import { now as appNow } from '#/lib/clock'
 
 // ---------------------------------------------------------------------------
@@ -49,29 +51,52 @@ export interface ReagentProperties {
   expiryWarningDays: number | null
 }
 
-function asString(value: unknown): string | null {
-  return typeof value === 'string' && value !== '' ? value : null
+/** A stored value: JSON, as a record's properties JSONB carries it. */
+type PropertyValue = z.infer<typeof propertyValue>
+
+/** A stored JSON object, as a link's metadata JSONB carries it. */
+const propertyBag = z.record(z.string(), z.json())
+
+const propertyValue = z.json()
+
+/** A numeric property written as text: a plain decimal, never exponent form. */
+const decimalText = z.string().regex(/^-?[0-9]+(\.[0-9]+)?$/)
+
+function asString(value: PropertyValue | undefined): string | null {
+  const text = z.string().safeParse(value)
+
+  return text.success && text.data !== '' ? text.data : null
 }
 
-function asNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
+function asNumber(value: PropertyValue | undefined): number | null {
+  const number = z.number().safeParse(value)
 
-  if (
-    typeof value === 'string' &&
-    value !== '' &&
-    /^-?[0-9]+(\.[0-9]+)?$/.test(value)
-  ) {
-    const n = Number(value)
+  if (number.success) return number.data
 
-    return Number.isFinite(n) ? n : null
-  }
+  const text = decimalText.safeParse(value)
 
-  return null
+  if (!text.success) return null
+  const parsed = Number(text.data)
+
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+/** A link's stored metadata, or nothing when it carries none. */
+function linkMetadata(value: PropertyValue): Record<string, PropertyValue> {
+  const parsed = propertyBag.safeParse(value)
+
+  return parsed.success ? parsed.data : {}
 }
 
 export function projectReagentProperties(
-  properties: Record<string, unknown>,
+  raw: RecordWire['properties'],
 ): ReagentProperties {
+  const stored = propertyBag.safeParse(raw)
+
+  const properties: Record<string, PropertyValue> = stored.success
+    ? stored.data
+    : {}
+
   return {
     supplier: asString(properties.supplier),
     catalogNo: asString(properties.catalog_no),
@@ -115,7 +140,11 @@ export function toReagent(record: NotebookRecord): Reagent {
   const props = projectReagentProperties(record.properties)
   // Lot-block detail is declared as model fields, so it arrives in custom_fields
   // rather than in the legacy properties allow-list.
-  const custom = record.customFields ?? {}
+  const parsedCustom = propertyBag.safeParse(record.customFields)
+
+  const custom: Record<string, PropertyValue> = parsedCustom.success
+    ? parsedCustom.data
+    : {}
 
   return {
     ...props,
@@ -225,7 +254,7 @@ export interface ReagentMovementWire {
   id: string
   workspace_id: string
   reagent_record_id: string
-  operation: string
+  operation: ReagentMovement['operation']
   quantity_delta: string // numeric comes over the wire as a string
   resulting_quantity: string
   unit: string | null
@@ -258,7 +287,7 @@ export function toReagentMovement(row: ReagentMovementWire): ReagentMovement {
   return {
     id: row.id,
     reagentRecordId: row.reagent_record_id,
-    operation: row.operation as ReagentMovement['operation'],
+    operation: row.operation,
     quantityDelta: Number(row.quantity_delta),
     resultingQuantity: Number(row.resulting_quantity),
     unit: row.unit,
@@ -301,23 +330,23 @@ export interface ReagentAttentionSummary {
 // lexically wrong) — the column is display-only.
 // ---------------------------------------------------------------------------
 
-const SORTABLE_COLUMNS: Record<string, string> = {
-  identifier: 'identifier',
-  title: 'title',
-  status: 'status',
-  expiry: 'properties->>expiry',
-  supplier: 'properties->>supplier',
-  storage: 'properties->>storage',
-  updatedAt: 'updated_at',
-  createdAt: 'created_at',
-}
+const SORTABLE_COLUMNS: ReadonlyMap<string, string> = new Map<string, string>([
+  ['identifier', 'identifier'],
+  ['title', 'title'],
+  ['status', 'status'],
+  ['expiry', 'properties->>expiry'],
+  ['supplier', 'properties->>supplier'],
+  ['storage', 'properties->>storage'],
+  ['updatedAt', 'updated_at'],
+  ['createdAt', 'created_at'],
+])
 
-const GROUPABLE_COLUMNS: Record<string, string> = {
-  category: 'tags->>0',
-  storage: 'properties->>storage',
-  supplier: 'properties->>supplier',
-  status: 'status',
-}
+const GROUPABLE_COLUMNS: ReadonlyMap<string, string> = new Map<string, string>([
+  ['category', 'tags->>0'],
+  ['storage', 'properties->>storage'],
+  ['supplier', 'properties->>supplier'],
+  ['status', 'status'],
+])
 
 export const REAGENT_FILTER_CAPABILITIES = {
   q: ['contains'],
@@ -329,6 +358,7 @@ export const REAGENT_FILTER_CAPABILITIES = {
   lot: ['contains'],
 } as const
 
+// SAFETY: FILTER_IDS lists exactly the capability keys declared above, so every element is one of them.
 const FILTER_IDS = Object.keys(REAGENT_FILTER_CAPABILITIES) as Array<
   keyof typeof REAGENT_FILTER_CAPABILITIES
 >
@@ -371,6 +401,11 @@ function postgrestLogicPattern(value: string): string {
   return encodeURIComponent(`"${escaped}*"`)
 }
 
+/** Whether a filter names a column this registry can filter on. */
+function isReagentFilterId(fieldId: string): fieldId is ReagentFilterId {
+  return Object.hasOwn(REAGENT_FILTER_CAPABILITIES, fieldId)
+}
+
 /**
  * Build the PostgREST query string for a reagent registry page. Always scopes
  * to non-soft-deleted reagents; archived rows are excluded by default and
@@ -386,36 +421,36 @@ export function reagentListQuery(query: RegistryQuery): string {
   parts.push(archived ? 'archived_at=not.is.null' : 'archived_at=is.null')
 
   for (const filter of query.filters) {
-    if (!(filter.fieldId in REAGENT_FILTER_CAPABILITIES)) {
+    if (!isReagentFilterId(filter.fieldId)) {
       throw new Error(
         `Unsupported reagent filter: ${filter.fieldId}/${filter.operator}`,
       )
     }
 
-    const capabilities =
-      REAGENT_FILTER_CAPABILITIES[filter.fieldId as ReagentFilterId]
+    const capabilities = REAGENT_FILTER_CAPABILITIES[filter.fieldId]
 
-    if (!(capabilities as readonly string[]).includes(filter.operator)) {
+    if (!capabilities.some((capability) => capability === filter.operator)) {
       throw new Error(
         `Unsupported reagent filter: ${filter.fieldId}/${filter.operator}`,
       )
     }
 
-    const raw = filter.values[0]
+    const raw = z.string().min(1).safeParse(filter.values[0])
 
-    if (typeof raw !== 'string' || !raw) continue
+    if (!raw.success) continue
 
     if (filter.fieldId === 'status') {
-      if (raw !== 'archived') parts.push(`status=eq.${escapePostgrest(raw)}`)
+      if (raw.data !== 'archived')
+        parts.push(`status=eq.${escapePostgrest(raw.data)}`)
     } else if (filter.fieldId === 'storage') {
-      parts.push(`properties->>storage=eq.${escapePostgrest(raw)}`)
+      parts.push(`properties->>storage=eq.${escapePostgrest(raw.data)}`)
     } else if (filter.fieldId === 'q') {
-      const enc = postgrestLogicPattern(raw)
+      const enc = postgrestLogicPattern(raw.data)
       parts.push(
         `or=(identifier.ilike.${enc},title.ilike.${enc},properties->>supplier.ilike.${enc},properties->>catalog_no.ilike.${enc},properties->>lot.ilike.${enc})`,
       )
     } else if (filter.fieldId === 'category') {
-      parts.push(`tags->>0=ilike.${postgrestLogicPattern(raw)}`)
+      parts.push(`tags->>0=ilike.${postgrestLogicPattern(raw.data)}`)
     } else {
       const property = {
         supplier: 'supplier',
@@ -425,20 +460,22 @@ export function reagentListQuery(query: RegistryQuery): string {
 
       if (!property)
         throw new Error(`Unsupported reagent filter field: ${filter.fieldId}`)
-      parts.push(`properties->>${property}=ilike.${postgrestLogicPattern(raw)}`)
+      parts.push(
+        `properties->>${property}=ilike.${postgrestLogicPattern(raw.data)}`,
+      )
     }
   }
 
   const order: string[] = []
 
   for (const group of query.grouping) {
-    const col = GROUPABLE_COLUMNS[group]
+    const col = GROUPABLE_COLUMNS.get(group)
 
     if (col) order.push(`${col}.asc`)
   }
 
   for (const sort of query.sorting) {
-    const col = SORTABLE_COLUMNS[sort.id]
+    const col = SORTABLE_COLUMNS.get(sort.id)
 
     if (col && !order.some((item) => item.startsWith(`${col}.`))) {
       order.push(`${col}.${sort.desc ? 'desc' : 'asc'}`)
@@ -547,7 +584,7 @@ interface UsageLinkWire {
   id: string
   source_record_id: string
   link_type: string
-  link_metadata: unknown
+  link_metadata: PropertyValue
   created_at: string | null
 }
 
@@ -598,12 +635,8 @@ export async function fetchReagentUsage(
             sourceIdentifier: source.identifier,
             linkType: link.link_type,
             createdAt: link.created_at ?? null,
-            quantity: asNumber(
-              (link.link_metadata as Record<string, unknown> | null)?.quantity,
-            ),
-            unit: asString(
-              (link.link_metadata as Record<string, unknown> | null)?.unit,
-            ),
+            quantity: asNumber(linkMetadata(link.link_metadata).quantity),
+            unit: asString(linkMetadata(link.link_metadata).unit),
           },
         ]
       : []
@@ -640,7 +673,7 @@ export async function fetchReplacementLot(
     id: string
     target_record_id: string | null
     target_identifier: string
-    link_metadata: unknown
+    link_metadata: PropertyValue
   }>(
     'record_links',
     `?source_record_id=eq.${encodeURIComponent(source.id)}` +
@@ -648,9 +681,7 @@ export async function fetchReplacementLot(
   )
 
   const replacement = links.find(
-    (link) =>
-      (link.link_metadata as Record<string, unknown> | null)?.relation ===
-      'replacement',
+    (link) => linkMetadata(link.link_metadata).relation === 'replacement',
   )
 
   return replacement
@@ -658,11 +689,7 @@ export async function fetchReplacementLot(
         id: replacement.id,
         targetRecordId: replacement.target_record_id,
         targetIdentifier: replacement.target_identifier,
-        reason:
-          asString(
-            (replacement.link_metadata as Record<string, unknown> | null)
-              ?.reason,
-          ) ?? null,
+        reason: asString(linkMetadata(replacement.link_metadata).reason),
       }
     : null
 }
@@ -823,13 +850,18 @@ export interface CreateReagentInput {
   status?: string
   tags?: string[]
   properties: Partial<ReagentProperties>
-  customFields?: Record<string, unknown>
+  customFields?: RecordWire['custom_fields']
+}
+
+/** The properties JSONB the reagent RPCs write: one value per model field. */
+interface ReagentPropertiesPayload {
+  [field: string]: string | number | null
 }
 
 function reagentPropertiesPayload(
   properties: Partial<ReagentProperties>,
-): Record<string, unknown> {
-  const payload: Record<string, unknown> = {}
+): ReagentPropertiesPayload {
+  const payload: ReagentPropertiesPayload = {}
 
   if (properties.supplier !== undefined) payload.supplier = properties.supplier
 
@@ -880,14 +912,14 @@ export interface EditReagentInput {
   title?: string
   tags?: string[]
   properties?: Partial<ReagentProperties>
-  customFields?: Record<string, unknown>
+  customFields?: RecordWire['custom_fields']
 }
 
 export async function editReagent(
   client: DataClient,
   input: EditReagentInput,
 ): Promise<Reagent> {
-  const patch: Record<string, unknown> = {}
+  const patch: Partial<RecordWire> = {}
 
   if (input.title !== undefined) patch.title = input.title
 

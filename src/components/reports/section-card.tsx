@@ -25,6 +25,7 @@ import {
   validationLabel,
 } from '#/lib/reports'
 import type { ReportSection } from '#/lib/reports'
+import type { NotebookBlock } from '#/lib/notebook-data'
 import { t } from '#/copy'
 
 /**
@@ -94,12 +95,6 @@ export function SectionCard({
   })
 
   const frozen = isText ? null : frozenBlockOf(section)
-  const check = validationLabel(section.validationStatus)
-
-  const ref = section.sourceRef as {
-    recordIdentifier?: string
-    revisionVersion?: number
-  }
 
   return (
     <section
@@ -109,51 +104,17 @@ export function SectionCard({
       })}
       className="rounded-md border border-border bg-surface"
     >
-      <header className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
-        <span className="num w-5 text-label text-fg-muted">{index + 1}</span>
-        {locked ? (
-          <h3 className="min-w-0 flex-1 font-heading text-doc font-semibold">
-            {section.title}
-          </h3>
-        ) : (
-          <Input
-            aria-label={t('projects.reports.section.titleField')}
-            className="min-w-0 flex-1"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-        )}
-        <span className="text-label text-fg-muted">
-          {isText
-            ? t('projects.reports.section.textBadge')
-            : t('projects.reports.section.evidenceBadge')}
-        </span>
-        {!isText ? <Status tone={check.tone}>{check.label}</Status> : null}
-        {locked ? null : (
-          <span className="flex items-center gap-0.5">
-            <IconButton
-              variant="quiet"
-              icon="arrowUp"
-              label={t('projects.reports.section.moveUp')}
-              disabled={index === 0}
-              onClick={() => onMove(-1)}
-            />
-            <IconButton
-              variant="quiet"
-              icon="arrowDown"
-              label={t('projects.reports.section.moveDown')}
-              disabled={index === total - 1}
-              onClick={() => onMove(1)}
-            />
-            <IconButton
-              variant="quiet"
-              icon="trash"
-              label={t('projects.reports.section.remove')}
-              onClick={() => setConfirmRemove(true)}
-            />
-          </span>
-        )}
-      </header>
+      <SectionHeader
+        section={section}
+        index={index}
+        total={total}
+        isText={isText}
+        locked={locked}
+        title={title}
+        onTitleChange={setTitle}
+        onMove={onMove}
+        onRemove={() => setConfirmRemove(true)}
+      />
       <div className="flex flex-col gap-2 px-3 py-3">
         {isText ? (
           locked ? (
@@ -170,34 +131,7 @@ export function SectionCard({
             />
           )
         ) : (
-          <>
-            {ref.recordIdentifier ? (
-              <p className="text-label text-fg-muted">
-                {t('projects.reports.section.from', {
-                  record: SOURCE_MARK,
-                  version: ref.revisionVersion ?? 1,
-                })
-                  .split(SOURCE_MARK)
-                  .flatMap((part, partIndex) =>
-                    partIndex === 0
-                      ? [part]
-                      : [
-                          <ObjectLink
-                            key="source"
-                            kind="experiment"
-                            identifier={ref.recordIdentifier}
-                          />,
-                          part,
-                        ],
-                  )}
-              </p>
-            ) : null}
-            {frozen ? (
-              <div className="rounded-md bg-surface-muted p-2">
-                <BlockPreview block={frozen} frozen />
-              </div>
-            ) : null}
-          </>
+          <SectionSource section={section} frozen={frozen} />
         )}
         {!locked && dirty ? (
           <div className="flex justify-end gap-2">
@@ -244,5 +178,122 @@ export function SectionCard({
         </DialogContent>
       </Dialog>
     </section>
+  )
+}
+
+/** A section's title, its badge and its controls, or its heading when locked. */
+function SectionHeader({
+  section,
+  index,
+  total,
+  isText,
+  locked,
+  title,
+  onTitleChange,
+  onMove,
+  onRemove,
+}: {
+  section: ReportSection
+  index: number
+  total: number
+  isText: boolean
+  locked: boolean
+  title: string
+  onTitleChange: (title: string) => void
+  onMove: (direction: -1 | 1) => void
+  onRemove: () => void
+}) {
+  return (
+    <header className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
+      <span className="num w-5 text-label text-fg-muted">{index + 1}</span>
+      {locked ? (
+        <h3 className="min-w-0 flex-1 font-heading text-doc font-semibold">
+          {section.title}
+        </h3>
+      ) : (
+        <Input
+          aria-label={t('projects.reports.section.titleField')}
+          className="min-w-0 flex-1"
+          value={title}
+          onChange={(e) => onTitleChange(e.target.value)}
+        />
+      )}
+      <span className="text-label text-fg-muted">
+        {isText
+          ? t('projects.reports.section.textBadge')
+          : t('projects.reports.section.evidenceBadge')}
+      </span>
+      {isText ? null : (
+        <Status tone={validationLabel(section.validationStatus).tone}>
+          {validationLabel(section.validationStatus).label}
+        </Status>
+      )}
+      {locked ? null : (
+        <span className="flex items-center gap-0.5">
+          <IconButton
+            variant="quiet"
+            icon="arrowUp"
+            label={t('projects.reports.section.moveUp')}
+            disabled={index === 0}
+            onClick={() => onMove(-1)}
+          />
+          <IconButton
+            variant="quiet"
+            icon="arrowDown"
+            label={t('projects.reports.section.moveDown')}
+            disabled={index === total - 1}
+            onClick={() => onMove(1)}
+          />
+          <IconButton
+            variant="quiet"
+            icon="trash"
+            label={t('projects.reports.section.remove')}
+            onClick={onRemove}
+          />
+        </span>
+      )}
+    </header>
+  )
+}
+
+/** Where an evidence section came from, and the block it froze. */
+function SectionSource({
+  section,
+  frozen,
+}: {
+  section: ReportSection
+  frozen: NotebookBlock | null
+}) {
+  const ref = section.sourceRef
+
+  return (
+    <>
+      {ref.recordIdentifier ? (
+        <p className="text-label text-fg-muted">
+          {t('projects.reports.section.from', {
+            record: SOURCE_MARK,
+            version: ref.revisionVersion ?? 1,
+          })
+            .split(SOURCE_MARK)
+            .flatMap((part, partIndex) =>
+              partIndex === 0
+                ? [part]
+                : [
+                    <ObjectLink
+                      key="source"
+                      kind="experiment"
+                      identifier={ref.recordIdentifier}
+                    />,
+                    part,
+                  ],
+            )}
+        </p>
+      ) : null}
+      {frozen ? (
+        <div className="rounded-md bg-surface-muted p-2">
+          <BlockPreview block={frozen} frozen />
+        </div>
+      ) : null}
+    </>
   )
 }

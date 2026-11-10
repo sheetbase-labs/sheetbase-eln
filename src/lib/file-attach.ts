@@ -14,6 +14,8 @@
  * The client-provided filename is display metadata only; the storage key is
  * server-generated. Errors are surfaced with stable codes for the UI.
  */
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
 import { PAYLOAD_SCHEMA_VERSION, validateBlock } from '#/lib/blocks'
 import { updateBlockPayload } from '#/lib/notebook-mutations'
@@ -60,11 +62,43 @@ export class AttachFileError extends Error {
   }
 }
 
-function mapStatusToError(status: number, body: unknown): AttachFileError {
-  const code =
-    body && typeof body === 'object' && 'error' in body
-      ? String((body as { error: { code?: unknown } }).error.code ?? '')
-      : ''
+/** What `POST /api/files/upload-authorize` answers for a project upload. */
+const PROJECT_UPLOAD_META = z.object({
+  fileRecordId: z.string(),
+  fileObjectId: z.string(),
+})
+
+/** What `POST /api/files/upload-authorize` answers for a block attachment. */
+const BLOCK_UPLOAD_META = z.object({
+  fileRecordId: z.string(),
+  fileIdentifier: z.string(),
+  storageKey: z.string(),
+  uploadUrl: z.string(),
+  maxBytes: z.number(),
+})
+
+/** The `file` block payload an upload writes. */
+type FileBlockPayload = {
+  fileVersion?: number
+  fileRecordId: string
+  fileIdentifier: string
+  displayName: string
+  mediaType: string
+  byteSize: number
+}
+
+/** The `error` object a refused upload carries; anything else reads as no code at all. */
+const REFUSAL_BODY = z.object({
+  error: z.object({ code: z.string() }).optional(),
+})
+
+function mapStatusToError(
+  status: number,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A refusal body is whatever the server sent; `REFUSAL_BODY` decides what it is and every other shape reads as no code.
+  body: unknown,
+): AttachFileError {
+  const refusal = REFUSAL_BODY.safeParse(body)
+  const code = refusal.success ? (refusal.data.error?.code ?? '') : ''
 
   if (status === 401)
     return new AttachFileError('Sign in to upload files.', 'unauthenticated')
@@ -147,10 +181,7 @@ export async function uploadProjectFile(args: {
     )
   }
 
-  const meta = (await authorizeRes.json()) as {
-    fileRecordId: string
-    fileObjectId: string
-  }
+  const meta = PROJECT_UPLOAD_META.parse(await authorizeRes.json())
 
   const uploadRes = await fetch(`/api/files/${meta.fileRecordId}/upload`, {
     method: 'PUT',
@@ -198,13 +229,7 @@ export async function attachFileToBlock(
     )
   }
 
-  const meta = (await authorizeRes.json()) as {
-    fileRecordId: string
-    fileIdentifier: string
-    storageKey: string
-    uploadUrl: string
-    maxBytes: number
-  }
+  const meta = BLOCK_UPLOAD_META.parse(await authorizeRes.json())
 
   const uploadRes = await fetch(`/api/files/${meta.fileRecordId}/upload`, {
     method: 'PUT',
@@ -226,18 +251,19 @@ export async function attachFileToBlock(
       'file_objects',
       `?record_id=eq.${meta.fileRecordId}&select=version&order=version.desc&limit=1`,
     )
-    .catch(() => [] as Array<{ version: number }>)
+    .catch(() => [])
 
-  const fileVersion = stored[0]?.version
+  const fileVersion = stored.at(0)?.version
 
-  const payload = {
-    ...(typeof fileVersion === 'number' ? { fileVersion } : {}),
+  const payload: FileBlockPayload = {
     fileRecordId: meta.fileRecordId,
     fileIdentifier: meta.fileIdentifier,
     displayName: args.file.name,
     mediaType,
     byteSize: args.file.size,
   }
+
+  if (fileVersion !== undefined) payload.fileVersion = fileVersion
 
   const validation = validateBlock({ type: 'file', payload })
 

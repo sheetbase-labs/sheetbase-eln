@@ -11,6 +11,7 @@
  * Reading a drawing (formula, weight, SMILES, the picture) needs the chemistry
  * library and lives in `chemistry-draw.ts`, loaded only where a drawing is shown.
  */
+import { z } from 'zod'
 
 export const REACTION_ROLES = [
   'reactant',
@@ -86,23 +87,34 @@ export interface ChemistryIssue {
 const MAX_DRAWING_CHARS = 400_000
 export const MAX_REACTION_ROWS = 60
 
-const isObject = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v)
+/** A value a stored block payload holds: JSON, as the block wrote it. */
+type PayloadValue =
+  string | number | boolean | null | PayloadValue[] | PayloadObject
 
-const isString = (v: unknown): v is string => typeof v === 'string'
+/** A block payload: named values, each one the block itself stored. */
+type PayloadObject = { [key: string]: PayloadValue | undefined }
 
-const isNumberOrNull = (v: unknown): boolean =>
-  v === null || v === undefined || (typeof v === 'number' && Number.isFinite(v))
+/** Named values of any kind; only the shape is checked, never the values. */
+const namedValues = z.record(z.string(), z.unknown())
 
+const storedObject = z.custom<PayloadObject>((value) => isObject(value))
+
+function isObject(value: unknown): value is PayloadObject {
+  return namedValues.safeParse(value).success
+}
+
+const text = z.string()
+
+/** A number or nothing: NaN and Infinity are not amounts a payload may carry. */
+const amount = z.number().nullish()
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A block payload is stored JSON of no shape the caller can assume; this validator is the boundary that decides whether it is a structure payload.
 export function structureIssues(payload: unknown): ChemistryIssue[] {
   if (!isObject(payload))
     return [{ field: '', message: 'payload must be an object' }]
   const issues: ChemistryIssue[] = []
 
-  if (
-    !isString(payload.molfile) ||
-    payload.molfile.length > MAX_DRAWING_CHARS
-  ) {
+  if (!text.max(MAX_DRAWING_CHARS).safeParse(payload.molfile).success) {
     issues.push({
       field: 'molfile',
       message: 'molfile must be text of a reasonable size',
@@ -110,27 +122,28 @@ export function structureIssues(payload: unknown): ChemistryIssue[] {
   }
 
   for (const field of ['title', 'caption', 'name', 'formula', 'smiles']) {
-    if (payload[field] !== undefined && !isString(payload[field])) {
+    if (
+      payload[field] !== undefined &&
+      !text.safeParse(payload[field]).success
+    ) {
       issues.push({ field, message: `${field} must be a string when present` })
     }
   }
 
-  if (!isNumberOrNull(payload.mw)) {
+  if (!amount.safeParse(payload.mw).success) {
     issues.push({ field: 'mw', message: 'mw must be a number when present' })
   }
 
   return issues
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A block payload is stored JSON of no shape the caller can assume; this validator is the boundary that decides whether it is a reaction payload.
 export function reactionIssues(payload: unknown): ChemistryIssue[] {
   if (!isObject(payload))
     return [{ field: '', message: 'payload must be an object' }]
   const issues: ChemistryIssue[] = []
 
-  if (
-    !isString(payload.drawing) ||
-    payload.drawing.length > MAX_DRAWING_CHARS
-  ) {
+  if (!text.max(MAX_DRAWING_CHARS).safeParse(payload.drawing).success) {
     issues.push({
       field: 'drawing',
       message: 'drawing must be text of a reasonable size',
@@ -138,14 +151,17 @@ export function reactionIssues(payload: unknown): ChemistryIssue[] {
   }
 
   for (const field of ['title', 'caption', 'smiles']) {
-    if (payload[field] !== undefined && !isString(payload[field])) {
+    if (
+      payload[field] !== undefined &&
+      !text.safeParse(payload[field]).success
+    ) {
       issues.push({ field, message: `${field} must be a string when present` })
     }
   }
 
-  const rows = payload.rows
+  const rows = z.array(z.json()).safeParse(payload.rows)
 
-  if (!Array.isArray(rows) || rows.length > MAX_REACTION_ROWS) {
+  if (!rows.success || rows.data.length > MAX_REACTION_ROWS) {
     issues.push({
       field: 'rows',
       message: `rows must be a list of up to ${MAX_REACTION_ROWS} rows`,
@@ -155,29 +171,36 @@ export function reactionIssues(payload: unknown): ChemistryIssue[] {
   }
 
   const seen = new Set<string>()
-  rows.forEach((row, index) => {
-    const at = `rows[${index}]`
 
-    if (!isObject(row)) {
+  for (const [index, row] of rows.data.entries()) {
+    const at = `rows[${index}]`
+    const rowFields = storedObject.safeParse(row)
+
+    if (!rowFields.success) {
       issues.push({ field: at, message: 'each row must be an object' })
 
-      return
+      continue
     }
 
-    if (!isString(row.id) || row.id === '' || seen.has(row.id)) {
+    const entry = rowFields.data
+    const id = text.safeParse(entry.id)
+
+    if (!id.success || id.data === '' || seen.has(id.data)) {
       issues.push({ field: `${at}.id`, message: 'each row needs its own id' })
     } else {
-      seen.add(row.id)
+      seen.add(id.data)
     }
 
-    if (!REACTION_ROLES.includes(row.role as ReactionRole)) {
+    if (!REACTION_ROLES.some((role) => role === entry.role)) {
       issues.push({
         field: `${at}.role`,
         message: `role must be one of ${REACTION_ROLES.join(', ')}`,
       })
     }
 
-    if (!isString(row.name) || row.name.length > 200) {
+    const name = text.max(200).safeParse(entry.name)
+
+    if (!name.success) {
       issues.push({
         field: `${at}.name`,
         message: 'name must be text up to 200 characters',
@@ -192,7 +215,7 @@ export function reactionIssues(payload: unknown): ChemistryIssue[] {
       'density',
       'concentration',
     ]) {
-      if (!isNumberOrNull(row[field])) {
+      if (!amount.safeParse(entry[field]).success) {
         issues.push({
           field: `${at}.${field}`,
           message: `${field} must be a number`,
@@ -201,19 +224,21 @@ export function reactionIssues(payload: unknown): ChemistryIssue[] {
     }
 
     for (const field of ['formula', 'structureCode', 'note']) {
-      if (row[field] !== undefined && !isString(row[field])) {
+      if (entry[field] !== undefined && !text.safeParse(entry[field]).success) {
         issues.push({
           field: `${at}.${field}`,
           message: `${field} must be a string`,
         })
       }
     }
-  })
+  }
+
+  const limitingId = text.safeParse(payload.limitingId)
 
   if (
     payload.limitingId !== undefined &&
     payload.limitingId !== null &&
-    !(isString(payload.limitingId) && seen.has(payload.limitingId))
+    !(limitingId.success && seen.has(limitingId.data))
   ) {
     issues.push({
       field: 'limitingId',
@@ -240,8 +265,11 @@ export interface ComputedRow {
   yieldPercent: number | null
 }
 
-const positive = (v: number | null | undefined): v is number =>
-  typeof v === 'number' && Number.isFinite(v) && v > 0
+const positive = (v: number | null | undefined): v is number => {
+  const parsed = z.number().safeParse(v)
+
+  return parsed.success && parsed.data > 0
+}
 
 /**
  * The row the others are measured against: the one chosen, else the first

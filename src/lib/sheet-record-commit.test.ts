@@ -30,6 +30,7 @@ describe('Sheet Record create and commit clients', () => {
           expectedRowRevision: 1,
         },
       },
+      // SAFETY: the commit only ever calls `rpc` on its client, and `rpc` is that method with the same signature.
       { rpc } as never,
     )
     expect(rpc).toHaveBeenCalledWith(
@@ -51,6 +52,7 @@ describe('Sheet Record create and commit clients', () => {
         idempotencyKey: 'retry-1',
         rows: [{ rowKey: 'a' }, { rowKey: 'b' }],
       },
+      // SAFETY: the commit only ever calls `rpc` on its client, and `rpc` is that method with the same signature.
       { rpc } as never,
     )
     expect(rpc).toHaveBeenCalledTimes(1)
@@ -62,6 +64,7 @@ describe('Sheet Record create and commit clients', () => {
 
   it('does not invent link rows when composition cannot resolve a write-back target', () => {
     expect(
+      // SAFETY: the fixture spells every bound projection member the composed batch reads; the cast only skips the unrelated fields the test does not exercise.
       composedSheetRecordLinkBatchRows({
         instanceId: '30000000-0000-4000-8000-000000000010',
         revision: 1,

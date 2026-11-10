@@ -32,7 +32,7 @@ function makeDeps(overrides: {
 }): CollaborationAuthDeps {
   const membershipRole =
     'membershipRole' in overrides
-      ? (overrides.membershipRole as string | null)
+      ? (overrides.membershipRole ?? null)
       : 'scientist'
 
   return {

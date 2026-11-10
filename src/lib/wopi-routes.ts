@@ -9,6 +9,8 @@
  * Saving is `storeFileVersion`: each save becomes a new file version and its
  * text is re-extracted, so search follows the edit. Nothing is overwritten.
  */
+import type { z } from 'zod'
+
 import type { ObjectStorage } from '#/lib/file-storage'
 import { getObjectStorage } from '#/lib/file-storage'
 import { storeFileVersion } from '#/lib/file-routes'
@@ -43,10 +45,19 @@ interface FileRow {
 const FILE_SELECT =
   'id,storage_key,status,version,display_name,media_type,byte_size,created_at,workspace_id'
 
-function json(status: number, body: unknown, headers: HeadersInit = {}) {
+function json<Body extends z.core.util.JSONType>(
+  status: number,
+  body: Body,
+  headers: HeadersInit = {},
+) {
+  // The caller's headers win over the JSON default, as the object spread did.
+  const responseHeaders = new Headers({ 'content-type': 'application/json' })
+
+  new Headers(headers).forEach((value, key) => responseHeaders.set(key, value))
+
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'content-type': 'application/json', ...headers },
+    headers: responseHeaders,
   })
 }
 

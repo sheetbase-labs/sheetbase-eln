@@ -28,8 +28,9 @@ describe('model impact client', () => {
   it('calls discover_model_dependencies with the model key', async () => {
     const calls: Array<{ name: string; args: unknown }> = []
 
+    // SAFETY: `discoverModelImpact` reads only `rpc`, the one member this double implements.
     const client = {
-      rpc: async (name: string, args: Record<string, unknown>) => {
+      rpc: async (name: string, args: Parameters<DataClient['rpc']>[1]) => {
         calls.push({ name, args })
 
         return { kind: 'model', id: 'sample', dependencies: [] }

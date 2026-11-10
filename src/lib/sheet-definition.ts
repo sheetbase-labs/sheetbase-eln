@@ -721,11 +721,15 @@ const configurationSchema = z
 export type SheetDefinitionConfiguration = z.infer<typeof configurationSchema>
 
 export function parseSheetDefinitionConfiguration(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The schema boundary itself: `configurationSchema` decides what a stored configuration is, so its input cannot be typed before it runs.
   value: unknown,
 ): SheetDefinitionConfiguration {
   return configurationSchema.parse(value)
 }
 
-export function safeParseSheetDefinitionConfiguration(value: unknown) {
+export function safeParseSheetDefinitionConfiguration(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The schema boundary itself: `configurationSchema` decides what a stored configuration is, so its input cannot be typed before it runs.
+  value: unknown,
+) {
   return configurationSchema.safeParse(value)
 }

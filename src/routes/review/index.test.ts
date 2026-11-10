@@ -15,6 +15,7 @@ describe('/review', () => {
     }
 
     expect(isRedirect(thrown)).toBe(true)
+    // SAFETY: `isRedirect` above established that `thrown` is a redirect, which carries its navigation options.
     expect((thrown as { options: unknown }).options).toMatchObject({
       to: '/inbox',
       search: { tab: 'needs-action', type: 'reviews' },

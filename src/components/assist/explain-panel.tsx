@@ -32,8 +32,8 @@ export function ExplainPanel({
           {t('notebook.explainPanel.why')}
         </p>
         <ul className="space-y-1">
-          {explanation.why.map((claim, index) => (
-            <li key={index}>
+          {explanation.why.map((claim) => (
+            <li key={`${claim.citation.label}:${claim.text}`}>
               <span>{claim.text}</span>{' '}
               <span className="text-muted-foreground">
                 [{claim.citation.label}]
@@ -47,8 +47,8 @@ export function ExplainPanel({
           {t('notebook.explainPanel.howToResolve')}
         </p>
         <ul className="list-disc space-y-1 pl-4">
-          {explanation.howTo.map((step, index) => (
-            <li key={index}>{step}</li>
+          {explanation.howTo.map((step) => (
+            <li key={step}>{step}</li>
           ))}
         </ul>
       </div>
@@ -67,8 +67,11 @@ export function ExplainPanel({
           {t('notebook.explainPanel.citedSources')}
         </p>
         <ul className="space-y-1">
-          {explanation.citations.map((citation, index) => (
-            <li key={index} className="text-muted-foreground">
+          {explanation.citations.map((citation) => (
+            <li
+              key={`${citation.label}:${citation.detail}`}
+              className="text-muted-foreground"
+            >
               <span className="font-mono">[{citation.label}]</span>{' '}
               {citation.detail}
               {citation.deepLink ? (

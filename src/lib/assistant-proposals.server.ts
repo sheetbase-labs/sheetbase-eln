@@ -9,12 +9,12 @@ import { toBlock } from './notebook-data'
 import type { BlockWire } from './notebook-data'
 import { sheetInstanceFromWire } from './sheet-instance-data'
 import { sheetInstanceStateSchema } from './sheet-instance'
-import {
-  PROPOSAL_TOOLS,
-  isProposalTool,
-  proposePipelineDraftSchema,
+import { PROPOSAL_TOOLS, isProposalTool } from './assistant-proposals'
+import type {
+  AssistantProposal,
+  ProposalChange,
+  ProposalToolName,
 } from './assistant-proposals'
-import type { AssistantProposal, ProposalChange } from './assistant-proposals'
 import {
   getPipelineDefinition,
   listPipelineDefinitionVersions,
@@ -51,10 +51,14 @@ function clip(text: string): string {
   return tidy.length <= MAX_SHOWN ? tidy : `${tidy.slice(0, MAX_SHOWN)}…`
 }
 
+/** A custom-field or cell value, shown as text; the stored value is arbitrary JSON. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A stored custom-field or sheet-cell value is arbitrary JSONB; this is the decoder that turns it into one line of card text.
 function show(value: unknown): string | null {
   if (value === undefined || value === null || value === '') return null
 
-  return clip(typeof value === 'string' ? value : JSON.stringify(value))
+  const text = z.string().safeParse(value)
+
+  return clip(text.success ? text.data : JSON.stringify(value))
 }
 
 async function fetchBlock(client: DataClient, blockId: string) {
@@ -68,10 +72,38 @@ async function fetchBlock(client: DataClient, blockId: string) {
 
 type PipelineArgs = Partial<
   Pick<
-    z.infer<typeof proposePipelineDraftSchema>,
+    z.infer<
+      (typeof PROPOSAL_TOOLS)['sheetbase.pipeline_definition.draft']['schema']
+    >,
     'description' | 'statement' | 'steps' | 'inputs' | 'parameters'
   >
 >
+
+/**
+ * A configuration read back from storage. Older drafts can lack the empty
+ * lists the current contract asks for, so they stay optional here.
+ */
+type StoredPipelineConfig = Omit<PipelineConfig, 'parameters' | 'inputs'> &
+  Partial<Pick<PipelineConfig, 'parameters' | 'inputs'>>
+
+/**
+ * A stored version's configuration as the draft editor reads it.
+ *
+ * A version is only created from a configuration the app validated with
+ * `validatePipelineConfig`, and this module refuses to propose an invalid one,
+ * so the stored document is the configuration it was written from.
+ */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A version's configuration is a JSONB document read straight from the API; this is the decoder that turns it into the draft contract.
+function storedPipelineConfig(configuration: unknown): PipelineConfig {
+  // SAFETY: pipeline_definition_versions.configuration is written only from a configuration validatePipelineConfig accepted.
+  const stored = configuration as StoredPipelineConfig
+
+  return {
+    ...stored,
+    parameters: stored.parameters ?? [],
+    inputs: stored.inputs ?? [],
+  }
+}
 
 function blankPipelineConfig(): PipelineConfig {
   return {
@@ -92,38 +124,39 @@ function applyPipelineArgs(
   base: PipelineConfig,
   args: PipelineArgs,
 ): PipelineConfig {
-  // Older drafts can lack the empty lists the contract asks for.
-  const next: PipelineConfig = {
-    ...base,
-    parameters: (base as Partial<PipelineConfig>).parameters ?? [],
-    inputs: (base as Partial<PipelineConfig>).inputs ?? [],
-  }
+  const next: PipelineConfig = { ...base }
 
   if (args.description !== undefined) next.description = args.description
 
   if (args.inputs) {
-    next.inputs = args.inputs.map((input): PipelineInput => ({
-      name: input.name,
-      required: input.required ?? true,
-      ...(input.description ? { description: input.description } : {}),
-    }))
+    next.inputs = args.inputs.map((input): PipelineInput => {
+      const entry: PipelineInput = {
+        name: input.name,
+        required: input.required ?? true,
+      }
+
+      if (input.description) entry.description = input.description
+
+      return entry
+    })
   }
 
   if (args.parameters) {
     next.parameters = args.parameters.map((parameter): PipelineParameter => {
       const required = parameter.required ?? false
 
-      return {
+      const entry: PipelineParameter = {
         name: parameter.name,
         type: parameter.type,
         required,
-        ...(parameter.default !== undefined && !required
-          ? { default: parameter.default }
-          : {}),
-        ...(parameter.description
-          ? { description: parameter.description }
-          : {}),
       }
+
+      if (parameter.default !== undefined && !required)
+        entry.default = parameter.default
+
+      if (parameter.description) entry.description = parameter.description
+
+      return entry
     })
   }
 
@@ -251,10 +284,32 @@ function configProblem(config: PipelineConfig): string | null {
     : null
 }
 
+/** The arguments of one proposal tool, as its own schema describes them. */
+type ProposalArguments<T extends ProposalToolName> = z.infer<
+  (typeof PROPOSAL_TOOLS)[T]['schema']
+>
+
+/**
+ * The arguments of the tool the caller named, typed by that tool's own schema.
+ *
+ * The object that arrived comes back, not the schema's clone: a scientific key
+ * that is an own `__proto__` property would not survive the clone, and the
+ * parse in `buildAssistantProposal` already accepted every key.
+ */
+function toolArguments<T extends ProposalToolName>(
+  _name: T,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The raw arguments of a model tool call; the caller parsed them against this tool's own schema before dispatching.
+  args: unknown,
+): ProposalArguments<T> {
+  // SAFETY: buildAssistantProposal parsed these arguments against this tool's schema before dispatching here.
+  return args as ProposalArguments<T>
+}
+
 export async function buildAssistantProposal(
   client: DataClient,
   workspaceId: string,
   name: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Model tool calls arrive raw from the provider and are decoded by the tool's own schema below, before anything reads a field.
   args: unknown,
 ): Promise<ProposalOutcome> {
   if (!isProposalTool(name)) {
@@ -294,26 +349,24 @@ export async function buildAssistantProposal(
     }
   }
 
-  // SAFETY: the exact tool schema above validated args with no defaults or transforms.
-  // Keep the original so record cloning cannot discard own __proto__ scientific keys.
-  const input = args as Record<string, unknown>
-  const title = String(input.title)
-  const summary = String(input.summary)
+  // Keep the raw arguments: the schema clone can discard own __proto__
+  // scientific keys, and every branch below reads through its own schema.
+  const { title, summary } = toolArguments(name, args)
 
   switch (name) {
     case 'sheetbase.notebook_block.insert': {
-      const recordId = String(input.recordId)
+      const input = toolArguments(name, args)
+      const recordId = input.recordId
       const record = await fetchRecordById(client, recordId)
 
       if (!record) return { ok: false, message: 'That record was not found.' }
-      const payload = plainTextToRichText(String(input.text))
+      const payload = plainTextToRichText(input.text)
 
       if (!validateBlock({ type: 'rich_text', payload }).ok) {
         return { ok: false, message: 'That text could not be made a block.' }
       }
 
-      const afterBlockId =
-        typeof input.afterBlockId === 'string' ? input.afterBlockId : null
+      const afterBlockId = input.afterBlockId ?? null
 
       return {
         ok: true,
@@ -346,7 +399,8 @@ export async function buildAssistantProposal(
     }
 
     case 'sheetbase.notebook_block.update': {
-      const block = await fetchBlock(client, String(input.blockId))
+      const input = toolArguments(name, args)
+      const block = await fetchBlock(client, input.blockId)
 
       if (!block) return { ok: false, message: 'That block was not found.' }
 
@@ -358,7 +412,7 @@ export async function buildAssistantProposal(
       }
 
       const record = await fetchRecordById(client, block.recordId)
-      const payload = plainTextToRichText(String(input.text))
+      const payload = plainTextToRichText(input.text)
 
       return {
         ok: true,
@@ -389,10 +443,11 @@ export async function buildAssistantProposal(
     }
 
     case 'sheetbase.record.custom_fields.update': {
-      const record = await fetchRecordById(client, String(input.recordId))
+      const input = toolArguments(name, args)
+      const record = await fetchRecordById(client, input.recordId)
 
       if (!record) return { ok: false, message: 'That record was not found.' }
-      const values = input.values as Record<string, unknown>
+      const values = input.values
       const current = record.customFields ?? {}
 
       return {
@@ -419,9 +474,11 @@ export async function buildAssistantProposal(
     }
 
     case 'sheetbase.sheet_instance.update': {
+      const input = toolArguments(name, args)
+
       const rows = await client.list<unknown>(
         'sheet_instances',
-        `?id=eq.${encodeURIComponent(String(input.instanceId))}&limit=1`,
+        `?id=eq.${encodeURIComponent(input.instanceId)}&limit=1`,
       )
 
       if (rows.length === 0) {
@@ -429,29 +486,30 @@ export async function buildAssistantProposal(
       }
 
       const instance = sheetInstanceFromWire(rows[0])
-      const patch = input.localValues as Record<string, Record<string, unknown>>
+
+      const patch = input.localValues
+
       const localValues = { ...instance.state.localValues }
+
+      const fieldLabels = new Map(
+        instance.state.localFields.map((field) => [field.fieldId, field.label]),
+      )
+
       const changes: AssistantProposal['changes'] = []
 
       for (const [rowId, cells] of Object.entries(patch)) {
-        localValues[rowId] = { ...localValues[rowId], ...cells } as never
+        // SAFETY: the merged state is parsed by sheetInstanceStateSchema below, before the cells are proposed.
+        localValues[rowId] = {
+          ...localValues[rowId],
+          ...cells,
+        } as (typeof localValues)[string]
 
         for (const [fieldId, value] of Object.entries(cells)) {
-          const label =
-            instance.state.localFields.find(
-              (field) => field.fieldId === fieldId,
-            )?.label ?? fieldId
+          const label = fieldLabels.get(fieldId) ?? fieldId
 
           changes.push({
             label: `${label} · ${rowId}`,
-            before: show(
-              (
-                instance.state.localValues as Record<
-                  string,
-                  Record<string, unknown> | undefined
-                >
-              )[rowId]?.[fieldId],
-            ),
+            before: show(instance.state.localValues[rowId]?.[fieldId]),
             after: show(value) ?? '(empty)',
           })
         }
@@ -489,10 +547,7 @@ export async function buildAssistantProposal(
     }
 
     case 'sheetbase.pipeline_definition.draft': {
-      const spec = input as unknown as PipelineArgs & {
-        key: string
-        name: string
-      }
+      const spec = toolArguments(name, args)
 
       const configuration = applyPipelineArgs(blankPipelineConfig(), spec)
       const problem = configProblem(configuration)
@@ -528,7 +583,7 @@ export async function buildAssistantProposal(
     }
 
     case 'sheetbase.pipeline_definition.update_draft': {
-      const spec = input as unknown as PipelineArgs & { pipelineId: string }
+      const spec = toolArguments(name, args)
       const definition = await getPipelineDefinition(client, spec.pipelineId)
 
       if (!definition) {
@@ -547,9 +602,7 @@ export async function buildAssistantProposal(
       const draft = versions.find((version) => version.lifecycle === 'draft')
       const latest = draft ?? versions.find((v) => v.lifecycle === 'published')
 
-      const current = latest
-        ? (latest.configuration as unknown as PipelineConfig)
-        : null
+      const current = latest ? storedPipelineConfig(latest.configuration) : null
 
       const configuration = applyPipelineArgs(
         current ?? blankPipelineConfig(),

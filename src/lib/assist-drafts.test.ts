@@ -155,6 +155,7 @@ describe('acceptTextDraft', () => {
       structure_version: 2,
     }))
 
+    // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: acceptTextDraft reads and writes through the `rpc` it is given and nothing else, so the double covers every method it reaches.
     const client = { rpc } as unknown as DataClient
 
     const result = await acceptTextDraft(client, {

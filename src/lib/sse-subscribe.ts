@@ -12,6 +12,7 @@
  * The unsubscribe releases the listener and ends the connection.
  */
 import { Client } from 'pg'
+import { z } from 'zod'
 
 import { getPool } from '#/db/pool.server'
 import { env } from '#/env.server'
@@ -34,6 +35,7 @@ export interface ChangeEventRow {
   actor_user_id: string | null
   actor_credential_id: string | null
   client_id: string | null
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- `payload` is the `change_events.payload` JSONB column; its keys vary by entity type and the wire type already declares this same boundary.
   payload: Record<string, unknown>
   created_at: string
 }
@@ -108,13 +110,16 @@ export async function latestChangeEventSequence(
   return result.rows[0].max ? Number(result.rows[0].max) : 0
 }
 
-interface NotificationPayload {
-  workspace_id: string
-  sequence: number
-  id: string
-  entity_type: string
-  operation: string
-}
+/** The NOTIFY payload our own `sheetbase_change` trigger writes. */
+const notificationPayloadSchema = z.object({
+  workspace_id: z.string(),
+  sequence: z.number(),
+  id: z.string(),
+  entity_type: z.string(),
+  operation: z.string(),
+})
+
+type NotificationPayload = z.infer<typeof notificationPayloadSchema>
 
 /**
  * One LISTEN connection per database serves every open stream. Opening a
@@ -182,7 +187,7 @@ function ensureConnected(
       if (!msg.payload) return
 
       try {
-        const payload = JSON.parse(msg.payload) as NotificationPayload
+        const payload = notificationPayloadSchema.parse(JSON.parse(msg.payload))
         void deliver(listener, connectionString, payload).catch((error) =>
           logger.warn('live event delivery failed', {
             message: error instanceof Error ? error.message : String(error),

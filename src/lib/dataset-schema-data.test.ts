@@ -158,7 +158,7 @@ describe('Dataset Schema canonical field projection', () => {
       schemaKey: 'assay_result',
       revision: 2,
       lifecycle: 'active',
-      rowShape: {
+      rowKeys: {
         kind: 'dataset-row',
         fieldsByKey: { sample_name: 'field-1' },
       },

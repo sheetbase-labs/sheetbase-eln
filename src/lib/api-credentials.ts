@@ -488,8 +488,10 @@ export async function verifyCredential(
     }
   }
 
+  const grantedScopes = new Set(row.scopes)
+
   for (const required of requested) {
-    if (!row.scopes.includes(required)) {
+    if (!grantedScopes.has(required)) {
       throw new CredentialError(
         'insufficient_scope',
         `Credential lacks scope: ${required}`,

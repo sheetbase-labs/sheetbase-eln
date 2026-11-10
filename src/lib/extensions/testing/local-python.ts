@@ -67,7 +67,7 @@ export async function localPython(
  * `{ path: text }`: the manifest, `python/`, `ui/` and the readme and licence.
  * Sources such as `ui-src/` and `node_modules` stay out, as `pack` leaves them.
  */
-export function readExample(name: string): Record<string, string> {
+export function readExample(name: string) {
   const base = path.join(pluginExamplesDir, name)
   const files: Record<string, string> = {}
 

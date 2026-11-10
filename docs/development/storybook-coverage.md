@@ -626,3 +626,34 @@ server, so every notebook comes back in the "not updated" list.
 | `src/components/planner/plan-dialog.tsx`  | Asks the assistant through a server function and creates the experiment through the data client; plan rules and the create call are covered by unit and database tests. |
 | `src/components/planner/plan-review.tsx`  | Lays out a plan passed in as props; it has no states of its own and is covered by the Plan with AI click-through.                                                       |
 | `src/components/planner/plan-with-ai.tsx` | Shows a button only when a real model is connected.                                                                                                                     |
+
+## Split interiors (10 November 2026)
+
+The screens below were split into the parts they are made of, so a story would
+show the same markup the parent's story already shows in every state it has.
+Each module here is rendered by its parent's story, which remains the story for
+the screen: `Inspector.stories.tsx`, `RecordHeader`'s stories,
+`ProtocolParts.stories.tsx`, `ReportParts.stories.tsx` and
+`ProjectsPage.stories.tsx`.
+
+| Module                                                     | Why no story                                                                                                                                      |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/record/inspector-header.tsx`               | The inspector's identity strip; `Inspector.stories.tsx` renders it with a record type, a status and a close control.                              |
+| `src/components/record/inspector-tabs.tsx`                 | The tab strip and panels; `Inspector.stories.tsx` renders them, including the close control that rides the strip when the header is hidden.       |
+| `src/components/record/inspector-content.tsx`              | The inspector's four states (skeleton, nothing selected, unavailable, permission denied); every one is a story in `Inspector.stories.tsx`.        |
+| `src/components/record/record-header-identity.tsx`         | The type, identifier, status and phase line; rendered by every `RecordHeader` story.                                                              |
+| `src/components/record/record-header-meta.tsx`             | The owner, updated, contributors and tags line, and its rule; rendered by the `RecordHeader` stories that pass any of those.                      |
+| `src/components/protocols/protocol-inspector-sections.tsx` | The approvals, training and used-by lists; `ProtocolParts.stories.tsx` renders the inspector that composes them.                                  |
+| `src/components/reports/add-text-dialog.tsx`               | A portalled dialog; `ReportParts.stories.tsx` mounts it in its open state, as it does the evidence dialog beside it.                              |
+| `src/components/reports/add-evidence-dialog.tsx`           | A portalled dialog that reads submitted records and versions; `ReportParts.stories.tsx` mounts it open, and the picker is covered by its tests.   |
+| `src/components/reports/evidence-block-table.tsx`          | The block list inside the evidence dialog; `ReportParts.stories.tsx` renders it with the chosen row and the no-blocks state.                      |
+| `src/components/projects/projects-header.tsx`              | The title row and view strip; `ProjectsPage.stories.tsx` renders them wide and narrow, with and without a resolved count.                         |
+| `src/components/projects/projects-toolbar.tsx`             | The sort, filter, group, search, columns and overflow controls; `ProjectsPage.stories.tsx` renders them in its list stories.                      |
+| `src/components/projects/projects-filter-menu.tsx`         | The filter dropdown; rendered open by the `ProjectsPage` stories that set filters, and the filter state is asserted by `projects-page.test.tsx`.  |
+| `src/components/projects/projects-search-field.tsx`        | The search box and its draft; `ProjectsPage.stories.tsx` renders it and `projects-page.test.tsx` covers applying and clearing a term.             |
+| `src/components/projects/projects-filter-chips.tsx`        | The chips that state a filter is on; `ProjectsPage.stories.tsx` renders them with the archived and stage filters applied.                         |
+| `src/components/projects/projects-page-states.tsx`         | The loading, failure, empty and no-results panels; `ProjectsPage.stories.tsx` renders each state and `projects-page.test.tsx` asserts their copy. |
+| `src/components/projects/projects-table.tsx`               | The phone list and table; `ProjectsPage.stories.tsx` renders both, grouped and ungrouped, with and without bulk selection.                        |
+| `src/components/projects/projects-table-row.tsx`           | One project row; rendered by `ProjectsPage.stories.tsx` in the table stories, whose row click and link are asserted by `projects-page.test.tsx`.  |
+| `src/components/projects/projects-footer.tsx`              | The count, hidden-archive note and selection actions; `ProjectsPage.stories.tsx` renders it with and without a selection.                         |
+| `src/components/projects/new-project-dialog.tsx`           | A portalled dialog; `ProjectsPage.stories.tsx` mounts it open, and the create flows are asserted by `projects-page.test.tsx`.                     |

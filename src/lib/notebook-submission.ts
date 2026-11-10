@@ -123,6 +123,7 @@ export function submissionHasBlockingChecks(
 /** Sheet Instance ids embedded in the record, in document order. */
 export function submissionSheetInstanceIds(blocks: NotebookBlock[]): string[] {
   const ids: string[] = []
+  const seen = new Set<string>()
 
   for (const block of blocks) {
     if (block.type !== 'sheet' && block.type !== 'sheet_shared') continue
@@ -130,17 +131,25 @@ export function submissionSheetInstanceIds(blocks: NotebookBlock[]): string[] {
     if (!isCanonicalSheetBlock(block.payload)) continue
     const id = sheetBlockInstanceId(block.payload)
 
-    if (id && !ids.includes(id)) ids.push(id)
+    if (id && !seen.has(id)) {
+      seen.add(id)
+      ids.push(id)
+    }
   }
 
   return ids
 }
 
-/** Compact, honest composition summary of what submission would freeze. */
-export function submissionCompositionSummary(blocks: NotebookBlock[]): {
+/** What a submission would freeze, in two numbers. */
+export interface SubmissionCompositionSummary {
   blockCount: number
   sheetCount: number
-} {
+}
+
+/** Compact, honest composition summary of what submission would freeze. */
+export function submissionCompositionSummary(
+  blocks: NotebookBlock[],
+): SubmissionCompositionSummary {
   return {
     blockCount: blocks.length,
     sheetCount: submissionSheetInstanceIds(blocks).length,
@@ -151,17 +160,19 @@ export function submissionCompositionSummary(blocks: NotebookBlock[]): {
 // NOTE-04 review fix: canonical signature for the verified-snapshot binding.
 // ---------------------------------------------------------------------------
 
-/** Key-stable JSON serialisation so payloads compare regardless of key order. */
+/**
+ * A stored JSONB document holds whatever JSON its owner wrote, so this function
+ * accepts the raw value and is where it becomes one deterministic string.
+ */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A JSONB payload is arbitrary by definition; every branch below handles a value JSON can hold.
 export function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== 'object') return JSON.stringify(value)
+  if (value === null || !(value instanceof Object)) return JSON.stringify(value)
 
   if (Array.isArray(value)) {
     return `[${value.map((item) => stableStringify(item)).join(',')}]`
   }
 
-  const entries = Object.entries(value as Record<string, unknown>).filter(
-    ([, v]) => v !== undefined,
-  )
+  const entries = Object.entries(value).filter(([, v]) => v !== undefined)
 
   entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
 

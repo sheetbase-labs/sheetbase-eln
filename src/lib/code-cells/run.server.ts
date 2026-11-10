@@ -10,6 +10,8 @@
  */
 import { createHash } from 'node:crypto'
 
+import { z } from 'zod'
+
 import type { DataClient } from '../data-client'
 import {
   realSessionAuthDeps,
@@ -20,6 +22,10 @@ import type { SessionAuthDeps } from '../request-auth'
 import { createServerDataClient } from '../connectors/enterprise/execution.server'
 import { diffMatches, diffResultRows } from '../pipelines/reproduce-diff'
 import type { ReproduceDiff } from '../pipelines/reproduce-diff'
+import type {
+  PythonEnvironment,
+  PythonInputRows,
+} from '../pipeline-python.server'
 import {
   CODE_CELL_ALIAS,
   MAX_CODE_CELL_INPUTS,
@@ -34,7 +40,22 @@ import type {
   CodeCellRunRequest,
 } from './code-cell'
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+/** One row of a dataset version, a query result or a stored run output. */
+export type CellRow = Record<string, z.core.util.JSONType>
+
+/** A JSON object as a request body or a stored document carries it. */
+const cellRecordSchema = z.record(z.string(), z.json())
+const jsonArraySchema = z.array(z.json())
+
+/** A canonical UUID, as record, block, run and version ids are. */
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const uuidSchema = z.string().regex(UUID_PATTERN)
+const optionalUuidSchema = uuidSchema.nullish()
+const aliasSchema = z.string().regex(CODE_CELL_ALIAS)
+const stringSchema = z.string()
+
 const INPUT_ROW_LIMIT = 50_000
 const SQL_ROW_LIMIT = 10_000
 const SQL_TIMEOUT_SECONDS = 15
@@ -61,23 +82,23 @@ export interface LoadedInput {
   datasetVersionId: string
   label: string
   columns: DatasetColumn[]
-  rows: Array<Record<string, unknown>>
+  rows: CellRow[]
   rowCount: number
   digest: string
 }
 
 export interface ExecutionResult {
-  rows: Array<Record<string, unknown>>
+  rows: CellRow[]
   logs: string[]
   runtime: string
-  environment: Record<string, unknown> | null
+  environment: PythonEnvironment | null
 }
 
 export interface CodeCellDeps extends SessionAuthDeps {
   createClient?: (token: string) => DataClient
   executePython: (input: {
     source: string
-    inputs: Record<string, Array<Record<string, unknown>>>
+    inputs: Record<string, PythonInputRows>
   }) => Promise<ExecutionResult>
   executeSql: (input: {
     source: string
@@ -87,27 +108,31 @@ export interface CodeCellDeps extends SessionAuthDeps {
 }
 
 /** Stable JSON: object keys sorted, so the same rows always give the same digest. */
-export function canonicalJson(value: unknown): string {
+export function canonicalJson(
+  value: z.core.util.JSONType | ReadonlyArray<CellRow> | undefined,
+): string {
   if (value === undefined) return 'null'
 
-  if (value === null || typeof value !== 'object') return JSON.stringify(value)
+  const array = jsonArraySchema.safeParse(value)
 
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`
-  const record = value as Record<string, unknown>
+  if (array.success) return `[${array.data.map(canonicalJson).join(',')}]`
 
-  return `{${Object.keys(record)
-    .sort()
-    .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`)
-    .join(',')}}`
+  const record = cellRecordSchema.safeParse(value)
+
+  if (record.success)
+    return `{${Object.keys(record.data)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(record.data[key])}`)
+      .join(',')}}`
+
+  return JSON.stringify(value)
 }
 
 export function sha256(text: string): string {
   return `sha256:${createHash('sha256').update(text).digest('hex')}`
 }
 
-export function digestRows(
-  rows: ReadonlyArray<Record<string, unknown>>,
-): string {
+export function digestRows(rows: ReadonlyArray<CellRow>): string {
   return sha256(canonicalJson(rows))
 }
 
@@ -150,14 +175,15 @@ export function singleSelect(source: string): string {
   return statement
 }
 
-const SQL_TYPES: Record<string, string> = {
-  text: 'text',
-  integer: 'bigint',
-  decimal: 'numeric',
-  boolean: 'boolean',
-  date: 'date',
-  timestamp: 'timestamptz',
-}
+/** Field type per dataset column type, for the temporary tables SQL reads. */
+const SQL_TYPES = new Map<string, string>([
+  ['text', 'text'],
+  ['integer', 'bigint'],
+  ['decimal', 'numeric'],
+  ['boolean', 'boolean'],
+  ['date', 'date'],
+  ['timestamp', 'timestamptz'],
+])
 
 function quote(identifier: string): string {
   return `"${identifier.replaceAll('"', '""')}"`
@@ -200,7 +226,7 @@ export async function runSandboxSql(input: {
       const name = quote(table.alias)
       await conn.query(
         `CREATE TEMP TABLE ${name} (${columns
-          .map((c) => `${quote(c.key)} ${SQL_TYPES[c.type] ?? 'text'}`)
+          .map((c) => `${quote(c.key)} ${SQL_TYPES.get(c.type) ?? 'text'}`)
           .join(', ')}) ON COMMIT DROP`,
       )
 
@@ -216,7 +242,7 @@ export async function runSandboxSql(input: {
     await conn.query('SET TRANSACTION READ ONLY')
     await conn.query(`SET LOCAL statement_timeout = '${SQL_TIMEOUT_SECONDS}s'`)
 
-    const result = await conn.query<{ doc: Record<string, unknown> }>(
+    const result = await conn.query<{ doc: CellRow }>(
       `SELECT to_jsonb(q) AS doc FROM (\n${statement}\n) q LIMIT ${SQL_ROW_LIMIT + 1}`,
     )
 
@@ -248,7 +274,7 @@ export async function runSandboxSql(input: {
 /** The pipeline Python runner. The cell defines `transform(inputs, parameters)`. */
 export async function runPython(input: {
   source: string
-  inputs: Record<string, Array<Record<string, unknown>>>
+  inputs: Record<string, PythonInputRows>
 }): Promise<ExecutionResult> {
   const { executePythonTransform, PipelinePythonError, pythonInputsSchema } =
     await import('../pipeline-python.server')
@@ -296,7 +322,7 @@ interface DatasetJson {
   columns: DatasetColumn[]
   rowCount: number
   truncated: boolean
-  rows: Array<Record<string, unknown>>
+  rows: CellRow[]
 }
 
 async function loadInputs(
@@ -309,6 +335,7 @@ async function loadInputs(
     let doc: DatasetJson
 
     try {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Inputs are read in the order they were named so the first unavailable version reports its own alias and stops the rest.
       doc = await client.rpc<DatasetJson>('dataset_version_rows_json', {
         p_version_id: input.datasetVersionId,
         p_limit: INPUT_ROW_LIMIT,
@@ -353,17 +380,13 @@ interface RunRow {
   language: CodeCellLanguage
   source: string
   inputs: Array<{ alias: string; datasetVersionId: string }>
-  output: { rows?: Array<Record<string, unknown>> } | null
+  output: { rows?: CellRow[] } | null
   output_digest: string | null
   ran_at: string
 }
 
-function parseRequest(raw: unknown): CodeCellRunRequest {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new CodeCellError(400, 'invalid_request', 'Send a JSON object.')
-  }
-
-  const body = raw as Record<string, unknown>
+/** Decodes the JSON body of a code-cell request; every field is checked below. */
+function parseRequest(body: CellRow): CodeCellRunRequest {
   const action = body['action']
 
   if (action !== 'run' && action !== 'reproduce') {
@@ -374,9 +397,9 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
     )
   }
 
-  const recordId = body['recordId']
+  const recordId = uuidSchema.safeParse(body['recordId'])
 
-  if (typeof recordId !== 'string' || !UUID.test(recordId)) {
+  if (!recordId.success) {
     throw new CodeCellError(
       400,
       'invalid_request',
@@ -384,13 +407,9 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
     )
   }
 
-  const blockId = body['blockId']
+  const blockId = optionalUuidSchema.safeParse(body['blockId'])
 
-  if (
-    blockId !== undefined &&
-    blockId !== null &&
-    (typeof blockId !== 'string' || !UUID.test(blockId))
-  ) {
+  if (!blockId.success) {
     throw new CodeCellError(
       400,
       'invalid_request',
@@ -400,23 +419,25 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
 
   const out: CodeCellRunRequest = {
     action,
-    recordId,
-    blockId: blockId ?? null,
+    recordId: recordId.data,
+    blockId: blockId.data ?? null,
   }
 
   if (action === 'reproduce') {
-    const runId = body['runId']
+    const runId = uuidSchema.safeParse(body['runId'])
 
-    if (typeof runId !== 'string' || !UUID.test(runId)) {
+    if (!runId.success) {
       throw new CodeCellError(400, 'invalid_request', 'runId must be a run id.')
     }
 
-    out.runId = runId
+    out.runId = runId.data
 
     return out
   }
 
-  if (!isCodeCellLanguage(body['language'])) {
+  const language = body['language']
+
+  if (!isCodeCellLanguage(language)) {
     throw new CodeCellError(
       400,
       'invalid_request',
@@ -424,13 +445,13 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
     )
   }
 
-  out.language = body['language']
-  const source = body['source']
+  out.language = language
+  const source = stringSchema.safeParse(body['source'])
 
   if (
-    typeof source !== 'string' ||
-    source.trim() === '' ||
-    source.length > MAX_CODE_CELL_SOURCE
+    !source.success ||
+    source.data.trim() === '' ||
+    source.data.length > MAX_CODE_CELL_SOURCE
   ) {
     throw new CodeCellError(
       400,
@@ -439,10 +460,10 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
     )
   }
 
-  out.source = source
-  const inputs = body['inputs'] ?? []
+  out.source = source.data
+  const inputs = jsonArraySchema.safeParse(body['inputs'] ?? [])
 
-  if (!Array.isArray(inputs) || inputs.length > MAX_CODE_CELL_INPUTS) {
+  if (!inputs.success || inputs.data.length > MAX_CODE_CELL_INPUTS) {
     throw new CodeCellError(
       400,
       'invalid_request',
@@ -451,12 +472,13 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
   }
 
   const seen = new Set<string>()
-  out.inputs = inputs.map((entry: unknown) => {
-    const row = (entry ?? {}) as Record<string, unknown>
-    const alias = row['alias']
-    const versionId = row['datasetVersionId']
 
-    if (typeof alias !== 'string' || !CODE_CELL_ALIAS.test(alias)) {
+  out.inputs = inputs.data.map((entry) => {
+    const fields = cellRecordSchema.safeParse(entry)
+    const row = fields.success ? fields.data : {}
+    const alias = aliasSchema.safeParse(row['alias'])
+
+    if (!alias.success) {
       throw new CodeCellError(
         400,
         'invalid_request',
@@ -464,25 +486,27 @@ function parseRequest(raw: unknown): CodeCellRunRequest {
       )
     }
 
-    if (seen.has(alias)) {
+    if (seen.has(alias.data)) {
       throw new CodeCellError(
         400,
         'invalid_request',
-        `The name ${alias} is used twice.`,
+        `The name ${alias.data} is used twice.`,
       )
     }
 
-    seen.add(alias)
+    seen.add(alias.data)
 
-    if (typeof versionId !== 'string' || !UUID.test(versionId)) {
+    const versionId = uuidSchema.safeParse(row['datasetVersionId'])
+
+    if (!versionId.success) {
       throw new CodeCellError(
         400,
         'invalid_request',
-        `${alias} needs a dataset version.`,
+        `${alias.data} needs a dataset version.`,
       )
     }
 
-    return { alias, datasetVersionId: versionId }
+    return { alias: alias.data, datasetVersionId: versionId.data }
   })
 
   return out
@@ -658,7 +682,15 @@ export async function handleCodeCell(
   }
 
   try {
-    const parsed = parseRequest(await request.json().catch(() => null))
+    const body = cellRecordSchema.safeParse(
+      await request.json().catch(() => null),
+    )
+
+    if (!body.success) {
+      return requestErrorResponse(400, 'invalid_request', 'Send a JSON object.')
+    }
+
+    const parsed = parseRequest(body.data)
 
     const client = (deps.createClient ?? createServerDataClient)(
       auth.context.token,

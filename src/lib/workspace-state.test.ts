@@ -91,7 +91,8 @@ describe('restoring a workspace', () => {
       ),
     ).toEqual(fresh)
     const broken = twoPaneState()
-    broken.tabs[0].tree = leaf('notebook') as never // 'dataset' is not placed
+    // SAFETY: the fixture builds a well-formed tree; only the leaf kind is wrong, which is exactly what this case restores from.
+    broken.tabs[0].tree = leaf('notebook') as never
     expect(restoreWorkspace(JSON.stringify(broken), '/inbox', origin)).toEqual(
       fresh,
     )

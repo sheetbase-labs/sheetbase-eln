@@ -13,6 +13,7 @@ import { createRef } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useQuery } from '@tanstack/react-query'
+import type * as ReactQuery from '@tanstack/react-query'
 import {
   AnalysisStudioHeader,
   DataTableAlternative,
@@ -23,10 +24,16 @@ import {
 import { ChartConfigurator } from '#/components/viz/chart-configurator'
 import { CHART_SPEC_VERSION } from '#/lib/chart-spec'
 import type { ChartSpec } from '#/lib/chart-spec'
+
 import { DEFAULT_EXPORT_SETTINGS } from '#/lib/analysis-studio-data'
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
 import * as downloads from '#/lib/download'
+
+/** Records the spec the configurator hands back, before the test reads it. */
+interface SpecSink {
+  spec: ChartSpec | null
+}
 
 globalThis.ResizeObserver = class {
   observe() {}
@@ -34,18 +41,22 @@ globalThis.ResizeObserver = class {
   disconnect() {}
 }
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time, so this suite renders the studio components directly and supplies the router context the shell would.
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
   getRouteApi: () => ({ useRouteContext: () => ({}) }),
-  redirect: (options: unknown) => options,
+  redirect: <TOptions,>(options: TOptions) => options,
   useNavigate: () => vi.fn(),
   Link: ({ to, children }: { to: string; children: React.ReactNode }) => (
     <a href={to}>{children}</a>
   ),
 }))
 
-vi.mock('@tanstack/react-query', () => {
-  const actual = vi.importActual('@tanstack/react-query')
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The studio's reads are driven from each test, so the query hooks below are doubles; every other export stays the library's own.
+vi.mock('@tanstack/react-query', async () => {
+  const actual = await vi.importActual<typeof ReactQuery>(
+    '@tanstack/react-query',
+  )
 
   return {
     ...actual,
@@ -55,10 +66,12 @@ vi.mock('@tanstack/react-query', () => {
   }
 })
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The page's assistant is a server read this suite does not assert; the double reports it unavailable.
 vi.mock('#/lib/use-page-ai', () => ({
   usePageAi: () => ({ available: false, live: false, workspaceId: null }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Chart reads are a database query the configurator tests do not make; the doubles answer the shapes the components branch on.
 vi.mock('#/lib/chart-data', () => ({
   SCI_ANALYSIS_ROW_LIMIT: 100_000,
   useLiveChartDataset: () => ({
@@ -173,6 +186,7 @@ describe('AnalysisStudioHeader', () => {
 
   it('renders a populated data-source selector', () => {
     const t = source()
+    // SAFETY: the header reads only the id, name and lifecycle of each dataset; the rest of the wire row is unread here.
     render(
       <AnalysisStudioHeader
         datasets={[
@@ -235,7 +249,7 @@ describe('ChartConfigurator', () => {
   })
 
   it('changes the chart type when a type button is clicked', async () => {
-    const changed: { spec: ChartSpec | null } = { spec: null }
+    const changed: SpecSink = { spec: null }
     render(
       <ChartConfigurator
         source={source()}
@@ -251,7 +265,7 @@ describe('ChartConfigurator', () => {
   })
 
   it('adds an aggregation transformation', async () => {
-    const changed: { spec: ChartSpec | null } = { spec: null }
+    const changed: SpecSink = { spec: null }
     render(
       <ChartConfigurator
         source={source()}
@@ -271,7 +285,7 @@ describe('ChartConfigurator', () => {
   })
 
   it('uses only an explicit uncertainty column for error bars', async () => {
-    const changed: { spec: ChartSpec | null } = { spec: null }
+    const changed: SpecSink = { spec: null }
     render(
       <ChartConfigurator
         source={source()}
@@ -293,7 +307,7 @@ describe('ChartConfigurator', () => {
   })
 
   it('rebinds transformations when the Y-axis changes', async () => {
-    const changed: { spec: ChartSpec | null } = { spec: null }
+    const changed: SpecSink = { spec: null }
     render(
       <ChartConfigurator
         source={source()}
@@ -412,10 +426,11 @@ describe('SavedViewsPanel', () => {
 describe('ExportPanel', () => {
   beforeEach(() => {
     // The panel reads the experiment it was handed, if any: none here.
+    // SAFETY: the panel reads only `data` and `isLoading` from its query; the rest of the query result is unreachable in this render.
     vi.mocked(useQuery).mockReturnValue({
       data: undefined,
       isLoading: false,
-    } as unknown as ReturnType<typeof useQuery>)
+    } as never)
   })
 
   it('renders format, theme, dimensions and provenance controls', () => {
@@ -560,6 +575,7 @@ describe('ExportPanel', () => {
 
 describe('DataTableAlternative', () => {
   it('renders a loading skeleton while data loads', () => {
+    // SAFETY: a loading table renders its skeleton before it reads any materialised chart, so no value is needed here.
     const { container } = render(
       <DataTableAlternative
         materialised={null as never}
@@ -652,7 +668,7 @@ describe('DataTableAlternative', () => {
     const open = screen.getByText('Open in data table').closest('a')
     expect(open?.getAttribute('href')).toBe('/datasets/$datasetId/rows')
     expect(createObjectURL).not.toHaveBeenCalled()
-    void screen.getByLabelText('Download data preview').click()
+    screen.getByLabelText('Download data preview').click()
     expect(createObjectURL).toHaveBeenCalledTimes(1)
     vi.unstubAllGlobals()
   })
@@ -680,6 +696,7 @@ describe('AnalysisStudioHeader reflows at 400 % zoom (QA4-zoom-studio)', () => {
   // and wraps instead.
   it('shrinks and wraps rather than holding its max-content width', () => {
     const t = source()
+    // SAFETY: the header reads only the id, name and lifecycle of each dataset; the rest of the wire row is unread here.
     render(
       <AnalysisStudioHeader
         datasets={[

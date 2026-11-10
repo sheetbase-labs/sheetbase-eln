@@ -86,10 +86,14 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
   // the root document renders the person's theme on the first paint. An absent
   // or unknown cookie resolves to System, never to a stored default.
   const themePref = parseThemeCookie(headers.get('cookie')) ?? 'system'
-  const { getCurrentContext } = await import('#/lib/current-user')
+
+  const [{ getCurrentContext }, { labLogoVersion }] = await Promise.all([
+    import('#/lib/current-user'),
+    import('#/lib/lab-logo.server'),
+  ])
+
   const capabilities = capabilitiesFromEnv()
   const context = await getCurrentContext(headers)
-  const { labLogoVersion } = await import('#/lib/lab-logo.server')
 
   if (!context?.workspace)
     return {
@@ -102,10 +106,14 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
       themePref,
       labLogo: await labLogoVersion(null),
     }
-  const { getShellCounts } = await import('#/lib/shell-counts.server')
 
-  const { getShellPinned, getShellNotifications, getShellHiddenPages } =
-    await import('#/lib/shell-chrome.server')
+  const [
+    { getShellCounts },
+    { getShellPinned, getShellNotifications, getShellHiddenPages },
+  ] = await Promise.all([
+    import('#/lib/shell-counts.server'),
+    import('#/lib/shell-chrome.server'),
+  ])
 
   const [counts, pinned, notifications, hiddenPages, labLogo] =
     await Promise.all([
@@ -129,6 +137,47 @@ const getAuthContextFn = createServerFn({ method: 'GET' }).handler(async () => {
 })
 
 export const Route = createRootRouteWithContext<RouterContext>()({
+  beforeLoad: async ({ context, location }) => {
+    if (context.workspacePane) return context
+
+    const {
+      context: auth,
+      capabilities,
+      counts: shellCounts,
+      pinned,
+      hiddenPages,
+      notifications,
+      themePref,
+      labLogo,
+    } = typeof window === 'undefined'
+      ? await getAuthContextFn()
+      : await context.queryClient.fetchQuery({
+          queryKey: ROOT_CONTEXT_QUERY_KEY,
+          queryFn: () => getAuthContextFn(),
+          staleTime: ROOT_CONTEXT_STALE_MS,
+        })
+
+    setDisplayTimeZone(auth?.timeZone)
+    setDisplayClock(auth?.clock)
+
+    const toPortal = clientPortalRedirect(
+      auth?.workspace?.role,
+      location.pathname,
+    )
+
+    if (toPortal) throw redirect(toPortal)
+
+    return {
+      auth,
+      capabilities,
+      shellCounts,
+      shellPinned: pinned,
+      shellHiddenPages: hiddenPages,
+      shellNotifications: notifications,
+      themePref,
+      labLogo,
+    }
+  },
   head: () => ({
     meta: [
       {
@@ -206,47 +255,6 @@ export const Route = createRootRouteWithContext<RouterContext>()({
   // stream returns 401; no false `live` state.
   component: RootRouteComponent,
   shellComponent: RootDocument,
-  beforeLoad: async ({ context, location }) => {
-    if (context.workspacePane) return context
-
-    const {
-      context: auth,
-      capabilities,
-      counts: shellCounts,
-      pinned,
-      hiddenPages,
-      notifications,
-      themePref,
-      labLogo,
-    } = typeof window === 'undefined'
-      ? await getAuthContextFn()
-      : await context.queryClient.fetchQuery({
-          queryKey: ROOT_CONTEXT_QUERY_KEY,
-          queryFn: () => getAuthContextFn(),
-          staleTime: ROOT_CONTEXT_STALE_MS,
-        })
-
-    setDisplayTimeZone(auth?.timeZone)
-    setDisplayClock(auth?.clock)
-
-    const toPortal = clientPortalRedirect(
-      auth?.workspace?.role,
-      location.pathname,
-    )
-
-    if (toPortal) throw redirect(toPortal)
-
-    return {
-      auth,
-      capabilities,
-      shellCounts,
-      shellPinned: pinned,
-      shellHiddenPages: hiddenPages,
-      shellNotifications: notifications,
-      themePref,
-      labLogo,
-    }
-  },
 })
 
 /**
@@ -264,16 +272,114 @@ function RootRouteComponent() {
   return context.workspacePane ? <Outlet /> : <AppRoot />
 }
 
+/** The frame data the app shell renders, or the empty frame before sign-in. */
+function shellDataFor(
+  auth: RouterContext['auth'],
+  chrome: Pick<
+    RouterContext,
+    'shellCounts' | 'shellPinned' | 'shellHiddenPages' | 'shellNotifications'
+  >,
+): React.ComponentProps<typeof V3AppShell>['data'] {
+  if (!auth) {
+    return {
+      me: { id: '', name: '', initials: '', role: '' },
+      notifications: [],
+      pinned: [],
+      hiddenPages: [],
+      counts: {},
+      workspace: null,
+      workspaces: [],
+    }
+  }
+
+  return {
+    me: {
+      id: auth.user.id,
+      name: auth.user.name,
+      initials: initialsOf(auth.user.name),
+      role: auth.workspace?.role ?? 'Member',
+      settingsAccess: auth.workspace?.settingsAccess,
+      authFree: auth.authFree,
+    },
+    notifications: chrome.shellNotifications,
+    pinned: chrome.shellPinned,
+    hiddenPages: chrome.shellHiddenPages,
+    counts: chrome.shellCounts,
+    workspace: auth.workspace
+      ? { id: auth.workspace.id, name: auth.workspace.name }
+      : null,
+    workspaces: auth.workspaces
+      .filter((workspace) => !workspace.suspended)
+      .map((workspace) => ({ id: workspace.id, name: workspace.name })),
+  }
+}
+
+/**
+ * The route body inside the root providers: the route's own chrome, the reason
+ * access is blocked, the legacy shell, or the adopted (v3) app shell.
+ */
+function AppRootBody({
+  auth,
+  bareRoute,
+  legacyShell,
+  appShellData,
+  rootContext,
+}: {
+  auth: RouterContext['auth']
+  bareRoute: boolean
+  legacyShell: boolean
+  appShellData: React.ComponentProps<typeof V3AppShell>['data']
+  rootContext: RouterContext
+}) {
+  if (bareRoute) return <Outlet />
+
+  if (auth && (!auth.workspace || auth.workspace.suspended)) {
+    // J-SET-03/04: no live membership. The shell and every workspace read
+    // would fail without saying why.
+    return (
+      <AccessBlocked
+        user={auth.user}
+        suspendedWorkspace={
+          auth.workspace ? { name: auth.workspace.name } : null
+        }
+        contacts={auth.accessContacts ?? []}
+        otherWorkspaces={auth.workspaces.filter(
+          (w) => w.id !== auth.workspace?.id && !w.suspended,
+        )}
+      />
+    )
+  }
+
+  if (legacyShell) {
+    return (
+      <ShellProvider>
+        <Outlet />
+      </ShellProvider>
+    )
+  }
+
+  return (
+    <AvatarPhotosProvider>
+      <V3AppShell
+        data={appShellData}
+        banner={auth && !auth.authFree ? <JoinOfferBanner /> : null}
+        workspaceMenuExtra={
+          auth && !auth.authFree ? <JoinOfferMenuItem /> : null
+        }
+      >
+        <WorkspaceHost context={rootContext}>
+          <Outlet />
+        </WorkspaceHost>
+        {auth ? <StepTimersHost /> : null}
+      </V3AppShell>
+    </AvatarPhotosProvider>
+  )
+}
+
 function AppRoot() {
   const resolvedRootContext = Route.useRouteContext()
 
-  const {
-    auth,
-    shellCounts,
-    shellPinned,
-    shellHiddenPages,
-    shellNotifications,
-  } = resolvedRootContext
+  const { auth } = resolvedRootContext
 
   // Hydration restores the dehydrated route context without re-running
   // `beforeLoad`, so the first browser render sets the display zone here. It
@@ -340,40 +446,6 @@ function AppRoot() {
     legacyShellRouteIds.includes(match.routeId),
   )
 
-  const appShellData = auth
-    ? {
-        me: {
-          id: auth.user.id,
-          name: auth.user.name,
-          initials: initialsOf(auth.user.name),
-          role: auth.workspace?.role ?? 'Member',
-          settingsAccess: auth.workspace?.settingsAccess,
-          authFree: auth.authFree,
-        },
-        notifications: shellNotifications,
-        pinned: shellPinned,
-        hiddenPages: shellHiddenPages,
-        counts: shellCounts,
-        workspace: auth.workspace
-          ? { id: auth.workspace.id, name: auth.workspace.name }
-          : null,
-        workspaces: auth.workspaces
-          .filter((workspace) => !workspace.suspended)
-          .map((workspace) => ({
-            id: workspace.id,
-            name: workspace.name,
-          })),
-      }
-    : {
-        me: { id: '', name: '', initials: '', role: '' },
-        notifications: [],
-        pinned: [],
-        hiddenPages: [],
-        counts: {},
-        workspace: null,
-        workspaces: [],
-      }
-
   return (
     <ThemeProvider authenticated={Boolean(auth)}>
       <LiveEventProvider>
@@ -384,41 +456,13 @@ function AppRoot() {
             {auth && !auth.authFree && !bareRoute ? (
               <SessionExpiredBanner />
             ) : null}
-            {bareRoute ? (
-              <Outlet />
-            ) : auth && (!auth.workspace || auth.workspace.suspended) ? (
-              // J-SET-03/04: no live membership. The shell and every
-              // workspace read would fail without saying why.
-              <AccessBlocked
-                user={auth.user}
-                suspendedWorkspace={
-                  auth.workspace ? { name: auth.workspace.name } : null
-                }
-                contacts={auth.accessContacts ?? []}
-                otherWorkspaces={auth.workspaces.filter(
-                  (w) => w.id !== auth.workspace?.id && !w.suspended,
-                )}
-              />
-            ) : legacyShell ? (
-              <ShellProvider>
-                <Outlet />
-              </ShellProvider>
-            ) : (
-              <AvatarPhotosProvider>
-                <V3AppShell
-                  data={appShellData}
-                  banner={auth && !auth.authFree ? <JoinOfferBanner /> : null}
-                  workspaceMenuExtra={
-                    auth && !auth.authFree ? <JoinOfferMenuItem /> : null
-                  }
-                >
-                  <WorkspaceHost context={resolvedRootContext}>
-                    <Outlet />
-                  </WorkspaceHost>
-                  {auth ? <StepTimersHost /> : null}
-                </V3AppShell>
-              </AvatarPhotosProvider>
-            )}
+            <AppRootBody
+              auth={auth}
+              bareRoute={bareRoute}
+              legacyShell={legacyShell}
+              appShellData={shellDataFor(auth, resolvedRootContext)}
+              rootContext={resolvedRootContext}
+            />
           </DemoSigningContext.Provider>
         </CollaborationEnabledContext.Provider>
       </LiveEventProvider>

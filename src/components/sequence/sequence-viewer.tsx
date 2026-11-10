@@ -93,6 +93,7 @@ export function SequenceViewer({
             onChange={(e) => setIndex(Number(e.target.value))}
           >
             {sequences.map((s, i) => (
+              // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- The picker's value is the record's position in the loaded list, so that position is its identity.
               <option key={i} value={i}>
                 {s.name}
               </option>
@@ -188,7 +189,9 @@ function SequencePane({
               variant="segment"
               label={t('sequences.viewer.view')}
               value={view}
-              onValueChange={(k) => setView(k as View)}
+              onValueChange={(next) => {
+                if (next === 'circular' || next === 'linear') setView(next)
+              }}
               items={[
                 { key: 'circular', label: t('sequences.viewer.circular') },
                 { key: 'linear', label: t('sequences.viewer.linear') },
@@ -227,6 +230,7 @@ function SequencePane({
         </p>
       ) : null}
 
+      {/* react-doctor-disable-next-line react-doctor/duplicate-jsx-subtree -- The sequence-tools plugin ships its own standalone copy of this map card; the app cannot share a component across the package boundary. */}
       <div className="rounded-lg border border-border bg-surface p-3">
         {view === 'circular' ? (
           <div className="flex justify-center">
@@ -324,6 +328,7 @@ function FeatureTable({
   const sorted = [...seq.features].sort((a, b) => a.start - b.start)
 
   return (
+    // react-doctor-disable-next-line react-doctor/duplicate-jsx-subtree -- The sequence-tools plugin ships its own standalone copy of this table; the app cannot share a component across the package boundary.
     <TableBox>
       <Table caption={t('sequences.viewer.features')}>
         <TableHeader>
@@ -404,6 +409,7 @@ function FeatureDetail({
   )
 
   return (
+    // react-doctor-disable-next-line react-doctor/duplicate-jsx-subtree -- The sequence-tools plugin ships its own standalone copy of this panel; the app cannot share a component across the package boundary.
     <section
       aria-label={t('sequences.viewer.selected')}
       className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3"
@@ -507,6 +513,7 @@ function Bases({
   }, [seq, from, to, span, readable])
 
   return (
+    // react-doctor-disable-next-line react-doctor/duplicate-jsx-subtree -- The sequence-tools plugin ships its own standalone copy of the base letters; the app cannot share a component across the package boundary.
     <section className="flex flex-col gap-1.5">
       <h3 className="text-section">{t('sequences.viewer.bases')}</h3>
       {readable ? (

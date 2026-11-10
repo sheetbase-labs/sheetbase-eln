@@ -5,6 +5,8 @@
  * file. Read-only whenever the experiment holding the file is signed or
  * archived: a signed record changes only through an amendment.
  */
+import { z } from 'zod'
+
 import { env } from '#/env.server'
 import {
   WOPI_TOKEN_TTL_SECONDS,
@@ -23,6 +25,17 @@ import {
 } from '#/lib/request-auth'
 import type { SessionAuthDeps } from '#/lib/request-auth'
 
+/** A UUID as the editor session request names a file or a record. */
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** What the browser asks for: the file, the record holding it, and the mode. */
+const editorSessionRequest = z.object({
+  fileRecordId: z.string().regex(UUID_PATTERN),
+  recordId: z.string().regex(UUID_PATTERN).optional().catch(undefined),
+  mode: z.literal('view').optional().catch(undefined),
+})
+
 export interface EditorSessionDeps {
   config: OfficeEditorConfig | null
   secret: string
@@ -34,7 +47,7 @@ export const realEditorSessionDeps = (): EditorSessionDeps => ({
   secret: env.PGRST_JWT_SECRET,
 })
 
-function ok(body: unknown): Response {
+function ok<Body extends z.core.util.JSONType>(body: Body): Response {
   return new Response(JSON.stringify(body), {
     status: 200,
     headers: {
@@ -115,17 +128,17 @@ export async function handleEditorSession(
     )
   }
 
-  let body: { fileRecordId?: unknown; recordId?: unknown; mode?: unknown }
+  let rawBody: unknown
 
   try {
-    body = await request.json()
+    rawBody = await request.json()
   } catch {
     return requestErrorResponse(400, 'invalid_body', 'Body must be JSON.')
   }
 
-  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  const parsed = editorSessionRequest.safeParse(rawBody)
 
-  if (typeof body.fileRecordId !== 'string' || !uuid.test(body.fileRecordId)) {
+  if (!parsed.success) {
     return requestErrorResponse(
       400,
       'invalid_body',
@@ -133,11 +146,8 @@ export async function handleEditorSession(
     )
   }
 
-  const recordId =
-    typeof body.recordId === 'string' && uuid.test(body.recordId)
-      ? body.recordId
-      : undefined
-
+  const body = parsed.data
+  const recordId = body.recordId
   const wantView = body.mode === 'view'
 
   const fileRes = await postgrestSelect<FileInfo[]>(

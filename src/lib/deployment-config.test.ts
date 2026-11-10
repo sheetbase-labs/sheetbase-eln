@@ -142,12 +142,13 @@ describe('validateDeploymentConfig', () => {
   })
 
   it('rejects the retired preview environment', () => {
-    expect(() =>
-      validateDeploymentConfig({
-        ...productionConfig,
-        SHEETBASE_ENV: 'preview',
-      } as unknown as DeploymentInput),
-    ).toThrow(/invalid_enum_value|Invalid option/)
+    const retired = { ...productionConfig, SHEETBASE_ENV: 'preview' }
+    // SAFETY: the retired value is deliberately outside the schema's enum; this test proves the schema rejects it at runtime.
+    const input = retired as DeploymentInput
+
+    expect(() => validateDeploymentConfig(input)).toThrow(
+      /invalid_enum_value|Invalid option/,
+    )
   })
 
   it('allows local environment inputs in development', () => {

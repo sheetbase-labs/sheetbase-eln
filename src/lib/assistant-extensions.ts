@@ -25,6 +25,7 @@ export interface ExtensionToolAction {
   kind: 'plugin.run'
   extensionKey: string
   operationId: string
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The runner's input is an unparsed bag of declared values; `checkDeclaredValues` decodes it against the operation's declared fields before a read or a card can use it, and `run-client` types the same boundary.
   input: Record<string, unknown>
 }
 
@@ -41,11 +42,13 @@ export interface ExtensionToolActionResult {
 /** A plain-words line for a value on a card. */
 export function describeFieldValue(
   field: Pick<ExtensionField, 'type'>,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- One declared value read out of the unparsed bag above; `checkDeclaredValues` has already accepted it against this field's declared type.
   value: unknown,
 ): string {
   if (value === null || value === undefined) return ''
 
   if (field.type === 'json') return JSON.stringify(value)
 
+  // oxlint-disable-next-line typescript/no-base-to-string -- A `json` field returned above; every other declared type is a primitive that `checkDeclaredValues` validated, so this never stringifies an object.
   return String(value)
 }

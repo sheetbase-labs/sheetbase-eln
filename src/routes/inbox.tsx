@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { z } from 'zod'
 import { Icon } from '#/components/icons'
 import { collapseRepeats } from '#/lib/work-items/repeats'
 import type { InboxEntry } from '#/lib/work-items/repeats'
@@ -36,8 +37,13 @@ import {
   useInboxPage,
 } from '#/lib/work-items/data'
 import type { WorkItem, WorkItemKind } from '#/lib/work-items/data'
-import { itemLink } from '#/lib/work-items/destination'
 import { itemKey } from '#/lib/work-items/predicate'
+import {
+  itemLink,
+  moveListSelection,
+  rowKey,
+  runLink,
+} from '#/lib/work-items/inbox-rows'
 import type { InboxTab, WorkItemType } from '#/lib/work-items/predicate'
 import { rich, t } from '#/copy'
 
@@ -45,11 +51,47 @@ type InboxType = WorkItemType
 
 type InboxGroup = 'overdue' | 'today' | 'nextSevenDays' | 'later'
 
+const tabLabels = new Map<InboxTab, string>()
+
 const tabs: [InboxTab, string][] = [
   ['needs-action', t('projects.inbox.tabs.needsAction')],
   ['following', t('projects.inbox.tabs.following')],
   ['done-today', t('projects.inbox.tabs.doneToday')],
 ]
+
+for (const [name, label] of tabs) tabLabels.set(name, label)
+
+const INBOX_TABS = ['needs-action', 'following', 'done-today'] as const
+
+const INBOX_TYPES = [
+  'reviews',
+  'data',
+  'runs',
+  'materials',
+  'lab',
+  'admin',
+  'agents',
+  'following',
+] as const
+
+/** The tab names as plain strings, for the guard below. */
+const INBOX_TAB_NAMES: readonly string[] = INBOX_TABS
+
+/** Whether a tab control's value names an Inbox tab. */
+function isInboxTab(value: string): value is InboxTab {
+  return INBOX_TAB_NAMES.includes(value)
+}
+
+/** The Inbox's URL state: the tab, the type chip and the selected row. */
+const inboxSearchSchema = z.object({
+  // The selected item lives in the URL, so a reload, Back and a shared link
+  // land on the same row.
+  item: z.string().min(1).optional().catch(undefined),
+  tab: z.enum(INBOX_TABS).optional().catch(undefined),
+  type: z.enum(INBOX_TYPES).optional().catch(undefined),
+})
+
+type InboxSearch = z.infer<typeof inboxSearchSchema>
 
 const types: [InboxType, string, Tone, WorkItemKind][] = [
   ['reviews', t('projects.inbox.types.reviews'), 'review', 'review_requested'],
@@ -70,31 +112,7 @@ const types: [InboxType, string, Tone, WorkItemKind][] = [
 export const Route = createFileRoute('/inbox')({
   // The Home chips open a specific tab/type here, so the set a chip counted is
   // the set the page shows.
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { tab?: InboxTab; type?: InboxType; item?: string } => ({
-    // The selected item lives in the URL, so a reload, Back and a shared link
-    // land on the same row.
-    item:
-      typeof search.item === 'string' && search.item ? search.item : undefined,
-    tab:
-      search.tab === 'following' ||
-      search.tab === 'done-today' ||
-      search.tab === 'needs-action'
-        ? search.tab
-        : undefined,
-    type:
-      search.type === 'reviews' ||
-      search.type === 'data' ||
-      search.type === 'runs' ||
-      search.type === 'materials' ||
-      search.type === 'lab' ||
-      search.type === 'admin' ||
-      search.type === 'agents' ||
-      search.type === 'following'
-        ? search.type
-        : undefined,
-  }),
+  validateSearch: (search): InboxSearch => inboxSearchSchema.parse(search),
   component: Inbox,
 })
 
@@ -217,43 +235,18 @@ function rowReason(item: WorkItem): string {
     : item.reason
 }
 
-/** The per-row identity used for selection and the rendered list key. */
-export function rowKey(item: WorkItem): string {
-  return item.sourceId ?? item.recordId ?? item.identifier ?? item.title
-}
-
-/**
- * Move an Inbox selection by `delta`, clamping at both ends. A null or unknown
- * current selection is treated as the first row, so the first `J` advances off
- * the row that is already implicitly highlighted.
- */
-export function moveListSelection(
-  keys: readonly string[],
-  current: string | null,
-  delta: number,
-): string | null {
-  if (keys.length === 0) return null
-  const index = current ? keys.indexOf(current) : -1
-  const base = index === -1 ? 0 : index
-  const next = Math.min(keys.length - 1, Math.max(0, base + delta))
-
-  return keys[next]
-}
-
-export { itemLink }
-
-/** The specific run a failed or waiting item is about, once it is resolved. */
-export function runLink(runId: string) {
-  return { to: '/pipelines/runs/$runId' as const, params: { runId } }
-}
-
 function Inbox() {
   const search = useSearch({ from: '/inbox' })
   const tab = search.tab ?? 'needs-action'
   const type = search.type
   const query = useInboxPage(tab, type)
   const page = query.data?.pages.at(0)
-  const items = query.data?.pages.flatMap((p) => p.items) ?? []
+
+  const items = useMemo(
+    () => query.data?.pages.flatMap((p) => p.items) ?? [],
+    [query.data],
+  )
+
   // QA3-lists-inbox-2 — `later` is the person's explicit choice: null means
   // "follow the default", which expands the bucket when it holds every row the
   // tab would render. A tab whose items are all undated then shows its rows
@@ -292,14 +285,14 @@ function Inbox() {
   // The Later bucket is the tab's only group when every visible row lives in
   // it (in this workspace every needs-action item is undated, so that is the
   // whole tab).
+  const laterKeys = useMemo(() => new Set(groups.later), [groups.later])
+
   const laterHoldsEveryRow =
-    visible.length > 0 && visible.every((i) => groups.later.includes(i))
+    visible.length > 0 && visible.every((i) => laterKeys.has(i))
 
   const laterExpanded = later ?? laterHoldsEveryRow
 
-  const shown = visible.filter(
-    (i) => laterExpanded || !groups.later.includes(i),
-  )
+  const shown = visible.filter((i) => laterExpanded || !laterKeys.has(i))
 
   const hiddenLater = groups.later.length
 
@@ -393,18 +386,21 @@ function Inbox() {
   // Following left `?type=reviews` in the address bar and a reload restored
   // the old filter.
   const updateSearch = useCallback(
-    (patch: { tab?: InboxTab; type?: InboxType; item?: string }) => {
+    (patch: InboxSearch) => {
       void navigate({
         to: '/inbox',
-        search: (previous: {
-          tab?: InboxTab
-          type?: InboxType
-          item?: string
-        }) => ({
-          ...previous,
-          ...patch,
-        }),
-      } as never)
+        // The router hands the updater every route's search; this page reads
+        // its own three keys and passes nothing else on.
+        search: (previous) => {
+          const current = inboxSearchSchema.parse(previous)
+
+          return {
+            tab: 'tab' in patch ? patch.tab : current.tab,
+            type: 'type' in patch ? patch.type : current.type,
+            item: 'item' in patch ? patch.item : current.item,
+          }
+        },
+      })
     },
     [navigate],
   )
@@ -420,13 +416,12 @@ function Inbox() {
       setSelectedKeyState(key)
       void navigate({
         to: '/inbox',
-        search: (previous: {
-          tab?: InboxTab
-          type?: InboxType
-          item?: string
-        }) => ({ ...previous, item: key ?? undefined }),
+        search: (previous) => ({
+          ...inboxSearchSchema.parse(previous),
+          item: key ?? undefined,
+        }),
         replace: true,
-      } as never)
+      })
     },
     [navigate],
   )
@@ -477,11 +472,15 @@ function Inbox() {
 
       if (workspace && where) {
         const { href } = router.buildLocation(destination)
-        workspace.open(href, {
+
+        const placement: Parameters<typeof workspace.open>[1] = {
           beside: true,
-          ...(where === 'below' ? { below: true } : {}),
           title: item.title,
-        })
+        }
+
+        if (where === 'below') placement.below = true
+
+        workspace.open(href, placement)
       } else void navigate(destination)
     },
     [navigate, router, workspace],
@@ -534,6 +533,7 @@ function Inbox() {
       // only a route re-resolution refreshes.
       void router.invalidate()
     },
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A refused mark-seen is a caught throw, so it reaches this callback untyped; Error supplies its message.
     onError: (error: unknown) =>
       toast.error(
         error instanceof Error ? error.message : t('projects.inbox.markFailed'),
@@ -543,110 +543,32 @@ function Inbox() {
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
-        <ListHeader
-          title={t('projects.inbox.title')}
-          subtitle={t('projects.inbox.subtitle')}
-          actions={
-            <>
-              <Button
-                nativeButton={false}
-                render={<Link to="/settings/account/notifications" />}
-              >
-                {t('projects.inbox.notificationSettings')}
-              </Button>
-              <Button
-                disabled={markSeen.isPending || markableKeys.length === 0}
-                onClick={() => markSeen.mutate(markableKeys)}
-              >
-                {query.hasNextPage
-                  ? t('projects.inbox.markLoaded')
-                  : t('projects.inbox.markAll')}
-              </Button>
-            </>
-          }
-          tabs={
-            <Tabs
-              mode="state"
-              label={t('projects.inbox.title')}
-              value={tab}
-              onValueChange={(next) => selectTab(next as InboxTab)}
-              className="mt-1"
-              items={tabs.map(([key, label]) => ({
-                key,
-                label,
-                count: countsKnown ? tabCount(key) : '—',
-              }))}
-            />
-          }
+        <InboxHeader
+          hasNextPage={Boolean(query.hasNextPage)}
+          markableCount={markableKeys.length}
+          marking={markSeen.isPending}
+          onMarkSeen={() => markSeen.mutate(markableKeys)}
+          tab={tab}
+          onSelectTab={selectTab}
+          countsKnown={countsKnown}
+          tabCount={tabCount}
         />
 
-        <div
-          ref={filterRef}
-          role="toolbar"
-          aria-label={t('projects.inbox.filterByType')}
-          className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-2 md:px-6 [&_button]:shrink-0"
-        >
-          {/* On a phone the type filters scroll sideways in one row rather
-              than wrapping onto three above the first item. */}
-          <div className={PHONE_SCROLL_ROW}>
-            <Button
-              size="sm"
-              variant="quiet"
-              aria-pressed={!type}
-              className={!type ? 'bg-selection hover:bg-selection' : undefined}
-              onClick={() => selectType(undefined)}
-            >
-              {t('projects.inbox.allTypes')}
-            </Button>
-            {types.map(([name, label, tone]) => (
-              <Button
-                key={name}
-                size="sm"
-                variant="quiet"
-                aria-pressed={type === name}
-                className={
-                  type === name ? 'bg-selection hover:bg-selection' : undefined
-                }
-                onClick={() => selectType(type === name ? undefined : name)}
-              >
-                <Dot tone={tone} />
-                {label} {countsKnown ? typeCount(name) : '—'}
-              </Button>
-            ))}
-          </div>
-          <span className="flex-1" />
-          {selectedCount > 0 ? (
-            <>
-              <span role="status" className="text-label text-fg-muted">
-                {t('projects.inbox.selected', { count: selectedCount })}
-              </span>
-              <Button
-                size="sm"
-                variant="quiet"
-                disabled={markSeen.isPending || selectedSeenKeys.length === 0}
-                onClick={() =>
-                  markSeen.mutate(selectedSeenKeys, {
-                    onSuccess: () => setSelection(new Set()),
-                  })
-                }
-              >
-                {t('projects.inbox.markSelected')}
-              </Button>
-              <Button
-                size="sm"
-                variant="quiet"
-                onClick={() => setSelection(new Set())}
-              >
-                {t('projects.inbox.clearSelection')}
-              </Button>
-            </>
-          ) : null}
-          <span className="shrink-0 whitespace-nowrap text-label text-fg-muted max-lg:hidden">
-            {rich('projects.inbox.sorted', {
-              kbd: (key) => <Kbd>{key}</Kbd>,
-            })}
-          </span>
-        </div>
+        <InboxToolbar
+          filterRef={filterRef}
+          type={type}
+          onSelectType={selectType}
+          countsKnown={countsKnown}
+          typeCount={typeCount}
+          selectedCount={selectedCount}
+          marking={markSeen.isPending}
+          onMarkSelected={() =>
+            markSeen.mutate(selectedSeenKeys, {
+              onSuccess: () => setSelection(new Set()),
+            })
+          }
+          onClearSelection={() => setSelection(new Set())}
+        />
 
         <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
           {query.isError && !page ? (
@@ -700,196 +622,19 @@ function Inbox() {
               ) : null}
             </div>
           ) : (
-            <div role="list" aria-label={t('projects.inbox.items')}>
-              {sections.map(([g, rows, entries]) => {
-                if (!rows.length) return null
-
-                return (
-                  <div key={g ?? 'all'}>
-                    <div
-                      role="presentation"
-                      className="flex h-8 items-center gap-2 border-b border-border-subtle bg-surface-muted px-4 text-label font-medium text-fg-muted md:px-6"
-                    >
-                      {g
-                        ? t(`projects.inbox.groups.${g}`)
-                        : tabs.find(([name]) => name === tab)![1]}
-                      {/* QA3-lists-inbox-2 — the tab's own group states the
-                          tab's total, so the strip and the list agree in one
-                          viewport; a due-date group states its own rows. */}
-                      <span className="num font-normal">
-                        {g === null ? visible.length : rows.length}
-                      </span>
-                      {g === 'later' ? (
-                        <button
-                          type="button"
-                          aria-expanded
-                          onClick={() => setLater(false)}
-                          className="ml-auto cursor-pointer border-0 bg-transparent p-0 text-label text-link"
-                        >
-                          {t('projects.inbox.collapse')}
-                        </button>
-                      ) : null}
-                    </div>
-                    {entries.map((entry, index) => {
-                      const i = entry.item
-                      const key = rowKey(i)
-
-                      // The row standing for a folded group selects all of it.
-                      const keys =
-                        entry.count > 1 && !expandedRepeats.has(entry.group)
-                          ? entry.members.map(rowKey)
-                          : [key]
-
-                      const checked = keys.every((k) => selection.has(k))
-                      const open = expandedRepeats.has(entry.group)
-
-                      return (
-                        <div
-                          // QA3-lists-inbox-1 — `rowKey` mirrors the boundary
-                          // identity, but distinct work items can share it
-                          // (many data issues carry one dataset's identifier),
-                          // and duplicate keys leave removed rows on screen.
-                          // The position disambiguates the rendered siblings;
-                          // `key` still drives selection.
-                          key={`${key}#${index}`}
-                          role="listitem"
-                          className={cn(
-                            'flex items-center hover:bg-row-hover',
-                            (selected === i || selection.has(key)) &&
-                              'bg-selection hover:bg-selection',
-                            entry.repeat && 'bg-surface-muted',
-                          )}
-                          aria-current={selected === i ? true : undefined}
-                        >
-                          <Checkbox
-                            className="ml-4 md:ml-6"
-                            aria-label={t('projects.inbox.select', {
-                              title: i.title,
-                            })}
-                            checked={checked}
-                            onCheckedChange={(next) =>
-                              setSelection((current) => {
-                                const updated = new Set(current)
-
-                                for (const k of keys) {
-                                  if (next) updated.add(k)
-                                  else updated.delete(k)
-                                }
-
-                                return updated
-                              })
-                            }
-                          />
-                          <button
-                            type="button"
-                            aria-pressed={selection.has(key)}
-                            onFocus={() => setSelectedKey(key)}
-                            onClick={(event) => {
-                              setSelectedKey(key)
-
-                              if (
-                                !event.ctrlKey &&
-                                !event.metaKey &&
-                                (!event.shiftKey || event.altKey)
-                              ) {
-                                void openItem(
-                                  i,
-                                  event.altKey
-                                    ? event.shiftKey
-                                      ? 'below'
-                                      : 'beside'
-                                    : undefined,
-                                )
-
-                                return
-                              }
-
-                              setSelection(
-                                (current) =>
-                                  new Set([
-                                    ...(event.ctrlKey || event.metaKey
-                                      ? current
-                                      : []),
-                                    key,
-                                  ]),
-                              )
-                            }}
-                            className={cn(
-                              'grid min-h-11 w-full cursor-pointer grid-cols-[104px_minmax(0,1fr)_180px] items-center gap-3 max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-x-3 max-md:gap-y-1 max-md:py-2 border-0 border-b border-border-subtle bg-transparent px-4 py-1.5 text-left md:px-6',
-                              entry.repeat && 'pl-8 md:pl-10',
-                            )}
-                          >
-                            <Status
-                              tone={toneFor(i.kind)}
-                              className="min-w-0 whitespace-normal max-md:col-span-2 max-md:justify-self-start"
-                            >
-                              {labelFor(i.kind)}
-                            </Status>
-                            <span className="min-w-0">
-                              <span className="block truncate text-body font-medium text-fg">
-                                {i.identifier && !isMachineKey(i.identifier) ? (
-                                  <span className="mono mr-1.5 font-normal text-fg-muted">
-                                    {i.identifier}
-                                  </span>
-                                ) : null}
-                                {i.title}
-                                {selection.has(key) ? (
-                                  <span className="ml-2 text-label text-link">
-                                    {t('projects.inbox.selectedRow')}
-                                  </span>
-                                ) : null}
-                              </span>
-                              <span className="block truncate text-label text-fg-muted">
-                                {rowReason(i)}
-                              </span>
-                            </span>
-                            <span className="whitespace-nowrap text-right text-label text-fg-muted max-md:max-w-[9rem] max-md:whitespace-normal">
-                              {dueLabel(i.dueAt)}
-                            </span>
-                          </button>
-                          {entry.count > 1 ? (
-                            <button
-                              type="button"
-                              aria-expanded={open}
-                              aria-label={
-                                open
-                                  ? t('projects.inbox.repeats.hideAria', {
-                                      count: entry.count,
-                                    })
-                                  : t('projects.inbox.repeats.showAria', {
-                                      count: entry.count,
-                                    })
-                              }
-                              onClick={() =>
-                                setExpandedRepeats((current) => {
-                                  const next = new Set(current)
-
-                                  if (open) next.delete(entry.group)
-                                  else next.add(entry.group)
-
-                                  return next
-                                })
-                              }
-                              className="mr-4 inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-full border border-border bg-surface px-2 text-label text-fg-muted hover:bg-surface-hover hover:text-fg md:mr-6"
-                            >
-                              <span className="num">
-                                {t('projects.inbox.repeats.count', {
-                                  count: entry.count,
-                                })}
-                              </span>
-                              <Icon
-                                name={open ? 'chevronUp' : 'chevronDown'}
-                                size={12}
-                              />
-                            </button>
-                          ) : null}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )
-              })}
-            </div>
+            <InboxSections
+              sections={sections}
+              tab={tab}
+              visibleCount={visible.length}
+              selection={selection}
+              onSelectionChange={setSelection}
+              selected={selected}
+              expandedRepeats={expandedRepeats}
+              onExpandedRepeatsChange={setExpandedRepeats}
+              onOpenItem={openItem}
+              onSelectKey={setSelectedKey}
+              onCollapseLater={() => setLater(false)}
+            />
           )}
           {hiddenLater > 0 && !laterExpanded ? (
             <button
@@ -921,5 +666,368 @@ function Inbox() {
         </div>
       </div>
     </div>
+  )
+}
+
+/** The page header: what the Inbox is, its mark-seen action and its tabs. */
+function InboxHeader({
+  hasNextPage,
+  markableCount,
+  marking,
+  onMarkSeen,
+  tab,
+  onSelectTab,
+  countsKnown,
+  tabCount,
+}: {
+  hasNextPage: boolean
+  markableCount: number
+  marking: boolean
+  onMarkSeen: () => void
+  tab: InboxTab
+  onSelectTab: (tab: InboxTab) => void
+  countsKnown: boolean
+  tabCount: (name: InboxTab) => number
+}): React.ReactElement {
+  return (
+    <ListHeader
+      title={t('projects.inbox.title')}
+      subtitle={t('projects.inbox.subtitle')}
+      actions={
+        <>
+          <Button
+            nativeButton={false}
+            render={<Link to="/settings/account/notifications" />}
+          >
+            {t('projects.inbox.notificationSettings')}
+          </Button>
+          <Button
+            disabled={marking || markableCount === 0}
+            onClick={onMarkSeen}
+          >
+            {hasNextPage
+              ? t('projects.inbox.markLoaded')
+              : t('projects.inbox.markAll')}
+          </Button>
+        </>
+      }
+      tabs={
+        <Tabs
+          mode="state"
+          label={t('projects.inbox.title')}
+          value={tab}
+          onValueChange={(next) => {
+            if (isInboxTab(next)) onSelectTab(next)
+          }}
+          className="mt-1"
+          items={tabs.map(([key, label]) => ({
+            key,
+            label,
+            count: countsKnown ? tabCount(key) : '—',
+          }))}
+        />
+      }
+    />
+  )
+}
+
+/** The type chips, the bulk actions and the sort hint above the list. */
+function InboxToolbar({
+  filterRef,
+  type,
+  onSelectType,
+  countsKnown,
+  typeCount,
+  selectedCount,
+  marking,
+  onMarkSelected,
+  onClearSelection,
+}: {
+  filterRef: React.RefObject<HTMLDivElement | null>
+  type: InboxType | undefined
+  onSelectType: (type: InboxType | undefined) => void
+  countsKnown: boolean
+  typeCount: (name: InboxType) => number
+  selectedCount: number
+  marking: boolean
+  onMarkSelected: () => void
+  onClearSelection: () => void
+}): React.ReactElement {
+  return (
+    <div
+      ref={filterRef}
+      role="toolbar"
+      aria-label={t('projects.inbox.filterByType')}
+      className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-2 md:px-6 [&_button]:shrink-0"
+    >
+      {/* On a phone the type filters scroll sideways in one row rather
+              than wrapping onto three above the first item. */}
+      <div className={PHONE_SCROLL_ROW}>
+        <Button
+          size="sm"
+          variant="quiet"
+          aria-pressed={!type}
+          className={!type ? 'bg-selection hover:bg-selection' : undefined}
+          onClick={() => onSelectType(undefined)}
+        >
+          {t('projects.inbox.allTypes')}
+        </Button>
+        {types.map(([name, label, tone]) => (
+          <Button
+            key={name}
+            size="sm"
+            variant="quiet"
+            aria-pressed={type === name}
+            className={
+              type === name ? 'bg-selection hover:bg-selection' : undefined
+            }
+            onClick={() => onSelectType(type === name ? undefined : name)}
+          >
+            <Dot tone={tone} />
+            {label} {countsKnown ? typeCount(name) : '—'}
+          </Button>
+        ))}
+      </div>
+      <span className="flex-1" />
+      {selectedCount > 0 ? (
+        <>
+          <span role="status" className="text-label text-fg-muted">
+            {t('projects.inbox.selected', { count: selectedCount })}
+          </span>
+          <Button
+            size="sm"
+            variant="quiet"
+            disabled={marking || selectedCount === 0}
+            onClick={onMarkSelected}
+          >
+            {t('projects.inbox.markSelected')}
+          </Button>
+          <Button size="sm" variant="quiet" onClick={onClearSelection}>
+            {t('projects.inbox.clearSelection')}
+          </Button>
+        </>
+      ) : null}
+      <span className="shrink-0 whitespace-nowrap text-label text-fg-muted max-lg:hidden">
+        {rich('projects.inbox.sorted', {
+          kbd: (key) => <Kbd>{key}</Kbd>,
+        })}
+      </span>
+    </div>
+  )
+}
+
+/** The grouped rows: due-date sections on Needs action, one list elsewhere. */
+function InboxSections({
+  sections,
+  tab,
+  visibleCount,
+  selection,
+  onSelectionChange,
+  selected,
+  expandedRepeats,
+  onExpandedRepeatsChange,
+  onOpenItem,
+  onSelectKey,
+  onCollapseLater,
+}: {
+  sections: [InboxGroup | null, WorkItem[], InboxEntry[]][]
+  tab: InboxTab
+  visibleCount: number
+  selection: Set<string>
+  onSelectionChange: React.Dispatch<React.SetStateAction<Set<string>>>
+  selected: WorkItem | undefined
+  expandedRepeats: Set<string>
+  onExpandedRepeatsChange: React.Dispatch<React.SetStateAction<Set<string>>>
+  onOpenItem: (item: WorkItem, where?: 'beside' | 'below') => Promise<void>
+  onSelectKey: (key: string | null) => void
+  onCollapseLater: () => void
+}): React.ReactElement {
+  return (
+    <ul aria-label={t('projects.inbox.items')} className="m-0 list-none p-0">
+      {sections.map(([g, rows, entries]) => {
+        if (!rows.length) return null
+
+        return (
+          <div key={g ?? 'all'}>
+            <div
+              role="presentation"
+              className="flex h-8 items-center gap-2 border-b border-border-subtle bg-surface-muted px-4 text-label font-medium text-fg-muted md:px-6"
+            >
+              {g ? t(`projects.inbox.groups.${g}`) : (tabLabels.get(tab) ?? '')}
+              {/* QA3-lists-inbox-2 — the tab's own group states the
+                          tab's total, so the strip and the list agree in one
+                          viewport; a due-date group states its own rows. */}
+              <span className="num font-normal">
+                {g === null ? visibleCount : rows.length}
+              </span>
+              {g === 'later' ? (
+                <button
+                  type="button"
+                  aria-expanded
+                  onClick={onCollapseLater}
+                  className="ml-auto cursor-pointer border-0 bg-transparent p-0 text-label text-link"
+                >
+                  {t('projects.inbox.collapse')}
+                </button>
+              ) : null}
+            </div>
+            {entries.map((entry, index) => {
+              const i = entry.item
+              const key = rowKey(i)
+
+              // The row standing for a folded group selects all of it.
+              const keys =
+                entry.count > 1 && !expandedRepeats.has(entry.group)
+                  ? entry.members.map(rowKey)
+                  : [key]
+
+              const checked = keys.every((k) => selection.has(k))
+              const open = expandedRepeats.has(entry.group)
+
+              return (
+                <li
+                  // QA3-lists-inbox-1 — `rowKey` mirrors the boundary
+                  // identity, but distinct work items can share it
+                  // (many data issues carry one dataset's identifier),
+                  // and duplicate keys leave removed rows on screen.
+                  // The position disambiguates the rendered siblings;
+                  // `key` still drives selection.
+                  // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- Rows that share a boundary identity are told apart by their position here; `key` still drives selection.
+                  key={`${key}#${index}`}
+                  className={cn(
+                    'flex items-center hover:bg-row-hover',
+                    (selected === i || selection.has(key)) &&
+                      'bg-selection hover:bg-selection',
+                    entry.repeat && 'bg-surface-muted',
+                  )}
+                  aria-current={selected === i ? true : undefined}
+                >
+                  <Checkbox
+                    className="ml-4 md:ml-6"
+                    aria-label={t('projects.inbox.select', {
+                      title: i.title,
+                    })}
+                    checked={checked}
+                    onCheckedChange={(next) =>
+                      onSelectionChange((current) => {
+                        const updated = new Set(current)
+
+                        for (const k of keys) {
+                          if (next) updated.add(k)
+                          else updated.delete(k)
+                        }
+
+                        return updated
+                      })
+                    }
+                  />
+                  <button
+                    type="button"
+                    aria-pressed={selection.has(key)}
+                    onFocus={() => onSelectKey(key)}
+                    onClick={(event) => {
+                      onSelectKey(key)
+
+                      if (
+                        !event.ctrlKey &&
+                        !event.metaKey &&
+                        (!event.shiftKey || event.altKey)
+                      ) {
+                        void onOpenItem(
+                          i,
+                          event.altKey
+                            ? event.shiftKey
+                              ? 'below'
+                              : 'beside'
+                            : undefined,
+                        )
+
+                        return
+                      }
+
+                      onSelectionChange(
+                        (current) =>
+                          new Set([
+                            ...(event.ctrlKey || event.metaKey ? current : []),
+                            key,
+                          ]),
+                      )
+                    }}
+                    className={cn(
+                      'grid min-h-11 w-full cursor-pointer grid-cols-[104px_minmax(0,1fr)_180px] items-center gap-3 max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-x-3 max-md:gap-y-1 max-md:py-2 border-0 border-b border-border-subtle bg-transparent px-4 py-1.5 text-left md:px-6',
+                      entry.repeat && 'pl-8 md:pl-10',
+                    )}
+                  >
+                    <Status
+                      tone={toneFor(i.kind)}
+                      className="min-w-0 whitespace-normal max-md:col-span-2 max-md:justify-self-start"
+                    >
+                      {labelFor(i.kind)}
+                    </Status>
+                    <span className="min-w-0">
+                      <span className="block truncate text-body font-medium text-fg">
+                        {i.identifier && !isMachineKey(i.identifier) ? (
+                          <span className="mono mr-1.5 font-normal text-fg-muted">
+                            {i.identifier}
+                          </span>
+                        ) : null}
+                        {i.title}
+                        {selection.has(key) ? (
+                          <span className="ml-2 text-label text-link">
+                            {t('projects.inbox.selectedRow')}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="block truncate text-label text-fg-muted">
+                        {rowReason(i)}
+                      </span>
+                    </span>
+                    <span className="whitespace-nowrap text-right text-label text-fg-muted max-md:max-w-[9rem] max-md:whitespace-normal">
+                      {dueLabel(i.dueAt)}
+                    </span>
+                  </button>
+                  {entry.count > 1 ? (
+                    <button
+                      type="button"
+                      aria-expanded={open}
+                      aria-label={
+                        open
+                          ? t('projects.inbox.repeats.hideAria', {
+                              count: entry.count,
+                            })
+                          : t('projects.inbox.repeats.showAria', {
+                              count: entry.count,
+                            })
+                      }
+                      onClick={() =>
+                        onExpandedRepeatsChange((current) => {
+                          const next = new Set(current)
+
+                          if (open) next.delete(entry.group)
+                          else next.add(entry.group)
+
+                          return next
+                        })
+                      }
+                      className="mr-4 inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-full border border-border bg-surface px-2 text-label text-fg-muted hover:bg-surface-hover hover:text-fg md:mr-6"
+                    >
+                      <span className="num">
+                        {t('projects.inbox.repeats.count', {
+                          count: entry.count,
+                        })}
+                      </span>
+                      <Icon
+                        name={open ? 'chevronUp' : 'chevronDown'}
+                        size={12}
+                      />
+                    </button>
+                  ) : null}
+                </li>
+              )
+            })}
+          </div>
+        )
+      })}
+    </ul>
   )
 }

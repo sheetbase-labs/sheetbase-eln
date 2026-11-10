@@ -13,18 +13,62 @@ import { Route } from './models'
 import { WorkspaceNavigationContext } from '#/components/workspace/workspace-navigation'
 import type { WorkspaceNavigation } from '#/components/workspace/workspace-navigation'
 import type * as ModelCreate from '#/components/models/model-create-dialog'
+import type * as ModelsData from '#/components/models/models-data'
 import type { ModelRow } from '#/components/models/models-data'
+import type * as SchemaDefinitionRpc from '#/lib/dataset-schema-definition-rpc'
 import { DataClientError } from '#/lib/data-client'
+
+/** The router state the route selects from: the path it is showing. */
+interface MockRouterState {
+  location: { pathname: string }
+}
+
+/** The search the models board reads: a create detour, and where to go back to. */
+interface ModelsSearch {
+  create?: true
+  returnTo?: string
+}
+
+/** The props the route hands the create dialog, as the dialog declares them. */
+type ModelDialogProps = Parameters<typeof ModelCreate.ModelCreateDialog>[0]
+
+/** The search a board navigation carries: the words typed, the tab, the row selected. */
+interface BoardSearch {
+  q?: string
+  tab?: string
+  selected?: string
+}
+
+/** What the doubles record between renders: the dialog's props and the page's search. */
+interface SeenState {
+  dialog: ModelDialogProps | null
+  search: ModelsSearch
+}
+
+/** The rows the model list double answers with. */
+interface RowsState {
+  value: ModelRow[]
+}
+
+/** What the route navigates with: the board, with the row it made selected. */
+interface ModelsNavigation {
+  to: string
+  search?: (search: { q?: string }) => BoardSearch
+}
 
 /** The route owns the create flow: whether the control is offered at all (the
  * RPC's `schema.edit` requirement), and what a create does afterwards. The
  * dialog's own validation lives in its component test. */
 const { navigate, toast, createDatasetSchemaDefinition, ctx, seen, rows } =
   vi.hoisted(() => {
-    const searchDefault: { create?: true; returnTo?: string } = {}
+    const searchDefault: ModelsSearch = {}
+
+    const seenState: SeenState = { dialog: null, search: searchDefault }
+
+    const rowState: RowsState = { value: [] }
 
     return {
-      navigate: vi.fn(async () => undefined),
+      navigate: vi.fn(async (_target: ModelsNavigation) => undefined),
       toast: Object.assign(vi.fn(), { error: vi.fn() }),
       createDatasetSchemaDefinition: vi.fn(async () => ({
         schema_definition_id: 'def-new',
@@ -36,63 +80,71 @@ const { navigate, toast, createDatasetSchemaDefinition, ctx, seen, rows } =
           workspace: { id: 'ws-1', slug: 'dev', name: 'Dev', role: 'owner' },
         },
       },
-      seen: {
-        dialog: null as null | Record<string, unknown>,
-        search: searchDefault,
-      },
-      rows: { value: [] as ModelRow[] },
+      seen: seenState,
+      rows: rowState,
     }
   })
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time, so this suite renders the route component directly and supplies the router context and search the shell would.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useRouteContext: () => ({ context: ctx.value }),
-    useSearch: () => seen.search,
-    options: config,
-  }),
+  createFileRoute:
+    () =>
+    <TOptions,>(config: TOptions) => ({
+      useRouteContext: () => ({ context: ctx.value }),
+      useSearch: () => seen.search,
+      options: config,
+    }),
   Link: ({
     children,
     to,
     onClick,
   }: {
     children?: React.ReactNode
-    to?: unknown
+    to?: string
     onClick?: React.MouseEventHandler<HTMLAnchorElement>
   }) => (
-    <a href={typeof to === 'string' ? to : '#'} onClick={onClick}>
+    <a href={to ?? '#'} onClick={onClick}>
       {children}
     </a>
   ),
   Outlet: () => <div data-testid="outlet" />,
-  redirect: (options: unknown) => options,
+  redirect: <TOptions,>(options: TOptions) => options,
   useNavigate: () => navigate,
-  useRouterState: ({ select }: { select: (state: unknown) => unknown }) =>
-    select({ location: { pathname: '/models' } }),
+  useRouterState: <TSelected,>({
+    select,
+  }: {
+    select: (state: MockRouterState) => TSelected
+  }) => select({ location: { pathname: '/models' } }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The board's model list is a database read; this double supplies the rows the screen renders so the create flow can be driven without one.
 vi.mock('#/components/models/models-data', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
+  ...(await importOriginal<typeof ModelsData>()),
   useModels: () => ({ data: rows.value, isLoading: false }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Member names are a database read the create flow does not assert; the double answers no names.
 vi.mock('#/components/projects/project-data', () => ({
   useWorkspaceMemberNames: () => ({ data: undefined }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Creating a schema definition is a server RPC; the double records the call the route makes.
 vi.mock('#/lib/dataset-schema-definition-rpc', async (importOriginal) => ({
-  ...(await importOriginal<object>()),
+  ...(await importOriginal<typeof SchemaDefinitionRpc>()),
   createDatasetSchemaDefinition,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The dialog is replaced by a double that records its props, so the suite asserts what the route hands it rather than the dialog's own markup.
 vi.mock('#/components/models/model-create-dialog', async (importOriginal) => ({
   ...(await importOriginal<typeof ModelCreate>()),
-  ModelCreateDialog: (props: Record<string, unknown>) => {
+  ModelCreateDialog: (props: ModelDialogProps) => {
     seen.dialog = props
 
     return props.open ? <div data-testid="model-create-dialog" /> : null
   },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Sonner mounts its own portal and store; the assertions read the toast calls, not the markup.
 vi.mock('#/components/ui/sonner', () => ({ toast }))
 
 function model(overrides: Partial<ModelRow> = {}): ModelRow {
@@ -188,12 +240,13 @@ describe('models route create flow', () => {
     })
     expect(seen.dialog?.open).toBe(true)
 
-    const onCreate = seen.dialog?.onCreate as (input: unknown) => void
+    const onCreate = seen.dialog?.onCreate
     await act(async () => {
-      onCreate({
+      onCreate?.({
         key: 'cell_bank_reading',
         name: 'Cell bank reading',
         description: null,
+        kind: 'dataset',
       })
     })
 
@@ -215,15 +268,10 @@ describe('models route create flow', () => {
 
     // The new definition is a draft: the board lands on All with its row
     // selected, so the row it just created is the one on screen.
-    const [target] = navigate.mock.calls[0] as unknown as [
-      {
-        to: string
-        search: (s: Record<string, unknown>) => Record<string, unknown>
-      },
-    ]
+    const [target] = navigate.mock.calls[0]
 
     expect(target.to).toBe('/models')
-    expect(target.search({ q: 'cell' })).toEqual({
+    expect(target.search?.({ q: 'cell' })).toEqual({
       q: 'cell',
       tab: undefined,
       selected: 'def-new',
@@ -242,9 +290,14 @@ describe('models route create flow', () => {
     await act(async () => {
       screen.getByRole('button', { name: 'New model' }).click()
     })
-    const onCreate = seen.dialog?.onCreate as (input: unknown) => void
+    const onCreate = seen.dialog?.onCreate
     await act(async () => {
-      onCreate({ key: 'cell_bank', name: 'Cell bank', description: null })
+      onCreate?.({
+        key: 'cell_bank',
+        name: 'Cell bank',
+        description: null,
+        kind: 'dataset',
+      })
     })
     await waitFor(() =>
       expect(seen.dialog?.error).toBe(
@@ -279,18 +332,21 @@ describe('models route detours (Phase 4)', () => {
     await act(async () => {
       screen.getByRole('button', { name: 'New model' }).click()
     })
-    const onCreate = seen.dialog?.onCreate as (input: unknown) => void
+    const onCreate = seen.dialog?.onCreate
     await act(async () => {
-      onCreate({ key: 'reading', name: 'Reading', description: null })
+      onCreate?.({
+        key: 'reading',
+        name: 'Reading',
+        description: null,
+        kind: 'dataset',
+      })
     })
     await waitFor(() => expect(toast).toHaveBeenCalled())
 
-    const options = toast.mock.calls[0][1] as {
-      action: { label: string; onClick: () => void }
-    }
+    const options = toast.mock.calls[0][1]
 
-    expect(options.action.label).toBe('Back to what you were doing')
-    options.action.onClick()
+    expect(options?.action?.label).toBe('Back to what you were doing')
+    options?.action?.onClick()
     expect(navigate).toHaveBeenLastCalledWith({
       to: '/datasets/new?model=def-new',
     })

@@ -9,8 +9,14 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import { Route } from './scan'
+
+/** The search the scan screen reads: the code it was handed. */
+interface InboxSearchLike {
+  code?: string
+}
 
 const scanData = vi.hoisted(() => ({
   resolveScanCode: vi.fn(),
@@ -21,17 +27,20 @@ const scanData = vi.hoisted(() => ({
   scanTargetActionLabel: vi.fn(() => 'Open sample'),
 }))
 
-const searchState = vi.hoisted((): { value: { code?: string } } => ({
+const searchState = vi.hoisted<{ value: InboxSearchLike }>(() => ({
   value: {},
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The scan lookup is a module-level server action; this suite drives the screen's rendering of each answer, so the lookup is replaced and every assertion stays on what the screen shows.
 vi.mock('#/components/scan/scan-data', () => scanData)
 
 // Plugin barcode readers are tested on their own; here the plain lookup is what is under test.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Plugin barcode readers have their own suite; the plain lookup is what this screen test exercises.
 vi.mock('#/components/scan/plugin-scan', () => ({
   useScanCodeResolver: () => scanData.resolveScanCode,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The sample actions are their own screen surface; this suite asserts which sample and return path the scan hands them.
 vi.mock('#/components/scan/scan-sample-actions', () => ({
   ScanSampleActions: ({
     sampleId,
@@ -42,12 +51,15 @@ vi.mock('#/components/scan/scan-sample-actions', () => ({
   }) => <div data-testid="sample-actions">{`${sampleId} ${returnTo}`}</div>,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time; this suite renders the route component directly with the search the router would supply.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useSearch: () => searchState.value,
-    options: config,
-  }),
-  redirect: (options: unknown) => options,
+  createFileRoute:
+    () =>
+    <T,>(config: T) => ({
+      useSearch: () => searchState.value,
+      options: config,
+    }),
+  redirect: <T,>(options: T) => options,
   Link: ({
     to,
     params,
@@ -55,14 +67,14 @@ vi.mock('@tanstack/react-router', () => ({
     ...props
   }: {
     to?: string
-    params?: Record<string, string>
+    params?: { [param: string]: string }
     children: React.ReactNode
-  } & Record<string, unknown>) => {
-    let href = typeof to === 'string' ? to : '#'
+  } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
+    let href = z.string().catch('#').parse(to)
 
     if (params) {
       for (const [key, value] of Object.entries(params))
-        href = href.replace(`$${key}`, encodeURIComponent(String(value)))
+        href = href.replace(`$${key}`, encodeURIComponent(value))
     }
 
     return (
@@ -73,8 +85,10 @@ vi.mock('@tanstack/react-router', () => ({
   },
 }))
 
+// SAFETY: createFileRoute is the mock above, which keeps the config this suite passes; the component it names is the screen under test.
 const ScanRoute = Route.options.component as React.ComponentType
 
+// oxlint-disable-next-line react-doctor/unbound-method -- The original is put back on the same prototype slot after each test.
 const originalPlay = HTMLMediaElement.prototype.play
 
 afterEach(() => {

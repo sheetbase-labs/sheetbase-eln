@@ -15,8 +15,14 @@ function makeHandlers() {
   }
 }
 
+/** A real keydown with its default action spied on, so ordering is observable. */
 function event() {
-  return { preventDefault: vi.fn() } as unknown as KeyboardEvent
+  const keyboardEvent = new KeyboardEvent('keydown', { key: 'k' })
+
+  return {
+    keyboardEvent,
+    preventDefault: vi.spyOn(keyboardEvent, 'preventDefault'),
+  }
 }
 
 describe('createGlobalShortcuts', () => {
@@ -32,9 +38,9 @@ describe('createGlobalShortcuts', () => {
   it('invokes the palette handler and prevents default', () => {
     const handlers = makeHandlers()
     const definitions = createGlobalShortcuts(handlers)
-    const e = event()
-    definitions.find((d) => d.id === 'palette')?.handler?.(e)
-    expect(e.preventDefault).toHaveBeenCalled()
+    const { keyboardEvent, preventDefault } = event()
+    definitions.find((d) => d.id === 'palette')?.handler?.(keyboardEvent)
+    expect(preventDefault).toHaveBeenCalled()
     expect(handlers.openPalette).toHaveBeenCalledOnce()
   })
 
@@ -43,15 +49,17 @@ describe('createGlobalShortcuts', () => {
     const definitions = createGlobalShortcuts(handlers)
     const projectShortcut = definitions.find((d) => d.id === 'go-p')
     expect(projectShortcut?.keys).toEqual(['g p'])
-    projectShortcut?.handler?.(event())
+    projectShortcut?.handler?.(event().keyboardEvent)
     expect(handlers.navigate).toHaveBeenCalledWith('/projects')
   })
 
   it('opens help and toggles the rail', () => {
     const handlers = makeHandlers()
     const definitions = createGlobalShortcuts(handlers)
-    definitions.find((d) => d.id === 'help')?.handler?.(event())
-    definitions.find((d) => d.id === 'toggle-rail')?.handler?.(event())
+    definitions.find((d) => d.id === 'help')?.handler?.(event().keyboardEvent)
+    definitions
+      .find((d) => d.id === 'toggle-rail')
+      ?.handler?.(event().keyboardEvent)
     expect(handlers.openHelp).toHaveBeenCalledOnce()
     expect(handlers.toggleRail).toHaveBeenCalledOnce()
   })
@@ -70,7 +78,7 @@ describe('createGlobalShortcuts', () => {
 
     const create = definitions.find((d) => d.id === 'create')
     expect(create?.keys).toEqual(['c'])
-    create?.handler?.(event())
+    create?.handler?.(event().keyboardEvent)
     expect(openCreate).toHaveBeenCalledOnce()
   })
 })

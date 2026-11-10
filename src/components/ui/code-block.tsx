@@ -1,4 +1,5 @@
 import { CopyButton } from './copy-button'
+import { codeText } from './code-text'
 import { cn } from '#/lib/utils'
 import { t } from '#/copy'
 
@@ -30,22 +31,11 @@ import { t } from '#/copy'
  */
 
 /**
- * Code is text. Lone surrogates and NUL become U+FFFD so a corrupt statement
- * renders as visibly broken text rather than throwing or smuggling a control
- * character into the DOM. Valid characters, including astral pairs, pass through
- * unchanged.
+ * Code is text: lone surrogates and NUL become U+FFFD, so a corrupt statement
+ * renders as visibly broken text. The sanitiser lives in `code-text.ts`; it is
+ * re-exported here because it is the rule this component exists to keep.
  */
-export function codeText(value: string): string {
-  let out = ''
-
-  for (const character of value) {
-    const codePoint = character.codePointAt(0) ?? 0
-    const loneSurrogate = codePoint >= 0xd800 && codePoint <= 0xdfff
-    out += loneSurrogate || codePoint === 0 ? '\uFFFD' : character
-  }
-
-  return out
-}
+export { codeText } from './code-text'
 
 /**
  * How tall a payload may get before it scrolls. The three values are the three

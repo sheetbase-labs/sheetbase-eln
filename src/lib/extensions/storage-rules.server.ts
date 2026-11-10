@@ -13,6 +13,8 @@
  * place picker, scanning, bulk placing, the assistant, pipelines and the API.
  * Direct SQL does not reach it.
  */
+import { z } from 'zod'
+
 import { logger } from '#/lib/logger'
 import { fetchStorageTree, nodePath } from '#/lib/storage-locations'
 import type { StorageTree } from '#/lib/storage-locations'
@@ -91,7 +93,7 @@ async function loadRules(workspaceId: string): Promise<StorageRule[]> {
       key: row.key,
       name: row.name,
       status: row.status,
-      manifest: row.manifest as never,
+      manifest: row.manifest,
       disabled_points: row.disabledPoints,
     })),
   ).data['storage-rules']
@@ -142,15 +144,23 @@ export function defaultStorageGuardDeps(): StorageGuardDeps {
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-function parseArgs(body: string | undefined): Record<string, unknown> | null {
+/** The arguments a storage move names: the record, and where it is going. */
+const storageMoveArgsSchema = z.object({
+  p_record_id: z.string().optional(),
+  p_to_position_id: z.string().optional(),
+  p_to_location: z.string().optional(),
+})
+
+type StorageMoveArgs = z.infer<typeof storageMoveArgsSchema>
+
+/** The call's JSON body decoded into the arguments a move reads, else null. */
+function parseArgs(body: string | undefined): StorageMoveArgs | null {
   if (!body) return null
 
   try {
-    const value = JSON.parse(body) as unknown
+    const decoded = storageMoveArgsSchema.safeParse(JSON.parse(body))
 
-    return value && typeof value === 'object' && !Array.isArray(value)
-      ? (value as Record<string, unknown>)
-      : null
+    return decoded.success ? decoded.data : null
   } catch {
     return null
   }
@@ -159,14 +169,14 @@ function parseArgs(body: string | undefined): Record<string, unknown> | null {
 /** The place a move is going to, in the terms a rule reads. */
 export async function describeDestination(
   resource: string,
-  args: Record<string, unknown>,
+  args: StorageMoveArgs,
   token: string,
   deps: StorageGuardDeps,
 ): Promise<StorageRulePlace | null> {
   if (resource === 'transfer_sample') {
     const text = args.p_to_location
 
-    if (typeof text !== 'string' || !text.trim()) return null
+    if (!text?.trim()) return null
 
     return {
       path: text
@@ -184,7 +194,7 @@ export async function describeDestination(
 
   const positionId = args.p_to_position_id
 
-  if (typeof positionId !== 'string' || !UUID_RE.test(positionId)) return null
+  if (!positionId || !UUID_RE.test(positionId)) return null
   const position = await deps.readPosition(token, positionId)
 
   if (!position) return null
@@ -228,10 +238,9 @@ export async function describeDestination(
 }
 
 function fromWhere(sample: RecordSnapshot): string | null {
-  const place = (sample.properties as Record<string, unknown> | null)
-    ?.storageLocation
+  const decoded = z.string().safeParse(sample.properties.storageLocation)
 
-  return typeof place === 'string' && place.trim() ? place : null
+  return decoded.success && decoded.data.trim() ? decoded.data : null
 }
 
 /**
@@ -261,8 +270,7 @@ export async function guardStorageMove(
   const args = parseArgs(input.body)
   const recordId = args?.p_record_id
 
-  if (!args || typeof recordId !== 'string' || !UUID_RE.test(recordId))
-    return null
+  if (!args || !recordId || !UUID_RE.test(recordId)) return null
 
   const warnings: string[] = []
   let sample: RecordSnapshot | null
@@ -290,7 +298,7 @@ export async function guardStorageMove(
           actorUserId: claims.actorUserId,
           extensionKey: rule.extensionKey,
           ruleId: rule.id,
-          sample: sample as unknown as Record<string, unknown>,
+          sample: { ...sample },
           to,
           from: fromWhere(sample),
         },

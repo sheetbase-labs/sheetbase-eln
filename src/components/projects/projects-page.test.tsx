@@ -19,25 +19,28 @@ import type * as WorkspaceAccess from '#/lib/workspace-access'
 const { dataClient, navigate } = vi.hoisted(() => ({
   navigate: vi.fn(),
   dataClient: {
-    list: vi.fn<() => Promise<unknown[]>>(async () => []),
-    rpc: vi.fn<() => Promise<unknown>>(async () => ({})),
+    list: vi.fn<() => Promise<{ role: string }[]>>(async () => []),
+    rpc: vi.fn<() => Promise<Record<string, never>>>(async () => ({})),
   },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The page reads its projects through a module-level client; this suite supplies the rows the screen renders, and every assertion stays on that rendering.
 vi.mock('./project-data', async (importOriginal) => ({
   ...(await importOriginal<typeof ProjectData>()),
   projectDataClient: dataClient,
 }))
 
 const { assignments } = vi.hoisted(() => ({
-  assignments: vi.fn<() => Promise<unknown[]>>(async () => []),
+  assignments: vi.fn<() => Promise<{ role: string }[]>>(async () => []),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Assignments are a server read the page only gates on; this suite supplies the role's answer.
 vi.mock('#/lib/workspace-access', async (importOriginal) => ({
   ...(await importOriginal<typeof WorkspaceAccess>()),
   fetchMyProjectAssignments: assignments,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time; this suite renders the page component directly with the search the router would supply.
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigate,
   Link: ({
@@ -45,11 +48,11 @@ vi.mock('@tanstack/react-router', () => ({
     children,
     onClick,
   }: {
-    to?: unknown
+    to?: string
     children?: React.ReactNode
     onClick?: React.MouseEventHandler<HTMLAnchorElement>
   }) => (
-    <a href={typeof to === 'string' ? to : '#'} onClick={onClick}>
+    <a href={to ?? '#'} onClick={onClick}>
       {children}
     </a>
   ),
@@ -59,6 +62,7 @@ const { toast } = vi.hoisted(() => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Toasts render through a portal the page test does not mount; the suite asserts the calls it reports instead.
 vi.mock('#/components/ui/sonner', () => ({ toast }))
 
 afterEach(() => {
@@ -408,11 +412,13 @@ describe('ProjectsPage', () => {
     const emptyState = screen.getByText('No projects yet').parentElement
     expect(emptyState).not.toBeNull()
     expect(
+      // SAFETY: getByText above throws when the empty state is absent, so its container exists here.
       within(emptyState as HTMLElement)
         .getByRole('button', { name: 'New project' })
         .hasAttribute('disabled'),
     ).toBe(true)
     expect(
+      // SAFETY: the same container as above; the assertion above re-checks it is there.
       within(emptyState as HTMLElement).getByText(/role can’t create projects/),
     ).toBeTruthy()
   })

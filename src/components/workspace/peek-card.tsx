@@ -39,6 +39,49 @@ function statusTone(status: string): 'good' | 'wait' | 'bad' | 'none' {
 
 const key = (binding: string) => formatShortcut(binding, currentPlatform())
 
+/** A 400px card, kept this far from the window's edges. */
+const PEEK_WIDTH = 400
+const EDGE = 8
+
+/** Where the card sits in the window. */
+interface PeekPlacement {
+  left: number
+  top: number
+}
+
+/** The window the card is placed inside, or nothing while rendering on the server. */
+function viewportSize(): { width: number; height: number } {
+  return typeof window === 'undefined'
+    ? { width: 0, height: 0 }
+    : { width: window.innerWidth, height: window.innerHeight }
+}
+
+/**
+ * Below the link it hangs from, so the row being peeked stays readable; above
+ * it when the card would run off the bottom and there is room.
+ */
+function peekPlacement(
+  rect: PeekTarget['rect'],
+  height: number,
+  viewport: { width: number; height: number },
+): PeekPlacement {
+  const left = Math.max(
+    EDGE,
+    Math.min(rect.left, viewport.width - PEEK_WIDTH - EDGE),
+  )
+
+  const below = rect.bottom + EDGE
+  const above = rect.top - EDGE - height
+  const flip = below + height > viewport.height - EDGE && above >= EDGE
+
+  return {
+    left,
+    top: flip
+      ? above
+      : Math.max(EDGE, Math.min(below, viewport.height - EDGE - height)),
+  }
+}
+
 /**
  * A 400px card for the record under the cursor: what it is, where it was
  * named, and the three things to do with it. Opening it is a separate step,
@@ -70,22 +113,7 @@ export function PeekCard({
   })
 
   const [height, setHeight] = useState(190)
-  const width = 400
-
-  const left = Math.max(
-    8,
-    Math.min(target.rect.left, window.innerWidth - width - 8),
-  )
-
-  // Below the link it hangs from, so the row being peeked stays readable;
-  // above it when the card would run off the bottom and there is room.
-  const below = target.rect.bottom + 8
-  const above = target.rect.top - 8 - height
-  const flip = below + height > window.innerHeight - 8 && above >= 8
-
-  const top = flip
-    ? above
-    : Math.max(8, Math.min(below, window.innerHeight - 8 - height))
+  const { left, top } = peekPlacement(target.rect, height, viewportSize())
 
   // The card grows once the summary arrives, so place it by what it measures.
   useLayoutEffect(() => {
@@ -113,7 +141,9 @@ export function PeekCard({
     }
 
     const onPointer = (event: PointerEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) onClose()
+      const node = event.target instanceof Node ? event.target : null
+
+      if (ref.current && !ref.current.contains(node)) onClose()
     }
 
     window.addEventListener('keydown', onKey, true)
@@ -132,6 +162,7 @@ export function PeekCard({
     <div
       ref={ref}
       className="mx-peek"
+      // react-doctor-disable-next-line react-doctor/prefer-html-dialog -- A peek is a non-modal card anchored to the link it describes: a native dialog would trap focus and make the workspace inert, which is exactly what a peek must not do.
       role="dialog"
       aria-label={t('projects.peek.label', {
         name: target.identifier ?? target.title,

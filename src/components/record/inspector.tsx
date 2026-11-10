@@ -2,11 +2,17 @@ import { t } from '#/copy'
 import * as React from 'react'
 
 import { cn } from '#/lib/utils'
-import { Button } from '#/components/ui/button'
-import { Skeleton } from '#/components/ui/skeleton'
-import { OverflowTabs } from '#/components/ui/overflow-tabs'
-import { TabsRoot, TabsPanel } from '#/components/ui/tabs'
-import { Icon } from '#/components/icons'
+
+import { InspectorContent } from './inspector-content'
+import type { InspectorState } from './inspector-content'
+import { InspectorHeader } from './inspector-header'
+import type { InspectorTab } from './inspector-tabs'
+
+/** The four honest states, and their words, are the content's own. */
+export type { InspectorState } from './inspector-content'
+
+/** A tab's shape belongs to the strip that renders it. */
+export type { InspectorTab } from './inspector-tabs'
 
 /**
  * Contextual inspector — the right-hand panel that shows properties, linked
@@ -22,19 +28,10 @@ import { Icon } from '#/components/icons'
  *
  * Width and the narrow-screen Sheet conversion belong to the surface that
  * renders the column; the inspector itself is a plain column so it works in
- * tests and in any slot.
+ * tests and in any slot. The three parts it is made of live beside it:
+ * `inspector-header.tsx`, `inspector-content.tsx` (the states) and
+ * `inspector-tabs.tsx`.
  */
-
-export type InspectorState =
-  'loaded' | 'skeleton' | 'no-selection' | 'unavailable' | 'permission-denied'
-
-export interface InspectorTab {
-  id: string
-  label: string
-  /** Optional count/label rendered as a badge suffix, e.g. "Members 6". */
-  badge?: string | number
-  content: React.ReactNode
-}
 
 export interface InspectorProps {
   /** Record kind shown above the title. */
@@ -51,24 +48,6 @@ export interface InspectorProps {
    * Used by the notebook inspector where the title is already in the
    * sticky record header above the canvas. */
   hideHeader?: boolean
-}
-
-function StateBlock({
-  icon,
-  title,
-  hint,
-}: {
-  icon?: React.ReactNode
-  title: string
-  hint?: string
-}) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
-      {icon}
-      <p className="text-sm font-medium text-fg">{title}</p>
-      {hint ? <p className="text-xs text-fg-muted">{hint}</p> : null}
-    </div>
-  )
 }
 
 export function Inspector({
@@ -100,92 +79,25 @@ export function Inspector({
       {/* Identity header — omitted when hideHeader is set (e.g. notebook
           inspector where the title is already in the sticky record header) */}
       {!hideHeader ? (
-        <div className="shrink-0 border-b border-border px-5 py-4">
-          <div className="flex items-start gap-2">
-            <div className="min-w-0 flex-1">
-              <h2 className="break-words text-base font-semibold leading-snug text-fg">
-                {title}
-              </h2>
-              {recordType || status ? (
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-fg-muted">
-                  {recordType ? <span>{recordType}</span> : null}
-                  {status}
-                </div>
-              ) : null}
-            </div>
-            {onClose ? (
-              <Button
-                variant="quiet"
-                size="icon"
-                className="mt-0.5 shrink-0"
-                aria-label={t('notebook.inspector.closeInspectorAriaLabel')}
-                onClick={onClose}
-              >
-                <Icon name="x" size={16} />
-              </Button>
-            ) : null}
-          </div>
-        </div>
+        <InspectorHeader
+          recordType={recordType}
+          title={title}
+          status={status}
+          onClose={onClose}
+        />
       ) : null}
 
       {/* The inspector owns the only scroll region; identity and tabs remain pinned. */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {state === 'skeleton' ? (
-          <div className="space-y-3 px-4 pb-4 pt-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-4 w-full" />
-            ))}
-          </div>
-        ) : state === 'no-selection' ? (
-          <StateBlock
-            title={t('common.states.nothingSelected')}
-            hint={t('notebook.inspector.hint')}
-          />
-        ) : state === 'unavailable' ? (
-          <StateBlock
-            title={t('notebook.inspector.title')}
-            hint={t('notebook.inspector.itMayHaveBeenHint')}
-          />
-        ) : state === 'permission-denied' ? (
-          <StateBlock
-            title={t('notebook.inspector.permissionDeniedTitle')}
-            hint={t('notebook.inspector.youDoNotHaveHint')}
-          />
-        ) : showTabs ? (
-          <TabsRoot
-            value={activeTab}
-            onValueChange={(next) => setActiveTab(String(next))}
-            className="flex flex-col gap-0"
-          >
-            <div className="sticky top-0 z-10 flex items-center border-b border-border bg-surface px-4">
-              <OverflowTabs
-                items={tabs.map((tab) => ({
-                  value: tab.id,
-                  label: tab.label,
-                  count: tab.badge,
-                }))}
-                value={activeTab}
-                onValueChange={setActiveTab}
-              />
-              {hideHeader && onClose ? (
-                <Button
-                  variant="quiet"
-                  size="icon"
-                  className="ml-auto shrink-0"
-                  aria-label={t('notebook.inspector.closeInspectorAriaLabel')}
-                  onClick={onClose}
-                >
-                  <Icon name="x" size={16} />
-                </Button>
-              ) : null}
-            </div>
-            {tabs.map((tab) => (
-              <TabsPanel key={tab.id} value={tab.id} className="px-5 pb-6 pt-4">
-                {tab.content}
-              </TabsPanel>
-            ))}
-          </TabsRoot>
-        ) : null}
+        <InspectorContent
+          state={state}
+          tabs={tabs}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          showTabs={showTabs}
+          onClose={onClose}
+          hideHeader={hideHeader}
+        />
       </div>
     </div>
   )

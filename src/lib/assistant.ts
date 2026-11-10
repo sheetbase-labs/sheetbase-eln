@@ -204,20 +204,20 @@ export interface AssistantDeps {
  * under the signed-in person's own access; the model only ever sees names,
  * descriptions and results.
  */
+/** What one lookup gives back: its text, whether it failed, and any change to confirm. */
+export interface ToolRunResult {
+  text: string
+  isError: boolean
+  /** A change for the person to apply or dismiss. Never written by the call. */
+  proposal?: AssistantProposal
+}
+
 export interface AssistantToolkit {
   defs: ProviderToolDef[]
   /** Standing instructions for using the tools. */
   instructions: string
   /** Runs one call. `name` is the wire name; `argumentsJson` is the model's text. */
-  run: (
-    name: string,
-    argumentsJson: string,
-  ) => Promise<{
-    text: string
-    isError: boolean
-    /** A change for the person to apply or dismiss. Never written by the call. */
-    proposal?: AssistantProposal
-  }>
+  run: (name: string, argumentsJson: string) => Promise<ToolRunResult>
 }
 
 /** Model steps in one turn; the last one is not offered tools, so it must answer. */
@@ -323,6 +323,7 @@ export async function prepare(
   }
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A gateway failure is a caught throw, untyped by definition; only a ModelGatewayError is recognised, and anything else is a provider error.
 export function gatewayFailure(error: unknown): Failure {
   if (error instanceof ModelGatewayError) {
     return {
@@ -430,9 +431,11 @@ export type AssistantStreamStart =
       events: AsyncGenerator<AssistantStreamEvent, void, void>
     }
 
-function parseJson(text: string): unknown {
+/** A lookup's arguments, decoded: JSON.parse only yields values a JSON text can express. */
+function parseJson(text: string): z.core.util.JSONType | undefined {
   try {
-    return JSON.parse(text) as unknown
+    // SAFETY: JSON.parse returns exactly the ECMAScript values a JSON text can express, which is JSONType.
+    return JSON.parse(text) as z.core.util.JSONType
   } catch {
     return undefined
   }
@@ -585,11 +588,7 @@ export async function streamAssistant(
         const parsed = parseJson(call.arguments)
         yield { type: 'tool', id: call.id, name, phase: 'start', input: parsed }
 
-        let result: {
-          text: string
-          isError: boolean
-          proposal?: AssistantProposal
-        }
+        let result: ToolRunResult
 
         if (position >= ASSISTANT_MAX_CALLS_PER_STEP) {
           result = {
@@ -598,6 +597,7 @@ export async function streamAssistant(
           }
         } else {
           try {
+            // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each lookup's start and end events are yielded in the order the model asked for them, and its result is appended to the conversation in that order.
             result = await toolkit.run(call.name, call.arguments)
           } catch {
             result = { text: 'The lookup could not complete.', isError: true }

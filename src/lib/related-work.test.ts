@@ -53,18 +53,20 @@ function recordWire(
   }
 }
 
+/** One fixture route: the rows a query for a resource returns in these tests. */
+interface FakeRoute {
+  match: (resource: string, query: string) => boolean
+  rows: unknown[]
+}
+
 /** Fake DataClient routing on (resource, query-substring) matchers. */
-function fakeClient(
-  routes: {
-    match: (resource: string, query: string) => boolean
-    rows: unknown[]
-  }[],
-): DataClient {
+function fakeClient(routes: FakeRoute[]): DataClient {
   const list = async <T>(resource: string, query = ''): Promise<T[]> => {
     const route = routes.find((r) => r.match(resource, query))
 
     if (!route) throw new Error(`unexpected query: ${resource} ${query}`)
 
+    // SAFETY: a fixture route's rows are the rows this test expects the caller to read for that resource; the fake only routes on the query and never reshapes them.
     return route.rows as T[]
   }
 
@@ -82,11 +84,7 @@ function fakeClient(
   }
 }
 
-const on = (
-  resource: string,
-  part: string,
-  rows: unknown[],
-): { match: (r: string, q: string) => boolean; rows: unknown[] } => ({
+const on = (resource: string, part: string, rows: unknown[]): FakeRoute => ({
   match: (r, q) => r === resource && q.includes(part),
   rows,
 })

@@ -50,9 +50,12 @@ async function loadSession(
   workspaceId: string,
   options: { requireOwner: boolean },
 ): Promise<SessionContext> {
-  const { getRequestHeaders } = await import('@tanstack/react-start/server')
-  const { getCurrentContext } = await import('#/lib/current-user')
-  const { resolveSessionAuth } = await import('#/lib/request-auth')
+  const [{ getRequestHeaders }, { getCurrentContext }, { resolveSessionAuth }] =
+    await Promise.all([
+      import('@tanstack/react-start/server'),
+      import('#/lib/current-user'),
+      import('#/lib/request-auth'),
+    ])
 
   const headers = getRequestHeaders()
   const context = await getCurrentContext(headers)
@@ -179,6 +182,7 @@ export const updateAiSettingsFn = createServerFn({ method: 'POST' })
     const client = createServerDataClient(session.token)
     const before = await readRow(session.token, data.workspaceId)
 
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await -- `before` is the pre-change snapshot the audit record compares against, so it must be read before the update runs.
     const updated = await client.rpc<WorkspaceAiSettingsRow | null>(
       'update_workspace_ai_settings',
       {

@@ -1,29 +1,17 @@
 import { t } from '#/copy'
 import { RecordUnavailable } from '#/components/ui/record-unavailable'
-import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 
-import type { Crumb } from '#/components/ui/breadcrumb'
-import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { PageHeader } from '#/components/ui/layout'
-import { CopyButton } from '#/components/ui/copy-button'
 import { CollaborationRoom } from '#/components/collaboration/collaboration-room'
 import { safeBuildRoomId } from '#/components/collaboration/collaboration-room-id'
 import { useCollaborationEnabled } from '#/lib/collaboration/collaboration-enabled'
 import { ColumnPromotionsPanel } from '#/components/sheets/column-promotions-panel'
 import { CanonicalSheetWorkspace } from '#/components/sheet/canonical-sheet-workspace'
-import {
-  notebookDataClient,
-  fetchProject,
-  fetchRecord,
-  notebookQueryKeys,
-} from '#/lib/notebook-data'
 import { useRecentViewTracking } from '#/lib/recents'
-import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
-import {
-  fetchSheetInstance,
-  sheetInstanceDataClient,
-} from '#/lib/sheet-instance-data'
+
+import { SheetPageHeader } from './-sheet-page-header'
+import { useSheetPageModel } from './-sheet-page-model'
 
 /** UI port (roadmap-4/ui-app3): the working sheet renders inside app-3's shell
  * with its own header, replacing the legacy useShell wrapper. The canonical
@@ -38,30 +26,8 @@ export function ComposedSheetRoute() {
   // FIND-01: this page counts as a "view" for the Recent surface.
   useRecentViewTracking('sheet', sheetId)
 
-  // NAV-02: context-preserving navigation. The Sheet reconstructs its
-  // project/owning-notebook context from stable IDs on the instance itself —
-  // never from browser history or the referring page. The same query key the
-  // workspace uses is shared so the context read costs no extra fetch.
-  const instanceQuery = useQuery({
-    queryKey: ['sheet-instance', sheetId],
-    queryFn: () => fetchSheetInstance(sheetId, sheetInstanceDataClient),
-  })
-
-  const instance = instanceQuery.data ?? null
-  const instanceProjectId = instance?.projectId ?? projectIdParam ?? null
-  const owningRecordId = instance?.notebookRecordId ?? null
-
-  const projectQuery = useQuery({
-    queryKey: notebookQueryKeys.project(instanceProjectId ?? 'none'),
-    queryFn: () => fetchProject(notebookDataClient, instanceProjectId!),
-    enabled: Boolean(instanceProjectId),
-  })
-
-  const owningRecordQuery = useQuery({
-    queryKey: notebookQueryKeys.record(owningRecordId ?? 'none'),
-    queryFn: () => fetchRecord(notebookDataClient, owningRecordId!),
-    enabled: Boolean(owningRecordId),
-  })
+  const { instance, instanceQuery, instanceProjectId, trail, readOnly } =
+    useSheetPageModel({ sheetId, projectIdParam })
 
   // COLLAB-01: presence awareness for the canonical Sheet Instance. The room
   // carries presence only — thread anchoring on sheet rows waits for a
@@ -71,39 +37,6 @@ export function ComposedSheetRoute() {
   const collaborationRoomId = collaborationEnabled
     ? safeBuildRoomId(context.workspace?.id, 'sheet', sheetId)
     : null
-
-  // The sheet's location: its project and the record that owns it, when it has
-  // them, then the sheet itself.
-  const trail: Crumb[] = []
-
-  if (instanceProjectId) {
-    trail.push({
-      label: projectQuery.data?.title ?? t('notebook.sheetPage.label'),
-      link: {
-        to: '/projects/$projectId',
-        params: { projectId: instanceProjectId },
-      },
-    })
-  }
-
-  if (owningRecordId && owningRecordQuery.data) {
-    // An experiment has one page; any other owner keeps its notebook.
-    trail.push({
-      label: owningRecordQuery.data.title,
-      link:
-        owningRecordQuery.data.kind === 'experiment'
-          ? { to: '/experiments/$expId', params: { expId: owningRecordId } }
-          : {
-              to: '/records/$recordId/notebook',
-              params: { recordId: owningRecordId },
-            },
-    })
-  }
-
-  trail.push({
-    label: instance?.displayId ?? t('notebook.sheetPage.sheetLabel'),
-    mono: true,
-  })
 
   if (!instanceQuery.isPending && !instance) {
     return (
@@ -130,45 +63,7 @@ export function ComposedSheetRoute() {
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-      <PageHeader
-        trail={trail}
-        title={instance?.name ?? t('notebook.sheetPage.sheetLabel')}
-        meta={
-          <>
-            {instance?.displayId ? (
-              <span className="mono">{instance.displayId}</span>
-            ) : null}
-            <span>
-              {instance ? `v${instance.revision}` : t('common.states.loading')}
-            </span>
-            {instance?.sourceDefinitionVersionId ? (
-              <span className="max-lg:hidden">
-                {t('notebook.sheetPage.fromATemplate')}
-              </span>
-            ) : (
-              <span className="max-lg:hidden">
-                {t('notebook.sheetPage.adHocSheet')}
-              </span>
-            )}
-          </>
-        }
-        actions={
-          <>
-            <FavouriteToggle kind="sheet" objectId={sheetId} />
-            {/* NAV-02 Share: the control reports the actual outcome — claiming
-                "Link copied" when nothing reached the clipboard would leave the
-                user with an empty paste and no explanation. */}
-            <CopyButton
-              value={() => window.location.href}
-              copiedMessage={t('notebook.sheetPage.linkCopied')}
-              failedMessage={t('notebook.sheetPage.couldNotCopyTheLink')}
-            >
-              {t('common.actions.share')}
-            </CopyButton>
-            <AskAiButton />
-          </>
-        }
-      />
+      <SheetPageHeader trail={trail} instance={instance} sheetId={sheetId} />
       <div className="px-4 empty:hidden">
         <ColumnPromotionsPanel
           instanceId={sheetId}
@@ -181,15 +76,7 @@ export function ComposedSheetRoute() {
           <CanonicalSheetWorkspace
             instanceId={sheetId}
             projectId={instanceProjectId}
-            readOnly={
-              owningRecordId
-                ? Boolean(
-                    !owningRecordQuery.data ||
-                    owningRecordQuery.data.lockedAt ||
-                    owningRecordQuery.data.archivedAt,
-                  )
-                : undefined
-            }
+            readOnly={readOnly}
             commentId={commentId}
             openPasteOnLoad={paste}
           />

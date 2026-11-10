@@ -24,7 +24,7 @@ const version = {
   created_at: '2026-08-28T12:00:00Z',
 }
 
-function clientReturning(value: unknown) {
+function clientReturning<Value>(value: Value) {
   const fetcher = vi.fn().mockResolvedValue(
     new Response(JSON.stringify(value), {
       status: 200,

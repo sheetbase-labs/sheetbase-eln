@@ -98,8 +98,8 @@ interface SignatureWire {
 export const RECORD_SELECT =
   'id,workspace_id,project_id,identifier,title,kind,status,tags,properties,custom_fields,created_at'
 
-function rows<T>(body: unknown): T[] {
-  return Array.isArray(body) ? (body as T[]) : []
+function rows<T>(body: T[] | { error: unknown }): T[] {
+  return Array.isArray(body) ? body : []
 }
 
 async function select<T>(
@@ -173,6 +173,10 @@ async function auditCsvFor(recordId: string, token: string): Promise<string> {
   return auditEventsCsv(events)
 }
 
+/** The argument object of each row-reading dataset RPC. */
+type DatasetRowsArgs =
+  { p_dataset_id: string } | { p_dataset_version_id: string }
+
 async function datasetCsv(
   datasetId: string,
   versionId: string | null,
@@ -195,7 +199,7 @@ async function datasetCsv(
   if (!dataset) return null
   let schemaVersionId = dataset.schema_version_id
   let rpcName = 'query_dataset_rows'
-  let rpcArgs: Record<string, unknown> = { p_dataset_id: dataset.id }
+  let rpcArgs: DatasetRowsArgs = { p_dataset_id: dataset.id }
 
   if (versionId) {
     const version = (
@@ -231,6 +235,13 @@ async function datasetCsv(
   }
 }
 
+/** The payload a `linked_record` block carries when it cites a dataset. */
+const linkedDatasetPayloadSchema = z.object({
+  targetKind: z.literal('dataset'),
+  targetId: z.string(),
+  datasetVersionId: z.string().optional(),
+})
+
 /** Dataset ids (and pinned versions) an experiment's blocks cite. */
 function citedDatasets(
   blocks: BlockWire[],
@@ -240,13 +251,13 @@ function citedDatasets(
 
   for (const block of blocks) {
     if (block.type !== 'linked_record') continue
-    const p = block.payload as Record<string, unknown> | null
+    const payload = linkedDatasetPayloadSchema.safeParse(block.payload)
 
-    if (!p || p.targetKind !== 'dataset') continue
-    const id = uuid.safeParse(p.targetId)
+    if (!payload.success) continue
+    const id = uuid.safeParse(payload.data.targetId)
 
     if (!id.success) continue
-    const version = uuid.safeParse(p.datasetVersionId)
+    const version = uuid.safeParse(payload.data.datasetVersionId)
 
     if (!seen.has(id.data) || version.success) {
       seen.set(
@@ -262,6 +273,11 @@ function citedDatasets(
 export interface ExportBudget {
   remainingFileBytes: number
 }
+
+/** The payload a `file` block carries: the record that holds the file. */
+const fileBlockPayloadSchema = z.object({
+  fileRecordId: z.string().optional(),
+})
 
 export async function collectExperiment(
   record: RecordWire,
@@ -281,9 +297,8 @@ export async function collectExperiment(
     ...new Set(
       blocks
         .filter((b) => b.type === 'file')
-        .map(
-          (b) => (b.payload as { fileRecordId?: unknown } | null)?.fileRecordId,
-        )
+        .map((b) => fileBlockPayloadSchema.safeParse(b.payload))
+        .flatMap((parsed) => (parsed.success ? [parsed.data.fileRecordId] : []))
         .filter((id): id is string => z.uuid().safeParse(id).success),
     ),
   ]
@@ -328,6 +343,7 @@ export async function collectExperiment(
       }
 
       try {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each file's bytes come out of the same export budget; the next read must see what the last one left.
         const { stream } = await storage.getStream(object.storage_key)
         const bytes = await readAll(stream)
         budget.remainingFileBytes -= bytes.length
@@ -338,13 +354,13 @@ export async function collectExperiment(
     }
   }
 
-  const datasets: ElnDataset[] = []
-
-  for (const cited of citedDatasets(blocks)) {
-    const dataset = await datasetCsv(cited.datasetId, cited.versionId, token)
-
-    if (dataset) datasets.push(dataset)
-  }
+  const datasets: ElnDataset[] = (
+    await Promise.all(
+      citedDatasets(blocks).map((cited) =>
+        datasetCsv(cited.datasetId, cited.versionId, token),
+      ),
+    )
+  ).filter((dataset): dataset is ElnDataset => dataset !== null)
 
   const signatures = (
     await select<SignatureWire>(
@@ -391,21 +407,14 @@ export async function collectExperiment(
 }
 
 function archiveResponse(bytes: Uint8Array, name: string): Response {
-  return new Response(bytes as unknown as BodyInit, {
+  // SAFETY: `bytes` is a `Uint8Array`, which is a `BufferSource` and so a valid body; the generic `ArrayBufferLike` type parameter is the only mismatch.
+  return new Response(bytes as BodyInit, {
     headers: {
       'content-type': 'application/vnd.eln+zip',
       'content-disposition': `attachment; filename="${safeName(name, 'export')}.eln"`,
       'cache-control': 'no-store',
     },
   })
-}
-
-function failure(error: unknown): Response {
-  if (error instanceof UpstreamError) {
-    return requestErrorResponse(502, 'upstream_error', 'Export is unavailable.')
-  }
-
-  throw error
 }
 
 async function receipts(
@@ -417,6 +426,7 @@ async function receipts(
   // Receipt persistence is part of the successful-export contract: if the
   // audit record cannot be written, the export fails.
   for (const exp of experiments) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Receipts are audit appends: each one must be written before the next, in experiment order.
     await recordDataExportReceipt({
       actorUserId: context.userId,
       workspaceId,
@@ -472,7 +482,9 @@ export async function handleRecordElnExport(
 
     return archiveResponse(bytes, name)
   } catch (error) {
-    return failure(error)
+    if (!(error instanceof UpstreamError)) throw error
+
+    return requestErrorResponse(502, 'upstream_error', 'Export is unavailable.')
   }
 }
 
@@ -527,9 +539,15 @@ export async function handleProjectElnExport(
     const experiments: ElnExperiment[] = []
 
     for (const record of records) {
-      experiments.push(
-        await collectExperiment(record, context, storage, budget),
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Every experiment draws on the same file-byte budget, so each collection must finish before the next starts.
+      const experiment = await collectExperiment(
+        record,
+        context,
+        storage,
+        budget,
       )
+
+      experiments.push(experiment)
     }
 
     const { bytes } = await buildElnArchive({
@@ -549,9 +567,18 @@ export async function handleProjectElnExport(
 
     return archiveResponse(bytes, `${project.key} ${project.title}`)
   } catch (error) {
-    return failure(error)
+    if (!(error instanceof UpstreamError)) throw error
+
+    return requestErrorResponse(502, 'upstream_error', 'Export is unavailable.')
   }
 }
+
+/** The reply `create_record_with_blocks` answers with. */
+const createRecordReplySchema = z.object({
+  record: z
+    .object({ id: z.string(), identifier: z.string(), title: z.string() })
+    .optional(),
+})
 
 export async function handleElnImport(
   request: Request,
@@ -610,7 +637,9 @@ export async function handleElnImport(
     if (projects.length === 0)
       return requestErrorResponse(404, 'not_found', 'Project not found.')
   } catch (error) {
-    return failure(error)
+    if (!(error instanceof UpstreamError)) throw error
+
+    return requestErrorResponse(502, 'upstream_error', 'Export is unavailable.')
   }
 
   const created: Array<{ id: string; identifier: string; title: string }> = []
@@ -654,11 +683,8 @@ export async function handleElnImport(
       context.token,
     )
 
-    const record = (
-      result.body as {
-        record?: { id: string; identifier: string; title: string }
-      }
-    ).record
+    const createdRecord = createRecordReplySchema.safeParse(result.body)
+    const record = createdRecord.success ? createdRecord.data.record : undefined
 
     if (result.status >= 400 || !record) {
       return Response.json(

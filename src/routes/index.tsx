@@ -111,6 +111,12 @@ import {
 import { cn } from '#/lib/utils'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { now as appNow } from '#/lib/clock'
+import {
+  firstRunProgress,
+  firstRunSteps,
+  unavailableSections,
+} from './-home-first-run'
+import type { HomeQueryState } from './-home-first-run'
 
 /** UI port (roadmap-4/ui-app3): Home, matching the reference — a status chip
  * row, Awaiting your review, Continue working, and an inspector with Today,
@@ -120,7 +126,16 @@ import { now as appNow } from '#/lib/clock'
 const HOME_ACTIVITY_ROWS = 6
 const HOME_ACTIVITY_READ = 24
 
+/** What Home reads from the URL: whether the first-run setup asked to open. */
+interface HomeSearch {
+  setup?: true
+}
+
 export const Route = createFileRoute('/')({
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- TanStack Router hands validateSearch the raw URL values as Record<string, unknown>; the two accepted spellings are compared directly and nothing else is read.
+  validateSearch: (search: Record<string, unknown>): HomeSearch => ({
+    setup: search.setup === true || search.setup === '1' ? true : undefined,
+  }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
 
@@ -136,160 +151,11 @@ export const Route = createFileRoute('/')({
 
     return { context }
   },
-  validateSearch: (search: Record<string, unknown>): { setup?: true } => ({
-    setup: search.setup === true || search.setup === '1' ? true : undefined,
-  }),
   component: Home,
 })
 
 /** No seen keys until that read answers; an empty set marks nothing seen. */
 const EMPTY_SEEN: ReadonlySet<string> = new Set()
-
-interface FirstRunProject {
-  id: string
-  title: string
-  accessLevel: string
-}
-
-export interface FirstRunInput {
-  workspaceName: string
-  accountHint?: string
-  signatureCertified: boolean
-  projects: FirstRunProject[]
-  hasOpenedProject: boolean
-  hasExperiment: boolean
-  /** The person's workspace role. Unset reads as an author. */
-  role?: string
-  /** How many people are in the workspace; a founder starts alone. */
-  memberCount?: number
-  /** Whether the first admin finished the short setup; unset hides the step. */
-  setupDone?: boolean
-}
-
-export interface FirstRunStep {
-  label: string
-  hint: string
-  done: boolean
-  actionLabel?: string
-  actionTo?: string
-}
-
-/**
- * First-run checklist, matching HomeFirstRun: account created, signature,
- * first project and first experiment. Every item reads real state passed in by
- * the caller; nothing is persisted for the checklist itself.
- */
-export function firstRunSteps(input: FirstRunInput): FirstRunStep[] {
-  const project = input.projects.at(0)
-  // An owner or administrator is the one who adds people and starts the first
-  // project; nobody is going to add them, so their checklist says to do it.
-  const administers = input.role === 'owner' || input.role === 'admin'
-  const readOnly = input.role === 'viewer' || input.role === 'client_viewer'
-  const reviewOnly = input.role === 'reviewer'
-
-  const steps: FirstRunStep[] = [
-    {
-      label: t('projects.home.firstRun.accountCreated'),
-      hint:
-        input.accountHint ??
-        t('projects.home.firstRun.joined', { workspace: input.workspaceName }),
-      done: true,
-    },
-    ...(input.role === 'owner' && input.setupDone !== undefined
-      ? [
-          {
-            label: t('projects.home.firstRun.setup'),
-            hint: t('projects.home.firstRun.setupHint'),
-            done: input.setupDone,
-            actionLabel: t('projects.home.firstRun.setupAction'),
-            actionTo: '/?setup=1',
-          },
-        ]
-      : []),
-    ...(administers
-      ? [
-          {
-            label: t('projects.home.firstRun.invite'),
-            hint: t('projects.home.firstRun.inviteHint'),
-            done: (input.memberCount ?? 1) > 1,
-            actionLabel: t('projects.home.firstRun.invite'),
-            actionTo: '/settings/workspace/members?invite=admin',
-          },
-        ]
-      : []),
-    {
-      label: t('projects.home.firstRun.signature'),
-      hint: administers
-        ? t('projects.home.firstRun.signatureHintAdmin')
-        : t('projects.home.firstRun.signatureHintMember'),
-      done: input.signatureCertified,
-      actionLabel: 'Set up signature',
-      actionTo: '/settings/account/signature',
-    },
-    {
-      label:
-        administers && !project
-          ? t('projects.home.firstRun.createFirstProject')
-          : t('projects.home.firstRun.openFirstProject'),
-      hint: project
-        ? t('projects.home.firstRun.addedTo', { title: project.title })
-        : administers
-          ? t('projects.home.firstRun.projectHintAdmin')
-          : t('projects.home.firstRun.projectHintMember'),
-      done: input.hasOpenedProject,
-      actionLabel: project
-        ? t('projects.home.firstRun.openProject')
-        : administers
-          ? t('projects.home.firstRun.createProject')
-          : t('projects.home.firstRun.browseProjects'),
-      actionTo: project
-        ? `/projects/${project.id}`
-        : administers
-          ? '/projects?new=true'
-          : '/projects',
-    },
-    {
-      label: t('projects.home.firstRun.experiment'),
-      hint: t('projects.home.firstRun.experimentHint'),
-      done: input.hasExperiment,
-      actionLabel: t('projects.home.firstRun.browseProtocols'),
-      actionTo: '/protocols',
-    },
-  ]
-
-  // The checklist asks each role only for what that role can do: a viewer
-  // cannot sign or author, and a reviewer reviews what others submit rather
-  // than creating experiments, so neither is given a step it cannot finish.
-  if (readOnly) {
-    return steps.filter(
-      (step) =>
-        step.actionTo !== '/settings/account/signature' &&
-        step.actionTo !== '/protocols',
-    )
-  }
-
-  if (reviewOnly) {
-    return steps
-      .filter((step) => step.actionTo !== '/protocols')
-      .map((step) =>
-        step.actionTo?.startsWith('/projects')
-          ? {
-              ...step,
-              hint: `${step.hint} ${t('projects.home.firstRun.reviewsArrive')}`,
-            }
-          : step,
-      )
-  }
-
-  return steps
-}
-
-export function firstRunProgress(steps: FirstRunStep[]): {
-  done: number
-  total: number
-} {
-  return { done: steps.filter((step) => step.done).length, total: steps.length }
-}
 
 /** A submission awaiting this reader's review, as `fetchHomeReviews` returns
  * it. */
@@ -417,21 +283,6 @@ const homeRecentColumns: RegistryColumn<RecentItem>[] = [
     cell: ({ row }) => formatRelativeTime(row.original.lastActivityAt),
   },
 ]
-
-/** The part of a query result Home's degradation reads. */
-interface HomeQueryState {
-  isError: boolean
-  refetch: () => unknown
-}
-
-/** The sections whose reads failed, each with the reads that back it. */
-export function unavailableSections(
-  sections: { label: string; queries: HomeQueryState[] }[],
-): { label: string; queries: HomeQueryState[] }[] {
-  return sections.filter((section) =>
-    section.queries.some((query) => query.isError),
-  )
-}
 
 /** A section that could not be read says so and offers the retry. */
 function SectionUnavailable({
@@ -1721,9 +1572,9 @@ export function Home() {
                                 })
                               : ''}
                         </div>
-                        {(a.count > 1 ? [] : a.changes).map((change, index) => (
+                        {(a.count > 1 ? [] : a.changes).map((change) => (
                           <div
-                            key={`${change.label}:${index}`}
+                            key={`${change.label}:${change.kind}`}
                             className="text-fg-muted"
                           >
                             {t('projects.home.activity.change', {

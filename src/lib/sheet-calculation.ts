@@ -188,6 +188,19 @@ export type SheetCalculationInput = {
   provenance: unknown
 }
 
+/** Provenance that names a Dataset row and field; anything else is not a matched Dataset row. */
+const DATASET_PROVENANCE = z.object({
+  sourceKind: z.literal('dataset'),
+  sourceRowId: z.string(),
+  sourceFieldId: z.string(),
+})
+
+/** The logical types the safe calculation profile evaluates. */
+const NUMERIC_LOGICAL_TYPES = ['integer', 'decimal'] as const
+
+/** A number, including the NaN a formula can produce; `typeof` would call it a number too. */
+const NUMBER_OR_NAN = z.union([z.number(), z.nan()])
+
 /**
  * DSET-01.2 — resolve the active Dataset Value Flag behind a bound input's
  * provenance, if any. A flagged value is excluded from ƒx evaluation by
@@ -196,26 +209,19 @@ export type SheetCalculationInput = {
  * affected. Shares the canonical index with charts, analyses and pipelines.
  */
 export function flaggedValueForProvenance(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- An input's provenance is JSONB on the block payload; `DATASET_PROVENANCE` decides whether it names a Dataset row and field.
   provenance: unknown,
   flagIndex: ReadonlyMap<string, DatasetValueFlag>,
 ): DatasetValueFlag | undefined {
-  if (typeof provenance !== 'object' || provenance === null) return undefined
+  const candidate = DATASET_PROVENANCE.safeParse(provenance)
 
-  const candidate = provenance as {
-    sourceKind?: unknown
-    sourceRowId?: unknown
-    sourceFieldId?: unknown
-  }
+  if (!candidate.success) return undefined
 
-  if (
-    candidate.sourceKind !== 'dataset' ||
-    typeof candidate.sourceRowId !== 'string' ||
-    typeof candidate.sourceFieldId !== 'string' ||
-    !isValueFlagged(flagIndex, candidate.sourceRowId, candidate.sourceFieldId)
-  )
-    return undefined
+  const { sourceRowId, sourceFieldId } = candidate.data
 
-  return flagIndex.get(flagKey(candidate.sourceRowId, candidate.sourceFieldId))
+  if (!isValueFlagged(flagIndex, sourceRowId, sourceFieldId)) return undefined
+
+  return flagIndex.get(flagKey(sourceRowId, sourceFieldId))
 }
 
 export type SheetCalculationResult =
@@ -337,10 +343,9 @@ export function evaluateSheetCalculation(input: {
   if (
     input.inputs.some(
       ({ field, value }) =>
-        !['integer', 'decimal'].includes(field.logicalType) ||
+        !NUMERIC_LOGICAL_TYPES.some((type) => type === field.logicalType) ||
         field.cardinality !== 'one' ||
-        typeof value !== 'number' ||
-        !Number.isFinite(value),
+        !z.number().finite().safeParse(value).success,
     )
   )
     return {
@@ -359,12 +364,14 @@ export function evaluateSheetCalculation(input: {
     ...input.inputs.map((item, index) => ({
       id: item.dependency.id,
       createdAt: new Date(index).toISOString(),
-      logicalType: item.field.logicalType as 'integer' | 'decimal',
+      logicalType: z.enum(NUMERIC_LOGICAL_TYPES).parse(item.field.logicalType),
     })),
     {
       id: outputColumnId,
       createdAt: new Date(input.inputs.length).toISOString(),
-      logicalType: input.outputField.logicalType as 'integer' | 'decimal',
+      logicalType: z
+        .enum(NUMERIC_LOGICAL_TYPES)
+        .parse(input.outputField.logicalType),
     },
   ]
 
@@ -384,24 +391,28 @@ export function evaluateSheetCalculation(input: {
     )
 
     const declaredIds = input.inputs.map(({ dependency }) => dependency.id)
+    const declaredIdSet = new Set(declaredIds)
+    const actualDependencySet = new Set(actualDependencies)
 
     if (
-      actualDependencies.some(
-        (id) => id === null || !declaredIds.includes(id),
-      ) ||
-      declaredIds.some((id) => !actualDependencies.includes(id))
+      actualDependencies.some((id) => id === null || !declaredIdSet.has(id)) ||
+      declaredIds.some((id) => !actualDependencySet.has(id))
     )
       throw new Error(
         'A1 references must exactly match the semantic dependencies.',
       )
 
+    const fieldByDependency = new Map(
+      input.inputs.map(({ dependency, field }) => [dependency.id, field]),
+    )
+
     const inferred = expressionQuantity(
       parsed.artifact.template,
-      actualDependencies.map((id) =>
-        quantityKey(
-          input.inputs.find(({ dependency }) => dependency.id === id)!.field,
-        ),
-      ),
+      actualDependencies.flatMap((id) => {
+        const field = id === null ? undefined : fieldByDependency.get(id)
+
+        return field === undefined ? [] : [quantityKey(field)]
+      }),
     )
 
     if (inferred !== quantityKey(input.outputField))
@@ -460,7 +471,11 @@ export function evaluateSheetCalculation(input: {
         dependencyProvenance,
       }
 
-    if (!result.logical.ok || typeof result.logical.value !== 'number')
+    const output = result.logical.ok
+      ? NUMBER_OR_NAN.safeParse(result.logical.value)
+      : undefined
+
+    if (!output?.success)
       return {
         status: 'error',
         errorCode: 'TYPE',
@@ -470,7 +485,7 @@ export function evaluateSheetCalculation(input: {
 
     return {
       status: 'value',
-      value: result.logical.value,
+      value: output.data,
       dependencyProvenance,
     }
   } finally {

@@ -15,6 +15,7 @@ let loading: Promise<Ocl> | null = null
 /** The chemistry library, loaded once. */
 export function loadOcl(): Promise<Ocl> {
   loading ??= import('openchemlib').then(
+    // SAFETY: openchemlib ships a CommonJS build, so the dynamic import may put its exports under `default`; the ES module namespace is used when it does not.
     (module) => (module as { default?: Ocl }).default ?? module,
   )
 

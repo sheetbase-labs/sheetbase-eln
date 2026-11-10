@@ -92,6 +92,7 @@ export async function runEventHookPass(
         )
 
         if (name)
+          // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Hooks see one change event at a time in the order the change log recorded them, so a later event can rely on an earlier one having run.
           await runEventHooks({
             id: event.id,
             workspaceId: event.workspaceId,

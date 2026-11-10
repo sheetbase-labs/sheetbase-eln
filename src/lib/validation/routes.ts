@@ -81,19 +81,31 @@ export async function handleValidationPack(
     return requestErrorResponse(502, 'upstream_error', 'Could not read runs.')
   }
 
-  const workspace = await postgrestSelect<Array<{ name: string }>>(
+  const workspaceRequest = postgrestSelect<Array<{ name: string }>>(
     'workspaces',
     'select=name&limit=1',
     context.token,
   )
 
-  const { buildValidationPack } = await import('./pack')
-  const { ensureWorkspaceKey } = await import('../export/bundle-key.server')
-  const { signWithKey } = await import('../export/bundle-key')
-  const { appVersion } = await import('./run.server')
-  const { recordDataExportReceipt } = await import('../request-auth')
-  const key = await ensureWorkspaceKey(context.workspaceId)
-  const latest = runs.body[0]
+  const [
+    workspace,
+    { buildValidationPack },
+    { signWithKey },
+    { appVersion },
+    { recordDataExportReceipt },
+    key,
+  ] = await Promise.all([
+    workspaceRequest,
+    import('./pack'),
+    import('../export/bundle-key'),
+    import('./run.server'),
+    import('../request-auth'),
+    import('../export/bundle-key.server').then(({ ensureWorkspaceKey }) =>
+      ensureWorkspaceKey(context.workspaceId),
+    ),
+  ])
+
+  const latest = runs.body.at(0)
 
   const bytes = await buildValidationPack({
     workspaceName:
@@ -102,7 +114,7 @@ export async function handleValidationPack(
         : 'Workspace',
     generatedAt: new Date().toISOString(),
     appVersion: appVersion(),
-    migration: (latest as ValidationRunRecord | undefined)?.migration ?? null,
+    migration: latest?.migration ?? null,
     system: { node: process.version, regulatedLab: true },
     runs: runs.body,
     publicKeyPem: key.publicKeyPem,
@@ -119,7 +131,7 @@ export async function handleValidationPack(
     byteSize: bytes.byteLength,
   })
 
-  return new Response(bytes as unknown as BodyInit, {
+  return new Response(Buffer.from(bytes), {
     status: 200,
     headers: {
       'content-type': 'application/zip',

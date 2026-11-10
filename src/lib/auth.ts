@@ -22,6 +22,7 @@ import { magicLink } from 'better-auth/plugins/magic-link'
 import { twoFactor as twoFactorPlugin } from 'better-auth/plugins/two-factor'
 import { eq, sql } from 'drizzle-orm'
 import { AsyncLocalStorage } from 'node:async_hooks'
+import { z } from 'zod'
 
 import { db } from '#/db/client.server'
 import {
@@ -68,6 +69,25 @@ import {
 } from '#/lib/session-idle'
 import { getDevSession, isDevAuthFreeEnabled } from '#/lib/dev-auth'
 import type { AppSession } from '#/lib/dev-auth'
+
+/** The reply a passkey endpoint answers with, when it names the passkey. */
+const passkeyReplySchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  userId: z.string().optional(),
+})
+
+/** The id a passkey delete request carries. */
+const passkeyRequestBodySchema = z.object({ id: z.string().optional() })
+
+/** The error reply a Better Auth endpoint returns instead of its value. */
+const failedReplySchema = z.object({ statusCode: z.unknown() })
+
+/** The body of the SSO sign-in call the allow-list inspects. */
+const ssoSignInBodySchema = z.object({ providerId: z.string().optional() })
+
+/** What a hook handler answers when it is asked for its headers too. */
+const returnedHeadersSchema = z.object({ headers: z.instanceof(Headers) })
 
 const authSchema = {
   user,
@@ -140,10 +160,12 @@ function twoFactorWithEmailLink() {
           handler: createAuthMiddleware(async (ctx) => {
             if (!ctx.context.newSession?.user.twoFactorEnabled) return
 
-            const held = (await challenge.handler({
-              ...ctx,
-              returnHeaders: true,
-            })) as unknown as { headers: Headers }
+            const held = returnedHeadersSchema.parse(
+              await challenge.handler({
+                ...ctx,
+                returnHeaders: true,
+              }),
+            )
 
             const next = safeNextPath(ctx.query?.callbackURL)
 
@@ -220,8 +242,10 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
                 oidc.groupsClaim ?? DEFAULT_GROUPS_CLAIM,
               )
 
-              if (groups && typeof profile.email === 'string') {
-                holdGroups(profile.email, groups)
+              const email = z.string().safeParse(profile.email)
+
+              if (groups && email.success) {
+                holdGroups(email.data, groups)
               }
 
               return {}
@@ -323,27 +347,18 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
 
             const failed =
               result instanceof Error ||
-              (typeof result === 'object' &&
-                result !== null &&
-                'statusCode' in result)
+              failedReplySchema.safeParse(result).success
 
             const added = ctx.path === '/passkey/verify-registration'
-            const body = (ctx.body ?? {}) as { id?: unknown }
-
-            const made = (
-              typeof result === 'object' && result !== null ? result : {}
-            ) as { id?: unknown; name?: unknown; userId?: unknown }
+            const body = passkeyRequestBodySchema.catch({}).parse(ctx.body)
+            const made = passkeyReplySchema.catch({}).parse(result)
 
             const userId = ctx.context.session?.user.id ?? made.userId
             const passkeyId = added ? made.id : body.id
 
-            if (
-              !failed &&
-              typeof userId === 'string' &&
-              typeof passkeyId === 'string'
-            ) {
+            if (!failed && userId !== undefined && passkeyId !== undefined) {
               await database.execute(
-                sql`select internal.record_passkey_event(${userId}, ${added ? 'added' : 'removed'}, ${passkeyId}, ${typeof made.name === 'string' ? made.name : null})`,
+                sql`select internal.record_passkey_event(${userId}, ${added ? 'added' : 'removed'}, ${passkeyId}, ${made.name ?? null})`,
               )
             }
           } catch (error) {
@@ -354,15 +369,19 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
         }
 
         const returned: unknown = ctx.context.returned
-        annotateRequest({
+
+        const annotation: Parameters<typeof annotateRequest>[0] = {
           auth_flow: {
             path: ctx.path,
             outcome: authOutcome(returned),
           },
-          ...(ctx.context.newSession
-            ? { user: { id: ctx.context.newSession.user.id } }
-            : {}),
-        })
+        }
+
+        if (ctx.context.newSession) {
+          annotation.user = { id: ctx.context.newSession.user.id }
+        }
+
+        annotateRequest(annotation)
       }),
     },
     baseURL: env.BETTER_AUTH_URL,
@@ -442,12 +461,9 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
           // The refresh does not name the person, so read them from the session being
           // refreshed, and fall back to the short window when that is not known.
           before: async (changes, context) => {
-            const refreshed = (
-              context?.context as
-                { session?: { session?: { userId?: string } } } | undefined
-            )?.session?.session
+            const refreshed = context?.context.session?.session
 
-            if (!(changes as { expiresAt?: unknown }).expiresAt) return
+            if (!changes.expiresAt) return
 
             const seconds = refreshed?.userId
               ? await sessionIdleSeconds(database, refreshed.userId)
@@ -468,7 +484,7 @@ export function createAuth(database: typeof db = db, deps: AuthDeps = {}) {
           // domains the provider speaks for. Runs in the same transaction as
           // the sign-in, so a refusal leaves nothing behind.
           before: async (created, context) => {
-            const path = (context as { path?: string } | null | undefined)?.path
+            const path = context?.path
 
             if (!saml || !path?.startsWith('/sso/saml2/sp/acs/')) return
 
@@ -553,13 +569,9 @@ async function isAllowedSsoRequest(
     if (request.method !== 'POST') return false
 
     try {
-      const body: unknown = await request.clone().json()
+      const body = ssoSignInBodySchema.safeParse(await request.clone().json())
 
-      return (
-        typeof body === 'object' &&
-        body !== null &&
-        (body as { providerId?: unknown }).providerId === SAML_PROVIDER_ID
-      )
+      return body.success && body.data.providerId === SAML_PROVIDER_ID
     } catch {
       return false
     }

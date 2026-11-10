@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import type { DatasetListRow } from '#/components/datasets/datasets-data'
 import { toDatasetListRow } from '#/components/datasets/datasets-data'
@@ -66,9 +67,16 @@ export function projectDatasetFilter(projectId: string): string {
   ].join('&')
 }
 
+/** A route search page value, as the URL states it: a number or its text form. */
+const PAGE_NUMBER = z.coerce.number().catch(Number.NaN)
+
 /** 1-based page from a route search value; anything unusable is page 1. */
-export function parseProjectPage(value: unknown): number {
-  const n = typeof value === 'number' ? value : Number(value)
+export function parseProjectPage(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A page arrives as raw URL text; this function is the boundary that turns it into a page number, and nothing below it reads the raw value.
+  value: unknown,
+): number {
+  const parsed = PAGE_NUMBER.safeParse(value)
+  const n = parsed.success ? parsed.data : Number.NaN
 
   return Number.isSafeInteger(n) && n > 1 ? n : 1
 }

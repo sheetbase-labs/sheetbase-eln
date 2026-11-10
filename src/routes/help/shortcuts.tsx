@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import { usePlatform } from '#/lib/use-platform'
 import { useShortcuts } from '#/components/shortcuts/shortcut-provider'
@@ -12,13 +13,17 @@ import { requestShortcutsDialog } from '#/lib/shortcuts-dialog'
 import { ReleaseCard } from '../help'
 import { rich, t } from '#/copy'
 
+/** The keyboard the reader asked about; anything else leaves the platform to decide. */
+const shortcutsSearchSchema = z.object({
+  os: z.enum(['mac', 'windows']).optional().catch(undefined),
+})
+
+type ShortcutsSearch = z.infer<typeof shortcutsSearchSchema>
+
 /** Keyboard shortcuts. `?os=windows` (the default off a Mac) shows Ctrl/Alt/Shift instead of ⌘/⌥/⇧. */
 export const Route = createFileRoute('/help/shortcuts')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { os?: 'mac' | 'windows' } => ({
-    os: search.os === 'windows' || search.os === 'mac' ? search.os : undefined,
-  }),
+  validateSearch: (search): ShortcutsSearch =>
+    shortcutsSearchSchema.parse(search),
   component: Shortcuts,
 })
 

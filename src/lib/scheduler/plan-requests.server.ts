@@ -12,6 +12,7 @@ import { DEFAULT_HOURS, localToEpoch, planSchedule } from './plan'
 import type {
   Busy,
   PlanInput,
+  PlanItem,
   PlanPart,
   ResourceRules,
   WorkingHours,
@@ -32,7 +33,10 @@ interface ClaimedProposal {
   anchor_on: string
 }
 
-const asDate = (value: unknown): string =>
+/** A database date, which pg hands back either parsed or as text. */
+type DatabaseDate = string | Date
+
+const asDate = (value: DatabaseDate): string =>
   value instanceof Date
     ? value.toISOString().slice(0, 10)
     : String(value).slice(0, 10)
@@ -45,23 +49,67 @@ export async function loadPlanInput(
 ): Promise<{ input: PlanInput; identifier: string }> {
   const q = conn.query
 
-  const { rows: records } = await q<{ identifier: string }>(
-    `SELECT identifier FROM api.records WHERE id = $1`,
-    [proposal.record_id],
-  )
+  // Five independent reads of one experiment: none needs another's answer.
+  const [
+    { rows: records },
+    { rows: settings },
+    { rows: partRows },
+    { rows: needRows },
+    { rows: doneRows },
+  ] = await Promise.all([
+    q<{ identifier: string }>(
+      `SELECT identifier FROM api.records WHERE id = $1`,
+      [proposal.record_id],
+    ),
+    q<{
+      timezone: string
+      work_start_minute: number
+      work_end_minute: number
+      work_days: number[]
+    }>(
+      `SELECT timezone, work_start_minute, work_end_minute, work_days
+       FROM api.scheduler_settings WHERE workspace_id = $1`,
+      [proposal.workspace_id],
+    ),
+    q<{
+      id: string
+      n: number
+      title: string
+      day_offset: number
+      assignee_user_id: string | null
+      hands_on_minutes: number
+      wait_after_minutes: number
+    }>(
+      `SELECT p.id, row_number() OVER (ORDER BY p."position", p.id)::int AS n, p.title, p.day_offset,
+            p.assignee_user_id, coalesce(pp.hands_on_minutes, 60) AS hands_on_minutes,
+            coalesce(pp.wait_after_minutes, 0) AS wait_after_minutes
+       FROM api.experiment_parts p
+       LEFT JOIN api.part_plans pp ON pp.part_id = p.id
+      WHERE p.record_id = $1
+      ORDER BY p."position", p.id`,
+      [proposal.record_id],
+    ),
+    q<{
+      part_id: string
+      resource_id: string
+      name: string
+      minutes: number
+    }>(
+      `SELECT n.part_id, n.resource_id, r.name, n.minutes
+       FROM api.part_resource_needs n
+       JOIN api.calendar_resources r ON r.id = n.resource_id
+       JOIN api.experiment_parts p ON p.id = n.part_id
+      WHERE p.record_id = $1
+      ORDER BY n."position"`,
+      [proposal.record_id],
+    ),
+    q<{ id: string }>(
+      `SELECT id FROM api.experiment_parts WHERE record_id = $1 AND completed_at IS NOT NULL`,
+      [proposal.record_id],
+    ),
+  ])
 
   const identifier = records[0]?.identifier ?? 'Experiment'
-
-  const { rows: settings } = await q<{
-    timezone: string
-    work_start_minute: number
-    work_end_minute: number
-    work_days: number[]
-  }>(
-    `SELECT timezone, work_start_minute, work_end_minute, work_days
-       FROM api.scheduler_settings WHERE workspace_id = $1`,
-    [proposal.workspace_id],
-  )
 
   const hours: WorkingHours = settings[0]
     ? {
@@ -71,45 +119,6 @@ export async function loadPlanInput(
         days: settings[0].work_days,
       }
     : DEFAULT_HOURS
-
-  const { rows: partRows } = await q<{
-    id: string
-    n: number
-    title: string
-    day_offset: number
-    assignee_user_id: string | null
-    hands_on_minutes: number
-    wait_after_minutes: number
-  }>(
-    `SELECT p.id, row_number() OVER (ORDER BY p."position", p.id)::int AS n, p.title, p.day_offset,
-            p.assignee_user_id, coalesce(pp.hands_on_minutes, 60) AS hands_on_minutes,
-            coalesce(pp.wait_after_minutes, 0) AS wait_after_minutes
-       FROM api.experiment_parts p
-       LEFT JOIN api.part_plans pp ON pp.part_id = p.id
-      WHERE p.record_id = $1
-      ORDER BY p."position", p.id`,
-    [proposal.record_id],
-  )
-
-  const { rows: needRows } = await q<{
-    part_id: string
-    resource_id: string
-    name: string
-    minutes: number
-  }>(
-    `SELECT n.part_id, n.resource_id, r.name, n.minutes
-       FROM api.part_resource_needs n
-       JOIN api.calendar_resources r ON r.id = n.resource_id
-       JOIN api.experiment_parts p ON p.id = n.part_id
-      WHERE p.record_id = $1
-      ORDER BY n."position"`,
-    [proposal.record_id],
-  )
-
-  const { rows: doneRows } = await q<{ id: string }>(
-    `SELECT id FROM api.experiment_parts WHERE record_id = $1 AND completed_at IS NOT NULL`,
-    [proposal.record_id],
-  )
 
   const done = new Set(doneRows.map((r) => r.id))
 
@@ -137,7 +146,7 @@ export async function loadPlanInput(
   const people = [
     ...new Set([
       proposal.requested_by_user_id,
-      ...parts.map((p) => p.assigneeUserId).filter((u): u is string => !!u),
+      ...parts.flatMap((p) => (p.assigneeUserId ? [p.assigneeUserId] : [])),
     ]),
   ]
 
@@ -225,8 +234,8 @@ export async function loadPlanInput(
   if (people.length > 0) {
     const { rows } = await q<{
       user_id: string
-      starts_on: unknown
-      ends_on: unknown
+      starts_on: DatabaseDate
+      ends_on: DatabaseDate
     }>(
       `SELECT user_id, starts_on, ends_on FROM api.member_absences
         WHERE workspace_id = $1 AND user_id = ANY($2::text[]) AND cancelled_at IS NULL AND ends_on >= current_date`,
@@ -283,7 +292,7 @@ export async function sweepScheduleRequests(
       const proposal = rows.at(0)
 
       if (!proposal) break
-      let items: unknown = []
+      let items: PlanItem[] = []
       let conflicts = 0
       let error: string | null = null
       let anchor = asDate(proposal.anchor_on)
@@ -321,7 +330,15 @@ export async function sweepScheduleRequests(
 
 let timer: ReturnType<typeof setInterval> | null = null
 let running = false
-const startedKey = '__sheetbaseScheduleSchedulerStarted'
+
+/**
+ * The process-wide started flag. A development reload evaluates this module
+ * again while the first scheduler's interval is still live, so the guard has
+ * to live on `globalThis`, not in this module's scope.
+ */
+declare global {
+  var __sheetbaseScheduleSchedulerStarted: boolean | undefined
+}
 
 function disabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
@@ -335,10 +352,9 @@ function disabled(): boolean {
 /** Starts picking up plan requests every few seconds. Safe to call twice. */
 export function startScheduleScheduler(): void {
   if (typeof window !== 'undefined' || disabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
 
-  if (g[startedKey]) return
-  g[startedKey] = true
+  if (globalThis.__sheetbaseScheduleSchedulerStarted) return
+  globalThis.__sheetbaseScheduleSchedulerStarted = true
 
   const open = async () => {
     const client = new PooledClient({ connectionString: env.DATABASE_URL })
@@ -369,6 +385,5 @@ export function startScheduleScheduler(): void {
 export function stopScheduleScheduler(): void {
   if (timer) clearInterval(timer)
   timer = null
-  const g = globalThis as unknown as Record<string, unknown>
-  delete g[startedKey]
+  delete globalThis.__sheetbaseScheduleSchedulerStarted
 }

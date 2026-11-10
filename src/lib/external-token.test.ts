@@ -2,6 +2,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { decodeJwt, SignJWT } from 'jose'
+import { z } from 'zod'
 
 import { mintPersonalApiToken } from './api-credentials'
 import {
@@ -15,7 +16,16 @@ import type { ProxyPath } from './postgrest-path'
 
 const SECRET = 'test-secret-with-32-characters-minimum!!'
 
-async function mint(claims: Record<string, unknown>): Promise<string> {
+/** A claim value as a token body carries it: JSON the caller supplies. */
+type ClaimValue =
+  | string
+  | number
+  | boolean
+  | null
+  | ClaimValue[]
+  | { [key: string]: ClaimValue }
+
+async function mint(claims: Record<string, ClaimValue>): Promise<string> {
   return await new SignJWT(claims)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -135,7 +145,7 @@ describe('requiredScopes', () => {
         requiredScopes(method, path)
       } catch (error) {
         expect(error).toBeInstanceOf(ExternalTokenError)
-        expect((error as ExternalTokenError).code).toBe('insufficient_scope')
+        expect(error).toMatchObject({ code: 'insufficient_scope' })
       }
     }
   })
@@ -483,7 +493,7 @@ describe('verifyApiClientToken', () => {
 
   it('rejects a personal-kind token without a string sub', async () => {
     for (const sub of [undefined, 42]) {
-      const claims: Record<string, unknown> = {
+      const claims = {
         workspace_id: 'ws-1',
         credential_id: 'cred-1',
         scopes: ['projects:read'],
@@ -491,14 +501,23 @@ describe('verifyApiClientToken', () => {
         role: 'authenticated',
       }
 
-      if (sub !== undefined) claims.sub = sub
-      const token = await mint(claims)
+      const token = await mint(sub === undefined ? claims : { ...claims, sub })
+
       await expect(verifyApiClientToken(token, SECRET)).rejects.toBeInstanceOf(
         ExternalTokenError,
       )
     }
   })
 })
+
+/** A token's lifetime in seconds, decoded rather than asserted: jose leaves exp and iat optional. */
+function tokenTtl(token: string): number {
+  const { exp, iat } = z
+    .object({ exp: z.number(), iat: z.number() })
+    .parse(decodeJwt(token))
+
+  return exp - iat
+}
 
 describe('mintPersonalApiToken', () => {
   const input = {
@@ -521,14 +540,13 @@ describe('mintPersonalApiToken', () => {
   })
 
   it('defaults to a 300 second TTL and honours ttlSeconds', async () => {
-    const defaults = decodeJwt(await mintPersonalApiToken(SECRET, input))
-    expect((defaults.exp as number) - (defaults.iat as number)).toBe(300)
+    expect(tokenTtl(await mintPersonalApiToken(SECRET, input))).toBe(300)
 
-    const custom = decodeJwt(
-      await mintPersonalApiToken(SECRET, { ...input, ttlSeconds: 60 }),
-    )
-
-    expect((custom.exp as number) - (custom.iat as number)).toBe(60)
+    expect(
+      tokenTtl(
+        await mintPersonalApiToken(SECRET, { ...input, ttlSeconds: 60 }),
+      ),
+    ).toBe(60)
   })
 
   it('carries no session_id so attestation-gated RPCs stay unreachable', async () => {

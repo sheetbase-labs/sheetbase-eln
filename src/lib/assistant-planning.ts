@@ -564,12 +564,9 @@ export function repeatDates(input: {
   const out: string[] = []
   const last = input.until ?? addDays(input.firstDay, 3_660)
   const weekStart = addDays(input.firstDay, -(isoWeekdayOf(input.firstDay) - 1))
+  const weekdays = new Set(input.weekdays)
 
-  const [fy, fm, fd] = input.firstDay.split('-').map(Number) as [
-    number,
-    number,
-    number,
-  ]
+  const [fy, fm, fd] = input.firstDay.split('-').map(Number)
 
   for (
     let cursor = input.firstDay;
@@ -582,14 +579,10 @@ export function repeatDates(input: {
       hit = daysBetween(input.firstDay, cursor) % input.every === 0
     } else if (input.frequency === 'weekly') {
       hit =
-        input.weekdays.includes(isoWeekdayOf(cursor)) &&
+        weekdays.has(isoWeekdayOf(cursor)) &&
         Math.floor(daysBetween(weekStart, cursor) / 7) % input.every === 0
     } else {
-      const [cy, cm, cd] = cursor.split('-').map(Number) as [
-        number,
-        number,
-        number,
-      ]
+      const [cy, cm, cd] = cursor.split('-').map(Number)
 
       const monthsApart = cy * 12 + cm - (fy * 12 + fm)
       const lastOfMonth = new Date(Date.UTC(cy, cm, 0)).getUTCDate()

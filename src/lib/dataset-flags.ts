@@ -6,6 +6,8 @@
  * dataset's active flags and gives consumers a small, tested predicate so each
  * surface excludes (and can report) the same values.
  */
+import { z } from 'zod'
+
 import type { DataClient } from './data-client'
 import { notebookDataClient } from './notebook-data'
 import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
@@ -217,20 +219,22 @@ export function isValueFlagged(
  * Keep rows whose used fields are not flagged. Rows without a stable row id
  * are kept (they cannot be matched to a flag).
  */
-export function filterRowsByFlags(
-  rows: readonly Record<string, unknown>[],
+export function filterRowsByFlags<Row extends Record<string, unknown>>(
+  rows: readonly Row[],
   flags: readonly DatasetValueFlag[],
   fieldIds: readonly string[],
-): Record<string, unknown>[] {
+): Row[] {
   if (flags.length === 0 || fieldIds.length === 0) return [...rows]
   const index = buildFlagIndex(flags)
 
   return rows.filter((row) => {
-    const rowId = row[CHART_ROW_ID_KEY]
+    const rowId = z.string().safeParse(row[CHART_ROW_ID_KEY])
 
-    if (typeof rowId !== 'string') return true
+    if (!rowId.success) return true
 
-    return !fieldIds.some((fieldId) => isValueFlagged(index, rowId, fieldId))
+    return !fieldIds.some((fieldId) =>
+      isValueFlagged(index, rowId.data, fieldId),
+    )
   })
 }
 
@@ -238,6 +242,12 @@ export interface ExcludedValue {
   rowId: string
   fieldId: string
   flag: DatasetValueFlag
+}
+
+/** Rows that survived exclusion, and the values that were dropped. */
+export interface ExcludedRows<Row> {
+  rows: Row[]
+  excluded: ExcludedValue[]
 }
 
 export interface ExclusionSummary {
@@ -282,7 +292,7 @@ export function excludeFlaggedValues<T>(
   index: ReadonlyMap<string, DatasetValueFlag>,
   rowIdOf: (row: T) => string,
   fieldId: string,
-): { rows: T[]; excluded: ExcludedValue[] } {
+): ExcludedRows<T> {
   const kept: T[] = []
   const excluded: ExcludedValue[] = []
 
@@ -314,7 +324,7 @@ export interface RequestRepeatInput {
   sourceFieldId?: string | null
   title?: string | null
   /** Derived-sample properties (quantity, quantityUnit, storageLocation, …). */
-  properties?: Record<string, unknown>
+  properties?: Record<string, z.core.util.JSONType>
 }
 
 export interface RequestRepeatResult {

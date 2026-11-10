@@ -71,11 +71,14 @@ export function sheetCommentCells(
 ): Array<{ row: number; column: number }> {
   if (anchor.target.instanceId !== instanceId) return []
 
+  const rowKeys = new Set(anchor.target.rowKeys)
+  const fieldIds = new Set(anchor.target.fieldIds)
+  const everyColumn = anchor.targetKind === 'sheet_row'
+
   return rows.flatMap((row, rowIndex) =>
-    anchor.target.rowKeys.includes(row.id)
+    rowKeys.has(row.id)
       ? columns.flatMap((column, columnIndex) =>
-          anchor.targetKind === 'sheet_row' ||
-          anchor.target.fieldIds.includes(column.id)
+          everyColumn || fieldIds.has(column.id)
             ? [{ row: rowIndex, column: columnIndex }]
             : [],
         )

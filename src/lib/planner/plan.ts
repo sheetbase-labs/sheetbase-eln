@@ -10,11 +10,10 @@
 import { z } from 'zod'
 
 import { extractJsonObject } from '../ai-import-mapping'
-import { layoutRound } from './layout'
-import type { Trial } from './layout'
+import { isPlateFormat, layoutRound } from './layout'
+import type { PlateLayout, Trial } from './layout'
 import { WORKLIST_FORMATS } from '../plate-worklist'
 import type { WorklistFormat } from '../plate-worklist'
-import { FORMAT_DIMENSIONS } from '../plate-map'
 import type { PlateFormat } from '../plate-map'
 
 export const MAX_PLAN_PARTS = 30
@@ -221,6 +220,12 @@ function clean(value: string | null | undefined, max: number): string {
   return (value ?? '').trim().replace(/\s+/g, ' ').slice(0, max)
 }
 
+/** A laid-out round: the wells it fills and the worklist that moves liquid for them. */
+export interface ConditionLayout {
+  wells: PlanWell[]
+  transfers: PlanTransfer[]
+}
+
 /** Lay out a plate from named groups of conditions, labelled as the model named them. */
 export function layoutConditions(
   conditions: ReadonlyArray<{ label: string; count: number }>,
@@ -234,10 +239,7 @@ export function layoutConditions(
     withWorklist: boolean
   },
   seed: number,
-): {
-  wells: PlanWell[]
-  transfers: PlanTransfer[]
-} {
+): ConditionLayout {
   const labels: string[] = []
 
   for (const group of conditions)
@@ -249,19 +251,19 @@ export function layoutConditions(
     factors: { label },
   }))
 
-  const { plate, trials: placed } = layoutRound(
-    trials,
-    {
-      plateFormat: options.format,
-      replicates: options.replicates,
-      blanks: options.blanks,
-      negatives: options.negatives,
-      positives: options.positives,
-      ...(options.volumeUl ? { volumeUl: options.volumeUl } : {}),
-      ...(options.withWorklist ? { worklistFormat: 'csv' } : {}),
-    },
-    seed,
-  )
+  const plateLayout: PlateLayout = {
+    plateFormat: options.format,
+    replicates: options.replicates,
+    blanks: options.blanks,
+    negatives: options.negatives,
+    positives: options.positives,
+  }
+
+  if (options.volumeUl) plateLayout.volumeUl = options.volumeUl
+
+  if (options.withWorklist) plateLayout.worklistFormat = 'csv'
+
+  const { plate, trials: placed } = layoutRound(trials, plateLayout, seed)
 
   if (!plate) return { wells: [], transfers: [] }
   const labelOf = new Map<string, string>()
@@ -270,13 +272,17 @@ export function layoutConditions(
     for (const code of trial.wells ?? [])
       labelOf.set(code, String(trial.factors['label']))
 
+  const wells = plate.wells.map((well): PlanWell => {
+    const laidOut: PlanWell = { ...well }
+    const sampleLabel = labelOf.get(well.wellCode)
+
+    if (sampleLabel) laidOut.sampleLabel = sampleLabel
+
+    return laidOut
+  })
+
   return {
-    wells: plate.wells.map((well) => ({
-      ...well,
-      ...(labelOf.has(well.wellCode)
-        ? { sampleLabel: labelOf.get(well.wellCode) }
-        : {}),
-    })),
+    wells,
     transfers: plate.transfers.map((transfer) => ({
       ...transfer,
       label: labelOf.get(transfer.destWell),
@@ -363,14 +369,17 @@ export function parsePlanAnswer(
       })
     }
 
-    return {
+    const laidOutPart: PlanPart = {
       title: clean(part.title, 200),
       dayOffset: Math.round(part.day ?? index),
       handsOnMinutes: Math.round(part.handsOnMinutes ?? 60),
       waitAfterMinutes: Math.round(part.waitMinutes ?? 0),
-      ...(part.gate && index > 0 ? { gate: part.gate } : {}),
       needs,
     }
+
+    if (part.gate && index > 0) laidOutPart.gate = part.gate
+
+    return laidOutPart
   })
 
   let plate: ExperimentPlan['plate'] = null
@@ -379,8 +388,7 @@ export function parsePlanAnswer(
   if (answer.plate && answer.plate.conditions.length > 0) {
     const asked = answer.plate.format ?? '96_well'
 
-    const format: PlateFormat =
-      asked in FORMAT_DIMENSIONS ? (asked as PlateFormat) : '96_well'
+    const format: PlateFormat = isPlateFormat(asked) ? asked : '96_well'
 
     if (asked !== format)
       warnings.push(
@@ -412,11 +420,10 @@ export function parsePlanAnswer(
       if (wantsWorklist && laid.transfers.length > 0) {
         const askedFormat = answer.worklist?.format ?? 'csv'
 
-        const worklistFormat: WorklistFormat = (
-          WORKLIST_FORMATS as readonly string[]
-        ).includes(askedFormat)
-          ? (askedFormat as WorklistFormat)
-          : 'csv'
+        const worklistFormat = z
+          .enum(WORKLIST_FORMATS)
+          .catch('csv')
+          .parse(askedFormat)
 
         worklist = {
           format: worklistFormat,
@@ -453,29 +460,31 @@ export function parsePlanAnswer(
           '.',
         ),
       )
-    samples.push({
+
+    const setAside: ExperimentPlan['samples'][number] = {
       recordId: sample.id,
       quantity: wanted.quantity,
-      ...(sample.unit ? { unit: sample.unit } : {}),
       label: `${sample.identifier} ${sample.title}`,
-    })
+    }
+
+    if (sample.unit) setAside.unit = sample.unit
+
+    samples.push(setAside)
   }
 
   if (parts.length === 0 && !plate && samples.length === 0 && !protocol)
     return null
 
-  return {
+  const experiment: ExperimentPlan['experiment'] = { title }
+
+  if (protocol) {
+    experiment.templateRecordId = protocol.id
+    experiment.templateLabel = `${protocol.identifier} ${protocol.title}`
+  }
+
+  const plan: ExperimentPlan = {
     summary: clean(answer.summary, 1200),
-    ...(answer.rationale ? { rationale: clean(answer.rationale, 1200) } : {}),
-    experiment: {
-      title,
-      ...(protocol
-        ? {
-            templateRecordId: protocol.id,
-            templateLabel: `${protocol.identifier} ${protocol.title}`,
-          }
-        : {}),
-    },
+    experiment,
     parts,
     plate,
     worklist,
@@ -483,13 +492,20 @@ export function parsePlanAnswer(
     schedule: answer.schedule && parts.some((p) => p.needs.length > 0),
     warnings: [...new Set(warnings)],
   }
+
+  if (answer.rationale) plan.rationale = clean(answer.rationale, 1200)
+
+  return plan
+}
+
+/** A plan's plate split into the wells that hold samples and the ones that hold controls. */
+export interface PlateCounts {
+  samples: number
+  controls: number
 }
 
 /** How many wells a plan's plate uses for samples and for controls. */
-export function plateCounts(plan: ExperimentPlan): {
-  samples: number
-  controls: number
-} {
+export function plateCounts(plan: ExperimentPlan): PlateCounts {
   const wells = plan.plate?.wells ?? []
 
   return {

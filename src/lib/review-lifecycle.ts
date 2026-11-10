@@ -180,11 +180,13 @@ export function buildAmendmentChain(
   if (options.length === 0) return []
   const byId = new Map(options.map((option) => [option.id, option]))
 
-  const supersededIds = new Set(
-    options
-      .map((option) => option.superseded_by_revision_id)
-      .filter((id): id is string => id !== null),
-  )
+  const supersededIds = new Set<string>()
+
+  for (const option of options) {
+    if (option.superseded_by_revision_id !== null) {
+      supersededIds.add(option.superseded_by_revision_id)
+    }
+  }
 
   const roots = options.filter((option) => !supersededIds.has(option.id))
 

@@ -1,6 +1,7 @@
-import { t } from '#/copy'
+import { shortLocation } from './location-text'
 
-const SEPARATOR = ' / '
+/** The plain-text form, for places that render a string rather than a node. */
+export { shortLocation } from './location-text'
 
 /**
  * A storage location in a table cell. Full paths run from site to position
@@ -8,20 +9,8 @@ const SEPARATOR = ' / '
  * BX-LVV-07 / A2"), and at full length they push the columns after them off
  * screen. The cell shows the most specific places, which is what someone
  * fetching a tube reads first; the whole path stays available on hover and to
- * assistive technology.
+ * assistive technology. The shortening itself lives in `location-text.ts`.
  */
-/**
- * The location as plain text, shortened the same way, for places that take a
- * string (a phone list's second line). Short paths come back unchanged.
- */
-export function shortLocation(path: string, keep = 3): string {
-  const places = path.split(SEPARATOR)
-
-  return places.length <= keep
-    ? path
-    : t('common.locationTail', { tail: places.slice(-keep).join(SEPARATOR) })
-}
-
 export function LocationPath({
   path,
   keep = 3,

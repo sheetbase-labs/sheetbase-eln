@@ -7,6 +7,10 @@ import type { PipelinePluginStep, PipelineStep } from './pipelines/config'
 const invoke = vi.fn()
 const open = vi.fn()
 
+// The extension runtime resolves installs from the database and runs the plugin
+// as a sandboxed Python subprocess; `runPluginStep` takes no seam for either,
+// so this harness replaces that one module and exercises the step's wiring.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The runtime module opens the plugin sandbox and reads installs from the database; the step takes no seam for `openCallable`, so this harness replaces the module and exercises the step's table and setting wiring around it.
 vi.mock('./extensions/runtime.server', () => ({
   ExtensionRunError: class ExtensionRunError extends Error {},
   defaultDeps: () => ({}),

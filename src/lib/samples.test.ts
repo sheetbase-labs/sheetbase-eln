@@ -23,9 +23,22 @@ import {
   samplePropertiesPayload,
   toSampleRecord,
 } from './samples'
+import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import type { RecordWire } from './notebook-data'
 import type { RegistryQuery } from './registry'
+
+/** A property or custom-field value as the sheets store it: JSON. */
+type FixtureValue =
+  | string
+  | number
+  | boolean
+  | null
+  | FixtureValue[]
+  | { [key: string]: FixtureValue }
+
+/** An RPC argument bag as the data client accepts it. */
+type RpcArgs = Parameters<DataClient['rpc']>[1]
 
 const baseQuery: RegistryQuery = {
   pageIndex: 0,
@@ -36,8 +49,8 @@ const baseQuery: RegistryQuery = {
 }
 
 function wire(
-  props: Record<string, unknown> = {},
-  customFields: Record<string, unknown> = {},
+  props: Record<string, FixtureValue> = {},
+  customFields: Record<string, FixtureValue> = {},
 ): RecordWire {
   return {
     id: 's1',
@@ -104,6 +117,7 @@ describe('parseSampleProperties and toSampleRecord', () => {
       study_arm: 'treated',
       ['__proto__']: { values: [0, 3.5] },
     }
+
     const rec = toSampleRecord(wire({ quantity: 2 }, customFields))
     expect(rec.quantity).toBe(2)
     expect(rec.customFields).toEqual(customFields)
@@ -304,10 +318,10 @@ describe('buildSamplesOrder and buildSamplesQuery', () => {
 
 describe('recordSampleLabelPrint', () => {
   it('records the print as its own sample event, with the label note', async () => {
-    const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+    const calls: Array<{ name: string; args: RpcArgs }> = []
 
-    const client = {
-      rpc: (name: string, args: Record<string, unknown>) => {
+    const client = Object.assign(createDataClient(), {
+      rpc: (name: string, args: RpcArgs) => {
         calls.push({ name, args })
 
         return Promise.resolve({
@@ -317,7 +331,7 @@ describe('recordSampleLabelPrint', () => {
           created_at: '2026-10-10T00:00:00.000Z',
         })
       },
-    } as unknown as DataClient
+    })
 
     const sample = await recordSampleLabelPrint(client, {
       recordId: 's-1',
@@ -345,13 +359,13 @@ describe('fetchSampleEvents', () => {
   it('reads the whole custody ledger, newest first, without a silent cap', async () => {
     const requests: string[] = []
 
-    const client = {
+    const client = Object.assign(createDataClient(), {
       list: (resource: string, query?: string) => {
         requests.push(`${resource}${query ?? ''}`)
 
         return Promise.resolve([])
       },
-    } as unknown as DataClient
+    })
 
     await fetchSampleEvents(client, 's-1')
 
@@ -364,16 +378,16 @@ describe('fetchSampleEvents', () => {
 })
 
 describe('bench RPC wrappers', () => {
-  function recorder(result: unknown) {
-    const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+  function recorder<Result>(result: Result) {
+    const calls: Array<{ name: string; args: RpcArgs }> = []
 
-    const client = {
-      rpc: (name: string, args: Record<string, unknown>) => {
+    const client = Object.assign(createDataClient(), {
+      rpc: (name: string, args: RpcArgs) => {
         calls.push({ name, args })
 
         return Promise.resolve(result)
       },
-    } as unknown as DataClient
+    })
 
     return { calls, client }
   }

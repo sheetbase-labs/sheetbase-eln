@@ -31,10 +31,8 @@ import {
   useModelVersionFields,
   useModelVersions,
 } from '#/components/models/models-data'
-import {
-  ContractImpactNotice,
-  storageUnitOf,
-} from '#/components/contracts/contract-impact-notice'
+import { ContractImpactNotice } from '#/components/contracts/contract-impact-notice'
+import { storageUnitOf } from '#/components/contracts/field-storage-unit'
 import { buildVersionImpacts } from '#/components/models/model-version-impact'
 import {
   approvalStatus,

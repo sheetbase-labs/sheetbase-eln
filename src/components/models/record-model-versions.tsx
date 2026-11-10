@@ -3,10 +3,8 @@ import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
-import {
-  ContractImpactNotice,
-  storageUnitOf,
-} from '#/components/contracts/contract-impact-notice'
+import { ContractImpactNotice } from '#/components/contracts/contract-impact-notice'
+import { storageUnitOf } from '#/components/contracts/field-storage-unit'
 import { Notice } from '#/components/ui/alert'
 import { Field, Input } from '#/components/ui/input'
 import { Inspector, InspectorSection, Muted } from '#/components/ui/layout'

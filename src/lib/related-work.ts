@@ -442,7 +442,7 @@ async function fetchRelatedForRecord(
             ),
             [],
           )
-        : Promise.resolve([] as IncomingLinkWire[]),
+        : Promise.resolve<IncomingLinkWire[]>([]),
       quiet(
         client.list<SheetProvenanceWire>(
           'sheet_instances',
@@ -958,6 +958,7 @@ export function useRelatedWork(
   id: string | null,
   enabled = true,
 ) {
+  // SAFETY: `enabled` below is false exactly while `id` is null, and React Query runs a query function only while its query is enabled.
   return useQuery({
     queryKey: relatedWorkQueryKeys.related(kind, id ?? 'none'),
     queryFn: () => fetchRelatedWork(kind, id as string),

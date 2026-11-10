@@ -11,6 +11,13 @@ import type {
 
 const ROOM_PREFIX = 'workspace'
 
+/** Every room kind, so a path segment can be resolved back to its kind. */
+const ROOM_KINDS = [
+  'record',
+  'sheet',
+  'dataset',
+] as const satisfies readonly CollaborationObjectKind[]
+
 /** Object path segment per room kind. */
 export const ROOM_KIND_SEGMENTS = {
   record: 'record',
@@ -30,6 +37,7 @@ export function buildRoomId(
     throw new Error('Room ids are built from canonical UUIDs only')
   }
 
+  // SAFETY: the prefix, a UUID checked above, one of the three literal kind segments and a second checked UUID are exactly the grammar `CollaborationRoomId` brands.
   return `${ROOM_PREFIX}:${workspaceId}:${ROOM_KIND_SEGMENTS[kind]}:${objectId}` as CollaborationRoomId
 }
 
@@ -49,20 +57,18 @@ export function parseRoomId(room: string): ParsedRoomId {
   if (parts.length !== 4 || parts[0] !== ROOM_PREFIX) return { ok: false }
   const [, workspaceId, segment, objectId] = parts
 
-  const entry = (
-    Object.entries(ROOM_KIND_SEGMENTS) as Array<
-      [CollaborationObjectKind, string]
-    >
-  ).find(([, seg]) => seg === segment)
+  const kind = ROOM_KINDS.find(
+    (candidate) => ROOM_KIND_SEGMENTS[candidate] === segment,
+  )
 
-  if (!entry || !uuid.test(workspaceId) || !uuid.test(objectId)) {
+  if (kind === undefined || !uuid.test(workspaceId) || !uuid.test(objectId)) {
     return { ok: false }
   }
 
   return {
     ok: true,
     workspaceId: workspaceId,
-    kind: entry[0],
+    kind: kind,
     objectId: objectId,
   }
 }

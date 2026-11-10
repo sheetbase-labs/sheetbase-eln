@@ -5,7 +5,7 @@ import {
   loadConfigurationVocabularies,
   normalizeConfigurationVocabularies,
 } from '#/lib/configuration-vocabularies'
-import type { DataClient } from '#/lib/data-client'
+import { createDataClient } from '#/lib/data-client'
 import type { ConfigurationVocabulary } from '#/lib/configuration-vocabularies'
 import type { SheetDefinitionConfiguration } from '#/lib/sheet-definition'
 
@@ -154,7 +154,7 @@ describe('configuration vocabularies', () => {
     })
 
     const page = await loadConfigurationVocabularies(
-      { rpc } as unknown as DataClient,
+      Object.assign(createDataClient(), { rpc }),
       'workspace-1',
       200,
     )

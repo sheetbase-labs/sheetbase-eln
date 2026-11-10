@@ -95,7 +95,7 @@ const KIND_OPTIONS: { kind: ScientificRecordKind; label: string }[] = [
  * model keys align with record kinds by canonical seed, so the kind
  * addresses the rule's target model directly.
  */
-export function isLinkerKindAllowed(
+function isLinkerKindAllowed(
   kind: ScientificRecordKind,
   sourceModelKey: string | undefined,
   rules: ModelRelationshipRule[] | undefined,
@@ -107,6 +107,131 @@ export function isLinkerKindAllowed(
     linkType: linkTypeForKind(kind),
     targetModelKey: kind,
   })
+}
+
+/** Why creating the link failed, in the words the person needs. */
+function LinkFailureNotice({ error }: { error: Error }) {
+  return (
+    <p role="alert" className="px-2 py-1 text-xs text-danger">
+      {linkFailureMessage(error)}
+    </p>
+  )
+}
+
+/** The message for one failed link creation. */
+function linkFailureMessage(error: Error): string {
+  if (isDuplicateLinkError(error)) return DUPLICATE_SCIENTIFIC_LINK_MESSAGE
+
+  if (isRelationshipNotAllowedError(error))
+    return (
+      (error instanceof DataClientError && error.message) ||
+      RELATIONSHIP_NOT_ALLOWED_MESSAGE
+    )
+
+  if (isRelationshipCardinalityError(error))
+    return (
+      (error instanceof DataClientError && error.message) ||
+      RELATIONSHIP_CARDINALITY_MESSAGE
+    )
+
+  if (error instanceof DataClientError) return error.message
+
+  return t('notebook.scientificRecordLinker.couldNotCreateLink')
+}
+
+/** The kind a fresh picker opens on: Sample when the rule allows it. */
+function preferredKind(
+  allowedKinds: readonly { kind: ScientificRecordKind }[],
+): ScientificRecordKind {
+  if (allowedKinds.some((option) => option.kind === 'sample')) return 'sample'
+
+  return allowedKinds[0]?.kind ?? 'sample'
+}
+
+/** What one tab's rule says about the links already made. */
+interface ActiveRuleStatus {
+  activeRule: ModelRelationshipRule | undefined
+  activeStatus: ReturnType<typeof relationshipRuleStatus> | undefined
+}
+
+/** Capacity context for one tab, from the declared rule and the current edges. */
+function activeRuleStatus(
+  links: NotebookLink[],
+  sourceModelKey: string | undefined,
+  rules: ModelRelationshipRule[] | undefined,
+  activeKind: ScientificRecordKind,
+): ActiveRuleStatus {
+  if (!sourceModelKey || !rules)
+    return { activeRule: undefined, activeStatus: undefined }
+
+  const activeLinkType = linkTypeForKind(activeKind)
+
+  const activeRule = rulesForLinkType(
+    rules,
+    sourceModelKey,
+    activeLinkType,
+  ).find((rule) => rule.targetModelKey === activeKind)
+
+  if (activeRule?.maxLinks == null)
+    return { activeRule, activeStatus: undefined }
+
+  return {
+    activeRule,
+    activeStatus: relationshipRuleStatus(
+      activeRule,
+      countLinksForRule(links, {
+        linkType: activeLinkType,
+        targetModelKey: activeKind,
+      }),
+    ),
+  }
+}
+
+/** Which kinds this link's rule accepts, and which it does not. */
+function LinkerRestrictionNote({
+  accepted,
+  notAccepted,
+}: {
+  accepted: string
+  notAccepted: string
+}) {
+  return (
+    <p className="px-2 text-[0.65rem] text-muted-foreground">
+      {t('notebook.scientificRecordLinker.accepts', {
+        kinds: accepted || t('notebook.scientificRecordLinker.noKinds'),
+      })}
+      {notAccepted
+        ? t('notebook.scientificRecordLinker.notAccepted', {
+            kinds: notAccepted,
+          })
+        : null}
+      .
+    </p>
+  )
+}
+
+/** That the rule's ceiling on this link type has been reached. */
+function LinkerMaximumNote({
+  count,
+  maxLinks,
+  kind,
+}: {
+  count: number
+  maxLinks: number | ''
+  kind: ScientificRecordKind
+}) {
+  return (
+    <p className="px-2 text-[0.65rem] text-muted-foreground">
+      {t('notebook.scientificRecordLinker.maximumReached', {
+        count,
+        maxLinks,
+        kind:
+          kind === 'protocol_template'
+            ? t('notebook.scientificRecordLinker.protocolLabel')
+            : kind,
+      })}
+    </p>
+  )
 }
 
 export function ScientificRecordLinker({
@@ -126,10 +251,12 @@ export function ScientificRecordLinker({
     isLinkerKindAllowed(opt.kind, sourceModelKey, rules),
   )
 
+  // The kinds this link's rule does not accept, named so the person knows why.
+  const acceptedKinds = new Set(allowedKinds.map((opt) => opt.kind))
+  const notAccepted = KIND_OPTIONS.filter((opt) => !acceptedKinds.has(opt.kind))
+
   const [kind, setKind] = useState<ScientificRecordKind>(() =>
-    allowedKinds.some((opt) => opt.kind === 'sample')
-      ? 'sample'
-      : (allowedKinds[0]?.kind ?? 'sample'),
+    preferredKind(allowedKinds),
   )
 
   const [query, setQuery] = useState('')
@@ -137,31 +264,16 @@ export function ScientificRecordLinker({
 
   // Rules can arrive after mount (async fetch); never strand the picker on
   // a tab the Model does not accept.
-  const activeKind = allowedKinds.some((opt) => opt.kind === kind)
+  const activeKind = allowedKinds.some((option) => option.kind === kind)
     ? kind
-    : (allowedKinds[0]?.kind ?? 'sample')
+    : preferredKind(allowedKinds)
 
-  const activeLinkType = linkTypeForKind(activeKind)
-
-  // Capacity context for the active tab, from the declared rule and the
-  // current outgoing edges (target kinds address model keys by seed).
-  const activeRule =
-    sourceModelKey && rules
-      ? rulesForLinkType(rules, sourceModelKey, activeLinkType).find(
-          (rule) => rule.targetModelKey === activeKind,
-        )
-      : undefined
-
-  const activeStatus =
-    activeRule?.maxLinks != null
-      ? relationshipRuleStatus(
-          activeRule,
-          countLinksForRule(links, {
-            linkType: activeLinkType,
-            targetModelKey: activeKind,
-          }),
-        )
-      : undefined
+  const { activeRule, activeStatus } = activeRuleStatus(
+    links,
+    sourceModelKey,
+    rules,
+    activeKind,
+  )
 
   const searchQuery = useQuery({
     queryKey: scientificRecordQueryKeys.search(activeKind, query),
@@ -185,7 +297,7 @@ export function ScientificRecordLinker({
       identifier: string
     }) => createScientificLink(client, sourceRecordId, target),
     onSuccess: () => {
-      queryClient.invalidateQueries({
+      void queryClient.invalidateQueries({
         queryKey: notebookQueryKeys.links(sourceRecordId),
       })
       onLinked?.()
@@ -239,7 +351,10 @@ export function ScientificRecordLinker({
             label={t('notebook.scientificRecordLinker.recordKindLabel')}
             value={activeKind}
             onValueChange={(next) => {
-              setKind(next as (typeof allowedKinds)[number]['kind'])
+              const chosen = allowedKinds.find((option) => option.kind === next)
+
+              if (chosen) setKind(chosen.kind)
+
               setQuery('')
             }}
             items={allowedKinds.map((option) => ({
@@ -248,41 +363,17 @@ export function ScientificRecordLinker({
             }))}
           />
           {restricted ? (
-            <p className="px-2 text-[0.65rem] text-muted-foreground">
-              {t('notebook.scientificRecordLinker.accepts', {
-                kinds:
-                  allowedKinds.map((opt) => opt.label).join(', ') ||
-                  t('notebook.scientificRecordLinker.noKinds'),
-              })}
-              {KIND_OPTIONS.filter(
-                (opt) =>
-                  !allowedKinds.some((allowed) => allowed.kind === opt.kind),
-              ).length > 0
-                ? t('notebook.scientificRecordLinker.notAccepted', {
-                    kinds: KIND_OPTIONS.filter(
-                      (opt) =>
-                        !allowedKinds.some(
-                          (allowed) => allowed.kind === opt.kind,
-                        ),
-                    )
-                      .map((opt) => opt.label)
-                      .join(', '),
-                  })
-                : null}
-              .
-            </p>
+            <LinkerRestrictionNote
+              accepted={allowedKinds.map((option) => option.label).join(', ')}
+              notAccepted={notAccepted.map((option) => option.label).join(', ')}
+            />
           ) : null}
           {activeStatus?.atMaximum ? (
-            <p className="px-2 text-[0.65rem] text-muted-foreground">
-              {t('notebook.scientificRecordLinker.maximumReached', {
-                count: activeStatus.count,
-                maxLinks: activeRule?.maxLinks ?? '',
-                kind:
-                  activeKind === 'protocol_template'
-                    ? t('notebook.scientificRecordLinker.protocolLabel')
-                    : activeKind,
-              })}
-            </p>
+            <LinkerMaximumNote
+              count={activeStatus.count}
+              maxLinks={activeRule?.maxLinks ?? ''}
+              kind={activeKind}
+            />
           ) : null}
 
           {/*
@@ -310,21 +401,7 @@ export function ScientificRecordLinker({
           />
 
           {linkMutation.isError ? (
-            <p role="alert" className="px-2 py-1 text-xs text-danger">
-              {isDuplicateLinkError(linkMutation.error)
-                ? DUPLICATE_SCIENTIFIC_LINK_MESSAGE
-                : isRelationshipNotAllowedError(linkMutation.error)
-                  ? (linkMutation.error instanceof DataClientError &&
-                      linkMutation.error.message) ||
-                    RELATIONSHIP_NOT_ALLOWED_MESSAGE
-                  : isRelationshipCardinalityError(linkMutation.error)
-                    ? (linkMutation.error instanceof DataClientError &&
-                        linkMutation.error.message) ||
-                      RELATIONSHIP_CARDINALITY_MESSAGE
-                    : linkMutation.error instanceof DataClientError
-                      ? linkMutation.error.message
-                      : t('notebook.scientificRecordLinker.couldNotCreateLink')}
-            </p>
+            <LinkFailureNotice error={linkMutation.error} />
           ) : null}
         </div>
       )}

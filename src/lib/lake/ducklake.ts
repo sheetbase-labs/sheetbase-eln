@@ -116,7 +116,7 @@ export async function commitLakeTable(
 
     let tableId: number
     let created = false
-    let sameShape = false
+    let columnsUnchanged = false
 
     if (existing) {
       tableId = Number(existing.table_id)
@@ -129,7 +129,7 @@ export async function commitLakeTable(
         )
       ).rows
 
-      sameShape =
+      columnsUnchanged =
         current.length === commit.columns.length &&
         current.every(
           (c, i) =>
@@ -143,7 +143,7 @@ export async function commitLakeTable(
     const changes: string[] = []
     let rowIdStart = 0
 
-    if (existing && sameShape) {
+    if (existing && columnsUnchanged) {
       // The old files stop being current but stay for time travel.
       await q(
         `UPDATE ${s}.ducklake_data_file SET end_snapshot = $1
@@ -225,11 +225,17 @@ export async function commitLakeTable(
     let rowCount = 0
     let byteSize = 0
 
-    const bounds = commit.columns.map(() => ({
-      min: null as string | null,
-      max: null as string | null,
+    const bounds = commit.columns.map<{
+      min: string | null
+      max: string | null
+      nulls: boolean
+      nan: boolean | null
+      unbounded: boolean
+    }>(() => ({
+      min: null,
+      max: null,
       nulls: false,
-      nan: null as boolean | null,
+      nan: null,
       unbounded: false,
     }))
 

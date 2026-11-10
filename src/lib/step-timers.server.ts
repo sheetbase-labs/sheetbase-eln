@@ -48,7 +48,15 @@ export async function sweepStepTimers(deps: StepTimerDeps): Promise<number> {
 
 let timer: ReturnType<typeof setInterval> | null = null
 let bootTimer: ReturnType<typeof setTimeout> | null = null
-const startedGlobalKey = '__sheetbaseStepTimerSchedulerStarted'
+
+/**
+ * The process-wide started flag. A development reload evaluates this module
+ * again while the first scheduler's interval is still live, so the guard has
+ * to live on `globalThis`, not in this module's scope.
+ */
+declare global {
+  var __sheetbaseStepTimerSchedulerStarted: boolean | undefined
+}
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
@@ -72,10 +80,9 @@ export function startStepTimerScheduler(
   if (typeof window !== 'undefined') return
 
   if (schedulerDisabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
 
-  if (g[startedGlobalKey]) return
-  g[startedGlobalKey] = true
+  if (globalThis.__sheetbaseStepTimerSchedulerStarted) return
+  globalThis.__sheetbaseStepTimerSchedulerStarted = true
 
   const deps = options.deps ?? { connect: defaultConnect }
 
@@ -107,6 +114,5 @@ export function stopStepTimerScheduler(): void {
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null
-  const g = globalThis as unknown as Record<string, unknown>
-  delete g[startedGlobalKey]
+  delete globalThis.__sheetbaseStepTimerSchedulerStarted
 }

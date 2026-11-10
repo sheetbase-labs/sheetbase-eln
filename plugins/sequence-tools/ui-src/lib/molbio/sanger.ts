@@ -55,10 +55,12 @@ export function checkRead(
   const trimmed = trimByQuality(q)
   const kept = read.bases.slice(trimmed.start, trimmed.end)
   const keptQ = q.slice(trimmed.start, trimmed.end)
+
   const meanQuality =
     keptQ.length === 0
       ? 0
       : Math.round((keptQ.reduce((a, b) => a + b, 0) / keptQ.length) * 10) / 10
+
   const none: ReadCheck = {
     name: read.name,
     verdict: 'noAlignment',
@@ -69,37 +71,47 @@ export function checkRead(
     identity: 0,
     differences: [],
   }
+
   if (kept.length < 20) return none
   const aln = alignRead(expected, kept, topology === 'circular')
+
   if (!aln) return none
   const n = expected.length
+
   // The read as aligned: reversed if it matched the other strand.
   const qualityAt = (queryIndex: number): number => {
     const idx = aln.strand === 1 ? queryIndex : kept.length - 1 - queryIndex
+
     return keptQ[idx] ?? 0
   }
+
   // alignRead aligns against the (possibly cropped) window; recompute the
   // reference offset from refStart.
   const diffs = differences(aln, aln.refStart - aln.aStart, 0)
+
   const labelsAt = (pos0: number): string[] =>
-    features
-      .filter((f) =>
-        f.parts.some((p) => pos0 + 1 >= p.start && pos0 + 1 <= p.end),
-      )
-      .map((f) => f.label)
+    features.flatMap((f) =>
+      f.parts.some((p) => pos0 + 1 >= p.start && pos0 + 1 <= p.end)
+        ? [f.label]
+        : [],
+    )
+
   const list: ReadMismatch[] = diffs.map((d) => {
     const refPos = ((d.refPos % n) + n) % n
     let quality: number
+
     if (d.kind === 'deletion') {
       quality = Math.min(qualityAt(d.queryPos - 1), qualityAt(d.queryPos))
     } else if (d.kind === 'insertion') {
       quality = Math.min(
-        ...[...d.query].map((_, i) => qualityAt(d.queryPos + i)),
+        ...Array.from(d.query, (_, i) => qualityAt(d.queryPos + i)),
       )
     } else quality = qualityAt(d.queryPos)
     const qi = Math.min(Math.max(d.queryPos, 0), kept.length - 1)
+
     const readIndex =
       trimmed.start + (aln.strand === 1 ? qi : kept.length - 1 - qi)
+
     return {
       kind: d.kind,
       readIndex,
@@ -111,12 +123,15 @@ export function checkRead(
       features: labelsAt(refPos),
     }
   })
+
   const confirmed = list.some((d) => d.confirmed)
+
   const verdict: ReadVerdict = confirmed
     ? 'mismatch'
     : list.length > 0
       ? 'review'
       : 'matches'
+
   return {
     name: read.name,
     verdict,
@@ -136,14 +151,18 @@ export function coverageOf(
   region: { start: number; end: number },
 ): number {
   const len = region.end - region.start + 1
+
   if (len <= 0) return 0
   const covered = new Uint8Array(len)
+
   for (const c of checks) {
     if (!c.covers) continue
     const a = Math.max(c.covers.start, region.start)
     const b = Math.min(c.covers.end, region.end)
+
     for (let p = a; p <= b; p++) covered[p - region.start] = 1
   }
+
   return covered.reduce((s, v) => s + v, 0) / len
 }
 

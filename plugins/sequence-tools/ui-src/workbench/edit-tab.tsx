@@ -5,14 +5,16 @@
  */
 import { useRef, useState } from 'react'
 
-import { Textarea } from '#/components/inventory/list'
-import { Notice } from '#/components/ui/alert'
-import { Button } from '#/components/ui/button'
-import { copyText } from '#/components/ui/copy-button'
-import { IconButton } from '#/components/ui/icon-button'
-import { Input } from '#/components/ui/input'
-import { Select } from '#/components/ui/select'
-import { toast } from '#/components/ui/sonner'
+import {
+  Button,
+  copyText,
+  IconButton,
+  Input,
+  Notice,
+  Select,
+  Textarea,
+  toast,
+} from '../ui/kit'
 import { t } from '#/copy'
 import {
   addFeature,
@@ -56,6 +58,7 @@ const FEATURE_TYPES = [
 function editable(d: SequenceBlockPayload): EditableSequence {
   return { residues: d.residues, topology: d.topology, features: d.features }
 }
+
 function merge(
   d: SequenceBlockPayload,
   s: EditableSequence,
@@ -83,21 +86,26 @@ export function EditTab({ draft, edit, canEdit }: WorkbenchProps) {
 
   const readSel = () => {
     const a = area.current
+
     if (a) setSel({ start: a.selectionStart, end: a.selectionEnd })
   }
+
   const apply = (
     result: { sequence: EditableSequence; removedFeatures: string[] },
     at?: number,
   ) => {
     edit((d) => merge(d, result.sequence))
+
     if (result.removedFeatures.length > 0)
       toast(
         t('molbio.edit.removedFeatures', {
           names: result.removedFeatures.join(', '),
         }),
       )
+
     if (at !== undefined) setSel({ start: at, end: at })
   }
+
   const bases = isProtein
     ? text.toUpperCase().replace(/[^A-Z*]/g, '')
     : cleanDna(text)
@@ -105,10 +113,13 @@ export function EditTab({ draft, edit, canEdit }: WorkbenchProps) {
   const importFile = async (f: File) => {
     if (!isSequenceFileName(f.name)) {
       toast.error(t('sequences.notSequence', { name: f.name }))
+
       return
     }
+
     importText(await f.text())
   }
+
   const importText = (content: string) => {
     try {
       const [first] = parseSequenceFile(content)
@@ -145,6 +156,7 @@ export function EditTab({ draft, edit, canEdit }: WorkbenchProps) {
             disabled={!canEdit || cleanDna(paste).length === 0}
             onClick={() => {
               const raw = paste.trim()
+
               if (raw.startsWith('>') || /^LOCUS/m.test(raw)) {
                 try {
                   const [first] = parseSequenceFile(raw)
@@ -157,12 +169,15 @@ export function EditTab({ draft, edit, canEdit }: WorkbenchProps) {
                     features: first.features,
                   }))
                   setPaste('')
+
                   return
                 } catch (e) {
                   toast.error(e instanceof Error ? e.message : String(e))
+
                   return
                 }
               }
+
               edit((d) => ({ ...d, residues: cleanDna(raw) }))
               setPaste('')
             }}
@@ -184,10 +199,14 @@ export function EditTab({ draft, edit, canEdit }: WorkbenchProps) {
             onChange={(e) => {
               const f = e.target.files?.[0]
               e.target.value = ''
+
               if (f) void importFile(f)
             }}
           />
-          <RecordFilePicker disabled={!canEdit} onPick={(text) => importText(text)} />
+          <RecordFilePicker
+            disabled={!canEdit}
+            onPick={(contents) => importText(contents)}
+          />
         </div>
       </div>
     )
@@ -378,6 +397,7 @@ export function EditTab({ draft, edit, canEdit }: WorkbenchProps) {
               onChange={(e) => {
                 const f = e.target.files?.[0]
                 e.target.value = ''
+
                 if (f) void importFile(f)
               }}
             />
@@ -398,13 +418,18 @@ export function EditTab({ draft, edit, canEdit }: WorkbenchProps) {
                   draft.topology,
                   draft.features,
                 )
+
                 if (found.length === 0) {
                   toast(t('molbio.edit.nothingFound'))
+
                   return
                 }
+
                 edit((d) => {
                   let s = editable(d)
+
                   for (const f of found) s = addFeature(s, f)
+
                   return merge(d, s)
                 })
                 toast(t('molbio.edit.annotated', { count: found.length }))
@@ -440,7 +465,11 @@ export function EditTab({ draft, edit, canEdit }: WorkbenchProps) {
               size="sm"
               aria-label={t('molbio.edit.featureStrand')}
               value={strand}
-              onChange={(e) => setStrand(e.target.value as '1' | '-1')}
+              onChange={(e) => {
+                const value = e.target.value
+
+                if (value === '1' || value === '-1') setStrand(value)
+              }}
             >
               <option value="1">{t('sequences.viewer.strandForward')}</option>
               <option value="-1">{t('sequences.viewer.strandReverse')}</option>
@@ -456,6 +485,7 @@ export function EditTab({ draft, edit, canEdit }: WorkbenchProps) {
                   end: sel.end,
                   qualifiers: {},
                 }
+
                 edit((d) => merge(d, addFeature(editable(d), f)))
                 setLabel('')
               }}

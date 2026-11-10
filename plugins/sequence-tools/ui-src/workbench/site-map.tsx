@@ -33,11 +33,13 @@ function spread(positions: number[], minGap: number): number[] {
   const order = positions.map((p, i) => ({ p, i })).sort((a, b) => a.p - b.p)
   const out = [...positions]
   let last = -Infinity
+
   for (const { p, i } of order) {
     const v = Math.max(p, last + minGap)
     out[i] = v
     last = v
   }
+
   return out
 }
 
@@ -58,11 +60,14 @@ export function SiteMap({
     () => [...sites].sort((a, b) => a.position - b.position),
     [sites],
   )
+
   const label = t('molbio.siteMap.label', {
     name,
     count: sorted.length,
   })
+
   if (length === 0) return null
+
   return topology === 'circular' ? (
     <Ring length={length} sites={sorted} label={label} className={className} />
   ) : (
@@ -87,32 +92,41 @@ function Ring({
   const cy = H / 2
   const R = 150
   const row = 16
+
   // Labels sit in a column on each side of the ring, in the order their sites
   // appear, pushed apart so a cluster of cut sites stays readable.
   const placed = useMemo(() => {
     const items = sites.map((s, i) => {
       const a = angleAt(s.position + 1, length)
       const at = polar(cx, cy, R + 20, a)
+
       return { i, a, side: at.x >= cx ? 1 : -1, y: at.y }
     })
+
     for (const side of [1, -1]) {
       const column = items
         .filter((it) => it.side === side)
         .sort((x, y) => x.y - y.y)
+
       let last = -Infinity
+
       for (const it of column) {
         it.y = Math.max(it.y, last + row)
         last = it.y
       }
+
       // Pull the column back up if it ran off the bottom.
       let limit = H - 14
+
       for (const it of [...column].reverse()) {
         it.y = Math.min(it.y, limit)
         limit = it.y - row
       }
     }
+
     return items
-  }, [sites, length, cy])
+  }, [sites, length, cx, cy, R, row, H])
+
   return (
     <svg
       viewBox={`0 0 ${W} ${H}`}
@@ -141,6 +155,7 @@ function Ring({
         const p1 = polar(cx, cy, R - 7, it.a)
         const p2 = polar(cx, cy, R + 7, it.a)
         const lx = cx + it.side * (R + 70)
+
         return (
           <g key={`${s.enzyme}-${s.position}`}>
             <line
@@ -191,16 +206,20 @@ function Line({
   const padX = 40
   const inner = W - padX * 2
   const x = (p: number) => padX + (p / length) * inner
+
   const labelX = spread(
     sites.map((s) => x(s.position)),
     58,
   )
+
   // Alternate label rows so close sites stay readable.
   const rows = 3
   const step = tickStep(length, 10)
   const ticks: number[] = []
+
   for (let p = 0; p <= length; p += step) ticks.push(p)
   const height = 70 + rows * 22
+
   return (
     <svg
       viewBox={`0 0 ${W} ${height}`}
@@ -238,6 +257,7 @@ function Line({
       {sites.map((s, i) => {
         const row = i % rows
         const ly = 16 + row * 22
+
         return (
           <g key={`${s.enzyme}-${s.position}`}>
             <line

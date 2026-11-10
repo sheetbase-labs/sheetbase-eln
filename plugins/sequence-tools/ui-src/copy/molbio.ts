@@ -76,6 +76,8 @@ export const molbio = {
     namePlaceholder: 'Sequence name',
     caption: 'Caption',
     captionPlaceholder: 'What this sequence is and why it is here',
+    invalidState:
+      'This sequence could not be opened safely. Editing is paused to protect the original data. Contact your administrator to recover this block.',
     changedElsewhere:
       'This sequence was changed somewhere else while you were editing it.',
     retry: 'Try again',
@@ -311,7 +313,7 @@ export const molbio = {
     fragmentOption: 'Piece {number} ({size})',
     columns: {
       name: 'Part',
-      shape: 'Shape',
+      topology: 'Shape',
       length: 'Length',
       registry: 'Registry',
       use: 'Use',
@@ -332,6 +334,8 @@ export const molbio = {
       file: 'A GenBank or FASTA file',
       add: 'Add part',
       loading: 'Loading…',
+      loadFailed:
+        'Could not load the other sequences. Check their data or try again.',
       noBlocks: 'No other sequences in this notebook',
       pickBlock: 'Choose a sequence…',
       pastePlaceholder: 'Bases of the part',

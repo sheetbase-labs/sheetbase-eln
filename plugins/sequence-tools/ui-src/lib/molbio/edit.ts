@@ -34,6 +34,7 @@ export function replaceRange(
   const insert = cleanDna(text)
   const residues = seq.residues.slice(0, s) + insert + seq.residues.slice(e)
   const out = shiftFeaturesForEdit(seq.features, s, e, insert.length)
+
   return {
     sequence: { ...seq, residues, features: renumber(out.features) },
     removedFeatures: out.removed,
@@ -65,8 +66,10 @@ export function setOrigin(
   origin: number,
 ): EditableSequence {
   const n = seq.residues.length
+
   if (seq.topology !== 'circular' || n === 0) return seq
   const o = ((origin % n) + n) % n
+
   return {
     ...seq,
     residues: seq.residues.slice(o) + seq.residues.slice(0, o),
@@ -81,6 +84,7 @@ export function addFeature(
   },
 ): EditableSequence {
   const parts = feature.parts ?? [{ start: feature.start, end: feature.end }]
+
   return {
     ...seq,
     features: renumber([...seq.features, { ...feature, id: 0, parts }]),

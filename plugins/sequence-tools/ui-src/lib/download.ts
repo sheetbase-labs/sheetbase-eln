@@ -6,6 +6,7 @@ export function downloadTextFile(
 ): void {
   const blob =
     contents instanceof Blob ? contents : new Blob([contents], { type })
+
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url

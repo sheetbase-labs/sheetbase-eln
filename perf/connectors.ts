@@ -27,7 +27,10 @@ import {
 import { datasetFieldsFromColumns } from '#/lib/import-mapping'
 import type { DataClient } from '#/lib/data-client'
 import type { ScientificColumnWire } from '#/lib/scientific-sheet-data'
-import type { ConnectorAdapterContext } from '#/lib/connectors/enterprise/adapter'
+import type {
+  ConnectorAdapterContext,
+  ConnectorImportRequest,
+} from '#/lib/connectors/enterprise/adapter'
 import type { ConnectorWire } from '#/lib/connectors/types'
 
 import {
@@ -670,7 +673,7 @@ async function benchmarkConnector(
       fields: state.fields,
     }
 
-    const request = {
+    const request: ConnectorImportRequest<ConnectorWire['config']> = {
       source:
         kind === 'postgres'
           ? { schema: 'public', table: 'measurements' }
@@ -694,7 +697,7 @@ async function benchmarkConnector(
 
   // Dedupe/replay latency: the same request identity replays the prior success.
   try {
-    const replayRequest = {
+    const replayRequest: ConnectorImportRequest<ConnectorWire['config']> = {
       source:
         kind === 'postgres'
           ? { schema: 'public', table: 'measurements' }

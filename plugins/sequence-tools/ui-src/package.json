@@ -8,7 +8,8 @@
   },
   "dependencies": {
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@sheetbase-labs/plugin-ui": "file:../../../sdks/plugin-ui",

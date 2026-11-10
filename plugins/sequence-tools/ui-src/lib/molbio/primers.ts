@@ -8,24 +8,26 @@ import { findPattern, gcFraction, mod, reverseComplement } from './dna'
 const R = 1.987 // cal / (mol K)
 
 /** [dH kcal/mol, dS cal/(mol K)] for each dinucleotide, top-strand reading. */
-const NN: Partial<Record<string, [number, number]>> = {
-  AA: [-7.9, -22.2],
-  TT: [-7.9, -22.2],
-  AT: [-7.2, -20.4],
-  TA: [-7.2, -21.3],
-  CA: [-8.5, -22.7],
-  TG: [-8.5, -22.7],
-  GT: [-8.4, -22.4],
-  AC: [-8.4, -22.4],
-  CT: [-7.8, -21.0],
-  AG: [-7.8, -21.0],
-  GA: [-8.2, -22.2],
-  TC: [-8.2, -22.2],
-  CG: [-10.6, -27.2],
-  GC: [-9.8, -24.4],
-  GG: [-8.0, -19.9],
-  CC: [-8.0, -19.9],
-}
+const NN = new Map(
+  Object.entries({
+    AA: [-7.9, -22.2],
+    TT: [-7.9, -22.2],
+    AT: [-7.2, -20.4],
+    TA: [-7.2, -21.3],
+    CA: [-8.5, -22.7],
+    TG: [-8.5, -22.7],
+    GT: [-8.4, -22.4],
+    AC: [-8.4, -22.4],
+    CT: [-7.8, -21.0],
+    AG: [-7.8, -21.0],
+    GA: [-8.2, -22.2],
+    TC: [-8.2, -22.2],
+    CG: [-10.6, -27.2],
+    GC: [-9.8, -24.4],
+    GG: [-8.0, -19.9],
+    CC: [-8.0, -19.9],
+  } satisfies Record<string, [number, number]>),
+)
 
 export interface PcrConditions {
   /** Monovalent cations, mM. */
@@ -46,6 +48,7 @@ export const DEFAULT_CONDITIONS: PcrConditions = {
 
 function sodiumEquivalent(c: PcrConditions): number {
   const free = Math.max(c.mg - c.dntp, 0)
+
   return c.na + 120 * Math.sqrt(free)
 }
 
@@ -55,15 +58,19 @@ export function meltingTemp(
   conditions: PcrConditions = DEFAULT_CONDITIONS,
 ): number {
   const s = seq.toUpperCase()
+
   if (s.length < 2) return 0
   let dH = 0
   let dS = 0
+
   for (let i = 0; i < s.length - 1; i++) {
-    const p = NN[s.slice(i, i + 2)]
+    const p = NN.get(s.slice(i, i + 2))
+
     if (!p) return 0
     dH += p[0]
     dS += p[1]
   }
+
   for (const end of [s[0], s[s.length - 1]]) {
     if (end === 'G' || end === 'C') {
       dH += 0.1
@@ -73,7 +80,9 @@ export function meltingTemp(
       dS += 4.1
     }
   }
+
   const selfComp = s === reverseComplement(s)
+
   if (selfComp) dS += -1.4
   const ct = (conditions.oligo * 1e-9) / (selfComp ? 1 : 4)
   const tm = (dH * 1000) / (dS + R * Math.log(ct)) - 273.15
@@ -81,6 +90,7 @@ export function meltingTemp(
   const na = sodiumEquivalent(conditions) / 1000
   const f = 0.368 * (s.length - 1) * Math.log(na)
   const corrected = (dH * 1000) / (dS + f + R * Math.log(ct)) - 273.15
+
   return Math.round((na === 0.05 ? tm : corrected) * 10) / 10
 }
 
@@ -89,12 +99,15 @@ export function duplexDeltaG(seq: string): number {
   const s = seq.toUpperCase()
   let dH = 0
   let dS = 0
+
   for (let i = 0; i < s.length - 1; i++) {
-    const p = NN[s.slice(i, i + 2)]
+    const p = NN.get(s.slice(i, i + 2))
+
     if (!p) return 0
     dH += p[0]
     dS += p[1]
   }
+
   return dH - (310.15 * dS) / 1000
 }
 
@@ -115,19 +128,24 @@ export function dimerCheck(a: string, b: string): DimerResult {
   const A = a.toUpperCase()
   const Brc = reverseComplement(b.toUpperCase())
   let best: DimerResult = { deltaG: 0, run: 0, threePrime: false }
+
   for (let shift = -(Brc.length - 1); shift < A.length; shift++) {
     let runStart = -1
+
     for (let i = 0; i <= A.length; i++) {
       const j = i - shift
       const pair = i < A.length && j >= 0 && j < Brc.length && A[i] === Brc[j]
+
       if (pair) {
         if (runStart < 0) runStart = i
       } else if (runStart >= 0) {
         const len = i - runStart
+
         if (len >= 3) {
           const dg = duplexDeltaG(A.slice(runStart, i))
           // The 3' end of a is its last base, which is pairing when i === A.length.
           const three = i === A.length
+
           if (dg < best.deltaG || (dg === best.deltaG && three))
             best = {
               deltaG: Math.round(dg * 100) / 100,
@@ -135,12 +153,15 @@ export function dimerCheck(a: string, b: string): DimerResult {
               threePrime: best.threePrime || three,
             }
           else best.run = Math.max(best.run, len)
+
           if (three && dg < -3) best.threePrime = true
         }
+
         runStart = -1
       }
     }
   }
+
   return best
 }
 
@@ -148,35 +169,43 @@ export function dimerCheck(a: string, b: string): DimerResult {
 export function hairpinCheck(seq: string): { deltaG: number; stem: number } {
   const s = seq.toUpperCase()
   const n = s.length
-  const comp: Record<string, string> = { A: 'T', T: 'A', G: 'C', C: 'G' }
+  const comp = new Map(Object.entries({ A: 'T', T: 'A', G: 'C', C: 'G' }))
   let best = { deltaG: 0, stem: 0 }
+
   for (let i = 0; i < n; i++) {
     for (let j = i + 4; j < n; j++) {
       // Grow a stem outwards from the loop between i and j.
       let a = i
       let b = j
-      while (a >= 0 && b < n && comp[s[a]] === s[b]) {
+
+      while (a >= 0 && b < n && comp.get(s[a]) === s[b]) {
         a--
         b++
       }
+
       const stem = i - a
+
       if (stem >= 3) {
         const dg = duplexDeltaG(s.slice(a + 1, i + 1)) + 3.5 // loop penalty
+
         if (dg < best.deltaG)
           best = { deltaG: Math.round(dg * 100) / 100, stem }
       }
     }
   }
+
   return best
 }
 
 export function longestRepeat(seq: string): number {
   let best = 0
   let run = 0
+
   for (let i = 0; i < seq.length; i++) {
     run = i > 0 && seq[i] === seq[i - 1] ? run + 1 : 1
     best = Math.max(best, run)
   }
+
   return best
 }
 
@@ -207,7 +236,8 @@ export function analysePrimer(
   const hairpin = hairpinCheck(s)
   const selfDimer = dimerCheck(s, s)
   const tail = s.slice(-5)
-  const gcClamp = [...tail].filter((c) => c === 'G' || c === 'C').length
+  const gcClamp = Array.from(tail).filter((c) => c === 'G' || c === 'C').length
+
   const report: PrimerReport = {
     seq: s,
     length: s.length,
@@ -219,20 +249,29 @@ export function analysePrimer(
     selfDimer,
     warnings: [],
   }
+
   if (s.length < 15) report.warnings.push('short')
+
   if (s.length > 35) report.warnings.push('long')
+
   if (report.gc < 35 || report.gc > 65) report.warnings.push('gc')
+
   if (gcClamp === 0) report.warnings.push('weakClamp')
+
   if (gcClamp > 3) report.warnings.push('strongClamp')
+
   if (report.maxRepeat >= 5) report.warnings.push('repeat')
+
   if (hairpin.deltaG < PRIMER_LIMITS.hairpinDeltaG)
     report.warnings.push('hairpin')
+
   if (
     selfDimer.deltaG < PRIMER_LIMITS.dimerDeltaG ||
     (selfDimer.threePrime &&
       selfDimer.deltaG < PRIMER_LIMITS.threePrimeDimerDeltaG)
   )
     report.warnings.push('selfDimer')
+
   return report
 }
 
@@ -270,16 +309,21 @@ export function findBindingSites(
   const seed = p.slice(-seedLen)
   const n = template.length
   const out: BindingSite[] = []
+
   for (const strand of [1, -1] as const) {
     const t = strand === 1 ? template : reverseComplement(template)
+
     for (const h of findPattern(t, seed, circular)) {
       let ext = 0
       const lead = p.length - seedLen
+
       while (ext < lead) {
         const ti = circular ? mod(h - 1 - ext, n) : h - 1 - ext
+
         if (ti < 0 || t[ti] !== p[lead - 1 - ext]) break
         ext++
       }
+
       const paired = seedLen + ext
       const tail = p.length - paired
       const start = strand === 1 ? h - ext : n - h - seedLen
@@ -293,6 +337,7 @@ export function findBindingSites(
       })
     }
   }
+
   return out
 }
 
@@ -320,24 +365,33 @@ export function simulatePcr(
   const fw = forward.toUpperCase()
   const rv = reverse.toUpperCase()
   const fSites = findBindingSites(t, fw, circular).filter((s) => s.strand === 1)
+
   const rSites = findBindingSites(t, rv, circular).filter(
     (s) => s.strand === -1,
   )
+
   const out: PcrProduct[] = []
+
   for (const f of fSites) {
     for (const r of rSites) {
       let span = r.end - f.start
+
       if (circular && span <= 0) span += n
+
       if (span <= 0) continue
+
       const body = circular
         ? (t + t).slice(f.start, f.start + span)
         : t.slice(f.start, r.end)
+
       const seq =
         fw.slice(0, f.tail) + body + reverseComplement(rv.slice(0, r.tail))
+
       if (seq.length > maxSize) continue
       out.push({ start: f.start, end: r.end, size: seq.length, seq })
     }
   }
+
   return out.sort((a, b) => a.size - b.size)
 }
 
@@ -402,13 +456,18 @@ export interface PrimerPair {
 
 function penaltyFor(r: PrimerReport, o: DesignOptions): number {
   let p = Math.abs(r.tm - o.optTm) * 1.0
+
   if (r.tm < o.minTm) p += (o.minTm - r.tm) * 3
+
   if (r.tm > o.maxTm) p += (r.tm - o.maxTm) * 3
   p += Math.abs(r.length - o.optLen) * 0.25
   p += Math.abs(r.gc - 50) * 0.05
   p += r.warnings.length * 2
+
   if (r.hairpin.deltaG < 0) p += -r.hairpin.deltaG * 0.5
+
   if (r.selfDimer.deltaG < 0) p += -r.selfDimer.deltaG * 0.3
+
   return Math.round(p * 100) / 100
 }
 
@@ -421,31 +480,41 @@ function candidatesAt(
 ): PrimerCandidate[] {
   const out: PrimerCandidate[] = []
   const n = template.length
+
   for (let len = o.minLen; len <= o.maxLen; len++) {
     for (let shift = 0; shift <= window; shift++) {
       let start: number
       let end: number
       let seq: string
+
       if (strand === 1) {
         start = anchor + shift
         end = start + len
+
         if (start < 0 || end > n) continue
         seq = template.slice(start, end)
       } else {
         end = anchor - shift
         start = end - len
+
         if (start < 0 || end > n) continue
         seq = reverseComplement(template.slice(start, end))
       }
+
       if (/[^ACGT]/.test(seq)) continue
       const r = analysePrimer(seq, o.conditions)
+
       if (r.tm < o.minTm - 4 || r.tm > o.maxTm + 4) continue
+
       if (r.gc < o.minGc - 5 || r.gc > o.maxGc + 5) continue
+
       if (o.requireClamp && r.gcClamp === 0) continue
+
       if (r.maxRepeat >= 5) continue
       out.push({ ...r, start, end, strand, penalty: penaltyFor(r, o) })
     }
   }
+
   return out.sort((a, b) => a.penalty - b.penalty).slice(0, 40)
 }
 
@@ -471,28 +540,35 @@ export function designPrimers(
   const fwd = candidatesAt(t, Math.max(0, fwdAnchor), 1, o, window)
   const rev = candidatesAt(t, Math.min(t.length, revAnchor), -1, o, window)
   const pairs: PrimerPair[] = []
+
   for (const f of fwd) {
     for (const r of rev) {
       const size = r.end - f.start
+
       if (size < o.minProduct || size > o.maxProduct) continue
+
       if (flank === 0 && (f.start < target.start || r.end > target.end))
         continue
       const tmDiff = Math.abs(f.tm - r.tm)
+
       if (tmDiff > o.maxTmDiff) continue
       const pairDimer = dimerCheck(f.seq, r.seq)
       const warnings: string[] = []
+
       if (
         pairDimer.deltaG < PRIMER_LIMITS.dimerDeltaG ||
         (pairDimer.threePrime &&
           pairDimer.deltaG < PRIMER_LIMITS.threePrimeDimerDeltaG)
       )
         warnings.push('pairDimer')
+
       const penalty =
         f.penalty +
         r.penalty +
         tmDiff * 1.5 +
         (pairDimer.deltaG < 0 ? -pairDimer.deltaG * 0.4 : 0) +
         warnings.length * 5
+
       pairs.push({
         forward: f,
         reverse: r,
@@ -504,16 +580,20 @@ export function designPrimers(
       })
     }
   }
+
   pairs.sort((a, b) => a.penalty - b.penalty)
   // Keep variety: one pair per distinct forward primer first.
   const seen = new Set<string>()
   const picked: PrimerPair[] = []
+
   for (const p of pairs) {
     if (seen.has(p.forward.seq)) continue
     seen.add(p.forward.seq)
     picked.push(p)
+
     if (picked.length >= o.count) break
   }
+
   return picked
 }
 

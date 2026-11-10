@@ -8,7 +8,6 @@
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "baseUrl": ".",
     "types": ["@sheetbase-labs/plugin-ui/types"],
     "paths": {
       "#/copy": ["./copy/index.ts"],

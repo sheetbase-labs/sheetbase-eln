@@ -4,13 +4,16 @@
  */
 import { useMemo, useState } from 'react'
 
-import { Notice } from '#/components/ui/alert'
-import { Button } from '#/components/ui/button'
-import { Checkbox } from '#/components/ui/checkbox'
-import { IconButton } from '#/components/ui/icon-button'
-import { Input, Field } from '#/components/ui/input'
-import { Select } from '#/components/ui/select'
-import { toast } from '#/components/ui/sonner'
+import {
+  Button,
+  Checkbox,
+  Field,
+  IconButton,
+  Input,
+  Notice,
+  Select,
+  toast,
+} from '../ui/kit'
 import { t } from '#/copy'
 import {
   analysePrimer,
@@ -26,13 +29,12 @@ import { DataTable, Panel, fixed } from './shared'
 import type { WorkbenchProps } from './shared'
 
 function warningText(codes: readonly string[]): string {
-  return codes
-    .map((c) => t(`molbio.primers.warning.${c}` as 'molbio.primers.warning.gc'))
-    .join(', ')
+  return codes.map((c) => t(`molbio.primers.warning.${c}`)).join(', ')
 }
 
 function numberOr(value: string, fallback: number): number {
   const n = Number(value)
+
   return Number.isFinite(n) && n > 0 ? n : fallback
 }
 
@@ -52,19 +54,34 @@ export function PrimersTab({ draft, edit, canEdit }: WorkbenchProps) {
   const [revId, setRevId] = useState('')
   const primers = draft.primers ?? []
   const circular = draft.topology === 'circular'
+  const f = primers.find((p) => p.id === fwdId)
+  const r = primers.find((p) => p.id === revId)
+
+  const products = useMemo(
+    () =>
+      draft.molecule !== 'protein' && len > 0 && f && r
+        ? simulatePcr(draft.residues.toUpperCase(), f.seq, r.seq, circular)
+        : null,
+    [f, r, draft.molecule, draft.residues, circular, len],
+  )
+
   if (draft.molecule === 'protein')
     return <Notice>{t('molbio.enzymes.dnaOnly')}</Notice>
+
   if (len === 0) return <Notice>{t('molbio.enzymes.empty')}</Notice>
 
   const design = () => {
     const start = Math.max(1, Math.min(len, numberOr(from, 1))) - 1
     const end = Math.max(start + 1, Math.min(len, numberOr(to, len)))
     const optTm = numberOr(tm, 60)
+
     if (end - start > numberOr(maxProduct, 2000)) {
       setPairs([])
       toast(t('molbio.primers.regionTooLong'))
+
       return
     }
+
     const found = designPrimers(
       draft.residues.toUpperCase(),
       { start, end },
@@ -77,15 +94,19 @@ export function PrimersTab({ draft, edit, canEdit }: WorkbenchProps) {
       },
       { flank: flank ? 60 : 0 },
     )
+
     setPairs(found)
+
     if (found.length === 0) toast(t('molbio.primers.nonFound'))
   }
 
   const keep = (pair: PrimerPair, rank: number) => {
     if (primers.length + 2 > MAX_PRIMERS) {
       toast.error(t('molbio.primers.tooMany'))
+
       return
     }
+
     const base = draft.name || draft.title || t('molbio.sequenceFallback')
     const n = rank + 1
     edit((d) => ({
@@ -113,10 +134,12 @@ export function PrimersTab({ draft, edit, canEdit }: WorkbenchProps) {
   }
 
   const ownSeq = cleanDna(own)
+
   const ownReport =
     ownSeq.length >= 10 && /^[ACGT]+$/.test(ownSeq)
       ? analysePrimer(ownSeq)
       : null
+
   const addOwn = () => {
     if (!ownReport) return
     edit((d) => ({
@@ -137,16 +160,6 @@ export function PrimersTab({ draft, edit, canEdit }: WorkbenchProps) {
     setOwn('')
     setOwnName('')
   }
-
-  const f = primers.find((p) => p.id === fwdId)
-  const r = primers.find((p) => p.id === revId)
-  const products = useMemo(
-    () =>
-      f && r
-        ? simulatePcr(draft.residues.toUpperCase(), f.seq, r.seq, circular)
-        : null,
-    [f, r, draft.residues, circular],
-  )
 
   const bindings = (p: SavedPrimer) =>
     /^[ACGT]+$/i.test(p.seq)
@@ -183,6 +196,7 @@ export function PrimersTab({ draft, edit, canEdit }: WorkbenchProps) {
                     const ft = draft.features.find(
                       (x) => String(x.id) === e.target.value,
                     )
+
                     if (ft && ft.start <= ft.end) {
                       setFrom(String(ft.start))
                       setTo(String(ft.end))
@@ -302,6 +316,7 @@ export function PrimersTab({ draft, edit, canEdit }: WorkbenchProps) {
                         ...p.warnings,
                       ]),
                     ]
+
                     return w.length === 0
                       ? t('molbio.primers.clean')
                       : warningText(w)
@@ -410,7 +425,9 @@ export function PrimersTab({ draft, edit, canEdit }: WorkbenchProps) {
               head: t('molbio.primers.columns.binds'),
               cell: (p) => {
                 const b = bindings(p)
+
                 if (b.length === 0) return t('molbio.primers.noSite')
+
                 return b
                   .map(
                     (x) =>
@@ -425,6 +442,7 @@ export function PrimersTab({ draft, edit, canEdit }: WorkbenchProps) {
               cell: (p) => {
                 if (!/^[ACGT]+$/i.test(p.seq)) return '—'
                 const w = analysePrimer(p.seq).warnings
+
                 return w.length === 0
                   ? t('molbio.primers.clean')
                   : warningText(w)

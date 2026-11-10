@@ -9,12 +9,7 @@ import type { ParsedSequence } from '#/lib/sequence'
 import type { AssemblyPlan, PlanPart } from '#/lib/sequence-block'
 
 export type ParentRole =
-  | 'parent'
-  | 'vector'
-  | 'insert'
-  | 'backbone'
-  | 'transfected_with'
-  | 'clone_of'
+  'parent' | 'vector' | 'insert' | 'backbone' | 'transfected_with' | 'clone_of'
 
 export interface RegistryModel {
   id: string
@@ -44,17 +39,21 @@ export const registryModels = () =>
 
 function leastRotation(s: string): string {
   const n = s.length
+
   if (n < 2) return s
   const doubled = s + s
-  const failure = new Array<number>(2 * n).fill(-1)
+  const failure = Array.from({ length: 2 * n }, () => -1)
   let k = 0
+
   for (let j = 1; j < 2 * n; j++) {
     const c = doubled[j]
     let i = failure[j - k - 1]
+
     while (i !== -1 && c !== doubled[k + i + 1]) {
       if (c < doubled[k + i + 1]) k = j - i - 1
       i = failure[i]
     }
+
     if (c !== doubled[k + i + 1]) {
       if (c < doubled[k]) k = j
       failure[j - k] = -1
@@ -62,6 +61,7 @@ function leastRotation(s: string): string {
       failure[j - k] = i + 1
     }
   }
+
   return s.slice(k) + s.slice(0, k)
 }
 
@@ -75,23 +75,28 @@ export function canonicalSequence(
   topology: ParsedSequence['topology'],
 ): string {
   const seq = residues.toUpperCase().replace(/[^A-Z*]/g, '')
+
   if (molecule === 'protein') return seq
   const dna = molecule === 'rna' ? seq.replace(/U/g, 'T') : seq
   const forward = topology === 'circular' ? leastRotation(dna) : dna
   const rc = reverseComplement(dna)
   const reverse = topology === 'circular' ? leastRotation(rc) : rc
+
   return forward <= reverse ? forward : reverse
 }
 
 async function sha256(text: string): Promise<string> {
   const bytes = new TextEncoder().encode(text)
   const digest = await crypto.subtle.digest('SHA-256', bytes)
+
   return [...new Uint8Array(digest)]
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
 }
 
-export async function sequenceFingerprint(seq: ParsedSequence): Promise<string> {
+export async function sequenceFingerprint(
+  seq: ParsedSequence,
+): Promise<string> {
   return `seq:${await sha256(
     canonicalSequence(seq.residues, seq.molecule, seq.topology),
   )}`
@@ -105,8 +110,10 @@ export function parentsOf(
   const byId = new Map<string, PlanPart>(plan.parts.map((p) => [p.id, p]))
   const seen = new Set<string>()
   const out: { recordId: string; role: ParentRole }[] = []
+
   for (const placed of product.parts) {
     const part = byId.get(placed.partId)
+
     if (!part?.registryRecordId || seen.has(part.registryRecordId)) continue
     seen.add(part.registryRecordId)
     out.push({
@@ -114,6 +121,7 @@ export function parentsOf(
       role: part.topology === 'circular' ? 'vector' : 'insert',
     })
   }
+
   return out
 }
 
@@ -122,14 +130,17 @@ function fields(
   fingerprint: string,
   seq: ParsedSequence,
   extras: boolean,
-): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
+) {
+  const out: Record<string, string> = {}
+
   if (model.registry_sequence_field)
     out[model.registry_sequence_field] = fingerprint
+
   if (extras) {
     out.sequence_length = String(seq.length)
     out.shape = seq.topology
   }
+
   return out
 }
 
@@ -142,7 +153,12 @@ export async function duplicatesOf(
   return sheetbase.host<DuplicateMatch[]>('registry.findDuplicates', {
     model: model.key,
     title,
-    customFields: fields(model, await sequenceFingerprint(sequence), sequence, false),
+    customFields: fields(
+      model,
+      await sequenceFingerprint(sequence),
+      sequence,
+      false,
+    ),
   })
 }
 
@@ -155,17 +171,29 @@ export async function registerProduct(input: {
 }): Promise<Registered> {
   const fingerprint = await sequenceFingerprint(input.sequence)
   const withExtras = input.model.key === 'construct'
-  return sheetbase.host<Registered>('registry.create', {
+
+  const request = {
     model: input.model.key,
     title: input.title,
     customFields: fields(input.model, fingerprint, input.sequence, withExtras),
-    ...(withExtras
-      ? {}
-      : { fallbackCustomFields: fields(input.model, fingerprint, input.sequence, false) }),
     allowDuplicate: input.allowDuplicate,
     parents: input.parents,
-  })
+  }
+
+  if (!withExtras)
+    return sheetbase.host<Registered>('registry.create', {
+      ...request,
+      fallbackCustomFields: fields(
+        input.model,
+        fingerprint,
+        input.sequence,
+        false,
+      ),
+    })
+
+  return sheetbase.host<Registered>('registry.create', request)
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Host rejections are untrusted; this predicate checks both Error and code.
 export const isDuplicateError = (error: unknown) =>
-  error instanceof Error && (error as { code?: string }).code === 'duplicate'
+  error instanceof Error && 'code' in error && error.code === 'duplicate'

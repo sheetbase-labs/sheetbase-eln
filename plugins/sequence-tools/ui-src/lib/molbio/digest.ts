@@ -34,6 +34,7 @@ export function findCuts(
   const circular = topology === 'circular'
   const L = enzyme.site.length
   const cuts: Cut[] = []
+
   const place = (
     start: number,
     strand: 1 | -1,
@@ -42,8 +43,10 @@ export function findCuts(
   ) => {
     const d = botOff - topOff
     let top = start + topOff
+
     if (circular) top = mod(top, n)
     const bottom = top + d
+
     if (!circular && (top < 0 || top > n || bottom < 0 || bottom > n)) return
     cuts.push({
       enzyme: enzyme.name,
@@ -54,13 +57,17 @@ export function findCuts(
       bottom,
     })
   }
+
   for (const p of findPattern(seq, enzyme.site, circular))
     place(p, 1, enzyme.top, enzyme.bottom)
+
   if (!isPalindromic(enzyme.site)) {
     const rcSite = reverseComplement(enzyme.site)
+
     for (const p of findPattern(seq, rcSite, circular))
       place(p, -1, L - enzyme.bottom, L - enzyme.top)
   }
+
   return cuts.sort((a, b) => a.top - b.top)
 }
 
@@ -76,10 +83,13 @@ export function mapSites(
   names?: readonly string[],
 ): EnzymeSites[] {
   const list: Enzyme[] = names
-    ? names
-        .map((nm) => enzymeByName(nm))
-        .filter((e): e is Enzyme => e !== undefined)
+    ? names.flatMap((name) => {
+        const enzyme = enzymeByName(name)
+
+        return enzyme === undefined ? [] : [enzyme]
+      })
     : [...ENZYMES]
+
   return list.map((enzyme) => ({
     enzyme,
     cuts: findCuts(seq, topology, enzyme),
@@ -128,9 +138,11 @@ function endFor(
   cut: { top: number; bottom: number },
 ): FragmentEnd {
   const d = cut.bottom - cut.top
+
   if (d === 0) return { kind: 'blunt', sense: '' }
   const a = Math.min(cut.top, cut.bottom)
   const b = Math.max(cut.top, cut.bottom)
+
   return {
     kind: d > 0 ? '5prime' : '3prime',
     sense: ext.slice(a + off, b + off),
@@ -150,12 +162,16 @@ export function digest(
   const circular = topology === 'circular'
   const { ext, off } = unrolled(seq, circular)
   const all: Cut[] = []
+
   for (const nm of enzymeNames) {
     const e = enzymeByName(nm)
+
     if (e) all.push(...findCuts(seq, topology, e))
   }
+
   // One cut per top-strand position (two enzymes may share a point).
   const byTop = new Map<number, Cut>()
+
   for (const c of all) if (!byTop.has(c.top)) byTop.set(c.top, c)
   const cuts = [...byTop.values()].sort((a, b) => a.top - b.top)
   const blunt: FragmentEnd = { kind: 'blunt', sense: '' }
@@ -168,6 +184,7 @@ export function digest(
     const t2 = c2 ? c2.top : n
     const lo = Math.min(t1, c1 ? c1.bottom : t1)
     const hi = Math.max(t2, c2 ? c2.bottom : t2)
+
     return {
       start: mod(lo, n),
       seq: ext.slice(lo + off, hi + off),
@@ -181,22 +198,27 @@ export function digest(
 
   if (cuts.length === 0) return [make(null, null)]
   const out: Fragment[] = []
+
   if (circular) {
     for (let i = 0; i < cuts.length; i++) {
       const c1 = cuts[i]
       const nx = cuts[(i + 1) % cuts.length]
+
       const c2 =
         i === cuts.length - 1
           ? { top: nx.top + n, bottom: nx.bottom + n, enzyme: nx.enzyme }
           : nx
+
       out.push(make(c1, c2))
     }
   } else {
     out.push(make(null, cuts[0]))
+
     for (let i = 0; i < cuts.length - 1; i++)
       out.push(make(cuts[i], cuts[i + 1]))
     out.push(make(cuts[cuts.length - 1], null))
   }
+
   return out.filter((f) => f.size > 0)
 }
 
@@ -231,6 +253,7 @@ export function gelPosition(
   const hi = Math.log10(Math.max(...ladder))
   const lo = Math.log10(Math.min(...ladder))
   const x = (hi - Math.log10(Math.max(size, 1))) / (hi - lo)
+
   return Math.min(1, Math.max(0, 0.1 + 0.8 * x))
 }
 
@@ -242,20 +265,24 @@ export function gelBands(
 ): Band[] {
   const sorted = [...sizes].sort((a, b) => b - a)
   const bands: Band[] = []
+
   for (const s of sorted) {
     const last = bands.at(-1)
+
     if (last && Math.abs(last.size - s) / last.size <= mergeWithin) {
       last.count++
     } else {
       bands.push({ size: s, position: gelPosition(s, ladder), count: 1 })
     }
   }
+
   return bands
 }
 
 export function formatBp(size: number): string {
   if (size < 1000) return `${size} bp`
   const kb = size / 1000
+
   return `${Number.isInteger(kb) ? kb : kb.toFixed(2).replace(/0+$/, '')} kb`
 }
 

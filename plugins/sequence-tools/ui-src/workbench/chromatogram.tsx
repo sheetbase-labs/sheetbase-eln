@@ -20,6 +20,18 @@ const COLOURS = {
 
 const WINDOW = 60
 
+function baseColour(base: string): string {
+  switch (base) {
+    case 'A':
+    case 'C':
+    case 'G':
+    case 'T':
+      return COLOURS[base]
+    default:
+      return 'var(--foreground)'
+  }
+}
+
 export function Chromatogram({
   read,
   /** Base to centre on (0-based index in the read as the instrument called it). */
@@ -44,7 +56,9 @@ export function Chromatogram({
         : null,
     [read],
   )
+
   if (!trace) return null
+
   return (
     <TraceView
       trace={trace}
@@ -67,9 +81,11 @@ function TraceView({
   className?: string
 }) {
   const n = trace.bases.length
+
   const [start, setStart] = useState(() =>
     Math.max(0, Math.min(n - WINDOW, (focus ?? 0) - WINDOW / 2)),
   )
+
   const from = Math.max(0, Math.min(Math.max(0, n - WINDOW), start))
   const to = Math.min(n, from + WINDOW)
   const x0 = trace.peaks[from] ?? 0
@@ -81,22 +97,30 @@ function TraceView({
   const H = 190
   const top = 8
   const chartH = 120
+
   const max = useMemo(() => {
     let m = 1
+
     for (const k of ['A', 'C', 'G', 'T'] as const)
       for (let i = lo; i < Math.min(hi, trace.channels[k].length); i++)
         m = Math.max(m, trace.channels[k][i])
+
     return m
   }, [trace, lo, hi])
+
   const sx = (x: number) => ((x - lo) / (hi - lo)) * W
+
   const path = (k: 'A' | 'C' | 'G' | 'T') => {
     const data = trace.channels[k]
     let d = ''
     const step = Math.max(1, Math.floor((hi - lo) / 600))
+
     for (let i = lo; i < Math.min(hi, data.length); i += step)
       d += `${d ? 'L' : 'M'}${sx(i).toFixed(1)},${(top + chartH - (data[i] / max) * chartH).toFixed(1)}`
+
     return d
   }
+
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       <svg
@@ -118,8 +142,9 @@ function TraceView({
           const i = from + j
           const x = sx(trace.peaks[i] ?? 0)
           const q = trace.quality[i] ?? 0
-          const letter = trace.bases[i] as 'A' | 'C' | 'G' | 'T'
+          const letter = trace.bases[i]
           const isFocus = focus === i
+
           return (
             <g key={i}>
               {isFocus ? (
@@ -146,10 +171,7 @@ function TraceView({
                 x={x}
                 y={top + chartH + 56}
                 textAnchor="middle"
-                fill={
-                  (COLOURS as Partial<Record<string, string>>)[letter] ??
-                  'var(--foreground)'
-                }
+                fill={baseColour(letter)}
                 className="text-[13px] font-medium"
               >
                 {letter}

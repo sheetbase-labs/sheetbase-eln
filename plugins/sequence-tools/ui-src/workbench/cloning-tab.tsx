@@ -5,15 +5,18 @@
  */
 import { useMemo, useRef, useState } from 'react'
 
-import { Textarea } from '#/components/inventory/list'
-import { Notice } from '#/components/ui/alert'
-import { Button } from '#/components/ui/button'
-import { Checkbox } from '#/components/ui/checkbox'
-import { IconButton } from '#/components/ui/icon-button'
-import { Field, Input } from '#/components/ui/input'
-import { Select } from '#/components/ui/select'
-import { toast } from '#/components/ui/sonner'
-import { Tabs } from '#/components/ui/tabs'
+import {
+  Button,
+  Checkbox,
+  Field,
+  IconButton,
+  Input,
+  Notice,
+  Select,
+  Tabs,
+  Textarea,
+  toast,
+} from '../ui/kit'
 import { t } from '#/copy'
 import { siblingSequences } from '#/lib/host'
 import { useAsync } from '#/lib/use-async'
@@ -27,7 +30,7 @@ import {
   simulatePcr,
   sortedFragments,
 } from '#/lib/molbio'
-import type { AssemblyProduct } from '#/lib/molbio'
+import type { AssemblyProduct, AssemblyResult } from '#/lib/molbio'
 import {
   SEQUENCE_ACCEPT,
   isSequenceFileName,
@@ -39,7 +42,6 @@ import {
   MAX_PLAN_PARTS,
   SEQUENCE_METHODS,
   newId,
-  sequenceOf,
 } from '#/lib/sequence-block'
 import type {
   AssemblyPlan,
@@ -62,10 +64,7 @@ import type { WorkbenchProps } from './shared'
 const TYPE_IIS = ENZYMES.filter((e) => e.typeIIS).map((e) => e.name)
 
 /** Run a plan: the products it can make and warnings about the plan itself. */
-export function runPlan(plan: AssemblyPlan): {
-  products: AssemblyProduct[]
-  warnings: string[]
-} {
+export function runPlan(plan: AssemblyPlan): AssemblyResult {
   const parts = plan.parts.map((p) => ({
     id: p.id,
     name: p.name,
@@ -73,20 +72,27 @@ export function runPlan(plan: AssemblyPlan): {
     topology: p.topology,
     features: p.features,
   }))
+
   if (parts.length < 2) return { products: [], warnings: ['needTwoParts'] }
+
   if (plan.method === 'gibson')
     return gibson(parts, { minOverlap: plan.minOverlap ?? 15 })
+
   if (plan.method === 'golden_gate') {
     const enzyme = plan.enzymes[0]
+
     return enzyme
       ? goldenGate(parts, enzyme)
       : { products: [], warnings: ['pickEnzyme'] }
   }
+
   if (plan.enzymes.length === 0)
     return { products: [], warnings: ['pickEnzyme'] }
+
   return digestAndLigate(
     plan.parts.map((p) => {
       const pick = plan.partPick?.[p.id] ?? 'largest'
+
       return {
         part: {
           id: p.id,
@@ -109,12 +115,15 @@ function methodLabel(m: SequenceMethod): string {
 export function CloningTab(props: WorkbenchProps) {
   const { draft, edit, canEdit } = props
   const plans = draft.plans ?? []
+
   const [selectedId, setSelectedId] = useState<string | null>(
     plans[0]?.id ?? null,
   )
+
   const plan = plans.find((p) => p.id === selectedId) ?? plans.at(0) ?? null
   const [newName, setNewName] = useState('')
   const [newMethod, setNewMethod] = useState<SequenceMethod>('golden_gate')
+
   if (draft.molecule === 'protein')
     return <Notice>{t('molbio.enzymes.dnaOnly')}</Notice>
 
@@ -127,12 +136,16 @@ export function CloningTab(props: WorkbenchProps) {
   const create = () => {
     if (plans.length >= MAX_PLANS) {
       toast.error(t('molbio.cloning.tooManyPlans'))
+
       return
     }
+
     const id = newId('plan')
+
     const first: PlanPart[] = draft.residues
       ? [partFromSequence(draft, props.blockId)]
       : []
+
     edit((d) => ({
       ...d,
       plans: [
@@ -172,7 +185,7 @@ export function CloningTab(props: WorkbenchProps) {
               variant="segment"
               label={t('molbio.cloning.methodLabel')}
               value={newMethod}
-              onValueChange={(k) => setNewMethod(k as SequenceMethod)}
+              onValueChange={setNewMethod}
               items={SEQUENCE_METHODS.map((m) => ({
                 key: m,
                 label: methodLabel(m),
@@ -221,20 +234,21 @@ function partFromSequence(
   d: WorkbenchProps['draft'],
   blockId: string,
 ): PlanPart {
-  return {
+  const part: PlanPart = {
     id: newId('part'),
     name: d.name || d.title || 'Sequence',
     seq: d.residues,
     topology: d.topology,
     features: d.features,
     blockId,
-    ...(d.registryRecordId
-      ? {
-          registryRecordId: d.registryRecordId,
-          registryIdentifier: d.registryIdentifier,
-        }
-      : {}),
   }
+
+  if (d.registryRecordId) {
+    part.registryRecordId = d.registryRecordId
+    part.registryIdentifier = d.registryIdentifier
+  }
+
+  return part
 }
 
 function PlanEditor(
@@ -244,20 +258,25 @@ function PlanEditor(
     remove: () => void
   },
 ) {
-  const { draft, canEdit, plan, update, edit, blockId, insertBelow } =
-    props
+  const { draft, canEdit, plan, update, edit, blockId, insertBelow } = props
+
   const [productIndex, setProductIndex] = useState(0)
   const result = useMemo(() => runPlan(plan), [plan])
+
   const product =
     result.products.at(Math.min(productIndex, result.products.length - 1)) ??
     null
+
   const addPart = (part: PlanPart) => {
     if (plan.parts.length >= MAX_PLAN_PARTS) {
       toast.error(t('molbio.cloning.tooManyParts'))
+
       return
     }
+
     update((p) => ({ ...p, parts: [...p.parts, part] }))
   }
+
   return (
     <div className="flex flex-col gap-5">
       <Panel
@@ -290,7 +309,7 @@ function PlanEditor(
               if (!canEdit) return
               update((p) => ({
                 ...p,
-                method: k as SequenceMethod,
+                method: k,
                 enzymes:
                   k === 'golden_gate'
                     ? ['BsaI']
@@ -367,7 +386,7 @@ function PlanEditor(
             },
             {
               key: 'shape',
-              head: t('molbio.cloning.columns.shape'),
+              head: t('molbio.cloning.columns.topology'),
               cell: (p) => t(`sequences.summary.${p.topology}`),
             },
             {
@@ -390,6 +409,7 @@ function PlanEditor(
                     head: t('molbio.cloning.columns.use'),
                     cell: (p: PlanPart) => {
                       if (plan.enzymes.length === 0) return '—'
+
                       const frags = sortedFragments(
                         {
                           id: p.id,
@@ -399,12 +419,15 @@ function PlanEditor(
                         },
                         plan.partEnzymes?.[p.id] ?? plan.enzymes,
                       )
+
                       const pick = plan.partPick?.[p.id]
+
                       const value = Array.isArray(pick)
                         ? String(pick[0])
                         : pick === 'smallest'
                           ? String(frags.length - 1)
                           : '0'
+
                       return (
                         <Select
                           size="sm"
@@ -422,6 +445,7 @@ function PlanEditor(
                           }
                         >
                           {frags.map((f, i) => (
+                            // eslint-disable-next-line react-doctor/no-array-index-as-key -- Fragment selection is the sorted occurrence; sizes can repeat.
                             <option key={i} value={i}>
                               {t('molbio.cloning.fragmentOption', {
                                 number: i + 1,
@@ -450,11 +474,14 @@ function PlanEditor(
                           onClick={() =>
                             update((q) => {
                               const i = q.parts.findIndex((x) => x.id === p.id)
+
                               const parts = [...q.parts]
+
                               ;[parts[i - 1], parts[i]] = [
                                 parts[i],
                                 parts[i - 1],
                               ]
+
                               return { ...q, parts }
                             })
                           }
@@ -483,11 +510,7 @@ function PlanEditor(
         {result.warnings.length > 0 && result.products.length === 0 ? (
           <Notice tone="warn">
             {result.warnings
-              .map((w) =>
-                t(
-                  `molbio.cloning.planWarning.${w}` as 'molbio.cloning.planWarning.noAssembly',
-                ),
-              )
+              .map((w) => t(`molbio.cloning.planWarning.${w}`))
               .join(' ')}
           </Notice>
         ) : null}
@@ -524,7 +547,7 @@ function PlanEditor(
               },
               {
                 key: 'shape',
-                head: t('molbio.cloning.columns.shape'),
+                head: t('molbio.cloning.columns.topology'),
                 cell: (p) => t(`sequences.summary.${p.topology}`),
               },
               {
@@ -550,11 +573,7 @@ function PlanEditor(
                   p.warnings.length === 0
                     ? t('molbio.primers.clean')
                     : [...new Set(p.warnings)]
-                        .map((w) =>
-                          t(
-                            `molbio.cloning.productWarning.${w}` as 'molbio.cloning.productWarning.shortOverlap',
-                          ),
-                        )
+                        .map((w) => t(`molbio.cloning.productWarning.${w}`))
                         .join(', '),
               },
             ]}
@@ -592,8 +611,10 @@ function AddPart({
   const [fwd, setFwd] = useState('')
   const [rev, setRev] = useState('')
   const file = useRef<HTMLInputElement>(null)
-  const siblings = useAsync(() => siblingSequences(context), context.blockId ?? '')
+  const loadSiblings = () => siblingSequences(context)
+  const siblings = useAsync(loadSiblings, context.blockId ?? '')
   const primers = draft.primers ?? []
+
   const names = {
     whole: t('molbio.cloning.add.whole'),
     region: t('molbio.cloning.add.region'),
@@ -602,7 +623,9 @@ function AddPart({
     paste: t('molbio.cloning.add.paste'),
     file: t('molbio.cloning.add.file'),
   }
+
   const own = draft.name || draft.title || t('molbio.sequenceFallback')
+
   const pcrProducts =
     source === 'pcr' && fwd && rev
       ? simulatePcr(
@@ -612,6 +635,7 @@ function AddPart({
           draft.topology === 'circular',
         )
       : []
+
   return (
     <div className="flex flex-col gap-3 rounded-md border border-border p-3">
       <div className="flex flex-wrap items-end gap-3">
@@ -656,10 +680,12 @@ function AddPart({
             <Button
               onClick={() => {
                 const a = Math.max(1, Number(from) || 1)
+
                 const b = Math.min(
                   draft.residues.length,
                   Number(to) || draft.residues.length,
                 )
+
                 if (b <= a) return
                 addPart({
                   id: newId('part'),
@@ -732,30 +758,25 @@ function AddPart({
             </Button>
           </>
         ) : null}
-        {source === 'block' ? (
+        {source === 'block' && siblings.error ? (
+          <div role="alert">
+            <Notice tone="warn">{t('molbio.cloning.add.loadFailed')}</Notice>
+          </div>
+        ) : null}
+        {source === 'block' && !siblings.error ? (
           <Field label={t('molbio.cloning.add.block')} className="w-64">
             <Select
               value=""
               onChange={(e) => {
                 const s = siblings.data?.find((x) => x.id === e.target.value)
+
                 if (!s) return
-                addPart({
-                  id: newId('part'),
-                  name:
-                    s.payload.name ||
-                    s.payload.title ||
-                    t('molbio.sequenceFallback'),
-                  seq: s.payload.residues,
-                  topology: s.payload.topology,
-                  features: s.payload.features,
-                  blockId: s.id,
-                  ...(s.payload.registryRecordId
-                    ? {
-                        registryRecordId: s.payload.registryRecordId,
-                        registryIdentifier: s.payload.registryIdentifier,
-                      }
-                    : {}),
-                })
+                const part = partFromSequence(s.payload, s.id)
+                part.name =
+                  s.payload.name ||
+                  s.payload.title ||
+                  t('molbio.sequenceFallback')
+                addPart(part)
               }}
             >
               <option value="">
@@ -789,15 +810,20 @@ function AddPart({
               onChange={async (e) => {
                 const f = e.target.files?.[0]
                 e.target.value = ''
+
                 if (!f) return
+
                 if (!isSequenceFileName(f.name)) {
                   toast.error(t('sequences.notSequence', { name: f.name }))
+
                   return
                 }
+
                 try {
                   const parsed: ParsedSequence[] = parseSequenceFile(
                     await f.text(),
                   )
+
                   for (const s of parsed.slice(0, 4))
                     addPart({
                       id: newId('part'),
@@ -872,15 +898,17 @@ function ProductPanel({
   insertBelow?: WorkbenchProps['insertBelow']
   fallbackName: string
 }) {
-  const [name, setName] = useState(`${plan.name}`.trim() || fallbackName)
+  const [name, setName] = useState(() => plan.name.trim() || fallbackName)
   const [modelKey, setModelKey] = useState('')
   const [duplicates, setDuplicates] = useState<DuplicateMatch[] | null>(null)
   const [allowDup, setAllowDup] = useState(false)
   const [busy, setBusy] = useState(false)
   const models = useAsync(registryModels, 'models')
   const sequences = (models.data ?? []).filter((m) => m.registry_sequence_field)
+
   const model: RegistryModel | undefined =
     sequences.find((m) => m.key === modelKey) ?? sequences.at(0)
+
   const parsed: ParsedSequence = useMemo(
     () => ({
       name,
@@ -894,11 +922,14 @@ function ProductPanel({
     }),
     [name, product],
   )
+
   const parents = parentsOf(plan, product)
   void blockId
+
   const register = async () => {
     if (!model) return
     setBusy(true)
+
     try {
       const done = await registerProduct({
         model,
@@ -907,6 +938,7 @@ function ProductPanel({
         parents,
         allowDuplicate: allowDup,
       })
+
       edit((d) => ({
         ...d,
         products: [
@@ -926,17 +958,21 @@ function ProductPanel({
     } catch (error) {
       if (isDuplicateError(error)) {
         try {
-          setDuplicates(
-            await duplicatesOf(model, parsed, name),
-          )
+          setDuplicates(await duplicatesOf(model, parsed, name))
         } catch {
           setDuplicates([])
         }
-      } else toast.error(error instanceof Error ? error.message : t('molbio.cloning.registerFailed'))
+      } else
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : t('molbio.cloning.registerFailed'),
+        )
     } finally {
       setBusy(false)
     }
   }
+
   return (
     <Panel title={t('molbio.cloning.product')}>
       <div className="flex flex-wrap items-end gap-3">
@@ -961,59 +997,7 @@ function ProductPanel({
           </Button>
         ) : null}
       </div>
-      <DataTable
-        caption={t('molbio.cloning.junctions')}
-        rows={product.junctions}
-        rowKey={(_, i) => String(i)}
-        empty={t('molbio.cloning.noJunctions')}
-        columns={[
-          { key: 'n', head: '#', cell: (_, i) => i + 1 },
-          {
-            key: 'between',
-            head: t('molbio.cloning.columns.between'),
-            cell: (_, i) => {
-              const a = product.parts.at(i)
-              const b = product.parts.at((i + 1) % product.parts.length)
-              return `${a?.name ?? ''} → ${b?.name ?? ''}`
-            },
-          },
-          {
-            key: 'seq',
-            head:
-              product.method === 'gibson'
-                ? t('molbio.cloning.columns.overlap')
-                : t('molbio.cloning.columns.overhang'),
-            className: 'font-mono',
-            cell: (j) =>
-              j.seq.length === 0 ? (
-                t('molbio.enzymes.blunt')
-              ) : (
-                <span title={j.seq}>
-                  {j.seq.length > 36
-                    ? `${j.seq.slice(0, 18)}…${j.seq.slice(-14)}`
-                    : j.seq}
-                </span>
-              ),
-          },
-          {
-            key: 'len',
-            head: t('molbio.cloning.columns.length'),
-            align: 'right',
-            cell: (j) => j.seq.length,
-          },
-          ...(product.method === 'gibson'
-            ? [
-                {
-                  key: 'tm',
-                  head: t('molbio.primers.columns.tm'),
-                  align: 'right' as const,
-                  cell: (j: { tm?: number }) =>
-                    j.tm === undefined ? '—' : fixed(j.tm),
-                },
-              ]
-            : []),
-        ]}
-      />
+      {junctionTable(product)}
       <SequenceViewer sequences={[parsed]} />
       {canEdit ? (
         <div className="flex flex-col gap-3 rounded-md border border-border p-3">
@@ -1077,5 +1061,65 @@ function ProductPanel({
         </div>
       ) : null}
     </Panel>
+  )
+}
+
+/** Build junction columns at the same point as the product panel render. */
+function junctionTable(product: AssemblyProduct) {
+  return (
+    <DataTable
+      caption={t('molbio.cloning.junctions')}
+      rows={product.junctions}
+      rowKey={(_, i) => String(i)}
+      empty={t('molbio.cloning.noJunctions')}
+      columns={[
+        { key: 'n', head: '#', cell: (_, i) => i + 1 },
+        {
+          key: 'between',
+          head: t('molbio.cloning.columns.between'),
+          cell: (_, i) => {
+            const a = product.parts.at(i)
+            const b = product.parts.at((i + 1) % product.parts.length)
+
+            return `${a?.name ?? ''} → ${b?.name ?? ''}`
+          },
+        },
+        {
+          key: 'seq',
+          head:
+            product.method === 'gibson'
+              ? t('molbio.cloning.columns.overlap')
+              : t('molbio.cloning.columns.overhang'),
+          className: 'font-mono',
+          cell: (j) =>
+            j.seq.length === 0 ? (
+              t('molbio.enzymes.blunt')
+            ) : (
+              <span title={j.seq}>
+                {j.seq.length > 36
+                  ? `${j.seq.slice(0, 18)}…${j.seq.slice(-14)}`
+                  : j.seq}
+              </span>
+            ),
+        },
+        {
+          key: 'len',
+          head: t('molbio.cloning.columns.length'),
+          align: 'right',
+          cell: (j) => j.seq.length,
+        },
+        ...(product.method === 'gibson'
+          ? [
+              {
+                key: 'tm',
+                head: t('molbio.primers.columns.tm'),
+                align: 'right' as const,
+                cell: (j: { tm?: number }) =>
+                  j.tm === undefined ? '—' : fixed(j.tm),
+              },
+            ]
+          : []),
+      ]}
+    />
   )
 }

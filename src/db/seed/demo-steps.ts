@@ -13,6 +13,7 @@ import { Client } from 'pg'
 import type { QueryResultRow } from 'pg'
 
 import * as schema from '../schema'
+import { seedUrl } from './url'
 import {
   seedNotebookSheetGrid,
   virusStabilitySheetFields,
@@ -64,10 +65,10 @@ const DEMO_STORAGE_IDS = {
  * app's own connection assumes the signed-in role.
  */
 function userSessionConnection(poolConnectionString: string): string {
-  const url = new URL(poolConnectionString)
+  const url = seedUrl(poolConnectionString, 'the pool connection string')
 
   const pgrst = process.env.PGRST_DB_URI
-    ? new URL(process.env.PGRST_DB_URI)
+    ? seedUrl(process.env.PGRST_DB_URI, 'PGRST_DB_URI')
     : null
 
   if (pgrst?.username) {

@@ -13,6 +13,13 @@
           "react-doctor/no-high-complexity-react-function",
           "react-doctor/only-export-components"
         ]
+      },
+      {
+        "files": ["src/db/seed/**"],
+        "rules": [
+          "react-doctor/async-await-in-loop",
+          "react-doctor/server-sequential-independent-await"
+        ]
       }
     ]
   }

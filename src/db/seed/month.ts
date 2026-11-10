@@ -9,6 +9,7 @@ import type { WellAssignment } from '#/lib/plate-map'
 import * as schema from '../schema'
 import { eq, sql } from 'drizzle-orm'
 import type { SeedStep } from './run'
+import { seedUrl } from './url'
 import {
   monthShowcaseSheetFields,
   monthShowcaseSheetRows,
@@ -35,8 +36,11 @@ function daysAgo(n: number, hour = 10): Date {
 
 /** Authenticated connection used by all invariant-enforcing month RPC work. */
 export async function authClient(db: Parameters<SeedStep['run']>[0]) {
-  const poolUrl = new URL(db.$client.options.connectionString ?? '')
-  const pgrst = new URL(process.env.PGRST_DB_URI ?? '')
+  const poolUrl = seedUrl(
+    db.$client.options.connectionString ?? '',
+    'the pool connection string',
+  )
+  const pgrst = seedUrl(process.env.PGRST_DB_URI ?? '', 'PGRST_DB_URI')
 
   if (!pgrst.username)
     throw new Error('PGRST_DB_URI is required for month seed')
@@ -57,7 +61,8 @@ export async function authClient(db: Parameters<SeedStep['run']>[0]) {
   const migratorUrl = new URL(poolUrl.toString())
   migratorUrl.username = 'migrator'
   migratorUrl.password = process.env.MIGRATION_DATABASE_URL
-    ? new URL(process.env.MIGRATION_DATABASE_URL).password
+    ? seedUrl(process.env.MIGRATION_DATABASE_URL, 'MIGRATION_DATABASE_URL')
+        .password
     : pgrst.password
   const writer = new Client({ connectionString: migratorUrl.toString() })
   await writer.connect()

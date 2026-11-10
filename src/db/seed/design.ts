@@ -43,6 +43,7 @@ import {
   DESIGN_WEBHOOK_IDS,
   FIXTURE_USER_ID,
 } from './identities'
+import { seedUrl } from './url'
 
 /** Fixed clock for the design seed: Friday 25 Sep 2026, 09:40 Europe/London. */
 export const DESIGN_CLOCK = new Date('2026-09-25T09:40:00+01:00')
@@ -700,6 +701,10 @@ export const designSteps: Array<SeedStep> = [
         })
         .onConflictDoNothing()
 
+      const versionIds = new Map(
+        versions.map((version) => [version.version, version.id]),
+      )
+
       for (const record of DESIGN_CELL_BANK_RECORDS) {
         await db
           .insert(schema.records)
@@ -712,9 +717,10 @@ export const designSteps: Array<SeedStep> = [
             title: record.title,
             status: record.status,
             customFields: record.customFields,
-            modelVersionId: versions.find(
-              (version) => version.version === record.modelVersion,
-            )!.id,
+            // SAFETY: the model versions inserted above cover every version the
+            // records reference; a missing one fails the seed instead of writing
+            // a record with no version.
+            modelVersionId: versionIds.get(record.modelVersion)!,
             createdAt: record.createdAt,
             createdByUserId: DESIGN_USER_IDS.gareth,
           })
@@ -5149,8 +5155,10 @@ async function designSigningFixture(db: Parameters<SeedStep['run']>[0]) {
 
   if (!secret) throw new Error('BETTER_AUTH_SECRET required for design signing')
 
-  const origin = new URL(process.env.BETTER_AUTH_URL ?? 'http://localhost:3000')
-    .origin
+  const origin = seedUrl(
+    process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
+    'BETTER_AUTH_URL',
+  ).origin
 
   const cookieSignature = createHmac('sha256', secret)
     .update(sessionId)
@@ -5286,9 +5294,12 @@ async function designCredential(
     expiresAt?: Date
   },
 ): Promise<string> {
-  const { createAuth } = await import('#/lib/auth')
-  const credentials = await import('#/lib/api-credentials')
-  const { emitCredentialAuditEvent } = await import('#/lib/credential-audit')
+  const [{ createAuth }, credentials, { emitCredentialAuditEvent }] =
+    await Promise.all([
+      import('#/lib/auth'),
+      import('#/lib/api-credentials'),
+      import('#/lib/credential-audit'),
+    ])
   const secret = process.env.BETTER_AUTH_SECRET
 
   if (!secret)
@@ -7935,8 +7946,9 @@ export async function prepareDesignScenario(
         'BETTER_AUTH_SECRET required for native fixture credentials',
       )
 
-    const origin = new URL(
+    const origin = seedUrl(
       process.env.BETTER_AUTH_URL ?? 'http://localhost:3000',
+      'BETTER_AUTH_URL',
     ).origin
 
     const signature = createHmac('sha256', secret)

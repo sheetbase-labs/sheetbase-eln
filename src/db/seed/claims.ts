@@ -1,6 +1,7 @@
 import { Client } from 'pg'
 
 import type { SeedStep } from './run'
+import { seedUrl } from './url'
 
 /**
  * Runs `fn` as `actorId` in `workspaceId` through the PostgREST role with JWT
@@ -14,7 +15,7 @@ export async function withDesignClaims<T>(
   sessionId?: string,
 ): Promise<T> {
   const poolCs = db.$client.options.connectionString
-  const pgrst = new URL(process.env.PGRST_DB_URI ?? '')
+  const pgrst = seedUrl(process.env.PGRST_DB_URI ?? '', 'PGRST_DB_URI')
 
   if (!poolCs || !pgrst.username) {
     throw new Error('PGRST_DB_URI and the pool connection string are required')

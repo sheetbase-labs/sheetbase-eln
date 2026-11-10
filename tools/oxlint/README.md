@@ -46,12 +46,22 @@ The relaxation is directory-scoped and covers no first-party code. Every other
 rule still runs on those files; the eight remaining findings were real defects
 and are fixed in place.
 
-`doctor.config.json` carries the matching three-rule override for the same
-directory. `no-giant-component`, `no-high-complexity-react-function` and
-`only-export-components` can only be satisfied by splitting or restructuring
-copied registry source, which the ADR forbids. Its behavioural rules, including
-hook dependencies, state-updater side effects, ref reads during render and
-event accessibility, stay on and are fixed in place.
+`doctor.config.json` ignores the same directory. Its findings there are
+maintainability refactors and hook rewrites of copied registry source, which
+the same ADR forbids; the files repeat that instruction in their own headers
+("do not extend or hand-edit this file beyond import-path fixes and restyling
+to Sheetbase tokens").
+
+Two defects found while triaging are therefore recorded here rather than fixed
+in place, because both need a restructuring edit:
+
+- `use-file-upload.ts` calls `onFilesChange` from inside the state updater,
+  which React may invoke twice under StrictMode.
+- `stepper.tsx` memoises and depends on `ref.current`, so the trigger
+  registration does not re-run when the button ref changes.
+
+Both belong upstream in the pinned registry item, or to a deliberate
+replace-or-patch decision that supersedes ADR-0055 decision 2.
 
 ## Ordered seed writes
 

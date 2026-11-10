@@ -44,6 +44,8 @@ function isNeverCached(url) {
 async function trim(cacheName, max) {
   const cache = await caches.open(cacheName)
   const keys = await cache.keys()
+  // Oldest entries go first; deleting them concurrently would race the eviction order.
+  // react-doctor-disable-next-line async-await-in-loop
   for (let i = 0; i < keys.length - max; i++) await cache.delete(keys[i])
 }
 
@@ -90,6 +92,7 @@ self.addEventListener('activate', (event) =>
     (async () => {
       for (const name of await caches.keys()) {
         if (name.startsWith('sheetbase-pages-') && name !== PAGE_CACHE) {
+          // react-doctor-disable-next-line async-await-in-loop -- Cache deletes run one at a time so a failed delete stops before the next cache is dropped.
           await caches.delete(name)
         }
       }
@@ -121,6 +124,7 @@ self.addEventListener('message', (event) => {
           try {
             const url = new URL(raw, self.location.origin)
             if (url.origin !== self.location.origin || !isCacheableStatic(url)) continue
+            // react-doctor-disable-next-line async-await-in-loop -- Each URL is checked then fetched in turn; overlapping would hammer the server with the whole precache list.
             if (await cache.match(url.pathname)) continue
             const response = await fetch(url.pathname)
             if (response.ok) await cache.put(url.pathname, response)
@@ -192,6 +196,7 @@ async function receiveShare(request) {
     let index = 0
     for (const value of form.getAll('files')) {
       if (typeof value === 'string') continue
+      // react-doctor-disable-next-line async-await-in-loop -- The index counter assigns each file its slot, so the puts must stay in form order.
       await cache.put(
         '/__shared/' + index++,
         new Response(value, {

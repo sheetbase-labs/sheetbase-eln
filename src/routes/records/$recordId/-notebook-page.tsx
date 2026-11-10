@@ -24,10 +24,8 @@ import { Notice } from '#/components/ui/alert'
 import { DraftStepsButton } from '#/components/assist/draft-steps'
 import { ObjectTypeName } from '#/components/models/added-fields'
 import { Icon } from '#/components/icons'
-import {
-  ExtensionObjectActions,
-  toExtensionPanelTabs,
-} from '#/components/extensions/extension-slots'
+import { ExtensionObjectActions } from '#/components/extensions/extension-slots'
+import { toExtensionPanelTabs } from '#/components/extensions/extension-panel-tabs'
 import { PluginScreen } from '#/components/extensions/plugin-screen'
 import {
   operationAccess,
@@ -1518,6 +1516,7 @@ function notebookReadyPage(
                         lockedPartGate,
                         partsList,
                         (number) =>
+                          // react-doctor-disable-next-line react-doctor/tanstack-start-no-navigate-in-render -- firstMissingPart only stores this callback on the banner's onClick; it never calls it while rendering.
                           void navigate({
                             to: '/experiments/$expId/notebook/$part',
                             params: { expId: recordId, part: String(number) },

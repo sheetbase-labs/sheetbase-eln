@@ -49,12 +49,14 @@ export const capabilityRoadmap: Record<CapabilityKey, string> = {}
 export function capabilitiesFromEnv(
   env: Record<string, string | undefined> = process.env,
 ): Capabilities {
-  const enabled = (env.SHEETBASE_CAPABILITIES ?? '')
-    .split(',')
-    .map((entry) => entry.trim())
-    .filter(Boolean)
+  const enabled = new Set(
+    (env.SHEETBASE_CAPABILITIES ?? '')
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean),
+  )
 
   return Object.fromEntries(
-    capabilityKeys.map((key) => [key, enabled.includes(key)]),
+    capabilityKeys.map((key) => [key, enabled.has(key)]),
   )
 }

@@ -13,6 +13,8 @@
  * `api.get_webhook_endpoint_health`, and history from EVENT-02's
  * `api.list_webhook_deliveries`.
  */
+import { randomBytes } from 'node:crypto'
+
 import { createServerFn } from '@tanstack/react-start'
 import { z } from 'zod'
 
@@ -692,7 +694,9 @@ export const createWebhookSubscriptionFn = createServerFn({ method: 'POST' })
     )
 
     try {
-      const salt = Math.random().toString(36).slice(2, 8)
+      // Six hex characters distinguish this webhook's key from another with
+      // the same name; the key is an identifier, not a secret.
+      const salt = randomBytes(3).toString('hex')
       const channelType = data.channelType ?? 'webhook'
 
       const { rows } = await session.client.query(

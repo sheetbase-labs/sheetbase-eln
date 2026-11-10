@@ -6,12 +6,17 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 
 type RequestTab = 'mine' | 'triage' | 'all'
 
+/** Which requests tab the URL asked for; the page defaults to the caller's own. */
+interface RequestsSearch {
+  tab?: RequestTab
+}
+
 /**
  * Requests: ask the lab for work through a form made from a model, and follow
  * it from asked to done (migration 0076).
  */
 export const Route = createFileRoute('/requests')({
-  validateSearch: (search: Record<string, unknown>): { tab?: RequestTab } => ({
+  validateSearch: (search): RequestsSearch => ({
     tab:
       search.tab === 'triage' || search.tab === 'all' || search.tab === 'mine'
         ? search.tab

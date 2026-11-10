@@ -17,6 +17,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Route } from './snapshots'
 import type { SnapshotVersion } from '#/components/datasets/snapshot-data'
 
+// SAFETY: TanStack Router keeps the route's component on `options.component`; the mocked framework route object below stores the config it was given.
 const SnapshotsRoute = Route.options.component as React.ComponentType
 
 const dataClient = vi.hoisted(() => ({
@@ -44,28 +45,29 @@ for (const prop of ['offsetHeight', 'clientHeight'] as const) {
   })
 }
 
+/** The props this route hands to a link, as the mocked Link renders them. */
+interface SnapshotLinkProps {
+  to?: string
+  params?: Record<string, string>
+  search?: Record<string, string | number | boolean | undefined>
+  children?: React.ReactNode
+  [attribute: `data-${string}`]: string | undefined
+}
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The route module builds its route object from createFileRoute at import time; exercising the snapshots tab needs the framework's route object replaced and the router offers no seam to inject one.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useParams: () => ({ datasetId: 'ds-1' }),
-    useRouteContext: () => ({ context: routeContext.value }),
-    options: config,
-  }),
+  createFileRoute:
+    () =>
+    <TConfig,>(config: TConfig) => ({
+      useParams: () => ({ datasetId: 'ds-1' }),
+      useRouteContext: () => ({ context: routeContext.value }),
+      options: config,
+    }),
   Outlet: () => null,
-  redirect: (options: unknown) => options,
+  redirect: <TOptions,>(options: TOptions) => options,
   useNavigate: () => vi.fn(),
-  Link: ({
-    to,
-    params,
-    search,
-    children,
-    ...props
-  }: {
-    to?: string
-    params?: Record<string, string>
-    search?: Record<string, unknown>
-    children: React.ReactNode
-  } & Record<string, unknown>) => {
-    let href = typeof to === 'string' ? to : '#'
+  Link: ({ to, params, search, children, ...props }: SnapshotLinkProps) => {
+    let href = to ?? '#'
 
     if (params) {
       for (const [k, v] of Object.entries(params))
@@ -90,26 +92,30 @@ vi.mock('@tanstack/react-router', () => ({
   },
 }))
 
-// The run behind a snapshot is read from the server; none here.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The reproduction card reads its run through this hook and the route offers no seam to supply one; the test is about the snapshot inspector, not run reproduction.
 vi.mock('#/components/pipelines/pipelines-data', () => ({
   useRunForDatasetVersion: () => ({ data: null }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Route hooks read the shared data client directly at import time; the test drives the snapshot list through this module boundary.
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal()),
   notebookDataClient: dataClient,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The save action is asserted by name and argument; the test replaces the RPC wrapper rather than running an HTTP round trip.
 vi.mock('#/lib/dataset-product', async (importOriginal) => ({
   ...(await importOriginal()),
   snapshotDataset: product.snapshotDataset,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The keep action is asserted by name and argument; the test replaces the RPC wrapper rather than running an HTTP round trip.
 vi.mock('#/lib/dataset-explorer-data', async (importOriginal) => ({
   ...(await importOriginal()),
   keepDatasetVersion: explorer.keepDatasetVersion,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Toasts are asserted by their exact copy; the test replaces the toast sink so no Toaster needs mounting.
 vi.mock('#/components/ui/sonner', () => ({
   toast: sonner.toast,
   Toaster: () => null,
@@ -269,8 +275,12 @@ describe('dataset snapshots route', () => {
     renderRoute()
 
     await screen.findByText('S-15')
-    const button = screen.getByRole('button', { name: 'Create snapshot' })
-    expect((button as HTMLButtonElement).disabled).toBe(true)
+
+    const button = screen.getByRole<HTMLButtonElement>('button', {
+      name: 'Create snapshot',
+    })
+
+    expect(button.disabled).toBe(true)
     expect(
       screen.getByText(/You have read access to this dataset/),
     ).toBeTruthy()

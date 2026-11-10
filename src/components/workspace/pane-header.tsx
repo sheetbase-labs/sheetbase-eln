@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import type { RefObject } from 'react'
 
 import { Icon } from '#/components/icons'
 import { PaneDataAccess } from '#/components/data-access/data-access-panel'
@@ -110,9 +111,10 @@ export function PaneHeader(props: PaneHeaderProps) {
           data-pane-path
           className="mx-path"
         >
-          {parents.map((crumb, index) => (
-            <span key={index} className="contents">
+          {parents.map((crumb) => (
+            <span key={crumb.href ?? crumb.label} className="contents">
               {crumb.href ? (
+                // react-doctor-disable-next-line react-doctor/no-prevent-default -- A plain click moves this pane to the crumb's page; every modified click falls through so the browser can open the link in a new tab or window.
                 <a
                   href={crumb.href}
                   className="mx-crumb is-link"
@@ -193,183 +195,231 @@ export function PaneHeader(props: PaneHeaderProps) {
         </DropdownMenu>
       ) : null}
       <span className="mx-sp" />
-      <span className="mx-acts">
-        {props.dataAccess ? <PaneDataAccess href={pane.href} /> : null}
-        <button
-          type="button"
-          className="mx-act is-opt"
-          aria-pressed={props.onShelf}
-          aria-label={
-            props.onShelf
-              ? t('projects.paneHeader.onShelf')
-              : t('projects.paneHeader.pin')
-          }
-          title={t('projects.paneHeader.pinTitle', {
-            label: props.onShelf
-              ? t('projects.paneHeader.onShelf')
-              : t('projects.paneHeader.pin'),
-          })}
-          onClick={props.onPin}
-        >
-          {props.onShelf ? (
-            <Icon name="pinOff" size={14} aria-hidden="true" />
-          ) : (
-            <Icon name="pin" size={14} aria-hidden="true" />
-          )}
-        </button>
-        {!props.primary ? (
-          <button
-            type="button"
-            className="mx-act is-opt"
-            aria-label={t('projects.paneHeader.makePrimary')}
-            title={t('projects.paneHeader.makePrimaryTitle', {
-              shortcut: key('mod+shift+p'),
-            })}
-            onClick={props.onMakePrimary}
-          >
-            <Icon name="edit" size={14} />
-          </button>
-        ) : null}
-        <button
-          type="button"
-          className="mx-act is-opt"
-          aria-pressed={props.maximized}
-          aria-label={
-            props.maximized
-              ? t('projects.paneHeader.restore')
-              : t('projects.paneHeader.maximise')
-          }
-          title={t('projects.paneHeader.shortcutTitle', {
-            label: props.maximized
-              ? t('projects.paneHeader.restore')
-              : t('projects.paneHeader.maximise'),
-            shortcut: key('mod+shift+enter'),
-          })}
-          onClick={props.onMaximize}
-        >
-          {props.maximized ? (
-            <Icon name="minimize" size={14} aria-hidden="true" />
-          ) : (
-            <Icon name="maximize" size={14} aria-hidden="true" />
-          )}
-        </button>
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            className="mx-act"
-            aria-label={t('projects.paneHeader.moreActions', { title })}
-          >
-            <Icon name="more" size={14} aria-hidden="true" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            // The menu hands focus back to its trigger when it closes. After a
-            // split that trigger sits in the original pane, and focusing it
-            // would make that pane active again instead of the new one.
-            finalFocus={() => {
-              if (!splitting.current) return true
-              splitting.current = false
-
-              return false
-            }}
-          >
-            <DropdownMenuItem onClick={() => split('row')} hint={key('mod+\\')}>
-              {t('projects.paneHeader.splitRight')}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={() => split('column')}
-              hint={key('mod+shift+\\')}
-            >
-              {t('projects.paneHeader.splitBelow')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {!props.primary ? (
-              <DropdownMenuItem
-                onClick={props.onMakePrimary}
-                hint={key('mod+shift+p')}
-              >
-                {t('projects.paneHeader.makePrimary')}
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuItem onClick={props.onPin} hint="P">
-              {props.onShelf
-                ? t('projects.paneHeader.removeFromShelf')
-                : t('projects.paneHeader.pin')}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={props.onToggleLink}
-              disabled={!link && !props.canLink}
-              hint={key('mod+l')}
-            >
-              {link
-                ? t('projects.paneHeader.unlink')
-                : t('projects.paneHeader.linkNext')}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={props.onMaximize}
-              hint={key('mod+shift+enter')}
-            >
-              {props.maximized
-                ? t('projects.paneHeader.restore')
-                : t('projects.paneHeader.maximise')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={props.onBack}
-              disabled={pane.trail.length === 0}
-              hint={key('mod+[')}
-            >
-              {t('projects.paneHeader.back')}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              onClick={props.onForward}
-              disabled={pane.forward.length === 0}
-              hint={key('mod+]')}
-            >
-              {t('projects.paneHeader.forward')}
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={props.onCopyLink}>
-              {t('projects.paneHeader.copyLink')}
-            </DropdownMenuItem>
-            {props.onShare ? (
-              <DropdownMenuItem onClick={props.onShare}>
-                {t('pwa.share.action')}
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuItem
-              onClick={props.onSaveTrail}
-              disabled={!props.trailTarget}
-            >
-              {props.trailTarget
-                ? t('projects.paneHeader.saveTrailOn', {
-                    target: props.trailTarget,
-                  })
-                : t('projects.paneHeader.saveTrail')}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={props.onClose}
-              disabled={!props.canClose}
-              hint={key('mod+w')}
-            >
-              {t('projects.paneHeader.closePane')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <button
-          type="button"
-          className="mx-act"
-          aria-label={t('projects.paneHeader.closeLabel', { title })}
-          title={t('projects.paneHeader.shortcutTitle', {
-            label: t('projects.paneHeader.closePane'),
-            shortcut: key('mod+w'),
-          })}
-          disabled={!props.canClose}
-          onClick={props.onClose}
-        >
-          <Icon name="x" size={14} aria-hidden="true" />
-        </button>
-      </span>
+      <PaneActions
+        props={props}
+        title={title}
+        onSplit={split}
+        splitting={splitting}
+      />
     </div>
+  )
+}
+
+/** The pane's action buttons: data access, pin, primary, maximise, overflow and close. */
+function PaneActions({
+  props,
+  title,
+  onSplit,
+  splitting,
+}: {
+  props: PaneHeaderProps
+  title: string
+  onSplit: (direction: 'row' | 'column') => void
+  splitting: RefObject<boolean>
+}) {
+  const { pane } = props
+
+  return (
+    <span className="mx-acts">
+      {props.dataAccess ? <PaneDataAccess href={pane.href} /> : null}
+      <button
+        type="button"
+        className="mx-act is-opt"
+        aria-pressed={props.onShelf}
+        aria-label={
+          props.onShelf
+            ? t('projects.paneHeader.onShelf')
+            : t('projects.paneHeader.pin')
+        }
+        title={t('projects.paneHeader.pinTitle', {
+          label: props.onShelf
+            ? t('projects.paneHeader.onShelf')
+            : t('projects.paneHeader.pin'),
+        })}
+        onClick={props.onPin}
+      >
+        {props.onShelf ? (
+          <Icon name="pinOff" size={14} aria-hidden="true" />
+        ) : (
+          <Icon name="pin" size={14} aria-hidden="true" />
+        )}
+      </button>
+      {!props.primary ? (
+        <button
+          type="button"
+          className="mx-act is-opt"
+          aria-label={t('projects.paneHeader.makePrimary')}
+          title={t('projects.paneHeader.makePrimaryTitle', {
+            shortcut: key('mod+shift+p'),
+          })}
+          onClick={props.onMakePrimary}
+        >
+          <Icon name="edit" size={14} />
+        </button>
+      ) : null}
+      <button
+        type="button"
+        className="mx-act is-opt"
+        aria-pressed={props.maximized}
+        aria-label={
+          props.maximized
+            ? t('projects.paneHeader.restore')
+            : t('projects.paneHeader.maximise')
+        }
+        title={t('projects.paneHeader.shortcutTitle', {
+          label: props.maximized
+            ? t('projects.paneHeader.restore')
+            : t('projects.paneHeader.maximise'),
+          shortcut: key('mod+shift+enter'),
+        })}
+        onClick={props.onMaximize}
+      >
+        {props.maximized ? (
+          <Icon name="minimize" size={14} aria-hidden="true" />
+        ) : (
+          <Icon name="maximize" size={14} aria-hidden="true" />
+        )}
+      </button>
+      <PaneMoreMenu
+        props={props}
+        title={title}
+        onSplit={onSplit}
+        splitting={splitting}
+      />
+      <button
+        type="button"
+        className="mx-act"
+        aria-label={t('projects.paneHeader.closeLabel', { title })}
+        title={t('projects.paneHeader.shortcutTitle', {
+          label: t('projects.paneHeader.closePane'),
+          shortcut: key('mod+w'),
+        })}
+        disabled={!props.canClose}
+        onClick={props.onClose}
+      >
+        <Icon name="x" size={14} aria-hidden="true" />
+      </button>
+    </span>
+  )
+}
+
+/** The pane's overflow menu: splitting, pinning, history, sharing and closing. */
+function PaneMoreMenu({
+  props,
+  title,
+  onSplit,
+  splitting,
+}: {
+  props: PaneHeaderProps
+  title: string
+  onSplit: (direction: 'row' | 'column') => void
+  splitting: RefObject<boolean>
+}) {
+  const { pane, link } = props
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className="mx-act"
+        aria-label={t('projects.paneHeader.moreActions', { title })}
+      >
+        <Icon name="more" size={14} aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        // The menu hands focus back to its trigger when it closes. After a
+        // split that trigger sits in the original pane, and focusing it
+        // would make that pane active again instead of the new one.
+        finalFocus={() => {
+          if (!splitting.current) return true
+          splitting.current = false
+
+          return false
+        }}
+      >
+        <DropdownMenuItem onClick={() => onSplit('row')} hint={key('mod+\\')}>
+          {t('projects.paneHeader.splitRight')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => onSplit('column')}
+          hint={key('mod+shift+\\')}
+        >
+          {t('projects.paneHeader.splitBelow')}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {!props.primary ? (
+          <DropdownMenuItem
+            onClick={props.onMakePrimary}
+            hint={key('mod+shift+p')}
+          >
+            {t('projects.paneHeader.makePrimary')}
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem onClick={props.onPin} hint="P">
+          {props.onShelf
+            ? t('projects.paneHeader.removeFromShelf')
+            : t('projects.paneHeader.pin')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={props.onToggleLink}
+          disabled={!link && !props.canLink}
+          hint={key('mod+l')}
+        >
+          {link
+            ? t('projects.paneHeader.unlink')
+            : t('projects.paneHeader.linkNext')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={props.onMaximize}
+          hint={key('mod+shift+enter')}
+        >
+          {props.maximized
+            ? t('projects.paneHeader.restore')
+            : t('projects.paneHeader.maximise')}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={props.onBack}
+          disabled={pane.trail.length === 0}
+          hint={key('mod+[')}
+        >
+          {t('projects.paneHeader.back')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={props.onForward}
+          disabled={pane.forward.length === 0}
+          hint={key('mod+]')}
+        >
+          {t('projects.paneHeader.forward')}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={props.onCopyLink}>
+          {t('projects.paneHeader.copyLink')}
+        </DropdownMenuItem>
+        {props.onShare ? (
+          <DropdownMenuItem onClick={props.onShare}>
+            {t('pwa.share.action')}
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem
+          onClick={props.onSaveTrail}
+          disabled={!props.trailTarget}
+        >
+          {props.trailTarget
+            ? t('projects.paneHeader.saveTrailOn', {
+                target: props.trailTarget,
+              })
+            : t('projects.paneHeader.saveTrail')}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={props.onClose}
+          disabled={!props.canClose}
+          hint={key('mod+w')}
+        >
+          {t('projects.paneHeader.closePane')}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

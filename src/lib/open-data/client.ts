@@ -2,6 +2,8 @@
  * Open tables, ontology lookup and publishing as the app reads and changes
  * them. Each function is a thin wrapper over one RPC or one table read.
  */
+import { z } from 'zod'
+
 import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 
@@ -81,6 +83,23 @@ export interface OntologyTermHit {
   shortForm?: string | null
   description?: string | null
 }
+
+/** A term as the ontology search endpoint sends it. */
+const ontologyTermHitSchema = z.object({
+  iri: z.string(),
+  label: z.string(),
+  ontology: z.string(),
+  shortForm: z.string().nullish(),
+  description: z.string().nullish(),
+})
+
+/** The endpoint's answer: the terms that matched, in its order. */
+const ontologySearchResponse = z.object({
+  terms: z.array(ontologyTermHitSchema),
+})
+
+/** The proxy's failure envelope, when it sent one. */
+const failureBodySchema = z.object({ message: z.string().optional() })
 
 export type RepositoryKind = 'zenodo' | 'invenio' | 'figshare' | 'dataverse'
 
@@ -231,14 +250,19 @@ export async function searchOntology(
   )
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => null)) as {
-      message?: string
-    } | null
+    const body = failureBodySchema.safeParse(await res.json().catch(() => null))
 
-    throw new Error(body?.message ?? 'Ontology search is not available.')
+    throw new Error(
+      (body.success ? body.data.message : undefined) ??
+        'Ontology search is not available.',
+    )
   }
 
-  return ((await res.json()) as { terms: OntologyTermHit[] }).terms
+  const body = ontologySearchResponse.safeParse(await res.json())
+
+  if (!body.success) throw new Error('Ontology search is not available.')
+
+  return body.data.terms
 }
 
 export const fetchPublicationTargets = (c: Lister) =>
@@ -360,6 +384,7 @@ df = spark.read.parquet("/tmp/<table>.parquet")`
  * messages for these calls are already plain; only a raw constraint failure
  * needs rewording.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught failure is untyped by definition: TypeScript's catch binding is unknown, and the checks below decide what it is.
 export function describeOpenDataError(error: unknown): string {
   if (!(error instanceof DataClientError)) {
     return error instanceof Error

@@ -170,23 +170,23 @@ export interface NotebookTemplateRequirementSummary {
   mappedTemplateParameterIds: string[]
 }
 
-export function parameterKindDetail(type: {
+/** What a template parameter's declared type accepts, for a preview label. */
+export interface ParameterTypeSummary {
   kind: string
   valueType?: string
   modelKey?: string
   contract?: { mode?: string }
-}): string {
+}
+
+export function parameterKindDetail(type: ParameterTypeSummary): string {
   if (type.kind === 'scalar') return `scalar · ${type.valueType ?? 'value'}`
 
   if (type.kind === 'record') return `record · ${type.modelKey ?? 'record'}`
 
   if (type.kind === 'dataset' || type.kind === 'dataset-version') {
-    const mode =
-      type.contract && typeof type.contract.mode === 'string'
-        ? ` · ${type.contract.mode}`
-        : ''
+    const mode = type.contract?.mode
 
-    return `${type.kind}${mode}`
+    return mode === undefined ? type.kind : `${type.kind} · ${mode}`
   }
 
   return type.kind
@@ -208,14 +208,7 @@ export function summarizeNotebookTemplateRequirements(
       id: parameter.id,
       key: parameter.key,
       label: parameter.label,
-      detail: parameterKindDetail(
-        parameter.type as {
-          kind: string
-          valueType?: string
-          modelKey?: string
-          contract?: { mode?: string }
-        },
-      ),
+      detail: parameterKindDetail(parameter.type),
       hasDefault: parameter.defaultValue !== undefined,
     }))
 

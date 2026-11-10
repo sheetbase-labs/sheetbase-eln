@@ -40,12 +40,13 @@ describe('parseSearchAnswer', () => {
     expect(out?.q).toBe('buffer')
     expect(out?.skipped).toEqual([])
 
-    const kids = out?.filter?.children as unknown as Array<{
-      field: string
-      value: unknown
-    }>
+    const kids = out?.filter?.children ?? []
 
-    expect(kids.map((c) => [c.field, c.value])).toEqual([
+    expect(
+      kids.map((child) =>
+        child.type === 'condition' ? [child.field, child.value] : [],
+      ),
+    ).toEqual([
       ['type', 'sample'],
       ['project', 'p-1'],
       ['updated', 7],

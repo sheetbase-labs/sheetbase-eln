@@ -4,21 +4,12 @@ import { t } from '#/copy'
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
 import { contractImpact } from '#/lib/data-contracts/impact'
-import type { ContractFieldShape } from '#/lib/data-contracts/impact'
 import { describeRule, kindLabel } from '#/lib/data-contracts/rules'
 import type { ContractTarget } from '#/lib/data-contracts/types'
 import { useContractForTarget } from './contract-data'
 
-/** The unit a field stores values in, from its quantity metadata. */
-export function storageUnitOf(quantity: unknown): string | null {
-  if (quantity && typeof quantity === 'object' && 'storageUnit' in quantity) {
-    const unit = (quantity as { storageUnit?: unknown }).storageUnit
-
-    return typeof unit === 'string' && unit !== '' ? unit : null
-  }
-
-  return null
-}
+/** The fields of the version about to be published, as the contract check reads them. */
+type ContractFieldDraft = Parameters<typeof contractImpact>[1][number]
 
 /**
  * Shown beside a version that is about to be published: the contract rules the
@@ -30,7 +21,7 @@ export function ContractImpactNotice({
   modelId,
 }: {
   target: ContractTarget
-  nextFields: ContractFieldShape[]
+  nextFields: ContractFieldDraft[]
   modelId: string
 }) {
   const contract = useContractForTarget(target)

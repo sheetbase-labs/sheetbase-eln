@@ -39,32 +39,51 @@ import { t } from '#/copy'
 
 const client = createDataClient()
 
-const SHORT_REASON = {
-  parser_unrecognised: 'parserUnrecognised',
-  parser_not_approved: 'parserNotApproved',
-  parser_unknown: 'parserUnknown',
-  parser_unsupported: 'parserUnsupported',
-  unsupported_format: 'notText',
-  unreadable_workbook: 'workbook',
-  webhook_unreachable: 'serviceDown',
-  webhook_timeout: 'serviceSlow',
-  webhook_no_key: 'noKey',
-  webhook_address_refused: 'addressRefused',
-  webhook_bad_answer: 'badAnswer',
-  webhook_error: 'serviceRefused',
-  webhook_refused: 'serviceRefused',
-  no_rows: 'noRows',
-  no_mapping: 'noMapping',
-  file_too_large: 'tooLarge',
-  empty_file: 'empty',
-} as const
+const SHORT_REASON_VALUES = [
+  'addressRefused',
+  'badAnswer',
+  'empty',
+  'noKey',
+  'noMapping',
+  'noRows',
+  'notText',
+  'parserNotApproved',
+  'parserUnknown',
+  'parserUnrecognised',
+  'parserUnsupported',
+  'serviceDown',
+  'serviceRefused',
+  'serviceSlow',
+  'tooLarge',
+  'unreadable',
+  'workbook',
+] as const
+
+type ShortReasonValue = (typeof SHORT_REASON_VALUES)[number]
+
+const SHORT_REASON: ReadonlyMap<string, ShortReasonValue> = new Map([
+  ['parser_unrecognised', 'parserUnrecognised'],
+  ['parser_not_approved', 'parserNotApproved'],
+  ['parser_unknown', 'parserUnknown'],
+  ['parser_unsupported', 'parserUnsupported'],
+  ['unsupported_format', 'notText'],
+  ['unreadable_workbook', 'workbook'],
+  ['webhook_unreachable', 'serviceDown'],
+  ['webhook_timeout', 'serviceSlow'],
+  ['webhook_no_key', 'noKey'],
+  ['webhook_address_refused', 'addressRefused'],
+  ['webhook_bad_answer', 'badAnswer'],
+  ['webhook_error', 'serviceRefused'],
+  ['webhook_refused', 'serviceRefused'],
+  ['no_rows', 'noRows'],
+  ['no_mapping', 'noMapping'],
+  ['file_too_large', 'tooLarge'],
+  ['empty_file', 'empty'],
+])
 
 /** One short line for the table; the full explanation goes in a tooltip. */
 function shortReason(code: string): string {
-  const key =
-    code in SHORT_REASON
-      ? SHORT_REASON[code as keyof typeof SHORT_REASON]
-      : 'unreadable'
+  const key = SHORT_REASON.get(code) ?? 'unreadable'
 
   return t(`data.intake.problems.short.${key}`)
 }
@@ -104,17 +123,45 @@ export function IntakeProblems({
   if (!rows.length && !imported) return null
 
   return (
-    <Section title={t('data.intake.problems.title')} count={rows.length}>
-      {rows.length ? (
-        <p className="m-0 text-body text-fg-muted">
-          {t('data.intake.problems.intro')}
-        </p>
-      ) : null}
-      {imported ? (
-        <p role="status" className="m-0 text-body">
-          {imported}
-        </p>
-      ) : null}
+    <ProblemsSection
+      rows={shown}
+      total={rows.length}
+      imported={imported}
+      showAll={showAll}
+      onToggleShowAll={() => setShowAll((open) => !open)}
+      workspaceId={workspaceId}
+      onImported={setImported}
+      canManage={canManage}
+      scope={scope}
+    />
+  )
+}
+
+/** The problems table and the actions that retry or import each read. */
+function ProblemsSection({
+  rows,
+  total,
+  imported,
+  showAll,
+  onToggleShowAll,
+  workspaceId,
+  canManage,
+  scope,
+  onImported,
+}: {
+  rows: IntakeProblem[]
+  total: number
+  imported: string
+  showAll: boolean
+  onToggleShowAll: () => void
+  workspaceId: string
+  canManage: boolean
+  scope: string
+  onImported: (message: string) => void
+}): React.ReactElement {
+  return (
+    <Section title={t('data.intake.problems.title')} count={total}>
+      <ProblemsSummary count={total} imported={imported} />
       <TableBox>
         <Table aria-label={t('data.intake.problems.listAria')}>
           <TableHeader>
@@ -132,33 +179,24 @@ export function IntakeProblems({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {shown.map((problem) => (
+            {rows.map((problem) => (
               <ProblemRow
                 key={problem.id}
                 problem={problem}
                 workspaceId={workspaceId}
                 canManage={canManage}
                 scope={scope}
-                onImported={setImported}
+                onImported={onImported}
               />
             ))}
           </TableBody>
         </Table>
       </TableBox>
-      {rows.length > PREVIEW_ROWS ? (
-        <div>
-          <Button
-            size="sm"
-            variant="quiet"
-            aria-expanded={showAll}
-            onClick={() => setShowAll((open) => !open)}
-          >
-            {showAll
-              ? t('data.intake.problems.showFewer')
-              : t('data.intake.problems.showAll', { count: rows.length })}
-          </Button>
-        </div>
-      ) : null}
+      <ShowAllToggle
+        count={total}
+        showAll={showAll}
+        onToggle={onToggleShowAll}
+      />
     </Section>
   )
 }
@@ -267,45 +305,17 @@ function ProblemRow({
           </span>
         </TableCell>
         <TableCell>
-          {canManage ? (
-            <div className="flex justify-end gap-2 whitespace-nowrap">
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={busy || !problem.file_record_id}
-                aria-label={t('data.intake.problems.tryAgainAria', {
-                  file: problem.file_name,
-                })}
-                onClick={() => retry.mutate(null)}
-              >
-                {retry.isPending
-                  ? t('data.intake.problems.trying')
-                  : t('data.intake.problems.tryAgain')}
-              </Button>
-              <Button
-                size="sm"
-                disabled={busy || !problem.file_record_id}
-                aria-expanded={choosing}
-                aria-label={t('data.intake.problems.chooseParserAria', {
-                  file: problem.file_name,
-                })}
-                onClick={() => setChoosing((open) => !open)}
-              >
-                {t('data.intake.problems.chooseParser')}
-              </Button>
-              <Button
-                size="sm"
-                variant="quiet"
-                disabled={busy}
-                aria-label={t('data.intake.problems.dismissAria', {
-                  file: problem.file_name,
-                })}
-                onClick={() => dismiss.mutate()}
-              >
-                {t('data.intake.problems.dismiss')}
-              </Button>
-            </div>
-          ) : null}
+          <ProblemActions
+            file={problem.file_name}
+            canManage={canManage}
+            busy={busy}
+            retryable={Boolean(problem.file_record_id)}
+            choosing={choosing}
+            retrying={retry.isPending}
+            onRetry={() => retry.mutate(null)}
+            onToggleChoosing={() => setChoosing((open) => !open)}
+            onDismiss={() => dismiss.mutate()}
+          />
         </TableCell>
       </TableRow>
       {choosing ? (
@@ -348,5 +358,124 @@ function ProblemRow({
         </TableRow>
       ) : null}
     </>
+  )
+}
+
+/** The section's lead-in and the message last import left. */
+function ProblemsSummary({
+  count,
+  imported,
+}: {
+  count: number
+  imported: string
+}): React.ReactElement {
+  return (
+    <>
+      {count ? (
+        <p className="m-0 text-body text-fg-muted">
+          {t('data.intake.problems.intro')}
+        </p>
+      ) : null}
+      {imported ? (
+        <p role="status" className="m-0 text-body">
+          {imported}
+        </p>
+      ) : null}
+    </>
+  )
+}
+
+/** Show every failed read, or go back to the preview. */
+function ShowAllToggle({
+  count,
+  showAll,
+  onToggle,
+}: {
+  count: number
+  showAll: boolean
+  onToggle: () => void
+}): React.ReactElement | null {
+  if (count <= PREVIEW_ROWS) return null
+
+  return (
+    <div>
+      <Button
+        size="sm"
+        variant="quiet"
+        aria-expanded={showAll}
+        onClick={onToggle}
+      >
+        {showAll
+          ? t('data.intake.problems.showFewer')
+          : t('data.intake.problems.showAll', { count })}
+      </Button>
+    </div>
+  )
+}
+
+/** The row's actions: try again, pick a parser, or dismiss the read. */
+function ProblemActions({
+  file,
+  canManage,
+  busy,
+  retryable,
+  choosing,
+  retrying,
+  onRetry,
+  onToggleChoosing,
+  onDismiss,
+}: {
+  file: string
+  canManage: boolean
+  busy: boolean
+  retryable: boolean
+  choosing: boolean
+  retrying: boolean
+  onRetry: () => void
+  onToggleChoosing: () => void
+  onDismiss: () => void
+}): React.ReactElement {
+  return (
+    <TableCell>
+      {canManage ? (
+        <div className="flex justify-end gap-2 whitespace-nowrap">
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={busy || !retryable}
+            aria-label={t('data.intake.problems.tryAgainAria', {
+              file: file,
+            })}
+            onClick={onRetry}
+          >
+            {retrying
+              ? t('data.intake.problems.trying')
+              : t('data.intake.problems.tryAgain')}
+          </Button>
+          <Button
+            size="sm"
+            disabled={busy || !retryable}
+            aria-expanded={choosing}
+            aria-label={t('data.intake.problems.chooseParserAria', {
+              file: file,
+            })}
+            onClick={onToggleChoosing}
+          >
+            {t('data.intake.problems.chooseParser')}
+          </Button>
+          <Button
+            size="sm"
+            variant="quiet"
+            disabled={busy}
+            aria-label={t('data.intake.problems.dismissAria', {
+              file: file,
+            })}
+            onClick={onDismiss}
+          >
+            {t('data.intake.problems.dismiss')}
+          </Button>
+        </div>
+      ) : null}
+    </TableCell>
   )
 }

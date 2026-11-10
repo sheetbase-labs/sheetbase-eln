@@ -6,6 +6,7 @@ import {
   verify,
 } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import {
   encryptPayload,
@@ -162,7 +163,11 @@ describe('sendWebPush', () => {
   it('posts the encrypted message with the VAPID header and reports it sent', async () => {
     const device = makeDevice()
     const keys = generateVapidKeys()
-    const fetchImpl = vi.fn(async () => new Response(null, { status: 201 }))
+
+    const fetchImpl = vi.fn(
+      async (_input: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(null, { status: 201 }),
+    )
 
     const outcome = await sendWebPush(
       { endpoint: 'https://push.example.test/send/abc', ...device },
@@ -173,19 +178,15 @@ describe('sendWebPush', () => {
 
     expect(outcome).toEqual({ kind: 'sent' })
 
-    const [url, init] = fetchImpl.mock.calls[0] as unknown as [
-      string,
-      RequestInit,
-    ]
+    const [url, init] = fetchImpl.mock.calls[0]
 
     expect(url).toBe('https://push.example.test/send/abc')
-    const headers = init.headers as Record<string, string>
-    expect(headers['Content-Encoding']).toBe('aes128gcm')
-    expect(headers.Authorization).toMatch(/^vapid t=.+, k=.+$/)
-    expect(headers.TTL).toBeTruthy()
-    expect(
-      JSON.parse(device.decrypt(Buffer.from(init.body as Uint8Array))),
-    ).toEqual(message)
+    const headers = new Headers(init?.headers)
+    expect(headers.get('Content-Encoding')).toBe('aes128gcm')
+    expect(headers.get('Authorization')).toMatch(/^vapid t=.+, k=.+$/)
+    expect(headers.get('TTL')).toBeTruthy()
+    const body = z.instanceof(Uint8Array).parse(init?.body)
+    expect(JSON.parse(device.decrypt(Buffer.from(body)))).toEqual(message)
   })
 
   it.each([

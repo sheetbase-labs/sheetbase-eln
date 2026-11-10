@@ -14,6 +14,7 @@ export interface CheckResult {
   status: CheckStatus
   /** What was found. */
   detail: string
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- A check records the JSONB evidence it gathered; a stored run is decoded against z.record(z.string(), z.json()) when it is read back.
   evidence: Record<string, unknown>
   durationMs: number
 }

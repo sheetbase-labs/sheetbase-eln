@@ -8,10 +8,15 @@ import {
   unsharedRecords,
   validClientName,
 } from './client-sharing'
+import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 
-function stub(overrides: Record<string, unknown>): DataClient {
-  return overrides as unknown as DataClient
+/**
+ * The real client with the members a test drives replaced, so each test shows
+ * exactly which transport calls it exercises.
+ */
+function stub<Overrides extends object>(overrides: Overrides): DataClient {
+  return Object.assign(createDataClient(), overrides)
 }
 
 describe('validClientName', () => {
@@ -54,9 +59,12 @@ describe('createClientOrganisation', () => {
 
 describe('sharing', () => {
   it('asks only for approved records in the client’s own projects', async () => {
-    const list = vi.fn(async () => [])
+    const list = vi.fn<(resource: string, query?: string) => Promise<never[]>>(
+      async () => [],
+    )
+
     await fetchShareableRecords(stub({ list }), 'ws-1', 'client-1')
-    const query = String((list.mock.calls[0] as unknown[])[1])
+    const query = String(list.mock.calls[0]?.[1])
     expect(query).toContain('status=eq.approved')
     expect(query).toContain('projects!inner(client_id)')
     expect(query).toContain('projects.client_id=eq.client-1')

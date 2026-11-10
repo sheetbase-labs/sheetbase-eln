@@ -20,7 +20,7 @@ function fieldDef(
   return {
     id: '11111111-0000-4000-8000-000000000001',
     workspaceId: '20000000-0000-4000-8000-000000000001',
-    kind: 'experiment',
+    kind: 'sample',
     fieldName: 'organism',
     label: 'Organism',
     description: null,
@@ -30,8 +30,9 @@ function fieldDef(
     defaultValue: null,
     unit: null,
     validation: {},
+    lifecycle: 'active',
     ...overrides,
-  } as RecordFieldDefinition
+  }
 }
 
 function citation(overrides: Partial<AiCitation> = {}): AiCitation {

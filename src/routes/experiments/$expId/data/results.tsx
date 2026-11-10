@@ -124,7 +124,173 @@ function ResultsTab() {
 
   const [open, setOpen] = useState(false)
 
-  const datasetColumns: RegistryColumn<DatasetSummaryWire>[] = [
+  const datasetColumns = datasetColumnsFor(expId)
+
+  const decision = record.data?.decision ?? null
+
+  const decisionLabel = decision
+    ? (DECISIONS.find((d) => d.value === decision)?.label ?? decision)
+    : t('projects.expResults.notRecorded')
+
+  const decisionDialog = (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className="w-[min(440px,calc(100vw-32px))]">
+        <DialogHeader title={t('projects.expResults.record')} />
+        <DecisionForm
+          expId={expId}
+          current={decision}
+          notes={record.data?.decision_notes ?? ''}
+          onDone={() => {
+            setOpen(false)
+            void queryClient.invalidateQueries({
+              queryKey: ['ui-port', 'experiment', 'decision', expId],
+            })
+          }}
+        />
+      </DialogContent>
+    </Dialog>
+  )
+
+  if (
+    analyses.data?.length &&
+    analyses.data.every((view) => view.charts.length > 0)
+  ) {
+    return (
+      <>
+        <ResultsWorkspace
+          expId={expId}
+          views={analyses.data}
+          decision={{
+            label: decisionLabel,
+            notes: record.data?.decision_notes ?? null,
+            action: (
+              <Button onClick={() => setOpen(true)}>
+                {decision
+                  ? t('projects.expResults.change')
+                  : t('projects.expResults.record')}
+              </Button>
+            ),
+          }}
+        />
+        {decisionDialog}
+      </>
+    )
+  }
+
+  return (
+    <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
+      <AnalysesSection expId={expId} analyses={analyses.data ?? []} />
+      <DatasetsSection
+        expId={expId}
+        datasets={datasets.data ?? []}
+        columns={datasetColumns}
+      />
+      <DecisionSection
+        label={decisionLabel}
+        buttonLabel={
+          decision
+            ? t('projects.expResults.change')
+            : t('projects.expResults.record')
+        }
+        notes={record.data?.decision_notes ?? null}
+        onChange={() => setOpen(true)}
+      />
+
+      {decisionDialog}
+    </div>
+  )
+}
+
+function DecisionForm({
+  expId,
+  current,
+  notes,
+  onDone,
+}: {
+  expId: string
+  current: string | null
+  notes: string
+  onDone: () => void
+}) {
+  const [decision, setDecision] = useState(() => current ?? 'supported')
+  const [note, setNote] = useState(() => notes)
+
+  const save = useMutation({
+    mutationFn: () =>
+      notebookDataClient.rpc('set_experiment_decision', {
+        p_record_id: expId,
+        p_decision: decision,
+        p_notes: note.trim() || null,
+      }),
+    onSuccess: () => {
+      toast(t('projects.expResults.recorded'))
+      onDone()
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('projects.expResults.recordFailed'),
+      )
+    },
+  })
+
+  return (
+    <>
+      <DialogBody>
+        {/* A group, not a Field: a label around three buttons would name the
+            first one after all of them. */}
+        <div className="flex flex-col gap-1.5">
+          <span id="decision-label" className="text-label font-medium">
+            {t('projects.expResults.decision')}
+          </span>
+          <div
+            role="radiogroup"
+            aria-labelledby="decision-label"
+            className="flex gap-1.5"
+          >
+            {DECISIONS.map((d) => (
+              <Button
+                key={d.value}
+                role="radio"
+                aria-checked={decision === d.value}
+                variant={decision === d.value ? 'primary' : 'secondary'}
+                onClick={() => setDecision(d.value)}
+              >
+                {d.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <Field
+          label={t('projects.expResults.note')}
+          hint={t('projects.expResults.optional')}
+        >
+          <Input value={note} onChange={(e) => setNote(e.target.value)} />
+        </Field>
+      </DialogBody>
+      <DialogFooter>
+        <span className="flex-1" />
+        <Button onClick={onDone}>{t('common.actions.cancel')}</Button>
+        <Button
+          variant="primary"
+          disabled={save.isPending}
+          onClick={() => save.mutate()}
+        >
+          {save.isPending
+            ? t('common.states.saving')
+            : t('common.actions.save')}
+        </Button>
+      </DialogFooter>
+    </>
+  )
+}
+
+/** The columns of the result datasets table; Analyse opens the studio on that dataset. */
+function datasetColumnsFor(
+  expId: string,
+): RegistryColumn<DatasetSummaryWire>[] {
+  return [
     {
       id: 'id',
       header: t('projects.expResults.id'),
@@ -195,238 +361,126 @@ function ResultsTab() {
       meta: { cellClassName: 'text-right' },
     },
   ]
+}
 
-  const decision = record.data?.decision ?? null
-
-  const decisionLabel = decision
-    ? (DECISIONS.find((d) => d.value === decision)?.label ?? decision)
-    : t('projects.expResults.notRecorded')
-
-  const decisionDialog = (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="w-[min(440px,calc(100vw-32px))]">
-        <DialogHeader title={t('projects.expResults.record')} />
-        <DecisionForm
-          expId={expId}
-          current={decision}
-          notes={record.data?.decision_notes ?? ''}
-          onDone={() => {
-            setOpen(false)
-            void queryClient.invalidateQueries({
-              queryKey: ['ui-port', 'experiment', 'decision', expId],
-            })
-          }}
-        />
-      </DialogContent>
-    </Dialog>
-  )
-
-  if (analyses.data?.length && analyses.data.every((view) => view.charts[0])) {
-    return (
-      <>
-        <ResultsWorkspace
-          expId={expId}
-          views={analyses.data}
-          decision={{
-            label: decisionLabel,
-            notes: record.data?.decision_notes ?? null,
-            action: (
-              <Button onClick={() => setOpen(true)}>
-                {decision
-                  ? t('projects.expResults.change')
-                  : t('projects.expResults.record')}
-              </Button>
-            ),
-          }}
-        />
-        {decisionDialog}
-      </>
-    )
-  }
-
+/** The analyses cited by this experiment, or the empty state that invites one. */
+function AnalysesSection({
+  expId,
+  analyses,
+}: {
+  expId: string
+  analyses: AnalysisSummaryWire[]
+}) {
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
-      <Section
-        title={t('projects.expResults.analyses')}
-        count={analyses.data?.length ?? 0}
-      >
-        {analyses.data?.length ? (
-          <ul className="m-0 flex list-none flex-col gap-1 p-0">
-            {analyses.data.map((a) => (
-              <li key={a.id}>
-                <ObjectLink kind="analysis" id={a.id} mono={false}>
-                  <span className="mono text-fg-muted">{a.display_id}</span>{' '}
-                  {a.name}
-                </ObjectLink>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState
-            className="py-2"
-            title={t('projects.expResults.noAnalyses.title')}
-            description={t('projects.expResults.noAnalyses.body')}
-            action={
-              <Button
-                size="sm"
-                nativeButton={false}
-                render={
-                  <Link
-                    to="/analysis/new"
-                    search={{
-                      mode: 'chart',
-                      experiment: expId,
-                      returnTo: `/experiments/${expId}/data/results`,
-                    }}
-                  />
-                }
-              >
-                {t('projects.expResults.newAnalysis')}
-              </Button>
-            }
-          />
-        )}
-      </Section>
-
-      <Section
-        title={t('projects.expResults.datasets')}
-        count={datasets.data?.length ?? 0}
-        action={
-          <Button
-            size="sm"
-            nativeButton={false}
-            render={<Link to="/import" search={{ experiment: expId }} />}
-          >
-            {t('projects.expDatasets.import')}
-          </Button>
-        }
-      >
-        {datasets.data?.length ? (
-          <TableBox>
-            <RegistryGrid
-              label={t('projects.expResults.resultDatasets')}
-              rows={datasets.data}
-              columns={datasetColumns}
-              getRowId={(d) => d.name}
-              selectable={false}
-            />
-          </TableBox>
-        ) : (
-          <EmptyState
-            className="py-2"
-            title={t('projects.expResults.noDatasets.title')}
-            description={t('projects.expResults.noDatasets.body')}
-          />
-        )}
-      </Section>
-
-      <Section
-        title={t('projects.expResults.decision')}
-        action={
-          <Button onClick={() => setOpen(true)}>
-            {decision
-              ? t('projects.expResults.change')
-              : t('projects.expResults.record')}
-          </Button>
-        }
-      >
-        <p className="m-0 text-body">
-          <span className="font-medium">{decisionLabel}</span>
-          {record.data?.decision_notes ? (
-            <span className="text-fg-muted">
-              {' '}
-              · {record.data.decision_notes}
-            </span>
-          ) : null}
-        </p>
-      </Section>
-
-      {decisionDialog}
-    </div>
+    <Section title={t('projects.expResults.analyses')} count={analyses.length}>
+      {analyses.length > 0 ? (
+        <ul className="m-0 flex list-none flex-col gap-1 p-0">
+          {analyses.map((analysis) => (
+            <li key={analysis.id}>
+              <ObjectLink kind="analysis" id={analysis.id} mono={false}>
+                <span className="mono text-fg-muted">
+                  {analysis.display_id}
+                </span>{' '}
+                {analysis.name}
+              </ObjectLink>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <EmptyState
+          className="py-2"
+          title={t('projects.expResults.noAnalyses.title')}
+          description={t('projects.expResults.noAnalyses.body')}
+          action={
+            <Button
+              size="sm"
+              nativeButton={false}
+              render={
+                <Link
+                  to="/analysis/new"
+                  search={{
+                    mode: 'chart',
+                    experiment: expId,
+                    returnTo: `/experiments/${expId}/data/results`,
+                  }}
+                />
+              }
+            >
+              {t('projects.expResults.newAnalysis')}
+            </Button>
+          }
+        />
+      )}
+    </Section>
   )
 }
 
-function DecisionForm({
+/** The datasets this experiment produced, or the empty state that invites an import. */
+function DatasetsSection({
   expId,
-  current,
-  notes,
-  onDone,
+  datasets,
+  columns,
 }: {
   expId: string
-  current: string | null
-  notes: string
-  onDone: () => void
+  datasets: DatasetSummaryWire[]
+  columns: RegistryColumn<DatasetSummaryWire>[]
 }) {
-  const [decision, setDecision] = useState(current ?? 'supported')
-  const [note, setNote] = useState(notes)
-
-  const save = useMutation({
-    mutationFn: () =>
-      notebookDataClient.rpc('set_experiment_decision', {
-        p_record_id: expId,
-        p_decision: decision,
-        p_notes: note.trim() || null,
-      }),
-    onSuccess: () => {
-      toast(t('projects.expResults.recorded'))
-      onDone()
-    },
-    onError: (error: unknown) => {
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : t('projects.expResults.recordFailed'),
-      )
-    },
-  })
-
   return (
-    <>
-      <DialogBody>
-        {/* A group, not a Field: a label around three buttons would name the
-            first one after all of them. */}
-        <div className="flex flex-col gap-1.5">
-          <span id="decision-label" className="text-label font-medium">
-            {t('projects.expResults.decision')}
-          </span>
-          <div
-            role="radiogroup"
-            aria-labelledby="decision-label"
-            className="flex gap-1.5"
-          >
-            {DECISIONS.map((d) => (
-              <Button
-                key={d.value}
-                role="radio"
-                aria-checked={decision === d.value}
-                variant={decision === d.value ? 'primary' : 'secondary'}
-                onClick={() => setDecision(d.value)}
-              >
-                {d.label}
-              </Button>
-            ))}
-          </div>
-        </div>
-        <Field
-          label={t('projects.expResults.note')}
-          hint={t('projects.expResults.optional')}
-        >
-          <Input value={note} onChange={(e) => setNote(e.target.value)} />
-        </Field>
-      </DialogBody>
-      <DialogFooter>
-        <span className="flex-1" />
-        <Button onClick={onDone}>{t('common.actions.cancel')}</Button>
+    <Section
+      title={t('projects.expResults.datasets')}
+      count={datasets.length}
+      action={
         <Button
-          variant="primary"
-          disabled={save.isPending}
-          onClick={() => save.mutate()}
+          size="sm"
+          nativeButton={false}
+          render={<Link to="/import" search={{ experiment: expId }} />}
         >
-          {save.isPending
-            ? t('common.states.saving')
-            : t('common.actions.save')}
+          {t('projects.expDatasets.import')}
         </Button>
-      </DialogFooter>
-    </>
+      }
+    >
+      {datasets.length > 0 ? (
+        <TableBox>
+          <RegistryGrid
+            label={t('projects.expResults.resultDatasets')}
+            rows={datasets}
+            columns={columns}
+            getRowId={(dataset) => dataset.name}
+            selectable={false}
+          />
+        </TableBox>
+      ) : (
+        <EmptyState
+          className="py-2"
+          title={t('projects.expResults.noDatasets.title')}
+          description={t('projects.expResults.noDatasets.body')}
+        />
+      )}
+    </Section>
+  )
+}
+
+/** The decision recorded for this experiment, with the control that records a new one. */
+function DecisionSection({
+  label,
+  buttonLabel,
+  notes,
+  onChange,
+}: {
+  label: string
+  buttonLabel: string
+  notes: string | null
+  onChange: () => void
+}) {
+  return (
+    <Section
+      title={t('projects.expResults.decision')}
+      action={<Button onClick={onChange}>{buttonLabel}</Button>}
+    >
+      <p className="m-0 text-body">
+        <span className="font-medium">{label}</span>
+        {notes ? <span className="text-fg-muted"> · {notes}</span> : null}
+      </p>
+    </Section>
   )
 }

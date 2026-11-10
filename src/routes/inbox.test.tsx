@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
-import { itemLink, runLink, Route, rowKey } from './inbox'
+import { Route } from './inbox'
+import { itemLink, rowKey, runLink } from '#/lib/work-items/inbox-rows'
 import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
 import { WorkspaceNavigationContext } from '#/components/workspace/workspace-navigation'
 import type { WorkspaceNavigation } from '#/components/workspace/workspace-navigation'
@@ -249,7 +250,7 @@ function renderInbox(workspace: WorkspaceNavigation | null = null) {
 }
 
 function currentRow() {
-  return document.querySelector('[role="listitem"][aria-current]')
+  return document.querySelector('li[aria-current]')
 }
 
 describe('Inbox needs-action predicate (QA2-Inbox-1)', () => {
@@ -566,14 +567,14 @@ describe('Inbox list matches the active filter (QA3-lists-inbox-1)', () => {
       const { getByRole, queryByRole } = renderInbox()
       // Every row is undated, so the Later bucket is the tab's only group and
       // opens expanded; there is nothing left to expand.
-      expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(13)
+      expect(document.querySelectorAll('li')).toHaveLength(13)
       expect(queryByRole('button', { name: /^Later · / })).toBeNull()
       fireEvent.click(getByRole('button', { name: /^Reviews 1$/ }))
-      const rows = document.querySelectorAll('[role="listitem"]')
+      const rows = document.querySelectorAll('li')
       expect(rows).toHaveLength(1)
       expect(rows[0].textContent).toContain('First review')
       fireEvent.click(getByRole('button', { name: /^Data issues 12$/ }))
-      expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(12)
+      expect(document.querySelectorAll('li')).toHaveLength(12)
     } finally {
       items.length = 0
       items.push(...base)
@@ -589,13 +590,13 @@ describe('Inbox Later bucket default (QA3-lists-inbox-2)', () => {
 
     try {
       const { getByRole, queryByRole } = renderInbox()
-      expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(2)
+      expect(document.querySelectorAll('li')).toHaveLength(2)
       expect(queryByRole('button', { name: /^Later · / })).toBeNull()
       // The bucket can still be collapsed explicitly, and then expanded again.
       fireEvent.click(getByRole('button', { name: 'Collapse' }))
-      expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(0)
+      expect(document.querySelectorAll('li')).toHaveLength(0)
       fireEvent.click(getByRole('button', { name: /^Later · 2 items$/ }))
-      expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(2)
+      expect(document.querySelectorAll('li')).toHaveLength(2)
     } finally {
       items.length = 0
       items.push(...base)
@@ -621,9 +622,9 @@ describe('Inbox Later bucket default (QA3-lists-inbox-2)', () => {
       const { getByRole } = renderInbox()
       // Today holds the due-dated pair; the undated flag stays behind the
       // bucket's own count.
-      expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(2)
+      expect(document.querySelectorAll('li')).toHaveLength(2)
       fireEvent.click(getByRole('button', { name: /^Later · 1 items$/ }))
-      expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(3)
+      expect(document.querySelectorAll('li')).toHaveLength(3)
     } finally {
       items.length = 0
       items.push(...base)
@@ -653,10 +654,9 @@ describe('Inbox Later bucket default (QA3-lists-inbox-2)', () => {
       fireEvent.click(getByRole('tab', { name: /^Done today/ }))
       // The tab strip reads 7; the header states the same total, with the
       // undated 5 accounted for by the bucket button below.
-      expect(document.querySelectorAll('[role="listitem"]')).toHaveLength(2)
+      expect(document.querySelectorAll('li')).toHaveLength(2)
       expect(
-        document.querySelector('[role="list"] [role="presentation"]')
-          ?.textContent,
+        document.querySelector('ul [role="presentation"]')?.textContent,
       ).toBe('Done today7')
       expect(getByRole('button', { name: /^Later · 5 items$/ })).toBeTruthy()
     } finally {

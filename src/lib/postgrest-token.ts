@@ -12,6 +12,7 @@
  * - iat/exp: short lifetime; minted per proxied request
  */
 import { SignJWT } from 'jose'
+import type { JWTPayload } from 'jose'
 
 import { hmacKey } from './hmac-key'
 
@@ -31,7 +32,7 @@ export async function mintPostgrestToken(
 ): Promise<string> {
   const ttl = input.ttlSeconds ?? 120
 
-  const claims: Record<string, unknown> = {
+  const claims: JWTPayload = {
     sub: input.userId,
     workspace_id: input.workspaceId,
     session_id: input.sessionId,

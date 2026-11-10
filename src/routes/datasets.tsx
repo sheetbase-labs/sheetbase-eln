@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { z } from 'zod'
 import { ObjectLink } from '#/components/ui/object-link'
 import {
   Link,
@@ -32,6 +33,7 @@ import {
   useRowFocus,
 } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import type { OnChangeFn, RowSelectionState } from '@tanstack/react-table'
 import { Tabs } from '#/components/ui/tabs'
 import { DatasetInspector } from '#/components/datasets/dataset-inspector'
 import {
@@ -48,6 +50,57 @@ const tabs = ['all', 'mine', 'issues', 'locked', 'archived'] as const
 
 type DatasetTab = (typeof tabs)[number]
 
+/** Whether a dataset belongs in a list tab, for the person signed in. */
+function inDatasetTab(
+  row: DatasetListRow,
+  tabId: DatasetTab,
+  userId: string,
+): boolean {
+  // An archived dataset is out of every working list.
+  if (tabId === 'archived') return row.archived
+
+  if (row.archived) return false
+
+  if (tabId === 'all') return true
+
+  if (tabId === 'mine') return row.createdByUserId === userId
+
+  if (tabId === 'issues') return row.issues > 0
+
+  return row.reviewState === 'locked'
+}
+
+/** What the registry reads from the URL. */
+interface DatasetsSearch {
+  q?: string
+  tab?: DatasetTab | 'pipelines' | 'versions'
+  dataset?: string
+  archived?: boolean
+}
+
+/** The registry's search parameters; a value the URL cannot express reads as absent. */
+const DATASETS_SEARCH = z.object({
+  q: z.string().optional().catch(undefined),
+  dataset: z.string().optional().catch(undefined),
+  archived: z
+    .union([z.literal(true), z.literal('1')])
+    .optional()
+    .transform((value) => (value === undefined ? undefined : true))
+    .catch(undefined),
+  tab: z
+    .enum([
+      'all',
+      'mine',
+      'issues',
+      'locked',
+      'archived',
+      'pipelines',
+      'versions',
+    ])
+    .optional()
+    .catch(undefined),
+})
+
 const tabLabel: Record<DatasetTab, string> = {
   all: t('data.datasetsList.all'),
   mine: t('data.datasetsList.mine'),
@@ -60,28 +113,12 @@ const tabLabel: Record<DatasetTab, string> = {
  * dataset_list_summary. The explorer/rows/snapshots/compare child routes and
  * the import flow follow. */
 export const Route = createFileRoute('/datasets')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): {
-    q?: string
-    tab?: DatasetTab | 'pipelines' | 'versions'
-    dataset?: string
-    archived?: boolean
-  } => ({
-    q: typeof search.q === 'string' ? search.q : undefined,
-    dataset: typeof search.dataset === 'string' ? search.dataset : undefined,
-    archived: search.archived === true || search.archived === '1' || undefined,
-    tab:
-      search.tab === 'mine' ||
-      search.tab === 'issues' ||
-      search.tab === 'locked' ||
-      search.tab === 'archived' ||
-      search.tab === 'all' ||
-      search.tab === 'pipelines' ||
-      search.tab === 'versions'
-        ? search.tab
-        : undefined,
-  }),
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- TanStack Router hands validateSearch the raw URL values as Record<string, unknown>; DATASETS_SEARCH decodes every key this route reads.
+  validateSearch: (search: Record<string, unknown>): DatasetsSearch => {
+    const parsed = DATASETS_SEARCH.safeParse(search)
+
+    return parsed.success ? parsed.data : {}
+  },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
 
@@ -116,7 +153,7 @@ function DatasetsList() {
   )
 
   const query = useDatasetSummaries()
-  const rows = query.data ?? []
+  const rows = useMemo(() => query.data ?? [], [query.data])
 
   const tab: DatasetTab =
     search.tab === 'mine' ||
@@ -129,30 +166,23 @@ function DatasetsList() {
   const [selected, setSelected] = useState<string | null>(null)
   const view = useListView('datasets')
 
-  const inTab = (r: DatasetListRow, tabId: DatasetTab): boolean =>
-    // An archived dataset is out of every working list.
-    tabId === 'archived'
-      ? r.archived
-      : r.archived
-        ? false
-        : tabId === 'all'
-          ? true
-          : tabId === 'mine'
-            ? r.createdByUserId === context.user.id
-            : tabId === 'issues'
-              ? r.issues > 0
-              : r.reviewState === 'locked'
+  const userId = context.user.id
 
-  const counts = useMemo(
-    () =>
-      Object.fromEntries(
-        tabs.map((tabId) => [
-          tabId,
-          rows.filter((r) => inTab(r, tabId)).length,
-        ]),
-      ) as Record<DatasetTab, number>,
-    [rows, context.user.id],
-  )
+  const counts = useMemo(() => {
+    const counted: Record<DatasetTab, number> = {
+      all: 0,
+      mine: 0,
+      issues: 0,
+      locked: 0,
+      archived: 0,
+    }
+
+    for (const tabId of tabs) {
+      counted[tabId] = rows.filter((r) => inDatasetTab(r, tabId, userId)).length
+    }
+
+    return counted
+  }, [rows, userId])
 
   // Most recently updated first, until a column header is clicked.
   const sorted = useMemo(
@@ -164,7 +194,7 @@ function DatasetsList() {
   const hasProjectAccess = useHasProjectAccess()
 
   const visible = sorted
-    .filter((r) => inTab(r, tab))
+    .filter((r) => inDatasetTab(r, tab, userId))
     .filter(
       (r) =>
         !q || [r.id, r.name, r.model].some((v) => v.toLowerCase().includes(q)),
@@ -255,158 +285,312 @@ function DatasetsList() {
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
-        <ListHeader
-          title={t('data.datasetsList.datasets')}
-          total={query.isPending ? undefined : rows.length}
-          actions={
-            <>
-              {canConnect ? (
-                <Button
-                  nativeButton={false}
-                  render={<Link to="/settings/lab/instruments" />}
-                >
-                  {t('data.datasetsList.connectInstrument')}
-                </Button>
-              ) : null}
-              {canImport ? (
-                <Button
-                  variant="primary"
-                  icon="upload"
-                  nativeButton={false}
-                  render={<Link to="/import" />}
-                >
-                  {t('data.datasetsList.importData')}
-                </Button>
-              ) : (
-                <ReadOnlyNote>
-                  {t('common.readOnly.cannotAdd', {
-                    things: t('common.readOnly.things.datasets'),
-                  })}
-                </ReadOnlyNote>
-              )}
-            </>
-          }
-          tabs={
-            <Tabs
-              mode="url"
-              label={t('data.datasetsList.datasetLists')}
-              value={tab}
-              items={tabs.map((tabId) => ({
-                key: tabId,
-                label: tabLabel[tabId],
-                count: query.isPending ? undefined : counts[tabId],
-                link: {
-                  to: '/datasets',
-                  search: {
-                    tab: tabId === 'all' ? undefined : tabId,
-                    q: search.q,
-                  },
-                },
-              }))}
-            />
-          }
-        />
-        <ListToolbar
+        <DatasetListHeader
+          canConnect={canConnect}
+          canImport={canImport}
+          tab={tab}
           q={search.q}
-          label={t('data.datasetsList.searchDatasets')}
-          placeholder={t('data.datasetsList.searchDatasets')}
+          total={query.isPending ? undefined : rows.length}
+          counts={query.isPending ? undefined : counts}
+        />
+        <DatasetSearchBar
+          q={search.q}
           onSearch={(next) =>
             void navigate({
               to: '/datasets',
-              search: (s) => ({ ...s, q: next || undefined }),
+              search: (state) => ({ ...state, q: next || undefined }),
               replace: true,
             })
           }
         />
-        <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
-          {query.isPending || visible.length > 0 ? (
-            <RegistryGrid
-              className="max-md:hidden"
-              label={t('data.datasetsList.datasets')}
-              view={view}
-              rows={visible}
-              columns={columns}
-              getRowId={(d) => d.uuid}
-              rowSelection={rowSelection}
-              onRowSelectionChange={onRowSelectionChange}
-              onRowClick={openDataset}
-              isLoading={query.isPending}
-            />
-          ) : null}
-          <MobileList
-            label={t('data.datasetsList.datasets')}
-            items={visible.map((d) => {
-              const v = datasetValidation(d)
-
-              return {
-                key: d.uuid,
-                id: d.id,
-                title: d.name,
-                sub: `${d.rows} rows · ${d.model}${
-                  d.experimentId ? ` · ${d.experimentId}` : ''
-                }`,
-                status: <Status tone={v.tone}>{v.label}</Status>,
-                link: {
-                  to: '/datasets/$datasetId',
-                  params: { datasetId: d.uuid },
-                  onClick: (event: React.MouseEvent) => openDataset(d, event),
-                },
-                selected: d.uuid === selected,
-              }
-            })}
-          />
-          {!query.isPending && visible.length === 0 ? (
-            <div role="status" className="flex justify-center px-6">
-              <EmptyState
-                icon={q ? 'search' : 'table'}
-                className="items-center py-14 text-center"
-                title={
-                  hasProjectAccess === false
-                    ? noProjectAccessTitle('datasets')
-                    : q
-                      ? t('data.datasetsList.datasetsMatch', { q })
-                      : tab === 'issues'
-                        ? t('data.datasetsList.datasetsHaveIssues')
-                        : tab === 'all'
-                          ? t('data.datasetsList.noDatasetsYet')
-                          : t('data.datasetsList.noDatasetsIn', {
-                              tab: tabLabel[tab],
-                            })
-                }
-                description={
-                  hasProjectAccess === false
-                    ? NO_PROJECT_ACCESS_BODY
-                    : q
-                      ? t('data.datasetsList.searchLooksIdName')
-                      : t('data.datasetsList.datasetsAppearHereWhen')
-                }
-                action={
-                  hasProjectAccess !== false && !q && tab === 'all' ? (
-                    <Button nativeButton={false} render={<Link to="/import" />}>
-                      {t('data.datasetsList.importAFile')}
-                    </Button>
-                  ) : hasProjectAccess !== false && (q || tab !== 'all') ? (
-                    <Button
-                      nativeButton={false}
-                      render={
-                        <Link
-                          to="/datasets"
-                          search={{ q: undefined, tab: q ? tab : undefined }}
-                        />
-                      }
-                    >
-                      {q
-                        ? t('data.datasetsList.clearSearch')
-                        : t('data.datasetsList.showAllDatasets')}
-                    </Button>
-                  ) : undefined
-                }
-              />
-            </div>
-          ) : null}
-        </div>
+        <DatasetResults
+          query={query}
+          rows={rows}
+          visible={visible}
+          columns={columns}
+          view={view}
+          tab={tab}
+          q={q}
+          selected={selected}
+          hasProjectAccess={hasProjectAccess}
+          rowSelection={rowSelection}
+          onRowSelectionChange={onRowSelectionChange}
+          openDataset={openDataset}
+        />
       </div>
       {selectedRow ? <DatasetInspector dataset={selectedRow} /> : null}
     </div>
+  )
+}
+
+/** The list header: what the registry holds, its tabs and the create actions. */
+function DatasetListHeader({
+  canConnect,
+  canImport,
+  tab,
+  q,
+  total,
+  counts,
+}: {
+  canConnect: boolean
+  canImport: boolean
+  tab: DatasetTab
+  q?: string
+  total?: number
+  counts?: Record<DatasetTab, number>
+}) {
+  return (
+    <ListHeader
+      title={t('data.datasetsList.datasets')}
+      total={total}
+      actions={
+        <>
+          {canConnect ? (
+            <Button
+              nativeButton={false}
+              render={<Link to="/settings/lab/instruments" />}
+            >
+              {t('data.datasetsList.connectInstrument')}
+            </Button>
+          ) : null}
+          {canImport ? (
+            <Button
+              variant="primary"
+              icon="upload"
+              nativeButton={false}
+              render={<Link to="/import" />}
+            >
+              {t('data.datasetsList.importData')}
+            </Button>
+          ) : (
+            <ReadOnlyNote>
+              {t('common.readOnly.cannotAdd', {
+                things: t('common.readOnly.things.datasets'),
+              })}
+            </ReadOnlyNote>
+          )}
+        </>
+      }
+      tabs={
+        <Tabs
+          mode="url"
+          label={t('data.datasetsList.datasetLists')}
+          value={tab}
+          items={tabs.map((tabId) => ({
+            key: tabId,
+            label: tabLabel[tabId],
+            count: counts?.[tabId],
+            link: {
+              to: '/datasets',
+              search: {
+                tab: tabId === 'all' ? undefined : tabId,
+                q,
+              },
+            },
+          }))}
+        />
+      }
+    />
+  )
+}
+
+/** The search box; typing rewrites the `q` parameter in place. */
+function DatasetSearchBar({
+  q,
+  onSearch,
+}: {
+  q?: string
+  onSearch: (next: string) => void
+}) {
+  return (
+    <ListToolbar
+      q={q}
+      label={t('data.datasetsList.searchDatasets')}
+      placeholder={t('data.datasetsList.searchDatasets')}
+      onSearch={onSearch}
+    />
+  )
+}
+
+/** The registry itself: the grid, the phone list, and the empty state. */
+function DatasetResults({
+  query,
+  rows,
+  visible,
+  columns,
+  view,
+  tab,
+  q,
+  selected,
+  hasProjectAccess,
+  rowSelection,
+  onRowSelectionChange,
+  openDataset,
+}: {
+  query: ReturnType<typeof useDatasetSummaries>
+  rows: DatasetListRow[]
+  visible: DatasetListRow[]
+  columns: RegistryColumn<DatasetListRow>[]
+  view: ReturnType<typeof useListView>
+  tab: DatasetTab
+  q: string
+  selected: string | null
+  hasProjectAccess: boolean | undefined
+  rowSelection: RowSelectionState
+  onRowSelectionChange: OnChangeFn<RowSelectionState>
+  openDataset: (row: DatasetListRow, event?: React.MouseEvent) => void
+}) {
+  return (
+    <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
+      {query.isPending || visible.length > 0 ? (
+        <RegistryGrid
+          className="max-md:hidden"
+          label={t('data.datasetsList.datasets')}
+          view={view}
+          rows={visible}
+          columns={columns}
+          getRowId={(d) => d.uuid}
+          rowSelection={rowSelection}
+          onRowSelectionChange={onRowSelectionChange}
+          onRowClick={openDataset}
+          isLoading={query.isPending}
+        />
+      ) : null}
+      <MobileList
+        label={t('data.datasetsList.datasets')}
+        items={visible.map((d) => {
+          const v = datasetValidation(d)
+
+          return {
+            key: d.uuid,
+            id: d.id,
+            title: d.name,
+            sub: `${d.rows} rows · ${d.model}${
+              d.experimentId ? ` · ${d.experimentId}` : ''
+            }`,
+            status: <Status tone={v.tone}>{v.label}</Status>,
+            link: {
+              to: '/datasets/$datasetId',
+              params: { datasetId: d.uuid },
+              onClick: (event: React.MouseEvent) => openDataset(d, event),
+            },
+            selected: d.uuid === selected,
+          }
+        })}
+      />
+      {!query.isPending && visible.length === 0 && rows.length >= 0 ? (
+        <div role="status" className="flex justify-center px-6">
+          <NoDatasets q={q} tab={tab} hasProjectAccess={hasProjectAccess} />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/** The words an empty registry shows: a title and the line under it. */
+interface EmptyCopy {
+  title: string
+  description: string
+}
+
+/** What an empty registry says, given the filter and the person's access. */
+function noDatasetsCopy(
+  q: string,
+  tab: DatasetTab,
+  hasProjectAccess: boolean | undefined,
+): EmptyCopy {
+  if (hasProjectAccess === false) {
+    return {
+      title: noProjectAccessTitle('datasets'),
+      description: NO_PROJECT_ACCESS_BODY,
+    }
+  }
+
+  if (q) {
+    return {
+      title: t('data.datasetsList.datasetsMatch', { q }),
+      description: t('data.datasetsList.searchLooksIdName'),
+    }
+  }
+
+  if (tab === 'issues') {
+    return {
+      title: t('data.datasetsList.datasetsHaveIssues'),
+      description: t('data.datasetsList.datasetsAppearHereWhen'),
+    }
+  }
+
+  return {
+    title:
+      tab === 'all'
+        ? t('data.datasetsList.noDatasetsYet')
+        : t('data.datasetsList.noDatasetsIn', { tab: tabLabel[tab] }),
+    description: t('data.datasetsList.datasetsAppearHereWhen'),
+  }
+}
+
+/** The way out of an empty registry: clear the search, or import a file. */
+function EmptyDatasetsAction({
+  q,
+  tab,
+  hasProjectAccess,
+}: {
+  q: string
+  tab: DatasetTab
+  hasProjectAccess: boolean | undefined
+}) {
+  if (hasProjectAccess === false) return undefined
+
+  if (q || tab !== 'all') {
+    return (
+      <Button
+        nativeButton={false}
+        render={
+          <Link
+            to="/datasets"
+            search={{ q: undefined, tab: q ? tab : undefined }}
+          />
+        }
+      >
+        {q
+          ? t('data.datasetsList.clearSearch')
+          : t('data.datasetsList.showAllDatasets')}
+      </Button>
+    )
+  }
+
+  return (
+    <Button nativeButton={false} render={<Link to="/import" />}>
+      {t('data.datasetsList.importAFile')}
+    </Button>
+  )
+}
+
+/** Why the registry is empty, and the way out of it. */
+function NoDatasets({
+  q,
+  tab,
+  hasProjectAccess,
+}: {
+  q: string
+  tab: DatasetTab
+  hasProjectAccess: boolean | undefined
+}) {
+  const copy = noDatasetsCopy(q, tab, hasProjectAccess)
+
+  return (
+    <EmptyState
+      icon={q ? 'search' : 'table'}
+      className="items-center py-14 text-center"
+      title={copy.title}
+      description={copy.description}
+      action={
+        <EmptyDatasetsAction
+          q={q}
+          tab={tab}
+          hasProjectAccess={hasProjectAccess}
+        />
+      }
+    />
   )
 }

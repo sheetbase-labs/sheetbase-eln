@@ -5,12 +5,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { RecordLink } from './record-link'
 
 // Stub the router Link as a plain anchor so no route tree is required.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- A link needs a route tree to render; this suite drives the anchor the record link builds, without one.
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
     to,
     children,
     ...props
-  }: { to: string; children: React.ReactNode } & Record<string, unknown>) => (
+  }: {
+    to: string
+    children: React.ReactNode
+  } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
     <a href={to} {...props}>
       {children}
     </a>

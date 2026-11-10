@@ -1,9 +1,26 @@
+import { z } from 'zod'
+
 import {
   AiProviderError,
   DEFAULT_PROVIDER_TIMEOUT_MS,
   MAX_PROVIDER_RESPONSE_BYTES,
 } from './types'
 import type { ProviderDeps } from './types'
+
+/** A provider reply, decoded from JSON at the transport boundary. */
+export type ProviderJson = z.core.util.JSONType
+
+const providerJsonSchema = z.json()
+const providerRecordSchema = z.record(z.string(), providerJsonSchema)
+const finiteNumberSchema = z.number().finite()
+const stringSchema = z.string()
+
+/**
+ * One decoded provider reply object. Its values stay untyped until a named
+ * reader accepts a field, which is what the readers below are for.
+ */
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- This is the decoded provider reply object itself; every field is read through `readNumber`, `readString` or `readNested`, which decode one value each.
+export type ProviderRecord = Record<string, unknown>
 
 export interface JsonRequest {
   url: string
@@ -20,7 +37,7 @@ export async function postProviderJson(
   providerId: string,
   request: JsonRequest,
   deps: ProviderDeps = {},
-): Promise<unknown> {
+): Promise<ProviderJson> {
   const fetchImpl = deps.fetchImpl ?? fetch
   const timeoutMs = deps.timeoutMs ?? DEFAULT_PROVIDER_TIMEOUT_MS
   const controller = new AbortController()
@@ -88,8 +105,10 @@ export async function postProviderJson(
     )
   }
 
+  let body: ProviderJson
+
   try {
-    return JSON.parse(text) as unknown
+    body = providerJsonSchema.parse(JSON.parse(text))
   } catch (cause) {
     throw new AiProviderError(
       'response_invalid',
@@ -97,6 +116,8 @@ export async function postProviderJson(
       { providerId, cause },
     )
   }
+
+  return body
 }
 
 /**
@@ -215,33 +236,34 @@ export function joinUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, '')}/${path.replace(/^\/+/, '')}`
 }
 
-export function asRecord(value: unknown): Record<string, unknown> | null {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Provider replies arrive as parsed-but-untyped JSON; this is the decoder that establishes the record shape, and every field is read through the typed readers below.
+export function asRecord(value: unknown): ProviderRecord | null {
+  const parsed = providerRecordSchema.safeParse(value)
+
+  return parsed.success ? parsed.data : null
 }
 
 export function readNumber(
-  record: Record<string, unknown> | null,
+  record: ProviderRecord | null,
   key: string,
 ): number | null {
-  const value = record?.[key]
+  const parsed = finiteNumberSchema.safeParse(record?.[key])
 
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
+  return parsed.success ? parsed.data : null
 }
 
 export function readString(
-  record: Record<string, unknown> | null,
+  record: ProviderRecord | null,
   key: string,
 ): string | null {
-  const value = record?.[key]
+  const parsed = stringSchema.safeParse(record?.[key])
 
-  return typeof value === 'string' ? value : null
+  return parsed.success ? parsed.data : null
 }
 
 export function readNested(
-  record: Record<string, unknown> | null,
+  record: ProviderRecord | null,
   key: string,
-): Record<string, unknown> | null {
+): ProviderRecord | null {
   return asRecord(record?.[key])
 }

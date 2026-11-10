@@ -40,11 +40,14 @@ import {
   testConnectorConnection,
 } from '#/lib/connectors/enterprise/client'
 import type {
-  PostgresDiscoveryResult,
   PreviewResult,
   S3DiscoveryPage,
 } from '#/lib/connectors/enterprise/types'
-import { enterpriseAdapterId } from '#/lib/connectors/enterprise/types'
+import {
+  enterpriseAdapterId,
+  postgresDiscoveryResultSchema,
+  s3DiscoveryPageSchema,
+} from '#/lib/connectors/enterprise/types'
 import type { ConnectorWire } from '#/lib/connectors/types'
 import { suggestImportMappings } from '#/lib/import-mapping'
 import type { ImportTargetField } from '#/lib/import-mapping'
@@ -275,6 +278,7 @@ function PreviewTable({ preview }: { preview: PreviewResult }) {
       </TableHeader>
       <TableBody>
         {preview.rows.map((row, index) => (
+          // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- A preview page carries no row identity: the source table's keys are not part of it, and rows render in the order the source returned.
           <TableRow key={index}>
             {preview.columns.map((column) => (
               <TableCell key={column} className="mono text-label">
@@ -438,13 +442,16 @@ function S3SourcePanel({
 
   const [projectId, setProjectId] = useState('')
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- Listing the source's objects reads the connector and writes nothing, so no cached query can go stale.
   const discoverMutation = useMutation({
-    mutationFn: (token: string | null) =>
-      discoverConnectorSource({
-        workspaceId,
-        connectorId: connector.id,
-        query: { continuationToken: token ?? undefined, maxKeys: 25 },
-      }) as Promise<S3DiscoveryPage>,
+    mutationFn: async (token: string | null) =>
+      s3DiscoveryPageSchema.parse(
+        await discoverConnectorSource({
+          workspaceId,
+          connectorId: connector.id,
+          query: { continuationToken: token ?? undefined, maxKeys: 25 },
+        }),
+      ),
     onSuccess: (page) => {
       setObjects((current) => [...current, ...page.objects])
       setContinuationToken(page.continuationToken)
@@ -655,13 +662,16 @@ function PostgresSourcePanel({
 
   const fields = useTargetFields(target.schemaVersionId)
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- Discovering a database's schemas reads the connector and writes nothing, so no cached query can go stale.
   const discoverMutation = useMutation({
-    mutationFn: (querySchema: string) =>
-      discoverConnectorSource({
-        workspaceId,
-        connectorId: connector.id,
-        query: { schema: querySchema || undefined },
-      }) as Promise<PostgresDiscoveryResult>,
+    mutationFn: async (querySchema: string) =>
+      postgresDiscoveryResultSchema.parse(
+        await discoverConnectorSource({
+          workspaceId,
+          connectorId: connector.id,
+          query: { schema: querySchema || undefined },
+        }),
+      ),
   })
 
   const discovery = discoverMutation.data

@@ -6,6 +6,7 @@ import { ContextHelp } from './context-help'
 
 const state = vi.hoisted(() => ({ pathname: '/' }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The help panel reads the router's location; this suite supplies the pathname each topic is asked about.
 vi.mock('@tanstack/react-router', () => ({
   useRouterState: ({
     select,

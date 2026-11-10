@@ -14,6 +14,7 @@ export async function runQcAction(
       return { openHref: '/plates' }
     case 'qc.acknowledge':
       for (const pointId of action.pointIds) {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each acknowledgement is a separate write; a later point must not be acknowledged when an earlier one fails.
         await acknowledgeQcPoint(client, {
           pointId,
           note: action.note,

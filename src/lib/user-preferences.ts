@@ -18,7 +18,8 @@ export const userPreferencesQueryKeys = {
   all: ['user-preferences'] as const,
 }
 
-function toAppearance(value: unknown): Appearance {
+/** Decodes the stored column into one of the three appearances we ship. */
+function toAppearance(value: string): Appearance {
   return value === 'light' || value === 'dark' ? value : 'system'
 }
 

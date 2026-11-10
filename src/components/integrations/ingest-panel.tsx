@@ -15,6 +15,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
@@ -59,6 +60,23 @@ interface RetainedFile {
   text: string
 }
 
+/** The refusal an upload answers with: `error.message` in the retention envelope. */
+const UPLOAD_REFUSAL = z
+  .object({ error: z.object({ message: z.string().optional() }).optional() })
+  .catch({})
+
+/** What `POST /api/files/upload-authorize` answers for a retention upload. */
+const RETENTION_AUTHORIZE = z.object({
+  fileRecordId: z.string(),
+  uploadUrl: z.string(),
+})
+
+/** The receipt the upload answers with once the bytes are stored. */
+const RETENTION_RECEIPT = z.object({
+  checksum: z.string(),
+  byteSize: z.string(),
+})
+
 class RetentionError extends Error {
   constructor(message: string) {
     super(message)
@@ -83,20 +101,17 @@ async function retainInstrumentFile(
   })
 
   if (authorizeRes.status >= 400) {
-    const body = (await authorizeRes.json().catch(() => null)) as {
-      error?: { message?: string }
-    } | null
+    const body = UPLOAD_REFUSAL.parse(
+      await authorizeRes.json().catch(() => null),
+    )
 
     throw new RetentionError(
-      body?.error?.message ??
+      body.error?.message ??
         t('settings.integrations.ingestPanel.fileRetentionRejected'),
     )
   }
 
-  const meta = (await authorizeRes.json()) as {
-    fileRecordId: string
-    uploadUrl: string
-  }
+  const meta = RETENTION_AUTHORIZE.parse(await authorizeRes.json())
 
   // 2. Stream the bytes to the object-storage boundary; the server computes
   //    the sha256 while streaming and returns it in the receipt.
@@ -107,20 +122,15 @@ async function retainInstrumentFile(
   })
 
   if (uploadRes.status >= 400) {
-    const body = (await uploadRes.json().catch(() => null)) as {
-      error?: { message?: string }
-    } | null
+    const body = UPLOAD_REFUSAL.parse(await uploadRes.json().catch(() => null))
 
     throw new RetentionError(
-      body?.error?.message ??
+      body.error?.message ??
         t('settings.integrations.ingestPanel.fileRetentionFailed'),
     )
   }
 
-  const receipt = (await uploadRes.json()) as {
-    checksum: string
-    byteSize: string
-  }
+  const receipt = RETENTION_RECEIPT.parse(await uploadRes.json())
 
   return {
     fileRecordId: meta.fileRecordId,
@@ -131,30 +141,12 @@ async function retainInstrumentFile(
   }
 }
 
-export function IngestPanel({
-  connectorId,
-  parserKey,
-  parserName,
-}: {
-  connectorId: string
-  /** The key the browser-side preview looks up; webhook parsers have none. */
-  parserKey: string
-  /** The parser that reads this connector's files, by the name people gave it. */
-  parserName: string
-}) {
-  const queryClient = useQueryClient()
-  const [file, setFile] = useState<File | null>(null)
-
+/** The published schemas, the fields of the chosen one, its datasets, and the projects a file can be kept in. */
+function useIngestTargets(schemaVersionId: string) {
   const schemasQuery = useQuery({
     queryKey: ['connectors', 'ingest', 'schemas'],
     queryFn: () => listPublishedDatasetSchemas(dataClient),
   })
-
-  const [schemaVersionId, setSchemaVersionId] = useState<string>('')
-
-  const selectedSchema = (schemasQuery.data ?? []).find(
-    (option) => option.schemaVersionId === schemaVersionId,
-  )
 
   const fieldsQuery = useQuery({
     queryKey: ['connectors', 'ingest', 'fields', schemaVersionId],
@@ -173,9 +165,6 @@ export function IngestPanel({
     enabled: Boolean(schemaVersionId),
   })
 
-  const [datasetId, setDatasetId] = useState<string>('')
-  const [newDatasetName, setNewDatasetName] = useState('')
-
   // Raw-file retention is a first-class product guarantee: the file is stored
   // in the project's file records, so a project is required.
   const projectsQuery = useQuery({
@@ -187,7 +176,154 @@ export function IngestPanel({
       ),
   })
 
+  return { schemasQuery, fieldsQuery, datasetsQuery, projectsQuery }
+}
+
+/** Whether the run may start: a file, a project, a target schema and somewhere for the rows to land. */
+function canRunIngest({
+  hasFile,
+  hasSchema,
+  projectId,
+  pending,
+  datasetId,
+  newDatasetName,
+}: {
+  hasFile: boolean
+  hasSchema: boolean
+  projectId: string
+  pending: boolean
+  datasetId: string
+  newDatasetName: string
+}) {
+  return (
+    hasFile &&
+    hasSchema &&
+    Boolean(projectId) &&
+    !pending &&
+    (Boolean(datasetId) || newDatasetName.trim() !== '')
+  )
+}
+
+/** Where the rows land: a Dataset already on the chosen schema, or a new one by name. */
+function IngestDestinationFields({
+  schemaVersionId,
+  datasets,
+  file,
+  datasetId,
+  onDatasetId,
+  newDatasetName,
+  onNewDatasetName,
+}: {
+  schemaVersionId: string
+  datasets: readonly { id: string; name: string }[]
+  file: File | null
+  datasetId: string
+  onDatasetId: (id: string) => void
+  newDatasetName: string
+  onNewDatasetName: (name: string) => void
+}) {
+  if (!schemaVersionId) return null
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <Field label={t('settings.integrations.ingestPanel.existingDataset')}>
+        <Select
+          value={datasetId}
+          onChange={(event) => onDatasetId(event.target.value)}
+        >
+          <option value="">
+            {t('settings.integrations.ingestPanel.createNewDataset')}
+          </option>
+          {datasets.map((dataset) => (
+            <option key={dataset.id} value={dataset.id}>
+              {dataset.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      {!datasetId && (
+        <Field label={t('settings.integrations.ingestPanel.newDatasetName')}>
+          <Input
+            value={newDatasetName}
+            onChange={(event) => onNewDatasetName(event.target.value)}
+            placeholder={t(
+              'settings.integrations.ingestPanel.instrumentImportPlaceholder',
+              {
+                name:
+                  file?.name ?? t('settings.integrations.ingestPanel.payload'),
+              },
+            )}
+          />
+        </Field>
+      )}
+    </div>
+  )
+}
+
+/** The run's own report: what it refused, or where it put the rows. */
+function IngestRunNotices({
+  error,
+  result,
+}: {
+  error: unknown
+  result: IntakeResultWire | undefined
+}) {
+  return (
+    <>
+      {error instanceof Error && (
+        <Notice
+          tone="bad"
+          title={t('settings.integrations.ingestPanel.ingestionFailedRecorded')}
+        >
+          {describeConnectorsError(error)}
+        </Notice>
+      )}
+      {result && (
+        <Notice tone="info">
+          <span className="font-semibold">
+            {result.alreadyCompleted
+              ? t('settings.integrations.ingestPanel.runAlreadyCompleted')
+              : t('settings.integrations.ingestPanel.runSucceeded')}
+          </span>
+          <p className="m-0">
+            {rich('settings.integrations.ingestPanel.rowsLandedVia', {
+              count: result.rowCount,
+              identity: result.parser,
+            })}
+          </p>
+          <p className="m-0">
+            <DatasetLandingLink datasetId={result.datasetId} />
+          </p>
+        </Notice>
+      )}
+    </>
+  )
+}
+
+export function IngestPanel({
+  connectorId,
+  parserKey,
+  parserName,
+}: {
+  connectorId: string
+  /** The key the browser-side preview looks up; webhook parsers have none. */
+  parserKey: string
+  /** The parser that reads this connector's files, by the name people gave it. */
+  parserName: string
+}) {
+  const queryClient = useQueryClient()
+  const [file, setFile] = useState<File | null>(null)
+  const [schemaVersionId, setSchemaVersionId] = useState<string>('')
+  const [datasetId, setDatasetId] = useState<string>('')
+  const [newDatasetName, setNewDatasetName] = useState('')
   const [projectId, setProjectId] = useState<string>('')
+
+  const { schemasQuery, fieldsQuery, datasetsQuery, projectsQuery } =
+    useIngestTargets(schemaVersionId)
+
+  const selectedSchema = (schemasQuery.data ?? []).find(
+    (option) => option.schemaVersionId === schemaVersionId,
+  )
 
   const parser = getParser(parserKey)
 
@@ -317,85 +453,31 @@ export function IngestPanel({
           />
         )}
 
-        {schemaVersionId && (
-          <div className="grid grid-cols-2 gap-3">
-            <Field
-              label={t('settings.integrations.ingestPanel.existingDataset')}
-            >
-              <Select
-                value={datasetId}
-                onChange={(event) => setDatasetId(event.target.value)}
-              >
-                <option value="">
-                  {t('settings.integrations.ingestPanel.createNewDataset')}
-                </option>
-                {(datasetsQuery.data ?? []).map((dataset) => (
-                  <option key={dataset.id} value={dataset.id}>
-                    {dataset.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            {!datasetId && (
-              <Field
-                label={t('settings.integrations.ingestPanel.newDatasetName')}
-              >
-                <Input
-                  value={newDatasetName}
-                  onChange={(event) => setNewDatasetName(event.target.value)}
-                  placeholder={t(
-                    'settings.integrations.ingestPanel.instrumentImportPlaceholder',
-                    {
-                      name:
-                        file?.name ??
-                        t('settings.integrations.ingestPanel.payload'),
-                    },
-                  )}
-                />
-              </Field>
-            )}
-          </div>
-        )}
+        <IngestDestinationFields
+          schemaVersionId={schemaVersionId}
+          datasets={datasetsQuery.data ?? []}
+          file={file}
+          datasetId={datasetId}
+          onDatasetId={setDatasetId}
+          newDatasetName={newDatasetName}
+          onNewDatasetName={setNewDatasetName}
+        />
 
-        {mutation.error instanceof Error && (
-          <Notice
-            tone="bad"
-            title={t(
-              'settings.integrations.ingestPanel.ingestionFailedRecorded',
-            )}
-          >
-            {describeConnectorsError(mutation.error)}
-          </Notice>
-        )}
-        {mutation.data && (
-          <Notice tone="info">
-            <span className="font-semibold">
-              {mutation.data.alreadyCompleted
-                ? t('settings.integrations.ingestPanel.runAlreadyCompleted')
-                : t('settings.integrations.ingestPanel.runSucceeded')}
-            </span>
-            <p className="m-0">
-              {rich('settings.integrations.ingestPanel.rowsLandedVia', {
-                count: mutation.data.rowCount,
-                identity: mutation.data.parser,
-              })}
-            </p>
-            <p className="m-0">
-              <DatasetLandingLink datasetId={mutation.data.datasetId} />
-            </p>
-          </Notice>
-        )}
+        <IngestRunNotices error={mutation.error} result={mutation.data} />
 
         <div>
           <Button
             variant="primary"
             icon="upload"
             disabled={
-              !file ||
-              !selectedSchema ||
-              !projectId ||
-              mutation.isPending ||
-              (!datasetId && !newDatasetName.trim())
+              !canRunIngest({
+                hasFile: Boolean(file),
+                hasSchema: Boolean(selectedSchema),
+                projectId,
+                pending: mutation.isPending,
+                datasetId,
+                newDatasetName,
+              })
             }
             onClick={() => mutation.mutate()}
           >

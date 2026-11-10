@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import { createDataClient } from './data-client'
 import {
@@ -26,19 +27,24 @@ function client(
 ) {
   const applied: string[] = []
 
+  /** The record an RPC call names, decoded from the JSON body the transport sent. */
+  const rpcBody = (init?: RequestInit) =>
+    z
+      .object({ p_record_id: z.string() })
+      .parse(JSON.parse(z.string().parse(init?.body)))
+
   const fetcher = vi.fn(
     async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = String(input)
+      const url = input instanceof Request ? input.url : String(input)
 
-      const json = (value: unknown, status = 200) =>
+      const json = (value: z.core.util.JSONType, status = 200) =>
         new Response(JSON.stringify(value), {
           status,
           headers: { 'Content-Type': 'application/json' },
         })
 
       if (url.includes('/rpc/preview_notebook_template_upgrade')) {
-        const body = JSON.parse(String(init?.body))
-        const id = body.p_record_id as string
+        const { p_record_id: id } = rpcBody(init)
         const preview = emptyPreview(id)
 
         if (conflictsFor.has(id)) {
@@ -58,13 +64,13 @@ function client(
       }
 
       if (url.includes('/rpc/apply_notebook_template_upgrade')) {
-        const body = JSON.parse(String(init?.body))
+        const { p_record_id: id } = rpcBody(init)
 
-        if (failFor.has(body.p_record_id)) {
+        if (failFor.has(id)) {
           return json({ message: 'structure version moved on' }, 409)
         }
 
-        applied.push(body.p_record_id)
+        applied.push(id)
 
         return json({})
       }

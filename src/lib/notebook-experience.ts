@@ -3,6 +3,8 @@
  * revisions, SIGN-002 amendment/timeline/evidence, and Sheet Instance copy —
  * without a second domain model.
  */
+import { z } from 'zod'
+
 import { EMPTY_RICH_TEXT_PAYLOAD, PAYLOAD_SCHEMA_VERSION } from '#/lib/blocks'
 import type { DataClient } from '#/lib/data-client'
 import { DataClientError } from '#/lib/data-client'
@@ -128,53 +130,40 @@ export async function fetchNotebookReviewContext(
   return { submission, revision: revisions[0] ?? null }
 }
 
+/** The record fields a revision snapshot may carry; each stands alone. */
+const recordSnapshotSchema = z.object({
+  title: z.string().optional().catch(undefined),
+  status: z.string().optional().catch(undefined),
+  identifier: z.string().optional().catch(undefined),
+  tags: z.array(z.string()).optional().catch(undefined),
+  properties: z.record(z.string(), z.json()).optional().catch(undefined),
+  structureVersion: z.number().optional().catch(undefined),
+  metadataVersion: z.number().optional().catch(undefined),
+  createdAt: z.string().optional().catch(undefined),
+  updatedAt: z.string().optional().catch(undefined),
+  createdByUserId: z.string().optional().catch(undefined),
+  updatedByUserId: z.string().nullish().catch(undefined),
+})
+
 export function recordFromRevisionSnapshot(
   live: NotebookRecord,
-  snapshot: Record<string, unknown>,
+  snapshot: RevisionWire['metadata_snapshot'],
 ): NotebookRecord {
-  const tags = snapshot.tags
-  const properties = snapshot.properties
+  const stored = recordSnapshotSchema.parse(snapshot)
 
   return {
     ...live,
-    title: typeof snapshot.title === 'string' ? snapshot.title : live.title,
-    status: typeof snapshot.status === 'string' ? snapshot.status : live.status,
-    identifier:
-      typeof snapshot.identifier === 'string'
-        ? snapshot.identifier
-        : live.identifier,
-    tags: Array.isArray(tags)
-      ? tags.filter((tag): tag is string => typeof tag === 'string')
-      : live.tags,
-    properties:
-      properties && typeof properties === 'object' && !Array.isArray(properties)
-        ? (properties as Record<string, unknown>)
-        : live.properties,
-    structureVersion:
-      typeof snapshot.structureVersion === 'number'
-        ? snapshot.structureVersion
-        : live.structureVersion,
-    metadataVersion:
-      typeof snapshot.metadataVersion === 'number'
-        ? snapshot.metadataVersion
-        : live.metadataVersion,
-    createdAt:
-      typeof snapshot.createdAt === 'string'
-        ? snapshot.createdAt
-        : live.createdAt,
-    updatedAt:
-      typeof snapshot.updatedAt === 'string'
-        ? snapshot.updatedAt
-        : live.updatedAt,
-    createdByUserId:
-      typeof snapshot.createdByUserId === 'string'
-        ? snapshot.createdByUserId
-        : live.createdByUserId,
-    updatedByUserId:
-      typeof snapshot.updatedByUserId === 'string' ||
-      snapshot.updatedByUserId === null
-        ? snapshot.updatedByUserId
-        : live.updatedByUserId,
+    title: stored.title ?? live.title,
+    status: stored.status ?? live.status,
+    identifier: stored.identifier ?? live.identifier,
+    tags: stored.tags ?? live.tags,
+    properties: stored.properties ?? live.properties,
+    structureVersion: stored.structureVersion ?? live.structureVersion,
+    metadataVersion: stored.metadataVersion ?? live.metadataVersion,
+    createdAt: stored.createdAt ?? live.createdAt,
+    updatedAt: stored.updatedAt ?? live.updatedAt,
+    createdByUserId: stored.createdByUserId ?? live.createdByUserId,
+    updatedByUserId: stored.updatedByUserId ?? live.updatedByUserId,
   }
 }
 
@@ -258,61 +247,56 @@ export function blocksFromRevision(revision: RevisionWire): NotebookBlock[] {
   return toOverviewRevision(revision).blocks
 }
 
-function snapshotString(value: unknown): string | null {
-  return typeof value === 'string' ? value : null
-}
+/** A link as a revision's canonical snapshot records it. */
+const canonicalLinkSchema = z.object({
+  id: z.string(),
+  sourceRecordId: z.string(),
+  targetRecordId: z.union([z.string(), z.null()]).optional(),
+  targetKind: z.string(),
+  targetIdentifier: z.string(),
+  linkType: z.string(),
+  createdAt: z.string().optional(),
+  createdByUserId: z.string().optional(),
+})
 
 /** Outgoing links captured in a submitted revision's canonical snapshot. */
 export function linksFromRevisionSnapshot(
   revision: RevisionWire,
 ): NotebookLink[] {
   return toCanonicalEnvelope(revision).links.flatMap((link) => {
-    const id = snapshotString(link.id)
-    const sourceRecordId = snapshotString(link.sourceRecordId)
-    const targetKind = snapshotString(link.targetKind)
-    const targetIdentifier = snapshotString(link.targetIdentifier)
-    const linkType = snapshotString(link.linkType)
+    const parsed = canonicalLinkSchema.safeParse(link)
 
-    if (
-      !id ||
-      !sourceRecordId ||
-      !targetKind ||
-      !targetIdentifier ||
-      !linkType
-    ) {
-      return []
-    }
-
-    const targetRecordId = link.targetRecordId
-    // Pinned links predate the createdAt pin: prefer the snapshot's own
-    // timestamp when present, else the revision pin time (the link provably
-    // existed then). The pinned panel does not render this metadata.
-    const createdAt = snapshotString(link.createdAt) ?? revision.created_at
-    const createdByUserId = snapshotString(link.createdByUserId)
+    if (!parsed.success) return []
+    const fields = parsed.data
 
     return [
       {
-        id,
-        sourceRecordId,
-        targetRecordId:
-          typeof targetRecordId === 'string' || targetRecordId === null
-            ? targetRecordId
-            : null,
-        targetKind,
-        targetIdentifier,
-        linkType,
-        createdAt,
-        createdByUserId,
+        id: fields.id,
+        sourceRecordId: fields.sourceRecordId,
+        targetRecordId: fields.targetRecordId ?? null,
+        targetKind: fields.targetKind,
+        targetIdentifier: fields.targetIdentifier,
+        linkType: fields.linkType,
+        // Pinned links predate the createdAt pin: prefer the snapshot's own
+        // timestamp when present, else the revision pin time (the link provably
+        // existed then). The pinned panel does not render this metadata.
+        createdAt: fields.createdAt ?? revision.created_at,
+        createdByUserId: fields.createdByUserId ?? null,
       },
     ]
   })
 }
 
-/** Inspector evidence for `?revision=` — snapshot blocks and links only. */
-export function inspectorEvidenceFromRevision(revision: RevisionWire): {
+/** What a revision's inspector shows: its snapshot blocks and links. */
+export interface RevisionEvidence {
   blocks: NotebookBlock[]
   links: NotebookLink[]
-} {
+}
+
+/** Inspector evidence for `?revision=` — snapshot blocks and links only. */
+export function inspectorEvidenceFromRevision(
+  revision: RevisionWire,
+): RevisionEvidence {
   return {
     blocks: blocksFromRevision(revision),
     links: linksFromRevisionSnapshot(revision),
@@ -469,7 +453,7 @@ export async function duplicateExperiment(
         recordId: record.id,
         instanceId: duplicated.id,
         expectedStructureVersion: structureVersion,
-        ...(lastBlockId ? { afterBlockId: lastBlockId } : {}),
+        afterBlockId: lastBlockId,
       })
 
       lastBlockId = inserted.block.id
@@ -485,7 +469,7 @@ export async function duplicateExperiment(
       payload: source.payload,
       payloadSchemaVersion: source.payloadSchemaVersion,
       expectedStructureVersion: structureVersion,
-      ...(lastBlockId ? { afterBlockId: lastBlockId } : {}),
+      afterBlockId: lastBlockId,
     })
 
     lastBlockId = inserted.block.id
@@ -539,9 +523,15 @@ export function notebookSignState(input: {
   return 'can-sign'
 }
 
+/** The chart tables of one notebook, and the rest the workspace can offer. */
+export interface ChartTableGroups<Table> {
+  local: Table[]
+  workspace: Table[]
+}
+
 export function groupChartTables<
   T extends { id: string; name: string; record_id?: string | null },
->(tables: T[], notebookRecordId: string): { local: T[]; workspace: T[] } {
+>(tables: T[], notebookRecordId: string): ChartTableGroups<T> {
   const local: T[] = []
   const workspace: T[] = []
 

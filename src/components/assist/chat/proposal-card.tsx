@@ -1,6 +1,8 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
+
+import { z } from 'zod'
 
 import { t } from '#/copy'
 import { FEATURE_ASSISTANTS } from '#/features/assistant.gen'
@@ -8,13 +10,20 @@ import type { FeatureActions } from '#/features/define'
 import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { DataClientError, createDataClient } from '#/lib/data-client'
+import type { DataClient } from '#/lib/data-client'
 import {
   decideAgentOperation,
   executeAgentOperation,
   proposeAgentOperation,
 } from '#/lib/agent-operations'
-import type { AgentOperation } from '#/lib/agent-operations'
-import type { AssistantProposal } from '#/lib/assistant-proposals'
+import type {
+  AgentOperation,
+  AgentOperationProposal,
+} from '#/lib/agent-operations'
+import type {
+  AssistantProposal,
+  ProposalChange,
+} from '#/lib/assistant-proposals'
 import { runAssistantAction } from '#/lib/assistant-booking'
 import type { AssistantActionKind } from '#/lib/assistant-booking'
 import { describeActionError } from '#/lib/assistant-bench'
@@ -157,6 +166,17 @@ const ACTION_COPY = {
   string
 >
 
+/** The pipeline a followed-up proposal created: its id and revision. */
+const createdPipeline = z.object({
+  id: z.string().optional(),
+  revision: z.union([z.number(), z.string()]).optional(),
+})
+
+/** The copy word of each everyday action, by kind. */
+const ACTION_WORDS: ReadonlyMap<string, string> = new Map(
+  Object.entries(ACTION_COPY),
+)
+
 /** The copy key of each feature card's words (`src/features/<name>/assistant.ts`). */
 const FEATURE_CARD_WORDS: Readonly<Record<string, string>> = Object.assign(
   {},
@@ -191,6 +211,7 @@ function actionWords(kind: AssistantActionKind | undefined) {
  * A card's button word, by a key put together at run time; the copy tests
  * check that every card's words are in the catalogue.
  */
+// SAFETY: `t` resolves any catalogue path at run time and falls back to the key when one is absent; the keys built here are the groups this card declares.
 const cardWord = t as (key: string) => string
 
 /** Where the card's words are in the copy catalogue. */
@@ -199,9 +220,10 @@ function cardWordsKey(kind: AssistantActionKind): string {
 
   if (own) return own
 
-  return `notebook.assistantPanel.proposal.${ACTION_COPY[kind as keyof typeof ACTION_COPY]}`
+  return `notebook.assistantPanel.proposal.${ACTION_WORDS.get(kind)}`
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A failed apply is a caught throw, untyped by definition; only an Error's message is read.
 function failureReason(error: unknown): string {
   const message = error instanceof Error ? error.message : ''
 
@@ -210,6 +232,156 @@ function failureReason(error: unknown): string {
     : t('notebook.assistantPanel.proposal.failed', {
         reason: message || t('common.errors.generic'),
       })
+}
+
+/** What pressing the card's button did, and anything it made along the way. */
+type ApplyOutcome =
+  | { kind: 'signature'; opened?: string }
+  | { kind: 'failed'; reason: string; opened?: string }
+  | { kind: 'applied'; opened?: string; note?: string }
+
+/** Runs one agent operation through propose, approve and execute; null means it waits on a signature. */
+async function runOperation(
+  client: DataClient,
+  proposal: AssistantProposal,
+  operation: AgentOperation,
+  key: string,
+  invocationId: string,
+  workspaceId: string,
+): Promise<AgentOperationProposal | null> {
+  let row = await proposeAgentOperation(client, {
+    workspaceId,
+    title: proposal.title,
+    summary: proposal.summary,
+    operation,
+    provenance: {
+      agentId: 'assistant',
+      agentName: 'Assistant',
+      tool: { name: proposal.tool },
+      model: { provider: 'sheetbase', name: 'assistant' },
+      invocationId,
+    },
+    idempotencyKey: key,
+  })
+
+  if (row.status === 'pending') {
+    if (row.signature_required) return null
+    row = await decideAgentOperation(client, {
+      proposalId: row.id,
+      expectedRevision: Number(row.revision),
+      decision: 'approve',
+    })
+  }
+
+  if (row.status === 'approved') {
+    row = await executeAgentOperation(client, {
+      proposalId: row.id,
+      expectedRevision: Number(row.revision),
+    })
+  }
+
+  return row
+}
+
+/** The everyday action path: the same RPC the page itself would run. */
+async function applyAction(
+  client: DataClient,
+  proposal: AssistantProposal,
+): Promise<ApplyOutcome> {
+  const action = proposal.action
+
+  if (!action) return { kind: 'failed', reason: failureReason(null) }
+
+  try {
+    const result = await runAssistantAction(client, action)
+
+    return {
+      kind: 'applied',
+      opened: result?.openHref,
+      note: result?.note,
+    }
+  } catch (error) {
+    return {
+      kind: 'failed',
+      reason: t('notebook.assistantPanel.proposal.failed', {
+        reason:
+          error instanceof DataClientError
+            ? describeCalendarError(error)
+            : describeActionError(error),
+      }),
+    }
+  }
+}
+
+/** The proposal path: propose, approve and execute, then any follow-up. */
+async function applyProposal(
+  client: DataClient,
+  proposal: AssistantProposal,
+  requestId: string,
+  workspaceId: string,
+): Promise<ApplyOutcome> {
+  const operation = proposal.operation
+
+  if (!operation) return { kind: 'failed', reason: failureReason(null) }
+
+  try {
+    const first = await runOperation(
+      client,
+      proposal,
+      operation,
+      `assistant-${requestId}`,
+      requestId,
+      workspaceId,
+    )
+
+    if (first === null) return { kind: 'signature' }
+
+    if (first.status === 'failed') {
+      return {
+        kind: 'failed',
+        reason: failureReason(new Error(first.error_message ?? '')),
+      }
+    }
+
+    if (!proposal.followUp) return { kind: 'applied' }
+
+    // The first change made something (a new pipeline); the second fills it
+    // in, pinned to the revision the first one returned.
+    const made = createdPipeline.safeParse(first.result)
+
+    if (!made.success || !made.data.id)
+      throw new Error(t('common.errors.generic'))
+    const opened = `/pipelines/${made.data.id}`
+
+    const second = await runOperation(
+      client,
+      proposal,
+      {
+        kind: proposal.followUp.kind,
+        workspaceId: proposal.followUp.workspaceId,
+        definitionId: made.data.id,
+        expectedDefinitionRevision: Number(made.data.revision),
+        configuration: proposal.followUp.configuration,
+      },
+      `assistant-${requestId}-draft`,
+      requestId,
+      workspaceId,
+    )
+
+    if (second === null) return { kind: 'signature', opened }
+
+    if (second.status === 'failed') {
+      return {
+        kind: 'failed',
+        reason: failureReason(new Error(second.error_message ?? '')),
+        opened,
+      }
+    }
+
+    return { kind: 'applied', opened }
+  } catch (error) {
+    return { kind: 'failed', reason: failureReason(error) }
+  }
 }
 
 export function ProposalCard({
@@ -222,12 +394,12 @@ export function ProposalCard({
   proposal: AssistantProposal
 }) {
   const [state, setStateRaw] = useState<CardState>(
-    decided.get(callId) ?? { phase: 'idle' },
+    () => decided.get(callId) ?? { phase: 'idle' },
   )
 
   // One key per card, so a double press repeats the same request instead of
   // making a second change. Call ids from a provider are not unique across chats.
-  const requestId = useRef(crypto.randomUUID()).current
+  const [requestId] = useState(() => crypto.randomUUID())
   // Where a pipeline the card just made lives, when the card makes one.
   const [opened, setOpened] = useState<string | null>(null)
   // A one-time link the card made, such as a new invitation's.
@@ -243,145 +415,37 @@ export function ProposalCard({
   async function apply() {
     setState({ phase: 'applying' })
 
+    const client = createDataClient()
+    let outcome: ApplyOutcome
+
     if (proposal.action) {
-      try {
-        const result = await runAssistantAction(
-          createDataClient(),
-          proposal.action,
-        )
+      outcome = await applyAction(client, proposal)
+    } else {
+      outcome = await applyProposal(client, proposal, requestId, workspaceId)
+    }
 
-        if (result?.openHref) setOpened(result.openHref)
+    if (outcome.opened) setOpened(outcome.opened)
 
-        if (result?.note) setNote(result.note)
-        setState({ phase: 'applied' })
-        void queryClient.invalidateQueries()
-        void router.invalidate()
-      } catch (error) {
-        setState({
-          phase: 'failed',
-          reason: t('notebook.assistantPanel.proposal.failed', {
-            reason:
-              error instanceof DataClientError
-                ? describeCalendarError(error)
-                : describeActionError(error),
-          }),
-        })
-      }
+    if (outcome.kind === 'signature') {
+      setState({ phase: 'signature' })
 
       return
     }
 
-    const operation = proposal.operation
+    if (outcome.kind === 'failed') {
+      setState({ phase: 'failed', reason: outcome.reason })
 
-    if (!operation) return
-
-    try {
-      const client = createDataClient()
-
-      // Runs one operation through propose, approve and execute. `null` means
-      // it is waiting on a signature, which the card hands over to the
-      // proposals page.
-      async function run(target: AgentOperation, key: string) {
-        let row = await proposeAgentOperation(client, {
-          workspaceId,
-          title: proposal.title,
-          summary: proposal.summary,
-          operation: target,
-          provenance: {
-            agentId: 'assistant',
-            agentName: 'Assistant',
-            tool: { name: proposal.tool },
-            model: { provider: 'sheetbase', name: 'assistant' },
-            invocationId: requestId,
-          },
-          idempotencyKey: key,
-        })
-
-        if (row.status === 'pending') {
-          if (row.signature_required) return null
-          row = await decideAgentOperation(client, {
-            proposalId: row.id,
-            expectedRevision: Number(row.revision),
-            decision: 'approve',
-          })
-        }
-
-        if (row.status === 'approved') {
-          row = await executeAgentOperation(client, {
-            proposalId: row.id,
-            expectedRevision: Number(row.revision),
-          })
-        }
-
-        return row
-      }
-
-      const first = await run(operation, `assistant-${requestId}`)
-
-      if (first === null) {
-        setState({ phase: 'signature' })
-
-        return
-      }
-
-      if (first.status === 'failed') {
-        setState({
-          phase: 'failed',
-          reason: failureReason(new Error(first.error_message ?? '')),
-        })
-
-        return
-      }
-
-      if (proposal.followUp) {
-        // The first change made something (a new pipeline); the second fills
-        // it in, pinned to the revision the first one returned.
-        const made = first.result as {
-          id?: string
-          revision?: number | string
-        } | null
-
-        if (!made?.id) throw new Error(t('common.errors.generic'))
-        setOpened(`/pipelines/${made.id}`)
-
-        const second = await run(
-          {
-            kind: proposal.followUp.kind,
-            workspaceId: proposal.followUp.workspaceId,
-            definitionId: made.id,
-            expectedDefinitionRevision: Number(made.revision),
-            configuration: proposal.followUp.configuration,
-          },
-          `assistant-${requestId}-draft`,
-        )
-
-        if (second === null) {
-          setState({ phase: 'signature' })
-
-          return
-        }
-
-        if (second.status === 'failed') {
-          setState({
-            phase: 'failed',
-            reason: failureReason(new Error(second.error_message ?? '')),
-          })
-
-          return
-        }
-      }
-
-      setState({ phase: 'applied' })
-      void queryClient.invalidateQueries()
-      void router.invalidate()
-    } catch (error) {
-      setState({ phase: 'failed', reason: failureReason(error) })
+      return
     }
+
+    if (outcome.note) setNote(outcome.note)
+    setState({ phase: 'applied' })
+    void queryClient.invalidateQueries()
+    void router.invalidate()
   }
 
   const words = actionWords(proposal.action?.kind)
   const href = opened ?? proposal.deepLink
-  const done = state.phase === 'applied' || state.phase === 'dismissed'
 
   return (
     <section
@@ -404,83 +468,141 @@ export function ProposalCard({
         </div>
       </header>
       <p className="m-0 text-body text-fg-muted">{proposal.summary}</p>
-      <ul className="m-0 flex list-none flex-col gap-2 p-0">
-        {proposal.changes.map((change, index) => (
-          <li
-            key={`${change.label}-${index}`}
-            className="flex flex-col gap-1 rounded-lg bg-surface-muted px-2.5 py-2 text-label"
-          >
-            <span className="font-medium text-fg">{change.label}</span>
-            {change.before !== null ? (
-              <span className="whitespace-pre-line text-fg-muted line-through decoration-fg-faint">
-                {change.before}
-              </span>
-            ) : null}
-            <span className="whitespace-pre-line text-fg">{change.after}</span>
-          </li>
-        ))}
-      </ul>
-      {state.phase === 'failed' ? (
-        <p className="m-0 text-label text-danger-text" role="alert">
-          {state.reason}
-        </p>
-      ) : null}
-      {state.phase === 'applied' && note ? (
-        <p className="m-0 break-all text-label text-fg-muted">
-          {t('notebook.assistantPanel.proposal.linkNote')}{' '}
-          <span className="select-all font-medium text-fg">{note}</span>
-        </p>
-      ) : null}
-      {state.phase === 'signature' ? (
-        <p className="m-0 text-label text-fg-muted">
-          {t('notebook.assistantPanel.proposal.needsSignature')}{' '}
-          <Link
-            to="/pipelines/agents"
-            className="font-medium text-fg underline underline-offset-2"
-          >
-            {t('notebook.assistantPanel.proposal.reviewProposals')}
-          </Link>
-        </p>
-      ) : null}
-      <div className="flex items-center gap-2">
-        {done ? (
-          <span className="inline-flex items-center gap-1 text-label text-fg-muted">
-            <Icon name={state.phase === 'applied' ? 'check' : 'x'} size={12} />
-            {state.phase === 'applied'
-              ? words.applied
-              : t('notebook.assistantPanel.proposal.dismissed')}
-          </span>
-        ) : state.phase === 'signature' ? null : (
-          <>
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={state.phase === 'applying'}
-              onClick={() => void apply()}
-            >
-              {state.phase === 'applying' ? words.applying : words.apply}
-            </Button>
-            <Button
-              size="sm"
-              variant="quiet"
-              disabled={state.phase === 'applying'}
-              onClick={() => setState({ phase: 'dismissed' })}
-            >
-              {t('notebook.assistantPanel.proposal.dismiss')}
-            </Button>
-          </>
-        )}
-        <span className="flex-1" />
-        {href &&
-        (state.phase === 'applied' || (state.phase === 'failed' && opened)) ? (
-          <a
-            href={href}
-            className="text-label font-medium text-fg underline underline-offset-2"
-          >
-            {t('notebook.assistantPanel.proposal.open')}
-          </a>
-        ) : null}
-      </div>
+      <ProposalChanges changes={proposal.changes} />
+      <ProposalStatus state={state} note={note} />
+      <ProposalActions
+        state={state}
+        words={words}
+        href={href}
+        opened={opened}
+        onApply={() => void apply()}
+        onDismiss={() => setState({ phase: 'dismissed' })}
+      />
     </section>
+  )
+}
+
+/** The change list a card shows: what would change, before and after. */
+function ProposalChanges({ changes }: { changes: ProposalChange[] }) {
+  return (
+    <ul className="m-0 flex list-none flex-col gap-2 p-0">
+      {changes.map((change) => (
+        <li
+          key={`${change.label}-${change.after}`}
+          className="flex flex-col gap-1 rounded-lg bg-surface-muted px-2.5 py-2 text-label"
+        >
+          <span className="font-medium text-fg">{change.label}</span>
+          {change.before !== null ? (
+            <span className="whitespace-pre-line text-fg-muted line-through decoration-fg-faint">
+              {change.before}
+            </span>
+          ) : null}
+          <span className="whitespace-pre-line text-fg">{change.after}</span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/** What the card says once it is applied, failed or waiting on a signature. */
+function ProposalStatus({
+  state,
+  note,
+}: {
+  state: CardState
+  note: string | null
+}) {
+  if (state.phase === 'failed') {
+    return (
+      <p className="m-0 text-label text-danger-text" role="alert">
+        {state.reason}
+      </p>
+    )
+  }
+
+  if (state.phase === 'applied' && note) {
+    return (
+      <p className="m-0 break-all text-label text-fg-muted">
+        {t('notebook.assistantPanel.proposal.linkNote')}{' '}
+        <span className="select-all font-medium text-fg">{note}</span>
+      </p>
+    )
+  }
+
+  if (state.phase === 'signature') {
+    return (
+      <p className="m-0 text-label text-fg-muted">
+        {t('notebook.assistantPanel.proposal.needsSignature')}{' '}
+        <Link
+          to="/pipelines/agents"
+          className="font-medium text-fg underline underline-offset-2"
+        >
+          {t('notebook.assistantPanel.proposal.reviewProposals')}
+        </Link>
+      </p>
+    )
+  }
+
+  return null
+}
+
+/** The card's buttons, its done state, and the link to what it made. */
+function ProposalActions({
+  state,
+  words,
+  href,
+  opened,
+  onApply,
+  onDismiss,
+}: {
+  state: CardState
+  words: ReturnType<typeof actionWords>
+  href: string | null
+  opened: string | null
+  onApply: () => void
+  onDismiss: () => void
+}) {
+  const applying = state.phase === 'applying'
+
+  return (
+    <div className="flex items-center gap-2">
+      {state.phase === 'applied' || state.phase === 'dismissed' ? (
+        <span className="inline-flex items-center gap-1 text-label text-fg-muted">
+          <Icon name={state.phase === 'applied' ? 'check' : 'x'} size={12} />
+          {state.phase === 'applied'
+            ? words.applied
+            : t('notebook.assistantPanel.proposal.dismissed')}
+        </span>
+      ) : state.phase === 'signature' ? null : (
+        <>
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={applying}
+            onClick={onApply}
+          >
+            {applying ? words.applying : words.apply}
+          </Button>
+          <Button
+            size="sm"
+            variant="quiet"
+            disabled={applying}
+            onClick={onDismiss}
+          >
+            {t('notebook.assistantPanel.proposal.dismiss')}
+          </Button>
+        </>
+      )}
+      <span className="flex-1" />
+      {href &&
+      (state.phase === 'applied' || (state.phase === 'failed' && opened)) ? (
+        <a
+          href={href}
+          className="text-label font-medium text-fg underline underline-offset-2"
+        >
+          {t('notebook.assistantPanel.proposal.open')}
+        </a>
+      ) : null}
+    </div>
   )
 }

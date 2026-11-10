@@ -342,7 +342,7 @@ const ANALYSIS_DEFS: Array<GuideStepDef<AnalysisToFigureState>> = [
                 kind: 'navigate',
                 href: `/records/${s.recordId}`,
                 hint: t('notebook.assistGuide.opensTheCanonicalNotebookHint'),
-              } as GuideActionTarget,
+              } satisfies GuideActionTarget,
             },
           ]
         : []),
@@ -578,7 +578,7 @@ const SUBMISSION_DEFS: Array<GuideStepDef<SubmissionReadinessState>> = [
                 kind: 'navigate',
                 href: reviewLink(s),
                 hint: t('notebook.assistGuide.opensTheCanonicalReviewHint'),
-              } as GuideActionTarget,
+              } satisfies GuideActionTarget,
             },
           ]
         : []),

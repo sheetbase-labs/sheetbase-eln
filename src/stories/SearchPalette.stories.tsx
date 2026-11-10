@@ -143,7 +143,12 @@ const SUGGESTION: DidYouMeanSuggestion = {
   similarity: 0.8,
 }
 
-function rpcStub(answer: (name: string) => Promise<unknown>): DataClientStub {
+/** What `api.search` and `api.search_did_you_mean` answer with in these stories. */
+type SearchAnswer = SearchResultWire[] | DidYouMeanSuggestion[]
+
+function rpcStub(
+  answer: (name: string) => Promise<SearchAnswer>,
+): DataClientStub {
   return { rpc: (name) => answer(name) }
 }
 
@@ -157,7 +162,9 @@ const WITH_CORRECTION: DataClientStub = rpcStub((name) =>
     : Promise.resolve([]),
 )
 
-const NEVER_ANSWERS: DataClientStub = rpcStub(() => new Promise(() => {}))
+const NEVER_ANSWERS: DataClientStub = rpcStub(
+  () => new Promise<SearchAnswer>(() => {}),
+)
 
 const FAILS: DataClientStub = rpcStub(() =>
   Promise.reject(new Error('The search service did not answer.')),

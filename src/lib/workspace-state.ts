@@ -692,12 +692,13 @@ function validTab(
   origin: string,
 ): WorkspaceTab | null {
   const ids = tab.panes.map((pane) => pane.id)
+  const idSet = new Set(ids)
 
   if (
     !tab.panes.length ||
-    new Set(ids).size !== ids.length ||
-    !ids.includes(tab.activeId) ||
-    !ids.includes(tab.primaryId) ||
+    idSet.size !== ids.length ||
+    !idSet.has(tab.activeId) ||
+    !idSet.has(tab.primaryId) ||
     !tab.panes.every(
       (pane) => workspaceHref(pane.href, origin) === pane.href,
     ) ||
@@ -709,15 +710,15 @@ function validTab(
   if (
     placed.length !== ids.length ||
     new Set(placed).size !== ids.length ||
-    placed.some((id) => !ids.includes(id))
+    placed.some((id) => !idSet.has(id))
   )
     return null
 
   const links = tab.links.filter(
     (link) =>
-      ids.includes(link.driverId) &&
+      idSet.has(link.driverId) &&
       link.followerIds.length > 0 &&
-      link.followerIds.every((id) => ids.includes(id) && id !== link.driverId),
+      link.followerIds.every((id) => idSet.has(id) && id !== link.driverId),
   )
 
   return { ...tab, tree: tab.tree, links }
@@ -833,16 +834,17 @@ export function restoreSavedLayouts(
 
     return parsed.data.flatMap((layout) => {
       const ids = layout.panes.map((pane) => pane.id)
+      const idSet = new Set(ids)
 
       if (
         !layout.panes.length ||
-        new Set(ids).size !== ids.length ||
-        !ids.includes(layout.primaryId) ||
+        idSet.size !== ids.length ||
+        !idSet.has(layout.primaryId) ||
         !layout.panes.every(
           (pane) => workspaceHref(pane.href, origin) === pane.href,
         ) ||
         !isPaneTree(layout.tree) ||
-        listPaneIds(layout.tree).some((id) => !ids.includes(id))
+        listPaneIds(layout.tree).some((id) => !idSet.has(id))
       )
         return []
       const tree = layout.tree

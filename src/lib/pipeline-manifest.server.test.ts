@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { generateKeyPairSync } from 'node:crypto'
 
 import { describe, expect, it, vi } from 'vitest'
@@ -14,12 +15,17 @@ import {
 } from './pipeline-manifest.server'
 import type { RunManifest } from './pipeline-manifest.server'
 
-vi.mock('#/env.server', () => ({
-  env: {
-    PIPELINE_MANIFEST_SIGNING_KEY: undefined,
-    SHEETBASE_ARTIFACT_VERSION: 'test',
-  },
-}))
+// The deployment environment is validated when `env.server` is first imported;
+// these are the values this suite needs, set before the imports above run. No
+// signing key is configured, which is the unsigned case the suite covers.
+vi.hoisted(() => {
+  process.env.DATABASE_URL = 'postgresql://app:app@localhost:5432/sheetbase'
+  process.env.FORMULA_DATABASE_URL =
+    'postgresql://app:app@localhost:5432/sheetbase'
+  process.env.BETTER_AUTH_SECRET = 'test-secret-at-least-thirty-two-characters'
+  process.env.PGRST_JWT_SECRET = 'test-jwt-secret-at-least-thirty-two-chars'
+  delete process.env.PIPELINE_MANIFEST_SIGNING_KEY
+})
 
 function pem() {
   const { privateKey } = generateKeyPairSync('ed25519')

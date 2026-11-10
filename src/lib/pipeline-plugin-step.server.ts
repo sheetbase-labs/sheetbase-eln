@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import { parsePluginName } from './extensions/points'
 import {
   ExtensionRunError,
@@ -6,12 +8,18 @@ import {
 } from './extensions/runtime.server'
 import type { ExtensionRuntimeDeps } from './extensions/runtime.server'
 import type { PipelineStep } from './pipelines/config'
+import { pipelineJsonObjectSchema } from './pipelines/types'
+import type { PythonInputRow } from './pipeline-python.server'
 
-type Rows = Array<Record<string, unknown>>
+/** A table a plugin step reads or returns: the pipeline's rows. */
+type Rows = PythonInputRow[]
+
+/** A value a plugin step is given: JSON, or the table of rows a reference names. */
+type PluginValue = z.core.util.JSONType | Rows
 
 /** What a plugin step can read: the result so far, the inputs, earlier steps and settings. */
 export interface PluginStepScope {
-  parameters: Record<string, unknown>
+  parameters: Record<string, z.core.util.JSONType>
   /** The result of the step before, if any step ran. */
   previous: Rows | undefined
   /** Rows of a declared input, read when a step asks for them. */
@@ -22,13 +30,10 @@ export interface PluginStepScope {
 
 export class PluginStepError extends Error {}
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
-
 async function resolveRef(
   ref: string,
   scope: PluginStepScope,
-): Promise<unknown> {
+): Promise<PluginValue> {
   const [root, name] = ref.split('.')
 
   if (root === 'previous') {
@@ -102,13 +107,14 @@ export async function runPluginStep(
       throw new PluginStepError(
         'Only a plugin step that gives back a table can run inside a pipeline.',
       )
-    const input: Record<string, unknown> = {}
+    const input: Record<string, PluginValue | undefined> = {}
 
     for (const [key, value] of Object.entries(plugin.arguments)) {
-      input[key] =
-        isObject(value) && typeof value.$ref === 'string'
-          ? await resolveRef(value.$ref, scope)
-          : value
+      const object = pipelineJsonObjectSchema.safeParse(value)
+      const ref = object.success ? z.string().safeParse(object.data.$ref) : null
+
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- An input and a step table read the same tables in the order the step names them, so one missing reference fails with its own message first.
+      input[key] = ref?.success ? await resolveRef(ref.data, scope) : value
     }
 
     // A table the step does not name is the result so far, the usual case.
@@ -140,13 +146,18 @@ export async function runPluginStep(
 
     if (hosted.kind === 'confirm')
       throw new PluginStepError('The plugin step could not carry on.')
-    const outcome = hosted.result
-    const rows = (outcome.output as { rows?: unknown }).rows
 
-    if (!Array.isArray(rows))
+    const output = pipelineJsonObjectSchema.safeParse(hosted.result.output)
+
+    if (!output.success)
       throw new PluginStepError('The plugin step did not give back a table.')
 
-    return { rows: rows as Rows }
+    const table = z.array(pipelineJsonObjectSchema).safeParse(output.data.rows)
+
+    if (!table.success)
+      throw new PluginStepError('The plugin step did not give back a table.')
+
+    return { rows: table.data }
   } catch (error) {
     if (error instanceof PluginStepError) throw error
     throw new PluginStepError(

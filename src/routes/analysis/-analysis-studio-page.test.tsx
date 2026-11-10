@@ -23,6 +23,7 @@ import {
 import type * as router from '@tanstack/react-router'
 import type * as studioData from '#/lib/analysis-studio-data'
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory and route API are bound to the generated route tree at build time; the studio's own tab contract is what this suite renders, with the context the shell would supply.
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof router>()
 
@@ -36,12 +37,13 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
     }),
     useBlocker: () => ({}),
     useNavigate: () => vi.fn(),
-    Link: ({ children, to }: { children?: React.ReactNode; to?: unknown }) => (
-      <a href={typeof to === 'string' ? to : '#'}>{children}</a>
+    Link: ({ children, to }: { children?: React.ReactNode; to?: string }) => (
+      <a href={to ?? '#'}>{children}</a>
     ),
   }
 })
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Analysis views and dataset summaries are database reads; the doubles answer empty so the suite exercises the tab strip's keyboard contract, not the data.
 vi.mock('#/lib/analysis-studio-data', async (importOriginal) => {
   const actual = await importOriginal<typeof studioData>()
 
@@ -61,6 +63,7 @@ vi.mock('#/lib/analysis-studio-data', async (importOriginal) => {
 })
 
 function renderStudio() {
+  // SAFETY: `AnalysisStudio` is the studio screen this suite renders; the route declares it as the component for `/analysis`.
   const Studio = AnalysisStudio as React.ComponentType
 
   const client = new QueryClient({

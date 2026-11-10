@@ -10,23 +10,13 @@ import { uploadFileToExperiment } from '#/lib/experiment-files'
 import { formatDate } from '#/lib/format-date'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { SEQUENCE_ACCEPT, isSequenceFileName } from '#/lib/sequence'
-import type { SequenceSummary } from '#/lib/sequence'
 import { cn } from '#/lib/utils'
 import { SequenceFileViewer } from './sequence-viewer'
+import { summaryLine } from './sequence-summary'
 import { linkedSequencesKey, useLinkedSequences } from './use-linked-sequences'
 
-/** "Plasmid" style one-liner: DNA · circular · 5,428 bp · 12 features. */
-export function summaryLine(s: SequenceSummary): string {
-  return [
-    t(`sequences.summary.${s.molecule}`),
-    t(`sequences.summary.${s.topology}`),
-    t(`sequences.summary.length.${s.molecule}`, { count: s.length }),
-    t('sequences.summary.features', { count: s.featureCount }),
-    s.gc === null ? null : t('sequences.summary.gc', { value: s.gc }),
-  ]
-    .filter(Boolean)
-    .join(' · ')
-}
+/** The one-line summary, re-exported so callers keep one import. */
+export { summaryLine } from './sequence-summary'
 
 /**
  * The sequences on a record, a sample or a notebook: each is a stored GenBank

@@ -1,12 +1,18 @@
-import { rich, t } from '#/copy'
+import { t } from '#/copy'
 import * as React from 'react'
 import { PresenceStack } from '#/components/collaboration/presence-avatars'
 
 import { cn } from '#/lib/utils'
-import { Avatar, AvatarStack } from '#/components/ui/avatar'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { Icon } from '#/components/icons'
+
+import { RecordHeaderIdentity } from './record-header-identity'
+import { RecordHeaderMeta } from './record-header-meta'
+import type { RecordHeaderContributor } from './record-header-meta'
+
+/** The contributor shape and the meta strip are `record-header-meta.tsx`'s. */
+export type { RecordHeaderContributor } from './record-header-meta'
 
 /**
  * Compact record header — the identity strip above a project, experiment,
@@ -17,13 +23,10 @@ import { Icon } from '#/components/icons'
  *   type · status … identifier
  *   Title                         ⭐  …  actions
  *   owner · updated · contributors · tags
+ *
+ * The three lines are three parts: `RecordHeaderIdentity` for the first, this
+ * title row, and `RecordHeaderMeta` for the third.
  */
-
-export interface RecordHeaderContributor {
-  name: string
-  initials?: string
-  href?: string
-}
 
 export interface RecordHeaderProps {
   /** Record kind, e.g. "Project", "Experiment", "Protocol". */
@@ -69,22 +72,14 @@ export function RecordHeader({
   menu,
   className,
 }: RecordHeaderProps) {
-  const hasMeta = Boolean(owner || updatedAt || contributors?.length || tags)
-
   return (
     <header className={cn('space-y-3', className)}>
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-semibold uppercase tracking-[0.14em] text-fg-muted">
-          {recordType}
-        </span>
-        {identifier ? (
-          <span className="font-mono text-xs tabular-nums text-fg-muted">
-            {identifier}
-          </span>
-        ) : null}
-        {status ? <span className="ml-1">{status}</span> : null}
-        {phase ? <span>{phase}</span> : null}
-      </div>
+      <RecordHeaderIdentity
+        recordType={recordType}
+        identifier={identifier}
+        status={status}
+        phase={phase}
+      />
 
       <div className="flex items-start gap-3">
         <h1 className="min-w-0 flex-1 truncate text-2xl font-semibold tracking-tight">
@@ -122,44 +117,12 @@ export function RecordHeader({
         )}
       </div>
 
-      {hasMeta ? (
-        <>
-          <div className="border-t border-border" />
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-fg-muted">
-            {owner ? (
-              <span className="inline-flex items-center gap-2">
-                <Avatar
-                  name={owner.name}
-                  initials={owner.initials}
-                  size="sm"
-                  className="ring-2 ring-surface"
-                />
-                <span className="text-fg">{owner.name}</span>
-              </span>
-            ) : null}
-            {updatedAt ? (
-              <span>
-                {rich('notebook.recordHeader.updated', {
-                  when: <span className="text-fg">{updatedAt}</span>,
-                })}
-              </span>
-            ) : null}
-            {contributors && contributors.length > 0 ? (
-              <AvatarStack
-                people={contributors.map((contributor) => ({
-                  id: contributor.href,
-                  name: contributor.name,
-                  initials: contributor.initials,
-                }))}
-                max={5}
-              />
-            ) : null}
-            {tags ? (
-              <span className="inline-flex flex-wrap gap-1">{tags}</span>
-            ) : null}
-          </div>
-        </>
-      ) : null}
+      <RecordHeaderMeta
+        owner={owner}
+        updatedAt={updatedAt}
+        contributors={contributors}
+        tags={tags}
+      />
     </header>
   )
 }

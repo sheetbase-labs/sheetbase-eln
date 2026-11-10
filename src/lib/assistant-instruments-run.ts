@@ -14,9 +14,8 @@ export async function runInstrumentsAction(
       await client.rpc('create_instrument', {
         p_workspace_id: action.workspaceId,
         p_name: action.name,
-        ...(action.instrumentType
-          ? { p_instrument_type: action.instrumentType }
-          : {}),
+        // JSON serialisation drops an absent type, so the call carries it only when set.
+        p_instrument_type: action.instrumentType || undefined,
         p_model: action.model,
         p_serial_number: action.serialNumber,
         p_vendor: action.vendor,

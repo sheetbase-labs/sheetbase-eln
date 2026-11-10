@@ -1,4 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/react-query'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
 import { LiveBlockComments } from '#/components/notebook/live-block-comments'
@@ -65,17 +66,19 @@ const meta = {
     canComment: true,
   },
   decorators: [
-    (Story, context) => (
-      <QueryClientProvider
-        client={
-          context.parameters.client as ReturnType<typeof screenQueryClient>
-        }
-      >
-        <div className="group flex justify-end rounded-md border p-3">
-          <Story />
-        </div>
-      </QueryClientProvider>
-    ),
+    (Story, context) => {
+      // Storybook keeps `parameters` as an open bag; every story in this file
+      // supplies the client it seeded, built by `screenQueryClient`.
+      const client: QueryClient = context.parameters.client
+
+      return (
+        <QueryClientProvider client={client}>
+          <div className="group flex justify-end rounded-md border p-3">
+            <Story />
+          </div>
+        </QueryClientProvider>
+      )
+    },
   ],
 } satisfies Meta<typeof LiveBlockComments>
 

@@ -17,6 +17,7 @@
  * database.
  */
 import type { Client } from 'pg'
+import { z } from 'zod'
 
 export const CORE_TABLES = [
   'workspaces',
@@ -59,7 +60,8 @@ export interface DatabaseVerificationReport {
   counts: Record<string, number>
 }
 
-type SqlRow = Record<string, unknown>
+/** One row a probe query returned: the column names the query selected, as PostgreSQL sent them. */
+type SqlRow = { [column: string]: z.core.util.JSONType }
 
 type SqlFn = (sql: string, params?: unknown[]) => Promise<{ rows: SqlRow[] }>
 
@@ -113,6 +115,7 @@ export async function verifyRestoredDatabase(
 
   // Core domain tables exist.
   for (const table of CORE_TABLES) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each probe appends its check as it finishes, so the report lists them in the order the drill ran them.
     await probe(`table_${table}`, async () => {
       const result = await sql('SELECT to_regclass($1) AS reg', [
         `api.${table}`,
@@ -125,6 +128,7 @@ export async function verifyRestoredDatabase(
   // Row-level security enabled on every core table (the isolation boundary
   // is part of usable state, not optional metadata).
   for (const table of CORE_TABLES) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each probe appends its check as it finishes, so the report lists them in the order the drill ran them.
     await probe(`rls_${table}`, async () => {
       const result = await sql(
         `SELECT c.relrowsecurity
@@ -146,6 +150,7 @@ export async function verifyRestoredDatabase(
 
   // Core RPC surface present.
   for (const rpc of CORE_RPCS) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each probe appends its check as it finishes, so the report lists them in the order the drill ran them.
     await probe(`rpc_${rpc}`, async () => {
       const result = await sql(
         `SELECT count(*)::int AS n
@@ -175,6 +180,7 @@ export async function verifyRestoredDatabase(
     'projects',
     'revisions',
   ]) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each probe appends its check as it finishes, so the report lists them in the order the drill ran them.
     await probe(`permissions_${table}`, async () => {
       const result = await sql(
         `SELECT
@@ -212,6 +218,7 @@ export async function verifyRestoredDatabase(
     'file_objects',
     'connector_runs',
   ]) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each probe appends its check as it finishes, so the report lists them in the order the drill ran them.
     await probe(`count_${table}`, async () => {
       const result = await sql(`SELECT count(*)::int AS n FROM api.${table}`)
       counts[table] = Number(result.rows[0]?.n ?? 0)
@@ -430,7 +437,7 @@ export async function verifyRestoredAccess(admin: Client, request: Client) {
         `SELECT (api.create_project('Restore rollback probe')).id AS id`,
       )
 
-      return typeof created.rows[0]?.id === 'string'
+      return z.string().safeParse(created.rows[0]?.id).success
     },
   )
   await asActor(

@@ -3,13 +3,40 @@
  * git. YAML is a superset of JSON, so one parser reads both.
  */
 import { parse, stringify } from 'yaml'
+import { z } from 'zod'
 
-export function odcsToYaml(document: Record<string, unknown>): string {
+/** A JSON value as a data contract file carries it. */
+export type OdcsValue =
+  string | number | boolean | null | OdcsValue[] | { [key: string]: OdcsValue }
+
+/** A data contract document: its named sections, each a JSON value. */
+export type OdcsDocument = Record<string, OdcsValue>
+
+const odcsValueSchema: z.ZodType<OdcsValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(odcsValueSchema),
+    z.record(z.string(), odcsValueSchema),
+  ]),
+)
+
+const odcsDocumentSchema: z.ZodType<OdcsDocument> = z.record(
+  z.string(),
+  odcsValueSchema,
+)
+
+/** What the writer accepts: a parsed file, or the JSON the export RPC returns. */
+type OdcsYamlInput = Parameters<typeof stringify>[0]
+
+export function odcsToYaml(document: OdcsYamlInput): string {
   return stringify(document, { lineWidth: 100 })
 }
 
 /** Read a YAML or JSON ODCS file. Throws a plain message when it is neither. */
-export function parseOdcs(text: string): Record<string, unknown> {
+export function parseOdcs(text: string): OdcsDocument {
   let parsed: unknown
 
   try {
@@ -18,11 +45,13 @@ export function parseOdcs(text: string): Record<string, unknown> {
     throw new Error('The file is not valid YAML or JSON.')
   }
 
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+  const document = odcsDocumentSchema.safeParse(parsed)
+
+  if (!document.success) {
     throw new Error('The file is not a data contract.')
   }
 
-  return parsed as Record<string, unknown>
+  return document.data
 }
 
 /** A file name for a contract: its name in lower case with dashes. */

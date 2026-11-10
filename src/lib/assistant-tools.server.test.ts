@@ -10,6 +10,7 @@ async function toolkit(
   flags: Partial<ReturnType<typeof defaultAiFeatureFlags>>,
 ) {
   return createAssistantToolkit({
+    // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: the toolkit builds definitions and reads through `list` only; no other DataClient method is reached here.
     client: { list: () => Promise.resolve([]) } as unknown as DataClient,
     actor: { kind: 'user', id: 'u' },
     workspaceId: WORKSPACE,

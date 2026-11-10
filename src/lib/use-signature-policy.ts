@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { createDataClient } from './data-client'
 import { readSignaturePolicy } from './signature-certification'
@@ -7,14 +8,39 @@ import { adminQueryKeys, fetchWorkspaceSettings } from './workspace-admin'
 
 const dataClient = createDataClient()
 
+/** The workflow and reviewer count the database falls back to. */
+const DEFAULT_REVIEW_WORKFLOW = 'default-scientific-review'
+const DEFAULT_MIN_REVIEWERS = 1
+
+/** What a workspace pins for review, with the defaults the database uses. */
+export interface ReviewWorkflow {
+  enabled: boolean
+  workflow: string
+  minReviewers: number
+}
+
+/** The signature meanings and review workflow a screen needs at once. */
+export interface SignaturePolicySettings {
+  policy: SignaturePolicy
+  reviewWorkflow: ReviewWorkflow
+}
+
+/**
+ * The stored `review_workflow_config` JSONB column. Each field falls back on
+ * its own, so one bad count never discards a pinned workflow.
+ */
+const reviewWorkflowConfigSchema = z.object({
+  workflow: z.string().catch(DEFAULT_REVIEW_WORKFLOW),
+  minReviewers: z.coerce.number().int().min(1).catch(DEFAULT_MIN_REVIEWERS),
+})
+
 /**
  * Which signature meanings the workspace has switched on. Every meaning is on
  * until the settings say otherwise, so signing is never held up while they load.
  */
-export function useSignaturePolicy(workspaceId: string | undefined): {
-  policy: SignaturePolicy
-  reviewWorkflow: { enabled: boolean; workflow: string; minReviewers: number }
-} {
+export function useSignaturePolicy(
+  workspaceId: string | undefined,
+): SignaturePolicySettings {
   const settings = useQuery({
     queryKey: adminQueryKeys.settings(workspaceId ?? ''),
     queryFn: () => fetchWorkspaceSettings(dataClient, workspaceId ?? ''),
@@ -33,22 +59,18 @@ export function readReviewWorkflow(
     | { reviewWorkflowEnabled: boolean; reviewWorkflowConfig: unknown }
     | null
     | undefined,
-): { enabled: boolean; workflow: string; minReviewers: number } {
-  const config =
-    settings?.reviewWorkflowConfig &&
-    typeof settings.reviewWorkflowConfig === 'object'
-      ? (settings.reviewWorkflowConfig as Record<string, unknown>)
-      : {}
+): ReviewWorkflow {
+  const parsed = reviewWorkflowConfigSchema.safeParse(
+    settings?.reviewWorkflowConfig,
+  )
 
-  const minReviewers = Number(config.minReviewers)
+  const config = parsed.success
+    ? parsed.data
+    : { workflow: DEFAULT_REVIEW_WORKFLOW, minReviewers: DEFAULT_MIN_REVIEWERS }
 
   return {
     enabled: settings?.reviewWorkflowEnabled ?? false,
-    workflow:
-      typeof config.workflow === 'string'
-        ? config.workflow
-        : 'default-scientific-review',
-    minReviewers:
-      Number.isInteger(minReviewers) && minReviewers >= 1 ? minReviewers : 1,
+    workflow: config.workflow,
+    minReviewers: config.minReviewers,
   }
 }

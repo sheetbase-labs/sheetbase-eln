@@ -17,6 +17,12 @@ import { listByIds } from '#/lib/chunk-ids'
 
 export type PickerKind = 'Sample' | 'Material' | 'Dataset' | 'Experiment'
 
+/** The tone and words a picker row shows for its status. */
+export interface PickerStatus {
+  tone: Tone
+  label: string
+}
+
 export interface PickerItem {
   /** The canonical record id (or dataset id), the stable target identity. */
   id: string
@@ -87,7 +93,7 @@ export function toPickerItem(
   }
 }
 
-export function pickerStatus(status: string): { tone: Tone; label: string } {
+export function pickerStatus(status: string): PickerStatus {
   const key = status.toLowerCase()
 
   if (key.includes('approve') || key.includes('sign'))
@@ -107,6 +113,18 @@ export function pickerStatus(status: string): { tone: Tone; label: string } {
   if (key.includes('consum')) return { tone: 'stored', label: 'Consumed' }
 
   return { tone: 'none', label: status || '—' }
+}
+
+/** A picker limited to some kinds must not offer the others. */
+function onlyKinds(
+  items: PickerItem[],
+  kinds: PickerKind[] | undefined,
+): PickerItem[] {
+  if (!kinds?.length) return items
+
+  const wanted = new Set(kinds)
+
+  return items.filter((item) => wanted.has(item.kind))
 }
 
 /** Project ids to display titles, for the picker item subtitle. */
@@ -251,12 +269,12 @@ export async function searchPickerRecords(
 
     for (const item of all) counts[item.kind] += 1
 
-    // A picker that is limited to some kinds must not offer the others.
-    const recent = input.kinds?.length
-      ? all.filter((item) => input.kinds!.includes(item.kind))
-      : all
-
-    return { recent: true, items: recent, counts, total: all.length }
+    return {
+      recent: true,
+      items: onlyKinds(all, input.kinds),
+      counts,
+      total: all.length,
+    }
   }
 
   const [results, projectNames] = await Promise.all([
@@ -272,9 +290,7 @@ export async function searchPickerRecords(
 
   for (const item of all) counts[item.kind] += 1
 
-  const items = input.kinds?.length
-    ? all.filter((item) => input.kinds!.includes(item.kind))
-    : all
+  const items = onlyKinds(all, input.kinds)
 
   return { recent: false, items, counts, total: all.length }
 }

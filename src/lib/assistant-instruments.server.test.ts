@@ -41,7 +41,7 @@ const CONNECTOR = {
 }
 
 function context(): LabToolContext {
-  const client = {
+  const stub = {
     list: (resource: string) =>
       Promise.resolve(
         resource === 'instruments'
@@ -53,7 +53,10 @@ function context(): LabToolContext {
               : [],
       ),
     rpc: () => Promise.resolve([{ user_id: 'u-ada', name: 'Ada Lovelace' }]),
-  } as unknown as DataClient
+  }
+
+  // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- SAFETY: the instrument cards read through `list` and `rpc` only, which this stub answers.
+  const client = stub as unknown as DataClient
 
   return {
     client,

@@ -50,6 +50,12 @@ export interface RoundPlate {
   transfers: LaidOutTransfer[]
 }
 
+/** A round's plate (null when no format was asked for) and its conditions with their wells. */
+export interface RoundLayout {
+  plate: RoundPlate | null
+  trials: Trial[]
+}
+
 export const DEFAULT_PLATE_FORMAT: PlateFormat = '96_well'
 
 export function isPlateFormat(value: string): value is PlateFormat {
@@ -76,7 +82,7 @@ export function layoutRound(
   trials: readonly Trial[],
   layout: PlateLayout,
   seed: number,
-): { plate: RoundPlate | null; trials: Trial[] } {
+): RoundLayout {
   const format = layout.plateFormat
 
   if (!format) return { plate: null, trials: [...trials] }
@@ -132,12 +138,15 @@ export function layoutRound(
     const own = order.splice(0, replicates)
 
     for (const code of own) {
-      wells.push({
+      const well: LaidOutWell = {
         wellCode: code,
         role: 'sample',
         sampleLabel: `T${trial.trial}`,
-        ...(volume ? { volumeUl: volume } : {}),
-      })
+      }
+
+      if (volume) well.volumeUl = volume
+
+      wells.push(well)
 
       if (layout.worklistFormat && volume)
         transfers.push({

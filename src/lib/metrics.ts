@@ -164,14 +164,20 @@ function foldBounded(allowed: readonly string[], value: string): string {
   return allowed.includes(value) ? value : 'other'
 }
 
+/**
+ * Reads one label by name, keeping the absent case in the type: a bare index
+ * read is typed non-optional, so the hasOwn guard states what a missing label is.
+ */
+function labelValue(values: Labels, name: string): string | undefined {
+  return Object.hasOwn(values, name) ? values[name] : undefined
+}
+
 function labelKey(names: readonly string[], values: Labels): string | null {
   if (names.length === 0) return ''
   const parts: string[] = []
 
   for (const name of names) {
-    const value: string | undefined = (
-      values as Record<string, string | undefined>
-    )[name]
+    const value = labelValue(values, name)
 
     if (value === undefined) return null
     parts.push(`${name}="${escapeLabel(value)}"`)
@@ -214,9 +220,7 @@ export class Counter {
     const bounded: Labels = {}
 
     for (const name of this.labelNames) {
-      const raw: string | undefined = (
-        values as Record<string, string | undefined>
-      )[name]
+      const raw = labelValue(values, name)
 
       const allowed = bounderFor(this.bounders, name)
       bounded[name] =
@@ -273,9 +277,7 @@ export class Histogram {
     const bounded: Labels = {}
 
     for (const name of this.labelNames) {
-      const raw: string | undefined = (
-        values as Record<string, string | undefined>
-      )[name]
+      const raw = labelValue(values, name)
 
       const allowed = bounderFor(this.bounders, name)
       bounded[name] =
@@ -287,7 +289,7 @@ export class Histogram {
 
     if (!series) {
       series = {
-        buckets: new Array(this.buckets.length).fill(0),
+        buckets: Array.from({ length: this.buckets.length }, () => 0),
         sum: 0,
         count: 0,
       }
@@ -348,9 +350,7 @@ export class Gauge {
     const bounded: Labels = {}
 
     for (const name of this.labelNames) {
-      const raw: string | undefined = (
-        values as Record<string, string | undefined>
-      )[name]
+      const raw = labelValue(values, name)
 
       const allowed = bounderFor(this.bounders, name)
       bounded[name] =

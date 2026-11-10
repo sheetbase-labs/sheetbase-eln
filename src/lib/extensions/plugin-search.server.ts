@@ -7,6 +7,8 @@
  * what that person may already see, and it can only point back at records it
  * was handed. A provider that fails costs its own hits, never the search.
  */
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
 import { listExtensions } from './client'
 import { runExtensionSearch } from './data-runtime.server'
@@ -43,7 +45,7 @@ interface IndexRow {
   status: string
   body: string
   /** The record's own field values (text, numbers, yes/no). */
-  fields: Record<string, unknown> | null
+  fields: { [name: string]: z.core.util.JSONType } | null
   deep_link: string
 }
 
@@ -58,15 +60,22 @@ const DOCUMENT_LIMIT = 5000
 const FIELD_VALUE_LIMIT = 8000
 
 /** What a provider may read of a record's fields: text, numbers and yes/no. */
-function fieldValues(
-  fields: Record<string, unknown> | null,
-): Record<string, string | number | boolean> {
-  const out: Record<string, string | number | boolean> = {}
+interface ProviderFieldValues {
+  [name: string]: string | number | boolean
+}
+
+/** What a provider may read of a record's fields: text, numbers and yes/no. */
+function fieldValues(fields: IndexRow['fields']): ProviderFieldValues {
+  const out: ProviderFieldValues = {}
 
   for (const [name, value] of Object.entries(fields ?? {})) {
-    if (typeof value === 'string') out[name] = value.slice(0, FIELD_VALUE_LIMIT)
-    else if (typeof value === 'number' || typeof value === 'boolean')
-      out[name] = value
+    const text = z.string().safeParse(value)
+    const number = z.number().safeParse(value)
+    const boolean = z.boolean().safeParse(value)
+
+    if (text.success) out[name] = text.data.slice(0, FIELD_VALUE_LIMIT)
+    else if (number.success) out[name] = number.data
+    else if (boolean.success) out[name] = boolean.data
   }
 
   return out
@@ -95,14 +104,16 @@ const INDEX_CANDIDATES = 5000
 async function rowsFor(client: DataClient, ids: string[]): Promise<IndexRow[]> {
   const rows: IndexRow[] = []
 
-  for (let at = 0; at < ids.length; at += 100)
-    rows.push(
-      ...(await client.list<IndexRow>(
-        'search_documents',
-        `?select=object_type,object_id,title,identifier,kind,status,body,fields,deep_link` +
-          `&archived=eq.false&object_id=in.(${ids.slice(at, at + 100).join(',')})`,
-      )),
+  for (let at = 0; at < ids.length; at += 100) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- IDs are read 100 at a time, one request after another, so a large hit set cannot burst PostgREST.
+    const page = await client.list<IndexRow>(
+      'search_documents',
+      `?select=object_type,object_id,title,identifier,kind,status,body,fields,deep_link` +
+        `&archived=eq.false&object_id=in.(${ids.slice(at, at + 100).join(',')})`,
     )
+
+    rows.push(...page)
+  }
 
   return rows
 }
@@ -173,7 +184,7 @@ export async function searchWithPlugins(
         // An indexed provider first says what to look up, so it is handed
         // nothing yet.
         documents: indexed ? [] : documents,
-        ...(indexed ? { stage: 'plan' as const } : {}),
+        stage: indexed ? 'plan' : undefined,
       })
 
       if (nearest?.verify) {

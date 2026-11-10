@@ -15,12 +15,21 @@
  * server (never in the browser) so the larger bound does not load the file
  * into the client.
  */
+import { z } from 'zod'
+
 export const IMPORT_LIMITS = {
   bytes: 64 * 1024 * 1024,
   rows: 100_000,
 } as const
 
 export type ImportFormat = 'csv' | 'tsv' | 'json' | 'xlsx' | 'clipboard'
+
+/** A value a JSON export holds: the JSON its author wrote. */
+type JsonValue =
+  string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+
+/** One row of a JSON export: a value by column name. */
+const jsonRowSchema = z.record(z.string(), z.json())
 
 export type ImportDelimiter = ',' | ';' | '\t'
 
@@ -309,51 +318,59 @@ export function uniquifyHeaders(headers: string[]): string[] {
   })
 }
 
-function parseJsonTable(text: string): ImportPreview {
-  let parsed: unknown
-
+/** A file's text as JSON; a syntax error is the import's own message. */
+function parseJsonText(text: string): JsonValue {
   try {
-    parsed = JSON.parse(text)
+    // SAFETY: JSON.parse returns exactly the ECMAScript values a JSON text can express, which is JsonValue.
+    return JSON.parse(text) as JsonValue
   } catch {
     throw new ImportParseError('JSON is not valid.')
   }
+}
 
-  if (Array.isArray(parsed)) {
+function parseJsonTable(text: string): ImportPreview {
+  const parsed = parseJsonText(text)
+  const rowsFile = z.array(z.json()).safeParse(parsed)
+
+  if (rowsFile.success) {
     return {
       format: 'json',
-      sheets: [recordsToSheet(parsed, 'Sheet 1')],
+      sheets: [recordsToSheet(rowsFile.data, 'Sheet 1')],
       detectedTypes: [],
     }
   }
 
-  if (parsed && typeof parsed === 'object') {
-    const record = parsed as Record<string, unknown>
+  const workbook = z.object({ sheets: z.array(z.json()) }).safeParse(parsed)
 
-    if (Array.isArray(record.sheets)) {
-      const sheets = record.sheets.map((item, index) => {
-        if (item && typeof item === 'object') {
-          const sheet = item as Record<string, unknown>
+  if (workbook.success) {
+    const sheets = workbook.data.sheets.map((item, index) => {
+      const sheet = z
+        .object({
+          name: z.string().optional().catch(undefined),
+          rows: z.array(z.json()),
+        })
+        .safeParse(item)
 
-          const name =
-            typeof sheet.name === 'string' ? sheet.name : `Sheet ${index + 1}`
-
-          if (Array.isArray(sheet.rows)) {
-            return recordsToSheet(sheet.rows, name)
-          }
-        }
-
+      if (!sheet.success) {
         throw new ImportParseError('JSON sheets must include a rows array.')
-      })
-
-      return { format: 'json', sheets, detectedTypes: [] }
-    }
-
-    if (Array.isArray(record.rows)) {
-      return {
-        format: 'json',
-        sheets: [recordsToSheet(record.rows, 'Sheet 1')],
-        detectedTypes: [],
       }
+
+      return recordsToSheet(
+        sheet.data.rows,
+        sheet.data.name ?? `Sheet ${index + 1}`,
+      )
+    })
+
+    return { format: 'json', sheets, detectedTypes: [] }
+  }
+
+  const rowsOnly = z.object({ rows: z.array(z.json()) }).safeParse(parsed)
+
+  if (rowsOnly.success) {
+    return {
+      format: 'json',
+      sheets: [recordsToSheet(rowsOnly.data.rows, 'Sheet 1')],
+      detectedTypes: [],
     }
   }
 
@@ -362,7 +379,7 @@ function parseJsonTable(text: string): ImportPreview {
   )
 }
 
-function recordsToSheet(rows: unknown[], name: string): ImportSheet {
+function recordsToSheet(rows: JsonValue[], name: string): ImportSheet {
   if (!rows.length) throw new ImportParseError('JSON contains no rows.')
 
   if (rows.length > IMPORT_LIMITS.rows) {
@@ -371,27 +388,34 @@ function recordsToSheet(rows: unknown[], name: string): ImportSheet {
     )
   }
 
-  if (rows.every((row) => Array.isArray(row))) {
+  const matrix = z.array(z.array(z.json())).safeParse(rows)
+
+  if (matrix.success) {
     return matrixToSheet(
-      rows.map((row) => (row as unknown[]).map((cell) => stringifyCell(cell))),
+      matrix.data.map((row) => row.map((cell) => stringifyCell(cell))),
       true,
       name,
     )
   }
 
   const objects = rows.map((row, index) => {
-    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+    const object = jsonRowSchema.safeParse(row)
+
+    if (!object.success) {
       throw new ImportParseError(`JSON row ${index + 1} is not an object.`)
     }
 
-    return row as Record<string, unknown>
+    return object.data
   })
 
   const headers: string[] = []
+  const seenHeaders = new Set<string>()
 
   for (const row of objects) {
     for (const key of Object.keys(row)) {
-      if (!headers.includes(key)) headers.push(key)
+      if (seenHeaders.has(key)) continue
+      seenHeaders.add(key)
+      headers.push(key)
     }
   }
 
@@ -408,14 +432,20 @@ function recordsToSheet(rows: unknown[], name: string): ImportSheet {
   }
 }
 
-function stringifyCell(value: unknown): string {
+function stringifyCell(value: JsonValue | undefined): string {
   if (value === null || value === undefined) return ''
 
-  if (typeof value === 'string') return value
+  const asText = z.string().safeParse(value)
 
-  if (typeof value === 'boolean' || typeof value === 'number') {
-    return String(value)
-  }
+  if (asText.success) return asText.data
+
+  const asBoolean = z.boolean().safeParse(value)
+
+  if (asBoolean.success) return asBoolean.data ? 'true' : 'false'
+
+  const asNumber = z.number().safeParse(value)
+
+  if (asNumber.success) return String(asNumber.data)
 
   return JSON.stringify(value)
 }
@@ -716,7 +746,7 @@ function findEocd(view: DataView, length: number): number {
 }
 
 async function inflateRaw(data: Uint8Array): Promise<Uint8Array> {
-  if (typeof DecompressionStream !== 'function') {
+  if (!('DecompressionStream' in globalThis)) {
     throw new ImportParseError('Cannot inflate XLSX in this environment.')
   }
 
@@ -740,7 +770,9 @@ export function zipStore(
 ): ArrayBuffer {
   const encoded = Object.entries(files).map(([name, content]) => {
     const data =
-      typeof content === 'string' ? new TextEncoder().encode(content) : content
+      content instanceof Uint8Array
+        ? content
+        : new TextEncoder().encode(content)
 
     return { name, data, crc: crc32(data) }
   })

@@ -9,10 +9,14 @@ import {
  * Whether this workspace runs by regulated-lab rules. A workspace with no
  * settings yet is not regulated, and nothing is held back while it loads.
  */
-export function useRegulatedLab(workspaceId: string | undefined): {
+export interface RegulatedLabStatus {
   regulated: boolean
   loaded: boolean
-} {
+}
+
+export function useRegulatedLab(
+  workspaceId: string | undefined,
+): RegulatedLabStatus {
   const general = useQuery({
     queryKey: workspaceGeneralQueryKey,
     queryFn: () => fetchWorkspaceGeneral(),

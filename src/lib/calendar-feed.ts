@@ -12,7 +12,8 @@ export interface FeedEvent {
   starts_at: string
   ends_at: string
   all_day: boolean
-  status: 'tentative' | 'confirmed' | 'cancelled' | string
+  /** `tentative`, `confirmed` or `cancelled` today; the database owns the vocabulary. */
+  status: string
   location: string | null
   notes: string | null
   updated_at: string
@@ -30,7 +31,7 @@ export function isFeedToken(value: string): boolean {
 
 /** "20261105T093000Z" */
 function stamp(value: string | Date): string {
-  const d = typeof value === 'string' ? new Date(value) : value
+  const d = value instanceof Date ? value : new Date(value)
 
   return d
     .toISOString()

@@ -65,6 +65,7 @@ const meta = {
     (Story, context) => (
       <QueryClientProvider
         client={
+          // SAFETY: this story is the only writer of `parameters.client`, and `screenQueryClient()` above is a real query client of exactly that type.
           context.parameters.client as ReturnType<typeof screenQueryClient>
         }
       >

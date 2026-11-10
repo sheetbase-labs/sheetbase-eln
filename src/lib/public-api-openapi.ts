@@ -45,9 +45,93 @@ export const HUMAN_SESSION_ONLY_RPCS = [
 // record types, sheet definitions, templates and measurement tables.
 const SCHEMA_AUTHORING_RPCS: readonly string[] = []
 
-type OpenApiOperation = Record<string, unknown>
+/** One media type a request or response carries. */
+interface OpenApiMediaType {
+  schema?: JsonSchema
+  example?: unknown
+}
 
-type OpenApiPathItem = Record<string, unknown>
+/** One header the spec documents on a response. */
+interface OpenApiHeader {
+  description?: string
+  schema?: JsonSchema
+}
+
+/** One response: what it says, and the headers and body it carries. */
+interface OpenApiResponse {
+  description: string
+  headers?: Record<string, OpenApiHeader>
+  content?: Record<string, OpenApiMediaType>
+}
+
+/** Every answer an operation gives, keyed by status code. */
+interface OpenApiResponses {
+  [status: string]: OpenApiResponse
+}
+
+/** One parameter an operation takes, or a `$ref` to a shared one. */
+interface OpenApiParameter {
+  $ref?: string
+  name?: string
+  in?: string
+  required?: boolean
+  style?: string
+  explode?: boolean
+  schema?: JsonSchema
+  description?: string
+}
+
+/** The reusable parameters the spec's operations point at. */
+interface OpenApiComponentParameters {
+  [name: string]: OpenApiParameter
+}
+
+/** The body an operation accepts. */
+interface OpenApiRequestBody {
+  required?: boolean
+  content: Record<string, OpenApiMediaType>
+}
+
+/** One operation in the spec. */
+interface OpenApiOperation {
+  tags?: string[]
+  summary?: string
+  operationId?: string
+  security?: Array<{ bearerAuth: string[] }>
+  description?: string
+  parameters?: readonly OpenApiParameter[]
+  requestBody?: OpenApiRequestBody
+  responses?: OpenApiResponses
+  'x-sheetbase-scopes'?: string[]
+}
+
+/** The operations one path answers, by HTTP method. */
+interface OpenApiPathItem {
+  /** A method the spec does not offer reads as absent. */
+  [method: string]: OpenApiOperation | undefined
+  get?: OpenApiOperation
+  head?: OpenApiOperation
+  post?: OpenApiOperation
+  patch?: OpenApiOperation
+}
+
+/** Every path the spec describes, by its URL. */
+interface OpenApiPaths {
+  [path: string]: OpenApiPathItem
+}
+
+/** The scopes an operation needs, as the spec's own extension key. */
+interface ScopeExtension {
+  'x-sheetbase-scopes': string[]
+}
+
+/** One security scheme the spec offers. */
+interface OpenApiSecurityScheme {
+  type: string
+  scheme?: string
+  bearerFormat?: string
+  description?: string
+}
 
 export interface ExternalApiOpenApi {
   openapi: '3.1.0'
@@ -58,11 +142,11 @@ export interface ExternalApiOpenApi {
   }
   servers: Array<{ url: string; description: string }>
   tags: Array<{ name: string; description: string }>
-  paths: Record<string, OpenApiPathItem>
+  paths: OpenApiPaths
   components: {
-    securitySchemes: Record<string, unknown>
+    securitySchemes: Record<string, OpenApiSecurityScheme>
     schemas: Record<string, JsonSchema>
-    parameters: Record<string, unknown>
+    parameters: OpenApiComponentParameters
   }
 }
 
@@ -109,7 +193,7 @@ function proxyErrorSchema(): JsonSchema {
   }
 }
 
-function tokenErrorResponses(): Record<string, unknown> {
+function tokenErrorResponses(): OpenApiResponses {
   return {
     '400': {
       description:
@@ -156,7 +240,7 @@ function tokenErrorResponses(): Record<string, unknown> {
   }
 }
 
-function proxyErrorResponses(): Record<string, unknown> {
+function proxyErrorResponses(): OpenApiResponses {
   const content = {
     'application/json': {
       schema: { $ref: '#/components/schemas/ProxyError' },
@@ -182,7 +266,7 @@ function proxyErrorResponses(): Record<string, unknown> {
   }
 }
 
-function scopeExtension(scopes: readonly Scope[]): Record<string, unknown> {
+function scopeExtension(scopes: readonly Scope[]): ScopeExtension {
   return {
     'x-sheetbase-scopes': [...scopes],
   }
@@ -256,7 +340,7 @@ function tableRowRef(resource: string): JsonSchema {
   return { $ref: `#/components/schemas/${tableSchemaName(resource)}` }
 }
 
-function tableReadResponses(resource: string): Record<string, unknown> {
+function tableReadResponses(resource: string): OpenApiResponses {
   const rowArray = { type: 'array', items: tableRowRef(resource) }
 
   return {
@@ -512,7 +596,7 @@ function description(): string {
   ].join('\n')
 }
 
-function componentParameters(): Record<string, unknown> {
+function componentParameters(): OpenApiComponentParameters {
   const filterOps = POSTGREST_FILTER_OPERATORS.join(', ')
 
   return {
@@ -607,7 +691,7 @@ function componentParameters(): Record<string, unknown> {
 }
 
 export function buildExternalApiOpenApi(): ExternalApiOpenApi {
-  const paths: Record<string, OpenApiPathItem> = {
+  const paths: OpenApiPaths = {
     '/api/token': {
       post: {
         tags: ['Token'],

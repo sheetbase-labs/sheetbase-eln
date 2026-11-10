@@ -83,20 +83,21 @@ function endpoint(
   }
 }
 
+/** One canned answer this fake client gives when a query contains `part`. */
+interface CannedRoute {
+  match: (resource: string, query: string) => boolean
+  rows: unknown[]
+}
+
 /** Fake DataClient routing on (resource, query-substring) matchers. */
-function fakeClient(
-  routes: {
-    match: (resource: string, query: string) => boolean
-    rows: unknown[]
-  }[],
-  calls: string[] = [],
-): DataClient {
+function fakeClient(routes: CannedRoute[], calls: string[] = []): DataClient {
   const list = async <T>(resource: string, query = ''): Promise<T[]> => {
     calls.push(`${resource} ${query}`)
     const route = routes.find((r) => r.match(resource, query))
 
     if (!route) throw new Error(`unexpected query: ${resource} ${query}`)
 
+    // SAFETY: each route declares the rows its own query answers with, and the caller names the same wire type it asks the production client for.
     return route.rows as T[]
   }
 
@@ -114,11 +115,7 @@ function fakeClient(
   }
 }
 
-const on = (
-  resource: string,
-  part: string,
-  rows: unknown[],
-): { match: (r: string, q: string) => boolean; rows: unknown[] } => ({
+const on = (resource: string, part: string, rows: unknown[]): CannedRoute => ({
   match: (r, q) => r === resource && q.includes(part),
   rows,
 })

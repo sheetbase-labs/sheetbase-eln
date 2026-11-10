@@ -2,6 +2,8 @@
  * Blank Notebook create (PC-01 enabling slice).
  * Uses the existing create_record_with_blocks RPC — no Template required.
  */
+import type { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
 import { EMPTY_RICH_TEXT_PAYLOAD, PAYLOAD_SCHEMA_VERSION } from '#/lib/blocks'
 import { toRecord } from '#/lib/notebook-data'
@@ -9,6 +11,9 @@ import { insertBlock } from '#/lib/notebook-mutations'
 import { isDuplicateLinkError } from '#/lib/scientific-records'
 import { pinProtocolReference } from '#/lib/protocol-materials'
 import type { BlockWire, NotebookRecord, RecordWire } from '#/lib/notebook-data'
+
+/** A record's `properties` JSONB: JSON values keyed by property name. */
+type RecordProperties = { [key: string]: z.core.util.JSONType }
 
 export async function createBlankExperiment(
   client: DataClient,
@@ -18,7 +23,7 @@ export async function createBlankExperiment(
     /** Defaults to an experiment; a protocol is created the same way. */
     kind?: 'experiment' | 'protocol_template'
     /** Record properties, e.g. reviewer_user_id and planned_end. */
-    properties?: Record<string, unknown>
+    properties?: RecordProperties
   },
 ): Promise<NotebookRecord> {
   const kind = input.kind ?? 'experiment'
@@ -118,6 +123,7 @@ export async function applyExperimentSetup(
     )
 
     for (const link of links) {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each link is a write to the same new record; a refusal must stop the rest so a half-copied link set is never left behind.
       await client.rpc('create_record_link', {
         p_source_record_id: recordId,
         p_target_kind: link.target_kind,

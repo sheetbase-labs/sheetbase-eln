@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import { createDataClient } from './data-client'
 import {
@@ -11,12 +12,16 @@ import { validSheetInstanceState } from './sheet-instance.test'
 const ID = (n: number) =>
   `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
 
-function listClient(answers: Record<string, unknown>) {
+function listClient(answers: ReadonlyMap<string, unknown>) {
   const fetcher = vi.fn(async (input: RequestInfo | URL) => {
-    const url = String(input)
-    const key = Object.keys(answers).find((k) => url.includes(k))
+    const url = z
+      .union([z.string(), z.instanceof(URL)])
+      .parse(input)
+      .toString()
 
-    return new Response(JSON.stringify(key ? answers[key] : []), {
+    const key = [...answers.keys()].find((k) => url.includes(k))
+
+    return new Response(JSON.stringify(key ? answers.get(key) : []), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     })
@@ -27,26 +32,30 @@ function listClient(answers: Record<string, unknown>) {
 
 describe('fetchDatasetSheetOptions', () => {
   it('sorts server-checked options and preserves refusals for the chosen Dataset', async () => {
-    const { client } = listClient({
-      '/rpc/dataset_sheet_options': [
-        {
-          versionId: ID(12),
-          definitionId: ID(1),
-          definitionName: 'Titre sheet',
-          version: 2,
-          datasetParameterId: ID(100),
-          unavailableReason: null,
-        },
-        {
-          versionId: ID(31),
-          definitionId: ID(3),
-          definitionName: 'Aardvark',
-          version: 4,
-          datasetParameterId: null,
-          unavailableReason: 'Required input is missing',
-        },
-      ],
-    })
+    const { client } = listClient(
+      new Map(
+        Object.entries({
+          '/rpc/dataset_sheet_options': [
+            {
+              versionId: ID(12),
+              definitionId: ID(1),
+              definitionName: 'Titre sheet',
+              version: 2,
+              datasetParameterId: ID(100),
+              unavailableReason: null,
+            },
+            {
+              versionId: ID(31),
+              definitionId: ID(3),
+              definitionName: 'Aardvark',
+              version: 4,
+              datasetParameterId: null,
+              unavailableReason: 'Required input is missing',
+            },
+          ],
+        }),
+      ),
+    )
 
     const options = await fetchDatasetSheetOptions(client, ID(80))
     expect(options.map((o) => [o.definitionName, o.version])).toEqual([
@@ -97,7 +106,11 @@ describe('openDatasetInSheet', () => {
       async (url: RequestInfo | URL, _init?: RequestInit) =>
         new Response(
           JSON.stringify(
-            String(url).includes('resolve_sheet_instance_row_identity')
+            z
+              .union([z.string(), z.instanceof(URL)])
+              .parse(url)
+              .toString()
+              .includes('resolve_sheet_instance_row_identity')
               ? {
                   ...wire,
                   revision: '2',
@@ -124,10 +137,15 @@ describe('openDatasetInSheet', () => {
 
     expect(instance.state.resolvedRowIdentity).toEqual(identity)
     expect(instance.revision).toBe(2)
-    expect(String(fetcher.mock.calls[0]?.[0])).toContain(
-      '/rpc/create_sheet_instance_from_definition',
-    )
-    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toMatchObject({
+    expect(
+      z
+        .union([z.string(), z.instanceof(URL)])
+        .parse(fetcher.mock.calls[0]?.[0])
+        .toString(),
+    ).toContain('/rpc/create_sheet_instance_from_definition')
+    expect(
+      JSON.parse(z.string().parse(fetcher.mock.calls[0]?.[1]?.body)),
+    ).toMatchObject({
       p_name: 'Titre',
       p_source_definition_version_id: ID(12),
       p_project_id: ID(70),

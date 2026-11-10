@@ -13,6 +13,14 @@ import type { DatasetSchemaFieldInput } from './dataset-schema-definition-rpc'
 import type { SheetDefinitionConfiguration } from './sheet-definition'
 import type { PipelineConfig } from './pipelines/config'
 
+/**
+ * A JSONB document an operation or its proposal record carries. Its keys
+ * belong to the feature whose RPC the operation names, so this contract cannot
+ * name them; every executor hands it to that feature's validated write.
+ */
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The document's keys belong to the feature whose RPC the operation names; that feature validates it on the way in.
+export type AgentJsonDocument = Record<string, unknown>
+
 export interface AgentProvenance {
   agentId: string
   agentName?: string
@@ -84,7 +92,8 @@ export type AgentOperation =
       afterBlockId?: string | null
       block: {
         type: string
-        payload: Record<string, unknown>
+        // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The document's keys belong to the feature whose RPC the operation names; that feature validates it on the way in.
+        payload: AgentJsonDocument
         payloadSchemaVersion?: number
       }
       expectedRevision: number
@@ -93,7 +102,8 @@ export type AgentOperation =
       kind: 'notebook_block.update'
       blockId: string
       expectedVersion: number
-      payload: Record<string, unknown>
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The document's keys belong to the feature whose RPC the operation names; that feature validates it on the way in.
+      payload: AgentJsonDocument
       payloadSchemaVersion?: number
     }
   | {
@@ -116,13 +126,15 @@ export type AgentOperation =
       title: string
       status?: string
       tags?: string[]
-      properties?: Record<string, unknown>
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The document's keys belong to the feature whose RPC the operation names; that feature validates it on the way in.
+      properties?: AgentJsonDocument
     }
   | {
       kind: 'record.custom_fields.update'
       recordId: string
       expectedMetadataVersion: number
-      values: Record<string, unknown>
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The document's keys belong to the feature whose RPC the operation names; that feature validates it on the way in.
+      values: AgentJsonDocument
     }
   | {
       kind: 'sheet_instance.create'
@@ -132,14 +144,17 @@ export type AgentOperation =
       sourceDefinitionVersionId: string
       projectId?: string | null
       notebookRecordId?: string | null
-      state: Record<string, unknown>
-      parameterInputs?: Record<string, unknown>
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The document's keys belong to the feature whose RPC the operation names; that feature validates it on the way in.
+      state: AgentJsonDocument
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The document's keys belong to the feature whose RPC the operation names; that feature validates it on the way in.
+      parameterInputs?: AgentJsonDocument
     }
   | {
       kind: 'sheet_instance.update'
       instanceId: string
       expectedRevision: number
-      state: Record<string, unknown>
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The document's keys belong to the feature whose RPC the operation names; that feature validates it on the way in.
+      state: AgentJsonDocument
     }
   | {
       kind: 'sheet_instance.archive'
@@ -163,8 +178,10 @@ export type AgentOperation =
       recordId: string
       expectedStructureVersion: number
       targetVersionId: string
-      decisions: Record<string, unknown>[]
-      parameterInputs: Record<string, unknown>[]
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The document's keys belong to the feature whose RPC the operation names; that feature validates it on the way in.
+      decisions: AgentJsonDocument[]
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The document's keys belong to the feature whose RPC the operation names; that feature validates it on the way in.
+      parameterInputs: AgentJsonDocument[]
     }
   | {
       kind: 'record.comment.create'
@@ -191,14 +208,17 @@ export type AgentOperation =
         | 'reference'
       nullable?: boolean
       defaultValue?: unknown
-      validation?: Record<string, unknown>
-      unit?: Record<string, unknown> | null
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The document's keys belong to the feature whose RPC the operation names; that feature validates it on the way in.
+      validation?: AgentJsonDocument
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The document's keys belong to the feature whose RPC the operation names; that feature validates it on the way in.
+      unit?: AgentJsonDocument | null
       description?: string | null
     }
   | {
       kind: 'model_field.update'
       definitionId: string
-      patch: Record<string, unknown>
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The document's keys belong to the feature whose RPC the operation names; that feature validates it on the way in.
+      patch: AgentJsonDocument
     }
   | {
       kind: 'model_field.activate'
@@ -281,7 +301,7 @@ export interface AgentOperationPolicy {
   operation_kind: AgentOperationKind
   target_type: AgentOperationPolicyTargetType
   target_id: string | null
-  limits: Record<string, unknown>
+  limits: AgentJsonDocument
   enabled: boolean
   reason: string | null
   signed_by_user_id: string | null
@@ -337,9 +357,9 @@ export interface AgentOperationProposal {
   approval_policy: AgentOperationApprovalPolicy
   policy_id: string | null
   policy_reason: string
-  policy_limits: Record<string, unknown>
-  policy_target: Record<string, unknown>
-  policy_evidence: Record<string, unknown>
+  policy_limits: AgentJsonDocument
+  policy_target: AgentJsonDocument
+  policy_evidence: AgentJsonDocument
   status: AgentProposalStatus
   revision: number | string
   idempotency_key: string
@@ -386,7 +406,7 @@ export interface AgentOperationEvent {
     | 'cancelled'
   actor_user_id: string | null
   actor_credential_id: string | null
-  detail: Record<string, unknown>
+  detail: AgentJsonDocument
   created_at: string
 }
 

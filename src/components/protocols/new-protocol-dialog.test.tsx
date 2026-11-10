@@ -20,10 +20,12 @@ const READ_ONLY = '00000000-0000-4000-8000-0000000000a2'
 
 const nav = vi.hoisted(() => vi.fn())
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The dialog navigates through the router after creating; this suite asserts the destination it asks for.
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => nav,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Toasts render through a portal this suite does not mount; it asserts the dialog's own outcome instead.
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
@@ -34,6 +36,7 @@ const client = vi.hoisted(() => ({
   rpc: vi.fn(),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The dialog reads projects and their permissions through a module-level client; this suite supplies the rows it renders.
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   notebookDataClient: client,
@@ -41,6 +44,7 @@ vi.mock('#/lib/notebook-data', async (importOriginal) => ({
 
 const createBlank = vi.hoisted(() => vi.fn())
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Creating a protocol is a server action; this suite asserts the record the dialog asks for and where it goes after.
 vi.mock('#/lib/notebook-create', () => ({
   createBlankExperiment: createBlank,
 }))

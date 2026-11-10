@@ -6,6 +6,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRouteContext } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import {
   PeriodPicker,
@@ -34,13 +35,20 @@ import {
 } from '#/lib/spend-report'
 import type { SpendGrouping, SpendGroup, SpendLine } from '#/lib/spend-report'
 import { orderStatusLabel } from '#/components/materials/reagent-orders'
-import type { ReagentOrderStatus } from '#/lib/reagent-orders'
+import { REAGENT_ORDER_STATUSES } from '#/lib/reagent-orders'
 
 const client = notebookDataClient
 
 type View = SpendGrouping | 'orders'
 
 const VIEWS: readonly View[] = ['project', 'supplier', 'month', 'orders']
+
+/** The order's status, decoded as `reagent-orders` decodes it: an unknown value reads as requested. */
+const ORDER_STATUS = z.enum(REAGENT_ORDER_STATUSES).catch('requested')
+
+function isView(value: string): value is View {
+  return VIEWS.some((view) => view === value)
+}
 
 export function SpendReportPanel() {
   const { auth } = useRouteContext({ from: '__root__' })
@@ -168,7 +176,7 @@ export function SpendReportPanel() {
       {
         id: 'status',
         header: t('spend.spendReport.columns.status'),
-        accessorFn: (l) => orderStatusLabel(l.status as ReagentOrderStatus),
+        accessorFn: (l) => orderStatusLabel(ORDER_STATUS.parse(l.status)),
         size: 110,
       },
       {
@@ -201,7 +209,9 @@ export function SpendReportPanel() {
           variant="segment"
           label={t('spend.spendReport.label')}
           value={view}
-          onValueChange={(value) => setView(value as View)}
+          onValueChange={(value) => {
+            if (isView(value)) setView(value)
+          }}
           items={VIEWS.map((key) => ({
             key,
             label: t(`spend.spendReport.groupings.${key}`),

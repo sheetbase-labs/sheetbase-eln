@@ -15,6 +15,7 @@ import {
   useSessionExpired,
 } from './session-expiry'
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The live connection has its own suite; this test drives what the expiry banner does with each status.
 vi.mock('#/components/live/live-event-provider', () => ({
   useLiveStatus: () => ({
     status: 'offline',

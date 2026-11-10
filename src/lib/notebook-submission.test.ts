@@ -122,7 +122,7 @@ describe('submissionReadinessChecks', () => {
 const block = (
   id: string,
   type: string,
-  payload: Record<string, unknown>,
+  payload: NotebookBlock['payload'],
   order: number,
 ): NotebookBlock => ({
   id,
@@ -194,7 +194,7 @@ describe('submissionSheetInstanceIds', () => {
       lockedByRevisionId: null,
     }
 
-    const block: NotebookBlock = {
+    const blockRow: NotebookBlock = {
       id: 'b1',
       recordId: 'r1',
       type: 'rich_text',
@@ -205,7 +205,7 @@ describe('submissionSheetInstanceIds', () => {
     }
 
     it('is stable for identical inputs, regardless of payload key order', () => {
-      const a = submissionCanonicalSignature({ record, blocks: [block] })
+      const a = submissionCanonicalSignature({ record, blocks: [blockRow] })
 
       const reordered: NotebookRecord = {
         ...record,
@@ -214,41 +214,41 @@ describe('submissionSheetInstanceIds', () => {
 
       const b = submissionCanonicalSignature({
         record: reordered,
-        blocks: [{ ...block, payload: { doc: { type: 'doc' } } }],
+        blocks: [{ ...blockRow, payload: { doc: { type: 'doc' } } }],
       })
 
       expect(b).toBe(a)
     })
 
     it('changes when a block payload, version or order changes', () => {
-      const base = submissionCanonicalSignature({ record, blocks: [block] })
+      const base = submissionCanonicalSignature({ record, blocks: [blockRow] })
       expect(
         submissionCanonicalSignature({
           record,
-          blocks: [{ ...block, version: 2 }],
+          blocks: [{ ...blockRow, version: 2 }],
         }),
       ).not.toBe(base)
       expect(
         submissionCanonicalSignature({
           record,
-          blocks: [{ ...block, payload: { doc: { type: 'doc', x: 1 } } }],
+          blocks: [{ ...blockRow, payload: { doc: { type: 'doc', x: 1 } } }],
         }),
       ).not.toBe(base)
       expect(
         submissionCanonicalSignature({
           record,
-          blocks: [{ ...block, order: 2 }],
+          blocks: [{ ...blockRow, order: 2 }],
         }),
       ).not.toBe(base)
     })
 
     it('changes when record metadata or structure versions change', () => {
-      const base = submissionCanonicalSignature({ record, blocks: [block] })
+      const base = submissionCanonicalSignature({ record, blocks: [blockRow] })
 
       const changed = (overrides: Partial<NotebookRecord>) =>
         submissionCanonicalSignature({
           record: { ...record, ...overrides },
-          blocks: [block],
+          blocks: [blockRow],
         })
 
       expect(changed({ title: 'Renamed' })).not.toBe(base)
@@ -259,15 +259,15 @@ describe('submissionSheetInstanceIds', () => {
     })
 
     it('changes when the record identity changes or is absent', () => {
-      const base = submissionCanonicalSignature({ record, blocks: [block] })
+      const base = submissionCanonicalSignature({ record, blocks: [blockRow] })
       expect(
         submissionCanonicalSignature({
           record: { ...record, id: 'r2' },
-          blocks: [block],
+          blocks: [blockRow],
         }),
       ).not.toBe(base)
       expect(
-        submissionCanonicalSignature({ record: null, blocks: [block] }),
+        submissionCanonicalSignature({ record: null, blocks: [blockRow] }),
       ).not.toBe(base)
     })
   })
@@ -289,7 +289,7 @@ describe('submissionReadinessChecks reviewer minimum', () => {
       ...ready,
       reviewerCount: 1,
       minReviewers: 2,
-    }).find((check) => check.id === 'reviewers')!
+    }).find((candidate) => candidate.id === 'reviewers')!
 
     expect(one.state).toBe('fail')
     expect(one.label).toBe('At least 2 reviewers are chosen')
@@ -299,7 +299,7 @@ describe('submissionReadinessChecks reviewer minimum', () => {
       ...ready,
       reviewerCount: 2,
       minReviewers: 2,
-    }).find((check) => check.id === 'reviewers')!
+    }).find((candidate) => candidate.id === 'reviewers')!
 
     expect(two.state).toBe('pass')
   })

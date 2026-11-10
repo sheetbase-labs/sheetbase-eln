@@ -23,6 +23,14 @@ export const registryKeys = {
   lineage: ['registry', 'lineage'] as const,
 }
 
+/**
+ * A registry entry's custom fields: the field name to the JSON a record
+ * stores, or nothing yet for a cell an import cleared.
+ */
+export type CustomFieldValues = {
+  [field: string]: z.core.util.JSONType | undefined
+}
+
 /** What an entry came from, and the part it played. */
 export const PARENT_ROLES = [
   'parent',
@@ -35,10 +43,12 @@ export const PARENT_ROLES = [
 
 export type ParentRole = (typeof PARENT_ROLES)[number]
 
-export function asRole(value: unknown): ParentRole {
-  return (PARENT_ROLES as readonly string[]).includes(String(value))
-    ? (value as ParentRole)
-    : 'parent'
+/** The role an entry's link plays; link metadata is JSONB, so anything else reads as a plain parent. */
+export function asRole(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A link's `role` arrives as JSONB from the database; this is the decode boundary and `z.enum` decides what it is.
+  value: unknown,
+): ParentRole {
+  return z.enum(PARENT_ROLES).catch('parent').parse(value)
 }
 
 export interface RegistryModel {
@@ -56,7 +66,7 @@ export interface RegistryEntry {
   identifier: string
   title: string
   kind: string
-  custom_fields: Record<string, unknown> | null
+  custom_fields: CustomFieldValues | null
   created_at: string
   archived_at: string | null
   metadata_version: number
@@ -139,7 +149,7 @@ export async function findDuplicates(
   input: {
     kind: string
     title: string
-    customFields: Record<string, unknown>
+    customFields: CustomFieldValues
     excludeId?: string | null
   },
 ): Promise<DuplicateMatch[]> {
@@ -165,7 +175,7 @@ export async function createRegistryEntry<T>(
     projectId: string
     kind: string
     title: string
-    customFields: Record<string, unknown>
+    customFields: CustomFieldValues
     allowDuplicate: boolean
     /** The key the model's plugin rule gave, when the caller has it already. Worked out here when left out. */
     samenessValue?: string | null
@@ -376,18 +386,23 @@ export async function readSequence(seq: ParsedSequence): Promise<SequenceInfo> {
   }
 }
 
-export function messageOf(error: unknown, fallback: string): string {
+export function messageOf(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught throw is untyped by definition; an Error supplies its message and anything else falls back.
+  error: unknown,
+  fallback: string,
+): string {
   return error instanceof Error && error.message ? error.message : fallback
 }
 
+/** The database's refusal code for an entry that is already registered. */
+const DUPLICATE_REFUSAL = z.object({ code: z.literal('SB012') })
+
 /** True when the database refused because the entry is already registered. */
-export function isDuplicateError(error: unknown): boolean {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    (error as { code?: string }).code === 'SB012'
-  )
+export function isDuplicateError(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught throw is untyped by definition; the refusal code it carries decides.
+  error: unknown,
+): boolean {
+  return DUPLICATE_REFUSAL.safeParse(error).success
 }
 
 /** Entries reached from `start`, nearest first, each once. */

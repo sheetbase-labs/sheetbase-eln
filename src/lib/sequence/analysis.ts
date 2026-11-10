@@ -1,23 +1,24 @@
 import type { FeaturePart, ParsedSequence, SequenceSummary } from './model'
 
-const COMPLEMENT: Record<string, string> = {
-  A: 'T',
-  T: 'A',
-  G: 'C',
-  C: 'G',
-  U: 'A',
-  N: 'N',
-  R: 'Y',
-  Y: 'R',
-  K: 'M',
-  M: 'K',
-  S: 'S',
-  W: 'W',
-  B: 'V',
-  V: 'B',
-  D: 'H',
-  H: 'D',
-}
+/** IUPAC base complements; a letter outside the table complements to itself. */
+const COMPLEMENT = new Map<string, string>([
+  ['A', 'T'],
+  ['T', 'A'],
+  ['G', 'C'],
+  ['C', 'G'],
+  ['U', 'A'],
+  ['N', 'N'],
+  ['R', 'Y'],
+  ['Y', 'R'],
+  ['K', 'M'],
+  ['M', 'K'],
+  ['S', 'S'],
+  ['W', 'W'],
+  ['B', 'V'],
+  ['V', 'B'],
+  ['D', 'H'],
+  ['H', 'D'],
+])
 
 export function reverseComplement(seq: string): string {
   let out = ''
@@ -25,7 +26,7 @@ export function reverseComplement(seq: string): string {
   for (let i = seq.length - 1; i >= 0; i--) {
     const ch = seq[i]
     const up = ch.toUpperCase()
-    const c = COMPLEMENT[up] ?? up
+    const c = COMPLEMENT.get(up) ?? up
     out += ch === up ? c : c.toLowerCase()
   }
 

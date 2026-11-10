@@ -4,6 +4,8 @@
  * must be filled in first, how long it should stay, and what happens on arrival.
  * The database checks every move, so this module only shapes data for the screens.
  */
+import { z } from 'zod'
+
 import { t } from '#/copy'
 import type { DataClient } from '#/lib/data-client'
 
@@ -156,31 +158,48 @@ export function blankAction(kind: WorkflowActionKind): WorkflowAction {
   }
 }
 
-function asAction(raw: unknown): WorkflowAction | null {
-  if (!raw || typeof raw !== 'object') return null
-  const r = raw as Record<string, unknown>
-  const text = (key: string) => (typeof r[key] === 'string' ? r[key] : '')
+/** A stored automation, as the definition's JSONB carries it. */
+const STORED_ACTION = z.looseObject({
+  kind: z.string(),
+  to: z.string().optional(),
+  message: z.string().optional(),
+  key: z.string().optional(),
+  value: z.union([z.string(), z.number(), z.boolean()]).catch(''),
+  reason: z.string().optional(),
+  templateId: z.string().optional(),
+  projectId: z.string().optional(),
+})
+
+function asAction(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A stored automation is JSONB from the definition row; `STORED_ACTION` decides what it is.
+  raw: unknown,
+): WorkflowAction | null {
+  const parsed = STORED_ACTION.safeParse(raw)
+
+  if (!parsed.success) return null
+
+  const r = parsed.data
 
   switch (r.kind) {
     case 'notify':
       return {
         kind: 'notify',
-        to: text('to') || 'owner',
-        message: text('message'),
+        to: r.to || 'owner',
+        message: r.message ?? '',
       }
     case 'set_field':
       return {
         kind: 'set_field',
-        key: text('key'),
-        value: r.value == null ? '' : String(r.value),
+        key: r.key ?? '',
+        value: String(r.value),
       }
     case 'quarantine':
-      return { kind: 'quarantine', reason: text('reason') }
+      return { kind: 'quarantine', reason: r.reason ?? '' }
     case 'start_experiment':
       return {
         kind: 'start_experiment',
-        templateId: text('templateId'),
-        projectId: text('projectId') || undefined,
+        templateId: r.templateId ?? '',
+        projectId: r.projectId || undefined,
       }
     default:
       return null
@@ -292,8 +311,42 @@ export async function fetchWorkflowDraft(
   }
 }
 
+/** One automation as the database takes it. */
+interface WorkflowActionWire {
+  kind: WorkflowActionKind
+  to?: string
+  message?: string
+  key?: string
+  value?: string
+  reason?: string
+  templateId?: string
+  projectId?: string
+}
+
+/** One step as the database takes it. */
+interface WorkflowStageWire {
+  key: string
+  id?: string
+  name: string
+  description: string
+  turnaroundDays: number | null
+  final: boolean
+  requiredFields: string[]
+  actions: WorkflowActionWire[]
+  next: string[]
+}
+
 /** The definition as the database takes it. */
-export function draftToWire(draft: WorkflowDraft): Record<string, unknown> {
+interface WorkflowDefinitionWire {
+  name: string
+  description: string
+  sampleType: string
+  autoEnrol: boolean
+  stages: WorkflowStageWire[]
+}
+
+/** The definition as the database takes it. */
+export function draftToWire(draft: WorkflowDraft): WorkflowDefinitionWire {
   return {
     name: draft.name.trim(),
     description: draft.description.trim(),
@@ -313,27 +366,38 @@ export function draftToWire(draft: WorkflowDraft): Record<string, unknown> {
   }
 }
 
-export function actionToWire(action: WorkflowAction): Record<string, unknown> {
+export function actionToWire(action: WorkflowAction): WorkflowActionWire {
   switch (action.kind) {
-    case 'notify':
-      return {
-        kind: 'notify',
-        to: action.to,
-        ...(action.message?.trim() ? { message: action.message.trim() } : {}),
-      }
+    case 'notify': {
+      const wire: WorkflowActionWire = { kind: 'notify', to: action.to }
+      const message = action.message?.trim()
+
+      if (message) wire.message = message
+
+      return wire
+    }
+
     case 'set_field':
       return { kind: 'set_field', key: action.key.trim(), value: action.value }
-    case 'quarantine':
-      return {
-        kind: 'quarantine',
-        ...(action.reason?.trim() ? { reason: action.reason.trim() } : {}),
-      }
-    case 'start_experiment':
-      return {
+    case 'quarantine': {
+      const wire: WorkflowActionWire = { kind: 'quarantine' }
+      const reason = action.reason?.trim()
+
+      if (reason) wire.reason = reason
+
+      return wire
+    }
+
+    case 'start_experiment': {
+      const wire: WorkflowActionWire = {
         kind: 'start_experiment',
         templateId: action.templateId,
-        ...(action.projectId ? { projectId: action.projectId } : {}),
       }
+
+      if (action.projectId) wire.projectId = action.projectId
+
+      return wire
+    }
   }
 }
 
@@ -392,10 +456,14 @@ export function validateWorkflow(draft: WorkflowDraft): string | null {
     return t('settings.sampleWorkflows.needFinalStep')
   const reachable = new Set<string>([draft.stages[0].key])
   const queue = [draft.stages[0].key]
+  const stageByKey = new Map(draft.stages.map((s) => [s.key, s]))
 
   while (queue.length) {
     const key = queue.pop()
-    const stage = draft.stages.find((s) => s.key === key)
+
+    if (key === undefined) break
+
+    const stage = stageByKey.get(key)
 
     for (const next of stage && !stage.final ? stage.next : []) {
       if (!reachable.has(next)) {

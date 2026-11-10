@@ -7,16 +7,18 @@
  * queued, a refused write is never reported as committed, and a sheet with an
  * unresolved conflict holds the edits that depend on it.
  *
- * The canonical port is proven above the `DataClient` boundary: it detects an
- * overlap before writing, sends a stale cell to `record_cell_conflict` with
+ * The canonical port uses the real `DataClient` with controlled HTTP responses:
+ * it detects an overlap before writing, sends a stale cell to `record_cell_conflict` with
  * both sides, and refuses a draft comment that has no anchor rather than
  * inventing one.
  */
 
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import type { DataClient } from '#/lib/data-client'
-import { DataClientError } from '#/lib/data-client'
+import { createDataClient, DataClientError } from '#/lib/data-client'
+import { rowIdentityKey } from '#/lib/row-identity'
+import { composedSheetWireSchema } from '#/lib/sheet-composition-data'
+import type { SheetInstanceWire } from '#/lib/sheet-instance-data'
 import {
   OfflineReplayOverlapError,
   OfflineReplayRefusedError,
@@ -25,6 +27,7 @@ import {
   replayOfflineEdits,
   retryTokenForEdit,
   richTextPayloadFromText,
+  samePayload,
   shouldReplayOfflineEdits,
 } from './replay'
 import type { OfflineCellEdit, OfflineReplayPort } from './replay'
@@ -283,6 +286,41 @@ describe('replay overlap classification', () => {
     ).toBe(false)
   })
 
+  it('preserves native String fallback, repeated code reads and coercion errors', () => {
+    expect(isOfflineReplayOverlap({ toString: () => 'stale revision' })).toBe(
+      true,
+    )
+    expect(isOfflineReplayOverlap(Symbol('revision conflict'))).toBe(true)
+    let reads = 0
+
+    const changingCode = {
+      get code() {
+        reads += 1
+
+        return reads === 1 ? 'SB001' : 73
+      },
+    }
+
+    expect(isOfflineReplayOverlap(changingCode)).toBe(false)
+    expect(reads).toBe(2)
+
+    const coercionError = new Error('coercion failed')
+
+    const uncoercible = {
+      [Symbol.toPrimitive]() {
+        throw coercionError
+      },
+    }
+
+    expect(() => isOfflineReplayOverlap(uncoercible)).toThrow(coercionError)
+
+    try {
+      isOfflineReplayOverlap(uncoercible)
+    } catch (error) {
+      expect(error).toBe(coercionError)
+    }
+  })
+
   it('replays on the transition to live, not on every status update', () => {
     expect(shouldReplayOfflineEdits('offline', 'live')).toBe(true)
     expect(shouldReplayOfflineEdits('reconnecting', 'live')).toBe(true)
@@ -292,27 +330,31 @@ describe('replay overlap classification', () => {
   })
 })
 
-/**
- * A fake `DataClient` for the port tests: only the methods a replay uses are
- * meaningful, and the rest answer emptily so an unexpected call is harmless
- * rather than a crash.
- */
-function fakeClient(overrides: Partial<DataClient> = {}): DataClient {
-  return Object.assign(
-    {
-      list: vi.fn(async () => []),
-      count: vi.fn(async () => 0),
-      rpc: vi.fn(async () => undefined),
-      insert: vi.fn(async () => ({})),
-      patch: vi.fn(async () => []),
-      remove: vi.fn(async () => []),
-    },
-    overrides,
-  )
+/** Real request construction and response parsing, without a database server. */
+function controlledTransport(responses: Response[]) {
+  const requests: Request[] = []
+
+  const fetchImpl: typeof fetch = (input, init) => {
+    const request = new Request(
+      input instanceof Request
+        ? input
+        : new URL(input, 'https://sheetbase.test'),
+      init,
+    )
+
+    requests.push(request)
+    const response = responses.shift()
+
+    if (!response) throw new Error(`Unexpected request: ${request.url}`)
+
+    return Promise.resolve(response)
+  }
+
+  return { client: createDataClient(fetchImpl), requests }
 }
 
 describe('canonical replay writer', () => {
-  const composition = {
+  const composition = composedSheetWireSchema.parse({
     instanceId: SHEET_ID,
     revision: 5,
     offset: 0,
@@ -320,12 +362,43 @@ describe('canonical replay writer', () => {
     hasMore: false,
     localFieldIds: [FIELD_ID],
     identity: {
-      kind: 'local' as const,
+      kind: 'local',
       columnIds: [FIELD_ID],
-      logicalTypes: ['decimal' as const],
+      logicalTypes: ['reference'],
     },
     rows: [],
-  }
+  })
+
+  const instance = (revision: number): SheetInstanceWire => ({
+    id: SHEET_ID,
+    workspace_id: SHEET_ID,
+    project_id: null,
+    notebook_record_id: null,
+    source_definition_version_id: null,
+    name: 'Replay fixture',
+    description: null,
+    lifecycle: 'active',
+    revision,
+    state: {
+      bindings: [],
+      localFields: [],
+      localValues: {},
+      calculationOverrides: {},
+      presentation: {
+        columnOrder: [],
+        hiddenColumnIds: [],
+        columnWidths: {},
+        frozenColumnCount: 0,
+        density: 'standard',
+      },
+      provenance: { createdFrom: 'ad_hoc' },
+    },
+    duplicated_from_instance_id: null,
+    created_at: '2026-10-02T10:00:00.000Z',
+    updated_at: '2026-10-02T10:00:00.000Z',
+    created_by_user_id: 'user-a',
+    updated_by_user_id: 'user-a',
+  })
 
   const cellEdit: OfflineCellEdit = {
     id: 'edit-1',
@@ -340,21 +413,12 @@ describe('canonical replay writer', () => {
   }
 
   it('raises a conflict with both sides through record_cell_conflict when the revision moved', async () => {
-    const calls: Array<[string, Record<string, unknown>]> = []
-
-    const client: DataClient = fakeClient({
-      rpc: (async (name: string, args: Record<string, unknown>) => {
-        calls.push([name, args])
-
-        if (name === 'query_sheet_instance_rows') {
-          return { ...composition, revision: 6 }
-        }
-
-        if (name === 'record_cell_conflict') return { id: 'conflict-1' }
-
-        return undefined
-      }) as DataClient['rpc'],
-    })
+    const { client, requests } = controlledTransport([
+      Response.json({ ...composition, revision: 6 }),
+      Response.json({ ...composition, revision: 6 }),
+      Response.json([instance(6)]),
+      Response.json({ id: 'conflict-1' }),
+    ])
 
     const writer = createCanonicalOfflineReplayWriter({
       client,
@@ -366,24 +430,31 @@ describe('canonical replay writer', () => {
     )
     await expect(writer.raiseCellConflict(cellEdit)).resolves.toBe('conflict-1')
 
-    const record = calls.find(([name]) => name === 'record_cell_conflict')
-    expect(record?.[1]).toMatchObject({
+    expect(requests.map((request) => new URL(request.url).pathname)).toEqual([
+      '/api/db/rpc/query_sheet_instance_rows',
+      '/api/db/rpc/query_sheet_instance_rows',
+      '/api/db/sheet_instances',
+      '/api/db/rpc/record_cell_conflict',
+    ])
+    const record = requests.at(-1)
+    expect(record?.method).toBe('POST')
+    await expect(record?.json()).resolves.toEqual({
       p_instance_id: SHEET_ID,
       p_row_key: ROW_ID,
       p_field_id: FIELD_ID,
       p_local_value: 4.1,
       p_local_author_user_id: 'user-a',
       p_local_at: cellEdit.createdAt,
+      p_remote_value: null,
+      p_remote_author_user_id: null,
+      p_remote_at: null,
     })
   })
 
   it('refuses a cell whose row no longer resolves instead of writing blind', async () => {
-    const client: DataClient = fakeClient({
-      rpc: (async (name: string) =>
-        name === 'query_sheet_instance_rows'
-          ? composition
-          : undefined) as DataClient['rpc'],
-    })
+    const { client, requests } = controlledTransport([
+      Response.json(composition),
+    ])
 
     const writer = createCanonicalOfflineReplayWriter({
       client,
@@ -393,10 +464,100 @@ describe('canonical replay writer', () => {
     await expect(writer.commit(cellEdit)).rejects.toBeInstanceOf(
       OfflineReplayRefusedError,
     )
+    expect(requests).toHaveLength(1)
+    expect(new URL(requests[0].url).pathname).toBe(
+      '/api/db/rpc/query_sheet_instance_rows',
+    )
+  })
+
+  it('advances revisions after two local cell writes and propagates a later rejection without further requests', async () => {
+    const populated = composedSheetWireSchema.parse({
+      ...composition,
+      identity: {
+        kind: 'source',
+        columnIds: [SHEET_ID],
+        logicalTypes: ['reference'],
+      },
+      rows: [
+        {
+          identityValues: [ROW_ID],
+          sources: [
+            {
+              sourceKind: 'dataset',
+              bindingId: SHEET_ID,
+              datasetId: SHEET_ID,
+              datasetRevision: 1,
+              rowId: ROW_ID,
+              revision: 1,
+              matched: true,
+              values: { [SHEET_ID]: ROW_ID },
+            },
+          ],
+        },
+      ],
+    })
+
+    const rowKey = rowIdentityKey(populated.identity, [ROW_ID])
+
+    const { client, requests } = controlledTransport([
+      Response.json(populated),
+      Response.json(instance(6)),
+      Response.json({ ...populated, revision: 6 }),
+      Response.json(instance(7)),
+      Response.json({ ...populated, revision: 7 }),
+      Response.json(
+        { error: { code: 'permission_denied', message: 'not allowed' } },
+        { status: 403 },
+      ),
+    ])
+
+    const writer = createCanonicalOfflineReplayWriter({
+      client,
+      userId: 'user-a',
+    })
+
+    await expect(
+      writer.commit({ ...cellEdit, rowId: rowKey }),
+    ).resolves.toBeUndefined()
+    await expect(
+      writer.commit({ ...cellEdit, id: 'edit-2', rowId: rowKey, value: 4.2 }),
+    ).resolves.toBeUndefined()
+    await expect(
+      writer.commit({ ...cellEdit, id: 'edit-3', rowId: rowKey, value: 4.3 }),
+    ).rejects.toMatchObject({
+      code: 'permission_denied',
+      status: 403,
+    })
+    expect(requests).toHaveLength(6)
+
+    for (const [index, request] of requests.entries()) {
+      expect(request.method).toBe('POST')
+      expect(new URL(request.url).pathname).toBe(
+        index % 2 === 0
+          ? '/api/db/rpc/query_sheet_instance_rows'
+          : '/api/db/rpc/mutate_sheet_instance_local_state',
+      )
+    }
+
+    for (const [index, value] of [4.1, 4.2, 4.3].entries()) {
+      await expect(requests[index * 2 + 1].json()).resolves.toMatchObject({
+        p_instance_id: SHEET_ID,
+        p_expected_revision: 5 + index,
+        p_rows: [
+          {
+            kind: 'composed',
+            rowKey,
+            identityValues: [ROW_ID],
+            compositionOffset: 0,
+          },
+        ],
+        p_cells: [{ rowKey, fieldId: FIELD_ID, value }],
+      })
+    }
   })
 
   it('refuses a draft comment with no anchor instead of inventing one', async () => {
-    const client = fakeClient()
+    const { client, requests } = controlledTransport([])
 
     const writer = createCanonicalOfflineReplayWriter({
       client,
@@ -416,11 +577,63 @@ describe('canonical replay writer', () => {
         expectedRevision: 5,
       }),
     ).rejects.toThrow(/anchor/)
-    expect(client.rpc).not.toHaveBeenCalled()
+    expect(requests).toHaveLength(0)
   })
 })
 
 describe('replay helpers', () => {
+  it('compares native objects with inherited keys, ordered getters and sparse arrays', () => {
+    const reads: string[] = []
+
+    const left = {
+      get first() {
+        reads.push('left.first')
+
+        return 1
+      },
+      get second() {
+        reads.push('left.second')
+
+        return 2
+      },
+    }
+
+    class InheritedFirst {
+      get first() {
+        reads.push('right.first')
+
+        return 1
+      }
+    }
+
+    const right = Object.assign(new InheritedFirst(), {
+      unrelated: 3,
+      second: 2,
+    })
+
+    Object.defineProperty(right, 'second', {
+      enumerable: true,
+      get() {
+        reads.push('right.second')
+
+        return 2
+      },
+    })
+    expect(samePayload(left, right)).toBe(true)
+    expect(reads).toEqual([
+      'left.first',
+      'right.first',
+      'left.second',
+      'right.second',
+    ])
+
+    const sparse: number[] = []
+    sparse.length = 2
+    expect(samePayload(sparse, [1, 2])).toBe(true)
+    expect(samePayload([1, 2], sparse)).toBe(false)
+    expect(samePayload(new Date(0), new Date(1))).toBe(true)
+  })
+
   it('builds a rich-text payload with one paragraph per line', () => {
     expect(richTextPayloadFromText('a\n\nb')).toEqual({
       doc: {

@@ -29,7 +29,7 @@ import { usePageAi } from '#/lib/use-page-ai'
 function BriefText({ text, input }: { text: string; input: HomeBriefInput }) {
   return (
     <>
-      {linkBrief(text, input).map((part, index) =>
+      {linkBrief(text, input).map((part) =>
         part.kind === 'object' ? (
           <ObjectLink
             key={`object:${part.objectKind}:${part.ref}`}

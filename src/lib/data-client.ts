@@ -8,6 +8,8 @@
  * with the raw wire shape. Domain mappers belong at the call site, not here.
  */
 
+import { z } from 'zod'
+
 import { markSessionExpired } from './session-expiry'
 import { CLIENT_ID_HEADER, getOrCreateClientId } from './client-identity'
 import { devFetch } from './dev-network'
@@ -23,9 +25,18 @@ export interface DataError {
   message: string
 }
 
-interface ErrorEnvelope {
-  error: DataError & { category?: string }
-}
+const proxyErrorSchema = z.object({
+  error: z.object({
+    category: z.unknown().optional(),
+    code: z.unknown().optional(),
+    message: z.string(),
+  }),
+})
+
+const postgrestErrorSchema = z.object({
+  code: z.string().nullish(),
+  message: z.string().nullable(),
+})
 
 const API_BASE = '/api/db'
 
@@ -48,33 +59,41 @@ async function parseError(response: Response): Promise<DataClientError> {
   // The proxy returns { error: { code, message } } for auth/proxy failures.
   // PostgREST returns its own JSON error body (passed through unchanged);
   // normalise both into DataClientError so callers see one shape.
-  let body: unknown = null
+  // Non-JSON, empty and malformed bodies use the status-text fallback below.
+  let body: unknown
 
   try {
     body = await response.json()
   } catch {
-    // Non-JSON body (e.g. upstream returned HTML or empty): fall back to
-    // status text so the caller still gets a usable message.
+    // Preserve fallback even when a supplied fetch implementation throws synchronously.
   }
 
-  if (body && typeof body === 'object' && 'error' in body) {
-    const envelope = body as ErrorEnvelope
+  const envelope = proxyErrorSchema.safeParse(body)
+
+  if (envelope.success) {
     // The public envelope uses `category` (see src/lib/errors.ts); accept
     // `code` as well so older test mocks and any legacy callers still work.
-    const code = envelope.error.category ?? envelope.error.code
+    // Validate only the selected code so an unused legacy field cannot override category.
+    const code = z
+      .string()
+      .safeParse(envelope.data.error.category ?? envelope.data.error.code)
 
-    if (code && envelope.error.message) {
-      return new DataClientError(code, envelope.error.message, response.status)
+    if (code.success && code.data && envelope.data.error.message) {
+      return new DataClientError(
+        code.data,
+        envelope.data.error.message,
+        response.status,
+      )
     }
   }
 
-  if (body && typeof body === 'object' && 'message' in body) {
-    // PostgREST's own error shape: { code, message, details, hint }
-    const pgrst = body as { code?: string; message?: string }
+  // PostgREST's own error shape: { code, message, details, hint }
+  const pgrst = postgrestErrorSchema.safeParse(body)
 
+  if (pgrst.success) {
     return new DataClientError(
-      pgrst.code ?? 'upstream_error',
-      pgrst.message ?? response.statusText,
+      pgrst.data.code ?? 'upstream_error',
+      pgrst.data.message ?? response.statusText,
       response.status,
     )
   }
@@ -97,13 +116,19 @@ export interface DataClient {
   count: (resource: string, query?: string) => Promise<number>
   rpc: <T>(
     name: string,
+    // Domain callers own argument schemas; native JSON serialization happens here.
+    // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
     args: Record<string, unknown>,
     options?: { changeReason?: string },
   ) => Promise<T>
+  // Transport accepts caller-owned row contracts, including their native JSON coercion.
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
   insert: <T>(resource: string, row: Record<string, unknown>) => Promise<T>
   patch: <T>(
     resource: string,
     query: string,
+    // Partial row schemas belong to the resource owner, not this generic transport.
+    // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
     row: Record<string, unknown>,
   ) => Promise<T[]>
   /**
@@ -131,7 +156,7 @@ interface SharedRead {
 }
 
 const readStores = new Set<Map<string, SharedRead>>()
-const sharedReads = new WeakMap<object, Map<string, SharedRead>>()
+const sharedReads = new WeakMap<typeof fetch, Map<string, SharedRead>>()
 
 /** Forget every shared read: something the app knows about has changed. */
 export function dropSharedReads(): void {
@@ -155,7 +180,7 @@ export function onRowsChanged(listener: RowsChangedListener): () => void {
   }
 }
 
-function readStoreFor(fetchImpl: object): Map<string, SharedRead> | null {
+function readStoreFor(fetchImpl: typeof fetch): Map<string, SharedRead> | null {
   // The server renders for many people; only the browser shares reads.
   if (typeof window === 'undefined') return null
   let store = sharedReads.get(fetchImpl)
@@ -211,7 +236,7 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
     }
 
     if (!reads) return run()
-    const key = `${path}\n${headers.prefer as string | undefined}\n${headers.range as string | undefined}`
+    const key = `${path}\n${headers.prefer}\n${headers.range}`
     const known = reads.get(key)
 
     if (known && (!known.settled || Date.now() - known.at < SHARED_READ_MS)) {
@@ -309,6 +334,8 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         accept: 'application/json',
       })
 
+      // T is the caller's wire expectation; domain consumers validate their own rows.
+      // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
       return JSON.parse(shared.body) as T[]
     },
 
@@ -348,10 +375,12 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
 
     async rpc<T>(
       name: string,
+      // This is serialization, not validation of the operation-specific argument contract.
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
       args: Record<string, unknown>,
       options?: { changeReason?: string },
     ): Promise<T> {
-      const headers: Record<string, string> = {
+      const headers = {
         'content-type': 'application/json',
         accept: 'application/json',
         prefer: 'return=representation',
@@ -360,7 +389,7 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
       // SET-01.3: a workspace can require a reason for changing a saved value;
       // the reason travels in the header the write triggers read.
       if (options?.changeReason)
-        headers[CHANGE_REASON_HEADER] = options.changeReason
+        Object.assign(headers, { [CHANGE_REASON_HEADER]: options.changeReason })
 
       const response = await request(`/rpc/${name}`, {
         method: 'POST',
@@ -369,11 +398,15 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
       })
 
       // Native PostgREST void functions succeed with 204 and no JSON body.
+      // The caller selects T; this generic transport does not validate RPC result schemas.
+      // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
       return (response.status === 204 ? undefined : await response.json()) as T
     },
 
     async insert<T>(
       resource: string,
+      // Preserve native JSON conversion; resource owners supply the row contract.
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
       row: Record<string, unknown>,
     ): Promise<T> {
       const response = await request(`/${resource}`, {
@@ -386,12 +419,16 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         body: JSON.stringify(row),
       })
 
+      // T is caller-owned, not established by JSON decoding alone.
+      // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
       return (await response.json()) as T
     },
 
     async patch<T>(
       resource: string,
       query: string,
+      // Partial rows can contain native values with existing JSON coercion semantics.
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
       row: Record<string, unknown>,
     ): Promise<T[]> {
       const response = await request(`/${resource}${query}`, {
@@ -404,6 +441,8 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         body: JSON.stringify(row),
       })
 
+      // Resource-specific response validation belongs to callers of this transport.
+      // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
       return (await response.json()) as T[]
     },
 
@@ -419,6 +458,8 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
       // PostgREST returns the deleted rows with return=representation; an
       // empty body (e.g. when nothing matched) parses to an empty array.
       try {
+        // The transport preserves the decoded representation without validating its row schema.
+        // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
         return (await response.json()) as unknown[]
       } catch {
         return []

@@ -8,22 +8,15 @@ import {
 } from './data-client'
 import { forgetChangeReason, registerChangeReasonAsker } from './change-reason'
 
-function mockFetch(response: Response | (() => Response)): typeof fetch {
+function mockFetch(response: Response | (() => Response)) {
   const impl = response instanceof Response ? () => response : response
 
-  return vi.fn(impl) as unknown as typeof fetch
-}
-
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  })
+  return vi.fn<typeof fetch>(async () => impl())
 }
 
 describe('createDataClient.list', () => {
   it('GETs a resource with the given query and returns parsed rows', async () => {
-    const fetchImpl = mockFetch(jsonResponse([{ id: '1', title: 'A' }]))
+    const fetchImpl = mockFetch(Response.json([{ id: '1', title: 'A' }]))
     const client = createDataClient(fetchImpl)
 
     const rows = await client.list<{ id: string; title: string }>(
@@ -40,9 +33,9 @@ describe('createDataClient.list', () => {
 
   it('throws DataClientError for a proxy auth failure', async () => {
     const fetchImpl = mockFetch(
-      jsonResponse(
+      Response.json(
         { error: { code: 'unauthenticated', message: 'Sign in.' } },
-        401,
+        { status: 401 },
       ),
     )
 
@@ -58,14 +51,14 @@ describe('createDataClient.list', () => {
 
   it('normalises a PostgREST error body into DataClientError', async () => {
     const fetchImpl = mockFetch(
-      jsonResponse(
+      Response.json(
         {
           code: '42501',
           message: 'permission denied',
           details: null,
           hint: null,
         },
-        403,
+        { status: 403 },
       ),
     )
 
@@ -94,6 +87,60 @@ describe('createDataClient.list', () => {
       message: 'Bad Gateway',
     })
   })
+
+  it.each([
+    { error: null },
+    { error: 42 },
+    { error: { category: 42, code: 'legacy', message: 'No.' } },
+    { error: { category: 'upstream_unavailable', message: 42 } },
+    { code: '502', message: 42 },
+  ])(
+    'rejects malformed error envelopes with the HTTP fallback: %j',
+    async (body) => {
+      const fetchImpl = vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(
+          Response.json(body, { status: 502, statusText: 'Bad Gateway' }),
+        )
+
+      const failure = createDataClient(fetchImpl).list('projects')
+
+      await expect(failure).rejects.toBeInstanceOf(DataClientError)
+      await expect(failure).rejects.toMatchObject({
+        name: 'DataClientError',
+        code: 'unknown_error',
+        status: 502,
+        message: 'Bad Gateway',
+      })
+    },
+  )
+
+  it.each(['legacy', 42, null])(
+    'prefers a valid proxy category over its ignored legacy code %j',
+    async (legacyCode) => {
+      const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+        Response.json(
+          {
+            error: {
+              category: 'upstream_unavailable',
+              code: legacyCode,
+              message: 'Try again.',
+            },
+          },
+          { status: 502 },
+        ),
+      )
+
+      await expect(
+        createDataClient(fetchImpl).list('projects'),
+      ).rejects.toMatchObject({
+        name: 'DataClientError',
+        code: 'upstream_unavailable',
+        status: 502,
+        message: 'Try again.',
+      })
+    },
+  )
 })
 
 describe('createDataClient.count', () => {
@@ -167,7 +214,10 @@ describe('createDataClient.count', () => {
 describe('createDataClient.rpc', () => {
   it('POSTs the args and returns the representation', async () => {
     const fetchImpl = mockFetch(
-      jsonResponse({ id: 'p1', key: 'virus-stability', title: 'Virus' }, 201),
+      Response.json(
+        { id: 'p1', key: 'virus-stability', title: 'Virus' },
+        { status: 201 },
+      ),
     )
 
     const client = createDataClient(fetchImpl)
@@ -183,13 +233,12 @@ describe('createDataClient.rpc', () => {
     // directly rather than objectContaining, which can't see Headers entries.
     expect(fetchImpl).toHaveBeenCalledTimes(1)
 
-    const [path, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock
-      .calls[0] as [string, RequestInit]
+    const [path, init] = fetchImpl.mock.calls[0]
 
     expect(path).toBe('/api/db/rpc/create_project')
-    expect(init.method).toBe('POST')
-    expect(init.body).toBe(JSON.stringify({ p_title: 'Virus' }))
-    const headers = new Headers(init.headers)
+    expect(init?.method).toBe('POST')
+    expect(init?.body).toBe(JSON.stringify({ p_title: 'Virus' }))
+    const headers = new Headers(init?.headers)
     expect(headers.get('content-type')).toBe('application/json')
     expect(headers.get('prefer')).toBe('return=representation')
   })
@@ -229,44 +278,69 @@ describe('DataClientError', () => {
 })
 
 describe('createDataClient.rpc', () => {
+  it('serializes arguments before validating the reason header', async () => {
+    const fetchImpl = mockFetch(Response.json({ ok: true }))
+    const events: string[] = []
+    const failure = new Error('payload getter refused')
+
+    await expect(
+      createDataClient(fetchImpl).rpc(
+        'update_block_payload',
+        {
+          get payload() {
+            events.push('payload')
+            throw failure
+          },
+        },
+        {
+          get changeReason() {
+            events.push('reason')
+
+            return 'invalid\nheader'
+          },
+        },
+      ),
+    ).rejects.toBe(failure)
+    expect(events).toEqual(['reason', 'reason', 'payload'])
+    expect(fetchImpl).not.toHaveBeenCalled()
+  })
+
   it('sends the change reason header only when a reason is given', async () => {
-    const withReason = mockFetch(jsonResponse({ ok: true }))
+    const withReason = mockFetch(Response.json({ ok: true }))
     await createDataClient(withReason).rpc(
       'update_block_payload',
       { p_block_id: 'b1' },
       { changeReason: 'Corrected against the bench sheet' },
     )
 
-    const [, init] = (withReason as unknown as ReturnType<typeof vi.fn>).mock
-      .calls[0] as [string, RequestInit]
+    const [, init] = withReason.mock.calls[0]
 
-    const headers = new Headers(init.headers)
+    const headers = new Headers(init?.headers)
     expect(headers.get('x-sheetbase-change-reason')).toBe(
       'Corrected against the bench sheet',
     )
 
-    const without = mockFetch(jsonResponse({ ok: true }))
+    const without = mockFetch(Response.json({ ok: true }))
     await createDataClient(without).rpc('update_block_payload', {
       p_block_id: 'b1',
     })
 
-    const [, plain] = (without as unknown as ReturnType<typeof vi.fn>).mock
-      .calls[0] as [string, RequestInit]
+    const [, plain] = without.mock.calls[0]
 
     expect(
-      new Headers(plain.headers).get('x-sheetbase-change-reason'),
+      new Headers(plain?.headers).get('x-sheetbase-change-reason'),
     ).toBeNull()
   })
 })
 
 describe('createDataClient change reasons', () => {
   const refusal = () =>
-    jsonResponse(
+    Response.json(
       {
         code: 'SB114',
         message: 'a reason is required to change a saved value',
       },
-      400,
+      { status: 400 },
     )
 
   it('asks for a reason when the database wants one, then sends the write again with it', async () => {
@@ -274,9 +348,9 @@ describe('createDataClient change reasons', () => {
     registerChangeReasonAsker(async () => 'Corrected against the bench sheet')
 
     const fetchImpl = vi
-      .fn()
+      .fn<typeof fetch>()
       .mockImplementationOnce(async () => refusal())
-      .mockImplementationOnce(async () => jsonResponse([{ id: 'b1' }]))
+      .mockImplementationOnce(async () => Response.json([{ id: 'b1' }]))
 
     const client = createDataClient(fetchImpl)
 
@@ -284,15 +358,15 @@ describe('createDataClient change reasons', () => {
 
     expect(rows).toEqual([{ id: 'b1' }])
     expect(fetchImpl).toHaveBeenCalledTimes(2)
-    const retried = fetchImpl.mock.calls[1][1] as { headers: Headers }
-    expect(retried.headers.get(CHANGE_REASON_HEADER)).toBe(
+    const retried = fetchImpl.mock.calls[1][1]
+    expect(new Headers(retried?.headers).get(CHANGE_REASON_HEADER)).toBe(
       'Corrected against the bench sheet',
     )
     // The answer covers the next write without another question.
-    fetchImpl.mockImplementationOnce(async () => jsonResponse([]))
+    fetchImpl.mockImplementationOnce(async () => Response.json([]))
     await client.patch('blocks', '?id=eq.b1', { payload: {} })
-    const next = fetchImpl.mock.calls[2][1] as { headers: Headers }
-    expect(next.headers.get(CHANGE_REASON_HEADER)).toBe(
+    const next = fetchImpl.mock.calls[2][1]
+    expect(new Headers(next?.headers).get(CHANGE_REASON_HEADER)).toBe(
       'Corrected against the bench sheet',
     )
     registerChangeReasonAsker(null)
@@ -302,7 +376,7 @@ describe('createDataClient change reasons', () => {
   it('surfaces the refusal when the person declines to give a reason', async () => {
     forgetChangeReason()
     registerChangeReasonAsker(async () => null)
-    const fetchImpl = vi.fn().mockImplementation(async () => refusal())
+    const fetchImpl = vi.fn<typeof fetch>(async () => refusal())
     const client = createDataClient(fetchImpl)
 
     await expect(
@@ -316,7 +390,7 @@ describe('createDataClient change reasons', () => {
     forgetChangeReason()
     const asker = vi.fn(async () => 'x')
     registerChangeReasonAsker(asker)
-    const fetchImpl = vi.fn().mockImplementation(async () => refusal())
+    const fetchImpl = vi.fn<typeof fetch>(async () => refusal())
     const client = createDataClient(fetchImpl)
 
     await expect(client.list('blocks')).rejects.toBeInstanceOf(DataClientError)
@@ -326,7 +400,7 @@ describe('createDataClient change reasons', () => {
 })
 
 describe('createDataClient shared reads', () => {
-  const rows = () => jsonResponse([{ id: '1' }])
+  const rows = () => Response.json([{ id: '1' }])
 
   it('answers an identical read that is already in flight with one request', async () => {
     const fetchImpl = mockFetch(rows)
@@ -394,7 +468,10 @@ describe('createDataClient shared reads', () => {
 
   it('does not keep a failed read', async () => {
     const fetchImpl = mockFetch(() =>
-      jsonResponse({ error: { code: 'boom', message: 'No.' } }, 500),
+      Response.json(
+        { error: { code: 'boom', message: 'No.' } },
+        { status: 500 },
+      ),
     )
 
     const client = createDataClient(fetchImpl)

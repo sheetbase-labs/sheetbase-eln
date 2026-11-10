@@ -14,7 +14,11 @@ import {
   retainDraftsOnSignOut,
   webSignOutRetentionStorage,
 } from './retention'
-import type { RetainedDraftStore, SignOutRetentionStorage } from './retention'
+import type {
+  DraftScope,
+  RetainedDraftStore,
+  SignOutRetentionStorage,
+} from './retention'
 import { createInMemoryStorage, createOfflineEditStore } from './store'
 import type { OfflineEdit } from './store'
 
@@ -49,8 +53,11 @@ function createDeviceStore() {
   const port: RetainedDraftStore<Draft> = {
     listScopes: async (userId) =>
       [...entries.keys()]
-        .filter((key) => key.startsWith(`${userId}\u0000`))
-        .map((key) => key.slice(userId.length + 1))
+        .flatMap((key) =>
+          key.startsWith(`${userId}\u0000`)
+            ? [key.slice(userId.length + 1)]
+            : [],
+        )
         .sort(),
     listDrafts: async ({ userId, recordId }) => [
       ...(entries.get(scopeKey(userId, recordId)) ?? []),
@@ -60,7 +67,12 @@ function createDeviceStore() {
   return {
     port,
     /** Every byte the device currently holds, for a before/after comparison. */
-    device: () => JSON.stringify([...entries.entries()].sort()),
+    device: () =>
+      JSON.stringify(
+        [...entries.entries()].sort(([left], [right]) =>
+          left < right ? -1 : left > right ? 1 : 0,
+        ),
+      ),
     /** The store's explicit discard path — signing out must never call it. */
     discard: (userId: string, recordId: string) => {
       discarded.push(scopeKey(userId, recordId))
@@ -133,6 +145,46 @@ describe('EXP-05.5 sign-out retention', () => {
 
     expect(storage.read()).toMatchObject({ userId: BOB, retained: 1 })
   })
+
+  it.each(['count', 'restore'] as const)(
+    '%s reads scopes in order and stops after a refused read',
+    async (operation) => {
+      let releaseFirst: ((drafts: Draft[]) => void) | undefined
+
+      const first = new Promise<Draft[]>((resolve) => {
+        releaseFirst = resolve
+      })
+
+      const reads: DraftScope[] = []
+      const refusal = new Error('Device read refused')
+
+      const port: RetainedDraftStore<Draft> = {
+        listScopes: async () => [RECORD_ONE, RECORD_TWO, 'record-3'],
+        listDrafts: async (scope) => {
+          reads.push(scope)
+
+          if (scope.recordId === RECORD_ONE) return first
+
+          throw refusal
+        },
+      }
+
+      const read =
+        operation === 'count' ? countRetainedDrafts : restoreDraftsForUser
+
+      const pending = read(port, ALICE)
+      const rejected = expect(pending).rejects.toBe(refusal)
+      await Promise.resolve()
+
+      expect(reads).toEqual([{ userId: ALICE, recordId: RECORD_ONE }])
+      releaseFirst?.(ALICE_DRAFTS)
+      await rejected
+      expect(reads).toEqual([
+        { userId: ALICE, recordId: RECORD_ONE },
+        { userId: ALICE, recordId: RECORD_TWO },
+      ])
+    },
+  )
 
   it('wires the port straight onto the real device store', async () => {
     // The one-line-per-method wiring EXP-05.1 leaves us, exercised end to end.

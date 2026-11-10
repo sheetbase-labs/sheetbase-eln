@@ -66,7 +66,7 @@ export function LabSetupDialog({
   const [allowDomain, setAllowDomain] = useState(domainOffered)
 
   const [starters, setStarters] = useState<ReadonlySet<StarterTableKey>>(
-    new Set(STARTER_TABLE_KEYS),
+    () => new Set(STARTER_TABLE_KEYS),
   )
 
   const [withSample, setWithSample] = useState(false)

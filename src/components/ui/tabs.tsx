@@ -238,6 +238,7 @@ function UrlTabs({
 
         return (
           <Link
+            // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- an item that declares neither a key nor a link target has no identity but its fixed position in the tab list.
             key={item.key ?? item.link.to ?? index}
             {...item.link}
             aria-current={current ? 'page' : undefined}

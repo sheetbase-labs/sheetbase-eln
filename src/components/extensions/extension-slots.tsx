@@ -12,21 +12,17 @@
  * - `ExtensionCommandGroup`: an "Extensions" group inside the ⌘K palette,
  *   mounted exactly like the Favourites/Projects additive groups — absent
  *   while empty, never an error surface.
- * - `toExtensionPanelTabs`: maps resolved panels onto `InspectorTab`s the
- *   host appends to its own tabs; the host owns the content renderer
- *   (today: the sample panel), so extension code never reaches the
- *   inspector directly.
+ * `toExtensionPanelTabs`, the third slot, lives in `extension-panel-tabs.ts`
+ * so this module exports components only.
  *
  * Hosts own invocation: every `onSelect` callback should run
  * `invokeExtensionContribution` first so the server-side assert gates
  * execution even where the client already hid the control.
  */
-import * as React from 'react'
 import { Icon } from '#/components/icons'
 
 import { Button } from '#/components/ui/button'
 import { CommandGroup, CommandItem } from '#/components/ui/command'
-import type { InspectorTab } from '#/components/record'
 import type { ResolvedExtensionContribution } from '#/lib/extensions/registry'
 import { t } from '#/copy'
 
@@ -89,30 +85,4 @@ export function ExtensionCommandGroup({
       ))}
     </CommandGroup>
   )
-}
-
-/**
- * Map resolved panels onto inspector tabs. `renderContent` is host-owned:
- * the host decides which installed extension keys it can actually render
- * (today only the sample) and returns null for anything else, so unknown
- * extension code never mounts.
- */
-export function toExtensionPanelTabs(
-  panels: readonly ResolvedExtensionContribution[],
-  renderContent: (panel: ResolvedExtensionContribution) => React.ReactNode,
-): InspectorTab[] {
-  const tabs: InspectorTab[] = []
-
-  for (const panel of panels) {
-    const content = renderContent(panel)
-
-    if (!content) continue
-    tabs.push({
-      id: `extension-${panel.extensionKey}-${panel.id}`,
-      label: panel.title,
-      content,
-    })
-  }
-
-  return tabs
 }

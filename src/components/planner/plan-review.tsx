@@ -18,6 +18,31 @@ import { t } from '#/copy'
 import { plateCounts } from '#/lib/planner/plan'
 import type { ExperimentPlan } from '#/lib/planner/plan'
 
+/**
+ * The table shell both plan sections use: the box, the labelled table and its
+ * header row. Sections supply their own headings and rows.
+ */
+function PlanTable({
+  label,
+  headers,
+  children,
+}: {
+  label: string
+  headers: React.ReactNode
+  children: React.ReactNode
+}) {
+  return (
+    <TableBox>
+      <Table aria-label={label}>
+        <TableHeader>
+          <TableRow>{headers}</TableRow>
+        </TableHeader>
+        <TableBody>{children}</TableBody>
+      </Table>
+    </TableBox>
+  )
+}
+
 export function PlanReview({
   goal,
   plan,
@@ -79,57 +104,54 @@ export function PlanReview({
             {t('planner.view.noParts')}
           </p>
         ) : (
-          <TableBox>
-            <Table aria-label={t('planner.view.partsTable')}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('planner.view.partColumns.part')}</TableHead>
-                  <TableHead>{t('planner.view.partColumns.day')}</TableHead>
-                  <TableHead>{t('planner.view.partColumns.handsOn')}</TableHead>
-                  <TableHead>{t('planner.view.partColumns.wait')}</TableHead>
-                  <TableHead>
-                    {t('planner.view.partColumns.instruments')}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {plan.parts.map((part, i) => (
-                  <TableRow key={`${part.title}-${i}`}>
-                    <TableCell className="font-medium">
-                      {part.title}
-                      {part.gate ? (
-                        <span className="ml-2 text-label font-normal text-fg-muted">
-                          {t(`planner.view.gate.${part.gate}`)}
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      {t('planner.view.day', { count: part.dayOffset + 1 })}
-                    </TableCell>
-                    <TableCell>
-                      {t('planner.view.minutes', {
-                        count: part.handsOnMinutes,
-                      })}
-                    </TableCell>
-                    <TableCell>
-                      {part.waitAfterMinutes > 0
-                        ? t('planner.view.minutes', {
-                            count: part.waitAfterMinutes,
-                          })
-                        : t('planner.view.noWait')}
-                    </TableCell>
-                    <TableCell>
-                      {part.needs.length > 0
-                        ? part.needs
-                            .map((n) => n.name ?? n.instrumentId)
-                            .join(', ')
-                        : t('planner.view.noInstruments')}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableBox>
+          <PlanTable
+            label={t('planner.view.partsTable')}
+            headers={
+              <>
+                <TableHead>{t('planner.view.partColumns.part')}</TableHead>
+                <TableHead>{t('planner.view.partColumns.day')}</TableHead>
+                <TableHead>{t('planner.view.partColumns.handsOn')}</TableHead>
+                <TableHead>{t('planner.view.partColumns.wait')}</TableHead>
+                <TableHead>
+                  {t('planner.view.partColumns.instruments')}
+                </TableHead>
+              </>
+            }
+          >
+            {plan.parts.map((part, i) => (
+              // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- a plan may repeat a part title, so the row is identified by its position in the plan.
+              <TableRow key={`${part.title}-${i}`}>
+                <TableCell className="font-medium">
+                  {part.title}
+                  {part.gate ? (
+                    <span className="ml-2 text-label font-normal text-fg-muted">
+                      {t(`planner.view.gate.${part.gate}`)}
+                    </span>
+                  ) : null}
+                </TableCell>
+                <TableCell>
+                  {t('planner.view.day', { count: part.dayOffset + 1 })}
+                </TableCell>
+                <TableCell>
+                  {t('planner.view.minutes', {
+                    count: part.handsOnMinutes,
+                  })}
+                </TableCell>
+                <TableCell>
+                  {part.waitAfterMinutes > 0
+                    ? t('planner.view.minutes', {
+                        count: part.waitAfterMinutes,
+                      })
+                    : t('planner.view.noWait')}
+                </TableCell>
+                <TableCell>
+                  {part.needs.length > 0
+                    ? part.needs.map((n) => n.name ?? n.instrumentId).join(', ')
+                    : t('planner.view.noInstruments')}
+                </TableCell>
+              </TableRow>
+            ))}
+          </PlanTable>
         )}
       </Section>
       <Section title={t('planner.view.plate')}>
@@ -160,36 +182,32 @@ export function PlanReview({
             {t('planner.view.samplesNone')}
           </p>
         ) : (
-          <TableBox>
-            <Table aria-label={t('planner.view.samplesTable')}>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
-                    {t('planner.view.sampleColumns.sample')}
-                  </TableHead>
-                  <TableHead>
-                    {t('planner.view.sampleColumns.quantity')}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {plan.samples.map((s) => (
-                  <TableRow key={s.recordId}>
-                    <TableCell>
-                      <ObjectLink
-                        kind="record"
-                        id={s.recordId}
-                        identifier={s.label}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {s.quantity} {s.unit ?? ''}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableBox>
+          <PlanTable
+            label={t('planner.view.samplesTable')}
+            headers={
+              <>
+                <TableHead>{t('planner.view.sampleColumns.sample')}</TableHead>
+                <TableHead>
+                  {t('planner.view.sampleColumns.quantity')}
+                </TableHead>
+              </>
+            }
+          >
+            {plan.samples.map((s) => (
+              <TableRow key={s.recordId}>
+                <TableCell>
+                  <ObjectLink
+                    kind="record"
+                    id={s.recordId}
+                    identifier={s.label}
+                  />
+                </TableCell>
+                <TableCell>
+                  {s.quantity} {s.unit ?? ''}
+                </TableCell>
+              </TableRow>
+            ))}
+          </PlanTable>
         )}
       </Section>
     </div>

@@ -8,10 +8,10 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { ResolvedExtensionContribution } from '#/lib/extensions/registry'
+import { toExtensionPanelTabs } from './extension-panel-tabs'
 import {
   ExtensionCommandGroup,
   ExtensionObjectActions,
-  toExtensionPanelTabs,
 } from './extension-slots'
 
 afterEach(() => cleanup())

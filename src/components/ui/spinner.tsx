@@ -1,5 +1,12 @@
-import { BRAND_MARK_SPOKES } from '#/components/ui/brand-mark'
+import { BRAND_MARK_SPOKES } from '#/components/ui/brand-mark-spokes'
 import { cn } from '#/lib/utils'
+
+/**
+ * The mark's chase index reaches CSS as `--i`. csstype has no key for custom
+ * properties, so the index is declared on this style contract instead of being
+ * asserted where it is set.
+ */
+type SpokeStyle = React.CSSProperties & { '--i': number }
 
 /**
  * The one working indicator: the Sheetbase mark, with a bright spoke chasing
@@ -53,9 +60,11 @@ export function Spinner({
       className={cn('brand-spinner shrink-0', className)}
       {...props}
     >
-      {BRAND_MARK_SPOKES.map((d, i) => (
-        <path key={i} d={d} style={{ '--i': i } as React.CSSProperties} />
-      ))}
+      {BRAND_MARK_SPOKES.map((d, i) => {
+        const style: SpokeStyle = { '--i': i }
+
+        return <path key={i} d={d} style={style} />
+      })}
     </svg>
   )
 }

@@ -38,7 +38,8 @@ const contract = {
 }
 
 function clientWithRpc(rpc: DataClient['rpc']): DataClient {
-  return { rpc } as unknown as DataClient
+  // SAFETY: the composition under test calls only `rpc`; every other transport method is unused here.
+  return { rpc } as DataClient
 }
 
 async function composition() {

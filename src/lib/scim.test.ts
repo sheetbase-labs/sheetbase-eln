@@ -183,7 +183,7 @@ describe('groups', () => {
 
 describe('shaping a user', () => {
   it('sends the SCIM shape with links', () => {
-    const shaped = toScimUser(
+    const scimUser = toScimUser(
       {
         id: 'u1',
         user_name: 'ada@lab.org',
@@ -199,11 +199,13 @@ describe('shaping a user', () => {
       'https://eln.test/api/scim/v2',
     )
 
-    expect(shaped.meta.location).toBe('https://eln.test/api/scim/v2/Users/u1')
-    expect(shaped.name).toMatchObject({
+    expect(scimUser.meta.location).toBe('https://eln.test/api/scim/v2/Users/u1')
+    expect(scimUser.name).toMatchObject({
       givenName: 'Ada',
       familyName: 'Lovelace',
     })
-    expect(shaped.groups[0].$ref).toBe('https://eln.test/api/scim/v2/Groups/g1')
+    expect(scimUser.groups[0].$ref).toBe(
+      'https://eln.test/api/scim/v2/Groups/g1',
+    )
   })
 })

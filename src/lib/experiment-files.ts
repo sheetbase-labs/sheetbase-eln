@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import type { DataClient } from './data-client'
 
 export interface UploadedExperimentFile {
@@ -5,12 +7,26 @@ export interface UploadedExperimentFile {
   fileIdentifier: string
 }
 
-async function failure(res: Response, fallback: string): Promise<Error> {
-  const body = (await res.json().catch(() => null)) as {
-    error?: { message?: string }
-  } | null
+/** What `POST /api/files/upload-authorize` answers: the record the bytes go to. */
+const UPLOAD_META = z.object({
+  fileRecordId: z.string(),
+  fileIdentifier: z.string(),
+})
 
-  return new Error(body?.error?.message ?? fallback)
+/** What `PUT /api/files/{fileRecordId}/version` answers: the version it wrote. */
+const VERSION_RECEIPT = z.object({ version: z.number() })
+
+/** The `error` object a refusal carries; anything else reads as no message. */
+const REFUSAL_BODY = z.object({
+  error: z.object({ message: z.string() }).optional(),
+})
+
+async function failure(res: Response, fallback: string): Promise<Error> {
+  const body = REFUSAL_BODY.safeParse(await res.json().catch(() => null))
+
+  return new Error(
+    body.success ? (body.data.error?.message ?? fallback) : fallback,
+  )
 }
 
 /**
@@ -37,7 +53,7 @@ export async function uploadFileToExperiment(
 
   if (authorize.status >= 400)
     throw await failure(authorize, 'The upload was refused.')
-  const meta = (await authorize.json()) as UploadedExperimentFile
+  const meta = UPLOAD_META.parse(await authorize.json())
 
   const put = await fetch(`/api/files/${meta.fileRecordId}/upload`, {
     method: 'PUT',
@@ -77,7 +93,7 @@ export async function uploadFileVersion(input: {
   if (res.status >= 400)
     throw await failure(res, 'The new version was refused.')
 
-  return (await res.json()) as { version: number }
+  return VERSION_RECEIPT.parse(await res.json())
 }
 
 /** The first lines of a file's extracted text, for the inspector preview. */

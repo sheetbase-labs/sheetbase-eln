@@ -76,7 +76,22 @@ export interface LabRpc {
   readonly result: string
 }
 
-const LAB_PARAM_NOTES_BASE: Readonly<Record<string, string>> = {
+/** Parameter note text, keyed by the parameter name the RPC takes. */
+export interface LabParamNotes {
+  readonly [parameter: string]: string
+}
+
+/** Lab tables, keyed by the `api` table name. */
+export interface LabTableIndex {
+  readonly [table: string]: LabTable
+}
+
+/** Lab actions, keyed by RPC name. */
+export interface LabRpcIndex {
+  readonly [rpc: string]: LabRpc
+}
+
+const LAB_PARAM_NOTES_BASE: LabParamNotes = {
   ...SAMPLE_LAB_PARAM_NOTES,
   p_name: 'Name.',
   p_format:
@@ -318,7 +333,7 @@ const LAB_PARAM_NOTES_BASE: Readonly<Record<string, string>> = {
   p_trigger: '`import` or `pipeline`.',
 }
 
-export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
+export const LAB_TABLES: LabTableIndex = {
   // Each feature folder's tables (`src/features/<name>/feature.ts`).
   ...featureLabTables(),
   client_portal_messages: {
@@ -2109,7 +2124,7 @@ export const LAB_TABLES: Readonly<Record<string, LabTable>> = {
   },
 }
 
-const LAB_RPCS_HAND_WRITTEN: Readonly<Record<string, LabRpc>> = {
+const LAB_RPCS_HAND_WRITTEN: LabRpcIndex = {
   ...SAMPLE_LAB_RPCS,
   // -- Core actions, so agents, plugins and MCP can do what the API can. ------
   // These were on the API from the start under their own scopes; listing them
@@ -3856,13 +3871,13 @@ const LAB_RPCS_HAND_WRITTEN: Readonly<Record<string, LabRpc>> = {
  * generated from operation declarations (`#/lib/operations`); an operation
  * with a summary needs no entry here.
  */
-export const LAB_PARAM_NOTES: Readonly<Record<string, string>> = {
+export const LAB_PARAM_NOTES: LabParamNotes = {
   ...INSTRUMENT_PARAM_NOTES,
   ...paramNotesFromOperations(CORE_OPERATIONS),
   ...LAB_PARAM_NOTES_BASE,
 }
 
-export const LAB_RPCS: Readonly<Record<string, LabRpc>> = {
+export const LAB_RPCS: LabRpcIndex = {
   ...INSTRUMENT_RPCS,
   ...LAB_RPCS_HAND_WRITTEN,
   ...labRpcsFromOperations(CORE_OPERATIONS),

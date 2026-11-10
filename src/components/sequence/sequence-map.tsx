@@ -101,9 +101,14 @@ export function CircularMap({
   const ticks: number[] = []
 
   for (let p = step; p < length; p += step) ticks.push(p)
+
+  const labelTicks =
+    ticks.length <= 12 ? ticks : ticks.filter((_, i) => i % 2 === 1)
+
   const innerEdge = R - thick / 2 - (laneCount - 1) * gap
 
   return (
+    // react-doctor-disable-next-line react-doctor/click-events-have-key-events -- Clicking the ring background only clears the pointer selection; every feature is a focusable button whose Enter/Space activation toggles that same selection off.
     <svg
       viewBox={`0 0 ${size} ${size}`}
       role="group"
@@ -135,25 +140,23 @@ export function CircularMap({
           />
         )
       })}
-      {ticks
-        .filter((_, i) => ticks.length <= 12 || i % 2 === 1)
-        .map((p) => {
-          const pt = polar(c, c, innerEdge - 20, angleAt(p, length))
+      {labelTicks.map((p) => {
+        const pt = polar(c, c, innerEdge - 20, angleAt(p, length))
 
-          return (
-            <text
-              key={p}
-              x={pt.x}
-              y={pt.y}
-              textAnchor="middle"
-              dominantBaseline="middle"
-              className="num fill-fg-faint"
-              fontSize={10}
-            >
-              {formatBases(p)}
-            </text>
-          )
-        })}
+        return (
+          <text
+            key={p}
+            x={pt.x}
+            y={pt.y}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            className="num fill-fg-faint"
+            fontSize={10}
+          >
+            {formatBases(p)}
+          </text>
+        )
+      })}
       {features.map((f) => {
         const lane = lanes.get(f.id) ?? 0
         const r = R - lane * gap
@@ -295,6 +298,7 @@ export function LinearMap({
   for (let p = Math.ceil(from / step) * step; p <= to; p += step) ticks.push(p)
 
   return (
+    // react-doctor-disable-next-line react-doctor/click-events-have-key-events -- Clicking the ruler background only clears the pointer selection; every feature is a focusable button whose Enter/Space activation toggles that same selection off.
     <svg
       viewBox={`0 0 ${W} ${height}`}
       role="group"

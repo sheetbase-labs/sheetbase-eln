@@ -1,1033 +1,117 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { z } from 'zod'
-import { Icon } from '#/components/icons'
-import { collapseRepeats } from '#/lib/work-items/repeats'
-import type { InboxEntry } from '#/lib/work-items/repeats'
+/**
+ * The Inbox route: it composes the page's state, rows and actions from
+ * `-inbox-page-model` and hands them to the sections in `-inbox-page-parts`.
+ * The tab, the type chip and the open row live in the URL.
+ */
+import { createFileRoute } from '@tanstack/react-router'
+
+import { inboxSearchSchema, types } from './-inbox-model'
+import type { InboxSearch } from './-inbox-model'
 import {
-  Link,
-  createFileRoute,
-  useNavigate,
-  useRouter,
-  useSearch,
-} from '@tanstack/react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { toast } from '#/components/ui/sonner'
-import { notebookDataClient } from '#/lib/notebook-data'
-
-import { Button } from '#/components/ui/button'
-import { LoadMore } from '#/components/ui/load-more'
-import { Dot, Status } from '#/components/ui/status'
-import type { Tone } from '#/components/ui/status'
-import { Checkbox } from '#/components/ui/checkbox'
-import { useWorkspaceNavigation } from '#/components/workspace/workspace-navigation'
-import { Kbd } from '#/components/ui/kbd'
-import { Tabs } from '#/components/ui/tabs'
-import { ListHeader, PHONE_SCROLL_ROW } from '#/components/inventory/list'
-import {
-  useRegisterShortcuts,
-  useShortcutScope,
-} from '#/components/shortcuts/shortcut-provider'
-import { resolveRunForWorkItem } from '#/components/pipelines/pipelines-data'
-import { listShortcuts } from '#/lib/shortcut-scopes'
-import { cn } from '#/lib/utils'
-import {
-  dueLabel,
-  groupWorkItems,
-  isMachineKey,
-  useInboxPage,
-} from '#/lib/work-items/data'
-import type { WorkItem, WorkItemKind } from '#/lib/work-items/data'
-import { itemKey } from '#/lib/work-items/predicate'
-import {
-  itemLink,
-  moveListSelection,
-  rowKey,
-  runLink,
-} from '#/lib/work-items/inbox-rows'
-import type { InboxTab, WorkItemType } from '#/lib/work-items/predicate'
-import { rich, t } from '#/copy'
-
-type InboxType = WorkItemType
-
-type InboxGroup = 'overdue' | 'today' | 'nextSevenDays' | 'later'
-
-const tabLabels = new Map<InboxTab, string>()
-
-const tabs: [InboxTab, string][] = [
-  ['needs-action', t('projects.inbox.tabs.needsAction')],
-  ['following', t('projects.inbox.tabs.following')],
-  ['done-today', t('projects.inbox.tabs.doneToday')],
-]
-
-for (const [name, label] of tabs) tabLabels.set(name, label)
-
-const INBOX_TABS = ['needs-action', 'following', 'done-today'] as const
-
-const INBOX_TYPES = [
-  'reviews',
-  'data',
-  'runs',
-  'materials',
-  'lab',
-  'admin',
-  'agents',
-  'following',
-] as const
-
-/** The tab names as plain strings, for the guard below. */
-const INBOX_TAB_NAMES: readonly string[] = INBOX_TABS
-
-/** Whether a tab control's value names an Inbox tab. */
-function isInboxTab(value: string): value is InboxTab {
-  return INBOX_TAB_NAMES.includes(value)
-}
-
-/** The Inbox's URL state: the tab, the type chip and the selected row. */
-const inboxSearchSchema = z.object({
-  // The selected item lives in the URL, so a reload, Back and a shared link
-  // land on the same row.
-  item: z.string().min(1).optional().catch(undefined),
-  tab: z.enum(INBOX_TABS).optional().catch(undefined),
-  type: z.enum(INBOX_TYPES).optional().catch(undefined),
-})
-
-type InboxSearch = z.infer<typeof inboxSearchSchema>
-
-const types: [InboxType, string, Tone, WorkItemKind][] = [
-  ['reviews', t('projects.inbox.types.reviews'), 'review', 'review_requested'],
-  ['data', t('projects.inbox.types.data'), 'bad', 'data_issue'],
-  ['runs', t('projects.inbox.types.runs'), 'analysis', 'run_failed'],
-  [
-    'materials',
-    t('projects.inbox.types.materials'),
-    'warn',
-    'material_expiring',
-  ],
-  ['lab', t('projects.inbox.types.lab'), 'lab', 'sample_awaiting_release'],
-  ['admin', t('projects.inbox.types.admin'), 'stored', 'access_requested'],
-  ['agents', t('projects.inbox.types.agents'), 'progress', 'agent_proposal'],
-]
+  useInboxFilters,
+  useInboxList,
+  useInboxRows,
+  useInboxSelection,
+  useInboxShortcuts,
+  useInboxViewState,
+  useMarkInboxSeen,
+} from './-inbox-page-model'
+import { InboxHeader, InboxList, InboxToolbar } from './-inbox-page-parts'
 
 /** UI port (roadmap-4/ui-app3): the Inbox, wired to `my_work_items`. */
 export const Route = createFileRoute('/inbox')({
-  // The Home chips open a specific tab/type here, so the set a chip counted is
+  // The Home chips open a specific tab/type here, so the set a chip counts is
   // the set the page shows.
   validateSearch: (search): InboxSearch => inboxSearchSchema.parse(search),
   component: Inbox,
 })
 
-function toneFor(kind: WorkItemKind): Tone {
-  if (kind === 'review_requested' || kind === 'witness_requested')
-    return 'review'
-
-  if (kind === 'data_issue') return 'bad'
-
-  if (kind === 'run_failed') return 'bad'
-
-  // A run waiting for a person is actionable, not broken.
-  if (kind === 'run_waiting') return 'warn'
-
-  if (
-    kind === 'material_expiring' ||
-    kind === 'reorder_requested' ||
-    kind === 'reorder_incoming'
-  )
-    return 'warn'
-
-  // A returned review, an unsigned approval and an overdue calibration are
-  // waiting on the person, not broken.
-  if (kind === 'review_returned' || kind === 'approval_unsigned') return 'warn'
-
-  // Lab items share the Lab filter's own colour, apart from Materials.
-  if (
-    kind === 'sample_awaiting_release' ||
-    kind === 'sample_hold_exceeded' ||
-    kind === 'calibration_overdue' ||
-    kind === 'qualification_requested' ||
-    kind === 'qualification_granted'
-  )
-    return 'lab'
-
-  if (kind === 'agent_proposal' || kind === 'agent_action_request')
-    return 'progress'
-
-  if (kind === 'watcher_finding' || kind === 'qc_violation') return 'warn'
-
-  if (kind === 'witness_signed') return 'review'
-
-  // A conflict is actionable: two edits need a person to choose between them.
-  if (kind === 'cell_conflict') return 'warn'
-
-  return 'stored'
-}
-
-/** The type label is always the type; how late it is reads in the due column. */
-function labelFor(kind: WorkItemKind): string {
-  switch (kind) {
-    case 'calibration_overdue':
-      return t('projects.inbox.kinds.calibration_overdue')
-    case 'qualification_requested':
-      return t('projects.inbox.kinds.qualification_requested')
-    case 'qualification_granted':
-      return t('projects.inbox.kinds.qualification_granted')
-    case 'witness_requested':
-      return t('projects.inbox.kinds.witness_requested')
-    case 'review_requested':
-      return t('projects.inbox.kinds.review_requested')
-    case 'data_issue':
-      return t('projects.inbox.kinds.data_issue')
-    case 'run_failed':
-      return t('projects.inbox.kinds.run_failed')
-    case 'run_waiting':
-      return t('projects.inbox.kinds.run_waiting')
-    case 'material_expiring':
-      return t('projects.inbox.kinds.material_expiring')
-    case 'reorder_requested':
-      return t('projects.inbox.kinds.reorder_requested')
-    case 'reorder_incoming':
-      return t('projects.inbox.kinds.reorder_incoming')
-    case 'cell_conflict':
-      return t('projects.inbox.kinds.cell_conflict')
-    case 'review_returned':
-      return t('projects.inbox.kinds.review_returned')
-    case 'approval_unsigned':
-      return t('projects.inbox.kinds.approval_unsigned')
-    case 'witness_signed':
-      return t('projects.inbox.kinds.witness_signed')
-    case 'access_requested':
-      return t('projects.inbox.kinds.access_requested')
-    case 'access_decided':
-      return t('projects.inbox.kinds.access_decided')
-    case 'agent_proposal':
-      return t('projects.inbox.kinds.agent_proposal')
-    case 'agent_action_request':
-      return t('projects.inbox.kinds.agent_action_request')
-    case 'watcher_finding':
-      return t('projects.inbox.kinds.watcher_finding')
-    case 'qc_violation':
-      return t('projects.inbox.kinds.qc_violation')
-    case 'plugin_note':
-      return t('projects.inbox.kinds.plugin_note')
-    case 'invitation_accepted':
-      return t('projects.inbox.kinds.invitation_accepted')
-    case 'verification_requested':
-      return t('projects.inbox.kinds.verification_requested')
-    case 'verification_granted':
-      return t('projects.inbox.kinds.verification_granted')
-    case 'sample_awaiting_release':
-      return t('projects.inbox.kinds.sample_awaiting_release')
-    case 'sample_hold_exceeded':
-      return t('projects.inbox.kinds.sample_hold_exceeded')
-    case 'project_following':
-      return t('account.follow.projectKind')
-    default:
-      return t('projects.inbox.kinds.following')
-  }
-}
-
-/**
- * The second line of a row says what to do. A calibration's reason repeats the
- * due date the row's due column already shows, so it names the action instead.
- */
-function rowReason(item: WorkItem): string {
-  return item.kind === 'calibration_overdue'
-    ? t('projects.inbox.calibrationReason')
-    : item.reason
-}
-
 function Inbox() {
-  const search = useSearch({ from: '/inbox' })
-  const tab = search.tab ?? 'needs-action'
-  const type = search.type
-  const query = useInboxPage(tab, type)
-  const page = query.data?.pages.at(0)
+  const { tab, type } = useInboxFilters()
 
-  const items = useMemo(
-    () => query.data?.pages.flatMap((p) => p.items) ?? [],
-    [query.data],
-  )
+  const view = useInboxViewState()
 
-  // QA3-lists-inbox-2 — `later` is the person's explicit choice: null means
-  // "follow the default", which expands the bucket when it holds every row the
-  // tab would render. A tab whose items are all undated then shows its rows
-  // instead of its count over an empty list, and the group's Collapse control
-  // still wins once the person has chosen.
-  const [later, setLater] = useState<boolean | null>(null)
+  const rows = useInboxRows({ tab, type, later: view.later })
+  const list = useInboxList(rows, view.expandedRepeats)
 
-  const [selectedKey, setSelectedKeyState] = useState<string | null>(
-    search.item ?? null,
-  )
-
-  const [selection, setSelection] = useState<Set<string>>(() => new Set())
-
-  // Repeat groups the person has opened to see each item.
-  const [expandedRepeats, setExpandedRepeats] = useState<Set<string>>(
-    () => new Set(),
-  )
-
-  // Back and Forward move the selection with the address.
-  useEffect(() => {
-    setSelectedKeyState(search.item ?? null)
-  }, [search.item])
-
-  const queryClient = useQueryClient()
-  const router = useRouter()
-  const workspace = useWorkspaceNavigation()
-
-  const groups = useMemo(() => groupWorkItems(items), [items])
-  const visible = items
-
-  const visibleKeys = useMemo(
-    () => new Set(visible.map((i) => itemKey(i))),
-    [visible],
-  )
-
-  // The Later bucket is the tab's only group when every visible row lives in
-  // it (in this workspace every needs-action item is undated, so that is the
-  // whole tab).
-  const laterKeys = useMemo(() => new Set(groups.later), [groups.later])
-
-  const laterHoldsEveryRow =
-    visible.length > 0 && visible.every((i) => laterKeys.has(i))
-
-  const laterExpanded = later ?? laterHoldsEveryRow
-
-  const shown = visible.filter((i) => laterExpanded || !laterKeys.has(i))
-
-  const hiddenLater = groups.later.length
-
-  const dueSections: [InboxGroup | null, WorkItem[]][] = useMemo(
-    () =>
-      tab === 'needs-action'
-        ? [
-            [
-              'overdue',
-              groups.overdue.filter((i) => visibleKeys.has(itemKey(i))),
-            ],
-            ['today', groups.today.filter((i) => visibleKeys.has(itemKey(i)))],
-            [
-              'nextSevenDays',
-              groups.nextSevenDays.filter((i) => visibleKeys.has(itemKey(i))),
-            ],
-            [
-              'later',
-              laterExpanded
-                ? groups.later.filter((i) => visibleKeys.has(itemKey(i)))
-                : [],
-            ],
-          ]
-        : [[null, shown]],
-    [tab, groups, laterExpanded, shown, visibleKeys],
-  )
-
-  // Items that repeat one another fold into one row per section.
-  const sections: [InboxGroup | null, WorkItem[], InboxEntry[]][] = useMemo(
-    () =>
-      dueSections.map(([group, rows]) => [
-        group,
-        rows,
-        collapseRepeats(rows, expandedRepeats),
-      ]),
-    [dueSections, expandedRepeats],
-  )
-
-  const orderedRows = useMemo(
-    () => sections.flatMap(([, , entries]) => entries.map((e) => e.item)),
-    [sections],
-  )
-
-  const selected =
-    orderedRows.find((i) => rowKey(i) === selectedKey) ?? orderedRows[0]
-
-  // A folded repeat is still selected with its group, so the counts and the
-  // bulk action read every listed item, not only the rows on screen.
-  const selectedCount = visible.filter((item) =>
-    selection.has(rowKey(item)),
-  ).length
-
-  // Bulk select: the checked rows that still need action are what "Mark
-  // selected seen" acts on.
-  const selectedSeenKeys = useMemo(
-    () =>
-      visible
-        .filter((item) => selection.has(rowKey(item)) && tab === 'needs-action')
-        .map(itemKey),
-    [visible, selection, tab],
-  )
-
-  const tabCount = (name: InboxTab) => page?.tabs[name] ?? 0
-  const typeCount = (name: InboxType) => page?.types[name] ?? 0
-
-  const typeLabel = type
-    ? (types.find(([name]) => name === type)?.[1] ?? type)
-    : undefined
-
-  // QA2-Inbox-2: while the read is outstanding the counts are unknown, not
-  // zero. Stating 0 made the page disagree with the sidebar and hid the fact
-  // that nothing had answered yet.
-  const countsKnown = Boolean(page)
-
-  // QA3-inbox-1 — "Mark all seen" acts on the items the current tab and type
-  // chip show, not on every needs-action item. On Following and Done today
-  // there is nothing of the sort on screen, and a type chip narrows the list,
-  // so marking the rest reported success for work the person could not see.
-  const markableKeys = useMemo(
-    () => (tab === 'needs-action' ? visible.map(itemKey) : []),
-    [visible, tab],
-  )
-
-  // SHELL-03.3 — the List scope through the single shortcut registry. The
-  // ordered rows and the current selection live in refs so the registered
-  // handlers stay stable and the provider does not re-register every render.
-  const navigate = useNavigate()
-
-  // QA3-inbox-4 — the tab and the type chips write the URL, so a reload and
-  // Back agree with the list on screen. The URL was only ever read: clicking
-  // Following left `?type=reviews` in the address bar and a reload restored
-  // the old filter.
-  const updateSearch = useCallback(
-    (patch: InboxSearch) => {
-      void navigate({
-        to: '/inbox',
-        // The router hands the updater every route's search; this page reads
-        // its own three keys and passes nothing else on.
-        search: (previous) => {
-          const current = inboxSearchSchema.parse(previous)
-
-          return {
-            tab: 'tab' in patch ? patch.tab : current.tab,
-            type: 'type' in patch ? patch.type : current.type,
-            item: 'item' in patch ? patch.item : current.item,
-          }
-        },
-      })
-    },
-    [navigate],
-  )
-
-  // Choosing a row writes it to the URL; a replace keeps J/K from filling the
-  // history with one entry per row.
-  const selectedKeyRef = useRef<string | null>(selectedKey)
-
-  const setSelectedKey = useCallback(
-    (key: string | null) => {
-      if (key === selectedKeyRef.current) return
-      selectedKeyRef.current = key
-      setSelectedKeyState(key)
-      void navigate({
-        to: '/inbox',
-        search: (previous) => ({
-          ...inboxSearchSchema.parse(previous),
-          item: key ?? undefined,
-        }),
-        replace: true,
-      })
-    },
-    [navigate],
-  )
-
-  const selectTab = (next: InboxTab) => {
-    setLater(null)
-    updateSearch({
-      tab: next === 'needs-action' ? undefined : next,
-      type: undefined,
-      item: undefined,
-    })
-  }
-
-  const selectType = (next: InboxType | undefined) => {
-    updateSearch({ type: next })
-  }
-
-  const filterRef = useRef<HTMLDivElement>(null)
-  const rowsRef = useRef<WorkItem[]>(orderedRows)
-  useEffect(() => {
-    rowsRef.current = orderedRows
-    selectedKeyRef.current = selectedKey
-  }, [orderedRows, selectedKey])
-
-  const move = useCallback(
-    (delta: number) => {
-      setSelectedKey(
-        moveListSelection(
-          rowsRef.current.map(rowKey),
-          selectedKeyRef.current,
-          delta,
-        ),
-      )
-    },
-    [setSelectedKey],
-  )
-
-  const openItem = useCallback(
-    // Like any other link an item opens in this pane; Alt-click opens beside
-    // and Alt+Shift-click below.
-    async (item: WorkItem, where?: 'beside' | 'below') => {
-      const runId =
-        item.kind === 'run_failed' || item.kind === 'run_waiting'
-          ? await resolveRunForWorkItem(item).catch(() => null)
-          : null
-
-      const destination = runId ? runLink(runId) : itemLink(item)
-
-      if (workspace && where) {
-        const { href } = router.buildLocation(destination)
-
-        const placement: Parameters<typeof workspace.open>[1] = {
-          beside: true,
-          title: item.title,
-        }
-
-        if (where === 'below') placement.below = true
-
-        workspace.open(href, placement)
-      } else void navigate(destination)
-    },
-    [navigate, router, workspace],
-  )
-
-  const openSelected = useCallback(() => {
-    const item =
-      rowsRef.current.find((i) => rowKey(i) === selectedKeyRef.current) ??
-      rowsRef.current.at(0)
-
-    if (item) void openItem(item)
-  }, [openItem])
-
-  const selectCurrent = useCallback((add: boolean) => {
-    const item =
-      rowsRef.current.find((i) => rowKey(i) === selectedKeyRef.current) ??
-      rowsRef.current.at(0)
-
-    if (!item) return
-    setSelection((current) => new Set([...(add ? current : []), rowKey(item)]))
-  }, [])
-
-  useShortcutScope('list')
-  useRegisterShortcuts(
-    useMemo(
-      () =>
-        listShortcuts({
-          moveUp: () => move(-1),
-          moveDown: () => move(1),
-          next: () => move(1),
-          previous: () => move(-1),
-          open: openSelected,
-          addToSelection: () => selectCurrent(true),
-          filter: () =>
-            filterRef.current
-              ?.querySelector<HTMLButtonElement>('button')
-              ?.focus(),
-        }),
-      [move, openSelected, selectCurrent],
-    ),
-  )
-
-  const markSeen = useMutation({
-    mutationFn: (keys: string[]) =>
-      notebookDataClient.rpc('mark_work_items_seen', { p_item_keys: keys }),
-    onSuccess: () => {
-      toast(t('projects.inbox.markedSeen'))
-      void queryClient.invalidateQueries({ queryKey: ['work-items'] })
-      // The Inbox badge and Home counts come from the router context, which
-      // only a route re-resolution refreshes.
-      void router.invalidate()
-    },
-    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A refused mark-seen is a caught throw, so it reaches this callback untyped; Error supplies its message.
-    onError: (error: unknown) =>
-      toast.error(
-        error instanceof Error ? error.message : t('projects.inbox.markFailed'),
-      ),
+  const shortcuts = useInboxShortcuts({
+    orderedRows: list.orderedRows,
+    selectedKey: view.selectedKey,
+    selectedKeyRef: view.selectedKeyRef,
+    setSelectedKey: view.setSelectedKey,
+    setSelection: view.setSelection,
   })
+
+  const { selected, selectedCount, selectedSeenKeys, markableKeys } =
+    useInboxSelection({
+      orderedRows: list.orderedRows,
+      visible: rows.visible,
+      selection: view.selection,
+      tab,
+      selectedKey: view.selectedKey,
+    })
+
+  const markSeen = useMarkInboxSeen()
+
+  const page = rows.page
+  // QA2-Inbox-2: while the read is outstanding the counts are unknown, not
+  // zero.
+  const countsKnown = Boolean(page)
 
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
         <InboxHeader
-          hasNextPage={Boolean(query.hasNextPage)}
+          hasNextPage={Boolean(rows.query.hasNextPage)}
           markableCount={markableKeys.length}
           marking={markSeen.isPending}
           onMarkSeen={() => markSeen.mutate(markableKeys)}
           tab={tab}
-          onSelectTab={selectTab}
+          onSelectTab={view.selectTab}
           countsKnown={countsKnown}
-          tabCount={tabCount}
+          tabCount={(name) => page?.tabs[name] ?? 0}
         />
 
         <InboxToolbar
-          filterRef={filterRef}
+          filterRef={shortcuts.filterRef}
           type={type}
-          onSelectType={selectType}
+          onSelectType={view.selectType}
           countsKnown={countsKnown}
-          typeCount={typeCount}
+          typeCount={(name) => page?.types[name] ?? 0}
           selectedCount={selectedCount}
           marking={markSeen.isPending}
           onMarkSelected={() =>
             markSeen.mutate(selectedSeenKeys, {
-              onSuccess: () => setSelection(new Set()),
+              onSuccess: () => view.setSelection(new Set()),
             })
           }
-          onClearSelection={() => setSelection(new Set())}
+          onClearSelection={() => view.setSelection(new Set())}
         />
 
-        <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
-          {query.isError && !page ? (
-            <div
-              role="alert"
-              className="flex flex-col items-center gap-2 px-4 py-12 text-center md:px-6"
-            >
-              <div className="text-prose font-semibold">
-                {t('projects.inbox.loadFailed')}
-              </div>
-              <div className="max-w-[460px] leading-[19px] text-fg-muted">
-                {query.error instanceof Error
-                  ? query.error.message
-                  : t('projects.inbox.loadFailedBody')}
-              </div>
-              <Button
-                size="sm"
-                disabled={query.isFetching}
-                onClick={() => void query.refetch()}
-              >
-                {query.isFetching
-                  ? t('projects.inbox.trying')
-                  : t('common.actions.tryAgain')}
-              </Button>
-            </div>
-          ) : orderedRows.length === 0 && hiddenLater === 0 ? (
-            <div
-              role="status"
-              className="flex flex-col items-center gap-2 px-4 py-12 text-center md:px-6"
-            >
-              <div className="text-prose font-semibold">
-                {query.isPending
-                  ? t('common.states.loading')
-                  : t('projects.inbox.empty.title')}
-              </div>
-              <div className="max-w-[460px] leading-[19px] text-fg-muted">
-                {type
-                  ? t('projects.inbox.empty.type', { type: typeLabel ?? '' })
-                  : tab === 'following'
-                    ? t('projects.inbox.empty.following')
-                    : tab === 'done-today'
-                      ? t('projects.inbox.empty.doneToday')
-                      : t('projects.inbox.empty.needsAction')}
-              </div>
-              {/* QA3-inbox-2 — the type chips narrow the list, so the state
-                  that empties it offers the way back. */}
-              {type ? (
-                <Button size="sm" onClick={() => selectType(undefined)}>
-                  {t('projects.inbox.clearFilter')}
-                </Button>
-              ) : null}
-            </div>
-          ) : (
-            <InboxSections
-              sections={sections}
-              tab={tab}
-              visibleCount={visible.length}
-              selection={selection}
-              onSelectionChange={setSelection}
-              selected={selected}
-              expandedRepeats={expandedRepeats}
-              onExpandedRepeatsChange={setExpandedRepeats}
-              onOpenItem={openItem}
-              onSelectKey={setSelectedKey}
-              onCollapseLater={() => setLater(false)}
-            />
-          )}
-          {hiddenLater > 0 && !laterExpanded ? (
-            <button
-              type="button"
-              aria-expanded={false}
-              onClick={() => setLater(true)}
-              className="flex h-9 w-full cursor-pointer items-center gap-1.5 border-0 bg-transparent px-4 text-label text-fg-muted hover:text-fg md:px-6"
-            >
-              {t('projects.inbox.laterItems', { count: hiddenLater })}
-            </button>
-          ) : null}
-          {page ? (
-            <LoadMore
-              label={t('projects.inbox.pages')}
-              hasMore={Boolean(query.hasNextPage)}
-              loading={query.isFetchingNextPage}
-              error={
-                query.isFetchNextPageError
-                  ? t('projects.inbox.loadMoreFailed')
-                  : undefined
-              }
-              onLoadMore={() => void query.fetchNextPage()}
-              loaded={items.length}
-              total={page.total}
-              noun={t('projects.inbox.noun')}
-              className="px-4 py-3 md:px-6"
-            />
-          ) : null}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-/** The page header: what the Inbox is, its mark-seen action and its tabs. */
-function InboxHeader({
-  hasNextPage,
-  markableCount,
-  marking,
-  onMarkSeen,
-  tab,
-  onSelectTab,
-  countsKnown,
-  tabCount,
-}: {
-  hasNextPage: boolean
-  markableCount: number
-  marking: boolean
-  onMarkSeen: () => void
-  tab: InboxTab
-  onSelectTab: (tab: InboxTab) => void
-  countsKnown: boolean
-  tabCount: (name: InboxTab) => number
-}): React.ReactElement {
-  return (
-    <ListHeader
-      title={t('projects.inbox.title')}
-      subtitle={t('projects.inbox.subtitle')}
-      actions={
-        <>
-          <Button
-            nativeButton={false}
-            render={<Link to="/settings/account/notifications" />}
-          >
-            {t('projects.inbox.notificationSettings')}
-          </Button>
-          <Button
-            disabled={marking || markableCount === 0}
-            onClick={onMarkSeen}
-          >
-            {hasNextPage
-              ? t('projects.inbox.markLoaded')
-              : t('projects.inbox.markAll')}
-          </Button>
-        </>
-      }
-      tabs={
-        <Tabs
-          mode="state"
-          label={t('projects.inbox.title')}
-          value={tab}
-          onValueChange={(next) => {
-            if (isInboxTab(next)) onSelectTab(next)
-          }}
-          className="mt-1"
-          items={tabs.map(([key, label]) => ({
-            key,
-            label,
-            count: countsKnown ? tabCount(key) : '—',
-          }))}
+        <InboxList
+          query={rows.query}
+          rows={rows}
+          orderedRowCount={list.orderedRows.length}
+          onExpandLater={() => view.setLater(true)}
+          sections={list.sections}
+          tab={tab}
+          selection={view.selection}
+          onSelectionChange={view.setSelection}
+          selected={selected}
+          expandedRepeats={view.expandedRepeats}
+          onExpandedRepeatsChange={view.setExpandedRepeats}
+          onOpenItem={shortcuts.openItem}
+          onSelectKey={view.setSelectedKey}
+          onCollapseLater={() => view.setLater(false)}
+          type={type}
+          typeLabel={
+            type
+              ? (types.find(([name]) => name === type)?.[1] ?? type)
+              : undefined
+          }
+          onClearType={() => view.selectType(undefined)}
         />
-      }
-    />
-  )
-}
-
-/** The type chips, the bulk actions and the sort hint above the list. */
-function InboxToolbar({
-  filterRef,
-  type,
-  onSelectType,
-  countsKnown,
-  typeCount,
-  selectedCount,
-  marking,
-  onMarkSelected,
-  onClearSelection,
-}: {
-  filterRef: React.RefObject<HTMLDivElement | null>
-  type: InboxType | undefined
-  onSelectType: (type: InboxType | undefined) => void
-  countsKnown: boolean
-  typeCount: (name: InboxType) => number
-  selectedCount: number
-  marking: boolean
-  onMarkSelected: () => void
-  onClearSelection: () => void
-}): React.ReactElement {
-  return (
-    <div
-      ref={filterRef}
-      role="toolbar"
-      aria-label={t('projects.inbox.filterByType')}
-      className="flex flex-wrap items-center gap-1 border-b border-border px-4 py-2 md:px-6 [&_button]:shrink-0"
-    >
-      {/* On a phone the type filters scroll sideways in one row rather
-              than wrapping onto three above the first item. */}
-      <div className={PHONE_SCROLL_ROW}>
-        <Button
-          size="sm"
-          variant="quiet"
-          aria-pressed={!type}
-          className={!type ? 'bg-selection hover:bg-selection' : undefined}
-          onClick={() => onSelectType(undefined)}
-        >
-          {t('projects.inbox.allTypes')}
-        </Button>
-        {types.map(([name, label, tone]) => (
-          <Button
-            key={name}
-            size="sm"
-            variant="quiet"
-            aria-pressed={type === name}
-            className={
-              type === name ? 'bg-selection hover:bg-selection' : undefined
-            }
-            onClick={() => onSelectType(type === name ? undefined : name)}
-          >
-            <Dot tone={tone} />
-            {label} {countsKnown ? typeCount(name) : '—'}
-          </Button>
-        ))}
       </div>
-      <span className="flex-1" />
-      {selectedCount > 0 ? (
-        <>
-          <span role="status" className="text-label text-fg-muted">
-            {t('projects.inbox.selected', { count: selectedCount })}
-          </span>
-          <Button
-            size="sm"
-            variant="quiet"
-            disabled={marking || selectedCount === 0}
-            onClick={onMarkSelected}
-          >
-            {t('projects.inbox.markSelected')}
-          </Button>
-          <Button size="sm" variant="quiet" onClick={onClearSelection}>
-            {t('projects.inbox.clearSelection')}
-          </Button>
-        </>
-      ) : null}
-      <span className="shrink-0 whitespace-nowrap text-label text-fg-muted max-lg:hidden">
-        {rich('projects.inbox.sorted', {
-          kbd: (key) => <Kbd>{key}</Kbd>,
-        })}
-      </span>
     </div>
-  )
-}
-
-/** The grouped rows: due-date sections on Needs action, one list elsewhere. */
-function InboxSections({
-  sections,
-  tab,
-  visibleCount,
-  selection,
-  onSelectionChange,
-  selected,
-  expandedRepeats,
-  onExpandedRepeatsChange,
-  onOpenItem,
-  onSelectKey,
-  onCollapseLater,
-}: {
-  sections: [InboxGroup | null, WorkItem[], InboxEntry[]][]
-  tab: InboxTab
-  visibleCount: number
-  selection: Set<string>
-  onSelectionChange: React.Dispatch<React.SetStateAction<Set<string>>>
-  selected: WorkItem | undefined
-  expandedRepeats: Set<string>
-  onExpandedRepeatsChange: React.Dispatch<React.SetStateAction<Set<string>>>
-  onOpenItem: (item: WorkItem, where?: 'beside' | 'below') => Promise<void>
-  onSelectKey: (key: string | null) => void
-  onCollapseLater: () => void
-}): React.ReactElement {
-  return (
-    <ul aria-label={t('projects.inbox.items')} className="m-0 list-none p-0">
-      {sections.map(([g, rows, entries]) => {
-        if (!rows.length) return null
-
-        return (
-          <div key={g ?? 'all'}>
-            <div
-              role="presentation"
-              className="flex h-8 items-center gap-2 border-b border-border-subtle bg-surface-muted px-4 text-label font-medium text-fg-muted md:px-6"
-            >
-              {g ? t(`projects.inbox.groups.${g}`) : (tabLabels.get(tab) ?? '')}
-              {/* QA3-lists-inbox-2 — the tab's own group states the
-                          tab's total, so the strip and the list agree in one
-                          viewport; a due-date group states its own rows. */}
-              <span className="num font-normal">
-                {g === null ? visibleCount : rows.length}
-              </span>
-              {g === 'later' ? (
-                <button
-                  type="button"
-                  aria-expanded
-                  onClick={onCollapseLater}
-                  className="ml-auto cursor-pointer border-0 bg-transparent p-0 text-label text-link"
-                >
-                  {t('projects.inbox.collapse')}
-                </button>
-              ) : null}
-            </div>
-            {entries.map((entry, index) => {
-              const i = entry.item
-              const key = rowKey(i)
-
-              // The row standing for a folded group selects all of it.
-              const keys =
-                entry.count > 1 && !expandedRepeats.has(entry.group)
-                  ? entry.members.map(rowKey)
-                  : [key]
-
-              const checked = keys.every((k) => selection.has(k))
-              const open = expandedRepeats.has(entry.group)
-
-              return (
-                <li
-                  // QA3-lists-inbox-1 — `rowKey` mirrors the boundary
-                  // identity, but distinct work items can share it
-                  // (many data issues carry one dataset's identifier),
-                  // and duplicate keys leave removed rows on screen.
-                  // The position disambiguates the rendered siblings;
-                  // `key` still drives selection.
-                  // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- Rows that share a boundary identity are told apart by their position here; `key` still drives selection.
-                  key={`${key}#${index}`}
-                  className={cn(
-                    'flex items-center hover:bg-row-hover',
-                    (selected === i || selection.has(key)) &&
-                      'bg-selection hover:bg-selection',
-                    entry.repeat && 'bg-surface-muted',
-                  )}
-                  aria-current={selected === i ? true : undefined}
-                >
-                  <Checkbox
-                    className="ml-4 md:ml-6"
-                    aria-label={t('projects.inbox.select', {
-                      title: i.title,
-                    })}
-                    checked={checked}
-                    onCheckedChange={(next) =>
-                      onSelectionChange((current) => {
-                        const updated = new Set(current)
-
-                        for (const k of keys) {
-                          if (next) updated.add(k)
-                          else updated.delete(k)
-                        }
-
-                        return updated
-                      })
-                    }
-                  />
-                  <button
-                    type="button"
-                    aria-pressed={selection.has(key)}
-                    onFocus={() => onSelectKey(key)}
-                    onClick={(event) => {
-                      onSelectKey(key)
-
-                      if (
-                        !event.ctrlKey &&
-                        !event.metaKey &&
-                        (!event.shiftKey || event.altKey)
-                      ) {
-                        void onOpenItem(
-                          i,
-                          event.altKey
-                            ? event.shiftKey
-                              ? 'below'
-                              : 'beside'
-                            : undefined,
-                        )
-
-                        return
-                      }
-
-                      onSelectionChange(
-                        (current) =>
-                          new Set([
-                            ...(event.ctrlKey || event.metaKey ? current : []),
-                            key,
-                          ]),
-                      )
-                    }}
-                    className={cn(
-                      'grid min-h-11 w-full cursor-pointer grid-cols-[104px_minmax(0,1fr)_180px] items-center gap-3 max-md:grid-cols-[minmax(0,1fr)_auto] max-md:gap-x-3 max-md:gap-y-1 max-md:py-2 border-0 border-b border-border-subtle bg-transparent px-4 py-1.5 text-left md:px-6',
-                      entry.repeat && 'pl-8 md:pl-10',
-                    )}
-                  >
-                    <Status
-                      tone={toneFor(i.kind)}
-                      className="min-w-0 whitespace-normal max-md:col-span-2 max-md:justify-self-start"
-                    >
-                      {labelFor(i.kind)}
-                    </Status>
-                    <span className="min-w-0">
-                      <span className="block truncate text-body font-medium text-fg">
-                        {i.identifier && !isMachineKey(i.identifier) ? (
-                          <span className="mono mr-1.5 font-normal text-fg-muted">
-                            {i.identifier}
-                          </span>
-                        ) : null}
-                        {i.title}
-                        {selection.has(key) ? (
-                          <span className="ml-2 text-label text-link">
-                            {t('projects.inbox.selectedRow')}
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="block truncate text-label text-fg-muted">
-                        {rowReason(i)}
-                      </span>
-                    </span>
-                    <span className="whitespace-nowrap text-right text-label text-fg-muted max-md:max-w-[9rem] max-md:whitespace-normal">
-                      {dueLabel(i.dueAt)}
-                    </span>
-                  </button>
-                  {entry.count > 1 ? (
-                    <button
-                      type="button"
-                      aria-expanded={open}
-                      aria-label={
-                        open
-                          ? t('projects.inbox.repeats.hideAria', {
-                              count: entry.count,
-                            })
-                          : t('projects.inbox.repeats.showAria', {
-                              count: entry.count,
-                            })
-                      }
-                      onClick={() =>
-                        onExpandedRepeatsChange((current) => {
-                          const next = new Set(current)
-
-                          if (open) next.delete(entry.group)
-                          else next.add(entry.group)
-
-                          return next
-                        })
-                      }
-                      className="mr-4 inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-full border border-border bg-surface px-2 text-label text-fg-muted hover:bg-surface-hover hover:text-fg md:mr-6"
-                    >
-                      <span className="num">
-                        {t('projects.inbox.repeats.count', {
-                          count: entry.count,
-                        })}
-                      </span>
-                      <Icon
-                        name={open ? 'chevronUp' : 'chevronDown'}
-                        size={12}
-                      />
-                    </button>
-                  ) : null}
-                </li>
-              )
-            })}
-          </div>
-        )
-      })}
-    </ul>
   )
 }

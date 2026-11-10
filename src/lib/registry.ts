@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import type {
   DataGridFilterOperator,
   DataGridFilterValue,
@@ -80,11 +82,8 @@ export function registrySavedViewStorageKey(
     .join(':')
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
-const FILTER_OPERATORS = new Set<RegistryFilterOperator>([
+/** Every operator a registry filter may name, as the grid spells them. */
+const FILTER_OPERATORS = [
   'eq',
   'contains',
   'neq',
@@ -98,29 +97,29 @@ const FILTER_OPERATORS = new Set<RegistryFilterOperator>([
   'notIn',
   'isNull',
   'isNotNull',
+] as const satisfies readonly DataGridFilterOperator[]
+
+const filterOperatorSchema = z.enum(FILTER_OPERATORS)
+const filterScalarSchema = z.union([z.string(), z.number(), z.boolean()])
+
+/** One filter, as a URL or a saved view carries it. */
+const registryFilterSchema = z.object({
+  fieldId: z.string(),
+  operator: filterOperatorSchema,
+  values: z.array(filterScalarSchema).max(20),
+})
+
+/** The one-letter tag each scalar is encoded with. */
+const scalarTagSchema = z.union([
+  z.number().transform(() => 'n'),
+  z.boolean().transform(() => 'b'),
+  z.string().transform(() => 's'),
 ])
 
-function isRegistryFilter(value: unknown): value is RegistryFilterValue {
-  return (
-    isRecord(value) &&
-    typeof value.fieldId === 'string' &&
-    FILTER_OPERATORS.has(value.operator as RegistryFilterOperator) &&
-    Array.isArray(value.values) &&
-    value.values.length <= 20 &&
-    value.values.every(
-      (item) =>
-        typeof item === 'string' ||
-        typeof item === 'number' ||
-        typeof item === 'boolean',
-    )
-  )
-}
-
 function encodeFilterScalar(value: RegistryScalar): string {
-  const type =
-    typeof value === 'number' ? 'n' : typeof value === 'boolean' ? 'b' : 's'
+  const tag = scalarTagSchema.parse(value)
 
-  return `${type}:${encodeURIComponent(String(value))}`
+  return `${tag}:${encodeURIComponent(String(value))}`
 }
 
 /** Encode filters as compact, typed and independently readable URL state. */
@@ -133,65 +132,87 @@ export function encodeRegistryFilters(filters: RegistryFilterValue[]): string {
     .join('|')
 }
 
+/** One encoded scalar (`n:10`, `b:false`, `s:available`), or null if malformed. */
+function decodeFilterScalar(encoded: string): RegistryScalar | null {
+  if (encoded.slice(1, 2) !== ':') return null
+
+  const type = encoded.slice(0, 1)
+  const scalar = decodeURIComponent(encoded.slice(2))
+
+  if (type === 'n') {
+    const numeric = Number(scalar)
+
+    return Number.isFinite(numeric) ? numeric : null
+  }
+
+  if (type === 'b') {
+    if (scalar === 'true') return true
+
+    if (scalar === 'false') return false
+
+    return null
+  }
+
+  return type === 's' ? scalar : null
+}
+
+/** One encoded filter (`status:eq:s:available`), or null if malformed. */
+function decodeFilterEntry(entry: string): RegistryFilterValue | null {
+  const fieldEnd = entry.indexOf(':')
+  const operatorEnd = entry.indexOf(':', fieldEnd + 1)
+
+  if (fieldEnd <= 0 || operatorEnd < 0) return null
+
+  const operator = filterOperatorSchema.safeParse(
+    entry.slice(fieldEnd + 1, operatorEnd),
+  )
+
+  if (!operator.success) return null
+
+  const encoded = entry.slice(operatorEnd + 1)
+  const values: RegistryScalar[] = []
+
+  for (const item of encoded ? encoded.split(',') : []) {
+    const scalar = decodeFilterScalar(item)
+
+    if (scalar === null) return null
+    values.push(scalar)
+  }
+
+  const parsed = registryFilterSchema.safeParse({
+    fieldId: decodeURIComponent(entry.slice(0, fieldEnd)),
+    operator: operator.data,
+    values,
+  })
+
+  return parsed.success ? parsed.data : null
+}
+
 /** Decode untrusted filter URL state using the registry query bounds. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the decode step: the filter arrives as a raw URL parameter, and the grammar checked below decides what it holds.
 export function decodeRegistryFilters(value: unknown): RegistryFilterValue[] {
-  if (typeof value !== 'string' || value.length === 0 || value.length > 4096)
-    return []
+  const encoded = z.string().min(1).max(4096).safeParse(value)
+
+  if (!encoded.success) return []
+
+  const entries = encoded.data.split('|')
+
+  if (entries.length > 20) return []
+
+  const filters: RegistryFilterValue[] = []
 
   try {
-    const entries = value.split('|')
+    for (const entry of entries) {
+      const filter = decodeFilterEntry(entry)
 
-    if (entries.length > 20) return []
-
-    const filters: RegistryFilterValue[] = entries.map((entry) => {
-      const fieldEnd = entry.indexOf(':')
-      const operatorEnd = entry.indexOf(':', fieldEnd + 1)
-
-      if (fieldEnd <= 0 || operatorEnd < 0) throw new Error('Invalid filter')
-      const values = entry.slice(operatorEnd + 1)
-
-      return {
-        fieldId: decodeURIComponent(entry.slice(0, fieldEnd)),
-        operator: entry.slice(
-          fieldEnd + 1,
-          operatorEnd,
-        ) as RegistryFilterOperator,
-        values: values
-          ? values.split(',').map((encoded): RegistryScalar => {
-              const type = encoded.slice(0, 1)
-
-              if (encoded.slice(1, 2) !== ':')
-                throw new Error('Invalid filter value')
-              const scalar = decodeURIComponent(encoded.slice(2))
-
-              if (type === 'n') {
-                const numeric = Number(scalar)
-
-                if (!Number.isFinite(numeric))
-                  throw new Error('Invalid numeric filter value')
-
-                return numeric
-              }
-
-              if (type === 'b') {
-                if (scalar !== 'true' && scalar !== 'false')
-                  throw new Error('Invalid boolean filter value')
-
-                return scalar === 'true'
-              }
-
-              if (type !== 's') throw new Error('Invalid filter value type')
-
-              return scalar
-            })
-          : [],
-      }
-    })
-
-    return filters.every(isRegistryFilter) ? filters : []
+      if (filter === null) return []
+      filters.push(filter)
+    }
   } catch {
     return []
   }
+
+  return filters
 }
 
 /** Versioned, database-agnostic URL representation of registry query state. */
@@ -199,100 +220,58 @@ export function encodeRegistryQuery(query: RegistryQuery): string {
   return encodeURIComponent(JSON.stringify({ v: 1, q: query }))
 }
 
+const registryQuerySchema = z.object({
+  pageIndex: z.number().int().min(0).max(10_000),
+  pageSize: z.number().int().min(1).max(500),
+  sorting: z
+    .array(z.object({ id: z.string().max(100), desc: z.boolean() }))
+    .max(4),
+  grouping: z.array(z.string().max(100)).max(4),
+  filters: z.array(registryFilterSchema).max(20),
+})
+
+/** A stored view's query: the same shape, with the URL's page bounds removed. */
+const storedQuerySchema = z.object({
+  pageIndex: z.number().int().min(0),
+  pageSize: z.number().int().min(1),
+  sorting: z.array(z.object({ id: z.string(), desc: z.boolean() })),
+  grouping: z.array(z.string()),
+  filters: z.array(registryFilterSchema),
+})
+
 /** Decode untrusted URL state with deliberately small syntactic bounds. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the decode step: the query arrives as a raw URL parameter, and `registryQuerySchema` below decides what it holds.
 export function decodeRegistryQuery(value: unknown): RegistryQuery | null {
-  if (typeof value !== 'string' || value.length === 0 || value.length > 4096)
-    return null
+  const encoded = z.string().min(1).max(4096).safeParse(value)
+
+  if (!encoded.success) return null
+
+  let envelope: unknown
 
   try {
-    const envelope: unknown = JSON.parse(decodeURIComponent(value))
-
-    if (!isRecord(envelope) || envelope.v !== 1 || !isRecord(envelope.q))
-      return null
-    const query = envelope.q
-
-    if (
-      !Number.isInteger(query.pageIndex) ||
-      Number(query.pageIndex) < 0 ||
-      Number(query.pageIndex) > 10_000 ||
-      !Number.isInteger(query.pageSize) ||
-      Number(query.pageSize) < 1 ||
-      Number(query.pageSize) > 500 ||
-      !Array.isArray(query.sorting) ||
-      query.sorting.length > 4 ||
-      !query.sorting.every(
-        (sort) =>
-          isRecord(sort) &&
-          typeof sort.id === 'string' &&
-          sort.id.length <= 100 &&
-          typeof sort.desc === 'boolean',
-      ) ||
-      !Array.isArray(query.grouping) ||
-      query.grouping.length > 4 ||
-      !query.grouping.every(
-        (group) => typeof group === 'string' && group.length <= 100,
-      ) ||
-      !Array.isArray(query.filters) ||
-      query.filters.length > 20 ||
-      !query.filters.every(isRegistryFilter)
-    )
-      return null
-
-    return query as unknown as RegistryQuery
+    envelope = JSON.parse(decodeURIComponent(encoded.data))
   } catch {
     return null
   }
+
+  const parsed = z
+    .object({ v: z.literal(1), q: registryQuerySchema })
+    .safeParse(envelope)
+
+  return parsed.success ? parsed.data.q : null
 }
 
-function isSavedView(value: unknown): value is RegistrySavedView {
-  if (
-    !isRecord(value) ||
-    typeof value.id !== 'string' ||
-    typeof value.name !== 'string'
-  ) {
-    return false
-  }
-
-  const state = value.state
-
-  if (!isRecord(state) || !isRecord(state.query)) return false
-
-  if (!isRecord(state.columnVisibility)) return false
-  const query = state.query
-
-  const sortingValid =
-    Array.isArray(query.sorting) &&
-    query.sorting.every(
-      (sort) =>
-        isRecord(sort) &&
-        typeof sort.id === 'string' &&
-        typeof sort.desc === 'boolean',
-    )
-
-  const groupingValid =
-    Array.isArray(query.grouping) &&
-    query.grouping.every((group) => typeof group === 'string')
-
-  const filtersValid =
-    Array.isArray(query.filters) &&
-    query.filters.every((filter) => isRegistryFilter(filter))
-
-  const visibilityValid = Object.values(state.columnVisibility).every(
-    (visible) => typeof visible === 'boolean',
-  )
-
-  return (
-    Number.isInteger(query.pageIndex) &&
-    Number(query.pageIndex) >= 0 &&
-    Number.isInteger(query.pageSize) &&
-    Number(query.pageSize) > 0 &&
-    sortingValid &&
-    groupingValid &&
-    filtersValid &&
-    visibilityValid &&
-    (state.density === 'comfortable' || state.density === 'compact')
-  )
-}
+/** A saved view as local storage may carry it, including stale fields. */
+const savedViewSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  state: z.object({
+    query: storedQuerySchema,
+    columnVisibility: z.record(z.string(), z.boolean()),
+    density: z.enum(['comfortable', 'compact']),
+  }),
+  updatedAt: z.string().optional(),
+})
 
 /**
  * Treat persisted view state as untrusted browser input. This keeps stale or
@@ -366,7 +345,13 @@ export function createRegistrySavedViewStore({
     try {
       const parsed: unknown = JSON.parse(resolvedStorage.getItem(key) ?? '[]')
 
-      return Array.isArray(parsed) ? parsed.filter(isSavedView) : []
+      if (!Array.isArray(parsed)) return []
+
+      return parsed.flatMap((view) => {
+        const saved = savedViewSchema.safeParse(view)
+
+        return saved.success ? [saved.data] : []
+      })
     } catch {
       return []
     }

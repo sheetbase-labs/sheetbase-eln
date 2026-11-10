@@ -5,6 +5,8 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import type { DatasetRowInput } from './dataset-product'
+
 import {
   analysisMethodsText,
   runAnalysis,
@@ -39,7 +41,7 @@ const base = {
 }
 
 function rowsOf(groups: Record<string, number[]>) {
-  const out: Record<string, unknown>[] = []
+  const out: DatasetRowInput[] = []
 
   for (const [g, values] of Object.entries(groups))
     values.forEach((v, i) => out.push({ [V]: v, [G]: g, [S]: `s${i + 1}` }))

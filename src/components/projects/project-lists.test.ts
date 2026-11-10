@@ -23,6 +23,13 @@ import {
 const PROJECT = '00000000-0000-4000-8000-0000000000a1'
 const OTHER = '00000000-0000-4000-8000-0000000000b2'
 
+/** A data client for these tests: the reads a page uses, and no others. */
+function asClient<Stub>(client: Stub): DataClient {
+  // SAFETY: each call site supplies exactly the methods its page reads, and
+  // those supply the answers the page decodes; nothing else is called.
+  return client as DataClient
+}
+
 describe('project scope predicates', () => {
   it('scopes records to the project and kind, excluding archived and deleted', () => {
     const filter = projectRecordFilter(PROJECT, 'sample')
@@ -90,7 +97,7 @@ describe('fetchProjectExperimentsPage', () => {
 
     const list = vi.fn().mockResolvedValue(rows)
     const count = vi.fn().mockResolvedValue(31)
-    const client = { list, count } as unknown as DataClient
+    const client = asClient({ list, count })
 
     const page = await fetchProjectExperimentsPage(client, PROJECT, 2)
 
@@ -139,7 +146,7 @@ describe('fetchProjectSamplesPage', () => {
 
     const list = vi.fn().mockResolvedValue([wire])
     const count = vi.fn().mockResolvedValue(1)
-    const client = { list, count } as unknown as DataClient
+    const client = asClient({ list, count })
 
     const page = await fetchProjectSamplesPage(client, PROJECT, 1)
 
@@ -181,7 +188,7 @@ describe('fetchProjectDatasetsPage', () => {
     ])
 
     const count = vi.fn().mockResolvedValue(1)
-    const client = { rpc, count } as unknown as DataClient
+    const client = asClient({ rpc, count })
 
     const page = await fetchProjectDatasetsPage(client, PROJECT, 1)
 
@@ -209,7 +216,7 @@ describe('counts', () => {
     const count = vi.fn().mockResolvedValue(5)
 
     const total = await fetchProjectRecordCount(
-      { count } as unknown as DataClient,
+      asClient({ count }),
       PROJECT,
       'sample',
     )

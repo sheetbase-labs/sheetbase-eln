@@ -10,10 +10,14 @@
 import { createHash, randomBytes } from 'node:crypto'
 
 import type { Pool } from 'pg'
+import { z } from 'zod'
 
 const IDENTIFIER_PREFIX = 'email-change:'
 const LIFETIME_MS = 60 * 60 * 1000
 const ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/** What `createEmailChange` stores in the verification row's `value`. */
+const PENDING_CHANGE = z.object({ userId: z.string(), email: z.string() })
 
 export type EmailChangeRefusal =
   'invalid_address' | 'same_address' | 'address_taken' | 'unknown_user'
@@ -135,7 +139,7 @@ export async function confirmEmailChange(
       return { ok: false, reason: 'expired' }
     }
 
-    const pending = JSON.parse(row.value) as { userId: string; email: string }
+    const pending = PENDING_CHANGE.parse(JSON.parse(row.value))
 
     const taken = await client.query(
       `SELECT 1 FROM internal."user" WHERE lower(email) = $1 AND id <> $2`,

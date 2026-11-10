@@ -2,7 +2,7 @@
  * The schedule of an experiment that runs in parts: what each part needs, a
  * proposed plan the server works out, and accepting it to book the instruments.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { RegistryGrid } from '#/components/inventory/registry-grid'
@@ -67,6 +67,7 @@ function useInstrumentOptions() {
   })
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A mutation failure is a caught throw, untyped by definition; Error supplies its message and anything else falls back.
 function messageOf(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
 }
@@ -107,18 +108,27 @@ export function SchedulePanel({
     mutationFn: () => requestProposal(client, recordId),
     onSuccess: () =>
       void queryClient.invalidateQueries({ queryKey: scheduleQueryKeys.all }),
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(messageOf(e, t('automation.schedule.couldNotPlan'))),
   })
 
   const names = instruments.data ?? []
-  const nameOf = (id: string) => names.find((n) => n.id === id)?.name ?? '—'
 
-  const planOf = (partId: string) =>
-    plans.data?.plans.find((p) => p.part_id === partId)
+  const nameOf = useCallback(
+    (id: string) => instruments.data?.find((n) => n.id === id)?.name ?? '—',
+    [instruments.data],
+  )
 
-  const needsOf = (partId: string) =>
-    (plans.data?.needs ?? []).filter((n) => n.part_id === partId)
+  const planOf = useCallback(
+    (partId: string) => plans.data?.plans.find((p) => p.part_id === partId),
+    [plans.data],
+  )
+
+  const needsOf = useCallback(
+    (partId: string) =>
+      (plans.data?.needs ?? []).filter((n) => n.part_id === partId),
+    [plans.data],
+  )
 
   const columns = useMemo<RegistryColumn<PartSummary>[]>(
     () => [
@@ -214,7 +224,7 @@ export function SchedulePanel({
           ) : null,
       },
     ],
-    [canWrite, plans.data, instruments.data],
+    [canWrite, plans.data, instruments.data, nameOf, needsOf, planOf],
   )
 
   return (
@@ -280,10 +290,25 @@ export function SchedulePanel({
         />
       ) : null}
       {slipping ? (
-        <SlipDialog part={slipping} onClose={() => setSlipping(null)} />
+        <SlipDialog
+          key={slipping.partId}
+          part={slipping}
+          onClose={() => setSlipping(null)}
+        />
       ) : null}
     </Section>
   )
+}
+
+const DECIDED_STATUSES = ['accepted', 'dismissed', 'superseded'] as const
+
+type DecidedStatus = (typeof DECIDED_STATUSES)[number]
+
+/** The outcome a decided proposal states; nothing until it is decided. */
+function decidedStatus(
+  status: ScheduleProposalWire['status'],
+): DecidedStatus | null {
+  return DECIDED_STATUSES.find((candidate) => candidate === status) ?? null
 }
 
 function conflictText(conflict: Conflict): string {
@@ -332,7 +357,7 @@ function ProposalView({
         )
       }
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(
         messageOf(e, t('automation.schedule.proposal.couldNotAccept')),
       ),
@@ -344,7 +369,7 @@ function ProposalView({
       onChanged()
       toast.success(t('automation.schedule.proposal.dismissed', { reference }))
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(
         messageOf(e, t('automation.schedule.proposal.couldNotDismiss')),
       ),
@@ -443,6 +468,7 @@ function ProposalView({
   }
 
   const open = proposal.status === 'proposed'
+  const decided = decidedStatus(proposal.status)
 
   const summary =
     proposal.conflict_count > 0
@@ -468,13 +494,11 @@ function ProposalView({
             ? ` · ${t('automation.schedule.proposal.slipReason')}`
             : ''}
         </span>
-        {open ? null : (
+        {decided ? (
           <Status tone={proposal.status === 'accepted' ? 'ok' : 'draft'}>
-            {t(
-              `automation.schedule.proposal.decided.${proposal.status as 'accepted' | 'dismissed' | 'superseded'}`,
-            )}
+            {t(`automation.schedule.proposal.decided.${decided}`)}
           </Status>
-        )}
+        ) : null}
         <span className="flex-1" />
         {open && canWrite ? (
           <>
@@ -512,6 +536,21 @@ function ProposalView({
   )
 }
 
+/** One editable instrument need in the plan dialog; the id keys the row. */
+interface PlanRow {
+  id: string
+  resourceId: string
+  minutes: string
+}
+
+let planRowSequence = 0
+
+function newPlanRow(resourceId: string, minutes: string): PlanRow {
+  planRowSequence += 1
+
+  return { id: `plan-row-${planRowSequence}`, resourceId, minutes }
+}
+
 function PartPlanDialog({
   part,
   plan,
@@ -526,16 +565,15 @@ function PartPlanDialog({
   onClose: () => void
 }) {
   const queryClient = useQueryClient()
-  const [handsOn, setHandsOn] = useState(String(plan?.hands_on_minutes ?? 60))
-  const [wait, setWait] = useState(String(plan?.wait_after_minutes ?? 0))
 
-  const [rows, setRows] = useState<
-    Array<{ resourceId: string; minutes: string }>
-  >(
-    needs.map((n) => ({
-      resourceId: n.resource_id,
-      minutes: String(n.minutes),
-    })),
+  const [handsOn, setHandsOn] = useState(() =>
+    String(plan?.hands_on_minutes ?? 60),
+  )
+
+  const [wait, setWait] = useState(() => String(plan?.wait_after_minutes ?? 0))
+
+  const [rows, setRows] = useState<PlanRow[]>(() =>
+    needs.map((n) => newPlanRow(n.resource_id, String(n.minutes))),
   )
 
   const whole = (text: string, min: number) => {
@@ -573,7 +611,7 @@ function PartPlanDialog({
       toast.success(t('automation.schedule.planDialog.saved'))
       onClose()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(
         messageOf(e, t('automation.schedule.planDialog.couldNotSave')),
       ),
@@ -631,7 +669,7 @@ function PartPlanDialog({
                 ) : null}
                 {rows.map((row, index) => (
                   <div
-                    key={index}
+                    key={row.id}
                     className="grid grid-cols-[minmax(0,1fr)_90px_auto] items-center gap-2"
                   >
                     <Select
@@ -686,9 +724,7 @@ function PartPlanDialog({
                 <div>
                   <Button
                     size="sm"
-                    onClick={() =>
-                      setRows((c) => [...c, { resourceId: '', minutes: '30' }])
-                    }
+                    onClick={() => setRows((c) => [...c, newPlanRow('', '30')])}
                   >
                     {t('automation.schedule.planDialog.add')}
                   </Button>
@@ -723,7 +759,6 @@ function SlipDialog({
 }) {
   const queryClient = useQueryClient()
   const [days, setDays] = useState('1')
-  useEffect(() => setDays('1'), [part.partId])
   const value = Number(days)
   const invalid = !Number.isInteger(value) || value < 1
 
@@ -734,7 +769,7 @@ function SlipDialog({
       toast.success(t('automation.schedule.slip.requested'))
       onClose()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(messageOf(e, t('automation.schedule.slip.couldNotSlip'))),
   })
 

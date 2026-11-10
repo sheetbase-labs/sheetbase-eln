@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 /**
  * MODEL-03 — Model relationship rules: typed links a Model's records accept.
@@ -36,7 +37,7 @@ export const modelRelationshipsDataClient = createDataClient()
 export function useModelRelationshipRules(
   sourceModelKey: string | null | undefined,
   options: { client?: DataClient; enabled?: boolean } = {},
-): { rules: ModelRelationshipRule[]; isLoading: boolean } {
+) {
   const { client = modelRelationshipsDataClient, enabled = true } = options
 
   const rulesQuery = useQuery({
@@ -83,7 +84,7 @@ export const MODEL_LINK_TYPES = [
 export type ModelLinkType = (typeof MODEL_LINK_TYPES)[number]
 
 export function isModelLinkType(value: string): value is ModelLinkType {
-  return (MODEL_LINK_TYPES as readonly string[]).includes(value)
+  return MODEL_LINK_TYPES.some((linkType) => linkType === value)
 }
 
 /** One declared typed relationship between two canonical Models. */
@@ -168,8 +169,8 @@ export interface ConfigureModelRelationshipRuleInput {
 export function configureModelRelationshipRule(
   client: DataClient,
   input: ConfigureModelRelationshipRuleInput,
-): Promise<unknown> {
-  return client.rpc('configure_model_relationship_rule', {
+): Promise<void> {
+  return client.rpc<void>('configure_model_relationship_rule', {
     p_workspace_id: input.workspaceId,
     p_source_model_key: input.sourceModelKey,
     p_link_type: input.linkType,
@@ -184,8 +185,10 @@ export function configureModelRelationshipRule(
 export function removeModelRelationshipRule(
   client: DataClient,
   ruleId: string,
-): Promise<unknown> {
-  return client.rpc('remove_model_relationship_rule', { p_rule_id: ruleId })
+): Promise<void> {
+  return client.rpc<void>('remove_model_relationship_rule', {
+    p_rule_id: ruleId,
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -350,7 +353,7 @@ export function relationshipRuleStatus(
  */
 export function relationshipTypeLabels(
   rules: readonly Pick<ModelRelationshipRule, 'linkType' | 'label'>[],
-): Record<string, string> {
+) {
   const labels: Record<string, string> = {}
 
   for (const rule of rules) {
@@ -387,18 +390,17 @@ export function resolveRelationshipLabel(
 // Server rejection matchers.
 // ---------------------------------------------------------------------------
 
-function errorCode(error: unknown): string | null {
-  if (!error || typeof error !== 'object') return null
+/** The `code` and `message` a server rejection carries; any other throw has neither. */
+const REJECTION = z.object({
+  code: z.string().optional(),
+  message: z.string().optional(),
+})
 
-  return 'code' in error && typeof error.code === 'string' ? error.code : null
-}
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught throw is untyped by definition; REJECTION decides what it is and every other shape reads as no code and no message.
+function rejectionOf(error: unknown): { code?: string; message?: string } {
+  const parsed = REJECTION.safeParse(error)
 
-function errorMessage(error: unknown): string {
-  if (!error || typeof error !== 'object') return ''
-
-  return 'message' in error && typeof error.message === 'string'
-    ? error.message
-    : ''
+  return parsed.success ? parsed.data : {}
 }
 
 /**
@@ -406,11 +408,16 @@ function errorMessage(error: unknown): string {
  * model) pair is not declared for the source Model, or the target model
  * is not recognised while rules constrain the type.
  */
-export function isRelationshipNotAllowedError(error: unknown): boolean {
-  if (errorCode(error) === 'SB080') return true
+export function isRelationshipNotAllowedError(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught throw is untyped by definition; rejectionOf reads only its code and message.
+  error: unknown,
+): boolean {
+  const rejection = rejectionOf(error)
+
+  if (rejection.code === 'SB080') return true
 
   return /not allowed for model|target model is not recognised/i.test(
-    errorMessage(error),
+    rejection.message ?? '',
   )
 }
 
@@ -418,10 +425,15 @@ export function isRelationshipNotAllowedError(error: unknown): boolean {
  * Recognise the SB081 fail-closed rejection: the edge would exceed the
  * rule's maximum count for the (source model, link type, target model).
  */
-export function isRelationshipCardinalityError(error: unknown): boolean {
-  if (errorCode(error) === 'SB081') return true
+export function isRelationshipCardinalityError(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught throw is untyped by definition; rejectionOf reads only its code and message.
+  error: unknown,
+): boolean {
+  const rejection = rejectionOf(error)
 
-  return /exceeds the maximum/i.test(errorMessage(error))
+  if (rejection.code === 'SB081') return true
+
+  return /exceeds the maximum/i.test(rejection.message ?? '')
 }
 
 /** Friendly linker message for an SB080 rejection. */

@@ -108,9 +108,11 @@ export function reuseUpgradeAvailability(
 function publishedRefs(
   versions: ReadonlyArray<ReusePublishedVersion>,
 ): ReuseVersionRef[] {
-  return versions
-    .filter((version) => version.lifecycle === 'published')
-    .map((version) => ({ id: version.id, version: version.version }))
+  return versions.flatMap((version) =>
+    version.lifecycle === 'published'
+      ? [{ id: version.id, version: version.version }]
+      : [],
+  )
 }
 
 /** Notebook consumer: pinned Template Version vs the Template lineage. */
@@ -168,17 +170,18 @@ function familyLine(label: string, counts: FamilyCounts): string | null {
   return `${label}: ${parts.join(', ')}`
 }
 
-const SHEET_AUTOMATIC_FAMILY: Record<string, string> = {
-  'column-added': 'Columns',
-  'column-label-renamed': 'Columns',
-  'parameter-added': 'Parameters',
-  'parameter-label-renamed': 'Parameters',
-  'binding-added': 'Bindings',
-  'join-added': 'Joins',
-  'calculation-added': 'Calculations',
-  'write-back-added': 'Write-back rules',
-  'action-added': 'Actions',
-}
+/** Automatic change kind -> the family heading its count is reported under. */
+const SHEET_AUTOMATIC_FAMILY = new Map<string, string>([
+  ['column-added', 'Columns'],
+  ['column-label-renamed', 'Columns'],
+  ['parameter-added', 'Parameters'],
+  ['parameter-label-renamed', 'Parameters'],
+  ['binding-added', 'Bindings'],
+  ['join-added', 'Joins'],
+  ['calculation-added', 'Calculations'],
+  ['write-back-added', 'Write-back rules'],
+  ['action-added', 'Actions'],
+])
 
 function sheetConflictFamily(
   kind: string,
@@ -243,6 +246,7 @@ function sheetLocalTouchCount(preview: SheetDefinitionUpgradePreview): number {
  * instead of rendering a partial diff.
  */
 export function summarizeSheetDefinitionUpgradeImpact(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The preview arrives as stored JSON from the upgrade RPC; `parseSheetDefinitionUpgradePreview` below is the strict decode that throws before any typed value exists.
   preview: unknown,
 ): ReuseUpgradeImpactSummary {
   const parsed = parseSheetDefinitionUpgradePreview(preview)
@@ -257,7 +261,7 @@ export function summarizeSheetDefinitionUpgradeImpact(
       continue
     }
 
-    const label = SHEET_AUTOMATIC_FAMILY[change.kind]
+    const label = SHEET_AUTOMATIC_FAMILY.get(change.kind)
 
     if (!label) throw new Error(`Unresolvable upgrade change "${change.kind}".`)
     const counts = (families[label] ??= { added: 0, removed: 0, changed: 0 })
@@ -309,8 +313,9 @@ export function summarizeSheetDefinitionUpgradeImpact(
   const lines: string[] = []
 
   for (const label of order) {
-    const counts = families[label] as FamilyCounts | undefined
-    const line = counts ? familyLine(label, counts) : null
+    if (!Object.hasOwn(families, label)) continue
+
+    const line = familyLine(label, families[label])
 
     if (line) lines.push(line)
   }
@@ -390,6 +395,7 @@ export function summarizeSheetDefinitionUpgradeImpact(
  * Re-validates through the existing upgrade validator: unknown shapes throw.
  */
 export function summarizeNotebookTemplateUpgradeImpact(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The preview arrives as stored JSON from the upgrade RPC; `parseNotebookTemplateUpgradePreviewFromWire` below is the strict decode that throws before any typed value exists.
   preview: unknown,
 ): ReuseUpgradeImpactSummary {
   const parsed: NotebookUpgradePreview =
@@ -397,6 +403,7 @@ export function summarizeNotebookTemplateUpgradeImpact(
 
   const lines: string[] = []
   const localEffects: string[] = []
+  const seenEffects = new Set<string>()
 
   let added = 0
   let removed = 0
@@ -447,7 +454,10 @@ export function summarizeNotebookTemplateUpgradeImpact(
     for (const effect of nested.localEffects) {
       const scoped = `Part ${part}: ${effect}`
 
-      if (!localEffects.includes(scoped)) localEffects.push(scoped)
+      if (seenEffects.has(scoped)) continue
+
+      seenEffects.add(scoped)
+      localEffects.push(scoped)
     }
   }
 

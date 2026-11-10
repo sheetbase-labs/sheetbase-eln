@@ -1,33 +1,76 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 import { ScientificRecordSummary } from '#/components/scientific/scientific-record-summary'
+import type { NotebookRecord } from '#/lib/notebook-data'
+import type { RecordFieldDefinition } from '#/lib/scientific-records'
 
-const record = {
+const record: NotebookRecord = {
   id: '1',
+  projectId: null,
   kind: 'sample',
   identifier: 'SMP-2026-0142',
   title: 'Human plasma aliquot',
   status: 'frozen',
+  tags: [],
+  structureVersion: 1,
+  metadataVersion: 1,
+  createdAt: '2026-01-01T00:00:00Z',
+  updatedAt: '2026-01-01T00:00:00Z',
   archivedAt: null,
+  deletedAt: null,
+  createdByUserId: 'user-1',
+  updatedByUserId: null,
   properties: { matrix: 'Plasma', quantity: 2.4, storage_temperature: -80 },
-} as any
+  lockedAt: null,
+  lockedByRevisionId: null,
+}
 
-const fields = [
-  { name: 'matrix', label: 'Matrix', kind: 'sample', type: 'text' },
+const fields: RecordFieldDefinition[] = [
   {
-    name: 'quantity',
+    id: 'f-1',
+    workspaceId: 'workspace-1',
+    kind: 'sample',
+    fieldName: 'matrix',
+    label: 'Matrix',
+    description: null,
+    displayOrder: 0,
+    logicalType: 'text',
+    nullable: false,
+    defaultValue: null,
+    unit: null,
+    validation: {},
+    lifecycle: 'active',
+  },
+  {
+    id: 'f-2',
+    workspaceId: 'workspace-1',
+    kind: 'sample',
+    fieldName: 'quantity',
     label: 'Remaining volume',
-    kind: 'sample',
-    type: 'number',
-    unit: 'mL',
+    description: null,
+    displayOrder: 1,
+    logicalType: 'decimal',
+    nullable: true,
+    defaultValue: null,
+    unit: { symbol: 'mL' },
+    validation: {},
+    lifecycle: 'active',
   },
   {
-    name: 'storage_temperature',
-    label: 'Storage temperature',
+    id: 'f-3',
+    workspaceId: 'workspace-1',
     kind: 'sample',
-    type: 'number',
-    unit: '°C',
+    fieldName: 'storage_temperature',
+    label: 'Storage temperature',
+    description: null,
+    displayOrder: 2,
+    logicalType: 'decimal',
+    nullable: true,
+    defaultValue: null,
+    unit: { symbol: '°C' },
+    validation: {},
+    lifecycle: 'active',
   },
-] as any
+]
 
 const meta = {
   title: 'Scientific/Record summary',

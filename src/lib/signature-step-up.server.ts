@@ -82,6 +82,9 @@ const realDeps: SignatureStepUpDeps = { database: db, authentication: auth }
 /** What the demo takes in place of a password; the typed name is the proof. */
 const DEMO_PLACEHOLDER = 'demo-signature'
 
+/** The demo only substitutes the placeholder password into a JSON object body. */
+const demoRequestBody = z.looseObject({})
+
 /** Demo purposes. Credentials are never enrolled or recovered in a demo. */
 const DEMO_PURPOSES = new Set([
   'sign',
@@ -92,7 +95,28 @@ const DEMO_PURPOSES = new Set([
 
 const hash = (token: string) => createHash('sha256').update(token).digest('hex')
 
-const reply = (status: number, body: object) => {
+/**
+ * The jsonb argument bundle `internal.signature_submission_arguments` builds and
+ * the grant row stores unchanged; the database owns its contents.
+ */
+type SignatureSubmissionArguments = z.core.util.JSONType
+
+/**
+ * What one step-up reply carries: a refusal message (optionally with a code)
+ * or the confirmation a completed grant returns.
+ */
+interface StepUpReplyBody {
+  message?: string
+  code?: string
+  token?: string
+  expiresAt?: string
+  authMethod?: 'password' | 'demo'
+  delivered?: boolean
+  completed?: boolean
+  signInAgain?: boolean
+}
+
+const reply = (status: number, body: StepUpReplyBody) => {
   if (status >= 500) annotateRequest({ error: body })
 
   return Response.json(body, {
@@ -121,9 +145,10 @@ export async function handleSignatureStepUp(
 
   try {
     const raw: unknown = await request.json()
+    const submitted = demo ? demoRequestBody.safeParse(raw) : null
     input = inputSchema.parse(
-      demo && raw && typeof raw === 'object'
-        ? { ...raw, password: DEMO_PLACEHOLDER }
+      submitted?.success
+        ? { ...submitted.data, password: DEMO_PLACEHOLDER }
         : raw,
     )
   } catch {
@@ -251,7 +276,7 @@ export async function handleSignatureStepUp(
       }
     }
 
-    let submissionArguments: unknown = null
+    let submissionArguments: SignatureSubmissionArguments | null = null
 
     if (input.purpose === 'author-submit') {
       const eligible = await client.query(
@@ -284,7 +309,9 @@ export async function handleSignatureStepUp(
         })
       }
 
-      const normalized = await client.query<{ arguments: unknown }>(
+      const normalized = await client.query<{
+        arguments: SignatureSubmissionArguments | null
+      }>(
         'SELECT internal.signature_submission_arguments($1,$2,$3,$4,$5::text[],$6,$7,$8::timestamptz) AS arguments',
         [
           input.recordId,
@@ -651,7 +678,7 @@ async function insertGrant(
     revisionDigest?: string | null
     recordId?: string | null
     signatureMeaning?: string | null
-    submissionArguments?: unknown
+    submissionArguments?: SignatureSubmissionArguments | null
     authMethod?: 'password' | 'demo'
   },
 ): Promise<string> {

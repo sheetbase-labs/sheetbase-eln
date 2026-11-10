@@ -18,9 +18,18 @@
  * nothing waits, which a failed read cannot back, and it reads as calm on every
  * surface that shows it.
  */
-import { db } from '#/db/client.server'
-
 import type { InboxCounts } from './predicate'
+
+/** The queries this count makes on one pooled connection, and the release that returns it. */
+export interface InboxCountConnection {
+  query: <T>(sql: string, values?: unknown[]) => Promise<{ rows: T[] }>
+  release: () => void
+}
+
+/** The part of a database pool this count needs; the app pool is the default. */
+export interface InboxCountPool {
+  connect: () => Promise<InboxCountConnection>
+}
 
 /**
  * Count the needs-action items, and their Reviews subset, for one person in
@@ -33,8 +42,11 @@ import type { InboxCounts } from './predicate'
 export async function getInboxCounts(
   workspaceId: string,
   userId: string,
+  // A caller may bring its own pool; the app's is opened only when one is needed.
+  pool?: InboxCountPool,
 ): Promise<InboxCounts | null> {
-  const client = db.$client
+  const client: InboxCountPool =
+    pool ?? (await import('#/db/client.server')).db.$client
   const connection = await client.connect()
 
   try {

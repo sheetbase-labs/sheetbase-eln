@@ -90,6 +90,7 @@ export async function upgradeNotebooksInBulk(
   for (const notebook of input.notebooks) {
     results.push({
       notebook,
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Notebooks upgrade one at a time so progress counts the ones already done, in the order the screen listed them.
       outcome: await upgradeOne(client, notebook, input.targetVersionId),
     })
     onProgress?.(results.length, input.notebooks.length)

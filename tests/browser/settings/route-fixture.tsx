@@ -85,7 +85,9 @@ const root = createRootRoute({
 const signatureLoader = z
   .function({
     input: [],
-    output: z.promise(z.object({ signInAvailable: z.boolean() })),
+    output: z.custom<Promise<{ signInAvailable: boolean }>>(
+      (value) => value instanceof Promise,
+    ),
   })
   .parse(Signature.options.loader)
 

@@ -15,6 +15,8 @@
  * drive the UI; they must not be the only access-control boundary.
  */
 
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
 import type { NotebookRecord, RecordWire } from '#/lib/notebook-data'
 import { toRecord } from '#/lib/notebook-data'
@@ -73,7 +75,9 @@ export interface RecordFieldDefinitionWire {
   logical_type: string
   nullable: boolean
   default_value: unknown
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The unit JSONB is written by the field-definition editor and read here only for its display `symbol`; the remaining keys belong to the field's dimension.
   unit: Record<string, unknown> | null
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The validation JSONB holds whichever rules the field's logical type declares; this module reads only `enum`.
   validation: Record<string, unknown>
   lifecycle: string
   created_at: string
@@ -91,7 +95,9 @@ export interface RecordFieldDefinition {
   logicalType: PropertyLogicalType
   nullable: boolean
   defaultValue: unknown
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The unit JSONB is written by the field-definition editor and read here only for its display `symbol`; the remaining keys belong to the field's dimension.
   unit: Record<string, unknown> | null
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The validation JSONB holds whichever rules the field's logical type declares; this module reads only `enum`.
   validation: Record<string, unknown>
   lifecycle: 'active' | 'retired'
 }
@@ -112,7 +118,7 @@ const LOGICAL_TYPES: readonly PropertyLogicalType[] = [
 export function isPropertyLogicalType(
   type: string,
 ): type is PropertyLogicalType {
-  return (LOGICAL_TYPES as readonly string[]).includes(type)
+  return LOGICAL_TYPES.some((logicalType) => logicalType === type)
 }
 
 export function toFieldDefinition(
@@ -162,6 +168,7 @@ export interface PropertyValidationError {
  */
 export function validateProperties(
   kind: ScientificRecordKind,
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- A record's properties JSONB carries whatever each field definition declares; this kernel reads them by field name through the definitions.
   properties: Record<string, unknown>,
   definitions: RecordFieldDefinition[],
 ): PropertyValidationError[] {
@@ -200,33 +207,55 @@ export function validateProperties(
   return errors
 }
 
+const TEXT_VALUE = z.string()
+const DECIMAL_VALUE = z.number()
+const BOOLEAN_VALUE = z.boolean()
+const DATE_VALUE = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+
+const TIMESTAMP_VALUE = z
+  .string()
+  .refine((candidate) => !Number.isNaN(Date.parse(candidate)))
+
+/**
+ * The value arrives as raw JSONB; this switch is the decoder that decides
+ * whether it satisfies the field's declared logical type.
+ */
 function checkLogicalType(
   def: RecordFieldDefinition,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A property value is raw JSONB from the record; this function is the literal-type decoder the field definitions drive.
   value: unknown,
 ): string | null {
   switch (def.logicalType) {
     case 'text':
-      return typeof value === 'string' ? null : `${def.label} must be text.`
+      return TEXT_VALUE.safeParse(value).success
+        ? null
+        : `${def.label} must be text.`
     case 'integer':
       return Number.isInteger(value)
         ? null
         : `${def.label} must be a whole number.`
     case 'decimal':
-      return typeof value === 'number' && Number.isFinite(value)
+      return DECIMAL_VALUE.safeParse(value).success
         ? null
         : `${def.label} must be a number.`
     case 'boolean':
-      return typeof value === 'boolean'
+      return BOOLEAN_VALUE.safeParse(value).success
         ? null
         : `${def.label} must be true or false.`
     case 'category': {
-      if (typeof value !== 'string') return `${def.label} must be text.`
+      const decoded = TEXT_VALUE.safeParse(value)
+
+      if (!decoded.success) return `${def.label} must be text.`
 
       const enumValues = Array.isArray(def.validation.enum)
-        ? (def.validation.enum as unknown[])
+        ? def.validation.enum
         : null
 
-      if (enumValues && enumValues.length > 0 && !enumValues.includes(value)) {
+      if (
+        enumValues &&
+        enumValues.length > 0 &&
+        !enumValues.includes(decoded.data)
+      ) {
         return `${def.label} must be one of: ${enumValues.join(', ')}.`
       }
 
@@ -234,11 +263,11 @@ function checkLogicalType(
     }
 
     case 'date':
-      return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+      return DATE_VALUE.safeParse(value).success
         ? null
         : `${def.label} must be a date (YYYY-MM-DD).`
     case 'timestamp':
-      return typeof value === 'string' && !Number.isNaN(Date.parse(value))
+      return TIMESTAMP_VALUE.safeParse(value).success
         ? null
         : `${def.label} must be a timestamp.`
     default:
@@ -355,17 +384,40 @@ export const DUPLICATE_SCIENTIFIC_LINK_MESSAGE =
  * or through the `create_record_link` RPC, which may re-raise it as a
  * `conflict` envelope or a plain duplicate message) — match all shapes.
  */
-export function isDuplicateLinkError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false
+const LINK_ERROR_FIELDS = z.looseObject({
+  code: z.unknown().optional(),
+  message: z.unknown().optional(),
+  status: z.unknown().optional(),
+})
 
-  const code =
-    'code' in error && typeof error.code === 'string' ? error.code : null
+/**
+ * The refusal fields a thrown transport error carries. A native `Error` keeps
+ * `message` non-enumerable, so object parsing cannot see it; the instance is
+ * read directly and its code and status come from the transport's own fields.
+ */
+function linkErrorFields(error: unknown) {
+  if (error instanceof Error) {
+    // SAFETY: the transport throws its own error class, which carries an
+    // optional SQLSTATE `code` and HTTP `status` beside `message`.
+    const coded = error as Error & { code?: unknown; status?: unknown }
 
-  const message =
-    'message' in error && typeof error.message === 'string' ? error.message : ''
+    return { code: coded.code, message: coded.message, status: coded.status }
+  }
 
-  const status =
-    'status' in error && typeof error.status === 'number' ? error.status : null
+  return error
+}
+
+export function isDuplicateLinkError(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught throw is untyped by definition; this predicate decodes the code, status and message the transport reports.
+  error: unknown,
+): boolean {
+  const decoded = LINK_ERROR_FIELDS.safeParse(linkErrorFields(error))
+
+  if (!decoded.success) return false
+
+  const code = TEXT_VALUE.safeParse(decoded.data.code).data ?? null
+  const message = TEXT_VALUE.safeParse(decoded.data.message).data ?? ''
+  const status = DECIMAL_VALUE.safeParse(decoded.data.status).data ?? null
 
   if (code === '23505' || code === 'conflict') return true
 
@@ -389,8 +441,8 @@ export function createScientificLink(
   client: DataClient,
   sourceRecordId: string,
   target: { id: string; kind: ScientificRecordKind; identifier: string },
-): Promise<unknown> {
-  return client.rpc('create_record_link', {
+): Promise<void> {
+  return client.rpc<void>('create_record_link', {
     p_source_record_id: sourceRecordId,
     p_target_kind: target.kind,
     p_target_identifier: target.identifier,
@@ -472,6 +524,7 @@ export interface PropertySummaryEntry {
   label: string
   value: unknown
   logicalType: PropertyLogicalType
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The unit JSONB is written by the field-definition editor and read here only for its display `symbol`; the remaining keys belong to the field's dimension.
   unit: Record<string, unknown> | null
   /** True when the value's field definition is retired or absent. */
   orphaned: boolean
@@ -485,6 +538,7 @@ export interface PropertySummaryEntry {
  */
 export function summariseProperties(
   kind: ScientificRecordKind,
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- A record's properties JSONB carries whatever each field definition declares; this projection reads them by field name through the definitions.
   properties: Record<string, unknown>,
   definitions: RecordFieldDefinition[],
 ): PropertySummaryEntry[] {
@@ -533,22 +587,20 @@ export function formatPropertyValue(entry: PropertySummaryEntry): string {
 
   if (value === null || value === undefined || value === '') return '—'
 
-  const unitSymbol =
-    unit &&
-    typeof unit === 'object' &&
-    'symbol' in unit &&
-    typeof unit.symbol === 'string'
-      ? unit.symbol
-      : null
+  const unitSymbol = PROPERTY_UNIT.safeParse(unit).data?.symbol ?? null
+  const formatted = formatPropertyScalar(value)
 
-  const valueStr =
-    typeof value === 'number'
-      ? Number.isInteger(value)
-        ? String(value)
-        : String(value)
-      : String(value)
+  return unitSymbol ? `${formatted} ${unitSymbol}` : formatted
+}
 
-  return unitSymbol ? `${valueStr} ${unitSymbol}` : valueStr
+const PROPERTY_UNIT = z.object({ symbol: z.string() })
+
+/** A property value's display form: its ordinary JavaScript string. */
+function formatPropertyScalar(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A property value is raw JSONB from the record; this function renders whatever it holds.
+  value: unknown,
+): string {
+  return String(value)
 }
 
 // ---------------------------------------------------------------------------

@@ -902,26 +902,26 @@ export async function assignTaskResource(
 // Error mapping.
 // ---------------------------------------------------------------------------
 
-export function describePlannerError(error: unknown): string {
+export function describePlannerError<Cause>(error: Cause): string {
   if (!(error instanceof DataClientError))
     return 'Could not complete the planner operation. Try again.'
 
-  const messages: Record<string, string> = {
-    SB001: 'This task was edited by someone else. Refresh and try again.',
-    SB005: 'The task input is invalid. Check the details and try again.',
-    SB016: 'The selected item belongs to a different workspace.',
-    SB021: 'The resource was not found in this workspace.',
-    SB026: 'The task was not found in this workspace.',
-    SB027: 'The workstream was not found in this workspace.',
-    SB028: 'The dependency was not found in this workspace.',
-    SB029: 'This dependency would create a circular dependency.',
-    SB030: 'This resource is overbooked in the requested time range.',
-    SB031: 'A task cannot depend on itself.',
-    SB032: 'The end time must be after the start time.',
-    '42501': 'You do not have access to this study planner.',
-  }
+  const messages = new Map<string, string>([
+    ['SB001', 'This task was edited by someone else. Refresh and try again.'],
+    ['SB005', 'The task input is invalid. Check the details and try again.'],
+    ['SB016', 'The selected item belongs to a different workspace.'],
+    ['SB021', 'The resource was not found in this workspace.'],
+    ['SB026', 'The task was not found in this workspace.'],
+    ['SB027', 'The workstream was not found in this workspace.'],
+    ['SB028', 'The dependency was not found in this workspace.'],
+    ['SB029', 'This dependency would create a circular dependency.'],
+    ['SB030', 'This resource is overbooked in the requested time range.'],
+    ['SB031', 'A task cannot depend on itself.'],
+    ['SB032', 'The end time must be after the start time.'],
+    ['42501', 'You do not have access to this study planner.'],
+  ])
 
-  return messages[error.code] ?? error.message
+  return messages.get(error.code) ?? error.message
 }
 
 // ---------------------------------------------------------------------------
@@ -1068,6 +1068,15 @@ export function weekLabel(weekStart: Date, timeZone: string): string {
   return `W${wk} ${range}`
 }
 
+/** One field of a formatted date, as a number; the format always reports it. */
+function datePart(parts: Intl.DateTimeFormatPart[], type: string): number {
+  const part = parts.find((entry) => entry.type === type)
+
+  if (!part) throw new Error(`The date format did not report ${type}.`)
+
+  return Number(part.value)
+}
+
 /** Monday of the week containing `date` (in timezone). */
 export function startOfWeekInZone(date: Date, timeZone: string): Date {
   const parts = dateTimeFormat('en-CA', {
@@ -1077,9 +1086,9 @@ export function startOfWeekInZone(date: Date, timeZone: string): Date {
     day: '2-digit',
   }).formatToParts(date)
 
-  const y = Number(parts.find((p) => p.type === 'year')!.value)
-  const m = Number(parts.find((p) => p.type === 'month')!.value)
-  const d = Number(parts.find((p) => p.type === 'day')!.value)
+  const y = datePart(parts, 'year')
+  const m = datePart(parts, 'month')
+  const d = datePart(parts, 'day')
   const wallMidnight = new Date(Date.UTC(y, m - 1, d, 0, 0, 0))
   const offsetMs = wallClockOffsetMs(wallMidnight, timeZone)
   const localMidnight = new Date(wallMidnight.getTime() - offsetMs)
@@ -1101,7 +1110,7 @@ function wallClockOffsetMs(instant: Date, timeZone: string): number {
     second: '2-digit',
   }).formatToParts(instant)
 
-  const get = (t: string) => Number(utcParts.find((p) => p.type === t)!.value)
+  const get = (t: string) => datePart(utcParts, t)
 
   const wallMs = Date.UTC(
     get('year'),

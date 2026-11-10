@@ -34,7 +34,7 @@ export async function getShellCounts(
   // getInboxCounts never rejects (a failed read is `null`), so it runs
   // alongside the other two counts instead of ahead of them.
   const [inbox, flags, failed] = await Promise.all([
-    getInboxCounts(workspaceId, userId),
+    getInboxCounts(workspaceId, userId, client),
     client.query<{ n: string }>(
       // The badge counts datasets with an unresolved value flag, matching the
       // design's "2 errors" (two datasets), not the raw flag rows. Home's

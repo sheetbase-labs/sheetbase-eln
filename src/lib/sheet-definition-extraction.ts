@@ -108,10 +108,16 @@ export type SheetDefinitionExtractionPreview = z.output<
   typeof sheetDefinitionExtractionPreviewSchema
 >
 
-export function parseSheetDefinitionExtractionSelection(value: unknown) {
+export function parseSheetDefinitionExtractionSelection(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The schema boundary itself: `sheetDefinitionExtractionSelectionSchema` decides what an extraction selection is, so its input cannot be typed before it runs.
+  value: unknown,
+) {
   return sheetDefinitionExtractionSelectionSchema.parse(value)
 }
 
-export function parseSheetDefinitionExtractionPreview(value: unknown) {
+export function parseSheetDefinitionExtractionPreview(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The schema boundary itself: `sheetDefinitionExtractionPreviewSchema` decides what an extraction preview is, so its input cannot be typed before it runs.
+  value: unknown,
+) {
   return sheetDefinitionExtractionPreviewSchema.parse(value)
 }

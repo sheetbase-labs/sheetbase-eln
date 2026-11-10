@@ -7,8 +7,14 @@ import {
 } from './shortcut-scopes'
 import type { ShortcutDefinition } from './shortcuts'
 
+/** A real keydown event, and the spy on the browser default a binding should prevent. */
 function event(key: string) {
-  return { key, preventDefault: vi.fn() } as unknown as KeyboardEvent
+  const keyboardEvent = new KeyboardEvent('keydown', { key, cancelable: true })
+
+  return {
+    keyboardEvent,
+    preventDefault: vi.spyOn(keyboardEvent, 'preventDefault'),
+  }
 }
 
 function byId(definitions: ShortcutDefinition[], id: string) {
@@ -51,10 +57,10 @@ describe('listShortcuts (SHELL-03.3)', () => {
 
   it('dispatches a two-direction row by key', () => {
     const definitions = listShortcuts(handlers)
-    byId(definitions, 'list-move').handler?.(event('ArrowUp'))
-    byId(definitions, 'list-move').handler?.(event('ArrowDown'))
-    byId(definitions, 'list-next-previous').handler?.(event('j'))
-    byId(definitions, 'list-next-previous').handler?.(event('k'))
+    byId(definitions, 'list-move').handler?.(event('ArrowUp').keyboardEvent)
+    byId(definitions, 'list-move').handler?.(event('ArrowDown').keyboardEvent)
+    byId(definitions, 'list-next-previous').handler?.(event('j').keyboardEvent)
+    byId(definitions, 'list-next-previous').handler?.(event('k').keyboardEvent)
     expect(handlers.moveUp).toHaveBeenCalledOnce()
     expect(handlers.moveDown).toHaveBeenCalledOnce()
     expect(handlers.next).toHaveBeenCalledOnce()
@@ -105,9 +111,12 @@ describe('notebookShortcuts (SHELL-03.3)', () => {
   })
 
   it('prevents the browser default for the row-save binding', () => {
-    const e = event('Enter')
-    byId(notebookShortcuts(handlers), 'notebook-save-row').handler?.(e)
-    expect(e.preventDefault).toHaveBeenCalled()
+    const { keyboardEvent, preventDefault } = event('Enter')
+
+    byId(notebookShortcuts(handlers), 'notebook-save-row').handler?.(
+      keyboardEvent,
+    )
+    expect(preventDefault).toHaveBeenCalled()
     expect(handlers.saveRow).toHaveBeenCalledOnce()
   })
 })
@@ -137,8 +146,12 @@ describe('reviewShortcuts (SHELL-03.3)', () => {
 
   it('dispatches the change row by key', () => {
     const definitions = reviewShortcuts(handlers)
-    byId(definitions, 'review-next-previous-change').handler?.(event('n'))
-    byId(definitions, 'review-next-previous-change').handler?.(event('p'))
+    byId(definitions, 'review-next-previous-change').handler?.(
+      event('n').keyboardEvent,
+    )
+    byId(definitions, 'review-next-previous-change').handler?.(
+      event('p').keyboardEvent,
+    )
     expect(handlers.nextChange).toHaveBeenCalledOnce()
     expect(handlers.previousChange).toHaveBeenCalledOnce()
   })

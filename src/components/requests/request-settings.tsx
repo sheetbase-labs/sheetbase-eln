@@ -2,7 +2,7 @@
  * The Requests box on a model: tick it and people can ask for this kind of work
  * from the Requests page. Choose who handles the requests.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
@@ -58,6 +58,7 @@ export function RequestSettingsDialog({
   const [accepts, setAccepts] = useState(false)
   const [intro, setIntro] = useState('')
   const [handlers, setHandlers] = useState<string[]>([])
+  const handlerIds = useMemo(() => new Set(handlers), [handlers])
 
   useEffect(() => {
     if (!open || forms.isPending) return
@@ -79,7 +80,7 @@ export function RequestSettingsDialog({
       toast.success(t('requests.settings.saved'))
       onOpenChange(false)
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(messageOf(e, t('requests.settings.couldNotSave'))),
   })
 
@@ -131,7 +132,7 @@ export function RequestSettingsDialog({
                         className="flex items-center gap-2 text-body"
                       >
                         <Checkbox
-                          checked={handlers.includes(m.user_id)}
+                          checked={handlerIds.has(m.user_id)}
                           onCheckedChange={(checked) =>
                             setHandlers((current) =>
                               checked === true

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { visibleTabIndexes } from './overflow-tabs'
+import { visibleTabIndexes } from './overflow-tabs-layout'
 
 const widths = [70, 50, 60, 70, 50]
 

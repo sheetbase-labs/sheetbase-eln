@@ -18,11 +18,8 @@ import type { UserEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
-import {
-  InstrumentInspector,
-  RegisterInstrument,
-  calibrationState,
-} from './instruments'
+import { InstrumentInspector, RegisterInstrument } from './instruments'
+import { calibrationState } from '#/components/instruments/calibration-standing'
 import type { InstrumentRow } from '#/components/instruments/instruments-data'
 import { dropSharedReads } from '#/lib/data-client'
 

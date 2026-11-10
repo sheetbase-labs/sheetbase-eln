@@ -6,19 +6,20 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { getInboxCounts } from './inbox-counts.server'
+import type { InboxCountPool } from './inbox-counts.server'
 
 const { query, release, connect } = vi.hoisted(() => {
   const queryMock = vi.fn()
-  const releaseMock = vi.fn()
 
   return {
     query: queryMock,
-    release: releaseMock,
-    connect: vi.fn(async () => ({ query: queryMock, release: releaseMock })),
+    release: vi.fn(),
+    connect: vi.fn(),
   }
 })
 
-vi.mock('#/db/client.server', () => ({ db: { $client: { connect } } }))
+/** The app's database pool, standing in through its own interface. */
+const pool: InboxCountPool = { connect }
 
 const WORKSPACE = '00000000-0000-4000-8000-000000004a0a'
 const USER = 'inbox-count-user'
@@ -30,11 +31,12 @@ beforeEach(() => {
       ? { rows: [{ total: 253, reviews: 3 }] }
       : { rows: [] },
   )
+  connect.mockResolvedValue({ query, release })
 })
 
 describe('getInboxCounts', () => {
   it('reads the one server-side count as the caller, and reads no page of items', async () => {
-    expect(await getInboxCounts(WORKSPACE, USER)).toEqual({
+    expect(await getInboxCounts(WORKSPACE, USER, pool)).toEqual({
       total: 253,
       reviews: 3,
     })
@@ -59,7 +61,7 @@ describe('getInboxCounts', () => {
 
       return { rows: [] }
     })
-    expect(await getInboxCounts(WORKSPACE, USER)).toBeNull()
+    expect(await getInboxCounts(WORKSPACE, USER, pool)).toBeNull()
     expect(query).toHaveBeenCalledWith('rollback')
     expect(release).toHaveBeenCalledOnce()
   })
@@ -68,7 +70,7 @@ describe('getInboxCounts', () => {
     // The count function aggregates unconditionally, so it always answers one
     // row; an empty answer is a failed count, not a workspace with nothing in it.
     query.mockImplementation(async () => ({ rows: [] }))
-    expect(await getInboxCounts(WORKSPACE, USER)).toBeNull()
+    expect(await getInboxCounts(WORKSPACE, USER, pool)).toBeNull()
     expect(query).toHaveBeenCalledWith('rollback')
     expect(release).toHaveBeenCalledOnce()
   })

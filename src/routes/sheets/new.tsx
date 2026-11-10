@@ -28,6 +28,9 @@ import {
   fetchDatasetSheetOptions,
   openDatasetInSheet,
 } from '#/lib/sheet-from-dataset'
+import type { DatasetSheetOption } from '#/lib/sheet-from-dataset'
+import type { ProjectSummary } from '#/components/projects/project-data'
+import type { UseQueryResult } from '@tanstack/react-query'
 import { cancelTarget, parseCreateContext } from '#/lib/create-context-search'
 import type { CreateContextSearch } from '#/lib/create-context-search'
 import { signInRedirect } from '#/lib/sign-in-redirect'
@@ -38,6 +41,7 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
  * the sheet, and `returnTo` is where Cancel goes. The sheet is created through
  * the canonical RPCs and the person lands on it. */
 export const Route = createFileRoute('/sheets/new')({
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- TanStack Router hands validateSearch the raw URL values as Record<string, unknown>; parseCreateContext decodes every value before use.
   validateSearch: (search: Record<string, unknown>): CreateContextSearch =>
     parseCreateContext(search),
   beforeLoad: async ({ context: rootContext, location }) => {
@@ -70,6 +74,26 @@ function blankState(): SheetInstanceState {
     provenance: { createdFrom: 'ad_hoc' },
   }
 }
+
+/** The notebook a link handed over, as this screen reads it. */
+type NewSheetExperiment = {
+  id: string
+  identifier: string
+  title: string
+  project_id: string | null
+  locked_at: string | null
+}
+
+/** The dataset a link handed over, as this screen reads it. */
+type NewSheetDataset = {
+  id: string
+  name: string
+  display_id: string | null
+  primary_project_id: string | null
+}
+
+/** One blank-sheet start the screen offers. */
+type SheetStart = (typeof starts)[number]
 
 const starts = [
   {
@@ -163,11 +187,7 @@ function NewSheet() {
   })
 
   // The project a handed-over context implies, until the person picks another.
-  const impliedProject =
-    search.project ??
-    experiment.data?.project_id ??
-    dataset.data?.primary_project_id ??
-    ''
+  const impliedProject = impliedProjectOf(search, experiment.data, dataset.data)
 
   const [chosenProject, setChosenProject] = useState<string | null>(null)
   const projectId = chosenProject ?? impliedProject
@@ -176,20 +196,8 @@ function NewSheet() {
   const [pasteFirst, setPasteFirst] = useState(false)
   const [optionId, setOptionId] = useState('')
 
-  const option =
-    (options.data ?? []).find(
-      (o) =>
-        o.versionId === optionId &&
-        o.datasetParameterId &&
-        !o.unavailableReason,
-    ) ??
-    (options.data ?? []).find(
-      (o) => o.datasetParameterId && !o.unavailableReason,
-    )
-
-  const datasetLabel = dataset.data
-    ? (dataset.data.display_id ?? dataset.data.name)
-    : null
+  const option = chosenDatasetOption(options.data, optionId)
+  const datasetLabel = datasetLabelOf(dataset.data)
 
   const experimentLocked = Boolean(experiment.data?.locked_at)
 
@@ -203,68 +211,31 @@ function NewSheet() {
       },
     })
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- The flow lands on the sheet it just created, so no list is left on screen; every other sheet list reads its own key when it next mounts.
   const create = useMutation({
-    mutationFn: async () => {
-      const notebook = experiment.data?.id ?? null
-      const sheetName = name.trim() || t('notebook.sheetsNew.untitledSheet')
-
-      if (search.dataset && !option)
-        throw new Error(t('notebook.sheetsNew.chooseACompatibleSheet'))
-
-      if (search.dataset && option) {
-        return openDatasetInSheet(notebookDataClient, {
-          workspaceId,
-          name: sheetName,
-          option,
-          datasetId: search.dataset,
-          projectId: projectId || null,
-          notebookRecordId: notebook,
-        })
-      }
-
-      const instance = await createAdHocSheetInstance({
+    mutationFn: () =>
+      createSheet({
         workspaceId,
-        name: sheetName,
+        name: name.trim(),
+        datasetId: search.dataset,
+        option,
         projectId,
-        notebookRecordId: notebook,
-        state: blankState(),
-      })
-
-      return instance
-    },
+        notebookRecordId: experiment.data?.id ?? null,
+      }),
     onSuccess: async (instance) => {
-      let inNotebook = false
-
-      if (experiment.data) {
-        try {
-          await insertSheetInstanceBlock(notebookDataClient, {
-            recordId: experiment.data.id,
-            instanceId: instance.id,
-          })
-          inNotebook = true
-        } catch {
-          inNotebook = false
-        }
-      }
+      const inNotebook = await attachToNotebook(experiment.data, instance.id)
 
       toast(t('notebook.sheetsNew.sheetCreated'), {
-        description: experiment.data
-          ? inNotebook
-            ? t('notebook.sheetsNew.description', {
-                identifier: experiment.data.identifier,
-              })
-            : t('notebook.sheetsNew.itBelongsToIdentifierDescription', {
-                identifier: experiment.data.identifier,
-              })
-          : datasetLabel && search.dataset
-            ? t('notebook.sheetsNew.datasetlabelIsOpenInDescription', {
-                datasetLabel,
-              })
-            : t('notebook.sheetsNew.bringInDataYouDescription'),
+        description: createdDescription({
+          experiment: experiment.data,
+          datasetLabel,
+          datasetId: search.dataset,
+          inNotebook,
+        }),
       })
       await land(instance.id)
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast(t('notebook.sheetsNew.couldNotCreateThe'), {
         description:
           error instanceof Error
@@ -275,10 +246,7 @@ function NewSheet() {
 
   const datasetBlocked = Boolean(search.dataset) && options.isSuccess && !option
   const cancelTo = cancelTarget(search, '/sheets/new')
-
-  const hasContext = Boolean(
-    search.project || search.experiment || search.dataset,
-  )
+  const hasContext = hasCreateContext(search)
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
@@ -289,253 +257,553 @@ function NewSheet() {
       <div className="flex justify-center px-4 pb-8 pt-8 md:px-6">
         <div className="flex w-[560px] max-w-full flex-col gap-3.5">
           {hasContext ? (
-            <Notice
-              tone="info"
-              title={t('notebook.sheetsNew.startingFromWhereYouTitle')}
-            >
-              <ul className="m-0 list-none space-y-0.5 p-0">
-                {experiment.data ? (
-                  <li>
-                    {t('notebook.sheetsNew.inNotebook')}
-                    <ObjectLink
-                      kind="experiment"
-                      id={experiment.data.id}
-                      identifier={experiment.data.identifier}
-                    />{' '}
-                    {experiment.data.title}
-                  </li>
-                ) : null}
-                {dataset.data ? (
-                  <li>
-                    {t('notebook.sheetsNew.showingDataset')}
-                    <ObjectLink
-                      kind="dataset"
-                      id={dataset.data.id}
-                      identifier={datasetLabel}
-                    />{' '}
-                    {dataset.data.name}
-                  </li>
-                ) : null}
-                {projectId && !experiment.data && !dataset.data ? (
-                  <li>
-                    {t('notebook.sheetsNew.inProject')}
-                    <ObjectLink
-                      kind="project"
-                      id={projectId}
-                      identifier={
-                        (projects.data ?? []).find((p) => p.id === projectId)
-                          ?.displayId ?? t('notebook.sheetsNew.thisProject')
-                      }
-                    />
-                  </li>
-                ) : null}
-              </ul>
-            </Notice>
+            <NewSheetContext
+              experiment={experiment.data}
+              dataset={dataset.data}
+              datasetLabel={datasetLabel}
+              projectId={projectId}
+              projects={projects.data}
+            />
           ) : (
-            <>
-              <EmptyState
-                icon="table"
-                title={t('notebook.sheetsNew.thisSheetIsEmptyTitle')}
-                description={t('notebook.sheetsNew.aWorkingSheetIsDescription')}
-                className="py-0"
-              />
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                {starts.map((o) =>
-                  'blank' in o && o.blank ? (
-                    <button
-                      key={o.title}
-                      type="button"
-                      onClick={() => {
-                        setPasteFirst('paste' in o && o.paste === true)
-                        formRef.current?.scrollIntoView({
-                          behavior: 'smooth',
-                          block: 'start',
-                        })
-                        nameRef.current?.focus()
-                      }}
-                      className="flex min-h-14 cursor-pointer gap-2.5 rounded-md border border-border bg-surface p-3 text-left text-fg hover:bg-surface-hover"
-                    >
-                      <span className="mt-px shrink-0 text-fg-muted">
-                        <Icon name={o.icon} size={16} />
-                      </span>
-                      <span>
-                        <b className="block font-medium">{o.title}</b>
-                        <span className="text-caption text-fg-muted">
-                          {o.body}
-                        </span>
-                      </span>
-                    </button>
-                  ) : (
-                    <Link
-                      key={o.title}
-                      to={o.to}
-                      className="flex min-h-14 gap-2.5 rounded-md border border-border bg-surface p-3 text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
-                    >
-                      <span className="mt-px shrink-0 text-fg-muted">
-                        <Icon name={o.icon} size={16} />
-                      </span>
-                      <span>
-                        <b className="block font-medium">{o.title}</b>
-                        <span className="text-caption text-fg-muted">
-                          {o.body}
-                        </span>
-                      </span>
-                    </Link>
-                  ),
-                )}
-              </div>
-            </>
+            <SheetStarts
+              onStart={(start) => {
+                setPasteFirst('paste' in start && start.paste === true)
+                formRef.current?.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'start',
+                })
+                nameRef.current?.focus()
+              }}
+            />
           )}
 
-          <div
-            ref={formRef}
-            className="mt-2 flex flex-col gap-3 rounded-md border border-border p-3"
-          >
-            {experimentLocked ? (
-              <Notice
-                tone="warn"
-                title={t('notebook.sheetsNew.identifierIsSignedTitle', {
-                  identifier: experiment.data?.identifier ?? '',
-                })}
-              >
-                {t('notebook.sheetsNew.aSignedNotebookTakes')}
-              </Notice>
-            ) : null}
-            {search.dataset ? (
-              options.isError ? (
-                <Notice
-                  tone="bad"
-                  title={t(
-                    'notebook.sheetsNew.sheetCompatibilityCouldNotTitle',
-                  )}
-                  action={
-                    <Button onClick={() => void options.refetch()}>
-                      {t('common.actions.tryAgain')}
-                    </Button>
-                  }
-                >
-                  {t('notebook.sheetsNew.checkYourWorkspaceAccess')}
-                </Notice>
-              ) : datasetBlocked ? (
-                <Notice
-                  tone="warn"
-                  title={t(
-                    'notebook.sheetsNew.noCompatibleSheetDefinitionTitle',
-                  )}
-                >
-                  {t('notebook.sheetsNew.publishedDefinitionMustAccept')}
-                  {options.data.map((o) => (
-                    <p key={o.versionId}>
-                      {o.definitionName}: {o.unavailableReason}
-                    </p>
-                  ))}
-                </Notice>
-              ) : (
-                <Field
-                  label={t('notebook.sheetsNew.label')}
-                  hint={t('notebook.sheetsNew.hint')}
-                >
-                  <Select
-                    value={option?.versionId ?? ''}
-                    onChange={(e) => setOptionId(e.target.value)}
-                    disabled={options.isPending}
-                  >
-                    {(options.data ?? []).map((o) => (
-                      <option
-                        key={o.versionId}
-                        value={o.versionId}
-                        disabled={
-                          Boolean(o.unavailableReason) || !o.datasetParameterId
-                        }
-                      >
-                        {o.definitionName} v{o.version}
-                        {o.unavailableReason ? ` — ${o.unavailableReason}` : ''}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              )
-            ) : null}
-            <Field label={t('notebook.sheetsNew.projectLabel')} required>
-              <PickerSelect
-                noun="project"
-                value={projectId}
-                onChange={(id) => setChosenProject(id)}
-                options={(projects.data ?? []).map((p) => ({
-                  id: p.id,
-                  identifier: p.displayId ?? undefined,
-                  label: p.title,
-                }))}
-              />
-            </Field>
-            <Field label={t('notebook.sheetsNew.nameLabel')}>
-              <Input
-                ref={nameRef}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </Field>
-            {search.dataset ? null : (
-              <label className="flex items-center gap-2 text-label">
-                <Checkbox
-                  aria-label={t('notebook.sheetsNew.ariaLabel')}
-                  checked={pasteFirst}
-                  onCheckedChange={(on) => setPasteFirst(Boolean(on))}
-                />
-                {t('notebook.sheetsNew.pasteATableInto')}
-              </label>
-            )}
-            <div className="flex gap-2">
-              <Button
-                variant="primary"
-                disabled={
-                  !projectId ||
-                  create.isPending ||
-                  experimentLocked ||
-                  (Boolean(search.dataset) && !option)
-                }
-                onClick={() => create.mutate()}
-              >
-                {search.dataset && option
-                  ? t('notebook.sheetsNew.openDatasetInA')
-                  : pasteFirst
-                    ? t('notebook.sheetsNew.createSheetAndPaste')
-                    : t('notebook.sheetsNew.createBlankSheet')}
-              </Button>
-              {hasContext ? (
-                <Button nativeButton={false} render={<Link to={cancelTo} />}>
-                  {t('common.actions.cancel')}
-                </Button>
-              ) : null}
-            </div>
-            {create.isError ? (
-              <Notice
-                tone="bad"
-                title={t('notebook.sheetsNew.sheetCouldNotBeTitle')}
-              >
-                {create.error instanceof Error
-                  ? create.error.message
-                  : t('notebook.sheetsNew.theDatabaseRefusedTo')}
-              </Notice>
-            ) : null}
-            {datasetBlocked ? (
-              <Muted>
-                {t('notebook.sheetsNew.toStartWithoutThe')}
-                <Link
-                  to="/sheets/new"
-                  search={{ project: projectId || undefined }}
-                  className="text-link"
-                >
-                  {t('notebook.sheetsNew.startABlankSheet')}
-                </Link>
-                .
-              </Muted>
-            ) : null}
-          </div>
+          <CreateSheetForm
+            formRef={formRef}
+            nameRef={nameRef}
+            experimentLocked={experimentLocked}
+            experimentIdentifier={experiment.data?.identifier}
+            datasetOption={{
+              required: Boolean(search.dataset),
+              options,
+              blocked: datasetBlocked,
+              chosen: option,
+              onChoose: setOptionId,
+            }}
+            projectId={projectId}
+            onChooseProject={setChosenProject}
+            projects={projects.data}
+            name={name}
+            onName={setName}
+            offerPaste={!search.dataset}
+            pasteFirst={pasteFirst}
+            onPasteFirst={setPasteFirst}
+            datasetOpen={Boolean(search.dataset) && Boolean(option)}
+            isPending={create.isPending}
+            isError={create.isError}
+            error={create.error}
+            onCreate={() => create.mutate()}
+            cancelTo={hasContext ? cancelTo : undefined}
+          />
 
           <Muted>{t('notebook.sheetsNew.sheetsKeepLocalChanges')}</Muted>
         </div>
       </div>
     </div>
+  )
+}
+
+/** The banner naming the notebook, dataset or project a link handed over. */
+function NewSheetContext({
+  experiment,
+  dataset,
+  datasetLabel,
+  projectId,
+  projects,
+}: {
+  experiment: NewSheetExperiment | undefined
+  dataset: NewSheetDataset | undefined
+  datasetLabel: string | null
+  projectId: string
+  projects: ProjectSummary[] | undefined
+}) {
+  return (
+    <Notice
+      tone="info"
+      title={t('notebook.sheetsNew.startingFromWhereYouTitle')}
+    >
+      <ul className="m-0 list-none space-y-0.5 p-0">
+        {experiment ? (
+          <li>
+            {t('notebook.sheetsNew.inNotebook')}
+            <ObjectLink
+              kind="experiment"
+              id={experiment.id}
+              identifier={experiment.identifier}
+            />{' '}
+            {experiment.title}
+          </li>
+        ) : null}
+        {dataset ? (
+          <li>
+            {t('notebook.sheetsNew.showingDataset')}
+            <ObjectLink
+              kind="dataset"
+              id={dataset.id}
+              identifier={datasetLabel}
+            />{' '}
+            {dataset.name}
+          </li>
+        ) : null}
+        {projectId && !experiment && !dataset ? (
+          <li>
+            {t('notebook.sheetsNew.inProject')}
+            <ObjectLink
+              kind="project"
+              id={projectId}
+              identifier={
+                (projects ?? []).find((p) => p.id === projectId)?.displayId ??
+                t('notebook.sheetsNew.thisProject')
+              }
+            />
+          </li>
+        ) : null}
+      </ul>
+    </Notice>
+  )
+}
+
+/** The blank-sheet starts a person can pick from when no context came in. */
+function SheetStarts({ onStart }: { onStart: (start: SheetStart) => void }) {
+  return (
+    <>
+      <EmptyState
+        icon="table"
+        title={t('notebook.sheetsNew.thisSheetIsEmptyTitle')}
+        description={t('notebook.sheetsNew.aWorkingSheetIsDescription')}
+        className="py-0"
+      />
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+        {starts.map((o) =>
+          'blank' in o && o.blank ? (
+            <button
+              key={o.title}
+              type="button"
+              onClick={() => onStart(o)}
+              className="flex min-h-14 cursor-pointer gap-2.5 rounded-md border border-border bg-surface p-3 text-left text-fg hover:bg-surface-hover"
+            >
+              <span className="mt-px shrink-0 text-fg-muted">
+                <Icon name={o.icon} size={16} />
+              </span>
+              <span>
+                <b className="block font-medium">{o.title}</b>
+                <span className="text-caption text-fg-muted">{o.body}</span>
+              </span>
+            </button>
+          ) : (
+            <Link
+              key={o.title}
+              to={o.to}
+              className="flex min-h-14 gap-2.5 rounded-md border border-border bg-surface p-3 text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
+            >
+              <span className="mt-px shrink-0 text-fg-muted">
+                <Icon name={o.icon} size={16} />
+              </span>
+              <span>
+                <b className="block font-medium">{o.title}</b>
+                <span className="text-caption text-fg-muted">{o.body}</span>
+              </span>
+            </Link>
+          ),
+        )}
+      </div>
+    </>
+  )
+}
+
+/** The sheet-definition choice a dataset brings, or why it cannot open here. */
+function DatasetSheetOption({
+  required,
+  options,
+  blocked,
+  chosen,
+  onChoose,
+}: {
+  required: boolean
+  options: UseQueryResult<DatasetSheetOption[]>
+  blocked: boolean
+  chosen: DatasetSheetOption | undefined
+  onChoose: (versionId: string) => void
+}) {
+  if (!required) return null
+
+  if (options.isError)
+    return (
+      <Notice
+        tone="bad"
+        title={t('notebook.sheetsNew.sheetCompatibilityCouldNotTitle')}
+        action={
+          <Button onClick={() => void options.refetch()}>
+            {t('common.actions.tryAgain')}
+          </Button>
+        }
+      >
+        {t('notebook.sheetsNew.checkYourWorkspaceAccess')}
+      </Notice>
+    )
+
+  if (blocked)
+    return (
+      <Notice
+        tone="warn"
+        title={t('notebook.sheetsNew.noCompatibleSheetDefinitionTitle')}
+      >
+        {t('notebook.sheetsNew.publishedDefinitionMustAccept')}
+        {(options.data ?? []).map((o) => (
+          <p key={o.versionId}>
+            {o.definitionName}: {o.unavailableReason}
+          </p>
+        ))}
+      </Notice>
+    )
+
+  return (
+    <Field
+      label={t('notebook.sheetsNew.label')}
+      hint={t('notebook.sheetsNew.hint')}
+    >
+      <Select
+        value={chosen?.versionId ?? ''}
+        onChange={(e) => onChoose(e.target.value)}
+        disabled={options.isPending}
+      >
+        {(options.data ?? []).map((o) => (
+          <option
+            key={o.versionId}
+            value={o.versionId}
+            disabled={Boolean(o.unavailableReason) || !o.datasetParameterId}
+          >
+            {o.definitionName} v{o.version}
+            {o.unavailableReason ? ` — ${o.unavailableReason}` : ''}
+          </option>
+        ))}
+      </Select>
+    </Field>
+  )
+}
+
+/** The create form: what the sheet is called, where it lives and how it starts. */
+function CreateSheetForm({
+  formRef,
+  nameRef,
+  experimentLocked,
+  experimentIdentifier,
+  datasetOption,
+  projectId,
+  onChooseProject,
+  projects,
+  name,
+  onName,
+  offerPaste,
+  pasteFirst,
+  onPasteFirst,
+  datasetOpen,
+  isPending,
+  isError,
+  error,
+  onCreate,
+  cancelTo,
+}: {
+  formRef: React.RefObject<HTMLDivElement | null>
+  nameRef: React.RefObject<HTMLInputElement | null>
+  experimentLocked: boolean
+  experimentIdentifier: string | undefined
+  datasetOption: {
+    required: boolean
+    options: UseQueryResult<DatasetSheetOption[]>
+    blocked: boolean
+    chosen: DatasetSheetOption | undefined
+    onChoose: (versionId: string) => void
+  }
+  projectId: string
+  onChooseProject: (id: string) => void
+  projects: ProjectSummary[] | undefined
+  name: string
+  onName: (name: string) => void
+  offerPaste: boolean
+  pasteFirst: boolean
+  onPasteFirst: (on: boolean) => void
+  datasetOpen: boolean
+  isPending: boolean
+  isError: boolean
+  error: Error | null
+  onCreate: () => void
+  cancelTo: string | undefined
+}) {
+  return (
+    <div
+      ref={formRef}
+      className="mt-2 flex flex-col gap-3 rounded-md border border-border p-3"
+    >
+      {experimentLocked ? (
+        <Notice
+          tone="warn"
+          title={t('notebook.sheetsNew.identifierIsSignedTitle', {
+            identifier: experimentIdentifier ?? '',
+          })}
+        >
+          {t('notebook.sheetsNew.aSignedNotebookTakes')}
+        </Notice>
+      ) : null}
+      <DatasetSheetOption
+        required={datasetOption.required}
+        options={datasetOption.options}
+        blocked={datasetOption.blocked}
+        chosen={datasetOption.chosen}
+        onChoose={datasetOption.onChoose}
+      />
+      <Field label={t('notebook.sheetsNew.projectLabel')} required>
+        <PickerSelect
+          noun="project"
+          value={projectId}
+          onChange={onChooseProject}
+          options={(projects ?? []).map((p) => ({
+            id: p.id,
+            identifier: p.displayId ?? undefined,
+            label: p.title,
+          }))}
+        />
+      </Field>
+      <Field label={t('notebook.sheetsNew.nameLabel')}>
+        <Input
+          ref={nameRef}
+          value={name}
+          onChange={(e) => onName(e.target.value)}
+        />
+      </Field>
+      {!offerPaste ? null : (
+        <label className="flex items-center gap-2 text-label">
+          <Checkbox
+            aria-label={t('notebook.sheetsNew.ariaLabel')}
+            checked={pasteFirst}
+            onCheckedChange={(on) => onPasteFirst(Boolean(on))}
+          />
+          {t('notebook.sheetsNew.pasteATableInto')}
+        </label>
+      )}
+      <CreateSheetActions
+        projectId={projectId}
+        isPending={isPending}
+        experimentLocked={experimentLocked}
+        needsOption={datasetOption.required && !datasetOption.chosen}
+        label={actionLabel({ datasetOpen, pasteFirst })}
+        onCreate={onCreate}
+        cancelTo={cancelTo}
+        error={isError ? error : null}
+        blocked={datasetOption.blocked}
+      />
+    </div>
+  )
+}
+
+/** What the form asked for, decoded: the sheet's name, place and starting data. */
+type CreateSheetInput = {
+  workspaceId: string
+  name: string
+  datasetId: string | undefined
+  option: DatasetSheetOption | undefined
+  projectId: string
+  notebookRecordId: string | null
+}
+
+/** Create the sheet the form described: from the chosen dataset, or blank. */
+async function createSheet(input: CreateSheetInput) {
+  const sheetName = input.name.trim() || t('notebook.sheetsNew.untitledSheet')
+
+  if (input.datasetId && !input.option)
+    throw new Error(t('notebook.sheetsNew.chooseACompatibleSheet'))
+
+  if (input.datasetId && input.option) {
+    return openDatasetInSheet(notebookDataClient, {
+      workspaceId: input.workspaceId,
+      name: sheetName,
+      option: input.option,
+      datasetId: input.datasetId,
+      projectId: input.projectId || null,
+      notebookRecordId: input.notebookRecordId,
+    })
+  }
+
+  return createAdHocSheetInstance({
+    workspaceId: input.workspaceId,
+    name: sheetName,
+    projectId: input.projectId,
+    notebookRecordId: input.notebookRecordId,
+    state: blankState(),
+  })
+}
+
+/** Put the new sheet in the notebook it was started from, when there is one. */
+async function attachToNotebook(
+  experiment: NewSheetExperiment | null | undefined,
+  instanceId: string,
+): Promise<boolean> {
+  if (!experiment) return false
+
+  try {
+    await insertSheetInstanceBlock(notebookDataClient, {
+      recordId: experiment.id,
+      instanceId,
+    })
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** The toast's second line: where the sheet went and what it holds. */
+function createdDescription({
+  experiment,
+  datasetLabel,
+  datasetId,
+  inNotebook,
+}: {
+  experiment: NewSheetExperiment | null | undefined
+  datasetLabel: string | null
+  datasetId: string | undefined
+  inNotebook: boolean
+}): string {
+  if (experiment)
+    return inNotebook
+      ? t('notebook.sheetsNew.description', {
+          identifier: experiment.identifier,
+        })
+      : t('notebook.sheetsNew.itBelongsToIdentifierDescription', {
+          identifier: experiment.identifier,
+        })
+
+  if (datasetLabel && datasetId)
+    return t('notebook.sheetsNew.datasetlabelIsOpenInDescription', {
+      datasetLabel,
+    })
+
+  return t('notebook.sheetsNew.bringInDataYouDescription')
+}
+
+/** The sheet-definition option the form starts on: the chosen one, else the first usable. */
+function chosenDatasetOption(
+  options: readonly DatasetSheetOption[] | undefined,
+  optionId: string,
+): DatasetSheetOption | undefined {
+  const usable = (option: DatasetSheetOption) =>
+    Boolean(option.datasetParameterId) && !option.unavailableReason
+
+  const chosen = (options ?? []).find(
+    (option) => option.versionId === optionId && usable(option),
+  )
+
+  return chosen ?? (options ?? []).find(usable)
+}
+
+/** The dataset's display label, or nothing when no dataset came with the link. */
+function datasetLabelOf(
+  dataset: NewSheetDataset | null | undefined,
+): string | null {
+  if (!dataset) return null
+
+  return dataset.display_id ?? dataset.name
+}
+
+/** The project a handed-over context implies, until the person picks another. */
+function impliedProjectOf(
+  search: CreateContextSearch,
+  experiment: NewSheetExperiment | null | undefined,
+  dataset: NewSheetDataset | null | undefined,
+): string {
+  return (
+    search.project ??
+    experiment?.project_id ??
+    dataset?.primary_project_id ??
+    ''
+  )
+}
+
+/** Whether a link handed over a project, notebook or dataset to start from. */
+function hasCreateContext(search: CreateContextSearch): boolean {
+  return Boolean(search.project || search.experiment || search.dataset)
+}
+
+/** The create button's words: what the sheet will be and where it comes from. */
+function actionLabel({
+  datasetOpen,
+  pasteFirst,
+}: {
+  datasetOpen: boolean
+  pasteFirst: boolean
+}): string {
+  if (datasetOpen) return t('notebook.sheetsNew.openDatasetInA')
+
+  return pasteFirst
+    ? t('notebook.sheetsNew.createSheetAndPaste')
+    : t('notebook.sheetsNew.createBlankSheet')
+}
+
+/** The form's buttons, the create failure and the way out of a blocked dataset. */
+function CreateSheetActions({
+  projectId,
+  isPending,
+  experimentLocked,
+  needsOption,
+  label,
+  onCreate,
+  cancelTo,
+  error,
+  blocked,
+}: {
+  projectId: string
+  isPending: boolean
+  experimentLocked: boolean
+  needsOption: boolean
+  label: string
+  onCreate: () => void
+  cancelTo: string | undefined
+  error: Error | null
+  blocked: boolean
+}) {
+  return (
+    <>
+      <div className="flex gap-2">
+        <Button
+          variant="primary"
+          disabled={!projectId || isPending || experimentLocked || needsOption}
+          onClick={() => onCreate()}
+        >
+          {label}
+        </Button>
+        {cancelTo ? (
+          <Button nativeButton={false} render={<Link to={cancelTo} />}>
+            {t('common.actions.cancel')}
+          </Button>
+        ) : null}
+      </div>
+      {error ? (
+        <Notice tone="bad" title={t('notebook.sheetsNew.sheetCouldNotBeTitle')}>
+          {error.message}
+        </Notice>
+      ) : null}
+      {blocked ? (
+        <Muted>
+          {t('notebook.sheetsNew.toStartWithoutThe')}
+          <Link
+            to="/sheets/new"
+            search={{ project: projectId || undefined }}
+            className="text-link"
+          >
+            {t('notebook.sheetsNew.startABlankSheet')}
+          </Link>
+          .
+        </Muted>
+      ) : null}
+    </>
   )
 }

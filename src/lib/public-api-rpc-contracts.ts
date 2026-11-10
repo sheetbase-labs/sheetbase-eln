@@ -6,7 +6,14 @@
 import { EXTERNAL_RPC_SCOPES } from '#/lib/external-token'
 import { labRpcContracts } from '#/lib/lab-api-schemas'
 
-export type JsonSchema = Record<string, unknown>
+/** A value a JSON Schema document can carry. */
+export type JsonSchemaValue =
+  string | number | boolean | null | JsonSchemaValue[] | JsonSchema
+
+/** One JSON Schema object: its keywords and their JSON values. */
+export interface JsonSchema {
+  [keyword: string]: JsonSchemaValue
+}
 
 export interface RpcContract {
   summary: string
@@ -67,13 +74,17 @@ function obj(
   required: string[] = [],
   description?: string,
 ): JsonSchema {
-  return {
+  const schema: JsonSchema = {
     type: 'object',
     additionalProperties: false,
     properties,
-    ...(required.length > 0 ? { required } : {}),
-    ...(description ? { description } : {}),
   }
+
+  if (required.length > 0) schema.required = required
+
+  if (description) schema.description = description
+
+  return schema
 }
 
 function ref(name: string): JsonSchema {
@@ -400,7 +411,12 @@ const addressedRow: JsonSchema = {
   ],
 }
 
-export const RPC_CONTRACTS: Record<string, RpcContract> = {
+/** Every allowlisted RPC's request and result contract, keyed by RPC name. */
+export interface RpcContractCatalogue {
+  [rpcName: string]: RpcContract
+}
+
+export const RPC_CONTRACTS: RpcContractCatalogue = {
   preview_member_handover: {
     summary: 'Preview the open work that could be handed over',
     description:

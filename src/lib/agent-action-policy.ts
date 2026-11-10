@@ -17,7 +17,10 @@ import { agentActionAlwaysAsk } from '../features/agent-policies/feature'
 import { featureAgentAreas, featureAgentDeletes } from '../features/collect'
 import { isWriteScope, LAB_RPCS } from './lab-api-surface'
 import type { LabRpc } from './lab-api-surface'
+import { z } from 'zod'
+
 import type { DataClient } from './data-client'
+import type { JsonObject, JsonValue } from './workspace-admin'
 
 export const AGENT_ACTION_LEVELS = ['auto', 'ask', 'never'] as const
 
@@ -62,22 +65,25 @@ export function agentActionAlwaysNever(key: string): boolean {
   )
 }
 
+const jsonObjectSchema = z.record(z.string(), z.json())
+
+/** A value as the text the plugin transport expects, by the same coercion as `String`. */
+const textSchema = z.coerce.string()
+
+/** Whether a value is a JSON object: not null, not an array. */
+function isJsonObject(value: unknown): value is JsonObject {
+  return jsonObjectSchema.safeParse(value).success
+}
+
 /**
  * What an agent may see and the request may keep of an action's result. A
  * signing secret is shown once, to a person in the app; it never goes to an
  * agent or into the stored request.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- An action's answer is JSON owned by that action, and callers hand it on unchanged; this only withholds the one-time webhook signing secret.
 export function agentActionResult(action: string, result: unknown): unknown {
-  if (
-    action === 'create_webhook_subscription' &&
-    result !== null &&
-    typeof result === 'object' &&
-    !Array.isArray(result)
-  ) {
-    const { signing_secret: _secret, ...rest } = result as Record<
-      string,
-      unknown
-    >
+  if (action === 'create_webhook_subscription' && isJsonObject(result)) {
+    const { signing_secret: _secret, ...rest } = result
 
     return rest
   }
@@ -304,12 +310,14 @@ export interface AgentActionRequestRow {
   id: string
   workspace_id: string
   action_key: string
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- A request's JSONB arguments belong to its action; every consumer decodes the keys it knows.
   arguments: Record<string, unknown>
   summary: string
   level: AgentActionLevel
   status: AgentActionRequestStatus
   requested_by_user_id: string | null
   requested_by_credential_id: string | null
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- Provenance is the JSONB the transport recorded; no single shape owns it.
   provenance: Record<string, unknown>
   idempotency_key: string
   decided_by_user_id: string | null
@@ -382,9 +390,13 @@ export async function fetchAgentActionRequest(
   return rows.at(0) ?? null
 }
 
+/** A value an approval card can print as it stands. */
+const shownArgumentSchema = z.union([z.string(), z.number(), z.boolean()])
+
 /** A plain-words line for an action and its arguments, for the approval card. */
 export function describeAgentAction(
   actionKey: string,
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- A request's JSONB arguments belong to its action; each action's own schema names its keys.
   args: Record<string, unknown>,
 ): string {
   const entry = agentActionByKey(actionKey)
@@ -392,12 +404,12 @@ export function describeAgentAction(
 
   const parts = Object.entries(args)
     .filter(([, value]) => value !== null && value !== undefined)
-    .map(
-      ([name, value]) =>
-        `${name.replace(/^p_/, '').replace(/_/g, ' ')}: ${
-          typeof value === 'object' ? JSON.stringify(value) : String(value)
-        }`,
-    )
+    .map(([name, value]) => {
+      const scalar = shownArgumentSchema.safeParse(value)
+      const shown = scalar.success ? String(scalar.data) : JSON.stringify(value)
+
+      return `${name.replace(/^p_/, '').replace(/_/g, ' ')}: ${shown}`
+    })
 
   return parts.length > 0 ? `${label} (${parts.join(', ')})` : label
 }
@@ -409,17 +421,18 @@ export function isExtensionActionKey(key: string): boolean {
 
 /** Runs an approved plugin request on the server, as the person who approved. */
 async function runExtensionRequest(
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The plugin request's JSONB arguments belong to its operation; each operation's own input schema names the keys.
   args: Record<string, unknown>,
-): Promise<unknown> {
+): Promise<JsonValue> {
   // The person pressed the button for this operation, so what it does inside
   // the app (`host_call`) is covered by that same yes.
   const { runPluginOperation } = await import('#/lib/extensions/run-client')
 
-  const answer = await runPluginOperation<{ output?: unknown }>(
+  const answer = await runPluginOperation<{ output?: JsonValue }>(
     {
-      extensionKey: String(args.extensionKey),
-      operationId: String(args.operationId),
-      input: (args.input ?? {}) as Record<string, unknown>,
+      extensionKey: textSchema.parse(args.extensionKey),
+      operationId: textSchema.parse(args.operationId),
+      input: isJsonObject(args.input) ? args.input : {},
     },
     async () => true,
     'The plugin could not do that.',
@@ -462,22 +475,22 @@ export async function approveAndRunAgentAction(
 }
 
 /** Actions whose answer holds a one-time secret that must not be kept in the request record. */
-const SECRET_RESULT_KEYS: Readonly<
-  Record<string, readonly string[] | undefined>
-> = {
-  create_invitation: ['token'],
-  reissue_invitation: ['token'],
-}
+const SECRET_RESULT_KEYS = new Map<string, readonly string[]>([
+  ['create_invitation', ['token']],
+  ['reissue_invitation', ['token']],
+])
 
 /** What of an action's answer may be written to its request record. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- An action's answer is JSON owned by that action; callers store it verbatim once the one-time secrets are gone.
 export function recordableResult(action: string, result: unknown): unknown {
-  const keys = SECRET_RESULT_KEYS[action]
+  const keys = SECRET_RESULT_KEYS.get(action)
 
-  if (!keys || typeof result !== 'object' || result === null) return result
-  const kept = { ...(result as Record<string, unknown>) }
+  if (!keys || !isJsonObject(result)) return result
+  const kept = { ...result }
 
   for (const key of keys) delete kept[key]
 
+  // oxlint-disable-next-line anti-slop/no-known-value-widening -- The stored answer keeps whatever shape the action returned, minus the secret; the request row stores it as JSON.
   return kept
 }
 
@@ -486,6 +499,7 @@ export async function runApprovedAgentAction(
   client: Pick<DataClient, 'rpc'>,
   request: Pick<AgentActionRequestRow, 'id' | 'action_key' | 'arguments'>,
 ): Promise<AgentActionRequestRow> {
+  // oxlint-disable-next-line anti-slop/no-known-value-widening -- The answer is whatever the action returned (JSON owned by that action), or nothing when it has not run.
   let result: unknown = null
 
   try {

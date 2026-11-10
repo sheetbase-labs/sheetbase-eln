@@ -3,6 +3,7 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type * as experimentToTemplate from '#/lib/experiment-to-template'
 import { SaveAsTemplateDialog } from './save-as-template-dialog'
 
 const mocks = vi.hoisted(() => ({
@@ -11,17 +12,21 @@ const mocks = vi.hoisted(() => ({
   toast: vi.fn(),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The dialog asks the router to open the new template; this suite renders it outside a route tree, so the navigate call is the assertion.
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mocks.navigate,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The dialog's data client is a module singleton over `/api/db`; the save this suite exercises is answered at its own module below.
 vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The create call is what this suite asserts: its fixed answer, including what was left out, is the dialogue's input.
 vi.mock('#/lib/experiment-to-template', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
+  ...(await importOriginal<typeof experimentToTemplate>()),
   saveExperimentAsTemplate: (...args: unknown[]) => mocks.save(...args),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The confirmation text is the assertion; this suite records what the dialog says rather than mounting the app's toast surface.
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign((...args: unknown[]) => mocks.toast(...args), {
     error: vi.fn(),

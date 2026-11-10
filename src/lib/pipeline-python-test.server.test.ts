@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import { PipelinePythonError } from './pipeline-python.server'
 import {
@@ -8,6 +9,7 @@ import {
 } from './pipeline-python-test.server'
 import type { PythonTestRunDeps } from './pipeline-python-test.server'
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The route module imports the auth module, which reads the server environment at import time; every session answer here comes through the handler's own `getSession` dependency.
 vi.mock('#/lib/auth', () => ({ getAppSession: vi.fn() }))
 
 type ExecuteInput = Parameters<PythonTestRunDeps['execute']>[0]
@@ -29,12 +31,25 @@ function deps(over: Partial<PythonTestRunDeps> = {}): PythonTestRunDeps {
   }
 }
 
-const post = (body: unknown, userId = 'u-1') =>
-  new Request('http://app/api/pipelines/python-test', {
+/** The body a case posts: raw text (for malformed JSON), or a JSON value. */
+type PostedBody = string | z.core.util.JSONType
+
+/** The answer a truncated run returns. */
+const pythonRunResult = z.object({
+  rows: z.array(z.unknown()),
+  rowCount: z.number(),
+  truncated: z.boolean(),
+})
+
+const post = (body: PostedBody, userId = 'u-1') => {
+  const raw = z.string().safeParse(body)
+
+  return new Request('http://app/api/pipelines/python-test', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-user': userId },
-    body: typeof body === 'string' ? body : JSON.stringify(body),
+    body: raw.success ? raw.data : JSON.stringify(body),
   })
+}
 
 describe('testRunRequestError', () => {
   it('accepts a bounded sample', () => {
@@ -123,11 +138,7 @@ describe('handlePythonTestRun', () => {
       deps({ execute: async () => ({ rows, logs: [], runtime }) }),
     )
 
-    const body = (await response.json()) as {
-      rows: unknown[]
-      rowCount: number
-      truncated: boolean
-    }
+    const body = pythonRunResult.parse(await response.json())
 
     expect(body.rows).toHaveLength(TEST_RESULT_ROWS)
     expect(body.rowCount).toBe(TEST_RESULT_ROWS + 50)

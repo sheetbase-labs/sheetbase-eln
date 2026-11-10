@@ -13,18 +13,23 @@ import { useRelatedWork } from '#/lib/related-work'
 import type { RelatedWorkItem } from '#/lib/related-work'
 
 // Stub the router Link as a plain anchor so no route tree is required.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The router's Link is bound to the generated route tree at import time; this suite renders the panel's own markup, so the boundary supplies the anchor it draws.
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
     to,
     children,
     ...props
-  }: { to: string; children: React.ReactNode } & Record<string, unknown>) => (
+  }: {
+    to: string
+    children: React.ReactNode
+  } & React.ComponentProps<'a'>) => (
     <a href={to} {...props}>
       {children}
     </a>
   ),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- `useRelatedWork` reads links from the database; this suite is about the panel's rendering contract, so the module boundary replaces the query hook with a scripted one.
 vi.mock('#/lib/related-work', async (importOriginal) => {
   const actual = await importOriginal<typeof RelatedWork>()
 
@@ -32,6 +37,9 @@ vi.mock('#/lib/related-work', async (importOriginal) => {
 })
 
 const mockedHook = vi.mocked(useRelatedWork)
+
+/** The query result the panel reads: its items and whether they are loading. */
+type RelatedWorkQuery = ReturnType<typeof useRelatedWork>
 
 afterEach(() => {
   cleanup()
@@ -74,19 +82,33 @@ describe('RelatedWorkList', () => {
 
 describe('RelatedWorkPanel', () => {
   it('shows a loading hint while fetching', () => {
-    mockedHook.mockReturnValue({ data: undefined, isLoading: true } as never)
+    // SAFETY: `useRelatedWork` is a TanStack query result and the panel destructures only `data` and `isLoading`; the double supplies exactly those.
+    mockedHook.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+    } as RelatedWorkQuery)
     render(<RelatedWorkPanel kind="record" id="rec-1" />)
     expect(screen.getByText(/Loading related work/)).toBeTruthy()
   })
 
   it('stays silent when there is nothing related', () => {
-    mockedHook.mockReturnValue({ data: [], isLoading: false } as never)
+    const none: RelatedWorkItem[] = []
+
+    // SAFETY: `useRelatedWork` is a TanStack query result and the panel destructures only `data` and `isLoading`; the double supplies exactly those.
+    mockedHook.mockReturnValue({
+      data: none,
+      isLoading: false,
+    } as RelatedWorkQuery)
     const { container } = render(<RelatedWorkPanel kind="record" id="rec-1" />)
     expect(container.textContent).toBe('')
   })
 
   it('renders the section once items resolve', () => {
-    mockedHook.mockReturnValue({ data: items, isLoading: false } as never)
+    // SAFETY: `useRelatedWork` is a TanStack query result and the panel destructures only `data` and `isLoading`; the double supplies exactly those.
+    mockedHook.mockReturnValue({
+      data: items,
+      isLoading: false,
+    } as RelatedWorkQuery)
     render(<RelatedWorkPanel kind="record" id="rec-1" />)
     expect(screen.getByText('Related work')).toBeTruthy()
     expect(screen.getByText('Second run')).toBeTruthy()

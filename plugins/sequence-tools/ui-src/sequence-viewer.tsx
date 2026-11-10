@@ -63,7 +63,7 @@ export function SequenceViewer({
             onChange={(e) => setIndex(Number(e.target.value))}
           >
             {sequences.map((s, i) => (
-              // eslint-disable-next-line react-doctor/no-array-index-as-key -- Records have no stable ID here and may have identical names.
+              // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- Records have no stable ID here and may have identical names.
               <option key={i} value={i}>
                 {s.name}
               </option>
@@ -198,6 +198,7 @@ function SequencePane({
         </p>
       ) : null}
 
+      {/* react-doctor-disable-next-line react-doctor/duplicate-jsx-subtree -- The ELN app ships its own copy of this map card for its own sequence page; a plugin cannot import across the app package boundary. */}
       <div className="rounded-lg border border-border bg-surface p-3">
         {view === 'circular' ? (
           <div className="flex justify-center">
@@ -295,6 +296,7 @@ function FeatureTable({
   const sorted = [...seq.features].sort((a, b) => a.start - b.start)
 
   return (
+    // react-doctor-disable-next-line react-doctor/duplicate-jsx-subtree -- The ELN app ships its own copy of this table for its own sequence page; a plugin cannot import across the app package boundary.
     <TableBox>
       <Table caption={t('sequences.viewer.features')}>
         <TableHeader>
@@ -375,6 +377,7 @@ function FeatureDetail({
   )
 
   return (
+    // react-doctor-disable-next-line react-doctor/duplicate-jsx-subtree -- The ELN app ships its own copy of this panel for its own sequence page; a plugin cannot import across the app package boundary.
     <section
       aria-label={t('sequences.viewer.selected')}
       className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3"
@@ -478,6 +481,7 @@ function Bases({
   }, [seq, from, to, span, readable])
 
   return (
+    // react-doctor-disable-next-line react-doctor/duplicate-jsx-subtree -- The ELN app ships its own copy of the base letters for its own sequence page; a plugin cannot import across the app package boundary.
     <section className="flex flex-col gap-1.5">
       <h3 className="text-section">{t('sequences.viewer.bases')}</h3>
       {readable ? (

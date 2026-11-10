@@ -12,7 +12,7 @@ import {
   suggestCode,
   validateNodeInput,
 } from './storage-locations'
-import type { DataClient } from './data-client'
+import { dataClientTestDouble } from './data-client-test-support'
 
 function tree() {
   const nodes = [
@@ -189,14 +189,15 @@ describe('suggestCode', () => {
 
 describe('writes', () => {
   function client() {
+    const insert = vi.fn().mockResolvedValue({})
+    const rpc = vi.fn().mockResolvedValue({})
+    const patch = vi.fn().mockResolvedValue([])
+
     return {
-      insert: vi.fn().mockResolvedValue({}),
-      rpc: vi.fn().mockResolvedValue({}),
-      patch: vi.fn().mockResolvedValue([]),
-    } as unknown as DataClient & {
-      insert: ReturnType<typeof vi.fn>
-      rpc: ReturnType<typeof vi.fn>
-      patch: ReturnType<typeof vi.fn>
+      data: dataClientTestDouble({ insert, rpc, patch }),
+      insert,
+      rpc,
+      patch,
     }
   }
 
@@ -205,7 +206,7 @@ describe('writes', () => {
   it('makes a box through the function that also makes its positions', async () => {
     const c = client()
     await createStorageNode(
-      c,
+      c.data,
       'ws',
       'box',
       t.byId.get('k1')!,
@@ -232,7 +233,7 @@ describe('writes', () => {
   it('adds a freezer under its room with its type and temperatures', async () => {
     const c = client()
     await createStorageNode(
-      c,
+      c.data,
       'ws',
       'unit',
       t.byId.get('r1')!,
@@ -260,7 +261,7 @@ describe('writes', () => {
   it('numbers a new shelf after its siblings', async () => {
     const c = client()
     await createStorageNode(
-      c,
+      c.data,
       'ws',
       'shelf',
       t.byId.get('u1')!,
@@ -277,13 +278,13 @@ describe('writes', () => {
 
   it('archives by stamping archived_at, never by deleting', async () => {
     const c = client()
-    await setStorageNodeArchived(c, t.byId.get('b1')!, true)
+    await setStorageNodeArchived(c.data, t.byId.get('b1')!, true)
     expect(c.patch).toHaveBeenCalledWith(
       'storage_boxes',
       '?id=eq.b1',
       expect.objectContaining({ archived_at: expect.any(String) }),
     )
-    await setStorageNodeArchived(c, t.byId.get('b1')!, false)
+    await setStorageNodeArchived(c.data, t.byId.get('b1')!, false)
     expect(c.patch).toHaveBeenLastCalledWith('storage_boxes', '?id=eq.b1', {
       archived_at: null,
     })

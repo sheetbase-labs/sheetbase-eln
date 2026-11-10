@@ -30,6 +30,26 @@ export type AiFeatureFlagKey = (typeof AI_FEATURE_FLAG_KEYS)[number]
 
 export type AiFeatureFlags = Record<AiFeatureFlagKey, boolean>
 
+/**
+ * The complete flag record a caller can hold: every catalogue key, no others.
+ * Used to read the stored row and to accept a settings update.
+ */
+const featureFlagsSchema = z.strictObject({
+  assistant: z.boolean(),
+  mcp_read: z.boolean(),
+  mcp_draft: z.boolean(),
+  mcp_workflow: z.boolean(),
+  mcp_admin_read: z.boolean(),
+  mcp_admin_propose: z.boolean(),
+  mcp_lab: z.boolean(),
+})
+
+/** The stored flag JSON: any object, and each known flag is decoded on its own. */
+const storedAiFeatureFlags = z.looseObject({})
+
+/** Only a boolean counts as a stored flag. */
+const storedFlag = z.boolean()
+
 export interface AiFeatureFlagDefinition {
   key: AiFeatureFlagKey
   label: string
@@ -97,16 +117,18 @@ export const AI_FEATURE_FLAGS: readonly AiFeatureFlagDefinition[] = [
 ]
 
 export function defaultAiFeatureFlags(): AiFeatureFlags {
-  return Object.fromEntries(
-    AI_FEATURE_FLAGS.map((flag) => [flag.key, flag.defaultValue]),
-  ) as AiFeatureFlags
+  return featureFlagsSchema.parse(
+    Object.fromEntries(
+      AI_FEATURE_FLAGS.map((flag) => [flag.key, flag.defaultValue]),
+    ),
+  )
 }
 
 /** Fail-closed flags for a caller that could not read the workspace row. */
 export function noAiFeatureFlags(): AiFeatureFlags {
-  return Object.fromEntries(
-    AI_FEATURE_FLAG_KEYS.map((key) => [key, false]),
-  ) as AiFeatureFlags
+  return featureFlagsSchema.parse(
+    Object.fromEntries(AI_FEATURE_FLAG_KEYS.map((key) => [key, false])),
+  )
 }
 
 /**
@@ -114,31 +136,23 @@ export function noAiFeatureFlags(): AiFeatureFlags {
  * and a missing or malformed flag takes its catalogue default, so a partial
  * row cannot silently switch a privileged capability on.
  */
-export function resolveAiFeatureFlags(value: unknown): AiFeatureFlags {
+export function resolveAiFeatureFlags(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The flags arrive as raw JSONB from the workspace settings row; `storedAiFeatureFlags` below is the decode boundary.
+  value: unknown,
+): AiFeatureFlags {
   const resolved = defaultAiFeatureFlags()
+  const stored = storedAiFeatureFlags.safeParse(value)
 
-  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
-    return resolved
-  }
-
-  const stored = value as Record<string, unknown>
+  if (!stored.success) return resolved
 
   for (const key of AI_FEATURE_FLAG_KEYS) {
-    if (typeof stored[key] === 'boolean') resolved[key] = stored[key]
+    const flag = storedFlag.safeParse(stored.data[key]).data
+
+    if (flag !== undefined) resolved[key] = flag
   }
 
   return resolved
 }
-
-const featureFlagsSchema = z.strictObject({
-  assistant: z.boolean(),
-  mcp_read: z.boolean(),
-  mcp_draft: z.boolean(),
-  mcp_workflow: z.boolean(),
-  mcp_admin_read: z.boolean(),
-  mcp_admin_propose: z.boolean(),
-  mcp_lab: z.boolean(),
-})
 
 export const updateAiFeatureFlagsSchema = z.strictObject({
   workspaceId: z.string().uuid(),

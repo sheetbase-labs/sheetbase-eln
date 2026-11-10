@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Button } from '#/components/ui/button'
 import { Notice } from '#/components/ui/alert'
@@ -27,18 +28,27 @@ import { t } from '#/copy'
  * shared files; the person picks the experiment and they go in as its files,
  * with shared text or a link as a note in its notebook.
  */
-export const Route = createFileRoute('/share-target')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { title?: string; text?: string; url?: string } => {
-    const pick = (value: unknown) =>
-      typeof value === 'string' && value.trim() ? value.trim() : undefined
+/** What the share sheet handed over: the title, text and link it sent. */
+interface SharedContent {
+  title?: string
+  text?: string
+  url?: string
+}
 
-    return {
-      ...(pick(search.title) ? { title: pick(search.title) } : {}),
-      ...(pick(search.text) ? { text: pick(search.text) } : {}),
-      ...(pick(search.url) ? { url: pick(search.url) } : {}),
-    }
+export const Route = createFileRoute('/share-target')({
+  validateSearch: (search): SharedContent => {
+    const title = z.string().trim().safeParse(search.title)
+    const text = z.string().trim().safeParse(search.text)
+    const url = z.string().trim().safeParse(search.url)
+    const shared: SharedContent = {}
+
+    if (title.success && title.data) shared.title = title.data
+
+    if (text.success && text.data) shared.text = text.data
+
+    if (url.success && url.data) shared.url = url.data
+
+    return shared
   },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
@@ -54,24 +64,38 @@ export const Route = createFileRoute('/share-target')({
 
 const experimentSearch = recordSearch(['Experiment'])
 
-function noteText(shared: { title?: string; text?: string; url?: string }) {
+function noteText(shared: SharedContent) {
   return [shared.title, shared.text, shared.url]
     .filter((part, index, all) => part && all.indexOf(part) === index)
     .join('\n')
 }
 
+/** A file shared in, with the identity its row is keyed by. */
+interface SharedFile {
+  id: string
+  file: File
+}
+
+const sharedFile = (file: File): SharedFile => ({
+  id: crypto.randomUUID(),
+  file,
+})
+
 function ShareTargetPage() {
   const shared = Route.useSearch()
   const navigate = Route.useNavigate()
-  const [files, setFiles] = useState<File[]>([])
+  const [files, setFiles] = useState<SharedFile[]>([])
   const [picked, setPicked] = useState<PickerOption | null>(null)
 
   useEffect(() => {
     let live = true
     void readSharedFiles().then((parked) => {
-      if (live && parked.length > 0) setFiles(parked)
+      if (live && parked.length > 0) setFiles(parked.map(sharedFile))
     })
-    const stop = onLaunchedWithFiles((opened) => setFiles(opened))
+
+    const stop = onLaunchedWithFiles((opened) =>
+      setFiles(opened.map(sharedFile)),
+    )
 
     return () => {
       live = false
@@ -82,13 +106,15 @@ function ShareTargetPage() {
   const note = noteText(shared)
   const hasContent = files.length > 0 || note.length > 0
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- The success path navigates to the experiment, which reads its own notebook; this screen holds no cached notebook or work-item entry to invalidate.
   const add = useMutation({
     mutationFn: async (target: PickerOption) => {
       const record = await fetchRecord(notebookDataClient, target.id)
 
       if (!record?.projectId) throw new Error(t('pwa.shareTarget.failed'))
 
-      for (const file of files) {
+      for (const { file } of files) {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each upload links its file record to the experiment in turn; overlapping them would interleave the record links the person then sees in order.
         await uploadFileToExperiment(notebookDataClient, {
           projectId: record.projectId,
           experimentId: record.id,
@@ -150,11 +176,8 @@ function ShareTargetPage() {
             >
               {files.length > 0 ? (
                 <ul className="flex flex-col gap-1">
-                  {files.map((file, index) => (
-                    <li
-                      key={`${file.name}-${index}`}
-                      className="flex items-center gap-2 text-label"
-                    >
+                  {files.map(({ id, file }) => (
+                    <li key={id} className="flex items-center gap-2 text-label">
                       <Icon name="file" size={14} />
                       <span className="min-w-0 flex-1 truncate">
                         {file.name}

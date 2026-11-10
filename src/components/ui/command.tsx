@@ -4,6 +4,7 @@ import {
   useContext,
   useId,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -59,7 +60,8 @@ const useCommand = () => {
   return c
 }
 
-export const optionId = (listId: string, value: string) =>
+/** The id an option's row carries, so the input can point at the active one. */
+const optionId = (listId: string, value: string) =>
   `${listId}-${value.replace(/[^\w-]/g, '_')}`
 
 const matches = (query: string, words: string[]) => {
@@ -163,7 +165,7 @@ export function Command({
       move(els[n])
     } else if (
       (e.key === 'Home' || e.key === 'End') &&
-      (e.target as HTMLElement).tagName !== 'INPUT'
+      !(e.target instanceof HTMLInputElement)
     ) {
       e.preventDefault()
       move(e.key === 'Home' ? els[0] : els[els.length - 1])
@@ -182,25 +184,40 @@ export function Command({
     }
   }
 
+  const context = useMemo(
+    () => ({
+      query,
+      setQuery,
+      active,
+      setActive,
+      shouldFilter,
+      listId,
+      count,
+      loading,
+      setLoading: setBusy,
+      list,
+      setList,
+      modified,
+      beside,
+      below,
+    }),
+    [
+      query,
+      setQuery,
+      active,
+      shouldFilter,
+      listId,
+      count,
+      loading,
+      list,
+      setActive,
+      setBusy,
+      setList,
+    ],
+  )
+
   return (
-    <CommandContext.Provider
-      value={{
-        query,
-        setQuery,
-        active,
-        setActive,
-        shouldFilter,
-        listId,
-        count,
-        loading,
-        setLoading: setBusy,
-        list,
-        setList,
-        modified,
-        beside,
-        below,
-      }}
-    >
+    <CommandContext.Provider value={context}>
       <div
         ref={root}
         data-slot="command"
@@ -275,13 +292,14 @@ export function CommandList({
   ...props
 }: React.ComponentProps<'div'> & { label?: string }) {
   const c = useCommand()
+  const { setList } = c
   // The input's aria-controls must not name an element that is not in the
   // document: the listbox can be replaced by an empty or error panel.
   useLayoutEffect(() => {
-    c.setList(true)
+    setList(true)
 
-    return () => c.setList(false)
-  }, [])
+    return () => setList(false)
+  }, [setList])
 
   return (
     <div
@@ -418,9 +436,11 @@ export function CommandLoading({
   rows?: number
 }) {
   const c = useCommand()
+  const { setLoading } = c
+
   useLayoutEffect(() => {
-    c.setLoading(loading)
-  }, [loading])
+    setLoading(loading)
+  }, [loading, setLoading])
 
   if (!loading) return null
 
@@ -448,6 +468,7 @@ export function CommandLoading({
 
 export function CommandSeparator({ className }: { className?: string }) {
   return (
+    // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- The 1px rule is drawn by this element's own height and background; an <hr> would add the user agent's border on top of it.
     <div
       role="separator"
       className={cn('my-1 h-px bg-border-subtle', className)}
@@ -527,7 +548,7 @@ export function CommandPopover({
   className,
   children,
 }: {
-  trigger: React.ReactElement<Record<string, unknown>>
+  trigger: React.ReactElement
   open: boolean
   onOpenChange: (open: boolean) => void
   align?: 'start' | 'end' | 'center'

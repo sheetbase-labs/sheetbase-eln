@@ -14,6 +14,7 @@ import { createHash, createPublicKey, verify } from 'node:crypto'
 import type { QueryResultRow } from 'pg'
 
 import { REGULATED_IDLE_SECONDS } from '../session-idle'
+import type { JsonObject } from '#/lib/workspace-admin'
 import { verifyTimestampResponse } from '../timestamps/tsp'
 import type { CheckResult, CheckStatus } from './types'
 
@@ -55,23 +56,23 @@ interface CheckDefinition {
   run: (deps: CheckDeps) => Promise<{
     status: CheckStatus
     detail: string
-    evidence?: Record<string, unknown>
+    evidence?: JsonObject
   }>
 }
 
-const pass = (detail: string, evidence: Record<string, unknown> = {}) => ({
+const pass = (detail: string, evidence: JsonObject = {}) => ({
   status: 'passed' as const,
   detail,
   evidence,
 })
 
-const fail = (detail: string, evidence: Record<string, unknown> = {}) => ({
+const fail = (detail: string, evidence: JsonObject = {}) => ({
   status: 'failed' as const,
   detail,
   evidence,
 })
 
-const skip = (detail: string, evidence: Record<string, unknown> = {}) => ({
+const skip = (detail: string, evidence: JsonObject = {}) => ({
   status: 'skipped' as const,
   detail,
   evidence,
@@ -305,7 +306,7 @@ export const CHECKS: readonly CheckDefinition[] = [
         [workspaceId],
       )
 
-      const s = rows[0] as (typeof rows)[number] | undefined
+      const s = rows.at(0)
 
       if (!s) return fail('The workspace has no settings.')
 
@@ -350,7 +351,7 @@ export const CHECKS: readonly CheckDefinition[] = [
         [workspaceId],
       )
 
-      const r = (rows[0] as (typeof rows)[number] | undefined)?.result
+      const r = rows.at(0)?.result
 
       if (!r) return fail('The check returned nothing.')
       auditResults.set(workspaceId, r)
@@ -561,7 +562,7 @@ export const CHECKS: readonly CheckDefinition[] = [
         [workspaceId],
       )
 
-      const evidence: Record<string, unknown> = { ...c }
+      const evidence: JsonObject = { ...c }
 
       if (newest[0]) {
         try {
@@ -664,6 +665,7 @@ export async function runChecks(deps: CheckDeps): Promise<CheckResult[]> {
     let outcome: Awaited<ReturnType<CheckDefinition['run']>>
 
     try {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Checks run in order: the audit check fills `auditResults`, which the signed-revision check later in the same run reads.
       outcome = await check.run(deps)
     } catch (error) {
       outcome = fail(

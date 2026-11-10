@@ -6,6 +6,17 @@ import { z } from 'zod'
 
 import { composedRowKeySchema } from './sheet-instance'
 
+/** One value as a `jsonb` column holds it. */
+const jsonValue = z.json()
+
+type FrozenJson = z.output<typeof jsonValue>
+
+/** A stored JSON object: what a frozen instance state is. */
+const jsonObject = z.record(z.string(), jsonValue)
+
+/** A frozen Sheet Instance state, as the evidence stores it. */
+export type FrozenSheetState = z.output<typeof jsonObject>
+
 export type FrozenSheetGridColumn = {
   id: string
   label: string
@@ -19,25 +30,67 @@ export type FrozenSheetGrid = {
 }
 
 export type FrozenComposedGrid = {
-  columns?: Array<{ id?: unknown; label?: unknown }>
-  rows?: unknown
-  rowKeys?: unknown
+  columns?: Array<{ id?: FrozenJson; label?: FrozenJson }>
+  rows?: FrozenJson
+  rowKeys?: FrozenJson
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null
+const stringValue = z.string()
+const booleanValue = z.boolean()
+const numberValue = z.number()
+
+/** One local field of a frozen state; an entry of any other shape is not one. */
+const localFieldSchema = z.object({
+  fieldId: z.string(),
+  key: z.string().optional(),
+  label: z.string().optional(),
+})
+
+const localFieldsSchema = z
+  .array(jsonValue)
+  .catch([])
+  .transform((entries) =>
+    entries.flatMap((entry) => {
+      const field = localFieldSchema.safeParse(entry)
+
+      return field.success ? [field.data] : []
+    }),
+  )
+
+const stringListSchema = z
+  .array(jsonValue)
+  .catch([])
+  .transform((items) =>
+    items.flatMap((item) => {
+      const text = stringValue.safeParse(item)
+
+      return text.success ? [text.data] : []
+    }),
+  )
+
+/** A stored JSON object, or nothing when the value is of any other shape. */
+function asRecord(value: FrozenJson | undefined): FrozenSheetState | null {
+  const parsed = jsonObject.safeParse(value)
+
+  return parsed.success ? parsed.data : null
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A frozen cell is stored JSON of no shape this module knows; the guards below decide what it is and every other shape reads as an empty cell.
 export function formatFrozenCell(value: unknown): string {
   if (value === null || value === undefined) return ''
 
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  const flag = booleanValue.safeParse(value)
 
-  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  if (flag.success) return flag.data ? 'Yes' : 'No'
 
-  if (typeof value === 'string') return value
+  const number = numberValue.safeParse(value)
+
+  if (number.success)
+    return Number.isFinite(number.data) ? String(number.data) : ''
+
+  const text = stringValue.safeParse(value)
+
+  if (text.success) return text.data
 
   if (Array.isArray(value)) {
     return value
@@ -49,54 +102,42 @@ export function formatFrozenCell(value: unknown): string {
   return ''
 }
 
-export function frozenSheetGridFromState(
-  state: Record<string, unknown>,
-): FrozenSheetGrid {
-  const fields = Array.isArray(state.localFields)
-    ? state.localFields
-        .map((field) => asRecord(field))
-        .filter((field): field is Record<string, unknown> => field !== null)
-        .filter((field) => typeof field.fieldId === 'string')
-    : []
+/** The header a column shows: its declared label, else its key, else a stand-in. */
+function columnLabel(
+  label: FrozenJson | undefined,
+  key: FrozenJson | undefined,
+): string {
+  const declared = stringValue.safeParse(label)
 
-  const byId = new Map(
-    fields.map((field) => [field.fieldId as string, field] as const),
-  )
+  if (declared.success && declared.data.trim()) return declared.data
+
+  const fallback = stringValue.safeParse(key)
+
+  return fallback.success ? fallback.data : 'Column'
+}
+
+export function frozenSheetGridFromState(
+  state: FrozenSheetState,
+): FrozenSheetGrid {
+  const fields = localFieldsSchema.parse(state.localFields)
+  const byId = new Map(fields.map((field) => [field.fieldId, field]))
 
   const presentation = asRecord(state.presentation) ?? {}
-
-  const columnOrder = Array.isArray(presentation.columnOrder)
-    ? presentation.columnOrder.filter(
-        (id): id is string => typeof id === 'string',
-      )
-    : []
-
-  const hidden = new Set(
-    Array.isArray(presentation.hiddenColumnIds)
-      ? presentation.hiddenColumnIds.filter(
-          (id): id is string => typeof id === 'string',
-        )
-      : [],
-  )
+  const columnOrder = stringListSchema.parse(presentation.columnOrder)
+  const requestedOrder = new Set(columnOrder)
+  const hidden = new Set(stringListSchema.parse(presentation.hiddenColumnIds))
 
   const orderedIds = [
     ...columnOrder.filter((id) => byId.has(id) && !hidden.has(id)),
     ...fields
-      .map((field) => field.fieldId as string)
-      .filter((id) => !hidden.has(id) && !columnOrder.includes(id)),
+      .map((field) => field.fieldId)
+      .filter((id) => !hidden.has(id) && !requestedOrder.has(id)),
   ]
 
   const columns = orderedIds.map((id) => {
     const field = byId.get(id)
 
-    const label =
-      typeof field?.label === 'string' && field.label.trim()
-        ? field.label
-        : typeof field?.key === 'string'
-          ? field.key
-          : 'Column'
-
-    return { id, label }
+    return { id, label: columnLabel(field?.label, field?.key) }
   })
 
   const localValues = asRecord(state.localValues) ?? {}
@@ -111,21 +152,18 @@ export function frozenSheetGridFromState(
 }
 
 export function frozenSheetGridFromEvidence(evidence: {
-  instanceState: Record<string, unknown>
+  instanceState: FrozenSheetState
   composedGrid?: FrozenComposedGrid | null
 }): FrozenSheetGrid {
   const grid = evidence.composedGrid
 
   if (grid && Array.isArray(grid.columns) && grid.columns.length > 0) {
     const columns = grid.columns.flatMap((column) => {
-      if (typeof column.id !== 'string') return []
+      const id = stringValue.safeParse(column.id)
 
-      const label =
-        typeof column.label === 'string' && column.label.trim()
-          ? column.label
-          : 'Column'
+      if (!id.success) return []
 
-      return [{ id: column.id, label }]
+      return [{ id: id.data, label: columnLabel(column.label, undefined) }]
     })
 
     const rows = Array.isArray(grid.rows)

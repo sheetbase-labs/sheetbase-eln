@@ -78,6 +78,7 @@ export function CellDisplayView({
       )
     case 'bar':
       return (
+        /* react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- The bar paints its own track and fill in the plugin's tone colours and prints the label beside them; a native <meter> would replace both with the user agent's rendering. */
         <span
           role="meter"
           aria-valuenow={Math.round(model.fraction * 100)}

@@ -5,15 +5,17 @@
  * notebook shows exactly what was run. See `run.server.ts` for the run.
  */
 
+import { z } from 'zod'
+
 export const CODE_CELL_LANGUAGES = ['python', 'sql'] as const
 
 export type CodeCellLanguage = (typeof CODE_CELL_LANGUAGES)[number]
 
+const codeCellLanguageSchema = z.enum(CODE_CELL_LANGUAGES)
+
+/** Whether a stored or submitted value names a language a code cell can run. */
 export function isCodeCellLanguage(value: unknown): value is CodeCellLanguage {
-  return (
-    typeof value === 'string' &&
-    (CODE_CELL_LANGUAGES as readonly string[]).includes(value)
-  )
+  return codeCellLanguageSchema.safeParse(value).success
 }
 
 export const MAX_CODE_CELL_SOURCE = 50_000
@@ -40,7 +42,7 @@ export interface CodeCellOutput {
   ranAt: string
   columns: string[]
   /** The first rows of the result; `rowCount` is how many there were. */
-  rows: Array<Record<string, unknown>>
+  rows: Array<Record<string, z.core.util.JSONType>>
   rowCount: number
   truncated: boolean
   errorMessage?: string | null
@@ -134,8 +136,8 @@ export async function requestCodeCellRun(
     body: JSON.stringify(request),
   })
 
-  const body = (await response.json().catch(() => null)) as
-    CodeCellOutput | { error?: { message?: string } } | null
+  const body: CodeCellOutput | { error: { message?: string } | null } | null =
+    await response.json().catch(() => null)
 
   if (!response.ok || !body || 'error' in body) {
     const message =
@@ -146,5 +148,5 @@ export async function requestCodeCellRun(
     throw new Error(message)
   }
 
-  return body as CodeCellOutput
+  return body
 }

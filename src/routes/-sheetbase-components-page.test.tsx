@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import { SheetbaseComponentsDemo } from './-sheetbase-components-page'
 import { Route } from './sheetbase-components'
@@ -15,8 +16,15 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
+/** The redirect the route gate throws, as the router builds it. */
+const redirectResponse = z.object({
+  status: z.number(),
+  options: z.object({ to: z.string().optional() }).optional(),
+})
+
 describe('/sheetbase-components route gate (COMP-05)', () => {
   it('does not redirect in dev/test', () => {
+    // SAFETY: this route's beforeLoad is declared with no parameters, so the context it is handed is never read.
     expect(() => Route.options.beforeLoad?.({} as never)).not.toThrow()
   })
 
@@ -24,11 +32,14 @@ describe('/sheetbase-components route gate (COMP-05)', () => {
     vi.stubEnv('PROD', true)
 
     try {
+      // SAFETY: this route's beforeLoad is declared with no parameters, so the context it is handed is never read.
       Route.options.beforeLoad?.({} as never)
       throw new Error('expected beforeLoad to throw a redirect')
     } catch (err) {
       expect(err).toBeInstanceOf(Response)
-      const res = err as Response & { options?: { to?: string } }
+
+      const res = redirectResponse.parse(err)
+
       expect(res.status).toBe(307)
       expect(res.options?.to).toBe('/')
     }

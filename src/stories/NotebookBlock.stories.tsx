@@ -7,7 +7,8 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, staleTime: Infinity } },
 })
 
-const payloads: any = {
+/** The payload each block type renders, keyed by the type name. */
+const payloads = {
   rich_text: {
     doc: {
       type: 'doc',
@@ -75,7 +76,15 @@ export const Types: Story = {
           draggable
         >
           <BlockPreview
-            block={{ id: type, type, payload, payloadSchemaVersion: 1 } as any}
+            block={{
+              id: type,
+              recordId: 'story-record',
+              type,
+              payload,
+              payloadSchemaVersion: 1,
+              order: 0,
+              version: 1,
+            }}
           />
         </NotebookBlock>
       ))}

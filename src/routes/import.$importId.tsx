@@ -13,6 +13,7 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
  * resume and share by URL, and the server still decides what is valid.
  */
 export const Route = createFileRoute('/import/$importId')({
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- TanStack Router hands validateSearch the raw URL values as Record<string, unknown>; parseImportSearch decodes every value before use.
   validateSearch: (search: Record<string, unknown>): ImportSearch =>
     parseImportSearch(search),
   beforeLoad: async ({ context: rootContext, location }) => {

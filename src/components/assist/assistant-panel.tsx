@@ -1,6 +1,7 @@
 import { t } from '#/copy'
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { useRouterState } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import { useKeyboardInset } from '#/lib/use-keyboard-inset'
 import { Skeleton } from '#/components/ui/skeleton'
@@ -9,11 +10,13 @@ import {
   OPEN_ASSISTANT_EVENT,
   contextFromPathname,
 } from '#/lib/assistant-context'
-import type { OpenAssistantDetail } from '#/lib/assistant-context'
 import { pageFromPathname } from './assistant-page'
 
 // The chat library loads when the panel first opens, not with the shell.
 const AssistantChat = lazy(() => import('./assistant-chat'))
+
+/** The payload `openAssistant` may attach; a plain Event carries none. */
+const openAssistantDetail = z.looseObject({ prompt: z.string().optional() })
 
 /**
  * ASSIST-04 — the global assistant surface.
@@ -58,10 +61,15 @@ export function AssistantPanel({
 
   useEffect(() => {
     const onOpen = (event: Event) => {
-      const detail = (event as CustomEvent<OpenAssistantDetail | undefined>)
-        .detail
+      const detail =
+        event instanceof CustomEvent
+          ? openAssistantDetail.safeParse(event.detail)
+          : null
 
-      if (detail?.prompt) setPendingPrompt(detail.prompt)
+      if (detail?.success && detail.data.prompt) {
+        setPendingPrompt(detail.data.prompt)
+      }
+
       setOpen(true)
     }
 

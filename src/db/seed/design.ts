@@ -5300,6 +5300,7 @@ async function designCredential(
       import('#/lib/api-credentials'),
       import('#/lib/credential-audit'),
     ])
+
   const secret = process.env.BETTER_AUTH_SECRET
 
   if (!secret)

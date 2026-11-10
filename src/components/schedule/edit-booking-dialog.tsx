@@ -16,7 +16,7 @@ import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { t } from '#/copy'
 
-import { instantInZone } from './book-dialog'
+import { instantInZone } from './booking-time'
 import { toScheduleBooking } from './schedule-data'
 import type { BookableSample, ScheduleBooking } from './schedule-data'
 
@@ -50,7 +50,7 @@ export function EditBookingDialog({
   const [notes, setNotes] = useState(booking.notes ?? '')
 
   const [ticked, setTicked] = useState<ReadonlySet<string>>(
-    new Set(currentSampleIds),
+    () => new Set(currentSampleIds),
   )
 
   const [busy, setBusy] = useState(false)

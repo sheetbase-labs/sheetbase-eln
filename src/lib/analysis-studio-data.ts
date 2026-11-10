@@ -12,6 +12,8 @@
  * later reader can detect a stale source. Exports carry explicit format,
  * dimensions, theme and provenance metadata.
  */
+import { z } from 'zod'
+
 import { createDataClient, DataClientError } from './data-client'
 import type { DataClient } from './data-client'
 import { serializeDrawnChart } from '#/lib/chart-svg-serializer'
@@ -32,6 +34,7 @@ import {
 } from './chart-spec'
 import type {
   ChartColumn,
+  ChartRow,
   ChartSpec,
   FacetedResult,
   MaterialisedChart,
@@ -389,7 +392,7 @@ export async function saveAnalysisView(
  * Citing the same view twice is a no-op: the unique link already says it.
  */
 export async function recordAnalysisCitation(
-  client: DataClient,
+  client: Pick<DataClient, 'rpc'>,
   sourceRecordId: string,
   view: Pick<AnalysisViewWire, 'display_id'>,
 ): Promise<void> {
@@ -417,6 +420,14 @@ export async function deleteAnalysisView(
 
 // --- Validation -----------------------------------------------------------
 
+/** The capped collections an analysis spec may carry, when it carries them. */
+const analysisSpecCountsSchema = z
+  .object({
+    filters: z.array(z.unknown()),
+    transformations: z.array(z.unknown()),
+  })
+  .partial()
+
 /**
  * Validate a ChartSpec intended for an analysis view. Wraps the SCI-004
  * structural validator and adds the analysis-studio safe-limit checks
@@ -424,33 +435,26 @@ export async function deleteAnalysisView(
  * caller). Returns field-level errors the UI surfaces honestly.
  */
 export function validateAnalysisSpec(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A persisted or pasted spec is diagnosed as it is; requiring callers to prevalidate would move the same errors behind a different contract.
   spec: unknown,
   resultRowCount = 0,
 ): { ok: true } | { ok: false; errors: string[] } {
   const specErrors = validateChartSpec(spec)
   const errors = specErrors.map((e) => `${e.field ?? 'spec'}: ${e.message}`)
+  const counts = analysisSpecCountsSchema.safeParse(spec).data
+  const filterCount = counts?.filters?.length ?? 0
+  const transformationCount = counts?.transformations?.length ?? 0
 
-  if (spec && typeof spec === 'object' && 'filters' in spec) {
-    const filters = spec.filters
-
-    if (Array.isArray(filters) && filters.length > ANALYSIS_MAX_FILTERS) {
-      errors.push(
-        `At most ${ANALYSIS_MAX_FILTERS} filters are allowed in an analysis view.`,
-      )
-    }
+  if (filterCount > ANALYSIS_MAX_FILTERS) {
+    errors.push(
+      `At most ${ANALYSIS_MAX_FILTERS} filters are allowed in an analysis view.`,
+    )
   }
 
-  if (spec && typeof spec === 'object' && 'transformations' in spec) {
-    const transformations = spec.transformations
-
-    if (
-      Array.isArray(transformations) &&
-      transformations.length > ANALYSIS_MAX_TRANSFORMATIONS
-    ) {
-      errors.push(
-        `At most ${ANALYSIS_MAX_TRANSFORMATIONS} transformations are allowed.`,
-      )
-    }
+  if (transformationCount > ANALYSIS_MAX_TRANSFORMATIONS) {
+    errors.push(
+      `At most ${ANALYSIS_MAX_TRANSFORMATIONS} transformations are allowed.`,
+    )
   }
 
   if (resultRowCount > ANALYSIS_MAX_RESULT_ROWS) {
@@ -462,11 +466,11 @@ export function validateAnalysisSpec(
   return errors.length > 0 ? { ok: false, errors } : { ok: true }
 }
 
-export function applyTransformations(
-  rows: Record<string, unknown>[],
+export function applyTransformations<Row extends Record<string, unknown>>(
+  rows: Row[],
   transformations: readonly Transformation[],
   spec: ChartSpec,
-): Record<string, unknown>[] {
+): ChartRow[] {
   return applyVisualisationTransforms(rows, transformations, spec).rows
 }
 
@@ -477,10 +481,10 @@ export function applyTransformations(
  * field the spec binds is flagged, exactly as `materialiseLiveChart` does, so
  * the studio preview/export cannot plot a value the UI excludes from analyses.
  */
-export function materialiseAnalysisChart(
+export function materialiseAnalysisChart<Row extends Record<string, unknown>>(
   spec: ChartSpec,
   columns: ChartColumn[],
-  rows: Record<string, unknown>[],
+  rows: Row[],
   flags: readonly DatasetValueFlag[] = [],
 ): MaterialisedChart {
   const chartRows =
@@ -494,10 +498,10 @@ export function materialiseAnalysisChart(
 /**
  * Facet the analysis preview into small multiples, under the same flag rule.
  */
-export function materialiseAnalysisFacets(
+export function materialiseAnalysisFacets<Row extends Record<string, unknown>>(
   spec: ChartSpec,
   columns: ChartColumn[],
-  rows: Record<string, unknown>[],
+  rows: Row[],
   flags: readonly DatasetValueFlag[] = [],
 ): FacetedResult {
   const chartRows =

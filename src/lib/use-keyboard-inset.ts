@@ -32,53 +32,65 @@ const VARS = ['--kb-inset', '--vv-height', '--kb-accessory', '--kb-safe-bottom']
 /** How many surfaces are listening: the variables stay until the last closes. */
 let listeners = 0
 
+/**
+ * Publish the keyboard's geometry while the sheet is open. Returns the
+ * unsubscribe that stops listening, clears every pending re-measure and takes
+ * the variables down once the last surface closes.
+ */
+export function watchKeyboardInset(): () => void {
+  const viewport = window.visualViewport
+  const root = document.documentElement
+
+  if (!viewport) return () => {}
+
+  let timers: Array<ReturnType<typeof setTimeout>> = []
+
+  listeners += 1
+
+  const update = () => {
+    const { inset, accessory } = keyboardInset()
+    const open = inset > KEYBOARD_OPEN_PX
+    root.style.setProperty('--kb-inset', `${Math.round(inset)}px`)
+    root.style.setProperty('--vv-height', `${Math.round(viewport.height)}px`)
+    root.style.setProperty('--kb-accessory', `${accessory}px`)
+    root.style.setProperty(
+      '--kb-safe-bottom',
+      open ? '0px' : 'env(safe-area-inset-bottom)',
+    )
+  }
+
+  const settle = () => {
+    update()
+    timers.forEach(clearTimeout)
+    timers = SETTLE_DELAYS_MS.map((ms) => setTimeout(update, ms))
+  }
+
+  update()
+  viewport.addEventListener('resize', update)
+  viewport.addEventListener('scroll', update)
+  window.addEventListener('resize', settle)
+  document.addEventListener('focusin', settle)
+  document.addEventListener('focusout', settle)
+
+  return () => {
+    timers.forEach(clearTimeout)
+    viewport.removeEventListener('resize', update)
+    viewport.removeEventListener('scroll', update)
+    window.removeEventListener('resize', settle)
+    document.removeEventListener('focusin', settle)
+    document.removeEventListener('focusout', settle)
+    listeners -= 1
+
+    if (listeners === 0)
+      for (const name of VARS) root.style.removeProperty(name)
+  }
+}
+
 export function useKeyboardInset(active: boolean) {
   useEffect(() => {
-    const viewport = window.visualViewport
+    if (!active) return
 
-    if (!active || !viewport) return
-    const root = document.documentElement
-    listeners += 1
-
-    const update = () => {
-      const { inset, accessory } = keyboardInset()
-      const open = inset > KEYBOARD_OPEN_PX
-      root.style.setProperty('--kb-inset', `${Math.round(inset)}px`)
-      root.style.setProperty('--vv-height', `${Math.round(viewport.height)}px`)
-      root.style.setProperty('--kb-accessory', `${accessory}px`)
-      root.style.setProperty(
-        '--kb-safe-bottom',
-        open ? '0px' : 'env(safe-area-inset-bottom)',
-      )
-    }
-
-    let timers: Array<ReturnType<typeof setTimeout>> = []
-
-    const settle = () => {
-      update()
-      timers.forEach(clearTimeout)
-      timers = SETTLE_DELAYS_MS.map((ms) => setTimeout(update, ms))
-    }
-
-    update()
-    viewport.addEventListener('resize', update)
-    viewport.addEventListener('scroll', update)
-    window.addEventListener('resize', settle)
-    document.addEventListener('focusin', settle)
-    document.addEventListener('focusout', settle)
-
-    return () => {
-      timers.forEach(clearTimeout)
-      viewport.removeEventListener('resize', update)
-      viewport.removeEventListener('scroll', update)
-      window.removeEventListener('resize', settle)
-      document.removeEventListener('focusin', settle)
-      document.removeEventListener('focusout', settle)
-      listeners -= 1
-
-      if (listeners === 0)
-        for (const name of VARS) root.style.removeProperty(name)
-    }
+    return watchKeyboardInset()
   }, [active])
 }
 

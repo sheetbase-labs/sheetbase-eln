@@ -148,10 +148,13 @@ describe('itemLink', () => {
       params: { instrumentId: 'inst-1' },
     })
 
-    for (const kind of ['qualification_requested', 'qualification_granted'])
-      expect(
-        itemLink(item(kind as 'calibration_overdue', { sourceId: 'inst-1' })),
-      ).toEqual({
+    const qualificationKinds = [
+      'qualification_requested',
+      'qualification_granted',
+    ] as const satisfies readonly WorkItemKind[]
+
+    for (const kind of qualificationKinds)
+      expect(itemLink(item(kind, { sourceId: 'inst-1' }))).toEqual({
         to: '/instruments/$instrumentId',
         params: { instrumentId: 'inst-1' },
       })

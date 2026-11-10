@@ -40,6 +40,7 @@ export async function authClient(db: Parameters<SeedStep['run']>[0]) {
     db.$client.options.connectionString ?? '',
     'the pool connection string',
   )
+
   const pgrst = seedUrl(process.env.PGRST_DB_URI ?? '', 'PGRST_DB_URI')
 
   if (!pgrst.username)

@@ -26,7 +26,7 @@
 import { featureEventLabels, featureEvents } from '../features/collect'
 import { eventEntriesFrom } from './operations/descriptor'
 import { CORE_OPERATIONS } from './operations/registry'
-import type { ChangeEventInput } from './webhook-events'
+import type { ChangeEventInput, ChangeEventPayload } from './webhook-events'
 
 /** Payload schema version pinned by this catalogue revision. */
 export const CATALOGUE_SCHEMA_VERSION = '1' as const
@@ -4117,20 +4117,26 @@ export interface WebhookEventOption {
   readonly group: string
 }
 
+const webhookEventOptions: WebhookEventOption[] = []
+
+for (const entry of EVENT_CATALOGUE) {
+  if (
+    entry.status !== 'stable' ||
+    entry.wireName === null ||
+    !entry.consumers.webhook
+  )
+    continue
+
+  webhookEventOptions.push({
+    name: entry.name,
+    label: eventLabel(entry.name),
+    group: FAMILY_GROUPS[entry.family],
+  })
+}
+
 /** Every event a webhook can listen for, in catalogue order. */
 export const WEBHOOK_EVENT_OPTIONS: readonly WebhookEventOption[] =
-  Object.freeze(
-    EVENT_CATALOGUE.filter(
-      (entry) =>
-        entry.status === 'stable' &&
-        entry.wireName !== null &&
-        entry.consumers.webhook,
-    ).map((entry) => ({
-      name: entry.name,
-      label: eventLabel(entry.name),
-      group: FAMILY_GROUPS[entry.family],
-    })),
-  )
+  Object.freeze(webhookEventOptions)
 
 /**
  * Names a subscription may list that are delivered by the pipeline engine
@@ -4218,7 +4224,7 @@ export interface CanonicalEventEnvelope {
     readonly projectId: string | null
   }
   /** Lightweight event summary (never the full source of truth). */
-  readonly data: Record<string, unknown>
+  readonly data: ChangeEventPayload
 }
 
 /**

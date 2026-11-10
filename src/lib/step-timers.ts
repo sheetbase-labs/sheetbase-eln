@@ -11,6 +11,8 @@
  * timers); starting and stopping go through RPCs.
  */
 
+import { z } from 'zod'
+
 import { t } from '#/copy'
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -87,8 +89,8 @@ export function startStepTimer(
 export function endStepTimer(
   timerId: string,
   client: DataClient = notebookDataClient,
-): Promise<unknown> {
-  return client.rpc('end_step_timer', { p_timer_id: timerId })
+): Promise<void> {
+  return client.rpc<void>('end_step_timer', { p_timer_id: timerId })
 }
 
 /** Milliseconds left on this device's clock, corrected to the server's; 0 once ended. */
@@ -113,17 +115,17 @@ export function formatCountdown(ms: number): string {
     : `${minutes}:${pad(seconds)}`
 }
 
-/** A step's duration if it has a usable one. */
-export function stepDurationSeconds(payload: unknown): number | null {
-  if (typeof payload !== 'object' || payload === null) return null
-  const value = (payload as Record<string, unknown>).durationSeconds
+/** The step payload's `durationSeconds`, when it holds a usable whole number of seconds. */
+const STEP_DURATION = z.object({
+  durationSeconds: z.number().int().min(1).max(MAX_TIMER_SECONDS),
+})
 
-  return typeof value === 'number' &&
-    Number.isInteger(value) &&
-    value >= 1 &&
-    value <= MAX_TIMER_SECONDS
-    ? value
-    : null
+/** A step's duration if it has a usable one. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A step payload is stored JSON of no shape this module knows; STEP_DURATION above is the decode and only `durationSeconds` is read.
+export function stepDurationSeconds(payload: unknown): number | null {
+  const parsed = STEP_DURATION.safeParse(payload)
+
+  return parsed.success ? parsed.data.durationSeconds : null
 }
 
 /** A short length: 90 -> "1 min 30 s", 5400 -> "1 h 30 min", 45 -> "45 s". */

@@ -37,6 +37,7 @@ import {
   resolveFileAuth,
 } from '#/lib/request-auth'
 import type { SessionAuthDeps } from '#/lib/request-auth'
+import { z } from 'zod'
 import type { FileOutcome } from '#/lib/metrics'
 import { metrics } from '#/lib/metrics'
 import type { RateLimitDecision, RateLimiter } from '#/lib/rate-limit'
@@ -150,9 +151,13 @@ interface FileObjectWire {
 }
 
 function asRow<T>(body: T | { error: unknown }): T | undefined {
-  if (Array.isArray(body)) return (body as T[])[0]
+  if (!Array.isArray(body)) {
+    // SAFETY: A single-object row reply is the same selected row type; an error reply is rejected by the caller's status check before this runs.
+    return body as T
+  }
 
-  return body as T
+  // SAFETY: PostgREST answers a row request with an array of the selected row type, and T names the columns the caller's `select` asked for.
+  return (body as T[])[0]
 }
 
 /**
@@ -267,7 +272,9 @@ export async function handleUploadAuthorize(
     )
   }
 
-  if (typeof payload.projectId !== 'string' || !payload.projectId) {
+  const projectId = z.string().min(1).safeParse(payload.projectId)
+
+  if (!projectId.success) {
     return requestErrorResponse(400, 'invalid_body', 'projectId is required.')
   }
 
@@ -292,7 +299,7 @@ export async function handleUploadAuthorize(
   const uploadRes = await postgrestRpc<CreateFileUploadRow>(
     'create_file_upload',
     {
-      p_project_id: payload.projectId,
+      p_project_id: projectId.data,
       p_display_name: displayName,
       p_media_type: mediaType,
       p_byte_size: byteSize,
@@ -386,6 +393,7 @@ export async function handleUpload(
     )
   }
 
+  // SAFETY: the select list above names exactly the FileObjectWire columns, so a successful PostgREST reply is those rows.
   const rows = selectRes.body as FileObjectWire[]
 
   if (rows.length === 0) {
@@ -602,6 +610,7 @@ export async function handleUploadVersion(
     )
   }
 
+  // SAFETY: the select list above names exactly the FileObjectWire columns, so a successful PostgREST reply is those rows.
   const current = (selectRes.body as FileObjectWire[]).at(0)
 
   if (!current) {
@@ -778,6 +787,7 @@ export async function storeFileVersion(input: {
     }
   }
 
+  // SAFETY: `register_file_version` answers the file_objects row or an error object; the refusal branch above has already returned.
   const row = asRow(registered.body as FileObjectWire | { error: unknown })
   const newId = row?.id
 
@@ -860,6 +870,7 @@ export async function handleDownload(
     )
   }
 
+  // SAFETY: the select list above names exactly the FileObjectWire columns, so a successful PostgREST reply is those rows.
   const rows = selectRes.body as FileObjectWire[]
 
   if (rows.length === 0) {

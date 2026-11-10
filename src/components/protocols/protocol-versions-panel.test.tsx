@@ -6,6 +6,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ProtocolVersion } from '#/lib/controlled-protocols'
 import { ProtocolVersionsPanel } from './protocol-versions-panel'
 
+// SAFETY: The approval index starts empty and each test installs the index it
+// needs; the mocked hook hands this value back unchanged, so its shape is the
+// witness's business, not this file's.
 const mocks = vi.hoisted(() => ({
   fetchProtocolVersions: vi.fn(),
   submitProtocolRevision: vi.fn(),
@@ -16,20 +19,23 @@ const mocks = vi.hoisted(() => ({
   },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The panel's links open routes the generated tree defines at build time; this suite renders the panel alone, so `Link` paints an anchor the assertions can read.
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children?: React.ReactNode; to?: string }) => (
     <a href={to}>{children}</a>
   ),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The panel reads versions through a module-level function over the shared client, which has no injection point; this suite answers that read with fixed versions.
 vi.mock('#/lib/controlled-protocols', () => ({
   PROTOCOL_REVISION_KIND: 'protocol_revision',
   fetchProtocolVersions: (...args: unknown[]) =>
     mocks.fetchProtocolVersions(...args),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The panel's writes go through module-level functions over the shared client; this suite records the calls each control makes.
 vi.mock('#/lib/protocol-revisions', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
+  ...(await importOriginal()),
   submitProtocolRevision: (...args: unknown[]) =>
     mocks.submitProtocolRevision(...args),
   approveProtocolRevision: (...args: unknown[]) =>
@@ -38,19 +44,23 @@ vi.mock('#/lib/protocol-revisions', async (importOriginal) => ({
     mocks.makeProtocolVersionEffective(...args),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The approval index is read by a module-level hook over the shared client; this suite supplies the index each case needs.
 vi.mock('#/components/models/model-approval-data', () => ({
   useModelApprovalIndex: () => ({ data: mocks.index.data }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- `notebookDataClient` is the shared module-level client; the panel needs the date formatter beside it and no live reads in this suite.
 vi.mock('#/lib/notebook-data', () => ({
   notebookDataClient: {},
   formatNotebookDateTime: (iso: string) => iso.slice(0, 10),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- User names come from a server function, which needs the request runtime a jsdom render has none of.
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ userLabel: (id: string) => id }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Toasts are painted by the app shell's Toaster; this suite renders the panel alone, so toast calls are recorded and never painted.
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))

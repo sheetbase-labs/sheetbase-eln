@@ -56,6 +56,13 @@ const client = notebookDataClient
 
 let lineCounter = 0
 
+/** The direction a chosen option names; anything else is outbound. */
+const DIRECTIONS = ['outbound', 'inbound'] as const
+
+function directionOf(optionValue: string): ShipmentDirection {
+  return DIRECTIONS.find((direction) => direction === optionValue) ?? 'outbound'
+}
+
 function blankLine(): ManifestLine {
   lineCounter += 1
 
@@ -142,8 +149,7 @@ export function NewShipmentDialog({
       )
       onOpenChange(false)
     },
-    onError: (e: unknown) =>
-      toast.error(messageOf(e, t('shipments.form.couldNotSave'))),
+    onError: (e) => toast.error(messageOf(e, t('shipments.form.couldNotSave'))),
   })
 
   function submit(send: boolean) {
@@ -170,9 +176,7 @@ export function NewShipmentDialog({
                 <Field label={t('shipments.form.direction')}>
                   <Select
                     value={direction}
-                    onChange={(e) =>
-                      setDirection(e.target.value as ShipmentDirection)
-                    }
+                    onChange={(e) => setDirection(directionOf(e.target.value))}
                   >
                     <option value="outbound">
                       {t('shipments.directions.outbound')}
@@ -432,7 +436,7 @@ export function ShipmentDialog({
     onClose()
   }
 
-  const failed = (e: unknown) =>
+  const failed = (e: Error) =>
     toast.error(messageOf(e, t('shipments.detail.couldNotSave')))
 
   const send = useMutation({

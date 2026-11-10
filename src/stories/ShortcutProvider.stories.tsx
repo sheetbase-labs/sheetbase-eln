@@ -15,7 +15,13 @@ import type { ShortcutDefinition } from '#/lib/shortcuts'
  * otherwise. Click the frame, then press the keys.
  */
 function Playground() {
-  const [fired, setFired] = useState<string[]>([])
+  // Each firing keeps its own id so the list keys stay stable as it rolls.
+  const [fired, setFired] = useState<Array<{ id: number; name: string }>>([])
+
+  const record = (name: string) =>
+    setFired((list) =>
+      [...list, { id: (list.at(-1)?.id ?? 0) + 1, name }].slice(-5),
+    )
 
   const definitions: ShortcutDefinition[] = [
     {
@@ -23,14 +29,14 @@ function Playground() {
       scope: 'global',
       keys: ['g h'],
       description: 'Go to Home',
-      handler: () => setFired((list) => [...list, 'Go to Home'].slice(-5)),
+      handler: () => record('Go to Home'),
     },
     {
       id: 'demo-search',
       scope: 'global',
       keys: ['/'],
       description: 'Focus search',
-      handler: () => setFired((list) => [...list, 'Focus search'].slice(-5)),
+      handler: () => record('Focus search'),
     },
   ]
 
@@ -50,7 +56,7 @@ function Playground() {
           {fired.length === 0 ? (
             <li className="text-fg-muted">Nothing fired yet.</li>
           ) : (
-            fired.map((name, index) => <li key={index}>{name}</li>)
+            fired.map((entry) => <li key={entry.id}>{entry.name}</li>)
           )}
         </ul>
       </div>

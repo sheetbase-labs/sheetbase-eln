@@ -6,13 +6,20 @@ import {
 } from './object-dependencies'
 import type { DataClient } from './data-client'
 
+/** A data client for these tests: the RPCs these helpers call, and no others. */
+function asClient<Stub>(client: Stub): DataClient {
+  // SAFETY: the call site supplies exactly the rpc method these helpers read,
+  // answering the shape they decode; no other method is called.
+  return client as DataClient
+}
+
 describe('object dependency client', () => {
   it('calls the discovery and hard-delete preview RPCs', async () => {
-    const calls: Array<{ name: string; args: unknown }> = []
+    const calls: string[] = []
 
-    const client = {
-      rpc: async (name: string, args: Record<string, unknown>) => {
-        calls.push({ name, args })
+    const client = asClient({
+      rpc: async (name: string) => {
+        calls.push(name)
 
         return {
           kind: 'dataset_schema_version',
@@ -22,11 +29,11 @@ describe('object dependency client', () => {
           dependencies: [],
         }
       },
-    } as DataClient
+    })
 
     await discoverObjectDependencies(client, 'dataset_schema_version', 'ver-1')
     await previewHardDelete(client, 'dataset_schema_version', 'ver-1')
-    expect(calls.map((item) => item.name)).toEqual([
+    expect(calls).toEqual([
       'discover_object_dependencies',
       'preview_hard_delete',
     ])

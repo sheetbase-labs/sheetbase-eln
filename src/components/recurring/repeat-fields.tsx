@@ -6,6 +6,25 @@ import type { RepeatForm } from '#/lib/recurring'
 import { t } from '#/copy'
 
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7] as const
+const FREQUENCIES = ['none', 'daily', 'weekly', 'monthly'] as const
+const END_MODES = ['count', 'date'] as const
+
+/** The frequency a selected option names; anything else does not repeat. */
+function frequencyOf(optionValue: string): RepeatForm['frequency'] {
+  return FREQUENCIES.find((frequency) => frequency === optionValue) ?? 'none'
+}
+
+/** The end mode a selected option names; anything else ends after a count. */
+function endModeOf(optionValue: string): RepeatForm['endMode'] {
+  return END_MODES.find((mode) => mode === optionValue) ?? 'count'
+}
+
+/** The copy key for a repeat's unit; the fields render it only while repeating. */
+function repeatUnitOf(
+  frequency: RepeatForm['frequency'],
+): 'daily' | 'weekly' | 'monthly' {
+  return frequency === 'none' ? 'daily' : frequency
+}
 
 /**
  * How often something repeats and when it stops: the fields a booking and an
@@ -34,7 +53,7 @@ export function RepeatFields({
         <Select
           value={value.frequency}
           onChange={(e) => {
-            const frequency = e.target.value as RepeatForm['frequency']
+            const frequency = frequencyOf(e.target.value)
             set({
               frequency,
               // A weekly repeat starts on the day it was first set for.
@@ -75,9 +94,7 @@ export function RepeatFields({
               />
             </Field>
             <span className="pb-1.5 text-body text-fg-muted">
-              {t(
-                `projects.recurring.unit.${value.frequency as 'daily' | 'weekly' | 'monthly'}`,
-              )}
+              {t(`projects.recurring.unit.${repeatUnitOf(value.frequency)}`)}
             </span>
           </div>
           {value.frequency === 'weekly' ? (
@@ -108,9 +125,7 @@ export function RepeatFields({
             <Field label={t('projects.recurring.ends')}>
               <Select
                 value={value.endMode}
-                onChange={(e) =>
-                  set({ endMode: e.target.value as RepeatForm['endMode'] })
-                }
+                onChange={(e) => set({ endMode: endModeOf(e.target.value) })}
               >
                 <option value="count">
                   {t('projects.recurring.endsAfter')}

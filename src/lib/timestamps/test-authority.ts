@@ -129,11 +129,14 @@ export function createTestAuthority(): TestAuthority {
     return new Uint8Array(readFileSync(join(dir, 'r.tsr')))
   }
 
-  const fakeFetch = (async (_url: unknown, init?: RequestInit) => {
-    const body = init?.body as Uint8Array
+  const fakeFetch: typeof fetch = async (_url, init) => {
+    const body = init?.body
 
-    return new Response(reply(body) as unknown as BodyInit, { status: 200 })
-  }) as unknown as typeof fetch
+    if (!(body instanceof Uint8Array))
+      throw new Error('the timestamp client posts its query as DER bytes')
+
+    return new Response(new Uint8Array(reply(body)).buffer, { status: 200 })
+  }
 
   return {
     dir,

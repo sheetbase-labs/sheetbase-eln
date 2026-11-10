@@ -13,6 +13,7 @@
 import type { DataClient } from '#/lib/data-client'
 import type { GateCondition, GateMode } from '#/lib/experiment-gates'
 import { notebookOutline } from '#/lib/notebook-outline'
+import type { NotebookBlock } from '#/lib/notebook-data'
 
 export interface ExperimentPartWire {
   id: string
@@ -82,7 +83,7 @@ export interface PartBlockLike {
   id: string
   type?: string
   partId?: string | null
-  payload: Record<string, unknown>
+  payload: NotebookBlock['payload']
 }
 
 export const partQueryKeys = {
@@ -416,7 +417,7 @@ export function splitPointsAtHeadings(
     id: string
     type: string
     order: number
-    payload: Record<string, unknown>
+    payload: NotebookBlock['payload']
   }>,
 ): SplitPoint[] {
   const seen = new Set<string>()

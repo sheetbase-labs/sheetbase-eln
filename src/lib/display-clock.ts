@@ -11,7 +11,8 @@ export type ClockFormat = '12h' | '24h'
 let clock: ClockFormat = '24h'
 const listeners = new Set<() => void>()
 
-export function toClockFormat(value: unknown): ClockFormat {
+/** Decode a stored clock preference; anything but `12h` reads as the 24 hour clock. */
+export function toClockFormat(value: string | undefined): ClockFormat {
   return value === '12h' ? '12h' : '24h'
 }
 
@@ -19,7 +20,7 @@ export function getDisplayClock(): ClockFormat {
   return clock
 }
 
-export function setDisplayClock(next: unknown): void {
+export function setDisplayClock(next: string | undefined): void {
   if (typeof window === 'undefined') return
   const value = toClockFormat(next)
 
@@ -45,7 +46,12 @@ export function useDisplayClock(): ClockFormat {
   return useSyncExternalStore(subscribe, getDisplayClock, () => '24h' as const)
 }
 
+/** The `Intl` option that selects the person's clock. */
+export interface ClockOption {
+  hour12: boolean
+}
+
 /** Spread into `Intl` options that show a time of day. */
-export function clockOption(): { hour12: boolean } {
+export function clockOption(): ClockOption {
   return { hour12: displayHour12() }
 }

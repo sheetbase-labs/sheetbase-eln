@@ -4,8 +4,9 @@ import {
   parseWorkspaceRequest,
   requestAssistantWorkspace,
 } from '#/lib/assistant-workspace'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
+import { z } from 'zod'
 import { useQuery } from '@tanstack/react-query'
 import { Chat, useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
@@ -24,6 +25,7 @@ import {
   messageText,
   toChatTurns,
 } from '#/lib/assistant-chat'
+import type { AssistantSource } from '#/lib/assistant'
 import type { AssistantUIMessage } from '#/lib/assistant-chat'
 import {
   Conversation,
@@ -55,12 +57,15 @@ import type { AssistantPage } from './assistant-page'
 
 const chats = new Map<string, Chat<AssistantUIMessage>>()
 
-/** What the next request should carry; set on every render of the open panel. */
-const next: {
+/** What the next request should carry. */
+interface NextRequest {
   workspaceId: string
   objectRefs: Array<{ kind: string; id: string }>
   page: AssistantPage | null
-} = { workspaceId: '', objectRefs: [], page: null }
+}
+
+/** Set on every render of the open panel. */
+const next: NextRequest = { workspaceId: '', objectRefs: [], page: null }
 
 /** The person's own clock: their saved zone, else the browser's. */
 function viewerTimeZone(): string | undefined {
@@ -78,15 +83,16 @@ function chatFor(workspaceId: string): Chat<AssistantUIMessage> {
       transport: new DefaultChatTransport<AssistantUIMessage>({
         api: ASSISTANT_CHAT_PATH,
         credentials: 'same-origin',
-        prepareSendMessagesRequest: ({ messages }) => ({
-          body: {
+        prepareSendMessagesRequest: ({ messages }) => {
+          const request = {
             workspaceId: next.workspaceId,
             objectRefs: next.objectRefs,
             messages: toChatTurns(messages),
             timeZone: viewerTimeZone(),
-            ...(next.page ? { page: next.page } : {}),
-          },
-        }),
+          }
+
+          return { body: next.page ? { ...request, page: next.page } : request }
+        },
       }),
     })
     chats.set(workspaceId, chat)
@@ -95,12 +101,16 @@ function chatFor(workspaceId: string): Chat<AssistantUIMessage> {
   return chat
 }
 
+/** A refusal the server sends as JSON: `{ message }`, and nothing else it adds. */
+const refusalBody = z.looseObject({ message: z.string() })
+
 /** The server answers refusals with `{ message }`; a stream error is plain text. */
 function errorText(error: Error): string {
   try {
-    const parsed = JSON.parse(error.message) as { message?: unknown }
+    const message = refusalBody.safeParse(JSON.parse(error.message)).data
+      ?.message
 
-    if (typeof parsed.message === 'string') return parsed.message
+    if (message !== undefined) return message
   } catch {
     // Not JSON: the text is already the message.
   }
@@ -255,22 +265,20 @@ function ChatBody({
   const kind = context ? contextKindLabel(context.kind).toLowerCase() : null
   const last = messages.at(-1)
 
-  // Waiting for the first words of an answer.
-  const waiting =
-    status === 'submitted' ||
-    (status === 'streaming' &&
-      last?.role === 'assistant' &&
-      messageText(last).trim() === '' &&
-      !last.parts.some((part) => part.type === 'dynamic-tool'))
+  const waiting = isWaitingForAnswer(status, last)
 
-  function send(text: string) {
-    const question = text.trim()
+  const send = useCallback(
+    (text: string) => {
+      const question = text.trim()
 
-    if (!question || busy || !ready) return
-    clearError()
-    setDraft('')
-    void sendMessage({ text: question })
-  }
+      if (!question || busy || !ready) return
+      clearError()
+      // react-doctor-disable-next-line react-doctor/no-adjust-state-on-prop-change -- Sending the handed-over question empties the draft box; it is the send itself, not state mirrored from a prop.
+      setDraft('')
+      void sendMessage({ text: question })
+    },
+    [busy, ready, clearError, sendMessage],
+  )
 
   // A question handed over by whoever opened the panel ("Ask the lab about
   // this") goes out once, as soon as the assistant can take it.
@@ -287,10 +295,10 @@ function ChatBody({
     sentPrompt.current = initialPrompt
     send(initialPrompt)
     onInitialPromptSent?.()
-  }, [initialPrompt, ready])
+  }, [initialPrompt, ready, busy, send, onInitialPromptSent])
 
   function newChat() {
-    stop()
+    void stop()
     setMessages([])
     clearError()
     setDraft('')
@@ -306,62 +314,23 @@ function ChatBody({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-2">
-        <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-border-subtle bg-surface-muted px-2.5 py-0.5 text-label text-fg-muted">
-          <Icon name="spark" size={12} />
-          <span className="truncate">
-            {kind
-              ? t('notebook.assistantPanel.usingThis', { kind })
-              : page
-                ? t('notebook.assistantPanel.onPage', { page: page.title })
-                : t('notebook.assistantPanel.noStableObjectOn')}
-          </span>
-        </span>
-        <span className="flex-1" />
-        {messages.length > 0 ? (
-          <Button size="sm" variant="quiet" onClick={newChat}>
-            <Icon name="squarePen" size={12} />
-            {t('notebook.assistantPanel.newChat')}
-          </Button>
-        ) : null}
-      </div>
+      <ChatHeader
+        kind={kind}
+        page={page}
+        hasMessages={messages.length > 0}
+        onNewChat={newChat}
+      />
 
       <Conversation>
         <ConversationContent className="min-h-full">
           {messages.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-4 py-8 text-center">
-              <span className="inline-flex size-10 items-center justify-center rounded-full border border-border-subtle bg-surface-muted text-fg-muted">
-                <Icon name="spark" size={18} />
-              </span>
-              <div className="flex flex-col gap-1">
-                <h3 className="m-0 font-heading text-[15px] font-semibold text-fg">
-                  {t('notebook.assistantPanel.emptyTitle')}
-                </h3>
-                <Muted className="max-w-[300px]">
-                  {context
-                    ? t('notebook.assistantPanel.emptyWithContext', {
-                        kind: kind ?? '',
-                      })
-                    : page
-                      ? t('notebook.assistantPanel.emptyOnPage')
-                      : t('notebook.assistantPanel.emptyNoContext')}
-                </Muted>
-              </div>
-              {suggestions.length > 0 ? (
-                <div className="flex flex-col items-stretch gap-2 self-stretch">
-                  {suggestions.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      onClick={() => send(suggestion)}
-                      className="cursor-pointer rounded-xl border border-border bg-surface px-3 py-2 text-left text-body text-fg hover:bg-surface-hover"
-                    >
-                      {suggestion}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
+            <EmptyChat
+              hasContext={context !== null}
+              kind={kind}
+              hasPage={page !== null}
+              suggestions={suggestions}
+              onAsk={send}
+            />
           ) : (
             messages.map((message, index) => (
               <ChatMessage
@@ -377,19 +346,7 @@ function ChatBody({
             ))
           )}
 
-          {waiting ? (
-            <div
-              className="flex items-center gap-2 text-label text-fg-muted"
-              role="status"
-            >
-              <span className="flex gap-1" aria-hidden="true">
-                <span className="size-1.5 animate-bounce rounded-full bg-fg-faint [animation-delay:-0.3s]" />
-                <span className="size-1.5 animate-bounce rounded-full bg-fg-faint [animation-delay:-0.15s]" />
-                <span className="size-1.5 animate-bounce rounded-full bg-fg-faint" />
-              </span>
-              {t('notebook.assistantPanel.thinking')}
-            </div>
-          ) : null}
+          {waiting ? <ThinkingRow /> : null}
 
           {error ? (
             <Notice
@@ -435,9 +392,16 @@ function ChatBody({
 
 type LookupState = 'running' | 'done' | 'failed'
 
+/** The `resource` a canonical read names, when the call carried one. */
+const resourceInput = z.looseObject({ resource: z.string() })
+
+/** The lab area a list call names, when the call carried one. */
+const areaInput = z.looseObject({ area: z.string() })
+
 /** The plain-language name for one lookup, by tool. */
 function lookupLabel(
   toolName: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A tool call's input is the model's raw JSON; the schemas below decode the one field each label reads.
   input: unknown,
   state: LookupState,
 ): string {
@@ -454,9 +418,8 @@ function lookupLabel(
       return t(`notebook.assistantPanel.lookup.storageReadings.${phase}`)
     case 'sheetbase.canonical.read': {
       const resource =
-        input !== null && typeof input === 'object' && 'resource' in input
-          ? String(input.resource).replaceAll('_', ' ')
-          : 'the workspace'
+        resourceInput.safeParse(input).data?.resource.replaceAll('_', ' ') ??
+        'the workspace'
 
       return t(`notebook.assistantPanel.lookup.canonical.${phase}`, {
         resource,
@@ -480,9 +443,7 @@ function lookupLabel(
       return t(`notebook.assistantPanel.lookup.facility.${phase}`)
     case 'sheetbase.lab.list': {
       const area =
-        input !== null && typeof input === 'object' && 'area' in input
-          ? String(input.area).replaceAll('_', ' ')
-          : 'the lab'
+        areaInput.safeParse(input).data?.area.replaceAll('_', ' ') ?? 'the lab'
 
       return t(`notebook.assistantPanel.lookup.canonical.${phase}`, {
         resource: area,
@@ -536,7 +497,11 @@ function lookupLabel(
 /** Tool calls already carried out on screen, so a re-render never re-opens them. */
 const carriedOut = new Set<string>()
 
-function openOnce(toolCallId: string, input: unknown) {
+function openOnce(
+  toolCallId: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A tool call's input is the model's raw JSON; `parseWorkspaceRequest` decodes it before anything opens.
+  input: unknown,
+) {
   if (carriedOut.has(toolCallId)) return
   carriedOut.add(toolCallId)
   const request = parseWorkspaceRequest(input)
@@ -628,6 +593,7 @@ function ChatMessage({
         {message.parts.map((part, index) => {
           if (part.type === 'text') {
             return part.text.trim() === '' ? null : (
+              // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- A message's parts are append-only and never reorder; a text part carries no identity of its own.
               <MessageResponse
                 key={index}
                 isAnimating={streaming && index === message.parts.length - 1}
@@ -675,61 +641,234 @@ function ChatMessage({
         })}
       </MessageContent>
 
-      {!streaming ? (
-        <>
-          {sources.length > 0 ? (
-            <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
-              {sources.map((source) => (
-                <li
-                  key={`${source.kind}:${source.id}`}
-                  data-testid="assistant-source"
-                >
-                  <a
-                    href={source.deepLink ?? '#'}
-                    title={`${contextKindLabel(source.kind)} · ${source.freshness}${
-                      source.pins.length > 0
-                        ? ` · ${source.pins.map((pin) => pin.detail).join(' · ')}`
-                        : ''
-                    }`}
-                    className="inline-flex max-w-full items-center gap-1 rounded-full border border-border-subtle bg-surface-muted px-2.5 py-0.5 text-label font-medium text-fg no-underline hover:bg-surface-hover"
-                  >
-                    <span className="truncate">
-                      {source.title || source.id}
-                    </span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          ) : hasLookups ? null : (
-            <Muted className="text-[11px]">
-              {t('notebook.assistantPanel.noSheetbaseObjectWas')}
-            </Muted>
-          )}
-          <MessageActions className="text-fg-muted">
-            {meta?.mode === 'built-in' ? (
-              <span className="text-[11px]">
-                {t('notebook.assistantPanel.builtInDeterministicModel')}
-              </span>
-            ) : null}
-            <span className="flex-1" />
-            <button
-              type="button"
-              onClick={copy}
-              aria-label={t('common.actions.copy')}
-              title={
-                copied ? t('common.states.copied') : t('common.actions.copy')
-              }
-              className="inline-flex size-6 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-fg-muted hover:bg-surface-hover hover:text-fg"
-            >
-              {copied ? (
-                <Icon name="check" size={13} />
-              ) : (
-                <Icon name="copy" size={13} />
-              )}
-            </button>
-          </MessageActions>
-        </>
-      ) : null}
+      {streaming ? null : (
+        <AnswerFooter
+          sources={sources}
+          hasLookups={hasLookups}
+          builtIn={meta?.mode === 'built-in'}
+          copied={copied}
+          onCopy={copy}
+        />
+      )}
     </Message>
+  )
+}
+
+/** Waiting for the first words of an answer, rather than for a tool call. */
+function isWaitingForAnswer(
+  status: string,
+  last: AssistantUIMessage | undefined,
+): boolean {
+  if (status === 'submitted') return true
+
+  if (status !== 'streaming' || last?.role !== 'assistant') return false
+
+  return (
+    messageText(last).trim() === '' &&
+    !last.parts.some((part) => part.type === 'dynamic-tool')
+  )
+}
+
+/** The panel's own header: what it is grounded in, and the New chat action. */
+function ChatHeader({
+  kind,
+  page,
+  hasMessages,
+  onNewChat,
+}: {
+  kind: string | null
+  page: AssistantPage | null
+  hasMessages: boolean
+  onNewChat: () => void
+}) {
+  return (
+    <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-2">
+      <span className="inline-flex min-w-0 items-center gap-1.5 rounded-full border border-border-subtle bg-surface-muted px-2.5 py-0.5 text-label text-fg-muted">
+        <Icon name="spark" size={12} />
+        <span className="truncate">
+          <ContextLabel kind={kind} page={page} />
+        </span>
+      </span>
+      <span className="flex-1" />
+      {hasMessages ? (
+        <Button size="sm" variant="quiet" onClick={onNewChat}>
+          <Icon name="squarePen" size={12} />
+          {t('notebook.assistantPanel.newChat')}
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
+/** What the assistant is grounded in for this panel. */
+function ContextLabel({
+  kind,
+  page,
+}: {
+  kind: string | null
+  page: AssistantPage | null
+}) {
+  if (kind) return t('notebook.assistantPanel.usingThis', { kind })
+
+  if (page) return t('notebook.assistantPanel.onPage', { page: page.title })
+
+  return t('notebook.assistantPanel.noStableObjectOn')
+}
+
+/** The empty conversation: what the assistant can see, and what to ask. */
+function EmptyChat({
+  hasContext,
+  kind,
+  hasPage,
+  suggestions,
+  onAsk,
+}: {
+  hasContext: boolean
+  kind: string | null
+  hasPage: boolean
+  suggestions: readonly string[]
+  onAsk: (question: string) => void
+}) {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 py-8 text-center">
+      <span className="inline-flex size-10 items-center justify-center rounded-full border border-border-subtle bg-surface-muted text-fg-muted">
+        <Icon name="spark" size={18} />
+      </span>
+      <div className="flex flex-col gap-1">
+        <h3 className="m-0 font-heading text-[15px] font-semibold text-fg">
+          {t('notebook.assistantPanel.emptyTitle')}
+        </h3>
+        <Muted className="max-w-[300px]">
+          <EmptyHint hasContext={hasContext} kind={kind} hasPage={hasPage} />
+        </Muted>
+      </div>
+      {suggestions.length > 0 ? (
+        <div className="flex flex-col items-stretch gap-2 self-stretch">
+          {suggestions.map((suggestion) => (
+            <button
+              key={suggestion}
+              type="button"
+              onClick={() => onAsk(suggestion)}
+              className="cursor-pointer rounded-xl border border-border bg-surface px-3 py-2 text-left text-body text-fg hover:bg-surface-hover"
+            >
+              {suggestion}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/** The empty chat's line about what the assistant can already see. */
+function EmptyHint({
+  hasContext,
+  kind,
+  hasPage,
+}: {
+  hasContext: boolean
+  kind: string | null
+  hasPage: boolean
+}) {
+  if (hasContext)
+    return t('notebook.assistantPanel.emptyWithContext', { kind: kind ?? '' })
+
+  return hasPage
+    ? t('notebook.assistantPanel.emptyOnPage')
+    : t('notebook.assistantPanel.emptyNoContext')
+}
+
+/** The three-dot row shown before the answer's first words arrive. */
+function ThinkingRow() {
+  return (
+    <div
+      className="flex items-center gap-2 text-label text-fg-muted"
+      role="status"
+    >
+      <span className="flex gap-1" aria-hidden="true">
+        <span className="size-1.5 animate-bounce rounded-full bg-fg-faint [animation-delay:-0.3s]" />
+        <span className="size-1.5 animate-bounce rounded-full bg-fg-faint [animation-delay:-0.15s]" />
+        <span className="size-1.5 animate-bounce rounded-full bg-fg-faint" />
+      </span>
+      {t('notebook.assistantPanel.thinking')}
+    </div>
+  )
+}
+
+/** An answer's sources, its model note and the copy action. */
+function AnswerFooter({
+  sources,
+  hasLookups,
+  builtIn,
+  copied,
+  onCopy,
+}: {
+  sources: AssistantSource[]
+  hasLookups: boolean
+  builtIn: boolean
+  copied: boolean
+  onCopy: () => void
+}) {
+  return (
+    <>
+      <SourceList sources={sources} hasLookups={hasLookups} />
+      <MessageActions className="text-fg-muted">
+        {builtIn ? (
+          <span className="text-[11px]">
+            {t('notebook.assistantPanel.builtInDeterministicModel')}
+          </span>
+        ) : null}
+        <span className="flex-1" />
+        <button
+          type="button"
+          onClick={() => onCopy()}
+          aria-label={t('common.actions.copy')}
+          title={copied ? t('common.states.copied') : t('common.actions.copy')}
+          className="inline-flex size-6 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-fg-muted hover:bg-surface-hover hover:text-fg"
+        >
+          {copied ? (
+            <Icon name="check" size={13} />
+          ) : (
+            <Icon name="copy" size={13} />
+          )}
+        </button>
+      </MessageActions>
+    </>
+  )
+}
+
+/** The objects an answer leaned on, or the note that it leaned on none. */
+function SourceList({
+  sources,
+  hasLookups,
+}: {
+  sources: AssistantSource[]
+  hasLookups: boolean
+}) {
+  if (sources.length === 0)
+    return hasLookups ? null : (
+      <Muted className="text-[11px]">
+        {t('notebook.assistantPanel.noSheetbaseObjectWas')}
+      </Muted>
+    )
+
+  return (
+    <ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+      {sources.map((source) => (
+        <li key={`${source.kind}:${source.id}`} data-testid="assistant-source">
+          <a
+            href={source.deepLink ?? '#'}
+            title={`${contextKindLabel(source.kind)} · ${source.freshness}${
+              source.pins.length > 0
+                ? ` · ${source.pins.map((pin) => pin.detail).join(' · ')}`
+                : ''
+            }`}
+            className="inline-flex max-w-full items-center gap-1 rounded-full border border-border-subtle bg-surface-muted px-2.5 py-0.5 text-label font-medium text-fg no-underline hover:bg-surface-hover"
+          >
+            <span className="truncate">{source.title || source.id}</span>
+          </a>
+        </li>
+      ))}
+    </ul>
   )
 }

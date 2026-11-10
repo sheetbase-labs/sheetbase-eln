@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { compileFormula } from '@sheetbase-labs/sheetbase-table'
 
 import { env } from '#/env.server'
+import type { JsonValue } from '#/lib/workspace-admin'
 import { getAppSession } from '#/lib/auth'
 import {
   buildPersistedFormulaArtifact,
@@ -54,8 +55,9 @@ export interface FormulaWriteDeps {
   ) => Promise<QueryResult<T>>
   trustedWrite: (
     actor: string,
+    // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The write body is the JSON `apply_trusted_formula_write` accepts; that function's own contract names its keys.
     write: Record<string, unknown>,
-  ) => Promise<unknown>
+  ) => Promise<JsonValue>
 }
 
 type TableContext = {
@@ -152,6 +154,7 @@ export async function executeFormulaWrite(
 
   if (!targetMaps) throw new Error('Formula target map is unavailable.')
 
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type, anti-slop/no-known-value-widening -- The write body is assembled per operation from the parsed formula artifact and its replacement, and is handed straight to `apply_trusted_formula_write`.
   const write: Record<string, unknown> = {
     operation: input.operation,
     target: input.target,
@@ -199,6 +202,12 @@ export async function executeFormulaWrite(
   return deps.trustedWrite(actor, write)
 }
 
+/** A database refusal as `pg` reports it: a SQLSTATE code, and sometimes a status. */
+const codedErrorSchema = z.object({
+  code: z.string().optional(),
+  status: z.number().optional(),
+})
+
 function responseError(status: number, code: string, message: string) {
   return Response.json({ error: { code, message } }, { status })
 }
@@ -237,32 +246,34 @@ export async function handleFormulaWrite(
 
     return Response.json(result)
   } catch (error) {
-    const candidate = error as { code?: string; status?: number }
-
     if (error instanceof FormulaSyntaxError)
       return responseError(422, error.code, error.message)
 
-    if (candidate.code === 'SB001')
+    const candidate = codedErrorSchema.safeParse(error)
+    const code = candidate.success ? candidate.data.code : undefined
+    const status = candidate.success ? candidate.data.status : undefined
+
+    if (code === 'SB001')
       return responseError(
         409,
         'stale_version',
         'Formula data changed; reload and retry.',
       )
 
-    if (candidate.code === '42501' || candidate.status === 403)
+    if (code === '42501' || status === 403)
       return responseError(403, 'forbidden', 'Formula target is unavailable.')
 
-    if (candidate.code === 'P0002')
+    if (code === 'P0002')
       return responseError(
         404,
         'not_found',
         'Formula target row was not found.',
       )
 
-    if (candidate.status === 422 || candidate.code === '22023')
+    if (status === 422 || code === '22023')
       return responseError(
         422,
-        candidate.code ?? 'invalid_formula',
+        code ?? 'invalid_formula',
         error instanceof Error ? error.message : 'Invalid formula.',
       )
 
@@ -297,7 +308,7 @@ const defaultDeps: FormulaWriteDeps = {
       await client.query('BEGIN')
       await client.query('SET LOCAL ROLE formula_writer')
 
-      const result = await client.query<{ result: unknown }>(
+      const result = await client.query<{ result: JsonValue }>(
         'SELECT internal.apply_trusted_formula_write($1,$2::jsonb) result',
         [actor, JSON.stringify(write)],
       )

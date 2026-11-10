@@ -1,4 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
+import type { z } from 'zod'
 
 import { askAssistant, askAssistantSchema } from './assistant'
 import type { AskAssistantResult, AssistantDeps } from './assistant'
@@ -27,8 +28,10 @@ async function loadSession(
   workspaceId: string,
   requestHeaders?: Headers,
 ): Promise<AssistantSession> {
-  const { getCurrentContext } = await import('#/lib/current-user')
-  const { resolveSessionAuth } = await import('#/lib/request-auth')
+  const [{ getCurrentContext }, { resolveSessionAuth }] = await Promise.all([
+    import('#/lib/current-user'),
+    import('#/lib/request-auth'),
+  ])
 
   const headers =
     requestHeaders ??
@@ -210,7 +213,9 @@ export async function resolveAssistantRuntime(
 }
 
 export const askAssistantFn = createServerFn({ method: 'POST' })
-  .validator((input: unknown) => askAssistantSchema.parse(input))
+  .validator((input: z.input<typeof askAssistantSchema>) =>
+    askAssistantSchema.parse(input),
+  )
   .handler(async ({ data }): Promise<AskAssistantResult> => {
     const runtime = await resolveAssistantRuntime(data.workspaceId)
 
@@ -239,7 +244,7 @@ export const askAssistantFn = createServerFn({ method: 'POST' })
  * and gateway as the assistant; never writes.
  */
 export const runPageAiFn = createServerFn({ method: 'POST' })
-  .validator((input: unknown) => pageAiSchema.parse(input))
+  .validator((input: z.input<typeof pageAiSchema>) => pageAiSchema.parse(input))
   .handler(async ({ data }): Promise<PageAiResult> => {
     const runtime = await resolveAssistantRuntime(data.workspaceId)
 

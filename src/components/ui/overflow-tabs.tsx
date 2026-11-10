@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
+import { visibleTabIndexes } from '#/components/ui/overflow-tabs-layout'
 import { TabsList, TabsTab } from '#/components/ui/tabs'
 import { t } from '#/copy'
 import { cn } from '#/lib/utils'
@@ -16,44 +17,6 @@ export interface OverflowTabItem {
   label: React.ReactNode
   /** Trailing count, shown after the label. */
   count?: React.ReactNode
-}
-
-const GAP = 12
-
-/** The More button's width, reserved whenever some tab is moved into it. */
-const MORE_WIDTH = 64
-
-/** Spare room so a tab never ends up a pixel short of its label. */
-const SLACK = 4
-
-/**
- * Which tabs stay in the row. Everything stays when it fits; otherwise the
- * tabs from the end move into the More menu until the rest fit beside it. The
- * selected tab is never the one hidden: it takes the last place in the row.
- */
-export function visibleTabIndexes(
-  widths: readonly number[],
-  available: number,
-  activeIndex: number,
-): number[] {
-  const all = widths.map((_, index) => index)
-
-  const span = (indexes: number[]) =>
-    indexes.reduce((sum, index) => sum + (widths[index] ?? 0), 0) +
-    GAP * Math.max(indexes.length - 1, 0)
-
-  if (span(all) <= available) return all
-
-  for (let keep = widths.length - 1; keep >= 1; keep -= 1) {
-    const head = all.slice(0, keep)
-
-    const row =
-      activeIndex >= keep ? [...head.slice(0, keep - 1), activeIndex] : head
-
-    if (span(row) + GAP + MORE_WIDTH + SLACK <= available) return row
-  }
-
-  return activeIndex >= 0 ? [activeIndex] : [0]
 }
 
 /**
@@ -86,6 +49,7 @@ export function OverflowTabs({
     const read = () => {
       setAvailable(row.clientWidth)
 
+      // SAFETY: every child of the measure row below is one of its own HTML spans, which is the element `offsetWidth` measures.
       const next = [...measure.children].map(
         (child) => (child as HTMLElement).offsetWidth,
       )
@@ -115,7 +79,8 @@ export function OverflowTabs({
       ? items.map((_, index) => index)
       : visibleTabIndexes(widths, available, activeIndex)
 
-  const hidden = items.filter((_, index) => !shown.includes(index))
+  const shownIndexes = new Set(shown)
+  const hidden = items.filter((_, index) => !shownIndexes.has(index))
 
   return (
     <div

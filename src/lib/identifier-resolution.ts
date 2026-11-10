@@ -46,8 +46,11 @@ const resolveIdentifierFn = createServerFn({ method: 'POST' })
     // Static imports cannot work here: this module is reachable from the client
     // bundle (routes import `resolveIdentifierParam`), and the Start import
     // protection rejects a static edge to server-only modules.
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
+    const [{ getRequestHeaders }, { getCurrentContext }] = await Promise.all([
+      import('@tanstack/react-start/server'),
+      import('#/lib/current-user'),
+    ])
+
     const context = await getCurrentContext(getRequestHeaders())
 
     if (!context?.workspace) return null
@@ -110,8 +113,11 @@ export async function resolveIdentifierParam(
 const recordKindFn = createServerFn({ method: 'POST' })
   .validator((input: { ref: string }) => input)
   .handler(async ({ data }): Promise<string | null> => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
+    const [{ getRequestHeaders }, { getCurrentContext }] = await Promise.all([
+      import('@tanstack/react-start/server'),
+      import('#/lib/current-user'),
+    ])
+
     const context = await getCurrentContext(getRequestHeaders())
 
     if (!context?.workspace) return null

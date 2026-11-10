@@ -44,6 +44,8 @@ describe('trailEvidenceSteps', () => {
 describe('saveTrailEvidence', () => {
   it('calls the single server procedure', async () => {
     const rpc = vi.fn(async () => ({ id: 't1' }))
+    // SAFETY: `saveTrailEvidence` only issues the one RPC; the double supplies that method alone, and its answer is the row the procedure returns.
+    // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- The spy fixes its own zero-argument answer, so neither it nor `DataClient` is assignable to the other.
     await saveTrailEvidence({ rpc } as unknown as DataClient, {
       recordId: 'r1',
       steps: [{ href: '/a', title: 'A', at: '2026-10-26T10:00:00Z' }],

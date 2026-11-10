@@ -12,7 +12,7 @@ export function leastRotation(s: string): string {
 
   if (n < 2) return s
   const doubled = s + s
-  const failure = new Array<number>(2 * n).fill(-1)
+  const failure = Array.from<number>({ length: 2 * n }).fill(-1)
   let k = 0
 
   for (let j = 1; j < 2 * n; j++) {

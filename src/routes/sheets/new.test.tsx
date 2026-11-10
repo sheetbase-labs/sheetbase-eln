@@ -6,12 +6,14 @@ import type * as routerModule from '@tanstack/react-router'
 
 import { Route } from './new'
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The page is built by the router's createFileRoute at import time and this suite renders it alone; the double supplies the navigation and links the shell would, with every other export real.
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
   ...(await importOriginal<typeof routerModule>()),
   useNavigate: () => vi.fn(),
   Link: ({ children }: { children: ReactNode }) => <a>{children}</a>,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Project summaries come from the shared data client the page creates at import time, which needs a live PostgREST; the double answers the one read the page makes.
 vi.mock('#/components/projects/project-data', () => ({
   fetchProjectSummaries: async () => [],
 }))
@@ -21,9 +23,18 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
+/** The create-context search keys the page accepts. */
+interface CreateContextSearch {
+  project?: string
+  experiment?: string
+  returnTo?: string
+}
+
+// SAFETY: this route declares `validateSearch` as a function, not as a schema
+// object, so the option holds the callable the router invokes.
 const validate = Route.options.validateSearch as (
-  search: Record<string, unknown>,
-) => Record<string, unknown>
+  search: CreateContextSearch,
+) => CreateContextSearch
 
 describe('/sheets/new search', () => {
   it('accepts the shared create-context params', () => {
@@ -41,6 +52,8 @@ describe('/sheets/new search', () => {
   })
 
   it('starts a local sheet by focusing and scrolling only its own form', () => {
+    // SAFETY: the page reads only the workspace id from its route context;
+    // this is the context the shell provides.
     vi.spyOn(Route, 'useRouteContext').mockReturnValue({
       context: { workspace: { id: 'w1' } },
     } as ReturnType<typeof Route.useRouteContext>)
@@ -59,9 +72,12 @@ describe('/sheets/new search', () => {
       </QueryClientProvider>,
     )
 
-    const firstName = within(first.container).getByRole('textbox', {
-      name: 'Name',
-    })
+    const firstName = within(first.container).getByRole<HTMLInputElement>(
+      'textbox',
+      {
+        name: 'Name',
+      },
+    )
 
     const secondName = within(second.container).getByRole('textbox', {
       name: 'Name',
@@ -78,7 +94,7 @@ describe('/sheets/new search', () => {
     expect(document.activeElement).toBe(secondName)
     expect(secondScroll).toHaveBeenCalledTimes(1)
     expect(firstScroll).not.toHaveBeenCalled()
-    expect((firstName as HTMLInputElement).value).toBe('Keep this draft')
+    expect(firstName.value).toBe('Keep this draft')
     expect(
       within(second.container).getByRole('button', {
         name: 'Create sheet and paste',

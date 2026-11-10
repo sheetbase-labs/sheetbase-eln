@@ -215,7 +215,7 @@ function LinkToExperiment({ dataset }: { dataset: DatasetListRow }) {
       void queryClient.invalidateQueries({ queryKey: ['ui-port'] })
       toast(t('data.datasetOverview.datasetLinkedExperiment'))
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast(t('data.datasetOverview.couldLinkDataset'), {
         description:
           error instanceof Error

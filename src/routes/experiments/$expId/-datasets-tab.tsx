@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
@@ -37,12 +38,47 @@ import { t } from '#/copy'
 const PREVIEW_ROWS = 11
 const PREVIEW_COLUMNS = 8
 
-function cellText(value: unknown): string {
+const CELL_NUMBER = z.number()
+const CELL_TEXT = z.string()
+
+/** The provenance rows the latest import adds, or none when there is no import. */
+function importFacts(
+  data: LatestImport | null | undefined,
+  userLabel: (userId: string) => string,
+): Array<[string, React.ReactNode]> {
+  if (!data) return []
+
+  return [
+    [t('projects.expDatasets.imported'), formatDate(data.importedAt)],
+    [t('projects.expDatasets.triggeredBy'), data.by ? userLabel(data.by) : '—'],
+    [t('projects.expDatasets.parser'), data.parser ?? '—'],
+    [
+      t('projects.expDatasets.sha'),
+      data.checksum ? (
+        <span key="sha" className="mono">
+          {data.checksum.slice(0, 4)}…{data.checksum.slice(-4)}
+        </span>
+      ) : (
+        '—'
+      ),
+    ],
+  ]
+}
+
+/** A grid cell's display text; a non-scalar cell keeps its JSON form. */
+function cellText(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A cell holds whatever JSON the stored table has; the scalar checks below decide its display form.
+  value: unknown,
+): string {
   if (value == null) return '—'
 
-  if (typeof value === 'number') return String(value)
+  const numeric = CELL_NUMBER.safeParse(value).data
 
-  if (typeof value === 'string') return value
+  if (numeric !== undefined) return String(numeric)
+
+  const text = CELL_TEXT.safeParse(value).data
+
+  if (text !== undefined) return text
 
   return JSON.stringify(value)
 }
@@ -55,7 +91,11 @@ function sourceText(files: ExperimentFile[], identifier: string): string {
       .filter((f) => f.kind === 'dataset' && f.identifier === identifier)
       .flatMap((f) =>
         f.receipt.instrument
-          ? [f.receipt.instrument.split(' ').at(-1) as string]
+          ? [
+              f.receipt.instrument.slice(
+                f.receipt.instrument.lastIndexOf(' ') + 1,
+              ),
+            ]
           : [],
       ),
   )
@@ -185,12 +225,15 @@ function DatasetRowsPreview({ dataset }: { dataset: DatasetListRow }) {
                 </tr>
               </thead>
               <tbody>
-                {shown.map((row, index) => {
-                  const rowId = row[CHART_ROW_ID_KEY] as string | undefined
+                {shown.map((row) => {
+                  const rowId = CELL_TEXT.safeParse(row[CHART_ROW_ID_KEY]).data
                   const hit = flags.find((f) => f.rowId === rowId)
 
                   return (
-                    <tr key={index} className="border-t border-border-subtle">
+                    <tr
+                      key={rowNumber.get(row)}
+                      className="border-t border-border-subtle"
+                    >
                       <td className="h-8 px-3 text-fg-muted">
                         {rowNumber.get(row)}
                       </td>
@@ -243,6 +286,14 @@ function DatasetRowsPreview({ dataset }: { dataset: DatasetListRow }) {
 
 /** The newest committed import of a dataset: when, by whom, with which parser
  * and file hash. */
+/** The import this screen's provenance rows describe. */
+type LatestImport = {
+  importedAt: string
+  by: string | null
+  parser: string | null
+  checksum: string | null
+}
+
 function useLatestImport(datasetId: string) {
   return useQuery({
     queryKey: ['ui-port', 'experiment-datasets', 'import', datasetId],
@@ -384,29 +435,7 @@ function DatasetFacts({
                   '—'
                 ),
               ],
-              ...(data
-                ? ([
-                    [
-                      t('projects.expDatasets.imported'),
-                      formatDate(data.importedAt),
-                    ],
-                    [
-                      t('projects.expDatasets.triggeredBy'),
-                      data.by ? userLabel(data.by) : '—',
-                    ],
-                    [t('projects.expDatasets.parser'), data.parser ?? '—'],
-                    [
-                      t('projects.expDatasets.sha'),
-                      data.checksum ? (
-                        <span key="sha" className="mono">
-                          {data.checksum.slice(0, 4)}…{data.checksum.slice(-4)}
-                        </span>
-                      ) : (
-                        '—'
-                      ),
-                    ],
-                  ] as Array<[string, React.ReactNode]>)
-                : []),
+              ...importFacts(data, userLabel),
             ]}
           />
         </InspectorSection>

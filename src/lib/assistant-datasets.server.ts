@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import {
   DATASETS_PROPOSE_TOOL_NAMES,
   DATASET_CLEAR_FLAG_TOOL,
@@ -58,7 +60,7 @@ const NOTE =
 export function isDatasetsProposalTool(
   name: string,
 ): name is DatasetsProposeToolName {
-  return (DATASETS_PROPOSE_TOOL_NAMES as readonly string[]).includes(name)
+  return DATASETS_PROPOSE_TOOL_NAMES.some((tool) => tool === name)
 }
 
 export function datasetsProposalDefs(): ProviderToolDef[] {
@@ -311,6 +313,7 @@ function card(
 
 export async function buildDatasetsProposal(
   name: DatasetsProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Each branch decodes the arguments with that tool's own schema, so a single domain type here would be the union of every tool's input before it has been validated.
   args: unknown,
   context: LabToolContext,
 ): Promise<DatasetsOutcome> {
@@ -713,7 +716,13 @@ export async function buildDatasetsProposal(
       const field = await datasetField(context, data, input.field)
 
       if (!field.ok) return fail(field.message)
-      const before = (field.value.quantity as { unit?: string } | null)?.unit
+
+      const quantity = z
+        .object({ unit: z.string().optional() })
+        .nullish()
+        .safeParse(field.value.quantity)
+
+      const before = quantity.success ? quantity.data?.unit : undefined
 
       return card(
         name,

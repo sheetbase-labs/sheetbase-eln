@@ -20,19 +20,21 @@ import { operationAccess, usePluginPoints } from './use-plugin-points'
 export function usePluginFieldTypeErrors(
   modelKey: string,
   fields: readonly ModelFieldDefinition[],
-  values: Record<string, string | boolean>,
+  values: Record<string, string | boolean | undefined>,
 ): Record<string, string> {
   const points = usePluginPoints()
   const links = useFieldPluginTypes(modelKey)
 
   return React.useMemo(() => {
     const errors: Record<string, string> = {}
+    const fieldByName = new Map(fields.map((f) => [f.fieldName, f]))
 
     for (const link of links.data ?? []) {
-      const field = fields.find((f) => f.fieldName === link.field_name)
+      const field = fieldByName.get(link.field_name)
       const raw = values[link.field_name]
 
-      if (!field || typeof raw !== 'string') continue
+      // A ticked box, or a field the form does not hold, has no text to check.
+      if (!field || raw === undefined || raw === true || raw === false) continue
 
       const type = points.fieldTypes.find(
         (item) =>

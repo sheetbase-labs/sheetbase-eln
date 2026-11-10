@@ -7,7 +7,10 @@
  * Reads go straight to the tables under row-level security; every change goes
  * through an RPC so who may do what, and who is told, stay in the database.
  */
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
+import type { ModelFieldRecordValues } from '#/lib/model-fields'
 
 export const requestKeys = {
   all: ['requests'] as const,
@@ -27,10 +30,12 @@ export type RequestStatus = (typeof REQUEST_STATUSES)[number]
 
 export type RequestDecision = Exclude<RequestStatus, 'requested'>
 
+const requestStatusSchema = z.enum(REQUEST_STATUSES)
+
 export function asRequestStatus(value: string): RequestStatus {
-  return (REQUEST_STATUSES as readonly string[]).includes(value)
-    ? (value as RequestStatus)
-    : 'requested'
+  const status = requestStatusSchema.safeParse(value)
+
+  return status.success ? status.data : 'requested'
 }
 
 /** A request is open until it is declined or completed. */
@@ -105,7 +110,7 @@ export interface RequestRow {
   title: string
   kind: string
   status: RequestStatus
-  custom_fields: Record<string, unknown> | null
+  custom_fields: ModelFieldRecordValues['customFields'] | null
   created_at: string
   created_by_user_id: string
   project_id: string | null
@@ -121,7 +126,7 @@ interface RequestRecordWire {
   title: string
   kind: string
   status: string
-  custom_fields: Record<string, unknown> | null
+  custom_fields: ModelFieldRecordValues['customFields'] | null
   created_at: string
   created_by_user_id: string
   project_id: string | null
@@ -192,7 +197,7 @@ export async function submitRequest(
   input: {
     modelKey: string
     title: string
-    customFields: Record<string, unknown>
+    customFields: ModelFieldRecordValues['customFields']
     projectId: string | null
     note: string
   },
@@ -275,6 +280,7 @@ export async function createStarterRequest(
   })
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught throw is untyped by definition; an Error supplies its message and anything else falls back.
 export function messageOf(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
 }

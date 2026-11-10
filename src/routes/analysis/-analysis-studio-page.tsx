@@ -138,6 +138,7 @@ import {
 } from '#/lib/analysis-studio-data'
 import type {
   AnalysisSourceResolution,
+  AnalysisSourceState,
   AnalysisViewCitation,
   AnalysisViewSourceStatus,
   AnalysisViewWire,
@@ -206,7 +207,10 @@ export function AnalysisStudio() {
     staleTime: 30_000,
   })
 
-  const datasets = summariesQuery.data ?? []
+  const datasets = useMemo(
+    () => summariesQuery.data ?? [],
+    [summariesQuery.data],
+  )
 
   const viewsQuery = useQuery({
     queryKey: analysisStudioQueryKeys.views,
@@ -214,7 +218,7 @@ export function AnalysisStudio() {
     staleTime: 10_000,
   })
 
-  const views = viewsQuery.data ?? []
+  const views = useMemo(() => viewsQuery.data ?? [], [viewsQuery.data])
 
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(
     search.dataset ?? null,
@@ -267,6 +271,14 @@ export function AnalysisStudio() {
   const [exportSettings, setExportSettings] = useState<ExportSettings>(
     DEFAULT_EXPORT_SETTINGS,
   )
+
+  // The saved-view loads below read the export settings of the moment without
+  // re-running when the person edits them; this snapshot carries the latest
+  // value, and the effect keeps it in step before those loads run.
+  const exportSettingsSnapshot = useRef<ExportSettings>(DEFAULT_EXPORT_SETTINGS)
+  useEffect(() => {
+    exportSettingsSnapshot.current = exportSettings
+  }, [exportSettings])
 
   const [cleanChart, setCleanChart] = useState('')
 
@@ -358,6 +370,17 @@ export function AnalysisStudio() {
     [datasets, selectedDatasetId],
   )
 
+  // The default-spec rebuild below is keyed on the dataset's id, not the
+  // object: a background refetch of the list hands back new objects for the
+  // same dataset, and rebuilding then would drop the saved view just opened.
+  const selectedDatasetSnapshot = useRef<
+    Parameters<typeof buildDefaultChartSpec>[0] | null
+  >(null)
+
+  useEffect(() => {
+    selectedDatasetSnapshot.current = selectedDataset ?? null
+  }, [selectedDataset])
+
   const selectedSource = useMemo(
     () => (selectedDataset ? toCanonicalDatasetSource(selectedDataset) : null),
     [selectedDataset],
@@ -372,11 +395,13 @@ export function AnalysisStudio() {
   // whose dataset the user just switched to (loadView hands it over here so
   // the rebuild below cannot discard it).
   useEffect(() => {
-    if (!selectedDataset) return
+    const dataset = selectedDatasetSnapshot.current
+
+    if (!dataset) return
     const appliedOn = requestedViewAppliedOnRef.current
     requestedViewAppliedOnRef.current = null
 
-    if (appliedOn === selectedDataset.id && !pendingViewRef.current) return
+    if (appliedOn === dataset.id && !pendingViewRef.current) return
     const pending = pendingViewRef.current
 
     if (pending) {
@@ -389,13 +414,13 @@ export function AnalysisStudio() {
       markClean(
         pending.charts[0],
         pending.name,
-        pending.export_settings ?? exportSettings,
+        pending.export_settings ?? exportSettingsSnapshot.current,
       )
 
       return
     }
 
-    const next = buildDefaultChartSpec(selectedDataset)
+    const next = buildDefaultChartSpec(dataset)
 
     if (next && search.x) next.fields.x = { fieldId: search.x }
 
@@ -411,10 +436,9 @@ export function AnalysisStudio() {
     setSpec(next)
     setSelectedViewId(null)
     setViewName('')
-    markClean(next, '', exportSettings)
-    // Keyed on the dataset's id, not the object: a background refetch of the
-    // list hands back new objects for the same dataset, and rebuilding then
-    // would drop the saved view the user just opened.
+    markClean(next, '', exportSettingsSnapshot.current)
+    // Keyed on the dataset's id: the dataset object itself arrives again on
+    // every list refetch, and the guard above is what keeps the open view.
   }, [selectedDataset?.id, search.x, search.y])
   // Build a default compare config when the dataset (or its columns) change.
   // Explicit source fields only — never label-inferred.
@@ -652,7 +676,11 @@ export function AnalysisStudio() {
     setSpec(view.charts[0])
 
     if (view.export_settings) setExportSettings(view.export_settings)
-    markClean(view.charts[0], view.name, view.export_settings ?? exportSettings)
+    markClean(
+      view.charts[0],
+      view.name,
+      view.export_settings ?? exportSettingsSnapshot.current,
+    )
   }
 
   // `?view=<id>` (the read-only analysis route's "Edit in studio" link): load
@@ -686,7 +714,11 @@ export function AnalysisStudio() {
     setSpec(view.charts[0])
 
     if (view.export_settings) setExportSettings(view.export_settings)
-    markClean(view.charts[0], view.name, view.export_settings ?? exportSettings)
+    markClean(
+      view.charts[0],
+      view.name,
+      view.export_settings ?? exportSettingsSnapshot.current,
+    )
   }, [views, datasets, selectedDatasetId, summariesQuery.isLoading])
 
   // R5-STUDIO-03: staleness and citations are answered by the canonical
@@ -1964,184 +1996,29 @@ export function ExportPanel({
       <h2 id={`${id}-title`} className="text-sm font-semibold">
         {t('common.actions.export')}
       </h2>
-      {mode === 'chart' ? null : (
-        <Notice
-          tone="info"
-          title={t('data.analysisStudio.exportUsesChartBuilder')}
-        >
-          {t('data.analysisStudio.chartDataTableSpecification')}
-        </Notice>
-      )}
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div>
-          <label className="text-label text-fg-muted" htmlFor={`${id}-format`}>
-            {t('data.analysisStudio.format')}
-          </label>
-          <Select
-            id={`${id}-format`}
-            aria-label={t('data.analysisStudio.ariaExportFormat')}
-            value={settings.format}
-            onChange={(e) => {
-              const decoded = exportFormatSchema.safeParse(e.target.value)
-
-              if (decoded.success) setSetting('format', decoded.data)
-            }}
-            className="h-8 bg-surface"
-          >
-            <option value="json">
-              {t('data.analysisStudio.jsonSpecProvenance')}
-            </option>
-            <option value="csv">{t('data.analysisStudio.csvDataTable')}</option>
-            <option value="svg">
-              {t('data.analysisStudio.svgChartImage')}
-            </option>
-            <option value="png">
-              {t('data.analysisStudio.pngPublicationRaster')}
-            </option>
-          </Select>
-        </div>
-        <div>
-          <label className="text-label text-fg-muted" htmlFor={`${id}-theme`}>
-            {t('data.analysisStudio.theme')}
-          </label>
-          <Select
-            id={`${id}-theme`}
-            aria-label={t('data.analysisStudio.ariaExportTheme')}
-            value={settings.theme}
-            onChange={(e) => {
-              const decoded = exportThemeSchema.safeParse(e.target.value)
-
-              if (decoded.success) setSetting('theme', decoded.data)
-            }}
-            className="h-8 bg-surface"
-          >
-            <option value="light">{t('data.analysisStudio.light')}</option>
-            <option value="dark">{t('data.analysisStudio.dark')}</option>
-          </Select>
-        </div>
-        <div>
-          <label className="text-label text-fg-muted" htmlFor={`${id}-width`}>
-            {t('data.analysisStudio.widthPx')}
-          </label>
-          <Input
-            id={`${id}-width`}
-            aria-label={t('data.analysisStudio.ariaExportWidth')}
-            type="number"
-            min={320}
-            max={4096}
-            value={settings.width}
-            onChange={(e) =>
-              setSetting('width', Number(e.target.value) || settings.width)
-            }
-            className="h-8 bg-surface"
-          />
-        </div>
-        <div>
-          <label className="text-label text-fg-muted" htmlFor={`${id}-height`}>
-            {t('data.analysisStudio.heightPx')}
-          </label>
-          <Input
-            id={`${id}-height`}
-            aria-label={t('data.analysisStudio.ariaExportHeight')}
-            type="number"
-            min={240}
-            max={4096}
-            value={settings.height}
-            onChange={(e) =>
-              setSetting('height', Number(e.target.value) || settings.height)
-            }
-            className="h-8 bg-surface"
-          />
-        </div>
-      </div>
-      <div className="flex grid-cols-[auto_1fr] items-center gap-2">
-        <input
-          id={`${id}-provenance`}
-          type="checkbox"
-          checked={settings.includeProvenance}
-          onChange={(e) => setSetting('includeProvenance', e.target.checked)}
-        />
-        <label
-          className="text-label text-fg-muted"
-          htmlFor={`${id}-provenance`}
-        >
-          {t('data.analysisStudio.includeOwnerVersionSources')}
-        </label>
-      </div>
-      <Button
-        size="sm"
-        onClick={doExport}
-        className="w-full"
-        disabled={mode !== 'chart'}
-      >
-        <Icon name="download" size={14} />{' '}
-        {t('data.analysisStudio.export', {
-          toUpperCase: settings.format.toUpperCase(),
-        })}
-      </Button>
-      <Button
-        size="sm"
-        variant="secondary"
-        className="w-full"
-        onClick={() => setCiteOpen(true)}
-      >
-        {t('data.analysisStudio.citeNotebook')}
-      </Button>
+      {mode === 'chart' ? null : <ExportModeNotice />}
+      <ExportSettingsGrid id={id} settings={settings} onChange={setSetting} />
+      <ProvenanceToggle
+        id={id}
+        checked={settings.includeProvenance}
+        onChange={(checked) => setSetting('includeProvenance', checked)}
+      />
+      <ExportActions
+        format={settings.format}
+        canExport={mode === 'chart'}
+        onExport={() => void doExport()}
+        onCite={() => setCiteOpen(true)}
+      />
       {citeOpen ? (
-        <Dialog open onOpenChange={(o) => (o ? undefined : setCiteOpen(false))}>
-          <DialogContent className="w-[min(560px,calc(100vw-32px))]">
-            <DialogHeader
-              title={t('data.analysisStudio.saveCite')}
-              description={t('data.analysisStudio.savesAnalysisFrozenVersion')}
-            />
-            <DialogBody>
-              <label className="flex flex-col gap-1 text-label">
-                <span className="font-medium text-fg">
-                  {t('data.analysisStudio.caption')}
-                  <span aria-hidden="true" className="text-fg-muted">
-                    {' '}
-                    *
-                  </span>
-                </span>
-                <Input
-                  autoFocus
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  placeholder={t('data.analysisStudio.placeholderEGStepYield')}
-                />
-              </label>
-              <div className="min-h-[220px] rounded-md border border-border">
-                <RecordPicker
-                  allowed={['Experiment']}
-                  exclude={[]}
-                  onPick={(items) => setTarget(items[0] ?? null)}
-                />
-              </div>
-              {target ? (
-                <span className="text-label text-fg-muted">
-                  {t('data.analysisStudio.citingInto', {
-                    identifier: target.identifier,
-                    name: target.name,
-                  })}
-                </span>
-              ) : null}
-            </DialogBody>
-            <DialogFooter>
-              <DialogClose render={<Button type="button" />}>
-                {t('common.actions.cancel')}
-              </DialogClose>
-              <Button
-                variant="primary"
-                disabled={citing || !caption.trim() || !target}
-                onClick={() => void cite()}
-              >
-                {citing
-                  ? t('data.analysisStudio.citing')
-                  : t('data.analysisStudio.cite')}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <CiteNotebookDialog
+          caption={caption}
+          onCaption={setCaption}
+          target={target}
+          onTarget={setTarget}
+          citing={citing}
+          onCite={() => void cite()}
+          onClose={() => setCiteOpen(false)}
+        />
       ) : null}
     </div>
   )
@@ -2228,7 +2105,7 @@ export function AnalysisPreview({
   const resultRowCount = datasetQuery.data?.rows.length ?? 0
   const excessiveSize = resultRowCount > ANALYSIS_MAX_RESULT_ROWS
 
-  const summaries = useMemo(
+  const summaries = useMemo<SeriesSummary[]>(
     () =>
       analysisMaterialised.series.flatMap((series) => {
         const valid = series.points.filter(
@@ -2270,43 +2147,12 @@ export function AnalysisPreview({
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 px-3 py-1">
-          <div className="flex items-center gap-2 text-xs text-fg-muted">
-            <Badge variant="kind">
-              {datasetQuery.isLoading
-                ? t('common.states.loading')
-                : `${formatCount(resultRowCount)} rows`}
-            </Badge>
-            {spec.transformations.length > 0 ? (
-              <Badge variant="kind">
-                <Icon name="sigma" className="size-3" aria-hidden="true" />
-                {spec.transformations.length} transform
-                {spec.transformations.length === 1 ? '' : 's'}
-              </Badge>
-            ) : null}
-            {summaries.slice(0, 3).map((summary) => (
-              <span
-                key={summary.identifier}
-                className="inline-flex items-center gap-1 text-xs"
-              >
-                <span
-                  className="size-2 rounded-full"
-                  style={{ backgroundColor: summary.colour }}
-                />
-                <span className="truncate">{summary.label}</span>
-                <span className="font-mono font-semibold tabular-nums">
-                  {formatScientific(summary.lastMean)}
-                </span>
-              </span>
-            ))}
-            {summaries[0]?.foldChange ? (
-              <span className="text-xs text-fg-muted">
-                {t('data.analysisStudio.foldChange', {
-                  toFixed: summaries[0].foldChange.toFixed(1),
-                  direction: summaries[0].direction,
-                })}
-              </span>
-            ) : null}
-          </div>
+          <PreviewSummaryBadges
+            loading={datasetQuery.isLoading}
+            rowCount={resultRowCount}
+            transformationCount={spec.transformations.length}
+            summaries={summaries}
+          />
         </div>
 
         {/* Recoverable error / warning states surfaced clearly. */}
@@ -2326,93 +2172,19 @@ export function AnalysisPreview({
             </ul>
           </div>
         ) : null}
-        {staleDetail ? (
-          <div
-            role="status"
-            className="mx-4 mb-2 flex flex-wrap items-start gap-2 rounded-md border border-warning-border bg-warning-wash p-3 text-xs"
-          >
-            <Icon
-              name="warn"
-              size={16}
-              className="mt-0.5 text-warning-text"
-              aria-hidden="true"
-            />
-            <div className="min-w-[12rem] flex-1 space-y-1">
-              <p>{staleDetail}</p>
-              {movedSources.slice(1).map((item) => (
-                <p key={item.datasetId} className="text-fg-muted">
-                  {item.detail}
-                </p>
-              ))}
-              {sourceStatus?.acknowledged ? (
-                <p className="text-fg-muted">
-                  {t('data.analysisStudio.keepingPinnedVersionsAcknowledged', {
-                    slice: sourceStatus.acknowledged.at.slice(0, 10),
-                    viewVersion: sourceStatus.acknowledged.viewVersion,
-                  })}
-                </p>
-              ) : null}
-              {sourceStatus && sourceStatus.citedByCount > 0 ? (
-                <p className="text-fg-muted">
-                  {t('data.analysisStudio.citeAnalysisSoKeeps', {
-                    count: sourceStatus.citedByCount,
-                  })}
-                </p>
-              ) : null}
-              {sourceStatus && sourceStatus.removedCount > 0 ? (
-                <p className="text-fg-muted">
-                  {t('data.analysisStudio.sourceDatasetLongerAvailable')}
-                </p>
-              ) : null}
-              {sourceStatusError ? (
-                <p className="text-fg-muted">
-                  {t('data.analysisStudio.canonicalSourceCheckCould', {
-                    sourceStatusError,
-                  })}
-                </p>
-              ) : null}
-            </div>
-            {selectedViewId && sourceStatus ? (
-              <div className="flex shrink-0 items-center gap-1.5">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  disabled={resolving}
-                  onClick={() => onResolve('keep')}
-                >
-                  {firstMoved
-                    ? t('data.analysisStudio.keepR', {
-                        revision: firstMoved.pinned.revision,
-                      })
-                    : t('data.analysisStudio.keepPinned')}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="primary"
-                  disabled={resolving || !canUpdate}
-                  aria-describedby={`${id}-stale-update-reason`}
-                  onClick={() => onResolve('update')}
-                >
-                  {liveTarget
-                    ? t('data.analysisStudio.updateR', {
-                        revision: liveTarget.live?.revision ?? '',
-                      })
-                    : t('data.analysisStudio.updateCurrent')}
-                </Button>
-                {!canUpdate ? (
-                  <span
-                    id={`${id}-stale-update-reason`}
-                    className="max-w-[14rem] text-fg-muted"
-                  >
-                    {t('data.analysisStudio.updatingPlaceUnavailableWhile')}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+        <SourceMovedBanner
+          staleDetail={staleDetail}
+          movedSources={movedSources}
+          sourceStatus={sourceStatus}
+          sourceStatusError={sourceStatusError}
+          selectedViewId={selectedViewId}
+          resolving={resolving}
+          canUpdate={canUpdate}
+          firstMoved={firstMoved}
+          liveTarget={liveTarget}
+          describedById={`${id}-stale-update-reason`}
+          onResolve={onResolve}
+        />
         {excessiveSize ? (
           <div
             role="status"
@@ -2782,3 +2554,444 @@ export function EmptyAnalysisState({
 }
 
 export { CHART_PALETTE, CHART_SPEC_VERSION }
+
+/** The export format, theme, size and provenance controls. */
+function ExportSettingsGrid({
+  id,
+  settings,
+  onChange,
+}: {
+  id: string
+  settings: ExportSettings
+  onChange: <TKey extends keyof ExportSettings>(
+    key: TKey,
+    value: ExportSettings[TKey],
+  ) => void
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2 text-xs">
+      <div>
+        <label className="text-label text-fg-muted" htmlFor={`${id}-format`}>
+          {t('data.analysisStudio.format')}
+        </label>
+        <Select
+          id={`${id}-format`}
+          aria-label={t('data.analysisStudio.ariaExportFormat')}
+          value={settings.format}
+          onChange={(e) => {
+            const decoded = exportFormatSchema.safeParse(e.target.value)
+
+            if (decoded.success) onChange('format', decoded.data)
+          }}
+          className="h-8 bg-surface"
+        >
+          <option value="json">
+            {t('data.analysisStudio.jsonSpecProvenance')}
+          </option>
+          <option value="csv">{t('data.analysisStudio.csvDataTable')}</option>
+          <option value="svg">{t('data.analysisStudio.svgChartImage')}</option>
+          <option value="png">
+            {t('data.analysisStudio.pngPublicationRaster')}
+          </option>
+        </Select>
+      </div>
+      <div>
+        <label className="text-label text-fg-muted" htmlFor={`${id}-theme`}>
+          {t('data.analysisStudio.theme')}
+        </label>
+        <Select
+          id={`${id}-theme`}
+          aria-label={t('data.analysisStudio.ariaExportTheme')}
+          value={settings.theme}
+          onChange={(e) => {
+            const decoded = exportThemeSchema.safeParse(e.target.value)
+
+            if (decoded.success) onChange('theme', decoded.data)
+          }}
+          className="h-8 bg-surface"
+        >
+          <option value="light">{t('data.analysisStudio.light')}</option>
+          <option value="dark">{t('data.analysisStudio.dark')}</option>
+        </Select>
+      </div>
+      <div>
+        <label className="text-label text-fg-muted" htmlFor={`${id}-width`}>
+          {t('data.analysisStudio.widthPx')}
+        </label>
+        <Input
+          id={`${id}-width`}
+          aria-label={t('data.analysisStudio.ariaExportWidth')}
+          type="number"
+          min={320}
+          max={4096}
+          value={settings.width}
+          onChange={(e) =>
+            onChange('width', Number(e.target.value) || settings.width)
+          }
+          className="h-8 bg-surface"
+        />
+      </div>
+      <div>
+        <label className="text-label text-fg-muted" htmlFor={`${id}-height`}>
+          {t('data.analysisStudio.heightPx')}
+        </label>
+        <Input
+          id={`${id}-height`}
+          aria-label={t('data.analysisStudio.ariaExportHeight')}
+          type="number"
+          min={240}
+          max={4096}
+          value={settings.height}
+          onChange={(e) =>
+            onChange('height', Number(e.target.value) || settings.height)
+          }
+          className="h-8 bg-surface"
+        />
+      </div>
+    </div>
+  )
+}
+
+/** Saves the analysis into a notebook as a frozen figure, with its caption. */
+function CiteNotebookDialog({
+  caption,
+  onCaption,
+  target,
+  onTarget,
+  citing,
+  onCite,
+  onClose,
+}: {
+  caption: string
+  onCaption: (caption: string) => void
+  target: PickerItem | null
+  onTarget: (target: PickerItem | null) => void
+  citing: boolean
+  onCite: () => void
+  onClose: () => void
+}) {
+  return (
+    <Dialog open onOpenChange={(o) => (o ? undefined : onClose())}>
+      <DialogContent className="w-[min(560px,calc(100vw-32px))]">
+        <DialogHeader
+          title={t('data.analysisStudio.saveCite')}
+          description={t('data.analysisStudio.savesAnalysisFrozenVersion')}
+        />
+        <DialogBody>
+          <label className="flex flex-col gap-1 text-label">
+            <span className="font-medium text-fg">
+              {t('data.analysisStudio.caption')}
+              <span aria-hidden="true" className="text-fg-muted">
+                {' '}
+                *
+              </span>
+            </span>
+            <Input
+              autoFocus
+              value={caption}
+              onChange={(e) => onCaption(e.target.value)}
+              placeholder={t('data.analysisStudio.placeholderEGStepYield')}
+            />
+          </label>
+          <div className="min-h-[220px] rounded-md border border-border">
+            <RecordPicker
+              allowed={['Experiment']}
+              exclude={[]}
+              onPick={(items) => onTarget(items[0] ?? null)}
+            />
+          </div>
+          {target ? (
+            <span className="text-label text-fg-muted">
+              {t('data.analysisStudio.citingInto', {
+                identifier: target.identifier,
+                name: target.name,
+              })}
+            </span>
+          ) : null}
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose render={<Button type="button" />}>
+            {t('common.actions.cancel')}
+          </DialogClose>
+          <Button
+            variant="primary"
+            disabled={citing || !caption.trim() || !target}
+            onClick={() => onCite()}
+          >
+            {citing
+              ? t('data.analysisStudio.citing')
+              : t('data.analysisStudio.cite')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Why the loaded view's pinned sources moved, and how to settle them. */
+function SourceMovedBanner({
+  staleDetail,
+  movedSources,
+  sourceStatus,
+  sourceStatusError,
+  selectedViewId,
+  resolving,
+  canUpdate,
+  firstMoved,
+  liveTarget,
+  describedById,
+  onResolve,
+}: {
+  staleDetail: string | null
+  movedSources: AnalysisSourceState[]
+  sourceStatus: AnalysisViewSourceStatus | null
+  sourceStatusError: string | null
+  selectedViewId: string | null
+  resolving: boolean
+  canUpdate: boolean
+  firstMoved: AnalysisSourceState | undefined
+  liveTarget: AnalysisSourceState | undefined
+  describedById: string
+  onResolve: (resolution: AnalysisSourceResolution) => void
+}) {
+  if (!staleDetail) return null
+
+  return (
+    <div
+      role="status"
+      className="mx-4 mb-2 flex flex-wrap items-start gap-2 rounded-md border border-warning-border bg-warning-wash p-3 text-xs"
+    >
+      <Icon
+        name="warn"
+        size={16}
+        className="mt-0.5 text-warning-text"
+        aria-hidden="true"
+      />
+      <MovedSourceNotes
+        staleDetail={staleDetail}
+        movedSources={movedSources}
+        sourceStatus={sourceStatus}
+        sourceStatusError={sourceStatusError}
+      />
+      {selectedViewId && sourceStatus ? (
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={resolving}
+            onClick={() => onResolve('keep')}
+          >
+            {firstMoved
+              ? t('data.analysisStudio.keepR', {
+                  revision: firstMoved.pinned.revision,
+                })
+              : t('data.analysisStudio.keepPinned')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="primary"
+            disabled={resolving || !canUpdate}
+            aria-describedby={describedById}
+            onClick={() => onResolve('update')}
+          >
+            {liveTarget
+              ? t('data.analysisStudio.updateR', {
+                  revision: liveTarget.live?.revision ?? '',
+                })
+              : t('data.analysisStudio.updateCurrent')}
+          </Button>
+          {!canUpdate ? (
+            <span id={describedById} className="max-w-[14rem] text-fg-muted">
+              {t('data.analysisStudio.updatingPlaceUnavailableWhile')}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/** The moved sources' own lines: what changed, what is acknowledged, what blocks. */
+function MovedSourceNotes({
+  staleDetail,
+  movedSources,
+  sourceStatus,
+  sourceStatusError,
+}: {
+  staleDetail: string
+  movedSources: AnalysisSourceState[]
+  sourceStatus: AnalysisViewSourceStatus | null
+  sourceStatusError: string | null
+}) {
+  return (
+    <div className="min-w-[12rem] flex-1 space-y-1">
+      <p>{staleDetail}</p>
+      {movedSources.slice(1).map((item) => (
+        <p key={item.datasetId} className="text-fg-muted">
+          {item.detail}
+        </p>
+      ))}
+      {sourceStatus?.acknowledged ? (
+        <p className="text-fg-muted">
+          {t('data.analysisStudio.keepingPinnedVersionsAcknowledged', {
+            slice: sourceStatus.acknowledged.at.slice(0, 10),
+            viewVersion: sourceStatus.acknowledged.viewVersion,
+          })}
+        </p>
+      ) : null}
+      {sourceStatus && sourceStatus.citedByCount > 0 ? (
+        <p className="text-fg-muted">
+          {t('data.analysisStudio.citeAnalysisSoKeeps', {
+            count: sourceStatus.citedByCount,
+          })}
+        </p>
+      ) : null}
+      {sourceStatus && sourceStatus.removedCount > 0 ? (
+        <p className="text-fg-muted">
+          {t('data.analysisStudio.sourceDatasetLongerAvailable')}
+        </p>
+      ) : null}
+      {sourceStatusError ? (
+        <p className="text-fg-muted">
+          {t('data.analysisStudio.canonicalSourceCheckCould', {
+            sourceStatusError,
+          })}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
+/** The panel's two actions: run the export, or save the analysis to a notebook. */
+function ExportActions({
+  format,
+  canExport,
+  onExport,
+  onCite,
+}: {
+  format: ExportSettings['format']
+  canExport: boolean
+  onExport: () => void
+  onCite: () => void
+}) {
+  return (
+    <>
+      <Button
+        size="sm"
+        onClick={onExport}
+        className="w-full"
+        disabled={!canExport}
+      >
+        <Icon name="download" size={14} />{' '}
+        {t('data.analysisStudio.export', { toUpperCase: format.toUpperCase() })}
+      </Button>
+      <Button size="sm" variant="secondary" className="w-full" onClick={onCite}>
+        {t('data.analysisStudio.citeNotebook')}
+      </Button>
+    </>
+  )
+}
+
+/** The note that only the chart mode exports the rendered figure. */
+function ExportModeNotice() {
+  return (
+    <Notice tone="info" title={t('data.analysisStudio.exportUsesChartBuilder')}>
+      {t('data.analysisStudio.chartDataTableSpecification')}
+    </Notice>
+  )
+}
+
+/** Whether the file records its owner, the view version and the source revisions. */
+function ProvenanceToggle({
+  id,
+  checked,
+  onChange,
+}: {
+  id: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <div className="flex grid-cols-[auto_1fr] items-center gap-2">
+      <input
+        id={`${id}-provenance`}
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <label className="text-label text-fg-muted" htmlFor={`${id}-provenance`}>
+        {t('data.analysisStudio.includeOwnerVersionSources')}
+      </label>
+    </div>
+  )
+}
+
+/** One series' summary, as the preview row and its fold change read it. */
+type SeriesSummary = {
+  identifier: string
+  label: string
+  colour: string
+  lastMean: number
+  foldChange: number | null
+  direction: 'increase' | 'decrease'
+}
+
+/** The preview's own summary row: rows, transformations and the leading series. */
+function PreviewSummaryBadges({
+  loading,
+  rowCount,
+  transformationCount,
+  summaries,
+}: {
+  loading: boolean
+  rowCount: number
+  transformationCount: number
+  summaries: SeriesSummary[]
+}) {
+  return (
+    <div className="flex items-center gap-2 text-xs text-fg-muted">
+      <Badge variant="kind">
+        {loading ? t('common.states.loading') : `${formatCount(rowCount)} rows`}
+      </Badge>
+      {transformationCount > 0 ? (
+        <Badge variant="kind">
+          <Icon name="sigma" className="size-3" aria-hidden="true" />
+          {transformationCount} transform
+          {transformationCount === 1 ? '' : 's'}
+        </Badge>
+      ) : null}
+      {summaries.slice(0, 3).map((summary) => (
+        <span
+          key={summary.identifier}
+          className="inline-flex items-center gap-1 text-xs"
+        >
+          <span
+            className="size-2 rounded-full"
+            style={{ backgroundColor: summary.colour }}
+          />
+          <span className="truncate">{summary.label}</span>
+          <span className="font-mono font-semibold tabular-nums">
+            {formatScientific(summary.lastMean)}
+          </span>
+        </span>
+      ))}
+      <FoldChange summary={summaries.at(0)} />
+    </div>
+  )
+}
+
+/** How far the leading series moved between its first and last point. */
+function FoldChange({ summary }: { summary: SeriesSummary | undefined }) {
+  if (!summary?.foldChange) return null
+
+  return (
+    <span className="text-xs text-fg-muted">
+      {t('data.analysisStudio.foldChange', {
+        toFixed: summary.foldChange.toFixed(1),
+        direction: summary.direction,
+      })}
+    </span>
+  )
+}

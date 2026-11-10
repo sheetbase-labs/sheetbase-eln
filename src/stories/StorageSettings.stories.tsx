@@ -7,12 +7,18 @@ import { SettingsHeader } from '#/components/settings/settings-page'
 import { StorageLocationsPanel } from '#/components/settings/storage-locations-panel'
 import { Tabs } from '#/components/ui/tabs'
 import type { DataClient } from '#/lib/data-client'
+import type { JsonValue } from '#/lib/workspace-admin'
+
+/** One settings table's rows, keyed by the PostgREST resource name. */
+interface SettingsTables {
+  [resource: string]: Array<Record<string, JsonValue>>
+}
 
 /**
  * Settings → Storage and labels. The panels read through the data client they
  * are given, so these stories hand them the demo lab's rows instead of a server.
  */
-const TABLES: Record<string, Record<string, unknown>[]> = {
+const TABLES: SettingsTables = {
   storage_sites: [
     { id: 's1', name: 'Cambridge lab', code: 'CAM-LAB', archived_at: null },
   ],
@@ -190,13 +196,32 @@ const TABLES: Record<string, Record<string, unknown>[]> = {
   ],
 }
 
+/** One label template row as the settings panel reads it. */
+type LabelTemplateRow = {
+  id: string
+  workspace_id: string
+  name: string
+  record_kind: string
+  show_condition: boolean
+  show_use_by: boolean
+  show_lot: boolean
+  show_sample_type: boolean
+  width_mm: number
+  height_mm: number
+  barcode_type: string
+  is_default: boolean
+  archived_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 function template(
   name: string,
   width: number,
   height: number,
   barcode: string,
-  extra: Record<string, unknown> = {},
-): Record<string, unknown> {
+  extra: Partial<LabelTemplateRow> = {},
+): LabelTemplateRow {
   return {
     id: crypto.randomUUID(),
     workspace_id: '00000000-0000-4000-8000-000000000300',
@@ -217,14 +242,21 @@ function template(
   }
 }
 
-const client = {
+/** A data client for the stories: the reads and writes these panels make. */
+function asClient<Stub>(client: Stub): DataClient {
+  // SAFETY: the stub below answers every method the panels call, with the
+  // demo rows the story supplies; nothing else is reached.
+  return client as DataClient
+}
+
+const client = asClient({
   list: async (resource: string) => TABLES[resource] ?? [],
   insert: async () => ({}),
   rpc: async () => ({}),
   patch: async () => [],
   remove: async () => [],
   count: async () => 0,
-} as unknown as DataClient
+})
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false } },

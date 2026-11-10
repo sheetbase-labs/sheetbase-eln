@@ -12,6 +12,7 @@ import {
   triggerLabel,
 } from './pipeline-schedule-form'
 import { validateScheduleSpec } from './pipeline-schedule'
+import type { PipelineScheduleKind } from './pipeline-schedule'
 import type { ScheduleDraft } from './pipeline-schedule-form'
 
 const dataset = '3f2b8a52-7c1d-4a2e-9b1a-0d6f5e4c3b2a'
@@ -21,34 +22,41 @@ function draft(patch: Partial<ScheduleDraft>): ScheduleDraft {
   return { ...emptyDraft('Europe/London'), ...patch }
 }
 
+/** A stored trigger spec, in the shapes the form writes. */
+type StoredSpec =
+  { cron: string } | { intervalMinutes: number } | { dailyAt: string }
+
 describe('draftToSchedule', () => {
   it('writes every calendar preset as a spec the database accepts', () => {
-    const cases: Array<
-      [Partial<ScheduleDraft>, string, Record<string, unknown>]
-    > = [
-      [{ repeat: 'daily', time: '06:30' }, 'daily', { dailyAt: '06:30' }],
-      [{ repeat: 'weekdays', time: '07:15' }, 'cron', { cron: '15 7 * * 1-5' }],
+    const cases: Array<[Partial<ScheduleDraft>, PipelineScheduleKind, object]> =
       [
-        { repeat: 'weekly', time: '09:00', weekday: 3 },
-        'cron',
-        { cron: '0 9 * * 3' },
-      ],
-      [
-        { repeat: 'monthly', time: '08:00', monthDay: '15' },
-        'cron',
-        { cron: '0 8 15 * *' },
-      ],
-      [
-        { repeat: 'interval', intervalValue: '2', intervalUnit: 'hours' },
-        'interval',
-        { intervalMinutes: 120 },
-      ],
-      [
-        { repeat: 'interval', intervalValue: '1', intervalUnit: 'days' },
-        'interval',
-        { intervalMinutes: 1440 },
-      ],
-    ]
+        [{ repeat: 'daily', time: '06:30' }, 'daily', { dailyAt: '06:30' }],
+        [
+          { repeat: 'weekdays', time: '07:15' },
+          'cron',
+          { cron: '15 7 * * 1-5' },
+        ],
+        [
+          { repeat: 'weekly', time: '09:00', weekday: 3 },
+          'cron',
+          { cron: '0 9 * * 3' },
+        ],
+        [
+          { repeat: 'monthly', time: '08:00', monthDay: '15' },
+          'cron',
+          { cron: '0 8 15 * *' },
+        ],
+        [
+          { repeat: 'interval', intervalValue: '2', intervalUnit: 'hours' },
+          'interval',
+          { intervalMinutes: 120 },
+        ],
+        [
+          { repeat: 'interval', intervalValue: '1', intervalUnit: 'days' },
+          'interval',
+          { intervalMinutes: 1440 },
+        ],
+      ]
 
     for (const [patch, kind, expected] of cases) {
       const built = draftToSchedule(draft(patch), [], {})
@@ -112,7 +120,7 @@ describe('draftToSchedule', () => {
       inputName: 'raw',
       inputs: { reference: { mode: 'latest', datasetId: dataset } },
     })
-    expect((built.spec.inputs as Record<string, unknown>).raw).toBeUndefined()
+    expect(built.spec.inputs).not.toHaveProperty('raw')
   })
 })
 
@@ -165,28 +173,28 @@ describe('draftError', () => {
 
 describe('scheduleToDraft', () => {
   it('reads each stored rule back into the preset it came from', () => {
-    const round = (kind: never, spec: Record<string, unknown>) =>
+    const round = (kind: PipelineScheduleKind, spec: StoredSpec) =>
       scheduleToDraft({ kind, spec }, [], 'UTC')
 
-    expect(round('cron' as never, { cron: '15 7 * * 1-5' })).toMatchObject({
+    expect(round('cron', { cron: '15 7 * * 1-5' })).toMatchObject({
       repeat: 'weekdays',
       time: '07:15',
     })
-    expect(round('cron' as never, { cron: '0 9 * * 3' })).toMatchObject({
+    expect(round('cron', { cron: '0 9 * * 3' })).toMatchObject({
       repeat: 'weekly',
       weekday: 3,
       time: '09:00',
     })
-    expect(round('cron' as never, { cron: '0 8 15 * *' })).toMatchObject({
+    expect(round('cron', { cron: '0 8 15 * *' })).toMatchObject({
       repeat: 'monthly',
       monthDay: '15',
     })
     // Not one of the shapes the form offers: kept as written.
-    expect(round('cron' as never, { cron: '*/15 * * * *' })).toMatchObject({
+    expect(round('cron', { cron: '*/15 * * * *' })).toMatchObject({
       repeat: 'cron',
       cron: '*/15 * * * *',
     })
-    expect(round('interval' as never, { intervalMinutes: 180 })).toMatchObject({
+    expect(round('interval', { intervalMinutes: 180 })).toMatchObject({
       repeat: 'interval',
       intervalUnit: 'hours',
       intervalValue: '3',

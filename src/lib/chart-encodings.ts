@@ -80,7 +80,7 @@ export function groupedFields(
   return FIELD_GROUPS.map((group) => ({
     group,
     columns: columns.filter((column) => fieldGroup(column) === group),
-  })).filter((entry) => entry.columns.length > 0)
+  })).flatMap((entry) => (entry.columns.length > 0 ? [entry] : []))
 }
 
 export type RoleCheck = { ok: true } | { ok: false; reason: string }
@@ -95,7 +95,10 @@ export function roleAvailableForType(
   role: ChartRole,
   type: ChartType,
 ): RoleCheck {
-  if (role === 'x' && (CHART_TYPES_NULL_X as readonly string[]).includes(type))
+  if (
+    role === 'x' &&
+    CHART_TYPES_NULL_X.some((candidate) => candidate === type)
+  )
     return {
       ok: false,
       reason: `A ${type} chart has no X-axis mapping.`,

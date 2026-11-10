@@ -28,6 +28,7 @@ import {
   openExtensionPoint,
   runPackage,
 } from './runtime.server'
+import type { JsonValue } from '#/lib/workspace-admin'
 import type { ExtensionRuntimeDeps, ResolvedInstall } from './runtime.server'
 import type { DataItemPoint } from './runner-points'
 import { INDEX_NAME_RE, afterAnswer, beforeAnswer } from './hook-answers'
@@ -51,7 +52,8 @@ import type {
   ExtensionStorageRuleDeclaration,
 } from './data-points'
 
-type Row = Record<string, unknown>
+/** One row a plugin returns or reads: JSON values keyed by column name. */
+type Row = Record<string, JsonValue>
 
 export const IMPORT_MAX_CONTENT_BYTES =
   pluginLimit('SHEETBASE_PLUGIN_IMPORT_MAX_MB', 6) * 1024 * 1024
@@ -115,6 +117,9 @@ export async function withItem<
     point,
   )
 
+  // SAFETY: `point` is one of the manifest's contribution keys, and every
+  // entry under it was declared with this shape when the package was installed
+  // (the install gate validates each contribution against its own schema).
   const declaration = (
     resolved.manifest.contributions[point] as
       Array<Declarations[TPoint] & { id: string }> | undefined
@@ -304,12 +309,11 @@ export async function runExtensionExporter(
         },
       })
 
-      const content = result.rows.at(0)?.content
+      const content = z.string().safeParse(result.rows.at(0)?.content)
 
-      if (typeof content !== 'string')
-        throw bad('The plugin did not give back a file.')
+      if (!content.success) throw bad('The plugin did not give back a file.')
 
-      if (content.length > 32 * 1024 * 1024)
+      if (content.data.length > 32 * 1024 * 1024)
         throw bad('The file the plugin made is too large.')
       const safe = args.name.replace(/[^\w.-]+/g, '_').slice(0, 80) || 'export'
 
@@ -317,7 +321,7 @@ export async function runExtensionExporter(
         filename: `${safe}${declaration.extension}`,
         mime: declaration.mime,
         encoding: declaration.encoding,
-        content,
+        content: content.data,
       }
     },
   )
@@ -333,7 +337,7 @@ const previewAnswer = z.union([
   z.strictObject({
     kind: z.literal('table'),
     columns: z.array(z.string().min(1).max(80)).max(50).optional(),
-    rows: z.array(z.record(z.string(), z.unknown())).max(PREVIEW_MAX_ROWS),
+    rows: z.array(z.record(z.string(), z.json())).max(PREVIEW_MAX_ROWS),
   }),
   z.strictObject({
     kind: z.literal('text'),
@@ -398,13 +402,20 @@ export async function runExtensionPreview(
 // Search providers.
 // ---------------------------------------------------------------------------
 
+/** What a search provider is handed: the query, the documents, and a stage if set. */
+interface SearchProviderInput {
+  query: string
+  documents: SearchDocument[]
+  stage?: string
+}
+
 /** What a provider is handed for each record it looks through. */
 export interface SearchDocument {
   id: string
   type: string
   title: string
   text: string
-  fields?: Record<string, unknown>
+  fields?: Record<string, JsonValue>
 }
 
 const searchAnswer = z
@@ -479,16 +490,21 @@ export async function runExtensionSearch(
 
       const known = new Set(documents.map((document) => document.id))
 
+      // The stage names which question of a multi-stage search this is; the
+      // plugin is handed it only when the person's search set one.
+      const stageInput: SearchProviderInput = {
+        query: args.query,
+        documents,
+      }
+
+      if (args.stage) stageInput.stage = args.stage
+
       const result = await runPackage(deps, args.workspaceId, resolved, {
         inputs: {},
         parameters: {
           kind: 'operation',
           entry: declaration.runner.entry,
-          input: {
-            query: args.query,
-            documents,
-            ...(args.stage ? { stage: args.stage } : {}),
-          },
+          input: stageInput,
         },
       })
 
@@ -551,15 +567,21 @@ export interface CheckOutcome {
   durationMs: number
 }
 
+/** A table block's payload: column headings and the cell grid beneath them. */
+const tablePayloadSchema = z.object({
+  columns: z.array(z.coerce.string()).optional(),
+  rows: z.array(z.array(z.coerce.string().nullish())).optional(),
+})
+
 /** A table block (`columns` headings, `rows` arrays) as one object per row, by input name. */
-export function tableToCheckRows(
-  payload: unknown,
+export function tableToCheckRows<Payload>(
+  payload: Payload,
   declaration: ExtensionCheckDeclaration,
   columns: Record<string, string> | undefined,
 ): Row[] {
-  const table = (payload ?? {}) as { columns?: unknown; rows?: unknown }
-  const headings = Array.isArray(table.columns) ? table.columns.map(String) : []
-  const grid = Array.isArray(table.rows) ? table.rows : []
+  const table = tablePayloadSchema.parse(payload ?? {})
+  const headings = table.columns ?? []
+  const grid = table.rows ?? []
   const index = new Map<string, number>()
 
   for (const input of declaration.inputs) {
@@ -580,26 +602,24 @@ export function tableToCheckRows(
     index.set(input.name, at)
   }
 
-  return grid
-    .filter((cells): cells is unknown[] => Array.isArray(cells))
-    .map((cells) => {
-      const row: Row = {}
+  return grid.map((cells) => {
+    const row: Row = {}
 
-      for (const input of declaration.inputs) {
-        const at = index.get(input.name)
-        const raw = at === undefined ? '' : String(cells[at] ?? '').trim()
-        row[input.name] =
-          raw === ''
-            ? null
-            : input.type === 'number'
-              ? Number.isFinite(Number(raw))
-                ? Number(raw)
-                : null
-              : raw
-      }
+    for (const input of declaration.inputs) {
+      const at = index.get(input.name)
+      const raw = at === undefined ? '' : (cells[at] ?? '').trim()
+      row[input.name] =
+        raw === ''
+          ? null
+          : input.type === 'number'
+            ? Number.isFinite(Number(raw))
+              ? Number(raw)
+              : null
+            : raw
+    }
 
-      return row
-    })
+    return row
+  })
 }
 
 export async function runExtensionCheck(
@@ -670,14 +690,14 @@ export async function runExtensionSamenessKey(
         },
       })
 
-      const key = result.rows.at(0)?.key
+      const key = z.string().min(1).max(500).safeParse(result.rows.at(0)?.key)
 
-      if (typeof key !== 'string' || key.trim() === '' || key.length > 500)
+      if (!key.success || key.data.trim() === '')
         throw bad(
           'The plugin’s rule didn’t give back a key of 1-500 characters.',
         )
 
-      return key
+      return key.data
     },
   )
 
@@ -880,13 +900,16 @@ export interface ConnectorFetch {
 }
 
 export const defaultFetch: ConnectorFetch = async (url, init) => {
-  const response = await fetch(url, {
+  const request: RequestInit = {
     method: init.method ?? 'GET',
-    ...(init.body !== undefined ? { body: init.body } : {}),
     redirect: 'manual',
     headers: init.headers,
     signal: init.signal,
-  })
+  }
+
+  if (init.body !== undefined) request.body = init.body
+
+  const response = await fetch(url, request)
 
   // A redirect could lead off the approved host; a plugin names the final URL.
   if (response.status >= 300 && response.status < 400)
@@ -926,11 +949,17 @@ export const defaultFetch: ConnectorFetch = async (url, init) => {
   return { status: response.status, body }
 }
 
+/** The request a connector may make: the approved URL and the headers to send. */
+export interface CheckedConnectorRequest {
+  url: URL
+  headers: Record<string, string>
+}
+
 /** Checks one request a plugin asked for against what the connector declared. */
 export function checkConnectorRequest(
   declaration: Pick<ExtensionConnectorDeclaration, 'hosts'>,
   request: { url: string; headers?: Record<string, string> },
-): { url: URL; headers: Record<string, string> } {
+): CheckedConnectorRequest {
   let url: URL
 
   try {
@@ -1033,13 +1062,14 @@ export async function runExtensionConnector(
 
       try {
         for (const { url, headers } of checked) {
+          // react-doctor-disable-next-line react-doctor/async-await-in-loop -- one request is in flight at a time, so a connector cannot open its whole declared fan-out against one service at once and the answers arrive in declared order.
           const answer = await fetchUrl(url, {
             headers: {
               Accept: 'application/json, text/plain, */*',
               ...headers,
             },
             signal: controller.signal,
-          }).catch((error: unknown) => {
+          }).catch((error) => {
             if (error instanceof ExtensionRunError) throw error
             throw new ExtensionRunError(
               'service_unreachable',
@@ -1048,7 +1078,7 @@ export async function runExtensionConnector(
           })
 
           const text = new TextDecoder().decode(answer.body)
-          let json: unknown = null
+          let json: JsonValue = null
 
           try {
             json = JSON.parse(text)
@@ -1234,11 +1264,14 @@ const labelAnswer = z.strictObject({
     .max(LABEL_MAX_LINES),
 })
 
-export async function runExtensionLabelFormat(
+export async function runExtensionLabelFormat<
+  Fields extends Record<string, unknown>,
+>(
   args: Caller & {
     formatId: string
     kind: string
-    record: Record<string, unknown>
+    /** The record's fields; the plugin reads the ones its format names. */
+    record: Fields
     template: { widthMm: number; heightMm: number }
   },
   deps: ExtensionRuntimeDeps = defaultDeps(),
@@ -1315,10 +1348,13 @@ const storageAnswer = z.strictObject({
   message: z.string().max(400).optional(),
 })
 
-export async function runExtensionStorageRule(
+export async function runExtensionStorageRule<
+  Fields extends Record<string, unknown>,
+>(
   args: Caller & {
     ruleId: string
-    sample: Record<string, unknown>
+    /** The sample's fields; the plugin reads the ones its rule names. */
+    sample: Fields
     to: StorageRulePlace
     from: string | null
   },

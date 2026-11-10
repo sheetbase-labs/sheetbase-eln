@@ -24,6 +24,14 @@ import {
 const NOW = new Date('2026-09-25T09:30:00.000Z')
 const TZ = 'Europe/London'
 
+/** The URL a fetch double was called with, as the screen built it. */
+function requestedUrl(input: RequestInfo | URL): URL {
+  return new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://sheetbase.test',
+  )
+}
+
 function recent(overrides: Partial<RecentItem>): RecentItem {
   const id = overrides.id ?? 'rec-1'
 
@@ -397,7 +405,7 @@ describe('per-project approval progress', () => {
 
     const client = createDataClient(
       vi.fn<typeof fetch>(async (input) => {
-        const url = new URL(String(input), 'http://sheetbase.test')
+        const url = requestedUrl(input)
         urls.push(url.pathname + url.search)
         const approved = url.searchParams.get('status') === 'eq.approved'
 
@@ -554,7 +562,7 @@ describe('the quiet Home reads', () => {
 
     const client = createDataClient(
       vi.fn<typeof fetch>(async (input) => {
-        const url = new URL(String(input), 'http://sheetbase.test')
+        const url = requestedUrl(input)
         urls.push(url.pathname + url.search)
 
         return new Response('[{"id":"one-row"}]', {
@@ -572,7 +580,7 @@ describe('the quiet Home reads', () => {
 
     const client = createDataClient(
       vi.fn<typeof fetch>(async (input) => {
-        const url = new URL(String(input), 'http://sheetbase.test')
+        const url = requestedUrl(input)
         urls.push(url.pathname + url.search)
 
         return new Response(
@@ -611,7 +619,7 @@ describe('the quiet Home reads', () => {
 
     const client = createDataClient(
       vi.fn<typeof fetch>(async (input) => {
-        const url = new URL(String(input), 'http://sheetbase.test')
+        const url = requestedUrl(input)
         urls.push(url.pathname + url.search)
 
         return new Response(

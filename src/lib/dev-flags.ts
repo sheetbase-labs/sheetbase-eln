@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { z } from 'zod'
 
 /**
  * Dev feature flags: switches a developer or admin flips from the dev toolbar
@@ -37,15 +38,25 @@ let active = false
 let overrides: DevFlagOverrides = {}
 let loaded = false
 
+/** Any object at all: each known flag's value is then decoded on its own. */
+const storedOverrides = z.looseObject({})
+
+/** Only a boolean counts as a stored override. */
+const storedFlag = z.boolean()
+
 export function parseOverrides(raw: string | null): DevFlagOverrides {
   if (!raw) return {}
 
   try {
-    const value = JSON.parse(raw) as Record<string, unknown>
+    const stored = storedOverrides.safeParse(JSON.parse(raw))
     const out: DevFlagOverrides = {}
 
+    if (!stored.success) return out
+
     for (const { key } of devFlags) {
-      if (typeof value[key] === 'boolean') out[key] = value[key]
+      const value = storedFlag.safeParse(stored.data[key]).data
+
+      if (value !== undefined) out[key] = value
     }
 
     return out

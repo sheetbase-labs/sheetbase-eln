@@ -44,7 +44,11 @@ import { sqlConnectionQueryKey } from '#/lib/sql-access'
 import { positionKeys } from '#/lib/storage-positions'
 import { adminQueryKeys } from '#/lib/workspace-admin'
 import { workspaceAdminsKey } from '#/lib/workspace-admins'
-import { screenQueryClient, screenRoutes } from './screen-stories'
+import {
+  screenQueryClient,
+  screenRoutes,
+  stubDataClient,
+} from './screen-stories'
 import type { ReadSeed } from './screen-stories'
 
 /**
@@ -185,7 +189,7 @@ export const BoxPositions: Story = {
       name="Box 1"
       rows={4}
       cols={6}
-      client={undefined as never}
+      client={stubDataClient()}
     />
   ),
 }

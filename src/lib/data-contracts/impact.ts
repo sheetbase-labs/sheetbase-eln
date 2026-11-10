@@ -6,7 +6,7 @@
 import type { ContractRule } from './types'
 import { isFieldRule } from './rules'
 
-export interface ContractFieldShape {
+export interface ContractFieldRef {
   /** The field's key (dataset) or field name (record model). */
   key: string
   logicalType: string
@@ -20,11 +20,11 @@ export interface ContractImpact {
   reason: ContractImpactReason
 }
 
-const NUMBER_TYPES = ['integer', 'decimal']
+const NUMBER_TYPES = new Set(['integer', 'decimal'])
 
 export function contractImpact(
   rules: readonly ContractRule[],
-  next: readonly ContractFieldShape[],
+  next: readonly ContractFieldRef[],
 ): ContractImpact[] {
   const byKey = new Map(next.map((field) => [field.key, field]))
   const out: ContractImpact[] = []
@@ -38,16 +38,17 @@ export function contractImpact(
       continue
     }
 
-    if (rule.kind === 'range' && !NUMBER_TYPES.includes(field.logicalType)) {
+    if (rule.kind === 'range' && !NUMBER_TYPES.has(field.logicalType)) {
       out.push({ rule, reason: 'not_number' })
       continue
     }
 
-    if (
-      rule.kind === 'units' &&
-      (!field.unit || !(rule.units ?? []).includes(field.unit))
-    ) {
-      out.push({ rule, reason: 'unit_changed' })
+    if (rule.kind === 'units') {
+      const allowed = new Set(rule.units ?? [])
+
+      if (!field.unit || !allowed.has(field.unit)) {
+        out.push({ rule, reason: 'unit_changed' })
+      }
     }
   }
 

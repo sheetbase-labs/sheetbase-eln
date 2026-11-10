@@ -1,38 +1,32 @@
 import { QueryClient } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+} from '@tanstack/react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { DatasetLandingLink, invalidateDatasetLanding } from './dataset-landing'
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    params,
-    search,
-    children,
-  }: {
-    to: string
-    params: Record<string, string>
-    search: Record<string, string>
-    children: React.ReactNode
-  }) => (
-    <a
-      href={`${to.replace('$datasetId', params.datasetId)}?view=${search.view}`}
-    >
-      {children}
-    </a>
-  ),
-}))
-
 afterEach(cleanup)
 
 describe('connector ingest landing', () => {
-  it('links to the Dataset imports tab', () => {
-    render(<DatasetLandingLink datasetId="ds-1" />)
+  it('links to the Dataset imports tab', async () => {
+    const router = createRouter({
+      routeTree: createRootRoute({
+        component: () => <DatasetLandingLink datasetId="ds-1" />,
+      }),
+      history: createMemoryHistory({ initialEntries: ['/'] }),
+    })
+
+    render(<RouterProvider router={router} />)
+
     expect(
-      screen
-        .getByRole('link', { name: /Open the dataset/ })
-        .getAttribute('href'),
+      (
+        await screen.findByRole('link', { name: /Open the dataset/ })
+      ).getAttribute('href'),
     ).toBe('/datasets/ds-1?view=imports')
   })
 

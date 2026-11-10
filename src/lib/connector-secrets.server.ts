@@ -82,9 +82,12 @@ export function secretKey(): Buffer {
 const SECRET_NAME = /^[a-z][a-z0-9_]{0,48}$/
 
 async function loadSession(workspaceId: string) {
-  const { getRequestHeaders } = await import('@tanstack/react-start/server')
-  const { getCurrentContext } = await import('#/lib/current-user')
-  const { db } = await import('#/db/client.server')
+  const [{ getRequestHeaders }, { getCurrentContext }, { db }] =
+    await Promise.all([
+      import('@tanstack/react-start/server'),
+      import('#/lib/current-user'),
+      import('#/db/client.server'),
+    ])
 
   const context = await getCurrentContext(getRequestHeaders())
 

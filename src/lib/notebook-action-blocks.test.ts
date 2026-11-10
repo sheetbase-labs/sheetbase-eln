@@ -22,7 +22,7 @@ let seq = 0
 
 function block(
   type: string,
-  payload: Record<string, unknown>,
+  payload: NotebookBlock['payload'],
   order = (seq += 1),
 ): NotebookBlock {
   return {

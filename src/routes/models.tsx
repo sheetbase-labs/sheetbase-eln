@@ -47,6 +47,9 @@ import { returnLabel } from '#/lib/return-to'
 import { countOf } from '#/lib/plural'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { useListView } from '#/lib/list-views'
+import { z } from 'zod'
+import type { ExternalToast } from 'sonner'
+
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
 
@@ -73,31 +76,39 @@ const CREATE_DENIED_REASON = t(
 /** UI port (roadmap-4/ui-app3): the Models board on the canonical dataset
  * schema registry. A model is a schema definition; its fields and versions are
  * its own child routes. */
+/** The board's filters, as the URL carries them. */
+interface ModelsSearch {
+  q?: string
+  tab?: ModelTab
+  selected?: string
+  create?: true
+  returnTo?: string
+}
+
+/** A page that needs a model sends the person here to make one (`create`)
+ * and says where to come back to (`returnTo`). A URL that names none of them
+ * usable reads as an unfiltered board. */
+const modelsSearchSchema = z.object({
+  create: z
+    .union([z.literal(true), z.literal('true')])
+    .transform(() => true as const)
+    .optional()
+    .catch(undefined),
+  returnTo: z
+    .unknown()
+    .transform((value) => safeReturnTo(value))
+    .optional()
+    .catch(undefined),
+  q: z.string().optional().catch(undefined),
+  selected: z.string().optional().catch(undefined),
+  tab: z.enum(tabs).optional().catch(undefined),
+})
+
 export const Route = createFileRoute('/models')({
   validateSearch: (
+    // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- TanStack Router hands validateSearch the raw URL values as Record<string, unknown>; modelsSearchSchema decodes every key this route reads.
     search: Record<string, unknown>,
-  ): {
-    q?: string
-    tab?: ModelTab
-    selected?: string
-    create?: true
-    returnTo?: string
-  } => ({
-    // A page that needs a model sends the person here to make one (`create`)
-    // and says where to come back to (`returnTo`).
-    create:
-      search.create === true || search.create === 'true' ? true : undefined,
-    returnTo: safeReturnTo(search.returnTo),
-    q: typeof search.q === 'string' ? search.q : undefined,
-    selected: typeof search.selected === 'string' ? search.selected : undefined,
-    tab:
-      search.tab === 'published' ||
-      search.tab === 'drafts' ||
-      search.tab === 'retired' ||
-      search.tab === 'all'
-        ? search.tab
-        : undefined,
-  }),
+  ): ModelsSearch => modelsSearchSchema.parse(search),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
 
@@ -166,127 +177,22 @@ function usedByLabel(model: ModelRow): string {
     : countOf(model.datasetCount, 'dataset')
 }
 
-function ModelsList() {
-  const search = Route.useSearch()
-  const navigate = useNavigate({ from: Route.fullPath })
+/**
+ * Who owns a model, or an em dash for a builtin that has no owner.
+ */
+function modelOwnerName(
+  id: string | null,
+  names: Map<string, string> | undefined,
+): string {
+  return id ? (names?.get(id) ?? '—') : '—'
+}
 
-  const openModel = useOpenRow<ModelRow>(
-    navigate,
-    (row) => `/models/${encodeURIComponent(row.id)}`,
-    (row) => row.name,
-  )
-
-  const query = useModels()
-  const rows = query.data ?? []
-  const members = useWorkspaceMemberNames()
-
-  const ownerName = (id: string | null) =>
-    id ? (members.data?.get(id) ?? '—') : '—'
-
-  const tab: ModelTab = search.tab ?? 'all'
-  const [selected, setSelected] = useState<string | null>(null)
-  const view = useListView('models')
-  const { context } = Route.useRouteContext()
-  const queryClient = useQueryClient()
-  const workspaceId = context.workspace?.id ?? null
-  // `api.create_dataset_schema_definition` requires schema.edit
-  // (`api.require_capability`): the board offers the control only to a role
-  // that holds it, and states why when it does not.
-  const canCreate = hasCapability(context.workspace?.role, 'schema.edit')
-
-  const [createOpen, setCreateOpen] = useState(
-    () => search.create === true && canCreate,
-  )
-
-  const create = useMutation({
-    mutationFn: async (input: ModelCreateInput) => {
-      if (!workspaceId)
-        throw new Error(t('library.models.list.noActiveWorkspace'))
-
-      if (input.kind === 'record') {
-        const created = await notebookDataClient.rpc<{ key: string }>(
-          'create_workspace_model',
-          {
-            p_workspace_id: workspaceId,
-            p_key: input.key,
-            p_name: input.name,
-            p_identifier_prefix: input.identifierPrefix,
-            p_description: input.description,
-          },
-        )
-
-        return { routeId: created.key }
-      }
-
-      const created = await createDatasetSchemaDefinition(notebookDataClient, {
-        workspaceId,
-        key: input.key,
-        name: input.name,
-        description: input.description,
-      })
-
-      return { routeId: created.schema_definition_id }
-    },
-    onSuccess: (created, input) => {
-      setCreateOpen(false)
-      const back = search.returnTo
-      void queryClient.invalidateQueries({ queryKey: modelsQueryKeys.list })
-      toast(t('library.models.list.modelCreated', { name: input.name }), {
-        description:
-          input.kind === 'record'
-            ? t('library.models.list.recordTypeCreatedOpenVersions')
-            : t('library.models.list.v1IsADraftAdd'),
-        ...(back
-          ? {
-              action: {
-                label: returnLabel(back),
-                onClick: () =>
-                  void navigate({
-                    to: returnWithContext(back, {
-                      model: created.routeId,
-                    }),
-                  } as never),
-              },
-            }
-          : {}),
-      })
-      // A new definition is a draft, so it belongs to the All tab whatever tab
-      // the board is on: show it there and select its row.
-      void navigate({
-        to: '/models',
-        search: (s) => ({
-          ...s,
-          tab: undefined,
-          create: undefined,
-          selected: created.routeId,
-        }),
-        replace: true,
-      })
-    },
-  })
-
-  const counts = useMemo(
-    () =>
-      Object.fromEntries(
-        tabs.map((item) => [item, rows.filter((m) => inTab(m, item)).length]),
-      ) as Record<ModelTab, number>,
-    [rows],
-  )
-
-  const q = (search.q ?? '').trim().toLowerCase()
-
-  const visible = sortByName(
-    rows
-      .filter((m) => inTab(m, tab))
-      .filter((m) => !q || `${m.key} ${m.name}`.toLowerCase().includes(q)),
-    'Name',
-    (m) => m.name,
-    (m) => m.display_id ?? m.key,
-  )
-
-  const sel = visible.find((m) => m.id === (selected ?? search.selected))
-
-  const columns = useMemo<RegistryColumn<ModelRow>[]>(
+/** The board's columns: identity, kind, version, size and status. */
+function useModelColumns(
+  memberNames: Map<string, string> | undefined,
+  openModel: (row: ModelRow, event?: React.MouseEvent) => void,
+): RegistryColumn<ModelRow>[] {
+  return useMemo<RegistryColumn<ModelRow>[]>(
     () => [
       {
         id: 'identifier',
@@ -380,12 +286,12 @@ function ModelsList() {
         accessorFn: (m) =>
           m.kind === 'builtin'
             ? t('library.models.list.sheetbase')
-            : ownerName(m.created_by_user_id),
+            : modelOwnerName(m.created_by_user_id, memberNames),
         meta: { cellClassName: 'text-fg-muted' },
         cell: ({ row }) =>
           row.original.kind === 'builtin'
             ? t('library.models.list.sheetbase')
-            : ownerName(row.original.created_by_user_id),
+            : modelOwnerName(row.original.created_by_user_id, memberNames),
       },
       {
         id: 'updated',
@@ -398,8 +304,267 @@ function ModelsList() {
         cell: ({ row }) => formatDate(row.original.updated_at),
       },
     ],
-    [members.data, openModel],
+    [memberNames, openModel],
   )
+}
+
+/** The header's New model control, or why the person cannot make one. */
+function ModelsCreateActions({
+  canCreate,
+  returnTo,
+  onOpen,
+}: {
+  canCreate: boolean
+  returnTo: string | undefined
+  onOpen: () => void
+}) {
+  if (!canCreate)
+    return (
+      <p className="m-0 max-w-[320px] text-label text-fg-muted">
+        {CREATE_DENIED_REASON}
+      </p>
+    )
+
+  return (
+    <>
+      {returnTo ? (
+        <Button nativeButton={false} render={<Link to={returnTo} />}>
+          {returnLabel(returnTo)}
+        </Button>
+      ) : null}
+      <Button variant="primary" onClick={onOpen}>
+        {t('library.models.list.newModel')}
+      </Button>
+    </>
+  )
+}
+
+/** The board's rows: the table, the phone list and the empty state. */
+function ModelsListBody({
+  isPending,
+  visible,
+  columns,
+  view,
+  rowSelection,
+  onRowSelectionChange,
+  openModel,
+  q,
+  searchQuery,
+  tab,
+  ownerName,
+}: {
+  isPending: boolean
+  visible: ModelRow[]
+  columns: RegistryColumn<ModelRow>[]
+  view: ReturnType<typeof useListView>
+  rowSelection: React.ComponentProps<
+    typeof RegistryGrid<ModelRow>
+  >['rowSelection']
+  onRowSelectionChange: React.ComponentProps<
+    typeof RegistryGrid<ModelRow>
+  >['onRowSelectionChange']
+  openModel: (row: ModelRow, event?: React.MouseEvent) => void
+  q: string
+  searchQuery: string | undefined
+  tab: ModelTab
+  ownerName: (id: string | null) => string
+}) {
+  return (
+    <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
+      {isPending || visible.length > 0 ? (
+        <RegistryGrid
+          className="max-md:hidden"
+          label={t('library.models.list.models')}
+          view={view}
+          rows={visible}
+          columns={columns}
+          getRowId={(m) => m.id}
+          rowSelection={rowSelection}
+          onRowSelectionChange={onRowSelectionChange}
+          onRowClick={openModel}
+          isLoading={isPending}
+        />
+      ) : null}
+      <MobileList
+        label={t('library.models.list.models')}
+        items={visible.map((m) => {
+          const status = modelStatus(m.lifecycle)
+
+          return {
+            key: m.id,
+            id: `${m.display_id ?? m.key} · ${modelVersionLabel(m)}`,
+            title: m.name,
+            sub: `${captureLabel(m)} · ${countOf(m.fieldCount, 'field')} · ${usedByLabel(m)}${m.kind === 'builtin' ? '' : ` · ${ownerName(m.created_by_user_id)}`}`,
+            status: <Status tone={status.tone}>{status.label}</Status>,
+            link: {
+              to: '/models/$modelId',
+              params: { modelId: m.id },
+              onClick: (event: React.MouseEvent) => openModel(m, event),
+            },
+          }
+        })}
+      />
+      {!isPending && visible.length === 0 ? (
+        <div role="status" className="flex justify-center px-6">
+          <EmptyState
+            icon={q ? 'search' : 'table'}
+            className="items-center py-14 text-center"
+            title={
+              q
+                ? t('library.models.list.noModelsMatch', {
+                    q: searchQuery ?? '',
+                  })
+                : tab === 'all'
+                  ? t('library.models.list.noModelsYet')
+                  : t('library.models.list.noModelsIn', {
+                      tab: tabLabel[tab],
+                    })
+            }
+            description={t('library.models.list.searchLooksAtModelKeys')}
+            action={
+              q ? (
+                <Button
+                  nativeButton={false}
+                  render={<Link to="/models" search={{ tab }} />}
+                >
+                  {t('library.models.list.clearSearch')}
+                </Button>
+              ) : undefined
+            }
+          />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function ModelsList() {
+  const search = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+
+  const openModel = useOpenRow<ModelRow>(
+    navigate,
+    (row) => `/models/${encodeURIComponent(row.id)}`,
+    (row) => row.name,
+  )
+
+  const query = useModels()
+  const rows = useMemo(() => query.data ?? [], [query.data])
+  const members = useWorkspaceMemberNames()
+
+  const ownerName = (id: string | null) => modelOwnerName(id, members.data)
+
+  const tab: ModelTab = search.tab ?? 'all'
+  const [selected, setSelected] = useState<string | null>(null)
+  const view = useListView('models')
+  const { context } = Route.useRouteContext()
+  const queryClient = useQueryClient()
+  const workspaceId = context.workspace?.id ?? null
+  // `api.create_dataset_schema_definition` requires schema.edit
+  // (`api.require_capability`): the board offers the control only to a role
+  // that holds it, and states why when it does not.
+  const canCreate = hasCapability(context.workspace?.role, 'schema.edit')
+
+  const [createOpen, setCreateOpen] = useState(
+    () => search.create === true && canCreate,
+  )
+
+  const create = useMutation({
+    mutationFn: async (input: ModelCreateInput) => {
+      if (!workspaceId)
+        throw new Error(t('library.models.list.noActiveWorkspace'))
+
+      if (input.kind === 'record') {
+        const created = await notebookDataClient.rpc<{ key: string }>(
+          'create_workspace_model',
+          {
+            p_workspace_id: workspaceId,
+            p_key: input.key,
+            p_name: input.name,
+            p_identifier_prefix: input.identifierPrefix,
+            p_description: input.description,
+          },
+        )
+
+        return { routeId: created.key }
+      }
+
+      const created = await createDatasetSchemaDefinition(notebookDataClient, {
+        workspaceId,
+        key: input.key,
+        name: input.name,
+        description: input.description,
+      })
+
+      return { routeId: created.schema_definition_id }
+    },
+    onSuccess: (created, input) => {
+      setCreateOpen(false)
+      const back = search.returnTo
+      void queryClient.invalidateQueries({ queryKey: modelsQueryKeys.list })
+
+      const toastOptions: ExternalToast = {
+        description:
+          input.kind === 'record'
+            ? t('library.models.list.recordTypeCreatedOpenVersions')
+            : t('library.models.list.v1IsADraftAdd'),
+      }
+
+      if (back)
+        toastOptions.action = {
+          label: returnLabel(back),
+          onClick: () => {
+            // SAFETY: `safeReturnTo` accepted this path when the URL was read,
+            // so it is one of the app's own routes; TanStack's route union
+            // cannot name a path computed from URL state.
+            void navigate({
+              to: returnWithContext(back, { model: created.routeId }) as never,
+            })
+          },
+        }
+
+      toast(
+        t('library.models.list.modelCreated', { name: input.name }),
+        toastOptions,
+      )
+      // A new definition is a draft, so it belongs to the All tab whatever tab
+      // the board is on: show it there and select its row.
+      void navigate({
+        to: '/models',
+        search: (s) => ({
+          ...s,
+          tab: undefined,
+          create: undefined,
+          selected: created.routeId,
+        }),
+        replace: true,
+      })
+    },
+  })
+
+  const counts = useMemo(() => {
+    const next = new Map<ModelTab, number>()
+
+    for (const item of tabs)
+      next.set(item, rows.filter((m) => inTab(m, item)).length)
+
+    return next
+  }, [rows])
+
+  const q = (search.q ?? '').trim().toLowerCase()
+
+  const visible = sortByName(
+    rows
+      .filter((m) => inTab(m, tab))
+      .filter((m) => !q || `${m.key} ${m.name}`.toLowerCase().includes(q)),
+    'Name',
+    (m) => m.name,
+    (m) => m.display_id ?? m.key,
+  )
+
+  const sel = visible.find((m) => m.id === (selected ?? search.selected))
+
+  const columns = useModelColumns(members.data, openModel)
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     sel?.id ?? null,
@@ -413,31 +578,14 @@ function ModelsList() {
           title={t('library.models.list.models')}
           total={query.isPending ? undefined : rows.length}
           actions={
-            canCreate ? (
-              <>
-                {search.returnTo ? (
-                  <Button
-                    nativeButton={false}
-                    render={<Link to={search.returnTo} />}
-                  >
-                    {returnLabel(search.returnTo)}
-                  </Button>
-                ) : null}
-                <Button
-                  variant="primary"
-                  onClick={() => {
-                    create.reset()
-                    setCreateOpen(true)
-                  }}
-                >
-                  {t('library.models.list.newModel')}
-                </Button>
-              </>
-            ) : (
-              <p className="m-0 max-w-[320px] text-label text-fg-muted">
-                {CREATE_DENIED_REASON}
-              </p>
-            )
+            <ModelsCreateActions
+              canCreate={canCreate}
+              returnTo={search.returnTo}
+              onOpen={() => {
+                create.reset()
+                setCreateOpen(true)
+              }}
+            />
           }
           tabs={
             <Tabs
@@ -447,7 +595,7 @@ function ModelsList() {
               items={tabs.map((item) => ({
                 key: item,
                 label: tabLabel[item],
-                count: query.isPending ? undefined : counts[item],
+                count: query.isPending ? undefined : counts.get(item),
                 link: {
                   to: '/models',
                   search: {
@@ -471,80 +619,26 @@ function ModelsList() {
             })
           }
         />
-        <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
-          {query.isPending || visible.length > 0 ? (
-            <RegistryGrid
-              className="max-md:hidden"
-              label={t('library.models.list.models')}
-              view={view}
-              rows={visible}
-              columns={columns}
-              getRowId={(m) => m.id}
-              rowSelection={rowSelection}
-              onRowSelectionChange={onRowSelectionChange}
-              onRowClick={openModel}
-              isLoading={query.isPending}
-            />
-          ) : null}
-          <MobileList
-            label={t('library.models.list.models')}
-            items={visible.map((m) => {
-              const status = modelStatus(m.lifecycle)
-
-              return {
-                key: m.id,
-                id: `${m.display_id ?? m.key} · ${modelVersionLabel(m)}`,
-                title: m.name,
-                sub: `${captureLabel(m)} · ${countOf(m.fieldCount, 'field')} · ${usedByLabel(m)}${m.kind === 'builtin' ? '' : ` · ${ownerName(m.created_by_user_id)}`}`,
-                status: <Status tone={status.tone}>{status.label}</Status>,
-                link: {
-                  to: '/models/$modelId',
-                  params: { modelId: m.id },
-                  onClick: (event: React.MouseEvent) => openModel(m, event),
-                },
-              }
-            })}
-          />
-          {!query.isPending && visible.length === 0 ? (
-            <div role="status" className="flex justify-center px-6">
-              <EmptyState
-                icon={q ? 'search' : 'table'}
-                className="items-center py-14 text-center"
-                title={
-                  q
-                    ? t('library.models.list.noModelsMatch', {
-                        q: search.q ?? '',
-                      })
-                    : tab === 'all'
-                      ? t('library.models.list.noModelsYet')
-                      : t('library.models.list.noModelsIn', {
-                          tab: tabLabel[tab],
-                        })
-                }
-                description={t('library.models.list.searchLooksAtModelKeys')}
-                action={
-                  q ? (
-                    <Button
-                      nativeButton={false}
-                      render={
-                        <Link to="/models" search={{ tab: search.tab }} />
-                      }
-                    >
-                      {t('library.models.list.clearSearch')}
-                    </Button>
-                  ) : undefined
-                }
-              />
-            </div>
-          ) : null}
-        </div>
+        <ModelsListBody
+          isPending={query.isPending}
+          visible={visible}
+          columns={columns}
+          view={view}
+          rowSelection={rowSelection}
+          onRowSelectionChange={onRowSelectionChange}
+          openModel={openModel}
+          q={q}
+          searchQuery={search.q}
+          tab={tab}
+          ownerName={ownerName}
+        />
         <ListFooter
           loading={query.isPending}
           right={sel ? '1 selected' : undefined}
         >
           {footerCount({
             shown: visible.length,
-            total: counts[tab],
+            total: counts.get(tab) ?? 0,
             one: 'model',
             tab: tabLabel[tab],
             query: q ? search.q : undefined,

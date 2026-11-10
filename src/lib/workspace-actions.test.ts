@@ -282,18 +282,12 @@ describe('composeWorkspace', () => {
     return () => `id-${(n += 1)}`
   }
 
-  const base = () => {
-    const empty = addTab(
-      {
-        tabs: [],
-        activeTabId: '',
-      } as unknown as Parameters<typeof addTab>[0],
+  const base = () =>
+    addTab(
+      { version: 2, tabs: [], activeTabId: '', shelf: [], shelfOpen: false },
       '/experiments',
       { tabId: 't0', paneId: 'p0' },
     )
-
-    return empty
-  }
 
   it('opens pages beside the focused pane and tiles them', async () => {
     const { composeWorkspace } = await import('./workspace-actions')

@@ -4,18 +4,27 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ChartSpec } from '#/lib/chart-spec'
 import { AnalysisTabs } from './analysis-document'
 
-const chart = (n: number) =>
-  ({
-    specVersion: n,
-    type: 'line',
-    datasets: [],
-    fields: { y: { fieldId: 'y' } },
-    filters: [],
-    transformations: [],
-    typeParams: {},
-    display: { axes: { x: {}, y: { label: 'Y' } }, series: [] },
-    overlays: { errorBars: null },
-  }) as unknown as ChartSpec
+const chart = (n: number): ChartSpec => ({
+  specVersion: n,
+  type: 'line',
+  datasets: [],
+  fields: {
+    x: null,
+    y: { fieldId: 'y' },
+    series: null,
+    color: null,
+    size: null,
+    facet: null,
+  },
+  filters: [],
+  transformations: [],
+  typeParams: {},
+  display: {
+    axes: { x: { scale: 'linear' }, y: { label: 'Y', scale: 'linear' } },
+    series: [],
+  },
+  overlays: { errorBars: null },
+})
 
 afterEach(cleanup)
 

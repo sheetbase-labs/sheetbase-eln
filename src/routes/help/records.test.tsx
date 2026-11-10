@@ -6,6 +6,7 @@ import {
   createRouter,
 } from '@tanstack/react-router'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { helpArticles, helpTopics } from '#/components/help/help-content'
 import { Route } from './records'
@@ -50,11 +51,10 @@ describe('HelpRecords', () => {
     }
 
     for (const article of helpArticles) {
-      if (
-        article.link.to === '/help/records' &&
-        typeof article.link.hash === 'string'
-      ) {
-        expect(document.getElementById(article.link.hash)).not.toBeNull()
+      const hash = z.string().safeParse(article.link.hash)
+
+      if (article.link.to === '/help/records' && hash.success) {
+        expect(document.getElementById(hash.data)).not.toBeNull()
       }
     }
   })

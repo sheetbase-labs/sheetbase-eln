@@ -28,9 +28,12 @@ const spec = {
   filters: [{ fieldId: 'f-batch', op: 'eq', value: 'B1' }],
   transformations: [],
   typeParams: {},
-  display: {},
+  display: {
+    axes: { x: { scale: 'linear' }, y: { scale: 'linear' } },
+    series: [],
+  },
   overlays: { errorBars: null },
-} as unknown as ChartSpec
+} satisfies ChartSpec
 
 const source = [
   col('f-conc', 'Concentration'),

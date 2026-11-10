@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
@@ -26,6 +27,7 @@ import { LinkSamplesAction } from './-links-tab'
 import { formatDate, notebookDataClient } from '#/lib/notebook-data'
 import { useUserNames } from '#/lib/user-names'
 import { useExperimentLinks } from '../$expId'
+import type { JsonValue } from '#/lib/workspace-admin'
 import { t } from '#/copy'
 
 interface SampleWire {
@@ -36,8 +38,8 @@ interface SampleWire {
   metadata_version: number
   created_at: string
   created_by_user_id: string | null
-  properties: Record<string, unknown> | null
-  custom_fields: Record<string, unknown> | null
+  properties: Record<string, JsonValue> | null
+  custom_fields: Record<string, JsonValue> | null
 }
 
 interface SampleLinkWire {
@@ -53,12 +55,13 @@ interface SampleRow extends SampleWire {
   relation: string | null
 }
 
-function text(row: SampleWire, key: string): string | null {
-  const value = row.properties?.[key]
+/** The text or number a sample stores under one property key. */
+const textValueSchema = z.union([z.string(), z.number()])
 
-  return typeof value === 'string' || typeof value === 'number'
-    ? String(value)
-    : null
+function text(row: SampleWire, key: string): string | null {
+  const value = textValueSchema.safeParse(row.properties?.[key])
+
+  return value.success ? String(value.data) : null
 }
 
 /** 4,600 and 15.0: whole numbers from a hundred up, one decimal below. */
@@ -108,11 +111,13 @@ function useExperimentSamples(expId: string) {
         ),
       ])
 
+      const sampleIds = new Set(ids)
+
       const parentOf = new Map(
         // The experiment links its samples the same way, so a parent is a link
         // whose source is itself one of these samples.
         parents.flatMap((p) =>
-          p.target_record_id && ids.includes(p.source_record_id)
+          p.target_record_id && sampleIds.has(p.source_record_id)
             ? [
                 [
                   p.target_record_id,
@@ -254,11 +259,7 @@ function SampleInspector({
         <DescriptionList
           labelWidth={110}
           items={[
-            ...(type
-              ? ([[t('projects.expSamples.type'), type]] as Array<
-                  [string, string]
-                >)
-              : []),
+            ...(type ? [typeItem(type)] : []),
             [
               t('projects.expSamples.volume'),
               `${volume(row)} ${text(row, 'quantityUnit') ?? ''}`,
@@ -293,6 +294,18 @@ function SampleInspector({
 
 type SortKey = 'id' | 'created'
 
+const SORT_KEYS = ['id', 'created'] as const
+
+/** The sort a chosen option names; anything else sorts by identifier. */
+function sortKeyOf(optionValue: string): SortKey {
+  return SORT_KEYS.find((key) => key === optionValue) ?? 'id'
+}
+
+/** The "Type" row of the inspector's property list. */
+function typeItem(type: string): [string, string] {
+  return [t('projects.expSamples.type'), type]
+}
+
 /** The experiment's samples as a table: what each one is, what it came from,
  * where it sits and what state it is in, with its lineage beside it. */
 export function ExperimentSamples({ expId }: { expId: string }) {
@@ -311,9 +324,11 @@ export function ExperimentSamples({ expId }: { expId: string }) {
   const partOfSample = useMemo(
     () =>
       new Map(
-        (links.data ?? [])
-          .filter((l) => l.target_kind === 'sample' && l.target_record_id)
-          .map((l) => [l.target_record_id as string, l.part_id ?? null]),
+        (links.data ?? []).flatMap((l): Array<[string, string | null]> =>
+          l.target_kind === 'sample' && l.target_record_id
+            ? [[l.target_record_id, l.part_id ?? null]]
+            : [],
+        ),
       ),
     [links.data],
   )
@@ -326,7 +341,7 @@ export function ExperimentSamples({ expId }: { expId: string }) {
 
   const rows = useMemo(
     () =>
-      all
+      (samples.data ?? [])
         .filter((r) => status === 'all' || statusOf(r).label === status)
         .filter((r) => showsForPart(partOfSample.get(r.id), partFilter))
         .sort((a, b) =>
@@ -334,7 +349,7 @@ export function ExperimentSamples({ expId }: { expId: string }) {
             ? a.created_at.localeCompare(b.created_at)
             : a.identifier.localeCompare(b.identifier),
         ),
-    [all, status, sort, partFilter, partOfSample],
+    [samples.data, status, sort, partFilter, partOfSample],
   )
 
   const selectedId = picked ?? rows.at(0)?.id ?? null
@@ -485,7 +500,7 @@ export function ExperimentSamples({ expId }: { expId: string }) {
               <Select
                 size="sm"
                 value={sort}
-                onChange={(e) => setSort(e.target.value as SortKey)}
+                onChange={(e) => setSort(sortKeyOf(e.target.value))}
               >
                 <option value="id">{t('projects.expSamples.id')}</option>
                 <option value="created">

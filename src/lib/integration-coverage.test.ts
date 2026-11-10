@@ -34,8 +34,14 @@ function migrationFiles(): string[] {
     .sort()
 }
 
+/** The `api` objects a migration history leaves in place. */
+interface ApiObjects {
+  tables: Set<string>
+  functions: Set<string>
+}
+
 /** api.* names still present after all guarded migrations ran in order. */
-function apiObjects(): { tables: Set<string>; functions: Set<string> } {
+function apiObjects(): ApiObjects {
   const tables = new Set<string>()
   const functions = new Set<string>()
 

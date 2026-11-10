@@ -9,6 +9,7 @@
  * PostgreSQL by the ordinary notebook save path; see the server's header.
  */
 import * as awarenessProtocol from 'y-protocols/awareness'
+import { z } from 'zod'
 import * as syncProtocol from 'y-protocols/sync'
 import * as decoding from 'lib0/decoding'
 import * as encoding from 'lib0/encoding'
@@ -35,6 +36,20 @@ export interface CollabIdentity {
 }
 
 type Listener = () => void
+
+/**
+ * The origin Yjs reports for a transaction: this provider, a peer's, or another
+ * object the app passes. It is only ever compared by identity here.
+ */
+type TransactionOrigin = Y.Transaction['origin']
+
+/** The access message the server sends on connect. */
+const collabAccessSchema = z.looseObject({
+  userId: z.string(),
+  name: z.string(),
+  avatar: z.string().nullable(),
+  canWrite: z.boolean(),
+})
 
 /**
  * A stable colour for a person's caret and presence chip, as `#rrggbb` (the
@@ -90,10 +105,13 @@ export class CollabProvider {
   private presence: CollaborationPresence = {}
   private readonly listeners = new Set<Listener>()
   private readonly seedClaims = new Map<string, (granted: boolean) => void>()
-  private readonly onDocUpdate: (update: Uint8Array, origin: unknown) => void
+  private readonly onDocUpdate: (
+    update: Uint8Array,
+    origin: TransactionOrigin,
+  ) => void
   private readonly onAwarenessUpdate: (
     changes: { added: number[]; updated: number[]; removed: number[] },
-    origin: unknown,
+    origin: TransactionOrigin,
   ) => void
 
   constructor(
@@ -139,7 +157,10 @@ export class CollabProvider {
   }
 
   private emit() {
-    for (const listener of [...this.listeners]) listener()
+    // A snapshot: a listener may unsubscribe while it is being told.
+    const listeners = [...this.listeners]
+
+    for (const listener of listeners) listener()
   }
 
   private setStatus(status: CollabStatus) {
@@ -150,6 +171,7 @@ export class CollabProvider {
 
   private send(message: Uint8Array) {
     if (this.ws?.readyState === WebSocket.OPEN) {
+      // SAFETY: every message is a buffer the encoder allocated for this send (`encoding.toUint8Array`), which is ArrayBuffer-backed; lib0's type keeps the buffer type generic.
       this.ws.send(message as Uint8Array<ArrayBuffer>)
     }
   }
@@ -197,12 +219,9 @@ export class CollabProvider {
         this.seedClaims.get(blockId)?.(granted)
         this.seedClaims.delete(blockId)
       } else if (type === MESSAGE_ACCESS) {
-        const access = JSON.parse(decoding.readVarString(decoder)) as {
-          userId: string
-          name: string
-          avatar: string | null
-          canWrite: boolean
-        }
+        const access = collabAccessSchema.parse(
+          JSON.parse(decoding.readVarString(decoder)),
+        )
 
         this.canWrite = access.canWrite
         this.identity = {

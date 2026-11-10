@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { AnalysisViewWire } from '#/lib/analysis-studio-data'
 import type { ChartSpec } from '#/lib/chart-spec'
+import type { fetchCanonicalDataset } from '#/lib/chart-data'
 import { DuplicateAnalysisDialog } from './duplicate-analysis-dialog'
 
 const mocks = vi.hoisted(() => ({
@@ -15,24 +16,31 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The dialog navigates to the copy it created; this suite renders the dialog alone and records that navigation instead of mounting the generated route tree.
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => mocks.navigate,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Toasts are painted by the app shell's Toaster; this suite renders the dialog alone, so toast calls are recorded and never painted.
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The dialog imports its reads and its create call directly, with no injection point; this suite answers them with two fixed datasets.
 vi.mock('#/lib/analysis-studio-data', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
+  ...(await importOriginal()),
   analysisStudioDataClient: {},
   fetchDatasetSummaries: (...a: unknown[]) => mocks.summaries(...a),
   createAnalysisView: (...a: unknown[]) => mocks.create(...a),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The canonical dataset read is imported directly by the dialog; this suite answers it per dataset id so the column matching can be asserted.
 vi.mock('#/lib/chart-data', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  fetchCanonicalDataset: (_c: unknown, id: string) => mocks.canonical(id),
+  ...(await importOriginal()),
+  fetchCanonicalDataset: (
+    _client: Parameters<typeof fetchCanonicalDataset>[0],
+    id: string,
+  ) => mocks.canonical(id),
 }))
 
 const col = (id: string, label: string) => ({
@@ -41,9 +49,13 @@ const col = (id: string, label: string) => ({
   logicalType: 'decimal',
 })
 
-const view = {
+const view: AnalysisViewWire = {
   id: 'view-1',
+  workspace_id: 'ws',
+  owner_user_id: 'u',
   name: 'Dose response',
+  display_id: null,
+  version: 1,
   charts: [
     {
       specVersion: 1,
@@ -60,12 +72,18 @@ const view = {
       filters: [],
       transformations: [],
       typeParams: {},
-      display: {},
+      display: {
+        axes: { x: { scale: 'linear' }, y: { scale: 'linear' } },
+        series: [],
+      },
       overlays: { errorBars: null },
-    } as unknown as ChartSpec,
+    },
   ],
+  source_revisions: [],
   export_settings: null,
-} as unknown as AnalysisViewWire
+  created_at: '2026-10-01T00:00:00Z',
+  updated_at: '2026-10-01T00:00:00Z',
+}
 
 function mount() {
   render(

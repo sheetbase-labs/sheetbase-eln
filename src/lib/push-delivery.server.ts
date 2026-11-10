@@ -154,7 +154,11 @@ export async function runPushWorker(deps: PushDeps): Promise<PushRunResult> {
 
 let timer: ReturnType<typeof setInterval> | null = null
 let bootTimer: ReturnType<typeof setTimeout> | null = null
-const startedGlobalKey = '__sheetbasePushSchedulerStarted'
+
+/** The per-process marker this module sets so two schedulers never run in one process. */
+type PushSchedulerGlobal = typeof globalThis & {
+  __sheetbasePushSchedulerStarted?: boolean
+}
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
@@ -178,10 +182,12 @@ export function startPushScheduler(
   if (typeof window !== 'undefined') return
 
   if (schedulerDisabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
 
-  if (g[startedGlobalKey]) return
-  g[startedGlobalKey] = true
+  // SAFETY: `globalThis` is the one process object Node runs; the key is this module's own, so no other code writes a value of another type to it.
+  const g = globalThis as PushSchedulerGlobal
+
+  if (g.__sheetbasePushSchedulerStarted) return
+  g.__sheetbasePushSchedulerStarted = true
 
   const deps = options.deps ?? { connect: defaultConnect }
   let running = false
@@ -218,6 +224,7 @@ export function stopPushScheduler(): void {
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null
-  const g = globalThis as unknown as Record<string, unknown>
-  delete g[startedGlobalKey]
+  // SAFETY: `globalThis` is the one process object Node runs; the key is this module's own, so no other code writes a value of another type to it.
+  const g = globalThis as PushSchedulerGlobal
+  delete g.__sheetbasePushSchedulerStarted
 }

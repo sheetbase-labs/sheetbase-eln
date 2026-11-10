@@ -15,6 +15,83 @@ import {
 import type { DataClient } from './data-client'
 import type { ScientificColumnWire } from './scientific-sheet-data'
 
+/** The row a fake `insert` receives. */
+type InsertRow = Parameters<DataClient['insert']>[1]
+
+/** The arguments a fake `rpc` receives. */
+type RpcArgs = Parameters<DataClient['rpc']>[1]
+
+/** What the catalogue answers a Dataset create with in these tests. */
+interface CreatedDatasetReply {
+  id: string
+  name?: string
+  revision?: number
+}
+
+/** What a Dataset RPC answers with in these tests. */
+interface RpcReply {
+  ok?: boolean
+  id?: string
+  datasetRevision?: number
+}
+
+/** Either reply a fake answers with. */
+type FakeReply = CreatedDatasetReply | RpcReply
+
+/**
+ * The DataClient these tests work against: only the methods a test supplies
+ * answer, and every other method refuses, so a call the test did not plan fails
+ * loudly instead of reaching the network.
+ */
+function fakeDataClient(overrides: Partial<DataClient> = {}): DataClient {
+  const refuse = () =>
+    Promise.reject(new Error('This test answers no other client method.'))
+
+  return {
+    list: refuse,
+    count: refuse,
+    rpc: refuse,
+    insert: refuse,
+    patch: refuse,
+    remove: refuse,
+    ...overrides,
+  }
+}
+
+/** An `insert` that records each call and answers with the fixed reply. */
+function insertReturning(reply: FakeReply) {
+  const calls: Array<Parameters<DataClient['insert']>> = []
+
+  const insert: DataClient['insert'] = async <T>(
+    resource: string,
+    row: InsertRow,
+  ): Promise<T> => {
+    calls.push([resource, row])
+
+    // SAFETY: the fake answers every insert with the fixed reply the test supplies; the caller's generic is the type it reads that reply as.
+    return reply as T
+  }
+
+  return { calls, insert }
+}
+
+/** An `rpc` that records each call and answers with the fixed reply. */
+function rpcReturning(reply: FakeReply) {
+  const calls: Array<Parameters<DataClient['rpc']>> = []
+
+  const rpc: DataClient['rpc'] = async <T>(
+    name: string,
+    args: RpcArgs,
+  ): Promise<T> => {
+    calls.push([name, args])
+
+    // SAFETY: the fake answers every RPC with the fixed reply the test supplies; the caller's generic is the type it reads that reply as.
+    return reply as T
+  }
+
+  return { calls, rpc }
+}
+
 function column(
   overrides: Partial<ScientificColumnWire> = {},
 ): ScientificColumnWire {
@@ -35,47 +112,52 @@ function column(
 
 describe('listPublishedDatasetSchemas', () => {
   it('pairs active Schema Definitions with their latest published Version', async () => {
-    const client = {
-      list: async (resource: string) => {
-        if (resource === 'dataset_schema_definitions') {
-          return [
-            {
-              id: 'def-1',
-              key: 'assay',
-              name: 'Assay',
-              description: null,
-              lifecycle: 'active',
-            },
-            {
-              id: 'def-2',
-              key: 'retired',
-              name: 'Retired',
-              description: null,
-              lifecycle: 'active',
-            },
-          ]
-        }
-
-        return [
-          {
-            id: 'ver-2',
-            schema_id: 'def-1',
-            version: 2,
-            lifecycle: 'active',
-            published_at: '2026-01-02',
-          },
-          {
-            id: 'ver-1',
-            schema_id: 'def-1',
-            version: 1,
-            lifecycle: 'active',
-            published_at: '2026-01-01',
-          },
-        ]
+    const definitions = [
+      {
+        id: 'def-1',
+        key: 'assay',
+        name: 'Assay',
+        description: null,
+        lifecycle: 'active',
       },
-    } as unknown as DataClient
+      {
+        id: 'def-2',
+        key: 'retired',
+        name: 'Retired',
+        description: null,
+        lifecycle: 'active',
+      },
+    ]
 
-    const options = await listPublishedDatasetSchemas(client)
+    const versions = [
+      {
+        id: 'ver-2',
+        schema_id: 'def-1',
+        version: 2,
+        lifecycle: 'active',
+        published_at: '2026-01-02',
+      },
+      {
+        id: 'ver-1',
+        schema_id: 'def-1',
+        version: 1,
+        lifecycle: 'active',
+        published_at: '2026-01-01',
+      },
+    ]
+
+    const list: DataClient['list'] = async <T>(
+      resource: string,
+    ): Promise<T[]> => {
+      const rows =
+        resource === 'dataset_schema_definitions' ? definitions : versions
+
+      // SAFETY: the fixtures are the rows each of these two resources holds in the catalogue this test describes.
+      return rows as T[]
+    }
+
+    const options = await listPublishedDatasetSchemas(fakeDataClient({ list }))
+
     expect(options).toEqual([
       {
         schemaDefinitionId: 'def-1',
@@ -91,21 +173,13 @@ describe('listPublishedDatasetSchemas', () => {
 
 describe('createDataset', () => {
   it('inserts api.datasets with the selected Schema Version', async () => {
-    const calls: Array<{ resource: string; row: Record<string, unknown> }> = []
+    const { calls, insert } = insertReturning({
+      id: 'ds-1',
+      name: 'HPLC results',
+      revision: 1,
+    })
 
-    const client = {
-      insert: async (resource: string, row: Record<string, unknown>) => {
-        calls.push({ resource, row })
-
-        return {
-          id: 'ds-1',
-          name: row.name,
-          revision: 1,
-        }
-      },
-    } as unknown as DataClient
-
-    const created = await createDataset(client, {
+    const created = await createDataset(fakeDataClient({ insert }), {
       workspaceId: 'ws-1',
       schemaVersionId: 'ver-2',
       name: '  HPLC results  ',
@@ -113,9 +187,9 @@ describe('createDataset', () => {
     })
 
     expect(calls).toEqual([
-      {
-        resource: 'datasets',
-        row: {
+      [
+        'datasets',
+        {
           workspace_id: 'ws-1',
           schema_version_id: 'ver-2',
           name: 'HPLC results',
@@ -125,29 +199,25 @@ describe('createDataset', () => {
           // create that is given no person records none rather than guessing.
           created_by_user_id: null,
         },
-      },
+      ],
     ])
     expect(created).toEqual({ id: 'ds-1', name: 'HPLC results', revision: 1 })
   })
 
   it('records the person a new Dataset is attributed to', async () => {
-    const calls: Array<{ resource: string; row: Record<string, unknown> }> = []
+    const { calls, insert } = insertReturning({
+      id: 'ds-2',
+      name: 'HPLC results',
+      revision: 1,
+    })
 
-    const client = {
-      insert: async (resource: string, row: Record<string, unknown>) => {
-        calls.push({ resource, row })
-
-        return { id: 'ds-2', name: row.name, revision: 1 }
-      },
-    } as unknown as DataClient
-
-    await createDataset(client, {
+    await createDataset(fakeDataClient({ insert }), {
       workspaceId: 'ws-1',
       schemaVersionId: 'ver-2',
       name: 'HPLC results',
       createdByUserId: 'user-9',
     })
-    expect(calls[0]?.row).toMatchObject({
+    expect(calls[0]?.[1]).toMatchObject({
       schema_version_id: 'ver-2',
       created_by_user_id: 'user-9',
     })
@@ -156,43 +226,27 @@ describe('createDataset', () => {
 
 describe('snapshot and live-edit RPCs', () => {
   it('snapshots through snapshot_dataset', async () => {
-    const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+    const { calls, rpc } = rpcReturning({ id: 'ver-snap' })
 
-    const client = {
-      rpc: async (name: string, args: Record<string, unknown>) => {
-        calls.push({ name, args })
-
-        return { id: 'ver-snap' }
-      },
-    } as unknown as DataClient
-
-    await snapshotDataset(client, {
+    await snapshotDataset(fakeDataClient({ rpc }), {
       datasetId: 'ds-1',
       expectedRevision: 4,
       label: '  Freeze A  ',
     })
-    expect(calls[0]).toEqual({
-      name: 'snapshot_dataset',
-      args: {
+    expect(calls[0]).toEqual([
+      'snapshot_dataset',
+      {
         p_dataset_id: 'ds-1',
         p_expected_dataset_revision: 4,
         p_label: 'Freeze A',
       },
-    })
+    ])
   })
 
   it('commits live edits through commit_dataset_row_batch', async () => {
-    const calls: Array<{ name: string; args: Record<string, unknown> }> = []
+    const { calls, rpc } = rpcReturning({ ok: true, datasetRevision: 5 })
 
-    const client = {
-      rpc: async (name: string, args: Record<string, unknown>) => {
-        calls.push({ name, args })
-
-        return { ok: true, datasetRevision: 5 }
-      },
-    } as unknown as DataClient
-
-    const result = await commitDatasetRowBatch(client, {
+    const result = await commitDatasetRowBatch(fakeDataClient({ rpc }), {
       datasetId: 'ds-1',
       expectedRevision: 4,
       idempotencyKey: 'edit-1',
@@ -206,7 +260,7 @@ describe('snapshot and live-edit RPCs', () => {
       ],
     })
 
-    expect(calls[0]?.name).toBe('commit_dataset_row_batch')
+    expect(calls[0]?.[0]).toBe('commit_dataset_row_batch')
     expect(result.ok).toBe(true)
   })
 })
@@ -340,11 +394,9 @@ describe('historical Schema Version columns', () => {
       },
     ])
 
-    expect(historical.map((column) => column.id)).toEqual(['ph-field'])
-    expect(historical.map((column) => column.label)).toEqual(['pH'])
-    expect(historical.map((column) => column.id)).not.toEqual(liveColumnIds)
-    expect(historical.some((column) => column.id === 'colour-field')).toBe(
-      false,
-    )
+    expect(historical.map((entry) => entry.id)).toEqual(['ph-field'])
+    expect(historical.map((entry) => entry.label)).toEqual(['pH'])
+    expect(historical.map((entry) => entry.id)).not.toEqual(liveColumnIds)
+    expect(historical.some((entry) => entry.id === 'colour-field')).toBe(false)
   })
 })

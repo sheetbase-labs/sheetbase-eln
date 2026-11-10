@@ -167,11 +167,15 @@ describe('composeAnalysisDefinition', () => {
 
   it('names the chart view and the statistic it joins', async () => {
     const rpc = vi.fn().mockResolvedValue({ id: 'def-2' })
-    await composeAnalysisDefinition({ rpc } as unknown as DataClient, {
-      chartViewId: 'view-1',
-      statisticDefinitionId: 'def-1',
-      name: 'Dose response',
-    })
+
+    await composeAnalysisDefinition(
+      { ...clientMock(), rpc },
+      {
+        chartViewId: 'view-1',
+        statisticDefinitionId: 'def-1',
+        name: 'Dose response',
+      },
+    )
     expect(rpc).toHaveBeenCalledWith('compose_analysis_definition', {
       p_chart_view_id: 'view-1',
       p_statistic_definition_id: 'def-1',
@@ -181,10 +185,14 @@ describe('composeAnalysisDefinition', () => {
 
   it('sends null for a chart with no statistic', async () => {
     const rpc = vi.fn().mockResolvedValue({ id: 'def-2' })
-    await composeAnalysisDefinition({ rpc } as unknown as DataClient, {
-      chartViewId: 'view-1',
-      name: 'Dose response',
-    })
+
+    await composeAnalysisDefinition(
+      { ...clientMock(), rpc },
+      {
+        chartViewId: 'view-1',
+        name: 'Dose response',
+      },
+    )
     expect(rpc.mock.calls[0][1].p_statistic_definition_id).toBeNull()
   })
 
@@ -194,18 +202,25 @@ describe('composeAnalysisDefinition', () => {
       .mockRejectedValueOnce(clash)
       .mockResolvedValueOnce({ id: 'def-2' })
 
-    await composeAnalysisDefinition({ rpc } as unknown as DataClient, {
-      chartViewId: 'v',
-      name: 'Dose response',
-    })
+    await composeAnalysisDefinition(
+      { ...clientMock(), rpc },
+      {
+        chartViewId: 'v',
+        name: 'Dose response',
+      },
+    )
     expect(rpc.mock.calls[1][1].p_name).toBe('Dose response 2')
 
     const failing = vi.fn().mockRejectedValue(new Error('denied'))
+
     await expect(
-      composeAnalysisDefinition({ rpc: failing } as unknown as DataClient, {
-        chartViewId: 'v',
-        name: 'x',
-      }),
+      composeAnalysisDefinition(
+        { ...clientMock(), rpc: failing },
+        {
+          chartViewId: 'v',
+          name: 'x',
+        },
+      ),
     ).rejects.toThrow('denied')
     expect(failing).toHaveBeenCalledTimes(1)
   })

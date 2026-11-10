@@ -42,9 +42,13 @@ export async function handleOntologySearch(
     context.token,
   )
 
-  const settings = settingsRes.body as OntologySettings
+  const settings = settingsRes.body
 
-  if (settingsRes.status >= 400 || !settings.enabled) {
+  if (
+    settingsRes.status >= 400 ||
+    !('enabled' in settings) ||
+    !settings.enabled
+  ) {
     return requestErrorResponse(
       409,
       'ontology_lookup_off',

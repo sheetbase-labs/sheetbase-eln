@@ -71,17 +71,19 @@ const DATASET = {
 const ROW = '33333333-3333-4333-8333-333333333333'
 
 function context(extra: Record<string, unknown[]> = {}): LabToolContext {
-  const rows: Record<string, unknown[]> = {
-    dataset_schema_definitions: [TABLE],
-    dataset_schema_versions: [PUBLISHED],
-    dataset_schema_version_fields: FIELDS,
-    datasets: [DATASET],
-    dataset_rows: [{ id: ROW }],
-    ...extra,
-  }
+  const rows = new Map<string, unknown[]>([
+    ['dataset_schema_definitions', [TABLE]],
+    ['dataset_schema_versions', [PUBLISHED]],
+    ['dataset_schema_version_fields', FIELDS],
+    ['datasets', [DATASET]],
+    ['dataset_rows', [{ id: ROW }]],
+    ...Object.entries(extra),
+  ])
 
+  // SAFETY: `LabToolContext` is the database transport; the tools under test read only `list` and `rpc`, which are the whole of this double.
+  // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- The double's `rpc` fixes its own answer, so neither it nor `DataClient` is assignable to the other.
   const client = {
-    list: (resource: string) => Promise.resolve(rows[resource] ?? []),
+    list: (resource: string) => Promise.resolve(rows.get(resource) ?? []),
     rpc: () => Promise.resolve({ blocked: false }),
   } as unknown as DataClient
 

@@ -8,6 +8,8 @@
  * exporter makes a file the person saves. Browser safe: server work happens in
  * `data-route.server.ts`.
  */
+import { z } from 'zod'
+
 import { csvEscape } from '../export/delimited'
 import { runFailure } from './use-extension-points'
 import type {
@@ -15,9 +17,15 @@ import type {
   ExtensionInstrumentParserDeclaration,
 } from './data-points'
 
+/** A value a plugin hands over or receives: JSON, and only JSON. */
+type PluginJson = z.core.util.JSONType
+
+/** One plugin row: a column name to the JSON it holds. */
+export type PluginRow = Record<string, PluginJson>
+
 export interface PluginTable {
   columns: string[]
-  rows: Array<Record<string, unknown>>
+  rows: PluginRow[]
 }
 
 export function fileExtension(name: string): string {
@@ -33,20 +41,32 @@ export function tableToCsvFile(table: PluginTable, filename: string): File {
     ...table.rows.map((row) =>
       table.columns
         .map((column) => {
-          const value = row[column]
-
-          if (value === null || value === undefined) return ''
-
-          return csvEscape(
-            typeof value === 'object' ? JSON.stringify(value) : String(value),
-            ',',
-          )
+          return csvEscape(pluginCellText(row[column]), ',')
         })
         .join(','),
     ),
   ]
 
   return new File([lines.join('\n') + '\n'], filename, { type: 'text/csv' })
+}
+
+/** A plugin cell as CSV text: empty for nothing, JSON for a nested value, its own text otherwise. */
+function pluginCellText(value: PluginJson | undefined): string {
+  if (value === null || value === undefined) return ''
+
+  const flag = booleanValue.safeParse(value)
+
+  if (flag.success) return flag.data ? 'true' : 'false'
+
+  const number = numberValue.safeParse(value)
+
+  if (number.success) return String(number.data)
+
+  const text = stringValue.safeParse(value)
+
+  if (text.success) return text.data
+
+  return JSON.stringify(value)
 }
 
 /** `sequences.fasta` becomes `sequences.csv`. */
@@ -56,6 +76,11 @@ export function csvNameFor(filename: string): string {
   return `${dot > 0 ? filename.slice(0, dot) : filename}.csv`
 }
 
+const stringValue = z.string()
+const numberValue = z.number()
+const booleanValue = z.boolean()
+
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A plugin call's body is serialised straight to the plugin route; connector parameters arrive as the values the connector's own fields produced.
 async function post<T>(body: unknown): Promise<T> {
   const response = await fetch('/api/plugins/data', {
     method: 'POST',
@@ -65,6 +90,7 @@ async function post<T>(body: unknown): Promise<T> {
 
   if (!response.ok) throw await runFailure(response)
 
+  // SAFETY: The caller selects T for this generic plugin transport; a failed HTTP response is rejected above and each caller's documented answer is T.
   return (await response.json()) as T
 }
 
@@ -167,7 +193,7 @@ export async function layOutPluginLabel(args: {
   extensionKey: string
   formatId: string
   recordKind: string
-  record: Record<string, unknown>
+  record: PluginRow
   template: { widthMm: number; heightMm: number }
 }): Promise<Array<{ text: string; bold: boolean }>> {
   const answer = await post<{ lines: Array<{ text: string; bold: boolean }> }>({
@@ -182,6 +208,7 @@ export async function pullWithConnector(args: {
   extensionKey: string
   connectorId: string
   name: string
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- Connector parameters are the values the connector's own declared fields produced; this module only forwards them to the plugin route.
   parameters: Record<string, unknown>
   settings: Record<string, string>
 }): Promise<File> {
@@ -208,8 +235,8 @@ export async function exportWithPlugin(args: {
   extensionKey: string
   exporterId: string
   name: string
-  rows: Array<Record<string, unknown>>
-  options?: Record<string, unknown>
+  rows: PluginRow[]
+  options?: PluginRow
 }): Promise<File> {
   const made = await post<PluginExportedFile>({
     kind: 'export',
@@ -233,7 +260,7 @@ export async function exportWithPlugin(args: {
 }
 
 export type PluginFilePreview =
-  | { kind: 'table'; columns: string[]; rows: Array<Record<string, unknown>> }
+  | { kind: 'table'; columns: string[]; rows: PluginRow[] }
   | { kind: 'text'; text: string }
 
 export async function previewWithPlugin(args: {
@@ -254,7 +281,7 @@ export async function previewWithPlugin(args: {
 export async function runPluginCheck(args: {
   extensionKey: string
   checkId: string
-  rows: Array<Record<string, unknown>>
+  rows: PluginRow[]
 }): Promise<{ status: 'pass' | 'warn' | 'fail'; message: string }> {
   return post({
     kind: 'check',
@@ -279,7 +306,7 @@ export async function runPluginGateCheck(args: {
 export async function runSamenessKey(args: {
   extensionKey: string
   keyId: string
-  values: Record<string, unknown>
+  values: PluginRow
 }): Promise<string> {
   const answer = await post<{ key: string }>({
     kind: 'sameness-key',

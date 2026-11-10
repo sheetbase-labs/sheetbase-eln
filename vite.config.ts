@@ -27,6 +27,11 @@ const pinnedNow =
     ? (process.env.SHEETBASE_NOW ?? '')
     : ''
 
+/** The dev server's collaboration host, kept on `globalThis` for a person to reach while running it. */
+type CollabDevGlobal = typeof globalThis & {
+  __sheetbaseCollab?: ReturnType<typeof createCollabHost>
+}
+
 /**
  * src/lib/request-log.ts reads the current request through nitro/context, which
  * only exists on the server. The browser bundle still reaches it through shared
@@ -39,6 +44,7 @@ const clientRequestStub = {
     if (id === 'nitro/context' && this.environment?.name === 'client') {
       return '\0nitro-context-client-stub'
     }
+
     return null
   },
   load(id: string) {
@@ -58,13 +64,18 @@ const collabDevServer = {
   apply: 'serve' as const,
   configureServer(server: { httpServer: Server | null }) {
     if (!server.httpServer) return
+
     const collab = createCollabHost({
       fetchApp: (request) => fetch(request),
       log: (level, message, fields) => {
         if (level !== 'info') console.warn(`[collab] ${message}`, fields ?? '')
       },
     })
-    ;(globalThis as Record<string, unknown>).__sheetbaseCollab = collab
+
+    // SAFETY: `globalThis` is the one process object Node runs; the key is this dev-server module's own, so the host stored under it is the one just created.
+    const devServer = globalThis as CollabDevGlobal
+
+    devServer.__sheetbaseCollab = collab
     server.httpServer.on('upgrade', (request, socket, head) => {
       collab.handleUpgrade(request, socket, head)
     })

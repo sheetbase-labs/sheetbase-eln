@@ -3,6 +3,8 @@
  * parse, review, commit) runs on the server at /api/import/*; the browser only
  * sends the mapped document and reads back previews and counts.
  */
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
 import { quantityForUnit } from '#/lib/dataset-column-unit'
 import { createDataset } from '#/lib/dataset-product'
@@ -35,15 +37,25 @@ export class ImportRequestError extends Error {
   }
 }
 
+const errorEnvelope = z.looseObject({
+  error: z
+    .looseObject({
+      code: z.string().optional(),
+      message: z.string().optional(),
+    })
+    .optional(),
+})
+
 async function readJson<T>(response: Response): Promise<T> {
-  const body = (await response.json().catch(() => null)) as
-    (T & { error?: { code?: string; message?: string } }) | null
+  const body = await response.json().catch(() => null)
 
   if (!response.ok) {
+    const failure = errorEnvelope.safeParse(body).data
+
     throw new ImportRequestError(
       response.status,
-      body?.error?.code ?? 'request_failed',
-      body?.error?.message ?? `Import request failed (${response.status}).`,
+      failure?.error?.code ?? 'request_failed',
+      failure?.error?.message ?? `Import request failed (${response.status}).`,
     )
   }
 
@@ -234,8 +246,8 @@ export async function saveParserMapping(
     targetKey: string
     mapping: ImportMappingDocument
   },
-): Promise<unknown> {
-  return client.rpc('save_parser_mapping', {
+): Promise<void> {
+  return client.rpc<void>('save_parser_mapping', {
     p_parser_id: input.parserId,
     p_target_key: input.targetKey,
     p_mapping: input.mapping,

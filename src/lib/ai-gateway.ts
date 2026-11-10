@@ -43,6 +43,8 @@
  * local reproduction of truncation or grounding faults.
  */
 
+import { z } from 'zod'
+
 import { parsePluginName } from './extensions/points'
 import type { AiContextActor, AiContextEnvelope } from './ai-context'
 import type { AiCitation } from './ai-retrieval'
@@ -269,6 +271,25 @@ export interface GatewayUsage {
   latencyMs: number
 }
 
+/** The bounded, prompt-free fields of one gateway call, as the log carries them. */
+interface GatewayCallFields {
+  model: GatewayModel
+  tools: string[]
+  actorKind: AiContextActor['kind']
+  actorId: string
+  promptHash: string
+  promptChars: number
+  estimatedTokens: number
+  estimatedCostMicrousd: number
+  citationIds: string[]
+  toolNames?: string[]
+  historyTurns?: number
+  historyChars?: number
+  debugPromptExcerpt?: string
+  /** The logger takes the fields as a flat record. */
+  [field: string]: string | number | string[] | undefined
+}
+
 export interface GatewayResult {
   text: string
   model: GatewayModel
@@ -278,11 +299,11 @@ export interface GatewayResult {
 }
 
 function isGatewayModel(model: string): model is GatewayModel {
-  return (GATEWAY_MODELS as readonly string[]).includes(model)
+  return GATEWAY_MODELS.some((known) => known === model)
 }
 
 function isGatewayTool(tool: string): tool is GatewayTool {
-  return (GATEWAY_TOOLS as readonly string[]).includes(tool)
+  return GATEWAY_TOOLS.some((known) => known === tool)
 }
 
 /**
@@ -325,15 +346,38 @@ export function buildGatewayPrompt(
  * provider error code, profile id and HTTP status only. Never the message
  * body, which an upstream error can fill with the prompt.
  */
-function providerFailureFields(cause: unknown): Record<string, unknown> {
-  if (cause === null || typeof cause !== 'object') return {}
-  const { code, providerId, status } = cause as Record<string, unknown>
+interface ProviderFailureFields {
+  providerCode?: string
+  providerId?: string
+  providerStatus?: number
+}
 
-  return {
-    ...(typeof code === 'string' ? { providerCode: code } : {}),
-    ...(typeof providerId === 'string' ? { providerId } : {}),
-    ...(typeof status === 'number' ? { providerStatus: status } : {}),
-  }
+/** The provider SDK's failure shape, as much of it as the log may carry. */
+const providerFailure = z.looseObject({
+  code: z.string().optional(),
+  providerId: z.string().optional(),
+  status: z.number().optional(),
+})
+
+function providerFailureFields(
+  // A caught throw from the upstream SDK; the schema above keeps only its code, profile id and status.
+  cause: unknown,
+): ProviderFailureFields {
+  const decoded = providerFailure.safeParse(cause)
+
+  if (!decoded.success) return {}
+
+  const fields: ProviderFailureFields = {}
+
+  if (decoded.data.code !== undefined) fields.providerCode = decoded.data.code
+
+  if (decoded.data.providerId !== undefined)
+    fields.providerId = decoded.data.providerId
+
+  if (decoded.data.status !== undefined)
+    fields.providerStatus = decoded.data.status
+
+  return fields
 }
 
 function reject(
@@ -488,7 +532,7 @@ function prepareCall(
   const promptHash = hashPrompt(prompt)
   const citationIds = citations.map((citation) => citation.stableId)
 
-  const callFields: Record<string, unknown> = {
+  const callFields: GatewayCallFields = {
     model,
     tools: input.tools,
     actorKind: actor.kind,
@@ -501,17 +545,17 @@ function prepareCall(
   }
 
   if (input.toolDefs && input.toolDefs.length > 0) {
-    callFields['toolNames'] = input.toolDefs.map((def) => def.name)
+    callFields.toolNames = input.toolDefs.map((def) => def.name)
   }
 
   if (input.messages && input.messages.length > 0) {
     // Counts only: the conversation text is never logged.
-    callFields['historyTurns'] = input.messages.length
-    callFields['historyChars'] = historyChars
+    callFields.historyTurns = input.messages.length
+    callFields.historyChars = historyChars
   }
 
   if (input.includeDebugExcerpt === true) {
-    callFields['debugPromptExcerpt'] = redactDebugExcerpt(prompt)
+    callFields.debugPromptExcerpt = redactDebugExcerpt(prompt)
   }
 
   logger.info('ai.gateway.call', redact(callFields))

@@ -6,13 +6,6 @@ import { createDataClient } from './data-client'
 // proxy can mint it into the JWT and durable change events record the
 // actor's tab. jsdom provides sessionStorage + crypto.randomUUID.
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json' },
-  })
-}
-
 describe('data-client x-sheetbase-client-id header (LIVE-003)', () => {
   beforeEach(() => {
     sessionStorage.clear()
@@ -22,20 +15,20 @@ describe('data-client x-sheetbase-client-id header (LIVE-003)', () => {
   })
 
   it('stamps a uuid client id on every request', async () => {
-    let seen: Headers | null = null
+    let seen = new Headers()
 
-    const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
-      seen = new Headers(init.headers)
+    const fetchImpl = vi.fn<typeof fetch>(async (_url, init) => {
+      seen = new Headers(init?.headers)
 
-      return jsonResponse([])
-    }) as unknown as typeof fetch
+      return Response.json([])
+    })
 
     const client = createDataClient(fetchImpl)
 
     await client.list('projects')
     await client.rpc('create_project', { p_title: 'X' })
 
-    const first = seen!.get('x-sheetbase-client-id')
+    const first = seen.get('x-sheetbase-client-id')
     expect(first).toBeTruthy()
     expect(first).toMatch(
       /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/,
@@ -45,12 +38,12 @@ describe('data-client x-sheetbase-client-id header (LIVE-003)', () => {
   it('reuses the same client id across requests in the same tab', async () => {
     const ids: string[] = []
 
-    const fetchImpl = vi.fn(async (_url: string, init: RequestInit) => {
-      const h = new Headers(init.headers)
+    const fetchImpl = vi.fn<typeof fetch>(async (_url, init) => {
+      const h = new Headers(init?.headers)
       ids.push(h.get('x-sheetbase-client-id') ?? '')
 
-      return jsonResponse([])
-    }) as unknown as typeof fetch
+      return Response.json([])
+    })
 
     const client = createDataClient(fetchImpl)
 

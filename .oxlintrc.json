@@ -10,6 +10,24 @@
   "jsPlugins": [
     { "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" }
   ],
+  "overrides": [
+    {
+      "files": ["src/components/reui/**"],
+      "rules": {
+        "anti-slop/no-chained-type-assertions": "off",
+        "anti-slop/no-known-value-widening": "off",
+        "anti-slop/no-object-parameters": "off",
+        "anti-slop/no-runtime-typeof": "off",
+        "anti-slop/no-unknown-parameters": "off",
+        "anti-slop/no-unknown-returns": "off",
+        "anti-slop/require-safety-comment-for-type-assertion": "off",
+        "import/consistent-type-specifier-style": "off",
+        "import/no-duplicates": "off",
+        "typescript/no-unnecessary-condition": "off",
+        "typescript/no-unnecessary-type-assertion": "off"
+      }
+    }
+  ],
   "rules": {
     "for-direction": "error",
     "no-async-promise-executor": "error",

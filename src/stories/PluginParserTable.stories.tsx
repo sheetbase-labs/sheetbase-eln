@@ -19,6 +19,7 @@ const meta = {
         extensionKey: 'lab-inventory',
         extensionName: 'Lab inventory',
         declaration: {
+          id: 'acme-reader',
           title: 'Acme plate reader',
           description: 'Reads the Acme export, skipping the preamble.',
           extensions: ['.csv'],
@@ -30,7 +31,7 @@ const meta = {
       },
     ],
   },
-} as unknown as Meta<typeof PluginParserList>
+} satisfies Meta<typeof PluginParserList>
 
 export default meta
 

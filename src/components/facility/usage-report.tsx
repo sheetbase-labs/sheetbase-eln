@@ -13,10 +13,9 @@ import {
   ReportFigures,
   useReportRange,
 } from '#/components/facility/report-controls'
-import {
-  ScheduleReportDialog,
-  canScheduleKind,
-} from '#/components/facility/scheduled-reports'
+import type { ReportRangeState } from '#/components/facility/report-controls'
+import { ScheduleReportDialog } from '#/components/facility/scheduled-reports'
+import { canScheduleKind } from '#/components/facility/scheduled-report-access'
 import { useInstruments } from '#/components/instruments/instruments-data'
 import { ListFooter } from '#/components/inventory/list'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
@@ -47,6 +46,7 @@ import {
   utilisationByInstrument,
 } from '#/lib/facility-usage'
 import type {
+  InstrumentRate,
   InstrumentUtilisation,
   UsageGroup,
   UsageLabels,
@@ -67,6 +67,11 @@ type View = 'instrument' | 'person' | 'project' | 'bookings'
 
 const VIEWS: readonly View[] = ['instrument', 'person', 'project', 'bookings']
 
+/** Whether a tab's key names one of the report's groupings. */
+function isView(value: string): value is View {
+  return VIEWS.some((view) => view === value)
+}
+
 function totalOf(groups: readonly { charges: MoneyTotals }[]): MoneyTotals {
   const totals: MoneyTotals = {}
 
@@ -78,6 +83,449 @@ function totalOf(groups: readonly { charges: MoneyTotals }[]): MoneyTotals {
   }
 
   return totals
+}
+
+/** The instrument table: hours, utilisation, rate and what the use costs. */
+function useInstrumentColumns(
+  rates: readonly InstrumentRate[] | undefined,
+): RegistryColumn<InstrumentUtilisation>[] {
+  return useMemo<RegistryColumn<InstrumentUtilisation>[]>(
+    () => [
+      {
+        id: 'instrument',
+        header: t('spend.usage.columns.instrument'),
+        accessorFn: (row) => row.name,
+        enableHiding: false,
+        cell: ({ row }) => (
+          <span className="flex min-w-0 items-baseline gap-2">
+            {row.original.code ? (
+              <span className="mono text-fg-muted">{row.original.code}</span>
+            ) : null}
+            <span className="truncate font-medium text-fg">
+              {row.original.name}
+            </span>
+          </span>
+        ),
+      },
+      {
+        id: 'bookings',
+        header: t('spend.usage.columns.bookings'),
+        accessorFn: (row) => row.bookings,
+        size: 100,
+        cell: ({ row }) => <span className="num">{row.original.bookings}</span>,
+      },
+      {
+        id: 'people',
+        header: t('spend.usage.columns.people'),
+        accessorFn: (row) => row.people,
+        size: 90,
+        cell: ({ row }) => <span className="num">{row.original.people}</span>,
+      },
+      {
+        id: 'hours',
+        header: t('spend.usage.columns.hours'),
+        accessorFn: (row) => row.hours,
+        size: 90,
+        cell: ({ row }) => (
+          <span className="num">{formatHours(row.original.hours)}</span>
+        ),
+      },
+      {
+        id: 'utilisation',
+        header: t('spend.usage.columns.utilisation'),
+        accessorFn: (row) => row.utilisation,
+        size: 180,
+        cell: ({ row }) => (
+          <span className="flex items-center gap-2">
+            <Progress
+              className="w-20"
+              label={t('spend.usage.columns.utilisation')}
+              value={Math.min(row.original.utilisation, 1) * 100}
+              valueText={formatShare(row.original.utilisation)}
+              tone={row.original.utilisation > 1 ? 'warning' : 'accent'}
+            />
+            <span className="num w-10 text-right">
+              {formatShare(row.original.utilisation)}
+            </span>
+          </span>
+        ),
+      },
+      {
+        id: 'rate',
+        header: t('spend.usage.columns.rate'),
+        accessorFn: (row) => {
+          const rate = rates?.find((r) => r.instrumentId === row.key)
+
+          return rate ? formatMoney(rate.ratePerHour, rate.currency) : ''
+        },
+        size: 110,
+        cell: ({ row }) => {
+          const rate = rates?.find((r) => r.instrumentId === row.original.key)
+
+          return rate ? (
+            <span className="num">
+              {formatMoney(rate.ratePerHour, rate.currency)}
+            </span>
+          ) : (
+            <span className="text-fg-muted">—</span>
+          )
+        },
+      },
+      {
+        id: 'charge',
+        header: t('spend.usage.columns.charge'),
+        accessorFn: (row) => formatTotals(row.charges),
+        size: 130,
+        cell: ({ row }) => (
+          <span className="num">
+            {formatTotals(row.original.charges) || '—'}
+          </span>
+        ),
+      },
+    ],
+    [rates],
+  )
+}
+
+/** People or projects, whichever grouping the tab shows. */
+function useGroupColumns(
+  view: View,
+  labels: UsageLabels,
+  lineByGroup: {
+    byProject: Map<string, UsageLine>
+    byPerson: Map<string, UsageLine>
+  },
+): RegistryColumn<UsageGroup>[] {
+  return useMemo<RegistryColumn<UsageGroup>[]>(
+    () => [
+      {
+        id: 'who',
+        header:
+          view === 'person'
+            ? t('spend.usage.columns.person')
+            : t('spend.usage.columns.project'),
+        accessorFn: (g) =>
+          view === 'person'
+            ? labels.person(g.id)
+            : g.id
+              ? (lineByGroup.byProject.get(g.id)?.projectTitle ??
+                t('spend.noProject'))
+              : t('spend.noProject'),
+        enableHiding: false,
+      },
+      {
+        id: 'bookings',
+        header: t('spend.usage.columns.bookings'),
+        accessorFn: (g) => g.bookings,
+        size: 100,
+        cell: ({ row }) => <span className="num">{row.original.bookings}</span>,
+      },
+      {
+        id: 'hours',
+        header: t('spend.usage.columns.hours'),
+        accessorFn: (g) => g.hours,
+        size: 100,
+        cell: ({ row }) => (
+          <span className="num">{formatHours(row.original.hours)}</span>
+        ),
+      },
+      {
+        id: 'charge',
+        header: t('spend.usage.columns.charge'),
+        accessorFn: (g) => formatTotals(g.charges),
+        size: 160,
+        cell: ({ row }) => (
+          <span className="num">
+            {formatTotals(row.original.charges) || '—'}
+          </span>
+        ),
+      },
+    ],
+    [view, labels, lineByGroup],
+  )
+}
+
+/** One booking per row, for the bookings tab. */
+function useBookingColumns(labels: UsageLabels): RegistryColumn<UsageLine>[] {
+  return useMemo<RegistryColumn<UsageLine>[]>(
+    () => [
+      {
+        id: 'booking',
+        header: t('spend.usage.columns.booking'),
+        accessorFn: (l) => l.title,
+        enableHiding: false,
+      },
+      {
+        id: 'instrument',
+        header: t('spend.usage.columns.instrument'),
+        accessorFn: (l) => l.instrumentName,
+      },
+      {
+        id: 'person',
+        header: t('spend.usage.columns.person'),
+        accessorFn: (l) => labels.person(l.userId),
+      },
+      {
+        id: 'project',
+        header: t('spend.usage.columns.project'),
+        accessorFn: (l) => l.projectTitle ?? t('spend.noProject'),
+      },
+      {
+        id: 'starts',
+        header: t('spend.usage.columns.starts'),
+        accessorFn: (l) => l.startsAt,
+        size: 170,
+        cell: ({ row }) => formatDate(row.original.startsAt, { time: true }),
+      },
+      {
+        id: 'hours',
+        header: t('spend.usage.columns.hours'),
+        accessorFn: (l) => l.hours,
+        size: 90,
+        cell: ({ row }) => (
+          <span className="num">{formatHours(row.original.hours)}</span>
+        ),
+      },
+    ],
+    [labels],
+  )
+}
+
+/** The panel's controls: grouping tabs, the period, open hours and exports. */
+function UsageToolbar({
+  view,
+  onView,
+  state,
+  openHours,
+  onOpenHours,
+  canEmail,
+  onEmail,
+  lines,
+  labels,
+  from,
+}: {
+  view: View
+  onView: (view: View) => void
+  state: ReportRangeState
+  openHours: string
+  onOpenHours: (value: string) => void
+  canEmail: boolean
+  onEmail: () => void
+  lines: readonly UsageLine[]
+  labels: UsageLabels
+  from: string | undefined
+}) {
+  const save = (name: string, contents: string) => {
+    try {
+      downloadTextFile(`${name}-${from ?? ''}.csv`, contents, 'text/csv')
+    } catch {
+      toast.error(t('spend.actions.couldNotExport'))
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-6 py-2 max-md:px-4">
+      <Tabs
+        mode="state"
+        variant="segment"
+        label={t('spend.usage.label')}
+        value={view}
+        onValueChange={(value) => {
+          if (isView(value)) onView(value)
+        }}
+        items={VIEWS.map((key) => ({
+          key,
+          label: t(`spend.usage.groupings.${key}`),
+        }))}
+      />
+      <PeriodPicker state={state} />
+      <label className="flex items-center gap-1 text-label text-fg-muted">
+        {t('spend.usage.openHours')}
+        <Input
+          type="number"
+          inputMode="decimal"
+          min="1"
+          max="24"
+          step="0.5"
+          className="h-[26px] w-16 text-label"
+          aria-label={t('spend.usage.openHours')}
+          aria-describedby="usage-open-hours-tip"
+          title={t('spend.usage.openHoursTip')}
+          value={openHours}
+          onChange={(e) => onOpenHours(e.target.value)}
+        />
+      </label>
+      <span id="usage-open-hours-tip" className="sr-only">
+        {t('spend.usage.openHoursTip')}
+      </span>
+      <span className="flex-1" />
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button size="sm" disabled={lines.length === 0} />}
+        >
+          {t('spend.usage.exportMenu')}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-[220px]">
+          <DropdownMenuItem
+            icon="download"
+            onClick={() =>
+              save(
+                t('spend.usage.exportNames.project'),
+                rechargeCsv(lines, 'project', labels),
+              )
+            }
+          >
+            {t('spend.usage.exportRecharge')}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            icon="download"
+            onClick={() =>
+              save(
+                t('spend.usage.exportNames.person'),
+                rechargeCsv(lines, 'person', labels),
+              )
+            }
+          >
+            {t('spend.usage.exportRechargePerson')}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            icon="download"
+            onClick={() =>
+              save(
+                t('spend.usage.exportNames.bookings'),
+                bookingsCsv(lines, labels),
+              )
+            }
+          >
+            {t('spend.usage.exportBookings')}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {canEmail ? (
+        <Button size="sm" onClick={onEmail}>
+          {t('spend.actions.email')}
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
+/** The headline figures: booked hours, utilisation, bookings and charge. */
+function UsageFigures({
+  totalHours,
+  overall,
+  bookings,
+  rated,
+  charges,
+  currency,
+}: {
+  totalHours: number
+  overall: number
+  bookings: number
+  rated: boolean
+  charges: MoneyTotals
+  currency: string
+}) {
+  return (
+    <ReportFigures
+      figures={[
+        {
+          label: t('spend.usage.summary.booked'),
+          value: t('spend.usage.hoursUnit', {
+            hours: formatHours(totalHours),
+          }),
+        },
+        {
+          label: t('spend.usage.summary.utilisation'),
+          value: formatShare(overall),
+          tip: t('spend.usage.openHoursTip'),
+        },
+        {
+          label: t('spend.usage.summary.bookings'),
+          value: String(bookings),
+        },
+        {
+          label: t('spend.usage.summary.charge'),
+          value: rated
+            ? formatTotals(charges) || formatMoney(0, currency)
+            : t('spend.usage.summary.noRates'),
+        },
+      ]}
+    />
+  )
+}
+
+/** The panel's table area: its failure, empty or one of the three groupings. */
+function UsageTables({
+  view,
+  isError,
+  isPending,
+  empty,
+  lines,
+  utilisation,
+  groups,
+  instrumentsPending,
+  instrumentColumns,
+  groupColumns,
+  bookingColumns,
+}: {
+  view: View
+  isError: boolean
+  isPending: boolean
+  empty: boolean
+  lines: UsageLine[]
+  utilisation: InstrumentUtilisation[]
+  groups: UsageGroup[]
+  instrumentsPending: boolean
+  instrumentColumns: RegistryColumn<InstrumentUtilisation>[]
+  groupColumns: RegistryColumn<UsageGroup>[]
+  bookingColumns: RegistryColumn<UsageLine>[]
+}) {
+  return (
+    <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
+      {isError ? (
+        <div role="alert" className="px-6 py-6 text-body text-danger-text">
+          {t('spend.loadError')}
+        </div>
+      ) : empty ? (
+        <div role="status" className="flex justify-center px-6">
+          <EmptyState
+            className="items-center py-14 text-center"
+            icon="calendar"
+            title={t('spend.usage.empty')}
+            description={t('spend.usage.emptyBody')}
+          />
+        </div>
+      ) : view === 'instrument' ? (
+        <RegistryGrid
+          label={t('spend.usage.tableLabel')}
+          rows={utilisation}
+          columns={instrumentColumns}
+          getRowId={(row) => row.key}
+          selectable={false}
+          isLoading={isPending || instrumentsPending}
+        />
+      ) : view === 'bookings' ? (
+        <RegistryGrid
+          label={t('spend.usage.tableLabel')}
+          rows={lines}
+          columns={bookingColumns}
+          getRowId={(line) => line.bookingId}
+          selectable={false}
+          isLoading={isPending}
+        />
+      ) : (
+        <RegistryGrid
+          label={t('spend.usage.tableLabel')}
+          rows={groups}
+          columns={groupColumns}
+          getRowId={(group) => group.key}
+          selectable={false}
+          isLoading={isPending}
+        />
+      )}
+    </div>
+  )
 }
 
 export function InstrumentUsagePanel() {
@@ -181,363 +629,48 @@ export function InstrumentUsagePanel() {
     return open > 0 && count > 0 ? totalHours / (open * count) : 0
   }, [utilisation, totalHours])
 
-  const save = (name: string, contents: string) => {
-    try {
-      downloadTextFile(
-        `${name}-${state.range?.from.toISOString().slice(0, 10) ?? ''}.csv`,
-        contents,
-        'text/csv',
-      )
-    } catch {
-      toast.error(t('spend.actions.couldNotExport'))
-    }
-  }
-
-  const instrumentColumns = useMemo<RegistryColumn<InstrumentUtilisation>[]>(
-    () => [
-      {
-        id: 'instrument',
-        header: t('spend.usage.columns.instrument'),
-        accessorFn: (row) => row.name,
-        enableHiding: false,
-        cell: ({ row }) => (
-          <span className="flex min-w-0 items-baseline gap-2">
-            {row.original.code ? (
-              <span className="mono text-fg-muted">{row.original.code}</span>
-            ) : null}
-            <span className="truncate font-medium text-fg">
-              {row.original.name}
-            </span>
-          </span>
-        ),
-      },
-      {
-        id: 'bookings',
-        header: t('spend.usage.columns.bookings'),
-        accessorFn: (row) => row.bookings,
-        size: 100,
-        cell: ({ row }) => <span className="num">{row.original.bookings}</span>,
-      },
-      {
-        id: 'people',
-        header: t('spend.usage.columns.people'),
-        accessorFn: (row) => row.people,
-        size: 90,
-        cell: ({ row }) => <span className="num">{row.original.people}</span>,
-      },
-      {
-        id: 'hours',
-        header: t('spend.usage.columns.hours'),
-        accessorFn: (row) => row.hours,
-        size: 90,
-        cell: ({ row }) => (
-          <span className="num">{formatHours(row.original.hours)}</span>
-        ),
-      },
-      {
-        id: 'utilisation',
-        header: t('spend.usage.columns.utilisation'),
-        accessorFn: (row) => row.utilisation,
-        size: 180,
-        cell: ({ row }) => (
-          <span className="flex items-center gap-2">
-            <Progress
-              className="w-20"
-              label={t('spend.usage.columns.utilisation')}
-              value={Math.min(row.original.utilisation, 1) * 100}
-              valueText={formatShare(row.original.utilisation)}
-              tone={row.original.utilisation > 1 ? 'warning' : 'accent'}
-            />
-            <span className="num w-10 text-right">
-              {formatShare(row.original.utilisation)}
-            </span>
-          </span>
-        ),
-      },
-      {
-        id: 'rate',
-        header: t('spend.usage.columns.rate'),
-        accessorFn: (row) => {
-          const rate = rates.data?.find((r) => r.instrumentId === row.key)
-
-          return rate ? formatMoney(rate.ratePerHour, rate.currency) : ''
-        },
-        size: 110,
-        cell: ({ row }) => {
-          const rate = rates.data?.find(
-            (r) => r.instrumentId === row.original.key,
-          )
-
-          return rate ? (
-            <span className="num">
-              {formatMoney(rate.ratePerHour, rate.currency)}
-            </span>
-          ) : (
-            <span className="text-fg-muted">—</span>
-          )
-        },
-      },
-      {
-        id: 'charge',
-        header: t('spend.usage.columns.charge'),
-        accessorFn: (row) => formatTotals(row.charges),
-        size: 130,
-        cell: ({ row }) => (
-          <span className="num">
-            {formatTotals(row.original.charges) || '—'}
-          </span>
-        ),
-      },
-    ],
-    [rates.data],
-  )
-
-  const groupColumns = useMemo<RegistryColumn<UsageGroup>[]>(
-    () => [
-      {
-        id: 'who',
-        header:
-          view === 'person'
-            ? t('spend.usage.columns.person')
-            : t('spend.usage.columns.project'),
-        accessorFn: (g) =>
-          view === 'person'
-            ? labels.person(g.id)
-            : g.id
-              ? (lineByGroup.byProject.get(g.id)?.projectTitle ??
-                t('spend.noProject'))
-              : t('spend.noProject'),
-        enableHiding: false,
-      },
-      {
-        id: 'bookings',
-        header: t('spend.usage.columns.bookings'),
-        accessorFn: (g) => g.bookings,
-        size: 100,
-        cell: ({ row }) => <span className="num">{row.original.bookings}</span>,
-      },
-      {
-        id: 'hours',
-        header: t('spend.usage.columns.hours'),
-        accessorFn: (g) => g.hours,
-        size: 100,
-        cell: ({ row }) => (
-          <span className="num">{formatHours(row.original.hours)}</span>
-        ),
-      },
-      {
-        id: 'charge',
-        header: t('spend.usage.columns.charge'),
-        accessorFn: (g) => formatTotals(g.charges),
-        size: 160,
-        cell: ({ row }) => (
-          <span className="num">
-            {formatTotals(row.original.charges) || '—'}
-          </span>
-        ),
-      },
-    ],
-    [view, labels, lineByGroup],
-  )
-
-  const bookingColumns = useMemo<RegistryColumn<UsageLine>[]>(
-    () => [
-      {
-        id: 'booking',
-        header: t('spend.usage.columns.booking'),
-        accessorFn: (l) => l.title,
-        enableHiding: false,
-      },
-      {
-        id: 'instrument',
-        header: t('spend.usage.columns.instrument'),
-        accessorFn: (l) => l.instrumentName,
-      },
-      {
-        id: 'person',
-        header: t('spend.usage.columns.person'),
-        accessorFn: (l) => labels.person(l.userId),
-      },
-      {
-        id: 'project',
-        header: t('spend.usage.columns.project'),
-        accessorFn: (l) => l.projectTitle ?? t('spend.noProject'),
-      },
-      {
-        id: 'starts',
-        header: t('spend.usage.columns.starts'),
-        accessorFn: (l) => l.startsAt,
-        size: 170,
-        cell: ({ row }) => formatDate(row.original.startsAt, { time: true }),
-      },
-      {
-        id: 'hours',
-        header: t('spend.usage.columns.hours'),
-        accessorFn: (l) => l.hours,
-        size: 90,
-        cell: ({ row }) => (
-          <span className="num">{formatHours(row.original.hours)}</span>
-        ),
-      },
-    ],
-    [labels],
-  )
+  const instrumentColumns = useInstrumentColumns(rates.data)
+  const groupColumns = useGroupColumns(view, labels, lineByGroup)
+  const bookingColumns = useBookingColumns(labels)
 
   const empty = !lines.isPending && all.length === 0 && view !== 'instrument'
   const groups = view === 'person' ? people : projects
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-6 py-2 max-md:px-4">
-        <Tabs
-          mode="state"
-          variant="segment"
-          label={t('spend.usage.label')}
-          value={view}
-          onValueChange={(value) => setView(value as View)}
-          items={VIEWS.map((key) => ({
-            key,
-            label: t(`spend.usage.groupings.${key}`),
-          }))}
-        />
-        <PeriodPicker state={state} />
-        <label className="flex items-center gap-1 text-label text-fg-muted">
-          {t('spend.usage.openHours')}
-          <Input
-            type="number"
-            inputMode="decimal"
-            min="1"
-            max="24"
-            step="0.5"
-            className="h-[26px] w-16 text-label"
-            aria-label={t('spend.usage.openHours')}
-            aria-describedby="usage-open-hours-tip"
-            title={t('spend.usage.openHoursTip')}
-            value={openHours}
-            onChange={(e) => setOpenHours(e.target.value)}
-          />
-        </label>
-        <span id="usage-open-hours-tip" className="sr-only">
-          {t('spend.usage.openHoursTip')}
-        </span>
-        <span className="flex-1" />
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={<Button size="sm" disabled={all.length === 0} />}
-          >
-            {t('spend.usage.exportMenu')}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-[220px]">
-            <DropdownMenuItem
-              icon="download"
-              onClick={() =>
-                save(
-                  t('spend.usage.exportNames.project'),
-                  rechargeCsv(all, 'project', labels),
-                )
-              }
-            >
-              {t('spend.usage.exportRecharge')}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              icon="download"
-              onClick={() =>
-                save(
-                  t('spend.usage.exportNames.person'),
-                  rechargeCsv(all, 'person', labels),
-                )
-              }
-            >
-              {t('spend.usage.exportRechargePerson')}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              icon="download"
-              onClick={() =>
-                save(
-                  t('spend.usage.exportNames.bookings'),
-                  bookingsCsv(all, labels),
-                )
-              }
-            >
-              {t('spend.usage.exportBookings')}
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {canEmail ? (
-          <Button size="sm" onClick={() => setEmailing(true)}>
-            {t('spend.actions.email')}
-          </Button>
-        ) : null}
-      </div>
-      <ReportFigures
-        figures={[
-          {
-            label: t('spend.usage.summary.booked'),
-            value: t('spend.usage.hoursUnit', {
-              hours: formatHours(totalHours),
-            }),
-          },
-          {
-            label: t('spend.usage.summary.utilisation'),
-            value: formatShare(overall),
-            tip: t('spend.usage.openHoursTip'),
-          },
-          {
-            label: t('spend.usage.summary.bookings'),
-            value: String(all.length),
-          },
-          {
-            label: t('spend.usage.summary.charge'),
-            value: rated
-              ? formatTotals(charges) ||
-                formatMoney(0, rates.data?.at(0)?.currency ?? 'GBP')
-              : t('spend.usage.summary.noRates'),
-          },
-        ]}
+      <UsageToolbar
+        view={view}
+        onView={setView}
+        state={state}
+        openHours={openHours}
+        onOpenHours={setOpenHours}
+        canEmail={canEmail}
+        onEmail={() => setEmailing(true)}
+        lines={all}
+        labels={labels}
+        from={state.range?.from.toISOString().slice(0, 10)}
       />
-      <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
-        {lines.isError ? (
-          <div role="alert" className="px-6 py-6 text-body text-danger-text">
-            {t('spend.loadError')}
-          </div>
-        ) : empty ? (
-          <div role="status" className="flex justify-center px-6">
-            <EmptyState
-              className="items-center py-14 text-center"
-              icon="calendar"
-              title={t('spend.usage.empty')}
-              description={t('spend.usage.emptyBody')}
-            />
-          </div>
-        ) : view === 'instrument' ? (
-          <RegistryGrid
-            label={t('spend.usage.tableLabel')}
-            rows={utilisation}
-            columns={instrumentColumns}
-            getRowId={(row) => row.key}
-            selectable={false}
-            isLoading={lines.isPending || instruments.isPending}
-          />
-        ) : view === 'bookings' ? (
-          <RegistryGrid
-            label={t('spend.usage.tableLabel')}
-            rows={all}
-            columns={bookingColumns}
-            getRowId={(line) => line.bookingId}
-            selectable={false}
-            isLoading={lines.isPending}
-          />
-        ) : (
-          <RegistryGrid
-            label={t('spend.usage.tableLabel')}
-            rows={groups}
-            columns={groupColumns}
-            getRowId={(group) => group.key}
-            selectable={false}
-            isLoading={lines.isPending}
-          />
-        )}
-      </div>
+      <UsageFigures
+        totalHours={totalHours}
+        overall={overall}
+        bookings={all.length}
+        rated={rated}
+        charges={charges}
+        currency={rates.data?.at(0)?.currency ?? 'GBP'}
+      />
+      <UsageTables
+        view={view}
+        isError={lines.isError}
+        isPending={lines.isPending}
+        empty={empty}
+        lines={all}
+        utilisation={utilisation}
+        groups={groups}
+        instrumentsPending={instruments.isPending}
+        instrumentColumns={instrumentColumns}
+        groupColumns={groupColumns}
+        bookingColumns={bookingColumns}
+      />
       <ListFooter loading={lines.isPending}>
         {t('spend.usage.footer', { count: all.length })}
       </ListFooter>

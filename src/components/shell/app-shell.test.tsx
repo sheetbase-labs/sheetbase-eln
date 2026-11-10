@@ -20,7 +20,8 @@ import {
   vi,
 } from 'vitest'
 
-import { AppShell, workspaceInitials } from './app-shell'
+import { AppShell } from './app-shell'
+import { workspaceInitials } from './workspace-initials'
 import { getShellCounts } from '#/lib/shell-counts.server'
 import {
   fetchUserPreferences,
@@ -47,6 +48,7 @@ const { markNotificationsRead } = vi.hoisted(() => ({
   markNotificationsRead: vi.fn(async () => 1),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The shell calls this module's write directly and takes no transport parameter; the double records the call the bell makes so the test can prove it happened.
 vi.mock('#/lib/notifications-data', () => ({ markNotificationsRead }))
 
 /**
@@ -58,6 +60,7 @@ const { shellConnect, shellQuery } = vi.hoisted(() => ({
   shellQuery: vi.fn(),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The badge read runs a server count on the shared database client, which needs a live PostgreSQL that a unit test has no process for; the double answers that one query.
 vi.mock('#/db/client.server', () => ({
   db: { $client: { connect: shellConnect, query: shellQuery } },
 }))
@@ -65,6 +68,7 @@ vi.mock('#/db/client.server', () => ({
 /** The path the mocked router reports; MOB-01.1's back button depends on it. */
 const routerPath = { current: '/' }
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Signing out is a Better Auth browser call to a live server; the double records the call the account menu makes.
 vi.mock('#/lib/auth-client', () => ({ authClient: { signOut } }))
 
 beforeEach(() => {
@@ -84,6 +88,7 @@ beforeAll(() => {
   })
 })
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The app shell is built from the generated route tree and renders inside the root route; this suite renders it alone and needs only the router context and navigation the shell reads, with every other export real.
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
     to,
@@ -95,7 +100,7 @@ vi.mock('@tanstack/react-router', () => ({
     activeProps,
     inactiveProps,
   }: {
-    to?: unknown
+    to?: string
     params?: Record<string, string>
     children?: React.ReactNode
     className?: string
@@ -107,12 +112,10 @@ vi.mock('@tanstack/react-router', () => ({
   }) => (
     <a
       href={
-        typeof to === 'string'
-          ? to.replace(
-              /\$([A-Za-z]+)/g,
-              (segment, key: string) => params?.[key] ?? segment,
-            )
-          : '#'
+        to?.replace(
+          /\$([A-Za-z]+)/g,
+          (segment, key: string) => params?.[key] ?? segment,
+        ) ?? '#'
       }
       className={className}
       aria-label={ariaLabel}
@@ -131,13 +134,14 @@ vi.mock('@tanstack/react-router', () => ({
       context: { queryClient: { cancelQueries, clear: clearQueries } },
     },
   }),
-  useRouterState: ({
+  useRouterState: <Selected,>({
     select,
   }: {
-    select: (state: { location: { pathname: string } }) => unknown
+    select: (state: { location: { pathname: string } }) => Selected
   }) => select({ location: { pathname: routerPath.current } }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The shell's keybinding is what this suite proves, not the palette's contents; the double reports whether the shell reached it.
 vi.mock('#/components/search/search-palette', () => ({
   // The shell's binding is what is under test here, not the palette's
   // contents: the mock reports `open` so a test can see ⌘K reach it.
@@ -145,10 +149,12 @@ vi.mock('#/components/search/search-palette', () => ({
     open ? <div role="dialog" aria-label="Search palette" /> : null,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The shell creates its data client at import time; the double keeps those reads off the network so the suite exercises the shell itself.
 vi.mock('#/lib/data-client', () => ({
   createDataClient: () => ({}),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Preferences are read and written through server functions that need a signed-in session on a live server; the double supplies the shell's own preference reads.
 vi.mock('#/lib/user-preferences', () => ({
   fetchUserPreferences: vi.fn(async () => ({ navCollapsed: false })),
   setUserPreference: vi.fn(async () => {}),
@@ -267,9 +273,8 @@ describe('v3 AppShell navigation (SHELL-01)', () => {
 
     const settings = within(sidebar).getByRole('link', { name: 'Settings' })
     expect(settings.closest('[role="group"]')).toBeNull()
-    expect(settings.previousElementSibling?.getAttribute('role')).toBe(
-      'separator',
-    )
+    // The rule is a thematic break, whose implicit role is the separator.
+    expect(settings.previousElementSibling?.tagName).toBe('HR')
   })
 
   it('lists each pin under its own page, and folds them per page', async () => {

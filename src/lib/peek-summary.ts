@@ -5,7 +5,10 @@
  * level security) reads as `null` and the card falls back to what the link
  * itself named.
  */
+import { z } from 'zod'
+
 import { isUuid } from '#/lib/identifier-resolution'
+import type { JsonObject, JsonValue } from '#/lib/workspace-admin'
 import type { DataClient } from '#/lib/data-client'
 import {
   formatDate,
@@ -56,9 +59,14 @@ const filter = (ref: string, displayColumn: string) =>
 
 const present = (fact: PeekFact | null): fact is PeekFact => fact !== null
 
-const fact = (label: string, value: unknown): PeekFact | null => {
+const fact = (
+  label: string,
+  value: string | number | boolean | null | undefined,
+): PeekFact | null => {
   if (value === null || value === undefined) return null
-  const text = typeof value === 'string' ? value.trim() : String(value)
+
+  const written = z.string().safeParse(value)
+  const text = written.success ? written.data.trim() : String(value)
 
   return text ? { label, value: text } : null
 }
@@ -110,15 +118,21 @@ interface RecordRow {
   created_by_user_id: string
   updated_at: string
   locked_at: string | null
-  properties: Record<string, unknown> | null
+  properties: JsonObject | null
 }
+
+/** A record property the peek card prints: a number, or text with something in it. */
+const shownPropertySchema = z.union([z.number(), z.string().trim().min(1)])
 
 const SCALAR_PROPERTIES = 3
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T[\d:.]+(Z|[+-]\d{2}:?\d{2})?)?$/
 
 /** A property as a person reads it: dates as dates, the rest as written. */
-const propertyText = (value: string | number) =>
-  typeof value === 'string' && ISO_DATE.test(value) ? formatDate(value) : value
+const propertyText = (value: string | number) => {
+  const date = z.string().regex(ISO_DATE).safeParse(value)
+
+  return date.success ? formatDate(date.data) : value
+}
 
 async function loadRecord(
   client: DataClient,
@@ -138,15 +152,13 @@ async function loadRecord(
   ])
 
   const properties = Object.entries(row.properties ?? {})
-    .filter(
-      ([, value]) =>
-        (typeof value === 'string' && value.trim() !== '') ||
-        typeof value === 'number',
-    )
+    .flatMap(([key, value]) => {
+      const shown = shownPropertySchema.safeParse(value)
+
+      return shown.success ? [[key, shown.data] as const] : []
+    })
     .slice(0, SCALAR_PROPERTIES)
-    .map(([key, value]) =>
-      fact(humanise(key), propertyText(value as string | number)),
-    )
+    .map(([key, value]) => fact(humanise(key), propertyText(value)))
 
   const summary: PeekSummary = {
     identifier: row.identifier,
@@ -295,8 +307,8 @@ async function readAnalysis(
     display_id: string | null
     name: string
     version: number
-    charts: unknown
-    source_revisions: unknown
+    charts: JsonValue
+    source_revisions: JsonValue
     updated_at: string
   }>(
     client,
@@ -305,7 +317,7 @@ async function readAnalysis(
   )
 
   if (!row) return null
-  const count = (value: unknown) => (Array.isArray(value) ? value.length : 0)
+  const count = (value: JsonValue) => (Array.isArray(value) ? value.length : 0)
 
   return {
     identifier: row.display_id ?? undefined,
@@ -547,33 +559,32 @@ async function readReview(
   }
 }
 
-const READERS: Partial<
-  Record<
-    string,
-    (client: DataClient, ref: string) => Promise<PeekSummary | null>
-  >
-> = {
-  experiment: readRecord,
-  sample: readRecord,
-  material: readRecord,
-  protocol: readProtocol,
-  template: readTemplate,
-  dataset: readDataset,
-  analysis: readAnalysis,
-  project: readProject,
-  instrument: readInstrument,
-  sheet: readSheet,
-  pipeline: readPipeline,
-  model: readModel,
-  review: readReview,
-}
+/** The reader for each kind: one per page a link can point at. */
+const READERS = new Map<
+  string,
+  (client: DataClient, ref: string) => Promise<PeekSummary | null>
+>([
+  ['experiment', readRecord],
+  ['sample', readRecord],
+  ['material', readRecord],
+  ['protocol', readProtocol],
+  ['template', readTemplate],
+  ['dataset', readDataset],
+  ['analysis', readAnalysis],
+  ['project', readProject],
+  ['instrument', readInstrument],
+  ['sheet', readSheet],
+  ['pipeline', readPipeline],
+  ['model', readModel],
+  ['review', readReview],
+])
 
 /** The summary for a record address, or null when nothing readable is there. */
 export async function fetchPeekSummary(
   href: string,
   client: DataClient = notebookDataClient,
 ): Promise<PeekSummary | null> {
-  const read = READERS[paneKind(href).key]
+  const read = READERS.get(paneKind(href).key)
   const ref = peekRef(href)
 
   if (!read || !ref) return null

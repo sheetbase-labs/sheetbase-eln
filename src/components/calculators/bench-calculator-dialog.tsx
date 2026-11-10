@@ -41,7 +41,22 @@ export interface CalculatorInsert {
   provenance: string
 }
 
-type Tab = 'molarity' | 'dilution' | 'convert' | 'plugins'
+const TABS = ['molarity', 'dilution', 'convert', 'plugins'] as const
+
+type Tab = (typeof TABS)[number]
+
+/** The quantities the convert panel offers, including the two derived ones. */
+const CONVERT_KINDS = [
+  'mass',
+  'volume',
+  'concentration',
+  'amount',
+  'massMoles',
+  'temperature',
+] as const
+
+/** The temperature scales the convert panel offers. */
+const TEMPERATURE_UNITS: readonly TempUnit[] = ['C', 'F', 'K']
 
 interface Answer {
   value: number
@@ -110,7 +125,9 @@ function SolveFor<T extends string>({
       <Select
         value={value}
         aria-label={t('calculators.fields.solveFor')}
-        onChange={(e) => onChange(e.target.value as T)}
+        onChange={(e) =>
+          onChange(options.find((o) => o.id === e.target.value)?.id ?? value)
+        }
       >
         {options.map((o) => (
           <option key={o.id} value={o.id}>
@@ -172,6 +189,9 @@ function MolarityPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
     }
   }, [result, target, mw, mass, volume, conc])
 
+  // react-doctor-disable-next-line react-doctor/no-pass-data-to-parent -- The computed answer is what the dialog previews and inserts, so it has to reach the dialog.
+  // react-doctor-disable-next-line react-doctor/no-pass-live-state-to-parent -- The answer is live calculation state, not a snapshot, and the dialog renders it beside the footer actions.
+  // react-doctor-disable-next-line react-doctor/no-prop-callback-in-effect -- `onAnswer` is the dialog's store for this panel's answer, not a mirror of a prop; it is called only when the answer changes.
   useEffect(() => onAnswer(answer), [answer, onAnswer])
 
   return (
@@ -303,6 +323,9 @@ function DilutionPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
     }
   }, [result, target, c1, v1, c2, v2, recipe])
 
+  // react-doctor-disable-next-line react-doctor/no-pass-data-to-parent -- The computed answer is what the dialog previews and inserts, so it has to reach the dialog.
+  // react-doctor-disable-next-line react-doctor/no-pass-live-state-to-parent -- The answer is live calculation state, not a snapshot, and the dialog renders it beside the footer actions.
+  // react-doctor-disable-next-line react-doctor/no-prop-callback-in-effect -- `onAnswer` is the dialog's store for this panel's answer, not a mirror of a prop; it is called only when the answer changes.
   useEffect(() => onAnswer(answer), [answer, onAnswer])
 
   const field = (
@@ -388,17 +411,20 @@ function ConvertPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
     setTo(defaults[next][1])
   }
 
-  const options: { id: string; label: string }[] =
-    kind === 'temperature'
-      ? [
-          { id: 'C', label: '°C' },
-          { id: 'F', label: '°F' },
-          { id: 'K', label: 'K' },
-        ]
-      : (kind === 'massMoles'
-          ? [...unitsOfKind('mass'), ...unitsOfKind('amount')]
-          : unitsOfKind(kind)
-        ).map((u) => ({ id: u.id, label: u.label }))
+  const options = useMemo<{ id: string; label: string }[]>(
+    () =>
+      kind === 'temperature'
+        ? [
+            { id: 'C', label: '°C' },
+            { id: 'F', label: '°F' },
+            { id: 'K', label: 'K' },
+          ]
+        : (kind === 'massMoles'
+            ? [...unitsOfKind('mass'), ...unitsOfKind('amount')]
+            : unitsOfKind(kind)
+          ).map((u) => ({ id: u.id, label: u.label })),
+    [kind],
+  )
 
   const result: CalcResult = useMemo(() => {
     const n = toNumber(value)
@@ -408,7 +434,11 @@ function ConvertPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
     if (kind === 'temperature') {
       return {
         ok: true,
-        value: convertTemperature(n, from as TempUnit, to as TempUnit),
+        value: convertTemperature(
+          n,
+          TEMPERATURE_UNITS.find((unit) => unit === from) ?? 'C',
+          TEMPERATURE_UNITS.find((unit) => unit === to) ?? 'C',
+        ),
         unit: to,
         summary: 'temperature',
       }
@@ -422,12 +452,13 @@ function ConvertPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
     })
   }, [kind, value, from, to, mw])
 
-  const labelOf = (id: string) => options.find((o) => o.id === id)?.label ?? id
-
   const answer = useMemo(() => {
     const r = fromResult(result)
 
     if (!r) return null
+
+    const labelOf = (id: string) =>
+      options.find((o) => o.id === id)?.label ?? id
 
     return {
       value: r.value,
@@ -438,8 +469,11 @@ function ConvertPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
         unit: labelOf(to),
       }),
     }
-  }, [result, value, from, to])
+  }, [result, value, from, to, options])
 
+  // react-doctor-disable-next-line react-doctor/no-pass-data-to-parent -- The computed answer is what the dialog previews and inserts, so it has to reach the dialog.
+  // react-doctor-disable-next-line react-doctor/no-pass-live-state-to-parent -- The answer is live calculation state, not a snapshot, and the dialog renders it beside the footer actions.
+  // react-doctor-disable-next-line react-doctor/no-prop-callback-in-effect -- `onAnswer` is the dialog's store for this panel's answer, not a mirror of a prop; it is called only when the answer changes.
   useEffect(() => onAnswer(answer), [answer, onAnswer])
 
   const needsWeight =
@@ -456,7 +490,12 @@ function ConvertPanel({ onAnswer }: { onAnswer: (a: Answer | null) => void }) {
         <Select
           value={kind}
           aria-label={t('calculators.fields.quantity')}
-          onChange={(e) => changeKind(e.target.value as ConvertKind)}
+          onChange={(e) =>
+            changeKind(
+              CONVERT_KINDS.find((candidate) => candidate === e.target.value) ??
+                kind,
+            )
+          }
         >
           {(
             [
@@ -589,7 +628,9 @@ export function BenchCalculatorDialog({
             variant="segment"
             label={t('calculators.tabs.ariaLabel')}
             value={tab}
-            onValueChange={(k) => setTab(k as Tab)}
+            onValueChange={(k) =>
+              setTab(TABS.find((candidate) => candidate === k) ?? tab)
+            }
             items={[
               { key: 'molarity', label: t('calculators.tabs.molarity') },
               { key: 'dilution', label: t('calculators.tabs.dilution') },

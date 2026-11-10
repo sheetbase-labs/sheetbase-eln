@@ -5,13 +5,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { pickActiveMembership } from '#/lib/active-membership'
 import { AccessBlockedSurface } from './access-blocked'
 
-vi.mock('@tanstack/react-router', () => ({
-  useNavigate: () => vi.fn(),
-  useRouter: () => ({}),
-}))
-
-vi.mock('#/lib/auth-client', () => ({ authClient: {} }))
-
 afterEach(cleanup)
 
 const user = { name: 'Sam', email: 'sam@lab.test' }

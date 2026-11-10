@@ -24,10 +24,7 @@ import { z } from 'zod'
 import { createDataClient } from './data-client'
 import type { DataClient } from './data-client'
 import { queryDatasetVersionRows } from './dataset-product'
-import type {
-  DatasetVersionRowPage,
-  DatasetVersionWire,
-} from './dataset-product'
+import type { DatasetRowInput, DatasetVersionWire } from './dataset-product'
 import { toBlock } from './notebook-data'
 import type { BlockWire, NotebookBlock } from './notebook-data'
 import {
@@ -133,7 +130,7 @@ export function toCanonicalDatasetSource(dataset: {
 
 export interface ResolvedDataset {
   source: CanonicalDatasetSource
-  rows: DatasetVersionRowPage['rows'][number]['values'][]
+  rows: DatasetRowInput[]
   /** True when totalCount exceeded SCI_ANALYSIS_ROW_LIMIT and rows were cut. */
   truncated: boolean
   totalCount: number
@@ -269,7 +266,7 @@ export async function fetchDatasetRows(
         rows: Array<{
           rowId: string
           revision: number
-          values: DatasetVersionRowPage['rows'][number]['values']
+          values: DatasetRowInput
         }>
         totalCount: number
         datasetRevision: number

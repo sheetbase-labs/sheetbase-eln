@@ -69,11 +69,29 @@ export const Route = createFileRoute('/datasets/$datasetId/snapshots')({
   component: Snapshots,
 })
 
+/** One inspector row: a label and what it reads. */
+type SnapshotProperty = [string, React.ReactNode]
+
+/** The "Previous" row, when there is an earlier snapshot. */
+function previousRows(
+  previous: SnapshotVersion | undefined,
+): SnapshotProperty[] {
+  return previous ? [[t('common.actions.previous'), previous.label]] : []
+}
+
+/** The "Rows removed" row, when the retention job took this snapshot's rows. */
+function removedRows(rowsRemovedAt: string | null): SnapshotProperty[] {
+  return rowsRemovedAt
+    ? [[t('data.datasetSnapshots.rowsRemoved'), formatDate(rowsRemovedAt)]]
+    : []
+}
+
 function Snapshots() {
   const { datasetId } = Route.useParams()
   const { context } = Route.useRouteContext()
   const queryClient = useQueryClient()
   const versions = useDatasetVersions(datasetId)
+  // oxlint-disable-next-line anti-slop/no-chained-type-assertions, anti-slop/require-safety-comment-for-type-assertion -- `dataset_version_list` returns DatasetVersionSummary rows (see listDatasetVersionSummaries); the shared query still names that payload with its older DatasetVersion type, so only the name differs.
   const rows = (versions.data ?? []) as unknown as SnapshotVersion[]
   const [selected, setSelected] = useState<string | null>(null)
 
@@ -203,6 +221,8 @@ function Snapshots() {
   const keepDialogActions = useRef<DialogRootActions | null>(null)
 
   const create = useMutation({
+    // SAFETY: the create button is enabled only when `canSnapshot`, which
+    // requires a loaded revision, so the dialog cannot submit without one.
     mutationFn: (label: string) =>
       snapshotDataset(notebookDataClient, {
         datasetId,
@@ -378,20 +398,8 @@ function Snapshots() {
                   t('data.datasetSnapshots.source'),
                   describeSnapshotSource(current.source),
                 ],
-                ...(previous
-                  ? ([[t('common.actions.previous'), previous.label]] as [
-                      string,
-                      React.ReactNode,
-                    ][])
-                  : []),
-                ...(current.rowsRemovedAt
-                  ? ([
-                      [
-                        t('data.datasetSnapshots.rowsRemoved'),
-                        formatDate(current.rowsRemovedAt),
-                      ],
-                    ] as [string, React.ReactNode][])
-                  : []),
+                ...previousRows(previous),
+                ...removedRows(current.rowsRemovedAt),
               ]}
             />
           </InspectorSection>

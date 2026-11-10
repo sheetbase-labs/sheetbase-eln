@@ -228,7 +228,9 @@ export function visibleNavGroups(
 ): NavGroup[] {
   const off = new Set(hidden.filter(canHideNavPage))
 
-  return groups
-    .map((g) => ({ ...g, items: g.items.filter((i) => !off.has(i.key)) }))
-    .filter((g) => g.items.length > 0)
+  return groups.flatMap((group) => {
+    const items = group.items.filter((item) => !off.has(item.key))
+
+    return items.length > 0 ? [{ ...group, items }] : []
+  })
 }

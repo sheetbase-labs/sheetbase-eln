@@ -15,6 +15,7 @@ import {
 import { ASSISTANT_PROPOSE_TOOL_NAMES } from './agent-tool-catalogue'
 import type { LabToolContext } from './assistant-lab-tools.server'
 import type { DataClient } from './data-client'
+import type { JsonValue } from '#/lib/workspace-admin'
 
 const WORKLIST = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -50,10 +51,20 @@ const PROPOSAL = {
   ],
 }
 
-function context(
-  rows: Partial<Record<string, Array<Record<string, unknown>>>> = {},
-): LabToolContext {
-  const defaults: Record<string, Array<Record<string, unknown>>> = {
+/** Fixture rows keyed by the PostgREST resource the tool reads. */
+interface ResourceRows {
+  [resource: string]: Array<Record<string, JsonValue>>
+}
+
+/** A data client for these tests: the reads the tool makes, and no others. */
+function asClient<Stub>(client: Stub): DataClient {
+  // SAFETY: the call site supplies exactly the list method the tool reads,
+  // answering the fixture rows; no other method is called.
+  return client as DataClient
+}
+
+function context(rows: Partial<ResourceRows> = {}): LabToolContext {
+  const defaults: ResourceRows = {
     plate_worklists: [WORKLIST],
     instruments: [ROBOT],
     instrument_robot_settings: [
@@ -66,10 +77,10 @@ function context(
     schedule_proposals: [PROPOSAL],
   }
 
-  const client = {
+  const client = asClient({
     list: (resource: string) =>
       Promise.resolve(rows[resource] ?? defaults[resource]),
-  } as unknown as DataClient
+  })
 
   return { client, workspaceId: 'w', userId: 'u', timeZone: 'UTC' }
 }

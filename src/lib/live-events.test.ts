@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { createLiveEventCoordinator } from './live-events'
 import type {
@@ -16,6 +17,12 @@ import { notebookQueryKeys } from './notebook-data'
 // ---------------------------------------------------------------------------
 
 type EventListener = (ev: { type: string; data: string }) => void
+
+/** The payload a test encodes into a synthetic event: what the server sends. */
+type SyntheticEventData =
+  | ChangeEventWire
+  | { workspaceId: string; resumeFrom: number }
+  | { reason: string }
 
 class FakeEventSource implements EventSourceLike {
   readonly readyState = 0
@@ -40,24 +47,42 @@ class FakeEventSource implements EventSourceLike {
     this.closed = true
   }
 
-  dispatch(type: string, data: unknown): void {
-    const set = this.listeners.get(type)
-
-    if (!set) return
-    const payload = typeof data === 'string' ? data : JSON.stringify(data)
-
-    for (const l of set) l({ type, data: payload })
+  /** Dispatch a synthetic event whose data this encodes from the payload. */
+  dispatch(type: string, data: SyntheticEventData): void {
+    this.emit(type, JSON.stringify(data))
   }
 
   open(): void {
-    this.dispatch('open', '')
+    this.emit('open', '')
     this.onopen?.()
   }
 
   error(): void {
-    this.dispatch('error', '')
+    this.emit('error', '')
     this.onerror?.()
   }
+
+  private emit(type: string, payload: string): void {
+    const set = this.listeners.get(type)
+
+    if (!set) return
+
+    for (const listener of set) listener({ type, data: payload })
+  }
+}
+
+/** The coordinator under test, the cache it invalidates, and the sources it opened. */
+interface LiveEventsHarness {
+  coordinator: LiveCoordinator
+  qc: QueryClient
+  sources: FakeEventSource[]
+}
+
+/** Whether a query key names one of the Home collections. */
+function isHomeKey(key: readonly unknown[] | undefined): boolean {
+  const first = z.string().safeParse(key?.[0])
+
+  return first.success && first.data.startsWith('home-')
 }
 
 function makeDeps(
@@ -65,11 +90,7 @@ function makeDeps(
     getClientId?: () => string | null
     queryClient?: QueryClient
   } = {},
-): {
-  coordinator: LiveCoordinator
-  qc: QueryClient
-  sources: FakeEventSource[]
-} {
+): LiveEventsHarness {
   const qc = opts.queryClient ?? new QueryClient()
   const sources: FakeEventSource[] = []
 
@@ -244,9 +265,7 @@ describe('createLiveEventCoordinator', () => {
 
       const keys = spy.mock.calls
         .map(([options]) => options?.queryKey)
-        .filter(
-          (key) => typeof key?.[0] === 'string' && key[0].startsWith('home-'),
-        )
+        .filter(isHomeKey)
 
       expect(keys).toEqual(prefixes.map((prefix) => [prefix, 'ws-1']))
     },
@@ -291,11 +310,7 @@ describe('createLiveEventCoordinator', () => {
       sources[0].dispatch('change', changeEvent(1, event))
       vi.advanceTimersByTime(100)
       expect(
-        spy.mock.calls
-          .map(([options]) => options?.queryKey)
-          .filter(
-            (key) => typeof key?.[0] === 'string' && key[0].startsWith('home-'),
-          ),
+        spy.mock.calls.map(([options]) => options?.queryKey).filter(isHomeKey),
       ).toEqual([])
       expect(coordinator.getStatus().lastAppliedSeq).toBe(1)
     },

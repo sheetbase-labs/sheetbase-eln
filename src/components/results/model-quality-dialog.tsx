@@ -163,6 +163,7 @@ export function ModelQualityDialog({
             was.alertUpper === next.alertUpper
 
           if (!same) {
+            // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each field's limits are written only after the previous write settles, so a rejected save stops the run instead of starting the remaining writes.
             await saveFieldLimits(client, model.key, field.fieldName, next)
           }
         }
@@ -173,8 +174,7 @@ export function ModelQualityDialog({
       toast.success(t('quality.limits.saved'))
       onOpenChange(false)
     },
-    onError: (e: unknown) =>
-      toast.error(messageOf(e, t('quality.limits.couldNotSave'))),
+    onError: (e) => toast.error(messageOf(e, t('quality.limits.couldNotSave'))),
   })
 
   function setDraft(fieldName: string, key: keyof Draft, value: string) {

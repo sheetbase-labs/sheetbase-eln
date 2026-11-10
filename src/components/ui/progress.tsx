@@ -93,6 +93,8 @@ export function Progress(props: ProgressProps) {
   const { label, size = 'sm', className } = props
   const track = cn('w-full overflow-hidden bg-skeleton', TRACK[size])
   const max = Math.max(props.max ?? 100, 1)
+  const valueText = props.segments ? undefined : props.valueText
+  const renderValueText = valueText ? () => valueText : undefined
 
   if (props.segments) {
     return (
@@ -121,9 +123,7 @@ export function Progress(props: ProgressProps) {
       // A zero maximum measures nothing against nothing: clamp it so the
       // percentage stays a number (and the bar stays empty) rather than NaN.
       max={max}
-      getAriaValueText={
-        props.valueText ? () => props.valueText as string : undefined
-      }
+      getAriaValueText={renderValueText}
       aria-label={label}
       data-slot="progress"
       className={cn(track, className)}

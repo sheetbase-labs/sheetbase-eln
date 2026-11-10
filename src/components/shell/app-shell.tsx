@@ -1,6 +1,7 @@
 import { BrandMark } from '#/components/ui/brand-mark'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 import { usePlatform } from '#/lib/use-platform'
 import { formatShortcut } from '#/lib/shortcuts'
 import {
@@ -62,6 +63,7 @@ import type { Notification, NotificationTarget } from '#/components/types'
 import type { ShellCounts } from '#/lib/shell-counts.server'
 import { markNotificationsRead } from '#/lib/notifications-data'
 import { createMenuSearch } from './create-context'
+import { workspaceInitials } from './workspace-initials'
 import { pluginIcon } from '#/components/extensions/plugin-icon'
 import { usePluginPoints } from '#/components/extensions/use-plugin-points'
 import { isHomePage, navGroups, primaryNav, visibleNavGroups } from './nav'
@@ -96,14 +98,22 @@ import { t } from '#/copy'
 const SIDEBAR_COLLAPSE_KEY = 'sheetbase-sidebar-collapsed'
 const SIDEBAR_FOLDED_KEY = 'sheetbase-sidebar-folded'
 
+/** The groups a browser remembered as folded: their page names. */
+const foldedGroupsSchema = z.array(z.string())
+
+/** The label for a workspace role; an unknown role reads as itself. */
+function roleLabel(role: string): string {
+  const labels = new Map(Object.entries(WORKSPACE_ROLE_LABELS))
+
+  return labels.get(role) ?? role
+}
+
 function readFolded(): string[] {
   try {
     const raw = localStorage.getItem(SIDEBAR_FOLDED_KEY)
-    const parsed: unknown = raw ? JSON.parse(raw) : []
+    const parsed = foldedGroupsSchema.safeParse(raw ? JSON.parse(raw) : [])
 
-    return Array.isArray(parsed)
-      ? parsed.filter((g): g is string => typeof g === 'string')
-      : []
+    return parsed.success ? parsed.data : []
   } catch {
     return []
   }
@@ -242,20 +252,20 @@ export function AppShell({
   const [folded, setFolded] = useState<ReadonlySet<string>>(() => new Set())
   const foldTouched = useRef(false)
 
-  const toggleFold = useCallback((group: string) => {
-    foldTouched.current = true
-    setFolded((current) => {
-      const next = new Set(current)
+  const toggleFold = useCallback(
+    (group: string) => {
+      foldTouched.current = true
+      const next = new Set(folded)
 
       if (next.has(group)) next.delete(group)
       else next.add(group)
       const list = [...next].sort()
+      setFolded(next)
       writeFolded(list)
       void setNavFolded(createDataClient(), list).catch(() => undefined)
-
-      return next
-    })
-  }, [])
+    },
+    [folded],
+  )
 
   // A swipe in from the left edge opens the phone drawer.
   const openNav = useCallback(() => setNavOpen(true), [])
@@ -315,23 +325,20 @@ export function AppShell({
 
   const toggleCollapsed = useCallback(() => {
     collapseTouched.current = true
-    setCollapsed((current) => {
-      const next = !current
+    const next = !collapsed
+    setCollapsed(next)
 
-      try {
-        localStorage.setItem(SIDEBAR_COLLAPSE_KEY, next ? '1' : '0')
-      } catch {
-        /* ignore */
-      }
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSE_KEY, next ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
 
-      void setUserPreference(createDataClient(), {
-        appearance: theme.pref,
-        navCollapsed: next,
-      }).catch(() => undefined)
-
-      return next
-    })
-  }, [theme.pref])
+    void setUserPreference(createDataClient(), {
+      appearance: theme.pref,
+      navCollapsed: next,
+    }).catch(() => undefined)
+  }, [collapsed, theme.pref])
 
   // SHELL-01: switch the active workspace, then re-resolve the shell context
   // (and every workspace-scoped query) for the new workspace. A refused switch
@@ -394,6 +401,9 @@ export function AppShell({
         openHelp: () => setHelpOpen(true),
         openCreate: () => setCreateOpen(true),
         toggleRail: toggleCollapsed,
+        // SAFETY: the shell's shortcut destinations are the route paths it
+        // builds itself, which the generated route union does not name as
+        // literals.
         navigate: (to) => void navigate({ to: to as never }),
         destinations: G_DESTINATIONS,
       }),
@@ -850,21 +860,6 @@ function WorkspaceSwitcher({
   )
 }
 
-/** Up to two initials for a workspace name: "Process Development" → "PD". */
-export function workspaceInitials(name: string): string {
-  const words = name
-    .trim()
-    .split(/[\s\-_/]+/)
-    .filter(Boolean)
-
-  const letters =
-    words.length > 1
-      ? [words[0], words[words.length - 1]].map((word) => [...word][0])
-      : [...(words[0] ?? '')].slice(0, 2)
-
-  return letters.join('').toUpperCase()
-}
-
 function NewMenu({
   open,
   onOpenChange,
@@ -1195,11 +1190,7 @@ function ViewAsSection({ currentId }: { currentId: string }) {
             <DropdownMenuItem
               key={person.id}
               icon={person.id === currentId ? 'check' : undefined}
-              hint={
-                (WORKSPACE_ROLE_LABELS as Record<string, string>)[
-                  person.role
-                ] ?? person.role
-              }
+              hint={roleLabel(person.role)}
               onClick={() => {
                 writeViewAsCookie(person.id)
                 window.location.reload()
@@ -1531,16 +1522,15 @@ function SideNav({
   settingsTo: string
   className?: string
 }) {
+  const countsByPage = new Map(Object.entries(counts ?? {}))
+
   const withCount = (item: NavItem): NavItem => {
-    const live =
-      counts?.[
-        item.label.toLowerCase() as keyof NonNullable<ShellData['counts']>
-      ]
+    const live = countsByPage.get(item.label.toLowerCase())
 
     // Only a number is a number: an unknown count (`null` — the read failed,
     // see `shell-counts.server.ts`) renders no number at all, rather than a
     // zero the server could not back, while the counts that did read still show.
-    return typeof live === 'string' ? { ...item, count: live } : item
+    return live === null || live === undefined ? item : { ...item, count: live }
   }
 
   const pathname = useRouterState({
@@ -1598,7 +1588,7 @@ function SideNav({
         )
       })}
       {/* Settings is not part of any group: a rule sets it apart. */}
-      <div role="separator" className="mx-2 my-2 h-px shrink-0 bg-border" />
+      <hr className="mx-2 my-2 h-px shrink-0 border-0 bg-border" />
       <Link
         to={settingsTo}
         className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline [&_svg]:text-fg-muted"

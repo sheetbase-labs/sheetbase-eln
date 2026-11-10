@@ -7,6 +7,8 @@ import {
 } from '#/lib/labels'
 import type { LabelSource } from '#/lib/labels'
 import { cn } from '#/lib/utils'
+import { z } from 'zod'
+
 import { GhsPictogram } from '#/components/materials/ghs-pictogram'
 import type { GhsPictogram as GhsCode } from '#/lib/material-safety'
 
@@ -264,6 +266,46 @@ const NO_PLUGIN: PluginLabel = {
   code: { loading: false },
 }
 
+/**
+ * The label facts as the plugin receives them: the same fields, with the absent
+ * ones omitted rather than carried as `undefined`, which JSON cannot express.
+ */
+function pluginLabelFacts(facts: LabelSource) {
+  const out: { identifier: string; [key: string]: string | null } = {
+    identifier: facts.identifier,
+  }
+
+  for (const key of [
+    'lot',
+    'sampleType',
+    'condition',
+    'useBy',
+    'signalWord',
+  ] as const) {
+    const value = facts[key]
+
+    if (value !== undefined) out[key] = value
+  }
+
+  return out
+}
+
+/**
+ * The record as the plugin bridge carries it. The bridge speaks JSON, which has
+ * no `undefined`, so absent fields are dropped before the row is decoded.
+ */
+function pluginRowFor(
+  record: SampleLabelRecord & { facts: ReturnType<typeof pluginLabelFacts> },
+) {
+  return z
+    .record(z.string(), z.json())
+    .parse(
+      Object.fromEntries(
+        Object.entries(record).filter(([, v]) => v !== undefined),
+      ),
+    )
+}
+
 /** Asks the plugins for a layout and a code; only mounted when the template names one. */
 function PluginLabelCard(props: CardProps & { facts: LabelSource }) {
   const look = { ...DEFAULT_LABEL_TEMPLATE, ...props.template }
@@ -273,7 +315,10 @@ function PluginLabelCard(props: CardProps & { facts: LabelSource }) {
     barcodeType: look.barcodeType,
     recordKind: props.source ? 'material' : 'sample',
     identifier: props.record.identifier.trim(),
-    record: { ...props.record, facts: props.facts },
+    record: pluginRowFor({
+      ...props.record,
+      facts: pluginLabelFacts(props.facts),
+    }),
     widthMm: look.widthMm,
     heightMm: look.heightMm,
   })

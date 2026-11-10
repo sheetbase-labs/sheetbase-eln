@@ -28,6 +28,8 @@
  * Daily schedules use an explicit IANA time zone (`spec.timeZone`, default
  * UTC) — never the DB/server session time zone.
  */
+import { z } from 'zod'
+
 import { PooledClient } from '#/db/pool.server'
 import { logger } from './logger'
 import type { QueryResultRow } from 'pg'
@@ -89,15 +91,28 @@ export interface PipelineSchedulerDeps {
    * when they start, so the default only wakes a local worker; nothing executes
    * inside the sweep.
    */
-  run: (actor: string, runId: string) => Promise<unknown>
+  run: (actor: string, runId: string) => Promise<void>
 }
+
+/** A JSON value the scheduler's JSONB columns hold. */
+type SchedulerJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | SchedulerJsonValue[]
+  | { [key: string]: SchedulerJsonValue }
+
+/** A JSONB object the scheduler stores: run parameters or an activity detail. */
+type SchedulerJsonObject = Record<string, SchedulerJsonValue>
 
 interface ScheduleRow {
   id: string
   workspace_id: string
   definition_id: string
   kind: 'interval' | 'daily' | 'event'
-  spec: Record<string, unknown>
+  /** The stored spec, decoded by `nextRunAt`/`validateScheduleSpec` where it is read. */
+  spec: unknown
   enabled: boolean
   last_run_at: string | null
   next_run_at: string | null
@@ -132,7 +147,7 @@ interface StaleRun {
   trigger_occurrence_id: string
   definition_version_id: string
   input_versions: Record<string, string>
-  parameters: Record<string, unknown>
+  parameters: SchedulerJsonObject
 }
 
 /**
@@ -280,6 +295,7 @@ async function sweepTimedSchedule(
   const creator = schedule.created_by_user_id ?? 'system'
 
   for (const runId of startedRunIds) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Runs are handed to the queue one at a time, in the order their occurrences started, so the worker executes them in schedule order.
     await deps.run(creator, runId)
   }
 
@@ -300,7 +316,8 @@ async function handleDueTick(
   now: Date,
   retriedRunIds: string[],
 ): Promise<string | null> {
-  const spec = locked.spec as unknown as TimedSpec
+  // SAFETY: `nextRunAt` and `validateScheduleSpec` decode the stored spec before any field of it is read; a timed row carries exactly the timed spec keys.
+  const spec = locked.spec as TimedSpec
   const occurrenceId = scheduledOccurrenceId(locked.id, locked.next_run_at)
 
   const advance = () =>
@@ -508,6 +525,7 @@ async function sweepStaleRecovery(
   const creator = schedule.created_by_user_id ?? 'system'
 
   for (const runId of startedRunIds) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Runs are handed to the queue one at a time, in the order their occurrences started, so the worker executes them in schedule order.
     await deps.run(creator, runId)
   }
 
@@ -561,13 +579,14 @@ async function sweepEventSchedule(
       if (retryRunId) startedRunIds.push(retryRunId)
     }
 
+    // SAFETY: an event schedule row's spec is written by the schedule editor through `validateScheduleSpec`, which accepts exactly these trigger keys.
     const spec = locked.spec as {
       eventType?: string | null
       datasetId?: string | null
       instrumentId?: string | null
       inputName?: string
       inputVersions?: Record<string, string>
-      parameters?: Record<string, unknown>
+      parameters?: SchedulerJsonObject
     } & ScheduleSpecCommon
 
     // Trigger configuration references catalogue event names. The stored
@@ -663,6 +682,8 @@ async function sweepEventSchedule(
 
     for (const runId of startedRunIds) {
       const creator = locked.created_by_user_id ?? 'system'
+
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Runs are handed to the queue one at a time, in the order their occurrences started, so the worker executes them in schedule order.
       await deps.run(creator, runId)
     }
 
@@ -845,7 +866,7 @@ async function recoverStaleRuns(
     trigger_occurrence_id: string
     definition_version_id: string
     input_versions: Record<string, string>
-    parameters: Record<string, unknown>
+    parameters: SchedulerJsonObject
   }>(
     `SELECT id, trigger_occurrence_id, definition_version_id,
             input_versions, parameters
@@ -999,11 +1020,13 @@ async function clearTriggerFailure(
   )
 }
 
+const pipelineInputName = z.looseObject({ name: z.string() })
+
 async function firstInputName(
   definitionId: string,
   conn: SchedulerConnection,
 ): Promise<string | null> {
-  const { rows } = await conn.query<{ configuration: Record<string, unknown> }>(
+  const { rows } = await conn.query<{ configuration: SchedulerJsonObject }>(
     `SELECT configuration FROM api.pipeline_definition_versions
       WHERE definition_id = $1 AND lifecycle = 'published'
       ORDER BY version DESC LIMIT 1`,
@@ -1016,9 +1039,7 @@ async function firstInputName(
     return null
   }
 
-  const first = config.inputs[0] as { name?: unknown }
-
-  return typeof first.name === 'string' ? first.name : null
+  return pipelineInputName.safeParse(config.inputs[0]).data?.name ?? null
 }
 
 async function resolveLatestPublishedVersion(
@@ -1040,7 +1061,7 @@ async function startScheduledRun(
   schedule: ScheduleRow,
   versionId: string,
   inputVersions?: Record<string, string>,
-  parameters?: Record<string, unknown>,
+  parameters?: SchedulerJsonObject,
   triggerKind: 'scheduled' | 'event' = 'scheduled',
   occurrenceId?: string,
   retryOfRunId?: string | null,
@@ -1120,7 +1141,7 @@ async function recordActivity(
   kind: ActivityKind,
   occurrenceId: string | null,
   message: string,
-  detail: Record<string, unknown> = {},
+  detail: SchedulerJsonObject = {},
 ): Promise<void> {
   if (COLLAPSING_ACTIVITY.includes(kind)) {
     const { rows } = await conn.query<{
@@ -1184,6 +1205,7 @@ function countMissedTicks(schedule: ScheduleRow, now: Date): number {
 
   while (cursor.getTime() <= now.getTime() && missed < 1000) {
     missed += 1
+    // SAFETY: `nextRunAt` validates the stored spec with `validateScheduleSpec` and returns null for an invalid one; this is the only way an unvalidated row enters the timing helper.
     const next = nextRunAt(schedule.kind, schedule.spec as never, cursor)
 
     if (!next) break
@@ -1320,6 +1342,15 @@ async function resolveScheduleInputs(
 let sweepTimer: ReturnType<typeof setInterval> | null = null
 const startedGlobalKey = '__sheetbasePipelineSchedulerStarted'
 
+/** The one flag this module keeps on the global object, across module reloads. */
+interface SchedulerGlobal {
+  [startedGlobalKey]?: boolean
+}
+
+function schedulerGlobal(): SchedulerGlobal & typeof globalThis {
+  return globalThis
+}
+
 export function startPipelineScheduler(): void {
   if (typeof window !== 'undefined') return
 
@@ -1332,7 +1363,7 @@ export function startPipelineScheduler(): void {
     return
   }
 
-  const g = globalThis as unknown as Record<string, unknown>
+  const g = schedulerGlobal()
 
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
@@ -1406,6 +1437,7 @@ function nextDue(
   if (schedule.kind === 'event') return null
 
   return (
+    // SAFETY: `nextRunAt` validates the stored spec with `validateScheduleSpec` and returns null for an invalid one; this is the only way an unvalidated row enters the timing helper.
     nextRunAt(schedule.kind, schedule.spec as never, now)?.toISOString() ?? null
   )
 }

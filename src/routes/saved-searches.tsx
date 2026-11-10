@@ -1,38 +1,11 @@
 import { useMemo, useState } from 'react'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 
-import { Icon } from '#/components/icons'
 import { ListHeader, ListToolbar } from '#/components/inventory/list'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { useSavedSearches } from '#/components/search/use-saved-searches'
-import { Button } from '#/components/ui/button'
-import {
-  ConfirmDialog,
-  ConfirmDialogAction,
-  ConfirmDialogCancel,
-  ConfirmDialogContent,
-  ConfirmDialogDescription,
-  ConfirmDialogFooter,
-  ConfirmDialogHeader,
-  ConfirmDialogTitle,
-} from '#/components/ui/confirm-dialog'
-import {
-  Dialog,
-  DialogBody,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-} from '#/components/ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '#/components/ui/dropdown-menu'
 import { EmptyState } from '#/components/ui/empty-state'
-import { Field, Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { now } from '#/lib/clock'
 import { formatListDate } from '#/lib/list-date'
@@ -40,6 +13,11 @@ import { savedQueryToSearch } from '#/lib/search'
 import type { SavedQuery } from '#/lib/search'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
+import {
+  DeleteSavedSearchDialog,
+  RenameSavedSearchDialog,
+  SavedSearchActions,
+} from './-saved-search-parts'
 
 export const Route = createFileRoute('/saved-searches')({
   beforeLoad: async ({ context: rootContext, location }) => {
@@ -54,7 +32,14 @@ export const Route = createFileRoute('/saved-searches')({
   component: SavedSearchesPage,
 })
 
-type Who = 'all' | 'shared' | 'mine'
+const WHO_OPTIONS = ['all', 'shared', 'mine'] as const
+
+type Who = (typeof WHO_OPTIONS)[number]
+
+/** The select's value is a plain string; only its own options are valid. */
+function parseWho(value: string): Who {
+  return WHO_OPTIONS.find((option) => option === value) ?? 'all'
+}
 
 function SavedSearchesPage() {
   const { context } = Route.useRouteContext()
@@ -185,58 +170,26 @@ function SavedSearchesPage() {
           const s = row.original
 
           if (!canChange(s)) return null
-          const shared = s.visibility === 'workspace'
 
           return (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    size="sm"
-                    variant="quiet"
-                    aria-label={t('projects.savedSearches.actionsLabel', {
-                      name: s.name,
-                    })}
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                }
-              >
-                <Icon name="more" size={14} />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => {
-                    setNewName(s.name)
-                    setRenaming(s)
-                  }}
-                >
-                  {t('common.actions.rename')}
-                </DropdownMenuItem>
-                {shared ? (
-                  <DropdownMenuItem
-                    onClick={() =>
-                      setVisibility.mutate({ id: s.id, visibility: 'private' })
-                    }
-                  >
-                    {t('projects.savedSearches.stopSharing')}
-                  </DropdownMenuItem>
-                ) : canShare ? (
-                  <DropdownMenuItem
-                    onClick={() =>
-                      setVisibility.mutate({
-                        id: s.id,
-                        visibility: 'workspace',
-                      })
-                    }
-                  >
-                    {t('projects.savedSearches.shareWithWorkspace')}
-                  </DropdownMenuItem>
-                ) : null}
-                <DropdownMenuItem danger onClick={() => setDeleting(s)}>
-                  {t('common.actions.delete')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <SavedSearchActions
+              search={s}
+              canShare={canShare}
+              onRename={(search) => {
+                setNewName(search.name)
+                setRenaming(search)
+              }}
+              onShare={(search) => {
+                setVisibility.mutate({
+                  id: search.id,
+                  visibility: 'workspace',
+                })
+              }}
+              onStopSharing={(search) => {
+                setVisibility.mutate({ id: search.id, visibility: 'private' })
+              }}
+              onDelete={setDeleting}
+            />
           )
         },
       },
@@ -259,7 +212,7 @@ function SavedSearchesPage() {
         <Select
           aria-label={t('projects.savedSearches.whoLabel')}
           value={who}
-          onChange={(e) => setWho(e.target.value as Who)}
+          onChange={(e) => setWho(parseWho(e.target.value))}
         >
           <option value="all">{t('projects.savedSearches.whoAll')}</option>
           <option value="shared">
@@ -305,86 +258,22 @@ function SavedSearchesPage() {
         )}
       </div>
 
-      <Dialog
-        open={renaming !== null}
-        onOpenChange={(o) => {
-          if (!o) setRenaming(null)
-        }}
-      >
-        <DialogContent className="w-[min(420px,calc(100vw-32px))]">
-          <DialogHeader title={t('projects.savedSearches.renameTitle')} />
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
+      <RenameSavedSearchDialog
+        search={renaming}
+        name={newName}
+        pending={rename.isPending}
+        onNameChange={setNewName}
+        onClose={() => setRenaming(null)}
+        onSubmit={(input) =>
+          rename.mutate(input, { onSuccess: () => setRenaming(null) })
+        }
+      />
 
-              if (!renaming || !newName.trim()) return
-              rename.mutate(
-                { id: renaming.id, name: newName },
-                { onSuccess: () => setRenaming(null) },
-              )
-            }}
-          >
-            <DialogBody>
-              <Field label={t('projects.savedSearches.name')}>
-                <Input
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  autoFocus
-                />
-              </Field>
-            </DialogBody>
-            <DialogFooter>
-              <DialogClose render={<Button type="button" />}>
-                {t('common.actions.cancel')}
-              </DialogClose>
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={!newName.trim() || rename.isPending}
-              >
-                {t('common.actions.save')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      <ConfirmDialog
-        open={deleting !== null}
-        onOpenChange={(o) => {
-          if (!o) setDeleting(null)
-        }}
-      >
-        <ConfirmDialogContent>
-          <ConfirmDialogHeader>
-            <ConfirmDialogTitle>
-              {deleting
-                ? deleting.visibility === 'workspace'
-                  ? t('projects.savedSearches.deleteShared', {
-                      name: deleting.name,
-                    })
-                  : t('projects.savedSearches.deleteOwn', {
-                      name: deleting.name,
-                    })
-                : ''}
-            </ConfirmDialogTitle>
-            <ConfirmDialogDescription>
-              {t('projects.savedSearches.deleteBody')}
-            </ConfirmDialogDescription>
-          </ConfirmDialogHeader>
-          <ConfirmDialogFooter>
-            <ConfirmDialogCancel>
-              {t('common.actions.cancel')}
-            </ConfirmDialogCancel>
-            <ConfirmDialogAction
-              variant="danger-fill"
-              onClick={() => deleting && remove.mutate(deleting.id)}
-            >
-              {t('common.actions.delete')}
-            </ConfirmDialogAction>
-          </ConfirmDialogFooter>
-        </ConfirmDialogContent>
-      </ConfirmDialog>
+      <DeleteSavedSearchDialog
+        search={deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={(search) => remove.mutate(search.id)}
+      />
     </div>
   )
 }

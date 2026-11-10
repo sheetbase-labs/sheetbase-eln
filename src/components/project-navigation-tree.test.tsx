@@ -8,6 +8,7 @@ import type {
   ProjectFolder,
 } from '#/lib/notebook-data'
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The tree renders inside the shell's generated route tree and this suite renders it alone; the double builds the hrefs and passes the anchor attributes the tree sets.
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
     to,
@@ -18,7 +19,7 @@ vi.mock('@tanstack/react-router', () => ({
     to: string
     params?: Record<string, string>
     children: React.ReactNode
-  } & Record<string, unknown>) => {
+  } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
     let href = to
 
     for (const [key, value] of Object.entries(params ?? {})) {

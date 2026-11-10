@@ -308,6 +308,7 @@ const failureContextMiddleware = createMiddleware().server(
   async ({ request, next }) => {
     const result = await next()
 
+    // react-doctor-disable-next-line react-doctor/server-sequential-independent-await -- the failure detail is appended to the log event annotateSummary writes on this same response, so the import, the summary and the failure must run in that order.
     const { annotateFailure, annotateSummary } =
       await import('#/lib/failure-context.server')
 

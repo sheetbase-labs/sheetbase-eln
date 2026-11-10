@@ -1,25 +1,25 @@
 import { useRouter } from '@tanstack/react-router'
 
 import { BrandMark } from '#/components/ui/brand-mark'
+import { labLogoUrl } from '#/lib/lab-logo'
 import { cn } from '#/lib/utils'
+
+/** What this hook reads of a mounted router; a page outside one has none. */
+interface MountedRouter {
+  state?: { matches: { context: { labLogo?: string | null } }[] }
+}
 
 /** The lab's logo version from the root route, or null when it has none. */
 export function useLabLogoVersion(): string | null {
   // Read without a subscription and without requiring a router, so a page
   // rendered outside one (a story, a test) simply shows no lab logo. The root
   // context re-resolves on a shell refresh, which re-renders these pages.
-  const router = useRouter({ warn: false }) as
-    { state?: { matches?: { context?: unknown }[] } } | undefined
+  // SAFETY: `useRouter({ warn: false })` returns undefined when no router is
+  // mounted (a story or a unit render), although its type names the registered
+  // router; the optional read below is what keeps that render working.
+  const router = useRouter({ warn: false }) as MountedRouter | undefined
 
-  const context = router?.state?.matches?.[0]?.context as
-    { labLogo?: string | null } | undefined
-
-  return context?.labLogo ?? null
-}
-
-/** The URL the lab logo is served from; the version busts the cache. */
-export function labLogoUrl(version: string): string {
-  return `/api/workspace-logo?v=${encodeURIComponent(version)}`
+  return router?.state?.matches.at(0)?.context.labLogo ?? null
 }
 
 /**

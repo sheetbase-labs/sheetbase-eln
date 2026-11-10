@@ -15,7 +15,7 @@ import { Field, Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { Tabs } from '#/components/ui/tabs'
 import { toast } from '#/components/ui/sonner'
-import { workspaceTimezone } from '#/components/schedule/book-dialog'
+import { workspaceTimezone } from '#/components/schedule/booking-time'
 import { describeCalendarError } from '#/lib/calendar'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {

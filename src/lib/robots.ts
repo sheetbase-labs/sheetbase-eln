@@ -62,7 +62,7 @@ export const OPEN_JOB_STATUSES: readonly RobotJobStatus[] = [
 ]
 
 export function isOpenJob(status: string): boolean {
-  return (OPEN_JOB_STATUSES as readonly string[]).includes(status)
+  return OPEN_JOB_STATUSES.some((openStatus) => openStatus === status)
 }
 
 /** The labware a robot's worklist file names. Same keys as the worklist writers. */

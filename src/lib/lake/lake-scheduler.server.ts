@@ -39,6 +39,7 @@ export async function sweepLakes(
     running.add(row.workspace_id)
 
     try {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Workspaces refresh one at a time: each pass opens and closes its own connection, and the in-process `running` guard cannot see work a parallel pass would start.
       const result = await refreshWorkspaceLake(deps, {
         workspaceId: row.workspace_id,
         exporterUserId: row.exporter_user_id,
@@ -64,6 +65,15 @@ export async function sweepLakes(
 let timer: ReturnType<typeof setInterval> | null = null
 let bootTimer: ReturnType<typeof setTimeout> | null = null
 const startedGlobalKey = '__sheetbaseLakeSchedulerStarted'
+
+/** The one flag this module keeps on the global object, across module reloads. */
+interface SchedulerGlobal {
+  [startedGlobalKey]?: boolean
+}
+
+function schedulerGlobal(): SchedulerGlobal & typeof globalThis {
+  return globalThis
+}
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
@@ -93,7 +103,8 @@ export function startLakeScheduler(
   if (typeof window !== 'undefined') return
 
   if (schedulerDisabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
+
+  const g = schedulerGlobal()
 
   if (g[startedGlobalKey]) return
   g[startedGlobalKey] = true
@@ -127,5 +138,5 @@ export function stopLakeScheduler(): void {
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null
-  delete (globalThis as unknown as Record<string, unknown>)[startedGlobalKey]
+  schedulerGlobal()[startedGlobalKey] = undefined
 }

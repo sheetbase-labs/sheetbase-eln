@@ -2,6 +2,7 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { Toaster, toast } from '#/components/ui/sonner'
 import { CodeBlock, codeText } from './code-block'
 
 /**
@@ -11,22 +12,22 @@ import { CodeBlock, codeText } from './code-block'
  * JSON dumps are for.
  */
 
-const sonner = vi.hoisted(() => ({
-  toast: Object.assign(vi.fn(), { error: vi.fn() }),
-}))
-
-vi.mock('sonner', () => ({
-  Toaster: () => null,
-  toast: sonner.toast,
-}))
-
 afterEach(() => {
   cleanup()
+  toast.dismiss()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
-  sonner.toast.mockClear()
-  sonner.toast.error.mockClear()
 })
+
+/** The block with the app's real toast surface, so what it says is on screen. */
+function renderWithToaster(element: React.ReactElement) {
+  return render(
+    <>
+      {element}
+      <Toaster />
+    </>,
+  )
+}
 
 describe('codeText', () => {
   it('passes ordinary SQL through unchanged', () => {
@@ -145,7 +146,7 @@ describe('CodeBlock', () => {
       .spyOn(navigator.clipboard, 'writeText')
       .mockResolvedValue(undefined)
 
-    render(
+    renderWithToaster(
       <CodeBlock
         code={'{"rowCount": 12}'}
         language="json"
@@ -156,8 +157,12 @@ describe('CodeBlock', () => {
     await user.click(screen.getByRole('button', { name: 'Copy' }))
 
     expect(writeText).toHaveBeenCalledWith('{"rowCount": 12}')
-    expect(sonner.toast).toHaveBeenCalledWith('Copied')
-    expect(sonner.toast.error).not.toHaveBeenCalled()
+    expect(await screen.findByText('Copied')).toBeTruthy()
+    expect(
+      screen.queryByText(
+        'Could not copy. Select the value and copy it by hand.',
+      ),
+    ).toBeNull()
   })
 
   it('says the copy failed instead of claiming one, and offers no copy for nothing', async () => {
@@ -165,11 +170,19 @@ describe('CodeBlock', () => {
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(
       new DOMException('denied', 'NotAllowedError'),
     )
-    const { rerender } = render(<CodeBlock code="select 1" label="Payload" />)
+
+    const { rerender } = renderWithToaster(
+      <CodeBlock code="select 1" label="Payload" />,
+    )
 
     await user.click(screen.getByRole('button', { name: 'Copy' }))
-    expect(sonner.toast.error).toHaveBeenCalled()
-    expect(sonner.toast).not.toHaveBeenCalled()
+
+    expect(
+      await screen.findByText(
+        'Could not copy. Select the value and copy it by hand.',
+      ),
+    ).toBeTruthy()
+    expect(screen.queryByText('Copied')).toBeNull()
 
     // An empty payload has nothing to hand over.
     rerender(<CodeBlock code="   " label="Payload" />)

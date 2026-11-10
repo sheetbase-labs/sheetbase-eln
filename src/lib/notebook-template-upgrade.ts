@@ -86,10 +86,12 @@ export type NotebookUpgradeDecision = z.infer<
   typeof notebookUpgradeDecisionSchema
 >
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Wire input is unparsed by definition; notebookUpgradePreviewSchema is the decoder applied on the next line.
 export function parseNotebookTemplateUpgradePreview(value: unknown) {
   return notebookUpgradePreviewSchema.parse(value)
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- Wire input is unparsed by definition; notebookUpgradeDecisionsSchema is the decoder applied on the next line.
 export function parseNotebookTemplateUpgradeDecisions(value: unknown) {
   const parsed = notebookUpgradeDecisionsSchema.parse(value)
 
@@ -196,6 +198,7 @@ export function requiredTargetParameterIds(
     .filter((id): id is string => Boolean(id))
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the wire entry point; parseNotebookTemplateUpgradePreview and the per-conflict preview decode run below.
 export function parseNotebookTemplateUpgradePreviewFromWire(value: unknown) {
   const parsed = parseNotebookTemplateUpgradePreview(value)
 

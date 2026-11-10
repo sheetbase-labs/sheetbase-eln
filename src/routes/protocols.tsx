@@ -9,6 +9,8 @@ import {
 } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { SortingState } from '@tanstack/react-table'
+import { z } from 'zod'
+
 import { useListView } from '#/lib/list-views'
 
 import { Button } from '#/components/ui/button'
@@ -65,6 +67,25 @@ const sorts: string[] = [
 
 type ProtocolSort = string
 
+/** A search value from the URL, present only when the URL carried text. */
+const protocolSearchText = z.string()
+
+/** The protocol list's search, as the URL carries it. */
+interface ProtocolsSearch {
+  q?: string
+  tab?: ProtocolTab
+  selected?: string
+  new?: true
+}
+
+/** A count per protocol list, as the tab strip and the footer read them. */
+const protocolTabCounts = z.record(z.enum(tabs), z.number())
+
+/** A tab name from the URL, present only when the screen offers that list. */
+const protocolTabParam = z
+  .string()
+  .transform((value) => tabs.find((tab) => tab === value))
+
 const tabLabel: Record<ProtocolTab, string> = {
   effective: t('library.protocols.list.effective'),
   mine: t('library.protocols.list.mine'),
@@ -76,11 +97,11 @@ const tabLabel: Record<ProtocolTab, string> = {
 /** The orderings the toolbar offers, as the grid's sorting state. The route
  * owns the menu; the table owns the order, so a header click and a menu pick
  * are the same single source. */
-const SORTS: Record<ProtocolSort, SortingState> = {
-  [t('library.protocols.list.updated')]: [{ id: 'updatedAt', desc: true }],
-  ID: [{ id: 'identifier', desc: false }],
-  [t('library.protocols.list.protocol')]: [{ id: 'title', desc: false }],
-}
+const SORTS = new Map<ProtocolSort, SortingState>([
+  [t('library.protocols.list.updated'), [{ id: 'updatedAt', desc: true }]],
+  ['ID', [{ id: 'identifier', desc: false }]],
+  [t('library.protocols.list.protocol'), [{ id: 'title', desc: false }]],
+])
 
 /** The menu key a sorting state came from, or undefined when the user sorted
  * by a column the menu does not list. */
@@ -89,8 +110,8 @@ function sortKeyOf(sorting: SortingState): ProtocolSort | undefined {
 
   if (!first) return undefined
 
-  return Object.keys(SORTS).find((key) => {
-    const entry = SORTS[key].at(0)
+  return [...SORTS.keys()].find((key) => {
+    const entry = SORTS.get(key)?.at(0)
 
     return (
       entry !== undefined && entry.id === first.id && entry.desc === first.desc
@@ -103,14 +124,13 @@ function sortKeyOf(sorting: SortingState): ProtocolSort | undefined {
  * capabilities; this list shows the records that exist today. */
 export const Route = createFileRoute('/protocols')({
   validateSearch: (
+    // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- TanStack Router hands validateSearch the raw URL values as Record<string, unknown>; every value is decoded below before use.
     search: Record<string, unknown>,
-  ): { q?: string; tab?: ProtocolTab; selected?: string; new?: true } => ({
+  ): ProtocolsSearch => ({
     new: search.new === true || search.new === 'true' ? true : undefined,
-    q: typeof search.q === 'string' ? search.q : undefined,
-    selected: typeof search.selected === 'string' ? search.selected : undefined,
-    tab: (tabs as readonly string[]).includes(search.tab as string)
-      ? (search.tab as ProtocolTab)
-      : undefined,
+    q: protocolSearchText.safeParse(search.q).data,
+    selected: protocolSearchText.safeParse(search.selected).data,
+    tab: protocolTabParam.safeParse(search.tab).data,
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
@@ -159,6 +179,56 @@ function inTab(
   return r.status === 'archived'
 }
 
+/** The tab inputs, one per row, in row order. */
+function tabInputsOf(rows: readonly NotebookRecord[]): ProtocolTabInput[] {
+  return rows.map((r) => ({
+    status: r.status,
+    ownerId: r.createdByUserId,
+    reviewDueAt:
+      protocolSearchText.safeParse(r.properties.review_due_at).data ?? null,
+  }))
+}
+
+/** How many protocols each list holds for this person. */
+function tabCountsOf(
+  inputs: readonly ProtocolTabInput[],
+  currentUserId: string,
+): Record<ProtocolTab, number> {
+  return protocolTabCounts.parse(
+    Object.fromEntries(
+      tabs.map((item) => [
+        item,
+        inputs.filter((r) => inTab(r, item, currentUserId)).length,
+      ]),
+    ),
+  )
+}
+
+/** The rows the tab and the search leave, in the order the table gave them. */
+function visibleProtocols(
+  rows: readonly NotebookRecord[],
+  inputs: readonly ProtocolTabInput[],
+  tab: ProtocolTab,
+  currentUserId: string,
+  query: string,
+): NotebookRecord[] {
+  const matched: NotebookRecord[] = []
+
+  for (const [index, row] of rows.entries()) {
+    const input = inputs[index]
+
+    if (!inTab(input, tab, currentUserId)) continue
+
+    const haystack = `${row.identifier} ${row.title}`.toLowerCase()
+
+    if (query && !haystack.includes(query)) continue
+
+    matched.push(row)
+  }
+
+  return matched
+}
+
 function ProtocolsList() {
   const { context } = Route.useRouteContext()
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
@@ -175,7 +245,11 @@ function ProtocolsList() {
   // The person's own sorting (a header click, or the Sort menu) is remembered;
   // with none, the newest-updated protocols lead.
   const view = useListView('protocols')
-  const sorting = view.sorting.length ? view.sorting : SORTS.Updated
+
+  const sorting = view.sorting.length
+    ? view.sorting
+    : (SORTS.get(t('library.protocols.list.updated')) ?? [])
+
   const setSorting = view.setSorting
   const queryClient = useQueryClient()
   const bulk = useBulkSelection()
@@ -202,7 +276,7 @@ function ProtocolsList() {
     staleTime: 15_000,
   })
 
-  const rows = query.data ?? []
+  const rows = useMemo(() => query.data ?? [], [query.data])
   const names = useUserNames(rows.map((r) => r.createdByUserId).filter(Boolean))
 
   const addedColumns = useAddedFieldListColumns<NotebookRecord>(
@@ -213,37 +287,17 @@ function ProtocolsList() {
   const currentUserId = context.user.id
   const tab: ProtocolTab = search.tab ?? 'effective'
 
-  const tabInput = useMemo(
-    () =>
-      rows.map((r) => ({
-        status: r.status,
-        ownerId: r.createdByUserId,
-        reviewDueAt: (r.properties.review_due_at as string | undefined) ?? null,
-      })),
-    [rows],
-  )
+  const tabInput = useMemo(() => tabInputsOf(rows), [rows])
 
   const counts = useMemo(
-    () =>
-      Object.fromEntries(
-        tabs.map((item) => [
-          item,
-          tabInput.filter((r) => inTab(r, item, currentUserId)).length,
-        ]),
-      ) as Record<ProtocolTab, number>,
+    () => tabCountsOf(tabInput, currentUserId),
     [tabInput, currentUserId],
   )
 
   const q = (search.q ?? '').trim().toLowerCase()
 
   // The table orders the rows; the tab and the search decide which ones.
-  const visible = rows
-    .map((r, i) => ({ r, input: tabInput[i] }))
-    .filter(({ input }) => inTab(input, tab, currentUserId))
-    .filter(
-      ({ r }) => !q || `${r.identifier} ${r.title}`.toLowerCase().includes(q),
-    )
-    .map(({ r }) => r)
+  const visible = visibleProtocols(rows, tabInput, tab, currentUserId, q)
 
   // One row drives the inspector: the checkbox selects it, and with nothing
   // checked the screen falls back to the URL's row or the first one.
@@ -299,7 +353,7 @@ function ProtocolsList() {
           views={{
             sorts,
             sort: sortKeyOf(sorting),
-            onSort: (s) => setSorting(SORTS[s] ?? []),
+            onSort: (s) => setSorting(SORTS.get(s) ?? []),
             showSortValue: false,
             groupLabel: '',
           }}
@@ -356,40 +410,14 @@ function ProtocolsList() {
               }
             })}
           />
-          {!query.isPending && visible.length === 0 ? (
-            <div role="status" className="flex justify-center px-6">
-              <EmptyState
-                icon={q ? 'search' : 'protocol'}
-                className="items-center py-14 text-center"
-                title={
-                  q
-                    ? t('library.protocols.list.noProtocolsMatch', {
-                        q: search.q ?? '',
-                      })
-                    : t('library.protocols.list.noProtocolsIn', {
-                        tab: tabLabel[tab],
-                      })
-                }
-                description={t(
-                  'library.protocols.list.searchLooksAtProtocolIdentifiers',
-                )}
-                action={
-                  q ? (
-                    <Button
-                      nativeButton={false}
-                      render={
-                        <Link to="/protocols" search={{ tab: search.tab }} />
-                      }
-                    >
-                      {t('library.protocols.list.clearSearch')}
-                    </Button>
-                  ) : (
-                    <NewProtocolDialog />
-                  )
-                }
-              />
-            </div>
-          ) : null}
+          <ProtocolsEmpty
+            isLoading={query.isPending}
+            hasRows={visible.length > 0}
+            query={q}
+            tab={tab}
+            searchQuery={search.q}
+            searchTab={search.tab}
+          />
         </div>
         <ListFooter
           loading={query.isPending}
@@ -404,48 +432,113 @@ function ProtocolsList() {
         </ListFooter>
       </div>
 
-      {sel ? (
-        <Inspector
-          aria-label={t('library.protocols.list.protocolSummary')}
-          className="w-[320px] gap-0 p-0"
-        >
-          <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
-            <span className="mono text-fg-muted">{sel.identifier}</span>
-            <div className="font-heading text-doc font-semibold">
-              {sel.title}
-            </div>
-            <div className="text-label">
-              <Status tone={protocolStatus(sel.status).tone}>
-                {protocolStatus(sel.status).label}
-              </Status>
-            </div>
-          </div>
-          <div className="flex flex-col gap-4 px-4 py-3.5">
-            <InspectorSection title={t('library.protocols.list.details')}>
-              <DescriptionList
-                labelWidth={90}
-                items={[
-                  [
-                    t('library.protocols.list.owner'),
-                    names.userLabel(sel.createdByUserId),
-                  ],
-                  [
-                    t('library.protocols.list.structure'),
-                    `v${sel.structureVersion}`,
-                  ],
-                  [
-                    t('library.protocols.list.updated'),
-                    formatDate(sel.updatedAt),
-                  ],
-                ]}
-              />
-            </InspectorSection>
-            <InspectorSection title={t('library.protocols.list.versioning')}>
-              <Muted>{t('library.protocols.list.openTheProtocolToSee')}</Muted>
-            </InspectorSection>
-          </div>
-        </Inspector>
-      ) : null}
+      <ProtocolSummary protocol={sel} userLabel={names.userLabel} />
     </div>
+  )
+}
+
+/** The registry's empty state: why the list is empty, and what to do next. */
+function ProtocolsEmpty({
+  isLoading,
+  hasRows,
+  query,
+  tab,
+  searchQuery,
+  searchTab,
+}: {
+  isLoading: boolean
+  hasRows: boolean
+  query: string
+  tab: ProtocolTab
+  searchQuery: string | undefined
+  searchTab: ProtocolTab | undefined
+}) {
+  if (isLoading || hasRows) return null
+
+  const isSearch = query.length > 0
+
+  return (
+    <div role="status" className="flex justify-center px-6">
+      <EmptyState
+        icon={isSearch ? 'search' : 'protocol'}
+        className="items-center py-14 text-center"
+        title={
+          isSearch
+            ? t('library.protocols.list.noProtocolsMatch', {
+                q: searchQuery ?? '',
+              })
+            : t('library.protocols.list.noProtocolsIn', { tab: tabLabel[tab] })
+        }
+        description={t(
+          'library.protocols.list.searchLooksAtProtocolIdentifiers',
+        )}
+        action={
+          isSearch ? (
+            <Button
+              nativeButton={false}
+              render={<Link to="/protocols" search={{ tab: searchTab }} />}
+            >
+              {t('library.protocols.list.clearSearch')}
+            </Button>
+          ) : (
+            <NewProtocolDialog />
+          )
+        }
+      />
+    </div>
+  )
+}
+
+/** The selected protocol's summary, or nothing when no row is selected. */
+function ProtocolSummary({
+  protocol,
+  userLabel,
+}: {
+  protocol: NotebookRecord | undefined
+  userLabel: (userId: string) => string
+}) {
+  if (!protocol) return null
+
+  return (
+    <Inspector
+      aria-label={t('library.protocols.list.protocolSummary')}
+      className="w-[320px] gap-0 p-0"
+    >
+      <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
+        <span className="mono text-fg-muted">{protocol.identifier}</span>
+        <div className="font-heading text-doc font-semibold">
+          {protocol.title}
+        </div>
+        <div className="text-label">
+          <Status tone={protocolStatus(protocol.status).tone}>
+            {protocolStatus(protocol.status).label}
+          </Status>
+        </div>
+      </div>
+      <div className="flex flex-col gap-4 px-4 py-3.5">
+        <InspectorSection title={t('library.protocols.list.details')}>
+          <DescriptionList
+            labelWidth={90}
+            items={[
+              [
+                t('library.protocols.list.owner'),
+                userLabel(protocol.createdByUserId),
+              ],
+              [
+                t('library.protocols.list.structure'),
+                `v${protocol.structureVersion}`,
+              ],
+              [
+                t('library.protocols.list.updated'),
+                formatDate(protocol.updatedAt),
+              ],
+            ]}
+          />
+        </InspectorSection>
+        <InspectorSection title={t('library.protocols.list.versioning')}>
+          <Muted>{t('library.protocols.list.openTheProtocolToSee')}</Muted>
+        </InspectorSection>
+      </div>
+    </Inspector>
   )
 }

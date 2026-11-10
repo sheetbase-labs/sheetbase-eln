@@ -85,7 +85,7 @@ const blocks: NotebookBlock[] = [
   ),
 ]
 
-async function onSaveBlock(): Promise<SaveResult<Record<string, unknown>>> {
+async function onSaveBlock(): Promise<SaveResult<NotebookBlock['payload']>> {
   return { ok: true }
 }
 

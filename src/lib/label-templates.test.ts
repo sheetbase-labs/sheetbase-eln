@@ -6,10 +6,29 @@ import {
   saveLabelTemplate,
   validateLabelInput,
 } from './label-templates'
+import { dataClientTestDouble } from './data-client-test-support'
 import { buildLabelLines, labelTemplateFromRow } from './labels'
-import type { DataClient } from './data-client'
 
-const row = (over: Record<string, unknown> = {}) => ({
+/** A label template row as the wire returns it. */
+type LabelTemplateRow = {
+  id: string
+  workspace_id: string
+  name: string
+  record_kind: string
+  show_condition: boolean
+  show_use_by: boolean
+  show_lot: boolean
+  show_sample_type: boolean
+  width_mm: number
+  height_mm: number
+  barcode_type: string
+  is_default: boolean
+  archived_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+const row = (over: Partial<LabelTemplateRow> = {}): LabelTemplateRow => ({
   id: '11111111-1111-4111-8111-111111111111',
   workspace_id: '22222222-2222-4222-8222-222222222222',
   name: 'Sample tube',
@@ -123,7 +142,7 @@ describe('buildLabelLines with a template', () => {
 describe('saveLabelTemplate', () => {
   it('sends the form to the database function', async () => {
     const rpc = vi.fn().mockResolvedValue(row())
-    await saveLabelTemplate({ rpc } as unknown as DataClient, 'ws', null, {
+    await saveLabelTemplate(dataClientTestDouble({ rpc }), 'ws', null, {
       ...EMPTY_LABEL_INPUT,
       name: ' Tube ',
       barcodeType: 'code128',

@@ -233,6 +233,15 @@ naming and is kept where it is.
 | `Diff`, `Source` (`scientific/diff.tsx`, `scientific/source.tsx`) | `src/stories/SourceDiffTagChip.stories.tsx`                                                                                   |
 | `CommentThread` (`comments/comment-thread.tsx`)                   | `src/stories/CommentThread.stories.tsx` (moved out of `CommentPanel.stories.tsx`, which now covers the panel it is named for) |
 
+## Pure helper modules beside components (10 November 2026)
+
+These modules hold no component: their exports are data and functions the
+components call, so there is nothing for a story to render.
+
+| Module                                            | Why no story                                                                                                      |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `src/components/materials/reagent-order-model.ts` | The order status tone, its label and the open-order lookup; `ReagentOrders` stories render them through the grid. |
+
 ## Re-export aliases
 
 | Export                                                                 | Reason                                                                                                                          |
@@ -638,6 +647,7 @@ the screen: `Inspector.stories.tsx`, `RecordHeader`'s stories,
 
 | Module                                                     | Why no story                                                                                                                                      |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/contracts/rule-dialog-fields.tsx`          | The condition fields and the preview block inside the rule dialog; the dialog renders both.                                                       |
 | `src/components/record/inspector-header.tsx`               | The inspector's identity strip; `Inspector.stories.tsx` renders it with a record type, a status and a close control.                              |
 | `src/components/record/inspector-tabs.tsx`                 | The tab strip and panels; `Inspector.stories.tsx` renders them, including the close control that rides the strip when the header is hidden.       |
 | `src/components/record/inspector-content.tsx`              | The inspector's four states (skeleton, nothing selected, unavailable, permission denied); every one is a story in `Inspector.stories.tsx`.        |

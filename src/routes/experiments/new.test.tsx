@@ -12,6 +12,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { choose } from '../../../tests/unit/picker'
 import { FORM_READ_TIMEOUT_MS, Route } from './new'
 
+// SAFETY: the file route always declares its component, and this suite renders
+// that component directly rather than through the router.
 const NewExperimentRoute = Route.options.component as React.ComponentType
 
 const dataClient = vi.hoisted(() => ({ list: vi.fn(), rpc: vi.fn() }))
@@ -23,10 +25,20 @@ const notebookCreate = vi.hoisted(() => ({
 }))
 
 const navigate = vi.hoisted(() => vi.fn())
-const order = vi.hoisted(() => [] as string[])
+const order: string[] = vi.hoisted(() => [])
 const acknowledgeProtocolVersion = vi.hoisted(() => vi.fn())
 
-const search = vi.hoisted((): { current: Record<string, string> } => ({
+/** The search string the stubbed route reports, replaced per test. */
+interface ExperimentSearch {
+  [param: string]: string
+}
+
+/** The search the stubbed route reports, replaced per test. */
+interface ExperimentSearchRef {
+  current: ExperimentSearch
+}
+
+const search = vi.hoisted((): ExperimentSearchRef => ({
   current: {},
 }))
 
@@ -34,27 +46,34 @@ const sonner = vi.hoisted(() => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The page is built by the router's createFileRoute at import time and this suite renders just its component; the double supplies the file-route factory, the search and the navigation the shell would, and every other export stays real.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
-    useSearch: () => search.current,
-    options: config,
-  }),
+  createFileRoute:
+    () =>
+    <Config,>(config: Config) => ({
+      useSearch: () => search.current,
+      options: config,
+    }),
   useNavigate: () => navigate,
-  redirect: (options: unknown) => options,
+  redirect: <Options,>(options: Options) => options,
   Link: ({ children }: { children?: React.ReactNode }) => (
     <a href="#">{children}</a>
   ),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The page reads through the shared notebookDataClient module instance and takes no client parameter, so that client is the one seam; the test asserts the resources and RPCs the real page issues.
 vi.mock('#/lib/notebook-data', async (importOriginal) => ({
   ...(await importOriginal()),
   notebookDataClient: dataClient,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The page calls the notebook-create module directly; the double records the create calls so the test can prove their order and arguments against the real form.
 vi.mock('#/lib/notebook-create', () => notebookCreate)
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Recording a protocol acknowledgement is a server-side write the page calls directly; the double records it so the test can prove the tick reaches the server.
 vi.mock('#/lib/controlled-protocols', () => ({ acknowledgeProtocolVersion }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Toasts are announced through a module-level emitter the page imports; the double records the message instead of rendering a viewport no assertion reads.
 vi.mock('#/components/ui/sonner', () => ({
   toast: sonner.toast,
   Toaster: () => null,
@@ -154,8 +173,8 @@ async function submitForm(
   )
 }
 
-function rpcNames() {
-  return dataClient.rpc.mock.calls.map((call) => call[0] as string)
+function rpcNames(): string[] {
+  return dataClient.rpc.mock.calls.map((call) => call[0])
 }
 
 beforeEach(() => {

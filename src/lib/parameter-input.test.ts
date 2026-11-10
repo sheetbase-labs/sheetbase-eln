@@ -102,6 +102,7 @@ describe('buildParameterInputs fail-closed', () => {
   })
 
   it('names a missing required object parameter', () => {
+    // SAFETY: the fixture carries every field `buildParameterInputs` reads for a record parameter; the rest exist only to satisfy `Parameter`.
     const parameter = {
       id: '20000000-0000-4000-8000-000000000002',
       key: 'sample',

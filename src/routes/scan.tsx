@@ -1,20 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, createFileRoute, redirect } from '@tanstack/react-router'
 
-import { Button } from '#/components/ui/button'
-import { Notice } from '#/components/ui/alert'
-import { Status } from '#/components/ui/status'
-import { Icon } from '#/components/icons'
 import { CameraScanner } from '#/components/scan/camera-scanner'
-import {
-  scanTargetActionLabel,
-  scanTargetHref,
-} from '#/components/scan/scan-data'
 import type { ScanResolution, ScanTarget } from '#/components/scan/scan-data'
 import { useScanCodeResolver } from '#/components/scan/plugin-scan'
-import { ScanSampleActions } from '#/components/scan/scan-sample-actions'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
+import { z } from 'zod'
+
+import {
+  ScanErrorNotice,
+  ScanHitCard,
+  ScanMissNotice,
+  ScanRecentList,
+} from './-scan-results'
 
 /**
  * UI port (roadmap-4/ui-app3): the Scan screen (MOB-02 / LAB-05). Camera
@@ -22,14 +21,21 @@ import { t } from '#/copy'
  * where available); typing an identifier or an "also known as" alias always
  * works. Results resolve against real records and instruments.
  */
+/** The Scan screen's search: the code it was opened with, if any. */
+interface ScanSearch {
+  code?: string
+}
+
 export const Route = createFileRoute('/scan')({
   // A detour from a result (Record reading, Book) comes back with the code, so
   // the scan reappears resolved instead of empty.
-  validateSearch: (search: Record<string, unknown>): { code?: string } => ({
-    ...(typeof search.code === 'string' && search.code.trim()
-      ? { code: search.code.trim() }
-      : {}),
-  }),
+  validateSearch: (search): ScanSearch => {
+    const code = z.string().safeParse(search.code)
+
+    if (!code.success || !code.data.trim()) return {}
+
+    return { code: code.data.trim() }
+  },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
 
@@ -42,6 +48,9 @@ export const Route = createFileRoute('/scan')({
   component: ScanPage,
 })
 
+/** How many resolved codes the session remembers. */
+const RECENT_LIMIT = 5
+
 function ScanPage() {
   const search = Route.useSearch()
   const [code, setCode] = useState(search.code ?? '')
@@ -51,45 +60,65 @@ function ScanPage() {
   const [error, setError] = useState<string | null>(null)
   const resolveScanCode = useScanCodeResolver()
 
-  const resolve = async (raw: string) => {
-    const trimmed = raw.trim()
+  const resolve = useCallback(
+    async (raw: string) => {
+      const trimmed = raw.trim()
 
-    if (!trimmed) return
-    setBusy(true)
-    setError(null)
+      if (!trimmed) return
+      setBusy(true)
+      setError(null)
 
-    try {
-      const r = await resolveScanCode(trimmed)
-      setResult(r)
+      try {
+        const resolution = await resolveScanCode(trimmed)
+        setResult(resolution)
 
-      if (r.found && r.hit) {
-        const hit = r.hit
-        setRecent((xs) =>
-          [hit, ...xs.filter((x) => x.id !== hit.id)].slice(0, 5),
+        if (resolution.found && resolution.hit) {
+          const hit = resolution.hit
+          setRecent((resolved) =>
+            [hit, ...resolved.filter((other) => other.id !== hit.id)].slice(
+              0,
+              RECENT_LIMIT,
+            ),
+          )
+        }
+      } catch (cause) {
+        // A failed lookup is not a miss: say the code could not be read rather
+        // than stopping the spinner with nothing on screen.
+        setResult(null)
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : t('library.scan.page.theCodeCouldNotBe'),
         )
+      } finally {
+        setBusy(false)
       }
-    } catch (cause) {
-      // A failed lookup is not a miss: say the code could not be read rather
-      // than stopping the spinner with nothing on screen.
-      setResult(null)
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : t('library.scan.page.theCodeCouldNotBe'),
-      )
-    } finally {
-      setBusy(false)
-    }
-  }
+    },
+    [resolveScanCode],
+  )
 
-  const startedWith = useRef(search.code)
+  // Resolve the code the page was opened with once, on arrival; the ref is
+  // cleared so a later resolver identity does not scan it again.
+  const startedWith = useRef<string | undefined>(search.code)
+
   useEffect(() => {
-    if (startedWith.current) void resolve(startedWith.current)
-    // Resolve the code the page was opened with once, on arrival.
-  }, [])
+    const arrivedWith = startedWith.current
+
+    startedWith.current = undefined
+
+    if (arrivedWith) void resolve(arrivedWith)
+  }, [resolve])
 
   const hit = result?.found ? result.hit : undefined
   const miss = result && !result.found ? result : undefined
+
+  const openRecent = (target: ScanTarget) =>
+    setResult({
+      found: true,
+      code: target.identifier,
+      hit: target,
+      suggestions: [],
+    })
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
@@ -114,137 +143,27 @@ function ScanPage() {
           onScan={(raw) => void resolve(raw)}
         >
           {hit ? (
-            <section
-              aria-label={t('library.scan.page.scannedRecord')}
-              className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-success">
-                  <Icon name="check" size={20} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="mono text-fg-muted">{hit.identifier}</div>
-                  <div className="text-[15px] font-semibold">{hit.title}</div>
-                  <div className="text-label text-fg-muted">
-                    {hit.line}
-                    {hit.matchedAlias ? (
-                      <>
-                        {' '}
-                        {t('library.scan.page.alsoKnownAs', {
-                          matchedAlias: hit.matchedAlias,
-                        })}
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-                <Status tone={hit.status.tone}>{hit.status.label}</Status>
-              </div>
-              {hit.kind === 'sample' ? (
-                <ScanSampleActions
-                  sampleId={hit.id}
-                  returnTo={`/scan?code=${encodeURIComponent(hit.identifier)}`}
-                  onChanged={() => void resolve(hit.identifier)}
-                />
-              ) : null}
-              {hit.kind === 'instrument' ? (
-                <Button
-                  size="lg"
-                  nativeButton={false}
-                  render={
-                    <Link
-                      to="/schedule"
-                      search={{
-                        book: hit.id,
-                        returnTo: `/scan?code=${encodeURIComponent(hit.identifier)}`,
-                      }}
-                    />
-                  }
-                >
-                  {t('library.scan.page.bookThisInstrument')}
-                </Button>
-              ) : null}
-              <Button
-                variant={hit.kind === 'sample' ? 'secondary' : 'primary'}
-                size="lg"
-                nativeButton={false}
-                render={<Link {...scanTargetHref(hit)} />}
-              >
-                {scanTargetActionLabel(hit)}
-              </Button>
-            </section>
+            <ScanHitCard
+              hit={hit}
+              onChanged={() => void resolve(hit.identifier)}
+            />
           ) : null}
 
           {miss ? (
-            <Notice
-              tone="warn"
-              title={t('library.scan.page.noRecordWithId', { code: miss.code })}
-            >
-              {miss.suggestions.length ? (
-                <>
-                  {t('library.scan.page.didYouMean')}{' '}
-                  {miss.suggestions.map((s, i) => (
-                    <span key={s.id}>
-                      {i ? ', ' : ''}
-                      <button
-                        type="button"
-                        className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link underline"
-                        onClick={() => {
-                          setCode(s.identifier)
-                          void resolve(s.identifier)
-                        }}
-                      >
-                        {s.identifier}
-                      </button>
-                    </span>
-                  ))}
-                  ?
-                </>
-              ) : (
-                t('library.scan.page.checkTheLabelAndTry')
-              )}
-            </Notice>
+            <ScanMissNotice
+              code={miss.code}
+              suggestions={miss.suggestions}
+              onPick={(identifier) => {
+                setCode(identifier)
+                void resolve(identifier)
+              }}
+            />
           ) : null}
 
-          {error ? (
-            <Notice
-              tone="bad"
-              title={t('library.scan.page.couldNotResolveThisCode')}
-            >
-              {error}
-            </Notice>
-          ) : null}
+          {error ? <ScanErrorNotice message={error} /> : null}
         </CameraScanner>
 
-        {recent.length ? (
-          <section className="flex flex-col gap-1">
-            <h2 className="text-label font-medium text-fg-muted">
-              {t('library.scan.page.recentScans')}
-            </h2>
-            {recent.map((r) => (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() =>
-                  setResult({
-                    found: true,
-                    code: r.identifier,
-                    hit: r,
-                    suggestions: [],
-                  })
-                }
-                className="flex min-h-12 cursor-pointer items-center gap-3 rounded-md border-0 bg-transparent px-2 text-left font-[inherit] hover:bg-surface-hover"
-              >
-                <span className="mono w-24 text-fg-muted">{r.identifier}</span>
-                <span className="flex-1 truncate text-body">{r.title}</span>
-                <Status tone={r.status.tone}>{r.status.label}</Status>
-              </button>
-            ))}
-          </section>
-        ) : (
-          <p className="m-0 text-label text-fg-muted">
-            {t('library.scan.page.scansYouResolveThisSession')}
-          </p>
-        )}
+        <ScanRecentList recent={recent} onOpen={openRecent} />
       </div>
     </div>
   )

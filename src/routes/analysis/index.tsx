@@ -1,34 +1,35 @@
 import { t } from '#/copy'
+import {
+  analysisSorts,
+  emptyCopyFor,
+  kindLabel,
+  tabLabelFor,
+} from '../-analysis-list-model'
+import type { AnalysisRow, AnalysisSort } from '../-analysis-list-model'
+import {
+  AnalysisInspector,
+  AnalysisListBody,
+  AnalysisNewMenu,
+} from '../-analysis-list-parts'
 import { hasCapability } from '#/lib/capability'
 import { specSourceDatasetId } from '#/lib/analysis-spec-source'
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 
-import { Muted, PageHeader } from '#/components/ui/layout'
+import { PageHeader } from '#/components/ui/layout'
 import {
   ListFooter,
   ListHeader,
-  ReadOnlyNote,
   ListToolbar,
-  MobileList,
   footerCount,
 } from '#/components/inventory/list'
-import { Button } from '#/components/ui/button'
 import { Status } from '#/components/ui/status'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Tabs } from '#/components/ui/tabs'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '#/components/ui/dropdown-menu'
-import { RegistryGrid, useRowFocus } from '#/components/inventory/registry-grid'
+import { useRowFocus } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { useUserNames } from '#/lib/user-names'
 import { formatDate } from '#/lib/format-date'
@@ -54,66 +55,27 @@ import { notebookDataClient } from '#/lib/notebook-data'
  */
 export const Route = createFileRoute('/analysis/')({
   validateSearch: (
+    // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- TanStack Router hands validateSearch the raw URL values as Record<string, unknown>; analysisSearchSchema decodes every key this route reads.
     search: Record<string, unknown>,
-  ): { tab?: 'mine' | 'cited' | 'drafts'; q?: string; state?: 'denied' } => ({
-    tab:
-      search.tab === 'mine' || search.tab === 'cited' || search.tab === 'drafts'
-        ? search.tab
-        : undefined,
-    q: typeof search.q === 'string' ? search.q : undefined,
-    state: search.state === 'denied' ? 'denied' : undefined,
-  }),
+  ): AnalysisSearch => analysisSearchSchema.parse(search),
   component: AnalysisHome,
 })
 
 const client = createDataClient()
 
-const analysisSorts = ['Updated', 'Name', 'ID'] as const
-
-type AnalysisSort = (typeof analysisSorts)[number]
-
-const MODES = [
-  {
-    mode: 'chart',
-    label: t('data.analysisList.chart'),
-    start: t('data.analysisList.startChart'),
-    body: t('data.analysisList.figureFromDatasetSnapshot'),
-  },
-  {
-    mode: 'analyse',
-    label: t('data.analysisList.analyse'),
-    start: t('data.analysisList.startAnalyse'),
-    body: t('data.analysisList.statisticsAssumptionChecks'),
-  },
-  {
-    mode: 'compare',
-    label: t('data.analysisList.compare'),
-    start: t('data.analysisList.startCompare'),
-    body: t('data.analysisList.twoSnapshotsSideSide'),
-  },
-] as const
-
-/**
- * One saved analysis as the list shows it. Chart views (`analysis_views`) and
- * statistics (`analysis_definitions`) are two stores but one kind of thing to
- * the person looking for their work, so the list merges them and the Kind
- * column says which each is.
- */
-interface AnalysisRow {
-  id: string
-  kind: 'chart' | 'statistics'
-  /** The display id when the row has one, else the start of its id. */
-  identifier: string
-  /** What a citation of this row names, for the Cited tab. */
-  citeKey: string
-  name: string
-  /** The chart type or statistic, e.g. `line` or `descriptive`. */
-  detail: string
-  ownerId: string
-  version: number
-  updatedAt: string
-  datasetId: string | undefined
+/** The list's filters, as the URL carries them. */
+interface AnalysisSearch {
+  tab?: 'mine' | 'cited' | 'drafts'
+  q?: string
+  state?: 'denied'
 }
+
+/** A URL that names none of them usable reads as an unfiltered list. */
+const analysisSearchSchema = z.object({
+  tab: z.enum(['mine', 'cited', 'drafts']).optional().catch(undefined),
+  q: z.string().optional().catch(undefined),
+  state: z.literal('denied').optional().catch(undefined),
+})
 
 function viewRow(view: AnalysisViewWire): AnalysisRow {
   return {
@@ -130,11 +92,15 @@ function viewRow(view: AnalysisViewWire): AnalysisRow {
   }
 }
 
+/** The part of a saved statistics definition the list names. */
+const definitionSummarySchema = z.object({
+  kind: z.string().optional(),
+  datasets: z.array(z.object({ datasetId: z.string().optional() })).optional(),
+})
+
 function definitionRow(saved: AnalysisDefinitionWire): AnalysisRow {
-  const definition = saved.definition as {
-    kind?: string
-    datasets?: { datasetId?: string }[]
-  }
+  const parsed = definitionSummarySchema.safeParse(saved.definition)
+  const definition = parsed.success ? parsed.data : {}
 
   return {
     id: saved.id,
@@ -155,23 +121,6 @@ function definitionRow(saved: AnalysisDefinitionWire): AnalysisRow {
     updatedAt: saved.updated_at,
     datasetId: definition.datasets?.at(0)?.datasetId,
   }
-}
-
-const KIND_LABEL: Record<AnalysisRow['kind'], string> = {
-  chart: t('data.analysisList.chart'),
-  statistics: t('data.analysisList.statistics'),
-}
-
-function tabLabelFor(tab: 'mine' | 'cited' | 'drafts'): string {
-  return tab === 'cited'
-    ? t('data.analysisList.citedRecords')
-    : tab === 'mine'
-      ? t('data.analysisList.mine')
-      : t('data.analysisList.drafts')
-}
-
-function kindLabel(row: AnalysisRow): string {
-  return `${KIND_LABEL[row.kind]} · ${row.detail}`
 }
 
 /** Where a row opens: a chart view has its own page, statistics open in the studio. */
@@ -379,39 +328,7 @@ function AnalysisHome() {
   const recent = (datasets.data ?? []).slice(0, 3)
   const selected = visible.find((v) => v.id === selectedId) ?? null
 
-  // The empty state says why the list is empty, so a tab filter that matches
-  // nothing does not read as a workspace with no analyses: the header above
-  // reports "N saved analyses" from the unfiltered rows.
-  const emptyCopy = (() => {
-    if (needle)
-      return {
-        title: t('data.analysisList.analysesMatch'),
-        body: t('data.analysisList.analysisIdNameKind'),
-      }
-
-    if (rows.length > 0 && tab === 'cited')
-      return {
-        title: t('data.analysisList.analysesCitedRecords'),
-        body: t('data.analysisList.analysisAppearsHereOnce'),
-      }
-
-    if (rows.length > 0 && tab === 'mine')
-      return {
-        title: t('data.analysisList.analysesOwn'),
-        body: t('data.analysisList.haveSavedAnalysisWorkspace'),
-      }
-
-    if (rows.length > 0 && tab === 'drafts')
-      return {
-        title: t('data.analysisList.draftAnalyses'),
-        body: t('data.analysisList.everyAnalysisWorkspaceHas'),
-      }
-
-    return {
-      title: t('data.analysisList.analysesYet'),
-      body: t('data.analysisList.analysisReadsPinnedDataset'),
-    }
-  })()
+  const emptyCopy = emptyCopyFor(needle, rows.length, tab)
 
   if (state === 'denied') {
     return (
@@ -434,62 +351,7 @@ function AnalysisHome() {
         <ListHeader
           title={t('data.analysisList.analysis')}
           total={rows.length}
-          actions={
-            canWrite ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={<Button variant="primary" icon="plus" />}
-                >
-                  {t('data.analysisList.newAnalysis')}
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-64">
-                  {MODES.map((m) => (
-                    <DropdownMenuItem
-                      key={m.mode}
-                      hint={m.label}
-                      onClick={() =>
-                        void navigate({
-                          to: '/analysis/new',
-                          search: { mode: m.mode },
-                        })
-                      }
-                    >
-                      {m.body}
-                    </DropdownMenuItem>
-                  ))}
-                  {recent.length ? (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuGroup>
-                        <DropdownMenuLabel>
-                          {t('data.analysisList.startFromRecentDataset')}
-                        </DropdownMenuLabel>
-                        {recent.map((d) => (
-                          <DropdownMenuItem
-                            key={d.id}
-                            onClick={() =>
-                              void navigate({
-                                to: '/analysis/new',
-                                search: { mode: 'chart', dataset: d.id },
-                              })
-                            }
-                          >
-                            {d.name}
-                          </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuGroup>
-                    </>
-                  ) : null}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <ReadOnlyNote>
-                {t('common.readOnly.cannotAdd', {
-                  things: t('common.readOnly.things.analyses'),
-                })}
-              </ReadOnlyNote>
-            )
-          }
+          actions={<AnalysisNewMenu canWrite={canWrite} recent={recent} />}
           tabs={
             <Tabs
               mode="url"
@@ -531,7 +393,11 @@ function AnalysisHome() {
           views={{
             sorts: [...analysisSorts],
             sort,
-            onSort: (next) => setSort(next as AnalysisSort),
+            onSort: (next) => {
+              const chosen = analysisSorts.find((option) => option === next)
+
+              if (chosen) setSort(chosen)
+            },
           }}
           onSearch={(next) =>
             void navigate({
@@ -542,96 +408,22 @@ function AnalysisHome() {
           }
         />
 
-        <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
-          {views.isPending ||
-          definitions.isPending ||
-          (tab === 'cited' && citations.isPending) ? (
-            <div className="px-4 py-5 md:px-6">
-              <Muted>{t('data.analysisList.loadingAnalyses')}</Muted>
-            </div>
-          ) : visible.length === 0 ? (
-            <div
-              role="status"
-              className="flex justify-center px-4 py-5 md:px-6"
-            >
-              <EmptyState
-                icon="chart"
-                className="items-center text-center"
-                title={emptyCopy.title}
-                description={emptyCopy.body}
-                action={
-                  needle ? (
-                    <Button
-                      onClick={() =>
-                        void navigate({
-                          to: '/analysis',
-                          search: { tab },
-                          replace: true,
-                        })
-                      }
-                    >
-                      {t('data.analysisList.clearSearch')}
-                    </Button>
-                  ) : (
-                    <div className="flex flex-wrap justify-center gap-2">
-                      {MODES.map((m) => (
-                        <Button
-                          key={m.mode}
-                          nativeButton={false}
-                          render={
-                            <Link
-                              to="/analysis/new"
-                              search={{ mode: m.mode }}
-                            />
-                          }
-                        >
-                          {m.start}
-                        </Button>
-                      ))}
-                    </div>
-                  )
-                }
-              />
-            </div>
-          ) : (
-            <>
-              <RegistryGrid
-                className="max-md:hidden"
-                label={t('data.analysisList.savedAnalyses')}
-                rows={visible}
-                columns={columns}
-                getRowId={(view) => view.id}
-                rowSelection={rowSelection}
-                onRowSelectionChange={onRowSelectionChange}
-                onRowClick={openAnalysis}
-                selectable={false}
-              />
-              <MobileList
-                label={t('data.analysisList.savedAnalyses')}
-                items={visible.map((view) => ({
-                  key: view.id,
-                  id: view.identifier,
-                  title: view.name,
-                  sub: `${kindLabel(view)} · ${datasetName(view.datasetId)}`,
-                  link:
-                    view.kind === 'chart'
-                      ? {
-                          to: '/analysis/$analysisId',
-                          params: { analysisId: view.id },
-                          onClick: (event: React.MouseEvent) =>
-                            openAnalysis(view, event),
-                        }
-                      : {
-                          to: '/analysis/new',
-                          search: { mode: 'analyse', definition: view.id },
-                          onClick: (event: React.MouseEvent) =>
-                            openAnalysis(view, event),
-                        },
-                }))}
-              />
-            </>
-          )}
-        </div>
+        <AnalysisListBody
+          isPending={
+            views.isPending ||
+            definitions.isPending ||
+            (tab === 'cited' && citations.isPending)
+          }
+          visible={visible}
+          columns={columns}
+          rowSelection={rowSelection}
+          onRowSelectionChange={onRowSelectionChange}
+          openAnalysis={openAnalysis}
+          datasetName={datasetName}
+          emptyCopy={emptyCopy}
+          needle={needle}
+          tab={tab}
+        />
         <ListFooter right={selected ? '1 selected' : undefined}>
           {footerCount({
             shown: visible.length,
@@ -643,66 +435,7 @@ function AnalysisHome() {
           })}
         </ListFooter>
       </div>
-      {selected ? (
-        <aside
-          aria-label={`${selected.name} details`}
-          className="hidden w-[320px] shrink-0 flex-col gap-4 overflow-auto border-l border-border bg-surface p-4 xl:flex"
-        >
-          <div className="flex flex-col gap-1">
-            <span className="mono text-label text-fg-muted">
-              {selected.identifier}
-            </span>
-            <div className="font-heading text-doc font-semibold">
-              {selected.name}
-            </div>
-            <Status tone="analysis">{kindLabel(selected)}</Status>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            <Button
-              size="sm"
-              variant="primary"
-              nativeButton={false}
-              render={
-                selected.kind === 'chart' ? (
-                  <Link
-                    to="/analysis/$analysisId"
-                    params={{ analysisId: selected.id }}
-                  />
-                ) : (
-                  <Link
-                    to="/analysis/new"
-                    search={{ mode: 'analyse', definition: selected.id }}
-                  />
-                )
-              }
-            >
-              {t('common.actions.open')}
-            </Button>
-            <Button
-              size="sm"
-              nativeButton={false}
-              render={
-                <Link
-                  to="/analysis/new"
-                  search={{
-                    mode: 'chart',
-                    dataset: selected.datasetId,
-                  }}
-                />
-              }
-            >
-              {t('data.analysisList.newFromData')}
-            </Button>
-          </div>
-          <div className="flex flex-col gap-2">
-            <h3 className="text-label font-medium text-fg-muted">
-              {t('data.analysisList.source')}
-            </h3>
-            <span className="text-body">{datasetName(selected.datasetId)}</span>
-          </div>
-          <Muted>{t('data.analysisList.eachSaveAddsVersion')}</Muted>
-        </aside>
-      ) : null}
+      <AnalysisInspector selected={selected} datasetName={datasetName} />
     </div>
   )
 }

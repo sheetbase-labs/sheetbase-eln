@@ -5,7 +5,7 @@
  */
 export type PreviewKind = 'document' | 'sheet' | 'csv' | 'slides' | 'pdf'
 
-const BY_MEDIA_TYPE: Record<string, PreviewKind> = {
+const BY_MEDIA_TYPE = {
   'application/pdf': 'pdf',
   'text/csv': 'csv',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
@@ -16,9 +16,9 @@ const BY_MEDIA_TYPE: Record<string, PreviewKind> = {
   'application/vnd.openxmlformats-officedocument.presentationml.presentation':
     'slides',
   'application/vnd.oasis.opendocument.presentation': 'slides',
-}
+} satisfies Record<string, PreviewKind>
 
-const BY_EXTENSION: Record<string, PreviewKind> = {
+const BY_EXTENSION = {
   pdf: 'pdf',
   csv: 'csv',
   docx: 'document',
@@ -27,7 +27,7 @@ const BY_EXTENSION: Record<string, PreviewKind> = {
   ods: 'sheet',
   pptx: 'slides',
   odp: 'slides',
-}
+} satisfies Record<string, PreviewKind>
 
 function lookup(
   table: Record<string, PreviewKind>,

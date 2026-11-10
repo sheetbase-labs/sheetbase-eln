@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
@@ -9,7 +8,6 @@ import { Checkbox } from '#/components/ui/checkbox'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Field, Input } from '#/components/ui/input'
 import { Muted, Section } from '#/components/ui/layout'
-import { toast } from '#/components/ui/sonner'
 import { Status } from '#/components/ui/status'
 import { TableBox } from '#/components/ui/table'
 import {
@@ -22,15 +20,12 @@ import { TemplateSectionsBoard } from '#/components/templates/template-sections-
 import { TemplatePartsSection } from '#/components/templates/template-parts'
 import type { TemplatePart } from '#/components/templates/template-parts'
 import {
-  templateDataQueryKeys,
   templateLifecycle,
   useTemplate,
   useTemplateVersions,
 } from '#/components/templates/templates-data'
 import { FIELD_LOGICAL_TYPES } from '#/lib/field-definition'
-import { createNotebookTemplateVersion } from '#/lib/notebook-template-data'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
-import { notebookTemplateConfigurationSchema } from '#/lib/notebook-template'
 import type {
   NotebookTemplateConfiguration,
   NotebookTemplatePlacement,
@@ -38,6 +33,7 @@ import type {
 import type { Parameter } from '#/lib/parameter'
 import { formatDate } from '#/lib/format-date'
 import { useRegulatedLab } from '#/lib/regulated-lab'
+import { useTemplateDraft } from '../-template-draft'
 import { t } from '#/copy'
 
 /** UI port (roadmap-4/ui-app3): the template's Sections view reads the stored
@@ -285,74 +281,193 @@ function parameterColumns(options: {
   return columns
 }
 
-/** Orders are unique positive integers, so every add, remove and move rewrites
- * them as 1..n. */
-function withOrders(
-  placements: NotebookTemplatePlacement[],
-): NotebookTemplatePlacement[] {
-  return placements.map((placement, index) => ({
-    ...placement,
-    order: index + 1,
-  }))
+/** The version line: its status, and either the editing controls or Edit. */
+function VersionSection({
+  version,
+  draft,
+  saving,
+  onCancel,
+  onSave,
+  onEdit,
+}: {
+  version: NotebookTemplateVersion
+  draft: NotebookTemplateConfiguration | null
+  saving: boolean
+  onCancel: () => void
+  onSave: () => void
+  onEdit: () => void
+}) {
+  const lifecycle = templateLifecycle(version.lifecycle)
+
+  return (
+    <Section
+      title={t('library.templates.overview.version')}
+      count={
+        <Status tone={lifecycle.tone}>
+          {lifecycle.label} v{version.version}
+        </Status>
+      }
+      action={
+        draft ? (
+          <span className="flex gap-2">
+            <Button size="sm" disabled={saving} onClick={onCancel}>
+              {t('common.actions.cancel')}
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={saving}
+              onClick={onSave}
+            >
+              {saving
+                ? t('common.states.saving')
+                : t('library.templates.overview.saveNewVersion')}
+            </Button>
+          </span>
+        ) : (
+          <IconButton
+            variant="secondary"
+            icon="edit"
+            label={t('common.actions.edit')}
+            onClick={onEdit}
+          />
+        )
+      }
+    >
+      <Muted>
+        {[
+          version.publishedAt
+            ? t('library.templates.overview.published', {
+                publishedAt: formatDate(version.publishedAt),
+              })
+            : t('library.templates.overview.notPublished'),
+          t('library.templates.overview.notebooksAlreadyMadeKeepThe'),
+          draft ? t('library.templates.overview.savingAddsANewVersion') : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      </Muted>
+    </Section>
+  )
+}
+
+/** The sections table, with the add form and its controls while editing. */
+function SectionsSection({
+  draft,
+  placements,
+  editPlacements,
+  templateParts,
+  saving,
+  onMove,
+  onSetPart,
+  onRemove,
+  onAdd,
+}: {
+  draft: boolean
+  placements: NotebookTemplatePlacement[]
+  editPlacements: NotebookTemplatePlacement[]
+  templateParts: TemplatePart[]
+  saving: boolean
+  onMove: (index: number, delta: number) => void
+  onSetPart: (id: string, partId: string | null) => void
+  onRemove: (id: string) => void
+  onAdd: (key: string, label: string) => void
+}) {
+  const rows = draft ? editPlacements : placements
+
+  return (
+    <Section
+      title={t('library.templates.overview.sections')}
+      count={rows.length}
+    >
+      {rows.length ? (
+        <TableBox>
+          <RegistryGrid
+            label={t('library.templates.overview.templateSections')}
+            rows={rows}
+            columns={
+              draft
+                ? sectionColumns(rows.length, {
+                    withActions: true,
+                    disabled: saving,
+                    onMove,
+                    parts: templateParts,
+                    onSetPart,
+                    onRemove,
+                  })
+                : sectionColumns(rows.length, { parts: templateParts })
+            }
+            getRowId={(placement) => placement.id}
+            selectable={false}
+          />
+        </TableBox>
+      ) : (
+        <Muted>{t('library.templates.overview.noSectionsInThisVersion')}</Muted>
+      )}
+      {draft ? <AddSectionForm disabled={saving} onAdd={onAdd} /> : null}
+    </Section>
+  )
+}
+
+/** The declared parameters table, with the add form while editing. */
+function ParametersSection({
+  draft,
+  parameters,
+  saving,
+  onRemove,
+  onAdd,
+}: {
+  draft: boolean
+  parameters: Parameter[]
+  saving: boolean
+  onRemove: (id: string) => void
+  onAdd: (input: {
+    key: string
+    label: string
+    required: boolean
+    valueType: ScalarValueType
+  }) => void
+}) {
+  return (
+    <Section
+      title={t('library.templates.overview.parameters')}
+      count={parameters.length}
+    >
+      {parameters.length ? (
+        <TableBox>
+          <RegistryGrid
+            label={t('library.templates.overview.templateParameters')}
+            rows={parameters}
+            columns={
+              draft
+                ? parameterColumns({
+                    withActions: true,
+                    disabled: saving,
+                    onRemove,
+                  })
+                : parameterColumns({})
+            }
+            getRowId={(parameter) => parameter.id}
+            selectable={false}
+          />
+        </TableBox>
+      ) : (
+        <Muted>{t('library.templates.overview.noParametersDeclared')}</Muted>
+      )}
+      {draft ? <AddParameterForm disabled={saving} onAdd={onAdd} /> : null}
+    </Section>
+  )
 }
 
 function TemplateSections() {
   const { templateId } = Route.useParams()
   const { context } = Route.useRouteContext()
   const { regulated } = useRegulatedLab(context.workspace?.id)
-  const queryClient = useQueryClient()
   const versions = useTemplateVersions(templateId)
   const template = useTemplate(templateId)
   const version = shownVersion(versions.data ?? [])
 
-  const [draft, setDraft] = useState<NotebookTemplateConfiguration | null>(null)
-  const [saveError, setSaveError] = useState<string | null>(null)
-
-  const revision = template.data?.revision
-
-  const save = useMutation({
-    mutationFn: (configuration: NotebookTemplateConfiguration) => {
-      if (revision === undefined)
-        throw new Error(
-          t('library.templates.overview.theTemplateIsStillLoading'),
-        )
-
-      return createNotebookTemplateVersion(templateId, revision, configuration)
-    },
-    onSuccess: (saved) => {
-      // The header and the tab counts read this list, so show the saved version
-      // now rather than after the invalidation's refetch lands. The refetch
-      // still runs, so anything the server returns later wins.
-      queryClient.setQueryData<NotebookTemplateVersion[]>(
-        templateDataQueryKeys.versions(templateId),
-        (current) =>
-          [...(current ?? []).filter((v) => v.id !== saved.id), saved].sort(
-            (a, b) => a.version - b.version,
-          ),
-      )
-      void queryClient.invalidateQueries({
-        queryKey: templateDataQueryKeys.versions(templateId),
-      })
-      void queryClient.invalidateQueries({
-        queryKey: templateDataQueryKeys.template(templateId),
-      })
-      setDraft(null)
-      setSaveError(null)
-      toast(
-        t('library.templates.overview.savedAsV', { version: saved.version }),
-        {
-          description: t('library.templates.overview.itStaysADraftUntil'),
-        },
-      )
-    },
-    onError: (error: unknown) => {
-      setSaveError(
-        error instanceof Error
-          ? error.message
-          : t('library.templates.overview.couldNotSaveTheNew'),
-      )
-    },
-  })
+  const draft = useTemplateDraft(templateId, version)
 
   if (!version) {
     return (
@@ -367,7 +482,7 @@ function TemplateSections() {
   }
 
   if (
-    !draft &&
+    !draft.draft &&
     version.configuration.placements.length > 0 &&
     !version.configuration.parts?.length
   ) {
@@ -378,320 +493,63 @@ function TemplateSections() {
         displayId={template.data?.displayId ?? null}
         version={version}
         versions={versions.data ?? []}
-        onEditSections={() => {
-          setSaveError(null)
-          setDraft(structuredClone(version.configuration))
-        }}
+        onEditSections={draft.startEditing}
       />
     )
   }
 
   const config = version.configuration
-  const placements = [...config.placements].sort((a, b) => a.order - b.order)
-
-  const startEditing = () => {
-    setSaveError(null)
-    setDraft(structuredClone(config))
-  }
-
-  const stopEditing = () => {
-    setDraft(null)
-    setSaveError(null)
-  }
-
-  const editPlacements = draft
-    ? [...draft.placements].sort((a, b) => a.order - b.order)
-    : []
-
-  const applyPlacements = (next: NotebookTemplatePlacement[]) => {
-    if (!draft) return
-    setDraft({ ...draft, placements: withOrders(next) })
-  }
-
-  const movePlacement = (index: number, delta: number) => {
-    const target = index + delta
-
-    if (target < 0 || target >= editPlacements.length) return
-    const next = [...editPlacements]
-    const moved = next[index]
-    next[index] = next[target]
-    next[target] = moved
-    applyPlacements(next)
-  }
-
-  const templateParts = draft ? (draft.parts ?? []) : (config.parts ?? [])
-
-  const setParts = (next: TemplatePart[]) => {
-    if (!draft) return
-    const ids = new Set(next.map((part) => part.id))
-    const { parts: _old, ...rest } = draft
-    setDraft({
-      ...rest,
-      ...(next.length ? { parts: next } : {}),
-      // A section whose part was removed goes back to the first part.
-      placements: draft.placements.map((placement) =>
-        placement.kind !== 'section_placeholder' &&
-        placement.partId &&
-        !ids.has(placement.partId)
-          ? { ...placement, partId: undefined }
-          : placement,
-      ),
-    })
-  }
-
-  const setPlacementPart = (id: string, partId: string | null) => {
-    if (!draft) return
-    setDraft({
-      ...draft,
-      placements: draft.placements.map((placement) =>
-        placement.id === id && placement.kind !== 'section_placeholder'
-          ? { ...placement, partId: partId ?? undefined }
-          : placement,
-      ),
-    })
-  }
-
-  const addSection = (key: string, label: string) => {
-    if (!draft) return
-
-    const placement: NotebookTemplatePlacement = {
-      id: crypto.randomUUID(),
-      kind: 'section_placeholder',
-      order: editPlacements.length + 1,
-      key,
-      label,
-    }
-
-    setDraft({
-      ...draft,
-      placements: withOrders([...editPlacements, placement]),
-    })
-  }
-
-  const addParameter = (input: {
-    key: string
-    label: string
-    required: boolean
-    valueType: ScalarValueType
-  }) => {
-    if (!draft) return
-
-    const parameter: Parameter = {
-      id: crypto.randomUUID(),
-      key: input.key,
-      label: input.label,
-      required: input.required,
-      type: { kind: 'scalar', valueType: input.valueType },
-      constraints: {},
-    }
-
-    setDraft({ ...draft, parameters: [...draft.parameters, parameter] })
-  }
-
-  const removeParameter = (id: string) => {
-    if (!draft) return
-    setDraft({
-      ...draft,
-      parameters: draft.parameters.filter((parameter) => parameter.id !== id),
-    })
-  }
-
-  /** The RPC and the parser hold the same invariants, so the payload is checked
-   * here first — the save error names the field that is wrong. */
-  const saveDraft = () => {
-    if (!draft) return
-    const parsed = notebookTemplateConfigurationSchema.safeParse(draft)
-
-    if (!parsed.success) {
-      const issue = parsed.error.issues[0]
-      setSaveError(
-        `${issue.path.join('.') || t('library.templates.overview.configuration')}: ${issue.message}`,
-      )
-
-      return
-    }
-
-    setSaveError(null)
-    save.mutate(parsed.data)
-  }
 
   return (
     <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
       <div className="flex flex-col gap-5">
-        <Section
-          title={t('library.templates.overview.version')}
-          count={
-            <Status tone={templateLifecycle(version.lifecycle).tone}>
-              {templateLifecycle(version.lifecycle).label} v{version.version}
-            </Status>
-          }
-          action={
-            draft ? (
-              <span className="flex gap-2">
-                <Button
-                  size="sm"
-                  disabled={save.isPending}
-                  onClick={stopEditing}
-                >
-                  {t('common.actions.cancel')}
-                </Button>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  disabled={save.isPending}
-                  onClick={saveDraft}
-                >
-                  {save.isPending
-                    ? t('common.states.saving')
-                    : t('library.templates.overview.saveNewVersion')}
-                </Button>
-              </span>
-            ) : (
-              <IconButton
-                variant="secondary"
-                icon="edit"
-                label={t('common.actions.edit')}
-                onClick={startEditing}
-              />
-            )
-          }
-        >
-          <Muted>
-            {[
-              version.publishedAt
-                ? t('library.templates.overview.published', {
-                    publishedAt: formatDate(version.publishedAt),
-                  })
-                : t('library.templates.overview.notPublished'),
-              t('library.templates.overview.notebooksAlreadyMadeKeepThe'),
-              draft
-                ? t('library.templates.overview.savingAddsANewVersion')
-                : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          </Muted>
-        </Section>
+        <VersionSection
+          version={version}
+          draft={draft.draft}
+          saving={draft.saving}
+          onCancel={draft.stopEditing}
+          onSave={draft.saveDraft}
+          onEdit={draft.startEditing}
+        />
 
-        {saveError ? (
+        {draft.saveError ? (
           <Notice
             tone="bad"
             title={t('library.templates.overview.couldNotSaveTheNew2')}
           >
-            {saveError}
+            {draft.saveError}
           </Notice>
         ) : null}
 
-        <Section
-          title={t('library.templates.overview.sections')}
-          count={draft ? draft.placements.length : placements.length}
-        >
-          {draft ? (
-            <>
-              {editPlacements.length ? (
-                <TableBox>
-                  <RegistryGrid
-                    label={t('library.templates.overview.templateSections')}
-                    rows={editPlacements}
-                    columns={sectionColumns(editPlacements.length, {
-                      withActions: true,
-                      disabled: save.isPending,
-                      onMove: movePlacement,
-                      parts: templateParts,
-                      onSetPart: setPlacementPart,
-                      onRemove: (id) =>
-                        applyPlacements(
-                          editPlacements.filter((row) => row.id !== id),
-                        ),
-                    })}
-                    getRowId={(placement) => placement.id}
-                    selectable={false}
-                  />
-                </TableBox>
-              ) : (
-                <Muted>
-                  {t('library.templates.overview.noSectionsInThisVersion')}
-                </Muted>
-              )}
-              <AddSectionForm disabled={save.isPending} onAdd={addSection} />
-            </>
-          ) : placements.length ? (
-            <TableBox>
-              <RegistryGrid
-                label={t('library.templates.overview.templateSections')}
-                rows={placements}
-                columns={sectionColumns(placements.length, {
-                  parts: templateParts,
-                })}
-                getRowId={(placement) => placement.id}
-                selectable={false}
-              />
-            </TableBox>
-          ) : (
-            <Muted>
-              {t('library.templates.overview.noSectionsInThisVersion')}
-            </Muted>
-          )}
-        </Section>
-
-        <TemplatePartsSection
-          parts={templateParts}
-          placements={draft ? draft.placements : placements}
-          editable={Boolean(draft)}
-          disabled={save.isPending}
-          signOff={(draft ?? config).signOffParts ?? regulated}
-          onSignOffChange={(on) => {
-            if (draft) setDraft({ ...draft, signOffParts: on })
-          }}
-          onChange={setParts}
+        <SectionsSection
+          draft={Boolean(draft.draft)}
+          placements={draft.placements}
+          editPlacements={draft.editPlacements}
+          templateParts={draft.parts}
+          saving={draft.saving}
+          onMove={draft.movePlacement}
+          onSetPart={draft.setPlacementPart}
+          onRemove={draft.removePlacement}
+          onAdd={draft.addSection}
         />
 
-        <Section
-          title={t('library.templates.overview.parameters')}
-          count={draft ? draft.parameters.length : config.parameters.length}
-        >
-          {draft ? (
-            <>
-              {draft.parameters.length ? (
-                <TableBox>
-                  <RegistryGrid
-                    label={t('library.templates.overview.templateParameters')}
-                    rows={draft.parameters}
-                    columns={parameterColumns({
-                      withActions: true,
-                      disabled: save.isPending,
-                      onRemove: removeParameter,
-                    })}
-                    getRowId={(parameter) => parameter.id}
-                    selectable={false}
-                  />
-                </TableBox>
-              ) : (
-                <Muted>
-                  {t('library.templates.overview.noParametersDeclared')}
-                </Muted>
-              )}
-              <AddParameterForm
-                disabled={save.isPending}
-                onAdd={addParameter}
-              />
-            </>
-          ) : config.parameters.length ? (
-            <TableBox>
-              <RegistryGrid
-                label={t('library.templates.overview.templateParameters')}
-                rows={config.parameters}
-                columns={parameterColumns({})}
-                getRowId={(parameter) => parameter.id}
-                selectable={false}
-              />
-            </TableBox>
-          ) : (
-            <Muted>
-              {t('library.templates.overview.noParametersDeclared')}
-            </Muted>
-          )}
-        </Section>
+        <TemplatePartsSection
+          parts={draft.parts}
+          placements={draft.draft ? draft.draft.placements : draft.placements}
+          editable={Boolean(draft.draft)}
+          disabled={draft.saving}
+          signOff={(draft.draft ?? config).signOffParts ?? regulated}
+          onSignOffChange={draft.setSignOff}
+          onChange={draft.setParts}
+        />
+
+        <ParametersSection
+          draft={Boolean(draft.draft)}
+          parameters={draft.draft ? draft.draft.parameters : config.parameters}
+          saving={draft.saving}
+          onRemove={draft.removeParameter}
+          onAdd={draft.addParameter}
+        />
       </div>
     </div>
   )

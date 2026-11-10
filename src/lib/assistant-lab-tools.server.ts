@@ -25,6 +25,7 @@ import {
   resolvePeriod,
 } from './report-period'
 import { fetchSpendLines, groupSpend, totalSpend } from './spend-report'
+import type { JsonObject } from './workspace-admin'
 import type { ProviderToolDef } from './ai-providers/types'
 
 /**
@@ -228,6 +229,7 @@ export const LAB_AREAS = {
 export type LabArea = keyof typeof LAB_AREAS
 
 export const labListSchema = z.strictObject({
+  // SAFETY: `Object.keys` of a `const` object returns exactly its keys, so this list holds every lab area and nothing else.
   area: z.enum(Object.keys(LAB_AREAS) as [LabArea, ...LabArea[]]),
   query: z
     .string()
@@ -307,13 +309,13 @@ export function bookingProposalDefs(): ProviderToolDef[] {
 }
 
 export function isLabReadTool(name: string): boolean {
-  return (LAB_READ_TOOL_NAMES as readonly string[]).includes(name)
+  return LAB_READ_TOOL_NAMES.some((candidate) => candidate === name)
 }
 
 export function isBookingProposalTool(
   name: string,
 ): name is BookingProposeToolName {
-  return (BOOKING_PROPOSE_TOOL_NAMES as readonly string[]).includes(name)
+  return BOOKING_PROPOSE_TOOL_NAMES.some((candidate) => candidate === name)
 }
 
 // ---------------------------------------------------------------------------
@@ -405,10 +407,25 @@ export async function resolveInstrument(
   }
 }
 
+/** Whether parsed booking input carries the new slot a move sets. */
+function proposedMoveIsSet(
+  input:
+    | z.infer<typeof proposeBookingMoveSchema>
+    | z.infer<typeof proposeBookingCancelSchema>,
+): input is z.infer<typeof proposeBookingMoveSchema> {
+  return 'start' in input
+}
+
+/** A calendar day split into the year, month and day numbers it holds. */
+const isoDayParts = z
+  .string()
+  .transform((iso) => iso.split('-').map(Number))
+  .pipe(z.tuple([z.number(), z.number(), z.number()]))
+
 /** Today's date on the person's clock, plus `days` more. */
 function dayList(from: string, count: number, weekends = true): string[] {
   const out: string[] = []
-  const [y, m, d] = from.split('-').map(Number) as [number, number, number]
+  const [y, m, d] = isoDayParts.parse(from)
   let cursor = Date.UTC(y, m - 1, d)
 
   // Look far enough ahead to fill `count` working days when weekends are skipped.
@@ -587,6 +604,7 @@ async function readFacilityReport(
 
 export async function runLabReadTool(
   name: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; every case parses them with its own read schema before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<{ text: string; isError: boolean }> {
@@ -1440,7 +1458,7 @@ async function listLabArea(
 
     if (input.openOnly && open) params.push(open)
 
-    const rows = await client.list<Record<string, unknown>>(
+    const rows = await client.list<JsonObject>(
       'records',
       `?${params.join('&')}`,
     )
@@ -1479,7 +1497,7 @@ async function listLabArea(
     params.push('retired_at=is.null')
   }
 
-  const found = await client.list<Record<string, unknown>>(
+  const found = await client.list<JsonObject>(
     spec.table,
     `?${params.join('&')}`,
   )
@@ -1564,6 +1582,7 @@ async function ownBooking(
 
 export async function buildBookingProposal(
   name: BookingProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; each booking schema below parses them before any proposal is built.
   args: unknown,
   context: LabToolContext,
 ): Promise<BookingProposalOutcome> {
@@ -1790,7 +1809,13 @@ export async function buildBookingProposal(
         }
       }
 
-      const move = input as z.infer<typeof proposeBookingMoveSchema>
+      if (!proposedMoveIsSet(input))
+        return {
+          ok: false,
+          message: 'That booking change could not be read.',
+        }
+
+      const move = input
       const startsAt = instantFromLocal(move.start, timeZone)
 
       const length =

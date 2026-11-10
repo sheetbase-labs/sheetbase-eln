@@ -483,6 +483,7 @@ async function ensureParsers(
   )
 
   for (const parser of IMPORT_PARSERS) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each shipped reader's parser version is registered in turn; a later registration supersedes an earlier one by key, so they cannot overlap.
     const result = await postgrestRpc<{
       parserId: string
       parserVersionId: string
@@ -1026,11 +1027,12 @@ async function prepareImport(
   }
 
   const fields = new Set(loaded.fields.map((field) => field.field_id))
+  const headers = new Set(sheet.headers)
 
   if (
     parsedMapping.data.sources.some(
       (entry) =>
-        !sheet.headers.includes(entry.source) ||
+        !headers.has(entry.source) ||
         (entry.fieldId && !fields.has(entry.fieldId)),
     )
   ) {
@@ -1425,12 +1427,14 @@ export async function handleImportCommit(
   // Controls (skipped) are shown in the review but never written: "skipped
   // (controls); nothing dropped silently" (DSET-05.4). The outcome index is
   // the 1-based position in the row list.
-  const skipped = (previewBody?.rows ?? [])
-    .filter((row) => row.outcome === 'skipped')
-    .map((row) => row.index)
+  const skipped = new Set(
+    (previewBody?.rows ?? [])
+      .filter((row) => row.outcome === 'skipped')
+      .map((row) => row.index),
+  )
 
   const rowsToCommit = commitRows(mapped).filter(
-    (_row, index) => !skipped.includes(index + 1),
+    (_row, index) => !skipped.has(index + 1),
   )
 
   if (rowsToCommit.length === 0) {

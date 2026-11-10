@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import { db } from '#/db/client.server'
 import { env } from '#/env.server'
@@ -14,6 +15,7 @@ import { logger, redact } from '#/lib/logger'
 import { handleMcpBody } from '#/lib/mcp/handler'
 import { annotateRequest } from '#/lib/request-log'
 import { JSON_RPC_ERRORS, failure } from '#/lib/mcp/protocol'
+import type { JsonRpcResponse } from '#/lib/mcp/protocol'
 import { createServerDataClient } from '#/lib/server-data-client.server'
 
 /**
@@ -32,7 +34,7 @@ import { createServerDataClient } from '#/lib/server-data-client.server'
 const MAX_BODY_BYTES = 1_000_000
 
 function jsonResponse(
-  body: unknown,
+  body: JsonRpcResponse,
   status = 200,
   headers: Record<string, string> = {},
 ): Response {
@@ -64,21 +66,20 @@ function bearerToken(request: Request): string | null {
   return match?.[1] ?? null
 }
 
-function methodOf(body: unknown): string {
-  if (body === null || typeof body !== 'object') return 'unknown'
-  const method = (body as Record<string, unknown>).method
+/** The routing fields of a JSON-RPC body: all this endpoint reads before dispatch and logs. */
+const ENVELOPE_METHOD = z.object({ method: z.string() })
+const ENVELOPE_TOOL = z.object({ params: z.object({ name: z.string() }) })
 
-  return typeof method === 'string' ? method.slice(0, 80) : 'unknown'
+function methodOf(body: z.core.util.JSONType): string {
+  const declared = ENVELOPE_METHOD.safeParse(body)
+
+  return declared.success ? declared.data.method.slice(0, 80) : 'unknown'
 }
 
-function toolOf(body: unknown): string | null {
-  if (body === null || typeof body !== 'object') return null
-  const params = (body as Record<string, unknown>).params
+function toolOf(body: z.core.util.JSONType): string | null {
+  const declared = ENVELOPE_TOOL.safeParse(body)
 
-  if (params === null || typeof params !== 'object') return null
-  const name = (params as Record<string, unknown>).name
-
-  return typeof name === 'string' ? name.slice(0, 120) : null
+  return declared.success ? declared.data.params.name.slice(0, 120) : null
 }
 
 async function handleMcp(request: Request): Promise<Response> {
@@ -101,10 +102,17 @@ async function handleMcp(request: Request): Promise<Response> {
     if (error instanceof CredentialError) {
       const status = error.code === 'rate_limited' ? 429 : 401
 
-      return rpcFailure(status, JSON_RPC_ERRORS.invalidRequest, error.message, {
-        'www-authenticate': 'Bearer realm="sheetbase"',
-        ...(status === 429 ? { 'retry-after': '60' } : {}),
-      })
+      return rpcFailure(
+        status,
+        JSON_RPC_ERRORS.invalidRequest,
+        error.message,
+        status === 429
+          ? {
+              'www-authenticate': 'Bearer realm="sheetbase"',
+              'retry-after': '60',
+            }
+          : { 'www-authenticate': 'Bearer realm="sheetbase"' },
+      )
     }
 
     throw error
@@ -122,10 +130,10 @@ async function handleMcp(request: Request): Promise<Response> {
     return rpcFailure(413, JSON_RPC_ERRORS.invalidRequest, 'Request too large.')
   }
 
-  let body: unknown
+  let body: z.core.util.JSONType
 
   try {
-    body = JSON.parse(text) as unknown
+    body = JSON.parse(text)
   } catch {
     return rpcFailure(
       400,

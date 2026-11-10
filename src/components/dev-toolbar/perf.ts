@@ -15,6 +15,32 @@ export interface PerfReadout {
   domNodes: number
 }
 
+interface LayoutShiftEntry extends PerformanceEntry {
+  readonly value: number
+  readonly hadRecentInput: boolean
+}
+
+/** The DOM types do not declare the layout-shift fields on `PerformanceEntry`. */
+function isLayoutShiftEntry(
+  entry: PerformanceEntry,
+): entry is LayoutShiftEntry {
+  return 'value' in entry && 'hadRecentInput' in entry
+}
+
+/** Chromium reports used JS heap size on `performance`; no standard type declares it. */
+interface ChromiumPerformance extends Performance {
+  readonly memory?: { readonly usedJSHeapSize: number }
+}
+
+/** The metrics gathered between two readouts. */
+interface PerfSamples {
+  lcp: number | null
+  cls: number
+  inp: number | null
+  longTasks: number
+  longTaskMs: number
+}
+
 const empty: PerfReadout = {
   fps: null,
   lcp: null,
@@ -26,10 +52,15 @@ const empty: PerfReadout = {
   domNodes: 0,
 }
 
+/** `PerformanceObserverInit` plus the Event Timing spec's `durationThreshold`. */
+interface PerfObserverInit extends PerformanceObserverInit {
+  durationThreshold?: number
+}
+
 function observe(
   type: string,
   handle: (entries: PerformanceEntry[]) => void,
-  options: Record<string, unknown> = {},
+  options: PerfObserverInit = {},
 ): PerformanceObserver | null {
   try {
     const observer = new PerformanceObserver((list) =>
@@ -56,10 +87,10 @@ export function usePerf(enabled: boolean): PerfReadout {
   React.useEffect(() => {
     if (!enabled) return
 
-    const state = {
-      lcp: null as number | null,
+    const state: PerfSamples = {
+      lcp: null,
       cls: 0,
-      inp: null as number | null,
+      inp: null,
       longTasks: 0,
       longTaskMs: 0,
     }
@@ -71,10 +102,10 @@ export function usePerf(enabled: boolean): PerfReadout {
         if (last) state.lcp = Math.round(last.startTime)
       }),
       observe('layout-shift', (entries) => {
-        for (const entry of entries as Array<
-          PerformanceEntry & { value: number; hadRecentInput: boolean }
-        >) {
-          if (!entry.hadRecentInput) state.cls += entry.value
+        for (const entry of entries) {
+          if (isLayoutShiftEntry(entry) && !entry.hadRecentInput) {
+            state.cls += entry.value
+          }
         }
       }),
       observe(
@@ -102,9 +133,8 @@ export function usePerf(enabled: boolean): PerfReadout {
       frames += 1
 
       if (now - last >= 1000) {
-        const memory = (
-          performance as Performance & { memory?: { usedJSHeapSize: number } }
-        ).memory
+        // SAFETY: `memory` is Chromium's non-standard `Performance` member, absent elsewhere; the readout stays null when it is.
+        const memory = (performance as ChromiumPerformance).memory
 
         setReadout({
           fps: Math.round((frames * 1000) / (now - last)),

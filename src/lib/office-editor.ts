@@ -7,6 +7,7 @@
  * discovery document, and the in-process file locks WOPI asks for.
  */
 import { SignJWT, jwtVerify } from 'jose'
+import { z } from 'zod'
 
 import { hmacKey } from './hmac-key'
 
@@ -32,13 +33,13 @@ export function fileExtension(name: string): string {
   return dot < 0 ? '' : name.slice(dot + 1).toLowerCase()
 }
 
+const editableExtensionSchema = z.enum(EDITABLE_EXTENSIONS)
+
 /** The extension the editor would open this file with, or null. */
 export function editableExtension(name: string): EditableExtension | null {
-  const ext = fileExtension(name)
+  const ext = editableExtensionSchema.safeParse(fileExtension(name))
 
-  return (EDITABLE_EXTENSIONS as readonly string[]).includes(ext)
-    ? (ext as EditableExtension)
-    : null
+  return ext.success ? ext.data : null
 }
 
 export interface OfficeEditorConfig {
@@ -106,6 +107,17 @@ export async function signWopiToken(
     .sign(await hmacKey(wopiSecret(secret), 'sign'))
 }
 
+/** The claims a WOPI token carries, as `signWopiToken` issues them. */
+const WOPI_CLAIMS = z.object({
+  fileRecordId: z.string(),
+  userId: z.string(),
+  userName: z.string().nullish(),
+  workspaceId: z.string(),
+  sessionId: z.string(),
+  canWrite: z.boolean().nullish(),
+  hostRecordId: z.string().nullish(),
+})
+
 export async function verifyWopiToken(
   secret: string,
   token: string,
@@ -117,26 +129,18 @@ export async function verifyWopiToken(
       { audience: 'wopi' },
     )
 
-    const p = payload as Partial<WopiTokenClaims>
+    const claims = WOPI_CLAIMS.safeParse(payload)
 
-    if (
-      typeof p.fileRecordId !== 'string' ||
-      typeof p.userId !== 'string' ||
-      typeof p.workspaceId !== 'string' ||
-      typeof p.sessionId !== 'string'
-    ) {
-      return null
-    }
+    if (!claims.success) return null
 
     return {
-      fileRecordId: p.fileRecordId,
-      userId: p.userId,
-      userName: typeof p.userName === 'string' ? p.userName : p.userId,
-      workspaceId: p.workspaceId,
-      sessionId: p.sessionId,
-      canWrite: p.canWrite === true,
-      hostRecordId:
-        typeof p.hostRecordId === 'string' ? p.hostRecordId : undefined,
+      fileRecordId: claims.data.fileRecordId,
+      userId: claims.data.userId,
+      userName: claims.data.userName ?? claims.data.userId,
+      workspaceId: claims.data.workspaceId,
+      sessionId: claims.data.sessionId,
+      canWrite: claims.data.canWrite === true,
+      hostRecordId: claims.data.hostRecordId ?? undefined,
     }
   } catch {
     return null

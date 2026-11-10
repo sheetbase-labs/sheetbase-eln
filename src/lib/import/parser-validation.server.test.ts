@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { z } from 'zod'
 import type { ObjectStorage } from '#/lib/file-storage'
 import { handleParserValidation } from './parser-validation.server'
 
@@ -16,10 +17,13 @@ const { select, resolve, query, release, connect } = vi.hoisted(() => {
   }
 })
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The handler reaches Postgres through the module-level pool, which reads its connection string at import time; this suite answers the queries it issues.
 vi.mock('#/db/client.server', () => ({ db: { $client: { connect } } }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Object storage is a module singleton configured from the server environment; this suite supplies the bytes it returns.
 vi.mock('#/lib/file-storage', () => ({ getObjectStorage: vi.fn() }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The handler resolves its session through the module's request-auth functions; this suite fixes that session and keeps the real error envelope.
 vi.mock('#/lib/request-auth', () => ({
   postgrestSelect: select,
   resolveSessionAuth: resolve,
@@ -59,7 +63,16 @@ const file = {
 }
 
 const getStream = vi.fn()
-const storage = { getStream } as unknown as ObjectStorage
+
+/** The one storage read this route makes; the rest of the surface refuses. */
+const storage: ObjectStorage = {
+  getStream,
+  putStream: async () => {
+    throw new Error('The validation route writes no objects.')
+  },
+  head: async () => null,
+  delete: async () => undefined,
+}
 
 function request(extra = {}) {
   return new Request('http://app.invalid/api/parsers/validate', {
@@ -134,7 +147,7 @@ describe('server-authoritative retained parser validation', () => {
         },
       }),
     }))
-    let mapping: Record<string, unknown> = {}
+    let mapping: z.core.util.JSONType = {}
     select.mockImplementation(async (resource) => ({
       status: 200,
       body:

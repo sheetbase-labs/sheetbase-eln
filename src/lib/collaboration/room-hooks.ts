@@ -52,6 +52,7 @@ export function useOthers(): readonly RoomPeer[] {
     provider.awareness.getStates().forEach((state, clientId) => {
       if (clientId === provider.doc.clientID) return
 
+      // SAFETY: y-protocols awareness stores whatever each client published; `CollabProvider.publishPresence` in this module's provider is the only writer and publishes exactly these fields under `user`.
       const user = state.user as
         | { id?: string; name?: string; avatar?: string | null; color?: string }
         | undefined
@@ -65,6 +66,7 @@ export function useOthers(): readonly RoomPeer[] {
           avatar: user.avatar ?? undefined,
           color: user.color ?? '#6b7280',
         },
+        // SAFETY: the same publisher writes `presence` from `CollabProvider.setPresence`, whose argument is a `Partial<CollaborationPresence>` merged into one.
         presence: (state.presence ?? {}) as CollaborationPresence,
       })
     })

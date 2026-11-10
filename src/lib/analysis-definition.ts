@@ -57,7 +57,7 @@ import type { DatasetValueFlag } from './dataset-flags'
 import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
 
 import type { ChartColumn, ChartSpec, DatasetRef } from './chart-spec'
-import type { DatasetVersionRowPage } from './dataset-product'
+import type { DatasetRowInput } from './dataset-product'
 import { t } from '#/copy'
 
 export const ANALYSIS_DEFINITION_VERSION = 1 as const
@@ -945,7 +945,7 @@ export function decodeAnalysisBlockDefinition<Value>(
 // Execution
 // ---------------------------------------------------------------------------
 
-type AnalysisRow = DatasetVersionRowPage['rows'][number]['values']
+type AnalysisRow = DatasetRowInput
 
 function groupRows(rows: AnalysisRow[], fieldId: string | null) {
   const groups = new Map<string, AnalysisRow[]>()

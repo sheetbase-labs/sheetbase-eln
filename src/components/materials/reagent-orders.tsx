@@ -11,7 +11,6 @@ import { EmptyState } from '#/components/ui/empty-state'
 import { Field, Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { Status } from '#/components/ui/status'
-import type { Tone } from '#/components/ui/status'
 import { Tabs } from '#/components/ui/tabs'
 import { toast } from '#/components/ui/sonner'
 import {
@@ -36,6 +35,10 @@ import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { ListFooter, Textarea } from '#/components/inventory/list'
 import { materialListQueryKeys } from '#/components/materials/materials-data'
+import {
+  ORDER_TONE,
+  orderStatusLabel,
+} from '#/components/materials/reagent-order-model'
 import { useWorkspaceMemberNames } from '#/components/projects/project-data'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { now as appNow } from '#/lib/clock'
@@ -89,28 +92,6 @@ export function useReagentOrderPrices(enabled: boolean) {
   })
 }
 
-/** The open order for a material, if one is waiting. */
-export function openOrderFor(
-  orders: readonly ReagentOrder[] | undefined,
-  materialRecordId: string,
-): ReagentOrder | undefined {
-  return orders?.find(
-    (order) =>
-      order.materialRecordId === materialRecordId && isOpenOrder(order.status),
-  )
-}
-
-export const ORDER_TONE: Record<ReagentOrderStatus, Tone> = {
-  requested: 'warn',
-  ordered: 'progress',
-  received: 'ok',
-  cancelled: 'none',
-}
-
-export function orderStatusLabel(status: ReagentOrderStatus): string {
-  return t(`library.materials.orders.status.${status}`)
-}
-
 function todayISO(): string {
   const now = appNow()
   const month = `${now.getMonth() + 1}`.padStart(2, '0')
@@ -140,7 +121,7 @@ function useRefreshOrders() {
   }
 }
 
-function messageOf(error: unknown, fallback: string): string {
+function messageOf<Cause>(error: Cause, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
 }
 
@@ -190,7 +171,7 @@ export function RequestReorderDialog({
       setNote('')
       onOpenChange(false)
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast(messageOf(e, t('library.materials.orders.couldNotRequest'))),
   })
 
@@ -394,6 +375,7 @@ function MarkOrderedDialog({
     setPriceError(null)
   }
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- The mutation's onSuccess calls refresh(), which invalidates the order and material list queries.
   const mark = useMutation({
     mutationFn: () => {
       const parsed = parsePrice(price)
@@ -420,7 +402,7 @@ function MarkOrderedDialog({
       reset()
       onClose()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast(messageOf(e, t('library.materials.orders.couldNotMarkOrdered'))),
   })
 
@@ -563,6 +545,7 @@ export function OrderPriceDialog({
   const shownPrice = price ?? (current ? String(current.totalPrice) : '')
   const shownCurrency = currency ?? current?.currency ?? lastCurrency()
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- The mutation's onSuccess calls refresh(), which invalidates the order and material list queries.
   const save = useMutation({
     mutationFn: (value: number | null) =>
       setReagentOrderPrice(client, {
@@ -579,7 +562,7 @@ export function OrderPriceDialog({
       setCurrency(null)
       onClose()
     },
-    onError: (e: unknown) => toast(messageOf(e, t('spend.price.couldNotSave'))),
+    onError: (e) => toast(messageOf(e, t('spend.price.couldNotSave'))),
   })
 
   return (
@@ -592,6 +575,7 @@ export function OrderPriceDialog({
           }
         />
         <DialogBody>
+          {/* react-doctor-disable-next-line react-doctor/no-prevent-default -- The dialog is a client form with no server action to post to; Enter submits it in place. */}
           <form
             id="order-price-form"
             className="flex flex-col gap-3"
@@ -679,6 +663,7 @@ function ReceiveOrderDialog({
     quantity?: string
   }>({})
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- The mutation's onSuccess calls refresh(), which invalidates the order and material list queries.
   const receive = useMutation({
     mutationFn: () =>
       receiveReagentOrder(client, {
@@ -700,7 +685,7 @@ function ReceiveOrderDialog({
       setQuantity(null)
       onClose()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast(messageOf(e, t('library.materials.orders.couldNotReceive'))),
   })
 
@@ -820,6 +805,7 @@ function CancelOrderDialog({
   const refresh = useRefreshOrders()
   const [reason, setReason] = useState('')
 
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- The mutation's onSuccess calls refresh(), which invalidates the order and material list queries.
   const cancel = useMutation({
     mutationFn: () => cancelReagentOrder(client, order!.id, reason.trim()),
     onSuccess: () => {
@@ -832,7 +818,7 @@ function CancelOrderDialog({
       setReason('')
       onClose()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast(messageOf(e, t('library.materials.orders.couldNotCancel'))),
   })
 
@@ -881,6 +867,11 @@ function CancelOrderDialog({
 
 type OrderFilter = 'open' | ReagentOrderStatus | 'all'
 
+/** Whether a tab's key names one of the order filters. */
+function isOrderFilter(value: string): value is OrderFilter {
+  return FILTERS.some((filter) => filter === value)
+}
+
 const FILTERS: readonly OrderFilter[] = [
   'open',
   'requested',
@@ -916,7 +907,7 @@ export function ReagentOrdersPanel({
   const [receiving, setReceiving] = useState<ReagentOrder | null>(null)
   const [cancelling, setCancelling] = useState<ReagentOrder | null>(null)
 
-  const all = orders.data ?? []
+  const all = useMemo(() => orders.data ?? [], [orders.data])
 
   const visible = useMemo(
     () => all.filter((order) => matches(order, filter)),
@@ -1100,7 +1091,9 @@ export function ReagentOrdersPanel({
           variant="segment"
           label={t('library.materials.orders.tabLabel')}
           value={filter}
-          onValueChange={(value) => setFilter(value as OrderFilter)}
+          onValueChange={(value) => {
+            if (isOrderFilter(value)) setFilter(value)
+          }}
           items={FILTERS.map((key) => ({
             key,
             label: t(`library.materials.orders.filters.${key}`),

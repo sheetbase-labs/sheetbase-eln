@@ -9,17 +9,22 @@ import type { DemoPersona } from '#/lib/demo-persona'
  */
 export const listDemoPersonasFn = createServerFn({ method: 'GET' }).handler(
   async (): Promise<DemoPersona[]> => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { isDevAuthFreeEnabled } = await import('#/lib/auth')
+    const [{ getRequestHeaders }, { isDevAuthFreeEnabled }] = await Promise.all(
+      [import('@tanstack/react-start/server'), import('#/lib/auth')],
+    )
 
     if (!isDevAuthFreeEnabled()) return []
     const { getCurrentContext } = await import('#/lib/current-user')
     const context = await getCurrentContext(getRequestHeaders())
 
     if (!context?.workspace) return []
-    const { and, eq, isNull } = await import('drizzle-orm')
-    const { db } = await import('#/db/client.server')
-    const { user, workspaceMemberships } = await import('#/db/schema')
+
+    const [{ and, eq, isNull }, { db }, { user, workspaceMemberships }] =
+      await Promise.all([
+        import('drizzle-orm'),
+        import('#/db/client.server'),
+        import('#/db/schema'),
+      ])
 
     const rows = await db
       .select({

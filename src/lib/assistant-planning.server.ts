@@ -101,10 +101,14 @@ export function isGatesReadTool(name: string): boolean {
   return name === GATES_READ_TOOL
 }
 
+const PLANNING_PROPOSE_TOOLS: ReadonlySet<string> = new Set(
+  PLANNING_PROPOSE_TOOL_NAMES,
+)
+
 export function isPlanningProposalTool(
   name: string,
 ): name is PlanningProposeToolName {
-  return (PLANNING_PROPOSE_TOOL_NAMES as readonly string[]).includes(name)
+  return PLANNING_PROPOSE_TOOLS.has(name)
 }
 
 function toolDef(
@@ -263,9 +267,9 @@ export function planningProposalDefs(): ProviderToolDef[] {
 
 function hrefOf(link: WorkItemLink): string {
   if ('params' in link) {
-    return Object.entries(link.params).reduce(
-      (path, [key, value]) => path.replace(`$${key}`, String(value)),
-      link.to as string,
+    return Object.entries<string>(link.params).reduce<string>(
+      (path, [key, value]) => path.replace(`$${key}`, value),
+      link.to,
     )
   }
 
@@ -273,6 +277,7 @@ function hrefOf(link: WorkItemLink): string {
 }
 
 export async function readInbox(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; inboxReadSchema decodes them before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<{ text: string; isError: boolean }> {
@@ -387,6 +392,7 @@ function pickStep(
 }
 
 export async function readSteps(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; stepsReadSchema decodes them before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<{ text: string; isError: boolean }> {
@@ -465,6 +471,7 @@ interface RecordSeriesRow {
 }
 
 export async function readSeries(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; seriesReadSchema decodes them before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<{ text: string; isError: boolean }> {
@@ -502,7 +509,7 @@ export async function readSeries(
       }
     }
 
-    const rollup = await client.rpc<Record<string, unknown>>('series_rollup', {
+    const rollup = await client.rpc<z.core.util.JSONType>('series_rollup', {
       p_series_record_id: head.id,
     })
 
@@ -657,6 +664,7 @@ async function partSignoffRows(
 }
 
 export async function readParts(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; partsReadSchema decodes them before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<{ text: string; isError: boolean }> {
@@ -689,38 +697,40 @@ export async function readParts(
       experiment: recordTarget(record.value),
       partsDone: rows.filter((row) => row.status === 'done').length,
       partCount: rows.length,
-      parts: rows.map((row) => ({
-        number: row.part_number,
-        title: row.title,
-        day: row.day_offset,
-        date: row.due_on,
-        status: row.status,
-        current: row.is_current,
-        doneBy: who(row.completed_by_user_id),
-        doneAt: row.completed_at,
-        assignee: who(row.assignee_user_id),
-        steps: row.step_count,
-        stepsDone: row.steps_done,
-        results: row.result_count,
-        ...(signoffs.get(row.part_id)?.requires_sign_off ||
-        signoffs.get(row.part_id)?.signed
-          ? (() => {
-              const s = signoffs.get(row.part_id)!
+      parts: rows.map((row) => {
+        const part = {
+          number: row.part_number,
+          title: row.title,
+          day: row.day_offset,
+          date: row.due_on,
+          status: row.status,
+          current: row.is_current,
+          doneBy: who(row.completed_by_user_id),
+          doneAt: row.completed_at,
+          assignee: who(row.assignee_user_id),
+          steps: row.step_count,
+          stepsDone: row.steps_done,
+          results: row.result_count,
+        }
 
-              return {
-                needsSignature: s.requires_sign_off,
-                waitingForSignature: s.awaiting_sign_off,
-                signed: s.signed,
-                signedBy: who(s.signed_by_user_id),
-                signedAt: s.signed_at,
-                countersignedBy: whoAll(s.countersigned_by),
-                askedToSign: whoAll(s.sign_requested_from),
-                askedToCountersign: whoAll(s.countersign_requested_from),
-                timesReopened: s.amendment_count,
-              }
-            })()
-          : {}),
-      })),
+        const s = signoffs.get(row.part_id)
+
+        // A part only reports signature state once it needs or has one.
+        if (!s?.requires_sign_off && !s?.signed) return part
+
+        return {
+          ...part,
+          needsSignature: s.requires_sign_off,
+          waitingForSignature: s.awaiting_sign_off,
+          signed: s.signed,
+          signedBy: who(s.signed_by_user_id),
+          signedAt: s.signed_at,
+          countersignedBy: whoAll(s.countersigned_by),
+          askedToSign: whoAll(s.sign_requested_from),
+          askedToCountersign: whoAll(s.countersign_requested_from),
+          timesReopened: s.amendment_count,
+        }
+      }),
       open: recordLink(record.value.id),
       note:
         rows.length === 0
@@ -753,6 +763,7 @@ function gateRows(client: DataClient, recordId: string): Promise<GateRow[]> {
 }
 
 export async function readGates(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; gatesReadSchema decodes them before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<{ text: string; isError: boolean }> {
@@ -1049,6 +1060,7 @@ async function repeatProposal(
     const start = instantFromLocal(`${date}T${input.startTime}`, timeZone)
     const end = new Date(start.getTime() + length * 60_000)
 
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each day asks the bookings read for its own slot; the reads share one client and are issued in date order so the first refusal is the earliest day.
     const clashes = await bookingsBetween(
       client,
       workspaceId,
@@ -1135,8 +1147,12 @@ async function repeatProposal(
   }
 }
 
+/** The one procedure-step payload member this reader matches a step on. */
+const procedureStepText = z.looseObject({ text: z.string() })
+
 export async function buildPlanningProposal(
   name: PlanningProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; each case in the switch below parses them with its own proposal schema before use.
   args: unknown,
   context: LabToolContext,
 ): Promise<PlanningOutcome> {
@@ -1316,7 +1332,7 @@ export async function buildPlanningProposal(
 
       const blocks = await client.list<{
         id: string
-        payload: Record<string, unknown>
+        payload: z.core.util.JSONType
       }>(
         'blocks',
         `?record_id=eq.${encodeURIComponent(record.value.id)}&type=eq.procedure_step&order=order.asc&select=id,payload&limit=200`,
@@ -1327,8 +1343,11 @@ export async function buildPlanningProposal(
         .split(/\s+/)
         .filter(Boolean)
 
-      const text = (block: { payload: Record<string, unknown> }) =>
-        typeof block.payload.text === 'string' ? block.payload.text : ''
+      const text = (block: { payload: z.core.util.JSONType }) => {
+        const payload = procedureStepText.safeParse(block.payload)
+
+        return payload.success ? payload.data.text : ''
+      }
 
       let steps = blocks.filter((block) =>
         words.every((word) => text(block).toLowerCase().includes(word)),

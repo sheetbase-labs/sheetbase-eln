@@ -2,6 +2,7 @@
  * Where a plugin’s packages stand, the settings route and what a call runs with.
  */
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import type { DataClient } from '../data-client'
 
@@ -20,6 +21,7 @@ import type { PluginRuntimeRouteDeps } from './runtime-settings-route.server'
 
 // The session and database layers are exercised by the other plugin routes;
 // here the session resolves to a fixed administrator.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The handler resolves its session through the module-level request-auth functions; this suite fixes the administrator session and keeps the real error envelope.
 vi.mock('../request-auth', () => ({
   realSessionAuthDeps: {},
   requestErrorResponse: (status: number, code: string, message: string) =>
@@ -30,10 +32,12 @@ vi.mock('../request-auth', () => ({
   }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The service client is built from the server environment by a module factory; this handler only passes it through.
 vi.mock('../connectors/enterprise/execution.server', () => ({
   createServerDataClient: () => ({}),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The extension catalogue is read through the module client; this suite fixes the one installed extension.
 vi.mock('./client', () => ({
   listExtensions: async () => [
     { id: '11111111-1111-4111-8111-111111111111', key: 'cell-count' },
@@ -275,9 +279,11 @@ describe('POST/GET /api/plugins/runtime', () => {
     const audit = vi.fn(async () => undefined)
     const r = runner()
 
+    // SAFETY: the route only passes the auth value through to the client it builds below; no case here reads a session from it.
     const deps = {
       auth: {} as never,
       makeClient: () =>
+        // SAFETY: the route calls only `rpc` and `list` on this client; the stub answers both and the members it fills in with refusals are never reached.
         ({
           rpc: async (name: string) => {
             if (name === 'require_capability') {
@@ -292,7 +298,11 @@ describe('POST/GET /api/plugins/runtime', () => {
           list: async () => [
             { id: initial.extensionId, key: 'cell-count', manifest: {} },
           ],
-        }) as unknown as DataClient,
+          count: async () => 0,
+          insert: async () => null,
+          patch: async () => [],
+          remove: async () => [],
+        }) as DataClient,
       store,
       runner: r,
       audit,
@@ -301,7 +311,12 @@ describe('POST/GET /api/plugins/runtime', () => {
     return { deps, store, audit, r }
   }
 
-  const post = (body: unknown) =>
+  /** The shape this suite reads back from the route's list response. */
+  const runtimeList = z.object({
+    runtime: z.array(z.object({ requirements: z.array(z.string()) })),
+  })
+
+  const post = (body: z.core.util.JSONType) =>
     new Request('http://x/api/plugins/runtime', {
       method: 'POST',
       body: JSON.stringify(body),
@@ -315,9 +330,7 @@ describe('POST/GET /api/plugins/runtime', () => {
       deps,
     )
 
-    const body = (await response.json()) as {
-      runtime: Array<{ requirements: string[] }>
-    }
+    const body = runtimeList.parse(await response.json())
 
     expect(body.runtime[0].requirements).toEqual(['rdkit>=2024.3'])
   })

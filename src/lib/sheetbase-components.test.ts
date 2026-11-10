@@ -36,7 +36,7 @@ function mappingBlock(): string {
 }
 
 /** Package variable → the ELN token (or host alias) it must resolve to. */
-const EXPECTED_BINDINGS: Record<string, string> = {
+const EXPECTED_BINDINGS = {
   '--font-sans': '--sb-host-font-sans',
   '--font-mono': '--sb-host-font-mono',
   '--app': '--background',

@@ -1,20 +1,25 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DataClient } from '#/lib/data-client'
+import { dataClientTestDouble } from '#/lib/data-client-test-support'
 import {
   resolveScanCode,
   scanTargetActionLabel,
   scanTargetHref,
 } from './scan-data'
+import type { InstrumentWire, RecordWire } from './scan-data'
+
+/** A registry row as the resolver selects it: identity and its title column. */
+type DatasetRow = { id: string; display_id: string; name: string }
 
 /** A client that answers the exact-identifier reads only, so resolveScanCode
  * returns the single target it found. */
 function stubClient(rows: {
-  records?: Record<string, unknown>[]
-  instruments?: Record<string, unknown>[]
-  datasets?: Record<string, unknown>[]
+  records?: RecordWire[]
+  instruments?: InstrumentWire[]
+  datasets?: DatasetRow[]
 }): DataClient {
-  return {
+  return dataClientTestDouble({
     list: async (resource: string, query?: string) =>
       resource === 'records'
         ? (rows.records ?? []).filter((r) =>
@@ -29,7 +34,7 @@ function stubClient(rows: {
                 query?.includes(String(r.display_id)),
               )
             : [],
-  } as unknown as DataClient
+  })
 }
 
 describe('resolveScanCode', () => {

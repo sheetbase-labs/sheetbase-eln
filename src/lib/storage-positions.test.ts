@@ -61,6 +61,7 @@ describe('placing a sample', () => {
   it('files into a position through the move call and returns the new version', async () => {
     const rpc = vi.fn().mockResolvedValue({ id: 'r1', metadata_version: 4 })
 
+    // SAFETY: `placeSample` issues only this RPC; the double supplies that method alone.
     const version = await placeSample({ rpc } as never, {
       recordId: 'r1',
       expectedMetadataVersion: 3,
@@ -97,6 +98,7 @@ describe('placing a sample', () => {
     // The occupant lookup is a second list call.
     list.mockResolvedValueOnce(await list()).mockResolvedValue([])
 
+    // SAFETY: `placeInSequence` reads the box through `list` and moves samples through `rpc`; those two methods are the whole double.
     const placed = await placeInSequence(
       { rpc, list } as never,
       [

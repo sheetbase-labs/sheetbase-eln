@@ -75,6 +75,17 @@ async function readAll(
   return Buffer.concat(chunks)
 }
 
+/**
+ * A `Response` body from a byte view. `Uint8Array` is a valid `BodyInit`; the
+ * cast exists only because the DOM types pin `BufferSource` to an `ArrayBuffer`
+ * while a view over the storage buffer is `ArrayBufferLike`.
+ */
+function responseBody(bytes: Uint8Array): BodyInit {
+  // SAFETY: every `Uint8Array` is a `BufferSource`, which `Response` accepts as a body; the DOM types cannot express a view over a shared buffer.
+  // oxlint-disable-next-line anti-slop/no-chained-type-assertions -- The two assertions step through `unknown` because neither `Uint8Array<ArrayBufferLike>` nor `BodyInit` is assignable to the other.
+  return bytes as unknown as BodyInit
+}
+
 export async function handleLakeFile(
   request: Request,
   workspaceId: string,
@@ -158,7 +169,7 @@ export async function handleLakeFile(
 
     const slice = body.subarray(start, end + 1)
 
-    return new Response(slice as unknown as BodyInit, {
+    return new Response(responseBody(slice), {
       status: 206,
       headers: {
         ...common,
@@ -175,7 +186,7 @@ export async function handleLakeFile(
     })
   }
 
-  return new Response(body as unknown as BodyInit, {
+  return new Response(responseBody(body), {
     status: 200,
     headers: { ...common, 'content-length': String(body.byteLength) },
   })

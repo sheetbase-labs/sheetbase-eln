@@ -34,7 +34,12 @@ import {
   stocktakeKeys,
   summariseItems,
 } from '#/lib/stocktake'
-import type { Stocktake, StocktakeAction, StocktakeItem } from '#/lib/stocktake'
+import type {
+  Stocktake,
+  StocktakeAction,
+  StocktakeItem,
+  StocktakeSummary,
+} from '#/lib/stocktake'
 
 import {
   ITEM_TONE,
@@ -250,6 +255,208 @@ function canRefile(item: StocktakeItem): boolean {
 /** The states a stocktake still has to act on. */
 const NON_CONFIRMED_STATES = new Set(['misplaced', 'unexpected', 'missing'])
 
+/** The counts of what the walk found, as the summary states them. */
+function SummaryStats({ summary }: { summary: StocktakeSummary }) {
+  return (
+    <div className="flex flex-wrap gap-y-3 rounded-lg border border-border bg-surface px-4 py-3">
+      <StatBox
+        label={t('library.stocktake.summary.counted')}
+        value={summary.total}
+      />
+      <StatBox
+        label={t('library.stocktake.summary.confirmed')}
+        value={summary.confirmed}
+      />
+      <StatBox
+        label={t('library.stocktake.summary.misplaced')}
+        value={summary.misplaced}
+        tone="warn"
+      />
+      <StatBox
+        label={t('library.stocktake.summary.unexpected')}
+        value={summary.unexpected}
+        tone="warn"
+      />
+      <StatBox
+        label={t('library.stocktake.summary.missing')}
+        value={summary.missing}
+        tone="bad"
+      />
+    </div>
+  )
+}
+
+/** What is still to fix, and the one action that refiles all of it. */
+function DifferencesSection({
+  differences,
+  summary,
+  columns,
+  loading,
+  canFixAll,
+  onFixAll,
+}: {
+  differences: StocktakeItem[]
+  summary: StocktakeSummary
+  columns: ReturnType<typeof stocktakeColumns>
+  loading: boolean
+  canFixAll: boolean
+  onFixAll: () => void
+}) {
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="m-0 text-body font-semibold">
+          {t('library.stocktake.summary.differencesTitle')}
+        </h2>
+        <span className="text-label text-fg-muted">
+          {summary.toFix > 0
+            ? t('library.stocktake.summary.toFix', { count: summary.toFix })
+            : t('library.stocktake.summary.allDealtWith')}
+        </span>
+        <span className="flex-1" />
+        {canFixAll ? (
+          <Button size="sm" onClick={onFixAll}>
+            {t('library.stocktake.summary.fixAll')}
+          </Button>
+        ) : null}
+      </div>
+      <div className="overflow-hidden rounded-lg border border-border">
+        <RegistryGrid
+          label={t('library.stocktake.summary.differencesTitle')}
+          rows={differences}
+          columns={columns}
+          getRowId={(item) => item.id}
+          selectable={false}
+          isLoading={loading}
+        />
+      </div>
+    </section>
+  )
+}
+
+/** The items that were where they should be, behind a toggle. */
+function ConfirmedSection({
+  confirmed,
+  items,
+  columns,
+  loading,
+  called,
+  showConfirmed,
+  onToggle,
+}: {
+  confirmed: StocktakeItem[]
+  items: StocktakeItem[]
+  columns: ReturnType<typeof stocktakeColumns>
+  loading: boolean
+  called: boolean
+  showConfirmed: boolean
+  onToggle: () => void
+}) {
+  return (
+    <section className="flex flex-col gap-2">
+      {!called ? (
+        <div>
+          <Button size="sm" variant="quiet" onClick={onToggle}>
+            {showConfirmed
+              ? t('library.stocktake.summary.hideConfirmed')
+              : t('library.stocktake.summary.showConfirmed', {
+                  count: confirmed.length,
+                })}
+          </Button>
+        </div>
+      ) : null}
+      {showConfirmed || called ? (
+        <div className="overflow-hidden rounded-lg border border-border">
+          <RegistryGrid
+            label={t('library.stocktake.summary.confirmedTitle')}
+            rows={called ? sortItems(items) : confirmed}
+            columns={columns}
+            getRowId={(item) => item.id}
+            selectable={false}
+            isLoading={loading}
+          />
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
+/** Ask before a counted item is written off as lost. */
+function MarkLostDialog({
+  item,
+  onOpenChange,
+  onConfirm,
+}: {
+  item: StocktakeItem | null
+  onOpenChange: (open: boolean) => void
+  onConfirm: () => void
+}) {
+  return (
+    <ConfirmDialog open={item !== null} onOpenChange={onOpenChange}>
+      <ConfirmDialogContent>
+        <ConfirmDialogHeader>
+          <ConfirmDialogTitle>
+            {t('library.stocktake.action.mark_lost')}
+          </ConfirmDialogTitle>
+          <ConfirmDialogDescription>
+            {item
+              ? `${item.identifier} \u00b7 ${t('library.stocktake.actionHelp.mark_lost')}`
+              : ''}
+          </ConfirmDialogDescription>
+        </ConfirmDialogHeader>
+        <ConfirmDialogFooter>
+          <ConfirmDialogCancel>
+            {t('common.actions.cancel')}
+          </ConfirmDialogCancel>
+          <ConfirmDialogAction onClick={onConfirm}>
+            {t('library.stocktake.action.mark_lost')}
+          </ConfirmDialogAction>
+        </ConfirmDialogFooter>
+      </ConfirmDialogContent>
+    </ConfirmDialog>
+  )
+}
+
+/** Ask before every refilable item is refiled in one go. */
+function FixAllDialog({
+  open,
+  count,
+  pending,
+  onOpenChange,
+  onConfirm,
+}: {
+  open: boolean
+  count: number
+  pending: boolean
+  onOpenChange: (open: boolean) => void
+  onConfirm: () => void
+}) {
+  return (
+    <ConfirmDialog open={open} onOpenChange={onOpenChange}>
+      <ConfirmDialogContent>
+        <ConfirmDialogHeader>
+          <ConfirmDialogTitle>
+            {t('library.stocktake.summary.fixAllTitle')}
+          </ConfirmDialogTitle>
+          <ConfirmDialogDescription>
+            {t('library.stocktake.summary.fixAllBody', { count })}
+          </ConfirmDialogDescription>
+        </ConfirmDialogHeader>
+        <ConfirmDialogFooter>
+          <ConfirmDialogCancel>
+            {t('common.actions.cancel')}
+          </ConfirmDialogCancel>
+          <ConfirmDialogAction disabled={pending} onClick={onConfirm}>
+            {pending
+              ? t('library.stocktake.working')
+              : t('library.stocktake.summary.fixAllConfirm')}
+          </ConfirmDialogAction>
+        </ConfirmDialogFooter>
+      </ConfirmDialogContent>
+    </ConfirmDialog>
+  )
+}
+
 export function StocktakeSummaryView({
   stocktake,
   items,
@@ -368,33 +575,7 @@ export function StocktakeSummaryView({
           note={stocktake.note}
         />
 
-        {!called ? (
-          <div className="flex flex-wrap gap-y-3 rounded-lg border border-border bg-surface px-4 py-3">
-            <StatBox
-              label={t('library.stocktake.summary.counted')}
-              value={summary.total}
-            />
-            <StatBox
-              label={t('library.stocktake.summary.confirmed')}
-              value={summary.confirmed}
-            />
-            <StatBox
-              label={t('library.stocktake.summary.misplaced')}
-              value={summary.misplaced}
-              tone="warn"
-            />
-            <StatBox
-              label={t('library.stocktake.summary.unexpected')}
-              value={summary.unexpected}
-              tone="warn"
-            />
-            <StatBox
-              label={t('library.stocktake.summary.missing')}
-              value={summary.missing}
-              tone="bad"
-            />
-          </div>
-        ) : null}
+        {!called ? <SummaryStats summary={summary} /> : null}
 
         {!called && !loading && differences.length === 0 ? (
           <Notice
@@ -407,132 +588,48 @@ export function StocktakeSummaryView({
         ) : null}
 
         {!called && differences.length > 0 ? (
-          <section className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="m-0 text-body font-semibold">
-                {t('library.stocktake.summary.differencesTitle')}
-              </h2>
-              <span className="text-label text-fg-muted">
-                {summary.toFix > 0
-                  ? t('library.stocktake.summary.toFix', {
-                      count: summary.toFix,
-                    })
-                  : t('library.stocktake.summary.allDealtWith')}
-              </span>
-              <span className="flex-1" />
-              {canWrite && refilable.length > 1 ? (
-                <Button size="sm" onClick={() => setFixingAll(true)}>
-                  {t('library.stocktake.summary.fixAll')}
-                </Button>
-              ) : null}
-            </div>
-            <div className="overflow-hidden rounded-lg border border-border">
-              <RegistryGrid
-                label={t('library.stocktake.summary.differencesTitle')}
-                rows={differences}
-                columns={columns}
-                getRowId={(item) => item.id}
-                selectable={false}
-                isLoading={loading}
-              />
-            </div>
-          </section>
+          <DifferencesSection
+            differences={differences}
+            summary={summary}
+            columns={columns}
+            loading={loading}
+            canFixAll={canWrite && refilable.length > 1}
+            onFixAll={() => setFixingAll(true)}
+          />
         ) : null}
 
         {confirmed.length > 0 || called ? (
-          <section className="flex flex-col gap-2">
-            {!called ? (
-              <div>
-                <Button
-                  size="sm"
-                  variant="quiet"
-                  onClick={() => setShowConfirmed((v) => !v)}
-                >
-                  {showConfirmed
-                    ? t('library.stocktake.summary.hideConfirmed')
-                    : t('library.stocktake.summary.showConfirmed', {
-                        count: confirmed.length,
-                      })}
-                </Button>
-              </div>
-            ) : null}
-            {showConfirmed || called ? (
-              <div className="overflow-hidden rounded-lg border border-border">
-                <RegistryGrid
-                  label={t('library.stocktake.summary.confirmedTitle')}
-                  rows={called ? sortItems(items) : confirmed}
-                  columns={columns}
-                  getRowId={(item) => item.id}
-                  selectable={false}
-                  isLoading={loading}
-                />
-              </div>
-            ) : null}
-          </section>
+          <ConfirmedSection
+            confirmed={confirmed}
+            items={items}
+            columns={columns}
+            loading={loading}
+            called={called}
+            showConfirmed={showConfirmed}
+            onToggle={() => setShowConfirmed((shown) => !shown)}
+          />
         ) : null}
       </div>
 
-      <ConfirmDialog
-        open={confirmLost !== null}
+      <MarkLostDialog
+        item={confirmLost}
         onOpenChange={(open) => {
           if (!open) setConfirmLost(null)
         }}
-      >
-        <ConfirmDialogContent>
-          <ConfirmDialogHeader>
-            <ConfirmDialogTitle>
-              {t('library.stocktake.action.mark_lost')}
-            </ConfirmDialogTitle>
-            <ConfirmDialogDescription>
-              {confirmLost
-                ? `${confirmLost.identifier} · ${t('library.stocktake.actionHelp.mark_lost')}`
-                : ''}
-            </ConfirmDialogDescription>
-          </ConfirmDialogHeader>
-          <ConfirmDialogFooter>
-            <ConfirmDialogCancel>
-              {t('common.actions.cancel')}
-            </ConfirmDialogCancel>
-            <ConfirmDialogAction
-              onClick={() => {
-                if (confirmLost)
-                  resolve.mutate({ item: confirmLost, action: 'mark_lost' })
-                setConfirmLost(null)
-              }}
-            >
-              {t('library.stocktake.action.mark_lost')}
-            </ConfirmDialogAction>
-          </ConfirmDialogFooter>
-        </ConfirmDialogContent>
-      </ConfirmDialog>
+        onConfirm={() => {
+          if (confirmLost)
+            resolve.mutate({ item: confirmLost, action: 'mark_lost' })
+          setConfirmLost(null)
+        }}
+      />
 
-      <ConfirmDialog open={fixingAll} onOpenChange={setFixingAll}>
-        <ConfirmDialogContent>
-          <ConfirmDialogHeader>
-            <ConfirmDialogTitle>
-              {t('library.stocktake.summary.fixAllTitle')}
-            </ConfirmDialogTitle>
-            <ConfirmDialogDescription>
-              {t('library.stocktake.summary.fixAllBody', {
-                count: refilable.length,
-              })}
-            </ConfirmDialogDescription>
-          </ConfirmDialogHeader>
-          <ConfirmDialogFooter>
-            <ConfirmDialogCancel>
-              {t('common.actions.cancel')}
-            </ConfirmDialogCancel>
-            <ConfirmDialogAction
-              disabled={fixAll.isPending}
-              onClick={() => fixAll.mutate()}
-            >
-              {fixAll.isPending
-                ? t('library.stocktake.working')
-                : t('library.stocktake.summary.fixAllConfirm')}
-            </ConfirmDialogAction>
-          </ConfirmDialogFooter>
-        </ConfirmDialogContent>
-      </ConfirmDialog>
+      <FixAllDialog
+        open={fixingAll}
+        count={refilable.length}
+        pending={fixAll.isPending}
+        onOpenChange={setFixingAll}
+        onConfirm={() => fixAll.mutate()}
+      />
     </div>
   )
 }

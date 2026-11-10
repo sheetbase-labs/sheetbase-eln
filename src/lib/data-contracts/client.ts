@@ -3,6 +3,7 @@
  * functions the API, the assistant and pipelines call.
  */
 import type { DataClient } from '#/lib/data-client'
+import type { JsonObject } from '#/lib/workspace-admin'
 import type {
   ContractDatasetStatus,
   ContractGateReport,
@@ -314,7 +315,7 @@ export async function checkRecord(
 export async function checkRecordBatch(
   client: Pick<DataClient, 'rpc'>,
   modelKey: string,
-  rows: Array<{ values: Record<string, unknown> }>,
+  rows: Array<{ values: JsonObject }>,
 ): Promise<ContractGateReport> {
   return client.rpc<ContractGateReport>('check_record_batch_contract', {
     p_record_model_key: modelKey,
@@ -325,8 +326,8 @@ export async function checkRecordBatch(
 export async function exportOdcs(
   client: Pick<DataClient, 'rpc'>,
   contractId: string,
-): Promise<Record<string, unknown>> {
-  return client.rpc<Record<string, unknown>>('export_data_contract_odcs', {
+): Promise<JsonObject> {
+  return client.rpc<JsonObject>('export_data_contract_odcs', {
     p_contract_id: contractId,
   })
 }
@@ -339,7 +340,7 @@ export interface OdcsImportResult {
 
 export async function importOdcs(
   client: Pick<DataClient, 'rpc'>,
-  document: Record<string, unknown>,
+  document: JsonObject,
   target?: ContractTarget,
 ): Promise<OdcsImportResult> {
   const result = await client.rpc<{

@@ -60,6 +60,15 @@ interface TargetWire {
   properties: ModelFieldRecordValues['customFields'] | null
 }
 
+/** The picked ids in `in.(…)`-sized chunks, so one bulk action stays bounded. */
+function idChunks(ids: readonly string[]): string[][] {
+  const chunks: string[][] = []
+
+  for (let i = 0; i < ids.length; i += 50) chunks.push(ids.slice(i, i + 50))
+
+  return chunks
+}
+
 /**
  * The current state of the picked records. The list's rows may be a moment
  * stale, and the version check on every action needs the version as it is now.
@@ -68,17 +77,17 @@ export async function fetchBulkTargets(
   client: DataClient,
   ids: readonly string[],
 ): Promise<BulkTarget[]> {
-  const rows: TargetWire[] = []
-
-  for (let i = 0; i < ids.length; i += 50) {
-    const chunk = ids.slice(i, i + 50)
-    rows.push(
-      ...(await client.list<TargetWire>(
-        'records',
-        `?id=in.(${chunk.join(',')})&deleted_at=is.null&select=id,kind,identifier,title,status,project_id,metadata_version,archived_at,locked_at,properties`,
-      )),
+  // The chunks are independent reads; the result is ordered by the picks below.
+  const rows = (
+    await Promise.all(
+      idChunks(ids).map((chunk) =>
+        client.list<TargetWire>(
+          'records',
+          `?id=in.(${chunk.join(',')})&deleted_at=is.null&select=id,kind,identifier,title,status,project_id,metadata_version,archived_at,locked_at,properties`,
+        ),
+      ),
     )
-  }
+  ).flat()
 
   const order = new Map(ids.map((id, index) => [id, index]))
 
@@ -330,16 +339,17 @@ export async function fetchBulkLabelRecords(
   client: DataClient,
   ids: readonly string[],
 ): Promise<BulkLabelRecord[]> {
-  const rows: LabelWire[] = []
-
-  for (let i = 0; i < ids.length; i += 50) {
-    rows.push(
-      ...(await client.list<LabelWire>(
-        'records',
-        `?id=in.(${ids.slice(i, i + 50).join(',')})&deleted_at=is.null&select=id,kind,identifier,title,metadata_version,created_at,properties,custom_fields`,
-      )),
+  // The chunks are independent reads; the result is ordered by the picks below.
+  const rows = (
+    await Promise.all(
+      idChunks(ids).map((chunk) =>
+        client.list<LabelWire>(
+          'records',
+          `?id=in.(${chunk.join(',')})&deleted_at=is.null&select=id,kind,identifier,title,metadata_version,created_at,properties,custom_fields`,
+        ),
+      ),
     )
-  }
+  ).flat()
 
   const order = new Map(ids.map((id, index) => [id, index]))
 

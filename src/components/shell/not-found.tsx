@@ -1,8 +1,8 @@
 import { Link, useLocation, useMatches } from '@tanstack/react-router'
-import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
 import { t } from '#/copy'
+import { sectionForPath } from './not-found-section'
 
 // Record layouts that already render a page header (and its h1) above their
 // tabs. Inside one of these the screen renders body-only, so the record's own
@@ -16,79 +16,6 @@ const LAYOUTS = [
   '/pipelines/$pipelineId',
   '/templates/$templateId',
 ]
-
-interface Section {
-  link: LinkProps
-  label: string
-}
-
-// The first path segment a URL sits under, and the section route to return to.
-// Only real section routes are listed so the "back" link can itself never 404.
-const SECTIONS: Record<string, Section> = {
-  inbox: { link: { to: '/inbox' }, label: t('settings.shell.notFound.inbox') },
-  schedule: {
-    link: { to: '/schedule' },
-    label: t('settings.shell.notFound.schedule'),
-  },
-  projects: {
-    link: { to: '/projects' },
-    label: t('settings.shell.notFound.projects'),
-  },
-  experiments: {
-    link: { to: '/experiments' },
-    label: t('settings.shell.notFound.experiments'),
-  },
-  protocols: {
-    link: { to: '/protocols' },
-    label: t('settings.shell.notFound.protocols'),
-  },
-  templates: {
-    link: { to: '/templates' },
-    label: t('settings.shell.notFound.templates'),
-  },
-  samples: {
-    link: { to: '/samples' },
-    label: t('settings.shell.notFound.samples'),
-  },
-  materials: {
-    link: { to: '/materials' },
-    label: t('settings.shell.notFound.materials'),
-  },
-  datasets: {
-    link: { to: '/datasets' },
-    label: t('settings.shell.notFound.datasets'),
-  },
-  analysis: {
-    link: { to: '/analysis' },
-    label: t('settings.shell.notFound.analysis'),
-  },
-  pipelines: {
-    link: { to: '/pipelines' },
-    label: t('settings.shell.notFound.pipelines'),
-  },
-  models: {
-    link: { to: '/models' },
-    label: t('settings.shell.notFound.models'),
-  },
-  instruments: {
-    link: { to: '/instruments' },
-    label: t('settings.shell.notFound.instruments'),
-  },
-  settings: {
-    link: { to: '/settings' },
-    label: t('settings.shell.notFound.settings'),
-  },
-  help: { link: { to: '/help' }, label: t('settings.shell.notFound.help') },
-}
-
-/** The section a pathname implies, for the not-found screen's next step. */
-export function sectionForPath(pathname: string): Section | null {
-  const segment = pathname.split('/').filter(Boolean)[0]
-
-  if (!segment) return null
-
-  return SECTIONS[segment] ?? null
-}
 
 // Unknown route or an ID that isn't in this workspace. Inside a record layout
 // it renders without its own h1, since the layout already shows one.

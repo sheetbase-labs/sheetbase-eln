@@ -1,6 +1,5 @@
 import { rich, t } from '#/copy'
 import { ObjectLink } from '#/components/ui/object-link'
-import { useReportFrozen } from '#/components/workspace/workspace-navigation'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
 import {
@@ -27,15 +26,8 @@ import { Icon } from '#/components/icons'
 import { ExtensionObjectActions } from '#/components/extensions/extension-slots'
 import { toExtensionPanelTabs } from '#/components/extensions/extension-panel-tabs'
 import { PluginScreen } from '#/components/extensions/plugin-screen'
-import {
-  operationAccess,
-  usePluginPoints,
-} from '#/components/extensions/use-plugin-points'
-import { useExtensionPoints } from '#/components/extensions/use-extension-points'
-import {
-  describeExtensionInvocationError,
-  invokeExtensionContribution,
-} from '#/lib/extensions/registry'
+import { operationAccess } from '#/components/extensions/use-plugin-points'
+import type { useExtensionPoints } from '#/components/extensions/use-extension-points'
 import type { ResolvedExtensionContribution } from '#/lib/extensions/registry'
 import { SAMPLE_EXTENSION_KEY } from '#/lib/extensions/sample/manifest'
 import { SampleExtensionPanel } from '#/lib/extensions/sample/panel'
@@ -50,10 +42,7 @@ import { NotebookHistoryPanel } from '#/components/notebook/notebook-history-pan
 import { NotebookTemplateUpgradeBanner } from '#/components/notebook/notebook-template-upgrade-banner'
 import { ProjectNavigationTree } from '#/components/project-navigation-tree'
 import { NotebookPrintStyles } from '#/components/notebook/print-notebook'
-import {
-  SignNotebookDialog,
-  useHasSignatureToGive,
-} from '#/components/notebook/sign-notebook-dialog'
+import { SignNotebookDialog } from '#/components/notebook/sign-notebook-dialog'
 import { ShareWithClientDialog } from '#/components/client-sharing/share-with-client-dialog'
 import { SubmitNotebookDialog } from '#/components/notebook/submit-notebook-dialog'
 import { CurrentStepCard } from '#/components/notebook/current-step-card'
@@ -68,32 +57,18 @@ import {
   PartsMenu,
   SplitIntoPartsAction,
 } from '#/components/notebook/parts-menu'
-import { useRecordPartsProgress } from '#/components/notebook/use-record-parts'
-import {
-  SignedPartBanner,
-  usePartRequests,
-  usePartSignoffs,
-} from '#/components/notebook/part-signoff'
+import { SignedPartBanner } from '#/components/notebook/part-signoff'
 import type { PartProgress } from '#/lib/experiment-parts'
 import type { RecordGate } from '#/lib/experiment-gates'
-import {
-  blocksOfPart,
-  currentPart,
-  partNumberFromParam,
-  setBlockPart,
-  shownPart,
-} from '#/lib/experiment-parts'
-import { stepProgress } from '#/lib/step-status'
+import { setBlockPart } from '#/lib/experiment-parts'
 import {
   GatesProvider,
   GateOverridesPanel,
   LockedPartBanner,
 } from '#/components/notebook/gates'
-import { useNotebookGates } from '#/components/notebook/gates-host'
 import { StepNumbersProvider } from '#/lib/step-numbers'
 import { WithdrawReviewDialog } from '#/components/notebook/withdraw-review-dialog'
 import { ReturnedReviewBanner } from '#/components/notebook/returned-review-banner'
-import { reopenTaskFromSearch } from '#/lib/return-to'
 import { useShortcutScope } from '#/components/shortcuts/shortcut-provider'
 import { NotebookDocument } from '#/components/notebook'
 import type { NotebookDocumentProps, SaveResult } from '#/components/notebook'
@@ -106,7 +81,6 @@ import { useLiveStatus } from '#/components/live/live-event-provider'
 import { deviceOfflineEditStore } from '#/components/offline/device-store'
 import {
   OfflineEditsProvider,
-  useIsOnline,
   useOfflineEdits,
 } from '#/components/offline/offline-edits'
 import {
@@ -146,7 +120,6 @@ import {
   RecordActionsMenu,
   RecordMainActions,
   useOfferRecordActions,
-  useRecordSubmitVariant,
 } from '#/components/notebook/record-actions'
 import { SubmitLabel } from '#/components/experiments/submit-label'
 import type { RecordAction } from '#/components/notebook/record-actions'
@@ -226,10 +199,7 @@ import {
   sheetEvidenceFromEnvelope,
   sheetEvidenceFromRevisionRows,
 } from '#/lib/sheet-evidence'
-import {
-  deriveReviewActionPermission,
-  toCanonicalEnvelope,
-} from '#/lib/review-workspace'
+import { toCanonicalEnvelope } from '#/lib/review-workspace'
 import { useRecentViewTracking } from '#/lib/recents'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
 import { FollowToggle } from '#/components/follow/follow-toggle'
@@ -253,7 +223,6 @@ import {
   inspectorEvidenceFromRevision,
   notebookLifecycleLabel,
   notebookReviewActivity,
-  notebookReviewRevisionId,
   recordFromRevisionSnapshot,
   updateExperimentMetadata,
 } from '#/lib/notebook-experience'
@@ -261,16 +230,23 @@ import type {
   NotebookReviewActivity,
   NotebookReviewContext,
 } from '#/lib/notebook-experience'
-import {
-  notebookOutline,
-  notebookSectionSpans,
-  sectionSpanHidesContent,
-} from '#/lib/notebook-outline'
+import { notebookOutline } from '#/lib/notebook-outline'
 import { NotebookOutlinePanel } from '#/components/notebook/notebook-outline-panel'
 import type { NotebookOutlineControls } from '#/components/notebook/notebook-outline-panel'
 import { RecordPickerDialog } from '#/components/record-picker/record-picker'
-import type { PickerItem } from '#/components/record-picker/record-picker-data'
 import { toast } from '#/components/ui/sonner'
+
+import {
+  useFrozenReport,
+  useHeaderConnectivity,
+  useLinkRecordLinks,
+  useRecordHeaderDialogs,
+  useRecordHeaderFlags,
+  useReopenTask,
+} from './-record-header-model'
+import { useNotebookExtensions } from './-notebook-page-extensions'
+import { useNotebookOutline } from './-notebook-page-outline'
+import { useNotebookParts } from './-notebook-page-parts'
 
 /**
  * UI port (roadmap-4/ui-app3): the notebook renders inside app-3's shell, so
@@ -601,289 +577,47 @@ function useNotebookPageQueries({
 function useNotebookPageModel(
   props: Parameters<typeof useNotebookPageQueries>[0],
 ) {
-  const {
-    context,
-    recordId,
-    embedded,
-    partParam,
-    collaborationRoomId,
-    historicalRevisionId,
-    selectedCell,
-    onCellSelectionChange,
-    queryClient,
-    tab,
-    setTab,
-    recordQuery,
-    projectId,
-    projectQuery,
-    projectFoldersQuery,
-    projectRecordsQuery,
-    blocksQuery,
-    linksQuery,
-    revisionsQuery,
-    signaturesQuery,
-    requiredSectionLabels,
-    activityQuery,
-    historicalRevisionQuery,
-    reviewQuery,
-  } = useNotebookPageQueries(props)
+  const queries = useNotebookPageQueries(props)
 
-  // EXT-02: enabled-install contributions for this caller. The hook reads
-  // the workspace installs through the public client surface and resolves
-  // them through the single registry; loading/failure degrades to empty
-  // points, never an error surface.
-  const workspaceId = context.workspace?.id ?? null
+  const { context, recordId, partParam, historicalRevisionId } = queries
   const workspaceRole = context.workspace?.role ?? null
 
-  const extensionPoints = useExtensionPoints(
-    notebookDataClient,
-    workspaceId,
+  const extensions = useNotebookExtensions({
+    workspaceId: context.workspace?.id ?? null,
     workspaceRole,
-  )
-
-  const pluginPoints = usePluginPoints()
-  const [samplePanelOpen, setSamplePanelOpen] = useState(false)
-  const [extensionError, setExtensionError] = useState<string | null>(null)
-
-  // EXT-02 invocation: the server-side assert gates execution (fail-closed);
-  // the sample's read-only affordance then opens its data panel. The
-  // returned audit fragment has no durable write to stamp here — writers
-  // stamp it into their canonical payload channel.
-  const runExtensionContribution = (
-    contribution: ResolvedExtensionContribution,
-  ) => {
-    if (!workspaceId) return
-    setExtensionError(null)
-    void invokeExtensionContribution(
-      notebookDataClient,
-      workspaceId,
-      contribution,
-      async () => undefined,
-    )
-      .then(() => setSamplePanelOpen(true))
-      .catch((cause: unknown) =>
-        setExtensionError(describeExtensionInvocationError(cause)),
-      )
-  }
-
-  // NOTE-04: the document-level unsaved-work signal lives at the route so the
-  // submit dialog's readiness checklist reflects unsaved drafts. It mirrors
-  // NotebookDocument's own signal; the document re-emits on record change.
-  const [hasUnsavedWork, setHasUnsavedWork] = useState(false)
-
-  // NOTE-02: section collapse is presentation state owned by the route so
-  // the inspector's Outline tab and the canvas stay in sync. It resets when
-  // the record or the viewed revision changes — never persisted.
-  const [collapsedSections, setCollapsedSections] = useState<
-    ReadonlySet<string>
-  >(() => new Set<string>())
-
-  const [viewIdentity, setViewIdentity] = useState({
-    recordId,
+    recordQuery: queries.recordQuery,
+    activityQuery: queries.activityQuery,
+    linksQuery: queries.linksQuery,
     historicalRevisionId,
+    historicalRevisionQuery: queries.historicalRevisionQuery,
   })
 
-  if (
-    viewIdentity.recordId !== recordId ||
-    viewIdentity.historicalRevisionId !== historicalRevisionId
-  ) {
-    setViewIdentity({ recordId, historicalRevisionId })
-    setHasUnsavedWork(false)
-    setCollapsedSections(new Set())
-  }
-
-  const toggleSection = (anchorId: string) => {
-    setCollapsedSections((current) => {
-      const next = new Set(current)
-
-      if (next.has(anchorId)) next.delete(anchorId)
-      else next.add(anchorId)
-
-      return next
-    })
-  }
-
-  // EXT-02 sample panel content, bound to the ordinary public contract
-  // reads this route already performs (record/activity/links queries).
-  // The panel receives only this loader — no data import of its own.
-  // Hooks discipline: this callback is registered before every early return
-  // below and reads query data with null-safety, so loading → loaded
-  // transitions never change the hook count.
-  const loadSampleSummary = useCallback(async () => {
-    const base = recordQuery.data ?? null
-
-    const summaryRecord =
-      base && historicalRevisionId && historicalRevisionQuery.data
-        ? recordFromRevisionSnapshot(
-            base,
-            historicalRevisionQuery.data.metadata_snapshot,
-          )
-        : base
-
-    const summaryActivity = activityQuery.data ?? []
-    const summaryLinks = linksQuery.data ?? []
-
-    return {
-      heading: summaryRecord?.title ?? '',
-      subheading: summaryRecord
-        ? `${recordKindLabel(summaryRecord.kind)} · ${summaryRecord.identifier}`
-        : '',
-      rows: [
-        {
-          label: t('notebook.notebookPage.label'),
-          value: summaryRecord?.status ?? '',
-        },
-        {
-          label: t('notebook.notebookPage.updatedLabel'),
-          value: summaryRecord ? formatDate(summaryRecord.updatedAt) : '',
-        },
-        {
-          label: t('notebook.notebookPage.activityLabel'),
-          value: t('notebook.notebookPage.eventCount', {
-            count: summaryActivity.length,
-          }),
-        },
-        {
-          label: t('notebook.notebookPage.linksLabel'),
-          value: t('notebook.notebookPage.linkCount', {
-            count: summaryLinks.length,
-          }),
-        },
-      ],
-    }
-  }, [
-    recordQuery.data,
-    historicalRevisionQuery.data,
-    historicalRevisionId,
-    activityQuery.data,
-    linksQuery.data,
-  ])
-
-  const project = projectQuery.data ?? null
-  const record = recordQuery.data ?? null
+  const project = queries.projectQuery.data ?? null
+  const record = queries.recordQuery.data ?? null
   const sequences = useLinkedSequences(record?.id ?? null)
-  const blocks = blocksQuery.data ?? EMPTY_BLOCKS
+  const blocks = queries.blocksQuery.data ?? EMPTY_BLOCKS
 
-  // Parts: when the experiment is split, the page shows one part at a time and
-  // the rest of the notebook stays a click away. With none it is one page.
-  const partsView = useRecordPartsProgress(
+  const parts = useNotebookParts({
     recordId,
+    record,
     blocks,
-    !historicalRevisionId,
-  )
-
-  const partsList = partsView.parts
-
-  const hashedBlockId = useRouterState({
-    select: (state) =>
-      /block-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/.exec(
-        state.location.hash,
-      )?.[1] ?? null,
+    partParam,
+    historicalRevisionId,
+    workspaceRole,
+    currentUserId: context.user.id,
   })
 
-  const partOfHashedBlock = hashedBlockId
-    ? (blocks.find((block) => block.id === hashedBlockId)?.partId ?? null)
-    : null
+  const outline = useNotebookOutline({
+    recordId,
+    historicalRevisionId,
+    canvasBlocks: parts.canvasBlocks,
+  })
 
-  const requestedPart =
-    partNumberFromParam(partParam) ??
-    (partOfHashedBlock
-      ? (partsList.find((part) => part.id === partOfHashedBlock)?.number ??
-        null)
-      : null)
+  const links = queries.linksQuery.data ?? []
+  const revisions = queries.revisionsQuery.data ?? []
+  const activity = queries.activityQuery.data ?? []
 
-  const partNames = useUserNames(
-    partsList
-      .map((part) => part.completedByUserId)
-      .filter((id): id is string => Boolean(id)),
-  )
-
-  const userLabelForParts = partNames.userLabel
   const navigate = useNavigate()
-
-  const gatesHost = useNotebookGates({
-    recordId,
-    blocks,
-    parts: partsList,
-    canEdit: Boolean(
-      hasCapability(workspaceRole, 'record.create') &&
-      record &&
-      record.status !== 'in_review' &&
-      !record.lockedAt &&
-      !record.archivedAt,
-    ),
-    enabled: !historicalRevisionId,
-    describeOnly: record?.kind === 'protocol_template',
-  })
-
-  const shownPartNow = shownPart(partsList, requestedPart)
-
-  const lockedPartGate =
-    gatesHost.state?.gates.find(
-      (gate) =>
-        gate.kind === 'part' &&
-        gate.partId === (shownPartNow?.id ?? null) &&
-        !gate.met &&
-        !gate.overridden,
-    ) ?? null
-
-  const nowPart = currentPart(partsList)
-
-  const partSignoffs = usePartSignoffs(
-    recordId,
-    partsList.some((part) => part.requiresSignOff),
-  )
-
-  const partRequests = usePartRequests(recordId, context.user.id)
-
-  const shownSignoff = shownPartNow
-    ? partSignoffs.find((row) => row.partId === shownPartNow.id)
-    : undefined
-
-  const canvasBlocks = shownPartNow
-    ? blocksOfPart(blocks, shownPartNow)
-    : blocks
-
-  const stepNumbers = useMemo(() => {
-    const numbers = new Map<string, number>()
-
-    if (partsList.length === 0) return numbers
-
-    for (const step of stepProgress(blocks, undefined, partsList)) {
-      if (step.partStepIndex != null)
-        numbers.set(step.blockId, step.partStepIndex)
-    }
-
-    return numbers
-  }, [blocks, partsList])
-
-  const links = linksQuery.data ?? []
-  const revisions = revisionsQuery.data ?? []
-  const activity = activityQuery.data ?? []
-
-  const outlineControls = {
-    collapsedSections,
-    onToggleSection: toggleSection,
-    onExpandAllSections: () => setCollapsedSections(new Set()),
-    onCollapseAllSections: () => {
-      // Only sections that actually own something collapsible can usefully
-      // collapse: later blocks (block-granular) or content inside their own
-      // rich_text block (same-block node range). An empty span would render
-      // a meaningless placeholder.
-      const spans = notebookSectionSpans(canvasBlocks)
-      setCollapsedSections(
-        new Set(
-          notebookOutline(canvasBlocks)
-            .filter((entry) => {
-              const span = spans.get(entry.anchorId)
-
-              return !!span && sectionSpanHidesContent(span)
-            })
-            .map((entry) => entry.anchorId),
-        ),
-      )
-    },
-  }
 
   const shellContext = {
     workspace: context.workspace ? { name: context.workspace.name } : null,
@@ -891,57 +625,19 @@ function useNotebookPageModel(
   }
 
   return {
-    context,
-    recordId,
-    embedded,
-    collaborationRoomId,
-    historicalRevisionId,
-    selectedCell,
-    onCellSelectionChange,
-    queryClient,
-    tab,
-    setTab,
-    recordQuery,
-    projectId,
-    projectFoldersQuery,
-    projectRecordsQuery,
-    blocksQuery,
-    linksQuery,
-    signaturesQuery,
-    requiredSectionLabels,
-    activityQuery,
-    historicalRevisionQuery,
-    reviewQuery,
+    ...queries,
     workspaceRole,
-    extensionPoints,
-    pluginPoints,
-    samplePanelOpen,
-    setSamplePanelOpen,
-    extensionError,
-    runExtensionContribution,
-    hasUnsavedWork,
-    setHasUnsavedWork,
-    loadSampleSummary,
+    ...extensions,
+    ...outline,
+    ...parts,
     project,
     record,
     sequences,
     blocks,
-    partsView,
-    partsList,
-    shownPartNow,
-    nowPart,
-    lockedPartGate,
-    gatesHost,
-    shownSignoff,
-    partRequests,
-    canvasBlocks,
-    stepNumbers,
     links,
     revisions,
     activity,
-    outlineControls,
     shellContext,
-    userLabelForParts,
     navigate,
   }
 }
@@ -1720,34 +1416,8 @@ const EMPTY_BLOCKS: NotebookBlockDomain[] = []
 const EMPTY_EXTENSION_ACTIONS: ResolvedExtensionContribution[] = []
 const EMPTY_ACTIVITY: RecordActivityItem[] = []
 
-function useRecordHeaderModel({
-  record,
-  projectName,
-  projectId,
-  currentUserId,
-  currentUserName,
-  workspaceId,
-  embedded = false,
-  blocks = EMPTY_BLOCKS,
-  hasParts = false,
-  partsStrip = null,
-  notices = null,
-  historicalRevisionId,
-  review = null,
-  /** NOTE-04: document-level unsaved-work signal for the submit dialog. */
-  hasUnsavedWork = false,
-  /**
-   * EXT-02: resolved object-actions for this record. Mounted as ghost
-   * buttons in the header action row; invocation (with the server-side
-   * assert) stays with the host via `onExtensionAction`.
-   */
-  extensionActions = EMPTY_EXTENSION_ACTIONS,
-  onExtensionAction,
-  extensionError = null,
-  liveLockedAt,
-  liveLockedByRevisionId,
-  canWrite = true,
-}: {
+/** Everything the sticky header states or can open, as its caller passes it. */
+export interface RecordHeaderModelProps {
   record: NotebookRecord
   projectName: string | null
   projectId?: string
@@ -1776,177 +1446,72 @@ function useRecordHeaderModel({
   liveLockedByRevisionId?: string | null
   /** A viewer reads the record: no Submit, no Edit, no Link records. */
   canWrite?: boolean
-}) {
-  const queryClient = useQueryClient()
+}
+
+function useRecordHeaderModel({
+  record,
+  projectName,
+  projectId,
+  currentUserId,
+  currentUserName,
+  workspaceId,
+  embedded = false,
+  blocks = EMPTY_BLOCKS,
+  hasParts = false,
+  partsStrip = null,
+  notices = null,
+  historicalRevisionId,
+  review = null,
+  /** NOTE-04: document-level unsaved-work signal for the submit dialog. */
+  hasUnsavedWork = false,
+  /**
+   * EXT-02: resolved object-actions for this record. Mounted as ghost
+   * buttons in the header action row; invocation (with the server-side
+   * assert) stays with the host via `onExtensionAction`.
+   */
+  extensionActions = EMPTY_EXTENSION_ACTIONS,
+  onExtensionAction,
+  extensionError = null,
+  liveLockedAt,
+  liveLockedByRevisionId,
+  canWrite = true,
+}: RecordHeaderModelProps) {
   const navigate = useNavigate()
-  // EXP-05.2: submit and sign need a connection; the header disables them
-  // and states why while the live-event stream is offline.
-  const online = useIsOnline()
-  const submitVariant = useRecordSubmitVariant()
-  const [submitOpen, setSubmitOpen] = useState(false)
-  const [duplicateOpen, setDuplicateOpen] = useState(false)
-  const [labelOpen, setLabelOpen] = useState(false)
-  const [shareOpen, setShareOpen] = useState(false)
-  const [signOpen, setSignOpen] = useState(false)
-  const [withdrawOpen, setWithdrawOpen] = useState(false)
-  const [linkOpen, setLinkOpen] = useState(false)
-  const lockedAt = liveLockedAt ?? record.lockedAt
-  const lockedByRevisionId = liveLockedByRevisionId ?? record.lockedByRevisionId
-  const reviewActivity = notebookReviewActivity(review)
-  // On the experiment page the page itself reports why the record is frozen.
-  useReportFrozen(
-    lockedAt ? true : reviewActivity === 'submitted' ? 'review' : false,
-    embedded,
-  )
 
-  // NOTE-04: defensive for the submit dialog's readiness checklist — the
-  // dialog only opens from a submittable header, but an active review that
-  // appears between render and confirm is surfaced honestly.
-  const activeReview = reviewActivity !== 'none'
+  const { online, submitVariant } = useHeaderConnectivity()
 
-  const lifecycle = notebookLifecycleLabel({
-    lockedAt,
-    archivedAt: record.archivedAt,
-    reviewActivity,
-    isHistorical: Boolean(historicalRevisionId),
-  })
+  const dialogs = useRecordHeaderDialogs()
 
-  const reviewRevisionId = notebookReviewRevisionId({
-    lockedByRevisionId,
-    review,
-    historicalRevisionId,
-  })
-
-  const canSubmit =
-    canWrite &&
-    Boolean(projectId && currentUserId) &&
-    !lockedAt &&
-    !record.archivedAt &&
-    !historicalRevisionId &&
-    reviewActivity === 'none'
-
-  const canEditTitle =
-    canWrite && !lockedAt && !record.archivedAt && !historicalRevisionId
-
-  // On the experiment page a draft has one main action, Start experiment, in
-  // the page header. Submit joins it once the experiment is running.
-  const showSubmit = canSubmit && !(embedded && record.status === 'draft')
-
-  // A running experiment with protocol steps leads with the current step. Its
-  // card carries Submit too, so the header's own Submit steps aside.
-  const stepCardOn =
-    embedded &&
-    record.kind === 'experiment' &&
-    (record.status === 'in_progress' || record.status === 'returned') &&
-    !historicalRevisionId &&
-    !record.archivedAt &&
-    (hasParts || stepProgress(blocks).length > 0)
-
-  const canOpenReview = Boolean(reviewRevisionId)
-
-  const hasSignatureToGive = useHasSignatureToGive({
-    revisionId: reviewRevisionId,
+  const flags = useRecordHeaderFlags({
+    record,
+    projectId,
     currentUserId,
+    currentUserName,
+    historicalRevisionId,
+    review,
+    hasParts,
+    blocks,
+    embedded,
+    canWrite,
+    liveLockedAt,
+    liveLockedByRevisionId,
   })
 
-  const canSign =
-    Boolean(currentUserId && currentUserName) &&
-    !historicalRevisionId &&
-    !record.archivedAt &&
-    (reviewActivity === 'approved' ||
-      Boolean(lockedAt && lockedByRevisionId)) &&
-    hasSignatureToGive
-
-  const evidenceRevisionId = reviewRevisionId
-
-  // The submitter can take the notebook back out of review from here, under the
-  // same rule the review page applies.
-  const canWithdraw =
-    !historicalRevisionId &&
-    review?.submission != null &&
-    review.revision != null &&
-    deriveReviewActionPermission({
-      state: review.submission.state,
-      supersededByRevisionId: review.revision.superseded_by_revision_id,
-      assignedReviewerUserIds: review.submission.assigned_reviewer_user_ids,
-      submittedByUserId: review.submission.submitted_by_user_id,
-      currentUserId: currentUserId ?? '',
-    }).canWithdraw
-
-  // Coming back from a detour (certifying a signature, for one) reopens the
-  // dialog the person left, instead of leaving them to find the button again.
-  const reopenTask = useRouterState({
-    select: (state) => reopenTaskFromSearch(state.location.search),
+  // On the experiment page the page itself reports why the record is frozen.
+  useFrozenReport({
+    lockedAt: flags.lockedAt,
+    reviewActivity: flags.reviewActivity,
+    embedded,
   })
 
-  const readyReopen =
-    reopenTask === 'submit' ? canSubmit && reopenTask : canSign && reopenTask
-
-  const [handledReopen, setHandledReopen] = useState<typeof readyReopen>(false)
-
-  if (handledReopen !== readyReopen) {
-    setHandledReopen(readyReopen)
-
-    if (readyReopen === 'submit') setSubmitOpen(true)
-    else if (readyReopen === 'sign') setSignOpen(true)
-  }
-
-  useEffect(() => {
-    const task = reopenTask
-
-    if (!task) return
-
-    if (task === 'submit' && !canSubmit) return
-
-    if (task === 'sign' && !canSign) return
-
-    // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- Installed merged route declarations cannot express this unchanged relative search reducer across embedded routes; this does not validate search.
-    void navigate({
-      to: '.',
-      search: (
-        previous: ReturnType<typeof useRouterState>['location']['search'],
-      ) => ({
-        ...previous,
-        reopen: undefined,
-      }),
-      replace: true,
-    } as never)
-  }, [canSubmit, canSign, navigate, reopenTask])
-
-  const linkRecords = useMutation({
-    mutationFn: (items: PickerItem[]) =>
-      Promise.all(
-        items.map((item) =>
-          notebookDataClient.rpc('create_record_link', {
-            p_source_record_id: record.id,
-            p_target_kind: pickerRecordKind(item.kind),
-            p_target_identifier: item.identifier,
-            p_link_type: pickerLinkType(item.kind),
-            p_target_record_id: item.id,
-          }),
-        ),
-      ),
-    onSuccess: (_result, items) => {
-      void queryClient.invalidateQueries({
-        queryKey: notebookQueryKeys.links(record.id),
-      })
-      // The experiment page's Links tab reads the same rows under its own key.
-      void queryClient.invalidateQueries({
-        queryKey: ['ui-port', 'experiment-links', record.id],
-      })
-      toast(
-        items.length === 1
-          ? t('notebook.notebookPage.recordLinked')
-          : t('notebook.notebookPage.countRecordsLinked', {
-              count: items.length,
-            }),
-      )
-    },
-    onError: () =>
-      toast(t('notebook.notebookPage.couldNotLink'), {
-        description: t('notebook.notebookPage.theRecordMayAlreadyDescription'),
-      }),
+  useReopenTask({
+    canSubmit: flags.canSubmit,
+    canSign: flags.canSign,
+    openSubmit: () => dialogs.setSubmitOpen(true),
+    openSign: () => dialogs.setSignOpen(true),
   })
+
+  const linkRecords = useLinkRecordLinks(record.id)
 
   return {
     record,
@@ -1970,33 +1535,9 @@ function useRecordHeaderModel({
     navigate,
     online,
     submitVariant,
-    submitOpen,
-    setSubmitOpen,
-    duplicateOpen,
-    setDuplicateOpen,
-    labelOpen,
-    setLabelOpen,
-    shareOpen,
-    setShareOpen,
-    signOpen,
-    setSignOpen,
-    withdrawOpen,
-    setWithdrawOpen,
-    linkOpen,
-    setLinkOpen,
-    lockedAt,
-    activeReview,
-    lifecycle,
-    reviewRevisionId,
-    canSubmit,
-    canEditTitle,
-    showSubmit,
-    stepCardOn,
-    canSign,
-    canWithdraw,
     linkRecords,
-    canOpenReview,
-    evidenceRevisionId,
+    ...dialogs,
+    ...flags,
   }
 }
 
@@ -2116,6 +1657,217 @@ function recordHeaderActions({
   return recordActions
 }
 
+/** Submit, disabled with the reason while the device is offline. */
+function RecordSubmitButton({
+  variant,
+  online,
+  embedded,
+  status,
+  onClick,
+}: {
+  variant: 'primary' | 'secondary'
+  online: boolean
+  embedded: boolean
+  status: NotebookRecord['status']
+  onClick: () => void
+}): React.ReactElement {
+  return (
+    <ConnectionRequired
+      online={online}
+      reason={CONNECTION_REQUIRED_REASONS.submit}
+    >
+      {({ disabled, describedBy }) => (
+        <Button
+          type="button"
+          variant={variant}
+          disabled={disabled}
+          aria-describedby={describedBy}
+          onClick={onClick}
+        >
+          {embedded ? (
+            <SubmitLabel status={status} />
+          ) : status === 'returned' && variant === 'primary' ? (
+            t('notebook.currentStep.resubmit')
+          ) : (
+            t('common.actions.submit')
+          )}
+        </Button>
+      )}
+    </ConnectionRequired>
+  )
+}
+
+/** Sign, disabled with the reason while the device is offline. */
+function RecordSignButton({
+  online,
+  onClick,
+}: {
+  online: boolean
+  onClick: () => void
+}): React.ReactElement {
+  return (
+    <ConnectionRequired
+      online={online}
+      reason={CONNECTION_REQUIRED_REASONS.sign}
+    >
+      {({ disabled, describedBy }) => (
+        <Button
+          type="button"
+          variant="primary"
+          disabled={disabled}
+          aria-describedby={describedBy}
+          onClick={onClick}
+        >
+          {t('notebook.notebookPage.sign')}
+        </Button>
+      )}
+    </ConnectionRequired>
+  )
+}
+
+/** The title, the identifier and the notebook's evidence lifecycle. */
+function RecordHeaderIdentity({
+  record,
+  embedded,
+  canEditTitle,
+  lifecycle,
+}: {
+  record: NotebookRecord
+  embedded: boolean
+  canEditTitle: boolean
+  lifecycle: string
+}): React.ReactElement {
+  return (
+    <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
+      {embedded ? null : canEditTitle ? (
+        <>
+          {/* The title is editable, so the document heading is kept for
+              assistive tech and the page-level h1 contract. */}
+          <h1 className="sr-only">{record.title}</h1>
+          <RecordTitleInput
+            recordId={record.id}
+            title={record.title}
+            tags={record.tags}
+            className="h-auto w-auto min-w-0 flex-1 border-transparent bg-transparent px-0 font-display text-xl font-semibold leading-7 tracking-[-0.025em] shadow-none sm:text-2xl sm:leading-8"
+          />
+        </>
+      ) : (
+        <h1 className="font-display text-xl font-semibold leading-7 tracking-[-0.025em] text-foreground sm:text-2xl sm:leading-8">
+          {record.title}
+        </h1>
+      )}
+      {/* The identifier belongs beside the title: it is how the record is
+              named in a conversation, and it was previously buried in a line of
+              dates. The status badge sits with them, because the two states the
+              header used to show side by side — the experiment's status and the
+              notebook's evidence lifecycle — read as a contradiction when
+              neither is labelled. The lifecycle lives in the inspector, where
+              it is labelled. */}
+      {embedded ? null : (
+        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+          {record.identifier}
+        </span>
+      )}
+      {/* The notebook's evidence lifecycle, and only it: Working means you
+              are editing a live draft, Submitted or In review means the
+              evidence is frozen. The record's own status lives in the
+              inspector, where the row is named. */}
+      {embedded ? null : (
+        <span
+          className={
+            lifecycle === 'Submitted' || lifecycle === 'In review'
+              ? // On a phone the frozen-evidence notice below already says
+                // this, so the pill would only repeat it.
+                'inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text max-md:hidden'
+              : 'inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
+          }
+        >
+          {lifecycle === 'Submitted' || lifecycle === 'In review' ? (
+            <Icon name="lock" className="size-3" aria-hidden />
+          ) : null}
+          {lifecycle}
+        </span>
+      )}
+    </div>
+  )
+}
+
+/** Presence, the record's own pin and follow, its actions and its extensions. */
+function RecordHeaderControls({
+  record,
+  embedded,
+  offered,
+  recordActions,
+  online,
+  submitVariant,
+  showSubmit,
+  canSign,
+  onSubmit,
+  onSign,
+  extensionActions,
+  onExtensionAction,
+}: {
+  record: NotebookRecord
+  embedded: boolean
+  offered: boolean
+  recordActions: RecordAction[]
+  online: boolean
+  submitVariant: 'primary' | 'secondary'
+  showSubmit: boolean
+  canSign: boolean
+  onSubmit: () => void
+  onSign: () => void
+  extensionActions: ResolvedExtensionContribution[]
+  onExtensionAction:
+    ((action: ResolvedExtensionContribution) => void) | undefined
+}): React.ReactElement {
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-2 pt-1 max-md:flex-nowrap max-md:pt-0 ${embedded ? 'max-md:w-full' : 'max-md:shrink-0'}`}
+      data-print-hide
+    >
+      {/* COLLAB-01: who else is in this record's room. Self-gates on
+              room readiness, so SSR and pre-hydration output are stable. */}
+      <span className="contents max-md:hidden">
+        <PresenceStack />
+      </span>
+      {/* FIND-02: deliberate pin for fast return; optimistic, never blocking. */}
+      {embedded ? null : (
+        <span className="contents max-md:hidden">
+          <FavouriteToggle kind="record" objectId={record.id} />
+        </span>
+      )}
+      {embedded ? null : (
+        <span className="contents max-md:hidden">
+          <FollowToggle kind="record" objectId={record.id} />
+        </span>
+      )}
+      {offered ? null : <RecordActionsMenu actions={recordActions} />}
+      <RecordMainActions enabled={embedded}>
+        {showSubmit ? (
+          <RecordSubmitButton
+            variant={submitVariant}
+            online={online}
+            embedded={embedded}
+            status={record.status}
+            onClick={onSubmit}
+          />
+        ) : null}
+        {canSign ? <RecordSignButton online={online} onClick={onSign} /> : null}
+      </RecordMainActions>
+      {/* EXT-02: enabled extensions' object-actions. Ghost buttons match
+              the surrounding utility controls; nothing renders while empty
+              (the slot hides contributions the caller could never invoke). */}
+      {onExtensionAction ? (
+        <ExtensionObjectActions
+          actions={extensionActions}
+          onSelect={onExtensionAction}
+        />
+      ) : null}
+    </div>
+  )
+}
+
 export function StickyRecordHeader(
   props: Parameters<typeof useRecordHeaderModel>[0],
 ) {
@@ -2150,140 +1902,32 @@ export function StickyRecordHeader(
   const recordActions = recordHeaderActions(model)
   const offered = useOfferRecordActions(recordActions, embedded)
 
-  const submitButton = (variant: 'primary' | 'secondary') => (
-    <ConnectionRequired
-      online={online}
-      reason={CONNECTION_REQUIRED_REASONS.submit}
-    >
-      {({ disabled, describedBy }) => (
-        <Button
-          type="button"
-          variant={variant}
-          disabled={disabled}
-          aria-describedby={describedBy}
-          onClick={() => setSubmitOpen(true)}
-        >
-          {embedded ? (
-            <SubmitLabel status={record.status} />
-          ) : record.status === 'returned' && variant === 'primary' ? (
-            t('notebook.currentStep.resubmit')
-          ) : (
-            t('common.actions.submit')
-          )}
-        </Button>
-      )}
-    </ConnectionRequired>
-  )
-
   return (
     <div className="flex flex-col pb-1.5 pt-2 max-md:pt-1">
       {/* The title and the record's own actions share a line. Giving the
           actions a line of their own left a band of empty space above the
           properties and pushed the title down the page. */}
       <div className="flex flex-wrap items-start gap-x-4 gap-y-2 max-md:flex-nowrap max-md:items-center max-md:gap-x-0">
-        <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
-          {embedded ? null : canEditTitle ? (
-            <>
-              {/* The title is editable, so the document heading is kept for
-              assistive tech and the page-level h1 contract. */}
-              <h1 className="sr-only">{record.title}</h1>
-              <RecordTitleInput
-                recordId={record.id}
-                title={record.title}
-                tags={record.tags}
-                className="h-auto w-auto min-w-0 flex-1 border-transparent bg-transparent px-0 font-display text-xl font-semibold leading-7 tracking-[-0.025em] shadow-none sm:text-2xl sm:leading-8"
-              />
-            </>
-          ) : (
-            <h1 className="font-display text-xl font-semibold leading-7 tracking-[-0.025em] text-foreground sm:text-2xl sm:leading-8">
-              {record.title}
-            </h1>
-          )}
-          {/* The identifier belongs beside the title: it is how the record is
-              named in a conversation, and it was previously buried in a line of
-              dates. The status badge sits with them, because the two states the
-              header used to show side by side — the experiment's status and the
-              notebook's evidence lifecycle — read as a contradiction when
-              neither is labelled. The lifecycle lives in the inspector, where
-              it is labelled. */}
-          {embedded ? null : (
-            <span className="font-mono text-xs tabular-nums text-muted-foreground">
-              {record.identifier}
-            </span>
-          )}
-          {/* The notebook's evidence lifecycle, and only it: Working means you
-              are editing a live draft, Submitted or In review means the
-              evidence is frozen. The record's own status lives in the
-              inspector, where the row is named. */}
-          {embedded ? null : (
-            <span
-              className={
-                lifecycle === 'Submitted' || lifecycle === 'In review'
-                  ? // On a phone the frozen-evidence notice below already says
-                    // this, so the pill would only repeat it.
-                    'inline-flex items-center gap-1 rounded-full border border-warning-border bg-warning/10 px-2 py-0.5 text-xs font-medium text-warning-text max-md:hidden'
-                  : 'inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-muted-foreground'
-              }
-            >
-              {lifecycle === 'Submitted' || lifecycle === 'In review' ? (
-                <Icon name="lock" className="size-3" aria-hidden />
-              ) : null}
-              {lifecycle}
-            </span>
-          )}
-        </div>
-        <div
-          className={`flex flex-wrap items-center gap-2 pt-1 max-md:flex-nowrap max-md:pt-0 ${embedded ? 'max-md:w-full' : 'max-md:shrink-0'}`}
-          data-print-hide
-        >
-          {/* COLLAB-01: who else is in this record's room. Self-gates on
-              room readiness, so SSR and pre-hydration output are stable. */}
-          <span className="contents max-md:hidden">
-            <PresenceStack />
-          </span>
-          {/* FIND-02: deliberate pin for fast return; optimistic, never blocking. */}
-          {embedded ? null : (
-            <span className="contents max-md:hidden">
-              <FavouriteToggle kind="record" objectId={record.id} />
-            </span>
-          )}
-          {embedded ? null : (
-            <span className="contents max-md:hidden">
-              <FollowToggle kind="record" objectId={record.id} />
-            </span>
-          )}
-          {offered ? null : <RecordActionsMenu actions={recordActions} />}
-          <RecordMainActions enabled={embedded}>
-            {showSubmit ? submitButton(submitVariant) : null}
-            {canSign ? (
-              <ConnectionRequired
-                online={online}
-                reason={CONNECTION_REQUIRED_REASONS.sign}
-              >
-                {({ disabled, describedBy }) => (
-                  <Button
-                    type="button"
-                    variant="primary"
-                    disabled={disabled}
-                    aria-describedby={describedBy}
-                    onClick={() => setSignOpen(true)}
-                  >
-                    {t('notebook.notebookPage.sign')}
-                  </Button>
-                )}
-              </ConnectionRequired>
-            ) : null}
-          </RecordMainActions>
-          {/* EXT-02: enabled extensions' object-actions. Ghost buttons match
-              the surrounding utility controls; nothing renders while empty
-              (the slot hides contributions the caller could never invoke). */}
-          {onExtensionAction ? (
-            <ExtensionObjectActions
-              actions={extensionActions}
-              onSelect={onExtensionAction}
-            />
-          ) : null}
-        </div>
+        <RecordHeaderIdentity
+          record={record}
+          embedded={embedded}
+          canEditTitle={canEditTitle}
+          lifecycle={lifecycle}
+        />
+        <RecordHeaderControls
+          record={record}
+          embedded={embedded}
+          offered={offered}
+          recordActions={recordActions}
+          online={online}
+          submitVariant={submitVariant}
+          showSubmit={showSubmit}
+          canSign={canSign}
+          onSubmit={() => setSubmitOpen(true)}
+          onSign={() => setSignOpen(true)}
+          extensionActions={extensionActions}
+          onExtensionAction={onExtensionAction}
+        />
       </div>
       {/* Everything about the record except its title, its identifier and the
           state of its notebook lives in the inspector, where each fact is
@@ -2450,24 +2094,6 @@ function notebookHeaderDialogs({
       ) : null}
     </>
   )
-}
-
-function pickerRecordKind(kind: PickerItem['kind']): string {
-  if (kind === 'Sample') return 'sample'
-
-  if (kind === 'Material') return 'material'
-
-  if (kind === 'Experiment') return 'experiment'
-
-  return 'dataset'
-}
-
-function pickerLinkType(kind: PickerItem['kind']): string {
-  if (kind === 'Sample') return 'sample'
-
-  if (kind === 'Material') return 'material'
-
-  return 'general'
 }
 
 type NotebookTab =

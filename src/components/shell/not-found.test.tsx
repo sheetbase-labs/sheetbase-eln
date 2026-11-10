@@ -10,7 +10,8 @@ import {
 } from '@tanstack/react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { NotFound, sectionForPath } from './not-found'
+import { NotFound } from './not-found'
+import { sectionForPath } from './not-found-section'
 
 import { Route as SplatRoute } from '#/routes/$'
 

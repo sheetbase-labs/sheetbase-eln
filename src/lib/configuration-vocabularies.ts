@@ -1,6 +1,8 @@
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
 import type { CanonicalDatasetSchemaField } from '#/lib/dataset-schema-definition-rpc'
-import type { FieldOption } from '#/lib/field-definition'
+import type { FieldCategorySource, FieldOption } from '#/lib/field-definition'
 import type { fetchModelFields } from '#/lib/model-fields'
 import type { SheetDefinitionConfiguration } from '#/lib/sheet-definition'
 
@@ -31,50 +33,48 @@ export interface ConfigurationVocabularyPage {
   hasMore: boolean
 }
 
-type SchemaCategoryWire =
-  | { kind: 'embedded'; options: FieldOption[] }
-  | { kind: 'vocabulary'; vocabularyId: string }
+/** A stored option as the schema projection carries it; a bad field falls back
+ * to the value the storage used before that field existed. */
+const categoryOptionSchema = z.object({
+  id: z.string(),
+  key: z.string(),
+  label: z.string(),
+  displayOrder: z.number().catch(0),
+  lifecycle: z.string().catch('active'),
+})
 
-function parseCategory(value: unknown): SchemaCategoryWire | null {
-  if (!value || typeof value !== 'object') return null
-  const record = value as Record<string, unknown>
+/** The category source a schema field stored: a gallery, or a vocabulary. */
+const categoryWireSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('vocabulary'), vocabularyId: z.string() }),
+  z.object({ kind: z.literal('embedded'), options: z.array(z.unknown()) }),
+])
 
-  if (record.kind === 'vocabulary' && typeof record.vocabularyId === 'string') {
-    return { kind: 'vocabulary', vocabularyId: record.vocabularyId }
-  }
+/** The field's stored category source, or null when it stored nothing usable. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the decode step: the field's category arrives as stored JSONB and `categoryWireSchema` below decides what it is.
+function parseCategory(value: unknown): FieldCategorySource | null {
+  const parsed = categoryWireSchema.safeParse(value)
 
-  if (record.kind === 'embedded' && Array.isArray(record.options)) {
-    const options = record.options.flatMap((option) => {
-      if (!option || typeof option !== 'object') return []
-      const item = option as Record<string, unknown>
+  if (!parsed.success) return null
 
-      if (
-        typeof item.id !== 'string' ||
-        typeof item.key !== 'string' ||
-        typeof item.label !== 'string'
-      ) {
-        return []
-      }
+  if (parsed.data.kind === 'vocabulary') return parsed.data
 
-      return [
-        {
-          id: item.id,
-          key: item.key,
-          label: item.label,
-          displayOrder:
-            typeof item.displayOrder === 'number' ? item.displayOrder : 0,
-          lifecycle:
-            item.lifecycle === 'retired'
-              ? ('retired' as const)
-              : ('active' as const),
-        },
-      ]
-    })
+  const options = parsed.data.options.flatMap((option) => {
+    const item = categoryOptionSchema.safeParse(option)
 
-    return { kind: 'embedded', options }
-  }
+    if (!item.success) return []
 
-  return null
+    return [
+      {
+        ...item.data,
+        lifecycle:
+          item.data.lifecycle === 'retired'
+            ? ('retired' as const)
+            : ('active' as const),
+      },
+    ]
+  })
+
+  return { kind: 'embedded', options }
 }
 
 function termsFromOptions(
@@ -230,47 +230,63 @@ export function normalizeConfigurationVocabularies(
   )
 }
 
+/** One vocabulary term as `list_configuration_vocabularies` returns it. */
+interface ConfigurationVocabularyTermWire {
+  id: string
+  key: string
+  label: string
+  lifecycle: string
+}
+
+/** One vocabulary the database lists, as it returns it. */
+interface ConfigurationVocabularyRowWire {
+  id: string
+  label: string
+  source_kind: ConfigurationVocabularySourceKind
+  source_id: string
+  source_label: string
+  field_key: string
+  category_kind: 'embedded' | 'vocabulary'
+  vocabulary_id?: string | null
+  terms?: ConfigurationVocabularyTermWire[]
+}
+
+/** The page `list_configuration_vocabularies` returns. */
+interface ConfigurationVocabularyPageWire {
+  items?: ConfigurationVocabularyRowWire[]
+  hasMore?: boolean
+}
+
 export async function loadConfigurationVocabularies(
   client: DataClient,
   workspaceId: string,
   offset = 0,
 ): Promise<ConfigurationVocabularyPage> {
-  const page = await client.rpc<unknown>('list_configuration_vocabularies', {
-    p_workspace_id: workspaceId,
-    p_limit: 200,
-    p_offset: offset,
-  })
+  const page = await client.rpc<ConfigurationVocabularyPageWire>(
+    'list_configuration_vocabularies',
+    {
+      p_workspace_id: workspaceId,
+      p_limit: 200,
+      p_offset: offset,
+    },
+  )
 
-  const wire = page as Record<string, unknown>
-  const rows = Array.isArray(wire.items) ? wire.items : []
+  const items = (page.items ?? []).map((item) => ({
+    id: item.id,
+    label: item.label,
+    sourceKind: item.source_kind,
+    sourceId: item.source_id,
+    sourceLabel: item.source_label,
+    fieldKey: item.field_key,
+    categoryKind: item.category_kind,
+    vocabularyId: item.vocabulary_id ?? null,
+    terms: (item.terms ?? []).map((term) => ({
+      id: term.id,
+      key: term.key,
+      label: term.label,
+      lifecycle: term.lifecycle,
+    })),
+  }))
 
-  const items = rows.map((row) => {
-    const item = row as Record<string, unknown>
-
-    return {
-      id: String(item.id),
-      label: String(item.label),
-      sourceKind: item.source_kind as ConfigurationVocabularySourceKind,
-      sourceId: String(item.source_id),
-      sourceLabel: String(item.source_label),
-      fieldKey: String(item.field_key),
-      categoryKind: item.category_kind as 'embedded' | 'vocabulary',
-      vocabularyId:
-        typeof item.vocabulary_id === 'string' ? item.vocabulary_id : null,
-      terms: Array.isArray(item.terms)
-        ? item.terms.map((term) => {
-            const value = term as Record<string, unknown>
-
-            return {
-              id: String(value.id),
-              key: String(value.key),
-              label: String(value.label),
-              lifecycle: String(value.lifecycle),
-            }
-          })
-        : [],
-    }
-  })
-
-  return { items, hasMore: wire.hasMore === true }
+  return { items, hasMore: page.hasMore === true }
 }

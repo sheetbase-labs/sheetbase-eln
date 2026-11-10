@@ -6,6 +6,8 @@
  * `create_dataset` RPC). Snapshots, archive/restore, historical query and
  * dependency inspection reuse the Core RPCs.
  */
+import { z } from 'zod'
+
 import type { ContractGateReport } from '#/lib/data-contracts/types'
 import type { DataClient } from './data-client'
 import { discoverObjectDependencies } from './object-dependencies'
@@ -50,11 +52,41 @@ export interface DatasetVersionWire {
   created_by_user_id: string | null
 }
 
+/**
+ * One canonical cell value: a scalar, or a nested list of them, or nothing when
+ * the cell is empty. Import values arrive with `undefined` for an empty
+ * optional cell, so it is part of the contract.
+ */
+export type DatasetCellValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | DatasetCellValue[]
+  | { [fieldId: string]: DatasetCellValue }
+
+/** A row's values, keyed by canonical field id. */
+export type DatasetRowValues = Record<string, DatasetCellValue>
+
+/**
+ * A cell as a caller holds it: stored JSON, or a native value the readers turn
+ * into text (a Date, bytes, a bigint, or an object with a text form). Dataset
+ * tests exercise exactly those coercions, so the input contract names them.
+ */
+export type DatasetCellInput = DatasetCellValue | { toString(): string }
+
+/** A dataset row as a caller holds it, before any coercion to stored JSON. */
+export type DatasetRowInput = Record<string, DatasetCellInput>
+
+/** One value a sheet export writes: the same shape a cell holds. */
+export type DatasetCsvValue = DatasetCellValue
+
 export interface DatasetCommitRow {
   operation: 'create' | 'update'
   rowId: string
   expectedRevision?: number
-  values: Record<string, unknown>
+  values: DatasetRowValues
   /** Captured with the successful canonical cell write, not supplied to History later. */
   reason?: string
   /**
@@ -90,7 +122,7 @@ export interface DatasetVersionRowPage {
   rows: Array<{
     rowId: string
     revision: number
-    values: Record<string, unknown>
+    values: DatasetRowValues
   }>
 }
 
@@ -135,13 +167,19 @@ export async function listPublishedDatasetSchemas(
   })
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return value as Record<string, unknown>
-  }
-
-  return null
-}
+/**
+ * The row `api.datasets` returns on insert. A reply that names the row
+ * differently is ignored rather than failing the create, and the revision is
+ * read exactly as the row carries it.
+ */
+const createdDatasetRow = z.looseObject({
+  id: z.string(),
+  name: z.string().nullish().catch(null),
+  revision: z
+    .unknown()
+    .transform((value) => Number(value ?? 1))
+    .catch(1),
+})
 
 function firstRow<T>(value: T | T[]): T {
   return Array.isArray(value) ? value[0] : value
@@ -165,29 +203,26 @@ export async function createDataset(
   },
 ): Promise<{ id: string; revision: number; name: string }> {
   const created = firstRow(
-    await client.insert<Record<string, unknown> | Record<string, unknown>[]>(
-      'datasets',
-      {
-        workspace_id: input.workspaceId,
-        schema_version_id: input.schemaVersionId,
-        name: input.name.trim(),
-        description: input.description?.trim() || null,
-        primary_project_id: input.primaryProjectId ?? null,
-        created_by_user_id: input.createdByUserId ?? null,
-      },
-    ),
+    await client.insert<unknown>('datasets', {
+      workspace_id: input.workspaceId,
+      schema_version_id: input.schemaVersionId,
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      primary_project_id: input.primaryProjectId ?? null,
+      created_by_user_id: input.createdByUserId ?? null,
+    }),
   )
 
-  const row = asRecord(created)
+  const row = createdDatasetRow.safeParse(created)
 
-  if (!row || typeof row.id !== 'string') {
+  if (!row.success) {
     throw new Error('Dataset create did not return an id')
   }
 
   return {
-    id: row.id,
-    name: typeof row.name === 'string' ? row.name : input.name,
-    revision: Number(row.revision ?? 1),
+    id: row.data.id,
+    name: row.data.name ?? input.name,
+    revision: row.data.revision,
   }
 }
 
@@ -314,22 +349,35 @@ export async function fetchDatasetDependencies(
   return discovery.dependencies
 }
 
+/** One Sheet a Dataset's rows came from. */
+export interface DatasetSheetLink {
+  instanceId: string
+  name: string
+  historical: boolean
+}
+
 export function sheetLinksFromDependencies(
   dependencies: ObjectDependency[],
-): Array<{ instanceId: string; name: string; historical: boolean }> {
-  return dependencies
-    .filter((item) => item.kind === 'sheet_instance')
-    .map((item) => ({
+): DatasetSheetLink[] {
+  const links: DatasetSheetLink[] = []
+
+  for (const item of dependencies) {
+    if (item.kind !== 'sheet_instance') continue
+
+    links.push({
       instanceId: item.id,
       name: item.label,
       historical: item.liveness !== 'active',
-    }))
+    })
+  }
+
+  return links
 }
 
 export function coerceDatasetCellValue(
   column: ScientificColumnWire,
   raw: string,
-): unknown {
+): DatasetCellValue {
   const trimmed = raw.trim()
 
   if (trimmed === '') return null
@@ -391,7 +439,7 @@ export function parseTsvRows(
 
   return lines.map((line) => {
     const cells = line.split('\t')
-    const values: Record<string, unknown> = {}
+    const values: DatasetRowValues = {}
     columns.forEach((column, index) => {
       values[column.id] = coerceDatasetCellValue(column, cells[index] ?? '')
     })
@@ -406,7 +454,7 @@ export function parseTsvRows(
 
 export function datasetRowsToCsv(
   columns: ScientificColumnWire[],
-  rows: Array<Record<string, unknown>>,
+  rows: ReadonlyArray<Readonly<Record<string, DatasetCsvValue>>>,
 ): string {
   const header = columns.map((column) => csvCell(column.label)).join(',')
 
@@ -419,13 +467,14 @@ export function datasetRowsToCsv(
   return [header, ...body].join('\n')
 }
 
-function csvCell(value: unknown): string {
-  const text =
-    value === null || value === undefined
-      ? ''
-      : typeof value === 'string'
-        ? value
-        : String(value)
+/** The scalar kinds a CSV cell writes as they read. */
+const csvScalar = z.union([z.string(), z.number(), z.boolean()])
+
+function csvCell(value: DatasetCellValue): string {
+  if (value === null || value === undefined) return ''
+
+  const scalar = csvScalar.safeParse(value)
+  const text = scalar.success ? String(scalar.data) : JSON.stringify(value)
 
   if (/[",\n]/.test(text)) return `"${text.replaceAll('"', '""')}"`
 

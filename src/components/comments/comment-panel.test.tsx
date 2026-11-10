@@ -8,6 +8,7 @@ import { CommentPanel } from './comment-panel'
 
 const fetchComments = vi.hoisted(() => vi.fn())
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The panel reads through the module-level notebook client, which has no injection point; this suite answers that one read with fixed wire rows and leaves the rest of the module real.
 vi.mock('#/lib/comments-data', async (original) => ({
   ...(await original()),
   fetchCommentsForRevision: fetchComments,

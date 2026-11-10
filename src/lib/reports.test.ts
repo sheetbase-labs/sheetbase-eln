@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { DataClient } from '#/lib/data-client'
+import { dataClientTestDouble } from '#/lib/data-client-test-support'
 import {
   addEvidenceSection,
   createReport,
@@ -13,10 +13,9 @@ import {
   updateSection,
   validationLabel,
 } from './reports'
-import type { ReportSection } from './reports'
+import type { ReportSection, ReportSectionFrozenPayload } from './reports'
 
-const stub = (overrides: Record<string, unknown>) =>
-  overrides as unknown as DataClient
+const stub = dataClientTestDouble
 
 describe('moveId', () => {
   it('moves an id one place and leaves the ends alone', () => {
@@ -60,7 +59,9 @@ describe('sectionKindForBlock', () => {
 })
 
 describe('frozenBlockOf', () => {
-  const section = (frozenPayload: Record<string, unknown>): ReportSection => ({
+  const section = (
+    frozenPayload: ReportSectionFrozenPayload,
+  ): ReportSection => ({
     id: 's',
     position: 1,
     title: 'T',

@@ -17,12 +17,14 @@
  * stay human-session-only. Unknown paths stay fail-closed.
  */
 import { jwtVerify } from 'jose'
+import { z } from 'zod'
 
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import { and, eq } from 'drizzle-orm'
 
 import type * as schema from '#/db/schema'
 import { apiCredentials, workspaceMemberships } from '#/db/schema'
+import { VALID_SCOPES } from '#/lib/api-credential-scopes'
 import { LAB_RPC_SCOPES, LAB_TABLE_ACCESS } from '#/lib/lab-api-schemas'
 import type { ProxyPath } from '#/lib/postgrest-path'
 import type { Scope } from '#/lib/api-credentials'
@@ -71,6 +73,20 @@ export class ExternalTokenError extends Error {
   }
 }
 
+/**
+ * The claims an external token carries, as the exchange signed them. The
+ * exchange only mints canonical scopes (`assertIssuableScopes`), so a token
+ * carrying anything else is not one of ours.
+ */
+const tokenClaimsSchema = z.object({
+  workspace_id: z.string(),
+  credential_id: z.string(),
+  scopes: z.array(z.enum(VALID_SCOPES)),
+  role: z.enum(['api_client', 'authenticated']),
+  kind: z.string().optional(),
+  sub: z.string().optional(),
+})
+
 /** Verifies the JWT signature and shape; returns the claims or throws. */
 export async function verifyApiClientToken(
   token: string,
@@ -89,30 +105,14 @@ export async function verifyApiClientToken(
     throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
   }
 
-  if (typeof payload !== 'object' || payload === null) {
+  const decoded = tokenClaimsSchema.safeParse(payload)
+
+  if (!decoded.success) {
     throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
   }
 
-  const p = payload as Record<string, unknown>
-  const workspaceId = p.workspace_id
-  const credentialId = p.credential_id
-  const scopes = p.scopes
-  const role = p.role
-
-  if (
-    typeof workspaceId !== 'string' ||
-    typeof credentialId !== 'string' ||
-    !Array.isArray(scopes) ||
-    !scopes.every((s) => typeof s === 'string')
-  ) {
-    throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
-  }
-
-  const base = {
-    workspace_id: workspaceId,
-    credential_id: credentialId,
-    scopes: scopes as Scope[],
-  }
+  const { workspace_id, credential_id, scopes, role, kind, sub } = decoded.data
+  const base = { workspace_id, credential_id, scopes }
 
   // Service credential: role api_client, no user identity.
   if (role === 'api_client') {
@@ -121,12 +121,8 @@ export async function verifyApiClientToken(
 
   // Personal token: role authenticated with the creator's sub and a kind
   // marker, so the proxy can tell it from a browser-session JWT.
-  if (
-    role === 'authenticated' &&
-    p.kind === 'personal' &&
-    typeof p.sub === 'string'
-  ) {
-    return { ...base, sub: p.sub, kind: 'personal', role: 'authenticated' }
+  if (kind === 'personal' && sub !== undefined) {
+    return { ...base, sub, kind: 'personal', role: 'authenticated' }
   }
 
   throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
@@ -142,7 +138,12 @@ export interface TableAccess {
  * table has one; otherwise fail closed. Schema catalogues are read-only on
  * the table path: authoring goes through RPCs that API-07 still denies.
  */
-export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
+/** External table access, keyed by the PostgREST table name. */
+interface ExternalTableAccess {
+  [table: string]: TableAccess
+}
+
+export const EXTERNAL_TABLE_ACCESS: ExternalTableAccess = {
   projects: { read: 'projects:read', write: 'projects:write' },
   member_absences: { read: 'people:read' },
   idp_group_mappings: { read: 'people:read' },
@@ -220,7 +221,12 @@ export const EXTERNAL_TABLE_ACCESS: Record<string, TableAccess> = {
  * fail-closed. `sheets:write` never includes Sheet Definition authoring.
  * `datasets:*` never includes Dataset Schema Version authoring.
  */
-export const EXTERNAL_RPC_SCOPES: Record<string, Scope[]> = {
+/** The scopes each external RPC needs, keyed by RPC name. */
+interface ExternalRpcScopes {
+  [rpc: string]: Scope[]
+}
+
+export const EXTERNAL_RPC_SCOPES: ExternalRpcScopes = {
   // People and continuity. Personal tokens only; the member's own permissions
   // still decide (setting someone else's absence or handing over their work
   // needs members access).
@@ -470,8 +476,9 @@ export async function verifyExternalCredential(
     throw new ExternalTokenError('invalid_token', 'Invalid bearer token.')
   }
 
-  // `kind` is NOT NULL DEFAULT 'service' (former migration 0123);
-  // the cast narrows the text column to the checked union.
+  // SAFETY: `kind` is NOT NULL DEFAULT 'service' with
+  // `chk_api_credentials_kind` limiting it to 'service' or 'personal', so the
+  // text column always holds one of those two values.
   const kind = row.kind as 'service' | 'personal'
 
   // A personal token must present the creator's identity to the PostgREST

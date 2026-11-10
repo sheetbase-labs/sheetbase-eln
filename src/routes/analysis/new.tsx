@@ -3,51 +3,54 @@ import {
   lazyRouteComponent,
   redirect,
 } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import { parseCreateContext } from '#/lib/create-context-search'
 import type { CreateContextSearch } from '#/lib/create-context-search'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
+/** The analysis screen's own search params, on top of the shared create context. */
+interface AnalysisSearch {
+  x?: string
+  y?: string
+  mode?: string
+  view?: string
+  definition?: string
+  snapshot?: string
+}
+
+/**
+ * The raw URL values for the analysis params. A value the screen does not
+ * read is ignored, exactly as a hand-written type check would skip it.
+ */
+const analysisSearch = z.looseObject({
+  x: z.string().optional().catch(undefined),
+  y: z.string().optional().catch(undefined),
+  view: z.string().optional().catch(undefined),
+  definition: z.string().min(1).optional().catch(undefined),
+  // A snapshot of `dataset` to read instead of its live rows.
+  snapshot: z.string().min(1).optional().catch(undefined),
+  mode: z.enum(['chart', 'analyse', 'compare']).optional().catch(undefined),
+})
+
 export const Route = createFileRoute('/analysis/new')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): CreateContextSearch & {
-    x?: string
-    y?: string
-    mode?: string
-    view?: string
-    definition?: string
-    snapshot?: string
-  } => {
-    const next: CreateContextSearch & {
-      x?: string
-      y?: string
-      mode?: string
-      view?: string
-      definition?: string
-      snapshot?: string
-    } = parseCreateContext(search)
+  validateSearch: (search): CreateContextSearch & AnalysisSearch => {
+    const next: CreateContextSearch & AnalysisSearch =
+      parseCreateContext(search)
 
-    if (typeof search.x === 'string') next.x = search.x
+    const extra = analysisSearch.parse(search)
 
-    if (typeof search.y === 'string') next.y = search.y
+    if (extra.x !== undefined) next.x = extra.x
 
-    if (typeof search.view === 'string') next.view = search.view
+    if (extra.y !== undefined) next.y = extra.y
 
-    if (typeof search.definition === 'string' && search.definition)
-      next.definition = search.definition
+    if (extra.view !== undefined) next.view = extra.view
 
-    // A snapshot of `dataset` to read instead of its live rows.
-    if (typeof search.snapshot === 'string' && search.snapshot)
-      next.snapshot = search.snapshot
+    if (extra.definition !== undefined) next.definition = extra.definition
 
-    if (
-      search.mode === 'chart' ||
-      search.mode === 'analyse' ||
-      search.mode === 'compare'
-    ) {
-      next.mode = search.mode
-    }
+    if (extra.snapshot !== undefined) next.snapshot = extra.snapshot
+
+    if (extra.mode !== undefined) next.mode = extra.mode
 
     return next
   },

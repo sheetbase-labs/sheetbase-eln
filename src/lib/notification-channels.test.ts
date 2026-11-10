@@ -67,6 +67,7 @@ describe('teamsMessageCard', () => {
     const facts = z
       .array(z.object({ name: z.string(), value: z.string() }))
       .parse(card.facts)
+
     expect(facts.map((fact) => fact.name)).toEqual(['Run', 'Rows'])
     expect(facts.find((fact) => fact.name === 'Rows')?.value).toBe('0')
   })

@@ -17,6 +17,7 @@
  * integration (citations → objects, template/budget omissions).
  */
 import { describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import {
   assembleGroundedContext,
@@ -24,9 +25,10 @@ import {
   retrieveForAi,
   toAiCitation,
 } from './ai-retrieval'
-import type { AiCitation } from './ai-retrieval'
+import type { AiCitation, AiRetrievalScope } from './ai-retrieval'
 import type { AiContextActor } from './ai-context'
 import type { DataClient } from './data-client'
+import type { RecordWire } from './notebook-data'
 import { toSearchResult } from './search'
 import type { SearchResultWire } from './search'
 
@@ -219,8 +221,23 @@ const FIELD_WEIGHTS: Array<{
   { field: 'description', weight: 1, matchedField: 'description' },
 ]
 
-function mockSearchRpc(args: Record<string, unknown>): SearchResultWire[] {
-  const query = String(args.p_query ?? '')
+/** The `search` RPC's argument object, as the retrieval code sends it. */
+const searchRpcArgsSchema = z.object({
+  p_query: z.string().optional(),
+  p_result_type: z.string().nullish(),
+  p_project_id: z.string().nullish(),
+  p_kind: z.string().nullish(),
+  p_status: z.string().nullish(),
+  p_owner_id: z.string().nullish(),
+  p_offset: z.number().nullish(),
+  p_limit: z.number().nullish(),
+})
+
+function mockSearchRpc<Args extends Record<string, unknown>>(
+  rawArgs: Args,
+): SearchResultWire[] {
+  const args = searchRpcArgsSchema.parse(rawArgs)
+  const query = args.p_query ?? ''
 
   const recordOnly =
     args.p_kind != null || args.p_status != null || args.p_owner_id != null
@@ -234,7 +251,7 @@ function mockSearchRpc(args: Record<string, unknown>): SearchResultWire[] {
 
   for (const doc of VISIBLE_DOCS) {
     if (args.p_result_type != null) {
-      const facet = String(args.p_result_type)
+      const facet = args.p_result_type
 
       if (facet === 'file' || facet === 'record') {
         if (doc.resultType !== 'record' && doc.resultType !== 'file') continue
@@ -246,18 +263,14 @@ function mockSearchRpc(args: Record<string, unknown>): SearchResultWire[] {
     if (recordOnly && doc.resultType !== 'record' && doc.resultType !== 'file')
       continue
 
-    if (
-      args.p_project_id != null &&
-      doc.projectId !== String(args.p_project_id)
-    )
+    if (args.p_project_id != null && doc.projectId !== args.p_project_id)
       continue
 
-    if (args.p_kind != null && doc.kind !== String(args.p_kind)) continue
+    if (args.p_kind != null && doc.kind !== args.p_kind) continue
 
-    if (args.p_status != null && doc.status !== String(args.p_status)) continue
+    if (args.p_status != null && doc.status !== args.p_status) continue
 
-    if (args.p_owner_id != null && doc.createdBy !== String(args.p_owner_id))
-      continue
+    if (args.p_owner_id != null && doc.createdBy !== args.p_owner_id) continue
     const words = tokens(query)
     let score = 0
     let bestWeight = 0
@@ -353,17 +366,22 @@ function mockSearchRpc(args: Record<string, unknown>): SearchResultWire[] {
     }))
 }
 
-function recordWire(id: string, overrides: Record<string, unknown> = {}) {
-  const titles: Record<
-    string,
-    {
-      title: string
-      identifier: string
-      kind: string
-      status: string
-      archived_at: string | null
-    }
-  > = {
+/** The fields of a fixture record the title table replaces per id. */
+interface RecordTitleFixture {
+  title: string
+  identifier: string
+  kind: string
+  status: string
+  archived_at: string | null
+}
+
+/** Titles keyed by the record id the fixture corpus uses. */
+interface RecordTitles {
+  [id: string]: RecordTitleFixture
+}
+
+function recordWire(id: string, overrides: Partial<RecordWire> = {}) {
+  const titles: RecordTitles = {
     [STABILITY_ID]: {
       title: 'Lentivector stability at 4 C',
       identifier: 'EXP-2026-0101',
@@ -415,20 +433,34 @@ function recordWire(id: string, overrides: Record<string, unknown> = {}) {
   }
 }
 
+/** The stubbed client these tests inspect: the retrieval transport plus its spy. */
+interface MockClient extends DataClient {
+  rpcMock: ReturnType<typeof vi.fn>
+}
+
+/** A data client for these tests: the reads retrieval makes, and no others. */
+function asMockClient<Stub>(stub: Stub): MockClient {
+  // SAFETY: the call site supplies every method retrieval calls, each
+  // answering the rows it decodes, plus the rpc spy the suite asserts on.
+  return stub as MockClient
+}
+
 /** Actor-scoped mock: RLS-filtered tables plus the contract-level search. */
-function mockClient() {
+function mockClient(): MockClient {
   const records = [
     recordWire(STABILITY_ID),
     recordWire(FREEZETHAW_ID),
     recordWire(PROTOCOL_ID),
   ]
 
-  const rpcMock = vi.fn(async (name: string, args: Record<string, unknown>) => {
-    if (name === 'search') return mockSearchRpc(args)
-    throw new Error(`unexpected rpc ${name}`)
-  })
+  const rpcMock = vi.fn(
+    async <Args extends Record<string, unknown>>(name: string, args: Args) => {
+      if (name === 'search') return mockSearchRpc(args)
+      throw new Error(`unexpected rpc ${name}`)
+    },
+  )
 
-  const client = {
+  return asMockClient({
     list: vi.fn(async (resource: string, query = '') => {
       if (resource === 'records') {
         const match = /id=eq\.([^&]*)/.exec(query)
@@ -445,21 +477,13 @@ function mockClient() {
     insert: vi.fn(async () => ({})),
     patch: vi.fn(async () => []),
     remove: vi.fn(async () => []),
-  } as unknown as DataClient & {
-    rpcMock: ReturnType<typeof vi.fn>
-    list: ReturnType<typeof vi.fn>
-    insert: ReturnType<typeof vi.fn>
-    patch: ReturnType<typeof vi.fn>
-    remove: ReturnType<typeof vi.fn>
-  }
-
-  return client
+  })
 }
 
 function retrieve(
   client: DataClient,
   query: string,
-  scope: Record<string, unknown> = {},
+  scope: Partial<Omit<AiRetrievalScope, 'workspaceId'>> = {},
 ) {
   return retrieveForAi(client, ACTOR, query, { workspaceId: WS, ...scope })
 }
@@ -471,7 +495,7 @@ function retrieve(
 describe('ai-retrieval questions', () => {
   const QUESTIONS: Array<{
     question: string
-    scope?: Record<string, unknown>
+    scope?: Partial<Omit<AiRetrievalScope, 'workspaceId'>>
     expectFirst: string
     expectKind: AiCitation['kind']
   }> = [
@@ -671,6 +695,7 @@ describe('ai-retrieval contract', () => {
 
   it('maps citation kinds to envelope refs; templates have no envelope kind', () => {
     const ref = (kind: AiCitation['kind']): string | null =>
+      // SAFETY: citationToObjectRef reads only the kind and the stable id.
       citationToObjectRef({ kind, stableId: 'id' } as AiCitation)?.kind ?? null
 
     expect(ref('record')).toBe('record')

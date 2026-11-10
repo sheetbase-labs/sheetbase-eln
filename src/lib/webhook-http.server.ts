@@ -2,6 +2,11 @@ import { lookup } from 'node:dns/promises'
 import { BlockList, isIP } from 'node:net'
 import { request } from 'node:https'
 
+import { z } from 'zod'
+
+/** The delivery path posts a JSON string; a streaming body is not supported here. */
+const requestBodySchema = z.string()
+
 const blocked = new BlockList()
 
 for (const [address, prefix] of [
@@ -97,7 +102,11 @@ export async function safeWebhookFetch(
           const headers = new Headers()
 
           for (const [key, value] of Object.entries(res.headers)) {
-            if (typeof value === 'string') headers.set(key, value)
+            // Node reports a once-seen header as a string and a repeated one as
+            // an array; only the single string form is forwarded.
+            if (Array.isArray(value) || value === undefined) continue
+
+            headers.set(key, value)
           }
 
           const status = res.statusCode ?? 502
@@ -114,6 +123,8 @@ export async function safeWebhookFetch(
     )
 
     req.on('error', reject)
-    req.end(typeof init.body === 'string' ? init.body : '')
+
+    const body = requestBodySchema.safeParse(init.body)
+    req.end(body.success ? body.data : '')
   })
 }

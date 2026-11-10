@@ -24,7 +24,7 @@ const NOTE =
   'The person sees a card and presses a button to do it; nothing changes until they do.'
 
 export function isQcProposalTool(name: string): name is QcProposeToolName {
-  return (QC_PROPOSE_TOOL_NAMES as readonly string[]).includes(name)
+  return QC_PROPOSE_TOOL_NAMES.some((tool) => tool === name)
 }
 
 export function qcProposalDefs(): ProviderToolDef[] {
@@ -95,6 +95,7 @@ const limitsText = (s: { mean: number | null; sd: number | null }) =>
 
 export async function buildQcProposal(
   name: QcProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Tool arguments arrive from the model as raw JSON; every case below parses them with its own schema before reading a field.
   args: unknown,
   context: LabToolContext,
 ): Promise<QcOutcome> {

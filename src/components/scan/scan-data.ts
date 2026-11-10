@@ -30,7 +30,8 @@ export interface ScanTarget {
   matchedAlias?: string
 }
 
-interface RecordWire {
+/** A record row as the scan lookup selects it. */
+export interface RecordWire {
   id: string
   identifier: string
   title: string
@@ -38,7 +39,8 @@ interface RecordWire {
   status: string
 }
 
-interface InstrumentWire {
+/** An instrument row as the scan lookup selects it. */
+export interface InstrumentWire {
   id: string
   display_id: string | null
   name: string
@@ -54,7 +56,12 @@ interface AliasWire {
 const RECORD_FIELDS = 'id,identifier,title,kind,status'
 const INSTRUMENT_FIELDS = 'id,display_id,name,instrument_type,intake_method'
 
-const KIND_LABELS: Record<string, string> = {
+/** Human wording for a record kind, keyed by the kind the API returns. */
+interface KindLabels {
+  [kind: string]: string
+}
+
+const KIND_LABELS: KindLabels = {
   sample: 'Sample',
   experiment: 'Experiment',
   material: 'Material',
@@ -120,12 +127,15 @@ export interface ScanResolution {
   suggestions: ScanTarget[]
 }
 
-/** Where a scanned target opens. Samples, instruments and other records each
- * have their own canonical surface. */
-export function scanTargetHref(target: ScanTarget): {
+/** The route and path parameters a scanned target opens at. */
+export interface ScanTargetHref {
   to: string
   params: Record<string, string>
-} {
+}
+
+/** Where a scanned target opens. Samples, instruments and other records each
+ * have their own canonical surface. */
+export function scanTargetHref(target: ScanTarget): ScanTargetHref {
   switch (target.kind) {
     case 'sample':
       return { to: '/samples/$sampleId', params: { sampleId: target.id } }

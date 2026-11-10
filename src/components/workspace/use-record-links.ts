@@ -42,7 +42,7 @@ const ID_PATTERN = /^[A-Z]{2,5}-[A-Z0-9-]{2,}$/
 
 /** True only for a mouse or trackpad: the keyboard hints make sense there. */
 const canHover = () =>
-  typeof window.matchMedia === 'function' &&
+  'matchMedia' in window &&
   window.matchMedia('(hover: hover) and (pointer: fine)').matches
 
 /** Touch-and-hold time before a record link peeks. */
@@ -60,7 +60,11 @@ export function useRecordLinks(
   onLongPress?: (anchor: HTMLAnchorElement) => void,
 ) {
   const longPress = useRef(onLongPress)
-  longPress.current = onLongPress
+
+  useEffect(() => {
+    longPress.current = onLongPress
+  }, [onLongPress])
+
   const hovered = useRef<HTMLAnchorElement | null>(null)
   const timer = useRef<number | null>(null)
   const [hint, setHint] = useState<{ left: number; top: number } | null>(null)
@@ -73,6 +77,7 @@ export function useRecordLinks(
     setHint(null)
   }, [])
 
+  // react-doctor-disable-next-line react-doctor/effect-needs-cleanup -- the hover and hold timers are created by the handlers this effect registers, and the returned cleanup clears both (clearHint cancels the hover timer, cancelHold the hold timer).
   useEffect(() => {
     // Dialogs portal out of the workspace, but their record links peek too.
     const inside = (node: Element | null) =>

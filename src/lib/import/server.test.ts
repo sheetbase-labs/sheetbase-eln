@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { beforeEach, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 import type { ObjectStorage } from '#/lib/file-storage'
 import {
   handleImportCommit,
@@ -15,6 +16,7 @@ const { rpc, select, resolve, parserFailure } = vi.hoisted(() => ({
   parserFailure: vi.fn(),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The handlers call this module's PostgREST transport directly rather than taking it as a parameter, and it needs a live PostgREST a unit test has no process for; the double answers those calls and decodes the same errors.
 vi.mock('#/lib/request-auth', () => ({
   postgrestRpc: rpc,
   postgrestSelect: select,
@@ -24,6 +26,7 @@ vi.mock('#/lib/request-auth', () => ({
     Response.json({ error: { code, message } }, { status }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Recording a parser failure is a server-side database write the handler calls directly; the double records it so the test can prove it happened.
 vi.mock('./parser-governance.server', () => ({
   recordParserFailure: parserFailure,
 }))
@@ -40,7 +43,7 @@ function fixture(
   parserVersions: unknown[] = [],
   filename = 'cov.csv',
 ) {
-  const bytes = typeof csv === 'string' ? new TextEncoder().encode(csv) : csv
+  const bytes = csv instanceof Uint8Array ? csv : new TextEncoder().encode(csv)
   const checksum = createHash('sha256').update(bytes).digest('hex')
 
   const storage: ObjectStorage = {
@@ -142,7 +145,21 @@ function fixture(
   return storage
 }
 
-function request(overrides: Record<string, unknown> = {}) {
+/** The commit body fields a test may replace. */
+interface CommitOverrides {
+  fileId?: string
+  datasetId?: string
+  idempotencyKey?: string
+  sheetName?: string
+}
+
+/** The file-read response body this suite inspects. */
+const fileReadBodySchema = z.object({
+  parser: z.unknown().nullable(),
+  recognitionMessage: z.string(),
+})
+
+function request(overrides: CommitOverrides = {}) {
   return new Request('http://app.invalid/api/import/commit', {
     method: 'POST',
     body: JSON.stringify({
@@ -418,10 +435,9 @@ it('names the draft parser instead of repeating the found headers', async () => 
     storage,
   )
 
-  const body = (await response.json()) as {
-    parser: unknown
-    recognitionMessage: string
-  }
+  const body = await response
+    .json()
+    .then((decoded) => fileReadBodySchema.parse(decoded))
 
   expect(body.parser).toBeNull()
   expect(body.recognitionMessage).toContain('match no approved parser')

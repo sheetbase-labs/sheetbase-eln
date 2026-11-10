@@ -16,6 +16,14 @@ import type {
 } from '#/lib/workspace-export/schedule'
 import type { BackupRecord } from '#/lib/workspace-export/backup.server'
 
+/** The schedule the backup settings form saves. */
+interface SaveBackupSettingsInput {
+  workspaceId: string
+  enabled: boolean
+  frequency: BackupFrequency
+  keepCount: number
+}
+
 export interface BackupsOverview {
   settings: BackupSettings
   backups: BackupRecord[]
@@ -28,11 +36,16 @@ export const fetchBackupsFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<BackupsOverview> => {
     const { requireSettingsArea } = await import('#/lib/admin-platform')
     await requireSettingsArea(data.workspaceId, 'backups')
-    const { getPool } = await import('#/db/pool.server')
-    const { env } = await import('#/env.server')
 
-    const { listBackups, readBackupSettings, resolveBackupDestination } =
-      await import('#/lib/workspace-export/backup.server')
+    const [
+      { getPool },
+      { env },
+      { listBackups, readBackupSettings, resolveBackupDestination },
+    ] = await Promise.all([
+      import('#/db/pool.server'),
+      import('#/env.server'),
+      import('#/lib/workspace-export/backup.server'),
+    ])
 
     const pool = getPool(env.DATABASE_URL)
     const destination = resolveBackupDestination()
@@ -51,7 +64,7 @@ export const saveBackupSettingsFn = createServerFn({ method: 'POST' })
       enabled: boolean
       frequency: string
       keepCount: number
-    }) => {
+    }): SaveBackupSettingsInput => {
       if (input.frequency !== 'daily' && input.frequency !== 'weekly') {
         throw new Error('invalid frequency')
       }
@@ -64,7 +77,12 @@ export const saveBackupSettingsFn = createServerFn({ method: 'POST' })
         throw new Error('invalid number of backups to keep')
       }
 
-      return input
+      return {
+        workspaceId: input.workspaceId,
+        enabled: input.enabled,
+        frequency: input.frequency,
+        keepCount: input.keepCount,
+      }
     },
   )
   .handler(async ({ data }): Promise<void> => {
@@ -76,18 +94,18 @@ export const saveBackupSettingsFn = createServerFn({ method: 'POST' })
       'manage',
     )
 
-    const { getPool } = await import('#/db/pool.server')
-    const { env } = await import('#/env.server')
-
-    const { saveBackupSettings } =
-      await import('#/lib/workspace-export/backup.server')
+    const [{ getPool }, { env }, { saveBackupSettings }] = await Promise.all([
+      import('#/db/pool.server'),
+      import('#/env.server'),
+      import('#/lib/workspace-export/backup.server'),
+    ])
 
     await saveBackupSettings(
       getPool(env.DATABASE_URL),
       data.workspaceId,
       {
         enabled: data.enabled,
-        frequency: data.frequency as BackupFrequency,
+        frequency: data.frequency,
         keepCount: data.keepCount,
       },
       userId,

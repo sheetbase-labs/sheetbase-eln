@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
 
 /**
@@ -7,6 +9,19 @@ import type { DataClient } from '#/lib/data-client'
  */
 
 export type ModelRuleEffect = 'flag_block_submit' | 'warn' | 'block'
+
+/**
+ * One side of a condition comparison: a JSON scalar, or a list of them for the
+ * `in`/`not_in` operators. The stored rule DSL carries nothing else.
+ */
+export type ModelRuleOperand =
+  string | number | boolean | null | readonly ModelRuleOperand[]
+
+/** One custom-field value as a form holds it before the server validates it. */
+export type ModelFieldValue = string | number | boolean | null | undefined
+
+/** A model's candidate custom-field values, keyed by field name. */
+export type ModelFieldValues = Record<string, ModelFieldValue>
 
 /** Leaf predicate over a model custom field. */
 export interface ModelRuleLeafCondition {
@@ -23,7 +38,7 @@ export interface ModelRuleLeafCondition {
     | 'is_null'
     | 'not_null'
     | 'matches'
-  value?: unknown
+  value?: ModelRuleOperand
 }
 
 /** Boolean combinator or leaf. `{}` always matches. */
@@ -178,23 +193,35 @@ export function fetchModelRecordValidation(
 // this never decides what is saved, only what the form says in advance.
 // ---------------------------------------------------------------------------
 
-function isNullish(value: unknown): boolean {
+const numericOperand = z.number()
+const textualOperand = z.string()
+
+/** Either side of a comparison as a stored leaf may carry it: its `value` is optional. */
+type ComparisonOperand = ModelRuleOperand | undefined
+
+function isNullish(value: ModelFieldValue): value is null | undefined | 'null' {
   return value === null || value === undefined || value === 'null'
 }
 
-function asNumber(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) return value
+function asNumber(value: ComparisonOperand): number | null {
+  const numeric = numericOperand.safeParse(value)
 
-  if (typeof value === 'string' && value.trim() !== '') {
-    const parsed = Number(value)
+  if (numeric.success)
+    return Number.isFinite(numeric.data) ? numeric.data : null
 
-    return Number.isFinite(parsed) ? parsed : null
-  }
+  const textual = textualOperand.safeParse(value)
 
-  return null
+  if (!textual.success || textual.data.trim() === '') return null
+
+  const parsed = Number(textual.data)
+
+  return Number.isFinite(parsed) ? parsed : null
 }
 
-function looseEquals(left: unknown, right: unknown): boolean {
+function looseEquals(
+  left: ComparisonOperand,
+  right: ComparisonOperand,
+): boolean {
   const leftNumber = asNumber(left)
   const rightNumber = asNumber(right)
 
@@ -204,40 +231,64 @@ function looseEquals(left: unknown, right: unknown): boolean {
   return String(left) === String(right)
 }
 
-function inList(value: unknown, list: unknown): boolean {
+function inList(value: ComparisonOperand, list: ComparisonOperand): boolean {
   if (!Array.isArray(list)) return false
 
   return list.some((entry) => looseEquals(value, entry))
 }
 
+function isNotCondition(
+  condition: ModelRuleCondition,
+): condition is { not: ModelRuleCondition } {
+  return 'not' in condition
+}
+
+function isAllCondition(
+  condition: ModelRuleCondition,
+): condition is { all: ModelRuleCondition[] } {
+  return 'all' in condition
+}
+
+function isAnyCondition(
+  condition: ModelRuleCondition,
+): condition is { any: ModelRuleCondition[] } {
+  return 'any' in condition
+}
+
+/**
+ * The DSL's leaf predicate. `Record<string, never>` cannot be excluded by an
+ * `in` check, so TypeScript cannot reach the leaf from the union on its own.
+ */
+function leafCondition(condition: ModelRuleCondition): ModelRuleLeafCondition {
+  // SAFETY: the empty condition returned true and `not`/`all`/`any` returned above, so the only remaining non-empty shape is the leaf, whose members are then read with their own null handling.
+  return condition as ModelRuleLeafCondition
+}
+
 /** Mirrors the SQL condition DSL. `{}` always matches. */
 export function modelRuleConditionMatches(
   condition: ModelRuleCondition | null | undefined,
-  values: Record<string, unknown>,
+  values: ModelFieldValues,
 ): boolean {
   if (!condition) return true
 
   if (Object.keys(condition).length === 0) return true
 
-  if ('not' in condition)
-    return !modelRuleConditionMatches(
-      (condition as { not: ModelRuleCondition }).not,
-      values,
+  if (isNotCondition(condition))
+    return !modelRuleConditionMatches(condition.not, values)
+
+  if (isAllCondition(condition)) {
+    return condition.all.every((entry) =>
+      modelRuleConditionMatches(entry, values),
     )
-
-  if ('all' in condition) {
-    const all = (condition as { all: ModelRuleCondition[] }).all
-
-    return all.every((entry) => modelRuleConditionMatches(entry, values))
   }
 
-  if ('any' in condition) {
-    const any = (condition as { any: ModelRuleCondition[] }).any
-
-    return any.some((entry) => modelRuleConditionMatches(entry, values))
+  if (isAnyCondition(condition)) {
+    return condition.any.some((entry) =>
+      modelRuleConditionMatches(entry, values),
+    )
   }
 
-  const leaf = condition as ModelRuleLeafCondition
+  const leaf = leafCondition(condition)
   const op = leaf.op ?? 'eq'
   const value = values[leaf.field]
 
@@ -256,10 +307,14 @@ export function modelRuleConditionMatches(
       return inList(value, leaf.value)
     case 'not_in':
       return !inList(value, leaf.value)
-    case 'matches':
-      return typeof leaf.value === 'string'
-        ? new RegExp(leaf.value).test(String(value))
+    case 'matches': {
+      const pattern = textualOperand.safeParse(leaf.value)
+
+      return pattern.success
+        ? new RegExp(pattern.data).test(String(value))
         : false
+    }
+
     case 'gt':
     case 'gte':
     case 'lt':
@@ -297,15 +352,19 @@ export function modelRuleConditionMatches(
 /** Evaluate a model's rules against candidate custom-field values. */
 export function evaluateModelRules(
   rules: ModelRule[],
-  values: Record<string, unknown>,
+  values: ModelFieldValues,
 ): ModelRecordValidation {
-  const matches = rules
-    .filter((rule) => modelRuleConditionMatches(rule.condition, values))
-    .map<ModelRuleMatch>((rule) => ({
+  const matches: ModelRuleMatch[] = []
+
+  for (const rule of rules) {
+    if (!modelRuleConditionMatches(rule.condition, values)) continue
+
+    matches.push({
       ruleId: rule.id,
       effect: rule.effect,
       message: rule.message,
-    }))
+    })
+  }
 
   const byEffect = (effect: ModelRuleEffect) =>
     matches.filter((match) => match.effect === effect)

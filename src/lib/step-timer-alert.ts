@@ -5,21 +5,24 @@
  * a browser that refuses one still gets the others, and the page always shows
  * the timer as finished.
  */
+import { z } from 'zod'
+
 import { t } from '#/copy'
 
 const ALERTED_KEY = 'sheetbase.stepTimers.alerted'
 const MAX_REMEMBERED = 50
 
+/** The alert memory this device stores: timer ids, oldest first. */
+const ALERTED_IDS = z.array(z.string())
+
 /** Ids already alerted on this device, shared by every tab of the app. */
 function readAlerted(): string[] {
   try {
-    const parsed: unknown = JSON.parse(
-      localStorage.getItem(ALERTED_KEY) ?? '[]',
+    const parsed = ALERTED_IDS.safeParse(
+      JSON.parse(localStorage.getItem(ALERTED_KEY) ?? '[]'),
     )
 
-    return Array.isArray(parsed)
-      ? parsed.filter((id): id is string => typeof id === 'string')
-      : []
+    return parsed.success ? parsed.data : []
   } catch {
     return []
   }
@@ -106,12 +109,16 @@ async function showNotification(
   }
 }
 
+/** The audio constructors a browser may expose; Safari's prefixed alias is not in lib.dom. */
+type AudioWindow = Window & {
+  AudioContext?: typeof AudioContext
+  webkitAudioContext?: typeof AudioContext
+}
+
 function beep(): void {
   try {
-    const audio = window as unknown as {
-      AudioContext?: typeof AudioContext
-      webkitAudioContext?: typeof AudioContext
-    }
+    // SAFETY: these are optional reads of the global object; a browser without the prefixed constructor simply reads undefined.
+    const audio = window as AudioWindow
 
     const Context = audio.AudioContext ?? audio.webkitAudioContext
 
@@ -144,9 +151,10 @@ export async function alertTimerFinished(
   url: string,
 ): Promise<void> {
   try {
-    ;(navigator as { vibrate?: (pattern: number[]) => boolean }).vibrate?.([
-      300, 150, 300, 150, 300,
-    ])
+    // SAFETY: browsers that do not vibrate (desktop Firefox, for one) have no `vibrate` at all, so it is read as the optional method the feature test needs.
+    const browser = navigator as { vibrate?: (pattern: number[]) => boolean }
+
+    browser.vibrate?.([300, 150, 300, 150, 300])
   } catch {
     // Not every browser vibrates.
   }

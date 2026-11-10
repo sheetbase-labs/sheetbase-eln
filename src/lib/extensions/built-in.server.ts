@@ -57,6 +57,7 @@ async function collect(
     if (entry.isDirectory()) {
       if (entry.name === '__pycache__' || entry.name === 'node_modules')
         continue
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- The walk inserts each directory's files in directory order, so the checked-in package's file list stays deterministic.
       await collect(base, path, out)
     } else if (entry.isFile()) {
       if (relative.startsWith('python') && !entry.name.endsWith('.py')) continue
@@ -76,21 +77,29 @@ export async function readBuiltInPackage(
   const base = join(directory, plugin.folder)
   const files: Record<string, string> = {}
 
-  for (const name of ROOT_FILES) {
-    try {
-      files[name] = await readFile(join(base, name), 'utf8')
-    } catch {
-      // Optional files.
-    }
-  }
+  // Optional files: the ones a plugin folder does not have are simply absent.
+  const rootFiles = await Promise.all(
+    ROOT_FILES.map(async (name) => {
+      try {
+        return [name, await readFile(join(base, name), 'utf8')] as const
+      } catch {
+        return null
+      }
+    }),
+  )
 
-  for (const root of PACKAGE_ROOTS) {
-    try {
-      await collect(base, root, files)
-    } catch {
-      // A plugin may have no ui/ or python/ folder.
-    }
-  }
+  for (const entry of rootFiles) if (entry) files[entry[0]] = entry[1]
+
+  // A plugin may have no ui/ or python/ folder; each root is read on its own.
+  await Promise.all(
+    PACKAGE_ROOTS.map(async (root) => {
+      try {
+        await collect(base, root, files)
+      } catch {
+        // A plugin may have no ui/ or python/ folder.
+      }
+    }),
+  )
 
   const built = buildPluginPackage(files)
 

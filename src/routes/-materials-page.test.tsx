@@ -22,29 +22,61 @@ import {
 import type * as ReagentData from '#/lib/reagent-data'
 import type { Reagent } from '#/lib/reagent-data'
 import { MaterialsRoute } from './-materials-page'
+import type { MaterialTab } from './-materials-page'
 
-const fixtures = vi.hoisted(() => ({ reagents: [] as unknown[] }))
+/** The materials route's search, as its `validateSearch` shapes it. */
+interface MaterialsSearch {
+  q?: string
+  tab?: MaterialTab
+  selected?: string
+  new?: true
+}
+
+/** What the screen hands `navigate`: a path plus its search up-date. */
+interface NavigateCall {
+  search?: MaterialsSearch | ((current: MaterialsSearch) => MaterialsSearch)
+}
+
+/** A navigate call whose search is the up-date function the tab move builds. */
+interface NavigateFunctionCall {
+  search: (current: MaterialsSearch) => MaterialsSearch
+}
+
+/** The stub's search value; each case rewrites it before rendering. */
+interface SearchState {
+  value: MaterialsSearch
+}
+
+const fixtures = vi.hoisted(() => {
+  const reagents: Reagent[] = []
+
+  return { reagents }
+})
 
 const search = vi.hoisted(() => {
-  const state: { value: Record<string, unknown> } = { value: {} }
+  const state: SearchState = { value: {} }
 
   return state
 })
 
-const navigate = vi.hoisted(() => ({ fn: (_options: unknown) => {} }))
+const navigate = vi.hoisted(() => ({
+  fn: (_options: NavigateCall) => {},
+}))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Capability checks read the signed-in person's workspace; this suite renders the write affordances, so the boundary answers yes.
 vi.mock('#/lib/use-capability', () => ({ useHasCapability: () => true }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The router's factories are bound to the generated route tree at import time; this suite renders the materials screen's own behaviour with the search and navigation the shell would supply.
 vi.mock('@tanstack/react-router', () => ({
   getRouteApi: () => ({
     useSearch: () => search.value,
-    useNavigate: () => (options: unknown) => navigate.fn(options),
+    useNavigate: () => (options: NavigateCall) => navigate.fn(options),
   }),
-  redirect: (options: unknown) => options,
-  useRouterState: ({
+  redirect: <T,>(options: T): T => options,
+  useRouterState: <T,>({
     select,
   }: {
-    select: (state: { location: { pathname: string } }) => unknown
+    select: (state: { location: { pathname: string } }) => T
   }) => select({ location: { pathname: '/materials' } }),
   Outlet: () => null,
   Link: ({
@@ -52,19 +84,21 @@ vi.mock('@tanstack/react-router', () => ({
     children,
     ...props
   }: {
-    to?: unknown
+    to: string
     children?: React.ReactNode
-  } & Record<string, unknown>) => (
-    <a href={typeof to === 'string' ? to : '#'} {...props}>
+  } & Omit<React.ComponentProps<'a'>, 'href'>) => (
+    <a href={to} {...props}>
       {children}
     </a>
   ),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The screen toasts through the shared sonner portal, which mounts no portal in jsdom; this suite never inspects the toast.
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The project list needs a database; the double answers the one project the dialog's select renders.
 vi.mock('#/lib/notebook-data', () => ({
   notebookDataClient: {
     list: async () => [{ id: 'p-1', title: 'Project A', project_id: 'p-1' }],
@@ -73,6 +107,7 @@ vi.mock('#/lib/notebook-data', () => ({
 
 // The registry read and every write go through the domain library; mock only
 // those, so the tests observe what the screen asks the boundary to do.
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Every read and write in this suite goes through this module; the double keeps its real mappers and scripted answers so the assertions see the arguments the screen passes the boundary.
 vi.mock('#/lib/reagent-data', async (importOriginal) => {
   const actual = await importOriginal<typeof ReagentData>()
 
@@ -97,6 +132,7 @@ vi.mock('#/lib/reagent-data', async (importOriginal) => {
  * covered by `tests/browser/registry-grid.test.ts`, which asserts its own
  * `data-index` attribute. Same double as `protocols.test.tsx`.
  */
+// oxlint-disable-next-line anti-slop/no-module-mocking -- jsdom has no layout, so the real virtualiser measures a zero-height viewport and renders no rows; the double returns the full range the browser renders, and its own behaviour is covered by tests/browser/registry-grid.test.ts.
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: ({ count }: { count: number }) => ({
     getVirtualItems: () =>
@@ -425,15 +461,14 @@ describe('?selected= across tabs', () => {
       }),
     ]
     search.value = { selected: 'mat-2' }
-    const calls: unknown[] = []
+    const calls: NavigateCall[] = []
     navigate.fn = (options) => calls.push(options)
     renderRoute()
 
     await waitFor(() => expect(calls).toHaveLength(1))
 
-    const options = calls[0] as {
-      search: (s: Record<string, unknown>) => Record<string, unknown>
-    }
+    // SAFETY: the linked-lot move is the only navigate call this screen makes with a search up-date function, which is what the call above is recorded for.
+    const options = calls[0] as NavigateFunctionCall
 
     expect(options.search({ selected: 'mat-2' })).toMatchObject({
       tab: 'quarantine',

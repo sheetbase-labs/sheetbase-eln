@@ -139,7 +139,14 @@ describe('handleProxyRequest', () => {
       'projects',
       makeDeps({
         fetchFn: async (url, init) => {
-          seen = { url: String(url), init: init ?? {} }
+          const target =
+            url instanceof Request
+              ? url.url
+              : url instanceof URL
+                ? url.href
+                : url
+
+          seen = { url: target, init: init ?? {} }
 
           return new Response('[{"id":"p1"}]', {
             status: 201,
@@ -658,7 +665,7 @@ describe('PLAT-03 proxy rate limiting', () => {
     const blocked = await handleProxyRequest(req('projects'), 'projects', deps)
     expect(blocked.status).toBe(429)
     expect(blocked.headers.get('retry-after')).toBeTruthy()
-    const body = (await blocked.json()) as { error: { category: string } }
+    const body = await blocked.json()
     expect(body.error.category).toBe('rate_limited')
   })
 

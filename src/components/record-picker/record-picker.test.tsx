@@ -9,6 +9,13 @@ import type { PickerItem, PickerResult } from './record-picker-data'
 import { toSearchResult } from '#/lib/search'
 import type { DataClient } from '#/lib/data-client'
 
+/** A data client for these tests: the reads they exercise, and no others. */
+function asClient<Stub>(client: Stub): DataClient {
+  // SAFETY: each call site supplies exactly the methods the helper under test
+  // reads, answering the rows it decodes; nothing else is called.
+  return client as DataClient
+}
+
 const mocks = vi.hoisted(() => {
   const sample: PickerItem = {
     id: 'smp-1',
@@ -40,6 +47,7 @@ const mocks = vi.hoisted(() => {
   return { sample, dataset, searchPickerRecords }
 })
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The picker reads its results through that module's search, which needs the assistant-backed server; the component takes no search parameter, so the module is the only seam. Every other export stays real.
 vi.mock('./record-picker-data', async () => {
   const actual = await vi.importActual<typeof PickerData>(
     './record-picker-data',
@@ -168,11 +176,12 @@ describe('RecordPicker', () => {
 })
 
 describe('fetchPickerRecents', () => {
+  /** A data client for these tests: the reads they exercise, and no others. */
   function client(tables: Record<string, unknown[]>): DataClient {
-    return {
+    return asClient({
       list: vi.fn(async (table: string) => tables[table] ?? []),
       rpc: vi.fn(async () => null),
-    } as unknown as DataClient
+    })
   }
 
   it('reads the per-user view table and resolves projects', async () => {

@@ -73,14 +73,14 @@ import {
   useParserReadinessByInstrument,
 } from '#/components/instruments/instruments-data'
 import type {
+  InstrumentCalibrationRow,
+  InstrumentLastImport,
   InstrumentRow,
   IntakeMethod,
 } from '#/components/instruments/instruments-data'
 import { useUserNames } from '#/lib/user-names'
 import { cn } from '#/lib/utils'
 import { signInRedirect } from '#/lib/sign-in-redirect'
-import { now as appNow } from '#/lib/clock'
-import { daysUntilDate } from '#/lib/calendar-days'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { requireBuiltInModel } from '#/lib/built-in-models'
 import { saveNewObjectFields } from '#/lib/model-subtypes'
@@ -91,46 +91,69 @@ import {
 } from '#/components/models/added-fields'
 import { withAddedColumns } from '#/components/models/added-field-columns'
 import { t } from '#/copy'
+import { calibrationState } from '#/components/instruments/calibration-standing'
+import type { CalibrationState } from '#/components/instruments/calibration-standing'
 import { instrumentTypeLabel } from '#/lib/instrument-type-label'
+import { z } from 'zod'
 
 /** UI port (roadmap-4/ui-app3): the Instruments area (LAB-06). Reads the real
  * instrument registry with its calibration standing; registering and retiring
  * go through the canonical RPCs. */
 const INSTRUMENT_MODEL = requireBuiltInModel('instrument')
 
+/** The Instruments screen's search: the tab in view, the filters applied, and any named instrument. */
+interface InstrumentsSearch {
+  tab?: 'all' | 'connected' | 'calibration' | 'retired' | 'usage'
+  q?: string
+  type?: string
+  connection?: string
+  calibration?: string
+  selected?: string
+  state?: 'empty' | 'denied'
+  new?: true
+}
+
+const INSTRUMENT_TABS = z.enum([
+  'all',
+  'connected',
+  'calibration',
+  'retired',
+  'usage',
+])
+
+const INSTRUMENT_STATES = z.enum(['empty', 'denied'])
+const OPEN_NEW = z.union([z.literal(true), z.literal('true')])
+
 export const Route = createFileRoute('/instruments')({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): {
-    tab?: 'all' | 'connected' | 'calibration' | 'retired' | 'usage'
-    q?: string
-    type?: string
-    connection?: string
-    calibration?: string
-    selected?: string
-    state?: 'empty' | 'denied'
-    new?: true
-  } => ({
-    new: search.new === true || search.new === 'true' ? true : undefined,
-    tab:
-      search.tab === 'connected' ||
-      search.tab === 'calibration' ||
-      search.tab === 'retired' ||
-      search.tab === 'usage'
-        ? search.tab
-        : undefined,
-    q: typeof search.q === 'string' ? search.q : undefined,
-    type: typeof search.type === 'string' ? search.type : undefined,
-    connection:
-      typeof search.connection === 'string' ? search.connection : undefined,
-    calibration:
-      typeof search.calibration === 'string' ? search.calibration : undefined,
-    selected: typeof search.selected === 'string' ? search.selected : undefined,
-    state:
-      search.state === 'empty' || search.state === 'denied'
-        ? search.state
-        : undefined,
-  }),
+  validateSearch: (search): InstrumentsSearch => {
+    const isNew = OPEN_NEW.safeParse(search.new)
+    const tab = INSTRUMENT_TABS.safeParse(search.tab)
+    const q = z.string().safeParse(search.q)
+    const type = z.string().safeParse(search.type)
+    const connection = z.string().safeParse(search.connection)
+    const calibration = z.string().safeParse(search.calibration)
+    const selected = z.string().safeParse(search.selected)
+    const state = INSTRUMENT_STATES.safeParse(search.state)
+    const view: InstrumentsSearch = {}
+
+    if (isNew.success) view.new = true
+
+    if (tab.success) view.tab = tab.data
+
+    if (q.success) view.q = q.data
+
+    if (type.success) view.type = type.data
+
+    if (connection.success) view.connection = connection.data
+
+    if (calibration.success) view.calibration = calibration.data
+
+    if (selected.success) view.selected = selected.data
+
+    if (state.success) view.state = state.data
+
+    return view
+  },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
 
@@ -160,6 +183,7 @@ const tabCountLabels: Record<keyof typeof tabLabels, string> = {
   usage: 'instruments',
 }
 
+/** The instruments area: the list itself, or whatever record is open in it. */
 function InstrumentsRoute() {
   const isIndex = useRouterState({
     select: (state) => state.location.pathname === '/instruments',
@@ -168,51 +192,194 @@ function InstrumentsRoute() {
   return isIndex ? <InstrumentsList /> : <Outlet />
 }
 
-type CalibrationState = 'ok' | 'soon' | 'overdue' | 'na'
-
-/** The registry's calibration due column and its Calibration tab. */
-export function calibrationState(
-  dueAt: string | null | undefined,
-  now: Date = appNow(),
-): {
-  state: CalibrationState
-  label: string
-  tone: 'ok' | 'warn' | 'bad' | 'none'
-} {
-  if (!dueAt)
-    return {
-      state: 'na',
-      label: t('library.instruments.list.notCalibrated'),
-      tone: 'none',
-    }
-  const due = Date.parse(dueAt)
-
-  if (Number.isNaN(due))
-    return {
-      state: 'na',
-      label: t('library.instruments.list.notCalibrated'),
-      tone: 'none',
-    }
-  const days = daysUntilDate(dueAt, now) ?? 0
-  const day = formatInstrumentDay(dueAt)
-
-  if (days < 0)
-    return {
-      state: 'overdue',
-      label: t('library.instruments.list.dOverdue', { day, days: -days }),
-      tone: 'bad',
-    }
-
-  if (days <= CALIBRATION_DUE_SOON_DAYS)
-    return {
-      state: 'soon',
-      label: t('library.instruments.list.dueInD', { day, days }),
-      tone: 'warn',
-    }
-
-  return { state: 'ok', label: day, tone: 'ok' }
+/** The New instrument form's own fields, before they become a model record. */
+interface InstrumentDraft {
+  name: string
+  type: string
+  make: string
+  model: string
+  serial: string
+  location: string
+  method: IntakeMethod
 }
 
+/** The intake method an offered choice names, or nothing when it is not one of them. */
+function intakeMethodOf(value: string): IntakeMethod | null {
+  return INTAKE_METHODS.find((method) => method.value === value)?.value ?? null
+}
+
+/** The registry's columns, given the evidence their cells read. */
+function instrumentColumns(evidence: {
+  latest: Map<string, InstrumentCalibrationRow> | undefined
+  lastImports: Map<string, InstrumentLastImport> | undefined
+  readiness: Map<string, boolean> | undefined
+  parserReadyKnown: boolean
+  names: ReturnType<typeof useUserNames>
+  openInstrument: (instrument: InstrumentRow, event: React.MouseEvent) => void
+}): RegistryColumn<InstrumentRow>[] {
+  const { names, openInstrument } = evidence
+
+  const latest = evidence.latest ?? new Map<string, InstrumentCalibrationRow>()
+
+  const lastImports =
+    evidence.lastImports ?? new Map<string, InstrumentLastImport>()
+
+  const calFor = (id: string) => calibrationState(latest.get(id)?.dueAt ?? null)
+
+  const healthFor = (instrument: InstrumentRow) =>
+    intakeHealth(instrument.intakeMethod, {
+      parserReady: evidence.parserReadyKnown
+        ? (evidence.readiness?.get(instrument.id) ?? false)
+        : undefined,
+      lastImport: lastImports.get(instrument.id) ?? null,
+    })
+
+  return [
+    {
+      id: 'identifier',
+      header: 'ID',
+      accessorFn: (i) => i.displayId ?? i.id.slice(0, 8),
+      enableHiding: false,
+      cell: ({ row }) => (
+        <ObjectLink
+          kind="instrument"
+          id={row.original.id}
+          identifier={row.original.displayId ?? row.original.id.slice(0, 8)}
+        />
+      ),
+    },
+    {
+      id: 'name',
+      header: t('library.instruments.list.nameAndType'),
+      accessorFn: (i) => i.name,
+      meta: {
+        exportValue: (i: InstrumentRow) =>
+          `${i.name} (${instrumentTypeLabel(i.instrumentType)})`,
+      },
+      // The grid zeroes a cell's own vertical padding, so a two-line cell
+      // carries its line height and padding on its content instead. The
+      // bespoke body's two-line rows were 46px, and stay 46px.
+      cell: ({ row }) => (
+        <span className="block py-1.5 leading-[17px]">
+          <span className="block">
+            <Link
+              to="/instruments/$instrumentId"
+              params={{ instrumentId: row.original.id }}
+              onClick={(event) => openInstrument(row.original, event)}
+            >
+              {row.original.name}
+            </Link>
+          </span>
+          <span className="block text-label text-fg-muted">
+            {instrumentTypeLabel(row.original.instrumentType)}
+            {isOutOfService(row.original) ? (
+              <>
+                {' · '}
+                <span className="text-warning-text">
+                  {t('library.instruments.outOfService.status')}
+                </span>
+              </>
+            ) : null}
+          </span>
+        </span>
+      ),
+    },
+    {
+      id: 'model',
+      header: t('library.instruments.list.makeAndModel'),
+      accessorFn: (i) => i.model ?? undefined,
+      meta: {
+        cellClassName: 'max-w-[180px]',
+        exportValue: (i: InstrumentRow) =>
+          [i.vendor, i.model].filter(Boolean).join(' '),
+      },
+      cell: ({ row }) => (
+        <span className="block py-1.5 leading-[17px]">
+          <span className="block truncate">{row.original.model ?? '—'}</span>
+          <span className="block truncate text-label text-fg-muted">
+            {row.original.vendor ?? '—'}
+          </span>
+        </span>
+      ),
+    },
+    {
+      id: 'location',
+      header: 'Location',
+      accessorFn: (i) => i.location ?? undefined,
+      cell: ({ row }) => row.original.location ?? '—',
+    },
+    {
+      id: 'intake',
+      header: t('library.instruments.list.howDataGetsIn'),
+      accessorFn: (i) => intakeMethodLabel(i.intakeMethod),
+      cell: ({ row }) => {
+        const health = healthFor(row.original)
+
+        return (
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+            <Dot tone={health.tone} />
+            <span>{intakeMethodLabel(row.original.intakeMethod)}</span>
+            {health.tone === 'bad' || health.tone === 'warn' ? (
+              <span
+                className={cn(
+                  'text-fg-muted',
+                  health.tone === 'bad' && 'text-danger-text',
+                  health.tone === 'warn' && 'text-warning-text',
+                )}
+              >
+                · {health.label}
+              </span>
+            ) : null}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'calibration',
+      header: t('library.instruments.list.calibrationDue'),
+      // Ordered by the due date, soonest first; no date sorts last.
+      accessorFn: (i) => latest.get(i.id)?.dueAt ?? undefined,
+      meta: {
+        cellClassName: 'py-1.5 leading-[17px]',
+        exportValue: (i: InstrumentRow) => latest.get(i.id)?.dueAt ?? '',
+      },
+      cell: ({ row }) => {
+        const c = calFor(row.original.id)
+
+        return (
+          <span
+            // The date is in the tooltip; the cell keeps the part that matters
+            // ("40 d overdue") so the column fits a third-width pane.
+            title={c.label}
+            className={cn(
+              'whitespace-nowrap',
+              c.tone === 'bad' && 'text-danger-text',
+              c.tone === 'warn' && 'text-warning-text',
+            )}
+          >
+            {c.label.split(' · ').at(-1)}
+          </span>
+        )
+      },
+    },
+    {
+      id: 'owner',
+      header: 'Owner',
+      accessorFn: (i) => (i.ownerId ? names.userLabel(i.ownerId) : undefined),
+      // The grid owns cell padding (`px-2.5` on every cell), so a column's
+      // own trailing space has to be requested explicitly — this column was
+      // the last one in the table before the swap and carried `pr-6`.
+      meta: {
+        headerClassName: 'pr-6! hide-in-narrow-pane',
+        cellClassName: 'pr-6! hide-in-narrow-pane',
+      },
+      cell: ({ row }) =>
+        row.original.ownerId ? names.userLabel(row.original.ownerId) : '—',
+    },
+  ]
+}
+
+/** The instruments the active tab and filters select, and their counts. */
 function InstrumentsList() {
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -271,8 +438,8 @@ function InstrumentsList() {
   )
 
   const types = useMemo(
-    () => [...new Set(rows.map((i) => i.instrumentType))].sort(),
-    [rows],
+    () => [...new Set((query.data ?? []).map((i) => i.instrumentType))].sort(),
+    [query.data],
   )
 
   const tab = search.tab ?? 'all'
@@ -342,7 +509,7 @@ function InstrumentsList() {
     search.q || search.type || search.connection || search.calibration,
   )
 
-  const setParam =
+  const setParam = useCallback(
     (key: 'type' | 'connection' | 'calibration') => (value: string) =>
       void navigate({
         to: '/instruments',
@@ -352,7 +519,9 @@ function InstrumentsList() {
           selected: undefined,
         }),
         replace: true,
-      })
+      }),
+    [navigate],
+  )
 
   const addedColumns = useAddedFieldListColumns<InstrumentRow>(
     'instrument',
@@ -360,158 +529,21 @@ function InstrumentsList() {
   )
 
   const baseColumns = useMemo<RegistryColumn<InstrumentRow>[]>(
-    () => [
-      {
-        id: 'identifier',
-        header: 'ID',
-        accessorFn: (i) => i.displayId ?? i.id.slice(0, 8),
-        enableHiding: false,
-        cell: ({ row }) => (
-          <ObjectLink
-            kind="instrument"
-            id={row.original.id}
-            identifier={row.original.displayId ?? row.original.id.slice(0, 8)}
-          />
-        ),
-      },
-      {
-        id: 'name',
-        header: t('library.instruments.list.nameAndType'),
-        accessorFn: (i) => i.name,
-        meta: {
-          exportValue: (i: InstrumentRow) =>
-            `${i.name} (${instrumentTypeLabel(i.instrumentType)})`,
-        },
-        // The grid zeroes a cell's own vertical padding, so a two-line cell
-        // carries its line height and padding on its content instead. The
-        // bespoke body's two-line rows were 46px, and stay 46px.
-        cell: ({ row }) => (
-          <span className="block py-1.5 leading-[17px]">
-            <span className="block">
-              <Link
-                to="/instruments/$instrumentId"
-                params={{ instrumentId: row.original.id }}
-                onClick={(event) => openInstrument(row.original, event)}
-              >
-                {row.original.name}
-              </Link>
-            </span>
-            <span className="block text-label text-fg-muted">
-              {instrumentTypeLabel(row.original.instrumentType)}
-              {isOutOfService(row.original) ? (
-                <>
-                  {' · '}
-                  <span className="text-warning-text">
-                    {t('library.instruments.outOfService.status')}
-                  </span>
-                </>
-              ) : null}
-            </span>
-          </span>
-        ),
-      },
-      {
-        id: 'model',
-        header: t('library.instruments.list.makeAndModel'),
-        accessorFn: (i) => i.model ?? undefined,
-        meta: {
-          cellClassName: 'max-w-[180px]',
-          exportValue: (i: InstrumentRow) =>
-            [i.vendor, i.model].filter(Boolean).join(' '),
-        },
-        cell: ({ row }) => (
-          <span className="block py-1.5 leading-[17px]">
-            <span className="block truncate">{row.original.model ?? '—'}</span>
-            <span className="block truncate text-label text-fg-muted">
-              {row.original.vendor ?? '—'}
-            </span>
-          </span>
-        ),
-      },
-      {
-        id: 'location',
-        header: 'Location',
-        accessorFn: (i) => i.location ?? undefined,
-        cell: ({ row }) => row.original.location ?? '—',
-      },
-      {
-        id: 'intake',
-        header: t('library.instruments.list.howDataGetsIn'),
-        accessorFn: (i) => intakeMethodLabel(i.intakeMethod),
-        cell: ({ row }) => {
-          const health = healthFor(row.original)
-
-          return (
-            <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-              <Dot tone={health.tone} />
-              <span>{intakeMethodLabel(row.original.intakeMethod)}</span>
-              {health.tone === 'bad' || health.tone === 'warn' ? (
-                <span
-                  className={cn(
-                    'text-fg-muted',
-                    health.tone === 'bad' && 'text-danger-text',
-                    health.tone === 'warn' && 'text-warning-text',
-                  )}
-                >
-                  · {health.label}
-                </span>
-              ) : null}
-            </span>
-          )
-        },
-      },
-      {
-        id: 'calibration',
-        header: t('library.instruments.list.calibrationDue'),
-        // Ordered by the due date, soonest first; no date sorts last.
-        accessorFn: (i) => latest.get(i.id)?.dueAt ?? undefined,
-        meta: {
-          cellClassName: 'py-1.5 leading-[17px]',
-          exportValue: (i: InstrumentRow) => latest.get(i.id)?.dueAt ?? '',
-        },
-        cell: ({ row }) => {
-          const c = calFor(row.original.id)
-
-          return (
-            <span
-              // The date is in the tooltip; the cell keeps the part that matters
-              // ("40 d overdue") so the column fits a third-width pane.
-              title={c.label}
-              className={cn(
-                'whitespace-nowrap',
-                c.tone === 'bad' && 'text-danger-text',
-                c.tone === 'warn' && 'text-warning-text',
-              )}
-            >
-              {c.label.split(' · ').at(-1)}
-            </span>
-          )
-        },
-      },
-      {
-        id: 'owner',
-        header: 'Owner',
-        accessorFn: (i) => (i.ownerId ? names.userLabel(i.ownerId) : undefined),
-        // The grid owns cell padding (`px-2.5` on every cell), so a column's
-        // own trailing space has to be requested explicitly — this column was
-        // the last one in the table before the swap and carried `pr-6`.
-        meta: {
-          headerClassName: 'pr-6! hide-in-narrow-pane',
-          cellClassName: 'pr-6! hide-in-narrow-pane',
-        },
-        cell: ({ row }) =>
-          row.original.ownerId ? names.userLabel(row.original.ownerId) : '—',
-      },
-    ],
-    // Rebuilt with the evidence the cells read — the owner labels, and the
-    // calibration and intake maps — so a late arrival cannot leave a stale
-    // cell behind.
+    () =>
+      instrumentColumns({
+        latest: calibrations.data,
+        lastImports: imports.data,
+        readiness: parserReadiness.data,
+        parserReadyKnown: parserReadiness.isSuccess,
+        names,
+        openInstrument,
+      }),
     [
-      names,
-      latest,
-      lastImports,
-      readiness,
+      calibrations.data,
+      imports.data,
+      parserReadiness.data,
       parserReadiness.isSuccess,
+      names,
       openInstrument,
     ],
   )
@@ -523,14 +555,19 @@ function InstrumentsList() {
     [baseColumns, addedColumns],
   )
 
-  const { rowSelection, onRowSelectionChange } = useRowFocus(
-    sel?.id ?? null,
-    (id) =>
+  const selectRow = useCallback(
+    (id: string | null) =>
       void navigate({
         to: '/instruments',
         search: (s) => ({ ...s, selected: id ?? undefined }),
         replace: true,
       }),
+    [navigate],
+  )
+
+  const { rowSelection, onRowSelectionChange } = useRowFocus(
+    sel?.id ?? null,
+    selectRow,
   )
 
   if (search.state === 'denied') {
@@ -910,8 +947,7 @@ export function InstrumentInspector({
   const booking = useInstrumentNextBooking(instrument.id)
   const parserRows = parsers.data ?? []
 
-  const parserReady =
-    parserRows.length > 0 && parserRows.some((parser) => parser.validated)
+  const parserReady = parserRows.some((parser) => parser.validated)
 
   const needsParser = intakeMethodNeedsParser(instrument.intakeMethod)
 
@@ -1135,9 +1171,11 @@ export function InstrumentInspector({
                 className="h-[26px] text-label"
                 value={instrument.intakeMethod}
                 disabled={changeMethod.isPending}
-                onChange={(e) =>
-                  changeMethod.mutate(e.target.value as IntakeMethod)
-                }
+                onChange={(e) => {
+                  const method = intakeMethodOf(e.target.value)
+
+                  if (method) changeMethod.mutate(method)
+                }}
               >
                 {INTAKE_METHODS.map((method) => (
                   <option key={method.value} value={method.value}>
@@ -1223,6 +1261,7 @@ export function RegisterInstrument({
   // asks for the dialog to open once, then drops the flag.
   useEffect(() => {
     if (!autoOpen) return
+    // react-doctor-disable-next-line react-doctor/no-adjust-state-on-prop-change -- The flag is a one-shot request from the shell's New menu: the page that owns it drops it in onAutoOpened, so this is not state that should follow a prop.
     setOpen(true)
     onAutoOpened?.()
   }, [autoOpen, onAutoOpened])
@@ -1235,14 +1274,14 @@ export function RegisterInstrument({
     message: string
   } | null>(null)
 
-  const empty = {
+  const empty: InstrumentDraft = {
     name: '',
     type: 'qpcr',
     make: '',
     model: '',
     serial: '',
     location: '',
-    method: 'filedrop' as IntakeMethod,
+    method: 'filedrop',
   }
 
   const [f, setF] = useState(empty)
@@ -1452,9 +1491,15 @@ export function RegisterInstrument({
           <RadioGroup
             aria-label={t('library.instruments.list.howDataGetsIn')}
             value={f.method}
-            onValueChange={(value) =>
-              setF({ ...f, method: value as IntakeMethod })
-            }
+            onValueChange={(chosen) => {
+              const named = z.string().safeParse(chosen)
+
+              const method = named.success
+                ? intakeMethodOf(named.data)
+                : undefined
+
+              if (method) setF({ ...f, method })
+            }}
           >
             <span className="text-label font-medium text-fg">
               {t('library.instruments.list.howDataGetsIn')}

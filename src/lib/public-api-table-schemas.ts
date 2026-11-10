@@ -38,7 +38,17 @@ function row(
   }
 }
 
-export const TABLE_ROW_SCHEMAS: Record<string, JsonSchema> = {
+/** JSON Schema documents keyed by table or column name. */
+export interface JsonSchemaMap {
+  readonly [key: string]: JsonSchema
+}
+
+/** Required column names keyed by table. */
+export interface RequiredColumns {
+  readonly [table: string]: string[]
+}
+
+export const TABLE_ROW_SCHEMAS: JsonSchemaMap = {
   member_absences: row(
     'member_absences',
     'Out of office: who is away, until when and which colleague covers their reviews.',
@@ -1821,7 +1831,7 @@ const INSERT_OMIT = new Set([
   'updated_by_credential_id',
 ])
 
-const INSERT_REQUIRED: Record<string, string[]> = {
+const INSERT_REQUIRED: RequiredColumns = {
   projects: ['workspace_id', 'key', 'title'],
   records: ['workspace_id', 'kind', 'identifier', 'title'],
   blocks: ['record_id', 'type', 'order'],
@@ -1837,8 +1847,9 @@ const INSERT_REQUIRED: Record<string, string[]> = {
 export function tableInsertSchema(table: string): JsonSchema {
   const rowSchema = TABLE_ROW_SCHEMAS[table]
 
+  // SAFETY: every entry in `TABLE_ROW_SCHEMAS` is built by `row()` (or by `labTableRowSchemas()`, which uses the same builder), so its `properties` keyword is always a map of JSON Schemas.
   const properties = Object.fromEntries(
-    Object.entries(rowSchema.properties as Record<string, JsonSchema>).filter(
+    Object.entries(rowSchema.properties as JsonSchemaMap).filter(
       ([key]) => !INSERT_OMIT.has(key),
     ),
   )

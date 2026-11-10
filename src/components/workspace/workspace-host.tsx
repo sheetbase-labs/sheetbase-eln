@@ -154,6 +154,11 @@ function mainScroller(pane: Element): HTMLElement | null {
   return best
 }
 
+/** Whether a drag carries one of this workspace's record links. */
+function carriesRecordLink(transfer: DataTransfer): boolean {
+  return transfer.types.includes(LINK_MIME)
+}
+
 function ClientWorkspace({ context }: { context: RouterContext }) {
   const platform = usePlatform()
   const router = useRouter()
@@ -167,6 +172,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   const shelfKey = `sheetbase-shelf:${scope}`
 
   const [state, setState] = useState<WorkspaceState>(() => {
+    // The server renders this shell without browser storage to restore from.
+    if (typeof window === 'undefined') return initialWorkspace(href)
+
     let restored: WorkspaceState
 
     try {
@@ -189,6 +197,8 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   })
 
   const [layouts, setLayouts] = useState<SavedLayout[]>(() => {
+    if (typeof window === 'undefined') return []
+
     try {
       return restoreSavedLayouts(
         localStorage.getItem(layoutsKey),
@@ -201,7 +211,6 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
 
   const team = useTeamLayouts(Boolean(context.auth?.workspace?.id))
   const current = useRef(state)
-  current.current = state
   const handles = useRef(new Map<string, PanePageHandle>())
   const openedAt = useRef(new Map<string, number>())
   const stepping = useRef(new Map<string, number>())
@@ -503,14 +512,14 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
           composeWorkspace(previous, request, () => crypto.randomUUID()),
         )
 
-        const tab = activeTab(next)
+        const openedTab = activeTab(next)
 
-        for (const pane of tab.panes) {
+        for (const pane of openedTab.panes) {
           if (!openedAt.current.has(pane.id))
             openedAt.current.set(pane.id, Date.now())
         }
 
-        const focused = paneOf(tab, tab.activeId)
+        const focused = paneOf(openedTab, openedTab.activeId)
 
         if (focused) mirror(focused.href)
       }),
@@ -519,9 +528,13 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
 
   useEffect(
     () =>
-      registerOpenBeside((href, title, below) =>
-        open(href, { beside: true, ...(below ? { below } : {}), title }),
-      ),
+      registerOpenBeside((targetHref, title, below) => {
+        const options: WorkspaceOpenOptions = { beside: true, title }
+
+        if (below) options.below = true
+
+        open(targetHref, options)
+      }),
     [open],
   )
 
@@ -810,9 +823,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         toast.success(
           t('projects.workspaceHost.shared', { name: active.name }),
         ),
-      (error: unknown) =>
+      (failure) =>
         toast.error(t('projects.workspaceHost.shareFailed'), {
-          description: error instanceof Error ? error.message : undefined,
+          description: failure instanceof Error ? failure.message : undefined,
         }),
     )
   }, [team])
@@ -843,9 +856,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
           count: steps.length,
         }),
       })
-    } catch (error) {
+    } catch (failure) {
       toast.error(t('projects.workspaceHost.trailFailed'), {
-        description: error instanceof Error ? error.message : undefined,
+        description: failure instanceof Error ? failure.message : undefined,
       })
     }
   }, [])
@@ -861,7 +874,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     return pane?.identifier ?? pane?.title
   }, [])
 
-  peekHeld.current = (anchor) => links.peekHovered(paneLabel, anchor)
+  useEffect(() => {
+    peekHeld.current = (anchor) => links.peekHovered(paneLabel, anchor)
+  })
 
   const pinHref = useCallback(
     (hrefValue: string, title: string, identifier?: string, from?: string) => {
@@ -1059,12 +1074,19 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     // Handlers only read refs and stable callbacks.
     [
       links.peek,
+      links.setPeek,
+      links.hoveredAnchor,
+      links.peekHovered,
       apply,
       closePane,
       splitFocused,
       stepTrail,
       makeNewTab,
       saveLayout,
+      open,
+      mirror,
+      pinHref,
+      paneLabel,
     ],
   )
 
@@ -1097,12 +1119,12 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
   }, [focus])
 
   /* Drop a link on the middle of the primary pane to cite it in that notebook. */
-  const citeOnPrimary = async (href: string) => {
+  const citeOnPrimary = async (droppedHref: string) => {
     const active = activeTab(current.current)
     const identifier = paneOf(active, active.primaryId)?.identifier
 
     try {
-      const target = citationTarget(href)
+      const target = citationTarget(droppedHref)
 
       if (!identifier || !target)
         throw new Error(t('projects.workspaceHost.cantCite'))
@@ -1130,9 +1152,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
         }),
         { description: t('projects.workspaceHost.citedNote') },
       )
-    } catch (error) {
+    } catch (failure) {
       toast.error(t('projects.workspaceHost.citeFailed'), {
-        description: error instanceof Error ? error.message : undefined,
+        description: failure instanceof Error ? failure.message : undefined,
       })
     }
   }
@@ -1184,7 +1206,10 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
     const box = stage.current?.getBoundingClientRect()
 
     if (!box) return
-    const element = event.currentTarget as HTMLElement
+    const element = event.currentTarget
+
+    if (!(element instanceof HTMLElement)) return
+
     element.setPointerCapture(event.pointerId)
     element.classList.add('is-drag')
     let last = { x: event.clientX, y: event.clientY }
@@ -1281,10 +1306,10 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
             onRemoveTeamLayout={(id) =>
               void team.remove(id).then(
                 () => toast.success(t('projects.workspaceHost.teamRemoved')),
-                (error: unknown) =>
+                (failure) =>
                   toast.error(t('projects.workspaceHost.teamRemoveFailed'), {
                     description:
-                      error instanceof Error ? error.message : undefined,
+                      failure instanceof Error ? failure.message : undefined,
                   }),
               )
             }
@@ -1418,8 +1443,7 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                         onPointerDownCapture={() => focus(pane.id)}
                         onFocusCapture={() => focus(pane.id)}
                         onDragOver={(event) => {
-                          if (!event.dataTransfer.types.includes(LINK_MIME))
-                            return
+                          if (!carriesRecordLink(event.dataTransfer)) return
                           event.preventDefault()
 
                           const box =
@@ -1449,7 +1473,9 @@ function ClientWorkspace({ context }: { context: RouterContext }) {
                         onDragLeave={(event) => {
                           if (
                             !event.currentTarget.contains(
-                              event.relatedTarget as Node,
+                              event.relatedTarget instanceof Node
+                                ? event.relatedTarget
+                                : null,
                             )
                           ) {
                             setDropTarget((previous) =>

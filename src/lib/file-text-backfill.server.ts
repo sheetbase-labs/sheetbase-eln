@@ -170,7 +170,10 @@ export async function connectForBackfill(): Promise<BackfillConnection> {
   }
 }
 
-const startedGlobalKey = '__sheetbaseFileTextBackfillStarted'
+/** The per-process marker this module sets so the backfill never starts twice. */
+type FileTextBackfillGlobal = typeof globalThis & {
+  __sheetbaseFileTextBackfillStarted?: boolean
+}
 
 function disabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
@@ -189,10 +192,12 @@ export function startFileTextBackfill(): void {
   if (typeof window !== 'undefined') return
 
   if (disabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
 
-  if (g[startedGlobalKey]) return
-  g[startedGlobalKey] = true
+  // SAFETY: `globalThis` is the one process object Node runs; the key is this module's own, so no other code writes a value of another type to it.
+  const g = globalThis as FileTextBackfillGlobal
+
+  if (g.__sheetbaseFileTextBackfillStarted) return
+  g.__sheetbaseFileTextBackfillStarted = true
 
   const timer = setTimeout(() => {
     void (async () => {
@@ -211,11 +216,14 @@ export function startFileTextBackfill(): void {
       } finally {
         await conn.end()
       }
-    })().catch((error: unknown) => {
-      logger.warn('file text backfill failed', {
-        error: error instanceof Error ? error.message : String(error),
-      })
-    })
+    })().catch(
+      // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught throw is untyped by definition; an Error supplies its message and anything else falls back.
+      (error: unknown) => {
+        logger.warn('file text backfill failed', {
+          error: error instanceof Error ? error.message : String(error),
+        })
+      },
+    )
   }, 20_000)
 
   timer.unref()

@@ -51,7 +51,7 @@ import type { ExtensionRunRouteDeps } from './run-route.server'
 import { pluginLimits } from './runtime.server'
 
 const id = z.string().regex(/^[a-z][a-z0-9-]{0,48}$/)
-const row = z.record(z.string(), z.unknown())
+const row = z.record(z.string(), z.json())
 
 const bodySchema = z.discriminatedUnion('kind', [
   z.strictObject({

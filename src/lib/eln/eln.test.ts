@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { describe, expect, it } from 'vitest'
+import { z } from 'zod'
 
 import { ZipWriter } from '../export/zip'
 import { buildElnArchive, safeName } from './eln-archive'
@@ -9,6 +10,9 @@ import { isSafeEntryName, readZip, ZipReadError } from './zip-read'
 
 const text = (value: string) => new TextEncoder().encode(value)
 const decode = (bytes: Uint8Array) => new TextDecoder().decode(bytes)
+
+/** The entities of a built crate's `@graph`, as the archive writes them. */
+const crateGraph = z.array(z.looseObject({ '@id': z.string() }))
 
 const doc = (line: string) => ({
   doc: {
@@ -120,8 +124,8 @@ describe('buildElnArchive', () => {
       decode(entries.get('Project Alpha/ro-crate-metadata.json')!),
     )
 
-    const graph = crate['@graph'] as Array<Record<string, unknown>>
-    const byId = new Map(graph.map((e) => [e['@id'] as string, e]))
+    const graph = crateGraph.parse(crate['@graph'])
+    const byId = new Map(graph.map((e) => [e['@id'], e]))
     expect(byId.get('ro-crate-metadata.json')?.conformsTo).toEqual({
       '@id': 'https://w3id.org/ro/crate/1.1',
     })
@@ -149,7 +153,7 @@ describe('buildElnArchive', () => {
       decode(entries.get('Project Alpha/ro-crate-metadata.json')!),
     )
 
-    const graph = crate['@graph'] as Array<Record<string, unknown>>
+    const graph = crateGraph.parse(crate['@graph'])
     const sha = createHash('sha256').update('t,v\n0,1\n').digest('hex')
     const byName = graph.find((e) => e.sha256 === sha)
     expect(byName?.contentSize).toBe('8')

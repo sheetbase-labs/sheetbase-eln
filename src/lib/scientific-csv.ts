@@ -1,3 +1,6 @@
+import { z } from 'zod'
+
+import type { ScientificScalar } from './scientific-literals'
 import type {
   ScientificColumnWire,
   ScientificLogicalType,
@@ -174,7 +177,7 @@ export function prepareScientificImport(
   const errors: Array<{ row: number; source: string; message: string }> = []
 
   const rows = preview.rows.map((sourceRow, rowIndex) => {
-    const output: Record<string, unknown> = {}
+    const output: Record<string, ScientificScalar> = {}
 
     for (const mapping of mappings) {
       if (mapping.kind === 'ignore') continue
@@ -213,17 +216,24 @@ export function prepareScientificImport(
   return { rows, errors }
 }
 
-function csvCell(value: unknown) {
+const csvNumber = z.number()
+
+function csvCell(value: ScientificRowWire[string]) {
   if (value === null || value === undefined) return ''
   let text: string
 
-  if (typeof value === 'number') {
-    const magnitude = Math.abs(value)
+  const numeric = csvNumber.safeParse(value).data
+
+  if (numeric !== undefined) {
+    const magnitude = Math.abs(numeric)
     text =
-      value !== 0 && (magnitude >= 1e6 || magnitude < 1e-4)
-        ? value.toExponential(15).replace(/\.?(0+)(e)/, '$2')
-        : Number(value.toPrecision(15)).toString()
-  } else text = String(value)
+      numeric !== 0 && (magnitude >= 1e6 || magnitude < 1e-4)
+        ? numeric.toExponential(15).replace(/\.?(0+)(e)/, '$2')
+        : Number(numeric.toPrecision(15)).toString()
+  } else {
+    // oxlint-disable-next-line typescript/no-base-to-string -- A scientific cell is a scalar; a malformed wire row keeps the rendering this writer has always produced rather than being dropped.
+    text = String(value)
+  }
 
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
 }

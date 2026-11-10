@@ -10,6 +10,7 @@ import { resolveAssistantRuntime } from './assistant-actions'
  * nothing. The file is read in memory and not stored.
  */
 export const readPdfTextFn = createServerFn({ method: 'POST' })
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A server function's input arrives as raw JSON; the strict schema on the next line is its one decode step.
   .validator((input: unknown) =>
     z
       .strictObject({

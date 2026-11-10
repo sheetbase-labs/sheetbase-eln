@@ -110,7 +110,7 @@ function RateDialog({
       toast.success(t('spend.usage.rate.saved'))
       onClose()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(
         e instanceof Error && e.message
           ? e.message

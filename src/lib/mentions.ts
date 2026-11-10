@@ -32,6 +32,7 @@ export function extractMentions(
     .sort((a, b) => b.name.length - a.name.length)
 
   const found: string[] = []
+  const seen = new Set<string>()
   const lower = body.toLowerCase()
 
   for (
@@ -51,7 +52,11 @@ export function extractMentions(
 
       if (next !== '' && !BOUNDARY.test(next)) continue
 
-      if (!found.includes(candidate.userId)) found.push(candidate.userId)
+      if (!seen.has(candidate.userId)) {
+        seen.add(candidate.userId)
+        found.push(candidate.userId)
+      }
+
       break
     }
   }

@@ -12,10 +12,13 @@ import { createNotebookTemplate } from './notebook-template-data'
 import { fetchSheetInstance } from './sheet-instance-data'
 import { notebookTemplateConfigurationSchema } from './notebook-template'
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The blocks read runs through the module-level notebook client; this suite fixes the stored blocks and exercises the orchestration around them.
 vi.mock('./notebook-data', () => ({ fetchBlocksForRecord: vi.fn() }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The template create is a server RPC behind the module client; this suite fixes the created row it answers with.
 vi.mock('./notebook-template-data', () => ({ createNotebookTemplate: vi.fn() }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The Sheet read runs through the module client; this suite fixes each instance's source definition, which is all the orchestration reads.
 vi.mock('./sheet-instance-data', () => ({ fetchSheetInstance: vi.fn() }))
 
 let counter = 0
@@ -147,6 +150,24 @@ describe('templateConfigurationFromBlocks', () => {
   })
 })
 
+/**
+ * A DataClient whose reads answer empty and whose writes refuse: the mocked
+ * modules below answer everything else the orchestration asks for.
+ */
+function fakeDataClient(): DataClient {
+  const refuse = () =>
+    Promise.reject(new Error('This test answers no client write.'))
+
+  return {
+    list: async <T>(): Promise<T[]> => [],
+    count: refuse,
+    rpc: refuse,
+    insert: refuse,
+    patch: refuse,
+    remove: refuse,
+  }
+}
+
 describe('templateKeyFromName', () => {
   it('makes a key the server accepts', () => {
     const pattern = /^[a-z][a-z0-9_]{0,59}$/
@@ -196,23 +217,22 @@ describe('saveExperimentAsTemplate', () => {
       await new Promise((resolve) => setTimeout(resolve, 5))
       inFlight -= 1
 
+      // SAFETY: the orchestration reads only each instance's source definition, which is the member this fixture supplies.
       return {
         sourceDefinitionVersionId: id === INSTANCE ? DEFINITION : null,
       } as Awaited<ReturnType<typeof fetchSheetInstance>>
     })
+    // SAFETY: this case asserts the arguments the create receives; the created row it answers with is not read.
     vi.mocked(createNotebookTemplate).mockResolvedValue(
       {} as Awaited<ReturnType<typeof createNotebookTemplate>>,
     )
 
-    const result = await saveExperimentAsTemplate(
-      { list: () => Promise.resolve([]) } as unknown as DataClient,
-      {
-        workspaceId: 'ws',
-        experimentId: 'exp',
-        key: 'k',
-        name: 'Template',
-      },
-    )
+    const result = await saveExperimentAsTemplate(fakeDataClient(), {
+      workspaceId: 'ws',
+      experimentId: 'exp',
+      key: 'k',
+      name: 'Template',
+    })
 
     expect(vi.mocked(fetchSheetInstance).mock.calls.map(([id]) => id)).toEqual([
       INSTANCE,

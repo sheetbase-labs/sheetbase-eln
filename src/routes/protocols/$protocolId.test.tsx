@@ -12,27 +12,33 @@ const mocks = vi.hoisted(() => ({
   acknowledgeProtocolVersion: vi.fn(),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time; this suite renders the route's own component with the params, search and context the shell would supply.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (options: object) => ({
-    options,
-    fullPath: '/protocols/$protocolId',
-    useParams: () => ({ protocolId: 'p-1' }),
-    useSearch: () => ({ section: 'training' }),
-    useRouteContext: () => ({ context: { user: { id: 'me' } } }),
-  }),
+  createFileRoute:
+    () =>
+    <Options,>(options: Options) => ({
+      options,
+      fullPath: '/protocols/$protocolId',
+      useParams: () => ({ protocolId: 'p-1' }),
+      useSearch: () => ({ section: 'training' }),
+      useRouteContext: () => ({ context: { user: { id: 'me' } } }),
+    }),
   useNavigate: () => vi.fn(),
-  redirect: (options: unknown) => options,
+  redirect: <Input,>(options: Input) => options,
   Link: ({ children }: { children?: React.ReactNode }) => <a>{children}</a>,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The training roster is a heavy panel with its own suite; the protocol header is this suite's subject.
 vi.mock('#/components/protocols/protocol-training-roster', () => ({
   ProtocolTrainingRoster: () => null,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The document panel renders the protocol body from its own reads; the protocol header is this suite's subject.
 vi.mock('#/components/protocols/protocol-document', () => ({
   ProtocolDocument: () => null,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The page's reads run through module-level functions over the shared client with no injection point; this suite answers them with fixed versions.
 vi.mock('#/lib/controlled-protocols', () => ({
   fetchProtocolVersions: (...args: unknown[]) =>
     mocks.fetchProtocolVersions(...args),
@@ -44,6 +50,7 @@ vi.mock('#/lib/controlled-protocols', () => ({
     mocks.acknowledgeProtocolVersion(...args),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The record read runs through the module-level notebook client; the protocol's own record is fixed here so the header renders without an /api/db round trip.
 vi.mock('#/lib/notebook-data', () => ({
   notebookDataClient: { list: async () => [] },
   notebookQueryKeys: { record: (id: string) => ['record', id] },
@@ -60,20 +67,20 @@ vi.mock('#/lib/notebook-data', () => ({
   fetchLinksForRecord: async () => [],
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Recent-view tracking posts to the server from an effect; a jsdom render has no server runtime and the header does not read it.
 vi.mock('#/lib/recents', () => ({ useRecentViewTracking: () => undefined }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The toggle reads and writes favourites through the shared client; the protocol header is this suite's subject.
 vi.mock('#/components/favourites/favourite-toggle', () => ({
   FavouriteToggle: () => null,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- User names come from a server function, which needs the request runtime a jsdom render has none of.
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ userLabel: (id: string) => id }),
 }))
 
-vi.mock('../protocols', () => ({
-  protocolStatus: () => ({ tone: 'ok', label: 'Effective' }),
-}))
-
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Toasts are painted by the app shell's Toaster; this suite renders the page alone, so the toast calls are recorded and never painted.
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(vi.fn(), { error: vi.fn() }),
 }))
@@ -107,6 +114,8 @@ beforeEach(() => {
   })
 })
 
+// SAFETY: A file route's options carry the component this suite renders; the
+// factory mocked above stores exactly the options object its route declares.
 const ProtocolPage = Route.options.component as React.ComponentType
 
 function renderScreen() {

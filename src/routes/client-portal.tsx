@@ -4,7 +4,8 @@ import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { z } from 'zod'
 
-import { labLogoUrl, useLabLogoVersion } from '#/components/ui/lab-logo'
+import { useLabLogoVersion } from '#/components/ui/lab-logo'
+import { labLogoUrl } from '#/lib/lab-logo'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
 import {

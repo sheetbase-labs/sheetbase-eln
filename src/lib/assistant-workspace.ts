@@ -80,6 +80,7 @@ export interface WorkspaceComposeRequest {
 
 /** `null` when the request is not something the assistant may open. */
 export function parseWorkspaceRequest(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The assistant's tool call arrives as raw JSON; `workspaceRequestSchema.safeParse` below is the decode, and nothing above it reads the value.
   args: unknown,
 ): WorkspaceComposeRequest | null {
   const parsed = workspaceRequestSchema.safeParse(args)
@@ -89,10 +90,10 @@ export function parseWorkspaceRequest(
 
   for (const page of parsed.data.pages) {
     if (page.id === undefined) {
-      if (!(LIST_ROUTES as readonly string[]).includes(page.route)) return null
+      if (!LIST_ROUTES.some((route) => route === page.route)) return null
       pages.push({ href: `/${page.route}`, title: page.title })
     } else {
-      if ((LIST_ONLY_ROUTES as readonly string[]).includes(page.route)) {
+      if (LIST_ONLY_ROUTES.some((route) => route === page.route)) {
         return null
       }
 
@@ -119,6 +120,7 @@ export function registerAssistantWorkspace(
 ) {
   const listener = (event: Event) => {
     if (!(event instanceof CustomEvent)) return
+    // SAFETY: requestAssistantWorkspace above is the only dispatcher of COMPOSE_WORKSPACE_EVENT, and its detail is its own WorkspaceComposeRequest argument.
     compose(event.detail as WorkspaceComposeRequest)
   }
 

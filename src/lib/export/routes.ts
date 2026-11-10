@@ -497,13 +497,17 @@ export async function handleDatasetExport(
   )
 
   if (pluginFormat) {
-    const all: ExportRow['values'][] = []
+    const jsonRow = z.record(z.string(), z.json())
+    const all: z.output<typeof jsonRow>[] = []
 
-    // The plugin reads columns by their names (the field keys), not by id.
+    // The plugin reads columns by their names (the field keys), not by id. Its
+    // rows cross a JSON boundary, so each one is decoded as the plugin sees it.
     for await (const row of rows.rows)
       all.push(
-        Object.fromEntries(
-          fields.map((field) => [field.key, row.values[field.id] ?? null]),
+        jsonRow.parse(
+          Object.fromEntries(
+            fields.map((field) => [field.key, row.values[field.id] ?? null]),
+          ),
         ),
       )
     let made: Awaited<ReturnType<typeof runExtensionExporter>>

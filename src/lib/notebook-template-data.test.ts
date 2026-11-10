@@ -2,20 +2,30 @@ import { describe, expect, it, vi } from 'vitest'
 
 import type { DataClient } from './data-client'
 import { instantiateNotebookTemplateVersion } from './notebook-template-data'
+import type { NotebookTemplateInstantiationResult } from './notebook-template-data'
 
-function makeClient(
-  rpcImpl: (name: string, args: Record<string, unknown>) => unknown,
-): DataClient {
-  return {
-    list: vi.fn(async () => []),
-    insert: vi.fn(async () => ({})) as unknown as DataClient['insert'],
-    patch: vi.fn(async () => []),
-    count: vi.fn(async () => 0),
-    remove: vi.fn(async () => []),
-    rpc: vi.fn(async (name, args) =>
-      rpcImpl(name, args),
-    ) as unknown as DataClient['rpc'],
+/** The arguments the transport hands an RPC. */
+type RpcArguments = Parameters<DataClient['rpc']>[1]
+
+/** The instantiation answer, without the composition the fixture leaves out. */
+type RpcAnswerResult = Omit<NotebookTemplateInstantiationResult, 'composition'>
+
+type RpcAnswer = (name: string, args: RpcArguments) => RpcAnswerResult
+
+function makeClient(rpcAnswer: RpcAnswer): DataClient {
+  // SAFETY: this double answers only the one RPC `instantiateNotebookTemplateVersion` issues; `rpc` is a spy narrowed to the transport's generic signature, and the remaining methods exist to satisfy `DataClient`, never called on this path.
+  const client: DataClient = {
+    list: async <T>(): Promise<T[]> => [],
+    insert: async <T>(): Promise<T> => ({}) as T,
+    patch: async <T>(): Promise<T[]> => [],
+    count: async () => 0,
+    remove: async () => [],
+    rpc: vi.fn(async (name: string, args: RpcArguments) =>
+      rpcAnswer(name, args),
+    ) as DataClient['rpc'],
   }
+
+  return client
 }
 
 describe('instantiateNotebookTemplateVersion', () => {

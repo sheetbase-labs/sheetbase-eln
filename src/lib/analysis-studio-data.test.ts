@@ -328,7 +328,7 @@ describe('validateAnalysisSpec', () => {
   })
 
   it('rejects an unsupported chart type', () => {
-    const r = validateAnalysisSpec({ ...spec(), type: 'pie' as unknown })
+    const r = validateAnalysisSpec({ ...spec(), type: 'pie' })
     expect(r.ok).toBe(false)
 
     if (!r.ok) expect(r.errors.some((e) => e.includes('type'))).toBe(true)
@@ -352,24 +352,48 @@ describe('saved-view writes', () => {
     export_settings: DEFAULT_EXPORT_SETTINGS,
   }
 
-  const saved = {
+  const saved: AnalysisViewWire = {
     id: 'v-1',
+    workspace_id: 'ws-1',
+    owner_user_id: 'user-1',
     name: 'pH vs stability',
+    display_id: 'AV-0001',
     version: 2,
-  } as AnalysisViewWire
+    charts: [spec()],
+    source_revisions: [
+      { datasetId: DATASET_ID, schemaVersionNumber: 1, revision: 1 },
+    ],
+    export_settings: DEFAULT_EXPORT_SETTINGS,
+    created_at: '2026-07-01T00:00:00.000Z',
+    updated_at: '2026-07-01T00:00:00.000Z',
+  }
+
+  /** A call these tests do not model: reaching one is a test bug. */
+  function notStubbed(): never {
+    throw new Error('data client stub called')
+  }
 
   function client(
-    overrides: Partial<Record<keyof DataClient, unknown>> = {},
+    writes: {
+      insert?: () => Promise<AnalysisViewWire | AnalysisViewWire[]>
+      patch?: () => Promise<AnalysisViewWire[]>
+    } = {},
   ): DataClient {
+    const insert = writes.insert ?? (async () => saved)
+    const patch = writes.patch ?? (async () => [saved])
+
     return {
       list: async () => [],
       count: async () => 0,
-      rpc: async () => undefined,
-      insert: async () => saved,
-      patch: async () => [saved],
+      rpc: async () => notStubbed(),
+      // SAFETY: each stub answers the stored analysis-view row, which is the
+      // type saveAnalysisView and updateAnalysisView instantiate the client's
+      // generic result with.
+      insert: insert as DataClient['insert'],
+      // SAFETY: as above, for the row array an update returns.
+      patch: patch as DataClient['patch'],
       remove: async () => [],
-      ...overrides,
-    } as DataClient
+    }
   }
 
   it('returns the row the update wrote', async () => {
@@ -529,7 +553,7 @@ describe('reproducibility — rebuild a saved chart from its stored spec', () =>
     const original = materialiseAnalysisChart(originalSpec, columns, rows)
 
     // 2. Simulate saving: store the spec verbatim (as the DB would).
-    const storedSpec: ChartSpec = JSON.parse(JSON.stringify(originalSpec))
+    const storedSpec: ChartSpec = structuredClone(originalSpec)
 
     // 3. Rebuild from the stored spec with the same source rows.
     const rebuilt = materialiseAnalysisChart(storedSpec, columns, rows)
@@ -549,7 +573,7 @@ describe('reproducibility — rebuild a saved chart from its stored spec', () =>
 describe('recordAnalysisCitation', () => {
   it('links the citing record to the view by display id', async () => {
     const rpc = vi.fn().mockResolvedValue({})
-    await recordAnalysisCitation({ rpc } as unknown as DataClient, 'rec-1', {
+    await recordAnalysisCitation({ rpc }, 'rec-1', {
       display_id: 'AV-0007',
     })
     expect(rpc).toHaveBeenCalledWith('create_record_link', {
@@ -569,7 +593,7 @@ describe('recordAnalysisCitation', () => {
       )
 
     await expect(
-      recordAnalysisCitation({ rpc } as unknown as DataClient, 'rec-1', {
+      recordAnalysisCitation({ rpc }, 'rec-1', {
         display_id: 'AV-0007',
       }),
     ).resolves.toBeUndefined()
@@ -578,12 +602,12 @@ describe('recordAnalysisCitation', () => {
   it('surfaces any other failure and skips a view with no display id', async () => {
     const rpc = vi.fn().mockRejectedValue(new Error('permission denied'))
     await expect(
-      recordAnalysisCitation({ rpc } as unknown as DataClient, 'rec-1', {
+      recordAnalysisCitation({ rpc }, 'rec-1', {
         display_id: 'AV-0007',
       }),
     ).rejects.toThrow('permission denied')
     rpc.mockClear()
-    await recordAnalysisCitation({ rpc } as unknown as DataClient, 'rec-1', {
+    await recordAnalysisCitation({ rpc }, 'rec-1', {
       display_id: null,
     })
     expect(rpc).not.toHaveBeenCalled()

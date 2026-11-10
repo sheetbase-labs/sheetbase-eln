@@ -34,12 +34,14 @@ describe('the sample is built from its source', () => {
           dereference: true,
         })
 
-        const { buildPluginUi } = (await import(
+        const {
+          buildPluginUi,
+        }: {
+          buildPluginUi: (options: { dir: string }) => Promise<void>
+        } = await import(
           // @ts-expect-error the build tool is plain JavaScript
           '../../../sdks/plugin-ui/build.mjs'
-        )) as {
-          buildPluginUi: (options: { dir: string }) => Promise<unknown>
-        }
+        )
 
         await buildPluginUi({ dir: work })
         const built = readdirSync(path.join(work, 'ui')).sort()

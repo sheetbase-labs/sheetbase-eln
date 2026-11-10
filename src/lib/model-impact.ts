@@ -91,11 +91,16 @@ export function groupModelImpact(
     else buckets.set(group, [item])
   }
 
-  return GROUP_ORDER.filter((group) => buckets.has(group)).map((group) => ({
-    group,
-    title: MODEL_IMPACT_GROUP_TITLES[group],
-    items: buckets.get(group) ?? [],
-  }))
+  const groups: ModelImpactGroupView[] = []
+
+  for (const group of GROUP_ORDER) {
+    const items = buckets.get(group)
+
+    if (items)
+      groups.push({ group, title: MODEL_IMPACT_GROUP_TITLES[group], items })
+  }
+
+  return groups
 }
 
 /** Count of dependents that require steward handling (non-informational). */

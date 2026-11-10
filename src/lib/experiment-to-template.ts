@@ -7,6 +7,8 @@
  * results (charts, files, metrics, plate maps) is left out. The result says
  * what it left out, so the person is not surprised by a thinner template.
  */
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
 import { createNotebookTemplate } from '#/lib/notebook-template-data'
 import type { NotebookTemplateConfiguration } from '#/lib/notebook-template'
@@ -28,8 +30,10 @@ const STRUCTURAL_TYPES = [
 
 type StructuralType = (typeof STRUCTURAL_TYPES)[number]
 
+const structuralTypeSchema = z.enum(STRUCTURAL_TYPES)
+
 const isStructural = (type: string): type is StructuralType =>
-  (STRUCTURAL_TYPES as readonly string[]).includes(type)
+  structuralTypeSchema.safeParse(type).success
 
 export interface TemplateDraft {
   configuration: NotebookTemplateConfiguration
@@ -37,23 +41,42 @@ export interface TemplateDraft {
   leftOut: string[]
 }
 
-const LEFT_OUT_LABEL: Record<string, string> = {
-  chart: 'chart',
-  analysis: 'analysis',
-  file: 'file',
-  metric: 'metric',
-  plate_map: 'plate map',
-  structure: 'structure drawing',
-  reaction: 'reaction',
-  code_cell: 'code cell',
-  plugin: 'plugin block',
-  table: 'table',
-  materials: 'materials list',
-  linked_record: 'linked record',
-  pipeline_output: 'pipeline output',
-  signature_request: 'signature request',
-  corrective_actions: 'corrective actions block',
-  conclusion: 'conclusion',
+const LEFT_OUT_LABEL = new Map<string, string>([
+  ['chart', 'chart'],
+  ['analysis', 'analysis'],
+  ['file', 'file'],
+  ['metric', 'metric'],
+  ['plate_map', 'plate map'],
+  ['structure', 'structure drawing'],
+  ['reaction', 'reaction'],
+  ['code_cell', 'code cell'],
+  ['plugin', 'plugin block'],
+  ['table', 'table'],
+  ['materials', 'materials list'],
+  ['linked_record', 'linked record'],
+  ['pipeline_output', 'pipeline output'],
+  ['signature_request', 'signature request'],
+  ['corrective_actions', 'corrective actions block'],
+  ['conclusion', 'conclusion'],
+])
+
+/** Checklist items as the block stores them: one JSON object per row. */
+const checklistItemsSchema = z.array(z.record(z.string(), z.json()))
+
+/** A checklist block, re-emitted with every item unchecked. */
+function checklistPayload(
+  block: Pick<NotebookBlock, 'type' | 'payload'>,
+): NotebookBlock['payload'] {
+  if (block.type !== 'checklist') return block.payload
+
+  const items = checklistItemsSchema.safeParse(block.payload.items)
+
+  if (!items.success) return block.payload
+
+  return {
+    ...block.payload,
+    items: items.data.map((item) => ({ ...item, checked: false })),
+  }
 }
 
 function plural(count: number, noun: string): string {
@@ -76,7 +99,15 @@ export function templateConfigurationFromBlocks(
   parts: readonly Pick<ExperimentPart, 'id' | 'title' | 'dayOffset'>[] = [],
 ): TemplateDraft {
   const placements: NotebookTemplateConfiguration['placements'] = []
-  const templatePartIds = new Map(parts.map((part) => [part.id, newId()]))
+  const templatePartIds = new Map<string, string>()
+
+  const templateParts = parts.map((part) => {
+    const id = newId()
+
+    templatePartIds.set(part.id, id)
+
+    return { id, title: part.title, dayOffset: part.dayOffset }
+  })
 
   const partOf = (block: { partId?: string | null }) => {
     const id = block.partId ? templatePartIds.get(block.partId) : undefined
@@ -114,7 +145,7 @@ export function templateConfigurationFromBlocks(
     }
 
     if (!isStructural(block.type)) {
-      note(LEFT_OUT_LABEL[block.type] ?? block.type.replace(/_/g, ' '))
+      note(LEFT_OUT_LABEL.get(block.type) ?? block.type.replace(/_/g, ' '))
       continue
     }
 
@@ -124,15 +155,7 @@ export function templateConfigurationFromBlocks(
       ...partOf(block),
       order,
       blockType: block.type,
-      payload:
-        block.type === 'checklist' && Array.isArray(block.payload.items)
-          ? {
-              ...block.payload,
-              items: (block.payload.items as Record<string, unknown>[]).map(
-                (item) => ({ ...item, checked: false }),
-              ),
-            }
-          : block.payload,
+      payload: checklistPayload(block),
     })
   }
 
@@ -144,23 +167,15 @@ export function templateConfigurationFromBlocks(
     )
   }
 
-  return {
-    configuration: {
-      formatVersion: 1,
-      parameters: [],
-      ...(parts.length > 0
-        ? {
-            parts: parts.map((part) => ({
-              id: templatePartIds.get(part.id) as string,
-              title: part.title,
-              dayOffset: part.dayOffset,
-            })),
-          }
-        : {}),
-      placements,
-    },
-    leftOut,
+  const configuration: NotebookTemplateConfiguration = {
+    formatVersion: 1,
+    parameters: [],
+    placements,
   }
+
+  if (templateParts.length > 0) configuration.parts = templateParts
+
+  return { configuration, leftOut }
 }
 
 /** A template key from a name: lowercase, underscores, starts with a letter. */

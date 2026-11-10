@@ -34,7 +34,7 @@ import {
   totalSpend,
 } from '#/lib/spend-report'
 import type { SpendGrouping, SpendGroup, SpendLine } from '#/lib/spend-report'
-import { orderStatusLabel } from '#/components/materials/reagent-orders'
+import { orderStatusLabel } from '#/components/materials/reagent-order-model'
 import { REAGENT_ORDER_STATUSES } from '#/lib/reagent-orders'
 
 const client = notebookDataClient

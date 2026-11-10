@@ -65,10 +65,14 @@ function toWire(row: {
 }
 
 async function loadSession(workspaceId: string) {
-  const { getRequestHeaders } = await import('@tanstack/react-start/server')
-  const { getCurrentContext } = await import('#/lib/current-user')
-  const { db } = await import('#/db/client.server')
-  const credentials = await import('#/lib/api-credentials')
+  // The server modules this needs are independent, so they load together.
+  const [{ getRequestHeaders }, { getCurrentContext }, { db }, credentials] =
+    await Promise.all([
+      import('@tanstack/react-start/server'),
+      import('#/lib/current-user'),
+      import('#/db/client.server'),
+      import('#/lib/api-credentials'),
+    ])
 
   const context = await getCurrentContext(getRequestHeaders())
 

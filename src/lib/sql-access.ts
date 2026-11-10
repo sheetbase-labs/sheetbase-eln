@@ -24,8 +24,11 @@ export function formatSqlUrl(
 /** Null when this deployment has not published a SQL host. */
 export const getSqlConnectionFn = createServerFn({ method: 'GET' }).handler(
   async (): Promise<SqlConnection | null> => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
+    const [{ getRequestHeaders }, { getCurrentContext }] = await Promise.all([
+      import('@tanstack/react-start/server'),
+      import('#/lib/current-user'),
+    ])
+
     const context = await getCurrentContext(getRequestHeaders())
 
     if (!context?.dataAccess) return null

@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import { EmptyState } from '#/components/ui/empty-state'
 import { Notice } from '#/components/ui/alert'
@@ -22,7 +23,11 @@ import {
   inUseStaleness,
   templateUseStatus,
 } from '#/lib/notebook-template-usage'
-import type { TemplateUsageRecord } from '#/lib/notebook-template-usage'
+import type {
+  TemplateInUseMatrixRow,
+  TemplateUsageRecord,
+  TemplateUseCounts,
+} from '#/lib/notebook-template-usage'
 import {
   publishedTemplateVersion,
   useTemplateMadeCount,
@@ -44,21 +49,35 @@ import { t } from '#/copy'
  * `?state=denied` alone. `?state=denied` renders the restricted view the
  * acceptance suite drives without a restricted account.
  */
+/** The filters this page reads from the URL; anything else is ignored. */
+interface InUseSearch {
+  version?: string
+  project?: string
+  state?: 'denied'
+}
+
+/** A URL that names none of them usable reads as an unfiltered page. */
+const inUseSearchSchema = z.object({
+  version: z.string().optional().catch(undefined),
+  project: z.string().optional().catch(undefined),
+  state: z.literal('denied').optional().catch(undefined),
+})
+
 export const Route = createFileRoute('/templates/$templateId/in-use')({
   validateSearch: (
+    // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- TanStack Router hands validateSearch the raw URL values as Record<string, unknown>; inUseSearchSchema decodes every key this route reads.
     search: Record<string, unknown>,
-  ): { version?: string; project?: string; state?: 'denied' } => ({
-    version: typeof search.version === 'string' ? search.version : undefined,
-    project: typeof search.project === 'string' ? search.project : undefined,
-    state: search.state === 'denied' ? 'denied' : undefined,
-  }),
+  ): InUseSearch => inUseSearchSchema.parse(search),
   component: TemplateInUse,
 })
 
-function recordStatus(record: TemplateUsageRecord): {
+/** How one record's progress is painted and named. */
+interface RecordStatus {
   tone: Tone
   label: string
-} {
+}
+
+function recordStatus(record: TemplateUsageRecord): RecordStatus {
   switch (templateUseStatus(record)) {
     case 'signed':
       return { tone: 'ok', label: t('library.templates.inUse.signed') }
@@ -122,7 +141,7 @@ function inUseRecordColumns({
   version,
   current,
 }: {
-  projects: Map<string, string> | undefined
+  projects: ReadonlyMap<string, string> | undefined
   userLabel: (userId: string) => string
   version: NotebookTemplateVersion
   current: NotebookTemplateVersion | undefined
@@ -244,6 +263,280 @@ function inUseMatrixColumns(
   ]
 }
 
+/** Why some records are missing, and what moving to the current version does. */
+function InUseNotices({
+  restrictedView,
+  unlistedCount,
+  unlistedNotice,
+  rowCount,
+  behind,
+  updatable,
+  stays,
+  currentVersion,
+  versionFilterIsStale,
+  onClearFilters,
+}: {
+  restrictedView: boolean
+  unlistedCount: number
+  unlistedNotice: string
+  rowCount: number
+  behind: number
+  updatable: number
+  stays: number
+  currentVersion: number | undefined
+  versionFilterIsStale: boolean
+  onClearFilters: () => void
+}) {
+  const staleness = [
+    t('library.templates.inUse.recordsOnOlderVersions', { count: behind }),
+    updatable > 0
+      ? t('library.templates.inUse.canMoveToVNow', {
+          updatable,
+          version: currentVersion ?? 0,
+        })
+      : '',
+    stays > 0
+      ? t('library.templates.inUse.signedRecordsStayWhereThey', {
+          count: stays,
+        })
+      : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  return (
+    <>
+      {restrictedView ? (
+        <Notice tone="info" className="mb-3" icon="lock">
+          {t(
+            unlistedCount > 0
+              ? 'library.templates.inUse.youCanSeeRecordsHere'
+              : 'library.templates.inUse.youCanSeeRecordsHereAskLead',
+            { unlistedNotice, count: rowCount },
+          )}
+        </Notice>
+      ) : null}
+      {behind > 0 && currentVersion !== undefined ? (
+        <Notice tone="info" className="mb-3" icon="warn">
+          {staleness}
+        </Notice>
+      ) : null}
+      {versionFilterIsStale ? (
+        <Notice
+          tone="warn"
+          className="mb-3"
+          action={
+            <Button size="sm" onClick={onClearFilters}>
+              {t('library.templates.inUse.clearFilters')}
+            </Button>
+          }
+        >
+          {t('library.templates.inUse.thisFilterNamesAVersion')}
+        </Notice>
+      ) : null}
+    </>
+  )
+}
+
+/** Version and project filters, and how many of the records they show. */
+function InUseFilters({
+  versions,
+  projects,
+  projectIds,
+  versionFilter,
+  projectFilter,
+  filtersActive,
+  filteredCount,
+  rowCount,
+  onVersion,
+  onProject,
+  onClear,
+}: {
+  versions: readonly NotebookTemplateVersion[]
+  projects: ReadonlyMap<string, string> | undefined
+  projectIds: string[]
+  versionFilter: string | undefined
+  projectFilter: string | undefined
+  filtersActive: boolean
+  filteredCount: number
+  rowCount: number
+  onVersion: (value: string | undefined) => void
+  onProject: (value: string | undefined) => void
+  onClear: () => void
+}) {
+  return (
+    <div className="mb-3 flex flex-wrap items-center gap-3">
+      <label className="flex items-center gap-1.5 text-label text-fg-muted">
+        {t('library.templates.inUse.version')}
+        <Select
+          aria-label={t('library.templates.inUse.filterByVersion')}
+          size="sm"
+          value={versionFilter ?? ''}
+          onChange={(e) => onVersion(e.target.value || undefined)}
+        >
+          <option value="">{t('library.templates.inUse.allVersions')}</option>
+          {versions.map((v) => (
+            <option key={v.id} value={v.id}>
+              v{v.version}
+            </option>
+          ))}
+        </Select>
+      </label>
+      <label className="flex items-center gap-1.5 text-label text-fg-muted">
+        {t('library.templates.inUse.project')}
+        <Select
+          aria-label={t('library.templates.inUse.filterByProject')}
+          size="sm"
+          value={projectFilter ?? ''}
+          onChange={(e) => onProject(e.target.value || undefined)}
+        >
+          <option value="">{t('library.templates.inUse.allProjects')}</option>
+          {projectIds.map((id) => (
+            <option key={id} value={id}>
+              {projects?.get(id) ?? id}
+            </option>
+          ))}
+        </Select>
+      </label>
+      {filtersActive ? (
+        <Button size="sm" onClick={onClear}>
+          {t('library.templates.inUse.clearFilters')}
+        </Button>
+      ) : null}
+      <span className="num text-label text-fg-muted">
+        {t('library.templates.inUse.of', {
+          filtered: filteredCount,
+          rows: rowCount,
+        })}
+      </span>
+    </div>
+  )
+}
+
+/** One section per template version, each listing the records made from it. */
+function InUseGroups({
+  groups,
+  current,
+  projects,
+  userLabel,
+  onClear,
+}: {
+  groups: readonly {
+    version: NotebookTemplateVersion
+    records: TemplateUsageRecord[]
+  }[]
+  current: NotebookTemplateVersion | undefined
+  projects: ReadonlyMap<string, string> | undefined
+  userLabel: (userId: string) => string
+  onClear: () => void
+}) {
+  if (groups.length === 0)
+    return (
+      <EmptyState
+        icon="search"
+        title={t('library.templates.inUse.noRecordsMatchTheseFilters')}
+        description={t('library.templates.inUse.tryAnotherVersionOrProject')}
+        action={
+          <Button size="sm" onClick={onClear}>
+            {t('library.templates.inUse.clearFilters')}
+          </Button>
+        }
+      />
+    )
+
+  return (
+    <div className="flex flex-col gap-6">
+      {groups.map(({ version, records }) => (
+        <section
+          key={version.id}
+          aria-label={t('library.templates.inUse.version2', {
+            version: version.version,
+          })}
+        >
+          <h2 className="mb-1 flex items-center gap-2 text-section">
+            v{version.version}
+            <Status tone={version.id === current?.id ? 'ok' : 'none'}>
+              {version.id === current?.id
+                ? t('library.templates.inUse.current')
+                : t('library.templates.inUse.published')}
+            </Status>
+            <span className="num text-label font-normal text-fg-muted">
+              {t('library.templates.inUse.records', {
+                count: records.length,
+              })}
+            </span>
+          </h2>
+          <div className="overflow-hidden rounded-md border border-border">
+            <RegistryGrid
+              label={t('library.templates.inUse.recordsOnVersion', {
+                version: version.version,
+              })}
+              rows={records}
+              columns={inUseRecordColumns({
+                projects,
+                userLabel,
+                version,
+                current,
+              })}
+              getRowId={(record) => record.id}
+              selectable={false}
+            />
+          </div>
+        </section>
+      ))}
+    </div>
+  )
+}
+
+/** The used-by matrix and what updating or retiring a version does. */
+function InUseInspector({
+  matrix,
+  totals,
+  currentId,
+  templateId,
+}: {
+  matrix: TemplateInUseMatrixRow[]
+  totals: TemplateUseCounts
+  currentId: string | undefined
+  templateId: string
+}) {
+  return (
+    <Inspector label={t('library.templates.inUse.inUseDetails')} width={320}>
+      <InspectorSection title={t('library.templates.inUse.recordsByVersion')}>
+        <TableBox>
+          <RegistryGrid
+            label={t('library.templates.inUse.recordsByVersion')}
+            rows={matrix}
+            columns={inUseMatrixColumns(currentId)}
+            getRowId={(row) => row.version.id}
+            selectable={false}
+          />
+        </TableBox>
+        <Muted className="mt-2">
+          {t('library.templates.inUse.recordsInTotalSignedIn', {
+            count: totals.total,
+            signed: totals.signed,
+            inReview: totals.inReview,
+          })}
+        </Muted>
+      </InspectorSection>
+      <InspectorSection title={t('library.templates.inUse.whatUpdatingDoes')}>
+        <Muted>{t('library.templates.inUse.signedRecordsNeverChangeIn')}</Muted>
+      </InspectorSection>
+      <InspectorSection title={t('library.templates.inUse.retiringAVersion')}>
+        <Muted>{t('library.templates.inUse.aVersionCanOnlyBe')}</Muted>
+        <Link
+          to="/templates/$templateId/versions"
+          params={{ templateId }}
+          className="text-label"
+        >
+          {t('library.templates.inUse.openVersions')}
+        </Link>
+      </InspectorSection>
+    </Inspector>
+  )
+}
+
 function TemplateInUse() {
   const { templateId } = Route.useParams()
 
@@ -263,7 +556,7 @@ function TemplateInUse() {
     (users.data ?? []).map((r) => r.created_by_user_id ?? '').filter(Boolean),
   )
 
-  const rows = users.data ?? []
+  const rows = useMemo(() => users.data ?? [], [users.data])
 
   // Only the records in projects this viewer can open are listed, but the
   // workspace-scoped instantiation count says how many records were made from
@@ -339,10 +632,11 @@ function TemplateInUse() {
       replace: true,
     })
 
-  const updateSearch = (patch: Record<string, unknown>) =>
+  const updateSearch = (patch: InUseSearch) =>
     void navigate({
       to: '/templates/$templateId/in-use',
       params: { templateId },
+      // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The router's current search carries every parent route's keys; this page merges its own patch into it unchanged.
       search: (s: Record<string, unknown>) => ({ ...s, ...patch }),
       replace: true,
     })
@@ -376,197 +670,45 @@ function TemplateInUse() {
   return (
     <div className="flex min-w-0 flex-1">
       <div className="min-w-0 flex-1 overflow-auto px-4 py-4 md:px-6">
-        {restrictedView ? (
-          <Notice tone="info" className="mb-3" icon="lock">
-            {t(
-              unlistedCount > 0
-                ? 'library.templates.inUse.youCanSeeRecordsHere'
-                : 'library.templates.inUse.youCanSeeRecordsHereAskLead',
-              { unlistedNotice, count: rows.length },
-            )}
-          </Notice>
-        ) : null}
-        {staleness.behind > 0 && current ? (
-          <Notice tone="info" className="mb-3" icon="warn">
-            {[
-              t('library.templates.inUse.recordsOnOlderVersions', {
-                count: staleness.behind,
-              }),
-              staleness.updatable > 0
-                ? t('library.templates.inUse.canMoveToVNow', {
-                    updatable: staleness.updatable,
-                    version: current.version,
-                  })
-                : '',
-              staleness.stays > 0
-                ? t('library.templates.inUse.signedRecordsStayWhereThey', {
-                    count: staleness.stays,
-                  })
-                : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-          </Notice>
-        ) : null}
-        {versionFilterIsStale ? (
-          <Notice
-            tone="warn"
-            className="mb-3"
-            action={
-              <Button size="sm" onClick={clearFilters}>
-                {t('library.templates.inUse.clearFilters')}
-              </Button>
-            }
-          >
-            {t('library.templates.inUse.thisFilterNamesAVersion')}
-          </Notice>
-        ) : null}
-        <div className="mb-3 flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-1.5 text-label text-fg-muted">
-            {t('library.templates.inUse.version')}
-            <Select
-              aria-label={t('library.templates.inUse.filterByVersion')}
-              size="sm"
-              value={versionFilter ?? ''}
-              onChange={(e) =>
-                updateSearch({ version: e.target.value || undefined })
-              }
-            >
-              <option value="">
-                {t('library.templates.inUse.allVersions')}
-              </option>
-              {list.map((v) => (
-                <option key={v.id} value={v.id}>
-                  v{v.version}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <label className="flex items-center gap-1.5 text-label text-fg-muted">
-            {t('library.templates.inUse.project')}
-            <Select
-              aria-label={t('library.templates.inUse.filterByProject')}
-              size="sm"
-              value={projectFilter ?? ''}
-              onChange={(e) =>
-                updateSearch({ project: e.target.value || undefined })
-              }
-            >
-              <option value="">
-                {t('library.templates.inUse.allProjects')}
-              </option>
-              {projectIds.map((id) => (
-                <option key={id} value={id}>
-                  {projects.data?.get(id) ?? id}
-                </option>
-              ))}
-            </Select>
-          </label>
-          {filtersActive ? (
-            <Button size="sm" onClick={clearFilters}>
-              {t('library.templates.inUse.clearFilters')}
-            </Button>
-          ) : null}
-          <span className="num text-label text-fg-muted">
-            {t('library.templates.inUse.of', {
-              filtered: filtered.length,
-              rows: rows.length,
-            })}
-          </span>
-        </div>
-
-        {groups.length === 0 ? (
-          <EmptyState
-            icon="search"
-            title={t('library.templates.inUse.noRecordsMatchTheseFilters')}
-            description={t(
-              'library.templates.inUse.tryAnotherVersionOrProject',
-            )}
-            action={
-              <Button size="sm" onClick={clearFilters}>
-                {t('library.templates.inUse.clearFilters')}
-              </Button>
-            }
-          />
-        ) : (
-          <div className="flex flex-col gap-6">
-            {groups.map(({ version, records }) => (
-              <section
-                key={version.id}
-                aria-label={t('library.templates.inUse.version2', {
-                  version: version.version,
-                })}
-              >
-                <h2 className="mb-1 flex items-center gap-2 text-section">
-                  v{version.version}
-                  <Status tone={version.id === current?.id ? 'ok' : 'none'}>
-                    {version.id === current?.id
-                      ? t('library.templates.inUse.current')
-                      : t('library.templates.inUse.published')}
-                  </Status>
-                  <span className="num text-label font-normal text-fg-muted">
-                    {t('library.templates.inUse.records', {
-                      count: records.length,
-                    })}
-                  </span>
-                </h2>
-                <div className="overflow-hidden rounded-md border border-border">
-                  <RegistryGrid
-                    label={t('library.templates.inUse.recordsOnVersion', {
-                      version: version.version,
-                    })}
-                    rows={records}
-                    columns={inUseRecordColumns({
-                      projects: projects.data,
-                      userLabel: names.userLabel,
-                      version,
-                      current,
-                    })}
-                    getRowId={(record) => record.id}
-                    selectable={false}
-                  />
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
+        <InUseNotices
+          restrictedView={restrictedView}
+          unlistedCount={unlistedCount}
+          unlistedNotice={unlistedNotice}
+          rowCount={rows.length}
+          behind={staleness.behind}
+          updatable={staleness.updatable}
+          stays={staleness.stays}
+          currentVersion={current?.version}
+          versionFilterIsStale={versionFilterIsStale}
+          onClearFilters={clearFilters}
+        />
+        <InUseFilters
+          versions={list}
+          projects={projects.data}
+          projectIds={projectIds}
+          versionFilter={versionFilter}
+          projectFilter={projectFilter}
+          filtersActive={filtersActive}
+          filteredCount={filtered.length}
+          rowCount={rows.length}
+          onVersion={(value) => updateSearch({ version: value })}
+          onProject={(value) => updateSearch({ project: value })}
+          onClear={clearFilters}
+        />
+        <InUseGroups
+          groups={groups}
+          current={current}
+          projects={projects.data}
+          userLabel={names.userLabel}
+          onClear={clearFilters}
+        />
       </div>
-
-      <Inspector label={t('library.templates.inUse.inUseDetails')} width={320}>
-        <InspectorSection title={t('library.templates.inUse.recordsByVersion')}>
-          <TableBox>
-            <RegistryGrid
-              label={t('library.templates.inUse.recordsByVersion')}
-              rows={matrix}
-              columns={inUseMatrixColumns(current?.id)}
-              getRowId={(row) => row.version.id}
-              selectable={false}
-            />
-          </TableBox>
-          <Muted className="mt-2">
-            {t('library.templates.inUse.recordsInTotalSignedIn', {
-              count: totals.total,
-              signed: totals.signed,
-              inReview: totals.inReview,
-            })}
-          </Muted>
-        </InspectorSection>
-        <InspectorSection title={t('library.templates.inUse.whatUpdatingDoes')}>
-          <Muted>
-            {t('library.templates.inUse.signedRecordsNeverChangeIn')}
-          </Muted>
-        </InspectorSection>
-        <InspectorSection title={t('library.templates.inUse.retiringAVersion')}>
-          <Muted>{t('library.templates.inUse.aVersionCanOnlyBe')}</Muted>
-          <Link
-            to="/templates/$templateId/versions"
-            params={{ templateId }}
-            className="text-label"
-          >
-            {t('library.templates.inUse.openVersions')}
-          </Link>
-        </InspectorSection>
-      </Inspector>
+      <InUseInspector
+        matrix={matrix}
+        totals={totals}
+        currentId={current?.id}
+        templateId={templateId}
+      />
     </div>
   )
 }

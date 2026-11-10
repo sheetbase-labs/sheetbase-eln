@@ -194,13 +194,23 @@ export async function resolveSampleIds(
   client: DataClient,
   labels: readonly string[],
 ): Promise<Map<string, string>> {
-  const unique = [...new Set(labels.map((l) => l.trim()).filter(Boolean))]
+  const unique = [
+    ...new Set(
+      labels.flatMap((label) => {
+        const trimmed = label.trim()
+
+        return trimmed ? [trimmed] : []
+      }),
+    ),
+  ]
+
   const found = new Map<string, string>()
 
   for (let i = 0; i < unique.length; i += 100) {
     const batch = unique.slice(i, i + 100)
     const list = batch.map((l) => `"${l.replace(/[",()\\]/g, '')}"`).join(',')
 
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Batches are read in order so the first record to claim a title keeps it; a parallel read would make that tie non-deterministic.
     const rows = await client.list<{
       id: string
       identifier: string
@@ -224,6 +234,18 @@ export async function resolveSampleIds(
 // Worklists
 // ---------------------------------------------------------------------------
 
+/** One JSON value a worklist's JSONB columns hold. */
+export type WorklistJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | WorklistJsonValue[]
+  | { [key: string]: WorklistJsonValue }
+
+/** A worklist JSONB object: its layout options, or one reconciliation row. */
+export type WorklistJsonObject = Record<string, WorklistJsonValue>
+
 export interface PlateWorklistRow {
   id: string
   number: number
@@ -242,9 +264,9 @@ export interface PlateWorklistRow {
       'sourceWell' | 'destWell' | 'volumeUl' | 'label' | 'sampleId'
     >
   >
-  options: Record<string, unknown>
+  options: WorklistJsonObject
   status: 'planned' | 'complete' | 'cancelled'
-  reconciled: Array<Record<string, unknown>> | null
+  reconciled: WorklistJsonObject[] | null
   withdrawals: {
     recorded: boolean
     withdrawn: Array<{ identifier: string; quantity: number; unit: string }>
@@ -280,7 +302,7 @@ export async function createPlateWorklist(
     transfers: Transfer[]
     runId?: string | null
     recordId?: string | null
-    options?: Record<string, unknown>
+    options?: WorklistJsonObject
   },
 ): Promise<PlateWorklistRow> {
   return client.rpc<PlateWorklistRow>('create_plate_worklist', {
@@ -308,7 +330,7 @@ export async function completePlateWorklist(
   client: DataClient,
   input: {
     worklistId: string
-    reconciled: Array<Record<string, unknown>>
+    reconciled: WorklistJsonObject[]
     purposeRecordId?: string | null
     recordWithdrawals: boolean
   },
@@ -328,6 +350,10 @@ export async function cancelPlateWorklist(
   await client.rpc<unknown>('cancel_plate_worklist', { p_worklist_id: id })
 }
 
-export function messageOf(error: unknown, fallback: string): string {
+export function messageOf(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A caught throw is untyped by definition; an Error supplies its message and anything else falls back.
+  error: unknown,
+  fallback: string,
+): string {
   return error instanceof Error && error.message ? error.message : fallback
 }

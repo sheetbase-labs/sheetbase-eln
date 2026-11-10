@@ -14,14 +14,20 @@ describe('useSettledValue', () => {
     const { result } = renderHook(() => useSettledValue('', 200, onSettle))
 
     act(() => result.current.setValue('q'))
-    act(() => vi.advanceTimersByTime(100))
+    act(() => {
+      vi.advanceTimersByTime(100)
+    })
     act(() => result.current.setValue('qu'))
-    act(() => vi.advanceTimersByTime(199))
+    act(() => {
+      vi.advanceTimersByTime(199)
+    })
     // The second keystroke restarted the delay, so nothing has been reported.
     expect(onSettle).not.toHaveBeenCalled()
     expect(result.current.value).toBe('qu')
 
-    act(() => vi.advanceTimersByTime(1))
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
     expect(onSettle).toHaveBeenCalledTimes(1)
     expect(onSettle).toHaveBeenCalledWith('qu')
     expect(result.current.settled).toBe('qu')
@@ -32,7 +38,9 @@ describe('useSettledValue', () => {
     const onSettle = vi.fn()
     renderHook(() => useSettledValue('virus', 200, onSettle))
 
-    act(() => vi.advanceTimersByTime(1000))
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
     expect(onSettle).not.toHaveBeenCalled()
   })
 
@@ -51,7 +59,9 @@ describe('useSettledValue', () => {
     rerender({ value: '' })
     expect(result.current.value).toBe('')
 
-    act(() => vi.advanceTimersByTime(1000))
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
     // The queued keystroke was dropped, so it never navigates the screen back
     // to the term the user cleared.
     expect(onSettle).not.toHaveBeenCalled()
@@ -68,7 +78,9 @@ describe('useSettledValue', () => {
     )
 
     act(() => result.current.setValue('abc'))
-    act(() => vi.advanceTimersByTime(200))
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
     // The route now carries the reported term back in as the value.
     rerender({ value: 'abc' })
     expect(result.current.value).toBe('abc')
@@ -83,7 +95,9 @@ describe('useSettledValue', () => {
 
     act(() => result.current.setValue('quarantine'))
     expect(result.current.settled).toBe('')
-    act(() => vi.advanceTimersByTime(250))
+    act(() => {
+      vi.advanceTimersByTime(250)
+    })
     expect(result.current.settled).toBe('quarantine')
   })
 })

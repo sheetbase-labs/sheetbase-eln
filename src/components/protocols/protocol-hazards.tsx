@@ -69,10 +69,15 @@ export function ProtocolHazards({
     .sort((a, b) => a.material.title.localeCompare(b.material.title))
 
   const all: GhsPictogram[] = []
+  const seen = new Set<GhsPictogram>()
 
   for (const { safety: s } of rows) {
-    for (const code of s?.pictograms ?? [])
-      if (!all.includes(code)) all.push(code)
+    for (const code of s?.pictograms ?? []) {
+      if (seen.has(code)) continue
+
+      seen.add(code)
+      all.push(code)
+    }
   }
 
   return (

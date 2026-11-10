@@ -112,8 +112,7 @@ export function RegistryLineage({
       void queryClient.invalidateQueries({ queryKey: registryKeys.all })
       toast.success(t('registry.entry.parentRemoved'))
     },
-    onError: (e: unknown) =>
-      toast.error(messageOf(e, t('registry.entry.couldNotLink'))),
+    onError: (e) => toast.error(messageOf(e, t('registry.entry.couldNotLink'))),
   })
 
   function columns(removable: boolean): RegistryColumn<LineageNode>[] {
@@ -286,8 +285,7 @@ function AddParentDialog({
       toast.success(t('registry.entry.parentAdded'))
       onOpenChange(false)
     },
-    onError: (e: unknown) =>
-      toast.error(messageOf(e, t('registry.entry.couldNotLink'))),
+    onError: (e) => toast.error(messageOf(e, t('registry.entry.couldNotLink'))),
   })
 
   return (
@@ -318,7 +316,13 @@ function AddParentDialog({
               <Field label={t('registry.entry.role')}>
                 <Select
                   value={role}
-                  onChange={(e) => setRole(e.target.value as ParentRole)}
+                  onChange={(e) =>
+                    setRole(
+                      PARENT_ROLES.find(
+                        (candidate) => candidate === e.target.value,
+                      ) ?? role,
+                    )
+                  }
                 >
                   {PARENT_ROLES.map((r) => (
                     <option key={r} value={r}>
@@ -380,7 +384,7 @@ export function RegistryRetireButton({
       })
       setConfirming(false)
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(messageOf(e, t('registry.entry.couldNotChange'))),
   })
 

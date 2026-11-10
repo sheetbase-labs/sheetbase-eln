@@ -9,12 +9,14 @@ describe('downloadTextFile', () => {
   })
 
   it('attaches the anchor, clicks it, removes it, and defers the revoke', () => {
-    const createObjectURL = vi.fn((_blob: Blob) => 'blob:download')
+    const createObjectURL = vi.fn(
+      (_target: Blob | MediaSource) => 'blob:download',
+    )
+
     const revokeObjectURL = vi.fn()
-    const originalCreate = URL.createObjectURL
-    const originalRevoke = URL.revokeObjectURL
-    URL.createObjectURL = createObjectURL
-    URL.revokeObjectURL = revokeObjectURL
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(createObjectURL)
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(revokeObjectURL)
+
     let attachedWhenClicked = false
 
     const anchorClick = vi
@@ -32,6 +34,10 @@ describe('downloadTextFile', () => {
       expect(attachedWhenClicked).toBe(true)
       expect(createObjectURL).toHaveBeenCalledTimes(1)
       const blob = createObjectURL.mock.calls[0][0]
+      expect(blob).toBeInstanceOf(Blob)
+
+      if (!(blob instanceof Blob))
+        throw new Error('no Blob reached the browser')
       expect(blob.type).toBe('text/csv')
       // The anchor does not linger in the document.
       expect(document.querySelectorAll('a[download]')).toHaveLength(0)
@@ -42,23 +48,16 @@ describe('downloadTextFile', () => {
       expect(revokeObjectURL).toHaveBeenCalledWith('blob:download')
     } finally {
       anchorClick.mockRestore()
-      URL.createObjectURL = originalCreate
-      URL.revokeObjectURL = originalRevoke
     }
   })
 
   it('hands a Blob through with its own type', () => {
-    const createObjectURL = vi.fn((_blob: Blob) => 'blob:given')
-    const originalCreate = URL.createObjectURL
-    URL.createObjectURL = createObjectURL
+    const createObjectURL = vi.fn((_target: Blob | MediaSource) => 'blob:given')
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(createObjectURL)
 
-    try {
-      const blob = new Blob(['zip'], { type: 'application/zip' })
-      downloadTextFile('package.zip', blob)
-      expect(createObjectURL.mock.calls[0][0]).toBe(blob)
-    } finally {
-      URL.createObjectURL = originalCreate
-    }
+    const blob = new Blob(['zip'], { type: 'application/zip' })
+    downloadTextFile('package.zip', blob)
+    expect(createObjectURL.mock.calls[0][0]).toBe(blob)
   })
 
   it('states a browser that cannot take a download', () => {
@@ -69,7 +68,7 @@ describe('downloadTextFile', () => {
 
     // Without the download attribute the click navigates to the blob instead
     // of saving it, so the helper has to say so rather than go quiet.
-    delete (HTMLAnchorElement.prototype as Partial<HTMLAnchorElement>).download
+    Reflect.deleteProperty(HTMLAnchorElement.prototype, 'download')
 
     try {
       expect(() => downloadTextFile('report.csv', 'a,b')).toThrow(

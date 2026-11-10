@@ -8,8 +8,10 @@
 export const OFFLINE_SYNC_EVENT = 'sheetbase:offline-sync'
 const SYNC_TAG = 'sheetbase-replay'
 
-type SyncRegistration = ServiceWorkerRegistration & {
-  sync?: { register: (tag: string) => Promise<void> }
+declare global {
+  interface ServiceWorkerRegistration {
+    sync?: { register: (tag: string) => Promise<void> }
+  }
 }
 
 function canUseServiceWorker(): boolean {
@@ -19,8 +21,9 @@ function canUseServiceWorker(): boolean {
 /** Ask the browser to keep this site's storage, so drafts are never evicted. */
 export async function requestPersistentStorage(): Promise<boolean> {
   try {
-    const storage = (navigator as { storage?: StorageManager }).storage
+    const storage = navigator.storage
 
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof, typescript/no-unnecessary-condition -- DOM types require storage, but unsupported browsers omit it; reject missing/noncallable persist before invoking persisted or opening a permission prompt.
     if (!storage || typeof storage.persist !== 'function') return false
 
     if (await storage.persisted()) return true
@@ -36,8 +39,7 @@ export async function requestBackgroundSync(): Promise<boolean> {
   try {
     if (!canUseServiceWorker()) return false
 
-    const registration = (await navigator.serviceWorker
-      .ready) as SyncRegistration
+    const registration = await navigator.serviceWorker.ready
 
     if (!registration.sync) return false
     await registration.sync.register(SYNC_TAG)
@@ -51,9 +53,8 @@ export async function requestBackgroundSync(): Promise<boolean> {
 /** Tell the worker to drop cached pages (they hold one person's data). */
 export function clearOfflinePages(): void {
   try {
-    ;(
-      navigator as { serviceWorker?: ServiceWorkerContainer }
-    ).serviceWorker?.controller?.postMessage({
+    // oxlint-disable-next-line typescript/no-unnecessary-condition -- DOM types require serviceWorker, but unsupported or insecure browser contexts omit this native capability.
+    navigator.serviceWorker?.controller?.postMessage({
       type: 'sheetbase:clear-pages',
     })
   } catch {
@@ -80,6 +81,7 @@ export async function startOfflineSupport(): Promise<() => void> {
   if (!canUseServiceWorker()) return () => undefined
 
   const onMessage = (event: MessageEvent) => {
+    // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- This legacy native-message lookup is unchecked; preserve optional property access on non-JSON data instead of falsely claiming validation.
     if ((event.data as { type?: string } | null)?.type === 'sheetbase:replay') {
       window.dispatchEvent(new Event(OFFLINE_SYNC_EVENT))
     }

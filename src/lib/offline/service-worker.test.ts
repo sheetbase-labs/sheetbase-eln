@@ -32,6 +32,13 @@ describe('requestPersistentStorage', () => {
     vi.stubGlobal('navigator', {})
     expect(await requestPersistentStorage()).toBe(false)
   })
+
+  it('does not ask persisted when persist is not callable', async () => {
+    const persisted = vi.fn().mockResolvedValue(true)
+    vi.stubGlobal('navigator', { storage: { persisted, persist: 'blocked' } })
+    expect(await requestPersistentStorage()).toBe(false)
+    expect(persisted).not.toHaveBeenCalled()
+  })
 })
 
 describe('requestBackgroundSync', () => {
@@ -54,21 +61,56 @@ describe('requestBackgroundSync', () => {
 
 describe('startOfflineSupport', () => {
   it('turns the worker wake-up into a window event', async () => {
-    const listeners: Array<(e: MessageEvent) => void> = []
+    const container = Object.assign(new EventTarget(), {
+      register: vi.fn().mockResolvedValue({}),
+      ready: Promise.resolve({ active: { postMessage: vi.fn() } }),
+    })
+
     vi.stubGlobal('navigator', {
-      serviceWorker: {
-        addEventListener: (_: string, l: (e: MessageEvent) => void) =>
-          listeners.push(l),
-        removeEventListener: vi.fn(),
-        register: vi.fn().mockResolvedValue({}),
-        ready: Promise.resolve({ active: { postMessage: vi.fn() } }),
-      },
+      serviceWorker: container,
     })
     const seen = vi.fn()
     window.addEventListener(OFFLINE_SYNC_EVENT, seen)
-    await startOfflineSupport()
-    listeners[0]({ data: { type: 'sheetbase:replay' } } as MessageEvent)
-    expect(seen).toHaveBeenCalledOnce()
-    window.removeEventListener(OFFLINE_SYNC_EVENT, seen)
+    const stop = await startOfflineSupport()
+
+    try {
+      for (const data of [null, undefined, 0, 'replay', { type: 'other' }]) {
+        container.dispatchEvent(new MessageEvent('message', { data }))
+      }
+
+      container.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: 'sheetbase:replay' },
+        }),
+      )
+      expect(seen).toHaveBeenCalledOnce()
+
+      const array = Object.assign([], { type: 'sheetbase:replay' })
+      container.dispatchEvent(new MessageEvent('message', { data: array }))
+      let reads = 0
+      container.dispatchEvent(
+        new MessageEvent('message', {
+          data: {
+            get type() {
+              reads++
+
+              return 'sheetbase:replay'
+            },
+          },
+        }),
+      )
+      expect(reads).toBe(1)
+      expect(seen).toHaveBeenCalledTimes(3)
+      stop()
+      container.dispatchEvent(
+        new MessageEvent('message', {
+          data: { type: 'sheetbase:replay' },
+        }),
+      )
+      expect(seen).toHaveBeenCalledTimes(3)
+    } finally {
+      stop()
+      window.removeEventListener(OFFLINE_SYNC_EVENT, seen)
+    }
   })
 })

@@ -438,12 +438,12 @@ function startDataGridColumnResizeOnEnd<TData extends object>(
       for (const spanningHeader of liveSpanningHeaders) {
         let size = 0
 
-        for (const [columnId, startSize] of spanningHeader.leaves) {
+        for (const [columnId, initialSize] of spanningHeader.leaves) {
           size +=
             nextColumnSizing[columnId] ??
             (autoSizePreview?.columnId === columnId
               ? autoSizePreview.size
-              : startSize)
+              : initialSize)
         }
 
         liveTableElement.style.setProperty(
@@ -1117,8 +1117,7 @@ function DataGridTableBase({ children }: { children: ReactNode }) {
 
     const colSizes: Record<string, number | string> = {}
 
-    for (let i = 0; i < headers.length; i++) {
-      const header = headers[i]!
+    for (const header of headers) {
       colSizes[`--header-${header.id}-size`] = header.getSize()
       colSizes[`--col-${header.column.id}-size`] =
         header.column.id === fillColumnId

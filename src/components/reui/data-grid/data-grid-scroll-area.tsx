@@ -251,9 +251,14 @@ function DataGridScrollArea({
       return
     }
 
-    const { header, horizontalScrollbar, table } = observedElementsRef.current
+    const {
+      header,
+      horizontalScrollbar,
+      table: tableElement,
+    } = observedElementsRef.current
+
     const headerHeight = header?.getBoundingClientRect().height ?? 0
-    const footerHeight = getStickyFooterHeight(table)
+    const footerHeight = getStickyFooterHeight(tableElement)
     const viewportHeight = viewport.clientHeight
     const viewportWidth = viewport.clientWidth
     const scrollHeight = viewport.scrollHeight

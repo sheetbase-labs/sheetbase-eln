@@ -31,6 +31,28 @@ Socket.dev dependency scan remains enabled and can make network requests.
 React Doctor retains its own compatible Oxlint dependency instead of sharing
 or overriding the root Oxlint binary.
 
+## Registry-owned components
+
+[ADR-0055](../../docs/knowledge/decisions/0055-component-primitives-and-the-reui-registry-contract.md)
+pins the ReUI registry to the Base UI build and says `src/components/reui/**`
+"is not edited beyond import-path fixes and restyling to Sheetbase tokens,
+which is why it carries its own scoped lint relaxation". The migration
+preserves that relaxation as an `overrides` entry for the directory: the
+import-style and assertion rules the retired ESLint configuration relaxed, plus
+the anti-slop rules for unparsed input and assertions. Those rules assume we own
+the source and would otherwise force semantic edits to copied registry code.
+
+The relaxation is directory-scoped and covers no first-party code. Every other
+rule still runs on those files; the eight remaining findings were real defects
+and are fixed in place.
+
+`doctor.config.json` carries the matching three-rule override for the same
+directory. `no-giant-component`, `no-high-complexity-react-function` and
+`only-export-components` can only be satisfied by splitting or restructuring
+copied registry source, which the ADR forbids. Its behavioural rules, including
+hook dependencies, state-updater side effects, ref reads during render and
+event accessibility, stay on and are fixed in place.
+
 ## Existing ESLint coverage
 
 The migration replaces the effective `@tanstack/eslint-config` 0.4.0 rules,

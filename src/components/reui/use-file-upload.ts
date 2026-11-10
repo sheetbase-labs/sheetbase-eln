@@ -269,15 +269,15 @@ export const useFileUpload = (
         onFilesAdded?.(validFiles)
 
         setState((prev) => {
-          const newFiles = !multiple
+          const nextFiles = !multiple
             ? validFiles
             : [...prev.files, ...validFiles]
 
-          onFilesChange?.(newFiles)
+          onFilesChange?.(nextFiles)
 
           return {
             ...prev,
-            files: newFiles,
+            files: nextFiles,
             errors,
           }
         })

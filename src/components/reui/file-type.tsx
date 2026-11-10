@@ -938,11 +938,12 @@ function FileType({
     : CATEGORY_NAMES[resolved.category]
 
   // A custom string label is part of what the icon says ("V3, DOCX file").
-  const custom = typeof label === 'string' ? label.toUpperCase() : ''
+  const customLabel = typeof label === 'string' ? label : ''
+  const custom = customLabel.toUpperCase()
 
   const name =
     custom && custom !== resolved.label && custom !== spelled
-      ? `${label}, ${typeName}`
+      ? `${customLabel}, ${typeName}`
       : typeName
 
   const hasIcon = icon !== undefined && icon !== null && icon !== false

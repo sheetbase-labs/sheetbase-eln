@@ -4,6 +4,16 @@
     "files": [
       "tools/oxlint/anti-slop/**",
       "docs/knowledge/design/ui-system-v3/runtime/dc-runtime.js"
+    ],
+    "overrides": [
+      {
+        "files": ["src/components/reui/**"],
+        "rules": [
+          "react-doctor/no-giant-component",
+          "react-doctor/no-high-complexity-react-function",
+          "react-doctor/only-export-components"
+        ]
+      }
     ]
   }
 }

@@ -29,9 +29,13 @@ import { EMPTY_RICH_TEXT_PAYLOAD } from '#/lib/blocks'
 import type { RichTextPayload } from '#/lib/blocks'
 import { replyToComment } from '#/lib/comments-data'
 import { fetchBlocksForRecord } from '#/lib/notebook-data'
+import type { NotebookBlock } from '#/lib/notebook-data'
 import { updateBlockPayload } from '#/lib/notebook-mutations'
 import { fetchComposedSheetRows } from '#/lib/sheet-composition-data'
-import type { ComposedSheetSnapshot } from '#/lib/sheet-composition-data'
+import type {
+  ComposedSheetCellValue,
+  ComposedSheetSnapshot,
+} from '#/lib/sheet-composition-data'
 import { fetchSheetInstance } from '#/lib/sheet-instance-data'
 import { mutateSheetLocalState } from '#/lib/sheet-local-data'
 import {
@@ -131,6 +135,8 @@ export class OfflineReplayRefusedError extends Error {
 }
 
 /** Whether a commit failure means this edit and the server now overlap. */
+// Rejections may be arbitrary JavaScript values, not only validated Error instances.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
 export function isOfflineReplayOverlap(error: unknown): boolean {
   if (error instanceof OfflineReplayOverlapError) return true
 
@@ -140,18 +146,26 @@ export function isOfflineReplayOverlap(error: unknown): boolean {
 
   const code =
     error &&
+    // Native objects, including foreign-realm errors, can carry SQLSTATE getters.
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof
     typeof error === 'object' &&
     'code' in error &&
+    // Preserve the existing check and second read, rather than snapshotting a getter.
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof
     typeof error.code === 'string'
       ? error.code
       : ''
 
   if (code === 'SB001' || code === 'SB073') return true
+  // Non-Error rejection reasons retain their native string coercion and refusal.
+  // oxlint-disable-next-line typescript/no-base-to-string
   const message = error instanceof Error ? error.message : String(error ?? '')
 
   return /SB001|SB073|stale|revision conflict/i.test(message)
 }
 
+// Classify raw commit rejection reasons without introducing schema parsing or coercion.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
 function isRefused(error: unknown): boolean {
   if (error instanceof OfflineReplayRefusedError) return true
 
@@ -179,11 +193,17 @@ function isRefused(error: unknown): boolean {
   return false
 }
 
+// A transport or custom port can reject with any native JavaScript value.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
 function failureReason(error: unknown): OfflineReplayReason {
   return isRefused(error) ? 'refused' : 'commit_failed'
 }
 
+// Reporting must retain the original non-Error reason, including custom coercion.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
 function failureMessage(error: unknown, reason: OfflineReplayReason): string {
+  // Native String is the existing fallback for non-Error rejection values.
+  // oxlint-disable-next-line typescript/no-base-to-string
   const detail = error instanceof Error ? error.message : String(error ?? '')
 
   return reason === 'refused'
@@ -221,7 +241,7 @@ export interface OfflineReplayPort {
   /** The server's current payload for a conflicted block, or null if unread. */
   readServerBlockPayload?: (
     edit: OfflineBlockPayloadEdit,
-  ) => Promise<Record<string, unknown> | null>
+  ) => Promise<NotebookBlock['payload'] | null>
 }
 
 export type OfflineBlockPayloadEdit = Extract<
@@ -230,9 +250,13 @@ export type OfflineBlockPayloadEdit = Extract<
 >
 
 /** Order-insensitive deep equality for JSON payloads. */
+// Compare original values, including native objects/getters; parsing would clone or reject them.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
 export function samePayload(a: unknown, b: unknown): boolean {
   if (a === b) return true
 
+  // This equality algorithm distinguishes native representations without coercing either side.
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof
   if (typeof a !== typeof b || a === null || b === null) return false
 
   if (Array.isArray(a) || Array.isArray(b)) {
@@ -244,8 +268,15 @@ export function samePayload(a: unknown, b: unknown): boolean {
     )
   }
 
+  // Only non-null objects reach key enumeration; array equality was handled above.
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof
   if (typeof a !== 'object') return false
+  // SAFETY: Both operands are non-null objects of the same native type. Indexed
+  // reads remain unknown, and key membership is checked before reading the right.
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
   const left = a as Record<string, unknown>
+  // SAFETY: The preceding native type/null checks establish an object, not its values.
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
   const right = b as Record<string, unknown>
   const keys = Object.keys(left)
 
@@ -545,7 +576,7 @@ async function readServerCellValue(
   columnId: string,
   composition: ComposedSheetSnapshot | null,
   client: DataClient,
-): Promise<unknown> {
+): Promise<ComposedSheetCellValue | null> {
   try {
     const projected = composition?.boundProjection?.rows.find(
       (row) => row.rowKey === rowId,

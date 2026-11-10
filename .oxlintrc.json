@@ -1,31 +1,26 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "import", "unicorn", "oxc"],
-  "categories": { "correctness": "error" },
-  "env": { "browser": true, "node": true },
+  "plugins": [
+    "typescript",
+    "import",
+    "unicorn",
+    "oxc"
+  ],
+  "categories": {
+    "correctness": "error"
+  },
+  "env": {
+    "browser": true,
+    "node": true
+  },
   "ignorePatterns": [
     "tools/oxlint/anti-slop/**",
     "docs/knowledge/design/ui-system-v3/runtime/dc-runtime.js"
   ],
   "jsPlugins": [
-    { "name": "anti-slop", "specifier": "./tools/oxlint/anti-slop/index.ts" }
-  ],
-  "overrides": [
     {
-      "files": ["src/components/reui/**"],
-      "rules": {
-        "anti-slop/no-chained-type-assertions": "off",
-        "anti-slop/no-known-value-widening": "off",
-        "anti-slop/no-object-parameters": "off",
-        "anti-slop/no-runtime-typeof": "off",
-        "anti-slop/no-unknown-parameters": "off",
-        "anti-slop/no-unknown-returns": "off",
-        "anti-slop/require-safety-comment-for-type-assertion": "off",
-        "import/consistent-type-specifier-style": "off",
-        "import/no-duplicates": "off",
-        "typescript/no-unnecessary-condition": "off",
-        "typescript/no-unnecessary-type-assertion": "off"
-      }
+      "name": "anti-slop",
+      "specifier": "./tools/oxlint/anti-slop/index.ts"
     }
   ],
   "rules": {
@@ -74,17 +69,30 @@
     "valid-typeof": "error",
     "typescript/ban-ts-comment": [
       "error",
-      { "ts-expect-error": false, "ts-ignore": "allow-with-description" }
+      {
+        "ts-expect-error": false,
+        "ts-ignore": "allow-with-description"
+      }
     ],
     "typescript/consistent-type-imports": [
       "error",
-      { "prefer": "type-imports" }
+      {
+        "prefer": "type-imports"
+      }
     ],
-    "typescript/method-signature-style": ["error", "property"],
+    "typescript/method-signature-style": [
+      "error",
+      "property"
+    ],
     "typescript/no-duplicate-enum-values": "error",
     "typescript/no-extra-non-null-assertion": "error",
     "typescript/no-for-in-array": "error",
-    "typescript/no-inferrable-types": ["error", { "ignoreParameters": true }],
+    "typescript/no-inferrable-types": [
+      "error",
+      {
+        "ignoreParameters": true
+      }
+    ],
     "typescript/no-misused-new": "error",
     "typescript/no-namespace": "error",
     "typescript/no-non-null-asserted-optional-chain": "error",
@@ -95,7 +103,10 @@
     "typescript/prefer-as-const": "error",
     "typescript/prefer-for-of": "error",
     "typescript/triple-slash-reference": "error",
-    "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
+    "import/consistent-type-specifier-style": [
+      "error",
+      "prefer-top-level"
+    ],
     "import/first": "error",
     "import/newline-after-import": "error",
     "import/no-commonjs": "error",

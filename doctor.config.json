@@ -3,12 +3,13 @@
   "ignore": {
     "files": [
       "tools/oxlint/anti-slop/**",
-      "docs/knowledge/design/ui-system-v3/runtime/dc-runtime.js",
-      "src/components/reui/**"
+      "docs/knowledge/design/ui-system-v3/runtime/dc-runtime.js"
     ],
     "overrides": [
       {
-        "files": ["src/db/seed/**"],
+        "files": [
+          "src/db/seed/**"
+        ],
         "rules": [
           "react-doctor/async-await-in-loop",
           "react-doctor/server-sequential-independent-await"

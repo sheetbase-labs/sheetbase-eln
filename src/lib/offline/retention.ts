@@ -26,6 +26,7 @@
  * }
  * ```
  */
+import { z } from 'zod'
 
 /** One user's drafts for one record: the store's unit of isolation. */
 export interface DraftScope {
@@ -61,18 +62,11 @@ export interface SignOutRetentionStorage {
 
 export const SIGN_OUT_RETENTION_KEY = 'sheetbase.signed-out-retention'
 
-function isSignOutRetention(value: unknown): value is SignOutRetention {
-  if (typeof value !== 'object' || value === null) return false
-  const marker = value as Record<string, unknown>
-
-  return (
-    typeof marker.userId === 'string' &&
-    marker.userId.length > 0 &&
-    typeof marker.retained === 'number' &&
-    Number.isFinite(marker.retained) &&
-    typeof marker.signedOutAt === 'string'
-  )
-}
+const signOutRetentionSchema = z.object({
+  userId: z.string().min(1),
+  retained: z.number().finite(),
+  signedOutAt: z.string(),
+})
 
 /**
  * A marker over web storage. Every call is guarded: a browser with storage
@@ -90,7 +84,11 @@ export function webSignOutRetentionStorage(
         if (!raw) return null
         const parsed: unknown = JSON.parse(raw)
 
-        return isSignOutRetention(parsed) ? parsed : null
+        if (!signOutRetentionSchema.safeParse(parsed).success) return null
+
+        // SAFETY: the schema checks every SignOutRetention field. Return the
+        // original parsed object to preserve extra stored keys, including __proto__.
+        return parsed as SignOutRetention
       } catch {
         return null
       }
@@ -137,6 +135,8 @@ export async function countRetainedDrafts<TDraft>(
   let total = 0
 
   for (const recordId of await store.listScopes(userId)) {
+    // Keep store-order reads and stop before later scopes if a read fails.
+    // react-doctor-disable-next-line async-await-in-loop
     total += (await store.listDrafts({ userId, recordId })).length
   }
 
@@ -176,6 +176,8 @@ export async function restoreDraftsForUser<TDraft>(
   const restored: Array<{ recordId: string; drafts: TDraft[] }> = []
 
   for (const recordId of await store.listScopes(userId)) {
+    // Keep store-order reads and stop before later scopes if a read fails.
+    // react-doctor-disable-next-line async-await-in-loop
     const drafts = await store.listDrafts({ userId, recordId })
 
     if (drafts.length > 0) restored.push({ recordId, drafts })

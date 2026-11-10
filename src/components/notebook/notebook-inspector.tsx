@@ -1,21 +1,17 @@
 import { t } from '#/copy'
-import { formatDate } from '#/lib/format-date'
 import * as React from 'react'
 import { Link } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import {
   EmptyHint,
   InspectorSection,
   InspectorSectionStack,
 } from '#/components/record'
-import { formatMagnitude } from '#/lib/format-numbers'
 import { Notice } from '#/components/ui/alert'
 import { OverflowTabs } from '#/components/ui/overflow-tabs'
 import { TabsRoot, TabsPanel } from '#/components/ui/tabs'
 import { cn } from '#/lib/utils'
-import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
-import type { FieldDefinition } from '#/lib/field-definition'
-import type { BoundValueState } from '#/lib/sheet-bound-columns'
 
 /**
  * EXP-04.4 — the Notebook inspector tabs. The right-hand panel switches
@@ -83,196 +79,10 @@ export interface NotebookInspectorCellFacts {
   column?: NotebookInspectorColumn | null
 }
 
-const FIELD_TYPE_LABEL: Record<FieldDefinition['logicalType'], string> = {
-  text: t('notebook.notebookInspector.text'),
-  integer: t('notebook.notebookInspector.integer'),
-  decimal: t('notebook.notebookInspector.decimal'),
-  boolean: t('notebook.notebookInspector.boolean'),
-  date: t('notebook.notebookInspector.date'),
-  timestamp: t('notebook.notebookInspector.timestamp'),
-  category: t('notebook.notebookInspector.category'),
-  reference: t('notebook.notebookInspector.reference'),
-}
-
-/** Format a stored field value for the inspector; `null` when empty. */
-export function formatCellValue(
-  value: unknown,
-  field: FieldDefinition | null,
-): string | null {
-  if (value === null || value === undefined || value === '') return null
-  if (typeof value === 'boolean')
-    return value ? t('notebook.notebookInspector.yes') : 'No'
-  if (typeof value === 'object') return JSON.stringify(value)
-  if (field?.logicalType === 'decimal' || field?.logicalType === 'integer') {
-    const magnitude = formatMagnitude(value)
-    if (magnitude) return magnitude
-  }
-  if (field?.logicalType === 'timestamp' || field?.logicalType === 'date') {
-    const parsed = new Date(String(value))
-    if (!Number.isNaN(parsed.getTime())) {
-      return field.logicalType === 'date'
-        ? formatDate(String(value))
-        : formatDate(String(value), { time: true })
-    }
-  }
-  return String(value)
-}
-
-/** The field's own unit, preferring the display unit where one is configured. */
-function fieldUnit(field: FieldDefinition | null): string | null {
-  // The guard is what narrows `field` to a definition, so the optional chain stays.
-  if (!field?.quantity) return null
-  // `storageUnit` is required, so the fallback chain always resolves to a string.
-  return field.quantity.preferredDisplayUnit ?? field.quantity.storageUnit
-}
-
-/** A one-line description of a field's validation rule, when it has one. */
-export function fieldValidationRule(
-  field: FieldDefinition | null,
-): string | null {
-  if (!field) return null
-  const { min, max, minLength, maxLength, pattern } = field.validation
-  if (min !== undefined && max !== undefined)
-    return t('notebook.notebookInspector.allowedMinMax', { min, max })
-  if (min !== undefined)
-    return t('notebook.notebookInspector.atLeastMin', { min })
-  if (max !== undefined)
-    return t('notebook.notebookInspector.atMostMax', { max })
-  if (minLength !== undefined && maxLength !== undefined) {
-    return t('notebook.notebookInspector.minlengthMaxlengthCharacters', {
-      minLength,
-      maxLength,
-    })
-  }
-  if (pattern) return t('notebook.notebookInspector.mustMatchAPattern')
-  return null
-}
-
-/** Evaluate a numeric field's bounds against the value, when it can. */
-function evaluateValidation(
-  field: FieldDefinition | null,
-  value: unknown,
-): NotebookInspectorCellValidation | null {
-  const rule = fieldValidationRule(field)
-  if (!field || !rule) return null
-  const { min, max } = field.validation
-  const numeric =
-    typeof value === 'number'
-      ? value
-      : value === null || value === undefined || value === ''
-        ? null
-        : Number(value)
-  if (
-    numeric === null ||
-    Number.isNaN(numeric) ||
-    (min === undefined && max === undefined)
-  ) {
-    return { state: 'unknown', rule }
-  }
-  if (min !== undefined && numeric < min) {
-    return {
-      state: 'error',
-      headline: t('notebook.notebookInspector.belowTheAllowedRange'),
-      detail: `${rule}.`,
-      rule,
-    }
-  }
-  if (max !== undefined && numeric > max) {
-    return {
-      state: 'error',
-      headline: t('notebook.notebookInspector.aboveTheAllowedRange'),
-      detail: `${rule}.`,
-      rule,
-    }
-  }
-  return {
-    state: 'valid',
-    headline: t('notebook.notebookInspector.withinTheAllowedRange'),
-    rule,
-  }
-}
-
-/** Map a bound value's provenance to the inspector's provenance facts. */
-function provenanceFacts(
-  valueState: BoundValueState | null,
-): NotebookInspectorProvenance | null {
-  if (!valueState) return null
-  const provenance = valueState.provenance
-  if (provenance.sourceKind === 'dataset') {
-    return {
-      dataset: {
-        label: provenance.sourceDatasetId,
-        datasetId: provenance.sourceDatasetId,
-        rowLabel: provenance.sourceRowId,
-      },
-      instrument: null,
-      capturedAt: null,
-      enteredBy: null,
-      editedAt: null,
-    }
-  }
-  return {
-    dataset: {
-      label: provenance.sourceRecordId,
-      rowLabel: provenance.sourceFieldName,
-    },
-    instrument: null,
-    capturedAt: null,
-    enteredBy: null,
-    editedAt: null,
-  }
-}
-
-/**
- * Build Properties facts for a selected canonical sheet cell from data that
- * already exists. Uses the bound value/provenance when the Sheet is composed
- * and the column's field definition for validation and the column section.
- * Facts the model does not carry (instrument, capture time, entry and edit
- * actors) are left absent so the panel names them as unavailable.
- */
-export function canonicalCellFacts(input: {
-  column: CanonicalSheetGridColumn | null
-  /** The resolved cell value (matrix value or bound value). */
-  value: unknown
-  /** Bound provenance for the selected row/cell, when the Sheet is composed. */
-  valueState?: BoundValueState | null
-  rowLabel?: string | null
-  blockLabel?: string | null
-}): NotebookInspectorCellFacts {
-  const { column } = input
-  const field = column?.field ?? null
-  const context = [input.blockLabel, input.rowLabel, column?.label].filter(
-    (part): part is string => Boolean(part),
-  )
-  const validation = evaluateValidation(field, input.value)
-  const rule = fieldValidationRule(field)
-  return {
-    subject: context.length > 0 ? context.join(' · ') : null,
-    value: {
-      display: formatCellValue(input.value, field),
-      unit: fieldUnit(field),
-    },
-    validation,
-    provenance: provenanceFacts(input.valueState ?? null),
-    column: column
-      ? {
-          field: column.label,
-          type: FIELD_TYPE_LABEL[field?.logicalType ?? 'text'],
-          unit: fieldUnit(field),
-          validation: rule,
-          required: field ? !field.nullable : null,
-          source:
-            column.origin === 'bound'
-              ? t('notebook.notebookInspector.linked')
-              : column.origin,
-        }
-      : null,
-  }
-}
-
 function FactRow({ label, value }: { label: string; value?: React.ReactNode }) {
   // A fact nobody recorded isn't worth a row of "Not available".
   if (value == null) return null
+
   return (
     <div className="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-1 text-xs">
       <dt className="text-fg-muted">{label}</dt>
@@ -293,6 +103,7 @@ function ProvenanceSection({
       provenance.capturedAt ||
       provenance.enteredBy ||
       provenance.editedAt)
+
   if (!provenance || !known) {
     return (
       <InspectorSection title={t('notebook.notebookInspector.title')}>
@@ -302,7 +113,9 @@ function ProvenanceSection({
       </InspectorSection>
     )
   }
+
   const dataset = provenance.dataset
+
   return (
     <InspectorSection title={t('notebook.notebookInspector.title')}>
       <dl className="space-y-1.5">
@@ -314,7 +127,7 @@ function ProvenanceSection({
                 {dataset.datasetId ? (
                   <Link
                     to="/datasets"
-                    search={{ dataset: dataset.datasetId } as never}
+                    search={{ dataset: dataset.datasetId }}
                     className="underline underline-offset-2 hover:text-fg"
                   >
                     {dataset.label}
@@ -358,6 +171,7 @@ function ColumnSection({ column }: { column: NotebookInspectorColumn | null }) {
       </InspectorSection>
     )
   }
+
   return (
     <InspectorSection title={t('notebook.notebookInspector.columnTitle')}>
       <dl className="space-y-1.5">
@@ -396,6 +210,30 @@ function ColumnSection({ column }: { column: NotebookInspectorColumn | null }) {
   )
 }
 
+// Notice has no success tone. Valid and unevaluated values remain neutral;
+// their headlines distinguish the states without inventing a validation result.
+const VALIDATION_PRESENTATION = {
+  valid: {
+    tone: 'info',
+    title: t('notebook.notebookInspector.validTitle'),
+  },
+  unknown: {
+    tone: 'info',
+    title: t('notebook.notebookInspector.validationNotEvaluatedTitle'),
+  },
+  warning: {
+    tone: 'warn',
+    title: t('notebook.notebookInspector.validationIssueTitle'),
+  },
+  error: {
+    tone: 'bad',
+    title: t('notebook.notebookInspector.validationIssueTitle'),
+  },
+} satisfies Record<
+  NotebookInspectorValidationState,
+  { tone: React.ComponentProps<typeof Notice>['tone']; title: string }
+>
+
 function ValidationSection({
   validation,
   actions,
@@ -403,35 +241,18 @@ function ValidationSection({
   validation: NotebookInspectorCellValidation | null
   actions?: React.ReactNode
 }) {
-  // The v3 Notice carries info/warn/bad only: a valid or unevaluated cell keeps
-  // the neutral info wash and the headline names the state.
-  const tone =
-    validation?.state === 'error'
-      ? 'bad'
-      : validation?.state === 'warning'
-        ? 'warn'
-        : 'info'
   // A cell with no rule and nothing to do has nothing to say here.
   if (!validation && !actions) return null
+  const presentation = VALIDATION_PRESENTATION[validation?.state ?? 'unknown']
+
   return (
     <InspectorSection title={t('notebook.notebookInspector.validationLabel')}>
       {validation ? (
         <Notice
-          tone={tone}
-          title={
-            validation.headline ??
-            (validation.state === 'valid'
-              ? t('notebook.notebookInspector.validTitle')
-              : validation.state === 'unknown'
-                ? t('notebook.notebookInspector.validationNotEvaluatedTitle')
-                : t('notebook.notebookInspector.validationIssueTitle'))
-          }
+          tone={presentation.tone}
+          title={validation.headline ?? presentation.title}
         >
-          {validation.detail
-            ? validation.detail
-            : validation.rule
-              ? validation.rule
-              : null}
+          {validation.detail || validation.rule || null}
         </Notice>
       ) : null}
       {actions ? (
@@ -456,6 +277,7 @@ export function NotebookCellProperties({
       </EmptyHint>
     )
   }
+
   return (
     <InspectorSectionStack>
       <InspectorSection
@@ -517,6 +339,7 @@ export function NotebookInspector({
 }: NotebookInspectorProps) {
   const [activeTab, setActiveTab] =
     React.useState<NotebookInspectorTab>(defaultTab)
+
   return (
     <div
       aria-label={t('notebook.notebookInspector.ariaLabel')}
@@ -524,7 +347,11 @@ export function NotebookInspector({
     >
       <TabsRoot
         value={activeTab}
-        onValueChange={(next) => setActiveTab(next as NotebookInspectorTab)}
+        onValueChange={(next) =>
+          setActiveTab(
+            z.enum(['properties', 'comments', 'history']).parse(next),
+          )
+        }
         className="flex flex-col gap-0"
       >
         <div className="flex border-b border-border px-4">
@@ -546,7 +373,11 @@ export function NotebookInspector({
               },
             ]}
             value={activeTab}
-            onValueChange={(next) => setActiveTab(next as NotebookInspectorTab)}
+            onValueChange={(next) =>
+              setActiveTab(
+                z.enum(['properties', 'comments', 'history']).parse(next),
+              )
+            }
           />
         </div>
         <TabsPanel value="properties" className="px-4 py-4">

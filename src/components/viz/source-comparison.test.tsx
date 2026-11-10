@@ -1,32 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { SourceComparison } from './source-comparison'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
 import { choose } from '../../../tests/unit/picker'
-
-const resolve = vi.hoisted(() => vi.fn())
-
-vi.mock('#/lib/chart-data', () => ({
-  sciDataClient: {},
-  resolveDatasetRef: resolve,
-}))
-
-vi.mock('#/lib/dataset-explorer-data', () => ({
-  listDatasetVersionSummaries: async (_client: unknown, datasetId: string) =>
-    datasetId === 'ds-a'
-      ? [
-          {
-            id: 'ver-1',
-            label: 'v1',
-            createdAt: '2026-10-01T00:00:00Z',
-            rowsRemovedAt: null,
-          },
-        ]
-      : [],
-}))
+import { sourceHttpFixture } from './source-http-fixture'
+import type { ChartRow } from '#/lib/chart-spec'
 
 const source = (id: string, name: string): CanonicalDatasetSource => ({
   datasetId: id,
@@ -45,17 +26,22 @@ const SOURCES = [source('ds-a', 'ELISA run 1'), source('ds-b', 'ELISA run 2')]
 
 afterEach(() => {
   cleanup()
-  vi.clearAllMocks()
 })
 
-function renderComparison() {
+function renderComparison(
+  rows: ChartRow[] = [],
+  snapshotRows: ChartRow[] = rows,
+) {
+  const fixture = sourceHttpFixture({ sources: SOURCES, rows, snapshotRows })
+
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
 
-  return render(
+  render(
     <QueryClientProvider client={client}>
       <SourceComparison
+        client={fixture.client}
         sourceA={SOURCES[0]}
         rowsA={[
           { __sheetbaseRowId: 'r1', sample: 'S1', titre: 10 },
@@ -66,21 +52,21 @@ function renderComparison() {
       />
     </QueryClientProvider>,
   )
+
+  return fixture.requests
 }
 
 describe('SourceComparison', () => {
   it('compares a snapshot of the same dataset by row key and reports the change', async () => {
-    resolve.mockResolvedValue({
-      source: SOURCES[0],
-      truncated: false,
-      totalCount: 2,
-      flags: [],
-      rows: [
-        { __sheetbaseRowId: 'r1', sample: 'S1', titre: 10 },
-        { __sheetbaseRowId: 'r2', sample: 'S2', titre: 26 },
-      ],
-    })
-    renderComparison()
+    renderComparison([
+      { __sheetbaseRowId: 'r1', sample: 'S1', titre: 10 },
+      { __sheetbaseRowId: 'r2', sample: 'S2', titre: 26 },
+    ])
+    await screen.findByRole('option', { name: /Snapshot v1/ })
+    await userEvent
+      .setup()
+      .selectOptions(screen.getByLabelText('B rows'), 'ver-1')
+    await screen.findByText('B · ELISA run 1 (snapshot)')
 
     const paired = await screen.findByRole('table', { name: 'Paired rows' })
     expect(within(paired).getAllByText('both')).toHaveLength(2)
@@ -92,17 +78,12 @@ describe('SourceComparison', () => {
 
   it('matches across datasets by an explicit field, never by row key', async () => {
     const user = userEvent.setup()
-    resolve.mockResolvedValue({
-      source: SOURCES[1],
-      truncated: false,
-      totalCount: 2,
-      flags: [],
-      rows: [
-        { __sheetbaseRowId: 'x9', sample: 'S2', titre: 22 },
-        { __sheetbaseRowId: 'x8', sample: 'S3', titre: 5 },
-      ],
-    })
-    renderComparison()
+
+    const requests = renderComparison([
+      { __sheetbaseRowId: 'x9', sample: 'S2', titre: 22 },
+      { __sheetbaseRowId: 'x8', sample: 'S3', titre: 5 },
+    ])
+
     await screen.findByRole('table', { name: 'Paired rows' })
 
     await choose(user, /^B dataset/, 'ELISA run 2')
@@ -116,28 +97,60 @@ describe('SourceComparison', () => {
       .map((option) => option.textContent)
 
     expect(options).not.toContain('Dataset row key')
-    expect(resolve).toHaveBeenLastCalledWith(expect.anything(), {
+    expect(
+      requests
+        .filter((request) => request.path === '/api/db/rpc/query_dataset_rows')
+        .at(-1),
+    ).toEqual({
+      path: '/api/db/rpc/query_dataset_rows',
       datasetId: 'ds-b',
+      versionId: undefined,
     })
   })
 
   it('reads a chosen snapshot as side B', async () => {
     const user = userEvent.setup()
-    resolve.mockResolvedValue({
-      source: SOURCES[0],
-      truncated: false,
-      totalCount: 0,
-      flags: [],
-      rows: [],
-    })
-    renderComparison()
+
+    const requests = renderComparison(
+      [{ __sheetbaseRowId: 'r1', sample: 'S1', titre: 10 }],
+      [{ __sheetbaseRowId: 'r1', sample: 'S1', titre: 30 }],
+    )
+
     await screen.findByRole('option', { name: /Snapshot v1/ })
 
     await user.selectOptions(screen.getByLabelText('B rows'), 'ver-1')
 
-    expect(resolve).toHaveBeenLastCalledWith(expect.anything(), {
+    await screen.findByText('B · ELISA run 1 (snapshot)')
+    expect(
+      requests
+        .filter(
+          (request) =>
+            request.path === '/api/db/rpc/query_dataset_version_rows',
+        )
+        .at(-1),
+    ).toEqual({
+      path: '/api/db/rpc/query_dataset_version_rows',
+      datasetId: undefined,
+      versionId: 'ver-1',
+    })
+    expect(
+      requests
+        .filter((request) => request.path === '/api/db/dataset_versions')
+        .at(-1),
+    ).toEqual({
+      path: '/api/db/dataset_versions',
       datasetId: 'ds-a',
-      datasetVersionId: 'ver-1',
+      versionId: 'ver-1',
+    })
+    const paired = screen.getByRole('table', { name: 'Paired rows' })
+    expect(within(paired).getByText('30')).toBeTruthy()
+    await user.selectOptions(screen.getByLabelText('B rows'), '')
+    await screen.findByText('B · ELISA run 1')
+    expect(within(paired).queryByText('30')).toBeNull()
+    expect(requests).toContainEqual({
+      path: '/api/db/rpc/query_dataset_rows',
+      datasetId: 'ds-a',
+      versionId: undefined,
     })
   })
 })

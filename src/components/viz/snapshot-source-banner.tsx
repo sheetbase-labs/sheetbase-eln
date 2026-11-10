@@ -11,19 +11,22 @@ import { Button } from '#/components/ui/button'
 import { sciDataClient } from '#/lib/chart-data'
 import { listDatasetVersionSummaries } from '#/lib/dataset-explorer-data'
 import { formatDate } from '#/lib/format-date'
+import type { DataClient } from '#/lib/data-client'
 
 export function SnapshotSourceBanner({
   datasetId,
   datasetVersionId,
   onUseLive,
+  client = sciDataClient,
 }: {
   datasetId: string
   datasetVersionId: string
   onUseLive: () => void
+  client?: DataClient
 }) {
   const versions = useQuery({
     queryKey: ['dataset-version-summaries', datasetId],
-    queryFn: () => listDatasetVersionSummaries(sciDataClient, datasetId),
+    queryFn: () => listDatasetVersionSummaries(client, datasetId),
     staleTime: 30_000,
   })
 

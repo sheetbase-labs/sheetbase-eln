@@ -13,7 +13,7 @@ import {
   describeJoinDomainError,
   emailDomainOf,
   fetchJoinDomains,
-  isDomainShaped,
+  isJoinDomain,
   isPublicEmailDomain,
   joinDomainKeys,
   normaliseDomainInput,
@@ -86,7 +86,7 @@ export function JoinDomainsSection({
 
     if (!domain) return
 
-    if (!isDomainShaped(domain)) {
+    if (!isJoinDomain(domain)) {
       setError(t('settings.joinDomains.invalid', { domain }))
 
       return
@@ -181,9 +181,11 @@ export function JoinDomainsSection({
             <Select
               value={role}
               disabled={save.isPending || domains.length === 0}
-              onChange={(event) =>
-                save.mutate({ domains, role: event.target.value as JoinRole })
-              }
+              onChange={(event) => {
+                const selectedRole = JOIN_ROLES.find((option) => option === event.target.value)
+
+                if (selectedRole) save.mutate({ domains, role: selectedRole })
+              }}
             >
               {JOIN_ROLES.map((item) => (
                 <option key={item} value={item}>

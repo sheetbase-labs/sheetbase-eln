@@ -138,6 +138,7 @@ function BookingRulesDialog({
   })
 
   const [ids, setIds] = useState<string[]>([])
+  const selectedIds = new Set(ids)
   const [hours, setHours] = useState('')
   const [days, setDays] = useState('')
 
@@ -174,7 +175,7 @@ function BookingRulesDialog({
       toast.success(t('library.instruments.bookingRules.saved'))
       onClose()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(
         e instanceof Error && e.message
           ? e.message
@@ -206,7 +207,7 @@ function BookingRulesDialog({
                     className="flex items-center gap-2 text-body"
                   >
                     <Checkbox
-                      checked={ids.includes(p.id)}
+                      checked={selectedIds.has(p.id)}
                       onCheckedChange={(checked) =>
                         setIds((c) =>
                           checked === true

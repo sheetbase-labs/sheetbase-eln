@@ -114,7 +114,11 @@ function ChannelCard({ channel }: { channel: ChannelWire }) {
           <Field label={t('settings.notifications.channels.send')}>
             <Select
               value={scope}
-              onChange={(e) => setScope(e.target.value as 'phone' | 'all')}
+              onChange={(e) => {
+                const value = e.target.value
+
+                if (value === 'phone' || value === 'all') setScope(value)
+              }}
             >
               <option value="phone">
                 {t('settings.notifications.channels.scopePhone')}

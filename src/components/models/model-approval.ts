@@ -54,20 +54,20 @@ export interface ApprovalStatus {
   detail: string
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  owner: 'Owner',
-  admin: 'Admin',
-  steward: 'Steward',
-  reviewer: 'Reviewer',
-  scientist: 'Scientist',
-  analyst: 'Analyst',
-  member: 'Scientist',
-  viewer: 'Viewer',
-}
+const ROLE_LABELS = new Map([
+  ['owner', 'Owner'],
+  ['admin', 'Admin'],
+  ['steward', 'Steward'],
+  ['reviewer', 'Reviewer'],
+  ['scientist', 'Scientist'],
+  ['analyst', 'Analyst'],
+  ['member', 'Scientist'],
+  ['viewer', 'Viewer'],
+])
 
 export function roleLabel(role: string): string {
   return (
-    ROLE_LABELS[role] ??
+    ROLE_LABELS.get(role) ??
     role.replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase())
   )
 }
@@ -285,16 +285,20 @@ export function buildApprovalTrail(
     },
   ]
 
-  const own = decisions
-    .filter((decision) => decision.request_id === request.id)
-    .map<ApprovalTrailEntry>((decision) => ({
-      id: decision.id,
-      kind: decision.decision,
-      actorUserId: decision.user_id,
-      role: decision.role,
-      at: decision.created_at,
-      reason: decision.reason,
-    }))
+  const own = decisions.flatMap<ApprovalTrailEntry>((decision) =>
+    decision.request_id === request.id
+      ? [
+          {
+            id: decision.id,
+            kind: decision.decision,
+            actorUserId: decision.user_id,
+            role: decision.role,
+            at: decision.created_at,
+            reason: decision.reason,
+          },
+        ]
+      : [],
+  )
 
   entries.push(...own)
 

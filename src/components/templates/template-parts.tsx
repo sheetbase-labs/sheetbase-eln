@@ -1,6 +1,7 @@
 import { useState } from 'react'
 
-import { GateDialog, describeConditions } from '#/components/notebook/gates'
+import { GateDialog } from '#/components/notebook/gates'
+import { describeConditions } from '#/components/notebook/gate-description'
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
 import { Field, Input } from '#/components/ui/input'
@@ -13,7 +14,6 @@ import type {
   NotebookTemplatePlacement,
 } from '#/lib/notebook-template'
 import { t } from '#/copy'
-import type { GateCondition } from '#/lib/experiment-gates'
 
 export type TemplatePart = NonNullable<
   NotebookTemplateConfiguration['parts']
@@ -57,7 +57,7 @@ export function TemplatePartsSection({
   const ruleOf = (part: TemplatePart) =>
     [
       part.opensWhen?.length
-        ? describeConditions(part.opensWhen as GateCondition[], gateContext)
+        ? describeConditions(part.opensWhen, gateContext)
         : t('library.templates.parts.opensImmediately'),
       part.gateMode === 'block' && part.opensWhen?.length
         ? t('library.templates.parts.blocksNote')
@@ -206,7 +206,7 @@ export function TemplatePartsSection({
       {editable && ruleFor
         ? (() => {
             const index = parts.findIndex((part) => part.id === ruleFor)
-            const part = parts[index] as TemplatePart | undefined
+            const part = index === -1 ? undefined : parts[index]
 
             if (!part) return null
 
@@ -241,7 +241,8 @@ export function TemplatePartsSection({
                 onSave={(draft) =>
                   save({
                     opensWhen: draft.conditions.length
-                      ? (draft.conditions as TemplatePart['opensWhen'])
+                      ? // eslint-disable-next-line anti-slop/require-safety-comment-for-type-assertion -- GateDraft's signature is broader than these restricted template controls; this legacy compatibility assertion is not runtime validation.
+                        (draft.conditions as TemplatePart['opensWhen'])
                       : undefined,
                     gateMode: draft.conditions.length ? draft.mode : undefined,
                     stepsInOrder: draft.stepsInOrder || undefined,

@@ -10,26 +10,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { BlockEditor } from './block-editor'
 import { BlockPreview } from './block-preview'
+import { ReactionTable } from './chemistry-block'
+import type { ReactionPayload } from '#/lib/chemistry'
 import { loadOcl } from '#/lib/chemistry-draw'
-import type * as notebookDataModule from '#/lib/notebook-data'
 import type { NotebookBlock } from '#/lib/notebook-data'
-
-vi.mock('#/lib/notebook-data', async (importOriginal) => {
-  const actual = await importOriginal<typeof notebookDataModule>()
-  return {
-    ...actual,
-    notebookDataClient: {
-      ...actual.notebookDataClient,
-      list: vi.fn().mockResolvedValue([]),
-    },
-  }
-})
-
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({ to, children }: { to: string; children?: ReactNode }) => (
-    <a href={to}>{children}</a>
-  ),
-}))
 
 afterEach(() => cleanup())
 
@@ -37,12 +21,17 @@ function wrap(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+
+  return render(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  })
 }
 
 function block(
   type: 'structure' | 'reaction',
-  payload: Record<string, unknown>,
+  payload: NotebookBlock['payload'],
 ): NotebookBlock {
   return {
     id: 'b1',
@@ -59,6 +48,7 @@ const aspirinMolfile = async () => {
   const ocl = await loadOcl()
   const molecule = ocl.Molecule.fromSmiles('CC(=O)Oc1ccccc1C(=O)O')
   molecule.inventCoordinates()
+
   return molecule.toMolfile()
 }
 
@@ -83,7 +73,7 @@ const reaction = {
     },
     { id: 'asa', role: 'product', name: 'Aspirin', mw: 180.16, massMg: 900 },
   ],
-}
+} satisfies ReactionPayload
 
 describe('structure block', () => {
   it('draws the molecule and says what it is', async () => {
@@ -112,9 +102,11 @@ describe('structure block', () => {
 
   it('saves the title and name an editor types, keeping the drawing', async () => {
     const user = userEvent.setup()
-    const save = vi.fn(async (_payload: Record<string, unknown>) => ({
+
+    const save = vi.fn(async (_payload: NotebookBlock['payload']) => ({
       ok: true,
     }))
+
     const molfile = await aspirinMolfile()
     wrap(
       <BlockEditor
@@ -151,43 +143,86 @@ describe('reaction block', () => {
 
   it('marks the limiting reactant', () => {
     wrap(<BlockPreview block={block('reaction', reaction)} />)
+
     const sal = within(screen.getByRole('table', { name: 'Reaction table' }))
       .getByText('Salicylic acid')
       .closest('tr')!
+
     expect(within(sal).getByText(/Limiting/)).toBeTruthy()
   })
 
   it('lets an amount replace equivalents in the editor', async () => {
     const user = userEvent.setup()
-    const save = vi.fn(async (_payload: Record<string, unknown>) => ({
+
+    const save = vi.fn(async (_payload: NotebookBlock['payload']) => ({
       ok: true,
     }))
+
     wrap(<BlockEditor block={block('reaction', reaction)} save={save} />)
     const mass = screen.getByLabelText('Mass (mg): Acetic anhydride')
     await user.type(mass, '1500')
     await user.click(screen.getByLabelText('Title'))
     await user.tab()
-    const saved = save.mock.calls.at(-1)![0] as {
-      rows: Array<{ id: string; equiv: number | null; massMg: number | null }>
-    }
-    const row = saved.rows.find((r) => r.id === 'anh')!
-    expect(row.massMg).toBe(1500)
-    expect(row.equiv).toBeNull()
+
+    const saved = save.mock.lastCall?.[0]
+    expect(saved).toMatchObject({
+      rows: expect.arrayContaining([
+        expect.objectContaining({ id: 'anh', massMg: 1500 }),
+      ]),
+    })
+    expect(saved).toMatchObject({
+      rows: expect.arrayContaining([
+        expect.objectContaining({ id: 'anh', equiv: null }),
+      ]),
+    })
   })
 
   it('adds a row for something that was not drawn', async () => {
     const user = userEvent.setup()
-    const save = vi.fn(async (_payload: Record<string, unknown>) => ({
+
+    const save = vi.fn(async (_payload: NotebookBlock['payload']) => ({
       ok: true,
     }))
+
     wrap(<BlockEditor block={block('reaction', reaction)} save={save} />)
     await user.click(screen.getByRole('button', { name: 'Add row' }))
     await user.click(screen.getByLabelText('Title'))
     await user.tab()
-    const saved = save.mock.calls.at(-1)![0] as {
-      rows: Array<{ role: string }>
-    }
-    expect(saved.rows).toHaveLength(4)
-    expect(saved.rows.at(-1)!.role).toBe('solvent')
+
+    const saved = save.mock.lastCall?.[0]
+    expect(saved?.rows).toHaveLength(4)
+    expect(saved).toMatchObject({
+      rows: [
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        { role: 'solvent' },
+      ],
+    })
+  })
+
+  it('updates calculated cells without remounting or blurring the active amount', async () => {
+    const user = userEvent.setup()
+    const edit = { update: vi.fn(), remove: vi.fn(), setLimiting: vi.fn() }
+    const { rerender } = wrap(<ReactionTable payload={reaction} edit={edit} />)
+    const mass = screen.getByLabelText('Mass (mg): Salicylic acid')
+    await user.click(mass)
+
+    rerender(
+      <ReactionTable
+        payload={{
+          ...reaction,
+          rows: reaction.rows.map((row) =>
+            row.id === 'sal' ? { ...row, massMg: 2000 } : row,
+          ),
+        }}
+        edit={edit}
+      />,
+    )
+
+    expect(screen.getByLabelText('Mass (mg): Salicylic acid')).toBe(mass)
+    expect(document.activeElement).toBe(mass)
+    expect(screen.getByText('2,609')).toBeTruthy()
+    expect(screen.getByText('34.5%')).toBeTruthy()
   })
 })

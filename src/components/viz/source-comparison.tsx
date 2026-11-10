@@ -24,9 +24,10 @@ import {
   TableRow,
 } from '#/components/ui/table'
 import { resolveDatasetRef, sciDataClient } from '#/lib/chart-data'
-import type { CanonicalDatasetSource } from '#/lib/chart-data'
+import type { CanonicalDatasetSource, ResolvedDataset } from '#/lib/chart-data'
 import {
   COMPARATIVE_MATCH_MODE_LABELS,
+  COMPARATIVE_MATCH_MODES,
   pairComparativeSources,
   summarizeValues,
   toComparableNumber,
@@ -34,6 +35,7 @@ import {
 import type { ComparativeMatchMode } from '#/lib/comparative-view'
 import { listDatasetVersionSummaries } from '#/lib/dataset-explorer-data'
 import { formatDate } from '#/lib/format-date'
+import type { DataClient } from '#/lib/data-client'
 
 const LIVE = ''
 const MAX_PAIR_ROWS = 50
@@ -51,22 +53,43 @@ function format(value: number | null | undefined): string {
   return Number.isInteger(value) ? String(value) : value.toPrecision(5)
 }
 
+function selectedField(
+  columns: CanonicalDatasetSource['columns'],
+  value: string,
+) {
+  return columns.some((column) => column.id === value)
+    ? value
+    : (columns.at(0)?.id ?? '')
+}
+
+function statsOf(rows: ResolvedDataset['rows'], field: string) {
+  return summarizeValues(
+    rows.flatMap((row) => {
+      const value = toComparableNumber(row[field])
+
+      return value === null ? [] : [value]
+    }),
+  )
+}
+
 export interface SourceComparisonProps {
   /** Side A: the studio's current source, its rows and the snapshot it reads. */
   sourceA: CanonicalDatasetSource
-  rowsA: Record<string, unknown>[]
+  rowsA: ResolvedDataset['rows']
   snapshotA: string | null
   /** Every dataset side B can come from. */
   sources: CanonicalDatasetSource[]
+  client?: DataClient
 }
 
-export function SourceComparison({
+function useSourceComparison({
   sourceA,
   rowsA,
   snapshotA,
   sources,
+  client = sciDataClient,
 }: SourceComparisonProps) {
-  const [datasetB, setDatasetB] = React.useState(sourceA.datasetId)
+  const [datasetB, setDatasetB] = React.useState(() => sourceA.datasetId)
   const [snapshotB, setSnapshotB] = React.useState<string>(LIVE)
   const [valueA, setValueA] = React.useState('')
   const [valueB, setValueB] = React.useState('')
@@ -79,41 +102,33 @@ export function SourceComparison({
 
   const versions = useQuery({
     queryKey: ['dataset-version-summaries', datasetB],
-    queryFn: () => listDatasetVersionSummaries(sciDataClient, datasetB),
+    queryFn: () => listDatasetVersionSummaries(client, datasetB),
     staleTime: 30_000,
   })
 
   const rowsB = useQuery({
     queryKey: ['source-comparison-rows', datasetB, snapshotB],
     queryFn: () =>
-      resolveDatasetRef(sciDataClient, {
-        datasetId: datasetB,
-        ...(snapshotB ? { datasetVersionId: snapshotB } : {}),
-      }),
+      resolveDatasetRef(
+        client,
+        snapshotB
+          ? { datasetId: datasetB, datasetVersionId: snapshotB }
+          : { datasetId: datasetB },
+      ),
   })
 
   const columnsA = numericColumns(sourceA)
   const columnsB = numericColumns(sourceB)
 
-  const valueFieldA = columnsA.some((c) => c.id === valueA)
-    ? valueA
-    : (columnsA[0]?.id ?? '')
-
-  const valueFieldB = columnsB.some((c) => c.id === valueB)
-    ? valueB
-    : (columnsB[0]?.id ?? '')
+  const valueFieldA = selectedField(columnsA, valueA)
+  const valueFieldB = selectedField(columnsB, valueB)
 
   // Row keys are only shared within one dataset's lineage.
   const effectiveMatch: ComparativeMatchMode =
     !sameDataset && matchBy === 'row_key' ? 'field' : matchBy
 
-  const matchFieldA = sourceA.columns.some((c) => c.id === matchA)
-    ? matchA
-    : (sourceA.columns[0]?.id ?? '')
-
-  const matchFieldB = (sourceB?.columns ?? []).some((c) => c.id === matchB)
-    ? matchB
-    : (sourceB?.columns[0]?.id ?? '')
+  const matchFieldA = selectedField(sourceA.columns, matchA)
+  const matchFieldB = selectedField(sourceB?.columns ?? [], matchB)
 
   const matchLabel =
     sourceA.columns.find((c) => c.id === matchFieldA)?.label ?? null
@@ -144,13 +159,6 @@ export function SourceComparison({
     matchLabel,
   ])
 
-  const statsOf = (rows: Record<string, unknown>[], field: string) =>
-    summarizeValues(
-      rows
-        .map((row) => toComparableNumber(row[field]))
-        .filter((v): v is number => v !== null),
-    )
-
   const statsA = valueFieldA ? statsOf(rowsA, valueFieldA) : null
 
   const statsB =
@@ -158,6 +166,43 @@ export function SourceComparison({
 
   const nameA = `${sourceA.name}${snapshotA ? ' (snapshot)' : ''}`
   const nameB = `${sourceB?.name ?? t('data.sourceComparison.chooseDataset')}${snapshotB ? ' (snapshot)' : ''}`
+
+  return {
+    datasetB,
+    setDatasetB,
+    snapshotB,
+    setSnapshotB,
+    valueFieldA,
+    setValueA,
+    valueFieldB,
+    setValueB,
+    matchFieldA,
+    setMatchA,
+    matchFieldB,
+    setMatchB,
+    effectiveMatch,
+    setMatchBy,
+    sameDataset,
+    sourceA,
+    sourceB,
+    sources,
+    columnsA,
+    columnsB,
+    versions,
+    rowsB,
+    resolvedB,
+    pairing,
+    statsA,
+    statsB,
+    nameA,
+    nameB,
+  }
+}
+
+type SourceComparisonModel = ReturnType<typeof useSourceComparison>
+
+export function SourceComparison(props: SourceComparisonProps) {
+  const model = useSourceComparison(props)
 
   return (
     <section
@@ -172,6 +217,30 @@ export function SourceComparison({
           {t('data.sourceComparison.putOneMeasureBeside')}
         </p>
       </div>
+      <SourceControls model={model} />
+      <SourceResults model={model} />
+    </section>
+  )
+}
+
+function SourceControls({ model }: { model: SourceComparisonModel }) {
+  const {
+    datasetB,
+    setDatasetB,
+    snapshotB,
+    setSnapshotB,
+    sources,
+    versions,
+    valueFieldA,
+    setValueA,
+    valueFieldB,
+    setValueB,
+    columnsA,
+    columnsB,
+  } = model
+
+  return (
+    <>
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-1">
           <label
@@ -250,70 +319,104 @@ export function SourceComparison({
             ))}
           </Select>
         </div>
-        <div className="space-y-1">
-          <label className="text-label text-fg-muted" htmlFor="source-match">
-            {t('data.sourceComparison.matchRows')}
-          </label>
-          <Select
-            id="source-match"
-            value={effectiveMatch}
-            onChange={(event) =>
-              setMatchBy(event.target.value as ComparativeMatchMode)
-            }
-          >
-            {(['row_key', 'field', 'position'] as const)
-              .filter((mode) => mode !== 'row_key' || sameDataset)
-              .map((mode) => (
-                <option key={mode} value={mode}>
-                  {COMPARATIVE_MATCH_MODE_LABELS[mode]}
+        <SourceMatching model={model} />
+      </div>
+    </>
+  )
+}
+
+function SourceMatching({ model }: { model: SourceComparisonModel }) {
+  const {
+    effectiveMatch,
+    setMatchBy,
+    sameDataset,
+    matchFieldA,
+    setMatchA,
+    matchFieldB,
+    setMatchB,
+    sourceA,
+    sourceB,
+  } = model
+
+  return (
+    <>
+      <div className="space-y-1">
+        <label className="text-label text-fg-muted" htmlFor="source-match">
+          {t('data.sourceComparison.matchRows')}
+        </label>
+        <Select
+          id="source-match"
+          value={effectiveMatch}
+          onChange={(event) => {
+            const mode = COMPARATIVE_MATCH_MODES.find(
+              (candidate) => candidate === event.target.value,
+            )
+
+            if (mode) setMatchBy(mode)
+          }}
+        >
+          {COMPARATIVE_MATCH_MODES.flatMap((mode) =>
+            mode === 'row_key' && !sameDataset
+              ? []
+              : [
+                  <option key={mode} value={mode}>
+                    {COMPARATIVE_MATCH_MODE_LABELS[mode]}
+                  </option>,
+                ],
+          )}
+        </Select>
+      </div>
+      {effectiveMatch === 'field' ? (
+        <>
+          <div className="space-y-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="source-a-match"
+            >
+              {t('data.sourceComparison.matchField')}
+            </label>
+            <Select
+              id="source-a-match"
+              value={matchFieldA}
+              onChange={(event) => setMatchA(event.target.value)}
+            >
+              {sourceA.columns.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
                 </option>
               ))}
-          </Select>
-        </div>
-        {effectiveMatch === 'field' ? (
-          <>
-            <div className="space-y-1">
-              <label
-                className="text-label text-fg-muted"
-                htmlFor="source-a-match"
-              >
-                {t('data.sourceComparison.matchField')}
-              </label>
-              <Select
-                id="source-a-match"
-                value={matchFieldA}
-                onChange={(event) => setMatchA(event.target.value)}
-              >
-                {sourceA.columns.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="space-y-1">
-              <label
-                className="text-label text-fg-muted"
-                htmlFor="source-b-match"
-              >
-                {t('data.sourceComparison.bMatchField')}
-              </label>
-              <Select
-                id="source-b-match"
-                value={matchFieldB}
-                onChange={(event) => setMatchB(event.target.value)}
-              >
-                {(sourceB?.columns ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          </>
-        ) : null}
-      </div>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <label
+              className="text-label text-fg-muted"
+              htmlFor="source-b-match"
+            >
+              {t('data.sourceComparison.bMatchField')}
+            </label>
+            <Select
+              id="source-b-match"
+              value={matchFieldB}
+              onChange={(event) => setMatchB(event.target.value)}
+            >
+              {(sourceB?.columns ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        </>
+      ) : null}
+    </>
+  )
+}
 
+function SourceResults({ model }: { model: SourceComparisonModel }) {
+  const { rowsB, resolvedB, columnsA, columnsB, sourceB, pairing } = model
+
+  return (
+    <>
       {rowsB.error ? (
         <Notice tone="bad">
           {t('data.sourceComparison.couldReadSourceB', {
@@ -341,120 +444,136 @@ export function SourceComparison({
 
       {pairing ? (
         <>
-          <Table
-            aria-label={t('data.sourceComparison.ariaSourceSummary')}
-            data-density="compact"
-          >
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>{t('data.sourceComparison.source')}</TableHead>
-                <TableHead>n</TableHead>
-                <TableHead>{t('data.sourceComparison.min')}</TableHead>
-                <TableHead>{t('data.sourceComparison.mean')}</TableHead>
-                <TableHead>{t('data.sourceComparison.median')}</TableHead>
-                <TableHead>{t('data.sourceComparison.max')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(
-                [
-                  ['A', nameA, statsA],
-                  ['B', nameB, statsB],
-                ] as const
-              ).map(([side, name, stats]) => (
-                <TableRow key={side}>
-                  <TableCell>
-                    {side} · {name}
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {stats?.n ?? 0}
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {format(stats?.min)}
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {format(stats?.mean)}
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {format(stats?.median)}
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {format(stats?.max)}
-                  </TableCell>
-                </TableRow>
-              ))}
-              <TableRow>
-                <TableCell>
-                  {t('data.sourceComparison.differenceMeansB')}
-                </TableCell>
-                <TableCell />
-                <TableCell />
-                <TableCell className="font-mono tabular-nums">
-                  {statsA && statsB ? format(statsB.mean - statsA.mean) : '—'}
-                </TableCell>
-                <TableCell />
-                <TableCell />
-              </TableRow>
-            </TableBody>
-          </Table>
-          <p className="text-xs text-fg-muted">
-            {t('data.sourceComparison.matchedOnlyOnlyB', {
-              rule: pairing.rule,
-              matchedCount: pairing.matchedCount,
-              onlyACount: pairing.onlyACount,
-              onlyBCount: pairing.onlyBCount,
-              changedCount: pairing.changedCount,
-            })}
-          </p>
-          <Table
-            aria-label={t('data.sourceComparison.ariaPairedRows')}
-            data-density="compact"
-          >
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>{t('data.sourceComparison.key')}</TableHead>
-                <TableHead>{t('data.sourceComparison.sideA')}</TableHead>
-                <TableHead>{t('data.sourceComparison.sideB')}</TableHead>
-                <TableHead>
-                  {t('data.sourceComparison.differenceHeader')}
-                </TableHead>
-                <TableHead>{t('data.sourceComparison.present')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pairing.rows.slice(0, MAX_PAIR_ROWS).map((row) => (
-                <TableRow key={row.key}>
-                  <TableCell>{row.label}</TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {format(row.aValue)}
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {format(row.bValue)}
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {format(row.delta)}
-                  </TableCell>
-                  <TableCell>
-                    {row.presence === 'both'
-                      ? 'both'
-                      : row.presence === 'a-only'
-                        ? t('data.sourceComparison.aOnly')
-                        : t('data.sourceComparison.bOnly')}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {pairing.rows.length > MAX_PAIR_ROWS ? (
-            <p className="text-xs text-fg-muted">
-              {t('data.sourceComparison.showingFirstPairs', {
-                MAX_PAIR_ROWS,
-                length: pairing.rows.length,
-              })}
-            </p>
-          ) : null}
+          <SourceStatistics model={model} />
+          <SourcePairs pairing={pairing} />
         </>
       ) : null}
-    </section>
+    </>
+  )
+}
+
+function SourceStatistics({ model }: { model: SourceComparisonModel }) {
+  const { statsA, statsB, nameA, nameB } = model
+
+  return (
+    <Table
+      aria-label={t('data.sourceComparison.ariaSourceSummary')}
+      data-density="compact"
+    >
+      <TableHeader>
+        <TableRow className="hover:bg-transparent">
+          <TableHead>{t('data.sourceComparison.source')}</TableHead>
+          <TableHead>n</TableHead>
+          <TableHead>{t('data.sourceComparison.min')}</TableHead>
+          <TableHead>{t('data.sourceComparison.mean')}</TableHead>
+          <TableHead>{t('data.sourceComparison.median')}</TableHead>
+          <TableHead>{t('data.sourceComparison.max')}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {(
+          [
+            ['A', nameA, statsA],
+            ['B', nameB, statsB],
+          ] as const
+        ).map(([side, name, stats]) => (
+          <TableRow key={side}>
+            <TableCell>
+              {side} · {name}
+            </TableCell>
+            <TableCell className="font-mono tabular-nums">
+              {stats?.n ?? 0}
+            </TableCell>
+            <TableCell className="font-mono tabular-nums">
+              {format(stats?.min)}
+            </TableCell>
+            <TableCell className="font-mono tabular-nums">
+              {format(stats?.mean)}
+            </TableCell>
+            <TableCell className="font-mono tabular-nums">
+              {format(stats?.median)}
+            </TableCell>
+            <TableCell className="font-mono tabular-nums">
+              {format(stats?.max)}
+            </TableCell>
+          </TableRow>
+        ))}
+        <TableRow>
+          <TableCell>{t('data.sourceComparison.differenceMeansB')}</TableCell>
+          <TableCell />
+          <TableCell />
+          <TableCell className="font-mono tabular-nums">
+            {statsA && statsB ? format(statsB.mean - statsA.mean) : '—'}
+          </TableCell>
+          <TableCell />
+          <TableCell />
+        </TableRow>
+      </TableBody>
+    </Table>
+  )
+}
+
+function SourcePairs({
+  pairing,
+}: {
+  pairing: ReturnType<typeof pairComparativeSources>
+}) {
+  return (
+    <>
+      <p className="text-xs text-fg-muted">
+        {t('data.sourceComparison.matchedOnlyOnlyB', {
+          rule: pairing.rule,
+          matchedCount: pairing.matchedCount,
+          onlyACount: pairing.onlyACount,
+          onlyBCount: pairing.onlyBCount,
+          changedCount: pairing.changedCount,
+        })}
+      </p>
+      <Table
+        aria-label={t('data.sourceComparison.ariaPairedRows')}
+        data-density="compact"
+      >
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead>{t('data.sourceComparison.key')}</TableHead>
+            <TableHead>{t('data.sourceComparison.sideA')}</TableHead>
+            <TableHead>{t('data.sourceComparison.sideB')}</TableHead>
+            <TableHead>{t('data.sourceComparison.differenceHeader')}</TableHead>
+            <TableHead>{t('data.sourceComparison.present')}</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {pairing.rows.slice(0, MAX_PAIR_ROWS).map((row) => (
+            <TableRow key={row.key}>
+              <TableCell>{row.label}</TableCell>
+              <TableCell className="font-mono tabular-nums">
+                {format(row.aValue)}
+              </TableCell>
+              <TableCell className="font-mono tabular-nums">
+                {format(row.bValue)}
+              </TableCell>
+              <TableCell className="font-mono tabular-nums">
+                {format(row.delta)}
+              </TableCell>
+              <TableCell>
+                {row.presence === 'both'
+                  ? 'both'
+                  : row.presence === 'a-only'
+                    ? t('data.sourceComparison.aOnly')
+                    : t('data.sourceComparison.bOnly')}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+      {pairing.rows.length > MAX_PAIR_ROWS ? (
+        <p className="text-xs text-fg-muted">
+          {t('data.sourceComparison.showingFirstPairs', {
+            MAX_PAIR_ROWS,
+            length: pairing.rows.length,
+          })}
+        </p>
+      ) : null}
+    </>
   )
 }

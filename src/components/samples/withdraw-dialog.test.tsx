@@ -11,12 +11,14 @@ import {
   QuantityKeypad,
   ReserveDialog,
   WithdrawDialog,
+} from './withdraw-dialog'
+import {
   describeWithdrawError,
   parseQuantityInput,
   validateQuantity,
-} from './withdraw-dialog'
+} from './quantity-input'
+import type { ExperimentOption } from './quantity-hooks'
 import type {
-  ExperimentOption,
   ReserveDialogInput,
   WithdrawDialogInput,
   WithdrawDialogProps,
@@ -97,6 +99,21 @@ describe('parseQuantityInput', () => {
     expect(parseQuantityInput('')).toBeNull()
     expect(parseQuantityInput('abc')).toBeNull()
   })
+
+  it.each<[string, number | null]>([
+    ['  1,2,3  ', 123],
+    ['1e2', 100],
+    ['0x10', 16],
+    ['0b10', 2],
+    ['+2', 2],
+    ['1e-324', 0],
+    ['Infinity', null],
+    ['1e309', null],
+    ['NaN', null],
+    [' , ', null],
+  ])('keeps native Number parsing for %s', (raw, expected) => {
+    expect(parseQuantityInput(raw)).toBe(expected)
+  })
 })
 
 describe('validateQuantity', () => {
@@ -154,6 +171,19 @@ describe('describeWithdrawError', () => {
   it('explains a concurrent edit', () => {
     const error = new DataClientError('SB001', 'metadata version mismatch', 409)
     expect(describeWithdrawError(error, 'mL')).toMatch(/edited by someone else/)
+  })
+
+  it('keeps ordinary error messages and the non-Error fallback distinct', () => {
+    expect(describeWithdrawError(new Error('Network unavailable'), null)).toBe(
+      'Network unavailable',
+    )
+    const fallback = describeWithdrawError(null, null)
+    expect(fallback).toBeTruthy()
+    expect(describeWithdrawError('Network unavailable', null)).toBe(fallback)
+    expect(
+      describeWithdrawError({ message: 'Network unavailable' }, null),
+    ).toBe(fallback)
+    expect(describeWithdrawError(undefined, null)).toBe(fallback)
   })
 })
 

@@ -1,17 +1,28 @@
 // Renders fixture text where [[…]] marks a match; also marks plain occurrences of the query when there are no explicit marks.
 export function Highlight({ text, q }: { text: string; q?: string }) {
-  const parts = text.split(/(\[\[[^\]]+\]\])/g).filter(Boolean)
+  let offset = 0
+
+  const parts = text.split(/(\[\[[^\]]+\]\])/g).flatMap((value) => {
+    if (!value) return []
+    const start = offset
+    offset += value.length
+
+    return [{ value, start }]
+  })
 
   if (parts.length > 1 || text.startsWith('[[')) {
     return (
       <>
-        {parts.map((p, i) =>
+        {parts.map(({ value: p, start }) =>
           p.startsWith('[[') ? (
-            <mark key={i} className="rounded-[2px] bg-highlight px-px text-fg">
+            <mark
+              key={`${start}:${p}`}
+              className="rounded-[2px] bg-highlight px-px text-fg"
+            >
               {p.slice(2, -2)}
             </mark>
           ) : (
-            <span key={i}>{p}</span>
+            <span key={`${start}:${p}`}>{p}</span>
           ),
         )}
       </>

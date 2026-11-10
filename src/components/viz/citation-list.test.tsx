@@ -7,33 +7,30 @@
  * failed-read states.
  */
 import { cleanup, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
+import type { ReactElement } from 'react'
 
 import type { AnalysisViewCitation } from '#/lib/analysis-studio-data'
 import { CitationList } from './citation-list'
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    params,
-    children,
-    ...props
-  }: {
-    to: string
-    params?: Record<string, unknown>
-    children: React.ReactNode
-  } & Record<string, unknown>) => (
-    <a
-      href={Object.entries(params ?? {}).reduce(
-        (href, [key, value]) => href.replace(`$${key}`, String(value)),
-        to,
-      )}
-      {...props}
-    >
-      {children}
-    </a>
-  ),
-}))
+function renderCitations(ui: ReactElement) {
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory(),
+  })
+
+  return render(ui, {
+    wrapper: ({ children }) => (
+      <RouterContextProvider router={router}>{children}</RouterContextProvider>
+    ),
+  })
+}
 
 afterEach(() => cleanup())
 
@@ -58,7 +55,7 @@ function citation(
 
 describe('CitationList', () => {
   it('renders a citing record with a destination and its draft state', () => {
-    render(<CitationList citations={[citation()]} />)
+    renderCitations(<CitationList citations={[citation()]} />)
 
     const link = screen.getByRole('link', { name: /EXP-0001/ })
     expect(link.getAttribute('href')).toBe('/records/record-1')
@@ -68,7 +65,7 @@ describe('CitationList', () => {
   })
 
   it('reports a locked record and a signed record distinctly', () => {
-    render(
+    renderCitations(
       <CitationList
         citations={[
           citation({
@@ -100,7 +97,7 @@ describe('CitationList', () => {
   })
 
   it('states an explicit empty state when nothing cites the analysis', () => {
-    render(
+    renderCitations(
       <CitationList
         citations={[]}
         emptyBody="No record cites this analysis yet."
@@ -112,7 +109,10 @@ describe('CitationList', () => {
   })
 
   it('shows a loading state and a failed-read state instead of a plausible list', () => {
-    const { rerender } = render(<CitationList citations={[]} loading />)
+    const { rerender } = renderCitations(
+      <CitationList citations={[]} loading />,
+    )
+
     expect(screen.getByRole('status').textContent).toContain(
       'Reading citations',
     )

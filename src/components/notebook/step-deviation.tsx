@@ -1,6 +1,7 @@
 import { t } from '#/copy'
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
@@ -16,6 +17,7 @@ import {
   normaliseDeviationReason,
   recordDeviationReason,
 } from '#/lib/protocol-deviations'
+import type { ProtocolDeviation } from '#/lib/protocol-deviations'
 import { useUserNames } from '#/lib/user-names'
 import type { SaveResult } from './use-autosave'
 
@@ -38,31 +40,32 @@ export function StepDeviation({
 }: {
   block: Pick<NotebookBlock, 'id' | 'payload'>
   save: (
-    payload: Record<string, unknown>,
-  ) => Promise<SaveResult<Record<string, unknown>>>
+    payload: NotebookBlock['payload'],
+  ) => Promise<SaveResult<NotebookBlock['payload']>>
   readOnly?: boolean
 }) {
   const pinned = isPinnedProtocolStep(block.payload)
   const queryClient = useQueryClient()
   const [mode, setMode] = React.useState<Mode>('closed')
-  const currentText =
-    typeof block.payload.text === 'string' ? block.payload.text : ''
-  const [text, setText] = React.useState(currentText)
-  const [reason, setReason] = React.useState('')
+
+  const currentText = z.string().catch('').parse(block.payload.text)
 
   const deviations = useQuery({
     queryKey: deviationsKey(block.id),
     queryFn: () => fetchStepDeviations(notebookDataClient, block.id),
     enabled: pinned,
   })
+
   const latest = deviations.data?.at(0)
+
   const names = useUserNames(
     latest?.reason_by_user_id ? [latest.reason_by_user_id] : [],
   )
 
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: deviationsKey(block.id) })
-  const fail = (title: string) => (error: unknown) =>
+
+  const fail = (title: string) => (error: Error) =>
     toast.error(
       t('notebook.stepDeviation.failedWithReason', {
         title,
@@ -79,31 +82,17 @@ export function StepDeviation({
     onSuccess: async () => {
       await refresh()
       setMode('closed')
-      setReason('')
       toast(t('notebook.stepDeviation.reasonRecordedAgainstThe'))
     },
     onError: fail(t('notebook.stepDeviation.couldNotRecordThe')),
   })
 
   const deviate = useMutation({
-    mutationFn: async (input: { text: string; reason: string }) => {
-      const result = await save({ ...block.payload, text: input.text })
-      if (!result.ok) {
-        throw new Error(
-          result.message ?? t('notebook.stepDeviation.theStepCouldNot'),
-        )
-      }
-      const rows = await fetchStepDeviations(notebookDataClient, block.id)
-      const created = rows.at(0)
-      if (!created || created.recorded_text !== input.text) {
-        throw new Error(t('notebook.stepDeviation.theDeviationWasNot'))
-      }
-      await recordDeviationReason(notebookDataClient, created.id, input.reason)
-    },
+    mutationFn: (input: { text: string; reason: string }) =>
+      saveStepDeviation({ block, save, input }),
     onSuccess: async () => {
       await refresh()
       setMode('closed')
-      setReason('')
       toast(t('notebook.stepDeviation.deviationRecorded'), {
         description: t('notebook.stepDeviation.description'),
       })
@@ -112,99 +101,28 @@ export function StepDeviation({
   })
 
   if (!pinned) return null
-  const cleanReason = normaliseDeviationReason(reason)
   const busy = addReason.isPending || deviate.isPending
 
   if (mode === 'new') {
     return (
-      <div className="space-y-2 rounded-md border border-border p-3">
-        <Field label={t('notebook.stepDeviation.label')} required>
-          <Textarea
-            value={text}
-            rows={2}
-            disabled={busy}
-            onChange={(event) => setText(event.target.value)}
-          />
-        </Field>
-        <Field
-          label={t('notebook.stepDeviation.whyLabel')}
-          required
-          hint={t('notebook.stepDeviation.hint')}
-        >
-          <Textarea
-            value={reason}
-            rows={2}
-            maxLength={DEVIATION_REASON_MAX}
-            disabled={busy}
-            onChange={(event) => setReason(event.target.value)}
-          />
-        </Field>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="primary"
-            disabled={
-              busy || !cleanReason || !text.trim() || text === currentText
-            }
-            onClick={() =>
-              cleanReason
-                ? deviate.mutate({ text: text.trim(), reason: cleanReason })
-                : undefined
-            }
-          >
-            {busy
-              ? t('notebook.stepDeviation.recording')
-              : t('notebook.stepDeviation.recordDeviation')}
-          </Button>
-          <Button size="sm" disabled={busy} onClick={() => setMode('closed')}>
-            {t('common.actions.cancel')}
-          </Button>
-        </div>
-      </div>
+      <DeviationDraftForm
+        currentText={currentText}
+        busy={busy}
+        onSubmit={(input) => deviate.mutate(input)}
+        onCancel={() => setMode('closed')}
+      />
     )
   }
 
   if (latest && !latest.reason) {
     return (
-      <Notice tone="warn" title={t('notebook.stepDeviation.title')}>
-        <div className="mt-2 space-y-2">
-          <p className="m-0 text-caption text-fg-muted">
-            {t('notebook.stepDeviation.protocolFrozenText', {
-              frozen_text: latest.frozen_text,
-            })}
-          </p>
-          {readOnly ? null : (
-            <>
-              <Field
-                label={t('notebook.stepDeviation.whyWasItDoneLabel')}
-                required
-              >
-                <Textarea
-                  value={reason}
-                  rows={2}
-                  maxLength={DEVIATION_REASON_MAX}
-                  disabled={busy}
-                  onChange={(event) => setReason(event.target.value)}
-                />
-              </Field>
-              <Button
-                size="sm"
-                variant="primary"
-                disabled={busy || !cleanReason}
-                onClick={() =>
-                  cleanReason
-                    ? addReason.mutate({ id: latest.id, reason: cleanReason })
-                    : undefined
-                }
-              >
-                {busy
-                  ? t('notebook.stepDeviation.recording')
-                  : t('notebook.stepDeviation.recordTheReason')}
-              </Button>
-            </>
-          )}
-        </div>
-      </Notice>
+      <DeviationReasonForm
+        key={latest.id}
+        deviation={latest}
+        readOnly={readOnly}
+        busy={busy}
+        onSubmit={(reason) => addReason.mutate({ id: latest.id, reason })}
+      />
     )
   }
 
@@ -231,20 +149,156 @@ export function StepDeviation({
         </Notice>
       ) : null}
       {readOnly ? null : (
-        <Button
-          size="sm"
-          variant="quiet"
-          onClick={() => {
-            setText(currentText)
-            setReason('')
-            setMode('new')
-          }}
-        >
+        <Button size="sm" variant="quiet" onClick={() => setMode('new')}>
           {latest
             ? t('notebook.stepDeviation.recordAnotherDeviation')
             : t('notebook.stepDeviation.recordADeviation')}
         </Button>
       )}
+    </div>
+  )
+}
+
+/** A reason draft belongs to the persisted deviation it will annotate. */
+function DeviationReasonForm({
+  deviation,
+  readOnly,
+  busy,
+  onSubmit,
+}: {
+  deviation: ProtocolDeviation
+  readOnly?: boolean
+  busy: boolean
+  onSubmit: (reason: string) => void
+}) {
+  const [reason, setReason] = React.useState('')
+  const cleanReason = normaliseDeviationReason(reason)
+
+  return (
+    <Notice tone="warn" title={t('notebook.stepDeviation.title')}>
+      <div className="mt-2 space-y-2">
+        <p className="m-0 text-caption text-fg-muted">
+          {t('notebook.stepDeviation.protocolFrozenText', {
+            frozen_text: deviation.frozen_text,
+          })}
+        </p>
+        {readOnly ? null : (
+          <>
+            <Field
+              label={t('notebook.stepDeviation.whyWasItDoneLabel')}
+              required
+            >
+              <Textarea
+                value={reason}
+                rows={2}
+                maxLength={DEVIATION_REASON_MAX}
+                disabled={busy}
+                onChange={(event) => setReason(event.target.value)}
+              />
+            </Field>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={busy || !cleanReason}
+              onClick={() => (cleanReason ? onSubmit(cleanReason) : undefined)}
+            >
+              {busy
+                ? t('notebook.stepDeviation.recording')
+                : t('notebook.stepDeviation.recordTheReason')}
+            </Button>
+          </>
+        )}
+      </div>
+    </Notice>
+  )
+}
+
+/** Record a reason only against the deviation the successful step save created. */
+async function saveStepDeviation({
+  block,
+  save,
+  input,
+}: Pick<Parameters<typeof StepDeviation>[0], 'block' | 'save'> & {
+  input: { text: string; reason: string }
+}) {
+  const result = await save({ ...block.payload, text: input.text })
+
+  if (!result.ok) {
+    throw new Error(
+      result.message ?? t('notebook.stepDeviation.theStepCouldNot'),
+    )
+  }
+
+  const rows = await fetchStepDeviations(notebookDataClient, block.id)
+  const created = rows.at(0)
+
+  if (!created || created.recorded_text !== input.text) {
+    throw new Error(t('notebook.stepDeviation.theDeviationWasNot'))
+  }
+
+  await recordDeviationReason(notebookDataClient, created.id, input.reason)
+}
+
+/** An open deviation owns its proposed text/reason until saved or cancelled. */
+function DeviationDraftForm({
+  currentText,
+  busy,
+  onSubmit,
+  onCancel,
+}: {
+  currentText: string
+  busy: boolean
+  onSubmit: (input: { text: string; reason: string }) => void
+  onCancel: () => void
+}) {
+  const [text, setText] = React.useState(currentText)
+  const [reason, setReason] = React.useState('')
+  const cleanReason = normaliseDeviationReason(reason)
+
+  return (
+    <div className="space-y-2 rounded-md border border-border p-3">
+      <Field label={t('notebook.stepDeviation.label')} required>
+        <Textarea
+          value={text}
+          rows={2}
+          disabled={busy}
+          onChange={(event) => setText(event.target.value)}
+        />
+      </Field>
+      <Field
+        label={t('notebook.stepDeviation.whyLabel')}
+        required
+        hint={t('notebook.stepDeviation.hint')}
+      >
+        <Textarea
+          value={reason}
+          rows={2}
+          maxLength={DEVIATION_REASON_MAX}
+          disabled={busy}
+          onChange={(event) => setReason(event.target.value)}
+        />
+      </Field>
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          variant="primary"
+          disabled={
+            busy || !cleanReason || !text.trim() || text === currentText
+          }
+          onClick={() =>
+            cleanReason
+              ? onSubmit({ text: text.trim(), reason: cleanReason })
+              : undefined
+          }
+        >
+          {busy
+            ? t('notebook.stepDeviation.recording')
+            : t('notebook.stepDeviation.recordDeviation')}
+        </Button>
+        <Button size="sm" disabled={busy} onClick={onCancel}>
+          {t('common.actions.cancel')}
+        </Button>
+      </div>
     </div>
   )
 }

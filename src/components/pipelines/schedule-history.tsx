@@ -35,7 +35,7 @@ import type {
 } from '#/lib/pipelines/types'
 
 /** Each way a trigger can decline to run, in words, and how serious it is. */
-export const ACTIVITY_LABELS: Record<
+const ACTIVITY_LABELS: Record<
   PipelineScheduleActivityKind,
   { label: string; tone: 'stored' | 'warn' | 'bad' }
 > = {
@@ -110,10 +110,14 @@ export function ScheduleHistoryDialog({
                 >
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{t('data.scheduleHistory.started')}</TableHead>
-                      <TableHead>{t('data.scheduleHistory.outcome')}</TableHead>
-                      <TableHead>{t('data.scheduleHistory.took')}</TableHead>
-                      <TableHead>{t('data.scheduleHistory.attempt')}</TableHead>
+                      {[
+                        t('data.scheduleHistory.started'),
+                        t('data.scheduleHistory.outcome'),
+                        t('data.scheduleHistory.took'),
+                        t('data.scheduleHistory.attempt'),
+                      ].map((heading) => (
+                        <TableHead key={heading}>{heading}</TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>

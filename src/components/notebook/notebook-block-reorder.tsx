@@ -43,51 +43,6 @@ import type { NotebookBlockProps } from './notebook-block'
  * resolved to; the caller decides what a move means and clamps what it receives.
  */
 
-/** The neighbours a move would land between, used for both the no-op check
- * and the RPC destination. `beforeBlockId` null means end of list. */
-export interface DropNeighbours {
-  afterBlockId: string | null
-  beforeBlockId: string | null
-}
-
-/**
- * Compute the (afterBlockId, beforeBlockId) neighbours for moving `itemId` to
- * `targetIndex` within `ids`. Dropping at index 0 → (null, first); at the end →
- * (last, null); otherwise (ids[targetIndex-1], ids[targetIndex]). The moved
- * item is excluded from the neighbour candidates so a no-op move resolves
- * cleanly.
- */
-export function neighboursForTarget(
-  ids: readonly string[],
-  itemId: string,
-  targetIndex: number,
-): DropNeighbours {
-  const others = ids.filter((id) => id !== itemId)
-  const clamped = Math.max(0, Math.min(targetIndex, others.length))
-  const afterBlockId = clamped > 0 ? (others[clamped - 1] ?? null) : null
-  const beforeBlockId =
-    clamped < others.length ? (others[clamped] ?? null) : null
-  return { afterBlockId, beforeBlockId }
-}
-
-/**
- * The index one position up or down lands at, in the same convention
- * `neighboursForTarget` takes: an index into the ordering with the moved item
- * removed. Null at the top and bottom edges, where there is nowhere to go.
- * The Alt+arrow path and the menu's Move up/down are the same call.
- */
-export function moveTargetIndex(
-  ids: readonly string[],
-  itemId: string,
-  direction: 'up' | 'down',
-): number | null {
-  const index = ids.indexOf(itemId)
-  if (index < 0) return null
-  const target = direction === 'up' ? index - 1 : index + 1
-  if (target < 0 || target >= ids.length) return null
-  return target
-}
-
 /**
  * `Sortable` requires `onValueChange`, but the notebook never uses it: the
  * order is the route's canonical `blocks` plus an optimistic override the
@@ -129,6 +84,7 @@ export function NotebookBlockList({
   children,
 }: NotebookBlockListProps) {
   const value = React.useMemo(() => Array.from(ids), [ids])
+
   return (
     <Sortable
       value={value}
@@ -141,6 +97,7 @@ export function NotebookBlockList({
         // it. For a move within one list the two conventions agree, so the
         // index passes through as-is.
         const movedId = ids.at(activeIndex)
+
         if (movedId === undefined) return
         onMove(movedId, overIndex)
       }}
@@ -213,7 +170,7 @@ export interface NotebookBlockRowProps {
    */
   row?: React.ComponentProps<'div'> & {
     /** The notebook's row markers: `data-prose-run`, `data-active`, … */
-    [key: `data-${string}`]: unknown
+    [key: `data-${string}`]: string | number | boolean | null | undefined
   }
   /** The row's frame, minus the handle and the children. */
   frame: Omit<
@@ -246,6 +203,7 @@ export function NotebookBlockRow({
   children,
 }: NotebookBlockRowProps) {
   const { className, ...rowProps } = row ?? {}
+
   return (
     <SortableItem
       value={itemId}

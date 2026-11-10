@@ -1,6 +1,6 @@
 import userEvent from '@testing-library/user-event'
 import { choose } from '../../../tests/unit/picker'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
 import {
   RouterProvider,
   createMemoryHistory,
@@ -10,16 +10,10 @@ import {
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { SampleRecord } from '#/lib/samples'
-import type * as Positions from '#/lib/storage-positions'
-
-import { AliquotDialog, planAliquots } from './aliquot-dialog'
+import { AliquotDialog } from './aliquot-dialog'
 import type { AliquotDialogInput } from './aliquot-dialog'
-
-vi.mock('#/lib/storage-positions', async (importOriginal) => ({
-  ...(await importOriginal<typeof Positions>()),
-  fetchBoxChoices: vi.fn().mockResolvedValue([]),
-}))
+import { planAliquots } from './quantity-plans'
+import { quantitySample, quantityTestClients } from './quantity-test-fixtures'
 
 afterEach(cleanup)
 
@@ -45,6 +39,31 @@ describe('planAliquots', () => {
     expect(planAliquots('97', '1', 1000, null).error).toMatch(/1 to 96/)
     expect(planAliquots('2', '0', 100, null).error).toMatch(/above zero/)
   })
+
+  it('keeps native numeric spellings, small amounts and the existing tolerance', () => {
+    expect(planAliquots('0x2', '1e-12', null, null)).toMatchObject({
+      count: 2,
+      quantityEach: 1e-12,
+      total: 2e-12,
+      remaining: null,
+      error: null,
+    })
+    expect(planAliquots('2', '0.1', 0.2 - 5e-10, 'µL').error).toBeNull()
+    expect(planAliquots('2', '0.1', 0.2 - 2e-9, 'µL').error).not.toBeNull()
+    expect(planAliquots('2', '1e309', null, null)).toMatchObject({
+      quantityEach: null,
+      total: null,
+      error: null,
+    })
+  })
+
+  it('preserves overflowing totals when the source amount is unknown', () => {
+    expect(planAliquots('2', '1e308', null, null)).toMatchObject({
+      total: Infinity,
+      remaining: null,
+      error: null,
+    })
+  })
 })
 
 const SAMPLE = {
@@ -67,12 +86,17 @@ const BALANCES = {
   free: 100,
 }
 
-function mount(props: Partial<React.ComponentProps<typeof AliquotDialog>>) {
+async function mount(
+  props: Partial<React.ComponentProps<typeof AliquotDialog>>,
+) {
+  const { client, queryClient } = await quantityTestClients()
+
   const root = createRootRoute({
     component: () => (
-      <QueryClientProvider client={new QueryClient()}>
+      <QueryClientProvider client={queryClient}>
         <AliquotDialog
           open
+          client={client}
           onOpenChange={() => {}}
           sample={SAMPLE}
           busy={false}
@@ -96,9 +120,47 @@ function mount(props: Partial<React.ComponentProps<typeof AliquotDialog>>) {
 }
 
 describe('AliquotDialog', () => {
+  it('submits native numeric spellings with an unknown source quantity and no invented unit', async () => {
+    const onSubmit = vi.fn<(input: AliquotDialogInput) => void>()
+    await mount({
+      onSubmit,
+      defaultExperimentId: 'e-1',
+      sample: { ...SAMPLE, quantity: null, quantityUnit: null },
+      balances: null,
+    })
+    fireEvent.change(await screen.findByLabelText(/Number of tubes/), {
+      target: { value: '0x2' },
+    })
+    fireEvent.change(screen.getByLabelText(/Amount in each/), {
+      target: { value: '1e-12' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Make 2 tubes' }))
+    expect(onSubmit).toHaveBeenCalledWith({
+      count: 2,
+      quantityEach: 1e-12,
+      purposeExperimentId: 'e-1',
+      unit: undefined,
+      newContainer: { title: undefined, storageLocation: undefined },
+      place: undefined,
+    })
+  })
+
+  it('does not submit a valid plan while busy', async () => {
+    const onSubmit = vi.fn<(input: AliquotDialogInput) => void>()
+    await mount({ onSubmit, defaultExperimentId: 'e-1', busy: true })
+    fireEvent.change(await screen.findByLabelText(/Number of tubes/), {
+      target: { value: '2' },
+    })
+    fireEvent.change(screen.getByLabelText(/Amount in each/), {
+      target: { value: '10' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Making tubes…' }))
+    expect(onSubmit).not.toHaveBeenCalled()
+  })
+
   it('submits the split for the chosen experiment with the shared location', async () => {
     const onSubmit = vi.fn<(input: AliquotDialogInput) => void>()
-    mount({ onSubmit })
+    await mount({ onSubmit })
     fireEvent.change(await screen.findByLabelText(/Number of tubes/), {
       target: { value: '4' },
     })
@@ -133,7 +195,7 @@ describe('AliquotDialog', () => {
   })
 
   it('holds the button and says why when the tubes would overdraw', async () => {
-    mount({})
+    await mount({})
     fireEvent.change(await screen.findByLabelText(/Number of tubes/), {
       target: { value: '10' },
     })
@@ -151,11 +213,19 @@ describe('AliquotDialog', () => {
 
   it('lists the new tubes as links once made', async () => {
     const created = [
-      { id: 't-1', identifier: 'SMP-2', title: 'Master stock aliquot 1 of 2' },
-      { id: 't-2', identifier: 'SMP-3', title: 'Master stock aliquot 2 of 2' },
-    ] as SampleRecord[]
+      quantitySample({
+        id: 't-1',
+        identifier: 'SMP-2',
+        title: 'Master stock aliquot 1 of 2',
+      }),
+      quantitySample({
+        id: 't-2',
+        identifier: 'SMP-3',
+        title: 'Master stock aliquot 2 of 2',
+      }),
+    ]
 
-    mount({ created })
+    await mount({ created })
     expect(await screen.findByText('Made 2 tubes from SMP-1')).toBeTruthy()
     expect(
       screen.getByRole('link', { name: 'SMP-2' }).getAttribute('href'),
@@ -164,7 +234,7 @@ describe('AliquotDialog', () => {
   })
 
   it('shows the refusal when no tubes were made', async () => {
-    mount({ error: 'Only 50 µL available. Enter 50 or less.' })
+    await mount({ error: 'Only 50 µL available. Enter 50 or less.' })
     expect(await screen.findByText('No tubes were made')).toBeTruthy()
   })
 })

@@ -80,7 +80,7 @@ export function BulkUpgradePanel({
         queryKey: ['ui-port', 'templates'],
       })
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       setProgress(null)
       toast.error(
         error instanceof Error

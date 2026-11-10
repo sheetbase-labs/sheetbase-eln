@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { formatDate } from '#/lib/format-date'
+import { t } from '#/copy'
 
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -185,17 +186,22 @@ export async function logStorageReading(
   },
   client: DataClient = notebookDataClient,
 ): Promise<{ stored: number; feeds: number }> {
+  const unitId = input.kind === 'unit' ? input.placeId : null
+  const roomId = input.kind === 'room' ? input.placeId : null
+
+  const reading: Pick<
+    Parameters<typeof logStorageReading>[0],
+    'feed' | 'value' | 'unit' | 'at'
+  > = { feed: input.feed.trim(), value: input.value }
+
+  if (input.unit?.trim()) reading.unit = input.unit.trim()
+
+  if (input.at) reading.at = input.at
+
   return client.rpc('record_storage_readings', {
-    p_unit_id: input.kind === 'unit' ? input.placeId : null,
-    p_room_id: input.kind === 'room' ? input.placeId : null,
-    p_readings: [
-      {
-        feed: input.feed.trim(),
-        value: input.value,
-        ...(input.unit?.trim() ? { unit: input.unit.trim() } : {}),
-        ...(input.at ? { at: input.at } : {}),
-      },
-    ],
+    p_unit_id: unitId,
+    p_room_id: roomId,
+    p_readings: [reading],
   })
 }
 
@@ -389,4 +395,34 @@ export function seriesCsv(feed: FeedRow, points: SeriesPoint[]): string {
   }
 
   return `${lines.join('\n')}\n`
+}
+
+export function unitSuffix(feed: Pick<FeedRow, 'unit'>): string {
+  return feed.unit ? ` ${feed.unit}` : ''
+}
+
+export function limitsLabel(feed: FeedRow): string {
+  const { lowLimit: low, highLimit: high } = feed
+  const unit = unitSuffix(feed)
+
+  if (low !== null && high !== null) {
+    return t('library.instruments.live.limitRange', {
+      low: formatReadingValue(low),
+      high: `${formatReadingValue(high)}${unit}`,
+    })
+  }
+
+  if (low !== null) {
+    return t('library.instruments.live.limitLowOnly', {
+      low: `${formatReadingValue(low)}${unit}`,
+    })
+  }
+
+  if (high !== null) {
+    return t('library.instruments.live.limitHighOnly', {
+      high: `${formatReadingValue(high)}${unit}`,
+    })
+  }
+
+  return t('library.instruments.live.noLimits')
 }

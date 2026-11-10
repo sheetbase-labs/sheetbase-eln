@@ -24,11 +24,12 @@ function setup(
       {...overrides}
     />,
   )
+
   return { onSubmit, onOpenChange }
 }
 
 function isDisabled(element: HTMLElement): boolean {
-  return (element as HTMLButtonElement | HTMLInputElement).disabled
+  return element.matches(':disabled')
 }
 
 describe('ESignDialog (R5-NOTE-02)', () => {

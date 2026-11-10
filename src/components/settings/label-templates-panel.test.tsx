@@ -5,17 +5,17 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-
-import type { DataClient } from '#/lib/data-client'
-
-import { LabelTemplatesPanel } from './label-templates-panel'
-
-vi.mock('#/components/ui/sonner', () => ({
-  toast: Object.assign(vi.fn(), { error: vi.fn() }),
-}))
-
-afterEach(cleanup)
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
+import { z } from 'zod'
+import { Toaster, toast } from '#/components/ui/sonner'
 
 const ROW = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -35,29 +35,67 @@ const ROW = {
   updated_at: '2026-10-28T00:00:00Z',
 }
 
-function client(rows: unknown[] = [ROW]) {
-  return {
-    list: vi.fn(async () => rows),
-    rpc: vi.fn(async () => ({
-      ...ROW,
-      name: 'Retain bottle',
-      is_default: false,
-    })),
-  } as unknown as DataClient & { rpc: ReturnType<typeof vi.fn> }
-}
+const saveSchema = z.object({
+  p_workspace_id: z.string(),
+  p_id: z.string().nullable(),
+  p_name: z.string(),
+})
 
-function renderPanel(canManage: boolean, c = client()) {
+const writes: z.infer<typeof saveSchema>[] = []
+const unexpected: string[] = []
+
+vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://localhost',
+  )
+
+  switch (url.pathname) {
+    case '/api/db/label_templates':
+      return Response.json([ROW])
+    case '/api/db/model_kinds':
+      return Response.json([{ key: 'sample', label: 'Sample', identity_table: 'samples' }])
+    case '/api/db/extensions':
+      return Response.json([])
+    case '/api/db/rpc/save_label_template':
+      expect(init?.method).toBe('POST')
+      writes.push(saveSchema.parse(await new Response(init?.body).json()))
+
+      return Response.json({ ...ROW, name: 'Retain bottle', is_default: false })
+    default:
+      unexpected.push(url.pathname)
+      throw new Error(`Unexpected label template request: ${url}`)
+  }
+})
+
+const { LabelTemplatesPanel } = await import('./label-templates-panel')
+const { dropSharedReads } = await import('#/lib/data-client')
+
+beforeEach(() => {
+  writes.length = 0
+  unexpected.length = 0
+})
+
+afterEach(() => {
+  toast.dismiss()
+  cleanup()
+  dropSharedReads()
+  expect(unexpected).toEqual([])
+})
+
+afterAll(() => vi.unstubAllGlobals())
+
+function renderPanel(canManage: boolean) {
   render(
     <QueryClientProvider
       client={
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      <LabelTemplatesPanel workspaceId="ws" canManage={canManage} client={c} />
+      <LabelTemplatesPanel workspaceId="ws" canManage={canManage} />
+      <Toaster />
     </QueryClientProvider>,
   )
-
-  return c
 }
 
 describe('LabelTemplatesPanel', () => {
@@ -89,21 +127,20 @@ describe('LabelTemplatesPanel', () => {
 
   it('adds a template through the database function', async () => {
     const user = userEvent.setup()
-    const c = renderPanel(true)
+    renderPanel(true)
     await user.click(
       await screen.findByRole('button', { name: 'New template' }),
     )
     await user.type(screen.getByLabelText('Name'), 'Retain bottle')
     await user.click(screen.getByRole('button', { name: 'Add template' }))
     await waitFor(() =>
-      expect(c.rpc).toHaveBeenCalledWith(
-        'save_label_template',
+      expect(writes).toEqual([
         expect.objectContaining({
           p_workspace_id: 'ws',
           p_id: null,
           p_name: 'Retain bottle',
         }),
-      ),
+      ]),
     )
   })
 

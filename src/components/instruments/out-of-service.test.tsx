@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 
-import { OutOfServiceNotice, isOutOfService } from './out-of-service'
+import { OutOfServiceNotice } from './out-of-service'
+import { isOutOfService } from './instruments-data'
 import type { InstrumentRow } from './instruments-data'
 import { describeCalendarError } from '#/lib/calendar'
 import { DataClientError } from '#/lib/data-client'

@@ -7,8 +7,10 @@ import type { NotebookBlock } from '#/lib/notebook-data'
 afterEach(cleanup)
 
 let seq = 0
-function block(type: string, payload: Record<string, unknown>): NotebookBlock {
+
+function block(type: string, payload: NotebookBlock['payload']): NotebookBlock {
   seq += 1
+
   return {
     id: `block-${seq}`,
     recordId: 'record-1',

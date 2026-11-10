@@ -1,25 +1,39 @@
-import { cleanup, render, screen, within } from '@testing-library/react'
+import {
+  cleanup,
+  render as renderDOM,
+  screen,
+  within,
+} from '@testing-library/react'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
+import type { ReactNode } from 'react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
 import type { FieldDefinition } from '#/lib/field-definition'
 import type { BoundValueState } from '#/lib/sheet-bound-columns'
 
-import { canonicalCellFacts, NotebookInspector } from './notebook-inspector'
+import { NotebookInspector } from './notebook-inspector'
 import type { NotebookInspectorCellFacts } from './notebook-inspector'
+import { canonicalCellFacts } from './inspector-cell-facts'
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    children,
-  }: {
-    to: string
-    search?: unknown
-    params?: unknown
-    children: React.ReactNode
-  }) => <a href={to}>{children}</a>,
-}))
+function render(ui: ReactNode) {
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
+  return renderDOM(ui, {
+    wrapper: ({ children }) => (
+      <RouterContextProvider router={router}>{children}</RouterContextProvider>
+    ),
+  })
+}
 
 afterEach(() => cleanup())
 
@@ -119,7 +133,10 @@ describe('NotebookInspector Properties', () => {
 
     // Provenance.
     const provenance = screen.getByRole('heading', { name: 'Source' })
-      .parentElement?.parentElement as HTMLElement
+      .parentElement?.parentElement
+
+    if (!provenance) throw new Error('Missing provenance section')
+
     expect(within(provenance).getByText('DS-0311')).toBeTruthy()
     expect(within(provenance).getByText(/row 88/)).toBeTruthy()
     expect(within(provenance).getByText('Turbidimeter TB-02')).toBeTruthy()
@@ -128,7 +145,10 @@ describe('NotebookInspector Properties', () => {
 
     // Column definition.
     const column = screen.getByRole('heading', { name: 'Column' }).parentElement
-      ?.parentElement as HTMLElement
+      ?.parentElement
+
+    if (!column) throw new Error('Missing column section')
+
     expect(within(column).getByText('Turbidity out')).toBeTruthy()
     expect(within(column).getByText('Decimal')).toBeTruthy()
     expect(within(column).getByText('NTU')).toBeTruthy()

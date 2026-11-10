@@ -29,21 +29,28 @@
  * (`pr-6!`); a plain `pr-6` in `meta.cellClassName` loses to the component's
  * own cell rules and is silently ignored.
  */
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useLayoutEffect,
+  useRef,
+} from 'react'
 import { Icon } from '#/components/icons'
 import { ListViewMenu } from './list-view-menu'
 import type { ListView } from '#/lib/list-views'
-import { usePaneContext } from '#/components/workspace/workspace-navigation'
-import type { ReactNode } from 'react'
-import { useTable } from '@tanstack/react-table'
+import type { CSSProperties, ReactNode, RefObject } from 'react'
+import { isFunction, useTable } from '@tanstack/react-table'
 import type {
   Column,
-  ColumnDef,
   OnChangeFn,
   ColumnVisibilityState,
   RowData,
   RowSelectionState,
   SortingState,
+  TableState,
+  Table,
 } from '@tanstack/react-table'
 
 import {
@@ -60,118 +67,63 @@ import { Checkbox } from '#/components/ui/checkbox'
 import { cn } from '#/lib/utils'
 import { t } from '#/copy'
 import type { BulkSelection } from './bulk-selection'
+import { compareCells, isBand } from './registry-grid-data'
+import type { RegistryColumn, RegistryRow } from './registry-grid-data'
+import {
+  useLinkedRegistrySelection,
+  useRegistryEvents,
+  useRegistryRowKeys,
+} from './registry-grid-effects'
 
-/** A column of a registry table. */
-export type RegistryColumn<T extends RowData> = ColumnDef<DataGridFeatures, T>
+export {
+  bandRow,
+  rightAligned,
+  useRowFocus,
+  compareCells,
+} from './registry-grid-data'
 
-/**
- * The band a grouped registry table draws between groups: a muted strip across
- * the row with its label at the first column's inset. It carries no record, so
- * it is never selectable and never opens an inspector.
- */
-export interface BandRow {
-  readonly __band: string
-  /** The group's size, shown after the label in the lighter weight. */
-  readonly __count?: number
-  /** A link or control at the band's right end. */
-  readonly __action?: ReactNode
-  readonly id: string
-}
-
-/** A band for `label`, to place in the rows a grouped screen passes. */
-export function bandRow(
-  label: string,
-  count?: number,
-  action?: ReactNode,
-): BandRow {
-  return {
-    __band: label,
-    __count: count,
-    __action: action,
-    id: `band:${label}`,
-  }
-}
-
-function isBand(row: unknown): row is BandRow {
-  return typeof row === 'object' && row !== null && '__band' in row
-}
-
-/** The row type a registry grid takes: a record, or a band between groups. */
-export type RegistryRow<T> = T | BandRow
-
-/**
- * A right-aligned column: the header and its cells take the table's right edge,
- * the way the bespoke body's `align="right"` head did.
- */
-export function rightAligned<T extends RowData>(): Pick<
-  ColumnDef<DataGridFeatures, T>,
-  'meta'
-> {
-  return {
-    meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
-  }
-}
-
-/**
- * The selection a screen whose inspector follows one row wants: give it the id
- * the inspector is showing and the setter, and it hands back the state the grid
- * renders plus the change handler.
- *
- * The grid merges a checkbox toggle into the selection it was given, so the
- * handler takes the row the change *turned on* rather than the first key in the
- * merged state — otherwise a checkbox on any other row would look inert, which
- * is exactly what the first spelling of this did. Clearing the last checked row
- * closes the inspector.
- */
-export function useRowFocus(
-  selectedId: string | null,
-  setSelectedId: (id: string | null) => void,
-): {
-  rowSelection: RowSelectionState
-  onRowSelectionChange: OnChangeFn<RowSelectionState>
-} {
-  const rowSelection = useMemo<RowSelectionState>(
-    () => (selectedId ? { [selectedId]: true } : {}),
-    [selectedId],
-  )
-
-  const onRowSelectionChange = useCallback<OnChangeFn<RowSelectionState>>(
-    (next) => {
-      const value = typeof next === 'function' ? next(rowSelection) : next
-      const ids = Object.keys(value)
-      const turnedOn = ids.find((id) => !Object.hasOwn(rowSelection, id))
-      setSelectedId(turnedOn ?? ids.at(-1) ?? null)
-    },
-    [rowSelection, setSelectedId],
-  )
-
-  return { rowSelection, onRowSelectionChange }
-}
+export type { BandRow, RegistryColumn, RegistryRow } from './registry-grid-data'
 
 /** The id of the column that holds the table's own menu (columns, export). */
 const VIEW_COLUMN = '__view'
 
-/**
- * The order two cells sort in: numbers as numbers, text in the registry's own
- * collation with numbers inside it in order (SMP-9 before SMP-10), and empty
- * cells after everything else whichever way the column runs.
- */
-export function compareCells(a: unknown, b: unknown): number {
-  if (typeof a === 'number' && typeof b === 'number') return a - b
+// Rendered labels follow the current render without replacing cell component types.
+const RegistryRenderContext = createContext<{
+  name: string
+  view?: ListView
+  labelForId: (id: string) => string
+}>({ name: '', labelForId: (id) => id })
 
-  return String(a ?? '').localeCompare(String(b ?? ''), 'en-GB', {
-    numeric: true,
-    sensitivity: 'base',
-  })
+function RegistryMenu<T extends RowData>({
+  table,
+}: {
+  table: Table<DataGridFeatures, T>
+}) {
+  const { name, view } = useContext(RegistryRenderContext)
+
+  return <ListViewMenu table={table} name={name} view={view} />
+}
+
+function RegistryTick({ bulk, rowId }: { bulk: BulkSelection; rowId: string }) {
+  const { labelForId } = useContext(RegistryRenderContext)
+
+  return (
+    <Checkbox
+      aria-label={t('library.bulk.selectRow', { id: labelForId(rowId) })}
+      checked={bulk.has(rowId)}
+      onCheckedChange={() => bulk.toggle(rowId)}
+      onClick={(event) => event.stopPropagation()}
+    />
+  )
 }
 
 /** A header the person can click to sort by its column. */
-function SortHeader({
+function SortHeader<T extends RowData>({
   column,
   right,
   children,
 }: {
-  column: Column<DataGridFeatures, never, unknown>
+  column: Column<DataGridFeatures, T>
   right: boolean
   children: ReactNode
 }) {
@@ -268,14 +220,18 @@ function sortingFor<T extends RowData>(
 ): Partial<RegistryColumn<T>> {
   const hasValue = 'accessorFn' in column || 'accessorKey' in column
   const canSort = sortable && hasValue && column.enableSorting !== false
-  const label = typeof column.header === 'string' ? column.header : undefined
+  const label = isFunction(column.header) ? undefined : column.header
 
   const meta = label
     ? { ...column.meta, headerTitle: column.meta?.headerTitle ?? label }
     : column.meta
 
   if (!canSort) {
-    return { enableSorting: false, ...(label ? { meta } : {}) }
+    const result: Partial<RegistryColumn<T>> = { enableSorting: false }
+
+    if (label) result.meta = meta
+
+    return result
   }
 
   const right = Boolean(column.meta?.headerClassName?.includes('text-right'))
@@ -289,8 +245,8 @@ function sortingFor<T extends RowData>(
     sortUndefined: 'last',
     meta,
     header: (context) => (
-      <SortHeader column={context.column as never} right={right}>
-        {typeof header === 'function' ? header(context) : header}
+      <SortHeader column={context.column} right={right}>
+        {isFunction(header) ? header(context) : header}
       </SortHeader>
     ),
   }
@@ -332,128 +288,25 @@ export function RegistryGrid<T extends RowData>({
     [hidden],
   )
 
-  const setVisibility = view?.setHidden
+  const events = useRegistryEvents({
+    getRowId,
+    onRowClick,
+    onRowSelectionChange,
+    onSortingChange,
+    view,
+  })
 
-  const onColumnVisibilityChange = useCallback<
-    OnChangeFn<ColumnVisibilityState>
-  >(
-    (next) => {
-      if (!setVisibility) return
-      setVisibility((current) => {
-        const was: ColumnVisibilityState = Object.fromEntries(
-          current.map((id) => [id, false]),
-        )
-
-        const value = typeof next === 'function' ? next(was) : next
-
-        return Object.entries(value)
-          .filter(([, shown]) => shown === false)
-          .map(([id]) => id)
-      })
-    },
-    [setVisibility],
-  )
-
-  const nameRef = useRef(exportName ?? label)
-  nameRef.current = exportName ?? label
-  const gridRef = useRef<HTMLDivElement>(null)
-  // Read at render of a cell, so a screen's inline function never rebuilds the columns.
-  const rowLabelRef = useRef(rowLabel)
-  rowLabelRef.current = rowLabel
-
-  // Linked panes: report this grid's selected row, and take the row the pane
-  // being followed selects when this grid has it.
-  const { reportSelection, followedSelection } = usePaneContext()
-  const selectedKey = Object.keys(rowSelection).at(0)
-  useEffect(() => {
-    if (selectable) reportSelection(selectedKey)
-  }, [reportSelection, selectable, selectedKey])
-  useEffect(() => {
-    if (
-      !selectable ||
-      !followedSelection ||
-      followedSelection === selectedKey ||
-      !rows.some((row) => !isBand(row) && getRowId(row) === followedSelection)
-    )
-      return
-    onRowSelectionChange?.({ [followedSelection]: true })
-    // Only a change in what is followed moves this grid's selection.
-  }, [followedSelection])
-
-  /**
-   * The row is the control. A selectable row takes focus (one tab stop, on the
-   * selected row or the first), Enter or Space selects it, and the arrow keys
-   * walk the rows — the keyboard path the old click-only table never had, with
-   * no checkbox column duplicating the click.
-   */
-  useEffect(() => {
-    const root = gridRef.current
-
-    if (!root || !selectable) return
-
-    const rowOf = (target: EventTarget | null) =>
-      target instanceof Element
-        ? target.closest<HTMLTableRowElement>('tbody tr[data-index]')
-        : null
-
-    const sync = () => {
-      const rows = [
-        ...root.querySelectorAll<HTMLTableRowElement>('tbody tr[data-index]'),
-      ]
-
-      const selected = rows.find((tr) => tr.dataset.state === 'selected')
-
-      for (const tr of rows) {
-        tr.tabIndex = tr === (selected ?? rows[0]) ? 0 : -1
-      }
-    }
-
-    const observer = new MutationObserver(sync)
-    observer.observe(root, { childList: true, subtree: true })
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      const tr = rowOf(event.target)
-
-      if (!tr) return
-
-      // Enter opens the row. Space is the peek key everywhere, so it is left
-      // to the workspace shortcut rather than selecting here.
-      if (event.key === 'Enter') {
-        event.preventDefault()
-        tr.click()
-
-        return
-      }
-
-      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-        const next =
-          event.key === 'ArrowDown'
-            ? tr.nextElementSibling
-            : tr.previousElementSibling
-
-        if (next instanceof HTMLTableRowElement && next.dataset.index) {
-          event.preventDefault()
-          next.focus()
-        }
-      }
-    }
-
-    root.addEventListener('keydown', onKeyDown)
-    sync()
-
-    return () => {
-      observer.disconnect()
-      root.removeEventListener('keydown', onKeyDown)
-    }
-  }, [selectable, rows])
-
-  // The ids a header tick covers: every record row, never a band.
-  const getRowIdRef = useRef(getRowId)
-  getRowIdRef.current = getRowId
+  useLinkedRegistrySelection({
+    rows,
+    getRowId,
+    selectable,
+    rowSelection,
+    onRowSelectionChange,
+  })
+  const gridRef = useRegistryRowKeys(selectable, rows)
 
   const recordIdKey = rows
-    .filter((row) => !isBand(row))
-    .map((row) => getRowIdRef.current(row as T))
+    .flatMap((row) => (isBand(row) ? [] : [getRowId(row)]))
     .join('\u0000')
 
   const recordIds = useMemo(
@@ -464,22 +317,37 @@ export function RegistryGrid<T extends RowData>({
   // The header tick reads these when clicked, so new rows do not rebuild the
   // columns (which would remount every cell).
   const recordIdsRef = useRef(recordIds)
-  recordIdsRef.current = recordIds
+  useLayoutEffect(() => {
+    recordIdsRef.current = recordIds
+  }, [recordIds])
   // A row that left the list (another tab, a search) is no longer ticked.
   const retain = bulk?.retain
   useEffect(() => {
+    // react-doctor-disable-next-line no-pass-data-to-parent -- Committed settled lists prune disappeared bulk IDs; loading lists must retain them.
     if (!isLoading) retain?.(recordIds)
   }, [retain, recordIds, isLoading])
-  const bulkIds = bulk?.ids
-  const ticked = bulkIds ? recordIds.filter((id) => bulkIds.includes(id)) : []
+  const bulkIds = new Set(bulk?.ids)
+  const ticked = recordIds.filter((id) => bulkIds.has(id))
   const allTicked = recordIds.length > 0 && ticked.length === recordIds.length
+  const hasView = Boolean(view)
+
+  const rowById = useMemo(
+    () =>
+      new Map(
+        rows.flatMap((row): [string, T][] =>
+          isBand(row) ? [] : [[getRowId(row), row]],
+        ),
+      ),
+    [rows, getRowId],
+  )
 
   const allColumns = useMemo<RegistryColumn<RegistryRow<T>>[]>(() => {
-    const body = columns as unknown as RegistryColumn<RegistryRow<T>>[]
+    // SAFETY: The decorated cell below intercepts every band before invoking a record column's renderer.
+    const body = columns as RegistryColumn<RegistryRow<T>>[]
 
     // The menu sits at the end of the header, where it stays put as the
     // table scrolls sideways.
-    const tools: RegistryColumn<RegistryRow<T>>[] = view
+    const tools: RegistryColumn<RegistryRow<T>>[] = hasView
       ? [
           {
             id: VIEW_COLUMN,
@@ -493,13 +361,7 @@ export function RegistryGrid<T extends RowData>({
               headerClassName: 'w-11 text-right',
               cellClassName: 'w-11',
             },
-            header: ({ table: instance }) => (
-              <ListViewMenu
-                table={instance as unknown as DataGridTableInstance<T>}
-                view={view}
-                name={nameRef.current}
-              />
-            ),
+            header: ({ table: instance }) => <RegistryMenu table={instance} />,
             cell: () => null,
           },
         ]
@@ -525,24 +387,13 @@ export function RegistryGrid<T extends RowData>({
           onClick={(event) => event.stopPropagation()}
         />
       ),
-      cell: ({ row }) => (
-        <Checkbox
-          aria-label={t('library.bulk.selectRow', {
-            id: rowLabelRef.current
-              ? rowLabelRef.current(row.original as T)
-              : row.id,
-          })}
-          checked={bulk.has(row.id)}
-          onCheckedChange={() => bulk.toggle(row.id)}
-          onClick={(event) => event.stopPropagation()}
-        />
-      ),
+      cell: ({ row }) => <RegistryTick bulk={bulk} rowId={row.id} />,
     }
 
     return [tick, ...body, ...tools]
     // `ticked.length` and `allTicked` change the header; the row cells read
     // `bulk.has`, which changes with `bulk`.
-  }, [columns, selectable, bulk, allTicked, ticked.length, view])
+  }, [columns, bulk, allTicked, ticked.length, hasView])
 
   /**
    * A band renders as the muted strip the grouped screens draw: every cell
@@ -555,64 +406,59 @@ export function RegistryGrid<T extends RowData>({
 
   const decorated = useMemo<RegistryColumn<RegistryRow<T>>[]>(
     () =>
-      allColumns.map(
-        (column, index) =>
-          ({
-            ...column,
-            ...sortingFor(column, sortable),
-            // Spreading a column definition widens its accessor union.
-            cell: (context) => {
-              const original = context.row.original
+      allColumns.map((column, index): RegistryColumn<RegistryRow<T>> => {
+        const result = { ...column }
+        Object.assign(result, sortingFor(column, sortable))
+        result.cell = (context) => {
+          const original = context.row.original
 
-              if (!isBand(original)) {
-                const cell = column.cell
+          if (!isBand(original)) {
+            const cell = column.cell
 
-                return typeof cell === 'function'
-                  ? cell(context)
-                  : ((context.getValue() as ReactNode) ?? null)
-              }
+            return isFunction(cell)
+              ? cell(context)
+              : (context.getValue<ReactNode>() ?? null)
+          }
 
-              // Every cell paints the strip, so it reads as one band across the
-              // row; the first data column carries the label.
-              // The strip reaches over the cell's own padding: 24px at the table's
-              // outer edges, 10px between cells.
-              const left = index === 0 ? '-ml-6 pl-6' : '-ml-2.5'
+          // Every cell paints the strip, so it reads as one band across the
+          // row; the first data column carries the label.
+          // The strip reaches over the cell's own padding: 24px at the table's
+          // outer edges, 10px between cells.
+          const left = index === 0 ? '-ml-6 pl-6' : '-ml-2.5'
 
-              const right =
-                index === allColumns.length - 1 ? '-mr-6' : '-mr-2.5'
+          const right = index === allColumns.length - 1 ? '-mr-6' : '-mr-2.5'
 
-              const paint = `block h-[33px] bg-surface-muted ${left} ${right}`
+          const paint = `block h-[33px] bg-surface-muted ${left} ${right}`
 
-              if (index === labelIndex) {
-                return (
-                  <span
-                    className={`${paint} flex items-center text-label font-medium text-fg-muted`}
-                  >
-                    {original.__band}
-                    {original.__count !== undefined ? (
-                      <span className="ml-1 font-normal">
-                        {original.__count}
-                      </span>
-                    ) : null}
-                  </span>
-                )
-              }
+          if (index === labelIndex) {
+            return (
+              <span
+                className={`${paint} flex items-center text-label font-medium text-fg-muted`}
+              >
+                {original.__band}
+                {original.__count !== undefined ? (
+                  <span className="ml-1 font-normal">{original.__count}</span>
+                ) : null}
+              </span>
+            )
+          }
 
-              if (index === allColumns.length - 1 && original.__action) {
-                return (
-                  <span
-                    className={`${paint} flex items-center justify-end pr-6 text-label`}
-                  >
-                    {original.__action}
-                  </span>
-                )
-              }
+          if (index === allColumns.length - 1 && original.__action) {
+            return (
+              <span
+                className={`${paint} flex items-center justify-end pr-6 text-label`}
+              >
+                {original.__action}
+              </span>
+            )
+          }
 
-              return <span className={paint} />
-            },
-          }) as RegistryColumn<RegistryRow<T>>,
-      ),
-    [allColumns, selectable, labelIndex, sortable],
+          return <span className={paint} />
+        }
+
+        return result
+      }),
+    [allColumns, labelIndex, sortable],
   )
 
   // When a table is wider than its pane, the row's identity and its state
@@ -636,19 +482,28 @@ export function RegistryGrid<T extends RowData>({
     }
   }, [allColumns, bulk])
 
+  const state: Partial<TableState<DataGridFeatures>> = {
+    rowSelection,
+    columnPinning,
+  }
+
+  if (sortable) state.sorting = sorting
+
+  if (view) state.columnVisibility = columnVisibility
+
   const table = useTable({
     features: dataGridFeatures,
     columns: decorated,
     data: rows,
-    state: {
-      rowSelection,
-      columnPinning,
-      ...(sortable ? { sorting } : {}),
-      ...(view ? { columnVisibility } : {}),
-    },
-    onRowSelectionChange,
-    onSortingChange: sortable ? onSortingChange : undefined,
-    onColumnVisibilityChange: view ? onColumnVisibilityChange : undefined,
+    state,
+    onRowSelectionChange: onRowSelectionChange
+      ? events.onRowSelectionChange
+      : undefined,
+    onSortingChange:
+      sortable && onSortingChange ? events.onSortingChange : undefined,
+    onColumnVisibilityChange: view
+      ? events.onColumnVisibilityChange
+      : undefined,
     // Bands carry their own id; records go through the screen's own resolver.
     getRowId: (row) => (isBand(row) ? row.id : getRowId(row)),
     // A virtualised grid renders every row, so the paginated row model has to
@@ -658,17 +513,65 @@ export function RegistryGrid<T extends RowData>({
     enableRowSelection: (row) => !isBand(row.original),
   })
 
+  const renderContext = useMemo(
+    () => ({
+      name: exportName ?? label,
+      view,
+      labelForId: (id: string) => {
+        const row = rowById.get(id)
+
+        return rowLabel && row ? rowLabel(row) : id
+      },
+    }),
+    [exportName, label, view, rowById, rowLabel],
+  )
+
+  return (
+    <RegistryRenderContext value={renderContext}>
+      <RegistryTable
+        table={table}
+        gridRef={gridRef}
+        rowHeight={rowHeight}
+        className={className}
+        recordCount={rows.length}
+        isLoading={isLoading}
+        label={label}
+        onRowClick={events.onRowClick}
+      />
+    </RegistryRenderContext>
+  )
+}
+
+function RegistryTable<T extends RowData>({
+  table,
+  gridRef,
+  rowHeight,
+  className,
+  recordCount,
+  isLoading,
+  label,
+  onRowClick,
+}: {
+  table: DataGridTableInstance<T>
+  gridRef: RefObject<HTMLDivElement | null>
+  rowHeight: number
+  className?: string
+  recordCount: number
+  isLoading: boolean
+  label: string
+  onRowClick: (row: T) => void
+}) {
+  const style: CSSProperties & { '--grid-row-h'?: string } = {}
+
+  if (rowHeight !== 33) style['--grid-row-h'] = `${rowHeight}px`
+
   return (
     // `[&>*]` stretches the grid's own scroll container: it sizes itself to
     // its rows, which on a short list leaves the horizontal scrollbar floating
     // under the last row instead of at the list area's edge.
     <div
       ref={gridRef}
-      style={
-        rowHeight === 33
-          ? undefined
-          : ({ '--grid-row-h': `${rowHeight}px` } as React.CSSProperties)
-      }
+      style={style}
       className={cn(
         'flex h-full min-h-0 flex-col [&>*]:min-h-0 [&>*]:flex-1',
         className,
@@ -677,14 +580,10 @@ export function RegistryGrid<T extends RowData>({
       <DataGrid
         className="min-h-0 flex-1"
         table={table}
-        recordCount={rows.length}
+        recordCount={recordCount}
         isLoading={isLoading}
         i18n={{ labels: { tableLabel: label } }}
-        onRowClick={(row) => {
-          if (isBand(row)) return
-          onRowSelectionChange?.({ [getRowId(row)]: true })
-          onRowClick?.(row)
-        }}
+        onRowClick={onRowClick}
         // The rows scroll inside the grid, so a sticky header would hold the
         // band at the top of the list area while scrolling — a behaviour the
         // tables it replaces never had. The header scrolls with the rows.

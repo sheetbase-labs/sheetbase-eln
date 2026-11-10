@@ -129,10 +129,14 @@ export function ActionRequestsBoard({
           <Table caption={t('agentRequests.tableLabel')}>
             <TableHeader>
               <tr>
-                <TableHead>{t('agentRequests.what')}</TableHead>
-                <TableHead>{t('agentRequests.by')}</TableHead>
-                <TableHead>{t('agentRequests.when')}</TableHead>
-                <TableHead>{t('agentRequests.status')}</TableHead>
+                {[
+                  t('agentRequests.what'),
+                  t('agentRequests.by'),
+                  t('agentRequests.when'),
+                  t('agentRequests.status'),
+                ].map((label) => (
+                  <TableHead key={label}>{label}</TableHead>
+                ))}
                 <TableHead>
                   <span className="sr-only">{t('agentRequests.approve')}</span>
                 </TableHead>

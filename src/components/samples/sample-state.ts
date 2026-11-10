@@ -1,6 +1,7 @@
 import type { SampleEvent, SampleRecord } from '#/lib/samples'
+import { z } from 'zod'
 
-import { formatHoldDate } from './sample-hold-meter'
+import { formatHoldDate } from './sample-hold-data'
 
 /**
  * LAB-02 step 3 — the truthfully-derived hold / quarantine / consumed /
@@ -143,10 +144,10 @@ function resolveHoldWindow(sample: SampleRecord): {
   else if (sample.holdDurationDays != null)
     expiry = new Date(start.getTime() + sample.holdDurationDays * DAY_MS)
   else {
-    const fallback = sample.properties.expiryDate
+    const fallback = z.string().safeParse(sample.properties.expiryDate)
 
-    if (typeof fallback === 'string' && fallback.trim() !== '')
-      expiry = new Date(fallback)
+    if (fallback.success && fallback.data.trim() !== '')
+      expiry = new Date(fallback.data)
   }
 
   if (!expiry || Number.isNaN(expiry.getTime())) return null
@@ -177,7 +178,9 @@ function latestEvent(
 ): SampleEvent | null {
   if (!events || events.length === 0) return null
 
-  return events.find((event) => operations.includes(event.operation)) ?? null
+  const wanted = new Set(operations)
+
+  return events.find((event) => wanted.has(event.operation)) ?? null
 }
 
 export interface DescribeSampleStateOptions {
@@ -283,7 +286,7 @@ export function describeSampleState(
  * "2 of 3 passed" or "All 3 passed". Returns null when no snapshot is stored.
  */
 export function describeReleaseChecks(
-  checks: Record<string, unknown> | null,
+  checks: SampleRecord['releaseChecks'],
 ): string | null {
   if (!checks) return null
   const ruleCount = Number(checks.ruleCount)

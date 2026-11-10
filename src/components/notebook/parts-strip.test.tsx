@@ -1,47 +1,35 @@
 import { cleanup, render, screen, within } from '@testing-library/react'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
+import type { ReactNode } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { partsProgress } from '#/lib/experiment-parts'
 import type { ExperimentPart } from '#/lib/experiment-parts'
-import {
-  PartFooter,
-  PartsStrip,
-  UpNextBanner,
-  partDayLine,
-  partHref,
-} from './parts-strip'
+import { PartFooter, PartsStrip, UpNextBanner } from './parts-strip'
+import { partDayLine, partHref } from './part-presentation'
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    params,
-    children,
-    ...props
-  }: {
-    to?: string
-    params?: Record<string, string>
-    children?: React.ReactNode
-  } & Record<string, unknown>) => {
-    let href = typeof to === 'string' ? to : '#'
-    for (const [key, value] of Object.entries(params ?? {})) {
-      href = href.replace(`$${key}`, value)
-    }
-    return (
-      <a href={href} {...props}>
-        {children}
-      </a>
-    )
-  },
-}))
+function renderParts(ui: ReactNode) {
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
 
-vi.mock('#/components/workspace/workspace-navigation', () => ({
-  useWorkspaceNavigation: () => null,
-  openBesideOnAlt: vi.fn(),
-}))
+  return render(ui, {
+    wrapper: ({ children }) => (
+      <RouterContextProvider router={router}>{children}</RouterContextProvider>
+    ),
+  })
+}
 
 beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn()
 })
+
 afterEach(cleanup)
 
 const part = (
@@ -76,6 +64,7 @@ const parts = partsProgress(
   ],
   [],
 )
+
 const STARTED = '2026-11-02T09:00:00Z'
 
 describe('partHref and partDayLine', () => {
@@ -95,7 +84,7 @@ describe('partHref and partDayLine', () => {
 
 describe('PartsStrip', () => {
   it('links every part, marks the one shown and says which are done', () => {
-    render(
+    renderParts(
       <PartsStrip
         expId="exp-1"
         parts={parts}
@@ -113,9 +102,11 @@ describe('PartsStrip', () => {
         '/experiments/exp-1/notebook/3',
       ]),
     )
+
     const current = links.find(
       (link) => link.getAttribute('aria-current') === 'page',
     )
+
     expect(current?.getAttribute('href')).toBe('/experiments/exp-1/notebook/2')
     expect(strip.textContent).toContain('Stage 1')
     expect(strip.textContent).toContain('Done')
@@ -125,7 +116,7 @@ describe('PartsStrip', () => {
 
 describe('PartFooter', () => {
   it('shows who did the part before and the part that follows', () => {
-    render(
+    renderParts(
       <PartFooter
         expId="exp-1"
         parts={parts}
@@ -141,7 +132,7 @@ describe('PartFooter', () => {
   })
 
   it('has no card past the last part, and none at all for a single part', () => {
-    const { rerender } = render(
+    const { rerender } = renderParts(
       <PartFooter
         expId="exp-1"
         parts={parts}
@@ -150,6 +141,7 @@ describe('PartFooter', () => {
         nameOf={String}
       />,
     )
+
     expect(screen.queryByTestId('part-next')).toBeNull()
     expect(screen.getByTestId('part-previous')).toBeTruthy()
     rerender(
@@ -167,7 +159,9 @@ describe('PartFooter', () => {
 
 describe('UpNextBanner', () => {
   it('points to the part to work on now', () => {
-    render(<UpNextBanner expId="exp-1" shown={parts[2]} current={parts[1]} />)
+    renderParts(
+      <UpNextBanner expId="exp-1" shown={parts[2]} current={parts[1]} />,
+    )
     const banner = screen.getByTestId('part-up-next')
     expect(banner.textContent).toContain('Up next: Part 3')
     expect(

@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { notebookDataClient } from '#/lib/notebook-data'
+import type { NotebookBlock } from '#/lib/notebook-data'
 
 /** One stored version of a file, oldest first in the list. */
 export interface StoredFileVersion {
@@ -32,6 +34,7 @@ export async function fetchFileVersions(
     'file_objects',
     `?record_id=eq.${encodeURIComponent(fileRecordId)}&select=version,display_name,media_type,byte_size,created_at,status&order=version.asc`,
   )
+
   return rows.map((row) => ({
     version: row.version,
     displayName: row.display_name,
@@ -55,28 +58,27 @@ export function useFileVersions(fileRecordId: string) {
 export function resolveBlockVersion(
   versions: readonly StoredFileVersion[],
   pinned: number | null,
-): {
-  shown: StoredFileVersion | null
-  latest: StoredFileVersion | null
-  position: number
-  count: number
-  newer: StoredFileVersion | null
-} {
+) {
   const usable = versions.filter((v) => v.status !== 'deleted')
   const latest = usable.length > 0 ? usable[usable.length - 1] : null
+
   const pinnedRow =
     pinned === null ? null : (usable.find((v) => v.version === pinned) ?? null)
+
   const shown = pinnedRow ?? latest
   const position = shown ? usable.indexOf(shown) + 1 : 0
+
   const newer =
     pinnedRow && latest && latest.version > pinnedRow.version ? latest : null
+
   return { shown, latest, position, count: usable.length, newer }
 }
 
+const filePin = z.object({ fileVersion: z.number().int().positive().optional() })
+
 /** The pinned version a file block's payload carries, if any. */
-export function pinnedVersionOf(payload: Record<string, unknown>) {
-  const value = payload.fileVersion
-  return typeof value === 'number' && Number.isInteger(value) && value > 0
-    ? value
-    : null
+export function pinnedVersionOf(payload: NotebookBlock['payload']) {
+  const parsed = filePin.safeParse(payload)
+
+  return parsed.success ? (parsed.data.fileVersion ?? null) : null
 }

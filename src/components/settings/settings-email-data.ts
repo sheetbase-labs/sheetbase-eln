@@ -29,20 +29,27 @@ export const requestEmailChangeFn = createServerFn({ method: 'POST' })
       input,
   )
   .handler(async ({ data }): Promise<EmailChangeRequestResult> => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-    const { getCurrentContext } = await import('#/lib/current-user')
-    const { isDevAuthFreeEnabled } = await import('#/lib/auth')
-    const { env } = await import('#/env.server')
-    const { getPool } = await import('#/db/pool.server')
-    const { logger } = await import('#/lib/logger')
-
-    const { createSmtpTransport, readSmtpConfig } =
-      await import('#/lib/email-delivery.server')
-
-    const { createEmailChange, emailChangeLink } =
-      await import('#/lib/email-change.server')
-
-    const { t } = await import('#/copy')
+    const [
+      { getRequestHeaders },
+      { getCurrentContext },
+      { isDevAuthFreeEnabled },
+      { env },
+      { getPool },
+      { logger },
+      { createSmtpTransport, readSmtpConfig },
+      { createEmailChange, emailChangeLink },
+      { t },
+    ] = await Promise.all([
+      import('@tanstack/react-start/server'),
+      import('#/lib/current-user'),
+      import('#/lib/auth'),
+      import('#/env.server'),
+      import('#/db/pool.server'),
+      import('#/lib/logger'),
+      import('#/lib/email-delivery.server'),
+      import('#/lib/email-change.server'),
+      import('#/copy'),
+    ])
 
     const context = await getCurrentContext(getRequestHeaders())
 
@@ -134,15 +141,21 @@ export type EmailChangeConfirmResult =
 export const confirmEmailChangeFn = createServerFn({ method: 'POST' })
   .validator((input: { token: string }) => input)
   .handler(async ({ data }): Promise<EmailChangeConfirmResult> => {
-    const { env } = await import('#/env.server')
-    const { getPool } = await import('#/db/pool.server')
-    const { logger } = await import('#/lib/logger')
-
-    const { createSmtpTransport, readSmtpConfig } =
-      await import('#/lib/email-delivery.server')
-
-    const { confirmEmailChange } = await import('#/lib/email-change.server')
-    const { t } = await import('#/copy')
+    const [
+      { env },
+      { getPool },
+      { logger },
+      { createSmtpTransport, readSmtpConfig },
+      { confirmEmailChange },
+      { t },
+    ] = await Promise.all([
+      import('#/env.server'),
+      import('#/db/pool.server'),
+      import('#/lib/logger'),
+      import('#/lib/email-delivery.server'),
+      import('#/lib/email-change.server'),
+      import('#/copy'),
+    ])
 
     if (!data.token) return { ok: false, reason: 'invalid_link' }
 

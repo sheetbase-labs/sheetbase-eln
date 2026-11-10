@@ -20,6 +20,8 @@ import { useRegisterShortcuts } from '#/components/shortcuts/shortcut-provider'
 import { reviewShortcuts } from '#/lib/shortcut-scopes'
 import { cn } from '#/lib/utils'
 import { t } from '#/copy'
+import { areaLabel, exactText } from './revision-change-data'
+import { focusChange } from './review-focus'
 
 export interface RevisionDiffReviewProps {
   before: CanonicalRevisionEnvelope
@@ -60,9 +62,6 @@ const KIND_META: Record<
   moved: { icon: 'move', variant: 'chg' },
 }
 
-export const areaLabel = (area: RevisionChange['area']) =>
-  t(`projects.diffReview.areas.${area}`)
-
 type ReviewItem =
   | { id: string; order: number; type: 'change'; change: RevisionChange }
   | {
@@ -72,28 +71,6 @@ type ReviewItem =
       summary: RevisionTableDiffSummary
       visibleChanges: RevisionChange[]
     }
-
-export function exactText(value: unknown): string {
-  if (typeof value === 'string') return value
-
-  if (value === null) return 'null'
-
-  if (value === undefined) return t('projects.diffReview.notPresent')
-
-  if (typeof value === 'object') return JSON.stringify(value, null, 2)
-
-  return String(value)
-}
-
-export function focusChange(target: HTMLElement | undefined) {
-  if (!target) return
-  target.focus()
-  const scrollIntoView: unknown = Reflect.get(target, 'scrollIntoView')
-
-  if (typeof scrollIntoView === 'function') {
-    scrollIntoView.call(target, { behavior: 'auto', block: 'nearest' })
-  }
-}
 
 export function KindBadge({ kind }: { kind: RevisionChangeKind }) {
   const meta = KIND_META[kind]
@@ -112,7 +89,7 @@ function ChangeValue({
   unit,
 }: {
   label: string
-  value: unknown
+  value: RevisionChange['before']
   unit?: string
 }) {
   return (
@@ -206,13 +183,17 @@ function TableDiffCard({
     (change) => change.id === activeChangeId,
   )
 
+  const [previousDetailIndex, setPreviousDetailIndex] = React.useState(-1)
   const visibleChanges = changes.slice(0, visibleLimit)
 
-  React.useLayoutEffect(() => {
-    if (activeDetailIndex < 0) return
-    setExpanded(true)
-    setVisibleLimit((current) => Math.max(current, activeDetailIndex + 1))
-  }, [activeDetailIndex])
+  if (previousDetailIndex !== activeDetailIndex) {
+    setPreviousDetailIndex(activeDetailIndex)
+
+    if (activeDetailIndex >= 0) {
+      setExpanded(true)
+      setVisibleLimit((current) => Math.max(current, activeDetailIndex + 1))
+    }
+  }
 
   React.useEffect(() => {
     if (!expanded || activeDetailIndex < 0 || !activeChangeId) return
@@ -421,11 +402,16 @@ export function RevisionDiffReview({
   const activeChange: RevisionChange | undefined =
     visibleChanges.at(activeIndex)
 
-  React.useEffect(() => {
+  const [previousVisibleCount, setPreviousVisibleCount] = React.useState(
+    visibleChanges.length,
+  )
+
+  if (previousVisibleCount !== visibleChanges.length) {
+    setPreviousVisibleCount(visibleChanges.length)
     setActiveIndex((current) =>
       Math.min(current, Math.max(visibleChanges.length - 1, 0)),
     )
-  }, [visibleChanges.length])
+  }
 
   React.useEffect(() => {
     if (!activeChange || activeChange.tableId) return
@@ -575,42 +561,7 @@ export function RevisionDiffReview({
                 )
               })}
             </div>
-            {areasInDiff.length > 1 ? (
-              <div
-                role="group"
-                className="flex flex-wrap gap-1"
-                aria-label={t('projects.diffReview.filters.area')}
-              >
-                {areasInDiff.map((area) => {
-                  const enabled = enabledAreas.has(area)
-
-                  const areaCount = diff.changes.filter(
-                    (change) => change.area === area,
-                  ).length
-
-                  return (
-                    <Button
-                      key={area}
-                      variant={enabled ? 'primary' : 'secondary'}
-                      size="sm"
-                      aria-pressed={enabled}
-                      aria-label={
-                        enabled
-                          ? t('projects.diffReview.filters.hideKind', {
-                              kind: areaLabel(area),
-                            })
-                          : t('projects.diffReview.filters.showKind', {
-                              kind: areaLabel(area),
-                            })
-                      }
-                      onClick={() => toggleArea(area)}
-                    >
-                      {areaLabel(area)} ({areaCount})
-                    </Button>
-                  )
-                })}
-              </div>
-            ) : null}
+            {renderAreaFilters({ areasInDiff, enabledAreas, diff, toggleArea })}
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-fg-muted" aria-live="polite">
@@ -689,5 +640,56 @@ export function RevisionDiffReview({
         </ol>
       )}
     </section>
+  )
+}
+
+function renderAreaFilters({
+  areasInDiff,
+  enabledAreas,
+  diff,
+  toggleArea,
+}: {
+  areasInDiff: RevisionChangeArea[]
+  enabledAreas: Set<RevisionChangeArea>
+  diff: RevisionDiffResult
+  toggleArea: (area: RevisionChangeArea) => void
+}) {
+  if (areasInDiff.length <= 1) return null
+
+  return (
+    <div
+      role="group"
+      className="flex flex-wrap gap-1"
+      aria-label={t('projects.diffReview.filters.area')}
+    >
+      {areasInDiff.map((area) => {
+        const enabled = enabledAreas.has(area)
+
+        const areaCount = diff.changes.filter(
+          (change) => change.area === area,
+        ).length
+
+        return (
+          <Button
+            key={area}
+            variant={enabled ? 'primary' : 'secondary'}
+            size="sm"
+            aria-pressed={enabled}
+            aria-label={
+              enabled
+                ? t('projects.diffReview.filters.hideKind', {
+                    kind: areaLabel(area),
+                  })
+                : t('projects.diffReview.filters.showKind', {
+                    kind: areaLabel(area),
+                  })
+            }
+            onClick={() => toggleArea(area)}
+          >
+            {areaLabel(area)} ({areaCount})
+          </Button>
+        )
+      })}
+    </div>
   )
 }

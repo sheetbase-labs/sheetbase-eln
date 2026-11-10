@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import type { PresenceSelection } from '#/lib/collaboration/types'
 
 /**
@@ -32,7 +33,7 @@ export function selectionRowsLabel(
   if (!selection || !selection.rowKey) return ''
 
   const isRange =
-    typeof selection.endRowKey === 'string' &&
+    z.string().safeParse(selection.endRowKey).success &&
     selection.endRowKey !== '' &&
     selection.endRowKey !== selection.rowKey
 

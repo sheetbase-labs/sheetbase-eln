@@ -9,9 +9,25 @@
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterProvider,
+} from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
+import {
+  afterAll,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 
 import { choose } from '../../../tests/unit/picker'
 
@@ -22,142 +38,92 @@ import type {
   ImportParserSummary,
   ImportReviewResponse,
 } from '#/lib/import/types'
-import type * as ImportDataModule from '#/lib/import/data'
-import type * as DatasetExplorerModule from '#/lib/dataset-explorer-data'
-import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
-import type * as DatasetProductModule from '#/lib/dataset-product'
-import type * as ParserSettingsModule from '#/lib/parser-settings'
-import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
-import { listPublishedDatasetSchemas } from '#/lib/dataset-product'
-import { ImportRequestError } from '#/lib/import/data'
+import { dropSharedReads } from '#/lib/data-client'
 import type { ImportSearch } from './import-search'
-
 import {
-  ImportMapCheckFlow,
-  ImportUploadFlow,
+  parseImportSearch,
+  parseImportMapping,
+  serializeImportMapping,
+} from './import-search'
+import {
   columnExamples,
   columnNote,
   commitIdempotencyKey,
   initialMappingValues,
-  parseImportMapping,
-  parseImportSearch,
-  serializeImportMapping,
   suggestDatasetFromFilename,
   suggestParserFromFilename,
-} from './import-flow'
+} from './import-flow-data'
+import { importFlowTestServer } from './import-flow-test-server'
 
-const importData = vi.hoisted(() => ({
-  fetchImportFile: vi.fn(),
-  uploadImportFile: vi.fn(),
-  resolveImportTarget: vi.fn(),
-  reviewImport: vi.fn(),
-  commitImport: vi.fn(),
-  saveParserMapping: vi.fn(),
-  fetchDatasetImports: vi.fn(async (): Promise<DatasetImportRecord[]> => []),
-}))
+const http = await importFlowTestServer()
 
-vi.mock('#/lib/import/data', async (importOriginal) => ({
-  ...(await importOriginal<typeof ImportDataModule>()),
-  ...importData,
-}))
+const { ImportMapCheckFlow, ImportUploadFlow } = await import('./import-flow')
 
-vi.mock('#/lib/dataset-explorer-data', async (importOriginal) => ({
-  ...(await importOriginal<typeof DatasetExplorerModule>()),
-  fetchDatasetSummaries: vi.fn(async () => []),
-}))
+const clients: QueryClient[] = []
+const datasetGates: (() => void)[] = []
 
-vi.mock('#/lib/dataset-product', async (importOriginal) => ({
-  ...(await importOriginal<typeof DatasetProductModule>()),
-  listPublishedDatasetSchemas: vi.fn(async () => []),
-}))
+let location: () => { pathname: string; search: unknown } = () => {
+  throw new Error('Render a flow first')
+}
 
-const experimentRows = vi.hoisted(() => ({
-  data: [] as {
-    id: string
-    identifier: string
-    title: string
-    project_id: string | null
-  }[],
-}))
-
-vi.mock('#/components/experiments/experiments-data', () => ({
-  useExperimentRecords: () => ({ data: experimentRows.data }),
-}))
-
-vi.mock('#/components/instruments/instruments-data', () => ({
-  useInstruments: () => ({ data: [] }),
-  useLatestCalibrationsByInstrument: () => ({ data: new Map() }),
-  calibrationStatus: () => ({ tone: 'none', label: 'Not calibrated' }),
-}))
-
-vi.mock('#/lib/parser-settings', async (importOriginal) => ({
-  ...(await importOriginal<typeof ParserSettingsModule>()),
-  requestParserUpdate: vi.fn(async () => ({ ok: true })),
-}))
-
-const navigate = vi.fn()
-
-vi.mock('@tanstack/react-router', () => ({
-  useNavigate: () => navigate,
-  Link: ({ to, children }: { to?: unknown; children?: ReactNode }) => (
-    <a href={typeof to === 'string' ? to : '#'}>{children}</a>
-  ),
-}))
-
-afterEach(() => {
+afterEach(async () => {
   cleanup()
-  vi.clearAllMocks()
-  experimentRows.data = []
+  clients.splice(0).forEach((client) => client.clear())
+  datasetGates.splice(0).forEach((release) => release())
+  await http.idle()
+  dropSharedReads()
+  expect(http.unexpected).toEqual([])
+})
+
+afterAll(async () => {
+  await http.close()
 })
 
 beforeEach(() => {
-  vi.mocked(fetchDatasetSummaries).mockResolvedValue([])
-  vi.mocked(listPublishedDatasetSchemas).mockResolvedValue([])
+  http.requests.length = 0
+  http.unexpected.length = 0
+  Object.assign(http.state, {
+    datasets: false,
+    schemas: false,
+    experiments: [],
+    datasetReady: undefined,
+    datasetFailure: false,
+    file: () => uploadResponse(),
+    upload: uploadResponse(),
+    review: reviewResponse(),
+    receipts: [],
+    missingFile: false,
+    refuseMapping: false,
+  })
 })
 
-function renderFlow(ui: ReactNode) {
+async function renderFlow(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
 
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
-}
+  clients.push(client)
+  const root = createRootRoute({ component: () => ui })
 
-function dataset(): CanonicalDatasetWire {
-  return {
-    id: 'ds-1',
-    display_id: 'DS-0001',
-    name: 'ELISA capsid titre',
-    resource_name: 'scientific_rows_1',
-    schema_version: 1,
-    lifecycle: 'active',
-    columns: [
-      {
-        id: 'field-1',
-        field_name: 'raw',
-        label: 'Raw',
-        display_order: 1,
-        logical_type: 'decimal',
-        nullable: true,
-        unit: { storageUnit: 'NTU' },
-        validation: {},
-        width: null,
-        options: [],
-      },
-      {
-        id: 'field-2',
-        field_name: 'dilution',
-        label: 'Dilution',
-        display_order: 2,
-        logical_type: 'text',
-        nullable: true,
-        unit: null,
-        validation: {},
-        width: null,
-        options: [],
-      },
-    ],
-  }
+  const fallback = createRoute({
+    getParentRoute: () => root,
+    path: '$',
+    validateSearch: (search) => search,
+  })
+
+  const router = createRouter({
+    routeTree: root.addChildren([fallback]),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
+  await router.load()
+  location = () => router.state.location
+
+  return render(
+    <QueryClientProvider client={client}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  )
 }
 
 function parserSummary(
@@ -245,6 +211,35 @@ function reviewResponse(): ImportReviewResponse {
 }
 
 describe('import URL contract', () => {
+  it('accepts an empty search and discards malformed optional pins', () => {
+    expect(parseImportSearch({})).toEqual({})
+    expect(
+      parseImportSearch({
+        step: 42,
+        dataset: null,
+        experiment: [],
+        instrument: {},
+        parser: false,
+        map: 123,
+        sheet: '',
+        units: [],
+        project: false,
+        returnTo: 42,
+      }),
+    ).toEqual({
+      step: undefined,
+      dataset: undefined,
+      experiment: undefined,
+      instrument: undefined,
+      parser: undefined,
+      map: undefined,
+      sheet: undefined,
+      units: undefined,
+      project: undefined,
+      returnTo: undefined,
+    })
+  })
+
   it('keeps only the pins it knows and drops anything else', () => {
     expect(
       parseImportSearch({
@@ -311,7 +306,10 @@ describe('import URL contract', () => {
     ]
 
     const saved: ImportMappingDocument = {
-      sources: [{ source: 'raw', fieldId: 'field-1', unit: null }],
+      sources: [
+        { source: 'raw', fieldId: 'field-1', unit: null },
+        { source: 'raw', fieldId: 'field-2', unit: 'NTU' },
+      ],
     }
 
     expect(
@@ -388,27 +386,30 @@ describe('dataset suggestion from a file name', () => {
 
 describe('ImportUploadFlow', () => {
   it('takes the file first, suggests a dataset from its name, then uploads on confirmation', async () => {
-    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
-    importData.resolveImportTarget.mockResolvedValue({
-      datasetId: 'ds-1',
-      created: false,
-    })
-    importData.uploadImportFile.mockResolvedValue(
-      uploadResponse({ fileId: 'file-9', datasetId: 'ds-1' }),
-    )
+    http.state.datasets = true
+    http.state.upload = uploadResponse({ fileId: 'file-9', datasetId: 'ds-1' })
     const user = userEvent.setup()
-    renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
+    await renderFlow(
+      <ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />,
+    )
 
     await screen.findByRole('radio', { name: /Add to an existing dataset/ })
+    await screen.findByRole('button', { name: 'Import into dataset' })
 
     const file = new File(['Sample,pH\nA,7.4'], 'ELISA-capsid-titre_run4.csv', {
       type: 'text/csv',
     })
 
+    await waitFor(() =>
+      expect(screen.getByLabelText('Laboratory file')).toHaveProperty(
+        'disabled',
+        false,
+      ),
+    )
     await user.upload(screen.getByLabelText('Laboratory file'), file)
 
     // Nothing is stored yet: the dataset is only suggested.
-    expect(importData.uploadImportFile).not.toHaveBeenCalled()
+    expect(http.matching('/api/import/files')).toEqual([])
     expect(
       screen.getByText(
         'Suggested from the file name. Change it if it’s wrong.',
@@ -422,23 +423,27 @@ describe('ImportUploadFlow', () => {
       await screen.findByRole('button', { name: 'Upload and continue' }),
     )
     await waitFor(() =>
-      expect(importData.uploadImportFile).toHaveBeenCalledTimes(1),
+      expect(http.matching('/api/import/files')).toHaveLength(1),
     )
-    expect(importData.uploadImportFile.mock.calls[0][0].datasetId).toBe('ds-1')
+    expect(
+      http
+        .matching('/api/import/files')
+        .at(0)
+        ?.url.searchParams.get('datasetId'),
+    ).toBe('ds-1')
+    expect(http.matching('/api/import/files').at(0)?.body).toBe(
+      'Sample,pH\nA,7.4',
+    )
+    expect(http.matching('/api/import/files').at(0)?.filename).toBe(
+      'ELISA-capsid-titre_run4.csv',
+    )
   })
 
   it('offers the new-Dataset path when there is nothing to append to', async () => {
-    vi.mocked(listPublishedDatasetSchemas).mockResolvedValue([
-      {
-        schemaDefinitionId: 'sd-1',
-        schemaVersionId: 'sv-1',
-        key: 'elisa',
-        name: 'ELISA and turbidity',
-        description: null,
-        version: 2,
-      },
-    ])
-    renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
+    http.state.schemas = true
+    await renderFlow(
+      <ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />,
+    )
     expect(screen.queryByText(/Create a dataset from a model first/)).toBeNull()
     expect(
       await screen.findByLabelText('Dataset structure for the new dataset'),
@@ -447,7 +452,9 @@ describe('ImportUploadFlow', () => {
   })
 
   it('makes a table from the file when nothing exists yet', async () => {
-    renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
+    await renderFlow(
+      <ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />,
+    )
     expect(
       await screen.findByRole('radio', {
         name: /Make a new dataset from this file/,
@@ -457,23 +464,34 @@ describe('ImportUploadFlow', () => {
   })
 
   it('does not claim the workspace has no Datasets while the list is still loading', async () => {
-    vi.mocked(fetchDatasetSummaries).mockReturnValue(
-      new Promise<CanonicalDatasetWire[]>(() => {}),
+    let release: () => void = () => {
+      throw new Error('Dataset gate not initialized')
+    }
+
+    http.state.datasetReady = new Promise<void>((resolve) => {
+      release = resolve
+      datasetGates.push(resolve)
+    })
+
+    const { unmount } = await renderFlow(
+      <ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />,
     )
-    renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
 
     expect(await screen.findByText('Reading your datasets…')).toBeTruthy()
     expect(
       screen.queryByText(/There is no Dataset to append to yet/),
     ).toBeNull()
+    unmount()
+    release()
   })
 
   it('states a failed Dataset read instead of claiming the workspace has none, and retries it', async () => {
-    vi.mocked(fetchDatasetSummaries)
-      .mockRejectedValueOnce(new Error('The request was refused'))
-      .mockResolvedValueOnce([dataset()])
+    http.state.datasetFailure = true
+    http.state.datasets = true
     const user = userEvent.setup()
-    renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
+    await renderFlow(
+      <ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />,
+    )
 
     expect(
       await screen.findByText('Your datasets couldn’t be read'),
@@ -489,28 +507,26 @@ describe('ImportUploadFlow', () => {
     expect(
       screen.queryByText(/There is no Dataset to append to yet/),
     ).toBeNull()
+    expect(
+      http
+        .matching('/api/db/datasets', 'GET')
+        .map((request) => request.url.pathname + request.url.search),
+    ).toEqual([
+      '/api/db/datasets?lifecycle=eq.active&order=created_at.desc',
+      '/api/db/datasets?lifecycle=eq.active&order=created_at.desc',
+    ])
   })
 
   it('creates the new Dataset through the shared resolver, then commits to it', async () => {
-    vi.mocked(listPublishedDatasetSchemas).mockResolvedValue([
-      {
-        schemaDefinitionId: 'sd-1',
-        schemaVersionId: 'sv-1',
-        key: 'elisa',
-        name: 'ELISA and turbidity',
-        description: null,
-        version: 2,
-      },
-    ])
-    importData.resolveImportTarget.mockResolvedValue({
+    http.state.schemas = true
+    http.state.upload = uploadResponse({
+      fileId: 'file-1',
       datasetId: 'ds-new',
-      created: true,
     })
-    importData.uploadImportFile.mockResolvedValue(
-      uploadResponse({ fileId: 'file-1', datasetId: 'ds-new' }),
-    )
     const user = userEvent.setup()
-    renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
+    await renderFlow(
+      <ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />,
+    )
 
     await choose(user, /^Dataset structure/, /ELISA and turbidity/)
     await user.type(
@@ -524,54 +540,48 @@ describe('ImportUploadFlow', () => {
 
     await user.upload(screen.getByLabelText('Laboratory file'), file)
 
-    await waitFor(() =>
-      expect(importData.resolveImportTarget).toHaveBeenCalledTimes(1),
-    )
-    expect(importData.resolveImportTarget).toHaveBeenCalledWith(
-      expect.anything(),
-      {
-        mode: 'new',
-        workspaceId: 'ws-1',
-        schemaVersionId: 'sv-1',
+    await waitFor(() => expect(location().pathname).toBe('/import/file-1'))
+    expect(http.matching('/api/db/datasets')).toHaveLength(1)
+    expect(http.matching('/api/db/datasets').at(0)?.body).toBe(
+      JSON.stringify({
+        workspace_id: 'ws-1',
+        schema_version_id: 'sv-1',
         name: 'ELISA capsid titre run 4',
-        createdByUserId: 'u-1',
-        primaryProjectId: null,
-      },
-    )
-    const [uploadArgs] = importData.uploadImportFile.mock.calls[0] ?? []
-    expect(uploadArgs.datasetId).toBe('ds-new')
-    expect(uploadArgs.file.name).toBe('plate-01.csv')
-    expect(navigate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: '/import/$importId',
-        params: { importId: 'file-1' },
-        search: expect.objectContaining({ step: 'map', dataset: 'ds-new' }),
+        description: null,
+        primary_project_id: null,
+        created_by_user_id: 'u-1',
       }),
+    )
+    const upload = http.matching('/api/import/files').at(0)
+    expect(upload?.url.searchParams.get('datasetId')).toBe('ds-new')
+    expect(upload?.filename).toBe('plate-01.csv')
+    expect(upload?.body).toBe('Sample,pH\nA,7.4')
+    expect(location().search).toMatchObject({ step: 'map', dataset: 'ds-new' })
+    expect(
+      http.requests.findIndex(
+        (request) =>
+          request.method === 'POST' &&
+          request.url.pathname === '/api/db/datasets',
+      ),
+    ).toBeLessThan(
+      http.requests.findIndex(
+        (request) =>
+          request.method === 'POST' &&
+          request.url.pathname === '/api/import/files',
+      ),
     )
   })
 })
 
 describe('ImportUploadFlow context', () => {
   async function importNewDataset(ui: ReactNode) {
-    vi.mocked(listPublishedDatasetSchemas).mockResolvedValue([
-      {
-        schemaDefinitionId: 'sd-1',
-        schemaVersionId: 'sv-1',
-        key: 'elisa',
-        name: 'ELISA and turbidity',
-        description: null,
-        version: 2,
-      },
-    ])
-    importData.resolveImportTarget.mockResolvedValue({
+    http.state.schemas = true
+    http.state.upload = uploadResponse({
+      fileId: 'file-1',
       datasetId: 'ds-new',
-      created: true,
     })
-    importData.uploadImportFile.mockResolvedValue(
-      uploadResponse({ fileId: 'file-1', datasetId: 'ds-new' }),
-    )
     const user = userEvent.setup()
-    renderFlow(ui)
+    await renderFlow(ui)
     await choose(user, /^Dataset structure/, /ELISA and turbidity/)
     await user.type(screen.getByLabelText('New dataset name'), 'Run 4')
 
@@ -579,7 +589,7 @@ describe('ImportUploadFlow context', () => {
   }
 
   it('gives a Dataset made for an experiment that experiment’s project', async () => {
-    experimentRows.data = [
+    http.state.experiments = [
       { id: 'exp-1', identifier: 'EXP-1', title: 'Titre', project_id: 'prj-9' },
     ]
 
@@ -596,15 +606,15 @@ describe('ImportUploadFlow context', () => {
       new File(['a,b\n1,2'], 'x.csv', { type: 'text/csv' }),
     )
     await waitFor(() =>
-      expect(importData.resolveImportTarget).toHaveBeenCalledTimes(1),
+      expect(http.matching('/api/db/datasets')).toHaveLength(1),
     )
-    expect(importData.resolveImportTarget.mock.calls[0]?.[1]).toMatchObject({
-      primaryProjectId: 'prj-9',
-    })
+    expect(http.matching('/api/db/datasets').at(0)?.body).toContain(
+      '"primary_project_id":"prj-9"',
+    )
   })
 
   it('prefers the project the page named, and carries it and returnTo to the next step', async () => {
-    experimentRows.data = [
+    http.state.experiments = [
       { id: 'exp-1', identifier: 'EXP-1', title: 'Titre', project_id: 'prj-9' },
     ]
 
@@ -622,11 +632,11 @@ describe('ImportUploadFlow context', () => {
       screen.getByLabelText('Laboratory file'),
       new File(['a,b\n1,2'], 'x.csv', { type: 'text/csv' }),
     )
-    await waitFor(() => expect(navigate).toHaveBeenCalled())
-    expect(importData.resolveImportTarget.mock.calls[0]?.[1]).toMatchObject({
-      primaryProjectId: 'prj-2',
-    })
-    expect(navigate.mock.calls[0]?.[0].search).toMatchObject({
+    await waitFor(() => expect(location().pathname).toBe('/import/file-1'))
+    expect(http.matching('/api/db/datasets').at(0)?.body).toContain(
+      '"primary_project_id":"prj-2"',
+    )
+    expect(location().search).toMatchObject({
       project: 'prj-2',
       returnTo: '/experiments/exp-1/data/datasets',
     })
@@ -634,7 +644,7 @@ describe('ImportUploadFlow context', () => {
 
   it('keeps an embedded import in its notebook and passes the retained file to its host', async () => {
     const onUploaded = vi.fn().mockResolvedValue(undefined)
-    experimentRows.data = [
+    http.state.experiments = [
       { id: 'exp-1', identifier: 'EXP-1', title: 'Titre', project_id: 'prj-9' },
     ]
 
@@ -665,11 +675,11 @@ describe('ImportUploadFlow context', () => {
         }),
       ),
     )
-    expect(navigate).not.toHaveBeenCalled()
+    expect(location().pathname).toBe('/')
   })
 
-  it('Cancel goes back to the page the import was started from', () => {
-    renderFlow(
+  it('Cancel goes back to the page the import was started from', async () => {
+    await renderFlow(
       <ImportUploadFlow
         workspaceId="ws-1"
         createdByUserId="u-1"
@@ -677,12 +687,12 @@ describe('ImportUploadFlow context', () => {
       />,
     )
     expect(
-      screen.getByRole('link', { name: 'Cancel' }).getAttribute('href'),
+      screen.getByRole('button', { name: 'Cancel' }).getAttribute('href'),
     ).toBe('/samples/s-1')
   })
 
-  it('Cancel falls back to the experiment, then the Datasets list', () => {
-    const { unmount } = renderFlow(
+  it('Cancel falls back to the experiment, then the Datasets list', async () => {
+    const { unmount } = await renderFlow(
       <ImportUploadFlow
         workspaceId="ws-1"
         createdByUserId="u-1"
@@ -691,35 +701,34 @@ describe('ImportUploadFlow context', () => {
     )
 
     expect(
-      screen.getByRole('link', { name: 'Cancel' }).getAttribute('href'),
+      screen.getByRole('button', { name: 'Cancel' }).getAttribute('href'),
     ).toBe('/experiments/exp-1')
     unmount()
-    renderFlow(<ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />)
+    await renderFlow(
+      <ImportUploadFlow workspaceId="ws-1" createdByUserId="u-1" />,
+    )
     expect(
-      screen.getByRole('link', { name: 'Cancel' }).getAttribute('href'),
+      screen.getByRole('button', { name: 'Cancel' }).getAttribute('href'),
     ).toBe('/datasets')
   })
 })
 
 describe('ImportMapCheckFlow', () => {
   it('requires a worksheet and source-unit declaration, then pins both in the resumable review', async () => {
-    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
-    importData.fetchImportFile.mockImplementation(
-      async ({ sheetName }: { sheetName?: string }) =>
-        uploadResponse({
-          savedMapping: {
-            sources: [{ source: 'raw', fieldId: 'field-1', unit: 'NTU' }],
-          },
-          sheet: {
-            name: sheetName ?? 'Cover',
-            headers: ['raw', 'dilution'],
-            sampleRows: [{ raw: '12.75', dilution: '1:10' }],
-            rowCount: 1,
-            sheetNames: ['Cover', 'Measurements'],
-          },
-        }),
-    )
-    importData.reviewImport.mockResolvedValue(reviewResponse())
+    http.state.datasets = true
+    http.state.file = (url) =>
+      uploadResponse({
+        savedMapping: {
+          sources: [{ source: 'raw', fieldId: 'field-1', unit: 'NTU' }],
+        },
+        sheet: {
+          name: url.searchParams.get('sheetName') ?? 'Cover',
+          headers: ['raw', 'dilution'],
+          sampleRows: [{ raw: '12.75', dilution: '1:10' }],
+          rowCount: 1,
+          sheetNames: ['Cover', 'Measurements'],
+        },
+      })
     let latest: ImportSearch = { dataset: 'ds-1' }
 
     function Flow() {
@@ -738,21 +747,21 @@ describe('ImportMapCheckFlow', () => {
     }
 
     const user = userEvent.setup()
-    const { unmount } = renderFlow(<Flow />)
+    const { unmount } = await renderFlow(<Flow />)
     await screen.findByLabelText('Worksheet')
     expect(screen.queryByRole('table', { name: 'Column mapping' })).toBeNull()
     await user.selectOptions(screen.getByLabelText('Worksheet'), 'Measurements')
 
-    const unit = await screen.findByLabelText<HTMLInputElement>(
-      'Source unit for raw',
-    )
+    const unit = z
+      .instanceof(HTMLInputElement)
+      .parse(await screen.findByLabelText('Source unit for raw'))
 
     expect(unit.value).toBe('') // The old target-unit label is not a source declaration.
     expect(
-      screen.getByRole<HTMLButtonElement>('button', {
+      screen.getByRole('button', {
         name: /^Import \d+ rows$/,
-      }).disabled,
-    ).toBe(true)
+      }),
+    ).toHaveProperty('disabled', true)
     await user.type(unit, 'g/L')
     expect(
       await screen.findByText(
@@ -760,10 +769,10 @@ describe('ImportMapCheckFlow', () => {
       ),
     ).toBeTruthy()
     expect(
-      screen.getByRole<HTMLButtonElement>('button', {
+      screen.getByRole('button', {
         name: /^Import \d+ rows$/,
-      }).disabled,
-    ).toBe(true)
+      }),
+    ).toHaveProperty('disabled', true)
     await user.clear(unit)
     await user.type(unit, 'NTU')
     // The map step shows the rows its mapping produces, beside the mapping.
@@ -772,7 +781,9 @@ describe('ImportMapCheckFlow', () => {
       sheet: 'Measurements',
       units: 'raw:NTU,dilution:',
     })
-    expect(importData.reviewImport.mock.calls.at(-1)?.[0]).toMatchObject({
+    expect(
+      JSON.parse(http.matching('/api/import/review').at(-1)?.body ?? 'null'),
+    ).toMatchObject({
       sheetName: 'Measurements',
       mapping: {
         sheetName: 'Measurements',
@@ -783,7 +794,7 @@ describe('ImportMapCheckFlow', () => {
       },
     })
     unmount()
-    renderFlow(
+    await renderFlow(
       <ImportMapCheckFlow
         importId="file-1"
         search={latest}
@@ -796,12 +807,18 @@ describe('ImportMapCheckFlow', () => {
   })
 
   it('reloads at the map step with the linked mapping, without reviewing', async () => {
-    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
-    importData.fetchImportFile.mockResolvedValue(uploadResponse())
-    renderFlow(
+    http.state.datasets = true
+    // A valid, fully declared map reviews automatically. Keep this map-only
+    // scenario explicitly awaiting its source-unit declaration instead.
+    await renderFlow(
       <ImportMapCheckFlow
         importId="file-1"
-        search={{ step: 'map', dataset: 'ds-1', map: 'raw:field-1' }}
+        search={{
+          step: 'map',
+          dataset: 'ds-1',
+          map: 'raw:field-1',
+          units: 'raw:',
+        }}
         onSearch={vi.fn()}
       />,
     )
@@ -809,20 +826,26 @@ describe('ImportMapCheckFlow', () => {
     expect(
       await screen.findByRole('table', { name: 'Column mapping' }),
     ).toBeTruthy()
-    const raw = screen.getByLabelText<HTMLSelectElement>('Map raw')
-    expect(raw.value).toBe('field-1')
-    const dilution = screen.getByLabelText<HTMLSelectElement>('Map dilution')
-    expect(dilution.value).toBe('')
-    expect(importData.reviewImport).not.toHaveBeenCalled()
+    expect(screen.getByLabelText('Map raw')).toHaveProperty('value', 'field-1')
+    expect(screen.getByLabelText('Map dilution')).toHaveProperty('value', '')
+    expect(screen.getByLabelText('Source unit for raw')).toHaveProperty(
+      'value',
+      '',
+    )
+    expect(http.matching('/api/import/review')).toEqual([])
   })
 
   it('shows each column’s examples and what the column reads, without reviewing', async () => {
-    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
-    importData.fetchImportFile.mockResolvedValue(uploadResponse())
-    renderFlow(
+    http.state.datasets = true
+    await renderFlow(
       <ImportMapCheckFlow
         importId="file-1"
-        search={{ step: 'map', dataset: 'ds-1', map: 'raw:field-1' }}
+        search={{
+          step: 'map',
+          dataset: 'ds-1',
+          map: 'raw:field-1',
+          units: 'raw:',
+        }}
         onSearch={vi.fn()}
       />,
     )
@@ -835,7 +858,7 @@ describe('ImportMapCheckFlow', () => {
     // `dilution` is not, so its note says why it is left out.
     expect(mapping.textContent).toContain('Matched 1 of 2')
     expect(mapping.textContent).toContain('No matching field')
-    expect(importData.reviewImport).not.toHaveBeenCalled()
+    expect(http.matching('/api/import/review')).toEqual([])
   })
 
   it('takes a column’s examples from the first three non-empty of the first six rows', () => {
@@ -861,10 +884,8 @@ describe('ImportMapCheckFlow', () => {
   })
 
   it('reloads at the check step and recomputes the review on the server', async () => {
-    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
-    importData.fetchImportFile.mockResolvedValue(uploadResponse())
-    importData.reviewImport.mockResolvedValue(reviewResponse())
-    renderFlow(
+    http.state.datasets = true
+    await renderFlow(
       <ImportMapCheckFlow
         importId="file-1"
         search={{ step: 'check', dataset: 'ds-1', map: 'raw:field-1' }}
@@ -876,24 +897,31 @@ describe('ImportMapCheckFlow', () => {
       await screen.findByRole('table', { name: 'Rows to import' }),
     ).toBeTruthy()
     expect(await screen.findByText('Will add')).toBeTruthy()
-    expect(importData.reviewImport).toHaveBeenCalledTimes(1)
-    const [reviewArgs] = importData.reviewImport.mock.calls[0] ?? []
-    expect(reviewArgs.fileId).toBe('file-1')
-    expect(reviewArgs.datasetId).toBe('ds-1')
-    expect(reviewArgs.mapping.sources).toEqual([
-      { source: 'raw', fieldId: 'field-1', unit: 'NTU', sourceUnit: 'NTU' },
-      { source: 'dilution', fieldId: null, unit: null, sourceUnit: null },
-    ])
+    expect(http.matching('/api/import/review')).toHaveLength(1)
+    expect(
+      JSON.parse(http.matching('/api/import/review').at(0)?.body ?? 'null'),
+    ).toEqual({
+      fileId: 'file-1',
+      datasetId: 'ds-1',
+      parserKey: 'sheetbase.plate-reader-csv',
+      parserVersionId: 'parser-version-1',
+      sheetName: 'Sheet 1',
+      mapping: {
+        sheetName: 'Sheet 1',
+        sources: [
+          { source: 'raw', fieldId: 'field-1', unit: 'NTU', sourceUnit: 'NTU' },
+          { source: 'dilution', fieldId: null, unit: null, sourceUnit: null },
+        ],
+      },
+    })
     expect(
       await screen.findByRole('button', { name: 'Import 2 rows' }),
     ).toBeTruthy()
   })
 
   it('shows a per-import not-found state for an unknown import id', async () => {
-    importData.fetchImportFile.mockRejectedValue(
-      new ImportRequestError(404, 'not_found', 'Import not found.'),
-    )
-    renderFlow(
+    http.state.missingFile = true
+    await renderFlow(
       <ImportMapCheckFlow
         importId="missing"
         search={{ dataset: 'ds-1' }}
@@ -902,19 +930,25 @@ describe('ImportMapCheckFlow', () => {
     )
 
     expect(await screen.findByText('This import doesn’t exist')).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Import data' })).toBeTruthy()
+    expect(http.matching('/api/import/files', 'GET').at(0)?.url.search).toBe(
+      '?fileId=missing&datasetId=ds-1',
+    )
+    expect(
+      screen.getByRole('button', { name: 'Import data' }).getAttribute('href'),
+    ).toBe('/import')
   })
 
   it('does not claim the file matched no parser while the target Dataset loads', async () => {
-    let resolveDatasets: (rows: CanonicalDatasetWire[]) => void = () => {}
+    let resolveDatasets: () => void = () => {
+      throw new Error('Dataset gate not initialized')
+    }
 
-    vi.mocked(fetchDatasetSummaries).mockReturnValue(
-      new Promise<CanonicalDatasetWire[]>((resolve) => {
-        resolveDatasets = resolve
-      }),
-    )
-    importData.fetchImportFile.mockResolvedValue(uploadResponse())
-    renderFlow(
+    http.state.datasets = true
+    http.state.datasetReady = new Promise<void>((resolve) => {
+      resolveDatasets = resolve
+      datasetGates.push(resolve)
+    })
+    await renderFlow(
       <ImportMapCheckFlow
         importId="file-1"
         search={{ step: 'map', dataset: 'ds-1' }}
@@ -927,20 +961,17 @@ describe('ImportMapCheckFlow', () => {
     expect(await screen.findByText('Reading the target dataset…')).toBeTruthy()
     expect(screen.queryByText(/does not match a registered parser/)).toBeNull()
 
-    resolveDatasets([dataset()])
+    resolveDatasets()
     expect(
       await screen.findByRole('table', { name: 'Column mapping' }),
     ).toBeTruthy()
   })
 
   it('reviews the file even when saving the mapping as the parser default is refused', async () => {
-    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
-    importData.fetchImportFile.mockResolvedValue(uploadResponse())
-    importData.saveParserMapping.mockRejectedValue(
-      new Error('You cannot change this parser.'),
-    )
+    http.state.datasets = true
+    http.state.refuseMapping = true
     const onSearch = vi.fn()
-    renderFlow(
+    await renderFlow(
       <ImportMapCheckFlow
         importId="file-1"
         search={{ step: 'map', dataset: 'ds-1', map: 'raw:field-1' }}
@@ -948,25 +979,62 @@ describe('ImportMapCheckFlow', () => {
       />,
     )
 
-    importData.reviewImport.mockResolvedValue(reviewResponse())
-    importData.commitImport.mockResolvedValue({
-      ok: true,
-      committed: 2,
-      outcome: {},
-    })
     await screen.findByRole('table', { name: 'Column mapping' })
 
     const importButton = await screen.findByRole('button', {
       name: 'Import 2 rows',
     })
 
-    await waitFor(() =>
-      expect((importButton as HTMLButtonElement).disabled).toBe(false),
-    )
+    await waitFor(() => expect(importButton).toHaveProperty('disabled', false))
     await userEvent.setup().click(importButton)
 
-    await waitFor(() => expect(importData.commitImport).toHaveBeenCalled())
-    expect(importData.saveParserMapping).toHaveBeenCalled()
+    await waitFor(() =>
+      expect(http.matching('/api/import/commit')).toHaveLength(1),
+    )
+    expect(http.matching('/api/db/rpc/save_parser_mapping')).toHaveLength(1)
+
+    const mapping: ImportMappingDocument = {
+      sheetName: 'Sheet 1',
+      sources: [
+        { source: 'raw', fieldId: 'field-1', unit: 'NTU', sourceUnit: 'NTU' },
+        { source: 'dilution', fieldId: null, unit: null, sourceUnit: null },
+      ],
+    }
+
+    expect(
+      JSON.parse(
+        http.matching('/api/db/rpc/save_parser_mapping').at(0)?.body ?? 'null',
+      ),
+    ).toEqual({
+      p_parser_id: 'parser-1',
+      p_target_key: 'dataset:ds-1',
+      p_mapping: mapping,
+    })
+    expect(
+      JSON.parse(http.matching('/api/import/commit').at(0)?.body ?? 'null'),
+    ).toEqual({
+      fileId: 'file-1',
+      datasetId: 'ds-1',
+      mapping,
+      parserKey: 'sheetbase.plate-reader-csv',
+      parserId: 'parser-1',
+      parserVersionId: 'parser-version-1',
+      experimentRecordId: null,
+      instrumentId: null,
+      sheetName: 'Sheet 1',
+      idempotencyKey: commitIdempotencyKey('file-1', 'ds-1', mapping),
+    })
+
+    const writePaths = http.requests
+      .filter((request) => request.method === 'POST')
+      .map((request) => request.url.pathname)
+
+    expect(writePaths.indexOf('/api/import/review')).toBeLessThan(
+      writePaths.indexOf('/api/db/rpc/save_parser_mapping'),
+    )
+    expect(writePaths.indexOf('/api/db/rpc/save_parser_mapping')).toBeLessThan(
+      writePaths.indexOf('/api/import/commit'),
+    )
     expect(
       await screen.findByText(/not saved as this parser’s default/),
     ).toBeTruthy()
@@ -974,8 +1042,8 @@ describe('ImportMapCheckFlow', () => {
   })
 
   it('pre-selects the parser suggested by the file name and lets the user override it', async () => {
-    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
-    importData.fetchImportFile.mockResolvedValue(
+    http.state.datasets = true
+    http.state.file = () =>
       uploadResponse({
         filename: 'TB-02_run12.csv',
         parser: null,
@@ -989,10 +1057,9 @@ describe('ImportMapCheckFlow', () => {
           }),
           parserSummary({ status: 'draft' }),
         ],
-      }),
-    )
+      })
     const onSearch = vi.fn()
-    renderFlow(
+    await renderFlow(
       <ImportMapCheckFlow
         importId="file-1"
         search={{ step: 'map', dataset: 'ds-1' }}
@@ -1000,9 +1067,9 @@ describe('ImportMapCheckFlow', () => {
       />,
     )
 
-    const select = await screen.findByLabelText<HTMLSelectElement>(
-      'Parser for this file',
-    )
+    const select = z
+      .instanceof(HTMLSelectElement)
+      .parse(await screen.findByLabelText('Parser for this file'))
 
     await waitFor(() => expect(select.value).toBe('sheetbase.tb02-turbidity'))
     expect(
@@ -1016,17 +1083,15 @@ describe('ImportMapCheckFlow', () => {
   })
 
   it('reads the file one way at the review step, and keeps the choice on the map step', async () => {
-    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
-    importData.fetchImportFile.mockResolvedValue(
+    http.state.datasets = true
+    http.state.file = () =>
       uploadResponse({
         parser: null,
         recognitionMessage:
           'This file’s headers (raw, dilution) match no approved parser.',
-      }),
-    )
-    importData.reviewImport.mockResolvedValue(reviewResponse())
+      })
 
-    const { unmount } = renderFlow(
+    const { unmount } = await renderFlow(
       <ImportMapCheckFlow
         importId="file-1"
         search={{ step: 'map', dataset: 'ds-1' }}
@@ -1041,7 +1106,7 @@ describe('ImportMapCheckFlow', () => {
     expect(screen.queryByRole('table', { name: 'Rows to import' })).toBeNull()
 
     unmount()
-    renderFlow(
+    await renderFlow(
       <ImportMapCheckFlow
         importId="file-1"
         search={{ step: 'check', dataset: 'ds-1', map: 'raw:field-1' }}
@@ -1062,7 +1127,7 @@ describe('ImportMapCheckFlow', () => {
 })
 
 describe('a committed import', () => {
-  const receipt = {
+  const receipt: DatasetImportRecord = {
     id: 'imp-1',
     dataset_id: 'ds-1',
     experiment_record_id: 'exp-1',
@@ -1092,10 +1157,9 @@ describe('a committed import', () => {
   }
 
   it('shows a read-only receipt instead of the map and check steps', async () => {
-    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
-    importData.fetchImportFile.mockResolvedValue(uploadResponse())
-    importData.fetchDatasetImports.mockResolvedValue([receipt])
-    renderFlow(
+    http.state.datasets = true
+    http.state.receipts = [receipt]
+    await renderFlow(
       <ImportMapCheckFlow
         importId="file-1"
         search={{ step: 'map', dataset: 'ds-1' }}
@@ -1111,14 +1175,11 @@ describe('a committed import', () => {
   })
 
   it('uploads a corrected file with the old settings carried over', async () => {
-    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
-    importData.fetchImportFile.mockResolvedValue(uploadResponse())
-    importData.fetchDatasetImports.mockResolvedValue([receipt])
-    importData.uploadImportFile.mockResolvedValue(
-      uploadResponse({ fileId: 'file-2' }),
-    )
+    http.state.datasets = true
+    http.state.receipts = [receipt]
+    http.state.upload = uploadResponse({ fileId: 'file-2' })
     const user = userEvent.setup()
-    renderFlow(
+    await renderFlow(
       <ImportMapCheckFlow
         importId="file-1"
         search={{ step: 'map', dataset: 'ds-1' }}
@@ -1132,33 +1193,33 @@ describe('a committed import', () => {
       new File(['raw\n1.3'], 'plate-01-fixed.csv', { type: 'text/csv' }),
     )
 
-    await waitFor(() => expect(navigate).toHaveBeenCalled())
-    expect(importData.uploadImportFile.mock.calls[0][0].datasetId).toBe('ds-1')
-    expect(navigate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        params: { importId: 'file-2' },
-        search: {
-          step: 'map',
-          dataset: 'ds-1',
-          experiment: 'exp-1',
-          instrument: 'inst-1',
-          parser: 'sheetbase.plate-reader-csv',
-          map: 'raw:field-1',
-          units: 'raw:NTU',
-          sheet: undefined,
-          returnTo: '/experiments/exp-1/notebook',
-        },
-      }),
+    await waitFor(() => expect(location().pathname).toBe('/import/file-2'))
+    expect(
+      http
+        .matching('/api/import/files')
+        .at(0)
+        ?.url.searchParams.get('datasetId'),
+    ).toBe('ds-1')
+    expect(http.matching('/api/import/files').at(0)?.filename).toBe(
+      'plate-01-fixed.csv',
     )
+    expect(http.matching('/api/import/files').at(0)?.body).toBe('raw\n1.3')
+    expect(location().search).toEqual({
+      step: 'map',
+      dataset: 'ds-1',
+      experiment: 'exp-1',
+      instrument: 'inst-1',
+      parser: 'sheetbase.plate-reader-csv',
+      map: 'raw:field-1',
+      units: 'raw:NTU',
+      returnTo: '/experiments/exp-1/notebook',
+    })
   })
 
   it('treats a failed import as still open to mapping', async () => {
-    vi.mocked(fetchDatasetSummaries).mockResolvedValue([dataset()])
-    importData.fetchImportFile.mockResolvedValue(uploadResponse())
-    importData.fetchDatasetImports.mockResolvedValue([
-      { ...receipt, status: 'failed' },
-    ])
-    renderFlow(
+    http.state.datasets = true
+    http.state.receipts = [{ ...receipt, status: 'failed' }]
+    await renderFlow(
       <ImportMapCheckFlow
         importId="file-1"
         search={{ step: 'map', dataset: 'ds-1' }}

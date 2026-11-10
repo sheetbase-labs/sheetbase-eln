@@ -34,12 +34,9 @@ import {
 } from './record-model-data'
 import { useWorkspaceRecordModel } from './models-data'
 import { useInheritedFieldGroups } from './model-subtype-ui'
-import {
-  InheritedLabel,
-  inheritedRows,
-  isInherited,
-} from './inherited-fields-table'
-import type { InheritedRow } from './inherited-fields-table'
+import { InheritedLabel } from './inherited-fields-table'
+import { inheritedRows, isInherited } from './inherited-fields-data'
+import type { InheritedRow } from './inherited-fields-data'
 import { formatDate } from '#/lib/format-date'
 import { useDataAccess } from '#/lib/data-access'
 import { useReportingNames } from '#/lib/data-access-names'
@@ -52,7 +49,7 @@ import { t } from '#/copy'
  * fields, grouped by section, with the first version each arrived in and a
  * panel for the selected one. Edits go to the draft, never here.
  */
-export function RecordModelFields({ modelKey }: { modelKey: string }) {
+function useRecordFields(modelKey: string) {
   const model = useWorkspaceRecordModel(modelKey)
   const versions = useRecordModelVersionList(model.data?.id)
   const usage = useRecordModelVersionUsage(model.data?.id)
@@ -98,6 +95,23 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
     ]),
   ]
 
+  return {
+    version,
+    list,
+    usage,
+    rows,
+    sel,
+    rowSelection,
+    onRowSelectionChange,
+    since,
+  }
+}
+
+function useRecordFieldColumns(
+  modelKey: string,
+  version: number | undefined,
+  since: (field: ModelVersionField) => number | undefined,
+) {
   const dataAccess = useDataAccess()
   const names = useReportingNames()
 
@@ -194,7 +208,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
         return (
           <span
             className={
-              first && first === version?.version
+              first && first === version
                 ? 'font-medium text-success-text'
                 : 'text-fg-muted'
             }
@@ -205,6 +219,23 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
       },
     },
   ]
+
+  return columns
+}
+
+export function RecordModelFields({ modelKey }: { modelKey: string }) {
+  const {
+    version,
+    list,
+    usage,
+    rows,
+    sel,
+    rowSelection,
+    onRowSelectionChange,
+    since,
+  } = useRecordFields(modelKey)
+
+  const columns = useRecordFieldColumns(modelKey, version?.version, since)
 
   if (!version)
     return (
@@ -285,35 +316,7 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
           <InspectorSection
             title={t('library.models.recordModelFieldsTab.definition')}
           >
-            <DescriptionList
-              labelWidth={90}
-              items={[
-                [
-                  t('library.models.recordModelFieldsTab.type'),
-                  fieldTypeLabel(sel).split(' · ')[0],
-                ],
-                ...(sel.logical_type === 'category'
-                  ? [
-                      [
-                        t('library.models.recordModelFieldsTab.options'),
-                        (sel.options ?? [])
-                          .filter((o) => o.lifecycle !== 'retired')
-                          .map((o) => o.label)
-                          .join(', ') || '—',
-                      ] as [string, string],
-                    ]
-                  : []),
-                [t('common.states.required'), fieldRequiredLabel(sel)],
-                [
-                  t('library.models.recordModelFieldsTab.rule'),
-                  fieldRule(sel) ?? '—',
-                ],
-                [
-                  t('library.models.recordModelFieldsTab.source'),
-                  fieldSource(sel),
-                ],
-              ]}
-            />
+            <RecordFieldDefinition field={sel} />
           </InspectorSection>
           {['text', 'integer', 'decimal'].includes(sel.logical_type) ? (
             <InspectorSection title={t('plugins.hooks.fieldTypeSection')}>
@@ -352,5 +355,36 @@ export function RecordModelFields({ modelKey }: { modelKey: string }) {
         </Inspector>
       ) : null}
     </>
+  )
+}
+
+function RecordFieldDefinition({ field }: { field: ModelVersionField }) {
+  return (
+    <DescriptionList
+      labelWidth={90}
+      items={[
+        [
+          t('library.models.recordModelFieldsTab.type'),
+          fieldTypeLabel(field).split(' · ')[0],
+        ],
+        ...(field.logical_type === 'category'
+          ? [
+              [
+                t('library.models.recordModelFieldsTab.options'),
+                (field.options ?? [])
+                  .filter((option) => option.lifecycle !== 'retired')
+                  .map((option) => option.label)
+                  .join(', ') || '—',
+              ] satisfies [string, string],
+            ]
+          : []),
+        [t('common.states.required'), fieldRequiredLabel(field)],
+        [
+          t('library.models.recordModelFieldsTab.rule'),
+          fieldRule(field) ?? '—',
+        ],
+        [t('library.models.recordModelFieldsTab.source'), fieldSource(field)],
+      ]}
+    />
   )
 }

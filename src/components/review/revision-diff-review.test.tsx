@@ -1,4 +1,5 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { Suspense, startTransition } from 'react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import {
@@ -7,8 +8,17 @@ import {
 } from '#/lib/revision-diff.test-fixtures'
 
 import { RevisionDiffReview } from './revision-diff-review'
+import type { CanonicalRevisionEnvelope } from '#/lib/revision-diff'
 
 afterEach(cleanup)
+
+const suspended = new Promise<void>(() => undefined)
+
+function SuspendReview({ blocked }: { blocked: boolean }) {
+  if (blocked) throw suspended
+
+  return null
+}
 
 describe('RevisionDiffReview', () => {
   it('does not claim unchanged scientific content when historical Sheet row identities are unavailable', () => {
@@ -176,6 +186,134 @@ describe('RevisionDiffReview', () => {
       screen.getByRole('button', { name: 'Show 50 more changes' }),
     )
     expect(screen.getByText('1.0099E+06')).toBeTruthy()
+  })
+
+  it('retains manual collapse and loaded batches until selecting another detail', () => {
+    const before = revisionFixture()
+    const after = revisionFixture()
+    before.scientificTables[0].rows = Array.from(
+      { length: 150 },
+      (_, index) => ({
+        id: `row-${String(index).padStart(3, '0')}`,
+        timepoint: String(index),
+        titer: `before-${index}`,
+      }),
+    )
+    after.scientificTables[0].rows = Array.from(
+      { length: 150 },
+      (_, index) => ({
+        id: `row-${String(index).padStart(3, '0')}`,
+        timepoint: String(index),
+        titer: `after-${index}`,
+      }),
+    )
+    const view = render(<RevisionDiffReview before={before} after={after} />)
+    expect(screen.getByText('before-0')).toBeTruthy()
+    expect(screen.queryByText('before-149')).toBeNull()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Show 50 more changes' }),
+    )
+    expect(screen.getByText('before-149')).toBeTruthy()
+    fireEvent.click(
+      screen.getByRole('button', { name: /hide changes for timepoints/i }),
+    )
+    expect(screen.queryByText('before-0')).toBeNull()
+
+    view.rerender(<RevisionDiffReview before={before} after={after} />)
+    expect(screen.queryByText('before-0')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Next change' }))
+    expect(screen.getByText('before-149')).toBeTruthy()
+    expect(document.activeElement?.getAttribute('aria-current')).toBe('step')
+    expect(document.activeElement?.textContent).toContain('before-1')
+    fireEvent.click(
+      screen.getByRole('button', { name: /hide changes for timepoints/i }),
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: /show changes for timepoints/i }),
+    )
+    expect(screen.getByText('before-149')).toBeTruthy()
+  })
+
+  it('keeps a clamped selection after the available change list grows again', () => {
+    const before = revisionFixture()
+    const after = changedRevisionFixture()
+    const shortened = revisionFixture()
+    shortened.record.title = 'Only the title changed'
+    const view = render(<RevisionDiffReview before={before} after={after} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Next change' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next change' }))
+    expect(screen.getByText(/^Change 3 of /)).toBeTruthy()
+    view.rerender(<RevisionDiffReview before={before} after={shortened} />)
+    expect(screen.getByText('Change 1 of 1')).toBeTruthy()
+    view.rerender(<RevisionDiffReview before={before} after={after} />)
+    expect(screen.getByText(/^Change 1 of /)).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'Previous change' }),
+    ).toHaveProperty('disabled', true)
+  })
+
+  it('does not commit selection or table expansion from an abandoned render', async () => {
+    const before = revisionFixture()
+    const after = changedRevisionFixture()
+    const shortened = revisionFixture()
+    shortened.record.title = 'Suspended title change'
+
+    function frame(revision: CanonicalRevisionEnvelope, blocked: boolean) {
+      return (
+        <Suspense fallback={<p>Review pending</p>}>
+          <RevisionDiffReview before={before} after={revision} />
+          <SuspendReview blocked={blocked} />
+        </Suspense>
+      )
+    }
+
+    const view = render(frame(after, false))
+    fireEvent.click(screen.getByRole('button', { name: 'Next change' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Next change' }))
+    await act(async () => {
+      startTransition(() => view.rerender(frame(shortened, true)))
+    })
+    expect(screen.queryByText('Review pending')).toBeNull()
+    expect(screen.getByText(/^Change 3 of /)).toBeTruthy()
+    view.rerender(frame(after, false))
+    expect(screen.getByText(/^Change 3 of /)).toBeTruthy()
+
+    cleanup()
+    const tableBefore = revisionFixture()
+    const tableAfter = revisionFixture()
+    tableAfter.scientificTables[0].rows = [
+      { id: 'row-1', timepoint: '0', titer: 'Native changed value' },
+      { id: 'row-2', timepoint: '7', titer: '9.5000E+05' },
+    ]
+    const shifted = structuredClone(tableAfter)
+    shifted.record.title = 'Suspended metadata before table'
+
+    function tableFrame(revision: CanonicalRevisionEnvelope, blocked: boolean) {
+      return (
+        <Suspense fallback={<p>Review pending</p>}>
+          <RevisionDiffReview before={tableBefore} after={revision} />
+          <SuspendReview blocked={blocked} />
+        </Suspense>
+      )
+    }
+
+    const tableView = render(tableFrame(tableAfter, false))
+    expect(screen.getByText('Native changed value')).toBeTruthy()
+    fireEvent.click(
+      screen.getByRole('button', { name: /hide changes for timepoints/i }),
+    )
+    await act(async () => {
+      startTransition(() => tableView.rerender(tableFrame(shifted, true)))
+    })
+    expect(screen.queryByText('Review pending')).toBeNull()
+    expect(screen.queryByText('Native changed value')).toBeNull()
+    tableView.rerender(tableFrame(tableAfter, false))
+    expect(screen.queryByText('Native changed value')).toBeNull()
+    expect(
+      screen
+        .getByRole('button', { name: /show changes for timepoints/i })
+        .getAttribute('aria-expanded'),
+    ).toBe('false')
   })
 
   it('renders an honest unchanged state', () => {

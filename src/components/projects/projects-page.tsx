@@ -77,6 +77,7 @@ import {
   AddedFieldsFormSection,
   useAddedFieldDraft,
 } from '#/components/models/added-fields'
+import type { ModelFieldRecordValues } from '#/lib/model-fields'
 
 export type { ProjectRow } from './types'
 
@@ -127,7 +128,7 @@ export type NewProjectInput = ProjectDetailsInput & {
   /** A client that does not exist yet: the route creates it, then the project. */
   newClientName?: string | null
   /** Values for the fields the workspace added to Project. */
-  customFields?: Record<string, unknown>
+  customFields?: ModelFieldRecordValues['customFields']
   /** The project subtype picked on the form, if any. */
   typeKey?: string | null
 }

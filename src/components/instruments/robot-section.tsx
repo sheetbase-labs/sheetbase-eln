@@ -4,6 +4,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
@@ -30,11 +31,11 @@ import { Field, Input } from '#/components/ui/input'
 import { DescriptionList, Section } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
 import { Status } from '#/components/ui/status'
-import type { Tone } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
 import { TableBox } from '#/components/ui/table'
 import { Tooltip } from '#/components/ui/tooltip'
 import { t } from '#/copy'
+import type { CopyKey } from '#/copy'
 import { AGENT_SYSTEMS } from '#/lib/connectors/agent-package'
 import type { AgentSystem } from '#/lib/connectors/agent-package'
 import {
@@ -68,18 +69,9 @@ import type {
 } from '#/lib/robots'
 import type { WorklistFormat } from '#/lib/plate-worklist'
 import type { InstrumentRow } from './instruments-data'
+import { JOB_TONES } from './instruments-data'
 
 const client = notebookDataClient
-
-export const JOB_TONES: Record<RobotJobStatus, Tone> = {
-  queued: 'draft',
-  staged: 'review',
-  starting: 'progress',
-  running: 'progress',
-  complete: 'ok',
-  failed: 'bad',
-  cancelled: 'draft',
-}
 
 export function JobStatus({ status }: { status: RobotJobStatus }) {
   return (
@@ -159,7 +151,7 @@ export function RobotSection({
       toast.success(t('automation.robot.removed'))
       setRemoving(false)
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(e instanceof Error && e.message ? e.message : ''),
   })
 
@@ -256,6 +248,7 @@ export function RobotSection({
           onClose={() => setAgentOpen(false)}
         />
       ) : null}
+      {/* react-doctor-disable-next-line react-doctor/duplicate-jsx-subtree -- Robot removal and stocktake cancellation share dialog primitives, not workflow, copy or cache ownership. */}
       <ConfirmDialog open={removing} onOpenChange={setRemoving}>
         <ConfirmDialogContent>
           <ConfirmDialogHeader>
@@ -288,9 +281,11 @@ function LabwareSummary({ robot }: { robot: RobotSettingsWire }) {
 
   const values = fields
     .map((key) => robot.labware[key])
-    .filter(
-      (value): value is string => typeof value === 'string' && value !== '',
-    )
+    .flatMap((value) => {
+      const text = z.string().safeParse(value)
+
+      return text.success && text.data !== '' ? [text.data] : []
+    })
 
   return (
     <span className="text-fg-muted">
@@ -327,7 +322,7 @@ function RobotJobsTable({
         }),
       )
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(
         e instanceof Error && e.message
           ? e.message
@@ -345,7 +340,7 @@ function RobotJobsTable({
         }),
       )
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(
         e instanceof Error && e.message
           ? e.message
@@ -491,7 +486,7 @@ function RobotJobsTable({
   )
 }
 
-const LABWARE_LABELS: Record<keyof RobotLabware, string> = {
+const LABWARE_LABELS = {
   opentronsSourceLabware: 'automation.robot.sourceLabware',
   opentronsDestLabware: 'automation.robot.destLabware',
   opentronsPipette: 'automation.robot.pipette',
@@ -501,7 +496,7 @@ const LABWARE_LABELS: Record<keyof RobotLabware, string> = {
   tecanSourceType: 'automation.robot.sourceType',
   tecanDestType: 'automation.robot.destType',
   echoSourceType: 'automation.robot.sourceType',
-}
+} as const satisfies Record<keyof RobotLabware, CopyKey>
 
 function RobotSetupDialog({
   instrument,
@@ -540,7 +535,7 @@ function RobotSetupDialog({
       for (const key of fields) {
         const value = labware[key]
 
-        if (value) (kept as Record<string, string>)[key] = value
+        if (value) Object.assign(kept, { [key]: value })
       }
 
       return saveRobotSettings(client, {
@@ -555,7 +550,7 @@ function RobotSetupDialog({
       toast.success(t('automation.robot.saved'))
       onClose()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(
         e instanceof Error && e.message
           ? e.message
@@ -594,9 +589,13 @@ function RobotSetupDialog({
               <Field label={t('automation.robot.format')}>
                 <Select
                   value={format}
-                  onChange={(event) =>
-                    setFormat(event.target.value as WorklistFormat)
-                  }
+                  onChange={(event) => {
+                    const selected = FILE_ROBOT_FORMATS.find(
+                      (entry) => entry === event.target.value,
+                    )
+
+                    if (selected) setFormat(selected)
+                  }}
                 >
                   {FILE_ROBOT_FORMATS.map((value) => (
                     <option key={value} value={value}>
@@ -611,12 +610,12 @@ function RobotSetupDialog({
                 <Field key={key} label={t('automation.robot.mount')}>
                   <Select
                     value={labware.opentronsMount ?? 'left'}
-                    onChange={(event) =>
-                      setLabware((c) => ({
-                        ...c,
-                        opentronsMount: event.target.value as 'left' | 'right',
-                      }))
-                    }
+                    onChange={(event) => {
+                      const selected = event.target.value
+
+                      if (selected === 'left' || selected === 'right')
+                        setLabware((c) => ({ ...c, opentronsMount: selected }))
+                    }}
                   >
                     {(['left', 'right'] as const).map((mount) => (
                       <option key={mount} value={mount}>
@@ -626,12 +625,7 @@ function RobotSetupDialog({
                   </Select>
                 </Field>
               ) : (
-                <Field
-                  key={key}
-                  label={t(
-                    LABWARE_LABELS[key] as 'automation.robot.sourceLabware',
-                  )}
-                >
+                <Field key={key} label={t(LABWARE_LABELS[key])}>
                   <Input
                     value={labware[key] ?? ''}
                     onChange={(event) =>
@@ -697,7 +691,7 @@ function RobotAgentDialog({
       toast.success(t('automation.robot.downloaded', { file }))
       onClose()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(
         e instanceof Error && e.message
           ? e.message
@@ -721,9 +715,13 @@ function RobotAgentDialog({
             <Field label={t('automation.robot.system')}>
               <Select
                 value={system}
-                onChange={(event) =>
-                  setSystem(event.target.value as AgentSystem)
-                }
+                onChange={(event) => {
+                  const selected = AGENT_SYSTEMS.find(
+                    (entry) => entry.value === event.target.value,
+                  )
+
+                  if (selected) setSystem(selected.value)
+                }}
               >
                 {AGENT_SYSTEMS.map((entry) => (
                   <option key={entry.value} value={entry.value}>
@@ -846,7 +844,7 @@ export function SendToRobotDialog({
       )
       onClose()
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(
         e instanceof Error && e.message
           ? e.message

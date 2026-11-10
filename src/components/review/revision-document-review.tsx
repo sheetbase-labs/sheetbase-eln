@@ -16,6 +16,7 @@
  * neither replaces the other.
  */
 import * as React from 'react'
+import { z } from 'zod'
 
 import { BlockPreview } from '#/components/notebook/block-preview'
 import { FrozenSheetEvidencePanel } from '#/components/notebook/notebook-sheet-block'
@@ -48,7 +49,8 @@ import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
 import { cn } from '#/lib/utils'
 import { t } from '#/copy'
 
-import { KindBadge, ChangeCard, focusChange } from './revision-diff-review'
+import { KindBadge, ChangeCard } from './revision-diff-review'
+import { focusChange } from './review-focus'
 
 /** A comment target a reviewer can create from the document itself. */
 export interface DocumentAnchorTarget {
@@ -96,22 +98,34 @@ const LIVE_PREVIEW_BLOCK_TYPES = new Set([
 ])
 
 function isEntity(value: unknown): value is CanonicalRevisionEntity {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Approved native object predicate: retain non-array class/inherited/accessor payloads without reconstruction or full payload validation.
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-function text(value: unknown): string | null {
-  return typeof value === 'string' && value.trim().length > 0
-    ? value.trim()
+function text(value: CanonicalRevisionEntity[string]): string | null {
+  const parsed = z.string().safeParse(value)
+
+  return parsed.success && parsed.data.trim().length > 0
+    ? parsed.data.trim()
     : null
 }
 
-function fieldValue(value: unknown): string | null {
+const frozenScalar = z.union([
+  z.number(),
+  z.nan(),
+  z.literal(Infinity),
+  z.literal(-Infinity),
+  z.boolean(),
+])
+
+function fieldValue(value: CanonicalRevisionEntity[string]): string | null {
   const asText = text(value)
 
   if (asText) return asText
 
-  if (typeof value === 'number' || typeof value === 'boolean')
-    return String(value)
+  const parsed = frozenScalar.safeParse(value)
+
+  if (parsed.success) return String(parsed.data)
 
   return null
 }
@@ -126,13 +140,17 @@ function toPreviewBlock(
   return {
     id: String(block.id),
     recordId,
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Approved native discriminator: preserve the original check and second getter read, not validation of that second value.
     type: typeof block.type === 'string' ? block.type : 'unknown',
     payload,
     payloadSchemaVersion:
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Approved native number acceptance includes NaN/Infinity and preserves the second getter read without revalidation.
       typeof block.payloadSchemaVersion === 'number'
         ? block.payloadSchemaVersion
         : 0,
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Approved native number acceptance includes NaN/Infinity and preserves the second getter read without revalidation.
     order: typeof block.order === 'number' ? block.order : 0,
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Approved native number acceptance includes NaN/Infinity and preserves the second getter read without revalidation.
     version: typeof block.version === 'number' ? block.version : 0,
   }
 }
@@ -207,6 +225,7 @@ function InlineMark({ change }: { change: RevisionChange }) {
           className="text-danger-text"
           aria-label={t('projects.documentReview.removedText')}
         >
+          {/* oxlint-disable-next-line typescript/no-base-to-string -- Approved native inline display: preserve the existing property read, String coercion and native exceptions, not JSON formatting. */}
           {String(change.before)}
         </del>
       )}
@@ -216,6 +235,7 @@ function InlineMark({ change }: { change: RevisionChange }) {
           className="text-success-text no-underline"
           aria-label={t('projects.documentReview.insertedText')}
         >
+          {/* oxlint-disable-next-line typescript/no-base-to-string -- Approved native inline display: preserve the existing property read, String coercion and native exceptions, not JSON formatting. */}
           {String(change.after)}
         </ins>
       )}
@@ -228,7 +248,7 @@ function InlineMark({ change }: { change: RevisionChange }) {
 // ---------------------------------------------------------------------------
 
 function FrozenFacts({ block }: { block: CanonicalRevisionEntity }) {
-  const payload: Record<string, unknown> = isEntity(block.payload)
+  const payload: CanonicalRevisionEnvelope['record'] = isEntity(block.payload)
     ? block.payload
     : {}
 
@@ -520,6 +540,8 @@ function ChangeCards({
   )
 }
 
+const NO_COMMENTS: readonly CommentWire[] = []
+
 export function RevisionDocumentReview({
   after,
   before = null,
@@ -527,7 +549,7 @@ export function RevisionDocumentReview({
   comparisonRevisionId = null,
   beforeLabel = t('projects.documentReview.earlier'),
   afterLabel = t('projects.documentReview.submitted'),
-  comments = [],
+  comments = NO_COMMENTS,
   focusCommentId,
   onOpenComment,
   onCommentTarget,
@@ -546,10 +568,6 @@ export function RevisionDocumentReview({
     string | null
   >(null)
 
-  const [highlightedComment, setHighlightedComment] = React.useState<
-    string | null
-  >(null)
-
   const document: RevisionDocument = React.useMemo(
     () => buildRevisionDocument(before, after),
     [after, before],
@@ -565,6 +583,35 @@ export function RevisionDocumentReview({
       }),
     [comments, comparisonRevisionId, document, revisionId],
   )
+
+  const [highlightedComment, setHighlightedComment] = React.useState<
+    string | null
+  >(() =>
+    focusCommentId &&
+    anchors.some((anchor) => anchor.comment.id === focusCommentId)
+      ? focusCommentId
+      : null,
+  )
+
+  const [focusRequest, setFocusRequest] = React.useState({
+    anchors,
+    focusCommentId,
+  })
+
+  if (
+    focusRequest.anchors !== anchors ||
+    focusRequest.focusCommentId !== focusCommentId
+  ) {
+    setFocusRequest({ anchors, focusCommentId })
+
+    if (
+      focusCommentId &&
+      anchors.some((anchor) => anchor.comment.id === focusCommentId)
+    ) {
+      setHighlightedComment(focusCommentId)
+      setHighlightedLocation(null)
+    }
+  }
 
   const placed = anchors.filter(isPlaced)
   const orphans = anchors.filter((anchor) => anchor.orphanReason !== undefined)
@@ -617,9 +664,13 @@ export function RevisionDocumentReview({
     if (!focusCommentId) return
 
     if (!anchors.some((anchor) => anchor.comment.id === focusCommentId)) return
-    showComment(focusCommentId)
-  }, [anchors, focusCommentId, showComment])
 
+    const element = findComment(rootRef.current, focusCommentId)
+
+    if (element) focusChange(element)
+  }, [anchors, focusCommentId])
+
+  // oxlint-disable-next-line typescript/no-base-to-string -- Approved native frozen identity display: preserve String coercion/custom hooks and exceptions without narrowing the accepted identity.
   const recordId = String(document.revision.record.id ?? '')
   const totalChanges = document.diff.changes.length
 
@@ -654,6 +705,82 @@ export function RevisionDocumentReview({
       t('projects.documentReview.commentsOnChange'),
     )
   }
+
+  const presentation = {
+    document,
+    rootRef,
+    showMarks,
+    setShowMarks,
+    activeChangeId,
+    setActiveChangeId,
+    highlightedLocation,
+    anchorsFor,
+    showComment,
+    recordId,
+    totalChanges,
+    renderAnchors,
+    renderChangeAnchors,
+    comparisonRevisionId,
+    onCommentTarget,
+    onSheetCommentTarget,
+  }
+
+  return renderDocumentContents({
+    presentation,
+    className,
+    beforeLabel,
+    afterLabel,
+    renderUnplacedComments: () =>
+      renderUnplacedDocumentComments({
+        unmarked,
+        orphans,
+        orphanRegionRef,
+        revisionLabels,
+        highlightedComment,
+        showLocation,
+        onOpenComment,
+      }),
+  })
+}
+
+function renderDocumentBlocks({
+  presentation,
+}: {
+  presentation: {
+    document: RevisionDocument
+    rootRef: React.RefObject<HTMLElement | null>
+    showMarks: boolean
+    setShowMarks: React.Dispatch<React.SetStateAction<boolean>>
+    activeChangeId: string | null
+    setActiveChangeId: React.Dispatch<React.SetStateAction<string | null>>
+    highlightedLocation: string | null
+    anchorsFor: (value: string) => DocumentCommentAnchor[]
+    showComment: (commentId: string) => void
+    recordId: string
+    totalChanges: number
+    renderAnchors: (value: string, label: string) => React.ReactNode
+    renderChangeAnchors: (changeId: string) => React.ReactNode
+    comparisonRevisionId: string | null
+    onCommentTarget?: RevisionDocumentReviewProps['onCommentTarget']
+    onSheetCommentTarget?: RevisionDocumentReviewProps['onSheetCommentTarget']
+  }
+}) {
+  const {
+    document,
+    rootRef,
+    showMarks,
+    activeChangeId,
+    setActiveChangeId,
+    highlightedLocation,
+    anchorsFor,
+    showComment,
+    recordId,
+    renderAnchors,
+    renderChangeAnchors,
+    comparisonRevisionId,
+    onCommentTarget,
+    onSheetCommentTarget,
+  } = presentation
 
   function renderBlock(entry: DocumentBlockEntry) {
     const changed = entry.changes.length > 0
@@ -784,6 +911,43 @@ export function RevisionDocumentReview({
   }
 
   return (
+    <div className="flex min-w-0 flex-col gap-3">
+      {document.blocks.map(renderBlock)}
+    </div>
+  )
+}
+
+function renderDocumentContents({
+  presentation,
+  className,
+  beforeLabel,
+  afterLabel,
+  renderUnplacedComments,
+}: Pick<
+  RevisionDocumentReviewProps,
+  'className' | 'beforeLabel' | 'afterLabel'
+> & {
+  presentation: Parameters<typeof renderDocumentBlocks>[0]['presentation']
+  renderUnplacedComments: () => React.ReactNode
+}) {
+  const {
+    document,
+    rootRef,
+    showMarks,
+    setShowMarks,
+    activeChangeId,
+    setActiveChangeId,
+    highlightedLocation,
+    anchorsFor,
+    showComment,
+    totalChanges,
+    renderAnchors,
+    renderChangeAnchors,
+    comparisonRevisionId,
+    onCommentTarget,
+  } = presentation
+
+  return (
     <section
       ref={rootRef}
       aria-label={t('projects.documentReview.label')}
@@ -877,9 +1041,7 @@ export function RevisionDocumentReview({
         </div>
       ) : null}
 
-      <div className="flex min-w-0 flex-col gap-3">
-        {document.blocks.map(renderBlock)}
-      </div>
+      {renderDocumentBlocks({ presentation })}
 
       {document.tables.map((table) => (
         <section
@@ -992,6 +1154,28 @@ export function RevisionDocumentReview({
         </section>
       ) : null}
 
+      {renderUnplacedComments()}
+    </section>
+  )
+}
+
+function renderUnplacedDocumentComments({
+  unmarked,
+  orphans,
+  orphanRegionRef,
+  revisionLabels,
+  highlightedComment,
+  showLocation,
+  onOpenComment,
+}: Pick<RevisionDocumentReviewProps, 'revisionLabels' | 'onOpenComment'> & {
+  unmarked: DocumentCommentAnchor[]
+  orphans: DocumentCommentAnchor[]
+  orphanRegionRef: React.RefObject<HTMLElement | null>
+  highlightedComment: string | null
+  showLocation: (location: DocumentLocation) => void
+}) {
+  return (
+    <>
       {unmarked.length > 0 ? (
         <section
           aria-label={t('projects.documentReview.unmarked.title')}
@@ -1044,6 +1228,6 @@ export function RevisionDocumentReview({
           </div>
         </section>
       ) : null}
-    </section>
+    </>
   )
 }

@@ -81,7 +81,7 @@ export function PickupCard({
   })
 
   const save = useMutation({
-    mutationFn: (config: Record<string, unknown>) =>
+    mutationFn: (config: ConnectorWire['config']) =>
       updateConnector(dataClient, {
         workspaceId,
         connectorId: connector.id,

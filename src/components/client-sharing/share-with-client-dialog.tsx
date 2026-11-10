@@ -19,27 +19,14 @@ import {
   shareRecordWithClient,
   unshareRecordWithClient,
 } from '#/lib/client-sharing'
+import type { RecordSharing } from '#/lib/client-sharing'
 import { createDataClient } from '#/lib/data-client'
 import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
 
 const dataClient = createDataClient()
 
-/**
- * Share one record with the client its project belongs to, from the record
- * itself. The database decides what may be shared (an approved record in a
- * project with a client); this dialog says where the record stands and what
- * is missing, in the words of the person looking at it.
- */
-export function ShareWithClientDialog({
-  open,
-  onOpenChange,
-  recordId,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  recordId: string
-}) {
+function useRecordSharing(open: boolean, recordId: string) {
   const queryClient = useQueryClient()
 
   const sharing = useQuery({
@@ -81,7 +68,7 @@ export function ShareWithClientDialog({
       )
       refresh()
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast.error(
         error instanceof Error && error.message
           ? error.message
@@ -96,6 +83,85 @@ export function ShareWithClientDialog({
     info.clientId !== null &&
     approved &&
     !info.autoShare
+
+  const canUnshare = shared && info.canManage && !info.autoShare
+
+  return {
+    sharing,
+    info,
+    canShare,
+    canUnshare,
+    change,
+  }
+}
+
+function SharingDetails({ info }: { info: RecordSharing }) {
+  const clientName = info.clientName ?? ''
+  const shared = info.sharedAt != null
+  const approved = info.recordStatus === 'approved'
+
+  const state = info.autoShare
+    ? t('projects.clientSharing.autoState')
+    : shared
+      ? t('projects.clientSharing.sharedState', {
+          date: formatDate(info.sharedAt ?? ''),
+          name: info.sharedByName ?? '',
+        })
+      : t('projects.clientSharing.notShared')
+
+  return (
+    <>
+      {!info.clientId ? (
+        <Notice title={t('projects.clientSharing.noClient')}>
+          {t('projects.clientSharing.noClientBody')}
+        </Notice>
+      ) : null}
+      {info.clientId ? (
+        <DescriptionList
+          labelWidth={90}
+          items={[
+            [
+              t('projects.clientSharing.client'),
+              `${info.clientCode ?? ''} ${clientName}`.trim(),
+            ],
+            [t('projects.clientSharing.state'), state],
+          ]}
+        />
+      ) : null}
+      {info.clientId && !approved ? (
+        <Notice tone="warn" title={t('projects.clientSharing.notApproved')}>
+          {t('projects.clientSharing.notApprovedBody')}
+        </Notice>
+      ) : null}
+      {info.clientId && info.autoShare ? (
+        <Notice>{t('projects.clientSharing.auto')}</Notice>
+      ) : null}
+      {!info.canManage ? (
+        <Notice>{t('projects.clientSharing.noPermission')}</Notice>
+      ) : null}
+    </>
+  )
+}
+
+/**
+ * Share one record with the client its project belongs to, from the record
+ * itself. The database decides what may be shared (an approved record in a
+ * project with a client); this dialog says where the record stands and what
+ * is missing, in the words of the person looking at it.
+ */
+export function ShareWithClientDialog({
+  open,
+  onOpenChange,
+  recordId,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  recordId: string
+}) {
+  const { sharing, info, canShare, canUnshare, change } = useRecordSharing(
+    open,
+    recordId,
+  )
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -116,50 +182,13 @@ export function ShareWithClientDialog({
               }
             />
           ) : null}
-          {info && !info.clientId ? (
-            <Notice title={t('projects.clientSharing.noClient')}>
-              {t('projects.clientSharing.noClientBody')}
-            </Notice>
-          ) : null}
-          {info?.clientId ? (
-            <DescriptionList
-              labelWidth={90}
-              items={[
-                [
-                  t('projects.clientSharing.client'),
-                  `${info.clientCode ?? ''} ${clientName}`.trim(),
-                ],
-                [
-                  t('projects.clientSharing.state'),
-                  info.autoShare
-                    ? t('projects.clientSharing.autoState')
-                    : shared
-                      ? t('projects.clientSharing.sharedState', {
-                          date: formatDate(info.sharedAt ?? ''),
-                          name: info.sharedByName ?? '',
-                        })
-                      : t('projects.clientSharing.notShared'),
-                ],
-              ]}
-            />
-          ) : null}
-          {info?.clientId && !approved ? (
-            <Notice tone="warn" title={t('projects.clientSharing.notApproved')}>
-              {t('projects.clientSharing.notApprovedBody')}
-            </Notice>
-          ) : null}
-          {info?.clientId && info.autoShare ? (
-            <Notice>{t('projects.clientSharing.auto')}</Notice>
-          ) : null}
-          {info && !info.canManage ? (
-            <Notice>{t('projects.clientSharing.noPermission')}</Notice>
-          ) : null}
+          {info ? <SharingDetails info={info} /> : null}
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button type="button" />}>
             {t('projects.clientSharing.close')}
           </DialogClose>
-          {shared && info.canManage && !info.autoShare ? (
+          {canUnshare ? (
             <Button
               disabled={change.isPending}
               onClick={() => change.mutate(false)}

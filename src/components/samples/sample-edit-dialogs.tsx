@@ -15,7 +15,7 @@ import {
 import { Field, Input } from '#/components/ui/input'
 import { PlaceField } from '#/components/samples/place-field'
 import type { SampleRecord } from '#/lib/samples'
-import { parseQuantityInput } from '#/components/samples/withdraw-dialog'
+import { parseQuantityInput } from '#/components/samples/quantity-input'
 import { PickerMultiSelect } from '#/components/record-picker/entity-picker'
 import type { PickerOption } from '#/components/record-picker/entity-picker'
 import {
@@ -59,7 +59,7 @@ export function EditDetailsDialog({
 }) {
   const [title, setTitle] = useState(sample.title)
   const [notes, setNotes] = useState(sample.notes ?? '')
-  const [tags, setTags] = useState(sample.tags.join(', '))
+  const [tags, setTags] = useState(() => sample.tags.join(', '))
   const [reason, setReason] = useState('')
   const valid = title.trim() !== '' && reason.trim() !== ''
 
@@ -142,13 +142,13 @@ export function EditHoldDialog({
   onSubmit: (value: EditHoldValue) => void
 }) {
   const [condition, setCondition] = useState(sample.holdCondition ?? '')
-  const [started, setStarted] = useState(dayInput(sample.holdStartedAt))
+  const [started, setStarted] = useState(() => dayInput(sample.holdStartedAt))
 
   const [days, setDays] = useState(
     sample.holdDurationDays != null ? String(sample.holdDurationDays) : '',
   )
 
-  const [until, setUntil] = useState(dayInput(sample.holdUntil))
+  const [until, setUntil] = useState(() => dayInput(sample.holdUntil))
 
   const [allowed, setAllowed] = useState<string[]>(
     sample.allowedUseExperimentIds ?? [],

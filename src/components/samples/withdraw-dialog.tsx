@@ -1,5 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
@@ -16,13 +15,13 @@ import { DescriptionList } from '#/components/ui/layout'
 import { ExperimentPicker } from '#/components/record-picker/experiment-picker'
 import { Select } from '#/components/ui/select'
 import { cn } from '#/lib/utils'
-import { DataClientError } from '#/lib/data-client'
-import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
-import type { RecordWire } from '#/lib/notebook-data'
-import { fetchSampleQuantityBalances, sampleQueryKeys } from '#/lib/samples'
 import type { SampleQuantityBalances } from '#/lib/samples'
 import { t } from '#/copy'
+import { formatQuantityAmount, parseQuantityInput } from './quantity-input'
+import { useQuantityEntry, useSampleBalances } from './quantity-hooks'
+import type { ExperimentOption } from './quantity-hooks'
+import { QuantityFields } from './quantity-fields'
 
 /**
  * LAB-01 step 3 — the withdraw dialog and its numeric keypad (DialogsRecord,
@@ -36,164 +35,6 @@ import { t } from '#/copy'
  * dialog and again on the server. Nothing is written until the server RPC
  * succeeds.
  */
-
-// ---------------------------------------------------------------------------
-// Shared numeric helpers.
-// ---------------------------------------------------------------------------
-
-/** Format a quantity the way the design tables do (en-GB, up to 2 decimals). */
-export function formatQuantityAmount(value: number): string {
-  return value.toLocaleString('en-GB', { maximumFractionDigits: 2 })
-}
-
-/** Parse a quantity field that may carry thousands separators. Null when empty. */
-export function parseQuantityInput(raw: string): number | null {
-  const cleaned = raw.replace(/,/g, '').trim()
-
-  if (cleaned === '') return null
-  const n = Number(cleaned)
-
-  return Number.isFinite(n) ? n : null
-}
-
-export interface QuantityValidation {
-  /** Inline message when the amount is above the free balance. */
-  error: string | null
-  /** Free balance minus the entered amount; null until a positive amount is typed. */
-  remainingAfter: number | null
-  valid: boolean
-}
-
-/**
- * Client-side gate shared by withdraw and reserve: the amount must be positive
- * and must not exceed the free balance. The server remains authoritative.
- */
-export function validateQuantity(
-  rawQuantity: string,
-  free: number,
-  unit: string | null,
-  freeWord: 'left' | 'free' = 'left',
-): QuantityValidation {
-  const quantity = parseQuantityInput(rawQuantity)
-
-  if (quantity == null || quantity <= 0) {
-    return { error: null, remainingAfter: null, valid: false }
-  }
-
-  const unitLabel = unit ? ` ${unit}` : ''
-
-  if (quantity > free) {
-    return {
-      error: t(
-        freeWord === 'free'
-          ? 'library.samples.withdrawDialog.onlyFreeEnterOrLess'
-          : 'library.samples.withdrawDialog.onlyLeftEnterOrLess',
-        { free: formatQuantityAmount(free), unitLabel },
-      ),
-      remainingAfter: free - quantity,
-      valid: false,
-    }
-  }
-
-  return { error: null, remainingAfter: free - quantity, valid: true }
-}
-
-/**
- * Map an RPC refusal to a short, actionable message. Over-withdrawal
- * (`SB006`) reports the amount the server computed from the free balance so
- * the user can correct the field; the amount is parsed from the canonical
- * error text ("available 2" / "have 2").
- */
-export function describeWithdrawError(
-  error: unknown,
-  unit: string | null,
-): string {
-  if (error instanceof DataClientError) {
-    if (error.code === 'SB006') {
-      const match =
-        /available ([\d.]+)/i.exec(error.message) ??
-        /have ([\d.]+)/i.exec(error.message)
-
-      const amount = match ? Number(match[1]) : null
-
-      if (amount != null && Number.isFinite(amount)) {
-        const label = unit ? ` ${unit}` : ''
-
-        return t('library.samples.withdrawDialog.onlyAvailableEnterOrLess', {
-          amount: formatQuantityAmount(amount),
-          label,
-        })
-      }
-
-      return t('library.samples.withdrawDialog.notEnoughFreeVolumeFor')
-    }
-
-    if (error.code === 'SB001') {
-      return t('library.samples.withdrawDialog.thisSampleWasEditedBy')
-    }
-
-    if (error.code === 'SB004') {
-      return t('library.samples.withdrawDialog.thisSampleCannotBeWithdrawn')
-    }
-
-    if (error.code === '42501') {
-      return t('library.samples.withdrawDialog.youDoNotHavePermission')
-    }
-
-    return error.message
-  }
-
-  if (error instanceof Error) return error.message
-
-  return t('library.samples.withdrawDialog.couldNotCompleteTheSample')
-}
-
-// ---------------------------------------------------------------------------
-// Data hooks (the dialogs own their data so the layout stays simple).
-// ---------------------------------------------------------------------------
-
-export interface ExperimentOption {
-  id: string
-  identifier: string
-  title: string
-}
-
-/** Active experiments in the workspace, newest first, for a purpose picker. */
-export function useExperimentOptions(
-  client: DataClient = notebookDataClient,
-  enabled = true,
-) {
-  return useQuery({
-    queryKey: ['ui-port', 'sample-withdraw', 'experiments'],
-    enabled,
-    staleTime: 60_000,
-    queryFn: async (): Promise<ExperimentOption[]> => {
-      const rows = await client.list<RecordWire>(
-        'records',
-        '?kind=eq.experiment&deleted_at=is.null&archived_at=is.null&order=updated_at.desc&limit=100&select=id,identifier,title',
-      )
-
-      return rows.map((row) => ({
-        id: row.id,
-        identifier: row.identifier,
-        title: row.title,
-      }))
-    },
-  })
-}
-
-/** Authoritative used / reserved / free balance for a sample. */
-export function useSampleBalances(
-  recordId: string,
-  client: DataClient = notebookDataClient,
-  enabled = true,
-) {
-  return useQuery({
-    queryKey: sampleQueryKeys.balances(recordId),
-    enabled,
-    queryFn: () => fetchSampleQuantityBalances(client, recordId),
-  })
-}
 
 // ---------------------------------------------------------------------------
 // Keypad.
@@ -256,42 +97,6 @@ export function QuantityKeypad({
 }
 
 // ---------------------------------------------------------------------------
-// Actions context: lets the Usage tab open the dialogs the layout owns.
-// ---------------------------------------------------------------------------
-
-export interface SampleActions {
-  openWithdraw: () => void
-  openReserve: () => void
-  /**
-   * Whether Withdraw is available in the sample's lifecycle state. The header
-   * and the Usage tab read the same answer, so the tab cannot offer a write the
-   * record header withholds (a held/quarantined/expired sample).
-   */
-  canWithdraw: boolean
-}
-
-const SampleActionsContext = createContext<SampleActions | null>(null)
-
-export function SampleActionsProvider({
-  actions,
-  children,
-}: {
-  actions: SampleActions
-  children: React.ReactNode
-}) {
-  return (
-    <SampleActionsContext.Provider value={actions}>
-      {children}
-    </SampleActionsContext.Provider>
-  )
-}
-
-/** The layout's dialog actions, or null when rendered outside the sample frame. */
-export function useSampleActions(): SampleActions | null {
-  return useContext(SampleActionsContext)
-}
-
-// ---------------------------------------------------------------------------
 // Withdraw dialog.
 // ---------------------------------------------------------------------------
 
@@ -322,8 +127,6 @@ export interface WithdrawDialogProps {
   balances?: SampleQuantityBalances | null
 }
 
-const COMMON_UNITS = ['mL', 'µL', 'L', 'mg', 'g', 'µg', 'units']
-
 export function WithdrawDialog({
   open,
   onOpenChange,
@@ -342,48 +145,16 @@ export function WithdrawDialog({
   const balances =
     balancesProp !== undefined ? balancesProp : (queriedBalances.data ?? null)
 
-  // The unit the server will measure the withdrawal against is the balance's:
-  // a sample with no stored unit must not be able to submit a different one.
-  const balanceUnit = balances?.unit ?? null
-  const unitLocked = Boolean(sample.quantityUnit ?? balanceUnit)
-  const [quantity, setQuantity] = useState('')
-  const [unit, setUnit] = useState(sample.quantityUnit ?? balanceUnit ?? 'mL')
+  const entry = useQuantityEntry(sample, balances)
+
+  const { quantity, unit, free, validation, unitSuffix, onKey } = entry
+
   const [purpose, setPurpose] = useState('')
   const [into, setInto] = useState('keep')
   const [containerTitle, setContainerTitle] = useState('')
   const [notes, setNotes] = useState('')
 
-  // The balance arrives after the first paint; adopt its unit when the sample
-  // does not carry one of its own.
-  useEffect(() => {
-    if (sample.quantityUnit) return
-
-    if (balanceUnit) setUnit(balanceUnit)
-  }, [sample.quantityUnit, balanceUnit])
-
-  const free = balances?.free ?? sample.quantity ?? 0
-  const unitLabel = balances?.unit ?? sample.quantityUnit ?? null
-  const validation = validateQuantity(quantity, free, unitLabel)
-  const unitSuffix = unitLabel ? ` ${unitLabel}` : ''
   const blocked = busy || !validation.valid || purpose === ''
-
-  const unitOptions = useMemo(() => {
-    if (sample.quantityUnit) return [sample.quantityUnit]
-
-    if (balanceUnit) return [balanceUnit]
-
-    return COMMON_UNITS
-  }, [sample.quantityUnit, balanceUnit])
-
-  const onKey = (key: string) => {
-    setQuantity((current) => {
-      if (key === 'backspace') return current.slice(0, -1)
-
-      if (key === '.' && current.includes('.')) return current
-
-      return current + key
-    })
-  }
 
   const submit = () => {
     const value = parseQuantityInput(quantity)
@@ -414,45 +185,7 @@ export function WithdrawDialog({
           })}
         />
         <DialogBody>
-          <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-3">
-            <Field
-              label={t('library.samples.withdrawDialog.volume')}
-              required
-              error={validation.error ?? undefined}
-              hint={
-                validation.valid && validation.remainingAfter != null
-                  ? t('library.samples.withdrawDialog.willBeLeft', {
-                      remainingAfter: formatQuantityAmount(
-                        validation.remainingAfter,
-                      ),
-                      unitSuffix,
-                    })
-                  : undefined
-              }
-            >
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={quantity}
-                onChange={(event) => setQuantity(event.target.value)}
-                aria-invalid={validation.error ? true : undefined}
-                autoFocus
-              />
-            </Field>
-            <Field label={t('library.samples.withdrawDialog.unit')} required>
-              <Select
-                value={unit}
-                onChange={(event) => setUnit(event.target.value)}
-                disabled={unitLocked}
-              >
-                {unitOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
+          <QuantityFields entry={entry} />
 
           <QuantityKeypad onKey={onKey} className="md:hidden" />
 
@@ -590,47 +323,15 @@ export function ReserveDialog({
   const balances =
     balancesProp !== undefined ? balancesProp : (queriedBalances.data ?? null)
 
-  // The unit the server will measure the reservation against is the balance's:
-  // a sample with no stored unit must not be able to submit a different one.
-  const balanceUnit = balances?.unit ?? null
-  const unitLocked = Boolean(sample.quantityUnit ?? balanceUnit)
-  const [quantity, setQuantity] = useState('')
-  const [unit, setUnit] = useState(sample.quantityUnit ?? balanceUnit ?? 'mL')
+  const entry = useQuantityEntry(sample, balances, 'free')
+
+  const { quantity, unit, free, validation, unitSuffix, onKey } = entry
+
   const [experiment, setExperiment] = useState('')
   const [planned, setPlanned] = useState(true)
   const [notes, setNotes] = useState('')
 
-  // The balance arrives after the first paint; adopt its unit when the sample
-  // does not carry one of its own.
-  useEffect(() => {
-    if (sample.quantityUnit) return
-
-    if (balanceUnit) setUnit(balanceUnit)
-  }, [sample.quantityUnit, balanceUnit])
-
-  const free = balances?.free ?? sample.quantity ?? 0
-  const unitLabel = balances?.unit ?? sample.quantityUnit ?? null
-  const validation = validateQuantity(quantity, free, unitLabel, 'free')
-  const unitSuffix = unitLabel ? ` ${unitLabel}` : ''
   const blocked = busy || !validation.valid || experiment === ''
-
-  const unitOptions = useMemo(() => {
-    if (sample.quantityUnit) return [sample.quantityUnit]
-
-    if (balanceUnit) return [balanceUnit]
-
-    return COMMON_UNITS
-  }, [sample.quantityUnit, balanceUnit])
-
-  const onKey = (key: string) => {
-    setQuantity((current) => {
-      if (key === 'backspace') return current.slice(0, -1)
-
-      if (key === '.' && current.includes('.')) return current
-
-      return current + key
-    })
-  }
 
   const submit = () => {
     const value = parseQuantityInput(quantity)
@@ -658,45 +359,7 @@ export function ReserveDialog({
           })}
         />
         <DialogBody>
-          <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-3">
-            <Field
-              label={t('library.samples.withdrawDialog.volume')}
-              required
-              error={validation.error ?? undefined}
-              hint={
-                validation.valid && validation.remainingAfter != null
-                  ? t('library.samples.withdrawDialog.willStayFree', {
-                      remainingAfter: formatQuantityAmount(
-                        validation.remainingAfter,
-                      ),
-                      unitSuffix,
-                    })
-                  : undefined
-              }
-            >
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={quantity}
-                onChange={(event) => setQuantity(event.target.value)}
-                aria-invalid={validation.error ? true : undefined}
-                autoFocus
-              />
-            </Field>
-            <Field label={t('library.samples.withdrawDialog.unit')} required>
-              <Select
-                value={unit}
-                onChange={(event) => setUnit(event.target.value)}
-                disabled={unitLocked}
-              >
-                {unitOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
+          <QuantityFields entry={entry} reserve />
 
           <QuantityKeypad onKey={onKey} className="md:hidden" />
 

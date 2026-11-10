@@ -1,6 +1,12 @@
 import { t } from '#/copy'
+import { z } from 'zod'
 import { CodeBlock } from '#/components/ui/code-block'
 import { Muted } from '#/components/ui/layout'
+import {
+  pipelineJsonObjectSchema,
+  pipelineJsonValueSchema,
+} from '#/lib/pipelines/types'
+import type { PythonEnvironment } from '#/lib/pipelines/python'
 import type { PipelineRunLogWire } from '#/lib/pipelines/types'
 
 /**
@@ -13,43 +19,57 @@ export interface PythonLogDetail {
   step?: string
   lines: string[]
   line?: number
-  python?: string
-  packages: Array<[string, string]>
+  python?: PythonEnvironment['python']
+  packages: Array<[string, PythonEnvironment['packages'][string]]>
 }
 
-export function pythonLogDetail(
-  detail: Record<string, unknown>,
+const logDetailSchema = z.object({
+  logs: z
+    .array(pipelineJsonValueSchema)
+    .catch([])
+    .transform((lines) =>
+      lines.flatMap((line) => {
+        const parsed = z.string().safeParse(line)
+
+        return parsed.success ? [parsed.data] : []
+      }),
+    ),
+  environment: z
+    .object({
+      python: z.string().optional().catch(undefined),
+      packages: z
+        .union([pipelineJsonObjectSchema, z.array(pipelineJsonValueSchema)])
+        .catch({})
+        .transform((packages) =>
+          Object.entries(packages).flatMap(
+            ([name, version]): PythonLogDetail['packages'] => {
+              const parsed = z.string().safeParse(version)
+
+              return parsed.success ? [[name, parsed.data]] : []
+            },
+          ),
+        ),
+    })
+    .optional()
+    .catch(undefined),
+  line: z.number().refine(Number.isInteger).optional().catch(undefined),
+  step: z.string().optional().catch(undefined),
+})
+
+function pythonLogDetail(
+  detail: PipelineRunLogWire['detail'],
 ): PythonLogDetail | null {
-  const lines = Array.isArray(detail.logs)
-    ? detail.logs.filter((line): line is string => typeof line === 'string')
-    : []
-
-  const environment =
-    detail.environment !== null && typeof detail.environment === 'object'
-      ? (detail.environment as Record<string, unknown>)
-      : null
-
-  const python =
-    typeof environment?.python === 'string' ? environment.python : undefined
-
-  const packages =
-    environment?.packages !== null && typeof environment?.packages === 'object'
-      ? Object.entries(environment.packages as Record<string, unknown>).flatMap(
-          ([name, version]): Array<[string, string]> =>
-            typeof version === 'string' ? [[name, version]] : [],
-        )
-      : []
-
-  const line =
-    typeof detail.line === 'number' && Number.isInteger(detail.line)
-      ? detail.line
-      : undefined
+  const parsed = logDetailSchema.parse(detail)
+  const lines = parsed.logs
+  const python = parsed.environment?.python
+  const packages = parsed.environment?.packages ?? []
+  const line = parsed.line
 
   if (!lines.length && !python && !packages.length && line === undefined)
     return null
 
   return {
-    step: typeof detail.step === 'string' ? detail.step : undefined,
+    step: parsed.step,
     lines,
     line,
     python,

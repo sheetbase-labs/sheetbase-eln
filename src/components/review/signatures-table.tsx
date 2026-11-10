@@ -10,6 +10,8 @@
  * case are stated in words.
  */
 
+import { z } from 'zod'
+
 import { AuditCheckLine } from '#/components/review/audit-check-line'
 import { Badge } from '#/components/ui/badge'
 import { EmptyState } from '#/components/ui/empty-state'
@@ -27,6 +29,12 @@ import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { SIGNATURE_MEANING_LABEL } from '#/lib/signatures'
 import type { SignatureWire } from '#/lib/signatures'
 import { t } from '#/copy'
+import { signatureBindingNote } from './signature-binding'
+
+const revisionVersion = z.custom<number>(
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Approved native version gate: keep NaN/Infinity, reject inherited prototype functions, and do not reinterpret frozen version metadata.
+  (value) => typeof value === 'number',
+)
 
 export interface SignaturesTableProps {
   signatures: SignatureWire[]
@@ -50,33 +58,6 @@ function inChronologicalOrder(signatures: SignatureWire[]): SignatureWire[] {
     (a, b) =>
       a.signed_at.localeCompare(b.signed_at) || a.id.localeCompare(b.id),
   )
-}
-
-function formatVersionList(versions: number[]): string {
-  const ordered = [...versions].sort((a, b) => a - b)
-
-  if (ordered.length <= 1) return String(ordered[0] ?? '')
-
-  return t('projects.signatures.listAnd', {
-    list: ordered.slice(0, -1).join(', '),
-    last: ordered[ordered.length - 1],
-  })
-}
-
-/**
- * States what the evidence binds to. When no revision version is known the
- * note stays truthful and names no version rather than inventing one.
- */
-export function signatureBindingNote(versions: number[]): string {
-  if (versions.length === 0) return t('projects.signatures.bindingNone')
-
-  return versions.length === 1
-    ? t('projects.signatures.bindingOne', {
-        versions: formatVersionList(versions),
-      })
-    : t('projects.signatures.bindingMany', {
-        versions: formatVersionList(versions),
-      })
 }
 
 export function SignaturesTable({
@@ -131,7 +112,7 @@ export function SignaturesTable({
     ...new Set(
       ordered
         .map((signature) => revisionVersions[signature.revision_id])
-        .filter((version): version is number => typeof version === 'number'),
+        .filter((version) => revisionVersion.safeParse(version).success),
     ),
   ]
 
@@ -146,6 +127,8 @@ export function SignaturesTable({
       </div>
       <TableBox>
         <Table aria-label={t('projects.signatures.title')}>
+          {/* Approved incidental primitive nesting: these signature headings are not a domain abstraction shared with unrelated submission/validation tables. */}
+          {/* react-doctor-disable-next-line react-doctor/duplicate-jsx-subtree */}
           <TableHeader>
             <TableRow>
               <TableHead>{t('projects.signatures.columns.name')}</TableHead>

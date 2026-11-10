@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import type { ReadinessBlock } from './readiness'
 
 export interface KeyMetric {
@@ -15,9 +17,10 @@ export interface KeyConclusion {
   basis: string
 }
 
-function text(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : ''
-}
+const text = z
+  .string()
+  .catch('')
+  .transform((value) => value.trim())
 
 /**
  * The numbers and the conclusion the scientist wrote into the notebook, in
@@ -26,10 +29,7 @@ function text(value: unknown): string {
  */
 export function keyResultsFrom(
   blocks: readonly (ReadinessBlock & { order?: number })[],
-): {
-  metrics: KeyMetric[]
-  conclusions: KeyConclusion[]
-} {
+) {
   const ordered = [...blocks].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   const metrics: KeyMetric[] = []
   const conclusions: KeyConclusion[] = []
@@ -38,25 +38,25 @@ export function keyResultsFrom(
     const p = block.payload
 
     if (block.type === 'metric') {
-      const value = text(p.value)
+      const value = text.parse(p.value)
 
       if (!value) continue
       metrics.push({
         id: block.id,
-        label: text(p.label),
+        label: text.parse(p.label),
         value,
-        unit: text(p.unit),
-        provenance: text(p.provenance),
+        unit: text.parse(p.unit),
+        provenance: text.parse(p.provenance),
       })
     } else if (block.type === 'conclusion') {
-      const body = text(p.text)
+      const body = text.parse(p.text)
 
       if (!body) continue
       conclusions.push({
         id: block.id,
-        verdict: text(p.verdict),
+        verdict: text.parse(p.verdict),
         text: body,
-        basis: text(p.basis),
+        basis: text.parse(p.basis),
       })
     }
   }

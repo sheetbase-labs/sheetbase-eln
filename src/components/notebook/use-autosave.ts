@@ -150,7 +150,7 @@ async function runSave<T>(
   }
 }
 
-export function useAutosave<T>({
+export function useAutosave<T extends object>({
   initialValue,
   validate,
   save,
@@ -164,20 +164,41 @@ export function useAutosave<T>({
   const [status, setStatus] = React.useState<AutosaveStatus>('clean')
   const [error, setError] = React.useState<string | null>(null)
   const [serverValue, setServerValue] = React.useState<T | null>(null)
+  const initialSerialized = JSON.stringify(initialValue)
+
+  const [renderedCanonical, setRenderedCanonical] =
+    React.useState(initialSerialized)
+
+  // A new canonical value must not commit an obsolete clean draft. Dirty work
+  // stays local; a conflict only replaces the alternative offered to the user.
+  // Async refs are updated below, after this render actually commits.
+  if (renderedCanonical !== initialSerialized) {
+    setRenderedCanonical(initialSerialized)
+
+    if (status === 'clean') {
+      setServerValue(null)
+      setError(null)
+      setDraftState(initialValue)
+    } else if (status === 'conflict') {
+      setServerValue(initialValue)
+    }
+  }
 
   // Refs hold mutable values the async save loop must read at resolve
   // time without re-subscribing on every render.
   const revisionRef = React.useRef(0)
   const draftRef = React.useRef(initialValue)
   const initialRef = React.useRef(initialValue)
-  const initialSerializedRef = React.useRef(JSON.stringify(initialValue))
+  const initialSerializedRef = React.useRef(initialSerialized)
   const inFlightRef = React.useRef(false)
   const pendingAfterFlightRef = React.useRef(false)
   const retryCountRef = React.useRef(0)
   const retryTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
+
   const debounceTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(
     null,
   )
+
   const offlineRef = React.useRef<boolean>(offline)
   const touchedRef = React.useRef(touched)
   const saveRef = React.useRef(save)
@@ -185,7 +206,7 @@ export function useAutosave<T>({
   const statusRef = React.useRef<AutosaveStatus>('clean')
   const mountedRef = React.useRef(true)
 
-  React.useEffect(() => {
+  React.useLayoutEffect(() => {
     saveRef.current = save
     validateRef.current = validate
     offlineRef.current = offline
@@ -195,72 +216,79 @@ export function useAutosave<T>({
 
   React.useEffect(() => {
     mountedRef.current = true
+
     return () => {
       mountedRef.current = false
+
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
     }
   }, [])
 
-  function setStatusSafe(next: AutosaveStatus) {
+  const setStatusSafe = React.useCallback((next: AutosaveStatus) => {
     statusRef.current = next
+
+    // The connectivity effect resumes offline→dirty and schedules the held save;
+    // it is a state-machine transition, not derivation of the canonical draft.
+    // react-doctor-disable-next-line react-doctor/no-adjust-state-on-prop-change
     if (mountedRef.current) setStatus(next)
-  }
+  }, [])
 
   function clearTimers() {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current)
       debounceTimerRef.current = null
     }
+
     if (retryTimerRef.current) {
       clearTimeout(retryTimerRef.current)
       retryTimerRef.current = null
     }
   }
 
-  // Reset the draft to a new canonical value only while clean. Dirty,
-  // saving, retrying, offline and failed drafts are preserved; a
-  // conflict updates the offered server value but keeps the draft.
-  const initialSerialized = JSON.stringify(initialValue)
-  React.useEffect(() => {
+  // Commit the server baseline for the async save loop. An abandoned render
+  // must not replace its conflict fallback or reset its revision counters.
+  React.useLayoutEffect(() => {
     if (initialSerializedRef.current === initialSerialized) return
     initialSerializedRef.current = initialSerialized
     initialRef.current = initialValue
     const current = statusRef.current
+
     if (current === 'clean') {
       draftRef.current = initialValue
       revisionRef.current = 0
       retryCountRef.current = 0
-      setServerValue(null)
-      setError(null)
-      setDraftState(initialValue)
-    } else if (current === 'conflict') {
-      // The server moved again while we were showing a conflict; update
-      // the offered alternative but never touch the user's draft.
-      setServerValue(initialValue)
     }
   }, [initialSerialized, initialValue])
 
   function setDraft(next: React.SetStateAction<T>) {
+    // Drafts are serialized block objects, never callable values. The caller is
+    // React's SetStateAction contract, not an unparsed data boundary.
     const resolved =
-      typeof next === 'function'
-        ? (next as (prev: T) => T)(draftRef.current)
-        : next
+      // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Preserve React callable dispatch, including functions from other realms.
+      typeof next === 'function' ? next(draftRef.current) : next
+
     draftRef.current = resolved
     revisionRef.current += 1
+
     // Editing clears a permanent validation failure if the new draft
     // validates; a conflict is sticky until explicitly resolved.
     if (statusRef.current === 'failed') {
       const errs = validateRef.current(resolved)
+
       if (errs.length === 0) {
         setError(null)
       }
     }
+
     if (statusRef.current !== 'conflict') {
       setStatusSafe('dirty')
     }
+
     // (Re)start the debounce timer.
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+
     if (offlineRef.current) {
       // Offline: hold the save; the offline effect below flushes on
       // reconnect.
@@ -271,118 +299,145 @@ export function useAutosave<T>({
         void startSave(resolved, revisionRef.current)
       }, debounceMs)
     }
+
     setDraftState(resolved)
   }
 
-  async function startSave(value: T, savedRevision: number) {
-    // Validate first; invalid drafts never reach the server.
-    const errs = validateRef.current(value)
-    if (errs.length > 0) {
-      if (touchedRef.current) {
-        setError(errs.join('; '))
-        setStatusSafe('failed')
-      } else {
-        // Not touched yet (e.g. debounce fired without blur); stay dirty
-        // so the user can keep typing without a scary failure banner.
-        setStatusSafe('dirty')
-      }
-      return
-    }
-    if (offlineRef.current) {
-      setStatusSafe('offline')
-      return
-    }
-    if (inFlightRef.current) {
-      // A save is already running; queue a follow-up for the latest
-      // draft once it settles.
-      pendingAfterFlightRef.current = true
-      return
-    }
-    inFlightRef.current = true
-    setStatusSafe('saving')
-    const result = await runSave(saveRef.current, value)
-    if (!mountedRef.current) return
-    inFlightRef.current = false
+  const startSave = React.useCallback(
+    async (value: T, savedRevision: number): Promise<void> => {
+      // Validate first; invalid drafts never reach the server.
+      const errs = validateRef.current(value)
 
-    if (result.ok) {
-      retryCountRef.current = 0
-      setError(null)
-      setServerValue(null)
-      // Only mark clean if no newer draft exists; otherwise immediately
-      // schedule another save for the latest draft.
-      if (revisionRef.current === savedRevision) {
-        setStatusSafe('clean')
-        pendingAfterFlightRef.current = false
-      } else {
-        pendingAfterFlightRef.current = false
-        setStatusSafe('dirty')
-        if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
-        // The ref is mutated on every render (line 190); the rule's
-        // control-flow analysis cannot see that, so it falsely narrows
-        // the initial value to `false`.
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        if (offlineRef.current) {
-          setStatusSafe('offline')
+      if (errs.length > 0) {
+        if (touchedRef.current) {
+          setError(errs.join('; '))
+          setStatusSafe('failed')
         } else {
-          debounceTimerRef.current = setTimeout(() => {
-            debounceTimerRef.current = null
-            void startSave(draftRef.current, revisionRef.current)
-          }, 0)
+          // Not touched yet (e.g. debounce fired without blur); stay dirty
+          // so the user can keep typing without a scary failure banner.
+          setStatusSafe('dirty')
         }
-      }
-      return
-    }
 
-    // Failure branch.
-    if (result.kind === 'conflict') {
-      retryCountRef.current = 0
-      setError(result.message ?? 'The block changed elsewhere.')
-      setServerValue(result.serverValue ?? initialRef.current)
-      setStatusSafe('conflict')
-      return
-    }
-    if (result.kind === 'validation') {
-      retryCountRef.current = 0
-      setError(result.message ?? 'The block failed validation.')
-      setStatusSafe('failed')
-      return
-    }
-    // transient
-    retryCountRef.current += 1
-    if (retryCountRef.current > maxRetries) {
-      setError(result.message ?? 'Save failed after several attempts.')
-      setStatusSafe('failed')
-      return
-    }
-    setError(result.message ?? 'Save failed. Retrying…')
-    setStatusSafe('retrying')
-    const backoff = initialBackoffMs * 2 ** (retryCountRef.current - 1)
-    retryTimerRef.current = setTimeout(() => {
-      retryTimerRef.current = null
-      // Re-save the latest draft (not the stale value) so retries
-      // capture continued typing.
-      void startSave(draftRef.current, revisionRef.current)
-    }, backoff)
-  }
+        return
+      }
+
+      if (offlineRef.current) {
+        setStatusSafe('offline')
+
+        return
+      }
+
+      if (inFlightRef.current) {
+        // A save is already running; queue a follow-up for the latest
+        // draft once it settles.
+        pendingAfterFlightRef.current = true
+
+        return
+      }
+
+      inFlightRef.current = true
+      setStatusSafe('saving')
+      const result = await runSave(saveRef.current, value)
+
+      if (!mountedRef.current) return
+      inFlightRef.current = false
+
+      if (result.ok) {
+        retryCountRef.current = 0
+        setError(null)
+        setServerValue(null)
+
+        // Only mark clean if no newer draft exists; otherwise immediately
+        // schedule another save for the latest draft.
+        if (revisionRef.current === savedRevision) {
+          setStatusSafe('clean')
+          pendingAfterFlightRef.current = false
+        } else {
+          pendingAfterFlightRef.current = false
+          setStatusSafe('dirty')
+
+          if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+
+          // The ref is mutated on every render (line 190); the rule's
+          // control-flow analysis cannot see that, so it falsely narrows
+          // the initial value to `false`.
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+          if (offlineRef.current) {
+            setStatusSafe('offline')
+          } else {
+            debounceTimerRef.current = setTimeout(() => {
+              debounceTimerRef.current = null
+              void startSave(draftRef.current, revisionRef.current)
+            }, 0)
+          }
+        }
+
+        return
+      }
+
+      // Failure branch.
+      if (result.kind === 'conflict') {
+        retryCountRef.current = 0
+        setError(result.message ?? 'The block changed elsewhere.')
+        setServerValue(result.serverValue ?? initialRef.current)
+        setStatusSafe('conflict')
+
+        return
+      }
+
+      if (result.kind === 'validation') {
+        retryCountRef.current = 0
+        setError(result.message ?? 'The block failed validation.')
+        setStatusSafe('failed')
+
+        return
+      }
+
+      // transient
+      retryCountRef.current += 1
+
+      if (retryCountRef.current > maxRetries) {
+        setError(result.message ?? 'Save failed after several attempts.')
+        setStatusSafe('failed')
+
+        return
+      }
+
+      setError(result.message ?? 'Save failed. Retrying…')
+      setStatusSafe('retrying')
+      const backoff = initialBackoffMs * 2 ** (retryCountRef.current - 1)
+      retryTimerRef.current = setTimeout(() => {
+        retryTimerRef.current = null
+        // Re-save the latest draft (not the stale value) so retries
+        // capture continued typing.
+        void startSave(draftRef.current, revisionRef.current)
+      }, backoff)
+    },
+    [initialBackoffMs, maxRetries, setStatusSafe],
+  )
 
   function flush() {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current)
       debounceTimerRef.current = null
     }
+
     // A pending retry timer is superseded by an explicit flush.
     if (retryTimerRef.current) {
       clearTimeout(retryTimerRef.current)
       retryTimerRef.current = null
     }
+
     if (statusRef.current === 'conflict') {
       // Don't auto-flush through a conflict; the user must choose.
       return
     }
+
     if (statusRef.current === 'clean') {
       // Nothing to flush.
       return
     }
+
     void startSave(draftRef.current, revisionRef.current)
   }
 
@@ -413,13 +468,14 @@ export function useAutosave<T>({
   React.useEffect(() => {
     if (!offline && statusRef.current === 'offline') {
       setStatusSafe('dirty')
+
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
       debounceTimerRef.current = setTimeout(() => {
         debounceTimerRef.current = null
         void startSave(draftRef.current, revisionRef.current)
       }, debounceMs)
     }
-  }, [offline, debounceMs])
+  }, [offline, debounceMs, setStatusSafe, startSave])
 
   const validationErrors = validateRef.current(draft)
 

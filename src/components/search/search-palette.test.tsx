@@ -10,6 +10,7 @@ import {
 import userEvent from '@testing-library/user-event'
 import {
   afterEach,
+  afterAll,
   beforeAll,
   beforeEach,
   describe,
@@ -18,11 +19,20 @@ import {
   vi,
 } from 'vitest'
 
-import { SearchPalette } from './search-palette'
+import {
+  createRootRoute,
+  createMemoryHistory,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
+import { z } from 'zod'
 import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
 import { createGlobalShortcuts } from '#/lib/global-shortcuts'
+import { Highlight } from './highlight'
 
-const mocks = vi.hoisted(() => {
+const bodySchema = z.record(z.string(), z.json())
+
+const mocks = (() => {
   // The palette's project scope comes from the projects list; the search RPC is
   // mocked per test.
   const projects = [
@@ -31,28 +41,84 @@ const mocks = vi.hoisted(() => {
   ]
 
   return {
-    rpc: vi.fn(async (_name: string, _args?: unknown): Promise<unknown> => []),
-    list: vi.fn(
-      async (resource: string, query?: string): Promise<unknown[]> => {
-        if (resource === 'projects')
-          return query?.includes('ilike')
-            ? projects.filter((p) =>
-                query.toLowerCase().includes(`*${p.title.toLowerCase()}*`),
-              )
-            : projects
-
-        return []
-      },
+    rpc: vi.fn(
+      async (
+        _name: string,
+        _args?: z.infer<typeof bodySchema>,
+      ): Promise<z.infer<ReturnType<typeof z.json>>> => [],
     ),
+    list: vi.fn(async (resource: string, query?: string) => {
+      if (resource === 'projects')
+        return query?.includes('ilike')
+          ? projects.filter((p) =>
+              query.toLowerCase().includes(`*${p.title.toLowerCase()}*`),
+            )
+          : projects
+
+      return []
+    }),
   }
+})()
+
+const unexpected: string[] = []
+
+vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = new URL(
+    input instanceof Request ? input.url : String(input),
+    'http://localhost',
+  )
+
+  const resource = url.pathname.replace('/api/db/', '')
+
+  if (
+    init?.method === 'GET' &&
+    [
+      'projects',
+      'record_model_field_definitions',
+      'record_field_definitions',
+      'record_model_versions',
+      'record_models',
+    ].includes(resource)
+  ) {
+    return Response.json(await mocks.list(resource, url.search))
+  }
+
+  if (
+    init?.method === 'POST' &&
+    [
+      'rpc/search',
+      'rpc/search_did_you_mean',
+      'rpc/workspace_members_list',
+    ].includes(resource)
+  ) {
+    try {
+      return Response.json(
+        await mocks.rpc(
+          resource.slice(4),
+          bodySchema.parse(await new Response(init.body).json()),
+        ),
+      )
+    } catch (error) {
+      return Response.json(
+        {
+          error: {
+            code: 'failed',
+            message: error instanceof Error ? error.message : 'failed',
+          },
+        },
+        { status: 503 },
+      )
+    }
+  }
+
+  unexpected.push(`${init?.method} ${url}`)
+  throw new Error(`Unexpected search palette HTTP request: ${url}`)
 })
 
-vi.mock('#/lib/notebook-data', () => ({
-  notebookDataClient: {
-    list: mocks.list,
-    rpc: mocks.rpc,
-  },
-}))
+const { SearchPalette } = await import('./search-palette')
+const { dropSharedReads } = await import('#/lib/data-client')
+
+afterAll(() => vi.unstubAllGlobals())
 
 // `mod` is ⌘ on macOS, Ctrl elsewhere; pin the platform so the ⌘K binding is
 // exercised deterministically.
@@ -65,6 +131,8 @@ beforeAll(() => {
 
 afterEach(() => {
   cleanup()
+  dropSharedReads()
+  expect(unexpected).toEqual([])
   document.body.innerHTML = ''
 })
 
@@ -76,25 +144,34 @@ function client() {
 function Harness({ onPalette }: { onPalette?: () => void }) {
   const [open, setOpen] = React.useState(false)
 
+  const [router] = React.useState(() =>
+    createRouter({
+      routeTree: createRootRoute(),
+      history: createMemoryHistory(),
+    }),
+  )
+
   return (
     <QueryClientProvider client={client()}>
-      <ShortcutProvider
-        definitions={createGlobalShortcuts({
-          openPalette: () => {
-            onPalette?.()
-            setOpen(true)
-          },
-          openHelp: vi.fn(),
-          toggleRail: vi.fn(),
-          navigate: vi.fn(),
-          destinations: [],
-        })}
-      >
-        <button type="button" onClick={() => setOpen(true)}>
-          Open search
-        </button>
-        <SearchPalette open={open} onOpenChange={setOpen} />
-      </ShortcutProvider>
+      <RouterContextProvider router={router}>
+        <ShortcutProvider
+          definitions={createGlobalShortcuts({
+            openPalette: () => {
+              onPalette?.()
+              setOpen(true)
+            },
+            openHelp: vi.fn(),
+            toggleRail: vi.fn(),
+            navigate: vi.fn(),
+            destinations: [],
+          })}
+        >
+          <button type="button" onClick={() => setOpen(true)}>
+            Open search
+          </button>
+          <SearchPalette open={open} onOpenChange={setOpen} />
+        </ShortcutProvider>
+      </RouterContextProvider>
     </QueryClientProvider>
   )
 }
@@ -300,6 +377,35 @@ const SHEET_ROW = {
 
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/
 
+describe('Highlight text', () => {
+  it('keeps repeated marked spans, literal markup and the original malformed-prefix handling', () => {
+    const view = render(
+      <Highlight text="Before [[plate]] and [[plate]] <b>literal</b>" />,
+    )
+
+    expect(view.container.textContent).toBe(
+      'Before plate and plate <b>literal</b>',
+    )
+    expect(
+      [...view.container.querySelectorAll('mark')].map(
+        (mark) => mark.textContent,
+      ),
+    ).toEqual(['plate', 'plate'])
+    expect(view.container.querySelector('b')).toBeNull()
+
+    view.rerender(<Highlight text="[[unfinished" />)
+    expect(view.container.querySelector('mark')?.textContent).toBe('unfinish')
+
+    view.rerender(<Highlight text="PLATE beside plate" q=" plate " />)
+    expect(view.container.textContent).toBe('PLATE beside plate')
+    expect(
+      [...view.container.querySelectorAll('mark')].map(
+        (mark) => mark.textContent,
+      ),
+    ).toEqual(['PLATE'])
+  })
+})
+
 describe('SearchPalette result labels and ranking (SRCH-02)', () => {
   beforeEach(() => {
     mocks.rpc.mockReset()
@@ -462,6 +568,41 @@ describe('SearchPalette failure, progress and scope (R5-SHELL-04)', () => {
     expect(await screen.findByText('EXP-0142')).toBeTruthy()
   })
 
+  it('does not replace the latest query with an older HTTP response', async () => {
+    let finish: (rows: Array<typeof RECORD_ROW>) => void = () => {
+      throw new Error('Response not initialized')
+    }
+
+    const pending = new Promise<Array<typeof RECORD_ROW>>((resolve) => {
+      finish = resolve
+    })
+
+    mocks.rpc.mockImplementation(async (name, args) => {
+      if (name !== 'search') return []
+
+      if (args?.p_query === 'oldunique') return pending
+
+      return [{ ...RECORD_ROW, title: 'Latest query hit' }]
+    })
+    const { user, input } = await openPalette()
+    await user.type(input, 'oldunique')
+    await waitFor(() =>
+      expect(mocks.rpc).toHaveBeenCalledWith(
+        'search',
+        expect.objectContaining({ p_query: 'oldunique' }),
+      ),
+    )
+    await user.clear(input)
+    await user.type(input, 'newunique')
+    expect(await screen.findByText('Latest query hit')).toBeTruthy()
+    await React.act(async () => {
+      finish([{ ...RECORD_ROW, title: 'Obsolete query hit' }])
+      await pending
+    })
+    expect(screen.getByText('Latest query hit')).toBeTruthy()
+    expect(screen.queryByText('Obsolete query hit')).toBeNull()
+  })
+
   it('names the project scope as the reason for no matches', async () => {
     mocks.rpc.mockImplementation(async (name: string) => {
       if (name === 'search') return [WORKSPACE_TEMPLATE_ROW]
@@ -517,7 +658,7 @@ describe('SearchPalette combobox wiring (QA3-palette-2)', () => {
     await screen.findByText('EXP-0142')
     const id = input.getAttribute('aria-controls')
     expect(id).toBeTruthy()
-    expect(document.getElementById(id as string)).toBeTruthy()
+    expect(id && document.getElementById(id)).toBeTruthy()
   })
 })
 

@@ -1,7 +1,8 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { RunLog, pythonLogDetail } from './run-log'
+import { RunLog } from './run-log'
+import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
 import type { PipelineRunLogWire } from '#/lib/pipelines/types'
 
 afterEach(cleanup)
@@ -24,25 +25,59 @@ function entry(
 
 describe('pythonLogDetail', () => {
   it('reads only the fields it expects', () => {
+    render(
+      <RunLog
+        logs={[
+          entry({
+            id: 'mixed',
+            detail: {
+              logs: ['a', 3, 'b'],
+              line: 4,
+              step: 'tidy',
+              environment: {
+                python: '3.12.8',
+                packages: { numpy: '2.2.6', bad: 1 },
+              },
+            },
+          }),
+        ]}
+      />,
+    )
+    expect(screen.getByText('Python 3.12.8 · numpy 2.2.6')).toBeTruthy()
+    expect(screen.getByText('Failed at line 4 of step tidy.')).toBeTruthy()
     expect(
-      pythonLogDetail({
-        logs: ['a', 3, 'b'],
-        line: 4,
-        step: 'tidy',
-        environment: { python: '3.12.8', packages: { numpy: '2.2.6', bad: 1 } },
-      }),
-    ).toEqual({
-      step: 'tidy',
-      lines: ['a', 'b'],
-      line: 4,
-      python: '3.12.8',
-      packages: [['numpy', '2.2.6']],
-    })
+      screen.getByRole('group', { name: 'Python output, tidy' }).textContent,
+    ).toBe('a\nb')
   })
 
   it('says nothing for an entry with no Python detail', () => {
-    expect(pythonLogDetail({ code: 'transform_failed' })).toBeNull()
-    expect(pythonLogDetail({ logs: 'nope', line: 1.5 })).toBeNull()
+    const { container } = render(
+      <RunLog
+        logs={[
+          entry({ id: 'ordinary', detail: { code: 'transform_failed' } }),
+          entry({ id: 'malformed', detail: { logs: 'nope', line: 1.5 } }),
+        ]}
+      />,
+    )
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    expect(container.querySelector('[data-slot="python-log"]')).toBeNull()
+  })
+
+  it('preserves own package keys when decoding JSON', () => {
+    const detail = pipelineJsonObjectSchema.parse(
+      JSON.parse(
+        '{"environment":{"python":"3.12.8","packages":{"__proto__":"1.0","numpy":"2.2.6"}},"logs":["kept"]}',
+      ),
+    )
+
+    render(<RunLog logs={[entry({ id: 'own-key', detail })]} />)
+    expect(
+      screen.getByText('Python 3.12.8 · __proto__ 1.0, numpy 2.2.6'),
+    ).toBeTruthy()
+    expect(
+      screen.getByRole('group', { name: 'Python output' }).textContent,
+    ).toBe('kept')
   })
 })
 

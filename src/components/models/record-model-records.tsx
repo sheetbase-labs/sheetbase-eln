@@ -59,13 +59,13 @@ export function RecordModelRecords({ modelKey }: { modelKey: string }) {
   return <RecordModelRecordList modelKey={modelKey} />
 }
 
-function RecordModelRecordList({ modelKey }: { modelKey: string }) {
+function useRecordList(modelKey: string) {
   const model = useWorkspaceRecordModel(modelKey)
   const fieldsQuery = useRecordModelFields(modelKey)
   const recordsQuery = useRecordModelRecords(modelKey)
 
-  const fields = fieldsQuery.data ?? []
-  const records = recordsQuery.data ?? []
+  const fields = useMemo(() => fieldsQuery.data ?? [], [fieldsQuery.data])
+  const records = useMemo(() => recordsQuery.data ?? [], [recordsQuery.data])
 
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('')
@@ -151,8 +151,8 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         id: 'identifier',
         header: t('library.models.recordModelRecords.id'),
         accessorFn: (record) => record.identifier,
-        cell: ({ getValue }) => (
-          <span className="mono">{String(getValue() ?? '')}</span>
+        cell: ({ row }) => (
+          <span className="mono">{row.original.identifier}</span>
         ),
         meta: { className: 'whitespace-nowrap' },
       },
@@ -211,7 +211,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
               field,
               recordFieldValue(record, field.fieldName),
             ),
-          cell: ({ getValue, row }) => {
+          cell: ({ row }) => {
             const renderer = plugin.cellRenderer(field)
 
             if (renderer)
@@ -231,7 +231,10 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
               />
             ) : (
               <span className="block max-w-[240px] truncate">
-                {String(getValue() ?? '')}
+                {displayModelFieldValue(
+                  field,
+                  recordFieldValue(row.original, field.fieldName),
+                )}
               </span>
             )
           },
@@ -264,7 +267,58 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
   const loading =
     model.isLoading || fieldsQuery.isLoading || recordsQuery.isLoading
 
-  const toolbar = (
+  return {
+    model,
+    fields,
+    q,
+    setQ,
+    status,
+    setStatus,
+    fieldName,
+    setFieldName,
+    fieldValue,
+    setFieldValue,
+    results,
+    setResults,
+    statuses,
+    judged,
+    visible,
+    selected,
+    setSelected,
+    plugin,
+    columns,
+    exportCsv,
+    loading,
+  }
+}
+
+function RecordListToolbar({
+  modelKey,
+  list,
+}: {
+  modelKey: string
+  list: ReturnType<typeof useRecordList>
+}) {
+  const {
+    model,
+    fields,
+    q,
+    setQ,
+    status,
+    setStatus,
+    fieldName,
+    setFieldName,
+    fieldValue,
+    setFieldValue,
+    results,
+    setResults,
+    statuses,
+    judged,
+    visible,
+    exportCsv,
+  } = list
+
+  return (
     <>
       <label className="block w-full md:w-[220px]">
         <span className="sr-only">
@@ -302,7 +356,9 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
           size="sm"
           className="h-8"
           value={results}
-          onChange={(event) => setResults(event.target.value as '' | 'out')}
+          onChange={(event) =>
+            setResults(event.target.value === 'out' ? 'out' : '')
+          }
         >
           <option value="">{t('quality.limits.filterAll')}</option>
           <option value="out">{t('quality.limits.filterOut')}</option>
@@ -354,6 +410,25 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
       </Button>
     </>
   )
+}
+
+function RecordModelRecordList({ modelKey }: { modelKey: string }) {
+  const list = useRecordList(modelKey)
+
+  const {
+    model,
+    fields,
+    q,
+    status,
+    fieldValue,
+    results,
+    visible,
+    selected,
+    setSelected,
+    plugin,
+    columns,
+    loading,
+  } = list
 
   if (!model.isLoading && !model.data) {
     return (
@@ -405,7 +480,7 @@ function RecordModelRecordList({ modelKey }: { modelKey: string }) {
         enableColumnVisibility
         enableRowSelection={plugin.actions.length > 0}
         onSelectionChange={setSelected}
-        toolbar={toolbar}
+        toolbar={<RecordListToolbar modelKey={modelKey} list={list} />}
         emptyMessage={
           loading
             ? t('library.models.recordModelRecords.loadingRecords')

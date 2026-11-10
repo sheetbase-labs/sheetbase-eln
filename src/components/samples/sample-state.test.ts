@@ -226,4 +226,45 @@ describe('describeReleaseChecks', () => {
     expect(describeReleaseChecks(null)).toBeNull()
     expect(describeReleaseChecks({})).toBeNull()
   })
+
+  it('retains native count coercion and member-read order without inspecting other fields', () => {
+    const reads: string[] = []
+
+    const checks = {
+      get ruleCount() {
+        reads.push('rules')
+
+        return {
+          [Symbol.toPrimitive](hint: string) {
+            reads.push(`coerce:${hint}`)
+
+            return 3n
+          },
+        }
+      },
+      get failedCount() {
+        reads.push('failed')
+
+        return [1]
+      },
+      get unrelated() {
+        throw new Error('unrelated field must not be read')
+      },
+    }
+
+    expect(describeReleaseChecks(checks)).toBe('2 of 3 passed')
+    expect(reads).toEqual(['rules', 'coerce:number', 'failed'])
+    expect(describeReleaseChecks({ ruleCount: true, failedCount: false })).toBe(
+      'All 1 check passed',
+    )
+    expect(describeReleaseChecks({ ruleCount: '3', failedCount: NaN })).toBe(
+      'All 3 checks passed',
+    )
+    expect(
+      describeReleaseChecks({ ruleCount: Infinity, failedCount: 1 }),
+    ).toBeNull()
+    expect(() => describeReleaseChecks({ ruleCount: Symbol('rules') })).toThrow(
+      TypeError,
+    )
+  })
 })

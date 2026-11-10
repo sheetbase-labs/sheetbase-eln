@@ -61,10 +61,11 @@ function itemIcon(status: CheckItemResult['status']) {
   )
 }
 
-function formatEvidence(evidence: Record<string, unknown>): string {
+function formatEvidence(evidence: CheckItemResult['evidence']): string {
   try {
     return JSON.stringify(evidence, null, 2)
   } catch {
+    // oxlint-disable-next-line typescript/no-base-to-string -- Approved native evidence display: attempt JSON/toJSON first, then preserve String fallback and its custom coercion or throws.
     return String(evidence)
   }
 }

@@ -4,23 +4,21 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { SnapshotSourceBanner } from './snapshot-source-banner'
-
-vi.mock('#/lib/chart-data', () => ({ sciDataClient: {} }))
-
-vi.mock('#/lib/dataset-explorer-data', () => ({
-  listDatasetVersionSummaries: async () => [
-    {
-      id: 'ver-1',
-      label: 'v3 · before the re-read',
-      rowCount: 96,
-      createdAt: '2026-10-02T09:00:00Z',
-    },
-  ],
-}))
+import { sourceHttpFixture, versionSummary } from './source-http-fixture'
 
 afterEach(cleanup)
 
 function renderBanner(onUseLive = vi.fn()) {
+  const fixture = sourceHttpFixture({
+    versions: [
+      versionSummary({
+        label: 'v3 · before the re-read',
+        rowCount: 96,
+        createdAt: '2026-10-02T09:00:00Z',
+      }),
+    ],
+  })
+
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
@@ -28,6 +26,7 @@ function renderBanner(onUseLive = vi.fn()) {
   render(
     <QueryClientProvider client={client}>
       <SnapshotSourceBanner
+        client={fixture.client}
         datasetId="ds-1"
         datasetVersionId="ver-1"
         onUseLive={onUseLive}

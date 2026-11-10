@@ -7,6 +7,7 @@ import {
   sampleEventAction,
   sampleEventChange,
   sampleEventDetail,
+  sampleEventSummary,
 } from './sample-history'
 
 function event(overrides: Partial<SampleEvent> = {}): SampleEvent {
@@ -41,6 +42,19 @@ describe('sampleEventAction', () => {
 
   it('falls back to the raw operation for unknown kinds', () => {
     expect(sampleEventAction('hold_exceeded')).toBe('hold exceeded')
+  })
+
+  it('uses unknown-operation fallback for inherited object names, including summaries', () => {
+    for (const [operation, label] of [
+      ['constructor', 'constructor'],
+      ['toString', 'toString'],
+      ['__proto__', '  proto  '],
+    ]) {
+      expect(sampleEventAction(operation)).toBe(label)
+      expect(
+        sampleEventSummary(event({ operation, quantityDelta: null })),
+      ).toBe(label.toLowerCase())
+    }
   })
 })
 

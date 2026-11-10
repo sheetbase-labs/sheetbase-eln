@@ -3,11 +3,11 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { NotebookRecord } from '#/lib/notebook-data'
+import { SheetRecordPicker } from './sheet-record-picker'
 import {
-  SheetRecordPicker,
   sheetRecordPickerKind,
   sheetRecordSelectionLabel,
-} from './sheet-record-picker'
+} from './sheet-record-picker-helpers'
 
 globalThis.ResizeObserver = class {
   observe() {}

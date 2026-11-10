@@ -5,6 +5,7 @@
  */
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
@@ -46,6 +47,25 @@ const STATUS_LABEL: Record<EvalStatus, string> = {
   skipped: t('agents.checks.statusSkipped'),
 }
 
+const runSchema = z.object({
+  id: z.string(),
+  workspace_id: z.string(),
+  mode: z.enum(['tools', 'model']),
+  trigger: z.enum(['manual', 'profile_change']),
+  provider_profile: z.string().nullable(),
+  model: z.string().nullable(),
+  status: z.enum(['passed', 'failed', 'skipped']),
+  total: z.number(),
+  passed: z.number(),
+  failed: z.number(),
+  skipped: z.number(),
+  score: z.union([z.number(), z.string()]).nullable(),
+  message: z.string().nullable(),
+  started_by_user_id: z.string().nullable(),
+  started_at: z.string(),
+  finished_at: z.string(),
+}) satisfies z.ZodType<AiEvalRunRow>
+
 async function startRun(toolsOnly: boolean): Promise<AiEvalRunRow> {
   const response = await fetch('/api/ai/evals', {
     method: 'POST',
@@ -55,14 +75,14 @@ async function startRun(toolsOnly: boolean): Promise<AiEvalRunRow> {
   })
 
   if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as {
-      message?: string
-    } | null
+    const body = z
+      .object({ message: z.string().optional() })
+      .safeParse(await response.json().catch(() => null)).data
 
     throw new Error(body?.message ?? t('agents.checks.couldNotRun'))
   }
 
-  return (await response.json()) as AiEvalRunRow
+  return runSchema.parse(await response.json())
 }
 
 export function AiChecksPanel({
@@ -233,10 +253,14 @@ function RunResults({
         <Table caption={t('agents.checks.resultsLabel')}>
           <TableHeader>
             <tr>
-              <TableHead>{t('agents.checks.task')}</TableHead>
-              <TableHead>{t('agents.checks.result')}</TableHead>
-              <TableHead>{t('agents.checks.expected')}</TableHead>
-              <TableHead>{t('agents.checks.actual')}</TableHead>
+              {[
+                t('agents.checks.task'),
+                t('agents.checks.result'),
+                t('agents.checks.expected'),
+                t('agents.checks.actual'),
+              ].map((label) => (
+                <TableHead key={label}>{label}</TableHead>
+              ))}
             </tr>
           </TableHeader>
           <TableBody>

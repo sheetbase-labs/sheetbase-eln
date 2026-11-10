@@ -18,10 +18,9 @@ import {
   saveConnection,
 } from '#/lib/extensions/outgoing-client'
 import type { ConnectionWire } from '#/lib/extensions/outgoing-client'
+import { connectionNeedsSetup } from './plugin-status'
 
-/** Whether a connection still needs something filled in. */
-export const connectionNeedsSetup = (connection: ConnectionWire) =>
-  connection.settings.some((setting) => setting.required && !setting.isSet)
+export { connectionNeedsSetup } from './plugin-status'
 
 /**
  * What a plugin's publishers, notification channels and connectors need before
@@ -69,7 +68,7 @@ export function PluginConnectionsDialog({
 
 function ConnectionForm({ connection }: { connection: ConnectionWire }) {
   const queryClient = useQueryClient()
-  const [values, setValues] = useState<Record<string, string>>({})
+  const [values, setValues] = useState(() => new Map<string, string>())
 
   const save = useMutation({
     mutationFn: (typed: Record<string, string>) =>
@@ -82,7 +81,7 @@ function ConnectionForm({ connection }: { connection: ConnectionWire }) {
       }),
     onSuccess: () => {
       toast(t('plugins.admin.connections.saved', { name: connection.title }))
-      setValues({})
+      setValues(new Map())
       void queryClient.invalidateQueries({ queryKey: connectionsQueryKey })
     },
     onError: (error) =>
@@ -137,7 +136,7 @@ function ConnectionForm({ connection }: { connection: ConnectionWire }) {
               type={setting.secret ? 'password' : 'text'}
               autoComplete="off"
               value={
-                (values as Partial<Record<string, string>>)[setting.name] ??
+                values.get(setting.name) ??
                 setting.value ??
                 ''
               }
@@ -145,10 +144,7 @@ function ConnectionForm({ connection }: { connection: ConnectionWire }) {
                 setting.secret && setting.isSet ? '••••••••••••' : undefined
               }
               onChange={(event) =>
-                setValues((current) => ({
-                  ...current,
-                  [setting.name]: event.target.value,
-                }))
+                setValues((current) => new Map(current).set(setting.name, event.target.value))
               }
             />
           </Field>
@@ -159,8 +155,8 @@ function ConnectionForm({ connection }: { connection: ConnectionWire }) {
           type="button"
           variant="primary"
           size="sm"
-          disabled={save.isPending || Object.keys(values).length === 0}
-          onClick={() => save.mutate(values)}
+          disabled={save.isPending || values.size === 0}
+          onClick={() => save.mutate(Object.fromEntries(values))}
         >
           {t('common.actions.save')}
         </Button>

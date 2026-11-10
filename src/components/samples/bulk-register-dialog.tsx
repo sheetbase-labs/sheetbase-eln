@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
 import { Notice } from '#/components/ui/alert'
@@ -20,10 +19,71 @@ import { LocationInput } from '#/components/samples/location-field'
 import { PrintLabelsDialog } from '#/components/samples/sample-label-sheet'
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { describeSampleError, registerSamples } from '#/lib/samples'
+import { describeSampleError } from '#/lib/samples'
 import type { SampleRecord } from '#/lib/samples'
 import { duplicateTitles, parseBulkSamples } from '#/lib/sample-bulk'
+import type { BulkSampleIssue, BulkSampleRow } from '#/lib/sample-bulk'
 import { t } from '#/copy'
+import { useBulkRegistration } from './bulk-registration'
+
+const EMPTY_ROWS: BulkSampleRow[] = []
+
+function RegisterLabel({
+  pending,
+  count,
+}: {
+  pending: boolean
+  count: number
+}) {
+  if (pending) return t('library.samples.bulkRegisterDialog.registering')
+
+  return count
+    ? t('library.samples.bulkRegisterDialog.registerSamples', { count })
+    : t('library.samples.bulkRegisterDialog.registerSamples2')
+}
+
+function RepeatedSampleNames({ names }: { names: string[] }) {
+  if (!names.length) return null
+
+  return (
+    <Notice
+      tone="warn"
+      title={t('library.samples.bulkRegisterDialog.someNamesRepeat')}
+    >
+      {t(
+        names.length > 4
+          ? 'library.samples.bulkRegisterDialog.namesAndMoreRepeat'
+          : 'library.samples.bulkRegisterDialog.namesRepeat',
+        { names: names.slice(0, 4).join(', ') },
+      )}
+    </Notice>
+  )
+}
+
+function RegistrationIssues({ issues }: { issues: BulkSampleIssue[] }) {
+  if (!issues.length) return null
+
+  return (
+    <Notice
+      tone="warn"
+      title={t('library.samples.bulkRegisterDialog.fixTheseLinesToContinue')}
+    >
+      <ul className="m-0 pl-4">
+        {issues.slice(0, 8).map((issue) => (
+          // The parser emits at most one issue per immutable source line,
+          // including its list-limit issue. This is not the filtered list index.
+          <li key={issue.line}>
+            {t('library.samples.bulkRegisterDialog.line', {
+              line: issue.line,
+              message: issue.message,
+            })}
+          </li>
+        ))}
+        {issues.length > 8 ? <li>and {issues.length - 8} more</li> : null}
+      </ul>
+    </Notice>
+  )
+}
 
 /**
  * Register many samples from a pasted list or a CSV/TSV file. The list is read
@@ -59,30 +119,21 @@ export function BulkRegisterDialog({
     [text],
   )
 
-  const rows = parsed?.rows ?? []
+  const rows = parsed?.rows ?? EMPTY_ROWS
   const issues = parsed?.issues ?? []
   const duplicates = useMemo(() => duplicateTitles(rows), [rows])
   const effectiveProject = projectId || defaultProjectId || ''
 
-  const register = useMutation({
-    mutationFn: () =>
-      registerSamples(client, {
-        projectId: effectiveProject,
-        samples: rows.map((row) => ({
-          title: row.title,
-          sampleType: row.sampleType,
-          quantity: row.quantity,
-          quantityUnit: row.quantityUnit,
-          storageLocation:
-            row.storageLocation ?? (defaultLocation.trim() || undefined),
-          barcode: row.barcode,
-        })),
-      }),
-    onSuccess: (samples) => {
+  const register = useBulkRegistration(
+    client,
+    effectiveProject,
+    rows,
+    defaultLocation,
+    (samples) => {
       setCreated(samples)
       onRegistered?.(samples)
     },
-  })
+  )
 
   const close = (next: boolean) => {
     onOpenChange(next)
@@ -196,48 +247,14 @@ export function BulkRegisterDialog({
                   )}
                 >
                   <LocationInput
+                    client={client}
                     value={defaultLocation}
                     onChange={setDefaultLocation}
                   />
                 </Field>
 
-                {issues.length ? (
-                  <Notice
-                    tone="warn"
-                    title={t(
-                      'library.samples.bulkRegisterDialog.fixTheseLinesToContinue',
-                    )}
-                  >
-                    <ul className="m-0 pl-4">
-                      {issues.slice(0, 8).map((issue, index) => (
-                        <li key={`${issue.line}-${index}`}>
-                          {t('library.samples.bulkRegisterDialog.line', {
-                            line: issue.line,
-                            message: issue.message,
-                          })}
-                        </li>
-                      ))}
-                      {issues.length > 8 ? (
-                        <li>and {issues.length - 8} more</li>
-                      ) : null}
-                    </ul>
-                  </Notice>
-                ) : null}
-                {duplicates.length ? (
-                  <Notice
-                    tone="warn"
-                    title={t(
-                      'library.samples.bulkRegisterDialog.someNamesRepeat',
-                    )}
-                  >
-                    {t(
-                      duplicates.length > 4
-                        ? 'library.samples.bulkRegisterDialog.namesAndMoreRepeat'
-                        : 'library.samples.bulkRegisterDialog.namesRepeat',
-                      { names: duplicates.slice(0, 4).join(', ') },
-                    )}
-                  </Notice>
-                ) : null}
+                <RegistrationIssues issues={issues} />
+                <RepeatedSampleNames names={duplicates} />
                 {rows.length ? (
                   <p role="status" className="m-0 text-label text-fg-muted">
                     {t(
@@ -266,16 +283,10 @@ export function BulkRegisterDialog({
                   disabled={!canRegister}
                   onClick={() => register.mutate()}
                 >
-                  {register.isPending
-                    ? t('library.samples.bulkRegisterDialog.registering')
-                    : rows.length
-                      ? t(
-                          'library.samples.bulkRegisterDialog.registerSamples',
-                          { count: rows.length },
-                        )
-                      : t(
-                          'library.samples.bulkRegisterDialog.registerSamples2',
-                        )}
+                  <RegisterLabel
+                    pending={register.isPending}
+                    count={rows.length}
+                  />
                 </Button>
               </DialogFooter>
             </>

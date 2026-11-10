@@ -7,8 +7,11 @@ import { SearchResultIcon } from '#/components/search/result-icon'
 import { ObjectLink } from '#/components/ui/object-link'
 import { t } from '#/copy'
 import type { PluginSearchHit } from '#/lib/extensions/plugin-search.server'
-import { searchResultGroup, searchResultGroupLabel } from '#/lib/search'
-import type { SearchResultType } from '#/lib/search'
+import {
+  searchResultGroup,
+  searchResultGroupLabel,
+  SEARCH_RESULT_TYPES,
+} from '#/lib/search'
 
 const keyOf = (hit: PluginSearchHit) => `${hit.type}-${hit.id}`
 
@@ -31,7 +34,7 @@ export function PluginHitsTable({
           <span className="inline-flex max-w-full items-center gap-1.5">
             <SearchResultIcon
               result={{
-                resultType: row.original.type as SearchResultType,
+                resultType: row.original.type,
                 kind: row.original.kind,
                 matchedField: 'description',
               }}
@@ -67,7 +70,10 @@ export function PluginHitsTable({
           <span className="text-fg-muted">
             {searchResultGroupLabel(
               searchResultGroup({
-                resultType: row.original.type as SearchResultType,
+                resultType:
+                  SEARCH_RESULT_TYPES.find(
+                    (type) => type === row.original.type,
+                  ) ?? 'record',
                 kind: row.original.kind,
                 matchedField: 'description',
               }),

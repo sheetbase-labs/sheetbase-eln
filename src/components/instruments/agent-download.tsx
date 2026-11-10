@@ -124,7 +124,11 @@ export function AgentDownload({
           <Select
             value={system}
             onChange={(event) => {
-              setSystem(event.target.value as AgentSystem)
+              const selected = AGENT_SYSTEMS.find(
+                (entry) => entry.value === event.target.value,
+              )
+
+              if (selected) setSystem(selected.value)
               setDownloaded(null)
             }}
           >

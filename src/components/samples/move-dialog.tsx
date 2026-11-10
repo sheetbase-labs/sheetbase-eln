@@ -14,6 +14,7 @@ import {
 } from '#/components/ui/dialog'
 import { t } from '#/copy'
 import { notebookDataClient } from '#/lib/notebook-data'
+import type { DataClient } from '#/lib/data-client'
 import { describePlace, fetchSamplePosition } from '#/lib/storage-positions'
 import type { PlaceChoice } from '#/lib/storage-positions'
 
@@ -32,6 +33,7 @@ export function MoveSampleDialog({
   onSubmit,
   locations,
   canManageStorage,
+  client = notebookDataClient,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -41,12 +43,13 @@ export function MoveSampleDialog({
   /** Supplied when the page already holds the typed places; else they are fetched. */
   locations?: readonly string[]
   canManageStorage?: boolean
+  client?: DataClient
 }) {
   const [choice, setChoice] = useState<PlaceChoice | null>(null)
 
   const current = useQuery({
     queryKey: ['storage-positions', 'sample', sample.id],
-    queryFn: () => fetchSamplePosition(notebookDataClient, sample.id),
+    queryFn: () => fetchSamplePosition(client, sample.id),
     enabled: open,
     retry: false,
   })
@@ -86,6 +89,7 @@ export function MoveSampleDialog({
             <Skeleton className="h-64 w-full" />
           ) : (
             <PositionPicker
+              client={client}
               value={choice}
               onChange={setChoice}
               currentPositionId={current.data?.id ?? null}

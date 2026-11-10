@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { instrumentOption } from '#/components/record-picker/entity-options'
-import { Button } from '#/components/ui/button'
 import { Notice } from '#/components/ui/alert'
 import { CodeBlock } from '#/components/ui/code-block'
 import { Field, Input } from '#/components/ui/input'
@@ -11,9 +10,7 @@ import { Select } from '#/components/ui/select'
 import {
   Dialog,
   DialogBody,
-  DialogClose,
   DialogContent,
-  DialogFooter,
   DialogHeader,
 } from '#/components/ui/dialog'
 import { useInstruments } from '#/components/instruments/instruments-data'
@@ -23,6 +20,7 @@ import {
 } from '#/lib/parser-settings'
 import type { CreatedWebhookParser } from '#/lib/parser-settings'
 import { t } from '#/copy'
+import { CreationDialogFooter } from './creation-dialog-footer'
 
 const FORMATS = ['csv', 'tsv', 'xlsx', 'json']
 
@@ -85,38 +83,7 @@ export function WebhookParserDialog({
         />
         <DialogBody>
           {created ? (
-            <>
-              {created.secret ? (
-                <>
-                  <p className="m-0 text-body">
-                    {t('settings.webhookParserDialog.keyIntro')}
-                  </p>
-                  <Input
-                    readOnly
-                    aria-label={t('settings.webhookParserDialog.keyAria')}
-                    className="mono"
-                    value={created.secret}
-                    onFocus={(e) => e.currentTarget.select()}
-                  />
-                </>
-              ) : (
-                <p className="m-0 text-body">
-                  {t('settings.webhookParserDialog.keyKept')}
-                </p>
-              )}
-              <p className="m-0 text-body">
-                {t('settings.webhookParserDialog.next')}
-              </p>
-              <p className="m-0 text-label text-fg-muted">
-                {t('settings.webhookParserDialog.snippetIntro')}
-              </p>
-              <CodeBlock
-                code={t('settings.webhookParserDialog.snippet')}
-                language="python"
-                label={t('settings.webhookParserDialog.snippetAria')}
-                maxHeight="lg"
-              />
-            </>
+            <WebhookParserReceipt created={created} />
           ) : (
             <>
               <Field
@@ -171,29 +138,50 @@ export function WebhookParserDialog({
             </>
           )}
         </DialogBody>
-        <DialogFooter>
-          {created ? (
-            <DialogClose render={<Button variant="primary" />}>
-              {t('common.actions.done')}
-            </DialogClose>
-          ) : (
-            <>
-              <DialogClose render={<Button />}>
-                {t('common.actions.cancel')}
-              </DialogClose>
-              <Button
-                variant="primary"
-                disabled={!ready || create.isPending}
-                onClick={() => create.mutate()}
-              >
-                {create.isPending
-                  ? t('settings.webhookParserDialog.adding')
-                  : t('settings.webhookParserDialog.add')}
-              </Button>
-            </>
-          )}
-        </DialogFooter>
+        <CreationDialogFooter
+          complete={created !== null}
+          pending={create.isPending}
+          ready={ready}
+          onCreate={() => create.mutate()}
+          createLabel={t('settings.webhookParserDialog.add')}
+          pendingLabel={t('settings.webhookParserDialog.adding')}
+        />
       </DialogContent>
     </Dialog>
+  )
+}
+
+function WebhookParserReceipt({ created }: { created: CreatedWebhookParser }) {
+  return (
+    <>
+      {created.secret ? (
+        <>
+          <p className="m-0 text-body">
+            {t('settings.webhookParserDialog.keyIntro')}
+          </p>
+          <Input
+            readOnly
+            aria-label={t('settings.webhookParserDialog.keyAria')}
+            className="mono"
+            value={created.secret}
+            onFocus={(e) => e.currentTarget.select()}
+          />
+        </>
+      ) : (
+        <p className="m-0 text-body">
+          {t('settings.webhookParserDialog.keyKept')}
+        </p>
+      )}
+      <p className="m-0 text-body">{t('settings.webhookParserDialog.next')}</p>
+      <p className="m-0 text-label text-fg-muted">
+        {t('settings.webhookParserDialog.snippetIntro')}
+      </p>
+      <CodeBlock
+        code={t('settings.webhookParserDialog.snippet')}
+        language="python"
+        label={t('settings.webhookParserDialog.snippetAria')}
+        maxHeight="lg"
+      />
+    </>
   )
 }

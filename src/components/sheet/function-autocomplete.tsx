@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   extractFunctionPrefix,
   getFunctionSuggestions,
@@ -60,41 +54,66 @@ export function useFunctionAutocomplete({
   inputRef,
   onInsert,
 }: UseFunctionAutocompleteArgs): FunctionAutocompleteState {
-  const [suggestions, setSuggestions] = useState<FunctionSuggestion[]>([])
-  const [activeIndex, setActiveIndex] = useState(-1)
+  const [selection, setSelection] = useState({ value, cursor: value.length })
+
+  const [navigation, setNavigation] = useState({
+    value,
+    cursor: value.length,
+    index: 0,
+    dismissed: false,
+  })
+
   const listRef = useRef<HTMLDivElement>(null)
+  const cursor = selection.value === value ? selection.cursor : value.length
+  const prefix = extractFunctionPrefix(value, cursor)
 
-  // Recompute suggestions whenever the value or cursor changes.
-  const computeSuggestions = useCallback(() => {
+  const currentNavigation =
+    navigation.value === value && navigation.cursor === cursor
+
+  const dismissed = currentNavigation && navigation.dismissed
+
+  const suggestions = useMemo(
+    () => (prefix && !dismissed ? getFunctionSuggestions(prefix) : []),
+    [prefix, dismissed],
+  )
+
+  const activeIndex =
+    suggestions.length === 0 ? -1 : currentNavigation ? navigation.index : 0
+
+  // Observe native input/selection events, including programmatic caret moves.
+  // Suggestions are derived from the draft rather than copied into effect state.
+  useEffect(() => {
     const el = inputRef.current
-    const cursor = el?.selectionStart ?? value.length
-    const prefix = extractFunctionPrefix(value, cursor)
 
-    if (!prefix) {
-      setSuggestions([])
-      setActiveIndex(-1)
+    if (!el) return
 
-      return
+    const updateSelection = () => {
+      setSelection({
+        value: el.value,
+        cursor: el.selectionStart ?? el.value.length,
+      })
     }
 
-    const matches = getFunctionSuggestions(prefix)
-    setSuggestions(matches)
-    setActiveIndex(matches.length > 0 ? 0 : -1)
-  }, [value, inputRef])
+    el.addEventListener('input', updateSelection)
+    el.addEventListener('select', updateSelection)
+    el.addEventListener('click', updateSelection)
+    el.addEventListener('keyup', updateSelection)
 
-  // Debounce-free: formula inputs are short and suggestions are cheap.
-  useLayoutEffect(() => {
-    computeSuggestions()
-  }, [computeSuggestions])
+    return () => {
+      el.removeEventListener('input', updateSelection)
+      el.removeEventListener('select', updateSelection)
+      el.removeEventListener('click', updateSelection)
+      el.removeEventListener('keyup', updateSelection)
+    }
+  }, [inputRef])
 
   // Scroll the active item into view when navigating.
   useEffect(() => {
     if (activeIndex < 0 || !listRef.current) return
 
-    const item = listRef.current.children[activeIndex] as
-      HTMLElement | undefined
+    const item = listRef.current.children[activeIndex]
 
-    item?.scrollIntoView({ block: 'nearest' })
+    if (item instanceof HTMLElement) item.scrollIntoView({ block: 'nearest' })
   }, [activeIndex])
 
   const isOpen = suggestions.length > 0
@@ -104,19 +123,26 @@ export function useFunctionAutocomplete({
       if (index < 0 || index >= suggestions.length || !inputRef.current) return
       const suggestion = suggestions[index]
       const el = inputRef.current
-      const cursor = el.selectionStart ?? value.length
-      const prefix = extractFunctionPrefix(value, cursor)
+      const insertionCursor = el.selectionStart ?? value.length
+      const insertionPrefix = extractFunctionPrefix(value, insertionCursor)
 
-      if (!prefix) return
+      if (!insertionPrefix) return
       // Walk backwards to find the token span (same logic as extractFunctionPrefix).
-      let start = cursor
+      let start = insertionCursor
 
       while (start > 0 && /[A-Za-z0-9_.]/.test(value[start - 1])) start--
       const insertText = `${suggestion.id}()`
-      const newText = value.slice(0, start) + insertText + value.slice(cursor)
+
+      const newText =
+        value.slice(0, start) + insertText + value.slice(insertionCursor)
+
       const newCursor = start + suggestion.id.length + 1 // between the parens
-      setSuggestions([])
-      setActiveIndex(-1)
+      setNavigation({
+        value,
+        cursor: insertionCursor,
+        index: -1,
+        dismissed: true,
+      })
       onInsert({ text: newText, cursor: newCursor })
     },
     [suggestions, inputRef, value, onInsert],
@@ -129,11 +155,21 @@ export function useFunctionAutocomplete({
       switch (event.key) {
         case 'ArrowDown':
           event.preventDefault()
-          setActiveIndex((i) => (i + 1) % suggestions.length)
+          setNavigation({
+            value,
+            cursor,
+            index: (activeIndex + 1) % suggestions.length,
+            dismissed: false,
+          })
           break
         case 'ArrowUp':
           event.preventDefault()
-          setActiveIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1))
+          setNavigation({
+            value,
+            cursor,
+            index: activeIndex <= 0 ? suggestions.length - 1 : activeIndex - 1,
+            dismissed: false,
+          })
           break
         case 'Tab':
         case 'Enter':
@@ -145,12 +181,11 @@ export function useFunctionAutocomplete({
           break
         case 'Escape':
           event.preventDefault()
-          setSuggestions([])
-          setActiveIndex(-1)
+          setNavigation({ value, cursor, index: -1, dismissed: true })
           break
       }
     },
-    [suggestions, activeIndex, acceptSuggestion],
+    [suggestions, activeIndex, acceptSuggestion, value, cursor],
   )
 
   return {

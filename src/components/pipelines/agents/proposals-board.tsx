@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { t } from '#/copy'
 import { Badge } from '#/components/ui/badge'
@@ -45,20 +45,15 @@ import type {
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { cn } from '#/lib/utils'
 import { RiskGlyph, linkifyIdentifiers } from './board-parts'
+import { proposalBoardGroups } from './board-data'
+
+export { proposalBoardGroups } from './board-data'
 
 /**
  * The Agents Proposals board: what needs you, what waits on someone else, and
  * what was decided, with the proposed change, its evidence and why it needs
  * approval beside the list. The raw operation stays under Technical details.
  */
-
-const STAGE_LABEL: Record<ProposalStage, string> = {
-  needs: t('data.proposalsBoard.needsApproval'),
-  waiting: t('data.proposalsBoard.waitingOthers'),
-  decided: t('data.proposalsBoard.decidedLast7Days'),
-}
-
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 
 function statusTone(
   proposal: AgentOperationProposal,
@@ -79,81 +74,22 @@ function statusTone(
   }
 }
 
-/** Number in a proposal's PR-0412 name, so the newest sorts first. */
-function ordinal(proposal: AgentOperationProposal): number {
-  return Number(/\d+/.exec(proposal.display_id ?? '')?.[0] ?? 0)
-}
-
-export function proposalBoardGroups(
-  proposals: readonly AgentOperationProposal[],
-  me: { userId: string | null; canApprove: boolean },
-  now: Date,
-): Array<{
-  stage: ProposalStage
-  key: string
-  label: string
-  items: AgentOperationProposal[]
-}> {
-  const groups: Record<ProposalStage, AgentOperationProposal[]> = {
-    needs: [],
-    waiting: [],
-    decided: [],
-  }
-
-  for (const proposal of proposals) {
-    const stage = proposalStage(proposal, me)
-
-    if (
-      stage === 'decided' &&
-      now.getTime() - Date.parse(proposal.updated_at) > WEEK_MS
-    )
-      continue
-    groups[stage].push(proposal)
-  }
-
-  const byNewest = (list: AgentOperationProposal[]) =>
-    list.sort((a, b) => ordinal(b) - ordinal(a))
-
-  // What needs you is two kinds of ask, so each gets its own heading rather
-  // than rows saying "signature" under a heading that says "approval".
-  const needsSignature = groups.needs.filter((p) => p.signature_required)
-  const needsApproval = groups.needs.filter((p) => !p.signature_required)
-
-  return [
-    {
-      stage: 'needs' as const,
-      key: 'needs-approval',
-      label: STAGE_LABEL.needs,
-      items: byNewest(needsApproval),
-    },
-    {
-      stage: 'needs' as const,
-      key: 'needs-signature',
-      label: t('data.proposalsBoard.needsSignature'),
-      items: byNewest(needsSignature),
-    },
-    {
-      stage: 'waiting' as const,
-      key: 'waiting',
-      label: STAGE_LABEL.waiting,
-      items: byNewest(groups.waiting),
-    },
-    {
-      stage: 'decided' as const,
-      key: 'decided',
-      label: STAGE_LABEL.decided,
-      items: byNewest(groups.decided),
-    },
-  ].filter((group) => group.items.length > 0)
-}
-
 function RenderedBlock({ rendered }: { rendered: RenderedChange }) {
+  const occurrences = new Map<string, number>()
+
+  const sections = rendered.sections.map((section) => {
+    const occurrence = occurrences.get(section.title) ?? 0
+    occurrences.set(section.title, occurrence + 1)
+
+    return { section, key: `${section.title}-${occurrence}` }
+  })
+
   return (
     <div className="flex flex-col gap-2">
-      {rendered.sections.map((section, index) =>
+      {sections.map(({ section, key }) =>
         section.kind === 'unchanged' ? (
           <div
-            key={index}
+            key={key}
             className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface-muted px-2.5 py-1.5 text-label"
           >
             <span className="min-w-0 truncate">
@@ -168,7 +104,7 @@ function RenderedBlock({ rendered }: { rendered: RenderedChange }) {
           </div>
         ) : (
           <div
-            key={index}
+            key={key}
             className="rounded-md border border-border-strong bg-surface p-2.5"
           >
             <div className="flex items-center gap-2 text-label">
@@ -305,15 +241,18 @@ export function AgentProposalsBoard({
   const [reason, setReason] = useState('')
   const [signing, setSigning] = useState(false)
 
-  const [meaning, setMeaning] = useState(
+  const [meaning, setMeaning] = useState(() =>
     t('data.proposalsBoard.iApproveProposal'),
   )
 
-  useEffect(() => {
+  const [previousId, setPreviousId] = useState(selected?.id)
+
+  if (previousId !== selected?.id) {
+    setPreviousId(selected?.id)
     setRejecting(false)
     setReason('')
     setSigning(false)
-  }, [selected?.id])
+  }
 
   if (!selected) {
     return (
@@ -332,17 +271,12 @@ export function AgentProposalsBoard({
   )
 
   const run = runs.find((r) => r.id === selected.agent_run_id)
-  const subject = proposalSubject(selected)
-  const evidence = proposalEvidence(selected)
-  const rendered = proposalRendered(selected)
 
   const mayDecide =
     stage === 'needs' &&
     selected.status === 'pending' &&
     canApproveProposal(selected)
 
-  const approverName = nameOf(selected.approver_user_id)
-  const revision = /rev \d+/.exec(subject.label ?? '')?.[0]
   const busy = pendingAction !== null
 
   return (
@@ -357,59 +291,17 @@ export function AgentProposalsBoard({
               </span>
             </h2>
             <ul className="m-0 list-none p-0">
-              {group.items.map((p) => {
-                const rowStage = group.stage
-                const rowSubject = proposalSubject(p)
-
-                const rowDefinition = definitions.find(
-                  (d) => d.id === p.agent_definition_id,
-                )
-
-                const active = p.id === selected.id
-
-                return (
-                  <li key={p.id}>
-                    <button
-                      type="button"
-                      aria-current={active || undefined}
-                      onClick={() => onSelect(p.id)}
-                      className={cn(
-                        'grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_96px_190px_110px] items-center gap-x-3 border-0 border-b border-border px-4 py-2 text-left text-body hover:bg-surface-hover max-md:grid-cols-[minmax(0,1fr)_auto] md:px-6',
-                        active ? 'bg-selected' : 'bg-transparent',
-                      )}
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate">
-                          {rowSubject.identifier ? (
-                            <span className="mr-2 font-mono text-label text-fg-muted">
-                              {rowSubject.identifier}
-                            </span>
-                          ) : null}
-                          {p.title}
-                        </span>
-                        <span className="block truncate text-label text-fg-muted">
-                          {[rowDefinition?.name, rowSubject.context]
-                            .filter(Boolean)
-                            .join(' · ') || p.summary}
-                        </span>
-                      </span>
-                      <RiskGlyph
-                        risk={proposalRisk(p)}
-                        className="max-md:hidden"
-                      />
-                      <Status
-                        tone={statusTone(p, rowStage)}
-                        className="max-md:hidden"
-                      >
-                        {proposalStatusLabel(p, rowStage, nameOf)}
-                      </Status>
-                      <span className="num text-label text-fg-muted max-md:hidden">
-                        {shortStamp(p.created_at)}
-                      </span>
-                    </button>
-                  </li>
-                )
-              })}
+              {group.items.map((p) => (
+                <ProposalRow
+                  key={p.id}
+                  proposal={p}
+                  stage={group.stage}
+                  definitions={definitions}
+                  active={p.id === selected.id}
+                  onSelect={onSelect}
+                  nameOf={nameOf}
+                />
+              ))}
             </ul>
           </section>
         ))}
@@ -436,69 +328,20 @@ export function AgentProposalsBoard({
           <Status tone={statusTone(selected, stage)}>
             {proposalStatusLabel(selected, stage, nameOf)}
           </Status>
-          {selected.status === 'failed' && selected.error_message ? (
-            <Notice
-              tone="bad"
-              title={selected.error_code ?? t('common.states.failed')}
-            >
-              {selected.error_message}
-            </Notice>
-          ) : null}
+          <ProposalFailure proposal={selected} />
           {error ? <Notice tone="bad">{error}</Notice> : null}
           {mayDecide ? (
-            <>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  variant="primary"
-                  disabled={busy}
-                  onClick={() =>
-                    selected.signature_required
-                      ? setSigning(true)
-                      : onApprove(selected, null)
-                  }
-                >
-                  {selected.signature_required
-                    ? t('data.proposalsBoard.signApproveExecute')
-                    : t('data.proposalsBoard.approveExecute')}
-                </Button>
-                {subject.identifier ? (
-                  <a
-                    href={`/${subject.identifier.startsWith('DS-') ? 'datasets' : 'experiments'}/${subject.identifier}`}
-                    className="inline-flex h-7 items-center rounded-md border border-border bg-surface px-2.5 text-body text-fg hover:bg-surface-hover"
-                  >
-                    {t('data.proposalsBoard.editBeforeApproving')}
-                  </a>
-                ) : null}
-                <Button
-                  variant="quiet"
-                  disabled={busy}
-                  onClick={() => setRejecting((open) => !open)}
-                >
-                  {t('data.proposalsBoard.reject')}
-                </Button>
-              </div>
-              {rejecting ? (
-                <div className="flex flex-col gap-2">
-                  <Textarea
-                    aria-label={t('data.proposalsBoard.ariaRejectionReason')}
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    placeholder={t(
-                      'data.proposalsBoard.placeholderSayWhyAgentTold',
-                    )}
-                  />
-                  <div>
-                    <Button
-                      variant="danger"
-                      disabled={!reason.trim() || busy}
-                      onClick={() => onReject(selected, reason.trim())}
-                    >
-                      {t('data.proposalsBoard.rejectProposal')}
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </>
+            <ProposalDecision
+              selected={selected}
+              busy={busy}
+              onApprove={onApprove}
+              onReject={onReject}
+              onSign={() => setSigning(true)}
+              rejecting={rejecting}
+              onToggleReject={() => setRejecting((open) => !open)}
+              reason={reason}
+              onReasonChange={setReason}
+            />
           ) : selected.status === 'approved' && canApproveProposal(selected) ? (
             <div>
               <Button
@@ -509,207 +352,16 @@ export function AgentProposalsBoard({
                 {t('data.proposalsBoard.executeApprovedChange')}
               </Button>
             </div>
-          ) : stage === 'waiting' ? (
-            <Muted>
-              {approverName
-                ? t('data.proposalsBoard.waitingOnPerson', {
-                    name: approverName,
-                  })
-                : t('data.proposalsBoard.waitingOnApprover')}
-            </Muted>
-          ) : selected.status === 'rejected' ? (
-            <Muted>
-              {selected.rejection_reason
-                ? t('data.proposalsBoard.rejectedByWithReason', {
-                    name:
-                      nameOf(selected.rejected_by_user_id) ??
-                      t('data.proposalsBoard.aColleague'),
-                    reason: selected.rejection_reason,
-                  })
-                : t('data.proposalsBoard.rejectedBy', {
-                    name:
-                      nameOf(selected.rejected_by_user_id) ??
-                      t('data.proposalsBoard.aColleague'),
-                  })}
-            </Muted>
-          ) : selected.approved_by_user_id ? (
-            <Muted>
-              {[
-                t('data.proposalsBoard.approvedBy', {
-                  name:
-                    nameOf(selected.approved_by_user_id) ??
-                    t('data.proposalsBoard.aColleague'),
-                }),
-                selected.approved_at ? shortStamp(selected.approved_at) : null,
-                selected.approval_meaning
-                  ? t('data.proposalsBoard.signed', {
-                      approvalMeaning: selected.approval_meaning,
-                    })
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </Muted>
-          ) : null}
+          ) : (
+            <ProposalOutcome
+              selected={selected}
+              stage={stage}
+              nameOf={nameOf}
+            />
+          )}
         </div>
 
-        <Section title={t('data.proposalsBoard.proposedChange')}>
-          {rendered ? (
-            <RenderedBlock rendered={rendered} />
-          ) : selected.preview.changes.length ? (
-            <div className="flex flex-col gap-2">
-              {selected.preview.changes.map((change) => (
-                <div key={change.path} className="flex flex-col gap-1">
-                  <code className="text-label font-medium">{change.path}</code>
-                  <CodeBlock
-                    code={JSON.stringify(change.after, null, 2)}
-                    label={`${change.path} after`}
-                    maxHeight="sm"
-                  />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <Muted>{selected.summary}</Muted>
-          )}
-        </Section>
-
-        {evidence.evidence.length ? (
-          <Section title={t('data.proposalsBoard.evidence')}>
-            <DescriptionList
-              labelWidth={104}
-              items={[
-                ...evidence.evidence.map(
-                  (item): [React.ReactNode, React.ReactNode] => [
-                    item.label,
-                    item.href ? (
-                      <a href={item.href} className="text-link">
-                        {item.value}
-                      </a>
-                    ) : (
-                      linkifyIdentifiers(item.value)
-                    ),
-                  ],
-                ),
-                ...(evidence.confidence
-                  ? ([
-                      [
-                        t('data.proposalsBoard.confidence'),
-                        <div key="confidence">
-                          <RiskGlyph risk={evidence.confidence.level} />
-                          <p className="m-0 mt-0.5 text-fg-muted">
-                            {evidence.confidence.note}
-                          </p>
-                        </div>,
-                      ],
-                    ] as [React.ReactNode, React.ReactNode][])
-                  : []),
-              ]}
-            />
-          </Section>
-        ) : null}
-
-        <Section title={t('data.proposalsBoard.whyNeedsApproval')}>
-          <DescriptionList
-            labelWidth={104}
-            items={[
-              [
-                t('data.proposalsBoard.action'),
-                actionLabel(selected.operation_kind),
-              ],
-              [
-                t('data.proposalsBoard.policy'),
-                <span key="policy" className="inline-flex items-center gap-1">
-                  <Icon name="user" size={12} />
-                  {policyLabel(selected)}
-                </span>,
-              ],
-              [
-                t('data.proposalsBoard.approver'),
-                approverName
-                  ? `${approverName}${evidence.approverRole ? ` (${evidence.approverRole})` : ''}`
-                  : t('data.proposalsBoard.anyoneWhoEditRecord'),
-              ],
-              [t('data.proposalsBoard.target'), subject.label ?? '—'],
-              [
-                t('data.proposalsBoard.requested'),
-                shortStamp(selected.created_at),
-              ],
-            ]}
-          />
-          {selected.status === 'pending' && subject.identifier ? (
-            <p className="m-0 mt-2 text-label text-fg-muted">
-              {t('data.proposalsBoard.checkedAgainWhenApprove', {
-                identifier: subject.identifier,
-                since: revision ?? t('data.proposalsBoard.itWasProposed'),
-              })}
-            </p>
-          ) : null}
-        </Section>
-
-        <details className="border-t border-border px-4 py-3">
-          <summary className="cursor-pointer text-label font-medium text-fg-muted">
-            {t('data.proposalsBoard.technicalDetails')}
-          </summary>
-          <div className="mt-2 flex flex-col gap-3">
-            <DescriptionList
-              labelWidth={100}
-              className="[overflow-wrap:anywhere]"
-              items={[
-                [
-                  t('data.proposalsBoard.operation'),
-                  agentOperationLabel(selected.operation_kind),
-                ],
-                [
-                  t('data.proposalsBoard.riskClass'),
-                  selected.risk_class.replace(/_/g, ' '),
-                ],
-                [
-                  t('data.proposalsBoard.policy'),
-                  selected.approval_policy.replace(/_/g, ' '),
-                ],
-                [t('data.proposalsBoard.agent'), selected.provenance.agentId],
-                [
-                  t('data.proposalsBoard.tool'),
-                  [
-                    selected.provenance.tool.name,
-                    selected.provenance.tool.version,
-                  ]
-                    .filter(Boolean)
-                    .join(' '),
-                ],
-                [
-                  t('data.proposalsBoard.model'),
-                  `${selected.provenance.model.provider} / ${selected.provenance.model.name}`,
-                ],
-              ]}
-            />
-            <p className="m-0 text-label text-fg-muted">
-              {selected.policy_reason}
-            </p>
-            <div>
-              <div className="mb-1 text-label font-medium">
-                {t('data.proposalsBoard.events', { length: events.length })}
-              </div>
-              {events.length ? (
-                <ol className="m-0 flex list-none flex-col gap-1 p-0">
-                  {events.map((e) => (
-                    <li key={e.id} className="text-label">
-                      <span className="font-medium">
-                        {e.event_type.replace(/_/g, ' ')}
-                      </span>{' '}
-                      <span className="text-fg-muted">
-                        {formatNotebookDateTime(e.created_at, { zone: true })}
-                      </span>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <Muted>{t('data.proposalsBoard.eventsYet')}</Muted>
-              )}
-            </div>
-          </div>
-        </details>
+        <ProposalDetails selected={selected} events={events} nameOf={nameOf} />
       </aside>
 
       <ConfirmDialog open={signing} onOpenChange={setSigning}>
@@ -751,6 +403,183 @@ export function AgentProposalsBoard({
   )
 }
 
+function ProposalDetails({
+  selected,
+  events,
+  nameOf,
+}: Pick<
+  React.ComponentProps<typeof AgentProposalsBoard>,
+  'events' | 'nameOf'
+> & { selected: AgentOperationProposal }) {
+  const subject = proposalSubject(selected)
+  const evidence = proposalEvidence(selected)
+  const rendered = proposalRendered(selected)
+  const approverName = nameOf(selected.approver_user_id)
+  const revision = /rev \d+/.exec(subject.label ?? '')?.[0]
+
+  return (
+    <>
+      <Section title={t('data.proposalsBoard.proposedChange')}>
+        {rendered ? (
+          <RenderedBlock rendered={rendered} />
+        ) : selected.preview.changes.length ? (
+          <div className="flex flex-col gap-2">
+            {selected.preview.changes.map((change) => (
+              <div key={change.path} className="flex flex-col gap-1">
+                <code className="text-label font-medium">{change.path}</code>
+                <CodeBlock
+                  code={JSON.stringify(change.after, null, 2)}
+                  label={`${change.path} after`}
+                  maxHeight="sm"
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Muted>{selected.summary}</Muted>
+        )}
+      </Section>
+
+      {evidence.evidence.length ? (
+        <Section title={t('data.proposalsBoard.evidence')}>
+          <DescriptionList
+            labelWidth={104}
+            items={[
+              ...evidence.evidence.map(
+                (item): [React.ReactNode, React.ReactNode] => [
+                  item.label,
+                  item.href ? (
+                    <a key={item.label} href={item.href} className="text-link">
+                      {item.value}
+                    </a>
+                  ) : (
+                    linkifyIdentifiers(item.value)
+                  ),
+                ],
+              ),
+              ...(evidence.confidence
+                ? ([
+                    [
+                      t('data.proposalsBoard.confidence'),
+                      <div key="confidence">
+                        <RiskGlyph risk={evidence.confidence.level} />
+                        <p className="m-0 mt-0.5 text-fg-muted">
+                          {evidence.confidence.note}
+                        </p>
+                      </div>,
+                    ],
+                  ] satisfies [React.ReactNode, React.ReactNode][])
+                : []),
+            ]}
+          />
+        </Section>
+      ) : null}
+
+      <Section title={t('data.proposalsBoard.whyNeedsApproval')}>
+        <DescriptionList
+          labelWidth={104}
+          items={[
+            [
+              t('data.proposalsBoard.action'),
+              actionLabel(selected.operation_kind),
+            ],
+            [
+              t('data.proposalsBoard.policy'),
+              <span key="policy" className="inline-flex items-center gap-1">
+                <Icon name="user" size={12} />
+                {policyLabel(selected)}
+              </span>,
+            ],
+            [
+              t('data.proposalsBoard.approver'),
+              approverName
+                ? `${approverName}${evidence.approverRole ? ` (${evidence.approverRole})` : ''}`
+                : t('data.proposalsBoard.anyoneWhoEditRecord'),
+            ],
+            [t('data.proposalsBoard.target'), subject.label ?? '—'],
+            [
+              t('data.proposalsBoard.requested'),
+              shortStamp(selected.created_at),
+            ],
+          ]}
+        />
+        {selected.status === 'pending' && subject.identifier ? (
+          <p className="m-0 mt-2 text-label text-fg-muted">
+            {t('data.proposalsBoard.checkedAgainWhenApprove', {
+              identifier: subject.identifier,
+              since: revision ?? t('data.proposalsBoard.itWasProposed'),
+            })}
+          </p>
+        ) : null}
+      </Section>
+
+      <details className="border-t border-border px-4 py-3">
+        <summary className="cursor-pointer text-label font-medium text-fg-muted">
+          {t('data.proposalsBoard.technicalDetails')}
+        </summary>
+        <div className="mt-2 flex flex-col gap-3">
+          <DescriptionList
+            labelWidth={100}
+            className="[overflow-wrap:anywhere]"
+            items={[
+              [
+                t('data.proposalsBoard.operation'),
+                agentOperationLabel(selected.operation_kind),
+              ],
+              [
+                t('data.proposalsBoard.riskClass'),
+                selected.risk_class.replace(/_/g, ' '),
+              ],
+              [
+                t('data.proposalsBoard.policy'),
+                selected.approval_policy.replace(/_/g, ' '),
+              ],
+              [t('data.proposalsBoard.agent'), selected.provenance.agentId],
+              [
+                t('data.proposalsBoard.tool'),
+                [
+                  selected.provenance.tool.name,
+                  selected.provenance.tool.version,
+                ]
+                  .filter(Boolean)
+                  .join(' '),
+              ],
+              [
+                t('data.proposalsBoard.model'),
+                `${selected.provenance.model.provider} / ${selected.provenance.model.name}`,
+              ],
+            ]}
+          />
+          <p className="m-0 text-label text-fg-muted">
+            {selected.policy_reason}
+          </p>
+          <div>
+            <div className="mb-1 text-label font-medium">
+              {t('data.proposalsBoard.events', { length: events.length })}
+            </div>
+            {events.length ? (
+              <ol className="m-0 flex list-none flex-col gap-1 p-0">
+                {events.map((e) => (
+                  <li key={e.id} className="text-label">
+                    <span className="font-medium">
+                      {e.event_type.replace(/_/g, ' ')}
+                    </span>{' '}
+                    <span className="text-fg-muted">
+                      {formatNotebookDateTime(e.created_at, { zone: true })}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <Muted>{t('data.proposalsBoard.eventsYet')}</Muted>
+            )}
+          </div>
+        </div>
+      </details>
+    </>
+  )
+}
+
 function Section({
   title,
   children,
@@ -763,5 +592,203 @@ function Section({
       <h3 className="m-0 mb-2 text-body font-semibold">{title}</h3>
       {children}
     </section>
+  )
+}
+
+function ProposalRow({
+  proposal: p,
+  stage,
+  definitions,
+  active,
+  onSelect,
+  nameOf,
+}: Pick<
+  React.ComponentProps<typeof AgentProposalsBoard>,
+  'definitions' | 'onSelect' | 'nameOf'
+> & {
+  proposal: AgentOperationProposal
+  stage: ProposalStage
+  active: boolean
+}) {
+  const subject = proposalSubject(p)
+  const definition = definitions.find((d) => d.id === p.agent_definition_id)
+
+  return (
+    <li>
+      <button
+        type="button"
+        aria-current={active || undefined}
+        onClick={() => onSelect(p.id)}
+        className={cn(
+          'grid w-full cursor-pointer grid-cols-[minmax(0,1fr)_96px_190px_110px] items-center gap-x-3 border-0 border-b border-border px-4 py-2 text-left text-body hover:bg-surface-hover max-md:grid-cols-[minmax(0,1fr)_auto] md:px-6',
+          active ? 'bg-selected' : 'bg-transparent',
+        )}
+      >
+        <span className="min-w-0">
+          <span className="block truncate">
+            {subject.identifier ? (
+              <span className="mr-2 font-mono text-label text-fg-muted">
+                {subject.identifier}
+              </span>
+            ) : null}
+            {p.title}
+          </span>
+          <span className="block truncate text-label text-fg-muted">
+            {[definition?.name, subject.context].filter(Boolean).join(' · ') ||
+              p.summary}
+          </span>
+        </span>
+        <RiskGlyph risk={proposalRisk(p)} className="max-md:hidden" />
+        <Status tone={statusTone(p, stage)} className="max-md:hidden">
+          {proposalStatusLabel(p, stage, nameOf)}
+        </Status>
+        <span className="num text-label text-fg-muted max-md:hidden">
+          {shortStamp(p.created_at)}
+        </span>
+      </button>
+    </li>
+  )
+}
+
+function ProposalDecision({
+  selected,
+  busy,
+  onApprove,
+  onReject,
+  onSign,
+  rejecting,
+  onToggleReject,
+  reason,
+  onReasonChange,
+}: Pick<
+  React.ComponentProps<typeof AgentProposalsBoard>,
+  'onApprove' | 'onReject'
+> & {
+  selected: AgentOperationProposal
+  busy: boolean
+  onSign: () => void
+  rejecting: boolean
+  onToggleReject: () => void
+  reason: string
+  onReasonChange: (reason: string) => void
+}) {
+  const subject = proposalSubject(selected)
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="primary"
+          disabled={busy}
+          onClick={() =>
+            selected.signature_required ? onSign() : onApprove(selected, null)
+          }
+        >
+          {selected.signature_required
+            ? t('data.proposalsBoard.signApproveExecute')
+            : t('data.proposalsBoard.approveExecute')}
+        </Button>
+        {subject.identifier ? (
+          <a
+            href={`/${subject.identifier.startsWith('DS-') ? 'datasets' : 'experiments'}/${subject.identifier}`}
+            className="inline-flex h-7 items-center rounded-md border border-border bg-surface px-2.5 text-body text-fg hover:bg-surface-hover"
+          >
+            {t('data.proposalsBoard.editBeforeApproving')}
+          </a>
+        ) : null}
+        <Button variant="quiet" disabled={busy} onClick={onToggleReject}>
+          {t('data.proposalsBoard.reject')}
+        </Button>
+      </div>
+      {rejecting ? (
+        <div className="flex flex-col gap-2">
+          <Textarea
+            aria-label={t('data.proposalsBoard.ariaRejectionReason')}
+            value={reason}
+            onChange={(e) => onReasonChange(e.target.value)}
+            placeholder={t('data.proposalsBoard.placeholderSayWhyAgentTold')}
+          />
+          <div>
+            <Button
+              variant="danger"
+              disabled={!reason.trim() || busy}
+              onClick={() => onReject(selected, reason.trim())}
+            >
+              {t('data.proposalsBoard.rejectProposal')}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </>
+  )
+}
+
+function ProposalFailure({ proposal }: { proposal: AgentOperationProposal }) {
+  if (proposal.status !== 'failed' || !proposal.error_message) return null
+
+  return (
+    <Notice tone="bad" title={proposal.error_code ?? t('common.states.failed')}>
+      {proposal.error_message}
+    </Notice>
+  )
+}
+
+function ProposalOutcome({
+  selected,
+  stage,
+  nameOf,
+}: Pick<React.ComponentProps<typeof AgentProposalsBoard>, 'nameOf'> & {
+  selected: AgentOperationProposal
+  stage: ProposalStage
+}) {
+  const approverName = nameOf(selected.approver_user_id)
+
+  if (stage === 'waiting')
+    return (
+      <Muted>
+        {approverName
+          ? t('data.proposalsBoard.waitingOnPerson', { name: approverName })
+          : t('data.proposalsBoard.waitingOnApprover')}
+      </Muted>
+    )
+
+  if (selected.status === 'rejected')
+    return (
+      <Muted>
+        {selected.rejection_reason
+          ? t('data.proposalsBoard.rejectedByWithReason', {
+              name:
+                nameOf(selected.rejected_by_user_id) ??
+                t('data.proposalsBoard.aColleague'),
+              reason: selected.rejection_reason,
+            })
+          : t('data.proposalsBoard.rejectedBy', {
+              name:
+                nameOf(selected.rejected_by_user_id) ??
+                t('data.proposalsBoard.aColleague'),
+            })}
+      </Muted>
+    )
+
+  if (!selected.approved_by_user_id) return null
+
+  return (
+    <Muted>
+      {[
+        t('data.proposalsBoard.approvedBy', {
+          name:
+            nameOf(selected.approved_by_user_id) ??
+            t('data.proposalsBoard.aColleague'),
+        }),
+        selected.approved_at ? shortStamp(selected.approved_at) : null,
+        selected.approval_meaning
+          ? t('data.proposalsBoard.signed', {
+              approvalMeaning: selected.approval_meaning,
+            })
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')}
+    </Muted>
   )
 }

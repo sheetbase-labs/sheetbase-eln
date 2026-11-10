@@ -3,11 +3,11 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import type { SampleQuantityBalances } from '#/lib/samples'
 
+import { UsageBalanceBar } from './sample-usage'
 import {
-  UsageBalanceBar,
   computeUsageSegments,
   reservationStateLabel,
-} from './sample-usage'
+} from './sample-usage-data'
 
 afterEach(cleanup)
 

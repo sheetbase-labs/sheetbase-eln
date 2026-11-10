@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePlatform } from '#/lib/use-platform'
 import { formatShortcut } from '#/lib/shortcuts'
-import { useNavigate } from '@tanstack/react-router'
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
 
 import { Button } from '#/components/ui/button'
@@ -19,7 +18,8 @@ import { Kbd } from '#/components/ui/kbd'
 import { Select } from '#/components/ui/select'
 import { Icon } from '#/components/icons'
 import type { IconName } from '#/components/icons'
-import { useProjectNameMap } from '#/components/experiments/experiments-data'
+import { usePaletteActions } from './use-palette-actions'
+import { usePaletteSearch } from './use-palette-search'
 import { Highlight } from './highlight'
 import { goToCommands, matchCommands, newCommands } from './palette-commands'
 import type { PaletteCommand } from './palette-commands'
@@ -31,28 +31,13 @@ import {
 import {
   contextualSearchActions,
   filterBySearchScope,
-  executeSearch,
   groupSearchResults,
   rankByTier,
-  searchActionHref,
-  searchDidYouMean,
   searchResultGroup,
   searchResultGroupLabel,
-  searchResultNewTabUrl,
   SEARCH_SCOPE_ALL,
 } from '#/lib/search'
-import type {
-  DidYouMeanSuggestion,
-  SearchContextAction,
-  SearchResult,
-  SearchResultGroup,
-} from '#/lib/search'
-import { notebookDataClient } from '#/lib/notebook-data'
-import { encodeFilter } from '#/lib/search-filter'
-import { parseTypedSearch } from '#/lib/search-query'
-import type { TypedSearch } from '#/lib/search-query'
-import { useSearchFields } from './use-search-fields'
-import { requestOpenBeside } from '#/components/workspace/workspace-navigation'
+import type { SearchResult, SearchResultGroup } from '#/lib/search'
 import { rich, t } from '#/copy'
 
 /**
@@ -73,7 +58,6 @@ import { rich, t } from '#/copy'
  * states (error, scope miss, correction).
  */
 const MAX_PER_GROUP = 3
-const FETCH_LIMIT = 24
 
 const GROUP_ICONS: Record<SearchResultGroup, IconName> = {
   Samples: 'tube',
@@ -96,7 +80,7 @@ const GROUP_ICONS: Record<SearchResultGroup, IconName> = {
 }
 
 /** Human type of a record kind, for the identifier suggestion line. */
-const SUGGESTION_KIND_LABELS: Record<string, string> = {
+const SUGGESTION_KIND_LABELS = {
   sample: t('projects.searchPalette.kinds.sample'),
   material: t('projects.searchPalette.kinds.material'),
   experiment: t('projects.searchPalette.kinds.experiment'),
@@ -105,10 +89,6 @@ const SUGGESTION_KIND_LABELS: Record<string, string> = {
   study: t('projects.searchPalette.kinds.study'),
   file: t('projects.searchPalette.kinds.file'),
 }
-
-type PaletteEntry =
-  | { type: 'result'; result: SearchResult }
-  | { type: 'action'; action: SearchContextAction }
 
 /** A row's key, and the value the kit's CommandItem tracks it by. */
 const resultKey = (result: SearchResult) =>
@@ -124,7 +104,7 @@ const optionHint = 'hidden group-aria-selected:inline-flex'
 /** Typed queries show only the best few commands; an empty one lists them all. */
 const MAX_TYPED_COMMANDS = 4
 
-export function SearchPalette({
+function usePaletteController({
   open: openProp,
   onOpenChange,
   initialQuery = '',
@@ -142,42 +122,26 @@ export function SearchPalette({
   const platform = usePlatform()
   const [openState, setOpenState] = useState(false)
   const open = openProp ?? openState
-  const navigate = useNavigate()
-  const [q, setQ] = useState(initialQuery)
-  const [scope, setScope] = useState<string>(SEARCH_SCOPE_ALL)
-  // Archived scope: pushed to the search boundary, never a browser-side
-  // filter. Off by default, matching the results page.
-  const [archived, setArchived] = useState(false)
-  const [res, setRes] = useState<SearchResult[] | null>(null)
-  // What the typed text meant: words for the search, `key:value` tokens as
-  // filters. The same syntax the results page reads.
-  const [typed, setTyped] = useState<TypedSearch | null>(null)
-  const fields = useSearchFields()
-  const [error, setError] = useState<unknown>(null)
-  const [searching, setSearching] = useState(false)
 
-  const [suggestion, setSuggestion] = useState<DidYouMeanSuggestion | null>(
-    null,
-  )
+  const {
+    q,
+    setQ,
+    scope,
+    setScope,
+    archived,
+    setArchived,
+    res,
+    typed,
+    error,
+    searching,
+    suggestion,
+    projects,
+    reset,
+    runSearch,
+  } = usePaletteSearch({ open, initialQuery })
 
   const inputRef = useRef<HTMLInputElement>(null)
   const restoreFocusRef = useRef<HTMLElement | null>(null)
-  // A response must not write into the palette once a newer search, or the
-  // close that follows it, has superseded it.
-  const searchGeneration = useRef(0)
-  const projects = useProjectNameMap()
-
-  const reset = () => {
-    searchGeneration.current += 1
-    setQ(initialQuery)
-    setScope(SEARCH_SCOPE_ALL)
-    setArchived(false)
-    setRes(null)
-    setTyped(null)
-    setError(null)
-    setSearching(false)
-    setSuggestion(null)
-  }
 
   const setOpen = (o: boolean) => {
     onOpenChange?.(o)
@@ -186,40 +150,6 @@ export function SearchPalette({
 
     if (!o) reset()
   }
-
-  // The palette's search: the failure is kept so the palette can say what
-  // happened and offer the retry, rather than leaving an empty listbox.
-  const runSearch = useCallback(
-    (
-      term: string,
-      nextScope: string,
-      nextArchived: boolean,
-      parsed: TypedSearch | null,
-    ) => {
-      const generation = (searchGeneration.current += 1)
-      setSearching(true)
-      setError(null)
-      void executeSearch(notebookDataClient, {
-        query: parsed ? parsed.q : term,
-        filter: parsed?.filter,
-        limit: FETCH_LIMIT,
-        projectId: nextScope === SEARCH_SCOPE_ALL ? undefined : nextScope,
-        includeArchived: nextArchived,
-      })
-        .then((rows) => {
-          if (generation !== searchGeneration.current) return
-          setRes(rows)
-          setSearching(false)
-        })
-        .catch((cause: unknown) => {
-          if (generation !== searchGeneration.current) return
-          setRes(null)
-          setSearching(false)
-          setError(cause)
-        })
-    },
-    [],
-  )
 
   // Esc is owned by the Dialog primitive, which calls onOpenChange(false).
   // Capture the previously focused element before moving focus into the
@@ -236,69 +166,7 @@ export function SearchPalette({
     }
   }, [open])
 
-  useEffect(() => {
-    if (!open) return
-    const term = q.trim()
-
-    if (!term) {
-      setRes(null)
-      setError(null)
-      setSearching(false)
-
-      return
-    }
-
-    setSuggestion(null)
-    setSearching(true)
-    let live = true
-
-    const timer = setTimeout(() => {
-      void parseTypedSearch(term, fields)
-        .catch((): TypedSearch => ({ q: term }))
-        .then((parsed) => {
-          if (!live) return
-          setTyped(parsed)
-          runSearch(term, scope, archived, parsed)
-        })
-    }, 120)
-
-    return () => {
-      live = false
-      searchGeneration.current += 1
-      clearTimeout(timer)
-    }
-  }, [q, open, scope, archived, runSearch, fields])
-
-  // When a query genuinely finds nothing the palette offers a corrected
-  // identifier, resolved at the canonical search boundary
-  // (`api.search_did_you_mean`), so a suggestion never names an object the
-  // person cannot see. Accepting it navigates through `/records/$recordId`,
-  // where the existing identifier resolver turns the display id into its row.
-  useEffect(() => {
-    if (!open) return
-    const term = q.trim()
-
-    if (!term || res === null || res.length > 0) {
-      setSuggestion(null)
-
-      return
-    }
-
-    let live = true
-
-    const timer = setTimeout(() => {
-      void searchDidYouMean(notebookDataClient, term, archived).then((rows) => {
-        if (live) setSuggestion(rows[0] ?? null)
-      })
-    }, 150)
-
-    return () => {
-      live = false
-      clearTimeout(timer)
-    }
-  }, [q, open, res, archived])
-
-  const items = res ?? []
+  const items = useMemo(() => res ?? [], [res])
 
   // The chosen project's name, so the empty state can name the scope rather
   // than the id it was chosen by.
@@ -365,31 +233,8 @@ export function SearchPalette({
     actions.length +
     commandCount
 
-  const runCommand = (command: PaletteCommand, newTab = false) => {
-    if (newTab) {
-      window.open(
-        searchResultNewTabUrl(
-          searchActionHref({
-            id: command.id,
-            label: command.label,
-            to: command.to,
-            search: command.search,
-          }),
-          window.location.origin,
-        ),
-        '_blank',
-        'noopener,noreferrer',
-      )
-
-      return
-    }
-
-    setOpen(false)
-    void navigate({
-      to: command.to as never,
-      search: command.search as never,
-    })
-  }
+  const { runCommand, go, runAction, seeAll, acceptSuggestion } =
+    usePaletteActions({ q, typed, archived, close: () => setOpen(false) })
 
   const commandGroups = (heading: 'Go to' | 'New', list: PaletteCommand[]) =>
     list.length ? (
@@ -418,94 +263,6 @@ export function SearchPalette({
       </CommandGroup>
     ) : null
 
-  const go = (
-    result: SearchResult,
-    newTab = false,
-    beside = false,
-    below = false,
-  ) => {
-    if (beside) {
-      setOpen(false)
-      requestOpenBeside(result.deepLink, result.title, below)
-
-      return
-    }
-
-    if (newTab) {
-      window.open(
-        searchResultNewTabUrl(result.deepLink, window.location.origin),
-        '_blank',
-        'noopener,noreferrer',
-      )
-
-      return
-    }
-
-    setOpen(false)
-
-    // A notebook found through an attached file opens at that file's block.
-    if (result.matchedBlockId) void navigate({ href: result.deepLink })
-    else void navigate({ to: result.deepLink as never })
-  }
-
-  const runAction = (action: SearchContextAction, newTab = false) => {
-    if (newTab) {
-      window.open(
-        searchResultNewTabUrl(searchActionHref(action), window.location.origin),
-        '_blank',
-        'noopener,noreferrer',
-      )
-
-      return
-    }
-
-    setOpen(false)
-    void navigate({
-      to: action.to as never,
-      search: action.search as never,
-    })
-  }
-
-  const activate = (
-    entry: PaletteEntry | undefined,
-    newTab = false,
-    beside = false,
-    below = false,
-  ) => {
-    if (!entry) return
-
-    if (entry.type === 'result') go(entry.result, newTab, beside, below)
-    else runAction(entry.action, newTab)
-  }
-
-  const seeAll = (opts?: { builder?: boolean }) => {
-    setOpen(false)
-    // The words and the filters they became travel together, so the page opens
-    // on the same question.
-    const words = typed ? typed.q : q.trim()
-    void navigate({
-      to: '/search',
-      search: {
-        ...(words ? { q: words } : {}),
-        ...(typed?.filter ? { filter: encodeFilter(typed.filter) } : {}),
-        ...(archived ? { archived: true } : {}),
-        ...(opts?.builder ? { builder: true } : {}),
-      },
-    })
-  }
-
-  // Accepting the correction navigates by display identifier; the record route
-  // resolves it through the canonical identifier resolver (`/records/$recordId`
-  // → resolveIdentifierParam), so a mistyped id lands on the real object or on
-  // nothing at all — never on a different one.
-  const acceptSuggestion = (s: DidYouMeanSuggestion) => {
-    setOpen(false)
-    void navigate({
-      to: '/records/$recordId',
-      params: { recordId: s.identifier },
-    })
-  }
-
   // The list's own keyboard handling is the kit's (↑ ↓, Home/End, ↵, ⌘/Ctrl+↵
   // with `newTab`). The one case left here is ↵ with nothing to open: the
   // palette has no row to activate, so it goes to the results page.
@@ -529,6 +286,71 @@ export function SearchPalette({
   // CommandList is mounted and drops both attributes when none is).
   const showList =
     !error && !(res !== null && q.trim() && entryCount === 0 && !searching)
+
+  return {
+    open,
+    setOpen,
+    platform,
+    q,
+    setQ,
+    scope,
+    setScope,
+    archived,
+    setArchived,
+    typed,
+    error,
+    searching,
+    suggestion,
+    projects,
+    runSearch,
+    inputRef,
+    items,
+    scopeLabel,
+    commandMatch,
+    commandGroups,
+    buckets,
+    actions,
+    go,
+    runAction,
+    seeAll,
+    acceptSuggestion,
+    onKeyDown,
+    seeAllLabel,
+    showList,
+  }
+}
+
+export function SearchPalette(
+  props: Parameters<typeof usePaletteController>[0],
+) {
+  const state = usePaletteController(props)
+
+  const {
+    open,
+    setOpen,
+    platform,
+    q,
+    setQ,
+    scope,
+    setScope,
+    archived,
+    setArchived,
+    typed,
+    searching,
+    projects,
+    inputRef,
+    items,
+    commandMatch,
+    commandGroups,
+    buckets,
+    actions,
+    go,
+    runAction,
+    seeAll,
+    onKeyDown,
+    seeAllLabel,
+    showList,
+  } = state
 
   return (
     <CommandDialog
@@ -610,111 +432,8 @@ export function SearchPalette({
             </>
           }
         />
-        {error ? (
-          <div role="alert" className="flex flex-col gap-2.5 px-5 py-7">
-            <div className="font-semibold">
-              {t('projects.searchPalette.error.title')}
-            </div>
-            <div className="text-body leading-[19px] text-fg-muted">
-              {t('projects.searchPalette.error.body')}
-            </div>
-            <div>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => runSearch(q.trim(), scope, archived, typed)}
-              >
-                {t('common.actions.tryAgain')}
-              </Button>
-            </div>
-          </div>
-        ) : !showList ? (
-          <div role="status" className="flex flex-col gap-2.5 px-5 py-7">
-            {items.length > 0 ? (
-              <>
-                <div className="font-semibold">
-                  {t('projects.searchPalette.scopeMiss.title', {
-                    scope:
-                      scopeLabel ?? t('projects.searchPalette.thisProject'),
-                  })}
-                </div>
-                <div className="text-body leading-[19px] text-fg-muted">
-                  {t('projects.searchPalette.scopeMiss.body', {
-                    count: items.length,
-                    query: q.trim(),
-                    scope: scopeLabel ?? t('projects.searchPalette.it'),
-                  })}
-                </div>
-                <div className="text-body">
-                  <button
-                    type="button"
-                    onClick={() => setScope(SEARCH_SCOPE_ALL)}
-                    className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
-                  >
-                    {t('projects.searchPalette.scopeMiss.all')}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="font-semibold">
-                  {t('projects.searchPalette.noMatch.title', {
-                    query: q.trim(),
-                  })}
-                </div>
-                <div className="text-body leading-[19px] text-fg-muted">
-                  {t('projects.searchPalette.noMatch.body')}
-                </div>
-                {suggestion ? (
-                  <div className="text-body">
-                    {rich('projects.searchPalette.didYouMean', {
-                      identifier: (
-                        <button
-                          type="button"
-                          onClick={() => acceptSuggestion(suggestion)}
-                          className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] font-medium text-link hover:underline"
-                        >
-                          {suggestion.identifier}
-                        </button>
-                      ),
-                    })}{' '}
-                    <span className="text-fg-muted">
-                      {suggestion.title} ·{' '}
-                      {SUGGESTION_KIND_LABELS[suggestion.kind] ??
-                        suggestion.kind}
-                    </span>
-                  </div>
-                ) : null}
-                <div className="text-label text-fg-muted">
-                  {archived ? (
-                    <>
-                      {t('projects.searchPalette.archivedSearched', {
-                        query: q.trim(),
-                      })}{' '}
-                      <button
-                        type="button"
-                        onClick={() => setArchived(false)}
-                        className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
-                      >
-                        {t('projects.searchPalette.activeOnly')}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      {t('projects.searchPalette.archivedNotSearched')}{' '}
-                      <button
-                        type="button"
-                        onClick={() => setArchived(true)}
-                        className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
-                      >
-                        {t('projects.searchPalette.includeArchived')}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+        {!showList ? (
+          <PaletteFeedback state={state} />
         ) : (
           <CommandList className="max-h-[440px] pb-2 pt-1 max-md:max-h-none">
             {!q.trim() ? (
@@ -752,12 +471,7 @@ export function SearchPalette({
                       key={resultKey(result)}
                       value={resultKey(result)}
                       onSelect={(_value, newTab, beside, below) =>
-                        activate(
-                          { type: 'result', result },
-                          newTab,
-                          beside,
-                          below,
-                        )
+                        go(result, newTab, beside, below)
                       }
                       className={optionRow}
                     >
@@ -869,5 +583,135 @@ export function SearchPalette({
         </CommandFooter>
       </Command>
     </CommandDialog>
+  )
+}
+
+/** Retry, scope miss and identifier correction share the settled feedback area. */
+function PaletteFeedback({
+  state,
+}: {
+  state: ReturnType<typeof usePaletteController>
+}) {
+  const {
+    q,
+    scope,
+    archived,
+    typed,
+    error,
+    runSearch,
+    items,
+    scopeLabel,
+    setScope,
+    suggestion,
+    acceptSuggestion,
+    setArchived,
+  } = state
+
+  if (error)
+    return (
+      <div role="alert" className="flex flex-col gap-2.5 px-5 py-7">
+        <div className="font-semibold">
+          {t('projects.searchPalette.error.title')}
+        </div>
+        <div className="text-body leading-[19px] text-fg-muted">
+          {t('projects.searchPalette.error.body')}
+        </div>
+        <div>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => runSearch(q.trim(), scope, archived, typed)}
+          >
+            {t('common.actions.tryAgain')}
+          </Button>
+        </div>
+      </div>
+    )
+
+  return (
+    <div role="status" className="flex flex-col gap-2.5 px-5 py-7">
+      {items.length > 0 ? (
+        <>
+          <div className="font-semibold">
+            {t('projects.searchPalette.scopeMiss.title', {
+              scope: scopeLabel ?? t('projects.searchPalette.thisProject'),
+            })}
+          </div>
+          <div className="text-body leading-[19px] text-fg-muted">
+            {t('projects.searchPalette.scopeMiss.body', {
+              count: items.length,
+              query: q.trim(),
+              scope: scopeLabel ?? t('projects.searchPalette.it'),
+            })}
+          </div>
+          <div className="text-body">
+            <button
+              type="button"
+              onClick={() => setScope(SEARCH_SCOPE_ALL)}
+              className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
+            >
+              {t('projects.searchPalette.scopeMiss.all')}
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="font-semibold">
+            {t('projects.searchPalette.noMatch.title', { query: q.trim() })}
+          </div>
+          <div className="text-body leading-[19px] text-fg-muted">
+            {t('projects.searchPalette.noMatch.body')}
+          </div>
+          {suggestion ? (
+            <div className="text-body">
+              {rich('projects.searchPalette.didYouMean', {
+                identifier: (
+                  <button
+                    type="button"
+                    onClick={() => acceptSuggestion(suggestion)}
+                    className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] font-medium text-link hover:underline"
+                  >
+                    {suggestion.identifier}
+                  </button>
+                ),
+              })}{' '}
+              <span className="text-fg-muted">
+                {suggestion.title} ·{' '}
+                {Object.entries(SUGGESTION_KIND_LABELS).find(
+                  ([kind]) => kind === suggestion.kind,
+                )?.[1] ?? suggestion.kind}
+              </span>
+            </div>
+          ) : null}
+          <div className="text-label text-fg-muted">
+            {archived ? (
+              <>
+                {t('projects.searchPalette.archivedSearched', {
+                  query: q.trim(),
+                })}{' '}
+                <button
+                  type="button"
+                  onClick={() => setArchived(false)}
+                  className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
+                >
+                  {t('projects.searchPalette.activeOnly')}
+                </button>
+              </>
+            ) : (
+              <>
+                {t('projects.searchPalette.archivedNotSearched')}{' '}
+                <button
+                  type="button"
+                  onClick={() => setArchived(true)}
+                  className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-link hover:underline"
+                >
+                  {t('projects.searchPalette.includeArchived')}
+                </button>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   )
 }

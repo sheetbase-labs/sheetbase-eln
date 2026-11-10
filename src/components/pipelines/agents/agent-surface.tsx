@@ -1,7 +1,8 @@
 import { t } from '#/copy'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import {
   ConfirmDialog,
@@ -127,7 +128,12 @@ export function AgentWorkflowsPanel({
     workflows.find((w) => w.id === selectedId) ?? workflows.at(0) ?? null
 
   const [reason, setReason] = useState('')
-  useEffect(() => setReason(''), [selected?.id])
+  const [previousId, setPreviousId] = useState(selected?.id)
+
+  if (previousId !== selected?.id) {
+    setPreviousId(selected?.id)
+    setReason('')
+  }
 
   if (!selected) {
     return (
@@ -223,44 +229,15 @@ export function AgentWorkflowsPanel({
         ) : null}
 
         {!terminal ? (
-          <InspectorSection title={t('data.agentSurface.actions')}>
-            <div className="flex flex-col gap-2">
-              {selected.status === 'waiting_approval' ? (
-                <Button
-                  onClick={() => onAdvance(selected)}
-                  disabled={pendingAction !== null}
-                >
-                  {t('data.agentSurface.checkStepOutcome')}
-                </Button>
-              ) : null}
-              {selected.status === 'paused' ? (
-                <Button
-                  onClick={() => onResume(selected)}
-                  disabled={pendingAction !== null}
-                >
-                  {t('data.agentSurface.resumeExactStep')}
-                </Button>
-              ) : null}
-              <Textarea
-                aria-label={t(
-                  'data.agentSurface.ariaWorkflowCancellationReason',
-                )}
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder={t(
-                  'data.agentSurface.placeholderReasonRequiredCancel',
-                )}
-              />
-              <Button
-                variant="danger"
-                aria-label={t('data.agentSurface.cancelWorkflow')}
-                onClick={() => onCancel(selected, reason)}
-                disabled={!reason.trim() || pendingAction !== null}
-              >
-                {t('data.agentSurface.cancelWorkflow')}
-              </Button>
-            </div>
-          </InspectorSection>
+          <WorkflowActions
+            selected={selected}
+            onAdvance={onAdvance}
+            onResume={onResume}
+            onCancel={onCancel}
+            pendingAction={pendingAction}
+            reason={reason}
+            onReasonChange={setReason}
+          />
         ) : null}
 
         <InspectorSection
@@ -406,7 +383,7 @@ export function AgentPoliciesPanel({
   const [maxRows, setMaxRows] = useState('100')
   const [reason, setReason] = useState('')
 
-  const [meaning, setMeaning] = useState(
+  const [meaning, setMeaning] = useState(() =>
     t('data.agentSurface.iApproveDelegation'),
   )
 
@@ -414,20 +391,17 @@ export function AgentPoliciesPanel({
   const [pendingDisable, setPendingDisable] =
     useState<AgentOperationPolicy | null>(null)
 
-  useEffect(() => {
-    if (!credentialId && credentials[0]) setCredentialId(credentials[0].id)
-  }, [credentialId, credentials])
+  if (!credentialId && credentials[0]) setCredentialId(credentials[0].id)
 
   const limit = Number(maxRows)
 
-  const valid =
-    name.trim().length > 0 &&
-    credentialId.length > 0 &&
-    Number.isInteger(limit) &&
-    limit >= 1 &&
-    limit <= 1000 &&
-    reason.trim().length > 0 &&
-    meaning.trim().length > 0
+  const valid = policyDetailsValid({
+    name,
+    credentialId,
+    maxAffectedRows: limit,
+    reason,
+    meaning,
+  })
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-auto px-4 py-4 md:px-6">
@@ -438,22 +412,10 @@ export function AgentPoliciesPanel({
         <Muted>{t('data.agentSurface.addingRowsDatasetNeeds')}</Muted>
         {/* PIPE-01: with no service credential there is nothing to delegate to,
             so the form stays disabled — and now says why. */}
-        {canManage && credentials.length === 0 ? (
-          <Notice
-            tone="warn"
-            title={t('data.agentSurface.serviceCredentials')}
-            action={
-              <Link
-                to="/settings/account/api"
-                className={buttonVariants({ variant: 'quiet', size: 'sm' })}
-              >
-                {t('data.agentSurface.openApiSdk')}
-              </Link>
-            }
-          >
-            {t('data.agentSurface.policyDelegatesDatasetRow')}
-          </Notice>
-        ) : null}
+        <PolicyCredentialNotice
+          canManage={canManage}
+          credentials={credentials}
+        />
         {canManage ? (
           <form
             className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_150px_1fr_100px_auto]"
@@ -503,11 +465,13 @@ export function AgentPoliciesPanel({
             <Field label={t('data.agentSurface.target')}>
               <Select
                 value={targetType}
-                onChange={(e) =>
-                  setTargetType(
-                    e.target.value as AgentOperationPolicyTargetType,
+                onChange={(e) => {
+                  const target = TARGET_TYPES.find(
+                    (option) => option.value === e.target.value,
                   )
-                }
+
+                  if (target) setTargetType(target.value)
+                }}
               >
                 {TARGET_TYPES.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -578,59 +542,13 @@ export function AgentPoliciesPanel({
               </TableHeader>
               <TableBody>
                 {policies.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="py-1.5 leading-[17px]">
-                      <span className="block font-medium">{p.name}</span>
-                      {p.reason ? (
-                        <span className="block text-label text-fg-muted">
-                          {p.reason}
-                        </span>
-                      ) : null}
-                      {p.signed_at ? (
-                        <span className="block text-label text-fg-muted">
-                          {t('data.agentSurface.signed', {
-                            value: formatNotebookDateTime(p.signed_at, {
-                              zone: true,
-                            }),
-                          })}
-                          {p.signed_meaning ? ` · ${p.signed_meaning}` : ''}
-                        </span>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>
-                      {credentials.find((c) => c.id === p.credential_id)
-                        ?.name ?? p.credential_id}
-                    </TableCell>
-                    <TableCell>
-                      {p.target_type}
-                      {p.target_id ? ` · ${p.target_id}` : ''}
-                    </TableCell>
-                    <TableCell>
-                      {String(
-                        p.limits.maxAffectedRows ??
-                          p.limits.max_affected_rows ??
-                          '—',
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Status tone={p.enabled ? 'ok' : 'stored'}>
-                        {p.enabled
-                          ? t('data.agentSurface.enabled')
-                          : t('data.agentSurface.disabled')}
-                      </Status>
-                    </TableCell>
-                    <TableCell align="right">
-                      {canManage && p.enabled ? (
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => setPendingDisable(p)}
-                        >
-                          {t('data.agentSurface.disable')}
-                        </Button>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
+                  <PolicyRow
+                    key={p.id}
+                    policy={p}
+                    credentials={credentials}
+                    canManage={canManage}
+                    onDisable={setPendingDisable}
+                  />
                 ))}
               </TableBody>
             </Table>
@@ -691,5 +609,163 @@ export function AgentPoliciesPanel({
         </ConfirmDialogContent>
       </ConfirmDialog>
     </div>
+  )
+}
+
+function WorkflowActions({
+  selected,
+  onAdvance,
+  onResume,
+  onCancel,
+  pendingAction,
+  reason,
+  onReasonChange,
+}: Pick<
+  React.ComponentProps<typeof AgentWorkflowsPanel>,
+  'onAdvance' | 'onResume' | 'onCancel' | 'pendingAction'
+> & {
+  selected: AgentWorkflow
+  reason: string
+  onReasonChange: (reason: string) => void
+}) {
+  return (
+    <InspectorSection title={t('data.agentSurface.actions')}>
+      <div className="flex flex-col gap-2">
+        {selected.status === 'waiting_approval' ? (
+          <Button
+            onClick={() => onAdvance(selected)}
+            disabled={pendingAction !== null}
+          >
+            {t('data.agentSurface.checkStepOutcome')}
+          </Button>
+        ) : null}
+        {selected.status === 'paused' ? (
+          <Button
+            onClick={() => onResume(selected)}
+            disabled={pendingAction !== null}
+          >
+            {t('data.agentSurface.resumeExactStep')}
+          </Button>
+        ) : null}
+        <Textarea
+          aria-label={t('data.agentSurface.ariaWorkflowCancellationReason')}
+          value={reason}
+          onChange={(e) => onReasonChange(e.target.value)}
+          placeholder={t('data.agentSurface.placeholderReasonRequiredCancel')}
+        />
+        <Button
+          variant="danger"
+          aria-label={t('data.agentSurface.cancelWorkflow')}
+          onClick={() => onCancel(selected, reason)}
+          disabled={!reason.trim() || pendingAction !== null}
+        >
+          {t('data.agentSurface.cancelWorkflow')}
+        </Button>
+      </div>
+    </InspectorSection>
+  )
+}
+
+function PolicyCredentialNotice({
+  canManage,
+  credentials,
+}: Pick<
+  React.ComponentProps<typeof AgentPoliciesPanel>,
+  'canManage' | 'credentials'
+>) {
+  if (!canManage || credentials.length > 0) return null
+
+  return (
+    <Notice
+      tone="warn"
+      title={t('data.agentSurface.serviceCredentials')}
+      action={
+        <Link
+          to="/settings/account/api"
+          className={buttonVariants({ variant: 'quiet', size: 'sm' })}
+        >
+          {t('data.agentSurface.openApiSdk')}
+        </Link>
+      }
+    >
+      {t('data.agentSurface.policyDelegatesDatasetRow')}
+    </Notice>
+  )
+}
+
+function policyDetailsValid({
+  name,
+  credentialId,
+  maxAffectedRows,
+  reason,
+  meaning,
+}: Pick<
+  Parameters<React.ComponentProps<typeof AgentPoliciesPanel>['onCreate']>[0],
+  'name' | 'credentialId' | 'maxAffectedRows' | 'reason' | 'meaning'
+>) {
+  return (
+    name.trim().length > 0 &&
+    credentialId.length > 0 &&
+    Number.isInteger(maxAffectedRows) &&
+    maxAffectedRows >= 1 &&
+    maxAffectedRows <= 1000 &&
+    reason.trim().length > 0 &&
+    meaning.trim().length > 0
+  )
+}
+
+function PolicyRow({
+  policy: p,
+  credentials,
+  canManage,
+  onDisable,
+}: Pick<
+  React.ComponentProps<typeof AgentPoliciesPanel>,
+  'credentials' | 'canManage' | 'onDisable'
+> & { policy: AgentOperationPolicy }) {
+  return (
+    <TableRow>
+      <TableCell className="py-1.5 leading-[17px]">
+        <span className="block font-medium">{p.name}</span>
+        {p.reason ? (
+          <span className="block text-label text-fg-muted">{p.reason}</span>
+        ) : null}
+        {p.signed_at ? (
+          <span className="block text-label text-fg-muted">
+            {t('data.agentSurface.signed', {
+              value: formatNotebookDateTime(p.signed_at, { zone: true }),
+            })}
+            {p.signed_meaning ? ` · ${p.signed_meaning}` : ''}
+          </span>
+        ) : null}
+      </TableCell>
+      <TableCell>
+        {credentials.find((c) => c.id === p.credential_id)?.name ??
+          p.credential_id}
+      </TableCell>
+      <TableCell>
+        {p.target_type}
+        {p.target_id ? ` · ${p.target_id}` : ''}
+      </TableCell>
+      <TableCell>
+        {z.coerce
+          .string()
+          .parse(p.limits.maxAffectedRows ?? p.limits.max_affected_rows ?? '—')}
+      </TableCell>
+      <TableCell>
+        <Status tone={p.enabled ? 'ok' : 'stored'}>
+          {p.enabled
+            ? t('data.agentSurface.enabled')
+            : t('data.agentSurface.disabled')}
+        </Status>
+      </TableCell>
+      <TableCell align="right">
+        {canManage && p.enabled ? (
+          <Button variant="danger" size="sm" onClick={() => onDisable(p)}>
+            {t('data.agentSurface.disable')}
+          </Button>
+        ) : null}
+      </TableCell>
+    </TableRow>
   )
 }

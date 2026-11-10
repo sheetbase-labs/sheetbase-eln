@@ -1,38 +1,19 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-} from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
+import { z } from 'zod'
+import { createDataClient } from '#/lib/data-client'
+import type { PageAi } from '#/lib/use-page-ai'
+import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
+import type { PipelineDefinitionVersionWire } from '#/lib/pipelines/types'
+import { pipelineVersion, renderPipeline } from './test-support'
 
 import { RunAiFix } from './run-ai-fix'
 import type { PipelineConfig } from '#/lib/pipelines/config'
 
-const mocks = vi.hoisted(() => ({
-  usePageAi: vi.fn(),
-  create: vi.fn(),
-  update: vi.fn(),
-}))
-
-vi.mock('#/lib/use-page-ai', () => ({ usePageAi: mocks.usePageAi }))
-
-vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: {} }))
-
-vi.mock('#/lib/pipelines/data', () => ({
-  createPipelineDefinitionVersion: mocks.create,
-  updatePipelineDefinitionVersionDraft: mocks.update,
-}))
-
-vi.mock('#/components/ui/sonner', () => ({ toast: vi.fn() }))
-
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children }: { children: React.ReactNode }) => (
-    <a href="#">{children}</a>
-  ),
-}))
+const writes: Array<{
+  name: string
+  args: z.infer<typeof pipelineJsonObjectSchema>
+}> = []
 
 const runConfig: PipelineConfig = {
   configVersion: 1,
@@ -51,90 +32,110 @@ const reply = JSON.stringify({
   },
 })
 
-function ai(overrides: Record<string, unknown> = {}) {
+function ai(overrides: Partial<PageAi> = {}): PageAi {
   return {
     available: true,
     live: true,
     workspaceId: 'ws-1',
-    run: vi.fn().mockResolvedValue({ status: 'ok', text: reply }),
+    run: async () => ({
+      status: 'ok',
+      text: reply,
+      model: 'test-provider',
+      mode: 'provider',
+      sources: [],
+      usage: { tokensUsed: 1, costMicrousd: 0, latencyMs: 1 },
+      generated: true,
+    }),
     ...overrides,
   }
 }
 
-function view(draft?: {
-  id: string
-  revision: number
-  configuration: Record<string, unknown>
-}) {
-  const client = new QueryClient()
+function view(draft?: PipelineDefinitionVersionWire, pageAi = ai()) {
+  const client = createDataClient(async (input, init) => {
+    writes.push({
+      name: z.string().parse(input).split('/').at(-1) ?? '',
+      args: pipelineJsonObjectSchema.parse(
+        JSON.parse(z.string().parse(init?.body)),
+      ),
+    })
 
-  return render(
-    <QueryClientProvider client={client}>
-      <RunAiFix
-        pipelineId="p-1"
-        errorCode="transform_failed"
-        errorMessage="relation does not exist"
-        logLines={['relation "readingz" does not exist']}
-        failedStep="transform"
-        runConfig={runConfig}
-        draft={draft as never}
-      />
-    </QueryClientProvider>,
+    return Response.json(pipelineVersion())
+  })
+
+  return renderPipeline(
+    <RunAiFix
+      pipelineId="p-1"
+      errorCode="transform_failed"
+      errorMessage="relation does not exist"
+      logLines={['relation "readingz" does not exist']}
+      failedStep="transform"
+      runConfig={runConfig}
+      draft={draft}
+      pageAi={pageAi}
+      client={client}
+    />,
   )
 }
 
 afterEach(() => {
   cleanup()
-  vi.clearAllMocks()
+  writes.length = 0
 })
 
 describe('RunAiFix', () => {
   it('renders nothing when AI is off or only the built-in model is connected', () => {
-    mocks.usePageAi.mockReturnValue(ai({ available: false, live: false }))
-    expect(view().container.innerHTML).toBe('')
+    expect(
+      view(undefined, ai({ available: false, live: false })).container
+        .innerHTML,
+    ).toBe('')
     cleanup()
-    mocks.usePageAi.mockReturnValue(ai({ live: false }))
-    expect(view().container.innerHTML).toBe('')
+    expect(view(undefined, ai({ live: false })).container.innerHTML).toBe('')
   })
 
   it('explains, then Apply creates a draft when none exists', async () => {
-    mocks.usePageAi.mockReturnValue(ai())
-    mocks.create.mockResolvedValue({})
     view()
     fireEvent.click(
       screen.getByRole('button', { name: /explain and suggest/i }),
     )
     expect(await screen.findByText('The table name has a typo.')).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /apply to draft/i }))
-    await waitFor(() => expect(mocks.create).toHaveBeenCalledTimes(1))
-    const call = mocks.create.mock.calls[0]?.[1]
-    expect(call.definitionId).toBe('p-1')
-    expect(call.configuration.transform.statement).toBe(
-      'select * from readings',
-    )
-    expect(mocks.update).not.toHaveBeenCalled()
+    await waitFor(() => expect(writes).toHaveLength(1))
+    expect(writes[0]).toMatchObject({
+      name: 'create_pipeline_definition_version',
+      args: {
+        p_definition_id: 'p-1',
+        p_configuration: { transform: { statement: 'select * from readings' } },
+      },
+    })
     expect(await screen.findByText(/nothing is published/i)).toBeTruthy()
   })
 
-  it('Apply updates the existing draft with its revision', async () => {
-    mocks.usePageAi.mockReturnValue(ai())
-    mocks.update.mockResolvedValue({})
-    view({ id: 'd-1', revision: 3, configuration: runConfig as never })
+  it('Apply repairs an unfinished draft statement and uses its revision', async () => {
+    view({
+      ...pipelineVersion({
+        ...pipelineJsonObjectSchema.parse(runConfig),
+        transform: { language: 'sql', statement: '' },
+      }),
+      id: 'd-1',
+      revision: 3,
+    })
     fireEvent.click(
       screen.getByRole('button', { name: /explain and suggest/i }),
     )
     await screen.findByText('The table name has a typo.')
     fireEvent.click(screen.getByRole('button', { name: /apply to draft/i }))
-    await waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(1))
-    expect(mocks.update.mock.calls[0]?.[1]).toMatchObject({
-      versionId: 'd-1',
-      expectedRevision: 3,
+    await waitFor(() => expect(writes).toHaveLength(1))
+    expect(writes[0]).toMatchObject({
+      name: 'update_pipeline_definition_version_draft',
+      args: {
+        p_version_id: 'd-1',
+        p_expected_revision: 3,
+        p_configuration: { transform: { statement: 'select * from readings' } },
+      },
     })
-    expect(mocks.create).not.toHaveBeenCalled()
   })
 
   it('Dismiss removes the card without writing', async () => {
-    mocks.usePageAi.mockReturnValue(ai())
     const { container } = view()
     fireEvent.click(
       screen.getByRole('button', { name: /explain and suggest/i }),
@@ -142,17 +143,39 @@ describe('RunAiFix', () => {
     await screen.findByText('The table name has a typo.')
     fireEvent.click(screen.getByRole('button', { name: /dismiss/i }))
     expect(container.innerHTML).toBe('')
-    expect(mocks.create).not.toHaveBeenCalled()
-    expect(mocks.update).not.toHaveBeenCalled()
+    expect(writes).toHaveLength(0)
+  })
+
+  it('refuses an invalid draft before sending a configuration write', async () => {
+    view(
+      pipelineVersion({
+        configVersion: 1,
+        inputs: [],
+        parameters: [],
+        transform: { language: 'sql', statement: 'select 1' },
+        output: { mode: 'invalid' },
+      }),
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: /explain and suggest/i }),
+    )
+    await screen.findByText('The table name has a typo.')
+    fireEvent.click(screen.getByRole('button', { name: /apply to draft/i }))
+    expect(await screen.findByRole('alert')).toBeTruthy()
+    expect(writes).toHaveLength(0)
   })
 
   it('shows a failure and lets the person ask again', async () => {
-    mocks.usePageAi.mockReturnValue(
+    view(
+      undefined,
       ai({
-        run: vi.fn().mockResolvedValue({ status: 'error', message: 'down' }),
+        run: async () => ({
+          status: 'error',
+          code: 'provider_error',
+          message: 'down',
+        }),
       }),
     )
-    view()
     fireEvent.click(
       screen.getByRole('button', { name: /explain and suggest/i }),
     )

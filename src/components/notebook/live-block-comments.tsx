@@ -37,16 +37,19 @@ export function LiveBlockComments({
   canComment: boolean
 }) {
   const [open, setOpen] = React.useState(false)
+
   const comments = useQuery({
     queryKey: commentsQueryKeys.forRecord(recordId),
     queryFn: () => fetchCommentsForRecord(notebookDataClient, recordId),
   })
+
   const unresolved = groupCommentsIntoThreads(comments.data ?? []).filter(
     (thread) =>
       thread.root.target_kind === 'block' &&
       thread.root.target.blockId === blockId &&
       threadState(thread) === 'open',
   ).length
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger

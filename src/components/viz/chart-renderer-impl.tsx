@@ -164,111 +164,180 @@ export function ChartRenderer({
       onExpandedChange={onExpandedChange}
       fill={fillPlot}
     >
-      {error ? (
-        <ChartStateMessage tone="error">{error}</ChartStateMessage>
-      ) : materialised.state.kind !== 'ok' ? (
-        <ChartStateMessage tone="warning">
-          {describeState(materialised, spec)}
-        </ChartStateMessage>
-      ) : materialised.series.length === 0 && !materialised.heatmap ? (
-        <ChartStateMessage tone="muted">
-          {describeNoSeries(spec, materialised)}
-        </ChartStateMessage>
-      ) : (
-        <div className={fillPlot ? 'flex h-full min-h-0 flex-col' : undefined}>
-          {fillPlot ? (
-            <div className="min-h-0 flex-1">
-              <MeasuredPlotHeight>
-                {(height) => (
-                  <ChartPlot
-                    spec={spec}
-                    materialised={materialised}
-                    height={height}
-                    facets={facets}
-                    facetTotal={facetTotal}
-                    selectionProps={{
-                      selection,
-                      onSelect: onSelectionChange ?? (() => {}),
-                    }}
-                  />
-                )}
-              </MeasuredPlotHeight>
-            </div>
-          ) : (
-            <ChartPlot
-              spec={spec}
-              materialised={materialised}
-              height={plotHeight}
-              facets={facets}
-              facetTotal={facetTotal}
-              selectionProps={{
-                selection,
-                onSelect: onSelectionChange ?? (() => {}),
-              }}
-            />
-          )}
-          {materialised.transformInvalidCount ? (
-            <p role="status" className="mt-1 text-xs text-muted-foreground">
-              {t('data.chartRenderer.couldTransformed', {
-                count: materialised.transformInvalidCount,
-                reasons: materialised.transformInvalidReasons?.length
-                  ? ` (${materialised.transformInvalidReasons.join('; ')})`
-                  : '',
-              })}
-            </p>
-          ) : null}
-          {materialised.droppedPoints > 0 ? (
-            <p role="status" className="mt-1 text-xs text-muted-foreground">
-              {t('data.chartRenderer.omittedMissingNonNumeric', {
-                count: materialised.droppedPoints,
-              })}
-            </p>
-          ) : null}
-          {materialised.sampling ? (
-            <p role="status" className="mt-1 text-xs text-muted-foreground">
-              {t('data.chartRenderer.showingPointsStatisticsUse', {
-                sampledCount: materialised.sampling.sampledCount,
-                totalCount: materialised.sampling.totalCount,
-                analysisCount: materialised.sampling.analysisCount,
-              })}
-            </p>
-          ) : null}
-          {frozen || spec?.datasets[0]?.datasetVersionId ? (
-            <p role="status" className="mt-1 text-xs text-muted-foreground">
-              {frozen?.exclusionPolicy === 'exclude_bound_fields'
-                ? t('data.chartRenderer.flagPolicyExcludeRows')
-                : t('data.chartRenderer.flagPolicyIncludeAll')}
-            </p>
-          ) : null}
-          {materialised.fit ? (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {materialised.fit.error
-                ? t('data.chartRenderer.olsFitUnavailable', {
-                    replaceAll: materialised.fit.error.replaceAll('_', ' '),
-                  })
-                : t('data.chartRenderer.olsRN', {
-                    equation: materialised.fit.equation,
-                    value: formatScientific(materialised.fit.r2),
-                    n: materialised.fit.n,
-                  })}
-            </p>
-          ) : null}
-        </div>
-      )}
+      <ChartResult
+        error={error}
+        materialised={materialised}
+        spec={spec}
+        frozen={frozen}
+        fillPlot={fillPlot}
+        plotHeight={plotHeight}
+        facets={facets}
+        facetTotal={facetTotal}
+        selection={selection}
+        onSelect={onSelectionChange ?? (() => {})}
+      />
       {showTableAlternative && materialised.state.kind === 'ok' ? (
-        materialised.heatmap ? (
-          <HeatmapTableAlternative
-            heatmap={materialised.heatmap}
-            valueLabel={materialised.yLabel}
-            selection={selection}
-            onSelect={onSelectionChange ?? (() => {})}
-          />
-        ) : materialised.rows.length > 0 ? (
-          <ChartTableAlternative materialised={materialised} />
-        ) : null
+        <ChartDataAlternative
+          materialised={materialised}
+          selection={selection}
+          onSelect={onSelectionChange ?? (() => {})}
+        />
       ) : null}
     </ChartFrame>
   )
+}
+
+function ChartResult({
+  error,
+  materialised,
+  spec,
+  frozen,
+  fillPlot,
+  plotHeight = 240,
+  facets,
+  facetTotal,
+  selection,
+  onSelect,
+}: Pick<
+  ChartRendererProps,
+  | 'error'
+  | 'materialised'
+  | 'spec'
+  | 'frozen'
+  | 'fillPlot'
+  | 'plotHeight'
+  | 'facets'
+  | 'facetTotal'
+> &
+  PlotSelectionProps) {
+  if (error) return <ChartStateMessage tone="error">{error}</ChartStateMessage>
+
+  if (materialised.state.kind !== 'ok')
+    return (
+      <ChartStateMessage tone="warning">
+        {describeState(materialised, spec)}
+      </ChartStateMessage>
+    )
+
+  if (materialised.series.length === 0 && !materialised.heatmap)
+    return (
+      <ChartStateMessage tone="muted">
+        {describeNoSeries(spec, materialised)}
+      </ChartStateMessage>
+    )
+
+  return (
+    <div className={fillPlot ? 'flex h-full min-h-0 flex-col' : undefined}>
+      {fillPlot ? (
+        <div className="min-h-0 flex-1">
+          <MeasuredPlotHeight>
+            {(height) => (
+              <ChartPlot
+                spec={spec}
+                materialised={materialised}
+                height={height}
+                facets={facets}
+                facetTotal={facetTotal}
+                selectionProps={{
+                  selection,
+                  onSelect,
+                }}
+              />
+            )}
+          </MeasuredPlotHeight>
+        </div>
+      ) : (
+        <ChartPlot
+          spec={spec}
+          materialised={materialised}
+          height={plotHeight}
+          facets={facets}
+          facetTotal={facetTotal}
+          selectionProps={{
+            selection,
+            onSelect,
+          }}
+        />
+      )}
+      <ChartReadout materialised={materialised} frozen={frozen} spec={spec} />
+    </div>
+  )
+}
+
+function ChartReadout({
+  materialised,
+  frozen,
+  spec,
+}: Pick<ChartRendererProps, 'materialised' | 'frozen' | 'spec'>) {
+  return (
+    <>
+      {materialised.transformInvalidCount ? (
+        <p role="status" className="mt-1 text-xs text-muted-foreground">
+          {t('data.chartRenderer.couldTransformed', {
+            count: materialised.transformInvalidCount,
+            reasons: materialised.transformInvalidReasons?.length
+              ? ` (${materialised.transformInvalidReasons.join('; ')})`
+              : '',
+          })}
+        </p>
+      ) : null}
+      {materialised.droppedPoints > 0 ? (
+        <p role="status" className="mt-1 text-xs text-muted-foreground">
+          {t('data.chartRenderer.omittedMissingNonNumeric', {
+            count: materialised.droppedPoints,
+          })}
+        </p>
+      ) : null}
+      {materialised.sampling ? (
+        <p role="status" className="mt-1 text-xs text-muted-foreground">
+          {t('data.chartRenderer.showingPointsStatisticsUse', {
+            sampledCount: materialised.sampling.sampledCount,
+            totalCount: materialised.sampling.totalCount,
+            analysisCount: materialised.sampling.analysisCount,
+          })}
+        </p>
+      ) : null}
+      {frozen || spec?.datasets[0]?.datasetVersionId ? (
+        <p role="status" className="mt-1 text-xs text-muted-foreground">
+          {frozen?.exclusionPolicy === 'exclude_bound_fields'
+            ? t('data.chartRenderer.flagPolicyExcludeRows')
+            : t('data.chartRenderer.flagPolicyIncludeAll')}
+        </p>
+      ) : null}
+      {materialised.fit ? (
+        <p className="mt-1 text-xs text-muted-foreground">
+          {materialised.fit.error
+            ? t('data.chartRenderer.olsFitUnavailable', {
+                replaceAll: materialised.fit.error.replaceAll('_', ' '),
+              })
+            : t('data.chartRenderer.olsRN', {
+                equation: materialised.fit.equation,
+                value: formatScientific(materialised.fit.r2),
+                n: materialised.fit.n,
+              })}
+        </p>
+      ) : null}
+    </>
+  )
+}
+
+function ChartDataAlternative({
+  materialised,
+  selection,
+  onSelect,
+}: {
+  materialised: MaterialisedChart
+} & PlotSelectionProps) {
+  return materialised.heatmap ? (
+    <HeatmapTableAlternative
+      heatmap={materialised.heatmap}
+      valueLabel={materialised.yLabel}
+      selection={selection}
+      onSelect={onSelect}
+    />
+  ) : materialised.rows.length > 0 ? (
+    <ChartTableAlternative materialised={materialised} />
+  ) : null
 }
 
 function MeasuredPlotHeight({
@@ -432,6 +501,46 @@ function PackageFigurePlot({
             : t('data.chartRenderer.chartHasNumericX')}
       </ChartStateMessage>
     )
+
+  return (
+    <div
+      ref={containerRef}
+      role="group"
+      tabIndex={0}
+      aria-label={figure.ariaLabel}
+      className="relative w-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      style={{ height }}
+      onKeyDown={(event) =>
+        handlePlotKeyDown(event, materialised, selectionProps)
+      }
+    >
+      <PackageFigureSvg
+        figure={figure}
+        spec={spec}
+        materialised={materialised}
+        width={width}
+        height={height}
+        selectionProps={selectionProps}
+      />
+    </div>
+  )
+}
+
+function PackageFigureSvg({
+  figure,
+  spec,
+  materialised,
+  width,
+  height,
+  selectionProps,
+}: {
+  figure: FigureModel
+  spec: ChartSpec | null
+  materialised: MaterialisedChart
+  width: number
+  height: number
+  selectionProps: PlotSelectionProps
+}) {
   const type = spec?.type ?? 'line'
   const xScale = spec?.display.axes.x.scale ?? 'linear'
   const yScale = spec?.display.axes.y.scale ?? 'linear'
@@ -464,169 +573,156 @@ function PackageFigurePlot({
     type === 'heatmap' ? 'none' : bandX ? 'y' : 'both'
 
   const errorPoints = materialised.series.flatMap((series) =>
-    series.points
-      .filter(
-        (point) => point.x !== null && point.y !== null && point.yError != null,
-      )
-      .map((point) => ({ series, point })),
+    series.points.flatMap((point) =>
+      point.x !== null && point.y !== null && point.yError != null
+        ? [{ series, x: point.x, y: point.y, yError: point.yError }]
+        : [],
+    ),
   )
 
   return (
-    <div
-      ref={containerRef}
-      role="group"
-      tabIndex={0}
-      aria-label={figure.ariaLabel}
-      className="relative w-full outline-none focus-visible:ring-2 focus-visible:ring-ring"
-      style={{ height }}
-      onKeyDown={(event) =>
-        handlePlotKeyDown(event, materialised, selectionProps)
-      }
+    // One root SVG keeps package and ELN overlay marks together in figure exports.
+    <svg
+      className="h-full w-full"
+      viewBox={`0 0 ${width} ${height}`}
+      aria-hidden="true"
     >
-      {/* One root SVG wraps the package figure and the ELN's overlay marks,
-          so the figure export serialises exactly what is shown. */}
-      <svg
-        className="h-full w-full"
-        viewBox={`0 0 ${width} ${height}`}
-        aria-hidden="true"
-      >
-        <FigureSvg figure={figure} ariaLabel={figure.ariaLabel} />
-        <g pointerEvents="none">
-          {references.map((overlay, index) => {
-            if (overlay.kind === 'band') {
-              if (overlay.axis === 'y' && !numericY) return null
+      <FigureSvg figure={figure} ariaLabel={figure.ariaLabel} />
+      <g pointerEvents="none">
+        {references.map((overlay, index) => {
+          if (overlay.kind === 'band') {
+            if (overlay.axis === 'y' && !numericY) return null
 
-              if (overlay.axis === 'x' && !numericX) return null
+            if (overlay.axis === 'x' && !numericX) return null
 
-              return overlay.axis === 'y' ? (
-                <rect
-                  key={`band-${index}`}
-                  x={plot.x}
-                  width={plot.width}
-                  y={yPx(overlay.hi)}
-                  height={Math.max(0, yPx(overlay.lo) - yPx(overlay.hi))}
-                  fill="var(--muted)"
-                  fillOpacity={0.25}
-                />
-              ) : (
-                <rect
-                  key={`band-${index}`}
-                  y={plot.y}
-                  height={plot.height}
-                  x={xPx(overlay.lo)}
-                  width={Math.max(0, xPx(overlay.hi) - xPx(overlay.lo))}
-                  fill="var(--muted)"
-                  fillOpacity={0.25}
-                />
-              )
-            }
-
-            if (overlay.kind === 'identity') {
-              if (!numericX || !numericY) return null
-              const [d0, d1] = figure.x.domain
-
-              return (
-                <line
-                  key={`identity-${index}`}
-                  x1={xPx(d0)}
-                  y1={yPx(d0)}
-                  x2={xPx(d1)}
-                  y2={yPx(d1)}
-                  stroke="var(--muted-foreground)"
-                  strokeDasharray="2 6"
-                />
-              )
-            }
-
-            if (
-              overlay.kind === 'hline' &&
-              packageRefLines === 'none' &&
-              numericY
-            ) {
-              const y = yPx(overlay.value)
-
-              return (
-                <line
-                  key={`hline-${index}`}
-                  x1={plot.x}
-                  x2={plot.x + plot.width}
-                  y1={y}
-                  y2={y}
-                  stroke="var(--muted-foreground)"
-                  strokeDasharray="4 4"
-                />
-              )
-            }
-
-            if (
-              overlay.kind === 'vline' &&
-              packageRefLines !== 'both' &&
-              numericX
-            ) {
-              const x = xPx(overlay.value)
-
-              return (
-                <line
-                  key={`vline-${index}`}
-                  x1={x}
-                  x2={x}
-                  y1={plot.y}
-                  y2={plot.y + plot.height}
-                  stroke="var(--muted-foreground)"
-                  strokeDasharray="4 4"
-                />
-              )
-            }
-
-            return null
-          })}
-          {errorPoints.map(({ series, point }, index) => {
-            const cx = xPx(point.x as number)
-            const hi = yPx((point.y as number) + (point.yError as number))
-            const lo = yPx((point.y as number) - (point.yError as number))
-
-            return (
-              <g
-                key={`error-${series.identifier}-${index}`}
-                stroke="var(--muted-foreground)"
-                strokeWidth={1}
-              >
-                <line x1={cx} x2={cx} y1={hi} y2={lo} />
-                <line x1={cx - 3} x2={cx + 3} y1={hi} y2={hi} />
-                <line x1={cx - 3} x2={cx + 3} y1={lo} y2={lo} />
-              </g>
+            return overlay.axis === 'y' ? (
+              <rect
+                key={`band-${index}`}
+                x={plot.x}
+                width={plot.width}
+                y={yPx(overlay.hi)}
+                height={Math.max(0, yPx(overlay.lo) - yPx(overlay.hi))}
+                fill="var(--muted)"
+                fillOpacity={0.25}
+              />
+            ) : (
+              <rect
+                key={`band-${index}`}
+                y={plot.y}
+                height={plot.height}
+                x={xPx(overlay.lo)}
+                width={Math.max(0, xPx(overlay.hi) - xPx(overlay.lo))}
+                fill="var(--muted)"
+                fillOpacity={0.25}
+              />
             )
-          })}
-          {annotations.map((annotation, index) => {
+          }
+
+          if (overlay.kind === 'identity') {
             if (!numericX || !numericY) return null
-            const cx = xPx(annotation.x)
-            const cy = yPx(annotation.y)
+            const [d0, d1] = figure.x.domain
 
             return (
-              <g key={`annotation-${index}`}>
-                <circle
-                  cx={cx}
-                  cy={cy}
-                  r={4}
-                  fill="var(--foreground)"
-                  stroke="var(--background)"
-                />
-                <text
-                  x={cx}
-                  y={cy - 6}
-                  textAnchor="middle"
-                  fontSize={10}
-                  fill="var(--muted-foreground)"
-                >
-                  {annotation.label}
-                </text>
-              </g>
+              <line
+                key={`identity-${index}`}
+                x1={xPx(d0)}
+                y1={yPx(d0)}
+                x2={xPx(d1)}
+                y2={yPx(d1)}
+                stroke="var(--muted-foreground)"
+                strokeDasharray="2 6"
+              />
             )
-          })}
-        </g>
-        <g>{plotHitTargets(figure, materialised, selectionProps)}</g>
-      </svg>
-    </div>
+          }
+
+          if (
+            overlay.kind === 'hline' &&
+            packageRefLines === 'none' &&
+            numericY
+          ) {
+            const y = yPx(overlay.value)
+
+            return (
+              <line
+                key={`hline-${index}`}
+                x1={plot.x}
+                x2={plot.x + plot.width}
+                y1={y}
+                y2={y}
+                stroke="var(--muted-foreground)"
+                strokeDasharray="4 4"
+              />
+            )
+          }
+
+          if (
+            overlay.kind === 'vline' &&
+            packageRefLines !== 'both' &&
+            numericX
+          ) {
+            const x = xPx(overlay.value)
+
+            return (
+              <line
+                key={`vline-${index}`}
+                x1={x}
+                x2={x}
+                y1={plot.y}
+                y2={plot.y + plot.height}
+                stroke="var(--muted-foreground)"
+                strokeDasharray="4 4"
+              />
+            )
+          }
+
+          return null
+        })}
+        {errorPoints.map(({ series, x, y, yError }, index) => {
+          const cx = xPx(x)
+          const hi = yPx(y + yError)
+          const lo = yPx(y - yError)
+
+          return (
+            <g
+              key={`error-${series.identifier}-${index}`}
+              stroke="var(--muted-foreground)"
+              strokeWidth={1}
+            >
+              <line x1={cx} x2={cx} y1={hi} y2={lo} />
+              <line x1={cx - 3} x2={cx + 3} y1={hi} y2={hi} />
+              <line x1={cx - 3} x2={cx + 3} y1={lo} y2={lo} />
+            </g>
+          )
+        })}
+        {annotations.map((annotation, index) => {
+          if (!numericX || !numericY) return null
+          const cx = xPx(annotation.x)
+          const cy = yPx(annotation.y)
+
+          return (
+            <g key={`annotation-${index}`}>
+              <circle
+                cx={cx}
+                cy={cy}
+                r={4}
+                fill="var(--foreground)"
+                stroke="var(--background)"
+              />
+              <text
+                x={cx}
+                y={cy - 6}
+                textAnchor="middle"
+                fontSize={10}
+                fill="var(--muted-foreground)"
+              >
+                {annotation.label}
+              </text>
+            </g>
+          )
+        })}
+      </g>
+      <g>{plotHitTargets(figure, materialised, selectionProps)}</g>
+    </svg>
   )
 }
 
@@ -881,7 +977,8 @@ function ChartTableAlternative({
   ]
 
   const rows = materialised.series.flatMap((s) =>
-    s.points.map((p) => ({
+    s.points.map((p, index) => ({
+      key: `${s.identifier}-${index}`,
       series: s.label,
       x: p.x,
       y: p.y,
@@ -910,8 +1007,8 @@ function ChartTableAlternative({
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => (
-              <tr key={i} className="odd:bg-background">
+            {rows.map((r) => (
+              <tr key={r.key} className="odd:bg-background">
                 <td className="border-b px-2 py-1">{r.series}</td>
                 <td className="border-b px-2 py-1 font-mono tabular-nums">
                   {formatScientific(r.x)}

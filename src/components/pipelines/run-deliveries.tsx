@@ -46,7 +46,7 @@ const DELIVERY_STATUS: Record<
 }
 
 /** The destination the canvas shows: its description, else its key. */
-export function deliveryChannel(delivery: PipelineRunDeliveryWire): string {
+function deliveryChannel(delivery: PipelineRunDeliveryWire): string {
   const description = delivery.destination?.description?.trim()
 
   if (description) return description
@@ -60,9 +60,7 @@ export function deliveryChannel(delivery: PipelineRunDeliveryWire): string {
 }
 
 /** Why a delivery did not arrive, using whatever the engine recorded. */
-export function deliveryFailureReason(
-  delivery: PipelineRunDeliveryWire,
-): string {
+function deliveryFailureReason(delivery: PipelineRunDeliveryWire): string {
   const message = delivery.error_message?.trim()
 
   if (message) return message
@@ -78,7 +76,7 @@ export function deliveryFailureReason(
 }
 
 /** What happened to the delivery, in the canvas's words. */
-export function deliveryOutcome(delivery: PipelineRunDeliveryWire): string {
+function deliveryOutcome(delivery: PipelineRunDeliveryWire): string {
   switch (delivery.status) {
     case 'delivered': {
       const sentAt = delivery.delivered_at ?? delivery.created_at
@@ -100,7 +98,7 @@ export function deliveryOutcome(delivery: PipelineRunDeliveryWire): string {
 }
 
 /** The honest state when a run has no delivery to show. */
-export function emptyDeliveryMessage(status: PipelineRunStatus): string {
+function emptyDeliveryMessage(status: PipelineRunStatus): string {
   switch (status) {
     case 'running':
     case 'waiting':

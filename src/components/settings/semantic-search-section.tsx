@@ -38,17 +38,33 @@ function toForm(view: SemanticSettingsView): FormState {
   }
 }
 
-export function SemanticSearchSection({
-  workspaceId,
-  cloudAllowed,
-  assistantOn,
-}: {
-  workspaceId: string
-  /** The workspace has recorded consent for cloud models (assistant section). */
-  cloudAllowed: boolean
-  /** The assistant switch above: search by meaning follows it. */
-  assistantOn: boolean
-}) {
+function semanticDraftState(
+  view: SemanticSettingsView,
+  form: FormState,
+  cloudAllowed: boolean,
+) {
+  const chosen = view.profiles.find((profile) => profile.id === form.profile)
+
+  const dirty =
+    form.enabled !== view.settings.enabled ||
+    form.profile !== view.settings.profile ||
+    form.literatureEnabled !== view.settings.literatureEnabled
+
+  const blockedByConsent =
+    form.enabled && chosen?.dataClass === 'cloud' && !cloudAllowed
+
+  return {
+    blockedByConsent,
+    canSave:
+      view.canManage &&
+      dirty &&
+      !blockedByConsent &&
+      (!form.enabled || form.profile !== null),
+  }
+}
+
+/** Keep the server snapshot, local draft and mutation receipts in sync. */
+function useSemanticSettings(workspaceId: string) {
   const queryClient = useQueryClient()
 
   const query = useQuery({
@@ -102,28 +118,34 @@ export function SemanticSearchSection({
     onError: () => toast.error(t('settings.semanticSearch.rereadFailed')),
   })
 
+  return { query, form, setForm, save, reread }
+}
+
+export function SemanticSearchSection({
+  workspaceId,
+  cloudAllowed,
+  assistantOn,
+}: {
+  workspaceId: string
+  /** The workspace has recorded consent for cloud models (assistant section). */
+  cloudAllowed: boolean
+  /** The assistant switch above: search by meaning follows it. */
+  assistantOn: boolean
+}) {
+  const { query, form, setForm, save, reread } =
+    useSemanticSettings(workspaceId)
+
+  const view = query.data
+
   if (query.isPending) return <Skeleton className="h-24 w-full" />
 
   if (!view || !form) return null
 
-  const chosen = view.profiles.find((profile) => profile.id === form.profile)
-
-  const dirty =
-    form.enabled !== view.settings.enabled ||
-    form.profile !== view.settings.profile ||
-    form.literatureEnabled !== view.settings.literatureEnabled
-
-  const blockedByConsent =
-    form.enabled && chosen?.dataClass === 'cloud' && !cloudAllowed
-
-  const canSave =
-    view.canManage &&
-    dirty &&
-    !save.isPending &&
-    !blockedByConsent &&
-    (!form.enabled || form.profile !== null)
-
-  const { indexedDocuments, totalDocuments } = view.settings
+  const { blockedByConsent, canSave } = semanticDraftState(
+    view,
+    form,
+    cloudAllowed,
+  )
 
   return (
     <Section title={t('settings.semanticSearch.title')}>
@@ -137,34 +159,11 @@ export function SemanticSearchSection({
         disabled={!view.canManage || view.profiles.length === 0}
       />
 
-      {view.profiles.length === 0 ? (
-        <Notice tone="info">{t('settings.semanticSearch.noModels')}</Notice>
-      ) : (
-        <Field
-          label={t('settings.semanticSearch.model')}
-          hint={t('settings.semanticSearch.modelHint')}
-        >
-          <Select
-            value={form.profile ?? ''}
-            onChange={(event) =>
-              setForm({ ...form, profile: event.target.value || null })
-            }
-            disabled={!view.canManage}
-            aria-label={t('settings.semanticSearch.model')}
-          >
-            <option value="">{t('settings.semanticSearch.chooseModel')}</option>
-            {view.profiles.map((profile) => (
-              <option key={profile.id} value={profile.id}>
-                {profile.label} (
-                {profile.dataClass === 'cloud'
-                  ? t('settings.semanticSearch.cloud')
-                  : t('settings.semanticSearch.local')}
-                )
-              </option>
-            ))}
-          </Select>
-        </Field>
-      )}
+      <SemanticModelPicker
+        view={view}
+        profile={form.profile}
+        onChange={(profile) => setForm({ ...form, profile })}
+      />
 
       {!assistantOn ? (
         <Notice tone="info">
@@ -190,23 +189,13 @@ export function SemanticSearchSection({
         <Button
           variant="primary"
           onClick={() => save.mutate(form)}
-          disabled={!canSave}
+          disabled={!canSave || save.isPending}
         >
           {save.isPending
             ? t('common.states.saving')
             : t('settings.semanticSearch.save')}
         </Button>
-        <Muted data-testid="semantic-progress">
-          {t('settings.semanticSearch.progress')}:{' '}
-          {!view.settings.enabled
-            ? t('settings.semanticSearch.progressOff')
-            : indexedDocuments === 0
-              ? t('settings.semanticSearch.progressWaiting')
-              : t('settings.semanticSearch.progressValue', {
-                  indexed: indexedDocuments.toLocaleString('en-GB'),
-                  total: totalDocuments.toLocaleString('en-GB'),
-                })}
-        </Muted>
+        <SemanticProgress settings={view.settings} />
         {view.canManage && view.settings.enabled ? (
           <Button
             onClick={() => {
@@ -221,5 +210,65 @@ export function SemanticSearchSection({
         ) : null}
       </div>
     </Section>
+  )
+}
+
+function SemanticModelPicker({
+  view,
+  profile,
+  onChange,
+}: {
+  view: SemanticSettingsView
+  profile: string | null
+  onChange: (profile: string | null) => void
+}) {
+  if (view.profiles.length === 0)
+    return <Notice tone="info">{t('settings.semanticSearch.noModels')}</Notice>
+
+  return (
+    <Field
+      label={t('settings.semanticSearch.model')}
+      hint={t('settings.semanticSearch.modelHint')}
+    >
+      <Select
+        value={profile ?? ''}
+        onChange={(event) => onChange(event.target.value || null)}
+        disabled={!view.canManage}
+        aria-label={t('settings.semanticSearch.model')}
+      >
+        <option value="">{t('settings.semanticSearch.chooseModel')}</option>
+        {view.profiles.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label} (
+            {option.dataClass === 'cloud'
+              ? t('settings.semanticSearch.cloud')
+              : t('settings.semanticSearch.local')}
+            )
+          </option>
+        ))}
+      </Select>
+    </Field>
+  )
+}
+
+function SemanticProgress({
+  settings,
+}: {
+  settings: SemanticSettingsView['settings']
+}) {
+  const { enabled, indexedDocuments, totalDocuments } = settings
+
+  return (
+    <Muted data-testid="semantic-progress">
+      {t('settings.semanticSearch.progress')}:{' '}
+      {!enabled
+        ? t('settings.semanticSearch.progressOff')
+        : indexedDocuments === 0
+          ? t('settings.semanticSearch.progressWaiting')
+          : t('settings.semanticSearch.progressValue', {
+              indexed: indexedDocuments.toLocaleString('en-GB'),
+              total: totalDocuments.toLocaleString('en-GB'),
+            })}
+    </Muted>
   )
 }

@@ -115,11 +115,13 @@ export function ComparisonControls({
           id="cmp-test"
           size="sm"
           value={test}
-          onChange={(e) =>
-            onChange({
-              test: e.target.value as (typeof COMPARISON_TESTS)[number],
-            })
-          }
+          onChange={(e) => {
+            const selected = COMPARISON_TESTS.find(
+              (value) => value === e.target.value,
+            )
+
+            if (selected) onChange({ test: selected })
+          }}
           className="bg-surface"
         >
           {COMPARISON_TESTS.map((k) => (
@@ -135,12 +137,13 @@ export function ComparisonControls({
             id="cmp-posthoc"
             size="sm"
             value={postHoc}
-            onChange={(e) =>
-              onChange({
-                postHoc: e.target
-                  .value as (typeof COMPARISON_POST_HOCS)[number],
-              })
-            }
+            onChange={(e) => {
+              const selected = COMPARISON_POST_HOCS.find(
+                (value) => value === e.target.value,
+              )
+
+              if (selected) onChange({ postHoc: selected })
+            }}
             className="bg-surface"
           >
             {COMPARISON_POST_HOCS.map((k) => (

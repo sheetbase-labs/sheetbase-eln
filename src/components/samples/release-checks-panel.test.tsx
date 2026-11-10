@@ -8,15 +8,34 @@ import {
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { DataClient } from '#/lib/data-client'
+import { createDataClient } from '#/lib/data-client'
+import type { SampleReleaseCheckStatus } from '#/lib/samples'
 
 import { ReleaseChecksPanel } from './release-checks-panel'
 
 afterEach(cleanup)
 
-function mount(result: unknown) {
-  const rpc = vi.fn(async () => result)
-  const client = { rpc } as unknown as DataClient
+function mount(result: SampleReleaseCheckStatus) {
+  const rpc = vi.fn<
+    (
+      name: string | undefined,
+      args: { p_record_id: string },
+    ) => Promise<SampleReleaseCheckStatus>
+  >(async () => result)
+
+  const client = createDataClient(async (input, init) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input,
+      'http://localhost',
+    )
+
+    const status = await rpc(
+      url.pathname.split('/').at(-1),
+      await new Request(url, init).json(),
+    )
+
+    return Response.json(status)
+  })
 
   const root = createRootRoute({
     component: () => (
@@ -107,11 +126,9 @@ describe('ReleaseChecksPanel', () => {
   })
 
   it('reports a failed read instead of showing nothing', async () => {
-    const client = {
-      rpc: vi.fn(async () => {
-        throw new Error('down')
-      }),
-    } as unknown as DataClient
+    const client = createDataClient(async () =>
+      Response.json({ code: 'unavailable', message: 'down' }, { status: 503 }),
+    )
 
     const root = createRootRoute({
       component: () => (

@@ -6,6 +6,7 @@ import { Select } from '#/components/ui/select'
 import { Section } from '#/components/ui/layout'
 import { toast } from '#/components/ui/sonner'
 import {
+  INSTRUMENT_GATE_MODES,
   setInstrumentGateMode,
   useInstrumentGateMode,
 } from '#/lib/instrument-gate'
@@ -61,7 +62,7 @@ export function InstrumentGateSetting({
       })
       toast(t('settings.instruments.gateSavedToast'))
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       setMode(stored)
       toast(t('settings.instruments.gateFailedToast'), {
         description: error instanceof Error ? error.message : undefined,
@@ -84,7 +85,11 @@ export function InstrumentGateSetting({
             value={mode}
             disabled={!canManage || save.isPending}
             onChange={(event) => {
-              const next = event.target.value as InstrumentGateMode
+              const next = INSTRUMENT_GATE_MODES.find(
+                (option) => option === event.target.value,
+              )
+
+              if (!next) return
               setMode(next)
               save.mutate(next)
             }}

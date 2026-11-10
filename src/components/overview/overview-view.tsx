@@ -11,6 +11,7 @@
  */
 import { Fragment } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import { SignaturesTable } from '#/components/review/signatures-table'
 import {
@@ -38,6 +39,7 @@ import type { PartSummary } from '#/lib/experiment-parts'
 import type { SignatureWire } from '#/lib/signatures'
 import { formatDate } from '#/lib/format-date'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
+import type { NotebookBlock, RecordWire } from '#/lib/notebook-data'
 import { withReopen } from '#/lib/return-to'
 import { t } from '#/copy'
 import { keyResultsFrom } from './key-results'
@@ -57,7 +59,7 @@ export interface OverviewExperimentRecord {
   projectId: string | null
   createdByUserId: string
   createdAt: string
-  properties: Record<string, unknown>
+  properties: NonNullable<RecordWire['properties']>
 }
 
 export interface OverviewLinkedExperiment {
@@ -107,12 +109,19 @@ function objectiveText(blocks: readonly ReadinessBlock[]): string {
   const objective = blocks.find((block) => {
     const first = firstNode(block.payload)
 
-    return first?.type === 'heading' && proseText(first).trim() === 'Objective'
+    return (
+      first?.type === 'heading' && proseText.parse(first).trim() === 'Objective'
+    )
   })
 
   if (objective) {
     const content = docContent(objective.payload)
-    const text = content.slice(1).map(proseText).join('\n').trim()
+
+    const text = content
+      .slice(1)
+      .map((node) => proseText.parse(node))
+      .join('\n')
+      .trim()
 
     if (text) return text
   }
@@ -128,61 +137,84 @@ function objectiveText(blocks: readonly ReadinessBlock[]): string {
   return parts.join('\n\n')
 }
 
-function docContent(payload: Record<string, unknown>): unknown[] {
+// Preserve native object identity, inherited members and arrays with prose fields.
+const nativeProseObject = z.custom<object>(
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Approved native-object boundary: JSON schemas reject supported nonplain objects and arrays.
+  (value) => value !== null && typeof value === 'object',
+)
+
+function docContent(payload: NotebookBlock['payload']): unknown[] {
   const doc = payload.doc
+  const parsed = nativeProseObject.safeParse(doc)
 
-  if (!doc || typeof doc !== 'object' || !('content' in doc)) return []
+  if (!parsed.success || !('content' in parsed.data)) return []
 
-  return Array.isArray(doc.content) ? doc.content : []
+  return Array.isArray(parsed.data.content) ? parsed.data.content : []
 }
 
 function firstNode(
-  payload: Record<string, unknown>,
+  payload: NotebookBlock['payload'],
 ): { type?: unknown } | undefined {
   const [first] = docContent(payload)
+  const parsed = nativeProseObject.safeParse(first)
 
-  return first && typeof first === 'object' ? first : undefined
+  return parsed.success ? parsed.data : undefined
 }
 
-function blockDocText(payload: Record<string, unknown>): string {
+function blockDocText(payload: NotebookBlock['payload']): string {
   if (!('doc' in payload)) return ''
   const doc = payload.doc
+  const parsed = nativeProseObject.safeParse(doc)
 
-  if (!doc || typeof doc !== 'object' || !('content' in doc)) return ''
-  const content = doc.content
+  if (!parsed.success || !('content' in parsed.data)) return ''
+  const content = parsed.data.content
 
-  return Array.isArray(content) ? content.map(proseText).join('\n').trim() : ''
+  return Array.isArray(content)
+    ? content
+        .map((node) => proseText.parse(node))
+        .join('\n')
+        .trim()
+    : ''
 }
 
-function proseText(node: unknown): string {
-  if (!node || typeof node !== 'object') return ''
-  const text = 'text' in node ? node.text : undefined
+const proseText = nativeProseObject
+  .nullable()
+  .catch(null)
+  .transform((node): string => {
+    if (node === null) return ''
+    const text = 'text' in node ? node.text : undefined
+    const parsedText = z.string().safeParse(text)
 
-  if (typeof text === 'string') return text
-  const content = 'content' in node ? node.content : undefined
+    if (parsedText.success) return parsedText.data
+    const content = 'content' in node ? node.content : undefined
 
-  return Array.isArray(content) ? content.map(proseText).join('') : ''
-}
+    return Array.isArray(content)
+      ? content.map((child) => proseText.parse(child)).join('')
+      : ''
+  })
 
 /** Read an optional list-valued property without inventing a shape. */
 function propertyIds(
-  properties: Record<string, unknown>,
+  properties: NonNullable<RecordWire['properties']>,
   key: string,
 ): string[] {
   const value = properties[key]
 
   if (!Array.isArray(value)) return []
 
-  return value.filter((entry): entry is string => typeof entry === 'string')
+  return value.filter(
+    (entry): entry is string => z.string().safeParse(entry).success,
+  )
 }
 
 function propertyText(
-  properties: Record<string, unknown>,
+  properties: NonNullable<RecordWire['properties']>,
   key: string,
 ): string | null {
   const value = properties[key]
+  const parsed = z.string().safeParse(value)
 
-  return typeof value === 'string' && value.length > 0 ? value : null
+  return parsed.success && parsed.data.length > 0 ? parsed.data : null
 }
 
 function ReadinessRow({
@@ -446,14 +478,14 @@ export function ExperimentOverview({
   const properties = record.properties
   const collaboratorIds = propertyIds(properties, 'collaboratorIds')
 
-  const reviewerNames = [
+  const recordedReviewerIds = [
     ...new Set([
       propertyText(properties, 'reviewerId'),
       ...(reviewerIds ?? []),
     ]),
-  ]
-    .filter((id): id is string => Boolean(id))
-    .map((id) => userLabel(id))
+  ].filter((id): id is string => Boolean(id))
+
+  const reviewerNames = recordedReviewerIds.map((id) => userLabel(id))
 
   const plannedEnd = propertyText(properties, 'plannedEnd')
   const decision = propertyText(properties, 'decision')
@@ -483,377 +515,46 @@ export function ExperimentOverview({
         ) : null}
         {parts.length > 0 ? schedule : null}
 
-        <Section
-          title={t('projects.overview.protocol.title')}
-          action={
-            protocolLinks.length ? (
-              <span className="flex items-center gap-2 text-label text-fg-muted">
-                {protocolLinks.map((link) => (
-                  <Link
-                    key={link.id}
-                    to="/protocols/$protocolId"
-                    params={{ protocolId: link.targetRecordId ?? '' }}
-                    className="text-link mono"
-                  >
-                    {link.targetIdentifier}
-                  </Link>
-                ))}
-                {protocolSteps.length
-                  ? `· ${t('projects.overview.protocol.stepsDone', {
-                      done: protocolSteps.filter((step) => step.completed)
-                        .length,
-                      total: protocolSteps.length,
-                    })}`
-                  : null}
-              </span>
-            ) : null
-          }
-        >
-          {protocolLinks.length ? null : (
-            <Muted>{t('projects.overview.protocol.none')}</Muted>
-          )}
-          {protocolSteps.length ? (
-            <TableBox className="mt-2">
-              <Table aria-label={t('projects.overview.protocol.title')}>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-8">#</TableHead>
-                    <TableHead>
-                      {t('projects.overview.protocol.columns.step')}
-                    </TableHead>
-                    <TableHead>
-                      {t('projects.overview.protocol.columns.status')}
-                    </TableHead>
-                    <TableHead>
-                      {t('projects.overview.protocol.columns.by')}
-                    </TableHead>
-                    <TableHead>
-                      {t('projects.overview.protocol.columns.when')}
-                    </TableHead>
-                    <TableHead>
-                      {t('projects.overview.protocol.columns.evidence')}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {protocolSteps.map((step, index) => (
-                    <Fragment key={step.blockId}>
-                      {parts.length > 0 &&
-                      step.partId !== protocolSteps[index - 1]?.partId ? (
-                        <TableRow>
-                          <TableCell
-                            colSpan={6}
-                            className="bg-surface-sunken text-label font-semibold text-fg-muted"
-                          >
-                            {partHeading(step.partId)}
-                          </TableCell>
-                        </TableRow>
-                      ) : null}
-                      <TableRow>
-                        <TableCell className="text-fg-muted">
-                          {parts.length > 0
-                            ? (numberInPart.get(step.blockId) ?? '·')
-                            : (step.stepNumber ?? '·')}
-                        </TableCell>
-                        <TableCell>{step.text}</TableCell>
-                        <TableCell>
-                          {step.completed ? (
-                            <Status tone="ok">
-                              {t('projects.overview.protocol.done')}
-                            </Status>
-                          ) : stepStatus.get(step.blockId) === 'in_progress' ? (
-                            <Status tone="progress">
-                              {t('projects.overview.protocol.inProgress')}
-                            </Status>
-                          ) : (
-                            <Status tone="none">
-                              {t('projects.overview.protocol.notStarted')}
-                            </Status>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {step.completed
-                            ? step.completedByUserId
-                              ? userLabel(step.completedByUserId)
-                              : t('projects.overview.notRecorded')
-                            : '—'}
-                        </TableCell>
-                        <TableCell className="text-fg-muted">
-                          {step.completed && step.completedAt
-                            ? formatNotebookDateTime(step.completedAt)
-                            : '—'}
-                        </TableCell>
-                        <TableCell className="text-fg-muted">
-                          {step.note || '—'}
-                        </TableCell>
-                      </TableRow>
-                    </Fragment>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableBox>
-          ) : protocolLinks.length ? (
-            <Muted>{t('projects.overview.protocol.noProgress')}</Muted>
-          ) : null}
-        </Section>
-
-        <Section
-          title={
-            pastSubmission
-              ? t('projects.overview.readiness.reviewTitle')
-              : t('projects.overview.readiness.title')
-          }
-          count={pastSubmission ? undefined : items.length || undefined}
-          action={
-            <span className="inline-flex items-center gap-2">
-              {!pastSubmission && readiness?.ready ? (
-                <Status tone="ok">
-                  {t('projects.overview.readiness.ready')}
-                </Status>
-              ) : null}
-              {record.status === 'in_progress' ? (
-                // Submitting lives in the notebook's dialog; `reopen=submit`
-                // opens it there, so the readiness list above is one click
-                // from the action it is about.
-                <Button
-                  variant={readiness?.ready ? 'primary' : 'secondary'}
-                  onClick={() =>
-                    void navigate({
-                      href: withReopen(
-                        `/experiments/${record.id}/notebook`,
-                        'submit',
-                      ),
-                    })
-                  }
-                >
-                  {t('projects.overview.readiness.submit')}
-                </Button>
-              ) : null}
-            </span>
-          }
-        >
-          {pastSubmission ? (
-            <Muted>
-              {record.status === 'approved'
-                ? t('projects.overview.readiness.after.approved')
-                : record.status === 'returned'
-                  ? t('projects.overview.readiness.after.returned')
-                  : t('projects.overview.readiness.after.in_review')}
-            </Muted>
-          ) : readinessIsLoading ? (
-            <Muted>{t('projects.overview.readiness.checking')}</Muted>
-          ) : readinessError ? (
-            <Muted>
-              {t('projects.overview.readiness.failed', {
-                reason: readinessError,
-              })}
-            </Muted>
-          ) : !readiness ? (
-            <Muted>{t('projects.overview.readiness.notChecked')}</Muted>
-          ) : items.length ? (
-            <ul className="m-0 list-none p-0">
-              {items.map((item) => (
-                <ReadinessRow key={item.id} item={item} recordId={record.id} />
-              ))}
-            </ul>
-          ) : (
-            <Muted>{t('projects.overview.readiness.nothingOpen')}</Muted>
-          )}
-        </Section>
-
-        <Section
-          title={t('projects.overview.results.title')}
-          action={<Muted>{t('projects.overview.results.preliminary')}</Muted>}
-        >
-          {metrics.length || conclusions.length ? (
-            <div className="mb-4 flex flex-col gap-4" data-key-results>
-              {metrics.length ? (
-                <ul className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 p-0">
-                  {metrics.map((metric) => (
-                    <li
-                      key={metric.id}
-                      className="flex flex-col gap-0.5 rounded-md border border-border bg-surface px-3 py-2.5"
-                    >
-                      <span className="text-label text-fg-muted">
-                        {metric.label}
-                      </span>
-                      <span className="text-title tabular-nums">
-                        {metric.value}
-                        {metric.unit ? (
-                          <span className="ml-1 text-label font-normal text-fg-muted">
-                            {metric.unit}
-                          </span>
-                        ) : null}
-                      </span>
-                      {metric.provenance ? (
-                        <span className="text-label text-fg-muted">
-                          {metric.provenance}
-                        </span>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-              {conclusions.map((conclusion) => (
-                <div
-                  key={conclusion.id}
-                  className="flex max-w-[680px] flex-col gap-1"
-                >
-                  <p className="m-0 text-prose">
-                    {conclusion.verdict ? (
-                      <span className="mr-2 text-label font-medium capitalize text-fg-muted">
-                        {conclusion.verdict}
-                      </span>
-                    ) : null}
-                    {conclusion.text}
-                  </p>
-                  {conclusion.basis ? (
-                    <p className="m-0 text-label text-fg-muted">
-                      {t('projects.overview.results.basedOn', {
-                        basis: conclusion.basis,
-                      })}
-                    </p>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          ) : null}
-          {datasetLinks.length || analysisLinks.length ? (
-            <DescriptionList
-              labelWidth={90}
-              items={[
-                ...(datasetLinks.length
-                  ? ([
-                      [
-                        t('projects.overview.results.datasets'),
-                        <>
-                          {datasetLinks.map((link, index) => (
-                            <span key={link.id}>
-                              {index ? ', ' : ''}
-                              {link.targetRecordId ? (
-                                <Link
-                                  to="/datasets/$datasetId"
-                                  params={{
-                                    datasetId: link.targetRecordId,
-                                  }}
-                                  className="text-link mono"
-                                >
-                                  {link.targetIdentifier}
-                                </Link>
-                              ) : (
-                                <span className="mono">
-                                  {link.targetIdentifier}
-                                </span>
-                              )}
-                            </span>
-                          ))}
-                        </>,
-                      ],
-                    ] as [string, React.ReactNode][])
-                  : []),
-                ...(analysisLinks.length
-                  ? ([
-                      [
-                        t('projects.overview.results.analyses'),
-                        <span key="analyses" className="mono">
-                          {analysisLinks
-                            .map((link) => link.targetIdentifier)
-                            .join(', ')}
-                        </span>,
-                      ],
-                    ] as [string, React.ReactNode][])
-                  : []),
-              ]}
-            />
-          ) : metrics.length || conclusions.length ? null : (
-            <Muted>{t('projects.overview.results.none')}</Muted>
-          )}
-        </Section>
+        {renderProtocolSection({
+          protocolLinks,
+          protocolSteps,
+          parts,
+          numberInPart,
+          partHeading,
+          stepStatus,
+          userLabel,
+        })}
+        {renderReadinessSection({
+          record,
+          readiness,
+          readinessIsLoading,
+          readinessError,
+          pastSubmission,
+          items,
+          navigate,
+        })}
+        {renderKeyResultsSection({
+          metrics,
+          conclusions,
+          datasetLinks,
+          analysisLinks,
+        })}
       </div>
 
       <Inspector className="w-[300px]">
-        <InspectorSection title={t('projects.overview.properties.title')}>
-          <DescriptionList
-            labelWidth={110}
-            items={[
-              [
-                t('projects.overview.properties.status'),
-                <Status tone={status.tone}>{status.label}</Status>,
-              ],
-              [
-                t('projects.overview.properties.owner'),
-                userLabel(record.createdByUserId),
-              ],
-              ...(collaboratorIds.length
-                ? ([
-                    [
-                      t('projects.overview.properties.collaborators'),
-                      collaboratorIds.map(userLabel).join(', '),
-                    ],
-                  ] as [React.ReactNode, React.ReactNode][])
-                : []),
-              [
-                t('projects.overview.properties.reviewer'),
-                reviewerNames.length
-                  ? reviewerNames.join(', ')
-                  : t('projects.overview.notRecorded'),
-              ],
-              [
-                t('projects.overview.properties.project'),
-                record.projectId ? (
-                  <ObjectLink kind="project" id={record.projectId} mono={false}>
-                    {projectName ??
-                      t('projects.overview.properties.projectFallback')}
-                  </ObjectLink>
-                ) : (
-                  t('projects.overview.notRecorded')
-                ),
-              ],
-              ...(clientId
-                ? ([[t('projects.overview.properties.client'), clientId]] as [
-                    React.ReactNode,
-                    React.ReactNode,
-                  ][])
-                : []),
-              [
-                t('projects.overview.properties.protocol'),
-                protocolLinks.length ? (
-                  <Link
-                    to="/protocols/$protocolId"
-                    params={{
-                      protocolId: protocolLinks[0].targetRecordId ?? '',
-                    }}
-                    className="text-link"
-                  >
-                    {protocolLinks[0].targetIdentifier}
-                  </Link>
-                ) : (
-                  t('projects.overview.notRecorded')
-                ),
-              ],
-              [
-                t('projects.overview.properties.started'),
-                formatNotebookDateTime(record.createdAt),
-              ],
-              ...(plannedEnd
-                ? ([
-                    [
-                      t('projects.overview.properties.plannedEnd'),
-                      formatDate(plannedEnd),
-                    ],
-                  ] as [React.ReactNode, React.ReactNode][])
-                : []),
-              ...(decision
-                ? ([
-                    [
-                      t('projects.overview.properties.decision'),
-                      `${decision.charAt(0).toUpperCase()}${decision.slice(1)}${decisionNotes ? ` · ${decisionNotes}` : ''}`,
-                    ],
-                  ] as [React.ReactNode, React.ReactNode][])
-                : []),
-            ]}
-          />
-        </InspectorSection>
+        {renderPropertiesSection({
+          record,
+          status,
+          userLabel,
+          collaboratorIds,
+          reviewerNames,
+          projectName,
+          clientId,
+          protocolLinks,
+          plannedEnd,
+          decision,
+          decisionNotes,
+        })}
 
         {addedFields}
 
@@ -896,5 +597,486 @@ export function ExperimentOverview({
         </InspectorSection>
       </Inspector>
     </>
+  )
+}
+
+function renderProtocolSection({
+  protocolLinks,
+  protocolSteps,
+  parts,
+  numberInPart,
+  partHeading,
+  stepStatus,
+  userLabel,
+}: {
+  protocolLinks: OverviewLink[]
+  protocolSteps: ReturnType<typeof protocolStepProgress>
+  parts: readonly PartSummary[]
+  numberInPart: ReadonlyMap<string, number>
+  partHeading: (partId: string | null) => string
+  stepStatus: ReadonlyMap<
+    string,
+    ReturnType<typeof stepProgress>[number]['status']
+  >
+  userLabel: ExperimentOverviewProps['userLabel']
+}) {
+  return (
+    <Section
+      title={t('projects.overview.protocol.title')}
+      action={
+        protocolLinks.length ? (
+          <span className="flex items-center gap-2 text-label text-fg-muted">
+            {protocolLinks.map((link) => (
+              <Link
+                key={link.id}
+                to="/protocols/$protocolId"
+                params={{ protocolId: link.targetRecordId ?? '' }}
+                className="text-link mono"
+              >
+                {link.targetIdentifier}
+              </Link>
+            ))}
+            {protocolSteps.length
+              ? `· ${t('projects.overview.protocol.stepsDone', {
+                  done: protocolSteps.filter((step) => step.completed).length,
+                  total: protocolSteps.length,
+                })}`
+              : null}
+          </span>
+        ) : null
+      }
+    >
+      {protocolLinks.length ? null : (
+        <Muted>{t('projects.overview.protocol.none')}</Muted>
+      )}
+      {protocolSteps.length ? (
+        <TableBox className="mt-2">
+          <Table aria-label={t('projects.overview.protocol.title')}>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-8">#</TableHead>
+                <TableHead>
+                  {t('projects.overview.protocol.columns.step')}
+                </TableHead>
+                <TableHead>
+                  {t('projects.overview.protocol.columns.status')}
+                </TableHead>
+                <TableHead>
+                  {t('projects.overview.protocol.columns.by')}
+                </TableHead>
+                <TableHead>
+                  {t('projects.overview.protocol.columns.when')}
+                </TableHead>
+                <TableHead>
+                  {t('projects.overview.protocol.columns.evidence')}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {protocolSteps.map((step, index) => (
+                <Fragment key={step.blockId}>
+                  {parts.length > 0 &&
+                  step.partId !== protocolSteps[index - 1]?.partId ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="bg-surface-sunken text-label font-semibold text-fg-muted"
+                      >
+                        {partHeading(step.partId)}
+                      </TableCell>
+                    </TableRow>
+                  ) : null}
+                  <TableRow>
+                    <TableCell className="text-fg-muted">
+                      {parts.length > 0
+                        ? (numberInPart.get(step.blockId) ?? '·')
+                        : (step.stepNumber ?? '·')}
+                    </TableCell>
+                    <TableCell>{step.text}</TableCell>
+                    <TableCell>
+                      {step.completed ? (
+                        <Status tone="ok">
+                          {t('projects.overview.protocol.done')}
+                        </Status>
+                      ) : stepStatus.get(step.blockId) === 'in_progress' ? (
+                        <Status tone="progress">
+                          {t('projects.overview.protocol.inProgress')}
+                        </Status>
+                      ) : (
+                        <Status tone="none">
+                          {t('projects.overview.protocol.notStarted')}
+                        </Status>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {step.completed
+                        ? step.completedByUserId
+                          ? userLabel(step.completedByUserId)
+                          : t('projects.overview.notRecorded')
+                        : '—'}
+                    </TableCell>
+                    <TableCell className="text-fg-muted">
+                      {step.completed && step.completedAt
+                        ? formatNotebookDateTime(step.completedAt)
+                        : '—'}
+                    </TableCell>
+                    <TableCell className="text-fg-muted">
+                      {step.note || '—'}
+                    </TableCell>
+                  </TableRow>
+                </Fragment>
+              ))}
+            </TableBody>
+          </Table>
+        </TableBox>
+      ) : protocolLinks.length ? (
+        <Muted>{t('projects.overview.protocol.noProgress')}</Muted>
+      ) : null}
+    </Section>
+  )
+}
+
+function renderReadinessSection({
+  record,
+  readiness,
+  readinessIsLoading,
+  readinessError,
+  pastSubmission,
+  items,
+  navigate,
+}: Pick<
+  ExperimentOverviewProps,
+  'record' | 'readiness' | 'readinessIsLoading' | 'readinessError'
+> & {
+  pastSubmission: boolean
+  items: ReadinessItem[]
+  navigate: ReturnType<typeof useNavigate>
+}) {
+  return (
+    <Section
+      title={
+        pastSubmission
+          ? t('projects.overview.readiness.reviewTitle')
+          : t('projects.overview.readiness.title')
+      }
+      count={pastSubmission ? undefined : items.length || undefined}
+      action={
+        <span className="inline-flex items-center gap-2">
+          {!pastSubmission && readiness?.ready ? (
+            <Status tone="ok">{t('projects.overview.readiness.ready')}</Status>
+          ) : null}
+          {record.status === 'in_progress' ? (
+            // Submitting lives in the notebook's dialog; `reopen=submit`
+            // opens it there, so the readiness list above is one click
+            // from the action it is about.
+            <Button
+              variant={readiness?.ready ? 'primary' : 'secondary'}
+              onClick={() =>
+                void navigate({
+                  href: withReopen(
+                    `/experiments/${record.id}/notebook`,
+                    'submit',
+                  ),
+                })
+              }
+            >
+              {t('projects.overview.readiness.submit')}
+            </Button>
+          ) : null}
+        </span>
+      }
+    >
+      {renderReadinessContent({
+        record,
+        readiness,
+        readinessIsLoading,
+        readinessError,
+        pastSubmission,
+        items,
+      })}
+    </Section>
+  )
+}
+
+function renderReadinessContent({
+  record,
+  readiness,
+  readinessIsLoading,
+  readinessError,
+  pastSubmission,
+  items,
+}: Pick<
+  ExperimentOverviewProps,
+  'record' | 'readiness' | 'readinessIsLoading' | 'readinessError'
+> & {
+  pastSubmission: boolean
+  items: ReadinessItem[]
+}) {
+  if (pastSubmission) {
+    return (
+      <Muted>
+        {record.status === 'approved'
+          ? t('projects.overview.readiness.after.approved')
+          : record.status === 'returned'
+            ? t('projects.overview.readiness.after.returned')
+            : t('projects.overview.readiness.after.in_review')}
+      </Muted>
+    )
+  }
+
+  if (readinessIsLoading) {
+    return <Muted>{t('projects.overview.readiness.checking')}</Muted>
+  }
+
+  if (readinessError) {
+    return (
+      <Muted>
+        {t('projects.overview.readiness.failed', { reason: readinessError })}
+      </Muted>
+    )
+  }
+
+  if (!readiness) {
+    return <Muted>{t('projects.overview.readiness.notChecked')}</Muted>
+  }
+
+  if (items.length) {
+    return (
+      <ul className="m-0 list-none p-0">
+        {items.map((item) => (
+          <ReadinessRow key={item.id} item={item} recordId={record.id} />
+        ))}
+      </ul>
+    )
+  }
+
+  return <Muted>{t('projects.overview.readiness.nothingOpen')}</Muted>
+}
+
+function renderKeyResultsSection({
+  metrics,
+  conclusions,
+  datasetLinks,
+  analysisLinks,
+}: ReturnType<typeof keyResultsFrom> & {
+  datasetLinks: OverviewLink[]
+  analysisLinks: OverviewLink[]
+}) {
+  return (
+    <Section
+      title={t('projects.overview.results.title')}
+      action={<Muted>{t('projects.overview.results.preliminary')}</Muted>}
+    >
+      {metrics.length || conclusions.length ? (
+        <div className="mb-4 flex flex-col gap-4" data-key-results>
+          {metrics.length ? (
+            <ul className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 p-0">
+              {metrics.map((metric) => (
+                <li
+                  key={metric.id}
+                  className="flex flex-col gap-0.5 rounded-md border border-border bg-surface px-3 py-2.5"
+                >
+                  <span className="text-label text-fg-muted">
+                    {metric.label}
+                  </span>
+                  <span className="text-title tabular-nums">
+                    {metric.value}
+                    {metric.unit ? (
+                      <span className="ml-1 text-label font-normal text-fg-muted">
+                        {metric.unit}
+                      </span>
+                    ) : null}
+                  </span>
+                  {metric.provenance ? (
+                    <span className="text-label text-fg-muted">
+                      {metric.provenance}
+                    </span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {conclusions.map((conclusion) => (
+            <div
+              key={conclusion.id}
+              className="flex max-w-[680px] flex-col gap-1"
+            >
+              <p className="m-0 text-prose">
+                {conclusion.verdict ? (
+                  <span className="mr-2 text-label font-medium capitalize text-fg-muted">
+                    {conclusion.verdict}
+                  </span>
+                ) : null}
+                {conclusion.text}
+              </p>
+              {conclusion.basis ? (
+                <p className="m-0 text-label text-fg-muted">
+                  {t('projects.overview.results.basedOn', {
+                    basis: conclusion.basis,
+                  })}
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {datasetLinks.length || analysisLinks.length ? (
+        <DescriptionList
+          labelWidth={90}
+          items={[
+            ...(datasetLinks.length
+              ? ([
+                  [
+                    t('projects.overview.results.datasets'),
+                    <>
+                      {datasetLinks.map((link, index) => (
+                        <span key={link.id}>
+                          {index ? ', ' : ''}
+                          {link.targetRecordId ? (
+                            <Link
+                              to="/datasets/$datasetId"
+                              params={{
+                                datasetId: link.targetRecordId,
+                              }}
+                              className="text-link mono"
+                            >
+                              {link.targetIdentifier}
+                            </Link>
+                          ) : (
+                            <span className="mono">
+                              {link.targetIdentifier}
+                            </span>
+                          )}
+                        </span>
+                      ))}
+                    </>,
+                  ],
+                ] satisfies [string, React.ReactNode][])
+              : []),
+            ...(analysisLinks.length
+              ? ([
+                  [
+                    t('projects.overview.results.analyses'),
+                    <span key="analyses" className="mono">
+                      {analysisLinks
+                        .map((link) => link.targetIdentifier)
+                        .join(', ')}
+                    </span>,
+                  ],
+                ] satisfies [string, React.ReactNode][])
+              : []),
+          ]}
+        />
+      ) : metrics.length || conclusions.length ? null : (
+        <Muted>{t('projects.overview.results.none')}</Muted>
+      )}
+    </Section>
+  )
+}
+
+function renderPropertiesSection({
+  record,
+  status,
+  userLabel,
+  collaboratorIds,
+  reviewerNames,
+  projectName,
+  clientId,
+  protocolLinks,
+  plannedEnd,
+  decision,
+  decisionNotes,
+}: Pick<ExperimentOverviewProps, 'record' | 'userLabel' | 'projectName'> & {
+  status: ReturnType<typeof experimentStatus>
+  collaboratorIds: string[]
+  reviewerNames: string[]
+  clientId: string | null
+  protocolLinks: OverviewLink[]
+  plannedEnd: string | null
+  decision: string | null
+  decisionNotes: string | null
+}) {
+  return (
+    <InspectorSection title={t('projects.overview.properties.title')}>
+      <DescriptionList
+        labelWidth={110}
+        items={[
+          [
+            t('projects.overview.properties.status'),
+            <Status tone={status.tone}>{status.label}</Status>,
+          ],
+          [
+            t('projects.overview.properties.owner'),
+            userLabel(record.createdByUserId),
+          ],
+          ...(collaboratorIds.length
+            ? ([
+                [
+                  t('projects.overview.properties.collaborators'),
+                  collaboratorIds.map(userLabel).join(', '),
+                ],
+              ] satisfies [React.ReactNode, React.ReactNode][])
+            : []),
+          [
+            t('projects.overview.properties.reviewer'),
+            reviewerNames.length
+              ? reviewerNames.join(', ')
+              : t('projects.overview.notRecorded'),
+          ],
+          [
+            t('projects.overview.properties.project'),
+            record.projectId ? (
+              <ObjectLink kind="project" id={record.projectId} mono={false}>
+                {projectName ??
+                  t('projects.overview.properties.projectFallback')}
+              </ObjectLink>
+            ) : (
+              t('projects.overview.notRecorded')
+            ),
+          ],
+          ...(clientId
+            ? ([
+                [t('projects.overview.properties.client'), clientId],
+              ] satisfies [React.ReactNode, React.ReactNode][])
+            : []),
+          [
+            t('projects.overview.properties.protocol'),
+            protocolLinks.length ? (
+              <Link
+                to="/protocols/$protocolId"
+                params={{
+                  protocolId: protocolLinks[0].targetRecordId ?? '',
+                }}
+                className="text-link"
+              >
+                {protocolLinks[0].targetIdentifier}
+              </Link>
+            ) : (
+              t('projects.overview.notRecorded')
+            ),
+          ],
+          [
+            t('projects.overview.properties.started'),
+            formatNotebookDateTime(record.createdAt),
+          ],
+          ...(plannedEnd
+            ? ([
+                [
+                  t('projects.overview.properties.plannedEnd'),
+                  formatDate(plannedEnd),
+                ],
+              ] satisfies [React.ReactNode, React.ReactNode][])
+            : []),
+          ...(decision
+            ? ([
+                [
+                  t('projects.overview.properties.decision'),
+                  `${decision.charAt(0).toUpperCase()}${decision.slice(1)}${decisionNotes ? ` · ${decisionNotes}` : ''}`,
+                ],
+              ] satisfies [React.ReactNode, React.ReactNode][])
+            : []),
+        ]}
+      />
+    </InspectorSection>
   )
 }

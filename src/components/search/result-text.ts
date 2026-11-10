@@ -44,9 +44,11 @@ export function searchResultContext(
   // The row already leads with its id and its title, so the snippet drops the
   // row's own id wherever it was folded in, and says nothing at all when what
   // is left only repeats the title.
-  const ownIds = [result.recordId, result.identifier]
-    .map((id) => id.trim())
-    .filter(Boolean)
+  const ownIds = [result.recordId, result.identifier].flatMap((id) => {
+    const text = id.trim()
+
+    return text ? [text] : []
+  })
 
   const segments = parseMatchedContext(context)
     .map((segment) => {

@@ -24,6 +24,7 @@ export function NotebookHistoryPanel({
     queryKey: sign002QueryKeys.timeline(recordId),
     queryFn: () => fetchRecordTimeline(sign002DataClient, recordId),
   })
+
   const revisions = useQuery({
     queryKey: ['notebook-experience', 'revisions', recordId],
     queryFn: () => fetchRevisionsForRecord(notebookDataClient, recordId),
@@ -67,13 +68,15 @@ export function NotebookHistoryPanel({
             const label = t('notebook.notebookHistoryPanel.submittedDate', {
               date: formatDate(revision.created_at),
             })
+
             const secondary = revision.id.slice(0, 8)
+
             return (
               <li key={revision.id} className="flex items-center gap-2">
                 <Link
                   to="/records/$recordId"
                   params={{ recordId }}
-                  search={{ revision: revision.id } as never}
+                  search={{ revision: revision.id }}
                   className="text-sm underline-offset-4 hover:underline"
                 >
                   {label}

@@ -1,5 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 
+export const twoFactorQueryKey = ['two-factor-status'] as const
+
 /**
  * Whether the caller has two-factor on, and whether this deployment can offer it
  * at all. The auth-free development identity has no sign-in to protect, so the
@@ -16,14 +18,19 @@ export interface TwoFactorStatus {
 
 export const getTwoFactorStatusFn = createServerFn({ method: 'GET' }).handler(
   async (): Promise<TwoFactorStatus> => {
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-
-    const { getAppSession, getAuthMethods, isDevAuthFreeEnabled } =
-      await import('#/lib/auth')
-
-    const { and, eq, isNotNull } = await import('drizzle-orm')
-    const { db } = await import('#/db/client.server')
-    const { account, user } = await import('#/db/schema')
+    const [
+      { getRequestHeaders },
+      { getAppSession, getAuthMethods, isDevAuthFreeEnabled },
+      { and, eq, isNotNull },
+      { db },
+      { account, user },
+    ] = await Promise.all([
+      import('@tanstack/react-start/server'),
+      import('#/lib/auth'),
+      import('drizzle-orm'),
+      import('#/db/client.server'),
+      import('#/db/schema'),
+    ])
 
     const appSession = await getAppSession(getRequestHeaders())
 

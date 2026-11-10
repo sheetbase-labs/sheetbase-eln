@@ -100,6 +100,7 @@ export function RolesAndPermissions({
       level: SettingsLevel
     }) => {
       for (const role of input.roles) {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Stop at the first refused role write; later roles must not be changed after an earlier permission failure.
         await dataClient.rpc('set_settings_access', {
           p_workspace_id: workspaceId,
           p_area: input.area,
@@ -188,13 +189,18 @@ export function RolesAndPermissions({
                         aria-label={`${SETTINGS_AREA_LABELS[area]}, ${c.label}`}
                         value={settingsLevelFor(area, c.roles[0], rows)}
                         disabled={!canEdit || save.isPending}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const level = (
+                            ['none', 'view', 'manage'] as const
+                          ).find((option) => option === e.target.value)
+
+                          if (!level) return
                           save.mutate({
                             area,
                             roles: c.roles,
-                            level: e.target.value as SettingsLevel,
+                            level,
                           })
-                        }
+                        }}
                       >
                         {(['none', 'view', 'manage'] as const).map((level) => (
                           <option key={level} value={level}>

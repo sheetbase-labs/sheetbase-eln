@@ -13,76 +13,63 @@ import {
   within,
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
-
-import type { PipelineDefinitionVersionWire } from '#/lib/pipelines/types'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
+import { pipelineRun, pipelineVersion as version } from './test-support'
+import { createDataClient } from '#/lib/data-client'
 
 import { RunDialog } from './run-dialog'
 import { startAndExecuteRun } from './pipelines-data'
 
-const mocks = vi.hoisted(() => ({
-  startPipelineRun: vi.fn(),
-  executePipelineRun: vi.fn(),
-}))
+const datasetFetch: typeof fetch = async (input) => {
+  const resource = z.string().parse(input).split('?')[0].split('/').at(-1)
 
-vi.mock('#/lib/notebook-data', () => ({
-  notebookDataClient: {
-    list: async (resource: string) => {
-      switch (resource) {
-        case 'dataset_versions':
-          return [
-            {
-              id: 'dv-1',
-              dataset_id: 'ds-1',
-              schema_version_id: 'sv-1',
-              label: 'Weekly',
-              created_at: '2026-10-01T00:00:00Z',
-            },
-            {
-              id: 'dv-2',
-              dataset_id: 'ds-2',
-              schema_version_id: 'sv-2',
-              label: 'Batch 7',
-              created_at: '2026-10-02T00:00:00Z',
-            },
-          ]
-        case 'dataset_schema_versions':
-          return [
-            { id: 'sv-1', schema_id: 'sch-1' },
-            { id: 'sv-2', schema_id: 'sch-2' },
-          ]
-        case 'dataset_schema_definitions':
-          return [
-            { id: 'sch-1', name: 'Plate reader' },
-            { id: 'sch-2', name: 'Bioreactor' },
-          ]
-        default:
-          return [
-            { id: 'ds-1', name: 'Readings', display_id: 'DS-0001' },
-            { id: 'ds-2', name: 'Run data', display_id: 'DS-0002' },
-          ]
-      }
-    },
-  },
-}))
+  const rows = (() => {
+    switch (resource) {
+      case 'dataset_versions':
+        return [
+          {
+            id: 'dv-1',
+            dataset_id: 'ds-1',
+            schema_version_id: 'sv-1',
+            label: 'Weekly',
+            created_at: '2026-10-01T00:00:00Z',
+          },
+          {
+            id: 'dv-2',
+            dataset_id: 'ds-2',
+            schema_version_id: 'sv-2',
+            label: 'Batch 7',
+            created_at: '2026-10-02T00:00:00Z',
+          },
+        ]
+      case 'dataset_schema_versions':
+        return [
+          { id: 'sv-1', schema_id: 'sch-1' },
+          { id: 'sv-2', schema_id: 'sch-2' },
+        ]
+      case 'dataset_schema_definitions':
+        return [
+          { id: 'sch-1', name: 'Plate reader' },
+          { id: 'sch-2', name: 'Bioreactor' },
+        ]
+      default:
+        return [
+          { id: 'ds-1', name: 'Readings', display_id: 'DS-0001' },
+          { id: 'ds-2', name: 'Run data', display_id: 'DS-0002' },
+        ]
+    }
+  })()
 
-vi.mock('#/lib/pipelines/data', () => ({
-  startPipelineRun: (...args: unknown[]) => mocks.startPipelineRun(...args),
-  executePipelineRun: (...args: unknown[]) => mocks.executePipelineRun(...args),
-}))
+  return Response.json(rows)
+}
+
+beforeEach(() => vi.stubGlobal('fetch', datasetFetch))
 
 afterEach(() => {
   cleanup()
-  vi.resetAllMocks()
+  vi.unstubAllGlobals()
 })
-
-function version(configuration: Record<string, unknown>) {
-  return {
-    id: 'v-1',
-    version: 2,
-    configuration,
-  } as unknown as PipelineDefinitionVersionWire
-}
 
 /** Open the Dataset Version picker and list what it offers. */
 async function offeredVersions() {
@@ -104,6 +91,7 @@ describe('RunDialog', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <RunDialog
+          client={createDataClient(datasetFetch)}
           pipelineName="glucose_trend"
           version={version({
             inputs: [{ name: 'readings', required: true }],
@@ -146,13 +134,14 @@ describe('RunDialog schema filter', () => {
     render(
       <QueryClientProvider client={new QueryClient()}>
         <RunDialog
+          client={createDataClient(datasetFetch)}
           pipelineName="glucose_trend"
           version={version({
             inputs: [
               {
                 name: 'readings',
                 required: true,
-                ...(inputSchema ? { schemaId: inputSchema } : {}),
+                schemaId: inputSchema ?? '',
               },
             ],
           })}
@@ -212,27 +201,53 @@ describe('RunDialog schema filter', () => {
 
 describe('startAndExecuteRun', () => {
   it('starts the run, then asks the server to execute it', async () => {
-    mocks.startPipelineRun.mockResolvedValue({ id: 'run-1' })
-    mocks.executePipelineRun.mockResolvedValue({ id: 'run-1' })
+    const requests: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(async (input) => {
+        requests.push(z.string().parse(input))
+
+        if (z.string().parse(input).includes('?runId='))
+          return Response.json({ run: pipelineRun(), job: null })
+
+        return Response.json(pipelineRun())
+      }),
+    )
     const onSettled = vi.fn()
 
     const started = await startAndExecuteRun(
       { workspaceId: 'ws', definitionVersionId: 'v-1', triggerKind: 'manual' },
       onSettled,
+      createDataClient(fetch),
     )
 
     expect(started.id).toBe('run-1')
-    expect(mocks.executePipelineRun).toHaveBeenCalledWith('run-1')
+    expect(requests.slice(0, 2)).toEqual([
+      '/api/db/rpc/start_pipeline_run',
+      '/api/pipelines/execute',
+    ])
     await waitFor(() => expect(onSettled).toHaveBeenCalledWith({}))
   })
 
   it('reports an execution failure after the run has started', async () => {
-    mocks.startPipelineRun.mockResolvedValue({ id: 'run-1' })
-    mocks.executePipelineRun.mockRejectedValue(new Error('sandbox refused'))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(async (input) => {
+        if (z.string().parse(input).includes('/execute')) {
+          return Response.json(
+            { error: { message: 'sandbox refused' } },
+            { status: 500 },
+          )
+        }
+
+        return Response.json(pipelineRun())
+      }),
+    )
     const onSettled = vi.fn()
     await startAndExecuteRun(
       { workspaceId: 'ws', definitionVersionId: 'v-1' },
       onSettled,
+      createDataClient(fetch),
     )
     await waitFor(() =>
       expect(onSettled).toHaveBeenCalledWith({

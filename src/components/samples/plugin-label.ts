@@ -10,37 +10,21 @@ import {
   drawPluginBarcode,
   layOutPluginLabel,
 } from '#/lib/extensions/plugin-files'
-import type { PluginBarcodeDrawing } from '#/lib/extensions/plugin-files'
-import { parsePluginName } from '#/lib/extensions/points'
 import { useExtensionPointsState } from '#/lib/extensions/use-extension-points'
 import { isPluginItem } from '#/lib/labels'
 import { t } from '#/copy'
 
-export interface PluginLabelState<T> {
-  /** The plugin's answer, once it has come. */
-  data?: T
-  loading: boolean
-  /** Why it can't be used, in words for the person. */
-  problem?: string
-}
+import { pluginFailure, pluginLabelState } from './plugin-label-state'
+import type { PluginLabel } from './plugin-label-state'
 
-const idle = { loading: false } as const
-
-function reasonOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
-
-export interface PluginLabel {
-  lines: PluginLabelState<Array<{ text: string; bold: boolean }>>
-  code: PluginLabelState<PluginBarcodeDrawing>
-}
+export type { PluginLabel, PluginLabelState } from './plugin-label-state'
 
 export function usePluginLabel(args: {
   layout: string | undefined
   barcodeType: string
   recordKind: string
   identifier: string
-  record: Record<string, unknown>
+  record: Parameters<typeof layOutPluginLabel>[0]['record']
   widthMm: number
   heightMm: number
 }): PluginLabel {
@@ -94,36 +78,24 @@ export function usePluginLabel(args: {
     retry: false,
   })
 
-  const gone = (name: string) => {
-    const parsed = parsePluginName(name)
-
-    return t('plugins.labels.gone', { title: parsed?.id ?? name })
-  }
-
   return {
-    lines: !layoutName
-      ? idle
-      : !layoutItem
-        ? ready
-          ? { loading: false, problem: gone(layoutName) }
-          : { loading: true }
-        : lines.isError
-          ? {
-              loading: false,
-              problem: t('plugins.labels.layoutFailed', {
-                title: layoutItem.declaration.title,
-                reason: reasonOf(lines.error),
-              }),
-            }
-          : { loading: lines.isPending, data: lines.data },
-    code: !codeName
-      ? idle
-      : !codeItem
-        ? ready
-          ? { loading: false, problem: gone(codeName) }
-          : { loading: true }
-        : code.isError
-          ? { loading: false, problem: reasonOf(code.error) }
-          : { loading: code.isPending, data: code.data },
+    lines: pluginLabelState({
+      name: layoutName,
+      available: Boolean(layoutItem),
+      ready,
+      query: lines,
+      failure: (error) =>
+        t('plugins.labels.layoutFailed', {
+          title: layoutItem!.declaration.title,
+          reason: pluginFailure(error),
+        }),
+    }),
+    code: pluginLabelState({
+      name: codeName,
+      available: Boolean(codeItem),
+      ready,
+      query: code,
+      failure: pluginFailure,
+    }),
   }
 }

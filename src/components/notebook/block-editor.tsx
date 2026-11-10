@@ -20,6 +20,7 @@ import { datasetOption } from '#/components/record-picker/entity-options'
 import { returnToHere } from '#/lib/return-to'
 import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { cn } from '#/lib/utils'
 import { explainBlockValidation } from '#/lib/assist-explain'
@@ -34,7 +35,7 @@ import type {
   RecordWire,
 } from '#/lib/notebook-data'
 import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
-import { datasetPath, recordDestination } from '#/lib/navigation'
+import { linkedRecordDestination } from './linked-record-destination'
 import { OfficeEditButton } from './office-editor'
 import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
@@ -55,15 +56,12 @@ import {
   CALLOUT_STYLES,
   CALLOUT_VARIANT_LABELS,
   CALLOUT_VARIANTS,
-  calloutVariantOf,
 } from './callout-styles'
-import type { CalloutVariant } from './callout-styles'
 import {
   CONCLUSION_VERDICT_LABELS,
   CONCLUSION_VERDICTS,
   conclusionVerdictOf,
 } from '#/lib/conclusion-block'
-import type { ConclusionVerdict } from '#/lib/conclusion-block'
 import { Icon } from '#/components/icons'
 import { RecordPicker } from '#/components/scientific'
 import type { RecordPickerResult } from '#/components/scientific'
@@ -72,6 +70,7 @@ import {
   searchRecords,
 } from '#/lib/scientific-records'
 import type { MaterialItem } from '#/lib/protocol-materials'
+import { materialItems } from './material-payload'
 import { StockWithdrawButton } from '#/components/notebook/stock-withdraw-button'
 import { isWithdrawn } from '#/lib/stock-withdraw'
 import { PluginBlockView } from '#/components/extensions/plugin-block'
@@ -96,10 +95,10 @@ import { isSequenceFileName } from '#/lib/sequence'
 import { stepDurationSeconds } from '#/lib/step-timers'
 import { isPinnedProtocolStep } from '#/lib/protocol-deviations'
 import {
-  canEditBlockOffline,
   useOfflineEdits,
   useUnsyncedBlock,
 } from '#/components/offline/offline-edits'
+import { canEditBlockOffline } from '#/components/offline/offline-edit-model'
 import { UnsyncedMark } from '#/components/offline/unsynced-changes'
 import { ConflictBanner } from './conflict-banner'
 import { OpenLink } from './block-preview'
@@ -110,7 +109,12 @@ import { readAnnotations, withAnnotations } from '#/lib/image-annotations'
 import { validateFileForUpload } from '#/lib/file-attach'
 import { formatFileSize } from '#/lib/format-numbers'
 import { FILE_MAX_BYTES, isInlinePreviewableImage } from '#/lib/file-policy'
-import { CHART_SPEC_VERSION, CHART_TYPES } from '#/lib/chart-spec'
+import {
+  AXIS_SCALES,
+  CHART_SPEC_VERSION,
+  CHART_TYPES,
+  HEATMAP_AGGREGATES,
+} from '#/lib/chart-spec'
 import type { AnalysisBlockPayload } from '#/lib/analysis-block'
 import { validateAnalysisBlockPayload } from '#/lib/analysis-block'
 import { PipelineOutputBlockEditor } from './pipeline-output-block-editor'
@@ -119,11 +123,18 @@ import { DatasetImportBlockEditor } from './dataset-import-block'
 import { ReactionEditor, StructureEditor } from './chemistry-block'
 import { AnalysisChartPicker } from './analysis-chart-picker'
 import {
+  analysisDefinition,
+  analysisPayload,
+  chartPayload,
+  platePayload,
+} from './scientific-payload'
+import {
   analysisDefinitionQueryKeys,
   fetchAnalysisDefinitions,
 } from '#/lib/analysis-definitions-data'
 import type {
   ChartBlockPayload,
+  ChartColumn,
   ChartSpec,
   ChartType,
   AxisScale,
@@ -144,6 +155,7 @@ import { ChartRenderer } from '#/components/viz/chart-renderer'
 import { MakeSheetFromFile } from '#/components/notebook/make-sheet-from-file'
 import type { MakeSheetRequest } from '#/components/notebook/make-sheet-from-file'
 import { canMakeSheet } from '#/lib/office-sheet'
+import { readOnlyEntries } from './read-only-entries'
 import { PlateMap } from '#/components/viz/plate-map'
 import {
   ASSIGNMENT_ROLES,
@@ -164,7 +176,7 @@ export type { AutosaveStatus, SaveResult }
 export interface BlockEditorProps {
   block: NotebookBlock
   /** Insert a new block without replacing this block's evidence. */
-  onInsertBelow?: (type: string, payload?: Record<string, unknown>) => void
+  onInsertBelow?: (type: string, payload?: NotebookBlock['payload']) => void
   /**
    * Persist a validated payload. Returns a structured result so the
    * editor's autosave state machine can branch on conflict / validation /
@@ -172,8 +184,8 @@ export interface BlockEditorProps {
    * cache at call time; the editor does not pass a version.
    */
   save: (
-    payload: Record<string, unknown>,
-  ) => Promise<SaveResult<Record<string, unknown>>>
+    payload: NotebookBlock['payload'],
+  ) => Promise<SaveResult<NotebookBlock['payload']>>
   /** When true, holds saves (live-event stream offline). */
   offline?: boolean
   /** Called whenever the block's autosave status changes. */
@@ -222,30 +234,37 @@ export interface BlockEditorProps {
   onArrowDownFromEnd?: () => void
 }
 
+const pluginState = z.json()
+
 function PluginBlockEditor(props: BlockEditorProps) {
   const payload = props.block.payload
   const { save } = props
   // Saves go one after another: two quick clicks must not both claim the same
   // version of the block.
-  const queue = React.useRef<Promise<unknown>>(Promise.resolve())
+  const queue = React.useRef<Promise<unknown> | null>(null)
+
   const keep = React.useCallback(
-    (state: unknown) => {
-      queue.current = queue.current
+    (state: z.output<typeof pluginState>) => {
+      queue.current = (queue.current ?? Promise.resolve())
         .catch(() => undefined)
         .then(() => save({ ...payload, state }))
     },
     [save, payload],
   )
+
   return (
     <PluginBlockView
       payload={payload}
       recordId={props.block.recordId}
       blockId={props.block.id}
-      onState={props.readOnly ? undefined : keep}
+      onState={
+        props.readOnly ? undefined : (state) => keep(pluginState.parse(state))
+      }
       insertBelow={
         props.readOnly || !props.onInsertBelow
           ? undefined
-          : (type, payload) => props.onInsertBelow?.(type, payload)
+          : (type, insertedPayload) =>
+              props.onInsertBelow?.(type, insertedPayload)
       }
     />
   )
@@ -254,6 +273,7 @@ function PluginBlockEditor(props: BlockEditorProps) {
 export function BlockEditor(props: BlockEditorProps) {
   // EXP-05.2: a block with a local draft carries a marker where it renders.
   const unsynced = useUnsyncedBlock(props.block.id)
+
   return (
     <>
       {unsynced ? <UnsyncedMark /> : null}
@@ -262,6 +282,30 @@ export function BlockEditor(props: BlockEditorProps) {
   )
 }
 
+const BLOCK_EDITORS = new Map<string, React.ComponentType<BlockEditorProps>>([
+  ['rich_text', RichTextEditor],
+  ['checklist', ChecklistEditor],
+  ['callout', CalloutEditor],
+  ['conclusion', ConclusionEditor],
+  ['metric', MetricEditor],
+  ['linked_record', LinkedRecordEditor],
+  ['protocol_reference', ProtocolReferenceEditor],
+  ['procedure_step', ProcedureStepEditor],
+  ['materials', MaterialsEditor],
+  ['file', FileBlockEditor],
+  ['chart', ChartBlockEditor],
+  ['plugin', PluginBlockEditor],
+  ['analysis', AnalysisBlockEditor],
+  ['pipeline_output', PipelineOutputBlockEditor],
+  ['code_cell', CodeCellBlockEditor],
+  ['dataset_import', DatasetImportBlockEditor],
+  ['plate_map', PlateMapBlockEditor],
+  ['structure', StructureEditor],
+  ['reaction', ReactionEditor],
+  ['signature_request', SignatureRequestEditor],
+  ['corrective_actions', CorrectiveActionsEditor],
+])
+
 function BlockEditorBody(props: BlockEditorProps) {
   if (
     props.block.type === 'rich_text' &&
@@ -269,54 +313,10 @@ function BlockEditorBody(props: BlockEditorProps) {
   ) {
     return <UnsupportedEditor block={props.block} className={props.className} />
   }
-  switch (props.block.type) {
-    case 'rich_text':
-      return <RichTextEditor {...props} />
-    case 'checklist':
-      return <ChecklistEditor {...props} />
-    case 'callout':
-      return <CalloutEditor {...props} />
-    case 'conclusion':
-      return <ConclusionEditor {...props} />
-    case 'metric':
-      return <MetricEditor {...props} />
-    case 'linked_record':
-      return <LinkedRecordEditor {...props} />
-    case 'protocol_reference':
-      return <ProtocolReferenceEditor {...props} />
-    case 'procedure_step':
-      return <ProcedureStepEditor {...props} />
-    case 'materials':
-      return <MaterialsEditor {...props} />
-    case 'file':
-      return <FileBlockEditor {...props} />
-    case 'chart':
-      return <ChartBlockEditor {...props} />
-    case 'plugin':
-      return <PluginBlockEditor {...props} />
-    case 'analysis':
-      return <AnalysisBlockEditor {...props} />
-    case 'pipeline_output':
-      return <PipelineOutputBlockEditor {...props} />
-    case 'code_cell':
-      return <CodeCellBlockEditor {...props} />
-    case 'dataset_import':
-      return <DatasetImportBlockEditor {...props} />
-    case 'plate_map':
-      return <PlateMapBlockEditor {...props} />
-    case 'structure':
-      return <StructureEditor {...props} />
-    case 'reaction':
-      return <ReactionEditor {...props} />
-    case 'signature_request':
-      return <SignatureRequestEditor {...props} />
-    case 'corrective_actions':
-      return <CorrectiveActionsEditor {...props} />
-    default:
-      return (
-        <UnsupportedEditor block={props.block} className={props.className} />
-      )
-  }
+
+  const Editor = BLOCK_EDITORS.get(props.block.type) ?? UnsupportedEditor
+
+  return <Editor {...props} />
 }
 
 // ---------------------------------------------------------------------------
@@ -325,12 +325,13 @@ function BlockEditorBody(props: BlockEditorProps) {
 // own draft fields.
 // ---------------------------------------------------------------------------
 
-function useBlockAutosave<T>(
+function useBlockAutosave<T extends object>(
   block: NotebookBlock,
   initialDraft: T,
   save: BlockEditorProps['save'],
   offline: boolean | undefined,
   onStatusChange: BlockEditorProps['onStatusChange'],
+  decoder: z.ZodType<T>,
 ) {
   const validate = React.useCallback(
     (value: T) => {
@@ -339,6 +340,7 @@ function useBlockAutosave<T>(
         payload: value,
         payloadSchemaVersion: block.payloadSchemaVersion,
       })
+
       return r.ok ? [] : r.errors.map((e) => e.message)
     },
     [block.type, block.payloadSchemaVersion],
@@ -346,10 +348,17 @@ function useBlockAutosave<T>(
 
   const saveAdapter = React.useCallback(
     async (value: T): Promise<SaveResult<T>> => {
-      const r = await save(value as unknown as Record<string, unknown>)
-      return r as unknown as SaveResult<T>
+      const r = await save(z.record(z.string(), z.unknown()).parse(value))
+
+      return {
+        ...r,
+        serverValue:
+          r.serverValue === undefined
+            ? undefined
+            : decoder.parse(r.serverValue),
+      }
     },
-    [save],
+    [save, decoder],
   )
 
   const [touched, setTouched] = React.useState(false)
@@ -357,8 +366,10 @@ function useBlockAutosave<T>(
   // the payload on the device and sends it on reconnect, so it survives a
   // reload. Blocks that need the server still hold.
   const { canQueue } = useOfflineEdits()
+
   const holdOffline =
     (offline ?? false) && !(canQueue && canEditBlockOffline(block.type))
+
   const autosave = useAutosave<T>({
     initialValue: initialDraft,
     validate,
@@ -366,6 +377,7 @@ function useBlockAutosave<T>(
     offline: holdOffline,
     touched,
   })
+
   // Structured errors for the Explain affordance: re-runs the same kernel
   // over the same draft the string errors came from, so the explanation can
   // cite rule codes and fields instead of raw strings.
@@ -375,8 +387,10 @@ function useBlockAutosave<T>(
       payload: autosave.draft,
       payloadSchemaVersion: block.payloadSchemaVersion,
     })
+
     return result.ok ? [] : result.errors
   }, [autosave.draft, block.type, block.payloadSchemaVersion])
+
   // Report before the browser can move focus into another block. The
   // document keeps non-clean editors mounted until autosave settles, which
   // preserves drafts and conflict controls across block navigation.
@@ -400,18 +414,21 @@ function ValidationErrors({
   explain?: BlockExplainInput | null
 }) {
   const [showExplain, setShowExplain] = React.useState(false)
+
   if (errors.length === 0) return null
+
   // Grounded locally: the same kernel over the same draft, so every claim
   // cites the rule code and field that rejected the save.
   const explanation =
     explain && explain.errors.length > 0
       ? explainBlockValidation(explain)
       : null
+
   return (
     <Notice tone="bad" className="mt-2 space-y-1 p-2">
       <ul className="space-y-1">
-        {errors.map((e, i) => (
-          <li key={i}>{e}</li>
+        {readOnlyEntries(errors, (message) => message).map(({ key, value }) => (
+          <li key={key}>{value}</li>
         ))}
       </ul>
       {explanation ? (
@@ -463,6 +480,7 @@ function AutosaveFooter({
   retrying: boolean
 }) {
   if (status === 'clean') return null
+
   return (
     <div className="absolute right-0 bottom-0 z-10 max-w-full space-y-1 rounded-md bg-surface/90 p-1.5 text-xs shadow-sm backdrop-blur-sm">
       <SaveStatus status={status} message={error} />
@@ -500,6 +518,8 @@ function AutosaveFooter({
 // Rich text.
 // ---------------------------------------------------------------------------
 
+const richTextPayload = z.custom<RichTextPayload>(isRichTextPayload)
+
 function RichTextEditor({
   block,
   save,
@@ -518,8 +538,16 @@ function RichTextEditor({
   onArrowUpFromStart,
   onArrowDownFromEnd,
 }: BlockEditorProps) {
-  const initialDraft = block.payload as unknown as RichTextPayload
-  const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
+  const initialDraft = richTextPayload.parse(block.payload)
+
+  const a = useBlockAutosave(
+    block,
+    initialDraft,
+    save,
+    offline,
+    onStatusChange,
+    richTextPayload,
+  )
 
   if (readOnly) {
     return (
@@ -579,9 +607,42 @@ interface ChecklistItem {
   text: string
   checked: boolean
 }
+
 interface ChecklistDraft {
   items: ChecklistItem[]
 }
+
+const checklistDraft: z.ZodType<ChecklistDraft> = z.object({
+  items: z
+    .array(z.looseObject({ text: z.string(), checked: z.boolean() }))
+    .default([]),
+})
+
+const signatureMeaning = z.enum(SIGNATURE_REQUEST_MEANINGS)
+
+const signatureDraft: z.ZodType<SignatureRequestPayload> = z.object({
+  requestedUserId: z.string().nullable().catch(null),
+  requestedUserName: z.string().nullable().catch(null),
+  meaning: signatureMeaning.catch('reviewed'),
+  note: z.string().catch(''),
+})
+
+const correctiveStatus = z.enum(CORRECTIVE_ACTION_STATUSES)
+
+const correctiveDraft: z.ZodType<CorrectiveActionsPayload> = z.object({
+  items: z
+    .array(
+      z.looseObject({
+        id: z.string(),
+        action: z.string(),
+        ownerUserId: z.string().nullable(),
+        ownerName: z.string().nullable(),
+        due: z.string().nullable(),
+        status: correctiveStatus,
+      }),
+    )
+    .default([]),
+})
 
 // ---------------------------------------------------------------------------
 // R5-NOTE-02: the two sign-and-attach blocks.
@@ -594,27 +655,18 @@ interface ChecklistDraft {
 // ---------------------------------------------------------------------------
 
 function SignatureRequestEditor(props: BlockEditorProps) {
-  const initialDraft = React.useMemo<SignatureRequestPayload>(() => {
-    const p = props.block.payload as Partial<SignatureRequestPayload>
-    return {
-      requestedUserId:
-        typeof p.requestedUserId === 'string' ? p.requestedUserId : null,
-      requestedUserName:
-        typeof p.requestedUserName === 'string' ? p.requestedUserName : null,
-      meaning: SIGNATURE_REQUEST_MEANINGS.includes(
-        p.meaning as SignatureRequestPayload['meaning'],
-      )
-        ? (p.meaning as SignatureRequestPayload['meaning'])
-        : 'reviewed',
-      note: typeof p.note === 'string' ? p.note : '',
-    }
-  }, [props.block.payload])
+  const initialDraft = React.useMemo(
+    () => signatureDraft.parse(props.block.payload),
+    [props.block.payload],
+  )
+
   const a = useBlockAutosave(
     props.block,
     initialDraft,
     props.save,
     props.offline,
     props.onStatusChange,
+    signatureDraft,
   )
 
   if (props.readOnly) {
@@ -657,8 +709,7 @@ function SignatureRequestEditor(props: BlockEditorProps) {
               a.setTouched(true)
               a.setDraft({
                 ...a.draft,
-                meaning: event.target
-                  .value as SignatureRequestPayload['meaning'],
+                meaning: signatureMeaning.parse(event.target.value),
               })
             }}
           >
@@ -693,16 +744,18 @@ function SignatureRequestEditor(props: BlockEditorProps) {
 }
 
 function CorrectiveActionsEditor(props: BlockEditorProps) {
-  const initialDraft = React.useMemo<CorrectiveActionsPayload>(() => {
-    const p = props.block.payload as { items?: CorrectiveActionItem[] }
-    return { items: Array.isArray(p.items) ? p.items : [] }
-  }, [props.block.payload])
+  const initialDraft = React.useMemo(
+    () => correctiveDraft.parse(props.block.payload),
+    [props.block.payload],
+  )
+
   const a = useBlockAutosave(
     props.block,
     initialDraft,
     props.save,
     props.offline,
     props.onStatusChange,
+    correctiveDraft,
   )
 
   function update(index: number, patch: Partial<CorrectiveActionItem>) {
@@ -713,10 +766,12 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
       ),
     })
   }
+
   function remove(index: number) {
     a.setTouched(true)
     a.setDraft({ items: a.draft.items.filter((_, i) => i !== index) })
   }
+
   function add() {
     a.setTouched(true)
     a.setDraft({
@@ -805,8 +860,7 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
                 value={item.status}
                 onChange={(event) =>
                   update(i, {
-                    status: event.target
-                      .value as CorrectiveActionItem['status'],
+                    status: correctiveStatus.parse(event.target.value),
                   })
                 }
               >
@@ -851,10 +905,10 @@ function CorrectiveActionsEditor(props: BlockEditorProps) {
 // input would put a form inside the document instead of editing the document.
 // ---------------------------------------------------------------------------
 
-interface CalloutDraft {
-  text: string
-  variant: CalloutVariant
-}
+const calloutDraft = z.object({
+  text: z.string().catch(''),
+  variant: z.enum(CALLOUT_VARIANTS).catch('info'),
+})
 
 function CalloutEditor({
   block,
@@ -864,15 +918,21 @@ function CalloutEditor({
   className,
   autoFocus,
 }: BlockEditorProps) {
-  const initialDraft = React.useMemo<CalloutDraft>(() => {
-    const payload = block.payload as { text?: unknown; variant?: unknown }
-    return {
-      text: typeof payload.text === 'string' ? payload.text : '',
-      variant: calloutVariantOf(payload.variant),
-    }
-  }, [block.payload])
-  const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
-  const styles = CALLOUT_STYLES[a.draft.variant] ?? CALLOUT_STYLES.info
+  const initialDraft = React.useMemo(
+    () => calloutDraft.parse(block.payload),
+    [block.payload],
+  )
+
+  const a = useBlockAutosave(
+    block,
+    initialDraft,
+    save,
+    offline,
+    onStatusChange,
+    calloutDraft,
+  )
+
+  const styles = CALLOUT_STYLES[a.draft.variant]
 
   return (
     <div className={className}>
@@ -942,10 +1002,7 @@ function CalloutEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizeBlockPayload(
-          block.type,
-          (a.serverValue ?? {}) as Record<string, unknown>,
-        )}
+        serverPreview={summarizeBlockPayload(block.type, a.serverValue ?? {})}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -954,11 +1011,11 @@ function CalloutEditor({
   )
 }
 
-interface ConclusionDraft {
-  text: string
-  verdict: ConclusionVerdict
-  basis: string
-}
+const conclusionDraft = z.object({
+  text: z.string().catch(''),
+  verdict: z.enum(CONCLUSION_VERDICTS).catch('inconclusive'),
+  basis: z.string().catch(''),
+})
 
 function ConclusionEditor({
   block,
@@ -968,19 +1025,19 @@ function ConclusionEditor({
   className,
   autoFocus,
 }: BlockEditorProps) {
-  const initialDraft = React.useMemo<ConclusionDraft>(() => {
-    const payload = block.payload as {
-      text?: unknown
-      verdict?: unknown
-      basis?: unknown
-    }
-    return {
-      text: typeof payload.text === 'string' ? payload.text : '',
-      verdict: conclusionVerdictOf(payload.verdict),
-      basis: typeof payload.basis === 'string' ? payload.basis : '',
-    }
-  }, [block.payload])
-  const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
+  const initialDraft = React.useMemo(
+    () => conclusionDraft.parse(block.payload),
+    [block.payload],
+  )
+
+  const a = useBlockAutosave(
+    block,
+    initialDraft,
+    save,
+    offline,
+    onStatusChange,
+    conclusionDraft,
+  )
 
   return (
     <div className={className}>
@@ -1046,10 +1103,7 @@ function ConclusionEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizeBlockPayload(
-          block.type,
-          (a.serverValue ?? {}) as Record<string, unknown>,
-        )}
+        serverPreview={summarizeBlockPayload(block.type, a.serverValue ?? {})}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -1058,36 +1112,34 @@ function ConclusionEditor({
   )
 }
 
-interface MetricDraft {
-  label: string
+const metricDraft = z.object({
+  label: z.string().catch(''),
   /** Exactly what the user typed. Converting while typing would eat a decimal
    * point or a space, because the converted value is written straight back
    * into the controlled field. */
-  value: string
-  unit: string
-  provenance: string
-}
+  value: z.union([z.string(), z.number()]).catch('').transform(String),
+  unit: z.string().catch(''),
+  provenance: z.string().catch(''),
+})
+
+type MetricDraft = z.output<typeof metricDraft>
 
 /** A numeric reading is written back as a number so number formatting applies;
  * anything else stays text. A blank reading stays blank. */
 function metricValueFromInput(raw: string): string | number {
   const trimmed = raw.trim()
+
   if (trimmed === '') return ''
   const numeric = Number(trimmed)
+
   return Number.isFinite(numeric) ? numeric : trimmed
 }
 
 /** The canonical payload for a metric draft: an optional field is omitted when
- * blank rather than saved as an empty string. The draft arrives as the payload
- * carrier the autosave hook passes around, so each field is narrowed. */
-function metricPayloadFromDraft(
-  draft: Record<string, unknown>,
-): Record<string, unknown> {
-  const label = typeof draft.label === 'string' ? draft.label : ''
-  const value = typeof draft.value === 'string' ? draft.value : ''
-  const unit = typeof draft.unit === 'string' ? draft.unit : ''
-  const provenance =
-    typeof draft.provenance === 'string' ? draft.provenance : ''
+ * blank rather than saved as an empty string. */
+function metricPayloadFromDraft(draft: MetricDraft) {
+  const { label, value, unit, provenance } = draft
+
   return {
     label,
     value: metricValueFromInput(value),
@@ -1104,39 +1156,33 @@ function MetricEditor({
   className,
   autoFocus,
 }: BlockEditorProps) {
-  const initialDraft = React.useMemo<MetricDraft>(() => {
-    const payload = block.payload as {
-      label?: unknown
-      value?: unknown
-      unit?: unknown
-      provenance?: unknown
-    }
-    return {
-      label: typeof payload.label === 'string' ? payload.label : '',
-      // The stored reading may be a number or text; the field holds its text.
-      value:
-        typeof payload.value === 'number' || typeof payload.value === 'string'
-          ? String(payload.value)
-          : '',
-      unit: typeof payload.unit === 'string' ? payload.unit : '',
-      provenance:
-        typeof payload.provenance === 'string' ? payload.provenance : '',
-    }
-  }, [block.payload])
+  const initialDraft = React.useMemo(
+    () => metricDraft.parse(block.payload),
+    [block.payload],
+  )
+
   // The draft is the raw input; the payload is built from it at the boundary,
-  // so the autosave state machine and the conflict summary both see the
-  // canonical shape.
+  // and canonical conflict values are decoded back into editable input text.
   const saveDraft = React.useCallback(
-    async (payload: Record<string, unknown>) =>
-      save(metricPayloadFromDraft(payload)),
+    async (payload: NotebookBlock['payload']) => {
+      const result = await save(
+        metricPayloadFromDraft(metricDraft.parse(payload)),
+      )
+
+      return result.serverValue === undefined
+        ? result
+        : { ...result, serverValue: metricDraft.parse(result.serverValue) }
+    },
     [save],
   )
+
   const a = useBlockAutosave(
     block,
     initialDraft,
     saveDraft,
     offline,
     onStatusChange,
+    metricDraft,
   )
 
   return (
@@ -1216,7 +1262,7 @@ function MetricEditor({
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
         serverPreview={summarizeBlockPayload(
           block.type,
-          (a.serverValue ?? {}) as Record<string, unknown>,
+          a.serverValue ? metricPayloadFromDraft(a.serverValue) : {},
         )}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
@@ -1235,27 +1281,74 @@ function ChecklistEditor({
   autoFocus,
   className,
 }: BlockEditorProps) {
-  const initialDraft = React.useMemo<ChecklistDraft>(() => {
-    const initial = block.payload as { items?: ChecklistItem[] }
-    return { items: Array.isArray(initial.items) ? initial.items : [] }
-  }, [block.payload])
-  const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
+  const initialDraft = React.useMemo(
+    () => checklistDraft.parse(block.payload),
+    [block.payload],
+  )
 
-  function update(i: number, patch: Partial<ChecklistItem>) {
-    a.setTouched(true)
-    a.setDraft({
-      items: a.draft.items.map((item, idx) =>
-        idx === i ? { ...item, ...patch } : item,
-      ),
+  const a = useBlockAutosave(
+    block,
+    initialDraft,
+    save,
+    offline,
+    onStatusChange,
+    checklistDraft,
+  )
+
+  // Presentation identity never enters the scientific text/checked payload.
+  // Local edits carry keys forward; a different canonical snapshot resets them.
+  const editorId = React.useId()
+
+  const [editor, setEditor] = React.useState(() => ({
+    items: a.draft.items,
+    rows: a.draft.items.map((item, index) => ({
+      key: `${editorId}-${index}`,
+      item,
+    })),
+  }))
+
+  if (editor.items !== a.draft.items) {
+    const unchanged =
+      editor.items.length === a.draft.items.length &&
+      editor.items.every(
+        (item, index) =>
+          item.text === a.draft.items[index].text &&
+          item.checked === a.draft.items[index].checked,
+      )
+
+    setEditor({
+      items: a.draft.items,
+      rows: a.draft.items.map((item, index) => ({
+        key: unchanged ? editor.rows[index].key : crypto.randomUUID(),
+        item,
+      })),
     })
   }
-  function remove(i: number) {
+
+  function changeItems(rows: typeof editor.rows) {
+    const items = rows.map((row) => row.item)
+    setEditor({ items, rows })
     a.setTouched(true)
-    a.setDraft({ items: a.draft.items.filter((_, idx) => idx !== i) })
+    a.setDraft({ items })
   }
+
+  function update(key: string, patch: Partial<ChecklistItem>) {
+    changeItems(
+      editor.rows.map((row) =>
+        row.key === key ? { ...row, item: { ...row.item, ...patch } } : row,
+      ),
+    )
+  }
+
+  function remove(key: string) {
+    changeItems(editor.rows.filter((row) => row.key !== key))
+  }
+
   function add() {
-    a.setTouched(true)
-    a.setDraft({ items: [...a.draft.items, { text: '', checked: false }] })
+    changeItems([
+      ...editor.rows,
+      { key: crypto.randomUUID(), item: { text: '', checked: false } },
+    ])
   }
 
   if (readOnly) {
@@ -1266,8 +1359,8 @@ function ChecklistEditor({
             {t('notebook.blockEditor.noChecklistItems')}
           </li>
         ) : null}
-        {a.draft.items.map((item, i) => (
-          <li key={i} className="flex items-center gap-2.5 text-sm">
+        {editor.rows.map(({ key, item }) => (
+          <li key={key} className="flex items-center gap-2.5 text-sm">
             <Checkbox checked={item.checked} disabled aria-hidden="true" />
             <span className={cn(item.checked && 'text-fg-muted line-through')}>
               {item.text || t('notebook.blockEditor.untitledItem')}
@@ -1281,33 +1374,31 @@ function ChecklistEditor({
   return (
     <div className={cn('space-y-1.5', className)}>
       <ul className="space-y-1.5">
-        {a.draft.items.map((item, i) => (
-          <li key={i} className="flex items-center gap-2.5">
-            <label className="sr-only" htmlFor={`check-${block.id}-${i}`}>
+        {editor.rows.map(({ key, item }, i) => (
+          <li key={key} className="flex items-center gap-2.5">
+            <label className="sr-only" htmlFor={`check-${block.id}-${key}`}>
               {t('notebook.blockEditor.itemIChecked', { i: i + 1 })}
             </label>
             <Checkbox
-              id={`check-${block.id}-${i}`}
+              id={`check-${block.id}-${key}`}
               checked={item.checked}
               onCheckedChange={(checked) => {
-                a.setTouched(true)
-                a.setDraft({
-                  items: a.draft.items.map((it, idx) =>
-                    idx === i ? { ...it, checked: checked === true } : it,
-                  ),
-                })
+                update(key, { checked: checked === true })
               }}
               className="mt-0.5 size-[18px]"
             />
-            <label className="sr-only" htmlFor={`check-text-${block.id}-${i}`}>
+            <label
+              className="sr-only"
+              htmlFor={`check-text-${block.id}-${key}`}
+            >
               {t('notebook.blockEditor.itemIText', { i: i + 1 })}
             </label>
             <Input
-              id={`check-text-${block.id}-${i}`}
+              id={`check-text-${block.id}-${key}`}
               type="text"
               value={item.text}
               autoFocus={autoFocus && i === a.draft.items.length - 1}
-              onChange={(e) => update(i, { text: e.target.value })}
+              onChange={(e) => update(key, { text: e.target.value })}
               onBlur={() => a.flush()}
               placeholder={t('notebook.blockEditor.itemIPlaceholder', {
                 i: i + 1,
@@ -1324,7 +1415,7 @@ function ChecklistEditor({
               aria-label={t('notebook.blockEditor.removeItemIAriaLabel', {
                 i: i + 1,
               })}
-              onClick={() => remove(i)}
+              onClick={() => remove(key)}
             >
               <Icon name="trash" />
             </Button>
@@ -1345,10 +1436,7 @@ function ChecklistEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizeBlockPayload(
-          block.type,
-          (a.serverValue ?? {}) as Record<string, unknown>,
-        )}
+        serverPreview={summarizeBlockPayload(block.type, { ...a.serverValue })}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -1404,11 +1492,23 @@ interface LinkedRecordDraft {
    * label alone never carries canonical identity.
    */
   targetId?: string
+  /** Immutable Dataset version cited by this link, not the current Dataset. */
+  datasetVersionId?: string
   /** A part of the experiment, when the link is to one: "EXP-0142 › Part 3". */
   partNumber?: number
   linkType: string
   label: string
 }
+
+const linkedRecordDraft: z.ZodType<LinkedRecordDraft> = z.object({
+  targetKind: z.string().catch('experiment'),
+  targetIdentifier: z.string().catch(''),
+  targetId: z.string().optional().catch(undefined),
+  datasetVersionId: z.string().optional().catch(undefined),
+  partNumber: z.number().optional().catch(undefined),
+  linkType: z.string().catch('general'),
+  label: z.string().catch(''),
+})
 
 function LinkedRecordSearch({
   kind,
@@ -1426,12 +1526,14 @@ function LinkedRecordSearch({
   }) => void
 }) {
   const [query, setQuery] = React.useState('')
+
   const results = useQuery({
     queryKey: ['notebook-linked-search', kind, query],
     queryFn: async () => {
       if (kind === 'dataset') {
         const rows = await fetchDatasetSummaries(notebookDataClient)
         const q = query.trim().toLowerCase()
+
         return rows
           .filter(
             (row) =>
@@ -1449,32 +1551,43 @@ function LinkedRecordSearch({
             linkType: 'dataset',
           }))
       }
+
       const trimmed = query.trim()
+
       const filters = [
         `kind=eq.${encodeURIComponent(kind)}`,
         'deleted_at=is.null',
         'archived_at=is.null',
       ]
+
       if (trimmed) {
         const enc = encodeURIComponent(`${trimmed}*`)
         filters.push(`(identifier=ilike.${enc},title=ilike.${enc})`)
       }
+
       const rows = await notebookDataClient.list<RecordWire>(
         'records',
         `?${filters.join('&')}&order=identifier.asc&limit=8`,
       )
-      return rows.map((row) => ({
-        id: row.id,
-        identifier: row.identifier,
-        title: row.title,
-        linkType: undefined as string | undefined,
-      }))
+
+      return rows.map(
+        (
+          row,
+        ): Pick<RecordWire, 'id' | 'identifier' | 'title'> & {
+          linkType?: string
+        } => ({
+          id: row.id,
+          identifier: row.identifier,
+          title: row.title,
+        }),
+      )
     },
   })
 
   // An experiment with parts can be linked at one of them.
   const experimentIds =
     kind === 'experiment' ? (results.data ?? []).map((row) => row.id) : []
+
   const partRows = useQuery({
     queryKey: ['notebook-linked-parts', experimentIds],
     enabled: experimentIds.length > 0,
@@ -1489,6 +1602,7 @@ function LinkedRecordSearch({
         `?record_id=in.(${experimentIds.join(',')})&order=position.asc,id.asc&select=id,record_id,position,title`,
       ),
   })
+
   const partsOf = (recordId: string) =>
     (partRows.data ?? []).filter((part) => part.record_id === recordId)
 
@@ -1569,36 +1683,23 @@ function LinkedRecordEditor({
   autoFocus,
   className,
 }: BlockEditorProps) {
-  const initialDraft = React.useMemo<LinkedRecordDraft>(() => {
-    const initial = block.payload as {
-      targetKind?: string
-      targetIdentifier?: string
-      targetId?: string
-      partNumber?: number
-      linkType?: string
-      label?: string
-    }
-    return {
-      targetKind: initial.targetKind ?? 'experiment',
-      targetIdentifier: initial.targetIdentifier ?? '',
-      targetId: initial.targetId ?? undefined,
-      ...(typeof initial.partNumber === 'number'
-        ? { partNumber: initial.partNumber }
-        : {}),
-      linkType: initial.linkType ?? 'general',
-      label: initial.label ?? '',
-    }
-  }, [block.payload])
-  const a = useBlockAutosave(block, initialDraft, save, offline, onStatusChange)
+  const initialDraft = React.useMemo(
+    () => linkedRecordDraft.parse(block.payload),
+    [block.payload],
+  )
+
+  const a = useBlockAutosave(
+    block,
+    initialDraft,
+    save,
+    offline,
+    onStatusChange,
+    linkedRecordDraft,
+  )
 
   if (readOnly) {
-    const openTo = a.draft.targetId
-      ? a.draft.targetKind === 'dataset'
-        ? datasetPath(a.draft.targetId)
-        : a.draft.partNumber
-          ? `/experiments/${a.draft.targetId}/notebook/${a.draft.partNumber}`
-          : recordDestination(a.draft.targetKind, a.draft.targetId)
-      : null
+    const openTo = linkedRecordDestination(a.draft)
+
     return (
       <div
         className={cn('flex flex-wrap items-center gap-2 text-sm', className)}
@@ -1618,7 +1719,11 @@ function LinkedRecordEditor({
           <span className="text-fg-muted">— {a.draft.label}</span>
         ) : null}
         {openTo ? (
-          <OpenLink to={openTo}>{t('common.actions.open')}</OpenLink>
+          <OpenLink to={openTo}>
+            {a.draft.datasetVersionId
+              ? t('notebook.blockPreview.openCitedSnapshot')
+              : t('common.actions.open')}
+          </OpenLink>
         ) : null}
       </div>
     )
@@ -1644,6 +1749,8 @@ function LinkedRecordEditor({
                 ...a.draft,
                 targetKind: e.target.value,
                 targetId: undefined,
+                datasetVersionId: undefined,
+                partNumber: undefined,
               })
             }}
           >
@@ -1672,6 +1779,8 @@ function LinkedRecordEditor({
                 ...a.draft,
                 targetIdentifier: e.target.value,
                 targetId: undefined,
+                datasetVersionId: undefined,
+                partNumber: undefined,
               })
             }}
             onBlur={() => a.flush()}
@@ -1720,15 +1829,19 @@ function LinkedRecordEditor({
         onPick={(picked) => {
           a.setTouched(true)
           const { partNumber: _previousPart, ...rest } = a.draft
-          a.setDraft({
+
+          const next: LinkedRecordDraft = {
             ...rest,
-            ...(picked.part ? { partNumber: picked.part.number } : {}),
             targetIdentifier: picked.identifier,
             targetId: picked.id,
+            datasetVersionId: undefined,
             label: picked.label || a.draft.label,
             linkType: picked.linkType ?? a.draft.linkType,
-          })
-          void a.flush()
+          }
+
+          if (picked.part) next.partNumber = picked.part.number
+          a.setDraft(next)
+          a.flush()
         }}
       />
       <AutosaveFooter
@@ -1736,10 +1849,7 @@ function LinkedRecordEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizeBlockPayload(
-          block.type,
-          (a.serverValue ?? {}) as Record<string, unknown>,
-        )}
+        serverPreview={summarizeBlockPayload(block.type, { ...a.serverValue })}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -1775,16 +1885,20 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
   const [query, setQuery] = React.useState('')
   const [error, setError] = React.useState<string | null>(null)
   const [pending, setPending] = React.useState(false)
+
   const records = useQuery({
     queryKey: scientificRecordQueryKeys.search('protocol_template', query),
     queryFn: () =>
       searchRecords(notebookDataClient, 'protocol_template', query),
     enabled: !pinned,
   })
+
   if (pinned) {
     const status = String(block.payload.approvalStatus)
+
     const statusVariant =
       status === 'Approved' ? 'add' : status === 'Rejected' ? 'del' : 'chg'
+
     return (
       <div className="space-y-2 py-1">
         <div className="flex items-start justify-between gap-2">
@@ -1815,6 +1929,7 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
       </div>
     )
   }
+
   return (
     <div className="space-y-3 py-1">
       <p className="text-sm font-medium">
@@ -1850,8 +1965,21 @@ function ProtocolReferenceEditor({ block, pinProtocol }: BlockEditorProps) {
   )
 }
 
+const templateStep = z.looseObject({
+  text: z.string().catch(''),
+  durationSeconds: z.number().optional(),
+})
+
+const executionStep = templateStep.extend({
+  completed: z.boolean().catch(false),
+  note: z.string().catch(''),
+  stepNumber: z.number().optional().catch(undefined),
+})
+
+const materialsDraft = z.object({ items: materialItems })
+
 function ProcedureStepEditor(props: BlockEditorProps) {
-  return typeof props.block.payload.completed === 'boolean' ? (
+  return z.boolean().safeParse(props.block.payload.completed).success ? (
     <ExecutionStepEditor {...props} />
   ) : (
     <TemplateStepEditor {...props} />
@@ -1861,18 +1989,27 @@ function ProcedureStepEditor(props: BlockEditorProps) {
 /** A step in a protocol: its wording, and how long it takes if it is timed. */
 function TemplateStepEditor(props: BlockEditorProps) {
   const { block } = props
-  const payload = block.payload
+
+  const payload = React.useMemo(
+    () => templateStep.parse(block.payload),
+    [block.payload],
+  )
+
   const a = useBlockAutosave(
     block,
     payload,
     props.save,
     props.offline,
     props.onStatusChange,
+    templateStep,
   )
+
   const seconds = stepDurationSeconds(a.draft)
+
   const [minutes, setMinutes] = React.useState(
     seconds === null ? '' : String(Math.round((seconds / 60) * 100) / 100),
   )
+
   return (
     <div className="space-y-3">
       <Field
@@ -1881,7 +2018,7 @@ function TemplateStepEditor(props: BlockEditorProps) {
       >
         <Textarea
           id={`step-text-${block.id}`}
-          value={String(a.draft.text ?? '')}
+          value={a.draft.text}
           disabled={props.readOnly}
           onChange={(event) => {
             a.setTouched(true)
@@ -1940,27 +2077,22 @@ function TemplateStepEditor(props: BlockEditorProps) {
 function ExecutionStepEditor(props: BlockEditorProps) {
   const { block } = props
   const payload = block.payload
-  const initial = React.useMemo(
-    () => ({
-      ...payload,
-      completed:
-        typeof payload.completed === 'boolean' ? payload.completed : false,
-      note: typeof payload.note === 'string' ? payload.note : '',
-    }),
-    [payload],
-  )
+
+  const initial = React.useMemo(() => executionStep.parse(payload), [payload])
+
   const a = useBlockAutosave(
     block,
     initial,
     props.save,
     props.offline,
     props.onStatusChange,
+    executionStep,
   )
+
   const durationSeconds = stepDurationSeconds(payload)
-  const stepNumber = useStepNumber(
-    block.id,
-    typeof payload.stepNumber === 'number' ? payload.stepNumber : null,
-  )
+
+  const stepNumber = useStepNumber(block.id, initial.stepNumber ?? null)
+
   return (
     <div className="space-y-3">
       <label className="flex cursor-pointer items-start gap-3">
@@ -1986,7 +2118,7 @@ function ExecutionStepEditor(props: BlockEditorProps) {
               a.draft.completed && 'text-fg-muted',
             )}
           >
-            {String(payload.text)}
+            {initial.text}
           </span>
         </span>
       </label>
@@ -2003,7 +2135,7 @@ function ExecutionStepEditor(props: BlockEditorProps) {
       >
         <Textarea
           id={`step-note-${block.id}`}
-          value={String(a.draft.note)}
+          value={a.draft.note}
           disabled={props.readOnly}
           onChange={(event) => {
             a.setTouched(true)
@@ -2036,29 +2168,34 @@ function ExecutionStepEditor(props: BlockEditorProps) {
 
 function MaterialsEditor(props: BlockEditorProps) {
   const { block } = props
+
   const initialDraft = React.useMemo<{ items: MaterialItem[] }>(
     () => ({
-      items: Array.isArray(block.payload.items)
-        ? (block.payload.items as MaterialItem[])
-        : [],
+      items: materialItems.parse(block.payload.items),
     }),
     [block.payload],
   )
+
   const a = useBlockAutosave(
     block,
     initialDraft,
     props.save,
     props.offline,
     props.onStatusChange,
+    materialsDraft,
   )
+
   const [kind, setKind] = React.useState<'sample' | 'material'>('sample')
   const [query, setQuery] = React.useState('')
+
   const [selected, setSelected] = React.useState<RecordPickerResult | null>(
     null,
   )
+
   const [quantity, setQuantity] = React.useState('')
   const [unitCode, setUnitCode] = React.useState('')
   const [materialUnitSymbol, setMaterialUnitSymbol] = React.useState('')
+
   const records = useQuery({
     queryKey: scientificRecordQueryKeys.search(kind, query),
     queryFn: () => searchRecords(notebookDataClient, kind, query),
@@ -2067,8 +2204,10 @@ function MaterialsEditor(props: BlockEditorProps) {
   const updateItems = (items: MaterialItem[], flush = false) => {
     a.setTouched(true)
     a.setDraft({ items })
+
     if (flush) window.setTimeout(() => a.flush(), 0)
   }
+
   return (
     <div className="space-y-4">
       {a.draft.items.length === 0 ? (
@@ -2321,118 +2460,11 @@ function UnsupportedEditor({
 // live status). Replacing a file is a later concern.
 // ---------------------------------------------------------------------------
 
-function FileBlockEditor({
-  block,
-  onAttachFile,
-  onMakeSheet,
-  readOnly,
-  save,
-}: BlockEditorProps) {
-  const attached = Object.keys(block.payload).length > 0
-  const [annotateOpen, setAnnotateOpen] = React.useState(false)
-  const [marks, setMarks] = React.useState(() => readAnnotations(block.payload))
-  React.useEffect(() => {
-    setMarks(readAnnotations(block.payload))
-  }, [block.payload])
+function FileBlockEditor(props: BlockEditorProps) {
+  const { block, onAttachFile, readOnly } = props
 
-  if (attached) {
-    // The preview renders the live file state; the editor just confirms it.
-    // No Card/border here so the edit transition doesn't add a box around
-    // content that reads as a seamless line in the document flow.
-    const name = String(
-      block.payload.displayName ?? t('notebook.blockEditor.file'),
-    )
-    const mediaType = String(block.payload.mediaType ?? '')
-    const byteSize = Number(block.payload.byteSize ?? 0)
-    const fileRecordId = String(block.payload.fileRecordId ?? '')
-    const fileGlyph = fileGlyphFor(mediaType)
-    const showImage =
-      Boolean(fileRecordId) && isInlinePreviewableImage(mediaType)
-    return (
-      <div className="space-y-2 py-1">
-        <div className="flex items-center gap-3">
-          <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-muted text-fg-muted">
-            {fileGlyph}
-          </div>
-          <div className="min-w-0 space-y-0.5">
-            <p className="truncate text-sm font-medium">{name}</p>
-            <p className="font-mono text-xs text-fg-muted tabular-nums">
-              {mediaType || 'unknown'} · {formatFileSize(byteSize)}
-            </p>
-          </div>
-          <div className="ml-auto flex shrink-0 items-center gap-2">
-            <OfficeEditButton
-              fileRecordId={fileRecordId}
-              fileName={name}
-              recordId={block.recordId}
-            />
-            <Badge variant="add">{t('notebook.blockEditor.attached')}</Badge>
-          </div>
-        </div>
-        {showImage ? (
-          <div className="space-y-2">
-            <AnnotatedImage
-              src={`/api/files/${fileRecordId}/download`}
-              alt={name}
-              annotations={marks}
-              className="mt-2"
-              imageClassName="max-h-80"
-            />
-            {!readOnly ? (
-              <div>
-                <Button
-                  size="sm"
-                  icon="edit"
-                  onClick={() => setAnnotateOpen(true)}
-                >
-                  {marks.length > 0
-                    ? t('notebook.imageAnnotations.editAnnotations')
-                    : t('notebook.imageAnnotations.annotate')}
-                </Button>
-              </div>
-            ) : null}
-            <ImageAnnotator
-              open={annotateOpen}
-              onOpenChange={setAnnotateOpen}
-              src={`/api/files/${fileRecordId}/download`}
-              name={name}
-              initial={marks}
-              onSave={async (next) => {
-                const result = await save(withAnnotations(block.payload, next))
-                if (!result.ok) throw new Error(result.message ?? 'save failed')
-                setMarks(next)
-              }}
-            />
-          </div>
-        ) : null}
-        {!showImage && !isSequenceFileName(name) ? (
-          <OfficeFileBlock
-            payload={block.payload}
-            save={save}
-            readOnly={readOnly}
-            actions={
-              onMakeSheet &&
-              !readOnly &&
-              fileRecordId &&
-              canMakeSheet(mediaType) ? (
-                <MakeSheetFromFile
-                  fileRecordId={fileRecordId}
-                  fileVersion={
-                    typeof block.payload.fileVersion === 'number'
-                      ? block.payload.fileVersion
-                      : null
-                  }
-                  fileName={name}
-                  mediaType={mediaType}
-                  onMake={onMakeSheet}
-                />
-              ) : null
-            }
-          />
-        ) : null}
-      </div>
-    )
-  }
+  if (Object.keys(block.payload).length > 0)
+    return <FileAttachmentEditor {...props} />
 
   return (
     <FileDrop
@@ -2454,9 +2486,124 @@ function FileBlockEditor({
       }
       onFile={(file) => {
         if (file && onAttachFile) return onAttachFile(file)
+
         return undefined
       }}
     />
+  )
+}
+
+function FileAttachmentEditor({
+  block,
+  onMakeSheet,
+  readOnly,
+  save,
+}: BlockEditorProps) {
+  const [annotateOpen, setAnnotateOpen] = React.useState(false)
+  const [marks, setMarks] = React.useState(() => readAnnotations(block.payload))
+  React.useEffect(() => {
+    setMarks(readAnnotations(block.payload))
+  }, [block.payload])
+
+  // The preview renders the live file state; the editor just confirms it.
+  // No Card/border here so the edit transition doesn't add a box around
+  // content that reads as a seamless line in the document flow.
+  const name = z
+    .string()
+    .catch(t('notebook.blockEditor.file'))
+    .parse(block.payload.displayName)
+
+  const mediaType = z.string().catch('').parse(block.payload.mediaType)
+  const byteSize = z.number().catch(0).parse(block.payload.byteSize)
+  const fileRecordId = z.string().catch('').parse(block.payload.fileRecordId)
+  const fileGlyph = fileGlyphFor(mediaType)
+
+  const showImage = Boolean(fileRecordId) && isInlinePreviewableImage(mediaType)
+
+  return (
+    <div className="space-y-2 py-1">
+      <div className="flex items-center gap-3">
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-surface-muted text-fg-muted">
+          {fileGlyph}
+        </div>
+        <div className="min-w-0 space-y-0.5">
+          <p className="truncate text-sm font-medium">{name}</p>
+          <p className="font-mono text-xs text-fg-muted tabular-nums">
+            {mediaType || 'unknown'} · {formatFileSize(byteSize)}
+          </p>
+        </div>
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <OfficeEditButton
+            fileRecordId={fileRecordId}
+            fileName={name}
+            recordId={block.recordId}
+          />
+          <Badge variant="add">{t('notebook.blockEditor.attached')}</Badge>
+        </div>
+      </div>
+      {showImage ? (
+        <div className="space-y-2">
+          <AnnotatedImage
+            src={`/api/files/${fileRecordId}/download`}
+            alt={name}
+            annotations={marks}
+            className="mt-2"
+            imageClassName="max-h-80"
+          />
+          {!readOnly ? (
+            <div>
+              <Button
+                size="sm"
+                icon="edit"
+                onClick={() => setAnnotateOpen(true)}
+              >
+                {marks.length > 0
+                  ? t('notebook.imageAnnotations.editAnnotations')
+                  : t('notebook.imageAnnotations.annotate')}
+              </Button>
+            </div>
+          ) : null}
+          <ImageAnnotator
+            open={annotateOpen}
+            onOpenChange={setAnnotateOpen}
+            src={`/api/files/${fileRecordId}/download`}
+            name={name}
+            initial={marks}
+            onSave={async (next) => {
+              const result = await save(withAnnotations(block.payload, next))
+
+              if (!result.ok) throw new Error(result.message ?? 'save failed')
+              setMarks(next)
+            }}
+          />
+        </div>
+      ) : null}
+      {!showImage && !isSequenceFileName(name) ? (
+        <OfficeFileBlock
+          payload={block.payload}
+          save={save}
+          readOnly={readOnly}
+          actions={
+            onMakeSheet &&
+            !readOnly &&
+            fileRecordId &&
+            canMakeSheet(mediaType) ? (
+              <MakeSheetFromFile
+                fileRecordId={fileRecordId}
+                fileVersion={z
+                  .number()
+                  .nullable()
+                  .catch(null)
+                  .parse(block.payload.fileVersion)}
+                fileName={name}
+                mediaType={mediaType}
+                onMake={onMakeSheet}
+              />
+            ) : null
+          }
+        />
+      ) : null}
+    </div>
   )
 }
 
@@ -2464,14 +2611,17 @@ function FileBlockEditor({
 function fileGlyphFor(mediaType: string) {
   if (mediaType.startsWith('image/'))
     return <Icon name="image" className="size-4" />
+
   if (
     mediaType.includes('spreadsheet') ||
     mediaType.includes('csv') ||
     mediaType.includes('excel')
   )
     return <Icon name="table" className="size-4" />
+
   if (mediaType.startsWith('text/') || mediaType === 'application/json')
     return <Icon name="protocol" className="size-4" />
+
   return <Icon name="file" className="size-4" />
 }
 
@@ -2487,23 +2637,26 @@ function fileGlyphFor(mediaType: string) {
 
 const AXIS_SCALES_EDITOR: readonly AxisScale[] = ['linear', 'log'] as const
 
-function ChartBlockEditor({
+function useChartDraft({
   block,
   save,
   offline,
   onStatusChange,
-  onFreezeChart,
-  onUnfreezeChart,
-  readOnly,
-}: BlockEditorProps) {
-  const initial = block.payload as unknown as ChartBlockPayload
+}: Pick<BlockEditorProps, 'block' | 'save' | 'offline' | 'onStatusChange'>) {
+  const initial = React.useMemo(
+    () => chartPayload.parse(block.payload),
+    [block.payload],
+  )
+
   const a = useBlockAutosave<ChartBlockPayload>(
     block,
     initial,
     save,
     offline,
     onStatusChange,
+    chartPayload,
   )
+
   const draft = a.draft
   const spec = draft.spec ?? null
   const frozen = draft.frozen ?? null
@@ -2514,18 +2667,21 @@ function ChartBlockEditor({
     queryFn: () => fetchDatasetSummaries(),
     staleTime: 30_000,
   })
+
   const availableDatasets = (datasetsQuery.data ?? []).map((d) =>
     toCanonicalDatasetSource({ ...d, name: d.name }),
   )
 
   // Columns for the selected dataset (so field mappings are honest).
   const selectedDatasetId = spec?.datasets[0]?.datasetId ?? ''
+
   const sourceQuery = useQuery({
     queryKey: ['chart-selected-dataset', selectedDatasetId],
     queryFn: () => fetchCanonicalDataset(sciDataClient, selectedDatasetId),
     enabled: Boolean(selectedDatasetId),
     staleTime: 10_000,
   })
+
   const columns = sourceQuery.data?.columns ?? []
 
   function updateSpec(patch: Partial<ChartSpec>) {
@@ -2533,10 +2689,12 @@ function ChartBlockEditor({
     a.setTouched(true)
     a.setDraft({ ...draft, spec: { ...spec, ...patch } })
   }
+
   function updateDisplay(patch: Partial<ChartSpec['display']>) {
     if (!spec) return
     updateSpec({ display: { ...spec.display, ...patch } })
   }
+
   function updateFields(patch: Partial<ChartSpec['fields']>) {
     if (!spec) return
     updateSpec({ fields: { ...spec.fields, ...patch } })
@@ -2546,71 +2704,65 @@ function ChartBlockEditor({
   // for the new type are cleared (mirrors the DB trigger's rules).
   function setChartType(next: ChartType) {
     if (!spec) return
-    const fields = { ...spec.fields }
-    let overlays = spec.overlays
-    let typeParams: ChartSpec['typeParams'] = {}
-    if (next === 'histogram' || next === 'box') {
-      fields.x = null
-      typeParams =
-        next === 'box'
-          ? { box: { showOutliers: true } }
-          : { histogram: { bins: 10 } }
-    } else if (next === 'heatmap') {
-      fields.series = null
-      fields.color = null
-      fields.size = null
-      overlays = { errorBars: null }
-      typeParams = {
-        heatmap: { aggregate: 'count', valueField: null, xBins: 10, yBins: 10 },
-      }
-    }
-    const display = ['line', 'scatter', 'bar'].includes(next)
-      ? spec.display
-      : { ...spec.display, annotations: [] }
-    updateSpec({ type: next, fields, overlays, typeParams, display })
+    updateSpec(chartTypePatch(spec, next))
   }
 
   // Start a spec when the user picks a dataset for an empty draft.
   function chooseDataset(datasetId: string) {
     a.setTouched(true)
-    const col = sourceQuery.data?.columns ?? []
-    const xCol = col.length > 0 ? col[0] : null
-    const yCol = col.length > 1 ? col[1] : col.length > 0 ? col[0] : null
-    const next: ChartSpec = {
-      specVersion: CHART_SPEC_VERSION,
-      type: spec?.type ?? 'line',
-      datasets: [{ datasetId }],
-      fields: {
-        x: xCol ? { fieldId: xCol.id } : null,
-        y: yCol ? { fieldId: yCol.id } : { fieldId: '' },
-        series: null,
-        color: null,
-        size: null,
-        facet: null,
-      },
-      filters: [],
-      transformations: [],
-      typeParams: {},
-      display: {
-        axes: {
-          x: {
-            label: xCol?.label ?? 'x',
-            scale: 'linear',
-            unit: unitSymbol(xCol?.unit),
-          },
-          y: {
-            label: yCol?.label ?? 'y',
-            scale: 'linear',
-            unit: unitSymbol(yCol?.unit),
-          },
-        },
-        series: [],
-        legend: { visible: true },
-      },
-      overlays: { errorBars: null },
-    }
-    a.setDraft({ ...draft, spec: next })
+
+    // The query still describes the previous selection in this event. The
+    // canonical picker summaries already carry the chosen dataset's fields.
+    const col =
+      availableDatasets.find((dataset) => dataset.datasetId === datasetId)
+        ?.columns ?? []
+
+    a.setDraft({
+      ...draft,
+      spec: chartSpecForDataset(datasetId, spec?.type ?? 'line', col),
+    })
   }
+
+  const preview = useChartPreview(draft)
+
+  return {
+    a,
+    draft,
+    spec,
+    frozen,
+    datasetsQuery,
+    availableDatasets,
+    selectedDatasetId,
+    columns,
+    updateSpec,
+    updateDisplay,
+    updateFields,
+    setChartType,
+    chooseDataset,
+    preview,
+  }
+}
+
+/** Canonical dataset reads and autosave stay with the draft, not field presentation. */
+function ChartBlockEditor(props: BlockEditorProps) {
+  const { block, readOnly, onFreezeChart, onUnfreezeChart } = props
+
+  const {
+    a,
+    draft,
+    spec,
+    frozen,
+    datasetsQuery,
+    availableDatasets,
+    selectedDatasetId,
+    columns,
+    updateSpec,
+    updateDisplay,
+    updateFields,
+    setChartType,
+    chooseDataset,
+    preview,
+  } = useChartDraft(props)
 
   const fieldOptions = columns.map((c) => (
     <option key={c.id} value={c.id}>
@@ -2618,37 +2770,7 @@ function ChartBlockEditor({
     </option>
   ))
 
-  // Live preview materialisation.
-  const { datasetQuery } = useLiveChartDataset(spec)
-  const pinnedRows = useFrozenPinnedRows(frozen)
-  const reconstructed =
-    frozen && spec && frozenPinsDatasetVersion(frozen) && pinnedRows.data
-      ? reconstructFrozenVisualisation({
-          spec,
-          frozen,
-          rows: pinnedRows.data.rows,
-        })
-      : null
-  const previewMaterialised = frozen
-    ? (reconstructed?.chart ?? materialiseFrozenChart(frozen))
-    : spec
-      ? materialiseLiveChart(spec, datasetQuery.data ?? null)
-      : {
-          state: { kind: 'missing_dataset' as const },
-          columns: [],
-          rows: [],
-          series: [],
-          xLabel: 'x',
-          yLabel: 'y',
-          xUnit: undefined,
-          yUnit: undefined,
-          droppedPoints: 0,
-        }
-  const previewLoading =
-    (!frozen && datasetQuery.isLoading) ||
-    Boolean(frozen && frozenPinsDatasetVersion(frozen) && pinnedRows.isLoading)
-  const frozenFacets =
-    reconstructed?.facets ?? (frozen ? materialiseFrozenFacets(frozen) : null)
+  const { previewMaterialised, previewLoading, frozenFacets } = preview
 
   return (
     <div className="space-y-4">
@@ -2707,7 +2829,9 @@ function ChartBlockEditor({
               <Select
                 aria-label={t('notebook.blockEditor.chartTypeLabel')}
                 value={spec?.type ?? 'line'}
-                onChange={(e) => setChartType(e.target.value as ChartType)}
+                onChange={(e) =>
+                  setChartType(z.enum(CHART_TYPES).parse(e.target.value))
+                }
                 onBlur={() => a.flush()}
                 disabled={!!frozen || !spec}
               >
@@ -2718,28 +2842,13 @@ function ChartBlockEditor({
                 ))}
               </Select>
             </ChartField>
-            <ChartField
-              label={t('notebook.blockEditor.seriesFieldOptionalLabel')}
-            >
-              {spec?.type === 'heatmap' ? (
-                <p className="text-xs text-fg-muted">
-                  {t('notebook.blockEditor.notUsedForHeatmap')}
-                </p>
-              ) : (
-                <Select
-                  aria-label={t('notebook.blockEditor.seriesFieldAriaLabel')}
-                  value={bindingValue(spec?.fields.series)}
-                  onChange={(e) =>
-                    updateFields({ series: parseBinding(e.target.value) })
-                  }
-                  onBlur={() => a.flush()}
-                  disabled={!!frozen || !spec}
-                >
-                  <option value="">{t('notebook.blockEditor.none')}</option>
-                  {fieldOptions}
-                </Select>
-              )}
-            </ChartField>
+            <ChartSeriesField
+              spec={spec}
+              frozen={!!frozen}
+              fieldOptions={fieldOptions}
+              updateFields={updateFields}
+              onBlur={() => a.flush()}
+            />
             <ChartField label={t('notebook.blockEditor.xFieldLabel')}>
               {spec?.type === 'histogram' || spec?.type === 'box' ? (
                 <p className="text-xs text-fg-muted">
@@ -2778,124 +2887,20 @@ function ChartBlockEditor({
                 {fieldOptions}
               </Select>
             </ChartField>
-            <ChartField label={t('notebook.blockEditor.xAxisScaleLabel')}>
-              <Select
-                aria-label={t('notebook.blockEditor.xAxisScaleLabel')}
-                value={spec?.display.axes.x.scale ?? 'linear'}
-                onChange={(e) =>
-                  updateDisplay({
-                    axes: {
-                      ...spec!.display.axes,
-                      x: {
-                        ...spec!.display.axes.x,
-                        scale: e.target.value as AxisScale,
-                      },
-                    },
-                  })
-                }
-                onBlur={() => a.flush()}
-                disabled={!!frozen || !spec}
-              >
-                {AXIS_SCALES_EDITOR.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </Select>
-            </ChartField>
-            <ChartField label={t('notebook.blockEditor.yAxisScaleLabel')}>
-              <Select
-                aria-label={t('notebook.blockEditor.yAxisScaleLabel')}
-                value={spec?.display.axes.y.scale ?? 'linear'}
-                onChange={(e) =>
-                  updateDisplay({
-                    axes: {
-                      ...spec!.display.axes,
-                      y: {
-                        ...spec!.display.axes.y,
-                        scale: e.target.value as AxisScale,
-                      },
-                    },
-                  })
-                }
-                onBlur={() => a.flush()}
-                disabled={!!frozen || !spec}
-              >
-                {AXIS_SCALES_EDITOR.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </Select>
-            </ChartField>
+            <ChartAxisScales
+              spec={spec}
+              frozen={!!frozen}
+              updateDisplay={updateDisplay}
+              onBlur={() => a.flush()}
+            />
           </div>
 
-          {spec?.type === 'histogram' ? (
-            <ChartField label={t('notebook.blockEditor.binsLabel')}>
-              <Input
-                aria-label={t(
-                  'notebook.blockEditor.histogramBinCountAriaLabel',
-                )}
-                type="number"
-                min={1}
-                max={200}
-                value={spec.typeParams.histogram?.bins ?? 10}
-                onChange={(e) =>
-                  updateSpec({
-                    typeParams: {
-                      histogram: {
-                        bins: Math.max(1, Number(e.target.value) || 10),
-                      },
-                    },
-                  })
-                }
-                onBlur={() => a.flush()}
-                disabled={!!frozen}
-              />
-            </ChartField>
-          ) : null}
-          {spec?.type === 'heatmap' ? (
-            <ChartField label={t('notebook.blockEditor.cellValueLabel')}>
-              <Select
-                aria-label={t(
-                  'notebook.blockEditor.heatmapCellAggregationAriaLabel',
-                )}
-                value={spec.typeParams.heatmap?.aggregate ?? 'count'}
-                onChange={(e) => {
-                  const aggregate = e.target.value as NonNullable<
-                    ChartSpec['typeParams']['heatmap']
-                  >['aggregate']
-                  updateSpec({
-                    typeParams: {
-                      heatmap:
-                        aggregate === 'count'
-                          ? { aggregate, valueField: null }
-                          : {
-                              aggregate,
-                              valueField:
-                                spec.typeParams.heatmap?.valueField ??
-                                spec.fields.y,
-                            },
-                    },
-                  })
-                }}
-                onBlur={() => a.flush()}
-                disabled={!!frozen || !spec}
-              >
-                <option value="count">
-                  {t('notebook.blockEditor.rowCount')}
-                </option>
-                <option value="mean">
-                  {t('notebook.blockEditor.meanOfY')}
-                </option>
-                <option value="median">
-                  {t('notebook.blockEditor.medianOfY')}
-                </option>
-                <option value="min">{t('notebook.blockEditor.minOfY')}</option>
-                <option value="max">{t('notebook.blockEditor.maxOfY')}</option>
-              </Select>
-            </ChartField>
-          ) : null}
+          <ChartTypeParameters
+            spec={spec}
+            frozen={!!frozen}
+            updateSpec={updateSpec}
+            onBlur={() => a.flush()}
+          />
 
           <ChartField
             label={t('notebook.blockEditor.provenanceNoteOptionalLabel')}
@@ -2911,43 +2916,18 @@ function ChartBlockEditor({
             />
           </ChartField>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {frozen ? (
-              <>
-                <Badge variant="chg">
-                  <Icon name="snowflake" className="size-3" />
-                  {t('notebook.blockEditor.frozenSnapshotImmutable')}
-                </Badge>
-                {onUnfreezeChart ? (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => void onUnfreezeChart()}
-                  >
-                    <Icon name="edit" />{' '}
-                    {t('notebook.blockEditor.unfreezeEditLiveAgain')}
-                  </Button>
-                ) : null}
-              </>
-            ) : onFreezeChart && spec ? (
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => void onFreezeChart()}
-                disabled={previewMaterialised.state.kind !== 'ok'}
-                title={
-                  previewMaterialised.state.kind !== 'ok'
-                    ? t('notebook.blockEditor.resolveChartStateBeforeTitle')
-                    : t('notebook.blockEditor.freezeTheDatasetAsTitle')
-                }
-              >
-                <Icon name="snowflake" />{' '}
-                {t('notebook.blockEditor.freezeSnapshot')}
-              </Button>
-            ) : null}
-          </div>
+          <EvidenceFreezeActions
+            frozen={!!frozen}
+            hasSpec={!!spec}
+            ready={previewMaterialised.state.kind === 'ok'}
+            onFreeze={onFreezeChart}
+            onUnfreeze={onUnfreezeChart}
+            unfreezeLabel={t('notebook.blockEditor.unfreezeEditLiveAgain')}
+            readyTitle={t('notebook.blockEditor.freezeTheDatasetAsTitle')}
+            blockedTitle={t(
+              'notebook.blockEditor.resolveChartStateBeforeTitle',
+            )}
+          />
         </div>
       )}
 
@@ -2956,16 +2936,354 @@ function ChartBlockEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizeBlockPayload(
-          block.type,
-          (a.serverValue ?? {}) as Record<string, unknown>,
-        )}
+        serverPreview={summarizeBlockPayload(block.type, { ...a.serverValue })}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
       />
     </div>
   )
+}
+
+/** Heatmaps have no series binding, while other chart kinds share field choices. */
+function ChartSeriesField({
+  spec,
+  frozen,
+  fieldOptions,
+  updateFields,
+  onBlur,
+}: {
+  spec: ChartSpec | null
+  frozen: boolean
+  fieldOptions: React.ReactNode
+  updateFields: (patch: Partial<ChartSpec['fields']>) => void
+  onBlur: () => void
+}) {
+  return (
+    <ChartField label={t('notebook.blockEditor.seriesFieldOptionalLabel')}>
+      {spec?.type === 'heatmap' ? (
+        <p className="text-xs text-fg-muted">
+          {t('notebook.blockEditor.notUsedForHeatmap')}
+        </p>
+      ) : (
+        <Select
+          aria-label={t('notebook.blockEditor.seriesFieldAriaLabel')}
+          value={bindingValue(spec?.fields.series)}
+          onChange={(e) =>
+            updateFields({ series: parseBinding(e.target.value) })
+          }
+          onBlur={onBlur}
+          disabled={frozen || !spec}
+        >
+          <option value="">{t('notebook.blockEditor.none')}</option>
+          {fieldOptions}
+        </Select>
+      )}
+    </ChartField>
+  )
+}
+
+/** Evidence lifecycle actions remain delegated to the route's transactional RPCs. */
+function EvidenceFreezeActions({
+  frozen,
+  hasSpec,
+  ready,
+  onFreeze,
+  onUnfreeze,
+  unfreezeLabel,
+  readyTitle,
+  blockedTitle,
+}: {
+  onFreeze: BlockEditorProps['onFreezeChart']
+  onUnfreeze: BlockEditorProps['onUnfreezeChart']
+  frozen: boolean
+  hasSpec: boolean
+  ready: boolean
+  unfreezeLabel: string
+  readyTitle: string
+  blockedTitle: string
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {frozen ? (
+        <>
+          <Badge variant="chg">
+            <Icon name="snowflake" className="size-3" />
+            {t('notebook.blockEditor.frozenSnapshotImmutable')}
+          </Badge>
+          {onUnfreeze ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => void onUnfreeze()}
+            >
+              <Icon name="edit" /> {unfreezeLabel}
+            </Button>
+          ) : null}
+        </>
+      ) : onFreeze && hasSpec ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => void onFreeze()}
+          disabled={!ready}
+          title={ready ? readyTitle : blockedTitle}
+        >
+          <Icon name="snowflake" /> {t('notebook.blockEditor.freezeSnapshot')}
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
+function ChartAxisScales({
+  spec,
+  frozen,
+  updateDisplay,
+  onBlur,
+}: {
+  spec: ChartSpec | null
+  frozen: boolean
+  updateDisplay: (patch: Partial<ChartSpec['display']>) => void
+  onBlur: () => void
+}) {
+  return (['x', 'y'] as const).map((axis) => {
+    const label =
+      axis === 'x'
+        ? t('notebook.blockEditor.xAxisScaleLabel')
+        : t('notebook.blockEditor.yAxisScaleLabel')
+
+    return (
+      <ChartField key={axis} label={label}>
+        <Select
+          aria-label={label}
+          value={spec?.display.axes[axis].scale ?? 'linear'}
+          onChange={(e) => {
+            if (!spec) return
+            updateDisplay({
+              axes: {
+                ...spec.display.axes,
+                [axis]: {
+                  ...spec.display.axes[axis],
+                  scale: z.enum(AXIS_SCALES).parse(e.target.value),
+                },
+              },
+            })
+          }}
+          onBlur={onBlur}
+          disabled={frozen || !spec}
+        >
+          {AXIS_SCALES_EDITOR.map((scale) => (
+            <option key={scale} value={scale}>
+              {scale}
+            </option>
+          ))}
+        </Select>
+      </ChartField>
+    )
+  })
+}
+
+/** Controls that exist only for a particular chart type. */
+function ChartTypeParameters({
+  spec,
+  frozen,
+  updateSpec,
+  onBlur,
+}: {
+  spec: ChartSpec | null
+  frozen: boolean
+  updateSpec: (patch: Partial<ChartSpec>) => void
+  onBlur: () => void
+}) {
+  if (spec?.type === 'histogram') {
+    return (
+      <ChartField label={t('notebook.blockEditor.binsLabel')}>
+        <Input
+          aria-label={t('notebook.blockEditor.histogramBinCountAriaLabel')}
+          type="number"
+          min={1}
+          max={200}
+          value={spec.typeParams.histogram?.bins ?? 10}
+          onChange={(e) =>
+            updateSpec({
+              typeParams: {
+                histogram: { bins: Math.max(1, Number(e.target.value) || 10) },
+              },
+            })
+          }
+          onBlur={onBlur}
+          disabled={frozen}
+        />
+      </ChartField>
+    )
+  }
+
+  if (spec?.type !== 'heatmap') return null
+
+  return (
+    <ChartField label={t('notebook.blockEditor.cellValueLabel')}>
+      <Select
+        aria-label={t('notebook.blockEditor.heatmapCellAggregationAriaLabel')}
+        value={spec.typeParams.heatmap?.aggregate ?? 'count'}
+        onChange={(e) => {
+          const aggregate = z.enum(HEATMAP_AGGREGATES).parse(e.target.value)
+          updateSpec({
+            typeParams: {
+              heatmap:
+                aggregate === 'count'
+                  ? { aggregate, valueField: null }
+                  : {
+                      aggregate,
+                      valueField:
+                        spec.typeParams.heatmap?.valueField ?? spec.fields.y,
+                    },
+            },
+          })
+        }}
+        onBlur={onBlur}
+        disabled={frozen}
+      >
+        <option value="count">{t('notebook.blockEditor.rowCount')}</option>
+        <option value="mean">{t('notebook.blockEditor.meanOfY')}</option>
+        <option value="median">{t('notebook.blockEditor.medianOfY')}</option>
+        <option value="min">{t('notebook.blockEditor.minOfY')}</option>
+        <option value="max">{t('notebook.blockEditor.maxOfY')}</option>
+      </Select>
+    </ChartField>
+  )
+}
+
+function chartTypePatch(spec: ChartSpec, next: ChartType): Partial<ChartSpec> {
+  const fields = { ...spec.fields }
+  let overlays = spec.overlays
+  let typeParams: ChartSpec['typeParams'] = {}
+
+  if (next === 'histogram' || next === 'box') {
+    fields.x = null
+    typeParams =
+      next === 'box'
+        ? { box: { showOutliers: true } }
+        : { histogram: { bins: 10 } }
+  } else if (next === 'heatmap') {
+    fields.series = null
+    fields.color = null
+    fields.size = null
+    overlays = { errorBars: null }
+    typeParams = {
+      heatmap: { aggregate: 'count', valueField: null, xBins: 10, yBins: 10 },
+    }
+  }
+
+  const display = ['line', 'scatter', 'bar'].includes(next)
+    ? spec.display
+    : { ...spec.display, annotations: [] }
+
+  return { type: next, fields, overlays, typeParams, display }
+}
+
+function chartSpecForDataset(
+  datasetId: string,
+  type: ChartType,
+  columns: ChartColumn[],
+): ChartSpec {
+  const xCol = columns.at(0)
+  const yCol = columns.at(1) ?? xCol
+
+  return {
+    specVersion: CHART_SPEC_VERSION,
+    type,
+    datasets: [{ datasetId }],
+    fields: {
+      x: xCol ? { fieldId: xCol.id } : null,
+      y: yCol ? { fieldId: yCol.id } : { fieldId: '' },
+      series: null,
+      color: null,
+      size: null,
+      facet: null,
+    },
+    filters: [],
+    transformations: [],
+    typeParams: {},
+    display: {
+      axes: {
+        x: {
+          label: xCol?.label ?? 'x',
+          scale: 'linear',
+          unit: unitMetadata.parse(xCol?.unit).symbol,
+        },
+        y: {
+          label: yCol?.label ?? 'y',
+          scale: 'linear',
+          unit: unitMetadata.parse(yCol?.unit).symbol,
+        },
+      },
+      series: [],
+      legend: { visible: true },
+    },
+    overlays: { errorBars: null },
+  }
+}
+
+/** Preserve the pinned/live evidence boundary independently of authoring controls. */
+function useChartPreview(draft: ChartBlockPayload) {
+  const spec = draft.spec ?? null
+  const frozen = draft.frozen ?? null
+  const { datasetQuery } = useLiveChartDataset(spec)
+  const pinnedRows = useFrozenPinnedRows(frozen)
+
+  return {
+    ...chartPreviewForEvidence(
+      draft,
+      datasetQuery.data ?? null,
+      pinnedRows.data,
+    ),
+    previewLoading: frozen
+      ? Boolean(frozenPinsDatasetVersion(frozen) && pinnedRows.isLoading)
+      : datasetQuery.isLoading,
+  }
+}
+
+/** Materialization is pure; only the hook above owns the live/pinned reads. */
+function chartPreviewForEvidence(
+  draft: ChartBlockPayload,
+  liveDataset: Parameters<typeof materialiseLiveChart>[1],
+  pinnedRows: ReturnType<typeof useFrozenPinnedRows>['data'],
+) {
+  const spec = draft.spec ?? null
+  const frozen = draft.frozen ?? null
+
+  const reconstructed =
+    frozen && spec && frozenPinsDatasetVersion(frozen) && pinnedRows
+      ? reconstructFrozenVisualisation({
+          spec,
+          frozen,
+          rows: pinnedRows.rows,
+        })
+      : null
+
+  const previewMaterialised = frozen
+    ? (reconstructed?.chart ?? materialiseFrozenChart(frozen))
+    : spec
+      ? materialiseLiveChart(spec, liveDataset)
+      : {
+          state: { kind: 'missing_dataset' as const },
+          columns: [],
+          rows: [],
+          series: [],
+          xLabel: 'x',
+          yLabel: 'y',
+          xUnit: undefined,
+          yUnit: undefined,
+          droppedPoints: 0,
+        }
+
+  const frozenFacets =
+    reconstructed?.facets ?? (frozen ? materialiseFrozenFacets(frozen) : null)
+
+  return { previewMaterialised, frozenFacets }
 }
 
 function ChartField({
@@ -2991,17 +3309,7 @@ function parseBinding(v: string): { fieldId: string } | null {
   return v ? { fieldId: v } : null
 }
 
-function unitSymbol(unit: unknown): string | undefined {
-  if (
-    typeof unit === 'object' &&
-    unit !== null &&
-    'symbol' in unit &&
-    typeof unit.symbol === 'string'
-  ) {
-    return (unit as { symbol: string }).symbol
-  }
-  return undefined
-}
+const unitMetadata = z.object({ symbol: z.string().optional() }).catch({})
 
 // ---------------------------------------------------------------------------
 // SCI-005 plate map block editor. Authors a plate_map block payload with
@@ -3018,19 +3326,27 @@ function PlateMapBlockEditor({
   onStatusChange,
   readOnly,
 }: BlockEditorProps) {
-  const initial = block.payload as unknown as PlateMapBlockPayload
+  const initial = React.useMemo(
+    () => platePayload.parse(block.payload),
+    [block.payload],
+  )
+
   const a = useBlockAutosave<PlateMapBlockPayload>(
     block,
     initial,
     save,
     offline,
     onStatusChange,
+    platePayload,
   )
+
   const draft = a.draft
   const spec = draft.spec ?? null
+
   const [selectedWellCode, setSelectedWellCode] = React.useState<string | null>(
     null,
   )
+
   const [sampleSearch, setSampleSearch] = React.useState('')
 
   // Sample search query for the RecordPicker
@@ -3053,6 +3369,7 @@ function PlateMapBlockEditor({
     const next = defaultPlateMapSpec()
     a.setTouched(true)
     a.setDraft({ ...draft, spec: next })
+
     return next
   }
 
@@ -3070,6 +3387,7 @@ function PlateMapBlockEditor({
   // Find a well by wellCode in the current spec
   function findWell(code: string): WellAssignment | undefined {
     if (!spec) return undefined
+
     return spec.wells.find((w) => w.wellCode === code)
   }
 
@@ -3077,9 +3395,11 @@ function PlateMapBlockEditor({
   function upsertWell(code: string, patch: Partial<WellAssignment>) {
     const current = ensureSpec()
     const parsed = parseWellCode(code)
+
     if (!parsed) return
     const existing = current.wells.find((w) => w.wellCode === code)
     let wells: WellAssignment[]
+
     if (existing) {
       wells = current.wells.map((w) =>
         w.wellCode === code ? { ...w, ...patch } : w,
@@ -3096,6 +3416,7 @@ function PlateMapBlockEditor({
         },
       ]
     }
+
     updateSpec({ wells })
   }
 
@@ -3110,6 +3431,7 @@ function PlateMapBlockEditor({
   // Build plate wells for the PlateMap preview
   const plateWells = React.useMemo(() => {
     if (!spec) return []
+
     return spec.wells.map((w) => ({
       row: w.row,
       col: w.col,
@@ -3136,6 +3458,7 @@ function PlateMapBlockEditor({
   const roleLegend = React.useMemo(() => {
     if (!spec) return []
     const present = new Set(spec.wells.map((w) => w.role))
+
     return Array.from(present).map((role) => ({
       label: ROLE_STYLES[role].label,
       className: ROLE_STYLES[role].cellClass,
@@ -3281,10 +3604,7 @@ function PlateMapBlockEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizeBlockPayload(
-          block.type,
-          (a.serverValue ?? {}) as Record<string, unknown>,
-        )}
+        serverPreview={summarizeBlockPayload(block.type, { ...a.serverValue })}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}
@@ -3354,7 +3674,9 @@ function WellInspector({
         <Select
           id={`well-role-${wellCode}`}
           value={role}
-          onChange={(e) => onAssignRole(e.target.value as AssignmentRole)}
+          onChange={(e) =>
+            onAssignRole(z.enum(ASSIGNMENT_ROLES).parse(e.target.value))
+          }
         >
           {ASSIGNMENT_ROLES.map((r) => (
             <option key={r} value={r}>
@@ -3367,9 +3689,9 @@ function WellInspector({
       {/* Sample link (for sample and control roles) */}
       {role !== 'empty' && role !== 'blank' ? (
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+          <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
             {t('notebook.blockEditor.sample')}
-          </label>
+          </p>
           {well?.sampleRef ? (
             <div className="flex items-center justify-between gap-2 rounded-md border bg-surface-muted/20 px-2 py-1.5">
               <div className="min-w-0">
@@ -3430,57 +3752,12 @@ function WellInspector({
 
       {/* Volume */}
       {role !== 'empty' ? (
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-            {t('notebook.blockEditor.volume')}
-          </label>
-          {well?.volume ? (
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                min={0}
-                step="any"
-                value={well.volume.value}
-                onChange={(e) =>
-                  onSetVolume(
-                    parseFloat(e.target.value) || 0,
-                    well.volume!.unit,
-                  )
-                }
-                className="w-20 font-mono tabular-nums"
-              />
-              <Input
-                type="text"
-                value={well.volume.unit}
-                onChange={(e) =>
-                  onSetVolume(well.volume!.value, e.target.value)
-                }
-                className="w-16 font-mono"
-              />
-              <IconButton
-                type="button"
-                icon="x"
-                label={t('common.actions.clear')}
-                onClick={onClearVolume}
-                className="text-danger-text"
-              />
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                min={0}
-                step="any"
-                placeholder="value"
-                onChange={(e) =>
-                  onSetVolume(parseFloat(e.target.value) || 0, 'µL')
-                }
-                className="w-20 font-mono tabular-nums"
-              />
-              <span className="text-xs text-fg-muted">µL</span>
-            </div>
-          )}
-        </div>
+        <WellVolumeEditor
+          wellCode={wellCode}
+          volume={well?.volume}
+          onSetVolume={onSetVolume}
+          onClearVolume={onClearVolume}
+        />
       ) : null}
 
       {/* Notes */}
@@ -3502,6 +3779,71 @@ function WellInspector({
   )
 }
 
+function WellVolumeEditor({
+  wellCode,
+  volume,
+  onSetVolume,
+  onClearVolume,
+}: {
+  wellCode: string
+  volume: WellAssignment['volume']
+  onSetVolume: (value: number, unit: string) => void
+  onClearVolume: () => void
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label
+        htmlFor={`well-volume-${wellCode}`}
+        className="text-xs font-semibold uppercase tracking-wide text-fg-muted"
+      >
+        {t('notebook.blockEditor.volume')}
+      </label>
+      {volume ? (
+        <div className="flex items-center gap-2">
+          <Input
+            id={`well-volume-${wellCode}`}
+            type="number"
+            min={0}
+            step="any"
+            value={volume.value}
+            onChange={(e) =>
+              onSetVolume(parseFloat(e.target.value) || 0, volume.unit)
+            }
+            className="w-20 font-mono tabular-nums"
+          />
+          <Input
+            type="text"
+            value={volume.unit}
+            aria-label={t('notebook.blockEditor.unitLabel')}
+            onChange={(e) => onSetVolume(volume.value, e.target.value)}
+            className="w-16 font-mono"
+          />
+          <IconButton
+            type="button"
+            icon="x"
+            label={t('common.actions.clear')}
+            onClick={onClearVolume}
+            className="text-danger-text"
+          />
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Input
+            id={`well-volume-${wellCode}`}
+            type="number"
+            min={0}
+            step="any"
+            placeholder="value"
+            onChange={(e) => onSetVolume(parseFloat(e.target.value) || 0, 'µL')}
+            className="w-20 font-mono tabular-nums"
+          />
+          <span className="text-xs text-fg-muted">µL</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ValidationConfigEditor({
   spec,
   onChange,
@@ -3510,16 +3852,22 @@ function ValidationConfigEditor({
   onChange: (validation: PlateMapSpec['validation']) => void
 }) {
   const v = spec.validation
+  const requiredRoles = new Set(v.requiredRoles)
+
   return (
     <details className="space-y-3 rounded-md border p-3">
       <summary className="cursor-pointer text-xs font-medium text-fg-muted">
         {t('notebook.blockEditor.validationConfig')}
       </summary>
       <div className="space-y-3">
-        <div className="space-y-1.5">
-          <label className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+        <div
+          role="group"
+          aria-label={t('notebook.blockEditor.requiredRoles')}
+          className="space-y-1.5"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
             {t('notebook.blockEditor.requiredRoles')}
-          </label>
+          </p>
           <div className="flex flex-wrap gap-x-4 gap-y-2">
             {ASSIGNMENT_ROLES.filter((r) => r !== 'empty').map((r) => (
               <label
@@ -3527,13 +3875,15 @@ function ValidationConfigEditor({
                 className="flex items-center gap-1.5 text-xs text-fg"
               >
                 <Checkbox
-                  checked={v.requiredRoles?.includes(r) ?? false}
+                  checked={requiredRoles.has(r)}
                   onCheckedChange={(checked) => {
                     const current = v.requiredRoles ?? []
+
                     const next =
                       checked === true
                         ? [...current, r]
                         : current.filter((x) => x !== r)
+
                     onChange({ ...v, requiredRoles: next })
                   }}
                 />
@@ -3610,30 +3960,36 @@ function ValidationConfigEditor({
 // ---------------------------------------------------------------------------
 
 /** What a saved analysis holds, for its entry in the picker. */
-function analysisContents(definition: unknown): string {
-  if (typeof definition !== 'object' || definition === null) return ''
-  const body = definition as { kind?: unknown; chart?: unknown }
-  if (body.kind === 'chart') return t('notebook.blockEditor.chart')
-  return body.chart ? t('notebook.blockEditor.statisticAndChart') : ''
+function analysisContents(
+  definition: z.output<typeof analysisDefinition> | null,
+): string {
+  if (!definition) return ''
+
+  if (definition.kind === 'chart') return t('notebook.blockEditor.chart')
+
+  return definition.chart ? t('notebook.blockEditor.statisticAndChart') : ''
 }
 
-function AnalysisBlockEditor({
+function useAnalysisDraft({
   block,
   save,
   offline,
   onStatusChange,
-  readOnly,
-  onFreezeAnalysis,
-  onUnfreezeAnalysis,
-}: BlockEditorProps) {
-  const initial = block.payload as unknown as AnalysisBlockPayload
+}: Pick<BlockEditorProps, 'block' | 'save' | 'offline' | 'onStatusChange'>) {
+  const initial = React.useMemo(
+    () => analysisPayload.parse(block.payload),
+    [block.payload],
+  )
+
   const a = useBlockAutosave<AnalysisBlockPayload>(
     block,
     initial,
     save,
     offline,
     onStatusChange,
+    analysisPayload,
   )
+
   const draft = a.draft
   const frozen = draft.frozen ?? null
 
@@ -3642,17 +3998,18 @@ function AnalysisBlockEditor({
     queryFn: () => fetchAnalysisDefinitions(),
     staleTime: 10_000,
   })
+
   const definitions = definitionsQuery.data ?? []
   const selected = definitions.find((d) => d.id === draft.definitionId) ?? null
 
   function chooseDefinition(id: string) {
     a.setTouched(true)
     const saved = definitions.find((d) => d.id === id)
+
     if (!saved) return
-    const name =
-      typeof saved.name === 'string'
-        ? saved.name
-        : t('notebook.blockEditor.analysis')
+
+    const name = saved.name
+
     a.setDraft({
       ...draft,
       definitionId: id,
@@ -3661,6 +4018,32 @@ function AnalysisBlockEditor({
   }
 
   const validation = validateAnalysisBlockPayload(draft)
+
+  return {
+    a,
+    draft,
+    frozen,
+    definitionsQuery,
+    definitions,
+    selected,
+    chooseDefinition,
+    validation,
+  }
+}
+
+function AnalysisBlockEditor(props: BlockEditorProps) {
+  const { block, readOnly, onFreezeAnalysis, onUnfreezeAnalysis } = props
+
+  const {
+    a,
+    draft,
+    frozen,
+    definitionsQuery,
+    definitions,
+    selected,
+    chooseDefinition,
+    validation,
+  } = useAnalysisDraft(props)
 
   return (
     <div className="space-y-4">
@@ -3687,7 +4070,9 @@ function AnalysisBlockEditor({
               label: d.name,
               detail: t('notebook.blockEditor.detail', {
                 version: d.version,
-                analysisContents: analysisContents(d.definition),
+                analysisContents: analysisContents(
+                  analysisDefinition.safeParse(d.definition).data ?? null,
+                ),
               }),
             }))}
           />
@@ -3739,43 +4124,16 @@ function AnalysisBlockEditor({
           />
         </ChartField>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {frozen ? (
-            <>
-              <Badge variant="chg">
-                <Icon name="snowflake" className="size-3" />
-                {t('notebook.blockEditor.frozenSnapshotImmutable')}
-              </Badge>
-              {onUnfreezeAnalysis ? (
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => void onUnfreezeAnalysis()}
-                >
-                  <Icon name="edit" />{' '}
-                  {t('notebook.blockEditor.unfreezeLiveAgain')}
-                </Button>
-              ) : null}
-            </>
-          ) : onFreezeAnalysis && draft.definitionId && !readOnly ? (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              disabled={validation.length > 0}
-              title={
-                validation.length > 0
-                  ? t('notebook.blockEditor.chooseASavedAnalysisTitle')
-                  : t('notebook.blockEditor.freezeThisAnalysisAsTitle')
-              }
-              onClick={() => void onFreezeAnalysis()}
-            >
-              <Icon name="snowflake" />{' '}
-              {t('notebook.blockEditor.freezeSnapshot')}
-            </Button>
-          ) : null}
-        </div>
+        <EvidenceFreezeActions
+          frozen={!!frozen}
+          hasSpec={!!draft.definitionId && !readOnly}
+          ready={validation.length === 0}
+          onFreeze={onFreezeAnalysis}
+          onUnfreeze={onUnfreezeAnalysis}
+          unfreezeLabel={t('notebook.blockEditor.unfreezeLiveAgain')}
+          readyTitle={t('notebook.blockEditor.freezeThisAnalysisAsTitle')}
+          blockedTitle={t('notebook.blockEditor.chooseASavedAnalysisTitle')}
+        />
       </div>
 
       <AutosaveFooter
@@ -3783,10 +4141,7 @@ function AnalysisBlockEditor({
         error={a.error}
         validationErrors={a.validationErrors}
         explainBlock={{ blockType: block.type, errors: a.structuredErrors }}
-        serverPreview={summarizeBlockPayload(
-          block.type,
-          (a.serverValue ?? {}) as Record<string, unknown>,
-        )}
+        serverPreview={summarizeBlockPayload(block.type, { ...a.serverValue })}
         onUseServer={() => a.discardDraft()}
         onKeepLocal={() => a.retry()}
         retrying={a.status === 'saving'}

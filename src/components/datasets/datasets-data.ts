@@ -76,16 +76,18 @@ const reviewSuffix: Record<Exclude<DatasetReviewState, null>, string> = {
   in_review: ' · in review',
 }
 
+interface DatasetValidation {
+  tone: Tone
+  label: string
+}
+
 /** The design's Validation column: issue wording by kind, then the review state. */
 export function datasetValidation(
   row: Pick<
     DatasetListRow,
     'issues' | 'missingUnit' | 'outOfRange' | 'reviewState'
   >,
-): {
-  tone: Tone
-  label: string
-} {
+): DatasetValidation {
   if (row.issues === 0) {
     return {
       tone: 'ok',

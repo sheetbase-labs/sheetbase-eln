@@ -39,9 +39,10 @@ export function WorkspaceGroups({
 }) {
   const queryClient = useQueryClient()
   const [name, setName] = useState('')
-  const [groupId, setGroupId] = useState(groups.at(0)?.id ?? '')
+  const [groupId, setGroupId] = useState(() => groups.at(0)?.id ?? '')
   const [confirmDelete, setConfirmDelete] = useState(false)
   const group = groups.find((g) => g.id === groupId)
+  const memberIds = new Set(group?.member_ids)
 
   const mutation = useMutation({
     mutationFn: async (
@@ -142,7 +143,7 @@ export function WorkspaceGroups({
                   >
                     <input
                       type="checkbox"
-                      checked={group.member_ids.includes(p.id)}
+                      checked={memberIds.has(p.id)}
                       disabled={mutation.isPending}
                       onChange={(e) =>
                         mutation.mutate({

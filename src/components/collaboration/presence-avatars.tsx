@@ -1,7 +1,7 @@
 import { AvatarStack } from '#/components/ui/avatar'
 import { useOthers } from '#/lib/collaboration/room-hooks'
 
-import { useCollaborationRoomReady } from './collaboration-room'
+import { useCollaborationRoomReady } from './room-ready'
 
 /**
  * COLLAB-01 avatar stack of the other users currently in the room. Purely

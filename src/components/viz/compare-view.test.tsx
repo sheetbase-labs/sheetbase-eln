@@ -16,7 +16,7 @@ import {
 import { CompareView } from './compare-view'
 import type { CanonicalDatasetSource } from '#/lib/chart-data'
 import { validateChartSpec } from '#/lib/chart-spec'
-import type { ChartColumn, ChartSpec } from '#/lib/chart-spec'
+import type { ChartColumn, ChartRow, ChartSpec } from '#/lib/chart-spec'
 import { COMPARATIVE_VIEW_CONFIG_VERSION } from '#/lib/comparative-view'
 import type { ComparativeViewConfig } from '#/lib/comparative-view'
 import type { DatasetValueFlag } from '#/lib/dataset-flags'
@@ -53,7 +53,7 @@ const SOURCE: CanonicalDatasetSource = {
   columns: COLUMNS,
 }
 
-const ROWS: Record<string, unknown>[] = [
+const ROWS: ChartRow[] = [
   { [TIME]: 0, [PH]: 7.0, [BUFFER]: 'A' },
   { [TIME]: 1, [PH]: 7.2, [BUFFER]: 'A' },
   { [TIME]: 0, [PH]: 6.8, [BUFFER]: 'B' },
@@ -80,7 +80,7 @@ function renderCompare(
   initial: ComparativeViewConfig,
   flags: DatasetValueFlag[] = [],
 ) {
-  const onPromote = vi.fn()
+  const onPromote = vi.fn<(spec: ChartSpec) => void>()
 
   function Harness() {
     const [config, setConfig] = useState(initial)
@@ -140,7 +140,7 @@ describe('CompareView', () => {
       screen.getByRole('button', { name: 'Use in a chart or analysis' }),
     )
     expect(onPromote).toHaveBeenCalledTimes(1)
-    const spec = onPromote.mock.calls[0][0] as ChartSpec
+    const spec = onPromote.mock.calls[0][0]
     expect(spec.type).toBe('line')
     expect(validateChartSpec(spec)).toEqual([])
   })
@@ -155,7 +155,7 @@ describe('CompareView', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Use in a chart or analysis' }),
     )
-    const spec = onPromote.mock.calls[0][0] as ChartSpec
+    const spec = onPromote.mock.calls[0][0]
     expect(spec.type).toBe('box')
     expect(validateChartSpec(spec)).toEqual([])
   })
@@ -201,7 +201,7 @@ const AB_CONFIG: ComparativeViewConfig = {
   facetBy: null,
 }
 
-const AB_ROWS: Record<string, unknown>[] = [
+const AB_ROWS: ChartRow[] = [
   {
     [CHART_ROW_ID_KEY]: 'r1',
     'c-train': 'A',
@@ -239,7 +239,7 @@ const AB_ROWS: Record<string, unknown>[] = [
   },
 ]
 
-function renderAbCompare(rows: Record<string, unknown>[] = AB_ROWS) {
+function renderAbCompare(rows: ChartRow[] = AB_ROWS) {
   render(
     <CompareView
       source={AB_SOURCE}
@@ -351,6 +351,33 @@ describe('CompareView A/B controls', () => {
       ),
     ).toBeTruthy()
   })
+
+  it('keeps an explicitly cleared side empty until available groups change', () => {
+    renderAbCompare()
+    fireEvent.change(screen.getByLabelText('Side A'), { target: { value: '' } })
+    expect(
+      screen.getByText('Select side A and side B to compare them.'),
+    ).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Match rows by'), {
+      target: { value: 'position' },
+    })
+    expect(
+      screen.getByText('Select side A and side B to compare them.'),
+    ).toBeTruthy()
+  })
+
+  it('keeps a cleared field empty instead of silently choosing a fallback', () => {
+    renderAbCompare()
+    fireEvent.change(screen.getByLabelText('Match rows by'), {
+      target: { value: 'field' },
+    })
+    fireEvent.change(screen.getByLabelText('Match field'), {
+      target: { value: '' },
+    })
+    expect(screen.getByLabelText('Match field')).toHaveProperty('value', '')
+    fireEvent.click(screen.getByRole('button', { name: 'Swap A/B' }))
+    expect(screen.getByLabelText('Match field')).toHaveProperty('value', '')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -358,7 +385,7 @@ describe('CompareView A/B controls', () => {
 // ---------------------------------------------------------------------------
 
 describe('CompareView flag exclusion and selection', () => {
-  const FLAGGED_ROWS: Record<string, unknown>[] = [
+  const FLAGGED_ROWS: ChartRow[] = [
     { [CHART_ROW_ID_KEY]: 'r1', [TIME]: 0, [PH]: 7.0, [BUFFER]: 'A' },
     { [CHART_ROW_ID_KEY]: 'r2', [TIME]: 1, [PH]: 7.2, [BUFFER]: 'A' },
     { [CHART_ROW_ID_KEY]: 'r3', [TIME]: 0, [PH]: 6.8, [BUFFER]: 'B' },
@@ -409,16 +436,22 @@ describe('CompareView flag exclusion and selection', () => {
         const circle = document.querySelector('circle[r="9"]')
         expect(circle).toBeTruthy()
 
+        if (!circle) throw new Error('Preview point not rendered')
+
         return circle
       },
       // The first import transforms the renderer and the charts package.
       { timeout: 10_000 },
     )
 
-    fireEvent.click(hit as Element)
+    fireEvent.click(hit)
 
     const summary = screen.getByText(/^Selected /)
     expect(summary.textContent).toContain('x 0')
     expect(summary.textContent).toContain('y 7')
+    fireEvent.change(screen.getByLabelText('Facet field'), {
+      target: { value: TIME },
+    })
+    expect(screen.queryByText(/^Selected /)).toBeNull()
   })
 })

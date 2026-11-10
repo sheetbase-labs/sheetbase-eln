@@ -13,6 +13,12 @@
  * asserting on those would test the key set rather than the content.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
@@ -20,45 +26,24 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Mock } from 'vitest'
 
 import { BlockEditor } from './block-editor'
-import type * as notebookDataModule from '#/lib/notebook-data'
+import type { BlockEditorProps } from './block-editor'
 import type { NotebookBlock } from '#/lib/notebook-data'
-
-vi.mock('#/lib/notebook-data', async (importOriginal) => {
-  const actual = await importOriginal<typeof notebookDataModule>()
-  return {
-    ...actual,
-    notebookDataClient: {
-      ...actual.notebookDataClient,
-      list: vi.fn().mockResolvedValue([]),
-    },
-  }
-})
-
-vi.mock('#/lib/dataset-explorer-data', () => ({
-  fetchDatasetSummaries: vi.fn().mockResolvedValue([]),
-}))
-
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    children,
-    ...rest
-  }: {
-    to: string
-    children?: ReactNode
-    [key: string]: unknown
-  }) => (
-    <a href={to} {...rest}>
-      {children}
-    </a>
-  ),
-}))
 
 function renderWithQuery(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
+  return render(
+    <QueryClientProvider client={client}>
+      <RouterContextProvider router={router}>{ui}</RouterContextProvider>
+    </QueryClientProvider>,
+  )
 }
 
 afterEach(() => cleanup())
@@ -78,15 +63,16 @@ function block(
 }
 
 /** The payload from the only save, or a failure if nothing was saved. */
-function savedPayload(save: Mock) {
+function savedPayload(save: Mock<BlockEditorProps['save']>) {
   expect(save).toHaveBeenCalledTimes(1)
-  return save.mock.calls[0][0] as Record<string, unknown>
+
+  return save.mock.calls[0][0]
 }
 
 describe('BlockEditor — callout', () => {
   it('loads the stored text and saves the edited text with its tone', async () => {
     const user = userEvent.setup()
-    const save = vi.fn(async () => ({ ok: true }))
+    const save = vi.fn<BlockEditorProps['save']>(async () => ({ ok: true }))
     renderWithQuery(
       <BlockEditor
         block={block({
@@ -97,8 +83,8 @@ describe('BlockEditor — callout', () => {
       />,
     )
 
-    const text = screen.getByLabelText('Callout text')
-    expect((text as HTMLTextAreaElement).value).toBe('Read the SDS first.')
+    const text = screen.getByLabelText<HTMLTextAreaElement>('Callout text')
+    expect(text.value).toBe('Read the SDS first.')
 
     await user.clear(text)
     await user.type(text, 'Do not exceed 40 °C.')
@@ -144,7 +130,7 @@ describe('BlockEditor — callout', () => {
 
   it('saves the tone the author picks', async () => {
     const user = userEvent.setup()
-    const save = vi.fn(async () => ({ ok: true }))
+    const save = vi.fn<BlockEditorProps['save']>(async () => ({ ok: true }))
     renderWithQuery(
       <BlockEditor
         block={block({ type: 'callout', payload: { text: 'Legacy row.' } })}
@@ -166,7 +152,7 @@ describe('BlockEditor — callout', () => {
 describe('BlockEditor — metric', () => {
   it('keeps a numeric reading numeric, so number formatting still applies', async () => {
     const user = userEvent.setup()
-    const save = vi.fn(async () => ({ ok: true }))
+    const save = vi.fn<BlockEditorProps['save']>(async () => ({ ok: true }))
     renderWithQuery(
       <BlockEditor
         block={block({
@@ -193,7 +179,7 @@ describe('BlockEditor — metric', () => {
 
   it('keeps a non-numeric reading as text rather than coercing it', async () => {
     const user = userEvent.setup()
-    const save = vi.fn(async () => ({ ok: true }))
+    const save = vi.fn<BlockEditorProps['save']>(async () => ({ ok: true }))
     renderWithQuery(
       <BlockEditor
         block={block({
@@ -210,7 +196,7 @@ describe('BlockEditor — metric', () => {
 
   it('omits a cleared unit rather than saving an empty string', async () => {
     const user = userEvent.setup()
-    const save = vi.fn(async () => ({ ok: true }))
+    const save = vi.fn<BlockEditorProps['save']>(async () => ({ ok: true }))
     renderWithQuery(
       <BlockEditor
         block={block({
@@ -228,12 +214,56 @@ describe('BlockEditor — metric', () => {
     // accepts either, and the preview would otherwise render a bare unit gap.
     expect('unit' in saved ? saved.unit : undefined).toBeUndefined()
   })
+
+  it('decodes a numeric server conflict back into editable text before another save', async () => {
+    const user = userEvent.setup()
+
+    const save = vi
+      .fn<BlockEditorProps['save']>()
+      .mockResolvedValueOnce({
+        ok: false,
+        kind: 'conflict',
+        serverValue: { label: 'Canonical yield', value: 5.75, unit: 'mg' },
+      })
+      .mockResolvedValue({ ok: true })
+
+    renderWithQuery(
+      <BlockEditor
+        block={block({
+          type: 'metric',
+          payload: { label: 'Yield', value: 4.25, unit: 'g' },
+        })}
+        save={save}
+      />,
+    )
+
+    await user.clear(screen.getByLabelText('Metric value'))
+    await user.type(screen.getByLabelText('Metric value'), '9.5')
+    await user.tab()
+    await user.click(
+      await screen.findByRole('button', { name: 'Use their version' }),
+    )
+    expect(screen.getByLabelText<HTMLInputElement>('Metric value').value).toBe(
+      '5.75',
+    )
+    expect(screen.getByLabelText<HTMLInputElement>('Metric unit').value).toBe(
+      'mg',
+    )
+    await user.type(screen.getByLabelText('Metric label'), ' corrected')
+    await user.tab()
+    expect(save).toHaveBeenLastCalledWith({
+      label: 'Canonical yield corrected',
+      value: 5.75,
+      unit: 'mg',
+      provenance: undefined,
+    })
+  })
 })
 
 describe('BlockEditor — conclusion', () => {
   it('loads the stored conclusion and saves an edited verdict and basis', async () => {
     const user = userEvent.setup()
-    const save = vi.fn(async () => ({ ok: true }))
+    const save = vi.fn<BlockEditorProps['save']>(async () => ({ ok: true }))
     renderWithQuery(
       <BlockEditor
         block={block({
@@ -244,8 +274,8 @@ describe('BlockEditor — conclusion', () => {
       />,
     )
 
-    const text = screen.getByLabelText('Conclusion text')
-    expect((text as HTMLTextAreaElement).value).toBe('Titre fell.')
+    const text = screen.getByLabelText<HTMLTextAreaElement>('Conclusion text')
+    expect(text.value).toBe('Titre fell.')
 
     await user.selectOptions(screen.getByLabelText('Verdict'), 'not_supported')
     await user.type(screen.getByLabelText('Based on'), 'ELISA, n = 12')

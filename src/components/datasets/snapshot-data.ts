@@ -6,6 +6,7 @@
  * data into labels, tones and copy so the UI never hardcodes "Kept" or a
  * policy the workspace did not set.
  */
+import { z } from 'zod'
 import type {
   DatasetVersionChange,
   DatasetVersionCitations,
@@ -152,9 +153,11 @@ export function mostUrgentPruneWarning(
   versions: readonly SnapshotVersion[],
   now: Date = appNow(),
 ): SnapshotPruneWarning | null {
-  const warnings = versions
-    .map((version) => describePruneWarning(version, now))
-    .filter((warning): warning is SnapshotPruneWarning => warning !== null)
+  const warnings = versions.flatMap((version) => {
+    const warning = describePruneWarning(version, now)
+
+    return warning === null ? [] : [warning]
+  })
 
   if (warnings.length === 0) return null
 
@@ -342,9 +345,13 @@ export function hasMoreSnapshotCompareRows(page: SnapshotComparePage): boolean {
  * Friendly copy for a failed snapshot save. The RPC stays authoritative; this
  * only translates its known codes so the toast explains what happened.
  */
+const refusalCodeSchema = z.object({ code: z.string() })
+
 export function describeSnapshotError(cause: unknown): string {
-  if (cause && typeof cause === 'object' && 'code' in cause) {
-    const code = (cause as { code?: unknown }).code
+  const refusal = refusalCodeSchema.safeParse(cause)
+
+  if (refusal.success) {
+    const { code } = refusal.data
 
     if (code === 'SB001')
       return 'This dataset changed elsewhere. Refresh and try again.'
@@ -366,8 +373,10 @@ export function describeSnapshotError(cause: unknown): string {
  * the server's permission refusal.
  */
 export function describeKeepError(cause: unknown): string {
-  if (cause && typeof cause === 'object' && 'code' in cause) {
-    const code = (cause as { code?: unknown }).code
+  const refusal = refusalCodeSchema.safeParse(cause)
+
+  if (refusal.success) {
+    const { code } = refusal.data
 
     if (code === '42501')
       return 'You do not have permission to keep this snapshot, or it is not in the active workspace.'

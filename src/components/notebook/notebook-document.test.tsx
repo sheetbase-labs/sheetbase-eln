@@ -6,10 +6,16 @@
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
+import {
   act,
   cleanup,
   fireEvent,
-  render,
+  render as renderDOM,
   screen,
   waitFor,
   within,
@@ -19,50 +25,49 @@ import * as React from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import { NotebookDocument } from './notebook-document'
+import { extensionQueryKeys } from '#/lib/extensions/client'
 import { BLOCK_PICKER_OPTIONS } from '#/lib/blocks/registry'
 import { NotebookOutlinePanel } from './notebook-outline-panel'
 import { notebookOutline } from '#/lib/notebook-outline'
+import { ShortcutProvider } from '#/components/shortcuts/shortcut-provider'
 import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
+import type { RichTextDocument } from '#/lib/blocks'
 
-// NOTE-03: scientific block previews carry canonical Open affordances built
-// with TanStack Link; mock the router so these render as plain anchors.
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    children,
-    ...rest
-  }: {
-    to: string
-    children?: React.ReactNode
-    [key: string]: unknown
-  }) => (
-    <a href={to} {...rest}>
-      {children}
-    </a>
-  ),
-}))
+function blockAnchor(container: HTMLElement, blockId: string) {
+  const anchor = container.querySelector(`[id="block-${blockId}"]`)
 
-// The insert menu lists plugin blocks; no plugins are installed here.
-vi.mock('#/components/extensions/use-plugin-points', () => ({
-  usePluginPoints: () => ({
-    operations: [],
-    analysisKinds: [],
-    blocks: [],
-    panels: [],
-    tableCells: [],
-    columns: [],
-    rowActions: [],
-    fieldTypes: [],
-    descriptors: [],
-    isLoading: false,
-    installed: new Map(),
-  }),
-  operationAccess: () => ({}),
-}))
+  if (!(anchor instanceof HTMLElement))
+    throw new Error(`Missing block ${blockId}`)
+
+  return anchor
+}
+
+function render(ui: React.ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+  })
+
+  client.setQueryData([...extensionQueryKeys.extensions, 'points'], [])
+
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
+  return renderDOM(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>
+        <RouterContextProvider router={router}>
+          {children}
+        </RouterContextProvider>
+      </QueryClientProvider>
+    ),
+  })
+}
 
 beforeAll(() => {
   document.elementFromPoint = () => null
-  Range.prototype.getClientRects = () => [] as unknown as DOMRectList
+  Range.prototype.getClientRects = () => Object.assign([], { item: () => null })
   Range.prototype.getBoundingClientRect = () => new DOMRect()
   Element.prototype.scrollIntoView = () => {}
 })
@@ -119,6 +124,88 @@ function richTextBlock(id: string, text: string): NotebookBlock {
 }
 
 describe('NotebookDocument — rendering', () => {
+  it('does not publish selection removal from an abandoned canonical render', async () => {
+    const blocks = threeBlocks()
+    const hash = vi.fn()
+    const held = new Promise<void>(() => {})
+    let removalRendered = false
+
+    function Hold({ suspend }: { suspend: boolean }) {
+      if (suspend) {
+        removalRendered = true
+        throw held
+      }
+
+      return null
+    }
+
+    function Harness() {
+      const [removing, setRemoving] = React.useState(false)
+      const [suspend, setSuspend] = React.useState(false)
+      const [waiting, transition] = React.useTransition()
+
+      return (
+        <>
+          <button
+            onClick={() =>
+              transition(() => {
+                setRemoving(true)
+                setSuspend(true)
+              })
+            }
+          >
+            Hold removal
+          </button>
+          <button
+            onClick={() => {
+              setRemoving(false)
+              setSuspend(false)
+            }}
+          >
+            Keep block
+          </button>
+          <button onClick={() => setRemoving(true)}>Commit removal</button>
+          {waiting ? <p>Removal pending</p> : null}
+          <React.Suspense fallback={<p>Loading notebook</p>}>
+            <NotebookDocument
+              record={record}
+              blocks={
+                removing ? blocks.filter((block) => block.id !== 'b2') : blocks
+              }
+              readOnly
+              onSaveBlock={vi.fn()}
+              onInsertBlock={vi.fn()}
+              onDuplicateBlock={vi.fn()}
+              onDeleteBlock={vi.fn()}
+              onBlockHashChange={hash}
+            />
+            <Hold suspend={suspend} />
+          </React.Suspense>
+        </>
+      )
+    }
+
+    const { container } = render(<Harness />)
+    const selected = container.querySelector('#block-b2')
+
+    if (!(selected instanceof HTMLElement))
+      throw new Error('Missing selected block')
+    fireEvent.click(selected)
+    expect(hash).toHaveBeenLastCalledWith('block-b2')
+    fireEvent.click(screen.getByRole('button', { name: 'Hold removal' }))
+    await screen.findByText('Removal pending')
+    expect(removalRendered).toBe(true)
+    expect(hash).toHaveBeenCalledTimes(1)
+    expect(selected.isConnected).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Keep block' }))
+    expect(hash).toHaveBeenCalledTimes(1)
+    expect(selected.getAttribute('data-selected')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Commit removal' }))
+    await waitFor(() => expect(hash).toHaveBeenLastCalledWith(''))
+    expect(hash).toHaveBeenCalledTimes(2)
+    expect(selected.isConnected).toBe(false)
+  })
+
   it('uses each copy’s block deep link and publishes selection only to its owner', () => {
     const props = {
       record,
@@ -129,15 +216,19 @@ describe('NotebookDocument — rendering', () => {
       onDuplicateBlock: vi.fn(),
       onDeleteBlock: vi.fn(),
     }
+
     const scrolled: Element[] = []
+
     const scroll = vi
       .spyOn(Element.prototype, 'scrollIntoView')
       .mockImplementation(function (this: Element) {
         scrolled.push(this)
       })
+
     const firstHash = vi.fn()
     const secondHash = vi.fn()
     const browserAddress = window.location.href
+
     const first = render(
       <NotebookDocument
         {...props}
@@ -145,6 +236,7 @@ describe('NotebookDocument — rendering', () => {
         onBlockHashChange={firstHash}
       />,
     )
+
     const second = render(
       <NotebookDocument
         {...props}
@@ -152,6 +244,7 @@ describe('NotebookDocument — rendering', () => {
         onBlockHashChange={secondHash}
       />,
     )
+
     expect(scrolled).toEqual([
       first.container.querySelector('[id="block-b1"]'),
       second.container.querySelector('[id="block-b3"]'),
@@ -160,6 +253,7 @@ describe('NotebookDocument — rendering', () => {
     expect(secondHash).toHaveBeenCalledWith('block-b2')
     expect(firstHash).not.toHaveBeenCalled()
     expect(window.location.href).toBe(browserAddress)
+
     const secondCopy = (hash: string) => (
       <NotebookDocument
         {...props}
@@ -167,6 +261,7 @@ describe('NotebookDocument — rendering', () => {
         onBlockHashChange={secondHash}
       />
     )
+
     // A selection echoed by the owning router must not jump to the block top.
     second.rerender(secondCopy('block-b2'))
     expect(scrolled).toHaveLength(2)
@@ -179,6 +274,23 @@ describe('NotebookDocument — rendering', () => {
       second.container.querySelector('[id="block-b2"]'),
     ])
     expect(secondHash).toHaveBeenCalledTimes(1)
+    expect(firstHash).not.toHaveBeenCalled()
+
+    // A canonical refresh retaining the selected block must not clear its route.
+    second.rerender(secondCopy('block-b2'))
+    expect(secondHash).toHaveBeenCalledTimes(1)
+    // Remote deletion has no local click handler. The committed removal must
+    // clear only this document's route hash, not the other open notebook.
+    second.rerender(
+      <NotebookDocument
+        {...props}
+        blocks={props.blocks.filter((block) => block.id !== 'b2')}
+        initialBlockHash="block-b2"
+        onBlockHashChange={secondHash}
+      />,
+    )
+    expect(secondHash).toHaveBeenLastCalledWith('')
+    expect(secondHash).toHaveBeenCalledTimes(2)
     expect(firstHash).not.toHaveBeenCalled()
     scroll.mockRestore()
   })
@@ -194,6 +306,7 @@ describe('NotebookDocument — rendering', () => {
         onDeleteBlock={vi.fn()}
       />,
     )
+
     expect(container.querySelector('#block-b1')).toBeTruthy()
     expect(container.querySelector('#block-b2')).toBeTruthy()
   })
@@ -221,6 +334,7 @@ describe('NotebookDocument — rendering', () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, gcTime: 0 } },
     })
+
     render(
       <QueryClientProvider client={client}>
         <NotebookDocument
@@ -239,7 +353,7 @@ describe('NotebookDocument — rendering', () => {
                   datasetProvenance: [
                     {
                       datasetId: '00000000-0000-4000-8000-000000000170',
-                      schemaVersion: 1,
+                      schemaVersionNumber: 1,
                       rowCount: 2,
                       checksum: 'abc12345',
                     },
@@ -304,6 +418,7 @@ describe('NotebookDocument — rendering', () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, gcTime: 0 } },
     })
+
     const { container } = render(
       <QueryClientProvider client={client}>
         <NotebookDocument
@@ -326,6 +441,7 @@ describe('NotebookDocument — rendering', () => {
         />
       </QueryClientProvider>,
     )
+
     fireEvent.click(container.querySelector('#block-pm1')!)
     expect(
       screen.getByRole('button', { name: /Initialize 96-well plate/ }),
@@ -334,6 +450,33 @@ describe('NotebookDocument — rendering', () => {
 })
 
 describe('NotebookDocument — insertion', () => {
+  it('uses the latest committed insertion callback for the keyboard shortcut', async () => {
+    const first = vi.fn(async () => undefined)
+    const latest = vi.fn(async () => undefined)
+    const blocks = [richTextBlock('b1', 'A')]
+
+    const ui = (onInsertBlock: typeof first) => (
+      <ShortcutProvider definitions={[]}>
+        <NotebookDocument
+          record={record}
+          blocks={blocks}
+          onSaveBlock={vi.fn()}
+          onInsertBlock={onInsertBlock}
+          onDuplicateBlock={vi.fn()}
+          onDeleteBlock={vi.fn()}
+        />
+      </ShortcutProvider>
+    )
+
+    const { rerender } = render(ui(first))
+    fireEvent.keyDown(document.body, { key: '/' })
+    await waitFor(() => expect(first).toHaveBeenCalledTimes(1))
+    rerender(ui(latest))
+    fireEvent.keyDown(document.body, { key: '/' })
+    await waitFor(() => expect(latest).toHaveBeenCalledTimes(1))
+    expect(first).toHaveBeenCalledTimes(1)
+  })
+
   it('renders the block picker and calls onInsertBlock on select', async () => {
     const user = userEvent.setup()
     const onInsertBlock = vi.fn().mockResolvedValue(undefined)
@@ -359,6 +502,7 @@ describe('NotebookDocument — insertion', () => {
 
     function EmptyAuthoringHarness() {
       const [blocks, setBlocks] = React.useState<NotebookBlock[]>([])
+
       return (
         <NotebookDocument
           record={record}
@@ -376,7 +520,9 @@ describe('NotebookDocument — insertion', () => {
               order: 1,
               version: 1,
             }
+
             setBlocks([inserted])
+
             return inserted.id
           }}
           onDuplicateBlock={async () => undefined}
@@ -401,6 +547,7 @@ describe('NotebookDocument — insertion', () => {
   it('deletes the sole empty text block and refocuses the empty Notebook start', async () => {
     const user = userEvent.setup()
     const onDeleteBlock = vi.fn()
+
     const emptyBlock: NotebookBlock = {
       ...richTextBlock('only-block', ''),
       payload: {
@@ -410,6 +557,7 @@ describe('NotebookDocument — insertion', () => {
 
     function SoleEmptyBlockHarness() {
       const [blocks, setBlocks] = React.useState([emptyBlock])
+
       return (
         <NotebookDocument
           record={record}
@@ -522,6 +670,7 @@ describe('NotebookDocument — ending on a non-text block', () => {
 describe('NotebookDocument — insert-block menu', () => {
   it('opens the menu from /, narrows it as the query is typed, and closes on Esc', async () => {
     const user = userEvent.setup()
+
     const { container } = render(
       <NotebookDocument
         record={record}
@@ -561,6 +710,7 @@ describe('NotebookDocument — insert-block menu', () => {
   it('inserts the block the arrow keys highlight with Enter', async () => {
     const user = userEvent.setup()
     const onReplaceBlock = vi.fn().mockResolvedValue(undefined)
+
     const { container } = render(
       <NotebookDocument
         record={record}
@@ -582,9 +732,11 @@ describe('NotebookDocument — insert-block menu', () => {
 
     // Import data leads the group; one ArrowDown selects Sheet.
     await user.keyboard('{ArrowDown}')
+
     const highlighted = screen
       .getAllByRole('option')
       .filter((option) => option.getAttribute('aria-selected') === 'true')
+
     expect(highlighted).toHaveLength(1)
     expect(highlighted[0].textContent).toContain('Sheet')
 
@@ -634,23 +786,27 @@ describe('NotebookDocument — insert-block menu', () => {
 describe('NotebookDocument — autosave state across block navigation', () => {
   it('keeps an unselected draft and its conflict resolution mounted', async () => {
     const user = userEvent.setup()
+    const onUnsavedWorkChange = vi.fn()
+
     let resolveSave!: (result: {
       ok: false
       kind: 'conflict'
       message: string
-      serverValue: Record<string, unknown>
+      serverValue: NotebookBlock['payload']
     }) => void
+
     const onSaveBlock = vi.fn(
       () =>
         new Promise<{
           ok: false
           kind: 'conflict'
           message: string
-          serverValue: Record<string, unknown>
+          serverValue: NotebookBlock['payload']
         }>((resolve) => {
           resolveSave = resolve
         }),
     )
+
     const { container } = render(
       <NotebookDocument
         record={record}
@@ -659,20 +815,30 @@ describe('NotebookDocument — autosave state across block navigation', () => {
           richTextBlock('b2', 'Methods'),
         ]}
         onSaveBlock={onSaveBlock}
+        onUnsavedWorkChange={onUnsavedWorkChange}
         onInsertBlock={vi.fn()}
         onDuplicateBlock={vi.fn()}
         onDeleteBlock={vi.fn()}
       />,
     )
 
+    expect(onUnsavedWorkChange).toHaveBeenLastCalledWith(false)
     await user.click(container.querySelector('#block-b1')!)
-    const firstBlock = container.querySelector('#block-b1') as HTMLElement
+    const firstBlock = blockAnchor(container, 'b1')
+
     const firstEditor = await within(firstBlock).findByRole('textbox', {
       name: 'Text content',
     })
+
     await user.click(firstEditor)
     await user.keyboard('{Control>}a{/Control}{Backspace}')
     await user.paste('Local objective')
+
+    await waitFor(() =>
+      expect(onUnsavedWorkChange).toHaveBeenLastCalledWith(true),
+    )
+    const unloadWithDraft = new Event('beforeunload', { cancelable: true })
+    expect(window.dispatchEvent(unloadWithDraft)).toBe(false)
 
     await user.click(container.querySelector('#block-b2')!)
     await waitFor(() => expect(onSaveBlock).toHaveBeenCalledTimes(1))
@@ -713,6 +879,19 @@ describe('NotebookDocument — autosave state across block navigation', () => {
     expect(
       container.querySelector('#block-b2')?.getAttribute('data-selected'),
     ).toBe('true')
+    expect(onUnsavedWorkChange).toHaveBeenLastCalledWith(true)
+    await user.click(
+      within(firstBlock).getByRole('button', { name: /Use their version/ }),
+    )
+    await waitFor(() =>
+      expect(onUnsavedWorkChange).toHaveBeenLastCalledWith(false),
+    )
+
+    const unloadAfterResolution = new Event('beforeunload', {
+      cancelable: true,
+    })
+
+    expect(window.dispatchEvent(unloadAfterResolution)).toBe(true)
   })
 })
 
@@ -802,9 +981,11 @@ describe('NotebookDocument — undo delete', () => {
     await user.click(await screen.findByRole('menuitem', { name: 'Delete' }))
     await user.click(screen.getByRole('button', { name: 'Delete' }))
     expect(screen.getByText('Block deleted.')).toBeTruthy()
+
     const undoDelete = screen
       .getAllByRole('button', { name: 'Undo' })
       .find((button) => !button.hasAttribute('disabled'))
+
     expect(undoDelete).toBeTruthy()
     await user.click(undoDelete!)
     expect(onUndoDelete).toHaveBeenCalled()
@@ -891,6 +1072,7 @@ describe('NotebookDocument — movement via menu', () => {
   it('moves the first block down via the Move down menu item', async () => {
     const user = userEvent.setup()
     const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+
     const { container } = render(
       <NotebookDocument
         record={record}
@@ -902,6 +1084,7 @@ describe('NotebookDocument — movement via menu', () => {
         onMoveBlock={onMoveBlock}
       />,
     )
+
     expect(blockIdOrder(container)).toEqual(['b1', 'b2', 'b3'])
     // Open the first block's action menu and choose Move down.
     await user.click(
@@ -984,9 +1167,11 @@ describe('NotebookDocument — movement via menu', () => {
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
+
     const up = await screen.findByRole('menuitem', {
       name: 'Move up',
     })
+
     expect(
       up.getAttribute('aria-disabled') === 'true' ||
         up.hasAttribute('disabled'),
@@ -995,18 +1180,33 @@ describe('NotebookDocument — movement via menu', () => {
 
   it('inserts a text block below the current block', async () => {
     const user = userEvent.setup()
-    const onInsertBlock = vi.fn().mockResolvedValue('new')
-    render(
+
+    let finishInsert: (id: string) => void = () => {
+      throw new Error('Insert has not started')
+    }
+
+    const pendingInsert = new Promise<string>((resolve) => {
+      finishInsert = resolve
+    })
+
+    const onInsertBlock = vi.fn(() => pendingInsert)
+    const blocks = threeBlocks()
+    const hash = vi.fn()
+
+    const ui = (canonical: NotebookBlock[]) => (
       <NotebookDocument
         record={record}
-        blocks={threeBlocks()}
+        blocks={canonical}
         onSaveBlock={vi.fn()}
         onInsertBlock={onInsertBlock}
         onDuplicateBlock={vi.fn()}
         onDeleteBlock={vi.fn()}
         onMoveBlock={vi.fn().mockResolvedValue(undefined)}
-      />,
+        onBlockHashChange={hash}
+      />
     )
+
+    const { container, rerender } = render(ui(blocks))
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[1],
     )
@@ -1014,6 +1214,18 @@ describe('NotebookDocument — movement via menu', () => {
       await screen.findByRole('menuitem', { name: 'Insert text below' }),
     )
     expect(onInsertBlock).toHaveBeenCalledWith('rich_text', 'b2')
+    await act(async () => finishInsert('new'))
+    await waitFor(() => expect(hash).toHaveBeenLastCalledWith('block-new'))
+    // A canonical refresh can precede the inserted block's appearance. Do not
+    // clear its pending selection while waiting for the returned id to arrive.
+    rerender(ui(blocks.map((block) => ({ ...block, version: 2 }))))
+    expect(hash).toHaveBeenLastCalledWith('block-new')
+    rerender(ui([...blocks, richTextBlock('new', 'Inserted paragraph')]))
+    const inserted = container.querySelector('#block-new')
+    expect(inserted?.getAttribute('data-selected')).toBe('true')
+    await waitFor(() =>
+      expect(inserted?.querySelector('[contenteditable="true"]')).toBeTruthy(),
+    )
   })
 })
 
@@ -1028,6 +1240,7 @@ describe('NotebookDocument — movement via keyboard', () => {
       onDeleteBlock: vi.fn(),
       onMoveBlock: vi.fn().mockResolvedValue(undefined),
     }
+
     const first = render(<NotebookDocument {...props} />)
     const second = render(<NotebookDocument {...props} />)
     const row = second.container.querySelector<HTMLElement>('[id="block-b1"]')!
@@ -1060,6 +1273,7 @@ describe('NotebookDocument — movement via keyboard', () => {
         onDeleteBlock={vi.fn()}
       />,
     )
+
     expect(container.querySelector('#block-b1')?.getAttribute('tabindex')).toBe(
       '0',
     )
@@ -1077,12 +1291,13 @@ describe('NotebookDocument — movement via keyboard', () => {
         onMoveBlock={vi.fn().mockResolvedValue(undefined)}
       />,
     )
-    const first = container.querySelector('#block-b1') as HTMLElement
+
+    const first = blockAnchor(container, 'b1')
     first.focus()
     fireEvent.keyDown(first, { key: 'ArrowDown', ctrlKey: true })
 
     await waitFor(() => {
-      const second = container.querySelector('#block-b2') as HTMLElement
+      const second = blockAnchor(container, 'b2')
       expect(second.dataset.selected).toBe('true')
       expect(second.contains(document.activeElement)).toBe(true)
     })
@@ -1091,6 +1306,7 @@ describe('NotebookDocument — movement via keyboard', () => {
 
   it('Alt+ArrowDown moves the focused block down with the same destination as the menu', () => {
     const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+
     const { container } = render(
       <NotebookDocument
         record={record}
@@ -1102,7 +1318,8 @@ describe('NotebookDocument — movement via keyboard', () => {
         onMoveBlock={onMoveBlock}
       />,
     )
-    const row = container.querySelector('#block-b1') as HTMLElement
+
+    const row = blockAnchor(container, 'b1')
     expect(row).toBeTruthy()
     fireEvent.keyDown(row, { key: 'ArrowDown', altKey: true })
     expect(onMoveBlock).toHaveBeenCalledWith(
@@ -1113,6 +1330,7 @@ describe('NotebookDocument — movement via keyboard', () => {
 
   it('Alt+ArrowUp moves the focused block up', () => {
     const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+
     const { container } = render(
       <NotebookDocument
         record={record}
@@ -1124,7 +1342,8 @@ describe('NotebookDocument — movement via keyboard', () => {
         onMoveBlock={onMoveBlock}
       />,
     )
-    const row = container.querySelector('#block-b3') as HTMLElement
+
+    const row = blockAnchor(container, 'b3')
     fireEvent.keyDown(row, { key: 'ArrowUp', altKey: true })
     expect(onMoveBlock).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'b3' }),
@@ -1134,6 +1353,7 @@ describe('NotebookDocument — movement via keyboard', () => {
 
   it('does nothing at the top/bottom edges', () => {
     const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+
     const { container } = render(
       <NotebookDocument
         record={record}
@@ -1145,12 +1365,13 @@ describe('NotebookDocument — movement via keyboard', () => {
         onMoveBlock={onMoveBlock}
       />,
     )
-    fireEvent.keyDown(container.querySelector('#block-b1') as HTMLElement, {
+
+    fireEvent.keyDown(blockAnchor(container, 'b1'), {
       key: 'ArrowUp',
       altKey: true,
     })
     expect(onMoveBlock).not.toHaveBeenCalled()
-    fireEvent.keyDown(container.querySelector('#block-b3') as HTMLElement, {
+    fireEvent.keyDown(blockAnchor(container, 'b3'), {
       key: 'ArrowDown',
       altKey: true,
     })
@@ -1162,12 +1383,14 @@ describe('NotebookDocument — optimistic reorder and rollback', () => {
   it('applies the optimistic order immediately and clears it on success', async () => {
     const user = userEvent.setup()
     let resolveMove: () => void = () => {}
+
     const onMoveBlock = vi.fn(
       () =>
         new Promise<void>((resolve) => {
           resolveMove = resolve
         }),
     )
+
     const { container } = render(
       <NotebookDocument
         record={record}
@@ -1179,6 +1402,7 @@ describe('NotebookDocument — optimistic reorder and rollback', () => {
         onMoveBlock={onMoveBlock}
       />,
     )
+
     expect(blockIdOrder(container)).toEqual(['b1', 'b2', 'b3'])
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
@@ -1197,9 +1421,11 @@ describe('NotebookDocument — optimistic reorder and rollback', () => {
 
   it('rolls back to the exact pre-move order when the server rejects the move', async () => {
     const user = userEvent.setup()
+
     const onMoveBlock = vi
       .fn()
       .mockRejectedValue(new Error('stale version: structure changed'))
+
     const { container } = render(
       <NotebookDocument
         record={record}
@@ -1211,6 +1437,7 @@ describe('NotebookDocument — optimistic reorder and rollback', () => {
         onMoveBlock={onMoveBlock}
       />,
     )
+
     expect(blockIdOrder(container)).toEqual(['b1', 'b2', 'b3'])
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
@@ -1227,6 +1454,7 @@ describe('NotebookDocument — optimistic reorder and rollback', () => {
   it('shows a generic move error for non-stale failures', async () => {
     const user = userEvent.setup()
     const onMoveBlock = vi.fn().mockRejectedValue(new Error('network down'))
+
     const { container } = render(
       <NotebookDocument
         record={record}
@@ -1238,6 +1466,7 @@ describe('NotebookDocument — optimistic reorder and rollback', () => {
         onMoveBlock={onMoveBlock}
       />,
     )
+
     await user.click(
       screen.getAllByRole('button', { name: /Block actions/ })[0],
     )
@@ -1274,6 +1503,7 @@ describe('NotebookDocument — drag and drop', () => {
 
     const handles = screen.getAllByRole('button', { name: 'Drag block' })
     expect(handles).toHaveLength(3)
+
     for (const handle of handles) {
       expect(handle.getAttribute('data-slot')).toBe('sortable-item-handle')
       // Native drag is not wanted on the grip: the browser's own drag would
@@ -1287,6 +1517,7 @@ describe('NotebookDocument — drag and drop', () => {
     const rows = Array.from(
       container.querySelectorAll('[data-slot="sortable-item"]'),
     )
+
     expect(rows.map((row) => row.getAttribute('data-value'))).toEqual([
       'b1',
       'b2',
@@ -1303,6 +1534,7 @@ describe('NotebookDocument — drag and drop', () => {
 
   it('lifts and cancels the row with the keyboard sensor on the grip', async () => {
     const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+
     const { container } = render(
       <NotebookDocument
         record={record}
@@ -1314,8 +1546,9 @@ describe('NotebookDocument — drag and drop', () => {
         onMoveBlock={onMoveBlock}
       />,
     )
+
     const handle = screen.getAllByRole('button', { name: 'Drag block' })[0]
-    const row = container.querySelector('#block-b1') as HTMLElement
+    const row = blockAnchor(container, 'b1')
     expect(row.getAttribute('data-dragging')).toBe('false')
 
     // Enter or Space on the grip is the sensor's lift, and the notebook shows
@@ -1396,6 +1629,7 @@ describe('NotebookDocument — movement read-only', () => {
 describe('NotebookDocument — focus and selection after a move', () => {
   it('keeps selection and refocuses the moved block after a successful move', async () => {
     const onMoveBlock = vi.fn().mockResolvedValue(undefined)
+
     const { container } = render(
       <NotebookDocument
         record={record}
@@ -1407,18 +1641,20 @@ describe('NotebookDocument — focus and selection after a move', () => {
         onMoveBlock={onMoveBlock}
       />,
     )
-    const row = container.querySelector('#block-b1') as HTMLElement
+
+    const row = blockAnchor(container, 'b1')
     fireEvent.keyDown(row, { key: 'ArrowDown', altKey: true })
     // Wait for the optimistic move + requestAnimationFrame focus to settle.
     await new Promise((r) => setTimeout(r, 50))
     // Selection remains inside block-b1 after the move. Editable blocks may
     // move focus into their contextual editor rather than the outer anchor.
-    const b1Anchor = container.querySelector('#block-b1') as HTMLElement
+    const b1Anchor = blockAnchor(container, 'b1')
     expect(b1Anchor.contains(document.activeElement)).toBe(true)
   })
 
   it('refocuses the moved block after a rollback', async () => {
     const onMoveBlock = vi.fn().mockRejectedValue(new Error('stale version'))
+
     const { container } = render(
       <NotebookDocument
         record={record}
@@ -1430,11 +1666,12 @@ describe('NotebookDocument — focus and selection after a move', () => {
         onMoveBlock={onMoveBlock}
       />,
     )
-    const row = container.querySelector('#block-b1') as HTMLElement
+
+    const row = blockAnchor(container, 'b1')
     fireEvent.keyDown(row, { key: 'ArrowDown', altKey: true })
     // Wait for the rollback + requestAnimationFrame focus to settle.
     await new Promise((r) => setTimeout(r, 50))
-    const b1Anchor = container.querySelector('#block-b1') as HTMLElement
+    const b1Anchor = blockAnchor(container, 'b1')
     // Selection remains inside the restored block. Editable blocks may move
     // focus into their contextual editor rather than the outer anchor.
     expect(b1Anchor).toBeTruthy()
@@ -1566,7 +1803,7 @@ describe('NOTE-02 sections and outline anchors', () => {
   function blockWithNodes(
     id: string,
     order: number,
-    nodes: Array<Record<string, unknown>>,
+    nodes: RichTextDocument['content'],
   ): NotebookBlock {
     return {
       id,
@@ -1581,6 +1818,7 @@ describe('NOTE-02 sections and outline anchors', () => {
 
   it('exposes stable heading anchors inside the active Tiptap editor so outline clicks navigate authoring content', async () => {
     const block = richTextBlock('b1', 'Objective')
+
     const { container } = render(
       <>
         <NotebookDocument
@@ -1594,18 +1832,23 @@ describe('NOTE-02 sections and outline anchors', () => {
         <NotebookOutlinePanel entries={notebookOutline([block])} />
       </>,
     )
+
     // Select the block: the Tiptap editor becomes the active canvas.
     fireEvent.click(container.querySelector('#block-b1')!)
+
     const editor = await screen.findByRole('textbox', {
       name: 'Text content',
     })
+
     // The read-view anchor id exists in the editable ProseMirror DOM —
     // the same `#section-<blockId>-h<index>` target the outline links to.
     const heading = await waitFor(() => {
       const el = document.getElementById('section-b1-h0')
       expect(el).toBeTruthy()
+
       return el!
     })
+
     expect(editor.contains(heading)).toBe(true)
     const link = screen.getByRole('link', { name: 'Objective' })
     expect(link.getAttribute('href')).toBe('#section-b1-h0')
@@ -1630,10 +1873,12 @@ describe('NOTE-02 sections and outline anchors', () => {
     // printed output remains fully expanded.
     const prose = document.getElementById('block-b1')!.querySelectorAll('p')
     expect(prose).toHaveLength(2)
+
     for (const p of prose) {
       expect(p.className).toContain('hidden')
       expect(p.className).toContain('print:contents')
     }
+
     const heading = document.getElementById('section-b1-h0')!
     expect(heading.className).not.toContain('hidden')
     // Placeholder explains same-block collapse honestly.
@@ -1655,10 +1900,13 @@ describe('NOTE-02 sections and outline anchors', () => {
         onToggleSection={vi.fn()}
       />,
     )
+
     fireEvent.click(container.querySelector('#block-b1')!)
+
     const editor = await screen.findByRole('textbox', {
       name: 'Text content',
     })
+
     // The ProseMirror node for the hidden prose carries the collapse class;
     // the payload still holds the text (print stays expanded).
     await waitFor(() => {
@@ -1683,6 +1931,7 @@ describe('NOTE-02 sections and outline anchors', () => {
       },
       { type: 'paragraph', content: [{ type: 'text', text: 'detail prose' }] },
     ])
+
     const { rerender } = render(
       <NotebookDocument
         record={record}
@@ -1695,20 +1944,23 @@ describe('NOTE-02 sections and outline anchors', () => {
         onToggleSection={vi.fn()}
       />,
     )
+
     const paras = () =>
       Array.from(document.getElementById('block-b1')!.querySelectorAll('p'))
+
     const headings = () =>
       Array.from(
         document
           .getElementById('block-b1')!
           .querySelectorAll('[data-type="heading"], h2, h3'),
       )
+
     // Collapsing the H2 hides its prose AND the nested H3 content (heading
     // + prose) until the next same-level heading.
     expect(paras()[0].className).toContain('hidden')
     expect(paras()[1].className).toContain('hidden')
     expect(headings()).toHaveLength(2)
-    expect((headings()[1] as HTMLElement).className).toContain('hidden')
+    expect(headings()[1].className).toContain('hidden')
     // Collapsing only the H3 hides just its own prose — independent of H2.
     rerender(
       <NotebookDocument
@@ -1724,6 +1976,6 @@ describe('NOTE-02 sections and outline anchors', () => {
     )
     expect(paras()[0].className).not.toContain('hidden')
     expect(paras()[1].className).toContain('hidden')
-    expect((headings()[1] as HTMLElement).className).not.toContain('hidden')
+    expect(headings()[1].className).not.toContain('hidden')
   })
 })

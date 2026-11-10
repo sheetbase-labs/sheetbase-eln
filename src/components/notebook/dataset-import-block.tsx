@@ -24,12 +24,12 @@ import type { BlockEditorProps } from './block-editor'
 import { ConflictBanner } from './conflict-banner'
 import { useAutosave } from './use-autosave'
 
-function text(value: unknown): string | undefined {
-  return typeof value === 'string' && value ? value : undefined
-}
+const nonemptyText = z.string().min(1).optional().catch(undefined)
+const text = nonemptyText.parse.bind(nonemptyText)
 
 function draftSearch(search: ImportSearch) {
   const { step, parser, map, sheet, units, instrument } = search
+
   return Object.fromEntries(
     Object.entries({ step, parser, map, sheet, units, instrument }).filter(
       ([, value]) => value !== undefined,
@@ -46,18 +46,25 @@ export function DatasetImportBlockEditor({
   onInsertBelow,
 }: BlockEditorProps) {
   const { auth } = useRouteContext({ from: '__root__' })
+
   const record = useQuery({
     queryKey: notebookQueryKeys.record(block.recordId),
     queryFn: () => fetchRecord(notebookDataClient, block.recordId),
   })
-  const validate = useCallback((payload: Record<string, unknown>) => {
-    const result = validateBlock({
-      type: 'dataset_import',
-      payload,
-      payloadSchemaVersion: 1,
-    })
-    return result.ok ? [] : result.errors.map((error) => error.message)
-  }, [])
+
+  const validate = useCallback(
+    (payload: BlockEditorProps['block']['payload']) => {
+      const result = validateBlock({
+        type: 'dataset_import',
+        payload,
+        payloadSchemaVersion: 1,
+      })
+
+      return result.ok ? [] : result.errors.map((error) => error.message)
+    },
+    [],
+  )
+
   const autosave = useAutosave({
     initialValue: block.payload,
     validate,
@@ -65,13 +72,18 @@ export function DatasetImportBlockEditor({
     offline,
     touched: true,
   })
+
   const { draft, setDraft, status } = autosave
+
   const search = parseImportSearch(
     z.record(z.string(), z.unknown()).safeParse(draft.search).data ?? {},
   )
+
   useLayoutEffect(() => {
+    // react-doctor-disable-next-line react-doctor/no-prop-callback-in-effect -- The mounted import editor owns its draft/conflict lifetime; this committed status drives the document navigation guard, not parent draft state.
     onStatusChange?.(status)
   }, [status, onStatusChange])
+
   const attachReceipt = useCallback(
     (receipt: DatasetImportRecord) => {
       setDraft((current) =>
@@ -88,9 +100,6 @@ export function DatasetImportBlockEditor({
     },
     [setDraft],
   )
-  const fileId = text(draft.fileId)
-  const datasetId = text(draft.datasetId)
-  const returnTo = `/records/${block.recordId}/notebook`
 
   if (readOnly)
     return (
@@ -99,6 +108,7 @@ export function DatasetImportBlockEditor({
         recordId={block.recordId}
       />
     )
+
   if (!auth?.workspace || !record.data)
     return (
       <Notice tone={record.isError ? 'bad' : 'info'}>
@@ -107,6 +117,7 @@ export function DatasetImportBlockEditor({
           : t('notebook.datasetImportBlock.loadingNotebookImport')}
       </Notice>
     )
+
   return (
     <section
       aria-label={t('notebook.datasetImportBlock.ariaLabel')}
@@ -154,63 +165,95 @@ export function DatasetImportBlockEditor({
         }
         className="m-0 min-w-0 border-0 p-0"
       >
-        {text(draft.importId) ? (
-          <>
-            <DatasetImportBlockPreview
-              payload={draft}
-              recordId={block.recordId}
-            />
-            {onInsertBelow ? (
-              <div className="px-4 pb-3">
-                <Button onClick={() => onInsertBelow('dataset_import')}>
-                  {t('notebook.datasetImportBlock.importAnotherFile')}
-                </Button>
-              </div>
-            ) : null}
-          </>
-        ) : fileId && datasetId ? (
-          <ImportMapCheckFlow
-            importId={fileId}
-            search={{
-              ...search,
-              dataset: datasetId,
-              experiment:
-                record.data.kind === 'experiment' ? block.recordId : undefined,
-              project: record.data.projectId ?? undefined,
-              returnTo,
-              sheet: search.sheet ?? text(draft.sheetName),
-            }}
-            onSearch={(next) =>
-              setDraft({
-                ...draft,
-                search: draftSearch(next),
-                sheetName: next.sheet,
-              })
-            }
-            renderReceipt={(receipt) => (
-              <AttachImportReceipt receipt={receipt} onAttach={attachReceipt} />
-            )}
-          />
-        ) : (
-          <ImportUploadFlow
-            workspaceId={auth.workspace.id}
-            createdByUserId={auth.user.id}
-            initialExperimentId={
-              record.data.kind === 'experiment' ? block.recordId : undefined
-            }
-            initialProjectId={record.data.projectId ?? undefined}
-            returnTo={returnTo}
-            onUploaded={async (uploadedId, next) => {
-              setDraft({
-                fileId: uploadedId,
-                datasetId: next.dataset,
-                search: draftSearch(next),
-              })
-            }}
-          />
-        )}
+        <ImportDraftFlow
+          draft={draft}
+          setDraft={setDraft}
+          record={record.data}
+          workspaceId={auth.workspace.id}
+          createdByUserId={auth.user.id}
+          search={search}
+          onInsertBelow={onInsertBelow}
+          onAttach={attachReceipt}
+        />
       </fieldset>
     </section>
+  )
+}
+
+/** Upload/mapping/receipt navigation edits only the import editor's local draft. */
+function ImportDraftFlow({
+  draft,
+  setDraft,
+  record,
+  workspaceId,
+  createdByUserId,
+  search,
+  onInsertBelow,
+  onAttach,
+}: {
+  draft: BlockEditorProps['block']['payload']
+  setDraft: React.Dispatch<
+    React.SetStateAction<BlockEditorProps['block']['payload']>
+  >
+  record: NonNullable<Awaited<ReturnType<typeof fetchRecord>>>
+  workspaceId: string
+  createdByUserId: string
+  search: ImportSearch
+  onInsertBelow: BlockEditorProps['onInsertBelow']
+  onAttach: (receipt: DatasetImportRecord) => void
+}) {
+  const fileId = text(draft.fileId)
+  const datasetId = text(draft.datasetId)
+  const returnTo = `/records/${record.id}/notebook`
+
+  return text(draft.importId) ? (
+    <>
+      <DatasetImportBlockPreview payload={draft} recordId={record.id} />
+      {onInsertBelow ? (
+        <div className="px-4 pb-3">
+          <Button onClick={() => onInsertBelow('dataset_import')}>
+            {t('notebook.datasetImportBlock.importAnotherFile')}
+          </Button>
+        </div>
+      ) : null}
+    </>
+  ) : fileId && datasetId ? (
+    <ImportMapCheckFlow
+      importId={fileId}
+      search={{
+        ...search,
+        dataset: datasetId,
+        experiment: record.kind === 'experiment' ? record.id : undefined,
+        project: record.projectId ?? undefined,
+        returnTo,
+        sheet: search.sheet ?? text(draft.sheetName),
+      }}
+      onSearch={(next) =>
+        setDraft({
+          ...draft,
+          search: draftSearch(next),
+          sheetName: next.sheet,
+        })
+      }
+      renderReceipt={(receipt) => (
+        <AttachImportReceipt receipt={receipt} onAttach={onAttach} />
+      )}
+    />
+  ) : (
+    <ImportUploadFlow
+      workspaceId={workspaceId}
+      createdByUserId={createdByUserId}
+      initialExperimentId={record.kind === 'experiment' ? record.id : undefined}
+      initialProjectId={record.projectId ?? undefined}
+      returnTo={returnTo}
+      onUploaded={async (uploadedId, next) => {
+        setDraft({
+          fileId: uploadedId,
+          datasetId: next.dataset,
+          search: draftSearch(next),
+        })
+      }}
+    />
   )
 }
 
@@ -224,6 +267,7 @@ function AttachImportReceipt({
   useEffect(() => {
     onAttach(receipt)
   }, [receipt, onAttach])
+
   return (
     <p role="status" className="p-3 text-label">
       {t('notebook.datasetImportBlock.importCommittedAttachingIts')}
@@ -243,11 +287,13 @@ export function DatasetImportBlockPreview({
   const importId = text(payload.importId)
   const versionId = text(payload.datasetVersionId)
   const returnTo = recordId ? `/records/${recordId}/notebook` : undefined
+
   const receipts = useQuery({
     queryKey: importQueryKeys.imports(datasetId ?? ''),
     queryFn: () => fetchDatasetImports(notebookDataClient, datasetId!),
     enabled: Boolean(datasetId && importId && versionId),
   })
+
   if (!importId || !versionId || !datasetId)
     return (
       <Notice icon="upload" title={t('notebook.datasetImportBlock.title')}>
@@ -256,12 +302,14 @@ export function DatasetImportBlockPreview({
           : t('notebook.datasetImportBlock.selectThisBlockTo')}
       </Notice>
     )
+
   if (receipts.isPending)
     return (
       <p role="status" className="p-3 text-label">
         {t('notebook.datasetImportBlock.loadingImportReceipt')}
       </p>
     )
+
   const receipt = receipts.data?.find(
     (item) =>
       item.id === importId &&
@@ -269,6 +317,7 @@ export function DatasetImportBlockPreview({
       item.snapshot_version_id === versionId &&
       item.status === 'committed',
   )
+
   if (!receipt)
     return (
       <Notice
@@ -278,9 +327,11 @@ export function DatasetImportBlockPreview({
         {t('notebook.datasetImportBlock.thePinnedReceiptCould')}
       </Notice>
     )
+
   const filename =
     text(receipt.source_provenance.filename) ??
     t('notebook.datasetImportBlock.importedFile')
+
   return (
     <div className="grid min-w-0 gap-3 p-4">
       <div>

@@ -78,19 +78,19 @@ export function createModelSubtype(
   })
 }
 
-export function reparentRecordModel(
+export async function reparentRecordModel(
   client: DataClient,
   modelId: string,
   parentKey: string | null,
-): Promise<unknown> {
-  return client.rpc('reparent_record_model', {
+): Promise<void> {
+  await client.rpc('reparent_record_model', {
     p_model_id: modelId,
     p_parent_key: parentKey,
   })
 }
 
 /** A refused subtype or type change, in a scientist's words. */
-export function describeTypeError(error: unknown): string {
+export function describeTypeError(error: Error): string {
   const code = error instanceof DataClientError ? error.code : undefined
   const message = error instanceof Error ? error.message : ''
 

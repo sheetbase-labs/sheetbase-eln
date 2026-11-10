@@ -12,8 +12,9 @@ import {
 import { Field, Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import { Textarea } from '#/components/inventory/list'
-import { DataClientError } from '#/lib/data-client'
 import { t } from '#/copy'
+import { modelCreateErrors } from './model-create-validation'
+import type { ModelCreateInput } from './model-create-validation'
 
 /**
  * The Models board's create affordance, ported from the design: the reference
@@ -27,90 +28,15 @@ import { t } from '#/copy'
  * Dataset Schema definitions. Both require schema.edit and begin as drafts.
  */
 
-/** The key contract the RPC enforces on create (`SB071`), the same shape the
- * model editor already names inline: `^[a-z][a-z0-9_]{0,59}$`. */
-const MODEL_KEY_PATTERN = /^[a-z][a-z0-9_]{0,59}$/
-export const MODEL_NAME_MAX = 200
-export const MODEL_DESCRIPTION_MAX = 2000
-
-export interface ModelCreateInput {
-  kind: 'record' | 'dataset'
-  identifierPrefix?: string
-  key: string
-  name: string
-  description: string | null
-}
-
-/**
- * The metadata contract the create RPC validates before it inserts anything
- * (`SB071`): a key matching `^[a-z][a-z0-9_]{0,59}$`, a name of 1–200
- * characters, and a description of at most 2000. Checked here so an avoidable
- * refusal never reaches the server; the server remains authoritative.
- */
-export function modelCreateErrors(input: {
-  key: string
-  name: string
-  description: string
-}): { key?: string; name?: string; description?: string } {
-  const key = input.key.trim()
-  const name = input.name.trim()
-  const description = input.description.trim()
-  const errors: { key?: string; name?: string; description?: string } = {}
-
-  if (!key) errors.key = t('library.models.modelCreateDialog.keyIsRequired')
-  else if (!MODEL_KEY_PATTERN.test(key))
-    errors.key = t('library.models.modelCreateDialog.useLowerCaseLettersDigits')
-
-  if (!name) errors.name = t('library.models.modelCreateDialog.nameIsRequired')
-  else if (name.length > MODEL_NAME_MAX)
-    errors.name = t('library.models.modelCreateDialog.nameMustBeCharactersOr', {
-      modelNameMax: MODEL_NAME_MAX,
-    })
-
-  if (description.length > MODEL_DESCRIPTION_MAX)
-    errors.description = t(
-      'library.models.modelCreateDialog.descriptionMustBeCharactersOr',
-      { modelDescriptionMax: MODEL_DESCRIPTION_MAX },
-    )
-
-  return errors
-}
-
-/** Map the RPC's refusal to a short, true reason rather than a shrug. */
-export function describeModelCreateError(error: unknown): string | null {
-  if (error == null) return null
-
-  if (error instanceof DataClientError) {
-    if (error.code === '42501' || /capability/i.test(error.message))
-      return t('library.models.modelCreateDialog.youDontHavePermissionTo')
-
-    if (error.code === 'SB082')
-      return t('library.models.modelCreateDialog.thatRecordTypeKeyOr')
-
-    if (error.code === '23505' || /duplicate key/i.test(error.message))
-      return t('library.models.modelCreateDialog.aModelWithThatKey')
-
-    return error.message
-  }
-
-  return error instanceof Error
-    ? error.message
-    : t('library.models.modelCreateDialog.couldNotCreateTheModel')
-}
-
-export function ModelCreateDialog({
-  open,
-  onOpenChange,
-  onCreate,
-  creating,
-  error,
-}: {
+interface ModelCreateDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreate: (input: ModelCreateInput) => void
   creating: boolean
   error: string | null
-}) {
+}
+
+function useModelCreateDraft(onCreate: ModelCreateDialogProps['onCreate']) {
   const [key, setKey] = useState('')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -136,16 +62,76 @@ export function ModelCreateDialog({
     setSubmitted(true)
 
     if (invalid) return
-    onCreate({
+
+    const input: ModelCreateInput = {
       key: key.trim(),
       name: name.trim(),
       description: description.trim() || null,
       kind,
-      ...(kind === 'record'
-        ? { identifierPrefix: identifierPrefix.trim() }
-        : {}),
-    })
+    }
+
+    if (kind === 'record') input.identifierPrefix = identifierPrefix.trim()
+    onCreate(input)
   }
+
+  function reset() {
+    setKey('')
+    setName('')
+    setDescription('')
+    setKind('dataset')
+    setIdentifierPrefix('')
+    setSubmitted(false)
+  }
+
+  return {
+    key,
+    setKey,
+    name,
+    setName,
+    description,
+    setDescription,
+    kind,
+    setKind,
+    identifierPrefix,
+    setIdentifierPrefix,
+    submitted,
+    errors,
+    showKey,
+    showName,
+    showDescription,
+    prefixError,
+    submit,
+    reset,
+  }
+}
+
+export function ModelCreateDialog({
+  open,
+  onOpenChange,
+  onCreate,
+  creating,
+  error,
+}: ModelCreateDialogProps) {
+  const {
+    key,
+    setKey,
+    name,
+    setName,
+    description,
+    setDescription,
+    kind,
+    setKind,
+    identifierPrefix,
+    setIdentifierPrefix,
+    submitted,
+    errors,
+    showKey,
+    showName,
+    showDescription,
+    prefixError,
+    submit,
+    reset,
+  } = useModelCreateDraft(onCreate)
 
   return (
     <Dialog
@@ -153,14 +139,7 @@ export function ModelCreateDialog({
       onOpenChange={(next) => {
         onOpenChange(next)
 
-        if (!next) {
-          setKey('')
-          setName('')
-          setDescription('')
-          setKind('dataset')
-          setIdentifierPrefix('')
-          setSubmitted(false)
-        }
+        if (!next) reset()
       }}
     >
       <DialogContent className="w-[min(520px,calc(100vw-32px))]">

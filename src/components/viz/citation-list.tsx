@@ -17,6 +17,7 @@ import { Link } from '@tanstack/react-router'
 
 import { t } from '#/copy'
 import { Status } from '#/components/ui/status'
+import type { Tone } from '#/components/ui/status'
 import {
   Table,
   TableBody,
@@ -36,17 +37,23 @@ export interface CitationListProps {
   emptyBody?: string
 }
 
-function citationState(citation: AnalysisViewCitation): {
-  tone: 'ok' | 'warn' | 'draft'
-  label: string
-} {
+function citationState(citation: AnalysisViewCitation) {
   if (citation.signed)
-    return { tone: 'ok', label: t('data.citationList.signed') }
+    return { tone: 'ok', label: t('data.citationList.signed') } satisfies {
+      tone: Tone
+      label: string
+    }
 
   if (citation.locked)
-    return { tone: 'warn', label: t('data.citationList.locked') }
+    return { tone: 'warn', label: t('data.citationList.locked') } satisfies {
+      tone: Tone
+      label: string
+    }
 
-  return { tone: 'draft', label: t('data.citationList.draft') }
+  return { tone: 'draft', label: t('data.citationList.draft') } satisfies {
+    tone: Tone
+    label: string
+  }
 }
 
 export function CitationList({

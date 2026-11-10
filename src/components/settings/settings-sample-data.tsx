@@ -9,21 +9,13 @@ import {
   fetchSampleDataStatusFn,
   sampleDataQueryKey,
 } from '#/lib/sample-data'
-import type { AddSampleDataResult } from '#/lib/sample-data'
 import { t } from '#/copy'
+import { describeSampleDataFailure } from './sample-data-messages'
 
-/** What to tell the admin when the sample data could not be added. */
-export function describeSampleDataFailure(
-  result: Extract<AddSampleDataResult, { ok: false }>,
-  projectKey = 'virus-stability',
-): string {
-  return result.reason === 'project_key_in_use'
-    ? t('settings.sampleData.keyInUse', { key: projectKey })
-    : t('settings.sampleData.elsewhere')
-}
+export { describeSampleDataFailure } from './sample-data-messages'
 
 /** Adds the sample project, then refreshes everything it appears in. */
-export function useAddSampleData(workspaceId: string) {
+function useAddSampleData(workspaceId: string) {
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -42,9 +34,9 @@ export function useAddSampleData(workspaceId: string) {
   })
 }
 
-export class SampleDataError extends Error {}
+class SampleDataError extends Error {}
 
-export function sampleDataErrorMessage(error: unknown): string {
+function sampleDataErrorMessage(error: Error): string {
   return error instanceof SampleDataError
     ? error.message
     : t('settings.sampleData.error')

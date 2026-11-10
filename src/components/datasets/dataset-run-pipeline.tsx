@@ -14,24 +14,9 @@ import {
   declaredRunInputs,
   usePipelineRows,
 } from '#/components/pipelines/pipelines-data'
-import type { PipelineListRow } from '#/components/pipelines/pipelines-data'
 import { useRunLauncher } from '#/components/pipelines/use-run-launcher'
 import type { PipelineRunWire } from '#/lib/pipelines/types'
-
-/** Pipelines that can start from a dataset: a live version that reads an input. */
-export function pipelinesThatReadADataset(
-  rows: PipelineListRow[],
-): Array<
-  PipelineListRow & { current: NonNullable<PipelineListRow['current']> }
-> {
-  return rows.flatMap((row) =>
-    row.current &&
-    row.current.lifecycle !== 'draft' &&
-    declaredRunInputs(row.current).inputs.length > 0
-      ? [{ ...row, current: row.current }]
-      : [],
-  )
-}
+import { pipelinesThatReadADataset } from './dataset-pipeline-candidates'
 
 /**
  * "Run pipeline…" on a dataset: pick a pipeline that reads a dataset and start

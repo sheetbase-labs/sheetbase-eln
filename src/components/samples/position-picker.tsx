@@ -11,6 +11,7 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { Tooltip } from '#/components/ui/tooltip'
 import { rich, t } from '#/copy'
 import { notebookDataClient } from '#/lib/notebook-data'
+import type { DataClient } from '#/lib/data-client'
 import {
   describePlace,
   fetchBoxChoices,
@@ -25,6 +26,32 @@ import type {
   PositionCell,
 } from '#/lib/storage-positions'
 import { cn } from '#/lib/utils'
+
+const EMPTY_BOXES: BoxChoice[] = []
+
+function NoStorageBoxes({ canManageStorage }: { canManageStorage: boolean }) {
+  return (
+    <Notice icon="info">
+      {canManageStorage
+        ? rich('library.samples.positionPicker.noBoxesAdmin', {
+            link: (text) => (
+              <Link to="/settings/lab/storage" className="underline">
+                {text}
+              </Link>
+            ),
+          })
+        : t('library.samples.positionPicker.noBoxes')}
+    </Notice>
+  )
+}
+
+function openingBox(list: BoxChoice[], currentBoxId: string | null) {
+  return (
+    list.find((b) => b.id === currentBoxId)?.id ??
+    list.find((b) => b.free > 0)?.id ??
+    list[0].id
+  )
+}
 
 /** Boxes grouped by the freezer (or shelf, or room) that holds them. */
 function groupBoxes(boxes: readonly BoxChoice[]) {
@@ -55,6 +82,7 @@ export function PositionPicker({
   allowText = true,
   canManageStorage = false,
   textLocations,
+  client = notebookDataClient,
 }: {
   value: PlaceChoice | null
   onChange: (choice: PlaceChoice | null) => void
@@ -67,10 +95,11 @@ export function PositionPicker({
   /** Show a link to set storage up when there are no boxes. */
   canManageStorage?: boolean
   textLocations?: readonly string[]
+  client?: DataClient
 }) {
   const boxes = useQuery({
     queryKey: positionKeys.boxes,
-    queryFn: () => fetchBoxChoices(notebookDataClient),
+    queryFn: () => fetchBoxChoices(client),
     staleTime: 15_000,
     retry: false,
   })
@@ -83,7 +112,7 @@ export function PositionPicker({
 
   const [typing, setTyping] = useState(value?.kind === 'text')
 
-  const list = boxes.data ?? []
+  const list = boxes.data ?? EMPTY_BOXES
   const noBoxes = boxes.isSuccess && list.length === 0
   // Without any boxes (or without permission to read them) typing is the only way.
   const textOnly = noBoxes || boxes.isError
@@ -107,11 +136,7 @@ export function PositionPicker({
   const opening = useRef(true)
   useEffect(() => {
     if (boxId || !list.length || value) return
-    setBoxId(
-      list.find((b) => b.id === currentBoxId)?.id ??
-        list.find((b) => b.free > 0)?.id ??
-        list[0].id,
-    )
+    setBoxId(openingBox(list, currentBoxId))
   }, [boxId, currentBoxId, list, value])
 
   if (boxes.isPending) {
@@ -126,17 +151,7 @@ export function PositionPicker({
   return (
     <div className="flex flex-col gap-3">
       {textOnly ? (
-        <Notice icon="info">
-          {canManageStorage
-            ? rich('library.samples.positionPicker.noBoxesAdmin', {
-                link: (text) => (
-                  <Link to="/settings/lab/storage" className="underline">
-                    {text}
-                  </Link>
-                ),
-              })
-            : t('library.samples.positionPicker.noBoxes')}
-        </Notice>
+        <NoStorageBoxes canManageStorage={canManageStorage} />
       ) : (
         <div className="grid min-h-0 gap-3 md:grid-cols-[minmax(0,13.5rem)_minmax(0,1fr)]">
           <div className="flex min-h-0 flex-col gap-2">
@@ -181,7 +196,7 @@ export function PositionPicker({
                           ) {
                             opening.current = false
                             // jsdom has no scrollIntoView.
-                            // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+                            // oxlint-disable-next-line typescript/no-unnecessary-condition -- DOM types require this method, but jsdom lacks it; retain the existing runtime capability guard.
                             element.scrollIntoView?.({ block: 'nearest' })
                           }
                         }}
@@ -230,6 +245,7 @@ export function PositionPicker({
             </div>
           </div>
           <BoxGrid
+            client={client}
             box={box}
             value={value?.kind === 'position' ? value.position.id : null}
             currentPositionId={currentPositionId}
@@ -250,6 +266,44 @@ export function PositionPicker({
         </p>
       ) : null}
 
+      <PositionTextFields
+        client={client}
+        allowText={allowText}
+        textOnly={textOnly}
+        typing={typing}
+        setTyping={setTyping}
+        showText={showText}
+        value={value}
+        onChange={onChange}
+        textLocations={textLocations}
+      />
+    </div>
+  )
+}
+
+function PositionTextFields({
+  client,
+  allowText,
+  textOnly,
+  typing,
+  setTyping,
+  showText,
+  value,
+  onChange,
+  textLocations,
+}: {
+  client: DataClient
+  allowText: boolean
+  textOnly: boolean
+  typing: boolean
+  setTyping: (value: boolean) => void
+  showText: boolean
+  value: PlaceChoice | null
+  onChange: (choice: PlaceChoice | null) => void
+  textLocations?: readonly string[]
+}) {
+  return (
+    <>
       {allowText && !textOnly ? (
         <button
           type="button"
@@ -274,6 +328,7 @@ export function PositionPicker({
             {t('library.samples.positionPicker.typeAPlace')}
           </span>
           <LocationInput
+            client={client}
             value={value?.kind === 'text' ? value.text : ''}
             onChange={(text) => onChange({ kind: 'text', text })}
             locations={textLocations}
@@ -284,25 +339,27 @@ export function PositionPicker({
           </span>
         </div>
       ) : null}
-    </div>
+    </>
   )
 }
 
 /** The grid of one box: columns across, letters down. */
 function BoxGrid({
   box,
+  client,
   value,
   currentPositionId,
   onPick,
 }: {
   box: BoxChoice | null
+  client: DataClient
   value: string | null
   currentPositionId: string | null
   onPick: (position: PositionCell) => void
 }) {
   const positions = useQuery({
     queryKey: positionKeys.box(box?.id ?? 'none'),
-    queryFn: () => fetchBoxPositions(notebookDataClient, box!.id),
+    queryFn: () => fetchBoxPositions(client, box!.id),
     enabled: Boolean(box),
     staleTime: 5_000,
   })
@@ -452,7 +509,7 @@ function PositionRow({
               type="button"
               role="gridcell"
               aria-label={`${cell.label}: ${reason}`}
-              aria-pressed={chosen}
+              aria-selected={chosen}
               aria-disabled={blocked || undefined}
               onClick={() => {
                 if (!blocked) onPick(cell)

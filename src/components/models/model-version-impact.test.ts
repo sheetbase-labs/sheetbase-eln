@@ -9,10 +9,11 @@ import type {
   CanonicalDatasetSchemaField,
   CanonicalDatasetSchemaVersion,
 } from '#/lib/dataset-schema-definition-rpc'
+import type { ModelMetadataPatch } from '#/lib/model-fields'
 
 function field(
   key: string,
-  overrides: Partial<CanonicalDatasetSchemaField> = {},
+  overrides: ModelMetadataPatch<CanonicalDatasetSchemaField> = {},
 ): CanonicalDatasetSchemaField {
   return {
     field_id: `f-${key}`,

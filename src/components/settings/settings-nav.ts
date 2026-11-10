@@ -53,7 +53,7 @@ const SIGNING_ROLES = [
 
 /** Whether a workspace role certifies its own signature. */
 export function isSigningRole(role: string): boolean {
-  return (SIGNING_ROLES as readonly string[]).includes(role)
+  return SIGNING_ROLES.some((signingRole) => signingRole === role)
 }
 
 const PEOPLE = 'People and access'
@@ -343,5 +343,5 @@ export function settingsHomePath(
     String(i.link.to).startsWith('/settings'),
   )
 
-  return (first?.link.to as string | undefined) ?? '/settings/account/profile'
+  return first?.link.to ?? '/settings/account/profile'
 }

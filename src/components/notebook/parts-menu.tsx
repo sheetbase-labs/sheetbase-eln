@@ -33,6 +33,7 @@ import {
   updateExperimentPart,
 } from '#/lib/experiment-parts'
 import type { PartProgress, SplitPoint } from '#/lib/experiment-parts'
+import type { NotebookBlock } from '#/lib/notebook-data'
 import { notebookDataClient, notebookQueryKeys } from '#/lib/notebook-data'
 import { AmendPartDialog } from '#/components/notebook/part-signoff'
 import { partSignoffQueryKeys, setPartsSignOff } from '#/lib/part-signoff'
@@ -42,6 +43,7 @@ import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
 /** Refresh everything a change to the parts touches. */
 function useRefreshParts(recordId: string) {
   const queryClient = useQueryClient()
+
   return React.useCallback(async () => {
     await Promise.all([
       queryClient.invalidateQueries({
@@ -90,13 +92,18 @@ export function PartsMenu({
 }) {
   const [editing, setEditing] = React.useState<Editing>(null)
   const refresh = useRefreshParts(recordId)
-  const navigate = useNavigate()
+
+  // useRefreshParts owns part, signoff, block and record invalidation.
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation
   const move = useMutation({
     mutationFn: (afterPartId: string | null) =>
       moveExperimentPart(notebookDataClient, shown.id, afterPartId),
     onSuccess: refresh,
     onError: () => toast.error(t('notebook.parts.couldNotChange')),
   })
+
+  // useRefreshParts owns part, signoff, block and record invalidation.
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation
   const done = useMutation({
     mutationFn: (value: boolean) =>
       setPartDone(notebookDataClient, shown.id, value),
@@ -110,7 +117,11 @@ export function PartsMenu({
     },
     onError: () => toast.error(t('notebook.parts.couldNotChange')),
   })
+
   const requiresSignOff = parts.some((part) => part.requiresSignOff)
+
+  // useRefreshParts owns part, signoff, block and record invalidation.
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation
   const signOff = useMutation({
     mutationFn: (required: boolean) =>
       setPartsSignOff(notebookDataClient, recordId, required),
@@ -126,10 +137,12 @@ export function PartsMenu({
     },
     onError: () => toast.error(t('notebook.parts.couldNotChange')),
   })
+
   const index = parts.findIndex((part) => part.id === shown.id)
   const before = index > 0 ? parts[index - 1] : null
   const beforeThat = index > 1 ? parts[index - 2] : null
   const after = index < parts.length - 1 ? parts[index + 1] : null
+
   return (
     <>
       <DropdownMenu>
@@ -219,46 +232,86 @@ export function PartsMenu({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {editing?.kind === 'add' ? (
+      <PartEditingDialog
+        editing={editing}
+        recordId={recordId}
+        expId={expId}
+        workspaceId={workspaceId}
+        parts={parts}
+        refresh={refresh}
+        onClose={() => setEditing(null)}
+      />
+    </>
+  )
+}
+
+/** A part edit owns its dialog and any navigation after the refreshed write. */
+function PartEditingDialog({
+  editing,
+  recordId,
+  expId,
+  workspaceId,
+  parts,
+  refresh,
+  onClose,
+}: {
+  editing: Editing
+  recordId: string
+  expId: string
+  workspaceId?: string
+  parts: readonly PartProgress[]
+  refresh: () => Promise<void>
+  onClose: () => void
+}) {
+  const navigate = useNavigate()
+
+  switch (editing?.kind) {
+    case 'add':
+      return (
         <PartFormDialog
+          key="add"
           recordId={recordId}
           workspaceId={workspaceId}
           after={parts[parts.length - 1] ?? null}
-          onClose={() => setEditing(null)}
+          onClose={onClose}
           onSaved={async (created) => {
             await refresh()
-            const number = parts.length + 1
+
             if (created) {
               void navigate({
                 to: '/experiments/$expId/notebook/$part',
-                params: { expId, part: String(number) },
+                params: { expId, part: String(parts.length + 1) },
               })
             }
           }}
         />
-      ) : null}
-      {editing?.kind === 'edit' ? (
+      )
+    case 'edit':
+      return (
         <PartFormDialog
+          key="edit"
           recordId={recordId}
           workspaceId={workspaceId}
           part={editing.part}
-          onClose={() => setEditing(null)}
+          onClose={onClose}
           onSaved={refresh}
         />
-      ) : null}
-      {editing?.kind === 'amend' ? (
+      )
+    case 'amend':
+      return (
         <AmendPartDialog
           recordId={recordId}
           part={editing.part}
-          onClose={() => setEditing(null)}
+          onClose={onClose}
         />
-      ) : null}
-      {editing?.kind === 'delete' ? (
+      )
+    case 'delete':
+      return (
         <DeletePartDialog
           recordId={recordId}
           part={editing.part}
           parts={parts}
-          onClose={() => setEditing(null)}
+          onClose={onClose}
           onDeleted={async () => {
             await refresh()
             void navigate({
@@ -267,9 +320,10 @@ export function PartsMenu({
             })
           }}
         />
-      ) : null}
-    </>
-  )
+      )
+    default:
+      return null
+  }
 }
 
 /** Add a part, or rename, reschedule and reassign one. */
@@ -292,25 +346,32 @@ export function PartFormDialog({
 }) {
   const adding = !part
   const [title, setTitle] = React.useState(part?.title ?? '')
+
   const [day, setDay] = React.useState(
     String(part?.dayOffset ?? (after ? after.dayOffset + 1 : 0)),
   )
+
   const [assignee, setAssignee] = React.useState(part?.assigneeUserId ?? '')
+
   const members = useQuery({
     queryKey: adminQueryKeys.members(workspaceId ?? 'none'),
     queryFn: () => fetchWorkspaceMembers(notebookDataClient, workspaceId!),
     enabled: Boolean(workspaceId),
   })
+
   const people = (members.data ?? []).filter(
     (member) => member.suspendedAt === null,
   )
+
   const { userLabel } = useUserNames(people.map((member) => member.userId))
   const dayNumber = Number(day)
+
   const ready =
     title.trim() !== '' &&
     /^[0-9]{1,4}$/.test(day) &&
     dayNumber >= 0 &&
     dayNumber <= 3650
+
   const save = useMutation({
     mutationFn: async () => {
       if (adding) {
@@ -321,6 +382,7 @@ export function PartFormDialog({
           afterPartId: after?.id ?? null,
         })
       }
+
       return updateExperimentPart(notebookDataClient, {
         partId: part.id,
         title: title.trim(),
@@ -336,12 +398,14 @@ export function PartFormDialog({
           assigneeUserId: assignee,
         })
       }
+
       await onSaved(adding)
       toast.success(t(adding ? 'notebook.parts.added' : 'notebook.parts.saved'))
       onClose()
     },
     onError: () => toast.error(t('notebook.parts.couldNotSave')),
   })
+
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="max-w-md">
@@ -357,6 +421,7 @@ export function PartFormDialog({
           className="flex min-h-0 flex-1 flex-col"
           onSubmit={(event) => {
             event.preventDefault()
+
             if (ready && !save.isPending) save.mutate()
           }}
         >
@@ -433,11 +498,14 @@ function DeletePartDialog({
 }) {
   const others = parts.filter((other) => other.id !== part.id)
   const empty = part.blockCount === 0
+
   const fallbackId =
     others.find((other) => other.number === part.number - 1)?.id ??
     others.at(0)?.id ??
     ''
+
   const [target, setTarget] = React.useState(fallbackId)
+
   const remove = useMutation({
     mutationFn: () =>
       deleteExperimentPart(
@@ -452,7 +520,9 @@ function DeletePartDialog({
     },
     onError: () => toast.error(t('notebook.parts.couldNotChange')),
   })
+
   void recordId
+
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="max-w-md">
@@ -516,6 +586,9 @@ export function SplitIntoPartsDialog({
   onClose: () => void
 }) {
   const refresh = useRefreshParts(recordId)
+
+  // useRefreshParts owns part, signoff, block and record invalidation.
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation
   const split = useMutation({
     mutationFn: () =>
       splitRecordIntoParts(notebookDataClient, recordId, points),
@@ -526,6 +599,7 @@ export function SplitIntoPartsDialog({
     },
     onError: () => toast.error(t('notebook.parts.couldNotChange')),
   })
+
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="max-w-md">
@@ -584,13 +658,16 @@ export function SplitIntoPartsAction({
     id: string
     type: string
     order: number
-    payload: Record<string, unknown>
+    payload: NotebookBlock['payload']
   }>
 }) {
   const [open, setOpen] = React.useState(false)
   const refresh = useRefreshParts(recordId)
   const navigate = useNavigate()
   const points = React.useMemo(() => splitPointsAtHeadings(blocks), [blocks])
+
+  // useRefreshParts owns part, signoff, block and record invalidation.
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation
   const start = useMutation({
     mutationFn: () =>
       createExperimentPart(notebookDataClient, {
@@ -607,6 +684,7 @@ export function SplitIntoPartsAction({
     },
     onError: () => toast.error(t('notebook.parts.couldNotChange')),
   })
+
   return (
     <div className="flex flex-col gap-2" data-testid="split-into-parts">
       <p className="m-0 text-label text-fg-muted">

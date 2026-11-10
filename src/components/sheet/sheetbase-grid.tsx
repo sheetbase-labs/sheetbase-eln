@@ -12,8 +12,17 @@ import { Component, useEffect, useId, useState } from 'react'
  * build engine settings.
  */
 
-/** One cell value as the grid stores and displays it. */
-export type SheetbaseGridCellValue = unknown
+/** Scientific JSON values contain finite numbers and no executable objects. */
+export type SheetbaseGridJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly SheetbaseGridJsonValue[]
+  | { readonly [key: string]: SheetbaseGridJsonValue }
+
+/** A stored scientific value, or a valid Date supplied by a typed host. */
+export type SheetbaseGridCellValue = SheetbaseGridJsonValue | Date
 
 /**
  * Where a column's values come from. `bound` columns write through the owning
@@ -59,7 +68,7 @@ export interface SheetbaseGridColumn {
    * Display-only text for a stored value (Record labels, category labels).
    * Returning `undefined` keeps the engine's default rendering.
    */
-  displayText?: (value: unknown) => string | undefined
+  displayText?: (value: SheetbaseGridCellValue) => string | undefined
   /** Editable cells in this column open the formula-reference editor. */
   formula?: boolean
 }
@@ -86,8 +95,8 @@ export interface SheetbaseGridCellChange {
   rowIndex: number
   rowId?: string
   columnId: string
-  previous: unknown
-  next: unknown
+  previous: SheetbaseGridCellValue
+  next: SheetbaseGridCellValue
   /**
    * Present and `false` on a bulk operation's intended target set when the
    * backend will not write that cell (read-only column, derived cell). A
@@ -167,7 +176,7 @@ export type SheetbaseGridMenuEntry =
  */
 export interface SheetbaseGridRecordEditor {
   /** Write the picked stored value (the canonical Record id). */
-  commit: (value: unknown) => void
+  commit: (value: string | null) => void
   /** Dismiss the grid's editor without writing. */
   cancel: () => void
 }
@@ -462,10 +471,10 @@ function SheetbaseGridShell({
       .then(({ SheetbaseTableGridClient }) => {
         if (active) setTableGrid(() => SheetbaseTableGridClient)
       })
-      .catch((error: unknown) => {
+      .catch((cause: unknown) => {
         console.error(
           'Sheetbase table grid client bundle failed to load.',
-          error,
+          cause,
         )
 
         if (active) setLoadFailed(true)

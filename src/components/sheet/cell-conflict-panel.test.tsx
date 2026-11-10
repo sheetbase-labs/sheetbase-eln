@@ -14,17 +14,28 @@ import {
   waitFor,
 } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactElement } from 'react'
 
 import { createDataClient } from '#/lib/data-client'
-import { CellConflictPanel, parseEnteredValue } from './cell-conflict-panel'
+import { CellConflictPanel } from './cell-conflict-panel'
+import { parseEnteredValue } from './cell-conflict-data'
 import type { CellConflictRow } from './cell-conflict-panel'
 
-vi.mock('#/lib/user-names', () => ({
-  useUserNames: () => ({
-    names: {},
-    userLabel: (id: string) => `name:${id}`,
-  }),
-}))
+function renderPanel(ui: ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+  })
+
+  queryClient.setQueryData(['user-names', [PRIYA]], {
+    [PRIYA]: `name:${PRIYA}`,
+  })
+  queryClient.setQueryData(['user-names', []], {})
+
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  )
+}
 
 afterEach(cleanup)
 
@@ -71,7 +82,7 @@ function resolvedConflict(
 
 describe('CellConflictPanel', () => {
   it('shows both values with who made each edit, and the value they replaced', () => {
-    render(
+    renderPanel(
       <CellConflictPanel
         conflict={openConflict()}
         currentUserId={ME}
@@ -95,11 +106,13 @@ describe('CellConflictPanel', () => {
       .mockResolvedValue(new Response(JSON.stringify(resolvedConflict())))
 
     const client = createDataClient(fetcher)
-    render(
+    const onResolved = vi.fn<(row: CellConflictRow) => void>()
+    renderPanel(
       <CellConflictPanel
         conflict={openConflict()}
         currentUserId={ME}
         client={client}
+        onResolved={onResolved}
       />,
     )
 
@@ -112,11 +125,21 @@ describe('CellConflictPanel', () => {
 
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
     expect(fetcher.mock.calls[0]?.[0]).toBe('/api/db/rpc/resolve_cell_conflict')
-    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({
-      p_conflict_id: 'conflict-1',
-      p_value: LOCAL_VALUE,
-      p_reason: 'Use my re-read from plate 2',
-    })
+    expect(await new Response(fetcher.mock.calls[0]?.[1]?.body).json()).toEqual(
+      {
+        p_conflict_id: 'conflict-1',
+        p_value: LOCAL_VALUE,
+        p_reason: 'Use my re-read from plate 2',
+      },
+    )
+    await waitFor(() =>
+      expect(onResolved).toHaveBeenCalledWith(resolvedConflict()),
+    )
+    expect(screen.getByText('Resolved')).toBeTruthy()
+    expect(
+      screen.getByText(/Blank-corrected value from plate 2 re-read/),
+    ).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Resolve' })).toBeNull()
   })
 
   it('resolves with a value the user enters', async () => {
@@ -125,7 +148,7 @@ describe('CellConflictPanel', () => {
       .mockResolvedValue(new Response(JSON.stringify(resolvedConflict())))
 
     const client = createDataClient(fetcher)
-    render(
+    renderPanel(
       <CellConflictPanel
         conflict={openConflict()}
         currentUserId={ME}
@@ -143,17 +166,19 @@ describe('CellConflictPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Resolve' }))
 
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1))
-    expect(JSON.parse(String(fetcher.mock.calls[0]?.[1]?.body))).toEqual({
-      p_conflict_id: 'conflict-1',
-      p_value: 7.6,
-      p_reason: 'Re-read plate 3',
-    })
+    expect(await new Response(fetcher.mock.calls[0]?.[1]?.body).json()).toEqual(
+      {
+        p_conflict_id: 'conflict-1',
+        p_value: 7.6,
+        p_reason: 'Re-read plate 3',
+      },
+    )
   })
 
   it('blocks resolving without a reason', async () => {
     const fetcher = vi.fn<typeof fetch>()
     const client = createDataClient(fetcher)
-    render(
+    renderPanel(
       <CellConflictPanel
         conflict={openConflict()}
         currentUserId={ME}
@@ -162,7 +187,7 @@ describe('CellConflictPanel', () => {
     )
 
     const resolve = screen.getByRole('button', { name: 'Resolve' })
-    expect((resolve as HTMLButtonElement).disabled).toBe(true)
+    expect(resolve).toHaveProperty('disabled', true)
     fireEvent.click(resolve)
     await Promise.resolve()
     expect(fetcher).not.toHaveBeenCalled()
@@ -172,7 +197,7 @@ describe('CellConflictPanel', () => {
   it('blocks resolving with an empty entered value even when a reason is given', async () => {
     const fetcher = vi.fn<typeof fetch>()
     const client = createDataClient(fetcher)
-    render(
+    renderPanel(
       <CellConflictPanel
         conflict={openConflict()}
         currentUserId={ME}
@@ -185,14 +210,14 @@ describe('CellConflictPanel', () => {
       target: { value: 'A reason' },
     })
     const resolve = screen.getByRole('button', { name: 'Resolve' })
-    expect((resolve as HTMLButtonElement).disabled).toBe(true)
+    expect(resolve).toHaveProperty('disabled', true)
     fireEvent.click(resolve)
     await Promise.resolve()
     expect(fetcher).not.toHaveBeenCalled()
   })
 
   it('renders a resolved conflict as its decision, not the controls', () => {
-    render(
+    renderPanel(
       <CellConflictPanel conflict={resolvedConflict()} currentUserId={ME} />,
     )
 
@@ -218,7 +243,7 @@ describe('CellConflictPanel', () => {
     )
 
     const client = createDataClient(fetcher)
-    render(
+    renderPanel(
       <CellConflictPanel
         conflict={openConflict()}
         currentUserId={ME}

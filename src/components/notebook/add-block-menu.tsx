@@ -43,6 +43,7 @@ export function AddBlockMenu({
   onOpenChange: (open: boolean) => void
 }) {
   const plugins = usePluginPoints()
+
   return (
     <CommandDialog
       open={open}
@@ -59,7 +60,9 @@ export function AddBlockMenu({
             const items = BLOCK_PICKER_OPTIONS.filter(
               (opt) => opt.group === group.id,
             )
+
             if (items.length === 0) return null
+
             return (
               <CommandGroup key={group.id} heading={group.label}>
                 {items.map((opt) => (
@@ -155,6 +158,7 @@ export function AddBlockControl({
   className?: string
 }) {
   const [open, setOpen] = useState(false)
+
   return (
     <>
       {variant === 'icon' ? (

@@ -71,6 +71,7 @@ export function ProfilePhoto({
             const file = event.target.files?.[0]
             event.target.value = ''
 
+            // react-doctor-disable-next-line react-doctor/no-create-object-url-without-revoke -- The source-keyed effect above revokes this exact URL on replacement and on unmount, including cancelling the crop dialog.
             if (file) setSource(URL.createObjectURL(file))
           }}
         />
@@ -153,7 +154,7 @@ function clampOffset(
 }
 
 /** Draws the framed part of the image into a square and encodes it. */
-export async function renderCrop(
+async function renderCrop(
   image: HTMLImageElement,
   zoom: number,
   offset: Offset,
@@ -255,14 +256,14 @@ function PhotoCropDialog({
             onKeyDown={(event) => {
               const step = event.shiftKey ? 20 : 5
 
-              const moves: Partial<Record<string, Offset>> = {
-                ArrowLeft: { x: offset.x - step, y: offset.y },
-                ArrowRight: { x: offset.x + step, y: offset.y },
-                ArrowUp: { x: offset.x, y: offset.y - step },
-                ArrowDown: { x: offset.x, y: offset.y + step },
-              }
+              const moves = new Map([
+                ['ArrowLeft', { x: offset.x - step, y: offset.y }],
+                ['ArrowRight', { x: offset.x + step, y: offset.y }],
+                ['ArrowUp', { x: offset.x, y: offset.y - step }],
+                ['ArrowDown', { x: offset.x, y: offset.y + step }],
+              ])
 
-              const next = moves[event.key]
+              const next = moves.get(event.key)
 
               if (!next) return
               event.preventDefault()

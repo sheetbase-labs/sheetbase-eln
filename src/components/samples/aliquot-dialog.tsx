@@ -11,93 +11,24 @@ import {
   DialogHeader,
 } from '#/components/ui/dialog'
 import { Field, Input } from '#/components/ui/input'
-import { ObjectLink } from '#/components/ui/object-link'
 import { ExperimentPicker } from '#/components/record-picker/experiment-picker'
 import { PlaceField } from '#/components/samples/place-field'
 import { PrintLabelsDialog } from '#/components/samples/sample-label-sheet'
+import { formatQuantityAmount } from './quantity-input'
+import { useQuantityBalances } from './quantity-hooks'
+import type { ExperimentOption } from './quantity-hooks'
 import {
-  formatQuantityAmount,
-  parseQuantityInput,
-  useSampleBalances,
-} from '#/components/samples/withdraw-dialog'
-import type { ExperimentOption } from '#/components/samples/withdraw-dialog'
+  canSubmitAliquots,
+  planAliquots,
+  quantityDestination,
+} from './quantity-plans'
+import { AliquotCreated } from './quantity-created'
+import { AliquotPlanPreview } from './quantity-plan-preview'
 import type { SampleQuantityBalances, SampleRecord } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { DataClient } from '#/lib/data-client'
 import { t } from '#/copy'
 import type { PlaceChoice, PositionChoice } from '#/lib/storage-positions'
-
-/** The largest split the server accepts in one step (api.aliquot_sample). */
-export const ALIQUOT_MAX_TUBES = 96
-
-export interface AliquotPlan {
-  count: number | null
-  quantityEach: number | null
-  total: number | null
-  /** Why the plan cannot be submitted, in words for the field; null when it can. */
-  error: string | null
-  /** Free volume left in the source after the split, when it is valid. */
-  remaining: number | null
-}
-
-/**
- * Check a split against the free volume. The server checks the same total and
- * refuses the whole split, so this only names the problem before the request.
- */
-export function planAliquots(
-  rawCount: string,
-  rawEach: string,
-  free: number | null,
-  unit: string | null,
-): AliquotPlan {
-  const count = parseQuantityInput(rawCount)
-  const quantityEach = parseQuantityInput(rawEach)
-  const empty = { count, quantityEach, total: null, remaining: null }
-
-  if (count == null || quantityEach == null) return { ...empty, error: null }
-
-  if (!Number.isInteger(count) || count < 1 || count > ALIQUOT_MAX_TUBES)
-    return {
-      ...empty,
-      error: t('library.samples.aliquotDialog.enterAWholeNumberOf', {
-        aliquotMaxTubes: ALIQUOT_MAX_TUBES,
-      }),
-    }
-
-  if (quantityEach <= 0)
-    return {
-      ...empty,
-      error: t('library.samples.aliquotDialog.eachTubeNeedsAnAmount'),
-    }
-  const total = count * quantityEach
-  const suffix = unit ? ` ${unit}` : ''
-
-  if (free != null && total > free + 1e-9) {
-    return {
-      count,
-      quantityEach,
-      total,
-      remaining: null,
-      error: t('library.samples.aliquotDialog.isButOnlyIsFree', {
-        count,
-        quantityEach: formatQuantityAmount(quantityEach),
-        suffix,
-        total: formatQuantityAmount(total),
-        suffix2: suffix,
-        free: formatQuantityAmount(free),
-        suffix3: suffix,
-      }),
-    }
-  }
-
-  return {
-    count,
-    quantityEach,
-    total,
-    error: null,
-    remaining: free == null ? null : free - total,
-  }
-}
 
 export interface AliquotDialogInput {
   count: number
@@ -110,6 +41,28 @@ export interface AliquotDialogInput {
    * out, they go in the source's box when it sits in one.
    */
   place?: PositionChoice
+}
+
+function AliquotSubmitButton({
+  busy,
+  count,
+  disabled,
+  onClick,
+}: {
+  busy: boolean
+  count: number | null
+  disabled: boolean
+  onClick: () => void
+}) {
+  return (
+    <Button variant="primary" disabled={disabled} onClick={onClick}>
+      {busy
+        ? t('library.samples.aliquotDialog.makingTubes')
+        : count
+          ? t('library.samples.aliquotDialog.makeTubes', { count })
+          : t('library.samples.aliquotDialog.makeTubes2')}
+    </Button>
+  )
 }
 
 /**
@@ -152,14 +105,7 @@ export function AliquotDialog({
   experiments?: ExperimentOption[]
   balances?: SampleQuantityBalances | null
 }) {
-  const queriedBalances = useSampleBalances(
-    sample.id,
-    client,
-    balancesProp === undefined,
-  )
-
-  const balances =
-    balancesProp !== undefined ? balancesProp : (queriedBalances.data ?? null)
+  const balances = useQuantityBalances(sample.id, client, balancesProp)
 
   const unit = balances?.unit ?? sample.quantityUnit
   const free = balances?.free ?? sample.quantity
@@ -174,59 +120,18 @@ export function AliquotDialog({
 
   const plan = planAliquots(count, each, free, unit)
 
-  const canSubmit =
-    !busy &&
-    Boolean(purpose) &&
-    plan.count != null &&
-    plan.quantityEach != null &&
-    plan.error == null
+  const canSubmit = canSubmitAliquots(plan, busy, purpose)
 
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="w-[min(520px,calc(100vw-32px))]">
           {created ? (
-            <>
-              <DialogHeader
-                title={t('library.samples.aliquotDialog.madeTubesFrom', {
-                  count: created.length,
-                  identifier: sample.identifier,
-                })}
-              />
-              <DialogBody>
-                <ul
-                  aria-label={t('library.samples.aliquotDialog.newTubes')}
-                  className="m-0 flex max-h-[40vh] list-none flex-col gap-1 overflow-auto p-0"
-                >
-                  {created.map((tube) => (
-                    <li key={tube.id} className="flex gap-3 text-body">
-                      <ObjectLink
-                        kind="sample"
-                        id={tube.id}
-                        identifier={tube.identifier}
-                        className="w-24 shrink-0"
-                      />
-                      <span className="min-w-0 truncate">{tube.title}</span>
-                      <span className="num ml-auto text-fg-muted">
-                        {tube.quantity != null
-                          ? `${formatQuantityAmount(tube.quantity)}${tube.quantityUnit ? ` ${tube.quantityUnit}` : ''}`
-                          : ''}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </DialogBody>
-              <DialogFooter>
-                <DialogClose render={<Button />}>
-                  {t('common.actions.done')}
-                </DialogClose>
-                <Button variant="primary" onClick={() => setPrinting(true)}>
-                  {t('library.samples.aliquotDialog.printLabels', {
-                    count: created.length,
-                  })}
-                </Button>
-              </DialogFooter>
-            </>
+            <AliquotCreated
+              created={created}
+              identifier={sample.identifier}
+              onPrint={() => setPrinting(true)}
+            />
           ) : (
             <>
               <DialogHeader
@@ -268,23 +173,11 @@ export function AliquotDialog({
                     />
                   </Field>
                 </div>
-                {plan.error ? (
-                  <p role="alert" className="m-0 text-label text-danger-text">
-                    {plan.error}
-                  </p>
-                ) : plan.total != null ? (
-                  <p role="status" className="m-0 text-label text-fg-muted">
-                    {plan.remaining != null
-                      ? t('library.samples.aliquotDialog.totalAndStaysIn', {
-                          total: `${formatQuantityAmount(plan.total)}${unit ? ` ${unit}` : ''}`,
-                          remaining: `${formatQuantityAmount(plan.remaining)}${unit ? ` ${unit}` : ''}`,
-                          identifier: sample.identifier,
-                        })
-                      : t('library.samples.aliquotDialog.total', {
-                          total: `${formatQuantityAmount(plan.total)}${unit ? ` ${unit}` : ''}`,
-                        })}
-                  </p>
-                ) : null}
+                <AliquotPlanPreview
+                  plan={plan}
+                  unit={unit}
+                  identifier={sample.identifier}
+                />
                 <Field
                   label={t('library.samples.aliquotDialog.forExperiment')}
                   required
@@ -339,8 +232,9 @@ export function AliquotDialog({
                 <DialogClose render={<Button />}>
                   {t('common.actions.cancel')}
                 </DialogClose>
-                <Button
-                  variant="primary"
+                <AliquotSubmitButton
+                  busy={busy}
+                  count={plan.count}
                   disabled={!canSubmit}
                   onClick={() =>
                     onSubmit({
@@ -348,25 +242,10 @@ export function AliquotDialog({
                       quantityEach: plan.quantityEach!,
                       purposeExperimentId: purpose,
                       unit: unit ?? undefined,
-                      newContainer: {
-                        title: titlePrefix.trim() || undefined,
-                        storageLocation:
-                          place?.kind === 'text'
-                            ? place.text.trim() || undefined
-                            : undefined,
-                      },
-                      place: place?.kind === 'position' ? place : undefined,
+                      ...quantityDestination(titlePrefix, place),
                     })
                   }
-                >
-                  {busy
-                    ? t('library.samples.aliquotDialog.makingTubes')
-                    : plan.count
-                      ? t('library.samples.aliquotDialog.makeTubes', {
-                          count: plan.count,
-                        })
-                      : t('library.samples.aliquotDialog.makeTubes2')}
-                </Button>
+                />
               </DialogFooter>
             </>
           )}

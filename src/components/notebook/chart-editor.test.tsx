@@ -2,56 +2,33 @@
  * SCI-004 chart block editor interaction tests. Verifies the editor's
  * dataset/type/field controls drive saves, freeze/unfreeze actions call
  * the lifecycle callbacks, frozen state disables controls, and all
- * controls are keyboard-accessible with proper labels. The scientific
- * data client is mocked so no PostgREST is required.
+ * controls are keyboard-accessible with proper labels, using real query providers.
  */
 import { choose } from '../../../tests/unit/picker'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Mock } from 'vitest'
 
 import { BlockEditor } from './block-editor'
+import type { BlockEditorProps } from './block-editor'
 import type { NotebookBlock } from '#/lib/notebook-data'
-import type * as chartData from '#/lib/chart-data'
-import {
-  fetchCanonicalDataset,
-  fetchDatasetRows,
-  useLiveChartDataset,
-} from '#/lib/chart-data'
-import { fetchDatasetSummaries } from '#/lib/dataset-explorer-data'
-import type { CanonicalDatasetSource } from '#/lib/chart-data'
-import type * as explorerData from '#/lib/dataset-explorer-data'
+import { chartQueryKeys, toCanonicalDatasetSource } from '#/lib/chart-data'
+import type { CanonicalDatasetSource, ResolvedDataset } from '#/lib/chart-data'
+import type { CanonicalDatasetWire } from '#/lib/dataset-explorer-data'
+import type { ScientificColumnWire } from '#/lib/scientific-sheet-data'
 import { CHART_PALETTE } from '#/lib/chart-spec'
 import type { ChartSpec } from '#/lib/chart-spec'
 
-vi.mock('#/lib/chart-data', async (importOriginal) => {
-  const actual = await importOriginal<typeof chartData>()
-  return {
-    ...actual,
-    sciDataClient: {} as never,
-    fetchCanonicalDataset: vi.fn(),
-    fetchDatasetRows: vi.fn(),
-    useLiveChartDataset: vi.fn(() => ({
-      datasetQuery: { data: null, isLoading: false },
-    })),
-  }
-})
-
-const mockUseLive = useLiveChartDataset as unknown as Mock
-vi.mock('#/lib/dataset-explorer-data', async (importOriginal) => {
-  const actual = await importOriginal<typeof explorerData>()
-  return {
-    ...actual,
-    fetchDatasetSummaries: vi.fn(),
-  }
-})
-
-const mockFetchDataset = vi.mocked(fetchCanonicalDataset)
-const mockFetchRows = vi.mocked(fetchDatasetRows)
-const mockSummaries = vi.mocked(fetchDatasetSummaries)
+let dataset: ResolvedDataset | undefined
+let summaries: CanonicalDatasetWire[] = []
 
 afterEach(() => {
   cleanup()
@@ -60,9 +37,31 @@ afterEach(() => {
 
 function renderWithQuery(ui: ReactNode) {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity, staleTime: Infinity },
+    },
   })
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+
+  client.setQueryData(['chart-available-datasets'], summaries)
+  client.setQueryData(['chart-selected-dataset', TABLE_ID], makeSource())
+
+  for (const summary of summaries)
+    client.setQueryData(
+      ['chart-selected-dataset', summary.id],
+      toCanonicalDatasetSource(summary),
+    )
+  client.setQueryData([chartQueryKeys.dataset(TABLE_ID), 0, null], dataset)
+
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
+  return render(
+    <QueryClientProvider client={client}>
+      <RouterContextProvider router={router}>{ui}</RouterContextProvider>
+    </QueryClientProvider>,
+  )
 }
 
 const TABLE_ID = '00000000-0000-4000-8000-000000000170'
@@ -138,7 +137,7 @@ function lineSpec(overrides: Partial<ChartSpec> = {}): ChartSpec {
   }
 }
 
-function makeBlock(payload: Record<string, unknown>): NotebookBlock {
+function makeBlock(payload: NotebookBlock['payload']): NotebookBlock {
   return {
     id: 'block-chart',
     recordId: 'experiment-1',
@@ -152,6 +151,7 @@ function makeBlock(payload: Record<string, unknown>): NotebookBlock {
 
 function makeResolved() {
   const rows = makeRows()
+
   return {
     source: makeSource(),
     rows: rows.rows,
@@ -161,36 +161,44 @@ function makeResolved() {
 }
 
 function mockOkDataset() {
-  mockFetchDataset.mockResolvedValue(makeSource())
-  mockFetchRows.mockResolvedValue(makeRows())
-  // The hook is mocked at its boundary: BlockEditor renders straight from
-  // this resolved dataset, so no network-shaped client is exercised.
-  mockUseLive.mockImplementation(() => ({
-    datasetQuery: { data: makeResolved(), isLoading: false },
-  }))
+  dataset = makeResolved()
 }
 
 function mockTablesList() {
-  mockSummaries.mockResolvedValue([
+  summaries = [
     {
       id: TABLE_ID,
       name: 'Stability readings (qPCR)',
       resource_name: '',
+      schema_version: 1,
+      lifecycle: 'active',
+      created_at: '2026-11-09T00:00:00Z',
       workspace_id: 'ws-1',
       schema_version_id: '00000000-0000-4000-8000-00000000fffe',
       schema_version_number: 1,
       revision: 1,
-      columns: makeSource().columns.map((c) => ({
+      columns: makeSource().columns.map((c, display_order) => ({
         id: c.id,
         label: c.label,
-        logical_type: c.logicalType,
-        unit: c.unit,
+        logical_type: c.id === 'c3' ? 'text' : 'decimal',
+        field_name: c.id,
+        display_order,
+        nullable: true,
+        validation: {},
+        default_value: null,
+        width: null,
+        options: [],
+        unit: (c.id === 'c1'
+          ? { symbol: 'd' }
+          : c.id === 'c2'
+            ? { symbol: 'log₁₀' }
+            : null) satisfies ScientificColumnWire['unit'],
       })),
     },
-  ] as never)
+  ]
 }
 
-const okSave = vi.fn(async (_payload: Record<string, unknown>) => ({
+const okSave = vi.fn<BlockEditorProps['save']>(async () => ({
   ok: true,
 }))
 
@@ -212,6 +220,61 @@ describe('BlockEditor — chart: dataset and type controls', () => {
     })
     const typeSelect = screen.getByLabelText<HTMLSelectElement>('Chart type')
     expect(typeSelect.value).toBe('line')
+    expect(screen.getByLabelText<HTMLSelectElement>('X field').value).toBe('c1')
+    expect(screen.getByLabelText<HTMLSelectElement>('Y field').value).toBe('c2')
+  })
+
+  it('uses the newly chosen dataset fields rather than the previous dataset query', async () => {
+    const user = userEvent.setup()
+    mockTablesList()
+    mockOkDataset()
+    const otherId = '00000000-0000-4000-8000-000000000171'
+    summaries.push(
+      ...summaries.map((summary) => ({
+        ...summary,
+        id: otherId,
+        name: 'Recovery readings',
+        columns: summary.columns.map((column) => ({
+          ...column,
+          id: `00000000-0000-4000-8000-${String(column.display_order + 180).padStart(12, '0')}`,
+          unit: { symbol: 'mg' },
+        })),
+      })),
+    )
+    renderWithQuery(
+      <BlockEditor
+        block={makeBlock({ title: 'Recovery chart', spec: lineSpec() })}
+        save={okSave}
+      />,
+    )
+    await choose(user, 'Dataset', /Recovery readings/)
+    await waitFor(() => {
+      expect(screen.getByLabelText<HTMLSelectElement>('X field').value).toBe(
+        '00000000-0000-4000-8000-000000000180',
+      )
+      expect(screen.getByLabelText<HTMLSelectElement>('Y field').value).toBe(
+        '00000000-0000-4000-8000-000000000181',
+      )
+    })
+    await waitFor(() =>
+      expect(okSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          spec: expect.objectContaining({
+            datasets: [{ datasetId: otherId }],
+            fields: expect.objectContaining({
+              x: { fieldId: '00000000-0000-4000-8000-000000000180' },
+              y: { fieldId: '00000000-0000-4000-8000-000000000181' },
+            }),
+            display: expect.objectContaining({
+              axes: {
+                x: { label: 'Time (days)', scale: 'linear', unit: 'mg' },
+                y: { label: 'Log titer', scale: 'linear', unit: 'mg' },
+              },
+            }),
+          }),
+        }),
+      ),
+    )
   })
 
   it('changes the chart type select to scatter', async () => {
@@ -248,7 +311,7 @@ describe('BlockEditor — chart: field mapping controls', () => {
     // Wait for column options to load.
     await waitFor(() => {
       const sel = screen.getByLabelText('X field')
-      expect((sel as HTMLSelectElement).innerHTML).toContain('c3')
+      expect(sel.innerHTML).toContain('c3')
     })
     const xSelect = screen.getByLabelText<HTMLSelectElement>('X field')
     expect(xSelect.value).toContain('c1')
@@ -266,8 +329,10 @@ describe('BlockEditor — chart: field mapping controls', () => {
         save={okSave}
       />,
     )
+
     const yScaleSelect =
       screen.getByLabelText<HTMLSelectElement>('Y axis scale')
+
     expect(yScaleSelect.value).toBe('linear')
     await user.selectOptions(yScaleSelect, 'log')
     expect(yScaleSelect.value).toBe('log')
@@ -313,7 +378,7 @@ describe('BlockEditor — chart: freeze and unfreeze lifecycle', () => {
             datasetProvenance: [
               {
                 datasetId: TABLE_ID,
-                schemaVersion: 1,
+                schemaVersionNumber: 1,
                 rowCount: 4,
                 checksum: 'abc12345',
               },
@@ -379,7 +444,7 @@ describe('BlockEditor — chart: freeze and unfreeze lifecycle', () => {
             datasetProvenance: [
               {
                 datasetId: TABLE_ID,
-                schemaVersion: 1,
+                schemaVersionNumber: 1,
                 rowCount: 4,
                 checksum: 'abc12345',
               },
@@ -430,6 +495,7 @@ describe('BlockEditor — chart: keyboard accessibility', () => {
         save={okSave}
       />,
     )
+
     const labels = [
       'Chart title',
       'Dataset',
@@ -441,6 +507,7 @@ describe('BlockEditor — chart: keyboard accessibility', () => {
       'Y axis scale',
       'Source note',
     ]
+
     for (const label of labels) {
       expect(screen.getByLabelText(label)).toBeTruthy()
     }

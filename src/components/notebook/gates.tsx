@@ -1,5 +1,6 @@
 import * as React from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
@@ -22,27 +23,33 @@ import { toast } from '#/components/ui/sonner'
 import {
   GATE_REASON_MAX,
   MAX_GATE_CONDITIONS,
-  evaluateGateCondition,
   fetchGateOverrides,
   gateQueryKeys,
-  nameList,
   normaliseGateReason,
   overrideGate,
 } from '#/lib/experiment-gates'
 import type {
-  GateBlockLike,
   GateCondition,
   GateContext,
   GateMode,
-  GatePartLike,
   RecordGate,
 } from '#/lib/experiment-gates'
 import { notebookDataClient } from '#/lib/notebook-data'
+import type { NotebookBlock } from '#/lib/notebook-data'
 import { runPluginGateCheck } from '#/lib/extensions/plugin-files'
 import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
 import { fetchQcSeries, qcKeys } from '#/lib/run-qc'
 import { useUserNames } from '#/lib/user-names'
 import { cn } from '#/lib/utils'
+import { useDisplayTimeZone } from '#/lib/display-time-zone'
+import {
+  blockTitle,
+  describeConditions,
+  FIELD_LABELS,
+} from './gate-description'
+import type { GateTargets } from './gate-description'
+
+export type { GateTargets } from './gate-description'
 
 // ---------------------------------------------------------------------------
 // What the page knows about the gates, shared with the blocks it holds back
@@ -74,7 +81,12 @@ export interface GatesState {
 }
 
 const GatesContext = React.createContext<GatesState | null>(null)
-export const GatesProvider = GatesContext.Provider
+
+export function GatesProvider(
+  props: React.ComponentProps<typeof GatesContext.Provider>,
+) {
+  return <GatesContext.Provider {...props} />
+}
 
 export function useGates(): GatesState | null {
   return React.useContext(GatesContext)
@@ -83,152 +95,20 @@ export function useGates(): GatesState | null {
 /** The gate holding a block back, if one is closed. */
 export function useHeldBy(blockId: string | undefined): RecordGate | null {
   const gates = useGates()
+
   return (blockId && gates?.held.get(blockId)) || null
 }
 
 /** "After step 2" for a step that waits on the one before it, else null. */
 export function useStepWait(blockId: string | undefined): number | null {
   const gates = useGates()
+
   return (blockId && gates?.stepWaits.get(blockId)) || null
 }
 
 // ---------------------------------------------------------------------------
 // Words
 // ---------------------------------------------------------------------------
-
-function blockTitle(
-  block: GateBlockLike | undefined,
-  fallbackNumber: number,
-): string {
-  const title =
-    block && typeof block.payload.title === 'string'
-      ? block.payload.title.trim()
-      : ''
-  return (
-    title ||
-    t('notebook.gates.dialog.untitledTable', { number: String(fallbackNumber) })
-  )
-}
-
-const FIELD_LABELS: Partial<Record<string, () => string>> = {
-  reviewer: () => t('notebook.gates.dialog.fieldReviewer'),
-  assignee: () => t('notebook.gates.dialog.fieldAssignee'),
-  planned_end: () => t('notebook.gates.dialog.fieldPlannedEnd'),
-}
-
-function dateWords(iso: string): string {
-  const date = new Date(`${iso}T00:00:00Z`)
-  return date.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
-}
-
-/** One condition as something that is true: "Confluence check has Confluence (%) for every row". */
-export function describeCondition(
-  condition: GateCondition,
-  context: GateContext,
-): string {
-  switch (condition.kind) {
-    case 'table_filled': {
-      const block = context.blocks.find((b) => b.id === condition.blockId)
-      const tables = context.blocks.filter(
-        (b) => b.type === 'table' || b.type === 'sheet',
-      )
-      const table =
-        condition.label?.trim() ||
-        blockTitle(
-          block,
-          tables.findIndex((b) => b.id === condition.blockId) + 1,
-        )
-      if (condition.column && condition.minRows)
-        return t('notebook.gates.describe.table_filled_column_rows', {
-          table,
-          column: condition.column,
-          count: condition.minRows,
-        })
-      if (condition.column)
-        return t('notebook.gates.describe.table_filled_column', {
-          table,
-          column: condition.column,
-        })
-      if (condition.minRows)
-        return t('notebook.gates.describe.table_filled_rows', {
-          table,
-          count: condition.minRows,
-        })
-      return t('notebook.gates.describe.table_filled_any', { table })
-    }
-    case 'step_done': {
-      const steps = context.blocks.filter((b) => b.type === 'procedure_step')
-      const block = steps.find(
-        (b) =>
-          b.id === condition.blockId ||
-          b.payload.sourceStepBlockId === condition.blockId,
-      )
-      const number = block
-        ? steps.filter(
-            (s) =>
-              (s.partId ?? null) === (block.partId ?? null) &&
-              s.order <= block.order,
-          ).length
-        : 0
-      return t('notebook.gates.describe.step_done', { number: String(number) })
-    }
-    case 'part_done': {
-      const part = context.parts.find(
-        (p) => p.id === condition.partId || p.sourcePartId === condition.partId,
-      )
-      return part
-        ? t('notebook.gates.describe.part_done', {
-            number: String(part.number),
-          })
-        : t('notebook.gates.describe.thePart')
-    }
-    case 'samples_linked':
-      return t('notebook.gates.describe.samples_linked', {
-        count: condition.min ?? 1,
-      })
-    case 'field_set':
-      return t('notebook.gates.describe.field_set', {
-        field:
-          condition.label?.trim() ||
-          FIELD_LABELS[condition.field]?.() ||
-          condition.field,
-      })
-    case 'date_reached':
-      return t('notebook.gates.describe.date_reached', {
-        date: dateWords(condition.date),
-      })
-    case 'qc_in_control':
-      return condition.seriesId && condition.label?.trim()
-        ? t('notebook.gates.describe.qc_in_control_series', {
-            series: condition.label.trim(),
-          })
-        : t('notebook.gates.describe.qc_in_control_any')
-    case 'plugin_flag':
-      return t('notebook.gates.describe.plugin_flag', {
-        flag: condition.label?.trim() || condition.extensionKey,
-      })
-    case 'plugin_check': {
-      const block = context.blocks.find((b) => b.id === condition.blockId)
-      return t('notebook.gates.describe.plugin_check', {
-        check: condition.label?.trim() || condition.checkId,
-        table: blockTitle(block, 1),
-      })
-    }
-  }
-}
-
-/** "A and B", "A, B and C": the conditions of a gate in one phrase. */
-export function describeConditions(
-  conditions: readonly GateCondition[],
-  context: GateContext,
-): string {
-  return nameList(conditions.map((c) => describeCondition(c, context)))
-}
 
 /** The sentence a closed gate leads with. */
 function gateHeadline(
@@ -237,6 +117,7 @@ function gateHeadline(
   context: GateContext,
 ): string {
   const words = describeConditions(conditions, context)
+
   return gate.kind === 'part'
     ? t('notebook.gates.opensWhenPart', {
         number: String(gate.partNumber ?? ''),
@@ -253,18 +134,23 @@ function firstAction(
 ): { label: string; blockId: string } | null {
   const index = gate.conditions.findIndex((c) => !c.met)
   const condition = index >= 0 ? conditions[index] : undefined
+
   if (!condition || condition.kind !== 'table_filled') return null
   const status = gate.conditions[index]
   const block = context.blocks.find((b) => b.id === condition.blockId)
+
   if (!block) return null
+
   // "P3 and P4 have no Confluence (%)": the first name is where to start.
   const first = condition.column
     ? status.text.match(/^(.+?)(?: and | have | has |, )/)?.[1]
     : undefined
+
   const name =
     first && !first.startsWith('The ') && first !== condition.label
       ? first
       : null
+
   return {
     blockId: block.id,
     label: name
@@ -279,27 +165,72 @@ function firstAction(
 // The gate on the page
 // ---------------------------------------------------------------------------
 
+// Decode persisted condition fields before rendering their descriptions. A
+// recognized kind alone does not prove that its required fields are present.
+const gateConditionSchema = z.discriminatedUnion('kind', [
+  z.looseObject({
+    kind: z.literal('table_filled'),
+    blockId: z.string(),
+    column: z.string().optional(),
+    minRows: z.number().optional(),
+    label: z.string().optional(),
+  }),
+  z.looseObject({ kind: z.literal('step_done'), blockId: z.string() }),
+  z.looseObject({ kind: z.literal('part_done'), partId: z.string() }),
+  z.looseObject({
+    kind: z.literal('samples_linked'),
+    min: z.number().optional(),
+  }),
+  z.looseObject({
+    kind: z.literal('field_set'),
+    field: z.string(),
+    label: z.string().optional(),
+  }),
+  z.looseObject({ kind: z.literal('date_reached'), date: z.string() }),
+  z.looseObject({
+    kind: z.literal('qc_in_control'),
+    seriesId: z.string().optional(),
+    label: z.string().optional(),
+  }),
+  z.looseObject({
+    kind: z.literal('plugin_flag'),
+    extensionKey: z.string(),
+    flagKey: z.string().optional(),
+    label: z.string().optional(),
+  }),
+  z.looseObject({
+    kind: z.literal('plugin_check'),
+    blockId: z.string(),
+    extensionKey: z.string(),
+    checkId: z.string(),
+    columns: z.record(z.string(), z.string()),
+    label: z.string().optional(),
+  }),
+]) satisfies z.ZodType<GateCondition>
+
 /** A gate block as the page shows it. */
 export function GateBlockView({
   blockId,
   payload,
 }: {
   blockId?: string
-  payload: Record<string, unknown>
+  payload: NotebookBlock['payload']
 }) {
   const state = useGates()
   const gate = state?.gates.find((g) => g.blockId === blockId) ?? null
+
   const conditions = React.useMemo(
     () =>
       Array.isArray(payload.conditions)
-        ? (payload.conditions as GateCondition[])
+        ? z.array(gateConditionSchema).parse(payload.conditions)
         : [],
     [payload.conditions],
   )
+
   const label =
-    typeof payload.label === 'string' && payload.label.trim()
-      ? payload.label.trim()
-      : t('notebook.gates.blockLabel')
+    z.string().catch('').parse(payload.label).trim() ||
+    t('notebook.gates.blockLabel')
+
   const mode: GateMode = payload.mode === 'block' ? 'block' : 'warn'
   const fromTemplate = payload.fromTemplate === true
   const context: GateContext = state?.context ?? { blocks: [], parts: [] }
@@ -349,16 +280,36 @@ export function GateBlockView({
     )
   }
 
-  const headline = gateHeadline(gate, conditions, context)
-  const action = firstAction(gate, conditions, context)
-  const pluginCheck = gate.conditions.some(
-    (status, index) =>
-      !status.met && conditions[index]?.kind === 'plugin_check',
+  return (
+    <LiveGateView
+      gate={gate}
+      state={state}
+      label={label}
+      conditions={conditions}
+      mode={mode}
+      fromTemplate={fromTemplate}
+    />
   )
-    ? conditions.find((c) => c.kind === 'plugin_check')
-    : undefined
-  const canGoOn =
-    state.canEdit && mode === 'warn' && !gate.met && !gate.overridden
+}
+
+/** The live evaluation owns actions; historical descriptions never offer them. */
+function LiveGateView({
+  gate,
+  state,
+  label,
+  conditions,
+  mode,
+  fromTemplate,
+}: {
+  gate: RecordGate
+  state: GatesState
+  label: string
+  conditions: GateCondition[]
+  mode: GateMode
+  fromTemplate: boolean
+}) {
+  const context = state.context
+  const headline = gateHeadline(gate, conditions, context)
   const canEdit = state.canEdit && !fromTemplate
 
   if (gate.met) {
@@ -433,40 +384,78 @@ export function GateBlockView({
           </span>
         ) : null}
       </div>
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
-        {action ? (
-          <Button onClick={() => state.show(action.blockId)}>
-            {action.label}
-          </Button>
-        ) : null}
-        {pluginCheck && state.canEdit ? (
-          <RunPluginCheckButton
-            recordId={state.recordId}
-            conditions={conditions}
-          />
-        ) : null}
-        {canGoOn ? (
-          <Button onClick={() => state.goOn(gate)}>
-            {t('notebook.gates.goOnAnyway')}
-          </Button>
-        ) : null}
-        {fromTemplate ? (
-          <span
-            className="rounded-sm bg-surface-muted px-1.5 py-0.5 text-caption text-fg-muted"
-            title={t('notebook.gates.fromTemplateHint')}
-          >
-            {t('notebook.gates.fromTemplate')}
-          </span>
-        ) : null}
-        {canEdit ? (
-          <IconButton
-            label={t('notebook.gates.edit')}
-            icon="edit"
+      <ClosedGateActions
+        gate={gate}
+        state={state}
+        conditions={conditions}
+        mode={mode}
+        fromTemplate={fromTemplate}
+      />
+    </div>
+  )
+}
 
-            onClick={() => state.edit(gate)}
-          />
-        ) : null}
-      </div>
+function ClosedGateActions({
+  gate,
+  state,
+  conditions,
+  mode,
+  fromTemplate,
+}: {
+  gate: RecordGate
+  state: GatesState
+  conditions: GateCondition[]
+  mode: GateMode
+  fromTemplate: boolean
+}) {
+  const action = firstAction(gate, conditions, state.context)
+
+  const pluginCheck = gate.conditions.some(
+    (status, index) =>
+      !status.met && conditions[index]?.kind === 'plugin_check',
+  )
+    ? conditions.find((condition) => condition.kind === 'plugin_check')
+    : undefined
+
+  const canGoOn =
+    state.canEdit && mode === 'warn' && !gate.met && !gate.overridden
+
+  const canEdit = state.canEdit && !fromTemplate
+
+  return (
+    <div className="flex shrink-0 flex-wrap items-center gap-2">
+      {action ? (
+        <Button onClick={() => state.show(action.blockId)}>
+          {action.label}
+        </Button>
+      ) : null}
+      {pluginCheck && state.canEdit ? (
+        <RunPluginCheckButton
+          recordId={state.recordId}
+          conditions={conditions}
+        />
+      ) : null}
+      {canGoOn ? (
+        <Button onClick={() => state.goOn(gate)}>
+          {t('notebook.gates.goOnAnyway')}
+        </Button>
+      ) : null}
+      {fromTemplate ? (
+        <span
+          className="rounded-sm bg-surface-muted px-1.5 py-0.5 text-caption text-fg-muted"
+          title={t('notebook.gates.fromTemplateHint')}
+        >
+          {t('notebook.gates.fromTemplate')}
+        </span>
+      ) : null}
+      {canEdit ? (
+        <IconButton
+          label={t('notebook.gates.edit')}
+          icon="edit"
+
+          onClick={() => state.edit(gate)}
+        />
+      ) : null}
     </div>
   )
 }
@@ -480,11 +469,16 @@ function RunPluginCheckButton({
   conditions: readonly GateCondition[]
 }) {
   const queryClient = useQueryClient()
+
   const run = useMutation({
     mutationFn: async () => {
       const outcomes: string[] = []
+
       for (const condition of conditions) {
         if (condition.kind !== 'plugin_check') continue
+
+        // Mappings can share record_gate_check's result key; preserve last-write order and stop at first refusal.
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop
         const outcome = await runPluginGateCheck({
           recordId,
           blockId: condition.blockId,
@@ -492,8 +486,10 @@ function RunPluginCheckButton({
           checkId: condition.checkId,
           columns: condition.columns,
         })
+
         outcomes.push(outcome.status)
       }
+
       return outcomes
     },
     onSuccess: async () => {
@@ -508,6 +504,7 @@ function RunPluginCheckButton({
         }),
       ),
   })
+
   return (
     <Button disabled={run.isPending} onClick={() => run.mutate()}>
       {run.isPending
@@ -520,7 +517,9 @@ function RunPluginCheckButton({
 /** The note on a step that has to wait for the one before it. */
 export function StepWaitNote({ blockId }: { blockId?: string }) {
   const number = useStepWait(blockId)
+
   if (!number) return null
+
   return (
     <p
       className="mt-1 inline-flex items-center gap-1.5 text-xs text-fg-muted"
@@ -543,7 +542,9 @@ export function GateHold({
   className?: string
 }) {
   const gate = useHeldBy(blockId)
+
   if (!gate) return <>{children}</>
+
   return (
     <div
       data-held-by={gate.gateId}
@@ -575,6 +576,7 @@ export function GoOnDialog({
 }) {
   const [reason, setReason] = React.useState('')
   const clean = normaliseGateReason(reason)
+
   const go = useMutation({
     mutationFn: () =>
       overrideGate(
@@ -589,7 +591,9 @@ export function GoOnDialog({
     },
     onError: () => toast.error(t('notebook.gates.couldNotGoOn')),
   })
+
   void recordId
+
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="max-w-md">
@@ -608,6 +612,7 @@ export function GoOnDialog({
           className="flex min-h-0 flex-1 flex-col"
           onSubmit={(event) => {
             event.preventDefault()
+
             if (clean && !go.isPending) go.mutate()
           }}
         >
@@ -657,17 +662,6 @@ export function GoOnDialog({
 // Authoring: the gate dialog
 // ---------------------------------------------------------------------------
 
-/** What a condition can point at. */
-export interface GateTargets {
-  tables: ReadonlyArray<{
-    id: string
-    label: string
-    columns: readonly string[]
-  }>
-  steps: ReadonlyArray<{ id: string; number: number; text: string }>
-  parts: ReadonlyArray<{ id: string; number: number; title: string }>
-}
-
 export interface GateDraft {
   label: string
   mode: GateMode
@@ -694,15 +688,20 @@ function blankCondition(kind: Kind, targets: GateTargets): GateCondition {
   switch (kind) {
     case 'table_filled': {
       const table = targets.tables.at(-1)
-      return {
+
+      const condition: Extract<GateCondition, { kind: 'table_filled' }> = {
         kind,
         blockId: table?.id ?? '',
         ...((table?.columns[1] ?? table?.columns[0])
           ? { column: table.columns[1] ?? table.columns[0] }
           : { minRows: 1 }),
-        ...(table ? { label: table.label } : {}),
       }
+
+      if (table) condition.label = table.label
+
+      return condition
     }
+
     case 'step_done':
       return { kind, blockId: targets.steps.at(-1)?.id ?? '' }
     case 'part_done':
@@ -767,9 +766,11 @@ function pluginsOf(
   hooks: ReadonlyArray<{ extensionKey: string; extensionName: string }>,
 ): Array<{ key: string; name: string }> {
   const seen = new Map<string, string>()
+
   for (const hook of hooks)
     if (!seen.has(hook.extensionKey))
       seen.set(hook.extensionKey, hook.extensionName)
+
   return [...seen].map(([key, name]) => ({ key, name }))
 }
 
@@ -783,14 +784,7 @@ function PluginFlagPicker({
 }) {
   const plugins = pluginsOf(useExtensionPoints().data['record-hooks'])
   const active = plugins.find((p) => p.key === condition.extensionKey)
-  React.useEffect(() => {
-    if (!condition.extensionKey && plugins[0])
-      onChange({
-        kind: 'plugin_flag',
-        extensionKey: plugins[0].key,
-        label: plugins[0].name,
-      })
-  }, [condition.extensionKey, plugins.length])
+
   return (
     <>
       <Select
@@ -799,6 +793,7 @@ function PluginFlagPicker({
         className="w-auto min-w-48"
         onChange={(event) => {
           const next = plugins.find((p) => p.key === event.target.value)
+
           if (next)
             onChange({
               kind: 'plugin_flag',
@@ -833,6 +828,7 @@ function QcSeriesSelect({
     queryFn: () => fetchQcSeries(notebookDataClient),
     staleTime: 10_000,
   })
+
   return (
     <Select
       aria-label={t('notebook.gates.dialog.qcSeriesLabel')}
@@ -842,6 +838,7 @@ function QcSeriesSelect({
         const series = (list.data ?? []).find(
           (s) => s.id === event.target.value,
         )
+
         onChange(
           series
             ? { kind: 'qc_in_control', seriesId: series.id, label: series.name }
@@ -876,38 +873,13 @@ function PluginCheckPicker({
   const points = useExtensionPoints()
   const checks = points.data.checks
   const table = targets.tables.find((tbl) => tbl.id === condition.blockId)
+
   const active = checks.find(
     (item) =>
       item.extensionKey === condition.extensionKey &&
       item.id === condition.checkId,
   )
-  const bind = (
-    check: (typeof checks)[number],
-    tableId: string,
-  ): GateCondition => {
-    const columns = targets.tables.find((tbl) => tbl.id === tableId)?.columns
-    const mapped: Record<string, string> = {}
-    for (const input of check.declaration.inputs) {
-      const match = columns?.find(
-        (column) =>
-          column.trim().toLowerCase() === input.label.trim().toLowerCase() ||
-          column.trim().toLowerCase() === input.name.toLowerCase(),
-      )
-      if (match) mapped[input.name] = match
-    }
-    return {
-      kind: 'plugin_check',
-      blockId: tableId,
-      extensionKey: check.extensionKey,
-      checkId: check.id,
-      label: check.declaration.title,
-      columns: mapped,
-    }
-  }
-  React.useEffect(() => {
-    if (!condition.checkId && checks[0])
-      onChange(bind(checks[0], condition.blockId))
-  }, [condition.checkId, checks.length])
+
   return (
     <>
       <Select
@@ -918,7 +890,8 @@ function PluginCheckPicker({
           const next = checks.find(
             (item) => `${item.extensionKey}/${item.id}` === event.target.value,
           )
-          if (next) onChange(bind(next, condition.blockId))
+
+          if (next) onChange(bindPluginCheck(next, condition.blockId, targets))
         }}
       >
         <option value="" disabled>
@@ -939,7 +912,7 @@ function PluginCheckPicker({
         className="w-auto min-w-40"
         onChange={(event) =>
           active
-            ? onChange(bind(active, event.target.value))
+            ? onChange(bindPluginCheck(active, event.target.value, targets))
             : onChange({ ...condition, blockId: event.target.value })
         }
       >
@@ -982,6 +955,140 @@ function PluginCheckPicker({
   )
 }
 
+function bindPluginCheck(
+  check: ReturnType<typeof useExtensionPoints>['data']['checks'][number],
+  tableId: string,
+  targets: GateTargets,
+): GateCondition {
+  const columns = targets.tables.find((table) => table.id === tableId)?.columns
+  const mapped: Record<string, string> = {}
+
+  for (const input of check.declaration.inputs) {
+    const match = columns?.find(
+      (column) =>
+        column.trim().toLowerCase() === input.label.trim().toLowerCase() ||
+        column.trim().toLowerCase() === input.name.toLowerCase(),
+    )
+
+    if (match) mapped[input.name] = match
+  }
+
+  return {
+    kind: 'plugin_check',
+    blockId: tableId,
+    extensionKey: check.extensionKey,
+    checkId: check.id,
+    label: check.declaration.title,
+    columns: mapped,
+  }
+}
+
+/** Defaults belong to the dialog draft, including when plugin metadata arrives later. */
+function withPluginDefaults(
+  condition: GateCondition,
+  targets: GateTargets,
+  points: ReturnType<typeof useExtensionPoints>['data'],
+): GateCondition {
+  if (condition.kind === 'plugin_check' && !condition.checkId) {
+    const first = points.checks.at(0)
+
+    if (first) return bindPluginCheck(first, condition.blockId, targets)
+  }
+
+  if (condition.kind === 'plugin_flag' && !condition.extensionKey) {
+    const first = pluginsOf(points['record-hooks']).at(0)
+
+    if (first)
+      return { kind: 'plugin_flag', extensionKey: first.key, label: first.name }
+  }
+
+  return condition
+}
+
+function TableFilledCondition({
+  condition,
+  targets,
+  onChange,
+}: {
+  condition: Extract<GateCondition, { kind: 'table_filled' }>
+  targets: GateTargets
+  onChange: (next: GateCondition) => void
+}) {
+  const table = targets.tables.find((tbl) => tbl.id === condition.blockId)
+
+  return (
+    <>
+      <Select
+        aria-label={t('notebook.gates.dialog.tableLabel')}
+        value={condition.blockId}
+        className="w-auto min-w-40"
+        onChange={(event) => {
+          const next = targets.tables.find(
+            (tbl) => tbl.id === event.target.value,
+          )
+
+          const nextCondition: Extract<
+            GateCondition,
+            { kind: 'table_filled' }
+          > = {
+            kind: 'table_filled',
+            blockId: event.target.value,
+            ...((next?.columns[1] ?? next?.columns[0])
+              ? { column: next.columns[1] ?? next.columns[0] }
+              : { minRows: 1 }),
+          }
+
+          if (next) nextCondition.label = next.label
+          onChange(nextCondition)
+        }}
+      >
+        <option value="" disabled>
+          {t('notebook.gates.dialog.pickTable')}
+        </option>
+        {targets.tables.map((tbl) => (
+          <option key={tbl.id} value={tbl.id}>
+            {tbl.label}
+          </option>
+        ))}
+      </Select>
+      <Select
+        aria-label={t('notebook.gates.dialog.rowsLabel')}
+        value={condition.column ?? ROWS_OPTION}
+        className="w-auto min-w-40"
+        onChange={(event) => {
+          const { column: _column, minRows: _min, ...rest } = condition
+          onChange(
+            event.target.value === ROWS_OPTION
+              ? { ...rest, minRows: 1 }
+              : { ...rest, column: event.target.value },
+          )
+        }}
+      >
+        {(table?.columns ?? []).map((column) => (
+          <option key={column} value={column}>
+            {t('notebook.gates.dialog.everyRowHas', { column })}
+          </option>
+        ))}
+        <option value={ROWS_OPTION}>
+          {t('notebook.gates.dialog.atLeastRows')}
+        </option>
+      </Select>
+      {condition.column === undefined ? (
+        <Input
+          aria-label={t('notebook.gates.dialog.rowsLabel')}
+          inputMode="numeric"
+          className="w-20"
+          value={String(condition.minRows ?? 1)}
+          onChange={(event) => {
+            const value = Number(event.target.value.replace(/\D/g, ''))
+            onChange({ ...condition, minRows: Math.max(1, value || 1) })
+          }}
+        />
+      ) : null}
+    </>
+  )
+}
+
 function ConditionRow({
   condition,
   targets,
@@ -997,10 +1104,6 @@ function ConditionRow({
   onRemove: () => void
   lead: string
 }) {
-  const table =
-    condition.kind === 'table_filled'
-      ? targets.tables.find((tbl) => tbl.id === condition.blockId)
-      : undefined
   return (
     <div className="flex flex-col gap-1.5" data-condition={condition.kind}>
       <span className="text-caption font-semibold uppercase tracking-wide text-fg-muted">
@@ -1011,9 +1114,11 @@ function ConditionRow({
           aria-label={t('notebook.gates.dialog.kindLabel')}
           value={condition.kind}
           className="w-auto min-w-44"
-          onChange={(event) =>
-            onChange(blankCondition(event.target.value as Kind, targets))
-          }
+          onChange={(event) => {
+            const kind = kinds.find((value) => value === event.target.value)
+
+            if (kind) onChange(blankCondition(kind, targets))
+          }}
         >
           {kinds.map((kind) => (
             <option key={kind} value={kind}>
@@ -1022,69 +1127,11 @@ function ConditionRow({
           ))}
         </Select>
         {condition.kind === 'table_filled' ? (
-          <>
-            <Select
-              aria-label={t('notebook.gates.dialog.tableLabel')}
-              value={condition.blockId}
-              className="w-auto min-w-40"
-              onChange={(event) => {
-                const next = targets.tables.find(
-                  (tbl) => tbl.id === event.target.value,
-                )
-                onChange({
-                  kind: 'table_filled',
-                  blockId: event.target.value,
-                  ...((next?.columns[1] ?? next?.columns[0])
-                    ? { column: next.columns[1] ?? next.columns[0] }
-                    : { minRows: 1 }),
-                  ...(next ? { label: next.label } : {}),
-                })
-              }}
-            >
-              <option value="" disabled>
-                {t('notebook.gates.dialog.pickTable')}
-              </option>
-              {targets.tables.map((tbl) => (
-                <option key={tbl.id} value={tbl.id}>
-                  {tbl.label}
-                </option>
-              ))}
-            </Select>
-            <Select
-              aria-label={t('notebook.gates.dialog.rowsLabel')}
-              value={condition.column ?? ROWS_OPTION}
-              className="w-auto min-w-40"
-              onChange={(event) => {
-                const { column: _column, minRows: _min, ...rest } = condition
-                onChange(
-                  event.target.value === ROWS_OPTION
-                    ? { ...rest, minRows: 1 }
-                    : { ...rest, column: event.target.value },
-                )
-              }}
-            >
-              {(table?.columns ?? []).map((column) => (
-                <option key={column} value={column}>
-                  {t('notebook.gates.dialog.everyRowHas', { column })}
-                </option>
-              ))}
-              <option value={ROWS_OPTION}>
-                {t('notebook.gates.dialog.atLeastRows')}
-              </option>
-            </Select>
-            {condition.column === undefined ? (
-              <Input
-                aria-label={t('notebook.gates.dialog.rowsLabel')}
-                inputMode="numeric"
-                className="w-20"
-                value={String(condition.minRows ?? 1)}
-                onChange={(event) => {
-                  const value = Number(event.target.value.replace(/\D/g, ''))
-                  onChange({ ...condition, minRows: Math.max(1, value || 1) })
-                }}
-              />
-            ) : null}
-          </>
+          <TableFilledCondition
+            condition={condition}
+            targets={targets}
+            onChange={onChange}
+          />
         ) : null}
         {condition.kind === 'step_done' ? (
           <Select
@@ -1151,13 +1198,13 @@ function ConditionRow({
               onChange({
                 kind: 'field_set',
                 field: event.target.value,
-                label: FIELD_LABELS[event.target.value]?.(),
+                label: FIELD_LABELS.get(event.target.value)?.(),
               })
             }
           >
-            {Object.entries(FIELD_LABELS).map(([field, label]) => (
+            {Array.from(FIELD_LABELS, ([field, label]) => (
               <option key={field} value={field}>
-                {label?.()}
+                {label()}
               </option>
             ))}
           </Select>
@@ -1202,19 +1249,7 @@ function ConditionRow({
  * or blocks, and for a part, whether its steps are done in order. The same
  * dialog serves a gate block, the rule that opens a part and a template.
  */
-export function GateDialog({
-  part,
-  initial,
-  targets,
-  kinds = ALL_KINDS,
-  named = true,
-  canStepsInOrder = false,
-  removable = false,
-  saving = false,
-  onSave,
-  onRemove,
-  onClose,
-}: {
+interface GateDialogProps {
   /** Set for the rule that opens a part: the part's number. */
   part?: number
   initial?: Partial<GateDraft>
@@ -1228,38 +1263,129 @@ export function GateDialog({
   onSave: (draft: GateDraft) => void | Promise<void>
   onRemove?: () => void | Promise<void>
   onClose: () => void
-}) {
+}
+
+/** Own the editable conditions and their plugin defaults for this dialog session. */
+function useGateDraft({
+  part,
+  initial,
+  targets,
+  kinds = ALL_KINDS,
+  named = true,
+}: Pick<GateDialogProps, 'part' | 'initial' | 'targets' | 'kinds' | 'named'>) {
   const points = useExtensionPoints().data
   const pluginChecks = points.checks
   const pluginsWithHooks = pluginsOf(points['record-hooks'])
+
   const usable = kinds.filter((kind) => {
     if (kind === 'plugin_check')
       return targets.tables.length > 0 && pluginChecks.length > 0
+
     if (kind === 'plugin_flag') return pluginsWithHooks.length > 0
+
     if (kind === 'table_filled') return targets.tables.length > 0
+
     if (kind === 'step_done') return targets.steps.length > 0
+
     if (kind === 'part_done') return targets.parts.length > 0
+
     return true
   })
+
   const [label, setLabel] = React.useState(initial?.label ?? '')
   const [mode, setMode] = React.useState<GateMode>(initial?.mode ?? 'warn')
+
   const [stepsInOrder, setStepsInOrder] = React.useState(
     initial?.stepsInOrder ?? false,
   )
-  const [conditions, setConditions] = React.useState<GateCondition[]>(() =>
-    initial?.conditions?.length
+
+  const dialogId = React.useId()
+
+  const [conditionRows, setConditionRows] = React.useState(() => {
+    const conditions = initial?.conditions?.length
       ? [...initial.conditions]
       : usable[0]
         ? [blankCondition(usable[0], targets)]
-        : [],
+        : []
+
+    return conditions.map((condition, index) => ({
+      key: `${dialogId}-${index}`,
+      condition,
+    }))
+  })
+
+  const resolvedRows = conditionRows.map((row) => ({
+    ...row,
+    condition: withPluginDefaults(row.condition, targets, points),
+  }))
+
+  // Adopt a newly available default in this draft before committing children.
+  // Later metadata refreshes must not silently replace that chosen plugin.
+  if (
+    resolvedRows.some(
+      (row, index) => row.condition !== conditionRows[index]?.condition,
+    )
   )
+    setConditionRows(resolvedRows)
+
+  const conditions = resolvedRows.map((row) => row.condition)
+
   const complete =
     conditions.length > 0 && conditions.every(conditionIsComplete)
+
   const onlyDates = conditions.every((c) => c.kind === 'date_reached')
+
   const ready =
     (complete ||
       (conditions.length === 0 && stepsInOrder && part !== undefined)) &&
     (!named || true)
+
+  return {
+    label,
+    setLabel,
+    mode,
+    setMode,
+    stepsInOrder,
+    setStepsInOrder,
+    usable,
+    resolvedRows,
+    setConditionRows,
+    conditions,
+    complete,
+    onlyDates,
+    ready,
+  }
+}
+
+export function GateDialog({
+  part,
+  initial,
+  targets,
+  kinds = ALL_KINDS,
+  named = true,
+  canStepsInOrder = false,
+  removable = false,
+  saving = false,
+  onSave,
+  onRemove,
+  onClose,
+}: GateDialogProps) {
+  const {
+    label,
+    setLabel,
+    mode,
+    setMode,
+    stepsInOrder,
+    setStepsInOrder,
+    usable,
+    resolvedRows,
+    setConditionRows,
+    conditions,
+    complete,
+    onlyDates,
+    ready,
+  } = useGateDraft({ part, initial, targets, kinds, named })
+
   return (
     <Dialog open onOpenChange={(open) => (open ? undefined : onClose())}>
       <DialogContent className="max-w-xl" data-testid="gate-dialog">
@@ -1279,6 +1405,7 @@ export function GateDialog({
           className="flex min-h-0 flex-1 flex-col"
           onSubmit={(event) => {
             event.preventDefault()
+
             if (ready && !saving)
               void onSave({
                 label: label.trim(),
@@ -1303,9 +1430,9 @@ export function GateDialog({
               </Field>
             ) : null}
             <div className="flex flex-col gap-3">
-              {conditions.map((condition, index) => (
+              {resolvedRows.map(({ condition, key }, index) => (
                 <ConditionRow
-                  key={index}
+                  key={key}
                   lead={
                     index === 0
                       ? t('notebook.gates.dialog.conditionsLabel')
@@ -1315,12 +1442,16 @@ export function GateDialog({
                   targets={targets}
                   kinds={usable}
                   onChange={(next) =>
-                    setConditions((all) =>
-                      all.map((c, i) => (i === index ? next : c)),
+                    setConditionRows((all) =>
+                      all.map((row) =>
+                        row.key === key ? { ...row, condition: next } : row,
+                      ),
                     )
                   }
                   onRemove={() =>
-                    setConditions((all) => all.filter((_, i) => i !== index))
+                    setConditionRows((all) =>
+                      all.filter((row) => row.key !== key),
+                    )
                   }
                 />
               ))}
@@ -1339,12 +1470,13 @@ export function GateDialog({
                     conditions.length >= MAX_GATE_CONDITIONS ||
                     usable.length === 0
                   }
-                  onClick={() =>
-                    setConditions((all) => [
+                  onClick={() => {
+                    const key = crypto.randomUUID()
+                    setConditionRows((all) => [
                       ...all,
-                      blankCondition(usable[0], targets),
+                      { key, condition: blankCondition(usable[0], targets) },
                     ])
-                  }
+                  }}
                 >
                   {t('notebook.gates.dialog.addCondition')}
                 </Button>
@@ -1359,7 +1491,9 @@ export function GateDialog({
               </legend>
               <RadioGroup
                 value={mode}
-                onValueChange={(value) => setMode(value as GateMode)}
+                onValueChange={(value) =>
+                  setMode(z.enum(['warn', 'block']).parse(value))
+                }
               >
                 <Choice value="warn" title={t('notebook.gates.dialog.warn')}>
                   {t('notebook.gates.dialog.warnHint')}
@@ -1410,59 +1544,6 @@ export function GateDialog({
       </DialogContent>
     </Dialog>
   )
-}
-
-/** What a gate dialog can point at, taken from the blocks and parts of a page. */
-export function gateTargetsFrom(
-  blocks: readonly (GateBlockLike & { tableColumns?: readonly string[] })[],
-  parts: readonly GatePartLike[],
-  options: {
-    /** Only what sits above this order counts (a gate waits on earlier work). */
-    beforeOrder?: number
-    /** Only parts before this number. */
-    beforePart?: number
-    sheetColumns?: ReadonlyMap<string, readonly string[]>
-  } = {},
-): GateTargets {
-  const above = [...blocks]
-    .filter(
-      (b) => options.beforeOrder === undefined || b.order < options.beforeOrder,
-    )
-    .sort((a, b) => a.order - b.order)
-  const tables = above
-    .filter((b) => b.type === 'table' || b.type === 'sheet')
-    .map((b, index) => ({
-      id: b.id,
-      label: blockTitle(b, index + 1),
-      columns:
-        b.type === 'table'
-          ? Array.isArray(b.payload.columns)
-            ? (b.payload.columns as unknown[]).map(String)
-            : []
-          : (options.sheetColumns?.get(b.id) ?? []),
-    }))
-  const steps = above
-    .filter((b) => b.type === 'procedure_step')
-    .map((b) => ({
-      id: b.id,
-      number: above.filter(
-        (s) =>
-          s.type === 'procedure_step' &&
-          (s.partId ?? null) === (b.partId ?? null) &&
-          s.order <= b.order,
-      ).length,
-      text: typeof b.payload.text === 'string' ? b.payload.text : '',
-    }))
-  return {
-    tables,
-    steps,
-    parts: parts
-      .filter(
-        (p) =>
-          options.beforePart === undefined || p.number < options.beforePart,
-      )
-      .map((p) => ({ id: p.id, number: p.number, title: p.title })),
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1535,19 +1616,26 @@ export function LockedPartBanner({
 
 /** Where work went on without a gate being open, and why. Shown to the reviewer. */
 export function GateOverridesPanel({ recordId }: { recordId: string }) {
+  const timeZone = useDisplayTimeZone()
+
   const overrides = useQuery({
     queryKey: gateQueryKeys.overrides(recordId),
     queryFn: () => fetchGateOverrides(notebookDataClient, recordId),
   })
+
   const rows = overrides.data ?? []
+
   const names = useUserNames(
     rows
       .map((row) => row.createdByUserId)
       .filter((id): id is string => Boolean(id)),
   )
+
   const nameOf = (userId: string | null) =>
     userId ? names.userLabel(userId) : ''
+
   if (rows.length === 0) return null
+
   return (
     <section
       data-testid="gate-overrides"
@@ -1572,6 +1660,7 @@ export function GateOverridesPanel({ recordId }: { recordId: string }) {
                 {new Date(row.createdAt).toLocaleString('en-GB', {
                   dateStyle: 'medium',
                   timeStyle: 'short',
+                  timeZone,
                 })}
               </span>
             </div>
@@ -1593,6 +1682,7 @@ export function GateOverridesPanel({ recordId }: { recordId: string }) {
 /** The queries a change to a gate touches. */
 export function useRefreshGates(recordId: string) {
   const queryClient = useQueryClient()
+
   return React.useCallback(async () => {
     await Promise.all([
       queryClient.invalidateQueries({
@@ -1604,5 +1694,3 @@ export function useRefreshGates(recordId: string) {
     ])
   }, [queryClient, recordId])
 }
-
-export { evaluateGateCondition }

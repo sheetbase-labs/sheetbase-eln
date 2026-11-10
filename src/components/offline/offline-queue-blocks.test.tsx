@@ -9,19 +9,16 @@ import {
 } from '#/lib/offline/store'
 import { replayOfflineEdits, samePayload } from '#/lib/offline/replay'
 import type { OfflineReplayPort } from '#/lib/offline/replay'
+import { OfflineEditsProvider, useOfflineEdits } from './offline-edits'
 import {
-  OfflineEditsProvider,
   canEditBlockOffline,
   describeOfflineEdit,
   overlayQueuedBlocks,
-  useOfflineEdits,
-} from './offline-edits'
+} from './offline-edit-model'
 
 const scope = { userId: 'u1', recordId: 'r1' }
 
-function setup() {
-  const store = createOfflineEditStore(createInMemoryStorage())
-
+function setup(store = createOfflineEditStore(createInMemoryStorage())) {
   const wrapper = ({ children }: { children: React.ReactNode }) => (
     <OfflineEditsProvider store={store} scope={scope}>
       {children}
@@ -130,6 +127,37 @@ describe('queueBlockPayload', () => {
       detail: 'Weigh sample',
     })
   })
+
+  it('keeps native JSON conversion and removes the replaced draft before serialization fails', async () => {
+    const { store, result } = setup()
+    await act(async () => {
+      await result.current.queueBlockPayload(block(3), {
+        when: new Date('2026-10-10T09:02:00Z'),
+        omitted: undefined,
+        values: [Number.NaN, Number.POSITIVE_INFINITY],
+        custom: { toJSON: () => ({ label: 'converted' }) },
+      })
+    })
+    expect((await store.listEdits(scope))[0]).toMatchObject({
+      expectedRevision: 3,
+      payload: {
+        when: '2026-10-10T09:02:00.000Z',
+        values: [null, null],
+        custom: { label: 'converted' },
+      },
+    })
+    const [stored] = await store.listEdits(scope)
+    expect(
+      stored.kind === 'block_payload' &&
+        Object.hasOwn(stored.payload, 'omitted'),
+    ).toBe(false)
+    await act(async () => {
+      await expect(
+        result.current.queueBlockPayload(block(9), { value: 1n }),
+      ).rejects.toMatchObject({ name: 'TypeError' })
+    })
+    expect(await store.listEdits(scope)).toEqual([])
+  })
 })
 
 describe('queueSheetCells and queueSheetRow', () => {
@@ -172,6 +200,35 @@ describe('queueSheetCells and queueSheetRow', () => {
       rowKey: 'new',
       values: { a: 1, b: 'x' },
     })
+  })
+
+  it('does not start later cell writes when the ordered storage commit fails', async () => {
+    const storage = createInMemoryStorage()
+    let writes = 0
+
+    const store = createOfflineEditStore({
+      ...storage,
+      async set(key, value) {
+        writes += 1
+
+        if (writes === 2) throw new Error('device full')
+        await storage.set(key, value)
+      },
+    })
+
+    const { result } = setup(store)
+    await act(async () => {
+      await expect(
+        result.current.queueSheetCells(sheet, [
+          { rowId: 'r1', columnId: 'c1', value: 3.5 },
+          { rowId: 'r2', columnId: 'c2', value: -8 },
+          { rowId: 'r3', columnId: 'c3', value: 21 },
+        ]),
+      ).rejects.toThrow('device full')
+    })
+    expect(await store.listEdits(scope)).toMatchObject([
+      { kind: 'cell', rowId: 'r1', columnId: 'c1', value: 3.5, sequence: 1 },
+    ])
   })
 })
 

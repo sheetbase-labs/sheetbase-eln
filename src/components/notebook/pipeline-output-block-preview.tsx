@@ -13,6 +13,7 @@ import { Link } from '@tanstack/react-router'
 import { Icon } from '#/components/icons'
 
 import { Badge } from '#/components/ui/badge'
+import { pipelineOutputPayload } from './pipeline-output-payload'
 import {
   PipelineProposalAbsent,
   PipelineProposalBlock,
@@ -20,36 +21,13 @@ import {
   usePipelineProposalQuery,
 } from './pipeline-output-block-proposal'
 
-export interface PipelineOutputBlockPayload {
-  /** The Pipeline run this block references (stable identity). */
-  runId?: string
-  /** Produced Dataset Version identity for display. */
-  datasetId?: string
-  datasetVersionId?: string
-  label?: string
-  /**
-   * PIPE-03: the agent-operation proposal this block renders. Absent until a
-   * run's propose-mode action pins one here, so the block states that rather
-   * than showing inert Accept/Reject controls.
-   */
-  proposalId?: string
-}
-
 export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
-  const obj =
-    payload && typeof payload === 'object' && !Array.isArray(payload)
-      ? (payload as Record<string, unknown>)
-      : null
-  const proposalId =
-    obj && typeof obj.proposalId === 'string' ? obj.proposalId : null
-  const proposalQuery = usePipelineProposalQuery(proposalId)
-  const proposal = proposalQuery.data ?? null
+  const parsed = pipelineOutputPayload.safeParse(payload)
+  const obj = parsed.success ? parsed.data : null
+
   if (!obj) return null
-  const runId = typeof obj.runId === 'string' ? obj.runId : null
-  const datasetId = typeof obj.datasetId === 'string' ? obj.datasetId : null
-  const datasetVersionId =
-    typeof obj.datasetVersionId === 'string' ? obj.datasetVersionId : null
-  const label = typeof obj.label === 'string' ? obj.label : null
+  const { runId, datasetId, datasetVersionId, label } = obj
+
   const currentOutput = runId
     ? label
       ? t('notebook.pipelineOutputBlockPreview.runWithLabel', {
@@ -59,21 +37,12 @@ export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
       : t('notebook.pipelineOutputBlockPreview.run', { id: runId.slice(0, 8) })
     : null
 
-  const proposalSection = proposal ? (
-    <PipelineProposalBlock
-      proposal={proposal}
-      runId={runId ?? proposal.preview.target.id}
+  const proposalSection = (
+    <LinkedProposalPreview
+      proposalId={obj.proposalId ?? null}
+      runId={runId}
       currentOutput={currentOutput}
-      readOnly
     />
-  ) : proposalId && proposalQuery.isPending ? (
-    <p className="text-fg-muted text-xs" role="status">
-      {t('notebook.pipelineOutputBlockPreview.loadingTheLinkedProposal')}
-    </p>
-  ) : proposalId ? (
-    <PipelineProposalUnreadable />
-  ) : (
-    <PipelineProposalAbsent />
   )
 
   if (!runId) {
@@ -138,4 +107,39 @@ export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
       {proposalSection}
     </div>
   )
+}
+
+/** Reader/print/submit never acquire proposal decision controls. */
+function LinkedProposalPreview({
+  proposalId,
+  runId,
+  currentOutput,
+}: {
+  proposalId: string | null
+  runId: string | undefined
+  currentOutput: string | null
+}) {
+  const proposalQuery = usePipelineProposalQuery(proposalId)
+  const proposal = proposalQuery.data
+
+  if (proposal)
+    return (
+      <PipelineProposalBlock
+        proposal={proposal}
+        runId={runId ?? proposal.preview.target.id}
+        currentOutput={currentOutput}
+        readOnly
+      />
+    )
+
+  if (!proposalId) return <PipelineProposalAbsent />
+
+  if (proposalQuery.isPending)
+    return (
+      <p className="text-fg-muted text-xs" role="status">
+        {t('notebook.pipelineOutputBlockPreview.loadingTheLinkedProposal')}
+      </p>
+    )
+
+  return <PipelineProposalUnreadable />
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Field, Input } from '#/components/ui/input'
@@ -93,6 +94,46 @@ function sameGeneral(a: WorkspaceGeneral, b: WorkspaceGeneral): boolean {
   )
 }
 
+function validateGeneralDraft(form: WorkspaceGeneral) {
+  return {
+    timezoneError: isIanaTimeZone(form.timezone.trim())
+      ? null
+      : t('settings.general.invalidTimeZone'),
+    nameError: form.name?.trim()
+      ? null
+      : t('settings.general.enterWorkspaceName'),
+  }
+}
+
+/** Apply workspace settings in order and stop at the first refused write. */
+async function saveGeneral(
+  workspaceId: string,
+  form: WorkspaceGeneral,
+  saved: WorkspaceGeneral | undefined,
+) {
+  await updateWorkspaceName(workspaceId, form.name?.trim() ?? '')
+  await updateWorkspaceGeneral(workspaceId, form)
+  await updateWorkspaceIdPrefixes(workspaceId, form.idPrefixes)
+  await updateWorkspacePublicationPolicy(
+    workspaceId,
+    form.publicationApprovalRequired,
+  )
+  await updateWorkspaceOfflineEditing(workspaceId, form.offlineEditingAllowed)
+  await updateWorkspaceEditingRules(workspaceId, {
+    requireChangeReason: form.requireChangeReason,
+    lockOnSign: form.lockOnSign,
+  })
+
+  if (form.regulatedLab !== saved?.regulatedLab)
+    await setRegulatedLab(workspaceId, form.regulatedLab)
+
+  if (form.specLimitsEnabled !== saved?.specLimitsEnabled)
+    await setSpecLimitsEnabled(workspaceId, form.specLimitsEnabled)
+
+  if (form.retentionEnabled !== saved?.retentionEnabled)
+    await setRetentionEnabled(workspaceId, form.retentionEnabled)
+}
+
 /**
  * SET-01.1 — workspace general settings (site, time zone, date and number
  * format). The RPC refuses a non-admin. UI port: app-3's v3 kit.
@@ -151,51 +192,16 @@ export function SettingsGeneral({
   // RPC does not validate it, so an unknown zone would be saved and every
   // surface that formats a date in it would fall back silently. Validate here
   // against the same IANA check the scheduler uses.
-  const timezone = form.timezone.trim()
-
-  const timezoneError = isIanaTimeZone(timezone)
-    ? null
-    : t('settings.general.invalidTimeZone')
-
   // `update_workspace_name` refuses anything outside 1–120 characters, so an
   // empty name is not a saveable value: it is required here rather than
   // skipped silently while the rest of the form is written.
-  const name = form.name?.trim() ?? ''
-  const nameError = name ? null : t('settings.general.enterWorkspaceName')
+  const { nameError, timezoneError } = validateGeneralDraft(form)
   const dirty = saved ? !sameGeneral(form, saved) : false
   // The example number carries the year the app would mint today, so the
   // sample cannot go stale as the calendar moves.
 
   const save = useMutation({
-    mutationFn: async () => {
-      await updateWorkspaceName(workspaceId, name)
-      await updateWorkspaceGeneral(workspaceId, form)
-      await updateWorkspaceIdPrefixes(workspaceId, form.idPrefixes)
-      await updateWorkspacePublicationPolicy(
-        workspaceId,
-        form.publicationApprovalRequired,
-      )
-      await updateWorkspaceOfflineEditing(
-        workspaceId,
-        form.offlineEditingAllowed,
-      )
-      await updateWorkspaceEditingRules(workspaceId, {
-        requireChangeReason: form.requireChangeReason,
-        lockOnSign: form.lockOnSign,
-      })
-
-      if (form.regulatedLab !== saved?.regulatedLab) {
-        await setRegulatedLab(workspaceId, form.regulatedLab)
-      }
-
-      if (form.specLimitsEnabled !== saved?.specLimitsEnabled) {
-        await setSpecLimitsEnabled(workspaceId, form.specLimitsEnabled)
-      }
-
-      if (form.retentionEnabled !== saved?.retentionEnabled) {
-        await setRetentionEnabled(workspaceId, form.retentionEnabled)
-      }
-    },
+    mutationFn: () => saveGeneral(workspaceId, form, saved),
     onSuccess: () => {
       // Every write above has resolved, so the save really happened and the
       // person gets told; the button going quiet again is not a confirmation.
@@ -203,6 +209,8 @@ export function SettingsGeneral({
       toast(t('settings.general.settingsSavedToast'))
     },
   })
+
+  const controlsDisabled = query.isLoading || query.isError || save.isPending
 
   return (
     <>
@@ -214,9 +222,7 @@ export function SettingsGeneral({
             variant="primary"
             disabled={
               !dirty ||
-              save.isPending ||
-              query.isLoading ||
-              query.isError ||
+              controlsDisabled ||
               timezoneError !== null ||
               nameError !== null
             }
@@ -310,13 +316,17 @@ export function SettingsGeneral({
               <Select
                 aria-label={t('settings.general.numberFormat')}
                 value={form.numberFormat}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const option = NUMBER_FORMATS.find(
+                    (candidate) => candidate.value === event.target.value,
+                  )
+
+                  if (!option) return
                   setForm((current) => ({
                     ...current,
-                    numberFormat: event.target
-                      .value as WorkspaceGeneral['numberFormat'],
+                    numberFormat: option.value,
                   }))
-                }
+                }}
               >
                 {NUMBER_FORMATS.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -327,177 +337,208 @@ export function SettingsGeneral({
             </Field>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <div>
-              <h3 className="text-label font-medium text-fg">
-                {t('settings.general.recordIds')}
-              </h3>
-              <p className="m-0 text-label text-fg-muted">
-                {t('settings.general.prefixEachRecord')}
-              </p>
-            </div>
-            <TableBox>
-              <Table aria-label={t('settings.general.recordIds')}>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('settings.general.record')}</TableHead>
-                    <TableHead>{t('settings.general.prefix')}</TableHead>
-                    <TableHead>{t('settings.general.example')}</TableHead>
-                    <TableHead>{t('settings.general.nextId')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {ID_PREFIX_KINDS.map((kind) => {
-                    const prefix = form.idPrefixes[kind] ?? ''
+          <RecordIdPrefixes
+            prefixes={form.idPrefixes}
+            counters={counters.data}
+            onChange={(kind, prefix) =>
+              setForm((current) => ({
+                ...current,
+                idPrefixes: { ...current.idPrefixes, [kind]: prefix },
+              }))
+            }
+          />
 
-                    return (
-                      <TableRow key={kind}>
-                        <TableCell>{ID_KIND_LABELS[kind]}</TableCell>
-                        <TableCell>
-                          <Input
-                            aria-label={t('settings.general.prefixAria', {
-                              kind,
-                            })}
-                            value={prefix}
-                            placeholder={DEFAULT_ID_PREFIXES[kind]}
-                            className="h-[26px] w-28"
-                            onChange={(event) =>
-                              setForm((current) => ({
-                                ...current,
-                                idPrefixes: {
-                                  ...current.idPrefixes,
-                                  [kind]: event.target.value.toUpperCase(),
-                                },
-                              }))
-                            }
-                          />
-                        </TableCell>
-                        <TableCell className="mono text-fg-muted">
-                          {exampleRecordId(kind, prefix)}
-                        </TableCell>
-                        <TableCell className="mono text-fg-muted">
-                          {counters.data
-                            ? exampleRecordId(
-                                kind,
-                                prefix,
-                                counters.data[kind] ?? 1,
-                              )
-                            : '—'}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </TableBox>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <h3 className="text-label font-medium text-fg">
-              {t('settings.general.publicationApproval')}
-            </h3>
-            <CheckRow
-              title={t('settings.general.requireApprovalBefore')}
-              body={t('settings.general.whenEnabledCurrent2')}
-              checked={form.publicationApprovalRequired}
-              disabled={query.isLoading || query.isError || save.isPending}
-              onCheckedChange={(checked) =>
-                setForm((current) => ({
-                  ...current,
-                  publicationApprovalRequired: checked,
-                }))
-              }
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <h3 className="text-label font-medium text-fg">
-              {t('settings.general.regulatedLab')}
-            </h3>
-            <CheckRow
-              title={t('settings.general.regulatedLabTitle')}
-              body={t('settings.general.regulatedLabHint')}
-              checked={form.regulatedLab}
-              disabled={query.isLoading || query.isError || save.isPending}
-              onCheckedChange={(checked) =>
-                setForm((current) => ({ ...current, regulatedLab: checked }))
-              }
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <h3 className="text-label font-medium text-fg">
-              {t('quality.general.title')}
-            </h3>
-            <CheckRow
-              title={t('quality.general.limitsTitle')}
-              body={t('quality.general.limitsHint')}
-              checked={form.specLimitsEnabled}
-              disabled={query.isLoading || query.isError || save.isPending}
-              onCheckedChange={(checked) =>
-                setForm((current) => ({
-                  ...current,
-                  specLimitsEnabled: checked,
-                }))
-              }
-            />
-            <CheckRow
-              title={t('quality.general.retentionTitle')}
-              body={t('quality.general.retentionHint')}
-              checked={form.retentionEnabled}
-              disabled={query.isLoading || query.isError || save.isPending}
-              onCheckedChange={(checked) =>
-                setForm((current) => ({
-                  ...current,
-                  retentionEnabled: checked,
-                }))
-              }
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <h3 className="text-label font-medium text-fg">
-              {t('settings.general.editingRules')}
-            </h3>
-            <CheckRow
-              title={t('settings.general.everySignedRecord')}
-              body={t('settings.general.everySignedRecordHint')}
-              checked={form.lockOnSign}
-              disabled={query.isLoading || query.isError || save.isPending}
-              onCheckedChange={(checked) =>
-                setForm((current) => ({ ...current, lockOnSign: checked }))
-              }
-            />
-            <CheckRow
-              title={t('settings.general.changeSavedValue')}
-              body={t('settings.general.changeSavedValueHint')}
-              checked={form.requireChangeReason}
-              disabled={query.isLoading || query.isError || save.isPending}
-              onCheckedChange={(checked) =>
-                setForm((current) => ({
-                  ...current,
-                  requireChangeReason: checked,
-                }))
-              }
-            />
-            <CheckRow
-              title={t('settings.general.allowOfflineEditing')}
-              body={t('settings.general.whenNotebookLoses2')}
-              checked={form.offlineEditingAllowed}
-              disabled={query.isLoading || query.isError || save.isPending}
-              onCheckedChange={(checked) =>
-                setForm((current) => ({
-                  ...current,
-                  offlineEditingAllowed: checked,
-                }))
-              }
-            />
-          </div>
+          <WorkspacePolicies
+            form={form}
+            setForm={setForm}
+            disabled={controlsDisabled}
+          />
         </Section>
         <LabLogoSettings />
         <WorkingHoursSettings workspaceId={workspaceId} />
         <SettingsSampleData workspaceId={workspaceId} />
       </SettingsBody>
+    </>
+  )
+}
+
+function RecordIdPrefixes({
+  prefixes,
+  counters,
+  onChange,
+}: {
+  prefixes: WorkspaceGeneral['idPrefixes']
+  counters: Awaited<ReturnType<typeof fetchRecordIdCounters>> | undefined
+  onChange: (kind: (typeof ID_PREFIX_KINDS)[number], prefix: string) => void
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div>
+        <h3 className="text-label font-medium text-fg">
+          {t('settings.general.recordIds')}
+        </h3>
+        <p className="m-0 text-label text-fg-muted">
+          {t('settings.general.prefixEachRecord')}
+        </p>
+      </div>
+      <TableBox>
+        <Table aria-label={t('settings.general.recordIds')}>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('settings.general.record')}</TableHead>
+              <TableHead>{t('settings.general.prefix')}</TableHead>
+              <TableHead>{t('settings.general.example')}</TableHead>
+              <TableHead>{t('settings.general.nextId')}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {ID_PREFIX_KINDS.map((kind) => {
+              const prefix = prefixes[kind] ?? ''
+
+              return (
+                <TableRow key={kind}>
+                  <TableCell>{ID_KIND_LABELS[kind]}</TableCell>
+                  <TableCell>
+                    <Input
+                      aria-label={t('settings.general.prefixAria', { kind })}
+                      value={prefix}
+                      placeholder={DEFAULT_ID_PREFIXES[kind]}
+                      className="h-[26px] w-28"
+                      onChange={(event) =>
+                        onChange(kind, event.target.value.toUpperCase())
+                      }
+                    />
+                  </TableCell>
+                  <TableCell className="mono text-fg-muted">
+                    {exampleRecordId(kind, prefix)}
+                  </TableCell>
+                  <TableCell className="mono text-fg-muted">
+                    {counters
+                      ? exampleRecordId(kind, prefix, counters[kind] ?? 1)
+                      : '—'}
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </TableBox>
+    </div>
+  )
+}
+
+function WorkspacePolicies({
+  form,
+  setForm,
+  disabled,
+}: {
+  form: WorkspaceGeneral
+  setForm: Dispatch<SetStateAction<WorkspaceGeneral>>
+  disabled: boolean
+}) {
+  return (
+    <>
+      <div className="flex flex-col gap-2">
+        <h3 className="text-label font-medium text-fg">
+          {t('settings.general.publicationApproval')}
+        </h3>
+        <CheckRow
+          title={t('settings.general.requireApprovalBefore')}
+          body={t('settings.general.whenEnabledCurrent2')}
+          checked={form.publicationApprovalRequired}
+          disabled={disabled}
+          onCheckedChange={(checked) =>
+            setForm((current) => ({
+              ...current,
+              publicationApprovalRequired: checked,
+            }))
+          }
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <h3 className="text-label font-medium text-fg">
+          {t('settings.general.regulatedLab')}
+        </h3>
+        <CheckRow
+          title={t('settings.general.regulatedLabTitle')}
+          body={t('settings.general.regulatedLabHint')}
+          checked={form.regulatedLab}
+          disabled={disabled}
+          onCheckedChange={(checked) =>
+            setForm((current) => ({ ...current, regulatedLab: checked }))
+          }
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <h3 className="text-label font-medium text-fg">
+          {t('quality.general.title')}
+        </h3>
+        <CheckRow
+          title={t('quality.general.limitsTitle')}
+          body={t('quality.general.limitsHint')}
+          checked={form.specLimitsEnabled}
+          disabled={disabled}
+          onCheckedChange={(checked) =>
+            setForm((current) => ({
+              ...current,
+              specLimitsEnabled: checked,
+            }))
+          }
+        />
+        <CheckRow
+          title={t('quality.general.retentionTitle')}
+          body={t('quality.general.retentionHint')}
+          checked={form.retentionEnabled}
+          disabled={disabled}
+          onCheckedChange={(checked) =>
+            setForm((current) => ({
+              ...current,
+              retentionEnabled: checked,
+            }))
+          }
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <h3 className="text-label font-medium text-fg">
+          {t('settings.general.editingRules')}
+        </h3>
+        <CheckRow
+          title={t('settings.general.everySignedRecord')}
+          body={t('settings.general.everySignedRecordHint')}
+          checked={form.lockOnSign}
+          disabled={disabled}
+          onCheckedChange={(checked) =>
+            setForm((current) => ({ ...current, lockOnSign: checked }))
+          }
+        />
+        <CheckRow
+          title={t('settings.general.changeSavedValue')}
+          body={t('settings.general.changeSavedValueHint')}
+          checked={form.requireChangeReason}
+          disabled={disabled}
+          onCheckedChange={(checked) =>
+            setForm((current) => ({
+              ...current,
+              requireChangeReason: checked,
+            }))
+          }
+        />
+        <CheckRow
+          title={t('settings.general.allowOfflineEditing')}
+          body={t('settings.general.whenNotebookLoses2')}
+          checked={form.offlineEditingAllowed}
+          disabled={disabled}
+          onCheckedChange={(checked) =>
+            setForm((current) => ({
+              ...current,
+              offlineEditingAllowed: checked,
+            }))
+          }
+        />
+      </div>
     </>
   )
 }

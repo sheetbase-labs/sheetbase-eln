@@ -7,11 +7,11 @@ import { DataClientError } from '#/lib/data-client'
 import {
   MODEL_DESCRIPTION_MAX,
   MODEL_NAME_MAX,
-  ModelCreateDialog,
   describeModelCreateError,
   modelCreateErrors,
-} from './model-create-dialog'
-import type { ModelCreateInput } from './model-create-dialog'
+} from './model-create-validation'
+import { ModelCreateDialog } from './model-create-dialog'
+import type { ModelCreateInput } from './model-create-validation'
 
 afterEach(cleanup)
 
@@ -174,7 +174,10 @@ describe('ModelCreateDialog', () => {
       screen.getByRole('textbox', { name: /Description/ }),
       'Viability at thaw. ',
     )
-    const form = document.getElementById('new-model-form') as HTMLFormElement
+    const form = document.getElementById('new-model-form')
+
+    if (!form) throw new Error('New model form was not rendered')
+
     fireEvent.submit(form)
     expect(onCreate).toHaveBeenCalledWith({
       kind: 'dataset',

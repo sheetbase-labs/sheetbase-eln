@@ -1,14 +1,16 @@
 import { t } from '#/copy'
 import * as React from 'react'
 
-import {
-  BLOCK_PICKER_GROUPS,
-  BLOCK_PICKER_OPTIONS,
-} from '#/lib/blocks/registry'
-import type { BlockPickerOption } from '#/lib/blocks/registry'
+import { BLOCK_PICKER_GROUPS } from '#/lib/blocks/registry'
 import { cn } from '#/lib/utils'
 import { Icon } from '#/components/icons'
 import { Kbd } from '#/components/ui/kbd'
+import {
+  AI_GROUP_ID,
+  PLUGIN_GROUP_ID,
+  slashCommandFilteredOptions,
+} from './slash-command-options'
+import type { SlashCommandOption } from './slash-command-options'
 
 /**
  * Slash command menu — a Notion-style floating dropdown that appears when
@@ -25,34 +27,13 @@ import { Kbd } from '#/components/ui/kbd'
  * titled "Insert block", grouped in the shared catalogue's design order, and
  * marks the highlighted entry with the design's ↵ hint.
  */
-/** The `/ai` entry. Offered only where the workspace has a model connected. */
-export const AI_SLASH_TYPE = 'ai'
-
-const AI_GROUP_ID = 'ai'
-const PLUGIN_GROUP_ID = 'plugins'
-
-const AI_OPTION: BlockPickerOption = {
-  type: AI_SLASH_TYPE,
-  label: t('notebook.aiComposer.slashLabel'),
-  description: t('notebook.aiComposer.slashDescription'),
-  icon: 'spark',
-  group: AI_GROUP_ID as BlockPickerOption['group'],
-  aliases: [
-    'ai',
-    'write',
-    'draft',
-    'rewrite',
-    'summarise',
-    'summarize',
-    'conclusion',
-  ],
-}
+const NO_PLUGIN_OPTIONS: readonly SlashCommandOption[] = []
 
 export interface SlashCommandMenuProps {
   /** Show the AI entry. */
   withAi?: boolean
   /** Blocks that installed plugins add, listed after the built-in ones. */
-  pluginOptions?: readonly BlockPickerOption[]
+  pluginOptions?: readonly SlashCommandOption[]
   query: string
   selectedIndex: number
   onSelect: (type: string) => void
@@ -64,20 +45,9 @@ export interface SlashCommandMenuProps {
   ref?: React.Ref<HTMLDivElement>
 }
 
-function optionMatches(opt: BlockPickerOption, query: string): boolean {
-  const q = query.toLowerCase().trim()
-  if (!q) return true
-  return (
-    opt.label.toLowerCase().includes(q) ||
-    opt.type.toLowerCase().includes(q) ||
-    opt.description.toLowerCase().includes(q) ||
-    opt.aliases.some((alias) => alias.toLowerCase().includes(q))
-  )
-}
-
 export function SlashCommandMenu({
   withAi = false,
-  pluginOptions = [],
+  pluginOptions = NO_PLUGIN_OPTIONS,
   query,
   selectedIndex,
   onSelect,
@@ -126,10 +96,10 @@ export function SlashCommandMenu({
           ? [{ id: PLUGIN_GROUP_ID, label: t('plugins.screen.pickBlock') }]
           : []),
       ].map((group) => {
-        const items = filtered.filter(
-          (opt) => (opt.group as string) === group.id,
-        )
+        const items = filtered.filter((opt) => opt.group === group.id)
+
         if (items.length === 0) return null
+
         return (
           <div key={group.id} className="mb-1">
             <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
@@ -140,6 +110,7 @@ export function SlashCommandMenu({
               const index = optionIndex
               const iconName = opt.icon
               const active = index === selectedIndex
+
               return (
                 <button
                   key={opt.type}
@@ -185,50 +156,4 @@ export function SlashCommandMenu({
       </p>
     </div>
   )
-}
-
-/** Filter the block picker options by a query string. */
-export function slashCommandFilteredOptions(
-  query: string,
-  withAi = false,
-  pluginOptions: readonly BlockPickerOption[] = [],
-) {
-  const options = [
-    ...(withAi ? [AI_OPTION] : []),
-    ...BLOCK_PICKER_OPTIONS,
-    ...pluginOptions,
-  ]
-  return options.filter((opt) => optionMatches(opt, query))
-}
-
-/** The slash-menu entries for the blocks installed plugins add. */
-export function pluginSlashOptions(
-  blocks: readonly {
-    extensionKey: string
-    extensionName: string
-    id: string
-    declaration: { title: string; description?: string }
-  }[],
-  prefix: string,
-): BlockPickerOption[] {
-  return blocks.map((item) => ({
-    type: `${prefix}${item.extensionKey}/${item.id}`,
-    label: item.declaration.title,
-    description:
-      item.declaration.description ??
-      t('plugins.screen.from', { plugin: item.extensionName }),
-    icon: 'puzzle',
-    group: PLUGIN_GROUP_ID as BlockPickerOption['group'],
-    aliases: [item.extensionName],
-  }))
-}
-
-/** Return the number of filtered options for a query (used by parent for
- *  clamping the selected index). */
-export function slashCommandFilterCount(
-  query: string,
-  withAi = false,
-  pluginOptions: readonly BlockPickerOption[] = [],
-): number {
-  return slashCommandFilteredOptions(query, withAi, pluginOptions).length
 }

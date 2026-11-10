@@ -38,12 +38,11 @@ import type { LabelTemplateInput } from '#/lib/label-templates'
 import { BARCODE_TYPE_LABELS } from '#/lib/labels'
 import type { LabelTemplate } from '#/lib/labels'
 import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
-import { cn } from '#/lib/utils'
 import { t } from '#/copy'
 
 const defaultClient = createDataClient()
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: Error): string {
   return error instanceof Error
     ? error.message
     : t('settings.labelTemplatesPanel.databaseRefused')
@@ -83,7 +82,7 @@ export function LabelTemplatesPanel({
   })
 
   // 'new' is the blank form; an id edits that template.
-  const [editing, setEditing] = useState<string | 'new' | null>(null)
+  const [editing, setEditing] = useState<string | null>(null)
 
   const refresh = () => {
     void queryClient.invalidateQueries({
@@ -153,18 +152,14 @@ export function LabelTemplatesPanel({
             <Table caption={t('settings.labelTemplatesPanel.labelTemplates')}>
               <TableHeader>
                 <tr>
-                  <TableHead>
-                    {t('settings.labelTemplatesPanel.template')}
-                  </TableHead>
-                  <TableHead>
-                    {t('settings.labelTemplatesPanel.size')}
-                  </TableHead>
-                  <TableHead>
-                    {t('settings.labelTemplatesPanel.code')}
-                  </TableHead>
-                  <TableHead>
-                    {t('settings.labelTemplatesPanel.status')}
-                  </TableHead>
+                  {[
+                    t('settings.labelTemplatesPanel.template'),
+                    t('settings.labelTemplatesPanel.size'),
+                    t('settings.labelTemplatesPanel.code'),
+                    t('settings.labelTemplatesPanel.status'),
+                  ].map((label) => (
+                    <TableHead key={label}>{label}</TableHead>
+                  ))}
                 </tr>
               </TableHeader>
               <TableBody>
@@ -279,58 +274,12 @@ function TemplateForm({
     staleTime: 60_000,
   })
 
-  const kindOptions: { key: string; label: string }[] = [...LABEL_RECORD_KINDS]
-
-  for (const kind of modelKinds.data ?? []) {
-    if (
-      kind.identityTable === 'api.records' &&
-      !kindOptions.some((option) => option.key === kind.key)
-    )
-      kindOptions.push({ key: kind.key, label: kind.label })
-  }
-
-  if (!kindOptions.some((option) => option.key === input.recordKind))
-    kindOptions.push({ key: input.recordKind, label: input.recordKind })
-  const problem = validateLabelInput(input)
-
-  const dirty = template
-    ? JSON.stringify(input) !== JSON.stringify(inputFromTemplate(template))
-    : true
-
-  const save = useMutation({
-    mutationFn: () =>
-      saveLabelTemplate(client, workspaceId, template?.id ?? null, input),
-    onSuccess: (saved) => {
-      toast(
-        template
-          ? t('settings.labelTemplatesPanel.templateSaved')
-          : t('settings.labelTemplatesPanel.templateAdded'),
-      )
-      onSaved(saved)
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  })
-
-  const archive = useMutation({
-    mutationFn: (archived: boolean) =>
-      setLabelTemplateArchived(client, template!.id, archived),
-    onSuccess: (_, archived) => {
-      toast(
-        archived
-          ? t('settings.labelTemplatesPanel.templateArchived')
-          : t('settings.labelTemplatesPanel.templateRestored'),
-      )
-      onArchived()
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  })
-
-  const width = Number(input.widthMm)
-  const height = Number(input.heightMm)
-  const previewable = !validateLabelInput({ ...input, name: 'x' })
+  const kindOptions = labelKindOptions(modelKinds.data ?? [], input.recordKind)
 
   const preset = LABEL_SIZE_PRESETS.find(
-    (p) => p.widthMm === width && p.heightMm === height,
+    (p) =>
+      p.widthMm === Number(input.widthMm) &&
+      p.heightMm === Number(input.heightMm),
   )
 
   return (
@@ -338,33 +287,7 @@ function TemplateForm({
       <h2 className="m-0 text-section">
         {template?.name ?? t('settings.labelTemplatesPanel.newTemplate')}
       </h2>
-      <div
-        className={cn(
-          'flex min-h-24 items-center justify-center overflow-auto rounded-md bg-surface-muted p-4',
-        )}
-      >
-        {previewable ? (
-          <div style={{ zoom: Math.min(1, 288 / (width * 3.7795)) }}>
-            <SampleLabelCard
-              record={PREVIEW_RECORD}
-              host="app.example.org"
-              fit="mm"
-              template={{
-                widthMm: width,
-                heightMm: height,
-                barcodeType: input.barcodeType,
-                layout: input.layout,
-                showLot: input.showLot,
-                showSampleType: input.showSampleType,
-                showCondition: input.showCondition,
-                showUseBy: input.showUseBy,
-              }}
-            />
-          </div>
-        ) : (
-          <Muted>{t('settings.labelTemplatesPanel.enterSizeSee')}</Muted>
-        )}
-      </div>
+      <TemplatePreview input={input} />
       <fieldset
         disabled={!canManage}
         className="m-0 flex min-w-0 flex-col gap-3 border-0 p-0"
@@ -446,13 +369,11 @@ function TemplateForm({
             value={input.barcodeType}
             onChange={(e) => set({ barcodeType: e.target.value })}
           >
-            {(Object.keys(BARCODE_TYPE_LABELS) as Array<'qr' | 'code128'>).map(
-              (type) => (
-                <option key={type} value={type}>
-                  {BARCODE_TYPE_LABELS[type]}
-                </option>
-              ),
-            )}
+            {Object.entries(BARCODE_TYPE_LABELS).map(([type, label]) => (
+              <option key={type} value={type}>
+                {label}
+              </option>
+            ))}
             {pluginCodes.map((item) => (
               <option key={item.name} value={item.name}>
                 {t('plugins.labels.codePlugin', {
@@ -520,43 +441,182 @@ function TemplateForm({
           onCheckedChange={(v) => set({ isDefault: v })}
         />
       </fieldset>
-      {canManage ? (
-        <div className="flex flex-col items-start gap-2">
-          {dirty && problem && input.name.trim() ? (
-            <span className="text-label text-danger-text">{problem}</span>
-          ) : null}
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="primary"
-              disabled={!dirty || Boolean(problem) || save.isPending}
-              onClick={() => save.mutate()}
-            >
-              {save.isPending
-                ? t('common.states.saving')
-                : template
-                  ? t('common.actions.saveChanges')
-                  : t('settings.labelTemplatesPanel.addTemplate')}
-            </Button>
-            {template ? (
-              <Button
-                variant={template.archivedAt ? 'secondary' : 'danger'}
-                icon={template.archivedAt ? undefined : 'archive'}
-                disabled={archive.isPending}
-                onClick={() => archive.mutate(!template.archivedAt)}
-              >
-                {template.archivedAt ? 'Restore' : 'Archive'}
-              </Button>
-            ) : (
-              <Button onClick={onCancel}>{t('common.actions.cancel')}</Button>
-            )}
-          </div>
-          {template && !template.archivedAt ? (
-            <span className="text-label text-fg-muted">
-              {t('settings.labelTemplatesPanel.archivedTemplatesStop')}
-            </span>
-          ) : null}
+      <TemplateActions
+        template={template}
+        input={input}
+        workspaceId={workspaceId}
+        canManage={canManage}
+        client={client}
+        onSaved={onSaved}
+        onArchived={onArchived}
+        onCancel={onCancel}
+      />
+    </div>
+  )
+}
+
+function labelKindOptions(
+  kinds: Awaited<ReturnType<typeof fetchModelKinds>>,
+  recordKind: string,
+) {
+  const options: { key: string; label: string }[] = [...LABEL_RECORD_KINDS]
+
+  for (const kind of kinds) {
+    if (
+      kind.identityTable === 'api.records' &&
+      !options.some((option) => option.key === kind.key)
+    )
+      options.push({ key: kind.key, label: kind.label })
+  }
+
+  if (!options.some((option) => option.key === recordKind))
+    options.push({ key: recordKind, label: recordKind })
+
+  return options
+}
+
+function TemplatePreview({ input }: { input: LabelTemplateInput }) {
+  const width = Number(input.widthMm)
+  const height = Number(input.heightMm)
+  const previewable = !validateLabelInput({ ...input, name: 'x' })
+
+  return (
+    <div className="flex min-h-24 items-center justify-center overflow-auto rounded-md bg-surface-muted p-4">
+      {previewable ? (
+        <div style={{ zoom: Math.min(1, 288 / (width * 3.7795)) }}>
+          <SampleLabelCard
+            record={PREVIEW_RECORD}
+            host="app.example.org"
+            fit="mm"
+            template={{
+              widthMm: width,
+              heightMm: height,
+              barcodeType: input.barcodeType,
+              layout: input.layout,
+              showLot: input.showLot,
+              showSampleType: input.showSampleType,
+              showCondition: input.showCondition,
+              showUseBy: input.showUseBy,
+            }}
+          />
         </div>
+      ) : (
+        <Muted>{t('settings.labelTemplatesPanel.enterSizeSee')}</Muted>
+      )}
+    </div>
+  )
+}
+
+function TemplateActions({
+  template,
+  input,
+  workspaceId,
+  canManage,
+  client,
+  onSaved,
+  onArchived,
+  onCancel,
+}: {
+  template: LabelTemplate | null
+  input: LabelTemplateInput
+  workspaceId: string
+  canManage: boolean
+  client: DataClient
+  onSaved: (saved: LabelTemplate) => void
+  onArchived: () => void
+  onCancel: () => void
+}) {
+  const problem = validateLabelInput(input)
+
+  const dirty = template
+    ? JSON.stringify(input) !== JSON.stringify(inputFromTemplate(template))
+    : true
+
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- onSaved calls the parent refresh(), which invalidates labelTemplateKeys.all(workspaceId) before selecting the saved template.
+  const save = useMutation({
+    mutationFn: () =>
+      saveLabelTemplate(client, workspaceId, template?.id ?? null, input),
+    onSuccess: (saved) => {
+      toast(
+        template
+          ? t('settings.labelTemplatesPanel.templateSaved')
+          : t('settings.labelTemplatesPanel.templateAdded'),
+      )
+      onSaved(saved)
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  })
+
+  if (!canManage) return null
+
+  return (
+    <div className="flex flex-col items-start gap-2">
+      {dirty && problem && input.name.trim() ? (
+        <span className="text-label text-danger-text">{problem}</span>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="primary"
+          disabled={!dirty || Boolean(problem) || save.isPending}
+          onClick={() => save.mutate()}
+        >
+          {save.isPending
+            ? t('common.states.saving')
+            : template
+              ? t('common.actions.saveChanges')
+              : t('settings.labelTemplatesPanel.addTemplate')}
+        </Button>
+        {template ? (
+          <TemplateArchiveButton
+            template={template}
+            client={client}
+            onArchived={onArchived}
+          />
+        ) : (
+          <Button onClick={onCancel}>{t('common.actions.cancel')}</Button>
+        )}
+      </div>
+      {template && !template.archivedAt ? (
+        <span className="text-label text-fg-muted">
+          {t('settings.labelTemplatesPanel.archivedTemplatesStop')}
+        </span>
       ) : null}
     </div>
+  )
+}
+
+function TemplateArchiveButton({
+  template,
+  client,
+  onArchived,
+}: {
+  template: LabelTemplate
+  client: DataClient
+  onArchived: () => void
+}) {
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- onArchived is the parent's refresh(), invalidating labelTemplateKeys.all(workspaceId).
+  const archive = useMutation({
+    mutationFn: (archived: boolean) =>
+      setLabelTemplateArchived(client, template.id, archived),
+    onSuccess: (_, archived) => {
+      toast(
+        archived
+          ? t('settings.labelTemplatesPanel.templateArchived')
+          : t('settings.labelTemplatesPanel.templateRestored'),
+      )
+      onArchived()
+    },
+    onError: (error) => toast.error(errorMessage(error)),
+  })
+
+  return (
+    <Button
+      variant={template.archivedAt ? 'secondary' : 'danger'}
+      icon={template.archivedAt ? undefined : 'archive'}
+      disabled={archive.isPending}
+      onClick={() => archive.mutate(!template.archivedAt)}
+    >
+      {template.archivedAt ? 'Restore' : 'Archive'}
+    </Button>
   )
 }

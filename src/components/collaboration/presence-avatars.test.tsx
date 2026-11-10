@@ -1,55 +1,90 @@
-/**
- * COLLAB-01 presence component tests. The room hooks
- * ('#/lib/collaboration/room-hooks') are mocked so the stack, chips, badge and
- * presence-sync hook logic can be exercised deterministically.
- */
-import { cleanup, render, screen } from '@testing-library/react'
+import { Suspense, useState, useTransition } from 'react'
+import type { ReactNode } from 'react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { RoomProviderContext } from '#/lib/collaboration/room-hooks'
+import type { RoomPeer } from '#/lib/collaboration/room-hooks'
+
 import { PresenceStack } from './presence-avatars'
-import { BlockCoEditBadge, coEditingPeerNames } from './presence-co-editing'
+import { BlockCoEditBadge } from './presence-co-editing'
+import { coEditingPeerNames } from './co-editing-peers'
+import type { CoEditingPeer } from './co-editing-peers'
+import { RoomReadyContext } from './room-ready'
+import { createPresenceTestRoom } from './presence-test-room'
 import { remoteSelectionChips, selectionRowsLabel } from './selection-label'
 import { useSetPresence } from './use-set-presence'
+import type { SettablePresenceFields } from './use-set-presence'
 
-const h = vi.hoisted(() => ({
-  ready: true,
-  others: [] as Array<Record<string, unknown>>,
-  updateMyPresence: vi.fn(),
-}))
+let room: Awaited<ReturnType<typeof createPresenceTestRoom>>
 
-vi.mock('#/lib/collaboration/room-hooks', () => ({
-  useOthers: () => h.others,
-  useUpdateMyPresence: () => h.updateMyPresence,
-}))
-
-// Every presence surface gates on room readiness before running room hooks;
-// stub the guard as ready (and toggleable for gate tests).
-vi.mock('./collaboration-room', () => ({
-  useCollaborationRoomReady: () => h.ready,
-}))
-
-afterEach(() => {
+afterEach(async () => {
   cleanup()
-  h.others = []
-  h.ready = true
-  h.updateMyPresence.mockClear()
-  vi.useRealTimers()
+  vi.restoreAllMocks()
+  await room.close()
 })
 
-beforeEach(() => {
-  vi.useFakeTimers()
+beforeEach(async () => {
+  room = await createPresenceTestRoom()
+  await waitFor(() => {
+    expect(room.provider.status).toBe('connected')
+    expect(room.provider.identity?.id).toBe('local-user')
+    expect(room.provider.synced).toBe(true)
+  })
 })
 
-const ada = { connectionId: 1, info: { name: 'Ada Lovelace' }, presence: {} }
-const grace = { connectionId: 2, info: { name: 'Grace Hopper' }, presence: {} }
-const alan = { connectionId: 3, info: { name: 'Alan Turing' }, presence: {} }
-const edsger = { connectionId: 4, info: { name: 'Edsger Dijkstra' } }
-const barbara = { connectionId: 5, info: { name: 'Barbara Liskov' } }
+function renderInRoom(children: ReactNode, ready = true) {
+  return render(children, {
+    wrapper: ({ children: content }) => (
+      <RoomReadyContext value={ready}>
+        <RoomProviderContext value={room.provider}>
+          {content}
+        </RoomProviderContext>
+      </RoomReadyContext>
+    ),
+  })
+}
+
+const ada: RoomPeer = {
+  connectionId: 1,
+  id: 'ada',
+  info: { name: 'Ada Lovelace', color: '#123456' },
+  presence: {},
+}
+
+const grace: RoomPeer = {
+  connectionId: 2,
+  id: 'grace',
+  info: { name: 'Grace Hopper', color: '#234567' },
+  presence: {},
+}
+
+const alan: RoomPeer = {
+  connectionId: 3,
+  id: 'alan',
+  info: { name: 'Alan Turing', color: '#345678' },
+  presence: {},
+}
+
+const edsger: RoomPeer = {
+  connectionId: 4,
+  id: 'edsger',
+  info: { name: 'Edsger Dijkstra', color: '#456789' },
+  presence: {},
+}
+
+const barbara: RoomPeer = {
+  connectionId: 5,
+  id: 'barbara',
+  info: { name: 'Barbara Liskov', color: '#567890' },
+  presence: {},
+}
 
 describe('PresenceStack', () => {
   it('renders an avatar with an accessible name per other user', () => {
-    h.others = [ada, grace]
-    const { container } = render(<PresenceStack />)
+    room.addPeers([ada, grace])
+    const { container } = renderInRoom(<PresenceStack />)
     expect(screen.getByLabelText('Ada Lovelace')).toBeTruthy()
     expect(screen.getByLabelText('Grace Hopper')).toBeTruthy()
     // Initials fallback renders inside each avatar.
@@ -58,22 +93,22 @@ describe('PresenceStack', () => {
   })
 
   it('labels the group with how many others are here', () => {
-    h.others = [ada, grace]
-    render(<PresenceStack />)
+    room.addPeers([ada, grace])
+    renderInRoom(<PresenceStack />)
     expect(screen.getByRole('group', { name: '2 here' })).toBeTruthy()
   })
 
   it('collapses beyond max into a +N overflow badge', () => {
-    h.others = [ada, grace, alan, edsger, barbara]
-    render(<PresenceStack />)
+    room.addPeers([ada, grace, alan, edsger, barbara])
+    renderInRoom(<PresenceStack />)
     // Only the first four get avatars; Barbara is folded into +1.
     expect(screen.queryByLabelText('Barbara Liskov')).toBeNull()
     expect(screen.getByText('+1')).toBeTruthy()
   })
 
   it('exposes the peer name as a native tooltip on each avatar', () => {
-    h.others = [ada, grace]
-    render(<PresenceStack />)
+    room.addPeers([ada, grace])
+    renderInRoom(<PresenceStack />)
     // Radix Tooltip carries the styled hover UI; the native title mirrors
     // the name for plain HTML consumers and is asserted here because radix
     // portal content does not open under jsdom's synthetic events.
@@ -86,15 +121,13 @@ describe('PresenceStack', () => {
   })
 
   it('renders nothing when nobody else is in the room', () => {
-    h.others = []
-    const { container } = render(<PresenceStack />)
+    const { container } = renderInRoom(<PresenceStack />)
     expect(container.querySelector('[role="group"]')).toBeNull()
   })
 
   it('renders nothing before the collaboration room is ready', () => {
-    h.ready = false
-    h.others = [ada]
-    const { container } = render(<PresenceStack />)
+    room.addPeers([ada])
+    const { container } = renderInRoom(<PresenceStack />, false)
     expect(container.querySelector('[role="group"]')).toBeNull()
   })
 })
@@ -182,21 +215,21 @@ describe('remoteSelectionChips', () => {
 
 describe('coEditingPeerNames', () => {
   it('matches only peers editing the same block in editing mode', () => {
-    const peers = [
+    const peers: CoEditingPeer[] = [
       {
         connectionId: 1,
         info: { name: 'Ada Lovelace' },
-        presence: { activeBlockId: 'block-1', mode: 'editing' as const },
+        presence: { activeBlockId: 'block-1', mode: 'editing' },
       },
       {
         connectionId: 2,
         info: { name: 'Grace Hopper' },
-        presence: { activeBlockId: 'block-1', mode: 'viewing' as const },
+        presence: { activeBlockId: 'block-1', mode: 'viewing' },
       },
       {
         connectionId: 3,
         info: { name: 'Alan Turing' },
-        presence: { activeBlockId: 'block-2', mode: 'editing' as const },
+        presence: { activeBlockId: 'block-2', mode: 'editing' },
       },
       edsger,
     ]
@@ -205,10 +238,10 @@ describe('coEditingPeerNames', () => {
   })
 
   it('falls back to a generic name when meta is missing', () => {
-    const peers = [
+    const peers: CoEditingPeer[] = [
       {
         connectionId: 4,
-        presence: { activeBlockId: 'b', mode: 'editing' as const },
+        presence: { activeBlockId: 'b', mode: 'editing' },
       },
     ]
 
@@ -217,37 +250,35 @@ describe('coEditingPeerNames', () => {
 })
 
 describe('BlockCoEditBadge', () => {
-  const editor = {
-    connectionId: 1,
-    info: { name: 'Ada Lovelace' },
+  const editor: RoomPeer = {
+    ...ada,
     presence: { activeBlockId: 'block-1', mode: 'editing' },
   }
 
   it('shows the peer name while I edit the same block', () => {
-    h.others = [editor]
-    render(<BlockCoEditBadge blockId="block-1" active />)
+    room.addPeers([editor])
+    renderInRoom(<BlockCoEditBadge blockId="block-1" active />)
     expect(screen.getByText('Editing here: Ada Lovelace')).toBeTruthy()
   })
 
   it('uses the plural verb for several co-editors', () => {
-    h.others = [
+    room.addPeers([
       editor,
       {
-        connectionId: 2,
-        info: { name: 'Grace Hopper' },
+        ...grace,
         presence: { activeBlockId: 'block-1', mode: 'editing' },
       },
-    ]
-    render(<BlockCoEditBadge blockId="block-1" active />)
+    ])
+    renderInRoom(<BlockCoEditBadge blockId="block-1" active />)
     expect(
       screen.getByText('Editing here: Ada Lovelace, Grace Hopper'),
     ).toBeTruthy()
   })
 
   it('renders nothing when I am not editing this block', () => {
-    h.others = [editor]
+    room.addPeers([editor])
 
-    const { container } = render(
+    const { container } = renderInRoom(
       <BlockCoEditBadge blockId="block-1" active={false} />,
     )
 
@@ -255,45 +286,63 @@ describe('BlockCoEditBadge', () => {
   })
 
   it('renders nothing when nobody else edits here', () => {
-    h.others = [ada]
-    const { container } = render(<BlockCoEditBadge blockId="block-1" active />)
+    room.addPeers([ada])
+
+    const { container } = renderInRoom(
+      <BlockCoEditBadge blockId="block-1" active />,
+    )
+
     expect(container.textContent).toBe('')
   })
 
   it('renders nothing before the room is ready', () => {
-    h.ready = false
-    h.others = [editor]
-    const { container } = render(<BlockCoEditBadge blockId="block-1" active />)
+    room.addPeers([editor])
+
+    const { container } = renderInRoom(
+      <BlockCoEditBadge blockId="block-1" active />,
+      false,
+    )
+
     expect(container.textContent).toBe('')
   })
 })
 
 describe('useSetPresence', () => {
-  function HookProbe({ fields }: { fields: Record<string, unknown> }) {
+  function HookProbe({ fields }: { fields: SettablePresenceFields }) {
     useSetPresence(fields)
 
     return null
   }
 
   it('reports fields on mount and restores defaults on unmount', () => {
-    const { unmount } = render(
+    const updateMyPresence = vi.spyOn(room.provider, 'setPresence')
+
+    const { unmount } = renderInRoom(
       <HookProbe fields={{ activeBlockId: 'block-1', mode: 'editing' }} />,
     )
 
-    expect(h.updateMyPresence).toHaveBeenCalledWith({
+    expect(updateMyPresence).toHaveBeenCalledWith({
       activeBlockId: 'block-1',
       mode: 'editing',
     })
+    expect(room.provider.awareness.getLocalState()).toMatchObject({
+      presence: { activeBlockId: 'block-1', mode: 'editing' },
+    })
     unmount()
-    expect(h.updateMyPresence).toHaveBeenLastCalledWith({
+    expect(updateMyPresence).toHaveBeenLastCalledWith({
       activeBlockId: null,
       activeFieldId: null,
       mode: 'viewing',
     })
+    expect(room.provider.awareness.getLocalState()).toMatchObject({
+      presence: { activeBlockId: null, activeFieldId: null, mode: 'viewing' },
+    })
   })
 
   it('re-reports only when the semantic identity changes', () => {
-    const { rerender } = render(
+    const updateMyPresence = vi.spyOn(room.provider, 'setPresence')
+
+    const { rerender } = renderInRoom(
       <HookProbe fields={{ activeBlockId: 'block-1', mode: 'editing' }} />,
     )
 
@@ -301,14 +350,100 @@ describe('useSetPresence', () => {
     rerender(
       <HookProbe fields={{ activeBlockId: 'block-1', mode: 'editing' }} />,
     )
-    expect(h.updateMyPresence).toHaveBeenCalledTimes(1)
+    expect(updateMyPresence).toHaveBeenCalledTimes(1)
+    expect(room.provider.awareness.getLocalState()).toMatchObject({
+      presence: { activeBlockId: 'block-1', mode: 'editing' },
+    })
     rerender(
       <HookProbe fields={{ activeBlockId: 'block-2', mode: 'editing' }} />,
     )
-    expect(h.updateMyPresence).toHaveBeenCalledTimes(2)
-    expect(h.updateMyPresence).toHaveBeenLastCalledWith({
+    expect(updateMyPresence).toHaveBeenCalledTimes(2)
+    expect(updateMyPresence).toHaveBeenLastCalledWith({
       activeBlockId: 'block-2',
       mode: 'editing',
+    })
+    expect(room.provider.awareness.getLocalState()).toMatchObject({
+      presence: { activeBlockId: 'block-2', mode: 'editing' },
+    })
+  })
+
+  it('never publishes an abandoned suspended transition and restores defaults on unmount', async () => {
+    const pending = new Promise<void>(() => {})
+    const attempted = vi.fn()
+    const updateMyPresence = vi.spyOn(room.provider, 'setPresence')
+
+    function Editor({ blockId }: { blockId: string }) {
+      useSetPresence({
+        activeBlockId: blockId,
+        activeFieldId: blockId,
+        mode: 'editing',
+      })
+
+      if (blockId === 'uncommitted') {
+        attempted()
+        throw pending
+      }
+
+      return <p>{blockId}</p>
+    }
+
+    function Notebook() {
+      const [blockId, setBlockId] = useState('committed')
+      const [waiting, startTransition] = useTransition()
+
+      return (
+        <>
+          <button
+            onClick={() => startTransition(() => setBlockId('uncommitted'))}
+          >
+            Suspend edit
+          </button>
+          <button onClick={() => setBlockId('replacement')}>
+            Abandon edit
+          </button>
+          {waiting ? <p>Transition pending</p> : null}
+          <Suspense fallback={<p>Loading</p>}>
+            <Editor blockId={blockId} />
+          </Suspense>
+        </>
+      )
+    }
+
+    const user = userEvent.setup()
+    const { unmount } = renderInRoom(<Notebook />)
+    const committed = room.provider.awareness.getLocalState()
+    expect(committed).toMatchObject({
+      presence: {
+        activeBlockId: 'committed',
+        activeFieldId: 'committed',
+        mode: 'editing',
+      },
+    })
+    await user.click(screen.getByRole('button', { name: 'Suspend edit' }))
+    expect(attempted).toHaveBeenCalled()
+    expect(screen.getByText('Transition pending')).toBeTruthy()
+    expect(screen.getByText('committed')).toBeTruthy()
+    expect(room.provider.awareness.getLocalState()).toEqual(committed)
+    expect(updateMyPresence).toHaveBeenCalledTimes(1)
+
+    await user.click(screen.getByRole('button', { name: 'Abandon edit' }))
+    expect(screen.getByText('replacement')).toBeTruthy()
+    expect(room.provider.awareness.getLocalState()).toMatchObject({
+      presence: {
+        activeBlockId: 'replacement',
+        activeFieldId: 'replacement',
+        mode: 'editing',
+      },
+    })
+    expect(updateMyPresence).toHaveBeenCalledTimes(2)
+    expect(updateMyPresence).not.toHaveBeenCalledWith({
+      activeBlockId: 'uncommitted',
+      activeFieldId: 'uncommitted',
+      mode: 'editing',
+    })
+    unmount()
+    expect(room.provider.awareness.getLocalState()).toMatchObject({
+      presence: { activeBlockId: null, activeFieldId: null, mode: 'viewing' },
     })
   })
 })

@@ -158,11 +158,39 @@ describe('ChartConfigurator error-bar interval', () => {
 })
 
 describe('ChartConfigurator chart-type switching', () => {
+  it.each(['wrap', 'rail'] as const)(
+    'labels the %s type group without labeling a radio as the group',
+    (layout) => {
+      const datasetSource = errorSource(false)
+      render(
+        <ChartConfigurator
+          source={datasetSource}
+          spec={specFor(datasetSource)}
+          onSpecChange={() => {}}
+          layout={layout}
+        />,
+      )
+
+      const group = screen.getByRole('radiogroup', { name: 'Chart type' })
+      expect(screen.getByLabelText('Chart type')).toBe(group)
+      const labelId = group.getAttribute('aria-labelledby')
+
+      if (!labelId)
+        throw new Error('Chart type group must reference its visible label')
+      expect(document.getElementById(labelId)?.textContent).toBe('Chart type')
+      expect(
+        screen
+          .getByRole('radio', { name: 'heatmap' })
+          .getAttribute('aria-labelledby'),
+      ).toBeNull()
+    },
+  )
+
   it('restores an X dimension when a heatmap follows a box plot', () => {
     // Box plots clear the X mapping (they reject one). Selecting heatmap next
     // used to leave the grid without a dimension, which threw inside the
     // materialiser and replaced the whole studio with the error surface.
-    const onSpecChange = vi.fn()
+    const onSpecChange = vi.fn<(next: ChartSpec) => void>()
     const datasetSource = errorSource(false)
 
     const boxSpec: ChartSpec = {
@@ -181,7 +209,7 @@ describe('ChartConfigurator chart-type switching', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: 'heatmap' }))
 
-    const next = onSpecChange.mock.calls[0]?.[0] as ChartSpec
+    const next = onSpecChange.mock.calls[0][0]
     expect(next.type).toBe('heatmap')
     // The first measured field becomes the grid's X dimension.
     expect(next.fields.x).toEqual({ fieldId: Y_ID })
@@ -189,7 +217,7 @@ describe('ChartConfigurator chart-type switching', () => {
   })
 
   it('keeps the mapped X when a heatmap follows a chart that carries one', () => {
-    const onSpecChange = vi.fn()
+    const onSpecChange = vi.fn<(next: ChartSpec) => void>()
     const datasetSource = errorSource(false)
     render(
       <ChartConfigurator
@@ -201,7 +229,7 @@ describe('ChartConfigurator chart-type switching', () => {
 
     fireEvent.click(screen.getByRole('radio', { name: 'heatmap' }))
 
-    const next = onSpecChange.mock.calls[0]?.[0] as ChartSpec
+    const next = onSpecChange.mock.calls[0][0]
     expect(next.fields.x).toEqual({ fieldId: X_ID })
   })
 })

@@ -13,21 +13,7 @@
 
 import * as React from 'react'
 
-import { t } from '#/copy'
-
 import { cn } from '#/lib/utils'
-
-/** The reasons surfaced for the actions that cannot run offline. */
-export const CONNECTION_REQUIRED_REASONS = {
-  submit: t('notebook.connectionRequired.submit'),
-  sign: t('notebook.connectionRequired.sign'),
-  share: t('notebook.connectionRequired.share'),
-  import: t('notebook.connectionRequired.import'),
-  rerun: t('notebook.connectionRequired.rerun'),
-  search: t('notebook.connectionRequired.search'),
-}
-
-export type ConnectionRequiredAction = keyof typeof CONNECTION_REQUIRED_REASONS
 
 export interface ConnectionRequiredState {
   /** True while the connection is unavailable. */

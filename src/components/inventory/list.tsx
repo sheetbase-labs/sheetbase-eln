@@ -14,6 +14,10 @@ import { SEARCH_SETTLE_MS, useSettledValue } from '#/lib/settled-value'
 import { cn } from '#/lib/utils'
 import { t } from '#/copy'
 
+export { nameSorts, sortByName, footerCount } from './list-data'
+
+export type { NameSort } from './list-data'
+
 // Pieces shared by the registry lists (samples, materials, protocols, datasets): a header with the total and actions,
 // a toolbar with the `q` search box, and a footer count. The tab strip that used to live here is now
 // `#/components/ui/tabs` (`mode="url"`), the one tab component the app has.
@@ -107,25 +111,6 @@ export type ViewOptions = {
 /** The toolbar's Sort/Filter/Fields menus exist only when the route supplies
  * the handler that applies the choice: a registry with no handler renders no
  * control rather than a menu that does nothing. */
-/** The sorts a list offers when it has no dates or counts of its own. */
-export const nameSorts = ['Name', 'ID'] as const
-
-export type NameSort = (typeof nameSorts)[number]
-
-/** A copy of `rows` ordered by name or identifier, numbers in order (PL-9 before PL-10). */
-export function sortByName<T>(
-  rows: readonly T[],
-  sort: NameSort,
-  name: (row: T) => string,
-  id: (row: T) => string,
-): T[] {
-  const key = sort === 'ID' ? id : name
-
-  return [...rows].sort((a, b) =>
-    key(a).localeCompare(key(b), 'en-GB', { numeric: true }),
-  )
-}
-
 export function ViewControls({
   sorts,
   sort,
@@ -294,39 +279,6 @@ export function ListToolbar({
   )
 }
 
-/**
- * What a list's footer counts: "3 templates", "29 samples · in stock", and
- * "2 of 3 templates" or "1 matching “x” of 3 templates" when a search narrows it.
- */
-export function footerCount({
-  shown,
-  total,
-  one,
-  many = `${one}s`,
-  tab,
-  query,
-}: {
-  shown: number
-  total: number
-  one: string
-  many?: string
-  /** The tab's label; "All" adds nothing. */
-  tab?: string
-  query?: string
-}) {
-  const noun = total === 1 ? one : many
-
-  const qualifier =
-    tab && tab.toLowerCase() !== 'all' ? ` · ${tab.toLowerCase()}` : ''
-
-  if (query)
-    return `${shown} matching “${query}” of ${total} ${noun}${qualifier}`
-
-  if (shown !== total) return `${shown} of ${total} ${noun}${qualifier}`
-
-  return `${total} ${noun}${qualifier}`
-}
-
 export function ListFooter({
   children,
   right,
@@ -369,8 +321,13 @@ export function ListSkeleton({
           title={title}
           tabs={
             <div className="flex h-9 items-center gap-5">
-              {[80, 50, 140, 80].map((w, i) => (
-                <Skeleton key={i} className="h-3" style={{ width: w }} />
+              {[
+                { id: 'identifier', width: 80 },
+                { id: 'type', width: 50 },
+                { id: 'name', width: 140 },
+                { id: 'status', width: 80 },
+              ].map(({ id, width }) => (
+                <Skeleton key={id} className="h-3" style={{ width }} />
               ))}
             </div>
           }
@@ -384,7 +341,7 @@ export function ListSkeleton({
               key={i}
               className="flex h-[33px] items-center gap-6 border-b border-border-subtle px-6"
             >
-              {Array.from({ length: cols }, (_, j) => (
+              {Array.from({ length: cols }, (_column, j) => (
                 <Skeleton
                   key={j}
                   className="h-3"

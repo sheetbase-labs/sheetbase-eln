@@ -75,9 +75,11 @@ export function SignatureRequestPreview({
     return <InvalidPayload type="signature_request" />
   const state = signatureRequestState(payload, context)
   const explanation = signatureRequestExplanation(state, context)
+
   const signerLabel =
     payload.requestedUserName?.trim() ||
     (payload.requestedUserId ? payload.requestedUserId.slice(0, 8) : null)
+
   return (
     <div
       data-testid="signature-request-block"
@@ -121,6 +123,7 @@ export function CorrectiveActionsPreview({
 }) {
   if (!isCorrectiveActionsPayload(payload))
     return <InvalidPayload type="corrective_actions" />
+
   if (payload.items.length === 0) {
     return (
       <p
@@ -131,8 +134,10 @@ export function CorrectiveActionsPreview({
       </p>
     )
   }
+
   const summary = correctiveActionsSummary(payload)
   const rows = payload.items
+
   return (
     <div
       data-testid="corrective-actions-block"
@@ -154,6 +159,7 @@ export function CorrectiveActionsPreview({
           <TableBody>
             {rows.map((item) => {
               const owner = correctiveActionOwner(item)
+
               return (
                 <TableRow key={item.id} data-action-id={item.id}>
                   <TableCell className="mono first:pl-3">{item.id}</TableCell>
@@ -180,6 +186,7 @@ export function CorrectiveActionsPreview({
       <ul className="-mx-4 m-0 list-none border-y border-border-subtle p-0 md:hidden">
         {rows.map((item) => {
           const owner = correctiveActionOwner(item)
+
           return (
             <li
               key={item.id}

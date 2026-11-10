@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import type { ModelFieldDefinition } from '#/lib/model-fields'
 import {
   fieldShowsOn,
   parseChoices,
   withArticle,
-} from './built-in-model-fields'
+} from './built-in-field-presentation'
 
 describe('built-in model field authoring', () => {
   it('reads choices one per line, without blanks or repeats', () => {
@@ -20,7 +19,7 @@ describe('built-in model field authoring', () => {
     const base = {
       askOnCreate: true,
       showInList: false,
-    } as ModelFieldDefinition
+    }
 
     expect(fieldShowsOn(base)).toBe('Record page, create form')
     expect(

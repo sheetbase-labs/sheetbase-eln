@@ -86,7 +86,7 @@ export function AgentPoliciesBoard({
     changeRef: string | null
     reason: string
     meaning: string
-  }) => Promise<unknown>
+  }) => Promise<AgentPolicyRevision>
   nameOf: (userId: string | null) => string | null
   projectName: (projectId: string) => string
   pending: boolean
@@ -94,12 +94,22 @@ export function AgentPoliciesBoard({
 }) {
   const [dialogFor, setDialogFor] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
-  useEffect(() => {
+  const [previousInitialId, setPreviousInitialId] = useState<string | null>()
+  const [previousCanChange, setPreviousCanChange] = useState<boolean>()
+
+  if (
+    previousInitialId !== initialDefinitionId ||
+    previousCanChange !== canChange
+  ) {
+    setPreviousInitialId(initialDefinitionId)
+    setPreviousCanChange(canChange)
+
     if (initialDefinitionId && canChange) {
       setDialogFor(initialDefinitionId)
       setOpen(true)
     }
-  }, [initialDefinitionId, canChange])
+  }
+
   const latest = revisions.at(0)
 
   if (definitions.length === 0) {
@@ -299,15 +309,20 @@ function ChangePolicyDialog({
     changeRef: string | null
     reason: string
     meaning: string
-  }) => Promise<unknown>
+  }) => Promise<void>
 }) {
   const first = definitions.find((d) => d.id === initialId) ?? definitions[0]
   const [definitionId, setDefinitionId] = useState(first.id)
   const definition = definitions.find((d) => d.id === definitionId) ?? first
+
   const [policy, setPolicy] = useState<AgentPolicy>(definition.policy)
   const [changeRef, setChangeRef] = useState('')
   const [reason, setReason] = useState('')
-  const [meaning, setMeaning] = useState(t('data.policiesBoard.iApproveChange'))
+
+  const [meaning, setMeaning] = useState(() =>
+    t('data.policiesBoard.iApproveChange'),
+  )
+
   useEffect(() => setPolicy(definition.policy), [definition])
 
   const changed = POLICY_COLUMNS.some(
@@ -341,12 +356,13 @@ function ChangePolicyDialog({
               <Field key={column.key} label={column.label}>
                 <Select
                   value={policy[column.key]}
-                  onChange={(e) =>
-                    setPolicy({
-                      ...policy,
-                      [column.key]: e.target.value as PolicyMode,
-                    })
-                  }
+                  onChange={(e) => {
+                    const mode = POLICY_MODES.find(
+                      (m) => m.mode === e.target.value,
+                    )?.mode
+
+                    if (mode) setPolicy({ ...policy, [column.key]: mode })
+                  }}
                 >
                   {POLICY_MODES.map((m) => (
                     <option key={m.mode} value={m.mode}>

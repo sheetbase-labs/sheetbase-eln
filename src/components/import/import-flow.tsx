@@ -4,7 +4,7 @@ import {
   datasetOption,
   recordSearch,
 } from '#/components/record-picker/entity-options'
-import { useEffect, useId, useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -57,7 +57,6 @@ import {
   datasetFieldsFromColumns,
   importHeaderUnit,
   importUnitError,
-  suggestImportMappings,
 } from '#/lib/import-mapping'
 import type { ImportTargetField } from '#/lib/import-mapping'
 import { requestParserUpdate } from '#/lib/parser-settings'
@@ -90,9 +89,22 @@ import {
 import { FileColumnsStep } from './file-columns-step'
 import { PluginPullPanel } from './plugin-pull-panel'
 import type { FileColumnsResult } from './file-columns-step'
-import { ImportReceipt, findCommittedReceipt } from './import-receipt'
+import { ImportReceipt } from './import-receipt'
+import { findCommittedReceipt } from './import-receipt-data'
 import type { ImportSearch } from './import-search'
 import { parseImportMapping, serializeImportMapping } from './import-search'
+import {
+  columnExamples,
+  columnNote,
+  commitIdempotencyKey,
+  initialMappingValues,
+  importViewState,
+  outcomeLabel,
+  outcomeTone,
+  suggestDatasetFromFilename,
+  suggestParserFromFilename,
+  uploadTargetState,
+} from './import-flow-data'
 
 const client = createDataClient()
 
@@ -105,179 +117,12 @@ const STEPS = [
 const DATASETS_QUERY_KEY = ['ui-port', 'import', 'datasets'] as const
 const SCHEMAS_QUERY_KEY = ['ui-port', 'import', 'schemas'] as const
 
-export {
-  parseImportMapping,
-  parseImportSearch,
-  serializeImportMapping,
-} from './import-search'
-
 export type { ImportSearch } from './import-search'
 
-/**
- * A suggestion from the file name only: the parser catalogue's leading label
- * token (for example `TB-02` in `TB-02_run12.csv`). It pre-selects an option
- * the user can always override; the server still decides what reads the file.
- */
 /** Experiments to link a file to: searched on the server, not preloaded. */
 const experimentSearch = recordSearch(['Experiment'])
 
-export function suggestParserFromFilename(
-  filename: string,
-  options: ImportParserSummary[],
-): ImportParserSummary | null {
-  const name = filename.toLowerCase()
-
-  return (
-    options.find((option) => {
-      const label = option.label
-        .toLowerCase()
-        .replace(/ v[\d.]+$/, '')
-        .split(' ')[0]
-
-      return label.length >= 3 && name.includes(label)
-    }) ?? null
-  )
-}
-
-/**
- * A Dataset to suggest for a file picked before any target was chosen: the one
- * whose display ID, or whose name's words, appear in the file name
- * (`ELISA-capsid-titre_run4.csv` for "ELISA capsid titre"). Nothing is
- * suggested when no Dataset stands out, and the person can always change it.
- */
-export function suggestDatasetFromFilename<
-  T extends { id: string; name: string; display_id?: string | null },
->(filename: string, datasets: readonly T[]): T | null {
-  const stem = filename
-    .toLowerCase()
-    .replace(/\.[a-z0-9]+$/, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-
-  const scored = datasets
-    .map((dataset) => {
-      const id = (dataset.display_id ?? '')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, ' ')
-
-      if (id.trim() && stem.includes(id.trim())) return { dataset, score: 100 }
-
-      const words = dataset.name
-        .toLowerCase()
-        .split(/[^a-z0-9]+/)
-        .filter((word) => word.length >= 3)
-
-      const hits = words.filter((word) => stem.includes(word)).length
-
-      return { dataset, score: words.length > 0 ? hits : 0 }
-    })
-    .filter((entry) => entry.score >= 2 || entry.score === 100)
-    .sort((a, b) => b.score - a.score)
-
-  const best = scored.at(0)
-  const next = scored.at(1)
-
-  if (!best || (next && next.score === best.score)) return null
-
-  return best.dataset
-}
-
-/**
- * The mapping a step starts from. A link's `map` is authoritative for every
- * header it names (an absent header means "not imported", exactly like a saved
- * mapping's explicit null); otherwise the parser's saved default wins and the
- * header-name suggestion fills the rest.
- */
-export function initialMappingValues(
-  headers: string[],
-  fields: ImportTargetField[],
-  savedMapping: ImportMappingDocument | null,
-  urlMapping: Record<string, string>,
-): Record<string, string> {
-  if (Object.keys(urlMapping).length > 0) {
-    const values: Record<string, string> = {}
-
-    for (const header of headers) values[header] = urlMapping[header] ?? ''
-
-    return values
-  }
-
-  const saved = savedMapping?.sources ?? []
-  const suggested = suggestImportMappings(headers, fields)
-  const values: Record<string, string> = {}
-
-  for (const source of headers) {
-    const savedEntry = saved.find((entry) => entry.source === source)
-    const suggestedEntry = suggested.find((entry) => entry.source === source)
-    values[source] = savedEntry
-      ? (savedEntry.fieldId ?? '')
-      : suggestedEntry?.kind === 'field'
-        ? suggestedEntry.field.id
-        : ''
-  }
-
-  return values
-}
-
-/**
- * A stable commit key for this file, target and mapping, so a reloaded check
- * step re-submits the same import and the canonical RPC returns the existing
- * receipt instead of writing a second snapshot. A different mapping is a
- * genuinely different import and gets its own key.
- */
-export function commitIdempotencyKey(
-  fileId: string,
-  datasetId: string,
-  mapping: ImportMappingDocument,
-): string {
-  const canonical = JSON.stringify([
-    mapping.sheetName,
-    mapping.sources.map((source) => [
-      source.source,
-      source.fieldId,
-      source.unit,
-      source.sourceUnit,
-    ]),
-  ])
-
-  let hash = 2166136261
-
-  for (let index = 0; index < canonical.length; index += 1) {
-    hash ^= canonical.charCodeAt(index)
-    hash = Math.imul(hash, 16777619)
-  }
-
-  return `import-${fileId}-${datasetId}-${(hash >>> 0).toString(16)}`
-}
-
 const BUILT_IN_EXTENSIONS = ['.csv', '.tsv', '.tab', '.txt', '.json', '.xlsx']
-
-function outcomeTone(outcome: string): 'ok' | 'warn' | 'bad' | 'stored' {
-  if (outcome === 'flagged') return 'warn'
-
-  if (outcome === 'skipped') return 'stored'
-
-  if (outcome === 'planned') return 'ok'
-
-  return 'stored'
-}
-
-function outcomeLabel(row: {
-  outcome: string
-  plannedRowId: string | null
-  flags: Array<{ reason: string }>
-}): string {
-  if (row.outcome === 'skipped') return t('data.importFlow.controlImported')
-
-  if (row.outcome === 'flagged')
-    return (
-      row.flags.map((flag) => flag.reason).join('; ') ||
-      t('data.importFlow.flagged')
-    )
-
-  if (row.outcome === 'planned') return t('data.importFlow.fillsPlannedRow')
-
-  return t('data.importFlow.newRow')
-}
 
 interface ImportCommitResponseSummary {
   committed: number
@@ -331,35 +176,8 @@ function TargetChoice({
   )
 }
 
-export function ImportUploadFlow({
-  workspaceId,
-  createdByUserId,
-  initialInstrumentId,
-  initialExperimentId,
-  initialDatasetId,
-  initialProjectId,
-  returnTo,
-  onUploaded,
-}: {
-  workspaceId: string
-  /** The signed-in person a Dataset created here is attributed to. */
-  createdByUserId: string | null
-  /** Preselects the instrument, e.g. from an instrument's "Upload a file" action. */
-  initialInstrumentId?: string
-  /** Preselects the experiment, e.g. from the experiment the person is in. */
-  initialExperimentId?: string
-  /** Preselects the Dataset to append to, e.g. from a Dataset's Re-import. */
-  initialDatasetId?: string
-  /** The project in view; a Dataset created here belongs to it. */
-  initialProjectId?: string
-  /** Where Cancel goes back to, when the person came from another page. */
-  returnTo?: string
-  /** An embedded host retains the file and target before opening mapping. */
-  onUploaded?: (fileId: string, search: ImportSearch) => Promise<void>
-}) {
-  const navigate = useNavigate()
+function useUploadContext() {
   const targetGroup = useId()
-  const queryClient = useQueryClient()
 
   const datasets = useQuery({
     queryKey: DATASETS_QUERY_KEY,
@@ -377,6 +195,17 @@ export function ImportUploadFlow({
   const instruments = useInstruments()
   const calibrations = useLatestCalibrationsByInstrument()
 
+  return {
+    targetGroup,
+    datasets,
+    schemas,
+    experiments,
+    instruments,
+    calibrations,
+  }
+}
+
+function useImportReaders() {
   // File formats and tools that installed plugins add to the upload step.
   const pluginPoints = useExtensionPoints()
   const pluginImporters = pluginPoints.data.importers
@@ -455,6 +284,37 @@ export function ImportUploadFlow({
     })
   }
 
+  return {
+    pluginConnectors,
+    pluginParsers,
+    pluginImporterExtensions,
+    pluginExtensions,
+    readable,
+  }
+}
+
+function useUploadTarget({
+  initialInstrumentId,
+  initialExperimentId,
+  initialDatasetId,
+}: ImportUploadProps) {
+  const {
+    targetGroup,
+    datasets,
+    schemas,
+    experiments,
+    instruments,
+    calibrations,
+  } = useUploadContext()
+
+  const {
+    pluginConnectors,
+    pluginParsers,
+    pluginImporterExtensions,
+    pluginExtensions,
+    readable,
+  } = useImportReaders()
+
   const [mode, setMode] = useState<'append' | 'new' | 'file' | null>(null)
 
   // A file already read, waiting for its table's columns to be set up.
@@ -498,27 +358,115 @@ export function ImportUploadFlow({
 
   // With nothing to append to, a table made from the file itself is the way in:
   // the first import never waits for someone to define columns.
-  const defaultMode =
-    datasetRows.length > 0
-      ? 'append'
-      : structureRows.length > 0
-        ? 'new'
-        : 'file'
-
-  const effectiveMode = mode ?? defaultMode
-
-  const targetReady =
-    effectiveMode === 'append'
-      ? Boolean(datasetId)
-      : effectiveMode === 'new'
-        ? Boolean(schemaVersionId) && newName.trim().length > 0
-        : true
+  const { effectiveMode, targetReady } = uploadTargetState({
+    mode,
+    datasetCount: datasetRows.length,
+    structureCount: structureRows.length,
+    datasetId,
+    schemaVersionId,
+    newName,
+  })
 
   const latestCalibration = instrumentId
     ? calibrations.data?.get(instrumentId)
     : undefined
 
   const calibration = calibrationStatus(latestCalibration?.dueAt ?? null)
+
+  return {
+    targetGroup,
+    datasets,
+    schemas,
+    experiments,
+    instruments,
+    pluginConnectors,
+    pluginParsers,
+    pluginImporterExtensions,
+    pluginExtensions,
+    readable,
+    setMode,
+    columnsStage,
+    setColumnsStage,
+    datasetId,
+    setDatasetId,
+    schemaVersionId,
+    setSchemaVersionId,
+    newName,
+    setNewName,
+    experimentId,
+    setExperimentId,
+    experimentOption,
+    setExperimentOption,
+    initialExperimentOption,
+    instrumentId,
+    setInstrumentId,
+    held,
+    setHeld,
+    suggested,
+    setSuggested,
+    holdError,
+    setHoldError,
+    starting,
+    setStarting,
+    datasetRows,
+    structureRows,
+    effectiveMode,
+    targetReady,
+    calibration,
+  }
+}
+
+interface ImportUploadProps {
+  workspaceId: string
+  /** The signed-in person a Dataset created here is attributed to. */
+  createdByUserId: string | null
+  /** Preselects the instrument, e.g. from an instrument's "Upload a file" action. */
+  initialInstrumentId?: string
+  /** Preselects the experiment, e.g. from the experiment the person is in. */
+  initialExperimentId?: string
+  /** Preselects the Dataset to append to, e.g. from a Dataset's Re-import. */
+  initialDatasetId?: string
+  /** The project in view; a Dataset created here belongs to it. */
+  initialProjectId?: string
+  /** Where Cancel goes back to, when the person came from another page. */
+  returnTo?: string
+  /** An embedded host retains the file and target before opening mapping. */
+  onUploaded?: (fileId: string, search: ImportSearch) => Promise<void>
+}
+
+function useImportUpload(props: ImportUploadProps) {
+  const {
+    workspaceId,
+    createdByUserId,
+    initialProjectId,
+    returnTo,
+    onUploaded,
+  } = props
+
+  const uploadTarget = useUploadTarget(props)
+
+  const {
+    experiments,
+    readable,
+    effectiveMode,
+    setColumnsStage,
+    schemaVersionId,
+    newName,
+    experimentId,
+    datasetId,
+    instrumentId,
+    setHoldError,
+    setHeld,
+    setSuggested,
+    targetReady,
+    datasetRows,
+    setDatasetId,
+    held,
+    setStarting,
+  } = uploadTarget
+
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   /**
    * Step 1 hands the picked file straight to the shared transport. The pick's
@@ -658,6 +606,45 @@ export function ImportUploadFlow({
     }
   }
 
+  return { ...uploadTarget, pick, startHeld }
+}
+
+export function ImportUploadFlow(props: ImportUploadProps) {
+  const upload = useImportUpload(props)
+
+  return upload.columnsStage ? (
+    <UploadColumns upload={upload} props={props} />
+  ) : (
+    <UploadFileStep upload={upload} props={props} />
+  )
+}
+
+function UploadColumns({
+  upload,
+  props,
+}: {
+  upload: ReturnType<typeof useImportUpload>
+  props: ImportUploadProps
+}) {
+  const {
+    workspaceId,
+    createdByUserId,
+    initialProjectId,
+    returnTo,
+    onUploaded,
+  } = props
+
+  const {
+    columnsStage,
+    experiments,
+    experimentId,
+    instrumentId,
+    setColumnsStage,
+  } = upload
+
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+
   if (columnsStage) {
     const experimentProject =
       experiments.data?.find((item) => item.id === experimentId)?.project_id ??
@@ -702,6 +689,32 @@ export function ImportUploadFlow({
       />
     )
   }
+
+  return null
+}
+
+function UploadFileStep({
+  upload,
+  props,
+}: {
+  upload: ReturnType<typeof useImportUpload>
+  props: ImportUploadProps
+}) {
+  const { onUploaded, initialProjectId, returnTo } = props
+
+  const {
+    experimentId,
+    pluginExtensions,
+    pluginImporterExtensions,
+    pluginParsers,
+    pluginConnectors,
+    pick,
+    held,
+    targetReady,
+    holdError,
+    starting,
+    startHeld,
+  } = upload
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
@@ -808,170 +821,249 @@ export function ImportUploadFlow({
             </div>
           ) : null}
 
-          <div className="grid max-w-[640px] gap-1.5 text-label text-fg-muted">
-            <span className="font-medium text-fg">
-              {t('data.importFlow.whereGoes')}
-            </span>
-            {datasets.isLoading ? (
-              <p role="status" className="m-0 text-body text-fg-muted">
-                {t('data.importFlow.readingDatasets')}
-              </p>
-            ) : null}
-            {datasets.isError ? (
-              <Banner tone="bad" title={t('data.importFlow.datasetsCouldRead')}>
-                {t('data.importFlow.listDidLoadSo')}
-                <Button variant="quiet" onClick={() => void datasets.refetch()}>
-                  {t('common.actions.tryAgain')}
-                </Button>
-              </Banner>
-            ) : null}
-            <TargetChoice
-              group={targetGroup}
-              checked={effectiveMode === 'file'}
-              onChange={() => setMode('file')}
-              title={t('data.importFlow.fromFileTitle')}
-              hint={
-                datasetRows.length === 0 && structureRows.length === 0
-                  ? `${t('data.importFlow.fromFileHint')} ${t('data.importFlow.fromFileRecommended')}`
-                  : t('data.importFlow.fromFileHint')
-              }
-            />
-            <TargetChoice
-              group={targetGroup}
-              checked={effectiveMode === 'new'}
-              onChange={() => setMode('new')}
-              disabled={structureRows.length === 0 && schemas.isSuccess}
-              title={t('data.importFlow.likeTableTitle')}
-              hint={t('data.importFlow.likeTableHint')}
-            />
-            <TargetChoice
-              group={targetGroup}
-              checked={effectiveMode === 'append'}
-              onChange={() => setMode('append')}
-              disabled={datasetRows.length === 0 && datasets.isSuccess}
-              title={t('data.importFlow.appendTitle')}
-              hint={
-                datasetRows.length === 0 && datasets.isSuccess
-                  ? t('data.importFlow.nothingToAppend')
-                  : t('data.importFlow.appendHint')
-              }
-            />
-          </div>
-
-          {effectiveMode === 'file' ? null : effectiveMode === 'append' ? (
-            <label className="grid max-w-[420px] gap-1 text-label text-fg-muted">
-              {t('data.importFlow.dataset')}
-              <PickerSelect
-                noun="dataset"
-                aria-label={t('data.importFlow.ariaImportIntoDataset')}
-                value={datasetId}
-                onChange={(id) => {
-                  setDatasetId(id)
-                  setSuggested(null)
-                }}
-                placeholder={t('data.importFlow.chooseDataset')}
-                options={datasetRows.map((item) =>
-                  datasetOption({
-                    id: item.id,
-                    name: item.name,
-                    displayId: item.display_id,
-                  }),
-                )}
-              />
-              {suggested && suggested === datasetId ? (
-                <span>{t('data.importFlow.suggestedFromFileName')}</span>
-              ) : null}
-            </label>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="grid gap-1 text-label text-fg-muted">
-                {t('data.importFlow.datasetSchema2')}
-                <PickerSelect
-                  noun="dataset schema"
-                  aria-label={t('data.importFlow.ariaLabel')}
-                  value={schemaVersionId}
-                  onChange={(id) => setSchemaVersionId(id)}
-                  placeholder={t('data.importFlow.placeholder')}
-                  options={(schemas.data ?? []).map((schema) => ({
-                    id: schema.schemaVersionId,
-                    label: schema.name,
-                    detail: t('data.importFlow.detail', {
-                      version: schema.version,
-                    }),
-                  }))}
-                />
-              </label>
-              <label className="grid gap-1 text-label text-fg-muted">
-                {t('data.importFlow.datasetName')}
-                <Input
-                  aria-label={t('data.importFlow.ariaNewDatasetName')}
-                  value={newName}
-                  placeholder={t('data.importFlow.placeholderEGElisaCapsid')}
-                  onChange={(event) => setNewName(event.target.value)}
-                />
-              </label>
-            </div>
-          )}
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="grid gap-1 text-label text-fg-muted">
-              {t('data.importFlow.linkExperiment')}
-              <PickerSelect
-                noun="experiment"
-                aria-label={t('data.importFlow.linkExperiment')}
-                value={experimentId}
-                placeholder={t('data.importFlow.noExperiment')}
-                disabled={Boolean(onUploaded && initialExperimentId)}
-                onChange={(id, option) => {
-                  setExperimentId(id)
-                  setExperimentOption(option)
-                }}
-                selected={experimentOption ?? initialExperimentOption}
-                clearLabel={t('data.importFlow.noExperiment')}
-                search={experimentSearch}
-              />
-            </label>
-            <label className="grid gap-1 text-label text-fg-muted">
-              {t('data.importFlow.instrument')}
-              <Select
-                aria-label={t('data.importFlow.instrument')}
-                value={instrumentId}
-                onChange={(event) => setInstrumentId(event.target.value)}
-              >
-                <option value="">{t('data.importFlow.noInstrument')}</option>
-                {(instruments.data ?? []).map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.displayId ?? item.name} · {item.name}
-                  </option>
-                ))}
-              </Select>
-              {instrumentId ? (
-                <Status tone={calibration.tone}>{calibration.label}</Status>
-              ) : null}
-            </label>
-          </div>
-
-          {onUploaded ? (
-            <p className="m-0 max-w-[640px] text-label text-fg-muted">
-              {effectiveMode === 'new'
-                ? t('data.importFlow.fileKeptNewDataset')
-                : t('data.importFlow.fileKept')}
-            </p>
-          ) : (
-            <Section title={t('data.importFlow.whatHappensNext')}>
-              <ol className="m-0 grid list-decimal gap-1 pl-5 text-body text-fg-muted">
-                <li>{t('data.importFlow.fileKeptExactlyUploaded')}</li>
-                <li>{t('data.importFlow.checkHowFileColumns')}</li>
-                <li>{t('data.importFlow.seeEveryRowAdded')}</li>
-              </ol>
-              <p className="m-0 mt-2 max-w-[640px] text-body text-fg-muted">
-                {t('data.importFlow.eachStoredFileGets')}
-              </p>
-            </Section>
-          )}
+          <UploadTargetFields upload={upload} props={props} />
         </div>
       </div>
     </div>
+  )
+}
+
+/** Target selection and the context attached to the stored file. */
+function UploadTargetFields({
+  upload,
+  props,
+}: {
+  upload: ReturnType<typeof useImportUpload>
+  props: ImportUploadProps
+}) {
+  const {
+    targetGroup,
+    datasets,
+    schemas,
+    datasetRows,
+    structureRows,
+    effectiveMode,
+    setMode,
+  } = upload
+
+  return (
+    <>
+      <div className="grid max-w-[640px] gap-1.5 text-label text-fg-muted">
+        <span className="font-medium text-fg">
+          {t('data.importFlow.whereGoes')}
+        </span>
+        {datasets.isLoading ? (
+          <p role="status" className="m-0 text-body text-fg-muted">
+            {t('data.importFlow.readingDatasets')}
+          </p>
+        ) : null}
+        {datasets.isError ? (
+          <Banner tone="bad" title={t('data.importFlow.datasetsCouldRead')}>
+            {t('data.importFlow.listDidLoadSo')}
+            <Button variant="quiet" onClick={() => void datasets.refetch()}>
+              {t('common.actions.tryAgain')}
+            </Button>
+          </Banner>
+        ) : null}
+        <TargetChoice
+          group={targetGroup}
+          checked={effectiveMode === 'file'}
+          onChange={() => setMode('file')}
+          title={t('data.importFlow.fromFileTitle')}
+          hint={
+            datasetRows.length === 0 && structureRows.length === 0
+              ? `${t('data.importFlow.fromFileHint')} ${t('data.importFlow.fromFileRecommended')}`
+              : t('data.importFlow.fromFileHint')
+          }
+        />
+        <TargetChoice
+          group={targetGroup}
+          checked={effectiveMode === 'new'}
+          onChange={() => setMode('new')}
+          disabled={structureRows.length === 0 && schemas.isSuccess}
+          title={t('data.importFlow.likeTableTitle')}
+          hint={t('data.importFlow.likeTableHint')}
+        />
+        <TargetChoice
+          group={targetGroup}
+          checked={effectiveMode === 'append'}
+          onChange={() => setMode('append')}
+          disabled={datasetRows.length === 0 && datasets.isSuccess}
+          title={t('data.importFlow.appendTitle')}
+          hint={
+            datasetRows.length === 0 && datasets.isSuccess
+              ? t('data.importFlow.nothingToAppend')
+              : t('data.importFlow.appendHint')
+          }
+        />
+      </div>
+
+      <UploadDatasetFields upload={upload} />
+      <UploadContextFields upload={upload} props={props} />
+    </>
+  )
+}
+
+function UploadDatasetFields({
+  upload,
+}: {
+  upload: ReturnType<typeof useImportUpload>
+}) {
+  const {
+    effectiveMode,
+    datasetId,
+    setDatasetId,
+    setSuggested,
+    datasetRows,
+    suggested,
+    schemaVersionId,
+    setSchemaVersionId,
+    schemas,
+    newName,
+    setNewName,
+  } = upload
+
+  return (
+    <>
+      {effectiveMode === 'file' ? null : effectiveMode === 'append' ? (
+        <label className="grid max-w-[420px] gap-1 text-label text-fg-muted">
+          {t('data.importFlow.dataset')}
+          <PickerSelect
+            noun="dataset"
+            aria-label={t('data.importFlow.ariaImportIntoDataset')}
+            value={datasetId}
+            onChange={(id) => {
+              setDatasetId(id)
+              setSuggested(null)
+            }}
+            placeholder={t('data.importFlow.chooseDataset')}
+            options={datasetRows.map((item) =>
+              datasetOption({
+                id: item.id,
+                name: item.name,
+                displayId: item.display_id,
+              }),
+            )}
+          />
+          {suggested && suggested === datasetId ? (
+            <span>{t('data.importFlow.suggestedFromFileName')}</span>
+          ) : null}
+        </label>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1 text-label text-fg-muted">
+            {t('data.importFlow.datasetSchema2')}
+            <PickerSelect
+              noun="dataset schema"
+              aria-label={t('data.importFlow.ariaLabel')}
+              value={schemaVersionId}
+              onChange={(id) => setSchemaVersionId(id)}
+              placeholder={t('data.importFlow.placeholder')}
+              options={(schemas.data ?? []).map((schema) => ({
+                id: schema.schemaVersionId,
+                label: schema.name,
+                detail: t('data.importFlow.detail', {
+                  version: schema.version,
+                }),
+              }))}
+            />
+          </label>
+          <label className="grid gap-1 text-label text-fg-muted">
+            {t('data.importFlow.datasetName')}
+            <Input
+              aria-label={t('data.importFlow.ariaNewDatasetName')}
+              value={newName}
+              placeholder={t('data.importFlow.placeholderEGElisaCapsid')}
+              onChange={(event) => setNewName(event.target.value)}
+            />
+          </label>
+        </div>
+      )}
+    </>
+  )
+}
+
+function UploadContextFields({
+  upload,
+  props,
+}: {
+  upload: ReturnType<typeof useImportUpload>
+  props: ImportUploadProps
+}) {
+  const { onUploaded, initialExperimentId } = props
+
+  const {
+    experimentId,
+    setExperimentId,
+    setExperimentOption,
+    experimentOption,
+    initialExperimentOption,
+    instrumentId,
+    setInstrumentId,
+    instruments,
+    calibration,
+    effectiveMode,
+  } = upload
+
+  return (
+    <>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="grid gap-1 text-label text-fg-muted">
+          {t('data.importFlow.linkExperiment')}
+          <PickerSelect
+            noun="experiment"
+            aria-label={t('data.importFlow.linkExperiment')}
+            value={experimentId}
+            placeholder={t('data.importFlow.noExperiment')}
+            disabled={Boolean(onUploaded && initialExperimentId)}
+            onChange={(id, option) => {
+              setExperimentId(id)
+              setExperimentOption(option)
+            }}
+            selected={experimentOption ?? initialExperimentOption}
+            clearLabel={t('data.importFlow.noExperiment')}
+            search={experimentSearch}
+          />
+        </label>
+        <label className="grid gap-1 text-label text-fg-muted">
+          {t('data.importFlow.instrument')}
+          <Select
+            aria-label={t('data.importFlow.instrument')}
+            value={instrumentId}
+            onChange={(event) => setInstrumentId(event.target.value)}
+          >
+            <option value="">{t('data.importFlow.noInstrument')}</option>
+            {(instruments.data ?? []).map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.displayId ?? item.name} · {item.name}
+              </option>
+            ))}
+          </Select>
+          {instrumentId ? (
+            <Status tone={calibration.tone}>{calibration.label}</Status>
+          ) : null}
+        </label>
+      </div>
+
+      {onUploaded ? (
+        <p className="m-0 max-w-[640px] text-label text-fg-muted">
+          {effectiveMode === 'new'
+            ? t('data.importFlow.fileKeptNewDataset')
+            : t('data.importFlow.fileKept')}
+        </p>
+      ) : (
+        <Section title={t('data.importFlow.whatHappensNext')}>
+          <ol className="m-0 grid list-decimal gap-1 pl-5 text-body text-fg-muted">
+            <li>{t('data.importFlow.fileKeptExactlyUploaded')}</li>
+            <li>{t('data.importFlow.checkHowFileColumns')}</li>
+            <li>{t('data.importFlow.seeEveryRowAdded')}</li>
+          </ol>
+          <p className="m-0 mt-2 max-w-[640px] text-body text-fg-muted">
+            {t('data.importFlow.eachStoredFileGets')}
+          </p>
+        </Section>
+      )}
+    </>
   )
 }
 
@@ -1003,21 +1095,7 @@ export function ImportMapCheckFlow({
   )
 }
 
-function ImportMapCheckContent({
-  importId,
-  search,
-  onSearch,
-  renderReceipt,
-}: {
-  importId: string
-  search: ImportSearch
-  onSearch: (next: ImportSearch) => void
-  renderReceipt?: (receipt: DatasetImportRecord) => ReactNode
-}) {
-  const queryClient = useQueryClient()
-  const navigate = useNavigate()
-  const step: 'map' | 'check' = search.step === 'check' ? 'check' : 'map'
-
+function useImportSource(importId: string, search: ImportSearch) {
   const file = useQuery({
     queryKey: [
       ...importQueryKeys.file(importId),
@@ -1060,7 +1138,7 @@ function ImportMapCheckContent({
     [dataset],
   )
 
-  const headers = file.data?.sheet?.headers ?? []
+  const headers = useMemo(() => file.data?.sheet?.headers ?? [], [file.data])
 
   const parserOptions = useMemo(() => {
     const options = [
@@ -1076,21 +1154,27 @@ function ImportMapCheckContent({
     )
   }, [file.data])
 
+  return {
+    file,
+    datasets,
+    datasetId,
+    receipt,
+    dataset,
+    fields,
+    headers,
+    parserOptions,
+  }
+}
+
+function useImportMapping(
+  context: ReturnType<typeof useImportSource>,
+  search: ImportSearch,
+) {
+  const { file, dataset, fields, headers, parserOptions } = context
   const [manual, setManual] = useState(search.parser === 'manual')
   const [mappingValues, setMappingValues] = useState<Record<string, string>>({})
   const [sourceUnits, setSourceUnits] = useState<Record<string, string>>({})
   const [mappingReady, setMappingReady] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-
-  const [blockedByContract, setBlockedByContract] =
-    useState<ContractGateReport | null>(null)
-
-  const [saveWarning, setSaveWarning] = useState('')
-
-  const [outcome, setOutcome] = useState<ImportCommitResponseSummary | null>(
-    null,
-  )
 
   const urlMapping = useMemo(() => parseImportMapping(search.map), [search.map])
 
@@ -1111,8 +1195,9 @@ function ImportMapCheckContent({
       file.data?.parser ??
       null)
 
-  useEffect(() => {
-    if (mappingReady || !file.data || !dataset) return
+  // Initialise once when both reads arrive. Later search writes must not reset
+  // the person's edits; the outer file/worksheet/target key owns their lifetime.
+  if (!mappingReady && file.data && dataset) {
     setMappingValues(
       initialMappingValues(headers, fields, file.data.savedMapping, urlMapping),
     )
@@ -1132,15 +1217,7 @@ function ImportMapCheckContent({
       ),
     )
     setMappingReady(true)
-  }, [
-    mappingReady,
-    file.data,
-    dataset,
-    headers,
-    fields,
-    urlMapping,
-    search.units,
-  ])
+  }
 
   const mappingDocument = useMemo<ImportMappingDocument>(
     () => ({
@@ -1184,46 +1261,58 @@ function ImportMapCheckContent({
         )
       : []
 
+  return {
+    manual,
+    setManual,
+    mappingValues,
+    setMappingValues,
+    sourceUnits,
+    setSourceUnits,
+    mappingReady,
+    suggestedParser,
+    activeParser,
+    mappingDocument,
+    unitErrors,
+    requiredUnmapped,
+  }
+}
+
+function useImportReview(importId: string, search: ImportSearch) {
+  const source = useImportSource(importId, search)
+  const mapping = useImportMapping(source, search)
+  const { file, datasets, datasetId, dataset } = source
+
+  const {
+    mappingValues,
+    activeParser,
+    manual,
+    mappingReady,
+    unitErrors,
+    mappingDocument,
+  } = mapping
+
+  const step: 'map' | 'check' = search.step === 'check' ? 'check' : 'map'
+
   const worksheetReady = Boolean(
     search.sheet || file.data?.sheet?.sheetNames.length === 1,
   )
 
   const mappedCount = Object.values(mappingValues).filter(Boolean).length
   const parsed = Boolean(file.data?.parsed)
-  const datasetPending = Boolean(datasetId) && datasets.isLoading
 
-  const datasetUnavailable =
-    Boolean(datasetId) && !datasets.isLoading && !dataset
+  const visibility = importViewState({
+    step,
+    parsed,
+    worksheetReady,
+    datasetId,
+    datasetAvailable: Boolean(dataset),
+    datasetsLoading: datasets.isLoading,
+    hasParser: Boolean(activeParser),
+    manual,
+    mappedCount,
+  })
 
-  // The map step needs a chosen parser or a hand mapping before its table can
-  // say anything. The review step reads the rows the mapping produces, so it
-  // needs only the mapping: a reload at step=check with the pins kept shows the
-  // rows, rather than an empty step beside an enabled Import button.
-  const showMapping =
-    step === 'map' &&
-    parsed &&
-    worksheetReady &&
-    Boolean(dataset) &&
-    Boolean(activeParser || manual)
-
-  const showReview =
-    step === 'check' && parsed && Boolean(dataset) && mappedCount > 0
-
-  // "Choose how to read this file" claims nothing matched the file, so it waits until
-  // the target is settled: not while the Dataset list is still loading (a parser may
-  // already have matched), and not when the Dataset itself is missing — that banner
-  // says what is actually wrong. It belongs to the mapping step, where reading the
-  // file is the question being asked: on the review step the rows its mapping produced
-  // are already on screen, and offering to re-read the file there would say both
-  // "these rows will be imported" and "we cannot read this file".
-  const showParserChoice =
-    step === 'map' &&
-    parsed &&
-    worksheetReady &&
-    Boolean(datasetId) &&
-    !datasetUnavailable &&
-    !activeParser &&
-    !manual
+  const { showMapping } = visibility
 
   const review = useQuery({
     queryKey: [
@@ -1256,6 +1345,51 @@ function ImportMapCheckContent({
       mappedCount > 0 &&
       unitErrors.length === 0,
   })
+
+  return {
+    ...source,
+    ...mapping,
+    step,
+    worksheetReady,
+    mappedCount,
+    parsed,
+    ...visibility,
+    review,
+  }
+}
+
+function useImportActions(
+  importId: string,
+  search: ImportSearch,
+  onSearch: (next: ImportSearch) => void,
+  model: ReturnType<typeof useImportReview>,
+) {
+  const {
+    file,
+    datasetId,
+    mappedCount,
+    activeParser,
+    mappingDocument,
+    mappingValues,
+    sourceUnits,
+    manual,
+    review,
+    fields,
+  } = model
+
+  const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+
+  const [blockedByContract, setBlockedByContract] =
+    useState<ContractGateReport | null>(null)
+
+  const [saveWarning, setSaveWarning] = useState('')
+
+  const [outcome, setOutcome] = useState<ImportCommitResponseSummary | null>(
+    null,
+  )
 
   function writeSearch(next: ImportSearch) {
     setError('')
@@ -1423,6 +1557,37 @@ function ImportMapCheckContent({
     }
   }
 
+  return {
+    busy,
+    error,
+    blockedByContract,
+    setBlockedByContract,
+    saveWarning,
+    outcome,
+    writeSearch,
+    continueToReview,
+    importNow,
+    uploadCorrected,
+    runCommit,
+    askAdmin,
+  }
+}
+
+function ImportMapCheckContent({
+  importId,
+  search,
+  onSearch,
+  renderReceipt,
+}: {
+  importId: string
+  search: ImportSearch
+  onSearch: (next: ImportSearch) => void
+  renderReceipt?: (receipt: DatasetImportRecord) => ReactNode
+}) {
+  const model = useImportReview(importId, search)
+  const actions = useImportActions(importId, search, onSearch, model)
+  const { receipt, file, step, parsed } = model
+
   if (receipt && renderReceipt) return renderReceipt(receipt)
 
   if (receipt)
@@ -1470,118 +1635,12 @@ function ImportMapCheckContent({
 
   return (
     <div className="flex min-w-0 flex-1 flex-col overflow-auto">
-      <PageHeader
-        trail={
-          renderReceipt
-            ? undefined
-            : [
-                {
-                  label: t('data.importFlow.datasets'),
-                  link: { to: '/datasets' },
-                },
-                { label: t('data.importFlow.importData') },
-              ]
-        }
-        title={t('data.importFlow.importData')}
-        titleLevel={renderReceipt ? 2 : 1}
-        meta={
-          <>
-            <span>
-              {file.data
-                ? t('data.importFlow.sha256', {
-                    filename: file.data.filename,
-                    value: formatFileSize(file.data.byteSize),
-                    slice: file.data.checksum.slice(0, 4),
-                    slice2: file.data.checksum.slice(-4),
-                  })
-                : t('data.importFlow.readingStoredFile')}
-            </span>
-            {dataset ? (
-              <span className="max-lg:hidden">
-                {t('data.importFlow.target')} {dataset.display_id ?? ''} ·{' '}
-                {dataset.name}
-              </span>
-            ) : null}
-          </>
-        }
-        actions={
-          <>
-            {!outcome && !renderReceipt ? (
-              <Button
-                nativeButton={false}
-                render={<Link to={cancelTarget(search, '/import')} />}
-              >
-                {t('common.actions.cancel')}
-              </Button>
-            ) : null}
-            {step === 'map' && showMapping ? (
-              <Button
-                variant="primary"
-                disabled={
-                  busy ||
-                  !review.data ||
-                  review.isFetching ||
-                  unitErrors.length > 0 ||
-                  review.data.errors.length > 0
-                }
-                onClick={() => void importNow()}
-              >
-                {busy
-                  ? t('data.importFlow.importing')
-                  : t('data.importFlow.importRows', {
-                      value: review.data?.summary.added ?? 0,
-                    })}
-              </Button>
-            ) : null}
-            {step === 'map' && !showMapping && !showParserChoice ? (
-              <Button
-                variant="primary"
-                disabled={
-                  busy ||
-                  mappedCount === 0 ||
-                  !mappingReady ||
-                  !worksheetReady ||
-                  unitErrors.length > 0
-                }
-                onClick={() => void continueToReview()}
-              >
-                {busy
-                  ? t('data.importFlow.checking')
-                  : t('common.actions.continue')}
-              </Button>
-            ) : null}
-            {step === 'check' ? (
-              <>
-                <Button
-                  variant="secondary"
-                  onClick={() => writeSearch({ ...search, step: 'map' })}
-                >
-                  {t('data.importFlow.backMapping')}
-                </Button>
-                <Button
-                  variant="primary"
-                  disabled={
-                    busy ||
-                    !review.data ||
-                    review.isFetching ||
-                    !worksheetReady ||
-                    unitErrors.length > 0 ||
-                    review.data.errors.length > 0
-                  }
-                  onClick={() => void runCommit()}
-                >
-                  {busy
-                    ? t('data.importFlow.importing')
-                    : t('data.importFlow.importRows', {
-                        value: review.data?.summary.added ?? 0,
-                      })}
-                </Button>
-              </>
-            ) : null}
-          </>
-        }
+      <ImportMappingHeader
+        model={model}
+        actions={actions}
+        search={search}
+        embedded={Boolean(renderReceipt)}
       />
-
       <div className="px-4 py-4 md:px-6">
         <Stepper
           steps={STEPS}
@@ -1589,356 +1648,628 @@ function ImportMapCheckContent({
           failed={parsed === false && file.data !== undefined}
           className="mb-4"
         />
-
-        <BlockedImportDialog
-          report={blockedByContract}
-          open={blockedByContract !== null}
-          onOpenChange={(open) => {
-            if (!open) setBlockedByContract(null)
-          }}
+        <ImportCommitStatus model={model} actions={actions} search={search} />
+        <ImportSourceStatus model={model} actions={actions} search={search} />
+        <ImportWorksheetControls
+          model={model}
+          actions={actions}
+          search={search}
         />
-
-        {error ? (
-          <Banner
-            tone="bad"
-            title={t('data.importFlow.importError')}
-            className="mb-4"
-          >
-            {error}
-            {file.data && !error.startsWith(REJECTED_ROWS_PREFIX) ? (
-              <Button variant="quiet" onClick={() => void askAdmin()}>
-                {t('data.importFlow.askAdminUpdateParser')}
-              </Button>
-            ) : null}
-          </Banner>
-        ) : null}
-
-        {saveWarning ? (
-          <Banner
-            tone="warn"
-            title={t('data.importFlow.mappingSavedParserS')}
-            className="mb-4"
-          >
-            {t('data.importFlow.fileStillImportsMapping', { saveWarning })}
-          </Banner>
-        ) : null}
-
-        {outcome ? (
-          <Banner
-            tone="info"
-            title={t('data.importFlow.importedRows', {
-              committed: outcome.committed,
-            })}
-          >
-            {t('data.importFlow.importedDetail', {
-              snapshot: outcome.snapshotVersionId?.slice(0, 8) ?? '—',
-              importId: outcome.importId?.slice(0, 8) ?? '—',
-            })}{' '}
-            {datasetId ? (
-              <Link
-                to="/datasets/$datasetId/snapshots"
-                params={{ datasetId }}
-                className="underline"
-              >
-                {t('data.importFlow.openDatasetSnapshots')}
-              </Link>
-            ) : null}
-            {search.experiment ? (
-              <>
-                {' · '}
-                <Link
-                  to="/experiments/$expId/data/datasets"
-                  params={{ expId: search.experiment }}
-                  className="underline"
-                >
-                  {t('data.importFlow.backExperiment')}
-                </Link>
-              </>
-            ) : null}
-            {search.returnTo ? (
-              <>
-                {' · '}
-                <Link to={search.returnTo} className="underline">
-                  {t('data.importFlow.backWhereWere')}
-                </Link>
-              </>
-            ) : null}
-          </Banner>
-        ) : null}
-
-        {file.isLoading ? (
-          <p role="status" className="m-0 text-body text-fg-muted">
-            {t('data.importFlow.readingStoredFile')}
-          </p>
-        ) : null}
-
-        {file.error ? (
-          <Banner
-            tone="bad"
-            title={t('data.importFlow.couldOpenImport')}
-            className="mb-4"
-          >
-            {file.error.message}
-            <Button variant="quiet" onClick={() => void file.refetch()}>
-              {t('common.actions.tryAgain')}
-            </Button>
-          </Banner>
-        ) : null}
-
-        {datasetUnavailable ? (
-          <Banner
-            tone="bad"
-            title={t('data.importFlow.datasetAvailable')}
-            className="mb-4"
-          >
-            {t('data.importFlow.datasetChosenImportActive')}
-          </Banner>
-        ) : null}
-
-        {file.data && !datasetId ? (
-          <EmptyState
-            icon="table"
-            title={t('data.importFlow.importHasTarget')}
-            description={t('data.importFlow.fileSavedButDataset')}
-            action={
-              <Button
-                variant="primary"
-                nativeButton={false}
-                render={<Link to="/import" />}
-              >
-                {t('data.importFlow.importData')}
-              </Button>
-            }
-          />
-        ) : null}
-
-        {file.data && datasetId && !parsed ? (
-          <div className="grid gap-3">
-            <Banner tone="warn" title={t('data.importFlow.nothingImported')}>
-              {file.data.parseError ??
-                t('data.importFlow.fileCouldReadRegistered')}{' '}
-              {t('data.importFlow.fileKeptSoRetry')}
-            </Banner>
-            <div className="flex flex-wrap gap-2">
-              {(file.data.draftParsers ?? []).map((draft) => (
-                <Button
-                  key={draft.key}
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => writeSearch({ ...search, parser: draft.key })}
-                >
-                  {t('data.importFlow.tryParserDraft', { label: draft.label })}
-                </Button>
-              ))}
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => void askAdmin()}
-              >
-                {t('data.importFlow.askAdminUpdateParser2')}
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                nativeButton={false}
-                render={<Link to="/import" />}
-              >
-                {t('data.importFlow.startDifferentImport')}
-              </Button>
-            </div>
-          </div>
-        ) : null}
-
-        {file.data && parsed && datasetPending && !showMapping ? (
-          <p role="status" className="m-0 text-body text-fg-muted">
-            {t('data.importFlow.readingTargetDataset')}
-          </p>
-        ) : null}
-
-        {file.data && showParserChoice ? (
-          <ParserChoice
-            file={{
-              name: file.data.filename,
-              size: formatFileSize(file.data.byteSize),
-            }}
-            message={
-              file.data.recognitionMessage ??
-              t('data.importFlow.fileDoesMatchRegistered')
-            }
-            drafts={file.data.draftParsers ?? []}
-            onManual={() => {
-              setManual(true)
-              writeSearch({ ...search, parser: 'manual' })
-            }}
-            onDraft={(key) => writeSearch({ ...search, parser: key })}
-            onAskAdmin={() => void askAdmin()}
-          />
-        ) : null}
-
-        {file.data?.sheet && !showParserChoice ? (
-          <div className="mb-4 grid max-w-[420px] gap-1 text-label text-fg-muted">
-            <label htmlFor="import-worksheet">
-              {t('data.importFlow.worksheet')}
-            </label>
-            <Select
-              id="import-worksheet"
-              value={
-                search.sheet ??
-                (file.data.sheet.sheetNames.length === 1
-                  ? file.data.sheet.name
-                  : '')
-              }
-              onChange={(event) =>
-                writeSearch({
-                  ...search,
-                  step: 'map',
-                  sheet: event.target.value || undefined,
-                  map: undefined,
-                  units: undefined,
-                  parser: undefined,
-                })
-              }
-            >
-              <option value="">{t('data.importFlow.chooseWorksheet')}</option>
-              {file.data.sheet.sheetNames.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </Select>
-            <span>
-              {worksheetReady
-                ? t('data.importFlow.dataRows', {
-                    toLocaleString: file.data.sheet.rowCount.toLocaleString(),
-                    name: file.data.sheet.name,
-                  })
-                : t('data.importFlow.chooseMeasurementsSheetCover')}
-            </span>
-          </div>
-        ) : null}
-        {requiredUnmapped.length > 0 && worksheetReady && !error ? (
-          <Banner
-            tone="warn"
-            title={t('data.importFlow.requiredFieldHasColumn')}
-            className="mb-4"
-          >
-            {t('data.importFlow.requiredUnmapped', {
-              count: requiredUnmapped.length,
-              fields: requiredUnmapped.map((field) => field.label).join(', '),
-            })}
-          </Banner>
-        ) : null}
-        {unitErrors.length > 0 && worksheetReady ? (
-          <Banner
-            tone="warn"
-            title={t('data.importFlow.checkSourceUnits')}
-            className="mb-4"
-          >
-            {unitErrors.map((message) => (
-              <p key={message} className="m-0">
-                {message}
-              </p>
-            ))}
-          </Banner>
-        ) : null}
-
-        {showMapping ? (
-          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
-            <div className="grid gap-4">
-              <div className="grid max-w-[420px] gap-1 text-label text-fg-muted">
-                {t('data.importFlow.parser')}
-                <Select
-                  aria-label={t('data.importFlow.ariaParserFile')}
-                  value={activeParser?.key ?? ''}
-                  onChange={(event) => {
-                    const next = event.target.value
-                    setManual(next === '')
-                    writeSearch({ ...search, parser: next || 'manual' })
-                  }}
-                >
-                  <option value="">{t('data.importFlow.parserMapHand')}</option>
-                  {parserOptions.map((option) => (
-                    <option key={option.key} value={option.key}>
-                      {option.label} v{option.version}
-                    </option>
-                  ))}
-                </Select>
-                {suggestedParser ? (
-                  <span className="text-label">
-                    {t('data.importFlow.suggestedFromFileName2', {
-                      label: suggestedParser.label,
-                    })}
-                  </span>
-                ) : null}
-              </div>
-              <MapTable
-                headers={headers}
-                fields={fields}
-                mappingValues={mappingValues}
-                sourceUnits={sourceUnits}
-                onUnit={(source, unit) => {
-                  const next = { ...sourceUnits, [source]: unit }
-                  setSourceUnits(next)
-                  writeSearch({
-                    ...search,
-                    units: serializeImportMapping(next, true),
-                  })
-                }}
-                parser={activeParser}
-                sheet={file.data?.sheet ?? null}
-                onApplyAi={(suggestions) => {
-                  const nextMap = { ...mappingValues }
-                  const nextUnits = { ...sourceUnits }
-
-                  for (const suggestion of suggestions) {
-                    nextMap[suggestion.header] = suggestion.fieldId
-
-                    if (suggestion.sourceUnit)
-                      nextUnits[suggestion.header] = suggestion.sourceUnit
-                  }
-
-                  setMappingValues(nextMap)
-                  setSourceUnits(nextUnits)
-                  writeSearch({
-                    ...search,
-                    map: serializeImportMapping(nextMap, true),
-                    units: serializeImportMapping(nextUnits, true),
-                  })
-                }}
-                onMap={(source, fieldId) => {
-                  const next = { ...mappingValues, [source]: fieldId }
-                  setMappingValues(next)
-                  writeSearch({
-                    ...search,
-                    map: serializeImportMapping(next, true),
-                  })
-                }}
-              />
-              <ReviewTable
-                review={review.data ?? null}
-                loading={review.isFetching}
-                onCorrectedFile={uploadCorrected}
-                part="rows"
-              />
-            </div>
-            <ReviewTable
-              review={review.data ?? null}
-              loading={false}
-              part="aside"
-              target={dataset?.display_id ?? null}
-            />
-          </div>
-        ) : null}
-
-        {showReview ? (
-          <ReviewTable
-            review={review.data ?? null}
-            loading={review.isFetching}
-            onCorrectedFile={uploadCorrected}
-          />
-        ) : null}
+        <ImportMappingReview model={model} actions={actions} search={search} />
       </div>
     </div>
+  )
+}
+
+interface ImportStepProps {
+  model: ReturnType<typeof useImportReview>
+  actions: ReturnType<typeof useImportActions>
+  search: ImportSearch
+}
+
+function ImportMappingHeader({
+  model,
+  actions,
+  search,
+  embedded,
+}: ImportStepProps & { embedded: boolean }) {
+  const { file, dataset } = model
+
+  return (
+    <PageHeader
+      trail={
+        embedded
+          ? undefined
+          : [
+              {
+                label: t('data.importFlow.datasets'),
+                link: { to: '/datasets' },
+              },
+              { label: t('data.importFlow.importData') },
+            ]
+      }
+      title={t('data.importFlow.importData')}
+      titleLevel={embedded ? 2 : 1}
+      meta={
+        <>
+          <span>
+            {file.data
+              ? t('data.importFlow.sha256', {
+                  filename: file.data.filename,
+                  value: formatFileSize(file.data.byteSize),
+                  slice: file.data.checksum.slice(0, 4),
+                  slice2: file.data.checksum.slice(-4),
+                })
+              : t('data.importFlow.readingStoredFile')}
+          </span>
+          {dataset ? (
+            <span className="max-lg:hidden">
+              {t('data.importFlow.target')} {dataset.display_id ?? ''} ·{' '}
+              {dataset.name}
+            </span>
+          ) : null}
+        </>
+      }
+      actions={
+        <ImportMappingActions
+          model={model}
+          actions={actions}
+          search={search}
+          embedded={embedded}
+        />
+      }
+    />
+  )
+}
+
+function ImportMappingActions({
+  model,
+  actions,
+  search,
+  embedded,
+}: ImportStepProps & { embedded: boolean }) {
+  const { step } = model
+  const { outcome } = actions
+
+  return (
+    <>
+      {!outcome && !embedded ? (
+        <Button
+          nativeButton={false}
+          render={<Link to={cancelTarget(search, '/import')} />}
+        >
+          {t('common.actions.cancel')}
+        </Button>
+      ) : null}
+      {step === 'map' ? (
+        <ImportMapActions model={model} actions={actions} search={search} />
+      ) : null}
+      {step === 'check' ? (
+        <ImportCheckActions model={model} actions={actions} search={search} />
+      ) : null}
+    </>
+  )
+}
+
+function ImportMapActions({ model, actions }: ImportStepProps) {
+  const {
+    showMapping,
+    showParserChoice,
+    mappedCount,
+    mappingReady,
+    worksheetReady,
+    unitErrors,
+    review,
+  } = model
+
+  const { busy, importNow, continueToReview } = actions
+
+  return (
+    <>
+      {showMapping ? (
+        <Button
+          variant="primary"
+          disabled={
+            busy ||
+            !review.data ||
+            review.isFetching ||
+            unitErrors.length > 0 ||
+            review.data.errors.length > 0
+          }
+          onClick={() => void importNow()}
+        >
+          {busy
+            ? t('data.importFlow.importing')
+            : t('data.importFlow.importRows', {
+                value: review.data?.summary.added ?? 0,
+              })}
+        </Button>
+      ) : null}
+      {!showMapping && !showParserChoice ? (
+        <Button
+          variant="primary"
+          disabled={
+            busy ||
+            mappedCount === 0 ||
+            !mappingReady ||
+            !worksheetReady ||
+            unitErrors.length > 0
+          }
+          onClick={() => void continueToReview()}
+        >
+          {busy ? t('data.importFlow.checking') : t('common.actions.continue')}
+        </Button>
+      ) : null}
+    </>
+  )
+}
+
+function ImportCheckActions({ model, actions, search }: ImportStepProps) {
+  const { worksheetReady, unitErrors, review } = model
+  const { busy, writeSearch, runCommit } = actions
+
+  return (
+    <>
+      <Button
+        variant="secondary"
+        onClick={() => writeSearch({ ...search, step: 'map' })}
+      >
+        {t('data.importFlow.backMapping')}
+      </Button>
+      <Button
+        variant="primary"
+        disabled={
+          busy ||
+          !review.data ||
+          review.isFetching ||
+          !worksheetReady ||
+          unitErrors.length > 0 ||
+          review.data.errors.length > 0
+        }
+        onClick={() => void runCommit()}
+      >
+        {busy
+          ? t('data.importFlow.importing')
+          : t('data.importFlow.importRows', {
+              value: review.data?.summary.added ?? 0,
+            })}
+      </Button>
+    </>
+  )
+}
+
+function ImportCommitStatus({ model, actions, search }: ImportStepProps) {
+  const { file, datasetId } = model
+
+  const {
+    blockedByContract,
+    setBlockedByContract,
+    error,
+    saveWarning,
+    outcome,
+    askAdmin,
+  } = actions
+
+  return (
+    <>
+      <BlockedImportDialog
+        report={blockedByContract}
+        open={blockedByContract !== null}
+        onOpenChange={(open) => {
+          if (!open) setBlockedByContract(null)
+        }}
+      />
+
+      {error ? (
+        <Banner
+          tone="bad"
+          title={t('data.importFlow.importError')}
+          className="mb-4"
+        >
+          {error}
+          {file.data && !error.startsWith(REJECTED_ROWS_PREFIX) ? (
+            <Button variant="quiet" onClick={() => void askAdmin()}>
+              {t('data.importFlow.askAdminUpdateParser')}
+            </Button>
+          ) : null}
+        </Banner>
+      ) : null}
+
+      {saveWarning ? (
+        <Banner
+          tone="warn"
+          title={t('data.importFlow.mappingSavedParserS')}
+          className="mb-4"
+        >
+          {t('data.importFlow.fileStillImportsMapping', { saveWarning })}
+        </Banner>
+      ) : null}
+
+      {outcome ? (
+        <Banner
+          tone="info"
+          title={t('data.importFlow.importedRows', {
+            committed: outcome.committed,
+          })}
+        >
+          {t('data.importFlow.importedDetail', {
+            snapshot: outcome.snapshotVersionId?.slice(0, 8) ?? '—',
+            importId: outcome.importId?.slice(0, 8) ?? '—',
+          })}{' '}
+          {datasetId ? (
+            <Link
+              to="/datasets/$datasetId/snapshots"
+              params={{ datasetId }}
+              className="underline"
+            >
+              {t('data.importFlow.openDatasetSnapshots')}
+            </Link>
+          ) : null}
+          {search.experiment ? (
+            <>
+              {' · '}
+              <Link
+                to="/experiments/$expId/data/datasets"
+                params={{ expId: search.experiment }}
+                className="underline"
+              >
+                {t('data.importFlow.backExperiment')}
+              </Link>
+            </>
+          ) : null}
+          {search.returnTo ? (
+            <>
+              {' · '}
+              <Link to={search.returnTo} className="underline">
+                {t('data.importFlow.backWhereWere')}
+              </Link>
+            </>
+          ) : null}
+        </Banner>
+      ) : null}
+    </>
+  )
+}
+
+function ImportSourceStatus({ model, actions, search }: ImportStepProps) {
+  const { file, datasetId, datasetUnavailable } = model
+
+  return (
+    <>
+      {file.isLoading ? (
+        <p role="status" className="m-0 text-body text-fg-muted">
+          {t('data.importFlow.readingStoredFile')}
+        </p>
+      ) : null}
+
+      {file.error ? (
+        <Banner
+          tone="bad"
+          title={t('data.importFlow.couldOpenImport')}
+          className="mb-4"
+        >
+          {file.error.message}
+          <Button variant="quiet" onClick={() => void file.refetch()}>
+            {t('common.actions.tryAgain')}
+          </Button>
+        </Banner>
+      ) : null}
+
+      {datasetUnavailable ? (
+        <Banner
+          tone="bad"
+          title={t('data.importFlow.datasetAvailable')}
+          className="mb-4"
+        >
+          {t('data.importFlow.datasetChosenImportActive')}
+        </Banner>
+      ) : null}
+
+      {file.data && !datasetId ? (
+        <EmptyState
+          icon="table"
+          title={t('data.importFlow.importHasTarget')}
+          description={t('data.importFlow.fileSavedButDataset')}
+          action={
+            <Button
+              variant="primary"
+              nativeButton={false}
+              render={<Link to="/import" />}
+            >
+              {t('data.importFlow.importData')}
+            </Button>
+          }
+        />
+      ) : null}
+
+      <ImportParserRecovery model={model} actions={actions} search={search} />
+    </>
+  )
+}
+
+function ImportParserRecovery({ model, actions, search }: ImportStepProps) {
+  const {
+    file,
+    datasetId,
+    parsed,
+    datasetPending,
+    showMapping,
+    showParserChoice,
+    setManual,
+  } = model
+
+  const { writeSearch, askAdmin } = actions
+
+  return (
+    <>
+      {file.data && datasetId && !parsed ? (
+        <div className="grid gap-3">
+          <Banner tone="warn" title={t('data.importFlow.nothingImported')}>
+            {file.data.parseError ??
+              t('data.importFlow.fileCouldReadRegistered')}{' '}
+            {t('data.importFlow.fileKeptSoRetry')}
+          </Banner>
+          <div className="flex flex-wrap gap-2">
+            {(file.data.draftParsers ?? []).map((draft) => (
+              <Button
+                key={draft.key}
+                size="sm"
+                variant="secondary"
+                onClick={() => writeSearch({ ...search, parser: draft.key })}
+              >
+                {t('data.importFlow.tryParserDraft', { label: draft.label })}
+              </Button>
+            ))}
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => void askAdmin()}
+            >
+              {t('data.importFlow.askAdminUpdateParser2')}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              nativeButton={false}
+              render={<Link to="/import" />}
+            >
+              {t('data.importFlow.startDifferentImport')}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {file.data && parsed && datasetPending && !showMapping ? (
+        <p role="status" className="m-0 text-body text-fg-muted">
+          {t('data.importFlow.readingTargetDataset')}
+        </p>
+      ) : null}
+
+      {file.data && showParserChoice ? (
+        <ParserChoice
+          file={{
+            name: file.data.filename,
+            size: formatFileSize(file.data.byteSize),
+          }}
+          message={
+            file.data.recognitionMessage ??
+            t('data.importFlow.fileDoesMatchRegistered')
+          }
+          drafts={file.data.draftParsers ?? []}
+          onManual={() => {
+            setManual(true)
+            writeSearch({ ...search, parser: 'manual' })
+          }}
+          onDraft={(key) => writeSearch({ ...search, parser: key })}
+          onAskAdmin={() => void askAdmin()}
+        />
+      ) : null}
+    </>
+  )
+}
+
+function ImportWorksheetControls({ model, actions, search }: ImportStepProps) {
+  const {
+    file,
+    showParserChoice,
+    worksheetReady,
+    requiredUnmapped,
+    unitErrors,
+  } = model
+
+  const { writeSearch, error } = actions
+
+  return (
+    <>
+      {file.data?.sheet && !showParserChoice ? (
+        <div className="mb-4 grid max-w-[420px] gap-1 text-label text-fg-muted">
+          <label htmlFor="import-worksheet">
+            {t('data.importFlow.worksheet')}
+          </label>
+          <Select
+            id="import-worksheet"
+            value={
+              search.sheet ??
+              (file.data.sheet.sheetNames.length === 1
+                ? file.data.sheet.name
+                : '')
+            }
+            onChange={(event) =>
+              writeSearch({
+                ...search,
+                step: 'map',
+                sheet: event.target.value || undefined,
+                map: undefined,
+                units: undefined,
+                parser: undefined,
+              })
+            }
+          >
+            <option value="">{t('data.importFlow.chooseWorksheet')}</option>
+            {file.data.sheet.sheetNames.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </Select>
+          <span>
+            {worksheetReady
+              ? t('data.importFlow.dataRows', {
+                  toLocaleString: file.data.sheet.rowCount.toLocaleString(),
+                  name: file.data.sheet.name,
+                })
+              : t('data.importFlow.chooseMeasurementsSheetCover')}
+          </span>
+        </div>
+      ) : null}
+      {requiredUnmapped.length > 0 && worksheetReady && !error ? (
+        <Banner
+          tone="warn"
+          title={t('data.importFlow.requiredFieldHasColumn')}
+          className="mb-4"
+        >
+          {t('data.importFlow.requiredUnmapped', {
+            count: requiredUnmapped.length,
+            fields: requiredUnmapped.map((field) => field.label).join(', '),
+          })}
+        </Banner>
+      ) : null}
+      {unitErrors.length > 0 && worksheetReady ? (
+        <Banner
+          tone="warn"
+          title={t('data.importFlow.checkSourceUnits')}
+          className="mb-4"
+        >
+          {unitErrors.map((message) => (
+            <p key={message} className="m-0">
+              {message}
+            </p>
+          ))}
+        </Banner>
+      ) : null}
+    </>
+  )
+}
+
+function ImportMappingReview({ model, actions, search }: ImportStepProps) {
+  const {
+    showMapping,
+    showReview,
+    activeParser,
+    setManual,
+    parserOptions,
+    suggestedParser,
+    headers,
+    fields,
+    mappingValues,
+    sourceUnits,
+    setSourceUnits,
+    setMappingValues,
+    file,
+    review,
+    dataset,
+  } = model
+
+  const { writeSearch, uploadCorrected } = actions
+
+  return (
+    <>
+      {showMapping ? (
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
+          <div className="grid gap-4">
+            <div className="grid max-w-[420px] gap-1 text-label text-fg-muted">
+              {t('data.importFlow.parser')}
+              <Select
+                aria-label={t('data.importFlow.ariaParserFile')}
+                value={activeParser?.key ?? ''}
+                onChange={(event) => {
+                  const next = event.target.value
+                  setManual(next === '')
+                  writeSearch({ ...search, parser: next || 'manual' })
+                }}
+              >
+                <option value="">{t('data.importFlow.parserMapHand')}</option>
+                {parserOptions.map((option) => (
+                  <option key={option.key} value={option.key}>
+                    {option.label} v{option.version}
+                  </option>
+                ))}
+              </Select>
+              {suggestedParser ? (
+                <span className="text-label">
+                  {t('data.importFlow.suggestedFromFileName2', {
+                    label: suggestedParser.label,
+                  })}
+                </span>
+              ) : null}
+            </div>
+            <MapTable
+              headers={headers}
+              fields={fields}
+              mappingValues={mappingValues}
+              sourceUnits={sourceUnits}
+              onUnit={(source, unit) => {
+                const next = { ...sourceUnits, [source]: unit }
+                setSourceUnits(next)
+                writeSearch({
+                  ...search,
+                  units: serializeImportMapping(next, true),
+                })
+              }}
+              parser={activeParser}
+              sheet={file.data?.sheet ?? null}
+              onApplyAi={(suggestions) => {
+                const nextMap = { ...mappingValues }
+                const nextUnits = { ...sourceUnits }
+
+                for (const suggestion of suggestions) {
+                  nextMap[suggestion.header] = suggestion.fieldId
+
+                  if (suggestion.sourceUnit)
+                    nextUnits[suggestion.header] = suggestion.sourceUnit
+                }
+
+                setMappingValues(nextMap)
+                setSourceUnits(nextUnits)
+                writeSearch({
+                  ...search,
+                  map: serializeImportMapping(nextMap, true),
+                  units: serializeImportMapping(nextUnits, true),
+                })
+              }}
+              onMap={(source, fieldId) => {
+                const next = { ...mappingValues, [source]: fieldId }
+                setMappingValues(next)
+                writeSearch({
+                  ...search,
+                  map: serializeImportMapping(next, true),
+                })
+              }}
+            />
+            <ReviewTable
+              review={review.data ?? null}
+              loading={review.isFetching}
+              onCorrectedFile={uploadCorrected}
+              part="rows"
+            />
+          </div>
+          <ReviewTable
+            review={review.data ?? null}
+            loading={false}
+            part="aside"
+            target={dataset?.display_id ?? null}
+          />
+        </div>
+      ) : null}
+
+      {showReview ? (
+        <ReviewTable
+          review={review.data ?? null}
+          loading={review.isFetching}
+          onCorrectedFile={uploadCorrected}
+        />
+      ) : null}
+    </>
   )
 }
 
@@ -2037,44 +2368,6 @@ function ParserChoice({
       </div>
     </div>
   )
-}
-
-/**
- * The values a column shows as its examples. It is the rule the server's own
- * `buildColumnViews` applies — the first three non-empty values of the first
- * six rows — so the map step and the review step describe a column the same
- * way. The sheet preview the file response carries holds eight rows, which is
- * everything the rule reads.
- */
-export function columnExamples(
-  source: string,
-  sampleRows: Array<Record<string, string>>,
-): string[] {
-  return sampleRows
-    .slice(0, 6)
-    .map((row) => (row[source] ?? '').trim())
-    .filter((value) => value.length > 0)
-    .slice(0, 3)
-}
-
-/**
- * A column's note: how much of the file it reads, or why it is left out. It
- * mirrors the server's `buildColumnViews`, so the note beside a mapping is the
- * same statement the review makes about that column.
- */
-export function columnNote(
-  source: string,
-  sampleRows: Array<Record<string, string>>,
-  rowCount: number,
-  mapped: boolean,
-): string {
-  if (!mapped) return t('data.importFlow.matchingField')
-
-  const matched = sampleRows
-    .slice(0, 6)
-    .filter((row) => (row[source] ?? '').trim().length > 0).length
-
-  return t('data.importFlow.matchedOf', { matched, min: Math.min(rowCount, 6) })
 }
 
 function MapTable({

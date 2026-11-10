@@ -188,12 +188,17 @@ export function AgentPermissionsPanel({
                               aria-label={`${entry.label}: ${t('agents.permissions.level')}`}
                               value={level}
                               disabled={!canManage || save.isPending}
-                              onChange={(event) =>
+                              onChange={(event) => {
+                                const selectedLevel = agentActionLevelsFor(
+                                  entry.key,
+                                ).find((value) => value === event.target.value)
+
+                                if (!selectedLevel) return
                                 save.mutate({
                                   actionKey: entry.key,
-                                  level: event.target.value as AgentActionLevel,
+                                  level: selectedLevel,
                                 })
-                              }
+                              }}
                             >
                               {agentActionLevelsFor(entry.key).map((value) => (
                                 <option key={value} value={value}>
@@ -231,15 +236,13 @@ export function AgentPermissionsPanel({
               <Table caption={t('agents.permissions.exceptionsTitle')}>
                 <TableHeader>
                   <tr>
-                    <TableHead>
-                      {t('agents.permissions.exceptionAction')}
-                    </TableHead>
-                    <TableHead>
-                      {t('agents.permissions.exceptionWho')}
-                    </TableHead>
-                    <TableHead>
-                      {t('agents.permissions.exceptionLevel')}
-                    </TableHead>
+                    {[
+                      t('agents.permissions.exceptionAction'),
+                      t('agents.permissions.exceptionWho'),
+                      t('agents.permissions.exceptionLevel'),
+                    ].map((label) => (
+                      <TableHead key={label}>{label}</TableHead>
+                    ))}
                     <TableHead>
                       <span className="sr-only">
                         {t('agents.permissions.exceptionRemove')}
@@ -380,9 +383,11 @@ function AddException({
           <Field label={t('agents.permissions.exceptionWho')}>
             <Select
               value={kind}
-              onChange={(event) =>
-                setKind(event.target.value as 'role' | 'credential')
-              }
+              onChange={(event) => {
+                const value = event.target.value
+
+                if (value === 'role' || value === 'credential') setKind(value)
+              }}
             >
               <option value="role">
                 {t('agents.permissions.exceptionRole')}
@@ -431,9 +436,13 @@ function AddException({
           >
             <Select
               value={level}
-              onChange={(event) =>
-                setLevel(event.target.value as AgentActionLevel)
-              }
+              onChange={(event) => {
+                const selectedLevel = agentActionLevelsFor(actionKey).find(
+                  (option) => option === event.target.value,
+                )
+
+                if (selectedLevel) setLevel(selectedLevel)
+              }}
             >
               {agentActionLevelsFor(actionKey).map((value) => (
                 <option key={value} value={value}>

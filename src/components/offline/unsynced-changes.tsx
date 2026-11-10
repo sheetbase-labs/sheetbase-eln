@@ -12,11 +12,8 @@ import { t } from '#/copy'
 import { cn } from '#/lib/utils'
 import { Row, RowList } from '#/components/ui/row'
 import type { OfflineEdit } from '#/lib/offline/store'
-import {
-  describeOfflineEdit,
-  formatClockTime,
-} from '#/components/offline/offline-edits'
-import type { OfflineEditDescription } from '#/components/offline/offline-edits'
+import { describeOfflineEdit, formatClockTime } from './offline-edit-model'
+import type { OfflineEditDescription } from './offline-edit-model'
 
 /**
  * "Saved on this device, not yet synced" — the grey mark and dotted

@@ -9,6 +9,9 @@ import { listMySessionsFn } from './settings-sessions-data'
 import type { MySession } from './settings-sessions-data'
 import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
+import { mySessionsQueryKey, describeDevice } from './settings-sessions-display'
+
+export { mySessionsQueryKey, describeDevice } from './settings-sessions-display'
 
 /**
  * SET-03.2 — the caller's own sessions, with sign-out per session. The list is
@@ -17,24 +20,6 @@ import { t } from '#/copy'
  * cannot be ended from the list (sign out does that from the account menu).
  * UI port: v3 kit.
  */
-
-export const mySessionsQueryKey = ['my-sessions'] as const
-
-export function describeDevice(userAgent: string | null | undefined): string {
-  if (!userAgent) return 'Unknown device'
-
-  const browser =
-    /(Edg|Chrome|Firefox|Safari)\/[\d.]+/.exec(userAgent)?.[1] ??
-    t('settings.sessions.browser')
-
-  const os = /(Macintosh|Windows|Linux|iPhone|iPad|Android)/.exec(
-    userAgent,
-  )?.[1]
-
-  const osLabel = os === 'Macintosh' ? 'macOS' : os
-
-  return osLabel ? `${browser} · ${osLabel}` : browser
-}
 
 function formatWhen(value: string | Date): string {
   return formatDate(value)

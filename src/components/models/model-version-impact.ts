@@ -118,14 +118,18 @@ export function diffVersionFields(
       })
   }
 
-  const removed: FieldChange[] = previous
-    .filter((f) => !currentKeys.has(f.key))
-    .map((f) => ({
-      kind: 'removed',
-      key: f.key,
-      label: f.label,
-      detail: null,
-    }))
+  const removed = previous.flatMap<FieldChange>((f) =>
+    !currentKeys.has(f.key)
+      ? [
+          {
+            kind: 'removed',
+            key: f.key,
+            label: f.label,
+            detail: null,
+          },
+        ]
+      : [],
+  )
 
   return {
     added,

@@ -131,6 +131,7 @@ export function PrintLabelButton({
   onPrinted?: () => void
   className?: string
 }) {
+  // react-doctor-disable-next-line react-doctor/query-mutation-missing-invalidation -- This RPC appends/emits a print event with writer/version checks, not metadata changes. The sample route's onPrinted={invalidate} refreshes sampleEventsQueryKey; WRITING_RPC does not cover this RPC.
   const recordPrint = useMutation({
     mutationFn: () =>
       recordSampleLabelPrint(client, {

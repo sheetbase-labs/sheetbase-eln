@@ -21,13 +21,11 @@ import {
   instantiateNotebookTemplateVersion,
   notebookTemplateDataClient,
 } from '#/lib/notebook-template-data'
-import type {
-  NotebookTemplateParameterInput,
-  NotebookTemplateVersion,
-} from '#/lib/notebook-template-data'
+import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
 import { fetchMyProjectAssignments } from '#/lib/workspace-access'
-import type { Parameter } from '#/lib/parameter'
 import { t } from '#/copy'
+import { askedParameters, parameterInput } from './templates-data'
+import type { Parameter } from '#/lib/parameter'
 
 interface ProjectOption {
   id: string
@@ -36,45 +34,7 @@ interface ProjectOption {
   status: string
 }
 
-/** Parameters the form can ask for: required scalars with no default. */
-export function askedParameters(version: NotebookTemplateVersion): Parameter[] {
-  return version.configuration.parameters.filter(
-    (p) =>
-      p.required && p.type.kind === 'scalar' && p.defaultValue === undefined,
-  )
-}
-
-export function parameterInput(
-  parameter: Parameter,
-  raw: string,
-): NotebookTemplateParameterInput | null {
-  if (parameter.type.kind !== 'scalar') return null
-  const text = raw.trim()
-
-  if (text === '') return null
-
-  switch (parameter.type.valueType) {
-    case 'integer':
-    case 'decimal': {
-      const value = Number(text)
-
-      return Number.isFinite(value)
-        ? { parameterId: parameter.id, kind: 'scalar', value }
-        : null
-    }
-
-    case 'boolean':
-      return {
-        parameterId: parameter.id,
-        kind: 'scalar',
-        value: text === 'true',
-      }
-    default:
-      return { parameterId: parameter.id, kind: 'scalar', value: text }
-  }
-}
-
-function startErrorMessage(error: unknown): string {
+function startErrorMessage(error: Error): string {
   const message = error instanceof Error ? error.message : ''
 
   if (/project is archived/i.test(message)) {
@@ -200,7 +160,7 @@ export function UseTemplateDialog({
         params: { expId: result.record.id },
       })
     },
-    onError: (error: unknown) => {
+    onError: (error) => {
       // Mint a new key so a corrected form is not answered with the earlier
       // refusal.
       setIdempotencyKey(crypto.randomUUID())
@@ -286,39 +246,13 @@ export function UseTemplateDialog({
               {t('library.templates.useTemplateDialog.aNotebookLivesInA')}
             </Notice>
           ) : null}
-          <Field
-            label={t('library.templates.useTemplateDialog.project')}
-            required
-            error={
-              touched && !effectiveProjectId
-                ? t('library.templates.useTemplateDialog.chooseAProjectYouCan')
-                : undefined
-            }
-            hint={
-              !projects.isLoading &&
-              !assignments.isLoading &&
-              usable.length === 0
-                ? t('library.templates.useTemplateDialog.youCantEditAnyActive')
-                : undefined
-            }
-          >
-            <PickerSelect
-              noun="project"
-              value={effectiveProjectId}
-              onChange={(id) => setProjectId(id)}
-              disabled={
-                projects.isLoading || assignments.isLoading || !usable.length
-              }
-              placeholder={
-                projects.isLoading || assignments.isLoading
-                  ? 'Loading projects…'
-                  : usable.length === 0
-                    ? 'No project available'
-                    : undefined
-              }
-              options={usable.map((p) => projectOption(p))}
-            />
-          </Field>
+          <TemplateProjectField
+            loading={projects.isLoading || assignments.isLoading}
+            projects={usable}
+            value={effectiveProjectId}
+            touched={touched}
+            onChange={setProjectId}
+          />
           <Field
             label={t('library.templates.useTemplateDialog.title')}
             hint={t(
@@ -331,32 +265,13 @@ export function UseTemplateDialog({
               onChange={(e) => setTitle(e.target.value)}
             />
           </Field>
-          {asked.map((p) => (
-            <Field
-              key={p.id}
-              label={p.label}
-              required
-              error={
-                touched && missing.includes(p)
-                  ? t(
-                      'library.templates.useTemplateDialog.thisParameterNeedsAValue',
-                    )
-                  : undefined
-              }
-            >
-              <Input
-                value={values[p.id] ?? ''}
-                placeholder={
-                  p.type.kind === 'scalar' && p.type.valueType === 'date'
-                    ? t('library.templates.useTemplateDialog.yyyyMmDd')
-                    : undefined
-                }
-                onChange={(e) =>
-                  setValues((v) => ({ ...v, [p.id]: e.target.value }))
-                }
-              />
-            </Field>
-          ))}
+          <TemplateParameters
+            asked={asked}
+            missing={new Set(missing)}
+            touched={touched}
+            values={values}
+            onChange={(id, value) => setValues((v) => ({ ...v, [id]: value }))}
+          />
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button type="button" />}>
@@ -375,4 +290,87 @@ export function UseTemplateDialog({
       </DialogContent>
     </Dialog>
   )
+}
+
+function TemplateProjectField({
+  loading,
+  projects,
+  value,
+  touched,
+  onChange,
+}: {
+  loading: boolean
+  projects: ProjectOption[]
+  value: string
+  touched: boolean
+  onChange: (id: string) => void
+}) {
+  return (
+    <Field
+      label={t('library.templates.useTemplateDialog.project')}
+      required
+      error={
+        touched && !value
+          ? t('library.templates.useTemplateDialog.chooseAProjectYouCan')
+          : undefined
+      }
+      hint={
+        !loading && projects.length === 0
+          ? t('library.templates.useTemplateDialog.youCantEditAnyActive')
+          : undefined
+      }
+    >
+      <PickerSelect
+        noun="project"
+        value={value}
+        onChange={onChange}
+        disabled={loading || !projects.length}
+        placeholder={
+          loading
+            ? 'Loading projects…'
+            : projects.length === 0
+              ? 'No project available'
+              : undefined
+        }
+        options={projects.map((project) => projectOption(project))}
+      />
+    </Field>
+  )
+}
+
+function TemplateParameters({
+  asked,
+  missing,
+  touched,
+  values,
+  onChange,
+}: {
+  asked: Parameter[]
+  missing: Set<Parameter>
+  touched: boolean
+  values: Record<string, string>
+  onChange: (id: string, value: string) => void
+}) {
+  return asked.map((p) => (
+    <Field
+      key={p.id}
+      label={p.label}
+      required
+      error={
+        touched && missing.has(p)
+          ? t('library.templates.useTemplateDialog.thisParameterNeedsAValue')
+          : undefined
+      }
+    >
+      <Input
+        value={values[p.id] ?? ''}
+        placeholder={
+          p.type.kind === 'scalar' && p.type.valueType === 'date'
+            ? t('library.templates.useTemplateDialog.yyyyMmDd')
+            : undefined
+        }
+        onChange={(e) => onChange(p.id, e.target.value)}
+      />
+    </Field>
+  ))
 }

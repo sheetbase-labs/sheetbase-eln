@@ -1,17 +1,20 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { NotebookRecord } from '#/lib/notebook-data'
+import { EMPTY_RICH_TEXT_PAYLOAD, PAYLOAD_SCHEMA_VERSION } from '#/lib/blocks'
 
 import { DuplicateNotebookDialog } from './duplicate-notebook-dialog'
 
-vi.mock('#/lib/notebook-experience', async (importOriginal) => ({
-  ...(await importOriginal()),
-  duplicateExperiment: vi.fn(),
-}))
+const transport = vi.hoisted(() => {
+  const http = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', http)
+
+  return http
+})
 
 afterEach(() => {
   cleanup()
@@ -43,19 +46,59 @@ function renderDialog(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
+
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
 describe('DuplicateNotebookDialog', () => {
   it('defaults the title and duplicates the Notebook', async () => {
-    const { duplicateExperiment } = await import('#/lib/notebook-experience')
-    const { notebookDataClient } = await import('#/lib/notebook-data')
     const copied: NotebookRecord = {
       ...source,
       id: 'r2',
       title: 'Stability run copy',
+      folderId: null,
+      customFields: {},
+      sourceNotebookTemplateVersionId: null,
     }
-    vi.mocked(duplicateExperiment).mockResolvedValue({ record: copied })
+
+    transport.mockImplementation(async (input) => {
+      const url = new URL(
+        input instanceof Request ? input.url : input,
+        'http://localhost',
+      )
+
+      if (url.pathname === '/api/db/rpc/create_record_link')
+        return Response.json({})
+
+      if (url.pathname !== '/api/db/rpc/create_record_with_blocks')
+        throw new Error(`Unexpected request: ${url.pathname}`)
+
+      return Response.json({
+        record: {
+          id: copied.id,
+          workspace_id: 'ws-1',
+          project_id: copied.projectId,
+          folder_id: null,
+          kind: copied.kind,
+          identifier: copied.identifier,
+          title: copied.title,
+          status: copied.status,
+          tags: copied.tags,
+          structure_version: 1,
+          metadata_version: 1,
+          created_at: copied.createdAt,
+          updated_at: copied.updatedAt,
+          archived_at: null,
+          deleted_at: null,
+          created_by_user_id: 'u1',
+          updated_by_user_id: null,
+          properties: {},
+          locked_at: null,
+          locked_by_revision_id: null,
+        },
+        blocks: [],
+      })
+    })
     const onDuplicated = vi.fn()
     const user = userEvent.setup()
     renderDialog(
@@ -72,11 +115,28 @@ describe('DuplicateNotebookDialog', () => {
       'Stability run copy',
     )
     await user.click(screen.getByRole('button', { name: 'Duplicate' }))
-    expect(duplicateExperiment).toHaveBeenCalledWith(notebookDataClient, {
-      source,
-      blocks: [],
-      title: 'Stability run copy',
-    })
-    expect(onDuplicated).toHaveBeenCalledWith(copied)
+    expect(transport).toHaveBeenCalledWith(
+      '/api/db/rpc/create_record_with_blocks',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          p_project_id: 'p1',
+          p_kind: 'experiment',
+          p_title: 'Stability run copy',
+          p_status: 'draft',
+          p_tags: [],
+          p_blocks: [
+            {
+              type: 'rich_text',
+              payload: EMPTY_RICH_TEXT_PAYLOAD,
+              payload_schema_version: PAYLOAD_SCHEMA_VERSION,
+              order: 1,
+            },
+          ],
+          p_properties: {},
+        }),
+      }),
+    )
+    await waitFor(() => expect(onDuplicated).toHaveBeenCalledWith(copied))
   })
 })

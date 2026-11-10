@@ -1,51 +1,49 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
+import { Toaster, toast } from '#/components/ui/sonner'
 
-import { SettingsGeneral } from './settings-general'
-import {
-  fetchWorkspaceGeneral,
-  updateWorkspaceEditingRules,
-  updateWorkspaceGeneral,
-  updateWorkspaceName,
-  updateWorkspaceOfflineEditing,
-  updateWorkspacePublicationPolicy,
-  setRegulatedLab,
-} from '#/lib/workspace-general'
-import type * as workspaceGeneralModule from '#/lib/workspace-general'
+const bodySchema = z.record(z.string(), z.json())
+const writes: { rpc: string; body: z.infer<typeof bodySchema> }[] = []
+const unexpected: string[] = []
+let noSettings = false
+let failGeneral = false
 
-const toasts = vi.hoisted(() => ({ toast: vi.fn() }))
+const row = {
+  workspaces: { name: 'Process Development' }, site: 'Cambridge', timezone: 'Europe/London', date_format: 'd MMM yyyy', number_format: 'decimal',
+  publication_approval_required: false, allow_offline_editing: true, require_change_reason: false, lock_on_sign: true, regulated_lab: false,
+  id_prefixes: { experiment: 'EXP' },
+}
 
-vi.mock('#/components/ui/sonner', () => ({ toast: toasts.toast }))
+const saveRpcs = new Set(['update_workspace_name', 'update_workspace_general', 'update_workspace_id_prefixes', 'update_workspace_publication_policy', 'update_workspace_settings', 'set_regulated_lab'])
 
-vi.mock('#/lib/workspace-general', async (importOriginal) => {
-  const actual = await importOriginal<typeof workspaceGeneralModule>()
+vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+  const url = new URL(input instanceof Request ? input.url : String(input), 'http://localhost')
+  const resource = url.pathname.replace('/api/db/', '')
 
-  return {
-    ...actual,
-    fetchWorkspaceGeneral: vi.fn(async () => ({
-      name: 'Process Development',
-      site: 'Cambridge',
-      timezone: 'Europe/London',
-      dateFormat: 'd MMM yyyy',
-      numberFormat: 'decimal' as const,
-      publicationApprovalRequired: false,
-      offlineEditingAllowed: true,
-      requireChangeReason: false,
-      lockOnSign: true,
-      regulatedLab: false,
-      idPrefixes: { experiment: 'EXP' },
-    })),
-    updateWorkspaceGeneral: vi.fn(async () => {}),
-    updateWorkspaceIdPrefixes: vi.fn(async () => {}),
-    updateWorkspaceName: vi.fn(async () => {}),
-    updateWorkspacePublicationPolicy: vi.fn(async () => {}),
-    updateWorkspaceOfflineEditing: vi.fn(async () => {}),
-    updateWorkspaceEditingRules: vi.fn(async () => {}),
-    setRegulatedLab: vi.fn(async () => {}),
+  if (resource === 'workspace_settings' && (!init?.method || init.method === 'GET')) return Response.json(noSettings ? [] : [row])
+
+  if (resource === 'scheduler_settings' && (!init?.method || init.method === 'GET')) return Response.json([])
+
+  if (resource === 'rpc/record_id_counters' && init?.method === 'POST') return Response.json([])
+  const rpc = resource.replace('rpc/', '')
+
+  if (resource.startsWith('rpc/') && saveRpcs.has(rpc) && init?.method === 'POST') {
+    writes.push({ rpc, body: bodySchema.parse(await new Response(init.body).json()) })
+
+    if (rpc === 'update_workspace_general' && failGeneral) return Response.json({ error: { code: 'denied', message: 'Could not save the time zone.' } }, { status: 403 })
+
+    return Response.json(null)
   }
+
+  unexpected.push(`${init?.method ?? 'GET'} ${url}`)
+  throw new Error(`Unexpected general settings request: ${url}`)
 })
+
+const { SettingsGeneral } = await import('./settings-general')
+const { dropSharedReads } = await import('#/lib/data-client')
 
 function renderSection(workspaceName?: string) {
   return render(
@@ -55,14 +53,23 @@ function renderSection(workspaceName?: string) {
       }
     >
       <SettingsGeneral workspaceId="ws-1" workspaceName={workspaceName} />
+      <Toaster />
     </QueryClientProvider>,
   )
 }
 
 afterEach(() => {
   cleanup()
-  vi.clearAllMocks()
+  toast.dismiss()
+  dropSharedReads()
+  expect(unexpected).toEqual([])
+  unexpected.length = 0
+  writes.length = 0
+  noSettings = false
+  failGeneral = false
 })
+
+afterAll(() => vi.unstubAllGlobals())
 
 describe('SettingsGeneral', () => {
   it('loads the workspace settings and saves them', async () => {
@@ -105,31 +112,19 @@ describe('SettingsGeneral', () => {
 
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() =>
-      expect(vi.mocked(updateWorkspaceGeneral)).toHaveBeenCalledWith(
-        'ws-1',
-        expect.objectContaining({ site: 'Cambridge' }),
-      ),
+      expect(writes).toContainEqual({ rpc: 'update_workspace_general', body: expect.objectContaining({ p_workspace_id: 'ws-1', p_site: 'Cambridge' }) }),
     )
     await waitFor(() =>
-      expect(updateWorkspaceEditingRules).toHaveBeenCalledWith('ws-1', {
-        requireChangeReason: true,
-        lockOnSign: false,
-      }),
+      expect(writes).toContainEqual({ rpc: 'update_workspace_settings', body: { p_workspace_id: 'ws-1', p_require_change_reason: true, p_lock_on_sign: false } }),
     )
-    expect(vi.mocked(updateWorkspaceName)).toHaveBeenCalledWith(
-      'ws-1',
-      'Process Development',
+    expect(writes).toContainEqual({ rpc: 'update_workspace_name', body: { p_workspace_id: 'ws-1', p_name: 'Process Development' } })
+    await waitFor(() =>
+      expect(writes).toContainEqual({ rpc: 'update_workspace_publication_policy', body: { p_workspace_id: 'ws-1', p_required: true } }),
     )
     await waitFor(() =>
-      expect(updateWorkspacePublicationPolicy).toHaveBeenCalledWith(
-        'ws-1',
-        true,
-      ),
+      expect(writes).toContainEqual({ rpc: 'update_workspace_settings', body: { p_workspace_id: 'ws-1', p_allow_offline_editing: false } }),
     )
-    await waitFor(() =>
-      expect(updateWorkspaceOfflineEditing).toHaveBeenCalledWith('ws-1', false),
-    )
-    expect(toasts.toast).toHaveBeenCalledWith('Settings saved')
+    expect(await screen.findByText('Settings saved')).toBeTruthy()
   })
 
   it('turns the regulated-lab rules on, and only writes them when they changed', async () => {
@@ -144,14 +139,12 @@ describe('SettingsGeneral', () => {
     await user.click(regulated)
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() =>
-      expect(setRegulatedLab).toHaveBeenCalledWith('ws-1', true),
+      expect(writes).toContainEqual({ rpc: 'set_regulated_lab', body: { p_workspace_id: 'ws-1', p_regulated: true } }),
     )
   })
 
   it('does not confirm a save that failed', async () => {
-    vi.mocked(updateWorkspaceGeneral).mockRejectedValueOnce(
-      new Error('Could not save the time zone.'),
-    )
+    failGeneral = true
     const user = userEvent.setup()
     renderSection()
 
@@ -161,7 +154,7 @@ describe('SettingsGeneral', () => {
     expect(
       await screen.findByText('Could not save the time zone.'),
     ).toBeTruthy()
-    expect(toasts.toast).not.toHaveBeenCalled()
+    expect(screen.queryByText('Settings saved')).toBeNull()
   })
 
   it('refuses a time zone that is not a real IANA zone', async () => {
@@ -186,7 +179,7 @@ describe('SettingsGeneral', () => {
     await user.type(timezone, 'Europe/London')
     expect(screen.queryByText(/valid IANA time zone/i)).toBeNull()
     expect(saveButton().disabled).toBe(true)
-    expect(vi.mocked(updateWorkspaceGeneral)).not.toHaveBeenCalled()
+    expect(writes).toEqual([])
   })
 
   it('requires the workspace name rather than skipping the rename silently', async () => {
@@ -214,10 +207,7 @@ describe('SettingsGeneral', () => {
     expect(saveButton().disabled).toBe(false)
     await user.click(saveButton())
     await waitFor(() =>
-      expect(vi.mocked(updateWorkspaceName)).toHaveBeenCalledWith(
-        'ws-1',
-        'Process Development 2',
-      ),
+      expect(writes).toContainEqual({ rpc: 'update_workspace_name', body: { p_workspace_id: 'ws-1', p_name: 'Process Development 2' } }),
     )
   })
 
@@ -253,12 +243,12 @@ describe('SettingsGeneral', () => {
     await user.clear(prefix)
     expect(prefix.value).toBe('')
     expect(saveButton().disabled).toBe(true)
-    expect(vi.mocked(updateWorkspaceGeneral)).not.toHaveBeenCalled()
+    expect(writes).toEqual([])
   })
   it('starts a workspace that has never saved settings from its name and the defaults', async () => {
     // The settings row is written by the first save, so a workspace that
     // skipped setup reads none.
-    vi.mocked(fetchWorkspaceGeneral).mockResolvedValueOnce(null)
+    noSettings = true
     const user = userEvent.setup()
     renderSection('Fixture Workspace')
     expect(await screen.findByDisplayValue('Fixture Workspace')).toBeTruthy()
@@ -274,10 +264,7 @@ describe('SettingsGeneral', () => {
     expect(save.disabled).toBe(false)
     await user.click(save)
     await waitFor(() =>
-      expect(vi.mocked(updateWorkspaceGeneral)).toHaveBeenCalledWith(
-        'ws-1',
-        expect.objectContaining({ site: 'Cambridge' }),
-      ),
+      expect(writes).toContainEqual({ rpc: 'update_workspace_general', body: expect.objectContaining({ p_workspace_id: 'ws-1', p_site: 'Cambridge' }) }),
     )
   })
 })

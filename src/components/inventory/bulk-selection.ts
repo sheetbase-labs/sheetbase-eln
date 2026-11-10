@@ -38,10 +38,12 @@ export function useBulkSelection(): BulkSelection {
   )
 
   const setMany = useCallback((ids: readonly string[], on: boolean) => {
+    const removed = new Set(ids)
+
     setSelected((current) =>
       on
         ? [...new Set([...current, ...ids])].slice(0, BULK_LIMIT)
-        : current.filter((id) => !ids.includes(id)),
+        : current.filter((id) => !removed.has(id)),
     )
   }, [])
 

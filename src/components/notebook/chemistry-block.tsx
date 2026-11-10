@@ -7,7 +7,16 @@
  * printed record never need the drawing library.
  */
 import DOMPurify from 'dompurify'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { z } from 'zod'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import type { ReactNode } from 'react'
 
 import { RegistryGrid } from '#/components/inventory/registry-grid'
@@ -32,10 +41,8 @@ import { TableBox } from '#/components/ui/table'
 import { CopyButton } from '#/components/ui/copy-button'
 import { ConflictBanner } from './conflict-banner'
 import { useAutosave } from './use-autosave'
-import {
-  canEditBlockOffline,
-  useOfflineEdits,
-} from '#/components/offline/offline-edits'
+import { useOfflineEdits } from '#/components/offline/offline-edits'
+import { canEditBlockOffline } from '#/components/offline/offline-edit-model'
 import type { BlockEditorProps } from './block-editor'
 import { t } from '#/copy'
 import { validateBlock } from '#/lib/blocks'
@@ -75,22 +82,41 @@ import type { MoleculeFacts, Ocl } from '#/lib/chemistry-draw'
 // Reading the payload
 // ---------------------------------------------------------------------------
 
-function structureOf(payload: unknown): StructurePayload {
-  const p = (payload ?? {}) as Partial<StructurePayload>
-  return {
-    ...p,
-    molfile: typeof p.molfile === 'string' ? p.molfile : '',
-  }
-}
+// Decode editable fields without discarding extension metadata on a saved drawing.
+// Domain limits and cross-row invariants remain enforced by validateBlock at save.
+const structurePayload = z.looseObject({
+  molfile: z.string().catch(''),
+  title: z.string().optional(),
+  caption: z.string().optional(),
+  name: z.string().optional(),
+  formula: z.string().optional(),
+  smiles: z.string().optional(),
+  mw: z.number().nullable().optional(),
+})
 
-function reactionOf(payload: unknown): ReactionPayload {
-  const p = (payload ?? {}) as Partial<ReactionPayload>
-  return {
-    ...p,
-    drawing: typeof p.drawing === 'string' ? p.drawing : '',
-    rows: Array.isArray(p.rows) ? p.rows : [],
-  }
-}
+const reactionRow: z.ZodType<ReactionRow> = z.looseObject({
+  id: z.string(),
+  role: z.enum(REACTION_ROLES),
+  name: z.string(),
+  formula: z.string().optional(),
+  structureCode: z.string().optional(),
+  note: z.string().optional(),
+  mw: z.number().nullable().optional(),
+  equiv: z.number().nullable().optional(),
+  massMg: z.number().nullable().optional(),
+  volumeMl: z.number().nullable().optional(),
+  density: z.number().nullable().optional(),
+  concentration: z.number().nullable().optional(),
+})
+
+const reactionPayload = z.looseObject({
+  drawing: z.string().catch(''),
+  rows: z.array(reactionRow).default([]),
+  title: z.string().optional(),
+  caption: z.string().optional(),
+  smiles: z.string().optional(),
+  limitingId: z.string().nullable().optional(),
+})
 
 /** The chemistry library, once it has loaded; null until then. */
 function useOcl(): Ocl | null {
@@ -100,10 +126,12 @@ function useOcl(): Ocl | null {
     void loadOcl().then((loaded) => {
       if (live) setOcl(loaded)
     })
+
     return () => {
       live = false
     }
   }, [])
+
   return ocl
 }
 
@@ -126,6 +154,7 @@ function Picture({
       svg ? DOMPurify.sanitize(svg, { USE_PROFILES: { svg: true } }) : null,
     [svg],
   )
+
   if (!clean) {
     return (
       <div className="flex min-h-24 items-center justify-center text-body text-fg-muted">
@@ -133,6 +162,7 @@ function Picture({
       </div>
     )
   }
+
   return (
     <div
       role="img"
@@ -145,10 +175,12 @@ function Picture({
 
 function StructurePicture({ payload }: { payload: StructurePayload }) {
   const ocl = useOcl()
+
   const svg = useMemo(
     () => (ocl && payload.molfile ? structureSvg(ocl, payload.molfile) : null),
     [ocl, payload.molfile],
   )
+
   return (
     <Picture
       svg={svg}
@@ -166,10 +198,12 @@ function StructurePicture({ payload }: { payload: StructurePayload }) {
 
 function SchemePicture({ payload }: { payload: ReactionPayload }) {
   const ocl = useOcl()
+
   const svg = useMemo(
     () => (ocl && payload.drawing ? schemeSvg(ocl, payload.drawing) : null),
     [ocl, payload.drawing],
   )
+
   return (
     <Picture
       svg={svg}
@@ -190,7 +224,9 @@ function Facts({ payload }: { payload: StructurePayload }) {
     payload.formula,
     payload.mw ? `${formatAmount(payload.mw)} g/mol` : null,
   ].filter(Boolean)
+
   if (parts.length === 0 && !payload.smiles) return null
+
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-label text-fg-muted">
       {parts.length ? <span className="num">{parts.join(' · ')}</span> : null}
@@ -212,7 +248,8 @@ function Facts({ payload }: { payload: StructurePayload }) {
 // ---------------------------------------------------------------------------
 
 export function StructurePreview({ payload }: { payload: unknown }) {
-  const p = structureOf(payload)
+  const p = structurePayload.parse(payload)
+
   return (
     <figure className="m-0 flex flex-col gap-2 rounded-md border border-border p-3">
       <StructurePicture payload={p} />
@@ -226,7 +263,8 @@ export function StructurePreview({ payload }: { payload: unknown }) {
 }
 
 export function ReactionPreview({ payload }: { payload: unknown }) {
-  const p = reactionOf(payload)
+  const p = reactionPayload.parse(payload)
+
   return (
     <figure className="m-0 flex flex-col gap-3 rounded-md border border-border p-3">
       <SchemePicture payload={p} />
@@ -262,9 +300,13 @@ function AmountInput({
   disabled?: boolean
 }) {
   const [text, setText] = useState(value == null ? '' : String(value))
-  useEffect(() => {
+  const [previousValue, setPreviousValue] = useState(value)
+
+  if (previousValue !== value) {
+    setPreviousValue(value)
     setText(value == null ? '' : String(value))
-  }, [value])
+  }
+
   return (
     <Input
       aria-label={label}
@@ -276,70 +318,60 @@ function AmountInput({
       onChange={(event) => {
         setText(event.target.value)
         const trimmed = event.target.value.trim()
+
         if (trimmed === '') return onChange(null)
         const number = Number(trimmed)
+
         if (Number.isFinite(number) && number >= 0) onChange(number)
       }}
     />
   )
 }
 
-interface ColumnEdit {
-  update: (id: string, patch: Partial<ReactionRow>) => void
-  remove: (id: string) => void
+const ReactionTableContext = createContext<
+  | (Parameters<typeof ReactionTable>[0] & {
+      computed: Map<string, ComputedRow>
+    })
+  | null
+>(null)
+
+function useReactionTable() {
+  const table = useContext(ReactionTableContext)
+
+  if (!table) throw new Error('Reaction cells require their table provider')
+
+  return table
 }
 
-/**
- * The columns are built once and read what changes through a ref: new columns
- * on every keystroke would remount the cells and drop the typing focus.
- */
-function useColumns(inputs: {
-  payload: ReactionPayload
-  computed: Map<string, ComputedRow>
-  edit?: ColumnEdit
-}): RegistryColumn<ReactionRow>[] {
-  const latest = useRef(inputs)
-  latest.current = inputs
-  const editing = Boolean(inputs.edit)
-  const hasDensity = inputs.payload.rows.some((r) => r.density != null)
-  return useMemo(
-    () => buildColumns(latest, editing, hasDensity),
-    [editing, hasDensity],
-  )
-}
-
+// Stable cell components keep typing focus; context supplies current render data.
 function buildColumns(
-  latest: { current: Parameters<typeof useColumns>[0] },
   editing: boolean,
   hasDensity: boolean,
 ): RegistryColumn<ReactionRow>[] {
-  const edit: ColumnEdit | undefined = editing
-    ? {
-        update: (id, patch) => latest.current.edit?.update(id, patch),
-        remove: (id) => latest.current.edit?.remove(id),
-      }
-    : undefined
-  const worked = (row: ReactionRow) => latest.current.computed.get(row.id)
-  const limitingId = () => limitingRow(latest.current.payload)?.id
   const number = (
     field: AmountField,
     label: string,
-    workedValue: (row: ReactionRow) => number | null | undefined,
+    workedValue: (row: ComputedRow | undefined) => number | null | undefined,
   ): RegistryColumn<ReactionRow> => ({
     id: field,
     header: label,
-    cell: ({ row }) => {
+    cell: function AmountCell({ row }) {
+      const { computed, edit } = useReactionTable()
       const r = row.original
+      const worked = workedValue(computed.get(r.id))
+
       if (!edit) {
         const typed = r[field]
-        const shown = typed ?? workedValue(r)
+        const shown = typed ?? worked
+
         return <span className="num">{formatAmount(shown)}</span>
       }
+
       return (
         <AmountInput
           label={`${label}: ${r.name || r.formula || ROLE_LABEL[r.role]}`}
           value={r[field]}
-          worked={workedValue(r)}
+          worked={worked}
           // A drawn molecule's weight comes from the drawing.
           disabled={field === 'mw' && Boolean(r.structureCode)}
           onChange={(value) => edit.update(r.id, amountPatch(r, field, value))}
@@ -348,19 +380,22 @@ function buildColumns(
     },
     meta: { cellClassName: 'text-right' },
   })
+
   const columns: RegistryColumn<ReactionRow>[] = [
     {
       id: 'role',
       header: t('notebook.chemistry.role'),
-      cell: ({ row }) =>
-        edit && !row.original.structureCode ? (
+      cell: function RoleCell({ row }) {
+        const { edit } = useReactionTable()
+
+        return edit && !row.original.structureCode ? (
           <Select
             className="w-28"
             aria-label={t('notebook.chemistry.role')}
             value={row.original.role}
             onChange={(event) =>
               edit.update(row.original.id, {
-                role: event.target.value as ReactionRole,
+                role: z.enum(REACTION_ROLES).parse(event.target.value),
               })
             }
           >
@@ -372,13 +407,16 @@ function buildColumns(
           </Select>
         ) : (
           ROLE_LABEL[row.original.role]
-        ),
+        )
+      },
     },
     {
       id: 'name',
       header: t('notebook.chemistry.name'),
-      cell: ({ row }) => {
+      cell: function NameCell({ row }) {
+        const { edit, payload } = useReactionTable()
         const r = row.original
+
         return (
           <div className="flex min-w-40 flex-col">
             {edit ? (
@@ -396,7 +434,7 @@ function buildColumns(
             {r.formula && (edit ? r.name === '' : r.name) ? (
               <span className="num text-label text-fg-muted">
                 {r.formula}
-                {!edit && limitingId() === r.id
+                {!edit && limitingRow(payload)?.id === r.id
                   ? ` · ${t('notebook.chemistry.limitingYes')}`
                   : ''}
               </span>
@@ -406,39 +444,47 @@ function buildColumns(
       },
     },
     number('mw', t('notebook.chemistry.mw'), () => null),
-    number('equiv', t('notebook.chemistry.equiv'), (r) => worked(r)?.equiv),
-    number('massMg', t('notebook.chemistry.massMg'), (r) => worked(r)?.massMg),
-    number(
-      'volumeMl',
-      t('notebook.chemistry.volumeMl'),
-      (r) => worked(r)?.volumeMl,
-    ),
+    number('equiv', t('notebook.chemistry.equiv'), (r) => r?.equiv),
+    number('massMg', t('notebook.chemistry.massMg'), (r) => r?.massMg),
+    number('volumeMl', t('notebook.chemistry.volumeMl'), (r) => r?.volumeMl),
     number('density', t('notebook.chemistry.density'), () => null),
     {
       id: 'mmol',
       header: t('notebook.chemistry.mmol'),
-      cell: ({ row }) => (
-        <span className="num">{formatAmount(worked(row.original)?.mmol)}</span>
-      ),
+      cell: function MmolCell({ row }) {
+        const { computed } = useReactionTable()
+
+        return (
+          <span className="num">
+            {formatAmount(computed.get(row.original.id)?.mmol)}
+          </span>
+        )
+      },
       meta: { cellClassName: 'text-right' },
     },
     {
       id: 'theoretical',
       header: t('notebook.chemistry.theoreticalMg'),
-      cell: ({ row }) => (
-        <span className="num">
-          {row.original.role === 'product'
-            ? formatAmount(worked(row.original)?.theoreticalMg)
-            : ''}
-        </span>
-      ),
+      cell: function TheoreticalCell({ row }) {
+        const { computed } = useReactionTable()
+
+        return (
+          <span className="num">
+            {row.original.role === 'product'
+              ? formatAmount(computed.get(row.original.id)?.theoreticalMg)
+              : ''}
+          </span>
+        )
+      },
       meta: { cellClassName: 'text-right' },
     },
     {
       id: 'yield',
       header: t('notebook.chemistry.yield'),
-      cell: ({ row }) => {
-        const y = worked(row.original)?.yieldPercent
+      cell: function YieldCell({ row }) {
+        const { computed } = useReactionTable()
+        const y = computed.get(row.original.id)?.yieldPercent
+
         return (
           <span className="num font-semibold">
             {row.original.role === 'product' && y != null
@@ -452,9 +498,12 @@ function buildColumns(
     {
       id: 'limiting',
       header: t('notebook.chemistry.limiting'),
-      cell: ({ row }) => {
+      cell: function LimitingCell({ row }) {
+        const { edit, payload } = useReactionTable()
         const r = row.original
+
         if (r.role !== 'reactant') return null
+
         return edit ? (
           <Radio
             value={r.id}
@@ -462,31 +511,37 @@ function buildColumns(
               name: r.name || r.formula || ROLE_LABEL[r.role],
             })}
           />
-        ) : limitingId() === r.id ? (
+        ) : limitingRow(payload)?.id === r.id ? (
           t('notebook.chemistry.limitingYes')
         ) : null
       },
     },
   ]
-  if (!edit) {
+
+  if (!editing) {
     // The read view has no room for what only the editor needs.
     return columns.filter(
       (column) =>
         column.id !== 'limiting' && (column.id !== 'density' || hasDensity),
     )
   }
+
   columns.push({
     id: 'remove',
     header: '',
-    cell: ({ row }) =>
-      row.original.structureCode ? null : (
+    cell: function RemoveCell({ row }) {
+      const { edit } = useReactionTable()
+
+      return row.original.structureCode ? null : (
         <IconButton
           label={t('notebook.chemistry.removeRow')}
           icon="trash"
-          onClick={() => edit.remove(row.original.id)}
+          onClick={() => edit?.remove(row.original.id)}
         />
-      ),
+      )
+    },
   })
+
   return columns
 }
 
@@ -502,21 +557,38 @@ export function ReactionTable({
   }
 }) {
   const computed = useMemo(() => computeReactionTable(payload), [payload])
-  const columns = useColumns({ payload, computed, edit })
-  const limiting = limitingRow(payload)
-  const grid = (
-    <TableBox>
-      <RegistryGrid
-        label={t('notebook.chemistry.tableLabel')}
-        rows={payload.rows}
-        columns={columns}
-        getRowId={(row) => row.id}
-        selectable={false}
-        sortable={false}
-      />
-    </TableBox>
+  const editing = Boolean(edit)
+  const hasDensity = payload.rows.some((row) => row.density != null)
+
+  const columns = useMemo(
+    () => buildColumns(editing, hasDensity),
+    [editing, hasDensity],
   )
+
+  const table = useMemo(
+    () => ({ payload, computed, edit }),
+    [payload, computed, edit],
+  )
+
+  const limiting = limitingRow(payload)
+
+  const grid = (
+    <ReactionTableContext value={table}>
+      <TableBox>
+        <RegistryGrid
+          label={t('notebook.chemistry.tableLabel')}
+          rows={payload.rows}
+          columns={columns}
+          getRowId={(row) => row.id}
+          selectable={false}
+          sortable={false}
+        />
+      </TableBox>
+    </ReactionTableContext>
+  )
+
   if (!edit) return grid
+
   return (
     <RadioGroup
       className="gap-0"
@@ -561,21 +633,28 @@ function DrawingDialog({
   const [changed, setChanged] = useState(false)
   useLayoutEffect(() => {
     if (!open || !ocl || !host) return
+
     const canvas = new ocl.CanvasEditor(host, {
       initialMode: mode === 'structure' ? 'molecule' : 'reaction',
     })
+
     editor.current = canvas
+
     if (mode === 'structure') {
       const molecule = parseMolfile(ocl, initial)
+
       if (molecule) canvas.setMolecule(molecule)
     } else {
       const reaction = parseReaction(ocl, initial)
+
       if (reaction) canvas.setReaction(reaction)
     }
+
     setChanged(false)
     canvas.setOnChangeListener((event) => {
       if (event.isUserEvent) setChanged(true)
     })
+
     return () => {
       editor.current = null
       canvas.destroy()
@@ -584,7 +663,9 @@ function DrawingDialog({
 
   const save = () => {
     const canvas = editor.current
+
     if (!canvas || !ocl) return
+
     if (mode === 'structure') {
       const molecule = canvas.getMolecule()
       const empty = molecule.getAllAtoms() === 0
@@ -602,6 +683,7 @@ function DrawingDialog({
         components: drawnComponents(ocl, drawing),
       })
     }
+
     onOpenChange(false)
   }
 
@@ -645,16 +727,19 @@ function DrawingDialog({
 // Editors
 // ---------------------------------------------------------------------------
 
-function useChemistryAutosave<T extends object>(
+function useChemistryAutosave<T extends BlockEditorProps['block']['payload']>(
   type: 'structure' | 'reaction',
   { block, save, offline, onStatusChange }: BlockEditorProps,
   initial: T,
+  schema: z.ZodType<T>,
 ) {
   // Edited in place like the other blocks: while offline the page's save keeps
   // the payload on the device and sends it on reconnect.
   const { canQueue } = useOfflineEdits()
+
   const holdOffline =
     (offline ?? false) && !(canQueue && canEditBlockOffline(type))
+
   const autosave = useAutosave<T>({
     initialValue: initial,
     validate: (value) => {
@@ -663,24 +748,32 @@ function useChemistryAutosave<T extends object>(
         payload: value,
         payloadSchemaVersion: block.payloadSchemaVersion,
       })
+
       return result.ok ? [] : result.errors.map((error) => error.message)
     },
-    save: async (value) =>
-      (await save(
-        value as unknown as Record<string, unknown>,
-      )) as unknown as Awaited<
-        ReturnType<Parameters<typeof useAutosave<T>>[0]['save']>
-      >,
+    save: async (value) => {
+      const result = await save(value)
+
+      return {
+        ...result,
+        serverValue:
+          result.serverValue === undefined
+            ? undefined
+            : schema.parse(result.serverValue),
+      }
+    },
     offline: holdOffline,
     touched: true,
   })
+
   useLayoutEffect(() => {
     onStatusChange?.(autosave.status)
   }, [autosave.status, onStatusChange])
+
   return autosave
 }
 
-function SaveNotices<T>({
+function SaveNotices<T extends object>({
   autosave,
   offline,
 }: {
@@ -718,23 +811,34 @@ function SaveNotices<T>({
 
 export function StructureEditor(props: BlockEditorProps) {
   const { block, readOnly, offline } = props
-  const initial = useMemo(() => structureOf(block.payload), [block.payload])
-  const autosave = useChemistryAutosave<StructurePayload>(
+
+  const initial = useMemo(
+    () => structurePayload.parse(block.payload),
+    [block.payload],
+  )
+
+  const autosave = useChemistryAutosave(
     'structure',
     props,
     initial,
+    structurePayload,
   )
+
   const [drawing, setDrawing] = useState(false)
   const draft = autosave.draft
   const ocl = useOcl()
+
   // Weight and formula for a drawing saved before they were kept with it.
   const facts = useMemo(
     () => (ocl && draft.molfile ? moleculeFacts(ocl, draft.molfile) : null),
     [ocl, draft.molfile],
   )
+
   if (readOnly) return <StructurePreview payload={block.payload} />
+
   const edit = (patch: Partial<StructurePayload>) =>
     autosave.setDraft((current) => ({ ...current, ...patch }))
+
   return (
     <section
       aria-label={t('notebook.chemistry.structureAria')}
@@ -805,17 +909,27 @@ export function StructureEditor(props: BlockEditorProps) {
 
 export function ReactionEditor(props: BlockEditorProps) {
   const { block, readOnly, offline } = props
-  const initial = useMemo(() => reactionOf(block.payload), [block.payload])
-  const autosave = useChemistryAutosave<ReactionPayload>(
+
+  const initial = useMemo(
+    () => reactionPayload.parse(block.payload),
+    [block.payload],
+  )
+
+  const autosave = useChemistryAutosave(
     'reaction',
     props,
     initial,
+    reactionPayload,
   )
+
   const [drawing, setDrawing] = useState(false)
   const draft = autosave.draft
+
   if (readOnly) return <ReactionPreview payload={block.payload} />
+
   const edit = (patch: Partial<ReactionPayload>) =>
     autosave.setDraft((current) => ({ ...current, ...patch }))
+
   const updateRow = (id: string, patch: Partial<ReactionRow>) =>
     autosave.setDraft((current) => ({
       ...current,
@@ -823,6 +937,7 @@ export function ReactionEditor(props: BlockEditorProps) {
         row.id === id ? { ...row, ...patch } : row,
       ),
     }))
+
   return (
     <section
       aria-label={t('notebook.chemistry.reactionAria')}
@@ -898,6 +1013,7 @@ export function ReactionEditor(props: BlockEditorProps) {
           if (drawn.kind !== 'reaction') return
           autosave.setDraft((current) => {
             const rows = syncRowsWithDrawing(current.rows, drawn.components)
+
             return {
               ...current,
               drawing: drawn.drawing,

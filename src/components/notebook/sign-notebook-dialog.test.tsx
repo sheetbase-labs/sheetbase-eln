@@ -1,4 +1,10 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
@@ -6,64 +12,57 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { SignNotebookDialog } from './sign-notebook-dialog'
 import { notebookQueryKeys } from '#/lib/notebook-data'
+import type { RevisionWire } from '#/lib/notebook-data'
+import type { ReviewSubmissionWire } from '#/lib/reviews'
+import type { WorkspaceCertification } from '#/lib/signature-certification'
+import { dropSharedReads } from '#/lib/data-client'
 import { sign002QueryKeys } from '#/lib/sign-002'
 
-const fetchReviewSubmissionByRevision = vi.fn()
-const fetchRevisionRow = vi.fn()
-const fetchSignaturesForSubmission = vi.fn()
-const fetchSignatureEligibility = vi.fn()
-const fetchWorkspaceCertifications = vi.fn()
-const fetchReviewCheckResults = vi.fn()
-const runDefaultRevisionChecks = vi.fn()
-const signRevision = vi.fn()
-const requestSignatureStepUp = vi.fn()
+const transport = vi.hoisted(() => {
+  const http = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', http)
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    children,
-    ...props
-  }: {
-    to?: string
-    children: React.ReactNode
-  } & Record<string, unknown>) => (
-    <a href={typeof to === 'string' ? to : '#'} {...props}>
-      {children}
-    </a>
-  ),
-}))
+  return http
+})
 
-vi.mock('#/lib/signature-certification', async (importOriginal) => ({
-  ...(await importOriginal()),
-  fetchWorkspaceCertifications: (...args: unknown[]) =>
-    fetchWorkspaceCertifications(...args),
-}))
+const baseSubmission: ReviewSubmissionWire = {
+  id: 'sub1',
+  workspace_id: 'ws1',
+  record_id: 'r1',
+  revision_id: 'rev1',
+  state: 'approved',
+  assigned_reviewer_user_ids: ['u1'],
+  workflow_definition_key: 'scientific-review',
+  workflow_definition_version: 1,
+  submitted_by_user_id: 'author',
+  submitted_session_id: 'session',
+  submitted_role: 'member',
+  submitted_at: '2026-10-04T12:00:00Z',
+  due_at: null,
+  idempotency_key: 'submission-1',
+  created_at: '2026-10-04T12:00:00Z',
+  updated_at: '2026-10-04T12:00:00Z',
+}
 
-vi.mock('#/lib/review-checks', async (importOriginal) => ({
-  ...(await importOriginal()),
-  fetchReviewCheckResults: (...args: unknown[]) =>
-    fetchReviewCheckResults(...args),
-  runDefaultRevisionChecks: (...args: unknown[]) =>
-    runDefaultRevisionChecks(...args),
-}))
+const baseRevision: RevisionWire = {
+  id: 'rev1',
+  record_id: 'r1',
+  structure_version: 1,
+  metadata_version: 1,
+  metadata_snapshot: {},
+  block_snapshot: [],
+  reason: 'submit',
+  superseded_by_revision_id: null,
+  created_at: '2026-10-04T12:00:00Z',
+  created_by_user_id: 'author',
+  integrity_digest: 'abc123digest',
+}
 
-vi.mock('#/lib/review-workspace', async (importOriginal) => ({
-  ...(await importOriginal()),
-  fetchReviewSubmissionByRevision: (...args: unknown[]) =>
-    fetchReviewSubmissionByRevision(...args),
-  fetchRevisionRow: (...args: unknown[]) => fetchRevisionRow(...args),
-}))
-
-vi.mock('#/lib/signatures', async (importOriginal) => ({
-  ...(await importOriginal()),
-  fetchSignaturesForSubmission: (...args: unknown[]) =>
-    fetchSignaturesForSubmission(...args),
-  fetchSignatureEligibility: (...args: unknown[]) =>
-    fetchSignatureEligibility(...args),
-  signRevision: (...args: unknown[]) => signRevision(...args),
-  requestSignatureStepUp: (...args: unknown[]) =>
-    requestSignatureStepUp(...args),
-}))
+let submission = baseSubmission
+let revision = baseRevision
+let certifications: WorkspaceCertification[] = []
+let checksUnavailable = true
+let stepUpDenied = false
 
 function certifiedCertification(userId: string) {
   return {
@@ -81,15 +80,74 @@ function certifiedCertification(userId: string) {
 }
 
 beforeEach(() => {
-  fetchReviewCheckResults.mockRejectedValue(new Error('checks unavailable'))
-  fetchSignatureEligibility.mockResolvedValue({ writer: true, requests: [] })
-  fetchWorkspaceCertifications.mockResolvedValue([certifiedCertification('u1')])
-  requestSignatureStepUp.mockResolvedValue({
-    token: 'one-use-password-token',
-    authMethod: 'password',
-    expiresAt: '2026-10-04T14:00:00Z',
+  dropSharedReads()
+  submission = baseSubmission
+  revision = baseRevision
+  certifications = [certifiedCertification('u1')]
+  checksUnavailable = true
+  stepUpDenied = false
+  transport.mockReset()
+  transport.mockImplementation(async (input) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input,
+      'http://localhost',
+    )
+
+    switch (url.pathname) {
+      case '/api/db/review_submissions':
+        return Response.json([submission])
+      case '/api/db/revisions':
+        return Response.json([revision])
+      case '/api/db/revision_sheet_evidence':
+      case '/api/db/signatures':
+      case '/api/db/signature_witness_requests':
+      case '/api/db/workspace_settings':
+        return Response.json([])
+      case '/api/db/review_check_results':
+        if (checksUnavailable) throw new Error('checks unavailable')
+
+        return Response.json([])
+      case '/api/db/rpc/is_workspace_writer':
+        return Response.json(true)
+      case '/api/db/rpc/workspace_signature_certifications':
+        return Response.json(
+          certifications.map((c) => ({
+            user_id: c.userId,
+            name: c.name,
+            statement_version: c.statementVersion,
+            certified_at: c.certifiedAt,
+            revoked_at: c.revokedAt,
+            identity_verified_at: c.identityVerifiedAt,
+            identity_verified_by: c.identityVerifiedBy,
+            verified_email: c.verifiedEmail,
+            verification_requested: c.verificationRequested,
+            auth_method: c.authMethod,
+          })),
+        )
+      case '/api/db/rpc/run_revision_checks':
+        return Response.json({})
+      case '/api/db/rpc/sign_revision':
+        return Response.json({ signatureId: 'sig1' })
+      case '/api/signatures/step-up':
+        return stepUpDenied
+          ? Response.json(
+              {
+                message:
+                  'Signing is locked for 15 minutes after three failed attempts.',
+              },
+              { status: 423 },
+            )
+          : Response.json({
+              token: 'one-use-password-token',
+              authMethod: 'password',
+              expiresAt: '2026-10-04T14:00:00Z',
+            })
+      default:
+        throw new Error(`Unexpected request: ${url.pathname}`)
+    }
   })
 })
+
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
@@ -99,7 +157,17 @@ function renderWithQuery(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
+  return render(
+    <QueryClientProvider client={client}>
+      <RouterContextProvider router={router}>{ui}</RouterContextProvider>
+    </QueryClientProvider>,
+  )
 }
 
 describe('SignNotebookDialog', () => {
@@ -107,19 +175,6 @@ describe('SignNotebookDialog', () => {
   // step-up and the sign_revision write are unchanged; this pins the shared
   // affordances (attestation statement + server time) onto the flow.
   it('renders the shared e-sign dialog affordances', async () => {
-    fetchReviewSubmissionByRevision.mockResolvedValue({
-      id: 'sub1',
-      workspace_id: 'ws1',
-      record_id: 'r1',
-      state: 'approved',
-      assigned_reviewer_user_ids: ['u1'],
-    })
-    fetchRevisionRow.mockResolvedValue({
-      id: 'rev1',
-      integrity_digest: 'abc123digest',
-    })
-    fetchSignaturesForSubmission.mockResolvedValue([])
-
     renderWithQuery(
       <SignNotebookDialog
         open
@@ -142,20 +197,6 @@ describe('SignNotebookDialog', () => {
 
   it('focuses password and signs only after password step-up and matching confirmation', async () => {
     const user = userEvent.setup()
-    fetchReviewSubmissionByRevision.mockResolvedValue({
-      id: 'sub1',
-      workspace_id: 'ws1',
-      record_id: 'r1',
-      state: 'approved',
-      assigned_reviewer_user_ids: ['u1'],
-    })
-    fetchRevisionRow.mockResolvedValue({
-      id: 'rev1',
-      integrity_digest: 'abc123digest',
-    })
-    fetchSignaturesForSubmission.mockResolvedValue([])
-    signRevision.mockResolvedValue({ signatureId: 'sig1' })
-
     renderWithQuery(
       <SignNotebookDialog
         open
@@ -193,25 +234,34 @@ describe('SignNotebookDialog', () => {
     )
     await user.click(screen.getByRole('button', { name: 'Sign' }))
     await waitFor(() => {
-      expect(signRevision).toHaveBeenCalledWith(
-        expect.anything(),
+      expect(transport).toHaveBeenCalledWith(
+        '/api/db/rpc/sign_revision',
         expect.objectContaining({
-          submissionId: 'sub1',
-          signatureMeaning: 'reviewed',
-          confirmationPhrase: 'Ada Lovelace',
-          expectedRevisionDigest: 'abc123digest',
-          signingToken: 'one-use-password-token',
+          method: 'POST',
+          body: JSON.stringify({
+            p_submission_id: 'sub1',
+            p_signature_meaning: 'reviewed',
+            p_confirmation_phrase: 'Ada Lovelace',
+            p_expected_revision_digest: 'abc123digest',
+            p_signing_token: 'one-use-password-token',
+          }),
         }),
       )
     })
-    expect(requestSignatureStepUp).toHaveBeenCalledWith({
-      workspaceId: 'ws1',
-      purpose: 'sign',
-      submissionId: 'sub1',
-      revisionDigest: 'abc123digest',
-      signatureMeaning: 'reviewed',
-      password: 'local-signing-password',
-    })
+    expect(transport).toHaveBeenCalledWith(
+      '/api/signatures/step-up',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          workspaceId: 'ws1',
+          password: 'local-signing-password',
+          purpose: 'sign',
+          submissionId: 'sub1',
+          revisionDigest: 'abc123digest',
+          signatureMeaning: 'reviewed',
+        }),
+      }),
+    )
     expect(screen.getByLabelText('Signing password')).toHaveProperty(
       'value',
       '',
@@ -220,18 +270,6 @@ describe('SignNotebookDialog', () => {
 
   it('invalidates record, blocks and review queries after a successful signature', async () => {
     const user = userEvent.setup()
-    fetchReviewSubmissionByRevision.mockResolvedValue({
-      id: 'sub1',
-      record_id: 'r1',
-      state: 'approved',
-      assigned_reviewer_user_ids: ['u1'],
-    })
-    fetchRevisionRow.mockResolvedValue({
-      id: 'rev1',
-      integrity_digest: 'abc123digest',
-    })
-    fetchSignaturesForSubmission.mockResolvedValue([])
-    signRevision.mockResolvedValue({ signatureId: 'sig1' })
 
     const client = new QueryClient({
       defaultOptions: {
@@ -239,8 +277,9 @@ describe('SignNotebookDialog', () => {
         mutations: { retry: false },
       },
     })
+
     const invalidate = vi.spyOn(client, 'invalidateQueries')
-    render(
+    renderWithQuery(
       <QueryClientProvider client={client}>
         <SignNotebookDialog
           open
@@ -274,16 +313,7 @@ describe('SignNotebookDialog', () => {
   })
 
   it('offers Reviewed without approval or witness authority while review is active', async () => {
-    fetchReviewSubmissionByRevision.mockResolvedValue({
-      id: 'sub1',
-      state: 'submitted',
-      assigned_reviewer_user_ids: ['u1'],
-    })
-    fetchRevisionRow.mockResolvedValue({
-      id: 'rev1',
-      integrity_digest: 'abc123digest',
-    })
-    fetchSignaturesForSubmission.mockResolvedValue([])
+    submission = { ...baseSubmission, state: 'submitted' }
 
     renderWithQuery(
       <SignNotebookDialog
@@ -314,23 +344,7 @@ describe('SignNotebookDialog', () => {
 
   it('never sends a signing RPC after password denial and clears the attempted password', async () => {
     const user = userEvent.setup()
-    fetchReviewSubmissionByRevision.mockResolvedValue({
-      id: 'sub1',
-      workspace_id: 'ws1',
-      record_id: 'r1',
-      state: 'approved',
-      assigned_reviewer_user_ids: ['u1'],
-    })
-    fetchRevisionRow.mockResolvedValue({
-      id: 'rev1',
-      integrity_digest: 'abc123digest',
-    })
-    fetchSignaturesForSubmission.mockResolvedValue([])
-    requestSignatureStepUp.mockRejectedValue(
-      new Error(
-        'Signing is locked for 15 minutes after three failed attempts.',
-      ),
-    )
+    stepUpDenied = true
     renderWithQuery(
       <SignNotebookDialog
         open
@@ -353,7 +367,9 @@ describe('SignNotebookDialog', () => {
     await screen.findByText(
       'Signing is locked for 15 minutes after three failed attempts.',
     )
-    expect(signRevision).not.toHaveBeenCalled()
+    expect(transport.mock.calls.map(([url]) => url)).not.toContain(
+      '/api/db/rpc/sign_revision',
+    )
     expect(screen.getByLabelText('Signing password')).toHaveProperty(
       'value',
       '',
@@ -361,19 +377,8 @@ describe('SignNotebookDialog', () => {
   })
 
   function mockSignableSubmission() {
-    fetchReviewSubmissionByRevision.mockResolvedValue({
-      id: 'sub1',
-      workspace_id: 'ws1',
-      record_id: 'r1',
-      state: 'approved',
-      assigned_reviewer_user_ids: ['u1'],
-    })
-    fetchRevisionRow.mockResolvedValue({
-      id: 'rev1',
-      integrity_digest: 'abc123digest',
-    })
-    fetchSignaturesForSubmission.mockResolvedValue([])
-    signRevision.mockResolvedValue({ signatureId: 'sig1' })
+    submission = baseSubmission
+    revision = baseRevision
   }
 
   function renderSignDialog(onOpenChange: (open: boolean) => void = vi.fn()) {
@@ -437,12 +442,18 @@ describe('SignNotebookDialog', () => {
     await user.keyboard('{Enter}')
 
     await waitFor(() => {
-      expect(signRevision).toHaveBeenCalledTimes(1)
+      expect(
+        transport.mock.calls.filter(
+          ([url]) => url === '/api/db/rpc/sign_revision',
+        ),
+      ).toHaveLength(1)
     })
-    expect(requestSignatureStepUp).toHaveBeenCalledWith(
+    expect(transport).toHaveBeenCalledWith(
+      '/api/signatures/step-up',
       expect.objectContaining({
-        purpose: 'sign',
-        password: 'local-signing-password',
+        body: expect.stringContaining(
+          '"password":"local-signing-password","purpose":"sign"',
+        ),
       }),
     )
   })
@@ -459,19 +470,23 @@ describe('SignNotebookDialog', () => {
     await waitFor(() => {
       expect(onOpenChange).toHaveBeenCalledWith(false)
     })
-    expect(signRevision).not.toHaveBeenCalled()
+    expect(transport.mock.calls.map(([url]) => url)).not.toContain(
+      '/api/db/rpc/sign_revision',
+    )
   })
 
   it('REV-03.4 traps focus inside the dialog while open', async () => {
     const user = userEvent.setup()
     mockSignableSubmission()
+
     const client = new QueryClient({
       defaultOptions: {
         queries: { retry: false },
         mutations: { retry: false },
       },
     })
-    render(
+
+    renderWithQuery(
       <QueryClientProvider client={client}>
         <button type="button">Outside the dialog</button>
         <SignNotebookDialog
@@ -486,10 +501,12 @@ describe('SignNotebookDialog', () => {
 
     const password = await screen.findByLabelText('Signing password')
     const dialog = screen.getByRole('dialog')
+
     const outside = screen.getByRole('button', {
       name: 'Outside the dialog',
       hidden: true,
     })
+
     await waitFor(() => {
       expect(document.activeElement).toBe(password)
     })
@@ -505,7 +522,7 @@ describe('SignNotebookDialog', () => {
 
   it('REV-03.3 tells an uncertified signer certification is required before signing', async () => {
     mockSignableSubmission()
-    fetchWorkspaceCertifications.mockResolvedValue([
+    certifications = [
       {
         ...certifiedCertification('u1'),
         statementVersion: null,
@@ -513,7 +530,7 @@ describe('SignNotebookDialog', () => {
         identityVerifiedAt: null,
         authMethod: null,
       },
-    ])
+    ]
     renderSignDialog()
 
     await screen.findByText(/Certification is required before you can sign/)
@@ -521,17 +538,18 @@ describe('SignNotebookDialog', () => {
       screen
         .getByRole('link', { name: 'Open signature settings' })
         .getAttribute('href'),
-    ).toBe('/settings/account/signature')
+    ).toBe('/settings/account/signature?returnTo=%2F%3Freopen%3Dsign')
     // No password field and no Sign button: the attempt cannot be started.
     expect(screen.queryByLabelText('Signing password')).toBeNull()
     expect(screen.queryByRole('button', { name: 'Sign' })).toBeNull()
-    expect(signRevision).not.toHaveBeenCalled()
+    expect(transport.mock.calls.map(([url]) => url)).not.toContain(
+      '/api/db/rpc/sign_revision',
+    )
   })
 
   it('J-NBK-09 offers to run missing checks and links to the checks tab', async () => {
     mockSignableSubmission()
-    fetchReviewCheckResults.mockResolvedValue([])
-    runDefaultRevisionChecks.mockResolvedValue({})
+    checksUnavailable = false
     const user = userEvent.setup()
     renderSignDialog()
 
@@ -543,28 +561,33 @@ describe('SignNotebookDialog', () => {
       screen
         .getByRole('link', { name: 'Open the checks' })
         .getAttribute('href'),
-    ).toBe('/review/$revisionId')
+    ).toBe('/review/rev1?tab=checks')
     await user.click(screen.getByRole('button', { name: 'Run checks' }))
     await waitFor(() =>
-      expect(runDefaultRevisionChecks).toHaveBeenCalledWith(
-        expect.anything(),
-        'rev1',
+      expect(transport).toHaveBeenCalledWith(
+        '/api/db/rpc/run_revision_checks',
+        expect.objectContaining({
+          method: 'POST',
+          body: expect.stringContaining('"p_revision_id":"rev1"'),
+        }),
       ),
     )
   })
 
   it('REV-03.3 does not treat a revoked certification as current before signing', async () => {
     mockSignableSubmission()
-    fetchWorkspaceCertifications.mockResolvedValue([
+    certifications = [
       {
         ...certifiedCertification('u1'),
         revokedAt: '2026-10-05T09:00:00Z',
       },
-    ])
+    ]
     renderSignDialog()
 
     await screen.findByText(/Certification is required before you can sign/)
     expect(screen.queryByLabelText('Signing password')).toBeNull()
-    expect(signRevision).not.toHaveBeenCalled()
+    expect(transport.mock.calls.map(([url]) => url)).not.toContain(
+      '/api/db/rpc/sign_revision',
+    )
   })
 })

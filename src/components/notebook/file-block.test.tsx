@@ -1,34 +1,83 @@
 /**
  * SCI-003 file block component tests. Verifies honest rendering of active,
  * quarantined, deleted and missing states; the upload flow (success, wrong
- * type, oversize); and the empty/loading/error states. The live file_objects
- * status is mocked so the preview always reflects the authoritative row.
+ * type, oversize); and the empty/loading/error states. Controlled HTTP responses
+ * exercise the real file_objects reader and status mapping.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { NotebookBlock, FileObjectSummary } from '#/lib/notebook-data'
-import { fetchFileObjectByRecordId } from '#/lib/notebook-data'
-import type * as notebookData from '#/lib/notebook-data'
+import { dropSharedReads } from '#/lib/data-client'
 import { BlockEditor } from './block-editor'
 import { BlockPreview } from './block-preview'
 
-vi.mock('#/lib/notebook-data', async (importOriginal) => {
-  const actual = await importOriginal<typeof notebookData>()
-  return { ...actual, fetchFileObjectByRecordId: vi.fn() }
+// The singleton DataClient captures fetch when its module loads.
+const transport = vi.hoisted(() => {
+  const http = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', http)
+
+  return http
 })
 
-const fetchFileObject = vi.mocked(fetchFileObjectByRecordId)
+let fileStatus: FileObjectSummary | Error | null = null
+
+beforeEach(() => {
+  dropSharedReads()
+  fileStatus = null
+  transport.mockImplementation(async (input) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input,
+      'http://localhost',
+    )
+
+    if (url.pathname === '/api/office-editor/status')
+      return Response.json({ enabled: false, reachable: false })
+
+    if (url.pathname !== '/api/db/file_objects')
+      throw new Error(`Unexpected request: ${url.pathname}`)
+
+    if (fileStatus instanceof Error) throw fileStatus
+
+    return Response.json(
+      fileStatus
+        ? [
+            {
+              id: 'object-1',
+              workspace_id: 'workspace-1',
+              record_id: fileStatus.recordId,
+              storage_key: 'files/object-1',
+              display_name: fileStatus.displayName,
+              media_type: fileStatus.mediaType,
+              byte_size: String(fileStatus.byteSize),
+              checksum: null,
+              status: fileStatus.status,
+              status_reason: fileStatus.statusReason,
+              version: fileStatus.version,
+            },
+          ]
+        : [],
+    )
+  })
+  vi.stubGlobal('fetch', transport)
+})
 
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
+  vi.unstubAllGlobals()
 })
 
-function makeBlock(payload: Record<string, unknown>): NotebookBlock {
+function makeBlock(payload: NotebookBlock['payload']): NotebookBlock {
   return {
     id: 'block-file',
     recordId: 'experiment-1',
@@ -44,6 +93,7 @@ function renderWithQuery(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   })
+
   return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
@@ -59,7 +109,7 @@ function mockStatus(
   status: 'active' | 'quarantined' | 'deleted' | 'missing',
   overrides: Partial<FileObjectSummary> = {},
 ) {
-  fetchFileObject.mockResolvedValue({
+  fileStatus = {
     recordId: activePayload.fileRecordId,
     displayName: 'stability-run07.csv',
     mediaType: 'text/csv',
@@ -68,7 +118,7 @@ function mockStatus(
     statusReason: overrides.statusReason ?? null,
     version: 1,
     ...overrides,
-  })
+  }
 }
 
 describe('SCI-003 file block preview', () => {
@@ -83,11 +133,16 @@ describe('SCI-003 file block preview', () => {
     mockStatus('active')
     renderWithQuery(<BlockPreview block={makeBlock(activePayload)} />)
     await waitFor(() => {
-      expect(fetchFileObject).toHaveBeenCalled()
+      expect(transport).toHaveBeenCalledWith(
+        expect.stringContaining('/api/db/file_objects?record_id=eq.'),
+        expect.anything(),
+      )
     })
+
     const link = await screen.findByRole('link', {
       name: 'stability-run07.csv',
     })
+
     expect(link.getAttribute('href')).toBe(
       '/api/files/10000000-0000-4000-8000-000000000001/download',
     )
@@ -103,7 +158,8 @@ describe('SCI-003 file block preview', () => {
       mediaType: 'image/png',
       byteSize: 2048,
     }
-    fetchFileObject.mockResolvedValue({
+
+    fileStatus = {
       recordId: imagePayload.fileRecordId,
       displayName: 'gel.png',
       mediaType: 'image/png',
@@ -111,7 +167,7 @@ describe('SCI-003 file block preview', () => {
       status: 'active',
       statusReason: null,
       version: 1,
-    })
+    }
     renderWithQuery(<BlockPreview block={makeBlock(imagePayload)} />)
     const img = await screen.findByRole('img', { name: 'gel.png' })
     expect(img.getAttribute('src')).toBe(
@@ -160,7 +216,7 @@ describe('SCI-003 file block preview', () => {
   })
 
   it('renders an error state when the live status cannot be loaded', async () => {
-    fetchFileObject.mockRejectedValue(new Error('network down'))
+    fileStatus = new Error('network down')
     renderWithQuery(<BlockPreview block={makeBlock(activePayload)} />)
     await waitFor(() =>
       expect(screen.getByText('File status couldn’t be loaded.')).toBeTruthy(),
@@ -183,6 +239,7 @@ describe('SCI-003 file block editor upload flow', () => {
 
   function file(name: string, type: string, size: number): File {
     const f = new File([new Uint8Array(size)], name, { type })
+
     // File.size is read-only; for oversize we rely on a spy-backed policy in
     // the oversize case below. For normal cases the real size is fine.
     return f
@@ -216,11 +273,13 @@ describe('SCI-003 file block editor upload flow', () => {
 
   it('surfaces an oversize error from the attach flow', async () => {
     const user = userEvent.setup()
+
     const onAttachFile = vi
       .fn()
       .mockRejectedValue(
         new Error('File is 200.0 MiB; the limit is 100.0 MiB.'),
       )
+
     renderEditor({ onAttachFile })
     const input = screen.getByLabelText('Attach a file')
     await user.upload(input, file('big.csv', 'text/csv', 12))
@@ -250,7 +309,7 @@ describe('image annotations on a file block', () => {
   }
 
   function mockGel() {
-    fetchFileObject.mockResolvedValue({
+    fileStatus = {
       recordId: gel.fileRecordId,
       displayName: 'gel.png',
       mediaType: 'image/png',
@@ -258,7 +317,7 @@ describe('image annotations on a file block', () => {
       status: 'active',
       statusReason: null,
       version: 1,
-    })
+    }
   }
 
   it('shows lane names and lets the reader switch to the original', async () => {
@@ -287,8 +346,7 @@ describe('image annotations on a file block', () => {
     await user.click(screen.getByRole('button', { name: 'Annotate' }))
     await user.click(screen.getByRole('button', { name: 'Lane name' }))
     const canvas = screen.getByTestId('annotation-canvas')
-    canvas.getBoundingClientRect = () =>
-      ({ left: 0, top: 0, width: 100, height: 100 }) as DOMRect
+    canvas.getBoundingClientRect = () => new DOMRect(0, 0, 100, 100)
     await user.pointer({
       keys: '[MouseLeft]',
       target: canvas,
@@ -305,6 +363,55 @@ describe('image annotations on a file block', () => {
       annotations: [{ kind: 'lane', text: 'Ladder', x: 0.25 }],
     })
   })
+
+  it.each(['pointercancel', 'lostpointercapture'])(
+    'does not save an interrupted arrow after %s',
+    async (eventType) => {
+      const user = userEvent.setup()
+      const save = vi.fn().mockResolvedValue({ ok: true })
+      const { annotations: _annotations, ...plain } = gel
+      renderWithQuery(<BlockEditor block={makeBlock(plain)} save={save} />)
+      await user.click(screen.getByRole('button', { name: 'Annotate' }))
+      const canvas = screen.getByTestId('annotation-canvas')
+      canvas.getBoundingClientRect = () => new DOMRect(0, 0, 100, 100)
+      canvas.setPointerCapture = () => {}
+
+      await user.pointer({
+        keys: '[MouseLeft>]',
+        target: canvas,
+        coords: { clientX: 10, clientY: 20 },
+      })
+      fireEvent(canvas, new Event(eventType, { bubbles: true }))
+      await user.pointer({
+        keys: '[/MouseLeft]',
+        target: canvas,
+        coords: { clientX: 80, clientY: 70 },
+      })
+      await user.click(screen.getByRole('button', { name: 'Lane name' }))
+      await user.pointer({
+        keys: '[MouseLeft]',
+        target: canvas,
+        coords: { clientX: 25, clientY: 50 },
+      })
+      await user.type(screen.getByLabelText('Text'), 'Control')
+      await user.click(screen.getByRole('button', { name: 'Add' }))
+      await user.click(screen.getByRole('button', { name: 'Save annotations' }))
+      await waitFor(() =>
+        expect(save).toHaveBeenCalledWith(
+          expect.objectContaining({
+            fileRecordId: gel.fileRecordId,
+            annotations: [
+              expect.objectContaining({
+                kind: 'lane',
+                text: 'Control',
+                x: 0.25,
+              }),
+            ],
+          }),
+        ),
+      )
+    },
+  )
 
   it('hides Annotate when the block is read-only', () => {
     renderWithQuery(

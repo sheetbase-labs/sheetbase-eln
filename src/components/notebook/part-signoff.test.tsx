@@ -1,15 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { partsProgress } from '#/lib/experiment-parts'
 import type { ExperimentPart } from '#/lib/experiment-parts'
 import type { PartSignoffStatus } from '#/lib/part-signoff'
 import { SignOffPartCard, SignedPartBanner } from './part-signoff'
-
-vi.mock('#/lib/user-names', () => ({
-  useUserNames: () => ({ userLabel: (id: string) => `Name of ${id}` }),
-}))
 
 afterEach(cleanup)
 
@@ -57,10 +53,16 @@ const status = (extra: Partial<PartSignoffStatus> = {}): PartSignoffStatus => ({
 })
 
 function wrap(node: React.ReactNode) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { staleTime: Infinity, retry: false } },
+  })
+
+  client.setQueryData(['user-names', ['u2']], { u2: 'Name of u2' })
+  client.setQueryData(['user-names', ['u9']], { u9: 'Name of u9' })
+  client.setQueryData(['user-names', []], {})
+
   return render(
-    <QueryClientProvider client={new QueryClient()}>
-      {node}
-    </QueryClientProvider>,
+    <QueryClientProvider client={client}>{node}</QueryClientProvider>,
   )
 }
 
@@ -162,6 +164,7 @@ describe('SignedPartBanner', () => {
         hasCountersignRequest
       />,
     )
+
     expect(screen.getByTestId('countersign-part')).toBeTruthy()
     rerender(
       <QueryClientProvider client={new QueryClient()}>

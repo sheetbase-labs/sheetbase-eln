@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { z } from 'zod'
 
 import { rich, t } from '#/copy'
 import { Button } from '#/components/ui/button'
@@ -18,6 +19,7 @@ import {
   normalisePackageName,
   parseRequirementsText,
   pythonSkeleton,
+  pythonResultRowsSchema,
   requirementErrors,
   setContractInput,
   setContractOutput,
@@ -31,6 +33,9 @@ import type {
   PythonTestRunSuccess,
 } from '#/lib/pipelines/python'
 import { parseSample } from '#/lib/pipelines/sample'
+import type { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
+import { pipelineJsonValueSchema } from '#/lib/pipelines/types'
+import { useEditorRows } from './use-editor-rows'
 
 /**
  * Authoring a Python step: the code with feedback while typing, the data contract
@@ -52,6 +57,39 @@ const COLUMN_TYPE_LABELS: Record<PythonColumnType, string> = {
   json: 'JSON',
 }
 
+const testResultSchema = z.discriminatedUnion('ok', [
+  z.object({
+    ok: z.literal(true),
+    rows: pythonResultRowsSchema,
+    rowCount: z.number(),
+    truncated: z.boolean(),
+    columns: z.array(
+      z.object({
+        name: z.string(),
+        type: z.enum(PYTHON_COLUMN_TYPES),
+        nullable: z.boolean().optional(),
+      }),
+    ),
+    logs: z.array(z.string()),
+    runtime: z.string(),
+    environment: z
+      .object({
+        python: z.string(),
+        packages: z.record(z.string(), z.string()),
+      })
+      .optional(),
+    durationMs: z.number(),
+  }),
+  z.object({
+    ok: z.literal(false),
+    error: z.string(),
+    code: z.string(),
+    logs: z.array(z.string()),
+    line: z.number().optional(),
+    durationMs: z.number(),
+  }),
+]) satisfies z.ZodType<PythonTestRunSuccess | PythonTestRunFailure>
+
 /** One column list: a name, a type, whether a missing value is fine. */
 export function ColumnsEditor({
   label,
@@ -63,20 +101,22 @@ export function ColumnsEditor({
   columns: PythonColumn[]
   onChange: (columns: PythonColumn[]) => void
 }) {
-  const patch = (index: number, change: Partial<PythonColumn>) =>
-    onChange(
+  const { rows, change } = useEditorRows(columns, onChange)
+
+  const patch = (index: number, changes: Partial<PythonColumn>) =>
+    change(
       columns.map((column, position) =>
-        position === index ? { ...column, ...change } : column,
+        position === index ? { ...column, ...changes } : column,
       ),
     )
 
   return (
     <div className="flex flex-col gap-1.5">
-      {columns.map((column, index) => {
+      {rows.map(({ value: column, id }, index) => {
         const n = index + 1
 
         return (
-          <div key={index} className="flex flex-wrap items-center gap-2">
+          <div key={id} className="flex flex-wrap items-center gap-2">
             <Input
               className="mono h-8 w-[170px] text-xs"
               aria-label={t('data.pythonEditor.ariaColumnName', { label, n })}
@@ -88,7 +128,9 @@ export function ColumnsEditor({
               aria-label={t('data.pythonEditor.ariaColumnType', { label, n })}
               value={column.type}
               onChange={(event) =>
-                patch(index, { type: event.target.value as PythonColumnType })
+                patch(index, {
+                  type: z.enum(PYTHON_COLUMN_TYPES).parse(event.target.value),
+                })
               }
             >
               {PYTHON_COLUMN_TYPES.map((type) => (
@@ -114,9 +156,13 @@ export function ColumnsEditor({
               size="sm"
               variant="quiet"
               aria-label={t('data.pythonEditor.ariaRemoveColumn', { label, n })}
-              onClick={() =>
-                onChange(columns.filter((_, position) => position !== index))
-              }
+              onClick={() => {
+                const remaining = columns.filter(
+                  (_, position) => position !== index,
+                )
+
+                change(remaining, remaining)
+              }}
             >
               {t('common.actions.remove')}
             </Button>
@@ -128,7 +174,7 @@ export function ColumnsEditor({
           size="sm"
           icon="plus"
           aria-label={t('data.pythonEditor.ariaAddColumn', { label })}
-          onClick={() => onChange([...columns, { name: '', type: 'text' }])}
+          onClick={() => change([...columns, { name: '', type: 'text' }])}
         >
           {t('data.pythonEditor.addColumn')}
         </Button>
@@ -149,7 +195,7 @@ export function PythonPackagesEditor({
 }) {
   // The textarea owns its text while it is being typed: a half-written line is
   // not a requirement yet, and parsing on every keystroke would eat it.
-  const [text, setText] = useState(requirements.join('\n'))
+  const [text, setText] = useState(() => requirements.join('\n'))
   const [lastSent, setLastSent] = useState(requirements)
 
   if (requirements !== lastSent && requirements.join('\n') !== text) {
@@ -481,7 +527,7 @@ export function PythonTestRun({
   const [outcome, setOutcome] = useState<TestOutcome>({ state: 'idle' })
 
   const run = async () => {
-    const inputs: Record<string, Array<Record<string, unknown>>> = {}
+    const inputs: Record<string, z.infer<typeof pythonResultRowsSchema>> = {}
 
     for (const alias of aliases) {
       const parsed = parseSample(samples[alias] ?? '')
@@ -494,7 +540,7 @@ export function PythonTestRun({
       inputs[alias] = parsed.rows
     }
 
-    const given: Record<string, unknown> = {}
+    const given: z.infer<typeof pipelineJsonObjectSchema> = {}
 
     for (const parameter of parameters) {
       const text = values[parameter.name] ?? ''
@@ -515,7 +561,17 @@ export function PythonTestRun({
         continue
       }
 
-      given[parameter.name] = value
+      const decoded = pipelineJsonValueSchema.safeParse(value)
+
+      if (!decoded.success)
+        return setOutcome({
+          state: 'refused',
+          message: t('data.pythonEditor.giveValue', {
+            name: parameter.name,
+            type: parameter.type,
+          }),
+        })
+      given[parameter.name] = decoded.data
     }
 
     setOutcome({ state: 'running' })
@@ -529,20 +585,39 @@ export function PythonTestRun({
           statement,
           inputs,
           parameters: given,
-          ...(requirements?.length ? { requirements } : {}),
-          ...(contract ? { contract } : {}),
+          requirements: requirements?.length ? requirements : undefined,
+          contract,
         }),
       })
 
-      const body = (await response.json().catch(() => null)) as
-        PythonTestRunSuccess | PythonTestRunFailure | { error?: string } | null
+      if (!response.ok) {
+        const body: unknown = await response.json().catch(() => null)
+        const result = testResultSchema.safeParse(body)
+        const refusal = z.object({ error: z.string() }).safeParse(body)
 
-      if (body && 'ok' in body) setOutcome({ state: 'done', result: body })
+        if (result.success && !result.data.ok)
+          setOutcome({ state: 'done', result: result.data })
+        else
+          setOutcome({
+            state: 'refused',
+            message:
+              (refusal.success && refusal.data.error) ||
+              t('data.pythonEditor.testRunCouldStarted'),
+          })
+
+        return
+      }
+
+      const body: unknown = await response.json().catch(() => null)
+      const result = testResultSchema.safeParse(body)
+      const refusal = z.object({ error: z.string() }).safeParse(body)
+
+      if (result.success) setOutcome({ state: 'done', result: result.data })
       else
         setOutcome({
           state: 'refused',
           message:
-            (body && 'error' in body && body.error) ||
+            (refusal.success && refusal.data.error) ||
             t('data.pythonEditor.testRunCouldStarted'),
         })
     } catch {
@@ -600,7 +675,7 @@ export function PythonTestRun({
             })}
             placeholder={
               parameter.default !== undefined
-                ? String(parameter.default)
+                ? z.coerce.string().parse(parameter.default)
                 : parameter.type
             }
             value={values[parameter.name] ?? ''}
@@ -646,6 +721,20 @@ function TestOutcomeView({
   outcome: TestOutcome
   onUseOutputColumns: (columns: PythonColumn[]) => void
 }) {
+  const previewRows = useMemo(() => {
+    if (outcome.state !== 'done' || !outcome.result.ok) return []
+
+    const occurrences = new Map<string, number>()
+
+    return outcome.result.rows.slice(0, PREVIEW_ROWS).map((row) => {
+      const content = JSON.stringify(row)
+      const occurrence = occurrences.get(content) ?? 0
+      occurrences.set(content, occurrence + 1)
+
+      return { id: `${content}:${occurrence}`, row }
+    })
+  }, [outcome])
+
   if (outcome.state === 'idle' || outcome.state === 'running') return null
 
   if (outcome.state === 'refused')
@@ -718,8 +807,8 @@ function TestOutcomeView({
               </tr>
             </thead>
             <tbody>
-              {result.rows.slice(0, PREVIEW_ROWS).map((row, index) => (
-                <tr key={index} className="border-t border-border-subtle">
+              {previewRows.map(({ row, id }) => (
+                <tr key={id} className="border-t border-border-subtle">
                   {columns.map((name) => (
                     <td key={name} className="num px-2 py-1">
                       {cell(row[name])}
@@ -759,8 +848,12 @@ function TestOutcomeView({
   )
 }
 
-function cell(value: unknown): string {
+function cell(
+  value: z.infer<typeof pipelineJsonValueSchema> | undefined,
+): string {
   if (value === null || value === undefined) return '—'
 
-  return typeof value === 'object' ? JSON.stringify(value) : String(value)
+  const scalar = z.union([z.string(), z.number(), z.boolean()]).safeParse(value)
+
+  return scalar.success ? String(scalar.data) : JSON.stringify(value)
 }

@@ -6,12 +6,15 @@
  */
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
   waitFor,
 } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { hydrateRoot } from 'react-dom/client'
+import { renderToString } from 'react-dom/server'
 
 import {
   createInMemoryStorage,
@@ -22,17 +25,68 @@ import { OfflineBanner, OfflineCapabilitiesNote } from './offline-banner'
 import { ConnectionRequired } from './connection-required'
 import {
   OfflineEditsProvider,
-  formatClockTime,
-  isConnectionDown,
   useOfflineEdits,
   useUnsyncedBlock,
   useUnsyncedCellState,
 } from './offline-edits'
+import { formatClockTime, isConnectionDown } from './offline-edit-model'
 import { UnsyncedChangesList, UnsyncedMark } from './unsynced-changes'
+import { OfflineStatusBanner, UnsyncedChangesSection } from './offline-status'
+import { getDisplayTimeZone, setDisplayTimeZone } from '#/lib/display-time-zone'
+import { getDisplayClock, setDisplayClock } from '#/lib/display-clock'
 
 afterEach(cleanup)
 
 const SCOPE: OfflineEditScope = { userId: 'user-alice', recordId: 'record-1' }
+
+describe('offline status hydration', () => {
+  it('makes no server connection claim and hydrates stored times on the client clock across zones', async () => {
+    const store = createOfflineEditStore(createInMemoryStorage())
+    await store.putEdit(SCOPE, {
+      kind: 'block_text',
+      blockId: 'b1',
+      text: 'Local draft',
+      expectedRevision: 1,
+      createdAt: '2026-10-10T09:02:00.000Z',
+    })
+    const previousZone = getDisplayTimeZone()
+    const previousClock = getDisplayClock()
+    const container = document.createElement('div')
+    document.body.append(container)
+
+    const view = (
+      <OfflineEditsProvider store={store} scope={SCOPE}>
+        <OfflineStatusBanner />
+        <UnsyncedChangesSection />
+      </OfflineEditsProvider>
+    )
+
+    const hydrationErrors: object[] = []
+    let root: ReturnType<typeof hydrateRoot> | undefined
+
+    try {
+      setDisplayTimeZone('America/Los_Angeles')
+      setDisplayClock('24h')
+      container.innerHTML = renderToString(view)
+      expect(container.innerHTML).toBe('')
+      setDisplayTimeZone('Asia/Tokyo')
+      await act(async () => {
+        root = hydrateRoot(container, view, {
+          onRecoverableError: (error) => hydrationErrors.push({ error }),
+        })
+      })
+      await waitFor(() => expect(container.textContent).toContain('18:02'))
+      expect(container.textContent).toContain('You’re offline')
+      expect(container.textContent).toContain('Local draft')
+      expect(hydrationErrors).toEqual([])
+    } finally {
+      await act(async () => root?.unmount())
+      container.remove()
+      setDisplayTimeZone(previousZone)
+      setDisplayClock(previousClock)
+    }
+  })
+})
 
 describe('OfflineBanner', () => {
   it('appears when offline and names the last sync', () => {
@@ -108,7 +162,10 @@ describe('ConnectionRequired', () => {
     )
 
     const button = screen.getByRole('button', { name: 'Submit' })
-    expect((button as HTMLButtonElement).disabled).toBe(true)
+
+    if (!(button instanceof HTMLButtonElement))
+      throw new Error('Expected a native button')
+    expect(button.disabled).toBe(true)
     const reason = screen.getByText('Submitting needs a connection')
     expect(button.getAttribute('aria-describedby')).toBe(reason.id)
   })
@@ -129,7 +186,10 @@ describe('ConnectionRequired', () => {
     )
 
     const button = screen.getByRole('button', { name: 'Submit' })
-    expect((button as HTMLButtonElement).disabled).toBe(false)
+
+    if (!(button instanceof HTMLButtonElement))
+      throw new Error('Expected a native button')
+    expect(button.disabled).toBe(false)
     expect(button.getAttribute('aria-describedby')).toBeNull()
     expect(screen.queryByText('Submitting needs a connection')).toBeNull()
   })

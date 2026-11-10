@@ -178,7 +178,11 @@ export function SignInGroupsSection({
             <Field label={t('people.groups.givesRole')}>
               <Select
                 value={role}
-                onChange={(event) => setRole(event.target.value as GroupRole)}
+                onChange={(event) => {
+                  const selectedRole = GROUP_ROLES.find((option) => option === event.target.value)
+
+                  if (selectedRole) setRole(selectedRole)
+                }}
               >
                 {GROUP_ROLES.map((item) => (
                   <option key={item} value={item}>

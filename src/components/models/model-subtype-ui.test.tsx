@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ModelType } from '#/lib/model-subtypes'
-import { modelName, parentChoices, subtypeKey } from './model-subtype-ui'
+import { modelName, parentChoices, subtypeKey } from './model-subtype-choices'
 
 function type(key: string, name: string, parentKey: string | null): ModelType {
   return {

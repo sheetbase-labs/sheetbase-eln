@@ -51,6 +51,7 @@ export function SidebarPagesPanel({
   // What was just ticked shows straight away, before the save comes back.
   const [draft, setDraft] = useState<string[] | null>(null)
   const hidden = draft ?? query.data ?? []
+  const hiddenPages = new Set(hidden)
 
   const save = useMutation({
     mutationFn: (pages: string[]) =>
@@ -98,7 +99,7 @@ export function SidebarPagesPanel({
             {navGroups.flatMap((group) =>
               group.items.map((item) => {
                 const fixed = !canHideNavPage(item.key)
-                const shown = fixed || !hidden.includes(item.key)
+                const shown = fixed || !hiddenPages.has(item.key)
 
                 return (
                   <TableRow key={item.key}>

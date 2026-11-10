@@ -23,88 +23,67 @@ import type {
   SheetDefinitionUpgradeDecisionDraft,
 } from '#/lib/notebook-template-upgrade'
 import { rich, t } from '#/copy'
+import { defaultNotebookUpgradeDrafts } from './templates-data'
 
-const AUTOMATIC_LABELS: Record<string, string> = {
-  'placement-added': t('library.templates.templateUpdateView.sectionAdded'),
-  'placement-removed': t('library.templates.templateUpdateView.sectionRemoved'),
-  'sheet-definition-compatible': t(
-    'library.templates.templateUpdateView.sheetRePinnedToA',
-  ),
-}
-
-const CONFLICT_LABELS: Record<string, string> = {
-  'sheet-placement-unresolved': t(
-    'library.templates.templateUpdateView.noMatchingSheetInThis',
-  ),
-  'sheet-definition-conflict': t(
-    'library.templates.templateUpdateView.sheetDefinitionChangedIncompatibly',
-  ),
-}
-
-const OUTCOME_LABELS: Record<
-  string,
-  { title: string; body: string } | undefined
-> = {
-  keep: {
-    title: t('library.templates.templateUpdateView.keepAsItIs'),
-    body: t('library.templates.templateUpdateView.leaveThisPartOnIts'),
-  },
-  retarget: {
-    title: t('library.templates.templateUpdateView.takeTheNewDefinition'),
-    body: t('library.templates.templateUpdateView.updateThisPartToThe'),
-  },
-  'retain-local': {
-    title: t('library.templates.templateUpdateView.keepTheLocalColumn'),
-    body: t(
-      'library.templates.templateUpdateView.theColumnLeavesTheDefinition',
+const AUTOMATIC_LABELS = new Map(
+  Object.entries({
+    'placement-added': t('library.templates.templateUpdateView.sectionAdded'),
+    'placement-removed': t(
+      'library.templates.templateUpdateView.sectionRemoved',
     ),
-  },
-  map: {
-    title: t('library.templates.templateUpdateView.mapToANewColumn'),
-    body: t('library.templates.templateUpdateView.pointThisColumnAtA'),
-  },
-  defer: {
-    title: t('library.templates.templateUpdateView.defer'),
-    body: t('library.templates.templateUpdateView.resolveLaterTheUpdateCannot'),
-  },
-}
+    'sheet-definition-compatible': t(
+      'library.templates.templateUpdateView.sheetRePinnedToA',
+    ),
+  }),
+)
 
-type NestedDrafts = NonNullable<
-  NotebookUpgradeDecisionDraft['instanceDecisionDrafts']
->
+const CONFLICT_LABELS = new Map([
+  [
+    'sheet-placement-unresolved',
+    t('library.templates.templateUpdateView.noMatchingSheetInThis'),
+  ],
+  [
+    'sheet-definition-conflict',
+    t(
+      'library.templates.templateUpdateView.sheetDefinitionChangedIncompatibly',
+    ),
+  ],
+])
 
-function defaultNestedDrafts(
-  conflict: NotebookUpgradePreview['conflicts'][number],
-): NestedDrafts {
-  const drafts: NestedDrafts = {}
-
-  for (const nested of conflict.instancePreview?.conflicts ?? []) {
-    const chosen = nested.allowedOutcomes[0]
-    drafts[nested.id] = {
-      outcome: chosen,
-      targetId: chosen === 'map' ? nested.targetCandidates[0] : undefined,
-    }
-  }
-
-  return drafts
-}
-
-/** Seed every conflict with its first allowed outcome so the whole preview has
- * a complete, valid decision set before the owner touches anything. */
-export function defaultNotebookUpgradeDrafts(
-  preview: NotebookUpgradePreview,
-): Record<string, NotebookUpgradeDecisionDraft> {
-  const drafts: Record<string, NotebookUpgradeDecisionDraft> = {}
-
-  for (const conflict of preview.conflicts) {
-    drafts[conflict.id] = {
-      outcome: conflict.allowedOutcomes[0],
-      instanceDecisionDrafts: defaultNestedDrafts(conflict),
-    }
-  }
-
-  return drafts
-}
+const OUTCOME_LABELS = new Map(
+  Object.entries({
+    keep: {
+      title: t('library.templates.templateUpdateView.keepAsItIs'),
+      body: t('library.templates.templateUpdateView.leaveThisPartOnIts'),
+    },
+    retarget: {
+      title: t('library.templates.templateUpdateView.takeTheNewDefinition'),
+      body: t('library.templates.templateUpdateView.updateThisPartToThe'),
+    },
+    'retain-local': {
+      title: t('library.templates.templateUpdateView.keepTheLocalColumn'),
+      body: t(
+        'library.templates.templateUpdateView.theColumnLeavesTheDefinition',
+      ),
+    },
+    map: {
+      title: t('library.templates.templateUpdateView.mapToANewColumn'),
+      body: t('library.templates.templateUpdateView.pointThisColumnAtA'),
+    },
+    defer: {
+      title: t('library.templates.templateUpdateView.defer'),
+      body: t(
+        'library.templates.templateUpdateView.resolveLaterTheUpdateCannot',
+      ),
+    },
+  } satisfies Record<
+    NonNullable<
+      | NotebookUpgradeDecisionDraft['outcome']
+      | SheetDefinitionUpgradeDecisionDraft['outcome']
+    >,
+    { title: string; body: string }
+  >),
+)
 
 /**
  * SHEET-04.4: the per-notebook update view. It lists what the target version
@@ -142,6 +121,18 @@ export function NotebookTemplateUpdateView({
   const [done, setDone] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const automatic = useMemo(() => {
+    const occurrences = new Map<string, number>()
+
+    return (preview?.automatic ?? []).map((change) => {
+      const identity = `${change.kind}:${change.placementId ?? ''}:${change.instanceId ?? ''}:${change.blockId ?? ''}:${change.targetDefinitionVersionId ?? ''}`
+      const occurrence = occurrences.get(identity) ?? 0
+      occurrences.set(identity, occurrence + 1)
+
+      return { change, key: `${identity}:${occurrence}` }
+    })
+  }, [preview])
+
   const drafts = useMemo(() => {
     if (!preview) return {}
     const base = defaultNotebookUpgradeDrafts(preview)
@@ -159,9 +150,11 @@ export function NotebookTemplateUpdateView({
     return merged
   }, [preview, choices])
 
-  const built = useMemo(() => {
-    if (!preview)
-      return { decisions: [] as NotebookUpgradeDecision[], problem: null }
+  const built = useMemo<{
+    decisions: NotebookUpgradeDecision[]
+    problem: string | null
+  }>(() => {
+    if (!preview) return { decisions: [], problem: null }
 
     try {
       return {
@@ -170,7 +163,7 @@ export function NotebookTemplateUpdateView({
       }
     } catch (cause) {
       return {
-        decisions: [] as NotebookUpgradeDecision[],
+        decisions: [],
         problem:
           cause instanceof Error
             ? cause.message
@@ -272,35 +265,13 @@ export function NotebookTemplateUpdateView({
 
   return (
     <div className="flex min-w-0 flex-col gap-5 px-4 py-4 md:px-6">
-      {done ? (
-        <Notice icon="check">
-          {rich(
-            'library.templates.templateUpdateView.notebookUpdatedToVRecorded',
-            {
-              targetVersion,
-              b: (text) => <b className="font-semibold">{text}</b>,
-            },
-          )}
-        </Notice>
-      ) : (
-        <Notice>
-          {sourceVersion != null && notebookLabel
-            ? rich(
-                'library.templates.templateUpdateView.isOnTemplateVVersion',
-                {
-                  b: (text) => <b className="font-semibold">{text}</b>,
-                  notebook: notebookLabel,
-                  sourceVersion,
-                  targetVersion,
-                  template: templateName ? ` — ${templateName}` : '',
-                },
-              )
-            : t('library.templates.templateUpdateView.aNewerTemplateVersionV', {
-                targetVersion,
-                template: templateName ? ` — ${templateName}` : '',
-              })}
-        </Notice>
-      )}
+      <UpgradeStatus
+        done={done}
+        targetVersion={targetVersion}
+        sourceVersion={sourceVersion}
+        notebookLabel={notebookLabel}
+        templateName={templateName}
+      />
 
       {lockedNotice && !done ? (
         <Notice
@@ -322,54 +293,7 @@ export function NotebookTemplateUpdateView({
         </Notice>
       ) : null}
 
-      <Section
-        title={t('library.templates.templateUpdateView.whatAddingVWouldDo', {
-          targetVersion,
-        })}
-        count={preview.automatic.length}
-      >
-        {preview.automatic.length ? (
-          <TableBox>
-            <Table
-              aria-label={t(
-                'library.templates.templateUpdateView.automaticChanges',
-              )}
-            >
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
-                    {t('library.templates.templateUpdateView.change')}
-                  </TableHead>
-                  <TableHead>
-                    {t('library.templates.templateUpdateView.placement')}
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {preview.automatic.map((change, index) => (
-                  <TableRow
-                    key={`${change.kind}-${change.placementId ?? index}`}
-                  >
-                    <TableCell>
-                      {AUTOMATIC_LABELS[change.kind] ??
-                        change.kind.replace(/-/g, ' ')}
-                    </TableCell>
-                    <TableCell className="mono text-fg-muted">
-                      {change.placementId
-                        ? change.placementId.slice(0, 8)
-                        : '—'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableBox>
-        ) : (
-          <Muted>
-            {t('library.templates.templateUpdateView.noAutomaticChanges')}
-          </Muted>
-        )}
-      </Section>
+      <AutomaticChanges targetVersion={targetVersion} rows={automatic} />
 
       {conflicts.length ? (
         <Section
@@ -377,127 +301,16 @@ export function NotebookTemplateUpdateView({
           count={conflicts.length}
         >
           <div className="flex flex-col gap-3">
-            {conflicts.map((conflict) => {
-              const selected =
-                drafts[conflict.id]?.outcome ?? conflict.allowedOutcomes[0]
-
-              const nestedConflicts = conflict.instancePreview?.conflicts ?? []
-
-              return (
-                <div
-                  key={conflict.id}
-                  className="flex flex-col gap-2 rounded-md border border-border p-3"
-                >
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-medium text-fg">
-                      {CONFLICT_LABELS[conflict.kind] ??
-                        conflict.kind.replace(/-/g, ' ')}
-                    </span>
-                    <span className="mono text-label text-fg-muted">
-                      {conflict.placementId
-                        ? conflict.placementId.slice(0, 8)
-                        : conflict.id}
-                    </span>
-                  </div>
-                  <RadioGroup
-                    aria-label={
-                      CONFLICT_LABELS[conflict.kind] ??
-                      conflict.kind.replace(/-/g, ' ')
-                    }
-                    value={selected}
-                    onValueChange={(value) =>
-                      chooseOutcome(conflict.id, value as 'keep' | 'retarget')
-                    }
-                  >
-                    {conflict.allowedOutcomes.map((o) => (
-                      <Choice
-                        key={o}
-                        value={o}
-                        title={OUTCOME_LABELS[o]?.title ?? o}
-                      >
-                        {OUTCOME_LABELS[o]?.body}
-                      </Choice>
-                    ))}
-                  </RadioGroup>
-                  {selected === 'retarget' && nestedConflicts.length ? (
-                    <div className="flex flex-col gap-3 border-l-2 border-border pl-3">
-                      {nestedConflicts.map((nested) => {
-                        const nestedDraft =
-                          drafts[conflict.id]?.instanceDecisionDrafts?.[
-                            nested.id
-                          ]
-
-                        const nestedSelected =
-                          nestedDraft?.outcome ?? nested.allowedOutcomes[0]
-
-                        return (
-                          <div
-                            key={nested.id}
-                            className="flex flex-col gap-1.5"
-                          >
-                            <span className="text-label text-fg-muted">
-                              {CONFLICT_LABELS[nested.kind] ??
-                                nested.kind.replace(/-/g, ' ')}
-                            </span>
-                            <RadioGroup
-                              aria-label={
-                                CONFLICT_LABELS[nested.kind] ??
-                                nested.kind.replace(/-/g, ' ')
-                              }
-                              value={nestedSelected}
-                              onValueChange={(value) =>
-                                chooseNested(
-                                  conflict.id,
-                                  nested.id,
-                                  value as SheetDefinitionUpgradeDecisionDraft['outcome'] &
-                                    string,
-                                )
-                              }
-                            >
-                              {nested.allowedOutcomes.map((o) => (
-                                <Choice
-                                  key={o}
-                                  value={o}
-                                  title={OUTCOME_LABELS[o]?.title ?? o}
-                                >
-                                  {OUTCOME_LABELS[o]?.body}
-                                </Choice>
-                              ))}
-                            </RadioGroup>
-                            {nestedSelected === 'map' ? (
-                              <Select
-                                aria-label={t(
-                                  'library.templates.templateUpdateView.targetColumnFor',
-                                  { id: nested.id },
-                                )}
-                                value={
-                                  nestedDraft?.targetId ??
-                                  nested.targetCandidates.at(0) ??
-                                  ''
-                                }
-                                onChange={(event) =>
-                                  chooseNestedTarget(
-                                    conflict.id,
-                                    nested.id,
-                                    event.target.value,
-                                  )
-                                }
-                              >
-                                {nested.targetCandidates.map((candidate) => (
-                                  <option key={candidate} value={candidate}>
-                                    {candidate.slice(0, 8)}
-                                  </option>
-                                ))}
-                              </Select>
-                            ) : null}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ) : null}
-                </div>
-              )
-            })}
+            {conflicts.map((conflict) => (
+              <UpgradeConflict
+                key={conflict.id}
+                conflict={conflict}
+                draft={drafts[conflict.id]}
+                chooseOutcome={chooseOutcome}
+                chooseNested={chooseNested}
+                chooseNestedTarget={chooseNestedTarget}
+              />
+            ))}
           </div>
         </Section>
       ) : null}
@@ -530,6 +343,224 @@ export function NotebookTemplateUpdateView({
       <Muted>
         {t('library.templates.templateUpdateView.applyingIsRecordedInThe')}
       </Muted>
+    </div>
+  )
+}
+
+function UpgradeStatus({
+  done,
+  targetVersion,
+  sourceVersion,
+  notebookLabel,
+  templateName,
+}: {
+  done: boolean
+  targetVersion: number
+  sourceVersion?: number | null
+  notebookLabel?: string | null
+  templateName?: string | null
+}) {
+  return done ? (
+    <Notice icon="check">
+      {rich('library.templates.templateUpdateView.notebookUpdatedToVRecorded', {
+        targetVersion,
+        b: (text) => <b className="font-semibold">{text}</b>,
+      })}
+    </Notice>
+  ) : (
+    <Notice>
+      {sourceVersion != null && notebookLabel
+        ? rich('library.templates.templateUpdateView.isOnTemplateVVersion', {
+            b: (text) => <b className="font-semibold">{text}</b>,
+            notebook: notebookLabel,
+            sourceVersion,
+            targetVersion,
+            template: templateName ? ` — ${templateName}` : '',
+          })
+        : t('library.templates.templateUpdateView.aNewerTemplateVersionV', {
+            targetVersion,
+            template: templateName ? ` — ${templateName}` : '',
+          })}
+    </Notice>
+  )
+}
+
+function AutomaticChanges({
+  targetVersion,
+  rows,
+}: {
+  targetVersion: number
+  rows: { change: NotebookUpgradePreview['automatic'][number]; key: string }[]
+}) {
+  return (
+    <Section
+      title={t('library.templates.templateUpdateView.whatAddingVWouldDo', {
+        targetVersion,
+      })}
+      count={rows.length}
+    >
+      {rows.length ? (
+        <TableBox>
+          <Table
+            aria-label={t(
+              'library.templates.templateUpdateView.automaticChanges',
+            )}
+          >
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  {t('library.templates.templateUpdateView.change')}
+                </TableHead>
+                <TableHead>
+                  {t('library.templates.templateUpdateView.placement')}
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map(({ change, key }) => (
+                <TableRow key={key}>
+                  <TableCell>
+                    {AUTOMATIC_LABELS.get(change.kind) ??
+                      change.kind.replace(/-/g, ' ')}
+                  </TableCell>
+                  <TableCell className="mono text-fg-muted">
+                    {change.placementId ? change.placementId.slice(0, 8) : '—'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableBox>
+      ) : (
+        <Muted>
+          {t('library.templates.templateUpdateView.noAutomaticChanges')}
+        </Muted>
+      )}
+    </Section>
+  )
+}
+
+function UpgradeConflict({
+  conflict,
+  draft,
+  chooseOutcome,
+  chooseNested,
+  chooseNestedTarget,
+}: {
+  conflict: NotebookUpgradePreview['conflicts'][number]
+  draft: NotebookUpgradeDecisionDraft | undefined
+  chooseOutcome: (id: string, next: 'keep' | 'retarget') => void
+  chooseNested: (
+    id: string,
+    nestedId: string,
+    next: 'retain-local' | 'map' | 'defer',
+  ) => void
+  chooseNestedTarget: (id: string, nestedId: string, targetId: string) => void
+}) {
+  const selected = draft?.outcome ?? conflict.allowedOutcomes[0]
+  const nestedConflicts = conflict.instancePreview?.conflicts ?? []
+
+  return (
+    <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+      <div className="flex items-baseline gap-2">
+        <span className="font-medium text-fg">
+          {CONFLICT_LABELS.get(conflict.kind) ??
+            conflict.kind.replace(/-/g, ' ')}
+        </span>
+        <span className="mono text-label text-fg-muted">
+          {conflict.placementId
+            ? conflict.placementId.slice(0, 8)
+            : conflict.id}
+        </span>
+      </div>
+      <RadioGroup
+        aria-label={
+          CONFLICT_LABELS.get(conflict.kind) ?? conflict.kind.replace(/-/g, ' ')
+        }
+        value={selected}
+        onValueChange={(value) => {
+          const outcome = conflict.allowedOutcomes.find(
+            (entry) => entry === value,
+          )
+
+          if (outcome) chooseOutcome(conflict.id, outcome)
+        }}
+      >
+        {conflict.allowedOutcomes.map((o) => (
+          <Choice key={o} value={o} title={OUTCOME_LABELS.get(o)?.title ?? o}>
+            {OUTCOME_LABELS.get(o)?.body}
+          </Choice>
+        ))}
+      </RadioGroup>
+      {selected === 'retarget' && nestedConflicts.length ? (
+        <div className="flex flex-col gap-3 border-l-2 border-border pl-3">
+          {nestedConflicts.map((nested) => {
+            const nestedDraft = draft?.instanceDecisionDrafts?.[nested.id]
+
+            const nestedSelected =
+              nestedDraft?.outcome ?? nested.allowedOutcomes[0]
+
+            return (
+              <div key={nested.id} className="flex flex-col gap-1.5">
+                <span className="text-label text-fg-muted">
+                  {CONFLICT_LABELS.get(nested.kind) ??
+                    nested.kind.replace(/-/g, ' ')}
+                </span>
+                <RadioGroup
+                  aria-label={
+                    CONFLICT_LABELS.get(nested.kind) ??
+                    nested.kind.replace(/-/g, ' ')
+                  }
+                  value={nestedSelected}
+                  onValueChange={(value) => {
+                    const outcome = nested.allowedOutcomes.find(
+                      (entry) => entry === value,
+                    )
+
+                    if (outcome) chooseNested(conflict.id, nested.id, outcome)
+                  }}
+                >
+                  {nested.allowedOutcomes.map((o) => (
+                    <Choice
+                      key={o}
+                      value={o}
+                      title={OUTCOME_LABELS.get(o)?.title ?? o}
+                    >
+                      {OUTCOME_LABELS.get(o)?.body}
+                    </Choice>
+                  ))}
+                </RadioGroup>
+                {nestedSelected === 'map' ? (
+                  <Select
+                    aria-label={t(
+                      'library.templates.templateUpdateView.targetColumnFor',
+                      { id: nested.id },
+                    )}
+                    value={
+                      nestedDraft?.targetId ??
+                      nested.targetCandidates.at(0) ??
+                      ''
+                    }
+                    onChange={(event) =>
+                      chooseNestedTarget(
+                        conflict.id,
+                        nested.id,
+                        event.target.value,
+                      )
+                    }
+                  >
+                    {nested.targetCandidates.map((candidate) => (
+                      <option key={candidate} value={candidate}>
+                        {candidate.slice(0, 8)}
+                      </option>
+                    ))}
+                  </Select>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+      ) : null}
     </div>
   )
 }

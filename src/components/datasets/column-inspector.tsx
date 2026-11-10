@@ -23,21 +23,23 @@ interface ColumnField {
   logical_type: string
 }
 
-const TYPE_LABEL: Record<string, string> = {
-  integer: t('data.columnInspector.number0Dp'),
-  decimal: t('data.columnInspector.number'),
-  text: t('data.columnInspector.text'),
-  boolean: t('data.columnInspector.yesOrNo'),
-  date: t('data.columnInspector.date'),
-  timestamp: t('data.columnInspector.dateTime'),
-  category: t('data.columnInspector.choice'),
-  reference: t('data.columnInspector.recordLink'),
-}
+const TYPE_LABEL = new Map([
+  ['integer', t('data.columnInspector.number0Dp')],
+  ['decimal', t('data.columnInspector.number')],
+  ['text', t('data.columnInspector.text')],
+  ['boolean', t('data.columnInspector.yesOrNo')],
+  ['date', t('data.columnInspector.date')],
+  ['timestamp', t('data.columnInspector.dateTime')],
+  ['category', t('data.columnInspector.choice')],
+  ['reference', t('data.columnInspector.recordLink')],
+])
 
 function range(values: unknown[]): string | null {
-  const numbers = values
-    .map((v) => (typeof v === 'number' ? v : Number(v)))
-    .filter((n) => Number.isFinite(n))
+  const numbers = values.flatMap((value) => {
+    const number = Number(value)
+
+    return Number.isFinite(number) ? [number] : []
+  })
 
   if (!numbers.length) return null
 
@@ -127,7 +129,7 @@ export function ColumnInspector({
         queryKey: datasetListQueryKeys.page,
       })
     },
-    onError: (error: unknown) =>
+    onError: (error) =>
       toast.error(
         error instanceof Error
           ? error.message
@@ -161,7 +163,7 @@ export function ColumnInspector({
           items={[
             [
               t('data.columnInspector.type'),
-              TYPE_LABEL[field.logical_type] ?? field.logical_type,
+              TYPE_LABEL.get(field.logical_type) ?? field.logical_type,
             ],
             [
               t('data.columnInspector.unit'),

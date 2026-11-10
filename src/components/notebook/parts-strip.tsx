@@ -10,36 +10,15 @@ import {
   openBesideOnAlt,
   useWorkspaceNavigation,
 } from '#/components/workspace/workspace-navigation'
-import {
-  daysSinceStart,
-  formatPartDate,
-  partDate,
-  partIsLate,
-} from '#/lib/experiment-parts'
+import { formatPartDate, partDate, partIsLate } from '#/lib/experiment-parts'
 import type { PartProgress } from '#/lib/experiment-parts'
+import type { NotebookBlock } from '#/lib/notebook-data'
 import { notebookOutline } from '#/lib/notebook-outline'
 import { cn } from '#/lib/utils'
+import { partDayLine, partHref } from './part-presentation'
+import type { PartFilterValue } from './part-presentation'
 
-/** The URL of a part: `/experiments/<id>/notebook/<number>`. */
-export function partHref(expId: string, number: number): string {
-  return `/experiments/${expId}/notebook/${number}`
-}
-
-/** "Day 3 · Mon 2 Nov", or "Day 3 · Today" on the day itself. */
-export function partDayLine(
-  part: Pick<PartProgress, 'dayOffset'>,
-  startedAt: string,
-  now: Date = new Date(),
-): string {
-  const day = String(part.dayOffset)
-  if (daysSinceStart(startedAt, now) === part.dayOffset) {
-    return t('notebook.parts.dayToday', { day })
-  }
-  return t('notebook.parts.dayOn', {
-    day,
-    date: formatPartDate(partDate(startedAt, part.dayOffset)),
-  })
-}
+export type { PartFilterValue } from './part-presentation'
 
 /** A quiet "Late" beside the date of a part whose day has passed. */
 function LateMark({
@@ -50,6 +29,7 @@ function LateMark({
   startedAt: string
 }) {
   if (!partIsLate(part, startedAt)) return null
+
   return (
     <span title={t('notebook.parts.lateTitle')}>
       {' · '}
@@ -77,6 +57,7 @@ function PartMark({
       />
     )
   }
+
   if (awaiting) {
     return (
       <Icon
@@ -87,6 +68,7 @@ function PartMark({
       />
     )
   }
+
   if (state === 'done') {
     return (
       <Icon
@@ -98,6 +80,7 @@ function PartMark({
       />
     )
   }
+
   if (state === 'now') {
     return (
       <span
@@ -106,6 +89,7 @@ function PartMark({
       />
     )
   }
+
   return (
     <Icon name="clock" size={12} aria-hidden="true" className="text-fg-muted" />
   )
@@ -116,13 +100,17 @@ function partStateText(
   part: Pick<PartProgress, 'state' | 'signed' | 'awaitingSignOff'>,
 ): string {
   if (part.signed) return t('notebook.partSignoff.stateSigned')
+
   if (part.awaitingSignOff) return t('notebook.partSignoff.stateAwaiting')
+
   return stateText(part.state)
 }
 
 function stateText(state: PartProgress['state']): string {
   if (state === 'done') return t('notebook.parts.stateDone')
+
   if (state === 'now') return t('notebook.parts.stateNow')
+
   return t('notebook.parts.stateLater')
 }
 
@@ -187,6 +175,7 @@ function DesktopStrip({
       inline: 'nearest',
     })
   }, [shown.id])
+
   return (
     <div className="flex items-stretch gap-2 max-md:hidden">
       <nav
@@ -195,10 +184,12 @@ function DesktopStrip({
       >
         {parts.map((part) => {
           const href = partHref(expId, part.number)
+
           const title = t('notebook.parts.partTitle', {
             number: String(part.number),
             title: part.title,
           })
+
           return (
             <Link
               key={part.id}
@@ -264,6 +255,7 @@ function PhonePicker({
   const [open, setOpen] = React.useState(false)
   const previous = parts.find((part) => part.number === shown.number - 1)
   const next = parts.find((part) => part.number === shown.number + 1)
+
   return (
     <div className="flex flex-col gap-2 md:hidden">
       <div aria-hidden="true" className="grid auto-cols-fr grid-flow-col gap-1">
@@ -387,6 +379,7 @@ function PartStepLink({
       </Button>
     )
   }
+
   return (
     <Button
       className="size-10 shrink-0 p-0"
@@ -423,13 +416,17 @@ export function PartFooter({
   const workspace = useWorkspaceNavigation()
   const previous = parts.find((part) => part.number === shown.number - 1)
   const next = parts.find((part) => part.number === shown.number + 1)
+
   if (!previous && !next) return null
+
   const card = (part: PartProgress, direction: 'previous' | 'next') => {
     const href = partHref(expId, part.number)
+
     const title = t('notebook.parts.partTitle', {
       number: String(part.number),
       title: part.title,
     })
+
     const when = t(
       direction === 'previous'
         ? 'notebook.parts.previousCard'
@@ -439,6 +436,7 @@ export function PartFooter({
         date: formatPartDate(partDate(startedAt, part.dayOffset)),
       },
     )
+
     return (
       <Link
         to="/experiments/$expId/notebook/$part"
@@ -470,6 +468,7 @@ export function PartFooter({
       </Link>
     )
   }
+
   return (
     <nav
       aria-label={t('notebook.parts.label')}
@@ -542,24 +541,32 @@ export function PartsOutline({
     type: string
     order: number
     partId?: string | null
-    payload: Record<string, unknown>
+    payload: NotebookBlock['payload']
   }>
 }) {
   const workspace = useWorkspaceNavigation()
+
   const sections = React.useMemo(() => {
     const byPart = new Map<string, { blockId: string; text: string }[]>()
+    const blockParts = new Map(blocks.map((block) => [block.id, block.partId]))
+
     for (const entry of notebookOutline(blocks)) {
       if (entry.level !== 2) continue
-      const part = blocks.find((block) => block.id === entry.blockId)?.partId
+      const part = blockParts.get(entry.blockId)
+
       if (!part) continue
       const list = byPart.get(part) ?? []
+
       if (!list.some((item) => item.blockId === entry.blockId)) {
         list.push({ blockId: entry.blockId, text: entry.text })
       }
+
       byPart.set(part, list)
     }
+
     return byPart
   }, [blocks])
+
   return (
     <nav
       aria-label={t('notebook.parts.outlineTitle')}
@@ -572,10 +579,12 @@ export function PartsOutline({
       <ol className="m-0 flex list-none flex-col p-0">
         {parts.map((part) => {
           const href = partHref(expId, part.number)
+
           const title = t('notebook.parts.partTitle', {
             number: String(part.number),
             title: part.title,
           })
+
           return (
             <li key={part.id} className="flex flex-col">
               <Link
@@ -625,9 +634,6 @@ export function PartsOutline({
   )
 }
 
-/** What an experiment's samples and data are shown for: every part, or one. */
-export type PartFilterValue = 'all' | string
-
 /**
  * The filter above the Samples and Data lists. Nothing shows for an experiment
  * without parts. An item that was not made in a part shows under every part.
@@ -642,6 +648,7 @@ export function PartFilter({
   onChange: (value: PartFilterValue) => void
 }) {
   if (parts.length === 0) return null
+
   return (
     <label className="flex items-center gap-1.5">
       {t('notebook.parts.filterLabel')}
@@ -662,12 +669,4 @@ export function PartFilter({
       </Select>
     </label>
   )
-}
-
-/** Whether an item made in `itemPartId` shows for the chosen filter. */
-export function showsForPart(
-  itemPartId: string | null | undefined,
-  filter: PartFilterValue,
-): boolean {
-  return filter === 'all' || !itemPartId || itemPartId === filter
 }

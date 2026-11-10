@@ -5,6 +5,7 @@
  */
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
@@ -69,7 +70,7 @@ const STATUS_LABEL: Record<FindingStatus, string> = {
   resolved: t('agents.watchers.statusResolved'),
 }
 
-function messageOf(error: unknown, fallback: string): string {
+function messageOf(error: Error, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback
 }
 
@@ -294,8 +295,7 @@ function WatcherRow({
   const paramKey = meta.param?.key
   const stored = paramKey ? row?.params[paramKey] : undefined
 
-  const param =
-    typeof stored === 'number' ? stored : (meta.param?.defaultValue ?? null)
+  const param = z.number().safeParse(stored).data ?? meta.param?.defaultValue ?? null
 
   return (
     <TableRow>
@@ -350,13 +350,16 @@ function WatcherRow({
           aria-label={`${meta.label}: ${t('agents.watchers.schedule')}`}
           value={schedule}
           disabled={busy}
-          onChange={(event) =>
+          onChange={(event) => {
+            const selectedSchedule = WATCHER_SCHEDULES.find((option) => option === event.target.value)
+
+            if (!selectedSchedule) return
             onSave({
               enabled,
-              schedule: event.target.value as WatcherSchedule,
+              schedule: selectedSchedule,
               param,
             })
-          }
+          }}
         >
           {WATCHER_SCHEDULES.map((value) => (
             <option key={value} value={value}>

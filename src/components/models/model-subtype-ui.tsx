@@ -21,20 +21,14 @@ import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { displayModelFieldValue } from '#/lib/model-fields'
 import { toast } from '#/components/ui/sonner'
-import { BUILT_IN_MODELS, builtInModel } from '#/lib/built-in-models'
+import { builtInModel } from '#/lib/built-in-models'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { createRecordModelVersion } from '#/lib/record-model-versions'
-import {
-  fetchTypedObjects,
-  typeAncestors,
-  typeDescendants,
-  typeHost,
-  typeRoot,
-} from '#/lib/model-subtypes'
-import type { ModelType, TypedObject } from '#/lib/model-subtypes'
+import { fetchTypedObjects, typeHost, typeRoot } from '#/lib/model-subtypes'
+import type { TypedObject } from '#/lib/model-subtypes'
 import { useRecordModelFields } from './models-data'
-import { fieldTypeName } from './built-in-model-fields'
-import type { InheritedGroup } from './inherited-fields-table'
+import { fieldTypeName } from './built-in-field-presentation'
+import type { InheritedGroup } from './inherited-fields-data'
 import {
   createModelSubtype,
   describeTypeError,
@@ -44,27 +38,7 @@ import {
   useTypeFields,
 } from './model-subtype-data'
 import { rich, t } from '#/copy'
-
-/** A model's name from its key: a built-in model or a workspace type. */
-export function modelName(types: readonly ModelType[], key: string): string {
-  return (
-    builtInModel(key)?.name ??
-    types.find((type) => type.key === key)?.name ??
-    key
-  )
-}
-
-/** A key the database accepts, from the name the scientist typed. */
-export function subtypeKey(name: string): string {
-  const slug = name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-
-  const key = /^[a-z]/.test(slug) ? slug : `type_${slug}`
-
-  return key.slice(0, 60).replace(/_+$/, '') || 'type'
-}
+import { modelName, subtypeKey, parentChoices } from './model-subtype-choices'
 
 const PREFIX_PATTERN = /^[A-Z][A-Z0-9]{0,7}$/
 
@@ -124,10 +98,14 @@ export function SubtypesList({ modelKey }: { modelKey: string }) {
  * The fields a subtype carries from the models above it, from the top of the
  * chain down, for its fields table to list read-only above its own.
  */
-export function useInheritedFieldGroups(modelKey: string): {
+interface InheritedFieldGroups {
   groups: InheritedGroup[]
   isLoading: boolean
-} {
+}
+
+export function useInheritedFieldGroups(
+  modelKey: string,
+): InheritedFieldGroups {
   const types = useModelTypes()
   const own = types.data?.find((type) => type.key === modelKey)
   const parentKey = own?.parentKey ?? null
@@ -159,10 +137,7 @@ export function useInheritedFieldGroups(modelKey: string): {
         label: field.label,
         key: field.fieldName,
         type: fieldTypeName(field).split(' · ')[0],
-        unit:
-          typeof field.unit?.symbol === 'string' && field.unit.symbol
-            ? field.unit.symbol
-            : null,
+        unit: field.unit?.symbol || null,
         required: field.nullable
           ? 'No'
           : t('library.models.modelSubtypeUi.yes'),
@@ -345,31 +320,6 @@ export function NewSubtypeDialog({
       </DialogContent>
     </Dialog>
   )
-}
-
-/** The models a type can sit under: every built-in and every other type,
- * except itself and its own subtypes. */
-export function parentChoices(
-  types: readonly ModelType[],
-  key: string,
-): { key: string; name: string }[] {
-  const below = new Set(
-    typeDescendants(types, key).map((option) => option.type.key),
-  )
-
-  return [
-    ...BUILT_IN_MODELS.map((model) => ({ key: model.key, name: model.name })),
-    ...types
-      .filter((type) => type.key !== key && !below.has(type.key))
-      .map((type) => ({
-        key: type.key,
-        name: [...typeAncestors(types, type.key)]
-          .reverse()
-          .map((parent) => parent.name)
-          .concat(type.name)
-          .join(' › '),
-      })),
-  ]
 }
 
 /**

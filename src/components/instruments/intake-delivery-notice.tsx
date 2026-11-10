@@ -5,17 +5,6 @@ import { t } from '#/copy'
 
 type Problem = 'failed' | 'stale' | 'waiting'
 
-/** Which delivery problem an `intakeHealth` label describes, if any. */
-export function intakeDeliveryProblem(label: string): Problem | null {
-  if (label === 'Last import failed') return 'failed'
-
-  if (label.startsWith('No data for')) return 'stale'
-
-  if (label === 'Waiting for first data') return 'waiting'
-
-  return null
-}
-
 const COPY: Record<Problem, { title: string; body: string }> = {
   failed: {
     title: t('library.instruments.intakeDeliveryNotice.theLastImportFailed'),

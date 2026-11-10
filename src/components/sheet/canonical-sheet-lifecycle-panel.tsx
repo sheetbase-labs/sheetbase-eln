@@ -49,23 +49,18 @@ import {
 } from '#/lib/sheet-materialization-data'
 import { sheetDefinitionUpgradeAvailability } from '#/lib/reuse-upgrade'
 import { ObjectLink } from '#/components/ui/object-link'
+import {
+  configurationDefinitionHref,
+  lifecycleErrorText,
+} from './sheet-lifecycle-helpers'
+import type { DataClient } from '#/lib/data-client'
 
 /**
  * The server's refusal in the language of the page. A sheet made by pasting or
  * typing has local columns only, which a definition-backed write (materialise,
  * extract) cannot use, so those refusals point at the way that does work.
  */
-export function lifecycleErrorText(message: string): string {
-  if (/active Definition-backed Sheet Instance required/i.test(message))
-    return t('notebook.canonicalSheetLifecyclePanel.thisSheetIsNot')
-
-  if (/local row identity must be one declared reference/i.test(message))
-    return t('notebook.canonicalSheetLifecyclePanel.aDefinitionNeedsOne')
-
-  return message
-}
-
-function errorText(error: unknown) {
+function errorText(error: Error | null) {
   if (error instanceof Error) return lifecycleErrorText(error.message)
 
   return null
@@ -114,26 +109,14 @@ function defaultExtractionSelection(
   }
 }
 
-export function configurationDefinitionHref(
-  definitionId: string,
-  versionId?: string,
-  instanceId?: string,
-) {
-  const search = new URLSearchParams()
-
-  if (versionId) search.set('version', versionId)
-
-  if (instanceId) search.set('returnTo', `/sheets/${instanceId}`)
-
-  return `/sheet-definitions/${encodeURIComponent(definitionId)}${search.size ? `?${search}` : ''}`
-}
-
-export function CanonicalSheetLifecyclePanel({
+function useCanonicalSheetLifecycle({
   instance,
   onInstance,
+  client = sheetDefinitionDataClient,
 }: {
   instance: SheetInstance
   onInstance: (next: SheetInstance) => void
+  client?: DataClient
 }) {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
@@ -166,15 +149,14 @@ export function CanonicalSheetLifecyclePanel({
 
   const definitions = useQuery({
     queryKey: ['sheet-definitions'],
-    queryFn: () => fetchSheetDefinitions(sheetDefinitionDataClient),
+    queryFn: () => fetchSheetDefinitions(client),
     enabled: open,
   })
 
   const versions = useQuery({
     queryKey: ['sheet-definition-versions', definitionId],
     enabled: Boolean(open && definitionId),
-    queryFn: () =>
-      fetchSheetDefinitionVersions(definitionId, sheetDefinitionDataClient),
+    queryFn: () => fetchSheetDefinitionVersions(definitionId, client),
   })
 
   const published = (versions.data ?? []).filter(
@@ -188,20 +170,14 @@ export function CanonicalSheetLifecyclePanel({
     queryKey: ['sheet-definition-version', instance.sourceDefinitionVersionId],
     enabled: Boolean(instance.sourceDefinitionVersionId),
     queryFn: () =>
-      fetchSheetDefinitionVersion(
-        instance.sourceDefinitionVersionId!,
-        sheetDefinitionDataClient,
-      ),
+      fetchSheetDefinitionVersion(instance.sourceDefinitionVersionId!, client),
   })
 
   const pinnedLineage = useQuery({
     queryKey: ['sheet-definition-versions', pinnedVersion.data?.definitionId],
     enabled: Boolean(pinnedVersion.data?.definitionId),
     queryFn: () =>
-      fetchSheetDefinitionVersions(
-        pinnedVersion.data!.definitionId,
-        sheetDefinitionDataClient,
-      ),
+      fetchSheetDefinitionVersions(pinnedVersion.data!.definitionId, client),
   })
 
   const upgradeAvailability = sheetDefinitionUpgradeAvailability(
@@ -213,7 +189,7 @@ export function CanonicalSheetLifecyclePanel({
 
   const datasets = useQuery({
     queryKey: ['dataset-explorer-summaries'],
-    queryFn: () => fetchDatasetSummaries(),
+    queryFn: () => fetchDatasetSummaries(client),
     enabled: open,
   })
 
@@ -236,12 +212,15 @@ export function CanonicalSheetLifecyclePanel({
           t('notebook.canonicalSheetLifecyclePanel.chooseAPublishedDefinition'),
         )
 
-      return previewSheetInstanceCompositionAdoption({
-        instanceId: instance.id,
-        expectedRevision: instance.revision,
-        targetDefinitionVersionId: selectedVersion.id,
-        parameterInputs,
-      })
+      return previewSheetInstanceCompositionAdoption(
+        {
+          instanceId: instance.id,
+          expectedRevision: instance.revision,
+          targetDefinitionVersionId: selectedVersion.id,
+          parameterInputs,
+        },
+        client,
+      )
     },
     onSuccess: (result) => {
       setPreview(
@@ -272,12 +251,15 @@ export function CanonicalSheetLifecyclePanel({
           t('notebook.canonicalSheetLifecyclePanel.chooseAPublishedDefinition'),
         )
 
-      const adoptionPreview = await previewSheetInstanceCompositionAdoption({
-        instanceId: instance.id,
-        expectedRevision: instance.revision,
-        targetDefinitionVersionId: selectedVersion.id,
-        parameterInputs,
-      })
+      const adoptionPreview = await previewSheetInstanceCompositionAdoption(
+        {
+          instanceId: instance.id,
+          expectedRevision: instance.revision,
+          targetDefinitionVersionId: selectedVersion.id,
+          parameterInputs,
+        },
+        client,
+      )
 
       if (!adoptionPreview.compatible) {
         throw new Error(
@@ -295,13 +277,16 @@ export function CanonicalSheetLifecyclePanel({
         )
       }
 
-      const applied = await applySheetInstanceCompositionAdoption({
-        instanceId: instance.id,
-        expectedRevision: instance.revision,
-        targetDefinitionVersionId: selectedVersion.id,
-        parameterInputs,
-        retryToken: crypto.randomUUID(),
-      })
+      const applied = await applySheetInstanceCompositionAdoption(
+        {
+          instanceId: instance.id,
+          expectedRevision: instance.revision,
+          targetDefinitionVersionId: selectedVersion.id,
+          parameterInputs,
+          retryToken: crypto.randomUUID(),
+        },
+        client,
+      )
 
       if (applied.status !== 'applied') {
         throw new Error(
@@ -335,7 +320,7 @@ export function CanonicalSheetLifecyclePanel({
       const source = instance.sourceDefinitionVersionId
         ? await fetchSheetDefinitionVersion(
             instance.sourceDefinitionVersionId,
-            sheetDefinitionDataClient,
+            client,
           )
         : null
 
@@ -353,19 +338,23 @@ export function CanonicalSheetLifecyclePanel({
         instance.id,
         instance.revision,
         selection,
+        client,
       )
 
-      return extractSheetDefinitionDraft({
-        instanceId: instance.id,
-        expectedInstanceRevision: instance.revision,
-        key: extractKey.trim() || 'extracted_sheet',
-        name:
-          extractName.trim() ||
-          t('notebook.canonicalSheetLifecyclePanel.extractedName', {
-            name: instance.name,
-          }),
-        selection,
-      })
+      return extractSheetDefinitionDraft(
+        {
+          instanceId: instance.id,
+          expectedInstanceRevision: instance.revision,
+          key: extractKey.trim() || 'extracted_sheet',
+          name:
+            extractName.trim() ||
+            t('notebook.canonicalSheetLifecyclePanel.extractedName', {
+              name: instance.name,
+            }),
+          selection,
+        },
+        client,
+      )
     },
     onSuccess: async (result) => {
       setExtractedDefinition({
@@ -390,11 +379,12 @@ export function CanonicalSheetLifecyclePanel({
       const version = await publishSheetDefinitionVersion(
         result.version.id,
         result.version.revision,
+        client,
       )
 
       return { definition: result.definition, version }
     },
-    onSuccess: ({ definition, version }) => {
+    onSuccess: async ({ definition, version }) => {
       setExtractedDefinition({
         id: definition.id,
         name: definition.name,
@@ -406,6 +396,10 @@ export function CanonicalSheetLifecyclePanel({
           { version: version.version },
         ),
       )
+      await queryClient.invalidateQueries({ queryKey: ['sheet-definitions'] })
+      await queryClient.invalidateQueries({
+        queryKey: ['sheet-definition-versions', definition.id],
+      })
     },
   })
 
@@ -420,6 +414,7 @@ export function CanonicalSheetLifecyclePanel({
         instance.id,
         instance.revision,
         selectedVersion.id,
+        client,
       )
     },
     onSuccess: (result) => {
@@ -446,6 +441,7 @@ export function CanonicalSheetLifecyclePanel({
         instance.id,
         instance.revision,
         selectedVersion.id,
+        client,
       )
 
       if (upgradePreviewResult.conflicts.length > 0) {
@@ -456,20 +452,26 @@ export function CanonicalSheetLifecyclePanel({
         )
       }
 
-      return applySheetInstanceDefinitionUpgrade({
-        instanceId: instance.id,
-        expectedRevision: instance.revision,
-        targetDefinitionVersionId: selectedVersion.id,
-        decisions: [],
-        parameterInputs,
-      })
+      return applySheetInstanceDefinitionUpgrade(
+        {
+          instanceId: instance.id,
+          expectedRevision: instance.revision,
+          targetDefinitionVersionId: selectedVersion.id,
+          decisions: [],
+          parameterInputs,
+        },
+        client,
+      )
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       if (result.status === 'applied') {
         onInstance(result.instance)
         setStatus(
           t('notebook.canonicalSheetLifecyclePanel.upgradedThisSheetTo'),
         )
+        await queryClient.invalidateQueries({
+          queryKey: ['composed-sheet', instance.id],
+        })
       } else {
         setStatus(
           t(
@@ -482,10 +484,13 @@ export function CanonicalSheetLifecyclePanel({
 
   const materializePreview = useMutation({
     mutationFn: () =>
-      previewSheetMaterialization({
-        instanceId: instance.id,
-        expectedRevision: instance.revision,
-      }),
+      previewSheetMaterialization(
+        {
+          instanceId: instance.id,
+          expectedRevision: instance.revision,
+        },
+        client,
+      ),
     onSuccess: (result) => {
       setPreview(
         t(
@@ -499,41 +504,53 @@ export function CanonicalSheetLifecyclePanel({
   const materialize = useMutation({
     onMutate: () => setMaterialisedDatasetId(null),
     mutationFn: async () => {
-      const materialisationPreview = await previewSheetMaterialization({
-        instanceId: instance.id,
-        expectedRevision: instance.revision,
-      })
+      const materialisationPreview = await previewSheetMaterialization(
+        {
+          instanceId: instance.id,
+          expectedRevision: instance.revision,
+        },
+        client,
+      )
 
-      return materializeSheetInstance({
-        instanceId: instance.id,
-        expectedRevision: instance.revision,
-        outputName:
-          materializeName.trim() ||
-          t('notebook.canonicalSheetLifecyclePanel.outputName', {
-            name: instance.name,
-          }),
-        previewDigest: materialisationPreview.previewDigest,
-        idempotencyKey: crypto.randomUUID(),
-      })
+      return materializeSheetInstance(
+        {
+          instanceId: instance.id,
+          expectedRevision: instance.revision,
+          outputName:
+            materializeName.trim() ||
+            t('notebook.canonicalSheetLifecyclePanel.outputName', {
+              name: instance.name,
+            }),
+          previewDigest: materialisationPreview.previewDigest,
+          idempotencyKey: crypto.randomUUID(),
+        },
+        client,
+      )
     },
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       setStatus(
         t('notebook.canonicalSheetLifecyclePanel.datasetWrittenFromThis'),
       )
       setMaterialisedDatasetId(result.datasetId)
       setPreview(null)
+      await queryClient.invalidateQueries({
+        queryKey: ['dataset-explorer-summaries'],
+      })
     },
   })
 
-  const combinedError =
-    errorText(adopt.error) ??
-    errorText(adoptPreview.error) ??
-    errorText(extract.error) ??
-    errorText(publishExtracted.error) ??
-    errorText(upgrade.error) ??
-    errorText(upgradePreview.error) ??
-    errorText(materialize.error) ??
-    errorText(materializePreview.error)
+  const combinedError = [
+    adopt.error,
+    adoptPreview.error,
+    extract.error,
+    publishExtracted.error,
+    upgrade.error,
+    upgradePreview.error,
+    materialize.error,
+    materializePreview.error,
+  ]
+    .map(errorText)
+    .find((message) => message !== null)
 
   const selectedDefinitionName = (definitions.data ?? []).find(
     (definition) => definition.id === selectedVersion?.definitionId,
@@ -591,6 +608,53 @@ export function CanonicalSheetLifecyclePanel({
           },
         }[confirming]
 
+  return {
+    instance,
+    open,
+    setOpen,
+    upgradeAvailability,
+    confirmation,
+    setConfirming,
+    definitions,
+    definitionId,
+    setDefinitionId,
+    setDefinitionVersionId,
+    selectedVersion,
+    published,
+    datasetParameter,
+    datasetId,
+    setDatasetId,
+    datasets,
+    adoptPreview,
+    adopt,
+    extractKey,
+    setExtractKey,
+    extractName,
+    setExtractName,
+    extract,
+    publishExtracted,
+    upgradePreview,
+    upgrade,
+    materializeName,
+    setMaterializeName,
+    materializePreview,
+    materialize,
+    preview,
+    status,
+    materialisedDatasetId,
+    extractedDefinition,
+    combinedError,
+  }
+}
+
+export function CanonicalSheetLifecyclePanel(
+  props: Parameters<typeof useCanonicalSheetLifecycle>[0],
+) {
+  const controller = useCanonicalSheetLifecycle(props)
+
+  const { open, setOpen, upgradeAvailability, confirmation, setConfirming } =
+    controller
+
   return (
     <div className="border-t px-2 py-2">
       <div className="flex items-center gap-2">
@@ -614,272 +678,7 @@ export function CanonicalSheetLifecyclePanel({
           </Badge>
         ) : null}
       </div>
-      {open ? (
-        <div className="mt-2 grid gap-3 md:grid-cols-2">
-          <fieldset className="space-y-2 rounded-md border p-2">
-            <legend className="px-1 text-xs font-medium">
-              {t('notebook.canonicalSheetLifecyclePanel.bindADatasetTo')}
-            </legend>
-            <p className="text-xs text-fg-muted">
-              {t('notebook.canonicalSheetLifecyclePanel.bindingShowsADataset')}
-            </p>
-            <label className="space-y-1 text-xs">
-              <span>
-                {t('notebook.canonicalSheetLifecyclePanel.sheetDefinition')}
-              </span>
-              <PickerSelect
-                noun="sheet definition"
-                aria-label={t(
-                  'notebook.canonicalSheetLifecyclePanel.sheetDefinition',
-                )}
-                value={definitionId}
-                onChange={(id) => {
-                  setDefinitionId(id)
-                  setDefinitionVersionId('')
-                }}
-                placeholder={t(
-                  'notebook.canonicalSheetLifecyclePanel.selectDefinition',
-                )}
-                options={(definitions.data ?? []).map((definition) => ({
-                  id: definition.id,
-                  label: definition.name,
-                }))}
-              />
-            </label>
-            <label className="space-y-1 text-xs">
-              <span>
-                {t('notebook.canonicalSheetLifecyclePanel.publishedVersion')}
-              </span>
-              <select
-                className="flex h-8 w-full rounded-md border border-border bg-surface px-2 text-sm"
-                value={selectedVersion?.id ?? ''}
-                onChange={(event) => setDefinitionVersionId(event.target.value)}
-                aria-label={t(
-                  'notebook.canonicalSheetLifecyclePanel.ariaLabel',
-                )}
-              >
-                <option value="">
-                  {t('notebook.canonicalSheetLifecyclePanel.selectVersion')}
-                </option>
-                {published.map((version) => (
-                  <option key={version.id} value={version.id}>
-                    v{version.version}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {datasetParameter ? (
-              <label className="space-y-1 text-xs">
-                <span>
-                  {t('notebook.canonicalSheetLifecyclePanel.datasetForLabel', {
-                    label: datasetParameter.label,
-                  })}
-                </span>
-                <PickerSelect
-                  noun="dataset"
-                  aria-label={t(
-                    'notebook.canonicalSheetLifecyclePanel.datasetBindingAriaLabel',
-                  )}
-                  value={datasetId}
-                  onChange={(id) => setDatasetId(id)}
-                  placeholder={t(
-                    'notebook.canonicalSheetLifecyclePanel.selectDataset',
-                  )}
-                  options={(datasets.data ?? []).map((dataset) =>
-                    datasetOption({ id: dataset.id, name: dataset.name }),
-                  )}
-                />
-                {datasetId ? (
-                  <Button
-                    render={
-                      <Link
-                        to="/datasets"
-                        search={{
-                          dataset: datasetId,
-                          archived: false,
-                          tab: 'pipelines',
-                        }}
-                      />
-                    }
-                    nativeButton={false}
-                    variant="secondary"
-                    size="sm"
-                    className="mt-1 w-full"
-                  >
-                    <Icon name="pipeline" className="size-3.5" />{' '}
-                    {t(
-                      'notebook.canonicalSheetLifecyclePanel.runPipelinesOnThis',
-                    )}
-                  </Button>
-                ) : null}
-              </label>
-            ) : null}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                disabled={adoptPreview.isPending}
-                onClick={() => adoptPreview.mutate()}
-              >
-                {t('notebook.canonicalSheetLifecyclePanel.previewAdoption')}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                disabled={adopt.isPending}
-                onClick={() => setConfirming('adopt')}
-              >
-                {t('notebook.canonicalSheetLifecyclePanel.applyAdoption')}
-              </Button>
-            </div>
-          </fieldset>
-          <fieldset className="space-y-2 rounded-md border p-2">
-            <legend className="px-1 text-xs font-medium">
-              {t(
-                'notebook.canonicalSheetLifecyclePanel.extractUpgradeMaterialise',
-              )}
-            </legend>
-            <label className="space-y-1 text-xs">
-              <span>
-                {t('notebook.canonicalSheetLifecyclePanel.definitionKey')}
-              </span>
-              <Input
-                className="h-8"
-                value={extractKey}
-                onChange={(event) => setExtractKey(event.target.value)}
-                placeholder="assay_results"
-              />
-            </label>
-            <label className="space-y-1 text-xs">
-              <span>
-                {t('notebook.canonicalSheetLifecyclePanel.definitionName')}
-              </span>
-              <Input
-                className="h-8"
-                value={extractName}
-                onChange={(event) => setExtractName(event.target.value)}
-                placeholder={instance.name}
-              />
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                disabled={extract.isPending}
-                onClick={() => extract.mutate()}
-              >
-                {t('notebook.canonicalSheetLifecyclePanel.extractDraft')}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                disabled={publishExtracted.isPending}
-                onClick={() => setConfirming('extract-publish')}
-              >
-                {t('notebook.canonicalSheetLifecyclePanel.extractAndPublish')}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                disabled={upgradePreview.isPending}
-                onClick={() => upgradePreview.mutate()}
-              >
-                {t('notebook.canonicalSheetLifecyclePanel.previewUpgrade')}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                disabled={upgrade.isPending}
-                onClick={() => setConfirming('upgrade')}
-              >
-                {t('notebook.canonicalSheetLifecyclePanel.applyUpgrade')}
-              </Button>
-            </div>
-            <label className="space-y-1 text-xs">
-              <span>
-                {t(
-                  'notebook.canonicalSheetLifecyclePanel.materialisedDatasetName',
-                )}
-              </span>
-              <Input
-                className="h-8"
-                value={materializeName}
-                onChange={(event) => setMaterializeName(event.target.value)}
-                placeholder={t(
-                  'notebook.canonicalSheetLifecyclePanel.outputName',
-                  {
-                    name: instance.name,
-                  },
-                )}
-              />
-            </label>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                disabled={materializePreview.isPending}
-                onClick={() => materializePreview.mutate()}
-              >
-                {t('notebook.canonicalSheetLifecyclePanel.previewMaterialise')}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                disabled={materialize.isPending}
-                onClick={() => setConfirming('materialize')}
-              >
-                {t('notebook.canonicalSheetLifecyclePanel.applyMaterialise')}
-              </Button>
-            </div>
-          </fieldset>
-          {preview ? (
-            <p className="text-xs md:col-span-2" role="status">
-              {preview}
-            </p>
-          ) : null}
-          {status ? (
-            <div className="flex flex-wrap items-center gap-2 text-xs md:col-span-2">
-              <p role="status">{status}</p>
-              {materialisedDatasetId ? (
-                <ObjectLink
-                  kind="dataset"
-                  id={materialisedDatasetId}
-                  mono={false}
-                  className="font-medium"
-                >
-                  {t('notebook.canonicalSheetLifecyclePanel.openTheNewDataset')}
-                </ObjectLink>
-              ) : null}
-              {extractedDefinition ? (
-                <a
-                  className="font-medium text-primary-text underline-offset-4 hover:underline"
-                  href={configurationDefinitionHref(
-                    extractedDefinition.id,
-                    extractedDefinition.versionId,
-                    instance.id,
-                  )}
-                >
-                  {t(
-                    'notebook.canonicalSheetLifecyclePanel.reviewSheetDefinition',
-                  )}
-                </a>
-              ) : null}
-            </div>
-          ) : null}
-          {combinedError ? (
-            <p className="text-xs text-danger-text md:col-span-2" role="alert">
-              {combinedError}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+      {open ? <LifecycleContent controller={controller} /> : null}
       {confirmation ? (
         <ConfirmDialog
           open
@@ -910,6 +709,300 @@ export function CanonicalSheetLifecyclePanel({
             </ConfirmDialogFooter>
           </ConfirmDialogContent>
         </ConfirmDialog>
+      ) : null}
+    </div>
+  )
+}
+
+function LifecycleContent({
+  controller,
+}: {
+  controller: ReturnType<typeof useCanonicalSheetLifecycle>
+}) {
+  const {
+    instance,
+    setConfirming,
+    definitions,
+    definitionId,
+    setDefinitionId,
+    setDefinitionVersionId,
+    selectedVersion,
+    published,
+    datasetParameter,
+    datasetId,
+    setDatasetId,
+    datasets,
+    adoptPreview,
+    adopt,
+    extractKey,
+    setExtractKey,
+    extractName,
+    setExtractName,
+    extract,
+    publishExtracted,
+    upgradePreview,
+    upgrade,
+    materializeName,
+    setMaterializeName,
+    materializePreview,
+    materialize,
+    preview,
+    status,
+    materialisedDatasetId,
+    extractedDefinition,
+    combinedError,
+  } = controller
+
+  return (
+    <div className="mt-2 grid gap-3 md:grid-cols-2">
+      <fieldset className="space-y-2 rounded-md border p-2">
+        <legend className="px-1 text-xs font-medium">
+          {t('notebook.canonicalSheetLifecyclePanel.bindADatasetTo')}
+        </legend>
+        <p className="text-xs text-fg-muted">
+          {t('notebook.canonicalSheetLifecyclePanel.bindingShowsADataset')}
+        </p>
+        <label className="space-y-1 text-xs">
+          <span>
+            {t('notebook.canonicalSheetLifecyclePanel.sheetDefinition')}
+          </span>
+          <PickerSelect
+            noun="sheet definition"
+            aria-label={t(
+              'notebook.canonicalSheetLifecyclePanel.sheetDefinition',
+            )}
+            value={definitionId}
+            onChange={(id) => {
+              setDefinitionId(id)
+              setDefinitionVersionId('')
+            }}
+            placeholder={t(
+              'notebook.canonicalSheetLifecyclePanel.selectDefinition',
+            )}
+            options={(definitions.data ?? []).map((definition) => ({
+              id: definition.id,
+              label: definition.name,
+            }))}
+          />
+        </label>
+        <label className="space-y-1 text-xs">
+          <span>
+            {t('notebook.canonicalSheetLifecyclePanel.publishedVersion')}
+          </span>
+          <select
+            className="flex h-8 w-full rounded-md border border-border bg-surface px-2 text-sm"
+            value={selectedVersion?.id ?? ''}
+            onChange={(event) => setDefinitionVersionId(event.target.value)}
+            aria-label={t('notebook.canonicalSheetLifecyclePanel.ariaLabel')}
+          >
+            <option value="">
+              {t('notebook.canonicalSheetLifecyclePanel.selectVersion')}
+            </option>
+            {published.map((version) => (
+              <option key={version.id} value={version.id}>
+                v{version.version}
+              </option>
+            ))}
+          </select>
+        </label>
+        {datasetParameter ? (
+          <label className="space-y-1 text-xs">
+            <span>
+              {t('notebook.canonicalSheetLifecyclePanel.datasetForLabel', {
+                label: datasetParameter.label,
+              })}
+            </span>
+            <PickerSelect
+              noun="dataset"
+              aria-label={t(
+                'notebook.canonicalSheetLifecyclePanel.datasetBindingAriaLabel',
+              )}
+              value={datasetId}
+              onChange={(id) => setDatasetId(id)}
+              placeholder={t(
+                'notebook.canonicalSheetLifecyclePanel.selectDataset',
+              )}
+              options={(datasets.data ?? []).map((dataset) =>
+                datasetOption({ id: dataset.id, name: dataset.name }),
+              )}
+            />
+            {datasetId ? (
+              <Button
+                render={
+                  <Link
+                    to="/datasets"
+                    search={{
+                      dataset: datasetId,
+                      archived: false,
+                      tab: 'pipelines',
+                    }}
+                  />
+                }
+                nativeButton={false}
+                variant="secondary"
+                size="sm"
+                className="mt-1 w-full"
+              >
+                <Icon name="pipeline" className="size-3.5" />{' '}
+                {t('notebook.canonicalSheetLifecyclePanel.runPipelinesOnThis')}
+              </Button>
+            ) : null}
+          </label>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={adoptPreview.isPending}
+            onClick={() => adoptPreview.mutate()}
+          >
+            {t('notebook.canonicalSheetLifecyclePanel.previewAdoption')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={adopt.isPending}
+            onClick={() => setConfirming('adopt')}
+          >
+            {t('notebook.canonicalSheetLifecyclePanel.applyAdoption')}
+          </Button>
+        </div>
+      </fieldset>
+      <fieldset className="space-y-2 rounded-md border p-2">
+        <legend className="px-1 text-xs font-medium">
+          {t('notebook.canonicalSheetLifecyclePanel.extractUpgradeMaterialise')}
+        </legend>
+        <label className="space-y-1 text-xs">
+          <span>
+            {t('notebook.canonicalSheetLifecyclePanel.definitionKey')}
+          </span>
+          <Input
+            className="h-8"
+            value={extractKey}
+            onChange={(event) => setExtractKey(event.target.value)}
+            placeholder="assay_results"
+          />
+        </label>
+        <label className="space-y-1 text-xs">
+          <span>
+            {t('notebook.canonicalSheetLifecyclePanel.definitionName')}
+          </span>
+          <Input
+            className="h-8"
+            value={extractName}
+            onChange={(event) => setExtractName(event.target.value)}
+            placeholder={instance.name}
+          />
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={extract.isPending}
+            onClick={() => extract.mutate()}
+          >
+            {t('notebook.canonicalSheetLifecyclePanel.extractDraft')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={publishExtracted.isPending}
+            onClick={() => setConfirming('extract-publish')}
+          >
+            {t('notebook.canonicalSheetLifecyclePanel.extractAndPublish')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={upgradePreview.isPending}
+            onClick={() => upgradePreview.mutate()}
+          >
+            {t('notebook.canonicalSheetLifecyclePanel.previewUpgrade')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={upgrade.isPending}
+            onClick={() => setConfirming('upgrade')}
+          >
+            {t('notebook.canonicalSheetLifecyclePanel.applyUpgrade')}
+          </Button>
+        </div>
+        <label className="space-y-1 text-xs">
+          <span>
+            {t('notebook.canonicalSheetLifecyclePanel.materialisedDatasetName')}
+          </span>
+          <Input
+            className="h-8"
+            value={materializeName}
+            onChange={(event) => setMaterializeName(event.target.value)}
+            placeholder={t('notebook.canonicalSheetLifecyclePanel.outputName', {
+              name: instance.name,
+            })}
+          />
+        </label>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={materializePreview.isPending}
+            onClick={() => materializePreview.mutate()}
+          >
+            {t('notebook.canonicalSheetLifecyclePanel.previewMaterialise')}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={materialize.isPending}
+            onClick={() => setConfirming('materialize')}
+          >
+            {t('notebook.canonicalSheetLifecyclePanel.applyMaterialise')}
+          </Button>
+        </div>
+      </fieldset>
+      {preview ? (
+        <p className="text-xs md:col-span-2" role="status">
+          {preview}
+        </p>
+      ) : null}
+      {status ? (
+        <div className="flex flex-wrap items-center gap-2 text-xs md:col-span-2">
+          <p role="status">{status}</p>
+          {materialisedDatasetId ? (
+            <ObjectLink
+              kind="dataset"
+              id={materialisedDatasetId}
+              mono={false}
+              className="font-medium"
+            >
+              {t('notebook.canonicalSheetLifecyclePanel.openTheNewDataset')}
+            </ObjectLink>
+          ) : null}
+          {extractedDefinition ? (
+            <a
+              className="font-medium text-primary-text underline-offset-4 hover:underline"
+              href={configurationDefinitionHref(
+                extractedDefinition.id,
+                extractedDefinition.versionId,
+                instance.id,
+              )}
+            >
+              {t('notebook.canonicalSheetLifecyclePanel.reviewSheetDefinition')}
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+      {combinedError ? (
+        <p className="text-xs text-danger-text md:col-span-2" role="alert">
+          {combinedError}
+        </p>
       ) : null}
     </div>
   )

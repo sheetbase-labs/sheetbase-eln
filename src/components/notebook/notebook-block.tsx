@@ -139,21 +139,6 @@ export function NotebookBlock({
   const loading = state === 'loading'
   const hasMenu = (!!menuItems && menuItems.length > 0) || menuExtra != null
   const [menuOpen, setMenuOpen] = React.useState(false)
-  const isEditing = state === 'editing' && !!onTitleChange
-  const [titleDraft, setTitleDraft] = React.useState(title ?? '')
-  const titleInputRef = React.useRef<HTMLInputElement>(null)
-
-  // Sync local draft when the prop changes externally (e.g. after save round-trip)
-  React.useEffect(() => {
-    setTitleDraft(title ?? '')
-  }, [title])
-
-  function commitTitle() {
-    const trimmed = titleDraft.trim()
-    if (trimmed !== (title ?? '')) {
-      onTitleChange!(trimmed)
-    }
-  }
 
   return (
     <div
@@ -183,28 +168,15 @@ export function NotebookBlock({
           interactions do not conflict. Positioned in the negative left margin so
           it doesn't indent the content, and it joins the print-hide set with the
           rest of the row's chrome. */}
-      {handle || draggable ? (
-        <div
-          data-print-hide
-          onClick={() => {
-            if (hasMenu) setMenuOpen(true)
-          }}
-          className="absolute -left-6 top-2 flex w-5 items-center justify-center"
-        >
-          {handle ?? (
-            <button
-              type="button"
-              aria-label={t('notebook.notebookBlock.ariaLabel')}
-              draggable
-              onDragStart={onDragStart}
-              onDragEnd={onDragEnd}
-              className="cursor-grab rounded p-0.5 text-fg-muted opacity-0 outline-none transition-opacity focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 active:cursor-grabbing"
-            >
-              <Icon name="move" size={14} />
-            </button>
-          )}
-        </div>
-      ) : null}
+      <BlockGrip
+        handle={handle}
+        draggable={draggable}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        onClick={() => {
+          if (hasMenu) setMenuOpen(true)
+        }}
+      />
 
       {/* Right-edge hover toolbar — no overlap with content */}
       <div
@@ -231,55 +203,24 @@ export function NotebookBlock({
             />
           ) : null}
           {hasMenu ? (
-            <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
-              <DropdownMenuTrigger
-                render={
-                  <IconButton
-                    variant="quiet"
-                    label={t('notebook.notebookBlock.blockActionsAriaLabel')}
-                    className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-                    icon="more"
-                  />
-                }
-              />
-              <DropdownMenuContent align="end">
-                {menuExtra}
-                {menuItems?.map((item) => (
-                  <React.Fragment key={item.id}>
-                    <DropdownMenuItem
-                      onClick={item.onSelect}
-                      disabled={item.disabled || readOnly}
-                    >
-                      {item.label}
-                    </DropdownMenuItem>
-                    {item.separatorAfter ? <DropdownMenuSeparator /> : null}
-                  </React.Fragment>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <BlockActionsMenu
+              open={menuOpen}
+              onOpenChange={setMenuOpen}
+              menuExtra={menuExtra}
+              menuItems={menuItems}
+              readOnly={readOnly}
+            />
           ) : null}
         </div>
       </div>
 
-      {continuous ? null : isEditing ? (
-        <input
-          ref={titleInputRef}
-          type="text"
-          value={titleDraft}
-          onChange={(e) => setTitleDraft(e.target.value)}
-          onBlur={commitTitle}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              titleInputRef.current?.blur()
-            }
-          }}
-          placeholder={t('common.states.untitled')}
-          className="mb-1 w-full border-0 bg-transparent p-0 font-display text-sm font-semibold text-fg outline-none placeholder:text-fg-muted/40 focus:ring-0"
+      {continuous ? null : (
+        <NotebookBlockTitle
+          title={title}
+          editing={state === 'editing'}
+          onTitleChange={onTitleChange}
         />
-      ) : title ? (
-        <h3 className="mb-1 font-display text-sm font-semibold">{title}</h3>
-      ) : null}
+      )}
 
       {loading ? (
         <div className="space-y-2" aria-busy="true" aria-live="polite">
@@ -291,5 +232,130 @@ export function NotebookBlock({
         <div className={cn(readOnly && 'select-none')}>{children}</div>
       )}
     </div>
+  )
+}
+
+function BlockGrip({
+  handle,
+  draggable,
+  onDragStart,
+  onDragEnd,
+  onClick,
+}: Pick<
+  NotebookBlockProps,
+  'handle' | 'draggable' | 'onDragStart' | 'onDragEnd'
+> & {
+  onClick: () => void
+}) {
+  if (!handle && !draggable) return null
+
+  return (
+    // Only delegates clicks from the native grip button. Space/Enter belong
+    // to drag sensing; the separate Block actions button owns keyboard menus.
+    // react-doctor-disable-next-line react-doctor/click-events-have-key-events, react-doctor/no-static-element-interactions
+    <div
+      data-print-hide
+      onClick={onClick}
+      className="absolute -left-6 top-2 flex w-5 items-center justify-center"
+    >
+      {handle ?? (
+        <button
+          type="button"
+          aria-label={t('notebook.notebookBlock.ariaLabel')}
+          draggable
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          className="cursor-grab rounded p-0.5 text-fg-muted opacity-0 outline-none transition-opacity focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 active:cursor-grabbing"
+        >
+          <Icon name="move" size={14} />
+        </button>
+      )}
+    </div>
+  )
+}
+
+function BlockActionsMenu({
+  open,
+  onOpenChange,
+  menuExtra,
+  menuItems,
+  readOnly,
+}: Pick<NotebookBlockProps, 'menuExtra' | 'menuItems'> & {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  readOnly: boolean
+}) {
+  return (
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
+      <DropdownMenuTrigger
+        render={
+          <IconButton
+            variant="quiet"
+            label={t('notebook.notebookBlock.blockActionsAriaLabel')}
+            className="opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
+            icon="more"
+          />
+        }
+      />
+      <DropdownMenuContent align="end">
+        {menuExtra}
+        {menuItems?.map((item) => (
+          <React.Fragment key={item.id}>
+            <DropdownMenuItem
+              onClick={item.onSelect}
+              disabled={item.disabled || readOnly}
+            >
+              {item.label}
+            </DropdownMenuItem>
+            {item.separatorAfter ? <DropdownMenuSeparator /> : null}
+          </React.Fragment>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+/** Title editing keeps its draft separate from the block's scientific payload. */
+function NotebookBlockTitle({
+  title,
+  editing,
+  onTitleChange,
+}: Pick<NotebookBlockProps, 'title' | 'onTitleChange'> & {
+  editing: boolean
+}) {
+  const [titleDraft, setTitleDraft] = React.useState(title ?? '')
+  const titleInputRef = React.useRef<HTMLInputElement>(null)
+  const [sourceTitle, setSourceTitle] = React.useState(title)
+
+  if (sourceTitle !== title) {
+    setSourceTitle(title)
+    setTitleDraft(title ?? '')
+  }
+
+  if (!editing || !onTitleChange)
+    return title ? (
+      <h3 className="mb-1 font-display text-sm font-semibold">{title}</h3>
+    ) : null
+
+  return (
+    <input
+      ref={titleInputRef}
+      type="text"
+      value={titleDraft}
+      onChange={(e) => setTitleDraft(e.target.value)}
+      onBlur={() => {
+        const trimmed = titleDraft.trim()
+
+        if (trimmed !== (title ?? '')) onTitleChange(trimmed)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          titleInputRef.current?.blur()
+        }
+      }}
+      placeholder={t('common.states.untitled')}
+      className="mb-1 w-full border-0 bg-transparent p-0 font-display text-sm font-semibold text-fg outline-none placeholder:text-fg-muted/40 focus:ring-0"
+    />
   )
 }

@@ -75,7 +75,6 @@ export function RepresentationFrame({
   return (
     <figure
       className={cn('rounded-lg border bg-surface shadow-xs', className)}
-      role="figure"
       aria-labelledby={titleId}
     >
       <figcaption className="flex items-start justify-between gap-3 border-b px-4 py-3">

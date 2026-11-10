@@ -62,6 +62,7 @@ export function NotebookOutlinePanel({
   requiredSections?: RequiredSectionEntry[]
 }) {
   const requested = blocks ? requestedSignatureRows(blocks, actionContext) : []
+
   return (
     <div className="space-y-4" data-testid="notebook-outline">
       {partsOutline}
@@ -112,6 +113,7 @@ export function NotebookOutlinePanel({
           <ul className="space-y-0.5">
             {entries.map((entry) => {
               const collapsed = controls?.collapsedSections.has(entry.anchorId)
+
               return (
                 <li
                   key={entry.anchorId}

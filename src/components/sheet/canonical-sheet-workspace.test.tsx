@@ -5,144 +5,43 @@
  * so regressions in the workspace-level rejection contract are caught at the
  * integration layer, not only in `sheet-write-back` unit tests.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
+import {
+  gridCell,
+  instanceWire,
+  mountWorkspace,
+  pasteGrid,
+  resetWorkspaceHttp,
+  selectGridCell,
+  workspaceHttp,
+} from './canonical-workspace-test-support'
+import { QueryClient } from '@tanstack/react-query'
+import { cleanup, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { validSheetDefinitionConfiguration } from '../../../tests/fixtures/sheet-definition'
-import type { DataClient } from '#/lib/data-client'
+import { createDataClient } from '#/lib/data-client'
 import type { ComposedSheetSnapshot } from '#/lib/sheet-composition-data'
 import { fetchComposedSheetRows } from '#/lib/sheet-composition-data'
 import { validSheetInstanceState } from '#/lib/sheet-instance.test'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
-import {
-  mutateSheetLocalState,
-  readSheetInstanceCalculationResults,
-} from '#/lib/sheet-local-data'
+import type { SheetInstanceCalculationResults } from '#/lib/sheet-local-data'
+import { canonicalSheetGridMatrix } from '#/lib/canonical-sheet-grid'
+import { canonicalWorkspaceGridColumn } from './canonical-workspace-fields'
+import { prepareCanonicalWorkspaceWrite } from './canonical-workspace-write-policy'
 
-import type {
-  SheetbaseGridCellChange,
-  SheetbaseGridHandle,
-  SheetbaseGridProps,
-} from './sheetbase-grid'
 import { CanonicalSheetEditor } from './canonical-sheet-workspace'
 import type { CellConflictRow } from './cell-conflict-panel'
 
-const rpcMock = vi.hoisted(() => vi.fn())
-const listMock = vi.hoisted(() => vi.fn().mockResolvedValue([]))
-const gridRender = vi.hoisted(() => vi.fn())
+const rpcMock = workspaceHttp.rpc
+const listMock = workspaceHttp.list
+const renderWorkspace = mountWorkspace
 
-/**
- * A DataClient whose rpc is observable. The default handler records every
- * call on `rpcMock`; every client the component tree creates goes through
- * the mocked `createDataClient`, so the test can assert that no authoritative
- * RPC runs at all. `list` is observable through `listMock` (default: empty).
- */
-function fakeClient(
-  rpcImpl?: (name: string, args: Record<string, unknown>) => Promise<unknown>,
-): DataClient {
-  async function rpc<T>(
-    name: string,
-    args: Record<string, unknown>,
-  ): Promise<T> {
-    return (
-      rpcImpl ? await rpcImpl(name, args) : await rpcMock(name, args)
-    ) as T
-  }
-
-  async function insert<T>(): Promise<T> {
-    return {} as T
-  }
-
-  async function patch<T>(): Promise<T[]> {
-    return []
-  }
-
-  return {
-    list: <T,>(resource: string, query?: string) =>
-      listMock(resource, query) as Promise<T[]>,
-    count: async () => 0,
-    rpc,
-    insert,
-    patch,
-    remove: () => Promise.resolve([]),
-  }
-}
-
-vi.mock('#/lib/data-client', async () =>
-  Object.assign({}, await vi.importActual('#/lib/data-client'), {
-    createDataClient: () => fakeClient(),
-  }),
-)
-
-vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
-  ...(await importOriginal()),
-  mutateSheetLocalState: vi.fn(),
-  mutateSheetInstanceCalculations: vi.fn(),
-  recalculateSheetInstance: vi.fn().mockResolvedValue(undefined),
-  readSheetInstanceCalculationResults: vi.fn().mockResolvedValue({
-    results: [],
-  }),
-}))
-
-// The grid is replaced with a props recorder: change flows are simulated by
-// invoking the captured Sheetbase write callbacks exactly as the grid would.
-// COMP-06 step 2: CanonicalSheetEditor renders the `sheetbase-table` backend.
-vi.mock('./sheetbase-grid', () => ({
-  SheetbaseTableGrid: (props: SheetbaseGridProps) => {
-    const { columns } = props
-    gridRender(props)
-
-    return (
-      <table>
-        <thead>
-          <tr>
-            {columns.map((column) =>
-              column.group ? (
-                <th key={`group-${column.id}`} scope="colgroup">
-                  {column.group}
-                </th>
-              ) : null,
-            )}
-          </tr>
-          <tr>
-            {columns.map((column) => (
-              <th key={column.id} scope="col">
-                {column.label}
-                {/* EXP-04.2: the engine prints the calculation mark from the
-                column's `calculated` source. */}
-                {column.source === 'calculated' ? ' ƒx' : null}
-              </th>
-            ))}
-          </tr>
-        </thead>
-      </table>
-    )
-  },
-}))
-
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children }: { children: ReactNode }) => <a>{children}</a>,
-}))
-
-// The conflict panel resolves author names through a server function, which
-// has no runtime in jsdom; the panel's own tests cover name resolution.
-vi.mock('#/lib/user-names', () => ({
-  useUserNames: () => ({
-    names: {},
-    userLabel: (id: string) => `name:${id}`,
-  }),
-}))
+beforeEach(async () => resetWorkspaceHttp(await composedInstance()))
 
 afterEach(() => {
   cleanup()
-  rpcMock.mockReset()
-  listMock.mockReset()
-  listMock.mockResolvedValue([])
-  gridRender.mockClear()
-  vi.mocked(mutateSheetLocalState).mockReset()
+  vi.restoreAllMocks()
 })
 
 const INSTANCE = '21000000-0000-4000-8000-000000000001'
@@ -250,7 +149,7 @@ async function composedSnapshot(): Promise<ComposedSheetSnapshot> {
   return fetchComposedSheetRows(
     INSTANCE,
     {},
-    fakeClient(async () => twoDatasetWire()),
+    createDataClient(async () => Response.json(twoDatasetWire())),
   )
 }
 
@@ -273,6 +172,7 @@ async function composedInstance(): Promise<SheetInstance> {
     state: {
       ...base,
       localValues: { [snapshot.rows[0].rowKey]: {} },
+      presentation: { ...base.presentation, filters: [], sorts: [] },
     },
     duplicatedFromInstanceId: null,
     createdAt: '2026-08-16T12:00:00.000Z',
@@ -280,14 +180,6 @@ async function composedInstance(): Promise<SheetInstance> {
     createdByUserId: 'u1',
     updatedByUserId: 'u1',
   }
-}
-
-function renderWorkspace(ui: ReactNode) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  })
-
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
 }
 
 describe('Sheet comment inspector', () => {
@@ -310,7 +202,7 @@ describe('Sheet comment inspector', () => {
       },
     }
 
-    renderWorkspace(
+    await renderWorkspace(
       <CanonicalSheetEditor
         instance={instance}
         projectId={null}
@@ -332,17 +224,8 @@ describe('Sheet comment inspector', () => {
     )
     const button = screen.getByRole('button', { name: 'Comment on selection' })
     expect(button.hasAttribute('disabled')).toBe(true)
-    const props: SheetbaseGridProps = gridRender.mock.lastCall?.[0]
-    act(() =>
-      props.onSelectionChange?.({
-        rowIndex: 1,
-        rowId: ROW_B,
-        columnId: field,
-        rowIds: [ROW_B, ROW_A],
-        columnIds: [field],
-        input: '13',
-      }),
-    )
+    selectGridCell(1, 0)
+    selectGridCell(0, 0, true)
     await user.click(button)
     expect(
       screen.getByRole('complementary', { name: 'Sheet comments inspector' }),
@@ -362,7 +245,7 @@ describe('Sheet comment inspector', () => {
         p_target_kind: 'sheet_range',
         p_target: {
           instanceId: instance.id,
-          rowKeys: [ROW_B, ROW_A],
+          rowKeys: [ROW_A, ROW_B],
           fieldIds: [field],
         },
         p_body: 'Explain asymmetric recoveries',
@@ -379,7 +262,7 @@ describe('Sheet comment inspector', () => {
   it('denies the composer for a viewer even with a selected stable cell', async () => {
     const instance = await composedInstance()
     rpcMock.mockResolvedValue(twoDatasetWire())
-    renderWorkspace(
+    await renderWorkspace(
       <CanonicalSheetEditor
         instance={instance}
         projectId={instance.projectId}
@@ -394,15 +277,7 @@ describe('Sheet comment inspector', () => {
         }}
       />,
     )
-    await waitFor(() => expect(gridRender).toHaveBeenCalled())
-    const props: SheetbaseGridProps = gridRender.mock.lastCall?.[0]
-    act(() =>
-      props.onSelectionChange?.({
-        rowIndex: 0,
-        rowId: props.rows[0].id,
-        columnId: props.columns[0].id,
-      }),
-    )
+    selectGridCell(0, 0)
     expect(
       screen
         .getByRole('button', { name: 'Comment on selection' })
@@ -435,47 +310,26 @@ describe('Canonical local write row proofs', () => {
       },
     }
 
-    vi.mocked(mutateSheetLocalState).mockResolvedValue(instance)
-    renderWorkspace(
+    workspaceHttp.local.mockResolvedValue(instanceWire(instance))
+    await renderWorkspace(
       <CanonicalSheetEditor
         instance={instance}
         projectId={instance.projectId}
       />,
     )
-    const props: SheetbaseGridProps = gridRender.mock.lastCall?.[0]
-    const rowId = props.rows[0].id
-    const columnId = props.columns[0].id
-    act(() =>
-      props.onCellsChange?.(
-        [
-          {
-            rowIndex: 0,
-            rowId,
-            columnId,
-            previous: 'independent value',
-            next: 'changed',
-          },
-          {
-            rowIndex: 0,
-            rowId,
-            columnId: ROW_B,
-            previous: null,
-            next: 'second',
-          },
-        ],
-        'paste',
-      ),
-    )
+    const rowId = Object.keys(instance.state.localValues)[0]
+    const columnId = instance.state.localFields[0].fieldId
+    selectGridCell(0, 0)
+    pasteGrid('changed\tsecond')
     await waitFor(() =>
-      expect(mutateSheetLocalState).toHaveBeenCalledWith(
+      expect(workspaceHttp.local).toHaveBeenCalledWith(
         expect.objectContaining({
-          rows: [{ kind: 'local', rowKey: rowId }],
-          cells: [
+          p_rows: [{ kind: 'local', rowKey: rowId }],
+          p_cells: [
             { rowKey: rowId, fieldId: columnId, value: 'changed' },
             { rowKey: rowId, fieldId: ROW_B, value: 'second' },
           ],
         }),
-        expect.anything(),
       ),
     )
   })
@@ -483,35 +337,21 @@ describe('Canonical local write row proofs', () => {
   it('sends server-proven composed identity values and page offset for a local field edit on a bound row', async () => {
     const instance = await composedInstance()
     rpcMock.mockResolvedValue(twoDatasetWire())
-    vi.mocked(mutateSheetLocalState).mockResolvedValue(instance)
-    renderWorkspace(
+    workspaceHttp.local.mockResolvedValue(instanceWire(instance))
+    await renderWorkspace(
       <CanonicalSheetEditor
         instance={instance}
         projectId={instance.projectId}
       />,
     )
-    await waitFor(() => expect(gridRender).toHaveBeenCalled())
-    const props: SheetbaseGridProps = gridRender.mock.lastCall?.[0]
-    const rowId = props.rows[0].id
+    const rowId = (await composedSnapshot()).rows[0].rowKey
     const columnId = instance.state.localFields[0].fieldId
-    act(() =>
-      props.onCellsChange?.(
-        [
-          {
-            rowIndex: 0,
-            rowId,
-            columnId,
-            previous: null,
-            next: 'source annotation',
-          },
-        ],
-        'edit',
-      ),
-    )
+    selectGridCell(0, 2)
+    pasteGrid('source annotation')
     await waitFor(() =>
-      expect(mutateSheetLocalState).toHaveBeenCalledWith(
+      expect(workspaceHttp.local).toHaveBeenCalledWith(
         expect.objectContaining({
-          rows: [
+          p_rows: [
             {
               kind: 'composed',
               rowKey: rowId,
@@ -519,11 +359,10 @@ describe('Canonical local write row proofs', () => {
               compositionOffset: 0,
             },
           ],
-          cells: [
+          p_cells: [
             { rowKey: rowId, fieldId: columnId, value: 'source annotation' },
           ],
         }),
-        expect.anything(),
       ),
     )
   })
@@ -537,7 +376,7 @@ describe('CanonicalSheetWorkspace — GRID-02 mixed-authority regression', () =>
     // wire is served here and the recording is cleared before Write-back.
     rpcMock.mockResolvedValue(twoDatasetWire())
 
-    renderWorkspace(
+    await renderWorkspace(
       <CanonicalSheetEditor
         instance={instance}
         projectId={instance.projectId}
@@ -546,22 +385,12 @@ describe('CanonicalSheetWorkspace — GRID-02 mixed-authority regression', () =>
 
     // The composed Sheet carries both a local column and the two
     // Dataset-bound columns.
-    await waitFor(() => expect(gridRender).toHaveBeenCalled())
+    const matrix = canonicalSheetGridMatrix({
+      instance,
+      composition: await composedSnapshot(),
+    })
 
-    const props = gridRender.mock.lastCall?.[0] as {
-      columns: Array<{ id: string; label: string }>
-      rows: Array<{ id?: string }>
-      beforeCellsChange: (
-        changes: SheetbaseGridCellChange[],
-        source: string,
-      ) => boolean | undefined
-      onCellsChange: (
-        changes: SheetbaseGridCellChange[],
-        source: string,
-      ) => void
-    }
-
-    expect(props.columns.map((column) => column.label)).toEqual([
+    expect(matrix.columns.map((column) => column.label)).toEqual([
       'sample',
       'comparison',
       'Observation',
@@ -573,22 +402,29 @@ describe('CanonicalSheetWorkspace — GRID-02 mixed-authority regression', () =>
     const paste = [
       {
         rowIndex: 0,
-        rowId: props.rows[0].id,
-        columnId: props.columns[0].id,
+        rowId: matrix.rowKeys[0],
+        columnId: matrix.columns[0].id,
         previous: 'old-a',
         next: '21000000-0000-4000-8000-0000000000c1',
       },
       {
         rowIndex: 0,
-        rowId: props.rows[0].id,
-        columnId: props.columns[1].id,
+        rowId: matrix.rowKeys[0],
+        columnId: matrix.columns[1].id,
         previous: 'old-b',
         next: '21000000-0000-4000-8000-0000000000c2',
       },
     ]
 
-    expect(props.beforeCellsChange(paste, 'paste')).toBeUndefined()
-    props.onCellsChange(paste, 'paste')
+    expect(
+      prepareCanonicalWorkspaceWrite({
+        columns: matrix.columns,
+        changes: paste,
+        source: 'paste',
+      }).result,
+    ).toBeUndefined()
+    selectGridCell(0, 0)
+    pasteGrid(paste.map((change) => change.next).join('\t'))
 
     const writeBack = await screen.findByRole('button', { name: 'Write back' })
     await waitFor(() => expect(writeBack.hasAttribute('disabled')).toBe(false))
@@ -641,15 +477,14 @@ describe('CanonicalSheetEditor — GRID-05 incremental paging', () => {
   it('loads the next window with a single fetch — never pages 1..N again', async () => {
     const user = userEvent.setup()
     const instance = await composedInstance()
-    rpcMock.mockImplementation(
-      async (_name: string, args: Record<string, unknown>) =>
-        pageWire(Number(args.p_offset ?? 0), {
-          revision: 6,
-          hasMore: Number(args.p_offset ?? 0) === 0,
-        }),
+    rpcMock.mockImplementation(async (_name, args) =>
+      pageWire(Number(args.p_offset ?? 0), {
+        revision: 6,
+        hasMore: Number(args.p_offset ?? 0) === 0,
+      }),
     )
 
-    renderWorkspace(
+    await renderWorkspace(
       <CanonicalSheetEditor
         instance={instance}
         projectId={instance.projectId}
@@ -678,22 +513,20 @@ describe('CanonicalSheetEditor — GRID-05 incremental paging', () => {
     const user = userEvent.setup()
     const instance = await composedInstance()
     let zeroCalls = 0
-    rpcMock.mockImplementation(
-      async (_name: string, args: Record<string, unknown>) => {
-        const offset = Number(args.p_offset ?? 0)
+    rpcMock.mockImplementation(async (_name, args) => {
+      const offset = Number(args.p_offset ?? 0)
 
-        if (offset === 0 && zeroCalls++ === 0) {
-          return pageWire(0, { revision: 6, hasMore: true })
-        }
+      if (offset === 0 && zeroCalls++ === 0) {
+        return pageWire(0, { revision: 6, hasMore: true })
+      }
 
-        return pageWire(offset, {
-          revision: 7,
-          hasMore: offset === 0,
-        })
-      },
-    )
+      return pageWire(offset, {
+        revision: 7,
+        hasMore: offset === 0,
+      })
+    })
 
-    renderWorkspace(
+    await renderWorkspace(
       <CanonicalSheetEditor
         instance={instance}
         projectId={instance.projectId}
@@ -710,11 +543,9 @@ describe('CanonicalSheetEditor — GRID-05 incremental paging', () => {
     await waitFor(() =>
       expect(screen.getByText('Showing all 2 rows.')).toBeTruthy(),
     )
-    expect(
-      rpcMock.mock.calls.map(
-        (call) => (call[1] as Record<string, unknown>).p_offset,
-      ),
-    ).toEqual([0, 200, 0, 200])
+    expect(rpcMock.mock.calls.map((call) => call[1].p_offset)).toEqual([
+      0, 200, 0, 200,
+    ])
   })
 })
 
@@ -724,47 +555,44 @@ describe('CanonicalSheetWorkspace — explain surface (ASSIST-01)', () => {
     const instance = await composedInstance()
     rpcMock.mockResolvedValue(twoDatasetWire())
 
-    renderWorkspace(
+    await renderWorkspace(
       <CanonicalSheetEditor
         instance={instance}
         projectId={instance.projectId}
       />,
     )
 
-    await waitFor(() => expect(gridRender).toHaveBeenCalled())
-
-    const props = gridRender.mock.lastCall?.[0] as {
-      columns: Array<{ id: string; label: string }>
-      rows: Array<{ id?: string }>
-      beforeCellsChange: (
-        changes: SheetbaseGridCellChange[],
-        source: string,
-      ) => boolean | undefined
-      onCellsChange: (
-        changes: SheetbaseGridCellChange[],
-        source: string,
-      ) => void
-    }
+    const matrix = canonicalSheetGridMatrix({
+      instance,
+      composition: await composedSnapshot(),
+    })
 
     const paste = [
       {
         rowIndex: 0,
-        rowId: props.rows[0].id,
-        columnId: props.columns[0].id,
+        rowId: matrix.rowKeys[0],
+        columnId: matrix.columns[0].id,
         previous: 'old-a',
         next: '21000000-0000-4000-8000-0000000000c1',
       },
       {
         rowIndex: 0,
-        rowId: props.rows[0].id,
-        columnId: props.columns[1].id,
+        rowId: matrix.rowKeys[0],
+        columnId: matrix.columns[1].id,
         previous: 'old-b',
         next: '21000000-0000-4000-8000-0000000000c2',
       },
     ]
 
-    expect(props.beforeCellsChange(paste, 'paste')).toBeUndefined()
-    props.onCellsChange(paste, 'paste')
+    expect(
+      prepareCanonicalWorkspaceWrite({
+        columns: matrix.columns,
+        changes: paste,
+        source: 'paste',
+      }).result,
+    ).toBeUndefined()
+    selectGridCell(0, 0)
+    pasteGrid(paste.map((change) => change.next).join('\t'))
 
     const writeBack = await screen.findByRole('button', { name: 'Write back' })
     await waitFor(() => expect(writeBack.hasAttribute('disabled')).toBe(false))
@@ -791,21 +619,21 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
   async function composedInstanceWithCalculation(): Promise<SheetInstance> {
     const instance = await composedInstance()
 
-    const outputField = {
+    const outputField: SheetInstance['state']['localFields'][number] = {
       fieldId: CALC,
       key: 'step_yield',
       label: 'Step yield',
       description: null,
-      logicalType: 'decimal' as const,
+      logicalType: 'decimal',
       nullable: true,
       defaultValue: null,
-      cardinality: 'one' as const,
+      cardinality: 'one',
       quantity: null,
       validation: {},
       category: null,
       relationship: null,
-      computation: { mode: 'computed' as const, expressionId: CALC },
-      lifecycle: 'active' as const,
+      computation: { mode: 'computed', expressionId: CALC },
+      lifecycle: 'active',
     }
 
     return {
@@ -830,16 +658,21 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
   it('names each column source in the header group and marks calculated columns ƒx', async () => {
     const instance = await composedInstanceWithCalculation()
     rpcMock.mockResolvedValue(twoDatasetWire())
-    renderWorkspace(
+    await renderWorkspace(
       <CanonicalSheetEditor
         instance={instance}
         projectId={instance.projectId}
       />,
     )
 
-    await waitFor(() => expect(gridRender).toHaveBeenCalled())
-    const props = gridRender.mock.lastCall?.[0] as SheetbaseGridProps
-    const byId = new Map(props.columns.map((column) => [column.id, column]))
+    const columns = canonicalSheetGridMatrix({
+      instance,
+      composition: await composedSnapshot(),
+    }).columns.map((column) =>
+      canonicalWorkspaceGridColumn(column, true, () => ({})),
+    )
+
+    const byId = new Map(columns.map((column) => [column.id, column]))
     const [columnA, columnB] = validSheetDefinitionConfiguration().columns
     const localField = validSheetInstanceState().localFields[0].fieldId
 
@@ -861,18 +694,16 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
       group: 'This experiment',
     })
 
-    const derived = props.columns.find(
-      (column) => column.source === 'calculated',
-    )
+    const derived = columns.find((column) => column.source === 'calculated')
 
     expect(derived).toMatchObject({ label: 'Step yield', group: 'Derived' })
     expect(derived?.sourceLabel).toBeUndefined()
 
     // The group header renders, and only the derived column carries the ƒx
     // calculation mark.
-    expect(screen.getByRole('columnheader', { name: 'Results' })).toBeTruthy()
+    expect(screen.getByText('Results')).toBeTruthy()
     expect(screen.getByText(/ƒx/)).toBeTruthy()
-    expect(props.columns.filter((column) => column.source === 'bound')).toEqual(
+    expect(columns.filter((column) => column.source === 'bound')).toEqual(
       expect.not.arrayContaining([
         expect.objectContaining({ group: 'Derived' }),
       ]),
@@ -882,22 +713,40 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
   it('offers Recalculate beside the stale message and re-reads the results (J-DAT-16)', async () => {
     const instance = await composedInstanceWithCalculation()
 
-    const resultsFor = (calculationStatus: string) => ({
+    const calculation = instance.state.instanceCalculations?.[0]
+
+    if (!calculation) throw new Error('Missing calculation fixture')
+
+    const resultsFor = (
+      calculationStatus: 'current' | 'stale',
+    ): SheetInstanceCalculationResults => ({
+      instanceId: instance.id,
+      revision: instance.revision,
       results: [
         {
           calculationId: CALC,
           rowKey: Object.keys(instance.state.localValues)[0],
           calculatedValue: 1,
           calculationStatus,
+          scope: 'instance',
+          definitionVersionId: null,
+          resultKind: 'value',
+          errorCode: null,
+          diagnostic: null,
+          expression: calculation.expression,
+          dependencies: calculation.dependencies,
+          outputField: calculation.outputField,
+          sourceRevisions: [],
+          dependencyProvenance: [],
+          calculatedAt: instance.updatedAt,
+          permission: { editability: 'read-only' },
         },
       ],
     })
 
-    vi.mocked(readSheetInstanceCalculationResults).mockResolvedValue(
-      resultsFor('stale'),
-    )
+    workspaceHttp.calculations.mockResolvedValue(resultsFor('stale'))
     rpcMock.mockResolvedValue(twoDatasetWire())
-    renderWorkspace(
+    await renderWorkspace(
       <CanonicalSheetEditor
         instance={instance}
         projectId={instance.projectId}
@@ -907,9 +756,7 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
     expect(
       await screen.findByText(/Calculation results are stale/),
     ).toBeTruthy()
-    vi.mocked(readSheetInstanceCalculationResults).mockResolvedValue(
-      resultsFor('current'),
-    )
+    workspaceHttp.calculations.mockResolvedValue(resultsFor('current'))
     await userEvent.click(screen.getByRole('button', { name: 'Recalculate' }))
 
     await waitFor(() =>
@@ -920,28 +767,32 @@ describe('CanonicalSheetEditor — sheet block chrome (EXP-04.2)', () => {
   it('offers the New-run draft row where a run can start', async () => {
     const instance = await composedInstance()
     rpcMock.mockResolvedValue(twoDatasetWire())
-    renderWorkspace(
+    await renderWorkspace(
       <CanonicalSheetEditor
         instance={instance}
         projectId={instance.projectId}
       />,
     )
 
-    await waitFor(() => expect(gridRender).toHaveBeenCalled())
-    const props = gridRender.mock.lastCall?.[0] as SheetbaseGridProps
-    expect(props.appendRow).toBe(true)
+    expect(
+      screen.getByRole('rowheader', {
+        name: 'New run — type a condition or paste rows',
+      }),
+    ).toBeTruthy()
   })
 
   it('withholds the New-run draft row when the Sheet is read-only', async () => {
     const instance = await composedInstance()
     rpcMock.mockResolvedValue(twoDatasetWire())
-    renderWorkspace(
+    await renderWorkspace(
       <CanonicalSheetEditor instance={instance} projectId={null} readOnly />,
     )
 
-    await waitFor(() => expect(gridRender).toHaveBeenCalled())
-    const props = gridRender.mock.lastCall?.[0] as SheetbaseGridProps
-    expect(props.appendRow).toBe(false)
+    expect(
+      screen.queryByRole('rowheader', {
+        name: 'New run — type a condition or paste rows',
+      }),
+    ).toBeNull()
   })
 })
 
@@ -1041,49 +892,38 @@ describe('CanonicalSheetEditor — cell conflict inspector (EXP-05.4)', () => {
     })
 
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
-    render(
-      <QueryClientProvider client={queryClient}>
-        <CanonicalSheetEditor
-          instance={instance}
-          projectId={instance.projectId}
-          commentActor={{
-            user: {
-              id: 'member',
-              name: 'Scientist',
-              email: 'member@test.invalid',
-            },
-            workspace: {
-              id: instance.workspaceId,
-              slug: 'lab',
-              name: 'Lab',
-              role: 'member',
-            },
-          }}
-        />
-      </QueryClientProvider>,
+    await renderWorkspace(
+      <CanonicalSheetEditor
+        instance={instance}
+        projectId={instance.projectId}
+        commentActor={{
+          user: {
+            id: 'member',
+            name: 'Scientist',
+            email: 'member@test.invalid',
+          },
+          workspace: {
+            id: instance.workspaceId,
+            slug: 'lab',
+            name: 'Lab',
+            role: 'member',
+          },
+        }}
+      />,
+      queryClient,
     )
 
     // The Sheet-wide count is offered with a way to reach the first conflict.
     await waitFor(() =>
       expect(screen.getByText('1 open cell conflict')).toBeTruthy(),
     )
-    const selectCell = vi.fn()
-    const props = gridRender.mock.lastCall?.[0] as SheetbaseGridProps
-    act(() => props.onReady?.({ selectCell } as unknown as SheetbaseGridHandle))
     await user.click(
       screen.getByRole('button', { name: 'Review first conflict' }),
     )
-    expect(selectCell).toHaveBeenCalledWith(0, 0)
+    expect(gridCell(0, 0).classList.contains('active-cell')).toBe(true)
 
     // Selecting the conflicted cell is what puts it in the inspector.
-    act(() =>
-      props.onSelectionChange?.({
-        rowIndex: 0,
-        rowId: ROW_A,
-        columnId: fieldId,
-        input: '91',
-      }),
-    )
+    selectGridCell(0, 0)
     expect(
       await screen.findByRole('complementary', { name: 'Resolve conflict' }),
     ).toBeTruthy()
@@ -1118,8 +958,7 @@ describe('CanonicalSheetEditor — cell conflict inspector (EXP-05.4)', () => {
 
   it('renders no conflict panel when the Sheet has no open conflicts', async () => {
     const instance = conflictInstance()
-    const fieldId = instance.state.localFields[0].fieldId
-    renderWorkspace(
+    await renderWorkspace(
       <CanonicalSheetEditor
         instance={instance}
         projectId={instance.projectId}
@@ -1131,15 +970,7 @@ describe('CanonicalSheetEditor — cell conflict inspector (EXP-05.4)', () => {
         expect.any(String),
       ),
     )
-    const props = gridRender.mock.lastCall?.[0] as SheetbaseGridProps
-    act(() =>
-      props.onSelectionChange?.({
-        rowIndex: 0,
-        rowId: ROW_A,
-        columnId: fieldId,
-        input: '91',
-      }),
-    )
+    selectGridCell(0, 0)
     expect(
       screen.queryByRole('complementary', { name: 'Resolve conflict' }),
     ).toBeNull()
@@ -1174,9 +1005,17 @@ describe('CanonicalSheetWorkspace — stale cell write (GRID-04 parity)', () => 
       revision: instance.revision + 1,
     }
 
-    vi.mocked(mutateSheetLocalState)
-      .mockRejectedValueOnce(new Error('stale revision: the Sheet moved on'))
-      .mockResolvedValue(fresh)
+    workspaceHttp.local
+      .mockResolvedValueOnce(
+        Response.json(
+          {
+            code: 'stale_revision',
+            message: 'stale revision: the Sheet moved on',
+          },
+          { status: 409 },
+        ),
+      )
+      .mockResolvedValue(instanceWire(fresh))
     listMock.mockImplementation(async (resource: string) =>
       resource === 'sheet_instances'
         ? [
@@ -1200,70 +1039,45 @@ describe('CanonicalSheetWorkspace — stale cell write (GRID-04 parity)', () => 
           ]
         : [],
     )
-    renderWorkspace(
+    await renderWorkspace(
       <CanonicalSheetEditor
         instance={instance}
         projectId={instance.projectId}
       />,
     )
-    await waitFor(() => expect(gridRender).toHaveBeenCalled())
-    const props: SheetbaseGridProps = gridRender.mock.lastCall?.[0]
-    const rowId = props.rows[0].id
-    const columnId = props.columns[0].id
-    act(() =>
-      props.onCellsChange?.(
-        [
-          {
-            rowIndex: 0,
-            rowId,
-            columnId,
-            previous: null,
-            next: 'committed once',
-          },
-        ],
-        'edit',
-      ),
-    )
-    await waitFor(() => expect(mutateSheetLocalState).toHaveBeenCalledTimes(2))
-    const calls = vi.mocked(mutateSheetLocalState).mock.calls
+    const rowId = Object.keys(instance.state.localValues)[0]
+    const columnId = instance.state.localFields[0].fieldId
+    selectGridCell(0, 0)
+    pasteGrid('committed once')
+    await waitFor(() => expect(workspaceHttp.local).toHaveBeenCalledTimes(2))
+    const calls = workspaceHttp.local.mock.calls
     expect(calls[0][0]).toMatchObject({
-      expectedRevision: instance.revision,
-      cells: [{ rowKey: rowId, fieldId: columnId, value: 'committed once' }],
+      p_expected_revision: instance.revision,
+      p_cells: [{ rowKey: rowId, fieldId: columnId, value: 'committed once' }],
     })
     expect(calls[1][0]).toMatchObject({
-      expectedRevision: fresh.revision,
-      cells: [{ rowKey: rowId, fieldId: columnId, value: 'committed once' }],
+      p_expected_revision: fresh.revision,
+      p_cells: [{ rowKey: rowId, fieldId: columnId, value: 'committed once' }],
     })
-    expect(mutateSheetLocalState).toHaveBeenCalledTimes(2)
+    expect(workspaceHttp.local).toHaveBeenCalledTimes(2)
   })
 
   it('states a non-stale failure instead of retrying it', async () => {
     const instance = await editableLocalInstance()
-    vi.mocked(mutateSheetLocalState).mockRejectedValue(
-      new Error('the value is not a number'),
+    workspaceHttp.local.mockResolvedValue(
+      Response.json(
+        { code: 'invalid_value', message: 'the value is not a number' },
+        { status: 400 },
+      ),
     )
-    renderWorkspace(
+    await renderWorkspace(
       <CanonicalSheetEditor
         instance={instance}
         projectId={instance.projectId}
       />,
     )
-    await waitFor(() => expect(gridRender).toHaveBeenCalled())
-    const props: SheetbaseGridProps = gridRender.mock.lastCall?.[0]
-    act(() =>
-      props.onCellsChange?.(
-        [
-          {
-            rowIndex: 0,
-            rowId: props.rows[0].id,
-            columnId: props.columns[0].id,
-            previous: null,
-            next: 'nope',
-          },
-        ],
-        'edit',
-      ),
-    )
+    selectGridCell(0, 0)
+    pasteGrid('nope')
     await waitFor(() =>
       // The inspector renders its content in the desktop aside and in the
       // mobile sheet, so the status line appears twice.
@@ -1271,6 +1085,6 @@ describe('CanonicalSheetWorkspace — stale cell write (GRID-04 parity)', () => 
         0,
       ),
     )
-    expect(mutateSheetLocalState).toHaveBeenCalledTimes(1)
+    expect(workspaceHttp.local).toHaveBeenCalledTimes(1)
   })
 })

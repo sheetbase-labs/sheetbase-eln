@@ -62,8 +62,7 @@ import type { ReadSequence } from '#/components/registry/registry-form'
  * `parseModelFieldInput`) runs here and in `create_model_record`; the server
  * stays authoritative. No per-model form code.
  */
-export function RecordModelNew({ modelKey }: { modelKey: string }) {
-  const navigate = useNavigate()
+function useNewRecordSchema(modelKey: string) {
   const model = useWorkspaceRecordModel(modelKey)
   const ownFields = useRecordModelFields(modelKey)
   const rulesQuery = useModelRules(modelKey)
@@ -99,9 +98,54 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
     fields.map((field) => [field.fieldName, true as const]),
   )
 
-  const rules = rulesQuery.data ?? []
+  const rules = useMemo(() => rulesQuery.data ?? [], [rulesQuery.data])
   const projects = projectsQuery.data ?? []
   const records = recordsQuery.data ?? []
+  const isRegistry = Boolean(model.data?.is_registry)
+
+  const sequenceField = isRegistry
+    ? (model.data?.registry_sequence_field ?? null)
+    : null
+
+  const lotKind = model.data?.registry_lot_kind ?? null
+
+  return {
+    isRegistry,
+    sequenceField,
+    lotKind,
+    model,
+    parentKey,
+    rootKey,
+    fieldsQuery,
+    fields,
+    rootFieldKeys,
+    names,
+    rules,
+    projects,
+    records,
+    projectsQuery,
+  }
+}
+
+function useNewRecord(modelKey: string) {
+  const navigate = useNavigate()
+
+  const {
+    isRegistry,
+    sequenceField,
+    lotKind,
+    model,
+    parentKey,
+    rootKey,
+    fieldsQuery,
+    fields,
+    rootFieldKeys,
+    names,
+    rules,
+    projects,
+    records,
+    projectsQuery,
+  } = useNewRecordSchema(modelKey)
 
   const [title, setTitle] = useState('')
   const [projectId, setProjectId] = useState('')
@@ -116,14 +160,6 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
   const [interacted, setInteracted] = useState(false)
 
   const selectedProject = projectId || projects[0]?.id || ''
-
-  const isRegistry = Boolean(model.data?.is_registry)
-
-  const sequenceField = isRegistry
-    ? (model.data?.registry_sequence_field ?? null)
-    : null
-
-  const lotKind = model.data?.registry_lot_kind ?? null
 
   // The sequence file fills the sequence field, so it is not typed in too.
   const shownFields = useMemo(
@@ -145,106 +181,13 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
     [fields, values],
   )
 
-  // Ask the database whether this is already registered, once typing settles.
-  const [settled, setSettled] = useState({ title: '', custom: '' })
-  const customJson = JSON.stringify(customFields)
-  useEffect(() => {
-    const timer = window.setTimeout(
-      () => setSettled({ title, custom: customJson }),
-      300,
-    )
-
-    return () => window.clearTimeout(timer)
-  }, [title, customJson])
-
-  const duplicates = useQuery({
-    queryKey: [
-      ...registryKeys.all,
-      'duplicates',
+  const { duplicates, rule, ruleKey, matches, ruleBusy } =
+    useRegistryDuplicates({
       modelKey,
-      settled.title.trim().toLowerCase(),
-      settled.custom,
-    ],
-    queryFn: () =>
-      findDuplicates(notebookDataClient, {
-        kind: modelKey,
-        title: settled.title,
-        customFields: JSON.parse(settled.custom) as Record<string, unknown>,
-      }),
-    enabled:
-      isRegistry && (settled.title.trim() !== '' || settled.custom !== '{}'),
-    staleTime: 5_000,
-  })
-
-  const nameMatches = isRegistry ? (duplicates.data ?? []) : []
-
-  // A same-thing rule from a plugin, when the model has one: the plugin works
-  // out a key from the fields and entries with the same key are matches too.
-  const pluginPoints = useExtensionPoints()
-
-  const ruleName = useQuery({
-    queryKey: samenessKeys.rule(modelKey),
-    queryFn: () => getSamenessRule(notebookDataClient, modelKey),
-    enabled: isRegistry,
-    staleTime: 30_000,
-  })
-
-  const rule = isRegistry
-    ? pluginPoints.data['sameness-keys'].find(
-        (item) => item.name === ruleName.data,
-      )
-    : undefined
-
-  const ruleInputs =
-    rule && settled.custom !== ''
-      ? samenessInputs(
-          rule.declaration.fields,
-          settled.title,
-          JSON.parse(settled.custom) as Record<string, unknown>,
-        )
-      : null
-
-  const ruleKey = useQuery({
-    queryKey: [
-      'registry',
-      'sameness-key',
-      modelKey,
-      JSON.stringify(ruleInputs?.values ?? {}),
-    ],
-    queryFn: () =>
-      runSamenessKey({
-        extensionKey: rule!.extensionKey,
-        keyId: rule!.id,
-        values: ruleInputs!.values,
-      }),
-    enabled: Boolean(rule && ruleInputs && ruleInputs.missing.length === 0),
-    staleTime: 60_000,
-    retry: false,
-  })
-
-  const ruleMatches = useQuery({
-    queryKey: samenessKeys.matches([modelKey, ruleKey.data ?? '']),
-    queryFn: () =>
-      samenessMatches(notebookDataClient, {
-        modelKey,
-        value: ruleKey.data ?? '',
-      }),
-    enabled: Boolean(ruleKey.data),
-    staleTime: 5_000,
-  })
-
-  const matches = [
-    ...nameMatches,
-    ...(ruleMatches.data ?? []).filter(
-      (match) => !nameMatches.some((other) => other.id === match.id),
-    ),
-  ]
-
-  const ruleBusy =
-    Boolean(rule) &&
-    (settled.title !== title ||
-      settled.custom !== customJson ||
-      ruleKey.isFetching)
+      isRegistry,
+      title,
+      customFields,
+    })
 
   const pluginErrors = usePluginFieldTypeErrors(modelKey, fields, values)
   const pluginPlaceholders = usePluginFieldPlaceholders(modelKey)
@@ -278,10 +221,280 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
     Boolean(selectedProject) &&
     (matches.length === 0 ? true : acknowledged)
 
-  async function submit(event: React.FormEvent) {
+  const submit = recordSubmission({
+    modelKey,
+    model: model.data,
+    canSubmit,
+    setSubmitting,
+    setSubmitError,
+    isRegistry,
+    selectedProject,
+    title,
+    customFields,
+    acknowledged,
+    rule,
+    ruleKey,
+    parentKey,
+    rootKey,
+    rootFieldKeys,
+    navigate,
+    duplicates,
+  })
+
+  async function addAsLot(match: { id: string; identifier: string }) {
+    setAddingLot(true)
+    setSubmitError(null)
+
+    try {
+      const lot = await addRegistryLot<RecordModelRecord>(notebookDataClient, {
+        entryId: match.id,
+        projectId: selectedProject,
+        title: title.trim(),
+        customFields: {},
+      })
+
+      toast.success(
+        t('registry.chemistry.duplicate.lotAdded', {
+          number: match.identifier,
+        }),
+      )
+      await navigate({
+        to: '/models/$modelId/records/$recordId',
+        params: { modelId: lotKind ?? modelKey, recordId: lot.id },
+      })
+    } catch (caught) {
+      setSubmitError(
+        messageOf(caught, t('registry.chemistry.duplicate.couldNotAddLot')),
+      )
+    } finally {
+      setAddingLot(false)
+    }
+  }
+
+  const loading =
+    model.isLoading || fieldsQuery.isLoading || projectsQuery.isLoading
+
+  return {
+    model,
+    modelKey,
+    submit,
+    loading,
+    fields,
+    title,
+    setTitle,
+    interacted,
+    setInteracted,
+    titleError,
+    matches,
+    acknowledged,
+    setAcknowledged,
+    lotKind,
+    selectedProject,
+    addAsLot,
+    addingLot,
+    sequenceField,
+    sequence,
+    submitting,
+    setSequence,
+    setValues,
+    names,
+    projects,
+    setProjectId,
+    shownFields,
+    pluginPlaceholders,
+    pluginInputs,
+    values,
+    fieldErrors,
+    validation,
+    submitError,
+    canSubmit,
+    parentKey,
+    idPreview,
+  }
+}
+
+function useRegistryDuplicates({
+  modelKey,
+  isRegistry,
+  title,
+  customFields,
+}: {
+  modelKey: string
+  isRegistry: boolean
+  title: string
+  customFields: ReturnType<typeof buildRecordModelCustomFields>
+}) {
+  // Ask the database whether this is already registered, once typing settles.
+  const [settled, setSettled] = useState({
+    title: '',
+    custom: '',
+    fields: buildRecordModelCustomFields([], {}),
+  })
+
+  const customJson = JSON.stringify(customFields)
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setSettled({ title, custom: customJson, fields: customFields }),
+      300,
+    )
+
+    return () => window.clearTimeout(timer)
+  }, [title, customJson, customFields])
+
+  const settledFields = settled.fields
+
+  const duplicates = useQuery({
+    queryKey: [
+      ...registryKeys.all,
+      'duplicates',
+      modelKey,
+      settled.title.trim().toLowerCase(),
+      settled.custom,
+    ],
+    queryFn: () =>
+      findDuplicates(notebookDataClient, {
+        kind: modelKey,
+        title: settled.title,
+        customFields: settledFields,
+      }),
+    enabled:
+      isRegistry && (settled.title.trim() !== '' || settled.custom !== '{}'),
+    staleTime: 5_000,
+  })
+
+  const nameMatches = isRegistry ? (duplicates.data ?? []) : []
+
+  const { rule, ruleKey, ruleMatches } = useRegistrySameness({
+    modelKey,
+    isRegistry,
+    settled,
+    settledFields,
+  })
+
+  const matches = [
+    ...nameMatches,
+    ...(ruleMatches.data ?? []).filter(
+      (match) => !nameMatches.some((other) => other.id === match.id),
+    ),
+  ]
+
+  const ruleBusy =
+    Boolean(rule) &&
+    (settled.title !== title ||
+      settled.custom !== customJson ||
+      ruleKey.isFetching)
+
+  return { duplicates, rule, ruleKey, matches, ruleBusy }
+}
+
+function useRegistrySameness({
+  modelKey,
+  isRegistry,
+  settled,
+  settledFields,
+}: {
+  modelKey: string
+  isRegistry: boolean
+  settled: { title: string; custom: string }
+  settledFields: ReturnType<typeof buildRecordModelCustomFields>
+}) {
+  // A same-thing rule from a plugin, when the model has one: the plugin works
+  // out a key from the fields and entries with the same key are matches too.
+  const pluginPoints = useExtensionPoints()
+
+  const ruleName = useQuery({
+    queryKey: samenessKeys.rule(modelKey),
+    queryFn: () => getSamenessRule(notebookDataClient, modelKey),
+    enabled: isRegistry,
+    staleTime: 30_000,
+  })
+
+  const rule = isRegistry
+    ? pluginPoints.data['sameness-keys'].find(
+        (item) => item.name === ruleName.data,
+      )
+    : undefined
+
+  const ruleInputs =
+    rule && settled.custom !== ''
+      ? samenessInputs(rule.declaration.fields, settled.title, settledFields)
+      : null
+
+  const ruleKey = useQuery({
+    queryKey: [
+      'registry',
+      'sameness-key',
+      modelKey,
+      JSON.stringify(ruleInputs?.values ?? {}),
+    ],
+    queryFn: () =>
+      runSamenessKey({
+        extensionKey: rule!.extensionKey,
+        keyId: rule!.id,
+        values: ruleInputs!.values,
+      }),
+    enabled: Boolean(rule && ruleInputs && ruleInputs.missing.length === 0),
+    staleTime: 60_000,
+    retry: false,
+  })
+
+  const ruleMatches = useQuery({
+    queryKey: samenessKeys.matches([modelKey, ruleKey.data ?? '']),
+    queryFn: () =>
+      samenessMatches(notebookDataClient, {
+        modelKey,
+        value: ruleKey.data ?? '',
+      }),
+    enabled: Boolean(ruleKey.data),
+    staleTime: 5_000,
+  })
+
+  return { rule, ruleKey, ruleMatches }
+}
+
+type Submission = {
+  modelKey: string
+  model: ReturnType<typeof useWorkspaceRecordModel>['data']
+  canSubmit: boolean
+  setSubmitting: (value: boolean) => void
+  setSubmitError: (value: string | null) => void
+  isRegistry: boolean
+  selectedProject: string
+  title: string
+  customFields: ReturnType<typeof buildRecordModelCustomFields>
+  acknowledged: boolean
+  rule: ReturnType<typeof useRegistryDuplicates>['rule']
+  ruleKey: ReturnType<typeof useRegistryDuplicates>['ruleKey']
+  parentKey: string | null
+  rootKey: string
+  rootFieldKeys: Set<string>
+  navigate: ReturnType<typeof useNavigate>
+  duplicates: ReturnType<typeof useRegistryDuplicates>['duplicates']
+}
+
+function recordSubmission({
+  modelKey,
+  model,
+  canSubmit,
+  setSubmitting,
+  setSubmitError,
+  isRegistry,
+  selectedProject,
+  title,
+  customFields,
+  acknowledged,
+  rule,
+  ruleKey,
+  parentKey,
+  rootKey,
+  rootFieldKeys,
+  navigate,
+  duplicates,
+}: Submission) {
+  return async function submit(event: React.FormEvent) {
     event.preventDefault()
 
-    if (!canSubmit || !model.data) return
+    if (!canSubmit || !model) return
     setSubmitting(true)
     setSubmitError(null)
 
@@ -333,7 +546,6 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
       if (isDuplicateError(caught)) {
         void duplicates.refetch()
         setSubmitError(t('registry.duplicate.refused'))
-        setSubmitting(false)
 
         return
       }
@@ -343,38 +555,29 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
           ? caught.message
           : t('library.models.recordModelNew.couldNotCreateTheRecord'),
       )
+    } finally {
       setSubmitting(false)
     }
   }
+}
 
-  async function addAsLot(match: { id: string; identifier: string }) {
-    setAddingLot(true)
-    setSubmitError(null)
+type NewRecord = ReturnType<typeof useNewRecord>
 
-    try {
-      const lot = await addRegistryLot<RecordModelRecord>(notebookDataClient, {
-        entryId: match.id,
-        projectId: selectedProject,
-        title: title.trim(),
-        customFields: {},
-      })
+export function RecordModelNew({ modelKey }: { modelKey: string }) {
+  const form = useNewRecord(modelKey)
 
-      toast.success(
-        t('registry.chemistry.duplicate.lotAdded', {
-          number: match.identifier,
-        }),
-      )
-      await navigate({
-        to: '/models/$modelId/records/$recordId',
-        params: { modelId: lotKind ?? modelKey, recordId: lot.id },
-      })
-    } catch (caught) {
-      setSubmitError(
-        messageOf(caught, t('registry.chemistry.duplicate.couldNotAddLot')),
-      )
-      setAddingLot(false)
-    }
-  }
+  const {
+    model,
+    submit,
+    loading,
+    fields,
+    validation,
+    submitError,
+    canSubmit,
+    submitting,
+    parentKey,
+    idPreview,
+  } = form
 
   if (!model.isLoading && !model.data) {
     return (
@@ -400,9 +603,6 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
     )
   }
 
-  const loading =
-    model.isLoading || fieldsQuery.isLoading || projectsQuery.isLoading
-
   return (
     <form
       onSubmit={submit}
@@ -422,160 +622,10 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
             {t('library.models.recordModelNew.thisModelHasNoActive')}
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <label className="text-xs text-fg-muted">
-              {t('library.models.recordModelNew.name')}
-              <Input
-                className="mt-1 h-8 text-xs"
-                value={title}
-                onChange={(event) => {
-                  setTitle(event.target.value)
-                  setInteracted(true)
-                }}
-                aria-label={t('library.models.recordModelNew.name2')}
-                required
-              />
-              {interacted && titleError ? (
-                <span role="alert" className="mt-1 block text-danger-text">
-                  {titleError}
-                </span>
-              ) : null}
-            </label>
-
-            {matches.length > 0 ? (
-              <div className="md:col-span-2">
-                <DuplicateNotice
-                  modelKey={modelKey}
-                  matches={matches}
-                  acknowledged={acknowledged}
-                  onAcknowledge={setAcknowledged}
-                  onAddLot={
-                    lotKind && selectedProject !== ''
-                      ? (match) => void addAsLot(match)
-                      : undefined
-                  }
-                  addingLot={addingLot}
-                />
-              </div>
-            ) : null}
-
-            {sequenceField ? (
-              <SequenceReader
-                value={sequence}
-                disabled={submitting}
-                onChange={(next) => {
-                  setSequence(next)
-                  setAcknowledged(false)
-                  setValues((current) => {
-                    const out = { ...current }
-
-                    if (next) out[sequenceField] = next.fingerprint
-                    else delete out[sequenceField]
-
-                    if (next && 'sequence_length' in names)
-                      out.sequence_length = String(next.length)
-
-                    if (next && 'shape' in names) out.shape = next.shape
-
-                    return out
-                  })
-
-                  if (next && !title.trim()) setTitle(next.name)
-                }}
-              />
-            ) : null}
-
-            {projects.length > 1 ? (
-              <label className="text-xs text-fg-muted">
-                {t('library.models.recordModelNew.project')}
-                <PickerSelect
-                  noun="project"
-                  className="mt-1 h-8 text-xs"
-                  value={selectedProject}
-                  onChange={(id) => setProjectId(id)}
-                  aria-label={t('library.models.recordModelNew.project2')}
-                  options={projects.map((project) => projectOption(project))}
-                />
-              </label>
-            ) : projects.length === 1 ? (
-              <div className="text-xs text-fg-muted">
-                {rich('library.models.recordModelNew.project3', {
-                  title: projects[0].title,
-                  p: (text) => (
-                    <p className="mt-1 mb-0 text-body text-fg">{text}</p>
-                  ),
-                })}
-              </div>
-            ) : (
-              <div className="md:col-span-2">
-                <Notice
-                  tone="warn"
-                  title={t('library.models.recordModelNew.aProjectIsRequired')}
-                  action={
-                    <Button
-                      size="sm"
-                      nativeButton={false}
-                      render={<Link to="/projects" />}
-                    >
-                      {t('library.models.recordModelNew.projects')}
-                    </Button>
-                  }
-                >
-                  {t('library.models.recordModelNew.everyRecordIsFiledUnder')}
-                </Notice>
-              </div>
-            )}
-
-            {shownFields.map((field) => (
-              <div key={field.id} className="flex flex-col gap-1">
-                <ModelFieldInput
-                  definition={field}
-                  placeholder={pluginPlaceholders[field.fieldName]}
-                  pluginInput={pluginInputs[field.fieldName]}
-                  value={
-                    values[field.fieldName] ??
-                    (field.logicalType === 'boolean' ? false : '')
-                  }
-                  onChange={(value) => {
-                    setValues((current) => ({
-                      ...current,
-                      [field.fieldName]: value,
-                    }))
-                    setInteracted(true)
-                  }}
-                />
-                {interacted && fieldErrors[field.fieldName] ? (
-                  <span
-                    role="alert"
-                    className="text-[0.65rem] text-danger-text"
-                  >
-                    {modelFieldErrorMessage(fieldErrors[field.fieldName])}
-                  </span>
-                ) : null}
-              </div>
-            ))}
-          </div>
+          <NewRecordFields form={form} />
         )}
 
-        {validation.blocks.length || validation.warnings.length ? (
-          <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
-            {[...validation.blocks, ...validation.warnings].map((match) => (
-              <li
-                key={match.ruleId}
-                className={
-                  match.effect === 'block'
-                    ? 'text-danger-text'
-                    : 'text-fg-muted'
-                }
-              >
-                {match.effect === 'block'
-                  ? t('library.models.recordModelNew.blocked')
-                  : t('library.models.recordModelNew.rule')}
-                {match.message}
-              </li>
-            ))}
-          </ul>
-        ) : null}
+        <NewRecordRules validation={validation} />
 
         {submitError ? (
           <p role="alert" className="m-0 text-label text-danger-text">
@@ -616,4 +666,190 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
       </Section>
     </form>
   )
+}
+
+function NewRecordFields({ form }: { form: NewRecord }) {
+  const {
+    modelKey,
+    title,
+    setTitle,
+    interacted,
+    setInteracted,
+    titleError,
+    matches,
+    acknowledged,
+    setAcknowledged,
+    lotKind,
+    selectedProject,
+    addAsLot,
+    addingLot,
+    sequenceField,
+    sequence,
+    submitting,
+    setSequence,
+    setValues,
+    names,
+    projects,
+    setProjectId,
+    shownFields,
+    pluginPlaceholders,
+    pluginInputs,
+    values,
+    fieldErrors,
+  } = form
+
+  return (
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <label className="text-xs text-fg-muted">
+        {t('library.models.recordModelNew.name')}
+        <Input
+          className="mt-1 h-8 text-xs"
+          value={title}
+          onChange={(event) => {
+            setTitle(event.target.value)
+            setInteracted(true)
+          }}
+          aria-label={t('library.models.recordModelNew.name2')}
+          required
+        />
+        {interacted && titleError ? (
+          <span role="alert" className="mt-1 block text-danger-text">
+            {titleError}
+          </span>
+        ) : null}
+      </label>
+
+      {matches.length > 0 ? (
+        <div className="md:col-span-2">
+          <DuplicateNotice
+            modelKey={modelKey}
+            matches={matches}
+            acknowledged={acknowledged}
+            onAcknowledge={setAcknowledged}
+            onAddLot={
+              lotKind && selectedProject !== ''
+                ? (match) => void addAsLot(match)
+                : undefined
+            }
+            addingLot={addingLot}
+          />
+        </div>
+      ) : null}
+
+      {sequenceField ? (
+        <SequenceReader
+          value={sequence}
+          disabled={submitting}
+          onChange={(next) => {
+            setSequence(next)
+            setAcknowledged(false)
+            setValues((current) => {
+              const out = { ...current }
+
+              if (next) out[sequenceField] = next.fingerprint
+              else delete out[sequenceField]
+
+              if (next && 'sequence_length' in names)
+                out.sequence_length = String(next.length)
+
+              if (next && 'shape' in names) out.shape = next.shape
+
+              return out
+            })
+
+            if (next && !title.trim()) setTitle(next.name)
+          }}
+        />
+      ) : null}
+
+      {projects.length > 1 ? (
+        <label className="text-xs text-fg-muted">
+          {t('library.models.recordModelNew.project')}
+          <PickerSelect
+            noun="project"
+            className="mt-1 h-8 text-xs"
+            value={selectedProject}
+            onChange={(id) => setProjectId(id)}
+            aria-label={t('library.models.recordModelNew.project2')}
+            options={projects.map((project) => projectOption(project))}
+          />
+        </label>
+      ) : projects.length === 1 ? (
+        <div className="text-xs text-fg-muted">
+          {rich('library.models.recordModelNew.project3', {
+            title: projects[0].title,
+            p: (text) => <p className="mt-1 mb-0 text-body text-fg">{text}</p>,
+          })}
+        </div>
+      ) : (
+        <div className="md:col-span-2">
+          <Notice
+            tone="warn"
+            title={t('library.models.recordModelNew.aProjectIsRequired')}
+            action={
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={<Link to="/projects" />}
+              >
+                {t('library.models.recordModelNew.projects')}
+              </Button>
+            }
+          >
+            {t('library.models.recordModelNew.everyRecordIsFiledUnder')}
+          </Notice>
+        </div>
+      )}
+
+      {shownFields.map((field) => (
+        <div key={field.id} className="flex flex-col gap-1">
+          <ModelFieldInput
+            definition={field}
+            placeholder={pluginPlaceholders[field.fieldName]}
+            pluginInput={pluginInputs[field.fieldName]}
+            value={
+              values[field.fieldName] ??
+              (field.logicalType === 'boolean' ? false : '')
+            }
+            onChange={(value) => {
+              setValues((current) => ({
+                ...current,
+                [field.fieldName]: value,
+              }))
+              setInteracted(true)
+            }}
+          />
+          {interacted && fieldErrors[field.fieldName] ? (
+            <span role="alert" className="text-[0.65rem] text-danger-text">
+              {modelFieldErrorMessage(fieldErrors[field.fieldName])}
+            </span>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function NewRecordRules({
+  validation,
+}: {
+  validation: NewRecord['validation']
+}) {
+  return validation.blocks.length || validation.warnings.length ? (
+    <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
+      {[...validation.blocks, ...validation.warnings].map((match) => (
+        <li
+          key={match.ruleId}
+          className={
+            match.effect === 'block' ? 'text-danger-text' : 'text-fg-muted'
+          }
+        >
+          {match.effect === 'block'
+            ? t('library.models.recordModelNew.blocked')
+            : t('library.models.recordModelNew.rule')}
+          {match.message}
+        </li>
+      ))}
+    </ul>
+  ) : null
 }

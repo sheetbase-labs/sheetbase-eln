@@ -7,31 +7,37 @@
  * and the two promotion surfaces — the request dialog and the returned banner —
  * mounted against a recording data client.
  */
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { enabledMenuActions } from '@sheetbase-labs/sheetbase-table'
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react'
-import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { validSheetDefinitionConfiguration } from '../../../tests/fixtures/sheet-definition'
-import type { DataClient } from '#/lib/data-client'
+import { createDataClient, dropSharedReads } from '#/lib/data-client'
 import { fetchComposedSheetRows } from '#/lib/sheet-composition-data'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
 import { validSheetInstanceState } from '#/lib/sheet-instance.test'
 import type { ColumnPromotion } from '#/lib/schema-evolution'
 
 import { CanonicalSheetEditor } from './canonical-sheet-workspace'
-import type {
-  SheetbaseGridMenuItem,
-  SheetbaseGridProps,
-} from './sheetbase-grid'
+import { renderSheetRoute } from './sheet-test-router'
 
-const rpcMock = vi.hoisted(() => vi.fn())
-const listMock = vi.hoisted(() => vi.fn())
-const gridRender = vi.hoisted(() => vi.fn())
+// Module-level DataClients capture this dispatcher; each test installs its HTTP handler.
+const transport = vi.hoisted(() => {
+  const dispatch = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', dispatch)
+
+  return dispatch
+})
+
+const listRequests = vi.fn<(resource: string, query: string) => void>()
 
 /** Mutable so a test can state what `column_promotions` holds. */
-const promotionState = vi.hoisted(() => ({ rows: [] as ColumnPromotion[] }))
+let promotionRows: ColumnPromotion[] = []
 
 const INSTANCE = '21000000-0000-4000-8000-000000000001'
 const DEFINITION_VERSION = '21000000-0000-4000-8000-000000000002'
@@ -120,78 +126,51 @@ function composedWire() {
   }
 }
 
-/**
- * A DataClient that answers the composition with one bound row and the two
- * promotion surfaces from `promotionState`. Every client in the tree comes from
- * this factory, so `list` stays observable and no request escapes the test.
- */
-function fakeClient(): DataClient {
-  return {
-    list: (async (resource: string, query?: string) => {
-      listMock(resource, query)
-
-      if (resource === 'dataset_schema_definitions') return [DEFINITION]
-
-      if (resource === 'column_promotions') return promotionState.rows
-
-      return []
-    }) as DataClient['list'],
-    count: async () => 0,
-    rpc: (async (name: string, args: Record<string, unknown>) =>
-      name === 'query_sheet_instance_rows'
-        ? composedWire()
-        : await rpcMock(name, args)) as DataClient['rpc'],
-    insert: async () => ({}) as never,
-    patch: async () => [],
-    remove: () => Promise.resolve([]),
-  }
-}
-
-vi.mock('#/lib/data-client', async () =>
-  Object.assign({}, await vi.importActual('#/lib/data-client'), {
-    createDataClient: () => fakeClient(),
-  }),
-)
-
-vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
-  ...(await importOriginal()),
-  mutateSheetLocalState: vi.fn(),
-  readSheetInstanceCalculationResults: vi.fn().mockResolvedValue({
-    results: [],
-  }),
-}))
-
-// The grid is replaced with a props recorder: the menu entries are the real
-// workspace entries, and change flows are simulated by invoking the captured
-// callbacks exactly as the grid would.
-vi.mock('./sheetbase-grid', () => ({
-  SheetbaseTableGrid: (props: SheetbaseGridProps) => {
-    gridRender(props)
-
-    return (
-      <table>
-        <thead>
-          <tr>
-            {props.columns.map((column) => (
-              <th key={column.id} scope="col">
-                {column.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-      </table>
+beforeEach(() => {
+  dropSharedReads()
+  vi.stubGlobal('fetch', transport)
+  vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(1200)
+  vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(2400)
+  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1200)
+  vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(2400)
+  vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+    () => new DOMRect(0, 0, 1200, 2400),
+  )
+  transport.mockImplementation(async (input) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input.toString(),
+      'http://localhost',
     )
-  },
-}))
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children }: { children: ReactNode }) => <a>{children}</a>,
-}))
+    if (url.pathname.endsWith('/rpc/query_sheet_instance_rows'))
+      return Response.json(composedWire())
+
+    if (url.pathname.endsWith('/rpc/read_sheet_instance_calculation_results'))
+      return Response.json({ instanceId: INSTANCE, revision: 1, results: [] })
+
+    if (url.pathname.includes('/rpc/'))
+      throw new Error(`Unexpected RPC: ${url.pathname}`)
+    const resource = url.pathname.split('/').at(-1) ?? ''
+    listRequests(resource, url.search)
+
+    if (resource === 'dataset_schema_definitions')
+      return Response.json([DEFINITION])
+
+    if (resource === 'column_promotions') return Response.json(promotionRows)
+
+    return Response.json([])
+  })
+})
 
 async function composedInstance(): Promise<SheetInstance> {
   const base = validSheetInstanceState()
   const stored = base.localFields[0]
-  const snapshot = await fetchComposedSheetRows(INSTANCE, {}, fakeClient())
+
+  const snapshot = await fetchComposedSheetRows(
+    INSTANCE,
+    {},
+    createDataClient(transport),
+  )
 
   return {
     id: INSTANCE,
@@ -233,76 +212,59 @@ async function composedInstance(): Promise<SheetInstance> {
   }
 }
 
-function renderEditor(ui: ReactNode) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+/** Select the actual cell, then open the package's real column menu. */
+function selectColumn(columnId: string) {
+  const index = columnId === BOUND_FIELD ? 0 : columnId === LOCAL_FIELD ? 2 : 3
+
+  const cell = screen
+    .getAllByRole('gridcell')
+    .find(
+      (node) =>
+        node.getAttribute('aria-rowindex') === '1' &&
+        node.getAttribute('aria-colindex') === String(index + 1),
+    )
+
+  if (!cell) throw new Error(`Missing column ${columnId}`)
+  fireEvent.pointerDown(cell, { button: 0, pointerId: 1 })
+}
+
+async function openColumnMenu(columnId: string) {
+  const index = columnId === BOUND_FIELD ? 0 : columnId === LOCAL_FIELD ? 2 : 3
+
+  const header = screen.getByRole('columnheader', {
+    name: new RegExp(`^${String.fromCharCode(65 + index)} `),
   })
 
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+  fireEvent.contextMenu(header)
+
+  return screen.findByRole('menu', { name: /column menu/ })
 }
 
-/** The most recent props the grid received. */
-function gridProps(): SheetbaseGridProps {
-  return gridRender.mock.lastCall?.[0] as SheetbaseGridProps
-}
+async function choosePromote(columnId: string) {
+  const menu = await openColumnMenu(columnId)
+  const entry = within(menu).queryByRole('button', { name: /Add to dataset/ })
 
-/**
- * The promote entry as the engine sees it: `enabledMenuActions` is the
- * package's own filter, and a disabled entry never reaches the menu. A
- * column the Sheet does not own therefore has no promote affordance at all.
- */
-function visiblePromoteEntry(): SheetbaseGridMenuItem | undefined {
-  const entries = (gridProps().columnMenuItems ?? []).filter(
-    (entry): entry is SheetbaseGridMenuItem => typeof entry === 'object',
-  )
-
-  return enabledMenuActions(entries).find(
-    (entry) => entry.id === 'promote-column',
-  )
-}
-
-/** Select a column the way the grid does — by its stable id. */
-function selectColumn(columnId: string) {
-  act(() =>
-    gridProps().onSelectionChange?.({
-      rowIndex: 0,
-      rowId: ROW_A,
-      columnId,
-      input: '',
-      rowIds: [ROW_A],
-      columnIds: [columnId],
-    }),
-  )
-}
-
-/** Choose the promote entry for a column, as the menu would. */
-function choosePromote(columnId: string) {
-  const entry = (gridProps().columnMenuItems ?? []).find(
-    (candidate): candidate is SheetbaseGridMenuItem =>
-      typeof candidate === 'object' && candidate.id === 'promote-column',
-  )
-
-  act(() =>
-    entry?.onSelect?.({
-      ranges: [{ rowStart: 0, rowEnd: 0, columnIds: [columnId] }],
-    }),
-  )
+  if (entry) fireEvent.click(entry)
 }
 
 async function renderComposedEditor() {
   const instance = await composedInstance()
-  renderEditor(<CanonicalSheetEditor instance={instance} projectId={PROJECT} />)
-  await waitFor(() => expect(gridRender).toHaveBeenCalled())
+  await renderSheetRoute(
+    <CanonicalSheetEditor instance={instance} projectId={PROJECT} />,
+  )
+  await screen.findByRole('grid')
+  await screen.findByRole('columnheader', { name: /Observation/ })
 
   return instance
 }
 
 afterEach(() => {
   cleanup()
-  rpcMock.mockReset()
-  listMock.mockReset()
-  gridRender.mockClear()
-  promotionState.rows = []
+  transport.mockClear()
+  listRequests.mockClear()
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+  promotionRows = []
 })
 
 describe('CanonicalSheetEditor promote wiring', () => {
@@ -311,22 +273,36 @@ describe('CanonicalSheetEditor promote wiring', () => {
 
     // A bound column already lives in a Dataset.
     selectColumn(BOUND_FIELD)
-    expect(visiblePromoteEntry()).toBeUndefined()
+    expect(
+      within(await openColumnMenu(BOUND_FIELD)).queryByRole('button', {
+        name: /Add to dataset/,
+      }),
+    ).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Close menu' }))
 
     // A calculated column is derived, so there is no stored column to move.
     selectColumn(CALCULATED_FIELD)
-    expect(visiblePromoteEntry()).toBeUndefined()
+    expect(
+      within(await openColumnMenu(CALCULATED_FIELD)).queryByRole('button', {
+        name: /Add to dataset/,
+      }),
+    ).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Close menu' }))
 
     // The Sheet's own stored column is the one that can be promoted.
     selectColumn(LOCAL_FIELD)
-    expect(visiblePromoteEntry()?.id).toBe('promote-column')
+    expect(
+      within(await openColumnMenu(LOCAL_FIELD)).getByRole('button', {
+        name: /Add to dataset/,
+      }),
+    ).toBeTruthy()
   })
 
   it('opens the promote dialog for the chosen local column', async () => {
     await renderComposedEditor()
     selectColumn(LOCAL_FIELD)
 
-    choosePromote(LOCAL_FIELD)
+    await choosePromote(LOCAL_FIELD)
 
     const dialog = await screen.findByRole('dialog')
     expect(dialog.textContent).toContain('Add Observation to a dataset')
@@ -336,13 +312,13 @@ describe('CanonicalSheetEditor promote wiring', () => {
     await renderComposedEditor()
     selectColumn(BOUND_FIELD)
 
-    choosePromote(BOUND_FIELD)
+    await choosePromote(BOUND_FIELD)
 
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('announces a returned promotion against its column', async () => {
-    promotionState.rows = [
+    promotionRows = [
       {
         id: '21000000-0000-4000-8000-00000000000e',
         sheet_instance_id: INSTANCE,
@@ -371,7 +347,7 @@ describe('CanonicalSheetEditor promote wiring', () => {
   })
 
   it('stays silent while the promotion is pending', async () => {
-    promotionState.rows = [
+    promotionRows = [
       {
         id: '21000000-0000-4000-8000-000000000010',
         sheet_instance_id: INSTANCE,
@@ -395,7 +371,7 @@ describe('CanonicalSheetEditor promote wiring', () => {
     // The banner's query has settled and returned a pending request, so its
     // silence is the answer rather than a race.
     await waitFor(() =>
-      expect(listMock).toHaveBeenCalledWith(
+      expect(listRequests).toHaveBeenCalledWith(
         'column_promotions',
         expect.stringContaining(`sheet_instance_id=eq.${INSTANCE}`),
       ),

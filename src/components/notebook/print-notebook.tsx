@@ -6,7 +6,9 @@ import { LabLogo, useLabLogoVersion } from '#/components/ui/lab-logo'
  */
 export function LabPrintHeader({ workspaceName }: { workspaceName?: string }) {
   const version = useLabLogoVersion()
+
   if (!version) return null
+
   return (
     <div
       data-print-only

@@ -4,6 +4,7 @@ import {
   usePaneReadOnly,
 } from '#/components/workspace/workspace-navigation'
 import * as React from 'react'
+import { z } from 'zod'
 
 import { QueryClientContext } from '@tanstack/react-query'
 
@@ -19,8 +20,11 @@ import {
   CALCULATOR_PICKER_TYPE,
   isEditableBlockType,
 } from '#/lib/blocks/registry'
-import { isEmptyRichText, richTextToPlainText } from '#/lib/blocks'
-import type { RichTextPayload } from '#/lib/blocks'
+import {
+  isEmptyRichText,
+  isRichTextPayload,
+  richTextToPlainText,
+} from '#/lib/blocks'
 import {
   joinProsePayloads,
   proseBackspaceAction,
@@ -42,9 +46,9 @@ import {
   NotebookBlockHandle,
   NotebookBlockList,
   NotebookBlockRow,
-  moveTargetIndex,
-  neighboursForTarget,
 } from './notebook-block-reorder'
+import type { NotebookBlockState } from './notebook-block'
+import { moveTargetIndex, neighboursForTarget } from './block-reorder-targets'
 import { BlockPreview } from './block-preview'
 import type { MakeSheetRequest } from './make-sheet-from-file'
 import { BlockEditor } from './block-editor'
@@ -112,8 +116,8 @@ export interface NotebookDocumentProps {
    */
   onSaveBlock: (
     block: NotebookBlockData,
-    payload: Record<string, unknown>,
-  ) => Promise<SaveResult<Record<string, unknown>>>
+    payload: NotebookBlockData['payload'],
+  ) => Promise<SaveResult<NotebookBlockData['payload']>>
   /** Live-event stream offline? Holds autosaves while true. */
   offline?: boolean
   /**
@@ -126,7 +130,10 @@ export interface NotebookDocumentProps {
   onInsertBlock: (
     type: string,
     afterBlockId?: string,
-    options?: { datasetSchemaId?: string; payload?: Record<string, unknown> },
+    options?: {
+      datasetSchemaId?: string
+      payload?: NotebookBlockData['payload']
+    },
   ) => Promise<string | undefined>
   /** Pin a protocol to an empty protocol-reference block. */
   onPinProtocol?: (
@@ -160,7 +167,7 @@ export interface NotebookDocumentProps {
    */
   onUndoDelete?: (
     type: string,
-    payload: Record<string, unknown>,
+    payload: NotebookBlockData['payload'],
     destination: {
       afterBlockId: string | null
       beforeBlockId: string | null
@@ -188,7 +195,10 @@ export interface NotebookDocumentProps {
   onReplaceBlock?: (
     block: NotebookBlockData,
     type: string,
-    options?: { datasetSchemaId?: string; payload?: Record<string, unknown> },
+    options?: {
+      datasetSchemaId?: string
+      payload?: NotebookBlockData['payload']
+    },
   ) => Promise<string | undefined>
   readOnly?: boolean
   /** A signed part is locked for everyone: no access request or comment bar applies. */
@@ -243,20 +253,13 @@ export function NotebookDocument(props: NotebookDocumentProps) {
 
 const NOTE02_EMPTY_COLLAPSED_SECTIONS: ReadonlySet<string> = new Set<string>()
 
-function NotebookDocumentContent({
+/** Document-level selection, keyboard actions, mutations and unsaved-work lifetime. */
+function useNotebookDocument({
   record,
   blocks,
   onSaveBlock,
-  offline,
   onUnsavedWorkChange,
   onInsertBlock,
-  onPinProtocol,
-  onAttachFile,
-  onMakeSheet,
-  onFreezeChart,
-  onUnfreezeChart,
-  onFreezeAnalysis,
-  onUnfreezeAnalysis,
   onDuplicateBlock,
   onDeleteBlock,
   onUndoDelete,
@@ -264,14 +267,8 @@ function NotebookDocumentContent({
   onReplaceBlock,
   readOnly,
   partLocked = false,
-  collaborationWorkspaceId,
-  collaborationRole = 'viewer',
-  frozenSheetEvidence,
-  onCellSelectionChange,
-  actionBlockContext,
   initialBlockHash = '',
   onBlockHashChange,
-  className,
   /** NOTE-02 section collapse — presentation state only, route-owned. */
   collapsedSections,
   onToggleSection,
@@ -281,6 +278,25 @@ function NotebookDocumentContent({
   const selectionHashRef = React.useRef<string | null>(null)
   const [selectedId, setSelectedId] = React.useState<string | null>(null)
   const [activeId, setActiveId] = React.useState<string | null>(null)
+  const [selectionBlocks, setSelectionBlocks] = React.useState(blocks)
+
+  // Normalize canonical removal before children render. A newly inserted id
+  // that has not appeared in canonical props yet remains selected until it does.
+  if (selectionBlocks !== blocks) {
+    setSelectionBlocks(blocks)
+
+    if (
+      selectedId &&
+      selectionBlocks.some((block) => block.id === selectedId) &&
+      !blocks.some((block) => block.id === selectedId)
+    ) {
+      setSelectedId(null)
+      setActiveId(null)
+    }
+  }
+
+  const committedSelectionRef = React.useRef<string | null>(null)
+
   /**
    * Where the caret should land when the next block's editor mounts. Arrow
    * keys that cross between two prose rows carry the caret with them — down
@@ -292,16 +308,19 @@ function NotebookDocumentContent({
     blockId: string
     to: 'start' | 'end'
   } | null>(null)
-  const pendingSelectionRef = React.useRef<string | null>(null)
+
   // Per-block error messages for insert / duplicate / delete (ELN-005).
   // Save errors are owned per-editor by `useAutosave` (ELN-007).
   const [errorById, setErrorById] = React.useState<Record<string, string>>({})
+
   const [confirmDelete, setConfirmDelete] =
     React.useState<NotebookBlockData | null>(null)
+
   const [pendingDelete, setPendingDelete] = React.useState(false)
+
   const [undo, setUndo] = React.useState<{
     type: string
-    payload: Record<string, unknown>
+    payload: NotebookBlockData['payload']
     afterBlockId: string | null
     beforeBlockId: string | null
     label: string
@@ -311,7 +330,7 @@ function NotebookDocumentContent({
      * Set when the undo has to restore the row above as well, because a join
      * moved this row's content into it.
      */
-    restorePayload?: { blockId: string; payload: Record<string, unknown> }
+    restorePayload?: { blockId: string; payload: NotebookBlockData['payload'] }
   } | null>(null)
 
   // --- Movement (ELN-006) -------------------------------------------------
@@ -326,8 +345,10 @@ function NotebookDocumentContent({
   const [optimisticOrder, setOptimisticOrder] = React.useState<string[] | null>(
     null,
   )
+
   const [movingId, setMovingId] = React.useState<string | null>(null)
   const [draggingId, setDraggingId] = React.useState<string | null>(null)
+
   const [moveError, setMoveError] = React.useState<{
     blockId: string
     message: string
@@ -344,23 +365,36 @@ function NotebookDocumentContent({
   )
 
   const statusByIdRef = React.useRef<Map<string, AutosaveStatus>>(new Map())
+
   const handleStatusChange = React.useCallback(
     (blockId: string, status: AutosaveStatus) => {
       const map = statusByIdRef.current
+
       if (status === 'clean') {
         map.delete(blockId)
       } else {
         map.set(blockId, status)
       }
+
       const next = new Set(map.keys())
       setUnsavedBlockIds((prev) => {
         if (prev.size === next.size && [...prev].every((id) => next.has(id))) {
           return prev
         }
+
         return next
       })
     },
     [],
+  )
+
+  const updateBlockHash = React.useCallback(
+    (blockId: string | null) => {
+      const hash = blockId ? `block-${blockId}` : ''
+      selectionHashRef.current = hash
+      onBlockHashChange?.(hash)
+    },
+    [onBlockHashChange],
   )
 
   // Editors with unsaved work remain mounted when the user moves to another
@@ -371,27 +405,36 @@ function NotebookDocumentContent({
     const currentIds = new Set(blocks.map((block) => block.id))
     const map = statusByIdRef.current
     let changed = false
+
     for (const id of map.keys()) {
       if (!currentIds.has(id)) {
         map.delete(id)
         changed = true
       }
     }
+
     if (changed) setUnsavedBlockIds(new Set(map.keys()))
+
+    const previousSelection = committedSelectionRef.current
+    committedSelectionRef.current = selectedId
+
+    // A remote canonical deletion has no event handler to update its route.
+    // Notify only after the normalized selection commits, not during render.
     if (
-      selectedId &&
-      !currentIds.has(selectedId) &&
-      pendingSelectionRef.current !== selectedId
+      previousSelection &&
+      selectedId === null &&
+      !currentIds.has(previousSelection) &&
+      selectionHashRef.current !== ''
     ) {
-      setSelectedId(null)
-      setActiveId(null)
+      // react-doctor-disable-next-line react-doctor/no-pass-data-to-parent -- Publish only committed canonical removal to this document's owning route; selection/drafts stay local and abandoned renders cannot clear the hash.
       updateBlockHash(null)
     }
-    pendingSelectionRef.current = null
-  }, [blocks, selectedId])
+  }, [blocks, selectedId, updateBlockHash])
 
   const hasUnsavedWork = unsavedBlockIds.size > 0
   React.useEffect(() => {
+    // Publish only the committed navigation-guard signal; drafts/save/conflict lifetime remain editor-owned.
+    // react-doctor-disable-next-line react-doctor/no-pass-data-to-parent, react-doctor/no-pass-live-state-to-parent, react-doctor/no-prop-callback-in-effect
     onUnsavedWorkChange?.(hasUnsavedWork)
   }, [hasUnsavedWork, onUnsavedWorkChange])
 
@@ -400,11 +443,14 @@ function NotebookDocumentContent({
   // native browser prompt is the truthful signal.
   React.useEffect(() => {
     if (!hasUnsavedWork) return
+
     const handler = (e: BeforeUnloadEvent) => {
       e.preventDefault()
       e.returnValue = ''
     }
+
     window.addEventListener('beforeunload', handler)
+
     return () => window.removeEventListener('beforeunload', handler)
   }, [hasUnsavedWork])
 
@@ -414,23 +460,20 @@ function NotebookDocumentContent({
     const hash = initialBlockHash
     const fromSelection = selectionHashRef.current === hash
     selectionHashRef.current = null
+
     if (fromSelection) return
+
     if (hash.startsWith('block-')) {
       const el = Array.from(
         documentRef.current?.querySelectorAll<HTMLElement>('[id^="block-"]') ??
           [],
       ).find((block) => block.id === hash)
-      if (el && typeof el.scrollIntoView === 'function') {
+
+      if (el) {
         el.scrollIntoView({ block: 'start' })
       }
     }
   }, [initialBlockHash])
-
-  function updateBlockHash(blockId: string | null) {
-    const hash = blockId ? `block-${blockId}` : ''
-    selectionHashRef.current = hash
-    onBlockHashChange?.(hash)
-  }
 
   function selectBlock(block: NotebookBlockData) {
     setSelectedId(block.id)
@@ -438,6 +481,7 @@ function NotebookDocumentContent({
   }
 
   const gates = useGates()
+
   // A gate needs something to wait on before it can exist, so the dialog comes first.
   const [gateTarget, setGateTarget] = React.useState<{
     afterBlockId?: string
@@ -450,17 +494,22 @@ function NotebookDocumentContent({
     conditions: unknown[]
   }) {
     const target = gateTarget
+
     if (!target) return
-    const payload = {
-      ...(draft.label.trim() ? { label: draft.label.trim() } : {}),
+
+    const payload: NotebookBlockData['payload'] = {
       mode: draft.mode,
       conditions: draft.conditions,
     }
+
+    if (draft.label.trim()) payload.label = draft.label.trim()
+
     try {
       const newId =
         target.replace && onReplaceBlock
           ? await onReplaceBlock(target.replace, 'gate', { payload })
           : await onInsertBlock('gate', target.afterBlockId, { payload })
+
       if (newId) selectAndFocus(newId)
       setUndo(null)
       setGateTarget(null)
@@ -484,13 +533,16 @@ function NotebookDocumentContent({
   /** The bench calculator's answer goes in as a measured value that keeps its workings. */
   async function handleCalculatorInsert(insert: CalculatorInsert) {
     const target = calculatorTarget
+
     if (!target) return
     const payload = { ...insert }
+
     if (target.replace && onReplaceBlock) {
       try {
         const newId = await onReplaceBlock(target.replace, 'metric', {
           payload,
         })
+
         if (newId) selectAndFocus(newId)
         setUndo(null)
       } catch (err) {
@@ -498,45 +550,58 @@ function NotebookDocumentContent({
           err instanceof Error
             ? err.message
             : t('notebook.notebookDocument.couldNotInsertThe')
+
         setErrorById((prev) => ({ ...prev, __insert: message }))
       }
+
       return
     }
+
     await handleInsert('metric', target.afterBlockId, { payload })
   }
 
   async function handleInsert(
     type: string,
     afterBlockId?: string,
-    options?: { payload?: Record<string, unknown> },
+    options?: { payload?: NotebookBlockData['payload'] },
   ) {
     if (type === CALCULATOR_PICKER_TYPE) {
       setCalculatorTarget({ afterBlockId })
+
       return undefined
     }
+
     if (type === 'gate') {
       setGateTarget({ afterBlockId })
+
       return undefined
     }
+
     if (type.startsWith(PLUGIN_BLOCK_PREFIX)) {
       const [plugin, block] = type.slice(PLUGIN_BLOCK_PREFIX.length).split('/')
+
       return handleInsert('plugin', afterBlockId, {
         payload: { plugin, block },
       })
     }
+
     try {
       const newId = options
         ? await onInsertBlock(type, afterBlockId, options)
         : await onInsertBlock(type, afterBlockId)
+
       if (newId) selectAndFocus(newId)
       setUndo(null)
+
       return newId
     } catch (err) {
       const message =
         err instanceof Error
           ? err.message
           : t('notebook.notebookDocument.couldNotInsertThe')
+
       setErrorById((prev) => ({ ...prev, __insert: message }))
+
       return undefined
     }
   }
@@ -544,12 +609,14 @@ function NotebookDocumentContent({
   async function handleDuplicate(block: NotebookBlockData) {
     try {
       const duplicateId = await onDuplicateBlock(block)
+
       if (duplicateId) selectAndFocus(duplicateId)
     } catch (err) {
       const message =
         err instanceof Error
           ? err.message
           : t('notebook.notebookDocument.couldNotDuplicateThe')
+
       setErrorById((prev) => ({ ...prev, [block.id]: message }))
     }
   }
@@ -558,12 +625,15 @@ function NotebookDocumentContent({
     if (!confirmDelete) return
     const index = orderedIds.indexOf(confirmDelete.id)
     const afterBlockId = index > 0 ? (orderedIds[index - 1] ?? null) : null
+
     const beforeBlockId =
       index >= 0 && index < orderedIds.length - 1
         ? (orderedIds[index + 1] ?? null)
         : null
+
     const focusAfterDelete = beforeBlockId ?? afterBlockId
     setPendingDelete(true)
+
     try {
       await onDeleteBlock(confirmDelete)
       setUndo({
@@ -576,6 +646,7 @@ function NotebookDocumentContent({
         }),
       })
       setConfirmDelete(null)
+
       if (focusAfterDelete) {
         selectAndFocus(focusAfterDelete)
       } else {
@@ -589,6 +660,7 @@ function NotebookDocumentContent({
         err instanceof Error
           ? err.message
           : t('notebook.notebookDocument.couldNotDeleteThe')
+
       setErrorById((prev) => ({ ...prev, [confirmDelete.id]: message }))
     } finally {
       setPendingDelete(false)
@@ -597,30 +669,38 @@ function NotebookDocumentContent({
 
   async function handleUndo() {
     if (!undo || !onUndoDelete) return
+
     try {
       // A join moved the row below into the row above, so undoing it has to
       // put both rows back: the row's own content first, then the row itself.
       if (undo.restorePayload) {
         const target = blockById.get(undo.restorePayload.blockId)
+
         if (target) {
           const restored = await onSaveBlock(
             target,
             undo.restorePayload.payload,
           )
+
           if (!restored.ok) {
             setUndo(null)
+
             return
           }
         }
       }
+
       const result = await onUndoDelete(undo.type, undo.payload, {
         afterBlockId: undo.afterBlockId,
         beforeBlockId: undo.beforeBlockId,
       })
+
       if (!result) {
         setUndo(null)
+
         return
       }
+
       setUndo(null)
       selectAndFocus(result.id)
     } catch {
@@ -637,13 +717,19 @@ function NotebookDocumentContent({
   // view-only reader gets the actions they still have. Archived records are
   // neither: they are read-only for everyone and no access request applies.
   const isSigned = record.lockedAt !== null
+
   const viewerActions =
     isReadOnly && record.archivedAt === null && !isSigned && !partLocked
+
   // A signed section only reads where a query client exists — presentational
   // and pre-hydration renders must not open a connection.
   const hasQueryClient = React.useContext(QueryClientContext) !== undefined
 
   // Cell operations belong to SheetKeyboardShortcuts, not block navigation.
+  const committedInsert = React.useRef(handleInsert)
+  React.useLayoutEffect(() => {
+    committedInsert.current = handleInsert
+  })
   useShortcutScope('notebook')
   useRegisterShortcuts(
     React.useMemo(() => {
@@ -654,6 +740,7 @@ function NotebookDocumentContent({
         (selectedId
           ? documentRef.current?.querySelector(`[id="block-${selectedId}"]`)
           : null)
+
       const commentButton = () =>
         selectedBlock()?.querySelector<HTMLButtonElement>(
           '[data-sheet-comment-selection]:not(:disabled)',
@@ -661,10 +748,11 @@ function NotebookDocumentContent({
         selectedBlock()?.querySelector<HTMLButtonElement>(
           '[aria-label^="Comments on block"]:not(:disabled)',
         )
+
       return notebookShortcuts({
         insertBlock: !isReadOnly
           ? () => {
-              void handleInsert('rich_text', selectedId ?? undefined)
+              void committedInsert.current('rich_text', selectedId ?? undefined)
             }
           : undefined,
         commentSelection: () => commentButton()?.click(),
@@ -688,14 +776,17 @@ function NotebookDocumentContent({
   // and exported structure is always complete.
   const sectionCollapsed = collapsedSections ?? NOTE02_EMPTY_COLLAPSED_SECTIONS
   const outlineEntries = React.useMemo(() => notebookOutline(blocks), [blocks])
+
   const sectionSpans = React.useMemo(
     () => notebookSectionSpans(blocks),
     [blocks],
   )
+
   const hiddenBlockIds = React.useMemo(
     () => collapsedSectionBlockIds(sectionSpans, sectionCollapsed),
     [sectionSpans, sectionCollapsed],
   )
+
   // NOTE-02 same-block collapse: nodes inside a collapsed section's own
   // rich_text block are hidden at the node level (read preview skips them
   // with a print-restoring class; the active Tiptap editor hides the
@@ -705,17 +796,27 @@ function NotebookDocumentContent({
     () => collapsedSectionNodeIndexes(sectionSpans, sectionCollapsed),
     [sectionSpans, sectionCollapsed],
   )
+
   const hiddenCounts = React.useMemo(
     () => sectionHiddenCounts(sectionSpans, sectionCollapsed),
     [sectionSpans, sectionCollapsed],
   )
+
   const collapsedAnchorByBlockId = React.useMemo(() => {
     const map = new Map<string, string>()
+
     if (!onToggleSection) return map
+
+    const byAnchor = new Map(
+      outlineEntries.map((entry) => [entry.anchorId, entry]),
+    )
+
     for (const anchor of sectionCollapsed) {
-      const entry = outlineEntries.find((item) => item.anchorId === anchor)
+      const entry = byAnchor.get(anchor)
+
       if (entry) map.set(entry.blockId, anchor)
     }
+
     return map
   }, [onToggleSection, outlineEntries, sectionCollapsed])
 
@@ -725,11 +826,15 @@ function NotebookDocumentContent({
   // the ordering (the block objects are still looked up from `blocks`).
   const orderedIds = React.useMemo(() => {
     if (!optimisticOrder) return blocks.map((b) => b.id)
+
     return optimisticOrder
   }, [blocks, optimisticOrder])
+
   const blockById = React.useMemo(() => {
     const map = new Map<string, NotebookBlockData>()
+
     for (const b of blocks) map.set(b.id, b)
+
     return map
   }, [blocks])
 
@@ -742,6 +847,7 @@ function NotebookDocumentContent({
   function moveByOne(block: NotebookBlockData, direction: 'up' | 'down') {
     if (!canMove) return
     const target = moveTargetIndex(orderedIds, block.id, direction)
+
     if (target === null) return
     void performMove(block, target)
   }
@@ -769,13 +875,15 @@ function NotebookDocumentContent({
       const el = documentRef.current?.querySelector<HTMLElement>(
         `[id="block-${blockId}"]`,
       )
+
       if (!el) return
+
       if (el.contains(document.activeElement)) {
-        if (typeof el.scrollIntoView === 'function') {
-          el.scrollIntoView({ block: 'nearest' })
-        }
+        el.scrollIntoView({ block: 'nearest' })
+
         return
       }
+
       el.focus()
     })
   }
@@ -798,6 +906,7 @@ function NotebookDocumentContent({
     const destination = neighboursForTarget(baseline, block.id, targetIndex)
     // No-op: same neighbours as the current position.
     const currentIdx = baseline.indexOf(block.id)
+
     if (
       currentIdx >= 0 &&
       destination.afterBlockId ===
@@ -809,6 +918,7 @@ function NotebookDocumentContent({
     ) {
       return
     }
+
     // Build the optimistic ordering by removing the block and inserting it
     // at the target index within the remaining list.
     const without = baseline.filter((id) => id !== block.id)
@@ -818,6 +928,7 @@ function NotebookDocumentContent({
     setOptimisticOrder(nextOrder)
     setMovingId(block.id)
     setMoveError(null)
+
     try {
       await onMoveBlock(block, destination)
       // Success: clear the optimistic override; the route's query cache now
@@ -828,13 +939,16 @@ function NotebookDocumentContent({
       // become visible. Until that refetch settles, the canonical props are
       // still the exact pre-move order.
       setOptimisticOrder(null)
+
       const stale =
         err instanceof Error && /stale|version|changed/i.test(err.message)
+
       const message = stale
         ? t('notebook.notebookDocument.theNotebookChangedElsewhere')
         : err instanceof Error
           ? err.message
           : t('notebook.notebookDocument.couldNotMoveThe')
+
       setMoveError({ blockId: block.id, message, stale })
     } finally {
       setMovingId(null)
@@ -852,7 +966,6 @@ function NotebookDocumentContent({
    * DOM has settled after reorders/inserts before we focus.
    */
   function selectAndFocus(blockId: string) {
-    pendingSelectionRef.current = blockId
     setSelectedId(blockId)
     setActiveId(blockId)
     updateBlockHash(blockId)
@@ -860,30 +973,39 @@ function NotebookDocumentContent({
       const el = documentRef.current?.querySelector<HTMLElement>(
         `[id="block-${blockId}"]`,
       )
-      if (el && typeof el.focus === 'function') el.focus()
+
+      el?.focus()
     })
   }
 
   /** Slash command: replace the current empty text block with a new type. */
   async function handleSlashCommand(block: NotebookBlockData, type: string) {
     if (type === 'rich_text') return // handled in the editor itself
+
     if (type === CALCULATOR_PICKER_TYPE) {
       setCalculatorTarget({ afterBlockId: block.id, replace: block })
+
       return
     }
+
     if (type === 'gate') {
       setGateTarget({ afterBlockId: block.id, replace: block })
+
       return
     }
+
     let kind = type
-    let options: { payload: Record<string, unknown> } | undefined
+    let options: { payload: NotebookBlockData['payload'] } | undefined
+
     if (type.startsWith(PLUGIN_BLOCK_PREFIX)) {
       const [plugin, pluginBlock] = type
         .slice(PLUGIN_BLOCK_PREFIX.length)
         .split('/')
+
       kind = 'plugin'
       options = { payload: { plugin, block: pluginBlock } }
     }
+
     try {
       const newId = onReplaceBlock
         ? options
@@ -892,6 +1014,7 @@ function NotebookDocumentContent({
         : options
           ? await onInsertBlock(kind, block.id, options)
           : await onInsertBlock(kind, block.id)
+
       if (newId) selectAndFocus(newId)
       setUndo(null)
     } catch (err) {
@@ -899,6 +1022,7 @@ function NotebookDocumentContent({
         err instanceof Error
           ? err.message
           : t('notebook.notebookDocument.couldNotInsertThe')
+
       setErrorById((prev) => ({ ...prev, __insert: message }))
     }
   }
@@ -907,6 +1031,7 @@ function NotebookDocumentContent({
   async function handleEnterAtEnd(block: NotebookBlockData) {
     try {
       const newId = await onInsertBlock('rich_text', block.id)
+
       if (newId) selectAndFocus(newId)
       setUndo(null)
     } catch (err) {
@@ -914,6 +1039,7 @@ function NotebookDocumentContent({
         err instanceof Error
           ? err.message
           : t('notebook.notebookDocument.couldNotCreateA')
+
       setErrorById((prev) => ({ ...prev, [block.id]: message }))
     }
   }
@@ -933,21 +1059,28 @@ function NotebookDocumentContent({
   async function handleBackspaceAtStart(block: NotebookBlockData) {
     const idx = orderedIds.indexOf(block.id)
     const prevId = idx > 0 ? orderedIds[idx - 1] : null
+
     const nextId =
       idx >= 0 && idx < orderedIds.length - 1 ? orderedIds[idx + 1] : null
+
     const previous = prevId ? blockById.get(prevId) : null
+
     const currentIsEmpty =
       block.type === 'rich_text' &&
-      richTextToPlainText(block.payload as RichTextPayload).trim() === ''
+      isRichTextPayload(block.payload) &&
+      richTextToPlainText(block.payload).trim() === ''
+
     const joined =
       previous && !currentIsEmpty
         ? joinProsePayloads(previous.payload, block.payload)
         : null
+
     const action = proseBackspaceAction({ currentIsEmpty, joined })
 
     if (action === 'join' && previous && joined) {
       const previousPayload = previous.payload
       let saved = false
+
       try {
         saved = (await onSaveBlock(previous, joined)).ok
       } catch (err) {
@@ -955,9 +1088,12 @@ function NotebookDocumentContent({
           err instanceof Error
             ? err.message
             : t('notebook.notebookDocument.couldNotJoinThe')
+
         setErrorById((prev) => ({ ...prev, [block.id]: message }))
+
         return
       }
+
       if (!saved) {
         // The row above did not take the text, so the row below stays exactly
         // where it is. Deleting it here would lose the paragraph it carries.
@@ -965,8 +1101,10 @@ function NotebookDocumentContent({
           ...prev,
           [previous.id]: t('notebook.notebookDocument.couldNotJoinThe2'),
         }))
+
         return
       }
+
       try {
         await onDeleteBlock(block)
       } catch (err) {
@@ -977,10 +1115,13 @@ function NotebookDocumentContent({
           err instanceof Error
             ? err.message
             : t('notebook.notebookDocument.theParagraphsWereJoined')
+
         setErrorById((prev) => ({ ...prev, [block.id]: message }))
         selectAndFocus(previous.id)
+
         return
       }
+
       setUndo({
         type: block.type,
         payload: block.payload,
@@ -991,6 +1132,7 @@ function NotebookDocumentContent({
         restorePayload: { blockId: previous.id, payload: previousPayload },
       })
       selectAndFocus(previous.id)
+
       return
     }
 
@@ -1001,6 +1143,7 @@ function NotebookDocumentContent({
     }
 
     const focusAfterDelete = prevId ?? nextId
+
     try {
       await onDeleteBlock(block)
       setUndo({
@@ -1010,6 +1153,7 @@ function NotebookDocumentContent({
         beforeBlockId: nextId,
         label: t('notebook.notebookDocument.blockNamed', { label: block.type }),
       })
+
       if (focusAfterDelete) {
         selectAndFocus(focusAfterDelete)
       } else {
@@ -1023,6 +1167,7 @@ function NotebookDocumentContent({
         err instanceof Error
           ? err.message
           : t('notebook.notebookDocument.couldNotDeleteThe')
+
       setErrorById((prev) => ({ ...prev, [block.id]: message }))
     }
   }
@@ -1030,6 +1175,7 @@ function NotebookDocumentContent({
   /** ArrowUp at start of first paragraph → the caret continues in the row above. */
   function handleArrowUpFromStart(block: NotebookBlockData) {
     const idx = orderedIds.indexOf(block.id)
+
     if (idx <= 0) return
     const target = orderedIds[idx - 1]
     setCaretHint({ blockId: target, to: 'end' })
@@ -1039,6 +1185,7 @@ function NotebookDocumentContent({
   /** ArrowDown at end of last paragraph → the caret continues in the row below. */
   function handleArrowDownFromEnd(block: NotebookBlockData) {
     const idx = orderedIds.indexOf(block.id)
+
     if (idx < 0 || idx >= orderedIds.length - 1) return
     const target = orderedIds[idx + 1]
     setCaretHint({ blockId: target, to: 'start' })
@@ -1050,23 +1197,32 @@ function NotebookDocumentContent({
     block: NotebookBlockData,
   ) {
     const idx = orderedIds.indexOf(block.id)
+
     if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowUp') {
       e.preventDefault()
       const previousId = idx > 0 ? orderedIds[idx - 1] : null
+
       if (previousId) selectAndFocus(previousId)
+
       return
     }
+
     if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowDown') {
       e.preventDefault()
       const nextId = idx >= 0 ? orderedIds[idx + 1] : null
+
       if (nextId) selectAndFocus(nextId)
+
       return
     }
+
     if (e.altKey && e.key === 'Enter' && !isReadOnly) {
       e.preventDefault()
       void handleInsert('rich_text', block.id)
+
       return
     }
+
     if (
       (e.ctrlKey || e.metaKey) &&
       e.key === 'Backspace' &&
@@ -1075,9 +1231,12 @@ function NotebookDocumentContent({
     ) {
       e.preventDefault()
       setConfirmDelete(block)
+
       return
     }
+
     if (!canMove) return
+
     // Alt+Arrow moves the focused block up/down by one position. The row is
     // focusable (tabIndex 0 below) so keyboard users can reorder without a
     // pointer. The menu items below provide the same moves for users who
@@ -1091,6 +1250,86 @@ function NotebookDocumentContent({
       moveByOne(block, 'down')
     }
   }
+
+  return {
+    documentRef,
+    emptyStartRef,
+    selectedId,
+    activeId,
+    setActiveId,
+    selectBlock,
+    caretHint,
+    setCaretHint,
+    unsavedBlockIds,
+    handleStatusChange,
+    viewerActions,
+    paneReadOnly,
+    editingPane,
+    makePrimary,
+    hasQueryClient,
+    isReadOnly,
+    isSigned,
+    orderedIds,
+    blockById,
+    proseRuns,
+    gates,
+    canMove,
+    draggingId,
+    setDraggingId,
+    movingId,
+    moveError,
+    setMoveError,
+    performMove,
+    moveByOne,
+    hiddenBlockIds,
+    hiddenNodeIndexesByBlockId,
+    collapsedAnchorByBlockId,
+    hiddenCounts,
+    errorById,
+    undo,
+    handleInsert,
+    handleDuplicate,
+    handleUndo,
+    handleRowKeyDown,
+    handleSlashCommand,
+    handleEnterAtEnd,
+    handleBackspaceAtStart,
+    handleArrowUpFromStart,
+    handleArrowDownFromEnd,
+    gateTarget,
+    setGateTarget,
+    handleGateInsert,
+    calculatorTarget,
+    setCalculatorTarget,
+    handleCalculatorInsert,
+    confirmDelete,
+    setConfirmDelete,
+    pendingDelete,
+    handleConfirmDelete,
+  }
+}
+
+function NotebookDocumentContent(props: NotebookDocumentProps) {
+  const { record, readOnly, collaborationWorkspaceId, className } = props
+  const notebook = useNotebookDocument(props)
+
+  const {
+    documentRef,
+    emptyStartRef,
+    selectedId,
+    viewerActions,
+    paneReadOnly,
+    editingPane,
+    makePrimary,
+    hasQueryClient,
+    isReadOnly,
+    orderedIds,
+    blockById,
+    setDraggingId,
+    setMoveError,
+    performMove,
+    handleInsert,
+  } = notebook
 
   return (
     <div ref={documentRef} className={cn('pt-2', className)}>
@@ -1140,391 +1379,54 @@ function NotebookDocumentContent({
         ids={orderedIds}
         onMove={(blockId, targetIndex) => {
           const block = blockById.get(blockId)
+
           if (block) void performMove(block, targetIndex)
         }}
         onDraggingChange={(draggedId) => {
           setDraggingId(draggedId)
+
           // A new drag supersedes any move error still on screen.
           if (draggedId) setMoveError(null)
         }}
       >
-        {orderedIds.map((id, index) => {
-          const block = blockById.get(id)
-          if (!block) return null
-          const editable = isEditableBlockType(block.type) && !isReadOnly
-          const isSelected = selectedId === block.id
-          // A notebook that is one empty text block (a new draft) opens that
-          // block for writing, so the page offers a place to type rather than
-          // blank space.
-          const opensForWriting =
-            block.type === 'dataset_import' ||
-            (orderedIds.length === 1 &&
-              block.type === 'rich_text' &&
-              isEmptyRichText(block.payload))
-          const isActive = activeId === block.id
-          const isDragging = draggingId === block.id
-          const isMoving = movingId === block.id
-          const hasUnsavedDraft = unsavedBlockIds.has(block.id)
-          const blockState = isReadOnly
-            ? 'read-only'
-            : isDragging
-              ? 'dragging'
-              : isSelected && isActive && editable
-                ? 'editing'
-                : isSelected
-                  ? 'selected'
-                  : 'default'
-          const isHiddenSection = hiddenBlockIds.has(block.id)
-          const collapsedHere = collapsedAnchorByBlockId.get(block.id)
-          const proseRun = proseRuns[block.id]
-          return (
-            <React.Fragment key={block.id}>
-              <NotebookBlockRow
-                itemId={block.id}
-                enabled={canMove}
-                handle={canMove ? <NotebookBlockHandle /> : undefined}
-                row={{
-                  id: `block-${block.id}`,
-                  className: cn(
-                    // Blocks are spaced by the insert seam between them, which
-                    // the run itself collapses to nothing — so there is one
-                    // rule for spacing and one exception, and the exception is
-                    // the seam.
-                    // The document reads the full width of the working
-                    // surface. The designed screens
-                    // (ui-system-v3/canvas/NbEditing.dc.html and the rest of the
-                    // Nb* set) put prose in a 680px centred measure, so this is
-                    // a deliberate deviation from the design reference, taken
-                    // by the owner on 2026-10-15: the notebook is not to be
-                    // width-constrained or centred. Do not "fix" it back
-                    // without re-reading that decision.
-                    'w-full',
-                    isMoving && 'opacity-60',
-                    gates?.held.has(block.id) && 'opacity-45',
-                    // NOTE-02: collapsed sections are removed from view but
-                    // restored in print, so printed structure stays complete.
-                    isHiddenSection && 'hidden print:contents',
-                  ),
-                  'data-prose-run': proseRun
-                    ? proseRun.isFirst
-                      ? 'start'
-                      : proseRun.isLast
-                        ? 'end'
-                        : 'middle'
-                    : undefined,
-                  'data-held-by': gates?.held.get(block.id)?.gateId,
-                  title: gates?.held.has(block.id)
-                    ? t('notebook.gates.laterHeld')
-                    : undefined,
-                  ...(gates?.held.has(block.id) ? { inert: true } : {}),
-                  tabIndex: isReadOnly ? undefined : 0,
-                  role: isReadOnly ? undefined : 'group',
-                  'aria-label': canMove
-                    ? t('notebook.notebookDocument.blockNamedMovable', {
-                        label: blockLabel(block),
-                      })
-                    : t('notebook.notebookDocument.blockNamed', {
-                        label: blockLabel(block),
-                      }),
-                  'data-active': isActive || undefined,
-                  'data-selected': isSelected || undefined,
-                  onFocus: (event) => {
-                    // A link in the read view must still be there when the
-                    // click lands, so pressing it does not open the editor.
-                    // The same goes for a step's timer buttons.
-                    if (
-                      (event.target as HTMLElement).closest(
-                        'a[href], [data-keep-preview]',
-                      )
-                    )
-                      return
-                    setActiveId(block.id)
-                    selectBlock(block)
-                  },
-                  onBlur: (event) => {
-                    if (!event.currentTarget.contains(event.relatedTarget)) {
-                      setActiveId((current) =>
-                        current === block.id ? null : current,
-                      )
-                    }
-                  },
-                  onClick: () => {
-                    // A pointer puts the caret where it was clicked, so any
-                    // keyboard hint from an arrow key no longer applies.
-                    setCaretHint(null)
-                    selectBlock(block)
-                  },
-                  onKeyDown: (e) => handleRowKeyDown(e, block),
-                }}
-                frame={{
-                  label: blockLabel(block),
-                  continuous: !!proseRun,
-                  title:
-                    // Display only: editable payload fields belong to the
-                    // block's single autosave/conflict state machine below.
-                    // Chart and plate_map render their own payload.title
-                    // internally (ChartFrame header, plate map caption).
-                    // Suppress the wrapper title to avoid duplication.
-                    block.type !== 'chart' &&
-                    block.type !== 'plate_map' &&
-                    typeof block.payload.title === 'string' &&
-                    block.payload.title.trim()
-                      ? block.payload.title
-                      : undefined,
-                  state: blockState,
-                  ariaLabel: t('notebook.notebookDocument.blockNamed', {
-                    label: block.type,
-                  }),
-                  actions: (
-                    <>
-                      {/* COLLAB-01 co-editing awareness: only while this
-                          block is the one I am editing. */}
-                      <BlockCoEditBadge
-                        blockId={block.id}
-                        active={editable && isSelected}
-                      />
-                      {hasQueryClient && collaborationWorkspaceId ? (
-                        // Per-block discussion runs on ordinary comment rows,
-                        // so it works with or without a live room.
-                        <LiveBlockComments
-                          workspaceId={collaborationWorkspaceId}
-                          recordId={record.id}
-                          blockId={block.id}
-                          canComment={
-                            !record.archivedAt &&
-                            hasCapability(collaborationRole, 'record.create')
-                          }
-                        />
-                      ) : undefined}
-                    </>
-                  ),
-                  menuItems: isReadOnly
-                    ? undefined
-                    : [
-                        {
-                          id: 'insert-below',
-                          label: t(
-                            'notebook.notebookDocument.insertTextBelowLabel',
-                          ),
-                          onSelect: () =>
-                            void handleInsert('rich_text', block.id),
-                          separatorAfter: true,
-                        },
-                        ...(canMove
-                          ? [
-                              {
-                                id: 'move-up',
-                                label: t(
-                                  'notebook.notebookDocument.moveUpLabel',
-                                ),
-                                onSelect: () => moveByOne(block, 'up'),
-                                disabled: index === 0,
-                              },
-                              {
-                                id: 'move-down',
-                                label: t(
-                                  'notebook.notebookDocument.moveDownLabel',
-                                ),
-                                onSelect: () => moveByOne(block, 'down'),
-                                disabled: index === orderedIds.length - 1,
-                                separatorAfter: true,
-                              },
-                            ]
-                          : []),
-                        {
-                          id: 'duplicate',
-                          label: t('common.actions.duplicate'),
-                          onSelect: () => handleDuplicate(block),
-                        },
-                        {
-                          id: 'delete',
-                          label: t('common.actions.delete'),
-                          onSelect: () => setConfirmDelete(block),
-                          separatorAfter: true,
-                        },
-                      ],
-                }}
-              >
-                {block.type === 'sheet' ? (
-                  <NotebookSheetBlock
-                    block={block}
-                    record={record}
-                    readOnly={isReadOnly}
-                    onCellSelectionChange={onCellSelectionChange}
-                    frozenEvidence={
-                      frozenSheetEvidence
-                        ? (frozenSheetEvidence.get(block.id) ?? null)
-                        : undefined
-                    }
-                  />
-                ) : editable &&
-                  (isSelected ||
-                    hasUnsavedDraft ||
-                    opensForWriting ||
-                    // A plugin block keeps what its screen or page sets, so it
-                    // is always the editor: a click inside its frame never
-                    // selects the block.
-                    block.type === 'plugin') ? (
-                  <BlockEditor
-                    block={block}
-                    onInsertBelow={(type, payload) =>
-                      void handleInsert(
-                        type,
-                        block.id,
-                        payload ? { payload } : undefined,
-                      )
-                    }
-                    headingAnchorPrefix={`section-${block.id}`}
-                    hiddenRichTextNodeIndexes={hiddenNodeIndexesByBlockId.get(
-                      block.id,
-                    )}
-                    // Mid-run an empty row is an empty line, not an invitation.
-                    placeholder={
-                      proseRun
-                        ? undefined
-                        : t('notebook.notebookDocument.placeholder')
-                    }
-                    save={(payload) => onSaveBlock(block, payload)}
-                    pinProtocol={
-                      onPinProtocol
-                        ? (protocolRecordId) =>
-                            onPinProtocol(block, protocolRecordId)
-                        : undefined
-                    }
-                    onAttachFile={
-                      onAttachFile
-                        ? (file) => onAttachFile(block, file)
-                        : undefined
-                    }
-                    onMakeSheet={
-                      onMakeSheet
-                        ? (request) => onMakeSheet(block, request)
-                        : undefined
-                    }
-                    onFreezeChart={
-                      onFreezeChart ? () => onFreezeChart(block) : undefined
-                    }
-                    onUnfreezeChart={
-                      onUnfreezeChart ? () => onUnfreezeChart(block) : undefined
-                    }
-                    onFreezeAnalysis={
-                      onFreezeAnalysis
-                        ? () => onFreezeAnalysis(block)
-                        : undefined
-                    }
-                    onUnfreezeAnalysis={
-                      onUnfreezeAnalysis
-                        ? () => onUnfreezeAnalysis(block)
-                        : undefined
-                    }
-                    offline={offline}
-                    onStatusChange={(status) =>
-                      handleStatusChange(block.id, status)
-                    }
-                    readOnly={isReadOnly}
-                    autoFocus={isSelected && isActive}
-                    caretHint={
-                      caretHint?.blockId === block.id ? caretHint.to : undefined
-                    }
-                    onSlashCommand={(type) =>
-                      void handleSlashCommand(block, type)
-                    }
-                    onEnterAtEnd={() => void handleEnterAtEnd(block)}
-                    onBackspaceAtStart={() =>
-                      void handleBackspaceAtStart(block)
-                    }
-                    onArrowUpFromStart={() => handleArrowUpFromStart(block)}
-                    onArrowDownFromEnd={() => handleArrowDownFromEnd(block)}
-                  />
-                ) : (
-                  <BlockPreview
-                    block={block}
-                    hiddenNodeIndexes={hiddenNodeIndexesByBlockId.get(block.id)}
-                    actionContext={actionBlockContext}
-                  />
-                )}
-              </NotebookBlockRow>
-              {moveError && moveError.blockId === block.id ? (
-                <p
-                  role="alert"
-                  className="mt-1 px-1 text-xs text-danger-text"
-                  data-move-error={moveError.stale ? 'stale' : 'generic'}
-                >
-                  {moveError.message}
-                </p>
-              ) : null}
-              {/* Every block carries the insert affordance, including the
-                last: hovering below the end of the document is how a block is
-                appended, with no button parked under the work. */}
-              {!isReadOnly ? (
-                <div
-                  className={cn(
-                    'group/insert relative',
-                    // A seam inside a prose run must not push the paragraphs
-                    // apart: the run is one column, so the affordance floats over
-                    // the boundary on a zero-height element instead of occupying
-                    // a row of its own.
-                    proseRun && !proseRun.isLast
-                      ? 'h-0'
-                      : 'flex h-4 items-center justify-center',
-                  )}
-                  data-insertion-gap={`after-${block.id}`}
-                  data-prose-run-seam={
-                    proseRun && !proseRun.isLast ? '' : undefined
-                  }
-                  data-print-hide
-                >
-                  <div
-                    className={cn(
-                      proseRun && !proseRun.isLast
-                        ? // On a touch screen there is no hover to reveal it,
-                          // so the hidden button would swallow taps on the
-                          // text it floats over. Typing / inserts there.
-                          'absolute inset-x-0 -top-2 flex h-4 items-center justify-center pointer-coarse:pointer-events-none'
-                        : 'contents',
-                    )}
-                  >
-                    <div className="absolute inset-x-0 h-px bg-border opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100" />
-                    <AddBlockControl
-                      onInsert={(type) => void handleInsert(type, block.id)}
-                      variant="icon"
-                      after={blockLabel(block)}
-                      label={t(
-                        'notebook.notebookDocument.insertBlockAfterBlocklabelLabel',
-                        { blockLabel: blockLabel(block) },
-                      )}
-                      className="relative z-10 opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100"
-                    />
-                  </div>
-                </div>
-              ) : null}
-              {collapsedHere && !isHiddenSection ? (
-                <div
-                  className="mt-1 flex items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-xs text-fg-muted"
-                  data-testid={`section-collapsed-${collapsedHere}`}
-                  data-print-hide
-                >
-                  <span>
-                    {(hiddenCounts.get(collapsedHere) ?? 0) > 0
-                      ? t('notebook.notebookDocument.sectionCollapsedBlocks', {
-                          count: hiddenCounts.get(collapsedHere) ?? 0,
-                        })
-                      : t('notebook.notebookDocument.sectionCollapsedContent')}
-                  </span>
-                  <button
-                    type="button"
-                    className="underline underline-offset-2 hover:text-fg"
-                    onClick={() => onToggleSection?.(collapsedHere)}
-                  >
-                    {t('notebook.notebookDocument.show')}
-                  </button>
-                </div>
-              ) : null}
-            </React.Fragment>
-          )
-        })}
+        {orderedIds.map((id, index) => (
+          <NotebookDocumentBlockRow
+            key={id}
+            id={id}
+            index={index}
+            notebook={notebook}
+            options={props}
+          />
+        ))}
       </NotebookBlockList>
+      <NotebookDocumentFooter notebook={notebook} options={props} />
+    </div>
+  )
+}
 
+function NotebookDocumentFooter({
+  notebook,
+  options,
+}: {
+  notebook: ReturnType<typeof useNotebookDocument>
+  options: NotebookDocumentProps
+}) {
+  const { record, onUndoDelete } = options
+
+  const {
+    isReadOnly,
+    isSigned,
+    hasQueryClient,
+    orderedIds,
+    blockById,
+    errorById,
+    undo,
+    handleInsert,
+    handleUndo,
+  } = notebook
+
+  return (
+    <>
       {errorById.__insert ? (
         <p role="alert" className="text-xs text-danger-text">
           {errorById.__insert}
@@ -1535,8 +1437,7 @@ function NotebookDocumentContent({
       orderedIds.length > 0 &&
       blockById.get(orderedIds[orderedIds.length - 1] ?? '')?.type !==
         'rich_text' ? (
-        // A notebook that ends on a protocol, sheet or chart has no empty line
-        // to click into, so give the next paragraph a visible way in.
+        // A notebook ending on evidence still offers an empty paragraph below it.
         <div data-print-hide>
           <Button
             variant="quiet"
@@ -1549,16 +1450,11 @@ function NotebookDocumentContent({
           </Button>
         </div>
       ) : null}
-
       {!isReadOnly && orderedIds.length === 1 ? (
-        // Shown while the document is still being started. A full notebook does
-        // not need three lines of key instructions under it every time, and the
-        // same list lives in Help → Keyboard shortcuts.
         <p className="text-xs text-fg-muted" data-print-hide>
           {t('notebook.notebookDocument.typeInEmptyText')}
         </p>
       ) : null}
-
       {undo ? (
         <div
           role="status"
@@ -1578,11 +1474,37 @@ function NotebookDocumentContent({
           ) : null}
         </div>
       ) : null}
-
       {isSigned && hasQueryClient ? (
         <NotebookSignedSection recordId={record.id} />
       ) : null}
+      <NotebookDocumentDialogs notebook={notebook} />
+    </>
+  )
+}
 
+function NotebookDocumentDialogs({
+  notebook,
+}: {
+  notebook: ReturnType<typeof useNotebookDocument>
+}) {
+  const {
+    gateTarget,
+    gates,
+    blockById,
+    handleGateInsert,
+    setGateTarget,
+    calculatorTarget,
+    setCalculatorTarget,
+    handleCalculatorInsert,
+    confirmDelete,
+    setConfirmDelete,
+    unsavedBlockIds,
+    pendingDelete,
+    handleConfirmDelete,
+  } = notebook
+
+  return (
+    <>
       {gateTarget && gates ? (
         <GateDialog
           targets={gates.targetsFor(
@@ -1639,34 +1561,564 @@ function NotebookDocumentContent({
           </ConfirmDialogFooter>
         </ConfirmDialogContent>
       </ConfirmDialog>
+    </>
+  )
+}
+
+/** One stable block row, including its draft-preserving editor and section affordances. */
+function NotebookDocumentBlockRow({
+  id,
+  index,
+  notebook,
+  options,
+}: {
+  id: string
+  index: number
+  notebook: ReturnType<typeof useNotebookDocument>
+  options: NotebookDocumentProps
+}) {
+  const {
+    selectedId,
+    activeId,
+    isReadOnly,
+    orderedIds,
+    blockById,
+    proseRuns,
+    canMove,
+    draggingId,
+    moveByOne,
+    handleInsert,
+    handleDuplicate,
+    setConfirmDelete,
+  } = notebook
+
+  const block = blockById.get(id)
+
+  if (!block) return null
+  const editable = isEditableBlockType(block.type) && !isReadOnly
+  const isSelected = selectedId === block.id
+  const editingSelection = editable && isSelected
+  const title = z.string().catch('').parse(block.payload.title)
+
+  const isActive = activeId === block.id
+  const isDragging = draggingId === block.id
+
+  let blockState: NotebookBlockState = 'default'
+
+  if (isReadOnly) blockState = 'read-only'
+  else if (isDragging) blockState = 'dragging'
+  else if (editingSelection && isActive) blockState = 'editing'
+  else if (isSelected) blockState = 'selected'
+
+  const proseRun = proseRuns[block.id]
+
+  return (
+    <React.Fragment key={block.id}>
+      <NotebookBlockRow
+        itemId={block.id}
+        enabled={canMove}
+        handle={canMove ? <NotebookBlockHandle /> : undefined}
+        row={notebookBlockRowAttributes(block, notebook)}
+        frame={{
+          label: blockLabel(block),
+          continuous: !!proseRun,
+          title:
+            // Display only: editable payload fields belong to the
+            // block's single autosave/conflict state machine below.
+            // Chart and plate_map render their own payload.title
+            // internally (ChartFrame header, plate map caption).
+            // Suppress the wrapper title to avoid duplication.
+            block.type !== 'chart' && block.type !== 'plate_map' && title.trim()
+              ? title
+              : undefined,
+          state: blockState,
+          ariaLabel: t('notebook.notebookDocument.blockNamed', {
+            label: block.type,
+          }),
+          actions: (
+            <NotebookDocumentBlockDiscussion
+              blockId={block.id}
+              active={editingSelection}
+              notebook={notebook}
+              options={options}
+            />
+          ),
+          menuItems: isReadOnly
+            ? undefined
+            : [
+                {
+                  id: 'insert-below',
+                  label: t('notebook.notebookDocument.insertTextBelowLabel'),
+                  onSelect: () => void handleInsert('rich_text', block.id),
+                  separatorAfter: true,
+                },
+                ...(canMove
+                  ? [
+                      {
+                        id: 'move-up',
+                        label: t('notebook.notebookDocument.moveUpLabel'),
+                        onSelect: () => moveByOne(block, 'up'),
+                        disabled: index === 0,
+                      },
+                      {
+                        id: 'move-down',
+                        label: t('notebook.notebookDocument.moveDownLabel'),
+                        onSelect: () => moveByOne(block, 'down'),
+                        disabled: index === orderedIds.length - 1,
+                        separatorAfter: true,
+                      },
+                    ]
+                  : []),
+                {
+                  id: 'duplicate',
+                  label: t('common.actions.duplicate'),
+                  onSelect: () => handleDuplicate(block),
+                },
+                {
+                  id: 'delete',
+                  label: t('common.actions.delete'),
+                  onSelect: () => setConfirmDelete(block),
+                  separatorAfter: true,
+                },
+              ],
+        }}
+      >
+        <NotebookDocumentBlockBody
+          block={block}
+          notebook={notebook}
+          options={options}
+        />
+      </NotebookBlockRow>
+      <NotebookDocumentBlockTail
+        block={block}
+        notebook={notebook}
+        onToggleSection={options.onToggleSection}
+      />
+    </React.Fragment>
+  )
+}
+
+function NotebookDocumentBlockDiscussion({
+  blockId,
+  active,
+  notebook,
+  options,
+}: {
+  blockId: string
+  active: boolean
+  notebook: ReturnType<typeof useNotebookDocument>
+  options: NotebookDocumentProps
+}) {
+  const {
+    record,
+    collaborationWorkspaceId,
+    collaborationRole = 'viewer',
+  } = options
+
+  return (
+    <>
+      <BlockCoEditBadge blockId={blockId} active={active} />
+      {notebook.hasQueryClient && collaborationWorkspaceId ? (
+        // Ordinary comment rows work with or without a live room.
+        <LiveBlockComments
+          workspaceId={collaborationWorkspaceId}
+          recordId={record.id}
+          blockId={blockId}
+          canComment={
+            !record.archivedAt &&
+            hasCapability(collaborationRole, 'record.create')
+          }
+        />
+      ) : undefined}
+    </>
+  )
+}
+
+/** Insert seams and collapsed-section summaries never own the editable payload. */
+function NotebookDocumentBlockTail({
+  block,
+  notebook,
+  onToggleSection,
+}: {
+  block: NotebookBlockData
+  notebook: ReturnType<typeof useNotebookDocument>
+  onToggleSection: NotebookDocumentProps['onToggleSection']
+}) {
+  const {
+    isReadOnly,
+    moveError,
+    proseRuns,
+    hiddenBlockIds,
+    collapsedAnchorByBlockId,
+    hiddenCounts,
+    handleInsert,
+  } = notebook
+
+  const proseRun = proseRuns[block.id]
+  const collapsedHere = collapsedAnchorByBlockId.get(block.id)
+  const isHiddenSection = hiddenBlockIds.has(block.id)
+  const insideProseRun = Boolean(proseRun && !proseRun.isLast)
+
+  return (
+    <>
+      {moveError && moveError.blockId === block.id ? (
+        <p
+          role="alert"
+          className="mt-1 px-1 text-xs text-danger-text"
+          data-move-error={moveError.stale ? 'stale' : 'generic'}
+        >
+          {moveError.message}
+        </p>
+      ) : null}
+      {/* Every block carries the insert affordance, including the
+                last: hovering below the end of the document is how a block is
+                appended, with no button parked under the work. */}
+      {!isReadOnly ? (
+        <div
+          className={cn(
+            'group/insert relative',
+            // A seam inside a prose run must not push the paragraphs
+            // apart: the run is one column, so the affordance floats over
+            // the boundary on a zero-height element instead of occupying
+            // a row of its own.
+            insideProseRun ? 'h-0' : 'flex h-4 items-center justify-center',
+          )}
+          data-insertion-gap={`after-${block.id}`}
+          data-prose-run-seam={insideProseRun ? '' : undefined}
+          data-print-hide
+        >
+          <div
+            className={cn(
+              insideProseRun
+                ? // On a touch screen there is no hover to reveal it,
+                  // so the hidden button would swallow taps on the
+                  // text it floats over. Typing / inserts there.
+                  'absolute inset-x-0 -top-2 flex h-4 items-center justify-center pointer-coarse:pointer-events-none'
+                : 'contents',
+            )}
+          >
+            <div className="absolute inset-x-0 h-px bg-border opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100" />
+            <AddBlockControl
+              onInsert={(type) => void handleInsert(type, block.id)}
+              variant="icon"
+              after={blockLabel(block)}
+              label={t(
+                'notebook.notebookDocument.insertBlockAfterBlocklabelLabel',
+                { blockLabel: blockLabel(block) },
+              )}
+              className="relative z-10 opacity-0 transition-opacity group-hover/insert:opacity-100 group-focus-within/insert:opacity-100"
+            />
+          </div>
+        </div>
+      ) : null}
+      {collapsedHere && !isHiddenSection ? (
+        <CollapsedNotebookSection
+          anchorId={collapsedHere}
+          count={hiddenCounts.get(collapsedHere) ?? 0}
+          onToggle={onToggleSection}
+        />
+      ) : null}
+    </>
+  )
+}
+
+function CollapsedNotebookSection({
+  anchorId,
+  count,
+  onToggle,
+}: {
+  anchorId: string
+  count: number
+  onToggle: NotebookDocumentProps['onToggleSection']
+}) {
+  return (
+    <div
+      className="mt-1 flex items-center gap-2 rounded-md border border-dashed px-3 py-1.5 text-xs text-fg-muted"
+      data-testid={`section-collapsed-${anchorId}`}
+      data-print-hide
+    >
+      <span>
+        {count > 0
+          ? t('notebook.notebookDocument.sectionCollapsedBlocks', { count })
+          : t('notebook.notebookDocument.sectionCollapsedContent')}
+      </span>
+      <button
+        type="button"
+        className="underline underline-offset-2 hover:text-fg"
+        onClick={() => onToggle?.(anchorId)}
+      >
+        {t('notebook.notebookDocument.show')}
+      </button>
     </div>
   )
 }
 
-function blockLabel(block: NotebookBlockData): string {
-  const map: Record<string, string> = {
-    rich_text: t('notebook.notebookDocument.text'),
-    checklist: t('notebook.notebookDocument.list'),
-    callout: t('notebook.notebookDocument.note'),
-    linked_record: t('notebook.notebookDocument.link'),
-    table: t('notebook.notebookDocument.table'),
-    sheet: t('notebook.notebookDocument.sheet'),
-    dataset_import: t('notebook.notebookDocument.importData'),
-    chart: t('notebook.notebookDocument.chart'),
-    plate_map: t('notebook.notebookDocument.plateMap'),
-    file: t('notebook.notebookDocument.file'),
-    metric: t('notebook.notebookDocument.metric'),
-    procedure_step: t('notebook.notebookDocument.procedureStep'),
-    protocol_reference: t('notebook.notebookDocument.protocol'),
-    materials: t('notebook.notebookDocument.materials'),
-    analysis: t('notebook.notebookDocument.analysis'),
-    pipeline_output: t('notebook.notebookDocument.pipelineOutput'),
-    code_cell: t('notebook.notebookDocument.codeCell'),
-    signature_request: t('notebook.notebookDocument.signatureRequest'),
-    corrective_actions: t('notebook.notebookDocument.correctiveActions'),
-    conclusion: t('notebook.notebookDocument.conclusion'),
+/** Project document state onto the native row's focus, gate and print contract. */
+function notebookBlockRowAttributes(
+  block: NotebookBlockData,
+  notebook: ReturnType<typeof useNotebookDocument>,
+): React.ComponentProps<typeof NotebookBlockRow>['row'] {
+  const {
+    movingId,
+    gates,
+    hiddenBlockIds,
+    proseRuns,
+    isReadOnly,
+    canMove,
+    activeId,
+    selectedId,
+    setActiveId,
+    selectBlock,
+    setCaretHint,
+    handleRowKeyDown,
+  } = notebook
+
+  const proseRun = proseRuns[block.id]
+
+  return {
+    id: `block-${block.id}`,
+    className: cn(
+      // Owner decision, 2026-10-15: prose is full width, not centred in a 680px measure.
+      // The insert seam owns spacing; collapsed content is restored for printing.
+      'w-full',
+      movingId === block.id && 'opacity-60',
+      gates?.held.has(block.id) && 'opacity-45',
+      hiddenBlockIds.has(block.id) && 'hidden print:contents',
+    ),
+    'data-prose-run': proseRun
+      ? proseRun.isFirst
+        ? 'start'
+        : proseRun.isLast
+          ? 'end'
+          : 'middle'
+      : undefined,
+    'data-held-by': gates?.held.get(block.id)?.gateId,
+    title: gates?.held.has(block.id)
+      ? t('notebook.gates.laterHeld')
+      : undefined,
+    inert: gates?.held.has(block.id) || undefined,
+    tabIndex: isReadOnly ? undefined : 0,
+    role: isReadOnly ? undefined : 'group',
+    'aria-label': canMove
+      ? t('notebook.notebookDocument.blockNamedMovable', {
+          label: blockLabel(block),
+        })
+      : t('notebook.notebookDocument.blockNamed', { label: blockLabel(block) }),
+    'data-active': activeId === block.id || undefined,
+    'data-selected': selectedId === block.id || undefined,
+    onFocus: (event) => {
+      // Keep preview links/timer controls mounted until their own event lands.
+      if (
+        event.target instanceof Element &&
+        event.target.closest('a[href], [data-keep-preview]')
+      )
+        return
+      setActiveId(block.id)
+      selectBlock(block)
+    },
+    onBlur: (event) => {
+      if (!event.currentTarget.contains(event.relatedTarget)) {
+        setActiveId((current) => (current === block.id ? null : current))
+      }
+    },
+    onClick: () => {
+      // A pointer, rather than the prior arrow key, determines the next caret position.
+      setCaretHint(null)
+      selectBlock(block)
+    },
+    onKeyDown: (event) => handleRowKeyDown(event, block),
   }
-  return map[block.type] ?? block.type
+}
+
+/** Choose the read view without unmounting an editor that still owns unsaved work. */
+function NotebookDocumentBlockBody({
+  block,
+  notebook,
+  options,
+}: {
+  block: NotebookBlockData
+  notebook: ReturnType<typeof useNotebookDocument>
+  options: NotebookDocumentProps
+}) {
+  const {
+    isReadOnly,
+    selectedId,
+    unsavedBlockIds,
+    orderedIds,
+    hiddenNodeIndexesByBlockId,
+  } = notebook
+
+  const {
+    record,
+    onCellSelectionChange,
+    frozenSheetEvidence,
+    actionBlockContext,
+  } = options
+
+  if (block.type === 'sheet') {
+    return (
+      <NotebookSheetBlock
+        block={block}
+        record={record}
+        readOnly={isReadOnly}
+        onCellSelectionChange={onCellSelectionChange}
+        frozenEvidence={
+          frozenSheetEvidence
+            ? (frozenSheetEvidence.get(block.id) ?? null)
+            : undefined
+        }
+      />
+    )
+  }
+
+  // New prose/import blocks open for writing; plugin screens always retain their editor.
+  const opensForWriting =
+    block.type === 'dataset_import' ||
+    (orderedIds.length === 1 &&
+      block.type === 'rich_text' &&
+      isEmptyRichText(block.payload))
+
+  const showEditor =
+    isEditableBlockType(block.type) &&
+    !isReadOnly &&
+    (selectedId === block.id ||
+      unsavedBlockIds.has(block.id) ||
+      opensForWriting ||
+      block.type === 'plugin')
+
+  if (showEditor)
+    return (
+      <NotebookDocumentBlockEditor
+        block={block}
+        notebook={notebook}
+        options={options}
+      />
+    )
+
+  return (
+    <BlockPreview
+      block={block}
+      hiddenNodeIndexes={hiddenNodeIndexesByBlockId.get(block.id)}
+      actionContext={actionBlockContext}
+    />
+  )
+}
+
+/** Bind one editor to the document's canonical mutations and keyboard actions. */
+function NotebookDocumentBlockEditor({
+  block,
+  notebook,
+  options,
+}: {
+  block: NotebookBlockData
+  notebook: ReturnType<typeof useNotebookDocument>
+  options: NotebookDocumentProps
+}) {
+  const {
+    onSaveBlock,
+    offline,
+    onPinProtocol,
+    onAttachFile,
+    onMakeSheet,
+    onFreezeChart,
+    onUnfreezeChart,
+    onFreezeAnalysis,
+    onUnfreezeAnalysis,
+  } = options
+
+  const {
+    handleInsert,
+    hiddenNodeIndexesByBlockId,
+    proseRuns,
+    handleStatusChange,
+    isReadOnly,
+    selectedId,
+    activeId,
+    caretHint,
+    handleSlashCommand,
+    handleEnterAtEnd,
+    handleBackspaceAtStart,
+    handleArrowUpFromStart,
+    handleArrowDownFromEnd,
+  } = notebook
+
+  return (
+    <BlockEditor
+      block={block}
+      onInsertBelow={(type, payload) =>
+        void handleInsert(type, block.id, payload ? { payload } : undefined)
+      }
+      headingAnchorPrefix={`section-${block.id}`}
+      hiddenRichTextNodeIndexes={hiddenNodeIndexesByBlockId.get(block.id)}
+      // Mid-run an empty row is an empty line, not an invitation.
+      placeholder={
+        proseRuns[block.id]
+          ? undefined
+          : t('notebook.notebookDocument.placeholder')
+      }
+      save={(payload) => onSaveBlock(block, payload)}
+      pinProtocol={
+        onPinProtocol
+          ? (protocolRecordId) => onPinProtocol(block, protocolRecordId)
+          : undefined
+      }
+      onAttachFile={
+        onAttachFile ? (file) => onAttachFile(block, file) : undefined
+      }
+      onMakeSheet={
+        onMakeSheet ? (request) => onMakeSheet(block, request) : undefined
+      }
+      onFreezeChart={onFreezeChart ? () => onFreezeChart(block) : undefined}
+      onUnfreezeChart={
+        onUnfreezeChart ? () => onUnfreezeChart(block) : undefined
+      }
+      onFreezeAnalysis={
+        onFreezeAnalysis ? () => onFreezeAnalysis(block) : undefined
+      }
+      onUnfreezeAnalysis={
+        onUnfreezeAnalysis ? () => onUnfreezeAnalysis(block) : undefined
+      }
+      offline={offline}
+      onStatusChange={(status) => handleStatusChange(block.id, status)}
+      readOnly={isReadOnly}
+      autoFocus={selectedId === block.id && activeId === block.id}
+      caretHint={caretHint?.blockId === block.id ? caretHint.to : undefined}
+      onSlashCommand={(type) => void handleSlashCommand(block, type)}
+      onEnterAtEnd={() => void handleEnterAtEnd(block)}
+      onBackspaceAtStart={() => void handleBackspaceAtStart(block)}
+      onArrowUpFromStart={() => handleArrowUpFromStart(block)}
+      onArrowDownFromEnd={() => handleArrowDownFromEnd(block)}
+    />
+  )
+}
+
+function blockLabel(block: NotebookBlockData): string {
+  const labels = new Map(
+    Object.entries({
+      rich_text: t('notebook.notebookDocument.text'),
+      checklist: t('notebook.notebookDocument.list'),
+      callout: t('notebook.notebookDocument.note'),
+      linked_record: t('notebook.notebookDocument.link'),
+      table: t('notebook.notebookDocument.table'),
+      sheet: t('notebook.notebookDocument.sheet'),
+      dataset_import: t('notebook.notebookDocument.importData'),
+      chart: t('notebook.notebookDocument.chart'),
+      plate_map: t('notebook.notebookDocument.plateMap'),
+      file: t('notebook.notebookDocument.file'),
+      metric: t('notebook.notebookDocument.metric'),
+      procedure_step: t('notebook.notebookDocument.procedureStep'),
+      protocol_reference: t('notebook.notebookDocument.protocol'),
+      materials: t('notebook.notebookDocument.materials'),
+      analysis: t('notebook.notebookDocument.analysis'),
+      pipeline_output: t('notebook.notebookDocument.pipelineOutput'),
+      code_cell: t('notebook.notebookDocument.codeCell'),
+      signature_request: t('notebook.notebookDocument.signatureRequest'),
+      corrective_actions: t('notebook.notebookDocument.correctiveActions'),
+      conclusion: t('notebook.notebookDocument.conclusion'),
+    }),
+  )
+
+  return labels.get(block.type) ?? block.type
 }
 
 /**

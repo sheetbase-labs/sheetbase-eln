@@ -1,92 +1,26 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import {
-  cleanup,
-  render,
-  screen,
-  waitFor,
-  within,
-} from '@testing-library/react'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
-import * as materializationData from '#/lib/sheet-materialization-data'
+import { createDataClient } from '#/lib/data-client'
 import { validSheetInstanceState } from '#/lib/sheet-instance.test'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
-import type { SheetDefinitionConfiguration } from '#/lib/sheet-definition'
+import type { SheetDefinitionVersionWire } from '#/lib/sheet-definition-data'
+import { sheetDefinitionExtractionSelectionSchema } from '#/lib/sheet-definition-extraction'
+import type { SheetDefinitionExtractionSelection } from '#/lib/sheet-definition-extraction'
 import { validSheetDefinitionConfiguration } from '../../../tests/fixtures/sheet-definition'
+import { CanonicalSheetLifecyclePanel } from './canonical-sheet-lifecycle-panel'
+import { lifecycleErrorText } from './sheet-lifecycle-helpers'
+import { renderSheetRoute } from './sheet-test-router'
 
-import {
-  CanonicalSheetLifecyclePanel,
-  lifecycleErrorText,
-} from './canonical-sheet-lifecycle-panel'
-
-const previewExtraction = vi.fn()
-const extractDraft = vi.fn()
-
-const fetchPinnedVersion = vi.fn(
-  async (
-    ..._args: unknown[]
-  ): Promise<{
-    id: string
-    definitionId: string
-    version: number
-    configuration?: SheetDefinitionConfiguration
-  } | null> => null,
-)
-
-const fetchDefinitionVersions = vi.fn(
-  async (
-    ..._args: unknown[]
-  ): Promise<Array<{ id: string; version: number; lifecycle: string }>> => [],
-)
-
-vi.mock('#/components/ui/object-link', async () => {
-  const { objectPath } = await import('#/lib/navigation')
-
-  return {
-    ObjectLink: (props: { kind: string; id?: string; children?: string }) => (
-      <a href={objectPath(props.kind, props.id ?? '') ?? undefined}>
-        {props.children}
-      </a>
-    ),
-  }
-})
-
-vi.mock('#/lib/dataset-explorer-data', () => ({
-  fetchDatasetSummaries: vi.fn(async () => []),
-}))
-
-vi.mock('#/lib/sheet-definition-data', () => ({
-  extractSheetDefinitionDraft: (...args: unknown[]) => extractDraft(...args),
-  fetchSheetDefinitions: vi.fn(async () => []),
-  fetchSheetDefinitionVersion: (...args: unknown[]) =>
-    fetchPinnedVersion(...args),
-  fetchSheetDefinitionVersions: (...args: unknown[]) =>
-    fetchDefinitionVersions(...args),
-  previewSheetDefinitionExtraction: (...args: unknown[]) =>
-    previewExtraction(...args),
-  publishSheetDefinitionVersion: vi.fn(),
-  sheetDefinitionDataClient: {},
-}))
-
-vi.mock('#/lib/sheet-instance-data', () => ({
-  applySheetInstanceDefinitionUpgrade: vi.fn(),
-  previewSheetInstanceDefinitionUpgrade: vi.fn(),
-}))
-
-vi.mock('#/lib/sheet-composition-adoption', () => ({
-  applySheetInstanceCompositionAdoption: vi.fn(),
-  previewSheetInstanceCompositionAdoption: vi.fn(),
-}))
-
-vi.mock('#/lib/sheet-materialization-data', () => ({
-  materializeSheetInstance: vi.fn(),
-  previewSheetMaterialization: vi.fn(),
-}))
+const INSTANCE = '20000000-0000-4000-8000-000000000001'
+const VERSION = '20000000-0000-4000-8000-000000000010'
+const DATASET = '20000000-0000-4000-8000-000000000011'
 
 function instance(): SheetInstance {
   return {
-    id: '20000000-0000-4000-8000-000000000001',
+    id: INSTANCE,
     workspaceId: '20000000-0000-4000-8000-000000000002',
     projectId: '20000000-0000-4000-8000-000000000003',
     notebookRecordId: '20000000-0000-4000-8000-000000000004',
@@ -104,163 +38,274 @@ function instance(): SheetInstance {
   }
 }
 
-function renderPanel() {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  })
-
-  return render(
-    <QueryClientProvider client={client}>
-      <CanonicalSheetLifecyclePanel
-        instance={instance()}
-        onInstance={vi.fn()}
-      />
-    </QueryClientProvider>,
-  )
+function version(id: string, number: number): SheetDefinitionVersionWire {
+  return {
+    id,
+    definition_id: 'definition-1',
+    version: number,
+    lifecycle: 'published',
+    configuration_format_version: 1,
+    configuration: validSheetDefinitionConfiguration(),
+    revision: 1,
+    created_at: '2026-08-20T12:00:00.000Z',
+    updated_at: '2026-08-20T12:00:00.000Z',
+    created_by_user_id: 'u1',
+    updated_by_user_id: 'u1',
+    published_at: '2026-08-20T12:00:00.000Z',
+    published_by_user_id: 'u1',
+    retired_at: null,
+    retired_by_user_id: null,
+  }
 }
 
-function renderPanelWithInstance(overrides: Partial<SheetInstance>) {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
-  })
-
-  return render(
-    <QueryClientProvider client={client}>
-      <CanonicalSheetLifecyclePanel
-        instance={{ ...instance(), ...overrides }}
-        onInstance={vi.fn()}
-      />
-    </QueryClientProvider>,
-  )
+function extractionPreview(selection: SheetDefinitionExtractionSelection) {
+  return {
+    source: { instanceId: INSTANCE, instanceRevision: 1 },
+    selection,
+    configuration: validSheetDefinitionConfiguration(),
+    manifest: {
+      reusable: {
+        parameterIds: [],
+        bindingIds: [],
+        sourceColumnIds: [],
+        joinIds: [],
+        localFieldIds: [],
+        calculationIds: [],
+        presentationDefaultsIncluded: true,
+      },
+      excluded: {
+        concreteBindingValueBindingIds: [],
+        unselectedSourceColumnIds: [],
+        unselectedJoinIds: [],
+        unselectedLocalFieldIds: [],
+        unselectedCalculationIds: [],
+        localValues: { rowCount: 0, cellCount: 0 },
+        calculationOverrideIds: [],
+        calculationResults: 'all',
+        writeBackRuleIds: [],
+        actionIds: [],
+        presentationValueFilterCount: 0,
+        presentationOutOfRangeWidthColumnIds: [],
+        rowIdentitiesDerivedFromValues: 'all',
+      },
+    },
+  }
 }
 
-afterEach(() => {
-  cleanup()
-  vi.clearAllMocks()
-})
+async function renderPanel(
+  options: {
+    pinned?: string
+    versions?: SheetDefinitionVersionWire[]
+    extractionName?: string
+  } = {},
+) {
+  const calls: string[] = []
+  const selections: SheetDefinitionExtractionSelection[] = []
+
+  const fetcher = vi.fn<typeof fetch>(async (input, init) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input.toString(),
+      'http://localhost',
+    )
+
+    if (url.pathname.endsWith('/sheet_definition_versions')) {
+      const rows = options.versions ?? []
+      const id = url.searchParams.get('id')?.replace('eq.', '')
+
+      return Response.json(id ? rows.filter((row) => row.id === id) : rows)
+    }
+
+    if (!url.pathname.includes('/rpc/')) return Response.json([])
+    const name = url.pathname.split('/').at(-1) ?? ''
+    calls.push(name)
+
+    if (
+      name === 'preview_sheet_definition_extraction' ||
+      name === 'extract_sheet_definition_draft'
+    ) {
+      const { p_selection } = z
+        .object({ p_selection: sheetDefinitionExtractionSelectionSchema })
+        .parse(await new Response(init?.body).json())
+
+      if (name === 'preview_sheet_definition_extraction')
+        return Response.json(extractionPreview(p_selection))
+      selections.push(p_selection)
+
+      return Response.json({
+        definition: {
+          id: 'definition-1',
+          workspace_id: instance().workspaceId,
+          key: 'assay_results',
+          name: options.extractionName ?? 'Assay definition',
+          description: null,
+          lifecycle: 'active',
+          revision: 1,
+          created_at: instance().createdAt,
+          updated_at: instance().updatedAt,
+          created_by_user_id: 'u1',
+          updated_by_user_id: 'u1',
+        },
+        version: { ...version('version-1', 1), lifecycle: 'draft' },
+        preview: extractionPreview(p_selection),
+      })
+    }
+
+    if (name === 'preview_sheet_materialization') {
+      const configuration = validSheetDefinitionConfiguration()
+      const field = validSheetInstanceState().localFields[0]
+
+      return Response.json({
+        instanceId: INSTANCE,
+        instanceRevision: 1,
+        definitionVersionId: VERSION,
+        outputSchemaVersionId: null,
+        derivedOutputFields: [
+          { id: field.fieldId, kind: 'local-field', field },
+        ],
+        sourceVersions: [
+          {
+            bindingId: configuration.bindings[0].id,
+            datasetId: DATASET,
+            datasetRevision: 1,
+            schemaVersionId: VERSION,
+            pinKind: 'live-snapshot',
+            datasetVersionId: null,
+            policy: { mode: 'live' },
+          },
+        ],
+        previewDigest: 'a'.repeat(64),
+      })
+    }
+
+    if (name === 'materialize_sheet_instance')
+      return Response.json({
+        materializationId: VERSION,
+        datasetId: DATASET,
+        datasetVersionId: VERSION,
+        idempotent: false,
+      })
+
+    if (name === 'publish_sheet_definition_version')
+      return Response.json(version('version-1', 1))
+    throw new Error(`Unexpected RPC: ${name}`)
+  })
+
+  const rendered = await renderSheetRoute(
+    <CanonicalSheetLifecyclePanel
+      instance={{
+        ...instance(),
+        sourceDefinitionVersionId: options.pinned ?? null,
+      }}
+      client={createDataClient(fetcher)}
+      onInstance={vi.fn()}
+    />,
+  )
+
+  return { ...rendered, calls, selections, fetcher }
+}
+
+afterEach(cleanup)
 
 describe('CanonicalSheetLifecyclePanel', () => {
   it('extracts bound structure and row identity from the pinned Definition without concrete Dataset values', async () => {
     const configuration = validSheetDefinitionConfiguration()
-    fetchPinnedVersion.mockResolvedValue({
-      id: 'pinned-version-1',
-      definitionId: 'definition-1',
-      version: 1,
-      configuration,
+
+    const { selections } = await renderPanel({
+      pinned: VERSION,
+      versions: [version(VERSION, 1)],
     })
-    previewExtraction.mockResolvedValue({})
-    extractDraft.mockResolvedValue({
-      definition: { id: 'extracted-1', name: 'Extracted sheet' },
-      version: { id: 'extracted-version-1', revision: 1 },
-    })
-    renderPanelWithInstance({ sourceDefinitionVersionId: 'pinned-version-1' })
+
     const user = userEvent.setup()
     await user.click(
       screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
     )
     await user.click(screen.getByRole('button', { name: 'Extract draft' }))
     await screen.findByRole('link', { name: 'Review sheet definition' })
-    expect(extractDraft).toHaveBeenCalledWith(
-      expect.objectContaining({
-        selection: expect.objectContaining({
-          bindings: configuration.bindings.map((binding) => ({
-            bindingId: binding.id,
-            key: binding.key,
-            parameter: configuration.parameters.find(
-              (parameter) => parameter.id === binding.parameterId,
-            ),
-          })),
-          columnIds: configuration.columns
-            .filter((column) => column.source.kind !== 'calculated')
-            .map((column) => column.id),
-          joinIds: configuration.joins.map((join) => join.id),
-          rowIdentity: configuration.rowIdentity,
-        }),
-      }),
-    )
-  })
-  it('takes an extracted Definition directly to its governed configuration', async () => {
-    const user = userEvent.setup()
-    previewExtraction.mockResolvedValue({})
-    extractDraft.mockResolvedValue({
-      definition: { id: 'definition-1', name: 'Assay definition' },
-      version: { id: 'version-1', revision: 1 },
+    expect(selections[0]).toMatchObject({
+      bindings: configuration.bindings.map((binding) => ({
+        bindingId: binding.id,
+        key: binding.key,
+        parameter: configuration.parameters.find(
+          (parameter) => parameter.id === binding.parameterId,
+        ),
+      })),
+      columnIds: configuration.columns
+        .filter((column) => column.source.kind !== 'calculated')
+        .map((column) => column.id),
+      joinIds: configuration.joins.map((join) => join.id),
+      rowIdentity: configuration.rowIdentity,
     })
-    renderPanel()
+  })
 
+  it('takes an extracted Definition directly to its governed configuration', async () => {
+    const { calls } = await renderPanel()
+    const user = userEvent.setup()
     await user.click(
       screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
     )
     await user.type(screen.getByLabelText('Definition key'), 'assay_results')
     await user.click(screen.getByRole('button', { name: 'Extract draft' }))
 
-    const continueLink = await screen.findByRole('link', {
+    const link = await screen.findByRole('link', {
       name: 'Review sheet definition',
     })
 
-    expect(continueLink.getAttribute('href')).toContain(
+    expect(link.getAttribute('href')).toContain(
       '/sheet-definitions/definition-1?version=version-1&returnTo=%2Fsheets%2F',
     )
-    await waitFor(() => expect(extractDraft).toHaveBeenCalledTimes(1))
+    expect(
+      calls.filter((name) => name === 'extract_sheet_definition_draft'),
+    ).toHaveLength(1)
   })
+
   it('surfaces an upgrade badge when a newer published Definition version exists', async () => {
-    fetchPinnedVersion.mockResolvedValue({
-      id: 'pinned-version-1',
-      definitionId: 'definition-1',
-      version: 1,
+    await renderPanel({
+      pinned: 'pinned-version-1',
+      versions: [
+        version('pinned-version-1', 1),
+        version('pinned-version-2', 2),
+      ],
     })
-    fetchDefinitionVersions.mockResolvedValue([
-      { id: 'pinned-version-1', version: 1, lifecycle: 'published' },
-      { id: 'pinned-version-2', version: 2, lifecycle: 'published' },
-    ])
-    renderPanelWithInstance({ sourceDefinitionVersionId: 'pinned-version-1' })
     expect(await screen.findByText('Upgrade available · v2')).toBeTruthy()
   })
+
   it('stays silent when the pinned Definition version is current', async () => {
-    fetchPinnedVersion.mockResolvedValue({
-      id: 'pinned-version-2',
-      definitionId: 'definition-1',
-      version: 2,
+    const { fetcher } = await renderPanel({
+      pinned: 'pinned-version-2',
+      versions: [
+        version('pinned-version-1', 1),
+        version('pinned-version-2', 2),
+      ],
     })
-    fetchDefinitionVersions.mockResolvedValue([
-      { id: 'pinned-version-1', version: 1, lifecycle: 'published' },
-      { id: 'pinned-version-2', version: 2, lifecycle: 'published' },
-    ])
-    renderPanelWithInstance({ sourceDefinitionVersionId: 'pinned-version-2' })
-    await waitFor(() => expect(fetchDefinitionVersions).toHaveBeenCalled())
+
+    await waitFor(() =>
+      expect(fetcher).toHaveBeenCalledWith(
+        expect.stringContaining('definition_id=eq.definition-1'),
+        expect.any(Object),
+      ),
+    )
     expect(screen.queryByText(/Upgrade available/)).toBeNull()
   })
 
   it('writes no Dataset until the confirmation is accepted, and none on cancel', async () => {
+    const { calls } = await renderPanel()
     const user = userEvent.setup()
-    renderPanel()
-
     await user.click(
       screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
     )
     await user.click(screen.getByRole('button', { name: 'Save' }))
-
     const dialog = await screen.findByRole('alertdialog')
-    expect(
-      materializationData.previewSheetMaterialization,
-    ).not.toHaveBeenCalled()
-    expect(materializationData.materializeSheetInstance).not.toHaveBeenCalled()
-
+    expect(calls).not.toContain('preview_sheet_materialization')
+    expect(calls).not.toContain('materialize_sheet_instance')
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
-    expect(materializationData.materializeSheetInstance).not.toHaveBeenCalled()
+    expect(calls).not.toContain('materialize_sheet_instance')
   })
 
   it('lands on the new dataset after materialising', async () => {
+    const { queryClient } = await renderPanel()
+    queryClient.setQueryData(['dataset-explorer-summaries', 'other-view'], [])
     const user = userEvent.setup()
-    vi.mocked(
-      materializationData.previewSheetMaterialization,
-    ).mockResolvedValue({ previewDigest: 'digest-0123456789abcdef' } as never)
-    vi.mocked(materializationData.materializeSheetInstance).mockResolvedValue({
-      datasetId: 'dataset-9',
-    } as never)
-    renderPanel()
-
     await user.click(
       screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
     )
@@ -272,26 +317,60 @@ describe('CanonicalSheetLifecyclePanel', () => {
       name: 'Open the new dataset',
     })
 
-    expect(link.getAttribute('href')).toBe('/datasets/dataset-9')
+    expect(link.getAttribute('href')).toBe(`/datasets/${DATASET}`)
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryState(['dataset-explorer-summaries', 'other-view'])
+          ?.isInvalidated,
+      ).toBe(true),
+    )
   })
 
   it('publishes no Definition until the extract-and-publish confirmation is accepted', async () => {
+    const { calls } = await renderPanel()
     const user = userEvent.setup()
-    renderPanel()
-
     await user.click(
       screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
     )
     await user.click(
       screen.getByRole('button', { name: 'Extract and publish' }),
     )
-
     const dialog = await screen.findByRole('alertdialog')
-    expect(extractDraft).not.toHaveBeenCalled()
-
+    expect(calls).not.toContain('extract_sheet_definition_draft')
     await user.click(within(dialog).getByRole('button', { name: 'Cancel' }))
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull())
-    expect(extractDraft).not.toHaveBeenCalled()
+    expect(calls).not.toContain('extract_sheet_definition_draft')
+  })
+
+  it('refreshes the published lineage only after the confirmed publication succeeds', async () => {
+    const { calls, queryClient } = await renderPanel()
+    queryClient.setQueryData(['sheet-definition-versions', 'definition-1'], [])
+    const user = userEvent.setup()
+    await user.click(
+      screen.getByRole('button', { name: 'Sources, extract, upgrade' }),
+    )
+    await user.click(
+      screen.getByRole('button', { name: 'Extract and publish' }),
+    )
+    expect(
+      queryClient.getQueryState(['sheet-definition-versions', 'definition-1'])
+        ?.isInvalidated,
+    ).toBe(false)
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Extract and publish' }),
+    )
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryState(['sheet-definition-versions', 'definition-1'])
+          ?.isInvalidated,
+      ).toBe(true),
+    )
+    expect(calls).toEqual([
+      'preview_sheet_definition_extraction',
+      'extract_sheet_definition_draft',
+      'publish_sheet_definition_version',
+    ])
   })
 })
 
@@ -306,7 +385,6 @@ describe('lifecycleErrorText', () => {
       ),
     ).toMatch(/add a column to a dataset/)
   })
-
   it('leaves any other refusal as the server wrote it', () => {
     expect(lifecycleErrorText('stale revision')).toBe('stale revision')
   })

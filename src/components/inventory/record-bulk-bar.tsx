@@ -550,7 +550,10 @@ function SetFieldDialog({
   kind: string
   count: number
   client: DataClient
-  run: (fieldName: string, value: unknown) => Promise<BulkOutcome>
+  run: (
+    fieldName: string,
+    value: ReturnType<typeof parseModelFieldInput>,
+  ) => Promise<BulkOutcome>
   onDone: (outcome: BulkOutcome) => void
 }) {
   const [fieldName, setFieldName] = useState('')
@@ -585,7 +588,9 @@ function SetFieldDialog({
       busyLabel={t('library.bulk.fieldDialog.busy')}
       busy={set.isPending}
       disabled={!field || Boolean(problem)}
-      onConfirm={() => field && set.mutate([field.fieldName, parsed])}
+      onConfirm={() =>
+        field && parsed !== undefined && set.mutate([field.fieldName, parsed])
+      }
     >
       {fields.isPending ? null : choices.length === 0 ? (
         <p className="m-0 text-body text-fg-muted">

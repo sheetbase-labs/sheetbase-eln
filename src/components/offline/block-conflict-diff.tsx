@@ -8,7 +8,7 @@ import type {
   OfflineBlockPayloadEdit,
   OfflineReplayPort,
 } from '#/lib/offline/replay'
-import { blockPayloadSummary } from './offline-edits'
+import { blockPayloadSummary } from './offline-edit-model'
 
 /**
  * What differs between the version saved by someone else and the one made

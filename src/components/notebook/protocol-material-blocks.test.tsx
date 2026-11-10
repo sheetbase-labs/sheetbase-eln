@@ -1,44 +1,54 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactNode } from 'react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { NotebookBlock, NotebookRecord } from '#/lib/notebook-data'
-import { fetchRecordById } from '#/lib/scientific-records'
-import type * as ScientificRecords from '#/lib/scientific-records'
+import type { NotebookBlock, RecordWire } from '#/lib/notebook-data'
+import { dropSharedReads } from '#/lib/data-client'
 import { BlockEditor } from './block-editor'
+import type { BlockEditorProps } from './block-editor'
 import { BlockPreview } from './block-preview'
 
-vi.mock('#/lib/scientific-records', async (importOriginal) => {
-  const actual = await importOriginal<typeof ScientificRecords>()
-  return { ...actual, fetchRecordById: vi.fn() }
+const transport = vi.hoisted(() => {
+  const http = vi.fn<typeof fetch>()
+  vi.stubGlobal('fetch', http)
+
+  return http
 })
 
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    to,
-    children,
-    ...rest
-  }: {
-    to: string
-    children?: ReactNode
-    [key: string]: unknown
-  }) => (
-    <a href={to} {...rest}>
-      {children}
-    </a>
-  ),
-}))
+const records = new Map<string, RecordWire>()
 
-const fetchMaterialRecord = vi.mocked(fetchRecordById)
+beforeEach(() => {
+  dropSharedReads()
+  records.clear()
+  transport.mockReset()
+  transport.mockImplementation(async (input) => {
+    const url = new URL(
+      input instanceof Request ? input.url : input,
+      'http://localhost',
+    )
+
+    if (url.pathname !== '/api/db/records')
+      throw new Error(`Unexpected request: ${url.pathname}`)
+    const row = records.get(url.searchParams.get('id')?.slice(3) ?? '')
+
+    return Response.json(row ? [row] : [])
+  })
+})
 
 afterEach(() => {
   cleanup()
   vi.clearAllMocks()
 })
 
-function block(type: NotebookBlock['type'], payload: Record<string, unknown>) {
+function block(type: NotebookBlock['type'], payload: NotebookBlock['payload']) {
   return {
     id: `block-${type}`,
     recordId: 'experiment-1',
@@ -54,7 +64,17 @@ function renderWithQuery(ui: ReactNode) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, gcTime: 0 } },
   })
-  return render(<QueryClientProvider client={client}>{ui}</QueryClientProvider>)
+
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
+  return render(
+    <QueryClientProvider client={client}>
+      <RouterContextProvider router={router}>{ui}</RouterContextProvider>
+    </QueryClientProvider>,
+  )
 }
 
 const procedurePayload = {
@@ -70,13 +90,15 @@ const procedurePayload = {
 
 describe('SCI-002 protocol and procedure blocks', () => {
   it('renders a pinned protocol snapshot and an honest empty state', async () => {
-    fetchMaterialRecord.mockResolvedValue(
+    records.set(
+      'protocol-1',
       currentRecord({
         id: 'protocol-1',
         kind: 'protocol_template',
-        archivedAt: '2026-07-21T00:00:00Z',
+        archived_at: '2026-07-21T00:00:00Z',
       }),
     )
+
     const { rerender } = renderWithQuery(
       <BlockPreview
         block={block('protocol_reference', {
@@ -123,6 +145,7 @@ describe('SCI-002 protocol and procedure blocks', () => {
     const { rerender } = renderWithQuery(
       <BlockPreview block={block('procedure_step', procedurePayload)} />,
     )
+
     expect(screen.getByLabelText('Not completed').textContent).toBe('2')
     expect(screen.getByText('Mix the standards')).toBeTruthy()
     expect(screen.queryByRole('checkbox')).toBeNull()
@@ -151,7 +174,7 @@ describe('SCI-002 protocol and procedure blocks', () => {
 
   it('keyboard-operates execution completion and note and flushes both saves', async () => {
     const user = userEvent.setup()
-    const save = vi.fn(async () => ({ ok: true as const }))
+    const save = vi.fn<BlockEditorProps['save']>(async () => ({ ok: true }))
     renderWithQuery(
       <BlockEditor
         block={block('procedure_step', procedurePayload)}
@@ -164,15 +187,14 @@ describe('SCI-002 protocol and procedure blocks', () => {
     await user.keyboard(' ')
     await user.tab() // checkbox blur flushes the completion change
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1))
-    const calls = save.mock.calls as unknown as Array<[Record<string, unknown>]>
-    expect(calls[0][0]).toMatchObject({ completed: true, note: '' })
+    expect(save.mock.calls[0][0]).toMatchObject({ completed: true, note: '' })
 
     const note = screen.getByRole('textbox', { name: 'Execution note' })
     expect(document.activeElement).toBe(note)
     await user.type(note, 'Observed at bench')
     await user.tab() // note blur bypasses the autosave debounce
     await waitFor(() => expect(save).toHaveBeenCalledTimes(2))
-    expect(calls[1][0]).toMatchObject({
+    expect(save.mock.calls[1][0]).toMatchObject({
       completed: true,
       note: 'Observed at bench',
     })
@@ -212,46 +234,49 @@ const materialItems = [
   },
 ]
 
-function currentRecord(overrides: Partial<NotebookRecord>): NotebookRecord {
+function currentRecord(overrides: Partial<RecordWire>): RecordWire {
   return {
     id: 'record-1',
-    projectId: 'project-1',
+    workspace_id: 'workspace-1',
+    project_id: 'project-1',
+    folder_id: null,
     kind: 'material',
     identifier: 'REA-001',
     title: 'Current title',
     status: 'active',
     properties: {},
-    version: 1,
-    createdAt: '2026-01-01T00:00:00.000Z',
-    updatedAt: '2026-01-01T00:00:00.000Z',
-    archivedAt: null,
-    deletedAt: null,
+    tags: [],
+    structure_version: 1,
+    metadata_version: 1,
+    created_at: '2026-01-01T00:00:00.000Z',
+    updated_at: '2026-01-01T00:00:00.000Z',
+    archived_at: null,
+    deleted_at: null,
+    created_by_user_id: 'user-1',
+    updated_by_user_id: null,
+    locked_at: null,
+    locked_by_revision_id: null,
     ...overrides,
-  } as NotebookRecord
+  }
 }
 
 describe('SCI-002 materials preview', () => {
   it('keeps captured quantity/unit while surfacing current record risks', async () => {
-    const records = new Map<string, NotebookRecord>([
-      [
-        'record-1',
-        currentRecord({
-          archivedAt: '2026-07-01T00:00:00.000Z',
-          status: 'expired',
-        }),
-      ],
-      [
-        'record-2',
-        currentRecord({
-          id: 'record-2',
-          kind: 'sample',
-          identifier: 'SAM-002',
-          status: 'low_stock',
-        }),
-      ],
-    ])
-    fetchMaterialRecord.mockImplementation((_client, id) =>
-      Promise.resolve(records.get(id) ?? null),
+    records.set(
+      'record-1',
+      currentRecord({
+        archived_at: '2026-07-01T00:00:00.000Z',
+        status: 'expired',
+      }),
+    )
+    records.set(
+      'record-2',
+      currentRecord({
+        id: 'record-2',
+        kind: 'sample',
+        identifier: 'SAM-002',
+        status: 'low_stock',
+      }),
     )
     renderWithQuery(
       <BlockPreview block={block('materials', { items: materialItems })} />,
@@ -278,7 +303,7 @@ describe('SCI-002 materials preview', () => {
   })
 
   it('preserves stored observations while current availability is loading', () => {
-    fetchMaterialRecord.mockReturnValue(new Promise(() => {}))
+    transport.mockReturnValue(new Promise(() => {}))
     renderWithQuery(
       <BlockPreview
         block={block('materials', { items: [materialItems[0]] })}
@@ -292,7 +317,7 @@ describe('SCI-002 materials preview', () => {
   })
 
   it('preserves stored observations and reports a current-query failure', async () => {
-    fetchMaterialRecord.mockRejectedValue(new Error('network unavailable'))
+    transport.mockRejectedValue(new Error('network unavailable'))
     renderWithQuery(
       <BlockPreview
         block={block('materials', { items: [materialItems[0]] })}

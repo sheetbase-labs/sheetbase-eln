@@ -2,6 +2,7 @@ import { daysUntilDate } from '#/lib/calendar-days'
 import { useQuery } from '@tanstack/react-query'
 
 import type { Tone } from '#/components/ui/status'
+import type { RobotJobStatus } from '#/lib/robots'
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { listByIds } from '#/lib/chunk-ids'
@@ -129,6 +130,41 @@ export interface InstrumentIntakeEvidence {
   lastImport?: { status: string; createdAt: string } | null
 }
 
+interface InstrumentStatus {
+  tone: Tone
+  label: string
+}
+
+/** Which delivery problem an `intakeHealth` label describes, if any. */
+export function intakeDeliveryProblem(
+  label: string,
+): 'failed' | 'stale' | 'waiting' | null {
+  if (label === 'Last import failed') return 'failed'
+
+  if (label.startsWith('No data for')) return 'stale'
+
+  if (label === 'Waiting for first data') return 'waiting'
+
+  return null
+}
+
+/** Whether the instrument has been marked out of service (and is not retired). */
+export function isOutOfService(
+  instrument: Pick<InstrumentRow, 'outOfServiceAt' | 'retiredAt'>,
+): boolean {
+  return Boolean(instrument.outOfServiceAt) && !instrument.retiredAt
+}
+
+export const JOB_TONES: Record<RobotJobStatus, Tone> = {
+  queued: 'draft',
+  staged: 'review',
+  starting: 'progress',
+  running: 'progress',
+  complete: 'ok',
+  failed: 'bad',
+  cancelled: 'draft',
+}
+
 /**
  * Per-method health. A method with no ingestion (manual, none) reports what it is rather than a
  * heartbeat, and an automated method never reports healthy without a committed import to prove it.
@@ -137,7 +173,7 @@ export function intakeHealth(
   method: string,
   evidence: InstrumentIntakeEvidence = {},
   now: Date = appNow(),
-): { tone: Tone; label: string } {
+): InstrumentStatus {
   if (method === 'manual') return { tone: 'none', label: 'Manual entry' }
 
   if (method === 'none' || !intakeMethodNeedsParser(method))
@@ -574,7 +610,7 @@ interface RunWire {
   error_message: string | null
 }
 
-export function runStatus(status: string): { tone: Tone; label: string } {
+export function runStatus(status: string): InstrumentStatus {
   switch (status) {
     case 'running':
       return { tone: 'progress', label: 'Running' }
@@ -630,13 +666,13 @@ async function runOutcomes(
         'instrument_run_links',
         `?run_id=in.(${ids})&link_type=in.(sample,experiment)&select=run_id,link_type,linked_record_id,linked_record_identifier`,
       )
-      .catch(() => [] as RunLinkWire[]),
+      .catch((): RunLinkWire[] => []),
     client
       .list<RunImportWire>(
         'dataset_imports',
         `?instrument_id=eq.${encodeURIComponent(instrumentId)}&select=dataset_id,source_provenance&order=created_at.desc&limit=500`,
       )
-      .catch(() => [] as RunImportWire[]),
+      .catch((): RunImportWire[] => []),
   ])
 
   for (const link of links) {
@@ -669,15 +705,16 @@ async function runOutcomes(
         'datasets',
         `?id=in.(${datasetIds.map(encodeURIComponent).join(',')})&select=id,display_id,name`,
       )
-      .catch(() => [] as RunDatasetWire[])
+      .catch((): RunDatasetWire[] => [])
 
     const byId = new Map(datasets.map((d) => [d.id, d]))
 
     for (const [runId, datasetId] of datasetByRun) {
       const dataset = byId.get(datasetId)
+      const outcome = outcomes.get(runId)
 
-      if (dataset)
-        outcomes.get(runId)!.dataset = {
+      if (dataset && outcome)
+        outcome.dataset = {
           id: dataset.id,
           displayId: dataset.display_id,
           name: dataset.name,
@@ -774,7 +811,7 @@ export const CALIBRATION_DUE_SOON_DAYS = 30
 export function calibrationStatus(
   dueAt: string | null,
   now: Date = appNow(),
-): { tone: Tone; label: string } {
+): InstrumentStatus {
   if (!dueAt) return { tone: 'none', label: 'Not calibrated' }
 
   if (Number.isNaN(Date.parse(dueAt)))

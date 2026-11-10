@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -104,8 +105,8 @@ export interface NewBuiltInField extends FieldPlacement {
   description: string | null
   logicalType: Exclude<ModelFieldLogicalType, 'reference'>
   required: boolean
-  defaultValue: unknown
-  validation: Record<string, unknown>
+  defaultValue: ModelFieldDefinition['defaultValue']
+  validation: ModelFieldDefinition['validation']
   unit: string | null
   options: Array<{ key: string; label: string }>
 }
@@ -146,33 +147,34 @@ export async function createBuiltInModelField(
   return created.id
 }
 
-export function updateBuiltInModelField(
+export async function updateBuiltInModelField(
   client: DataClient,
   definitionId: string,
   patch: Partial<FieldPlacement> & {
     label?: string
     description?: string | null
   },
-): Promise<unknown> {
-  return client.rpc('update_model_field', {
+) {
+  await client.rpc('update_model_field', {
     p_definition_id: definitionId,
     p_patch: patch,
   })
 }
 
-export function retireBuiltInModelField(
+export async function retireBuiltInModelField(
   client: DataClient,
   definitionId: string,
-): Promise<unknown> {
-  return client.rpc('retire_model_field', { p_definition_id: definitionId })
+) {
+  await client.rpc('retire_model_field', { p_definition_id: definitionId })
 }
 
 /** The server's refusal in a scientist's words. */
-export function describeFieldAuthoringError(error: unknown): string {
-  const code =
-    typeof error === 'object' && error !== null && 'code' in error
-      ? String(error.code)
-      : ''
+export function describeFieldAuthoringError(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- This decodes external RPC failures; the code object schema establishes the refusal code before matching it.
+  error: unknown,
+): string {
+  const parsed = z.object({ code: z.string() }).safeParse(error)
+  const code = parsed.success ? parsed.data.code : ''
 
   const message = error instanceof Error ? error.message : ''
 

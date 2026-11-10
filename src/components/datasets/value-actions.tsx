@@ -23,15 +23,19 @@ import {
   requestRepeat,
   systemFlagProvenance,
 } from '#/lib/dataset-flags'
-import type {
-  DatasetSystemRule,
-  DatasetValueFlag,
-  DatasetValueFlagKind,
-} from '#/lib/dataset-flags'
+import type { DatasetValueFlag } from '#/lib/dataset-flags'
 import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
+import type { NotebookRecord } from '#/lib/notebook-data'
 import { cn } from '#/lib/utils'
 import { formatDate } from '#/lib/format-date'
+import { FLAG_KIND_LABELS, FLAG_REASON_CATEGORIES } from './value-action-labels'
+import type { FlagReasonCategory } from './value-action-labels'
+import {
+  formatProvenanceValue,
+  formatRuleThreshold,
+  formatSelectedValue,
+} from './value-action-presentation'
 
 /**
  * DSET-01.5 — selected-value actions.
@@ -50,27 +54,7 @@ import { formatDate } from '#/lib/format-date'
  * unhandled render error.
  */
 
-/** Human labels for the canonical flag kinds (DB is authoritative). */
-export const FLAG_KIND_LABELS: Record<DatasetValueFlagKind, string> = {
-  out_of_range: t('data.valueActions.outRange'),
-  missing_unit: t('data.valueActions.missingUnit'),
-  above_curve: t('data.valueActions.aboveCurve'),
-  high_cv: t('data.valueActions.highReplicateCv'),
-}
-
-/** Design reason categories (canvas DialogsRecord, "Mark out of range"). */
-export const FLAG_REASON_CATEGORIES = [
-  t('data.valueActions.aboveAssaySValidated'),
-  t('data.valueActions.instrumentHandlingError'),
-  t('data.valueActions.reasonOther'),
-] as const
-
-export type FlagReasonCategory = (typeof FLAG_REASON_CATEGORIES)[number]
-
-export interface RepeatSourceSample {
-  id: string
-  identifier: string
-}
+export type RepeatSourceSample = Pick<NotebookRecord, 'id' | 'identifier'>
 
 export interface ValueActionsProps {
   datasetId: string
@@ -108,51 +92,6 @@ function flagSourceLabel(flag: DatasetValueFlag): string {
   return flag.source === 'system'
     ? t('data.valueActions.systemRule')
     : t('data.valueActions.setManually')
-}
-
-/** A rule's evaluated value, rendered compactly for the inspector. */
-export function formatProvenanceValue(value: unknown): string {
-  if (value == null) return t('data.valueActions.noValue')
-
-  if (typeof value === 'object') return JSON.stringify(value)
-
-  return String(value)
-}
-
-/**
- * A one-line summary of a system rule's own parameters, so the inspector says
- * what the value was measured against and not just that a rule fired.
- */
-export function formatRuleThreshold(
-  rule: DatasetSystemRule,
-  threshold: unknown,
-): string | null {
-  if (!threshold || typeof threshold !== 'object') return null
-  const th = threshold as Record<string, unknown>
-
-  if (rule === 'out_of_range') {
-    const { min, max } = th
-
-    if (min != null && max != null) return `expected ${min}–${max}`
-
-    if (max != null) return `expected at most ${max}`
-
-    if (min != null) return `expected at least ${min}`
-
-    return null
-  }
-
-  if (rule === 'missing_unit') return t('data.valueActions.fieldRequiresUnit')
-  // Only `high_cv` remains in the union here.
-  const parts: string[] = []
-
-  if (th.cvPercent != null) parts.push(`CV ${th.cvPercent}%`)
-
-  if (th.replicateCount != null) parts.push(`${th.replicateCount} replicates`)
-
-  if (th.maxCvPercent != null) parts.push(`limit ${th.maxCvPercent}%`)
-
-  return parts.length ? parts.join(' · ') : null
 }
 
 /**
@@ -213,9 +152,9 @@ export function ValueActions({
   }
 
   const repeat = useMutation({
-    mutationFn: () =>
+    mutationFn: (sample: RepeatSourceSample) =>
       requestRepeat(client, {
-        sourceRecordId: sourceSample!.id,
+        sourceRecordId: sample.id,
         datasetId,
         sourceRowId: rowId,
         sourceFieldId: fieldId,
@@ -223,11 +162,7 @@ export function ValueActions({
     onSuccess: (result) => {
       onChanged?.()
 
-      const identifier =
-        typeof result.sample.identifier === 'string'
-          ? result.sample.identifier
-          : t('data.valueActions.derivedSample')
-
+      const identifier = result.sample.identifier
       const planned = result.plannedRowIds.length
       toast(t('data.valueActions.requestRepeatQueued', { identifier }), {
         description: t('data.valueActions.plannedAddedDatasetValues', {
@@ -338,7 +273,9 @@ export function ValueActions({
                 })
               : t('data.valueActions.sourceSampleLinkedRow')
           }
-          onClick={() => repeat.mutate()}
+          onClick={() => {
+            if (sourceSample) repeat.mutate(sourceSample)
+          }}
         >
           {t('data.valueActions.requestRepeat')}
         </Button>
@@ -440,7 +377,7 @@ export function MarkOutOfRangeDialog({
       <DialogContent className="w-[min(460px,calc(100vw-32px))]">
         <DialogHeader
           title={t('data.valueActions.markValueOutRange')}
-          description={`${fieldLabel} · ${value == null ? '—' : String(value)}`}
+          description={`${fieldLabel} · ${formatSelectedValue(value)}`}
         />
         <DialogBody>
           <Notice tone="warn" icon={false}>

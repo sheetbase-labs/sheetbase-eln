@@ -1,6 +1,7 @@
 import { rich, t } from '#/copy'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import { useState } from 'react'
+import { z } from 'zod'
 
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
@@ -17,6 +18,12 @@ import {
   TableRow,
 } from '#/components/ui/table'
 import type { PipelineRunPromptAnswer } from '#/lib/pipelines/data'
+import { PARAMETER_TYPES } from '#/lib/pipelines/config'
+import type { PipelineConfirmField } from '#/lib/pipelines/config'
+import {
+  pipelineJsonObjectSchema,
+  pipelineJsonValueSchema,
+} from '#/lib/pipelines/types'
 import type { PipelineRunPromptWire } from '#/lib/pipelines/types'
 
 /**
@@ -29,8 +36,7 @@ import type { PipelineRunPromptWire } from '#/lib/pipelines/types'
  */
 
 /** The author's confirm-step field vocabulary (PipelineConfirmField). */
-export type PromptFieldType =
-  'text' | 'integer' | 'decimal' | 'boolean' | 'date' | 'timestamp'
+export type PromptFieldType = PipelineConfirmField['type']
 
 export interface PromptField {
   key: string
@@ -46,87 +52,88 @@ export interface PromptFormSchema {
   fields: PromptField[]
   proposalStep: string | null
   proposalColumns: string[]
-  proposalRows: Record<string, unknown>[]
+  proposalRows: z.infer<typeof pipelineJsonObjectSchema>[]
 }
 
-const FIELD_TYPES: readonly PromptFieldType[] = [
-  'text',
-  'integer',
-  'decimal',
-  'boolean',
-  'date',
-  'timestamp',
-]
+const stringListSchema = z
+  .array(pipelineJsonValueSchema)
+  .catch([])
+  .transform((values) =>
+    values.flatMap((value) => {
+      const parsed = z.string().safeParse(value)
 
-/** Read the author's jsonb form schema without trusting its shape. */
-export function readPromptFormSchema(
-  raw: Record<string, unknown>,
-): PromptFormSchema {
-  const fields: PromptField[] = Array.isArray(raw.fields)
-    ? raw.fields.flatMap((entry): PromptField[] => {
-        if (entry === null || typeof entry !== 'object' || Array.isArray(entry))
-          return []
-        const field = entry as Record<string, unknown>
-
-        if (typeof field.key !== 'string') return []
-
-        const type = FIELD_TYPES.includes(field.type as PromptFieldType)
-          ? (field.type as PromptFieldType)
-          : 'text'
-
-        return [
-          {
-            key: field.key,
-            label: typeof field.label === 'string' ? field.label : field.key,
-            type,
-            required: field.required === true,
-            options: Array.isArray(field.options)
-              ? field.options.filter((o): o is string => typeof o === 'string')
-              : [],
-          },
-        ]
-      })
-    : []
-
-  const proposal = raw.proposal
-
-  const proposalRecord =
-    proposal !== null &&
-    typeof proposal === 'object' &&
-    !Array.isArray(proposal)
-      ? (proposal as Record<string, unknown>)
-      : null
-
-  const proposalRows: unknown[] =
-    proposalRecord && Array.isArray(proposalRecord.rows)
-      ? proposalRecord.rows
-      : []
-
-  const rows = proposalRows.filter(
-    (row): row is Record<string, unknown> =>
-      row !== null && typeof row === 'object' && !Array.isArray(row),
+      return parsed.success ? [parsed.data] : []
+    }),
   )
 
+const promptFieldSchema = z
+  .object({
+    key: z.string(),
+    label: z.string().optional().catch(undefined),
+    type: z.enum(PARAMETER_TYPES).catch('text'),
+    required: z.boolean().catch(false),
+    options: stringListSchema,
+  })
+  .transform((field): PromptField => ({
+    ...field,
+    label: field.label ?? field.key,
+  }))
+
+const proposalSchema = z
+  .object({
+    step: z.string().nullable().catch(null),
+    rows: z
+      .array(pipelineJsonValueSchema)
+      .catch([])
+      .transform((rows) =>
+        rows.flatMap((row) => {
+          const parsed = pipelineJsonObjectSchema.safeParse(row)
+
+          return parsed.success ? [parsed.data] : []
+        }),
+      ),
+  })
+  .catch({ step: null, rows: [] })
+
+const promptFormSchema = z.object({
+  title: z.string().nullable().catch(null),
+  description: z.string().nullable().catch(null),
+  fields: z
+    .array(pipelineJsonValueSchema)
+    .catch([])
+    .transform((fields) =>
+      fields.flatMap((field) => {
+        const parsed = promptFieldSchema.safeParse(field)
+
+        return parsed.success ? [parsed.data] : []
+      }),
+    ),
+  proposal: proposalSchema,
+})
+
+/** Read the author's jsonb form schema without trusting its shape. */
+function readPromptFormSchema(
+  raw: PipelineRunPromptWire['form_schema'],
+): PromptFormSchema {
+  const parsed = promptFormSchema.parse(raw)
+  const rows = parsed.proposal.rows
   const columns = rows.length ? Object.keys(rows[0]) : []
 
   return {
-    title: typeof raw.title === 'string' ? raw.title : null,
-    description: typeof raw.description === 'string' ? raw.description : null,
-    fields,
-    proposalStep:
-      proposalRecord && typeof proposalRecord.step === 'string'
-        ? proposalRecord.step
-        : null,
+    title: parsed.title,
+    description: parsed.description,
+    fields: parsed.fields,
+    proposalStep: parsed.proposal.step,
     proposalColumns: columns,
     proposalRows: rows,
   }
 }
 
-const DECISION_LABELS: Record<string, string> = {
-  confirm: t('data.runPrompt.confirmed'),
-  skip: t('data.runPrompt.skippedStep'),
-  stop: t('data.runPrompt.stoppedRun'),
-}
+const DECISION_LABELS = new Map([
+  ['confirm', t('data.runPrompt.confirmed')],
+  ['skip', t('data.runPrompt.skippedStep')],
+  ['stop', t('data.runPrompt.stoppedRun')],
+])
 
 export interface PromptAnswerView {
   decision: string
@@ -134,19 +141,22 @@ export interface PromptAnswerView {
   reason: string | null
 }
 
-function displayValue(value: unknown): string {
+function displayValue(
+  value: z.infer<typeof pipelineJsonValueSchema> | undefined,
+): string {
   if (value === null || value === undefined) return '—'
 
-  if (typeof value === 'string') return value
+  const primitive = z
+    .union([z.string(), z.number(), z.boolean()])
+    .safeParse(value)
 
-  if (typeof value === 'number' || typeof value === 'boolean')
-    return String(value)
+  if (primitive.success) return String(primitive.data)
 
   return JSON.stringify(value)
 }
 
 /** Read an answered prompt's answer: the decision, the field values and why. */
-export function readPromptAnswer(
+function readPromptAnswer(
   prompt: PipelineRunPromptWire,
   schema: PromptFormSchema,
 ): PromptAnswerView | null {
@@ -154,27 +164,23 @@ export function readPromptAnswer(
 
   if (!answer) return null
 
-  const rawValues =
-    answer.values !== null &&
-    typeof answer.values === 'object' &&
-    !Array.isArray(answer.values)
-      ? (answer.values as Record<string, unknown>)
-      : {}
+  const rawValues = pipelineJsonObjectSchema.catch({}).parse(answer.values)
 
   const labelByKey = Object.fromEntries(
     schema.fields.map((f) => [f.key, f.label]),
   )
 
+  const decision = z.string().safeParse(answer.decision)
+
   return {
-    decision:
-      typeof answer.decision === 'string'
-        ? (DECISION_LABELS[answer.decision] ?? answer.decision)
-        : t('data.runPrompt.answered'),
+    decision: decision.success
+      ? (DECISION_LABELS.get(decision.data) ?? decision.data)
+      : t('data.runPrompt.answered'),
     values: Object.entries(rawValues).map(([key, value]) => ({
       label: labelByKey[key] ?? key,
       value: displayValue(value),
     })),
-    reason: typeof answer.reason === 'string' ? answer.reason : null,
+    reason: z.string().nullable().catch(null).parse(answer.reason),
   }
 }
 
@@ -196,6 +202,16 @@ export interface RunPromptPanelProps {
 function ProposalTable({ schema }: { schema: PromptFormSchema }) {
   if (!schema.proposalColumns.length) return null
 
+  const occurrences = new Map<string, number>()
+
+  const rows = schema.proposalRows.map((row) => {
+    const content = JSON.stringify(row)
+    const occurrence = occurrences.get(content) ?? 0
+    occurrences.set(content, occurrence + 1)
+
+    return { row, key: `${content}:${occurrence}` }
+  })
+
   return (
     <TableBox>
       <Table aria-label={t('data.runPrompt.ariaWhatStepProposes')}>
@@ -207,8 +223,8 @@ function ProposalTable({ schema }: { schema: PromptFormSchema }) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {schema.proposalRows.map((row, index) => (
-            <TableRow key={index}>
+          {rows.map(({ row, key }) => (
+            <TableRow key={key}>
               {schema.proposalColumns.map((column) => (
                 <TableCell key={column}>{displayValue(row[column])}</TableCell>
               ))}
@@ -217,6 +233,116 @@ function ProposalTable({ schema }: { schema: PromptFormSchema }) {
         </TableBody>
       </Table>
     </TableBox>
+  )
+}
+
+function PromptFieldInput({
+  field,
+  value,
+  onChange,
+}: {
+  field: PromptField
+  value: string | boolean | undefined
+  onChange: (value: string | boolean) => void
+}) {
+  const label = (
+    <span>
+      {field.label}
+      {field.required ? (
+        <span className="text-fg-muted"> {t('data.runPrompt.required')}</span>
+      ) : null}
+    </span>
+  )
+
+  if (field.type === 'boolean') {
+    return (
+      <label className="flex items-center gap-2 text-label">
+        <Checkbox checked={value === true} onCheckedChange={onChange} />
+        {label}
+      </label>
+    )
+  }
+
+  if (field.type === 'text' && field.options.length) {
+    return (
+      <Field label={label} required={field.required}>
+        <Select
+          aria-label={field.label}
+          value={String(value ?? '')}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          <option value="">{t('data.runPrompt.choose')}</option>
+          {field.options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </Select>
+      </Field>
+    )
+  }
+
+  const inputType =
+    field.type === 'integer' || field.type === 'decimal'
+      ? 'number'
+      : field.type === 'date'
+        ? 'date'
+        : field.type === 'timestamp'
+          ? 'datetime-local'
+          : 'text'
+
+  return (
+    <Field label={label} required={field.required}>
+      <Input
+        aria-label={field.label}
+        type={inputType}
+        step={field.type === 'decimal' ? 'any' : undefined}
+        value={String(value ?? '')}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </Field>
+  )
+}
+
+function AnsweredPrompt({
+  prompt,
+  answer,
+  title,
+  nameOf,
+}: {
+  prompt: PipelineRunPromptWire
+  answer: PromptAnswerView
+  title: string
+  nameOf: (userId: string) => string
+}) {
+  return (
+    <section
+      aria-label={t('data.runPrompt.ariaAnsweredPrompt')}
+      className="flex flex-col gap-3 rounded-md border border-border bg-surface px-4 py-3"
+    >
+      <h2 className="font-sans text-label font-semibold">{title}</h2>
+      <p className="m-0 text-body">
+        <span className="font-medium text-fg">{answer.decision}</span>
+        {answer.values.length ? (
+          <span className="text-fg-muted">
+            {' · '}
+            {answer.values.map((v) => `${v.label}: ${v.value}`).join(' · ')}
+          </span>
+        ) : null}
+      </p>
+      {answer.reason ? (
+        <p className="m-0 text-body text-fg-muted">{answer.reason}</p>
+      ) : null}
+      <p className="m-0 text-caption text-fg-muted">
+        {prompt.answered_by_user_id
+          ? t('data.runPrompt.answeredBy', {
+              value: nameOf(prompt.answered_by_user_id),
+            })
+          : t('data.runPrompt.answered')}
+        {prompt.answered_at ? ` on ${formatMoment(prompt.answered_at)}` : ''}{' '}
+        {t('data.runPrompt.step', { stepId: prompt.step_id })}
+      </p>
+    </section>
   )
 }
 
@@ -229,7 +355,7 @@ export function RunPromptPanel({
   error = null,
 }: RunPromptPanelProps) {
   const schema = readPromptFormSchema(prompt.form_schema)
-  const [values, setValues] = useState<Record<string, unknown>>({})
+  const [values, setValues] = useState<Record<string, string | boolean>>({})
   const [reason, setReason] = useState('')
   const [reasonError, setReasonError] = useState<string | null>(null)
 
@@ -252,33 +378,12 @@ export function RunPromptPanel({
 
   if (answer) {
     return (
-      <section
-        aria-label={t('data.runPrompt.ariaAnsweredPrompt')}
-        className="flex flex-col gap-3 rounded-md border border-border bg-surface px-4 py-3"
-      >
-        <h2 className="font-sans text-label font-semibold">{title}</h2>
-        <p className="m-0 text-body">
-          <span className="font-medium text-fg">{answer.decision}</span>
-          {answer.values.length ? (
-            <span className="text-fg-muted">
-              {' · '}
-              {answer.values.map((v) => `${v.label}: ${v.value}`).join(' · ')}
-            </span>
-          ) : null}
-        </p>
-        {answer.reason ? (
-          <p className="m-0 text-body text-fg-muted">{answer.reason}</p>
-        ) : null}
-        <p className="m-0 text-caption text-fg-muted">
-          {prompt.answered_by_user_id
-            ? t('data.runPrompt.answeredBy', {
-                value: nameOf(prompt.answered_by_user_id),
-              })
-            : t('data.runPrompt.answered')}
-          {prompt.answered_at ? ` on ${formatMoment(prompt.answered_at)}` : ''}{' '}
-          {t('data.runPrompt.step', { stepId: prompt.step_id })}
-        </p>
-      </section>
+      <AnsweredPrompt
+        prompt={prompt}
+        answer={answer}
+        title={title}
+        nameOf={nameOf}
+      />
     )
   }
 
@@ -304,80 +409,16 @@ export function RunPromptPanel({
         </Notice>
       ) : (
         <div className="flex flex-col gap-3">
-          {schema.fields.map((field) => {
-            const label = (
-              <span>
-                {field.label}
-                {field.required ? (
-                  <span className="text-fg-muted">
-                    {' '}
-                    {t('data.runPrompt.required')}
-                  </span>
-                ) : null}
-              </span>
-            )
-
-            if (field.type === 'boolean') {
-              return (
-                <label
-                  key={field.key}
-                  className="flex items-center gap-2 text-label"
-                >
-                  <Checkbox
-                    checked={values[field.key] === true}
-                    onCheckedChange={(checked) =>
-                      setValues((v) => ({ ...v, [field.key]: checked }))
-                    }
-                  />
-                  {label}
-                </label>
-              )
-            }
-
-            if (field.type === 'text' && field.options.length) {
-              return (
-                <Field key={field.key} label={label} required={field.required}>
-                  <Select
-                    aria-label={field.label}
-                    value={String(values[field.key] ?? '')}
-                    onChange={(e) =>
-                      setValues((v) => ({ ...v, [field.key]: e.target.value }))
-                    }
-                  >
-                    <option value="">{t('data.runPrompt.choose')}</option>
-                    {field.options.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-              )
-            }
-
-            const inputType =
-              field.type === 'integer' || field.type === 'decimal'
-                ? 'number'
-                : field.type === 'date'
-                  ? 'date'
-                  : field.type === 'timestamp'
-                    ? 'datetime-local'
-                    : 'text'
-
-            return (
-              <Field key={field.key} label={label} required={field.required}>
-                <Input
-                  aria-label={field.label}
-                  type={inputType}
-                  step={field.type === 'decimal' ? 'any' : undefined}
-                  value={String(values[field.key] ?? '')}
-                  onChange={(e) =>
-                    setValues((v) => ({ ...v, [field.key]: e.target.value }))
-                  }
-                />
-              </Field>
-            )
-          })}
+          {schema.fields.map((field) => (
+            <PromptFieldInput
+              key={field.key}
+              field={field}
+              value={values[field.key]}
+              onChange={(value) =>
+                setValues((v) => ({ ...v, [field.key]: value }))
+              }
+            />
+          ))}
 
           <Field
             label={

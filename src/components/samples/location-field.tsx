@@ -4,16 +4,15 @@ import { useId } from 'react'
 import { Input } from '#/components/ui/input'
 import { useStorageLocations } from '#/components/samples/samples-data'
 import { notebookDataClient } from '#/lib/notebook-data'
+import type { DataClient } from '#/lib/data-client'
 import { fetchStorageTree, locationSuggestions } from '#/lib/storage-locations'
 
 /** The boxes set up under Settings → Storage and labels, as location paths. */
-function useConfiguredLocations(enabled: boolean) {
+function useConfiguredLocations(enabled: boolean, client: DataClient) {
   return useQuery({
     queryKey: ['storage-locations', 'suggestions'],
     queryFn: async () =>
-      locationSuggestions(
-        await fetchStorageTree(notebookDataClient, { occupancy: false }),
-      ),
+      locationSuggestions(await fetchStorageTree(client, { occupancy: false })),
     staleTime: 60_000,
     enabled,
     // A workspace with no storage set up, or a person who cannot read it,
@@ -34,6 +33,7 @@ export function LocationInput({
   placeholder,
   autoFocus,
   locations,
+  client = notebookDataClient,
   'aria-label': ariaLabel,
 }: {
   value: string
@@ -42,11 +42,12 @@ export function LocationInput({
   autoFocus?: boolean
   /** Supplied when the page already holds the locations; else they are fetched. */
   locations?: readonly string[]
+  client?: DataClient
   'aria-label'?: string
 }) {
   const listId = useId()
-  const fetched = useStorageLocations(undefined, locations === undefined)
-  const configured = useConfiguredLocations(locations === undefined)
+  const fetched = useStorageLocations(client, locations === undefined)
+  const configured = useConfiguredLocations(locations === undefined, client)
 
   const options = [
     ...new Set([

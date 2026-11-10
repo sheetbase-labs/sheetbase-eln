@@ -127,6 +127,12 @@ const intakeDataClient = createDataClient()
 /** UI port (roadmap-4/ui-app3): an instrument's record, calibration and run
  * queue (LAB-06). */
 export const Route = createFileRoute('/instruments/$instrumentId')({
+  validateSearch: (
+    // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- TanStack hands the raw search object here; the decode below is the only thing that reads it.
+    search: Record<string, unknown>,
+  ): InstrumentSearch => ({
+    record: search.record === '1' || search.record === 1 ? '1' : undefined,
+  }),
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
 
@@ -142,11 +148,13 @@ export const Route = createFileRoute('/instruments/$instrumentId')({
 
     return { context }
   },
-  validateSearch: (search: Record<string, unknown>): { record?: '1' } => ({
-    record: search.record === '1' || search.record === 1 ? '1' : undefined,
-  }),
   component: InstrumentPage,
 })
+
+/** The one search key this route reads. */
+interface InstrumentSearch {
+  record?: '1'
+}
 
 function isoDay(offsetDays = 0): string {
   const d = appNow()
@@ -184,8 +192,8 @@ function InstrumentPage() {
   const [recordOpen, setRecordOpen] = useState(false)
   const [downOpen, setDownOpen] = useState(false)
   const [upOpen, setUpOpen] = useState(false)
-  const [performed, setPerformed] = useState(isoDay())
-  const [due, setDue] = useState(isoDay(182))
+  const [performed, setPerformed] = useState(() => isoDay())
+  const [due, setDue] = useState(() => isoDay(182))
   const [notes, setNotes] = useState('')
 
   const [certificate, setCertificate] = useState<{
@@ -197,7 +205,7 @@ function InstrumentPage() {
   const [setupStep, setSetupStep] = useState<1 | 3 | null>(null)
   const [grantOpen, setGrantOpen] = useState(false)
   const [grantUser, setGrantUser] = useState('')
-  const [grantUntil, setGrantUntil] = useState(isoDay(365))
+  const [grantUntil, setGrantUntil] = useState(() => isoDay(365))
   const [grantScope, setGrantScope] = useState('')
 
   const [revokeTarget, setRevokeTarget] = useState<QualificationRow | null>(
@@ -530,12 +538,11 @@ function InstrumentPage() {
       setCertificate(null)
       toast(t('library.instruments.record.calibrationRecorded'))
     },
-    onError: (error: unknown) => {
+    onError: (failure: Error) => {
       toast(t('library.instruments.record.couldNotRecordTheCalibration'), {
         description:
-          error instanceof Error
-            ? error.message
-            : t('library.instruments.record.theDatabaseRefusedIt'),
+          failure.message ||
+          t('library.instruments.record.theDatabaseRefusedIt'),
       })
     },
   })
@@ -559,12 +566,11 @@ function InstrumentPage() {
       setGrantScope('')
       toast(t('library.instruments.record.qualificationGranted'))
     },
-    onError: (error: unknown) => {
+    onError: (failure: Error) => {
       toast(t('library.instruments.record.couldNotGrantTheQualification'), {
         description:
-          error instanceof Error
-            ? error.message
-            : t('library.instruments.record.theDatabaseRefusedIt'),
+          failure.message ||
+          t('library.instruments.record.theDatabaseRefusedIt'),
       })
     },
   })
@@ -578,12 +584,11 @@ function InstrumentPage() {
       })
       toast(t('library.instruments.record.requestDismissed'))
     },
-    onError: (error: unknown) => {
+    onError: (failure: Error) => {
       toast(t('library.instruments.record.couldNotDismissTheRequest'), {
         description:
-          error instanceof Error
-            ? error.message
-            : t('library.instruments.record.theDatabaseRefusedIt'),
+          failure.message ||
+          t('library.instruments.record.theDatabaseRefusedIt'),
       })
     },
   })
@@ -601,12 +606,11 @@ function InstrumentPage() {
       setRevokeTarget(null)
       toast(t('library.instruments.record.qualificationRevoked'))
     },
-    onError: (error: unknown) => {
+    onError: (failure: Error) => {
       toast(t('library.instruments.record.couldNotRevokeTheQualification'), {
         description:
-          error instanceof Error
-            ? error.message
-            : t('library.instruments.record.theDatabaseRefusedIt'),
+          failure.message ||
+          t('library.instruments.record.theDatabaseRefusedIt'),
       })
     },
   })
@@ -641,8 +645,7 @@ function InstrumentPage() {
 
   const parserRows = parsers.data ?? []
 
-  const parserReady =
-    parserRows.length > 0 && parserRows.some((parser) => parser.validated)
+  const parserReady = parserRows.some((parser) => parser.validated)
 
   const needsParser = intakeMethodNeedsParser(i.intakeMethod)
   // Once data intake is set up here the instrument reads files through that
@@ -694,6 +697,30 @@ function InstrumentPage() {
             )
             .join(', ')
         : t('library.instruments.record.noParserAttached')
+
+  const intakeItems: Array<[React.ReactNode, React.ReactNode]> = [
+    ['Method', intakeMethodLabel(i.intakeMethod)],
+    [
+      'Health',
+      <Status key="h" tone={health.tone}>
+        {health.label}
+      </Status>,
+    ],
+    [
+      t('library.instruments.record.lastData'),
+      lastDataAt
+        ? formatDate(lastDataAt, { time: true })
+        : t('library.instruments.record.nothingReceived'),
+    ],
+    [t('library.instruments.record.nextBooking'), nextBooking],
+    ['Parser', parserLabel],
+  ]
+
+  if (connector)
+    intakeItems.push([
+      <AgentStatusLabel key="al" />,
+      <AgentStatusLine key="as" connectorId={connector.id} />,
+    ])
 
   const status = calibrationStatus(latest?.dueAt ?? null)
   const down = isOutOfService(i)
@@ -826,37 +853,7 @@ function InstrumentPage() {
               className="border-t border-border pt-4"
               title={t('library.instruments.record.howDataGetsIn')}
             >
-              <DescriptionList
-                labelWidth={130}
-                items={[
-                  ['Method', intakeMethodLabel(i.intakeMethod)],
-                  [
-                    'Health',
-                    <Status key="h" tone={health.tone}>
-                      {health.label}
-                    </Status>,
-                  ],
-                  [
-                    t('library.instruments.record.lastData'),
-                    lastDataAt
-                      ? formatDate(lastDataAt, { time: true })
-                      : t('library.instruments.record.nothingReceived'),
-                  ],
-                  [t('library.instruments.record.nextBooking'), nextBooking],
-                  ['Parser', parserLabel],
-                  ...(connector
-                    ? ([
-                        [
-                          <AgentStatusLabel key="al" />,
-                          <AgentStatusLine
-                            key="as"
-                            connectorId={connector.id}
-                          />,
-                        ],
-                      ] as Array<[React.ReactNode, React.ReactNode]>)
-                    : []),
-                ]}
-              />
+              <DescriptionList labelWidth={130} items={intakeItems} />
               {canSetUpIntake && !i.retiredAt ? (
                 <div className="flex flex-wrap gap-2">
                   <Button size="sm" onClick={() => setSetupStep(1)}>

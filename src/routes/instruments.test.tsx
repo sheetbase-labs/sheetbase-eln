@@ -1,5 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from '@tanstack/react-router'
+import {
   cleanup,
   render,
   screen,
@@ -9,6 +16,7 @@ import {
 import userEvent from '@testing-library/user-event'
 import type { UserEvent } from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import {
   InstrumentInspector,
@@ -16,66 +24,119 @@ import {
   calibrationState,
 } from './instruments'
 import type { InstrumentRow } from '#/components/instruments/instruments-data'
-import type * as router from '@tanstack/react-router'
+import { dropSharedReads } from '#/lib/data-client'
 
-// The register dialog writes through the canonical RPC and the inspector reads through the data
-// client; mock only those, so the tests observe what the screen asks for.
-const { rpc, list, navigate } = vi.hoisted(() => ({
-  rpc: vi.fn(),
-  list: vi.fn(),
-  navigate: vi.fn(),
-}))
+/** One call the app made through the `/api/db` transport. */
+interface TransportCall {
+  path: string
+  method: string
+  body: string | null
+}
 
-vi.mock('@tanstack/react-router', async (importOriginal) => {
-  const actual = await importOriginal<typeof router>()
+/** A refusal the transport answers with, in PostgREST's own error shape. */
+interface TransportFailure {
+  status: number
+  body: { code: string; message: string }
+}
 
-  return {
-    ...actual,
-    useNavigate: () => navigate,
-    // The href is what the registry hands the browser, so the mock keeps the
-    // search: a Book action that dropped the instrument would render the same
-    // href as one that never carried it.
-    Link: ({
-      to,
-      children,
-      search,
-    }: {
-      to?: unknown
-      children?: React.ReactNode
-      search?: Record<string, unknown>
-    }) => {
-      const path = typeof to === 'string' ? to : '#'
+/** What the fake transport answers with, and what the app asked it for. */
+interface TransportState {
+  calls: TransportCall[]
+  /** Rows per `/api/db` resource, in the app's own wire shape. */
+  rows: Record<string, unknown[]>
+  /** Reply per RPC name, as PostgREST would return it. */
+  rpc: Record<string, z.core.util.JSONType>
+  failure: TransportFailure | null
+}
 
-      const query = new URLSearchParams(
-        Object.entries(search ?? {})
-          .filter(([, value]) => value != null)
-          .map(([key, value]) => [key, String(value)]),
-      ).toString()
-
-      return <a href={query ? `${path}?${query}` : path}>{children}</a>
-    },
+/**
+ * The one boundary these cases fake: the same-origin `/api/db` transport, the
+ * real data client's only dependency on the network. It is installed before the
+ * modules that capture `fetch` are imported, so every screen here talks to the
+ * real client, its error parsing and its query cache.
+ */
+const transport = vi.hoisted(() => {
+  const state: TransportState = {
+    calls: [],
+    rows: {},
+    rpc: {},
+    failure: null,
   }
+
+  // Pin "now" so intake health does not go stale as real days pass: the
+  // fixture's last import is 2026-10-05 and health turns stale after 30 days.
+  vi.stubEnv('SHEETBASE_ENV', 'test')
+  vi.stubEnv('SHEETBASE_NOW', '2026-10-10T12:00:00.000Z')
+
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(
+      z
+        .union([z.string(), z.instanceof(URL), z.instanceof(Request)])
+        .transform((value) => {
+          if (value instanceof URL) return value.toString()
+
+          if (value instanceof Request) return value.url
+
+          return value
+        })
+        .parse(input),
+      'http://localhost',
+    )
+
+    const sent = z.string().safeParse(init?.body ?? null)
+
+    state.calls.push({
+      path: `${url.pathname}${url.search}`,
+      method: init?.method ?? 'GET',
+      body: sent.success ? sent.data : null,
+    })
+
+    if (state.failure) {
+      return new Response(JSON.stringify(state.failure.body), {
+        status: state.failure.status,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (url.pathname.startsWith('/api/db/rpc/')) {
+      const name = url.pathname.slice('/api/db/rpc/'.length)
+
+      return new Response(JSON.stringify(state.rpc[name] ?? null), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
+    const resource = url.pathname.slice('/api/db/'.length)
+    const rows = state.rows[resource] ?? []
+
+    return new Response(JSON.stringify(rows), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Content-Range':
+          rows.length === 0 ? '*/0' : `0-${rows.length - 1}/${rows.length}`,
+      },
+    })
+  }
+
+  return state
 })
 
-// Pin "now" so intake health does not go stale as real days pass: the
-// fixture's last import is 2026-10-05 and health turns stale after 30 days.
-vi.mock('#/lib/clock', async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  now: () => new Date('2026-10-10T12:00:00.000Z'),
-}))
-
-vi.mock('#/components/ui/sonner', () => ({
-  toast: Object.assign(vi.fn(), { error: vi.fn() }),
-}))
-
-vi.mock('#/lib/notebook-data', () => ({
-  notebookDataClient: { rpc, list },
-}))
+/** Every request the app made, newest last. */
+function requestsTo(path: string): TransportCall[] {
+  return transport.calls.filter((call) => call.path.startsWith(path))
+}
 
 afterEach(() => {
   cleanup()
-  rpc.mockReset()
-  list.mockReset()
+  // The client shares reads for a second: two cases wire different rows for
+  // the same table, so each must start from an empty cache.
+  dropSharedReads()
+  transport.calls.length = 0
+  transport.rows = {}
+  transport.rpc = {}
+  transport.failure = null
 })
 
 const INSTRUMENT: InstrumentRow = {
@@ -96,32 +157,54 @@ const INSTRUMENT: InstrumentRow = {
 
 const CALIBRATION = { state: 'ok' as const, label: '12 Feb 2027', tone: 'ok' }
 
-function renderInspector(
+/**
+ * Render in a real router: the register dialog navigates and the inspector
+ * links, so both need the route context the app supplies. The initial match is
+ * loaded before the first paint, so each case can assert synchronously.
+ */
+async function renderInRouter(ui: React.ReactNode) {
+  const rootRoute = createRootRoute({ component: () => <>{ui}</> })
+
+  const instrumentRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: '/instruments/$instrumentId',
+    component: () => null,
+  })
+
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([instrumentRoute]),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
+  await router.load()
+
+  const view = render(
+    <QueryClientProvider client={new QueryClient()}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  )
+
+  return { view, router }
+}
+
+async function renderInspector(
   overrides: Partial<InstrumentRow> = {},
   canManage = true,
   canEditParsers = true,
 ) {
-  render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
-      <InstrumentInspector
-        instrument={{ ...INSTRUMENT, ...overrides }}
-        calibration={CALIBRATION}
-        ownerLabel="Gareth P."
-        canManage={canManage}
-        canEditParsers={canEditParsers}
-      />
-    </QueryClientProvider>,
+  return renderInRouter(
+    <InstrumentInspector
+      instrument={{ ...INSTRUMENT, ...overrides }}
+      calibration={CALIBRATION}
+      ownerLabel="Gareth P."
+      canManage={canManage}
+      canEditParsers={canEditParsers}
+    />,
   )
 }
 
 function wireRows(byResource: Record<string, unknown[]>) {
-  list.mockImplementation(
-    async (resource: string) => byResource[resource] ?? [],
-  )
+  transport.rows = { ...byResource }
 }
 
 /** The required fields the register dialog validates before it calls the RPC. */
@@ -135,14 +218,12 @@ async function fillInstrument(dialog: HTMLElement, user: UserEvent) {
 describe('R5-CONFIG-02 register instrument', () => {
   it('offers the supported intake methods with what each one implies', async () => {
     const user = userEvent.setup()
-    render(
-      <QueryClientProvider client={new QueryClient()}>
-        <RegisterInstrument
-          types={['qpcr']}
-          workspaceId="ws-1"
-          ownerId="user-1"
-        />
-      </QueryClientProvider>,
+    await renderInRouter(
+      <RegisterInstrument
+        types={['qpcr']}
+        workspaceId="ws-1"
+        ownerId="user-1"
+      />,
     )
     await user.click(
       screen.getByRole('button', { name: 'Register instrument' }),
@@ -168,14 +249,12 @@ describe('R5-CONFIG-02 register instrument', () => {
 
   it('states the honest follow-up for a method that needs a validated parser', async () => {
     const user = userEvent.setup()
-    render(
-      <QueryClientProvider client={new QueryClient()}>
-        <RegisterInstrument
-          types={['qpcr']}
-          workspaceId="ws-1"
-          ownerId="user-1"
-        />
-      </QueryClientProvider>,
+    await renderInRouter(
+      <RegisterInstrument
+        types={['qpcr']}
+        workspaceId="ws-1"
+        ownerId="user-1"
+      />,
     )
     await user.click(
       screen.getByRole('button', { name: 'Register instrument' }),
@@ -197,7 +276,7 @@ describe('R5-CONFIG-02 register instrument', () => {
 
   it('registers the chosen method through the canonical RPC', async () => {
     const user = userEvent.setup()
-    rpc.mockResolvedValue({
+    transport.rpc['create_instrument'] = {
       id: 'ins-13',
       display_id: 'INS-0013',
       name: 'Osmometer OS-02',
@@ -211,16 +290,16 @@ describe('R5-CONFIG-02 register instrument', () => {
       intake_method: 'webhook',
       position: 0,
       updated_at: '2026-10-11T00:00:00.000Z',
-    })
-    render(
-      <QueryClientProvider client={new QueryClient()}>
-        <RegisterInstrument
-          types={['qpcr']}
-          workspaceId="ws-1"
-          ownerId="user-1"
-        />
-      </QueryClientProvider>,
+    }
+
+    const { router } = await renderInRouter(
+      <RegisterInstrument
+        types={['qpcr']}
+        workspaceId="ws-1"
+        ownerId="user-1"
+      />,
     )
+
     await user.click(
       screen.getByRole('button', { name: 'Register instrument' }),
     )
@@ -234,34 +313,33 @@ describe('R5-CONFIG-02 register instrument', () => {
       within(dialog).getByRole('button', { name: 'Register instrument' }),
     )
 
-    await waitFor(() => expect(rpc).toHaveBeenCalled())
-    expect(rpc).toHaveBeenCalledWith(
-      'create_instrument',
-      expect.objectContaining({
-        p_intake_method: 'webhook',
-        p_name: 'Osmometer OS-02',
-      }),
+    await waitFor(() =>
+      expect(requestsTo('/api/db/rpc/create_instrument')).toHaveLength(1),
     )
+    expect(
+      JSON.parse(requestsTo('/api/db/rpc/create_instrument')[0].body ?? '{}'),
+    ).toMatchObject({
+      p_intake_method: 'webhook',
+      p_name: 'Osmometer OS-02',
+    })
     // Registering lands on the new instrument, not back on the list.
     await waitFor(() =>
-      expect(navigate).toHaveBeenCalledWith({
-        to: '/instruments/$instrumentId',
-        params: { instrumentId: 'ins-13' },
-      }),
+      expect(router.state.location.pathname).toBe('/instruments/ins-13'),
     )
   })
 
   it('reports a refusal that is not about the serial number at the form, not on the field', async () => {
     const user = userEvent.setup()
-    rpc.mockRejectedValue(new Error('permission denied for workspace ws-1'))
-    render(
-      <QueryClientProvider client={new QueryClient()}>
-        <RegisterInstrument
-          types={['qpcr']}
-          workspaceId="ws-1"
-          ownerId="user-1"
-        />
-      </QueryClientProvider>,
+    transport.failure = {
+      status: 403,
+      body: { code: '42501', message: 'permission denied for workspace ws-1' },
+    }
+    await renderInRouter(
+      <RegisterInstrument
+        types={['qpcr']}
+        workspaceId="ws-1"
+        ownerId="user-1"
+      />,
     )
     await user.click(
       screen.getByRole('button', { name: 'Register instrument' }),
@@ -285,17 +363,19 @@ describe('R5-CONFIG-02 register instrument', () => {
 
   it('keeps a duplicate serial number on the serial field', async () => {
     const user = userEvent.setup()
-    rpc.mockRejectedValue(
-      new Error('duplicate key value violates unique constraint on serial'),
-    )
-    render(
-      <QueryClientProvider client={new QueryClient()}>
-        <RegisterInstrument
-          types={['qpcr']}
-          workspaceId="ws-1"
-          ownerId="user-1"
-        />
-      </QueryClientProvider>,
+    transport.failure = {
+      status: 409,
+      body: {
+        code: '23505',
+        message: 'duplicate key value violates unique constraint on serial',
+      },
+    }
+    await renderInRouter(
+      <RegisterInstrument
+        types={['qpcr']}
+        workspaceId="ws-1"
+        ownerId="user-1"
+      />,
     )
     await user.click(
       screen.getByRole('button', { name: 'Register instrument' }),
@@ -340,7 +420,7 @@ describe('R5-CONFIG-02 instrument inspector', () => {
       ],
       instruments: [{ id: 'ins-1', retired_at: null }],
     })
-    renderInspector()
+    await renderInspector()
 
     expect(await screen.findByText('Healthy')).toBeTruthy()
     expect(screen.getAllByText('File drop').length).toBeGreaterThan(0)
@@ -358,7 +438,7 @@ describe('R5-CONFIG-02 instrument inspector', () => {
       // ADR-0054 — a retired instrument keeps its history but takes no booking.
       instruments: [{ id: 'ins-1', retired_at: '2026-09-01T00:00:00.000Z' }],
     })
-    renderInspector()
+    await renderInspector()
 
     expect(await screen.findByText('Parser not validated')).toBeTruthy()
     expect(screen.getByText('No parser yet')).toBeTruthy()
@@ -366,7 +446,7 @@ describe('R5-CONFIG-02 instrument inspector', () => {
     expect(screen.getByText('Not bookable')).toBeTruthy()
     // The warning carries the one step that fixes it, with the instrument already chosen.
     expect(
-      screen.getByRole('link', { name: 'Add a parser' }).getAttribute('href'),
+      screen.getByRole('button', { name: 'Add a parser' }).getAttribute('href'),
     ).toBe('/settings/lab/instruments?instrumentId=ins-1')
   })
 
@@ -377,28 +457,28 @@ describe('R5-CONFIG-02 instrument inspector', () => {
         { id: 'ver-9', parser_id: 'parser-1', status: 'draft' },
       ],
     })
-    renderInspector()
+    await renderInspector()
 
     expect(await screen.findByText('Parser not validated.')).toBeTruthy()
     expect(
       screen
-        .getByRole('link', { name: 'Validate the parser' })
+        .getByRole('button', { name: 'Validate the parser' })
         .getAttribute('href'),
     ).toBe('/settings/lab/instruments?instrumentId=ins-1&versionId=ver-9')
   })
 
   it('names a person, not a button, when the viewer cannot edit parsers', async () => {
     wireRows({ parsers: [], parser_versions: [] })
-    renderInspector({}, true, false)
+    await renderInspector({}, true, false)
 
     expect(await screen.findByText('No parser yet')).toBeTruthy()
-    expect(screen.queryByRole('link', { name: 'Add a parser' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Add a parser' })).toBeNull()
     expect(screen.getByText(/Ask an admin or data steward/)).toBeTruthy()
   })
 
   it('reports manual and unconnected instruments as such, not as healthy', async () => {
     wireRows({ parsers: [], parser_versions: [], dataset_imports: [] })
-    renderInspector({ intakeMethod: 'manual' })
+    await renderInspector({ intakeMethod: 'manual' })
 
     expect(await screen.findByText('Not used')).toBeTruthy()
     expect(screen.getAllByText('Manual entry').length).toBeGreaterThan(0)
@@ -418,7 +498,7 @@ describe('R5-CONFIG-02 instrument inspector', () => {
       dataset_imports: [],
       instruments: [{ id: 'ins-1', retired_at: null }],
     })
-    rpc.mockResolvedValue({
+    transport.rpc['set_instrument_intake_method'] = {
       id: 'ins-1',
       display_id: 'INS-0007',
       name: 'Turbidimeter TB-02',
@@ -432,16 +512,24 @@ describe('R5-CONFIG-02 instrument inspector', () => {
       intake_method: 'manual',
       position: 1,
       updated_at: '2026-10-11T00:00:00.000Z',
-    })
-    renderInspector()
+    }
+    await renderInspector()
 
     expect(screen.getByText(/Data already imported isn’t changed/)).toBeTruthy()
     await user.selectOptions(
       screen.getByLabelText('How data gets in'),
       'manual',
     )
-    await waitFor(() => expect(rpc).toHaveBeenCalled())
-    expect(rpc).toHaveBeenCalledWith('set_instrument_intake_method', {
+    await waitFor(() =>
+      expect(
+        requestsTo('/api/db/rpc/set_instrument_intake_method'),
+      ).toHaveLength(1),
+    )
+    expect(
+      JSON.parse(
+        requestsTo('/api/db/rpc/set_instrument_intake_method')[0].body ?? '{}',
+      ),
+    ).toMatchObject({
       p_instrument_id: 'ins-1',
       p_intake_method: 'manual',
     })
@@ -449,7 +537,7 @@ describe('R5-CONFIG-02 instrument inspector', () => {
 
   it('offers no method control to a reader', async () => {
     wireRows({ parsers: [], parser_versions: [], dataset_imports: [] })
-    renderInspector({ intakeMethod: 'none' }, false)
+    await renderInspector({ intakeMethod: 'none' }, false)
     expect(
       (await screen.findAllByText('Not connected')).length,
     ).toBeGreaterThan(0)
@@ -464,9 +552,9 @@ describe('R5-CONFIG-02 instrument inspector', () => {
       calendar_bookings: [],
       instruments: [{ id: 'ins-1', retired_at: null }],
     })
-    renderInspector()
+    await renderInspector()
 
-    const book = await screen.findByRole('link', { name: 'Book' })
+    const book = await screen.findByRole('button', { name: 'Book' })
     expect(book.getAttribute('href')).toBe('/schedule?book=ins-1')
   })
 
@@ -477,10 +565,10 @@ describe('R5-CONFIG-02 instrument inspector', () => {
       dataset_imports: [],
       instruments: [{ id: 'ins-1', retired_at: '2026-09-01T00:00:00.000Z' }],
     })
-    renderInspector({ retiredAt: '2026-09-01T00:00:00.000Z' })
+    await renderInspector({ retiredAt: '2026-09-01T00:00:00.000Z' })
 
     expect(await screen.findByText('Not bookable')).toBeTruthy()
-    expect(screen.queryByRole('link', { name: 'Book' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Book' })).toBeNull()
   })
 })
 

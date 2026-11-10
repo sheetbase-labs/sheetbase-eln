@@ -7,7 +7,6 @@ import {
   useWorkspaceNavigation,
 } from '#/components/workspace/workspace-navigation'
 import { projectPath } from '#/lib/navigation'
-import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/ui/button'
 import { copyText } from '#/components/ui/copy-button'
 import {
@@ -73,6 +72,7 @@ import { projectDataClient, PROJECTS_KEY } from './project-data'
 import type { ProjectRow } from './types'
 import { cn } from '#/lib/utils'
 import { rich, t } from '#/copy'
+import { archivedModeFor } from './projects-page-filters'
 import {
   AddedFieldsFormSection,
   useAddedFieldDraft,
@@ -99,9 +99,7 @@ const sortLabel = (sort: ProjectsSort) =>
  * chip whenever it hides anything. */
 export type ArchivedMode = 'include' | 'exclude'
 
-export function archivedModeFor(tab: ProjectsTab): ArchivedMode {
-  return tab === 'all' || tab === 'archived' ? 'include' : 'exclude'
-}
+export { archivedModeFor } from './projects-page-filters'
 
 /** Why a create action cannot run, in one voice wherever it is stated. */
 const createDisabledReasonText = () =>
@@ -229,6 +227,7 @@ export function ProjectsPage({
   const lastRequestedNewProject = useRef(requestedNewProject)
   useEffect(() => {
     if (requestedNewProject && !lastRequestedNewProject.current) {
+      // react-doctor-disable-next-line react-doctor/no-adjust-state-on-prop-change -- `?new=true` is a one-shot command from the shell's New menu, not a mirrored prop: it opens this dialog once on arrival and is then dropped.
       setNewProjectOpen(true)
     }
 
@@ -240,6 +239,7 @@ export function ProjectsPage({
   // state is local, so the created project itself is the signal: without this
   // the dialog stays up over the list after the write is already done.
   useEffect(() => {
+    // react-doctor-disable-next-line react-doctor/no-adjust-state-on-prop-change -- The cleared `?new=true` cannot close a dialog whose open state is local, so the landed project is the signal that the create finished.
     if (createdProjectId) setNewProjectOpen(false)
   }, [createdProjectId])
 
@@ -282,7 +282,7 @@ export function ProjectsPage({
 
   // A tab's count is the number of rows it lists, so the strip and the table
   // agree: every tab's rows pass through the same `inTab` and archived test.
-  const counts = Object.fromEntries(
+  const counts = new Map<ProjectsTab, number>(
     tabs.map((tabKey) => [
       tabKey,
       projects.filter(
@@ -292,7 +292,7 @@ export function ProjectsPage({
             !p.archived),
       ).length,
     ]),
-  ) as Record<ProjectsTab, number>
+  )
 
   const q = (search.q ?? '').trim().toLowerCase()
 
@@ -433,13 +433,9 @@ export function ProjectsPage({
         () => void queryClient.invalidateQueries({ queryKey: PROJECTS_KEY }),
       )
     },
-    onError: (error: unknown) => {
+    onError: (failure: Error) => {
       setConfirmArchive(false)
-      setBulkError(
-        error instanceof Error
-          ? error.message
-          : t('projects.projectsPage.bulk.refused'),
-      )
+      setBulkError(failure.message || t('projects.projectsPage.bulk.refused'))
     },
   })
 
@@ -491,14 +487,14 @@ export function ProjectsPage({
                 items={tabs.map((tabKey) => ({
                   key: tabKey,
                   label: tabLabel(tabKey),
-                  count: counts[tabKey],
+                  count: counts.get(tabKey) ?? 0,
                   link: {
                     to: '/projects',
                     search: {
                       ...search,
                       tab: tabKey === 'all' ? undefined : tabKey,
                     },
-                  } as LinkProps,
+                  },
                 }))}
               />
               {/* Three tabs plus the "More" menu are wider than the column at
@@ -512,14 +508,14 @@ export function ProjectsPage({
                   items={tabs.slice(0, 3).map((tabKey) => ({
                     key: tabKey,
                     label: tabLabel(tabKey),
-                    count: counts[tabKey],
+                    count: counts.get(tabKey) ?? 0,
                     link: {
                       to: '/projects',
                       search: {
                         ...search,
                         tab: tabKey === 'all' ? undefined : tabKey,
                       },
-                    } as LinkProps,
+                    },
                   }))}
                 />
                 <DropdownMenu>
@@ -533,7 +529,7 @@ export function ProjectsPage({
                         key={tabKey}
                         onClick={() => setSearch({ tab: tabKey })}
                       >
-                        {tabLabel(tabKey)} {counts[tabKey]}
+                        {tabLabel(tabKey)} {counts.get(tabKey) ?? 0}
                       </DropdownMenuItem>
                     ))}
                   </DropdownMenuContent>

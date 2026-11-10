@@ -133,6 +133,7 @@ export function ShortcutProvider({
 
   const timer = React.useRef<number | null>(null)
 
+  // react-doctor-disable-next-line react-doctor/effect-needs-cleanup -- The cleanup returned at the end of this effect removes the capture listener and clears the pending-sequence timer.
   React.useEffect(() => {
     if (!enabled) return
     const platform = currentPlatform()

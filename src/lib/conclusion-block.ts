@@ -21,6 +21,7 @@ export const CONCLUSION_VERDICT_LABELS: Record<ConclusionVerdict, string> = {
   inconclusive: 'Inconclusive',
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- The verdict arrives from a stored block payload or a select value; anything that is not a known verdict falls back to inconclusive rather than throwing.
 export function conclusionVerdictOf(value: unknown): ConclusionVerdict {
   return (
     CONCLUSION_VERDICTS.find((verdict) => verdict === value) ?? 'inconclusive'

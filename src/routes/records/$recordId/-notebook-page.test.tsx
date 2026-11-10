@@ -20,6 +20,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createContext, useContext } from 'react'
+import type { redirect as redirectRoute } from '@tanstack/react-router'
 import type { ReactNode } from 'react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
@@ -46,11 +47,20 @@ import {
  */
 const gridRender = vi.hoisted(() => vi.fn())
 
+/** The search keys these tests drive the notebook page through. */
+interface TestSearch {
+  reopen?: string
+  returnTo?: string
+  revision?: string
+  tab?: string
+}
+
 const TestRouterContext = createContext<{
-  location: { search: Record<string, unknown>; hash: string }
+  location: { search: TestSearch; hash: string }
   navigate: ReturnType<typeof vi.fn>
 }>({ location: { search: {}, hash: '' }, navigate: vi.fn() })
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the notebook page imports the sheet grid directly, and the suite drives the grid's selection callback through a props recorder instead of rendering a Handsontable grid.
 vi.mock('#/components/sheet/sheetbase-grid', () => ({
   SheetbaseTableGrid: (props: SheetbaseGridProps) => {
     gridRender(props)
@@ -66,6 +76,7 @@ vi.mock('#/components/sheet/sheetbase-grid', () => ({
 
 // The Sheet's calculation results are an authoritative read; stub the fetch so
 // the test stays offline (the editor itself is real).
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the page reads calculation results through this module's shared client at import time; only that one read is replaced so the editor stays real and the suite stays offline.
 vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
   ...(await importOriginal()),
   readSheetInstanceCalculationResults: vi
@@ -73,6 +84,7 @@ vi.mock('#/lib/sheet-local-data', async (importOriginal) => ({
     .mockResolvedValue({ results: [] }),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the page takes its route context, params, search and navigation from the router at import time, so the router's factories are the only seam a unit test has; every other export stays real.
 vi.mock('@tanstack/react-router', () => ({
   useRouter: () => ({ invalidate: async () => {} }),
   getRouteApi: () => ({
@@ -80,11 +92,13 @@ vi.mock('@tanstack/react-router', () => ({
     useParams: () => ({ recordId: 'r1', projectId: 'p1' }),
     useSearch: () => ({}),
   }),
-  redirect: (options: unknown) => options,
+  redirect: (options: Parameters<typeof redirectRoute>[0]) => options,
   useBlocker: () => ({ status: 'idle' }),
   useNavigate: () => useContext(TestRouterContext).navigate,
   useParams: () => ({ recordId: 'r1', projectId: 'p1' }),
-  useRouterState: (options?: { select?: (state: unknown) => unknown }) => {
+  useRouterState: <Selected,>(options?: {
+    select?: (state: React.ContextType<typeof TestRouterContext>) => Selected
+  }) => {
     const state = useContext(TestRouterContext)
 
     return options?.select ? options.select(state) : state
@@ -95,7 +109,7 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({
     to,
     params,
-    search,
+    search: _search,
     children,
     ...rest
   }: {
@@ -103,8 +117,8 @@ vi.mock('@tanstack/react-router', () => ({
     params?: Record<string, string>
     search?: unknown
     children?: ReactNode
-  } & Record<string, unknown>) => {
-    let href = typeof to === 'string' ? to : '#'
+  } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
+    let href = to ?? '#'
 
     if (params) {
       for (const [key, value] of Object.entries(params)) {
@@ -120,6 +134,7 @@ vi.mock('@tanstack/react-router', () => ({
   },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the dialog itself is exercised elsewhere; this suite only needs the header's trigger to mount without opening the real submit flow.
 vi.mock('#/components/notebook/submit-notebook-dialog', () => ({
   SubmitNotebookDialog: ({ recordId }: { recordId: string }) => (
     <div role="dialog" aria-label={`Submit ${recordId}`} />
@@ -128,6 +143,7 @@ vi.mock('#/components/notebook/submit-notebook-dialog', () => ({
 
 const signatureToGive = vi.hoisted(() => ({ value: true }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the signing dialog and its signature read are exercised elsewhere; this suite only needs the header's trigger and its availability.
 vi.mock('#/components/notebook/sign-notebook-dialog', () => ({
   useHasSignatureToGive: () => signatureToGive.value,
   SignNotebookDialog: ({ revisionId }: { revisionId: string }) => (
@@ -135,9 +151,12 @@ vi.mock('#/components/notebook/sign-notebook-dialog', () => ({
   ),
 }))
 
+/** jsdom has no layout, so every range measures as empty. */
+const emptyRectList: DOMRectList = Object.assign([], { item: () => null })
+
 beforeAll(() => {
   document.elementFromPoint = () => null
-  Range.prototype.getClientRects = () => [] as unknown as DOMRectList
+  Range.prototype.getClientRects = () => emptyRectList
   Range.prototype.getBoundingClientRect = () => new DOMRect()
 })
 
@@ -259,14 +278,20 @@ const sheetBlock: NotebookBlock = {
   version: 1,
 }
 
-const fakeClient = {
-  list: () => Promise.resolve([]),
-  count: () => Promise.resolve(0),
-  rpc: () => Promise.resolve({}),
-  insert: () => Promise.resolve({}),
-  patch: () => Promise.resolve([]),
-  remove: () => Promise.resolve([]),
-} as unknown as DataClient
+const fakeClient: DataClient = {
+  list: async <T,>(): Promise<T[]> => [],
+  count: async () => 0,
+  rpc: async <T,>(): Promise<T> => {
+    // SAFETY: this double answers no calls the assertions read; the page's own reads are driven by the query client.
+    return {} as T
+  },
+  insert: async <T,>(): Promise<T> => {
+    // SAFETY: this double answers no calls the assertions read; the page's own writes are driven by the query client.
+    return {} as T
+  },
+  patch: async <T,>(): Promise<T[]> => [],
+  remove: async () => [],
+}
 
 /**
  * The route's own composition: the canvas publishes the selected cell through
@@ -344,6 +369,7 @@ describe('NotebookInspector — selected Sheet cell (EXP-04.4)', () => {
     expect(screen.queryByText(/Clarification runs · row/)).toBeNull()
 
     // Select row 2, Load (45) — above its 1–30 range.
+    // SAFETY: the grid double records the props it was rendered with, so the last recorded call's first argument is the grid's props.
     const props = gridRender.mock.lastCall?.[0] as SheetbaseGridProps
     act(() =>
       props.onSelectionChange?.({
@@ -419,7 +445,7 @@ describe('StickyRecordHeader — notebook title', () => {
       }
 
       const mount = (
-        search: Record<string, unknown>,
+        search: TestSearch,
         navigate: ReturnType<typeof vi.fn>,
         background: boolean,
       ) =>

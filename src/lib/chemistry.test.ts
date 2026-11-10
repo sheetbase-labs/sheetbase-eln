@@ -223,7 +223,7 @@ describe('payload checks', () => {
   })
 
   it('names the row and field that are wrong in a reaction', () => {
-    const fields = (payload: unknown) =>
+    const fields = (payload: Parameters<typeof reactionIssues>[0]) =>
       reactionIssues(payload).map((i) => i.field)
 
     const base = {

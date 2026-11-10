@@ -37,6 +37,7 @@ const loading = screenQueryClient()
 
 holdRead(loading, VIEWS_KEY)
 
+// SAFETY: Every story in this file mounts its screen with `parameters.client` set from `screenQueryClient`; Storybook's decorator parameter bag is untyped, so the value is named here once.
 const meta = {
   title: 'Notebook/Analysis chart picker',
   component: AnalysisChartPicker,

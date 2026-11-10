@@ -98,7 +98,19 @@ vi.mock('#/lib/chart-data', async (importOriginal) => ({
     rows: [],
     series: [],
   }),
-  materialiseLiveChart: () => ({ rows: [], series: [], droppedPoints: 0 }),
+  // The materialiser always answers a whole chart, state included; this double
+  // answers the empty one so the screen renders its document without data.
+  materialiseLiveChart: () => ({
+    state: { kind: 'ok' as const },
+    columns: [],
+    rows: [],
+    series: [],
+    xLabel: 'x',
+    yLabel: 'y',
+    xUnit: undefined,
+    yUnit: undefined,
+    droppedPoints: 0,
+  }),
 }))
 
 vi.mock('#/components/viz/chart-renderer', () => ({

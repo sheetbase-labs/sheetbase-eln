@@ -9,6 +9,8 @@
  * `"True"` and `"False"`), so patch handling accepts both.
  */
 
+import { z } from 'zod'
+
 export const SCIM_SCHEMAS = {
   user: 'urn:ietf:params:scim:schemas:core:2.0:User',
   group: 'urn:ietf:params:scim:schemas:core:2.0:Group',
@@ -104,10 +106,13 @@ export function parseFilter(
   return { attribute, value: match[2].replace(/\\(.)/g, '$1') }
 }
 
-export function parsePaging(query: URLSearchParams): {
+/** The first row a page starts at, and how many rows it may hold. */
+export interface ScimPaging {
   start: number
   count: number
-} {
+}
+
+export function parsePaging(query: URLSearchParams): ScimPaging {
   const number = (name: string, fallback: number) => {
     const raw = query.get(name)
 
@@ -133,6 +138,35 @@ export function parsePaging(query: URLSearchParams): {
 
 // -- Reading what the provider sent ------------------------------------------
 
+/** A SCIM request body as the HTTP layer hands it over: JSON, not yet shaped. */
+type ScimJson = z.core.util.JSONType
+
+/** A JSON object's entries; every value keeps its JSON type until decoded. */
+const objectSchema = z.record(z.string(), z.json())
+
+type ScimObject = z.infer<typeof objectSchema>
+
+const textSchema = z.string()
+
+function asObject(value: ScimJson | undefined): ScimObject | null {
+  const object = objectSchema.safeParse(value)
+
+  return object.success ? object.data : null
+}
+
+function asText(value: ScimJson | undefined): string | undefined {
+  const text = textSchema.safeParse(value)
+
+  return text.success ? text.data : undefined
+}
+
+/** Text that is not only space, exactly as the provider sent it. */
+function asNamedText(value: ScimJson | undefined): string | undefined {
+  const text = asText(value)
+
+  return text !== undefined && text.trim() !== '' ? text : undefined
+}
+
 export interface UserChanges {
   userName?: string
   externalId?: string | null
@@ -141,48 +175,65 @@ export interface UserChanges {
   active?: boolean
 }
 
-const isObject = (value: unknown): value is Record<string, unknown> =>
-  value !== null && typeof value === 'object' && !Array.isArray(value)
-
 /** Entra ID sends booleans as "True" and "False". */
-export function toBoolean(value: unknown): boolean | undefined {
-  if (typeof value === 'boolean') return value
+export function toBoolean(value: ScimJson | undefined): boolean | undefined {
+  const flag = z.boolean().safeParse(value)
 
-  if (typeof value === 'string') {
-    const lowered = value.trim().toLowerCase()
+  if (flag.success) return flag.data
+  const text = asText(value)
 
-    if (lowered === 'true') return true
+  if (text === undefined) return undefined
+  const lowered = text.trim().toLowerCase()
 
-    if (lowered === 'false') return false
-  }
+  if (lowered === 'true') return true
+
+  if (lowered === 'false') return false
 
   return undefined
 }
 
-function pickEmail(value: unknown): string | undefined {
-  if (!Array.isArray(value)) return undefined
-  const emails = value.filter(isObject)
+function pickEmail(value: ScimJson | undefined): string | undefined {
+  const list = z.array(z.json()).safeParse(value)
+
+  if (!list.success) return undefined
+
+  const emails = list.data.flatMap((entry) => {
+    const email = asObject(entry)
+
+    return email === null ? [] : [email]
+  })
 
   const primary =
     emails.find((e) => toBoolean(e.primary) === true) ?? emails.at(0)
 
-  return typeof primary?.value === 'string' ? primary.value : undefined
+  return asText(primary?.value)
 }
 
-function nameOf(value: Record<string, unknown>): string | undefined {
-  if (typeof value.displayName === 'string' && value.displayName.trim()) {
-    return value.displayName
+/** The `externalId` a provider sent, and null for a value it did not send as text. */
+function readExternalId(object: ScimObject): string | null | undefined {
+  if (!Object.hasOwn(object, 'externalId')) return undefined
+
+  return asText(object.externalId) ?? null
+}
+
+function nameOf(value: ScimObject): string | undefined {
+  const displayName = asNamedText(value.displayName)
+
+  if (displayName !== undefined) {
+    return displayName
   }
 
-  const name = value.name
+  const name = asObject(value.name)
 
-  if (isObject(name)) {
-    if (typeof name.formatted === 'string' && name.formatted.trim()) {
-      return name.formatted
+  if (name !== null) {
+    const formatted = asNamedText(name.formatted)
+
+    if (formatted !== undefined) {
+      return formatted
     }
 
     const joined = [name.givenName, name.familyName]
-      .filter((part): part is string => typeof part === 'string')
+      .flatMap((part) => asNamedText(part) ?? [])
       .join(' ')
       .trim()
 
@@ -193,41 +244,49 @@ function nameOf(value: Record<string, unknown>): string | undefined {
 }
 
 /** A user as the provider sent it, whole (POST and PUT). */
-export function readUser(body: unknown): UserChanges {
-  if (!isObject(body)) {
+export function readUser(body: ScimJson): UserChanges {
+  const user = asObject(body)
+
+  if (user === null) {
     throw new ScimError(400, 'invalidSyntax', 'Send a User as a JSON object.')
   }
 
   const changes: UserChanges = {}
 
-  if (typeof body.userName === 'string') changes.userName = body.userName
+  const userName = asText(user.userName)
 
-  if (body.externalId !== undefined) {
-    changes.externalId =
-      typeof body.externalId === 'string' ? body.externalId : null
-  }
+  if (userName !== undefined) changes.userName = userName
 
-  const display = nameOf(body)
+  const externalId = readExternalId(user)
+
+  if (externalId !== undefined) changes.externalId = externalId
+
+  const display = nameOf(user)
 
   if (display) changes.displayName = display
-  const email = pickEmail(body.emails)
+  const email = pickEmail(user.emails)
 
   if (email) changes.email = email
-  const active = toBoolean(body.active)
+  const active = toBoolean(user.active)
 
   if (active !== undefined) changes.active = active
 
   return changes
 }
 
-interface PatchOperation {
+export interface PatchOperation {
   op: 'add' | 'replace' | 'remove'
   path?: string
-  value?: unknown
+  value?: ScimJson
 }
 
-export function readPatch(body: unknown): PatchOperation[] {
-  if (!isObject(body) || !Array.isArray(body.Operations)) {
+export function readPatch(body: ScimJson): PatchOperation[] {
+  const root = asObject(body)
+
+  const operations =
+    root === null ? null : z.array(z.json()).safeParse(root.Operations)
+
+  if (operations === null || !operations.success) {
     throw new ScimError(
       400,
       'invalidSyntax',
@@ -235,21 +294,24 @@ export function readPatch(body: unknown): PatchOperation[] {
     )
   }
 
-  return body.Operations.map((raw) => {
-    if (!isObject(raw) || typeof raw.op !== 'string') {
+  return operations.data.map((raw) => {
+    const operation = asObject(raw)
+    const written = operation === null ? undefined : asText(operation.op)
+
+    if (written === undefined) {
       throw new ScimError(400, 'invalidSyntax', 'Each operation needs an op.')
     }
 
-    const op = raw.op.toLowerCase()
+    const op = written.toLowerCase()
 
     if (op !== 'add' && op !== 'replace' && op !== 'remove') {
-      throw new ScimError(400, 'invalidSyntax', `Unknown operation ${raw.op}.`)
+      throw new ScimError(400, 'invalidSyntax', `Unknown operation ${written}.`)
     }
 
     return {
       op,
-      path: typeof raw.path === 'string' ? raw.path : undefined,
-      value: raw.value,
+      path: operation === null ? undefined : asText(operation.path),
+      value: operation?.value,
     }
   })
 }
@@ -259,7 +321,7 @@ export function readPatch(body: unknown): PatchOperation[] {
  * does not keep (phone numbers, titles, enterprise extension) are accepted
  * and ignored, as the standard asks of a server that does not store them.
  */
-export function userChangesFromPatch(body: unknown): UserChanges {
+export function userChangesFromPatch(body: ScimJson): UserChanges {
   const changes: UserChanges = {}
 
   for (const operation of readPatch(body)) {
@@ -270,7 +332,7 @@ export function userChangesFromPatch(body: unknown): UserChanges {
         throw new ScimError(400, 'noTarget', 'A remove needs a path.')
       }
 
-      Object.assign(changes, readUser(operation.value))
+      Object.assign(changes, readUser(operation.value ?? null))
       continue
     }
 
@@ -279,8 +341,7 @@ export function userChangesFromPatch(body: unknown): UserChanges {
 
     switch (true) {
       case key === 'active': {
-        changes.active =
-          operation.op === 'remove' ? false : (toBoolean(value) ?? undefined)
+        changes.active = operation.op === 'remove' ? false : toBoolean(value)
 
         if (changes.active === undefined) {
           throw new ScimError(
@@ -293,34 +354,46 @@ export function userChangesFromPatch(body: unknown): UserChanges {
         break
       }
 
-      case key === 'username':
-        if (operation.op !== 'remove' && typeof value === 'string') {
-          changes.userName = value
+      case key === 'username': {
+        const userName = asText(value)
+
+        if (operation.op !== 'remove' && userName !== undefined) {
+          changes.userName = userName
         }
 
         break
+      }
+
       case key === 'externalid':
         changes.externalId =
-          operation.op === 'remove' || typeof value !== 'string' ? null : value
+          operation.op === 'remove' ? null : (asText(value) ?? null)
         break
       case key === 'displayname':
-      case key === 'name.formatted':
-        if (operation.op !== 'remove' && typeof value === 'string') {
-          changes.displayName = value
+      case key === 'name.formatted': {
+        const displayName = asText(value)
+
+        if (operation.op !== 'remove' && displayName !== undefined) {
+          changes.displayName = displayName
         }
 
         break
-      case key === 'name':
-        if (isObject(value)) {
-          const display = nameOf({ name: value })
+      }
+
+      case key === 'name': {
+        const name = asObject(value)
+
+        if (name !== null) {
+          const display = nameOf({ name })
 
           if (display) changes.displayName = display
         }
 
         break
+      }
+
       case key.startsWith('emails'):
         if (operation.op !== 'remove') {
-          const email = typeof value === 'string' ? value : pickEmail(value)
+          const email = asText(value) ?? pickEmail(value)
 
           if (email) changes.email = email
         }
@@ -340,13 +413,14 @@ export interface GroupChanges {
   members?: string[]
 }
 
-function memberIds(value: unknown): string[] {
-  const list = Array.isArray(value) ? value : value === undefined ? [] : [value]
+function memberIds(value: ScimJson | undefined): string[] {
+  const list = value === undefined ? [] : Array.isArray(value) ? value : [value]
 
   return list.map((entry) => {
-    const id = isObject(entry) ? entry.value : entry
+    const member = asObject(entry)
+    const id = asText(member === null ? entry : member.value)
 
-    if (typeof id !== 'string' || id === '') {
+    if (id === undefined || id === '') {
       throw new ScimError(
         400,
         'invalidValue',
@@ -359,22 +433,26 @@ function memberIds(value: unknown): string[] {
 }
 
 /** A group as the provider sent it, whole (POST and PUT). */
-export function readGroup(body: unknown): GroupChanges {
-  if (!isObject(body)) {
+export function readGroup(body: ScimJson): GroupChanges {
+  const group = asObject(body)
+
+  if (group === null) {
     throw new ScimError(400, 'invalidSyntax', 'Send a Group as a JSON object.')
   }
 
   const changes: GroupChanges = {}
 
-  if (typeof body.displayName === 'string')
-    changes.displayName = body.displayName
+  const displayName = asText(group.displayName)
 
-  if (body.externalId !== undefined) {
-    changes.externalId =
-      typeof body.externalId === 'string' ? body.externalId : null
+  if (displayName !== undefined) changes.displayName = displayName
+
+  const externalId = readExternalId(group)
+
+  if (externalId !== undefined) changes.externalId = externalId
+
+  if (Object.hasOwn(group, 'members')) {
+    changes.members = memberIds(group.members)
   }
-
-  if (body.members !== undefined) changes.members = memberIds(body.members)
 
   return changes
 }
@@ -384,7 +462,7 @@ export function readGroup(body: unknown): GroupChanges {
  * full list the group should have afterwards.
  */
 export function groupChangesFromPatch(
-  body: unknown,
+  body: ScimJson,
   currentMembers: string[],
 ): GroupChanges {
   const changes: GroupChanges = {}
@@ -399,7 +477,7 @@ export function groupChangesFromPatch(
         throw new ScimError(400, 'noTarget', 'A remove needs a path.')
       }
 
-      const whole = readGroup(operation.value)
+      const whole = readGroup(operation.value ?? null)
 
       if (whole.displayName !== undefined)
         changes.displayName = whole.displayName
@@ -420,16 +498,15 @@ export function groupChangesFromPatch(
     const lowered = path.toLowerCase()
 
     if (lowered === 'displayname') {
-      if (typeof operation.value === 'string')
-        changes.displayName = operation.value
+      const displayName = asText(operation.value)
+
+      if (displayName !== undefined) changes.displayName = displayName
       continue
     }
 
     if (lowered === 'externalid') {
       changes.externalId =
-        operation.op === 'remove' || typeof operation.value !== 'string'
-          ? null
-          : operation.value
+        operation.op === 'remove' ? null : (asText(operation.value) ?? null)
       continue
     }
 
@@ -438,13 +515,18 @@ export function groupChangesFromPatch(
       const filtered = /^members\[\s*value\s+eq\s+"([^"]+)"\s*\]$/i.exec(path)
 
       if (operation.op === 'remove') {
-        const gone = filtered
-          ? [filtered[1]]
-          : operation.value === undefined
-            ? members
-            : memberIds(operation.value)
+        const named = filtered?.at(1)
 
-        members = members.filter((id) => !gone.includes(id))
+        const gone =
+          named === undefined
+            ? operation.value === undefined
+              ? members
+              : memberIds(operation.value)
+            : [named]
+
+        const removed = new Set(gone)
+
+        members = members.filter((id) => !removed.has(id))
       } else if (operation.op === 'add') {
         members = [...new Set([...members, ...memberIds(operation.value)])]
       } else {
@@ -525,12 +607,13 @@ export function listResponse<T>(
 }
 
 export function errorBody(error: ScimError) {
-  return {
+  const body = {
     schemas: [SCIM_SCHEMAS.error],
     status: String(error.status),
-    ...(error.scimType ? { scimType: error.scimType } : {}),
     detail: error.message,
   }
+
+  return error.scimType ? { ...body, scimType: error.scimType } : body
 }
 
 export function serviceProviderConfig(base: string) {
@@ -586,11 +669,27 @@ export function resourceTypes(base: string) {
   ]
 }
 
+/** One attribute description in a SCIM schema document. */
+interface ScimAttribute {
+  name: string
+  type: string
+  multiValued: boolean
+  required: boolean
+  caseExact: boolean
+  mutability: string
+  returned: string
+  uniqueness: string
+  subAttributes?: ScimAttribute[]
+}
+
+/** The defaults an attribute description may override. */
+type ScimAttributeFacts = Omit<ScimAttribute, 'name' | 'type'>
+
 const attribute = (
   name: string,
   type: string,
-  extra: Record<string, unknown> = {},
-) => ({
+  extra: Partial<ScimAttributeFacts> = {},
+): ScimAttribute => ({
   name,
   type,
   multiValued: false,

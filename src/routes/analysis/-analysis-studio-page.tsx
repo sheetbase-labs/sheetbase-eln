@@ -17,6 +17,8 @@
  *
  * PostgreSQL and RLS remain authoritative (decisions 0019/0029/0034).
  */
+import { z } from 'zod'
+
 import { t } from '#/copy'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { datasetOption } from '#/components/record-picker/entity-options'
@@ -108,7 +110,7 @@ import {
   CHART_TYPE_LABELS,
   formatScientific,
 } from '#/lib/chart-spec'
-import type { AxisScale, ChartSpec } from '#/lib/chart-spec'
+import type { AxisScale, ChartRow, ChartSpec } from '#/lib/chart-spec'
 import {
   ANALYSIS_MAX_FILTERS,
   ANALYSIS_MAX_RESULT_ROWS,
@@ -161,7 +163,27 @@ const Route = getRouteApi('/analysis/new')
 /** The studio modes, in tab order: the strip announces these as tabs. */
 const STUDIO_MODES = ['chart', 'analyse', 'compare'] as const
 
-type StudioMode = (typeof STUDIO_MODES)[number]
+const studioModeSchema = z.enum(STUDIO_MODES)
+
+type StudioMode = z.infer<typeof studioModeSchema>
+
+const axisScaleSchema = z.enum(AXIS_SCALES)
+
+const exportFormatSchema = z.enum(['json', 'csv', 'svg', 'png'])
+
+const exportThemeSchema = z.enum(['light', 'dark'])
+
+const filterValueSchema = z.union([z.string(), z.number(), z.boolean()])
+
+/** A filter's value as the field shows it. */
+/** A filter's value as the field shows it. */
+function filterText(
+  value: Parameters<typeof filterValueSchema.safeParse>[0],
+): string {
+  const decoded = filterValueSchema.safeParse(value)
+
+  return decoded.success ? `${decoded.data}` : ''
+}
 
 const STUDIO_MODE_LABEL: Record<StudioMode, string> = {
   chart: t('data.analysisStudio.chartBuilder'),
@@ -213,7 +235,9 @@ export function AnalysisStudio() {
   // Read when a default spec is built, without rebuilding (and so discarding
   // the user's encodings) when they switch back to live data.
   const activeSnapshotRef = useRef(activeSnapshotId)
-  activeSnapshotRef.current = activeSnapshotId
+  useEffect(() => {
+    activeSnapshotRef.current = activeSnapshotId
+  }, [activeSnapshotId])
   const [selectedViewId, setSelectedViewId] = useState<string | null>(null)
 
   const [chartSelection, setChartSelection] = useState<ChartSelection | null>(
@@ -271,7 +295,9 @@ export function AnalysisStudio() {
   const chartDraft = stableStringify([spec, viewName, exportSettings])
   const chartDirty = cleanChart !== '' && cleanChart !== chartDraft
   const chartDirtyRef = useRef(chartDirty)
-  chartDirtyRef.current = chartDirty
+  useEffect(() => {
+    chartDirtyRef.current = chartDirty
+  }, [chartDirty])
   useBlocker({
     shouldBlockFn: () => chartDirtyRef.current,
     enableBeforeUnload: false,
@@ -509,18 +535,18 @@ export function AnalysisStudio() {
       if (view) {
         toast(t('data.analysisStudio.analysisViewSaved'), {
           description: `${view.name} v${view.version}`,
-          ...(search.returnTo
+          action: search.returnTo
             ? {
-                action: {
-                  label: returnLabel(search.returnTo),
-                  onClick: () => void navigate({ to: search.returnTo }),
-                },
+                label: returnLabel(search.returnTo),
+                onClick: () => void navigate({ to: search.returnTo }),
               }
-            : {}),
+            : undefined,
         })
       }
 
-      queryClient.invalidateQueries({ queryKey: analysisStudioQueryKeys.views })
+      void queryClient.invalidateQueries({
+        queryKey: analysisStudioQueryKeys.views,
+      })
     },
     onError: (error) => {
       // The view the panel is armed on can be gone (deleted here, or in
@@ -575,7 +601,9 @@ export function AnalysisStudio() {
     }
   }
 
-  saveRef.current = saveChart
+  useEffect(() => {
+    saveRef.current = saveChart
+  })
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) =>
@@ -590,7 +618,9 @@ export function AnalysisStudio() {
         setViewName('')
       }
 
-      queryClient.invalidateQueries({ queryKey: analysisStudioQueryKeys.views })
+      void queryClient.invalidateQueries({
+        queryKey: analysisStudioQueryKeys.views,
+      })
     },
     onError: (error) => {
       toast(t('data.analysisStudio.couldDeleteAnalysisView'), {
@@ -685,18 +715,21 @@ export function AnalysisStudio() {
   const resolveMutation = useMutation({
     mutationFn: (resolution: AnalysisSourceResolution) =>
       resolveAnalysisViewSources(analysisStudioDataClient, {
+        // SAFETY: the source panel that arms this mutation is only drawn while a view is selected.
         viewId: selectedViewId as string,
         expectedVersion: sourceStatusQuery.data?.version ?? 0,
         resolution,
       }),
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: analysisStudioQueryKeys.views })
+      void queryClient.invalidateQueries({
+        queryKey: analysisStudioQueryKeys.views,
+      })
 
       if (selectedViewId) {
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: analysisStudioQueryKeys.sourceStatus(selectedViewId),
         })
-        queryClient.invalidateQueries({
+        void queryClient.invalidateQueries({
           queryKey: analysisStudioQueryKeys.citations(selectedViewId),
         })
       }
@@ -778,7 +811,11 @@ export function AnalysisStudio() {
             variant="segment"
             label={t('data.analysisStudio.studioMode')}
             value={mode}
-            onValueChange={(next) => setMode(next as StudioMode)}
+            onValueChange={(next) => {
+              const decoded = studioModeSchema.safeParse(next)
+
+              if (decoded.success) setMode(decoded.data)
+            }}
             items={STUDIO_MODES.map((value) => ({
               key: value,
               label: STUDIO_MODE_LABEL[value],
@@ -1119,7 +1156,7 @@ export function AnalysisStudioHeader({
               id={`${id}-source`}
               aria-label={t('data.analysisStudio.ariaSelectDataSource')}
               value={selectedDatasetId ?? ''}
-              onChange={(id) => onSelect(id)}
+              onChange={(next) => onSelect(next)}
               size="sm"
               className="w-64 bg-surface"
               options={datasets.map((d) =>
@@ -1204,7 +1241,7 @@ export function FilterControls({
                 aria-label={t('data.analysisStudio.ariaFilterValue', {
                   value: column?.label ?? filter.fieldId,
                 })}
-                value={String(filter.value ?? '')}
+                value={filterText(filter.value)}
                 onChange={(e) => setFilter(i, e.target.value)}
                 placeholder={t('data.analysisStudio.placeholderEq')}
                 className="h-7 bg-surface text-xs"
@@ -1350,9 +1387,11 @@ function AnalysisInspector({
               <Select
                 id={`${id}-inspector-${axis}-scale`}
                 value={spec.display.axes[axis].scale}
-                onChange={(event) =>
-                  setScale(axis, event.target.value as AxisScale)
-                }
+                onChange={(event) => {
+                  const decoded = axisScaleSchema.safeParse(event.target.value)
+
+                  if (decoded.success) setScale(axis, decoded.data)
+                }}
               >
                 {AXIS_SCALES.map((scale) => (
                   <option key={scale} value={scale}>
@@ -1857,8 +1896,12 @@ export function ExportPanel({
 
     try {
       if (settings.format === 'png') {
-        const caption = spec.display.caption
-        const svg = exportChartSvg(chartSvg, settings, provenance, caption)
+        const svg = exportChartSvg(
+          chartSvg,
+          settings,
+          provenance,
+          spec.display.caption,
+        )
 
         const blob = await rasteriseSvgToPng(svg, {
           format: 'png',
@@ -1938,9 +1981,11 @@ export function ExportPanel({
             id={`${id}-format`}
             aria-label={t('data.analysisStudio.ariaExportFormat')}
             value={settings.format}
-            onChange={(e) =>
-              setSetting('format', e.target.value as ExportSettings['format'])
-            }
+            onChange={(e) => {
+              const decoded = exportFormatSchema.safeParse(e.target.value)
+
+              if (decoded.success) setSetting('format', decoded.data)
+            }}
             className="h-8 bg-surface"
           >
             <option value="json">
@@ -1963,9 +2008,11 @@ export function ExportPanel({
             id={`${id}-theme`}
             aria-label={t('data.analysisStudio.ariaExportTheme')}
             value={settings.theme}
-            onChange={(e) =>
-              setSetting('theme', e.target.value as ExportSettings['theme'])
-            }
+            onChange={(e) => {
+              const decoded = exportThemeSchema.safeParse(e.target.value)
+
+              if (decoded.success) setSetting('theme', decoded.data)
+            }}
             className="h-8 bg-surface"
           >
             <option value="light">{t('data.analysisStudio.light')}</option>
@@ -2273,6 +2320,7 @@ export function AnalysisPreview({
             </p>
             <ul className="mt-1 list-disc pl-4">
               {validation.errors.map((e, i) => (
+                // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- A specification problem is its sentence; the list is ordered and has no other identity.
                 <li key={i}>{e}</li>
               ))}
             </ul>
@@ -2448,12 +2496,50 @@ export function AnalysisPreview({
  * Serialise the rows a data preview shows, so the download matches the table
  * on screen (the exact columns and the same 50-row window).
  */
+/** A materialised column, as the preview and the data table read it. */
+type MaterialisedColumn = ReturnType<
+  typeof materialiseLiveChart
+>['columns'][number]
+
+const unitSchema = z.union([
+  z.string(),
+  z.object({ symbol: z.string() }).transform((held) => held.symbol),
+])
+
+/** A column's unit as it is written after the label. */
+function unitSuffix(unit: MaterialisedColumn['unit']): string {
+  const decoded = unitSchema.safeParse(unit)
+
+  if (decoded.success) return decoded.data
+  const plain = z.union([z.string(), z.number(), z.boolean()]).safeParse(unit)
+
+  return plain.success ? `${plain.data}` : ''
+}
+
+/** A preview cell as text: empty when absent, its JSON when it is a structure. */
+function cellText(value: ChartRow[string]): string {
+  if (value === null || value === undefined) return ''
+  const scalar = z.union([z.string(), z.number(), z.boolean()]).safeParse(value)
+
+  return scalar.success ? `${scalar.data}` : JSON.stringify(value)
+}
+
+/** A data-table cell: numbers in scientific notation, everything else as text. */
+function tableCell(value: ChartRow[string]): string {
+  const numeric = z.number().safeParse(value)
+
+  if (numeric.success) return formatScientific(numeric.data)
+  const text = cellText(value)
+
+  return text === '' ? '—' : text
+}
+
 function previewCsv(
   columns: { key: string; label: string }[],
-  rows: Record<string, unknown>[],
+  rows: ChartRow[],
 ): string {
-  const cell = (value: unknown) => {
-    const text = value === null || value === undefined ? '' : String(value)
+  const cell = (value: ChartRow[string]) => {
+    const text = cellText(value)
 
     return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
   }
@@ -2517,7 +2603,7 @@ export function DataTableAlternative({
     ? materialised.columns.map((column) => ({
         key: column.id,
         label: column.unit
-          ? `${column.label} (${typeof column.unit === 'object' && 'symbol' in column.unit ? String((column.unit as { symbol: string }).symbol) : String(column.unit)})`
+          ? `${column.label} (${unitSuffix(column.unit)})`
           : column.label,
       }))
     : [
@@ -2527,7 +2613,7 @@ export function DataTableAlternative({
         { key: 'yError', label: t('data.analysisStudio.error') },
       ]
 
-  const rows: Record<string, unknown>[] = hasSourceRows
+  const rows: ChartRow[] = hasSourceRows
     ? materialised.rows.slice(0, 50)
     : chartRows
 
@@ -2606,6 +2692,7 @@ export function DataTableAlternative({
                   selectedRowId && row[CHART_ROW_ID_KEY] === selectedRowId
 
                 return (
+                  // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- The data table shows a fixed 50-row window in source order; a row has no identifier of its own.
                   <TableRow
                     key={i}
                     className={isSelected ? 'bg-surface-muted' : undefined}
@@ -2615,9 +2702,7 @@ export function DataTableAlternative({
                         key={column.key}
                         className="scientific-nums whitespace-nowrap font-mono tabular-nums"
                       >
-                        {typeof row[column.key] === 'number'
-                          ? formatScientific(row[column.key] as number)
-                          : String(row[column.key] ?? '—')}
+                        {tableCell(row[column.key])}
                       </TableCell>
                     ))}
                   </TableRow>

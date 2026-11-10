@@ -8,6 +8,8 @@
  * Entries are ordinary records (`api.records`), so they read under row-level
  * security like any record; changes go through RPCs.
  */
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
 import { samenessKeyFor } from '#/lib/registry-sameness'
 import { canonicalSequence } from '#/lib/sequence-fingerprint'
@@ -175,7 +177,11 @@ export async function createRegistryEntry<T>(
       : await samenessKeyFor(client, {
           modelKey: input.kind,
           title: input.title,
-          customFields: input.customFields,
+          // The duplicate check hashes the entry's custom fields, so it needs
+          // them as the JSON a record stores; this is that boundary.
+          customFields: z
+            .record(z.string(), z.json())
+            .parse(input.customFields),
         })
 
   return client.rpc<T>('create_registry_entry', {

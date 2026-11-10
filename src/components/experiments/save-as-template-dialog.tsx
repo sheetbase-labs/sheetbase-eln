@@ -75,12 +75,8 @@ export function SaveAsTemplateDialog({
         params: { templateId: template.id },
       })
     },
-    onError: (error: unknown) =>
-      toast.error(
-        error instanceof Error
-          ? error.message
-          : t('projects.saveAsTemplate.failed'),
-      ),
+    onError: (error: Error) =>
+      toast.error(error.message || t('projects.saveAsTemplate.failed')),
   })
 
   return (

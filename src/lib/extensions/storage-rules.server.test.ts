@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { runExtensionStorageRule } from './data-runtime.server'
 import {
   describeDestination,
   guardStorageMove,
@@ -10,20 +9,71 @@ import type { StorageGuardDeps, StorageRule } from './storage-rules.server'
 import { buildStorageTree } from '#/lib/storage-locations'
 import type { StorageNode } from '#/lib/storage-locations'
 import { guardRecordWrite } from './record-hooks.server'
+import type { HookStore } from './record-hooks.server'
+import type { ExtensionStorageRuleDeclaration } from './data-points'
+import type { ExtensionRuntimeDeps } from './runtime.server'
 import type { RecordSnapshot } from './hook-answers'
 
-vi.mock('#/lib/logger', () => ({
-  logger: { warn: vi.fn(), error: vi.fn(), info: vi.fn() },
-}))
+/** The plugin's Python, as the runner would run it; each case sets the verdict. */
+const executePython = vi.fn<ExtensionRuntimeDeps['executePython']>(
+  async () => ({ rows: [], logs: [], runtime: 'unit' }),
+)
 
-vi.mock('./data-runtime.server', () => ({
-  runExtensionStorageRule: vi.fn(),
-  runExtensionRecordHook: vi.fn(),
-}))
+function declaration(id: string): ExtensionStorageRuleDeclaration {
+  return {
+    id,
+    title: id,
+    description: `Keeps samples in place ${id}.`,
+    runner: { kind: 'python', entry: 'a:b' },
+  }
+}
 
-const run = vi.mocked(runExtensionStorageRule) as unknown as ReturnType<
-  typeof vi.fn
->
+/**
+ * The installed plugin the real rule runtime opens: one enabled plugin whose
+ * manifest declares the two rules these cases switch between. Only Python is
+ * faked, at the transport seam the runtime already takes.
+ */
+const runtime: ExtensionRuntimeDeps = {
+  loadInstall: async () => ({
+    id: 'e1',
+    key: 'lab-inventory',
+    name: 'Lab inventory',
+    status: 'enabled',
+    disabledPoints: [],
+    manifest: {
+      id: 'acme.lab-inventory',
+      name: 'Lab inventory',
+      version: '1.0.0',
+      source: 'package:acme.lab-inventory',
+      capabilities: [],
+      scopes: ['projects:read'],
+      contributions: {
+        'storage-rules': [declaration('a'), declaration('b')],
+      },
+    },
+  }),
+  loadPackage: async () => ({
+    'python/storage.py': 'def cold_chain(value): return {}',
+  }),
+  executePython,
+  audit: async () => undefined,
+  now: () => 0,
+}
+
+/** A hook store no storage move reaches: reaching one is a mistake, not a pass. */
+function unusedHookStore(): HookStore {
+  const unused = () =>
+    Promise.reject(new Error('a storage move never touches the hook store'))
+
+  return {
+    raiseFlag: unused,
+    clearFlag: unused,
+    storeSummary: unused,
+    storeIndex: unused,
+    saveNote: unused,
+    changeRecord: unused,
+  }
+}
 
 const WS = '00000000-0000-4000-8000-000000000002'
 const SAMPLE = '11111111-2222-4333-8444-555555555555'
@@ -98,11 +148,12 @@ function rule(id: string): StorageRule {
       description: '',
       runner: { kind: 'python', entry: 'a:b' },
     },
-  } as never
+  }
 }
 
 function deps(rules: StorageRule[]): StorageGuardDeps {
   return {
+    runtime,
     rulesFor: async () => rules,
     loadRecord: async () => sample,
     readTree: async () => tree,
@@ -120,7 +171,7 @@ const move = {
   token: 'x',
 }
 
-beforeEach(() => run.mockReset())
+beforeEach(() => executePython.mockReset())
 
 describe('isStorageMove', () => {
   it('knows the calls that put a sample somewhere', () => {
@@ -172,11 +223,15 @@ describe('guardStorageMove', () => {
       ),
     ).toBeNull()
     expect(await guardStorageMove(move, claims, deps([]))).toBeNull()
-    expect(run).not.toHaveBeenCalled()
+    expect(executePython).not.toHaveBeenCalled()
   })
 
   it('hands the rule the sample and the place, and stops on a refusal with its words', async () => {
-    run.mockResolvedValue({ status: 'refuse', message: 'Too warm.' })
+    executePython.mockResolvedValue({
+      rows: [{ status: 'refuse', message: 'Too warm.' }],
+      logs: [],
+      runtime: 'unit',
+    })
 
     const result = await guardStorageMove(
       move,
@@ -190,17 +245,30 @@ describe('guardStorageMove', () => {
       plugin: 'Lab inventory',
       hook: 'a',
     })
-    expect(run).toHaveBeenCalledTimes(1)
-    const call = run.mock.calls[0][0]
-    expect(call.sample.identifier).toBe('SMP-1')
-    expect(call.to.temperatureC).toEqual({ min: -90, max: -70 })
-    expect(call.from).toBe('Bench')
+    expect(executePython).toHaveBeenCalledTimes(1)
+    expect(executePython.mock.calls[0][0].parameters).toMatchObject({
+      kind: 'operation',
+      entry: 'a:b',
+      input: {
+        sample: { identifier: 'SMP-1' },
+        to: { temperatureC: { min: -90, max: -70 } },
+        from: 'Bench',
+      },
+    })
   })
 
   it('collects warnings from every rule and lets the move go', async () => {
-    run
-      .mockResolvedValueOnce({ status: 'warn', message: 'Nearly full.' })
-      .mockResolvedValueOnce({ status: 'ok', message: '' })
+    executePython
+      .mockResolvedValueOnce({
+        rows: [{ status: 'warn', message: 'Nearly full.' }],
+        logs: [],
+        runtime: 'unit',
+      })
+      .mockResolvedValueOnce({
+        rows: [{ status: 'ok' }],
+        logs: [],
+        runtime: 'unit',
+      })
 
     const result = await guardStorageMove(
       move,
@@ -215,7 +283,7 @@ describe('guardStorageMove', () => {
   })
 
   it('never blocks a move because a rule broke', async () => {
-    run.mockRejectedValueOnce(new Error('boom'))
+    executePython.mockRejectedValueOnce(new Error('boom'))
     const result = await guardStorageMove(move, claims, deps([rule('a')]))
     expect(result).toEqual({
       kind: 'pass',
@@ -226,7 +294,7 @@ describe('guardStorageMove', () => {
   it('leaves a sample the person cannot see to the database', async () => {
     const hidden = { ...deps([rule('a')]), loadRecord: async () => null }
     expect(await guardStorageMove(move, claims, hidden)).toBeNull()
-    expect(run).not.toHaveBeenCalled()
+    expect(executePython).not.toHaveBeenCalled()
   })
 })
 
@@ -238,12 +306,16 @@ describe('guardRecordWrite on a move', () => {
   const recordDeps = (rules: StorageRule[]) => ({
     hooksFor: async () => [],
     loadRecord: async () => sample,
-    store: {} as never,
+    store: unusedHookStore(),
     storage: deps(rules),
   })
 
   it('refuses the write the way a hook before a save does', async () => {
-    run.mockResolvedValue({ status: 'refuse', message: 'Too warm.' })
+    executePython.mockResolvedValue({
+      rows: [{ status: 'refuse', message: 'Too warm.' }],
+      logs: [],
+      runtime: 'unit',
+    })
 
     const result = await guardRecordWrite(
       { method: 'POST', kind: 'rpc', query: '', ...move, token },
@@ -254,7 +326,11 @@ describe('guardRecordWrite on a move', () => {
   })
 
   it('lets it through, with the warning, untouched', async () => {
-    run.mockResolvedValue({ status: 'warn', message: 'Nearly full.' })
+    executePython.mockResolvedValue({
+      rows: [{ status: 'warn', message: 'Nearly full.' }],
+      logs: [],
+      runtime: 'unit',
+    })
 
     const result = await guardRecordWrite(
       { method: 'POST', kind: 'rpc', query: '', ...move, token },

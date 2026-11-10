@@ -41,9 +41,8 @@ function scrub(seq: string, sites: string[]): string {
   for (const site of sites) {
     const r = rc(site)
 
-    while (s.includes(site)) s = s.replace(site, 'A'.repeat(site.length))
-
-    while (s.includes(r)) s = s.replace(r, 'A'.repeat(r.length))
+    s = s.replaceAll(site, 'A'.repeat(site.length))
+    s = s.replaceAll(r, 'A'.repeat(r.length))
   }
 
   return s

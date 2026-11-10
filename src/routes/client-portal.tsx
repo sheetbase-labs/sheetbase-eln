@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import type { UseQueryResult } from '@tanstack/react-query'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { labLogoUrl, useLabLogoVersion } from '#/components/ui/lab-logo'
 import { Status } from '#/components/ui/status'
@@ -38,6 +40,7 @@ import {
   postClientPortalMessage,
 } from '#/lib/client-portal'
 import type {
+  ClientPortalMessage,
   ClientPortalMilestone,
   ClientPortalProject,
   ClientPortalRecord,
@@ -61,14 +64,15 @@ type PortalTab = (typeof tabs)[number]
  *
  * Each section is a URL: `?tab=` selects it, so a portal section can be
  * linked, reloaded and reached with the browser's Back button. */
+/** The one search field the portal reads; anything else in the URL is ignored. */
+const portalSearch = z.object({ tab: z.enum(tabs).optional() })
+
 export const Route = createFileRoute('/client-portal')({
-  validateSearch: (search: Record<string, unknown>): { tab?: PortalTab } => ({
-    tab:
-      typeof search.tab === 'string' &&
-      (tabs as readonly string[]).includes(search.tab)
-        ? (search.tab as PortalTab)
-        : undefined,
-  }),
+  validateSearch: (search) => {
+    const decoded = portalSearch.safeParse(search)
+
+    return decoded.success ? decoded.data : {}
+  },
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
 
@@ -93,50 +97,79 @@ const tabIcon: Record<PortalTab, 'folder' | 'protocol' | 'inbox'> = {
   messages: 'inbox',
 }
 
-const PROJECT_STATUS: Record<string, { tone: Tone; label: string }> = {
-  active: { tone: 'progress', label: t('projects.clientPortal.status.active') },
-  in_progress: {
-    tone: 'progress',
-    label: t('projects.clientPortal.status.inProgress'),
-  },
-  in_review: {
-    tone: 'review',
-    label: t('projects.clientPortal.status.inReview'),
-  },
-  complete: { tone: 'ok', label: t('projects.clientPortal.status.complete') },
-  on_hold: { tone: 'warn', label: t('projects.clientPortal.status.onHold') },
-  archived: { tone: 'none', label: t('projects.clientPortal.status.archived') },
+/** The readable name of every workspace role, by the role key the database stores. */
+const ROLE_LABELS = new Map<string, string>(
+  Object.entries(WORKSPACE_ROLE_LABELS),
+)
+
+/** How one project or milestone status is painted and named. */
+interface PortalStatus {
+  tone: Tone
+  label: string
 }
 
-const MILESTONE_STATUS: Record<string, { tone: Tone; label: string }> = {
+const PROJECT_STATUS = new Map<string, PortalStatus>([
+  [
+    'active',
+    { tone: 'progress', label: t('projects.clientPortal.status.active') },
+  ],
+  [
+    'in_progress',
+    { tone: 'progress', label: t('projects.clientPortal.status.inProgress') },
+  ],
+  [
+    'in_review',
+    { tone: 'review', label: t('projects.clientPortal.status.inReview') },
+  ],
+  [
+    'complete',
+    { tone: 'ok', label: t('projects.clientPortal.status.complete') },
+  ],
+  [
+    'on_hold',
+    { tone: 'warn', label: t('projects.clientPortal.status.onHold') },
+  ],
+  [
+    'archived',
+    { tone: 'none', label: t('projects.clientPortal.status.archived') },
+  ],
+])
+
+const MILESTONE_STATUS = new Map<string, PortalStatus>([
   // The project page calls these Planned and Delivered; so does the portal.
-  not_started: {
-    tone: 'draft',
-    label: t('projects.clientPortal.milestoneStatus.planned'),
-  },
-  in_progress: {
-    tone: 'progress',
-    label: t('projects.clientPortal.status.inProgress'),
-  },
-  completed: {
-    tone: 'ok',
-    label: t('projects.clientPortal.milestoneStatus.delivered'),
-  },
-  blocked: {
-    tone: 'bad',
-    label: t('projects.clientPortal.milestoneStatus.blocked'),
-  },
-  cancelled: {
-    tone: 'none',
-    label: t('projects.clientPortal.milestoneStatus.cancelled'),
-  },
-}
+  [
+    'not_started',
+    {
+      tone: 'draft',
+      label: t('projects.clientPortal.milestoneStatus.planned'),
+    },
+  ],
+  [
+    'in_progress',
+    { tone: 'progress', label: t('projects.clientPortal.status.inProgress') },
+  ],
+  [
+    'completed',
+    { tone: 'ok', label: t('projects.clientPortal.milestoneStatus.delivered') },
+  ],
+  [
+    'blocked',
+    { tone: 'bad', label: t('projects.clientPortal.milestoneStatus.blocked') },
+  ],
+  [
+    'cancelled',
+    {
+      tone: 'none',
+      label: t('projects.clientPortal.milestoneStatus.cancelled'),
+    },
+  ],
+])
 
 /** The project page calls a milestone past its date and not done Overdue; so does the portal. */
 function portalMilestoneState(
   status: string,
   dueAt: string | null,
-): { tone: Tone; label: string } {
+): PortalStatus {
   if (status !== 'completed' && status !== 'cancelled' && dueAt) {
     const days = daysUntilDate(dueAt, now())
 
@@ -147,10 +180,10 @@ function portalMilestoneState(
       }
   }
 
-  return MILESTONE_STATUS[status] ?? withFallback(status)
+  return MILESTONE_STATUS.get(status) ?? withFallback(status)
 }
 
-function withFallback(status: string): { tone: Tone; label: string } {
+function withFallback(status: string): PortalStatus {
   return { tone: 'none', label: status.replace(/_/g, ' ') }
 }
 
@@ -288,7 +321,7 @@ function PortalProjectPanel({ project }: { project: ClientPortalProject }) {
   )
 
   const projectStatus =
-    PROJECT_STATUS[project.status] ?? withFallback(project.status)
+    PROJECT_STATUS.get(project.status) ?? withFallback(project.status)
 
   return (
     <div className="flex flex-col">
@@ -500,11 +533,14 @@ function PortalMark() {
   )
 }
 
-function ClientPortal() {
-  const { context } = Route.useRouteContext()
-  const navigate = Route.useNavigate()
-  const search = Route.useSearch()
-  const router = useRouter()
+/** Signing out of the portal: clear the session, the cache, then leave. */
+function usePortalSignOut({
+  navigate,
+  router,
+}: {
+  navigate: ReturnType<typeof Route.useNavigate>
+  router: ReturnType<typeof useRouter>
+}) {
   const [signingOut, setSigningOut] = useState(false)
   const [signOutError, setSignOutError] = useState<string | null>(null)
 
@@ -518,6 +554,7 @@ function ClientPortal() {
       if (result.error || !result.data.success) throw new Error('sign out')
       await router.options.context.queryClient.cancelQueries()
       router.options.context.queryClient.clear()
+      // react-doctor-disable-next-line react-doctor/tanstack-start-no-navigate-in-render -- This is the sign-out handler's own call, made after the awaited sign-out, not during render.
       await navigate({ to: '/sign-in', search: { state: 'signed-out' } })
       await router.invalidate()
     } catch {
@@ -526,6 +563,262 @@ function ClientPortal() {
       setSigningOut(false)
     }
   }
+
+  return { signingOut, signOutError, signOut }
+}
+
+/** What the selected section shows: projects, reports or messages. */
+function PortalMain({
+  tab,
+  projects,
+  isClient,
+}: {
+  tab: PortalTab
+  projects: UseQueryResult<ClientPortalProject[]>
+  isClient: boolean
+}) {
+  return (
+    <main id="main" className="min-h-0 min-w-0 flex-1 overflow-auto">
+      {tab === 'projects' ? (
+        projects.isPending ? (
+          // Placeholder chrome only: the page's single H1 sits in the
+          // topbar, so the loading state must not emit an empty one.
+          <div
+            aria-hidden="true"
+            className="border-b border-border bg-surface px-4 pt-3 pb-3 md:px-6 md:pt-3.5"
+          />
+        ) : (projects.data ?? []).length ? (
+          (projects.data ?? []).map((p) => (
+            <PortalProjectPanel key={p.projectId} project={p} />
+          ))
+        ) : (
+          <div className="px-8 py-6">
+            <EmptyState
+              icon="folder"
+              title={t('projects.clientPortal.noProjects.title')}
+              description={t('projects.clientPortal.noProjects.body')}
+            />
+          </div>
+        )
+      ) : tab === 'reports' ? (
+        <PortalReports />
+      ) : (
+        <PortalMessages isClient={isClient} />
+      )}
+    </main>
+  )
+}
+
+/** The portal's aside: the latest message from the lab, and what access means. */
+function PortalAside({
+  latestTeamMessage,
+  isClient,
+  isClientAccount,
+  roleLabel,
+  onMessages,
+}: {
+  latestTeamMessage: ClientPortalMessage | undefined
+  isClient: boolean
+  isClientAccount: boolean
+  roleLabel: string
+  onMessages: () => void
+}) {
+  return (
+    <aside className="hidden w-[300px] shrink-0 flex-col gap-4 overflow-auto border-l border-border bg-surface p-4 xl:flex">
+      <section>
+        <h3 className="mb-1.5 font-sans text-label font-semibold">
+          {t('projects.clientPortal.messageFrom')}
+        </h3>
+        {latestTeamMessage ? (
+          <div className="text-label leading-[18px]">
+            <b className="font-medium">
+              {latestTeamMessage.authorName ?? t('projects.clientPortal.team')}
+            </b>{' '}
+            <span className="text-fg-muted">
+              {t('projects.clientPortal.messageDay', {
+                day: formatPortalDay(latestTeamMessage.createdAt),
+              })}
+            </span>
+            <div>{latestTeamMessage.body}</div>
+          </div>
+        ) : (
+          <Muted>{t('projects.clientPortal.noMessages.short')}</Muted>
+        )}
+        {isClient ? (
+          <Button size="sm" className="mt-2" onClick={onMessages}>
+            {t('projects.clientPortal.reply')}
+          </Button>
+        ) : null}
+      </section>
+      <section>
+        <h3 className="mb-1.5 font-sans text-label font-semibold">
+          {isClientAccount
+            ? t('projects.clientPortal.access.title')
+            : t('projects.clientPortal.previewFull')}
+        </h3>
+        {isClientAccount ? (
+          <DescriptionList
+            items={[
+              [
+                t('projects.clientPortal.access.role'),
+                t('projects.clientPortal.access.viewer'),
+              ],
+              [
+                t('projects.clientPortal.access.can'),
+                t('projects.clientPortal.access.canBody'),
+              ],
+              [
+                t('projects.clientPortal.access.cant'),
+                t('projects.clientPortal.access.cantBody'),
+              ],
+            ]}
+          />
+        ) : (
+          <>
+            <DescriptionList
+              items={[
+                [t('projects.clientPortal.access.yourRole'), roleLabel],
+                [
+                  t('projects.clientPortal.access.thisView'),
+                  t('projects.clientPortal.access.thisViewBody'),
+                ],
+              ]}
+            />
+            <Muted className="mt-2">
+              {t('projects.clientPortal.access.previewNote')}
+            </Muted>
+          </>
+        )}
+      </section>
+    </aside>
+  )
+}
+
+/** The portal's section links, with how much each holds. */
+function PortalNav({
+  tab,
+  counts,
+  onTab,
+}: {
+  tab: PortalTab
+  counts: Record<PortalTab, number | null>
+  onTab: (tab: PortalTab) => void
+}) {
+  return (
+    <nav
+      aria-label={t('projects.clientPortal.portal')}
+      className="hidden w-[232px] shrink-0 flex-col gap-px border-r border-border p-2.5 lg:flex"
+    >
+      {tabs.map((name) => (
+        <button
+          key={name}
+          type="button"
+          aria-current={tab === name ? 'page' : undefined}
+          onClick={() => onTab(name)}
+          className={
+            tab === name
+              ? 'flex h-[30px] cursor-pointer items-center gap-2 rounded-md border-0 bg-selection px-2 text-body font-medium text-fg'
+              : 'flex h-[30px] cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2 text-body text-fg hover:bg-surface-hover'
+          }
+        >
+          <Icon name={tabIcon[name]} size={16} />
+          {tabLabel[name]}
+          {counts[name] != null ? (
+            <span className="ml-auto text-label text-fg-muted">
+              {counts[name]}
+            </span>
+          ) : null}
+        </button>
+      ))}
+      <div className="flex-1" />
+      <Muted className="px-2 pb-2">
+        {t('projects.clientPortal.sidebarNote')}
+      </Muted>
+    </nav>
+  )
+}
+
+/** The portal's topbar: brand, whose portal it is, the preview mark, and sign-out. */
+function PortalHeader({
+  clientCode,
+  userName,
+  initials,
+  isClientAccount,
+  signingOut,
+  signOutError,
+  onSignOut,
+}: {
+  clientCode: string | null
+  userName: string
+  initials: string
+  isClientAccount: boolean
+  signingOut: boolean
+  signOutError: string | null
+  onSignOut: () => void
+}) {
+  return (
+    <header className="flex h-topbar shrink-0 items-center gap-3 border-b border-border bg-surface px-3">
+      <div className="flex items-center gap-2 font-heading text-[15px] font-semibold md:w-[260px]">
+        <PortalMark />
+        {t('projects.clientPortal.brand')}{' '}
+        {/* The portal is a standalone viewer route with no `PageHeader`, so
+          the topbar carries the page's only heading. */}
+        <h1 className="font-sans text-body font-normal text-fg-muted">
+          {t('projects.clientPortal.title')}
+        </h1>
+      </div>
+      <span className="min-w-0 flex-1 truncate text-body text-fg-muted max-md:text-label">
+        {clientCode
+          ? t('projects.clientPortal.sharedWithCode', { code: clientCode })
+          : t('projects.clientPortal.sharedByCdmo')}
+      </span>
+      {isClientAccount ? null : (
+        <span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-surface-muted px-2 py-0.5 text-caption text-fg-muted">
+          {/* Short visual label on a phone, the full label for assistive
+            tech and on wider frames. */}
+          <span aria-hidden="true" className="md:hidden">
+            {t('projects.clientPortal.preview')}
+          </span>
+          <span className="max-md:sr-only">
+            {t('projects.clientPortal.previewFull')}
+          </span>
+        </span>
+      )}
+      <Button
+        size="sm"
+        variant="quiet"
+        disabled={signingOut}
+        onClick={onSignOut}
+      >
+        {t('projects.clientPortal.signOut')}
+      </Button>
+      {signOutError ? (
+        <span role="alert" className="text-label text-danger-text">
+          {signOutError}
+        </span>
+      ) : null}
+      <span
+        aria-label={t('projects.clientPortal.account', {
+          name: userName,
+        })}
+        className="flex size-7 items-center justify-center rounded-full bg-review-wash text-[11px] font-semibold"
+      >
+        {initials}
+      </span>
+    </header>
+  )
+}
+
+function ClientPortal() {
+  const { context } = Route.useRouteContext()
+  const navigate = Route.useNavigate()
+  const search = Route.useSearch()
+  const router = useRouter()
+
+  const { signingOut, signOutError, signOut } = usePortalSignOut({
+    navigate,
+    router,
+  })
 
   const tab = search.tab ?? 'projects'
   const setTab = (next: PortalTab) => void navigate({ search: { tab: next } })
@@ -555,8 +848,7 @@ function ClientPortal() {
   const isClientAccount = workspaceRole === 'client_viewer'
 
   const roleLabel = workspaceRole
-    ? ((WORKSPACE_ROLE_LABELS as Record<string, string>)[workspaceRole] ??
-      workspaceRole)
+    ? (ROLE_LABELS.get(workspaceRole) ?? workspaceRole)
     : t('projects.clientPortal.noWorkspace')
 
   const messages = useQuery({
@@ -593,202 +885,43 @@ function ClientPortal() {
       >
         {t('projects.clientPortal.skip')}
       </a>
-      <header className="flex h-topbar shrink-0 items-center gap-3 border-b border-border bg-surface px-3">
-        <div className="flex items-center gap-2 font-heading text-[15px] font-semibold md:w-[260px]">
-          <PortalMark />
-          {t('projects.clientPortal.brand')}{' '}
-          {/* The portal is a standalone viewer route with no `PageHeader`, so
-              the topbar carries the page's only heading. */}
-          <h1 className="font-sans text-body font-normal text-fg-muted">
-            {t('projects.clientPortal.title')}
-          </h1>
-        </div>
-        <span className="min-w-0 flex-1 truncate text-body text-fg-muted max-md:text-label">
-          {(project?.clientCode ?? identity.data?.clientCode)
-            ? t('projects.clientPortal.sharedWithCode', {
-                code: project?.clientCode ?? identity.data?.clientCode ?? '',
-              })
-            : t('projects.clientPortal.sharedByCdmo')}
-        </span>
-        {isClientAccount ? null : (
-          <span className="shrink-0 whitespace-nowrap rounded-full border border-border bg-surface-muted px-2 py-0.5 text-caption text-fg-muted">
-            {/* Short visual label on a phone, the full label for assistive
-                tech and on wider frames. */}
-            <span aria-hidden="true" className="md:hidden">
-              {t('projects.clientPortal.preview')}
-            </span>
-            <span className="max-md:sr-only">
-              {t('projects.clientPortal.previewFull')}
-            </span>
-          </span>
-        )}
-        <Button
-          size="sm"
-          variant="quiet"
-          disabled={signingOut}
-          onClick={() => void signOut()}
-        >
-          {t('projects.clientPortal.signOut')}
-        </Button>
-        {signOutError ? (
-          <span role="alert" className="text-label text-danger-text">
-            {signOutError}
-          </span>
-        ) : null}
-        <span
-          aria-label={t('projects.clientPortal.account', {
-            name: context.user.name,
-          })}
-          className="flex size-7 items-center justify-center rounded-full bg-review-wash text-[11px] font-semibold"
-        >
-          {initials}
-        </span>
-      </header>
+      <PortalHeader
+        clientCode={project?.clientCode ?? identity.data?.clientCode ?? null}
+        userName={context.user.name}
+        initials={initials}
+        isClientAccount={isClientAccount}
+        signingOut={signingOut}
+        signOutError={signOutError}
+        onSignOut={() => void signOut()}
+      />
       <div className="flex min-h-0 flex-1 max-lg:flex-col">
-        <nav
-          aria-label={t('projects.clientPortal.portal')}
-          className="hidden w-[232px] shrink-0 flex-col gap-px border-r border-border p-2.5 lg:flex"
-        >
-          {tabs.map((name) => (
-            <button
-              key={name}
-              type="button"
-              aria-current={tab === name ? 'page' : undefined}
-              onClick={() => setTab(name)}
-              className={
-                tab === name
-                  ? 'flex h-[30px] cursor-pointer items-center gap-2 rounded-md border-0 bg-selection px-2 text-body font-medium text-fg'
-                  : 'flex h-[30px] cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2 text-body text-fg hover:bg-surface-hover'
-              }
-            >
-              <Icon name={tabIcon[name]} size={16} />
-              {tabLabel[name]}
-              {counts[name] != null ? (
-                <span className="ml-auto text-label text-fg-muted">
-                  {counts[name]}
-                </span>
-              ) : null}
-            </button>
-          ))}
-          <div className="flex-1" />
-          <Muted className="px-2 pb-2">
-            {t('projects.clientPortal.sidebarNote')}
-          </Muted>
-        </nav>
+        <PortalNav tab={tab} counts={counts} onTab={setTab} />
         <Tabs
           mode="state"
           variant="chip"
           label={t('projects.clientPortal.sections')}
           className="shrink-0 border-b border-border px-4 py-2 lg:hidden"
           value={tab}
-          onValueChange={(next) => setTab(next as PortalTab)}
+          onValueChange={(next) => {
+            const chosen = tabs.find((key) => key === next)
+
+            if (chosen) setTab(chosen)
+          }}
           items={tabs.map((key) => ({
             key,
             label: tabLabel[key],
           }))}
         />
 
-        <main id="main" className="min-h-0 min-w-0 flex-1 overflow-auto">
-          {tab === 'projects' ? (
-            projects.isPending ? (
-              // Placeholder chrome only: the page's single H1 sits in the
-              // topbar, so the loading state must not emit an empty one.
-              <div
-                aria-hidden="true"
-                className="border-b border-border bg-surface px-4 pt-3 pb-3 md:px-6 md:pt-3.5"
-              />
-            ) : (projects.data ?? []).length ? (
-              (projects.data ?? []).map((p) => (
-                <PortalProjectPanel key={p.projectId} project={p} />
-              ))
-            ) : (
-              <div className="px-8 py-6">
-                <EmptyState
-                  icon="folder"
-                  title={t('projects.clientPortal.noProjects.title')}
-                  description={t('projects.clientPortal.noProjects.body')}
-                />
-              </div>
-            )
-          ) : tab === 'reports' ? (
-            <PortalReports />
-          ) : (
-            <PortalMessages isClient={isClient} />
-          )}
-        </main>
+        <PortalMain tab={tab} projects={projects} isClient={isClient} />
 
-        <aside className="hidden w-[300px] shrink-0 flex-col gap-4 overflow-auto border-l border-border bg-surface p-4 xl:flex">
-          <section>
-            <h3 className="mb-1.5 font-sans text-label font-semibold">
-              {t('projects.clientPortal.messageFrom')}
-            </h3>
-            {latestTeamMessage ? (
-              <div className="text-label leading-[18px]">
-                <b className="font-medium">
-                  {latestTeamMessage.authorName ??
-                    t('projects.clientPortal.team')}
-                </b>{' '}
-                <span className="text-fg-muted">
-                  {t('projects.clientPortal.messageDay', {
-                    day: formatPortalDay(latestTeamMessage.createdAt),
-                  })}
-                </span>
-                <div>{latestTeamMessage.body}</div>
-              </div>
-            ) : (
-              <Muted>{t('projects.clientPortal.noMessages.short')}</Muted>
-            )}
-            {isClient ? (
-              <Button
-                size="sm"
-                className="mt-2"
-                onClick={() => setTab('messages')}
-              >
-                {t('projects.clientPortal.reply')}
-              </Button>
-            ) : null}
-          </section>
-          <section>
-            <h3 className="mb-1.5 font-sans text-label font-semibold">
-              {isClientAccount
-                ? t('projects.clientPortal.access.title')
-                : t('projects.clientPortal.previewFull')}
-            </h3>
-            {isClientAccount ? (
-              <DescriptionList
-                items={[
-                  [
-                    t('projects.clientPortal.access.role'),
-                    t('projects.clientPortal.access.viewer'),
-                  ],
-                  [
-                    t('projects.clientPortal.access.can'),
-                    t('projects.clientPortal.access.canBody'),
-                  ],
-                  [
-                    t('projects.clientPortal.access.cant'),
-                    t('projects.clientPortal.access.cantBody'),
-                  ],
-                ]}
-              />
-            ) : (
-              <>
-                <DescriptionList
-                  items={[
-                    [t('projects.clientPortal.access.yourRole'), roleLabel],
-                    [
-                      t('projects.clientPortal.access.thisView'),
-                      t('projects.clientPortal.access.thisViewBody'),
-                    ],
-                  ]}
-                />
-                <Muted className="mt-2">
-                  {t('projects.clientPortal.access.previewNote')}
-                </Muted>
-              </>
-            )}
-          </section>
-        </aside>
+        <PortalAside
+          latestTeamMessage={latestTeamMessage}
+          isClient={isClient}
+          isClientAccount={isClientAccount}
+          roleLabel={roleLabel}
+          onMessages={() => setTab('messages')}
+        />
       </div>
     </div>
   )

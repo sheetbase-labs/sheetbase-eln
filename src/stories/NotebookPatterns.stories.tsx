@@ -49,29 +49,30 @@ export const BlockLanguage: Story = {
     <div className="mx-auto max-w-4xl divide-y rounded-lg border bg-background p-2">
       <NotebookBlock label="Objective" title="Objective" draggable>
         <BlockPreview
-          block={
-            {
-              id: 'objective',
-              type: 'rich_text',
-              payload: {
-                doc: {
-                  type: 'doc',
-                  content: [
-                    {
-                      type: 'paragraph',
-                      content: [
-                        {
-                          type: 'text',
-                          text: 'Evaluate the stability of concentrated lentiviral vector at 4 °C over 28 days.',
-                        },
-                      ],
-                    },
-                  ],
-                },
+          block={{
+            id: 'objective',
+            recordId: 'record-1',
+            type: 'rich_text',
+            payload: {
+              doc: {
+                type: 'doc',
+                content: [
+                  {
+                    type: 'paragraph',
+                    content: [
+                      {
+                        type: 'text',
+                        text: 'Evaluate the stability of concentrated lentiviral vector at 4 °C over 28 days.',
+                      },
+                    ],
+                  },
+                ],
               },
-              payloadSchemaVersion: 1,
-            } as any
-          }
+            },
+            payloadSchemaVersion: 1,
+            order: 0,
+            version: 1,
+          }}
         />
       </NotebookBlock>
       <NotebookBlock label="Materials" title="Materials" draggable>

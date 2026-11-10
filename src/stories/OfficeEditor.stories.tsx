@@ -34,17 +34,18 @@ const meta = {
   tags: ['autodocs'],
   args: { fileRecordId: 'file-1', fileName: 'protocol.docx' },
   decorators: [
-    (Story, context) => (
-      <QueryClientProvider
-        client={
-          context.parameters.client as ReturnType<typeof screenQueryClient>
-        }
-      >
-        <div className="w-[640px] max-w-full">
-          <Story />
-        </div>
-      </QueryClientProvider>
-    ),
+    (Story, context) => {
+      const client: ReturnType<typeof screenQueryClient> =
+        context.parameters.client
+
+      return (
+        <QueryClientProvider client={client}>
+          <div className="w-[640px] max-w-full">
+            <Story />
+          </div>
+        </QueryClientProvider>
+      )
+    },
   ],
 } satisfies Meta<typeof OfficeEditButton>
 

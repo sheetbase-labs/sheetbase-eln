@@ -44,6 +44,7 @@
  * database or a network.
  */
 import type { QueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { dropSharedReads } from './data-client'
 import { notebookQueryKeys } from './notebook-data'
@@ -52,109 +53,148 @@ import { gateQueryKeys } from './experiment-gates'
 
 // Home read models depend on durable domain mutations, not the SSE cursor.
 // In particular, reading audit history and presence must not refetch Home.
-const homeQueriesByEntity: Record<string, string[]> = {
-  record: [
-    'home-counts',
-    'home-reviews',
-    'home-materials',
-    'home-first-run-experiments',
-    'home-recents',
-    'home-activity',
-    'home-upcoming',
-    'home-project-approvals',
-  ],
-  review_submission: [
-    'home-counts',
-    'home-reviews',
-    'home-recents',
-    'home-activity',
-    'home-project-approvals',
-  ],
-  review_decision: [
-    'home-counts',
-    'home-reviews',
-    'home-recents',
-    'home-activity',
-    'home-project-approvals',
-  ],
-  signature: [
-    'home-counts',
-    'home-reviews',
-    'home-first-run-certifications',
-    'home-recents',
-    'home-activity',
-  ],
-  dataset: [
-    'home-counts',
-    'home-dataset-issues',
-    'home-recents',
-    'home-activity',
-  ],
-  dataset_version: [
-    'home-counts',
-    'home-dataset-issues',
-    'home-recents',
-    'home-activity',
-  ],
-  dataset_schema_field: ['home-counts', 'home-dataset-issues', 'home-activity'],
-  instrument_run: ['home-counts', 'home-activity'],
-  calendar_booking: ['home-bookings', 'home-activity', 'home-resources'],
-  calendar_booking_participant: [
-    'home-bookings',
-    'home-activity',
-    'home-resources',
-  ],
-  calendar_resource: ['home-bookings', 'home-activity', 'home-resources'],
-  pipeline_run: ['home-counts', 'home-activity'],
-  connector_run: ['home-counts', 'home-activity'],
-  dataset_import_file: ['home-counts', 'home-activity'],
-  project: [
-    'home-first-run-projects',
-    'home-first-run-people',
-    'home-recents',
-    'home-activity',
-    'home-upcoming-milestones',
-  ],
-  project_access: [
-    'home-counts',
-    'home-reviews',
-    'home-dataset-issues',
-    'home-materials',
-    'home-first-run-projects',
-    'home-first-run-project-opens',
-    'home-first-run-people',
-    'home-recents',
-    'home-activity',
-    'home-upcoming',
-    'home-upcoming-milestones',
-    'home-project-approvals',
-  ],
-  block: ['home-recents', 'home-activity'],
-  record_link: ['home-recents', 'home-activity'],
-  scientific_row: ['home-activity'],
-  sheet_instance: ['home-recents', 'home-activity'],
-  comment: ['home-activity'],
-}
+const homeQueriesByEntity = new Map<string, string[]>(
+  Object.entries({
+    record: [
+      'home-counts',
+      'home-reviews',
+      'home-materials',
+      'home-first-run-experiments',
+      'home-recents',
+      'home-activity',
+      'home-upcoming',
+      'home-project-approvals',
+    ],
+    review_submission: [
+      'home-counts',
+      'home-reviews',
+      'home-recents',
+      'home-activity',
+      'home-project-approvals',
+    ],
+    review_decision: [
+      'home-counts',
+      'home-reviews',
+      'home-recents',
+      'home-activity',
+      'home-project-approvals',
+    ],
+    signature: [
+      'home-counts',
+      'home-reviews',
+      'home-first-run-certifications',
+      'home-recents',
+      'home-activity',
+    ],
+    dataset: [
+      'home-counts',
+      'home-dataset-issues',
+      'home-recents',
+      'home-activity',
+    ],
+    dataset_version: [
+      'home-counts',
+      'home-dataset-issues',
+      'home-recents',
+      'home-activity',
+    ],
+    dataset_schema_field: [
+      'home-counts',
+      'home-dataset-issues',
+      'home-activity',
+    ],
+    instrument_run: ['home-counts', 'home-activity'],
+    calendar_booking: ['home-bookings', 'home-activity', 'home-resources'],
+    calendar_booking_participant: [
+      'home-bookings',
+      'home-activity',
+      'home-resources',
+    ],
+    calendar_resource: ['home-bookings', 'home-activity', 'home-resources'],
+    pipeline_run: ['home-counts', 'home-activity'],
+    connector_run: ['home-counts', 'home-activity'],
+    dataset_import_file: ['home-counts', 'home-activity'],
+    project: [
+      'home-first-run-projects',
+      'home-first-run-people',
+      'home-recents',
+      'home-activity',
+      'home-upcoming-milestones',
+    ],
+    project_access: [
+      'home-counts',
+      'home-reviews',
+      'home-dataset-issues',
+      'home-materials',
+      'home-first-run-projects',
+      'home-first-run-project-opens',
+      'home-first-run-people',
+      'home-recents',
+      'home-activity',
+      'home-upcoming',
+      'home-upcoming-milestones',
+      'home-project-approvals',
+    ],
+    block: ['home-recents', 'home-activity'],
+    record_link: ['home-recents', 'home-activity'],
+    scientific_row: ['home-activity'],
+    sheet_instance: ['home-recents', 'home-activity'],
+    comment: ['home-activity'],
+  }),
+)
 
 // ---------------------------------------------------------------------------
 // Types.
 // ---------------------------------------------------------------------------
 
+const changeEventSchema = z.object({
+  id: z.string(),
+  workspaceId: z.string(),
+  sequence: z.number(),
+  entityType: z.string(),
+  entityUuid: z.string(),
+  operation: z.string(),
+  recordId: z.string().nullable(),
+  projectId: z.string().nullable(),
+  actorUserId: z.string().nullable(),
+  actorCredentialId: z.string().nullable(),
+  clientId: z.string().nullable(),
+  payload: z.record(z.string(), z.json()),
+  createdAt: z.string(),
+})
+
 /** Wire shape of a durable change event, as delivered by the SSE stream. */
-export interface ChangeEventWire {
-  id: string
-  workspaceId: string
-  sequence: number
-  entityType: string
-  entityUuid: string
-  operation: string
-  recordId: string | null
-  projectId: string | null
-  actorUserId: string | null
-  actorCredentialId: string | null
-  clientId: string | null
-  payload: Record<string, unknown>
-  createdAt: string
+export type ChangeEventWire = z.infer<typeof changeEventSchema>
+
+/** The fields the stream's control messages may carry. */
+const controlMessageSchema = z.object({
+  workspaceId: z.string().optional(),
+  resumeFrom: z.number().optional(),
+  reason: z.string().optional(),
+})
+
+/** The `type` field a polyfill adds when it dispatches on `onmessage`. */
+const genericMessageSchema = z.object({ type: z.string().optional() })
+
+/** Decode one stream message, or null when its body is not that shape. */
+function decodeMessage<TSchema extends z.ZodType>(
+  schema: TSchema,
+  data: string,
+): z.output<TSchema> | null {
+  try {
+    const parsed = schema.safeParse(JSON.parse(data))
+
+    return parsed.success ? parsed.data : null
+  } catch {
+    return null
+  }
+}
+
+/** A payload field that names an id, or null when the event carries none. */
+function payloadId(event: ChangeEventWire, field: string): string | null {
+  const parsed = z.string().safeParse(event.payload[field])
+
+  return parsed.success ? parsed.data : null
 }
 
 /** Connection status surfaced to the UI. */
@@ -368,7 +408,7 @@ export function createLiveEventCoordinator(
 
       const homeEntity = accessChanged ? 'project_access' : event.entityType
 
-      for (const prefix of homeQueriesByEntity[homeEntity] ?? []) {
+      for (const prefix of homeQueriesByEntity.get(homeEntity) ?? []) {
         queueHomeInvalidation(prefix, event.workspaceId)
       }
     }
@@ -474,17 +514,17 @@ export function createLiveEventCoordinator(
         // REV-004: comment events carry the anchored revision id in the
         // payload. Invalidate the comments collection for that revision so a
         // second tab's comment arrives without a full reload.
-        const revisionId = event.payload.revisionId
+        const revisionId = payloadId(event, 'revisionId')
 
-        if (typeof revisionId === 'string') {
+        if (revisionId !== null) {
           void qc.invalidateQueries({
             queryKey: ['comments', 'revision', revisionId],
           })
         }
 
-        const sheetInstanceId = event.payload.sheetInstanceId
+        const sheetInstanceId = payloadId(event, 'sheetInstanceId')
 
-        if (typeof sheetInstanceId === 'string') {
+        if (sheetInstanceId !== null) {
           void qc.invalidateQueries({
             queryKey: ['comments', 'sheet', sheetInstanceId],
           })
@@ -529,9 +569,9 @@ export function createLiveEventCoordinator(
       }
 
       case 'scientific_row': {
-        const tableId = event.payload.tableId
+        const tableId = payloadId(event, 'tableId')
 
-        if (typeof tableId === 'string') {
+        if (tableId !== null) {
           void qc.invalidateQueries({ queryKey: ['scientific-rows', tableId] })
           void qc.invalidateQueries({
             queryKey: ['scientific-all-rows', tableId],
@@ -545,9 +585,9 @@ export function createLiveEventCoordinator(
       }
 
       case 'formula': {
-        const tableId = event.payload.tableId
+        const tableId = payloadId(event, 'tableId')
 
-        if (typeof tableId === 'string') {
+        if (tableId !== null) {
           void qc.invalidateQueries({ queryKey: ['formula', tableId] })
           void qc.invalidateQueries({
             queryKey: ['scientific-formulas', tableId],
@@ -568,9 +608,9 @@ export function createLiveEventCoordinator(
         void qc.invalidateQueries({
           queryKey: ['scientific-calculation-results'],
         })
-        const tableId = event.payload.tableId
+        const tableId = payloadId(event, 'tableId')
 
-        if (typeof tableId === 'string')
+        if (tableId !== null)
           void qc.invalidateQueries({ queryKey: ['calculation', tableId] })
         break
       }
@@ -611,7 +651,7 @@ export function createLiveEventCoordinator(
     const qc = deps.queryClient
 
     if (workspaceId) {
-      for (const prefix of new Set(Object.values(homeQueriesByEntity).flat())) {
+      for (const prefix of new Set([...homeQueriesByEntity.values()].flat())) {
         void qc.invalidateQueries({ queryKey: [prefix, workspaceId] })
       }
 
@@ -703,15 +743,9 @@ export function createLiveEventCoordinator(
   }
 
   function handleChangeMessage(data: string): void {
-    let event: ChangeEventWire
+    const event = decodeMessage(changeEventSchema, data)
 
-    try {
-      event = JSON.parse(data) as ChangeEventWire
-    } catch {
-      return
-    }
-
-    if (typeof event.sequence !== 'number') return
+    if (!event) return
 
     if (workspaceId && event.workspaceId !== workspaceId) return
     applyEvent(event)
@@ -721,22 +755,12 @@ export function createLiveEventCoordinator(
     type: 'hello' | 'reset' | 'bye',
     data: string,
   ): void {
-    let payload: Record<string, unknown>
-
-    try {
-      payload = JSON.parse(data) as Record<string, unknown>
-    } catch {
-      payload = {}
-    }
+    const payload = decodeMessage(controlMessageSchema, data) ?? {}
 
     if (type === 'hello') {
-      workspaceId =
-        typeof payload.workspaceId === 'string'
-          ? payload.workspaceId
-          : workspaceId
+      workspaceId = payload.workspaceId ?? workspaceId
 
-      const resumeFrom =
-        typeof payload.resumeFrom === 'number' ? payload.resumeFrom : 0
+      const resumeFrom = payload.resumeFrom ?? 0
 
       // The server's starting cursor becomes the floor for duplicate
       // suppression: anything at or below it has been replayed (or is
@@ -749,18 +773,13 @@ export function createLiveEventCoordinator(
       status = 'live'
       emit()
     } else if (type === 'reset') {
-      const reason =
-        typeof payload.reason === 'string' ? payload.reason : 'unknown'
+      const reason = payload.reason ?? 'unknown'
 
-      const resumeFrom =
-        typeof payload.resumeFrom === 'number'
-          ? payload.resumeFrom
-          : lastAppliedSeq
+      const resumeFrom = payload.resumeFrom ?? lastAppliedSeq
 
       handleReset(reason, resumeFrom)
     } else {
-      const reason =
-        typeof payload.reason === 'string' ? payload.reason : 'unknown'
+      const reason = payload.reason ?? 'unknown'
 
       lastResetReason = reason
 
@@ -782,13 +801,9 @@ export function createLiveEventCoordinator(
 
   function handleGenericMessage(data: string): void {
     // Polyfill dispatch: peek at a `type` field if present.
-    let payload: Record<string, unknown> & { type?: string }
+    const payload = decodeMessage(genericMessageSchema, data)
 
-    try {
-      payload = JSON.parse(data) as Record<string, unknown> & { type?: string }
-    } catch {
-      return
-    }
+    if (!payload) return
 
     switch (payload.type) {
       case 'change':

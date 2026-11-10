@@ -6,6 +6,8 @@
  * Templates are protocol records (`protocol_template`). Notebook Templates
  * use the CORE-06 `notebook_templates` catalogue, not record kinds.
  */
+import { z } from 'zod'
+
 import type { DataClient } from './data-client'
 import type { NotebookBlock, NotebookRecord, RecordWire } from './notebook-data'
 import { toRecord } from './notebook-data'
@@ -119,6 +121,7 @@ export interface TemplateLinkWire {
   target_kind: string
   target_identifier: string
   link_type: string
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- PostgREST returns this JSONB column as stored; the link types name their own keys and `toTemplateLink` passes them through.
   link_metadata: Record<string, unknown> | null
   created_at: string
 }
@@ -130,6 +133,7 @@ export interface TemplateLink {
   targetKind: string
   targetIdentifier: string
   linkType: string
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The same JSONB column, carried through unchanged; the link type owns the keys.
   linkMetadata: Record<string, unknown>
   createdAt: string
 }
@@ -340,10 +344,12 @@ export interface TemplateExport {
     tags: string[]
     structureVersion: number
     metadataVersion: number
+    // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- An export document: the record stores this JSONB as it stands, and an importer decodes the keys it knows.
     properties: Record<string, unknown>
   }
   blocks: Array<{
     type: string
+    // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- An export document: a block's JSONB payload belongs to its block type, so this file cannot name its keys.
     payload: Record<string, unknown>
     payloadSchemaVersion: number
     order: number
@@ -389,6 +395,7 @@ export function buildTemplateExport(
 export interface TemplateUsageLinkWire {
   id: string
   source_record_id: string
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- PostgREST returns this JSONB column as stored; `toTemplateUsageItem` reads the one key it needs.
   link_metadata: Record<string, unknown> | null
   created_at: string
 }
@@ -404,12 +411,12 @@ export function toTemplateUsageItem(
   row: TemplateUsageLinkWire,
 ): TemplateUsageItem {
   const meta = row.link_metadata ?? {}
-  const revisionId = meta.template_revision_id
+  const revisionId = z.string().safeParse(meta.template_revision_id).data
 
   return {
     id: row.id,
     recordId: row.source_record_id,
-    templateRevisionId: typeof revisionId === 'string' ? revisionId : null,
+    templateRevisionId: revisionId ?? null,
     createdAt: row.created_at,
   }
 }
@@ -516,8 +523,15 @@ export function createTemplateFavouritesStore({
       const parsed: unknown = JSON.parse(resolvedStorage.getItem(key) ?? '[]')
 
       if (!Array.isArray(parsed)) return []
+      const ids: string[] = []
 
-      return parsed.filter((id): id is string => typeof id === 'string')
+      for (const id of parsed) {
+        const text = z.string().safeParse(id).data
+
+        if (text !== undefined) ids.push(text)
+      }
+
+      return ids
     } catch {
       return []
     }

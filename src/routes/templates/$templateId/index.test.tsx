@@ -14,6 +14,8 @@ import {
   within,
 } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { createFileRoute as createRoute } from '@tanstack/react-router'
+import type { notebookTemplateDataClient as templateClient } from '#/lib/notebook-template-data'
 
 import { Route } from './index'
 import type * as NotebookTemplateData from '#/lib/notebook-template-data'
@@ -28,17 +30,20 @@ const ids = vi.hoisted(() => ({
   second: '00000000-0000-4000-8000-000000000022',
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the route builds its route object from createFileRoute at import time, so the router's factories are the only seam a unit test has; the route's own options are what the test renders.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (options: object) => ({
-    options,
-    useParams: () => ({ templateId: ids.template }),
-    useRouteContext: () => ({ context: { workspace: { id: 'ws-1' } } }),
-  }),
+  createFileRoute:
+    () => (options: Parameters<ReturnType<typeof createRoute>>[0]) => ({
+      options,
+      useParams: () => ({ templateId: ids.template }),
+      useRouteContext: () => ({ context: { workspace: { id: 'ws-1' } } }),
+    }),
   Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
 }))
 
 const sonner = vi.hoisted(() => ({ toast: vi.fn(), error: vi.fn() }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the screen reports failures through the shared toaster; this suite asserts those calls without mounting the real sonner portal.
 vi.mock('#/components/ui/sonner', () => ({
   toast: Object.assign(sonner.toast, { error: sonner.error }),
 }))
@@ -49,10 +54,16 @@ const client = vi.hoisted(() => {
   return {
     list: vi.fn(async (_resource: string, _query?: string) => noRows),
     count: vi.fn(async () => 0),
-    rpc: vi.fn(async (_name: string, _args?: unknown) => ({})),
+    rpc: vi.fn(
+      async (
+        _name: string,
+        _args?: Parameters<(typeof templateClient)['rpc']>[1],
+      ) => ({}),
+    ),
   }
 })
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- template reads and writes need a database; the module's mappers stay real so the screen renders rows shaped exactly as it sees them in production.
 vi.mock('#/lib/notebook-template-data', async (importOriginal) => {
   const actual = await importOriginal<typeof NotebookTemplateData>()
 
@@ -64,12 +75,14 @@ vi.mock('#/lib/notebook-template-data', async (importOriginal) => {
     createNotebookTemplateVersion: async (
       templateId: string,
       expectedTemplateRevision: number,
-      configuration: unknown,
+      configurationInput: Parameters<
+        typeof actual.createNotebookTemplateVersion
+      >[2],
     ) => {
       const row = await client.rpc('create_notebook_template_version', {
         p_template_id: templateId,
         p_expected_template_revision: expectedTemplateRevision,
-        p_configuration: configuration,
+        p_configuration: configurationInput,
       })
 
       return actual.notebookTemplateVersionFromWire(row)
@@ -104,11 +117,34 @@ function placeholder(order: number, key: string, label: string) {
   }
 }
 
-function configuration(placements: Array<Record<string, unknown>>) {
+function configuration(placements: readonly unknown[]) {
   return { formatVersion: 1, parameters: [], placements }
 }
 
-function versionWire(overrides: Record<string, unknown> = {}) {
+/** One stored template version as the endpoint returns it. */
+interface TemplateVersionRow {
+  id: string
+  template_id: string
+  version: number
+  lifecycle: string
+  configuration_format_version: number
+  configuration: ReturnType<typeof configuration>
+  revision: number
+  created_at: string
+  updated_at: string
+  created_by_user_id: string | null
+  updated_by_user_id: string | null
+  published_at: string | null
+  published_by_user_id: string | null
+  reason: string | null
+  signed_by_user_id: string | null
+  signed_meaning: string | null
+  signed_at: string | null
+  retired_at: string | null
+  retired_by_user_id: string | null
+}
+
+function templateVersionRow(): TemplateVersionRow {
   return {
     id: ids.v1,
     template_id: ids.template,
@@ -129,8 +165,13 @@ function versionWire(overrides: Record<string, unknown> = {}) {
     signed_at: null,
     retired_at: null,
     retired_by_user_id: null,
-    ...overrides,
   }
+}
+
+function versionWire(
+  overrides: Partial<ReturnType<typeof templateVersionRow>> = {},
+) {
+  return { ...templateVersionRow(), ...overrides }
 }
 
 function withVersions(versions: unknown[]) {
@@ -144,6 +185,7 @@ function withVersions(versions: unknown[]) {
 }
 
 function renderRoute() {
+  // SAFETY: the route declares `component` in its options, so the option holds the screen component this suite renders.
   const Component = Route.options.component as React.ComponentType
 
   const queryClient = new QueryClient({

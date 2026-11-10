@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { RecordPicker } from './record-picker'
+import type { RecordPickerResult } from './record-picker'
 import type { NotebookRecord } from '#/lib/notebook-data'
 
 // jsdom does not implement ResizeObserver; cmdk reads it on mount.
@@ -51,7 +52,7 @@ function mount(
     loading?: boolean
     error?: Error | null
     includeArchived?: boolean
-    onSelect?: (r: unknown) => void
+    onSelect?: (result: RecordPickerResult) => void
   } = {},
 ) {
   const onSelect = overrides.onSelect ?? vi.fn()

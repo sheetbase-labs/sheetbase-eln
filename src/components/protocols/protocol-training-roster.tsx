@@ -55,6 +55,7 @@ const STATUS: Record<
   },
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- A failed mutation carries whatever the transport threw; its message is shown only when it is an Error.
 function errorText(error: unknown): string {
   return error instanceof Error && error.message
     ? error.message
@@ -117,7 +118,7 @@ export function ProtocolTrainingRoster({
       toast(t('library.protocols.trainingRoster.removed'))
       refresh()
     },
-    onError: (error: unknown) => toast.error(errorText(error)),
+    onError: (error) => toast.error(errorText(error)),
   })
 
   const columns: RegistryColumn<ProtocolTrainingStatus>[] = [
@@ -284,7 +285,7 @@ function AssignDialog({
       onOpenChange(false)
       onDone()
     },
-    onError: (error: unknown) => toast.error(errorText(error)),
+    onError: (error) => toast.error(errorText(error)),
   })
 
   return (
@@ -375,7 +376,7 @@ function RecordDialog({
       onClose()
       onDone()
     },
-    onError: (error: unknown) => toast.error(errorText(error)),
+    onError: (error) => toast.error(errorText(error)),
   })
 
   return (

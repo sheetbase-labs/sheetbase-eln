@@ -42,7 +42,15 @@ export async function sweepLabWatchers(deps: LabWatcherDeps): Promise<number> {
 
 let timer: ReturnType<typeof setInterval> | null = null
 let bootTimer: ReturnType<typeof setTimeout> | null = null
-const startedGlobalKey = '__sheetbaseLabWatcherSchedulerStarted'
+
+/**
+ * The process-wide started flag. A development reload evaluates this module
+ * again while the first scheduler's interval is still live, so the guard has
+ * to live on `globalThis`, not in this module's scope.
+ */
+declare global {
+  var __sheetbaseLabWatcherSchedulerStarted: boolean | undefined
+}
 
 function schedulerDisabled(): boolean {
   if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
@@ -66,10 +74,9 @@ export function startLabWatcherScheduler(
   if (typeof window !== 'undefined') return
 
   if (schedulerDisabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
 
-  if (g[startedGlobalKey]) return
-  g[startedGlobalKey] = true
+  if (globalThis.__sheetbaseLabWatcherSchedulerStarted) return
+  globalThis.__sheetbaseLabWatcherSchedulerStarted = true
 
   const deps = options.deps ?? { connect: defaultConnect }
 
@@ -101,6 +108,5 @@ export function stopLabWatcherScheduler(): void {
   if (timer) clearInterval(timer)
   bootTimer = null
   timer = null
-  const g = globalThis as unknown as Record<string, unknown>
-  delete g[startedGlobalKey]
+  delete globalThis.__sheetbaseLabWatcherSchedulerStarted
 }

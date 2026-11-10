@@ -1,41 +1,24 @@
 import { t } from '#/copy'
 import * as React from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-
-import { Icon } from '#/components/icons'
 import { Notice } from '#/components/ui/alert'
 import { Badge } from '#/components/ui/badge'
-import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
-import {
-  commentsQueryKeys,
-  createComment,
-  createRecordComment,
-  createSheetComment,
-  fetchCommentsForRecord,
-  fetchCommentsForRevision,
-  fetchCommentsForSheet,
-  groupCommentsIntoThreads,
-  reopenCommentThread,
-  replyToComment,
-  resolveCommentThread,
-  threadState,
-} from '#/lib/comments-data'
+import { threadState } from '#/lib/comments-data'
 import type {
   CommentTarget,
   CommentTargetKind,
+  CommentThread as CommentThreadGroup,
   CommentWire,
 } from '#/lib/comments-data'
-import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
-import { extractMentions } from '#/lib/mentions'
 import type { MentionCandidate } from '#/lib/mentions'
-import { notebookDataClient } from '#/lib/notebook-data'
-import { useUserNames } from '#/lib/user-names'
-import { adminQueryKeys, fetchWorkspaceMembers } from '#/lib/workspace-admin'
+import type { SheetCommentAnchor } from '#/lib/sheet-comment-anchor'
 import { cn } from '#/lib/utils'
 
+import { useCommentActions } from './comment-actions'
+import type { CommentActions } from './comment-actions'
+import { useCommentThreads } from './comment-threads'
+import { CommentComposer } from './comment-composer'
 import { CommentThread } from './comment-thread'
-import { MentionTextarea } from './mention-textarea'
 
 /**
  * REV-004: the anchored-comments panel for a submitted revision. Lists
@@ -100,90 +83,49 @@ export type CommentPanelProps = (
   }) => void
 }
 
-export function CommentPanel({
-  revisionId,
-  targetKind,
-  target,
-  sheet,
-  recordId,
-  currentUserId,
-  currentUserName,
-  canComment,
-  focusCommentId,
-  canCreate = true,
-  className,
-  workspaceId,
-  blockId,
-  isTargetAvailable,
-  onDraftComment,
-}: CommentPanelProps) {
-  const queryClient = useQueryClient()
-  const [newBody, setNewBody] = React.useState('')
-  const [error, setError] = React.useState<string | null>(null)
+/** What the panel's landmark is called on the surface it comments on. */
+function panelLabel(props: CommentPanelProps): string {
+  if (props.sheet) return t('notebook.commentPanel.ariaLabel')
+
+  if (props.recordId !== undefined)
+    return t('notebook.commentPanel.ariaLabelRecordComments')
+
+  return t('notebook.commentPanel.ariaLabelReviewComments')
+}
+
+/** The empty panel's heading on the surface it comments on. */
+function emptyTitle(props: CommentPanelProps): string {
+  if (props.sheet) return t('notebook.commentPanel.emptySheet')
+
+  if (props.recordId !== undefined)
+    return t('notebook.commentPanel.emptyRecord')
+
+  return t('notebook.commentPanel.emptyRevision')
+}
+
+export function CommentPanel(props: CommentPanelProps) {
+  const {
+    targetKind,
+    sheet,
+    recordId,
+    currentUserId,
+    currentUserName,
+    canComment,
+    focusCommentId,
+    canCreate = true,
+    className,
+    blockId,
+    isTargetAvailable,
+    onDraftComment,
+  } = props
+
   const panelRef = React.useRef<HTMLElement>(null)
   const focusedRequest = React.useRef({ key: '', applied: false })
 
-  const queryKey = sheet
-    ? commentsQueryKeys.forSheet(sheet.anchor.target.instanceId)
-    : recordId !== undefined
-      ? commentsQueryKeys.forRecord(recordId)
-      : commentsQueryKeys.forRevision(revisionId)
+  const { queryKey, commentsQuery, threads, names, mentionCandidates } =
+    useCommentThreads(props)
 
-  const commentsQuery = useQuery({
-    queryKey,
-    queryFn: () =>
-      sheet
-        ? fetchCommentsForSheet(
-            notebookDataClient,
-            sheet.anchor.target.instanceId,
-          )
-        : recordId !== undefined
-          ? fetchCommentsForRecord(notebookDataClient, recordId)
-          : fetchCommentsForRevision(notebookDataClient, revisionId),
-  })
-
-  const threads = React.useMemo(() => {
-    const all = commentsQuery.data
-      ? groupCommentsIntoThreads(commentsQuery.data)
-      : []
-
-    return blockId === undefined
-      ? all
-      : all.filter(
-          (thread) =>
-            thread.root.target_kind === 'block' &&
-            thread.root.target.blockId === blockId,
-        )
-  }, [commentsQuery.data, blockId])
-
-  // People: the workspace's members are who can be @mentioned, and every author
-  // is named from the same lookup. Without a workspace both stay empty.
-  const members = useQuery({
-    queryKey: adminQueryKeys.members(workspaceId ?? 'none'),
-    queryFn: () => fetchWorkspaceMembers(notebookDataClient, workspaceId!),
-    enabled: Boolean(workspaceId) && canComment,
-  })
-
-  const peopleIds = workspaceId
-    ? [
-        ...(commentsQuery.data ?? []).map((c) => c.author_user_id ?? ''),
-        ...(members.data ?? []).map((member) => member.userId),
-      ]
-    : []
-
-  const { names } = useUserNames(peopleIds)
-
-  const mentionCandidates = React.useMemo<MentionCandidate[]>(
-    () =>
-      (members.data ?? []).flatMap((member) =>
-        !member.suspendedAt &&
-        names[member.userId] &&
-        member.userId !== currentUserId
-          ? [{ userId: member.userId, name: names[member.userId] }]
-          : [],
-      ),
-    [members.data, names, currentUserId],
-  )
+  const actions = useCommentActions(props, mentionCandidates)
 
   const focusRequest = `${queryKey.join(':')}:${focusCommentId ?? ''}`
   React.useEffect(() => {
@@ -206,95 +148,6 @@ export function CommentPanel({
     }
   }, [commentsQuery.data, focusCommentId, focusRequest])
 
-  const createMutation = useMutation({
-    mutationFn: (body: string) => {
-      const mentions = extractMentions(body, mentionCandidates)
-
-      if (recordId !== undefined) {
-        return createRecordComment(notebookDataClient, {
-          recordId,
-          blockId,
-          body,
-          mentions,
-        })
-      }
-
-      return sheet
-        ? createSheetComment(notebookDataClient, { ...sheet, body, mentions })
-        : createComment(notebookDataClient, {
-            revisionId,
-            targetKind,
-            target,
-            body,
-            mentions,
-          })
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: ['comments'],
-      })
-    },
-    onError: (err: unknown) => setError(renderError(err)),
-  })
-
-  const replyMutation = useMutation({
-    mutationFn: ({ parentId, body }: { parentId: string; body: string }) =>
-      replyToComment(
-        notebookDataClient,
-        parentId,
-        body,
-        extractMentions(body, mentionCandidates),
-      ),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: ['comments'],
-      })
-    },
-    onError: (err: unknown) => setError(renderError(err)),
-  })
-
-  const resolveMutation = useMutation({
-    mutationFn: (commentId: string) =>
-      resolveCommentThread(notebookDataClient, commentId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: ['comments'],
-      })
-    },
-    onError: (err: unknown) => setError(renderError(err)),
-  })
-
-  const reopenMutation = useMutation({
-    mutationFn: (commentId: string) =>
-      reopenCommentThread(notebookDataClient, commentId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: ['comments'],
-      })
-    },
-    onError: (err: unknown) => setError(renderError(err)),
-  })
-
-  async function handleCreate(event: React.FormEvent) {
-    event.preventDefault()
-    const body = newBody.trim()
-
-    if (!body) return
-    setError(null)
-
-    // REV-01.3: a reviewer's new comment is a private draft, not a sent
-    // comment, until it is published with the return decision.
-    if (onDraftComment && revisionId !== undefined) {
-      onDraftComment({ targetKind, target, body })
-      setNewBody('')
-
-      return
-    }
-
-    await createMutation.mutateAsync(body)
-    setNewBody('')
-  }
-
   const loading = commentsQuery.isLoading
   const loadError = commentsQuery.error
 
@@ -305,13 +158,7 @@ export function CommentPanel({
   return (
     <section
       ref={panelRef}
-      aria-label={
-        sheet
-          ? t('notebook.commentPanel.ariaLabel')
-          : recordId
-            ? t('notebook.commentPanel.ariaLabelRecordComments')
-            : t('notebook.commentPanel.ariaLabelReviewComments')
-      }
+      aria-label={panelLabel(props)}
       className={cn('space-y-3', className)}
     >
       <header className="flex flex-wrap items-center justify-between gap-2">
@@ -342,104 +189,101 @@ export function CommentPanel({
         <EmptyState
           icon="comment"
           className="py-2"
-          title={
-            sheet
-              ? t('notebook.commentPanel.emptySheet')
-              : recordId
-                ? t('notebook.commentPanel.emptyRecord')
-                : t('notebook.commentPanel.emptyRevision')
-          }
+          title={emptyTitle(props)}
           description={t('notebook.commentPanel.description')}
         />
       ) : (
-        <ol className="space-y-4">
-          {threads.map((thread) => (
-            <CommentThread
-              key={thread.root.id}
-              root={thread.root}
-              replies={thread.replies}
-              resolved={threadState(thread) === 'resolved'}
-              currentUserId={currentUserId}
-              currentUserName={currentUserName}
-              canComment={canComment}
-              targetUnavailable={
-                isTargetAvailable ? !isTargetAvailable(thread.root) : false
-              }
-              onReply={async (parentId, body) => {
-                await replyMutation.mutateAsync({ parentId, body })
-              }}
-              onResolve={async (commentId) => {
-                await resolveMutation.mutateAsync(commentId)
-              }}
-              onReopen={async (commentId) => {
-                await reopenMutation.mutateAsync(commentId)
-              }}
-              names={names}
-              mentionCandidates={mentionCandidates}
-              pendingReplyId={
-                replyMutation.isPending
-                  ? replyMutation.variables.parentId
-                  : null
-              }
-            />
-          ))}
-        </ol>
+        <CommentThreadList
+          threads={threads}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          canComment={canComment}
+          isTargetAvailable={isTargetAvailable}
+          names={names}
+          mentionCandidates={mentionCandidates}
+          replyMutation={actions.replyMutation}
+          resolveMutation={actions.resolveMutation}
+          reopenMutation={actions.reopenMutation}
+        />
       )}
 
       {canComment && canCreate ? (
-        <form onSubmit={handleCreate} className="space-y-2 border-t pt-3">
-          <MentionTextarea
-            className="min-h-[70px] w-full rounded-md border bg-surface px-3 py-2 text-xs leading-5 outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            placeholder={
-              recordId !== undefined
-                ? blockId
-                  ? t('notebook.commentPanel.addOnBlock')
-                  : t('notebook.commentPanel.addOnNotebook')
-                : sheet || targetKind.startsWith('sheet_')
-                  ? t('notebook.commentPanel.addOnSelection')
-                  : t('notebook.commentPanel.addOnRevision')
-            }
-            value={newBody}
-            onChange={setNewBody}
-            candidates={mentionCandidates}
-            aria-label={t('notebook.commentPanel.ariaLabelNewCommentBody')}
-          />
-          <div className="flex items-center gap-2">
-            <Button
-              type="submit"
-              size="sm"
-              disabled={!newBody.trim() || createMutation.isPending}
-            >
-              <Icon name="comment" className="size-3" aria-hidden="true" />
-              {onDraftComment
-                ? t('notebook.commentPanel.addDraftComment')
-                : t('notebook.commentPanel.addComment')}
-            </Button>
-            {createMutation.isPending ? (
-              <span className="text-xs text-fg-muted">
-                {t('notebook.commentPanel.sending')}
-              </span>
-            ) : null}
-          </div>
-          {onDraftComment ? (
-            <p className="text-xs text-fg-muted">
-              {t('notebook.commentPanel.draftNotSentTo')}
-            </p>
-          ) : null}
-        </form>
+        <CommentComposer
+          newBody={actions.newBody}
+          onChange={actions.setNewBody}
+          onSubmit={actions.handleCreate}
+          pending={actions.createMutation.isPending}
+          mentionCandidates={mentionCandidates}
+          draft={onDraftComment !== undefined}
+          target={{
+            onBlock: recordId !== undefined && blockId !== undefined,
+            onNotebook: recordId !== undefined && blockId === undefined,
+            onSelection:
+              recordId === undefined &&
+              (sheet !== undefined || targetKind.startsWith('sheet_')),
+          }}
+        />
       ) : null}
 
-      {error ? <Notice tone="bad">{error}</Notice> : null}
+      {actions.error ? <Notice tone="bad">{actions.error}</Notice> : null}
     </section>
   )
 }
 
-function renderError(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    const message = (err as { message?: unknown }).message
-
-    if (typeof message === 'string') return message
-  }
-
-  return t('notebook.commentPanel.actionFailed')
+/** The panel's threads, with the three writes each thread can make. */
+function CommentThreadList({
+  threads,
+  currentUserId,
+  currentUserName,
+  canComment,
+  isTargetAvailable,
+  names,
+  mentionCandidates,
+  replyMutation,
+  resolveMutation,
+  reopenMutation,
+}: {
+  threads: CommentThreadGroup[]
+  currentUserId: string | null
+  currentUserName: string
+  canComment: boolean
+  isTargetAvailable?: ((comment: CommentWire) => boolean) | undefined
+  names: Record<string, string>
+  mentionCandidates: MentionCandidate[]
+  replyMutation: CommentActions['replyMutation']
+  resolveMutation: CommentActions['resolveMutation']
+  reopenMutation: CommentActions['reopenMutation']
+}) {
+  return (
+    <ol className="space-y-4">
+      {threads.map((thread) => (
+        <CommentThread
+          key={thread.root.id}
+          root={thread.root}
+          replies={thread.replies}
+          resolved={threadState(thread) === 'resolved'}
+          currentUserId={currentUserId}
+          currentUserName={currentUserName}
+          canComment={canComment}
+          targetUnavailable={
+            isTargetAvailable ? !isTargetAvailable(thread.root) : false
+          }
+          onReply={async (parentId, body) => {
+            await replyMutation.mutateAsync({ parentId, body })
+          }}
+          onResolve={async (commentId) => {
+            await resolveMutation.mutateAsync(commentId)
+          }}
+          onReopen={async (commentId) => {
+            await reopenMutation.mutateAsync(commentId)
+          }}
+          names={names}
+          mentionCandidates={mentionCandidates}
+          pendingReplyId={
+            replyMutation.isPending ? replyMutation.variables.parentId : null
+          }
+        />
+      ))}
+    </ol>
+  )
 }

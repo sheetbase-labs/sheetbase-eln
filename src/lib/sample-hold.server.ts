@@ -22,12 +22,15 @@
  * down.
  */
 
+import { z } from 'zod'
+
 import { PooledClient } from '#/db/pool.server'
 import type { QueryResultRow } from 'pg'
 
 import { now as clockNow } from './clock'
 import { env } from '#/env.server'
 import { logger } from './logger'
+import type { LogFields } from './logger'
 
 /** Hold limits are day-scale; a few hours of latency is irrelevant. */
 export const SAMPLE_HOLD_INTERVAL_MS = 6 * 60 * 60 * 1000
@@ -43,9 +46,12 @@ const DAY_MS = 86_400_000
 // tests can reason about the same rule. Keep the two in step.
 // ---------------------------------------------------------------------------
 
+/** A record's `properties` JSONB: JSON values keyed by property name. */
+type RecordProperties = { [key: string]: z.core.util.JSONType }
+
 export interface HoldLimitSample {
   createdAt: string
-  properties?: Record<string, unknown> | null
+  properties?: RecordProperties | null
 }
 
 export interface ParsedHoldLimit {
@@ -58,35 +64,38 @@ export interface ParsedHoldLimit {
   allowedUseExperimentIds: string[]
 }
 
-function asNonEmptyString(value: unknown): string | null {
-  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null
-}
+/** A property that must be text to count; surrounding space is dropped. */
+const nonEmptyText = z.string().trim().min(1)
 
-function asFiniteNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') return null
-  const n = typeof value === 'number' ? value : Number(value)
+/** A hold-limit text property, or null when it is absent or not text. */
+const textOrNull = nonEmptyText.nullable().catch(null)
 
-  return Number.isFinite(n) ? n : null
-}
+/** `holdDurationDays` as a number: a number, a numeric string or a boolean. */
+const durationDays = z
+  .union([z.number(), z.string().trim().min(1), z.boolean()])
+  .transform(Number)
+  .pipe(z.number().finite())
+  .nullable()
+  .catch(null)
+
+/** The experiment ids allowed to use the sample; anything else is dropped. */
+const experimentIds = z
+  .array(nonEmptyText.catch(''))
+  .catch([])
+  .transform((ids) => ids.filter((id) => id !== ''))
 
 /** Parse the hold-limit properties from a sample's `records.properties`. */
 export function parseHoldLimit(
-  properties: Record<string, unknown> | null | undefined,
+  properties: RecordProperties | null | undefined,
 ): ParsedHoldLimit {
   const props = properties ?? {}
 
-  const allowed = Array.isArray(props.allowedUseExperimentIds)
-    ? props.allowedUseExperimentIds.filter(
-        (id): id is string => typeof id === 'string' && id !== '',
-      )
-    : []
-
   return {
-    condition: asNonEmptyString(props.holdCondition),
-    startedAt: asNonEmptyString(props.holdStartedAt),
-    durationDays: asFiniteNumber(props.holdDurationDays),
-    until: asNonEmptyString(props.holdUntil),
-    allowedUseExperimentIds: allowed,
+    condition: textOrNull.parse(props.holdCondition),
+    startedAt: textOrNull.parse(props.holdStartedAt),
+    durationDays: durationDays.parse(props.holdDurationDays),
+    until: textOrNull.parse(props.holdUntil),
+    allowedUseExperimentIds: experimentIds.parse(props.allowedUseExperimentIds),
   }
 }
 
@@ -156,8 +165,8 @@ interface SweepRow extends QueryResultRow {
 
 /** Structured log sink, injectable for unit tests. */
 export interface HoldLog {
-  info: (message: string, fields: Record<string, unknown>) => void
-  warn: (message: string, fields: Record<string, unknown>) => void
+  info: (message: string, fields: LogFields) => void
+  warn: (message: string, fields: LogFields) => void
 }
 
 const defaultLog: HoldLog = {
@@ -221,6 +230,29 @@ let holdBootTimer: ReturnType<typeof setTimeout> | null = null
 const startedGlobalKey = '__sheetbaseSampleHoldSchedulerStarted'
 
 /**
+ * The process-wide marker that keeps one scheduler per process, including
+ * across a dev-server module reload. The global type declares no such key.
+ */
+type SchedulerGlobal = typeof globalThis & { [startedGlobalKey]?: boolean }
+
+/** Read the marker this module alone writes. */
+function schedulerStarted(): boolean {
+  // SAFETY: `SchedulerGlobal` only adds the marker key this module sets on `globalThis`; no other module declares or writes it.
+  const g = globalThis as SchedulerGlobal
+
+  return g[startedGlobalKey] === true
+}
+
+/** Set or clear the marker this module alone writes. */
+function markSchedulerStarted(started: boolean): void {
+  // SAFETY: `SchedulerGlobal` only adds the marker key this module sets on `globalThis`; no other module declares or writes it.
+  const g = globalThis as SchedulerGlobal
+
+  if (started) g[startedGlobalKey] = true
+  else delete g[startedGlobalKey]
+}
+
+/**
  * Disabled under test runners unless explicitly enabled with
  * `SHEETBASE_SCHEDULER_ENABLED=true`; always disabled when that flag is
  * `false`. Same semantics as the pipeline and dataset retention schedulers.
@@ -246,10 +278,9 @@ export function startSampleHoldScheduler(
   if (typeof window !== 'undefined') return
 
   if (schedulerDisabled()) return
-  const g = globalThis as unknown as Record<string, unknown>
 
-  if (g[startedGlobalKey]) return
-  g[startedGlobalKey] = true
+  if (schedulerStarted()) return
+  markSchedulerStarted(true)
 
   const deps = options.deps ?? { connect: defaultConnect }
   const intervalMs = options.intervalMs ?? SAMPLE_HOLD_INTERVAL_MS
@@ -274,8 +305,7 @@ export function stopSampleHoldScheduler(): void {
     holdTimer = null
   }
 
-  const g = globalThis as unknown as Record<string, unknown>
-  delete g[startedGlobalKey]
+  markSchedulerStarted(false)
 }
 
 async function defaultConnect(): Promise<HoldConnection> {

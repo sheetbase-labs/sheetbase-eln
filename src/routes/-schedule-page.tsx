@@ -43,6 +43,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import { fetchPartsInRange, partQueryKeys } from '#/lib/experiment-parts'
 import type { DuePart } from '#/lib/experiment-parts'
 import { describeRepeatResult } from '#/lib/recurring'
+import type { RepeatResult } from '#/lib/recurring'
 import { RepeatingDialog } from '#/components/recurring/repeating-dialog'
 import { isUuid } from '#/lib/identifier-resolution'
 import {
@@ -117,9 +118,20 @@ function InstrumentLabel({ instrument }: { instrument: ScheduleInstrument }) {
 
 const Route = getRouteApi('/schedule')
 
-export function Schedule() {
+/**
+ * The schedule's reads, its own screen state and its handlers, so the component
+ * below renders one surface from one object.
+ */
+function useScheduleScreen({
+  book,
+  experiment,
+  returnTo,
+}: {
+  book: string | undefined
+  experiment: string | undefined
+  returnTo: string | undefined
+}) {
   const { context } = Route.useRouteContext()
-  const { book, experiment, returnTo } = Route.useSearch()
   const navigate = useNavigate()
 
   const forExperiment = useQuery({
@@ -193,7 +205,6 @@ export function Schedule() {
   // A booking saved from the edit dialog replaces the row the grid holds until
   // the range query reloads, so the grid never shows the old time.
   const [edited, setEdited] = useState<Map<string, ScheduleBooking>>(new Map())
-  const [editing, setEditing] = useState(false)
 
   const weekStart = view === 'day' ? anchor : monday(anchor)
   const weekEnd = addDays(weekStart, 7)
@@ -202,12 +213,7 @@ export function Schedule() {
   // the navigated anchor instead of being pinned to today: the anchor day in Day
   // view, today while the viewed week contains it, otherwise the week's first
   // day — so stepping the week changes what a phone shows.
-  const phoneDay =
-    view === 'day'
-      ? anchor
-      : today >= weekStart && today < weekEnd
-        ? today
-        : weekStart
+  const phoneDay = phoneDayFor({ view, anchor, today, weekStart, weekEnd })
 
   const rangeFrom = weekStart
   const rangeTo = addDays(weekStart, view === 'day' ? 1 : 7)
@@ -229,22 +235,20 @@ export function Schedule() {
   const fetched = bookingsQuery.data ?? []
   const fetchedIds = new Set(fetched.map((b) => b.id))
 
-  const bookings = [...fetched, ...added.filter((b) => !fetchedIds.has(b.id))]
-    .filter((b) => !cancelledIds.has(b.id))
-    .map((b) => edited.get(b.id) ?? b)
-    .map((b) => ({
-      ...b,
-      mine: Boolean(meId && b.createdByUserId === meId),
-      who: b.createdByUserId
-        ? (memberNames?.get(b.createdByUserId) ??
-          t('projects.schedulePage.colleague'))
-        : t('projects.schedulePage.colleague'),
-    }))
+  const bookings = visibleBookings({
+    fetched,
+    added,
+    fetchedIds,
+    cancelledIds,
+    edited,
+    meId,
+    memberNames,
+  })
 
   const mineCount = bookings.filter((b) => b.mine).length
 
   const bookingSamples = useBookingSamples(
-    bookings.filter((b) => b.date === today).map((b) => b.id),
+    bookings.flatMap((b) => (b.date === today ? [b.id] : [])),
   )
 
   const partsDue = useQuery({
@@ -283,31 +287,230 @@ export function Schedule() {
     setCancelError(null)
   }
 
-  const confirmCancel = async () => {
+  const cancelSelected = async () => {
     if (!selectedBooking) return
-    const bookingId = selectedBooking.id
+
     setCancelling(true)
     setCancelError(null)
 
-    try {
-      await cancelBooking(notebookDataClient, { bookingId })
-      setCancelledIds((prev) => new Set(prev).add(bookingId))
-      setAdded((items) => items.filter((b) => b.id !== bookingId))
+    const outcome = await cancelBookingAndReport(selectedBooking.id)
+
+    setCancelling(false)
+
+    if (outcome.cancelled) {
+      setCancelledIds((prev) => new Set(prev).add(selectedBooking.id))
+      setAdded((items) => items.filter((b) => b.id !== selectedBooking.id))
       void queryClient.invalidateQueries({ queryKey: ['schedule', 'bookings'] })
       toast(t('projects.schedulePage.cancelled'))
       setOpenBookingId(null)
-    } catch (error) {
-      // The server owns whether this booking may be cancelled; show its reason
-      // (already cancelled, not found, someone else's) rather than guessing.
-      setCancelError(describeCalendarError(error))
-    } finally {
-      setCancelling(false)
+
+      return
     }
+
+    setCancelError(outcome.error)
   }
 
   const instrumentsUsed = new Set(bookings.map((b) => b.resourceId)).size
 
-  const subtitleTail =
+  const subtitle = scheduleSubtitle({
+    view,
+    anchor,
+    weekStart,
+    mineCount,
+    instrumentsUsed,
+  })
+
+  return {
+    context,
+    book,
+    experiment,
+    returnTo,
+    navigate,
+    queryClient,
+    forExperiment,
+    experimentSamples,
+    bookingTitle,
+    workspaceId,
+    today,
+    nowMinute,
+    view,
+    setView,
+    anchor,
+    setAnchor,
+    bookings,
+    instrumentNames,
+    instruments: instrumentsQuery.data ?? [],
+    partsDue,
+    reviews,
+    bookingSamples,
+    phoneDay,
+    weekStart,
+    go,
+    subtitle,
+    openBooking,
+    selectedBooking,
+    selectedInstrument,
+    selectedBookingSamples,
+    selectedExperimentSamples,
+    cancelError,
+    cancelling,
+    setOpenBookingId,
+    setCancelError,
+    cancelSelected,
+    setEdited,
+    setAdded,
+    toast,
+    instrumentsLoaded: instrumentsQuery.isSuccess,
+  }
+}
+
+export function Schedule() {
+  const { book, experiment, returnTo } = Route.useSearch()
+  const screen = useScheduleScreen({ book, experiment, returnTo })
+
+  return (
+    <div className="relative flex min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 pb-6 pt-[18px] md:px-6">
+      <ScheduleToolbar
+        subtitle={screen.subtitle}
+        view={screen.view}
+        onView={screen.setView}
+        onGo={screen.go}
+        instruments={screen.instruments}
+        instrumentNames={screen.instrumentNames}
+        workspaceId={screen.workspaceId}
+        anchor={screen.anchor}
+        today={screen.today}
+        bookedResourceId={screen.book}
+        experiment={screen.experiment}
+        experimentRecord={screen.forExperiment.data ?? null}
+        experimentSamples={screen.experimentSamples.data}
+        bookingTitle={screen.bookingTitle}
+        onBooked={(b) => {
+          screen.setAdded((a) => [...a, b])
+          void screen.queryClient.invalidateQueries({ queryKey: ['schedule'] })
+          screen.toast(t('projects.schedulePage.booked'))
+
+          if (screen.returnTo) void screen.navigate({ to: screen.returnTo })
+        }}
+        onRepeated={({ result }) => {
+          void screen.queryClient.invalidateQueries({ queryKey: ['schedule'] })
+          void screen.queryClient.invalidateQueries({ queryKey: ['recurring'] })
+          screen.toast(describeRepeatResult('booking', result))
+        }}
+        onCancel={() => {
+          if (screen.returnTo) void screen.navigate({ to: screen.returnTo })
+        }}
+      />
+
+      <ScheduleBody
+        instruments={screen.instruments}
+        instrumentsLoaded={screen.instrumentsLoaded}
+        bookings={screen.bookings}
+        view={screen.view}
+        anchor={screen.anchor}
+        phoneDay={screen.phoneDay}
+        today={screen.today}
+        nowMinute={screen.nowMinute}
+        weekStart={screen.weekStart}
+        onSelect={screen.openBooking}
+        onDay={(day) => {
+          screen.setView('day')
+          screen.setAnchor(day)
+        }}
+        parts={screen.partsDue.data ?? []}
+        reviews={screen.reviews.map((r) => ({
+          id: r.identifier ?? '—',
+          title: r.title,
+          recordId: r.recordId,
+          due: formatDate(r.dueAt),
+          urgent: r.state === 'overdue',
+        }))}
+        materials={screen.bookingSamples.data ?? []}
+      />
+
+      <BookingDetailsDialog
+        booking={screen.selectedBooking}
+        instrument={screen.selectedInstrument}
+        bookingSamples={screen.selectedBookingSamples.data ?? []}
+        experimentSamples={screen.selectedExperimentSamples.data ?? []}
+        cancelError={screen.cancelError}
+        cancelling={screen.cancelling}
+        onClose={() => {
+          screen.setOpenBookingId(null)
+          screen.setCancelError(null)
+        }}
+        onCancel={() => void screen.cancelSelected()}
+        onSaved={(saved) => {
+          screen.setEdited((current) => new Map(current).set(saved.id, saved))
+          void screen.queryClient.invalidateQueries({ queryKey: ['schedule'] })
+          screen.toast(t('projects.schedulePage.updated'))
+        }}
+      />
+    </div>
+  )
+}
+
+/** Cancel a booking and say whether it went, with the server's reason if not. */
+async function cancelBookingAndReport(
+  bookingId: string,
+): Promise<{ cancelled: true } | { cancelled: false; error: string }> {
+  try {
+    await cancelBooking(notebookDataClient, { bookingId })
+
+    return { cancelled: true }
+  } catch (error) {
+    // The server owns whether this booking may be cancelled; show its reason
+    // (already cancelled, not found, someone else's) rather than guessing.
+    return { cancelled: false, error: describeCalendarError(error) }
+  }
+}
+
+/** The bookings the grid shows: saved here, cancelled here, edited here, named. */
+function visibleBookings({
+  fetched,
+  added,
+  fetchedIds,
+  cancelledIds,
+  edited,
+  meId,
+  memberNames,
+}: {
+  fetched: ScheduleBooking[]
+  added: ScheduleBooking[]
+  fetchedIds: Set<string>
+  cancelledIds: Set<string>
+  edited: Map<string, ScheduleBooking>
+  meId: string
+  memberNames: Map<string, string> | undefined
+}): ScheduleBooking[] {
+  const colleague = t('projects.schedulePage.colleague')
+
+  return [...fetched, ...added.filter((b) => !fetchedIds.has(b.id))]
+    .flatMap((b) => (cancelledIds.has(b.id) ? [] : [edited.get(b.id) ?? b]))
+    .map((b) => ({
+      ...b,
+      mine: Boolean(meId && b.createdByUserId === meId),
+      who: b.createdByUserId
+        ? (memberNames?.get(b.createdByUserId) ?? colleague)
+        : colleague,
+    }))
+}
+
+/** What the heading says under "Schedule": the period, then what it holds. */
+function scheduleSubtitle({
+  view,
+  anchor,
+  weekStart,
+  mineCount,
+  instrumentsUsed,
+}: {
+  view: 'week' | 'day'
+  anchor: string
+  weekStart: string
+  mineCount: number
+  instrumentsUsed: number
+}): string {
+  const tail =
     (mineCount
       ? t('projects.schedulePage.mine', { count: mineCount })
       : t('projects.schedulePage.noneMine')) +
@@ -315,98 +518,75 @@ export function Schedule() {
       ? t('projects.schedulePage.instrumentsUsed', { count: instrumentsUsed })
       : '')
 
-  const subtitle =
-    view === 'day'
-      ? `${fmt(anchor, { weekday: 'long', day: 'numeric', month: 'long' })}${subtitleTail}`
-      : t('projects.schedulePage.weekOf', {
-          date: fmt(weekStart, { day: 'numeric', month: 'long' }),
-        }) + subtitleTail
+  if (view === 'day')
+    return `${fmt(anchor, { weekday: 'long', day: 'numeric', month: 'long' })}${tail}`
 
   return (
-    <div className="relative flex min-w-0 flex-1 flex-col gap-5 overflow-auto px-4 pb-6 pt-[18px] md:px-6">
-      <div className="flex flex-wrap items-end gap-2">
-        <div className="flex-1 max-md:basis-full">
-          <h1 className="text-title">{t('projects.schedulePage.title')}</h1>
-          <div className="mt-0.5 text-body text-fg-muted">{subtitle}</div>
-        </div>
-        <Button
-          size="sm"
-          aria-label={
-            view === 'day'
-              ? t('projects.schedulePage.previousDay')
-              : t('projects.schedulePage.previousWeek')
-          }
-          onClick={() => go(-1)}
-        >
-          <Icon name="chevronRight" size={12} className="rotate-180" />
-        </Button>
-        <Button size="sm" onClick={() => go(0)}>
-          {t('projects.schedulePage.today')}
-        </Button>
-        <Button
-          size="sm"
-          aria-label={
-            view === 'day'
-              ? t('projects.schedulePage.nextDay')
-              : t('projects.schedulePage.nextWeek')
-          }
-          onClick={() => go(1)}
-        >
-          <Icon name="chevronRight" size={12} />
-        </Button>
-        <Tabs
-          mode="state"
-          variant="segment"
-          label={t('projects.schedulePage.view')}
-          value={view}
-          onValueChange={(next) => setView(next as 'week' | 'day')}
-          className="ml-2"
-          items={[
-            { key: 'day', label: t('projects.schedulePage.day') },
-            { key: 'week', label: t('projects.schedulePage.week') },
-          ]}
-        />
-        <SubscribeDialog instruments={instruments} />
-        <RepeatingDialog
-          kind="booking"
-          workspaceId={workspaceId}
-          names={instrumentNames}
-        />
-        <BookDialog
-          instruments={instruments}
-          workspaceId={workspaceId}
-          defaultDate={view === 'day' ? anchor : addDays(today, 3)}
-          defaultResourceId={book}
-          defaultOpen={Boolean(book) || Boolean(experiment)}
-          defaultTitle={bookingTitle}
-          experiment={
-            forExperiment.data
-              ? {
-                  ...forExperiment.data,
-                  projectId: forExperiment.data.project_id,
-                }
-              : undefined
-          }
-          sampleOptions={experimentSamples.data}
-          onCancel={() => {
-            if (returnTo) void navigate({ to: returnTo })
-          }}
-          onRepeated={({ result }) => {
-            void queryClient.invalidateQueries({ queryKey: ['schedule'] })
-            void queryClient.invalidateQueries({ queryKey: ['recurring'] })
-            toast(describeRepeatResult('booking', result))
-          }}
-          onBooked={(b) => {
-            setAdded((a) => [...a, b])
-            void queryClient.invalidateQueries({ queryKey: ['schedule'] })
-            toast(t('projects.schedulePage.booked'))
+    t('projects.schedulePage.weekOf', {
+      date: fmt(weekStart, { day: 'numeric', month: 'long' }),
+    }) + tail
+  )
+}
 
-            if (returnTo) void navigate({ to: returnTo })
-          }}
-        />
-      </div>
+/**
+ * QA-023: on a phone the day list is the only schedule surface, so it follows
+ * the navigated anchor instead of being pinned to today: the anchor day in Day
+ * view, today while the viewed week contains it, otherwise the week's first day
+ * — so stepping the week changes what a phone shows.
+ */
+function phoneDayFor({
+  view,
+  anchor,
+  today,
+  weekStart,
+  weekEnd,
+}: {
+  view: 'week' | 'day'
+  anchor: string
+  today: string
+  weekStart: string
+  weekEnd: string
+}): string {
+  if (view === 'day') return anchor
 
-      {instrumentsQuery.isSuccess && instruments.length === 0 ? (
+  return today >= weekStart && today < weekEnd ? today : weekStart
+}
+
+/** The schedule's own surface: the empty state, the grids, and what is due. */
+function ScheduleBody({
+  instruments,
+  instrumentsLoaded,
+  bookings,
+  view,
+  anchor,
+  phoneDay,
+  today,
+  nowMinute,
+  weekStart,
+  onSelect,
+  onDay,
+  parts,
+  reviews,
+  materials,
+}: {
+  instruments: ScheduleInstrument[]
+  instrumentsLoaded: boolean
+  bookings: ScheduleBooking[]
+  view: 'week' | 'day'
+  anchor: string
+  phoneDay: string
+  today: string
+  nowMinute: number
+  weekStart: string
+  onSelect: (id: string) => void
+  onDay: (day: string) => void
+  parts: Awaited<ReturnType<typeof fetchPartsInRange>>
+  reviews: React.ComponentProps<typeof Below>['reviews']
+  materials: React.ComponentProps<typeof Below>['materials']
+}) {
+  return (
+    <>
+      {instrumentsLoaded && instruments.length === 0 ? (
         <EmptyState
           icon="flask"
           title={t('projects.schedulePage.noInstruments.title')}
@@ -427,14 +607,14 @@ export function Schedule() {
             day={phoneDay}
             instruments={instruments}
             bookings={bookings}
-            onSelect={openBooking}
+            onSelect={onSelect}
           />
           {view === 'day' ? (
             <DayGrid
               day={anchor}
               instruments={instruments}
               bookings={bookings}
-              onSelect={openBooking}
+              onSelect={onSelect}
               nowMinute={anchor === today ? nowMinute : null}
             />
           ) : (
@@ -442,129 +622,267 @@ export function Schedule() {
               start={weekStart}
               instruments={instruments}
               bookings={bookings}
-              onSelect={openBooking}
-              onDay={(x) => {
-                setView('day')
-                setAnchor(x)
-              }}
+              onSelect={onSelect}
+              onDay={onDay}
               today={today}
             />
           )}
         </>
       )}
 
-      <PartsDue parts={partsDue.data ?? []} today={today} />
+      <PartsDue parts={parts} today={today} />
 
       {bookings.length === 0 ? (
         <p className="m-0 text-label text-fg-muted">
           {t('projects.schedulePage.nothingBooked')}
         </p>
       ) : (
-        <Below
-          reviews={reviews.map((r) => ({
-            id: r.identifier ?? '—',
-            title: r.title,
-            recordId: r.recordId,
-            due: formatDate(r.dueAt),
-            urgent: r.state === 'overdue',
-          }))}
-          materials={bookingSamples.data ?? []}
-        />
+        <Below reviews={reviews} materials={materials} />
       )}
+    </>
+  )
+}
 
+/** The schedule's heading, day and week navigation, and the booking dialogs. */
+function ScheduleToolbar({
+  subtitle,
+  view,
+  onView,
+  onGo,
+  instruments,
+  instrumentNames,
+  workspaceId,
+  anchor,
+  today,
+  bookedResourceId,
+  experiment,
+  experimentRecord,
+  experimentSamples,
+  bookingTitle,
+  onBooked,
+  onRepeated,
+  onCancel,
+}: {
+  subtitle: string
+  view: 'week' | 'day'
+  onView: (view: 'week' | 'day') => void
+  onGo: (direction: -1 | 0 | 1) => void
+  instruments: ScheduleInstrument[]
+  instrumentNames: Map<string, string>
+  workspaceId: string | undefined
+  anchor: string
+  today: string
+  bookedResourceId: string | undefined
+  experiment: string | undefined
+  experimentRecord: {
+    id: string
+    identifier: string
+    title: string
+    project_id: string | null
+  } | null
+  experimentSamples: BookableSample[] | undefined
+  bookingTitle: string | undefined
+  onBooked: (booking: ScheduleBooking) => void
+  onRepeated: (event: { result: RepeatResult }) => void
+  onCancel: () => void
+}) {
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <div className="flex-1 max-md:basis-full">
+        <h1 className="text-title">{t('projects.schedulePage.title')}</h1>
+        <div className="mt-0.5 text-body text-fg-muted">{subtitle}</div>
+      </div>
+      <Button
+        size="sm"
+        aria-label={
+          view === 'day'
+            ? t('projects.schedulePage.previousDay')
+            : t('projects.schedulePage.previousWeek')
+        }
+        onClick={() => onGo(-1)}
+      >
+        <Icon name="chevronRight" size={12} className="rotate-180" />
+      </Button>
+      <Button size="sm" onClick={() => onGo(0)}>
+        {t('projects.schedulePage.today')}
+      </Button>
+      <Button
+        size="sm"
+        aria-label={
+          view === 'day'
+            ? t('projects.schedulePage.nextDay')
+            : t('projects.schedulePage.nextWeek')
+        }
+        onClick={() => onGo(1)}
+      >
+        <Icon name="chevronRight" size={12} />
+      </Button>
+      <Tabs
+        mode="state"
+        variant="segment"
+        label={t('projects.schedulePage.view')}
+        value={view}
+        onValueChange={(next) => {
+          if (next === 'day' || next === 'week') onView(next)
+        }}
+        className="ml-2"
+        items={[
+          { key: 'day', label: t('projects.schedulePage.day') },
+          { key: 'week', label: t('projects.schedulePage.week') },
+        ]}
+      />
+      <SubscribeDialog instruments={instruments} />
+      <RepeatingDialog
+        kind="booking"
+        workspaceId={workspaceId}
+        names={instrumentNames}
+      />
+      <BookDialog
+        instruments={instruments}
+        workspaceId={workspaceId}
+        defaultDate={view === 'day' ? anchor : addDays(today, 3)}
+        defaultResourceId={bookedResourceId}
+        defaultOpen={Boolean(bookedResourceId) || Boolean(experiment)}
+        defaultTitle={bookingTitle}
+        experiment={
+          experimentRecord
+            ? {
+                ...experimentRecord,
+                projectId: experimentRecord.project_id,
+              }
+            : undefined
+        }
+        sampleOptions={experimentSamples}
+        onCancel={onCancel}
+        onRepeated={onRepeated}
+        onBooked={onBooked}
+      />
+    </div>
+  )
+}
+
+/** What one booking says about itself: who, when, where and with what. */
+function BookingFacts({
+  booking,
+  instrument,
+  bookingSamples,
+}: {
+  booking: ScheduleBooking
+  instrument: ScheduleInstrument | undefined
+  bookingSamples: BookingSample[]
+}) {
+  return (
+    <dl className="m-0 grid grid-cols-[92px_1fr] gap-x-2 gap-y-1.5 text-body">
+      <dt className="text-fg-muted">{t('projects.bookDialog.instrument')}</dt>
+      <dd className="m-0">
+        {instrument
+          ? `${instrument.displayId ? `${instrument.displayId} · ` : ''}${instrument.name}`
+          : '—'}
+      </dd>
+      <dt className="text-fg-muted">{t('projects.bookDialog.date')}</dt>
+      <dd className="m-0">
+        {fmt(booking.date, {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+        })}
+      </dd>
+      <dt className="text-fg-muted">{t('projects.schedulePage.time')}</dt>
+      <dd className="num m-0">
+        {booking.start}–{booking.end} ({booking.timezone})
+      </dd>
+      <dt className="text-fg-muted">{t('projects.schedulePage.bookedBy')}</dt>
+      <dd className="m-0">
+        {booking.mine ? t('projects.schedulePage.you') : booking.who}
+      </dd>
+      {booking.experiment ? (
+        <>
+          <dt className="text-fg-muted">
+            {t('projects.schedulePage.experiment')}
+          </dt>
+          <dd className="m-0">
+            <ObjectLink
+              kind="experiment"
+              id={booking.experiment.id}
+              identifier={booking.experiment.identifier}
+            />{' '}
+            {booking.experiment.title}
+          </dd>
+        </>
+      ) : null}
+      {bookingSamples.length ? (
+        <>
+          <dt className="text-fg-muted">
+            {t('projects.schedulePage.samples')}
+          </dt>
+          <dd className="m-0 flex flex-col gap-0.5">
+            {bookingSamples.map((sample) => (
+              <span key={sample.id}>
+                <ObjectLink
+                  kind="sample"
+                  id={sample.sampleRecordId}
+                  identifier={sample.identifier}
+                />{' '}
+                {sample.title}
+              </span>
+            ))}
+          </dd>
+        </>
+      ) : null}
+      {booking.notes ? (
+        <>
+          <dt className="text-fg-muted">{t('projects.editBooking.notes')}</dt>
+          <dd className="m-0">{booking.notes}</dd>
+        </>
+      ) : null}
+    </dl>
+  )
+}
+
+/** One booking's details, with its edit form and the way to cancel it. */
+function BookingDetailsDialog({
+  booking,
+  instrument,
+  bookingSamples,
+  experimentSamples,
+  cancelError,
+  cancelling,
+  onClose,
+  onCancel,
+  onSaved,
+}: {
+  booking: ScheduleBooking | null
+  instrument: ScheduleInstrument | undefined
+  bookingSamples: BookingSample[]
+  experimentSamples: BookableSample[]
+  cancelError: string | null
+  cancelling: boolean
+  onClose: () => void
+  onCancel: () => void
+  onSaved: (saved: ScheduleBooking) => void
+}) {
+  const [editing, setEditing] = useState(false)
+
+  return (
+    <>
       <Dialog
-        open={Boolean(selectedBooking)}
+        open={Boolean(booking)}
         onOpenChange={(next) => {
-          if (!next) {
-            setOpenBookingId(null)
-            setCancelError(null)
-          }
+          if (!next) onClose()
         }}
       >
         <DialogContent className="w-[min(420px,calc(100vw-32px))]">
           <DialogHeader
             title={t('projects.schedulePage.booking')}
-            description={selectedBooking?.title}
+            description={booking?.title}
           />
           <DialogBody>
-            {selectedBooking ? (
-              <dl className="m-0 grid grid-cols-[92px_1fr] gap-x-2 gap-y-1.5 text-body">
-                <dt className="text-fg-muted">
-                  {t('projects.bookDialog.instrument')}
-                </dt>
-                <dd className="m-0">
-                  {selectedInstrument
-                    ? `${selectedInstrument.displayId ? `${selectedInstrument.displayId} · ` : ''}${selectedInstrument.name}`
-                    : '—'}
-                </dd>
-                <dt className="text-fg-muted">
-                  {t('projects.bookDialog.date')}
-                </dt>
-                <dd className="m-0">
-                  {fmt(selectedBooking.date, {
-                    weekday: 'long',
-                    day: 'numeric',
-                    month: 'long',
-                  })}
-                </dd>
-                <dt className="text-fg-muted">
-                  {t('projects.schedulePage.time')}
-                </dt>
-                <dd className="num m-0">
-                  {selectedBooking.start}–{selectedBooking.end} (
-                  {selectedBooking.timezone})
-                </dd>
-                <dt className="text-fg-muted">
-                  {t('projects.schedulePage.bookedBy')}
-                </dt>
-                <dd className="m-0">
-                  {selectedBooking.mine
-                    ? t('projects.schedulePage.you')
-                    : selectedBooking.who}
-                </dd>
-                {selectedBooking.experiment ? (
-                  <>
-                    <dt className="text-fg-muted">
-                      {t('projects.schedulePage.experiment')}
-                    </dt>
-                    <dd className="m-0">
-                      <ObjectLink
-                        kind="experiment"
-                        id={selectedBooking.experiment.id}
-                        identifier={selectedBooking.experiment.identifier}
-                      />{' '}
-                      {selectedBooking.experiment.title}
-                    </dd>
-                  </>
-                ) : null}
-                {(selectedBookingSamples.data ?? []).length ? (
-                  <>
-                    <dt className="text-fg-muted">
-                      {t('projects.schedulePage.samples')}
-                    </dt>
-                    <dd className="m-0 flex flex-col gap-0.5">
-                      {(selectedBookingSamples.data ?? []).map((sample) => (
-                        <span key={sample.id}>
-                          <ObjectLink
-                            kind="sample"
-                            id={sample.sampleRecordId}
-                            identifier={sample.identifier}
-                          />{' '}
-                          {sample.title}
-                        </span>
-                      ))}
-                    </dd>
-                  </>
-                ) : null}
-                {selectedBooking.notes ? (
-                  <>
-                    <dt className="text-fg-muted">
-                      {t('projects.editBooking.notes')}
-                    </dt>
-                    <dd className="m-0">{selectedBooking.notes}</dd>
-                  </>
-                ) : null}
-              </dl>
+            {booking ? (
+              <BookingFacts
+                booking={booking}
+                instrument={instrument}
+                bookingSamples={bookingSamples}
+              />
             ) : null}
             {cancelError ? (
               <p role="alert" className="m-0 text-label text-danger-text">
@@ -582,7 +900,7 @@ export function Schedule() {
             <Button
               variant="danger-fill"
               disabled={cancelling}
-              onClick={confirmCancel}
+              onClick={onCancel}
             >
               {cancelling
                 ? t('projects.schedulePage.cancelling')
@@ -591,26 +909,21 @@ export function Schedule() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {editing && selectedBooking ? (
+      {editing && booking ? (
         <EditBookingDialog
-          booking={selectedBooking}
-          sampleOptions={mergeSamples(
-            selectedExperimentSamples.data ?? [],
-            selectedBookingSamples.data ?? [],
-          )}
-          currentSampleIds={(selectedBookingSamples.data ?? []).flatMap((s) =>
+          booking={booking}
+          sampleOptions={mergeSamples(experimentSamples, bookingSamples)}
+          currentSampleIds={bookingSamples.flatMap((s) =>
             s.sampleRecordId ? [s.sampleRecordId] : [],
           )}
           onClose={() => setEditing(false)}
           onSaved={(saved) => {
-            setEdited((current) => new Map(current).set(saved.id, saved))
-            void queryClient.invalidateQueries({ queryKey: ['schedule'] })
-            toast(t('projects.schedulePage.updated'))
+            onSaved(saved)
             setEditing(false)
           }}
         />
       ) : null}
-    </div>
+    </>
   )
 }
 
@@ -639,10 +952,13 @@ function mergeSamples(
  * outside core hours is still drawn where it belongs instead of being clipped
  * to a negative offset or a >100% width.
  */
-function dayWindow(dayBookings: ScheduleBooking[]): {
+/** The part of the day one instrument's lane covers, in minutes past midnight. */
+interface DayWindow {
   start: number
   end: number
-} {
+}
+
+function dayWindow(dayBookings: ScheduleBooking[]): DayWindow {
   let start = DAY_START
   let end = DAY_END
 
@@ -715,28 +1031,27 @@ function DayGrid({
               >
                 <InstrumentLabel instrument={ins} />
               </div>
-              <div
+              <ul
                 className={cn(
-                  'relative h-12',
+                  'relative m-0 h-12 list-none p-0',
                   r < instruments.length - 1 && 'border-b border-border-subtle',
                 )}
-                role="list"
                 aria-label={ins.name}
               >
-                {hours.map((h) => (
-                  <span
-                    key={h}
-                    aria-hidden="true"
-                    className="absolute inset-y-0 w-px bg-border-subtle"
-                    style={{ left: `${position(h)}%` }}
-                  />
-                ))}
+                <li aria-hidden="true" className="contents">
+                  {hours.map((h) => (
+                    <span
+                      key={h}
+                      className="absolute inset-y-0 w-px bg-border-subtle"
+                      style={{ left: `${position(h)}%` }}
+                    />
+                  ))}
+                </li>
                 {dayBookings
                   .filter((b) => b.resourceId === ins.id)
                   .map((b) => (
-                    <div
+                    <li
                       key={b.id}
-                      role="listitem"
                       className="absolute inset-y-1"
                       style={{
                         left: `calc(${position(b.start)}% + 1px)`,
@@ -769,9 +1084,9 @@ function DayGrid({
                           {b.mine ? t('projects.schedulePage.you') : b.who}
                         </span>
                       </button>
-                    </div>
+                    </li>
                   ))}
-              </div>
+              </ul>
             </div>
           ))}
         </div>
@@ -1149,7 +1464,7 @@ function Below({
         {reviews.length ? (
           reviews.map((r, i) => (
             <div
-              key={`${r.id}-${i}`}
+              key={r.id}
               className={cn(
                 'grid grid-cols-[12px_1fr_auto] items-center gap-2 py-2 text-body',
                 i < reviews.length - 1 && 'border-b border-border-subtle',

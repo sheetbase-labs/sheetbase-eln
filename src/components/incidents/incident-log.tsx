@@ -46,12 +46,20 @@ import type { IncidentEntry, IncidentModel } from '#/lib/result-quality'
 
 const client = notebookDataClient
 
-type StatusFilter = 'active' | 'archived' | 'all'
+/** The statuses the list can show, in the order the toolbar offers them. */
+const STATUS_FILTERS = ['active', 'archived', 'all'] as const
+
+type StatusFilter = (typeof STATUS_FILTERS)[number]
 
 function entryText(entry: IncidentEntry): string {
   return [entry.identifier, entry.title, incidentSummary(entry)]
     .join(' ')
     .toLowerCase()
+}
+
+/** Whether the entry's searchable text holds the words typed so far. */
+function entryMatches(entry: IncidentEntry, needle: string): boolean {
+  return needle === '' || entryText(entry).indexOf(needle) !== -1
 }
 
 export function IncidentLog({
@@ -100,9 +108,7 @@ export function IncidentLog({
   const needle = q.trim().toLowerCase()
 
   const visible = inStatus.filter(
-    (e) =>
-      (kind === 'all' || e.kind === kind) &&
-      (needle === '' || entryText(e).includes(needle)),
+    (e) => (kind === 'all' || e.kind === kind) && entryMatches(e, needle),
   )
 
   const setUp = useMutation({
@@ -114,7 +120,7 @@ export function IncidentLog({
         queryKey: ['ui-port', 'record-models'],
       })
     },
-    onError: (e: unknown) =>
+    onError: (e) =>
       toast.error(messageOf(e, t('quality.incidents.empty.couldNotSetUp'))),
   })
 
@@ -209,6 +215,16 @@ export function IncidentLog({
 
   const noLogs = models.isSuccess && logs.length === 0
 
+  const countsByKind = useMemo(() => {
+    const counts = new Map<string, number>()
+
+    for (const entry of inStatus) {
+      counts.set(entry.kind, (counts.get(entry.kind) ?? 0) + 1)
+    }
+
+    return counts
+  }, [inStatus])
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <ListHeader
@@ -217,29 +233,14 @@ export function IncidentLog({
         total={entries.data ? inStatus.length : undefined}
         actions={reportButton}
         tabs={
-          logs.length > 1 ? (
-            <Tabs
-              mode="state"
-              variant="strip"
-              label={t('quality.incidents.filterLabel')}
-              value={kind}
-              onValueChange={setKind}
-              items={[
-                {
-                  key: 'all',
-                  label: t('quality.incidents.all'),
-                  count: entries.isPending ? undefined : inStatus.length,
-                },
-                ...logs.map((m) => ({
-                  key: m.key,
-                  label: m.name,
-                  count: entries.isPending
-                    ? undefined
-                    : inStatus.filter((e) => e.kind === m.key).length,
-                })),
-              ]}
-            />
-          ) : undefined
+          <IncidentTabs
+            logs={logs}
+            kind={kind}
+            onKindChange={setKind}
+            isPending={entries.isPending}
+            total={inStatus.length}
+            countsByKind={countsByKind}
+          />
         }
       />
       {noLogs ? null : (
@@ -248,85 +249,24 @@ export function IncidentLog({
           onSearch={setQ}
           placeholder={t('quality.incidents.searchPlaceholder')}
           label={t('quality.incidents.searchPlaceholder')}
-          right={
-            <Select
-              size="sm"
-              aria-label={t('quality.incidents.statusLabel')}
-              value={status}
-              onChange={(e) => setStatus(e.target.value as StatusFilter)}
-            >
-              {(['active', 'archived', 'all'] as const).map((key) => (
-                <option key={key} value={key}>
-                  {t(`quality.incidents.statusFilters.${key}`)}
-                </option>
-              ))}
-            </Select>
-          }
+          right={<StatusSelect status={status} onChange={setStatus} />}
         />
       )}
       <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
-        {models.isError || entries.isError ? (
-          <div className="p-6">
-            <Notice tone="bad" title={t('quality.incidents.loadError')}>
-              {messageOf(models.error ?? entries.error, '')}
-            </Notice>
-          </div>
-        ) : noLogs ? (
-          <div role="status" className="flex justify-center px-6">
-            <EmptyState
-              className="items-center py-14 text-center"
-              icon="warn"
-              title={t('quality.incidents.empty.title')}
-              description={
-                canEditModels
-                  ? t('quality.incidents.empty.body')
-                  : t('quality.incidents.empty.notAllowed')
-              }
-              action={
-                canEditModels ? (
-                  <Button
-                    variant="primary"
-                    disabled={setUp.isPending}
-                    onClick={() => setUp.mutate()}
-                  >
-                    {setUp.isPending
-                      ? t('quality.incidents.empty.settingUp')
-                      : t('quality.incidents.empty.setUp')}
-                  </Button>
-                ) : undefined
-              }
-            />
-          </div>
-        ) : models.isPending || entries.isPending || visible.length > 0 ? (
-          <RegistryGrid
-            label={t('quality.incidents.tableLabel')}
-            rows={visible}
-            columns={columns}
-            getRowId={(entry) => entry.id}
-            onRowClick={open}
-            isLoading={models.isPending || entries.isPending}
-          />
-        ) : (
-          <div role="status" className="flex justify-center px-6">
-            <EmptyState
-              className="items-center py-14 text-center"
-              icon="warn"
-              title={
-                all.length === 0
-                  ? t('quality.incidents.empty.none')
-                  : t('quality.incidents.empty.filtered')
-              }
-              description={
-                all.length === 0
-                  ? t('quality.incidents.empty.noneBody')
-                  : undefined
-              }
-              action={
-                all.length === 0 ? (reportButton ?? undefined) : undefined
-              }
-            />
-          </div>
-        )}
+        <IncidentLogBody
+          failed={models.isError || entries.isError}
+          failureMessage={messageOf(models.error ?? entries.error, '')}
+          noLogs={noLogs}
+          canEditModels={canEditModels}
+          settingUp={setUp.isPending}
+          onSetUp={() => setUp.mutate()}
+          busy={models.isPending || entries.isPending}
+          visible={visible}
+          columns={columns}
+          onOpen={open}
+          totalEntries={all.length}
+          reportButton={reportButton}
+        />
         {!canWrite && !models.isPending ? (
           <div className="px-6 pb-4">
             <ReadOnlyNote>{t('quality.incidents.readOnly')}</ReadOnlyNote>
@@ -335,6 +275,240 @@ export function IncidentLog({
       </div>
       <ChooseLog open={choosing} onOpenChange={setChoosing} logs={logs} />
     </div>
+  )
+}
+
+/** The model tabs, shown once there is more than one incident log. */
+function IncidentTabs({
+  logs,
+  kind,
+  onKindChange,
+  isPending,
+  total,
+  countsByKind,
+}: {
+  logs: readonly IncidentModel[]
+  kind: string
+  onKindChange: (kind: string) => void
+  isPending: boolean
+  total: number
+  countsByKind: ReadonlyMap<string, number>
+}) {
+  if (logs.length <= 1) return null
+
+  return (
+    <Tabs
+      mode="state"
+      variant="strip"
+      label={t('quality.incidents.filterLabel')}
+      value={kind}
+      onValueChange={onKindChange}
+      items={[
+        {
+          key: 'all',
+          label: t('quality.incidents.all'),
+          count: isPending ? undefined : total,
+        },
+        ...logs.map((m) => ({
+          key: m.key,
+          label: m.name,
+          count: isPending ? undefined : (countsByKind.get(m.key) ?? 0),
+        })),
+      ]}
+    />
+  )
+}
+
+/** The list area: its failure, first-run, loading and no-match states, and the grid. */
+function IncidentLogBody({
+  failed,
+  failureMessage,
+  noLogs,
+  canEditModels,
+  settingUp,
+  onSetUp,
+  busy,
+  visible,
+  columns,
+  onOpen,
+  totalEntries,
+  reportButton,
+}: {
+  failed: boolean
+  failureMessage: string
+  noLogs: boolean
+  canEditModels: boolean
+  settingUp: boolean
+  onSetUp: () => void
+  busy: boolean
+  visible: IncidentEntry[]
+  columns: RegistryColumn<IncidentEntry>[]
+  onOpen: (entry: IncidentEntry) => void
+  totalEntries: number
+  reportButton: React.ReactNode
+}) {
+  if (failed) {
+    return (
+      <div className="p-6">
+        <Notice tone="bad" title={t('quality.incidents.loadError')}>
+          {failureMessage}
+        </Notice>
+      </div>
+    )
+  }
+
+  if (noLogs)
+    return (
+      <NoIncidentLog
+        canEditModels={canEditModels}
+        settingUp={settingUp}
+        onSetUp={onSetUp}
+      />
+    )
+
+  if (busy || visible.length > 0) {
+    return (
+      <RegistryGrid
+        label={t('quality.incidents.tableLabel')}
+        rows={visible}
+        columns={columns}
+        getRowId={(entry) => entry.id}
+        onRowClick={onOpen}
+        isLoading={busy}
+      />
+    )
+  }
+
+  return (
+    <NoMatchingIncidents
+      totalEntries={totalEntries}
+      reportButton={reportButton}
+    />
+  )
+}
+
+/** The first-run state: a lab with no incident log yet can start from the ready-made model. */
+function NoIncidentLog({
+  canEditModels,
+  settingUp,
+  onSetUp,
+}: {
+  canEditModels: boolean
+  settingUp: boolean
+  onSetUp: () => void
+}) {
+  return (
+    <IncidentEmptyState
+      title={t('quality.incidents.empty.title')}
+      description={
+        canEditModels
+          ? t('quality.incidents.empty.body')
+          : t('quality.incidents.empty.notAllowed')
+      }
+      action={
+        canEditModels ? (
+          <Button variant="primary" disabled={settingUp} onClick={onSetUp}>
+            {settingUp
+              ? t('quality.incidents.empty.settingUp')
+              : t('quality.incidents.empty.setUp')}
+          </Button>
+        ) : undefined
+      }
+    />
+  )
+}
+
+/** Nothing matches: either the log is empty, or the search and filters exclude every entry. */
+function NoMatchingIncidents({
+  totalEntries,
+  reportButton,
+}: {
+  totalEntries: number
+  reportButton: React.ReactNode
+}) {
+  const empty = totalEntries === 0
+
+  return (
+    <IncidentEmptyState
+      title={
+        empty
+          ? t('quality.incidents.empty.none')
+          : t('quality.incidents.empty.filtered')
+      }
+      description={empty ? t('quality.incidents.empty.noneBody') : undefined}
+      action={empty ? (reportButton ?? undefined) : undefined}
+    />
+  )
+}
+
+/** The centred empty state every incident-list state shares. */
+function IncidentEmptyState({
+  title,
+  description,
+  action,
+}: {
+  title: string
+  description?: string
+  action?: React.ReactNode
+}) {
+  return (
+    <div role="status" className="flex justify-center px-6">
+      <EmptyState
+        className="items-center py-14 text-center"
+        icon="warn"
+        title={title}
+        description={description}
+        action={action}
+      />
+    </div>
+  )
+}
+
+/** The option elements for a list of choices, in the order given. */
+function ChoiceOptions({
+  choices,
+}: {
+  choices: ReadonlyArray<{ value: string; label: string }>
+}) {
+  return (
+    <>
+      {choices.map((choice) => (
+        <option key={choice.value} value={choice.value}>
+          {choice.label}
+        </option>
+      ))}
+    </>
+  )
+}
+
+/** The Active/Archived/All select: the statuses the list can show. */
+function StatusSelect({
+  status,
+  onChange,
+}: {
+  status: StatusFilter
+  onChange: (status: StatusFilter) => void
+}) {
+  return (
+    <Select
+      size="sm"
+      aria-label={t('quality.incidents.statusLabel')}
+      value={status}
+      onChange={(e) => {
+        const next = STATUS_FILTERS.find(
+          (candidate) => candidate === e.target.value,
+        )
+
+        if (next) onChange(next)
+      }}
+    >
+      <ChoiceOptions
+        choices={STATUS_FILTERS.map((key) => ({
+          value: key,
+          label: t(`quality.incidents.statusFilters.${key}`),
+        }))}
+      />
+    </Select>
   )
 }
 
@@ -361,11 +535,9 @@ function ChooseLog({
               value={selected}
               onChange={(e) => setChoice(e.target.value)}
             >
-              {logs.map((m) => (
-                <option key={m.key} value={m.key}>
-                  {m.name}
-                </option>
-              ))}
+              <ChoiceOptions
+                choices={logs.map((m) => ({ value: m.key, label: m.name }))}
+              />
             </Select>
           </Field>
         </DialogBody>

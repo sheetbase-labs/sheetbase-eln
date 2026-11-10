@@ -14,7 +14,7 @@ import { UseTemplateDialog } from '#/components/templates/use-template-dialog'
 import { parseNotebookTemplateConfiguration } from '#/lib/notebook-template'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
 import type { SheetInstance } from '#/lib/sheet-instance-data'
-import type { SheetInstanceState } from '#/lib/sheet-instance'
+import { parseSheetInstanceState } from '#/lib/sheet-instance'
 import { screenQueryClient, screenRoutes, withApiReads } from './screen-stories'
 import type { ReadSeed } from './screen-stories'
 
@@ -292,12 +292,20 @@ const sheet = (
   description: null,
   lifecycle: 'active',
   revision: 1,
-  state: {
+  state: parseSheetInstanceState({
     bindings: [],
     localFields: [],
     localValues: {},
     calculationOverrides: {},
-  } as unknown as SheetInstanceState,
+    presentation: {
+      columnOrder: [],
+      hiddenColumnIds: [],
+      columnWidths: {},
+      frozenColumnCount: 0,
+      density: 'standard',
+    },
+    provenance: { createdFrom: 'ad_hoc' },
+  }),
   duplicatedFromInstanceId: null,
   createdAt: '2026-10-10T09:00:00Z',
   updatedAt: '2026-11-01T09:00:00Z',

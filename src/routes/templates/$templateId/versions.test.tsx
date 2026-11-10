@@ -9,19 +9,28 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 
 import { Route } from './versions'
 import { DataClientError } from '#/lib/data-client'
+import type { notebookTemplateVersionWireSchema } from '#/lib/notebook-template-data'
 import type * as NotebookTemplateData from '#/lib/notebook-template-data'
 
+/** The URL search this suite drives: the state and the version to show. */
+interface VersionsSearch {
+  state?: 'denied'
+  v?: string
+}
+
 const router = vi.hoisted(() => {
-  const search: Record<string, unknown> = {}
+  const search: VersionsSearch = {}
 
   return { search, navigate: vi.fn() }
 })
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time, and this suite renders the route module directly with the params and search the router would supply.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (options: object) => ({
+  createFileRoute: () => (options: { component?: React.ComponentType }) => ({
     options,
     useParams: () => ({ templateId: 'tpl-1' }),
     useSearch: () => router.search,
@@ -31,15 +40,15 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => router.navigate,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- User names are resolved by a server function the client bundle cannot call under test; every case reads the id itself.
 vi.mock('#/lib/user-names', () => ({
   useUserNames: () => ({ userLabel: (id: string) => id, names: {} }),
 }))
 
-vi.mock('#/components/ui/sonner', () => ({ toast: vi.fn() }))
-
 const client = vi.hoisted(() => ({ list: vi.fn(), rpc: vi.fn() }))
 const publish = vi.hoisted(() => vi.fn())
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- This module opens its data client when it loads; the recorded client and publish call below are what the cases read.
 vi.mock('#/lib/notebook-template-data', async (importOriginal) => ({
   ...(await importOriginal<typeof NotebookTemplateData>()),
   notebookTemplateDataClient: client,
@@ -74,7 +83,9 @@ function configuration(placements: PlaceholderPlacement[]) {
   return { formatVersion: 1, parameters: [], placements }
 }
 
-function versionWire(overrides: Record<string, unknown> = {}) {
+type VersionWire = z.infer<typeof notebookTemplateVersionWireSchema>
+
+function versionWire(overrides: Partial<VersionWire> = {}): VersionWire {
   return {
     id: V1,
     template_id: TPL,
@@ -149,10 +160,7 @@ const VERSION_3_DRAFT = versionWire({
   reason: null,
 })
 
-function withData(
-  versions: Record<string, unknown>[],
-  records: RecordWire[] = [],
-) {
+function withData(versions: VersionWire[], records: RecordWire[] = []) {
   client.list.mockImplementation((resource: string) => {
     if (resource === 'notebook_template_versions')
       return Promise.resolve(versions)
@@ -165,8 +173,13 @@ function withData(
   })
 }
 
+/** A React component: something that can be called. */
+const routeComponent = z.custom<React.ComponentType>(
+  (value) => z.function().safeParse(value).success,
+)
+
 function renderRoute() {
-  const Component = Route.options.component as React.ComponentType
+  const Component = routeComponent.parse(Route.options.component)
 
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },

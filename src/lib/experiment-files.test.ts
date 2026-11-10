@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { DataClient } from './data-client'
+import { createDataClient } from './data-client'
 import {
   previewLines,
   uploadFileToExperiment,
@@ -13,6 +13,30 @@ describe('previewLines', () => {
     expect(previewLines(null)).toEqual([])
   })
 })
+
+/**
+ * The RPC boundary the upload reaches: a real data client over a recorded
+ * fetch, so the link call is checked as the request it actually makes.
+ */
+function linkClient() {
+  const rpcCalls: Array<{ name: string; args: unknown }> = []
+
+  const client = createDataClient(async (input, init) => {
+    const request = new Request(
+      new URL(input instanceof Request ? input.url : input, 'http://app.test'),
+      init,
+    )
+
+    rpcCalls.push({
+      name: request.url.replace('http://app.test/api/db/rpc/', ''),
+      args: await request.json(),
+    })
+
+    return Response.json({})
+  })
+
+  return { client, rpcCalls }
+}
 
 describe('uploadFileToExperiment', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -32,27 +56,29 @@ describe('uploadFileToExperiment', () => {
       .mockResolvedValueOnce(new Response('{}', { status: 200 }))
 
     vi.stubGlobal('fetch', fetchMock)
-    const rpc = vi.fn(async () => ({}))
+    const { client, rpcCalls } = linkClient()
     const file = new File(['x'], 'run.csv', { type: 'text/csv' })
 
-    const result = await uploadFileToExperiment(
-      { rpc } as unknown as DataClient,
-      {
-        projectId: 'prj',
-        experimentId: 'exp',
-        file,
-      },
-    )
+    const result = await uploadFileToExperiment(client, {
+      projectId: 'prj',
+      experimentId: 'exp',
+      file,
+    })
 
     expect(result.fileIdentifier).toBe('FILE-0009')
     expect(fetchMock.mock.calls[1][0]).toBe('/api/files/rec-1/upload')
-    expect(rpc).toHaveBeenCalledWith('create_record_link', {
-      p_source_record_id: 'exp',
-      p_target_kind: 'file',
-      p_target_identifier: 'FILE-0009',
-      p_link_type: 'file',
-      p_target_record_id: 'rec-1',
-    })
+    expect(rpcCalls).toEqual([
+      {
+        name: 'create_record_link',
+        args: {
+          p_source_record_id: 'exp',
+          p_target_kind: 'file',
+          p_target_identifier: 'FILE-0009',
+          p_link_type: 'file',
+          p_target_record_id: 'rec-1',
+        },
+      },
+    ])
   })
 
   it('reports the refusal and links nothing', async () => {
@@ -64,15 +90,15 @@ describe('uploadFileToExperiment', () => {
         }),
       ),
     )
-    const rpc = vi.fn()
+    const { client, rpcCalls } = linkClient()
     await expect(
-      uploadFileToExperiment({ rpc } as unknown as DataClient, {
+      uploadFileToExperiment(client, {
         projectId: 'prj',
         experimentId: 'exp',
         file: new File(['x'], 'big.csv'),
       }),
     ).rejects.toThrow('Too large')
-    expect(rpc).not.toHaveBeenCalled()
+    expect(rpcCalls).toEqual([])
   })
 })
 

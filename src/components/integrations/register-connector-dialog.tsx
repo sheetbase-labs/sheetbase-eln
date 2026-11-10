@@ -1,5 +1,5 @@
 /** INT-01 — register a connector (steward-gated). UI port: app-3's v3 kit. */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 
@@ -52,8 +52,9 @@ export function RegisterConnectorDialog({
   const navigate = useNavigate()
   const [name, setName] = useState('')
   const [key, setKey] = useState('')
-  // The key follows the name until a person types their own.
-  const [keyEdited, setKeyEdited] = useState(false)
+  // The key follows the name until a person types their own; nothing renders
+  // it, so a ref keeps the handlers' bookkeeping out of the render pass.
+  const keyEdited = useRef(false)
 
   const [connectorType, setConnectorType] =
     useState<ConnectorType>('instrument')
@@ -61,7 +62,7 @@ export function RegisterConnectorDialog({
   const [direction, setDirection] = useState<ConnectorDirection>('inbound')
 
   const [parserId, setParserId] = useState<string>(
-    listParsers()[0]?.parserId ?? '',
+    () => listParsers()[0]?.parserId ?? '',
   )
 
   const [adapter, setAdapter] = useState('')
@@ -87,7 +88,7 @@ export function RegisterConnectorDialog({
       onOpenChange(false)
       setName('')
       setKey('')
-      setKeyEdited(false)
+      keyEdited.current = false
       void queryClient.invalidateQueries({ queryKey: ['connectors'] })
       // Land on the new connector, where credentials and activation are set.
       void navigate({
@@ -119,7 +120,7 @@ export function RegisterConnectorDialog({
               onChange={(event) => {
                 setName(event.target.value)
 
-                if (!keyEdited) setKey(slugKey(event.target.value))
+                if (!keyEdited.current) setKey(slugKey(event.target.value))
               }}
               placeholder={t(
                 'settings.integrations.registerConnectorDialog.plateReaderBenchPlaceholder',
@@ -136,7 +137,7 @@ export function RegisterConnectorDialog({
             <Input
               value={key}
               onChange={(event) => {
-                setKeyEdited(true)
+                keyEdited.current = true
                 setKey(event.target.value.toLowerCase().replaceAll(' ', '-'))
               }}
               placeholder="plate-reader-bench-2"
@@ -148,9 +149,13 @@ export function RegisterConnectorDialog({
             >
               <Select
                 value={connectorType}
-                onChange={(event) =>
-                  setConnectorType(event.target.value as ConnectorType)
-                }
+                onChange={(event) => {
+                  const type = CONNECTOR_TYPES.find(
+                    (item) => item === event.target.value,
+                  )
+
+                  if (type) setConnectorType(type)
+                }}
               >
                 {CONNECTOR_TYPES.map((type) => (
                   <option key={type} value={type}>
@@ -166,9 +171,13 @@ export function RegisterConnectorDialog({
             >
               <Select
                 value={direction}
-                onChange={(event) =>
-                  setDirection(event.target.value as ConnectorDirection)
-                }
+                onChange={(event) => {
+                  const chosen = CONNECTOR_DIRECTIONS.find(
+                    (item) => item === event.target.value,
+                  )
+
+                  if (chosen) setDirection(chosen)
+                }}
               >
                 {CONNECTOR_DIRECTIONS.map((item) => (
                   <option key={item} value={item}>

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { formatDate, formatTime } from '#/lib/format-date'
 import { useQuery } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import {
   Collapsible,
@@ -33,10 +34,37 @@ import { t } from '#/copy'
 
 const dataClient = createDataClient()
 
-function runTone(status: ConnectorRunWire['status']): {
+/** How one run's status is painted and named. */
+interface RunTone {
   tone: Tone
   label: string
-} {
+}
+
+/**
+ * The parts of a connector run's result this history names. A connector's
+ * result is its own JSON, so it is decoded once here rather than probed field by
+ * field; anything the schema does not name is left to the technical payload.
+ */
+const runResult = z.object({
+  kind: z.string().optional(),
+  rowCount: z.union([z.number(), z.string()]).optional(),
+  source: z
+    .object({
+      kind: z.string().optional(),
+      bucket: z.string().optional(),
+      key: z.string().optional(),
+      database: z.string().optional(),
+      schema: z.string().optional(),
+      table: z.string().optional(),
+    })
+    .optional(),
+  fileSha256: z.string().optional(),
+  datasetId: z.string().optional(),
+  datasetRevision: z.union([z.string(), z.number()]).optional(),
+  fileRecordId: z.string().optional(),
+})
+
+function runTone(status: ConnectorRunWire['status']): RunTone {
   if (status === 'succeeded')
     return {
       tone: 'ok',
@@ -53,29 +81,32 @@ function runTone(status: ConnectorRunWire['status']): {
 }
 
 /** Semantic one-line summary of a run result (INT-03 / INT-02 kinds). */
-function runSummary(run: ConnectorRunWire): string {
-  const result = run.result
+function runSummary(result: ConnectorRunWire['result']): string {
+  const decoded = runResult.safeParse(result)
+
+  if (!decoded.success) return ''
+
+  const { kind, rowCount, source, fileSha256 } = decoded.data
   const parts: string[] = []
 
-  if (typeof result['kind'] === 'string') parts.push(result['kind'])
+  if (kind !== undefined) parts.push(kind)
 
-  if (result['rowCount'] !== undefined)
-    parts.push(`${String(result['rowCount'])} rows`)
-  const source = result['source'] as Record<string, unknown> | undefined
+  if (rowCount !== undefined) parts.push(`${String(rowCount)} rows`)
 
-  if (source && typeof source === 'object') {
-    if (source['kind'] === 's3_object') {
-      parts.push(`${String(source['bucket'])}/${String(source['key'])}`)
-    } else if (source['kind'] === 'postgres_table') {
-      parts.push(
-        `${String(source['database'])}.${String(source['schema'])}.${String(source['table'])}`,
-      )
+  if (source?.kind === 's3_object') {
+    if (source.bucket !== undefined && source.key !== undefined) {
+      parts.push(`${source.bucket}/${source.key}`)
     }
+  } else if (
+    source?.kind === 'postgres_table' &&
+    source.database !== undefined &&
+    source.schema !== undefined &&
+    source.table !== undefined
+  ) {
+    parts.push(`${source.database}.${source.schema}.${source.table}`)
   }
 
-  if (typeof result['fileSha256'] === 'string') {
-    parts.push(`sha256 ${String(result['fileSha256']).slice(0, 12)}…`)
-  }
+  if (fileSha256 !== undefined) parts.push(`sha256 ${fileSha256.slice(0, 12)}…`)
 
   return parts.join(' · ')
 }
@@ -83,16 +114,22 @@ function runSummary(run: ConnectorRunWire): string {
 export function RunHistory({ connectorId }: { connectorId: string }) {
   const [expandedRun, setExpandedRun] = useState<string | null>(null)
 
+  const headings = [
+    { key: 'started', label: t('settings.integrations.runHistory.started') },
+    { key: 'trigger', label: t('settings.integrations.runHistory.trigger') },
+    { key: 'status', label: t('settings.integrations.runHistory.status') },
+    { key: 'attempt', label: t('settings.integrations.runHistory.attempt') },
+    { key: 'digest', label: t('settings.integrations.runHistory.digest') },
+    { key: 'detail', label: t('settings.integrations.runHistory.detail') },
+  ]
+
   return (
     <Table aria-label={t('settings.integrations.runHistory.connectorRunsAria')}>
       <TableHeader>
         <TableRow>
-          <TableHead>{t('settings.integrations.runHistory.started')}</TableHead>
-          <TableHead>{t('settings.integrations.runHistory.trigger')}</TableHead>
-          <TableHead>{t('settings.integrations.runHistory.status')}</TableHead>
-          <TableHead>{t('settings.integrations.runHistory.attempt')}</TableHead>
-          <TableHead>{t('settings.integrations.runHistory.digest')}</TableHead>
-          <TableHead>{t('settings.integrations.runHistory.detail')}</TableHead>
+          {headings.map((heading) => (
+            <TableHead key={heading.key}>{heading.label}</TableHead>
+          ))}
         </TableRow>
       </TableHeader>
       {/* The rows own their row groups: an expanded run's detail row is a
@@ -212,6 +249,9 @@ function ExpandedRunRow({
     queryFn: () => listRunLogs(dataClient, runId),
   })
 
+  const decodedResult = runResult.safeParse(run.result)
+  const detail = decodedResult.success ? decodedResult.data : null
+
   return (
     <TableCell colSpan={6}>
       {run.status === 'failed' && (
@@ -223,20 +263,18 @@ function ExpandedRunRow({
       )}
       {run.status === 'succeeded' && Object.keys(run.result).length > 0 && (
         <div className="mb-2">
-          <p className="m-0 text-label">{runSummary(run)}</p>
-          {typeof run.result['datasetId'] === 'string' && (
+          <p className="m-0 text-label">{runSummary(run.result)}</p>
+          {detail?.datasetId !== undefined && (
             <p className="m-0 text-label text-fg-muted">
               {t('settings.integrations.runHistory.dataset')}
-              <span className="mono">{String(run.result['datasetId'])}</span>
-              {run.result['datasetRevision']
-                ? ` · revision ${String(run.result['datasetRevision'])}`
+              <span className="mono">{detail.datasetId}</span>
+              {detail.datasetRevision
+                ? ` · revision ${String(detail.datasetRevision)}`
                 : ''}
-              {typeof run.result['fileRecordId'] === 'string' ? (
+              {detail.fileRecordId !== undefined ? (
                 <>
                   {t('settings.integrations.runHistory.rawFile')}
-                  <span className="mono">
-                    {String(run.result['fileRecordId'])}
-                  </span>
+                  <span className="mono">{detail.fileRecordId}</span>
                 </>
               ) : null}
             </p>

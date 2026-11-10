@@ -114,10 +114,12 @@ export type SheetDefinitionUpgradeDecision = z.infer<
   typeof sheetDefinitionUpgradeDecisionSchema
 >
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the decode boundary: the strict schema below validates the caller's stored preview and throws before any typed value exists.
 export function parseSheetDefinitionUpgradePreview(value: unknown) {
   return sheetDefinitionUpgradePreviewSchema.parse(value)
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- This is the decode boundary: the strict schema below validates the caller's stored decisions and throws before any typed value exists.
 export function parseSheetDefinitionUpgradeDecisions(value: unknown) {
   return sheetDefinitionUpgradeDecisionsSchema.parse(value)
 }

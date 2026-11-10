@@ -30,7 +30,7 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-const PANELS: Record<string, string> = {
+const PANELS = {
   summary: 'Twelve runs in this project; three are waiting for review.',
   runs: 'Run 148 finished in 38 s and proposed one figure.',
   evidence: 'Four files are attached, all pinned to a snapshot.',

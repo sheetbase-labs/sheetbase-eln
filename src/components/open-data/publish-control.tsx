@@ -39,7 +39,11 @@ import {
   retryPublication,
   describeOpenDataError,
 } from '#/lib/open-data/client'
-import type { Publication, PublicationStatus } from '#/lib/open-data/client'
+import type {
+  Publication,
+  PublicationStatus,
+  PublicationTarget,
+} from '#/lib/open-data/client'
 import { PUBLICATION_LICENSES, licenseById } from '#/lib/publishing/licenses'
 import { t } from '#/copy'
 
@@ -162,17 +166,7 @@ export function PublishControl({
 
   return (
     <>
-      {published?.doi ? (
-        <a
-          href={published.record_url ?? `https://doi.org/${published.doi}`}
-          target="_blank"
-          rel="noreferrer"
-          title={t('openData.publish.doi')}
-        >
-          {/* copy-ignore-next-line */}
-          <Badge>DOI {published.doi}</Badge>
-        </a>
-      ) : null}
+      {published?.doi ? <PublishedDoi published={published} /> : null}
       {canPublish ? (
         <Button size="sm" icon="upload" onClick={() => setOpen(true)}>
           {t('openData.publish.action')}
@@ -195,159 +189,31 @@ export function PublishControl({
                 {t('openData.publish.noRepositories')}
               </Notice>
             ) : (
-              <form
-                className="flex flex-col gap-3"
-                onSubmit={(event) => {
-                  event.preventDefault()
-
+              <PublishForm
+                usable={usable}
+                chosen={chosen}
+                title={title}
+                license={license}
+                defaultTitle={defaultTitle}
+                pending={start.isPending}
+                error={start.error}
+                onTargetChange={(id) => {
+                  setTargetId(id)
+                  setLicense(null)
+                }}
+                onTitleChange={setTitle}
+                onLicenseChange={setLicense}
+                onSubmit={() => {
                   if (chosen && (title ?? defaultTitle).trim()) start.mutate()
                 }}
-              >
-                <Field label={t('openData.publish.repository')}>
-                  <Select
-                    aria-label={t('openData.publish.repository')}
-                    value={chosen?.id ?? ''}
-                    onChange={(e) => {
-                      setTargetId(e.target.value)
-                      setLicense(null)
-                    }}
-                  >
-                    {usable.map((x) => (
-                      <option key={x.id} value={x.id}>
-                        {x.name}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                <Field label={t('openData.publish.titleField')} required>
-                  <Input
-                    value={title ?? defaultTitle}
-                    onChange={(e) => setTitle(e.target.value)}
-                    required
-                  />
-                </Field>
-                <Field label={t('openData.publish.licence')}>
-                  <Select
-                    aria-label={t('openData.publish.licence')}
-                    value={license ?? chosen?.license ?? 'cc-by-4.0'}
-                    onChange={(e) => setLicense(e.target.value)}
-                  >
-                    {PUBLICATION_LICENSES.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name}
-                      </option>
-                    ))}
-                  </Select>
-                </Field>
-                {start.error ? (
-                  <Notice tone="bad">
-                    {describeOpenDataError(start.error)}
-                  </Notice>
-                ) : null}
-                <div>
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={start.isPending}
-                  >
-                    {t('openData.publish.send')}
-                  </Button>
-                </div>
-              </form>
+              />
             )}
-
-            {rows.length > 0 ? (
-              <div className="mt-4 flex flex-col gap-2">
-                <h3 className="text-label font-medium">
-                  {t('openData.publish.list')}
-                </h3>
-                <ul className="m-0 flex list-none flex-col divide-y divide-border-subtle p-0">
-                  {rows.map((p) => (
-                    <li key={p.id} className="flex flex-col gap-1 py-2">
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <Status tone={TONE[p.status]}>{LABEL[p.status]}</Status>
-                        <span className="font-medium">{p.title}</span>
-                        <span className="text-label text-fg-muted">
-                          {formatDate(p.created_at)} ·{' '}
-                          {licenseById(p.license).name}
-                        </span>
-                      </div>
-                      {p.package_name ? (
-                        <Muted>
-                          {t('openData.publish.previewTitle')}: {p.package_name}
-                          {p.package_bytes
-                            ? ` (${formatBytes(p.package_bytes)})`
-                            : ''}
-                          {p.includes_run_crate
-                            ? ` · ${t('openData.publish.includesRun')}`
-                            : ''}
-                        </Muted>
-                      ) : null}
-                      {p.status === 'draft' ? (
-                        <Muted>{t('openData.publish.draftReady')}</Muted>
-                      ) : null}
-                      {p.last_error &&
-                      (p.status === 'failed' || p.status === 'draft') ? (
-                        <Notice tone="bad">{p.last_error}</Notice>
-                      ) : null}
-                      <div className="flex flex-wrap items-center gap-2">
-                        {p.doi ? (
-                          <a
-                            href={p.record_url ?? `https://doi.org/${p.doi}`}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {/* copy-ignore-next-line */}
-                            DOI {p.doi}
-                          </a>
-                        ) : null}
-                        {p.status === 'draft' && p.draft_url ? (
-                          <a
-                            href={p.draft_url}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {t('openData.publish.openDraft')}
-                          </a>
-                        ) : null}
-                        <span className="ml-auto flex gap-2">
-                          {p.status === 'draft' ? (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="quiet"
-                                onClick={() =>
-                                  act.mutate({ op: 'discard', id: p.id })
-                                }
-                              >
-                                {t('openData.publish.discard')}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="primary"
-                                onClick={() => setConfirming(p)}
-                              >
-                                {t('openData.publish.publishNow')}
-                              </Button>
-                            </>
-                          ) : null}
-                          {p.status === 'failed' ? (
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                act.mutate({ op: 'retry', id: p.id })
-                              }
-                            >
-                              {t('openData.publish.retry')}
-                            </Button>
-                          ) : null}
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
+            <PublicationList
+              publications={rows}
+              onDiscard={(id) => act.mutate({ op: 'discard', id })}
+              onRetry={(id) => act.mutate({ op: 'retry', id })}
+              onPublish={setConfirming}
+            />
           </DialogBody>
           <DialogFooter>
             <DialogClose render={<Button type="button" />}>
@@ -386,5 +252,207 @@ export function PublishControl({
         </ConfirmDialogContent>
       </ConfirmDialog>
     </>
+  )
+}
+
+/** The DOI of the published version, linking to the repository record. */
+function PublishedDoi({ published }: { published: Publication }) {
+  return (
+    <a
+      href={published.record_url ?? `https://doi.org/${published.doi}`}
+      target="_blank"
+      rel="noreferrer"
+      title={t('openData.publish.doi')}
+    >
+      {/* copy-ignore-next-line */}
+      <Badge>DOI {published.doi}</Badge>
+    </a>
+  )
+}
+
+/** The new-publication form: the repository, the title and the licence it goes out under. */
+function PublishForm({
+  usable,
+  chosen,
+  title,
+  license,
+  defaultTitle,
+  pending,
+  error,
+  onTargetChange,
+  onTitleChange,
+  onLicenseChange,
+  onSubmit,
+}: {
+  usable: readonly PublicationTarget[]
+  chosen: PublicationTarget | undefined
+  title: string | null
+  license: string | null
+  defaultTitle: string
+  pending: boolean
+  error: Error | null
+  onTargetChange: (id: string) => void
+  onTitleChange: (title: string) => void
+  onLicenseChange: (license: string) => void
+  onSubmit: () => void
+}) {
+  return (
+    <form
+      className="flex flex-col gap-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        onSubmit()
+      }}
+    >
+      <Field label={t('openData.publish.repository')}>
+        <Select
+          aria-label={t('openData.publish.repository')}
+          value={chosen?.id ?? ''}
+          onChange={(e) => onTargetChange(e.target.value)}
+        >
+          {usable.map((x) => (
+            <option key={x.id} value={x.id}>
+              {x.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field label={t('openData.publish.titleField')} required>
+        <Input
+          value={title ?? defaultTitle}
+          onChange={(e) => onTitleChange(e.target.value)}
+          required
+        />
+      </Field>
+      <Field label={t('openData.publish.licence')}>
+        <Select
+          aria-label={t('openData.publish.licence')}
+          value={license ?? chosen?.license ?? 'cc-by-4.0'}
+          onChange={(e) => onLicenseChange(e.target.value)}
+        >
+          {PUBLICATION_LICENSES.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      {error ? (
+        <Notice tone="bad">{describeOpenDataError(error)}</Notice>
+      ) : null}
+      <div>
+        <Button type="submit" variant="primary" disabled={pending}>
+          {t('openData.publish.send')}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+/** What was prepared or published for this object, and what can be done with each. */
+function PublicationList({
+  publications,
+  onDiscard,
+  onRetry,
+  onPublish,
+}: {
+  publications: readonly Publication[]
+  onDiscard: (id: string) => void
+  onRetry: (id: string) => void
+  onPublish: (publication: Publication) => void
+}) {
+  if (publications.length === 0) return null
+
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      <h3 className="text-label font-medium">{t('openData.publish.list')}</h3>
+      <ul className="m-0 flex list-none flex-col divide-y divide-border-subtle p-0">
+        {publications.map((p) => (
+          <PublicationRow
+            key={p.id}
+            publication={p}
+            onDiscard={onDiscard}
+            onRetry={onRetry}
+            onPublish={onPublish}
+          />
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/** One publication: its status, its package, and the action its status allows. */
+function PublicationRow({
+  publication,
+  onDiscard,
+  onRetry,
+  onPublish,
+}: {
+  publication: Publication
+  onDiscard: (id: string) => void
+  onRetry: (id: string) => void
+  onPublish: (publication: Publication) => void
+}) {
+  const p = publication
+
+  return (
+    <li className="flex flex-col gap-1 py-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Status tone={TONE[p.status]}>{LABEL[p.status]}</Status>
+        <span className="font-medium">{p.title}</span>
+        <span className="text-label text-fg-muted">
+          {formatDate(p.created_at)} · {licenseById(p.license).name}
+        </span>
+      </div>
+      {p.package_name ? (
+        <Muted>
+          {t('openData.publish.previewTitle')}: {p.package_name}
+          {p.package_bytes ? ` (${formatBytes(p.package_bytes)})` : ''}
+          {p.includes_run_crate
+            ? ` · ${t('openData.publish.includesRun')}`
+            : ''}
+        </Muted>
+      ) : null}
+      {p.status === 'draft' ? (
+        <Muted>{t('openData.publish.draftReady')}</Muted>
+      ) : null}
+      {p.last_error && (p.status === 'failed' || p.status === 'draft') ? (
+        <Notice tone="bad">{p.last_error}</Notice>
+      ) : null}
+      <div className="flex flex-wrap items-center gap-2">
+        {p.doi ? (
+          <a
+            href={p.record_url ?? `https://doi.org/${p.doi}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            {/* copy-ignore-next-line */}
+            DOI {p.doi}
+          </a>
+        ) : null}
+        {p.status === 'draft' && p.draft_url ? (
+          <a href={p.draft_url} target="_blank" rel="noreferrer">
+            {t('openData.publish.openDraft')}
+          </a>
+        ) : null}
+        <span className="ml-auto flex gap-2">
+          {p.status === 'draft' ? (
+            <>
+              <Button size="sm" variant="quiet" onClick={() => onDiscard(p.id)}>
+                {t('openData.publish.discard')}
+              </Button>
+              <Button size="sm" variant="primary" onClick={() => onPublish(p)}>
+                {t('openData.publish.publishNow')}
+              </Button>
+            </>
+          ) : null}
+          {p.status === 'failed' ? (
+            <Button size="sm" onClick={() => onRetry(p.id)}>
+              {t('openData.publish.retry')}
+            </Button>
+          ) : null}
+        </span>
+      </div>
+    </li>
   )
 }

@@ -15,6 +15,7 @@ import { normaliseAssayConfig } from './plate-assay'
 import type { PlateAnalysis, AssayWell } from './plate-assay'
 import { plateRunReference } from './plate-runs'
 import { buildWorklist } from './plate-worklist'
+import type { BuildOptions } from './plate-worklist'
 import type { PlateFormat } from './plate-map'
 
 /**
@@ -32,7 +33,7 @@ const NOTE =
 export function isPlatesProposalTool(
   name: string,
 ): name is PlatesProposeToolName {
-  return (PLATES_PROPOSE_TOOL_NAMES as readonly string[]).includes(name)
+  return PLATES_PROPOSE_TOOL_NAMES.some((tool) => tool === name)
 }
 
 export function platesProposalDefs(): ProviderToolDef[] {
@@ -100,6 +101,7 @@ async function findRun(
 
 export async function buildPlatesProposal(
   name: PlatesProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the model's tool call arrives as JSON; each case below parses it with its own schema.
   args: unknown,
   context: LabToolContext,
 ): Promise<PlatesOutcome> {
@@ -168,14 +170,16 @@ export async function buildPlatesProposal(
       const mode = input.mode ?? 'stamp'
       const sourcePlate = input.sourcePlate?.trim() || 'SRC1'
 
-      const plan = buildWorklist(destinationsOf(run.wells), {
+      const options: BuildOptions = {
         mode,
         sourcePlate,
         sourceFormat: run.format,
         destFormat: run.format,
         destPlate: plateRunReference(run.number),
-        ...(input.volumeUl ? { defaultVolumeUl: input.volumeUl } : {}),
-      })
+      }
+
+      if (input.volumeUl) options.defaultVolumeUl = input.volumeUl
+      const plan = buildWorklist(destinationsOf(run.wells), options)
 
       if (plan.transfers.length === 0)
         return fail(

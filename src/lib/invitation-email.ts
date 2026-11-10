@@ -26,15 +26,17 @@ export const emailInvitationFn = createServerFn({ method: 'POST' })
       'manage',
     )
 
-    const { env } = await import('#/env.server')
-    const { getPool } = await import('#/db/pool.server')
-    const { logger } = await import('#/lib/logger')
+    const [{ env }, { getPool }, { logger }, emailDelivery, invitationEmail] =
+      await Promise.all([
+        import('#/env.server'),
+        import('#/db/pool.server'),
+        import('#/lib/logger'),
+        import('#/lib/email-delivery.server'),
+        import('#/lib/invitation-email.server'),
+      ])
 
-    const { createSmtpTransport, readSmtpConfig } =
-      await import('#/lib/email-delivery.server')
-
-    const { composeInvitationEmail } =
-      await import('#/lib/invitation-email.server')
+    const { createSmtpTransport, readSmtpConfig } = emailDelivery
+    const { composeInvitationEmail } = invitationEmail
 
     const config = readSmtpConfig()
 

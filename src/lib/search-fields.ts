@@ -1,7 +1,10 @@
+import { z } from 'zod'
+
 import type { SheetbaseField } from '@sheetbase-labs/sheetbase-shared'
 
 import type { SearchResult, SearchResultGroup } from '#/lib/search'
 import { searchResultGroup } from '#/lib/search'
+import type { ModelFieldRecordValues } from '#/lib/model-fields'
 import { t } from '#/copy'
 import type { CopyKey } from '#/copy'
 
@@ -168,13 +171,18 @@ export function commonSearchFields(
   ]
 }
 
-function dataTypeOf(value: unknown): SheetbaseField['dataType'] {
-  if (typeof value === 'number') return 'number'
+/** One per-type value a search result returned, as `api.search` shapes it. */
+type FieldValue = ModelFieldRecordValues['customFields'][string]
 
-  if (typeof value === 'boolean') return 'boolean'
+function dataTypeOf(value: FieldValue): SheetbaseField['dataType'] {
+  const text = z.string().safeParse(value)
 
-  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}(T|$)/.test(value))
-    return 'date'
+  if (text.success)
+    return /^\d{4}-\d{2}-\d{2}(T|$)/.test(text.data) ? 'date' : 'text'
+
+  if (z.number().safeParse(value).success) return 'number'
+
+  if (z.boolean().safeParse(value).success) return 'boolean'
 
   return 'text'
 }
@@ -227,11 +235,18 @@ const TYPE_FIELD_LABELS = {
 /** Keys that hold a person's id: Owner already filters by person. */
 const HIDDEN_TYPE_FIELDS: ReadonlySet<string> = new Set(['reviewer', 'lead'])
 
+type TypeFieldLabelCopy =
+  (typeof TYPE_FIELD_LABELS)[keyof typeof TYPE_FIELD_LABELS]
+
+const TYPE_FIELD_LABEL_COPY: ReadonlyMap<string, TypeFieldLabelCopy> = new Map(
+  Object.entries(TYPE_FIELD_LABELS),
+)
+
 /** What a scientist calls a per-type value; unknown keys fall back to the key. */
 export function typeFieldLabel(key: string): string {
-  return Object.hasOwn(TYPE_FIELD_LABELS, key)
-    ? t(TYPE_FIELD_LABELS[key as keyof typeof TYPE_FIELD_LABELS])
-    : humanise(key)
+  const label = TYPE_FIELD_LABEL_COPY.get(key)
+
+  return label === undefined ? humanise(key) : t(label)
 }
 
 /**
@@ -251,7 +266,7 @@ export function typeSearchFields(
     if (searchResultGroup(result) !== group) continue
 
     for (const [key, value] of Object.entries(result.fields)) {
-      if (value === null || value === undefined || seen.has(key)) continue
+      if (value == null || seen.has(key)) continue
 
       if (HIDDEN_TYPE_FIELDS.has(key)) continue
       seen.set(key, {

@@ -3,7 +3,16 @@ import { describe, expect, it, vi } from 'vitest'
 import * as requestLog from './request-log'
 import { annotateFailure, annotateSummary } from './failure-context.server'
 
-function json(status: number, body: unknown) {
+/** The reply bodies these tests write: JSON, as `JSON.stringify` accepts it. */
+type ReplyBody =
+  | string
+  | number
+  | boolean
+  | null
+  | ReplyBody[]
+  | { [field: string]: ReplyBody }
+
+function json(status: number, body: ReplyBody) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'content-type': 'application/json' },

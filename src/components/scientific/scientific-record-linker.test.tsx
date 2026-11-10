@@ -25,7 +25,27 @@ globalThis.ResizeObserver = class {
 
 Element.prototype.scrollIntoView = () => {}
 
-function sampleWire(overrides: Record<string, unknown> = {}) {
+/** The record wire the picker reads, as PostgREST answers it. */
+interface SampleWire {
+  id: string
+  project_id: string
+  kind: string
+  identifier: string
+  title: string
+  status: string
+  tags: string[]
+  structure_version: number
+  metadata_version: number
+  created_at: string
+  updated_at: string
+  archived_at: string | null
+  deleted_at: string | null
+  created_by_user_id: string
+  updated_by_user_id: string | null
+  properties: Record<string, string>
+}
+
+function sampleWire(overrides: Partial<SampleWire> = {}): SampleWire {
   return {
     id: 'r-1',
     project_id: 'p-1',

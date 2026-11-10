@@ -1,4 +1,6 @@
-import { useMemo, useState } from 'react'
+import { z } from 'zod'
+
+import { useCallback, useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -244,6 +246,44 @@ function FileInspector({
   const lines = previewLines(file.text)
   const dataset = file.feeds.find((f) => f.kind === 'dataset')
 
+  const recordItems: Array<[string, React.ReactNode]> = []
+
+  if (dataset?.receipt.instrument)
+    recordItems.push([
+      t('projects.expFiles.instrument'),
+      dataset.receipt.instrument,
+    ])
+
+  if (dataset)
+    recordItems.push([
+      t('projects.expFiles.parsedInto'),
+      <span key="into">
+        <ObjectLink kind="dataset" identifier={dataset.identifier} />
+        {dataset.receipt.rows
+          ? t('projects.expFiles.rows', { count: dataset.receipt.rows })
+          : ''}
+      </span>,
+    ])
+
+  if (dataset?.receipt.parser)
+    recordItems.push([t('projects.expFiles.parser'), dataset.receipt.parser])
+
+  recordItems.push([
+    t('projects.expFiles.sha'),
+    file.checksum ? (
+      <span key="sha" className="mono">
+        {file.checksum.slice(0, 7)}…{file.checksum.slice(-6)}
+      </span>
+    ) : (
+      '—'
+    ),
+  ])
+
+  recordItems.push([
+    t('projects.expFiles.retentionLabel'),
+    retentionText(file.retentionUntil, file.uploadedAt),
+  ])
+
   return (
     <Inspector aria-label={t('projects.expFiles.file')} className="w-[300px]">
       <div className="flex flex-col gap-1">
@@ -290,56 +330,7 @@ function FileInspector({
         </InspectorSection>
       ) : null}
       <InspectorSection title={t('projects.expFiles.record')}>
-        <DescriptionList
-          labelWidth={90}
-          items={[
-            ...(dataset?.receipt.instrument
-              ? ([
-                  [
-                    t('projects.expFiles.instrument'),
-                    dataset.receipt.instrument,
-                  ],
-                ] as Array<[string, React.ReactNode]>)
-              : []),
-            ...(dataset
-              ? ([
-                  [
-                    t('projects.expFiles.parsedInto'),
-                    <span key="into">
-                      <ObjectLink
-                        kind="dataset"
-                        identifier={dataset.identifier}
-                      />
-                      {dataset.receipt.rows
-                        ? t('projects.expFiles.rows', {
-                            count: dataset.receipt.rows,
-                          })
-                        : ''}
-                    </span>,
-                  ],
-                ] as Array<[string, React.ReactNode]>)
-              : []),
-            ...(dataset?.receipt.parser
-              ? ([
-                  [t('projects.expFiles.parser'), dataset.receipt.parser],
-                ] as Array<[string, React.ReactNode]>)
-              : []),
-            [
-              t('projects.expFiles.sha'),
-              file.checksum ? (
-                <span key="sha" className="mono">
-                  {file.checksum.slice(0, 7)}…{file.checksum.slice(-6)}
-                </span>
-              ) : (
-                '—'
-              ),
-            ],
-            [
-              t('projects.expFiles.retentionLabel'),
-              retentionText(file.retentionUntil, file.uploadedAt),
-            ],
-          ]}
-        />
+        <DescriptionList labelWidth={90} items={recordItems} />
       </InspectorSection>
       {file.versions.length > 1 ? (
         <InspectorSection
@@ -386,7 +377,18 @@ function FileInspector({
   )
 }
 
-type SortKey = 'uploaded' | 'name'
+const sortKeySchema = z.enum(['uploaded', 'name'])
+
+type SortKey = z.infer<typeof sortKeySchema>
+
+const errorMessageSchema = z.object({ message: z.string().min(1) })
+
+/** A failed action's own message, when it carries one. */
+function errorMessage(error: Error): string | null {
+  const decoded = errorMessageSchema.safeParse(error)
+
+  return decoded.success ? decoded.data.message : null
+}
 
 /** The files attached to this experiment: instrument exports and documents,
  * what each fed, and the selected file's preview, record and retention. */
@@ -402,19 +404,22 @@ export function ExperimentFiles({ expId }: { expId: string }) {
 
   const [kind, setKind] = useState('all')
   const [sort, setSort] = useState<SortKey>('uploaded')
+
+  const bySort = useCallback(
+    (a: ExperimentFile, b: ExperimentFile) =>
+      sort === 'name'
+        ? a.name.localeCompare(b.name)
+        : b.uploadedAt.localeCompare(a.uploadedAt),
+    [sort],
+  )
+
   const [picked, setPicked] = useState<string | null>(null)
   const kinds = [...new Set(all.map(kindOf))]
 
   const rows = useMemo(
-    () =>
-      all
-        .filter((f) => kind === 'all' || kindOf(f) === kind)
-        .sort((a, b) =>
-          sort === 'name'
-            ? a.name.localeCompare(b.name)
-            : b.uploadedAt.localeCompare(a.uploadedAt),
-        ),
-    [all, kind, sort],
+    () => all.filter((f) => kind === 'all' || kindOf(f) === kind).sort(bySort),
+    // react-doctor-disable-next-line react-doctor/exhaustive-deps -- `kindOf` is a module-level function, so its identity never changes; `all`, `kind` and the memoised comparator are the only reactive inputs.
+    [all, kind, bySort],
   )
 
   const selectedId = picked ?? rows.at(0)?.id ?? null
@@ -453,12 +458,9 @@ export function ExperimentFiles({ expId }: { expId: string }) {
       })
       toast(t('projects.expFiles.versionSaved'))
     },
-    onError: (error: unknown) =>
+    onError: (error: Error) =>
       toast(t('projects.expFiles.versionFailed'), {
-        description:
-          error instanceof Error
-            ? error.message
-            : t('projects.expFiles.uploadFailed'),
+        description: errorMessage(error) ?? t('projects.expFiles.uploadFailed'),
       }),
   })
 
@@ -542,7 +544,11 @@ export function ExperimentFiles({ expId }: { expId: string }) {
               <Select
                 size="sm"
                 value={sort}
-                onChange={(e) => setSort(e.target.value as SortKey)}
+                onChange={(e) => {
+                  const next = sortKeySchema.safeParse(e.target.value)
+
+                  if (next.success) setSort(next.data)
+                }}
               >
                 <option value="uploaded">
                   {t('projects.expFiles.uploaded')}

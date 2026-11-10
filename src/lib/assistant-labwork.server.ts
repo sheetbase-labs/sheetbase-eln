@@ -83,6 +83,8 @@ import {
   formatNodePath,
   isArchived,
 } from './storage-locations'
+import type { z } from 'zod'
+
 import { isStocktakeLevel, stocktakeReference } from './stocktake'
 import type { StocktakeLevel } from './stocktake'
 import type { ProviderToolDef } from './ai-providers/types'
@@ -93,6 +95,16 @@ import type { ProviderToolDef } from './ai-providers/types'
  * returns a card saying exactly what will change. Nothing is written here.
  */
 
+/** A tree node's level, once the storage guard has accepted it. */
+function stocktakeLevel(
+  level: Parameters<typeof isStocktakeLevel>[0],
+): StocktakeLevel {
+  if (!isStocktakeLevel(level))
+    throw new Error('A stocktake node must be a storage level.')
+
+  return level
+}
+
 export type LabworkOutcome =
   { ok: true; proposal: AssistantProposal } | { ok: false; message: string }
 
@@ -102,7 +114,7 @@ const NOTE =
 export function isLabworkProposalTool(
   name: string,
 ): name is LabworkProposeToolName {
-  return (LABWORK_PROPOSE_TOOL_NAMES as readonly string[]).includes(name)
+  return LABWORK_PROPOSE_TOOL_NAMES.some((tool) => tool === name)
 }
 
 export function labworkProposalDefs(): ProviderToolDef[] {
@@ -318,7 +330,7 @@ async function findProject(
 
 export async function buildLabworkProposal(
   name: LabworkProposeToolName,
-  args: unknown,
+  args: z.core.util.JSONType,
   context: LabToolContext,
 ): Promise<LabworkOutcome> {
   const { client, workspaceId } = context
@@ -389,7 +401,7 @@ export async function buildLabworkProposal(
         changes,
         action: {
           kind: 'stocktake.start',
-          level: node.level as StocktakeLevel,
+          level: stocktakeLevel(node.level),
           scopeId: node.id,
           note: input.note?.trim() || null,
         },
@@ -718,7 +730,7 @@ export async function buildLabworkProposal(
 
       if (!project.ok) return fail(project.message)
       const defs = await fetchModelFields(client, registry.value.key)
-      const customFields: Record<string, unknown> = {}
+      const customFields: Record<string, z.core.util.JSONType> = {}
 
       const changes: ProposalChange[] = [
         { label: 'Name', before: null, after: input.name.trim() },
@@ -859,7 +871,7 @@ export async function buildLabworkProposal(
           recordKind: registry.value.key,
           title: input.name.trim(),
           customFields,
-          ...(parents.length > 0 ? { parents } : {}),
+          parents: parents.length > 0 ? parents : undefined,
         },
       })
     }
@@ -920,7 +932,7 @@ export async function buildLabworkProposal(
       }
 
       const defs = await fetchModelFields(client, model.registry_lot_kind)
-      const customFields: Record<string, unknown> = {}
+      const customFields: Record<string, z.core.util.JSONType> = {}
       const label = `${compound.value.identifier} · ${compound.value.title}`
       const lotName = input.name?.trim() || `${compound.value.identifier} lot`
 
@@ -1140,7 +1152,7 @@ export async function buildLabworkProposal(
 
       const old = current.at(0)
 
-      const show = (value: unknown) =>
+      const show = (value: number | string | null | undefined) =>
         value === null || value === undefined ? 'none' : String(value)
 
       const changes: ProposalChange[] = []

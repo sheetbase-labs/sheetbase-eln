@@ -201,11 +201,14 @@ None. Both the pure list and the live panel have stories.
 
 ## Chemistry registration
 
-| Module                                   | Why no story                                                                                                                                   |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/components/ui/brand-mark-spokes.ts` | SVG path data for the mark, not a component. `BrandMark.stories.tsx` renders the assembled mark and `Spinner` renders the spokes individually. |
-| `src/components/audit/audit-icons.ts`    | The icon vocabulary an audit row looks its icon up in; it renders no markup. `AuditTrail` stories exercise every event kind it resolves.       |
-| `src/components/icons/icon-map.ts`       | The name-to-icon map the `Icon` component reads; it renders no markup. The icon stories render each name through `Icon`.                       |
+| Module                                                   | Why no story                                                                                                                                             |
+| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/ui/brand-mark-spokes.ts`                 | SVG path data for the mark, not a component. `BrandMark.stories.tsx` renders the assembled mark and `Spinner` renders the spokes individually.           |
+| `src/components/audit/audit-icons.ts`                    | The icon vocabulary an audit row looks its icon up in; it renders no markup. `AuditTrail` stories exercise every event kind it resolves.                 |
+| `src/components/icons/icon-map.ts`                       | The name-to-icon map the `Icon` component reads; it renders no markup. The icon stories render each name through `Icon`.                                 |
+| `src/components/comments/comment-composer.tsx`           | The composer lives inside the thread it posts to; `CommentPanel.stories.tsx` renders it in place, with the same draft and submit contract.               |
+| `src/components/protocols/protocol-versions-dialogs.tsx` | The approve/reject dialogs open from the versions table; `ProtocolVersionsPanel.stories.tsx` renders the panel that mounts them.                         |
+| `src/components/sheets/column-promotions.ts`             | Promotion vocabulary and a pure next-step helper, not components. The promotion rows that read them are rendered by `ColumnPromotionsPanel.stories.tsx`. |
 
 ## Story-level limits
 

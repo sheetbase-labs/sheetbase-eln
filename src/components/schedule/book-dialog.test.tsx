@@ -10,13 +10,17 @@ import userEvent from '@testing-library/user-event'
 import type { UserEvent } from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import type { ReactNode } from 'react'
+
 import { DataClientError } from '#/lib/data-client'
 import type { CalendarBookingWire } from '#/lib/calendar'
-import type * as NotebookData from '#/lib/notebook-data'
+import { notebookDataClient } from '#/lib/notebook-data'
 
 import { BookDialog } from './book-dialog'
 import type { ScheduleBooking, ScheduleInstrument } from './schedule-data'
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- `Link` needs a mounted router and this suite renders the dialog on its own; the double keeps the module's other exports and renders the anchor the assertions read.
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
     to,
@@ -40,28 +44,30 @@ vi.mock('@tanstack/react-router', () => ({
   },
 }))
 
-// The dialog submits through the canonical create_booking RPC; mock only the
-// data client so the test can observe the RPC call and its params. `list`
-// answers the workspace settings read the dialog makes to learn the workspace
-// time zone a booking's wall clock means.
-const { rpc, list } = vi.hoisted(() => ({ rpc: vi.fn(), list: vi.fn() }))
+// The dialog submits through the canonical create_booking RPC. The suite records
+// the calls the real client makes and answers them itself, so the RPC params and
+// the workspace time zone read are observed without replacing any module.
+const rpc = vi.fn()
+const list = vi.fn()
 
-// The dialog only reads the training notice through the query cache.
-vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({ data: [] }),
-}))
-
-vi.mock('#/lib/notebook-data', async (importOriginal) => ({
-  ...(await importOriginal<typeof NotebookData>()),
-  notebookDataClient: { rpc, list },
-}))
+/** A query client per test, so one test's cached reads never reach the next. */
+function queryClient(): QueryClient {
+  return new QueryClient({ defaultOptions: { queries: { retry: false } } })
+}
 
 beforeEach(() => {
   list.mockResolvedValue([{ timezone: 'Europe/London' }])
+  vi.spyOn(notebookDataClient, 'list').mockImplementation(list)
+  vi.spyOn(notebookDataClient, 'rpc').mockImplementation((name, args) =>
+    name === 'my_instrument_training_gaps'
+      ? Promise.resolve([])
+      : rpc(name, args),
+  )
 })
 
 afterEach(() => {
   cleanup()
+  vi.restoreAllMocks()
   rpc.mockReset()
   list.mockReset()
 })
@@ -109,14 +115,23 @@ const BOOKED: ScheduleBooking = {
   metadataVersion: 1,
 }
 
+/** Renders the dialog as the schedule page mounts it: inside a query provider. */
+function withQueries(node: ReactNode) {
+  return (
+    <QueryClientProvider client={queryClient()}>{node}</QueryClientProvider>
+  )
+}
+
 function renderDialog(onBooked = vi.fn()) {
   const view = render(
-    <BookDialog
-      instruments={INSTRUMENTS}
-      workspaceId="ws-1"
-      defaultDate="2026-10-12"
-      onBooked={onBooked}
-    />,
+    withQueries(
+      <BookDialog
+        instruments={INSTRUMENTS}
+        workspaceId="ws-1"
+        defaultDate="2026-10-12"
+        onBooked={onBooked}
+      />,
+    ),
   )
 
   return { onBooked, rerender: view.rerender }
@@ -264,12 +279,14 @@ describe('BookDialog', () => {
     // The person closes the dialog, moves to another week, and opens it again.
     await user.keyboard('{Escape}')
     rerender(
-      <BookDialog
-        instruments={INSTRUMENTS}
-        workspaceId="ws-1"
-        defaultDate="2026-10-19"
-        onBooked={vi.fn()}
-      />,
+      withQueries(
+        <BookDialog
+          instruments={INSTRUMENTS}
+          workspaceId="ws-1"
+          defaultDate="2026-10-19"
+          onBooked={vi.fn()}
+        />,
+      ),
     )
     await user.click(screen.getByRole('button', { name: 'Book instrument' }))
     const second = screen.getByRole('dialog')
@@ -280,12 +297,14 @@ describe('BookDialog', () => {
   it('says why the picker is empty when the workspace has no instruments', async () => {
     const user = userEvent.setup()
     render(
-      <BookDialog
-        instruments={[]}
-        workspaceId="ws-1"
-        defaultDate="2026-10-12"
-        onBooked={vi.fn()}
-      />,
+      withQueries(
+        <BookDialog
+          instruments={[]}
+          workspaceId="ws-1"
+          defaultDate="2026-10-12"
+          onBooked={vi.fn()}
+        />,
+      ),
     )
 
     await user.click(screen.getByRole('button', { name: 'Book instrument' }))
@@ -450,17 +469,23 @@ describe('BookDialog', () => {
     const user = userEvent.setup()
     const onBooked = vi.fn()
     render(
-      <BookDialog
-        instruments={INSTRUMENTS}
-        workspaceId="ws-1"
-        defaultDate="2026-10-12"
-        onBooked={onBooked}
-        experiment={{ id: 'exp-1', identifier: 'EXP-0145', title: 'Titration' }}
-        sampleOptions={[
-          { id: 's-1', identifier: 'SMP-1', title: 'Lysate A' },
-          { id: 's-2', identifier: 'SMP-2', title: 'Lysate B' },
-        ]}
-      />,
+      withQueries(
+        <BookDialog
+          instruments={INSTRUMENTS}
+          workspaceId="ws-1"
+          defaultDate="2026-10-12"
+          onBooked={onBooked}
+          experiment={{
+            id: 'exp-1',
+            identifier: 'EXP-0145',
+            title: 'Titration',
+          }}
+          sampleOptions={[
+            { id: 's-1', identifier: 'SMP-1', title: 'Lysate A' },
+            { id: 's-2', identifier: 'SMP-2', title: 'Lysate B' },
+          ]}
+        />,
+      ),
     )
 
     const dialog = await openAndFill(user)
@@ -533,13 +558,15 @@ describe('BookDialog', () => {
     const user = userEvent.setup()
     const onRepeated = vi.fn()
     render(
-      <BookDialog
-        instruments={INSTRUMENTS}
-        workspaceId="ws-1"
-        defaultDate="2026-10-12"
-        onBooked={vi.fn()}
-        onRepeated={onRepeated}
-      />,
+      withQueries(
+        <BookDialog
+          instruments={INSTRUMENTS}
+          workspaceId="ws-1"
+          defaultDate="2026-10-12"
+          onBooked={vi.fn()}
+          onRepeated={onRepeated}
+        />,
+      ),
     )
 
     const dialog = await openAndFill(user)

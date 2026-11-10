@@ -3,24 +3,29 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
+import { createDataClient } from '#/lib/data-client'
 import { resolveRecordByIdentifier } from '#/lib/record-resolver'
-import type { DataClient } from '#/lib/data-client'
+import type { ResolvedRecord } from '#/lib/record-resolver'
+
+const SERUM_POOL: ResolvedRecord = {
+  id: 'rec-1',
+  identifier: 'SMP-0007',
+  kind: 'sample',
+  title: 'Serum pool A',
+}
+
+/** A real client over a recorded transport, so a test reads the request it builds. */
+function clientAnswering(rows: readonly ResolvedRecord[]) {
+  const fetchImpl = vi.fn<typeof fetch>(async () => Response.json(rows))
+
+  return { client: createDataClient(fetchImpl), fetchImpl }
+}
 
 describe('resolveRecordByIdentifier', () => {
   it('resolves a scanned identifier to the record it names', async () => {
-    const list = vi.fn().mockResolvedValue([
-      {
-        id: 'rec-1',
-        identifier: 'SMP-0007',
-        kind: 'sample',
-        title: 'Serum pool A',
-      },
-    ])
+    const { client, fetchImpl } = clientAnswering([SERUM_POOL])
 
-    const record = await resolveRecordByIdentifier(
-      { list } as unknown as DataClient,
-      'SMP-0007',
-    )
+    const record = await resolveRecordByIdentifier(client, 'SMP-0007')
 
     expect(record).toEqual({
       id: 'rec-1',
@@ -28,39 +33,33 @@ describe('resolveRecordByIdentifier', () => {
       kind: 'sample',
       title: 'Serum pool A',
     })
-    expect(list).toHaveBeenCalledWith(
-      'records',
+    expect(fetchImpl).toHaveBeenCalledWith(
       expect.stringContaining('identifier=eq.SMP-0007'),
+      expect.objectContaining({ method: 'GET' }),
     )
   })
 
   it('trims the scanned value before matching', async () => {
-    const list = vi.fn().mockResolvedValue([])
-    await resolveRecordByIdentifier(
-      { list } as unknown as DataClient,
-      '  TB-02  ',
-    )
-    expect(list).toHaveBeenCalledWith(
-      'records',
+    const { client, fetchImpl } = clientAnswering([])
+
+    await resolveRecordByIdentifier(client, '  TB-02  ')
+
+    expect(fetchImpl).toHaveBeenCalledWith(
       expect.stringContaining('identifier=eq.TB-02'),
+      expect.objectContaining({ method: 'GET' }),
     )
   })
 
   it('returns null for an identifier that names nothing', async () => {
-    const list = vi.fn().mockResolvedValue([])
-    expect(
-      await resolveRecordByIdentifier(
-        { list } as unknown as DataClient,
-        'SMP-9999',
-      ),
-    ).toBeNull()
+    const { client } = clientAnswering([])
+
+    expect(await resolveRecordByIdentifier(client, 'SMP-9999')).toBeNull()
   })
 
   it('asks the database nothing for an empty code', async () => {
-    const list = vi.fn()
-    expect(
-      await resolveRecordByIdentifier({ list } as unknown as DataClient, '   '),
-    ).toBeNull()
-    expect(list).not.toHaveBeenCalled()
+    const { client, fetchImpl } = clientAnswering([])
+
+    expect(await resolveRecordByIdentifier(client, '   ')).toBeNull()
+    expect(fetchImpl).not.toHaveBeenCalled()
   })
 })

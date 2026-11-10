@@ -6,6 +6,8 @@ import {
 } from '#/components/pipelines/agents/agent-surface'
 import { AgentProposalsBoard } from '#/components/pipelines/agents/proposals-board'
 import type { AgentPolicyCredentialOption } from '#/components/pipelines/agents/agents-data'
+import type { z } from 'zod'
+
 import type {
   AgentOperation,
   AgentOperationEvent,
@@ -53,13 +55,20 @@ type Story = StoryObj<typeof meta>
 
 const noop = () => {}
 
+/** One fixture operation: the kind the panels read, plus the fields a story shows. */
+type OperationFixture = {
+  kind: AgentOperation['kind']
+} & Record<string, z.core.util.JSONType>
+
 /**
  * A fixture's operation payload. The union's members carry typed
  * configurations with many fields; the panels read only its `kind`, so the
- * fixtures keep the kind and the shape a reviewer needs to see.
+ * fixtures keep the kind and whatever a reviewer needs to see.
  */
-function operationOf(value: object): AgentOperation {
-  return value as unknown as AgentOperation
+function operationOf(fixture: OperationFixture): AgentOperation {
+  // SAFETY: Each fixture supplies the operation's kind, the only field these
+  // panels and the provenance record read; no member's other field is reached.
+  return fixture as AgentOperation
 }
 
 const provenance = {
@@ -224,12 +233,14 @@ const proposals: AgentOperationProposal[] = [
   }),
 ]
 
-const events: AgentOperationEvent[] = [
-  ['proposed', '2026-10-02T10:05'],
-  ['approved', '2026-10-02T10:20'],
-  ['execution_started', '2026-10-02T10:21'],
-  ['execution_succeeded', '2026-10-02T10:21'],
-].map(([event_type, created_at], index) => ({
+const events: AgentOperationEvent[] = (
+  [
+    ['proposed', '2026-10-02T10:05'],
+    ['approved', '2026-10-02T10:20'],
+    ['execution_started', '2026-10-02T10:21'],
+    ['execution_succeeded', '2026-10-02T10:21'],
+  ] as const
+).map(([event_type, created_at], index) => ({
   id: `ev-${index}`,
   proposal_id: 'prop-1',
   sequence: index + 1,
@@ -238,7 +249,7 @@ const events: AgentOperationEvent[] = [
   actor_credential_id: index === 0 ? 'cred-1' : null,
   detail: {},
   created_at: `${created_at}:00.000Z`,
-})) as AgentOperationEvent[]
+}))
 
 /** Pending work needing this reader, an approved proposal to execute, and decided history. */
 export const Proposals: Story = {
@@ -409,32 +420,34 @@ const workflowSteps: AgentWorkflowStep[] = [
   },
 ]
 
-const workflowEvents = [
-  {
-    id: 'wev-1',
-    event_type: 'created',
-    sequence: 1,
-    created_at: '2026-10-01T08:00:00.000Z',
-  },
-  {
-    id: 'wev-2',
-    event_type: 'step_succeeded',
-    sequence: 2,
-    created_at: '2026-10-01T08:04:00.000Z',
-  },
-  {
-    id: 'wev-3',
-    event_type: 'step_proposed',
-    sequence: 3,
-    created_at: '2026-10-01T08:05:00.000Z',
-  },
-].map((event) => ({
+const workflowEvents: AgentWorkflowEvent[] = (
+  [
+    {
+      id: 'wev-1',
+      event_type: 'created',
+      sequence: 1,
+      created_at: '2026-10-01T08:00:00.000Z',
+    },
+    {
+      id: 'wev-2',
+      event_type: 'step_succeeded',
+      sequence: 2,
+      created_at: '2026-10-01T08:04:00.000Z',
+    },
+    {
+      id: 'wev-3',
+      event_type: 'step_proposed',
+      sequence: 3,
+      created_at: '2026-10-01T08:05:00.000Z',
+    },
+  ] as const
+).map((event) => ({
   ...event,
   workflow_id: 'wf-1',
   actor_user_id: null,
   actor_credential_id: 'cred-1',
   detail: {},
-})) as AgentWorkflowEvent[]
+}))
 
 /** A plan waiting on a human: the step outcome, budget and related proposals. */
 export const Workflows: Story = {

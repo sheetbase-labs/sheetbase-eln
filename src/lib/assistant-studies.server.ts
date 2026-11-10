@@ -23,6 +23,7 @@ import type { LabToolContext } from './assistant-lab-tools.server'
 import { pick } from './assistant-upkeep.server'
 import type { Lookup } from './assistant-upkeep.server'
 import type { AssistantProposal, ProposalChange } from './assistant-proposals'
+import type { z } from 'zod'
 import type { ProviderToolDef } from './ai-providers/types'
 
 /**
@@ -40,7 +41,7 @@ const NOTE =
 export function isStudiesProposalTool(
   name: string,
 ): name is StudiesProposeToolName {
-  return (STUDIES_PROPOSE_TOOL_NAMES as readonly string[]).includes(name)
+  return STUDIES_PROPOSE_TOOL_NAMES.some((tool) => tool === name)
 }
 
 export function studiesProposalDefs(): ProviderToolDef[] {
@@ -125,6 +126,14 @@ async function findTask(
   )
 }
 
+/** The editable half of a planner-task change, named where the card is built. */
+type ProposalTaskEdit = Partial<
+  Pick<
+    z.infer<typeof proposeStudyTaskUpdateSchema>,
+    'status' | 'priority' | 'progressPercent'
+  >
+>
+
 const taskLink = (task: { project_id: string | null }) =>
   task.project_id ? `/projects/${task.project_id}/milestones` : '/projects'
 
@@ -132,7 +141,7 @@ const dayText = (iso: string | null) => (iso ? iso.slice(0, 10) : 'No date')
 
 export async function buildStudiesProposal(
   name: StudiesProposeToolName,
-  args: unknown,
+  args: z.core.util.JSONType,
   context: LabToolContext,
 ): Promise<StudiesOutcome> {
   const { client } = context
@@ -226,11 +235,7 @@ export async function buildStudiesProposal(
           'Ask the person why the due date is moving; the reason is kept in the task’s history.',
         )
 
-      const edit: {
-        status?: (typeof input)['status']
-        priority?: (typeof input)['priority']
-        progressPercent?: number
-      } = {}
+      const edit: ProposalTaskEdit = {}
 
       if (input.status) edit.status = input.status
 

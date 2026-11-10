@@ -9,7 +9,7 @@ export function Tooltip({
   children,
 }: {
   content: React.ReactNode
-  children: React.ReactElement<Record<string, unknown>>
+  children: React.ReactElement
 }) {
   return (
     <TooltipPrimitive.Root>

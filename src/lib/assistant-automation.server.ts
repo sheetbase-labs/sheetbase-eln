@@ -39,7 +39,7 @@ const NOTE =
 export function isAutomationProposalTool(
   name: string,
 ): name is AutomationProposeToolName {
-  return (AUTOMATION_PROPOSE_TOOL_NAMES as readonly string[]).includes(name)
+  return AUTOMATION_PROPOSE_TOOL_NAMES.some((tool) => tool === name)
 }
 
 export function automationProposalDefs(): ProviderToolDef[] {
@@ -148,6 +148,7 @@ async function partCount(
 
 export async function buildAutomationProposal(
   name: AutomationProposeToolName,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The assistant's tool call arrives as unparsed JSON; the proposal schema for `name` parses it here and a refusal names the bad field.
   args: unknown,
   context: LabToolContext,
 ): Promise<AutomationOutcome> {

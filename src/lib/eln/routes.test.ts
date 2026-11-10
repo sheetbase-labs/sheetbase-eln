@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   receipt: vi.fn(),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the ELN handlers reach session auth, PostgREST reads and the export receipt through this module's own imports; replacing it is the only seam that drives a signed-in request without a database, and the doubles below keep the real call shapes.
 vi.mock('../request-auth', () => ({
   resolveSessionAuth: async (headers: Headers) =>
     headers.get('x-test-user')
@@ -39,11 +40,14 @@ vi.mock('../request-auth', () => ({
   recordDataExportReceipt: mocks.receipt,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- `getObjectStorage` is read at the module's import boundary, and every handler call in this suite passes its own storage, so this keeps the default from opening a real store.
 vi.mock('../file-storage', () => ({ getObjectStorage: () => null }))
 
 const REC = '11111111-1111-4111-8111-111111111111'
 const PROJ = '22222222-2222-4222-8222-222222222222'
 const FILE = '33333333-3333-4333-8333-333333333333'
+
+// SAFETY: every handler forwards `deps` only to the mocked `resolveSessionAuth`, so none of `SessionAuthDeps` is ever called.
 const deps = {} as never
 const asUser = { 'x-test-user': 'u1' }
 
@@ -193,6 +197,7 @@ describe('handleRecordElnExport', () => {
       get(`export/record/${REC}/eln`),
       REC,
       deps,
+      // SAFETY: the ELN archive reads only `getStream` from storage, which this fixture supplies; nothing else on the interface is called.
       storage as never,
     )
 
@@ -220,6 +225,7 @@ describe('handleRecordElnExport', () => {
       get(`export/record/${REC}/eln`),
       REC,
       deps,
+      // SAFETY: the ELN archive reads only `getStream` from storage, which this fixture supplies; nothing else on the interface is called.
       storage as never,
     )
 
@@ -243,6 +249,7 @@ describe('handleRecordElnExport', () => {
       get('x'),
       REC,
       deps,
+      // SAFETY: the ELN archive reads only `getStream` from storage, which this fixture supplies; nothing else on the interface is called.
       storage as never,
     )
 
@@ -251,11 +258,14 @@ describe('handleRecordElnExport', () => {
   })
 
   it('lists unreadable stored files as missing instead of failing', async () => {
-    const res = await handleRecordElnExport(get('x'), REC, deps, {
+    // SAFETY: the ELN archive reads only `getStream`, which this fixture supplies as a throw.
+    const unreadable = {
       getStream: async () => {
         throw new Error('gone')
       },
-    } as never)
+    } as never
+
+    const res = await handleRecordElnExport(get('x'), REC, deps, unreadable)
 
     expect(res.status).toBe(200)
     const names = [...readZip(new Uint8Array(await res.arrayBuffer())).keys()]
@@ -269,6 +279,7 @@ describe('handleProjectElnExport', () => {
       get(`export/project/${PROJ}/eln`),
       PROJ,
       deps,
+      // SAFETY: the ELN archive reads only `getStream` from storage, which this fixture supplies; nothing else on the interface is called.
       storage as never,
     )
 
@@ -324,7 +335,7 @@ describe('handleElnImport', () => {
     new Request(`http://t/api/import/eln?projectId=${project}`, {
       method: 'POST',
       headers: asUser,
-      body: body as BodyInit | null,
+      body: body === null ? null : new Uint8Array(body),
     })
 
   it('creates draft experiments with a provenance block', async () => {

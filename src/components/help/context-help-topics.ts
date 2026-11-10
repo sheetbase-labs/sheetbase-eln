@@ -14,9 +14,9 @@ export interface ContextHelpTopic {
   more?: { label: string; link: LinkProps }
 }
 
-const RECORDS_MORE = {
+const RECORDS_MORE: NonNullable<ContextHelpTopic['more']> = {
   label: 'How records, reviews and signatures work',
-  link: { to: '/help/records' } as LinkProps,
+  link: { to: '/help/records' },
 }
 
 const TOPICS: ReadonlyArray<{

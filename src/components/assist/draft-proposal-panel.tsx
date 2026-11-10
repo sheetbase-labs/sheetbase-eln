@@ -61,8 +61,8 @@ export function DraftProposalPanel({
           {t('notebook.draftProposalPanel.citedSources')}
         </p>
         <ul className="space-y-1">
-          {proposal.citations.map((citation, index) => (
-            <li key={index} className="text-fg-muted">
+          {proposal.citations.map((citation) => (
+            <li key={citation.label} className="text-fg-muted">
               <span className="font-mono">[{citation.label}]</span>{' '}
               {citation.detail}
               {citation.deepLink ? (
@@ -165,8 +165,8 @@ function ProposalPreview({ proposal }: { proposal: AssistDraftProposal }) {
             })}
           </p>
           <ul className="list-disc space-y-1 pl-4">
-            {proposal.rationale.map((line, index) => (
-              <li key={index}>{line}</li>
+            {proposal.rationale.map((line) => (
+              <li key={line}>{line}</li>
             ))}
           </ul>
         </div>

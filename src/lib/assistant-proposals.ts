@@ -252,17 +252,21 @@ export function isProposalTool(name: string): name is ProposalToolName {
 
 /** Tool definitions for the model, named the way providers accept. */
 export function proposalToolDefs(): ProviderToolDef[] {
-  return (Object.keys(PROPOSAL_TOOLS) as ProposalToolName[]).map((name) => {
+  return Object.keys(PROPOSAL_TOOLS).flatMap((name) => {
+    if (!isProposalTool(name)) return []
+
     const { $schema: _ignored, ...parameters } = z.toJSONSchema(
       PROPOSAL_TOOLS[name].schema,
       { io: 'input' },
     )
 
-    return {
-      name: toWireToolName(name),
-      description: PROPOSAL_TOOLS[name].description,
-      parameters,
-    }
+    return [
+      {
+        name: toWireToolName(name),
+        description: PROPOSAL_TOOLS[name].description,
+        parameters,
+      },
+    ]
   })
 }
 
@@ -316,16 +320,23 @@ export interface AssistantProposal {
 }
 
 /** The output the chat server attaches to a finished proposal tool call. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- The chat transport hands tool output over unparsed; the checks below are the boundary that narrows it.
 export function proposalFromOutput(output: unknown): AssistantProposal | null {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Model tool output arrives unparsed from the provider; this boundary only establishes that it is an object before reading the proposal key.
   if (output === null || typeof output !== 'object' || !('proposal' in output))
     return null
   const proposal = output.proposal
 
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Same boundary: the proposal member must be an object before its own keys are read.
   if (proposal === null || typeof proposal !== 'object') return null
 
-  return 'tool' in proposal &&
-    ('operation' in proposal || 'action' in proposal) &&
-    'changes' in proposal
-    ? (proposal as AssistantProposal)
-    : null
+  if (
+    !('tool' in proposal) ||
+    !('operation' in proposal || 'action' in proposal) ||
+    !('changes' in proposal)
+  )
+    return null
+
+  // SAFETY: the chat server attaches the proposal it built as an AssistantProposal, and the checks above establish the keys the card switches on.
+  return proposal as AssistantProposal
 }

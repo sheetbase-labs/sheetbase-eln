@@ -19,6 +19,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import type { redirect as redirectRoute } from '@tanstack/react-router'
 import { choose } from '../../../tests/unit/picker'
 
 import { DataClientError } from '#/lib/data-client'
@@ -70,9 +71,10 @@ const {
   createAmendmentMock: vi.fn(),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the route screen takes its params, search and navigation from the router at import time, so the router's factories are the only seam a unit test has; every other export stays real.
 vi.mock('@tanstack/react-router', () => ({
   getRouteApi: () => ({ useRouteContext: () => ({}) }),
-  redirect: (options: unknown) => options,
+  redirect: (options: Parameters<typeof redirectRoute>[0]) => options,
   useNavigate: () => navigateMock,
   useSearch: () => ({}),
   useParams: () => ({ revisionId: 'rev-1' }),
@@ -85,9 +87,9 @@ vi.mock('@tanstack/react-router', () => ({
   }: {
     to: string
     params?: Record<string, string>
-    search?: Record<string, unknown>
+    search?: { revision?: string }
     children: React.ReactNode
-  } & Record<string, unknown>) => {
+  } & React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
     let href = to
 
     for (const [key, value] of Object.entries(params ?? {}))
@@ -105,32 +107,44 @@ vi.mock('@tanstack/react-router', () => ({
   },
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the route imports server functions that build their chain at module scope; the stub keeps that chain real enough to import while no server function runs in the browser suite.
 vi.mock('@tanstack/react-start', () => {
   // The route imports server functions that chain `.middleware()`/`.validator()`
   // at module scope; the mock must stay chainable or the import throws.
-  const chain: Record<string, unknown> = {}
-  chain.middleware = () => chain
-  chain.validator = () => chain
-  chain.handler = () => vi.fn()
+  interface MockChain {
+    middleware: () => MockChain
+    validator: () => MockChain
+    handler: () => () => void
+  }
+
+  const chain: MockChain = {
+    middleware: () => chain,
+    validator: () => chain,
+    handler: () => vi.fn(),
+  }
 
   return { createServerFn: () => chain }
 })
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the route reads request headers in server code that this browser suite never executes; the stub keeps the module importable.
 vi.mock('@tanstack/react-start/server', () => ({
   getRequestHeaders: () => ({}),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- the certification read needs a database, and the page under test only renders what it returns; the module's other exports stay real.
 vi.mock('#/lib/signature-certification', async (importOriginal) => ({
   ...(await importOriginal()),
   fetchWorkspaceCertifications: (...args: unknown[]) =>
     fetchWorkspaceCertificationsMock(...args),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- creating an amendment needs a database; this suite drives the page's own form and dialogs, and the module's other exports stay real.
 vi.mock('#/lib/sign-002', async (importOriginal) => ({
   ...(await importOriginal<typeof sign002>()),
   createAmendment: (...args: unknown[]) => createAmendmentMock(...args),
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- signing and step-up need a database and secrets; this suite drives the page's own controls, and the module's other exports stay real.
 vi.mock('#/lib/signatures', async (importOriginal) => ({
   ...(await importOriginal()),
   requestSignatureStepUp: (...args: unknown[]) =>
@@ -243,6 +257,7 @@ describe('buildApprovalSteps', () => {
 })
 
 describe('reviewChecksGate', () => {
+  // SAFETY: the gate reads the integrity digest, the blocking-failure count, the overall status and the run time; this fixture supplies all four and the rest of the wire type is unread here.
   const result = (overrides: Partial<ReviewCheckResultWire> = {}) =>
     ({
       revision_integrity_digest: DIGEST,
@@ -848,6 +863,7 @@ describe('witness picker effective project authority', () => {
         'Request a witness for this frozen revision',
       )
 
+      // SAFETY: the labelled control is the witness picker, which renders as a `<button>`; the assertion lets the suite read its `disabled` property.
       await waitFor(() =>
         expect((picker as HTMLButtonElement).disabled).toBe(false),
       )
@@ -942,6 +958,7 @@ describe('witness picker effective project authority', () => {
         'Request a witness for this frozen revision',
       )
 
+      // SAFETY: the labelled control is the witness picker, which renders as a `<button>`; the assertion lets the suite read its `disabled` property.
       await waitFor(() =>
         expect((picker as HTMLButtonElement).disabled).toBe(false),
       )

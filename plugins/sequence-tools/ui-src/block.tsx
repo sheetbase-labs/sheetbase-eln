@@ -96,6 +96,255 @@ function Workbench({
   )
 }
 
+/** A sequence as it stands: its names, and the map drawn to its topology. */
+function SequenceMapPanel({
+  draft,
+  parsed,
+  summary,
+  selected,
+  onSelect,
+}: {
+  draft: WorkbenchProps['draft']
+  parsed: ReturnType<typeof parsedOf>
+  summary: string | null
+  selected: number | null
+  onSelect: (id: number | null) => void
+}) {
+  if (draft.residues.length === 0)
+    return <p className="text-label text-fg-muted">{t('molbio.block.empty')}</p>
+
+  return (
+    <>
+      <p className="num text-label text-fg-muted">
+        {[
+          draft.name,
+          summary,
+          draft.registryIdentifier
+            ? t('molbio.block.registeredAs', {
+                identifier: draft.registryIdentifier,
+              })
+            : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+      </p>
+      {draft.topology === 'circular' ? (
+        <CircularMap
+          sequence={parsed}
+          selectedId={selected}
+          onSelect={onSelect}
+          className="mx-auto max-w-sm"
+        />
+      ) : (
+        <LinearMap
+          sequence={parsed}
+          selectedId={selected}
+          onSelect={onSelect}
+          from={1}
+          to={parsed.length}
+        />
+      )}
+    </>
+  )
+}
+
+/** What else the block holds, in the author's words: primers, plans, reads, products, caption. */
+function SequenceDetails({
+  draft,
+  lines,
+}: {
+  draft: WorkbenchProps['draft']
+  lines: string[]
+}) {
+  return (
+    <>
+      {lines.length > 0 ? (
+        <p className="text-label text-fg-muted">{lines.join(' · ')}</p>
+      ) : null}
+      {(draft.products?.length ?? 0) > 0 ? (
+        <p className="text-label text-fg-muted">
+          {t('molbio.block.products', {
+            identifiers: (draft.products ?? [])
+              .map((x) => x.identifier)
+              .join(', '),
+          })}
+        </p>
+      ) : null}
+      {draft.caption ? (
+        <p className="text-label text-fg-muted">{draft.caption}</p>
+      ) : null}
+    </>
+  )
+}
+
+/** The way into the tools, and the tools themselves once they are open. */
+function SequenceWorkbench({
+  open,
+  onToggleOpen,
+  tab,
+  setTab,
+  workbench,
+}: {
+  open: boolean
+  onToggleOpen: () => void
+  tab: TabKey | null
+  setTab: (key: TabKey) => void
+  workbench: WorkbenchProps
+}) {
+  const shown: TabKey = tab === 'map' || tab === null ? 'edit' : tab
+
+  return (
+    <>
+      <div>
+        <Button size="sm" onClick={onToggleOpen}>
+          {open
+            ? t('molbio.block.hideWorkbench')
+            : t('molbio.block.openWorkbench')}
+        </Button>
+      </div>
+      {open ? (
+        <Workbench
+          tab={shown}
+          setTab={setTab}
+          showMapTab={false}
+          props={workbench}
+        />
+      ) : null}
+    </>
+  )
+}
+
+/** A sequence block shown to someone who cannot edit it: the map and what is in it. */
+function SequenceReadOnly({
+  draft,
+  parsed,
+  summary,
+  selected,
+  onSelect,
+  open,
+  onToggleOpen,
+  tab,
+  setTab,
+  workbench,
+}: {
+  draft: WorkbenchProps['draft']
+  parsed: ReturnType<typeof parsedOf>
+  summary: string | null
+  selected: number | null
+  onSelect: (id: number | null) => void
+  open: boolean
+  onToggleOpen: () => void
+  tab: TabKey | null
+  setTab: (key: TabKey) => void
+  workbench: WorkbenchProps
+}) {
+  const reads = draft.reads ?? []
+
+  const lines = [
+    (draft.primers?.length ?? 0) > 0
+      ? t('molbio.block.primerCount', { count: draft.primers?.length ?? 0 })
+      : null,
+    (draft.plans?.length ?? 0) > 0
+      ? t('molbio.block.planCount', { count: draft.plans?.length ?? 0 })
+      : null,
+    reads.length > 0
+      ? t('molbio.block.readCount', { count: reads.length })
+      : null,
+    (draft.digests?.length ?? 0) > 0
+      ? t('molbio.block.digestCount', { count: draft.digests?.length ?? 0 })
+      : null,
+  ].filter(Boolean)
+
+  return (
+    <figure className="flex min-w-0 flex-col gap-2">
+      {draft.title ? (
+        <figcaption className="text-body font-medium text-fg">
+          {draft.title}
+        </figcaption>
+      ) : null}
+      <SequenceMapPanel
+        draft={draft}
+        parsed={parsed}
+        summary={summary}
+        selected={selected}
+        onSelect={onSelect}
+      />
+      <SequenceDetails draft={draft} lines={lines} />
+      {draft.residues.length > 0 ? (
+        <SequenceWorkbench
+          open={open}
+          onToggleOpen={onToggleOpen}
+          tab={tab}
+          setTab={setTab}
+          workbench={workbench}
+        />
+      ) : null}
+    </figure>
+  )
+}
+
+/** The sequence block as its author edits it: the titles, the tools and the caption. */
+function SequenceEditable({
+  draft,
+  change,
+  flush,
+  summary,
+  shownTab,
+  setTab,
+  workbench,
+}: {
+  draft: WorkbenchProps['draft']
+  change: WorkbenchProps['edit']
+  flush: () => void
+  summary: string | null
+  shownTab: TabKey
+  setTab: (key: TabKey) => void
+  workbench: WorkbenchProps
+}) {
+  return (
+    <section
+      aria-label={t('molbio.block.aria')}
+      className="flex min-w-0 flex-col gap-3 rounded-md border border-border p-3"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          aria-label={t('molbio.block.title')}
+          placeholder={t('molbio.block.titlePlaceholder')}
+          className="min-w-48 flex-1"
+          value={draft.title ?? ''}
+          onChange={(e) => change((c) => ({ ...c, title: e.target.value }))}
+          onBlur={flush}
+        />
+        <Input
+          aria-label={t('molbio.block.name')}
+          placeholder={t('molbio.block.namePlaceholder')}
+          className="w-56"
+          value={draft.name}
+          onChange={(e) => change((c) => ({ ...c, name: e.target.value }))}
+          onBlur={flush}
+        />
+      </div>
+      {summary ? (
+        <p className="num text-label text-fg-muted">
+          {summary}
+          {draft.registryIdentifier
+            ? ` · ${t('molbio.block.registeredAs', { identifier: draft.registryIdentifier })}`
+            : ''}
+        </p>
+      ) : null}
+      <Workbench tab={shownTab} setTab={setTab} props={workbench} showMapTab />
+      <Textarea
+        aria-label={t('molbio.block.caption')}
+        placeholder={t('molbio.block.captionPlaceholder')}
+        rows={2}
+        value={draft.caption ?? ''}
+        onChange={(e) => change((c) => ({ ...c, caption: e.target.value }))}
+        onBlur={flush}
+      />
+    </section>
+  )
+}
+
 function Block() {
   const { ready, invalid, context, draft, change, flush } = useBlockState()
   const canEdit = !context.readOnly
@@ -131,143 +380,32 @@ function Block() {
   const summary =
     draft.residues.length > 0 ? summaryLine(summarise(parsed)) : null
 
-  if (!canEdit) {
-    const reads = draft.reads ?? []
-
-    const lines = [
-      (draft.primers?.length ?? 0) > 0
-        ? t('molbio.block.primerCount', { count: draft.primers?.length ?? 0 })
-        : null,
-      (draft.plans?.length ?? 0) > 0
-        ? t('molbio.block.planCount', { count: draft.plans?.length ?? 0 })
-        : null,
-      reads.length > 0
-        ? t('molbio.block.readCount', { count: reads.length })
-        : null,
-      (draft.digests?.length ?? 0) > 0
-        ? t('molbio.block.digestCount', { count: draft.digests?.length ?? 0 })
-        : null,
-    ].filter(Boolean)
-
+  if (!canEdit)
     return (
-      <figure className="flex min-w-0 flex-col gap-2">
-        {draft.title ? (
-          <figcaption className="text-body font-medium text-fg">
-            {draft.title}
-          </figcaption>
-        ) : null}
-        {draft.residues.length === 0 ? (
-          <p className="text-label text-fg-muted">{t('molbio.block.empty')}</p>
-        ) : (
-          <>
-            <p className="num text-label text-fg-muted">
-              {[
-                draft.name,
-                summary,
-                draft.registryIdentifier
-                  ? t('molbio.block.registeredAs', {
-                      identifier: draft.registryIdentifier,
-                    })
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
-            {draft.topology === 'circular' ? (
-              <CircularMap
-                sequence={parsed}
-                selectedId={selected}
-                onSelect={setSelected}
-                className="mx-auto max-w-sm"
-              />
-            ) : (
-              <LinearMap
-                sequence={parsed}
-                selectedId={selected}
-                onSelect={setSelected}
-                from={1}
-                to={parsed.length}
-              />
-            )}
-          </>
-        )}
-        {lines.length > 0 ? (
-          <p className="text-label text-fg-muted">{lines.join(' · ')}</p>
-        ) : null}
-        {(draft.products?.length ?? 0) > 0 ? (
-          <p className="text-label text-fg-muted">
-            {t('molbio.block.products', {
-              identifiers: (draft.products ?? [])
-                .map((x) => x.identifier)
-                .join(', '),
-            })}
-          </p>
-        ) : null}
-        {draft.caption ? (
-          <p className="text-label text-fg-muted">{draft.caption}</p>
-        ) : null}
-        {draft.residues.length > 0 ? (
-          <div>
-            <Button size="sm" onClick={() => setOpen((v) => !v)}>
-              {open
-                ? t('molbio.block.hideWorkbench')
-                : t('molbio.block.openWorkbench')}
-            </Button>
-          </div>
-        ) : null}
-        {open ? (
-          <Workbench
-            tab={tab === 'map' || tab === null ? 'edit' : tab}
-            setTab={setTab}
-            showMapTab={false}
-            props={wb}
-          />
-        ) : null}
-      </figure>
+      <SequenceReadOnly
+        draft={draft}
+        parsed={parsed}
+        summary={summary}
+        selected={selected}
+        onSelect={setSelected}
+        open={open}
+        onToggleOpen={() => setOpen((v) => !v)}
+        tab={tab}
+        setTab={setTab}
+        workbench={wb}
+      />
     )
-  }
 
   return (
-    <section
-      aria-label={t('molbio.block.aria')}
-      className="flex min-w-0 flex-col gap-3 rounded-md border border-border p-3"
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
-          aria-label={t('molbio.block.title')}
-          placeholder={t('molbio.block.titlePlaceholder')}
-          className="min-w-48 flex-1"
-          value={draft.title ?? ''}
-          onChange={(e) => change((c) => ({ ...c, title: e.target.value }))}
-          onBlur={flush}
-        />
-        <Input
-          aria-label={t('molbio.block.name')}
-          placeholder={t('molbio.block.namePlaceholder')}
-          className="w-56"
-          value={draft.name}
-          onChange={(e) => change((c) => ({ ...c, name: e.target.value }))}
-          onBlur={flush}
-        />
-      </div>
-      {summary ? (
-        <p className="num text-label text-fg-muted">
-          {summary}
-          {draft.registryIdentifier
-            ? ` · ${t('molbio.block.registeredAs', { identifier: draft.registryIdentifier })}`
-            : ''}
-        </p>
-      ) : null}
-      <Workbench tab={shownTab} setTab={setTab} props={wb} showMapTab />
-      <Textarea
-        aria-label={t('molbio.block.caption')}
-        placeholder={t('molbio.block.captionPlaceholder')}
-        rows={2}
-        value={draft.caption ?? ''}
-        onChange={(e) => change((c) => ({ ...c, caption: e.target.value }))}
-        onBlur={flush}
-      />
-    </section>
+    <SequenceEditable
+      draft={draft}
+      change={change}
+      flush={flush}
+      summary={summary}
+      shownTab={shownTab}
+      setTab={setTab}
+      workbench={wb}
+    />
   )
 }
 

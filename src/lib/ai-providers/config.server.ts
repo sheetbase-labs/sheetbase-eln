@@ -44,13 +44,16 @@ function keyAvailable(profile: ProviderProfile): boolean {
   if (!profile.apiKeyEnv) return true
   const value = process.env[profile.apiKeyEnv]
 
-  return typeof value === 'string' && value.trim() !== ''
+  return value !== undefined && value.trim() !== ''
 }
 
-export function getPublicProviderProfiles(): {
+/** What a settings screen may see of the configured providers: no keys. */
+export interface PublicProviderConfiguration {
   profiles: PublicProviderProfile[]
   error: string | null
-} {
+}
+
+export function getPublicProviderProfiles(): PublicProviderConfiguration {
   const configuration = getProviderConfiguration()
 
   return {

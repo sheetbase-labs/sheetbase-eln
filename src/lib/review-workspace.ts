@@ -160,11 +160,13 @@ export function fetchReviewDecisions(
 // ---------------------------------------------------------------------------
 
 /**
- * One frozen area of a stored envelope. The envelope is JSON the app itself
- * wrote, and the diff engine reads whichever fields each area carries, so an
- * entity is any JSON object — not only one with an `id`.
+ * One frozen entity of a stored envelope: a JSON object the diff engine
+ * identifies by its `id`, plus whichever fields that area carries.
  */
-const canonicalEntitySchema = z.record(z.string(), z.json())
+const canonicalEntitySchema = z.looseObject({ id: z.string() })
+
+/** The record as it stood. It has no identity of its own beyond its fields. */
+const canonicalRecordSchema = z.record(z.string(), z.json())
 
 /**
  * The envelope `internal.prepare_revision_insert` writes: a format version, the
@@ -173,7 +175,7 @@ const canonicalEntitySchema = z.record(z.string(), z.json())
  */
 const canonicalEnvelopeSchema = z.looseObject({
   formatVersion: z.number(),
-  record: canonicalEntitySchema,
+  record: canonicalRecordSchema,
   blocks: z.array(canonicalEntitySchema),
   links: z.array(canonicalEntitySchema),
   scientificTables: z.array(canonicalEntitySchema),

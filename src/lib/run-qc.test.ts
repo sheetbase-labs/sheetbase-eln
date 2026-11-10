@@ -3,15 +3,22 @@ import { describe, expect, it } from 'vitest'
 import { chartRange, openBreaches, zoneOf } from './run-qc'
 import type { QcPointRow } from './run-qc'
 
-const point = (over: Partial<QcPointRow>): QcPointRow =>
-  ({
-    value: 10,
-    z: 0,
-    violations: [],
-    excluded: false,
-    acknowledged_at: null,
-    ...over,
-  }) as QcPointRow
+const point = (over: Partial<QcPointRow>): QcPointRow => ({
+  id: 'point-1',
+  series_id: 'series-1',
+  plate_run_id: null,
+  instrument_run_id: null,
+  value: 10,
+  at: '2026-11-07T00:00:00Z',
+  label: null,
+  z: 0,
+  violations: [],
+  excluded: false,
+  acknowledged_at: null,
+  acknowledged_by_user_id: null,
+  note: null,
+  ...over,
+})
 
 describe('zoneOf', () => {
   it('has no zone without limits', () => {

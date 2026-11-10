@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import type { ModelProvider } from '../ai-gateway'
 import {
   asRecord,
@@ -20,6 +22,7 @@ import type {
   ProviderRequest,
   ProviderResponse,
   ProviderStreamChunk,
+  ProviderToolDef,
   ResolvedProviderConfig,
 } from './types'
 
@@ -50,7 +53,7 @@ export interface OpenAiCompatibleRequest {
     function: {
       name: string
       description: string
-      parameters: Record<string, unknown>
+      parameters: ProviderToolDef['parameters']
     }
   }>
   tool_choice?: 'auto'
@@ -148,63 +151,130 @@ export function buildOpenAiCompatibleRequest(
     )
   }
 
-  return {
+  const body: OpenAiCompatibleRequest = {
     model: profile.model,
     messages: conversationMessages(request),
     max_tokens: Math.floor(maxTokens),
     temperature: 0,
     stream: options.stream === true,
-    ...(options.stream === true
-      ? { stream_options: { include_usage: true as const } }
-      : {}),
-    ...(request.tools && request.tools.length > 0
-      ? {
-          tools: request.tools.map((tool) => ({
-            type: 'function' as const,
-            function: {
-              name: tool.name,
-              description: tool.description,
-              parameters: tool.parameters,
-            },
-          })),
-          tool_choice: 'auto' as const,
-        }
-      : {}),
-    ...(profile.kind === 'openrouter' ? { usage: { include: true } } : {}),
+  }
+
+  if (options.stream === true) body.stream_options = { include_usage: true }
+
+  if (request.tools && request.tools.length > 0) {
+    body.tools = request.tools.map((tool) => ({
+      type: 'function',
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters,
+      },
+    }))
+    body.tool_choice = 'auto'
+  }
+
+  if (profile.kind === 'openrouter') body.usage = { include: true }
+
+  return body
+}
+
+const contentSchema = z.union([z.string(), z.array(z.unknown())])
+
+/** A chat message's `content`: plain text, or the multi-part form. */
+type ReplyContent = z.infer<typeof contentSchema>
+
+const contentPart = z.object({
+  type: z.string().nullish(),
+  text: z.string().nullish(),
+})
+
+function readMessageText(content: ReplyContent | null | undefined): string {
+  const text = z.string().safeParse(content)
+
+  if (text.success) return text.data
+
+  const parts = (z.array(z.unknown()).safeParse(content).data ?? []).flatMap(
+    (part) => {
+      const decoded = contentPart.safeParse(part)
+
+      return decoded.success &&
+        decoded.data.type === 'text' &&
+        decoded.data.text !== null &&
+        decoded.data.text !== undefined
+        ? [decoded.data.text]
+        : []
+    },
+  )
+
+  return parts.length > 0 ? parts.join('\n') : ''
+}
+
+const usageSchema = z.object({
+  prompt_tokens: z.number().nullish(),
+  input_tokens: z.number().nullish(),
+  completion_tokens: z.number().nullish(),
+  output_tokens: z.number().nullish(),
+  cost: z.number().nullish(),
+})
+
+const replyChoiceSchema = z.object({
+  message: z.object({ content: contentSchema.nullish() }).nullish(),
+})
+
+const replySchema = z.object({
+  choices: z.array(z.unknown()).nullish(),
+  usage: usageSchema.nullish(),
+  model: z.string().nullish(),
+})
+
+/** A `data:` frame from the SSE stream, before it is trusted. */
+function parseJsonFrame(
+  frame: string,
+): Parameters<typeof replySchema.safeParse>[0] {
+  try {
+    return JSON.parse(frame)
+  } catch {
+    return null
   }
 }
 
-function readMessageText(message: Record<string, unknown> | null): string {
-  const content = message?.content
+const streamChunk = z.object({
+  choices: z
+    .array(
+      z.object({
+        delta: z
+          .object({
+            content: contentSchema.nullish(),
+            tool_calls: z.array(z.unknown()).nullish(),
+          })
+          .nullish(),
+      }),
+    )
+    .nullish(),
+  usage: usageSchema.nullish(),
+  model: z.string().nullish(),
+})
 
-  if (typeof content === 'string') return content
+/** One chat-completions reply, decoded from the provider's JSON. */
+export type OpenAiCompatibleReply = z.infer<typeof replySchema>
 
-  if (Array.isArray(content)) {
-    const parts = content
-      .map((part) => {
-        const record = asRecord(part)
+/** Decode a provider reply; a non-object answer decodes to "no choices". */
+export function decodeOpenAiCompatibleReply(
+  body: Parameters<typeof replySchema.safeParse>[0],
+): OpenAiCompatibleReply {
+  const decoded = replySchema.safeParse(body)
 
-        return record?.type === 'text' && typeof record.text === 'string'
-          ? record.text
-          : null
-      })
-      .filter((part): part is string => part !== null)
-
-    if (parts.length > 0) return parts.join('\n')
-  }
-
-  return ''
+  return decoded.success ? decoded.data : { choices: null }
 }
 
 export function parseOpenAiCompatibleResponse(
   profile: ProviderProfile,
   prompt: string,
-  json: unknown,
+  reply: OpenAiCompatibleReply,
 ): ProviderResponse {
-  const root = asRecord(json)
-  const choices = root?.choices
+  const choices = reply.choices
 
-  if (!Array.isArray(choices) || choices.length === 0) {
+  if (!choices || choices.length === 0) {
     throw new AiProviderError(
       'response_invalid',
       'Provider response had no choices',
@@ -212,9 +282,11 @@ export function parseOpenAiCompatibleResponse(
     )
   }
 
-  const first = asRecord(choices[0])
-  const message = readNested(first, 'message')
-  const text = readMessageText(message)
+  const choice = replyChoiceSchema.safeParse(choices[0])
+
+  const text = readMessageText(
+    choice.success ? (choice.data.message?.content ?? null) : null,
+  )
 
   if (text.trim() === '') {
     throw new AiProviderError(
@@ -224,22 +296,18 @@ export function parseOpenAiCompatibleResponse(
     )
   }
 
-  const usage = readNested(root, 'usage')
+  const usage = reply.usage
 
   const promptTokens =
-    readNumber(usage, 'prompt_tokens') ??
-    readNumber(usage, 'input_tokens') ??
-    estimateTokens(prompt)
+    usage?.prompt_tokens ?? usage?.input_tokens ?? estimateTokens(prompt)
 
   const completionTokens =
-    readNumber(usage, 'completion_tokens') ??
-    readNumber(usage, 'output_tokens') ??
-    estimateTokens(text)
+    usage?.completion_tokens ?? usage?.output_tokens ?? estimateTokens(text)
 
   // OpenRouter reports authoritative USD cost when `usage.include` is set.
   // Use it when present; otherwise price the reported tokens at the profile's
   // published rates.
-  const reportedUsd = readNumber(usage, 'cost')
+  const reportedUsd = usage?.cost ?? null
 
   const costMicrousd =
     reportedUsd !== null
@@ -254,24 +322,21 @@ export function parseOpenAiCompatibleResponse(
     inputTokens: Math.max(1, Math.floor(promptTokens)),
     outputTokens: Math.max(1, Math.floor(completionTokens)),
     costMicrousd,
-    reportedModel: readString(root, 'model') ?? undefined,
+    reportedModel: reply.model ?? undefined,
   }
 }
 
-function requestHeaders(
-  profile: ProviderProfile,
-  apiKey: string | undefined,
-): Record<string, string> {
-  const headers: Record<string, string> = {}
+function requestHeaders(profile: ProviderProfile, apiKey: string | undefined) {
+  const headers: [string, string][] = []
 
-  if (apiKey) headers.authorization = `Bearer ${apiKey}`
+  if (apiKey) headers.push(['authorization', `Bearer ${apiKey}`])
 
   if (profile.kind === 'openrouter') {
-    headers['http-referer'] = 'https://sheetbase.co.uk'
-    headers['x-title'] = 'Sheetbase ELN'
+    headers.push(['http-referer', 'https://sheetbase.co.uk'])
+    headers.push(['x-title', 'Sheetbase ELN'])
   }
 
-  return headers
+  return Object.fromEntries(headers)
 }
 
 export class OpenAiCompatibleProvider implements ModelProvider {
@@ -298,7 +363,11 @@ export class OpenAiCompatibleProvider implements ModelProvider {
       this.deps,
     )
 
-    return parseOpenAiCompatibleResponse(this.config, request.prompt, json)
+    return parseOpenAiCompatibleResponse(
+      this.config,
+      request.prompt,
+      decodeOpenAiCompatibleReply(json),
+    )
   }
 
   async *stream(
@@ -328,24 +397,18 @@ export class OpenAiCompatibleProvider implements ModelProvider {
       request.signal,
     )) {
       if (data === '[DONE]') break
-      let json: unknown
 
-      try {
-        json = JSON.parse(data) as unknown
-      } catch {
+      const chunk = streamChunk.safeParse(parseJsonFrame(data))
+
+      if (!chunk.success) {
         // Keep-alive comments and partial frames are not answers.
         continue
       }
 
-      const root = asRecord(json)
+      const root = chunk.data
+      const delta = root.choices?.[0]?.delta
 
-      const choice = Array.isArray(root?.choices)
-        ? asRecord(root.choices[0])
-        : null
-
-      const delta = readNested(choice, 'delta')
-
-      if (Array.isArray(delta?.tool_calls)) {
+      if (delta?.tool_calls) {
         for (const raw of delta.tool_calls) {
           const fragment = asRecord(raw)
           const index = readNumber(fragment, 'index') ?? 0
@@ -358,23 +421,23 @@ export class OpenAiCompatibleProvider implements ModelProvider {
         }
       }
 
-      const piece = typeof delta?.content === 'string' ? delta.content : ''
+      const piece = readMessageText(delta?.content)
 
       if (piece !== '') {
         produced += piece
         yield { type: 'text', delta: piece }
       }
 
-      const usage = readNested(root, 'usage')
+      const usage = root.usage
 
       if (usage) {
         const promptTokens =
-          readNumber(usage, 'prompt_tokens') ?? estimateTokens(request.prompt)
+          usage.prompt_tokens ?? estimateTokens(request.prompt)
 
         const completionTokens =
-          readNumber(usage, 'completion_tokens') ?? estimateTokens(produced)
+          usage.completion_tokens ?? estimateTokens(produced)
 
-        const reportedUsd = readNumber(usage, 'cost')
+        const reportedUsd = usage.cost ?? null
         reported = {
           type: 'usage',
           tokensUsed:
@@ -388,7 +451,7 @@ export class OpenAiCompatibleProvider implements ModelProvider {
                   promptTokens,
                   completionTokens,
                 ),
-          reportedModel: readString(root, 'model') ?? undefined,
+          reportedModel: root.model ?? undefined,
         }
       }
     }

@@ -48,10 +48,19 @@ const WIRE_PRODUCERS: ReadonlyMap<string, readonly WireProducer[]> = (() => {
   return byEntity
 })()
 
+/**
+ * A change event's stored payload: the `change_events.payload` object. The
+ * producers, webhooks and lineage consumers each read the keys they know, and
+ * the column holds arbitrary values, so the open value type is declared here
+ * once rather than at every use.
+ */
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The payload is an open jsonb object shared with webhook and lineage consumers that pass arbitrary values through; naming it once here is what keeps it out of every signature.
+export type ChangeEventPayload = Record<string, unknown>
+
 /** Wire mappings kept without a producer (see the catalogue notes). */
-const DEFENSIVE_WIRE_MAP: Record<string, Record<string, string>> = {
-  review_submission: { amend: 'notebook.amended' },
-}
+const DEFENSIVE_WIRE_MAP = new Map<string, ReadonlyMap<string, string>>([
+  ['review_submission', new Map([['amend', 'notebook.amended']])],
+])
 
 /** All known stable event types (for validation and documentation). */
 export const STABLE_EVENT_TYPES: readonly string[] = Object.freeze(
@@ -62,7 +71,7 @@ export const STABLE_EVENT_TYPES: readonly string[] = Object.freeze(
 
 function conditionHolds(
   condition: PayloadCondition | undefined,
-  payload: Record<string, unknown>,
+  payload: ChangeEventPayload,
 ): boolean {
   if (condition === undefined) return true
   const value = payload[condition.key]
@@ -84,7 +93,7 @@ function conditionHolds(
 export function mapEventType(
   entityType: string,
   operation: string,
-  payload: Record<string, unknown> = {},
+  payload: ChangeEventPayload = {},
 ): string | null {
   const producers = WIRE_PRODUCERS.get(entityType) ?? []
 
@@ -96,9 +105,7 @@ export function mapEventType(
       return producer.wireName
   }
 
-  if (!Object.hasOwn(DEFENSIVE_WIRE_MAP, entityType)) return null
-
-  return DEFENSIVE_WIRE_MAP[entityType][operation] ?? null
+  return DEFENSIVE_WIRE_MAP.get(entityType)?.get(operation) ?? null
 }
 
 /**
@@ -133,7 +140,7 @@ export interface ChangeEventInput {
   actorUserId: string | null
   actorCredentialId: string | null
   clientId: string | null
-  payload: Record<string, unknown>
+  payload: ChangeEventPayload
   createdAt: string
 }
 
@@ -162,7 +169,7 @@ export interface WebhookEventPayload {
   actorUserId: string | null
   actorCredentialId: string | null
   /** Lightweight event payload (never the full source of truth). */
-  payload: Record<string, unknown>
+  payload: ChangeEventPayload
   /** Event creation timestamp (ISO 8601). */
   createdAt: string
 }

@@ -87,6 +87,7 @@ export async function addSampleData(input: {
 
   for (const step of buildDemoSteps({ workspaceId, userId })) {
     if (SKIPPED_STEP.test(step.name)) continue
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- The steps build on each other (a project, then its records, then their data), so each one is written before the next reads it.
     await step.run(db)
   }
 

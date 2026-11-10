@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { executeCalculation, handleCalculation } from './calculation.server'
 import type { CalculationDeps, CalculationSnapshot } from './calculation.server'
+import type { JsonValue } from './workspace-admin'
 import { buildPersistedFormulaArtifact, parseFormula } from './formula-ir'
 
 vi.hoisted(() => {
@@ -76,7 +77,7 @@ describe('trusted calculation server', () => {
           _actor,
           _snapshot,
           outcome,
-          results: Array<Record<string, unknown>>,
+          results: Parameters<CalculationDeps['finalize']>[3],
         ) => ({
           recordId,
           inputRevision: 7,
@@ -212,7 +213,7 @@ describe('trusted calculation server', () => {
       finalize: vi.fn(),
     }
 
-    const request = (body: unknown) =>
+    const request = (body: JsonValue) =>
       new Request('http://sheetbase.test/api/calculations', {
         method: 'POST',
         body: JSON.stringify(body),

@@ -28,16 +28,28 @@ const RUN = {
   ],
 }
 
-function context(rows: Array<Record<string, unknown>>): LabToolContext {
+function context(rows: readonly unknown[]): LabToolContext {
   const seen: string[] = []
 
-  const client = {
-    list: (resource: string, query = '') => {
+  const client: DataClient = {
+    list: async <T>(resource: string, query = ''): Promise<T[]> => {
       seen.push(`${resource}${query}`)
 
-      return Promise.resolve(resource === 'plate_runs' ? rows : [])
+      // SAFETY: the plate lookup reads the plate-run rows this suite's fixture supplies, decoded by the tool itself.
+      return (resource === 'plate_runs' ? [...rows] : []) as T[]
     },
-  } as unknown as DataClient
+    count: async () => 0,
+    rpc: async <T>(): Promise<T> => {
+      // SAFETY: the plate proposal tools only read plate runs; no rpc answer is read by this suite.
+      return {} as T
+    },
+    insert: async <T>(): Promise<T> => {
+      // SAFETY: the plate proposal tools write nothing; no insert answer is read by this suite.
+      return {} as T
+    },
+    patch: async <T>(): Promise<T[]> => [],
+    remove: async () => [],
+  }
 
   return {
     client,

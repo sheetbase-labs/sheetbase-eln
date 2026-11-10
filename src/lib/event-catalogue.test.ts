@@ -16,13 +16,13 @@ import {
   mapEventType,
   STABLE_EVENT_TYPES,
 } from './webhook-events'
-import type { ChangeEventInput } from './webhook-events'
+import type { ChangeEventInput, ChangeEventPayload } from './webhook-events'
 import { DATASET_EVENT_FIXTURES } from '../features/datasets/events.fixture'
 
 /** A payload that satisfies the entry's `when` test, plus the default key. */
 function producerPayload(
   when: { key: string; equals?: string; notEquals?: string } | undefined,
-): Record<string, unknown> {
+): ChangeEventPayload {
   if (!when) return { key: 'value' }
 
   return {
@@ -34,7 +34,7 @@ function producerPayload(
 function baseInput(
   entityType: string,
   operation: string,
-  payload: Record<string, unknown> = { key: 'value' },
+  payload: ChangeEventPayload = { key: 'value' },
 ): ChangeEventInput {
   return {
     id: '00000000-0000-4000-8000-000000000001',
@@ -318,7 +318,7 @@ const LAB_EVENTS: ReadonlyArray<{
   name: string
   entityType: string
   operation: string
-  payload: Record<string, unknown>
+  payload: ChangeEventPayload
 }> = [
   {
     name: 'reagent.order.requested',
@@ -1232,7 +1232,13 @@ describe('lab feature events', () => {
   })
 })
 
-const SCIM_EVENTS = [
+/** The directory-sync events SCIM-01 delivers, with a payload that matches each. */
+const SCIM_EVENTS: Array<{
+  name: string
+  entityType: string
+  operation: string
+  payload: ChangeEventPayload
+}> = [
   {
     name: 'workspace.scim_token.created',
     entityType: 'scim_token',

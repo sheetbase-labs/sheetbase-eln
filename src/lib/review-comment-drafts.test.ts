@@ -8,7 +8,7 @@
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { DataClient } from './data-client'
+import { createDataClient } from './data-client'
 import {
   addDraft,
   clearDrafts,
@@ -44,12 +44,39 @@ function fakeStorage(): DraftStorage & { values: Map<string, string> } {
   }
 }
 
-function fakeClient(overrides?: {
-  rpc?: (name: string, args?: unknown) => Promise<unknown>
-}): DataClient {
+/** The `return_revision_with_comments` arguments the client sends. */
+interface ReturnWithCommentsArgs {
+  p_submission_id: string
+  p_note: string | null
+  p_expected_state: string
+  p_expected_revision_digest: string
+  p_comments: { body: string }[]
+}
+
+/** What the fake RPC answers: one return, or a single created comment. */
+type FakeRpcReply =
+  | {
+      decision: {
+        submissionId: string
+        revisionId: string
+        decision: string
+        state: string
+        decisionId: string
+        createdAt: string
+      }
+      commentIds: string[]
+    }
+  | { id: string }
+
+type FakeRpc = (
+  name: string,
+  args: ReturnWithCommentsArgs,
+) => Promise<FakeRpcReply>
+
+function fakeClient(overrides: { rpc?: FakeRpc } = {}) {
   const rpc = vi.fn(
-    overrides?.rpc ??
-      ((name: string, args?: unknown) =>
+    overrides.rpc ??
+      ((name, args) =>
         name === 'return_revision_with_comments'
           ? Promise.resolve({
               decision: {
@@ -60,14 +87,14 @@ function fakeClient(overrides?: {
                 decisionId: 'dec-1',
                 createdAt: '2026-10-10T00:00:00.000Z',
               },
-              commentIds: (
-                (args as { p_comments?: unknown[] }).p_comments ?? []
-              ).map((_, index) => `comment-${index + 1}`),
+              commentIds: args.p_comments.map(
+                (_, index) => `comment-${index + 1}`,
+              ),
             })
           : Promise.resolve({ id: 'comment-1' })),
   )
 
-  return { list: vi.fn(async () => []), rpc } as unknown as DataClient
+  return Object.assign(createDataClient(), { rpc })
 }
 
 describe('returnWithCommentsLabel', () => {
@@ -131,7 +158,7 @@ describe('draft persistence', () => {
 describe('returnWithDraftComments', () => {
   it('keeps drafts private until the return, then publishes them together', async () => {
     const client = fakeClient()
-    const rpc = client.rpc as unknown as ReturnType<typeof vi.fn>
+    const { rpc } = client
 
     const draft = newDraft({
       targetKind: 'revision',
@@ -180,7 +207,7 @@ describe('returnWithDraftComments', () => {
         Promise.reject(new Error('revision integrity digest mismatch')),
     })
 
-    const rpc = client.rpc as unknown as ReturnType<typeof vi.fn>
+    const { rpc } = client
 
     const draft = newDraft({
       targetKind: 'revision',
@@ -203,7 +230,7 @@ describe('returnWithDraftComments', () => {
 
   it('carries every draft in one return, in order', async () => {
     const client = fakeClient()
-    const rpc = client.rpc as unknown as ReturnType<typeof vi.fn>
+    const { rpc } = client
 
     const drafts = ['first', 'second', 'third'].map((body) =>
       newDraft({ targetKind: 'revision', target: {}, body }),
@@ -215,8 +242,7 @@ describe('returnWithDraftComments', () => {
       decision: { submissionId: 'sub-1', expectedRevisionDigest: DIGEST },
     })
 
-    const payload = (rpc.mock.calls[0][1] as { p_comments: { body: string }[] })
-      .p_comments
+    const payload = rpc.mock.calls[0][1].p_comments
 
     expect(payload.map((comment) => comment.body)).toEqual([
       'first',

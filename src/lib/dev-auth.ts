@@ -42,6 +42,23 @@ export function isDevAuthFreeEnabled(): boolean {
   return env.SHEETBASE_ENV === 'development' && env.SHEETBASE_DEV_AUTH_FREE
 }
 
+/** The identity columns the chrome needs from a person's `internal.user` row. */
+export interface DevIdentityRow {
+  name: string
+  email: string
+}
+
+/** Reads a person's `internal.user` row; the seam the session tests replace. */
+export type FindDevIdentity = (
+  userId: string,
+) => Promise<DevIdentityRow | undefined>
+
+const findDevIdentityRow: FindDevIdentity = (userId) =>
+  db.query.user.findFirst({
+    where: eq(user.id, userId),
+    columns: { name: true, email: true },
+  })
+
 /**
  * The name and email of the configured development identity. The app chrome and
  * the data-driven surfaces must name the same person the same way, so read the
@@ -50,11 +67,9 @@ export function isDevAuthFreeEnabled(): boolean {
  */
 async function devIdentity(
   userId: string,
+  findIdentity: FindDevIdentity,
 ): Promise<{ name: string; email: string }> {
-  const row = await db.query.user.findFirst({
-    where: eq(user.id, userId),
-    columns: { name: true, email: true },
-  })
+  const row = await findIdentity(userId)
 
   return {
     name: row?.name.trim() || DEV_USER_NAME,
@@ -152,12 +167,15 @@ async function ensurePersonaSession(
   return id
 }
 
-export async function getDevSession(headers?: Headers): Promise<AppSession> {
+export async function getDevSession(
+  headers?: Headers,
+  findIdentity: FindDevIdentity = findDevIdentityRow,
+): Promise<AppSession> {
   const viewAs = await resolveViewAs(headers)
   const id = viewAs?.userId ?? env.SHEETBASE_DEV_USER_ID
 
   return {
-    user: { id, ...(await devIdentity(id)) },
+    user: { id, ...(await devIdentity(id, findIdentity)) },
     session: {
       id: viewAs
         ? await ensurePersonaSession(viewAs.userId, viewAs.workspaceId)

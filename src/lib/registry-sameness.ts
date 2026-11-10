@@ -4,6 +4,7 @@
  * database keeps the key and warns before a repeat is added.
  */
 import type { DataClient } from './data-client'
+import type { ModelFieldRecordValues } from './model-fields'
 import { listExtensions } from './extensions/client'
 import { runSamenessKey } from './extensions/plugin-files'
 import type { ExtensionField } from './extensions/points'
@@ -68,6 +69,15 @@ export async function setSamenessValue(
   })
 }
 
+/** A record's custom-field values, as the model owner stores them. */
+type CustomFieldValues = ModelFieldRecordValues['customFields']
+
+/** What a rule reads from a record, and which required fields it could not find. */
+export interface SamenessInputs {
+  values: CustomFieldValues
+  missing: string[]
+}
+
 /**
  * What a rule reads: each declared input is taken from the model field of the
  * same name (ignoring case). The title is offered as `title`.
@@ -75,8 +85,8 @@ export async function setSamenessValue(
 export function samenessInputs(
   declared: readonly ExtensionField[],
   title: string,
-  customFields: Record<string, unknown>,
-): { values: Record<string, unknown>; missing: string[] } {
+  customFields: CustomFieldValues,
+): SamenessInputs {
   const byName = new Map(
     Object.entries(customFields).map(([key, value]) => [
       key.toLowerCase(),
@@ -84,7 +94,7 @@ export function samenessInputs(
     ]),
   )
 
-  const values: Record<string, unknown> = {}
+  const values: CustomFieldValues = {}
   const missing: string[] = []
 
   for (const field of declared) {
@@ -113,7 +123,7 @@ export async function samenessKeyFor(
   input: {
     modelKey: string
     title: string
-    customFields: Record<string, unknown>
+    customFields: CustomFieldValues
   },
 ): Promise<string | null> {
   const ruleName = await getSamenessRule(client, input.modelKey)

@@ -7,7 +7,7 @@ import {
   localToEpoch,
   planSchedule,
 } from './plan'
-import type { PlanInput, PlanPart } from './plan'
+import type { PlanInput, PlanPart, ResourceRules } from './plan'
 
 const READER = 'reader'
 const INCUBATOR = 'incubator'
@@ -297,7 +297,7 @@ describe('placing parts', () => {
 })
 
 describe('what stands in the way', () => {
-  const rules = (over: Record<string, unknown>) =>
+  const rules = (over: Partial<ResourceRules>) =>
     new Map([
       [
         READER,

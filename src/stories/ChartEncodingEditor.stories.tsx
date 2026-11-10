@@ -28,6 +28,7 @@ const emptySpec: ChartSpec = {
   datasets: [{ datasetId: DATASET_ID }],
   fields: {
     x: null,
+    // SAFETY: this story's starting spec deliberately holds no `y` binding; the editor renders an unset slot for it and the slot is only ever filled by a real binding.
     y: null as never,
     series: null,
     color: null,

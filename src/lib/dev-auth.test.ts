@@ -2,11 +2,9 @@
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ findFirst: vi.fn() }))
+import type { FindDevIdentity } from './dev-auth'
 
-vi.mock('#/db/client.server', () => ({
-  db: { query: { user: { findFirst: mocks.findFirst } } },
-}))
+const devUserId = '00000000-0000-4000-8000-000000000310'
 
 function stubEnv() {
   vi.stubEnv('DATABASE_URL', 'postgresql://app:app@localhost:5432/sheetbase')
@@ -32,7 +30,6 @@ describe('auth-free development session', () => {
     // its own SHEETBASE_DEV_USER_ID stub.
     vi.resetModules()
     stubEnv()
-    mocks.findFirst.mockReset()
   })
 
   afterAll(() => vi.unstubAllEnvs())
@@ -40,13 +37,19 @@ describe('auth-free development session', () => {
   it('names the configured identity from its internal.user row', async () => {
     // The data-driven surfaces (Members) read this same row, so the chrome must
     // not present a second name for one person.
-    vi.stubEnv('SHEETBASE_DEV_USER_ID', '00000000-0000-4000-8000-000000000310')
-    mocks.findFirst.mockResolvedValue({ name: 'Gareth P.' })
+    vi.stubEnv('SHEETBASE_DEV_USER_ID', devUserId)
+
+    const findIdentity: FindDevIdentity = () =>
+      Promise.resolve({
+        name: 'Gareth P.',
+        email: 'owner+000000000000@sheetbase.test',
+      })
+
     const { getDevSession } = await import('./dev-auth')
 
-    await expect(getDevSession()).resolves.toEqual({
+    await expect(getDevSession(undefined, findIdentity)).resolves.toEqual({
       user: {
-        id: '00000000-0000-4000-8000-000000000310',
+        id: devUserId,
         name: 'Gareth P.',
         email: 'owner+000000000000@sheetbase.test',
       },
@@ -56,10 +59,11 @@ describe('auth-free development session', () => {
 
   it('keeps the placeholder for an identity with no user row', async () => {
     vi.stubEnv('SHEETBASE_DEV_USER_ID', '00000000-0000-4000-8000-000000000001')
-    mocks.findFirst.mockResolvedValue(undefined)
+    const findIdentity: FindDevIdentity = () => Promise.resolve(undefined)
+
     const { getDevSession } = await import('./dev-auth')
 
-    await expect(getDevSession()).resolves.toEqual({
+    await expect(getDevSession(undefined, findIdentity)).resolves.toEqual({
       user: {
         id: '00000000-0000-4000-8000-000000000001',
         name: 'Fixture Owner',

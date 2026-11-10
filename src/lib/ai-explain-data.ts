@@ -35,8 +35,8 @@ export type Trend = 'rising' | 'falling' | 'flat'
 
 /** Least-squares direction of y against x (or against order when x is not a number). */
 export function trendOf(points: SeriesPoint[]): Trend | null {
-  const pairs = points.flatMap((point, index) =>
-    point.y === null ? [] : [[point.x ?? index, point.y] as [number, number]],
+  const pairs = points.flatMap((point, index): [number, number][] =>
+    point.y === null ? [] : [[point.x ?? index, point.y]],
   )
 
   if (pairs.length < 3) return null
@@ -67,8 +67,11 @@ export function trendOf(points: SeriesPoint[]): Trend | null {
       : 'falling'
 }
 
+/** A point that is plotted: its y value is a number. */
+export type PlottedPoint = SeriesPoint & { y: number }
+
 /** Points beyond 1.5 × the interquartile range from the quartiles. */
-export function outliersOf(points: SeriesPoint[]): SeriesPoint[] {
+export function outliersOf(points: SeriesPoint[]): PlottedPoint[] {
   const ys = points.flatMap((point) => (point.y === null ? [] : [point.y]))
 
   if (ys.length < 5) return []
@@ -82,7 +85,8 @@ export function outliersOf(points: SeriesPoint[]): SeriesPoint[] {
   const hi = stats.q3 + 1.5 * spread
 
   return points.filter(
-    (point) => point.y !== null && (point.y < lo || point.y > hi),
+    (point): point is PlottedPoint =>
+      point.y !== null && (point.y < lo || point.y > hi),
   )
 }
 
@@ -114,7 +118,7 @@ function seriesFacts(
         .slice(0, MAX_OUTLIERS)
         .map(
           (point) =>
-            `${point.label ? `${point.label} ` : ''}(${xLabel} ${point.x === null ? 'n/a' : fmt(point.x)}, ${yLabel} ${fmt(point.y as number)}${unit})`,
+            `${point.label ? `${point.label} ` : ''}(${xLabel} ${point.x === null ? 'n/a' : fmt(point.x)}, ${yLabel} ${fmt(point.y)}${unit})`,
         )
         .join('; ')}.`,
     )
@@ -128,8 +132,7 @@ export function chartFacts(
   title: string,
   chart: MaterialisedChart,
 ): string | null {
-  if ((chart.state as MaterialisedChart['state'] | undefined)?.kind !== 'ok')
-    return null
+  if (chart.state.kind !== 'ok') return null
 
   const visible = chart.series.filter(
     (series) => series.visible !== false && series.renderAs !== 'line',

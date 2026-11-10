@@ -50,12 +50,19 @@ export function readThemePref(): ThemePref {
   return readStoredThemePref() ?? 'system'
 }
 
+const DARK_MEDIA_QUERY = '(prefers-color-scheme: dark)'
+
+/** The System colour-scheme query, where the environment offers one. */
+function darkQuery(): MediaQueryList | null {
+  if (!('matchMedia' in window)) return null
+
+  return window.matchMedia(DARK_MEDIA_QUERY)
+}
+
 function prefersDark(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-color-scheme: dark)').matches
-  )
+  if (typeof window === 'undefined') return false
+
+  return darkQuery()?.matches ?? false
 }
 
 /** Apply a preference everywhere and notify every subscriber. */
@@ -109,13 +116,9 @@ export function initTheme() {
     if (stored) applyThemePref(stored)
   })
 
-  if (typeof window.matchMedia === 'function') {
-    window
-      .matchMedia('(prefers-color-scheme: dark)')
-      .addEventListener('change', () => {
-        if (readThemePref() === 'system') applyThemePref('system')
-      })
-  }
+  darkQuery()?.addEventListener('change', () => {
+    if (readThemePref() === 'system') applyThemePref('system')
+  })
 }
 
 /** Subscribe to preference changes; returns an unsubscribe. */

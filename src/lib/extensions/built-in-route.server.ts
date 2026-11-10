@@ -12,10 +12,16 @@ import {
 } from '../request-auth'
 import type { SessionAuthDeps } from '../request-auth'
 import { ensureBuiltInPlugins } from './built-in.server'
+import type { BuiltInResult } from './built-in.server'
 
 export interface BuiltInRouteDeps {
   auth: SessionAuthDeps
   makeClient: (token: string) => DataClient
+  /** Installs the built-in plugins; the route's own tests supply this seam. */
+  ensureBuiltIn?: (
+    client: DataClient,
+    context: { workspaceId: string; userId: string },
+  ) => Promise<BuiltInResult[]>
 }
 
 export async function handleBuiltInPlugins(
@@ -53,7 +59,8 @@ export async function handleBuiltInPlugins(
   }
 
   try {
-    const results = await ensureBuiltInPlugins(client, context)
+    const ensure = deps.ensureBuiltIn ?? ensureBuiltInPlugins
+    const results = await ensure(client, context)
 
     return Response.json({ plugins: results })
   } catch (error) {

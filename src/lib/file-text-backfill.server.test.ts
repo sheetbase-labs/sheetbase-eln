@@ -86,7 +86,9 @@ describe('backfillFileText', () => {
           })
 
           const rows = files
-            .filter((f) => !done.has(f.id) && (!page.after || f.id > page.after))
+            .filter(
+              (f) => !done.has(f.id) && (!page.after || f.id > page.after),
+            )
             .slice(0, page.limit)
             .map((f) => ({ id: f.id, storage_key: f.key, media_type: f.type }))
 

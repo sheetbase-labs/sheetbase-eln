@@ -164,8 +164,8 @@ export function readCompoundFile(bytes: Uint8Array): Map<string, Uint8Array> {
   let miniStream: Uint8Array | null = null
   let miniFat: number[] = []
 
-  const loadMini = () => {
-    if (miniStream) return
+  const loadMini = (): Uint8Array => {
+    if (miniStream) return miniStream
     miniStream =
       entries.length > 0
         ? joinSectors(chain(root.start, fat), root.size)
@@ -187,6 +187,8 @@ export function readCompoundFile(bytes: Uint8Array): Map<string, Uint8Array> {
     for (let i = 0; i + 4 <= bytesOfMiniFat.length; i += 4) {
       miniFat.push(mv.getUint32(i, true))
     }
+
+    return miniStream
   }
 
   const streams = new Map<string, Uint8Array>()
@@ -195,17 +197,14 @@ export function readCompoundFile(bytes: Uint8Array): Map<string, Uint8Array> {
     if (entry.type !== 2 || !entry.name) continue
 
     if (entry.size < miniCutoff) {
-      loadMini()
+      const mini = loadMini()
       const out = new Uint8Array(entry.size)
       let written = 0
 
       for (const sector of chain(entry.start, miniFat)) {
         const from = sector * miniSize
 
-        const piece = (miniStream as unknown as Uint8Array).subarray(
-          from,
-          from + miniSize,
-        )
+        const piece = mini.subarray(from, from + miniSize)
 
         out.set(
           piece.subarray(0, Math.min(piece.length, entry.size - written)),

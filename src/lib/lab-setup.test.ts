@@ -1,18 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import type { DataClient } from './data-client'
+import { createDataClient } from './data-client'
 import { fetchLabSetupSkipped, skipLabSetup } from './lab-setup'
 
 const WS = '00000000-0000-4000-8000-0000000003a1'
 
 function clientReturning(rows: unknown[]) {
-  return {
+  return Object.assign(createDataClient(), {
     list: vi.fn(async () => rows),
     rpc: vi.fn(async () => null),
-  } as unknown as DataClient & {
-    list: ReturnType<typeof vi.fn>
-    rpc: ReturnType<typeof vi.fn>
-  }
+  })
 }
 
 describe('fetchLabSetupSkipped', () => {

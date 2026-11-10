@@ -8,13 +8,12 @@ import { Button } from '#/components/ui/button'
 import { EmptyState } from '#/components/ui/empty-state'
 import { ObjectLink } from '#/components/ui/object-link'
 import { Status } from '#/components/ui/status'
+import type { Tone } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
 import { useModelApprovalIndex } from '#/components/models/model-approval-data'
 import { ReasonDialog } from '#/components/models/model-approval-panel'
 import {
-  canDecide,
   canWithdraw,
-  isWorkspaceWriter,
   latestRequest,
   pendingRequest,
   roleLabel,
@@ -25,7 +24,6 @@ import {
   withdrawApprovalRequest,
 } from '#/lib/approval-requests'
 import type { ApprovalRequest } from '#/lib/approval-requests'
-import { objectPath } from '#/lib/navigation'
 import { notebookDataClient, formatNotebookDateTime } from '#/lib/notebook-data'
 import { DataClientError } from '#/lib/data-client'
 import {
@@ -35,46 +33,24 @@ import {
 } from '#/lib/schema-evolution'
 import type { ColumnPromotion } from '#/lib/schema-evolution'
 import { useUserNames } from '#/lib/user-names'
+import {
+  COLUMN_PROMOTION_KIND,
+  columnPromotionsKey,
+  promotionNextStep,
+} from './column-promotions'
+import type { PromotionNextStep } from './column-promotions'
 
-export const COLUMN_PROMOTION_KIND = 'column_promotion'
+export {
+  COLUMN_PROMOTION_KIND,
+  columnPromotionsKey,
+  promotionNextStep,
+} from './column-promotions'
 
-export const columnPromotionsKey = (instanceId?: string) =>
-  ['ui-port', 'column-promotions', instanceId ?? 'workspace'] as const
+export type { PromotionNextStep } from './column-promotions'
 
 type Dialog = {
   kind: 'approve' | 'return' | 'withdraw'
   promotion: ColumnPromotion
-}
-
-/**
- * What a promotion needs next, from the person looking at it. The server
- * decides every one of these again; this only picks the button to show.
- */
-export type PromotionNextStep =
-  'decide' | 'waiting' | 'apply' | 'settle' | 'none'
-
-export function promotionNextStep(
-  request: ApprovalRequest | null,
-  userId: string | null | undefined,
-  role: string | null | undefined,
-  requestedBy: string,
-): PromotionNextStep {
-  if (!request) return 'none'
-
-  if (request.state === 'pending') {
-    return canDecide(request, userId, role) ? 'decide' : 'waiting'
-  }
-
-  if (!isWorkspaceWriter(role)) return 'none'
-
-  if (request.state === 'approved') {
-    return userId === requestedBy || role === 'steward' || role === 'admin'
-      ? 'apply'
-      : 'none'
-  }
-
-  // Returned or withdrawn: recording the outcome frees the column again.
-  return 'settle'
 }
 
 /**
@@ -85,6 +61,165 @@ function declinedLabel(state: string): string {
   return state === 'returned'
     ? t('notebook.columnPromotionsPanel.returned')
     : t('notebook.columnPromotionsPanel.withdrawn')
+}
+
+/** How one approval state is painted and named. */
+interface ApprovalBand {
+  tone: Tone
+  label: string
+}
+
+/** The band a promotion's approval shows: its tone and its word. */
+function requestBand(request: ApprovalRequest | null): ApprovalBand {
+  if (request?.state === 'approved')
+    return { tone: 'ok', label: t('notebook.columnPromotionsPanel.approved') }
+
+  if (request?.state === 'pending')
+    return {
+      tone: 'review',
+      label: t('notebook.columnPromotionsPanel.awaitingApproval'),
+    }
+
+  return {
+    tone: 'stored',
+    label: request?.state ?? t('notebook.columnPromotionsPanel.unknown'),
+  }
+}
+
+/** What the last decision says, when the request is no longer waiting. */
+function decisionLine(request: ApprovalRequest | null): string | null {
+  if (!request || request.state === 'pending') return null
+
+  if (request.state === 'approved')
+    return t('notebook.columnPromotionsPanel.approvedApplyItTo')
+
+  if (request.decision_reason)
+    return t('notebook.columnPromotionsPanel.declinedWithReason', {
+      outcome: declinedLabel(request.state),
+      reason: request.decision_reason,
+    })
+
+  return declinedLabel(request.state)
+}
+
+/** One promotion: what it asks for, where it stands, and what it needs next. */
+function PromotionRow({
+  promotion,
+  request,
+  step,
+  busy,
+  names,
+  userId,
+  role,
+  onDialog,
+  onApply,
+}: {
+  promotion: ColumnPromotion
+  request: ApprovalRequest | null
+  step: PromotionNextStep
+  busy: boolean
+  names: ReturnType<typeof useUserNames>
+  userId: string | undefined
+  role: string | null | undefined
+  onDialog: (dialog: Dialog) => void
+  onApply: (promotion: ColumnPromotion) => void
+}) {
+  const stewardRoles = request?.required_approver_roles ?? ['steward']
+  const band = requestBand(request)
+  const decision = decisionLine(request)
+
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-md border p-3">
+      <div className="grid min-w-0 flex-1 gap-0.5">
+        <span className="text-body">
+          {rich(
+            promotion.target === 'model_field'
+              ? 'notebook.columnPromotionsPanel.promoteToModel'
+              : 'notebook.columnPromotionsPanel.promoteToDataset',
+            {
+              sheet: (
+                <ObjectLink
+                  kind="sheet"
+                  id={promotion.sheet_instance_id}
+                  mono={false}
+                >
+                  {t('notebook.columnPromotionsPanel.itsSheet')}
+                </ObjectLink>
+              ),
+              model:
+                promotion.model_key ??
+                t('notebook.columnPromotionsPanel.recordFallback'),
+            },
+          )}
+        </span>
+        <span className="text-caption text-fg-muted">
+          {promotion.reason ??
+            t('notebook.columnPromotionsPanel.noReasonGiven')}{' '}
+          · {names.userLabel(promotion.requested_by_user_id)} ·{' '}
+          {formatNotebookDateTime(promotion.requested_at)}
+        </span>
+        {step === 'waiting' ? (
+          <span className="text-caption text-fg-muted">
+            {t('notebook.columnPromotionsPanel.waitingForStewardrolesThe', {
+              stewardRoles: stewardRoles.map(roleLabel).join(' or '),
+            })}
+          </span>
+        ) : null}
+        {decision ? (
+          <span className="text-caption text-fg-muted">{decision}</span>
+        ) : null}
+      </div>
+      <Status tone={band.tone}>{band.label}</Status>
+      <span className="flex flex-wrap gap-2">
+        {step === 'decide' ? (
+          <>
+            <Button
+              size="sm"
+              disabled={busy}
+              onClick={() => onDialog({ kind: 'return', promotion })}
+            >
+              {t('notebook.columnPromotionsPanel.return')}
+            </Button>
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={busy}
+              onClick={() => onDialog({ kind: 'approve', promotion })}
+            >
+              {t('notebook.columnPromotionsPanel.approve')}
+            </Button>
+          </>
+        ) : null}
+        {request &&
+        request.state === 'pending' &&
+        canWithdraw(request, userId, role) ? (
+          <Button
+            size="sm"
+            variant="quiet"
+            disabled={busy}
+            onClick={() => onDialog({ kind: 'withdraw', promotion })}
+          >
+            {t('notebook.columnPromotionsPanel.withdraw')}
+          </Button>
+        ) : null}
+        {step === 'apply' ? (
+          <Button
+            size="sm"
+            variant="primary"
+            disabled={busy}
+            onClick={() => onApply(promotion)}
+          >
+            {t('notebook.columnPromotionsPanel.applyPromotion')}
+          </Button>
+        ) : null}
+        {step === 'settle' ? (
+          <Button size="sm" disabled={busy} onClick={() => onApply(promotion)}>
+            {t('notebook.columnPromotionsPanel.keepTheColumnLocal')}
+          </Button>
+        ) : null}
+      </span>
+    </div>
+  )
 }
 
 export function ColumnPromotionsPanel({
@@ -209,9 +344,11 @@ export function ColumnPromotionsPanel({
             'notebook.columnPromotionsPanel.theValuesNowLiveDescription',
           ),
         })
-        const to = objectPath('dataset', result.datasetId)
-
-        if (to) void navigate({ to } as never)
+        // Applying lands on the dataset the column was promoted into.
+        void navigate({
+          to: '/datasets/$datasetId',
+          params: { datasetId: result.datasetId },
+        })
 
         return
       }
@@ -266,138 +403,24 @@ export function ColumnPromotionsPanel({
           approvals.data?.byVersion.get(promotion.id) ?? [],
         )
 
-        const step = promotionNextStep(
-          request,
-          user?.id,
-          role,
-          promotion.requested_by_user_id,
-        )
-
-        const stewardRoles = request?.required_approver_roles ?? ['steward']
-
         return (
-          <div
+          <PromotionRow
             key={promotion.id}
-            className="flex flex-wrap items-center gap-3 rounded-md border p-3"
-          >
-            <div className="grid min-w-0 flex-1 gap-0.5">
-              <span className="text-body">
-                {rich(
-                  promotion.target === 'model_field'
-                    ? 'notebook.columnPromotionsPanel.promoteToModel'
-                    : 'notebook.columnPromotionsPanel.promoteToDataset',
-                  {
-                    sheet: (
-                      <ObjectLink
-                        kind="sheet"
-                        id={promotion.sheet_instance_id}
-                        mono={false}
-                      >
-                        {t('notebook.columnPromotionsPanel.itsSheet')}
-                      </ObjectLink>
-                    ),
-                    model:
-                      promotion.model_key ??
-                      t('notebook.columnPromotionsPanel.recordFallback'),
-                  },
-                )}
-              </span>
-              <span className="text-caption text-fg-muted">
-                {promotion.reason ??
-                  t('notebook.columnPromotionsPanel.noReasonGiven')}{' '}
-                · {names.userLabel(promotion.requested_by_user_id)} ·{' '}
-                {formatNotebookDateTime(promotion.requested_at)}
-              </span>
-              {step === 'waiting' ? (
-                <span className="text-caption text-fg-muted">
-                  {t(
-                    'notebook.columnPromotionsPanel.waitingForStewardrolesThe',
-                    { stewardRoles: stewardRoles.map(roleLabel).join(' or ') },
-                  )}
-                </span>
-              ) : null}
-              {request && request.state !== 'pending' ? (
-                <span className="text-caption text-fg-muted">
-                  {request.state === 'approved'
-                    ? t('notebook.columnPromotionsPanel.approvedApplyItTo')
-                    : request.decision_reason
-                      ? t('notebook.columnPromotionsPanel.declinedWithReason', {
-                          outcome: declinedLabel(request.state),
-                          reason: request.decision_reason,
-                        })
-                      : declinedLabel(request.state)}
-                </span>
-              ) : null}
-            </div>
-            <Status
-              tone={
-                request?.state === 'approved'
-                  ? 'ok'
-                  : request?.state === 'pending'
-                    ? 'review'
-                    : 'stored'
-              }
-            >
-              {request?.state === 'approved'
-                ? t('notebook.columnPromotionsPanel.approved')
-                : request?.state === 'pending'
-                  ? t('notebook.columnPromotionsPanel.awaitingApproval')
-                  : (request?.state ??
-                    t('notebook.columnPromotionsPanel.unknown'))}
-            </Status>
-            <span className="flex flex-wrap gap-2">
-              {step === 'decide' ? (
-                <>
-                  <Button
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => setDialog({ kind: 'return', promotion })}
-                  >
-                    {t('notebook.columnPromotionsPanel.return')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    disabled={busy}
-                    onClick={() => setDialog({ kind: 'approve', promotion })}
-                  >
-                    {t('notebook.columnPromotionsPanel.approve')}
-                  </Button>
-                </>
-              ) : null}
-              {request &&
-              request.state === 'pending' &&
-              canWithdraw(request, user?.id, role) ? (
-                <Button
-                  size="sm"
-                  variant="quiet"
-                  disabled={busy}
-                  onClick={() => setDialog({ kind: 'withdraw', promotion })}
-                >
-                  {t('notebook.columnPromotionsPanel.withdraw')}
-                </Button>
-              ) : null}
-              {step === 'apply' ? (
-                <Button
-                  size="sm"
-                  variant="primary"
-                  disabled={busy}
-                  onClick={() => apply.mutate(promotion)}
-                >
-                  {t('notebook.columnPromotionsPanel.applyPromotion')}
-                </Button>
-              ) : null}
-              {step === 'settle' ? (
-                <Button
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => apply.mutate(promotion)}
-                >
-                  {t('notebook.columnPromotionsPanel.keepTheColumnLocal')}
-                </Button>
-              ) : null}
-            </span>
-          </div>
+            promotion={promotion}
+            request={request}
+            step={promotionNextStep(
+              request,
+              user?.id,
+              role,
+              promotion.requested_by_user_id,
+            )}
+            busy={busy}
+            names={names}
+            userId={user?.id}
+            role={role}
+            onDialog={setDialog}
+            onApply={(next) => apply.mutate(next)}
+          />
         )
       })}
       <ReasonDialog

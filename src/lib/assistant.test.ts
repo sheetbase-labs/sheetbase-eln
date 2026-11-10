@@ -52,17 +52,20 @@ const recordRow = {
 
 function fakeClient(): DataClient {
   return {
-    list: vi.fn(async (resource: string) => {
-      if (resource === 'records') return [recordRow]
+    list: vi.fn(async (resource: string): Promise<never[]> => {
+      if (resource === 'records') {
+        // SAFETY: the assistant reads the record row this suite's fixture supplies; the fake answers it for every row contract it is asked for.
+        return [recordRow] as never[]
+      }
 
       return []
     }),
     count: vi.fn(async () => 0),
-    rpc: vi.fn(async () => ({})),
-    insert: vi.fn(async () => ({})),
+    rpc: vi.fn(),
+    insert: vi.fn(),
     patch: vi.fn(async () => []),
     remove: vi.fn(async () => []),
-  } as unknown as DataClient
+  }
 }
 
 function deps(overrides: Partial<AssistantDeps> = {}): AssistantDeps {

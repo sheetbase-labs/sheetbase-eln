@@ -1,23 +1,6 @@
 import { t } from '#/copy'
 import * as React from 'react'
-import {
-  columnVisibilityFeature,
-  createPaginatedRowModel,
-  createSortedRowModel,
-  flexRender,
-  metaHelper,
-  rowPaginationFeature,
-  rowSelectionFeature,
-  rowSortingFeature,
-  sortFn_alphanumeric,
-  sortFn_alphanumericCaseSensitive,
-  sortFn_basic,
-  sortFn_datetime,
-  sortFn_text,
-  sortFn_textCaseSensitive,
-  tableFeatures,
-  useTable,
-} from '@tanstack/react-table'
+import { flexRender, useTable } from '@tanstack/react-table'
 import type {
   ColumnDef,
   ColumnVisibilityState,
@@ -45,47 +28,13 @@ import {
 } from '#/components/ui/dropdown-menu'
 import { cn } from '#/lib/utils'
 
-// Column width/alignment hints consumed by the TableHead/TableCell renderers
-// so the dense grid stays aligned without per-cell className repetition.
-//
-// v9 types `columnDef.meta` from the feature bundle's `columnMeta` slot, which
-// wins over the global `ColumnMeta` interface — a v8 `declare module`
-// augmentation is ignored by any table built from a bundle, so the type is
-// exported and registered instead.
-export interface DataTableColumnMeta {
-  className?: string
-}
+import { dataTableFeatures } from './data-table-features'
+import type { DataTableFeatures } from './data-table-features'
 
-/**
- * The features this table declares. v9 asks every table to name the features
- * it uses up front, and the bundle carries the row models and the `sortFns`
- * registry with them.
- *
- * `sortFns` is load-bearing, not decoration: a string `sortFn` resolves
- * against this registry alone, and the default `sortFn: 'auto'` infers one of
- * its names from the first rows' values — a partial map makes ordinary string
- * columns warn in development and fall back to unsorted order.
- */
-export const dataTableFeatures = tableFeatures({
-  columnVisibilityFeature,
-  rowSortingFeature,
-  rowPaginationFeature,
-  rowSelectionFeature,
-  sortedRowModel: createSortedRowModel(),
-  paginatedRowModel: createPaginatedRowModel(),
-  sortFns: {
-    alphanumeric: sortFn_alphanumeric,
-    alphanumericCaseSensitive: sortFn_alphanumericCaseSensitive,
-    basic: sortFn_basic,
-    datetime: sortFn_datetime,
-    text: sortFn_text,
-    textCaseSensitive: sortFn_textCaseSensitive,
-  },
-  columnMeta: metaHelper<DataTableColumnMeta>(),
-})
-
-/** The feature set `dataTableFeatures` registers; annotate columns with it. */
-export type DataTableFeatures = typeof dataTableFeatures
+export type {
+  DataTableColumnMeta,
+  DataTableFeatures,
+} from './data-table-features'
 
 interface DataTableProps<TData extends RowData> {
   /** Column defs for this table. v9 types a column's value per column, so the
@@ -171,8 +120,11 @@ function DataTable<TData extends RowData>({
     )
       return
     lastSelected.current = chosen
+    // react-doctor-disable-next-line react-doctor/no-pass-data-to-parent -- The chosen rows are derived from the table's own selection and the host owns the bulk actions; notifying it is the only way it learns which rows the reader ticked, and there is no render-time channel for it.
+    // react-doctor-disable-next-line react-doctor/no-pass-live-state-to-parent -- Selection is live table state, so the host must be told whenever it settles rather than on a snapshot taken at the click.
+    // react-doctor-disable-next-line react-doctor/no-prop-callback-in-effect -- The callback is the host's selection store, not a mirror of a prop; the ref guard above keeps it from looping.
     onSelectionChange(chosen)
-  }, [rowSelection, data])
+  }, [rowSelection, data, getRowId, onSelectionChange])
 
   // v9's `useTable` returns a new object whenever table state changes, so the
   // reset must not depend on the table instance: an effect that did would
@@ -180,6 +132,7 @@ function DataTable<TData extends RowData>({
   // property of the table instance, so its identity is stable across renders.
   const { setPageIndex } = table
   React.useEffect(() => {
+    // react-doctor-disable-next-line react-doctor/no-adjust-state-on-prop-change -- New rows make the old page number meaningless; `autoResetPageIndex` would also reset on every sort, which this table deliberately preserves.
     if (enablePagination) setPageIndex(0)
   }, [data, enablePagination, setPageIndex])
 
@@ -209,6 +162,7 @@ function DataTable<TData extends RowData>({
                         icon={column.getIsVisible() ? 'check' : undefined}
                         onClick={() => column.toggleVisibility()}
                       >
+                        {/* oxlint-disable-next-line anti-slop/no-runtime-typeof -- TanStack types a column header as a string or a renderer; this menu shows the string form and names the column when it is not one. */}
                         {typeof column.columnDef.header === 'string'
                           ? column.columnDef.header
                           : column.id}

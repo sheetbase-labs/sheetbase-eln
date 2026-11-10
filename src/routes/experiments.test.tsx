@@ -14,24 +14,33 @@ import {
 import * as React from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { notebookDataClient } from '#/lib/notebook-data'
+
 import { Route } from './experiments'
 
-const ExperimentsRoute = Route.options.component as React.ComponentType
+/** The route options the file-route factory stores; this suite reads `component`. */
+interface FileRouteOptions {
+  component?: React.ComponentType
+}
 
-const router = vi.hoisted<{ search: Record<string, unknown> }>(() => ({
-  search: {},
-}))
+/** The search the list accepts, as the route's own validator narrows it. */
+interface ExperimentsSearch {
+  tab?: string
+  q?: string
+  project?: string
+  older?: boolean
+  group?: 'project' | 'owner'
+}
 
-const dataClient = vi.hoisted(() => ({
-  list: vi.fn(),
-  count: vi.fn(),
-  rpc: vi.fn(),
-}))
+const router = vi.hoisted<{ search: ExperimentsSearch }>(() => ({ search: {} }))
+
+const dataClient = { list: vi.fn(), count: vi.fn(), rpc: vi.fn() }
 
 const navigateSpy = vi.hoisted(() => vi.fn())
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time, and this suite renders the route component on its own with the router context and search the shell would supply.
 vi.mock('@tanstack/react-router', () => ({
-  createFileRoute: () => (config: Record<string, unknown>) => ({
+  createFileRoute: () => (config: FileRouteOptions) => ({
     useSearch: () => router.search,
     useRouteContext: () => ({
       context: {
@@ -42,19 +51,16 @@ vi.mock('@tanstack/react-router', () => ({
     options: config,
   }),
   useNavigate: () => navigateSpy,
-  useRouterState: ({
-    select,
-  }: {
-    select: (state: { location: { pathname: string } }) => unknown
-  }) => select({ location: { pathname: '/experiments' } }),
+  useRouterState: (options: {
+    select: (state: { location: { pathname: string } }) => boolean
+  }) => options.select({ location: { pathname: '/experiments' } }),
   Outlet: () => null,
-  redirect: (options: unknown) => options,
+  redirect: (options: { to: string; search?: Record<string, string> }) =>
+    options,
   Link: ({ children }: { children?: React.ReactNode }) => (
     <a href="#">{children}</a>
   ),
 }))
-
-vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: dataClient }))
 
 /**
  * jsdom has no layout: the grid's virtualiser measures a zero-height viewport
@@ -62,6 +68,7 @@ vi.mock('#/lib/notebook-data', () => ({ notebookDataClient: dataClient }))
  * double returns the full row range, the same rows the browser renders; the
  * real virtualiser is exercised in `tests/browser/registry-grid.test.ts`.
  */
+// oxlint-disable-next-line anti-slop/no-module-mocking -- jsdom has no layout: the real virtualiser measures a zero-height viewport and renders no rows, so this double returns the full range the browser would; the real one is exercised in tests/browser/registry-grid.test.ts.
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: ({ count }: { count: number }) => ({
     getVirtualItems: () =>
@@ -79,11 +86,12 @@ vi.mock('@tanstack/react-virtual', () => ({
   }),
 }))
 
-vi.mock('#/lib/user-names', () => ({
-  useUserNames: () => ({ userLabel: (id: string) => id }),
-}))
-
 function renderList() {
+  const ExperimentsRoute = Route.options.component
+
+  if (!ExperimentsRoute)
+    throw new Error('the experiments route declares no component')
+
   return render(
     <QueryClientProvider
       client={
@@ -97,6 +105,9 @@ function renderList() {
 
 beforeEach(() => {
   router.search = {}
+  vi.spyOn(notebookDataClient, 'list').mockImplementation(dataClient.list)
+  vi.spyOn(notebookDataClient, 'count').mockImplementation(dataClient.count)
+  vi.spyOn(notebookDataClient, 'rpc').mockImplementation(dataClient.rpc)
   dataClient.list.mockResolvedValue([])
   dataClient.count.mockResolvedValue(0)
   dataClient.rpc.mockImplementation(async (name: string) => {
@@ -119,6 +130,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  vi.restoreAllMocks()
   vi.clearAllMocks()
 })
 

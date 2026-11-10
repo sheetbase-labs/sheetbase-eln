@@ -75,18 +75,21 @@ export interface ScheduledReport {
 }
 
 function asKind(value: string): ReportKind {
+  // SAFETY: `kind` is stored under chk_scheduled_reports_kind, which admits exactly REPORT_KINDS, and the check above narrows to one of them.
   return (REPORT_KINDS as readonly string[]).includes(value)
     ? (value as ReportKind)
     : 'spend'
 }
 
 function asFrequency(value: string): Frequency {
+  // SAFETY: `frequency` is stored under chk_scheduled_reports_frequency, which admits exactly FREQUENCIES, and the check above narrows to one of them.
   return (FREQUENCIES as readonly string[]).includes(value)
     ? (value as Frequency)
     : 'weekly'
 }
 
 function asPeriod(value: string): ScheduledPeriod {
+  // SAFETY: `period` is stored under chk_scheduled_reports_period, which admits exactly SCHEDULED_PERIODS, and the check above narrows to one of them.
   return (SCHEDULED_PERIODS as readonly string[]).includes(value)
     ? (value as ScheduledPeriod)
     : 'previous_week'
@@ -206,6 +209,7 @@ export function describeSchedule(report: {
   }
 
   if (report.frequency === 'weekly') {
+    // SAFETY: api.scheduled_reports stores `weekday` under chk_scheduled_reports_weekday (0 to 6), and the copy catalogue has a day name for each of those keys.
     return t('spend.schedule.sendsWeekly', {
       weekday: t(
         `spend.schedule.weekdays.${String(report.weekday) as '0' | '1' | '2' | '3' | '4' | '5' | '6'}`,

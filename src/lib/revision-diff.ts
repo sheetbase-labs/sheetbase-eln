@@ -5,8 +5,14 @@ import type { FrozenSheetEvidence } from './sheet-evidence'
 /** A stored JSON object: what a frozen sheet keeps its fields, values and calculations as. */
 const jsonObjectSchema = z.record(z.string(), z.json())
 
+/** One value as a stored JSON object holds it. */
+type StoredJson = z.infer<typeof jsonObjectSchema>[string]
+
+/** A stored JSON object, as `jsonObjectSchema` decodes it. */
+type StoredJsonObject = z.infer<typeof jsonObjectSchema>
+
 /** Every stored object in a JSON array, keeping the order the sheet wrote. */
-function storedObjects(value: unknown): Record<string, unknown>[] {
+function storedObjects(value: StoredJson): StoredJsonObject[] {
   if (!Array.isArray(value)) return []
 
   return value.flatMap((entry) => {
@@ -981,9 +987,11 @@ function sheetTables(evidence: FrozenSheetEvidence[] = []): RevisionEntity[] {
     }
 
     const fields = storedObjects(sheet.instanceState.localFields)
+
     const storedValues = jsonObjectSchema.safeParse(
       sheet.instanceState.localValues,
     )
+
     const values = storedValues.success ? storedValues.data : {}
 
     return {

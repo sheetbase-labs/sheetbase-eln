@@ -31,12 +31,12 @@ const OID_SIGNED_DATA = '1.2.840.113549.1.7.2'
 const OID_TST_INFO = '1.2.840.113549.1.9.16.1.4'
 const OID_MESSAGE_DIGEST = '1.2.840.113549.1.9.4'
 
-const HASH_BY_OID: Record<string, string> = {
-  '1.3.14.3.2.26': 'sha1',
-  '2.16.840.1.101.3.4.2.1': 'sha256',
-  '2.16.840.1.101.3.4.2.2': 'sha384',
-  '2.16.840.1.101.3.4.2.3': 'sha512',
-}
+const HASH_BY_OID = new Map([
+  ['1.3.14.3.2.26', 'sha1'],
+  ['2.16.840.1.101.3.4.2.1', 'sha256'],
+  ['2.16.840.1.101.3.4.2.2', 'sha384'],
+  ['2.16.840.1.101.3.4.2.3', 'sha512'],
+])
 
 export interface TimestampRequest {
   der: Uint8Array
@@ -100,8 +100,7 @@ function parseGeneralizedTime(text: string): string {
 
   if (!m) throw new TimestampError('unreadable time in the token')
 
-  const millis =
-    ((m[7] as string | undefined) ?? '').padEnd(3, '0').slice(0, 3) || '000'
+  const millis = (m.at(7) ?? '').padEnd(3, '0').slice(0, 3) || '000'
 
   return `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}.${millis}Z`
 }
@@ -111,7 +110,7 @@ function hex(bytes: Uint8Array): string {
 }
 
 function child(nodes: DerNode[], index: number): DerNode {
-  const node = nodes[index] as DerNode | undefined
+  const node = nodes.at(index)
 
   if (!node) throw new TimestampError('the token is incomplete')
 
@@ -119,7 +118,7 @@ function child(nodes: DerNode[], index: number): DerNode {
 }
 
 /** Splits a TimeStampResp into the status and the bare token (ContentInfo). */
-function splitResponse(resp: Uint8Array): { status: number; token: DerNode } {
+function splitResponse(resp: Uint8Array) {
   const top = readDer(resp, 0)
 
   if (top.tag !== 0x30) throw new TimestampError('not a timestamp response')
@@ -245,7 +244,7 @@ function verifyInner(resp: Uint8Array, options: VerifyOptions): TimestampInfo {
     child(derChildren(resp, child(signerInfo, 2)), 0),
   )
 
-  const hashName = HASH_BY_OID[digestOid]
+  const hashName = HASH_BY_OID.get(digestOid)
 
   if (!hashName) throw new TimestampError('unsupported digest in the token')
   const attrsNode = child(signerInfo, 3)
@@ -365,7 +364,7 @@ export async function requestTimestamp(
   const res = await doFetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/timestamp-query' },
-    body: request.der as unknown as BodyInit,
+    body: new Uint8Array(request.der),
     signal: AbortSignal.timeout(deps.timeoutMs ?? 15_000),
   })
 

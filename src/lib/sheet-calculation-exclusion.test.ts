@@ -133,7 +133,9 @@ const compositionRow: ComposedSheetRow = {
   compositionOffset: 0,
 }
 
-function snapshot(flags: DatasetValueFlag[]) {
+function snapshot(
+  flags: DatasetValueFlag[],
+): Parameters<typeof calculateSheetSnapshotReport>[0] {
   const boundProjection = projectBoundColumns({
     definitionVersionId: ids.definitionVersion,
     configuration,
@@ -177,7 +179,7 @@ function snapshot(flags: DatasetValueFlag[]) {
       boundProjection,
     },
     flags,
-  } as Parameters<typeof calculateSheetSnapshotReport>[0]
+  }
 }
 
 const activeFlag: DatasetValueFlag = {

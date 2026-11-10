@@ -1,4 +1,6 @@
-import { asRecord, joinUrl, postProviderJson } from './http'
+import { z } from 'zod'
+
+import { joinUrl, postProviderJson } from './http'
 import { AiProviderError } from './types'
 import type { ProviderDeps, ProviderProfile } from './types'
 
@@ -88,71 +90,96 @@ export function fitVector(vector: readonly number[], providerId: string) {
   return fitted.map((value) => value * scale)
 }
 
+/** The OpenAI-shaped envelope, decoded once; anything else is refused. */
+const embeddingEnvelopeSchema = z.object({
+  data: z.array(z.unknown()),
+  usage: z
+    .object({
+      total_tokens: z.number().optional().catch(undefined),
+      prompt_tokens: z.number().optional().catch(undefined),
+    })
+    .optional()
+    .catch(undefined),
+  model: z.string().optional().catch(undefined),
+})
+
+/** One provider entry: its position hint and the vector it labels. */
+const embeddingEntrySchema = z.object({
+  index: z.number().optional().catch(undefined),
+  embedding: z.unknown(),
+})
+
+/** A vector is numbers all the way down; NaN reaches `fitVector`'s own refusal. */
+const vectorSchema = z.array(z.union([z.number(), z.nan()]))
+
 export function buildEmbeddingRequest(
   profile: ProviderProfile,
   texts: readonly string[],
 ) {
-  return {
+  const request = {
     model: profile.embeddingModel,
     input: texts,
-    // Models that can be shortened (OpenAI text-embedding-3, many local ones)
-    // are asked for the stored width; the rest ignore it or are padded.
-    ...(profile.kind === 'openai-compatible' || profile.kind === 'openrouter'
-      ? { dimensions: EMBEDDING_DIMENSIONS }
-      : {}),
     encoding_format: 'float',
   }
+
+  // Models that can be shortened (OpenAI text-embedding-3, many local ones)
+  // are asked for the stored width; the rest ignore it or are padded.
+  return profile.kind === 'openai-compatible' || profile.kind === 'openrouter'
+    ? { ...request, dimensions: EMBEDDING_DIMENSIONS }
+    : request
 }
 
 export function parseEmbeddingResponse(
   profile: ProviderProfile,
   texts: readonly string[],
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the provider's HTTP body arrives unparsed; the schema below is the decoder for it.
   json: unknown,
 ): EmbeddingResult {
-  const root = asRecord(json)
-  const data = root?.data
-  if (!Array.isArray(data) || data.length !== texts.length) {
+  const payload = embeddingEnvelopeSchema.safeParse(json)
+
+  if (!payload.success || payload.data.data.length !== texts.length) {
     throw new AiProviderError(
       'response_invalid',
       'The embedding response did not match the request',
       { providerId: profile.id },
     )
   }
-  const ordered = [...data]
-    .map((entry, position) => ({
-      index:
-        typeof asRecord(entry)?.index === 'number'
-          ? (asRecord(entry)!.index as number)
-          : position,
-      embedding: asRecord(entry)?.embedding,
-    }))
+
+  const ordered = payload.data.data
+    .map((entry, position) => {
+      const decoded = embeddingEntrySchema.safeParse(entry)
+
+      return {
+        index: decoded.success ? (decoded.data.index ?? position) : position,
+        embedding: decoded.success ? decoded.data.embedding : undefined,
+      }
+    })
     .sort((a, b) => a.index - b.index)
   const vectors = ordered.map((entry) => {
-    if (
-      !Array.isArray(entry.embedding) ||
-      !entry.embedding.every((n) => typeof n === 'number')
-    ) {
+    const vector = vectorSchema.safeParse(entry.embedding)
+
+    if (!vector.success) {
       throw new AiProviderError(
         'response_invalid',
         'The embedding response held something that is not a vector',
         { providerId: profile.id },
       )
     }
-    return fitVector(entry.embedding, profile.id)
+
+    return fitVector(vector.data, profile.id)
   })
-  const usage = asRecord(root?.usage)
+
   const reported =
-    typeof usage?.total_tokens === 'number'
-      ? usage.total_tokens
-      : typeof usage?.prompt_tokens === 'number'
-        ? usage.prompt_tokens
-        : texts.reduce((n, text) => n + Math.ceil(text.length / 4), 0)
+    payload.data.usage?.total_tokens ??
+    payload.data.usage?.prompt_tokens ??
+    texts.reduce((n, text) => n + Math.ceil(text.length / 4), 0)
+
   return {
     vectors,
     tokens: reported,
     model:
-      typeof root?.model === 'string' && root.model !== ''
-        ? root.model
+      payload.data.model !== undefined && payload.data.model !== ''
+        ? payload.data.model
         : (profile.embeddingModel ?? profile.model),
   }
 }

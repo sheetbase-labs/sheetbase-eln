@@ -38,19 +38,43 @@ const scientificTablesSchema = z.array(
   }),
 )
 
+/** One ProseMirror-style node: its own text, and the nodes inside it. */
+interface ProseNode {
+  text?: string
+  content?: ProseNode[]
+}
+
+/** A stored body: one node, or a list of the document's top-level nodes. */
+type ProseContent = ProseNode | ProseNode[]
+
+/** A frozen rich-text node as the database stores it. */
+const proseNode: z.ZodType<ProseNode> = z.lazy(() =>
+  z.object({
+    text: z.string().optional(),
+    content: z.array(proseNode).optional(),
+  }),
+)
+
+/** A stored rich-text document: its top-level nodes, one rendered line each. */
+const proseDocument = z.object({ content: z.array(proseNode).optional() })
+
+/** A stored rich-text body: one node, or a list of them. */
+const proseBody = z.union([proseNode, z.array(proseNode)])
+
+/** One frozen block: the payload it carries, of which this reads `doc`. */
+const frozenBlocks = z.array(
+  z.object({
+    payload: z.object({ doc: proseDocument.optional() }).optional(),
+  }),
+)
+
 /** Flatten a ProseMirror-style node to its text, inline children joined. */
-function nodeText(node: unknown): string {
+function nodeText(node: ProseContent | null | undefined): string {
+  if (!node) return ''
+
   if (Array.isArray(node)) return node.map(nodeText).join('')
 
-  if (!node || typeof node !== 'object') return ''
-  const record = node as Record<string, unknown>
-  const own = typeof record.text === 'string' ? record.text : ''
-
-  const children = Array.isArray(record.content)
-    ? (record.content as unknown[]).map(nodeText).join('')
-    : ''
-
-  return own + children
+  return (node.text ?? '') + (node.content ?? []).map(nodeText).join('')
 }
 
 /**
@@ -58,21 +82,20 @@ function nodeText(node: unknown): string {
  * (payload.doc) and file/link references; only text is rendered, one top-level
  * document node per line.
  */
-export function blockSnapshotLines(snapshot: unknown): string[] {
-  if (!Array.isArray(snapshot)) return []
+export function blockSnapshotLines(
+  snapshot: ClientPortalRecordDocument['blockSnapshot'],
+): string[] {
+  const blocks = frozenBlocks.safeParse(snapshot)
+
+  if (!blocks.success) return []
   const lines: string[] = []
 
-  for (const block of snapshot) {
-    if (!block || typeof block !== 'object') continue
+  for (const block of blocks.data) {
+    const doc = proseDocument.safeParse(block.payload?.doc)
 
-    const payload = (block as Record<string, unknown>).payload as
-      Record<string, unknown> | undefined
+    if (!doc.success) continue
 
-    const doc = payload?.doc as Record<string, unknown> | undefined
-
-    if (!Array.isArray(doc?.content)) continue
-
-    for (const node of doc.content as unknown[]) {
+    for (const node of doc.data.content ?? []) {
       const text = nodeText(node).replace(/\s+/g, ' ').trim()
 
       if (text) lines.push(text)
@@ -83,13 +106,25 @@ export function blockSnapshotLines(snapshot: unknown): string[] {
 }
 
 /** Section payloads of a report are JSON blobs; render their text compactly. */
-function reportSectionLines(payload: unknown): string[] {
+function reportSectionLines(
+  payload: ClientPortalRecordDocument['reportSections'][number]['payload'],
+): string[] {
+  const asText = z.string().safeParse(payload)
+
+  if (asText.success) return asText.data.trim() ? [asText.data] : []
+
   if (payload === null || payload === undefined) return []
 
-  if (typeof payload === 'string') return payload.trim() ? [payload] : []
-  const text = nodeText(payload).replace(/\s+/g, ' ').trim()
+  const body = proseBody.safeParse(payload)
 
-  return text ? [text] : [JSON.stringify(payload)]
+  const flattened = body.success
+    ? nodeText(body.data).replace(/\s+/g, ' ').trim()
+    : ''
+
+  if (flattened) return [flattened]
+
+  // Anything that is not rich text is shown as the JSON that was stored.
+  return [JSON.stringify(payload)]
 }
 
 /** Greedy word wrap to a fixed character width for the standard font. */
@@ -147,33 +182,33 @@ function asDate(value: string | null): string {
  * notation (× 10⁶, µg, ≤); map the common cases to ASCII and drop anything
  * else rather than fail the download.
  */
-const WIN_ANSI_FALLBACK: Record<string, string> = {
-  '\u2070': '^0',
-  '\u00b9': '^1',
-  '\u00b2': '^2',
-  '\u00b3': '^3',
-  '\u2074': '^4',
-  '\u2075': '^5',
-  '\u2076': '^6',
-  '\u2077': '^7',
-  '\u2078': '^8',
-  '\u2079': '^9',
-  '\u207b': '^-',
-  '\u207a': '^+',
-  '\u00d7': 'x',
-  '\u00b5': 'u',
-  '\u03bc': 'u',
-  '\u2264': '<=',
-  '\u2265': '>=',
-  '\u2192': '->',
-  '\u2013': '-',
-  '\u2014': '-',
-  '\u2018': "'",
-  '\u2019': "'",
-  '\u201c': '"',
-  '\u201d': '"',
-  '\u2026': '...',
-}
+const WIN_ANSI_FALLBACK = new Map<string, string>([
+  ['\u2070', '^0'],
+  ['\u00b9', '^1'],
+  ['\u00b2', '^2'],
+  ['\u00b3', '^3'],
+  ['\u2074', '^4'],
+  ['\u2075', '^5'],
+  ['\u2076', '^6'],
+  ['\u2077', '^7'],
+  ['\u2078', '^8'],
+  ['\u2079', '^9'],
+  ['\u207b', '^-'],
+  ['\u207a', '^+'],
+  ['\u00d7', 'x'],
+  ['\u00b5', 'u'],
+  ['\u03bc', 'u'],
+  ['\u2264', '<='],
+  ['\u2265', '>='],
+  ['\u2192', '->'],
+  ['\u2013', '-'],
+  ['\u2014', '-'],
+  ['\u2018', "'"],
+  ['\u2019', "'"],
+  ['\u201c', '"'],
+  ['\u201d', '"'],
+  ['\u2026', '...'],
+])
 
 function safeText(value: string): string {
   let out = ''
@@ -186,7 +221,7 @@ function safeText(value: string): string {
       continue
     }
 
-    out += WIN_ANSI_FALLBACK[char] ?? ''
+    out += WIN_ANSI_FALLBACK.get(char) ?? ''
   }
 
   return out
@@ -206,9 +241,11 @@ export async function renderClientPortalRecordPdf(
   pdf.setProducer('Sheetbase client portal')
   pdf.setCreationDate(new Date(0))
 
-  const regular = await pdf.embedFont(StandardFonts.Helvetica)
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold)
-  const mono = await pdf.embedFont(StandardFonts.Courier)
+  const [regular, bold, mono] = await Promise.all([
+    pdf.embedFont(StandardFonts.Helvetica),
+    pdf.embedFont(StandardFonts.HelveticaBold),
+    pdf.embedFont(StandardFonts.Courier),
+  ])
 
   let page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT])
   let y = PAGE_HEIGHT - MARGIN

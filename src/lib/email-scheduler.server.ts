@@ -22,7 +22,14 @@ import { runDueScheduledReports } from './scheduled-reports.server'
 export const EMAIL_INTERVAL_MS = 60_000
 
 let timer: ReturnType<typeof setInterval> | null = null
-const startedGlobalKey = '__sheetbaseEmailSchedulerStarted'
+
+/** One sweep per process, even when this module is loaded twice (dev reload). */
+const STARTED = Symbol.for('sheetbaseEmailSchedulerStarted')
+
+/** The process-wide flags this module owns. */
+interface EmailSchedulerFlags {
+  [STARTED]?: boolean
+}
 
 export function startEmailScheduler(): void {
   if (typeof window !== 'undefined') return
@@ -35,10 +42,12 @@ export function startEmailScheduler(): void {
     return
   }
 
-  const g = globalThis as unknown as Record<string, unknown>
+  // SAFETY: `globalThis` is the one process object Node runs; the symbol key is
+  // this module's own, so no other code writes a value of another type to it.
+  const g = globalThis as EmailSchedulerFlags
 
-  if (g[startedGlobalKey]) return
-  g[startedGlobalKey] = true
+  if (g[STARTED]) return
+  g[STARTED] = true
 
   const tick = async () => {
     const client = new PooledClient({ connectionString: env.DATABASE_URL })
@@ -55,6 +64,7 @@ export function startEmailScheduler(): void {
       await client.query('SELECT internal.enqueue_daily_digests()')
 
       const query: EmailQuery = {
+        // SAFETY: `PooledClient.query` forwards to pg's client query, whose result carries the `rows` this interface names; the assertion narrows its overloads to the single shape the worker calls.
         query: ((sql: string, params?: unknown[]) =>
           client.query(sql, params)) as EmailQuery['query'],
       }
@@ -70,6 +80,7 @@ export function startEmailScheduler(): void {
     }
   }
 
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A rejected promise carries whatever was thrown; the message is read only when it is an Error and stringified otherwise.
   const onError = (error: unknown) => {
     logger.warn('email sweep failed', {
       error: error instanceof Error ? error.message : String(error),
